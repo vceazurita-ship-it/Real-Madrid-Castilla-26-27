@@ -144,7 +144,7 @@ export function Sidebar() {
           <div className="space-y-2 text-sm">
 
             <Link
-              href="/methodology"
+              href="/microcycles"
               className={
                 pathname === "/microcycles"
                   ? activeClass
