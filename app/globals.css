@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0B0F14;
+  --foreground: #F5F7FA;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(200,169,107,0.08), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(79,107,255,0.08), transparent 25%),
+    #0B0F14;
+
+  color: var(--foreground);
+
+  font-family: Arial, Helvetica, sans-serif;
+
+  min-height: 100vh;
+}
+
+* {
+  border-color: rgba(255,255,255,0.08);
+}
+
+::selection {
+  background: rgba(200,169,107,0.3);
+}
