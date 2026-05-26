@@ -81,7 +81,7 @@ export function Sidebar() {
                   : normalClass
               }
             >
-              Comparative Individual Performance
+              Comparative Performance
             </Link>
 
           </div>
