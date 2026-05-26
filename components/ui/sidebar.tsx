@@ -154,10 +154,6 @@ export function Sidebar() {
               Training Model
             </Link>
 
-
-              Microcycles
-            </Link>
-
             <Link
               href="/sessions"
               className={
