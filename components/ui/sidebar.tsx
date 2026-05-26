@@ -146,7 +146,7 @@ export function Sidebar() {
             <Link
               href="/methodology"
               className={
-                pathname === "/methodology"
+                pathname === "/microcycles"
                   ? activeClass
                   : normalClass
               }
@@ -154,14 +154,7 @@ export function Sidebar() {
               Training Model
             </Link>
 
-            <Link
-              href="/microcycles"
-              className={
-                pathname === "/microcycles"
-                  ? activeClass
-                  : normalClass
-              }
-            >
+
               Microcycles
             </Link>
 
