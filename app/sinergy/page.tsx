@@ -21,7 +21,7 @@ export default function IndividualPage() {
 
               <div className="mt-3 flex flex-col gap-3 md:mt-4 md:flex-row md:items-center md:gap-5">
                 <h1 className="max-w-full text-2xl font-semibold leading-tight tracking-tight break-words sm:text-3xl md:text-4xl">
-                  Player Performance Ecosystem
+                  Sinergy Performance Ecosystem
                 </h1>
 
                 <div className="hidden h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
