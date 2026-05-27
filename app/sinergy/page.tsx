@@ -30,12 +30,16 @@ export default function IndividualPage() {
 
             {/* Power BI */}
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm md:rounded-[32px] md:p-4">
-              <iframe
-                title="Power BI Report"
-                src="https://app.powerbi.com/reportEmbed?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2"
-                className="block w-full rounded-2xl border-0 bg-[#0B0F14] h-[620px] md:h-[840px]"
-                allowFullScreen
-              />
+              <div className="overflow-x-auto">
+                <div className="min-w-[900px] md:min-w-0">
+                  <iframe
+                    title="Power BI Report"
+                    src="https://app.powerbi.com/reportEmbed?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2"
+                    className="block w-full rounded-2xl border-0 bg-[#0B0F14] h-[620px] md:h-[840px]"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </section>
