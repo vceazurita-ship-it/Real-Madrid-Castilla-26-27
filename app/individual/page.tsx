@@ -21,15 +21,39 @@ const VISIBLE_CARDS = 4;
 const SHEET_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=787003064&single=true&output=csv";
 
-function parseCSV(text: string) {
-  const rows: string[][] = [];
+function normalizeName(
+  value: string
+) {
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    );
+}
+
+function parseCSV(
+  text: string
+) {
+  const rows: string[][] =
+    [];
+
   let row: string[] = [];
   let value = "";
-  let insideQuotes = false;
+  let insideQuotes =
+    false;
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const next = text[i + 1];
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+    const char =
+      text[i];
+    const next =
+      text[i + 1];
 
     if (char === '"') {
       if (
@@ -97,14 +121,38 @@ function getYoutubeEmbed(
     const parsed =
       new URL(url);
 
+    if (
+      parsed.hostname.includes(
+        "youtu.be"
+      )
+    ) {
+      const id =
+        parsed.pathname.replace(
+          "/",
+          ""
+        );
+
+      return `https://www.youtube.com/embed/${id}`;
+    }
+
     const id =
       parsed.searchParams.get(
         "v"
       );
 
-    return id
-      ? `https://www.youtube.com/embed/${id}`
-      : url;
+    if (id) {
+      return `https://www.youtube.com/embed/${id}`;
+    }
+
+    if (
+      parsed.pathname.includes(
+        "/embed/"
+      )
+    ) {
+      return url;
+    }
+
+    return url;
   } catch {
     return url;
   }
@@ -126,7 +174,6 @@ const sampleDetail = {
 
 const players = [
   // TU ARRAY EXACTO
-  // (déjalo como lo tienes ahora)
 ];
 
 function CarouselRow({
@@ -137,7 +184,8 @@ function CarouselRow({
   const [index, setIndex] =
     useState(0);
 
-  if (!items.length) return null;
+  if (!items.length)
+    return null;
 
   const canSlide =
     items.length >
@@ -202,7 +250,9 @@ function CarouselRow({
         {visible.map(
           (player: any) => (
             <button
-              key={player.name}
+              key={
+                player.name
+              }
               onClick={() =>
                 onSelect(
                   player
@@ -254,7 +304,9 @@ export default function IndividualPage() {
   const [
     selectedPlayer,
     setSelectedPlayer,
-  ] = useState<any>(null);
+  ] = useState<any>(
+    null
+  );
 
   const [
     playerDetails,
@@ -262,12 +314,7 @@ export default function IndividualPage() {
   ] = useState<
     Record<
       string,
-      {
-        strength: string;
-        improvement: string;
-        video1: string;
-        video2: string;
-      }
+      any
     >
   >({});
 
@@ -277,52 +324,56 @@ export default function IndividualPage() {
         try {
           const res =
             await fetch(
-              SHEET_URL
+              SHEET_URL,
+              {
+                cache:
+                  "no-store",
+              }
             );
 
           const text =
             await res.text();
 
           const rows =
-            parseCSV(text);
+            parseCSV(
+              text
+            );
 
           const data: Record<
             string,
-            {
-              strength: string;
-              improvement: string;
-              video1: string;
-              video2: string;
-            }
+            any
           > = {};
 
           rows
             .slice(1)
             .forEach(
               (r) => {
-                const name =
-                  r[0]?.trim();
+                const key =
+                  normalizeName(
+                    r[0]
+                  );
 
-                if (!name)
+                if (!key)
                   return;
 
-                data[name] = {
-                  strength:
-                    r[1]?.trim() ||
-                    "",
+                data[key] =
+                  {
+                    strength:
+                      r[1]?.trim() ||
+                      "",
 
-                  improvement:
-                    r[2]?.trim() ||
-                    "",
+                    improvement:
+                      r[2]?.trim() ||
+                      "",
 
-                  video1:
-                    r[3]?.trim() ||
-                    "",
+                    video1:
+                      r[3]?.trim() ||
+                      "",
 
-                  video2:
-                    r[4]?.trim() ||
-                    "",
-                };
+                    video2:
+                      r[4]?.trim() ||
+                      "",
+                  };
               }
             );
 
@@ -330,7 +381,9 @@ export default function IndividualPage() {
             data
           );
         } catch (err) {
-          console.error(err);
+          console.error(
+            err
+          );
         }
       };
 
@@ -340,36 +393,43 @@ export default function IndividualPage() {
   const playersWithData =
     useMemo(() => {
       return players.map(
-        (player) => ({
-          ...player,
-
-          strength:
-            playerDetails[
+        (
+          player
+        ) => {
+          const key =
+            normalizeName(
               player.name
-            ]?.strength ||
-            sampleDetail.strength,
+            );
 
-          improvement:
+          const sheet =
             playerDetails[
-              player.name
-            ]
-              ?.improvement ||
-            sampleDetail.improvement,
+              key
+            ];
 
-          video1:
-            playerDetails[
-              player.name
-            ]?.video1 ||
-            sampleDetail.video1,
+          return {
+            ...player,
 
-          video2:
-            playerDetails[
-              player.name
-            ]?.video2 ||
-            sampleDetail.video2,
-        })
+            strength:
+              sheet?.strength ||
+              sampleDetail.strength,
+
+            improvement:
+              sheet?.improvement ||
+              sampleDetail.improvement,
+
+            video1:
+              sheet?.video1 ||
+              sampleDetail.video1,
+
+            video2:
+              sheet?.video2 ||
+              sampleDetail.video2,
+          };
+        }
       );
-    }, [playerDetails]);
+    }, [
+      playerDetails,
+    ]);
 
   const filtered =
     useMemo(() => {
