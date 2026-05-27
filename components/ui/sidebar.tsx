@@ -15,19 +15,11 @@ export function Sidebar() {
   const normalClass =
     "flex items-center rounded-2xl px-4 py-3 text-gray-300 transition-all duration-300 hover:bg-white/5 hover:text-white"
 
-  const navLink = (
-    href: string,
-    label: string,
-    exact = true
-  ) => (
+  const navLink = (href: string, label: string) => (
     <Link
       href={href}
       onClick={() => setOpen(false)}
-      className={
-        pathname === href || (!exact && pathname.startsWith(href))
-          ? activeClass
-          : normalClass
-      }
+      className={pathname === href ? activeClass : normalClass}
     >
       {label}
     </Link>
@@ -35,17 +27,13 @@ export function Sidebar() {
 
   return (
     <>
-      {/* MOBILE HEADER */}
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-white/10 bg-[#111827] px-4 py-4 md:hidden">
-        <h1 className="text-white font-semibold">Dashboard</h1>
-
-        <button
-          onClick={() => setOpen(true)}
-          className="rounded-xl p-2 text-white hover:bg-white/5"
-        >
-          <Menu size={22} />
-        </button>
-      </div>
+      {/* MOBILE FLOATING BUTTON */}
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed left-4 top-4 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
+      >
+        <Menu size={20} />
+      </button>
 
       {/* BACKDROP */}
       {open && (
@@ -65,7 +53,7 @@ export function Sidebar() {
           md:static md:translate-x-0
         `}
       >
-        {/* CLOSE BUTTON MOBILE */}
+        {/* CLOSE BUTTON */}
         <div className="mb-6 flex justify-end md:hidden">
           <button
             onClick={() => setOpen(false)}
@@ -76,6 +64,7 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-10">
+          {/* HOME */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
               Home
@@ -84,6 +73,7 @@ export function Sidebar() {
             {navLink("/", "Overview")}
           </div>
 
+          {/* INDIVIDUAL */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
               Individual
@@ -97,6 +87,7 @@ export function Sidebar() {
             </div>
           </div>
 
+          {/* COLLECTIVE */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
               Collective
@@ -109,6 +100,7 @@ export function Sidebar() {
             </div>
           </div>
 
+          {/* METHODOLOGY */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
               Methodology
