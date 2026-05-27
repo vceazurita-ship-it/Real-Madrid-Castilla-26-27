@@ -6,7 +6,7 @@ export function Topbar() {
       <div className="flex items-center justify-between px-4 py-4 md:px-10 md:py-5">
 
         {/* LEFT */}
-        <div className="flex items-center gap-3 md:gap-5">
+        <div className="ml-16 flex items-center gap-3 md:ml-0 md:gap-5">
 
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] shadow-[0_0_30px_rgba(200,169,107,0.08)] md:h-14 md:w-14">
 
