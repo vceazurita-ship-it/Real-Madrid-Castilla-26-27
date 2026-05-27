@@ -15,12 +15,12 @@ export default function IndividualPage() {
           <div className="px-4 pb-8 pt-6 md:px-8 md:pb-12 md:pt-10">
             {/* Header */}
             <div className="mb-6 md:mb-8">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#C8A96B] md:text-xs md:tracking-[0.35em]">
+              <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-[#C8A96B] sm:text-[10px] md:text-xs md:tracking-[0.35em]">
                 Individual Intelligence
               </p>
 
-              <div className="mt-3 flex flex-col gap-4 md:mt-4 md:flex-row md:items-center md:gap-5">
-                <h1 className="text-2xl font-semibold tracking-tight md:text-4xl">
+              <div className="mt-3 flex flex-col gap-3 md:mt-4 md:flex-row md:items-center md:gap-5">
+                <h1 className="max-w-full text-2xl font-semibold leading-tight tracking-tight break-words sm:text-3xl md:text-4xl">
                   Player Performance Ecosystem
                 </h1>
 
@@ -33,18 +33,7 @@ export default function IndividualPage() {
               <iframe
                 title="Power BI Report"
                 src="https://app.powerbi.com/reportEmbed?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2"
-                style={{
-                  width: "100%",
-                  height:
-                    typeof window !== "undefined" &&
-                    window.innerWidth < 768
-                      ? "620px"
-                      : "840px",
-                  border: "none",
-                  borderRadius: "24px",
-                  display: "block",
-                  background: "#0B0F14",
-                }}
+                className="block w-full rounded-2xl border-0 bg-[#0B0F14] h-[620px] md:h-[840px]"
                 allowFullScreen
               />
             </div>
