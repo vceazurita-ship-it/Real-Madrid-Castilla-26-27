@@ -183,36 +183,24 @@ const players = [
   },
 ];
 
-function CarouselRow({
-  title,
-  items,
-}: any) {
-  const [index, setIndex] =
-    useState(0);
+function CarouselRow({ title, items }: any) {
+  const [index, setIndex] = useState(0);
 
   if (!items.length) return null;
 
-  const canSlide =
-    items.length >
-    VISIBLE_CARDS;
+  const canSlide = items.length > VISIBLE_CARDS;
 
   const visible = canSlide
-    ? Array.from({
-        length:
-          VISIBLE_CARDS,
-      }).map(
+    ? Array.from({ length: VISIBLE_CARDS }).map(
         (_, i) =>
-          items[
-            (index + i) %
-              items.length
-          ]
+          items[(index + i) % items.length]
       )
     : items;
 
   return (
-    <div className="mb-12">
-      <div className="mb-5 flex items-center gap-4">
-        <h2 className="text-lg font-semibold tracking-wide">
+    <div className="mb-10 md:mb-12">
+      <div className="mb-4 flex items-center gap-3 md:mb-5 md:gap-4">
+        <h2 className="text-base font-semibold tracking-wide md:text-lg">
           {title}
         </h2>
 
@@ -224,9 +212,7 @@ function CarouselRow({
               onClick={() =>
                 setIndex(
                   (v) =>
-                    (v -
-                      1 +
-                      items.length) %
+                    (v - 1 + items.length) %
                     items.length
                 )
               }
@@ -251,137 +237,95 @@ function CarouselRow({
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-5">
-        {visible.map(
-          (player: any) => (
-            <div
-              key={player.name}
-              className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-center transition hover:bg-white/[0.06]"
-            >
-              <div className="flex justify-center">
-                <img
-                  src={
-                    player.photo
-                  }
-                  alt={
-                    player.name
-                  }
-                  loading="lazy"
-                  style={{
-                    width:
-                      "120px",
-                    height:
-                      "150px",
-                    objectFit:
-                      "cover",
-                    objectPosition:
-                      "top",
-                    borderRadius:
-                      "18px",
-                  }}
-                />
-              </div>
-
-              <div className="mt-4">
-                <p className="text-[10px] uppercase tracking-[0.25em] text-[#C8A96B]">
-                  Real Madrid C
-                </p>
-
-                <h3 className="mt-2 text-base font-semibold">
-                  {
-                    player.name
-                  }
-                </h3>
-
-                <p className="mt-1 text-sm text-gray-400">
-                  {
-                    player.position
-                  }
-                </p>
-              </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+        {visible.map((player: any) => (
+          <div
+            key={player.name}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06] md:rounded-3xl md:p-5"
+          >
+            <div className="flex justify-center">
+              <img
+                src={player.photo}
+                alt={player.name}
+                loading="lazy"
+                className="h-[120px] w-[95px] rounded-xl object-cover object-top md:h-[150px] md:w-[120px] md:rounded-[18px]"
+              />
             </div>
-          )
-        )}
+
+            <div className="mt-3 md:mt-4">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-[#C8A96B] md:text-[10px] md:tracking-[0.25em]">
+                Real Madrid C
+              </p>
+
+              <h3 className="mt-2 break-words text-sm font-semibold md:text-base">
+                {player.name}
+              </h3>
+
+              <p className="mt-1 text-xs text-gray-400 md:text-sm">
+                {player.position}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 export default function IndividualPage() {
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
-  const filtered =
-    useMemo(() => {
-      return players.filter(
-        (p) =>
-          p.name
-            .toLowerCase()
-            .includes(
-              search.toLowerCase()
-            )
-      );
-    }, [search]);
+  const filtered = useMemo(() => {
+    return players.filter((p) =>
+      p.name
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [search]);
 
   const grouped = {
-    Porteros:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Portero"
-      ),
-    Defensas:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Defensa"
-      ),
-    Centrocampistas:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Centrocampista"
-      ),
-    Delanteros:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Delantero"
-      ),
+    Porteros: filtered.filter(
+      (p) => p.position === "Portero"
+    ),
+    Defensas: filtered.filter(
+      (p) => p.position === "Defensa"
+    ),
+    Centrocampistas: filtered.filter(
+      (p) =>
+        p.position === "Centrocampista"
+    ),
+    Delanteros: filtered.filter(
+      (p) => p.position === "Delantero"
+    ),
   };
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
-      <div className="flex">
+    <main className="min-h-screen overflow-x-hidden bg-[#0B0F14] text-white">
+      <div className="flex flex-col md:flex-row">
         <Sidebar />
 
-        <section className="flex-1">
+        <section className="flex-1 min-w-0">
           <Topbar />
 
-          <div className="p-10">
-            <div className="mb-8">
-              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                Individual
-                Intelligence
+          <div className="px-4 pb-8 pt-6 md:p-10">
+            <div className="mb-6 md:mb-8">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#C8A96B] md:text-xs md:tracking-[0.35em]">
+                Individual Intelligence
               </p>
 
-              <h1 className="mt-4 text-4xl font-semibold tracking-tight">
-                Player
-                Performance
-                Ecosystem
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:mt-4 md:text-4xl">
+                Player Performance Ecosystem
               </h1>
             </div>
 
-            <div className="mb-8 max-w-md">
+            <div className="mb-6 max-w-md md:mb-8">
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                 <Search className="h-4 w-4 text-gray-400" />
 
                 <input
                   value={search}
                   onChange={(e) =>
-                    setSearch(
-                      e.target.value
-                    )
+                    setSearch(e.target.value)
                   }
                   placeholder="Search player..."
                   className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
@@ -389,33 +333,25 @@ export default function IndividualPage() {
               </div>
             </div>
 
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:rounded-[32px] md:p-8">
               <CarouselRow
                 title="Porteros"
-                items={
-                  grouped.Porteros
-                }
+                items={grouped.Porteros}
               />
 
               <CarouselRow
                 title="Defensas"
-                items={
-                  grouped.Defensas
-                }
+                items={grouped.Defensas}
               />
 
               <CarouselRow
                 title="Centrocampistas"
-                items={
-                  grouped.Centrocampistas
-                }
+                items={grouped.Centrocampistas}
               />
 
               <CarouselRow
                 title="Delanteros"
-                items={
-                  grouped.Delanteros
-                }
+                items={grouped.Delanteros}
               />
             </div>
           </div>
