@@ -86,6 +86,28 @@ function parseCSV(text: string) {
   return rows;
 }
 
+function getYoutubeEmbed(
+  url: string
+) {
+  if (!url) return "";
+
+  try {
+    const parsed =
+      new URL(url);
+
+    const id =
+      parsed.searchParams.get(
+        "v"
+      );
+
+    return id
+      ? `https://www.youtube.com/embed/${id}`
+      : url;
+  } catch {
+    return url;
+  }
+}
+
 const sampleDetail = {
   strength:
     "Fortaleza principal: jugador con alta capacidad competitiva en escenarios de presión. Destaca por su interpretación del juego y su consistencia en situaciones exigentes.",
@@ -404,6 +426,8 @@ export default function IndividualPage() {
       {
         strength: string;
         improvement: string;
+        video1: string;
+        video2: string;
       }
     >
   >({});
@@ -428,6 +452,8 @@ export default function IndividualPage() {
             {
               strength: string;
               improvement: string;
+              video1: string;
+              video2: string;
             }
           > = {};
 
@@ -445,8 +471,17 @@ export default function IndividualPage() {
                   strength:
                     r[1]?.trim() ||
                     "",
+
                   improvement:
                     r[2]?.trim() ||
+                    "",
+
+                  video1:
+                    r[3]?.trim() ||
+                    "",
+
+                  video2:
+                    r[4]?.trim() ||
                     "",
                 };
               }
@@ -470,6 +505,7 @@ export default function IndividualPage() {
       return players.map(
         (player) => ({
           ...player,
+
           strength:
             playerDetails[
               player.name
@@ -485,9 +521,15 @@ export default function IndividualPage() {
             sampleDetail.improvement,
 
           video1:
+            playerDetails[
+              player.name
+            ]?.video1 ||
             sampleDetail.video1,
 
           video2:
+            playerDetails[
+              player.name
+            ]?.video2 ||
             sampleDetail.video2,
         })
       );
@@ -559,9 +601,7 @@ export default function IndividualPage() {
 
             <div className="mb-8 max-w-md">
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                <Search
-                  size={16}
-                />
+                <Search size={16} />
 
                 <input
                   value={search}
@@ -627,12 +667,32 @@ export default function IndividualPage() {
       {selectedPlayer && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4">
           <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-10">
-            <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">
-                {
-                  selectedPlayer.name
-                }
-              </h2>
+            <div className="mb-8 flex items-start justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <img
+                  src={
+                    selectedPlayer.photo
+                  }
+                  alt={
+                    selectedPlayer.name
+                  }
+                  className="h-28 w-20 rounded-2xl object-cover object-top"
+                />
+
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {
+                      selectedPlayer.name
+                    }
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-400">
+                    {
+                      selectedPlayer.position
+                    }
+                  </p>
+                </div>
+              </div>
 
               <button
                 onClick={() =>
@@ -648,8 +708,7 @@ export default function IndividualPage() {
             <div className="grid gap-8 md:grid-cols-2">
               <div>
                 <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
-                  Fortaleza
-                  principal
+                  Fortaleza principal
                 </h3>
 
                 <p className="mb-4 text-gray-300">
@@ -658,22 +717,18 @@ export default function IndividualPage() {
                   }
                 </p>
 
-                <video
-                  controls
-                  className="w-full rounded-2xl"
-                >
-                  <source
-                    src={
-                      selectedPlayer.video1
-                    }
-                  />
-                </video>
+                <iframe
+                  src={getYoutubeEmbed(
+                    selectedPlayer.video1
+                  )}
+                  className="h-[260px] w-full rounded-2xl"
+                  allowFullScreen
+                />
               </div>
 
               <div>
                 <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
-                  Aspecto de
-                  mejora
+                  Aspecto de mejora
                 </h3>
 
                 <p className="mb-4 text-gray-300">
@@ -682,16 +737,13 @@ export default function IndividualPage() {
                   }
                 </p>
 
-                <video
-                  controls
-                  className="w-full rounded-2xl"
-                >
-                  <source
-                    src={
-                      selectedPlayer.video2
-                    }
-                  />
-                </video>
+                <iframe
+                  src={getYoutubeEmbed(
+                    selectedPlayer.video2
+                  )}
+                  className="h-[260px] w-full rounded-2xl"
+                  allowFullScreen
+                />
               </div>
             </div>
           </div>
