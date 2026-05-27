@@ -55,61 +55,47 @@ export default function EmotionPage() {
   const [midfield, setMidfield] = useState<string[]>([]);
   const [strikers, setStrikers] = useState<string[]>([]);
 
-useEffect(() => {
-  fetch(CSV_URL)
-    .then((r) => r.text())
-    .then((t) => {
-      const parsed = parseCSV(t);
+  useEffect(() => {
+    fetch(CSV_URL)
+      .then((r) => r.text())
+      .then((t) => {
+        const parsed = parseCSV(t);
 
-      setRows(parsed);
+        setRows(parsed);
 
-      const byName = (name: string) =>
-        parsed.find((p) => p.jugador === name)?.jugador;
+        const byName = (name: string) =>
+          parsed.find((p) => p.jugador === name)?.jugador;
 
-      setDefense(
-        [
-          byName("Melvin"),
-          byName("Sotres"),
-          byName("Lezcano"),
-          byName("Ariel"),
-        ].filter(Boolean) as string[]
-      );
+        setDefense(
+          [
+            byName("Melvin"),
+            byName("Sotres"),
+            byName("Lezcano"),
+            byName("Ariel"),
+          ].filter(Boolean) as string[]
+        );
 
-      setLeftSide(
-        [
-          byName("Sotres"),
-          byName("Leiva"),
-        ].filter(Boolean) as string[]
-      );
+        setLeftSide(
+          [byName("Sotres"), byName("Leiva")].filter(Boolean) as string[]
+        );
 
-      setRightSide(
-        [
-          byName("Melvin"),
-          byName("Mesonero"),
-        ].filter(Boolean) as string[]
-      );
+        setRightSide(
+          [byName("Melvin"), byName("Mesonero")].filter(Boolean) as string[]
+        );
 
-      setMidfield(
-        [
-          byName("Lacosta"),
-          byName("Manex"),
-          byName("Rober"),
-        ].filter(Boolean) as string[]
-      );
+        setMidfield(
+          [byName("Lacosta"), byName("Manex"), byName("Rober")].filter(
+            Boolean
+          ) as string[]
+        );
 
-      setStrikers(
-        [
-          byName("Rober"),
-          byName("Jacobo"),
-        ].filter(Boolean) as string[]
-      );
-    });
-}, []);
+        setStrikers(
+          [byName("Rober"), byName("Jacobo")].filter(Boolean) as string[]
+        );
+      });
+  }, []);
 
-  const names = useMemo(
-    () => rows.map((r) => r.jugador),
-    [rows]
-  );
+  const names = useMemo(() => rows.map((r) => r.jugador), [rows]);
 
   const getPlayer = (name: string) =>
     rows.find((r) => r.jugador === name);
@@ -132,19 +118,17 @@ useEffect(() => {
                 Emotional Dynamics Ecosystem
               </h1>
 
-              <div className="mt-6 grid grid-cols-2 gap-5">
- 
-</div>
+              <div className="mt-6 grid grid-cols-2 gap-5"></div>
             </div>
 
             <div
-  className="relative rounded-[28px] border border-white/10 p-8 min-h-[82vh] overflow-hidden bg-[#071018] bg-cover bg-center bg-no-repeat"
-  style={{
-    backgroundImage:
-      "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
-    backgroundPosition: "center center",
-  }}
->
+              className="relative rounded-[28px] border border-white/10 p-8 min-h-[82vh] overflow-hidden bg-[#071018] bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
+                backgroundPosition: "center center",
+              }}
+            >
               <div className="flex gap-6 items-center h-full">
                 <RadarPanel
                   compact
@@ -195,51 +179,49 @@ useEffect(() => {
                   onChange={setStrikers}
                   getPlayer={getPlayer}
                 />
-                
               </div>
-              
             </div>
+
             <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-4">
-  <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[11px] leading-relaxed">
-      <div>
-        <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-          Externo · Amplio
-        </div>
-        <div className="mt-1 text-white/60">
-          Observación / Lectura · Antes de intervenir
-        </div>
-      </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[11px] leading-relaxed">
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
+                    Externo · Amplio
+                  </div>
+                  <div className="mt-1 text-white/60">
+                    Observación / Lectura · Antes de intervenir
+                  </div>
+                </div>
 
-      <div>
-        <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-          Externo · Estrecho
-        </div>
-        <div className="mt-1 text-white/60">
-          Ejecución de acción (1v1) · Participación
-        </div>
-      </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
+                    Externo · Estrecho
+                  </div>
+                  <div className="mt-1 text-white/60">
+                    Ejecución de acción (1v1) · Participación
+                  </div>
+                </div>
 
-      <div>
-        <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-          Interno · Amplio
-        </div>
-        <div className="mt-1 text-white/60">
-          Análisis / Reflexión · Juego parado
-        </div>
-      </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
+                    Interno · Amplio
+                  </div>
+                  <div className="mt-1 text-white/60">
+                    Análisis / Reflexión · Juego parado
+                  </div>
+                </div>
 
-      <div>
-        <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-          Interno · Estrecho
-        </div>
-        <div className="mt-1 text-white/60">
-          Control emocional · Adversidad
-        </div>
-      </div>
-    </div>
-  </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
+                    Interno · Estrecho
+                  </div>
+                  <div className="mt-1 text-white/60">
+                    Control emocional · Adversidad
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
-          
         </div>
       </div>
     </main>
@@ -303,7 +285,7 @@ function RadarPanel({
 
   return (
     <div
-      className="rounded-3xl border border-white/10 bg-[#0B141D] p-4"
+      className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-[2px] p-4"
       style={{ width }}
     >
       <div className="mb-3 flex justify-between">
@@ -329,8 +311,8 @@ function RadarPanel({
           }
           className={
             horizontal
-              ? "w-[130px] h-[210px] rounded-xl border border-white/10 bg-[#101923] px-2 py-2 text-xs text-white"
-              : "w-full h-[145px] rounded-xl border border-white/10 bg-[#101923] px-2 py-2 text-xs text-white mb-4"
+              ? "w-[130px] h-[210px] rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm px-2 py-2 text-xs text-white"
+              : "w-full h-[145px] rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm px-2 py-2 text-xs text-white mb-4"
           }
         >
           {players.map((name: string) => (
