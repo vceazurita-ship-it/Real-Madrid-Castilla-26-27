@@ -5,185 +5,122 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
 const VISIBLE_CARDS = 4;
 
+const sampleDetail = {
+  strength:
+    "Fortaleza principal: jugador con alta capacidad competitiva en escenarios de presión. Destaca por su interpretación del juego y su consistencia en situaciones exigentes.",
+
+  improvement:
+    "Aspecto de mejora: aumentar precisión y velocidad de ejecución en acciones de máxima exigencia para elevar impacto competitivo.",
+
+  video1:
+    "https://www.w3schools.com/html/mov_bbb.mp4",
+
+  video2:
+    "https://www.w3schools.com/html/movie.mp4",
+};
+
 const players = [
-  // PORTEROS
   {
     name: "F. Quetglas",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_QUETGLAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "D. Arroyo",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_ARROYO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Á. González",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Javi Navarro",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
 
-  // DEFENSAS
   {
     name: "A. Moya",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEJANDRO_MOYA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Sotres",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Calleja",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAIME_CALLEJA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Álex Pérez",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEX_PEREZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Óscar Mesa",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/OSCAR_MESA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Eric Gómez",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ERIC_GOMEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Álvaro Lezcano",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO%20LEZCANO_JT11325_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Ariel Ncoghe",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ARIEL%20NKOGHE_JT11313_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Melvin Ukpeigbe",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
 
-  // CENTROCAMPISTAS
   {
     name: "Carlos",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/CARLOS_RODRIGUEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Izan",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Joan",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/JOAN_MASCARO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Mesonero",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_MESONERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "M. Rezola",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/MANEX-REZOLA_AV17806_550x650?$Desktop$&fit=wrap&wid=420",
-  },
-  {
-    name: "Diego Martínez",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/diego_martinez?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Diego Lacosta",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO%20LASCOSTA_JT11305_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Á. Leiva",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_LEIVA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Aimar",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/AIMAR_SANTIAGO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Roberto",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
 
-  // DELANTEROS
   {
     name: "Álvaro Ginés",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
   {
     name: "Jacobo",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Arnu",
-    position: "Delantero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ARNAU_550x650_FONDO_BLANCO?$Desktop$&fit=wrap&wid=420",
-  },
-  {
-    name: "G. Castrelo",
-    position: "Delantero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+    ...sampleDetail,
   },
 ];
 
-function CarouselRow({ title, items }: any) {
+function CarouselRow({
+  title,
+  items,
+  onSelect,
+}: any) {
   const [index, setIndex] = useState(0);
 
   if (!items.length) return null;
@@ -191,7 +128,9 @@ function CarouselRow({ title, items }: any) {
   const canSlide = items.length > VISIBLE_CARDS;
 
   const visible = canSlide
-    ? Array.from({ length: VISIBLE_CARDS }).map(
+    ? Array.from({
+        length: VISIBLE_CARDS,
+      }).map(
         (_, i) =>
           items[(index + i) % items.length]
       )
@@ -199,8 +138,8 @@ function CarouselRow({ title, items }: any) {
 
   return (
     <div className="mb-10 md:mb-12">
-      <div className="mb-4 flex items-center gap-3 md:mb-5 md:gap-4">
-        <h2 className="text-base font-semibold tracking-wide md:text-lg">
+      <div className="mb-4 flex items-center gap-3">
+        <h2 className="text-base font-semibold md:text-lg">
           {title}
         </h2>
 
@@ -216,9 +155,9 @@ function CarouselRow({ title, items }: any) {
                     items.length
                 )
               }
-              className="rounded-xl border border-white/10 bg-white/[0.04] p-2 hover:bg-white/[0.08]"
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-2"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft size={16} />
             </button>
 
             <button
@@ -229,9 +168,9 @@ function CarouselRow({ title, items }: any) {
                     items.length
                 )
               }
-              className="rounded-xl border border-white/10 bg-white/[0.04] p-2 hover:bg-white/[0.08]"
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-2"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight size={16} />
             </button>
           </div>
         )}
@@ -239,33 +178,33 @@ function CarouselRow({ title, items }: any) {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
         {visible.map((player: any) => (
-          <div
+          <button
             key={player.name}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06] md:rounded-3xl md:p-5"
+            onClick={() => onSelect(player)}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06]"
           >
             <div className="flex justify-center">
               <img
                 src={player.photo}
                 alt={player.name}
-                loading="lazy"
-                className="h-[120px] w-[95px] rounded-xl object-cover object-top md:h-[150px] md:w-[120px] md:rounded-[18px]"
+                className="h-[120px] w-[95px] rounded-xl object-cover object-top"
               />
             </div>
 
-            <div className="mt-3 md:mt-4">
-              <p className="text-[9px] uppercase tracking-[0.18em] text-[#C8A96B] md:text-[10px] md:tracking-[0.25em]">
+            <div className="mt-3">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-[#C8A96B]">
                 Real Madrid C
               </p>
 
-              <h3 className="mt-2 break-words text-sm font-semibold md:text-base">
+              <h3 className="mt-2 text-sm font-semibold">
                 {player.name}
               </h3>
 
-              <p className="mt-1 text-xs text-gray-400 md:text-sm">
+              <p className="mt-1 text-xs text-gray-400">
                 {player.position}
               </p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -273,7 +212,11 @@ function CarouselRow({ title, items }: any) {
 }
 
 export default function IndividualPage() {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
+
+  const [selectedPlayer, setSelectedPlayer] =
+    useState<any>(null);
 
   const filtered = useMemo(() => {
     return players.filter((p) =>
@@ -290,10 +233,12 @@ export default function IndividualPage() {
     Defensas: filtered.filter(
       (p) => p.position === "Defensa"
     ),
-    Centrocampistas: filtered.filter(
-      (p) =>
-        p.position === "Centrocampista"
-    ),
+    Centrocampistas:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Centrocampista"
+      ),
     Delanteros: filtered.filter(
       (p) => p.position === "Delantero"
     ),
@@ -308,55 +253,142 @@ export default function IndividualPage() {
           <Topbar />
 
           <div className="px-4 pb-8 pt-6 md:p-10">
-            <div className="mb-6 md:mb-8">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#C8A96B] md:text-xs md:tracking-[0.35em]">
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
                 Individual Intelligence
               </p>
 
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:mt-4 md:text-4xl">
+              <h1 className="mt-3 text-3xl font-semibold">
                 Player Performance Ecosystem
               </h1>
             </div>
 
-            <div className="mb-6 max-w-md md:mb-8">
+            <div className="mb-8 max-w-md">
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                <Search className="h-4 w-4 text-gray-400" />
+                <Search size={16} />
 
                 <input
                   value={search}
                   onChange={(e) =>
-                    setSearch(e.target.value)
+                    setSearch(
+                      e.target.value
+                    )
                   }
                   placeholder="Search player..."
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+                  className="w-full bg-transparent outline-none"
                 />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:rounded-[32px] md:p-8">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-8">
               <CarouselRow
                 title="Porteros"
                 items={grouped.Porteros}
+                onSelect={
+                  setSelectedPlayer
+                }
               />
 
               <CarouselRow
                 title="Defensas"
                 items={grouped.Defensas}
+                onSelect={
+                  setSelectedPlayer
+                }
               />
 
               <CarouselRow
                 title="Centrocampistas"
-                items={grouped.Centrocampistas}
+                items={
+                  grouped.Centrocampistas
+                }
+                onSelect={
+                  setSelectedPlayer
+                }
               />
 
               <CarouselRow
                 title="Delanteros"
-                items={grouped.Delanteros}
+                items={
+                  grouped.Delanteros
+                }
+                onSelect={
+                  setSelectedPlayer
+                }
               />
             </div>
           </div>
         </section>
       </div>
+
+      {selectedPlayer && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4 overflow-y-auto">
+          <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-10">
+
+            <div className="mb-8 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold">
+                {selectedPlayer.name}
+              </h2>
+
+              <button
+                onClick={() =>
+                  setSelectedPlayer(null)
+                }
+              >
+                <X />
+              </button>
+            </div>
+
+            <div className="grid gap-8 md:grid-cols-2">
+              <div>
+                <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
+                  Fortaleza principal
+                </h3>
+
+                <p className="mb-4 text-gray-300">
+                  {
+                    selectedPlayer.strength
+                  }
+                </p>
+
+                <video
+                  controls
+                  className="w-full rounded-2xl"
+                >
+                  <source
+                    src={
+                      selectedPlayer.video1
+                    }
+                  />
+                </video>
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
+                  Aspecto de mejora
+                </h3>
+
+                <p className="mb-4 text-gray-300">
+                  {
+                    selectedPlayer.improvement
+                  }
+                </p>
+
+                <video
+                  controls
+                  className="w-full rounded-2xl"
+                >
+                  <source
+                    src={
+                      selectedPlayer.video2
+                    }
+                  />
+                </video>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
