@@ -20,10 +20,10 @@ const sampleDetail = {
     "Aspecto de mejora: aumentar precisión y velocidad de ejecución en acciones de máxima exigencia para elevar impacto competitivo.",
 
   video1:
-    "https://www.w3schools.com/html/mov_bbb.mp4",
+    "https://www.youtube.com/watch?v=1-yXp40eG2s",
 
   video2:
-    "https://www.w3schools.com/html/movie.mp4",
+    "https://www.youtube.com/watch?v=EZGx9QR0mrA",
 };
 
 const players = [
