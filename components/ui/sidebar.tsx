@@ -30,7 +30,7 @@ export function Sidebar() {
       {/* MOBILE FLOATING BUTTON */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed left-4 top-4 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
+        className="fixed left-4 top-10 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
       >
         <Menu size={20} />
       </button>
