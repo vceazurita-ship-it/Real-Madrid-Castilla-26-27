@@ -27,92 +27,174 @@ const sampleDetail = {
 };
 
 const players = [
+  // PORTEROS
   {
     name: "F. Quetglas",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_QUETGLAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "D. Arroyo",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_ARROYO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Á. González",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Javi Navarro",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
 
+  // DEFENSAS
   {
     name: "A. Moya",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEJANDRO_MOYA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Sotres",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Calleja",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAIME_CALLEJA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Álex Pérez",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEX_PEREZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
+  },
+  {
+    name: "Óscar Mesa",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/OSCAR_MESA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Eric Gómez",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ERIC_GOMEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Álvaro Lezcano",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO%20LEZCANO_JT11325_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Ariel Ncoghe",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ARIEL%20NKOGHE_JT11313_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Melvin Ukpeigbe",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
+  // CENTROCAMPISTAS
   {
     name: "Carlos",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/CARLOS_RODRIGUEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Izan",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
+  },
+  {
+    name: "Joan",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/JOAN_MASCARO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Mesonero",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_MESONERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "M. Rezola",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/MANEX-REZOLA_AV17806_550x650?$Desktop$&fit=wrap&wid=420",
+  },
+  {
+    name: "Diego Martínez",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/diego_martinez?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Diego Lacosta",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO%20LASCOSTA_JT11305_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Á. Leiva",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_LEIVA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Aimar",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/AIMAR_SANTIAGO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Roberto",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
+  // DELANTEROS
   {
     name: "Álvaro Ginés",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
   },
   {
     name: "Jacobo",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    ...sampleDetail,
+  },
+  {
+    name: "Arnu",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ARNAU_550x650_FONDO_BLANCO?$Desktop$&fit=wrap&wid=420",
+  },
+  {
+    name: "G. Castrelo",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 ];
 
