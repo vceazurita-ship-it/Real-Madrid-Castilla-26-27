@@ -321,122 +321,79 @@ export default function IndividualPage() {
   >({});
 
   useEffect(() => {
-  const loadSheet =
-    async () => {
-      try {
-        const res =
-          await fetch(
-            SHEET_URL,
-            {
-              cache:
-                "no-store",
-            }
+    const loadSheet =
+      async () => {
+        try {
+          const res =
+            await fetch(
+              SHEET_URL,
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          const text =
+            await res.text();
+
+          const rows =
+            parseCSV(
+              text
+            );
+
+          const data: Record<
+            string,
+            any
+          > = {};
+
+          rows
+            .slice(1)
+            .forEach(
+              (r) => {
+                const key =
+                  normalizeName(
+                    r[0]
+                  );
+
+                if (!key)
+                  return;
+
+                data[key] =
+                  {
+                    strength:
+                      r[1]?.trim() ||
+                      "",
+
+                    improvement:
+                      r[2]?.trim() ||
+                      "",
+
+                    video1:
+                      r[3]?.trim() ||
+                      "",
+
+                    video2:
+                      r[4]?.trim() ||
+                      "",
+                  };
+              }
+            );
+
+          setPlayerDetails(
+            data
           );
-
-        const text =
-          await res.text();
-
-        console.log(
-          "CSV RAW:",
-          text
-        );
-
-        const rows =
-          parseCSV(
-            text
-          );
-
-        if (
-          !rows.length
-        ) {
-          console.log(
-            "Sin filas"
-          );
-          return;
-        }
-
-        const headers =
-          rows[0].map(
-            (h) =>
-              normalizeName(
-                h
-              )
-          );
-
-        console.log(
-          "HEADERS:",
-          headers
-        );
-
-        const data: Record<
-          string,
-          {
-            strength: string;
-            improvement: string;
-            video1: string;
-            video2: string;
-          }
-        > = {};
-
-        rows
-          .slice(1)
-          .forEach(
-            (
-              row
-            ) => {
-              const name =
-                normalizeName(
-                  row[0] ||
-                    ""
-                );
-
-              if (
-                !name
-              )
-                return;
-
-              data[
-                name
-              ] = {
-                strength:
-                  row[1]?.trim() ||
-                  "",
-
-                improvement:
-                  row[2]?.trim() ||
-                  "",
-
-                video1:
-                  row[3]?.trim() ||
-                  "",
-
-                video2:
-                  row[4]?.trim() ||
-                  "",
-              };
-            }
-          );
-
-        console.log(
-          "DATA:",
-          data
-        );
-
-        setPlayerDetails(
-          data
-        );
-      } catch (
-        err
-      ) {
-        console.error(
-          "Error cargando sheet:",
+        } catch (
           err
-        );
-      }
-    };
+        ) {
+          console.error(
+            err
+          );
+        }
+      };
 
-  loadSheet();
-}, []);
+    loadSheet();
+  }, []);
+
   const playersWithData =
     useMemo(() => {
       return players.map(
