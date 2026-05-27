@@ -6,8 +6,6 @@ import {
   useEffect,
 } from "react";
 
-import { createPortal } from "react-dom";
-
 import {
   Search,
   ChevronLeft,
@@ -175,7 +173,7 @@ const sampleDetail = {
 };
 
 const players = [
-  // PEGA AQUÍ TU ARRAY DE JUGADORES
+  // PEGA AQUÍ TU ARRAY COMPLETO
 ];
 
 function CarouselRow({
@@ -218,6 +216,7 @@ function CarouselRow({
         {canSlide && (
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() =>
                 setIndex(
                   (v) =>
@@ -233,6 +232,7 @@ function CarouselRow({
             </button>
 
             <button
+              type="button"
               onClick={() =>
                 setIndex(
                   (v) =>
@@ -251,17 +251,16 @@ function CarouselRow({
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
         {visible.map(
           (player: any) => (
-            <button
+            <div
               key={
                 player.name
               }
-              type="button"
               onClick={() =>
                 onSelect(
                   player
                 )
               }
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06]"
+              className="relative z-10 cursor-pointer rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06]"
             >
               <div className="flex justify-center">
                 <img
@@ -292,7 +291,7 @@ function CarouselRow({
                   }
                 </p>
               </div>
-            </button>
+            </div>
           )
         )}
       </div>
@@ -383,7 +382,9 @@ export default function IndividualPage() {
           setPlayerDetails(
             data
           );
-        } catch (err) {
+        } catch (
+          err
+        ) {
           console.error(
             err
           );
@@ -480,204 +481,193 @@ export default function IndividualPage() {
   };
 
   return (
-    <>
-      <main className="min-h-screen overflow-x-hidden bg-[#0B0F14] text-white">
-        <div className="flex flex-col md:flex-row">
-          <Sidebar />
+    <main className="min-h-screen overflow-x-hidden bg-[#0B0F14] text-white">
+      <div className="flex flex-col md:flex-row">
+        <Sidebar />
 
-          <section className="flex-1 min-w-0">
-            <Topbar />
+        <section className="flex-1 min-w-0">
+          <Topbar />
 
-            <div className="px-4 pb-8 pt-6 md:p-10">
-              <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  Individual
-                  Intelligence
-                </p>
+          <div className="px-4 pb-8 pt-6 md:p-10">
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                Individual Intelligence
+              </p>
 
-                <h1 className="mt-3 text-3xl font-semibold">
-                  Player
-                  Performance
-                  Ecosystem
-                </h1>
-              </div>
-
-              <div className="mb-8 max-w-md">
-                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                  <Search size={16} />
-
-                  <input
-                    value={search}
-                    onChange={(
-                      e
-                    ) =>
-                      setSearch(
-                        e.target
-                          .value
-                      )
-                    }
-                    placeholder="Search player..."
-                    className="w-full bg-transparent outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-8">
-                <CarouselRow
-                  title="Porteros"
-                  items={
-                    grouped.Porteros
-                  }
-                  onSelect={
-                    setSelectedPlayer
-                  }
-                />
-
-                <CarouselRow
-                  title="Defensas"
-                  items={
-                    grouped.Defensas
-                  }
-                  onSelect={
-                    setSelectedPlayer
-                  }
-                />
-
-                <CarouselRow
-                  title="Centrocampistas"
-                  items={
-                    grouped.Centrocampistas
-                  }
-                  onSelect={
-                    setSelectedPlayer
-                  }
-                />
-
-                <CarouselRow
-                  title="Delanteros"
-                  items={
-                    grouped.Delanteros
-                  }
-                  onSelect={
-                    setSelectedPlayer
-                  }
-                />
-              </div>
+              <h1 className="mt-3 text-3xl font-semibold">
+                Player Performance Ecosystem
+              </h1>
             </div>
-          </section>
-        </div>
-      </main>
 
-      {typeof window !==
-        "undefined" &&
-        selectedPlayer &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 p-4"
-            onClick={() =>
-              setSelectedPlayer(
-                null
-              )
-            }
-          >
-            <div
-              className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-10"
-              onClick={(
-                e
-              ) =>
-                e.stopPropagation()
-              }
-            >
-              <div className="mb-8 flex items-start justify-between gap-6">
-                <div className="flex items-center gap-5">
-                  <img
-                    src={
-                      selectedPlayer.photo
-                    }
-                    alt={
-                      selectedPlayer.name
-                    }
-                    className="h-28 w-20 rounded-2xl object-cover object-top"
-                  />
+            <div className="mb-8 max-w-md">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                <Search size={16} />
 
-                  <div>
-                    <h2 className="text-2xl font-semibold">
-                      {
-                        selectedPlayer.name
-                      }
-                    </h2>
-
-                    <p className="mt-1 text-sm text-gray-400">
-                      {
-                        selectedPlayer.position
-                      }
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() =>
-                    setSelectedPlayer(
-                      null
+                <input
+                  value={search}
+                  onChange={(
+                    e
+                  ) =>
+                    setSearch(
+                      e.target
+                        .value
                     )
                   }
-                  className="rounded-xl border border-white/10 p-2 hover:bg-white/5"
-                >
-                  <X />
-                </button>
-              </div>
-
-              <div className="grid gap-8 md:grid-cols-2">
-                <div>
-                  <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
-                    Fortaleza
-                    principal
-                  </h3>
-
-                  <p className="mb-4 text-gray-300">
-                    {
-                      selectedPlayer.strength
-                    }
-                  </p>
-
-                  {selectedPlayer.video1 && (
-                    <iframe
-                      src={getYoutubeEmbed(
-                        selectedPlayer.video1
-                      )}
-                      className="h-[260px] w-full rounded-2xl"
-                      allowFullScreen
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
-                    Aspecto de
-                    mejora
-                  </h3>
-
-                  <p className="mb-4 text-gray-300">
-                    {
-                      selectedPlayer.improvement
-                    }
-                  </p>
-
-                  {selectedPlayer.video2 && (
-                    <iframe
-                      src={getYoutubeEmbed(
-                        selectedPlayer.video2
-                      )}
-                      className="h-[260px] w-full rounded-2xl"
-                      allowFullScreen
-                    />
-                  )}
-                </div>
+                  placeholder="Search player..."
+                  className="w-full bg-transparent outline-none"
+                />
               </div>
             </div>
-          </div>,
-          document.body
-        )}
-    </>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-8">
+              <CarouselRow
+                title="Porteros"
+                items={
+                  grouped.Porteros
+                }
+                onSelect={
+                  setSelectedPlayer
+                }
+              />
+
+              <CarouselRow
+                title="Defensas"
+                items={
+                  grouped.Defensas
+                }
+                onSelect={
+                  setSelectedPlayer
+                }
+              />
+
+              <CarouselRow
+                title="Centrocampistas"
+                items={
+                  grouped.Centrocampistas
+                }
+                onSelect={
+                  setSelectedPlayer
+                }
+              />
+
+              <CarouselRow
+                title="Delanteros"
+                items={
+                  grouped.Delanteros
+                }
+                onSelect={
+                  setSelectedPlayer
+                }
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {selectedPlayer && (
+        <div
+          className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 p-4"
+          onClick={() =>
+            setSelectedPlayer(
+              null
+            )
+          }
+        >
+          <div
+            className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-10"
+            onClick={(
+              e
+            ) =>
+              e.stopPropagation()
+            }
+          >
+            <div className="mb-8 flex items-start justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <img
+                  src={
+                    selectedPlayer.photo
+                  }
+                  alt={
+                    selectedPlayer.name
+                  }
+                  className="h-28 w-20 rounded-2xl object-cover object-top"
+                />
+
+                <div>
+                  <h2 className="text-2xl font-semibold">
+                    {
+                      selectedPlayer.name
+                    }
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-400">
+                    {
+                      selectedPlayer.position
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() =>
+                  setSelectedPlayer(
+                    null
+                  )
+                }
+                className="rounded-xl border border-white/10 p-2"
+              >
+                <X />
+              </button>
+            </div>
+
+            <div className="grid gap-8 md:grid-cols-2">
+              <div>
+                <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
+                  Fortaleza principal
+                </h3>
+
+                <p className="mb-4 text-gray-300">
+                  {
+                    selectedPlayer.strength
+                  }
+                </p>
+
+                {selectedPlayer.video1 && (
+                  <iframe
+                    src={getYoutubeEmbed(
+                      selectedPlayer.video1
+                    )}
+                    className="h-[260px] w-full rounded-2xl"
+                    allowFullScreen
+                  />
+                )}
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
+                  Aspecto de mejora
+                </h3>
+
+                <p className="mb-4 text-gray-300">
+                  {
+                    selectedPlayer.improvement
+                  }
+                </p>
+
+                {selectedPlayer.video2 && (
+                  <iframe
+                    src={getYoutubeEmbed(
+                      selectedPlayer.video2
+                    )}
+                    className="h-[260px] w-full rounded-2xl"
+                    allowFullScreen
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
