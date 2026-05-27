@@ -1,6 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+} from "react";
 import {
   Search,
   ChevronLeft,
@@ -11,6 +15,76 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
 const VISIBLE_CARDS = 4;
+
+const SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=787003064&single=true&output=csv";
+
+function parseCSV(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      if (
+        insideQuotes &&
+        next === '"'
+      ) {
+        value += '"';
+        i++;
+      } else {
+        insideQuotes =
+          !insideQuotes;
+      }
+    } else if (
+      char === "," &&
+      !insideQuotes
+    ) {
+      row.push(value);
+      value = "";
+    } else if (
+      (char === "\n" ||
+        char === "\r") &&
+      !insideQuotes
+    ) {
+      if (
+        char === "\r" &&
+        next === "\n"
+      ) {
+        i++;
+      }
+
+      row.push(value);
+
+      if (
+        row.some((v) =>
+          v.trim()
+        )
+      ) {
+        rows.push(row);
+      }
+
+      row = [];
+      value = "";
+    } else {
+      value += char;
+    }
+  }
+
+  if (
+    value.length ||
+    row.length
+  ) {
+    row.push(value);
+    rows.push(row);
+  }
+
+  return rows;
+}
 
 const sampleDetail = {
   strength:
@@ -27,7 +101,6 @@ const sampleDetail = {
 };
 
 const players = [
-  // PORTEROS
   {
     name: "F. Quetglas",
     position: "Portero",
@@ -53,7 +126,6 @@ const players = [
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
-  // DEFENSAS
   {
     name: "A. Moya",
     position: "Defensa",
@@ -109,7 +181,6 @@ const players = [
       "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
-  // CENTROCAMPISTAS
   {
     name: "Carlos",
     position: "Centrocampista",
@@ -171,7 +242,6 @@ const players = [
       "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
-  // DELANTEROS
   {
     name: "Álvaro Ginés",
     position: "Delantero",
@@ -203,18 +273,25 @@ function CarouselRow({
   items,
   onSelect,
 }: any) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] =
+    useState(0);
 
   if (!items.length) return null;
 
-  const canSlide = items.length > VISIBLE_CARDS;
+  const canSlide =
+    items.length >
+    VISIBLE_CARDS;
 
   const visible = canSlide
     ? Array.from({
-        length: VISIBLE_CARDS,
+        length:
+          VISIBLE_CARDS,
       }).map(
         (_, i) =>
-          items[(index + i) % items.length]
+          items[
+            (index + i) %
+              items.length
+          ]
       )
     : items;
 
@@ -233,7 +310,9 @@ function CarouselRow({
               onClick={() =>
                 setIndex(
                   (v) =>
-                    (v - 1 + items.length) %
+                    (v -
+                      1 +
+                      items.length) %
                     items.length
                 )
               }
@@ -259,35 +338,49 @@ function CarouselRow({
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-        {visible.map((player: any) => (
-          <button
-            key={player.name}
-            onClick={() => onSelect(player)}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06]"
-          >
-            <div className="flex justify-center">
-              <img
-                src={player.photo}
-                alt={player.name}
-                className="h-[120px] w-[95px] rounded-xl object-cover object-top"
-              />
-            </div>
+        {visible.map(
+          (player: any) => (
+            <button
+              key={player.name}
+              onClick={() =>
+                onSelect(
+                  player
+                )
+              }
+              className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center transition hover:bg-white/[0.06]"
+            >
+              <div className="flex justify-center">
+                <img
+                  src={
+                    player.photo
+                  }
+                  alt={
+                    player.name
+                  }
+                  className="h-[120px] w-[95px] rounded-xl object-cover object-top"
+                />
+              </div>
 
-            <div className="mt-3">
-              <p className="text-[9px] uppercase tracking-[0.18em] text-[#C8A96B]">
-                Real Madrid C
-              </p>
+              <div className="mt-3">
+                <p className="text-[9px] uppercase tracking-[0.18em] text-[#C8A96B]">
+                  Real Madrid C
+                </p>
 
-              <h3 className="mt-2 text-sm font-semibold">
-                {player.name}
-              </h3>
+                <h3 className="mt-2 text-sm font-semibold">
+                  {
+                    player.name
+                  }
+                </h3>
 
-              <p className="mt-1 text-xs text-gray-400">
-                {player.position}
-              </p>
-            </div>
-          </button>
-        ))}
+                <p className="mt-1 text-xs text-gray-400">
+                  {
+                    player.position
+                  }
+                </p>
+              </div>
+            </button>
+          )
+        )}
       </div>
     </div>
   );
@@ -297,33 +390,149 @@ export default function IndividualPage() {
   const [search, setSearch] =
     useState("");
 
-  const [selectedPlayer, setSelectedPlayer] =
-    useState<any>(null);
+  const [
+    selectedPlayer,
+    setSelectedPlayer,
+  ] = useState<any>(null);
 
-  const filtered = useMemo(() => {
-    return players.filter((p) =>
-      p.name
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    );
-  }, [search]);
+  const [
+    playerDetails,
+    setPlayerDetails,
+  ] = useState<
+    Record<
+      string,
+      {
+        strength: string;
+        improvement: string;
+      }
+    >
+  >({});
+
+  useEffect(() => {
+    const loadSheet =
+      async () => {
+        try {
+          const res =
+            await fetch(
+              SHEET_URL
+            );
+
+          const text =
+            await res.text();
+
+          const rows =
+            parseCSV(text);
+
+          const data: Record<
+            string,
+            {
+              strength: string;
+              improvement: string;
+            }
+          > = {};
+
+          rows
+            .slice(1)
+            .forEach(
+              (r) => {
+                const name =
+                  r[0]?.trim();
+
+                if (!name)
+                  return;
+
+                data[name] = {
+                  strength:
+                    r[1]?.trim() ||
+                    "",
+                  improvement:
+                    r[2]?.trim() ||
+                    "",
+                };
+              }
+            );
+
+          setPlayerDetails(
+            data
+          );
+        } catch (err) {
+          console.error(
+            err
+          );
+        }
+      };
+
+    loadSheet();
+  }, []);
+
+  const playersWithData =
+    useMemo(() => {
+      return players.map(
+        (player) => ({
+          ...player,
+          strength:
+            playerDetails[
+              player.name
+            ]
+              ?.strength ||
+            sampleDetail.strength,
+
+          improvement:
+            playerDetails[
+              player.name
+            ]
+              ?.improvement ||
+            sampleDetail.improvement,
+
+          video1:
+            sampleDetail.video1,
+
+          video2:
+            sampleDetail.video2,
+        })
+      );
+    }, [playerDetails]);
+
+  const filtered =
+    useMemo(() => {
+      return playersWithData.filter(
+        (p) =>
+          p.name
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            )
+      );
+    }, [
+      playersWithData,
+      search,
+    ]);
 
   const grouped = {
-    Porteros: filtered.filter(
-      (p) => p.position === "Portero"
-    ),
-    Defensas: filtered.filter(
-      (p) => p.position === "Defensa"
-    ),
+    Porteros:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Portero"
+      ),
+    Defensas:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Defensa"
+      ),
     Centrocampistas:
       filtered.filter(
         (p) =>
           p.position ===
           "Centrocampista"
       ),
-    Delanteros: filtered.filter(
-      (p) => p.position === "Delantero"
-    ),
+    Delanteros:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Delantero"
+      ),
   };
 
   return (
@@ -337,23 +546,31 @@ export default function IndividualPage() {
           <div className="px-4 pb-8 pt-6 md:p-10">
             <div className="mb-6">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                Individual Intelligence
+                Individual
+                Intelligence
               </p>
 
               <h1 className="mt-3 text-3xl font-semibold">
-                Player Performance Ecosystem
+                Player
+                Performance
+                Ecosystem
               </h1>
             </div>
 
             <div className="mb-8 max-w-md">
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                <Search size={16} />
+                <Search
+                  size={16}
+                />
 
                 <input
                   value={search}
-                  onChange={(e) =>
+                  onChange={(
+                    e
+                  ) =>
                     setSearch(
-                      e.target.value
+                      e.target
+                        .value
                     )
                   }
                   placeholder="Search player..."
@@ -365,7 +582,9 @@ export default function IndividualPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-8">
               <CarouselRow
                 title="Porteros"
-                items={grouped.Porteros}
+                items={
+                  grouped.Porteros
+                }
                 onSelect={
                   setSelectedPlayer
                 }
@@ -373,7 +592,9 @@ export default function IndividualPage() {
 
               <CarouselRow
                 title="Defensas"
-                items={grouped.Defensas}
+                items={
+                  grouped.Defensas
+                }
                 onSelect={
                   setSelectedPlayer
                 }
@@ -404,17 +625,20 @@ export default function IndividualPage() {
       </div>
 
       {selectedPlayer && (
-        <div className="fixed inset-0 z-50 bg-black/80 p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4">
           <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-10">
-
             <div className="mb-8 flex items-center justify-between">
               <h2 className="text-2xl font-semibold">
-                {selectedPlayer.name}
+                {
+                  selectedPlayer.name
+                }
               </h2>
 
               <button
                 onClick={() =>
-                  setSelectedPlayer(null)
+                  setSelectedPlayer(
+                    null
+                  )
                 }
               >
                 <X />
@@ -424,7 +648,8 @@ export default function IndividualPage() {
             <div className="grid gap-8 md:grid-cols-2">
               <div>
                 <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
-                  Fortaleza principal
+                  Fortaleza
+                  principal
                 </h3>
 
                 <p className="mb-4 text-gray-300">
@@ -447,7 +672,8 @@ export default function IndividualPage() {
 
               <div>
                 <h3 className="mb-3 text-sm uppercase tracking-[0.3em] text-[#C8A96B]">
-                  Aspecto de mejora
+                  Aspecto de
+                  mejora
                 </h3>
 
                 <p className="mb-4 text-gray-300">
