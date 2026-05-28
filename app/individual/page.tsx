@@ -1,12 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from "lucide-react";
+
+import { Sidebar } from "@/components/ui/sidebar";
+import { Topbar } from "@/components/ui/topbar";
+
+const VISIBLE_CARDS = 4;
 
 const DEFAULT_STRENGTH =
-  "Información de fortalezas pendiente de actualizar.";
+  "Buen rendimiento general en acciones clave del juego. Destaca por su capacidad de interpretar situaciones y competir con intensidad.";
 
 const DEFAULT_IMPROVEMENT =
-  "Información de aspectos de mejora pendiente de actualizar.";
+  "Seguir evolucionando en aspectos técnicos y en toma de decisiones en escenarios de máxima presión.";
 
 const DEFAULT_STRENGTH_VIDEO =
   "https://www.youtube.com/embed/ysz5S6PUM-U";
@@ -21,9 +33,9 @@ const players = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_QUETGLAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
     strengths:
-      "Buen juego aéreo, reflejos rápidos en situaciones de área y personalidad competitiva bajo presión.",
+      "Buen juego aéreo y reflejos rápidos en acciones cercanas.",
     improvements:
-      "Seguir mejorando la precisión en el juego con el pie y la continuidad en salida desde atrás.",
+      "Mejorar precisión en salida con el pie.",
     strengthVideo:
       "https://www.youtube.com/embed/ysz5S6PUM-U",
     improvementVideo:
@@ -35,14 +47,6 @@ const players = [
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_ARROYO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    strengths:
-      "Portero con buena presencia en portería, capacidad de reacción y seguridad en acciones cercanas.",
-    improvements:
-      "Seguir evolucionando en timing de salidas y comunicación defensiva.",
-    strengthVideo:
-      "https://www.youtube.com/embed/ysz5S6PUM-U",
-    improvementVideo:
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
   },
 
   {
@@ -50,14 +54,17 @@ const players = [
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Javi Navarro",
+    position: "Portero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
     strengths:
-      "Buen posicionamiento y lectura de trayectorias en acciones defensivas.",
+      "Portero con buenos reflejos y personalidad competitiva.",
     improvements:
-      "Mayor precisión en desplazamientos largos y toma de decisión en juego rápido.",
-    strengthVideo:
-      "https://www.youtube.com/embed/ysz5S6PUM-U",
-    improvementVideo:
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "Seguir mejorando juego aéreo y salida bajo presión.",
   },
 
   {
@@ -65,14 +72,66 @@ const players = [
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEJANDRO_MOYA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Sotres",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
     strengths:
-      "Defensor sólido en duelos individuales, buena lectura táctica y agresividad defensiva.",
+      "Buen posicionamiento y lectura defensiva.",
     improvements:
-      "Seguir creciendo en salida de balón y cambios de orientación.",
-    strengthVideo:
-      "https://www.youtube.com/embed/ysz5S6PUM-U",
-    improvementVideo:
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "Seguir creciendo en salida de balón.",
+  },
+
+  {
+    name: "Calleja",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/JAIME_CALLEJA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Álex Pérez",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALEX_PEREZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Óscar Mesa",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/OSCAR_MESA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Eric Gómez",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ERIC_GOMEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Álvaro Lezcano",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO%20LEZCANO_JT11325_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Ariel Ncoghe",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ARIEL%20NKOGHE_JT11313_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Melvin Ukpeigbe",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
   {
@@ -80,14 +139,69 @@ const players = [
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/CARLOS_RODRIGUEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    strengths:
-      "Buen control del ritmo del juego, capacidad asociativa y visión entre líneas.",
-    improvements:
-      "Aumentar impacto en último tercio y verticalidad ofensiva.",
-    strengthVideo:
-      "https://www.youtube.com/embed/ysz5S6PUM-U",
-    improvementVideo:
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+  },
+
+  {
+    name: "Izan",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Joan",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/JOAN_MASCARO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Mesonero",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_MESONERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "M. Rezola",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/MANEX-REZOLA_AV17806_550x650?$Desktop$&fit=wrap&wid=420",
+  },
+
+  {
+    name: "Diego Martínez",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/diego_martinez?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Diego Lacosta",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO%20LASCOSTA_JT11305_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Á. Leiva",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_LEIVA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Aimar",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/AIMAR_SANTIAGO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Roberto",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
   {
@@ -95,138 +209,316 @@ const players = [
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    strengths:
-      "Buen ataque al espacio, capacidad de finalización y movilidad ofensiva.",
-    improvements:
-      "Seguir afinando lectura en apoyos y continuidad tras pérdida.",
-    strengthVideo:
-      "https://www.youtube.com/embed/ysz5S6PUM-U",
-    improvementVideo:
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+  },
+
+  {
+    name: "Jacobo",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Arnu",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ARNAU_550x650_FONDO_BLANCO?$Desktop$&fit=wrap&wid=420",
+  },
+
+  {
+    name: "G. Castrelo",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 ];
 
-export default function Page() {
-  const [search, setSearch] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+function CarouselRow({
+  title,
+  items,
+  onSelect,
+}: any) {
+  const [index, setIndex] = useState(0);
 
-  const filteredPlayers = useMemo(() => {
-    return players.filter((player) =>
-      player.name.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search]);
+  if (!items.length) return null;
+
+  const canSlide =
+    items.length > VISIBLE_CARDS;
+
+  const visible = canSlide
+    ? Array.from({
+        length: VISIBLE_CARDS,
+      }).map(
+        (_, i) =>
+          items[
+            (index + i) %
+              items.length
+          ]
+      )
+    : items;
 
   return (
-    <main className="min-h-screen bg-white p-6">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="mb-6 text-3xl font-bold">
-          Plantilla Castilla
-        </h1>
+    <div className="mb-12">
+      <div className="mb-5 flex items-center gap-4">
+        <h2 className="text-lg font-semibold tracking-wide">
+          {title}
+        </h2>
 
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar jugador..."
-          className="mb-8 w-full rounded-xl border p-3"
-        />
+        <div className="h-px flex-1 bg-white/10" />
 
-        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {filteredPlayers.map((player) => (
+        {canSlide && (
+          <div className="flex gap-2">
             <button
-              key={player.name}
-              onClick={() => setSelectedPlayer(player)}
-              className="rounded-2xl border bg-white p-4 text-left shadow hover:shadow-lg transition"
+              onClick={() =>
+                setIndex(
+                  (v) =>
+                    (v - 1 + items.length) %
+                    items.length
+                )
+              }
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-2"
             >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() =>
+                setIndex(
+                  (v) =>
+                    (v + 1) %
+                    items.length
+                )
+              }
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-2"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-4 gap-5">
+        {visible.map((player: any) => (
+          <button
+            key={player.name}
+            onClick={() =>
+              onSelect(player)
+            }
+            className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-center"
+          >
+            <div className="flex justify-center">
               <img
                 src={player.photo}
                 alt={player.name}
-                className="mb-4 h-72 w-full rounded-xl object-cover"
+                loading="lazy"
+                className="h-[150px] w-[120px] rounded-2xl object-cover object-top"
               />
+            </div>
 
-              <h2 className="text-lg font-semibold">
-                {player.name}
-              </h2>
+            <h3 className="mt-4 text-base font-semibold">
+              {player.name}
+            </h3>
 
-              <p className="text-gray-600">
-                {player.position}
-              </p>
-            </button>
-          ))}
-        </div>
+            <p className="mt-1 text-sm text-gray-400">
+              {player.position}
+            </p>
+          </button>
+        ))}
       </div>
+    </div>
+  );
+}
 
-      {selectedPlayer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6">
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">
-                  {selectedPlayer.name}
-                </h2>
+export default function IndividualPage() {
+  const [search, setSearch] =
+    useState("");
 
-                <p className="text-gray-600">
-                  {selectedPlayer.position}
-                </p>
+  const [selected, setSelected] =
+    useState<any>(null);
+
+  const filtered = useMemo(() => {
+    return players.filter((p) =>
+      p.name
+        .toLowerCase()
+        .includes(
+          search.toLowerCase()
+        )
+    );
+  }, [search]);
+
+  const grouped = {
+    Porteros: filtered.filter(
+      (p) =>
+        p.position === "Portero"
+    ),
+    Defensas: filtered.filter(
+      (p) =>
+        p.position === "Defensa"
+    ),
+    Centrocampistas:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Centrocampista"
+      ),
+    Delanteros: filtered.filter(
+      (p) =>
+        p.position ===
+        "Delantero"
+    ),
+  };
+
+  return (
+    <>
+      <main className="min-h-screen bg-[#0B0F14] text-white">
+        <div className="flex">
+          <Sidebar />
+
+          <section className="flex-1">
+            <Topbar />
+
+            <div className="p-10">
+
+              <div className="mb-8">
+                <h1 className="text-4xl font-semibold">
+                  Player Performance Ecosystem
+                </h1>
               </div>
 
-              <button
-                onClick={() => setSelectedPlayer(null)}
-                className="text-2xl"
-              >
-                ✕
-              </button>
-            </div>
+              <div className="mb-8 max-w-md">
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                  <Search className="h-4 w-4 text-gray-400" />
 
-            <img
-              src={selectedPlayer.photo}
-              alt={selectedPlayer.name}
-              className="mb-6 h-80 w-full rounded-xl object-cover"
-            />
+                  <input
+                    value={search}
+                    onChange={(e) =>
+                      setSearch(
+                        e.target.value
+                      )
+                    }
+                    placeholder="Search player..."
+                    className="w-full bg-transparent outline-none"
+                  />
+                </div>
+              </div>
 
-            <div className="grid gap-8 md:grid-cols-2">
-              <div>
-                <h3 className="mb-2 text-xl font-semibold">
-                  Fortalezas
-                </h3>
+              <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
+                <CarouselRow
+                  title="Porteros"
+                  items={grouped.Porteros}
+                  onSelect={setSelected}
+                />
 
-                <p className="mb-4 text-gray-700">
-                  {selectedPlayer.strengths ||
-                    DEFAULT_STRENGTH}
-                </p>
+                <CarouselRow
+                  title="Defensas"
+                  items={grouped.Defensas}
+                  onSelect={setSelected}
+                />
 
-                <iframe
-                  className="aspect-video w-full rounded-xl"
-                  src={
-                    selectedPlayer.strengthVideo ||
-                    DEFAULT_STRENGTH_VIDEO
-                  }
-                  allowFullScreen
+                <CarouselRow
+                  title="Centrocampistas"
+                  items={grouped.Centrocampistas}
+                  onSelect={setSelected}
+                />
+
+                <CarouselRow
+                  title="Delanteros"
+                  items={grouped.Delanteros}
+                  onSelect={setSelected}
                 />
               </div>
-
-              <div>
-                <h3 className="mb-2 text-xl font-semibold">
-                  Aspectos de mejora
-                </h3>
-
-                <p className="mb-4 text-gray-700">
-                  {selectedPlayer.improvements ||
-                    DEFAULT_IMPROVEMENT}
-                </p>
-
-                <iframe
-                  className="aspect-video w-full rounded-xl"
-                  src={
-                    selectedPlayer.improvementVideo ||
-                    DEFAULT_IMPROVEMENT_VIDEO
-                  }
-                  allowFullScreen
-                />
-              </div>
             </div>
-          </div>
+          </section>
         </div>
-      )}
-    </main>
+      </main>
+
+      {selected &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 p-6"
+            onClick={() =>
+              setSelected(null)
+            }
+          >
+            <div
+              className="relative w-full max-h-[90vh] max-w-6xl overflow-y-auto rounded-3xl border border-white/10 bg-[#11161C] p-8"
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+              <button
+                onClick={() =>
+                  setSelected(null)
+                }
+                className="absolute right-5 top-5"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="grid gap-8 md:grid-cols-[280px_1fr]">
+                <div>
+                  <img
+                    src={selected.photo}
+                    alt={selected.name}
+                    className="h-[360px] w-full rounded-2xl object-cover object-top"
+                  />
+
+                  <h2 className="mt-5 text-3xl font-semibold">
+                    {selected.name}
+                  </h2>
+
+                  <p className="mt-2 text-gray-400">
+                    {selected.position}
+                  </p>
+                </div>
+
+                <div className="space-y-10">
+
+                  <div>
+                    <h3 className="mb-3 text-[#C8A96B]">
+                      Fortalezas
+                    </h3>
+
+                    <p className="mb-4 text-gray-300">
+                      {selected.strengths ||
+                        DEFAULT_STRENGTH}
+                    </p>
+
+                    <iframe
+                      src={
+                        selected.strengthVideo ||
+                        DEFAULT_STRENGTH_VIDEO
+                      }
+                      className="h-[260px] w-full rounded-2xl"
+                      allowFullScreen
+                    />
+                  </div>
+
+                  <div>
+                    <h3 className="mb-3 text-[#C8A96B]">
+                      Áreas de mejora
+                    </h3>
+
+                    <p className="mb-4 text-gray-300">
+                      {selected.improvements ||
+                        DEFAULT_IMPROVEMENT}
+                    </p>
+
+                    <iframe
+                      src={
+                        selected.improvementVideo ||
+                        DEFAULT_IMPROVEMENT_VIDEO
+                      }
+                      className="h-[260px] w-full rounded-2xl"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
