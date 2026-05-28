@@ -166,30 +166,48 @@ export default function EmotionPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-4 gap-4">
-                {[
-                  "Alta solidez defensiva",
-                  "Creatividad en mediocampo",
-                  "Potencial ofensivo",
-                  "Gestión emocional estable",
-                ].map((t) => (
-                  <div
-                    key={t}
-                    className="rounded-2xl border border-white/8 bg-[#08131F]/85 px-4 py-4"
-                  >
-                    <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
-                      Insights
-                    </div>
+  {[
+    {
+      title: "EXTERNO - AMPLIO",
+      subtitle:
+        "Observación / Lectura (qué ocurre)",
+      detail: "Antes de intervenir",
+    },
+    {
+      title: "INTERNO - AMPLIO",
+      subtitle:
+        "Análisis / Reflexión (qué hacer / resolución)",
+      detail: "Juego parado",
+    },
+    {
+      title: "EXTERNO - ESTRECHO",
+      subtitle: "Ejecución de acción (1v1)",
+      detail: "Participación",
+    },
+    {
+      title: "INTERNO - ESTRECHO",
+      subtitle: "Control emocional (qué siento)",
+      detail: "Adversidad",
+    },
+  ].map((item) => (
+    <div
+      key={item.title}
+      className="rounded-2xl border border-white/8 bg-[#08131F]/85 px-4 py-4"
+    >
+      <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
+        {item.title}
+      </div>
 
-                    <div className="mt-2 text-sm font-medium text-white">
-                      {t}
-                    </div>
+      <div className="mt-2 text-sm font-medium text-white leading-snug">
+        {item.subtitle}
+      </div>
 
-                    <div className="mt-2 text-xs text-white/55">
-                      Patrón emocional detectado.
-                    </div>
-                  </div>
-                ))}
-              </div>
+      <div className="mt-2 text-xs text-white/55">
+        {item.detail}
+      </div>
+    </div>
+  ))}
+</div>
             </div>
           </section>
         </div>
