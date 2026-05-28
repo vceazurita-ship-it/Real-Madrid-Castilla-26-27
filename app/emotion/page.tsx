@@ -133,7 +133,7 @@ export default function EmotionPage() {
                   title="Perfil izquierdo"
                   width="100%"
                   height={240}
-                  radarSize={250}
+                  radarSize={550}
                   players={names}
                   selected={leftSide}
                   onChange={setLeftSide}
@@ -146,7 +146,7 @@ export default function EmotionPage() {
                     title="Defensa"
                     width="100%"
                     height={360}
-                    radarSize={255}
+                    radarSize={355}
                     players={names}
                     selected={defense}
                     onChange={setDefense}
@@ -158,7 +158,7 @@ export default function EmotionPage() {
                     title="Mediocampo"
                     width="100%"
                     height={360}
-                    radarSize={255}
+                    radarSize={355}
                     players={names}
                     selected={midfield}
                     onChange={setMidfield}
@@ -170,7 +170,7 @@ export default function EmotionPage() {
                     title="Puntas / Delanteros"
                     width="100%"
                     height={360}
-                    radarSize={255}
+                    radarSize={355}
                     players={names}
                     selected={strikers}
                     onChange={setStrikers}
@@ -185,7 +185,7 @@ export default function EmotionPage() {
                   title="Perfil derecho"
                   width="100%"
                   height={240}
-                  radarSize={250}
+                  radarSize={750}
                   players={names}
                   selected={rightSide}
                   onChange={setRightSide}
