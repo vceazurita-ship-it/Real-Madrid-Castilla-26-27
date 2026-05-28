@@ -310,7 +310,7 @@ function CarouselRow({
             </button>
           </div>
         )}
-      </div>aaaaaaaaaaaaaaaaaaaaaa
+      </div>
 
       <div className="grid grid-cols-4 gap-5">
         {visible.map((player: any) => (
