@@ -27,7 +27,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* MOBILE FLOATING BUTTON */}
+      {/* BOTÓN FLOTANTE MÓVIL */}
       <button
         onClick={() => setOpen(true)}
         className="fixed left-1 top-1 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
@@ -35,7 +35,7 @@ export function Sidebar() {
         <Menu size={20} />
       </button>
 
-      {/* BACKDROP */}
+      {/* FONDO */}
       {open && (
         <div
           onClick={() => setOpen(false)}
@@ -53,7 +53,7 @@ export function Sidebar() {
           md:static md:translate-x-0
         `}
       >
-        {/* CLOSE BUTTON */}
+        {/* BOTÓN CERRAR */}
         <div className="mb-6 flex justify-end md:hidden">
           <button
             onClick={() => setOpen(false)}
@@ -64,13 +64,13 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-10">
-          {/* HOME */}
+          {/* INICIO */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-              Home
+              Inicio
             </p>
 
-            {navLink("/", "Overview")}
+            {navLink("/", "Resumen")}
           </div>
 
           {/* INDIVIDUAL */}
@@ -80,35 +80,35 @@ export function Sidebar() {
             </p>
 
             <div className="space-y-2 text-sm">
-              {navLink("/individual", "Performance")}
-              {navLink("/emotion", "Emotional Dynamics")}
-              {navLink("/sinergy", "Synergy")}
-              {navLink("/comparative_ind", "Comparative Performance")}
+              {navLink("/individual", "Evaluación específica")}
+              {navLink("/emotion", "Rendimiento emocional")}
+              {navLink("/sinergy", "Sinergias")}
+              {navLink("/comparative_ind", "Rendimiento comparativo u21")}
             </div>
           </div>
 
-          {/* COLLECTIVE */}
+          {/* COLECTIVO */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-              Collective
+              Colectivo
             </p>
 
             <div className="space-y-2 text-sm">
-              {navLink("/team", "Team Performance")}
-              {navLink("/collective", "Collective Behaviour")}
-              {navLink("/setpieces", "Set Pieces")}
+              {navLink("/team", "Rendimiento del equipo")}
+              {navLink("/collective", "Comportamiento colectivo")}
+              {navLink("/setpieces", "Acciones a balón parado")}
             </div>
           </div>
 
-          {/* METHODOLOGY */}
+          {/* METODOLOGÍA */}
           <div>
             <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-              Methodology
+              Metodología
             </p>
 
             <div className="space-y-2 text-sm">
-              {navLink("/microcycles", "Training Model")}
-              {navLink("/sessions", "Session Content")}
+              {navLink("/microcycles", "Microciclos")}
+              {navLink("/sessions", "Contenido de sesiones")}
             </div>
           </div>
         </nav>
