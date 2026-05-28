@@ -132,8 +132,8 @@ export default function EmotionPage() {
                   horizontal
                   title="Perfil izquierdo"
                   width="100%"
-                  height={275}
-                  radarSize={275}
+                  height={255}
+                  radarSize={310}
                   players={names}
                   selected={leftSide}
                   onChange={setLeftSide}
@@ -145,8 +145,8 @@ export default function EmotionPage() {
                   <RadarPanel
                     title="Defensa"
                     width="100%"
-                    height={275}
-                    radarSize={275}
+                    height={250}
+                    radarSize={285}
                     players={names}
                     selected={defense}
                     onChange={setDefense}
@@ -157,8 +157,8 @@ export default function EmotionPage() {
                   <RadarPanel
                     title="Mediocampo"
                     width="100%"
-                    height={275}
-                    radarSize={275}
+                    height={250}
+                    radarSize={285}
                     players={names}
                     selected={midfield}
                     onChange={setMidfield}
@@ -169,8 +169,8 @@ export default function EmotionPage() {
                   <RadarPanel
                     title="Puntas / Delanteros"
                     width="100%"
-                    height={275}
-                    radarSize={275}
+                    height={250}
+                    radarSize={285}
                     players={names}
                     selected={strikers}
                     onChange={setStrikers}
@@ -184,8 +184,8 @@ export default function EmotionPage() {
                   horizontal
                   title="Perfil derecho"
                   width="100%"
-                  height={275}
-                  radarSize={275}
+                  height={255}
+                  radarSize={310}
                   players={names}
                   selected={rightSide}
                   onChange={setRightSide}
@@ -300,11 +300,11 @@ function RadarPanel({
   return (
     <div
       className={`rounded-3xl border border-white/10 bg-white/[0.03] ${
-        compact ? "px-3 pt-2 pb-1" : "px-4 py-3"
+        compact ? "px-3 pt-2 pb-1" : "px-4 py-2"
       }`}
       style={{ width, height }}
     >
-      <div className={`${compact ? "mb-1" : "mb-2"} flex justify-between`}>
+      <div className={`${compact ? "mb-0.5" : "mb-1"} flex justify-between`}>
         <h3 className="text-sm font-semibold uppercase text-[#E6C37A]">
           {title}
         </h3>
@@ -327,7 +327,7 @@ function RadarPanel({
             )
           }
           className={`w-[130px] ${
-            horizontal ? "h-[180px]" : "h-[165px]"
+            horizontal ? "h-[195px]" : "h-[158px]"
           } rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white`}
         >
           {players.map((name: string) => (
@@ -339,12 +339,12 @@ function RadarPanel({
 
         <div className="flex-1 flex justify-center items-center h-full">
           <RadarChart
-            width={horizontal ? radarSize + 80 : radarSize}
-            height={radarSize}
+            width={horizontal ? radarSize + 160 : radarSize}
+            height={horizontal ? 215 : radarSize}
             data={chartData}
             cx="50%"
             cy="50%"
-            outerRadius="82%"
+            outerRadius={horizontal ? "96%" : "88%"}
           >
             <PolarGrid stroke="#ffffff15" />
 
