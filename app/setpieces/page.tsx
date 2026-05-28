@@ -14,13 +14,9 @@ import {
   LineChart,
   Line,
   CartesianGrid,
-  ComposedChart,
-  Legend,
   PieChart,
   Pie,
   Cell,
-  ScatterChart,
-  Scatter,
 } from "recharts";
 
 const CSV_URL =
@@ -31,7 +27,6 @@ const COLORS = {
   blue: "#3B82F6",
   purple: "#8B5CF6",
   green: "#10B981",
-  gray: "#64748B",
 };
 
 const PIE_COLORS = [
@@ -84,65 +79,62 @@ function parseCSV(text: string): Row[] {
     skipEmptyLines: true,
   });
 
-  return parsed.data.slice(1).map((r) => ({
-    jornada: num(r[0]),
-    rival: r[1] || "",
-    tiempo: num(r[2]),
-    minuto: num(r[3]),
-    sacador: r[6] || "",
-    tipoAccion: r[8] || "",
-    perfilGolpeo: r[9] || "",
-    tipoEnvio: r[10] || "",
-    zonaCaida: r[11] || "",
-    tipoCarrera: r[16] || "",
-    defensaRival: r[21] || "",
-    debilidadRival: r[22] || "",
-    rematador: r[24] || "",
-    tipoRemate: r[25] || "",
-    zonaRemate: r[26] || "",
-    xg: num(r[27]),
-    segundoBalon: r[28] || "",
-    resultadoFinal: r[29] || "",
-    rutina: r[30] || "",
-    repetir: r[31] || "",
-  }));
+  return parsed.data
+    .slice(1)
+    .map((r) => ({
+      jornada: num(r[0]),
+      rival: r[1] || "",
+      tiempo: num(r[2]),
+      minuto: num(r[3]),
+
+      sacador: r[6] || "",
+
+      tipoAccion: r[8] || "",
+      perfilGolpeo: r[9] || "",
+      tipoEnvio: r[10] || "",
+      zonaCaida: r[11] || "",
+
+      tipoCarrera: r[17] || "",
+
+      defensaRival: r[21] || "",
+      debilidadRival: r[22] || "",
+
+      rematador: r[24] || "",
+      tipoRemate: r[25] || "",
+      zonaRemate: r[26] || "",
+
+      xg: num(r[27]),
+
+      segundoBalon: r[28] || "",
+      resultadoFinal: r[29] || "",
+      rutina: r[30] || "",
+      repetir: r[31] || "",
+    }))
+    .filter((r) => r.jornada > 0);
 }
 
-function avg(arr: number[]) {
-  if (!arr.length) return 0;
-
-  return +(
-    arr.reduce((a, b) => a + b, 0) /
-    arr.length
-  ).toFixed(2);
-}
-
-function countBy(
-  rows: Row[],
-  key: keyof Row
-) {
-  const grouped: Record<
-    string,
-    number
-  > = {};
+function countBy(rows: Row[], key: keyof Row) {
+  const grouped: Record<string, number> = {};
 
   rows.forEach((r) => {
     const k = String(r[key] || "Unknown");
+
     grouped[k] =
       (grouped[k] || 0) + 1;
   });
 
-  return Object.entries(
-    grouped
-  ).map(([name, total]) => ({
-    name,
-    total,
-  }));
+  return Object.entries(grouped).map(
+    ([name, total]) => ({
+      name,
+      total,
+    })
+  );
 }
 
 export default function Page() {
   const [rows, setRows] =
     useState<Row[]>([]);
+
   const [jornada, setJornada] =
     useState("ALL");
 
@@ -175,16 +167,24 @@ export default function Page() {
 
   const metrics = {
     total: filtered.length,
+
     xg: filtered.reduce(
       (a, b) => a + b.xg,
       0
     ),
+
     shots: filtered.filter(
       (r) =>
-        r.resultadoFinal
-          .toLowerCase()
-          .includes("remate")
+        r.tipoRemate &&
+        ![
+          "",
+          "No Remate",
+          "No aplica",
+        ].includes(
+          r.tipoRemate
+        )
     ).length,
+
     goals: filtered.filter(
       (r) =>
         r.resultadoFinal
@@ -210,10 +210,7 @@ export default function Page() {
       const grouped:
         Record<
           string,
-          {
-            total: number;
-            xg: number;
-          }
+          { xg: number }
         > = {};
 
       filtered.forEach((r) => {
@@ -222,12 +219,10 @@ export default function Page() {
 
         if (!grouped[k]) {
           grouped[k] = {
-            total: 0,
             xg: 0,
           };
         }
 
-        grouped[k].total++;
         grouped[k].xg += r.xg;
       });
 
@@ -235,22 +230,56 @@ export default function Page() {
         grouped
       ).map(([name, v]) => ({
         name,
-        total: v.total,
         xg: +v.xg.toFixed(2),
       }));
     }, [filtered]);
 
-  const scatterData =
-    filtered.map((r) => ({
-      xg: r.xg,
-      tipo: r.tipoRemate,
-    }));
+  const tipoRemateData =
+    useMemo(() => {
+      const grouped:
+        Record<
+          string,
+          number
+        > = {};
+
+      filtered
+        .filter(
+          (r) =>
+            r.tipoRemate &&
+            ![
+              "",
+              "No Remate",
+              "No aplica",
+            ].includes(
+              r.tipoRemate
+            )
+        )
+        .forEach((r) => {
+          grouped[
+            r.tipoRemate
+          ] =
+            (grouped[
+              r.tipoRemate
+            ] || 0) + r.xg;
+        });
+
+      return Object.entries(
+        grouped
+      ).map(
+        ([name, total]) => ({
+          name,
+          total:
+            +total.toFixed(2),
+        })
+      );
+    }, [filtered]);
 
   const timeline =
     Array.from(
       { length: 6 },
       (_, i) => {
-        const start = i * 15;
+        const start =
+          i * 15;
 
         return {
           tramo: `${start}-${start + 15}`,
@@ -279,6 +308,7 @@ export default function Page() {
             <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
 
               <div className="flex items-center justify-between">
+
                 <h1 className="text-5xl font-semibold">
                   Set Piece Intelligence
                 </h1>
@@ -290,7 +320,7 @@ export default function Page() {
                       e.target.value
                     )
                   }
-                  className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-5 py-3"
+                  className="rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3"
                 >
                   <option value="ALL">
                     Todas
@@ -307,9 +337,11 @@ export default function Page() {
                     )
                   )}
                 </select>
+
               </div>
 
               <div className="grid grid-cols-4 gap-5 mt-10">
+
                 <Card
                   title="ABP"
                   value={
@@ -319,11 +351,7 @@ export default function Page() {
 
                 <Card
                   title="xG"
-                  value={
-                    metrics.xg.toFixed(
-                      2
-                    )
-                  }
+                  value={metrics.xg.toFixed(2)}
                 />
 
                 <Card
@@ -339,7 +367,9 @@ export default function Page() {
                     metrics.goals
                   }
                 />
+
               </div>
+
             </div>
 
             <div className="grid grid-cols-2 gap-6 mt-10">
@@ -347,9 +377,7 @@ export default function Page() {
               <Panel title="Tipo de acción">
                 <Chart>
                   <BarChart
-                    data={
-                      tipoAccion
-                    }
+                    data={tipoAccion}
                   >
                     <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="name" />
@@ -367,9 +395,7 @@ export default function Page() {
                 <Chart>
                   <PieChart>
                     <Pie
-                      data={
-                        zonaCaida
-                      }
+                      data={zonaCaida}
                       dataKey="total"
                       nameKey="name"
                       innerRadius={55}
@@ -397,9 +423,7 @@ export default function Page() {
               <Panel title="Impacto sacador">
                 <Chart>
                   <BarChart
-                    data={
-                      sacadorData
-                    }
+                    data={sacadorData}
                     layout="vertical"
                   >
                     <XAxis type="number" />
@@ -421,9 +445,7 @@ export default function Page() {
                 <Chart>
                   <PieChart>
                     <Pie
-                      data={
-                        tipoCarrera
-                      }
+                      data={tipoCarrera}
                       dataKey="total"
                       nameKey="name"
                       outerRadius={110}
@@ -483,27 +505,30 @@ export default function Page() {
 
               <Panel title="Finalización xG">
                 <Chart>
-                  <ScatterChart>
-                    <XAxis
-                      dataKey="xg"
-                    />
+                  <BarChart
+                    data={
+                      tipoRemateData
+                    }
+                    layout="vertical"
+                  >
+                    <CartesianGrid stroke="#1E232A" />
+                    <XAxis type="number" />
                     <YAxis
-                      dataKey="tipo"
+                      type="category"
+                      dataKey="name"
+                      width={120}
                     />
                     <Tooltip />
-                    <Scatter
-                      data={
-                        scatterData
-                      }
-                      fill={
-                        COLORS.gold
-                      }
+                    <Bar
+                      dataKey="total"
+                      fill={COLORS.gold}
                     />
-                  </ScatterChart>
+                  </BarChart>
                 </Chart>
               </Panel>
 
             </div>
+
           </section>
         </div>
       </div>
