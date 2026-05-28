@@ -126,68 +126,66 @@ export default function EmotionPage() {
                   "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
               }}
             >
-              <div className="flex gap-6 items-stretch h-full">
+              <div className="flex flex-col gap-6">
 
                 <RadarPanel
-                  sideSelect
-                  title="Defensa"
-                  width={420}
-                  height={520}
-                  radarSize={280}
+                  horizontal
+                  title="Perfil izquierdo"
+                  width="100%"
+                  height={220}
+                  radarSize={180}
                   players={names}
-                  selected={defense}
-                  onChange={setDefense}
+                  selected={leftSide}
+                  onChange={setLeftSide}
                   getPlayer={getPlayer}
                 />
 
-                <div className="flex-1 flex flex-col justify-between gap-6">
+                <div className="grid grid-cols-3 gap-6">
 
                   <RadarPanel
-                    horizontal
-                    title="Perfil izquierdo"
+                    title="Defensa"
                     width="100%"
-                    height={240}
-                    radarSize={200}
+                    height={380}
+                    radarSize={240}
                     players={names}
-                    selected={leftSide}
-                    onChange={setLeftSide}
+                    selected={defense}
+                    onChange={setDefense}
                     getPlayer={getPlayer}
                   />
 
                   <RadarPanel
-                    horizontal
-                    title="Perfil derecho"
+                    title="Mediocampo"
                     width="100%"
-                    height={240}
-                    radarSize={200}
+                    height={380}
+                    radarSize={240}
                     players={names}
-                    selected={rightSide}
-                    onChange={setRightSide}
+                    selected={midfield}
+                    onChange={setMidfield}
                     getPlayer={getPlayer}
                   />
+
+                  <RadarPanel
+                    title="Puntas / Delanteros"
+                    width="100%"
+                    height={380}
+                    radarSize={240}
+                    players={names}
+                    selected={strikers}
+                    onChange={setStrikers}
+                    getPlayer={getPlayer}
+                  />
+
                 </div>
 
                 <RadarPanel
-                  sideSelect
-                  title="Mediocampo"
-                  width={420}
-                  height={520}
-                  radarSize={280}
+                  horizontal
+                  title="Perfil derecho"
+                  width="100%"
+                  height={220}
+                  radarSize={180}
                   players={names}
-                  selected={midfield}
-                  onChange={setMidfield}
-                  getPlayer={getPlayer}
-                />
-
-                <RadarPanel
-                  sideSelect
-                  title="Puntas / Delanteros"
-                  width={420}
-                  height={520}
-                  radarSize={280}
-                  players={names}
-                  selected={strikers}
-                  onChange={setStrikers}
+                  selected={rightSide}
+                  onChange={setRightSide}
                   getPlayer={getPlayer}
                 />
 
@@ -251,7 +249,6 @@ function RadarPanel({
   height,
   radarSize,
   horizontal = false,
-  sideSelect = false,
 }: any) {
   const colors = [
     "#C8A96B",
@@ -298,7 +295,7 @@ function RadarPanel({
 
   return (
     <div
-      className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-[2px] p-4"
+      className="rounded-3xl border border-white/10 bg-white/[0.03] p-4"
       style={{ width, height }}
     >
       <div className="mb-3 flex justify-between">
@@ -323,7 +320,7 @@ function RadarPanel({
               )
             )
           }
-          className="w-[130px] h-full rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white"
+          className="w-[130px] h-[165px] rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white"
         >
           {players.map((name: string) => (
             <option key={name} value={name}>
