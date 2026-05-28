@@ -70,7 +70,7 @@ export function Sidebar() {
               Inicio
             </p>
 
-            {navLink("/", "Real Madrid C")}
+            {navLink("/", "Real Madrid CF C")}
           </div>
 
           {/* INDIVIDUAL */}
@@ -108,7 +108,6 @@ export function Sidebar() {
 
             <div className="space-y-2 text-sm">
               {navLink("/microcycles", "Microciclos")}
-              {navLink("/sessions", "Contenido de sesiones")}
             </div>
           </div>
         </nav>
