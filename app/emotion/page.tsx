@@ -110,16 +110,13 @@ export default function EmotionPage() {
 
           <section className="px-8 py-8">
             <div
-              className="rounded-[34px]
-              border border-[#183044]
-              p-6
-              bg-[#08131F]
-              shadow-[inset_0_0_80px_rgba(0,90,150,.12)]"
+              className="rounded-[34px] p-6"
               style={{
                 backgroundImage:
-                  "linear-gradient(rgba(5,14,24,.72), rgba(5,14,24,.72)), url('/emotional-field-bg.png')",
-                backgroundSize: "cover",
+                  "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.png')",
+                backgroundSize: "100% 100%",
                 backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
               }}
             >
               <div className="space-y-4">
@@ -252,12 +249,7 @@ function RadarPanel({
   });
 
   return (
-    <div
-      className="rounded-[24px]
-      border border-white/10
-      bg-transparent
-      p-4 h-[255px]"
-    >
+    <div className="rounded-[24px] border border-white/10 bg-transparent p-4 h-[255px]">
       <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
         {title}
       </div>
@@ -273,28 +265,36 @@ function RadarPanel({
               )
             )
           }
-          className="w-[120px] h-[165px]
+          className="w-[130px] h-[175px]
           rounded-2xl
-          border border-white/8
-          bg-white/[0.03]
-          backdrop-blur-md
-          px-2 py-2
+          border border-white/10
+          bg-white/[0.04]
+          backdrop-blur-xl
+          px-3 py-2
           text-[11px]
-          text-white"
+          text-white
+          shadow-[inset_0_0_14px_rgba(255,255,255,.03)]
+          scrollbar-thin
+          scrollbar-thumb-white/20
+          scrollbar-track-transparent"
         >
           {players.map((name: string) => (
-            <option key={name} value={name}>
+            <option
+              key={name}
+              value={name}
+              className="bg-[#09111a] text-white rounded"
+            >
               {name}
             </option>
           ))}
         </select>
 
-        <div className="flex-1 h-[190px] flex items-center justify-center">
+        <div className="flex-1 h-[200px] flex items-center justify-center">
           <RadarChart
-            width={horizontal ? 460 : 270}
-            height={190}
+            width={horizontal ? 520 : 310}
+            height={210}
             data={chartData}
-            outerRadius="82%"
+            outerRadius="92%"
           >
             <PolarGrid stroke="#66d9ff28" />
 
@@ -319,7 +319,7 @@ function RadarPanel({
                 stroke={s.color}
                 fill={s.color}
                 fillOpacity={0.16}
-                strokeWidth={2.6}
+                strokeWidth={2.8}
               />
             ))}
           </RadarChart>
