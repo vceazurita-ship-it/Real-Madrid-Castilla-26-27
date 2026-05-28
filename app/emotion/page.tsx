@@ -101,7 +101,7 @@ export default function EmotionPage() {
     rows.find((r) => r.jugador === name);
 
   return (
-    <main className="min-h-screen bg-[#050B12] text-white">
+    <main className="min-h-screen bg-[#030811] text-white">
       <div className="flex">
         <Sidebar />
 
@@ -109,44 +109,35 @@ export default function EmotionPage() {
           <Topbar />
 
           <section className="px-8 py-8">
-            <div className="mb-6">
-              <p className="text-xs tracking-[0.35em] uppercase text-[#C8A96B]">
-                Emotional Intelligence
-              </p>
-
-              <h1 className="mt-2 text-3xl font-semibold">
-                Emotional Dynamics Ecosystem
-              </h1>
-            </div>
-
             <div
-              className="relative rounded-[28px] border border-white/10 p-8 min-h-[82vh] overflow-hidden bg-[#071018] bg-cover bg-center bg-no-repeat"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
-              }}
+              className="rounded-[34px] border border-[#183044]
+              bg-gradient-to-b from-[#07101B] to-[#040B13]
+              p-6 shadow-[inset_0_0_80px_rgba(0,90,150,.12)]"
             >
-              <div className="flex flex-col gap-4">
-
+              <div
+                className="rounded-[28px]
+                border border-white/6
+                bg-[#06111B]
+                p-5
+                space-y-4"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(5,14,24,.88), rgba(5,14,24,.88)), url('/emotional-field-bg.png')",
+                  backgroundSize: "cover",
+                }}
+              >
                 <RadarPanel
                   horizontal
                   title="Perfil izquierdo"
-                  width="100%"
-                  height={255}
-                  radarSize={310}
                   players={names}
                   selected={leftSide}
                   onChange={setLeftSide}
                   getPlayer={getPlayer}
                 />
 
-                <div className="grid grid-cols-3 gap-6">
-
+                <div className="grid grid-cols-3 gap-4">
                   <RadarPanel
                     title="Defensa"
-                    width="100%"
-                    height={250}
-                    radarSize={285}
                     players={names}
                     selected={defense}
                     onChange={setDefense}
@@ -156,9 +147,6 @@ export default function EmotionPage() {
 
                   <RadarPanel
                     title="Mediocampo"
-                    width="100%"
-                    height={250}
-                    radarSize={285}
                     players={names}
                     selected={midfield}
                     onChange={setMidfield}
@@ -168,73 +156,50 @@ export default function EmotionPage() {
 
                   <RadarPanel
                     title="Puntas / Delanteros"
-                    width="100%"
-                    height={250}
-                    radarSize={285}
                     players={names}
                     selected={strikers}
                     onChange={setStrikers}
                     getPlayer={getPlayer}
                     compact
                   />
-
                 </div>
 
                 <RadarPanel
                   horizontal
                   title="Perfil derecho"
-                  width="100%"
-                  height={255}
-                  radarSize={310}
                   players={names}
                   selected={rightSide}
                   onChange={setRightSide}
                   getPlayer={getPlayer}
                 />
+              </div>
 
+              <div className="mt-5 grid grid-cols-4 gap-4">
+                {[
+                  "Alta solidez defensiva",
+                  "Creatividad en mediocampo",
+                  "Potencial ofensivo",
+                  "Gestión emocional estable",
+                ].map((t) => (
+                  <div
+                    key={t}
+                    className="rounded-2xl border border-white/8 bg-[#08131F]/90 px-4 py-4"
+                  >
+                    <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
+                      Insights
+                    </div>
+
+                    <div className="mt-2 text-sm font-medium text-white">
+                      {t}
+                    </div>
+
+                    <div className="mt-2 text-xs text-white/55">
+                      Patrón emocional detectado.
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-4">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[11px] leading-relaxed">
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Externo · Amplio
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Observación / Lectura · Antes de intervenir
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Externo · Estrecho
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Ejecución de acción (1v1) · Participación
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Interno · Amplio
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Análisis / Reflexión · Juego parado
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Interno · Estrecho
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Control emocional · Adversidad
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </section>
         </div>
       </div>
@@ -248,18 +213,14 @@ function RadarPanel({
   selected,
   onChange,
   getPlayer,
-  width,
-  height,
-  radarSize,
   horizontal = false,
   compact = false,
 }: any) {
   const colors = [
-    "#C8A96B",
-    "#38BDF8",
-    "#A855F7",
-    "#22C55E",
-    "#F43F5E",
+    "#34D9FF",
+    "#B66BFF",
+    "#58E4FF",
+    "#C58CFF",
   ];
 
   const fallbackSelected =
@@ -276,10 +237,10 @@ function RadarPanel({
     .filter((s: any) => s.values);
 
   const chartData = [
-    { key: "E.A." },
-    { key: "I.E." },
-    { key: "I.A." },
-    { key: "E.E." },
+    { key: "EA" },
+    { key: "IE" },
+    { key: "IA" },
+    { key: "EE" },
   ].map((axis, i) => {
     const row: any = { key: axis.key };
 
@@ -299,23 +260,17 @@ function RadarPanel({
 
   return (
     <div
-      className={`rounded-3xl border border-white/10 bg-white/[0.03] ${
-        compact ? "px-3 pt-2 pb-1" : "px-4 py-2"
-      }`}
-      style={{ width, height }}
+      className={`rounded-[24px]
+      border border-white/8
+      bg-[#08131F]/85
+      shadow-[inset_0_0_35px_rgba(0,120,255,.05)]
+      ${compact ? "p-4 h-[255px]" : "p-4 h-[255px]"}`}
     >
-      <div className={`${compact ? "mb-0.5" : "mb-1"} flex justify-between`}>
-        <h3 className="text-sm font-semibold uppercase text-[#E6C37A]">
-          {title}
-        </h3>
-
-        <span className="text-[11px] text-white/45">
-          {selected.length}
-        </span>
+      <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
+        {title}
       </div>
 
-      <div className="flex gap-3 items-center h-full">
-
+      <div className="flex gap-4 h-full items-center">
         <select
           multiple
           value={selected}
@@ -326,9 +281,13 @@ function RadarPanel({
               )
             )
           }
-          className={`w-[130px] ${
-            horizontal ? "h-[195px]" : "h-[158px]"
-          } rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white`}
+          className="w-[120px] h-[165px]
+          rounded-2xl
+          border border-white/8
+          bg-[#060E17]
+          px-2 py-2
+          text-[11px]
+          text-white"
         >
           {players.map((name: string) => (
             <option key={name} value={name}>
@@ -337,22 +296,25 @@ function RadarPanel({
           ))}
         </select>
 
-        <div className="flex-1 flex justify-center items-center h-full">
+        <div
+          className="flex-1 rounded-[22px] h-[185px]
+          bg-gradient-to-b from-[#0A1724] to-[#09131E]
+          border border-white/6
+          flex items-center justify-center"
+        >
           <RadarChart
-            width={horizontal ? radarSize + 160 : radarSize}
-            height={horizontal ? 215 : radarSize}
+            width={horizontal ? 420 : 240}
+            height={180}
             data={chartData}
-            cx="50%"
-            cy="50%"
-            outerRadius={horizontal ? "96%" : "88%"}
+            outerRadius="72%"
           >
-            <PolarGrid stroke="#ffffff15" />
+            <PolarGrid stroke="#4ea8ff22" />
 
             <PolarAngleAxis
               dataKey="key"
               tick={{
-                fill: "#ffffffcc",
-                fontSize: 10,
+                fill: "#fff",
+                fontSize: 11,
               }}
             />
 
@@ -368,13 +330,12 @@ function RadarPanel({
                 dataKey={s.name}
                 stroke={s.color}
                 fill={s.color}
-                fillOpacity={0.14}
-                strokeWidth={2.5}
+                fillOpacity={0.15}
+                strokeWidth={2.4}
               />
             ))}
           </RadarChart>
         </div>
-
       </div>
     </div>
   );
