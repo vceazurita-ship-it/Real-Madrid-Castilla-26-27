@@ -84,19 +84,26 @@ function parseCSV(text: string): Row[] {
     rival: r[1] || "",
     tiempo: num(r[2]),
     minuto: num(r[3]),
+
     sacador: r[6] || "",
+
     tipoAccion: r[8] || "",
     perfilGolpeo: r[9] || "",
     tipoEnvio: r[10] || "",
     zonaCaida: r[11] || "",
-    tipoCarrera: r[16] || "",
+
+    tipoCarrera: r[17] || "",
+
     defensaRival: r[21] || "",
     debilidadRival: r[22] || "",
+
     remate: r[23] || "",
     rematador: r[24] || "",
     tipoRemate: r[25] || "",
     zonaRemate: r[26] || "",
+
     xg: num(r[27]),
+
     segundoBalon: r[28] || "",
     resultadoFinal: r[29] || "",
     rutina: r[30] || "",
@@ -210,28 +217,28 @@ export default function Page() {
   }, [filtered]);
 
   const tipoRemateData = useMemo(() => {
-    const grouped: Record<
-      string,
-      number
-    > = {};
+  const grouped: Record<string, number> = {};
 
-    filtered
-      .filter((r) => r.remate === "Sí")
-      .forEach((r) => {
-        const k =
-          r.tipoRemate || "Unknown";
+  filtered
+    .filter(
+      (r) =>
+        r.remate === "Sí" &&
+        r.tipoRemate &&
+        r.tipoRemate !== "No Remate" &&
+        r.tipoRemate !== "No aplica"
+    )
+    .forEach((r) => {
+      grouped[r.tipoRemate] =
+        (grouped[r.tipoRemate] || 0) + r.xg;
+    });
 
-        grouped[k] =
-          (grouped[k] || 0) + r.xg;
-      });
-
-    return Object.entries(grouped).map(
-      ([name, total]) => ({
-        name,
-        total: +total.toFixed(2),
-      })
-    );
-  }, [filtered]);
+  return Object.entries(grouped).map(
+    ([name, total]) => ({
+      name,
+      total: +total.toFixed(2),
+    })
+  );
+}, [filtered]);
 
   const timeline = Array.from(
     { length: 6 },
