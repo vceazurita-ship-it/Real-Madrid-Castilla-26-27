@@ -115,7 +115,7 @@ Rendimiento emocional               </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
-            </div>
+            
             <div
               className="rounded-[34px] p-6"
               style={{

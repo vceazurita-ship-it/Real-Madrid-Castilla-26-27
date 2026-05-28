@@ -26,7 +26,7 @@ Modelo de juego u21                </h1>
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
             </div>
-            </div>
+            
 
             {/* Power BI */}
             <div className="rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
