@@ -1,7 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+} from "react";
+
 import { createPortal } from "react-dom";
+
 import {
   Search,
   ChevronLeft,
@@ -13,6 +19,9 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
 const VISIBLE_CARDS = 4;
+
+const SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=787003064&single=true&output=csv";
 
 const DEFAULT_STRENGTH =
   "Buen rendimiento general en acciones clave del juego. Destaca por su capacidad de interpretar situaciones y competir con intensidad.";
@@ -32,14 +41,6 @@ const players = [
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_QUETGLAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    strengths:
-      "Buen juego aéreo y reflejos rápidos en acciones cercanas.",
-    improvements:
-      "Mejorar precisión en salida con el pie.",
-    strengthVideo:
-      "https://www.youtube.com/embed/ysz5S6PUM-U",
-    improvementVideo:
-      "https://www.youtube.com/embed/dQw4w9WgXcQ",
   },
 
   {
@@ -61,10 +62,6 @@ const players = [
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-    strengths:
-      "Portero con buenos reflejos y personalidad competitiva.",
-    improvements:
-      "Seguir mejorando juego aéreo y salida bajo presión.",
   },
 
   {
@@ -79,10 +76,6 @@ const players = [
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-    strengths:
-      "Buen posicionamiento y lectura defensiva.",
-    improvements:
-      "Seguir creciendo en salida de balón.",
   },
 
   {
@@ -233,12 +226,34 @@ const players = [
   },
 ];
 
+function parseCSV(text: string) {
+  const lines = text.trim().split("\n");
+
+  const headers = lines[0]
+    .split(",")
+    .map((h) => h.trim());
+
+  return lines.slice(1).map((line) => {
+    const values = line.split(",");
+
+    return headers.reduce(
+      (obj: any, header, i) => {
+        obj[header] =
+          values[i]?.trim() || "";
+        return obj;
+      },
+      {}
+    );
+  });
+}
+
 function CarouselRow({
   title,
   items,
   onSelect,
 }: any) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] =
+    useState(0);
 
   if (!items.length) return null;
 
@@ -336,36 +351,85 @@ export default function IndividualPage() {
   const [selected, setSelected] =
     useState<any>(null);
 
-  const filtered = useMemo(() => {
-    return players.filter((p) =>
-      p.name
-        .toLowerCase()
-        .includes(
-          search.toLowerCase()
+  const [sheetData, setSheetData] =
+    useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(SHEET_URL)
+      .then((res) => res.text())
+      .then((csv) =>
+        setSheetData(
+          parseCSV(csv)
         )
-    );
-  }, [search]);
+      )
+      .catch(console.error);
+  }, []);
+
+  const mergedPlayers =
+    useMemo(() => {
+      return players.map((p) => {
+        const row =
+          sheetData.find(
+            (r) =>
+              r.name?.trim() ===
+              p.name
+          ) || {};
+
+        return {
+          ...p,
+          strengths:
+            row.strengths ||
+            p.strengths,
+          improvements:
+            row.improvements ||
+            p.improvements,
+          strengthVideo:
+            row.strengthVideo ||
+            p.strengthVideo,
+          improvementVideo:
+            row.improvementVideo ||
+            p.improvementVideo,
+        };
+      });
+    }, [sheetData]);
+
+  const filtered =
+    useMemo(() => {
+      return mergedPlayers.filter(
+        (p) =>
+          p.name
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            )
+      );
+    }, [search, mergedPlayers]);
 
   const grouped = {
-    Porteros: filtered.filter(
-      (p) =>
-        p.position === "Portero"
-    ),
-    Defensas: filtered.filter(
-      (p) =>
-        p.position === "Defensa"
-    ),
+    Porteros:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Portero"
+      ),
+    Defensas:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Defensa"
+      ),
     Centrocampistas:
       filtered.filter(
         (p) =>
           p.position ===
           "Centrocampista"
       ),
-    Delanteros: filtered.filter(
-      (p) =>
-        p.position ===
-        "Delantero"
-    ),
+    Delanteros:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Delantero"
+      ),
   };
 
   return (
@@ -378,7 +442,6 @@ export default function IndividualPage() {
             <Topbar />
 
             <div className="p-10">
-
               <div className="mb-8">
                 <h1 className="text-4xl font-semibold">
                   Player Performance Ecosystem
@@ -405,26 +468,42 @@ export default function IndividualPage() {
               <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
                 <CarouselRow
                   title="Porteros"
-                  items={grouped.Porteros}
-                  onSelect={setSelected}
+                  items={
+                    grouped.Porteros
+                  }
+                  onSelect={
+                    setSelected
+                  }
                 />
 
                 <CarouselRow
                   title="Defensas"
-                  items={grouped.Defensas}
-                  onSelect={setSelected}
+                  items={
+                    grouped.Defensas
+                  }
+                  onSelect={
+                    setSelected
+                  }
                 />
 
                 <CarouselRow
                   title="Centrocampistas"
-                  items={grouped.Centrocampistas}
-                  onSelect={setSelected}
+                  items={
+                    grouped.Centrocampistas
+                  }
+                  onSelect={
+                    setSelected
+                  }
                 />
 
                 <CarouselRow
                   title="Delanteros"
-                  items={grouped.Delanteros}
-                  onSelect={setSelected}
+                  items={
+                    grouped.Delanteros
+                  }
+                  onSelect={
+                    setSelected
+                  }
                 />
               </div>
             </div>
@@ -458,22 +537,29 @@ export default function IndividualPage() {
               <div className="grid gap-8 md:grid-cols-[280px_1fr]">
                 <div>
                   <img
-                    src={selected.photo}
-                    alt={selected.name}
+                    src={
+                      selected.photo
+                    }
+                    alt={
+                      selected.name
+                    }
                     className="h-[360px] w-full rounded-2xl object-cover object-top"
                   />
 
                   <h2 className="mt-5 text-3xl font-semibold">
-                    {selected.name}
+                    {
+                      selected.name
+                    }
                   </h2>
 
                   <p className="mt-2 text-gray-400">
-                    {selected.position}
+                    {
+                      selected.position
+                    }
                   </p>
                 </div>
 
                 <div className="space-y-10">
-
                   <div>
                     <h3 className="mb-3 text-[#C8A96B]">
                       Fortalezas
