@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  useMemo,
-  useState,
-  useEffect,
-} from "react";
-
+import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-
 import {
   Search,
   ChevronLeft,
@@ -35,7 +29,17 @@ const DEFAULT_STRENGTH_VIDEO =
 const DEFAULT_IMPROVEMENT_VIDEO =
   "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
-const players = [
+type Player = {
+  name: string;
+  position: string;
+  photo: string;
+  strengths?: string;
+  improvements?: string;
+  strengthVideo?: string;
+  improvementVideo?: string;
+};
+
+const players: Player[] = [
   {
     name: "F. Quetglas",
     position: "Portero",
@@ -60,6 +64,7 @@ const players = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+
   {
     name: "A. Moya",
     position: "Defensa",
@@ -114,6 +119,7 @@ const players = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+
   {
     name: "Carlos",
     position: "Centrocampista",
@@ -174,6 +180,7 @@ const players = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+
   {
     name: "Álvaro Ginés",
     position: "Delantero",
@@ -200,39 +207,85 @@ const players = [
   },
 ];
 
+function normalize(text = "") {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function parseCSV(text: string) {
-  const lines = text.trim().split("\n");
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = "";
+  let inQuotes = false;
 
-  const headers = lines[0]
-    .split(",")
-    .map((h) => h.trim());
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
 
-  return lines.slice(1).map((line) => {
-    const values = line.split(",");
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        value += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      row.push(value.trim());
+      value = "";
+    } else if (
+      (char === "\n" || char === "\r") &&
+      !inQuotes
+    ) {
+      if (value || row.length) {
+        row.push(value.trim());
+        rows.push(row);
+        row = [];
+        value = "";
+      }
 
-    return headers.reduce(
-      (obj: any, header, i) => {
-        obj[header] =
-          values[i]?.trim() || "";
+      if (char === "\r" && next === "\n") {
+        i++;
+      }
+    } else {
+      value += char;
+    }
+  }
+
+  if (value || row.length) {
+    row.push(value.trim());
+    rows.push(row);
+  }
+
+  const headers = rows[0] || [];
+
+  return rows.slice(1).map((r) =>
+    headers.reduce(
+      (obj: Record<string, string>, h, i) => {
+        obj[h.trim()] = (r[i] || "").trim();
         return obj;
       },
       {}
-    );
-  });
+    )
+  );
 }
 
 function CarouselRow({
   title,
   items,
   onSelect,
-}: any) {
-  const [index, setIndex] =
-    useState(0);
+}: {
+  title: string;
+  items: Player[];
+  onSelect: (p: Player) => void;
+}) {
+  const [index, setIndex] = useState(0);
 
   if (!items.length) return null;
 
-  const canSlide =
-    items.length > VISIBLE_CARDS;
+  const canSlide = items.length > VISIBLE_CARDS;
 
   const visible = canSlide
     ? Array.from({
@@ -240,8 +293,7 @@ function CarouselRow({
       }).map(
         (_, i) =>
           items[
-            (index + i) %
-              items.length
+            (index + i) % items.length
           ]
       )
     : items;
@@ -249,7 +301,7 @@ function CarouselRow({
   return (
     <div className="mb-12">
       <div className="mb-5 flex items-center gap-4">
-        <h2 className="text-lg font-semibold tracking-wide">
+        <h2 className="text-lg font-semibold">
           {title}
         </h2>
 
@@ -287,7 +339,7 @@ function CarouselRow({
       </div>
 
       <div className="grid grid-cols-4 gap-5">
-        {visible.map((player: any) => (
+        {visible.map((player) => (
           <button
             key={player.name}
             onClick={() =>
@@ -299,7 +351,6 @@ function CarouselRow({
               <img
                 src={player.photo}
                 alt={player.name}
-                loading="lazy"
                 className="h-[150px] w-[120px] rounded-2xl object-cover object-top"
               />
             </div>
@@ -323,7 +374,7 @@ export default function IndividualPage() {
     useState("");
 
   const [selected, setSelected] =
-    useState<any>(null);
+    useState<Player | null>(null);
 
   const [sheetData, setSheetData] =
     useState<any[]>([]);
@@ -332,9 +383,7 @@ export default function IndividualPage() {
     fetch(SHEET_URL)
       .then((res) => res.text())
       .then((csv) =>
-        setSheetData(
-          parseCSV(csv)
-        )
+        setSheetData(parseCSV(csv))
       )
       .catch(console.error);
   }, []);
@@ -345,61 +394,54 @@ export default function IndividualPage() {
         const row =
           sheetData.find(
             (r) =>
-              r.name?.trim() ===
-              p.name.trim()
+              normalize(r.name) ===
+              normalize(p.name)
           ) || {};
 
         return {
           ...p,
           strengths:
-            row.strengths || "",
+            row.strengths ||
+            DEFAULT_STRENGTH,
           improvements:
-            row.improvements || "",
+            row.improvements ||
+            DEFAULT_IMPROVEMENT,
           strengthVideo:
-            row.strengthVideo || "",
+            row.strengthVideo ||
+            DEFAULT_STRENGTH_VIDEO,
           improvementVideo:
-            row.improvementVideo || "",
+            row.improvementVideo ||
+            DEFAULT_IMPROVEMENT_VIDEO,
         };
       });
     }, [sheetData]);
 
   const filtered =
-    useMemo(() => {
-      return mergedPlayers.filter(
-        (p) =>
-          p.name
-            .toLowerCase()
-            .includes(
-              search.toLowerCase()
-            )
-      );
-    }, [search, mergedPlayers]);
+    mergedPlayers.filter((p) =>
+      normalize(p.name).includes(
+        normalize(search)
+      )
+    );
 
   const grouped = {
-    Porteros:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Portero"
-      ),
-    Defensas:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Defensa"
-      ),
+    Porteros: filtered.filter(
+      (p) =>
+        p.position === "Portero"
+    ),
+    Defensas: filtered.filter(
+      (p) =>
+        p.position === "Defensa"
+    ),
     Centrocampistas:
       filtered.filter(
         (p) =>
           p.position ===
           "Centrocampista"
       ),
-    Delanteros:
-      filtered.filter(
-        (p) =>
-          p.position ===
-          "Delantero"
-      ),
+    Delanteros: filtered.filter(
+      (p) =>
+        p.position === "Delantero"
+    ),
   };
 
   return (
@@ -412,12 +454,10 @@ export default function IndividualPage() {
             <Topbar />
 
             <div className="p-10">
-              <div className="mb-8">
-                <h1 className="text-4xl font-semibold">
-                  Player Performance
-                  Ecosystem
-                </h1>
-              </div>
+              <h1 className="mb-8 text-4xl font-semibold">
+                Player Performance
+                Ecosystem
+              </h1>
 
               <div className="mb-8 max-w-md">
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
@@ -537,14 +577,14 @@ export default function IndividualPage() {
                     </h3>
 
                     <p className="mb-4 text-gray-300">
-                      {selected.strengths ||
-                        DEFAULT_STRENGTH}
+                      {
+                        selected.strengths
+                      }
                     </p>
 
                     <iframe
                       src={
-                        selected.strengthVideo ||
-                        DEFAULT_STRENGTH_VIDEO
+                        selected.strengthVideo
                       }
                       className="h-[260px] w-full rounded-2xl"
                       allowFullScreen
@@ -557,14 +597,14 @@ export default function IndividualPage() {
                     </h3>
 
                     <p className="mb-4 text-gray-300">
-                      {selected.improvements ||
-                        DEFAULT_IMPROVEMENT}
+                      {
+                        selected.improvements
+                      }
                     </p>
 
                     <iframe
                       src={
-                        selected.improvementVideo ||
-                        DEFAULT_IMPROVEMENT_VIDEO
+                        selected.improvementVideo
                       }
                       className="h-[260px] w-full rounded-2xl"
                       allowFullScreen
