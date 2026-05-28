@@ -1,373 +1,215 @@
-"use client";
+'use client'
 
-import { Sidebar } from "@/components/ui/sidebar";
-import { Topbar } from "@/components/ui/topbar";
-import { useEffect, useMemo, useState } from "react";
-import Papa from "papaparse";
+import { useMemo, useState } from 'react'
 import {
   RadarChart,
-  Radar,
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
-} from "recharts";
+  Radar,
+  ResponsiveContainer,
+  Tooltip,
+} from 'recharts'
+import data from '@/data/BASE_DATOS_ABP.json'
 
-const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=970113485&single=true&output=csv";
+const POSICIONES = ['Defensa', 'Medio campo', 'Delantera']
 
-type Player = {
-  posicion: string;
-  jugador: string;
-  ea: number;
-  ie: number;
-  ia: number;
-  ee: number;
-};
+const METRICAS = [
+  'Ataque xG',
+  'Finalización xG',
+  'Pases xA',
+  'Regates',
+  'Defensa',
+  'Construcción',
+]
 
-function num(v?: string) {
-  return Number(String(v || "").replace(",", ".")) || 0;
+function percentile(values: number[], v: number) {
+  const sorted = [...values].sort((a, b) => a - b)
+  const idx = sorted.findIndex((x) => x >= v)
+  if (idx === -1) return 100
+  return Math.round((idx / sorted.length) * 100)
 }
 
-function parseCSV(text: string): Player[] {
-  const parsed = Papa.parse<string[]>(text, {
-    header: false,
-    skipEmptyLines: false,
-  });
-
-  return parsed.data
-    .map((r) => ({
-      posicion: r[0]?.trim() || "",
-      jugador: r[1]?.trim() || "",
-      ea: num(r[2]),
-      ie: num(r[3]),
-      ia: num(r[4]),
-      ee: num(r[5]),
-    }))
-    .filter((r) => r.jugador);
+function getJugador(nombre: string) {
+  return data.find((j: any) => j.Jugador === nombre)
 }
 
-export default function EmotionPage() {
-  const [rows, setRows] = useState<Player[]>([]);
+function radarData(jugador: any) {
+  if (!jugador) return []
 
-  const [defense, setDefense] = useState<string[]>([]);
-  const [leftSide, setLeftSide] = useState<string[]>([]);
-  const [rightSide, setRightSide] = useState<string[]>([]);
-  const [midfield, setMidfield] = useState<string[]>([]);
-  const [strikers, setStrikers] = useState<string[]>([]);
+  return METRICAS.map((m) => {
+    const values = data
+      .filter((x: any) => x.Posición === jugador.Posición)
+      .map((x: any) => Number(x[m]) || 0)
 
-  useEffect(() => {
-    fetch(CSV_URL)
-      .then((r) => r.text())
-      .then((t) => {
-        const parsed = parseCSV(t);
+    return {
+      metrica: m,
+      valor: percentile(values, Number(jugador[m]) || 0),
+    }
+  })
+}
 
-        setRows(parsed);
+function nombresPorPosicion(pos: string) {
+  return data
+    .filter((j: any) => j.Posición === pos)
+    .map((j: any) => j.Jugador)
+    .sort()
+}
 
-        const byName = (name: string) =>
-          parsed.find((p) => p.jugador === name)?.jugador;
+function RadarJugador({
+  nombre,
+  color,
+}: {
+  nombre: string
+  color: string
+}) {
+  const jugador = getJugador(nombre)
+  const valores = radarData(jugador)
 
-        setDefense(
-          [
-            byName("Melvin"),
-            byName("Sotres"),
-            byName("Lezcano"),
-            byName("Ariel"),
-          ].filter(Boolean) as string[]
-        );
-
-        setLeftSide(
-          [byName("Sotres"), byName("Leiva")].filter(Boolean) as string[]
-        );
-
-        setRightSide(
-          [byName("Melvin"), byName("Mesonero")].filter(Boolean) as string[]
-        );
-
-        setMidfield(
-          [byName("Lacosta"), byName("Manex"), byName("Rober")].filter(
-            Boolean
-          ) as string[]
-        );
-
-        setStrikers(
-          [byName("Rober"), byName("Jacobo")].filter(Boolean) as string[]
-        );
-      });
-  }, []);
-
-  const names = useMemo(() => rows.map((r) => r.jugador), [rows]);
-
-  const getPlayer = (name: string) =>
-    rows.find((r) => r.jugador === name);
+  if (!jugador) return null
 
   return (
-    <main className="min-h-screen bg-[#050B12] text-white">
-      <div className="flex">
-        <Sidebar />
+    <div className="bg-white rounded-2xl shadow p-5 h-[430px] flex flex-col">
+      <div className="mb-3">
+        <h2 className="text-xl font-semibold">{nombre}</h2>
+        <p className="text-sm text-gray-500">{jugador.Posición}</p>
+      </div>
 
-        <div className="flex-1">
-          <Topbar />
+      <div className="flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={valores}>
+            <PolarGrid />
+            <PolarAngleAxis
+              dataKey="metrica"
+              tick={{ fontSize: 12 }}
+            />
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, 100]}
+              tick={false}
+            />
+            <Radar
+              dataKey="valor"
+              stroke={color}
+              fill={color}
+              fillOpacity={0.35}
+            />
+            <Tooltip />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
 
-          <section className="px-8 py-8">
-            <div className="mb-6">
-              <p className="text-xs tracking-[0.35em] uppercase text-[#C8A96B]">
-                Emotional Intelligence
-              </p>
+function BloquePosicion({ posicion }: { posicion: string }) {
+  const jugadores = nombresPorPosicion(posicion)
+  const [nombre, setNombre] = useState(jugadores[0] || '')
 
-              <h1 className="mt-2 text-3xl font-semibold">
-                Emotional Dynamics Ecosystem
-              </h1>
-            </div>
+  const jugador = getJugador(nombre)
+  const valores = radarData(jugador)
 
-            <div
-              className="relative rounded-[28px] border border-white/10 p-8 min-h-[82vh] overflow-hidden bg-[#071018] bg-cover bg-center bg-no-repeat"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
-              }}
+  return (
+    <div className="bg-white rounded-2xl shadow px-5 pt-4 pb-3 h-[420px] flex flex-col">
+      <div className="mb-2">
+        <h3 className="text-lg font-semibold">{posicion}</h3>
+      </div>
+
+      <div className="mb-2">
+        <select
+          className="w-full rounded-lg border px-3 py-2 text-sm"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+        >
+          {jugadores.map((j) => (
+            <option key={j}>{j}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={valores}>
+            <PolarGrid />
+            <PolarAngleAxis
+              dataKey="metrica"
+              tick={{ fontSize: 11 }}
+            />
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, 100]}
+              tick={false}
+            />
+            <Radar
+              dataKey="valor"
+              stroke="#2563eb"
+              fill="#2563eb"
+              fillOpacity={0.3}
+            />
+            <Tooltip />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+export default function Page() {
+  const defensas = nombresPorPosicion('Defensa')
+  const [izquierda, setIzquierda] = useState(defensas[0] || '')
+  const [derecha, setDerecha] = useState(defensas[1] || '')
+
+  return (
+    <main className="min-h-screen bg-slate-100 p-6">
+      <div className="mx-auto max-w-[1700px] space-y-6">
+
+        {/* perfiles superiores */}
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <select
+              className="mb-3 w-full rounded-lg border px-3 py-2"
+              value={izquierda}
+              onChange={(e) => setIzquierda(e.target.value)}
             >
-              <div className="flex flex-col gap-6">
+              {defensas.map((j) => (
+                <option key={j}>{j}</option>
+              ))}
+            </select>
 
-                <RadarPanel
-                  horizontal
-                  title="Perfil izquierdo"
-                  width="100%"
-                  height={220}
-                  radarSize={180}
-                  players={names}
-                  selected={leftSide}
-                  onChange={setLeftSide}
-                  getPlayer={getPlayer}
-                />
+            <RadarJugador
+              nombre={izquierda}
+              color="#2563eb"
+            />
+          </div>
 
-                <div className="grid grid-cols-3 gap-6">
+          <div>
+            <select
+              className="mb-3 w-full rounded-lg border px-3 py-2"
+              value={derecha}
+              onChange={(e) => setDerecha(e.target.value)}
+            >
+              {defensas.map((j) => (
+                <option key={j}>{j}</option>
+              ))}
+            </select>
 
-                  <RadarPanel
-                    title="Defensa"
-                    width="100%"
-                    height={380}
-                    radarSize={240}
-                    players={names}
-                    selected={defense}
-                    onChange={setDefense}
-                    getPlayer={getPlayer}
-                  />
+            <RadarJugador
+              nombre={derecha}
+              color="#dc2626"
+            />
+          </div>
+        </div>
 
-                  <RadarPanel
-                    title="Mediocampo"
-                    width="100%"
-                    height={380}
-                    radarSize={240}
-                    players={names}
-                    selected={midfield}
-                    onChange={setMidfield}
-                    getPlayer={getPlayer}
-                  />
-
-                  <RadarPanel
-                    title="Puntas / Delanteros"
-                    width="100%"
-                    height={380}
-                    radarSize={240}
-                    players={names}
-                    selected={strikers}
-                    onChange={setStrikers}
-                    getPlayer={getPlayer}
-                  />
-
-                </div>
-
-                <RadarPanel
-                  horizontal
-                  title="Perfil derecho"
-                  width="100%"
-                  height={220}
-                  radarSize={180}
-                  players={names}
-                  selected={rightSide}
-                  onChange={setRightSide}
-                  getPlayer={getPlayer}
-                />
-
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-4">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[11px] leading-relaxed">
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Externo · Amplio
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Observación / Lectura · Antes de intervenir
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Externo · Estrecho
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Ejecución de acción (1v1) · Participación
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Interno · Amplio
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Análisis / Reflexión · Juego parado
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold uppercase tracking-[0.16em] text-[#E6C37A]">
-                    Interno · Estrecho
-                  </div>
-                  <div className="mt-1 text-white/60">
-                    Control emocional · Adversidad
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </section>
+        {/* línea inferior */}
+        <div className="grid grid-cols-3 gap-6">
+          {POSICIONES.map((p) => (
+            <BloquePosicion
+              key={p}
+              posicion={p}
+            />
+          ))}
         </div>
       </div>
     </main>
-  );
-}
-
-function RadarPanel({
-  title,
-  players,
-  selected,
-  onChange,
-  getPlayer,
-  width,
-  height,
-  radarSize,
-  horizontal = false,
-}: any) {
-  const colors = [
-    "#C8A96B",
-    "#38BDF8",
-    "#A855F7",
-    "#22C55E",
-    "#F43F5E",
-  ];
-
-  const fallbackSelected =
-    selected.length > 0
-      ? selected
-      : players.slice(0, horizontal ? 2 : 4);
-
-  const radarSeries = fallbackSelected
-    .map((name: string, index: number) => ({
-      name,
-      color: colors[index % colors.length],
-      values: getPlayer(name),
-    }))
-    .filter((s: any) => s.values);
-
-  const chartData = [
-    { key: "E.A." },
-    { key: "I.E." },
-    { key: "I.A." },
-    { key: "E.E." },
-  ].map((axis, i) => {
-    const row: any = { key: axis.key };
-
-    radarSeries.forEach((s: any) => {
-      const vals = [
-        s.values.ea,
-        s.values.ie,
-        s.values.ia,
-        s.values.ee,
-      ];
-
-      row[s.name] = vals[i];
-    });
-
-    return row;
-  });
-
-  return (
-    <div
-      className="rounded-3xl border border-white/10 bg-white/[0.03] p-4"
-      style={{ width, height }}
-    >
-      <div className="mb-3 flex justify-between">
-        <h3 className="text-sm font-semibold uppercase text-[#E6C37A]">
-          {title}
-        </h3>
-
-        <span className="text-[11px] text-white/45">
-          {selected.length}
-        </span>
-      </div>
-
-      <div className="flex gap-4 items-center h-full">
-
-        <select
-          multiple
-          value={selected}
-          onChange={(e) =>
-            onChange(
-              Array.from(e.target.selectedOptions).map(
-                (o) => o.value
-              )
-            )
-          }
-          className="w-[130px] h-[165px] rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white"
-        >
-          {players.map((name: string) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-
-        <div className="flex-1 flex justify-center items-center">
-          <RadarChart
-            width={radarSize}
-            height={radarSize}
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            outerRadius="72%"
-          >
-            <PolarGrid stroke="#ffffff15" />
-
-            <PolarAngleAxis
-              dataKey="key"
-              tick={{
-                fill: "#ffffffcc",
-                fontSize: 10,
-              }}
-            />
-
-            <PolarRadiusAxis
-              domain={[0, 10]}
-              tick={false}
-              axisLine={false}
-            />
-
-            {radarSeries.map((s: any) => (
-              <Radar
-                key={s.name}
-                dataKey={s.name}
-                stroke={s.color}
-                fill={s.color}
-                fillOpacity={0.14}
-                strokeWidth={2.5}
-              />
-            ))}
-          </RadarChart>
-        </div>
-
-      </div>
-    </div>
-  );
+  )
 }
