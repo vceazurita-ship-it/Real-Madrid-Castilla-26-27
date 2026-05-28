@@ -16,10 +16,32 @@ import {
   CartesianGrid,
   AreaChart,
   Area,
+  ComposedChart,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=0&single=true&output=csv";
+
+const COLORS = {
+  gold: "#C8A96B",
+  blue: "#3B82F6",
+  purple: "#8B5CF6",
+  green: "#10B981",
+  gray: "#64748B",
+};
+
+const PIE_COLORS = [
+  "#C8A96B",
+  "#3B82F6",
+  "#8B5CF6",
+  "#10B981",
+  "#F97316",
+  "#EC4899",
+];
 
 type Row = {
   contenidoPrincipal: string;
@@ -81,24 +103,17 @@ function parseCSV(text: string): Row[] {
       temporada: r[0] || "",
       micro: num(r[1]),
       rival: r[2] || "",
-
       md: normalizeMD(r[4]),
       fecha: r[5] || "",
       tarea: r[6] || "",
       tipo: r[7] || "",
-
       evaluacion: num(r[8]),
-
       analisisPost: r[9] || "",
       contenidoPrincipal: r[14] || "",
       contenidoSecundario: r[15] || "",
-
       fase: r[16] || "",
-
       intensidad: num(r[18]),
-
       carga: num(r[19]),
-
       cargaCog: num(r[21]),
     }))
     .filter(
@@ -144,17 +159,14 @@ export default function Page() {
         .map((r) => r.evaluacion)
         .filter((n) => n > 0)
     ),
-
     load: filtered.reduce(
       (a, b) => a + b.carga,
       0
     ),
-
     cog: filtered.reduce(
       (a, b) => a + b.cargaCog,
       0
     ),
-
     tasks: filtered.length,
   };
 
@@ -177,12 +189,10 @@ export default function Page() {
         (a, b) => a + b.carga,
         0
       ),
-
       cargaCog: set.reduce(
         (a, b) => a + b.cargaCog,
         0
       ),
-
       intensidad: avg(
         set.map((r) => r.intensidad)
       ),
@@ -211,13 +221,11 @@ export default function Page() {
 
     return {
       micro: `M${m}`,
-
       eval: avg(
         set
           .map((r) => r.evaluacion)
           .filter((n) => n > 0)
       ),
-
       load: set.reduce(
         (a, b) => a + b.carga,
         0
@@ -232,17 +240,14 @@ export default function Page() {
     > = {};
 
     filtered.forEach((r) => {
-      const key =
-        r.tipo || "Unknown";
+      const key = r.tipo || "Unknown";
 
       if (!grouped[key]) {
         grouped[key] = [];
       }
 
       if (r.evaluacion > 0) {
-        grouped[key].push(
-          r.evaluacion
-        );
+        grouped[key].push(r.evaluacion);
       }
     });
 
@@ -276,42 +281,37 @@ export default function Page() {
     }));
   }, [filtered]);
 
-  const analysisData =
-    useMemo(() => {
-      const grouped:
-        Record<
-          string,
-          number[]
-        > = {};
+  const analysisData = useMemo(() => {
+    const grouped: Record<
+      string,
+      number[]
+    > = {};
 
-      filtered.forEach((r) => {
-        const key =
-          r.analisisPost ||
-          "No Analysis";
+    filtered.forEach((r) => {
+      const key =
+        r.analisisPost ||
+        "No Analysis";
 
-        if (!grouped[key]) {
-          grouped[key] = [];
-        }
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
 
-        if (
-          r.evaluacion > 0
-        ) {
-          grouped[key].push(
-            r.evaluacion
-          );
-        }
-      });
+      if (r.evaluacion > 0) {
+        grouped[key].push(
+          r.evaluacion
+        );
+      }
+    });
 
-      return Object.entries(
-        grouped
-      ).map(
-        ([name, vals]) => ({
-          name,
-          eval: avg(vals),
-        })
-      );
-    }, [filtered]);
-    const contenidoPrincipalData =
+    return Object.entries(
+      grouped
+    ).map(([name, vals]) => ({
+      name,
+      eval: avg(vals),
+    }));
+  }, [filtered]);
+
+  const contenidoPrincipalData =
     useMemo(() => {
       const grouped: Record<
         string,
@@ -336,12 +336,10 @@ export default function Page() {
 
       return Object.entries(
         grouped
-      ).map(
-        ([name, vals]) => ({
-          name,
-          eval: avg(vals),
-        })
-      );
+      ).map(([name, vals]) => ({
+        name,
+        eval: avg(vals),
+      }));
     }, [filtered]);
 
   const contenidoSecundarioData =
@@ -369,12 +367,10 @@ export default function Page() {
 
       return Object.entries(
         grouped
-      ).map(
-        ([name, vals]) => ({
-          name,
-          eval: avg(vals),
-        })
-      );
+      ).map(([name, vals]) => ({
+        name,
+        eval: avg(vals),
+      }));
     }, [filtered]);
 
   return (
@@ -387,9 +383,7 @@ export default function Page() {
 
           <section className="p-10">
             <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
-
               <div className="flex items-center justify-between">
-
                 <h1 className="text-5xl font-semibold">
                   Microcycle Intelligence
                 </h1>
@@ -407,47 +401,36 @@ export default function Page() {
                     All Microcycles
                   </option>
 
-                  {micros.map(
-                    (m) => (
-                      <option
-                        key={m}
-                        value={m}
-                      >
-                        Micro {m}
-                      </option>
-                    )
-                  )}
+                  {micros.map((m) => (
+                    <option
+                      key={m}
+                      value={m}
+                    >
+                      Micro {m}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div className="grid grid-cols-4 gap-5 mt-10">
-
                 <Card
                   title="Avg Eval"
-                  value={
-                    metrics.eval
-                  }
+                  value={metrics.eval}
                 />
 
                 <Card
                   title="Physical Load"
-                  value={
-                    metrics.load
-                  }
+                  value={metrics.load}
                 />
 
                 <Card
                   title="Cognitive Load"
-                  value={
-                    metrics.cog
-                  }
+                  value={metrics.cog}
                 />
 
                 <Card
                   title="Tasks"
-                  value={
-                    metrics.tasks
-                  }
+                  value={metrics.tasks}
                 />
               </div>
             </div>
@@ -456,32 +439,47 @@ export default function Page() {
 
               <Panel title="Load by MD">
                 <Chart>
-                  <BarChart
-                    data={mdData}
-                  >
+                  <ComposedChart data={mdData}>
+                    <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="md" />
                     <YAxis />
                     <Tooltip />
+                    <Legend />
+
                     <Bar
                       dataKey="carga"
-                      fill="#C8A96B"
+                      fill={COLORS.gold}
+                      radius={[8, 8, 0, 0]}
                     />
-                  </BarChart>
+
+                    <Bar
+                      dataKey="cargaCog"
+                      fill={COLORS.blue}
+                      radius={[8, 8, 0, 0]}
+                    />
+
+                    <Line
+                      dataKey="intensidad"
+                      stroke={COLORS.purple}
+                      strokeWidth={3}
+                    />
+                  </ComposedChart>
                 </Chart>
               </Panel>
 
               <Panel title="Cognitive Load">
                 <Chart>
-                  <AreaChart
-                    data={mdData}
-                  >
+                  <AreaChart data={mdData}>
+                    <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="md" />
                     <YAxis />
                     <Tooltip />
+
                     <Area
                       dataKey="cargaCog"
-                      fill="#64748B"
-                      stroke="#64748B"
+                      stroke={COLORS.gray}
+                      fill={COLORS.gray}
+                      fillOpacity={0.25}
                     />
                   </AreaChart>
                 </Chart>
@@ -489,35 +487,39 @@ export default function Page() {
 
               <Panel title="Evaluation Trend">
                 <Chart>
-                  <LineChart
-                    data={
-                      trendData
-                    }
-                  >
+                  <AreaChart data={trendData}>
                     <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="micro" />
                     <YAxis />
                     <Tooltip />
+
+                    <Area
+                      dataKey="value"
+                      fill={COLORS.gold}
+                      fillOpacity={0.2}
+                    />
+
                     <Line
                       dataKey="value"
-                      stroke="#C8A96B"
+                      stroke={COLORS.gold}
                       strokeWidth={3}
                     />
-                  </LineChart>
+                  </AreaChart>
                 </Chart>
               </Panel>
 
               <Panel title="Intensity by MD">
                 <Chart>
-                  <BarChart
-                    data={mdData}
-                  >
+                  <BarChart data={mdData}>
+                    <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="md" />
                     <YAxis />
                     <Tooltip />
+
                     <Bar
                       dataKey="intensidad"
-                      fill="#8B5CF6"
+                      fill={COLORS.purple}
+                      radius={[8, 8, 0, 0]}
                     />
                   </BarChart>
                 </Chart>
@@ -525,72 +527,82 @@ export default function Page() {
 
               <Panel title="Microcycle Comparison">
                 <Chart>
-                  <BarChart
-                    data={
-                      compareData
-                    }
+                  <ComposedChart
+                    data={compareData}
                   >
+                    <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="micro" />
                     <YAxis />
                     <Tooltip />
+                    <Legend />
+
                     <Bar
-                      dataKey="eval"
-                      fill="#C8A96B"
+                      dataKey="load"
+                      fill={COLORS.blue}
+                      radius={[8, 8, 0, 0]}
                     />
-                  </BarChart>
+
+                    <Line
+                      dataKey="eval"
+                      stroke={COLORS.gold}
+                      strokeWidth={3}
+                    />
+                  </ComposedChart>
                 </Chart>
               </Panel>
 
-              <Panel title="Load Evolution">
+              <Panel title="Phase Distribution">
                 <Chart>
-                  <AreaChart
-                    data={
-                      compareData
-                    }
-                  >
-                    <XAxis dataKey="micro" />
-                    <YAxis />
+                  <PieChart>
                     <Tooltip />
-                    <Area
-                      dataKey="load"
-                      fill="#2563EB"
-                      stroke="#2563EB"
-                    />
-                  </AreaChart>
+
+                    <Pie
+                      data={phaseData}
+                      dataKey="total"
+                      nameKey="fase"
+                      innerRadius={55}
+                      outerRadius={110}
+                    >
+                      {phaseData.map(
+                        (_, i) => (
+                          <Cell
+                            key={i}
+                            fill={
+                              PIE_COLORS[
+                                i %
+                                  PIE_COLORS.length
+                              ]
+                            }
+                          />
+                        )
+                      )}
+                    </Pie>
+                  </PieChart>
                 </Chart>
               </Panel>
 
               <Panel title="Evaluation by Task Type">
                 <Chart>
                   <BarChart
-                    data={
-                      taskEvalData
-                    }
+                    data={taskEvalData}
+                    layout="vertical"
                   >
-                    <XAxis dataKey="tipo" />
-                    <YAxis />
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="tipo"
+                      width={120}
+                    />
+
                     <Tooltip />
+
                     <Bar
                       dataKey="eval"
-                      fill="#C8A96B"
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
-
-              <Panel title="Phase Distribution">
-                <Chart>
-                  <BarChart
-                    data={
-                      phaseData
-                    }
-                  >
-                    <XAxis dataKey="fase" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar
-                      dataKey="total"
-                      fill="#2563EB"
+                      fill={COLORS.gold}
+                      radius={[0, 8, 8, 0]}
                     />
                   </BarChart>
                 </Chart>
@@ -599,33 +611,54 @@ export default function Page() {
               <Panel title="Post Analysis Impact">
                 <Chart>
                   <BarChart
-                    data={
-                      analysisData
-                    }
+                    data={analysisData}
+                    layout="vertical"
                   >
-                    <XAxis dataKey="name" />
-                    <YAxis />
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                    />
+
                     <Tooltip />
+
                     <Bar
                       dataKey="eval"
-                      fill="#8B5CF6"
+                      fill={COLORS.purple}
+                      radius={[0, 8, 8, 0]}
                     />
                   </BarChart>
                 </Chart>
               </Panel>
-                            <Panel title="Evaluation by Main Content">
+
+              <Panel title="Evaluation by Main Content">
                 <Chart>
                   <BarChart
                     data={
                       contenidoPrincipalData
                     }
+                    layout="vertical"
                   >
-                    <XAxis dataKey="name" />
-                    <YAxis />
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                    />
+
                     <Tooltip />
+
                     <Bar
                       dataKey="eval"
-                      fill="#C8A96B"
+                      fill={COLORS.gold}
+                      radius={[0, 8, 8, 0]}
                     />
                   </BarChart>
                 </Chart>
@@ -637,13 +670,24 @@ export default function Page() {
                     data={
                       contenidoSecundarioData
                     }
+                    layout="vertical"
                   >
-                    <XAxis dataKey="name" />
-                    <YAxis />
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                    />
+
                     <Tooltip />
+
                     <Bar
                       dataKey="eval"
-                      fill="#2563EB"
+                      fill={COLORS.blue}
+                      radius={[0, 8, 8, 0]}
                     />
                   </BarChart>
                 </Chart>
@@ -663,7 +707,7 @@ function Chart({
   return (
     <ResponsiveContainer
       width="100%"
-      height={300}
+      height={320}
     >
       {children}
     </ResponsiveContainer>
@@ -692,7 +736,7 @@ function Panel({
   children,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-xl">
       <h2 className="mb-6 text-2xl font-semibold">
         {title}
       </h2>
