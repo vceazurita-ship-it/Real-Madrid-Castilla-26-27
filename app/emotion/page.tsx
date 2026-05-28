@@ -117,8 +117,6 @@ export default function EmotionPage() {
               <h1 className="mt-2 text-3xl font-semibold">
                 Emotional Dynamics Ecosystem
               </h1>
-
-              <div className="mt-6 grid grid-cols-2 gap-5"></div>
             </div>
 
             <div
@@ -126,25 +124,30 @@ export default function EmotionPage() {
               style={{
                 backgroundImage:
                   "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
-                backgroundPosition: "center center",
               }}
             >
-              <div className="flex gap-6 items-center h-full">
+              <div className="flex gap-6 items-stretch h-full">
+
                 <RadarPanel
-                  compact
+                  sideSelect
                   title="Defensa"
-                  width={350}
+                  width={420}
+                  height={520}
+                  radarSize={280}
                   players={names}
                   selected={defense}
                   onChange={setDefense}
                   getPlayer={getPlayer}
                 />
 
-                <div className="flex flex-col gap-6">
+                <div className="flex-1 flex flex-col justify-between gap-6">
+
                   <RadarPanel
                     horizontal
                     title="Perfil izquierdo"
-                    width={350}
+                    width="100%"
+                    height={240}
+                    radarSize={200}
                     players={names}
                     selected={leftSide}
                     onChange={setLeftSide}
@@ -154,7 +157,9 @@ export default function EmotionPage() {
                   <RadarPanel
                     horizontal
                     title="Perfil derecho"
-                    width={350}
+                    width="100%"
+                    height={240}
+                    radarSize={200}
                     players={names}
                     selected={rightSide}
                     onChange={setRightSide}
@@ -163,8 +168,11 @@ export default function EmotionPage() {
                 </div>
 
                 <RadarPanel
+                  sideSelect
                   title="Mediocampo"
-                  width={350}
+                  width={420}
+                  height={520}
+                  radarSize={280}
                   players={names}
                   selected={midfield}
                   onChange={setMidfield}
@@ -172,13 +180,17 @@ export default function EmotionPage() {
                 />
 
                 <RadarPanel
+                  sideSelect
                   title="Puntas / Delanteros"
-                  width={350}
+                  width={420}
+                  height={520}
+                  radarSize={280}
                   players={names}
                   selected={strikers}
                   onChange={setStrikers}
                   getPlayer={getPlayer}
                 />
+
               </div>
             </div>
 
@@ -221,6 +233,7 @@ export default function EmotionPage() {
                 </div>
               </div>
             </div>
+
           </section>
         </div>
       </div>
@@ -235,8 +248,10 @@ function RadarPanel({
   onChange,
   getPlayer,
   width,
-  compact = false,
+  height,
+  radarSize,
   horizontal = false,
+  sideSelect = false,
 }: any) {
   const colors = [
     "#C8A96B",
@@ -281,12 +296,10 @@ function RadarPanel({
     return row;
   });
 
-  const chartSize = 200;
-
   return (
     <div
       className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-[2px] p-4"
-      style={{ width }}
+      style={{ width, height }}
     >
       <div className="mb-3 flex justify-between">
         <h3 className="text-sm font-semibold uppercase text-[#E6C37A]">
@@ -298,7 +311,8 @@ function RadarPanel({
         </span>
       </div>
 
-      <div className={horizontal ? "flex gap-4 items-start" : ""}>
+      <div className="flex gap-4 items-center h-full">
+
         <select
           multiple
           value={selected}
@@ -309,11 +323,7 @@ function RadarPanel({
               )
             )
           }
-          className={
-            horizontal
-              ? "w-[130px] h-[210px] rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm px-2 py-2 text-xs text-white"
-              : "w-full h-[145px] rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-sm px-2 py-2 text-xs text-white mb-4"
-          }
+          className="w-[130px] h-full rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white"
         >
           {players.map((name: string) => (
             <option key={name} value={name}>
@@ -322,20 +332,14 @@ function RadarPanel({
           ))}
         </select>
 
-        <div
-          className={
-            horizontal
-              ? "flex-1 flex justify-center"
-              : "flex justify-center"
-          }
-        >
+        <div className="flex-1 flex justify-center items-center">
           <RadarChart
-            width={chartSize}
-            height={chartSize}
+            width={radarSize}
+            height={radarSize}
             data={chartData}
             cx="50%"
             cy="50%"
-            outerRadius="70%"
+            outerRadius="72%"
           >
             <PolarGrid stroke="#ffffff15" />
 
@@ -365,6 +369,7 @@ function RadarPanel({
             ))}
           </RadarChart>
         </div>
+
       </div>
     </div>
   );
