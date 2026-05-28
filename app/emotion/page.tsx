@@ -126,14 +126,14 @@ export default function EmotionPage() {
                   "linear-gradient(rgba(7,16,24,.82), rgba(7,16,24,.82)), url('/emotional-field-bg.png')",
               }}
             >
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4">
 
                 <RadarPanel
                   horizontal
                   title="Perfil izquierdo"
                   width="100%"
-                  height={255}
-                  radarSize={210}
+                  height={240}
+                  radarSize={250}
                   players={names}
                   selected={leftSide}
                   onChange={setLeftSide}
@@ -145,8 +145,8 @@ export default function EmotionPage() {
                   <RadarPanel
                     title="Defensa"
                     width="100%"
-                    height={380}
-                    radarSize={240}
+                    height={360}
+                    radarSize={255}
                     players={names}
                     selected={defense}
                     onChange={setDefense}
@@ -157,8 +157,8 @@ export default function EmotionPage() {
                   <RadarPanel
                     title="Mediocampo"
                     width="100%"
-                    height={380}
-                    radarSize={240}
+                    height={360}
+                    radarSize={255}
                     players={names}
                     selected={midfield}
                     onChange={setMidfield}
@@ -169,8 +169,8 @@ export default function EmotionPage() {
                   <RadarPanel
                     title="Puntas / Delanteros"
                     width="100%"
-                    height={380}
-                    radarSize={240}
+                    height={360}
+                    radarSize={255}
                     players={names}
                     selected={strikers}
                     onChange={setStrikers}
@@ -184,8 +184,8 @@ export default function EmotionPage() {
                   horizontal
                   title="Perfil derecho"
                   width="100%"
-                  height={255}
-                  radarSize={210}
+                  height={240}
+                  radarSize={250}
                   players={names}
                   selected={rightSide}
                   onChange={setRightSide}
@@ -300,11 +300,11 @@ function RadarPanel({
   return (
     <div
       className={`rounded-3xl border border-white/10 bg-white/[0.03] ${
-        compact ? "px-4 pt-3 pb-2" : "p-4"
+        compact ? "px-3 pt-2 pb-1" : "px-4 py-3"
       }`}
       style={{ width, height }}
     >
-      <div className={`${compact ? "mb-2" : "mb-3"} flex justify-between`}>
+      <div className={`${compact ? "mb-1" : "mb-2"} flex justify-between`}>
         <h3 className="text-sm font-semibold uppercase text-[#E6C37A]">
           {title}
         </h3>
@@ -314,7 +314,7 @@ function RadarPanel({
         </span>
       </div>
 
-      <div className="flex gap-4 items-center h-full">
+      <div className="flex gap-3 items-center h-full">
 
         <select
           multiple
@@ -327,7 +327,7 @@ function RadarPanel({
             )
           }
           className={`w-[130px] ${
-            horizontal ? "h-[185px]" : "h-[165px]"
+            horizontal ? "h-[180px]" : "h-[165px]"
           } rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-xs text-white`}
         >
           {players.map((name: string) => (
@@ -337,14 +337,14 @@ function RadarPanel({
           ))}
         </select>
 
-        <div className="flex-1 flex justify-center items-center">
+        <div className="flex-1 flex justify-center items-center h-full">
           <RadarChart
-            width={radarSize}
+            width={horizontal ? radarSize + 80 : radarSize}
             height={radarSize}
             data={chartData}
             cx="50%"
             cy="50%"
-            outerRadius="72%"
+            outerRadius="82%"
           >
             <PolarGrid stroke="#ffffff15" />
 
