@@ -70,7 +70,7 @@ export function Sidebar() {
               Inicio
             </p>
 
-            {navLink("/", "Resumen")}
+            {navLink("/", "Real Madrid C")}
           </div>
 
           {/* INDIVIDUAL */}
