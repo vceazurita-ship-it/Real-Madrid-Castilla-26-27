@@ -385,7 +385,7 @@ export default function Page() {
             <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
               <div className="flex items-center justify-between">
                 <h1 className="text-5xl font-semibold">
-                  Microcycle Intelligence
+                  Microciclos
                 </h1>
 
                 <select

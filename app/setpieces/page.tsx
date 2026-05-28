@@ -310,7 +310,7 @@ export default function Page() {
               <div className="flex items-center justify-between">
 
                 <h1 className="text-5xl font-semibold">
-                  Set Piece Intelligence
+                  Acciones a balón parado
                 </h1>
 
                 <select

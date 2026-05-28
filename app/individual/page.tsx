@@ -455,8 +455,7 @@ export default function IndividualPage() {
 
             <div className="p-10">
               <h1 className="mb-8 text-4xl font-semibold">
-                Player Performance
-                Ecosystem
+                Rendimiento individual
               </h1>
 
               <div className="mb-8 max-w-md">

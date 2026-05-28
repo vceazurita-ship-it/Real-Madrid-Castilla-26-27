@@ -21,7 +21,7 @@ export default function IndividualPage() {
 
               <div className="mt-4 flex items-center gap-5">
                 <h1 className="text-4xl font-semibold tracking-tight">
-                 Sinergy Performance Ecosystem
+                 Sinergias
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />

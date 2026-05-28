@@ -109,6 +109,13 @@ export default function EmotionPage() {
           <Topbar />
 
           <section className="px-8 py-8">
+           <div className="mt-4 flex items-center gap-5">
+                <h1 className="text-4xl font-semibold tracking-tight">
+Rendimiento emocional               </h1>
+
+                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+              </div>
+            </div>
             <div
               className="rounded-[34px] p-6"
               style={{

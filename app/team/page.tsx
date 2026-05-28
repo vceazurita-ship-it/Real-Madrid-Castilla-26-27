@@ -21,11 +21,11 @@ export default function IndividualPage() {
 
               <div className="mt-4 flex items-center gap-5">
                 <h1 className="text-4xl font-semibold tracking-tight">
-                 Team Performance Ecosystem
-                </h1>
+Rendimiento colectivo               </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
+            </div>
             </div>
 
             {/* Power BI */}
