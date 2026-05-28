@@ -92,7 +92,7 @@ export default function Home() {
                     "Team Performance",
                   ],
                   [
-                    "/methodology",
+                    "/microcycles",
                     "Methodology",
                     "Training Intelligence",
                   ],
