@@ -110,22 +110,19 @@ export default function EmotionPage() {
 
           <section className="px-8 py-8">
             <div
-              className="rounded-[34px] border border-[#183044]
-              bg-gradient-to-b from-[#07101B] to-[#040B13]
-              p-6 shadow-[inset_0_0_80px_rgba(0,90,150,.12)]"
+              className="rounded-[34px]
+              border border-[#183044]
+              p-6
+              bg-[#08131F]
+              shadow-[inset_0_0_80px_rgba(0,90,150,.12)]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(5,14,24,.72), rgba(5,14,24,.72)), url('/emotional-field-bg.png')",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
             >
-              <div
-                className="rounded-[28px]
-                border border-white/6
-                bg-[#06111B]
-                p-5
-                space-y-4"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(5,14,24,.84), rgba(5,14,24,.84)), url('/emotional-field-bg.png')",
-                  backgroundSize: "cover",
-                }}
-              >
+              <div className="space-y-4">
                 <RadarPanel
                   horizontal
                   title="Perfil izquierdo"
@@ -142,7 +139,6 @@ export default function EmotionPage() {
                     selected={defense}
                     onChange={setDefense}
                     getPlayer={getPlayer}
-                    compact
                   />
 
                   <RadarPanel
@@ -151,7 +147,6 @@ export default function EmotionPage() {
                     selected={midfield}
                     onChange={setMidfield}
                     getPlayer={getPlayer}
-                    compact
                   />
 
                   <RadarPanel
@@ -160,7 +155,6 @@ export default function EmotionPage() {
                     selected={strikers}
                     onChange={setStrikers}
                     getPlayer={getPlayer}
-                    compact
                   />
                 </div>
 
@@ -183,7 +177,7 @@ export default function EmotionPage() {
                 ].map((t) => (
                   <div
                     key={t}
-                    className="rounded-2xl border border-white/8 bg-[#08131F]/90 px-4 py-4"
+                    className="rounded-2xl border border-white/8 bg-[#08131F]/85 px-4 py-4"
                   >
                     <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
                       Insights
@@ -260,10 +254,8 @@ function RadarPanel({
   return (
     <div
       className="rounded-[24px]
-      border border-white/8
-      bg-white/[0.025]
-      backdrop-blur-md
-      shadow-[inset_0_0_28px_rgba(70,160,255,.05)]
+      border border-white/10
+      bg-transparent
       p-4 h-[255px]"
     >
       <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
@@ -297,20 +289,14 @@ function RadarPanel({
           ))}
         </select>
 
-        <div
-          className="flex-1 rounded-[22px] h-[190px]
-          bg-white/[0.035]
-          backdrop-blur-lg
-          border border-white/8
-          flex items-center justify-center"
-        >
+        <div className="flex-1 h-[190px] flex items-center justify-center">
           <RadarChart
             width={horizontal ? 460 : 270}
             height={190}
             data={chartData}
-            outerRadius="80%"
+            outerRadius="82%"
           >
-            <PolarGrid stroke="#66d9ff25" />
+            <PolarGrid stroke="#66d9ff28" />
 
             <PolarAngleAxis
               dataKey="key"
@@ -332,7 +318,7 @@ function RadarPanel({
                 dataKey={s.name}
                 stroke={s.color}
                 fill={s.color}
-                fillOpacity={0.17}
+                fillOpacity={0.16}
                 strokeWidth={2.6}
               />
             ))}
