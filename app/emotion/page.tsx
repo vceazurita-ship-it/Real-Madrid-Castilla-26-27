@@ -122,7 +122,7 @@ export default function EmotionPage() {
                 space-y-4"
                 style={{
                   backgroundImage:
-                    "linear-gradient(rgba(5,14,24,.88), rgba(5,14,24,.88)), url('/emotional-field-bg.png')",
+                    "linear-gradient(rgba(5,14,24,.84), rgba(5,14,24,.84)), url('/emotional-field-bg.png')",
                   backgroundSize: "cover",
                 }}
               >
@@ -214,13 +214,12 @@ function RadarPanel({
   onChange,
   getPlayer,
   horizontal = false,
-  compact = false,
 }: any) {
   const colors = [
-    "#34D9FF",
+    "#36DAFF",
     "#B66BFF",
-    "#58E4FF",
-    "#C58CFF",
+    "#62E8FF",
+    "#D17DFF",
   ];
 
   const fallbackSelected =
@@ -260,11 +259,12 @@ function RadarPanel({
 
   return (
     <div
-      className={`rounded-[24px]
+      className="rounded-[24px]
       border border-white/8
-      bg-[#08131F]/85
-      shadow-[inset_0_0_35px_rgba(0,120,255,.05)]
-      ${compact ? "p-4 h-[255px]" : "p-4 h-[255px]"}`}
+      bg-white/[0.025]
+      backdrop-blur-md
+      shadow-[inset_0_0_28px_rgba(70,160,255,.05)]
+      p-4 h-[255px]"
     >
       <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
         {title}
@@ -284,7 +284,8 @@ function RadarPanel({
           className="w-[120px] h-[165px]
           rounded-2xl
           border border-white/8
-          bg-[#060E17]
+          bg-white/[0.03]
+          backdrop-blur-md
           px-2 py-2
           text-[11px]
           text-white"
@@ -297,23 +298,24 @@ function RadarPanel({
         </select>
 
         <div
-          className="flex-1 rounded-[22px] h-[185px]
-          bg-gradient-to-b from-[#0A1724] to-[#09131E]
-          border border-white/6
+          className="flex-1 rounded-[22px] h-[190px]
+          bg-white/[0.035]
+          backdrop-blur-lg
+          border border-white/8
           flex items-center justify-center"
         >
           <RadarChart
-            width={horizontal ? 420 : 240}
-            height={180}
+            width={horizontal ? 460 : 270}
+            height={190}
             data={chartData}
-            outerRadius="72%"
+            outerRadius="80%"
           >
-            <PolarGrid stroke="#4ea8ff22" />
+            <PolarGrid stroke="#66d9ff25" />
 
             <PolarAngleAxis
               dataKey="key"
               tick={{
-                fill: "#fff",
+                fill: "#ffffff",
                 fontSize: 11,
               }}
             />
@@ -330,8 +332,8 @@ function RadarPanel({
                 dataKey={s.name}
                 stroke={s.color}
                 fill={s.color}
-                fillOpacity={0.15}
-                strokeWidth={2.4}
+                fillOpacity={0.17}
+                strokeWidth={2.6}
               />
             ))}
           </RadarChart>
