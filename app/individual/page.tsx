@@ -1,16 +1,30 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   ChevronLeft,
   ChevronRight,
   X,
+  Plus,
 } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
 const VISIBLE_CARDS = 4;
+
+const DEFAULT_STRENGTH =
+  "Buen rendimiento general en acciones clave del juego. Destaca por su capacidad de interpretar situaciones y competir con intensidad.";
+
+const DEFAULT_IMPROVEMENT =
+  "Seguir evolucionando en aspectos técnicos y en toma de decisiones en escenarios de máxima presión.";
+
+const DEFAULT_STRENGTH_VIDEO =
+  "https://www.youtube.com/embed/ysz5S6PUM-U";
+
+const DEFAULT_IMPROVEMENT_VIDEO =
+  "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
 const players = [
   {
@@ -18,24 +32,14 @@ const players = [
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_QUETGLAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "D. Arroyo",
-    position: "Portero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_ARROYO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Á. González",
-    position: "Portero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    name: "Javi Navarro",
-    position: "Portero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+    strengths:
+      "Buen juego aéreo y reflejos rápidos en acciones cercanas.",
+    improvements:
+      "Mejorar precisión en salida con el pie.",
+    strengthVideo:
+      "https://www.youtube.com/embed/ysz5S6PUM-U",
+    improvementVideo:
+      "https://www.youtube.com/embed/dQw4w9WgXcQ",
   },
 ];
 
@@ -119,13 +123,20 @@ function CarouselRow({
             >
               <div className="flex justify-center">
                 <img
-                  src={player.photo}
-                  alt={player.name}
+                  src={
+                    player.photo
+                  }
+                  alt={
+                    player.name
+                  }
                   loading="lazy"
                   style={{
-                    width: "120px",
-                    height: "150px",
-                    objectFit: "cover",
+                    width:
+                      "120px",
+                    height:
+                      "150px",
+                    objectFit:
+                      "cover",
                     objectPosition:
                       "top",
                     borderRadius:
@@ -162,7 +173,7 @@ export default function IndividualPage() {
   const [selected, setSelected] =
     useState<any>(null);
 
-  const [showTest, setShowTest] =
+  const [showPopup, setShowPopup] =
     useState(false);
 
   const filtered =
@@ -184,6 +195,24 @@ export default function IndividualPage() {
           p.position ===
           "Portero"
       ),
+    Defensas:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Defensa"
+      ),
+    Centrocampistas:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Centrocampista"
+      ),
+    Delanteros:
+      filtered.filter(
+        (p) =>
+          p.position ===
+          "Delantero"
+      ),
   };
 
   return (
@@ -198,100 +227,184 @@ export default function IndividualPage() {
             <div className="p-10">
               <div className="mb-8">
                 <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  Individual
-                  Intelligence
+                  Individual Intelligence
                 </p>
 
                 <h1 className="mt-4 text-4xl font-semibold tracking-tight">
-                  Player
-                  Performance
+                  Player Performance
                   Ecosystem
                 </h1>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-8 flex items-center justify-between gap-4">
+                <div className="max-w-md flex-1">
+                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <Search className="h-4 w-4 text-gray-400" />
+
+                    <input
+                      value={search}
+                      onChange={(e) =>
+                        setSearch(
+                          e.target.value
+                        )
+                      }
+                      placeholder="Search player..."
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={() =>
-                    setShowTest(true)
+                    setShowPopup(true)
                   }
-                  className="rounded-2xl bg-[#C8A96B] px-6 py-3 font-semibold text-black"
+                  className="flex items-center gap-2 rounded-2xl bg-[#C8A96B] px-5 py-3 text-sm font-medium text-black transition hover:opacity-90"
                 >
-                  Abrir popup
-                  test
+                  <Plus className="h-4 w-4" />
+                  Nuevo popup
                 </button>
               </div>
 
-              <div className="mb-8 max-w-md">
-                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                  <Search className="h-4 w-4 text-gray-400" />
-
-                  <input
-                    value={search}
-                    onChange={(e) =>
-                      setSearch(
-                        e.target
-                          .value
-                      )
-                    }
-                    placeholder="Search player..."
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
-                  />
-                </div>
-              </div>
-
               <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
-                <CarouselRow
-                  title="Porteros"
-                  items={
-                    grouped.Porteros
-                  }
-                  onSelect={
-                    setSelected
-                  }
-                />
+                <CarouselRow title="Porteros" items={grouped.Porteros} onSelect={setSelected} />
+                <CarouselRow title="Defensas" items={grouped.Defensas} onSelect={setSelected} />
+                <CarouselRow title="Centrocampistas" items={grouped.Centrocampistas} onSelect={setSelected} />
+                <CarouselRow title="Delanteros" items={grouped.Delanteros} onSelect={setSelected} />
               </div>
             </div>
           </section>
         </div>
       </main>
 
-      {showTest && (
-        <div
-          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 p-6"
-          onClick={() =>
-            setShowTest(false)
-          }
-        >
+      {selected &&
+        createPortal(
           <div
-            className="relative w-full max-w-[500px] rounded-3xl border border-white/10 bg-[#11161C] p-8 shadow-2xl"
-            onClick={(e) =>
-              e.stopPropagation()
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 p-6"
+            onClick={() =>
+              setSelected(null)
             }
           >
-            <button
-              onClick={() =>
-                setShowTest(false)
+            <div
+              className="relative w-full max-h-[90vh] max-w-6xl overflow-y-auto rounded-3xl border border-white/10 bg-[#11161C] p-8 shadow-2xl"
+              onClick={(e) =>
+                e.stopPropagation()
               }
-              className="absolute right-5 top-5 rounded-xl p-2 hover:bg-white/10"
             >
-              <X className="h-5 w-5" />
-            </button>
+              <button
+                onClick={() =>
+                  setSelected(null)
+                }
+                className="absolute right-5 top-5 rounded-xl p-2 hover:bg-white/10"
+              >
+                <X className="h-5 w-5" />
+              </button>
 
-            <h2 className="text-2xl font-semibold">
-              Popup funcionando
-            </h2>
+              <div className="grid gap-8 md:grid-cols-[280px_1fr]">
+                <div>
+                  <img
+                    src={selected.photo}
+                    alt={selected.name}
+                    className="h-[360px] w-full rounded-2xl object-cover object-top"
+                  />
 
-            <p className="mt-4 text-gray-300">
-              Si ves esto
-              centrado encima
-              de toda la
-              página, ya está
-              funcionando
-              perfecto.
-            </p>
-          </div>
-        </div>
-      )}
+                  <h2 className="mt-5 text-3xl font-semibold">
+                    {selected.name}
+                  </h2>
+
+                  <p className="mt-2 text-gray-400">
+                    {selected.position}
+                  </p>
+                </div>
+
+                <div className="space-y-10">
+                  <div>
+                    <h3 className="mb-3 text-lg font-semibold text-[#C8A96B]">
+                      Fortalezas
+                    </h3>
+
+                    <p className="mb-4 leading-relaxed text-gray-300">
+                      {selected.strengths ||
+                        DEFAULT_STRENGTH}
+                    </p>
+
+                    <div className="overflow-hidden rounded-2xl border border-white/10">
+                      <iframe
+                        src={
+                          selected.strengthVideo ||
+                          DEFAULT_STRENGTH_VIDEO
+                        }
+                        className="h-[260px] w-full"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-3 text-lg font-semibold text-[#C8A96B]">
+                      Áreas de mejora
+                    </h3>
+
+                    <p className="mb-4 leading-relaxed text-gray-300">
+                      {selected.improvements ||
+                        DEFAULT_IMPROVEMENT}
+                    </p>
+
+                    <div className="overflow-hidden rounded-2xl border border-white/10">
+                      <iframe
+                        src={
+                          selected.improvementVideo ||
+                          DEFAULT_IMPROVEMENT_VIDEO
+                        }
+                        className="h-[260px] w-full"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {showPopup &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/70 p-6"
+            onClick={() =>
+              setShowPopup(false)
+            }
+          >
+            <div
+              className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-[#11161C] p-8 shadow-2xl"
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+              <button
+                onClick={() =>
+                  setShowPopup(false)
+                }
+                className="absolute right-5 top-5 rounded-xl p-2 hover:bg-white/10"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                Popup
+              </p>
+
+              <h2 className="mt-4 text-3xl font-semibold">
+                Tu contenido aquí
+              </h2>
+
+              <p className="mt-4 text-gray-300">
+                Este popup es independiente del modal del jugador.
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

@@ -32,7 +32,7 @@ export default function IndividualPage() {
             <div className="rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
               <iframe
                 title="Power BI Report"
-                src="https://app.powerbi.com/reportEmbed?reportId=54600d1d-a5f0-433f-a429-ec04159a31d2&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2"
+                src="https://app.powerbi.com/reportEmbed?reportId=0eb5b0bc-f3ea-490f-8deb-434ddd15e878&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2"
                 style={{
                   width: "100%",
                   height: "840px",
