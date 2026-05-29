@@ -384,9 +384,19 @@ export default function Page() {
           <section className="p-10">
             <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
               <div className="flex items-center justify-between">
-                <h1 className="text-5xl font-semibold">
-                  Microciclos
+                 <div className="mb-8">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                                RMC Intelligence
+              </p>
+
+              <div className="mt-4 flex items-center gap-5">
+                <h1 className="text-4xl font-semibold tracking-tight">
+                 Análisis de Microciclos
                 </h1>
+
+                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+              </div>
+            </div>
 
                 <select
                   value={micro}
