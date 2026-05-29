@@ -340,20 +340,20 @@ function CarouselRow({
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
         {visible.map((player) => (
           <button
             key={player.name}
             onClick={() =>
               onSelect(player)
             }
-            className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-center"
+            className="rounded-3xl border border-white/10 bg-white/[0.04] p-3 sm:p-4 lg:p-5 text-center"
           >
             <div className="flex justify-center">
               <img
                 src={player.photo}
                 alt={player.name}
-                className="h-[150px] w-[120px] rounded-2xl object-cover object-top"
+                className="h-[120px] w-[90px] sm:h-[140px] sm:w-[110px] lg:h-[150px] lg:w-[120px] rounded-2xl object-cover object-top"
               />
             </div>
 
@@ -449,20 +449,20 @@ export default function IndividualPage() {
   return (
     <>
       <main className="min-h-screen bg-[#0B0F14] text-white">
-        <div className="flex">
+        <div className="flex flex-col lg:flex-row">
           <Sidebar />
 
-          <section className="flex-1">
+          <section className="flex-1 min-w-0">
             <Topbar />
 
-            <div className="p-10">
+            <div className="p-4 sm:p-6 lg:p-10">
                <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
                                 RMC Intelligence
               </p>
 
-              <div className="mt-4 flex items-center gap-5">
-                <h1 className="text-4xl font-semibold tracking-tight">
+              <div className="mt-4 flex flex-col items-start gap-4 lg:flex-row lg:items-center">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">
                  Análisis Individual
                 </h1>
 
@@ -487,7 +487,7 @@ export default function IndividualPage() {
                 </div>
               </div>
 
-              <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
+              <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-4 sm:p-6 lg:p-8">
                 <CarouselRow
                   title="Porteros"
                   items={
@@ -536,13 +536,13 @@ export default function IndividualPage() {
       {selected &&
         createPortal(
           <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 p-6"
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 p-3 sm:p-6"
             onClick={() =>
               setSelected(null)
             }
           >
             <div
-              className="relative w-full max-h-[90vh] max-w-6xl overflow-y-auto rounded-3xl border border-white/10 bg-[#11161C] p-8"
+              className="relative w-full max-h-[90vh] max-w-6xl overflow-y-auto rounded-3xl border border-white/10 bg-[#11161C] p-4 sm:p-6 lg:p-8"
               onClick={(e) =>
                 e.stopPropagation()
               }
@@ -556,7 +556,7 @@ export default function IndividualPage() {
                 <X className="h-5 w-5" />
               </button>
 
-              <div className="grid gap-8 md:grid-cols-[280px_1fr]">
+              <div className="grid gap-6 lg:gap-8 md:grid-cols-[280px_1fr]">
                 <div>
                   <img
                     src={
