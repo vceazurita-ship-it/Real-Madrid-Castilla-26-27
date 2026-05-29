@@ -317,7 +317,7 @@ function RadarPanel({
         <div className="flex-1 h-[210px] flex items-center justify-center">
           <RadarChart
             width={horizontal ? 520 : 310}
-            height={100%}
+            height={150}
             data={chartData}
             outerRadius="92%"
           >
