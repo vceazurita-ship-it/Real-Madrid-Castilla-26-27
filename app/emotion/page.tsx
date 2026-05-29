@@ -102,22 +102,22 @@ export default function EmotionPage() {
 
   return (
     <main className="min-h-screen bg-[#030811] text-white">
-      <div className="flex">
+      <div className="flex flex-col lg:flex-row">
         <Sidebar />
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Topbar />
 
-          <section className="px-8 py-8">
-           <div className="flex items-center gap-2 leading-none">
-  <h2 className="text-xl font-semibold tracking-tight">
+          <section className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+           <div className="flex flex-col items-start gap-3 leading-none lg:flex-row lg:items-center">
+  <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
     Rendimiento emocional
   </h2>
 
   <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
 </div>
             <div
-              className="rounded-[34px] p-6"
+  className="rounded-[34px] p-4 sm:p-5 lg:p-6"
               style={{
                 backgroundImage:
                   "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.png')",
@@ -136,7 +136,7 @@ export default function EmotionPage() {
                   getPlayer={getPlayer}
                 />
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                   <RadarPanel
                     title="Defensa"
                     players={names}
@@ -172,7 +172,7 @@ export default function EmotionPage() {
                 />
               </div>
 
-              <div className="mt-5 grid grid-cols-4 gap-4">
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
   {[
     {
       title: "EXTERNO - AMPLIO",
@@ -274,12 +274,12 @@ function RadarPanel({
   });
 
   return (
-    <div className="rounded-[24px]  bg-transparent p-4 h-[255px]">
+    <div className="rounded-[24px] bg-transparent p-3 sm:p-4 min-h-[255px]">
       <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
         {title}
       </div>
 
-      <div className="flex gap-4 h-full items-center">
+      <div className="flex flex-col gap-4 lg:flex-row h-full items-center">
         <select
           multiple
           value={selected}
@@ -290,7 +290,7 @@ function RadarPanel({
               )
             )
           }
-          className="w-[130px] h-[175px]
+          className="w-full lg:w-[130px] h-[130px] lg:h-[175px]
           rounded-2xl
           border border-white/10
           bg-white/[0.04]
@@ -314,10 +314,22 @@ function RadarPanel({
           ))}
         </select>
 
-        <div className="flex-1 h-[230px] flex items-center justify-center overflow-visible">
+        <div className="w-full lg:flex-1 h-[220px] sm:h-[230px] flex items-center justify-center overflow-visible">
   <RadarChart
-    width={horizontal ? 520 : 310}
-    height={270}
+  width={
+    typeof window !== "undefined" &&
+    window.innerWidth < 1024
+      ? 260
+      : horizontal
+      ? 520
+      : 310
+  }
+  height={
+    typeof window !== "undefined" &&
+    window.innerWidth < 1024
+      ? 220
+      : 270
+  }
     data={chartData}
     outerRadius="100%"
     margin={{
