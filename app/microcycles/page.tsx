@@ -18,6 +18,7 @@ import {
   Area,
   ComposedChart,
   Legend,
+  LabelList,
   PieChart,
   Pie,
   Cell,
@@ -447,7 +448,7 @@ export default function Page() {
 
             <div className="grid grid-cols-2 gap-6 mt-10">
 
-              <Panel title="Load by MD">
+              <Panel title="Carga e Intensidad por MD">
   <Chart>
     <ComposedChart data={mdData}>
       <CartesianGrid stroke="#1E232A" />
@@ -497,7 +498,7 @@ export default function Page() {
   </Chart>
 </Panel>
 
-              <Panel title="Cognitive Load">
+              <Panel title="Carga Cognitiva">
                 <Chart>
                   <AreaChart data={mdData}>
                     <CartesianGrid stroke="#1E232A" />
@@ -515,7 +516,7 @@ export default function Page() {
                 </Chart>
               </Panel>
 
-              <Panel title="Evaluation Trend">
+              <Panel title="Tendencia de Evaluación por Microciclo">
                 <Chart>
                   <AreaChart data={trendData}>
                     <CartesianGrid stroke="#1E232A" />
@@ -538,7 +539,7 @@ export default function Page() {
                 </Chart>
               </Panel>
 
-              <Panel title="Intensity by MD">
+              <Panel title="Intensidad por MD">
                 <Chart>
                   <BarChart data={mdData}>
                     <CartesianGrid stroke="#1E232A" />
@@ -555,173 +556,298 @@ export default function Page() {
                 </Chart>
               </Panel>
 
-              <Panel title="Microcycle Comparison">
-                <Chart>
-                  <ComposedChart
-                    data={compareData}
-                  >
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="micro" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
+              <Panel title="Comparativa de Evaluación y Carga por Microciclo">
+  <Chart>
+    <ComposedChart data={compareData}>
+      <CartesianGrid stroke="#1E232A" />
 
-                    <Bar
-                      dataKey="load"
-                      fill={COLORS.blue}
-                      radius={[8, 8, 0, 0]}
-                    />
+      <XAxis dataKey="micro" />
 
-                    <Line
-                      dataKey="eval"
-                      stroke={COLORS.gold}
-                      strokeWidth={3}
-                    />
-                  </ComposedChart>
-                </Chart>
-              </Panel>
+      {/* carga */}
+      <YAxis yAxisId="left" />
 
-              <Panel title="Phase Distribution">
-                <Chart>
-                  <PieChart>
-                    <Tooltip />
+      {/* evaluación */}
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        domain={[0, 10]}
+      />
 
-                    <Pie
-                      data={phaseData}
-                      dataKey="total"
-                      nameKey="fase"
-                      innerRadius={55}
-                      outerRadius={110}
-                    >
-                      {phaseData.map(
-                        (_, i) => (
-                          <Cell
-                            key={i}
-                            fill={
-                              PIE_COLORS[
-                                i %
-                                  PIE_COLORS.length
-                              ]
-                            }
-                          />
-                        )
-                      )}
-                    </Pie>
-                  </PieChart>
-                </Chart>
-              </Panel>
+      <Tooltip />
+      <Legend />
 
-              <Panel title="Evaluation by Task Type">
-                <Chart>
-                  <BarChart
-                    data={taskEvalData}
-                    layout="vertical"
-                  >
-                    <CartesianGrid stroke="#1E232A" />
+      <Bar
+        yAxisId="left"
+        dataKey="load"
+        fill={COLORS.blue}
+        radius={[8, 8, 0, 0]}
+      />
 
-                    <XAxis type="number" />
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="eval"
+        stroke={COLORS.gold}
+        strokeWidth={3}
+        dot={{
+          r: 4,
+          fill: COLORS.gold,
+        }}
+        activeDot={{ r: 6 }}
+      />
+    </ComposedChart>
+  </Chart>
+</Panel>
 
-                    <YAxis
-                      type="category"
-                      dataKey="tipo"
-                      width={120}
-                    />
+             <Panel title="Comparativa de Evaluación y Carga por Microciclo">
+  <Chart>
+    <ComposedChart data={compareData}>
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
 
-                    <Tooltip />
+      <XAxis
+        dataKey="micro"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <Bar
-                      dataKey="eval"
-                      fill={COLORS.gold}
-                      radius={[0, 8, 8, 0]}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+      {/* carga */}
+      <YAxis
+        yAxisId="left"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-              <Panel title="Post Analysis Impact">
-                <Chart>
-                  <BarChart
-                    data={analysisData}
-                    layout="vertical"
-                  >
-                    <CartesianGrid stroke="#1E232A" />
+      {/* evaluación */}
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        domain={[0, 10]}
+        tick={{
+          fill: COLORS.gold,
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <XAxis type="number" />
+      <Tooltip
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
+      />
 
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={140}
-                    />
+      <Legend
+        verticalAlign="top"
+        align="right"
+        iconType="circle"
+        wrapperStyle={{
+          paddingBottom: 20,
+          fontSize: 13,
+        }}
+      />
 
-                    <Tooltip />
+      <Bar
+        yAxisId="left"
+        dataKey="load"
+        name="Carga Física"
+        fill={COLORS.blue}
+        radius={[10, 10, 0, 0]}
+        barSize={34}
+      />
 
-                    <Bar
-                      dataKey="eval"
-                      fill={COLORS.purple}
-                      radius={[0, 8, 8, 0]}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="eval"
+        name="Evaluación"
+        stroke={COLORS.gold}
+        strokeWidth={3}
+        dot={{
+          r: 4,
+          strokeWidth: 2,
+          stroke: COLORS.gold,
+          fill: "#0B0F14",
+        }}
+        activeDot={{
+          r: 6,
+          fill: COLORS.gold,
+        }}
+      />
+    </ComposedChart>
+  </Chart>
+</Panel>
 
-              <Panel title="Evaluation by Main Content">
-                <Chart>
-                  <BarChart
-                    data={
-                      contenidoPrincipalData
-                    }
-                    layout="vertical"
-                  >
-                    <CartesianGrid stroke="#1E232A" />
+              <Panel title="Evaluación por Tipo de Tarea">
+  <Chart>
+    <BarChart
+      data={taskEvalData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 35,
+        left: 20,
+        bottom: 10,
+      }}
+      barCategoryGap={18}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
 
-                    <XAxis type="number" />
+      <XAxis
+        type="number"
+        domain={[0, 10]}
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={140}
-                    />
+      <YAxis
+        type="category"
+        dataKey="tipo"
+        width={140}
+        tick={{
+          fill: "#E2E8F0",
+          fontSize: 13,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <Tooltip />
+      <Tooltip
+        cursor={{
+          fill:
+            "rgba(255,255,255,0.03)",
+        }}
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
+      />
 
-                    <Bar
-                      dataKey="eval"
-                      fill={COLORS.gold}
-                      radius={[0, 8, 8, 0]}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+      <Bar
+        dataKey="eval"
+        name="Evaluación"
+        fill={COLORS.gold}
+        radius={[0, 12, 12, 0]}
+        barSize={22}
+      >
+        {taskEvalData.map(
+          (_, index) => (
+            <Cell
+              key={index}
+              fill={COLORS.gold}
+            />
+          )
+        )}
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
 
-              <Panel title="Evaluation by Secondary Content">
-                <Chart>
-                  <BarChart
-                    data={
-                      contenidoSecundarioData
-                    }
-                    layout="vertical"
-                  >
-                    <CartesianGrid stroke="#1E232A" />
 
-                    <XAxis type="number" />
+              <Panel title="Evaluación por Contenido Principal">
+  <Chart>
+    <BarChart
+      data={contenidoPrincipalData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 40,
+        left: 25,
+        bottom: 10,
+      }}
+      barCategoryGap={18}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
 
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={140}
-                    />
+      <XAxis
+        type="number"
+        domain={[0, 10]}
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <Tooltip />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={180}
+        tick={{
+          fill: "#E2E8F0",
+          fontSize: 13,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <Bar
-                      dataKey="eval"
-                      fill={COLORS.blue}
-                      radius={[0, 8, 8, 0]}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+      <Tooltip
+        cursor={{
+          fill:
+            "rgba(255,255,255,0.03)",
+        }}
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
+      />
+
+      <Bar
+        dataKey="eval"
+        name="Evaluación"
+        fill={COLORS.gold}
+        radius={[0, 12, 12, 0]}
+        barSize={22}
+      >
+        <LabelList
+          dataKey="eval"
+          position="right"
+          formatter={(v: number) =>
+            v.toFixed(1)
+          }
+          style={{
+            fill: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
+              
 
             </div>
           </section>
