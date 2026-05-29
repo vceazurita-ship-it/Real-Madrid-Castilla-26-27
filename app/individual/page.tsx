@@ -591,18 +591,30 @@ export default function IndividualPage() {
     {selected.strengths}
   </p>
 
-  <div className="mb-4 flex justify-end">
-    <a
-      href={driveViewUrl(
-        selected.strengthVideo || ""
-      )}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-slate-200"
-    >
-      Ver en alta calidad ↗
-    </a>
-  </div>
+  <div className="mb-3 flex justify-end">
+  <a
+    href={driveViewUrl(
+      selected.strengthVideo || ""
+    )}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="
+      inline-flex items-center gap-2
+      rounded-full
+      border border-white/10
+      bg-white/[0.03]
+      px-3 py-1.5
+      text-xs font-medium
+      text-gray-300
+      transition-all duration-200
+      hover:border-white/20
+      hover:bg-white/[0.06]
+      hover:text-white
+    "
+  >
+    Ver en alta calidad ↗
+  </a>
+</div>
 
   <iframe
     src={selected.strengthVideo}
@@ -620,18 +632,30 @@ export default function IndividualPage() {
     {selected.improvements}
   </p>
 
-  <div className="mb-4 flex justify-end">
-    <a
-      href={driveViewUrl(
-        selected.improvementVideo || ""
-      )}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-slate-200"
-    >
-      Ver en alta calidad ↗
-    </a>
-  </div>
+  <div className="mb-3 flex justify-end">
+  <a
+    href={driveViewUrl(
+      selected.improvementVideo || ""
+    )}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="
+      inline-flex items-center gap-2
+      rounded-full
+      border border-white/10
+      bg-white/[0.03]
+      px-3 py-1.5
+      text-xs font-medium
+      text-gray-300
+      transition-all duration-200
+      hover:border-white/20
+      hover:bg-white/[0.06]
+      hover:text-white
+    "
+  >
+    Ver en alta calidad ↗
+  </a>
+</div>
 
   <iframe
     src={selected.improvementVideo}
