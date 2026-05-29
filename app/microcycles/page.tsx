@@ -831,17 +831,19 @@ export default function Page() {
         barSize={22}
       >
         <LabelList
-          dataKey="eval"
-          position="right"
-          formatter={(v: number) =>
-            v.toFixed(1)
-          }
-          style={{
-            fill: "#fff",
-            fontSize: 12,
-            fontWeight: 600,
-          }}
-        />
+  dataKey="eval"
+  position="right"
+  formatter={(value) =>
+    typeof value === "number"
+      ? value.toFixed(1)
+      : value ?? ""
+  }
+  style={{
+    fill: "#fff",
+    fontSize: 12,
+    fontWeight: 600,
+  }}
+/>
       </Bar>
     </BarChart>
   </Chart>
