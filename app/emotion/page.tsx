@@ -314,22 +314,29 @@ function RadarPanel({
           ))}
         </select>
 
-        <div className="flex-1 h-[210px] flex items-center justify-center">
-          <RadarChart
-            width={horizontal ? 520 : 310}
-            height={250}
-            data={chartData}
-            outerRadius="100%"
-          >
+        <div className="flex-1 h-[230px] flex items-center justify-center overflow-visible">
+  <RadarChart
+    width={horizontal ? 520 : 310}
+    height={270}
+    data={chartData}
+    outerRadius="100%"
+    margin={{
+      top: 22,
+      right: 12,
+      bottom: 22,
+      left: 12,
+    }}
+  >
             <PolarGrid stroke="#66d9ff28" />
 
             <PolarAngleAxis
-              dataKey="key"
-              tick={{
-                fill: "#ffffff",
-                fontSize: 11,
-              }}
-            />
+  dataKey="key"
+  tick={{
+    fill: "#ffffff",
+    fontSize: 11,
+  }}
+  dy={2}
+/>
 
             <PolarRadiusAxis
               domain={[0, 10]}
