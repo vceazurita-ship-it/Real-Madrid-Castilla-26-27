@@ -18,6 +18,7 @@ import {
   Pie,
   Cell,
   LabelList,
+  Legend,
 } from "recharts";
 
 const CSV_URL =
@@ -439,6 +440,320 @@ export default function Page() {
             fill: "#F8FAFC",
             fontWeight: 600,
             fontSize: 12,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Zona caída">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={zonaCaida}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={65}
+        outerRadius={125}
+        paddingAngle={3}
+      >
+        {zonaCaida.map(
+          (_, i) => (
+            <Cell
+              key={i}
+              fill={
+                PIE_COLORS[
+                  i %
+                    PIE_COLORS.length
+                ]
+              }
+            />
+          )
+        )}
+      </Pie>
+
+      <Tooltip />
+
+      <Legend
+        verticalAlign="middle"
+        align="right"
+        layout="vertical"
+        wrapperStyle={{
+          fontSize: 12,
+          color: "#CBD5E1",
+        }}
+      />
+    </PieChart>
+  </Chart>
+</Panel>
+<Panel title="Impacto sacador">
+  <Chart>
+    <BarChart
+      data={sacadorData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        domain={[0, 1]}
+        tick={{
+          fill: "#94A3B8",
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        tick={{
+          fill: "#CBD5E1",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="xg"
+        fill={COLORS.blue}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="xg"
+          position="right"
+          formatter={(v) =>
+            typeof v === "number"
+              ? v.toFixed(2)
+              : ""
+          }
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Tipo carrera">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={tipoCarrera}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={60}
+        outerRadius={120}
+        paddingAngle={3}
+      >
+        {tipoCarrera.map(
+          (_, i) => (
+            <Cell
+              key={i}
+              fill={
+                PIE_COLORS[
+                  i %
+                    PIE_COLORS.length
+                ]
+              }
+            />
+          )
+        )}
+      </Pie>
+
+      <Tooltip />
+
+      <Legend
+        layout="vertical"
+        verticalAlign="middle"
+        align="right"
+        wrapperStyle={{
+          fontSize: 12,
+          color: "#CBD5E1",
+        }}
+      />
+    </PieChart>
+  </Chart>
+</Panel>
+<Panel title="Defensa rival">
+  <Chart>
+    <BarChart
+      data={defensa}
+      margin={{
+        top: 20,
+        right: 20,
+        bottom: 12,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{
+          fill: "#94A3B8",
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#94A3B8",
+        }}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.purple}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Timeline">
+  <Chart>
+    <LineChart
+      data={timeline}
+      margin={{
+        top: 20,
+        right: 20,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="tramo"
+        tick={{
+          fill: "#94A3B8",
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#94A3B8",
+        }}
+      />
+
+      <Tooltip />
+
+      <Line
+        dataKey="total"
+        stroke={COLORS.green}
+        strokeWidth={3}
+        dot={{
+          r: 5,
+          fill: COLORS.green,
+        }}
+        activeDot={{
+          r: 7,
+        }}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+          style={{
+            fill: "#fff",
+            fontSize: 11,
+          }}
+        />
+      </Line>
+    </LineChart>
+  </Chart>
+</Panel>
+<Panel title="Finalización xG">
+  <Chart>
+    <BarChart
+      data={tipoRemateData}
+      layout="vertical"
+      margin={{
+        top: 20,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#94A3B8",
+        }}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#CBD5E1",
+        }}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.gold}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="right"
+          formatter={(v) =>
+            typeof v === "number"
+              ? v.toFixed(2)
+              : ""
+          }
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
           }}
         />
       </Bar>
