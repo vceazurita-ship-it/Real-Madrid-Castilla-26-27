@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  LineChart,
   Line,
   CartesianGrid,
   AreaChart,
@@ -62,21 +63,32 @@ type Row = {
 
 function num(v?: string) {
   if (!v) return 0;
+
   return (
     Number(
-      String(v).replace(",", ".").replace(/[^\d.-]/g, "")
+      String(v)
+        .replace(",", ".")
+        .replace(/[^\d.-]/g, "")
     ) || 0
   );
 }
 
 function avg(arr: number[]) {
   if (!arr.length) return 0;
-  return +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+
+  return +(
+    arr.reduce((a, b) => a + b, 0) /
+    arr.length
+  ).toFixed(1);
 }
 
 function normalizeMD(v?: string) {
   if (!v) return "";
-  return String(v).trim().toUpperCase().replace(/\s+/g, "");
+
+  return String(v)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
 }
 
 function parseCSV(text: string): Row[] {
@@ -119,7 +131,10 @@ export default function Page() {
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
-      .then((t) => setRows(parseCSV(t)))
+      .then((t) => {
+        const parsed = parseCSV(t);
+        setRows(parsed);
+      })
       .catch(console.error);
   }, []);
 
@@ -134,7 +149,9 @@ export default function Page() {
   const filtered =
     micro === "ALL"
       ? rows
-      : rows.filter((r) => String(r.micro) === micro);
+      : rows.filter(
+          (r) => String(r.micro) === micro
+        );
 
   const metrics = {
     eval: avg(
@@ -142,26 +159,50 @@ export default function Page() {
         .map((r) => r.evaluacion)
         .filter((n) => n > 0)
     ),
-    load: filtered.reduce((a, b) => a + b.carga, 0),
-    cog: filtered.reduce((a, b) => a + b.cargaCog, 0),
+    load: filtered.reduce(
+      (a, b) => a + b.carga,
+      0
+    ),
+    cog: filtered.reduce(
+      (a, b) => a + b.cargaCog,
+      0
+    ),
     tasks: filtered.length,
   };
 
-  const mdOrder = ["MD-4", "MD-3", "MD-2", "MD-1", "MD"];
+  const mdOrder = [
+    "MD-4",
+    "MD-3",
+    "MD-2",
+    "MD-1",
+    "MD",
+  ];
 
   const mdData = mdOrder.map((md) => {
-    const set = filtered.filter((r) => r.md === md);
+    const set = filtered.filter(
+      (r) => r.md === md
+    );
 
     return {
       md,
-      carga: set.reduce((a, b) => a + b.carga, 0),
-      cargaCog: set.reduce((a, b) => a + b.cargaCog, 0),
-      intensidad: avg(set.map((r) => r.intensidad)),
+      carga: set.reduce(
+        (a, b) => a + b.carga,
+        0
+      ),
+      cargaCog: set.reduce(
+        (a, b) => a + b.cargaCog,
+        0
+      ),
+      intensidad: avg(
+        set.map((r) => r.intensidad)
+      ),
     };
   });
 
   const trendData = micros.map((m) => {
-    const set = rows.filter((r) => r.micro === m);
+    const set = rows.filter(
+      (r) => r.micro === m
+    );
 
     return {
       micro: `M${m}`,
@@ -174,7 +215,9 @@ export default function Page() {
   });
 
   const compareData = micros.map((m) => {
-    const set = rows.filter((r) => r.micro === m);
+    const set = rows.filter(
+      (r) => r.micro === m
+    );
 
     return {
       micro: `M${m}`,
@@ -183,7 +226,10 @@ export default function Page() {
           .map((r) => r.evaluacion)
           .filter((n) => n > 0)
       ),
-      load: set.reduce((a, b) => a + b.carga, 0),
+      load: set.reduce(
+        (a, b) => a + b.carga,
+        0
+      ),
     };
   });
 
@@ -195,31 +241,21 @@ export default function Page() {
         <div className="flex-1">
           <Topbar />
 
-          <section className="p-8 lg:p-10">
-
-            {/* HERO */}
-            <div className="relative overflow-hidden rounded-[40px] border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.025] to-transparent p-10">
-
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(200,169,107,0.12),transparent_35%)]" />
-
-              <div className="relative z-10 flex items-start justify-between gap-10">
-
-                <div className="max-w-4xl">
+          <section className="p-10">
+            <div className="rounded-[36px] border border-white/10 bg-white/[0.03] p-10 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-8">
+                <div>
                   <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
                     RMC Intelligence
                   </p>
 
-                  <h1 className="mt-5 text-5xl font-semibold tracking-tight leading-[0.95]">
-                    Análisis de
-                    <br />
-                    Microciclos
-                  </h1>
+                  <div className="mt-4 flex items-center gap-5">
+                    <h1 className="text-4xl font-semibold tracking-tight">
+                      Análisis de Microciclos
+                    </h1>
 
-                  <p className="mt-6 max-w-2xl text-base leading-relaxed text-zinc-400">
-                    Evaluación integrada de carga física,
-                    carga cognitiva e intensidad competitiva
-                    a través de cada microciclo.
-                  </p>
+                    <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+                  </div>
                 </div>
 
                 <select
@@ -227,31 +263,47 @@ export default function Page() {
                   onChange={(e) =>
                     setMicro(e.target.value)
                   }
-                  className="rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3 text-white"
+                  className="rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3 text-white outline-none"
                 >
                   <option value="ALL">
                     All Microcycles
                   </option>
 
                   {micros.map((m) => (
-                    <option key={m} value={m}>
+                    <option
+                      key={m}
+                      value={m}
+                    >
                       Micro {m}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="relative z-10 mt-10 grid grid-cols-4 gap-5">
-                <Card title="Avg Eval" value={metrics.eval} />
-                <Card title="Physical Load" value={metrics.load} />
-                <Card title="Cognitive Load" value={metrics.cog} />
-                <Card title="Tasks" value={metrics.tasks} />
+              <div className="mt-10 grid grid-cols-4 gap-5">
+                <Card
+                  title="Avg Eval"
+                  value={metrics.eval}
+                />
+
+                <Card
+                  title="Physical Load"
+                  value={metrics.load}
+                />
+
+                <Card
+                  title="Cognitive Load"
+                  value={metrics.cog}
+                />
+
+                <Card
+                  title="Tasks"
+                  value={metrics.tasks}
+                />
               </div>
             </div>
 
-            {/* GRID */}
-            <div className="mt-8 grid grid-cols-2 gap-6">
-
+            <div className="mt-10 grid grid-cols-2 gap-6">
               <Panel title="Load by MD">
                 <Chart>
                   <ComposedChart data={mdData}>
@@ -260,9 +312,24 @@ export default function Page() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="carga" fill={COLORS.gold} radius={[8,8,0,0]} />
-                    <Bar dataKey="cargaCog" fill={COLORS.blue} radius={[8,8,0,0]} />
-                    <Line dataKey="intensidad" stroke={COLORS.purple} strokeWidth={3} />
+
+                    <Bar
+                      dataKey="carga"
+                      fill={COLORS.gold}
+                      radius={[8, 8, 0, 0]}
+                    />
+
+                    <Bar
+                      dataKey="cargaCog"
+                      fill={COLORS.blue}
+                      radius={[8, 8, 0, 0]}
+                    />
+
+                    <Line
+                      dataKey="intensidad"
+                      stroke={COLORS.purple}
+                      strokeWidth={3}
+                    />
                   </ComposedChart>
                 </Chart>
               </Panel>
@@ -274,8 +341,18 @@ export default function Page() {
                     <XAxis dataKey="micro" />
                     <YAxis />
                     <Tooltip />
-                    <Area dataKey="value" fill={COLORS.gold} fillOpacity={0.18} />
-                    <Line dataKey="value" stroke={COLORS.gold} strokeWidth={3} />
+
+                    <Area
+                      dataKey="value"
+                      fill={COLORS.gold}
+                      fillOpacity={0.15}
+                    />
+
+                    <Line
+                      dataKey="value"
+                      stroke={COLORS.gold}
+                      strokeWidth={3}
+                    />
                   </AreaChart>
                 </Chart>
               </Panel>
@@ -287,25 +364,41 @@ export default function Page() {
                     <XAxis dataKey="md" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="intensidad" fill={COLORS.purple} radius={[8,8,0,0]} />
+
+                    <Bar
+                      dataKey="intensidad"
+                      fill={COLORS.purple}
+                      radius={[8, 8, 0, 0]}
+                    />
                   </BarChart>
                 </Chart>
               </Panel>
 
               <Panel title="Microcycle Comparison">
                 <Chart>
-                  <ComposedChart data={compareData}>
+                  <ComposedChart
+                    data={compareData}
+                  >
                     <CartesianGrid stroke="#1E232A" />
                     <XAxis dataKey="micro" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="load" fill={COLORS.blue} radius={[8,8,0,0]} />
-                    <Line dataKey="eval" stroke={COLORS.gold} strokeWidth={3} />
+
+                    <Bar
+                      dataKey="load"
+                      fill={COLORS.blue}
+                      radius={[8, 8, 0, 0]}
+                    />
+
+                    <Line
+                      dataKey="eval"
+                      stroke={COLORS.gold}
+                      strokeWidth={3}
+                    />
                   </ComposedChart>
                 </Chart>
               </Panel>
-
             </div>
           </section>
         </div>
@@ -314,31 +407,42 @@ export default function Page() {
   );
 }
 
-function Chart({ children }: any) {
+function Chart({
+  children,
+}: any) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer
+      width="100%"
+      height={320}
+    >
       {children}
     </ResponsiveContainer>
   );
 }
 
-function Card({ title, value }: any) {
+function Card({
+  title,
+  value,
+}: any) {
   return (
-    <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 shadow-[0_10px_40px_rgba(0,0,0,.25)]">
       <p className="text-sm text-zinc-400">
         {title}
       </p>
 
-      <h3 className="mt-3 text-3xl font-semibold">
+      <h3 className="mt-4 text-4xl font-semibold">
         {value}
       </h3>
     </div>
   );
 }
 
-function Panel({ title, children }: any) {
+function Panel({
+  title,
+  children,
+}: any) {
   return (
-    <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-7 backdrop-blur-sm shadow-2xl">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-8 shadow-[0_15px_50px_rgba(0,0,0,.35)]">
       <h2 className="mb-6 text-xl font-semibold tracking-tight">
         {title}
       </h2>
