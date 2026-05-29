@@ -274,7 +274,7 @@ function RadarPanel({
   });
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-transparent p-4 h-[255px]">
+    <div className="rounded-[24px]  bg-transparent p-4 h-[255px]">
       <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
         {title}
       </div>
