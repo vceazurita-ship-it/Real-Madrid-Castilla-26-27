@@ -233,6 +233,146 @@ export default function Page() {
     };
   });
 
+  const taskEvalData = useMemo(() => {
+    const grouped: Record<
+      string,
+      number[]
+    > = {};
+
+    filtered.forEach((r) => {
+      const key = r.tipo || "Unknown";
+
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+
+      if (r.evaluacion > 0) {
+        grouped[key].push(r.evaluacion);
+      }
+    });
+
+    return Object.entries(
+      grouped
+    ).map(([tipo, vals]) => ({
+      tipo,
+      eval: avg(vals),
+    }));
+  }, [filtered]);
+
+  const phaseData = useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered.forEach((r) => {
+      const key =
+        r.fase || "Unknown";
+
+      grouped[key] =
+        (grouped[key] || 0) + 1;
+    });
+
+    return Object.entries(
+      grouped
+    ).map(([fase, total]) => ({
+      fase,
+      total,
+    }));
+  }, [filtered]);
+
+  const analysisData = useMemo(() => {
+    const grouped: Record<
+      string,
+      number[]
+    > = {};
+
+    filtered.forEach((r) => {
+      const key =
+        r.analisisPost ||
+        "No Analysis";
+
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+
+      if (r.evaluacion > 0) {
+        grouped[key].push(
+          r.evaluacion
+        );
+      }
+    });
+
+    return Object.entries(
+      grouped
+    ).map(([name, vals]) => ({
+      name,
+      eval: avg(vals),
+    }));
+  }, [filtered]);
+
+  const contenidoPrincipalData =
+    useMemo(() => {
+      const grouped: Record<
+        string,
+        number[]
+      > = {};
+
+      filtered.forEach((r) => {
+        const key =
+          r.contenidoPrincipal ||
+          "No Content";
+
+        if (!grouped[key]) {
+          grouped[key] = [];
+        }
+
+        if (r.evaluacion > 0) {
+          grouped[key].push(
+            r.evaluacion
+          );
+        }
+      });
+
+      return Object.entries(
+        grouped
+      ).map(([name, vals]) => ({
+        name,
+        eval: avg(vals),
+      }));
+    }, [filtered]);
+
+  const contenidoSecundarioData =
+    useMemo(() => {
+      const grouped: Record<
+        string,
+        number[]
+      > = {};
+
+      filtered.forEach((r) => {
+        const key =
+          r.contenidoSecundario ||
+          "No Content";
+
+        if (!grouped[key]) {
+          grouped[key] = [];
+        }
+
+        if (r.evaluacion > 0) {
+          grouped[key].push(
+            r.evaluacion
+          );
+        }
+      });
+
+      return Object.entries(
+        grouped
+      ).map(([name, vals]) => ({
+        name,
+        eval: avg(vals),
+      }));
+    }, [filtered]);
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -242,28 +382,30 @@ export default function Page() {
           <Topbar />
 
           <section className="p-10">
-            <div className="rounded-[36px] border border-white/10 bg-white/[0.03] p-10 backdrop-blur-xl">
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                    RMC Intelligence
-                  </p>
+            <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
+              <div className="flex items-center justify-between">
+                 <div className="mb-8">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                                RMC Intelligence
+              </p>
 
-                  <div className="mt-4 flex items-center gap-5">
-                    <h1 className="text-4xl font-semibold tracking-tight">
-                      Análisis de Microciclos
-                    </h1>
+              <div className="mt-4 flex items-center gap-5">
+                <h1 className="text-4xl font-semibold tracking-tight">
+                 Análisis de Microciclos
+                </h1>
 
-                    <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-                  </div>
-                </div>
+                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+              </div>
+            </div>
 
                 <select
                   value={micro}
                   onChange={(e) =>
-                    setMicro(e.target.value)
+                    setMicro(
+                      e.target.value
+                    )
                   }
-                  className="rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3 text-white outline-none"
+                  className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-5 py-3"
                 >
                   <option value="ALL">
                     All Microcycles
@@ -280,7 +422,7 @@ export default function Page() {
                 </select>
               </div>
 
-              <div className="mt-10 grid grid-cols-4 gap-5">
+              <div className="grid grid-cols-4 gap-5 mt-10">
                 <Card
                   title="Avg Eval"
                   value={metrics.eval}
@@ -303,7 +445,8 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="mt-10 grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6 mt-10">
+
               <Panel title="Load by MD">
                 <Chart>
                   <ComposedChart data={mdData}>
@@ -334,6 +477,24 @@ export default function Page() {
                 </Chart>
               </Panel>
 
+              <Panel title="Cognitive Load">
+                <Chart>
+                  <AreaChart data={mdData}>
+                    <CartesianGrid stroke="#1E232A" />
+                    <XAxis dataKey="md" />
+                    <YAxis />
+                    <Tooltip />
+
+                    <Area
+                      dataKey="cargaCog"
+                      stroke={COLORS.gray}
+                      fill={COLORS.gray}
+                      fillOpacity={0.25}
+                    />
+                  </AreaChart>
+                </Chart>
+              </Panel>
+
               <Panel title="Evaluation Trend">
                 <Chart>
                   <AreaChart data={trendData}>
@@ -345,7 +506,7 @@ export default function Page() {
                     <Area
                       dataKey="value"
                       fill={COLORS.gold}
-                      fillOpacity={0.15}
+                      fillOpacity={0.2}
                     />
 
                     <Line
@@ -399,6 +560,149 @@ export default function Page() {
                   </ComposedChart>
                 </Chart>
               </Panel>
+
+              <Panel title="Phase Distribution">
+                <Chart>
+                  <PieChart>
+                    <Tooltip />
+
+                    <Pie
+                      data={phaseData}
+                      dataKey="total"
+                      nameKey="fase"
+                      innerRadius={55}
+                      outerRadius={110}
+                    >
+                      {phaseData.map(
+                        (_, i) => (
+                          <Cell
+                            key={i}
+                            fill={
+                              PIE_COLORS[
+                                i %
+                                  PIE_COLORS.length
+                              ]
+                            }
+                          />
+                        )
+                      )}
+                    </Pie>
+                  </PieChart>
+                </Chart>
+              </Panel>
+
+              <Panel title="Evaluation by Task Type">
+                <Chart>
+                  <BarChart
+                    data={taskEvalData}
+                    layout="vertical"
+                  >
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="tipo"
+                      width={120}
+                    />
+
+                    <Tooltip />
+
+                    <Bar
+                      dataKey="eval"
+                      fill={COLORS.gold}
+                      radius={[0, 8, 8, 0]}
+                    />
+                  </BarChart>
+                </Chart>
+              </Panel>
+
+              <Panel title="Post Analysis Impact">
+                <Chart>
+                  <BarChart
+                    data={analysisData}
+                    layout="vertical"
+                  >
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                    />
+
+                    <Tooltip />
+
+                    <Bar
+                      dataKey="eval"
+                      fill={COLORS.purple}
+                      radius={[0, 8, 8, 0]}
+                    />
+                  </BarChart>
+                </Chart>
+              </Panel>
+
+              <Panel title="Evaluation by Main Content">
+                <Chart>
+                  <BarChart
+                    data={
+                      contenidoPrincipalData
+                    }
+                    layout="vertical"
+                  >
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                    />
+
+                    <Tooltip />
+
+                    <Bar
+                      dataKey="eval"
+                      fill={COLORS.gold}
+                      radius={[0, 8, 8, 0]}
+                    />
+                  </BarChart>
+                </Chart>
+              </Panel>
+
+              <Panel title="Evaluation by Secondary Content">
+                <Chart>
+                  <BarChart
+                    data={
+                      contenidoSecundarioData
+                    }
+                    layout="vertical"
+                  >
+                    <CartesianGrid stroke="#1E232A" />
+
+                    <XAxis type="number" />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                    />
+
+                    <Tooltip />
+
+                    <Bar
+                      dataKey="eval"
+                      fill={COLORS.blue}
+                      radius={[0, 8, 8, 0]}
+                    />
+                  </BarChart>
+                </Chart>
+              </Panel>
+
             </div>
           </section>
         </div>
@@ -425,7 +729,7 @@ function Card({
   value,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 shadow-[0_10px_40px_rgba(0,0,0,.25)]">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
       <p className="text-sm text-zinc-400">
         {title}
       </p>
@@ -442,8 +746,8 @@ function Panel({
   children,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-8 shadow-[0_15px_50px_rgba(0,0,0,.35)]">
-      <h2 className="mb-6 text-xl font-semibold tracking-tight">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-xl">
+      <h2 className="mb-6 text-2xl font-semibold">
         {title}
       </h2>
 
