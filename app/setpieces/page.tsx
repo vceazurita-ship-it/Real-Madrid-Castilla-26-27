@@ -17,6 +17,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from "recharts";
 
 const CSV_URL =
@@ -385,157 +386,65 @@ export default function Page() {
             <div className="grid grid-cols-2 gap-6 mt-10">
 
               <Panel title="Tipo de acción">
-                <Chart>
-                  <BarChart
-                    data={tipoAccion}
-                  >
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar
-                      dataKey="total"
-                      fill={COLORS.gold}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+  <Chart>
+    <BarChart
+      data={tipoAccion}
+      margin={{
+        top: 24,
+        right: 24,
+        left: 0,
+        bottom: 12,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
 
-              <Panel title="Zona caída">
-                <Chart>
-                  <PieChart>
-                    <Pie
-                      data={zonaCaida}
-                      dataKey="total"
-                      nameKey="name"
-                      innerRadius={55}
-                      outerRadius={110}
-                    >
-                      {zonaCaida.map(
-                        (_, i) => (
-                          <Cell
-                            key={i}
-                            fill={
-                              PIE_COLORS[
-                                i %
-                                  PIE_COLORS.length
-                              ]
-                            }
-                          />
-                        )
-                      )}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </Chart>
-              </Panel>
+      <XAxis
+        dataKey="name"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-              <Panel title="Impacto sacador">
-                <Chart>
-                  <BarChart
-                    data={sacadorData}
-                    layout="vertical"
-                  >
-                    <XAxis type="number" />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={120}
-                    />
-                    <Tooltip />
-                    <Bar
-                      dataKey="xg"
-                      fill={COLORS.blue}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+      <YAxis
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-              <Panel title="Tipo carrera">
-                <Chart>
-                  <PieChart>
-                    <Pie
-                      data={tipoCarrera}
-                      dataKey="total"
-                      nameKey="name"
-                      outerRadius={110}
-                    >
-                      {tipoCarrera.map(
-                        (_, i) => (
-                          <Cell
-                            key={i}
-                            fill={
-                              PIE_COLORS[
-                                i %
-                                  PIE_COLORS.length
-                              ]
-                            }
-                          />
-                        )
-                      )}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </Chart>
-              </Panel>
+      <Tooltip />
 
-              <Panel title="Defensa rival">
-                <Chart>
-                  <BarChart
-                    data={defensa}
-                  >
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar
-                      dataKey="total"
-                      fill={COLORS.purple}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
-
-              <Panel title="Timeline">
-                <Chart>
-                  <LineChart
-                    data={timeline}
-                  >
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="tramo" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                      dataKey="total"
-                      stroke={COLORS.green}
-                      strokeWidth={3}
-                    />
-                  </LineChart>
-                </Chart>
-              </Panel>
-
-              <Panel title="Finalización xG">
-                <Chart>
-                  <BarChart
-                    data={
-                      tipoRemateData
-                    }
-                    layout="vertical"
-                  >
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis type="number" />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={120}
-                    />
-                    <Tooltip />
-                    <Bar
-                      dataKey="total"
-                      fill={COLORS.gold}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+      <Bar
+        dataKey="total"
+        fill={COLORS.gold}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+          formatter={(v) =>
+            typeof v === "number"
+              ? v
+              : ""
+          }
+          style={{
+            fill: "#F8FAFC",
+            fontWeight: 600,
+            fontSize: 12,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
 
             </div>
 
