@@ -317,9 +317,9 @@ function RadarPanel({
         <div className="flex-1 h-[210px] flex items-center justify-center">
           <RadarChart
             width={horizontal ? 520 : 310}
-            height={150}
+            height={250}
             data={chartData}
-            outerRadius="92%"
+            outerRadius="100%"
           >
             <PolarGrid stroke="#66d9ff28" />
 
