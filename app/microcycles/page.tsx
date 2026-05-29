@@ -448,34 +448,54 @@ export default function Page() {
             <div className="grid grid-cols-2 gap-6 mt-10">
 
               <Panel title="Load by MD">
-                <Chart>
-                  <ComposedChart data={mdData}>
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="md" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
+  <Chart>
+    <ComposedChart data={mdData}>
+      <CartesianGrid stroke="#1E232A" />
 
-                    <Bar
-                      dataKey="carga"
-                      fill={COLORS.gold}
-                      radius={[8, 8, 0, 0]}
-                    />
+      <XAxis dataKey="md" />
 
-                    <Bar
-                      dataKey="cargaCog"
-                      fill={COLORS.blue}
-                      radius={[8, 8, 0, 0]}
-                    />
+      {/* eje cargas */}
+      <YAxis yAxisId="left" />
 
-                    <Line
-                      dataKey="intensidad"
-                      stroke={COLORS.purple}
-                      strokeWidth={3}
-                    />
-                  </ComposedChart>
-                </Chart>
-              </Panel>
+      {/* eje intensidad */}
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        domain={[0, 10]}
+      />
+
+      <Tooltip />
+      <Legend />
+
+      <Bar
+        yAxisId="left"
+        dataKey="carga"
+        fill={COLORS.gold}
+        radius={[8, 8, 0, 0]}
+      />
+
+      <Bar
+        yAxisId="left"
+        dataKey="cargaCog"
+        fill={COLORS.blue}
+        radius={[8, 8, 0, 0]}
+      />
+
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="intensidad"
+        stroke={COLORS.purple}
+        strokeWidth={3}
+        dot={{
+          r: 4,
+          fill: COLORS.purple,
+        }}
+        activeDot={{ r: 6 }}
+      />
+    </ComposedChart>
+  </Chart>
+</Panel>
 
               <Panel title="Cognitive Load">
                 <Chart>
