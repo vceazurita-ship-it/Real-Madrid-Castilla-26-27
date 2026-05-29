@@ -27,7 +27,7 @@ const DEFAULT_STRENGTH_VIDEO =
   "https://www.youtube.com/embed/ysz5S6PUM-U";
 
 const DEFAULT_IMPROVEMENT_VIDEO =
-  "https://www.youtube.com/embed/dQw4w9WgXcQ";
+  "https://www.youtube.com/embed/ysz5S6PU";
 
 type Player = {
   name: string;
@@ -271,7 +271,9 @@ function parseCSV(text: string) {
     )
   );
 }
-
+function driveViewUrl(url = "") {
+  return url.replace("/preview", "/view");
+}
 function CarouselRow({
   title,
   items,
@@ -581,44 +583,62 @@ export default function IndividualPage() {
 
                 <div className="space-y-10">
                   <div>
-                    <h3 className="mb-3 text-[#C8A96B]">
-                      Fortalezas
-                    </h3>
+  <h3 className="mb-3 text-[#C8A96B]">
+    Fortalezas
+  </h3>
 
-                    <p className="mb-4 text-gray-300">
-                      {
-                        selected.strengths
-                      }
-                    </p>
+  <p className="mb-4 text-gray-300">
+    {selected.strengths}
+  </p>
 
-                    <iframe
-                      src={
-                        selected.strengthVideo
-                      }
-                      className="h-[260px] w-full rounded-2xl"
-                      allowFullScreen
-                    />
-                  </div>
+  <div className="mb-4 flex justify-end">
+    <a
+      href={driveViewUrl(
+        selected.strengthVideo || ""
+      )}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-slate-200"
+    >
+      Ver en alta calidad ↗
+    </a>
+  </div>
+
+  <iframe
+    src={selected.strengthVideo}
+    className="h-[260px] w-full rounded-2xl border-0 bg-black"
+    allowFullScreen
+  />
+</div>
 
                   <div>
-                    <h3 className="mb-3 text-[#C8A96B]">
-                      Áreas de mejora
-                    </h3>
+  <h3 className="mb-3 text-[#C8A96B]">
+    Áreas de mejora
+  </h3>
 
-                    <p className="mb-4 text-gray-300">
-                      {
-                        selected.improvements
-                      }
-                    </p>
+  <p className="mb-4 text-gray-300">
+    {selected.improvements}
+  </p>
 
-                    <iframe
-                      src={
-                        selected.improvementVideo
-                      }
-                      className="h-[260px] w-full rounded-2xl"
-                      allowFullScreen
-                    />
-                  </div>
+  <div className="mb-4 flex justify-end">
+    <a
+      href={driveViewUrl(
+        selected.improvementVideo || ""
+      )}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-slate-200"
+    >
+      Ver en alta calidad ↗
+    </a>
+  </div>
+
+  <iframe
+    src={selected.improvementVideo}
+    className="h-[260px] w-full rounded-2xl border-0 bg-black"
+    allowFullScreen
+  />
+</div>
                 </div>
               </div>
             </div>
