@@ -80,10 +80,10 @@ export function Sidebar() {
             </p>
 
             <div className="space-y-2 text-sm">
-              {navLink("/individual", "Evaluación específica")}
-              {navLink("/emotion", "Rendimiento emocional")}
+              {navLink("/individual", "Análisis")}
+              {navLink("/emotion", "Emocional")}
               {navLink("/sinergy", "Sinergias")}
-              {navLink("/comparative_ind", "Rendimiento comparativo u21")}
+              {navLink("/comparative_ind", "Comparativo u21")}
             </div>
           </div>
 
@@ -94,9 +94,9 @@ export function Sidebar() {
             </p>
 
             <div className="space-y-2 text-sm">
-              {navLink("/team", "Rendimiento del equipo")}
-              {navLink("/collective", "Comportamiento colectivo")}
-              {navLink("/setpieces", "Acciones a balón parado")}
+              {navLink("/team", "Rendimiento")}
+              {navLink("/collective", "Modelo")}
+              {navLink("/setpieces", "ABP")}
             </div>
           </div>
 
