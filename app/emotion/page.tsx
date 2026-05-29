@@ -109,13 +109,13 @@ export default function EmotionPage() {
           <Topbar />
 
           <section className="px-8 py-8">
-           <div className="mt-4 flex items-center gap-5">
-                <h2 className="text-4xl font-semibold tracking-tight">
-Rendimiento emocional               </h2>
+           <div className="flex items-center gap-2 leading-none">
+  <h2 className="text-xl font-semibold tracking-tight">
+    Rendimiento emocional
+  </h2>
 
-                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-              </div>
-            
+  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+</div>
             <div
               className="rounded-[34px] p-6"
               style={{
@@ -317,7 +317,7 @@ function RadarPanel({
         <div className="flex-1 h-[210px] flex items-center justify-center">
           <RadarChart
             width={horizontal ? 520 : 310}
-            height={210}
+            height={100%}
             data={chartData}
             outerRadius="92%"
           >
