@@ -45,14 +45,17 @@ export function Sidebar() {
 
       {/* SIDEBAR */}
       <aside
-        className={`
-          fixed inset-y-0 left-0 z-50 w-72 transform
-          border-r border-white/10 bg-[#111827] px-6 py-8
-          transition-transform duration-300
-          ${open ? "translate-x-0" : "-translate-x-full"}
-          md:static md:translate-x-0
-        `}
-      >
+  className={`
+  fixed inset-y-0 left-0 z-50 w-72 transform
+  overflow-y-auto overscroll-contain
+  border-r border-white/10 bg-[#111827]
+  px-6 py-8
+  transition-transform duration-300
+  ${open ? "translate-x-0" : "-translate-x-full"}
+  md:static md:translate-x-0 md:overflow-visible
+`}
+style={{ WebkitOverflowScrolling: "touch" }}
+>
         {/* BOTÓN CERRAR */}
         <div className="mb-6 flex justify-end md:hidden">
           <button
