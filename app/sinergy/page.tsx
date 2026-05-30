@@ -8,20 +8,22 @@ export default function IndividualPage() {
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 1024); // lg
+    const onResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
+    onResize();
+    window.addEventListener("resize", onResize);
 
-    return () => window.removeEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const base =
-    "https://app.powerbi.com/reportEmbed?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2&navContentPaneEnabled=false&pageNavigationPosition=none";
-
-  const src = `${base}&filterPaneEnabled=${isDesktop ? "true" : "false"}`;
+  const src = `https://app.powerbi.com/reportEmbed
+    ?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f
+    &autoAuth=true
+    &ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2
+    &filterPaneEnabled=${isDesktop ? "true" : "false"}
+  `.replace(/\s/g, "");
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -59,8 +61,8 @@ export default function IndividualPage() {
                   rounded-[18px] sm:rounded-[24px]
                   bg-[#0B0F14]
 
-                  h-[480px]
-                  sm:h-[620px]
+                  h-[72vh]
+                  sm:h-[78vh]
                   lg:h-[840px]
                 "
                 allowFullScreen
