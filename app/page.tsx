@@ -220,7 +220,19 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
+ {/* field */}
+                  <div className="mt-20 rounded-[34px] border border-white/10 bg-[#07111D]/70 p-4">
+                    <Image
+                      src="/hero-field.png"
+                      alt="Campo táctico"
+                      width={900}
+                      height={620}
+                      className="rounded-[28px] object-cover"
+                      priority
+                    />
+                  </div>
+                
+              
               {/* KPI */}
               <div className="relative z-10 mt-10 grid grid-cols-4 gap-5">
                 {metrics.map((item) => {
