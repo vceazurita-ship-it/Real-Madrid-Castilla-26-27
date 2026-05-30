@@ -34,48 +34,23 @@ export default function IndividualPage() {
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-              <button
-                onClick={() => setPage("ReportSection")}
-                className={`shrink-0 rounded-2xl px-4 py-2 text-sm font-medium border transition ${
-                  page === "ReportSection"
-                    ? "border-[#C8A96B]/40 bg-white/[0.08] text-white"
-                    : "border-white/10 bg-white/[0.03] text-zinc-300"
-                }`}
-              >
-                Sinergias
-              </button>
-
-              <button
-                onClick={() => setPage("ReportSection2")}
-                className={`shrink-0 rounded-2xl px-4 py-2 text-sm font-medium border transition ${
-                  page === "ReportSection2"
-                    ? "border-[#C8A96B]/40 bg-white/[0.08] text-white"
-                    : "border-white/10 bg-white/[0.03] text-zinc-300"
-                }`}
-              >
-                Comparativa
-              </button>
-            </div>
-
             {/* Power BI */}
             <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-              <iframe
-                title="Power BI Report"
-                src={`${base}&pageName=${page}`}
-                className="
-                  block
-                  w-full
-                  border-0
-                  rounded-[18px] sm:rounded-[24px]
-                  bg-[#0B0F14]
-                  h-[460px]
-                  sm:h-[780px]
-                  lg:h-[840px]
-                "
-                allowFullScreen
-              />
+             <iframe
+  title="Power BI Report"
+  src="https://app.powerbi.com/reportEmbed?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f&autoAuth=true&ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2&filterPaneEnabled=false"
+  className="
+    block
+    w-full
+    border-0
+    rounded-[18px] sm:rounded-[24px]
+    bg-[#0B0F14]
+    h-[560px]
+    sm:h-[780px]
+    lg:h-[840px]
+  "
+  allowFullScreen
+/>
             </div>
           </div>
         </section>
