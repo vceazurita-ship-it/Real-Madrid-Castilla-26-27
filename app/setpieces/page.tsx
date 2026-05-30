@@ -88,18 +88,25 @@ function parseCSV(text: string): Row[] {
       rival: r[1] || "",
       tiempo: num(r[2]),
       minuto: num(r[3]),
+
       sacador: r[6] || "",
+
       tipoAccion: r[8] || "",
       perfilGolpeo: r[9] || "",
       tipoEnvio: r[10] || "",
       zonaCaida: r[11] || "",
+
       tipoCarrera: r[17] || "",
+
       defensaRival: r[21] || "",
       debilidadRival: r[22] || "",
+
       rematador: r[24] || "",
       tipoRemate: r[25] || "",
       zonaRemate: r[26] || "",
+
       xg: num(r[27]),
+
       segundoBalon: r[28] || "",
       resultadoFinal: r[29] || "",
       rutina: r[30] || "",
@@ -113,30 +120,41 @@ function countBy(rows: Row[], key: keyof Row) {
 
   rows.forEach((r) => {
     const k = String(r[key] || "Unknown");
-    grouped[k] = (grouped[k] || 0) + 1;
+
+    grouped[k] =
+      (grouped[k] || 0) + 1;
   });
 
-  return Object.entries(grouped).map(([name, total]) => ({
-    name,
-    total,
-  }));
+  return Object.entries(grouped).map(
+    ([name, total]) => ({
+      name,
+      total,
+    })
+  );
 }
 
 export default function Page() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [jornada, setJornada] = useState("ALL");
+  const [rows, setRows] =
+    useState<Row[]>([]);
+
+  const [jornada, setJornada] =
+    useState("ALL");
 
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
-      .then((t) => setRows(parseCSV(t)));
+      .then((t) =>
+        setRows(parseCSV(t))
+      );
   }, []);
 
   const jornadas = useMemo(
     () =>
-      [...new Set(rows.map((r) => r.jornada))].sort(
-        (a, b) => a - b
-      ),
+      [
+        ...new Set(
+          rows.map((r) => r.jornada)
+        ),
+      ].sort((a, b) => a - b),
     [rows]
   );
 
@@ -144,144 +162,168 @@ export default function Page() {
     jornada === "ALL"
       ? rows
       : rows.filter(
-          (r) => String(r.jornada) === jornada
+          (r) =>
+            String(r.jornada) ===
+            jornada
         );
 
   const metrics = {
     total: filtered.length,
-    xg: filtered.reduce((a, b) => a + b.xg, 0),
+
+    xg: filtered.reduce(
+      (a, b) => a + b.xg,
+      0
+    ),
 
     shots: filtered.filter(
       (r) =>
         r.tipoRemate &&
-        !["", "No Remate", "No aplica"].includes(
+        ![
+          "",
+          "No Remate",
+          "No aplica",
+        ].includes(
           r.tipoRemate
         )
     ).length,
 
-    goals: filtered.filter((r) =>
-      r.resultadoFinal
-        .toLowerCase()
-        .includes("gol")
+    goals: filtered.filter(
+      (r) =>
+        r.resultadoFinal
+          .toLowerCase()
+          .includes("gol")
     ).length,
   };
 
-  const tipoAccion = countBy(
-    filtered,
-    "tipoAccion"
-  );
+  const tipoAccion =
+    countBy(filtered, "tipoAccion");
 
-  const zonaCaida = countBy(
-    filtered,
-    "zonaCaida"
-  );
+  const zonaCaida =
+    countBy(filtered, "zonaCaida");
 
-  const tipoCarrera = countBy(
-    filtered,
-    "tipoCarrera"
-  );
+  const tipoCarrera =
+    countBy(filtered, "tipoCarrera");
 
-  const defensa = countBy(
-    filtered,
-    "defensaRival"
-  );
+  const defensa =
+    countBy(filtered, "defensaRival");
 
-  const sacadorData = useMemo(() => {
-    const grouped: Record<
-      string,
-      { xg: number }
-    > = {};
+  const sacadorData =
+    useMemo(() => {
+      const grouped:
+        Record<
+          string,
+          { xg: number }
+        > = {};
 
-    filtered.forEach((r) => {
-      const k = r.sacador || "Unknown";
+      filtered.forEach((r) => {
+        const k =
+          r.sacador || "Unknown";
 
-      if (!grouped[k]) {
-        grouped[k] = { xg: 0 };
-      }
+        if (!grouped[k]) {
+          grouped[k] = {
+            xg: 0,
+          };
+        }
 
-      grouped[k].xg += r.xg;
-    });
-
-    return Object.entries(grouped).map(
-      ([name, v]) => ({
-        name,
-        xg: +v.xg.toFixed(2),
-      })
-    );
-  }, [filtered]);
-
-  const tipoRemateData = useMemo(() => {
-    const grouped: Record<
-      string,
-      number
-    > = {};
-
-    filtered
-      .filter(
-        (r) =>
-          r.tipoRemate &&
-          ![
-            "",
-            "No Remate",
-            "No aplica",
-          ].includes(r.tipoRemate)
-      )
-      .forEach((r) => {
-        grouped[r.tipoRemate] =
-          (grouped[r.tipoRemate] || 0) +
-          r.xg;
+        grouped[k].xg += r.xg;
       });
 
-    return Object.entries(grouped).map(
-      ([name, total]) => ({
+      return Object.entries(
+        grouped
+      ).map(([name, v]) => ({
         name,
-        total: +total.toFixed(2),
-      })
-    );
-  }, [filtered]);
+        xg: +v.xg.toFixed(2),
+      }));
+    }, [filtered]);
 
-  const timeline = Array.from(
-    { length: 6 },
-    (_, i) => {
-      const start = i * 15;
+  const tipoRemateData =
+    useMemo(() => {
+      const grouped:
+        Record<
+          string,
+          number
+        > = {};
 
-      return {
-        tramo: `${start}-${start + 15}`,
-        total: filtered.filter(
+      filtered
+        .filter(
           (r) =>
-            r.minuto >= start &&
-            r.minuto < start + 15
-        ).length,
-      };
-    }
-  );
+            r.tipoRemate &&
+            ![
+              "",
+              "No Remate",
+              "No aplica",
+            ].includes(
+              r.tipoRemate
+            )
+        )
+        .forEach((r) => {
+          grouped[
+            r.tipoRemate
+          ] =
+            (grouped[
+              r.tipoRemate
+            ] || 0) + r.xg;
+        });
+
+      return Object.entries(
+        grouped
+      ).map(
+        ([name, total]) => ({
+          name,
+          total:
+            +total.toFixed(2),
+        })
+      );
+    }, [filtered]);
+
+  const timeline =
+    Array.from(
+      { length: 6 },
+      (_, i) => {
+        const start =
+          i * 15;
+
+        return {
+          tramo: `${start}-${start + 15}`,
+          total:
+            filtered.filter(
+              (r) =>
+                r.minuto >=
+                  start &&
+                r.minuto <
+                  start + 15
+            ).length,
+        };
+      }
+    );
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white overflow-x-hidden">
-      <div className="flex flex-col lg:flex-row">
+    <main className="min-h-screen bg-[#0B0F14] text-white">
+      <div className="flex">
         <Sidebar />
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1">
           <Topbar />
 
-          <section className="p-4 sm:p-6 lg:p-10">
-            <div className="rounded-[32px] sm:rounded-[40px] border border-white/10 bg-white/[0.03] p-4 sm:p-6 lg:p-10">
+          <section className="p-10">
 
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
 
-                <div className="w-full">
-                  <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                    RMC Intelligence
-                  </p>
+              <div className="flex items-center justify-between">
 
-                  <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">
-                      Acciones a Balón Parado
-                    </h1>
+                 <div className="mb-8">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                                RMC Intelligence
+              </p>
 
-                    <div className="hidden lg:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-                  </div>
-                </div>
+              <div className="mt-4 flex items-center gap-5">
+                <h1 className="text-4xl font-semibold tracking-tight">
+                 Acciones a Balón Parado
+                </h1>
+
+                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+              </div>
+            </div>
 
                 <select
                   value={jornada}
@@ -290,27 +332,33 @@ export default function Page() {
                       e.target.value
                     )
                   }
-                  className="w-full lg:w-auto rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3 text-white"
+                  className="rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3"
                 >
                   <option value="ALL">
                     Todas
                   </option>
 
-                  {jornadas.map((m) => (
-                    <option
-                      key={m}
-                      value={m}
-                    >
-                      Jornada {m}
-                    </option>
-                  ))}
+                  {jornadas.map(
+                    (m) => (
+                      <option
+                        key={m}
+                        value={m}
+                      >
+                        Jornada {m}
+                      </option>
+                    )
+                  )}
                 </select>
+
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-8">
+              <div className="grid grid-cols-4 gap-5 mt-10">
+
                 <Card
                   title="ABP"
-                  value={metrics.total}
+                  value={
+                    metrics.total
+                  }
                 />
 
                 <Card
@@ -320,21 +368,341 @@ export default function Page() {
 
                 <Card
                   title="Remates"
-                  value={metrics.shots}
+                  value={
+                    metrics.shots
+                  }
                 />
 
                 <Card
                   title="Goles"
-                  value={metrics.goals}
+                  value={
+                    metrics.goals
+                  }
                 />
+
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-8 lg:mt-10">
-
-              {/* TUS PANELES Y CHARTS EXACTAMENTE IGUAL QUE LOS TENÍAS */}
 
             </div>
+
+            <div className="grid grid-cols-2 gap-6 mt-10">
+
+              <Panel title="Tipo de acción">
+  <Chart>
+    <BarChart
+      data={tipoAccion}
+      margin={{
+        top: 24,
+        right: 24,
+        left: 0,
+        bottom: 12,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.gold}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+          formatter={(v) =>
+            typeof v === "number"
+              ? v
+              : ""
+          }
+          style={{
+            fill: "#F8FAFC",
+            fontWeight: 600,
+            fontSize: 12,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Zona caída">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={zonaCaida}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={65}
+        outerRadius={125}
+        paddingAngle={3}
+      >
+        {zonaCaida.map(
+          (_, i) => (
+            <Cell
+              key={i}
+              fill={
+                PIE_COLORS[
+                  i %
+                    PIE_COLORS.length
+                ]
+              }
+            />
+          )
+        )}
+      </Pie>
+
+      <Tooltip />
+
+      <Legend
+        verticalAlign="middle"
+        align="right"
+        layout="vertical"
+        wrapperStyle={{
+          fontSize: 12,
+          color: "#CBD5E1",
+        }}
+      />
+    </PieChart>
+  </Chart>
+</Panel>
+<Panel title="Impacto sacador">
+  <Chart>
+    <BarChart
+      data={sacadorData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        domain={[0, 1]}
+        tick={{
+          fill: "#94A3B8",
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        tick={{
+          fill: "#CBD5E1",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="xg"
+        fill={COLORS.blue}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="xg"
+          position="right"
+          formatter={(v) =>
+            typeof v === "number"
+              ? v.toFixed(2)
+              : ""
+          }
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Tipo carrera">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={tipoCarrera}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={60}
+        outerRadius={120}
+        paddingAngle={3}
+      >
+        {tipoCarrera.map(
+          (_, i) => (
+            <Cell
+              key={i}
+              fill={
+                PIE_COLORS[
+                  i %
+                    PIE_COLORS.length
+                ]
+              }
+            />
+          )
+        )}
+      </Pie>
+
+      <Tooltip />
+
+      <Legend
+        layout="vertical"
+        verticalAlign="middle"
+        align="right"
+        wrapperStyle={{
+          fontSize: 12,
+          color: "#CBD5E1",
+        }}
+      />
+    </PieChart>
+  </Chart>
+</Panel>
+<Panel title="Defensa rival">
+  <Chart>
+    <BarChart
+      data={defensa}
+      margin={{
+        top: 20,
+        right: 20,
+        bottom: 12,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{
+          fill: "#94A3B8",
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#94A3B8",
+        }}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.purple}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Timeline">
+  <Chart>
+    <LineChart
+      data={timeline}
+      margin={{
+        top: 20,
+        right: 20,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="tramo"
+        tick={{
+          fill: "#94A3B8",
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#94A3B8",
+        }}
+      />
+
+      <Tooltip />
+
+      <Line
+        dataKey="total"
+        stroke={COLORS.green}
+        strokeWidth={3}
+        dot={{
+          r: 5,
+          fill: COLORS.green,
+        }}
+        activeDot={{
+          r: 7,
+        }}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+          style={{
+            fill: "#fff",
+            fontSize: 11,
+          }}
+        />
+      </Line>
+    </LineChart>
+  </Chart>
+</Panel>
+
+
+            </div>
+
           </section>
         </div>
       </div>
@@ -360,12 +728,12 @@ function Card({
   value,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
       <p className="text-sm text-zinc-400">
         {title}
       </p>
 
-      <h3 className="mt-3 text-2xl sm:text-4xl font-semibold">
+      <h3 className="mt-4 text-4xl font-semibold">
         {value}
       </h3>
     </div>
@@ -377,8 +745,8 @@ function Panel({
   children,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6 lg:p-8 shadow-xl overflow-hidden">
-      <h2 className="mb-6 text-lg sm:text-xl lg:text-2xl font-semibold">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-xl">
+      <h2 className="mb-6 text-2xl font-semibold">
         {title}
       </h2>
 
