@@ -2,7 +2,11 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Papa from "papaparse";
 import {
   ResponsiveContainer,
@@ -134,6 +138,28 @@ function countBy(rows: Row[], key: keyof Row) {
 }
 
 export default function Page() {
+  const [isMobile, setIsMobile] =
+  useState(false);
+
+useEffect(() => {
+  const check = () =>
+    setIsMobile(
+      window.innerWidth < 768
+    );
+
+  check();
+
+  window.addEventListener(
+    "resize",
+    check
+  );
+
+  return () =>
+    window.removeEventListener(
+      "resize",
+      check
+    );
+}, []);
   const [rows, setRows] =
     useState<Row[]>([]);
 
@@ -484,14 +510,31 @@ text-sm md:text-base
       <Tooltip />
 
       <Legend
-        verticalAlign="middle"
-        align="right"
-        layout="vertical"
-        wrapperStyle={{
-          fontSize: 12,
-          color: "#CBD5E1",
-        }}
-      />
+  verticalAlign={
+    isMobile
+      ? "bottom"
+      : "middle"
+  }
+  align={
+    isMobile
+      ? "center"
+      : "right"
+  }
+  layout={
+    isMobile
+      ? "horizontal"
+      : "vertical"
+  }
+  wrapperStyle={{
+    fontSize: isMobile
+      ? 11
+      : 12,
+    color: "#CBD5E1",
+    paddingTop: isMobile
+      ? 16
+      : 0,
+  }}
+/>
     </PieChart>
   </Chart>
 </Panel>
@@ -587,14 +630,31 @@ text-sm md:text-base
       <Tooltip />
 
       <Legend
-        layout="vertical"
-        verticalAlign="middle"
-        align="right"
-        wrapperStyle={{
-          fontSize: 12,
-          color: "#CBD5E1",
-        }}
-      />
+  layout={
+    isMobile
+      ? "horizontal"
+      : "vertical"
+  }
+  verticalAlign={
+    isMobile
+      ? "bottom"
+      : "middle"
+  }
+  align={
+    isMobile
+      ? "center"
+      : "right"
+  }
+  wrapperStyle={{
+    fontSize: isMobile
+      ? 11
+      : 12,
+    color: "#CBD5E1",
+    paddingTop: isMobile
+      ? 16
+      : 0,
+  }}
+/>
     </PieChart>
   </Chart>
 </Panel>
