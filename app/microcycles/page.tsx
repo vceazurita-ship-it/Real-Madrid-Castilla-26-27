@@ -382,16 +382,16 @@ export default function Page() {
         <div className="flex-1">
           <Topbar />
 
-          <section className="p-10">
-            <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
-              <div className="flex items-center justify-between">
+          <section className="px-4 py-5 sm:p-10">
+            <div className="rounded-[28px] sm:rounded-[40px] border border-white/10 bg-white/[0.03] p-5 sm:p-10">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                  <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
                                 RMC Intelligence
               </p>
 
               <div className="mt-4 flex items-center gap-5">
-                <h1 className="text-4xl font-semibold tracking-tight">
+                <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight">
                  Análisis de Microciclos
                 </h1>
 
@@ -406,7 +406,7 @@ export default function Page() {
                       e.target.value
                     )
                   }
-                  className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-5 py-3"
+                  className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
                 >
                   <option value="ALL">
                     All Microcycles
@@ -423,7 +423,7 @@ export default function Page() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-4 gap-5 mt-10">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
                 <Card
                   title="Avg Eval"
                   value={metrics.eval}
@@ -446,7 +446,7 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mt-10">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
 
               <Panel title="Carga e Intensidad por MD">
   <Chart>
@@ -863,12 +863,14 @@ function Chart({
   children,
 }: any) {
   return (
-    <ResponsiveContainer
-      width="100%"
-      height={320}
-    >
-      {children}
-    </ResponsiveContainer>
+    <div className="w-full h-[260px] sm:h-[320px]">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+      >
+        {children}
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -877,12 +879,12 @@ function Card({
   value,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-      <p className="text-sm text-zinc-400">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6">
+      <p className="text-xs sm:text-sm text-zinc-400">
         {title}
       </p>
 
-      <h3 className="mt-4 text-4xl font-semibold">
+      <h3 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-semibold">
         {value}
       </h3>
     </div>
@@ -894,8 +896,8 @@ function Panel({
   children,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-xl">
-      <h2 className="mb-6 text-2xl font-semibold">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-8 shadow-xl overflow-hidden">
+      <h2 className="mb-4 sm:mb-6 text-lg sm:text-2xl font-semibold leading-tight">
         {title}
       </h2>
 
