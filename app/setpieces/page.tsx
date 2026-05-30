@@ -300,16 +300,18 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
-        <Sidebar />
+        <div className="hidden md:block">
+  <Sidebar />
+</div>
 
         <div className="flex-1">
           <Topbar />
 
-          <section className="p-10">
+          <section className="p-4 md:p-10">
 
-            <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-10">
+            <div className="rounded-3xl md:rounded-[40px] border border-white/10 bg-white/[0.03] p-5 md:p-10">
 
-              <div className="flex items-center justify-between">
+             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
 
                  <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
@@ -317,7 +319,7 @@ export default function Page() {
               </p>
 
               <div className="mt-4 flex items-center gap-5">
-                <h1 className="text-4xl font-semibold tracking-tight">
+                <h1 className="text-2xl md:text-4xl font-semibold tracking-tight">
                  Acciones a Balón Parado
                 </h1>
 
@@ -332,7 +334,14 @@ export default function Page() {
                       e.target.value
                     )
                   }
-                  className="rounded-2xl border border-white/10 bg-[#11161C] px-5 py-3"
+                  className="
+w-full md:w-auto
+rounded-2xl
+border border-white/10
+bg-[#11161C]
+px-5 py-3
+text-sm md:text-base
+"
                 >
                   <option value="ALL">
                     Todas
@@ -352,7 +361,7 @@ export default function Page() {
 
               </div>
 
-              <div className="grid grid-cols-4 gap-5 mt-10">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5 mt-8 md:mt-10">
 
                 <Card
                   title="ABP"
@@ -384,7 +393,7 @@ export default function Page() {
 
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mt-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
 
               <Panel title="Tipo de acción">
   <Chart>
@@ -714,12 +723,14 @@ function Chart({
   children,
 }: any) {
   return (
-    <ResponsiveContainer
-      width="100%"
-      height={320}
-    >
-      {children}
-    </ResponsiveContainer>
+    <div className="h-[280px] md:h-[320px] w-full">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+      >
+        {children}
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -728,12 +739,12 @@ function Card({
   value,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
       <p className="text-sm text-zinc-400">
         {title}
       </p>
 
-      <h3 className="mt-4 text-4xl font-semibold">
+      <h3 className="mt-3 md:mt-4 text-2xl md:text-4xl font-semibold">
         {value}
       </h3>
     </div>
@@ -745,8 +756,8 @@ function Panel({
   children,
 }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 shadow-xl">
-      <h2 className="mb-6 text-2xl font-semibold">
+    <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-8 shadow-xl overflow-hidden">
+      <h2 className="mb-5 md:mb-6 text-lg md:text-2xl font-semibold">
         {title}
       </h2>
 
