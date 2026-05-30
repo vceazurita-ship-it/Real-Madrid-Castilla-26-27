@@ -163,26 +163,35 @@ export default function Home() {
                   </div>
 
                   <div className="mt-10 flex gap-4">
-                    <button className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]">
+                    <Link
+                      href="/team"
+                      className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]"
+                    >
                       <div className="flex items-center gap-2">
                         <Rocket className="h-5 w-5" />
                         Explorar ecosistema
                       </div>
-                    </button>
+                    </Link>
 
-                    <button className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-4 transition hover:bg-white/[0.06]">
+                    <Link
+                      href="/individual"
+                      className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-4 transition hover:bg-white/[0.06]"
+                    >
                       <div className="flex items-center gap-2">
                         <PlayCircle className="h-5 w-5" />
                         Ver métricas
                       </div>
-                    </button>
+                    </Link>
                   </div>
                 </div>
 
                 {/* RIGHT */}
                 <div className="relative">
                   {/* radar */}
-                  <div className="absolute left-0 top-0 z-20 w-[290px] rounded-[30px] border border-white/10 bg-[#07111D]/85 p-4 backdrop-blur-xl shadow-[0_0_40px_rgba(0,120,255,.18)]">
+                  <Link
+                    href="/comparative_ind"
+                    className="absolute left-0 top-0 z-20 w-[290px] rounded-[30px] border border-white/10 bg-[#07111D]/85 p-4 backdrop-blur-xl shadow-[0_0_40px_rgba(0,120,255,.18)] transition hover:scale-[1.02]"
+                  >
                     <Image
                       src="/radar-chart.png"
                       alt="Radar"
@@ -190,10 +199,13 @@ export default function Home() {
                       height={280}
                       className="rounded-2xl"
                     />
-                  </div>
+                  </Link>
 
                   {/* efficiency */}
-                  <div className="absolute right-0 top-0 z-20 w-[250px] rounded-[30px] border border-blue-500/20 bg-[#08111D]/90 p-6 shadow-[0_0_40px_rgba(59,130,246,.18)]">
+                  <Link
+                    href="/emotion"
+                    className="absolute right-0 top-0 z-20 w-[250px] rounded-[30px] border border-blue-500/20 bg-[#08111D]/90 p-6 shadow-[0_0_40px_rgba(59,130,246,.18)] transition hover:scale-[1.02]"
+                  >
                     <p className="text-xs uppercase tracking-[0.3em] text-gray-400">
                       EFICIENCIA
                     </p>
@@ -203,10 +215,13 @@ export default function Home() {
                     <p className="mt-3 text-sm text-emerald-400">
                       +4% vs semana anterior
                     </p>
-                  </div>
+                  </Link>
 
                   {/* field */}
-                  <div className="relative mt-12 overflow-hidden rounded-[34px] border border-white/10 bg-[#07111D]/40">
+                  <Link
+                    href="/collective"
+                    className="relative mt-12 block overflow-hidden rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"
+                  >
                     <Image
                       src="/hero-field.png"
                       alt="Campo táctico"
@@ -217,11 +232,10 @@ export default function Home() {
                     />
 
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.4))]" />
-                  </div>
+                  </Link>
                 </div>
               </div>
- 
-              
+
               {/* KPI */}
               <div className="relative z-10 mt-10 grid grid-cols-4 gap-5">
                 {metrics.map((item) => {
