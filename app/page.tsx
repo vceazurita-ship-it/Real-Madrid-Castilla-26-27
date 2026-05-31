@@ -20,7 +20,7 @@ import { Topbar } from "@/components/ui/topbar"
 
 const metrics = [
   {
-    href: "/individual",
+    href: "/team",
     icon: Zap,
     label: "EFICIENCIA COMPETITIVA",
     value: "87%",
@@ -71,7 +71,7 @@ const modules = [
     glow: "violet",
   },
   {
-    href: "/collective",
+    href: "/team",
     section: "COLECTIVO",
     title: "Rendimiento del equipo",
     desc: "Dinámicas, cohesión y rendimiento colectivo",
