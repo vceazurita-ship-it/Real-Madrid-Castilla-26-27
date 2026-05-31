@@ -541,12 +541,22 @@ export default function IndividualPage() {
               setSelected(null)
             }
           >
-            <div
-              className="relative w-full max-h-[90vh] max-w-6xl overflow-y-auto rounded-3xl border border-white/10 bg-[#11161C] p-4 sm:p-6 lg:p-8"
-              onClick={(e) =>
-                e.stopPropagation()
-              }
-            >
+           <div
+  className="
+    relative
+    w-full
+    max-w-6xl
+    max-h-[92vh]
+    overflow-y-auto
+    rounded-3xl
+    border border-white/10
+    bg-[#11161C]
+    p-4 sm:p-6 lg:p-8
+    scrollbar-thin
+    scrollbar-thumb-white/10
+  "
+  onClick={(e) => e.stopPropagation()}
+>
               <button
                 onClick={() =>
                   setSelected(null)
@@ -616,11 +626,20 @@ export default function IndividualPage() {
   </a>
 </div>
 
+  <div className="overflow-hidden rounded-2xl bg-black">
   <iframe
     src={selected.strengthVideo}
-    className="h-[260px] w-full rounded-2xl border-0 bg-black"
+    className="
+      aspect-video
+      w-full
+      border-0
+      bg-black
+      min-h-[200px]
+      sm:min-h-0
+    "
     allowFullScreen
   />
+</div>
 </div>
 
                   <div>
@@ -657,11 +676,20 @@ export default function IndividualPage() {
   </a>
 </div>
 
+  <div className="overflow-hidden rounded-2xl bg-black">
   <iframe
     src={selected.improvementVideo}
-    className="h-[260px] w-full rounded-2xl border-0 bg-black"
+    className="
+      aspect-video
+      w-full
+      border-0
+      bg-black
+      min-h-[200px]
+      sm:min-h-0
+    "
     allowFullScreen
   />
+</div>
 </div>
                 </div>
               </div>
