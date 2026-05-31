@@ -557,6 +557,9 @@ export default function IndividualPage() {
     bg-[#11161C]
     p-4 sm:p-6 lg:p-8
   "
+  style={{
+    WebkitOverflowScrolling: "touch",
+  }}
   onClick={(e) => e.stopPropagation()}
 >
               <button
@@ -628,25 +631,25 @@ export default function IndividualPage() {
   </a>
 </div>
 
-  <div className="w-full overflow-hidden rounded-2xl bg-black">
-<video
-  key={selected.strengthVideo}
-  src={driveVideoUrl(
-    selected.strengthVideo || ""
-  )}
-  controls
-  playsInline
-  muted
-  preload="metadata"
-  controlsList="nodownload"
-  className="
-    w-full
-    aspect-video
-    bg-black
-    rounded-2xl
-    object-contain
-  "
-/>
+  <div className="w-full rounded-2xl overflow-hidden bg-black">
+  <div className="relative w-full pt-[56.25%]">
+    <iframe
+      key={selected.strengthVideo}
+      src={driveVideoUrl(
+        selected.strengthVideo || ""
+      )}
+      className="
+        absolute inset-0
+        h-full w-full
+        border-0
+        rounded-2xl
+      "
+      allow="autoplay; fullscreen"
+      allowFullScreen
+      loading="lazy"
+      referrerPolicy="strict-origin-when-cross-origin"
+    />
+  </div>
 </div>
 </div>
 
@@ -684,25 +687,25 @@ export default function IndividualPage() {
   </a>
 </div>
 
-  <div className="w-full overflow-hidden rounded-2xl bg-black">
-<video
-  key={selected.improvementVideo}
-  src={driveVideoUrl(
-    selected.improvementVideo || ""
-  )}
-  controls
-  playsInline
-  muted
-  preload="metadata"
-  controlsList="nodownload"
-  className="
-    w-full
-    aspect-video
-    bg-black
-    rounded-2xl
-    object-contain
-  "
-/>
+  <div className="w-full rounded-2xl overflow-hidden bg-black">
+  <div className="relative w-full pt-[56.25%]">
+    <iframe
+      key={selected.improvementVideo}
+      src={driveVideoUrl(
+        selected.improvementVideo || ""
+      )}
+      className="
+        absolute inset-0
+        h-full w-full
+        border-0
+        rounded-2xl
+      "
+      allow="autoplay; fullscreen"
+      allowFullScreen
+      loading="lazy"
+      referrerPolicy="strict-origin-when-cross-origin"
+    />
+  </div>
 </div>
 </div>
                 </div>
