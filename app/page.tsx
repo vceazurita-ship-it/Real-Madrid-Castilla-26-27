@@ -116,8 +116,8 @@ export default function Home() {
         <div className="flex-1">
           <Topbar />
 
-          <section className="p-8 xl:p-10">
-            <div className="relative overflow-hidden rounded-[40px] border border-[#173A61]/60 bg-[#030B15] p-10 shadow-[0_0_80px_rgba(0,80,255,.08)]">
+          <section className="p-4 sm:p-6 xl:p-10">
+            <div className="relative overflow-hidden rounded-[28px] xl:rounded-[40px] border border-[#173A61]/60 bg-[#030B15] p-5 sm:p-8 xl:p-10 shadow-[0_0_80px_rgba(0,80,255,.08)]">
               {/* fondo */}
               <Image
                 src="/stadium-bg.jpg"
@@ -131,7 +131,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(37,99,235,.18),transparent_30%)]" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
 
-              <div className="relative z-10 grid grid-cols-2 gap-10">
+              <div className="relative z-10 grid grid-cols-1 gap-10 xl:grid-cols-2">
                 {/* LEFT */}
                 <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-5 py-2">
@@ -142,7 +142,7 @@ export default function Home() {
                     </span>
                   </div>
 
-                  <h1 className="mt-8 text-[84px] font-semibold leading-[0.88] tracking-[-0.04em]">
+                  <h1 className="mt-6 text-[42px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[84px] xl:leading-[0.88]">
                     Plataforma integral
                     <br />
                     de{" "}
@@ -152,17 +152,17 @@ export default function Home() {
                     futbolística
                   </h1>
 
-                  <div className="mt-8 flex gap-5">
+                  <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
                     <div className="h-20 w-[3px] rounded-full bg-blue-500" />
 
-                    <p className="max-w-[620px] text-[24px] leading-relaxed text-white/75">
+                    <p className="max-w-[620px] text-base leading-relaxed text-white/75 sm:text-lg xl:text-[24px]">
                       Inteligencia aplicada al alto rendimiento para tomar
                       mejores decisiones, anticipar escenarios y optimizar cada
                       fase competitiva.
                     </p>
                   </div>
 
-                  <div className="mt-10 flex gap-4">
+                  <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                     <Link
                       href="/team"
                       className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]"
@@ -186,11 +186,11 @@ export default function Home() {
                 </div>
 
                 {/* RIGHT */}
-                <div className="relative">
+                <div className="relative mt-4 xl:mt-0">
                   {/* radar */}
                   <Link
                     href="/comparative_ind"
-                    className="absolute left-0 top-0 z-20 w-[290px] rounded-[30px] border border-white/10 bg-[#07111D]/85 p-4 backdrop-blur-xl shadow-[0_0_40px_rgba(0,120,255,.18)] transition hover:scale-[1.02]"
+                    className="relative z-20 mb-4 w-full max-w-[290px] xl:absolute xl:left-0 xl:top-0"
                   >
                     <Image
                       src="/radar-chart.png"
@@ -204,7 +204,7 @@ export default function Home() {
                   {/* efficiency */}
                   <Link
                     href="/emotion"
-                    className="absolute right-0 top-0 z-20 w-[250px] rounded-[30px] border border-blue-500/20 bg-[#08111D]/90 p-6 shadow-[0_0_40px_rgba(59,130,246,.18)] transition hover:scale-[1.02]"
+                    className="relative z-20 mb-4 w-full max-w-[250px] xl:absolute xl:right-0 xl:top-0"
                   >
                     <p className="text-xs uppercase tracking-[0.3em] text-gray-400">
                       EFICIENCIA
@@ -220,7 +220,7 @@ export default function Home() {
                   {/* field */}
                   <Link
                     href="/collective"
-                    className="relative mt-12 block overflow-hidden rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"
+                    className="relative mt-4 xl:mt-12 block overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"
                   >
                     <Image
                       src="/hero-field.png"
@@ -237,7 +237,7 @@ export default function Home() {
               </div>
 
               {/* KPI */}
-              <div className="relative z-10 mt-10 grid grid-cols-4 gap-5">
+              <div className="relative z-10 mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {metrics.map((item) => {
                   const Icon = item.icon
 
@@ -282,7 +282,7 @@ export default function Home() {
                   MÓDULOS
                 </p>
 
-                <div className="mt-6 grid grid-cols-2 gap-6">
+                <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
                   {modules.map((item) => {
                     const Icon = item.icon
 
@@ -294,7 +294,7 @@ export default function Home() {
                           item.glow
                         )}`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                           <div className="flex items-center gap-5">
                             <div className="rounded-full border border-white/10 bg-white/[0.04] p-5">
                               <Icon className="h-6 w-6" />

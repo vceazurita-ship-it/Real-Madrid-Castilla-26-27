@@ -1,0 +1,22 @@
+{
+  "name": "Real Madrid C Performance",
+  "short_name": "Madrid C",
+  "description": "Análisis individual y colectivo del Real Madrid C",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
