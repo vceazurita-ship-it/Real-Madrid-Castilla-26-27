@@ -541,19 +541,17 @@ export default function IndividualPage() {
               setSelected(null)
             }
           >
-           <div
+ <div
   className="
     relative
     w-full
     max-w-6xl
-    max-h-[92vh]
+    h-[92vh]
     overflow-y-auto
     rounded-3xl
     border border-white/10
     bg-[#11161C]
     p-4 sm:p-6 lg:p-8
-    scrollbar-thin
-    scrollbar-thumb-white/10
   "
   onClick={(e) => e.stopPropagation()}
 >
@@ -676,17 +674,26 @@ export default function IndividualPage() {
   </a>
 </div>
 
-  <div className="overflow-hidden rounded-2xl bg-black">
+  <div
+  className="
+    overflow-hidden
+    rounded-2xl
+    bg-black
+    w-full
+  "
+>
   <iframe
     src={selected.improvementVideo}
     className="
-      aspect-video
+      block
       w-full
       border-0
       bg-black
-      min-h-[200px]
-      sm:min-h-0
+      h-[240px]
+      sm:h-[320px]
+      lg:h-[420px]
     "
+    allow="autoplay; fullscreen"
     allowFullScreen
   />
 </div>
