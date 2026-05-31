@@ -20,6 +20,7 @@ import { Topbar } from "@/components/ui/topbar"
 
 const metrics = [
   {
+    href: "/individual",
     icon: Zap,
     label: "EFICIENCIA COMPETITIVA",
     value: "87%",
@@ -27,6 +28,7 @@ const metrics = [
     width: "w-[86%]",
   },
   {
+    href: "/microcycles",
     icon: Brain,
     label: "CARGA DE ENTRENAMIENTO",
     value: "Alta",
@@ -34,6 +36,7 @@ const metrics = [
     width: "w-[72%]",
   },
   {
+    href: "/emotion",
     icon: HeartPulse,
     label: "ESTABILIDAD EMOCIONAL",
     value: "Estable",
@@ -41,6 +44,7 @@ const metrics = [
     width: "w-[78%]",
   },
   {
+    href: "/collective",
     icon: TrendingUp,
     label: "EVOLUCIÓN COLECTIVA",
     value: "+12%",
@@ -119,18 +123,19 @@ export default function Home() {
           <section className="p-4 sm:p-6 xl:p-10">
             <div className="relative overflow-hidden rounded-[28px] xl:rounded-[40px] border border-[#173A61]/60 bg-[#030B15] p-5 sm:p-8 xl:p-10 shadow-[0_0_80px_rgba(0,80,255,.08)]">
               {/* fondo */}
-              <Image
-                src="/stadium-bg.jpg"
-                alt=""
-                fill
-                priority
-                className="object-cover opacity-[0.12]"
-              />
+             <Image
+  src="/stadium-bg.jpg"
+  alt=""
+  fill
+  priority
+  className="pointer-events-none object-cover opacity-[0.12]"
+/>
 
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(59,130,246,.18),transparent_30%)]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(37,99,235,.18),transparent_30%)]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(59,130,246,.18),transparent_30%)]" />
 
+<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(37,99,235,.18),transparent_30%)]" />
+
+<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
               <div className="relative z-10 grid grid-cols-1 gap-10 xl:grid-cols-2">
                 {/* LEFT */}
                 <div>
@@ -239,41 +244,42 @@ export default function Home() {
               {/* KPI */}
               <div className="relative z-10 mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {metrics.map((item) => {
-                  const Icon = item.icon
+  const Icon = item.icon
 
-                  return (
-                    <div
-                      key={item.label}
-                      className={`rounded-[28px] border border-white/10 bg-[#07101B]/85 p-6 backdrop-blur-xl ${glow(
-                        item.color
-                      )}`}
-                    >
-                      <div className="flex gap-4">
-                        <div className="rounded-full border border-white/10 bg-white/[0.04] p-5">
-                          <Icon className="h-5 w-5" />
-                        </div>
+  return (
+    <Link
+      key={item.label}
+      href={item.href}
+      className={`relative z-20 block cursor-pointer rounded-[28px] border border-white/10 bg-[#07101B]/85 p-6 backdrop-blur-xl transition duration-300 hover:scale-[1.02] ${glow(
+        item.color
+      )}`}
+    >
+      <div className="flex gap-4">
+        <div className="rounded-full border border-white/10 bg-white/[0.04] p-5">
+          <Icon className="h-5 w-5" />
+        </div>
 
-                        <div>
-                          <p className="text-xs tracking-[0.3em] text-gray-400">
-                            {item.label}
-                          </p>
+        <div>
+          <p className="text-xs tracking-[0.3em] text-gray-400">
+            {item.label}
+          </p>
 
-                          <h3 className="mt-3 text-4xl font-semibold">
-                            {item.value}
-                          </h3>
-                        </div>
-                      </div>
+          <h3 className="mt-3 text-4xl font-semibold">
+            {item.value}
+          </h3>
+        </div>
+      </div>
 
-                      <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
-                        <div
-                          className={`h-full rounded-full ${bar(
-                            item.color
-                          )} ${item.width}`}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
+      <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
+        <div
+          className={`h-full rounded-full ${bar(
+            item.color
+          )} ${item.width}`}
+        />
+      </div>
+    </Link>
+  )
+})}
               </div>
 
               {/* MODULES */}
@@ -287,13 +293,13 @@ export default function Home() {
                     const Icon = item.icon
 
                     return (
-                      <Link
-                        key={item.title}
-                        href={item.href}
-                        className={`group rounded-[32px] border border-white/10 bg-gradient-to-br from-[#06111D] to-[#030914] p-7 transition duration-300 hover:scale-[1.015] ${glow(
-                          item.glow
-                        )}`}
-                      >
+                     <Link
+  key={item.title}
+  href={item.href}
+  className={`relative z-20 block cursor-pointer group rounded-[32px] border border-white/10 bg-gradient-to-br from-[#06111D] to-[#030914] p-7 transition duration-300 hover:scale-[1.015] ${glow(
+    item.glow
+  )}`}
+>
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                           <div className="flex items-center gap-5">
                             <div className="rounded-full border border-white/10 bg-white/[0.04] p-5">
