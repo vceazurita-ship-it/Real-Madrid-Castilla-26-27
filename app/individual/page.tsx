@@ -275,13 +275,7 @@ function driveViewUrl(url = "") {
   return url.replace("/preview", "/view");
 }
 function driveVideoUrl(url = "") {
-  const match = url.match(/\/d\/([^/]+)/);
-
-  if (!match) return url;
-
-  const fileId = match[1];
-
-  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  return url;
 }
 function CarouselRow({
   title,
@@ -691,21 +685,24 @@ export default function IndividualPage() {
 </div>
 
   <div className="w-full overflow-hidden rounded-2xl bg-black">
-  <video
-    src={driveVideoUrl(
-      selected.improvementVideo || ""
-    )}
-    controls
-    playsInline
-    preload="metadata"
-    className="
-      w-full
-      aspect-video
-      bg-black
-      rounded-2xl
-      object-contain
-    "
-  />
+<video
+  key={selected.improvementVideo}
+  src={driveVideoUrl(
+    selected.improvementVideo || ""
+  )}
+  controls
+  playsInline
+  muted
+  preload="metadata"
+  controlsList="nodownload"
+  className="
+    w-full
+    aspect-video
+    bg-black
+    rounded-2xl
+    object-contain
+  "
+/>
 </div>
 </div>
                 </div>
