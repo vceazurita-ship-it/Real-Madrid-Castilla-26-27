@@ -67,7 +67,7 @@ const modules = [
     glow: "violet",
   },
   {
-    href: "/team",
+    href: "/collective",
     section: "COLECTIVO",
     title: "Rendimiento del equipo",
     desc: "Dinámicas, cohesión y rendimiento colectivo",
@@ -164,7 +164,7 @@ export default function Home() {
 
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                     <Link
-                      href="/team"
+                      href="/collective"
                       className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]"
                     >
                       <div className="flex items-center gap-2">
