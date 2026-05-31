@@ -274,6 +274,13 @@ function parseCSV(text: string) {
 function driveViewUrl(url = "") {
   return url.replace("/preview", "/view");
 }
+function driveVideoUrl(url = "") {
+  const match = url.match(/\/d\/([^/]+)/);
+
+  if (!match) return url;
+
+  return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+}
 function CarouselRow({
   title,
   items,
@@ -626,14 +633,21 @@ export default function IndividualPage() {
 </div>
 
   <div className="w-full overflow-hidden rounded-2xl bg-black">
-  <div className="relative aspect-video w-full">
-    <iframe
-      src={selected.strengthVideo}
-      className="absolute inset-0 h-full w-full border-0"
-      allow="autoplay; fullscreen"
-      allowFullScreen
-    />
-  </div>
+  <video
+    src={driveVideoUrl(
+      selected.strengthVideo || ""
+    )}
+    controls
+    playsInline
+    preload="metadata"
+    className="
+      w-full
+      aspect-video
+      bg-black
+      rounded-2xl
+      object-contain
+    "
+  />
 </div>
 </div>
 
