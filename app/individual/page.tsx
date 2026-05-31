@@ -279,7 +279,9 @@ function driveVideoUrl(url = "") {
 
   if (!match) return url;
 
-  return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+  const fileId = match[1];
+
+  return `https://drive.google.com/uc?export=view&id=${fileId}`;
 }
 function CarouselRow({
   title,
@@ -633,21 +635,24 @@ export default function IndividualPage() {
 </div>
 
   <div className="w-full overflow-hidden rounded-2xl bg-black">
-  <video
-    src={driveVideoUrl(
-      selected.strengthVideo || ""
-    )}
-    controls
-    playsInline
-    preload="metadata"
-    className="
-      w-full
-      aspect-video
-      bg-black
-      rounded-2xl
-      object-contain
-    "
-  />
+<video
+  key={selected.strengthVideo}
+  src={driveVideoUrl(
+    selected.strengthVideo || ""
+  )}
+  controls
+  playsInline
+  muted
+  preload="metadata"
+  controlsList="nodownload"
+  className="
+    w-full
+    aspect-video
+    bg-black
+    rounded-2xl
+    object-contain
+  "
+/>
 </div>
 </div>
 
@@ -686,14 +691,21 @@ export default function IndividualPage() {
 </div>
 
   <div className="w-full overflow-hidden rounded-2xl bg-black">
-  <div className="relative aspect-video w-full">
-    <iframe
-      src={selected.improvementVideo}
-      className="absolute inset-0 h-full w-full border-0"
-      allow="autoplay; fullscreen"
-      allowFullScreen
-    />
-  </div>
+  <video
+    src={driveVideoUrl(
+      selected.improvementVideo || ""
+    )}
+    controls
+    playsInline
+    preload="metadata"
+    className="
+      w-full
+      aspect-video
+      bg-black
+      rounded-2xl
+      object-contain
+    "
+  />
 </div>
 </div>
                 </div>
