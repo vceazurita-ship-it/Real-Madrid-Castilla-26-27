@@ -169,7 +169,7 @@ export default function Home() {
 
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                     <Link
-                      href="/collective"
+                      href="/individual"
                       className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]"
                     >
                       <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ export default function Home() {
                     </Link>
 
                     <Link
-                      href="/individual"
+                      href="/team"
                       className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-4 transition hover:bg-white/[0.06]"
                     >
                       <div className="flex items-center gap-2">
