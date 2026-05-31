@@ -236,7 +236,7 @@ export default function Home() {
                       priority
                     />
 
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.4))]" />
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.4))]" />
                   </Link>
                 </div>
               </div>

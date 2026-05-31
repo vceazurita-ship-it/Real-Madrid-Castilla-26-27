@@ -548,6 +548,7 @@ export default function IndividualPage() {
     max-w-6xl
     h-[92vh]
     overflow-y-auto
+    overflow-x-hidden
     rounded-3xl
     border border-white/10
     bg-[#11161C]
@@ -624,19 +625,15 @@ export default function IndividualPage() {
   </a>
 </div>
 
-  <div className="overflow-hidden rounded-2xl bg-black">
-  <iframe
-    src={selected.strengthVideo}
-    className="
-      aspect-video
-      w-full
-      border-0
-      bg-black
-      min-h-[200px]
-      sm:min-h-0
-    "
-    allowFullScreen
-  />
+  <div className="w-full overflow-hidden rounded-2xl bg-black">
+  <div className="relative aspect-video w-full">
+    <iframe
+      src={selected.strengthVideo}
+      className="absolute inset-0 h-full w-full border-0"
+      allow="autoplay; fullscreen"
+      allowFullScreen
+    />
+  </div>
 </div>
 </div>
 
@@ -674,28 +671,15 @@ export default function IndividualPage() {
   </a>
 </div>
 
-  <div
-  className="
-    overflow-hidden
-    rounded-2xl
-    bg-black
-    w-full
-  "
->
-  <iframe
-    src={selected.improvementVideo}
-    className="
-      block
-      w-full
-      border-0
-      bg-black
-      h-[240px]
-      sm:h-[320px]
-      lg:h-[420px]
-    "
-    allow="autoplay; fullscreen"
-    allowFullScreen
-  />
+  <div className="w-full overflow-hidden rounded-2xl bg-black">
+  <div className="relative aspect-video w-full">
+    <iframe
+      src={selected.improvementVideo}
+      className="absolute inset-0 h-full w-full border-0"
+      allow="autoplay; fullscreen"
+      allowFullScreen
+    />
+  </div>
 </div>
 </div>
                 </div>
