@@ -272,7 +272,7 @@ function parseCSV(text: string) {
   );
 }
 function driveViewUrl(url = "") {
-  return url.replace("/preview", "/view");
+  return url.replace("/view", "/preview");
 }
 function driveVideoUrl(url = "") {
   return url;
@@ -383,6 +383,29 @@ export default function IndividualPage() {
 
   const [sheetData, setSheetData] =
     useState<any[]>([]);
+    const [isMobile, setIsMobile] =
+  useState(false);
+
+useEffect(() => {
+  const checkMobile = () => {
+    setIsMobile(
+      window.innerWidth < 768
+    );
+  };
+
+  checkMobile();
+
+  window.addEventListener(
+    "resize",
+    checkMobile
+  );
+
+  return () =>
+    window.removeEventListener(
+      "resize",
+      checkMobile
+    );
+}, []);
 useEffect(() => {
   if (!selected) return;
 
@@ -549,201 +572,252 @@ useEffect(() => {
         </div>
       </main>
 
-      {selected &&
-        createPortal(
-          <div
-  className="
-    fixed
-    inset-0
-    z-[99999]
-    bg-black/75
-    p-2 sm:p-6
-    overflow-hidden
-    flex
-    items-center
-    justify-center
-  "            onClick={() =>
-              setSelected(null)
-            }
-          >
- <div
-  className="
-    relative
-    w-full
-    max-w-6xl
-    h-[92dvh]
-    overflow-y-auto
-    overflow-x-hidden
-    rounded-3xl
-    border border-white/10
-    bg-[#11161C]
-    p-4 sm:p-6 lg:p-8
-  "
-  style={{
-    WebkitOverflowScrolling: "touch",
-  }}
-  onClick={(e) => e.stopPropagation()}
->
-              <button
-                onClick={() =>
-                  setSelected(null)
-                }
-                className="absolute right-5 top-5"
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              <div className="grid gap-6 lg:gap-8 md:grid-cols-[280px_1fr]">
-                <div>
-                  <img
-                    src={
-                      selected.photo
-                    }
-                    alt={
-                      selected.name
-                    }
-                    className="h-[360px] w-full rounded-2xl object-cover object-top"
-                  />
-
-                  <h2 className="mt-5 text-3xl font-semibold">
-                    {
-                      selected.name
-                    }
-                  </h2>
-
-                  <p className="mt-2 text-gray-400">
-                    {
-                      selected.position
-                    }
-                  </p>
-                </div>
-
-                <div className="space-y-10">
-                  <div>
-  <h3 className="mb-3 text-[#C8A96B]">
-    Fortalezas
-  </h3>
-
-  <p className="mb-4 text-gray-300">
-    {selected.strengths}
-  </p>
-
-  <div className="mb-3 flex justify-end">
-  <a
-    href={driveViewUrl(
-      selected.strengthVideo || ""
-    )}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="
-      inline-flex items-center gap-2
-      rounded-full
-      border border-white/10
-      bg-white/[0.03]
-      px-3 py-1.5
-      text-xs font-medium
-      text-gray-300
-      transition-all duration-200
-      hover:border-white/20
-      hover:bg-white/[0.06]
-      hover:text-white
-    "
-  >
-    Ver en alta calidad ↗
-  </a>
-</div>
-
-  <div className="w-full bg-black rounded-2xl">
-  <div
-    className="
-      relative
-      w-full
-      aspect-video
-      overflow-hidden
-      rounded-2xl
-    "
-  >
-    <iframe
-  key={selected.strengthVideo}
-  src={driveVideoUrl(selected.strengthVideo || "")}
-  className="
-    absolute
-    inset-0
-    h-full
-    w-full
-    rounded-2xl
-    border-0
-  "
-  allow="autoplay; fullscreen; picture-in-picture"
-  allowFullScreen
-  loading="lazy"
-  referrerPolicy="strict-origin-when-cross-origin"
-/>
-  </div>
-</div>
-</div>
-
-                  <div>
-  <h3 className="mb-3 text-[#C8A96B]">
-    Áreas de mejora
-  </h3>
-
-  <p className="mb-4 text-gray-300">
-    {selected.improvements}
-  </p>
-
-  <div className="mb-3 flex justify-end">
-  <a
-    href={driveViewUrl(
-      selected.improvementVideo || ""
-    )}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="
-      inline-flex items-center gap-2
-      rounded-full
-      border border-white/10
-      bg-white/[0.03]
-      px-3 py-1.5
-      text-xs font-medium
-      text-gray-300
-      transition-all duration-200
-      hover:border-white/20
-      hover:bg-white/[0.06]
-      hover:text-white
-    "
-  >
-    Ver en alta calidad ↗
-  </a>
-</div>
-
-  <div className="w-full rounded-2xl overflow-hidden bg-black">
-  <div className="relative w-full pt-[56.25%]">
-    <iframe
-      key={selected.improvementVideo}
-      src={driveVideoUrl(
-        selected.improvementVideo || ""
-      )}
+     {selected &&
+  createPortal(
+    <div
       className="
-        absolute inset-0
-        h-full w-full
-        border-0
-        rounded-2xl
+        fixed
+        inset-0
+        z-[99999]
+        bg-black/75
+        p-2 sm:p-6
+        overflow-hidden
+        flex
+        items-center
+        justify-center
       "
-      allow="autoplay; fullscreen"
-      allowFullScreen
-      loading="lazy"
-      referrerPolicy="strict-origin-when-cross-origin"
-    />
-  </div>
-</div>
-</div>
-                </div>
+      onClick={() => setSelected(null)}
+    >
+      <div
+        className="
+          relative
+          w-full
+          max-w-6xl
+          h-[92dvh]
+          overflow-y-auto
+          overflow-x-hidden
+          rounded-3xl
+          border border-white/10
+          bg-[#11161C]
+          p-4 sm:p-6 lg:p-8
+        "
+        style={{
+          WebkitOverflowScrolling: "touch",
+        }}
+        onClick={(e) =>
+          e.stopPropagation()
+        }
+      >
+        <button
+          onClick={() =>
+            setSelected(null)
+          }
+          className="absolute right-5 top-5"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="grid gap-6 lg:gap-8 md:grid-cols-[280px_1fr]">
+          <div>
+            <img
+              src={selected.photo}
+              alt={selected.name}
+              className="h-[360px] w-full rounded-2xl object-cover object-top"
+            />
+
+            <h2 className="mt-5 text-3xl font-semibold">
+              {selected.name}
+            </h2>
+
+            <p className="mt-2 text-gray-400">
+              {selected.position}
+            </p>
+          </div>
+
+          <div className="space-y-10">
+            {/* FORTALEZAS */}
+            <div>
+              <h3 className="mb-3 text-[#C8A96B]">
+                Fortalezas
+              </h3>
+
+              <p className="mb-4 text-gray-300">
+                {selected.strengths}
+              </p>
+
+              <div className="mb-3 flex justify-end">
+                <a
+                  href={driveViewUrl(
+                    selected.strengthVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    inline-flex items-center gap-2
+                    rounded-full
+                    border border-white/10
+                    bg-white/[0.03]
+                    px-3 py-1.5
+                    text-xs font-medium
+                    text-gray-300
+                    transition-all duration-200
+                    hover:border-white/20
+                    hover:bg-white/[0.06]
+                    hover:text-white
+                  "
+                >
+                  Ver en alta calidad ↗
+                </a>
               </div>
+
+              {isMobile ? (
+                <a
+                  href={driveViewUrl(
+                    selected.strengthVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    aspect-video
+                    w-full
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-black
+                    text-sm
+                    text-white
+                    border border-white/10
+                  "
+                >
+                  ▶ Reproducir vídeo
+                </a>
+              ) : (
+                <div className="w-full rounded-2xl overflow-hidden bg-black">
+                  <div className="relative w-full aspect-video">
+                    <iframe
+                      key={
+                        selected.strengthVideo
+                      }
+                      src={driveVideoUrl(
+                        selected.strengthVideo ||
+                          ""
+                      )}
+                      className="
+                        absolute
+                        inset-0
+                        h-full
+                        w-full
+                        border-0
+                        rounded-2xl
+                      "
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>,
-          document.body
-        )}
+
+            {/* MEJORA */}
+            <div>
+              <h3 className="mb-3 text-[#C8A96B]">
+                Áreas de mejora
+              </h3>
+
+              <p className="mb-4 text-gray-300">
+                {
+                  selected.improvements
+                }
+              </p>
+
+              <div className="mb-3 flex justify-end">
+                <a
+                  href={driveViewUrl(
+                    selected.improvementVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    inline-flex items-center gap-2
+                    rounded-full
+                    border border-white/10
+                    bg-white/[0.03]
+                    px-3 py-1.5
+                    text-xs font-medium
+                    text-gray-300
+                    transition-all duration-200
+                    hover:border-white/20
+                    hover:bg-white/[0.06]
+                    hover:text-white
+                  "
+                >
+                  Ver en alta calidad ↗
+                </a>
+              </div>
+
+              {isMobile ? (
+                <a
+                  href={driveViewUrl(
+                    selected.improvementVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    aspect-video
+                    w-full
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-black
+                    text-sm
+                    text-white
+                    border border-white/10
+                  "
+                >
+                  ▶ Reproducir vídeo
+                </a>
+              ) : (
+                <div className="w-full rounded-2xl overflow-hidden bg-black">
+                  <div className="relative w-full aspect-video">
+                    <iframe
+                      key={
+                        selected.improvementVideo
+                      }
+                      src={driveVideoUrl(
+                        selected.improvementVideo ||
+                          ""
+                      )}
+                      className="
+                        absolute
+                        inset-0
+                        h-full
+                        w-full
+                        border-0
+                        rounded-2xl
+                      "
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )}
     </>
   );
 }
