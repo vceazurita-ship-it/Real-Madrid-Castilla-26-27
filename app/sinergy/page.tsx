@@ -27,13 +27,20 @@ export default function IndividualPage() {
     &filterPaneEnabled=${isDesktop ? "true" : "false"}
   `.replace(/\s/g, "");
 
-  const scrollToVideo = () => {
-    videoRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
+  const videoUrl =
+  "https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/view";
 
+const scrollToVideo = () => {
+  if (window.innerWidth < 1024) {
+    window.open(videoUrl, "_blank");
+    return;
+  }
+
+  videoRef.current?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
