@@ -148,22 +148,20 @@ export default function Home() {
                   </div>
 
                   <h1 className="mt-6 text-[42px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[84px] xl:leading-[0.88]">
-                    Plataforma integral
+                    Plataforma integral de análisis
                     <br />
                     de{" "}
                     <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
-                      inteligencia
+                      inteligente
                     </span>{" "}
-                    futbolística
+                    RMC
                   </h1>
 
                   <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
                     <div className="h-20 w-[3px] rounded-full bg-blue-500" />
 
                     <p className="max-w-[620px] text-base leading-relaxed text-white/75 sm:text-lg xl:text-[24px]">
-                      Inteligencia aplicada al alto rendimiento para tomar
-                      mejores decisiones, anticipar escenarios y optimizar cada
-                      fase competitiva.
+                      Análisis integral de la transferencia al juego conectando la metodología con el rendimiento individual, las relaciones sinérgicas entre jugadores y el comportamiento colectivo del equipo.
                     </p>
                   </div>
 

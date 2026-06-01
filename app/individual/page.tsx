@@ -383,7 +383,20 @@ export default function IndividualPage() {
 
   const [sheetData, setSheetData] =
     useState<any[]>([]);
+useEffect(() => {
+  if (!selected) return;
 
+  const originalOverflow =
+    document.body.style.overflow;
+
+  document.body.style.overflow =
+    "hidden";
+
+  return () => {
+    document.body.style.overflow =
+      originalOverflow;
+  };
+}, [selected]);
   useEffect(() => {
     fetch(SHEET_URL)
       .then((res) => res.text())
@@ -539,8 +552,17 @@ export default function IndividualPage() {
       {selected &&
         createPortal(
           <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 p-3 sm:p-6"
-            onClick={() =>
+  className="
+    fixed
+    inset-0
+    z-[99999]
+    bg-black/75
+    p-2 sm:p-6
+    overflow-hidden
+    flex
+    items-center
+    justify-center
+  "            onClick={() =>
               setSelected(null)
             }
           >
@@ -549,19 +571,25 @@ export default function IndividualPage() {
     relative
     w-full
     max-w-6xl
-    h-[92vh]
-    overflow-y-auto
-    overflow-x-hidden
+    max-h-[92dvh]
+    overflow-hidden
     rounded-3xl
     border border-white/10
     bg-[#11161C]
-    p-4 sm:p-6 lg:p-8
   "
-  style={{
-    WebkitOverflowScrolling: "touch",
-  }}
   onClick={(e) => e.stopPropagation()}
 >
+  <div
+    className="
+      h-full
+      overflow-y-auto
+      overflow-x-hidden
+      p-4 sm:p-6 lg:p-8
+    "
+    style={{
+      WebkitOverflowScrolling: "touch",
+    }}
+  >
               <button
                 onClick={() =>
                   setSelected(null)
@@ -631,24 +659,32 @@ export default function IndividualPage() {
   </a>
 </div>
 
-  <div className="w-full rounded-2xl overflow-hidden bg-black">
-  <div className="relative w-full pt-[56.25%]">
+  <div className="w-full bg-black rounded-2xl">
+  <div
+    className="
+      relative
+      w-full
+      aspect-video
+      overflow-hidden
+      rounded-2xl
+    "
+  >
     <iframe
-      key={selected.strengthVideo}
-      src={driveVideoUrl(
-        selected.strengthVideo || ""
-      )}
-      className="
-        absolute inset-0
-        h-full w-full
-        border-0
-        rounded-2xl
-      "
-      allow="autoplay; fullscreen"
-      allowFullScreen
-      loading="lazy"
-      referrerPolicy="strict-origin-when-cross-origin"
-    />
+  key={selected.strengthVideo}
+  src={driveVideoUrl(selected.strengthVideo || "")}
+  className="
+    absolute
+    inset-0
+    h-full
+    w-full
+    rounded-2xl
+    border-0
+  "
+  allow="autoplay; fullscreen; picture-in-picture"
+  allowFullScreen
+  loading="lazy"
+  referrerPolicy="strict-origin-when-cross-origin"
+/>
   </div>
 </div>
 </div>
@@ -707,7 +743,7 @@ export default function IndividualPage() {
     />
   </div>
 </div>
-</div>
+</div></div>
                 </div>
               </div>
             </div>
