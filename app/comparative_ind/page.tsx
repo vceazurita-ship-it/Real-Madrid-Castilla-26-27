@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { Play } from "lucide-react";
 
 export default function IndividualPage() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -38,8 +39,51 @@ export default function IndividualPage() {
       <div className="flex">
         <Sidebar />
 
-        <section className="w-full">
+        <section className="w-full relative">
           <Topbar />
+
+          {/* Botón desktop */}
+          <button
+            onClick={scrollToVideo}
+            className="
+              hidden lg:flex
+              fixed right-6 top-1/2 -translate-y-1/2 z-50
+              items-center gap-3
+              rounded-full
+              border border-[#C8A96B]/40
+              bg-[#11161D]/90
+              px-5 py-3
+              text-sm font-medium
+              text-white
+              shadow-[0_12px_35px_rgba(0,0,0,0.35)]
+              backdrop-blur-md
+              hover:border-[#C8A96B]
+              hover:bg-[#161D26]
+              transition-all
+            "
+          >
+            <Play size={16} className="text-[#C8A96B]" />
+            Ver explicación
+          </button>
+
+          {/* Botón móvil */}
+          <button
+            onClick={scrollToVideo}
+            className="
+              lg:hidden
+              fixed bottom-5 right-5 z-50
+              rounded-full
+              bg-[#C8A96B]
+              text-black
+              px-4 py-3
+              text-sm font-semibold
+              shadow-xl
+              hover:opacity-90
+              transition
+            "
+          >
+            Ver vídeo
+          </button>
 
           <div className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
             {/* Header */}
@@ -71,7 +115,6 @@ export default function IndividualPage() {
                   border-0
                   rounded-[18px] sm:rounded-[24px]
                   bg-[#0B0F14]
-
                   h-[72vh]
                   sm:h-[78vh]
                   lg:h-[840px]
@@ -82,23 +125,6 @@ export default function IndividualPage() {
           </div>
         </section>
       </div>
-
-      {/* Botón móvil */}
-      <button
-        onClick={scrollToVideo}
-        className="
-          lg:hidden
-          fixed bottom-5 right-5 z-50
-          rounded-full
-          bg-[#C8A96B]
-          text-black
-          px-4 py-3
-          text-sm font-semibold
-          shadow-xl
-        "
-      >
-        Ver vídeo
-      </button>
     </main>
   );
-}   
+}
