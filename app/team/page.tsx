@@ -102,10 +102,7 @@ export default function IndividualPage() {
             </div>
 
             {/* Power BI */}
-            <div
-              ref={videoRef}
-              className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
-            >
+            <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
               <iframe
                 title="Power BI Report"
                 src={src}
@@ -121,6 +118,26 @@ export default function IndividualPage() {
                 "
                 allowFullScreen
               />
+            </div>
+
+            {/* Video explicación */}
+            <div
+              ref={videoRef}
+              className="mt-10 rounded-[24px] border border-white/10 bg-[#11161D] p-4 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+            >
+              <h2 className="mb-4 text-xl sm:text-2xl font-semibold text-white">
+                Explicación del informe
+              </h2>
+
+              <div className="aspect-video overflow-hidden rounded-[18px]">
+                <iframe
+                  className="w-full h-full"
+                  src="https://www.youtube.com/embed/TU_VIDEO_ID"
+                  title="Explicación del informe"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
             </div>
           </div>
         </section>
