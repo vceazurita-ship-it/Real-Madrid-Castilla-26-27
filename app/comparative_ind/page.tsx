@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
 export default function IndividualPage() {
   const [isDesktop, setIsDesktop] = useState(false);
+  const videoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onResize = () => {
@@ -17,6 +18,13 @@ export default function IndividualPage() {
 
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const scrollToVideo = () => {
+    videoRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   const src = `https://app.powerbi.com/reportEmbed
     ?reportId=8b8163f2-01c5-4cbf-b0f6-84d7282fc4a7
@@ -50,7 +58,10 @@ export default function IndividualPage() {
             </div>
 
             {/* Power BI */}
-            <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
+            <div
+              ref={videoRef}
+              className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
+            >
               <iframe
                 title="Power BI Report"
                 src={src}
@@ -71,6 +82,23 @@ export default function IndividualPage() {
           </div>
         </section>
       </div>
+
+      {/* Botón móvil */}
+      <button
+        onClick={scrollToVideo}
+        className="
+          lg:hidden
+          fixed bottom-5 right-5 z-50
+          rounded-full
+          bg-[#C8A96B]
+          text-black
+          px-4 py-3
+          text-sm font-semibold
+          shadow-xl
+        "
+      >
+        Ver vídeo
+      </button>
     </main>
   );
 }
