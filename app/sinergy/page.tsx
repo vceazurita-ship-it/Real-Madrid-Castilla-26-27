@@ -161,6 +161,6 @@ export default function IndividualPage() {
   </div>
 </section>
       </div>
-    </main>
+    </main> 
   );
 }
