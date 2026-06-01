@@ -132,7 +132,7 @@ export default function IndividualPage() {
               <div className="aspect-video overflow-hidden rounded-[18px]">
                 <iframe
                   className="w-full h-full"
-                  src="https://www.youtube.com/embed/TU_VIDEO_ID"
+                  src="https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/preview"
                   title="Explicación del informe"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
