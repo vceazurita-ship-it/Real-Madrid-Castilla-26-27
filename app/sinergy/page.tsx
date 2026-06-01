@@ -137,21 +137,25 @@ export default function IndividualPage() {
       </div>
 
       <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-        <iframe
-          title="Video explicativo"
-          src="https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/preview"
-          className="
-            w-full
-            border-0
-            rounded-[18px] sm:rounded-[24px]
-            bg-black
-            h-[260px]
-            sm:h-[420px]
-            lg:h-[640px]
-          "
-          allow="autoplay; fullscreen"
-          allowFullScreen
-        />
+        <video
+  controls
+  playsInline
+  preload="metadata"
+  className="
+    w-full
+    rounded-[18px] sm:rounded-[24px]
+    bg-black
+    h-[260px]
+    sm:h-[420px]
+    lg:h-[640px]
+  "
+>
+  <source
+    src="https://drive.google.com/uc?export=download&id=1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_"
+    type="video/mp4"
+  />
+  Tu navegador no soporta vídeo.
+</video>
       </div>
     </div>
   </div>
