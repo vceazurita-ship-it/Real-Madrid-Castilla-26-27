@@ -150,7 +150,7 @@ export default function IndividualPage() {
                     lg:h-[640px]
                   "
                 >
-                  <source src="/SINERGIAS.MP4" type="video/mp4" />
+                  <source src="/sinergias.mp4" type="video/mp4" />
                   Tu navegador no soporta vídeo.
                 </video>
               </div>
