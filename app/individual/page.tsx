@@ -383,14 +383,16 @@ export default function IndividualPage() {
 
   const [sheetData, setSheetData] =
     useState<any[]>([]);
-    const [isMobile, setIsMobile] =
+   const [isMobile, setIsMobile] =
   useState(false);
 
 useEffect(() => {
   const checkMobile = () => {
-    setIsMobile(
-      window.innerWidth < 768
-    );
+    const touchDevice =
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0;
+
+    setIsMobile(touchDevice);
   };
 
   checkMobile();
