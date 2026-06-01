@@ -571,25 +571,19 @@ useEffect(() => {
     relative
     w-full
     max-w-6xl
-    max-h-[92dvh]
-    overflow-hidden
+    h-[92dvh]
+    overflow-y-auto
+    overflow-x-hidden
     rounded-3xl
     border border-white/10
     bg-[#11161C]
+    p-4 sm:p-6 lg:p-8
   "
+  style={{
+    WebkitOverflowScrolling: "touch",
+  }}
   onClick={(e) => e.stopPropagation()}
 >
-  <div
-    className="
-      h-full
-      overflow-y-auto
-      overflow-x-hidden
-      p-4 sm:p-6 lg:p-8
-    "
-    style={{
-      WebkitOverflowScrolling: "touch",
-    }}
-  >
               <button
                 onClick={() =>
                   setSelected(null)
@@ -743,7 +737,7 @@ useEffect(() => {
     />
   </div>
 </div>
-</div></div>
+</div>
                 </div>
               </div>
             </div>
