@@ -146,7 +146,7 @@ const scrollToVideo = () => {
       <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
   <iframe
     title="Video explicativo"
-    src="https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/preview?usp=drivesdk"
+    src="https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/preview"
     loading="lazy"
     className="
       w-full
