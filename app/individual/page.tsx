@@ -11,7 +11,14 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+} from "recharts";
 const VISIBLE_CARDS = 4;
 
 const SHEET_URL =
@@ -37,6 +44,12 @@ type Player = {
   improvements?: string;
   strengthVideo?: string;
   improvementVideo?: string;
+
+  mentalidad?: number;
+  habitos?: number;
+  interpretacion?: number;
+  capacidadFisica?: number;
+  tecnica?: number;
 };
 
 const players: Player[] = [
@@ -442,20 +455,45 @@ useEffect(() => {
           ) || {};
 
         return {
-          ...p,
-          strengths:
-            row.strengths ||
-            DEFAULT_STRENGTH,
-          improvements:
-            row.improvements ||
-            DEFAULT_IMPROVEMENT,
-          strengthVideo:
-            row.strengthVideo ||
-            DEFAULT_STRENGTH_VIDEO,
-          improvementVideo:
-            row.improvementVideo ||
-            DEFAULT_IMPROVEMENT_VIDEO,
-        };
+  ...p,
+  strengths:
+    row.strengths ||
+    DEFAULT_STRENGTH,
+
+  improvements:
+    row.improvements ||
+    DEFAULT_IMPROVEMENT,
+
+  strengthVideo:
+    row.strengthVideo ||
+    DEFAULT_STRENGTH_VIDEO,
+
+  improvementVideo:
+    row.improvementVideo ||
+    DEFAULT_IMPROVEMENT_VIDEO,
+
+  mentalidad: Number(
+    row.mentalidad || 0
+  ),
+
+  habitos: Number(
+    row.habitos || 0
+  ),
+
+  interpretacion: Number(
+    row.interpretacion || 0
+  ),
+
+  capacidadFisica: Number(
+    row.capacidad_fisica ||
+      row.capacidadFisica ||
+      0
+  ),
+
+  tecnica: Number(
+    row.tecnica || 0
+  ),
+};
       });
     }, [sheetData]);
 
@@ -634,6 +672,131 @@ useEffect(() => {
             <p className="mt-2 text-gray-400">
               {selected.position}
             </p>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+  <h3 className="mb-4 text-center text-sm font-medium text-[#C8A96B]">
+    Perfil competencial
+  </h3>
+
+  <div className="h-[280px]">
+    <ResponsiveContainer
+      width="100%"
+      height="100%"
+    >
+      <RadarChart
+        data={[
+          {
+            subject: "Mentalidad",
+            value:
+              selected.mentalidad || 0,
+          },
+          {
+            subject: "Hábitos",
+            value:
+              selected.habitos || 0,
+          },
+          {
+            subject:
+              "Interpretación",
+            value:
+              selected.interpretacion ||
+              0,
+          },
+          {
+            subject:
+              "Cap. Física",
+            value:
+              selected.capacidadFisica ||
+              0,
+          },
+          {
+            subject: "Técnica",
+            value:
+              selected.tecnica || 0,
+          },
+        ]}
+      >
+        <PolarGrid
+          stroke="rgba(255,255,255,0.15)"
+        />
+
+        <PolarAngleAxis
+          dataKey="subject"
+          tick={{
+            fill: "#ffffff",
+            fontSize: 11,
+          }}
+        />
+
+        <PolarRadiusAxis
+          domain={[0, 10]}
+          tick={false}
+          axisLine={false}
+        />
+
+        <Radar
+          dataKey="value"
+          stroke="#C8A96B"
+          fill="#C8A96B"
+          fillOpacity={0.45}
+        />
+      </RadarChart>
+    </ResponsiveContainer>
+  </div>
+
+  <div className="mt-4 space-y-2">
+    {[
+      {
+        label: "Mentalidad",
+        value:
+          selected.mentalidad || 0,
+      },
+      {
+        label: "Hábitos",
+        value:
+          selected.habitos || 0,
+      },
+      {
+        label: "Interpretación",
+        value:
+          selected.interpretacion ||
+          0,
+      },
+      {
+        label: "Capacidad física",
+        value:
+          selected.capacidadFisica ||
+          0,
+      },
+      {
+        label: "Técnica",
+        value:
+          selected.tecnica || 0,
+      },
+    ].map((item) => (
+      <div key={item.label}>
+        <div className="mb-1 flex justify-between text-xs">
+          <span>
+            {item.label}
+          </span>
+          <span>
+            {item.value}/10
+          </span>
+        </div>
+
+        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-[#C8A96B]"
+            style={{
+              width: `${
+                item.value * 10
+              }%`,
+            }}
+          />
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
           </div>
 
           <div className="space-y-10">
