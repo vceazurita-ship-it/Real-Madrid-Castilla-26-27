@@ -291,14 +291,6 @@ const scrollToVideo = () => {
     <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
       Explicación visual
     </p>
-
-    <div className="mt-4 flex items-center gap-3 sm:gap-5">
-      <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-        Rendimiento emocional
-      </h2>
-
-      <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-    </div>
   </div>
 
   {/* Desktop */}
