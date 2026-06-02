@@ -63,7 +63,7 @@ useEffect(() => {
 }, []);
 
 const videoUrl =
-  "https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/view";
+  "https://drive.google.com/file/d/1pKrNKJwbiXjsKP4cJ8ROE-2E8-PlLyi8/view";
 
 const scrollToVideo = () => {
   if (window.innerWidth < 1024) {
