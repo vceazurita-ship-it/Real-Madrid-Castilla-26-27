@@ -98,7 +98,7 @@ style={{ WebkitOverflowScrolling: "touch" }}
 
             <div className="space-y-2 text-sm">
               {navLink("/team", "Rendimiento")}
-              {navLink("/collective", "Modelo")}
+              {navLink("/collective", "Competición")}
               {navLink("/setpieces", "ABP")}
             </div>
           </div>
