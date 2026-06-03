@@ -210,7 +210,7 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
                     border-0
                     rounded-[18px] sm:rounded-[24px]
                     bg-black
-                    h-[500px]
+                    h-[640px]
                   "
                   allow="autoplay"
                   allowFullScreen
