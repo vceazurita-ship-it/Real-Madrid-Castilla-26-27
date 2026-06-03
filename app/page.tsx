@@ -150,7 +150,7 @@ export default function Home() {
                   <h1 className="mt-6 text-[42px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[84px] xl:leading-[0.88]">
                     Plataforma integral de análisis
                     <br />
-                    de{" "}
+                    {" "}
                     <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
                       inteligente
                     </span>{" "}
