@@ -206,20 +206,21 @@ const openDashboardFullscreen = async () => {
 
   {/* Desktop */}
   <div className="hidden lg:block rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-    <iframe
+    <div className="flex justify-center"><iframe
       title="Video explicativo"
       src="https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/preview"
       className="
         w-full
+        max-w-[848px]
+        h-[478px]
         border-0
         rounded-[18px] sm:rounded-[24px]
         bg-black
-        h-[640px]
       "
       allow="autoplay"
       allowFullScreen
     />
-  </div>
+  </div></div>
 
   {/* Móvil */}
   <div className="lg:hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
