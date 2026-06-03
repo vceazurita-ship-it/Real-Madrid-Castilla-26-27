@@ -216,12 +216,13 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
                   title="Video explicativo"
                   src="https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/preview"
                   className="
-                    w-full
-                    border-0
-                    rounded-[18px] sm:rounded-[24px]
-                    bg-black
-                    h-[640px]
-                  "
+      w-full
+      max-w-[1280px]
+      aspect-video
+      border-0
+      rounded-[18px] sm:rounded-[24px]
+      bg-black
+    "
                   allow="autoplay"
                   allowFullScreen
                 />

@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play } from "lucide-react";
+import { Play, Maximize2 } from "lucide-react";
 
 export default function IndividualPage() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  const videoRef = useRef<HTMLDivElement | null>(null);
+const [isDesktop, setIsDesktop] = useState(false);
+const [isFullscreen, setIsFullscreen] = useState(false);
+
+const videoRef = useRef<HTMLDivElement | null>(null);
+const dashboardRef = useRef<HTMLDivElement | null>(null);
 
   const videoUrl =
     "https://drive.google.com/file/d/1Ki1gmSMuwH5MsWGzIQbUrH_uBCkML7di/view";
@@ -22,6 +25,23 @@ export default function IndividualPage() {
 
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  useEffect(() => {
+  const handleFullscreen = () => {
+    setIsFullscreen(!!document.fullscreenElement);
+  };
+
+  document.addEventListener(
+    "fullscreenchange",
+    handleFullscreen
+  );
+
+  return () => {
+    document.removeEventListener(
+      "fullscreenchange",
+      handleFullscreen
+    );
+  };
+}, []);
 
   const scrollToVideo = () => {
     if (window.innerWidth < 1024) {
@@ -34,6 +54,15 @@ export default function IndividualPage() {
       block: "start",
     });
   };
+  const openDashboardFullscreen = async () => {
+  if (!dashboardRef.current) return;
+
+  try {
+    await dashboardRef.current.requestFullscreen();
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   const src = `https://app.powerbi.com/reportEmbed
     ?reportId=0eb5b0bc-f3ea-490f-8deb-434ddd15e878
@@ -109,24 +138,61 @@ export default function IndividualPage() {
               </div>
             </div>
 
-            {/* Power BI */}
-            <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-              <iframe
-                title="Power BI Report"
-                src={src}
-                className="
-                  block
-                  w-full
-                  border-0
-                  rounded-[18px] sm:rounded-[24px]
-                  bg-[#0B0F14]
-                  h-[72vh]
-                  sm:h-[78vh]
-                  lg:h-[840px]
-                "
-                allowFullScreen
-              />
-            </div>
+            <div
+  ref={dashboardRef}
+  className="relative rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
+>
+  <button
+    onClick={openDashboardFullscreen}
+    className="
+      absolute
+      top-4
+      right-4
+      lg:top-6
+      lg:right-6
+      z-20
+      flex
+      items-center
+      gap-2
+      rounded-full
+      border border-[#C8A96B]/40
+      bg-[#11161D]/90
+      px-4
+      py-2
+      text-sm
+      font-medium
+      text-white
+      backdrop-blur-md
+      hover:border-[#C8A96B]
+      hover:bg-[#161D26]
+      transition-all
+    "
+  >
+    <Maximize2
+      size={16}
+      className="text-[#C8A96B]"
+    />
+    Pantalla completa
+  </button>
+
+  <iframe
+    title="Power BI Report"
+    src={src}
+    className={`
+      block
+      w-full
+      border-0
+      rounded-[18px] sm:rounded-[24px]
+      bg-[#0B0F14]
+      ${
+        isFullscreen
+          ? "h-screen"
+          : "h-[72vh] sm:h-[78vh] lg:h-[840px]"
+      }
+    `}
+    allowFullScreen
+  />
+</div>
 
             {/* Vídeo */}
             <div ref={videoRef} className="mt-14 sm:mt-20">
@@ -150,12 +216,13 @@ export default function IndividualPage() {
                   title="Video explicativo"
                   src="https://drive.google.com/file/d/1Ki1gmSMuwH5MsWGzIQbUrH_uBCkML7di/preview"
                   className="
-                    w-full
-                    border-0
-                    rounded-[18px] sm:rounded-[24px]
-                    bg-black
-                    h-[640px]
-                  "
+      w-full
+      max-w-[1280px]
+      aspect-video
+      border-0
+      rounded-[18px] sm:rounded-[24px]
+      bg-black
+    "
                   allow="autoplay"
                   allowFullScreen
                 />

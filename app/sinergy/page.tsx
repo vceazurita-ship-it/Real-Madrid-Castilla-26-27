@@ -210,12 +210,13 @@ const openDashboardFullscreen = async () => {
       title="Video explicativo"
       src="https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/preview"
       className="
-        w-full
-        border-0
-        rounded-[18px] sm:rounded-[24px]
-        bg-black
-        h-[640px]
-      "
+      w-full
+      max-w-[1280px]
+      aspect-video
+      border-0
+      rounded-[18px] sm:rounded-[24px]
+      bg-black
+    "
       allow="autoplay"
       allowFullScreen
     />
