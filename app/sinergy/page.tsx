@@ -39,12 +39,8 @@ export default function IndividualPage() {
     );
   };
 }, []);
-  const src = `https://app.powerbi.com/reportEmbed
-    ?reportId=e2935faf-270f-4a9b-9d40-aaa401174f2f
-    &autoAuth=true
-    &ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2
-    &filterPaneEnabled=${isDesktop ? "true" : "false"}
-  `.replace(/\s/g, "");
+  const src =
+  "https://app.powerbi.com/view?r=eyJrIjoiOWMyYzg2MjktMjU0NC00ZTViLWI3ODMtNGUyMzUyZmQ2ODk0IiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
 
   const videoUrl =
   "https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/view";

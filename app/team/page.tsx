@@ -64,12 +64,7 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
   }
 };
 
-  const src = `https://app.powerbi.com/reportEmbed
-    ?reportId=0eb5b0bc-f3ea-490f-8deb-434ddd15e878
-    &autoAuth=true
-    &ctid=d6f76c11-ffb9-4a15-9b49-e6ed429c95a2
-    &filterPaneEnabled=${isDesktop ? "true" : "false"}
-  `.replace(/\s/g, "");
+  const src = "https://app.powerbi.com/view?r=eyJrIjoiMWQ3NzA0OGEtZDZiNS00NjE2LTlkM2MtMzliYjY3OGIxNjIwIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
