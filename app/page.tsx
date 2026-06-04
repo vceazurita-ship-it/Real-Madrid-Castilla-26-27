@@ -58,7 +58,7 @@ const modules = [
     href: "/individual",
     section: "INDIVIDUAL",
     title: "Evaluación específica",
-    desc: "Análisis técnico, físico y cognitivo",
+    desc: "Mentalidad, hábitos, condicional, interpretación y técnica",
     icon: Target,
     glow: "blue",
   },
@@ -66,7 +66,7 @@ const modules = [
     href: "/emotion",
     section: "EMOCIONAL",
     title: "Rendimiento emocional",
-    desc: "Bienestar, estrés y confianza",
+    desc: "Eficiencia individual y sinérgica mental",
     icon: Brain,
     glow: "violet",
   },
@@ -74,7 +74,7 @@ const modules = [
     href: "/team",
     section: "COLECTIVO",
     title: "Rendimiento del equipo",
-    desc: "Dinámicas, cohesión y rendimiento colectivo",
+    desc: "Evaluación del MDJ en competitición",
     icon: Users,
     glow: "amber",
   },
@@ -82,7 +82,7 @@ const modules = [
     href: "/microcycles",
     section: "METODOLOGÍA",
     title: "Microciclos",
-    desc: "Planificación, carga y recuperación",
+    desc: "Planificación, carga y evaluacion",
     icon: CalendarDays,
     glow: "cyan",
   },
@@ -148,13 +148,13 @@ export default function Home() {
                   </div>
 
                   <h1 className="mt-6 text-[42px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[84px] xl:leading-[0.88]">
-                    Plataforma integral de análisis
+                    Plataforma integral
                     <br />
                     {" "}
                     <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
-                      inteligente
+                      RMC
                     </span>{" "}
-                    RMC
+                    
                   </h1>
 
                   <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
