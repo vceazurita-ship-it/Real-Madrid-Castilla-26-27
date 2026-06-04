@@ -161,7 +161,7 @@ export default function Home() {
                     <div className="h-20 w-[3px] rounded-full bg-blue-500" />
 
                     <p className="max-w-[620px] text-base leading-relaxed text-white/75 sm:text-lg xl:text-[24px]">
-                      Análisis integral de la transferencia al juego conectando la metodología con el rendimiento individual, las relaciones sinérgicas entre jugadores y el comportamiento colectivo del equipo.
+                      Análisis integral de la transferencia al juego conectando la metodología con el rendimiento individual, colectivo y relacional.
                     </p>
                   </div>
 
