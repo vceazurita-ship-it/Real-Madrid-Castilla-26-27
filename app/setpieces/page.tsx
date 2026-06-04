@@ -331,6 +331,79 @@ useEffect(() => {
         (a, b) =>
           b.total - a.total
       );
+  }, [filtered]);
+  const rematadoresData =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered
+      .filter(
+        (r) =>
+          r.rematador &&
+          r.rematador !== "Nadie"
+      )
+      .forEach((r) => {
+        grouped[r.rematador] =
+          (grouped[r.rematador] || 0) +
+          r.xg;
+      });
+
+    return Object.entries(grouped)
+      .map(([name, xg]) => ({
+        name,
+        xg: +xg.toFixed(2),
+      }))
+      .sort(
+        (a, b) => b.xg - a.xg
+      );
+  }, [filtered]);
+
+const zonaRemateData =
+  countBy(
+    filtered.filter(
+      (r) => r.zonaRemate
+    ),
+    "zonaRemate"
+  );
+
+const segundoBalonData =
+  countBy(
+    filtered.filter(
+      (r) => r.segundoBalon
+    ),
+    "segundoBalon"
+  );
+
+const tipoEnvioData =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered.forEach((r) => {
+      if (!r.tipoEnvio) return;
+
+      grouped[r.tipoEnvio] =
+        (grouped[r.tipoEnvio] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(grouped)
+      .map(
+        ([name, total]) => ({
+          name,
+          total:
+            +total.toFixed(2),
+        })
+      )
+      .sort(
+        (a, b) =>
+          b.total - a.total
+      );
   }, [filtered]); 
   const timeline =
     Array.from(
@@ -631,6 +704,209 @@ text-sm md:text-base
     </BarChart>
   </Chart>
 </Panel>
+<Panel title="Impacto rematadores">
+  <Chart>
+    <BarChart
+      data={rematadoresData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#CBD5E1",
+          fontSize: 11,
+        }}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="xg"
+        fill={COLORS.gold}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="xg"
+          position="right"
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="xG por tipo envío">
+  <Chart>
+    <BarChart
+      data={tipoEnvioData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#CBD5E1",
+          fontSize: 11,
+        }}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.purple}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="right"
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Zona remate">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={zonaRemateData}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={60}
+        outerRadius={120}
+      >
+        {zonaRemateData.map(
+          (_, i) => (
+            <Cell
+              key={i}
+              fill={
+                PIE_COLORS[
+                  i %
+                    PIE_COLORS.length
+                ]
+              }
+            />
+          )
+        )}
+      </Pie>
+
+      <Tooltip />
+
+      <Legend
+        layout={
+          isMobile
+            ? "horizontal"
+            : "vertical"
+        }
+        verticalAlign={
+          isMobile
+            ? "bottom"
+            : "middle"
+        }
+        align={
+          isMobile
+            ? "center"
+            : "right"
+        }
+      />
+    </PieChart>
+  </Chart>
+</Panel>
+<Panel title="Segundo balón">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={segundoBalonData}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={60}
+        outerRadius={120}
+      >
+        {segundoBalonData.map(
+          (_, i) => (
+            <Cell
+              key={i}
+              fill={
+                PIE_COLORS[
+                  i %
+                    PIE_COLORS.length
+                ]
+              }
+            />
+          )
+        )}
+      </Pie>
+
+      <Tooltip />
+
+      <Legend
+        layout={
+          isMobile
+            ? "horizontal"
+            : "vertical"
+        }
+        verticalAlign={
+          isMobile
+            ? "bottom"
+            : "middle"
+        }
+        align={
+          isMobile
+            ? "center"
+            : "right"
+        }
+      />
+    </PieChart>
+  </Chart>
+</Panel>
+
 <Panel title="Tipo carrera">
   <Chart>
     <PieChart>
