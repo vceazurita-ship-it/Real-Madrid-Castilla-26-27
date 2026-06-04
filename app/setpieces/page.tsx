@@ -340,11 +340,14 @@ useEffect(() => {
     > = {};
 
     filtered
-      .filter(
-        (r) =>
-          r.rematador &&
-          r.rematador !== "Nadie"
-      )
+  .filter(
+    (r) =>
+      r.rematador &&
+      ![
+        "Nadie",
+        "No aplica",
+      ].includes(r.rematador)
+  )
       .forEach((r) => {
         grouped[r.rematador] =
           (grouped[r.rematador] || 0) +
