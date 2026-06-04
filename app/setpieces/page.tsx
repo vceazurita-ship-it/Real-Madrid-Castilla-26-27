@@ -1290,19 +1290,30 @@ text-sm md:text-base
         horizontal={false}
       />
 
-      <XAxis
-        type="number"
-        axisLine={false}
-        tickLine={false}
-      />
+      <YAxis
+  type="category"
+  dataKey="name"
+  width={220}
+  axisLine={false}
+  tickLine={false}
+  tick={{
+    fill: "#CBD5E1",
+    fontSize: 11,
+  }}
+  interval={0}
+/>
 
       <YAxis
-        type="category"
-        dataKey="name"
-        width={120}
-        axisLine={false}
-        tickLine={false}
-      />
+  type="category"
+  dataKey="name"
+  width={220}
+  axisLine={false}
+  tickLine={false}
+  tick={{
+    fill: "#CBD5E1",
+    fontSize: 11,
+  }}
+/>
 
       <Tooltip />
 
