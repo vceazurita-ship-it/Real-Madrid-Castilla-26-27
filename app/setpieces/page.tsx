@@ -405,6 +405,109 @@ const tipoEnvioData =
           b.total - a.total
       );
   }, [filtered]); 
+  const rutinaData =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered.forEach((r) => {
+      if (!r.rutina) return;
+
+      grouped[r.rutina] =
+        (grouped[r.rutina] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(grouped)
+      .map(([name, total]) => ({
+        name,
+        total:
+          +total.toFixed(2),
+      }))
+      .sort(
+        (a, b) =>
+          b.total - a.total
+      );
+  }, [filtered]);
+
+const rivalesData =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered.forEach((r) => {
+      if (!r.rival) return;
+
+      grouped[r.rival] =
+        (grouped[r.rival] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(grouped)
+      .map(([name, total]) => ({
+        name,
+        total:
+          +total.toFixed(2),
+      }))
+      .sort(
+        (a, b) =>
+          b.total - a.total
+      )
+      .slice(0, 8);
+  }, [filtered]);
+
+const xgZonaCaida =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered.forEach((r) => {
+      if (!r.zonaCaida) return;
+
+      grouped[r.zonaCaida] =
+        (grouped[r.zonaCaida] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(grouped)
+      .map(([name, total]) => ({
+        name,
+        total:
+          +total.toFixed(2),
+      }))
+      .sort(
+        (a, b) =>
+          b.total - a.total
+      );
+  }, [filtered]);
+
+const resultadoData = [
+  {
+    name: "Gol",
+    total:
+      filtered.filter((r) =>
+        r.resultadoFinal
+          .toLowerCase()
+          .includes("gol")
+      ).length,
+  },
+  {
+    name: "No Gol",
+    total:
+      filtered.filter(
+        (r) =>
+          !r.resultadoFinal
+            .toLowerCase()
+            .includes("gol")
+      ).length,
+  },
+];
   const timeline =
     Array.from(
       { length: 6 },
@@ -1134,6 +1237,142 @@ text-sm md:text-base
         />
       </Bar>
     </BarChart>
+  </Chart>
+</Panel>
+<Panel title="xG por rutina">
+  <Chart>
+    <BarChart
+      data={rutinaData}
+      layout="vertical"
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.gold}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="right"
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Top rivales por xG concedido">
+  <Chart>
+    <BarChart
+      data={rivalesData}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.blue}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="top"
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="xG por zona caída">
+  <Chart>
+    <BarChart
+      data={xgZonaCaida}
+      layout="vertical"
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.green}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="right"
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Conversión">
+  <Chart>
+    <PieChart>
+      <Pie
+        data={resultadoData}
+        dataKey="total"
+        nameKey="name"
+        innerRadius={60}
+        outerRadius={120}
+      >
+        <Cell fill="#10B981" />
+        <Cell fill="#475569" />
+      </Pie>
+
+      <Tooltip />
+
+      <Legend />
+    </PieChart>
   </Chart>
 </Panel>
 
