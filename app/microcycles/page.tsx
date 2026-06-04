@@ -448,7 +448,7 @@ export default function Page() {
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
 
-              <Panel title="Carga e Intensidad por MD">
+              <Panel title="Carga e Intensidad en Microciclo">
   <Chart>
     <ComposedChart data={mdData}>
       <CartesianGrid stroke="#1E232A" />
@@ -498,7 +498,7 @@ export default function Page() {
   </Chart>
 </Panel>
 
-              <Panel title="Carga Cognitiva">
+              <Panel title="Carga Cognitiva en Microciclo">
                 <Chart>
                   <AreaChart data={mdData}>
                     <CartesianGrid stroke="#1E232A" />
@@ -539,7 +539,7 @@ export default function Page() {
                 </Chart>
               </Panel>
 
-              <Panel title="Intensidad por MD">
+              <Panel title="Intensidad en Microciclo">
                 <Chart>
                   <BarChart data={mdData}>
                     <CartesianGrid stroke="#1E232A" />
@@ -556,7 +556,7 @@ export default function Page() {
                 </Chart>
               </Panel>
 
-              <Panel title="Comparativa de Evaluación y Carga por Microciclo">
+              <Panel title="Comparativa de Evaluación y Carga Cognitiva">
   <Chart>
     <ComposedChart data={compareData}>
       <CartesianGrid stroke="#1E232A" />
@@ -599,7 +599,7 @@ export default function Page() {
   </Chart>
 </Panel>
 
-             <Panel title="Comparativa de Evaluación y Carga por Microciclo">
+             <Panel title="Comparativa de Evaluación y Carga Física">
   <Chart>
     <ComposedChart data={compareData}>
       <CartesianGrid

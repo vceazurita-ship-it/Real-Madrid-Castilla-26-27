@@ -100,7 +100,7 @@ function parseCSV(text: string): Row[] {
       tipoEnvio: r[10] || "",
       zonaCaida: r[11] || "",
 
-      tipoCarrera: r[17] || "",
+      tipoCarrera: r[16] || "",
 
       defensaRival: r[21] || "",
       debilidadRival: r[22] || "",
@@ -301,7 +301,37 @@ useEffect(() => {
         })
       );
     }, [filtered]);
+  const xgByTipoAccion =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
 
+    filtered.forEach((r) => {
+      const k =
+        r.tipoAccion || "Sin dato";
+
+      grouped[k] =
+        (grouped[k] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(
+      grouped
+    )
+      .map(
+        ([name, total]) => ({
+          name,
+          total:
+            +total.toFixed(2),
+        })
+      )
+      .sort(
+        (a, b) =>
+          b.total - a.total
+      );
+  }, [filtered]); 
   const timeline =
     Array.from(
       { length: 6 },
@@ -346,7 +376,7 @@ useEffect(() => {
 
               <div className="mt-4 flex items-center gap-5">
                 <h1 className="text-2xl md:text-4xl font-semibold tracking-tight">
-                 Acciones a Balón Parado
+                 Acciones a Balón Parado Ofensivas
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
@@ -766,6 +796,68 @@ text-sm md:text-base
         />
       </Line>
     </LineChart>
+  </Chart>
+</Panel>
+<Panel title="xG por tipo de acción">
+  <Chart>
+    <BarChart
+      data={xgByTipoAccion}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#94A3B8",
+        }}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={120}
+        axisLine={false}
+        tickLine={false}
+        tick={{
+          fill: "#CBD5E1",
+          fontSize: 11,
+        }}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.green}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="right"
+          formatter={(v) =>
+            typeof v === "number"
+              ? v.toFixed(2)
+              : ""
+          }
+          style={{
+            fill: "#fff",
+            fontWeight: 600,
+          }}
+        />
+      </Bar>
+    </BarChart>
   </Chart>
 </Panel>
 
