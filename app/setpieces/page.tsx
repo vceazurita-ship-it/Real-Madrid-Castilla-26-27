@@ -1239,46 +1239,7 @@ text-sm md:text-base
     </BarChart>
   </Chart>
 </Panel>
-<Panel title="xG por rutina">
-  <Chart>
-    <BarChart
-      data={rutinaData}
-      layout="vertical"
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        horizontal={false}
-      />
 
-      <XAxis
-        type="number"
-        axisLine={false}
-        tickLine={false}
-      />
-
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={120}
-        axisLine={false}
-        tickLine={false}
-      />
-
-      <Tooltip />
-
-      <Bar
-        dataKey="total"
-        fill={COLORS.gold}
-        radius={[0, 8, 8, 0]}
-      >
-        <LabelList
-          dataKey="total"
-          position="right"
-        />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
 <Panel title="Top rivales por xG concedido">
   <Chart>
     <BarChart
