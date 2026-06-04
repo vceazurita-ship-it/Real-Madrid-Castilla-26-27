@@ -111,12 +111,12 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
             {/* Header */}
             <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMC Intelligence
+                RMC INDIVIDUAL
               </p>
 
               <div className="mt-4 flex items-center gap-3 sm:gap-5">
                 <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                  Rendimiento Comparativo U21
+                  Comparativa U21
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />

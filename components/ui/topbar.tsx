@@ -26,7 +26,7 @@ export function Topbar() {
             </p>
 
             <h2 className="mt-1 text-xl font-semibold tracking-tight text-white md:text-2xl">
-              Performance Intelligence
+              Plataforma Integral
             </h2>
           </div>
 

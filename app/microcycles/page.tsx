@@ -387,7 +387,7 @@ export default function Page() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                  <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                                RMC Intelligence
+                                RMC METODOLOGÍA
               </p>
 
               <div className="mt-4 flex items-center gap-5">

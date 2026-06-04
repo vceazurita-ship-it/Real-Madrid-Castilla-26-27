@@ -83,7 +83,7 @@ style={{ WebkitOverflowScrolling: "touch" }}
             </p>
 
             <div className="space-y-2 text-sm">
-              {navLink("/individual", "Análisis")}
+              {navLink("/individual", "Evaluación")}
               {navLink("/emotion", "Emocional")}
               {navLink("/sinergy", "Sinergias")}
               {navLink("/comparative_ind", "Comparativo u21")}
