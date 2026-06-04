@@ -86,7 +86,7 @@ style={{ WebkitOverflowScrolling: "touch" }}
               {navLink("/individual", "Evaluación")}
               {navLink("/emotion", "Emocional")}
               {navLink("/sinergy", "Sinergias")}
-              {navLink("/comparative_ind", "Comparativo u21")}
+              {navLink("/comparative_ind", "Comparativo U-21")}
             </div>
           </div>
 
