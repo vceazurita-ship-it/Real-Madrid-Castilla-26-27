@@ -537,7 +537,7 @@ useEffect(() => {
             <div className="p-4 sm:p-6 lg:p-10">
                <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                                RMC Individual
+                                RMC INDIVIDUAL
               </p>
 
               <div className="mt-4 flex flex-col items-start gap-4 lg:flex-row lg:items-center">
