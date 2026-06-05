@@ -375,12 +375,12 @@ useEffect(() => {
         }
       });
 
-      return Object.entries(
-        grouped
-      ).map(([name, vals]) => ({
-        name,
-        eval: avg(vals),
-      }));
+return Object.entries(grouped)
+  .map(([name, vals]) => ({
+    name,
+    eval: avg(vals),
+  }))
+  .sort((a, b) => b.eval - a.eval);
     }, [filtered]);
 
   const contenidoSecundarioData =
@@ -406,12 +406,12 @@ useEffect(() => {
         }
       });
 
-      return Object.entries(
-        grouped
-      ).map(([name, vals]) => ({
-        name,
-        eval: avg(vals),
-      }));
+return Object.entries(grouped)
+  .map(([name, vals]) => ({
+    name,
+    eval: avg(vals),
+  }))
+  .sort((a, b) => b.eval - a.eval);
     }, [filtered]);
 const renderMultilineTick = (
   props: any
@@ -896,25 +896,40 @@ margin={{
       />
 
       <Bar
-        dataKey="eval"
-        name="Evaluación"
+  dataKey="eval"
+  name="Evaluación"
+  fill={COLORS.gold}
+  radius={[0, 12, 12, 0]}
+  barSize={
+    isMobile
+      ? 16
+      : 22
+  }
+>
+  {taskEvalData.map(
+    (_, index) => (
+      <Cell
+        key={index}
         fill={COLORS.gold}
-        radius={[0, 12, 12, 0]}
-        barSize={
-  isMobile
-    ? 16
-    : 22
-}
-      >
-        {taskEvalData.map(
-          (_, index) => (
-            <Cell
-              key={index}
-              fill={COLORS.gold}
-            />
-          )
-        )}
-      </Bar>
+      />
+    )
+  )}
+
+  <LabelList
+    dataKey="eval"
+    position="right"
+    formatter={(value) =>
+      typeof value === "number"
+        ? value.toFixed(1)
+        : value ?? ""
+    }
+    style={{
+      fill: "#fff",
+      fontSize: 12,
+      fontWeight: 600,
+    }}
+  />
+</Bar>
     </BarChart>
   </Chart>
 </Panel>
