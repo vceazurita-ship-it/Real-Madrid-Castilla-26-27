@@ -54,7 +54,7 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
   const src ="https://app.powerbi.com/view?r=eyJrIjoiNWM0NjhjMDItMGYwNy00ZDEyLWExZTItNjlmMTcxY2IxMWI5IiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
 
   const videoUrl =
-    "https://drive.google.com/file/d/1_9eM2dQVNRGjvnWpon4UTIpSf6yYfEJ_/view";
+    "https://drive.google.com/file/d/1OHiD9Pei4F73Gw7iWNL040Zg1kqJ-kHQ/view";
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
