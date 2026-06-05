@@ -539,7 +539,15 @@ const renderMultilineTick = (
 
               <Panel title="Carga e Intensidad en Microciclo">
   <Chart>
-    <ComposedChart data={mdData}>
+    <ComposedChart
+  data={mdData}
+  margin={{
+    top: 10,
+    right: 10,
+    left: 10,
+    bottom: 40,
+  }}
+>
       <CartesianGrid stroke="#1E232A" />
 
       <XAxis dataKey="md" />
@@ -597,9 +605,26 @@ const renderMultilineTick = (
 
               <Panel title="Carga Cognitiva en Microciclo">
                 <Chart>
-                  <AreaChart data={mdData}>
+                  <AreaChart
+  data={mdData}
+  margin={{
+    top: 10,
+    right: 10,
+    left: 10,
+    bottom: 40,
+  }}
+>
                     <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="md" />
+                    <XAxis
+  dataKey="md"
+  height={70}
+  tick={{
+    fill: "#94A3B8",
+    fontSize: 11,
+  }}
+  axisLine={false}
+  tickLine={false}
+/>
                     <YAxis />
                     <Tooltip />
 
@@ -679,7 +704,16 @@ const renderMultilineTick = (
                 <Chart>
                   <BarChart data={mdData}>
                     <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="md" />
+                    <XAxis
+  dataKey="md"
+  height={70}
+  tick={{
+    fill: "#94A3B8",
+    fontSize: 11,
+  }}
+  axisLine={false}
+  tickLine={false}
+/>
                     <YAxis />
                     <Tooltip />
 
