@@ -464,9 +464,7 @@ const renderMultilineTick = (
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
-        <div className="hidden md:block">
-  <Sidebar />
-</div>
+        <Sidebar /> 
 
         <div className="flex-1">
           <Topbar />
