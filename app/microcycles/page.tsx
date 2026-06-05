@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import type { LegendProps } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import {
@@ -126,9 +127,41 @@ function parseCSV(text: string): Row[] {
 }
 
 export default function Page() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [micro, setMicro] = useState("ALL");
+  const [isMobile, setIsMobile] =
+    useState(false);
 
+  const [isNarrow, setIsNarrow] =
+    useState(false);
+
+  const [rows, setRows] =
+    useState<Row[]>([]);
+
+  const [micro, setMicro] =
+    useState("ALL");
+useEffect(() => {
+  const check = () => {
+    setIsMobile(
+      window.innerWidth < 768
+    );
+
+    setIsNarrow(
+      window.innerWidth < 1200
+    );
+  };
+
+  check();
+
+  window.addEventListener(
+    "resize",
+    check
+  );
+
+  return () =>
+    window.removeEventListener(
+      "resize",
+      check
+    );
+}, []);
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -252,12 +285,12 @@ export default function Page() {
       }
     });
 
-    return Object.entries(
-      grouped
-    ).map(([tipo, vals]) => ({
-      tipo,
-      eval: avg(vals),
-    }));
+    return Object.entries(grouped)
+  .map(([tipo, vals]) => ({
+    tipo,
+    eval: avg(vals),
+  }))
+  .sort((a, b) => b.eval - a.eval);
   }, [filtered]);
 
   const phaseData = useMemo(() => {
@@ -304,12 +337,12 @@ export default function Page() {
       }
     });
 
-    return Object.entries(
-      grouped
-    ).map(([name, vals]) => ({
-      name,
-      eval: avg(vals),
-    }));
+    return Object.entries(grouped)
+  .map(([name, vals]) => ({
+    name,
+    eval: avg(vals),
+  }))
+  .sort((a, b) => b.eval - a.eval);
   }, [filtered]);
 
   const contenidoPrincipalData =
@@ -373,11 +406,60 @@ export default function Page() {
         eval: avg(vals),
       }));
     }, [filtered]);
+const renderMultilineTick = (
+  props: any
+) => {
+  const {
+    x,
+    y,
+    payload,
+  } = props;
 
+  const label = String(
+    payload.value
+  );
+
+  const words =
+    label.length > 18
+      ? label.split(" ")
+      : [label];
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#CBD5E1"
+      fontSize="11"
+      textAnchor="end"
+    >
+      {words.map(
+        (
+          word: string,
+          index: number
+        ) => (
+          <tspan
+            key={index}
+            x={x}
+            dy={
+              index === 0
+                ? -(words.length - 1) *
+                  6
+                : 12
+            }
+          >
+            {word}
+          </tspan>
+        )
+      )}
+    </text>
+  );
+};
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
-        <Sidebar />
+        <div className="hidden md:block">
+  <Sidebar />
+</div>
 
         <div className="flex-1">
           <Topbar />
@@ -466,8 +548,16 @@ export default function Page() {
       />
 
       <Tooltip />
-      <Legend />
-
+      <Legend
+  layout="horizontal"
+  verticalAlign="bottom"
+  align="center"
+  wrapperStyle={{
+    fontSize: 11,
+    color: "#CBD5E1",
+    paddingTop: 20,
+  }}
+/>
       <Bar
         yAxisId="left"
         dataKey="carga"
@@ -697,12 +787,12 @@ export default function Page() {
     <BarChart
       data={taskEvalData}
       layout="vertical"
-      margin={{
-        top: 10,
-        right: 35,
-        left: 20,
-        bottom: 10,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 20,
+  bottom: 10,
+}}
       barCategoryGap={18}
     >
       <CartesianGrid
@@ -711,27 +801,30 @@ export default function Page() {
       />
 
       <XAxis
-        type="number"
-        domain={[0, 10]}
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
-
-      <YAxis
-        type="category"
-        dataKey="tipo"
-        width={140}
-        tick={{
-          fill: "#E2E8F0",
-          fontSize: 13,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+  type="number"
+  domain={[0, 10]}
+  tick={{
+    fill: "#94A3B8",
+    fontSize: 11,
+  }}
+  axisLine={false}
+  tickLine={false}
+/>
+    <YAxis
+  type="category"
+  dataKey="tipo"
+  width={
+  isMobile
+    ? 120
+    : isNarrow
+    ? 160
+    : 220
+}
+  interval={0}
+  axisLine={false}
+  tickLine={false}
+  tick={renderMultilineTick}
+/>
 
       <Tooltip
         cursor={{
@@ -752,7 +845,11 @@ export default function Page() {
         name="Evaluación"
         fill={COLORS.gold}
         radius={[0, 12, 12, 0]}
-        barSize={22}
+        barSize={
+  isMobile
+    ? 16
+    : 22
+}
       >
         {taskEvalData.map(
           (_, index) => (
@@ -773,12 +870,12 @@ export default function Page() {
     <BarChart
       data={contenidoPrincipalData}
       layout="vertical"
-      margin={{
-        top: 10,
-        right: 40,
-        left: 25,
-        bottom: 10,
-      }}
+     margin={{
+  top: 10,
+  right: 24,
+  left: 20,
+  bottom: 10,
+}}
       barCategoryGap={18}
     >
       <CartesianGrid
@@ -786,28 +883,32 @@ export default function Page() {
         vertical={false}
       />
 
-      <XAxis
-        type="number"
-        domain={[0, 10]}
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+   <XAxis
+  type="number"
+  domain={[0, 10]}
+  tick={{
+    fill: "#94A3B8",
+    fontSize: 11,
+  }}
+  axisLine={false}
+  tickLine={false}
+/>
 
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={180}
-        tick={{
-          fill: "#E2E8F0",
-          fontSize: 13,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+<YAxis
+  type="category"
+  dataKey="name"
+ width={
+  isMobile
+    ? 120
+    : isNarrow
+    ? 160
+    : 220
+}
+  interval={0}
+  axisLine={false}
+  tickLine={false}
+  tick={renderMultilineTick}
+/>
 
       <Tooltip
         cursor={{
@@ -828,7 +929,11 @@ export default function Page() {
         name="Evaluación"
         fill={COLORS.gold}
         radius={[0, 12, 12, 0]}
-        barSize={22}
+        barSize={
+  isMobile
+    ? 16
+    : 22
+}
       >
         <LabelList
   dataKey="eval"
@@ -863,7 +968,14 @@ function Chart({
   children,
 }: any) {
   return (
-    <div className="w-full h-[260px] sm:h-[320px]">
+    <div
+     className="
+        h-[420px]
+        sm:h-[420px]
+        md:h-[360px]
+        w-full
+      "
+    >
       <ResponsiveContainer
         width="100%"
         height="100%"
