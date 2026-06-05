@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import type { LegendProps } from "recharts";
 import {
   useEffect,
   useMemo,
@@ -141,11 +142,19 @@ export default function Page() {
   const [isMobile, setIsMobile] =
   useState(false);
 
+const [isNarrow, setIsNarrow] =
+  useState(false);
+
 useEffect(() => {
-  const check = () =>
+  const check = () => {
     setIsMobile(
       window.innerWidth < 768
     );
+
+    setIsNarrow(
+      window.innerWidth < 1200
+    );
+  };
 
   check();
 
@@ -531,7 +540,27 @@ const resultadoData = [
         };
       }
     );
+   const pieLegendProps: Partial<LegendProps> = {
+  layout: isNarrow
+    ? "horizontal"
+    : "vertical",
 
+  verticalAlign: isNarrow
+    ? "bottom"
+    : "middle",
+
+  align: isNarrow
+    ? "center"
+    : "right",
+
+  wrapperStyle: {
+    fontSize: 11,
+    color: "#CBD5E1",
+    paddingTop: isNarrow
+      ? 20
+      : 0,
+  },
+};
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -718,32 +747,7 @@ text-sm md:text-base
 
       <Tooltip />
 
-      <Legend
-  verticalAlign={
-    isMobile
-      ? "bottom"
-      : "middle"
-  }
-  align={
-    isMobile
-      ? "center"
-      : "right"
-  }
-  layout={
-    isMobile
-      ? "horizontal"
-      : "vertical"
-  }
-  wrapperStyle={{
-    fontSize: isMobile
-      ? 11
-      : 12,
-    color: "#CBD5E1",
-    paddingTop: isMobile
-      ? 16
-      : 0,
-  }}
-/>
+      <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -777,7 +781,11 @@ text-sm md:text-base
       <YAxis
         type="category"
         dataKey="name"
-        width={120}
+       width={
+  isNarrow
+    ? 160
+    : 220
+}
         tick={{
           fill: "#CBD5E1",
           fontSize: 11,
@@ -836,7 +844,11 @@ text-sm md:text-base
       <YAxis
         type="category"
         dataKey="name"
-        width={120}
+        width={
+  isNarrow
+    ? 160
+    : 220
+}
         axisLine={false}
         tickLine={false}
         tick={{
@@ -890,7 +902,11 @@ text-sm md:text-base
       <YAxis
         type="category"
         dataKey="name"
-        width={120}
+        width={
+  isNarrow
+    ? 160
+    : 220
+}
         axisLine={false}
         tickLine={false}
         tick={{
@@ -945,23 +961,7 @@ text-sm md:text-base
 
       <Tooltip />
 
-      <Legend
-        layout={
-          isMobile
-            ? "horizontal"
-            : "vertical"
-        }
-        verticalAlign={
-          isMobile
-            ? "bottom"
-            : "middle"
-        }
-        align={
-          isMobile
-            ? "center"
-            : "right"
-        }
-      />
+      <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -992,23 +992,7 @@ text-sm md:text-base
 
       <Tooltip />
 
-      <Legend
-        layout={
-          isMobile
-            ? "horizontal"
-            : "vertical"
-        }
-        verticalAlign={
-          isMobile
-            ? "bottom"
-            : "middle"
-        }
-        align={
-          isMobile
-            ? "center"
-            : "right"
-        }
-      />
+      <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1041,32 +1025,7 @@ text-sm md:text-base
 
       <Tooltip />
 
-      <Legend
-  layout={
-    isMobile
-      ? "horizontal"
-      : "vertical"
-  }
-  verticalAlign={
-    isMobile
-      ? "bottom"
-      : "middle"
-  }
-  align={
-    isMobile
-      ? "center"
-      : "right"
-  }
-  wrapperStyle={{
-    fontSize: isMobile
-      ? 11
-      : 12,
-    color: "#CBD5E1",
-    paddingTop: isMobile
-      ? 16
-      : 0,
-  }}
-/>
+      <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1209,7 +1168,11 @@ text-sm md:text-base
       <YAxis
         type="category"
         dataKey="name"
-        width={120}
+        width={
+  isNarrow
+    ? 160
+    : 220
+}
         axisLine={false}
         tickLine={false}
         tick={{
@@ -1279,40 +1242,83 @@ text-sm md:text-base
     </BarChart>
   </Chart>
 </Panel>
-<Panel title="xG por zona caída">
+<Panel title="xG por zona caida">
   <Chart>
     <BarChart
-      data={xgZonaCaida}
-      layout="vertical"
-    >
+  data={xgZonaCaida}
+  layout="vertical"
+  margin={{
+    top: 10,
+    right: 24,
+    left: isNarrow ? 30 : 80,
+    bottom: 10,
+  }}
+>
       <CartesianGrid
         stroke="#1E232A"
         horizontal={false}
       />
-
-      <YAxis
-  type="category"
-  dataKey="name"
-  width={220}
+      <XAxis
+  type="number"
   axisLine={false}
   tickLine={false}
   tick={{
-    fill: "#CBD5E1",
-    fontSize: 11,
+    fill: "#94A3B8",
   }}
-  interval={0}
 />
 
       <YAxis
   type="category"
   dataKey="name"
-  width={220}
+  width={
+    isNarrow
+      ? 180
+      : 260
+  }
+  interval={0}
   axisLine={false}
   tickLine={false}
-  tick={{
-    fill: "#CBD5E1",
-    fontSize: 11,
-  }}
+  tick={(props) => {
+  const {
+    x,
+    y,
+    payload,
+  } = props;
+
+  const label =
+  String(payload.value);
+
+const words =
+  label.length > 18
+    ? label.split(" ")
+    : [label];
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#CBD5E1"
+      fontSize="11"
+      textAnchor="end"
+    >
+      {words.map(
+        (word, index) => (
+          <tspan
+            key={index}
+            x={x}
+            dy={
+              index === 0
+                ? -(words.length - 1) * 6
+                : 12
+            }
+          >
+            {word}
+          </tspan>
+        )
+      )}
+    </text>
+  );
+}}
 />
 
       <Tooltip />
@@ -1365,7 +1371,14 @@ function Chart({
   children,
 }: any) {
   return (
-    <div className="h-[280px] md:h-[320px] w-full">
+    <div
+      className="
+        h-[340px]
+        sm:h-[360px]
+        md:h-[320px]
+        w-full
+      "
+    >
       <ResponsiveContainer
         width="100%"
         height="100%"
