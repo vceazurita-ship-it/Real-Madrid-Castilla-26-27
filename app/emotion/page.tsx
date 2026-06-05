@@ -179,14 +179,22 @@ const scrollToVideo = () => {
   Ver vídeo
 </button>
 
-          <section className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-           <div className="flex flex-col items-start gap-3 leading-none lg:flex-row lg:items-center">
-  <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
-    Rendimiento emocional
-  </h2>
+          <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
 
-  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-</div>
+  {/* Header */}
+  <div className="mb-8">
+    <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+      RMC INDIVIDUAL
+    </p>
+
+    <div className="mt-4 flex items-center gap-3 sm:gap-5">
+      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        Rendimiento emocional
+      </h1>
+
+      <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+    </div>
+  </div>
             <div
   className="rounded-[34px] p-4 sm:p-5 lg:p-6"
               style={{
