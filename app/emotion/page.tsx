@@ -182,7 +182,7 @@ const scrollToVideo = () => {
           <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
 
   {/* Header */}
-  <div className="mb-8">
+  <div className="mb-5">
     <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
       RMC INDIVIDUAL
     </p>
