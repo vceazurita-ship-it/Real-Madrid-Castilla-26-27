@@ -635,6 +635,31 @@ const renderMultilineTick = (
                   </AreaChart>
                 </Chart>
               </Panel>
+              <Panel title="Intensidad en Microciclo">
+                <Chart>
+                  <BarChart data={mdData}>
+                    <CartesianGrid stroke="#1E232A" />
+                    <XAxis
+  dataKey="md"
+  height={70}
+  tick={{
+    fill: "#94A3B8",
+    fontSize: 11,
+  }}
+  axisLine={false}
+  tickLine={false}
+/>
+                    <YAxis />
+                    <Tooltip />
+
+                    <Bar
+                      dataKey="intensidad"
+                      fill={COLORS.purple}
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </Chart>
+              </Panel>
 
               <Panel title="Tendencia de Evaluación por Microciclo">
   <Chart>
@@ -698,31 +723,7 @@ const renderMultilineTick = (
   </Chart>
 </Panel>
 
-              <Panel title="Intensidad en Microciclo">
-                <Chart>
-                  <BarChart data={mdData}>
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis
-  dataKey="md"
-  height={70}
-  tick={{
-    fill: "#94A3B8",
-    fontSize: 11,
-  }}
-  axisLine={false}
-  tickLine={false}
-/>
-                    <YAxis />
-                    <Tooltip />
-
-                    <Bar
-                      dataKey="intensidad"
-                      fill={COLORS.purple}
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </BarChart>
-                </Chart>
-              </Panel>
+              
 
               <Panel title="Comparativa de Evaluación y Carga Cognitiva">
   <Chart>
