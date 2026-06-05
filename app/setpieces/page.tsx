@@ -663,12 +663,12 @@ text-sm md:text-base
   <Chart>
     <BarChart
       data={tipoAccion}
-      margin={{
-        top: 24,
-        right: 24,
-        left: 0,
-        bottom: 12,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -756,12 +756,12 @@ text-sm md:text-base
     <BarChart
       data={sacadorData}
       layout="vertical"
-      margin={{
-        top: 10,
-        right: 24,
-        left: 20,
-        bottom: 10,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -823,12 +823,12 @@ text-sm md:text-base
     <BarChart
       data={rematadoresData}
       layout="vertical"
-      margin={{
-        top: 10,
-        right: 24,
-        left: 20,
-        bottom: 10,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -881,12 +881,12 @@ text-sm md:text-base
     <BarChart
       data={tipoEnvioData}
       layout="vertical"
-      margin={{
-        top: 10,
-        right: 24,
-        left: 20,
-        bottom: 10,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1033,11 +1033,12 @@ text-sm md:text-base
   <Chart>
     <BarChart
       data={defensa}
-      margin={{
-        top: 20,
-        right: 20,
-        bottom: 12,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1084,12 +1085,12 @@ text-sm md:text-base
   <Chart>
     <LineChart
       data={timeline}
-      margin={{
-        top: 20,
-        right: 20,
-        left: 10,
-        bottom: 10,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1144,12 +1145,12 @@ text-sm md:text-base
     <BarChart
       data={xgByTipoAccion}
       layout="vertical"
-      margin={{
-        top: 10,
-        right: 24,
-        left: 20,
-        bottom: 10,
-      }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1217,10 +1218,18 @@ text-sm md:text-base
       />
 
       <XAxis
-        dataKey="name"
-        axisLine={false}
-        tickLine={false}
-      />
+  dataKey="name"
+  interval={0}
+  height={70}
+  axisLine={false}
+  tickLine={false}
+  tick={{
+    fill: "#CBD5E1",
+    fontSize: 11,
+  }}
+  angle={-25}
+  textAnchor="end"
+/>
 
       <YAxis
         axisLine={false}
@@ -1247,12 +1256,12 @@ text-sm md:text-base
     <BarChart
   data={xgZonaCaida}
   layout="vertical"
-  margin={{
-    top: 10,
-    right: 24,
-    left: isNarrow ? 30 : 80,
-    bottom: 10,
-  }}
+margin={{
+  top: 10,
+  right: 24,
+  left: 10,
+  bottom: 10,
+}}
 >
       <CartesianGrid
         stroke="#1E232A"
