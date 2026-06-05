@@ -471,69 +471,67 @@ const renderMultilineTick = (
         <div className="flex-1">
           <Topbar />
 
-          <section className="px-4 py-5 sm:p-10">
-            <div className="rounded-[28px] sm:rounded-[40px] border border-white/10 bg-white/[0.03] p-5 sm:p-10">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                 <div className="mb-8">
-              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                                RMC METODOLOGÍA
-              </p>
+<section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
 
-              <div className="mt-4 flex items-center gap-5">
-                <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight">
-                 Microciclos
-                </h1>
+  {/* Header */}
+  <div className="mb-8">
+    <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+      RMC METODOLOGÍA
+    </p>
 
-                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-              </div>
-            </div>
+    <div className="mt-4 flex items-center gap-3 sm:gap-5">
+      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        Microciclos
+      </h1>
 
-                <select
-                  value={micro}
-                  onChange={(e) =>
-                    setMicro(
-                      e.target.value
-                    )
-                  }
-                  className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-                >
-                  <option value="ALL">
-                    All Microcycles
-                  </option>
+      <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+    </div></div>
 
-                  {micros.map((m) => (
-                    <option
-                      key={m}
-                      value={m}
-                    >
-                      Micro {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
+  {/* Selector + KPIs */}
+<div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
-                <Card
-                  title="Avg Eval"
-                  value={metrics.eval}
-                />
+  <select
+    value={micro}
+    onChange={(e) => setMicro(e.target.value)}
+    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+  >
+    <option value="ALL">
+      All Microcycles
+    </option>
 
-                <Card
-                  title="Physical Load"
-                  value={metrics.load}
-                />
+    {micros.map((m) => (
+      <option
+        key={m}
+        value={m}
+      >
+        Micro {m}
+      </option>
+    ))}
+  </select>
 
-                <Card
-                  title="Cognitive Load"
-                  value={metrics.cog}
-                />
+  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
+    <Card
+      title="Avg Eval"
+      value={metrics.eval}
+    />
 
-                <Card
-                  title="Tasks"
-                  value={metrics.tasks}
-                />
-              </div>
-            </div>
+    <Card
+      title="Physical Load"
+      value={metrics.load}
+    />
+
+    <Card
+      title="Cognitive Load"
+      value={metrics.cog}
+    />
+
+    <Card
+      title="Tasks"
+      value={metrics.tasks}
+    />
+  </div>
+
+</div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
 
