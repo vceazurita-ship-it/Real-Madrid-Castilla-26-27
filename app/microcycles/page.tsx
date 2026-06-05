@@ -249,23 +249,30 @@ useEffect(() => {
   });
 
   const compareData = micros.map((m) => {
-    const set = rows.filter(
-      (r) => r.micro === m
-    );
+  const set = rows.filter(
+    (r) => r.micro === m
+  );
 
-    return {
-      micro: `M${m}`,
-      eval: avg(
-        set
-          .map((r) => r.evaluacion)
-          .filter((n) => n > 0)
-      ),
-      load: set.reduce(
-        (a, b) => a + b.carga,
-        0
-      ),
-    };
-  });
+  return {
+    micro: `M${m}`,
+
+    eval: avg(
+      set
+        .map((r) => r.evaluacion)
+        .filter((n) => n > 0)
+    ),
+
+    load: set.reduce(
+      (a, b) => a + b.carga,
+      0
+    ),
+
+    cog: set.reduce(
+      (a, b) => a + b.cargaCog,
+      0
+    ),
+  };
+});
 
   const taskEvalData = useMemo(() => {
     const grouped: Record<
