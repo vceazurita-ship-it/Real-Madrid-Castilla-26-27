@@ -3,8 +3,20 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
-import { Menu, X } from "lucide-react"
-
+import {
+  Menu,
+  X,
+  Home,
+  User,
+  Brain,
+  Users,
+  Scale,
+  BarChart3,
+  Trophy,
+  Goal,
+  CalendarDays,
+} from "lucide-react"
+import type { ReactNode } from "react"
 export function Sidebar() {
   const pathname = usePathname()
 
@@ -12,20 +24,32 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
   const activeClass =
-    "flex items-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
+  "flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
 
-  const normalClass =
-    "flex items-center rounded-2xl px-4 py-3 text-gray-300 transition-all duration-300 hover:bg-white/5 hover:text-white"
+const normalClass =
+  "flex items-center justify-center rounded-2xl px-4 py-3 text-gray-300 transition-all duration-300 hover:bg-white/5 hover:text-white"
 
-  const navLink = (href: string, label: string) => (
-    <Link
-      href={href}
-      onClick={() => setOpen(false)}
-      className={pathname === href ? activeClass : normalClass}
-    >
-      {collapsed ? label.charAt(0) : label}
-    </Link>
-  )
+const navLink = (
+  href: string,
+  label: string,
+  icon: ReactNode
+) => (
+  <Link
+    href={href}
+    onClick={() => setOpen(false)}
+    className={pathname === href ? activeClass : normalClass}
+  >
+    {collapsed ? (
+      <div className="mx-auto">
+        {icon}
+      </div>
+    ) : (
+      <span className="w-full text-left">
+        {label}
+      </span>
+    )}
+  </Link>
+)
 
   return (
     <>
@@ -54,7 +78,7 @@ export function Sidebar() {
           border-r border-white/10 bg-[#111827]
           py-8
           transition-all duration-300
-          ${collapsed ? "w-20 px-3" : "w-72 px-6"}
+          ${collapsed ? "w-24 px-3" : "w-72 px-6"}
           ${open ? "translate-x-0" : "-translate-x-full"}
           md:static md:translate-x-0 md:overflow-visible
         `}
@@ -89,8 +113,12 @@ export function Sidebar() {
               </p>
             )}
 
-            {navLink("/", "Real Madrid CF C")}
-          </div>
+            {/* INICIO */}
+{navLink(
+  "/",
+  "Real Madrid CF C",
+  <Home size={18} />
+)}
 
           {/* INDIVIDUAL */}
           <div>
@@ -101,10 +129,30 @@ export function Sidebar() {
             )}
 
             <div className="space-y-2 text-sm">
-              {navLink("/individual", "Evaluación")}
-              {navLink("/emotion", "Emocional")}
-              {navLink("/sinergy", "Sinergias")}
-              {navLink("/comparative_ind", "Comparativo U-21")}
+              {/* INDIVIDUAL */}
+{navLink(
+  "/individual",
+  "Evaluación",
+  <User size={18} />
+)}
+
+{navLink(
+  "/emotion",
+  "Emocional",
+  <Brain size={18} />
+)}
+
+{navLink(
+  "/sinergy",
+  "Sinergias",
+  <Users size={18} />
+)}
+
+{navLink(
+  "/comparative_ind",
+  "Comparativo U-21",
+  <Scale size={18} />
+)}
             </div>
           </div>
 
@@ -117,9 +165,24 @@ export function Sidebar() {
             )}
 
             <div className="space-y-2 text-sm">
-              {navLink("/team", "Rendimiento")}
-              {navLink("/collective", "Competición")}
-              {navLink("/setpieces", "ABP")}
+              {/* COLECTIVO */}
+{navLink(
+  "/team",
+  "Rendimiento",
+  <BarChart3 size={18} />
+)}
+
+{navLink(
+  "/collective",
+  "Competición",
+  <Trophy size={18} />
+)}
+
+{navLink(
+  "/setpieces",
+  "ABP",
+  <Goal size={18} />
+)}
             </div>
           </div>
 
@@ -132,7 +195,12 @@ export function Sidebar() {
             )}
 
             <div className="space-y-2 text-sm">
-              {navLink("/microcycles", "Microciclos")}
+              {/* METODOLOGÍA */}
+{navLink(
+  "/microcycles",
+  "Microciclos",
+  <CalendarDays size={18} />
+)}
             </div>
           </div>
         </nav>
