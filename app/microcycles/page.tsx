@@ -614,27 +614,66 @@ const renderMultilineTick = (
               </Panel>
 
               <Panel title="Tendencia de Evaluación por Microciclo">
-                <Chart>
-                  <AreaChart data={trendData}>
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis dataKey="micro" />
-                    <YAxis />
-                    <Tooltip />
+  <Chart>
+    <AreaChart data={trendData}>
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
 
-                    <Area
-                      dataKey="value"
-                      fill={COLORS.gold}
-                      fillOpacity={0.2}
-                    />
+      <XAxis
+        dataKey="micro"
+        interval={0}
+        minTickGap={0}
+        angle={-45}
+        textAnchor="end"
+        height={70}
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-                    <Line
-                      dataKey="value"
-                      stroke={COLORS.gold}
-                      strokeWidth={3}
-                    />
-                  </AreaChart>
-                </Chart>
-              </Panel>
+      <YAxis
+        domain={[0, 10]}
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
+      />
+
+      <Area
+        dataKey="value"
+        fill={COLORS.gold}
+        fillOpacity={0.2}
+      />
+
+      <Line
+        dataKey="value"
+        stroke={COLORS.gold}
+        strokeWidth={3}
+        dot={{
+          r: 4,
+          fill: COLORS.gold,
+        }}
+      />
+    </AreaChart>
+  </Chart>
+</Panel>
 
               <Panel title="Intensidad en Microciclo">
                 <Chart>
