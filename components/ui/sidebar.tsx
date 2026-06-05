@@ -24,10 +24,10 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
   const activeClass =
-  "flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
+  "flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
 
 const normalClass =
-  "flex items-center justify-center rounded-2xl px-4 py-3 text-gray-300 transition-all duration-300 hover:bg-white/5 hover:text-white"
+  "flex items-center gap-3 rounded-2xl px-4 py-3 text-gray-300 transition-all duration-300 hover:bg-white/5 hover:text-white"
 
 const navLink = (
   href: string,
@@ -68,7 +68,7 @@ const navLink = (
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
         />
       )}
-
+  
       {/* SIDEBAR */}
       <aside
         className={`
@@ -105,105 +105,104 @@ const navLink = (
         </div>
 
         <nav className="space-y-10">
-          {/* INICIO */}
-          <div>
-            {!collapsed && (
-              <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-                Inicio
-              </p>
-            )}
 
-            {/* INICIO */}
-{navLink(
-  "/",
-  "Real Madrid CF C",
-  <Home size={18} />
-)}
+  {/* INICIO */}
+  <div>
+    {!collapsed && (
+      <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+        Inicio
+      </p>
+    )}
 
-          {/* INDIVIDUAL */}
-          <div>
-            {!collapsed && (
-              <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-                Individual
-              </p>
-            )}
+    {navLink(
+      "/",
+      "Real Madrid CF C",
+      <Home size={18} />
+    )}
+  </div>
 
-            <div className="space-y-2 text-sm">
-              {/* INDIVIDUAL */}
-{navLink(
-  "/individual",
-  "Evaluación",
-  <User size={18} />
-)}
+  {/* INDIVIDUAL */}
+  <div>
+    {!collapsed && (
+      <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+        Individual
+      </p>
+    )}
 
-{navLink(
-  "/emotion",
-  "Emocional",
-  <Brain size={18} />
-)}
+    <div className="space-y-2 text-sm">
+      {navLink(
+        "/individual",
+        "Evaluación",
+        <User size={18} />
+      )}
 
-{navLink(
-  "/sinergy",
-  "Sinergias",
-  <Users size={18} />
-)}
+      {navLink(
+        "/emotion",
+        "Emocional",
+        <Brain size={18} />
+      )}
 
-{navLink(
-  "/comparative_ind",
-  "Comparativo U-21",
-  <Scale size={18} />
-)}
-            </div>
-          </div>
+      {navLink(
+        "/sinergy",
+        "Sinergias",
+        <Users size={18} />
+      )}
 
-          {/* COLECTIVO */}
-          <div>
-            {!collapsed && (
-              <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-                Colectivo
-              </p>
-            )}
+      {navLink(
+        "/comparative_ind",
+        "Comparativo U-21",
+        <Scale size={18} />
+      )}
+    </div>
+  </div>
 
-            <div className="space-y-2 text-sm">
-              {/* COLECTIVO */}
-{navLink(
-  "/team",
-  "Rendimiento",
-  <BarChart3 size={18} />
-)}
+  {/* COLECTIVO */}
+  <div>
+    {!collapsed && (
+      <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+        Colectivo
+      </p>
+    )}
 
-{navLink(
-  "/collective",
-  "Competición",
-  <Trophy size={18} />
-)}
+    <div className="space-y-2 text-sm">
+      {navLink(
+        "/team",
+        "Rendimiento",
+        <BarChart3 size={18} />
+      )}
 
-{navLink(
-  "/setpieces",
-  "ABP",
-  <Goal size={18} />
-)}
-            </div>
-          </div>
+      {navLink(
+        "/collective",
+        "Competición",
+        <Trophy size={18} />
+      )}
 
-          {/* METODOLOGÍA */}
-          <div>
-            {!collapsed && (
-              <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-                Metodología
-              </p>
-            )}
+      {navLink(
+        "/setpieces",
+        "ABP",
+        <Goal size={18} />
+      )}
+    </div>
+  </div>
 
-            <div className="space-y-2 text-sm">
-              {/* METODOLOGÍA */}
-{navLink(
-  "/microcycles",
-  "Microciclos",
-  <CalendarDays size={18} />
-)}
-            </div>
-          </div>
-        </nav>
+  {/* METODOLOGÍA */}
+  <div>
+    {!collapsed && (
+      <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+        Metodología
+      </p>
+    )}
+
+    <div className="space-y-2 text-sm">
+      {navLink(
+        "/microcycles",
+        "Microciclos",
+        <CalendarDays size={18} />
+      )}
+    </div>
+  </div>
+
+</nav>
       </aside>
     </>
   )
