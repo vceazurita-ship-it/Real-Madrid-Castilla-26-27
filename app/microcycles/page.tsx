@@ -649,41 +649,89 @@ const renderMultilineTick = (
               <Panel title="Comparativa de Evaluación y Carga Cognitiva">
   <Chart>
     <ComposedChart data={compareData}>
-      <CartesianGrid stroke="#1E232A" />
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
 
-      <XAxis dataKey="micro" />
+      <XAxis
+        dataKey="micro"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-      {/* carga */}
-      <YAxis yAxisId="left" />
+      <YAxis
+        yAxisId="left"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
 
-      {/* evaluación */}
       <YAxis
         yAxisId="right"
         orientation="right"
         domain={[0, 10]}
+        tick={{
+          fill: COLORS.gold,
+          fontSize: 12,
+        }}
+        axisLine={false}
+        tickLine={false}
       />
 
-      <Tooltip />
-      <Legend />
+      <Tooltip
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
+      />
+
+      <Legend
+        verticalAlign="top"
+        align="right"
+        iconType="circle"
+        wrapperStyle={{
+          paddingBottom: 20,
+          fontSize: 13,
+        }}
+      />
 
       <Bar
         yAxisId="left"
-        dataKey="load"
-        fill={COLORS.blue}
-        radius={[8, 8, 0, 0]}
+        dataKey="cog"
+        name="Carga Cognitiva"
+        fill={COLORS.purple}
+        radius={[10, 10, 0, 0]}
+        barSize={34}
       />
 
       <Line
         yAxisId="right"
         type="monotone"
         dataKey="eval"
+        name="Evaluación"
         stroke={COLORS.gold}
         strokeWidth={3}
         dot={{
           r: 4,
+          strokeWidth: 2,
+          stroke: COLORS.gold,
+          fill: "#0B0F14",
+        }}
+        activeDot={{
+          r: 6,
           fill: COLORS.gold,
         }}
-        activeDot={{ r: 6 }}
       />
     </ComposedChart>
   </Chart>
