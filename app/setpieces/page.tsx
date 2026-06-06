@@ -709,7 +709,7 @@ const resultadoData = [
             px-3
             py-1.5
             rounded-full
-            border
+            border 
             border-white/10
             bg-[#C8A96B]/10
             text-[#C8A96B]
