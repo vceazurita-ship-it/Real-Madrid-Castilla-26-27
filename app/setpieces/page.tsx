@@ -174,7 +174,14 @@ useEffect(() => {
 
   const [jornada, setJornada] =
     useState("ALL");
+  const [rival, setRival] =
+  useState("ALL");
 
+const [sacador, setSacador] =
+  useState("ALL");
+
+const [tipoAccionFilter, setTipoAccionFilter] =
+  useState("ALL");
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -192,44 +199,93 @@ useEffect(() => {
       ].sort((a, b) => a - b),
     [rows]
   );
+  const rivales = [
+  ...new Set(rows.map(r => r.rival))
+];
 
-  const filtered =
-    jornada === "ALL"
-      ? rows
-      : rows.filter(
-          (r) =>
-            String(r.jornada) ===
-            jornada
-        );
+const sacadores = [
+  ...new Set(rows.map(r => r.sacador))
+];
 
-  const metrics = {
-    total: filtered.length,
+const tiposAccion = [
+  ...new Set(rows.map(r => r.tipoAccion))
+];
+const filtered = rows.filter((r) => {
+  const jornadaOk =
+    jornada === "ALL" ||
+    String(r.jornada) === jornada;
 
-    xg: filtered.reduce(
-      (a, b) => a + b.xg,
-      0
+  const rivalOk =
+    rival === "ALL" ||
+    r.rival === rival;
+
+  const sacadorOk =
+    sacador === "ALL" ||
+    r.sacador === sacador;
+
+  const accionOk =
+    tipoAccionFilter === "ALL" ||
+    r.tipoAccion ===
+      tipoAccionFilter;
+
+  return (
+    jornadaOk &&
+    rivalOk &&
+    sacadorOk &&
+    accionOk
+  );
+});
+
+  const shots = filtered.filter(
+  (r) =>
+    r.tipoRemate &&
+    ![
+      "",
+      "No Remate",
+      "No aplica",
+    ].includes(r.tipoRemate)
+).length;
+
+const goals = filtered.filter(
+  (r) =>
+    r.resultadoFinal
+      .toLowerCase()
+      .includes("gol")
+).length;
+
+const totalXg = filtered.reduce(
+  (a, b) => a + b.xg,
+  0
+);
+
+const metrics = {
+  total: filtered.length,
+
+  xg: totalXg,
+
+  shots,
+
+  goals,
+
+  conversion:
+    shots > 0
+      ? (goals / shots) * 100
+      : 0,
+
+  xgAccion:
+    filtered.length > 0
+      ? totalXg /
+        filtered.length
+      : 0,
+
+  rutinas: [
+    ...new Set(
+      filtered
+        .map((r) => r.rutina)
+        .filter(Boolean)
     ),
-
-    shots: filtered.filter(
-      (r) =>
-        r.tipoRemate &&
-        ![
-          "",
-          "No Remate",
-          "No aplica",
-        ].includes(
-          r.tipoRemate
-        )
-    ).length,
-
-    goals: filtered.filter(
-      (r) =>
-        r.resultadoFinal
-          .toLowerCase()
-          .includes("gol")
-    ).length,
-  };
-
+  ].length,
+};
   const tipoAccion =
     countBy(filtered, "tipoAccion");
 
@@ -611,8 +667,78 @@ const resultadoData = [
         </option>
       ))}
     </select>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
 
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
+  <select
+    value={rival}
+    onChange={(e) =>
+      setRival(e.target.value)
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todos los rivales
+    </option>
+
+    {rivales.map((v) => (
+      <option key={v} value={v}>
+        {v}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={sacador}
+    onChange={(e) =>
+      setSacador(e.target.value)
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todos los sacadores
+    </option>
+
+    {sacadores.map((v) => (
+      <option key={v} value={v}>
+        {v}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={tipoAccionFilter}
+    onChange={(e) =>
+      setTipoAccionFilter(
+        e.target.value
+      )
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todas las acciones
+    </option>
+
+    {tiposAccion.map((v) => (
+      <option key={v} value={v}>
+        {v}
+      </option>
+    ))}
+  </select>
+<p className="mt-4 text-sm text-zinc-400">
+  {
+    rival === "ALL"
+      ? `Partidos visualizados: ${[
+          ...new Set(
+            filtered.map(
+              (r) => r.rival
+            )
+          ),
+        ].join(", ")}`
+      : `Partido visualizado: ${rival}`
+  }
+</p>
+</div>
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-8 sm:mt-10">
       <Card
         title="ABP"
         value={metrics.total}
@@ -632,6 +758,31 @@ const resultadoData = [
         title="Goles"
         value={metrics.goals}
       />
+      <Card
+  title="Conversión"
+  value={`${metrics.conversion.toFixed(
+    1
+  )}%`}
+/>
+<Card
+  title="xG / ABP"
+  value={metrics.xgAccion.toFixed(2)}
+/>
+<Card
+  title="Rutinas"
+  value={metrics.rutinas}
+/>
+<Card
+  title="Mejor rutina"
+  value={
+    rutinaData[0]?.name || "-"
+  }
+/><Card
+  title="Mejor sacador"
+  value={
+    sacadorData[0]?.name || "-"
+  }
+/>
     </div>
 
   </div>
@@ -1344,6 +1495,58 @@ const words =
     </PieChart>
   </Chart>
 </Panel>
+<Panel title="xG por rutina">
+  <Chart>
+    <BarChart
+      data={rutinaData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        horizontal={false}
+      />
+
+      <XAxis
+        type="number"
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={
+          isNarrow
+            ? 160
+            : 220
+        }
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Bar
+        dataKey="total"
+        fill={COLORS.gold}
+        radius={[0, 8, 8, 0]}
+      >
+        <LabelList
+          dataKey="total"
+          position="right"
+        />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
+
 
 
             </div>
