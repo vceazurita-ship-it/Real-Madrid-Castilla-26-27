@@ -182,6 +182,8 @@ const [sacador, setSacador] =
 
 const [tipoAccionFilter, setTipoAccionFilter] =
   useState("ALL");
+  const [tiempo, setTiempo] =
+  useState("ALL");
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -228,11 +230,22 @@ const filtered = rows.filter((r) => {
     r.tipoAccion ===
       tipoAccionFilter;
 
+  const tiempoOk =
+    tiempo === "ALL" ||
+    (tiempo === "0-30" &&
+      r.minuto < 30) ||
+    (tiempo === "30-60" &&
+      r.minuto >= 30 &&
+      r.minuto < 60) ||
+    (tiempo === "60-90" &&
+      r.minuto >= 60);
+
   return (
     jornadaOk &&
     rivalOk &&
     sacadorOk &&
-    accionOk
+    accionOk &&
+    tiempoOk
   );
 });
 
@@ -690,6 +703,29 @@ const resultadoData = [
       </option>
     ))}
   </select>
+  <select
+  value={tiempo}
+  onChange={(e) =>
+    setTiempo(e.target.value)
+  }
+  className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+>
+  <option value="ALL">
+    Todo el partido
+  </option>
+
+  <option value="0-30">
+    0 - 30'
+  </option>
+
+  <option value="30-60">
+    30' - 60'
+  </option>
+
+  <option value="60-90">
+    60' - 90'
+  </option>
+</select>
 </div>
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
