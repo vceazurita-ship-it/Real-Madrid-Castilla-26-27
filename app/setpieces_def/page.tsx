@@ -182,6 +182,14 @@ useEffect(() => {
 
   const [jornada, setJornada] =
     useState("ALL");
+  const [rival, setRival] =
+  useState("ALL");
+
+const [perfil, setPerfil] =
+  useState("ALL");
+
+const [tiempo, setTiempo] =
+  useState("ALL");
 
   useEffect(() => {
     fetch(CSV_URL)
@@ -200,15 +208,53 @@ useEffect(() => {
       ].sort((a, b) => a - b),
     [rows]
   );
+  const rivales = useMemo(
+  () =>
+    [...new Set(rows.map(r => r.rival))]
+      .filter(Boolean)
+      .sort(),
+  [rows]
+);
 
-  const filtered =
-    jornada === "ALL"
-      ? rows
-      : rows.filter(
-          (r) =>
-            String(r.jornada) ===
-            jornada
-        );
+const perfiles = useMemo(
+  () =>
+    [...new Set(rows.map(r => r.perfil))]
+      .filter(Boolean)
+      .sort(),
+  [rows]
+);
+const filtered = rows.filter(
+  (r) => {
+    const matchJornada =
+      jornada === "ALL" ||
+      String(r.jornada) === jornada;
+
+    const matchRival =
+      rival === "ALL" ||
+      r.rival === rival;
+
+    const matchPerfil =
+      perfil === "ALL" ||
+      r.perfil === perfil;
+
+    const matchTiempo =
+      tiempo === "ALL" ||
+      (tiempo === "0-30" &&
+        r.tiempo < 30) ||
+      (tiempo === "30-60" &&
+        r.tiempo >= 30 &&
+        r.tiempo < 60) ||
+      (tiempo === "60-90" &&
+        r.tiempo >= 60);
+
+    return (
+      matchJornada &&
+      matchRival &&
+      matchPerfil &&
+      matchTiempo
+    );
+  }
+);
 
   const metrics = {
     total: filtered.length,
@@ -541,7 +587,17 @@ const resultadoData = [
         </option>
       ))}
     </select>
+<div className="mt-5 text-sm text-zinc-400">
+  Visualizando:
 
+  <span className="ml-2 text-white font-medium">
+    {[
+      ...new Set(
+        filtered.map((r) => r.rival)
+      ),
+    ].join(" · ")}
+  </span>
+</div>
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
       <Card
         title="ABP"
@@ -562,9 +618,32 @@ const resultadoData = [
         title="Goles"
         value={metrics.goals}
       />
+      <Card
+  title="xG / ABP"
+  value={
+    metrics.total
+      ? (
+          metrics.xg /
+          metrics.total
+        ).toFixed(2)
+      : "0"
+  }
+/><Card
+  title="% Conversión"
+  value={
+    metrics.shots
+      ? `${(
+          (metrics.goals /
+            metrics.shots) *
+          100
+        ).toFixed(1)}%`
+      : "0%"
+  }
+/>
     </div>
 
   </div>
+  
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
 
