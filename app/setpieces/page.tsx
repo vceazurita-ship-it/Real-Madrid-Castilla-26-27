@@ -277,14 +277,6 @@ const metrics = {
       ? totalXg /
         filtered.length
       : 0,
-
-  rutinas: [
-    ...new Set(
-      filtered
-        .map((r) => r.rutina)
-        .filter(Boolean)
-    ),
-  ].length,
 };
   const tipoAccion =
     countBy(filtered, "tipoAccion");
@@ -473,33 +465,7 @@ const tipoEnvioData =
           b.total - a.total
       );
   }, [filtered]); 
-  const rutinaData =
-  useMemo(() => {
-    const grouped: Record<
-      string,
-      number
-    > = {};
-
-    filtered.forEach((r) => {
-      if (!r.rutina) return;
-
-      grouped[r.rutina] =
-        (grouped[r.rutina] || 0) +
-        r.xg;
-    });
-
-    return Object.entries(grouped)
-      .map(([name, total]) => ({
-        name,
-        total:
-          +total.toFixed(2),
-      }))
-      .sort(
-        (a, b) =>
-          b.total - a.total
-      );
-  }, [filtered]);
-
+  
 const rivalesData =
   useMemo(() => {
     const grouped: Record<
@@ -768,16 +734,8 @@ const resultadoData = [
   title="xG / ABP"
   value={metrics.xgAccion.toFixed(2)}
 />
+
 <Card
-  title="Rutinas"
-  value={metrics.rutinas}
-/>
-<Card
-  title="Mejor rutina"
-  value={
-    rutinaData[0]?.name || "-"
-  }
-/><Card
   title="Mejor sacador"
   value={
     sacadorData[0]?.name || "-"
@@ -1495,59 +1453,6 @@ const words =
     </PieChart>
   </Chart>
 </Panel>
-<Panel title="xG por rutina">
-  <Chart>
-    <BarChart
-      data={rutinaData}
-      layout="vertical"
-      margin={{
-        top: 10,
-        right: 24,
-        left: 10,
-        bottom: 10,
-      }}
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        horizontal={false}
-      />
-
-      <XAxis
-        type="number"
-        axisLine={false}
-        tickLine={false}
-      />
-
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={
-          isNarrow
-            ? 160
-            : 220
-        }
-        axisLine={false}
-        tickLine={false}
-      />
-
-      <Tooltip />
-
-      <Bar
-        dataKey="total"
-        fill={COLORS.gold}
-        radius={[0, 8, 8, 0]}
-      >
-        <LabelList
-          dataKey="total"
-          position="right"
-        />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-
-
-
 
             </div>
 

@@ -669,48 +669,53 @@ const resultadoData = [
   </span>
 </div>
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
-      <Card
-        title="ABP"
-        value={metrics.total}
-      />
+  <Card
+    title="ABP"
+    value={metrics.total}
+  />
 
-      <Card
-        title="xG"
-        value={metrics.xg.toFixed(2)}
-      />
+  <Card
+    title="xG"
+    value={metrics.xg.toFixed(2)}
+  />
 
-      <Card
-        title="Remates"
-        value={metrics.shots}
-      />
+  <Card
+    title="Remates"
+    value={metrics.shots}
+  />
 
-      <Card
-        title="Goles"
-        value={metrics.goals}
-      />
-      <Card
-  title="xG / ABP"
-  value={
-    metrics.total
-      ? (
-          metrics.xg /
-          metrics.total
-        ).toFixed(2)
-      : "0"
-  }
-/><Card
-  title="% Conversión"
-  value={
-    metrics.shots
-      ? `${(
-          (metrics.goals /
-            metrics.shots) *
-          100
-        ).toFixed(1)}%`
-      : "0%"
-  }
-/>
-    </div>
+  <Card
+    title="Goles"
+    value={metrics.goals}
+  />
+</div>
+
+<div className="grid grid-cols-2 gap-5 mt-5">
+  <SmallCard
+    title="% Remate"
+    value={
+      metrics.total
+        ? `${(
+            (metrics.shots /
+              metrics.total) *
+            100
+          ).toFixed(1)}%`
+        : "0%"
+    }
+  />
+
+  <SmallCard
+    title="xG / Remate"
+    value={
+      metrics.shots
+        ? (
+            metrics.xg /
+            metrics.shots
+          ).toFixed(2)
+        : "0"
+    }
+  />
+</div>
 
   </div>
   
@@ -1420,7 +1425,22 @@ function Card({
     </div>
   );
 }
+function SmallCard({
+  title,
+  value,
+}: any) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <p className="text-xs text-zinc-500">
+        {title}
+      </p>
 
+      <h3 className="mt-2 text-xl font-semibold">
+        {value}
+      </h3>
+    </div>
+  );
+}
 function Panel({
   title,
   children,
