@@ -15,6 +15,7 @@ import {
   Trophy,
   Goal,
   CalendarDays,
+  Shield,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -179,8 +180,13 @@ const navLink = (
 
       {navLink(
         "/setpieces",
-        "ABP",
+        "ABP Ofensivo",
         <Goal size={18} />
+      )}
+      {navLink(
+        "/setpieces_def",
+        "ABP Defensivo",
+        <Shield size={18} />
       )}
     </div>
   </div>
