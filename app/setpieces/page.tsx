@@ -690,29 +690,37 @@ const resultadoData = [
       </option>
     ))}
   </select>
-<div className="md:col-span-1">
+</div>
+<div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
-    Equipos visualizados
+    Equipos visualizados (
+    {[...new Set(filtered.map((r) => r.rival))]
+      .length}
+    )
   </p>
 
-  <div
-    className="
-      h-[52px]
-      overflow-y-auto
-      rounded-2xl
-      border border-white/10
-      bg-[#11161C]
-      px-4
-      py-3
-      text-sm
-      text-zinc-300
-      leading-relaxed
-    "
-  >
+  <div className="flex flex-wrap gap-2">
     {[...new Set(filtered.map((r) => r.rival))]
-      .join(" · ")}
+      .sort()
+      .map((equipo) => (
+        <span
+          key={equipo}
+          className="
+            px-3
+            py-1.5
+            rounded-full
+            border
+            border-white/10
+            bg-[#C8A96B]/10
+            text-[#C8A96B]
+            text-xs
+            text-zinc-300
+          "
+        >
+          {equipo}
+        </span>
+      ))}
   </div>
-</div>
 </div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
