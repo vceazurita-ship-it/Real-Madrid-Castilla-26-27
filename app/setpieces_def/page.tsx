@@ -657,16 +657,35 @@ const resultadoData = [
   </select>
 
 </div>
-<div className="mt-5 text-sm text-zinc-400">
-  Visualizando:
+<div className="mt-5">
+  <p className="text-sm text-zinc-400 mb-3">
+    Equipos visualizados (
+    {[...new Set(filtered.map((r) => r.rival))]
+      .length}
+    )
+  </p>
 
-  <span className="ml-2 text-white font-medium">
-    {[
-      ...new Set(
-        filtered.map((r) => r.rival)
-      ),
-    ].join(" · ")}
-  </span>
+  <div className="flex flex-wrap gap-2">
+    {[...new Set(filtered.map((r) => r.rival))]
+      .sort()
+      .map((equipo) => (
+        <span
+          key={equipo}
+          className="
+            px-3
+            py-1.5
+            rounded-full
+            border
+            border-white/10
+            bg-[#C8A96B]/10
+            text-[#C8A96B]
+            text-xs
+          "
+        >
+          {equipo}
+        </span>
+      ))}
+  </div>
 </div>
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
   <Card
