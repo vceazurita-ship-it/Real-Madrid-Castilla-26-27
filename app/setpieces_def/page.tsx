@@ -27,7 +27,7 @@ import {
 } from "recharts";
 
 const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=675048698&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=1071911136&single=true&output=csv";
 
 const COLORS = {
   gold: "#C8A96B",
@@ -49,23 +49,30 @@ type Row = {
   jornada: number;
   rival: string;
   tiempo: number;
-  minuto: number;
-  sacador: string;
+  perfil: string;
+
   tipoAccion: string;
   perfilGolpeo: string;
   tipoEnvio: string;
   zonaCaida: string;
+  calidadEnvio: string;
+
+  nAtacantes: number;
   tipoCarrera: string;
-  defensaRival: string;
-  debilidadRival: string;
-  rematador: string;
+
+  oc1P: string;
+  ocCentral: string;
+  oc2P: string;
+  ocFrontal: string;
+
+  remate: string;
   tipoRemate: string;
   zonaRemate: string;
+
   xg: number;
+
   segundoBalon: string;
   resultadoFinal: string;
-  rutina: string;
-  repetir: string;
 };
 
 function num(v?: string) {
@@ -92,30 +99,31 @@ function parseCSV(text: string): Row[] {
       jornada: num(r[0]),
       rival: r[1] || "",
       tiempo: num(r[2]),
-      minuto: num(r[3]),
+      perfil: r[3] || "",
 
-      sacador: r[6] || "",
+      tipoAccion: r[4] || "",
+      perfilGolpeo: r[5] || "",
+      tipoEnvio: r[6] || "",
+      zonaCaida: r[7] || "",
+      calidadEnvio: r[8] || "",
 
-      tipoAccion: r[8] || "",
-      perfilGolpeo: r[9] || "",
-      tipoEnvio: r[10] || "",
-      zonaCaida: r[11] || "",
+      nAtacantes: num(r[9]),
 
-      tipoCarrera: r[16] || "",
+      tipoCarrera: r[10] || "",
 
-      defensaRival: r[21] || "",
-      debilidadRival: r[22] || "",
+      oc1P: r[11] || "",
+      ocCentral: r[12] || "",
+      oc2P: r[13] || "",
+      ocFrontal: r[14] || "",
 
-      rematador: r[24] || "",
-      tipoRemate: r[25] || "",
-      zonaRemate: r[26] || "",
+      remate: r[15] || "",
+      tipoRemate: r[16] || "",
+      zonaRemate: r[17] || "",
 
-      xg: num(r[27]),
+      xg: num(r[18]),
 
-      segundoBalon: r[28] || "",
-      resultadoFinal: r[29] || "",
-      rutina: r[30] || "",
-      repetir: r[31] || "",
+      segundoBalon: r[19] || "",
+      resultadoFinal: r[20] || "",
     }))
     .filter((r) => r.jornada > 0);
 }
@@ -211,16 +219,14 @@ useEffect(() => {
     ),
 
     shots: filtered.filter(
-      (r) =>
-        r.tipoRemate &&
-        ![
-          "",
-          "No Remate",
-          "No aplica",
-        ].includes(
-          r.tipoRemate
-        )
-    ).length,
+  (r) =>
+    r.remate &&
+    ![
+      "",
+      "No Remate",
+      "No aplica",
+    ].includes(r.remate)
+).length,
 
     goals: filtered.filter(
       (r) =>
@@ -238,78 +244,8 @@ useEffect(() => {
 
   const tipoCarrera =
     countBy(filtered, "tipoCarrera");
-
-  const defensa =
-    countBy(filtered, "defensaRival");
-
-  const sacadorData =
-    useMemo(() => {
-      const grouped:
-        Record<
-          string,
-          { xg: number }
-        > = {};
-
-      filtered.forEach((r) => {
-        const k =
-          r.sacador || "Unknown";
-
-        if (!grouped[k]) {
-          grouped[k] = {
-            xg: 0,
-          };
-        }
-
-        grouped[k].xg += r.xg;
-      });
-
-      return Object.entries(
-        grouped
-      ).map(([name, v]) => ({
-        name,
-        xg: +v.xg.toFixed(2),
-      }));
-    }, [filtered]);
-
-  const tipoRemateData =
-    useMemo(() => {
-      const grouped:
-        Record<
-          string,
-          number
-        > = {};
-
-      filtered
-        .filter(
-          (r) =>
-            r.tipoRemate &&
-            ![
-              "",
-              "No Remate",
-              "No aplica",
-            ].includes(
-              r.tipoRemate
-            )
-        )
-        .forEach((r) => {
-          grouped[
-            r.tipoRemate
-          ] =
-            (grouped[
-              r.tipoRemate
-            ] || 0) + r.xg;
-        });
-
-      return Object.entries(
-        grouped
-      ).map(
-        ([name, total]) => ({
-          name,
-          total:
-            +total.toFixed(2),
-        })
-      );
-    }, [filtered]);
+  
+  
   const xgByTipoAccion =
   useMemo(() => {
     const grouped: Record<
@@ -341,38 +277,7 @@ useEffect(() => {
           b.total - a.total
       );
   }, [filtered]);
-  const rematadoresData =
-  useMemo(() => {
-    const grouped: Record<
-      string,
-      number
-    > = {};
-
-    filtered
-  .filter(
-    (r) =>
-      r.rematador &&
-      ![
-        "Nadie",
-        "No aplica",
-      ].includes(r.rematador)
-  )
-      .forEach((r) => {
-        grouped[r.rematador] =
-          (grouped[r.rematador] || 0) +
-          r.xg;
-      });
-
-    return Object.entries(grouped)
-      .map(([name, xg]) => ({
-        name,
-        xg: +xg.toFixed(2),
-      }))
-      .sort(
-        (a, b) => b.xg - a.xg
-      );
-  }, [filtered]);
-
+  
 const zonaRemateData =
   countBy(
     filtered.filter(
@@ -388,7 +293,58 @@ const segundoBalonData =
     ),
     "segundoBalon"
   );
+const sacadorData =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
 
+    filtered.forEach((r) => {
+      if (!r.perfilGolpeo) return;
+
+      grouped[r.perfilGolpeo] =
+        (grouped[r.perfilGolpeo] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(grouped)
+      .map(([name, xg]) => ({
+        name,
+        xg: +xg.toFixed(2),
+      }))
+      .sort(
+        (a, b) => b.xg - a.xg
+      );
+  }, [filtered]);
+  const rematadoresData =
+  useMemo(() => {
+    const grouped: Record<
+      string,
+      number
+    > = {};
+
+    filtered.forEach((r) => {
+      if (
+        !r.tipoRemate ||
+        r.tipoRemate === "No Remate"
+      )
+        return;
+
+      grouped[r.tipoRemate] =
+        (grouped[r.tipoRemate] || 0) +
+        r.xg;
+    });
+
+    return Object.entries(grouped)
+      .map(([name, xg]) => ({
+        name,
+        xg: +xg.toFixed(2),
+      }))
+      .sort(
+        (a, b) => b.xg - a.xg
+      );
+  }, [filtered]);
 const tipoEnvioData =
   useMemo(() => {
     const grouped: Record<
@@ -417,33 +373,7 @@ const tipoEnvioData =
           b.total - a.total
       );
   }, [filtered]); 
-  const rutinaData =
-  useMemo(() => {
-    const grouped: Record<
-      string,
-      number
-    > = {};
-
-    filtered.forEach((r) => {
-      if (!r.rutina) return;
-
-      grouped[r.rutina] =
-        (grouped[r.rutina] || 0) +
-        r.xg;
-    });
-
-    return Object.entries(grouped)
-      .map(([name, total]) => ({
-        name,
-        total:
-          +total.toFixed(2),
-      }))
-      .sort(
-        (a, b) =>
-          b.total - a.total
-      );
-  }, [filtered]);
-
+  
 const rivalesData =
   useMemo(() => {
     const grouped: Record<
@@ -532,9 +462,9 @@ const resultadoData = [
           total:
             filtered.filter(
               (r) =>
-                r.minuto >=
+                r.tiempo >=
                   start &&
-                r.minuto <
+                r.tiempo <
                   start + 15
             ).length,
         };
@@ -571,7 +501,7 @@ const resultadoData = [
         <div className="flex-1">
           <Topbar />
 
-          <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
+          <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-3 sm:pt-5">
 
   {/* Header */}
   <div className="mb-8">
@@ -581,7 +511,7 @@ const resultadoData = [
 
     <div className="mt-4 flex items-center gap-3 sm:gap-5">
       <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-        ABP Ofensivo
+        ABP Defensivo
       </h1>
 
       <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
@@ -612,7 +542,7 @@ const resultadoData = [
       ))}
     </select>
 
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
       <Card
         title="ABP"
         value={metrics.total}
@@ -762,8 +692,8 @@ margin={{
         dataKey="name"
        width={
   isNarrow
-    ? 160
-    : 220
+    ? 180
+    : 240
 }
         tick={{
           fill: "#CBD5E1",
@@ -825,8 +755,8 @@ margin={{
         dataKey="name"
         width={
   isNarrow
-    ? 160
-    : 220
+    ? 180
+    : 240
 }
         axisLine={false}
         tickLine={false}
@@ -883,8 +813,8 @@ margin={{
         dataKey="name"
         width={
   isNarrow
-    ? 160
-    : 220
+    ? 180
+    : 240
 }
         axisLine={false}
         tickLine={false}
@@ -1008,58 +938,6 @@ margin={{
     </PieChart>
   </Chart>
 </Panel>
-<Panel title="Defensa rival">
-  <Chart>
-    <BarChart
-      data={defensa}
-margin={{
-  top: 10,
-  right: 24,
-  left: 10,
-  bottom: 10,
-}}
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
-
-      <XAxis
-        dataKey="name"
-        tick={{
-          fill: "#94A3B8",
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
-
-      <YAxis
-        axisLine={false}
-        tickLine={false}
-        tick={{
-          fill: "#94A3B8",
-        }}
-      />
-
-      <Tooltip />
-
-      <Bar
-        dataKey="total"
-        fill={COLORS.purple}
-        radius={[8, 8, 0, 0]}
-      >
-        <LabelList
-          dataKey="total"
-          position="top"
-          style={{
-            fill: "#fff",
-            fontWeight: 600,
-          }}
-        />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
 <Panel title="Timeline">
   <Chart>
     <LineChart
@@ -1069,7 +947,7 @@ margin={{
   right: 24,
   left: 10,
   bottom: 10,
-}}
+}}  
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1150,8 +1028,8 @@ margin={{
         dataKey="name"
         width={
   isNarrow
-    ? 160
-    : 220
+    ? 180
+    : 240
 }
         axisLine={false}
         tickLine={false}
@@ -1261,7 +1139,7 @@ margin={{
   width={
     isNarrow
       ? 180
-      : 260
+      : 240
   }
   interval={0}
   axisLine={false}
