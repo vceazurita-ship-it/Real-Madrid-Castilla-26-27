@@ -567,26 +567,96 @@ const resultadoData = [
   {/* Selector + KPIs */}
   <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
-    <select
-      value={jornada}
-      onChange={(e) =>
-        setJornada(e.target.value)
-      }
-      className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-    >
-      <option value="ALL">
-        Todas
-      </option>
+    <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
 
-      {jornadas.map((m) => (
-        <option
-          key={m}
-          value={m}
-        >
-          Jornada {m}
-        </option>
-      ))}
-    </select>
+  <select
+    value={jornada}
+    onChange={(e) =>
+      setJornada(e.target.value)
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todas las jornadas
+    </option>
+
+    {jornadas.map((m) => (
+      <option
+        key={m}
+        value={m}
+      >
+        Jornada {m}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={rival}
+    onChange={(e) =>
+      setRival(e.target.value)
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todos los rivales
+    </option>
+
+    {rivales.map((r) => (
+      <option
+        key={r}
+        value={r}
+      >
+        {r}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={perfil}
+    onChange={(e) =>
+      setPerfil(e.target.value)
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todos los perfiles
+    </option>
+
+    {perfiles.map((p) => (
+      <option
+        key={p}
+        value={p}
+      >
+        {p}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={tiempo}
+    onChange={(e) =>
+      setTiempo(e.target.value)
+    }
+    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
+  >
+    <option value="ALL">
+      Todo el partido
+    </option>
+
+    <option value="0-30">
+      0 - 30'
+    </option>
+
+    <option value="30-60">
+      30' - 60'
+    </option>
+
+    <option value="60-90">
+      60' - 90'
+    </option>
+  </select>
+
+</div>
 <div className="mt-5 text-sm text-zinc-400">
   Visualizando:
 
