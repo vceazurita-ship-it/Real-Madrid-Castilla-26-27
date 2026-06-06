@@ -690,21 +690,30 @@ const resultadoData = [
       </option>
     ))}
   </select>
-<p className="mt-4 text-sm text-zinc-400">
-  {
-    rival === "ALL"
-      ? `Partidos visualizados: ${[
-          ...new Set(
-            filtered.map(
-              (r) => r.rival
-            )
-          ),
-        ].join(", ")}`
-      : `Partido visualizado: ${rival}`
-  }
-</p>
+<div className="mt-4">
+  <p className="text-sm text-zinc-400 mb-3">
+    Equipos visualizados
+  </p>
+
+  <div
+    className="
+      max-h-[80px]
+      overflow-y-auto
+      rounded-xl
+      border border-white/10
+      bg-[#11161C]
+      p-3
+      text-sm
+      text-zinc-300
+      leading-relaxed
+    "
+  >
+    {[...new Set(filtered.map((r) => r.rival))]
+      .join(" · ")}
+  </div>
 </div>
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-8 sm:mt-10">
+</div>
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
         title="ABP"
         value={metrics.total}
@@ -714,7 +723,7 @@ const resultadoData = [
         title="xG"
         value={metrics.xg.toFixed(2)}
       />
-
+ 
       <Card
         title="Remates"
         value={metrics.shots}
@@ -735,12 +744,25 @@ const resultadoData = [
   value={metrics.xgAccion.toFixed(2)}
 />
 
-<Card
-  title="Mejor sacador"
-  value={
-    sacadorData[0]?.name || "-"
-  }
-/>
+<div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
+  <p className="text-sm text-zinc-400">
+    Mejor sacador
+  </p>
+
+  <h3
+    className="
+      mt-4
+      text-lg
+      md:text-xl
+      font-semibold
+      text-[#C8A96B]
+      leading-tight
+      break-words
+    "
+  >
+    {sacadorData[0]?.name || "-"}
+  </h3>
+</div>
     </div>
 
   </div>
@@ -1341,15 +1363,16 @@ margin={{
 </Panel>
 <Panel title="xG por zona caida">
   <Chart>
-    <BarChart
+ <BarChart
   data={xgZonaCaida}
   layout="vertical"
-margin={{
-  top: 10,
-  right: 24,
-  left: 10,
-  bottom: 10,
-}}
+  barCategoryGap={20}
+  margin={{
+    top: 10,
+    right: 24,
+    left: 10,
+    bottom: 10,
+  }}
 >
       <CartesianGrid
         stroke="#1E232A"
@@ -1369,12 +1392,13 @@ margin={{
   dataKey="name"
   width={
     isNarrow
-      ? 180
-      : 260
+      ? 220
+      : 330
   }
   interval={0}
   axisLine={false}
   tickLine={false}
+  tickMargin={10}
   tick={(props) => {
   const {
     x,
@@ -1468,13 +1492,13 @@ function Chart({
 }: any) {
   return (
     <div
-      className="
-        h-[340px]
-        sm:h-[360px]
-        md:h-[320px]
-        w-full
-      "
-    >
+  className="
+    h-[420px]
+    sm:h-[450px]
+    md:h-[420px]
+    w-full
+  "
+>
       <ResponsiveContainer
         width="100%"
         height="100%"
@@ -1495,7 +1519,15 @@ function Card({
         {title}
       </p>
 
-      <h3 className="mt-3 md:mt-4 text-2xl md:text-4xl font-semibold">
+      <h3
+  className="
+    mt-3 md:mt-4
+    text-xl md:text-2xl
+    font-semibold
+    break-words
+    leading-tight
+  "
+>
         {value}
       </h3>
     </div>
