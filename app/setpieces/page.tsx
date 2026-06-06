@@ -633,7 +633,7 @@ const resultadoData = [
         </option>
       ))}
     </select>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
 
   <select
     value={rival}
@@ -690,19 +690,20 @@ const resultadoData = [
       </option>
     ))}
   </select>
-<div className="mt-4">
+<div className="md:col-span-1">
   <p className="text-sm text-zinc-400 mb-3">
     Equipos visualizados
   </p>
 
   <div
     className="
-      max-h-[80px]
+      h-[52px]
       overflow-y-auto
-      rounded-xl
+      rounded-2xl
       border border-white/10
       bg-[#11161C]
-      p-3
+      px-4
+      py-3
       text-sm
       text-zinc-300
       leading-relaxed
