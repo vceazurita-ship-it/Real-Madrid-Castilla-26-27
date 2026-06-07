@@ -299,7 +299,18 @@ useEffect(() => {
   }))
   .sort((a, b) => b.eval - a.eval);
   }, [filtered]);
+const microOptions = useMemo(() => {
+  return micros.map((m) => {
+    const firstRow = rows.find(
+      (r) => r.micro === m
+    );
 
+    return {
+      micro: m,
+      rival: firstRow?.rival || "",
+    };
+  });
+}, [micros, rows]);
   const phaseData = useMemo(() => {
     const grouped: Record<
       string,
@@ -489,23 +500,26 @@ const renderMultilineTick = (
 <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
   <select
-    value={micro}
-    onChange={(e) => setMicro(e.target.value)}
-    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-  >
-    <option value="ALL">
-      All Microcycles
-    </option>
+  value={micro}
+  onChange={(e) => setMicro(e.target.value)}
+  className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+>
+  <option value="ALL">
+    Todos los microciclos
+  </option>
 
-    {micros.map((m) => (
-      <option
-        key={m}
-        value={m}
-      >
-        Micro {m}
-      </option>
-    ))}
-  </select>
+  {microOptions.map((item) => (
+    <option
+      key={item.micro}
+      value={item.micro}
+    >
+      Micro {item.micro}
+      {item.rival
+        ? ` · ${item.rival}`
+        : ""}
+    </option>
+  ))}
+</select>
 
   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
     <Card
