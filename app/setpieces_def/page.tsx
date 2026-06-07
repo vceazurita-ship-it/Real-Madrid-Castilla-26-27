@@ -48,7 +48,7 @@ const PIE_COLORS = [
 type Row = {
   jornada: number;
   rival: string;
-  tiempo: number;
+  tiempo: string;
   perfil: string;
 
   tipoAccion: string;
@@ -98,7 +98,7 @@ function parseCSV(text: string): Row[] {
     .map((r) => ({
       jornada: num(r[0]),
       rival: r[1] || "",
-      tiempo: num(r[2]),
+      tiempo: (r[2] || "").trim(),
       perfil: r[3] || "",
 
       tipoAccion: r[4] || "",
@@ -237,15 +237,9 @@ const filtered = rows.filter(
       perfil === "ALL" ||
       r.perfil === perfil;
 
-    const matchTiempo =
-      tiempo === "ALL" ||
-      (tiempo === "0-30" &&
-        r.tiempo < 30) ||
-      (tiempo === "30-60" &&
-        r.tiempo >= 30 &&
-        r.tiempo < 60) ||
-      (tiempo === "60-90" &&
-        r.tiempo >= 60);
+const matchTiempo =
+  tiempo === "ALL" ||
+  r.tiempo === tiempo;
 
     return (
       matchJornada &&
@@ -496,26 +490,20 @@ const resultadoData = [
       ).length,
   },
 ];
-  const timeline =
-    Array.from(
-      { length: 6 },
-      (_, i) => {
-        const start =
-          i * 15;
-
-        return {
-          tramo: `${start}-${start + 15}`,
-          total:
-            filtered.filter(
-              (r) =>
-                r.tiempo >=
-                  start &&
-                r.tiempo <
-                  start + 15
-            ).length,
-        };
-      }
-    );
+  const timeline = [
+  {
+    tramo: "1T",
+    total: filtered.filter(
+      (r) => r.tiempo === "1T"
+    ).length,
+  },
+  {
+    tramo: "2T",
+    total: filtered.filter(
+      (r) => r.tiempo === "2T"
+    ).length,
+  },
+];
    const pieLegendProps: Partial<LegendProps> = {
   layout: isNarrow
     ? "horizontal"
@@ -640,20 +628,16 @@ const resultadoData = [
     className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
   >
     <option value="ALL">
-      Todo el partido
-    </option>
+  Todo el partido
+</option>
 
-    <option value="0-30">
-      0 - 30'
-    </option>
+<option value="1T">
+  Primer tiempo
+</option>
 
-    <option value="30-60">
-      30' - 60'
-    </option>
-
-    <option value="60-90">
-      60' - 90'
-    </option>
+<option value="2T">
+  Segundo tiempo
+</option>
   </select>
 
 </div>
@@ -1111,63 +1095,39 @@ margin={{
     </PieChart>
   </Chart>
 </Panel>
-<Panel title="Timeline">
+<Panel title="Distribución por periodo">
   <Chart>
-    <LineChart
-      data={timeline}
-margin={{
-  top: 10,
-  right: 24,
-  left: 10,
-  bottom: 10,
-}}  
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
+    <BarChart data={timeline}>
+  <CartesianGrid
+    stroke="#1E232A"
+    vertical={false}
+  />
 
-      <XAxis
-        dataKey="tramo"
-        tick={{
-          fill: "#94A3B8",
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+  <XAxis
+    dataKey="tramo"
+    axisLine={false}
+    tickLine={false}
+  />
 
-      <YAxis
-        axisLine={false}
-        tickLine={false}
-        tick={{
-          fill: "#94A3B8",
-        }}
-      />
+  <YAxis
+    axisLine={false}
+    tickLine={false}
+  />
 
-      <Tooltip />
+  <Tooltip />
 
-      <Line
-        dataKey="total"
-        stroke={COLORS.green}
-        strokeWidth={3}
-        dot={{
-          r: 5,
-          fill: COLORS.green,
-        }}
-        activeDot={{
-          r: 7,
-        }}
-      >
-        <LabelList
-          dataKey="total"
-          position="top"
-          style={{
-            fill: "#fff",
-            fontSize: 11,
-          }}
-        />
-      </Line>
-    </LineChart>
+  <Bar
+    dataKey="total"
+    fill={COLORS.green}
+    radius={[8, 8, 0, 0]}
+  >
+    <LabelList
+      dataKey="total"
+      position="top"
+    />
+  </Bar>
+</BarChart>
+      
   </Chart>
 </Panel>
 <Panel title="xG por tipo de acción">

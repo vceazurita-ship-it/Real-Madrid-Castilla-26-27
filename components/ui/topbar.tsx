@@ -81,7 +81,7 @@ export function Topbar() {
 
           </div>
 
-          <button
+          {/* <button
   onClick={() => setIsAIOpen(true)}
   className="
     hidden md:flex
@@ -102,7 +102,7 @@ export function Topbar() {
   <span className="text-sm font-medium text-white">
     Analizar
   </span>
-</button>
+</button> */}
 
         </div>
 
