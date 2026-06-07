@@ -23,7 +23,7 @@ export function Topbar() {
           question: prompt,
           context,
         }),
-      });
+      });  
 
       const data = await response.json();
 
