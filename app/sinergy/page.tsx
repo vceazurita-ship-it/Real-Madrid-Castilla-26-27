@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { Play, Maximize2 } from "lucide-react";
+import { AIPageContext } from "@/components/ai-page-context";
 
 export default function IndividualPage() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -73,6 +74,11 @@ const openDashboardFullscreen = async () => {
 
         <section className="w-full relative">
   <Topbar />
+
+  <AIPageContext
+    page="Sinergias"
+    title="RMC Individual - Sinergias"
+  />
 
   {/* Botón desktop */}
   <button

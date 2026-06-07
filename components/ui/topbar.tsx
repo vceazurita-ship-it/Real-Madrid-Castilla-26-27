@@ -3,10 +3,14 @@
 import { useState } from "react";
 import Image from "next/image";
 import { AIInsightsPanel } from "@/components/ai-insights-panel";
+import { AIProvider } from "@/app/contexts/ai-context";
+
 
 
 export function Topbar() {
+  
   const [isAIOpen, setIsAIOpen] = useState(false);
+  const { context } = useAIContext();
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0B0F14]/85 backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 py-4 md:px-10 md:py-5">
@@ -108,7 +112,9 @@ export function Topbar() {
               <h2 className="text-xl font-semibold text-white">
                 ✨ Asistente IA
               </h2>
-
+              <pre className="mt-4 text-xs text-white/60 overflow-auto">
+  {JSON.stringify(context, null, 2)}
+</pre>
               <button
                 onClick={() => setIsAIOpen(false)}
                 className="text-white/60 hover:text-white"

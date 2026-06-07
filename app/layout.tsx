@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AIProvider } from "@/app/contexts/ai-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,8 +39,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-screen flex flex-col overflow-x-hidden">
-        {children}
-      </body>
+  <AIProvider>
+    {children}
+  </AIProvider>
+</body>
     </html>
   );
 }
