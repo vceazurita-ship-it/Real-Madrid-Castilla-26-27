@@ -1,6 +1,12 @@
-import Image from "next/image"
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
+import { AIInsightsPanel } from "@/components/ai-insights-panel";
+
 
 export function Topbar() {
+  const [isAIOpen, setIsAIOpen] = useState(false);
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0B0F14]/85 backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 py-4 md:px-10 md:py-5">
@@ -47,24 +53,117 @@ export function Topbar() {
 
           </div>
 
-          {/* SOLO DESKTOP */}
-          <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 md:block">
+          <button
+  onClick={() => setIsAIOpen(true)}
+  className="
+    hidden md:flex
+    items-center gap-2
+    rounded-2xl
+    border border-[#C8A96B]/30
+    bg-white/[0.03]
+    px-4 py-3
+    transition-all
+    hover:border-[#C8A96B]
+    hover:bg-white/[0.05]
+  "
+>
+  <span className="text-[#C8A96B]">
+    ✨
+  </span>
 
-            <div className="flex items-center gap-2">
-
-              <div className="h-2 w-2 rounded-full bg-[#C8A96B]" />
-
-              <p className="text-sm font-medium text-white">
-                Active
-              </p>
-
-            </div>
-
-          </div>
+  <span className="text-sm font-medium text-white">
+    Analizar
+  </span>
+</button>
 
         </div>
 
       </div>
+          {isAIOpen && (
+        <>
+          {/* Fondo oscuro */}
+          <div
+            onClick={() => setIsAIOpen(false)}
+            className="fixed inset-0 z-40 bg-black/50"
+          />
+
+          {/* Panel IA */}
+          <div
+            className="
+              fixed
+              top-0
+              right-0
+              z-50
+              h-screen
+              w-[420px]
+              max-w-[90vw]
+              border-l
+              border-white/10
+              bg-[#0B0F14]
+              p-6
+              shadow-2xl
+            "
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">
+                ✨ Asistente IA
+              </h2>
+
+              <button
+                onClick={() => setIsAIOpen(false)}
+                className="text-white/60 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-8 space-y-3">
+              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
+                Resumir página
+              </button>
+
+              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
+                Detectar fortalezas
+              </button>
+
+              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
+                Detectar debilidades
+              </button>
+
+              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
+                Comparar rendimiento
+              </button>
+            </div>
+
+            <div className="mt-8">
+              <textarea
+                placeholder="Pregunta sobre esta página..."
+                className="
+                  w-full
+                  rounded-xl
+                  border
+                  border-white/10
+                  bg-white/[0.03]
+                  p-4
+                  text-white
+                  outline-none
+                "
+                rows={5}
+              />
+            </div>
+
+            <div className="mt-4 flex justify-between">
+              <button className="rounded-xl border border-white/10 px-4 py-2">
+                🎤
+              </button>
+
+              <button className="rounded-xl bg-[#C8A96B] px-5 py-2 font-medium text-black">
+                Enviar
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </header>
-  )
+  );
 }
