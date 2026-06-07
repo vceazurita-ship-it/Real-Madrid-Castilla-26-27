@@ -679,7 +679,10 @@ const resultadoData = [
     mt-5 sm:mt-6
     grid
     gap-3
-    grid-cols-7
+    grid-cols-2
+    sm:grid-cols-3
+    lg:grid-cols-4
+    xl:grid-cols-7
   "
 >
   <Card
@@ -726,17 +729,20 @@ const resultadoData = [
     value={metrics.goals.toLocaleString()}
   />
   <div
-  className="
-    h-[112px]
-    rounded-[24px]
-    border
-    border-white/10
-    bg-white/[0.03]
-    p-5
-    flex
-    flex-col
-    justify-between
-  "
+className="
+  h-[96px]
+  sm:h-[112px]
+  rounded-[20px]
+  sm:rounded-[24px]
+  border
+  border-white/10
+  bg-white/[0.03]
+  p-3
+  sm:p-5
+  flex
+  flex-col
+  justify-between
+"
 >
   <p className="text-sm text-zinc-400">
 Mayor xG concedido  </p>
@@ -1423,32 +1429,38 @@ function Card({
 }: any) {
   return (
     <div
-  className="
-    h-[112px]
-    rounded-[24px]
-    border
-    border-white/10
-    bg-white/[0.03]
-    p-5
-    flex
-    flex-col
-    justify-between
-  "
->
-      <p className="text-sm text-zinc-400">
-        {title}
-      </p>
+      className="
+        h-[96px]
+        sm:h-[112px]
+        rounded-[20px]
+        sm:rounded-[24px]
+        border
+        border-white/10
+        bg-white/[0.03]
+        p-3
+        sm:p-5
+        flex
+        flex-col
+        justify-between
+      "
+    >
+      <p className="text-xs sm:text-sm text-zinc-400">
+  {title}
+</p>
 
-     <h3
+<h3
   className="
     mt-2
-    text-[34px]
+    text-lg
+    sm:text-2xl
+    lg:text-[34px]
     font-semibold
     leading-none
+    truncate
   "
 >
-        {value}
-      </h3>
+  {value}
+</h3>
     </div>
   );
 }
