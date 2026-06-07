@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const { question, context } = body;
+    const { question, context } = body;   
 
     const completion =
       await openai.chat.completions.create({
