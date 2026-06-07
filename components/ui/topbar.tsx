@@ -111,9 +111,19 @@ export function Topbar() {
               <h2 className="text-xl font-semibold text-white">
                 ✨ Asistente IA
               </h2>
-              <pre className="mt-4 text-xs text-white/60 overflow-auto">
-  {JSON.stringify(context, null, 2)}
-</pre>
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+  <p className="text-xs uppercase tracking-wider text-[#C8A96B]">
+    Página actual
+  </p>
+
+  <p className="mt-2 text-white font-medium">
+    {context.page}
+  </p>
+
+  <p className="mt-1 text-sm text-white/60">
+    {context.title}
+  </p>
+</div>
               <button
                 onClick={() => setIsAIOpen(false)}
                 className="text-white/60 hover:text-white"
