@@ -742,16 +742,15 @@ const resultadoData = [
         <span
           key={equipo}
           className="
-            px-3
-            py-1.5
-            rounded-full
-            border 
-            border-white/10
-            bg-[#C8A96B]/10
-            text-[#C8A96B]
-            text-xs
-            text-zinc-300
-          "
+  px-3
+  py-1.5
+  rounded-full
+  border
+  border-white/10
+  bg-[#C8A96B]/10
+  text-[#C8A96B]
+  text-xs
+"
         >
           {equipo}
         </span>
