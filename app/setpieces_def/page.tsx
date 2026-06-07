@@ -558,7 +558,7 @@ const resultadoData = [
   {/* Selector + KPIs */}
   <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
-    <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
 
   <select
     value={jornada}
@@ -674,11 +674,35 @@ const resultadoData = [
       ))}
   </div>
 </div>
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
   <Card
     title="ABP"
-    value={metrics.total}
+    value={metrics.total.toLocaleString()}
   />
+  <Card
+  title="% Remate"
+  value={
+    metrics.total
+      ? `${(
+          (metrics.shots /
+            metrics.total) *
+          100
+        ).toFixed(1)}%`
+      : "0%"
+  }
+/>
+
+<Card
+  title="xG / Remate"
+  value={
+    metrics.shots
+      ? (
+          metrics.xg /
+          metrics.shots
+        ).toFixed(2)
+      : "0"
+  }
+/>
 
   <Card
     title="xG"
@@ -687,41 +711,24 @@ const resultadoData = [
 
   <Card
     title="Remates"
-    value={metrics.shots}
+    value={metrics.shots.toLocaleString()}
   />
 
   <Card
     title="Goles"
-    value={metrics.goals}
+    value={metrics.goals.toLocaleString()}
   />
+  <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
+  <p className="text-sm text-zinc-400">
+Mayor xG concedido  </p>
+
+  <h3 className="mt-4 text-lg md:text-xl font-semibold text-[#C8A96B]">
+    {sacadorData[0]?.name || "-"}
+  </h3>
+</div>
 </div>
 
-<div className="grid grid-cols-2 gap-5 mt-5">
-  <SmallCard
-    title="% Remate"
-    value={
-      metrics.total
-        ? `${(
-            (metrics.shots /
-              metrics.total) *
-            100
-          ).toFixed(1)}%`
-        : "0%"
-    }
-  />
 
-  <SmallCard
-    title="xG / Remate"
-    value={
-      metrics.shots
-        ? (
-            metrics.xg /
-            metrics.shots
-          ).toFixed(2)
-        : "0"
-    }
-  />
-</div>
 
   </div>
   
@@ -1396,33 +1403,37 @@ function Card({
   value,
 }: any) {
   return (
-    <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
+    <div
+  className="
+    rounded-2xl
+    md:rounded-3xl
+    border
+    border-white/10
+    bg-white/[0.03]
+    p-4
+    md:p-6
+    xl:col-span-2
+  "
+>
       <p className="text-sm text-zinc-400">
         {title}
       </p>
 
-      <h3 className="mt-3 md:mt-4 text-2xl md:text-4xl font-semibold">
+      <h3
+        className="
+          mt-3 md:mt-4
+          text-xl md:text-2xl
+          font-semibold
+          break-words
+          leading-tight
+        "
+      >
         {value}
       </h3>
     </div>
   );
 }
-function SmallCard({
-  title,
-  value,
-}: any) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-      <p className="text-xs text-zinc-500">
-        {title}
-      </p>
 
-      <h3 className="mt-2 text-xl font-semibold">
-        {value}
-      </h3>
-    </div>
-  );
-}
 function Panel({
   title,
   children,
