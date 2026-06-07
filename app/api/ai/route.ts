@@ -5,6 +5,13 @@ const openai = new OpenAI({
 });
 
 export async function POST(req: Request) {
+  console.log(
+    "OPENAI KEY:",
+    process.env.OPENAI_API_KEY
+      ? "EXISTS"
+      : "MISSING"
+  );
+
   try {
     const body = await req.json();
 
@@ -41,16 +48,16 @@ ${question}
       answer:
         completion.choices[0].message.content,
     });
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+  console.error("OPENAI ERROR:", error);
 
-    return Response.json(
-      {
-        error: "Error generando respuesta",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+  return Response.json(
+    {
+      error: error?.message || "Error generando respuesta",
+    },
+    {
+      status: 500,
+    }
+  );
+}
 }
