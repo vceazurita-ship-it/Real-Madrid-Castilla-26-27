@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { Play, Maximize2 } from "lucide-react";
+import { AIInsightsPanel } from "@/components/ai-insights-panel";
 
 export default function IndividualPage() {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -239,6 +240,7 @@ const openDashboardFullscreen = async () => {
     </button>
   </div>
 </div>
+<AIInsightsPanel />
   </div>
 </section>
       </div>
