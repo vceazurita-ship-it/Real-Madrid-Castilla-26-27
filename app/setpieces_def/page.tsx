@@ -674,7 +674,14 @@ const resultadoData = [
       ))}
   </div>
 </div>
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
+    <div
+  className="
+    mt-5 sm:mt-6
+    grid
+    gap-3
+    grid-cols-7
+  "
+>
   <Card
     title="ABP"
     value={metrics.total.toLocaleString()}
@@ -718,7 +725,19 @@ const resultadoData = [
     title="Goles"
     value={metrics.goals.toLocaleString()}
   />
-  <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
+  <div
+  className="
+    h-[112px]
+    rounded-[24px]
+    border
+    border-white/10
+    bg-white/[0.03]
+    p-5
+    flex
+    flex-col
+    justify-between
+  "
+>
   <p className="text-sm text-zinc-400">
 Mayor xG concedido  </p>
 
@@ -1405,29 +1424,29 @@ function Card({
   return (
     <div
   className="
-    rounded-2xl
-    md:rounded-3xl
+    h-[112px]
+    rounded-[24px]
     border
     border-white/10
     bg-white/[0.03]
-    p-4
-    md:p-6
-    xl:col-span-2
+    p-5
+    flex
+    flex-col
+    justify-between
   "
 >
       <p className="text-sm text-zinc-400">
         {title}
       </p>
 
-      <h3
-        className="
-          mt-3 md:mt-4
-          text-xl md:text-2xl
-          font-semibold
-          break-words
-          leading-tight
-        "
-      >
+     <h3
+  className="
+    mt-2
+    text-[34px]
+    font-semibold
+    leading-none
+  "
+>
         {value}
       </h3>
     </div>
