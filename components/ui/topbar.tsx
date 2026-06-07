@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AIInsightsPanel } from "@/components/ai-insights-panel";
-import { AIProvider } from "@/app/contexts/ai-context";
+import { useAIContext } from "@/app/contexts/ai-context";
 
 
-
+  
 export function Topbar() {
   
   const [isAIOpen, setIsAIOpen] = useState(false);
