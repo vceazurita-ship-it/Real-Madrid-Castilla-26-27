@@ -1,15 +1,40 @@
-"use client";
-
 import { useState } from "react";
 import Image from "next/image";
 import { useAIContext } from "@/app/contexts/ai-context";
 
-
-  
 export function Topbar() {
-  
   const [isAIOpen, setIsAIOpen] = useState(false);
+  const [aiResponse, setAIResponse] = useState("");
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const { context } = useAIContext();
+
+  const askAI = async (prompt: string) => {
+    try {
+      setLoading(true);
+
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: prompt,
+          context,
+        }),
+      });
+
+      const data = await response.json();
+
+      setAIResponse(data.answer);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0B0F14]/85 backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 py-4 md:px-10 md:py-5">
@@ -107,11 +132,20 @@ export function Topbar() {
               shadow-2xl
             "
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">
-                ✨ Asistente IA
-              </h2>
-              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between">
+  <h2 className="text-xl font-semibold text-white">
+    ✨ Asistente IA
+  </h2>
+
+  <button
+    onClick={() => setIsAIOpen(false)}
+    className="text-white/60 hover:text-white"
+  >
+    ✕
+  </button>
+</div>
+
+<div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
   <p className="text-xs uppercase tracking-wider text-[#C8A96B]">
     Página actual
   </p>
@@ -124,32 +158,42 @@ export function Topbar() {
     {context.title}
   </p>
 </div>
-              <button
-                onClick={() => setIsAIOpen(false)}
-                className="text-white/60 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
+            
 
             <div className="mt-8 space-y-3">
-              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
-                Resumir página
-              </button>
+<button
+  onClick={() => askAI("Resume esta página")}
+  className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]"
+>
+  Resumir página
+</button>
+<button
+  onClick={() => askAI("Detecta fortalezas")}
+  className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]"
+>
+  Detectar fortalezas
+</button>
 
-              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
-                Detectar fortalezas
-              </button>
-
-              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
-                Detectar debilidades
-              </button>
-
-              <button className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]">
-                Comparar rendimiento
-              </button>
+              <button
+  onClick={() => askAI("Detecta debilidades")}
+  className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]"
+>
+  Detectar debilidades
+</button>
+<button
+  onClick={() => askAI("Compara el rendimiento")}
+  className="w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/[0.03]"
+>
+  Comparar rendimiento
+</button>
             </div>
-
+{aiResponse && (
+  <div className="mt-6 rounded-xl border border-[#C8A96B]/20 bg-white/[0.03] p-4">
+    <p className="text-sm text-white/90">
+      {aiResponse}
+    </p>
+  </div>
+)}
             <div className="mt-8">
               <textarea
                 placeholder="Pregunta sobre esta página..."
@@ -164,18 +208,32 @@ export function Topbar() {
                   outline-none
                 "
                 rows={5}
+                value={question}
+onChange={(e) =>
+  setQuestion(e.target.value)
+}
               />
             </div>
 
-            <div className="mt-4 flex justify-between">
-              <button className="rounded-xl border border-white/10 px-4 py-2">
-                🎤
-              </button>
+<div className="mt-4 flex justify-between">
+  <button className="rounded-xl border border-white/10 px-4 py-2">
+    🎤
+  </button>
 
-              <button className="rounded-xl bg-[#C8A96B] px-5 py-2 font-medium text-black">
-                Enviar
-              </button>
-            </div>
+  <button
+    onClick={() => askAI(question)}
+    disabled={loading}
+    className="
+      rounded-xl
+      bg-[#C8A96B]
+      px-5 py-2
+      font-medium
+      text-black
+    "
+  >
+    {loading ? "Analizando..." : "Enviar"}
+  </button>
+</div>
           </div>
         </>
       )}
