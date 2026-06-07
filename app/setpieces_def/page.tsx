@@ -258,15 +258,18 @@ const matchTiempo =
       0
     ),
 
-    shots: filtered.filter(
-  (r) =>
-    r.remate &&
-    ![
-      "",
-      "No Remate",
-      "No aplica",
-    ].includes(r.remate)
-).length,
+    shots: filtered.filter((r) => {
+  const remate =
+    r.remate
+      ?.trim()
+      .toLowerCase();
+
+  return (
+    remate === "sí" ||
+    remate === "si"
+  );
+}).length,
+
 
     goals: filtered.filter(
       (r) =>
