@@ -657,7 +657,7 @@ useEffect(() => {
           <X className="h-5 w-5" />
         </button>
 
-        <div className="grid gap-6 lg:gap-8 md:grid-cols-[380px_1fr]">
+        <div className="grid gap-6 lg:gap-8 md:grid-cols-[340px_1fr]">
           <div>
             <img
               src={selected.photo}
