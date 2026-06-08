@@ -33,6 +33,11 @@ function parseCSV(text: string): MatchRow[] {
 
   return parsed.data as MatchRow[];
 }
+function getOpponent(partido: string) {
+  return partido
+    .replace("Real Madrid C - ", "")
+    .replace(" - Real Madrid C", "");
+}
 
 function getMatchResult(
   partido: string,
@@ -78,17 +83,31 @@ export default function Page() {
       .catch(console.error);
   }, []);
 
-  const micros = useMemo(
-    () => [
-      "ALL",
-      ...new Set(
-        matches.map(
-          (m) => m.microciclo
-        )
-      ),
-    ],
-    [matches]
+const micros = useMemo<
+  { value: string; label: string }[]
+>(() => {
+  const unique = Array.from(
+    new Map(
+      matches.map((m) => [
+        m.microciclo,
+        {
+          value: m.microciclo,
+          label: `Jornada ${m.microciclo} · ${getOpponent(
+            m.partido
+          )}`,
+        },
+      ])
+    ).values()
   );
+
+  return [
+    {
+      value: "ALL", 
+      label: "Todos los partidos",
+    },
+    ...unique,
+  ];
+}, [matches]);
 
   const filtered = useMemo(() => {
     if (selectedMicro === "ALL")
@@ -191,25 +210,29 @@ export default function Page() {
               <div className="rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8">
 
                 <select
-                  value={selectedMicro}
-                  onChange={(e) =>
-                    setSelectedMicro(
-                      e.target.value
-                    )
-                  }
-                  className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] px-4 py-3"
-                >
-                  {micros.map((m) => (
-                    <option
-                      key={m}
-                      value={m}
-                    >
-                      {m === "ALL"
-                        ? "Todos los partidos"
-                        : m}
-                    </option>
-                  ))}
-                </select>
+  value={selectedMicro}
+  onChange={(e) =>
+    setSelectedMicro(e.target.value)
+  }
+  className="
+    w-full sm:w-auto
+    min-w-[280px]
+    rounded-2xl
+    border border-white/10
+    bg-[#11161C]
+    px-4 py-3
+    text-sm
+  "
+>
+  {micros.map((m) => (
+    <option
+      key={m.value}
+      value={m.value}
+    >
+      {m.label}
+    </option>
+  ))}
+</select>
 
                 <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
   <Card
