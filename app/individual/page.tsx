@@ -723,7 +723,7 @@ useEffect(() => {
           dataKey="subject"
           tick={{
             fill: "#ffffff",
-            fontSize: 9,
+            fontSize: 11,
           }}
         />
 
