@@ -677,7 +677,7 @@ useEffect(() => {
     Perfil competencial
   </h3>
 
-  <div className="h-[340px]">
+  <div className="h-[380px]">
     <ResponsiveContainer
       width="100%"
       height="100%"
@@ -723,7 +723,7 @@ useEffect(() => {
           dataKey="subject"
           tick={{
             fill: "#ffffff",
-            fontSize: 10,
+            fontSize: 9,
           }}
         />
 
