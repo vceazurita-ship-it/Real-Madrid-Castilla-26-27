@@ -23,7 +23,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   const [open, setOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   const activeClass =
   "flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
@@ -42,13 +42,14 @@ const navLink = (
     className={pathname === href ? activeClass : normalClass}
   >
     {collapsed ? (
-      <div className="mx-auto">
+      <div className="w-full flex justify-center">
         {icon}
       </div>
     ) : (
-      <span className="w-full text-left">
-        {label}
-      </span>
+      <>
+        {icon}
+        <span>{label}</span>
+      </>
     )}
   </Link>
 )
@@ -73,14 +74,23 @@ const navLink = (
   
       {/* SIDEBAR */}
       <aside
-        className={`
+  onMouseEnter={() =>
+    window.innerWidth >= 768 &&
+    setCollapsed(false)
+  }
+  onMouseLeave={() =>
+    window.innerWidth >= 768 &&
+    setCollapsed(true)
+  }
+  className={`
+        
           fixed inset-y-0 left-0 z-50
           transform
           overflow-y-auto overscroll-contain
           border-r border-white/10 bg-[#111827]
           py-8
-          transition-all duration-300
-          ${collapsed ? "w-24 px-3" : "w-72 px-6"}
+          transition-all duration-300 ease-in-out
+          ${collapsed ? "w-[78px] px-2" : "w-[280px] px-6"}
           ${open ? "translate-x-0" : "-translate-x-full"}
           md:static md:translate-x-0 md:overflow-visible
         `}
@@ -97,14 +107,7 @@ const navLink = (
         </div>
 
         {/* COLAPSAR DESKTOP */}
-        <div className="mb-6 hidden md:flex justify-end">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="rounded-xl p-2 text-white hover:bg-white/5"
-          >
-            <Menu size={20} />
-          </button>
-        </div>
+        
 
         <nav className="space-y-10">
 
