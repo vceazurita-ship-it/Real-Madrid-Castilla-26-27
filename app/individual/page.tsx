@@ -657,7 +657,7 @@ useEffect(() => {
           <X className="h-5 w-5" />
         </button>
 
-        <div className="grid gap-6 lg:gap-8 md:grid-cols-[280px_1fr]">
+        <div className="grid gap-6 lg:gap-8 md:grid-cols-[380px_1fr]">
           <div>
             <img
               src={selected.photo}
@@ -677,7 +677,7 @@ useEffect(() => {
     Perfil competencial
   </h3>
 
-  <div className="h-[450px]">
+  <div className="h-[280px]">
     <ResponsiveContainer
       width="100%"
       height="100%"
