@@ -395,7 +395,7 @@ const micros = useMemo<
 
                       <div className="mt-6 flex items-center gap-2 text-sm text-zinc-300">
                         <Play className="h-4 w-4" />
-                        Ver análisis
+                        Ver Plan de Partido
                       </div>
                     </button>
                   );
