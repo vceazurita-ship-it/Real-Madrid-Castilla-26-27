@@ -192,7 +192,7 @@ const navLink = (
     </div>
   </div>
 
-  /* METODOLOGÍA */
+  {/* METODOLOGÍA */}
 <div>
   {!collapsed && (
     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
