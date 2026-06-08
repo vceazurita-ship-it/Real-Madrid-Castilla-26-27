@@ -122,7 +122,28 @@ const navLink = (
       <Home size={18} />
     )}
   </div>
+ {/* METODOLOGÍA */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Metodología
+    </p>
+  )}
 
+  <div className="space-y-2 text-sm">
+    {navLink(
+      "/microcycles",
+      "Microciclos",
+      <CalendarDays size={18} />
+    )}
+
+    {navLink(
+      "/match-plans",
+      "Planes de Partido",
+      <PlayCircle size={18} />
+    )}
+  </div>
+</div>
   {/* INDIVIDUAL */}
   <div>
     {!collapsed && (
@@ -191,30 +212,6 @@ const navLink = (
       )}
     </div>
   </div>
-
-  {/* METODOLOGÍA */}
-<div>
-  {!collapsed && (
-    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Metodología
-    </p>
-  )}
-
-  <div className="space-y-2 text-sm">
-    {navLink(
-      "/microcycles",
-      "Microciclos",
-      <CalendarDays size={18} />
-    )}
-
-    {navLink(
-      "/match-plans",
-      "Planes de Partido",
-      <PlayCircle size={18} />
-    )}
-  </div>
-</div>
-
 </nav>
       </aside>
     </>
