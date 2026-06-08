@@ -16,6 +16,7 @@ import {
   Goal,
   CalendarDays,
   Shield,
+  PlayCircle,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -191,22 +192,28 @@ const navLink = (
     </div>
   </div>
 
-  {/* METODOLOGÍA */}
-  <div>
-    {!collapsed && (
-      <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-        Metodología
-      </p>
+  /* METODOLOGÍA */
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Metodología
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+    {navLink(
+      "/microcycles",
+      "Microciclos",
+      <CalendarDays size={18} />
     )}
 
-    <div className="space-y-2 text-sm">
-      {navLink(
-        "/microcycles",
-        "Microciclos",
-        <CalendarDays size={18} />
-      )}
-    </div>
+    {navLink(
+      "/match-plans",
+      "Planes de Partido",
+      <PlayCircle size={18} />
+    )}
   </div>
+</div>
 
 </nav>
       </aside>
