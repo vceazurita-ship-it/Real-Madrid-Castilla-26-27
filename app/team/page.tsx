@@ -6,6 +6,17 @@ import { Topbar } from "@/components/ui/topbar";
 import { Play, Maximize2 } from "lucide-react";
 
 export default function IndividualPage() {
+  const toggleDashboardFullscreen = async () => {
+  try {
+    if (!document.fullscreenElement) {
+      await dashboardRef.current?.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
 const [isDesktop, setIsDesktop] = useState(false);
 const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -25,6 +36,29 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
 
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  useEffect(() => {
+  const handleKey = (
+    e: KeyboardEvent
+  ) => {
+    if (
+      e.key === "Escape" &&
+      document.fullscreenElement
+    ) {
+      document.exitFullscreen();
+    }
+  };
+
+  window.addEventListener(
+    "keydown",
+    handleKey
+  );
+
+  return () =>
+    window.removeEventListener(
+      "keydown",
+      handleKey
+    );
+}, []);
   useEffect(() => {
   const handleFullscreen = () => {
     setIsFullscreen(!!document.fullscreenElement);
@@ -138,37 +172,38 @@ const dashboardRef = useRef<HTMLDivElement | null>(null);
   className="relative rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
 >
   <button
-    onClick={openDashboardFullscreen}
-    className="
-      absolute
-      top-4
-      right-4
-      lg:top-6
-      lg:right-6
-      z-20
-      flex
-      items-center
-      gap-2
-      rounded-full
-      border border-[#C8A96B]/40
-      bg-[#11161D]/90
-      px-4
-      py-2
-      text-sm
-      font-medium
-      text-white
-      backdrop-blur-md
-      hover:border-[#C8A96B]
-      hover:bg-[#161D26]
-      transition-all
-    "
-  >
-    <Maximize2
-      size={16}
-      className="text-[#C8A96B]"
-    />
-    Pantalla completa
-  </button>
+  onClick={toggleDashboardFullscreen}
+  className="
+    absolute
+    top-4
+    right-4
+    z-30
+    flex
+    items-center
+    gap-2
+    rounded-full
+    border border-[#C8A96B]/40
+    bg-[#11161D]/90
+    px-4
+    py-2
+    text-sm
+    font-medium
+    text-white
+    backdrop-blur-md
+    hover:border-[#C8A96B]
+    hover:bg-[#161D26]
+    transition-all
+  "
+>
+  <Maximize2
+    size={16}
+    className="text-[#C8A96B]"
+  />
+
+  {isFullscreen
+    ? "Salir pantalla completa"
+    : "Pantalla completa"}
+</button>
 
   <iframe
     title="Power BI Report"
