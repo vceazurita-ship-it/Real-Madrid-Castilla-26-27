@@ -362,7 +362,34 @@ const microOptions = useMemo(() => {
   }))
   .sort((a, b) => b.eval - a.eval);
   }, [filtered]);
+  const faseEvalData = useMemo(() => {
+  const grouped: Record<
+    string,
+    number[]
+  > = {};
 
+  filtered.forEach((r) => {
+    const key =
+      r.fase || "No Phase";
+
+    if (!grouped[key]) {
+      grouped[key] = [];
+    }
+
+    if (r.evaluacion > 0) {
+      grouped[key].push(
+        r.evaluacion
+      );
+    }
+  });
+
+  return Object.entries(grouped)
+    .map(([name, vals]) => ({
+      name,
+      eval: avg(vals),
+    }))
+    .sort((a, b) => b.eval - a.eval);
+}, [filtered]);
   const contenidoPrincipalData =
     useMemo(() => {
       const grouped: Record<
@@ -1103,6 +1130,94 @@ margin={{
     fontWeight: 600,
   }}
 />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+<Panel title="Evaluación por Fase">
+  <Chart>
+    <BarChart
+      data={faseEvalData}
+      layout="vertical"
+      margin={{
+        top: 10,
+        right: 24,
+        left: 20,
+        bottom: 10,
+      }}
+      barCategoryGap={18}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        type="number"
+        domain={[0, 10]}
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={
+          isMobile
+            ? 120
+            : isNarrow
+            ? 160
+            : 220
+        }
+        interval={0}
+        axisLine={false}
+        tickLine={false}
+        tick={renderMultilineTick}
+      />
+
+      <Tooltip
+        cursor={{
+          fill:
+            "rgba(255,255,255,0.03)",
+        }}
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
+      />
+
+      <Bar
+        dataKey="eval"
+        name="Evaluación"
+        fill={COLORS.gold}
+        radius={[0, 12, 12, 0]}
+        barSize={
+          isMobile
+            ? 16
+            : 22
+        }
+      >
+        <LabelList
+          dataKey="eval"
+          position="right"
+          formatter={(value) =>
+            typeof value === "number"
+              ? value.toFixed(1)
+              : value ?? ""
+          }
+          style={{
+            fill: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        />
       </Bar>
     </BarChart>
   </Chart>
