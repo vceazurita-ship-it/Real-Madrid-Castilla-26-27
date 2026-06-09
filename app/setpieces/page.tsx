@@ -434,11 +434,11 @@ const metrics = {
       );
   }, [filtered]);
 const CustomLegend = ({ payload }: any) => (
-  <div className="flex flex-col gap-2 text-xs">
+  <div className="flex flex-col gap-1 text-[11px]">
     {payload?.map((entry: any, index: number) => (
       <div
         key={index}
-        className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 border border-white/10"
+        className="flex items-center gap-2 rounded-xl bg-white/5 px-2 py-1 border border-white/10"
       >
         <div
           className="w-3 h-3 rounded-full"
@@ -942,8 +942,8 @@ margin={{
   data={zonaCaida}
   dataKey="total"
   nameKey="name"
-  innerRadius={95}
-  outerRadius={120}
+innerRadius={70}
+outerRadius={95}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -972,6 +972,7 @@ margin={{
       <Tooltip />
 
 <Legend
+  {...pieLegendProps}
   content={<CustomLegend />}
 />    </PieChart>
   </Chart>
@@ -1185,8 +1186,8 @@ margin={{
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-  innerRadius={95}
-  outerRadius={120}
+innerRadius={70}
+outerRadius={95}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1215,6 +1216,7 @@ margin={{
       <Tooltip />
 
 <Legend
+  {...pieLegendProps}
   content={<CustomLegend />}
 />    </PieChart>
   </Chart>
@@ -1246,8 +1248,8 @@ margin={{
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
-  innerRadius={95}
-  outerRadius={120}
+innerRadius={70}
+outerRadius={95}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1276,6 +1278,7 @@ margin={{
       <Tooltip />
 
 <Legend
+  {...pieLegendProps}
   content={<CustomLegend />}
 />    </PieChart>
   </Chart>
@@ -1308,8 +1311,8 @@ margin={{
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
-  innerRadius={95}
-  outerRadius={120}
+  innerRadius={70}
+  outerRadius={95}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent">
@@ -1337,6 +1340,7 @@ margin={{
       <Tooltip />
 
 <Legend
+  {...pieLegendProps}
   content={<CustomLegend />}
 />    </PieChart>
   </Chart>
@@ -1691,8 +1695,8 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  innerRadius={95}
-  outerRadius={120}
+innerRadius={70}
+outerRadius={95}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1729,9 +1733,9 @@ function Chart({
   return (
     <div
   className="
-h-[360px]
-    sm:h-[450px]
-    md:h-[420px]
+h-[420px]
+sm:h-[500px]
+md:h-[460px]
     w-full
   "
 >
