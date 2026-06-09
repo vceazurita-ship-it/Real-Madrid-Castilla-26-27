@@ -778,6 +778,7 @@ margin={{
 
       <XAxis
         dataKey="name"
+        domain={[0, (dataMax: number) => dataMax * 1.1]}
         tick={{
           fill: "#94A3B8",
           fontSize: 11,
@@ -871,7 +872,9 @@ margin={{
 
       <XAxis
         type="number"
-        domain={[0, 1]}
+        
+                domain={[0, (dataMax: number) => dataMax * 1.1]}
+
         tick={{
           fill: "#94A3B8",
         }}
@@ -938,6 +941,7 @@ margin={{
 
       <XAxis
         type="number"
+        domain={[0, (dataMax: number) => dataMax * 1.1]}
         axisLine={false}
         tickLine={false}
       />
@@ -996,6 +1000,7 @@ margin={{
 
       <XAxis
         type="number"
+        domain={[0, (dataMax: number) => dataMax * 1.1]}
         axisLine={false}
         tickLine={false}
       />
@@ -1140,6 +1145,7 @@ margin={{
 
   <XAxis
     dataKey="tramo"
+    domain={[0, (dataMax: number) => dataMax * 1.1]}
     axisLine={false}
     tickLine={false}
   />
@@ -1184,6 +1190,7 @@ margin={{
 
       <XAxis
         type="number"
+        domain={[0, (dataMax: number) => dataMax * 1.1]}
         axisLine={false}
         tickLine={false}
         tick={{
@@ -1244,6 +1251,7 @@ margin={{
 
       <XAxis
   dataKey="name"
+  domain={[0, (dataMax: number) => dataMax * 1.1]}
   interval={0}
   height={70}
   axisLine={false}
@@ -1294,6 +1302,7 @@ margin={{
       />
       <XAxis
   type="number"
+  domain={[0, (dataMax: number) => dataMax * 1.1]}
   axisLine={false}
   tickLine={false}
   tick={{

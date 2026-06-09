@@ -925,7 +925,7 @@ margin={{
 
       <XAxis
         type="number"
-        domain={[0, (dataMax: number) => dataMax * 1.15]}
+        domain={[0, (dataMax: number) => dataMax * 1.1]}
         
         tick={{
           fill: "#94A3B8",
