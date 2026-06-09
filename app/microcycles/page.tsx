@@ -44,6 +44,60 @@ const PIE_COLORS = [
   "#F97316",
   "#EC4899",
 ];
+const getEvalColor = (value: number) => {
+  if (value >= 8) return "#10B981";
+  if (value >= 7) return "#C8A96B";
+  if (value >= 6) return "#F59E0B";
+  return "#EF4444";
+};
+const renderMultilineTick = (
+  props: any
+) => {
+  const {
+    x,
+    y,
+    payload,
+  } = props;
+
+  const label = String(
+    payload.value
+  );
+
+  const words =
+    label.length > 18
+      ? label.split(" ")
+      : [label];
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#CBD5E1"
+      fontSize="11"
+      textAnchor="end"
+    >
+      {words.map(
+        (
+          word: string,
+          index: number
+        ) => (
+          <tspan
+            key={index}
+            x={x}
+            dy={
+              index === 0
+                ? -(words.length - 1) *
+                  6
+                : 12
+            }
+          >
+            {word}
+          </tspan>
+        )
+      )}
+    </text>
+  );
+};
 
 type Row = {
   contenidoPrincipal: string;
@@ -463,54 +517,7 @@ return Object.entries(grouped)
   }))
   .sort((a, b) => b.eval - a.eval);
     }, [filtered]);
-const renderMultilineTick = (
-  props: any
-) => {
-  const {
-    x,
-    y,
-    payload,
-  } = props;
 
-  const label = String(
-    payload.value
-  );
-
-  const words =
-    label.length > 18
-      ? label.split(" ")
-      : [label];
-
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="#CBD5E1"
-      fontSize="11"
-      textAnchor="end"
-    >
-      {words.map(
-        (
-          word: string,
-          index: number
-        ) => (
-          <tspan
-            key={index}
-            x={x}
-            dy={
-              index === 0
-                ? -(words.length - 1) *
-                  6
-                : 12
-            }
-          >
-            {word}
-          </tspan>
-        )
-      )}
-    </text>
-  );
-};
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -971,7 +978,7 @@ margin={{
   left: 20,
   bottom: 10,
 }}
-      barCategoryGap={18}
+      barCategoryGap={24}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1026,17 +1033,18 @@ margin={{
   barSize={
     isMobile
       ? 16
-      : 22
+      : 20
   }
 >
-  {taskEvalData.map(
-    (_, index) => (
-      <Cell
-        key={index}
-        fill={COLORS.gold}
-      />
-    )
-  )}
+{taskEvalData.map(
+  (entry, index) => (
+    <Cell
+      key={index}
+      fill={getEvalColor(entry.eval)}
+    />
+  )
+)}
+
 
   <LabelList
     dataKey="eval"
@@ -1069,7 +1077,7 @@ margin={{
   left: 20,
   bottom: 10,
 }}
-      barCategoryGap={18}
+      barCategoryGap={24}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1118,16 +1126,23 @@ margin={{
       />
 
       <Bar
-        dataKey="eval"
-        name="Evaluación"
-        fill={COLORS.gold}
-        radius={[0, 12, 12, 0]}
-        barSize={
-  isMobile
-    ? 16
-    : 22
-}
-      >
+  dataKey="eval"
+  name="Evaluación"
+  radius={[0, 12, 12, 0]}
+  barSize={
+    isMobile
+      ? 16
+      : 20
+  }
+>
+  {contenidoPrincipalData.map(
+    (entry, index) => (
+      <Cell
+        key={index}
+        fill={getEvalColor(entry.eval)}
+      />
+    )
+  )}
         <LabelList
   dataKey="eval"
   position="right"
@@ -1157,7 +1172,7 @@ margin={{
         left: 20,
         bottom: 10,
       }}
-      barCategoryGap={30}
+      barCategoryGap={24}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1209,16 +1224,23 @@ margin={{
       />
 
       <Bar
-        dataKey="eval"
-        name="Evaluación"
-        fill={COLORS.gold}
-        radius={[0, 8, 8, 0]}
-        barSize={
-          isMobile
-            ? 10
-            : 14
-        }
-      >
+  dataKey="eval"
+  name="Evaluación"
+  radius={[0, 8, 8, 0]}
+  barSize={
+    isMobile
+      ? 16
+      : 20
+  }
+>
+  {faseEvalData.map(
+    (entry, index) => (
+      <Cell
+        key={index}
+        fill={getEvalColor(entry.eval)}
+      />
+    )
+  )}
         <LabelList
           dataKey="eval"
           position="right"
