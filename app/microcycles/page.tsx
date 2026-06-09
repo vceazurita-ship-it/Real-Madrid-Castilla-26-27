@@ -1212,7 +1212,7 @@ margin={{
         dataKey="eval"
         name="Evaluación"
         fill={COLORS.gold}
-        radius={[0, 6, 6, 0]}
+        radius={[0, 8, 8, 0]}
         barSize={
           isMobile
             ? 10
