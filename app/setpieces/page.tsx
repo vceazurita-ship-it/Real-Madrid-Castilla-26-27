@@ -433,7 +433,27 @@ const metrics = {
         (a, b) => b.xg - a.xg
       );
   }, [filtered]);
+const CustomLegend = ({ payload }: any) => (
+  <div className="flex flex-col gap-2 text-xs">
+    {payload?.map((entry: any, index: number) => (
+      <div
+        key={index}
+        className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 border border-white/10"
+      >
+        <div
+          className="w-3 h-3 rounded-full"
+          style={{
+            backgroundColor: entry.color,
+          }}
+        />
 
+        <span className="text-zinc-300">
+          {entry.value}
+        </span>
+      </div>
+    ))}
+  </div>
+);
 const zonaRemateData =
   countBy(
     filtered.filter(
@@ -951,8 +971,9 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
-    </PieChart>
+<Legend
+  content={<CustomLegend />}
+/>    </PieChart>
   </Chart>
 </Panel>
 <Panel title="Impacto sacador">
@@ -1193,8 +1214,9 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
-    </PieChart>
+<Legend
+  content={<CustomLegend />}
+/>    </PieChart>
   </Chart>
 </Panel>
 <Panel title="Segundo balón">
@@ -1253,8 +1275,9 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
-    </PieChart>
+<Legend
+  content={<CustomLegend />}
+/>    </PieChart>
   </Chart>
 </Panel>
 
@@ -1313,8 +1336,9 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
-    </PieChart>
+<Legend
+  content={<CustomLegend />}
+/>    </PieChart>
   </Chart>
 </Panel>
 <Panel title="Defensa rival">

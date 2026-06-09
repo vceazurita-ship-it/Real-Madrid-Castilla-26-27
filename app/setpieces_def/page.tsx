@@ -249,7 +249,13 @@ const matchTiempo =
     );
   }
 );
-
+const equiposVisualizados = useMemo(
+  () =>
+    [...new Set(filtered.map((r) => r.rival))]
+      .filter(Boolean)
+      .sort(),
+  [filtered]
+);
   const metrics = {
     total: filtered.length,
 
@@ -647,32 +653,54 @@ const resultadoData = [
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
     Equipos visualizados (
-    {[...new Set(filtered.map((r) => r.rival))]
-      .length}
+    {equiposVisualizados.length}
     )
   </p>
 
   <div className="flex flex-wrap gap-2">
-    {[...new Set(filtered.map((r) => r.rival))]
-      .sort()
-      .map((equipo) => (
-        <span
-          key={equipo}
-          className="
-            px-3
-            py-1.5
-            rounded-full
-            border
-            border-white/10
-            bg-[#C8A96B]/10
-            text-[#C8A96B]
-            text-xs
-          "
-        >
-          {equipo}
-        </span>
-      ))}
-  </div>
+  {equiposVisualizados.map((equipo) => {
+    const active = rival === equipo;
+
+    return (
+      <button
+        key={equipo}
+        type="button"
+        onClick={() =>
+          setRival(
+            active ? "ALL" : equipo
+          )
+        }
+        className={`
+          px-3
+          py-1.5
+          rounded-full
+          border
+          text-xs
+          transition-all
+          cursor-pointer
+
+          ${
+            active
+              ? `
+                border-[#C8A96B]
+                bg-[#C8A96B]
+                text-black
+                font-semibold
+              `
+              : `
+                border-white/10
+                bg-[#C8A96B]/10
+                text-[#C8A96B]
+                hover:bg-[#C8A96B]/20
+              `
+          }
+        `}
+      >
+        {equipo}
+      </button>
+    );
+  })}
+</div>
 </div>
     <div
   className="
