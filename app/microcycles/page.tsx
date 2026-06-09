@@ -384,12 +384,20 @@ const maxTaskDiversity =
   });
 
 const loadCorrelationData = filtered
-  .filter(
-    (r) =>
+  .filter((r) => {
+    const fase = (r.fase || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+    return (
       r.carga > 0 &&
       r.cargaCog > 0 &&
-      r.evaluacion > 0
-  )
+      r.evaluacion > 0 &&
+      !fase.includes("competicion")
+    );
+  })
   .map((r) => ({
     carga: r.carga,
     cargaCog: r.cargaCog,
@@ -493,11 +501,7 @@ const radarData = [
         maxTaskDiversity) *
       10,
   },
-  {
-    metric: "Competición",
-    value:
-      competitionRatio * 10,
-  },
+  
 ];
   const taskEvalData = useMemo(() => {
     const grouped: Record<
@@ -793,7 +797,50 @@ return Object.entries(grouped)
   tick={false}
   axisLine={false}
 />
+ <Tooltip
+    content={({ active, payload }) => {
+      if (!active || !payload?.length)
+        return null;
 
+      const item = payload[0].payload;
+
+      const descriptions: Record<
+        string,
+        string
+      > = {
+        Evaluación:
+          "Valoración media de las tareas realizadas en el microciclo.",
+
+        Intensidad:
+          "Intensidad media normalizada respecto al microciclo más intenso registrado.",
+
+        "Carga/Tarea":
+          "Carga física media por tarea respecto al máximo histórico.",
+
+        "Cog/Tarea":
+          "Carga cognitiva media por tarea respecto al máximo histórico.",
+
+        Diversidad:
+          "Variedad de tipos de tarea utilizados durante el microciclo.",
+      };
+
+      return (
+        <div className="max-w-[260px] rounded-xl border border-white/10 bg-[#1A212B] p-4 shadow-xl">
+          <p className="font-semibold text-white">
+            {item.metric}
+          </p>
+
+          <p className="mt-1 text-[#C8A96B] font-semibold">
+            {item.value.toFixed(1)} / 10
+          </p>
+
+          <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+            {descriptions[item.metric]}
+          </p>
+        </div>
+      );
+    }}
+  />
 <Radar
   dataKey="value"
   stroke={COLORS.gold}
