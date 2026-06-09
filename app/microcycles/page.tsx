@@ -358,6 +358,28 @@ const maxTasks = Math.max(
       ).length
   )
 );
+const maxLoad = Math.max(
+  ...micros.map((m) =>
+    rows
+      .filter((r) => r.micro === m)
+      .reduce((a, b) => a + b.carga, 0)
+  ),
+  1
+);
+
+const maxCog = Math.max(
+  ...micros.map((m) =>
+    rows
+      .filter((r) => r.micro === m)
+      .reduce((a, b) => a + b.cargaCog, 0)
+  ),
+  1
+);
+
+const maxIntensity = Math.max(
+  ...rows.map((r) => r.intensidad),
+  1
+);
 const radarData = [
   {
     metric: "Evaluación",
@@ -366,39 +388,28 @@ const radarData = [
   {
     metric: "Carga Física",
     value:
-      metrics.load /
-      Math.max(
-        ...compareData.map(
-          (d) => d.load
-        )
-      ) *
-      10,
+      (metrics.load / maxLoad) * 10,
   },
-  {
-  metric: "Tareas",
-  value:
-    (metrics.tasks /
-      maxTasks) *
-    10,
-},
   {
     metric: "Carga Cognitiva",
     value:
-      metrics.cog /
-      Math.max(
-        ...compareData.map(
-          (d) => d.cog
-        )
-      ) *
-      10,
+      (metrics.cog / maxCog) * 10,
+  },
+  {
+    metric: "Tareas",
+    value:
+      (metrics.tasks / maxTasks) * 10,
   },
   {
     metric: "Intensidad",
-    value: avg(
-      filtered.map(
-        (r) => r.intensidad
-      )
-    ),
+    value:
+      (
+        avg(
+          filtered.map(
+            r => r.intensidad
+          )
+        ) / maxIntensity
+      ) * 10,
   },
 ];
   const taskEvalData = useMemo(() => {
@@ -744,17 +755,33 @@ return Object.entries(grouped)
       />
 
       <Tooltip
-        cursor={{
-          strokeDasharray: "3 3",
-        }}
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+  content={({ active, payload }) => {
+    if (!active || !payload?.length)
+      return null;
+
+    const d = payload[0].payload;
+
+    return (
+      <div className="rounded-xl border border-white/10 bg-[#1A212B] p-3 shadow-xl">
+        <p className="font-semibold text-white">
+          Evaluación: {d.eval}
+        </p>
+
+        <p className="text-slate-300">
+          Carga Física: {d.carga}
+        </p>
+
+        <p className="text-slate-300">
+          Carga Cognitiva: {d.cargaCog}
+        </p>
+
+        <p className="text-slate-300">
+          Tipo: {d.tipo}
+        </p>
+      </div>
+    );
+  }}
+/>
 
       <Scatter data={scatterColoredData}>
         {scatterColoredData.map(
