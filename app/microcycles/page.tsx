@@ -24,7 +24,13 @@ import {
   Pie,
   Cell,
 } from "recharts";
-
+import {
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+} from "recharts";
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=0&single=true&output=csv";
 
@@ -50,6 +56,7 @@ const getEvalColor = (value: number) => {
   if (value >= 6) return "#F59E0B";
   return "#EF4444";
 };
+
 const renderMultilineTick = (
   props: any
 ) => {
@@ -327,7 +334,42 @@ useEffect(() => {
     ),
   };
 });
-
+const radarData = [
+  {
+    metric: "Evaluación",
+    value: metrics.eval,
+  },
+  {
+    metric: "Carga Física",
+    value:
+      metrics.load /
+      Math.max(
+        ...compareData.map(
+          (d) => d.load
+        )
+      ) *
+      10,
+  },
+  {
+    metric: "Carga Cognitiva",
+    value:
+      metrics.cog /
+      Math.max(
+        ...compareData.map(
+          (d) => d.cog
+        )
+      ) *
+      10,
+  },
+  {
+    metric: "Intensidad",
+    value: avg(
+      filtered.map(
+        (r) => r.intensidad
+      )
+    ),
+  },
+];
   const taskEvalData = useMemo(() => {
     const grouped: Record<
       string,
@@ -423,16 +465,20 @@ const microOptions = useMemo(() => {
   > = {};
 
   filtered.forEach((r) => {
-  const key =
-    r.fase || "No Phase";
+ const key = r.fase || "No Phase";
 
-  if (
-    key.toLowerCase().includes(
-      "competición"
-    )
-  ) {
-    return;
-  }
+const normalizedKey = key
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .trim();
+
+if (
+  normalizedKey.includes("competicion") ||
+  normalizedKey === "competicion"
+) {
+  return;
+}
 
   if (!grouped[key]) {
     grouped[key] = [];
@@ -592,6 +638,32 @@ return Object.entries(grouped)
 </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
+<Panel title="Perfil del Microciclo">
+  <Chart>
+    <RadarChart
+      outerRadius="75%"
+      data={radarData}
+    >
+      <PolarGrid />
+
+      <PolarAngleAxis
+        dataKey="metric"
+      />
+
+      <PolarRadiusAxis
+        domain={[0, 10]}
+      />
+
+      <Radar
+        dataKey="value"
+        stroke={COLORS.gold}
+        fill={COLORS.gold}
+        fillOpacity={0.35}
+      />
+    </RadarChart>
+  </Chart>
+</Panel>
+
 
               <Panel title="Carga e Intensidad en Microciclo">
   <Chart>
