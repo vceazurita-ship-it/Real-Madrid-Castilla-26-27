@@ -659,7 +659,7 @@ return Object.entries(grouped)
 
 </div>
 
-            <div className="h-[340px] w-full">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
 <Panel title="Perfil del Microciclo">
   <Chart>
     <RadarChart
