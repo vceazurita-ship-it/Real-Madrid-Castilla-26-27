@@ -51,9 +51,9 @@ const PIE_COLORS = [
   "#EC4899",
 ];
 const getEvalColor = (value: number) => {
-  if (value >= 8) return "#10B981";
-  if (value >= 7) return "#C8A96B";
-  if (value >= 6) return "#F59E0B";
+  if (value >= 7) return "#10B981";
+  if (value >= 6) return "#C8A96B";
+  if (value >= 5) return "#F59E0B";
   return "#EF4444";
 };
 
@@ -476,14 +476,14 @@ const radarData = [
   {
     metric: "Carga/Tarea",
     value: Math.min(
-      avgLoadPerTask / 20,
+      avgLoadPerTask / 10,
       10
     ),
   },
   {
     metric: "Cog/Tarea",
     value: Math.min(
-      avgCogPerTask / 20,
+      avgCogPerTask / 10,
       10
     ),
   },
