@@ -1145,7 +1145,7 @@ margin={{
         left: 20,
         bottom: 10,
       }}
-      barCategoryGap={18}
+      barCategoryGap={30}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -1168,18 +1168,19 @@ margin={{
   dataKey="name"
   width={
     isMobile
-      ? 160
+      ? 120
       : isNarrow
-      ? 240
-      : 320
+      ? 160 
+      : 220
   }
-        interval={0}
-        axisLine={false}
-        tickLine={false}
-tick={{
-  fill: "#CBD5E1",
-  fontSize: 11,
-}}      />
+  interval={0}
+  axisLine={false}
+  tickLine={false}
+  tick={{
+    fill: "#CBD5E1",
+    fontSize: 11,
+  }}
+/>
 
       <Tooltip
         cursor={{
@@ -1199,11 +1200,11 @@ tick={{
         dataKey="eval"
         name="Evaluación"
         fill={COLORS.gold}
-        radius={[0, 12, 12, 0]}
+        radius={[0, 6, 6, 0]}
         barSize={
           isMobile
-            ? 16
-            : 22
+            ? 10
+            : 14
         }
       >
         <LabelList
