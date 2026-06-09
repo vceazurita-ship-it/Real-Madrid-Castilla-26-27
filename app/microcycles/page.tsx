@@ -1164,20 +1164,22 @@ margin={{
       />
 
       <YAxis
-        type="category"
-        dataKey="name"
-        width={
-          isMobile
-            ? 120
-            : isNarrow
-            ? 160
-            : 220
-        }
+  type="category"
+  dataKey="name"
+  width={
+    isMobile
+      ? 160
+      : isNarrow
+      ? 240
+      : 320
+  }
         interval={0}
         axisLine={false}
         tickLine={false}
-        tick={renderMultilineTick}
-      />
+tick={{
+  fill: "#CBD5E1",
+  fontSize: 11,
+}}      />
 
       <Tooltip
         cursor={{
