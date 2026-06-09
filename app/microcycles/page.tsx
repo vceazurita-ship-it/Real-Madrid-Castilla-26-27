@@ -476,14 +476,14 @@ const radarData = [
   {
     metric: "Carga/Tarea",
     value: Math.min(
-      avgLoadPerTask / 10,
+      avgLoadPerTask / 8,
       10
     ),
   },
   {
     metric: "Cog/Tarea",
     value: Math.min(
-      avgCogPerTask / 10,
+      avgCogPerTask / 8,
       10
     ),
   },
