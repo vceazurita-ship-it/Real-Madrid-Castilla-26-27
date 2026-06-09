@@ -942,8 +942,8 @@ margin={{
   data={zonaCaida}
   dataKey="total"
   nameKey="name"
-innerRadius={70}
-outerRadius={95}
+  innerRadius={95}
+  outerRadius={120}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1186,8 +1186,8 @@ margin={{
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-innerRadius={70}
-outerRadius={95}
+  innerRadius={95}
+  outerRadius={120}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1248,8 +1248,8 @@ outerRadius={95}
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
-innerRadius={70}
-outerRadius={95}
+  innerRadius={95}
+  outerRadius={120}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1311,8 +1311,8 @@ outerRadius={95}
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
-  innerRadius={70}
-  outerRadius={95}
+  innerRadius={95}
+  outerRadius={120}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent">
@@ -1695,8 +1695,8 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-innerRadius={70}
-outerRadius={95}
+  innerRadius={95}
+  outerRadius={120}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1733,9 +1733,9 @@ function Chart({
   return (
     <div
   className="
-h-[420px]
-sm:h-[500px]
-md:h-[460px]
+h-[360px]
+    sm:h-[450px]
+    md:h-[420px]
     w-full
   "
 >
