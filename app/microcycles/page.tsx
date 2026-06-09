@@ -51,9 +51,9 @@ const PIE_COLORS = [
   "#EC4899",
 ];
 const getEvalColor = (value: number) => {
-  if (value >= 7) return "#10B981";
-  if (value >= 6) return "#C8A96B";
-  if (value >= 5) return "#F59E0B";
+  if (value >= 7.5) return "#10B981";
+  if (value >= 6.5) return "#C8A96B";
+  if (value >= 5.5) return "#F59E0B";
   return "#EF4444";
 };
 
