@@ -434,11 +434,11 @@ const metrics = {
       );
   }, [filtered]);
 const CustomLegend = ({ payload }: any) => (
-  <div className="flex flex-col gap-1 text-[11px]">
+  <div className="flex flex-col gap-2 text-xs">
     {payload?.map((entry: any, index: number) => (
       <div
         key={index}
-        className="flex items-center gap-2 rounded-xl bg-white/5 px-2 py-1 border border-white/10"
+        className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 border border-white/10"
       >
         <div
           className="w-3 h-3 rounded-full"
