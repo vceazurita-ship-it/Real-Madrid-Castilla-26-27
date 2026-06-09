@@ -309,15 +309,24 @@ useEffect(() => {
     };
   });
 
-const scatterData = filtered
-  .filter((r) => r.evaluacion > 0)
+const loadCorrelationData = filtered
+  .filter(
+    (r) =>
+      r.carga > 0 &&
+      r.cargaCog > 0 &&
+      r.evaluacion > 0
+  )
   .map((r) => ({
     carga: r.carga,
+    cargaCog: r.cargaCog,
     eval: r.evaluacion,
-    cog: r.cargaCog > 0 ? r.cargaCog : 1,
     tipo: r.tipo,
+  }));  
+const scatterColoredData =
+  loadCorrelationData.map((d) => ({
+    ...d,
+    fill: getEvalColor(d.eval),
   }));
-
 const compareData = micros.map((m) => {
   const set = rows.filter(
     (r) => r.micro === m
@@ -663,37 +672,46 @@ return Object.entries(grouped)
 <Panel title="Perfil del Microciclo">
   <Chart>
     <RadarChart
-  outerRadius="75%"
+  cx="50%"
+  cy="50%"
+  outerRadius="80%"
   data={radarData}
 >
-  <PolarGrid />
+  <PolarGrid
+  stroke="rgba(255,255,255,.12)"
+/>
 
-  <PolarAngleAxis
-    dataKey="metric"
-    tick={{
-      fill: "#CBD5E1",
-      fontSize: 12,
-    }}
-  />
+<PolarAngleAxis
+  dataKey="metric"
+  tick={{
+    fill: "#E2E8F0",
+    fontSize: 13,
+    fontWeight: 500,
+  }}
+/>
 
-  <PolarRadiusAxis
-    domain={[0, 10]}
-    tick={{
-      fill: "#64748B",
-      fontSize: 10,
-    }}
-  />
+<PolarRadiusAxis
+  domain={[0, 10]}
+  tick={false}
+  axisLine={false}
+/>
 
-  <Radar
-    dataKey="value"
-    stroke={COLORS.gold}
-    fill={COLORS.gold}
-    fillOpacity={0.35}
-  />
+<Radar
+  dataKey="value"
+  stroke={COLORS.gold}
+  strokeWidth={3}
+  fill={COLORS.gold}
+  fillOpacity={0.35}
+  dot={{
+    r: 4,
+    fill: COLORS.gold,
+    strokeWidth: 0,
+  }}
+/>
 </RadarChart>
   </Chart>
 </Panel>
-<Panel title="Relación Carga Física vs Evaluación">
+<Panel title="Carga Física vs Carga Cognitiva">
   <Chart>
     <ScatterChart
       margin={{
@@ -708,26 +726,46 @@ return Object.entries(grouped)
       <XAxis
         type="number"
         dataKey="carga"
-        name="Carga"
+        name="Carga Física"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
       />
 
       <YAxis
         type="number"
-        dataKey="eval"
-        domain={[0, 10]}
+        dataKey="cargaCog"
+        name="Carga Cognitiva"
+        tick={{
+          fill: "#94A3B8",
+          fontSize: 11,
+        }}
       />
 
-      <ZAxis
-        dataKey="cog"
-        range={[60, 300]}
+      <Tooltip
+        cursor={{
+          strokeDasharray: "3 3",
+        }}
+        contentStyle={{
+          background: "#11161C",
+          border:
+            "1px solid rgba(255,255,255,.08)",
+          borderRadius: "16px",
+          color: "#fff",
+        }}
       />
 
-      <Tooltip />
-
-      <Scatter
-        data={scatterData}
-        fill={COLORS.gold}
-      />
+      <Scatter data={scatterColoredData}>
+        {scatterColoredData.map(
+          (entry, index) => (
+            <Cell
+              key={index}
+              fill={entry.fill}
+            />
+          )
+        )}
+      </Scatter>
     </ScatterChart>
   </Chart>
 </Panel>
