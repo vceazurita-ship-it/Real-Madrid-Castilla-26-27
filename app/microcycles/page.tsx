@@ -264,7 +264,81 @@ useEffect(() => {
     ),
     tasks: filtered.length,
   };
+const avgLoadPerTask =
+  metrics.tasks > 0
+    ? metrics.load / metrics.tasks
+    : 0;
 
+const avgCogPerTask =
+  metrics.tasks > 0
+    ? metrics.cog / metrics.tasks
+    : 0;
+    const taskDiversity =
+  new Set(
+    filtered.map((r) => r.tipo)
+  ).size;
+  const competitionTasks =
+  filtered.filter(
+    (r) =>
+      r.fase
+        .toLowerCase()
+        .includes("compet")
+  ).length;
+
+const competitionRatio =
+  metrics.tasks > 0
+    ? competitionTasks /
+      metrics.tasks
+    : 0;
+    const maxAvgLoadPerTask =
+  Math.max(
+    ...micros.map((m) => {
+      const set = rows.filter(
+        (r) => r.micro === m
+      );
+
+      const load =
+        set.reduce(
+          (a, b) => a + b.carga,
+          0
+        ) / set.length;
+
+      return load;
+    }),
+    1
+  );
+
+const maxAvgCogPerTask =
+  Math.max(
+    ...micros.map((m) => {
+      const set = rows.filter(
+        (r) => r.micro === m
+      );
+
+      const cog =
+        set.reduce(
+          (a, b) => a + b.cargaCog,
+          0
+        ) / set.length;
+
+      return cog;
+    }),
+    1
+  );
+
+const maxTaskDiversity =
+  Math.max(
+    ...micros.map((m) => {
+      const set = rows.filter(
+        (r) => r.micro === m
+      );
+
+      return new Set(
+        set.map((r) => r.tipo)
+      ).size;
+    }),
+    1
+  );
   const mdOrder = [
     "MD-4",
     "MD-3",
@@ -386,30 +460,43 @@ const radarData = [
     value: metrics.eval,
   },
   {
-    metric: "Carga Física",
-    value:
-      (metrics.load / maxLoad) * 10,
-  },
-  {
-    metric: "Carga Cognitiva",
-    value:
-      (metrics.cog / maxCog) * 10,
-  },
-  {
-    metric: "Tareas",
-    value:
-      (metrics.tasks / maxTasks) * 10,
-  },
-  {
     metric: "Intensidad",
     value:
       (
         avg(
           filtered.map(
-            r => r.intensidad
+            (r) => r.intensidad
           )
-        ) / maxIntensity
-      ) * 10,
+        ) /
+        maxIntensity
+      ) *
+      10,
+  },
+  {
+    metric: "Carga/Tarea",
+    value:
+      (avgLoadPerTask /
+        maxAvgLoadPerTask) *
+      10,
+  },
+  {
+    metric: "Cog/Tarea",
+    value:
+      (avgCogPerTask /
+        maxAvgCogPerTask) *
+      10,
+  },
+  {
+    metric: "Diversidad",
+    value:
+      (taskDiversity /
+        maxTaskDiversity) *
+      10,
+  },
+  {
+    metric: "Competición",
+    value:
+      competitionRatio * 10,
   },
 ];
   const taskEvalData = useMemo(() => {
@@ -753,6 +840,10 @@ return Object.entries(grouped)
           fontSize: 11,
         }}
       />
+      <ZAxis
+  dataKey="eval"
+  range={[80, 400]}
+/>
 
       <Tooltip
   content={({ active, payload }) => {
