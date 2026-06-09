@@ -433,27 +433,7 @@ const metrics = {
         (a, b) => b.xg - a.xg
       );
   }, [filtered]);
-const CustomLegend = ({ payload }: any) => (
-  <div className="flex flex-col gap-2 text-xs">
-    {payload?.map((entry: any, index: number) => (
-      <div
-        key={index}
-        className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 border border-white/10"
-      >
-        <div
-          className="w-3 h-3 rounded-full"
-          style={{
-            backgroundColor: entry.color,
-          }}
-        />
 
-        <span className="text-zinc-300">
-          {entry.value}
-        </span>
-      </div>
-    ))}
-  </div>
-);
 const zonaRemateData =
   countBy(
     filtered.filter(
@@ -764,39 +744,32 @@ const totalTipoCarrera =
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
     Equipos visualizados (
-    {[...new Set(rows.map((r) => r.rival))]
+    {[...new Set(filtered.map((r) => r.rival))]
       .length}
     )
   </p>
 
- <div className="flex flex-wrap gap-2">
-  {[...new Set(rows.map((r) => r.rival))]
-    .sort()
-    .map((equipo) => {
-      const active = rival === equipo;
-
-      return (
-        <button
+  <div className="flex flex-wrap gap-2">
+    {[...new Set(filtered.map((r) => r.rival))]
+      .sort()
+      .map((equipo) => (
+        <span
           key={equipo}
-          onClick={() =>
-            setRival(
-              active ? "ALL" : equipo
-            )
-          }
-          className={`
-            px-3 py-1.5 rounded-full border text-xs transition-all
-            ${
-              active
-                ? "bg-[#C8A96B] text-black border-[#C8A96B]"
-                : "bg-[#C8A96B]/10 text-[#C8A96B] border-white/10 hover:bg-[#C8A96B]/20"
-            }
-          `}
+          className="
+  px-3
+  py-1.5
+  rounded-full
+  border
+  border-white/10
+  bg-[#C8A96B]/10
+  text-[#C8A96B]
+  text-xs
+"
         >
           {equipo}
-        </button>
-      );
-    })}
-</div>
+        </span>
+      ))}
+  </div>
 </div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
@@ -971,10 +944,8 @@ margin={{
 
       <Tooltip />
 
-<Legend
-  {...pieLegendProps}
-  content={<CustomLegend />}
-/>    </PieChart>
+      {/* <Legend {...pieLegendProps} /> */}
+    </PieChart>
   </Chart>
 </Panel>
 <Panel title="Impacto sacador">
@@ -1215,10 +1186,8 @@ margin={{
 
       <Tooltip />
 
-<Legend
-  {...pieLegendProps}
-  content={<CustomLegend />}
-/>    </PieChart>
+      {/* <Legend {...pieLegendProps} /> */}
+    </PieChart>
   </Chart>
 </Panel>
 <Panel title="Segundo balón">
@@ -1277,10 +1246,8 @@ margin={{
 
       <Tooltip />
 
-<Legend
-  {...pieLegendProps}
-  content={<CustomLegend />}
-/>    </PieChart>
+      {/* <Legend {...pieLegendProps} /> */}
+    </PieChart>
   </Chart>
 </Panel>
 
@@ -1339,10 +1306,8 @@ margin={{
 
       <Tooltip />
 
-<Legend
-  {...pieLegendProps}
-  content={<CustomLegend />}
-/>    </PieChart>
+      {/* <Legend {...pieLegendProps} /> */}
+    </PieChart>
   </Chart>
 </Panel>
 <Panel title="Defensa rival">
