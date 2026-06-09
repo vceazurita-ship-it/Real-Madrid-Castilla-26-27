@@ -12,7 +12,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  LineChart,
   Line,
   CartesianGrid,
   AreaChart,
@@ -23,13 +22,14 @@ import {
   PieChart,
   Pie,
   Cell,
-} from "recharts";
-import {
   RadarChart,
   Radar,
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from "recharts";
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=0&single=true&output=csv";
@@ -309,31 +309,46 @@ useEffect(() => {
     };
   });
 
-  const compareData = micros.map((m) => {
+const scatterData = filtered
+  .filter((r) => r.evaluacion > 0)
+  .map((r) => ({
+    carga: r.carga,
+    eval: r.evaluacion,
+    cog: r.cargaCog > 0 ? r.cargaCog : 1,
+    tipo: r.tipo,
+  }));
+
+const compareData = micros.map((m) => {
   const set = rows.filter(
     (r) => r.micro === m
   );
 
   return {
     micro: `M${m}`,
-
     eval: avg(
       set
         .map((r) => r.evaluacion)
         .filter((n) => n > 0)
     ),
-
     load: set.reduce(
       (a, b) => a + b.carga,
       0
     ),
-
     cog: set.reduce(
       (a, b) => a + b.cargaCog,
       0
     ),
   };
 });
+
+const maxTasks = Math.max(
+  ...micros.map(
+    (m) =>
+      rows.filter(
+        (r) => r.micro === m
+      ).length
+  )
+);
 const radarData = [
   {
     metric: "Evaluación",
@@ -350,6 +365,13 @@ const radarData = [
       ) *
       10,
   },
+  {
+  metric: "Tareas",
+  value:
+    (metrics.tasks /
+      maxTasks) *
+    10,
+},
   {
     metric: "Carga Cognitiva",
     value:
@@ -637,30 +659,76 @@ return Object.entries(grouped)
 
 </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
+            <div className="h-[340px] w-full">
 <Panel title="Perfil del Microciclo">
   <Chart>
     <RadarChart
-      outerRadius="75%"
-      data={radarData}
-    >
-      <PolarGrid />
+  outerRadius="75%"
+  data={radarData}
+>
+  <PolarGrid />
 
-      <PolarAngleAxis
-        dataKey="metric"
+  <PolarAngleAxis
+    dataKey="metric"
+    tick={{
+      fill: "#CBD5E1",
+      fontSize: 12,
+    }}
+  />
+
+  <PolarRadiusAxis
+    domain={[0, 10]}
+    tick={{
+      fill: "#64748B",
+      fontSize: 10,
+    }}
+  />
+
+  <Radar
+    dataKey="value"
+    stroke={COLORS.gold}
+    fill={COLORS.gold}
+    fillOpacity={0.35}
+  />
+</RadarChart>
+  </Chart>
+</Panel>
+<Panel title="Relación Carga Física vs Evaluación">
+  <Chart>
+    <ScatterChart
+      margin={{
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 20,
+      }}
+    >
+      <CartesianGrid stroke="#1E232A" />
+
+      <XAxis
+        type="number"
+        dataKey="carga"
+        name="Carga"
       />
 
-      <PolarRadiusAxis
+      <YAxis
+        type="number"
+        dataKey="eval"
         domain={[0, 10]}
       />
 
-      <Radar
-        dataKey="value"
-        stroke={COLORS.gold}
-        fill={COLORS.gold}
-        fillOpacity={0.35}
+      <ZAxis
+        dataKey="cog"
+        range={[60, 300]}
       />
-    </RadarChart>
+
+      <Tooltip />
+
+      <Scatter
+        data={scatterData}
+        fill={COLORS.gold}
+      />
+    </ScatterChart>
   </Chart>
 </Panel>
 
@@ -800,39 +868,27 @@ return Object.entries(grouped)
       />
 
       <XAxis
-        dataKey="micro"
-        interval={0}
-        minTickGap={0}
-        angle={-45}
-        textAnchor="end"
-        height={70}
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 11,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+  dataKey="micro"
+  interval={0}
+  minTickGap={0}
+  angle={-45}
+  textAnchor="end"
+  height={70}
+/>
 
-      <YAxis
-        domain={[0, 10]}
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 11,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+<YAxis
+  domain={[0, 10]}
+/>
 
       <Tooltip
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+  contentStyle={{
+    background: "#11161C",
+    border:
+      "1px solid rgba(255,255,255,.08)",
+    borderRadius: "16px",
+    color: "#fff",
+  }}
+/>
 
       <Area
         dataKey="value"
@@ -1331,10 +1387,10 @@ margin={{
     </BarChart>
   </Chart>
 </Panel>
-
+</div>
               
 
-            </div>
+            
           </section>
         </div>
       </div>
