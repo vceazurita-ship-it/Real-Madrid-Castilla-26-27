@@ -1142,7 +1142,7 @@ margin={{
       margin={{
         top: 10,
         right: 24,
-        left: 20,
+        left: 5,
         bottom: 10,
       }}
       barCategoryGap={18}
