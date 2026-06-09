@@ -469,39 +469,31 @@ const radarData = [
   },
   {
     metric: "Intensidad",
-    value:
-      (
-        avg(
-          filtered.map(
-            (r) => r.intensidad
-          )
-        ) /
-        maxIntensity
-      ) *
-      10,
+    value: avg(
+      filtered.map(r => r.intensidad)
+    ) * 2,
   },
   {
     metric: "Carga/Tarea",
-    value:
-      (avgLoadPerTask /
-        maxAvgLoadPerTask) *
-      10,
+    value: Math.min(
+      avgLoadPerTask / 20,
+      10
+    ),
   },
   {
     metric: "Cog/Tarea",
-    value:
-      (avgCogPerTask /
-        maxAvgCogPerTask) *
-      10,
+    value: Math.min(
+      avgCogPerTask / 20,
+      10
+    ),
   },
   {
     metric: "Diversidad",
-    value:
-      (taskDiversity /
-        maxTaskDiversity) *
-      10,
+    value: Math.min(
+      (taskDiversity / 12) * 10,
+      10
+    ),
   },
-  
 ];
   const taskEvalData = useMemo(() => {
     const grouped: Record<
