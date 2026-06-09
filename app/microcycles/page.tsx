@@ -369,19 +369,25 @@ const microOptions = useMemo(() => {
   > = {};
 
   filtered.forEach((r) => {
-    const key =
-      r.fase || "No Phase";
+  const key =
+    r.fase || "No Phase";
 
-    if (!grouped[key]) {
-      grouped[key] = [];
-    }
+  if (
+    key.toLowerCase().includes(
+      "competición"
+    )
+  ) {
+    return;
+  }
 
-    if (r.evaluacion > 0) {
-      grouped[key].push(
-        r.evaluacion
-      );
-    }
-  });
+  if (!grouped[key]) {
+    grouped[key] = [];
+  }
+
+  if (r.evaluacion > 0) {
+    grouped[key].push(r.evaluacion);
+  }
+});
 
   return Object.entries(grouped)
     .map(([name, vals]) => ({
@@ -398,20 +404,26 @@ const microOptions = useMemo(() => {
       > = {};
 
       filtered.forEach((r) => {
-        const key =
-          r.contenidoPrincipal ||
-          "No Content";
+  const key =
+    r.contenidoPrincipal ||
+    "No Content";
 
-        if (!grouped[key]) {
-          grouped[key] = [];
-        }
+  if (
+    key.toLowerCase().includes(
+      "competición"
+    )
+  ) {
+    return;
+  }
 
-        if (r.evaluacion > 0) {
-          grouped[key].push(
-            r.evaluacion
-          );
-        }
-      });
+  if (!grouped[key]) {
+    grouped[key] = [];
+  }
+
+  if (r.evaluacion > 0) {
+    grouped[key].push(r.evaluacion);
+  }
+});
 
 return Object.entries(grouped)
   .map(([name, vals]) => ({
