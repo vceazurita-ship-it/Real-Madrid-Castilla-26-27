@@ -38,11 +38,11 @@ const COLORS = {
 
 const PIE_COLORS = [
   "#C8A96B",
-  "#3B82F6",
-  "#8B5CF6",
-  "#10B981",
-  "#F97316",
-  "#EC4899",
+  "#D6B985",
+  "#E5CCA2",
+  "#8A6A35",
+  "#B8945B",
+  "#F1E4C8",
 ];
 
 type Row = {
@@ -877,14 +877,36 @@ margin={{
 <Panel title="Zona caída">
   <Chart>
     <PieChart>
+      <text
+  x="50%"
+  y="48%"
+  textAnchor="middle"
+  fill="#FFFFFF"
+  fontSize="28"
+  fontWeight="700"
+>
+  {filtered.length}
+</text>
+
+<text
+  x="50%"
+  y="58%"
+  textAnchor="middle"
+  fill="#94A3B8"
+  fontSize="12"
+>
+  ABP
+</text>
       <Pie
-        data={zonaCaida}
-        dataKey="total"
-        nameKey="name"
-        innerRadius={65}
-        outerRadius={125}
-        paddingAngle={3}
-      >
+  data={zonaCaida}
+  dataKey="total"
+  nameKey="name"
+  innerRadius={95}
+  outerRadius={120}
+  paddingAngle={4}
+  cornerRadius={8}
+  stroke="transparent"
+>
         {zonaCaida.map(
           (_, i) => (
             <Cell
@@ -898,11 +920,17 @@ margin={{
             />
           )
         )}
+        <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>
       </Pie>
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      {/* <Legend {...pieLegendProps} /> */}
     </PieChart>
   </Chart>
 </Panel>
@@ -1091,13 +1119,36 @@ margin={{
 <Panel title="Zona remate">
   <Chart>
     <PieChart>
-      <Pie
-        data={zonaRemateData}
-        dataKey="total"
-        nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
-      >
+      <text
+  x="50%"
+  y="48%"
+  textAnchor="middle"
+  fill="#FFFFFF"
+  fontSize="28"
+  fontWeight="700"
+>
+  {metrics.shots}
+</text>
+
+<text
+  x="50%"
+  y="58%"
+  textAnchor="middle"
+  fill="#94A3B8"
+  fontSize="12"
+>
+  Remates
+</text>
+     <Pie
+  data={zonaRemateData}
+  dataKey="total"
+  nameKey="name"
+  innerRadius={95}
+  outerRadius={120}
+  paddingAngle={4}
+  cornerRadius={8}
+  stroke="transparent"
+>
         {zonaRemateData.map(
           (_, i) => (
             <Cell
@@ -1111,24 +1162,53 @@ margin={{
             />
           )
         )}
+        <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>
       </Pie>
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      {/* <Legend {...pieLegendProps} /> */}
     </PieChart>
   </Chart>
 </Panel>
 <Panel title="Segundo balón">
   <Chart>
     <PieChart>
+      <text
+  x="50%"
+  y="48%"
+  textAnchor="middle"
+  fill="#FFFFFF"
+  fontSize="28"
+  fontWeight="700"
+>
+ {segundoBalonData.length}
+</text>
+
+<text
+  x="50%"
+  y="58%"
+  textAnchor="middle"
+  fill="#94A3B8"
+  fontSize="12"
+>
+  Tipos
+</text>
       <Pie
-        data={segundoBalonData}
-        dataKey="total"
-        nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
-      >
+  data={segundoBalonData}
+  dataKey="total"
+  nameKey="name"
+  innerRadius={95}
+  outerRadius={120}
+  paddingAngle={4}
+  cornerRadius={8}
+  stroke="transparent"
+>
         {segundoBalonData.map(
           (_, i) => (
             <Cell
@@ -1142,11 +1222,17 @@ margin={{
             />
           )
         )}
+        <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>
       </Pie>
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      {/* <Legend {...pieLegendProps} /> */}
     </PieChart>
   </Chart>
 </Panel>
@@ -1154,14 +1240,35 @@ margin={{
 <Panel title="Tipo carrera">
   <Chart>
     <PieChart>
+      <text
+  x="50%"
+  y="48%"
+  textAnchor="middle"
+  fill="#FFFFFF"
+  fontSize="28"
+  fontWeight="700"
+>
+{tipoCarrera.length}
+</text>
+
+<text
+  x="50%"
+  y="58%"
+  textAnchor="middle"
+  fill="#94A3B8"
+  fontSize="12"
+>
+  Carreras
+</text>
       <Pie
-        data={tipoCarrera}
-        dataKey="total"
-        nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
-        paddingAngle={3}
-      >
+  data={tipoCarrera}
+  dataKey="total"
+  nameKey="name"
+  innerRadius={95}
+  outerRadius={120}
+  paddingAngle={4}
+  cornerRadius={8}
+  stroke="transparent">
         {tipoCarrera.map(
           (_, i) => (
             <Cell
@@ -1175,11 +1282,17 @@ margin={{
             />
           )
         )}
+        <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>
       </Pie>
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      {/* <Legend {...pieLegendProps} /> */}
     </PieChart>
   </Chart>
 </Panel>
@@ -1509,15 +1622,44 @@ const words =
 <Panel title="Conversión">
   <Chart>
     <PieChart>
+      <text
+  x="50%"
+  y="48%"
+  textAnchor="middle"
+  fill="#FFFFFF"
+  fontSize="28"
+  fontWeight="700"
+>
+{metrics.conversion.toFixed(0)}%
+</text>
+
+<text
+  x="50%"
+  y="58%"
+  textAnchor="middle"
+  fill="#94A3B8"
+  fontSize="12"
+>
+  Conversión
+</text>
       <Pie
-        data={resultadoData}
-        dataKey="total"
-        nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
-      >
+  data={resultadoData}
+  dataKey="total"
+  nameKey="name"
+  innerRadius={95}
+  outerRadius={120}
+  paddingAngle={4}
+  cornerRadius={8}
+  stroke="transparent"
+>
         <Cell fill="#10B981" />
         <Cell fill="#475569" />
+        <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>
       </Pie>
 
       <Tooltip />
@@ -1542,7 +1684,7 @@ function Chart({
   return (
     <div
   className="
-    h-[420px]
+h-[360px]
     sm:h-[450px]
     md:h-[420px]
     w-full
