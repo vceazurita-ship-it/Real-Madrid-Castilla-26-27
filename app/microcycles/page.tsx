@@ -471,7 +471,7 @@ const radarData = [
     metric: "Intensidad",
     value: avg(
       filtered.map(r => r.intensidad)
-    ) * 2,
+    ) * 2.5,
   },
   {
     metric: "Carga/Tarea",
