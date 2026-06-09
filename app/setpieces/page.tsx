@@ -441,7 +441,12 @@ const zonaRemateData =
     ),
     "zonaRemate"
   );
-
+  
+const totalZonaRemate =
+  zonaRemateData.reduce(
+    (acc, item) => acc + item.total,
+    0
+  );
 const segundoBalonData =
   countBy(
     filtered.filter(
@@ -449,7 +454,11 @@ const segundoBalonData =
     ),
     "segundoBalon"
   );
-
+const totalSegundoBalon =
+  segundoBalonData.reduce(
+    (acc, item) => acc + item.total,
+    0
+  );
 const tipoEnvioData =
   useMemo(() => {
     const grouped: Record<
@@ -555,6 +564,11 @@ const resultadoData = [
       ).length,
   },
 ];
+const totalTipoCarrera =
+  tipoCarrera.reduce(
+    (acc, item) => acc + item.total,
+    0
+  );
   const timeline =
     Array.from(
       { length: 6 },
@@ -730,32 +744,39 @@ const resultadoData = [
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
     Equipos visualizados (
-    {[...new Set(filtered.map((r) => r.rival))]
+    {[...new Set(rows.map((r) => r.rival))]
       .length}
     )
   </p>
 
-  <div className="flex flex-wrap gap-2">
-    {[...new Set(filtered.map((r) => r.rival))]
-      .sort()
-      .map((equipo) => (
-        <span
+ <div className="flex flex-wrap gap-2">
+  {[...new Set(rows.map((r) => r.rival))]
+    .sort()
+    .map((equipo) => {
+      const active = rival === equipo;
+
+      return (
+        <button
           key={equipo}
-          className="
-  px-3
-  py-1.5
-  rounded-full
-  border
-  border-white/10
-  bg-[#C8A96B]/10
-  text-[#C8A96B]
-  text-xs
-"
+          onClick={() =>
+            setRival(
+              active ? "ALL" : equipo
+            )
+          }
+          className={`
+            px-3 py-1.5 rounded-full border text-xs transition-all
+            ${
+              active
+                ? "bg-[#C8A96B] text-black border-[#C8A96B]"
+                : "bg-[#C8A96B]/10 text-[#C8A96B] border-white/10 hover:bg-[#C8A96B]/20"
+            }
+          `}
         >
           {equipo}
-        </span>
-      ))}
-  </div>
+        </button>
+      );
+    })}
+</div>
 </div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
@@ -1127,7 +1148,7 @@ margin={{
   fontSize="28"
   fontWeight="700"
 >
-  {metrics.shots}
+    {totalZonaRemate}
 </text>
 
 <text
@@ -1187,7 +1208,7 @@ margin={{
   fontSize="28"
   fontWeight="700"
 >
- {segundoBalonData.length}
+  {totalSegundoBalon}
 </text>
 
 <text
@@ -1248,7 +1269,7 @@ margin={{
   fontSize="28"
   fontWeight="700"
 >
-{tipoCarrera.length}
+{totalTipoCarrera}
 </text>
 
 <text
