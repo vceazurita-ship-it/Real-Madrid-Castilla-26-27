@@ -972,7 +972,7 @@ margin={{
   value={filtered.length}
   position="center"
   fill="#fff"
-  fontSize={30}
+  fontSize={isMobile ? 22 : 30}
 />
 
     {zonaCaida.map((_, i) => (
@@ -987,25 +987,24 @@ margin={{
     ))}
 
     <LabelList
-      dataKey="total"
-      position="inside"
-      fill="#fff"
-      fontSize={12}
-    /><LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>
+  
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
   </Pie>
 
   <Tooltip />
 
-  <Legend
-  layout="vertical"
-  align="right"
-  verticalAlign="middle"
-/>
+<Legend {...pieLegendProps} />
 </PieChart>
   </Chart>
 </Panel>
@@ -1236,24 +1235,27 @@ outerRadius={
 value={totalZonaRemate}
   position="center"
   fill="#fff"
-  fontSize={30}
+  fontSize={isMobile ? 22 : 30}
 />
        <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
       </Pie>
 
       <Tooltip />
 
-     <Legend
-  layout="vertical"
-  align="right"
-  verticalAlign="middle"
-/>
-    </PieChart>
+<Legend {...pieLegendProps} />
+ </PieChart>
   </Chart>
 </Panel>
 <Panel title="Segundo balón">
@@ -1299,23 +1301,26 @@ value={totalZonaRemate}
 value={totalSegundoBalon}
   position="center"
   fill="#fff"
-  fontSize={30}
+  fontSize={isMobile ? 22 : 30}
 />
        <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
       </Pie>
 
       <Tooltip />
 
-       <Legend
-  layout="vertical"
-  align="right"
-  verticalAlign="middle"
-/>
+<Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1362,23 +1367,26 @@ value={totalSegundoBalon}
 value={totalTipoCarrera}
   position="center"
   fill="#fff"
-  fontSize={30}
+  fontSize={isMobile ? 22 : 30}
 />
        <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
       </Pie>
 
       <Tooltip />
 
-      <Legend
-  layout="vertical"
-  align="right"
-  verticalAlign="middle"
-/>
+ <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1739,13 +1747,20 @@ outerRadius={
 value={`${metrics.conversion.toFixed(0)}%`}
   position="center"
   fill="#fff"
-  fontSize={30}
+  fontSize={isMobile ? 22 : 30}
 />    <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
       </Pie>
 
       <Tooltip />
