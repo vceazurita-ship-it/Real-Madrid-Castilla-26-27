@@ -54,10 +54,29 @@ const metrics = [
 ]
 
 const modules = [
+  // METODOLOGÍA
+  {
+    href: "/microcycles",
+    section: "METODOLOGÍA",
+    title: "Microciclos",
+    desc: "Planificación, carga, control y evaluación del proceso semanal",
+    icon: CalendarDays,
+    glow: "cyan",
+  },
+  {
+    href: "/match-plans",
+    section: "METODOLOGÍA",
+    title: "Planes de Partido",
+    desc: "Diseño estratégico y operacional para la competición",
+    icon: Rocket,
+    glow: "blue",
+  },
+
+  // INDIVIDUAL
   {
     href: "/individual",
     section: "INDIVIDUAL",
-    title: "Evaluación específica",
+    title: "Evaluación",
     desc: "Mentalidad, hábitos, condicional, interpretación y técnica",
     icon: Target,
     glow: "blue",
@@ -65,26 +84,60 @@ const modules = [
   {
     href: "/emotion",
     section: "EMOCIONAL",
-    title: "Rendimiento emocional",
-    desc: "Eficiencia individual y sinérgica mental",
-    icon: Brain,
+    title: "Rendimiento Emocional",
+    desc: "Eficiencia individual y estabilidad emocional competitiva",
+    icon: HeartPulse,
     glow: "violet",
   },
   {
+    href: "/synergies",
+    section: "RELACIONAL",
+    title: "Sinergias",
+    desc: "Interacciones funcionales y conexiones entre jugadores",
+    icon: Users,
+    glow: "emerald",
+  },
+  {
+    href: "/comparative_ind",
+    section: "INDIVIDUAL",
+    title: "Comparativo U-21",
+    desc: "Análisis comparativo y proyección de talento emergente",
+    icon: TrendingUp,
+    glow: "amber",
+  },
+
+  // COLECTIVO
+  {
     href: "/team",
     section: "COLECTIVO",
-    title: "Rendimiento del equipo",
-    desc: "Evaluación del MDJ en competitición",
+    title: "Rendimiento",
+    desc: "Evaluación global del comportamiento competitivo del equipo",
     icon: Users,
     glow: "amber",
   },
   {
-    href: "/microcycles",
-    section: "METODOLOGÍA",
-    title: "Microciclos",
-    desc: "Planificación, carga y evaluacion",
-    icon: CalendarDays,
+    href: "/collective",
+    section: "COLECTIVO",
+    title: "Competición",
+    desc: "Transferencia al juego y evolución del rendimiento colectivo",
+    icon: Zap,
+    glow: "blue",
+  },
+  {
+    href: "/abp-offensive",
+    section: "ABP",
+    title: "ABP Ofensivo",
+    desc: "Análisis y optimización de acciones a balón parado ofensivas",
+    icon: Rocket,
     glow: "cyan",
+  },
+  {
+    href: "/abp-defensive",
+    section: "ABP",
+    title: "ABP Defensivo",
+    desc: "Control y rendimiento en acciones a balón parado defensivas",
+    icon: Brain,
+    glow: "violet",
   },
 ]
 
@@ -286,7 +339,7 @@ export default function Home() {
                   MÓDULOS
                 </p>
 
-                <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-6">
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3 xl:gap-6">
                   {modules.map((item) => {
                     const Icon = item.icon
 
