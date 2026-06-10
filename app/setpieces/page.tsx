@@ -153,8 +153,12 @@ function DonutCenterLabel({
 }) {
   return (
     <Label
+      position="center"
       content={({ viewBox }: any) => {
-        const { cx, cy } = viewBox;
+        if (!viewBox) return null;
+
+        const cx = viewBox.cx;
+        const cy = viewBox.cy;
 
         return (
           <g>
@@ -162,10 +166,10 @@ function DonutCenterLabel({
               x={cx}
               y={cy}
               textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#FFF"
-              fontSize={isMobile ? 22 : 28}
-              fontWeight="700"
+              dominantBaseline="central"
+              fill="#FFFFFF"
+              fontSize={isMobile ? 22 : 32}
+              fontWeight={700}
             >
               {value}
             </text>
@@ -173,10 +177,10 @@ function DonutCenterLabel({
             {subtitle && (
               <text
                 x={cx}
-                y={cy + 24}
+                y={cy + 26}
                 textAnchor="middle"
                 fill="#94A3B8"
-                fontSize="12"
+                fontSize={12}
               >
                 {subtitle}
               </text>
@@ -999,8 +1003,8 @@ margin={{
     data={zonaCaida}
     dataKey="total"
     nameKey="name"
-    cx="50%"
-    cy="50%"
+    cx={isMobile ? "50%" : "40%"}
+  cy="50%"
     innerRadius={isMobile ? 65 : 95}
     outerRadius={isMobile ? 90 : 120}
     paddingAngle={4}
@@ -1035,7 +1039,12 @@ margin={{
       position="inside"
       fill="#fff"
       fontSize={12}
-    />
+    /><LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>
   </Pie>
 
   <Tooltip />
@@ -1245,7 +1254,7 @@ margin={{
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-  cx="50%"
+  cx={isMobile ? "50%" : "40%"}
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
@@ -1274,6 +1283,11 @@ outerRadius={
        <DonutCenterLabel
   value={totalZonaRemate}
   isMobile={isMobile}
+/><LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
 />
       </Pie>
 
@@ -1302,7 +1316,7 @@ outerRadius={
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
-  cx="50%"
+ cx={isMobile ? "50%" : "40%"}
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
@@ -1330,6 +1344,11 @@ outerRadius={
        <DonutCenterLabel
   value={totalSegundoBalon}
   isMobile={isMobile}
+/><LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
 />
       </Pie>
 
@@ -1359,7 +1378,7 @@ outerRadius={
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
-  cx="50%"
+ cx={isMobile ? "50%" : "40%"}
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
@@ -1386,6 +1405,11 @@ outerRadius={
        <DonutCenterLabel
   value={totalTipoCarrera}
   isMobile={isMobile}
+/><LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
 />
       </Pie>
 
@@ -1737,7 +1761,7 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  cx="50%"
+  cx={isMobile ? "50%" : "40%"}
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
@@ -1762,6 +1786,11 @@ outerRadius={
   value={`${metrics.conversion.toFixed(0)}%`}
   subtitle="Conversión"
   isMobile={isMobile}
+/><LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
 />
       </Pie>
 
