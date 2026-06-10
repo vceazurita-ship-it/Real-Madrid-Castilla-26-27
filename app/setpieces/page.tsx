@@ -187,6 +187,7 @@ function DonutCenterLabel({
     />
   );
 }
+
 const [isNarrow, setIsNarrow] =
   useState(false);
 
@@ -986,7 +987,14 @@ margin={{
 </Panel>
 <Panel title="Zona de saque">
   <Chart>
-    <PieChart>
+    <PieChart
+  margin={{
+    top: 20,
+    right: 140,
+    bottom: 20,
+    left: 20,
+  }}
+>
   <Pie
     data={zonaCaida}
     dataKey="total"
@@ -1032,7 +1040,11 @@ margin={{
 
   <Tooltip />
 
-  <Legend {...pieLegendProps} />
+  <Legend
+  layout="vertical"
+  align="right"
+  verticalAlign="middle"
+/>
 </PieChart>
   </Chart>
 </Panel>
@@ -1220,13 +1232,20 @@ margin={{
 </Panel>
 <Panel title="Zona remate">
   <Chart>
-    <PieChart>
+    <PieChart
+  margin={{
+    top: 20,
+    right: 140,
+    bottom: 20,
+    left: 20,
+  }}
+>
       
     <Pie
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-  cx="40%"
+  cx="50%"
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
@@ -1260,19 +1279,30 @@ outerRadius={
 
       <Tooltip />
 
-     <Legend {...pieLegendProps} />
+     <Legend
+  layout="vertical"
+  align="right"
+  verticalAlign="middle"
+/>
     </PieChart>
   </Chart>
 </Panel>
 <Panel title="Segundo balón">
   <Chart>
-    <PieChart>
+    <PieChart
+  margin={{
+    top: 20,
+    right: 140,
+    bottom: 20,
+    left: 20,
+  }}
+>
       
       <Pie
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
-  cx="40%"
+  cx="50%"
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
@@ -1305,20 +1335,31 @@ outerRadius={
 
       <Tooltip />
 
-       <Legend {...pieLegendProps} />
+       <Legend
+  layout="vertical"
+  align="right"
+  verticalAlign="middle"
+/>
     </PieChart>
   </Chart>
 </Panel>
 
 <Panel title="Tipo carrera">
   <Chart>
-    <PieChart>
+    <PieChart
+  margin={{
+    top: 20,
+    right: 140,
+    bottom: 20,
+    left: 20,
+  }}
+>
       
       <Pie
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
-  cx="40%"
+  cx="50%"
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
@@ -1350,7 +1391,11 @@ outerRadius={
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      <Legend
+  layout="vertical"
+  align="right"
+  verticalAlign="middle"
+/>
     </PieChart>
   </Chart>
 </Panel>
@@ -1679,13 +1724,20 @@ const words =
 </Panel>
 <Panel title="Conversión">
   <Chart>
-    <PieChart>
+    <PieChart
+  margin={{
+    top: 20,
+    right: 140,
+    bottom: 20,
+    left: 20,
+  }}
+>
       
       <Pie
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  cx="40%"
+  cx="50%"
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
