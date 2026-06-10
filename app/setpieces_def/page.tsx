@@ -969,9 +969,22 @@ margin={{
               }
             />
           )
-        )}
+        )} <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
+        
       </Pie>
-
+      
       <Tooltip />
 
       <Legend {...pieLegendProps} />
@@ -1211,7 +1224,19 @@ margin={{
               }
             />
           )
-        )}
+        )} <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
       </Pie>
 
       <Tooltip />
@@ -1249,7 +1274,19 @@ margin={{
             />
           )
         )}
-      </Pie>
+      </Pie> <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
 
       <Tooltip />
 
@@ -1287,7 +1324,19 @@ margin={{
               }
             />
           )
-        )}
+        )} <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
       </Pie>
 
       <Tooltip />
@@ -1551,13 +1600,24 @@ const words =
       data.name === "Gol"
         ? "Gol"
         : "No Gol"
-    )
-  }
+    )}
         dataKey="total"
         nameKey="name"
         innerRadius={60}
         outerRadius={120}
-      >
+      > <LabelList
+  dataKey="total"
+  position="inside"
+  fill="#fff"
+  fontSize={12}
+/>{!isMobile && (
+  <LabelList
+    dataKey="total"
+    position="inside"
+    fill="#fff"
+    fontSize={12}
+  />
+)}
         <Cell fill="#10B981" />
         <Cell fill="#475569" />
       </Pie>
