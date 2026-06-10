@@ -941,8 +941,8 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="40%"
-  y="48%"
+  x={180}
+  y={170}
   textAnchor="middle"
   fill="#FFFFFF"
   fontSize="28"
@@ -952,8 +952,8 @@ margin={{
 </text>
 
 <text
-  x="40%"
-  y="58%"
+  x={180}
+  y={205}
   textAnchor="middle"
   fill="#94A3B8"
   fontSize="12"
@@ -964,8 +964,8 @@ margin={{
   data={zonaCaida}
   dataKey="total"
   nameKey="name"
-  cx="40%"
-  cy="50%"
+cx={180}
+  cy={180}
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1201,8 +1201,8 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="40%"
-  y="48%"
+  x={180}
+  y={170}
   textAnchor="middle"
   fill="#FFFFFF"
   fontSize="28"
@@ -1212,8 +1212,8 @@ margin={{
 </text>
 
 <text
-  x="40%"
-  y="58%"
+    x={180}
+  y={205}
   textAnchor="middle"
   fill="#94A3B8"
   fontSize="12"
@@ -1221,11 +1221,11 @@ margin={{
   Remates
 </text>
     <Pie
-  data={zonaCaida}
+  data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-  cx="40%"
-  cy="50%"
+cx={180}
+  cy={180}
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1263,8 +1263,8 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="40%"
-  y="48%"
+    x={180}
+  y={170}
   textAnchor="middle"
   fill="#FFFFFF"
   fontSize="28"
@@ -1274,8 +1274,8 @@ margin={{
 </text>
 
 <text
-  x="40%"
-  y="58%"
+  x={180}
+  y={205}
   textAnchor="middle"
   fill="#94A3B8"
   fontSize="12"
@@ -1286,8 +1286,8 @@ margin={{
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
-  cx="40%"
-  cy="50%"
+  cx={180}
+  cy={180}
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1326,8 +1326,8 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="40%"
-  y="48%"
+    x={180}
+  y={170}
   textAnchor="middle"
   fill="#FFFFFF"
   fontSize="28"
@@ -1337,8 +1337,8 @@ margin={{
 </text>
 
 <text
-  x="40%"
-  y="58%"
+  x={180}
+  y={205}
   textAnchor="middle"
   fill="#94A3B8"
   fontSize="12"
@@ -1349,8 +1349,8 @@ margin={{
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
-  cx="40%"
-  cy="50%"
+  cx={180}
+  cy={180}
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1710,8 +1710,8 @@ const words =
   <Chart>
     <PieChart>
       <text
-  x="40%"
-  y="48%"
+  x={180}
+  y={170}
   textAnchor="middle"
   fill="#FFFFFF"
   fontSize="28"
@@ -1721,8 +1721,8 @@ const words =
 </text>
 
 <text
-  x="40%"
-  y="58%"
+  x={180}
+  y={205}
   textAnchor="middle"
   fill="#94A3B8"
   fontSize="12"
@@ -1733,8 +1733,8 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  cx="40%"
-  cy="50%"
+  cx={180}
+  cy={180}
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
