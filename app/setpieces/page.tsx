@@ -142,7 +142,51 @@ function countBy(rows: Row[], key: keyof Row) {
 export default function Page() {
   const [isMobile, setIsMobile] =
   useState(false);
+function DonutCenterLabel({
+  value,
+  subtitle,
+  isMobile,
+}: {
+  value: string | number;
+  subtitle?: string;
+  isMobile: boolean;
+}) {
+  return (
+    <Label
+      content={({ viewBox }: any) => {
+        const { cx, cy } = viewBox;
 
+        return (
+          <g>
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#FFF"
+              fontSize={isMobile ? 22 : 28}
+              fontWeight="700"
+            >
+              {value}
+            </text>
+
+            {subtitle && (
+              <text
+                x={cx}
+                y={cy + 24}
+                textAnchor="middle"
+                fill="#94A3B8"
+                fontSize="12"
+              >
+                {subtitle}
+              </text>
+            )}
+          </g>
+        );
+      }}
+    />
+  );
+}
 const [isNarrow, setIsNarrow] =
   useState(false);
 
@@ -962,36 +1006,10 @@ margin={{
       )
     }
   >
-    <Label
-      content={({ viewBox }: any) => {
-        const { cx, cy } = viewBox;
-
-        return (
-          <g>
-            <text
-              x={cx}
-              y={cy - 8}
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontSize={isMobile ? 22 : 28}
-              fontWeight="700"
-            >
-              {filtered.length}
-            </text>
-
-            <text
-              x={cx}
-              y={cy + 24}
-              textAnchor="middle"
-              fill="#94A3B8"
-              fontSize="12"
-            >
-              ABP
-            </text>
-          </g>
-        );
-      }}
-    />
+    <DonutCenterLabel
+  value={filtered.length}
+  isMobile={isMobile}
+/>
 
     {zonaCaida.map((_, i) => (
       <Cell
@@ -1234,36 +1252,10 @@ outerRadius={
             />
           )
         )}
-        <Label
-      content={({ viewBox }: any) => {
-        const { cx, cy } = viewBox;
-
-        return (
-          <g>
-            <text
-              x={cx}
-              y={cy - 8}
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontSize={isMobile ? 22 : 28}
-              fontWeight="700"
-            >
-              {totalZonaRemate}
-            </text>
-
-            <text
-              x={cx}
-              y={cy + 24}
-              textAnchor="middle"
-              fill="#94A3B8"
-              fontSize="12"
-            >
-              Zonas
-            </text>
-          </g>
-        );
-      }}
-    />
+       <DonutCenterLabel
+  value={totalZonaRemate}
+  isMobile={isMobile}
+/>
       </Pie>
 
       <Tooltip />
@@ -1305,36 +1297,10 @@ outerRadius={
             />
           )
         )}
-        <Label
-      content={({ viewBox }: any) => {
-        const { cx, cy } = viewBox;
-
-        return (
-          <g>
-            <text
-              x={cx}
-              y={cy - 8}
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontSize={isMobile ? 22 : 28}
-              fontWeight="700"
-            >
-              {totalSegundoBalon}
-            </text>
-
-            <text
-              x={cx}
-              y={cy + 24}
-              textAnchor="middle"
-              fill="#94A3B8"
-              fontSize="12"
-            >
-              2º Balón
-            </text>
-          </g>
-        );
-      }}
-    />
+       <DonutCenterLabel
+  value={totalSegundoBalon}
+  isMobile={isMobile}
+/>
       </Pie>
 
       <Tooltip />
@@ -1376,36 +1342,10 @@ outerRadius={
             />
           )
         )}
-        <Label
-      content={({ viewBox }: any) => {
-        const { cx, cy } = viewBox;
-
-        return (
-          <g>
-            <text
-              x={cx}
-              y={cy - 8}
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontSize={isMobile ? 22 : 28}
-              fontWeight="700"
-            >
-              {totalTipoCarrera}
-            </text>
-
-            <text
-              x={cx}
-              y={cy + 24}
-              textAnchor="middle"
-              fill="#94A3B8"
-              fontSize="12"
-            >
-              Tipos
-            </text>
-          </g>
-        );
-      }}
-    />
+       <DonutCenterLabel
+  value={totalTipoCarrera}
+  isMobile={isMobile}
+/>
       </Pie>
 
       <Tooltip />
@@ -1766,36 +1706,11 @@ outerRadius={
   fill="#fff"
   fontSize={12}
 />
-<Label
-      content={({ viewBox }: any) => {
-        const { cx, cy } = viewBox;
-
-        return (
-          <g>
-            <text
-              x={cx}
-              y={cy - 8}
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontSize={isMobile ? 22 : 28}
-              fontWeight="700"
-            >
-              {metrics.conversion.toFixed(0)}%
-            </text>
-
-            <text
-              x={cx}
-              y={cy + 24}
-              textAnchor="middle"
-              fill="#94A3B8"
-              fontSize="12"
-            >
-              Conversión
-            </text>
-          </g>
-        );
-      }}
-    />
+<DonutCenterLabel
+  value={`${metrics.conversion.toFixed(0)}%`}
+  subtitle="Conversión"
+  isMobile={isMobile}
+/>
       </Pie>
 
       <Tooltip />
