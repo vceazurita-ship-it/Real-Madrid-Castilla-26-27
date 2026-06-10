@@ -945,9 +945,9 @@ margin={{
     <PieChart
   margin={{
     top: 20,
-    right: 140,
-    bottom: 20,
-    left: 20,
+    right: isMobile ? 10 : 140,
+    bottom: isMobile ? 80 : 20,
+    left: isMobile ? 10 : 20,
   }}
 >
   <Pie
@@ -1004,7 +1004,15 @@ margin={{
 
   <Tooltip />
 
-<Legend {...pieLegendProps} />
+<Legend
+  layout="horizontal"
+  verticalAlign="bottom"
+  align="center"
+  wrapperStyle={{
+    fontSize: 10,
+    lineHeight: "14px",
+  }}
+/>
 </PieChart>
   </Chart>
 </Panel>
@@ -1195,9 +1203,9 @@ margin={{
     <PieChart
   margin={{
     top: 20,
-    right: 140,
-    bottom: 20,
-    left: 20,
+    right: isMobile ? 10 : 140,
+    bottom: isMobile ? 80 : 20,
+    left: isMobile ? 10 : 20,
   }}
 >
       
@@ -1263,9 +1271,9 @@ value={totalZonaRemate}
     <PieChart
   margin={{
     top: 20,
-    right: 140,
-    bottom: 20,
-    left: 20,
+    right: isMobile ? 10 : 140,
+    bottom: isMobile ? 80 : 20,
+    left: isMobile ? 10 : 20,
   }}
 >
       
@@ -1330,9 +1338,9 @@ value={totalSegundoBalon}
     <PieChart
   margin={{
     top: 20,
-    right: 140,
-    bottom: 20,
-    left: 20,
+    right: isMobile ? 10 : 140,
+    bottom: isMobile ? 80 : 20,
+    left: isMobile ? 10 : 20,
   }}
 >
       
@@ -1718,9 +1726,9 @@ const words =
     <PieChart
   margin={{
     top: 20,
-    right: 140,
-    bottom: 20,
-    left: 20,
+    right: isMobile ? 10 : 140,
+    bottom: isMobile ? 80 : 20,
+    left: isMobile ? 10 : 20,
   }}
 >
       
