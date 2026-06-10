@@ -339,36 +339,39 @@ export default function Home() {
                   MÓDULOS
                 </p>
 
-                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3 xl:gap-6">
-                  {modules.map((item) => {
+<div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5 xl:gap-5">
+                    {modules.map((item) => {
                     const Icon = item.icon
 
                     return (
                      <Link  
   key={item.title}
   href={item.href}
-  className={`relative z-20 block cursor-pointer group rounded-[32px] border border-white/10 bg-gradient-to-br from-[#06111D] to-[#030914] p-7 transition duration-300 hover:scale-[1.015] ${glow(
-    item.glow
-  )}`}
+  className={`relative z-20 block cursor-pointer group rounded-[28px]
+border border-white/10
+bg-gradient-to-br from-[#06111D] to-[#030914]
+p-5
+transition duration-300 hover:scale-[1.02]
+${glow(item.glow)}`}
 >
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                           <div className="flex items-center gap-5">
-                            <div className="rounded-full border border-white/10 bg-white/[0.04] p-5">
-                              <Icon className="h-6 w-6" />
-                            </div>
+                            <div className="rounded-full border border-white/10 bg-white/[0.04] p-4">
+  <Icon className="h-5 w-5" />
+</div>
 
                             <div>
                               <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
                                 {item.section}
                               </p>
 
-                              <h3 className="mt-2 text-3xl font-semibold">
-                                {item.title}
-                              </h3>
+                              <h3 className="mt-2 text-xl font-semibold">
+  {item.title}
+</h3>
 
-                              <p className="mt-2 text-white/60">
-                                {item.desc}
-                              </p>
+                              <p className="mt-2 text-sm text-white/60">
+  {item.desc}
+</p>
                             </div>
                           </div>
 
