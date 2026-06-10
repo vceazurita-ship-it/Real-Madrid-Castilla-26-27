@@ -1003,10 +1003,10 @@ margin={{
     data={zonaCaida}
     dataKey="total"
     nameKey="name"
-    cx={isMobile ? "50%" : "40%"}
+    cx={isMobile ? "50%" : "35%"}
   cy="50%"
     innerRadius={isMobile ? 65 : 95}
-    outerRadius={isMobile ? 90 : 120}
+    outerRadius={isMobile ? 90 : 100}
     paddingAngle={4}
     cornerRadius={8}
     stroke="transparent"
@@ -1254,14 +1254,14 @@ margin={{
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-  cx={isMobile ? "50%" : "40%"}
+  cx={isMobile ? "50%" : "35%"}
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
 }
 
 outerRadius={
-  isMobile ? 90 : 120
+  isMobile ? 90 : 100
 }
   paddingAngle={4}
   cornerRadius={8}
@@ -1316,13 +1316,13 @@ outerRadius={
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
- cx={isMobile ? "50%" : "40%"}
+ cx={isMobile ? "50%" : "35%"}
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
 }
   outerRadius={
-  isMobile ? 90 : 120
+  isMobile ? 90 : 100
 }
   paddingAngle={4}
   cornerRadius={8}
@@ -1378,13 +1378,13 @@ outerRadius={
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
- cx={isMobile ? "50%" : "40%"}
+ cx={isMobile ? "50%" : "35%"}
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
 }
   outerRadius={
-  isMobile ? 90 : 120
+  isMobile ? 90 : 100
 }
   paddingAngle={4}
   cornerRadius={8}
@@ -1761,14 +1761,14 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  cx={isMobile ? "50%" : "40%"}
+  cx={isMobile ? "50%" : "35%"}
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
 }
 
 outerRadius={
-  isMobile ? 90 : 120
+  isMobile ? 90 : 100
 }
   paddingAngle={4}
   cornerRadius={8}
@@ -1776,12 +1776,7 @@ outerRadius={
 >
         <Cell fill="#10B981" />
         <Cell fill="#475569" />
-        <LabelList
-  dataKey="total"
-  position="inside"
-  fill="#fff"
-  fontSize={12}
-/>
+
 <DonutCenterLabel
   value={`${metrics.conversion.toFixed(0)}%`}
   subtitle="Conversión"
