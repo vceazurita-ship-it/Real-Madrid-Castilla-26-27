@@ -142,62 +142,6 @@ function countBy(rows: Row[], key: keyof Row) {
 export default function Page() {
   const [isMobile, setIsMobile] =
   useState(false);
-function DonutCenterLabel({
-  value,
-  subtitle,
-  isMobile,
-}: {
-  value: string | number;
-  subtitle?: string;
-  isMobile: boolean;
-}) {
-  return (
-    <Label
-      position="center"
-      content={({ viewBox }: any) => {
-        if (!viewBox) return null;
-
-        const cx =
-  typeof viewBox.cx === "number"
-    ? viewBox.cx
-    : 0;
-
-const cy =
-  typeof viewBox.cy === "number"
-    ? viewBox.cy
-    : 0;console.log(viewBox);
-
-        return (
-          <g>
-            <text
-              x={cx}
-              y={cy}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fill="#FFFFFF"
-              fontSize={isMobile ? 22 : 32}
-              fontWeight={700}
-            >
-              {value}
-            </text>
-
-            {subtitle && (
-              <text
-                x={cx}
-                y={cy + 26}
-                textAnchor="middle"
-                fill="#94A3B8"
-                fontSize={12}
-              >
-                {subtitle}
-              </text>
-            )}
-          </g>
-        );
-      }}
-    />
-  );
-}
 
 const [isNarrow, setIsNarrow] =
   useState(false);
@@ -1024,10 +968,11 @@ margin={{
           : data.name
       )
     }
-  >
-    <DonutCenterLabel
+  ><Label
   value={filtered.length}
-  isMobile={isMobile}
+  position="center"
+  fill="#fff"
+  fontSize={30}
 />
 
     {zonaCaida.map((_, i) => (
@@ -1287,10 +1232,13 @@ outerRadius={
             />
           )
         )}
-       <DonutCenterLabel
-  value={totalZonaRemate}
-  isMobile={isMobile}
-/><LabelList
+        <Label
+value={totalZonaRemate}
+  position="center"
+  fill="#fff"
+  fontSize={30}
+/>
+       <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1347,11 +1295,13 @@ outerRadius={
               }
             />
           )
-        )}
-       <DonutCenterLabel
-  value={totalSegundoBalon}
-  isMobile={isMobile}
-/><LabelList
+        )}        <Label
+value={totalSegundoBalon}
+  position="center"
+  fill="#fff"
+  fontSize={30}
+/>
+       <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1408,11 +1358,13 @@ outerRadius={
               }
             />
           )
-        )}
-       <DonutCenterLabel
-  value={totalTipoCarrera}
-  isMobile={isMobile}
-/><LabelList
+        )} <Label
+value={totalTipoCarrera}
+  position="center"
+  fill="#fff"
+  fontSize={30}
+/>
+       <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1783,12 +1735,12 @@ outerRadius={
 >
         <Cell fill="#10B981" />
         <Cell fill="#475569" />
-       
-<DonutCenterLabel
-  value={`${metrics.conversion.toFixed(0)}%`}
-  subtitle="Conversión"
-  isMobile={isMobile}
-/><LabelList
+   <Label
+value={`${metrics.conversion.toFixed(0)}%`}
+  position="center"
+  fill="#fff"
+  fontSize={30}
+/>    <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
