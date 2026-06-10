@@ -90,7 +90,7 @@ const modules = [
     glow: "violet",
   },
   {
-    href: "/synergies",
+    href: "/synergy",
     section: "RELACIONAL",
     title: "Sinergias",
     desc: "Interacciones funcionales y conexiones entre jugadores",
@@ -124,7 +124,7 @@ const modules = [
     glow: "blue",
   },
   {
-    href: "/abp-offensive",
+    href: "/setpieces",
     section: "ABP",
     title: "ABP Ofensivo",
     desc: "Análisis y optimización de acciones a balón parado ofensivas",
@@ -132,7 +132,7 @@ const modules = [
     glow: "cyan",
   },
   {
-    href: "/abp-defensive",
+    href: "/setpieces_def",
     section: "ABP",
     title: "ABP Defensivo",
     desc: "Control y rendimiento en acciones a balón parado defensivas",
