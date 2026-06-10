@@ -193,6 +193,20 @@ const [tipoAccionFilter, setTipoAccionFilter] =
   useState("ALL");
   const [tipoCarreraFilter, setTipoCarreraFilter] =
   useState("ALL");
+  const [defensaFilter, setDefensaFilter] =
+  useState("ALL");
+
+const [tipoEnvioFilter, setTipoEnvioFilter] =
+  useState("ALL");
+
+const [rematadorFilter, setRematadorFilter] =
+  useState("ALL");
+
+const [resultadoFilter, setResultadoFilter] =
+  useState("ALL");
+
+const [tipoAccionChartFilter, setTipoAccionChartFilter] =
+  useState("ALL");
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -263,6 +277,29 @@ const segundoBalonOk =
 const tipoCarreraOk =
   tipoCarreraFilter === "ALL" ||
   r.tipoCarrera === tipoCarreraFilter;
+  const defensaOk =
+  defensaFilter === "ALL" ||
+  r.defensaRival === defensaFilter;
+
+const tipoEnvioOk =
+  tipoEnvioFilter === "ALL" ||
+  r.tipoEnvio === tipoEnvioFilter;
+
+const rematadorOk =
+  rematadorFilter === "ALL" ||
+  r.rematador === rematadorFilter;
+
+const resultadoOk =
+  resultadoFilter === "ALL" ||
+  (
+    resultadoFilter === "Gol"
+      ? r.resultadoFinal
+          .toLowerCase()
+          .includes("gol")
+      : !r.resultadoFinal
+          .toLowerCase()
+          .includes("gol")
+  );
 
   return (
     jornadaOk &&
@@ -273,7 +310,11 @@ const tipoCarreraOk =
     zonaCaidaOk &&
     zonaRemateOk &&
     segundoBalonOk &&
-    tipoCarreraOk
+    tipoCarreraOk &&
+    defensaOk &&
+    tipoEnvioOk &&
+    rematadorOk &&
+    resultadoOk
   );
 });
 
@@ -298,7 +339,33 @@ const totalXg = filtered.reduce(
   (a, b) => a + b.xg,
   0
 );
-
+const activeFilters = [
+  {
+    label: "Zona caída",
+    value: zonaCaidaFilter,
+    clear: () => setZonaCaidaFilter("ALL"),
+  },
+  {
+    label: "Zona remate",
+    value: zonaRemateFilter,
+    clear: () => setZonaRemateFilter("ALL"),
+  },
+  {
+    label: "Segundo balón",
+    value: segundoBalonFilter,
+    clear: () => setSegundoBalonFilter("ALL"),
+  },
+  {
+    label: "Tipo carrera",
+    value: tipoCarreraFilter,
+    clear: () => setTipoCarreraFilter("ALL"),
+  },
+  {
+    label: "Defensa",
+    value: defensaFilter,
+    clear: () => setDefensaFilter("ALL"),
+  },
+];
 const metrics = {
   total: filtered.length,
 
@@ -812,16 +879,17 @@ const totalTipoCarrera =
   </div>
 </div>
 <div className="flex flex-wrap gap-2 mb-4">
-  {zonaCaidaFilter !== "ALL" && (
-    <button
-      onClick={() =>
-        setZonaCaidaFilter("ALL")
-      }
-      className="px-3 py-1 rounded-full bg-blue-500 text-white text-xs"
-    >
-      Zona caída: {zonaCaidaFilter} ✕
-    </button>
-  )}
+  {activeFilters
+    .filter(f => f.value !== "ALL")
+    .map(f => (
+      <button
+        key={f.label}
+        onClick={f.clear}
+        className="px-3 py-1 rounded-full bg-blue-500 text-white text-xs"
+      >
+        {f.label}: {f.value} ✕
+      </button>
+    ))}
 </div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
@@ -1125,6 +1193,13 @@ margin={{
       <Bar
         dataKey="xg"
         fill={COLORS.gold}
+        onClick={(data:any) =>
+    setRematadorFilter(
+      rematadorFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -1184,6 +1259,13 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.purple}
+         onClick={(data:any) =>
+    setTipoEnvioFilter(
+      tipoEnvioFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -1210,6 +1292,13 @@ margin={{
 >
       
     <Pie
+    onClick={(data:any) =>
+    setZonaRemateFilter(
+      zonaRemateFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
@@ -1278,6 +1367,13 @@ value={totalZonaRemate}
 >
       
       <Pie
+      onClick={(data:any) =>
+    setSegundoBalonFilter(
+      segundoBalonFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
@@ -1345,6 +1441,13 @@ value={totalSegundoBalon}
 >
       
       <Pie
+  onClick={(data:any) =>
+    setTipoCarreraFilter(
+      tipoCarreraFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
@@ -1437,6 +1540,13 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.purple}
+         onClick={(data:any) =>
+    setDefensaFilter(
+      defensaFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
         radius={[8, 8, 0, 0]}
       >
         <LabelList
@@ -1559,6 +1669,7 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.green}
+
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -1733,6 +1844,13 @@ const words =
 >
       
       <Pie
+       onClick={(data:any) =>
+    setResultadoFilter(
+      resultadoFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
   data={resultadoData}
   dataKey="total"
   nameKey="name"
