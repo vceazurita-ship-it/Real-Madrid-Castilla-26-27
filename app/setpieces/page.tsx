@@ -954,7 +954,7 @@ margin={{
     data={zonaCaida}
     dataKey="total"
     nameKey="name"
-    cx={isMobile ? "50%" : "40%"}
+    cx={isMobile ? "50%" : "37%"}
   cy="50%"
     innerRadius={isMobile ? 65 : 95}
     outerRadius={isMobile ? 90 : 120}
@@ -1206,7 +1206,7 @@ margin={{
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-  cx={isMobile ? "50%" : "40%"}
+  cx={isMobile ? "50%" : "37%"}
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
@@ -1271,7 +1271,7 @@ value={totalZonaRemate}
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
- cx={isMobile ? "50%" : "40%"}
+ cx={isMobile ? "50%" : "37%"}
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
@@ -1335,7 +1335,7 @@ value={totalSegundoBalon}
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
- cx={isMobile ? "50%" : "40%"}
+ cx={isMobile ? "50%" : "37%"}
   cy="50%"
   innerRadius={
   isMobile ? 65 : 95
@@ -1720,7 +1720,7 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  cx={isMobile ? "50%" : "40%"}
+  cx={isMobile ? "50%" : "37%"}
   cy="50%"
 innerRadius={
   isMobile ? 65 : 95
