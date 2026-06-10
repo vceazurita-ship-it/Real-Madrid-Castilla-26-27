@@ -38,11 +38,11 @@ const COLORS = {
 
 const PIE_COLORS = [
   "#C8A96B",
-  "#3B82F6",
-  "#8B5CF6",
-  "#10B981",
-  "#F97316",
-  "#EC4899",
+  "#D6B985",
+  "#E5CCA2",
+  "#8A6A35",
+  "#B8945B",
+  "#F1E4C8",
 ];
 
 type Row = {
