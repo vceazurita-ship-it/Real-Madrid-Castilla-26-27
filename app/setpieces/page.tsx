@@ -157,8 +157,15 @@ function DonutCenterLabel({
       content={({ viewBox }: any) => {
         if (!viewBox) return null;
 
-        const cx = viewBox.cx;
-        const cy = viewBox.cy;
+        const cx =
+  typeof viewBox.cx === "number"
+    ? viewBox.cx
+    : 0;
+
+const cy =
+  typeof viewBox.cy === "number"
+    ? viewBox.cy
+    : 0;console.log(viewBox);
 
         return (
           <g>
