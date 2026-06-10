@@ -1234,12 +1234,36 @@ outerRadius={
             />
           )
         )}
-        <LabelList
-  dataKey="total"
-  position="inside"
-  fill="#fff"
-  fontSize={12}
-/>
+        <Label
+      content={({ viewBox }: any) => {
+        const { cx, cy } = viewBox;
+
+        return (
+          <g>
+            <text
+              x={cx}
+              y={cy - 8}
+              textAnchor="middle"
+              fill="#FFFFFF"
+              fontSize={isMobile ? 22 : 28}
+              fontWeight="700"
+            >
+              {totalZonaRemate}
+            </text>
+
+            <text
+              x={cx}
+              y={cy + 24}
+              textAnchor="middle"
+              fill="#94A3B8"
+              fontSize="12"
+            >
+              Zonas
+            </text>
+          </g>
+        );
+      }}
+    />
       </Pie>
 
       <Tooltip />
@@ -1281,12 +1305,36 @@ outerRadius={
             />
           )
         )}
-        <LabelList
-  dataKey="total"
-  position="inside"
-  fill="#fff"
-  fontSize={12}
-/>
+        <Label
+      content={({ viewBox }: any) => {
+        const { cx, cy } = viewBox;
+
+        return (
+          <g>
+            <text
+              x={cx}
+              y={cy - 8}
+              textAnchor="middle"
+              fill="#FFFFFF"
+              fontSize={isMobile ? 22 : 28}
+              fontWeight="700"
+            >
+              {totalSegundoBalon}
+            </text>
+
+            <text
+              x={cx}
+              y={cy + 24}
+              textAnchor="middle"
+              fill="#94A3B8"
+              fontSize="12"
+            >
+              2º Balón
+            </text>
+          </g>
+        );
+      }}
+    />
       </Pie>
 
       <Tooltip />
@@ -1328,12 +1376,36 @@ outerRadius={
             />
           )
         )}
-        <LabelList
-  dataKey="total"
-  position="inside"
-  fill="#fff"
-  fontSize={12}
-/>
+        <Label
+      content={({ viewBox }: any) => {
+        const { cx, cy } = viewBox;
+
+        return (
+          <g>
+            <text
+              x={cx}
+              y={cy - 8}
+              textAnchor="middle"
+              fill="#FFFFFF"
+              fontSize={isMobile ? 22 : 28}
+              fontWeight="700"
+            >
+              {totalTipoCarrera}
+            </text>
+
+            <text
+              x={cx}
+              y={cy + 24}
+              textAnchor="middle"
+              fill="#94A3B8"
+              fontSize="12"
+            >
+              Tipos
+            </text>
+          </g>
+        );
+      }}
+    />
       </Pie>
 
       <Tooltip />
@@ -1694,6 +1766,36 @@ outerRadius={
   fill="#fff"
   fontSize={12}
 />
+<Label
+      content={({ viewBox }: any) => {
+        const { cx, cy } = viewBox;
+
+        return (
+          <g>
+            <text
+              x={cx}
+              y={cy - 8}
+              textAnchor="middle"
+              fill="#FFFFFF"
+              fontSize={isMobile ? 22 : 28}
+              fontWeight="700"
+            >
+              {metrics.conversion.toFixed(0)}%
+            </text>
+
+            <text
+              x={cx}
+              y={cy + 24}
+              textAnchor="middle"
+              fill="#94A3B8"
+              fontSize="12"
+            >
+              Conversión
+            </text>
+          </g>
+        );
+      }}
+    />
       </Pie>
 
       <Tooltip />
