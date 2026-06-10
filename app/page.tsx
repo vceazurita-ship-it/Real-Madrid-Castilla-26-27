@@ -90,7 +90,7 @@ const modules = [
     glow: "violet",
   },
   {
-    href: "/synergy",
+    href: "/sinergy",
     section: "RELACIONAL",
     title: "Sinergias",
     desc: "Interacciones funcionales y conexiones entre jugadores",
