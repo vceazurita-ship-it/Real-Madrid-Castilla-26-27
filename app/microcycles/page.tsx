@@ -765,86 +765,36 @@ return Object.entries(grouped)
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
 <Panel title="Perfil del Microciclo">
   <Chart>
-    <RadarChart
+<RadarChart
   cx="50%"
-  cy="50%"
-  outerRadius="80%"
+  cy="45%"
+  outerRadius={isMobile ? "58%" : "80%"}
   data={radarData}
 >
-  <PolarGrid
-  stroke="rgba(255,255,255,.12)"
-/>
+  <PolarGrid stroke="rgba(255,255,255,.12)" />
 
-<PolarAngleAxis
-  dataKey="metric"
-  tick={{
-    fill: "#E2E8F0",
-    fontSize: 13,
-    fontWeight: 500,
-  }}
-/>
-
-<PolarRadiusAxis
-  domain={[0, 10]}
-  tick={false}
-  axisLine={false}
-/>
- <Tooltip
-    content={({ active, payload }) => {
-      if (!active || !payload?.length)
-        return null;
-
-      const item = payload[0].payload;
-
-      const descriptions: Record<
-        string,
-        string
-      > = {
-        Evaluación:
-          "Valoración media de las tareas realizadas en el microciclo.",
-
-        Intensidad:
-          "Intensidad media normalizada respecto al microciclo más intenso registrado.",
-
-        "Carga/Tarea":
-          "Carga física media por tarea respecto al máximo histórico.",
-
-        "Cog/Tarea":
-          "Carga cognitiva media por tarea respecto al máximo histórico.",
-
-        Diversidad:
-          "Variedad de tipos de tarea utilizados durante el microciclo.",
-      };
-
-      return (
-        <div className="max-w-[260px] rounded-xl border border-white/10 bg-[#1A212B] p-4 shadow-xl">
-          <p className="font-semibold text-white">
-            {item.metric}
-          </p>
-
-          <p className="mt-1 text-[#C8A96B] font-semibold">
-            {item.value.toFixed(1)} / 10
-          </p>
-
-          <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-            {descriptions[item.metric]}
-          </p>
-        </div>
-      );
+  <PolarAngleAxis
+    dataKey="metric"
+    tick={{
+      fill: "#E2E8F0",
+      fontSize: isMobile ? 10 : 13,
+      fontWeight: 500,
     }}
   />
-<Radar
-  dataKey="value"
-  stroke={COLORS.gold}
-  strokeWidth={3}
-  fill={COLORS.gold}
-  fillOpacity={0.35}
-  dot={{
-    r: 4,
-    fill: COLORS.gold,
-    strokeWidth: 0,
-  }}
-/>
+
+  <PolarRadiusAxis
+    domain={[0, 10]}
+    tick={false}
+    axisLine={false}
+  />
+
+  <Radar
+    dataKey="value"
+    stroke={COLORS.gold}
+    strokeWidth={3}
+    fill={COLORS.gold}
+    fillOpacity={0.35}
+  />
 </RadarChart>
   </Chart>
 </Panel>
