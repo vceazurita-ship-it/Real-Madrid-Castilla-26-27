@@ -344,7 +344,7 @@ export default function Home() {
                     const Icon = item.icon
 
                     return (
-                     <Link
+                     <Link  
   key={item.title}
   href={item.href}
   className={`relative z-20 block cursor-pointer group rounded-[32px] border border-white/10 bg-gradient-to-br from-[#06111D] to-[#030914] p-7 transition duration-300 hover:scale-[1.015] ${glow(
