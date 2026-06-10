@@ -632,9 +632,8 @@ const totalTipoCarrera =
   wrapperStyle: {
     fontSize: 11,
     color: "#CBD5E1",
-    paddingTop: isNarrow
-      ? 20
-      : 0,
+    lineHeight: "18px",
+    paddingLeft: 20,
   },
 };
   return (
@@ -938,11 +937,11 @@ margin={{
     </BarChart>
   </Chart>
 </Panel>
-<Panel title="Zona caída">
+<Panel title="Zona de saque">
   <Chart>
     <PieChart>
       <text
-  x="50%"
+  x="40%"
   y="48%"
   textAnchor="middle"
   fill="#FFFFFF"
@@ -953,7 +952,7 @@ margin={{
 </text>
 
 <text
-  x="50%"
+  x="40%"
   y="58%"
   textAnchor="middle"
   fill="#94A3B8"
@@ -965,6 +964,8 @@ margin={{
   data={zonaCaida}
   dataKey="total"
   nameKey="name"
+  cx="40%"
+  cy="50%"
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1200,7 +1201,7 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="50%"
+  x="40%"
   y="48%"
   textAnchor="middle"
   fill="#FFFFFF"
@@ -1211,7 +1212,7 @@ margin={{
 </text>
 
 <text
-  x="50%"
+  x="40%"
   y="58%"
   textAnchor="middle"
   fill="#94A3B8"
@@ -1219,10 +1220,12 @@ margin={{
 >
   Remates
 </text>
-     <Pie
-  data={zonaRemateData}
+    <Pie
+  data={zonaCaida}
   dataKey="total"
   nameKey="name"
+  cx="40%"
+  cy="50%"
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1252,7 +1255,7 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
+     <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1260,7 +1263,7 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="50%"
+  x="40%"
   y="48%"
   textAnchor="middle"
   fill="#FFFFFF"
@@ -1271,7 +1274,7 @@ margin={{
 </text>
 
 <text
-  x="50%"
+  x="40%"
   y="58%"
   textAnchor="middle"
   fill="#94A3B8"
@@ -1283,6 +1286,8 @@ margin={{
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
+  cx="40%"
+  cy="50%"
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1312,7 +1317,7 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
+       <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1321,7 +1326,7 @@ margin={{
   <Chart>
     <PieChart>
       <text
-  x="50%"
+  x="40%"
   y="48%"
   textAnchor="middle"
   fill="#FFFFFF"
@@ -1332,7 +1337,7 @@ margin={{
 </text>
 
 <text
-  x="50%"
+  x="40%"
   y="58%"
   textAnchor="middle"
   fill="#94A3B8"
@@ -1344,6 +1349,8 @@ margin={{
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
+  cx="40%"
+  cy="50%"
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
@@ -1372,7 +1379,7 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
+      <Legend {...pieLegendProps} />
     </PieChart>
   </Chart>
 </Panel>
@@ -1703,7 +1710,7 @@ const words =
   <Chart>
     <PieChart>
       <text
-  x="50%"
+  x="40%"
   y="48%"
   textAnchor="middle"
   fill="#FFFFFF"
@@ -1714,7 +1721,7 @@ const words =
 </text>
 
 <text
-  x="50%"
+  x="40%"
   y="58%"
   textAnchor="middle"
   fill="#94A3B8"
@@ -1726,6 +1733,8 @@ const words =
   data={resultadoData}
   dataKey="total"
   nameKey="name"
+  cx="40%"
+  cy="50%"
   innerRadius={95}
   outerRadius={120}
   paddingAngle={4}
