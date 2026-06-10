@@ -184,6 +184,14 @@ const [tipoAccionFilter, setTipoAccionFilter] =
   useState("ALL");
   const [tiempo, setTiempo] =
   useState("ALL");
+  const [zonaCaidaFilter, setZonaCaidaFilter] =
+  useState("ALL");
+  const [zonaRemateFilter, setZonaRemateFilter] =
+  useState("ALL");
+  const [segundoBalonFilter, setSegundoBalonFilter] =
+  useState("ALL");
+  const [tipoCarreraFilter, setTipoCarreraFilter] =
+  useState("ALL");
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -239,13 +247,32 @@ const filtered = rows.filter((r) => {
       r.minuto < 60) ||
     (tiempo === "60-90" &&
       r.minuto >= 60);
+const zonaCaidaOk =
+  zonaCaidaFilter === "ALL" ||
+  r.zonaCaida === zonaCaidaFilter;
+
+const zonaRemateOk =
+  zonaRemateFilter === "ALL" ||
+  r.zonaRemate === zonaRemateFilter;
+
+const segundoBalonOk =
+  segundoBalonFilter === "ALL" ||
+  r.segundoBalon === segundoBalonFilter;
+
+const tipoCarreraOk =
+  tipoCarreraFilter === "ALL" ||
+  r.tipoCarrera === tipoCarreraFilter;
 
   return (
     jornadaOk &&
     rivalOk &&
     sacadorOk &&
     accionOk &&
-    tiempoOk
+    tiempoOk &&
+    zonaCaidaOk &&
+    zonaRemateOk &&
+    segundoBalonOk &&
+    tipoCarreraOk
   );
 });
 
@@ -753,23 +780,46 @@ const totalTipoCarrera =
     {[...new Set(filtered.map((r) => r.rival))]
       .sort()
       .map((equipo) => (
-        <span
-          key={equipo}
-          className="
-  px-3
-  py-1.5
-  rounded-full
-  border
-  border-white/10
-  bg-[#C8A96B]/10
-  text-[#C8A96B]
-  text-xs
-"
-        >
-          {equipo}
-        </span>
+        <button
+  key={equipo}
+  onClick={() =>
+    setRival(
+      rival === equipo
+        ? "ALL"
+        : equipo
+    )
+  }
+  className={`
+    px-3
+    py-1.5
+    rounded-full
+    border
+    text-xs
+    transition-all
+
+    ${
+      rival === equipo
+        ? "bg-[#C8A96B] text-black border-[#C8A96B]"
+        : "bg-[#C8A96B]/10 text-[#C8A96B] border-white/10 hover:bg-[#C8A96B]/20"
+    }
+  `}
+>
+  {equipo}
+</button>
       ))}
   </div>
+</div>
+<div className="flex flex-wrap gap-2 mb-4">
+  {zonaCaidaFilter !== "ALL" && (
+    <button
+      onClick={() =>
+        setZonaCaidaFilter("ALL")
+      }
+      className="px-3 py-1 rounded-full bg-blue-500 text-white text-xs"
+    >
+      Zona caída: {zonaCaidaFilter} ✕
+    </button>
+  )}
 </div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
@@ -920,6 +970,13 @@ margin={{
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
+  onClick={(data: any) =>
+    setZonaCaidaFilter(
+      zonaCaidaFilter === data.name
+        ? "ALL"
+        : data.name
+    )
+  }
 >
         {zonaCaida.map(
           (_, i) => (
@@ -944,7 +1001,16 @@ margin={{
 
       <Tooltip />
 
-      {/* <Legend {...pieLegendProps} /> */}
+      <Legend
+  {...pieLegendProps}
+  onClick={(entry: any) =>
+    setZonaCaidaFilter(
+      zonaCaidaFilter === entry.value
+        ? "ALL"
+        : entry.value
+    )
+  }
+/>
     </PieChart>
   </Chart>
 </Panel>
