@@ -18,6 +18,7 @@ import {
   Tooltip,
   LineChart,
   Line,
+  Label,
   CartesianGrid,
   PieChart,
   Pie,
@@ -617,17 +618,19 @@ const totalTipoCarrera =
       }
     );
    const pieLegendProps: Partial<LegendProps> = {
-  layout: isNarrow
+  layout: isMobile
     ? "horizontal"
     : "vertical",
 
-  verticalAlign: isNarrow
+  verticalAlign: isMobile
     ? "bottom"
     : "middle",
 
-  align: isNarrow
+  align: isMobile
     ? "center"
     : "right",
+
+  iconSize: 10,
 
   wrapperStyle: {
     fontSize: 11,
@@ -940,79 +943,79 @@ margin={{
 <Panel title="Zona de saque">
   <Chart>
     <PieChart>
-      <text
-  x={180}
-  y={170}
-  textAnchor="middle"
-  fill="#FFFFFF"
-  fontSize="28"
-  fontWeight="700"
->
-  {filtered.length}
-</text>
+  <Pie
+    data={zonaCaida}
+    dataKey="total"
+    nameKey="name"
+    cx="50%"
+    cy="50%"
+    innerRadius={isMobile ? 65 : 95}
+    outerRadius={isMobile ? 90 : 120}
+    paddingAngle={4}
+    cornerRadius={8}
+    stroke="transparent"
+    onClick={(data: any) =>
+      setZonaCaidaFilter(
+        zonaCaidaFilter === data.name
+          ? "ALL"
+          : data.name
+      )
+    }
+  >
+    <Label
+      content={({ viewBox }: any) => {
+        const { cx, cy } = viewBox;
 
-<text
-  x={180}
-  y={205}
-  textAnchor="middle"
-  fill="#94A3B8"
-  fontSize="12"
->
-  ABP
-</text>
-      <Pie
-  data={zonaCaida}
-  dataKey="total"
-  nameKey="name"
-cx={180}
-  cy={180}
-  innerRadius={95}
-  outerRadius={120}
-  paddingAngle={4}
-  cornerRadius={8}
-  stroke="transparent"
-  onClick={(data: any) =>
-    setZonaCaidaFilter(
-      zonaCaidaFilter === data.name
-        ? "ALL"
-        : data.name
-    )
-  }
->
-        {zonaCaida.map(
-          (_, i) => (
-            <Cell
-              key={i}
-              fill={
-                PIE_COLORS[
-                  i %
-                    PIE_COLORS.length
-                ]
-              }
-            />
-          )
-        )}
-        <LabelList
-  dataKey="total"
-  position="inside"
-  fill="#fff"
-  fontSize={12}
-/>
-      </Pie>
+        return (
+          <g>
+            <text
+              x={cx}
+              y={cy - 8}
+              textAnchor="middle"
+              fill="#FFFFFF"
+              fontSize={isMobile ? 22 : 28}
+              fontWeight="700"
+            >
+              {filtered.length}
+            </text>
 
-      <Tooltip />
+            <text
+              x={cx}
+              y={cy + 24}
+              textAnchor="middle"
+              fill="#94A3B8"
+              fontSize="12"
+            >
+              ABP
+            </text>
+          </g>
+        );
+      }}
+    />
 
-      <Legend
-  {...pieLegendProps}
-  onClick={(entry: any) =>
-    setZonaCaidaFilter(
-      zonaCaidaFilter === entry.value
-        ? "ALL"
-        : entry.value
-    )
-  }
-/>
-    </PieChart>
+    {zonaCaida.map((_, i) => (
+      <Cell
+        key={i}
+        fill={
+          PIE_COLORS[
+            i % PIE_COLORS.length
+          ]
+        }
+      />
+    ))}
+
+    <LabelList
+      dataKey="total"
+      position="inside"
+      fill="#fff"
+      fontSize={12}
+    />
+  </Pie>
+
+  <Tooltip />
+
+  <Legend {...pieLegendProps} />
+</PieChart>
   </Chart>
 </Panel>
 <Panel title="Impacto sacador">
@@ -1200,34 +1203,20 @@ margin={{
 <Panel title="Zona remate">
   <Chart>
     <PieChart>
-      <text
-  x={180}
-  y={170}
-  textAnchor="middle"
-  fill="#FFFFFF"
-  fontSize="28"
-  fontWeight="700"
->
-    {totalZonaRemate}
-</text>
-
-<text
-    x={180}
-  y={205}
-  textAnchor="middle"
-  fill="#94A3B8"
-  fontSize="12"
->
-  Remates
-</text>
+      
     <Pie
   data={zonaRemateData}
   dataKey="total"
   nameKey="name"
-cx={180}
-  cy={180}
-  innerRadius={95}
-  outerRadius={120}
+  cx="40%"
+  cy="50%"
+innerRadius={
+  isMobile ? 65 : 95
+}
+
+outerRadius={
+  isMobile ? 90 : 120
+}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1262,34 +1251,19 @@ cx={180}
 <Panel title="Segundo balón">
   <Chart>
     <PieChart>
-      <text
-    x={180}
-  y={170}
-  textAnchor="middle"
-  fill="#FFFFFF"
-  fontSize="28"
-  fontWeight="700"
->
-  {totalSegundoBalon}
-</text>
-
-<text
-  x={180}
-  y={205}
-  textAnchor="middle"
-  fill="#94A3B8"
-  fontSize="12"
->
-  Tipos
-</text>
+      
       <Pie
   data={segundoBalonData}
   dataKey="total"
   nameKey="name"
-  cx={180}
-  cy={180}
-  innerRadius={95}
-  outerRadius={120}
+  cx="40%"
+  cy="50%"
+  innerRadius={
+  isMobile ? 65 : 95
+}
+  outerRadius={
+  isMobile ? 90 : 120
+}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
@@ -1325,34 +1299,19 @@ cx={180}
 <Panel title="Tipo carrera">
   <Chart>
     <PieChart>
-      <text
-    x={180}
-  y={170}
-  textAnchor="middle"
-  fill="#FFFFFF"
-  fontSize="28"
-  fontWeight="700"
->
-{totalTipoCarrera}
-</text>
-
-<text
-  x={180}
-  y={205}
-  textAnchor="middle"
-  fill="#94A3B8"
-  fontSize="12"
->
-  Carreras
-</text>
+      
       <Pie
   data={tipoCarrera}
   dataKey="total"
   nameKey="name"
-  cx={180}
-  cy={180}
-  innerRadius={95}
-  outerRadius={120}
+  cx="40%"
+  cy="50%"
+  innerRadius={
+  isMobile ? 65 : 95
+}
+  outerRadius={
+  isMobile ? 90 : 120
+}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent">
@@ -1709,34 +1668,20 @@ const words =
 <Panel title="Conversión">
   <Chart>
     <PieChart>
-      <text
-  x={180}
-  y={170}
-  textAnchor="middle"
-  fill="#FFFFFF"
-  fontSize="28"
-  fontWeight="700"
->
-{metrics.conversion.toFixed(0)}%
-</text>
-
-<text
-  x={180}
-  y={205}
-  textAnchor="middle"
-  fill="#94A3B8"
-  fontSize="12"
->
-  Conversión
-</text>
+      
       <Pie
   data={resultadoData}
   dataKey="total"
   nameKey="name"
-  cx={180}
-  cy={180}
-  innerRadius={95}
-  outerRadius={120}
+  cx="40%"
+  cy="50%"
+innerRadius={
+  isMobile ? 65 : 95
+}
+
+outerRadius={
+  isMobile ? 90 : 120
+}
   paddingAngle={4}
   cornerRadius={8}
   stroke="transparent"
