@@ -190,7 +190,32 @@ const [perfil, setPerfil] =
 
 const [tiempo, setTiempo] =
   useState("ALL");
+  const [visualFilters, setVisualFilters] =
+  useState<{
+    tipoAccion?: string;
+    zonaCaida?: string;
+    perfilGolpeo?: string;
+    tipoRemate?: string;
+    tipoEnvio?: string;
+    zonaRemate?: string;
+    segundoBalon?: string;
+    tipoCarrera?: string;
+    resultadoFinal?: string;
+  }>({});
+function toggleFilter(
+  key: keyof typeof visualFilters,
+  value?: string
+) {
+  if (!value) return;
 
+  setVisualFilters((prev) => ({
+    ...prev,
+    [key]:
+      prev[key] === value
+        ? undefined
+        : value,
+  }));
+}
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -223,32 +248,63 @@ const perfiles = useMemo(
       .sort(),
   [rows]
 );
-const filtered = rows.filter(
-  (r) => {
-    const matchJornada =
-      jornada === "ALL" ||
-      String(r.jornada) === jornada;
+const filtered = rows.filter((r) => {
+  const matchJornada =
+    jornada === "ALL" ||
+    r.jornada === Number(jornada);
 
-    const matchRival =
-      rival === "ALL" ||
-      r.rival === rival;
+  const matchRival =
+    rival === "ALL" ||
+    r.rival === rival;
 
-    const matchPerfil =
-      perfil === "ALL" ||
-      r.perfil === perfil;
+  const matchPerfil =
+    perfil === "ALL" ||
+    r.perfil === perfil;
 
-const matchTiempo =
-  tiempo === "ALL" ||
-  r.tiempo === tiempo;
+  const matchTiempo =
+    tiempo === "ALL" ||
+    r.tiempo === tiempo;
 
-    return (
-      matchJornada &&
-      matchRival &&
-      matchPerfil &&
-      matchTiempo
-    );
-  }
-);
+  const matchVisualFilters =
+    (!visualFilters.tipoAccion ||
+      r.tipoAccion === visualFilters.tipoAccion) &&
+    (!visualFilters.zonaCaida ||
+      r.zonaCaida === visualFilters.zonaCaida) &&
+    (!visualFilters.perfilGolpeo ||
+      r.perfilGolpeo ===
+        visualFilters.perfilGolpeo) &&
+    (!visualFilters.tipoRemate ||
+      r.tipoRemate ===
+        visualFilters.tipoRemate) &&
+    (!visualFilters.tipoEnvio ||
+      r.tipoEnvio ===
+        visualFilters.tipoEnvio) &&
+    (!visualFilters.zonaRemate ||
+      r.zonaRemate ===
+        visualFilters.zonaRemate) &&
+    (!visualFilters.segundoBalon ||
+      r.segundoBalon ===
+        visualFilters.segundoBalon) &&
+    (!visualFilters.tipoCarrera ||
+      r.tipoCarrera ===
+        visualFilters.tipoCarrera) &&
+    (!visualFilters.resultadoFinal ||
+  (visualFilters.resultadoFinal === "Gol"
+    ? r.resultadoFinal
+        .toLowerCase()
+        .includes("gol")
+    : !r.resultadoFinal
+        .toLowerCase()
+        .includes("gol")))
+
+  return (
+    matchJornada &&
+    matchRival &&
+    matchPerfil &&
+    matchTiempo &&
+    matchVisualFilters
+  );
+});
 const equiposVisualizados = useMemo(
   () =>
     [...new Set(filtered.map((r) => r.rival))]
@@ -256,6 +312,7 @@ const equiposVisualizados = useMemo(
       .sort(),
   [filtered]
 );
+
   const metrics = {
     total: filtered.length,
 
@@ -534,6 +591,7 @@ const resultadoData = [
       : 0,
   },
 };
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -656,6 +714,33 @@ const resultadoData = [
     {equiposVisualizados.length}
     )
   </p>
+  <div className="flex flex-wrap gap-2 mt-4">
+  {Object.entries(
+    visualFilters
+  ).map(([key, value]) =>
+    value ? (
+      <button
+        key={key}
+        onClick={() =>
+          toggleFilter(
+            key as any,
+            value
+          )
+        }
+        className="
+          px-3 py-1
+          rounded-full
+          bg-[#C8A96B]
+          text-black
+          text-xs
+          font-semibold
+        "
+      >
+        {value} ✕
+      </button>
+    ) : null
+  )}
+</div>
 
   <div className="flex flex-wrap gap-2">
   {equiposVisualizados.map((equipo) => {
@@ -829,6 +914,12 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.gold}
+        onClick={(data) =>
+    toggleFilter(
+      "tipoAccion",
+      data.name
+    )
+  }
         radius={[8, 8, 0, 0]}
       >
         <LabelList
@@ -854,6 +945,12 @@ margin={{
     <PieChart>
       <Pie
         data={zonaCaida}
+        onClick={(data) =>
+    toggleFilter(
+      "zonaCaida",
+      data.name
+    )
+  }
         dataKey="total"
         nameKey="name"
         innerRadius={65}
@@ -931,6 +1028,12 @@ margin={{
       <Bar
         dataKey="xg"
         fill={COLORS.blue}
+        onClick={(data) =>
+    toggleFilter(
+      "perfilGolpeo",
+      data.name
+    )
+  }
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -995,6 +1098,12 @@ margin={{
       <Bar
         dataKey="xg"
         fill={COLORS.gold}
+        onClick={(data) =>
+  toggleFilter(
+    "tipoRemate",
+    data.name
+  )
+}
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -1054,6 +1163,12 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.purple}
+        onClick={(data) =>
+  toggleFilter(
+    "tipoEnvio",
+    data.name
+  )
+}
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -1073,6 +1188,12 @@ margin={{
     <PieChart>
       <Pie
         data={zonaRemateData}
+        onClick={(data) =>
+    toggleFilter(
+      "zonaRemate",
+      data.name
+    )
+  }
         dataKey="total"
         nameKey="name"
         innerRadius={60}
@@ -1104,6 +1225,12 @@ margin={{
     <PieChart>
       <Pie
         data={segundoBalonData}
+         onClick={(data) =>
+    toggleFilter(
+      "segundoBalon",
+      data.name
+    )
+  }
         dataKey="total"
         nameKey="name"
         innerRadius={60}
@@ -1136,6 +1263,12 @@ margin={{
     <PieChart>
       <Pie
         data={tipoCarrera}
+         onClick={(data) =>
+  toggleFilter(
+    "tipoCarrera",
+    data.name
+  )
+}
         dataKey="total"
         nameKey="name"
         innerRadius={60}
@@ -1412,6 +1545,14 @@ const words =
     <PieChart>
       <Pie
         data={resultadoData}
+         onClick={(data) =>
+    toggleFilter(
+      "resultadoFinal",
+      data.name === "Gol"
+        ? "Gol"
+        : "No Gol"
+    )
+  }
         dataKey="total"
         nameKey="name"
         innerRadius={60}
