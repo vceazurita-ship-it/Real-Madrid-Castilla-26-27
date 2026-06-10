@@ -341,6 +341,31 @@ const totalXg = filtered.reduce(
 );
 const activeFilters = [
   {
+    label: "Jornada",
+    value: jornada,
+    clear: () => setJornada("ALL"),
+  },
+  {
+    label: "Rival",
+    value: rival,
+    clear: () => setRival("ALL"),
+  },
+  {
+    label: "Sacador",
+    value: sacador,
+    clear: () => setSacador("ALL"),
+  },
+  {
+    label: "Tipo acción",
+    value: tipoAccionFilter,
+    clear: () => setTipoAccionFilter("ALL"),
+  },
+  {
+    label: "Tiempo",
+    value: tiempo,
+    clear: () => setTiempo("ALL"),
+  },
+  {
     label: "Zona caída",
     value: zonaCaidaFilter,
     clear: () => setZonaCaidaFilter("ALL"),
@@ -364,6 +389,21 @@ const activeFilters = [
     label: "Defensa",
     value: defensaFilter,
     clear: () => setDefensaFilter("ALL"),
+  },
+  {
+    label: "Tipo envío",
+    value: tipoEnvioFilter,
+    clear: () => setTipoEnvioFilter("ALL"),
+  },
+  {
+    label: "Rematador",
+    value: rematadorFilter,
+    clear: () => setRematadorFilter("ALL"),
+  },
+  {
+    label: "Resultado",
+    value: resultadoFilter,
+    clear: () => setResultadoFilter("ALL"),
   },
 ];
 const metrics = {
@@ -988,6 +1028,13 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.gold}
+        onClick={(data:any)=>
+  setTipoAccionFilter(
+    tipoAccionFilter === data.name
+      ? "ALL"
+      : data.name
+  )
+}
         radius={[8, 8, 0, 0]}
       >
         <LabelList
@@ -1129,6 +1176,13 @@ margin={{
       <Bar
         dataKey="xg"
         fill={COLORS.blue}
+        onClick={(data:any)=>
+  setSacador(
+    sacador === data.name
+      ? "ALL"
+      : data.name
+  )
+}
         radius={[0, 8, 8, 0]}
       >
         <LabelList
@@ -1725,6 +1779,13 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.blue}
+        onClick={(data:any)=>
+  setRival(
+    rival === data.name
+      ? "ALL"
+      : data.name
+  )
+}
         radius={[8, 8, 0, 0]}
       >
         <LabelList
@@ -1822,6 +1883,13 @@ const words =
       <Bar
         dataKey="total"
         fill={COLORS.green}
+        onClick={(data:any)=>
+  setZonaCaidaFilter(
+    zonaCaidaFilter === data.name
+      ? "ALL"
+      : data.name
+  )
+}
         radius={[0, 8, 8, 0]}
       >
         <LabelList
