@@ -462,7 +462,7 @@ const synergyLabel =
   </div>
 </div>
 
-<div className="-mb-2 text-[11px] text-white/65">
+<div className="mb-2 lg:-mb-2 text-[11px] text-white/65">
   Sinergia: {synergyScore.toFixed(1)} / 10
 </div>
 
