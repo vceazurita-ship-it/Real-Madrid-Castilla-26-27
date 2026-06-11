@@ -347,7 +347,11 @@ const scrollToVideo = () => {
     </main>
   );
 }
-
+type RadarSeriesItem = {
+  name: string;
+  color: string;
+  values: Player;
+};
 function RadarPanel({
   title,
   players,
@@ -368,7 +372,7 @@ function RadarPanel({
       ? selected
       : players.slice(0, horizontal ? 2 : 4);
 
-  const radarSeries = fallbackSelected
+  const radarSeries: RadarSeriesItem[] = fallbackSelected
     .map((name: string, index: number) => ({
       name,
       color: colors[index % colors.length],
@@ -396,13 +400,71 @@ function RadarPanel({
     });
 
     return row;
+
+    
   });
+ const synergyScore =
+  radarSeries.length === 0
+    ? 0
+    : radarSeries.reduce(
+        (acc, s) =>
+          acc +
+          (
+            s.values.ea +
+            s.values.ie +
+            s.values.ia +
+            s.values.ee
+          ) /
+            4,
+        0
+      ) / radarSeries.length;
+
+const radarTone =
+  synergyScore >= 8.5
+    ? "#3BEA9A"
+    : synergyScore >= 7.5
+    ? "#36DAFF"
+    : synergyScore >= 6.5
+    ? "#8D7CFF"
+    : "#FFB84D";
+
+const synergyLabel =
+  synergyScore >= 8.5
+    ? "ÉLITE"
+    : synergyScore >= 7.5
+    ? "ALTA"
+    : synergyScore >= 6.5
+    ? "MEDIA"
+    : "MEJORABLE";
 
   return (
-    <div className="rounded-[24px] bg-transparent p-3 sm:p-4 min-h-[255px]">
-      <div className="mb-2 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
-        {title}
-      </div>
+    <div
+  className="rounded-[24px] p-3 sm:p-4 min-h-[255px] border"
+  style={{
+    borderColor: `${radarTone}55`,
+    background: `radial-gradient(circle at center, ${radarTone}15 0%, transparent 75%)`,
+    boxShadow: `0 0 30px ${radarTone}20`,
+  }}
+>
+      <div className="mb-3 flex items-center justify-between">
+  <div className="text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
+    {title}
+  </div>
+
+  <div
+    className="rounded-full px-3 py-1 text-[10px] font-bold"
+    style={{
+      background: radarTone,
+      color: "#031018",
+    }}
+  >
+    {synergyLabel}
+  </div>
+</div>
+
+<div className="mb-3 text-[11px] text-white/65">
+  Sinergia: {synergyScore.toFixed(1)} / 10
+</div>
 
       <div className="flex flex-col gap-4 lg:flex-row h-full items-center">
         <select
@@ -464,7 +526,7 @@ function RadarPanel({
       left: 12,
     }}
   >
-            <PolarGrid stroke="#66d9ff28" />
+            <PolarGrid stroke={radarTone + "40"} />
 
             <PolarAngleAxis
   dataKey="key"
@@ -483,13 +545,13 @@ function RadarPanel({
 
             {radarSeries.map((s: any) => (
               <Radar
-                key={s.name}
-                dataKey={s.name}
-                stroke={s.color}
-                fill={s.color}
-                fillOpacity={0.16}
-                strokeWidth={2.8}
-              />
+  key={s.name}
+  dataKey={s.name}
+  stroke={s.color}
+  fill={radarTone}
+  fillOpacity={0.12}
+  strokeWidth={2.8}
+/>
             ))}
           </RadarChart>
         </div>
