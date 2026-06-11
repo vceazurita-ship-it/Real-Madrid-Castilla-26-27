@@ -518,7 +518,7 @@ const synergyLabel =
       : 270
   }
     data={chartData}
-    outerRadius="100%"
+    outerRadius="86%"
     margin={{
   top: -10,
   right: 12,
