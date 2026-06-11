@@ -446,7 +446,7 @@ const synergyLabel =
     boxShadow: `0 0 30px ${radarTone}20`,
   }}
 >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
   <div className="text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
     {title}
   </div>
@@ -462,7 +462,7 @@ const synergyLabel =
   </div>
 </div>
 
-<div className="mb-3 text-[11px] text-white/65">
+<div className="-mb-2 text-[11px] text-white/65">
   Sinergia: {synergyScore.toFixed(1)} / 10
 </div>
 
@@ -501,7 +501,7 @@ const synergyLabel =
           ))}
         </select>
 
-        <div className="w-full lg:flex-1 h-[220px] sm:h-[230px] flex items-center justify-center overflow-visible">
+        <div className="w-full lg:flex-1 h-[220px] sm:h-[230px] flex items-start justify-center overflow-visible">
   <RadarChart
   width={
     typeof window !== "undefined" &&
@@ -520,11 +520,11 @@ const synergyLabel =
     data={chartData}
     outerRadius="100%"
     margin={{
-      top: 22,
-      right: 12,
-      bottom: 22,
-      left: 12,
-    }}
+  top: -10,
+  right: 12,
+  bottom: 8,
+  left: 12,
+}}
   >
             <PolarGrid stroke={radarTone + "40"} />
 
