@@ -474,8 +474,24 @@ const synergyLabel =
   </div>
 </div>
 
-<div className="mb-2 lg:-mb-2 text-[11px] text-white/65">
-  Sinergia: {synergyScore.toFixed(1)} / 10
+<div className="rounded-full px-1.5 py-[2px] text-[8px] font-medium">
+  <span className="text-[11px] text-white/65">
+    Sinergia: {synergyScore.toFixed(1)} / 10
+  </span>
+
+  {fallbackSelected.map((player: string, i: number) => (
+    <span
+      key={player}
+      className="rounded-full px-2 py-0.5 text-[9px] font-medium"
+      style={{
+        background: colors[i % colors.length] + "25",
+        color: colors[i % colors.length],
+        border: `1px solid ${colors[i % colors.length]}40`,
+      }}
+    >
+      {player}
+    </span>
+  ))}
 </div>
 
       <div className="flex flex-col gap-4 lg:flex-row h-full items-center">
