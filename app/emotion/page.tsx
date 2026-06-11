@@ -501,7 +501,7 @@ const synergyLabel =
           ))}
         </select>
 
-        <div className="w-full lg:flex-1 h-[220px] sm:h-[230px] flex items-start justify-center overflow-visible">
+        <div className="w-full lg:flex-1 h-[210px] sm:h-[220px] flex items-start justify-center overflow-visible">
   <RadarChart
   width={
     typeof window !== "undefined" &&
@@ -512,11 +512,11 @@ const synergyLabel =
       : 310
   }
   height={
-    typeof window !== "undefined" &&
-    window.innerWidth < 1024
-      ? 220
-      : 270
-  }
+  typeof window !== "undefined" &&
+  window.innerWidth < 1024
+    ? 220
+    : 250
+}
     data={chartData}
     outerRadius="86%"
     margin={{
