@@ -95,32 +95,44 @@ const scrollToVideo = () => {
         const byName = (name: string) =>
           parsed.find((p) => p.jugador === name)?.jugador;
 
-        setDefense(
-          [
-            byName("Melvin"),
-            byName("Sotres"),
-            byName("Lezcano"),
-            byName("Ariel"),
-          ].filter(Boolean) as string[]
-        );
-
         setLeftSide(
-          [byName("Sotres"), byName("Leiva")].filter(Boolean) as string[]
-        );
+  [
+    byName("Leiva"),
+    byName("Sotres"),
+  ].filter(Boolean) as string[]
+);
 
-        setRightSide(
-          [byName("Melvin"), byName("Mesonero")].filter(Boolean) as string[]
-        );
+setDefense(
+  [
+    byName("Sotres"),
+    byName("Gines"),
+    byName("Lezcano"),
+    byName("Alex"),
+  ].filter(Boolean) as string[]
+);
 
-        setMidfield(
-          [byName("Lacosta"), byName("Manex"), byName("Rober")].filter(
-            Boolean
-          ) as string[]
-        );
+setRightSide(
+  [
+    byName("Gines"),
+    byName("Mesonero"),
+  ].filter(Boolean) as string[]
+);
 
-        setStrikers(
-          [byName("Rober"), byName("Jacobo")].filter(Boolean) as string[]
-        );
+setMidfield(
+  [
+    byName("Lacosta"),
+    byName("Beto"),
+    byName("Manex"),
+  ].filter(Boolean) as string[]
+);
+
+setStrikers(
+  [
+    byName("Arnu"),
+    byName("Manex"),
+  ].filter(Boolean) as string[]
+);
+      
       });
   }, []);
 
