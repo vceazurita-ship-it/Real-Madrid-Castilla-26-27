@@ -215,7 +215,7 @@ const scrollToVideo = () => {
                   getPlayer={getPlayer}
                 />
 
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:-mt-6">
                   <RadarPanel
                     title="Defensa"
                     players={names}
