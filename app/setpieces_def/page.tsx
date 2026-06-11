@@ -24,6 +24,7 @@ import {
   Cell,
   LabelList,
   Legend,
+  Label,
 } from "recharts";
 
 const CSV_URL =
@@ -953,9 +954,11 @@ margin={{
   }
         dataKey="total"
         nameKey="name"
-        innerRadius={65}
-        outerRadius={125}
-        paddingAngle={3}
+innerRadius={isMobile ? 65 : 95}
+outerRadius={isMobile ? 90 : 120}
+        paddingAngle={4}
+        cornerRadius={8}
+        stroke="transparent"
       >
         {zonaCaida.map(
           (_, i) => (
@@ -969,7 +972,13 @@ margin={{
               }
             />
           )
-        )} <LabelList
+        )}<Label
+  value={filtered.length}
+  position="center"
+  fill="#fff"
+  fontSize={isMobile ? 22 : 30}
+/>
+ <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1209,8 +1218,12 @@ margin={{
   }
         dataKey="total"
         nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
+        innerRadius={isMobile ? 65 : 95}
+        outerRadius={isMobile ? 90 : 120}
+        paddingAngle={4}
+        cornerRadius={8}
+        stroke="transparent"
+
       >
         {zonaRemateData.map(
           (_, i) => (
@@ -1224,7 +1237,17 @@ margin={{
               }
             />
           )
-        )} <LabelList
+        )} 
+        <Label
+ value={zonaRemateData.reduce(
+  (acc, item) => acc + item.total,
+  0
+)}
+  position="center"
+  fill="#fff"
+  fontSize={isMobile ? 22 : 30}
+/>
+<LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1258,8 +1281,12 @@ margin={{
   }
         dataKey="total"
         nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
+        innerRadius={isMobile ? 65 : 95}
+        outerRadius={isMobile ? 90 : 120}
+        paddingAngle={4}
+        cornerRadius={8}
+        stroke="transparent"
+
       >
         {segundoBalonData.map(
           (_, i) => (
@@ -1274,7 +1301,16 @@ margin={{
             />
           )
         )}
-      </Pie> <LabelList
+        <Label
+  value={segundoBalonData.reduce(
+  (acc, item) => acc + item.total,
+  0
+)}
+  position="center"
+  fill="#fff"
+  fontSize={isMobile ? 22 : 30}
+/>
+<LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1284,9 +1320,10 @@ margin={{
     dataKey="total"
     position="inside"
     fill="#fff"
-    fontSize={12}
+    fontSize={12}  
   />
 )}
+      </Pie> 
 
       <Tooltip />
 
@@ -1308,10 +1345,11 @@ margin={{
 }
         dataKey="total"
         nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
-        paddingAngle={3}
-      >
+        innerRadius={isMobile ? 65 : 95}
+        outerRadius={isMobile ? 90 : 120}
+        paddingAngle={4}
+        cornerRadius={8}
+        stroke="transparent">
         {tipoCarrera.map(
           (_, i) => (
             <Cell
@@ -1324,7 +1362,14 @@ margin={{
               }
             />
           )
-        )} <LabelList
+        )} 
+        <Label
+  value={filtered.length}
+  position="center"
+  fill="#fff"
+  fontSize={isMobile ? 22 : 30}
+/>
+<LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
@@ -1603,9 +1648,18 @@ const words =
     )}
         dataKey="total"
         nameKey="name"
-        innerRadius={60}
-        outerRadius={120}
-      > <LabelList
+innerRadius={isMobile ? 65 : 95}
+outerRadius={isMobile ? 90 : 120}
+        paddingAngle={4}
+        cornerRadius={8}
+        stroke="transparent"
+><Label
+  value={filtered.length}
+  position="center"
+  fill="#fff"
+  fontSize={isMobile ? 22 : 30}
+/> 
+<LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
