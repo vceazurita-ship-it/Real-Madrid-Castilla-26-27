@@ -474,8 +474,8 @@ const synergyLabel =
   </div>
 </div>
 
-<div className="rounded-full px-1.5 py-[2px] text-[8px] font-medium">
-  <span className="text-[11px] text-white/65">
+<div className="mb-2 lg:-mb-2 flex items-center flex-wrap gap-2">
+  <span className="text-[11px] text-white/65 shrink-0">
     Sinergia: {synergyScore.toFixed(1)} / 10
   </span>
 
