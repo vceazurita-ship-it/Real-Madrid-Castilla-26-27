@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Users, 
   Zap,
-} from "lucide-react"
+} from "lucide-react"  
 
 import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
