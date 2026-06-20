@@ -46,7 +46,7 @@ export function Topbar() {
 
             <Image
               src="/logo.png"
-              alt="Real Madrid C"
+              alt="Real Madrid Castilla"
               width={34}
               height={34}
               priority
@@ -56,7 +56,7 @@ export function Topbar() {
 
           <div>
             <p className="text-[10px] uppercase tracking-[0.28em] text-[#C8A96B] md:text-[11px] md:tracking-[0.35em]">
-              Real Madrid C
+              Real Madrid Castilla
             </p>
 
             <h2 className="mt-1 text-xl font-semibold tracking-tight text-white md:text-2xl">
@@ -76,7 +76,7 @@ export function Topbar() {
             </p>
 
             <p className="mt-1 text-sm font-medium text-white">
-              2025 — 2026
+                2026 — 2027
             </p>
 
           </div>
