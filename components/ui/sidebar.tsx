@@ -17,6 +17,8 @@ import {
   CalendarDays,
   Shield,
   PlayCircle,
+  Video,
+  Activity,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -121,11 +123,11 @@ const navLink = (
 
     {navLink(
       "/",
-      "Real Madrid CF C",
+      "Real Madrid Castilla",
       <Home size={18} />
     )}
   </div>
- {/* METODOLOGÍA */}
+{/* METODOLOGÍA */}
 <div>
   {!collapsed && (
     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
@@ -134,6 +136,19 @@ const navLink = (
   )}
 
   <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/game-model",
+      "Identidad de Juego",
+      <Brain size={18} />
+    )}
+
+    {navLink(
+      "/team-values",
+      "Dinámicas y Valores",
+      <Users size={18} />
+    )}
+
     {navLink(
       "/microcycles",
       "Microciclos",
@@ -145,20 +160,21 @@ const navLink = (
       "Planes de Partido",
       <PlayCircle size={18} />
     )}
+
   </div>
 </div>
-  {/* INDIVIDUAL */}
+  {/* ANALISIS PROPIO */}
   <div>
     {!collapsed && (
       <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-        Individual
+        Análisis Propio
       </p>
     )}
 
     <div className="space-y-2 text-sm">
       {navLink(
         "/individual",
-        "Evaluación",
+        "Individual",
         <User size={18} />
       )}
 
@@ -173,7 +189,17 @@ const navLink = (
         "Sinergias",
         <Users size={18} />
       )}
+      {navLink(
+  "/video-individual",
+  "Videoteca Individual",
+  <Video size={18} />
+)}
 
+{navLink(
+  "/video-collective",
+  "Videoteca Colectiva",
+  <Video size={18} />
+)}
       {navLink(
         "/comparative_ind",
         "Comparativo U-21",
@@ -181,7 +207,30 @@ const navLink = (
       )}
     </div>
   </div>
+{/* SCOUT RIVAL */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Scout Rival
+    </p>
+  )}
 
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/scout-rival-individual",
+      "Individual",
+      <User size={18} />
+    )}
+
+    {navLink(
+      "/scout-rival-collective",
+      "Colectivo",
+      <Users size={18} />
+    )}
+
+  </div>
+</div>
   {/* COLECTIVO */}
   <div>
     {!collapsed && (
@@ -215,6 +264,24 @@ const navLink = (
       )}
     </div>
   </div>
+  {/* ÁREA CONDICIONAL */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Rendimiento
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/performance",
+      "Área Condicional",
+      <Activity size={18} />
+    )}
+
+  </div>
+</div>
 </nav>
       </aside>
     </>
