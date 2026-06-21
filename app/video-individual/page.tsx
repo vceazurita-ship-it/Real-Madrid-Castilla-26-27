@@ -10,7 +10,7 @@ const clips = [
     match: "Castilla vs Atleti B",
     minute: "34'",
     tag: "Ataque",
-    video: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    video: "https://www.youtube.com/embed/_z7oXJK5woQ?si=34JD6fQxNltqlHMg",
   },
   {
     player: "Jugador Ejemplo",
@@ -18,7 +18,7 @@ const clips = [
     match: "Castilla vs Murcia",
     minute: "71'",
     tag: "Defensa",
-    video: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    video: "https://www.youtube.com/embed/_z7oXJK5woQ?si=34JD6fQxNltqlHMg",
   },
 ];
 
