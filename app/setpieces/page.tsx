@@ -4,6 +4,9 @@ import autoTable from "jspdf-autotable";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
+import { FileDown } from "lucide-react";
+import * as htmlToImage from "html-to-image";
+
 import {
   useEffect,
   useMemo,
@@ -141,7 +144,7 @@ function countBy(rows: Row[], key: keyof Row) {
 }
 
 export default function Page() {
-const downloadPDF = () => {
+const downloadPDF = async () => {
   const doc = new jsPDF("p", "mm", "a4");
 
   // ========= PORTADA =========
@@ -240,6 +243,53 @@ const downloadPDF = () => {
 
   doc.setFillColor(11, 15, 20);
   doc.rect(0, 0, 210, 297, "F");
+const chartIds = [
+  "grafico-tipo-accion",
+  "grafico-zona-saque",
+  "grafico-impacto-sacador",
+  "impacto-rematadores",
+  "grafico-xg-envio",
+  "grafico-zona-remate",
+  "grafico-segundo-balón",
+  "grafico-tipo-carrera",
+  "grafico-defensa-rival",
+  "grafico-timeline",
+  "grafico-xg-tipo-accion",
+  "grafico-rivales-xg-concedido",
+  "grafico-xg-caida",
+  "grafico-conversión",
+];
+
+let y = 80;
+
+for (const id of chartIds) {
+  const element = document.getElementById(id);
+
+  if (!element) continue;
+
+  const dataUrl =
+    await htmlToImage.toPng(element);
+
+  if (y > 220) {
+    doc.addPage();
+
+    doc.setFillColor(11, 15, 20);
+    doc.rect(0, 0, 210, 297, "F");
+
+    y = 20;
+  }
+
+  doc.addImage(
+    dataUrl,
+    "PNG",
+    10,
+    y,
+    190,
+    60
+  );
+
+  y += 70;
+}
 
   doc.setTextColor(200, 169, 107);
   doc.setFontSize(20);
@@ -322,6 +372,43 @@ const downloadPDF = () => {
     },
   });
 
+
+for (const id of chartIds) {
+  const element =
+    document.getElementById(id);
+
+  if (!element) continue;
+
+  const dataUrl =
+    await htmlToImage.toPng(
+      element
+    );
+
+  doc.addPage();
+
+  doc.setFillColor(
+    11,
+    15,
+    20
+  );
+
+  doc.rect(
+    0,
+    0,
+    210,
+    297,
+    "F"
+  );
+
+  doc.addImage(
+    dataUrl,
+    "PNG",
+    10,
+    20,
+    190,
+    120
+  );
+}
   doc.save(
     `ABP_Ofensivo_${
       new Date()
@@ -1156,20 +1243,6 @@ const totalTipoCarrera =
   <p className="text-sm text-zinc-400">
     Mejor sacador
   </p>
-<button
-  onClick={downloadPDF}
-  className="
-    rounded-xl
-    bg-[#C8A96B]
-    px-5
-    py-3
-    font-medium
-    text-black
-    hover:opacity-90
-  "
->
-  📄 Descargar Informe
-</button>
   <h3
     className="
       mt-4
@@ -1191,6 +1264,7 @@ const totalTipoCarrera =
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
 
               <Panel title="Tipo de acción">
+                <div id="grafico-tipo-accion">
   <Chart>
     <BarChart
       data={tipoAccion}
@@ -1257,8 +1331,11 @@ margin={{
       </Bar>
     </BarChart>
   </Chart>
+  </div>
 </Panel>
 <Panel title="Zona de saque">
+  <div id="grafico-zona-saque">
+
   <Chart>
     <PieChart
   margin={{
@@ -1332,9 +1409,11 @@ margin={{
   }}
 />
 </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Impacto sacador">
+  <div id="grafico-impacto-sacador">
+
   <Chart>
     <BarChart
       data={sacadorData}
@@ -1403,9 +1482,11 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Impacto rematadores">
+  <div id="impacto-rematadores">
+
   <Chart>
     <BarChart
       data={rematadoresData}
@@ -1469,9 +1550,11 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="xG por tipo envío">
+  <div id="grafico-xg-envio">
+
   <Chart>
     <BarChart
       data={tipoEnvioData}
@@ -1535,9 +1618,11 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Zona remate">
+  <div id="grafico-zona-remate">
+
   <Chart>
     <PieChart
   margin={{
@@ -1610,9 +1695,11 @@ value={totalZonaRemate}
 
 <Legend {...pieLegendProps} />
  </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Segundo balón">
+  <div id="grafico-segundo-balón">
+
   <Chart>
     <PieChart
   margin={{
@@ -1683,10 +1770,12 @@ value={totalSegundoBalon}
 
 <Legend {...pieLegendProps} />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 
 <Panel title="Tipo carrera">
+  <div id="grafico-tipo-carrera">
+
   <Chart>
     <PieChart
   margin={{
@@ -1756,9 +1845,11 @@ value={totalTipoCarrera}
 
  <Legend {...pieLegendProps} />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Defensa rival">
+  <div id="grafico-defensa-rival">
+
   <Chart>
     <BarChart
       data={defensa}
@@ -1816,9 +1907,11 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Timeline">
+  <div id="grafico-timeline">
+
   <Chart>
     <LineChart
       data={timeline}
@@ -1876,9 +1969,11 @@ margin={{
         />
       </Line>
     </LineChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="xG por tipo de acción">
+  <div id="grafico-xg-tipo-accion">
+
   <Chart>
     <BarChart
       data={xgByTipoAccion}
@@ -1944,10 +2039,12 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 
 <Panel title="Top rivales por xG concedido">
+  <div id="grafico-rivales-xg-concedido">
+
   <Chart>
     <BarChart
       data={rivalesData}
@@ -1997,9 +2094,11 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="xG por zona caida">
+  <div id="grafico-xg-caida">
+
   <Chart>
  <BarChart
   data={xgZonaCaida}
@@ -2101,9 +2200,11 @@ const words =
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Conversión">
+  <div id="grafico-conversión">
+
   <Chart>
     <PieChart
   margin={{
@@ -2164,7 +2265,7 @@ value={`${metrics.conversion.toFixed(0)}%`}
 
       <Legend />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 
             </div>
@@ -2172,6 +2273,32 @@ value={`${metrics.conversion.toFixed(0)}%`}
           </section>
         </div>
       </div>
+      <button
+  onClick={downloadPDF}
+  className="
+    fixed
+    top-24
+    right-5
+    z-50
+
+    h-12
+    w-12
+
+    rounded-full
+    bg-[#C8A96B]
+    text-black
+
+    flex
+    items-center
+    justify-center
+
+    shadow-xl
+    hover:scale-105
+    transition-all
+  "
+>
+  <FileDown size={18} />
+</button>
     </main>
   );
 }
