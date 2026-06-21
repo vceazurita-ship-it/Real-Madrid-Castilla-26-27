@@ -192,7 +192,7 @@ const players: Player[] = [
     name: "Alexis Ciria",
     position: "Centrocampista",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALEXIS_CIRIA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/ALEXIS-CIRIA_JT10268_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     name: "Á. Leiva",
