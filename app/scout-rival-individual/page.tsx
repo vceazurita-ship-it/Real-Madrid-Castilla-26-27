@@ -50,10 +50,15 @@ type Player = {
   interpretacion?: number;
   capacidadFisica?: number;
   tecnica?: number;
+
+  source?: string
+  playerId?: string
 };
 
 const players: Player[] = [
   {
+    source: "wyscout",
+    playerId: "test-player",
     name: "F. Quetglas",
     position: "Portero",
     photo:
@@ -387,7 +392,7 @@ function CarouselRow({
   );
 }
 
-export default function IndividualPage() {
+export default function ScoutRivalIndividual() {
   const [search, setSearch] =
     useState("");
 
@@ -537,12 +542,12 @@ useEffect(() => {
             <div className="p-4 sm:p-6 lg:p-10">
                <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                                RMC INDIVIDUAL
+                                RM Castilla SCOUT
               </p>
 
               <div className="mt-4 flex flex-col items-start gap-4 lg:flex-row lg:items-center">
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">
-                 Evaluación
+                  Individual
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
@@ -803,7 +808,7 @@ useEffect(() => {
             {/* FORTALEZAS */}
             <div>
               <h3 className="mb-3 text-[#C8A96B]">
-                Fortalezas
+                Puntos Fuertes
               </h3>
 
               <p className="mb-4 text-gray-300">
@@ -891,7 +896,7 @@ useEffect(() => {
             {/* MEJORA */}
             <div>
               <h3 className="mb-3 text-[#C8A96B]">
-                Áreas de mejora
+                Vulnerabilidades
               </h3>
 
               <p className="mb-4 text-gray-300">
