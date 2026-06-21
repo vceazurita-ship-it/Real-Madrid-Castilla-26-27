@@ -532,12 +532,12 @@ useEffect(() => {
             <div className="p-4 sm:p-6 lg:p-10">
                <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                                RMC INDIVIDUAL
+                                RMCF CASTILLA INDIVIDUAL
               </p>
 
               <div className="mt-4 flex flex-col items-start gap-4 lg:flex-row lg:items-center">
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight">
-                 Evaluación
+                 Seguimiento
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
