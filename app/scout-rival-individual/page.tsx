@@ -12,6 +12,7 @@ export default function VideoIndividual() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [rivalFilter, setRivalFilter] = useState("");
+  const [teamFilter, setTeamFilter] = useState("");
 
   useEffect(() => {
     Papa.parse(
@@ -56,13 +57,18 @@ export default function VideoIndividual() {
       !rivalFilter ||
       clip.Rival === rivalFilter;
 
+     const teamMatch =
+  !teamFilter ||
+  clip.Equipo === teamFilter;
+
     return (
-      playerMatch &&
-      positionMatch &&
-      categoryMatch &&
-      subCategoryMatch &&
-      rivalMatch
-    );
+  playerMatch &&
+  positionMatch &&
+  categoryMatch &&
+  subCategoryMatch &&
+  rivalMatch &&
+  teamMatch
+);
   })
   .sort((a, b) => {
     if (!a.Fecha || !b.Fecha) return 0;
@@ -233,6 +239,34 @@ export default function VideoIndividual() {
       </option>
     ))}
 </select>
+<select
+  value={teamFilter}
+  onChange={(e) =>
+    setTeamFilter(e.target.value)
+  }
+  className="
+    rounded-xl
+    border border-white/10
+    bg-[#111827]
+    px-4 py-3
+  "
+>
+  <option value="">
+    Todos los equipos
+  </option>
+
+  {[
+    ...new Set(
+      clips.map((c) => c.Equipo)
+    ),
+  ]
+    .filter(Boolean)
+    .map((team: any) => (
+      <option key={team}>
+        {team}
+      </option>
+    ))}
+</select>
               <div
                 className="
                   flex
@@ -272,7 +306,9 @@ export default function VideoIndividual() {
                       <h3 className="text-lg font-semibold">
                         {clip.Jugador}
                       </h3>
-
+                      <p className="text-sm text-[#C8A96B]">
+                      {clip.Equipo}
+                    </p>
                       <p className="text-sm text-white/50">
                         {clip["Posición"]}
                       </p>
@@ -313,6 +349,12 @@ export default function VideoIndividual() {
                       </span>{" "}
                       {clip.Fecha}
                     </p>
+                    <p className="text-sm">
+  <span className="text-white/40">
+    Equipo:
+  </span>{" "}
+  {clip.Equipo || "-"}
+</p>
                     <p className="text-sm">
   <span className="text-white/40">
     Rival:
