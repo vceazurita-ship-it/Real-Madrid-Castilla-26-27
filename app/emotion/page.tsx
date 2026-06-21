@@ -97,39 +97,39 @@ const scrollToVideo = () => {
 
         setLeftSide(
   [
-    byName("LEIVA"),
-    byName("SOTRES"),
+    byName("Diego Aguado"),
+    byName("Alexis Ciria"),
   ].filter(Boolean) as string[]
 );
 
 setDefense(
   [
-    byName("SOTRES"),
-    byName("GINÉS"),
-    byName("LEZCANO"),
-    byName("ALEX"),
+    byName("Diego Aguado"),
+    byName("Mario Rivas"),
+    byName("Joan Martínez"),
+    byName("Fortea"),
   ].filter(Boolean) as string[]
 );
 
 setRightSide(
   [
-    byName("GINÉS"),
-    byName("MESO"),
+    byName("Fortea"),
+    byName("Yáñez"),
   ].filter(Boolean) as string[]
 );
 
 setMidfield(
   [
-    byName("LACOSTA"),
-    byName("BETO"),
-    byName("MANEX"),
+    byName("Cestero"),
+    byName("Thiago"),
+    byName("Pol Fortuny"),
   ].filter(Boolean) as string[]
 );
 
 setStrikers(
   [
-    byName("ARNU"),
-    byName("MANEX"),
+    byName("Rachad"),
+    byName("Pol Fortuny"),
   ].filter(Boolean) as string[]
 );
       
