@@ -10,6 +10,8 @@ export default function VideoIndividual() {
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
+  const [rivalFilter, setRivalFilter] = useState("");
 
   useEffect(() => {
     Papa.parse(
@@ -32,7 +34,8 @@ export default function VideoIndividual() {
     );
   }, []);
 
-  const filteredClips = clips.filter((clip) => {
+  const filteredClips = [...clips]
+  .filter((clip) => {
     const playerMatch = clip.Jugador
       ?.toLowerCase()
       .includes(search.toLowerCase());
@@ -45,11 +48,32 @@ export default function VideoIndividual() {
       !categoryFilter ||
       clip["Categoría"] === categoryFilter;
 
+    const subCategoryMatch =
+      !subCategoryFilter ||
+      clip["Subcategoría"] === subCategoryFilter;
+
+    const rivalMatch =
+      !rivalFilter ||
+      clip.Rival === rivalFilter;
+
     return (
       playerMatch &&
       positionMatch &&
-      categoryMatch
+      categoryMatch &&
+      subCategoryMatch &&
+      rivalMatch
     );
+  })
+  .sort((a, b) => {
+    if (!a.Fecha || !b.Fecha) return 0;
+
+    const [da, ma, ya] = a.Fecha.split("/");
+    const [db, mb, yb] = b.Fecha.split("/");
+
+    const dateA = new Date(`${ya}-${ma}-${da}`);
+    const dateB = new Date(`${yb}-${mb}-${db}`);
+
+    return dateB.getTime() - dateA.getTime();
   });
 
   return (
@@ -67,14 +91,14 @@ export default function VideoIndividual() {
             </p>
 
             <h1 className="mt-2 text-4xl font-bold">
-              Videoteca Propia · Individual
+              Propia · Individual
             </h1>
 
             <p className="mt-3 text-white/60">
-              Biblioteca de clips individuales conectada a Google Sheets.
+              Texto explicativo
             </p>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-4">
+            <div className="mt-8 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
 
               <input
                 type="text"
@@ -150,7 +174,65 @@ export default function VideoIndividual() {
                   </option>
                 ))}
               </select>
+                <select
+  value={subCategoryFilter}
+  onChange={(e) =>
+    setSubCategoryFilter(e.target.value)
+  }
+  className="
+    rounded-xl
+    border border-white/10
+    bg-[#111827]
+    px-4 py-3
+  "
+>
+  <option value="">
+    Todas las subcategorías
+  </option>
 
+  {[
+    ...new Set(
+      clips.map(
+        (c) => c["Subcategoría"]
+      )
+    ),
+  ]
+    .filter(Boolean)
+    .map((s: any) => (
+      <option key={s}>
+        {s}
+      </option>
+    ))}
+</select>
+
+<select
+  value={rivalFilter}
+  onChange={(e) =>
+    setRivalFilter(e.target.value)
+  }
+  className="
+    rounded-xl
+    border border-white/10
+    bg-[#111827]
+    px-4 py-3
+  "
+>
+  <option value="">
+    Todos los rivales
+  </option>
+
+  {[
+    ...new Set(
+      clips.map((c) => c.Rival)
+    ),
+  ]
+    .filter(Boolean)
+    .map((r: any) => (
+      <option key={r}>
+        {r}
+      </option>
+    ))}
+</select>
               <div
                 className="
                   flex
@@ -231,6 +313,12 @@ export default function VideoIndividual() {
                       </span>{" "}
                       {clip.Fecha}
                     </p>
+                    <p className="text-sm">
+  <span className="text-white/40">
+    Rival:
+  </span>{" "}
+  {clip.Rival || "-"}
+</p>
 
                   </div>
 
