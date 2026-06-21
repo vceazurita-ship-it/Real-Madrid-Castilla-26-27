@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { DataProvider } from "@/app/contexts/data-context";
 import { AIProvider } from "@/app/contexts/ai-context";
 
 const geistSans = Geist({
@@ -42,6 +43,9 @@ export default function RootLayout({
   <AIProvider>
     {children}
   </AIProvider>
+   <DataProvider>
+    {children}
+  </DataProvider>
 </body>
     </html>
   );
