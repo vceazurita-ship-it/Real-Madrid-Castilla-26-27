@@ -91,11 +91,11 @@ export default function VideoIndividual() {
             </p>
 
             <h1 className="mt-2 text-4xl font-bold">
-              Propia · Individual
+              Scout · Individual
             </h1>
 
             <p className="mt-3 text-white/60">
-              Biblioteca de clips individuales del Real Madrid Castilla.
+              Biblioteca de clips individuales Rivales.
             </p>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3 xl:grid-cols-6">

@@ -25,7 +25,7 @@ export default function VideoIndividual() {
           const collective = (results.data as any[]).filter(
           (row) =>
             row.Tipo === "Propio" &&
-            row.Nivel === "Colectivo"
+            row.Nivel === "Colectivo" || row.Nivel === "Sectorial" ||  row.Nivel === "Lineal" 
         );
 
         setClips(collective);
