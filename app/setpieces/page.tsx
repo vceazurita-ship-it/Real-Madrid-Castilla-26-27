@@ -1,5 +1,6 @@
 "use client";
-
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
@@ -140,6 +141,195 @@ function countBy(rows: Row[], key: keyof Row) {
 }
 
 export default function Page() {
+const downloadPDF = () => {
+  const doc = new jsPDF("p", "mm", "a4");
+
+  // ========= PORTADA =========
+
+  doc.setFillColor(11, 15, 20);
+  doc.rect(0, 0, 210, 297, "F");
+
+  doc.setTextColor(200, 169, 107);
+  doc.setFontSize(28);
+  doc.text("ABP OFENSIVO", 15, 30);
+
+  doc.setFontSize(14);
+  doc.text("Informe Automático", 15, 40);
+
+  doc.setDrawColor(200, 169, 107);
+  doc.line(15, 45, 120, 45);
+
+  doc.setTextColor(255, 255, 255);
+
+  doc.setFontSize(11);
+
+  doc.text(
+    `Fecha: ${new Date().toLocaleDateString()}`,
+    15,
+    60
+  );
+
+  doc.text(
+    `ABP Analizadas: ${metrics.total}`,
+    15,
+    68
+  );
+
+  doc.text(
+    `xG Total: ${metrics.xg.toFixed(2)}`,
+    15,
+    76
+  );
+
+  doc.text(
+    `Remates: ${metrics.shots}`,
+    15,
+    84
+  );
+
+  doc.text(
+    `Goles: ${metrics.goals}`,
+    15,
+    92
+  );
+
+  doc.text(
+    `Conversión: ${metrics.conversion.toFixed(
+      1
+    )}%`,
+    15,
+    100
+  );
+
+  // ========= FILTROS =========
+
+  const filtros = activeFilters
+    .filter((f) => f.value !== "ALL")
+    .map((f) => `${f.label}: ${f.value}`);
+
+  doc.setFontSize(12);
+  doc.setTextColor(200, 169, 107);
+
+  doc.text(
+    "Filtros aplicados",
+    15,
+    120
+  );
+
+  doc.setTextColor(255, 255, 255);
+
+  if (filtros.length) {
+    filtros.forEach((f, i) => {
+      doc.text(
+        `• ${f}`,
+        20,
+        130 + i * 7
+      );
+    });
+  } else {
+    doc.text(
+      "Sin filtros",
+      20,
+      130
+    );
+  }
+
+  // ========= NUEVA PÁGINA =========
+
+  doc.addPage();
+
+  doc.setFillColor(11, 15, 20);
+  doc.rect(0, 0, 210, 297, "F");
+
+  doc.setTextColor(200, 169, 107);
+  doc.setFontSize(20);
+
+  doc.text(
+    "Resumen Ejecutivo",
+    15,
+    20
+  );
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+
+  doc.text(
+    `El equipo genera ${metrics.xg.toFixed(
+      2
+    )} xG en ${
+      metrics.total
+    } acciones ABP ofensivas.`,
+    15,
+    35
+  );
+
+  doc.text(
+    `Conversión actual: ${metrics.conversion.toFixed(
+      1
+    )}%`,
+    15,
+    45
+  );
+
+  doc.text(
+    `Mejor sacador: ${
+      sacadorData[0]?.name || "-"
+    }`,
+    15,
+    55
+  );
+
+  doc.text(
+    `xG generado por acción: ${metrics.xgAccion.toFixed(
+      2
+    )}`,
+    15,
+    65
+  );
+
+  // ========= TABLA =========
+
+  autoTable(doc, {
+    startY: 85,
+
+    head: [[
+      "Rival",
+      "Sacador",
+      "Acción",
+      "Zona",
+      "Remate",
+      "xG"
+    ]],
+
+    body: filtered.map((r) => [
+      r.rival,
+      r.sacador,
+      r.tipoAccion,
+      r.zonaCaida,
+      r.tipoRemate,
+      r.xg.toFixed(2),
+    ]),
+
+    styles: {
+      fillColor: [17, 24, 39],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+    },
+
+    headStyles: {
+      fillColor: [200, 169, 107],
+      textColor: [0, 0, 0],
+    },
+  });
+
+  doc.save(
+    `ABP_Ofensivo_${
+      new Date()
+        .toISOString()
+        .slice(0, 10)
+    }.pdf`
+  );
+};
   const [isMobile, setIsMobile] =
   useState(false);
 
@@ -966,7 +1156,20 @@ const totalTipoCarrera =
   <p className="text-sm text-zinc-400">
     Mejor sacador
   </p>
-
+<button
+  onClick={downloadPDF}
+  className="
+    rounded-xl
+    bg-[#C8A96B]
+    px-5
+    py-3
+    font-medium
+    text-black
+    hover:opacity-90
+  "
+>
+  📄 Descargar Informe
+</button>
   <h3
     className="
       mt-4
