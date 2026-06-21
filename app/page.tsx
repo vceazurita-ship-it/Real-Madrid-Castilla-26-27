@@ -205,7 +205,7 @@ export default function Home() {
                     <br />
                     {" "}
                     <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
-                      RMC
+                      RMCF Castilla
                     </span>{" "}
                     
                   </h1>
