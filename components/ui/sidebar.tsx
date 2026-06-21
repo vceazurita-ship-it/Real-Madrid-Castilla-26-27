@@ -18,6 +18,7 @@ import {
   Shield,
   PlayCircle,
   Video,
+  ClipboardCheck,
   Activity,
 } from "lucide-react"
 import type { ReactNode } from "react"
@@ -127,6 +128,24 @@ const navLink = (
       <Home size={18} />
     )}
   </div>
+  {/* COMPETICIÓN */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Competición
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/match-preparation",
+      "Preparación de Partido",
+      <ClipboardCheck  size={18} />
+    )}
+
+  </div>
+</div>
 {/* METODOLOGÍA */}
 <div>
   {!collapsed && (
