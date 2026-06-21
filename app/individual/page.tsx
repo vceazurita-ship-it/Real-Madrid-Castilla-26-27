@@ -22,7 +22,7 @@ import {
 const VISIBLE_CARDS = 4;
 
 const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=787003064&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=787003064&single=true&output=csv";
 
 const DEFAULT_STRENGTH =
   "Buen rendimiento general en acciones clave del juego. Destaca por su capacidad de interpretar situaciones y competir con intensidad.";
