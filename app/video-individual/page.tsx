@@ -95,7 +95,7 @@ export default function VideoIndividual() {
             </h1>
 
             <p className="mt-3 text-white/60">
-              Texto explicativo
+              Biblioteca de clips individuales del Real Madrid Castilla.
             </p>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
