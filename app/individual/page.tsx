@@ -63,13 +63,13 @@ const players: Player[] = [
     name: "D. Arroyo",
     position: "Portero",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_ARROYO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/SERGIO_MESTRE_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     name: "Á. González",
     position: "Portero",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     name: "Javi Navarro",
@@ -217,6 +217,43 @@ const players: Player[] = [
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Fran González",
+    position: "Portero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/FRAN_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Súnico",
+    position: "Portero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/SUNICO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Mestre",
+    position: "Portero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/SERGIO_MESTRE_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  {
+    name: "Yáñez",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DANI_YANEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Loren Zúñiga",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/LOREN_ZUNIGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    name: "Rachad",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/RACHAD_FETTAL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 ];
 
