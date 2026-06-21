@@ -41,11 +41,10 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col overflow-x-hidden">
   <AIProvider>
-    {children}
+    <DataProvider>
+      {children}
+    </DataProvider>
   </AIProvider>
-   <DataProvider>
-    {children}
-  </DataProvider>
 </body>
     </html>
   );
