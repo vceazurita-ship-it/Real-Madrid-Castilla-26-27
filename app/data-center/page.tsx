@@ -4,39 +4,59 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import Papa from "papaparse";
 import { useData } from "@/app/contexts/data-context";
+import { useState, useEffect } from "react";
 
 const blocks = [
   {
     title: "Jugadores Castilla",
     description: "Base de datos individual",
+    type: "players",
   },
   {
     title: "Datos Colectivos",
     description: "Métricas de equipo",
+    type: "team",
   },
   {
     title: "Scout Rival",
     description: "Informes rivales",
+    type: "scout",
   },
   {
     title: "Área Condicional",
     description: "GPS · Wellness · Carga",
+    type: "conditional",
   },
   {
     title: "Hudl",
     description: "Integración vídeo",
+    type: "hudl",
   },
 ];
 
 export default function DataCenter() {
-  const {
+const {
+  playersData,
+  teamData,
+  scoutData,
   setPlayersData,
   setTeamData,
   setScoutData,
 } = useData();
+const [fileInfo, setFileInfo] = useState<
+  Record<
+    string,
+    {
+      fileName: string;
+      records: number;
+      updatedAt: string;
+    }
+  >
+>({});
+
 const handleFileUpload = (
   event: React.ChangeEvent<HTMLInputElement>,
-  type: "players" | "team" | "scout"
+  type: string
 ) => {
   const file = event.target.files?.[0];
 
@@ -59,10 +79,41 @@ const handleFileUpload = (
         setScoutData(results.data);
       }
 
-      console.log("CSV cargado:", results.data);
+      const info = {
+        fileName: file.name,
+        records: results.data.length,
+        updatedAt: new Date().toLocaleString("es-ES"),
+      };
+
+      setFileInfo((prev) => ({
+        ...prev,
+        [type]: info,
+      }));
+
+      localStorage.setItem(
+        `fileInfo_${type}`,
+        JSON.stringify(info)
+      );
+
+      alert(
+        `Archivo cargado correctamente.\n\nRegistros: ${results.data.length}`
+      );
     },
   });
 };
+useEffect(() => {
+  const players = localStorage.getItem("fileInfo_players");
+  const team = localStorage.getItem("fileInfo_team");
+  const scout = localStorage.getItem("fileInfo_scout");
+
+  const loaded: any = {};
+
+  if (players) loaded.players = JSON.parse(players);
+  if (team) loaded.team = JSON.parse(team);
+  if (scout) loaded.scout = JSON.parse(scout);
+
+  setFileInfo(loaded);
+}, []);
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
@@ -121,20 +172,72 @@ const handleFileUpload = (
     accept=".csv"
     className="hidden"
     onChange={(e) => {
-      if (block.title === "Jugadores Castilla") {
-        handleFileUpload(e, "players");
-      }
-
-      if (block.title === "Datos Colectivos") {
-        handleFileUpload(e, "team");
-      }
-
-      if (block.title === "Scout Rival") {
-        handleFileUpload(e, "scout");
-      }
-    }}
+  handleFileUpload(e, block.type);
+}}
   />
 </label>
+{fileInfo[block.type] && (
+  <div className="mt-5 rounded-2xl border border-green-500/20 bg-green-500/5 p-4">
+
+    <div className="mb-2 flex items-center gap-2">
+      <div className="h-2 w-2 rounded-full bg-green-400" />
+      <span className="text-sm font-medium text-green-400">
+        Cargado
+      </span>
+    </div>
+
+    <p className="text-xs text-white/60">
+      Archivo
+    </p>
+
+    <p className="mb-3 text-sm text-white">
+      {fileInfo[block.type].fileName}
+    </p>
+
+    <p className="text-xs text-white/60">
+      Registros
+    </p>
+
+    <p className="mb-3 text-sm text-white">
+      {fileInfo[block.type].records}
+    </p>
+
+    <p className="text-xs text-white/60">
+      Última actualización
+    </p>
+
+    <p className="text-sm text-white">
+      {fileInfo[block.type].updatedAt}
+    </p>
+
+  </div>
+)}
+{block.title === "Jugadores Castilla" && (
+  <div className="mt-4">
+    <div className="h-px bg-white/10" />
+    <p className="mt-3 text-sm text-green-400">
+      {playersData.length} registros cargados
+    </p>
+  </div>
+)}
+
+{block.title === "Datos Colectivos" && (
+  <div className="mt-4">
+    <div className="h-px bg-white/10" />
+    <p className="mt-3 text-sm text-green-400">
+      {teamData.length} registros cargados
+    </p>
+  </div>
+)}
+
+{block.title === "Scout Rival" && (
+  <div className="mt-4">
+    <div className="h-px bg-white/10" />
+    <p className="mt-3 text-sm text-green-400">
+      {scoutData.length} registros cargados
+    </p>
+  </div>
+)}
               </div>
             ))}
 
