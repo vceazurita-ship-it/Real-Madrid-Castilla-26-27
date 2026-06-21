@@ -301,6 +301,24 @@ const navLink = (
 
   </div>
 </div>
+{/* DATA */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Repositorio Datos
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/data-center",
+      "Repositorio",
+      <Activity size={18} />
+    )}
+
+  </div>
+</div>
 </nav>
       </aside>
     </>
