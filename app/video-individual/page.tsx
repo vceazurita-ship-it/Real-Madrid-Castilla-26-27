@@ -7,6 +7,9 @@ import Papa from "papaparse";
 
 export default function VideoIndividual() {
   const [clips, setClips] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   useEffect(() => {
     Papa.parse(
@@ -29,6 +32,26 @@ export default function VideoIndividual() {
     );
   }, []);
 
+  const filteredClips = clips.filter((clip) => {
+    const playerMatch = clip.Jugador
+      ?.toLowerCase()
+      .includes(search.toLowerCase());
+
+    const positionMatch =
+      !positionFilter ||
+      clip["Posición"] === positionFilter;
+
+    const categoryMatch =
+      !categoryFilter ||
+      clip["Categoría"] === categoryFilter;
+
+    return (
+      playerMatch &&
+      positionMatch &&
+      categoryMatch
+    );
+  });
+
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
@@ -50,113 +73,208 @@ export default function VideoIndividual() {
             <p className="mt-3 text-white/60">
               Biblioteca de clips individuales conectada a Google Sheets.
             </p>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-4">
+
+              <input
+                type="text"
+                placeholder="Buscar jugador..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+                className="
+                  rounded-xl
+                  border border-white/10
+                  bg-white/[0.03]
+                  px-4 py-3
+                  text-white
+                  outline-none
+                "
+              />
+
+              <select
+                value={positionFilter}
+                onChange={(e) =>
+                  setPositionFilter(e.target.value)
+                }
+                className="
+                  rounded-xl
+                  border border-white/10
+                  bg-[#111827]
+                  px-4 py-3
+                "
+              >
+                <option value="">
+                  Todas las posiciones
+                </option>
+
+                {[
+                  ...new Set(
+                    clips.map(
+                      (c) => c["Posición"]
+                    )
+                  ),
+                ].map((p: any) => (
+                  <option key={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={(e) =>
+                  setCategoryFilter(e.target.value)
+                }
+                className="
+                  rounded-xl
+                  border border-white/10
+                  bg-[#111827]
+                  px-4 py-3
+                "
+              >
+                <option value="">
+                  Todas las categorías
+                </option>
+
+                {[
+                  ...new Set(
+                    clips.map(
+                      (c) => c["Categoría"]
+                    )
+                  ),
+                ].map((c: any) => (
+                  <option key={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-white/10
+                  bg-white/[0.03]
+                  font-medium
+                "
+              >
+                {filteredClips.length} clips
+              </div>
+
+            </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 
-            {clips.map((clip: any, index: number) => (
-              <div
-                key={index}
-                className="rounded-3xl border border-white/10 bg-white/[0.03] p-6"
-              >
-                <div className="grid gap-4 md:grid-cols-4">
+            {filteredClips.map(
+              (clip: any, index: number) => (
+                <div
+                  key={index}
+                  className="
+                    rounded-2xl
+                    border border-white/10
+                    bg-white/[0.03]
+                    p-4
+                    transition
+                    hover:bg-white/[0.05]
+                  "
+                >
+                  <div className="flex items-start justify-between">
 
-                  <div>
-                    <p className="text-xs text-white/40">
-                      ID
-                    </p>
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        {clip.Jugador}
+                      </h3>
 
-                    <p>{clip.ID}</p>
+                      <p className="text-sm text-white/50">
+                        {clip["Posición"]}
+                      </p>
+                    </div>
+
+                    <div className="text-sm text-[#C8A96B]">
+                      {clip.Minuto}'
+                    </div>
+
                   </div>
 
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Jugador
+                  <div className="mt-4 space-y-2">
+
+                    <p className="text-sm">
+                      <span className="text-white/40">
+                        Categoría:
+                      </span>{" "}
+                      {clip["Categoría"]}
                     </p>
 
-                    <p>{clip.Jugador}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Posición
+                    <p className="text-sm">
+                      <span className="text-white/40">
+                        Subcategoría:
+                      </span>{" "}
+                      {clip["Subcategoría"]}
                     </p>
 
-                    <p>{clip["Posición"]}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Minuto
+                    <p className="text-sm">
+                      <span className="text-white/40">
+                        Competición:
+                      </span>{" "}
+                      {clip["Competición"]}
                     </p>
 
-                    <p>{clip.Minuto}'</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Categoría
+                    <p className="text-sm">
+                      <span className="text-white/40">
+                        Fecha:
+                      </span>{" "}
+                      {clip.Fecha}
                     </p>
 
-                    <p>{clip["Categoría"]}</p>
                   </div>
 
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Subcategoría
-                    </p>
+                  <div className="mt-5 flex items-center justify-between">
 
-                    <p>{clip["Subcategoría"]}</p>
+                    <span
+                      className="
+                        rounded-lg
+                        border border-[#C8A96B]/20
+                        bg-[#C8A96B]/10
+                        px-2 py-1
+                        text-xs
+                        text-[#C8A96B]
+                      "
+                    >
+                      {clip.Resultado}
+                    </span>
+
+                    <button
+                      onClick={() =>
+                        window.open(
+                          clip["URL Hudl"],
+                          "_blank"
+                        )
+                      }
+                      className="
+                        rounded-xl
+                        bg-[#C8A96B]
+                        px-4
+                        py-2
+                        text-sm
+                        font-medium
+                        text-black
+                        transition
+                        hover:opacity-90
+                      "
+                    >
+                      ▶ Ver clip
+                    </button>
+
                   </div>
-
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Competición
-                    </p>
-
-                    <p>{clip["Competición"]}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-white/40">
-                      Fecha
-                    </p>
-
-                    <p>{clip.Fecha}</p>
-                  </div>
-
                 </div>
-
-                <div className="mt-6 flex items-center justify-between">
-
-                  <span className="rounded-xl border border-[#C8A96B]/20 bg-[#C8A96B]/10 px-3 py-1 text-sm text-[#C8A96B]">
-                    {clip.Resultado}
-                  </span>
-
-                  <button
-                    onClick={() =>
-                      window.open(
-                        clip["URL Hudl"],
-                        "_blank"
-                      )
-                    }
-                    className="
-                      rounded-xl
-                      bg-[#C8A96B]
-                      px-5
-                      py-2
-                      font-medium
-                      text-black
-                      transition
-                      hover:opacity-90
-                    "
-                  >
-                    ▶ Ver clip en Hudl
-                  </button>
-
-                </div>
-              </div>
-            ))}
+              )
+            )}
 
           </div>
         </div>
