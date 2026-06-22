@@ -1126,7 +1126,7 @@ doc.setFontSize(14);
 doc.text(
   "Resumen Ejecutivo",
   150,
-  126
+  128
 );
 
 doc.setTextColor(
@@ -1152,7 +1152,7 @@ resumen.forEach(
     doc.text(
       txt,
       150,
-      136 + i * 5.5
+      138 + i * 6
     );
   }
 );
@@ -1160,7 +1160,61 @@ resumen.forEach(
   // ===================================================
   // GRÁFICOS
   // ===================================================
+// ==========================================
+// MODO EXPORT PDF
+// ==========================================
 
+const chartNodes = document.querySelectorAll(
+  "#grafico-tipo-accion, \
+   #grafico-zona-saque, \
+   #grafico-impacto-sacador, \
+   #impacto-rematadores, \
+   #grafico-xg-envio, \
+   #grafico-zona-remate, \
+   #grafico-segundo-balón, \
+   #grafico-tipo-carrera, \
+   #grafico-defensa-rival, \
+   #grafico-timeline, \
+   #grafico-xg-tipo-accion, \
+   #grafico-rivales-xg-concedido, \
+   #grafico-xg-caida, \
+   #grafico-conversión"
+);
+
+const originalStyles: Array<{
+  el: Element;
+  fill: string | null;
+  weight: string | null;
+}> = [];
+
+chartNodes.forEach((chart) => {
+  chart
+    .querySelectorAll(
+      ".recharts-cartesian-axis-tick-value, .recharts-legend-item-text, .recharts-label-list text"
+    )
+    .forEach((el) => {
+      const node = el as SVGElement;
+
+      originalStyles.push({
+        el: node,
+        fill: node.getAttribute("fill"),
+        weight:
+          node.getAttribute(
+            "font-weight"
+          ),
+      });
+
+      node.setAttribute(
+        "fill",
+        "#000000"
+      );
+
+      node.setAttribute(
+        "font-weight",
+        "700"
+      );
+    });
+});
   const charts = [
     {
       id: "grafico-tipo-accion",
@@ -1415,7 +1469,21 @@ while (index < charts.length) {
       }
     );
   }
+originalStyles.forEach(
+  ({ el, fill, weight }) => {
+    if (fill)
+      el.setAttribute(
+        "fill",
+        fill
+      );
 
+    if (weight)
+      el.setAttribute(
+        "font-weight",
+        weight
+      );
+  }
+);
   doc.save(
     `ABP_Ofensivo_${new Date()
       .toISOString()
