@@ -1284,7 +1284,6 @@ while (index < charts.length) {
 
   body: filtered.map((r) => [
     r.rival,
-    r.sacador,
     r.tipoAccion,
     r.zonaCaida,
     r.tipoRemate,
