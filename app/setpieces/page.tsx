@@ -144,412 +144,7 @@ function countBy(rows: Row[], key: keyof Row) {
 }
 
 export default function Page() {
-const downloadPDF = async () => {
-  const doc = new jsPDF("p", "mm", "a4");
-  const paintPage = () => {
-  doc.setFillColor(11,15,20);
-  doc.rect(
-    0,
-    0,
-    210,
-    297,
-    "F"
-  );
 
-  doc.setDrawColor(
-    200,
-    169,
-    107
-  );
-
-  doc.line(
-    10,
-    12,
-    200,
-    12
-  );
-};
-  const logo = await fetch(
- "/logo.png"
-)
-.then(r => r.blob())
-.then(blob =>
-  new Promise<string>((resolve)=>{
-    const reader =
-      new FileReader();
-
-    reader.onloadend = () =>
-      resolve(reader.result as string);
-
-    reader.readAsDataURL(blob);
-  })
-);
-paintPage();
-  // ========= PORTADA =========
-  doc.addImage(
-  logo,
-  "PNG",
-  140,
-  20,
-  45,
-  45
-);
-
-  doc.setTextColor(200, 169, 107);
-  doc.setFontSize(28);
-  doc.text("ABP OFENSIVO", 15, 30);
-
-  doc.setFontSize(14);
-  doc.text("Informe Automático", 15, 40);
-doc.setFontSize(10);
-
-doc.setTextColor(
-  180,
-  180,
-  180
-);
-
-doc.text(
-  "Real Madrid Castilla · Análisis ABP Ofensivo",
-  15,
-  50
-);
-  doc.setDrawColor(200, 169, 107);
-  doc.line(15, 45, 120, 45);
-
-  doc.setTextColor(255, 255, 255);
-
-  doc.setFontSize(11);
-
-  doc.text(
-    `Fecha: ${new Date().toLocaleDateString()}`,
-    15,
-    60
-  );
-
-  doc.text(
-    `ABP Analizadas: ${metrics.total}`,
-    15,
-    68
-  );
-
-  doc.text(
-    `xG Total: ${metrics.xg.toFixed(2)}`,
-    15,
-    76
-  );
-
-  doc.text(
-    `Remates: ${metrics.shots}`,
-    15,
-    84
-  );
-
-  doc.text(
-    `Goles: ${metrics.goals}`,
-    15,
-    92
-  );
-
-  doc.text(
-    `Conversión: ${metrics.conversion.toFixed(
-      1
-    )}%`,
-    15,
-    100
-  );
-
-  // ========= FILTROS =========
-
-  const filtros = activeFilters
-    .filter((f) => f.value !== "ALL")
-    .map((f) => `${f.label}: ${f.value}`);
-
-  doc.setFontSize(12);
-  doc.setTextColor(200, 169, 107);
-
-  doc.text(
-    "Filtros aplicados",
-    15,
-    120
-  );
-
-  doc.setTextColor(255, 255, 255);
-
-  if (filtros.length) {
-    filtros.forEach((f, i) => {
-      doc.text(
-        `• ${f}`,
-        20,
-        130 + i * 7
-      );
-    });
-  } else {
-    doc.text(
-      "Sin filtros",
-      20,
-      130
-    );
-  }
-
-doc.setTextColor(200,169,107);
-doc.setFontSize(20);
-
-doc.text(
-  "Resumen Ejecutivo",
-  15,
-  20
-);
-
-doc.setTextColor(255,255,255);
-doc.setFontSize(11);
-
-doc.text(
-  `El equipo genera ${metrics.xg.toFixed(2)} xG en ${metrics.total} acciones ABP ofensivas.`,
-  15,
-  35
-);
-
-doc.text(
-  `Conversión actual: ${metrics.conversion.toFixed(1)}%`,
-  15,
-  45
-);
-
-doc.text(
-  `Mejor sacador: ${sacadorData[0]?.name || "-"}`,
-  15,
-  55
-);
-
-doc.text(
-  `xG generado por acción: ${metrics.xgAccion.toFixed(2)}`,
-  15,
-  65
-);
-const charts = [
-  {
-    id: "grafico-tipo-accion",
-    title: "Tipo de acción",
-  },
-  {
-    id: "grafico-zona-saque",
-    title: "Zona de saque",
-  },
-  {
-    id: "grafico-impacto-sacador",
-    title: "Impacto sacador",
-  },
-  {
-    id: "impacto-rematadores",
-    title: "Impacto rematadores",
-  },
-  {
-    id: "grafico-xg-envio",
-    title: "xG por tipo de envío",
-  },
-  {
-    id: "grafico-zona-remate",
-    title: "Zona de remate",
-  },
-  {
-    id: "grafico-segundo-balón",
-    title: "Segundo balón",
-  },
-  {
-    id: "grafico-tipo-carrera",
-    title: "Tipo carrera",
-  },
-  {
-    id: "grafico-defensa-rival",
-    title: "Defensa rival",
-  },
-  {
-    id: "grafico-timeline",
-    title: "Timeline",
-  },
-  {
-    id: "grafico-xg-tipo-accion",
-    title: "xG por tipo acción",
-  },
-  {
-    id: "grafico-rivales-xg-concedido",
-    title: "Top rivales por xG",
-  },
-  {
-    id: "grafico-xg-caida",
-    title: "xG por zona caída",
-  },
-  {
-    id: "grafico-conversión",
-    title: "Conversión",
-  },
-];
-// =========================
-// EXPORTAR GRÁFICOS
-// =========================
-
-const positions = [
-  { x: 10, y: 25 },
-  { x: 105, y: 25 },
-
-  { x: 10, y: 110 },
-  { x: 105, y: 110 },
-
-  { x: 10, y: 195 },
-  { x: 105, y: 195 },
-];
-
-let index = 0;
-
-while (index < charts.length) {
-  doc.addPage();
-  paintPage();
-
-  for (
-    let slot = 0;
-    slot < 6 && index < charts.length;
-    slot++, index++
-  ) {
-    const chart = charts[index];
-
-    const element =
-      document.getElementById(chart.id);
-
-    if (!element) continue;
-
-    const image =
-      await htmlToImage.toPng(
-        element,
-        {
-          backgroundColor: "#0B0F14",
-          pixelRatio: 2,
-        }
-      );
-
-    const pos = positions[slot];
-
-    doc.setTextColor(
-      200,
-      169,
-      107
-    );
-
-    doc.setFontSize(9);
-
-    doc.text(
-      chart.title,
-      pos.x,
-      pos.y - 3
-    );
-
-    doc.addImage(
-      image,
-      "PNG",
-      pos.x,
-      pos.y,
-      90,
-      70
-    );
-  }
-}
-doc.addPage();
-
-paintPage();
-
-doc.setTextColor(
-  200,
-  169,
-  107
-);
-
-doc.setFontSize(18);
-
-doc.text(
-  "Detalle de Acciones",
-  15,
-  20
-);
-  doc.setTextColor(200, 169, 107);
-  doc.setFontSize(20);
-
-  // ========= TABLA =========
-
-  autoTable(doc, {
-    startY: 30,
-didDrawPage: () => {
-  paintPage();
-},
-    head: [[
-      "Rival",
-      "Sacador",
-      "Acción",
-      "Zona",
-      "Remate",
-      "xG"
-    ]],
-
-    body: filtered
-  .slice(0, 50)
-  .map((r) => [
-    r.rival,
-    r.sacador,
-    r.tipoAccion,
-    r.zonaCaida,
-    r.tipoRemate,
-    r.xg.toFixed(2),
-  ]),
-
-    theme: "grid",
-
-styles: {
-  fillColor: [17,24,39],
-  textColor: [255,255,255],
-  fontSize: 8,
-  cellPadding: 2,
-},
-
-headStyles: {
-  fillColor: [200,169,107],
-  textColor: [0,0,0],
-  fontStyle: "bold",
-},
-
-alternateRowStyles: {
-  fillColor: [25,30,38],
-},
-  });
-const pages =
-  doc.getNumberOfPages();
-
-for (let i = 1; i <= pages; i++) {
-  doc.setPage(i);
-
-  doc.setTextColor(
-    120,
-    120,
-    120
-  );
-
-  doc.setFontSize(8);
-
-  doc.text(
-    `Real Madrid Castilla · ABP Ofensivo · Página ${i}/${pages}`,
-    105,
-    290,
-    { align: "center" }
-  );
-}
-
-
-  doc.save(
-    `ABP_Ofensivo_${
-      new Date()
-        .toISOString()
-        .slice(0, 10)
-    }.pdf`
-  );
-};
   const [isMobile, setIsMobile] =
   useState(false);
 
@@ -1155,6 +750,405 @@ const totalTipoCarrera =
     lineHeight: "18px",
     paddingLeft: 20,
   },
+};
+const downloadPDF = async () => {
+  const doc = new jsPDF("p", "mm", "a4");
+  const paintPage = () => {
+
+  doc.setDrawColor(
+    200,
+    169,
+    107
+  );
+
+  doc.line(
+    10,
+    12,
+    200,
+    12
+  );
+};
+  const logo = await fetch(
+ "/logo.png"
+)
+.then(r => r.blob())
+.then(blob =>
+  new Promise<string>((resolve)=>{
+    const reader =
+      new FileReader();
+
+    reader.onloadend = () =>
+      resolve(reader.result as string);
+
+    reader.readAsDataURL(blob);
+  })
+);
+paintPage();
+  // ========= PORTADA =========
+  doc.addImage(
+  logo,
+  "PNG",
+  140,
+  20,
+  45,
+  45
+);
+
+  doc.setTextColor(200, 169, 107);
+  doc.setFontSize(28);
+  doc.text("ABP OFENSIVO", 15, 30);
+
+  doc.setFontSize(14);
+  doc.text("Informe Automático", 15, 40);
+doc.setFontSize(10);
+
+doc.setTextColor(
+  180,
+  180,
+  180
+);
+
+doc.text(
+  "Real Madrid Castilla · Análisis ABP Ofensivo",
+  15,
+  50
+);
+  doc.setDrawColor(200, 169, 107);
+  doc.line(15, 45, 120, 45);
+
+  doc.setTextColor(255, 255, 255);
+
+  doc.setFontSize(11);
+
+  doc.text(
+    `Fecha: ${new Date().toLocaleDateString()}`,
+    15,
+    60
+  );
+
+  doc.text(
+    `ABP Analizadas: ${metrics.total}`,
+    15,
+    68
+  );
+
+  doc.text(
+    `xG Total: ${metrics.xg.toFixed(2)}`,
+    15,
+    76
+  );
+
+  doc.text(
+    `Remates: ${metrics.shots}`,
+    15,
+    84
+  );
+
+  doc.text(
+    `Goles: ${metrics.goals}`,
+    15,
+    92
+  );
+
+  doc.text(
+    `Conversión: ${metrics.conversion.toFixed(
+      1
+    )}%`,
+    15,
+    100
+  );
+
+  // ========= FILTROS =========
+
+  const filtros = activeFilters
+    .filter((f) => f.value !== "ALL")
+    .map((f) => `${f.label}: ${f.value}`);
+
+  doc.setFontSize(12);
+  doc.setTextColor(200, 169, 107);
+
+  doc.text(
+    "Filtros aplicados",
+    15,
+    120
+  );
+
+  doc.setTextColor(255, 255, 255);
+
+  if (filtros.length) {
+    filtros.forEach((f, i) => {
+      doc.text(
+        `• ${f}`,
+        20,
+        130 + i * 7
+      );
+    });
+  } else {
+    doc.text(
+      "Sin filtros",
+      20,
+      130
+    );
+  }
+
+doc.setTextColor(200,169,107);
+doc.setFontSize(20);
+doc.addPage();
+doc.setFontSize(20);
+doc.text(
+  "Resumen Ejecutivo",
+  15,
+  20
+);
+
+doc.setTextColor(255,255,255);
+doc.setFontSize(11);
+
+doc.text(
+  `El equipo genera ${metrics.xg.toFixed(2)} xG en ${metrics.total} acciones ABP ofensivas.`,
+  15,
+  35
+);
+
+doc.text(
+  `Conversión actual: ${metrics.conversion.toFixed(1)}%`,
+  15,
+  45
+);
+
+doc.text(
+  `Mejor sacador: ${sacadorData[0]?.name || "-"}`,
+  15,
+  55
+);
+
+doc.text(
+  `xG generado por acción: ${metrics.xgAccion.toFixed(2)}`,
+  15,
+  65
+);
+const charts = [
+  {
+    id: "grafico-tipo-accion",
+    title: "Tipo de acción",
+  },
+  {
+    id: "grafico-zona-saque",
+    title: "Zona de saque",
+  },
+  {
+    id: "grafico-impacto-sacador",
+    title: "Impacto sacador",
+  },
+  {
+    id: "impacto-rematadores",
+    title: "Impacto rematadores",
+  },
+  {
+    id: "grafico-xg-envio",
+    title: "xG por tipo de envío",
+  },
+  {
+    id: "grafico-zona-remate",
+    title: "Zona de remate",
+  },
+  {
+    id: "grafico-segundo-balón",
+    title: "Segundo balón",
+  },
+  {
+    id: "grafico-tipo-carrera",
+    title: "Tipo carrera",
+  },
+  {
+    id: "grafico-defensa-rival",
+    title: "Defensa rival",
+  },
+  {
+    id: "grafico-timeline",
+    title: "Timeline",
+  },
+  {
+    id: "grafico-xg-tipo-accion",
+    title: "xG por tipo acción",
+  },
+  {
+    id: "grafico-rivales-xg-concedido",
+    title: "Top rivales por xG",
+  },
+  {
+    id: "grafico-xg-caida",
+    title: "xG por zona caída",
+  },
+  {
+    id: "grafico-conversión",
+    title: "Conversión",
+  },
+];
+// =========================
+// EXPORTAR GRÁFICOS
+// =========================
+
+const positions = [
+  { x: 10, y: 25 },
+  { x: 105, y: 25 },
+
+  { x: 10, y: 110 },
+  { x: 105, y: 110 },
+
+  { x: 10, y: 195 },
+  { x: 105, y: 195 },
+];
+
+let index = 0;
+
+while (index < charts.length) {
+  doc.addPage();
+  paintPage();
+
+  for (
+    let slot = 0;
+    slot < 6 && index < charts.length;
+    slot++, index++
+  ) {
+    const chart = charts[index];
+
+    const element =
+      document.getElementById(chart.id);
+
+    if (!element) continue;
+
+    const image =
+      await htmlToImage.toPng(
+  element,
+  {
+    backgroundColor: "#FFFFFF",
+    pixelRatio: 2,
+  }
+);
+
+    const pos = positions[slot];
+
+    doc.setTextColor(
+      200,
+      169,
+      107
+    );
+
+    doc.setFontSize(9);
+
+    doc.text(
+      chart.title,
+      pos.x,
+      pos.y - 3
+    );
+
+    doc.addImage(
+      image,
+      "PNG",
+      pos.x,
+      pos.y,
+      90,
+      70
+    );
+  }
+}
+doc.addPage();
+
+paintPage();
+
+doc.setTextColor(
+  200,
+  169,
+  107
+);
+
+doc.setFontSize(18);
+
+doc.text(
+  "Detalle de Acciones",
+  15,
+  20
+);
+  doc.setTextColor(200, 169, 107);
+  doc.setFontSize(20);
+
+  // ========= TABLA =========
+
+  autoTable(doc, {
+    startY: 30,
+didDrawPage: () => {
+  paintPage();
+},
+    head: [[
+      "Rival",
+      "Sacador",
+      "Acción",
+      "Zona",
+      "Remate",
+      "xG"
+    ]],
+
+    body: filtered
+  .slice(0, 50)
+  .map((r) => [
+    r.rival,
+    r.sacador,
+    r.tipoAccion,
+    r.zonaCaida,
+    r.tipoRemate,
+    r.xg.toFixed(2),
+  ]),
+
+    theme: "grid",
+
+styles: {
+  fillColor: [17,24,39],
+  textColor: [255,255,255],
+  fontSize: 8,
+  cellPadding: 2,
+},
+
+headStyles: {
+  fillColor: [200,169,107],
+  textColor: [0,0,0],
+  fontStyle: "bold",
+},
+
+alternateRowStyles: {
+  fillColor: [25,30,38],
+},
+  });
+const pages =
+  doc.getNumberOfPages();
+
+for (let i = 1; i <= pages; i++) {
+  doc.setPage(i);
+
+  doc.setTextColor(
+    120,
+    120,
+    120
+  );
+
+  doc.setFontSize(8);
+
+  doc.text(
+    `Real Madrid Castilla · ABP Ofensivo · Página ${i}/${pages}`,
+    105,
+    290,
+    { align: "center" }
+  );
+}
+
+
+  doc.save(
+    `ABP_Ofensivo_${
+      new Date()
+        .toISOString()
+        .slice(0, 10)
+    }.pdf`
+  );
 };
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
