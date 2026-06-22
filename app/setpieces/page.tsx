@@ -292,11 +292,6 @@ doc.text(
     );
   }
 
-  // ========= NUEVA PÁGINA =========
-
-  doc.addPage();
-  paintPage();
-
 doc.setTextColor(200,169,107);
 doc.setFontSize(20);
 
@@ -394,50 +389,69 @@ const charts = [
 // EXPORTAR GRÁFICOS
 // =========================
 
-for (const chart of charts) {
-  const element =
-    document.getElementById(
-      chart.id
-    );
+const positions = [
+  { x: 10, y: 25 },
+  { x: 105, y: 25 },
 
-  if (!element) continue;
+  { x: 10, y: 110 },
+  { x: 105, y: 110 },
 
-  const image =
-    await htmlToImage.toPng(
-      element,
-      {
-        backgroundColor:
-          "#0B0F14",
-        pixelRatio: 2,
-      }
-    );
+  { x: 10, y: 195 },
+  { x: 105, y: 195 },
+];
 
+let index = 0;
+
+while (index < charts.length) {
   doc.addPage();
-
   paintPage();
 
-  doc.setTextColor(
-    200,
-    169,
-    107
-  );
+  for (
+    let slot = 0;
+    slot < 6 && index < charts.length;
+    slot++, index++
+  ) {
+    const chart = charts[index];
 
-  doc.setFontSize(18);
+    const element =
+      document.getElementById(chart.id);
 
-  doc.text(
-    chart.title,
-    15,
-    20
-  );
+    if (!element) continue;
 
-  doc.addImage(
-    image,
-    "PNG",
-    10,
-    30,
-    190,
-    120
-  );
+    const image =
+      await htmlToImage.toPng(
+        element,
+        {
+          backgroundColor: "#0B0F14",
+          pixelRatio: 2,
+        }
+      );
+
+    const pos = positions[slot];
+
+    doc.setTextColor(
+      200,
+      169,
+      107
+    );
+
+    doc.setFontSize(9);
+
+    doc.text(
+      chart.title,
+      pos.x,
+      pos.y - 3
+    );
+
+    doc.addImage(
+      image,
+      "PNG",
+      pos.x,
+      pos.y,
+      90,
+      70
+    );
+  }
 }
 doc.addPage();
 
@@ -463,7 +477,9 @@ doc.text(
 
   autoTable(doc, {
     startY: 30,
-
+didDrawPage: () => {
+  paintPage();
+},
     head: [[
       "Rival",
       "Sacador",
