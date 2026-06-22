@@ -1057,7 +1057,7 @@ doc.roundedRect(
   20,
   118,
   105,
-  48,
+  60,
   3,
   3,
   "F"
@@ -1108,8 +1108,8 @@ filtrosTexto.forEach(
 doc.roundedRect(
   145,
   118,
-  125,
-  48,
+  115,
+  60,
   3,
   3,
   "F"

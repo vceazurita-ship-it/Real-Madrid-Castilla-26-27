@@ -1,8 +1,12 @@
 "use client";
-
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
+import { FileDown } from "lucide-react";
+import * as htmlToImage from "html-to-image";
+
 import {
   useEffect,
   useMemo,
@@ -18,13 +22,13 @@ import {
   Tooltip,
   LineChart,
   Line,
+  Label,
   CartesianGrid,
   PieChart,
   Pie,
   Cell,
   LabelList,
   Legend,
-  Label,
 } from "recharts";
 
 const CSV_URL =
@@ -592,7 +596,787 @@ const resultadoData = [
       : 0,
   },
 };
+const conversion =
+  metrics.shots > 0
+    ? (metrics.goals / metrics.shots) * 100
+    : 0;
 
+const xgAccion =
+  metrics.total > 0
+    ? metrics.xg / metrics.total
+    : 0;
+
+const activeFilters = [
+  {
+    label: "Jornada",
+    value: jornada,
+  },
+  {
+    label: "Rival",
+    value: rival,
+  },
+  {
+    label: "Perfil",
+    value: perfil,
+  },
+  {
+    label: "Tiempo",
+    value: tiempo,
+  },
+];
+const downloadPDF = async () => {
+  const doc = new jsPDF("l", "mm", "a4");
+
+  const PAGE_W = 297;
+  const PAGE_H = 210;
+
+  const paintPage = () => {
+    doc.setDrawColor(200, 169, 107);
+    doc.setLineWidth(0.5);
+
+    doc.line(
+      10,
+      10,
+      PAGE_W - 10,
+      10
+    );
+
+    doc.line(
+      10,
+      PAGE_H - 10,
+      PAGE_W - 10,
+      PAGE_H - 10
+    );
+  };
+
+  const logo = await fetch("/logo.png")
+    .then((r) => r.blob())
+    .then(
+      (blob) =>
+        new Promise<string>((resolve) => {
+          const reader =
+            new FileReader();
+
+          reader.onloadend = () =>
+            resolve(
+              reader.result as string
+            );
+
+          reader.readAsDataURL(blob);
+        })
+    );
+
+  // ===================================================
+  // PORTADA
+  // ===================================================
+
+  paintPage();
+
+  doc.addImage(
+    logo,
+    "PNG",
+    220,
+    20,
+    50,
+    50
+  );
+doc.setTextColor(
+  120,
+  120,
+  120
+);
+
+doc.setFontSize(10);
+
+doc.text(
+  new Date().toLocaleDateString(),
+  220,
+  78
+);
+
+  doc.text(
+    "ABP OFENSIVO",
+    20,
+    30
+  );
+
+  doc.setFontSize(14);
+
+  doc.text(
+    "Informe Automático",
+    20,
+    40
+  );
+
+  doc.setDrawColor(
+    200,
+    169,
+    107
+  );
+
+  doc.line(
+    20,
+    45,
+    120,
+    45
+  );
+
+  doc.setTextColor(
+    120,
+    120,
+    120
+  );
+
+  doc.setFontSize(10);
+
+  doc.text(
+    "Real Madrid Castilla · Análisis ABP Ofensivo",
+    20,
+    52
+  );
+
+  // ==========================================
+  // KPIs
+  // ==========================================
+
+  const cards = [
+    [
+      "ABP",
+      metrics.total.toString(),
+    ],
+    [
+      "xG",
+      metrics.xg.toFixed(2),
+    ],
+    [
+      "Remates",
+      metrics.shots.toString(),
+    ],
+    [
+      "Goles",
+      metrics.goals.toString(),
+    ],
+    [
+      "Conversión",
+      `${conversion.toFixed(
+        1
+      )}%`,
+    ],
+  ];
+
+  cards.forEach(
+    ([title, value], i) => {
+      const x =
+        20 + i * 50;
+
+      doc.setFillColor(
+        245,
+        245,
+        245
+      );
+
+      doc.roundedRect(
+        x,
+        70,
+        42,
+        28,
+        3,
+        3,
+        "F"
+      );
+
+      doc.setTextColor(
+        120,
+        120,
+        120
+      );
+
+      doc.setFontSize(9);
+
+      doc.text(
+        title,
+        x + 3,
+        79
+      );
+
+      doc.setTextColor(
+        0,
+        0,
+        0
+      );
+
+      doc.setFontSize(16);
+
+      doc.text(
+        value,
+        x + 3,
+        92
+      );
+    }
+  );
+  const miniCards = [
+  [
+    "xG / Acción",
+    xgAccion.toFixed(2),
+  ],
+  [
+    "Mejor Sacador",
+    sacadorData[0]?.name || "-",
+  ],
+  [
+    "Remates / ABP",
+    (
+      metrics.shots /
+      Math.max(
+        metrics.total,
+        1
+      )
+    ).toFixed(2),
+  ],
+  [
+    "Goles / ABP",
+    (
+      metrics.goals /
+      Math.max(
+        metrics.total,
+        1
+      )
+    ).toFixed(2),
+  ],
+];
+
+miniCards.forEach(
+  ([title, value], i) => {
+    const x =
+      20 + i * 63;
+
+    doc.setFillColor(
+      250,
+      250,
+      250
+    );
+
+    doc.roundedRect(
+      x,
+      102,
+      55,
+      14,
+      2,
+      2,
+      "F"
+    );
+
+    doc.setTextColor(
+      100,
+      100,
+      100
+    );
+
+    doc.setFontSize(7);
+
+    doc.text(
+      title,
+      x + 2,
+      108
+    );
+
+    doc.setTextColor(
+      0,
+      0,
+      0
+    );
+
+    doc.setFontSize(8);
+
+    doc.text(
+      String(value),
+      x + 2,
+      113
+    );
+  }
+);
+
+ // ==========================================
+// DATOS RESUMEN
+// ==========================================
+
+const resumen = [
+  `• ${metrics.total} acciones ABP ofensivas analizadas`,
+  `• ${metrics.xg.toFixed(2)} xG generado`,
+  `• Conversión del ${conversion.toFixed(1)}%`,
+  `• ${metrics.shots} remates totales`,
+  `• ${metrics.goals} goles obtenidos`,
+  `• Mejor sacador: ${sacadorData[0]?.name || "-"}`,
+  `• xG por acción: ${xgAccion.toFixed(2)}`,
+];
+
+// ==========================================
+// FILTROS
+// ==========================================
+
+const filtros =
+  activeFilters
+    .filter((f) => f.value !== "ALL")
+    .map(
+      (f) => `${f.label}: ${f.value}`
+    );
+
+const filtrosTexto =
+  filtros.length
+    ? filtros
+    : [
+        "Temporada completa",
+        "Todas las ABP ofensivas",
+        "Todos los rivales",
+        "Todos los jugadores",
+      ];
+
+// altura común para ambas tarjetas
+const cardHeight = Math.max(
+  60,
+  20 +
+    Math.max(
+      filtrosTexto.length,
+      resumen.length
+    ) *
+      6
+);
+
+// ---------- FILTROS ----------
+
+doc.setFillColor(
+  248,
+  248,
+  248
+);
+
+doc.roundedRect(
+  20,
+  118,
+  105,
+  cardHeight,
+  3,
+  3,
+  "F"
+);
+
+doc.setTextColor(
+  200,
+  169,
+  107
+);
+
+doc.setFontSize(14);
+
+doc.text(
+  "Filtros Aplicados",
+  25,
+  128
+);
+
+doc.setTextColor(
+  0,
+  0,
+  0
+);
+
+doc.setFontSize(10);
+
+filtrosTexto.forEach(
+  (f, i) => {
+    doc.text(
+      `• ${f}`,
+      28,
+      138 + i * 6
+    );
+  }
+);
+
+// ==========================================
+// RESUMEN EJECUTIVO
+// ==========================================
+
+doc.setFillColor(
+  248,
+  248,
+  248
+);
+
+doc.roundedRect(
+  145,
+  118,
+  115,
+  cardHeight,
+  3,
+  3,
+  "F"
+);
+
+doc.setTextColor(
+  200,
+  169,
+  107
+);
+
+doc.setFontSize(14);
+
+doc.text(
+  "Resumen Ejecutivo",
+  150,
+  128
+);
+
+doc.setTextColor(
+  0,
+  0,
+  0
+);
+
+doc.setFontSize(10);
+
+resumen.forEach(
+  (txt, i) => {
+    doc.text(
+      txt,
+      150,
+      138 + i * 6
+    );
+  }
+);
+  // ===================================================
+  // GRÁFICOS
+  // ===================================================
+// ==========================================
+// MODO EXPORT PDF
+// ==========================================
+  const charts = [
+  {
+    id: "grafico-tipo-accion",
+    title: "Tipo acción",
+  },
+  {
+    id: "grafico-zona-caida",
+    title: "Zona caída",
+  },
+  {
+    id: "grafico-impacto-sacador",
+    title: "Impacto sacador",
+  },
+  {
+    id: "grafico-impacto-rematadores",
+    title: "Impacto rematadores",
+  },
+  {
+    id: "grafico-tipo-envio",
+    title: "xG por envío",
+  },
+  {
+    id: "grafico-zona-remate",
+    title: "Zona remate",
+  },
+  {
+    id: "grafico-segundo-balon",
+    title: "Segundo balón",
+  },
+  {
+    id: "grafico-tipo-carrera",
+    title: "Tipo carrera",
+  },
+  {
+    id: "grafico-distribucion-periodo",
+    title: "Distribución temporal",
+  },
+  {
+    id: "grafico-xg-tipo-accion",
+    title: "xG por acción",
+  },
+  {
+    id: "grafico-rivales-xg-concedido",
+    title: "Rivales xG",
+  },
+  {
+    id: "grafico-xg-zona-caida",
+    title: "xG zona caída",
+  },
+  {
+    id: "grafico-conversion",
+    title: "Conversión",
+  },
+];
+
+const chartNodes =
+  document.querySelectorAll(
+    charts
+      .map((c) => `#${c.id}`)
+      .join(", ")
+  );
+
+const originalStyles: Array<{
+  el: Element;
+  fill: string | null;
+  weight: string | null;
+}> = [];
+
+chartNodes.forEach((chart) => {
+  chart
+    .querySelectorAll(
+      ".recharts-cartesian-axis-tick-value, .recharts-legend-item-text, .recharts-label-list text"
+    )
+    .forEach((el) => {
+      const node = el as SVGElement;
+
+      originalStyles.push({
+        el: node,
+        fill: node.getAttribute("fill"),
+        weight:
+          node.getAttribute(
+            "font-weight"
+          ),
+      });
+
+      node.setAttribute(
+        "fill",
+        "#000000"
+      );
+
+      node.setAttribute(
+        "font-weight",
+        "700"
+      );
+    });
+});
+
+  const positions = [
+  { x: 10, y: 28 },
+  { x: 104, y: 28 },
+  { x: 198, y: 28 },
+
+  { x: 57, y: 112 },
+  { x: 151, y: 112 },
+];
+
+  let index = 0;
+
+while (index < charts.length) {
+  doc.addPage();
+
+  paintPage();
+
+  for (
+    let slot = 0;
+    slot < 5 &&
+    index < charts.length;
+    slot++, index++
+  ) {
+    const chart =
+      charts[index];
+
+    const element =
+      document.getElementById(
+        chart.id
+      );
+
+    if (!element)
+      continue;
+
+    const image =
+      await htmlToImage.toPng(
+        element,
+        {
+          backgroundColor:
+            "#ffffff",
+          pixelRatio: 3,
+          cacheBust: true,
+        }
+      );
+
+    const pos =
+      positions[slot];
+
+    doc.setFillColor(
+      250,
+      250,
+      250
+    );
+
+    doc.roundedRect(
+      pos.x - 2,
+      pos.y - 10,
+      92,
+      82,
+      3,
+      3,
+      "F"
+    );
+
+    doc.setTextColor(
+      60,
+      60,
+      60
+    );
+
+    doc.setFontSize(10);
+
+    doc.text(
+      chart.title,
+      pos.x,
+      pos.y - 3
+    );
+
+    doc.addImage(
+      image,
+      "PNG",
+      pos.x,
+      pos.y,
+      88,
+      68
+    );
+  }
+}
+
+  // ===================================================
+  // TABLA
+  // ===================================================
+
+  doc.addPage();
+
+  paintPage();
+
+  doc.setTextColor(
+    200,
+    169,
+    107
+  );
+
+  doc.setFontSize(18);
+
+  doc.text(
+    "Detalle de Acciones",
+    15,
+    20
+  );
+
+  autoTable(doc, {
+  startY: 28,
+
+  pageBreak: "auto",
+  rowPageBreak: "auto",
+
+  margin: {
+    left: 10,
+    right: 10,
+  },
+
+  tableWidth: "auto",
+
+  didDrawPage: () => {
+    paintPage();
+  },
+
+  head: [[
+    "Rival",
+    "Sacador",
+    "Acción",
+    "Zona",
+    "Remate",
+    "xG",
+  ]],
+
+  body: filtered.map((r) => [
+    r.rival,
+    r.sacador,
+    r.tipoAccion,
+    r.zonaCaida,
+    r.tipoRemate,
+    r.xg.toFixed(2),
+  ]),
+
+  theme: "striped",
+
+  styles: {
+    textColor: [30, 30, 30],
+    fontSize: 8,
+    cellPadding: 2.5,
+    overflow: "linebreak",
+    valign: "middle",
+  },
+
+  headStyles: {
+    fillColor: [200, 169, 107],
+    textColor: [0, 0, 0],
+    fontStyle: "bold",
+    halign: "center",
+  },
+
+  columnStyles: {
+    0: { cellWidth: 55 },
+    1: { cellWidth: 45 },
+    2: { cellWidth: 55 },
+    3: { cellWidth: 55 },
+    4: { cellWidth: 50 },
+    5: {
+      cellWidth: 15,
+      halign: "center",
+    },
+  },
+
+  alternateRowStyles: {
+    fillColor: [245, 245, 245],
+  },
+});
+
+  // ===================================================
+  // FOOTER
+  // ===================================================
+
+  const pages =
+    doc.getNumberOfPages();
+
+  for (
+    let i = 1;
+    i <= pages;
+    i++
+  ) {
+    doc.setPage(i);
+
+    doc.setTextColor(
+      120,
+      120,
+      120
+    );
+
+    doc.setFontSize(8);
+
+    doc.text(
+      `Real Madrid Castilla · ABP Ofensivo · Página ${i}/${pages}`,
+      PAGE_W / 2,
+      PAGE_H - 4,
+      {
+        align: "center",
+      }
+    );
+  }
+originalStyles.forEach(
+  ({ el, fill, weight }) => {
+    if (fill)
+      el.setAttribute(
+        "fill",
+        fill
+      );
+
+    if (weight)
+      el.setAttribute(
+        "font-weight",
+        weight
+      );
+  }
+);
+  doc.save(
+    `ABP_Ofensivo_${new Date()
+      .toISOString()
+      .slice(0, 10)}.pdf`
+  );
+};
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -875,6 +1659,7 @@ Mayor xG concedido  </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
 
               <Panel title="Tipo de acción">
+                <div id="grafico-tipo-accion">
   <Chart>
     <BarChart
       data={tipoAccion}
@@ -939,9 +1724,10 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Zona caída">
+  <div id="grafico-zona-caida">
   <Chart>
     <PieChart>
       <Pie
@@ -998,9 +1784,10 @@ outerRadius={isMobile ? 90 : 120}
 
       <Legend {...pieLegendProps} />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 <Panel title="Impacto sacador">
+  <div id="grafico-impacto-sacador">
   <Chart>
     <BarChart
       data={sacadorData}
@@ -1073,9 +1860,9 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="Impacto rematadores">
+<Panel title="Impacto rematadores"><div id="grafico-impacto-rematadores">
   <Chart>
     <BarChart
       data={rematadoresData}
@@ -1138,9 +1925,9 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="xG por tipo envío">
+<Panel title="xG por tipo envío"><div id="grafico-tipo-envio">
   <Chart>
     <BarChart
       data={tipoEnvioData}
@@ -1203,9 +1990,9 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="Zona remate">
+<Panel title="Zona remate"><div id="grafico-zona-remate">
   <Chart>
     <PieChart>
       <Pie
@@ -1266,9 +2053,9 @@ margin={{
 
       <Legend {...pieLegendProps} />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="Segundo balón">
+<Panel title="Segundo balón"><div id="grafico-segundo-balon">
   <Chart>
     <PieChart>
       <Pie
@@ -1329,10 +2116,10 @@ margin={{
 
       <Legend {...pieLegendProps} />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 
-<Panel title="Tipo carrera">
+<Panel title="Tipo carrera"><div id="grafico-tipo-carrera">
   <Chart>
     <PieChart>
       <Pie
@@ -1388,9 +2175,9 @@ margin={{
 
       <Legend {...pieLegendProps} />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="Distribución por periodo">
+<Panel title="Distribución por periodo"><div id="grafico-distribucion-periodo">
   <Chart>
     <BarChart data={timeline}>
   <CartesianGrid
@@ -1424,9 +2211,9 @@ margin={{
   </Bar>
 </BarChart>
       
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="xG por tipo de acción">
+<Panel title="xG por tipo de acción"><div id="grafico-xg-tipo-accion">
   <Chart>
     <BarChart
       data={xgByTipoAccion}
@@ -1491,10 +2278,10 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 
-<Panel title="Top rivales por xG concedido">
+<Panel title="Top rivales por xG concedido"><div id="grafico-rivales-xg-concedido">
   <Chart>
     <BarChart
       data={rivalesData}
@@ -1537,9 +2324,9 @@ margin={{
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="xG por zona caida">
+<Panel title="xG por zona caida"><div id="grafico-xg-zona-caida">
   <Chart>
     <BarChart
   data={xgZonaCaida}
@@ -1632,9 +2419,9 @@ const words =
         />
       </Bar>
     </BarChart>
-  </Chart>
+  </Chart></div>
 </Panel>
-<Panel title="Conversión">
+<Panel title="Conversión"><div id="grafico-conversion">
   <Chart>
     <PieChart>
       <Pie
@@ -1680,7 +2467,7 @@ outerRadius={isMobile ? 90 : 120}
 
       <Legend />
     </PieChart>
-  </Chart>
+  </Chart></div>
 </Panel>
 
 
@@ -1689,6 +2476,32 @@ outerRadius={isMobile ? 90 : 120}
           </section>
         </div>
       </div>
+      <button
+        onClick={downloadPDF}
+        className="
+          fixed
+          top-24
+          right-5
+          z-50
+      
+          h-12
+          w-12
+      
+          rounded-full
+          bg-[#C8A96B]
+          text-black
+      
+          flex
+          items-center
+          justify-center
+      
+          shadow-xl
+          hover:scale-105
+          transition-all
+        "
+      >
+        <FileDown size={18} />
+      </button>
     </main>
   );
 }
