@@ -807,14 +807,19 @@ const downloadPDF = async () => {
     50,
     50
   );
+doc.setTextColor(
+  120,
+  120,
+  120
+);
 
-  doc.setTextColor(
-    200,
-    169,
-    107
-  );
+doc.setFontSize(10);
 
-  doc.setFontSize(30);
+doc.text(
+  new Date().toLocaleDateString(),
+  220,
+  78
+);
 
   doc.text(
     "ABP OFENSIVO",
@@ -936,116 +941,221 @@ const downloadPDF = async () => {
       );
     }
   );
+  const miniCards = [
+  [
+    "xG / Acción",
+    metrics.xgAccion.toFixed(2),
+  ],
+  [
+    "Mejor Sacador",
+    sacadorData[0]?.name || "-",
+  ],
+  [
+    "Remates / ABP",
+    (
+      metrics.shots /
+      Math.max(
+        metrics.total,
+        1
+      )
+    ).toFixed(2),
+  ],
+  [
+    "Goles / ABP",
+    (
+      metrics.goals /
+      Math.max(
+        metrics.total,
+        1
+      )
+    ).toFixed(2),
+  ],
+];
+
+miniCards.forEach(
+  ([title, value], i) => {
+    const x =
+      20 + i * 63;
+
+    doc.setFillColor(
+      250,
+      250,
+      250
+    );
+
+    doc.roundedRect(
+      x,
+      102,
+      55,
+      14,
+      2,
+      2,
+      "F"
+    );
+
+    doc.setTextColor(
+      100,
+      100,
+      100
+    );
+
+    doc.setFontSize(7);
+
+    doc.text(
+      title,
+      x + 2,
+      108
+    );
+
+    doc.setTextColor(
+      0,
+      0,
+      0
+    );
+
+    doc.setFontSize(8);
+
+    doc.text(
+      String(value),
+      x + 2,
+      113
+    );
+  }
+);
 
   // ==========================================
   // FILTROS
   // ==========================================
 
-  const filtros =
-    activeFilters
-      .filter(
-        (f) =>
-          f.value !== "ALL"
-      )
-      .map(
-        (f) =>
-          `${f.label}: ${f.value}`
-      );
-
-  doc.setTextColor(
-    200,
-    169,
-    107
-  );
-
-  doc.setFontSize(14);
-
-  doc.text(
-    "Filtros Aplicados",
-    20,
-    120
-  );
-
-  doc.setTextColor(
-    0,
-    0,
-    0
-  );
-
-  doc.setFontSize(10);
-
-  if (filtros.length) {
-    filtros.forEach(
-      (f, i) => {
-        doc.text(
-          `• ${f}`,
-          25,
-          130 + i * 6
-        );
-      }
+const filtros =
+  activeFilters
+    .filter(
+      (f) => f.value !== "ALL"
+    )
+    .map(
+      (f) =>
+        `${f.label}: ${f.value}`
     );
-  } else {
+
+const filtrosTexto =
+  filtros.length
+    ? filtros
+    : [
+        "Temporada completa",
+        "Todas las ABP ofensivas",
+        "Todos los rivales",
+        "Todos los jugadores",
+      ];
+
+doc.setFillColor(
+  248,
+  248,
+  248
+);
+
+doc.roundedRect(
+  20,
+  118,
+  105,
+  48,
+  3,
+  3,
+  "F"
+);
+
+doc.setTextColor(
+  200,
+  169,
+  107
+);
+
+doc.setFontSize(14);
+
+doc.text(
+  "Filtros Aplicados",
+  25,
+  128
+);
+
+doc.setTextColor(
+  0,
+  0,
+  0
+);
+
+doc.setFontSize(10);
+
+filtrosTexto.forEach(
+  (f, i) => {
     doc.text(
-      "Sin filtros",
-      25,
-      130
+      `• ${f}`,
+      28,
+      138 + i * 6
     );
   }
+);
 
   // ==========================================
   // RESUMEN EJECUTIVO
   // ==========================================
 
-  doc.setTextColor(
-    200,
-    169,
-    107
-  );
+  doc.setFillColor(
+  248,
+  248,
+  248
+);
 
-  doc.setFontSize(14);
+doc.roundedRect(
+  145,
+  115,
+  125,
+  55,
+  3,
+  3,
+  "F"
+);
 
-  doc.text(
-    "Resumen Ejecutivo",
-    150,
-    120
-  );
+doc.setTextColor(
+  200,
+  169,
+  107
+);
 
-  doc.setTextColor(
-    0,
-    0,
-    0
-  );
+doc.setFontSize(14);
 
-  doc.setFontSize(10);
+doc.text(
+  "Resumen Ejecutivo",
+  150,
+  126
+);
 
-  const resumen = [
-    `• ${metrics.total} acciones ABP ofensivas analizadas.`,
-    `• ${metrics.xg.toFixed(
-      2
-    )} xG generado.`,
-    `• Conversión del ${metrics.conversion.toFixed(
-      1
-    )}%.`,
-    `• ${metrics.shots} remates totales.`,
-    `• ${metrics.goals} goles obtenidos.`,
-    `• Mejor sacador: ${
-      sacadorData[0]?.name ||
-      "-"
-    }.`,
-    `• xG por acción: ${metrics.xgAccion.toFixed(
-      2
-    )}.`,
-  ];
+doc.setTextColor(
+  0,
+  0,
+  0
+);
 
-  resumen.forEach(
-    (txt, i) => {
-      doc.text(
-        txt,
-        150,
-        130 + i * 8
-      );
-    }
-  );
+doc.setFontSize(10);
+
+const resumen = [
+  `• ${metrics.total} acciones ABP ofensivas analizadas`,
+  `• ${metrics.xg.toFixed(2)} xG generado`,
+  `• Conversión del ${metrics.conversion.toFixed(1)}%`,
+  `• ${metrics.shots} remates totales`,
+  `• ${metrics.goals} goles obtenidos`,
+  `• Mejor sacador: ${sacadorData[0]?.name || "-"}`,
+  `• xG por acción: ${metrics.xgAccion.toFixed(2)}`,
+];
+
+resumen.forEach(
+  (txt, i) => {
+    doc.text(
+      txt,
+      150,
+      136 + i * 5.5
+    );
+  }
+);
 
   // ===================================================
   // GRÁFICOS
@@ -1111,82 +1221,92 @@ const downloadPDF = async () => {
   ];
 
   const positions = [
-    { x: 10, y: 25 },
-    { x: 103, y: 25 },
-    { x: 196, y: 25 },
+  { x: 10, y: 28 },
+  { x: 104, y: 28 },
+  { x: 198, y: 28 },
 
-    { x: 10, y: 105 },
-    { x: 103, y: 105 },
-    { x: 196, y: 105 },
-
-    { x: 103, y: 65 },
-  ];
+  { x: 57, y: 112 },
+  { x: 151, y: 112 },
+];
 
   let index = 0;
 
+while (index < charts.length) {
+  doc.addPage();
+
+  paintPage();
+
   for (
-    let page = 0;
-    page < 2;
-    page++
+    let slot = 0;
+    slot < 5 &&
+    index < charts.length;
+    slot++, index++
   ) {
-    doc.addPage();
+    const chart =
+      charts[index];
 
-    paintPage();
-
-    for (
-      let slot = 0;
-      slot < 7 &&
-      index < charts.length;
-      slot++, index++
-    ) {
-      const chart =
-        charts[index];
-
-      const element =
-        document.getElementById(
-          chart.id
-        );
-
-      if (!element)
-        continue;
-
-      const image =
-        await htmlToImage.toPng(
-          element,
-          {
-            backgroundColor:
-              "#ffffff",
-            pixelRatio: 2,
-          }
-        );
-
-      const pos =
-        positions[slot];
-
-      doc.setTextColor(
-        200,
-        169,
-        107
+    const element =
+      document.getElementById(
+        chart.id
       );
 
-      doc.setFontSize(8);
+    if (!element)
+      continue;
 
-      doc.text(
-        chart.title,
-        pos.x,
-        pos.y - 2
+    const image =
+      await htmlToImage.toPng(
+        element,
+        {
+          backgroundColor:
+            "#ffffff",
+          pixelRatio: 3,
+          cacheBust: true,
+        }
       );
 
-      doc.addImage(
-        image,
-        "PNG",
-        pos.x,
-        pos.y,
-        88,
-        60
-      );
-    }
+    const pos =
+      positions[slot];
+
+    doc.setFillColor(
+      250,
+      250,
+      250
+    );
+
+    doc.roundedRect(
+      pos.x - 2,
+      pos.y - 10,
+      92,
+      82,
+      3,
+      3,
+      "F"
+    );
+
+    doc.setTextColor(
+      60,
+      60,
+      60
+    );
+
+    doc.setFontSize(10);
+
+    doc.text(
+      chart.title,
+      pos.x,
+      pos.y - 3
+    );
+
+    doc.addImage(
+      image,
+      "PNG",
+      pos.x,
+      pos.y,
+      88,
+      68
+    );
   }
+}
 
   // ===================================================
   // TABLA
@@ -1237,14 +1357,13 @@ const downloadPDF = async () => {
         r.xg.toFixed(2),
       ]),
 
-    theme: "grid",
+    theme: "striped",
 
-    styles: {
-      fillColor: [255,255,255],
-      textColor: [0,0,0],
-      fontSize: 8,
-      cellPadding: 2,
-    },
+   styles: {
+  textColor:[30,30,30],
+  fontSize:8,
+  cellPadding:3,
+},
 
     headStyles: {
       fillColor: [
