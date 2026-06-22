@@ -87,11 +87,11 @@ export default function VideoIndividual() {
 
           <div className="mb-10">
             <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
-              Videoteca
+              RMCF CASTILLA INDIVIDUAL
             </p>
 
             <h1 className="mt-2 text-4xl font-bold">
-              Propia · Individual
+              Videoteca
             </h1>
 
             <p className="mt-3 text-white/60">

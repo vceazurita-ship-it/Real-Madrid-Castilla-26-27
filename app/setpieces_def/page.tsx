@@ -1382,7 +1382,7 @@ originalStyles.forEach(
   {/* Header */}
   <div className="mb-8">
     <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-      RMC COLECTIVO
+      RMCF CASTILLA COLECTIVO
     </p>
 
     <div className="mt-4 flex items-center gap-3 sm:gap-5">

@@ -193,7 +193,7 @@ const micros = useMemo<
 
               <div className="mb-8">
                 <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  RMC VIDEO ANÁLISIS
+                  RMCF CASTILLA VIDEO ANÁLISIS
                 </p>
 
                 <div className="mt-4 flex items-center gap-5">

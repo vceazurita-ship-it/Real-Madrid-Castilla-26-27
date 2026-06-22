@@ -15,7 +15,7 @@ export default function MatchPreparation() {
 
           <div className="mb-10">
             <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
-              Match Preparation
+              RMCF CASTILLA METODOLOGIA
             </p>
 
             <h1 className="mt-2 text-4xl font-bold">

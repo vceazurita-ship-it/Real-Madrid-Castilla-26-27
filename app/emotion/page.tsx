@@ -196,7 +196,7 @@ setStrikers(
   {/* Header */}
   <div className="mb-5">
     <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-      RMC INDIVIDUAL
+      RMCF CASTILLA INDIVIDUAL
     </p>
 
     <div className="mt-4 flex items-center gap-3 sm:gap-5">
