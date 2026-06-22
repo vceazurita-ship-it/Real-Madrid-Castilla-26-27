@@ -146,11 +146,53 @@ function countBy(rows: Row[], key: keyof Row) {
 export default function Page() {
 const downloadPDF = async () => {
   const doc = new jsPDF("p", "mm", "a4");
+  const paintPage = () => {
+  doc.setFillColor(11,15,20);
+  doc.rect(
+    0,
+    0,
+    210,
+    297,
+    "F"
+  );
 
+  doc.setDrawColor(
+    200,
+    169,
+    107
+  );
+
+  doc.line(
+    10,
+    12,
+    200,
+    12
+  );
+};
+  const logo = await fetch(
+ "/logo.png"
+)
+.then(r => r.blob())
+.then(blob =>
+  new Promise<string>((resolve)=>{
+    const reader =
+      new FileReader();
+
+    reader.onloadend = () =>
+      resolve(reader.result as string);
+
+    reader.readAsDataURL(blob);
+  })
+);
   // ========= PORTADA =========
-
-  doc.setFillColor(11, 15, 20);
-  doc.rect(0, 0, 210, 297, "F");
+  doc.addImage(
+  logo,
+  "PNG",
+  140,
+  20,
+  45,
+  45
+);
 
   doc.setTextColor(200, 169, 107);
   doc.setFontSize(28);
@@ -240,9 +282,6 @@ const downloadPDF = async () => {
   // ========= NUEVA PÁGINA =========
 
   doc.addPage();
-
-  doc.setFillColor(11, 15, 20);
-  doc.rect(0, 0, 210, 297, "F");
 const chartIds = [
   "grafico-tipo-accion",
   "grafico-zona-saque",
@@ -273,20 +312,48 @@ for (const id of chartIds) {
   if (y > 220) {
     doc.addPage();
 
-    doc.setFillColor(11, 15, 20);
-    doc.rect(0, 0, 210, 297, "F");
-
     y = 20;
   }
+
+  const positions = [
+  { x: 10, y: 25 },
+  { x: 105, y: 25 },
+  { x: 10, y: 115 },
+  { x: 105, y: 115 },
+];
+
+let chartIndex = 0;
+
+for (const id of chartIds) {
+  const element =
+    document.getElementById(id);
+
+  if (!element) continue;
+
+  const dataUrl =
+    await htmlToImage.toPng(element, {
+      pixelRatio: 2,
+      backgroundColor: "#0B0F14",
+    });
+
+  if (chartIndex > 0 && chartIndex % 4 === 0) {
+    doc.addPage();
+  }
+
+  const pos =
+    positions[chartIndex % 4];
 
   doc.addImage(
     dataUrl,
     "PNG",
-    10,
-    y,
-    190,
-    60
+    pos.x,
+    pos.y,
+    90,
+    70
   );
+
+  chartIndex++;
+}
 
   y += 70;
 }
@@ -373,42 +440,7 @@ for (const id of chartIds) {
   });
 
 
-for (const id of chartIds) {
-  const element =
-    document.getElementById(id);
 
-  if (!element) continue;
-
-  const dataUrl =
-    await htmlToImage.toPng(
-      element
-    );
-
-  doc.addPage();
-
-  doc.setFillColor(
-    11,
-    15,
-    20
-  );
-
-  doc.rect(
-    0,
-    0,
-    210,
-    297,
-    "F"
-  );
-
-  doc.addImage(
-    dataUrl,
-    "PNG",
-    10,
-    20,
-    190,
-    120
-  );
-}
   doc.save(
     `ABP_Ofensivo_${
       new Date()
