@@ -695,7 +695,7 @@ doc.text(
 );
 
   doc.text(
-    "ABP OFENSIVO",
+    "ABP DEFENSIVO",
     20,
     30
   );
@@ -730,7 +730,7 @@ doc.text(
   doc.setFontSize(10);
 
   doc.text(
-    "Real Madrid Castilla · Análisis ABP Ofensivo",
+    "Real Madrid Castilla · Análisis ABP Defensivo",
     20,
     52
   );
@@ -739,30 +739,28 @@ doc.text(
   // KPIs
   // ==========================================
 
-  const cards = [
-    [
-      "ABP",
-      metrics.total.toString(),
-    ],
-    [
-      "xG",
-      metrics.xg.toFixed(2),
-    ],
-    [
-      "Remates",
-      metrics.shots.toString(),
-    ],
-    [
-      "Goles",
-      metrics.goals.toString(),
-    ],
-    [
-      "Conversión",
-      `${conversion.toFixed(
-        1
-      )}%`,
-    ],
-  ];
+const cards = [
+  [
+    "ABP",
+    metrics.total.toString(),
+  ],
+  [
+    "xG Concedido",
+    metrics.xg.toFixed(2),
+  ],
+  [
+    "Remates",
+    metrics.shots.toString(),
+  ],
+  [
+    "Goles Encajados",
+    metrics.goals.toString(),
+  ],
+  [
+    "Conversión Rival",
+    `${conversion.toFixed(1)}%`,
+  ],
+];
 
   cards.forEach(
     ([title, value], i) => {
@@ -814,33 +812,27 @@ doc.text(
       );
     }
   );
-  const miniCards = [
+const miniCards = [
   [
-    "xG / Acción",
+    "xG / ABP",
     xgAccion.toFixed(2),
   ],
   [
-    "Mejor Sacador",
+    "Peor Sacador Rival",
     sacadorData[0]?.name || "-",
   ],
   [
     "Remates / ABP",
     (
       metrics.shots /
-      Math.max(
-        metrics.total,
-        1
-      )
+      Math.max(metrics.total, 1)
     ).toFixed(2),
   ],
   [
     "Goles / ABP",
     (
       metrics.goals /
-      Math.max(
-        metrics.total,
-        1
-      )
+      Math.max(metrics.total, 1)
     ).toFixed(2),
   ],
 ];
@@ -901,13 +893,13 @@ miniCards.forEach(
 // ==========================================
 
 const resumen = [
-  `• ${metrics.total} acciones ABP ofensivas analizadas`,
-  `• ${metrics.xg.toFixed(2)} xG generado`,
-  `• Conversión del ${conversion.toFixed(1)}%`,
-  `• ${metrics.shots} remates totales`,
-  `• ${metrics.goals} goles obtenidos`,
-  `• Mejor sacador: ${sacadorData[0]?.name || "-"}`,
-  `• xG por acción: ${xgAccion.toFixed(2)}`,
+  `• ${metrics.total} acciones ABP defensivas analizadas`,
+  `• ${metrics.xg.toFixed(2)} xG concedido`,
+  `• Conversión rival del ${conversion.toFixed(1)}%`,
+  `• ${metrics.shots} remates recibidos`,
+  `• ${metrics.goals} goles encajados`,
+  `• Sacador rival más peligroso: ${sacadorData[0]?.name || "-"}`,
+  `• xG concedido por acción: ${xgAccion.toFixed(2)}`,
 ];
 
 // ==========================================
@@ -926,7 +918,7 @@ const filtrosTexto =
     ? filtros
     : [
         "Temporada completa",
-        "Todas las ABP ofensivas",
+        "Todas las ABP defensivas",
         "Todos los rivales",
         "Todos los jugadores",
       ];
@@ -1273,14 +1265,13 @@ while (index < charts.length) {
     paintPage();
   },
 
-  head: [[
-    "Rival",
-    "Sacador",
-    "Acción",
-    "Zona",
-    "Remate",
-    "xG",
-  ]],
+head: [[
+  "Rival",
+  "Tipo Acción",
+  "Zona Caída",
+  "Tipo Remate",
+  "xG",
+]],
 
   body: filtered.map((r) => [
     r.rival,
@@ -1347,7 +1338,7 @@ while (index < charts.length) {
     doc.setFontSize(8);
 
     doc.text(
-      `Real Madrid Castilla · ABP Ofensivo · Página ${i}/${pages}`,
+      `Real Madrid Castilla · ABP Defensivo · Página ${i}/${pages}`,
       PAGE_W / 2,
       PAGE_H - 4,
       {
@@ -1371,7 +1362,7 @@ originalStyles.forEach(
   }
 );
   doc.save(
-    `ABP_Ofensivo_${new Date()
+    `ABP_Defensivo_${new Date()
       .toISOString()
       .slice(0, 10)}.pdf`
   );
