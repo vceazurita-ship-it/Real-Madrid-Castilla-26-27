@@ -1107,9 +1107,9 @@ filtrosTexto.forEach(
 
 doc.roundedRect(
   145,
-  115,
+  118,
   125,
-  55,
+  48,
   3,
   3,
   "F"
@@ -1386,7 +1386,9 @@ while (index < charts.length) {
 
   autoTable(doc, {
     startY: 28,
+  pageBreak: "auto",
 
+  rowPageBreak: "auto",
     didDrawPage: () => {
       paintPage();
     },
@@ -1400,16 +1402,14 @@ while (index < charts.length) {
       "xG",
     ]],
 
-    body: filtered
-      .slice(0, 50)
-      .map((r) => [
-        r.rival,
-        r.sacador,
-        r.tipoAccion,
-        r.zonaCaida,
-        r.tipoRemate,
-        r.xg.toFixed(2),
-      ]),
+    body: filtered.map((r) => [
+  r.rival,
+  r.sacador,
+  r.tipoAccion,
+  r.zonaCaida,
+  r.tipoRemate,
+  r.xg.toFixed(2),
+]),
 
     theme: "striped",
 
@@ -1417,6 +1417,7 @@ while (index < charts.length) {
   textColor:[30,30,30],
   fontSize:8,
   cellPadding:3,
+  overflow:"linebreak",
 },
 
     headStyles: {
@@ -1428,7 +1429,14 @@ while (index < charts.length) {
       textColor: [0,0,0],
       fontStyle: "bold",
     },
-
+    columnStyles: {
+  0: { cellWidth: 45 }, // Rival
+  1: { cellWidth: 35 }, // Sacador
+  2: { cellWidth: 40 }, // Acción
+  3: { cellWidth: 40 }, // Zona
+  4: { cellWidth: 35 }, // Remate
+  5: { cellWidth: 15 }, // xG
+}, 
     alternateRowStyles: {
       fillColor: [
         245,
