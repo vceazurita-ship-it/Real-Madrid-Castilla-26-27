@@ -628,7 +628,7 @@ setSheetData(
 
     setTrackingData(
       seguimiento as TrackingRecord[]
-    );
+    ); 
 
     setVideoData(
       parseCSV(videos) as VideoItem[]
