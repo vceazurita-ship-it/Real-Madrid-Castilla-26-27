@@ -817,7 +817,7 @@ const mergedPlayers =
       p.idJugador
   ) || {};
 console.log("ROW", row);
-        return {
+return {
   ...p,
 
   strengths:
@@ -827,6 +827,14 @@ console.log("ROW", row);
   improvements:
     row.ASPECTOS_MEJORA ||
     DEFAULT_IMPROVEMENT,
+
+  strengthVideo:
+    row.HUDL_PERFIL_URL ||
+    DEFAULT_STRENGTH_VIDEO,
+
+  improvementVideo:
+    row.HUDL_PERFIL_URL ||
+    DEFAULT_IMPROVEMENT_VIDEO,
 
   mentalidad: Number(
     row.MENTALIDAD || 0
