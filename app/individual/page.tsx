@@ -1251,8 +1251,9 @@ const playerReport = selected
 </div>
           </div>
         {activeTab === "perfil" && (
-  <>
-    <div className="mb-4">
+  <div className="space-y-6">
+
+    <div className="flex justify-end">
       <button
         onClick={() => {
           setProfileForm({
@@ -1274,8 +1275,9 @@ const playerReport = selected
           bg-[#C8A96B]
           px-4
           py-2
-          text-black
           text-sm
+          font-medium
+          text-black
         "
       >
         Editar perfil
@@ -1283,33 +1285,183 @@ const playerReport = selected
     </div>
 
     <div className="space-y-10">
+            {/* FORTALEZAS */}
+            <div>
+              <h3 className="mb-3 text-[#C8A96B]">
+                Fortalezas
+              </h3>
 
-  <div>
-    <h3 className="mb-4 text-xl font-semibold text-[#C8A96B]">
-      Fortalezas
-    </h3>
+              <p className="mb-4 text-gray-300">
+                {selected.strengths}
+              </p>
 
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-gray-300 whitespace-pre-line">
-        {selected.strengths || DEFAULT_STRENGTH}
-      </p>
-    </div>
+              <div className="mb-3 flex justify-end">
+                <a
+                  href={driveViewUrl(
+                    selected.strengthVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    inline-flex items-center gap-2
+                    rounded-full
+                    border border-white/10
+                    bg-white/[0.03]
+                    px-3 py-1.5
+                    text-xs font-medium
+                    text-gray-300
+                    transition-all duration-200
+                    hover:border-white/20
+                    hover:bg-white/[0.06]
+                    hover:text-white
+                  "
+                >
+                  Ver en alta calidad ↗
+                </a>
+              </div>
+
+              {isMobile ? (
+                <a
+                  href={driveViewUrl(
+                    selected.strengthVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    aspect-video
+                    w-full
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-black
+                    text-sm
+                    text-white
+                    border border-white/10
+                  "
+                >
+                  ▶ Reproducir vídeo
+                </a>
+              ) : (
+                <div className="w-full rounded-2xl overflow-hidden bg-black">
+                  <div className="relative w-full aspect-video">
+                    <iframe
+                      key={
+                        selected.strengthVideo
+                      }
+                      src={driveVideoUrl(
+                        selected.strengthVideo ||
+                          ""
+                      )}
+                      className="
+                        absolute
+                        inset-0
+                        h-full
+                        w-full
+                        border-0
+                        rounded-2xl
+                      "
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* MEJORA */}
+            <div>
+              <h3 className="mb-3 text-[#C8A96B]">
+                Áreas de mejora
+              </h3>
+
+              <p className="mb-4 text-gray-300">
+                {
+                  selected.improvements
+                }
+              </p>
+
+              <div className="mb-3 flex justify-end">
+                <a
+                  href={driveViewUrl(
+                    selected.improvementVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    inline-flex items-center gap-2
+                    rounded-full
+                    border border-white/10
+                    bg-white/[0.03]
+                    px-3 py-1.5
+                    text-xs font-medium
+                    text-gray-300
+                    transition-all duration-200
+                    hover:border-white/20
+                    hover:bg-white/[0.06]
+                    hover:text-white
+                  "
+                >
+                  Ver en alta calidad ↗
+                </a>
+              </div>
+
+              {isMobile ? (
+                <a
+                  href={driveViewUrl(
+                    selected.improvementVideo ||
+                      ""
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    aspect-video
+                    w-full
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-black
+                    text-sm
+                    text-white
+                    border border-white/10
+                  "
+                >
+                  ▶ Reproducir vídeo
+                </a>
+              ) : (
+                <div className="w-full rounded-2xl overflow-hidden bg-black">
+                  <div className="relative w-full aspect-video">
+                    <iframe
+                      key={
+                        selected.improvementVideo
+                      }
+                      src={driveVideoUrl(
+                        selected.improvementVideo ||
+                          ""
+                      )}
+                      className="
+                        absolute
+                        inset-0
+                        h-full
+                        w-full
+                        border-0
+                        rounded-2xl
+                      "
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </div>
+                </div></div></div>
+
   </div>
-
-  <div>
-    <h3 className="mb-4 text-xl font-semibold text-[#C8A96B]">
-      Aspectos de mejora
-    </h3>
-
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-gray-300 whitespace-pre-line">
-        {selected.improvements || DEFAULT_IMPROVEMENT}
-      </p>
-    </div>
-  </div>
-
-</div>
-  </>
 )}
           {activeTab === "seguimiento" && (
   <div className="space-y-4">
