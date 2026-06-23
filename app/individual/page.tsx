@@ -535,36 +535,37 @@ useEffect(() => {
   };
 }, [selected]);
   useEffect(() => {
-  Promise.all([
-    fetch(SHEET_JUGADORES).then((r) =>
-      r.text()
-    ),
-    fetch(SHEET_SEGUIMIENTO).then(
-      (r) => r.text()
-    ),
-    fetch(SHEET_VIDEOS).then((r) =>
-      r.text()
-    ),
-    fetch(SHEET_INFORMES).then(
-      (r) => r.text()
-    ),
-  ])
+Promise.all([
+  fetch(SHEET_JUGADORES).then((r) =>
+    r.text()
+  ),
+
+  fetch(
+    `${APPS_SCRIPT_URL}?action=seguimiento`
+  ).then((r) => r.json()),
+
+  fetch(SHEET_VIDEOS).then((r) =>
+    r.text()
+  ),
+
+  fetch(SHEET_INFORMES).then(
+    (r) => r.text()
+  ),
+])
     .then(
-      ([
-        jugadores,
-        seguimiento,
-        videos,
-        informes,
-      ]) => {
+  ([
+    jugadores,
+    seguimiento,
+    videos,
+    informes,
+  ]) => {
         setSheetData(
           parseCSV(jugadores)
         );
 
         setTrackingData(
-          parseCSV(
-            seguimiento
-          ) as TrackingRecord[]
-        );
+  seguimiento as TrackingRecord[]
+);
 
         setVideoData(
           parseCSV(
@@ -623,7 +624,16 @@ const saveTracking = async () => {
         ESTRATEGIA: "",
       });
 
-      window.location.reload();
+      const nuevoRegistro = {
+  ID_REGISTRO: result.id,
+  ID_JUGADOR: selected.idJugador,
+  ...trackingForm,
+};
+
+setTrackingData((prev) => [
+  nuevoRegistro,
+  ...prev,
+]);
     } else {
       alert(
         "Error guardando seguimiento"
@@ -716,11 +726,17 @@ tecnica: Number(
     ),
   };
 const playerTracking = selected
-  ? trackingData.filter(
-      (item) =>
-        item.ID_JUGADOR ===
-        selected.idJugador
-    )
+  ? trackingData
+      .filter(
+        (item) =>
+          item.ID_JUGADOR ===
+          selected.idJugador
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.FECHA).getTime() -
+          new Date(a.FECHA).getTime()
+      )
   : [];
 
 const playerVideos = selected
