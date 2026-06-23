@@ -960,9 +960,16 @@ const playerReport = selected
                   items={
                     grouped.Porteros
                   }
-                  onSelect={
-                    setSelected
-                  }
+                  onSelect={(player) => {
+  const fullPlayer =
+    mergedPlayers.find(
+      (p) =>
+        p.idJugador ===
+        player.idJugador
+    );
+
+  setSelected(fullPlayer || player);
+}}
                 />
 
                 <CarouselRow
@@ -970,9 +977,16 @@ const playerReport = selected
                   items={
                     grouped.Defensas
                   }
-                  onSelect={
-                    setSelected
-                  }
+                  onSelect={(player) => {
+  const fullPlayer =
+    mergedPlayers.find(
+      (p) =>
+        p.idJugador ===
+        player.idJugador
+    );
+
+  setSelected(fullPlayer || player);
+}}
                 />
 
                 <CarouselRow
@@ -980,9 +994,16 @@ const playerReport = selected
                   items={
                     grouped.Centrocampistas
                   }
-                  onSelect={
-                    setSelected
-                  }
+                 onSelect={(player) => {
+  const fullPlayer =
+    mergedPlayers.find(
+      (p) =>
+        p.idJugador ===
+        player.idJugador
+    );
+
+  setSelected(fullPlayer || player);
+}}
                 />
 
                 <CarouselRow
@@ -990,9 +1011,16 @@ const playerReport = selected
                   items={
                     grouped.Delanteros
                   }
-                  onSelect={
-                    setSelected
-                  }
+                  onSelect={(player) => {
+  const fullPlayer =
+    mergedPlayers.find(
+      (p) =>
+        p.idJugador ===
+        player.idJugador
+    );
+
+  setSelected(fullPlayer || player);
+}}
                 />
               </div>
             </div>
@@ -1255,11 +1283,32 @@ const playerReport = selected
     </div>
 
     <div className="space-y-10">
-      {/* FORTALEZAS */}
-      ...
-      {/* MEJORA */}
-      ...
+
+  <div>
+    <h3 className="mb-4 text-xl font-semibold text-[#C8A96B]">
+      Fortalezas
+    </h3>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-gray-300 whitespace-pre-line">
+        {selected.strengths || DEFAULT_STRENGTH}
+      </p>
     </div>
+  </div>
+
+  <div>
+    <h3 className="mb-4 text-xl font-semibold text-[#C8A96B]">
+      Aspectos de mejora
+    </h3>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-gray-300 whitespace-pre-line">
+        {selected.improvements || DEFAULT_IMPROVEMENT}
+      </p>
+    </div>
+  </div>
+
+</div>
   </>
 )}
           {activeTab === "seguimiento" && (
