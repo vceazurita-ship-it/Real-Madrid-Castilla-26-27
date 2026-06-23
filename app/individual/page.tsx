@@ -577,51 +577,61 @@ useEffect(() => {
       originalOverflow;
   };
 }, [selected]);
-  useEffect(() => {
-Promise.all([
-  fetch(
-  `${APPS_SCRIPT_URL}?action=jugadores`
-).then((r) => r.json()),
+useEffect(() => {
+  Promise.allSettled([
+    fetch(
+      `${APPS_SCRIPT_URL}?action=jugadores`
+    ).then((r) => r.json()),
 
-  fetch(
-    `${APPS_SCRIPT_URL}?action=seguimiento`
-  ).then((r) => r.json()),
+    fetch(
+      `${APPS_SCRIPT_URL}?action=seguimiento`
+    ).then((r) => r.json()),
 
-  fetch(SHEET_VIDEOS).then((r) =>
-    r.text()
-  ),
+    fetch(SHEET_VIDEOS).then((r) =>
+      r.text()
+    ),
 
-  fetch(SHEET_INFORMES).then(
-    (r) => r.text()
-  ),
-])
-    .then(
-  ([
-    jugadores,
-    seguimiento,
-    videos,
-    informes,
-  ]) => {
-        setSheetData(jugadores);
+    fetch(SHEET_INFORMES).then(
+      (r) => r.text()
+    ),
+  ]).then((results) => {
+    console.log("RESULTADOS:");
+    console.log(results);
 
-        setTrackingData(
-  seguimiento as TrackingRecord[]
-);
+    const jugadores =
+      results[0].status === "fulfilled"
+        ? results[0].value
+        : [];
 
-        setVideoData(
-          parseCSV(
-            videos
-          ) as VideoItem[]
-        );
+    const seguimiento =
+      results[1].status === "fulfilled"
+        ? results[1].value
+        : [];
 
-        setReportData(
-          parseCSV(
-            informes
-          ) as ReportItem[]
-        );
-      }
-    )
-    .catch(console.error);
+    const videos =
+      results[2].status === "fulfilled"
+        ? results[2].value
+        : "";
+
+    const informes =
+      results[3].status === "fulfilled"
+        ? results[3].value
+        : "";
+
+    setSheetData(jugadores);
+
+    setTrackingData(
+      seguimiento as TrackingRecord[]
+    );
+
+    setVideoData(
+      parseCSV(videos) as VideoItem[]
+    );
+
+    setReportData(
+      parseCSV(informes) as ReportItem[]
+    );
+  });
 }, []);
 
 const saveTracking = async () => {
