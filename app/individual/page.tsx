@@ -485,6 +485,21 @@ const [activeTab, setActiveTab] =
   useState(false);
 const [showTrackingForm, setShowTrackingForm] =
   useState(false);
+  const [showProfileForm, setShowProfileForm] =
+  useState(false);
+
+const [profileForm, setProfileForm] =
+  useState({
+    strengths: "",
+    improvements: "",
+    strengthVideo: "",
+    improvementVideo: "",
+    mentalidad: "",
+    habitos: "",
+    interpretacion: "",
+    capacidadFisica: "",
+    tecnica: "",
+  });
   const [editingTracking, setEditingTracking] =
   useState<TrackingRecord | null>(null);
  const [trackingForm, setTrackingForm] =
@@ -538,9 +553,9 @@ useEffect(() => {
 }, [selected]);
   useEffect(() => {
 Promise.all([
-  fetch(SHEET_JUGADORES).then((r) =>
-    r.text()
-  ),
+  fetch(
+  `${APPS_SCRIPT_URL}?action=jugadores`
+).then((r) => r.json()),
 
   fetch(
     `${APPS_SCRIPT_URL}?action=seguimiento`
@@ -561,9 +576,7 @@ Promise.all([
     videos,
     informes,
   ]) => {
-        setSheetData(
-          parseCSV(jugadores)
-        );
+        setSheetData(jugadores);
 
         setTrackingData(
   seguimiento as TrackingRecord[]
@@ -838,7 +851,20 @@ const playerVideos = selected
         selected.idJugador
     )
   : [];
+const [showVideoForm, setShowVideoForm] =
+  useState(false);
 
+const [editingVideo, setEditingVideo] =
+  useState<VideoItem | null>(null);
+
+const [videoForm, setVideoForm] =
+  useState({
+    CATEGORIA: "",
+    TITULO: "",
+    DESCRIPCION: "",
+    URL_VIDEO: "",
+    FECHA: "",
+  });
 const playerReport = selected
   ? reportData.find(
       (item) =>
@@ -1156,186 +1182,45 @@ const playerReport = selected
 </div>
           </div>
         {activeTab === "perfil" && (
-          <div className="space-y-10">
-            {/* FORTALEZAS */}
-            <div>
-              <h3 className="mb-3 text-[#C8A96B]">
-                Fortalezas
-              </h3>
+  <>
+    <div className="mb-4">
+      <button
+        onClick={() => {
+          setProfileForm({
+            strengths: selected.strengths || "",
+            improvements: selected.improvements || "",
+            strengthVideo: selected.strengthVideo || "",
+            improvementVideo: selected.improvementVideo || "",
+            mentalidad: String(selected.mentalidad || ""),
+            habitos: String(selected.habitos || ""),
+            interpretacion: String(selected.interpretacion || ""),
+            capacidadFisica: String(selected.capacidadFisica || ""),
+            tecnica: String(selected.tecnica || ""),
+          });
 
-              <p className="mb-4 text-gray-300">
-                {selected.strengths}
-              </p>
+          setShowProfileForm(true);
+        }}
+        className="
+          rounded-xl
+          bg-[#C8A96B]
+          px-4
+          py-2
+          text-black
+          text-sm
+        "
+      >
+        Editar perfil
+      </button>
+    </div>
 
-              <div className="mb-3 flex justify-end">
-                <a
-                  href={driveViewUrl(
-                    selected.strengthVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    inline-flex items-center gap-2
-                    rounded-full
-                    border border-white/10
-                    bg-white/[0.03]
-                    px-3 py-1.5
-                    text-xs font-medium
-                    text-gray-300
-                    transition-all duration-200
-                    hover:border-white/20
-                    hover:bg-white/[0.06]
-                    hover:text-white
-                  "
-                >
-                  Ver en alta calidad ↗
-                </a>
-              </div>
-
-              {isMobile ? (
-                <a
-                  href={driveViewUrl(
-                    selected.strengthVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    flex
-                    aspect-video
-                    w-full
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-black
-                    text-sm
-                    text-white
-                    border border-white/10
-                  "
-                >
-                  ▶ Reproducir vídeo
-                </a>
-              ) : (
-                <div className="w-full rounded-2xl overflow-hidden bg-black">
-                  <div className="relative w-full aspect-video">
-                    <iframe
-                      key={
-                        selected.strengthVideo
-                      }
-                      src={driveVideoUrl(
-                        selected.strengthVideo ||
-                          ""
-                      )}
-                      className="
-                        absolute
-                        inset-0
-                        h-full
-                        w-full
-                        border-0
-                        rounded-2xl
-                      "
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* MEJORA */}
-            <div>
-              <h3 className="mb-3 text-[#C8A96B]">
-                Áreas de mejora
-              </h3>
-
-              <p className="mb-4 text-gray-300">
-                {
-                  selected.improvements
-                }
-              </p>
-
-              <div className="mb-3 flex justify-end">
-                <a
-                  href={driveViewUrl(
-                    selected.improvementVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    inline-flex items-center gap-2
-                    rounded-full
-                    border border-white/10
-                    bg-white/[0.03]
-                    px-3 py-1.5
-                    text-xs font-medium
-                    text-gray-300
-                    transition-all duration-200
-                    hover:border-white/20
-                    hover:bg-white/[0.06]
-                    hover:text-white
-                  "
-                >
-                  Ver en alta calidad ↗
-                </a>
-              </div>
-
-              {isMobile ? (
-                <a
-                  href={driveViewUrl(
-                    selected.improvementVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    flex
-                    aspect-video
-                    w-full
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-black
-                    text-sm
-                    text-white
-                    border border-white/10
-                  "
-                >
-                  ▶ Reproducir vídeo
-                </a>
-              ) : (
-                <div className="w-full rounded-2xl overflow-hidden bg-black">
-                  <div className="relative w-full aspect-video">
-                    <iframe
-                      key={
-                        selected.improvementVideo
-                      }
-                      src={driveVideoUrl(
-                        selected.improvementVideo ||
-                          ""
-                      )}
-                      className="
-                        absolute
-                        inset-0
-                        h-full
-                        w-full
-                        border-0
-                        rounded-2xl
-                      "
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          )}
+    <div className="space-y-10">
+      {/* FORTALEZAS */}
+      ...
+      {/* MEJORA */}
+      ...
+    </div>
+  </>
+)}
           {activeTab === "seguimiento" && (
   <div className="space-y-4">
 
@@ -1519,7 +1404,30 @@ const playerReport = selected
   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-gray-400">
     No hay vídeos registrados.
   </div>
-)}
+)}<button
+  onClick={() => {
+    setEditingVideo(null);
+
+    setVideoForm({
+      CATEGORIA: "",
+      TITULO: "",
+      DESCRIPCION: "",
+      URL_VIDEO: "",
+      FECHA: "",
+    });
+
+    setShowVideoForm(true);
+  }}
+  className="
+    rounded-xl
+    bg-[#C8A96B]
+    px-4
+    py-2
+    text-black
+  "
+>
+  Nuevo vídeo
+</button>
     {playerVideos.map((video) => (
       <div
         key={video.ID_VIDEO}
