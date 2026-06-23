@@ -33,7 +33,10 @@ const SHEET_VIDEOS =
 const SHEET_INFORMES =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1812683440&single=true&output=csv";
 
-const DEFAULT_STRENGTH =
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbzw2I8CvxHHsJTWtzsjoL9oIiFA85s0TZWN978czP62-Gf0nzQvVw9vrL70wt1VM2Fo/exec";
+
+  const DEFAULT_STRENGTH =
   "Fortalezas por definir";
 
 const DEFAULT_IMPROVEMENT =
@@ -480,6 +483,20 @@ const [activeTab, setActiveTab] =
   >("perfil");
    const [isMobile, setIsMobile] =
   useState(false);
+const [showTrackingForm, setShowTrackingForm] =
+  useState(false);
+ const [trackingForm, setTrackingForm] =
+  useState({
+    FECHA: "",
+    OBJETIVO_OFENSIVO: "",
+    OBJETIVO_DEFENSIVO: "",
+    OBJETIVO_MENTAL: "",
+    FEEDBACK: "",
+    QUIEN: "",
+    MODALIDAD: "",
+    MOMENTO: "",
+    ESTRATEGIA: "",
+  });
 
 useEffect(() => {
   const checkMobile = () => {
@@ -565,7 +582,67 @@ useEffect(() => {
     .catch(console.error);
 }, []);
 
-  const mergedPlayers =
+const saveTracking = async () => {
+  if (!selected) return;
+
+  try {
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          action:
+            "crearSeguimiento",
+
+          ID_JUGADOR:
+            selected.idJugador,
+
+          ...trackingForm,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (result.success) {
+      alert(
+        "Seguimiento guardado correctamente"
+      );
+
+      setShowTrackingForm(false);
+
+      setTrackingForm({
+        FECHA: "",
+        OBJETIVO_OFENSIVO: "",
+        OBJETIVO_DEFENSIVO: "",
+        OBJETIVO_MENTAL: "",
+        FEEDBACK: "",
+        QUIEN: "",
+        MODALIDAD: "",
+        MOMENTO: "",
+        ESTRATEGIA: "",
+      });
+
+      window.location.reload();
+    } else {
+      alert(
+        "Error guardando seguimiento"
+      );
+    }
+  } catch (error) {
+    console.error(error);
+
+    alert(
+      "Error de conexión"
+    );
+  }
+}; 
+const mergedPlayers =
     useMemo(() => {
       return players.map((p) => {
         const row =
@@ -1162,6 +1239,24 @@ const playerReport = selected
     <h3 className="text-xl font-semibold text-[#C8A96B]">
       Seguimiento individual
     </h3>
+    <div className="mb-4">
+  <button
+    onClick={() =>
+      setShowTrackingForm(true)
+    }
+    className="
+      rounded-xl
+      bg-[#C8A96B]
+      px-4
+      py-2
+      text-sm
+      font-medium
+      text-black
+    "
+  >
+    + Nuevo seguimiento
+  </button>
+</div>
 {playerTracking.length === 0 && (
   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-gray-400">
     No hay seguimientos registrados.
@@ -1364,6 +1459,196 @@ const playerReport = selected
         </div>
       </>
     )}
+  </div>
+)}{showTrackingForm && (
+  <div className="fixed inset-0 z-[999999] bg-black/70 flex items-center justify-center p-4">
+    <div
+      className="
+        w-full
+        max-w-3xl
+        rounded-3xl
+        border
+        border-white/10
+        bg-[#11161C]
+        p-6
+        max-h-[90vh]
+        overflow-y-auto
+      "
+    >
+      <h3 className="mb-6 text-2xl font-semibold text-[#C8A96B]">
+        Nuevo seguimiento
+      </h3>
+
+      <div className="grid gap-4">
+
+        <input
+          type="date"
+          value={trackingForm.FECHA}
+          onChange={(e) =>
+            setTrackingForm({
+              ...trackingForm,
+              FECHA: e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <textarea
+          placeholder="Objetivo ofensivo"
+          value={
+            trackingForm.OBJETIVO_OFENSIVO
+          }
+          onChange={(e) =>
+            setTrackingForm({
+              ...trackingForm,
+              OBJETIVO_OFENSIVO:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[90px]"
+        />
+
+        <textarea
+          placeholder="Objetivo defensivo"
+          value={
+            trackingForm.OBJETIVO_DEFENSIVO
+          }
+          onChange={(e) =>
+            setTrackingForm({
+              ...trackingForm,
+              OBJETIVO_DEFENSIVO:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[90px]"
+        />
+
+        <textarea
+          placeholder="Objetivo mental"
+          value={
+            trackingForm.OBJETIVO_MENTAL
+          }
+          onChange={(e) =>
+            setTrackingForm({
+              ...trackingForm,
+              OBJETIVO_MENTAL:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[90px]"
+        />
+
+        <textarea
+          placeholder="Feedback"
+          value={trackingForm.FEEDBACK}
+          onChange={(e) =>
+            setTrackingForm({
+              ...trackingForm,
+              FEEDBACK:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <div className="grid md:grid-cols-2 gap-4">
+
+          <input
+            placeholder="Quién"
+            value={trackingForm.QUIEN}
+            onChange={(e) =>
+              setTrackingForm({
+                ...trackingForm,
+                QUIEN:
+                  e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            placeholder="Modalidad"
+            value={
+              trackingForm.MODALIDAD
+            }
+            onChange={(e) =>
+              setTrackingForm({
+                ...trackingForm,
+                MODALIDAD:
+                  e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            placeholder="Momento"
+            value={
+              trackingForm.MOMENTO
+            }
+            onChange={(e) =>
+              setTrackingForm({
+                ...trackingForm,
+                MOMENTO:
+                  e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            placeholder="Estrategia"
+            value={
+              trackingForm.ESTRATEGIA
+            }
+            onChange={(e) =>
+              setTrackingForm({
+                ...trackingForm,
+                ESTRATEGIA:
+                  e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+
+          <button
+            onClick={() =>
+              setShowTrackingForm(
+                false
+              )
+            }
+            className="
+              rounded-xl
+              border
+              border-white/10
+              px-5
+              py-3
+            "
+          >
+            Cancelar
+          </button>
+
+          <button
+            onClick={saveTracking}
+            className="
+              rounded-xl
+              bg-[#C8A96B]
+              px-5
+              py-3
+              font-medium
+              text-black
+            "
+          >
+            Guardar seguimiento
+          </button>
+ 
+        </div>
+      </div>
+    </div>
   </div>
 )}
         </div>
