@@ -618,7 +618,20 @@ useEffect(() => {
         ? results[3].value
         : "";
 
-    console.log("JUGADORES RECIBIDOS", jugadores);console.log("KEYS", Object.keys(jugadores));
+    console.log("JUGADORES RECIBIDOS", jugadores);console.log("KEYS", Object.keys(jugadores));console.log(
+  "TIPO",
+  typeof jugadores
+);
+
+console.log(
+  "ARRAY?",
+  Array.isArray(jugadores)
+);
+
+console.log(
+  "CONTENIDO",
+  JSON.stringify(jugadores)
+);
 
 setSheetData(
   Array.isArray(jugadores)
