@@ -618,7 +618,7 @@ useEffect(() => {
         ? results[3].value
         : "";
 
-    console.log("JUGADORES RECIBIDOS", jugadores);
+    console.log("JUGADORES RECIBIDOS", jugadores);console.log("KEYS", Object.keys(jugadores));
 
 setSheetData(
   Array.isArray(jugadores)
