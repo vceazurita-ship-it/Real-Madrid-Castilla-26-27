@@ -819,8 +819,9 @@ const mergedPlayers =
   ) || {};
 console.log("ROW", row);
 console.log(
-  p.idJugador,
-  row.ID_JUGADOR
+  "SELECTED",
+  selected?.idJugador,
+  selected?.name
 );
         return {
   ...p,
