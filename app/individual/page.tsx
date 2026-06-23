@@ -634,6 +634,7 @@ console.log(
 );
 
 setSheetData(
+  
   Array.isArray(jugadores)
     ? jugadores
     : jugadores.data || []
@@ -817,7 +818,14 @@ const mergedPlayers =
       p.idJugador
   ) || {};
 console.log("ROW", row);
-return {
+console.log(
+  JSON.stringify(
+    sheetData[0],
+    null,
+    2
+  )
+);
+        return {
   ...p,
 
   strengths:
@@ -827,14 +835,6 @@ return {
   improvements:
     row.ASPECTOS_MEJORA ||
     DEFAULT_IMPROVEMENT,
-
-  strengthVideo:
-    row.HUDL_PERFIL_URL ||
-    DEFAULT_STRENGTH_VIDEO,
-
-  improvementVideo:
-    row.HUDL_PERFIL_URL ||
-    DEFAULT_IMPROVEMENT_VIDEO,
 
   mentalidad: Number(
     row.MENTALIDAD || 0
