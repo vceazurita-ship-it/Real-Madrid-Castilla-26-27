@@ -487,7 +487,33 @@ const [showTrackingForm, setShowTrackingForm] =
   useState(false);
   const [showProfileForm, setShowProfileForm] =
   useState(false);
+const [showVideoForm, setShowVideoForm] =
 
+  useState(false);
+
+
+
+const [editingVideo, setEditingVideo] =
+
+  useState<VideoItem | null>(null);
+
+
+
+const [videoForm, setVideoForm] =
+
+  useState({
+
+    CATEGORIA: "",
+
+    TITULO: "",
+
+    DESCRIPCION: "",
+
+    URL_VIDEO: "",
+
+    FECHA: "",
+
+  });
 const [profileForm, setProfileForm] =
   useState({
     strengths: "",
@@ -851,20 +877,7 @@ const playerVideos = selected
         selected.idJugador
     )
   : [];
-const [showVideoForm, setShowVideoForm] =
-  useState(false);
 
-const [editingVideo, setEditingVideo] =
-  useState<VideoItem | null>(null);
-
-const [videoForm, setVideoForm] =
-  useState({
-    CATEGORIA: "",
-    TITULO: "",
-    DESCRIPCION: "",
-    URL_VIDEO: "",
-    FECHA: "",
-  });
 const playerReport = selected
   ? reportData.find(
       (item) =>
