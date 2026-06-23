@@ -816,7 +816,7 @@ const mergedPlayers =
       r.ID_JUGADOR ===
       p.idJugador
   ) || {};
-
+console.log("ROW", row);
         return {
   ...p,
 
