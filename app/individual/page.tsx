@@ -21,8 +21,17 @@ import {
 } from "recharts";
 const VISIBLE_CARDS = 4;
 
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=787003064&single=true&output=csv";
+const SHEET_JUGADORES =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
+
+const SHEET_SEGUIMIENTO =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=536172864&single=true&output=csv";
+
+const SHEET_VIDEOS =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1875419243&single=true&output=csv";
+
+const SHEET_INFORMES =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1812683440&single=true&output=csv";
 
 const DEFAULT_STRENGTH =
   "Fortalezas por definir";
@@ -50,6 +59,38 @@ type Player = {
   interpretacion?: number;
   capacidadFisica?: number;
   tecnica?: number;
+};
+type TrackingRecord = {
+  ID_REGISTRO: string;
+  ID_JUGADOR: string;
+  FECHA: string;
+  OBJETIVO_OFENSIVO: string;
+  OBJETIVO_DEFENSIVO: string;
+  OBJETIVO_MENTAL: string;
+  FEEDBACK: string;
+  QUIEN: string;
+  MODALIDAD: string;
+  MOMENTO: string;
+  ESTRATEGIA: string;
+};
+
+type VideoItem = {
+  ID_VIDEO: string;
+  ID_JUGADOR: string;
+  CATEGORIA: string;
+  TITULO: string;
+  DESCRIPCION: string;
+  URL_VIDEO: string;
+  FECHA: string;
+};
+
+type ReportItem = {
+  ID_JUGADOR: string;
+  RESUMEN_EJECUTIVO: string;
+  FORTALEZAS_INFORME: string;
+  ASPECTOS_MEJORA_INFORME: string;
+  OBJETIVOS: string;
+  OBSERVACIONES_FINALES: string;
 };
 
 const players: Player[] = [
@@ -390,7 +431,24 @@ export default function IndividualPage() {
     useState<Player | null>(null);
 
   const [sheetData, setSheetData] =
-    useState<any[]>([]);
+  useState<any[]>([]);
+
+const [trackingData, setTrackingData] =
+  useState<TrackingRecord[]>([]);
+
+const [videoData, setVideoData] =
+  useState<VideoItem[]>([]);
+
+const [reportData, setReportData] =
+  useState<ReportItem[]>([]);
+
+const [activeTab, setActiveTab] =
+  useState<
+    "perfil" |
+    "seguimiento" |
+    "videos" |
+    "informe"
+  >("perfil");
    const [isMobile, setIsMobile] =
   useState(false);
 
@@ -431,13 +489,52 @@ useEffect(() => {
   };
 }, [selected]);
   useEffect(() => {
-    fetch(SHEET_URL)
-      .then((res) => res.text())
-      .then((csv) =>
-        setSheetData(parseCSV(csv))
-      )
-      .catch(console.error);
-  }, []);
+  Promise.all([
+    fetch(SHEET_JUGADORES).then((r) =>
+      r.text()
+    ),
+    fetch(SHEET_SEGUIMIENTO).then(
+      (r) => r.text()
+    ),
+    fetch(SHEET_VIDEOS).then((r) =>
+      r.text()
+    ),
+    fetch(SHEET_INFORMES).then(
+      (r) => r.text()
+    ),
+  ])
+    .then(
+      ([
+        jugadores,
+        seguimiento,
+        videos,
+        informes,
+      ]) => {
+        setSheetData(
+          parseCSV(jugadores)
+        );
+
+        setTrackingData(
+          parseCSV(
+            seguimiento
+          ) as TrackingRecord[]
+        );
+
+        setVideoData(
+          parseCSV(
+            videos
+          ) as VideoItem[]
+        );
+
+        setReportData(
+          parseCSV(
+            informes
+          ) as ReportItem[]
+        );
+      }
+    )
+    .catch(console.error);
+}, []);
 
   const mergedPlayers =
     useMemo(() => {
@@ -667,6 +764,42 @@ useEffect(() => {
             <p className="mt-2 text-gray-400">
               {selected.position}
             </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+  {[
+    {
+      key: "perfil",
+      label: "Perfil",
+    },
+    {
+      key: "seguimiento",
+      label: "Seguimiento",
+    },
+    {
+      key: "videos",
+      label: "Vídeos",
+    },
+    {
+      key: "informe",
+      label: "Informe",
+    },
+  ].map((tab) => (
+    <button
+      key={tab.key}
+      onClick={() =>
+        setActiveTab(
+          tab.key as any
+        )
+      }
+      className={`rounded-xl px-4 py-2 text-sm ${
+        activeTab === tab.key
+          ? "bg-[#C8A96B] text-black"
+          : "bg-white/5 text-white"
+      }`}
+    >
+      {tab.label}
+    </button>
+  ))}
+</div>
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
   <h3 className="mb-4 text-center text-sm font-medium text-[#C8A96B]">
     Perfil competencial
