@@ -926,7 +926,7 @@ useEffect(() => {
   </div>
 </div>
           </div>
-
+        {activeTab === "perfil" && (
           <div className="space-y-10">
             {/* FORTALEZAS */}
             <div>
@@ -1106,6 +1106,95 @@ useEffect(() => {
               )}
             </div>
           </div>
+          )}
+          {activeTab === "seguimiento" && (
+  <div className="space-y-4">
+
+    <h3 className="text-xl font-semibold text-[#C8A96B]">
+      Seguimiento individual
+    </h3>
+
+    {trackingData.map((item) => (
+      <div
+        key={item.ID_REGISTRO}
+        className="
+          rounded-2xl
+          border
+          border-white/10
+          bg-white/[0.03]
+          p-5
+        "
+      >
+        <div className="mb-4 text-sm text-[#C8A96B]">
+          {item.FECHA}
+        </div>
+
+        <div className="grid gap-4">
+
+          <div>
+            <h4 className="font-medium mb-1">
+              Objetivo ofensivo
+            </h4>
+
+            <p className="text-gray-300">
+              {item.OBJETIVO_OFENSIVO}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-medium mb-1">
+              Objetivo defensivo
+            </h4>
+
+            <p className="text-gray-300">
+              {item.OBJETIVO_DEFENSIVO}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-medium mb-1">
+              Objetivo mental
+            </h4>
+
+            <p className="text-gray-300">
+              {item.OBJETIVO_MENTAL}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-medium mb-1">
+              Feedback
+            </h4>
+
+            <p className="text-gray-300">
+              {item.FEEDBACK}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-2">
+
+            <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
+              {item.QUIEN}
+            </span>
+
+            <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
+              {item.MODALIDAD}
+            </span>
+
+            <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
+              {item.MOMENTO}
+            </span>
+
+            <span className="rounded-full bg-[#C8A96B]/20 px-3 py-1 text-xs text-[#C8A96B]">
+              {item.ESTRATEGIA}
+            </span>
+
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
         </div>
       </div>
     </div>,
