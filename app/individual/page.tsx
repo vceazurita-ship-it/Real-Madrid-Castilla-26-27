@@ -46,6 +46,7 @@ const DEFAULT_IMPROVEMENT_VIDEO =
   "https://drive.google.com/file/d/1yZYbrjeocPk-MiG_OCO-t1hzMyv54lAY/preview";
 
 type Player = {
+  idJugador: string;
   name: string;
   position: string;
   photo: string;
@@ -96,166 +97,194 @@ type ReportItem = {
 const players: Player[] = [
   // PORTEROS
   {
+    idJugador: "JUG-24",
     name: "Mestre",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/SERGIO_MESTRE_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-25",
     name: "Javi Navarro",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-26",
     name: "F. Quetglas",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_QUETGLAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
-  // DEFENSAS  
+
+  // DEFENSAS
   {
+    idJugador: "JUG-01",
     name: "Fortea",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JESUS_FORTEA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-02",
     name: "Melvin Ukpeigbe",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-03",
     name: "Valdepeñas",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/VICTOR_VALDEPEÑAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-04",
     name: "Diego Aguado",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_AGUADO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-06",
     name: "Álvaro Lezcano",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO%20LEZCANO_JT11325_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-05",
     name: "Manu Serrano",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/MANU_SERRANO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-07",
     name: "Joan Martínez",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JOAN_MARTINEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-08",
     name: "Mario Rivas",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/MARIO_RIVAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },  
+  },
   {
+    idJugador: "JUG-09",
     name: "Lamini",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/LAMINI_DB10244_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-10",
     name: "Ariel Ncoghe",
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ARIEL%20NKOGHE_JT11313_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+
   // CENTROCAMPISTAS
   {
+    idJugador: "JUG-11",
     name: "Cestero",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JORGE_CESTERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-12",
     name: "Cristian David",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/CRISTIAN_DAVID_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-13",
     name: "Thiago",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/THIAGO_PITARCH_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-15",
     name: "M. Rezola",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/MANEX-REZOLA_AV17806_550x650?$Desktop$&fit=wrap&wid=420",
   },
   {
+    idJugador: "JUG-14",
     name: "Diego Lacosta",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DIEGO%20LASCOSTA_JT11305_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-16",
     name: "Roberto",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-17",
     name: "Pol Fortuny",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/POL_FORTUNY_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-18",
     name: "Mesonero",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_MESONERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-19",
     name: "Yáñez",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_YAÑEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-20",
     name: "Alexis Ciria",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEXIS-CIRIA_JT10268_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-21",
     name: "Á. Leiva",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_LEIVA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+
   // DELANTEROS
   {
+    idJugador: "JUG-23",
     name: "Rachad",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/RACHAD_FETTAL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
+    idJugador: "JUG-22",
     name: "Jacobo",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },  
+  },
 ];
-
 function normalize(text = "") {
   return text
     .trim()
