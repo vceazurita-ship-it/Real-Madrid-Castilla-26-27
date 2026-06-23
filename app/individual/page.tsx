@@ -849,12 +849,12 @@ const playerReport = selected
     </button>
   ))}
 </div>
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 min-w-0">
   <h3 className="mb-4 text-center text-sm font-medium text-[#C8A96B]">
     Perfil competencial
   </h3>
 
-  <div className="h-[280px]">
+  <div className="h-[280px] w-full min-w-0">
     <ResponsiveContainer
       width="100%"
       height="100%"
