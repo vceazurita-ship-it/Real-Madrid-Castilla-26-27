@@ -569,11 +569,11 @@ useEffect(() => {
     useMemo(() => {
       return players.map((p) => {
         const row =
-          sheetData.find(
-            (r) =>
-              normalize(r.name) ===
-              normalize(p.name)
-          ) || {};
+  sheetData.find(
+    (r) =>
+      r.ID_JUGADOR ===
+      p.idJugador
+  ) || {};
 
         return {
   ...p,
@@ -594,26 +594,24 @@ useEffect(() => {
     DEFAULT_IMPROVEMENT_VIDEO,
 
   mentalidad: Number(
-    row.mentalidad || 0
-  ),
+  row.MENTALIDAD || 0
+),
 
-  habitos: Number(
-    row.habitos || 0
-  ),
+habitos: Number(
+  row.HABITOS || 0
+),
 
-  interpretacion: Number(
-    row.interpretacion || 0
-  ),
+interpretacion: Number(
+  row.INTERPRETACION || 0
+),
 
-  capacidadFisica: Number(
-    row.capacidad_fisica ||
-      row.capacidadFisica ||
-      0
-  ),
+capacidadFisica: Number(
+  row.CAPACIDAD_FISICA || 0
+),
 
-  tecnica: Number(
-    row.tecnica || 0
-  ),
+tecnica: Number(
+  row.TECNICA || 0
+),
 };
       });
     }, [sheetData]);
@@ -645,7 +643,29 @@ useEffect(() => {
         p.position === "Delantero"
     ),
   };
+const playerTracking = selected
+  ? trackingData.filter(
+      (item) =>
+        item.ID_JUGADOR ===
+        selected.idJugador
+    )
+  : [];
 
+const playerVideos = selected
+  ? videoData.filter(
+      (item) =>
+        item.ID_JUGADOR ===
+        selected.idJugador
+    )
+  : [];
+
+const playerReport = selected
+  ? reportData.find(
+      (item) =>
+        item.ID_JUGADOR ===
+        selected.idJugador
+    )
+  : null;
   return (
     <>
       <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -1142,8 +1162,12 @@ useEffect(() => {
     <h3 className="text-xl font-semibold text-[#C8A96B]">
       Seguimiento individual
     </h3>
-
-    {trackingData.map((item) => (
+{playerTracking.length === 0 && (
+  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-gray-400">
+    No hay seguimientos registrados.
+  </div>
+)}
+    {playerTracking.map((item) => (
       <div
         key={item.ID_REGISTRO}
         className="
@@ -1229,8 +1253,12 @@ useEffect(() => {
     <h3 className="text-xl font-semibold text-[#C8A96B]">
       Biblioteca de vídeos
     </h3>
-
-    {videoData.map((video) => (
+{playerVideos.length === 0 && (
+  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-gray-400">
+    No hay vídeos registrados.
+  </div>
+)}
+    {playerVideos.map((video) => (
       <div
         key={video.ID_VIDEO}
         className="
@@ -1283,7 +1311,7 @@ useEffect(() => {
       Informe individual
     </h3>
 
-    {reportData.length > 0 && (
+    {playerReport && (
       <>
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <h4 className="mb-3 text-[#C8A96B]">
@@ -1291,7 +1319,7 @@ useEffect(() => {
           </h4>
 
           <p className="text-gray-300">
-            {reportData[0].RESUMEN_EJECUTIVO}
+            {playerReport?.RESUMEN_EJECUTIVO}
           </p>
         </div>
 
@@ -1301,7 +1329,7 @@ useEffect(() => {
           </h4>
 
           <p className="text-gray-300">
-            {reportData[0].FORTALEZAS_INFORME}
+            {playerReport?.FORTALEZAS_INFORME}
           </p>
         </div>
 
@@ -1311,7 +1339,7 @@ useEffect(() => {
           </h4>
 
           <p className="text-gray-300">
-            {reportData[0].ASPECTOS_MEJORA_INFORME}
+            {playerReport?.ASPECTOS_MEJORA_INFORME}
           </p>
         </div>
 
@@ -1321,7 +1349,7 @@ useEffect(() => {
           </h4>
 
           <p className="text-gray-300 whitespace-pre-line">
-            {reportData[0].OBJETIVOS}
+            {playerReport?.OBJETIVOS}
           </p>
         </div>
 
@@ -1331,7 +1359,7 @@ useEffect(() => {
           </h4>
 
           <p className="text-gray-300">
-            {reportData[0].OBSERVACIONES_FINALES}
+            {playerReport?.OBSERVACIONES_FINALES}
           </p>
         </div>
       </>
@@ -1342,6 +1370,7 @@ useEffect(() => {
       </div>
     </div>,
     document.body
+    
   )}
     </>
   );
