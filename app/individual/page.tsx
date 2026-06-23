@@ -485,6 +485,8 @@ const [activeTab, setActiveTab] =
   useState(false);
 const [showTrackingForm, setShowTrackingForm] =
   useState(false);
+  const [editingTracking, setEditingTracking] =
+  useState<TrackingRecord | null>(null);
  const [trackingForm, setTrackingForm] =
   useState({
     FECHA: "",
@@ -595,7 +597,10 @@ const saveTracking = async () => {
       "Content-Type": "text/plain;charset=utf-8",
     },
     body: JSON.stringify({
-      action: "crearSeguimiento",
+      action: editingTracking
+  ? "editarSeguimiento"
+  : "crearSeguimiento",ID_REGISTRO:
+  editingTracking?.ID_REGISTRO,
       ID_JUGADOR: selected.idJugador,
       ...trackingForm,
     }),
@@ -606,6 +611,25 @@ const saveTracking = async () => {
       await response.json();
 
     if (result.success) {
+      if (editingTracking) {
+  setTrackingData((prev) =>
+    prev.map((r) =>
+      r.ID_REGISTRO ===
+      editingTracking.ID_REGISTRO
+        ? {
+            ...r,
+            ...trackingForm,
+          }
+        : r
+    )
+  );
+
+  setEditingTracking(null);
+
+  setShowTrackingForm(false);
+
+  return;
+}
       alert(
         "Seguimiento guardado correctamente"
       );
@@ -647,6 +671,49 @@ setTrackingData((prev) => [
     );
   }
 }; 
+
+const deleteTracking = async (
+  idRegistro: string
+) => {
+  if (
+    !confirm(
+      "¿Eliminar este seguimiento?"
+    )
+  )
+    return;
+
+  try {
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+          action: "eliminarSeguimiento",
+          ID_REGISTRO: idRegistro,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (result.success) {
+      setTrackingData((prev) =>
+        prev.filter(
+          (r) =>
+            r.ID_REGISTRO !==
+            idRegistro
+        )
+      );
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
 const mergedPlayers =
     useMemo(() => {
       return players.map((p) => {
@@ -1252,9 +1319,23 @@ const playerReport = selected
     </h3>
     <div className="mb-4">
   <button
-    onClick={() =>
-      setShowTrackingForm(true)
-    }
+    onClick={() => {
+  setEditingTracking(null);
+
+  setTrackingForm({
+    FECHA: "",
+    OBJETIVO_OFENSIVO: "",
+    OBJETIVO_DEFENSIVO: "",
+    OBJETIVO_MENTAL: "",
+    FEEDBACK: "",
+    QUIEN: "",
+    MODALIDAD: "",
+    MOMENTO: "",
+    ESTRATEGIA: "",
+  });
+
+  setShowTrackingForm(true);
+}}
     className="
       rounded-xl
       bg-[#C8A96B]
@@ -1265,7 +1346,9 @@ const playerReport = selected
       text-black
     "
   >
-    + Nuevo seguimiento
+    {editingTracking
+  ? "Editar seguimiento"
+  : "Nuevo seguimiento"}
   </button>
 </div>
 {playerTracking.length === 0 && (
@@ -1284,9 +1367,57 @@ const playerReport = selected
           p-5
         "
       >
-        <div className="mb-4 text-sm text-[#C8A96B]">
-          {item.FECHA}
-        </div>
+        <div className="mb-4 flex items-center justify-between">
+  <div className="text-sm text-[#C8A96B]">
+    {item.FECHA}
+  </div>
+
+  <div className="flex gap-2">
+
+    <button
+      onClick={() => {
+        setEditingTracking(item);
+
+        setTrackingForm({
+          FECHA: item.FECHA,
+          OBJETIVO_OFENSIVO:
+            item.OBJETIVO_OFENSIVO,
+          OBJETIVO_DEFENSIVO:
+            item.OBJETIVO_DEFENSIVO,
+          OBJETIVO_MENTAL:
+            item.OBJETIVO_MENTAL,
+          FEEDBACK:
+            item.FEEDBACK,
+          QUIEN:
+            item.QUIEN,
+          MODALIDAD:
+            item.MODALIDAD,
+          MOMENTO:
+            item.MOMENTO,
+          ESTRATEGIA:
+            item.ESTRATEGIA,
+        });
+
+        setShowTrackingForm(true);
+      }}
+      className="rounded-lg bg-blue-500 px-3 py-1 text-xs"
+    >
+      Editar
+    </button>
+
+    <button
+      onClick={() =>
+        deleteTracking(
+          item.ID_REGISTRO
+        )
+      }
+      className="rounded-lg bg-red-500 px-3 py-1 text-xs"
+    >
+      Borrar
+    </button>
+
+  </div>
+</div>
 
         <div className="grid gap-4">
 
@@ -1654,7 +1785,9 @@ const playerReport = selected
               text-black
             "
           >
-            Guardar seguimiento
+            {editingTracking
+  ? "Actualizar seguimiento"
+  : "Guardar seguimiento"}
           </button>
  
         </div>
