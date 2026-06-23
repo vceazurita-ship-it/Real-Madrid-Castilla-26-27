@@ -1194,6 +1194,120 @@ useEffect(() => {
       </div>
     ))}
   </div>
+)}{activeTab === "videos" && (
+  <div className="space-y-6">
+
+    <h3 className="text-xl font-semibold text-[#C8A96B]">
+      Biblioteca de vídeos
+    </h3>
+
+    {videoData.map((video) => (
+      <div
+        key={video.ID_VIDEO}
+        className="
+          rounded-2xl
+          border
+          border-white/10
+          bg-white/[0.03]
+          p-5
+        "
+      >
+        <div className="mb-2 text-sm text-[#C8A96B]">
+          {video.CATEGORIA}
+        </div>
+
+        <h4 className="text-lg font-semibold">
+          {video.TITULO}
+        </h4>
+
+        <p className="mt-2 text-gray-300">
+          {video.DESCRIPCION}
+        </p>
+
+        <div className="mt-4">
+          <a
+            href={video.URL_VIDEO}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="
+              inline-flex
+              items-center
+              rounded-xl
+              bg-[#C8A96B]
+              px-4
+              py-2
+              text-sm
+              font-medium
+              text-black
+            "
+          >
+            Ver vídeo
+          </a>
+        </div>
+      </div>
+    ))}
+  </div>
+)}{activeTab === "informe" && (
+  <div className="space-y-6">
+
+    <h3 className="text-xl font-semibold text-[#C8A96B]">
+      Informe individual
+    </h3>
+
+    {reportData.length > 0 && (
+      <>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <h4 className="mb-3 text-[#C8A96B]">
+            Resumen ejecutivo
+          </h4>
+
+          <p className="text-gray-300">
+            {reportData[0].RESUMEN_EJECUTIVO}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <h4 className="mb-3 text-[#C8A96B]">
+            Fortalezas
+          </h4>
+
+          <p className="text-gray-300">
+            {reportData[0].FORTALEZAS_INFORME}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <h4 className="mb-3 text-[#C8A96B]">
+            Aspectos de mejora
+          </h4>
+
+          <p className="text-gray-300">
+            {reportData[0].ASPECTOS_MEJORA_INFORME}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <h4 className="mb-3 text-[#C8A96B]">
+            Objetivos
+          </h4>
+
+          <p className="text-gray-300 whitespace-pre-line">
+            {reportData[0].OBJETIVOS}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <h4 className="mb-3 text-[#C8A96B]">
+            Observaciones finales
+          </h4>
+
+          <p className="text-gray-300">
+            {reportData[0].OBSERVACIONES_FINALES}
+          </p>
+        </div>
+      </>
+    )}
+  </div>
 )}
         </div>
       </div>
