@@ -819,11 +819,8 @@ const mergedPlayers =
   ) || {};
 console.log("ROW", row);
 console.log(
-  JSON.stringify(
-    sheetData[0],
-    null,
-    2
-  )
+  p.idJugador,
+  row.ID_JUGADOR
 );
         return {
   ...p,
