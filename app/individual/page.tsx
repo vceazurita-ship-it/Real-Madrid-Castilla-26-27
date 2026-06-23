@@ -1462,7 +1462,7 @@ const playerReport = selected
                 </div>
               )}
             </div>
-          </div>
+          </div></div>
         )}
           {activeTab === "seguimiento" && (
   <div className="space-y-4">
