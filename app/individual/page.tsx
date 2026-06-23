@@ -1248,7 +1248,7 @@ const playerReport = selected
       </div>
     ))}
   </div>
-</div></div>
+</div>
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
@@ -1457,13 +1457,13 @@ const playerReport = selected
                       allowFullScreen
                       loading="lazy"
                       referrerPolicy="strict-origin-when-cross-origin"
-                      />
+                    />
                   </div>
-                </div>
-              )}
-            </div>
-          </div></div>
-        )}
+                
+
+   </div>  )}
+            </div></div></div>
+)}
           {activeTab === "seguimiento" && (
   <div className="space-y-4">
 
