@@ -618,7 +618,13 @@ useEffect(() => {
         ? results[3].value
         : "";
 
-    setSheetData(jugadores);
+    console.log("JUGADORES RECIBIDOS", jugadores);
+
+setSheetData(
+  Array.isArray(jugadores)
+    ? jugadores
+    : jugadores.data || []
+);
 
     setTrackingData(
       seguimiento as TrackingRecord[]
