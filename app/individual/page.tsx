@@ -589,26 +589,42 @@ const saveTracking = async () => {
   if (!selected) return;
 
   try {
-    const response = await fetch(
+   const payload = {
+  action: editingTracking
+    ? "editarSeguimiento"
+    : "crearSeguimiento",
+
+  ID_REGISTRO:
+    editingTracking?.ID_REGISTRO,
+
+  ID_JUGADOR:
+    selected.idJugador,
+
+  ...trackingForm,
+};
+
+console.log("EDITAR ENVIA:");
+console.log(payload);
+
+const response = await fetch(
   APPS_SCRIPT_URL,
   {
     method: "POST",
     headers: {
-      "Content-Type": "text/plain;charset=utf-8",
+      "Content-Type":
+        "text/plain;charset=utf-8",
     },
-    body: JSON.stringify({
-      action: editingTracking
-  ? "editarSeguimiento"
-  : "crearSeguimiento",ID_REGISTRO:
-  editingTracking?.ID_REGISTRO,
-      ID_JUGADOR: selected.idJugador,
-      ...trackingForm,
-    }),
+    body: JSON.stringify(payload),
   }
 );
 
-    const result =
-      await response.json();
+const text = await response.text();
+
+console.log("EDITAR RESPUESTA:");
+console.log(text);
+
+const result = JSON.parse(text);
+
 
     if (result.success) {
       if (editingTracking) {
@@ -683,23 +699,29 @@ const deleteTracking = async (
     return;
 
   try {
-    const response = await fetch(
-      APPS_SCRIPT_URL,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-          action: "eliminarSeguimiento",
-          ID_REGISTRO: idRegistro,
-        }),
-      }
-    );
+    const payload = {
+  action: "eliminarSeguimiento",
+  ID_REGISTRO: idRegistro,
+};
 
-    const text = await response.text();
+console.log("BORRAR ENVIA:");
+console.log(payload);
 
+const response = await fetch(
+  APPS_SCRIPT_URL,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type":
+        "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify(payload),
+  }
+);
+
+const text = await response.text();
+
+console.log("BORRAR RESPUESTA:");
 console.log(text);
 
 const result = JSON.parse(text);
