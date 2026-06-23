@@ -819,41 +819,34 @@ const mergedPlayers =
 
         return {
   ...p,
+
   strengths:
-    row.strengths ||
+    row.FORTALEZAS ||
     DEFAULT_STRENGTH,
 
   improvements:
-    row.improvements ||
+    row.ASPECTOS_MEJORA ||
     DEFAULT_IMPROVEMENT,
 
-  strengthVideo:
-    row.strengthVideo ||
-    DEFAULT_STRENGTH_VIDEO,
-
-  improvementVideo:
-    row.improvementVideo ||
-    DEFAULT_IMPROVEMENT_VIDEO,
-
   mentalidad: Number(
-  row.MENTALIDAD || 0
-),
+    row.MENTALIDAD || 0
+  ),
 
-habitos: Number(
-  row.HABITOS || 0
-),
+  habitos: Number(
+    row.HABITOS || 0
+  ),
 
-interpretacion: Number(
-  row.INTERPRETACION || 0
-),
+  interpretacion: Number(
+    row.INTERPRETACION || 0
+  ),
 
-capacidadFisica: Number(
-  row.CAPACIDAD_FISICA || 0
-),
+  capacidadFisica: Number(
+    row.CAPACIDAD_FISICA || 0
+  ),
 
-tecnica: Number(
-  row.TECNICA || 0
-),
+  tecnica: Number(
+    row.TECNICA || 0
+  ),
 };
       });
     }, [sheetData]);
@@ -1331,7 +1324,8 @@ const playerReport = selected
         setEditingTracking(item);
 
         setTrackingForm({
-          FECHA: item.FECHA,
+           FECHA:
+    item.FECHA?.split("T")[0] || "",
           OBJETIVO_OFENSIVO:
             item.OBJETIVO_OFENSIVO,
           OBJETIVO_DEFENSIVO:
