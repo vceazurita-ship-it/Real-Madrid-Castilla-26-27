@@ -1205,12 +1205,12 @@ const playerReport = selected
   }
   className="
     absolute
-    right-6
-    top-6
+    right-4
+    top-4
     z-50
-    rounded-xl
+    rounded-2xl
     bg-white/5
-    p-2
+    p-3
     border
     border-white/10
     hover:bg-white/10
