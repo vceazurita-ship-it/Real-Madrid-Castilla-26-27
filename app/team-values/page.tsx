@@ -147,14 +147,14 @@ const guardarCambios = async () => {
 
           <div
   className="
-  w-full
-  lg:w-[300px]
-  xl:w-[340px]
-  lg:border-r
-  border-white/10
-  p-4useState
-  lg:p-6
-  "
+w-full
+lg:w-[300px]
+xl:w-[340px]
+lg:border-r
+border-white/10
+p-4
+lg:p-6
+"
 >
             
 
@@ -300,132 +300,120 @@ hover:border-[#C8A96B]/30
     ))}
   </div>
 </div>
-<div className="mt-5">
-
-  <p
-    className="
-    text-sm
-    uppercase
-    tracking-wider
-    text-[#C8A96B]
-    "
-  >
-    {seccion}
-  </p>
-
-</div>
-            <div
-  className="
-  mb-8
-  flex
-  flex-col
-  gap-4
-  lg:flex-row
-  lg:items-center
-  lg:justify-between
-  "
->
-<h1
-className="
-text-2xl
-sm:text-4xl
-lg:text-5xl
-font-bold
-text-white
-leading-none
-"
->
-    {seccion}
-  </h1>
+<div className="mb-8 mt-5">
 <p
-className="
-mt-2
-max-w-2xl
-text-sm
-lg:text-base
-text-gray-400
-"
->
-  {
-    seccion === "MARCO"
-      ? "Fundamentos conceptuales sobre identidad, propósito y cultura."
-
-      : seccion === "PLANIFICACION"
-      ? "Diseño del proceso y estructura de implementación."
-
-      : seccion === "SEMANA 1"
-      ? "Construcción del significado de pertenecer al grupo."
-
-      : seccion === "SEMANA 2"
-      ? "Definición de valores y comportamientos observables."
-
-      : seccion === "SEMANA 3"
-      ? "Establecimiento de estándares e innegociables."
-
-      : seccion === "SEMANA 4"
-      ? "Consolidación de hábitos y herramientas culturales."
-
-      : ""
-  }
-</p>
-  <p
-    className="
-    mt-2
-    max-w-2xl
-    text-gray-400
-    "
-  >
-    Construcción de identidad,
-    valores, hábitos y estándares
-    del vestuario.
-  </p>
-
-</div>
-
-             <div className="flex w-full gap-3 lg:w-auto">
-  {editing && (
-    <button
-  type="button"
-  onClick={guardarCambios}
   className="
-    rounded-xl
-    bg-[#C8A96B]
-    flex-1 lg:flex-none px-4 py-3
-    font-medium
-    text-black
+  text-sm
+  text-gray-500
   "
 >
-  Guardar
-</button>
-  )}
+  Etapa {secciones.findIndex(
+    (s) => s === seccion
+  ) + 1}
+  {" de "}
+  {secciones.length}
+</p>
 
-  <button
-  onClick={() => {
-    if (editing) {
-      setData(
-        JSON.parse(
-          JSON.stringify(originalData)
-        )
-      );
-    }
-
-    setEditing(!editing);
-  }}
+  <div
     className="
-    rounded-xl
-    border
-    border-[#C8A96B]
-    flex-1 lg:flex-none px-4 py-3
-    text-[#C8A96B]
+    mt-3
+    flex
+    flex-col
+    gap-6
+    lg:flex-row
+    lg:items-start
+    lg:justify-between
     "
   >
-    {editing
-      ? "Cancelar"
-      : "Editar"}
-  </button>
-</div>
-            </div>
+    <div>
+      <h1
+        className="
+        text-2xl
+        sm:text-4xl
+        lg:text-5xl
+        font-bold
+        text-white
+        leading-none
+        "
+      >
+        {seccion}
+      </h1>
 
+      <p
+        className="
+        mt-3
+        max-w-2xl
+        text-sm
+        lg:text-base
+        text-gray-400
+        "
+      >
+        {
+          seccion === "MARCO"
+            ? "Fundamentos conceptuales sobre identidad, propósito y cultura."
+            : seccion === "PLANIFICACION"
+            ? "Diseño del proceso y estructura de implementación."
+            : seccion === "SEMANA 1"
+            ? "Construcción del significado de pertenecer al grupo."
+            : seccion === "SEMANA 2"
+            ? "Definición de valores y comportamientos observables."
+            : seccion === "SEMANA 3"
+            ? "Establecimiento de estándares e innegociables."
+            : seccion === "SEMANA 4"
+            ? "Consolidación de hábitos y herramientas culturales."
+            : ""
+        }
+      </p>
+    </div>
+
+    <div className="flex w-full gap-3 lg:w-auto">
+      {editing && (
+        <button
+          type="button"
+          onClick={guardarCambios}
+          className="
+          flex-1
+          rounded-xl
+          bg-[#C8A96B]
+          px-4
+          py-3
+          font-medium
+          text-black
+          lg:flex-none
+          "
+        >
+          Guardar
+        </button>
+      )}
+
+      <button
+        onClick={() => {
+          if (editing) {
+            setData(
+              JSON.parse(
+                JSON.stringify(originalData)
+              )
+            );
+          }
+
+          setEditing(!editing);
+        }}
+        className="
+        flex-1
+        rounded-xl
+        border
+        border-[#C8A96B]
+        px-4
+        py-3
+        text-[#C8A96B]
+        lg:flex-none
+        "
+      >
+        {editing ? "Cancelar" : "Editar"}
+      </button>
+    </div>
+  </div>
+</div>
             <div className="space-y-3">
               {contenidos.map((p) => (
                 <div
