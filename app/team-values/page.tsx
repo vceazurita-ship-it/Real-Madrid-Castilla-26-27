@@ -196,6 +196,52 @@ const guardarCambios = async () => {
           {/* CONTENIDO */}
 
           <div className="flex-1 p-4 lg:p-8">
+            <div className="mb-10">
+
+  <div
+    className="
+    flex
+    gap-3
+    overflow-x-auto
+    pb-3
+    "
+  >
+    {secciones.map((s, i) => (
+
+      <button
+        key={s}
+        onClick={() =>
+          setSeccion(s)
+        }
+        className={`
+          shrink-0
+          min-w-[180px]
+          rounded-2xl
+          p-4
+          text-left
+          transition-all
+          ${
+            seccion === s
+              ? "bg-[#C8A96B] text-black"
+              : "border border-white/10 bg-white/[0.03] text-white"
+          }
+        `}
+      >
+
+        <div className="text-xs opacity-60">
+          ETAPA {i + 1}
+        </div>
+
+        <div className="mt-1 font-semibold">
+          {s}
+        </div>
+
+      </button>
+
+    ))}
+  </div>
+
+</div>
             <div
   className="
   mb-8
@@ -208,21 +254,46 @@ const guardarCambios = async () => {
   "
 >
               <div>
-                <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
-                  CULTURA
-                </p>
 
-                <h1
-  className="
-  text-2xl
-  lg:text-3xl
-  font-semibold
-  text-white
-  "
->
-                  {seccion}
-                </h1>
-              </div>
+  <div
+    className="
+    inline-flex
+    rounded-full
+    bg-[#C8A96B]/10
+    px-4
+    py-1
+    text-xs
+    font-medium
+    text-[#C8A96B]
+    "
+  >
+    ROADMAP CULTURAL
+  </div>
+
+  <h1
+    className="
+    mt-4
+    text-4xl
+    font-bold
+    text-white
+    "
+  >
+    {seccion}
+  </h1>
+
+  <p
+    className="
+    mt-2
+    max-w-2xl
+    text-gray-400
+    "
+  >
+    Construcción de identidad,
+    valores, hábitos y estándares
+    del vestuario.
+  </p>
+
+</div>
 
              <div className="flex w-full gap-3 lg:w-auto">
   {editing && (
@@ -272,23 +343,41 @@ const guardarCambios = async () => {
               {contenidos.map((p) => (
                 <div
                   key={p.ID}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                  className="
+group
+rounded-3xl
+border
+border-white/10
+bg-gradient-to-br
+from-white/[0.05]
+to-white/[0.02]
+p-6
+transition-all
+hover:border-[#C8A96B]/40
+hover:bg-white/[0.05]
+"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="
-flex
-h-7
-w-7
-lg:h-8
-lg:w-8
-items-center
-justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
+                    <div
+  className="
+  flex
+  h-12
+  w-12
+  items-center
+  justify-center
+  rounded-2xl
+  bg-[#C8A96B]
+  text-lg
+  font-bold
+  text-black
+  "
+>
                       {p.ORDEN}
                     </div>
 
                     <div className="flex-1">
                      {editing ? (
-  <div className="space-y-3">
+  <div className="space-y-6">
 
     <h3 className="text-lg font-semibold text-white">
       {p.TITULO}
