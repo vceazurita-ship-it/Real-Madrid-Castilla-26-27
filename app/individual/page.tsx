@@ -1411,7 +1411,7 @@ tracking-wide
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
-<div className="flex items-center justify-between border-b border-white/10 pb-4">
+<div className="flex items-start justify-between border-b border-white/10 pb-4">
   <h2 className="text-xl font-semibold">
     Perfil del jugador
   </h2>
@@ -1438,15 +1438,17 @@ tracking-wide
       setShowProfileForm(true);
     }}
     className="
-      rounded-xl
-      bg-[#C8A96B]
-      px-4
-      py-2
-      text-sm
-      font-medium
-      text-black
-      hover:opacity-90
-    "
+  mt-6
+  mr-4
+  rounded-xl
+  bg-[#C8A96B]
+  px-4
+  py-2
+  text-sm
+  font-medium
+  text-black
+  hover:opacity-90
+"
   >
     Editar perfil
   </button>
