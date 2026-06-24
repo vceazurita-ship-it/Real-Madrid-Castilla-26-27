@@ -836,37 +836,37 @@ HUDL_PERFIL_URL:
       );
 
       setSelected((prev) =>
-        prev
-          ? {
-              ...prev,
-              strengths:
-                profileForm.strengths,
-                
-              improvements:
-                profileForm.improvements,
-                hudlPerfilUrl:
-  profileForm.hudlPerfilUrl,
+  prev
+    ? {
+        ...prev,
 
-              mentalidad: Number(
-                profileForm.mentalidad
-              ),
-              habitos: Number(
-                profileForm.habitos
-              ),
-              interpretacion:
-                Number(
-                  profileForm.interpretacion
-                ),
-              capacidadFisica:
-                Number(
-                  profileForm.capacidadFisica
-                ),
-              tecnica: Number(
-                profileForm.tecnica
-              ),
-            }
-          : prev
-      );
+        fortalezas:
+          profileForm.strengths,
+
+        aspectosMejora:
+          profileForm.improvements,
+
+        hudlPerfilUrl:
+          profileForm.hudlPerfilUrl,
+
+        mentalidad: Number(
+          profileForm.mentalidad
+        ),
+        habitos: Number(
+          profileForm.habitos
+        ),
+        interpretacion: Number(
+          profileForm.interpretacion
+        ),
+        capacidadFisica: Number(
+          profileForm.capacidadFisica
+        ),
+        tecnica: Number(
+          profileForm.tecnica
+        ),
+      }
+    : prev
+);
 
       setShowProfileForm(false);
     }
@@ -930,63 +930,74 @@ const result = JSON.parse(text);
   }
 };
 const mergedPlayers =
-    useMemo(() => {
-      return players.map((p) => {
-        const row =
-  sheetData.find(
-    (r) =>
-      r.ID_JUGADOR ===
-      p.idJugador
-  ) || {};
-console.log("ROW", row);
-console.log(
-  "SELECTED",
-  selected?.idJugador,
-  selected?.name
-);
-        return {
-  ...p,
+  useMemo(() => {
+    return players.map((p) => {
+      const row =
+        sheetData.find(
+          (r) =>
+            r.ID_JUGADOR ===
+            p.idJugador
+        ) || {};
 
- fortalezas:
-  row.FORTALEZAS ||
-  DEFAULT_STRENGTH,
+      return {
+        ...p,
 
-aspectosMejora:
-  row.ASPECTOS_MEJORA ||
-  DEFAULT_IMPROVEMENT,
+        fortalezas:
+          row.FORTALEZAS ||
+          DEFAULT_STRENGTH,
 
-hudlPerfilUrl:
-  row.HUDL_PERFIL_URL || "",
+        aspectosMejora:
+          row.ASPECTOS_MEJORA ||
+          DEFAULT_IMPROVEMENT,
 
-  mentalidad: Number(
-    row.MENTALIDAD || 0
-  ),
+        hudlPerfilUrl:
+          row.HUDL_PERFIL_URL || "",
 
-  habitos: Number(
-    row.HABITOS || 0
-  ),
+        mentalidad: Number(
+          row.MENTALIDAD || 0
+        ),
 
-  interpretacion: Number(
-    row.INTERPRETACION || 0
-  ),
+        habitos: Number(
+          row.HABITOS || 0
+        ),
 
-  capacidadFisica: Number(
-    row.CAPACIDAD_FISICA || 0
-  ),
+        interpretacion: Number(
+          row.INTERPRETACION || 0
+        ),
 
-  tecnica: Number(
-    row.TECNICA || 0
-  ),
-};
-      });
-    }, [sheetData]);
+        capacidadFisica: Number(
+          row.CAPACIDAD_FISICA || 0
+        ),
 
-  const filtered =
-    mergedPlayers.filter((p) =>
-      normalize(p.name).includes(
-        normalize(search)
-      )
+        tecnica: Number(
+          row.TECNICA || 0
+        ),
+      };
+    });
+  }, [sheetData]);
+
+// 👇 AQUÍ
+useEffect(() => {
+  if (!selected) return;
+
+  const updatedPlayer =
+    mergedPlayers.find(
+      (p) =>
+        p.idJugador ===
+        selected.idJugador
     );
+
+  if (updatedPlayer) {
+    setSelected(updatedPlayer);
+  }
+}, [mergedPlayers]);
+
+const filtered =
+  mergedPlayers.filter((p) =>
+    normalize(p.name).includes(
+      normalize(search)
+    )
+  );
 
   const grouped = {
     Porteros: filtered.filter(
@@ -1414,15 +1425,28 @@ const playerReport = selected
     </div>
 
     <div className="space-y-10">
-            {/* FORTALEZAS */}
-            <div>
-              <h3 className="mb-3 text-[#C8A96B]">
-                Fortalezas
-              </h3>
+           {/* FORTALEZAS */}
+<div>
+  <h3 className="mb-3 text-[#C8A96B]">
+    Fortalezas
+  </h3>
 
-              <p className="mb-4 text-gray-300">
-               {selected.fortalezas}
-              </p>
+  <p className="mb-6 text-gray-300 whitespace-pre-line">
+    {selected.fortalezas}
+  </p>
+</div>
+
+{/* ASPECTOS DE MEJORA */}
+<div>
+  <h3 className="mb-3 text-[#C8A96B]">
+    Aspectos de mejora
+  </h3>
+
+  <p className="mb-6 text-gray-300 whitespace-pre-line">
+    {selected.aspectosMejora}
+  </p>
+</div>
+
 {selected.hudlPerfilUrl && (
   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
     <h3 className="mb-3 text-[#C8A96B]">
@@ -1449,7 +1473,7 @@ const playerReport = selected
               
                 
 
-            </div></div></div>
+            </div></div>
 )}
           {activeTab === "seguimiento" && (
   <div className="space-y-4">
