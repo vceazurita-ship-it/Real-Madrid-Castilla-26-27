@@ -1411,35 +1411,64 @@ tracking-wide
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
-<div className="relative border-b border-white/10 pb-4">
-  <h2 className="text-3xl font-semibold">
-    Perfil del jugador
-  </h2>
+<div className="relative border-b border-white/10 pb-6">
+  <div className="flex items-center justify-between pr-24">
+    <h2 className="text-3xl font-semibold tracking-tight">
+      Perfil del jugador
+    </h2>
 
-  <button
-    onClick={() => setShowProfileForm(true)}
-    className="
-      absolute
-      right-0
-      top-0
-      inline-flex
-      items-center
-      gap-2
-      rounded-2xl
-      bg-[#C8A96B]
-      px-6
-      py-3
-      text-base
-      font-medium
-      text-black
-      shadow-lg
-      hover:opacity-90
-      transition-all
-    "
-  >
-    ✎
-    Editar perfil
-  </button>
+    <button
+      onClick={() => {
+        setProfileForm({
+          strengths: selected.fortalezas || "",
+          improvements: selected.aspectosMejora || "",
+          hudlPerfilUrl: selected.hudlPerfilUrl || "",
+          mentalidad: String(selected.mentalidad || ""),
+          habitos: String(selected.habitos || ""),
+          interpretacion: String(selected.interpretacion || ""),
+          capacidadFisica: String(selected.capacidadFisica || ""),
+          tecnica: String(selected.tecnica || ""),
+        });
+
+        setShowProfileForm(true);
+      }}
+      className="
+        inline-flex
+        items-center
+        gap-3
+        rounded-2xl
+        border
+        border-[#C8A96B]/20
+        bg-[#C8A96B]
+        px-6
+        py-3
+        text-base
+        font-medium
+        text-black
+        shadow-[0_8px_25px_rgba(200,169,107,0.25)]
+        transition-all
+        hover:-translate-y-0.5
+        hover:shadow-[0_12px_30px_rgba(200,169,107,0.35)]
+      "
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15.232 5.232l3.536 3.536M9 11l6.768-6.768a2.5 2.5 0 113.536 3.536L12.536 14.536 9 15l.464-4z"
+        />
+      </svg>
+
+      Editar perfil
+    </button>
+  </div>
 </div>
     <div className="space-y-10">
            {/* FORTALEZAS */}
