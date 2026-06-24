@@ -250,17 +250,113 @@ export default function GameModelPage() {
                     </div>
 
                     <div className="flex-1">
-                      <p className="text-white">
-                        {p.PRINCIPIO}
-                      </p>
+                     {editing ? (
+  <div className="space-y-3">
+    <textarea
+      value={p.PRINCIPIO}
+      onChange={(e) => {
+        setData((prev) =>
+          prev.map((item) =>
+            item.ID === p.ID
+              ? {
+                  ...item,
+                  PRINCIPIO:
+                    e.target.value,
+                }
+              : item
+          )
+        );
+      }}
+      className="
+      w-full
+      rounded-xl
+      border
+      border-white/10
+      bg-black/30
+      p-3
+      text-white
+      outline-none
+      "
+      rows={3}
+    />
 
-                      {p.OBSERVACIONES && (
-                        <p className="mt-2 text-sm text-gray-400">
-                          {
-                            p.OBSERVACIONES
-                          }
-                        </p>
-                      )}
+    <textarea
+      value={
+        p.OBSERVACIONES || ""
+      }
+      onChange={(e) => {
+        setData((prev) =>
+          prev.map((item) =>
+            item.ID === p.ID
+              ? {
+                  ...item,
+                  OBSERVACIONES:
+                    e.target.value,
+                }
+              : item
+          )
+        );
+      }}
+      className="
+      w-full
+      rounded-xl
+      border
+      border-white/10
+      bg-black/30
+      p-3
+      text-sm
+      text-gray-300
+      outline-none
+      "
+      rows={2}
+      placeholder="Observaciones..."
+    />
+
+    <button
+      onClick={async () => {
+        await fetch(API, {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            action:
+              "guardarPrincipio",
+            ID: p.ID,
+            PRINCIPIO:
+              p.PRINCIPIO,
+            OBSERVACIONES:
+              p.OBSERVACIONES,
+          }),
+        });
+
+        alert("Guardado");
+      }}
+      className="
+      rounded-xl
+      bg-[#C8A96B]
+      px-4
+      py-2
+      text-black
+      "
+    >
+      Guardar
+    </button>
+  </div>
+) : (
+  <>
+    <p className="text-white">
+      {p.PRINCIPIO}
+    </p>
+
+    {p.OBSERVACIONES && (
+      <p className="mt-2 text-sm text-gray-400">
+        {p.OBSERVACIONES}
+      </p>
+    )}
+  </>
+)}
                     </div>
                   </div>
                 </div>
