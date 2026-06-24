@@ -2485,7 +2485,7 @@ tracking-wide
               font-medium
               text-black
             "
-          >
+          > 
             {editingVideo
               ? "Actualizar vídeo"
               : "Guardar vídeo"}
