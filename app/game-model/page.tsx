@@ -179,13 +179,14 @@ const guardarCambios = async () => {
           <div
   className="
   w-full
-  lg:w-[340px]
+  lg:w-[300px]
+  xl:w-[340px]
   lg:border-r
   border-white/10
   p-4
   lg:p-6
   "
-></div><div className="w-[340px] border-r border-white/10 p-6">
+>
             <div className="mb-8 flex gap-2">
               <button
                 onClick={() =>
@@ -302,7 +303,7 @@ text-left text-sm ${
 
           {/* CONTENIDO */}
 
-          <div className="flex-1 p-8">
+          <div className="flex-1 p-4 lg:p-8">
             <div
   className="
   mb-8
