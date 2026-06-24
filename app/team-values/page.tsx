@@ -107,7 +107,7 @@ const guardarCambios = async () => {
     await Promise.all(
       cambios.map((p) =>
         fetch(
-          `${API}?action=guardarCultura&ID=${p.ID}&&CONTENIDO=${encodeURIComponent(
+          `${API}?action=guardarCultura&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
             p.CONTENIDO
           )}&OBSERVACIONES=${encodeURIComponent(
             p.OBSERVACIONES || ""
@@ -153,7 +153,15 @@ const guardarCambios = async () => {
             
 
             <div className="space-y-2">
-  {secciones.map((s) => (
+  {secciones.map((s) => {
+
+  const total =
+    data.filter(
+      (item) =>
+        item.SECCION === s
+    ).length;
+
+  return (
     <button
       key={s}
       onClick={() =>
@@ -165,9 +173,15 @@ const guardarCambios = async () => {
           : "border border-white/10 text-white"
       }`}
     >
-      {s}
+      <div className="flex items-center justify-between">
+        <span>{s}</span>
+        <span className="text-xs opacity-70">
+          {total}
+        </span>
+      </div>
     </button>
-  ))}
+  );
+})}
 </div>
 
             
@@ -269,6 +283,10 @@ justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
                     <div className="flex-1">
                      {editing ? (
   <div className="space-y-3">
+
+    <h3 className="text-lg font-semibold text-white">
+      {p.TITULO}
+    </h3>
     <textarea
       value={p.CONTENIDO}
       onChange={(e) => {
@@ -337,9 +355,21 @@ justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
   </h3>
 
   {p.TIPO && (
-    <span className="mt-2 inline-flex rounded-full bg-[#C8A96B]/20 px-3 py-1 text-xs text-[#C8A96B]">
-      {p.TIPO}
-    </span>
+    <span
+  className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+    p.TIPO === "VALOR"
+      ? "bg-green-500/20 text-green-400"
+      : p.TIPO === "ANTIVALOR"
+      ? "bg-red-500/20 text-red-400"
+      : p.TIPO === "INNEGOCIABLE"
+      ? "bg-blue-500/20 text-blue-400"
+      : p.TIPO === "INTOLERABLE"
+      ? "bg-orange-500/20 text-orange-400"
+      : "bg-[#C8A96B]/20 text-[#C8A96B]"
+  }`}
+>
+  {p.TIPO}
+</span>
   )}
 </div>
 
