@@ -42,9 +42,9 @@ const [originalData, setOriginalData] =
 
   useEffect(() => {
 
-  fetch(
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pubhtml?gid=1322156567&single=true"
-  )
+ fetch(
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv"
+)
     .then((r) => r.text())
     .then((csv) => {
 
