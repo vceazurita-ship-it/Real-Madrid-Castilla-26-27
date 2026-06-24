@@ -1234,43 +1234,8 @@ const playerReport = selected
             <p className="mt-2 text-gray-400">
               {selected.position}
             </p>
-            <div className="mt-4">
-  <button
-    onClick={() => {
-      setProfileForm({
-        strengths:
-          selected.fortalezas || "",
-
-        improvements:
-          selected.aspectosMejora || "",
-
-        hudlPerfilUrl:
-          selected.hudlPerfilUrl || "",
-
-        mentalidad: String(selected.mentalidad || ""),
-        habitos: String(selected.habitos || ""),
-        interpretacion: String(selected.interpretacion || ""),
-        capacidadFisica: String(selected.capacidadFisica || ""),
-        tecnica: String(selected.tecnica || ""),
-      });
-
-      setShowProfileForm(true);
-    }}
-    className="
-      rounded-xl
-      bg-[#C8A96B]
-      px-4
-      py-2
-      text-sm
-      font-medium
-      text-black
-      hover:opacity-90
-    "
-  >
-    Editar perfil
-  </button>
-</div>
-            <div className="mt-6 flex flex-wrap gap-1 rounded-2xl bg-white/5 p-1">
+            
+            <div className="mt-6 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
   {[
     {
       key: "perfil",
@@ -1298,10 +1263,12 @@ const playerReport = selected
       }
       className={`
   flex-1
-  min-w-[110px]
-  rounded-xl
-  px-4
-  py-3
+rounded-xl
+px-3
+py-2
+text-xs
+uppercase
+tracking-wide
   text-sm
   font-medium
   transition-all
@@ -1444,7 +1411,46 @@ const playerReport = selected
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
+<div className="flex items-center justify-between border-b border-white/10 pb-4">
+  <h2 className="text-xl font-semibold">
+    Perfil del jugador
+  </h2>
 
+  <button
+    onClick={() => {
+      setProfileForm({
+        strengths:
+          selected.fortalezas || "",
+
+        improvements:
+          selected.aspectosMejora || "",
+
+        hudlPerfilUrl:
+          selected.hudlPerfilUrl || "",
+
+        mentalidad: String(selected.mentalidad || ""),
+        habitos: String(selected.habitos || ""),
+        interpretacion: String(selected.interpretacion || ""),
+        capacidadFisica: String(selected.capacidadFisica || ""),
+        tecnica: String(selected.tecnica || ""),
+      });
+
+      setShowProfileForm(true);
+    }}
+    className="
+      rounded-xl
+      bg-[#C8A96B]
+      px-4
+      py-2
+      text-sm
+      font-medium
+      text-black
+      hover:opacity-90
+    "
+  >
+    Editar perfil
+  </button>
+</div>
     <div className="space-y-10">
            {/* FORTALEZAS */}
 <div>
