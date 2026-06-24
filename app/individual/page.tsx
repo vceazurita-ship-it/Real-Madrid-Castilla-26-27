@@ -53,10 +53,10 @@ type Player = {
   name: string;
   position: string;
   photo: string;
-  strengths?: string;
-  improvements?: string;
-  strengthVideo?: string;
-  improvementVideo?: string;
+
+  fortalezas?: string;
+  aspectosMejora?: string;
+  hudlPerfilUrl?: string;
 
   mentalidad?: number;
   habitos?: number;
@@ -518,8 +518,8 @@ const [profileForm, setProfileForm] =
   useState({
     strengths: "",
     improvements: "",
-    strengthVideo: "",
-    improvementVideo: "",
+    hudlPerfilUrl: "",
+
     mentalidad: "",
     habitos: "",
     interpretacion: "",
@@ -658,20 +658,21 @@ const saveTracking = async () => {
   if (!selected) return;
 
   try {
-   const payload = {
-  action: editingTracking
-    ? "editarSeguimiento"
-    : "crearSeguimiento",
+const payload = editingTracking
+  ? {
+      action: "editarSeguimiento",
+      ID_REGISTRO:
+        editingTracking.ID_REGISTRO,
 
-  ID_REGISTRO:
-    editingTracking?.ID_REGISTRO,
+      ...trackingForm,
+    }
+  : {
+      action: "crearSeguimiento",
+      ID_JUGADOR:
+        selected.idJugador,
 
-  ID_JUGADOR:
-    selected.idJugador,
-
-  ...trackingForm,
-};
-
+      ...trackingForm,
+    };
 console.log("EDITAR ENVIA:");
 console.log(payload);
 
@@ -716,8 +717,10 @@ const result = JSON.parse(text);
   return;
 }
       alert(
-        "Seguimiento guardado correctamente"
-      );
+  editingTracking
+    ? "Seguimiento actualizado"
+    : "Seguimiento guardado correctamente"
+);
 
       setShowTrackingForm(false);
 
@@ -756,6 +759,120 @@ setTrackingData((prev) => [
     );
   }
 }; 
+const saveProfile = async () => {
+  if (!selected) return;
+
+  try {
+    const payload = {
+      action: "editarPerfil",
+      ID_JUGADOR: selected.idJugador,
+
+      FORTALEZAS: profileForm.strengths,
+      ASPECTOS_MEJORA: profileForm.improvements,
+
+
+
+
+      MENTALIDAD:
+        profileForm.mentalidad,
+
+      HABITOS:
+        profileForm.habitos,
+
+      INTERPRETACION:
+        profileForm.interpretacion,
+
+      CAPACIDAD_FISICA:
+        profileForm.capacidadFisica,
+
+      TECNICA:
+        profileForm.tecnica,
+    };
+
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const text =
+      await response.text();
+
+    const result =
+      JSON.parse(text);
+
+    if (result.success) {
+      setSheetData((prev) =>
+        prev.map((row) =>
+          row.ID_JUGADOR ===
+          selected.idJugador
+            ? {
+                ...row,
+                FORTALEZAS:
+                  profileForm.strengths,
+                ASPECTOS_MEJORA:
+                  profileForm.improvements,
+
+                MENTALIDAD:
+                  profileForm.mentalidad,
+                HABITOS:
+                  profileForm.habitos,
+                INTERPRETACION:
+                  profileForm.interpretacion,
+                CAPACIDAD_FISICA:
+                  profileForm.capacidadFisica,
+                TECNICA:
+                  profileForm.tecnica,
+              }
+            : row
+        )
+      );
+
+      setSelected((prev) =>
+        prev
+          ? {
+              ...prev,
+              strengths:
+                profileForm.strengths,
+              improvements:
+                profileForm.improvements,
+
+              mentalidad: Number(
+                profileForm.mentalidad
+              ),
+              habitos: Number(
+                profileForm.habitos
+              ),
+              interpretacion:
+                Number(
+                  profileForm.interpretacion
+                ),
+              capacidadFisica:
+                Number(
+                  profileForm.capacidadFisica
+                ),
+              tecnica: Number(
+                profileForm.tecnica
+              ),
+            }
+          : prev
+      );
+
+      setShowProfileForm(false);
+    }
+  } catch (err) {
+    console.error(err);
+    alert(
+      "Error guardando perfil"
+    );
+  }
+};
 
 const deleteTracking = async (
   idRegistro: string
@@ -826,13 +943,16 @@ console.log(
         return {
   ...p,
 
-  strengths:
-    row.FORTALEZAS ||
-    DEFAULT_STRENGTH,
+ fortalezas:
+  row.FORTALEZAS ||
+  DEFAULT_STRENGTH,
 
-  improvements:
-    row.ASPECTOS_MEJORA ||
-    DEFAULT_IMPROVEMENT,
+aspectosMejora:
+  row.ASPECTOS_MEJORA ||
+  DEFAULT_IMPROVEMENT,
+
+hudlPerfilUrl:
+  row.HUDL_PERFIL_URL || "",
 
   mentalidad: Number(
     row.MENTALIDAD || 0
@@ -1256,11 +1376,16 @@ const playerReport = selected
     <div className="flex justify-end">
       <button
         onClick={() => {
-          setProfileForm({
-            strengths: selected.strengths || "",
-            improvements: selected.improvements || "",
-            strengthVideo: selected.strengthVideo || "",
-            improvementVideo: selected.improvementVideo || "",
+         setProfileForm({
+  strengths:
+    selected.fortalezas || "",
+
+  improvements:
+    selected.aspectosMejora || "",
+
+  hudlPerfilUrl:
+    selected.hudlPerfilUrl || "",
+
             mentalidad: String(selected.mentalidad || ""),
             habitos: String(selected.habitos || ""),
             interpretacion: String(selected.interpretacion || ""),
@@ -1292,176 +1417,34 @@ const playerReport = selected
               </h3>
 
               <p className="mb-4 text-gray-300">
-                {selected.strengths}
+               {selected.fortalezas}
               </p>
+{selected.hudlPerfilUrl && (
+  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <h3 className="mb-3 text-[#C8A96B]">
+      Perfil Hudl
+    </h3>
 
-              <div className="mb-3 flex justify-end">
-                <a
-                  href={driveViewUrl(
-                    selected.strengthVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    inline-flex items-center gap-2
-                    rounded-full
-                    border border-white/10
-                    bg-white/[0.03]
-                    px-3 py-1.5
-                    text-xs font-medium
-                    text-gray-300
-                    transition-all duration-200
-                    hover:border-white/20
-                    hover:bg-white/[0.06]
-                    hover:text-white
-                  "
-                >
-                  Ver en alta calidad ↗
-                </a>
-              </div>
-
-              {isMobile ? (
-                <a
-                  href={driveViewUrl(
-                    selected.strengthVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    flex
-                    aspect-video
-                    w-full
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-black
-                    text-sm
-                    text-white
-                    border border-white/10
-                  "
-                >
-                  ▶ Reproducir vídeo
-                </a>
-              ) : (
-                <div className="w-full rounded-2xl overflow-hidden bg-black">
-                  <div className="relative w-full aspect-video">
-                    <iframe
-                      key={
-                        selected.strengthVideo
-                      }
-                      src={driveVideoUrl(
-                        selected.strengthVideo ||
-                          ""
-                      )}
-                      className="
-                        absolute
-                        inset-0
-                        h-full
-                        w-full
-                        border-0
-                        rounded-2xl
-                      "
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* MEJORA */}
-            <div>
-              <h3 className="mb-3 text-[#C8A96B]">
-                Áreas de mejora
-              </h3>
-
-              <p className="mb-4 text-gray-300">
-                {
-                  selected.improvements
-                }
-              </p>
-
-              <div className="mb-3 flex justify-end">
-                <a
-                  href={driveViewUrl(
-                    selected.improvementVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    inline-flex items-center gap-2
-                    rounded-full
-                    border border-white/10
-                    bg-white/[0.03]
-                    px-3 py-1.5
-                    text-xs font-medium
-                    text-gray-300
-                    transition-all duration-200
-                    hover:border-white/20
-                    hover:bg-white/[0.06]
-                    hover:text-white
-                  "
-                >
-                  Ver en alta calidad ↗
-                </a>
-              </div>
-
-              {isMobile ? (
-                <a
-                  href={driveViewUrl(
-                    selected.improvementVideo ||
-                      ""
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    flex
-                    aspect-video
-                    w-full
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-black
-                    text-sm
-                    text-white
-                    border border-white/10
-                  "
-                >
-                  ▶ Reproducir vídeo
-                </a>
-              ) : (
-                <div className="w-full rounded-2xl overflow-hidden bg-black">
-                  <div className="relative w-full aspect-video">
-                    <iframe
-                      key={
-                        selected.improvementVideo
-                      }
-                      src={driveVideoUrl(
-                        selected.improvementVideo ||
-                          ""
-                      )}
-                      className="
-                        absolute
-                        inset-0
-                        h-full
-                        w-full
-                        border-0
-                        rounded-2xl
-                      "
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                  </div>
+    <a
+      href={selected.hudlPerfilUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="
+        inline-flex
+        rounded-xl
+        bg-[#C8A96B]
+        px-4
+        py-2
+        text-black
+      "
+    >
+      Abrir perfil Hudl
+    </a>
+  </div>
+)}
+              
                 
 
-   </div>  )}
             </div></div></div>
 )}
           {activeTab === "seguimiento" && (
@@ -2015,30 +1998,17 @@ const playerReport = selected
           }
           className="rounded-xl bg-white/5 p-3 min-h-[120px]"
         />
-
         <input
-          placeholder="URL vídeo fortalezas"
-          value={profileForm.strengthVideo}
-          onChange={(e) =>
-            setProfileForm({
-              ...profileForm,
-              strengthVideo: e.target.value,
-            })
-          }
-          className="rounded-xl bg-white/5 p-3"
-        />
-
-        <input
-          placeholder="URL vídeo mejora"
-          value={profileForm.improvementVideo}
-          onChange={(e) =>
-            setProfileForm({
-              ...profileForm,
-              improvementVideo: e.target.value,
-            })
-          }
-          className="rounded-xl bg-white/5 p-3"
-        />
+  placeholder="URL perfil Hudl"
+  value={profileForm.hudlPerfilUrl}
+  onChange={(e) =>
+    setProfileForm({
+      ...profileForm,
+      hudlPerfilUrl: e.target.value,
+    })
+  }
+  className="rounded-xl bg-white/5 p-3"
+/>
 
         <div className="grid md:grid-cols-2 gap-4">
 
@@ -2137,17 +2107,18 @@ const playerReport = selected
           </button>
 
           <button
-            className="
-              rounded-xl
-              bg-[#C8A96B]
-              px-5
-              py-3
-              font-medium
-              text-black
-            "
-          >
-            Guardar perfil
-          </button>
+  onClick={saveProfile}
+  className="
+    rounded-xl
+    bg-[#C8A96B]
+    px-5
+    py-3
+    font-medium
+    text-black
+  "
+>
+  Guardar perfil
+</button>
 
         </div>
       </div>
