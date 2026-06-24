@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -40,34 +41,50 @@ const [originalData, setOriginalData] =
     useState(false);
 
   useEffect(() => {
-  fetch(`${API}?action=identidad`)
-    .then((r) => r.json())
-    .then((rows) => {
-      let parsed: Principio[] = [];
 
-      if (Array.isArray(rows)) {
-        parsed = rows;
-      } else if (
-        rows &&
-        Array.isArray(rows.data)
-      ) {
-        parsed = rows.data;
-      }
+  fetch(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pubhtml?gid=1322156567&single=true"
+  )
+    .then((r) => r.text())
+    .then((csv) => {
 
-      setData(parsed);
-setOriginalData(
-  JSON.parse(JSON.stringify(parsed))
-);
+      const parsed =
+        Papa.parse<Principio>(
+          csv,
+          {
+            header: true,
+            skipEmptyLines: true,
+          }
+        );
 
-      if (parsed.length > 0) {
-        setBloque(parsed[0].BLOQUE);
-        setApartado(parsed[0].APARTADO);
+      const rows =
+        parsed.data;
+
+      setData(rows);
+
+      setOriginalData(
+        structuredClone(rows)
+      );
+
+      if (rows.length > 0) {
+
+        setFase(
+          rows[0].FASE
+        );
+
+        setBloque(
+          rows[0].BLOQUE
+        );
+
+        setApartado(
+          rows[0].APARTADO
+        );
       }
     })
     .catch((err) => {
       console.error(err);
-      setData([]);
     });
+
 }, []);
 
   const bloques = useMemo(() => {
