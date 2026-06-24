@@ -1199,14 +1199,25 @@ const playerReport = selected
           e.stopPropagation()
         }
       >
-        <button
-          onClick={() =>
-            setSelected(null)
-          }
-          className="absolute right-5 top-5"
-        >
-          <X className="h-5 w-5" />
-        </button>
+       <button
+  onClick={() =>
+    setSelected(null)
+  }
+  className="
+    absolute
+    right-6
+    top-6
+    z-50
+    rounded-xl
+    bg-white/5
+    p-2
+    border
+    border-white/10
+    hover:bg-white/10
+  "
+>
+  <X className="h-5 w-5" />
+</button>
 
         <div className="grid gap-6 lg:gap-8 md:grid-cols-[340px_1fr]">
           <div>
@@ -1223,7 +1234,43 @@ const playerReport = selected
             <p className="mt-2 text-gray-400">
               {selected.position}
             </p>
-            <div className="mt-6 flex flex-wrap gap-2">
+            <div className="mt-4">
+  <button
+    onClick={() => {
+      setProfileForm({
+        strengths:
+          selected.fortalezas || "",
+
+        improvements:
+          selected.aspectosMejora || "",
+
+        hudlPerfilUrl:
+          selected.hudlPerfilUrl || "",
+
+        mentalidad: String(selected.mentalidad || ""),
+        habitos: String(selected.habitos || ""),
+        interpretacion: String(selected.interpretacion || ""),
+        capacidadFisica: String(selected.capacidadFisica || ""),
+        tecnica: String(selected.tecnica || ""),
+      });
+
+      setShowProfileForm(true);
+    }}
+    className="
+      rounded-xl
+      bg-[#C8A96B]
+      px-4
+      py-2
+      text-sm
+      font-medium
+      text-black
+      hover:opacity-90
+    "
+  >
+    Editar perfil
+  </button>
+</div>
+            <div className="mt-6 flex flex-wrap gap-1 rounded-2xl bg-white/5 p-1">
   {[
     {
       key: "perfil",
@@ -1249,11 +1296,21 @@ const playerReport = selected
           tab.key as any
         )
       }
-      className={`rounded-xl px-4 py-2 text-sm ${
-        activeTab === tab.key
-          ? "bg-[#C8A96B] text-black"
-          : "bg-white/5 text-white"
-      }`}
+      className={`
+  flex-1
+  min-w-[110px]
+  rounded-xl
+  px-4
+  py-3
+  text-sm
+  font-medium
+  transition-all
+  ${
+    activeTab === tab.key
+      ? "bg-[#C8A96B] text-black shadow-lg"
+      : "text-white hover:bg-white/10"
+  }
+`}
     >
       {tab.label}
     </button>
@@ -1387,42 +1444,6 @@ const playerReport = selected
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
-
-    <div className="flex justify-end">
-      <button
-        onClick={() => {
-         setProfileForm({
-  strengths:
-    selected.fortalezas || "",
-
-  improvements:
-    selected.aspectosMejora || "",
-
-  hudlPerfilUrl:
-    selected.hudlPerfilUrl || "",
-
-            mentalidad: String(selected.mentalidad || ""),
-            habitos: String(selected.habitos || ""),
-            interpretacion: String(selected.interpretacion || ""),
-            capacidadFisica: String(selected.capacidadFisica || ""),
-            tecnica: String(selected.tecnica || ""),
-          });
-
-          setShowProfileForm(true);
-        }}
-        className="
-          rounded-xl
-          bg-[#C8A96B]
-          px-4
-          py-2
-          text-sm
-          font-medium
-          text-black
-        "
-      >
-        Editar perfil
-      </button>
-    </div>
 
     <div className="space-y-10">
            {/* FORTALEZAS */}
