@@ -246,6 +246,6 @@ export default function GameModelPage() {
           </div>
         </div>
       </div>
-    </div>
+    </div>  
   );
 }
