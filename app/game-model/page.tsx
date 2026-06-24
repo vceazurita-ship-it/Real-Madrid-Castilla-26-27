@@ -187,7 +187,7 @@ const guardarCambios = async () => {
     <div className="flex min-h-screen bg-[#0B0F14]">
       <Sidebar />
 
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <Topbar />
 
         <div className="flex flex-col lg:flex-row">
@@ -238,6 +238,7 @@ const guardarCambios = async () => {
   gap-2
   overflow-x-auto
   pb-2
+  scrollbar-hide
   lg:block
   lg:space-y-2
   "
@@ -261,6 +262,7 @@ const guardarCambios = async () => {
                   }}
                   className={`
 shrink-0
+min-w-[140px]
 lg:w-full
 rounded-xl
 px-4
@@ -288,6 +290,7 @@ text-left text-left ${
   gap-2
   overflow-x-auto
   pb-2
+  scrollbar-hide
   lg:block
   lg:space-y-2
   "
@@ -300,6 +303,7 @@ text-left text-left ${
                       }
                       className={`
 shrink-0
+min-w-[140px]
 lg:w-full
 rounded-xl
 px-4
@@ -320,7 +324,7 @@ text-left text-sm ${
 
           {/* CONTENIDO */}
 
-          <div className="flex-1 p-4 lg:p-8">
+          <div className="flex-1 min-w-0 p-4 lg:p-8">
             <div
   className="
   mb-8
@@ -339,10 +343,12 @@ text-left text-sm ${
 
                 <h1
   className="
-  text-2xl
+  text-xl
+  sm:text-2xl
   lg:text-3xl
   font-semibold
   text-white
+  break-words
   "
 >
                   {apartado}
@@ -397,21 +403,38 @@ text-left text-sm ${
               {principios.map((p) => (
                 <div
                   key={p.ID}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                  className="
+  rounded-2xl
+  border
+  border-white/10
+  bg-white/[0.03]
+  p-4
+  lg:p-5
+  "
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="
+                  <div className="flex items-start gap-3 lg:gap-4 min-w-0">
+                    <div
+  className="
 flex
-h-7
-w-7
-lg:h-8
-lg:w-8
+shrink-0
+h-8
+w-8
+lg:h-10
+lg:w-10
 items-center
-justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
+justify-center
+rounded-full
+bg-[#C8A96B]
+text-xs
+lg:text-sm
+font-bold
+text-black
+"
+>
                       {p.ORDEN}
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                      {editing ? (
   <div className="space-y-3">
     <textarea
@@ -476,12 +499,28 @@ justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
   </div>
 ) : (
   <>
-    <p className="text-white">
+    <p
+  className="
+  text-sm
+  lg:text-base
+  text-white
+  leading-relaxed
+  break-words
+  "
+>
       {p.PRINCIPIO}
     </p>
 
     {p.OBSERVACIONES && (
-      <p className="mt-2 text-sm text-gray-400">
+      <p
+  className="
+  mt-2
+  text-xs
+  lg:text-sm
+  text-gray-400
+  break-words
+  "
+>
         {p.OBSERVACIONES}
       </p>
     )}

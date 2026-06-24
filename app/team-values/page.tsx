@@ -257,7 +257,10 @@ hover:border-[#C8A96B]/30
         "
       >
 
-        <div
+        <button
+  onClick={() =>
+    setSeccion(s)
+  }
   className={`
     flex
     h-8
@@ -270,15 +273,16 @@ hover:border-[#C8A96B]/30
     text-xs
     lg:text-sm
     font-bold
-            ${
-              s === seccion
-                ? "bg-[#C8A96B] text-black"
-                : "bg-white/10 text-white"
-            }
-          `}
-        >
-          {i + 1}
-        </div>
+    transition-all
+    ${
+      s === seccion
+        ? "bg-[#C8A96B] text-black"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }
+  `}
+>
+  {i + 1}
+</button>
 
         {i <
           secciones.length - 1 && (
@@ -295,25 +299,19 @@ hover:border-[#C8A96B]/30
 
     ))}
   </div>
+</div>
+<div className="mt-5">
 
-  <div className="mt-6">
-
-    <p className="text-sm text-gray-500">
-      Etapa actual
-    </p>
-
-   <h2 className="mt-1 text-xl font-semibold text-white">
-    <p className="mt-2 text-sm text-gray-400">
-  {secciones.findIndex(
-    (s) => s === seccion
-  ) + 1}
-  {" / "}
-  {secciones.length}
-</p>
-      {seccion}
-    </h2>
-
-  </div>
+  <p
+    className="
+    text-sm
+    uppercase
+    tracking-wider
+    text-[#C8A96B]
+    "
+  >
+    {seccion}
+  </p>
 
 </div>
             <div
@@ -327,23 +325,6 @@ hover:border-[#C8A96B]/30
   lg:justify-between
   "
 >
-              <div>
-
-  <div
-    className="
-    inline-flex
-    rounded-full
-    bg-[#C8A96B]/10
-    px-4
-    py-1
-    text-xs
-    font-medium
-    text-[#C8A96B]
-    "
-  >
-    ROADMAP CULTURAL
-  </div>
-
 <h1
 className="
 text-2xl
