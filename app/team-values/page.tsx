@@ -139,7 +139,7 @@ const guardarCambios = async () => {
     <div className="flex min-h-screen bg-[#0B0F14]">
       <Sidebar />
 
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <Topbar />
 
         <div className="flex flex-col lg:flex-row">
@@ -184,7 +184,7 @@ const guardarCambios = async () => {
       }
       className={`
 shrink-0
-min-w-[140px]
+min-w-[120px]
 lg:w-full
 rounded-xl
 p-3
@@ -213,7 +213,7 @@ text-left ${
           <div className="flex-1 p-4 lg:p-8">
             <div
   className="
-rounded-3xl
+rounded-2xl lg:rounded-3xl
 border
 border-white/10
 bg-gradient-to-br
@@ -296,13 +296,20 @@ hover:border-[#C8A96B]/30
     ))}
   </div>
 
-  <div className="mt-4">
+  <div className="mt-6">
 
     <p className="text-sm text-gray-500">
       Etapa actual
     </p>
 
-    <h2 className="mt-1 text-xl font-semibold text-white">
+   <h2 className="mt-1 text-xl font-semibold text-white">
+    <p className="mt-2 text-sm text-gray-400">
+  {secciones.findIndex(
+    (s) => s === seccion
+  ) + 1}
+  {" / "}
+  {secciones.length}
+</p>
       {seccion}
     </h2>
 
@@ -340,10 +347,11 @@ hover:border-[#C8A96B]/30
 <h1
 className="
 text-2xl
-sm:text-3xl
+sm:text-4xl
 lg:text-5xl
 font-bold
 text-white
+leading-none
 "
 >
     {seccion}
@@ -451,23 +459,24 @@ from-white/[0.05]
 to-white/[0.02]
 p-4 lg:p-6
 transition-all
+hover:-translate-y-1
 hover:border-[#C8A96B]/40
 hover:bg-white/[0.05]
 "
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-4 min-w-0">
                     <div
   className="
   flex
-  h-9
-w-9
+  h-8
+w-8
 lg:h-12
 lg:w-12
   items-center
   justify-center
   rounded-2xl
   bg-[#C8A96B]
-  text-sm
+  text-xs
 lg:text-lg
 font-bold
   text-black
@@ -476,11 +485,19 @@ font-bold
                       {p.ORDEN}
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                      {editing ? (
   <div className="space-y-6">
 
-    <h3 className="text-lg font-semibold text-white">
+    <h3
+  className="
+  text-base
+  lg:text-lg
+  font-semibold
+  text-white
+  break-words
+  "
+>
       {p.TITULO}
     </h3>
     <textarea
@@ -546,7 +563,15 @@ font-bold
 ) : (
   <>
    <div className="mb-3">
-  <h3 className="text-lg font-semibold text-white">
+  <h3
+  className="
+  text-base
+  lg:text-lg
+  font-semibold
+  text-white
+  break-words
+  "
+>
     {p.TITULO}
   </h3>
 
@@ -569,7 +594,15 @@ font-bold
   )}
 </div>
 
-<p className="text-gray-300 leading-relaxed">
+<p
+  className="
+  text-sm
+  lg:text-base
+  text-gray-300
+  leading-relaxed
+  break-words
+  "
+>
   {p.CONTENIDO}
 </p>
 
