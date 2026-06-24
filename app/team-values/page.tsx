@@ -196,49 +196,96 @@ const guardarCambios = async () => {
           {/* CONTENIDO */}
 
           <div className="flex-1 p-4 lg:p-8">
-            <div className="mb-10">
+            <div
+  className="
+rounded-3xl
+border
+border-white/10
+bg-gradient-to-br
+from-white/[0.05]
+to-white/[0.02]
+p-6
+transition-all
+hover:border-[#C8A96B]/30
+"
+>
+
+  <p
+    className="
+    text-xs
+    uppercase
+    tracking-[0.3em]
+    text-[#C8A96B]
+    "
+  >
+    ROADMAP CULTURAL
+  </p>
 
   <div
     className="
+    mt-6
     flex
-    gap-3
+    items-center
     overflow-x-auto
-    pb-3
+    pb-2
     "
   >
     {secciones.map((s, i) => (
 
-      <button
+      <div
         key={s}
-        onClick={() =>
-          setSeccion(s)
-        }
-        className={`
-          shrink-0
-          min-w-[180px]
-          rounded-2xl
-          p-4
-          text-left
-          transition-all
-          ${
-            seccion === s
-              ? "bg-[#C8A96B] text-black"
-              : "border border-white/10 bg-white/[0.03] text-white"
-          }
-        `}
+        className="
+        flex
+        items-center
+        shrink-0
+        "
       >
 
-        <div className="text-xs opacity-60">
-          ETAPA {i + 1}
+        <div
+          className={`
+            flex
+            h-10
+            w-10
+            items-center
+            justify-center
+            rounded-full
+            font-bold
+            ${
+              s === seccion
+                ? "bg-[#C8A96B] text-black"
+                : "bg-white/10 text-white"
+            }
+          `}
+        >
+          {i + 1}
         </div>
 
-        <div className="mt-1 font-semibold">
-          {s}
-        </div>
+        {i <
+          secciones.length - 1 && (
+          <div
+            className="
+            h-[2px]
+            w-10
+            bg-white/10
+            "
+          />
+        )}
 
-      </button>
+      </div>
 
     ))}
+  </div>
+
+  <div className="mt-4">
+
+    <p className="text-sm text-gray-500">
+      Etapa actual
+    </p>
+
+    <h2 className="mt-1 text-xl font-semibold text-white">
+      {seccion}
+    </h2>
+
   </div>
 
 </div>
@@ -271,16 +318,44 @@ const guardarCambios = async () => {
   </div>
 
   <h1
-    className="
-    mt-4
-    text-4xl
-    font-bold
-    text-white
-    "
-  >
+  className="
+  text-4xl
+  lg:text-5xl
+  font-bold
+  text-white
+  "
+>
     {seccion}
   </h1>
+<p
+  className="
+  mt-3
+  max-w-2xl
+  text-gray-400
+  "
+>
+  {
+    seccion === "MARCO"
+      ? "Fundamentos conceptuales sobre identidad, propósito y cultura."
 
+      : seccion === "PLANIFICACION"
+      ? "Diseño del proceso y estructura de implementación."
+
+      : seccion === "SEMANA 1"
+      ? "Construcción del significado de pertenecer al grupo."
+
+      : seccion === "SEMANA 2"
+      ? "Definición de valores y comportamientos observables."
+
+      : seccion === "SEMANA 3"
+      ? "Establecimiento de estándares e innegociables."
+
+      : seccion === "SEMANA 4"
+      ? "Consolidación de hábitos y herramientas culturales."
+
+      : ""
+  }
+</p>
   <p
     className="
     mt-2
