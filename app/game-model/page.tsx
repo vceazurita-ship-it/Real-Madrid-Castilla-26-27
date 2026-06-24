@@ -123,28 +123,40 @@ setOriginalData(
 ]);
 const guardarCambios = async () => {
   try {
+
+    const cambios = data.filter((item) => {
+      const original = originalData.find(
+        (o) => o.ID === item.ID
+      );
+
+      return (
+        original?.PRINCIPIO !== item.PRINCIPIO ||
+        (original?.OBSERVACIONES || "") !==
+          (item.OBSERVACIONES || "")
+      );
+    });
+
+    if (cambios.length === 0) {
+      setEditing(false);
+      return;
+    }
+
     await Promise.all(
-      data.map((p) =>
-        fetch(API, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "guardarPrincipio",
-            ID: p.ID,
-            PRINCIPIO: p.PRINCIPIO,
-            OBSERVACIONES: p.OBSERVACIONES || "",
-          }),
-        })
+      cambios.map((p) =>
+        fetch(
+          `${API}?action=guardarPrincipio&ID=${p.ID}&PRINCIPIO=${encodeURIComponent(
+            p.PRINCIPIO
+          )}&OBSERVACIONES=${encodeURIComponent(
+            p.OBSERVACIONES || ""
+          )}`
+        )
       )
     );
 
     setOriginalData(
-      JSON.parse(JSON.stringify(data))
+      structuredClone(data)
     );
 
-    // cerrar edición
     setEditing(false);
 
   } catch (err) {
