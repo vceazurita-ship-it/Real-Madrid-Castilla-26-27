@@ -118,26 +118,31 @@ export default function GameModelPage() {
 ]);
 const guardarCambios = async () => {
   try {
-    const promesas = data.map((p) =>
-      fetch(API, {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          action:
-            "guardarPrincipio",
-          ID: p.ID,
-          PRINCIPIO:
-            p.PRINCIPIO,
-          OBSERVACIONES:
-            p.OBSERVACIONES || "",
-        }),
-      })
+    const respuestas = await Promise.all(
+      data.map((p) =>
+        fetch(API, {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            action:
+              "guardarPrincipio",
+            ID: p.ID,
+            PRINCIPIO:
+              p.PRINCIPIO,
+            OBSERVACIONES:
+              p.OBSERVACIONES || "",
+          }),
+        })
+      )
     );
 
-    await Promise.all(promesas);
+    console.log(
+      "Guardado completado",
+      respuestas
+    );
 
     setEditing(false);
 
@@ -145,10 +150,9 @@ const guardarCambios = async () => {
       "Cambios guardados correctamente"
     );
   } catch (err) {
-    console.error(err);
-
-    alert(
-      "Error al guardar"
+    console.error(
+      "Error guardando:",
+      err
     );
   }
 };
