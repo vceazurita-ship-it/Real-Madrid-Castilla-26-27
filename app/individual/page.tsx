@@ -490,7 +490,17 @@ const [showTrackingForm, setShowTrackingForm] =
 const [showVideoForm, setShowVideoForm] =
 
   useState(false);
+const [showReportForm, setShowReportForm] =
+  useState(false);
 
+const [reportForm, setReportForm] =
+  useState({
+    RESUMEN_EJECUTIVO: "",
+    FORTALEZAS_INFORME: "",
+    ASPECTOS_MEJORA_INFORME: "",
+    OBJETIVOS: "",
+    OBSERVACIONES_FINALES: "",
+  });
 
 
 const [editingVideo, setEditingVideo] =
@@ -965,7 +975,80 @@ HUDL_PERFIL_URL:
     );
   }
 };
+const saveReport = async () => {
+  if (!selected) return;
 
+  try {
+    const payload = {
+      action: "editarInforme",
+
+      ID_JUGADOR:
+        selected.idJugador,
+
+      ...reportForm,
+    };
+
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const text =
+      await response.text();
+
+    const result =
+      JSON.parse(text);
+
+    if (result.success) {
+
+      setReportData((prev) => {
+
+        const exists =
+          prev.some(
+            (r) =>
+              r.ID_JUGADOR ===
+              selected.idJugador
+          );
+
+        if (exists) {
+          return prev.map((r) =>
+            r.ID_JUGADOR ===
+            selected.idJugador
+              ? {
+                  ...r,
+                  ...reportForm,
+                }
+              : r
+          );
+        }
+
+        return [
+          ...prev,
+          {
+            ID_JUGADOR:
+              selected.idJugador,
+            ...reportForm,
+          },
+        ];
+      });
+
+      setShowReportForm(false);
+    }
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      "Error guardando informe"
+    );
+  }
+};
 const deleteTracking = async (
   idRegistro: string
 ) => {
@@ -1955,62 +2038,47 @@ tracking-wide
   </div>
 )}{activeTab === "informe" && (
   <div className="space-y-6">
+    <div className="flex justify-between items-center">
+      <h3 className="text-xl font-semibold text-[#C8A96B]">
+        Informe individual
+      </h3>
 
-    <h3 className="text-xl font-semibold text-[#C8A96B]">
-      Informe individual
-    </h3>
+      <button
+        onClick={() => {
+          setReportForm({
+            RESUMEN_EJECUTIVO:
+              playerReport?.RESUMEN_EJECUTIVO || "",
+
+            FORTALEZAS_INFORME:
+              playerReport?.FORTALEZAS_INFORME || "",
+
+            ASPECTOS_MEJORA_INFORME:
+              playerReport?.ASPECTOS_MEJORA_INFORME || "",
+
+            OBJETIVOS:
+              playerReport?.OBJETIVOS || "",
+
+            OBSERVACIONES_FINALES:
+              playerReport?.OBSERVACIONES_FINALES || "",
+          });
+
+          setShowReportForm(true);
+        }}
+        className="
+          rounded-xl
+          bg-[#C8A96B]
+          px-4
+          py-2
+          text-black
+        "
+      >
+        Editar informe
+      </button>
+    </div>
 
     {playerReport && (
       <>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h4 className="mb-3 text-[#C8A96B]">
-            Resumen ejecutivo
-          </h4>
-
-          <p className="text-gray-300">
-            {playerReport?.RESUMEN_EJECUTIVO}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h4 className="mb-3 text-[#C8A96B]">
-            Fortalezas
-          </h4>
-
-          <p className="text-gray-300">
-            {playerReport?.FORTALEZAS_INFORME}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h4 className="mb-3 text-[#C8A96B]">
-            Aspectos de mejora
-          </h4>
-
-          <p className="text-gray-300">
-            {playerReport?.ASPECTOS_MEJORA_INFORME}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h4 className="mb-3 text-[#C8A96B]">
-            Objetivos
-          </h4>
-
-          <p className="text-gray-300 whitespace-pre-line">
-            {playerReport?.OBJETIVOS}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h4 className="mb-3 text-[#C8A96B]">
-            Observaciones finales
-          </h4>
-
-          <p className="text-gray-300">
-            {playerReport?.OBSERVACIONES_FINALES}
-          </p>
-        </div>
+        ...
       </>
     )}
   </div>
@@ -2508,6 +2576,137 @@ tracking-wide
 
     </div>
 
+  </div>
+)}{showReportForm && (
+  <div className="fixed inset-0 z-[999999] bg-black/70 flex items-center justify-center p-4">
+
+    <div
+      className="
+        w-full
+        max-w-4xl
+        rounded-3xl
+        border
+        border-white/10
+        bg-[#11161C]
+        p-6
+        max-h-[90vh]
+        overflow-y-auto
+      "
+    >
+      <h3 className="mb-6 text-2xl font-semibold text-[#C8A96B]">
+        Editar informe
+      </h3>
+
+      <div className="grid gap-4">
+
+        <textarea
+          placeholder="Resumen ejecutivo"
+          value={
+            reportForm.RESUMEN_EJECUTIVO
+          }
+          onChange={(e) =>
+            setReportForm({
+              ...reportForm,
+              RESUMEN_EJECUTIVO:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <textarea
+          placeholder="Fortalezas"
+          value={
+            reportForm.FORTALEZAS_INFORME
+          }
+          onChange={(e) =>
+            setReportForm({
+              ...reportForm,
+              FORTALEZAS_INFORME:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <textarea
+          placeholder="Aspectos de mejora"
+          value={
+            reportForm.ASPECTOS_MEJORA_INFORME
+          }
+          onChange={(e) =>
+            setReportForm({
+              ...reportForm,
+              ASPECTOS_MEJORA_INFORME:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <textarea
+          placeholder="Objetivos"
+          value={reportForm.OBJETIVOS}
+          onChange={(e) =>
+            setReportForm({
+              ...reportForm,
+              OBJETIVOS:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <textarea
+          placeholder="Observaciones finales"
+          value={
+            reportForm.OBSERVACIONES_FINALES
+          }
+          onChange={(e) =>
+            setReportForm({
+              ...reportForm,
+              OBSERVACIONES_FINALES:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <div className="flex justify-end gap-3 pt-4">
+
+          <button
+            onClick={() =>
+              setShowReportForm(false)
+            }
+            className="
+              rounded-xl
+              border
+              border-white/10
+              px-5
+              py-3
+            "
+          >
+            Cancelar
+          </button>
+
+          <button
+            onClick={saveReport}
+            className="
+              rounded-xl
+              bg-[#C8A96B]
+              px-5
+              py-3
+              font-medium
+              text-black
+            "
+          >
+            Guardar informe
+          </button>
+
+        </div>
+
+      </div>
+    </div>
   </div>
 )}
         </div>
