@@ -759,6 +759,89 @@ setTrackingData((prev) => [
     );
   }
 }; 
+const saveVideo = async () => {
+  if (!selected) return;
+
+  try {
+
+    const payload = editingVideo
+      ? {
+          action: "editarVideo",
+          ID_VIDEO:
+            editingVideo.ID_VIDEO,
+          ...videoForm,
+        }
+      : {
+          action: "crearVideo",
+          ID_JUGADOR:
+            selected.idJugador,
+          ...videoForm,
+        };
+
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (result.success) {
+
+      if (editingVideo) {
+
+        setVideoData((prev) =>
+          prev.map((v) =>
+            v.ID_VIDEO ===
+            editingVideo.ID_VIDEO
+              ? {
+                  ...v,
+                  ...videoForm,
+                }
+              : v
+          )
+        );
+
+      } else {
+
+        const nuevoVideo = {
+          ID_VIDEO: result.id,
+          ID_JUGADOR:
+            selected.idJugador,
+          ...videoForm,
+        };
+
+        setVideoData((prev) => [
+          nuevoVideo,
+          ...prev,
+        ]);
+      }
+
+      setEditingVideo(null);
+
+      setShowVideoForm(false);
+
+      setVideoForm({
+        CATEGORIA: "",
+        TITULO: "",
+        DESCRIPCION: "",
+        URL_VIDEO: "",
+        FECHA: "",
+      });
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Error guardando vídeo");
+  }
+};
 const saveProfile = async () => {
   if (!selected) return;
 
@@ -925,6 +1008,52 @@ const result = JSON.parse(text);
         )
       );
     }
+  } catch (err) {
+    console.error(err);
+  }
+};
+const deleteVideo = async (
+  idVideo: string
+) => {
+
+  if (
+    !confirm(
+      "¿Eliminar este vídeo?"
+    )
+  ) return;
+
+  try {
+
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+          action: "eliminarVideo",
+          ID_VIDEO: idVideo,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (result.success) {
+
+      setVideoData((prev) =>
+        prev.filter(
+          (v) =>
+            v.ID_VIDEO !==
+            idVideo
+        )
+      );
+
+    }
+
   } catch (err) {
     console.error(err);
   }
@@ -1740,9 +1869,47 @@ tracking-wide
           p-5
         "
       >
-        <div className="mb-2 text-sm text-[#C8A96B]">
-          {video.CATEGORIA}
-        </div>
+        <div className="mb-4 flex items-center justify-between">
+
+  <div className="text-sm text-[#C8A96B]">
+    {video.FECHA}
+  </div>
+
+  <div className="flex gap-2">
+
+    <button
+      onClick={() => {
+        setEditingVideo(video);
+
+        setVideoForm({
+          CATEGORIA: video.CATEGORIA,
+          TITULO: video.TITULO,
+          DESCRIPCION: video.DESCRIPCION,
+          URL_VIDEO: video.URL_VIDEO,
+          FECHA:
+            video.FECHA?.split("T")[0] || "",
+        });
+
+        setShowVideoForm(true);
+      }}
+      className="rounded-lg bg-blue-500 px-3 py-1 text-xs"
+    >
+      Editar
+    </button>
+
+    <button
+      onClick={() =>
+        deleteVideo(video.ID_VIDEO)
+      }
+      className="rounded-lg bg-red-500 px-3 py-1 text-xs"
+    >
+      Borrar
+    </button>
+
+  </div>
+
+</div>  
+       
 
         <h4 className="text-lg font-semibold">
           {video.TITULO}
@@ -2197,6 +2364,139 @@ tracking-wide
         </div>
       </div>
     </div>
+  </div>
+)}
+{showVideoForm && (
+  <div className="fixed inset-0 z-[999999] bg-black/70 flex items-center justify-center p-4">
+
+    <div
+      className="
+        w-full
+        max-w-3xl
+        rounded-3xl
+        border
+        border-white/10
+        bg-[#11161C]
+        p-6
+      "
+    >
+
+      <h3 className="mb-6 text-2xl font-semibold text-[#C8A96B]">
+        {editingVideo
+          ? "Editar vídeo"
+          : "Nuevo vídeo"}
+      </h3>
+
+      <div className="grid gap-4">
+
+        <input
+          type="date"
+          value={videoForm.FECHA}
+          onChange={(e) =>
+            setVideoForm({
+              ...videoForm,
+              FECHA:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <input
+          placeholder="Categoría"
+          value={videoForm.CATEGORIA}
+          onChange={(e) =>
+            setVideoForm({
+              ...videoForm,
+              CATEGORIA:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <input
+          placeholder="Título"
+          value={videoForm.TITULO}
+          onChange={(e) =>
+            setVideoForm({
+              ...videoForm,
+              TITULO:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <textarea
+          placeholder="Descripción"
+          value={
+            videoForm.DESCRIPCION
+          }
+          onChange={(e) =>
+            setVideoForm({
+              ...videoForm,
+              DESCRIPCION:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <input
+          placeholder="URL vídeo"
+          value={
+            videoForm.URL_VIDEO
+          }
+          onChange={(e) =>
+            setVideoForm({
+              ...videoForm,
+              URL_VIDEO:
+                e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <div className="flex justify-end gap-3 pt-4">
+
+          <button
+            onClick={() =>
+              setShowVideoForm(false)
+            }
+            className="
+              rounded-xl
+              border
+              border-white/10
+              px-5
+              py-3
+            "
+          >
+            Cancelar
+          </button>
+
+          <button
+            onClick={saveVideo}
+            className="
+              rounded-xl
+              bg-[#C8A96B]
+              px-5
+              py-3
+              font-medium
+              text-black
+            "
+          >
+            {editingVideo
+              ? "Actualizar vídeo"
+              : "Guardar vídeo"}
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
   </div>
 )}
         </div>
