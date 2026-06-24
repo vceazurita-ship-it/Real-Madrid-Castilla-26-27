@@ -116,7 +116,42 @@ export default function GameModelPage() {
   bloque,
   apartado,
 ]);
+const guardarCambios = async () => {
+  try {
+    const promesas = data.map((p) =>
+      fetch(API, {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          action:
+            "guardarPrincipio",
+          ID: p.ID,
+          PRINCIPIO:
+            p.PRINCIPIO,
+          OBSERVACIONES:
+            p.OBSERVACIONES || "",
+        }),
+      })
+    );
 
+    await Promise.all(promesas);
+
+    setEditing(false);
+
+    alert(
+      "Cambios guardados correctamente"
+    );
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      "Error al guardar"
+    );
+  }
+};
   return (
     <div className="flex min-h-screen bg-[#0B0F14]">
       <Sidebar />
@@ -226,16 +261,41 @@ export default function GameModelPage() {
                 </h1>
               </div>
 
-              <button
-                onClick={() =>
-                  setEditing(!editing)
-                }
-                className="rounded-xl border border-[#C8A96B] px-4 py-2 text-[#C8A96B]"
-              >
-                {editing
-                  ? "Cancelar"
-                  : "Editar"}
-              </button>
+             <div className="flex gap-3">
+  {editing && (
+    <button
+      onClick={guardarCambios}
+      className="
+      rounded-xl
+      bg-[#C8A96B]
+      px-4
+      py-2
+      font-medium
+      text-black
+      "
+    >
+      Guardar
+    </button>
+  )}
+
+  <button
+    onClick={() =>
+      setEditing(!editing)
+    }
+    className="
+    rounded-xl
+    border
+    border-[#C8A96B]
+    px-4
+    py-2
+    text-[#C8A96B]
+    "
+  >
+    {editing
+      ? "Cancelar"
+      : "Editar"}
+  </button>
+</div>
             </div>
 
             <div className="space-y-3">
