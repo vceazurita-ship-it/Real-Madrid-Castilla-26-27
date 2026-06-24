@@ -1224,7 +1224,7 @@ const playerReport = selected
             <img
               src={selected.photo}
               alt={selected.name}
-              className="h-[360px] w-full rounded-2xl object-cover object-top"
+              className="h-[300px] w-full rounded-3xl object-cover object-top"
             />
 
             <h2 className="mt-5 text-3xl font-semibold">
@@ -1411,45 +1411,33 @@ tracking-wide
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
-<div className="flex items-start justify-between border-b border-white/10 pb-4">
-  <h2 className="text-xl font-semibold">
+<div className="relative border-b border-white/10 pb-4">
+  <h2 className="text-3xl font-semibold">
     Perfil del jugador
   </h2>
 
   <button
-    onClick={() => {
-      setProfileForm({
-        strengths:
-          selected.fortalezas || "",
-
-        improvements:
-          selected.aspectosMejora || "",
-
-        hudlPerfilUrl:
-          selected.hudlPerfilUrl || "",
-
-        mentalidad: String(selected.mentalidad || ""),
-        habitos: String(selected.habitos || ""),
-        interpretacion: String(selected.interpretacion || ""),
-        capacidadFisica: String(selected.capacidadFisica || ""),
-        tecnica: String(selected.tecnica || ""),
-      });
-
-      setShowProfileForm(true);
-    }}
+    onClick={() => setShowProfileForm(true)}
     className="
-  mt-6
-  mr-4
-  rounded-xl
-  bg-[#C8A96B]
-  px-4
-  py-2
-  text-sm
-  font-medium
-  text-black
-  hover:opacity-90
-"
+      absolute
+      right-0
+      top-0
+      inline-flex
+      items-center
+      gap-2
+      rounded-2xl
+      bg-[#C8A96B]
+      px-6
+      py-3
+      text-base
+      font-medium
+      text-black
+      shadow-lg
+      hover:opacity-90
+      transition-all
+    "
   >
+    ✎
     Editar perfil
   </button>
 </div>
