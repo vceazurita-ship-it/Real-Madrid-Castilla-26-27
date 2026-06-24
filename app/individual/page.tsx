@@ -2076,11 +2076,59 @@ tracking-wide
       </button>
     </div>
 
-    {playerReport && (
-      <>
-        ...
-      </>
-    )}
+   {playerReport && (
+  <>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h4 className="mb-3 text-[#C8A96B]">
+        Resumen ejecutivo
+      </h4>
+
+      <p className="text-gray-300 whitespace-pre-line">
+        {playerReport.RESUMEN_EJECUTIVO}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h4 className="mb-3 text-[#C8A96B]">
+        Fortalezas
+      </h4>
+
+      <p className="text-gray-300 whitespace-pre-line">
+        {playerReport.FORTALEZAS_INFORME}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h4 className="mb-3 text-[#C8A96B]">
+        Aspectos de mejora
+      </h4>
+
+      <p className="text-gray-300 whitespace-pre-line">
+        {playerReport.ASPECTOS_MEJORA_INFORME}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h4 className="mb-3 text-[#C8A96B]">
+        Objetivos
+      </h4>
+
+      <p className="text-gray-300 whitespace-pre-line">
+        {playerReport.OBJETIVOS}
+      </p>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h4 className="mb-3 text-[#C8A96B]">
+        Observaciones finales
+      </h4>
+
+      <p className="text-gray-300 whitespace-pre-line">
+        {playerReport.OBSERVACIONES_FINALES}
+      </p>
+    </div>
+  </>
+)}
   </div>
 )}{showTrackingForm && (
   <div className="fixed inset-0 z-[999999] bg-black/70 flex items-center justify-center p-4">
