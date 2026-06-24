@@ -777,7 +777,8 @@ const saveVideo = async () => {
             selected.idJugador,
           ...videoForm,
         };
-
+console.log("VIDEO ENVIA:");
+console.log(payload);
     const response = await fetch(
       APPS_SCRIPT_URL,
       {
@@ -790,8 +791,12 @@ const saveVideo = async () => {
       }
     );
 
-    const result =
-      await response.json();
+    const text = await response.text();
+
+console.log("BORRAR VIDEO RESPUESTA:");
+console.log(text);
+
+const result = JSON.parse(text);
 
     if (result.success) {
 
@@ -1039,8 +1044,14 @@ const deleteVideo = async (
       }
     );
 
-    const result =
-      await response.json();
+
+
+const text = await response.text();
+
+console.log("VIDEO RESPUESTA:");
+console.log(text);
+
+const result = JSON.parse(text);
 
     if (result.success) {
 
