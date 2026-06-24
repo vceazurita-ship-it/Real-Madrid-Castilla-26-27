@@ -769,7 +769,8 @@ const saveProfile = async () => {
 
       FORTALEZAS: profileForm.strengths,
       ASPECTOS_MEJORA: profileForm.improvements,
-
+HUDL_PERFIL_URL:
+  profileForm.hudlPerfilUrl,
 
 
 
@@ -840,8 +841,11 @@ const saveProfile = async () => {
               ...prev,
               strengths:
                 profileForm.strengths,
+                
               improvements:
                 profileForm.improvements,
+                hudlPerfilUrl:
+  profileForm.hudlPerfilUrl,
 
               mentalidad: Number(
                 profileForm.mentalidad
@@ -1088,7 +1092,7 @@ const playerReport = selected
         player.idJugador
     );
 
-  setSelected(fullPlayer || player);
+  setSelected(fullPlayer || player);setActiveTab("perfil");
 }}
                 />
 
@@ -1105,7 +1109,7 @@ const playerReport = selected
         player.idJugador
     );
 
-  setSelected(fullPlayer || player);
+  setSelected(fullPlayer || player);setActiveTab("perfil");
 }}
                 />
 
@@ -1122,7 +1126,7 @@ const playerReport = selected
         player.idJugador
     );
 
-  setSelected(fullPlayer || player);
+  setSelected(fullPlayer || player);setActiveTab("perfil");
 }}
                 />
 
@@ -1139,7 +1143,7 @@ const playerReport = selected
         player.idJugador
     );
 
-  setSelected(fullPlayer || player);
+  setSelected(fullPlayer || player);setActiveTab("perfil");
 }}
                 />
               </div>
