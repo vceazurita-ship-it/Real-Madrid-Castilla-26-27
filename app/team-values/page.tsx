@@ -158,7 +158,16 @@ const guardarCambios = async () => {
 >
             
 
-            <div className="space-y-2">
+           <div
+  className="
+  flex
+  gap-2
+  overflow-x-auto
+  pb-2
+  lg:block
+  lg:space-y-2
+  "
+>
   {secciones.map((s) => {
 
   const total =
@@ -173,7 +182,13 @@ const guardarCambios = async () => {
       onClick={() =>
         setSeccion(s)
       }
-      className={`w-full rounded-xl p-3 text-left ${
+      className={`
+shrink-0
+min-w-[140px]
+lg:w-full
+rounded-xl
+p-3
+text-left ${
         seccion === s
           ? "bg-[#C8A96B] text-black"
           : "border border-white/10 text-white"
@@ -221,15 +236,16 @@ hover:border-[#C8A96B]/30
     ROADMAP CULTURAL
   </p>
 
-  <div
-    className="
-    mt-6
-    flex
-    items-center
-    overflow-x-auto
-    pb-2
-    "
-  >
+<div
+  className="
+  mt-4
+  flex
+  items-center
+  overflow-x-auto
+  pb-2
+  scrollbar-hide
+  "
+>
     {secciones.map((s, i) => (
 
       <div
@@ -242,14 +258,18 @@ hover:border-[#C8A96B]/30
       >
 
         <div
-          className={`
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-full
-            font-bold
+  className={`
+    flex
+    h-8
+    w-8
+    lg:h-10
+    lg:w-10
+    items-center
+    justify-center
+    rounded-full
+    text-xs
+    lg:text-sm
+    font-bold
             ${
               s === seccion
                 ? "bg-[#C8A96B] text-black"
@@ -265,7 +285,7 @@ hover:border-[#C8A96B]/30
           <div
             className="
             h-[2px]
-            w-10
+            w-6 lg:w-10
             bg-white/10
             "
           />
@@ -317,22 +337,25 @@ hover:border-[#C8A96B]/30
     ROADMAP CULTURAL
   </div>
 
-  <h1
-  className="
-  text-4xl
-  lg:text-5xl
-  font-bold
-  text-white
-  "
+<h1
+className="
+text-2xl
+sm:text-3xl
+lg:text-5xl
+font-bold
+text-white
+"
 >
     {seccion}
   </h1>
 <p
-  className="
-  mt-3
-  max-w-2xl
-  text-gray-400
-  "
+className="
+mt-2
+max-w-2xl
+text-sm
+lg:text-base
+text-gray-400
+"
 >
   {
     seccion === "MARCO"
@@ -426,7 +449,7 @@ border-white/10
 bg-gradient-to-br
 from-white/[0.05]
 to-white/[0.02]
-p-6
+p-4 lg:p-6
 transition-all
 hover:border-[#C8A96B]/40
 hover:bg-white/[0.05]
@@ -436,14 +459,17 @@ hover:bg-white/[0.05]
                     <div
   className="
   flex
-  h-12
-  w-12
+  h-9
+w-9
+lg:h-12
+lg:w-12
   items-center
   justify-center
   rounded-2xl
   bg-[#C8A96B]
-  text-lg
-  font-bold
+  text-sm
+lg:text-lg
+font-bold
   text-black
   "
 >
