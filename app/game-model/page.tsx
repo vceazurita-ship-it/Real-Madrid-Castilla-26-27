@@ -123,37 +123,29 @@ setOriginalData(
 ]);
 const guardarCambios = async () => {
   try {
-    const respuestas = await Promise.all(
+    await Promise.all(
       data.map((p) =>
         fetch(API, {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            action:
-              "guardarPrincipio",
+            action: "guardarPrincipio",
             ID: p.ID,
-            PRINCIPIO:
-              p.PRINCIPIO,
-            OBSERVACIONES:
-              p.OBSERVACIONES || "",
+            PRINCIPIO: p.PRINCIPIO,
+            OBSERVACIONES: p.OBSERVACIONES || "",
           }),
         })
       )
     );
 
-    console.log(
-      "Guardado completado",
-      respuestas
+    setOriginalData(
+      JSON.parse(JSON.stringify(data))
     );
 
-   setOriginalData(
-  JSON.parse(JSON.stringify(data))
-);
-
-setEditing(false);
+    // cerrar edición
+    setEditing(false);
 
   } catch (err) {
     console.error(
@@ -274,18 +266,19 @@ setEditing(false);
              <div className="flex gap-3">
   {editing && (
     <button
-      onClick={guardarCambios}
-      className="
-      rounded-xl
-      bg-[#C8A96B]
-      px-4
-      py-2
-      font-medium
-      text-black
-      "
-    >
-      Guardar
-    </button>
+  type="button"
+  onClick={guardarCambios}
+  className="
+    rounded-xl
+    bg-[#C8A96B]
+    px-4
+    py-2
+    font-medium
+    text-black
+  "
+>
+  Guardar
+</button>
   )}
 
   <button
