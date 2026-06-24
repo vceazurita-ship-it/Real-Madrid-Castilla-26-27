@@ -146,9 +146,6 @@ const guardarCambios = async () => {
 
     setEditing(false);
 
-    alert(
-      "Cambios guardados correctamente"
-    );
   } catch (err) {
     console.error(
       "Error guardando:",
@@ -375,38 +372,6 @@ const guardarCambios = async () => {
       rows={2}
       placeholder="Observaciones..."
     />
-
-    <button
-      onClick={async () => {
-        await fetch(API, {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            action:
-              "guardarPrincipio",
-            ID: p.ID,
-            PRINCIPIO:
-              p.PRINCIPIO,
-            OBSERVACIONES:
-              p.OBSERVACIONES,
-          }),
-        });
-
-        alert("Guardado");
-      }}
-      className="
-      rounded-xl
-      bg-[#C8A96B]
-      px-4
-      py-2
-      text-black
-      "
-    >
-      Guardar
-    </button>
   </div>
 ) : (
   <>
