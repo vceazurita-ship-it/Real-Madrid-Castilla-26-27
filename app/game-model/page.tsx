@@ -24,6 +24,8 @@ const API =
 
 export default function GameModelPage() {
   const [data, setData] = useState<Principio[]>([]);
+const [originalData, setOriginalData] =
+  useState<Principio[]>([]);
 
   const [fase, setFase] =
     useState("ATAQUE");
@@ -53,6 +55,9 @@ export default function GameModelPage() {
       }
 
       setData(parsed);
+setOriginalData(
+  JSON.parse(JSON.stringify(parsed))
+);
 
       if (parsed.length > 0) {
         setBloque(parsed[0].BLOQUE);
@@ -144,7 +149,11 @@ const guardarCambios = async () => {
       respuestas
     );
 
-    setEditing(false);
+   setOriginalData(
+  JSON.parse(JSON.stringify(data))
+);
+
+setEditing(false);
 
   } catch (err) {
     console.error(
@@ -280,9 +289,17 @@ const guardarCambios = async () => {
   )}
 
   <button
-    onClick={() =>
-      setEditing(!editing)
+  onClick={() => {
+    if (editing) {
+      setData(
+        JSON.parse(
+          JSON.stringify(originalData)
+        )
+      );
     }
+
+    setEditing(!editing);
+  }}
     className="
     rounded-xl
     border
