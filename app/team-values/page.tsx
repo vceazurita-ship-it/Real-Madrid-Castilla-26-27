@@ -8,6 +8,7 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import Papa from "papaparse";
 
 type CulturaItem = {
   ID: number;
@@ -35,34 +36,39 @@ const [seccion, setSeccion] =
   const [editing, setEditing] =
     useState(false);
 
-  useEffect(() => {
-  fetch(`${API}?action=cultura`)
-    .then((r) => r.json())
-    .then((rows) => {
-      let parsed: CulturaItem[] = [];
+ useEffect(() => {
 
-      if (Array.isArray(rows)) {
-        parsed = rows;
-      } else if (
-        rows &&
-        Array.isArray(rows.data)
-      ) {
-        parsed = rows.data;
+  fetch(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv"
+  )
+    .then((r) => r.text())
+    .then((csv) => {
+
+      const parsed =
+        Papa.parse<CulturaItem>(
+          csv,
+          {
+            header: true,
+            skipEmptyLines: true,
+          }
+        );
+
+      const rows =
+        parsed.data;
+
+      setData(rows);
+
+      setOriginalData(
+        structuredClone(rows)
+      );
+
+      if (rows.length > 0) {
+        setSeccion(
+          rows[0].SECCION
+        );
       }
-
-      setData(parsed);
-setOriginalData(
-  JSON.parse(JSON.stringify(parsed))
-);
-
-      if (parsed.length > 0) {
-  setSeccion(parsed[0].SECCION);
-}
-    })
-    .catch((err) => {
-      console.error(err);
-      setData([]);
     });
+
 }, []);
 const secciones = useMemo(() => {
   return [
