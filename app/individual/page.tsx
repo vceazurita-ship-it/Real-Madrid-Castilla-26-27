@@ -34,7 +34,7 @@ const SHEET_INFORMES =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1812683440&single=true&output=csv";
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbzw2I8CvxHHsJTWtzsjoL9oIiFA85s0TZWN978czP62-Gf0nzQvVw9vrL70wt1VM2Fo/exec";
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
   const DEFAULT_STRENGTH =
   "Fortalezas por definir";
