@@ -173,10 +173,19 @@ const guardarCambios = async () => {
       <div className="flex-1">
         <Topbar />
 
-        <div className="flex">
+        <div className="flex flex-col lg:flex-row">
           {/* MENÚ IZQUIERDO */}
 
-          <div className="w-[340px] border-r border-white/10 p-6">
+          <div
+  className="
+  w-full
+  lg:w-[340px]
+  lg:border-r
+  border-white/10
+  p-4
+  lg:p-6
+  "
+></div><div className="w-[340px] border-r border-white/10 p-6">
             <div className="mb-8 flex gap-2">
               <button
                 onClick={() =>
@@ -205,7 +214,16 @@ const guardarCambios = async () => {
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div
+  className="
+  flex
+  gap-2
+  overflow-x-auto
+  pb-2
+  lg:block
+  lg:space-y-2
+  "
+>
               {bloques.map((b) => (
                 <button
                   key={b}
@@ -223,7 +241,13 @@ const guardarCambios = async () => {
                       primerApartado
                     );
                   }}
-                  className={`w-full rounded-xl p-3 text-left ${
+                  className={`
+shrink-0
+lg:w-full
+rounded-xl
+px-4
+py-3
+text-left text-left ${
                     bloque === b
                       ? "bg-[#C8A96B] text-black"
                       : "border border-white/10 text-white"
@@ -240,14 +264,29 @@ const guardarCambios = async () => {
                   APARTADOS
                 </div>
 
-                <div className="space-y-2">
+                <div
+  className="
+  flex
+  gap-2
+  overflow-x-auto
+  pb-2
+  lg:block
+  lg:space-y-2
+  "
+>
                   {apartados.map((a) => (
                     <button
                       key={a}
                       onClick={() =>
                         setApartado(a)
                       }
-                      className={`w-full rounded-xl p-3 text-left text-sm ${
+                      className={`
+shrink-0
+lg:w-full
+rounded-xl
+px-4
+py-3
+text-left text-sm ${
                         apartado === a
                           ? "border border-[#C8A96B] text-[#C8A96B]"
                           : "border border-white/10 text-gray-300"
@@ -264,18 +303,35 @@ const guardarCambios = async () => {
           {/* CONTENIDO */}
 
           <div className="flex-1 p-8">
-            <div className="mb-8 flex items-center justify-between">
+            <div
+  className="
+  mb-8
+  flex
+  flex-col
+  gap-4
+  lg:flex-row
+  lg:items-center
+  lg:justify-between
+  "
+>
               <div>
                 <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
                   {fase}
                 </p>
 
-                <h1 className="text-3xl font-semibold text-white">
+                <h1
+  className="
+  text-2xl
+  lg:text-3xl
+  font-semibold
+  text-white
+  "
+>
                   {apartado}
                 </h1>
               </div>
 
-             <div className="flex gap-3">
+             <div className="flex w-full gap-3 lg:w-auto">
   {editing && (
     <button
   type="button"
@@ -283,8 +339,7 @@ const guardarCambios = async () => {
   className="
     rounded-xl
     bg-[#C8A96B]
-    px-4
-    py-2
+    flex-1 lg:flex-none px-4 py-3
     font-medium
     text-black
   "
@@ -309,8 +364,7 @@ const guardarCambios = async () => {
     rounded-xl
     border
     border-[#C8A96B]
-    px-4
-    py-2
+    flex-1 lg:flex-none px-4 py-3
     text-[#C8A96B]
     "
   >
@@ -328,7 +382,14 @@ const guardarCambios = async () => {
                   className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
+                    <div className="
+flex
+h-7
+w-7
+lg:h-8
+lg:w-8
+items-center
+justify-center rounded-full bg-[#C8A96B] text-sm font-bold text-black">
                       {p.ORDEN}
                     </div>
 
