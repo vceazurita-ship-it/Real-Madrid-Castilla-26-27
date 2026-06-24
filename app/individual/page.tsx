@@ -2037,11 +2037,12 @@ tracking-wide
     ))}
   </div>
 )}{activeTab === "informe" && (
-  <div className="space-y-6">
-    <div className="flex justify-between items-center">
-      <h3 className="text-xl font-semibold text-[#C8A96B]">
+   <div className="space-y-6">
+  <div className="relative border-b border-white/10 pb-6">
+  <div className="flex items-center justify-between pr-24">
+    <h2 className="text-3xl font-semibold tracking-tight">
         Informe individual
-      </h3>
+      </h2>
 
       <button
         onClick={() => {
@@ -2074,6 +2075,7 @@ tracking-wide
       >
         Editar informe
       </button>
+    </div>
     </div>
 
    {playerReport && (
