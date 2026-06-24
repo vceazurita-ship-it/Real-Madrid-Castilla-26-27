@@ -1971,6 +1971,188 @@ const playerReport = selected
       </div>
     </div>
   </div>
+)}{showProfileForm && (
+  <div className="fixed inset-0 z-[999999] bg-black/70 flex items-center justify-center p-4">
+    <div
+      className="
+        w-full
+        max-w-4xl
+        rounded-3xl
+        border
+        border-white/10
+        bg-[#11161C]
+        p-6
+        max-h-[90vh]
+        overflow-y-auto
+      "
+    >
+      <h3 className="mb-6 text-2xl font-semibold text-[#C8A96B]">
+        Editar perfil
+      </h3>
+
+      <div className="grid gap-4">
+
+        <textarea
+          placeholder="Fortalezas"
+          value={profileForm.strengths}
+          onChange={(e) =>
+            setProfileForm({
+              ...profileForm,
+              strengths: e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <textarea
+          placeholder="Aspectos de mejora"
+          value={profileForm.improvements}
+          onChange={(e) =>
+            setProfileForm({
+              ...profileForm,
+              improvements: e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
+        <input
+          placeholder="URL vídeo fortalezas"
+          value={profileForm.strengthVideo}
+          onChange={(e) =>
+            setProfileForm({
+              ...profileForm,
+              strengthVideo: e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <input
+          placeholder="URL vídeo mejora"
+          value={profileForm.improvementVideo}
+          onChange={(e) =>
+            setProfileForm({
+              ...profileForm,
+              improvementVideo: e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3"
+        />
+
+        <div className="grid md:grid-cols-2 gap-4">
+
+          <input
+            type="number"
+            min="0"
+            max="10"
+            placeholder="Mentalidad"
+            value={profileForm.mentalidad}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                mentalidad: e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            type="number"
+            min="0"
+            max="10"
+            placeholder="Hábitos"
+            value={profileForm.habitos}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                habitos: e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            type="number"
+            min="0"
+            max="10"
+            placeholder="Interpretación"
+            value={profileForm.interpretacion}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                interpretacion: e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            type="number"
+            min="0"
+            max="10"
+            placeholder="Capacidad física"
+            value={profileForm.capacidadFisica}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                capacidadFisica: e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+          <input
+            type="number"
+            min="0"
+            max="10"
+            placeholder="Técnica"
+            value={profileForm.tecnica}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                tecnica: e.target.value,
+              })
+            }
+            className="rounded-xl bg-white/5 p-3"
+          />
+
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+
+          <button
+            onClick={() =>
+              setShowProfileForm(false)
+            }
+            className="
+              rounded-xl
+              border
+              border-white/10
+              px-5
+              py-3
+            "
+          >
+            Cancelar
+          </button>
+
+          <button
+            className="
+              rounded-xl
+              bg-[#C8A96B]
+              px-5
+              py-3
+              font-medium
+              text-black
+            "
+          >
+            Guardar perfil
+          </button>
+
+        </div>
+      </div>
+    </div>
+  </div>
 )}
         </div>
       </div>
