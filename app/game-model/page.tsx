@@ -38,61 +38,84 @@ export default function GameModelPage() {
     useState(false);
 
   useEffect(() => {
-    fetch(`${API}?action=identidad`)
-      .then((r) => r.json())
-      .then((rows) => {
-        setData(rows);
+  fetch(`${API}?action=identidad`)
+    .then((r) => r.json())
+    .then((rows) => {
+      let parsed: Principio[] = [];
 
-        if (rows.length) {
-          setBloque(rows[0].BLOQUE);
-          setApartado(rows[0].APARTADO);
-        }
-      });
-  }, []);
+      if (Array.isArray(rows)) {
+        parsed = rows;
+      } else if (
+        rows &&
+        Array.isArray(rows.data)
+      ) {
+        parsed = rows.data;
+      }
+
+      setData(parsed);
+
+      if (parsed.length > 0) {
+        setBloque(parsed[0].BLOQUE);
+        setApartado(parsed[0].APARTADO);
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      setData([]);
+    });
+}, []);
 
   const bloques = useMemo(() => {
-    return [
-      ...new Set(
-        data
-          .filter(
-            (r) => r.FASE === fase
-          )
-          .map((r) => r.BLOQUE)
-      ),
-    ];
-  }, [data, fase]);
+  if (!Array.isArray(data)) return [];
+
+  return [
+    ...new Set(
+      data
+        .filter(
+          (r) => r?.FASE === fase
+        )
+        .map((r) => r.BLOQUE)
+    ),
+  ];
+}, [data, fase]);
 
   const apartados = useMemo(() => {
-    return [
-      ...new Set(
-        data
-          .filter(
-            (r) =>
-              r.FASE === fase &&
-              r.BLOQUE === bloque
-          )
-          .map((r) => r.APARTADO)
-      ),
-    ];
-  }, [data, fase, bloque]);
+  if (!Array.isArray(data)) return [];
 
-  const principios = useMemo(() => {
-    return data
-      .filter(
-        (r) =>
-          r.FASE === fase &&
-          r.BLOQUE === bloque &&
-          r.APARTADO === apartado
-      )
-      .sort(
-        (a, b) => a.ORDEN - b.ORDEN
-      );
-  }, [
-    data,
-    fase,
-    bloque,
-    apartado,
-  ]);
+  return [
+    ...new Set(
+      data
+        .filter(
+          (r) =>
+            r?.FASE === fase &&
+            r?.BLOQUE === bloque
+        )
+        .map((r) => r.APARTADO)
+    ),
+  ];
+}, [data, fase, bloque]);
+
+ const principios = useMemo(() => {
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .filter(
+      (r) =>
+        r?.FASE === fase &&
+        r?.BLOQUE === bloque &&
+        r?.APARTADO === apartado
+    )
+    .sort(
+      (a, b) =>
+        Number(a.ORDEN) -
+        Number(b.ORDEN)
+    );
+}, [
+  data,
+  fase,
+  bloque,
+  apartado,
+]);
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14]">
