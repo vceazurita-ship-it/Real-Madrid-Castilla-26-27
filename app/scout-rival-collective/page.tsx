@@ -46,18 +46,15 @@ useEffect(() => {
               Base de datos para la preparación estratégica del rival.
             </p>
           </div>
-<div className="mt-6">
+          <div className="mb-8">
 
   <select
     value={rivalActivo?.ID || ""}
     onChange={(e) => {
 
-      const rival =
-        rivales.find(
-          r =>
-            String(r.ID) ===
-            e.target.value
-        )
+      const rival = rivales.find(
+        r => String(r.ID) === e.target.value
+      )
 
       setRivalActivo(rival)
 
@@ -68,51 +65,80 @@ useEffect(() => {
       border
       border-white/10
       bg-[#111827]
-      p-4
+      px-4
+      py-4
+      text-white
     "
-  > <div className="grid md:grid-cols-6 gap-4 mt-6 mb-6">
+  >
 
-<div className="rounded-2xl bg-[#111827] p-4">
-<p className="text-xs text-white/50">Jornada</p>
-<p>{rivalActivo?.JORNADA}</p>
-</div>
+    {rivales.map((r) => (
 
-<div className="rounded-2xl bg-[#111827] p-4">
-<p className="text-xs text-white/50">Resultado</p>
-<p>{rivalActivo?.RESULTADO}</p>
-</div>
-
-<div className="rounded-2xl bg-[#111827] p-4">
-<p className="text-xs text-white/50">Estado</p>
-<p>{rivalActivo?.ESTADO}</p>
-</div>
-
-<div className="rounded-2xl bg-[#111827] p-4">
-<p className="text-xs text-white/50">Fecha</p>
-<p>{rivalActivo?.FECHA}</p>
-</div>
-
-<div className="rounded-2xl bg-[#111827] p-4">
-<p className="text-xs text-white/50">Local/Visitante</p>
-<p>{rivalActivo?.LOCAL_VISITANTE}</p>
-</div>
-
-</div>
-
-    {Array.isArray(rivales) &&
-  rivales.map(r => (
       <option
         key={r.ID}
         value={r.ID}
       >
         {r.EQUIPO}
       </option>
+
     ))}
 
   </select>
 
 </div>
-         <div className="grid gap-6 md:grid-cols-2">
+<div className="mb-8 grid gap-4 md:grid-cols-5">
+
+  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+    <p className="text-xs uppercase text-white/40">
+      Jornada
+    </p>
+
+    <p className="mt-2 text-xl font-bold">
+      {rivalActivo?.JORNADA}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+    <p className="text-xs uppercase text-white/40">
+      Resultado
+    </p>
+
+    <p className="mt-2 text-xl font-bold">
+      {rivalActivo?.RESULTADO}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+    <p className="text-xs uppercase text-white/40">
+      Estado
+    </p>
+
+    <p className="mt-2 text-xl font-bold">
+      {rivalActivo?.ESTADO}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+    <p className="text-xs uppercase text-white/40">
+      Fecha
+    </p>
+
+    <p className="mt-2 text-xl font-bold">
+      {rivalActivo?.FECHA}
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+    <p className="text-xs uppercase text-white/40">
+      Local / Visitante
+    </p>
+
+    <p className="mt-2 text-xl font-bold">
+      {rivalActivo?.LOCAL_VISITANTE}
+    </p>
+  </div>
+
+</div>
+<div className="grid gap-6 md:grid-cols-2">
 
   <section className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
     <h2 className="text-xl font-semibold text-cyan-400">
@@ -293,47 +319,7 @@ useEffect(() => {
   )}
 
 </div>
-          <section className="mt-6 rounded-3xl border border-amber-500/20 bg-amber-500/5 p-6">
-
-<h2 className="text-xl font-semibold text-amber-400">
-Jugadores Clave
-</h2>
-
-<p className="mt-4 text-white/70 whitespace-pre-wrap">
-{rivalActivo?.JUGADORES_CLAVE}
-</p>
-
-</section>
-<section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-
-<h2 className="text-xl font-semibold">
-Observaciones
-</h2>
-
-<p className="mt-4 text-white/70 whitespace-pre-wrap">
-{rivalActivo?.OBSERVACIONES}
-</p>
-
-</section>
-<div className="mt-6 flex gap-4">
-
-<a
-href={rivalActivo?.VIDEO}
-target="_blank"
-className="px-6 py-3 rounded-xl bg-blue-600"
->
-Ver vídeo
-</a>
-
-<a
-href={rivalActivo?.DOC}
-target="_blank"
-className="px-6 py-3 rounded-xl bg-emerald-600"
->
-Abrir informe
-</a>
-
-</div>
+          
         </div>
       </main>
     </div>
