@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 export default function ScoutRivalCollective() {
   const [rivales, setRivales] = useState<any[]>([])
 const [rivalActivo, setRivalActivo] = useState<any>(null)
+const [modoEdicion, setModoEdicion] = useState(false)
 useEffect(() => {
 
   fetch(
@@ -138,17 +139,66 @@ useEffect(() => {
   </div>
 
 </div>
+<div className="flex justify-end mb-6">
+
+  <button
+    onClick={() => setModoEdicion(!modoEdicion)}
+    className="
+    rounded-2xl
+    border
+    border-[#C8A96B]/30
+    bg-[#C8A96B]/10
+    px-6
+    py-3
+    font-semibold
+    text-[#C8A96B]
+    hover:bg-[#C8A96B]/20
+    "
+  >
+    {modoEdicion ? "Cancelar" : "Editar Informe"}
+  </button>
+
+</div>
 <div className="grid gap-6 md:grid-cols-2">
 
   <section className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
-    <h2 className="text-xl font-semibold text-cyan-400">
-      Estructura Ofensiva
-    </h2>
+
+  <h2 className="text-xl font-semibold text-cyan-400">
+    Estructura Ofensiva
+  </h2>
+
+  {modoEdicion ? (
+
+    <textarea
+      value={rivalActivo?.ESTRUCTURA_OF || ""}
+      onChange={(e) =>
+        setRivalActivo({
+          ...rivalActivo,
+          ESTRUCTURA_OF: e.target.value,
+        })
+      }
+      rows={8}
+      className="
+      mt-4
+      w-full
+      rounded-2xl
+      border
+      border-white/10
+      bg-[#111827]
+      p-4
+      text-white
+      "
+    />
+
+  ) : (
 
     <p className="mt-4 text-white/70 whitespace-pre-wrap">
       {rivalActivo?.ESTRUCTURA_OF}
     </p>
-  </section>
+
+  )}
+
+</section>
 
   <section className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
     <h2 className="text-xl font-semibold text-blue-400">
@@ -301,7 +351,18 @@ useEffect(() => {
       href={rivalActivo.VIDEO}
       target="_blank"
       rel="noreferrer"
-      className="rounded-xl bg-blue-600 px-6 py-3 font-medium hover:bg-blue-700"
+      className="
+rounded-2xl
+border
+border-[#C8A96B]/30
+bg-[#C8A96B]/10
+px-6
+py-3
+font-semibold
+text-[#C8A96B]
+transition
+hover:bg-[#C8A96B]/20
+"
     >
       Ver Vídeo
     </a>
@@ -312,7 +373,18 @@ useEffect(() => {
       href={rivalActivo.DOC}
       target="_blank"
       rel="noreferrer"
-      className="rounded-xl bg-emerald-600 px-6 py-3 font-medium hover:bg-emerald-700"
+      className="
+rounded-2xl
+border
+border-[#C8A96B]/30
+bg-[#C8A96B]/10
+px-6
+py-3
+font-semibold
+text-[#C8A96B]
+transition
+hover:bg-[#C8A96B]/20
+"
     >
       Abrir Informe
     </a>
