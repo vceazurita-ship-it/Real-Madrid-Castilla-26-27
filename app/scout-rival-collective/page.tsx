@@ -52,53 +52,7 @@ useEffect(() => {
     })
 
 }, [])
-const guardarCambios = async () => {
 
-  try {
-
-    setGuardando(true)
-
-    const response = await fetch(
-      "https://script.google.com/macros/s/TU_DEPLOYMENT_ID/exec",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "actualizarRival",
-          rival: rivalActivo,
-        }),
-      }
-    )
-
-    const data = await response.json()
-
-    if (data.ok) {
-
-      alert("Informe actualizado correctamente")
-
-      setModoEdicion(false)
-
-    } else {
-
-      alert("Error al guardar")
-
-    }
-
-  } catch (error) {
-
-    console.error(error)
-
-    alert("Error al guardar")
-
-  } finally {
-
-    setGuardando(false)
-
-  }
-
-}
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
