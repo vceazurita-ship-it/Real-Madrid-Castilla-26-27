@@ -20,7 +20,7 @@ useEffect(() => {
       if (data.length > 0) {
         setRivalActivo(data[0])
       }
-
+  
     })
 
 }, [])
