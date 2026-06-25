@@ -128,6 +128,30 @@ const navLink = (
       <Home size={18} />
     )}
   </div>
+{/* IDENTIDAD */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Identidad
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/team-values",
+      "Dinámicas y Valores",
+      <Users size={18} />
+    )}
+
+    {navLink(
+      "/game-model",
+      "Identidad de Juego",
+      <Brain size={18} />
+    )}
+  </div>
+</div>
+
   {/* COMPETICIÓN */}
 <div>
   {!collapsed && (
@@ -157,18 +181,6 @@ const navLink = (
   <div className="space-y-2 text-sm">
 
     {navLink(
-      "/game-model",
-      "Identidad de Juego",
-      <Brain size={18} />
-    )}
-
-    {navLink(
-      "/team-values",
-      "Dinámicas y Valores",
-      <Users size={18} />
-    )}
-
-    {navLink(
       "/microcycles",
       "Microciclos",
       <CalendarDays size={18} />
@@ -182,7 +194,7 @@ const navLink = (
 
   </div>
 </div>
-  {/* ANALISIS PROPIO */}
+  {/* INDIVIDUAL */}
   <div>
     {!collapsed && (
       <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
@@ -198,17 +210,6 @@ const navLink = (
       )}
 
       {navLink(
-        "/emotion",
-        "Emocional",
-        <Brain size={18} />
-      )}
-
-      {navLink(
-        "/sinergy",
-        "Sinergias",
-        <Users size={18} />
-      )}
-      {navLink(
   "/video-individual",
   "Videoteca Individual",
   <Video size={18} />
@@ -221,6 +222,30 @@ const navLink = (
     </div>
   </div>
 
+  {/* RELACIONAL */}
+  <div>
+    {!collapsed && (
+      <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+        Relacional
+      </p>
+    )}
+
+    <div className="space-y-2 text-sm">
+      {navLink(
+        "/emotion",
+        "Emocional",
+        <Brain size={18} />
+      )}
+
+      {navLink(
+        "/sinergy",
+        "Sinergias",
+        <Users size={18} />
+      )}
+    </div>
+  </div>
+
+
   {/* COLECTIVO */}
   <div>
     {!collapsed && (
@@ -230,12 +255,23 @@ const navLink = (
     )}
 
     <div className="space-y-2 text-sm">
+      
+      {navLink(
+        "/setpieces",
+        "ABP Ofensivo",
+        <Goal size={18} />
+      )}
+      {navLink(
+        "/setpieces_def",
+        "ABP Defensivo",
+        <Shield size={18} />
+      )}
+      
       {navLink(
   "/video-collective",
   "Videoteca Colectiva",
   <Video size={18} />
 )}
-      
       {navLink(
         "/team",
         "Rendimiento",
@@ -248,24 +284,15 @@ const navLink = (
         <Trophy size={18} />
       )}
 
-      {navLink(
-        "/setpieces",
-        "ABP Ofensivo",
-        <Goal size={18} />
-      )}
-      {navLink(
-        "/setpieces_def",
-        "ABP Defensivo",
-        <Shield size={18} />
-      )}
+      
     </div>
   </div>
 
-{/* SCOUT RIVAL */}
+{/* RIVAL */}
   <div>
   {!collapsed && (
     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Scout Rival
+      Rival
     </p>
   )}
 

@@ -11,131 +11,138 @@ import {
   Rocket,
   Target,
   TrendingUp,
-  Users, 
+  Users,
+  BarChart3, 
   Zap,
 } from "lucide-react"  
 
 import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
+import { useEffect, useState } from "react"
+import Papa from "papaparse"
 
-const metrics = [
-  {
-    href: "/team",
-    icon: Zap,
-    label: "EFICIENCIA COMPETITIVA",
-    value: "87%",
-    color: "blue",
-    width: "w-[86%]",
-  },
-  {
-    href: "/microcycles",
-    icon: Brain,
-    label: "CARGA DE ENTRENAMIENTO",
-    value: "Alta",
-    color: "violet",
-    width: "w-[72%]",
-  },
-  {
-    href: "/emotion",
-    icon: HeartPulse,
-    label: "ESTABILIDAD EMOCIONAL",
-    value: "Estable",
-    color: "emerald",
-    width: "w-[78%]",
-  },
-  {
-    href: "/collective",
-    icon: TrendingUp,
-    label: "EVOLUCIÓN COLECTIVA",
-    value: "+12%",
-    color: "amber",
-    width: "w-[66%]",
-  },
-]
 
+export default function Home() {
+
+  type Principio = {
+  FASE: string
+  BLOQUE: string
+  APARTADO: string
+}
 const modules = [
-  // METODOLOGÍA
+  {
+    href: "/game-model",
+    section: "IDENTIDAD",
+    title: "Identidad de Juego",
+    desc: "Principios ofensivos y defensivos que definen el comportamiento colectivo",
+    icon: Brain,
+    glow: "cyan",
+  },
+
+  {
+    href: "/team-values",
+    section: "IDENTIDAD",
+    title: "Dinámicas y Valores",
+    desc: "Normas culturales, comportamientos y principios del entorno",
+    icon: Users,
+    glow: "amber",
+  },
+
+  {
+    href: "/match-preparation",
+    section: "COMPETICIÓN",
+    title: "Preparación Partido",
+    desc: "Planificación estratégica y operativa para la competición",
+    icon: Rocket,
+    glow: "blue",
+  },
+
   {
     href: "/microcycles",
     section: "METODOLOGÍA",
     title: "Microciclos",
-    desc: "Planificación, carga, control y evaluación del proceso semanal",
+    desc: "Diseño y control del proceso semanal",
     icon: CalendarDays,
     glow: "cyan",
   },
+
   {
     href: "/match-plans",
     section: "METODOLOGÍA",
     title: "Planes de Partido",
-    desc: "Diseño estratégico y operacional para la competición",
-    icon: Rocket,
-    glow: "blue",
+    desc: "Estructura táctica y operacional",
+    icon: PlayCircle,
+    glow: "violet",
   },
 
-  // INDIVIDUAL
   {
     href: "/individual",
     section: "INDIVIDUAL",
-    title: "Evaluación",
-    desc: "Mentalidad, hábitos, condicional, interpretación y técnica",
+    title: "Plantilla",
+    desc: "Evaluación integral del jugador",
     icon: Target,
     glow: "blue",
   },
-  {
-    href: "/emotion",
-    section: "EMOCIONAL",
-    title: "Rendimiento Emocional",
-    desc: "Eficiencia individual y estabilidad emocional competitiva",
-    icon: HeartPulse,
-    glow: "violet",
-  },
-  {
-    href: "/sinergy",
-    section: "RELACIONAL",
-    title: "Sinergias",
-    desc: "Interacciones funcionales y conexiones entre jugadores",
-    icon: Users,
-    glow: "emerald",
-  },
+
   {
     href: "/comparative_ind",
     section: "INDIVIDUAL",
     title: "Comparativo U-21",
-    desc: "Análisis comparativo y proyección de talento emergente",
+    desc: "Proyección y detección de talento",
     icon: TrendingUp,
     glow: "amber",
   },
 
-  // COLECTIVO
+  {
+    href: "/emotion",
+    section: "RELACIONAL",
+    title: "Emocional",
+    desc: "Estabilidad y eficiencia emocional competitiva",
+    icon: HeartPulse,
+    glow: "violet",
+  },
+
+  {
+    href: "/sinergy",
+    section: "RELACIONAL",
+    title: "Sinergias",
+    desc: "Conexiones funcionales entre jugadores",
+    icon: Users,
+    glow: "emerald",
+  },
+
   {
     href: "/team",
     section: "COLECTIVO",
     title: "Rendimiento",
-    desc: "Evaluación global del comportamiento competitivo del equipo",
-    icon: Users,
+    desc: "Indicadores globales de rendimiento",
+    icon: BarChart3,
     glow: "amber",
   },
+
   {
     href: "/collective",
     section: "COLECTIVO",
     title: "Competición",
-    desc: "Transferencia al juego y evolución del rendimiento colectivo",
+    desc: "Transferencia al juego y evolución colectiva",
     icon: Zap,
     glow: "blue",
   },
+
   {
     href: "/setpieces",
     section: "ABP",
     title: "ABP Ofensivo",
-    desc: "Análisis y optimización de acciones a balón parado ofensivas",
+    desc: "Optimización ofensiva a balón parado",
     icon: Rocket,
     glow: "cyan",
   },
+
   {
     href: "/setpieces_def",
     section: "ABP",
     title: "ABP Defensivo",
-    desc: "Control y rendimiento en acciones a balón parado defensivas",
+    desc: "Control defensivo a balón parado",
     icon: Brain,
     glow: "violet",
   },
@@ -152,20 +159,118 @@ function glow(color: string) {
 
   return map[color as keyof typeof map]
 }
+  const [ataqueApartados, setAtaqueApartados] =
+  useState(0)
+  const [seguimientos, setSeguimientos] =
+  useState(0)
+const [totalJugadores, setTotalJugadores] =
+  useState(0)
+const [jugadoresSeguimiento, setJugadoresSeguimiento] =
+  useState(0)
 
-function bar(color: string) {
-  const map = {
-    blue: "bg-blue-500",
-    violet: "bg-violet-500",
-    emerald: "bg-emerald-400",
-    amber: "bg-amber-400",
-  }
+const [ultimos30Dias, setUltimos30Dias] =
+  useState(0)
+const [defensaApartados, setDefensaApartados] =
+  useState(0)
+  useEffect(() => {
+  fetch(
+    "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=jugadores"
+  )
+    .then((r) => r.json())
+    .then((rows) => {
+  setTotalJugadores(
+    Array.isArray(rows)
+      ? rows.length
+      : 0
+  )
+    })
+}, [])
+  useEffect(() => {
+  fetch(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv"
+  )
+    .then((r) => r.text())
+    .then((csv) => {
+      const parsed =
+        Papa.parse<Principio>(csv, {
+          header: true,
+          skipEmptyLines: true,
+        })
 
-  return map[color as keyof typeof map]
-}
+      const rows = parsed.data
 
-export default function Home() {
+      const ataque = [
+        ...new Set(
+          rows
+            .filter(
+              (r) => r.FASE === "ATAQUE"
+            )
+            .map(
+              (r) => r.APARTADO
+            )
+        ),
+      ]
+
+      const defensa = [
+        ...new Set(
+          rows
+            .filter(
+              (r) => r.FASE === "DEFENSA"
+            )
+            .map(
+              (r) => r.APARTADO
+            )
+        ),
+      ]
+
+      setAtaqueApartados(
+        ataque.length
+      )
+
+      setDefensaApartados(
+        defensa.length
+      )
+      
+    })
+}, [])
+ useEffect(() => {
+  fetch(
+    "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=seguimiento"
+  )
+    .then((r) => r.json())
+    .then((rows) => {
+
+      setSeguimientos(rows.length)
+
+      const jugadores = new Set(
+        rows.map(
+          (r: any) => r.ID_JUGADOR
+        )
+      )
+
+      setJugadoresSeguimiento(
+        jugadores.size
+      )
+
+      const limite =
+        new Date(
+          Date.now() -
+          30 * 24 * 60 * 60 * 1000
+        )
+
+      const recientes = rows.filter((r: any) => {
+  const fecha = new Date(r.FECHA)
+  return !isNaN(fecha.getTime()) &&
+         fecha >= limite
+})
+
+      setUltimos30Dias(
+        recientes.length
+      )
+    })
+}, []) 
   return (
+    
     <main className="min-h-screen bg-[#02060D] text-white">
       <div className="flex">
         <Sidebar />
@@ -200,42 +305,42 @@ export default function Home() {
                     </span>
                   </div>
 
-                  <h1 className="mt-6 text-[42px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[84px] xl:leading-[0.88]">
-                    Plataforma integral
-                    <br />
-                    {" "}
-                    <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
-                      RMCF Castilla
-                    </span>{" "}
-                    
-                  </h1>
+                  <h1 className="mt-6 text-[42px] max-w-[900px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[92px] xl:leading-[0.88]">
+  Plataforma Integral
+  <br />
+  <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
+    RMCF Castilla
+  </span>
+</h1>
 
                   <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
                     <div className="h-20 w-[3px] rounded-full bg-blue-500" />
 
                     <p className="max-w-[620px] text-base leading-relaxed text-white/75 sm:text-lg xl:text-[24px]">
-                      Análisis integral de la transferencia al juego conectando la metodología con el rendimiento individual, colectivo y relacional.
+                      Ecosistema integral para la gestión de la identidad,
+la competición, el desarrollo individual,
+el rendimiento colectivo y el análisis estratégico del rival.
                     </p>
                   </div>
 
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                     <Link
-                      href="/individual"
+                      href="/game-model"
                       className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]"
                     >
                       <div className="flex items-center gap-2">
                         <Rocket className="h-5 w-5" />
-                        Explorar ecosistema
+                        Identidad de Juego
                       </div>
                     </Link>
 
                     <Link
-                      href="/team"
+                      href="/match-preparation"
                       className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-4 transition hover:bg-white/[0.06]"
                     >
                       <div className="flex items-center gap-2">
                         <PlayCircle className="h-5 w-5" />
-                        Ver métricas
+                        Preparación Partido
                       </div>
                     </Link>
                   </div>
@@ -243,35 +348,101 @@ export default function Home() {
 
                 {/* RIGHT */}
                 <div className="relative mt-4 xl:mt-0">
-                  {/* radar */}
-                  <Link
-                    href="/comparative_ind"
-                    className="relative z-20 mb-4 w-full max-w-[290px] xl:absolute xl:left-0 xl:top-0"
-                  >
-                    <Image
-                      src="/radar-chart.png"
-                      alt="Radar"
-                      width={280}
-                      height={280}
-                      className="rounded-2xl"
-                    />
-                  </Link>
+                  <div className="grid gap-4">
+  <Link
+    href="/game-model"
+    className="
+rounded-[24px]
+border
+border-cyan-500/20
+bg-cyan-500/5
+p-6
+transition
+hover:scale-[1.02]
+"
+  >
+    <p className="text-xs tracking-[0.3em] text-cyan-400">
+      IDENTIDAD DE JUEGO
+    </p>
 
-                  {/* efficiency */}
-                  <Link
-                    href="/emotion"
-                    className="relative z-20 mb-4 w-full max-w-[250px] xl:absolute xl:right-0 xl:top-0"
-                  >
-                    <p className="text-xs uppercase tracking-[0.3em] text-gray-400">
-                      EFICIENCIA
-                    </p>
+    <h3 className="mt-2 text-4xl font-bold">
+  ATAQUE
+</h3>
 
-                    <p className="mt-3 text-5xl font-semibold">87%</p>
+<div className="mt-4 h-px bg-white/10" />
 
-                    <p className="mt-3 text-sm text-emerald-400">
-                      +4% vs semana anterior
-                    </p>
-                  </Link>
+<p className="mt-4 text-5xl font-bold text-cyan-400">
+  {ataqueApartados}
+</p>
+
+<p className="mt-2 text-white/60">
+  Apartados ofensivos
+</p>
+    
+  </Link>
+
+  <Link
+    href="/game-model"
+    className="
+rounded-[24px]
+border
+border-blue-500/20
+bg-blue-500/5
+p-6
+transition
+hover:scale-[1.02]
+"
+  >
+    <p className="text-xs tracking-[0.3em] text-blue-400">
+      IDENTIDAD DE JUEGO
+    </p>
+
+    <h3 className="mt-2 text-4xl font-bold">
+  DEFENSA
+</h3>
+
+<div className="mt-4 h-px bg-white/10" />
+
+<p className="mt-4 text-5xl font-bold text-blue-400">
+  {defensaApartados}
+</p>
+
+<p className="mt-2 text-white/60">
+  Apartados defensivos
+</p>
+  </Link>
+
+  <Link
+  href="/individual"
+  className="
+rounded-[24px]
+border
+border-amber-500/20
+bg-amber-500/5
+p-6
+transition
+hover:scale-[1.02]
+"
+>
+  <p className="text-xs tracking-[0.3em] text-amber-400">
+  DESARROLLO INDIVIDUAL
+</p>
+
+<h3 className="mt-2 text-4xl font-bold">
+  SEGUIMIENTO
+</h3>
+
+<div className="mt-4 h-px bg-white/10" />
+
+<p className="mt-4 text-5xl font-bold text-amber-400">
+  {seguimientos}
+</p>
+
+<p className="mt-2 text-white/60">
+  Sesiones registradas
+</p>
+</Link>
+</div>
 
                   {/* field */}
                   <Link
@@ -292,54 +463,66 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* KPI */}
-              <div className="relative z-10 mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {metrics.map((item) => {
-  const Icon = item.icon
+              
+  <div className="mt-12">
+  <p className="text-xs uppercase tracking-[0.35em] text-[#37A6FF]">
+    DESARROLLO INDIVIDUAL
+  </p>
 
-  return (
-    <Link
-      key={item.label}
-      href={item.href}
-      className={`relative z-20 block cursor-pointer rounded-[28px] border border-white/10 bg-[#07101B]/85 p-6 backdrop-blur-xl transition duration-300 hover:scale-[1.02] ${glow(
-        item.color
-      )}`}
-    >
-      <div className="flex gap-4">
-        <div className="rounded-full border border-white/10 bg-white/[0.04] p-5">
-          <Icon className="h-5 w-5" />
-        </div>
+  <div className="mt-6 grid gap-4 md:grid-cols-3">
 
-        <div>
-          <p className="text-xs tracking-[0.3em] text-gray-400">
-            {item.label}
-          </p>
+    <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
+      <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
+        Seguimientos
+      </p>
 
-          <h3 className="mt-3 text-4xl font-semibold">
-            {item.value}
-          </h3>
-        </div>
-      </div>
+      <h3 className="mt-3 text-5xl font-semibold">
+        {seguimientos}
+      </h3>
 
-      <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
-        <div
-          className={`h-full rounded-full ${bar(
-            item.color
-          )} ${item.width}`}
-        />
-      </div>
-    </Link>
-  )
-})}
-              </div>
+      <p className="mt-3 text-white/60">
+        Sesiones registradas
+      </p>
+    </div>
+
+    <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
+      <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
+        Jugadores
+      </p>
+
+      <h3 className="mt-3 text-5xl font-semibold">
+  {totalJugadores}
+</h3>
+
+<p className="mt-3 text-white/60">
+  Jugadores en plantilla
+</p>
+    </div>
+
+    <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
+      <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
+        Últimos 30 días
+      </p>
+
+      <h3 className="mt-3 text-5xl font-semibold">
+        {ultimos30Dias}
+      </h3>
+
+      <p className="mt-3 text-white/60">
+        Intervenciones registradas
+      </p>
+    </div>
+
+  </div>
+</div>
 
               {/* MODULES */}
               <div className="mt-12 border-t border-white/10 pt-8">
                 <p className="text-xs uppercase tracking-[0.35em] text-[#37A6FF]">
-                  MÓDULOS
+                  ÁREAS ESTRATÉGICAS
                 </p>
 
-<div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5 xl:gap-5">
+<div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-5">
                     {modules.map((item) => {
                     const Icon = item.icon
 
