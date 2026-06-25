@@ -186,14 +186,14 @@ const navLink = (
   <div>
     {!collapsed && (
       <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-        Análisis Propio
+        Individual
       </p>
     )}
 
     <div className="space-y-2 text-sm">
       {navLink(
         "/individual",
-        "Individual",
+        "Plantilla",
         <User size={18} />
       )}
 
@@ -213,12 +213,6 @@ const navLink = (
   "Videoteca Individual",
   <Video size={18} />
 )}
-
-{navLink(
-  "/video-collective",
-  "Videoteca Colectiva",
-  <Video size={18} />
-)}
       {navLink(
         "/comparative_ind",
         "Comparativo U-21",
@@ -226,30 +220,7 @@ const navLink = (
       )}
     </div>
   </div>
-{/* SCOUT RIVAL */}
-<div>
-  {!collapsed && (
-    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Scout Rival
-    </p>
-  )}
 
-  <div className="space-y-2 text-sm">
-
-    {navLink(
-      "/scout-rival-individual",
-      "Individual",
-      <User size={18} />
-    )}
-
-    {navLink(
-      "/scout-rival-collective",
-      "Colectivo",
-      <Users size={18} />
-    )}
-
-  </div>
-</div>
   {/* COLECTIVO */}
   <div>
     {!collapsed && (
@@ -259,6 +230,12 @@ const navLink = (
     )}
 
     <div className="space-y-2 text-sm">
+      {navLink(
+  "/video-collective",
+  "Videoteca Colectiva",
+  <Video size={18} />
+)}
+      
       {navLink(
         "/team",
         "Rendimiento",
@@ -283,6 +260,32 @@ const navLink = (
       )}
     </div>
   </div>
+
+{/* SCOUT RIVAL */}
+  <div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Scout Rival
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/scout-rival-individual",
+      "Individual",
+      <User size={18} />
+    )}
+
+    {navLink(
+      "/scout-rival-collective",
+      "Colectivo",
+      <Users size={18} />
+    )}
+
+  </div>
+</div>
+
   {/* ÁREA CONDICIONAL */}
 <div>
   {!collapsed && (
@@ -301,6 +304,7 @@ const navLink = (
 
   </div>
 </div>
+
 {/* DATA */}
 <div>
   {!collapsed && (

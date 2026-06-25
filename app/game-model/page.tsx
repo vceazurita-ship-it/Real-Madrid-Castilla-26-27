@@ -206,30 +206,56 @@ const guardarCambios = async () => {
 >
             <div className="mb-8 flex gap-2">
               <button
-                onClick={() =>
-                  setFase("ATAQUE")
-                }
-                className={`flex-1 rounded-xl py-3 font-medium ${
-                  fase === "ATAQUE"
-                    ? "bg-[#C8A96B] text-black"
-                    : "border border-white/10 text-white"
-                }`}
-              >
-                ATAQUE
-              </button>
+  onClick={() => {
+    setFase("ATAQUE");
 
-              <button
-                onClick={() =>
-                  setFase("DEFENSA")
-                }
-                className={`flex-1 rounded-xl py-3 font-medium ${
-                  fase === "DEFENSA"
-                    ? "bg-[#C8A96B] text-black"
-                    : "border border-white/10 text-white"
-                }`}
-              >
-                DEFENSA
-              </button>
+    const primerBloque = data.find(
+      (r) => r.FASE === "ATAQUE"
+    )?.BLOQUE || "";
+
+    const primerApartado = data.find(
+      (r) =>
+        r.FASE === "ATAQUE" &&
+        r.BLOQUE === primerBloque
+    )?.APARTADO || "";
+
+    setBloque(primerBloque);
+    setApartado(primerApartado);
+  }}
+  className={`flex-1 rounded-xl py-3 font-medium ${
+    fase === "ATAQUE"
+      ? "bg-[#C8A96B] text-black"
+      : "border border-white/10 text-white"
+  }`}
+>
+  ATAQUE
+</button>
+
+<button
+  onClick={() => {
+    setFase("DEFENSA");
+
+    const primerBloque = data.find(
+      (r) => r.FASE === "DEFENSA"
+    )?.BLOQUE || "";
+
+    const primerApartado = data.find(
+      (r) =>
+        r.FASE === "DEFENSA" &&
+        r.BLOQUE === primerBloque
+    )?.APARTADO || "";
+
+    setBloque(primerBloque);
+    setApartado(primerApartado);
+  }}
+  className={`flex-1 rounded-xl py-3 font-medium ${
+    fase === "DEFENSA"
+      ? "bg-[#C8A96B] text-black"
+      : "border border-white/10 text-white"
+  }`}
+>
+  DEFENSA
+</button>
             </div>
 
             <div
