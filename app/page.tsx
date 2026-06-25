@@ -12,6 +12,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  Activity,
   BarChart3, 
   Zap,
 } from "lucide-react"  
@@ -357,18 +358,45 @@ setPromedioSeguimientos(
                     </span>
                   </div>
 
-                  <h1 className="mt-6 text-[42px] max-w-[900px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[92px] xl:leading-[0.88]">
+                  <h1 className="mt-6 text-[42px] max-w-[760px] leading-[0.95] tracking-[-0.04em] sm:text-[56px] xl:mt-8 xl:text-[72px] xl:leading-[0.88]">
   Plataforma Integral
   <br />
   <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
     RMCF Castilla
   </span>
-</h1>
+</h1><div className="mt-10 flex gap-10">
+  <div>
+    <p className="text-4xl xl:text-5xl font-bold">
+      {totalJugadores}
+    </p>
+    <p className="text-white/60">
+      Jugadores
+    </p>
+  </div>
+
+  <div>
+    <p className="text-4xl xl:text-5xl font-bold">
+      {seguimientos}
+    </p>
+    <p className="text-white/60">
+      Seguimientos
+    </p>
+  </div>
+
+  <div>
+    <p className="text-4xl xl:text-5xl font-bold">
+      {cobertura}%
+    </p>
+    <p className="text-white/60">
+      Cobertura
+    </p>
+  </div>
+</div>
 
                   <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
                     <div className="h-20 w-[3px] rounded-full bg-blue-500" />
 
-                    <p className="max-w-[620px] text-base leading-relaxed text-white/75 sm:text-lg xl:text-[24px]">
+                    <p className="max-w-[620px] text-base leading-relaxed text-white/75 sm:text-lg xl:text-[20px]">
                       Ecosistema integral para la gestión de la identidad,
 la competición, el desarrollo individual,
 el rendimiento colectivo y el análisis estratégico del rival.
@@ -400,7 +428,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
 
                 {/* RIGHT */}
                 <div className="relative mt-4 xl:mt-0">
-                  <div className="grid gap-4">
+                  <div className="grid md:grid-cols-3 gap-4">
   <Link
     href="/game-model"
     className="
@@ -494,27 +522,6 @@ hover:scale-[1.02]
     Elementos culturales
   </p>
 </Link>
-<div className="mt-6 rounded-[24px] border border-blue-500/20 bg-blue-500/5 p-6">
-
-  <div className="flex items-center justify-between">
-
-    <div>
-
-      <p className="text-xs uppercase tracking-[0.3em] text-blue-400">
-        Cobertura de plantilla
-      </p>
-
-      <h3 className="mt-2 text-4xl font-bold text-blue-400">
-        {cobertura}%
-      </h3>
-
-    </div>
-
-    <Target className="h-10 w-10 text-blue-400" />
-
-  </div>
-
-</div>
 </div>
 
                   {/* field */}
@@ -535,7 +542,25 @@ hover:scale-[1.02]
     rounded-[28px]
   "
   priority
-/>     
+/>    <div className="absolute top-6 left-6 z-20">
+
+  <div className="
+  rounded-full
+  border
+  border-cyan-500/30
+  bg-black/50
+  backdrop-blur
+  px-4
+  py-2
+  ">
+
+    <p className="text-xs tracking-[0.3em] text-cyan-400">
+      VISIÓN GLOBAL
+    </p>
+
+  </div>
+
+</div> 
 
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.4))]" />
                   <div className="
@@ -544,7 +569,7 @@ bottom-6
 left-6
 right-6
 grid
-grid-cols-1 md:grid-cols-3
+grid-cols-1 md:grid-cols-4
 gap-4
 "><div className="
 rounded-xl
@@ -597,7 +622,10 @@ p-4
 
   <div className="mt-6 grid gap-4 md:grid-cols-3">
 
-    <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
+    <div className="rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6">
+    <div className="flex justify-end">
+  <Activity className="h-8 w-8 text-[#D8B45A]" />
+</div>
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
         Seguimientos
       </p>
@@ -611,7 +639,10 @@ p-4
       </p>
     </div>
 
-    <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
+    <div className="rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6">
+    <div className="flex justify-end">
+  <Users className="h-8 w-8 text-[#D8B45A]" />
+</div>
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
         Jugadores
       </p>
@@ -625,7 +656,10 @@ p-4
 </p>
     </div>
 
-    <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
+    <div className="rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6">
+    <div className="flex justify-end">
+  <BarChart3 className="h-8 w-8 text-[#D8B45A]" />
+</div>
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
   Promedio
 </p>
@@ -662,8 +696,20 @@ bg-gradient-to-br from-[#06111D] to-[#030914]
 p-5
 transition duration-300 hover:scale-[1.02]
 ${glow(item.glow)}`}
->
-                        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+><div
+  className="
+absolute
+inset-0
+opacity-0
+group-hover:opacity-100
+transition
+duration-300
+bg-gradient-to-r
+from-blue-500/10
+to-transparent
+"
+/>
+                        <div className="relative z-10 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                           <div className="flex items-center gap-5">
                             <div className="rounded-full border border-white/10 bg-white/[0.04] p-4">
   <Icon className="h-5 w-5" />
