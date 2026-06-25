@@ -2,8 +2,28 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useEffect, useState } from "react"
 
 export default function ScoutRivalCollective() {
+  const [rivales, setRivales] = useState<any[]>([])
+const [rivalActivo, setRivalActivo] = useState<any>(null)
+useEffect(() => {
+
+  fetch(
+    "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=rivales"
+  )
+    .then(r => r.json())
+    .then(data => {
+
+      setRivales(data)
+
+      if (data.length > 0) {
+        setRivalActivo(data[0])
+      }
+
+    })
+
+}, [])
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
@@ -26,47 +46,80 @@ export default function ScoutRivalCollective() {
               Base de datos para la preparación estratégica del rival.
             </p>
           </div>
+<div className="mt-6">
 
+  <select
+    value={rivalActivo?.ID || ""}
+    onChange={(e) => {
+
+      const rival =
+        rivales.find(
+          r =>
+            String(r.ID) ===
+            e.target.value
+        )
+
+      setRivalActivo(rival)
+
+    }}
+    className="
+      w-full
+      rounded-2xl
+      border
+      border-white/10
+      bg-[#111827]
+      p-4
+    "
+  >
+
+    {rivales.map(r => (
+      <option
+        key={r.ID}
+        value={r.ID}
+      >
+        {r.EQUIPO}
+      </option>
+    ))}
+
+  </select>
+
+</div>
           <div className="grid gap-6 md:grid-cols-2">
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-xl font-semibold">
-                Sistema Base
+                Estructura Ofensiva
               </h2>
 
               <p className="mt-4 text-white/60">
-                1-4-3-3
-              </p>
+{rivalActivo?.ESTRUCTURA_OF}              </p>
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-xl font-semibold">
-                Sistema Alternativo
+                Estructura Defensiva
               </h2>
 
               <p className="mt-4 text-white/60">
-                1-4-2-3-1
-              </p>
+{rivalActivo?.ESTRUCTURA_DEF}              </p>
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-xl font-semibold">
-                Salida de Balón
+                Ataque
               </h2>
 
               <p className="mt-4 text-white/60">
-                Descripción táctica...
-              </p>
+{rivalActivo?.ATAQUE}              </p>
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-xl font-semibold">
-                Presión
+                Defensa
               </h2>
 
               <p className="mt-4 text-white/60">
-                Descripción táctica...
-              </p>
+{rivalActivo?.DEFENSA}              </p>
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
@@ -75,8 +128,7 @@ export default function ScoutRivalCollective() {
               </h2>
 
               <p className="mt-4 text-white/60">
-                Descripción táctica...
-              </p>
+{rivalActivo?.TRANSICION_OF}              </p>
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
@@ -85,8 +137,7 @@ export default function ScoutRivalCollective() {
               </h2>
 
               <p className="mt-4 text-white/60">
-                Descripción táctica...
-              </p>
+{rivalActivo?.TRANSICION_DEF}              </p>
             </section>
 
             <section className="rounded-3xl border border-green-500/20 bg-green-500/5 p-6">
@@ -95,21 +146,29 @@ export default function ScoutRivalCollective() {
               </h2>
 
               <ul className="mt-4 space-y-2 text-white/70">
-                <li>• Fortaleza 1</li>
-                <li>• Fortaleza 2</li>
-                <li>• Fortaleza 3</li>
+                {rivalActivo?.FORTALEZAS
+  ?.split(";")
+  ?.map((item: string) => (
+    <li key={item}>
+      • {item}
+    </li>
+))}
               </ul>
             </section>
 
             <section className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
               <h2 className="text-xl font-semibold text-red-400">
-                Vulnerabilidades
+                Debilidades
               </h2>
 
               <ul className="mt-4 space-y-2 text-white/70">
-                <li>• Vulnerabilidad 1</li>
-                <li>• Vulnerabilidad 2</li>
-                <li>• Vulnerabilidad 3</li>
+                {rivalActivo?.DEBILIDADES
+  ?.split(";")
+  ?.map((item: string) => (
+    <li key={item}>
+      • {item}
+    </li>
+))}
               </ul>
             </section>
 
