@@ -161,17 +161,45 @@ function glow(color: string) {
 }
   const [ataqueApartados, setAtaqueApartados] =
   useState(0)
+  const [promedioSeguimientos, setPromedioSeguimientos] =
+  useState(0)
+  
   const [seguimientos, setSeguimientos] =
   useState(0)
 const [totalJugadores, setTotalJugadores] =
   useState(0)
 const [jugadoresSeguimiento, setJugadoresSeguimiento] =
   useState(0)
-
+  const [principiosCultura, setPrincipiosCultura] =
+  useState(0)
+const [cobertura, setCobertura] =
+  useState(0)
 const [ultimos30Dias, setUltimos30Dias] =
   useState(0)
 const [defensaApartados, setDefensaApartados] =
   useState(0)
+  useEffect(() => {
+  if (totalJugadores > 0) {
+  setCobertura(
+    Math.round(
+      (jugadoresSeguimiento /
+        totalJugadores) *
+        100
+    )
+  )
+}{
+    setCobertura(
+      Math.round(
+        (jugadoresSeguimiento /
+          totalJugadores) *
+          100
+      )
+    )
+  }
+}, [
+  totalJugadores,
+  jugadoresSeguimiento,
+])
   useEffect(() => {
   fetch(
     "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=jugadores"
@@ -183,6 +211,23 @@ const [defensaApartados, setDefensaApartados] =
       ? rows.length
       : 0
   )
+    })
+}, [])
+useEffect(() => {
+  fetch(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv"
+  )
+    .then((r) => r.text())
+    .then((csv) => {
+      const parsed =
+        Papa.parse(csv, {
+          header: true,
+          skipEmptyLines: true,
+        })
+
+      setPrincipiosCultura(
+        parsed.data.length
+      )
     })
 }, [])
   useEffect(() => {
@@ -251,7 +296,14 @@ const [defensaApartados, setDefensaApartados] =
       setJugadoresSeguimiento(
         jugadores.size
       )
+      const promedio =
+  jugadores.size > 0
+    ? rows.length / jugadores.size
+    : 0
 
+setPromedioSeguimientos(
+  Number(promedio.toFixed(1))
+)
       const limite =
         new Date(
           Date.now() -
@@ -294,7 +346,7 @@ const [defensaApartados, setDefensaApartados] =
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(37,99,235,.18),transparent_30%)]" />
 
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
-              <div className="relative z-10 grid grid-cols-1 gap-10 xl:grid-cols-2">
+              <div className="relative z-10 grid grid-cols-1 gap-10 xl:grid-cols-[1fr_1fr]">
                 {/* LEFT */}
                 <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-5 py-2">
@@ -413,35 +465,56 @@ hover:scale-[1.02]
   </Link>
 
   <Link
-  href="/individual"
+  href="/team-values"
   className="
 rounded-[24px]
 border
-border-amber-500/20
-bg-amber-500/5
+border-emerald-500/20
+bg-emerald-500/5
 p-6
 transition
 hover:scale-[1.02]
 "
 >
-  <p className="text-xs tracking-[0.3em] text-amber-400">
-  DESARROLLO INDIVIDUAL
-</p>
+  <p className="text-xs tracking-[0.3em] text-emerald-400">
+    DINÁMICAS Y VALORES
+  </p>
 
-<h3 className="mt-2 text-4xl font-bold">
-  SEGUIMIENTO
-</h3>
+  <h3 className="mt-2 text-4xl font-bold">
+    CULTURA
+  </h3>
 
-<div className="mt-4 h-px bg-white/10" />
+  <div className="mt-4 h-px bg-white/10" />
 
-<p className="mt-4 text-5xl font-bold text-amber-400">
-  {seguimientos}
-</p>
+  <p className="mt-4 text-5xl font-bold text-emerald-400">
+    {principiosCultura}
+  </p>
 
-<p className="mt-2 text-white/60">
-  Sesiones registradas
-</p>
+  <p className="mt-2 text-white/60">
+    Elementos culturales
+  </p>
 </Link>
+<div className="mt-6 rounded-[24px] border border-blue-500/20 bg-blue-500/5 p-6">
+
+  <div className="flex items-center justify-between">
+
+    <div>
+
+      <p className="text-xs uppercase tracking-[0.3em] text-blue-400">
+        Cobertura de plantilla
+      </p>
+
+      <h3 className="mt-2 text-4xl font-bold text-blue-400">
+        {cobertura}%
+      </h3>
+
+    </div>
+
+    <Target className="h-10 w-10 text-blue-400" />
+
+  </div>
+
+</div>
 </div>
 
                   {/* field */}
@@ -449,17 +522,70 @@ hover:scale-[1.02]
                     href="/collective"
                     className="relative mt-4 xl:mt-12 block overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"
                   >
-                    <Image
-                      src="/hero-field.png"
-                      alt="Campo táctico"
-                      width={920}
-                      height={620}
-                      className="w-full rounded-[28px] object-cover brightness-[1.05]"
-                      priority
-                    />
+                    
+               <Image
+  src="/hero-field.png"
+  alt="Campo táctico"
+  width={920}
+  height={620}
+  className="
+    w-full
+    h-[350px]
+    object-cover
+    rounded-[28px]
+  "
+  priority
+/>     
 
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.4))]" />
-                  </Link>
+                  <div className="
+absolute
+bottom-6
+left-6
+right-6
+grid
+grid-cols-1 md:grid-cols-3
+gap-4
+"><div className="
+rounded-xl
+bg-black/50
+backdrop-blur
+p-4
+">
+  <p className="text-xs text-white/60">
+    Ataque
+  </p>
+
+  <p className="text-3xl font-bold text-cyan-400">
+    {ataqueApartados}
+  </p>
+</div><div className="
+rounded-xl
+bg-black/50
+backdrop-blur
+p-4
+">
+  <p className="text-xs text-white/60">
+    Defensa
+  </p>
+
+  <p className="text-3xl font-bold text-blue-400">
+    {defensaApartados}
+  </p>
+</div><div className="
+rounded-xl
+bg-black/50
+backdrop-blur
+p-4
+">
+  <p className="text-xs text-white/60">
+    Cultura
+  </p>
+
+  <p className="text-3xl font-bold text-emerald-400">
+    {principiosCultura}
+  </p>
+</div></div></Link>
                 </div>
               </div>
 
@@ -501,16 +627,16 @@ hover:scale-[1.02]
 
     <div className="rounded-[24px] border border-white/10 bg-[#06111D] p-6">
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
-        Últimos 30 días
-      </p>
+  Promedio
+</p>
 
-      <h3 className="mt-3 text-5xl font-semibold">
-        {ultimos30Dias}
-      </h3>
+<h3 className="mt-3 text-5xl font-semibold">
+  {promedioSeguimientos}
+</h3>
 
-      <p className="mt-3 text-white/60">
-        Intervenciones registradas
-      </p>
+<p className="mt-3 text-white/60">
+  Seguimientos por jugador
+</p>
     </div>
 
   </div>
