@@ -12,30 +12,32 @@ const [guardando, setGuardando] = useState(false)
 
 const guardarRival = async () => {
 
-  const formData = new URLSearchParams()
+  setGuardando(true);
 
-  Object.entries({
-    action: "guardarRival",
-    ...rivalActivo,
-  }).forEach(([k, v]) => {
-    formData.append(k, String(v ?? ""))
-  })
+  try {
 
-  const res = await fetch(
-    "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec",
-    {
+    const res = await fetch("https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=guardarRival", {
       method: "POST",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "guardarRival",
+        ...rivalActivo,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("Informe guardado correctamente");
+      setModoEdicion(false);
+    } else {
+      alert("Error al guardar");
     }
-  )
 
-  const data = await res.json()
-
-  if (data.success) {
-    alert("Informe guardado correctamente")
-    setModoEdicion(false)
-  } else {
-    alert("Error al guardar")
+  } finally {
+    setGuardando(false);
   }
 }
  
