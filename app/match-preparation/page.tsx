@@ -8,6 +8,7 @@ import {
   Copy,
   CheckCircle2,
   XCircle,
+  FileText,
   Film
 } from "lucide-react";
 export default function MatchPreparation() {
@@ -66,10 +67,125 @@ console.log(json);
 return json;
 
 }
- const copiarEnlace = (url: string) => {
-  if (!url) return;
-  navigator.clipboard.writeText(url);
-};
+const copiarEnlace = (url:string)=>{
+
+    if(!url) return;
+
+    navigator.clipboard.writeText(url);
+
+    alert("Enlace copiado");
+
+}
+function ResourceCard({
+  titulo,
+  campo,
+  icono,
+}: {
+  titulo: string;
+  campo: keyof typeof rivalActivo;
+  icono: React.ReactNode;
+}) {
+  const valor = rivalActivo?.[campo];
+
+  return (
+    <div className="
+      rounded-3xl
+      border
+      border-white/10
+      bg-white/5
+      backdrop-blur-md
+      p-6
+      hover:scale-[1.02]
+      transition-all
+      duration-200
+    ">
+
+      <div className="flex justify-between items-center">
+
+        <div className="flex items-center gap-3">
+          {icono}
+          <h3 className="text-lg font-bold">{titulo}</h3>
+        </div>
+
+        {valor ? (
+          <CheckCircle2 className="text-green-400" />
+        ) : (
+          <XCircle className="text-red-400" />
+        )}
+
+      </div>
+
+      <div className="mt-5">
+
+        {modoEdicion ? (
+
+          <input
+            value={valor || ""}
+            onChange={(e)=>
+              setRivalActivo({
+                ...rivalActivo,
+                [campo]: e.target.value
+              })
+            }
+            className="
+              w-full
+              rounded-xl
+              bg-white/5 backdrop-blur-md
+              border
+              border-white/10
+              p-3
+            "
+          />
+
+        ) : (
+
+          <p className="text-sm text-white/60 break-all">
+
+            {valor
+              ? valor.replace(/^https?:\/\//,"")
+              : "Sin enlace"}
+
+          </p>
+
+        )}
+
+      </div>
+
+      <div className="flex gap-3 mt-6">
+
+        <button
+          onClick={()=>copiarEnlace(valor)}
+          className="rounded-xl bg-white/5 px-4 py-2 hover:bg-white/10 flex items-center gap-2"
+        >
+          <Copy size={16}/>
+          Copiar
+        </button>
+
+        {valor ? (
+
+          <a
+            href={valor}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl bg-[#C8A96B]/10 px-4 py-2 hover:bg-[#C8A96B]/20 flex items-center gap-2"
+          >
+            <ExternalLink size={16}/>
+            Abrir
+          </a>
+
+        ) : (
+
+          <span className="text-red-400 text-sm self-center">
+            Sin enlace
+          </span>
+
+        )}
+
+      </div>
+
+    </div>
+  );
+}
 useEffect(() => {
   console.log(rivalActivo);
   fetch(
@@ -91,7 +207,10 @@ useEffect(() => {
 }, [])
 
   return (
-    <div className="flex min-h-screen bg-[#0B0F14] text-white">
+    <div className="flex min-h-screen bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30 text-white">
       <Sidebar />
 
       <main className="flex-1">
@@ -137,6 +256,9 @@ border-white/5
       px-4
       py-4
       text-white
+      focus:ring-2
+focus:ring-[#C8A96B]
+transition
     "
   >
 
@@ -175,9 +297,29 @@ border-white/5
     disabled:opacity-50
     "
   >
-    {guardando
-      ? "Guardando..."
-      : "Guardar Cambios"}
+    {guardando ? (
+
+<div className="flex items-center gap-2">
+
+<div className="
+animate-spin
+h-5
+w-5
+rounded-full
+border-2
+border-white
+border-t-transparent
+"/>
+
+<span>Guardando...</span>
+
+</div>
+
+) : (
+
+"Guardar Cambios"
+
+)}
   </button>
 
 )}
@@ -202,7 +344,10 @@ border-white/5
 </div>
 <div className="grid gap-6 lg:grid-cols-3 mb-8">
 
-  <div className="rounded-3xl border border-[#C8A96B]/20 bg-[#111827] p-6">
+  <div className="rounded-3xl border border-[#C8A96B]/20 bg-white/5 backdrop-blur-md p-6 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
     <p className="text-xs uppercase tracking-widest text-white/40">
       Rival
@@ -215,7 +360,7 @@ border-white/5
     <div className="mt-6 flex gap-6">
 
       <div>
-        <p className="text-xs text-white/40">
+        <p className="text-xs text-white/40 ">
           Jornada
         </p>
 
@@ -240,7 +385,10 @@ border-white/5
 
   <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
 
-    <p className="text-xs uppercase tracking-widest text-cyan-300">
+    <p className="text-xs uppercase tracking-widest text-cyan-300 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
       Fortalezas
     </p>
 
@@ -258,7 +406,10 @@ border-white/5
 
   </div>
 
-  <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
+  <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
     <p className="text-xs uppercase tracking-widest text-red-300">
       Vulnerabilidades
@@ -279,7 +430,10 @@ border-white/5
   </div>
 
 </div>
-<section className="rounded-3xl border border-white/10 bg-[#111827] p-8 mb-8">
+<section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 mb-8 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
 <h2 className="text-2xl font-bold mb-6">
 Plan de Partido
@@ -298,7 +452,10 @@ PLAN_PARTIDO:e.target.value
 className="
 w-full
 rounded-2xl
-bg-[#0B0F14]
+bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30
 p-5
 border
 border-white/10
@@ -306,9 +463,15 @@ border-white/10
 />
 
 </section>
-<div className="grid gap-6 lg:grid-cols-2 mb-8">
+<div className="grid gap-6 lg:grid-cols-2 mb-8 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
-  <section className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
+  <section className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
     <h2 className="text-xl font-bold mb-5">
       Estado del Equipo
@@ -329,7 +492,10 @@ border-white/10
       className="
       w-full
       rounded-2xl
-      bg-[#0B0F14]
+      bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30
       border
       border-white/10
       p-4
@@ -338,7 +504,10 @@ border-white/10
 
   </section>
 
-  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
+  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
     <h2 className="text-xl font-bold mb-5">
       Claves del Partido
@@ -359,7 +528,10 @@ border-white/10
       className="
       w-full
       rounded-2xl
-      bg-[#0B0F14]
+      bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30
       border
       border-white/10
       p-4
@@ -367,7 +539,10 @@ border-white/10
     />
 
   </section>
-<section className="rounded-3xl border border-white/10 bg-[#111827] p-6 mb-8">
+<section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-6 mb-8 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
 <h2 className="text-xl font-bold mb-5">
 Sistema Rival
@@ -396,7 +571,10 @@ w-full
 
 rounded-2xl
 
-bg-[#0B0F14]
+bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30
 
 border
 
@@ -410,150 +588,59 @@ p-4
 
 </section>
 </div>
-<section className="rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8">
+<section className="rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8 hover:shadow-2xl hover:border-[#C8A96B]/40 transition-all duration-300">
 
-<h2 className="text-2xl font-bold text-[#C8A96B] mb-8">
-HUDL & Recursos
-</h2>
+<div className="flex justify-between items-center mb-8">
+
+  <div>
+
+    <h2 className="text-2xl font-bold text-[#C8A96B]">
+      HUDL & Recursos
+    </h2>
+
+    <p className="text-sm text-white/50 mt-2">
+
+      {
+        [
+          rivalActivo?.HUDL_PLAYLIST,
+          rivalActivo?.HUDL_PARTIDO,
+          rivalActivo?.HUDL_ANALISIS,
+          rivalActivo?.DOC
+        ].filter(Boolean).length
+      }{" "}
+      de 4 recursos disponibles
+
+    </p>
+
+  </div>
+
+</div>
 
 <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
 
-<div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6">
-
-  <div className="flex justify-between items-center">
-
-    <div className="flex items-center gap-2">
-
-      <Film className="text-[#C8A96B]" size={20} />
-
-      <h3 className="text-xl font-bold">
-        Playlist
-      </h3>
-
-    </div>
-
-    {rivalActivo?.HUDL_PLAYLIST ? (
-      <CheckCircle2 className="text-green-400" size={20} />
-    ) : (
-      <XCircle className="text-red-400" size={20} />
-    )}
-
-  </div>
-
-  <div className="mt-5">
-
-    {modoEdicion ? (
-
-      <input
-        value={rivalActivo?.HUDL_PLAYLIST || ""}
-        onChange={(e)=>
-          setRivalActivo({
-            ...rivalActivo,
-            HUDL_PLAYLIST:e.target.value
-          })
-        }
-        className="w-full rounded-xl bg-[#111827] border border-white/10 p-3"
-      />
-
-    ) : (
-
-      <p className="text-sm text-white/60 break-all">
-        {rivalActivo?.HUDL_PLAYLIST || "Sin enlace"}
-      </p>
-
-    )}
-
-  </div>
-
-  <div className="flex gap-3 mt-5">
-
-    <button
-      onClick={() => copiarEnlace(rivalActivo?.HUDL_PLAYLIST)}
-      className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 hover:bg-white/10"
-    >
-      <Copy size={16} />
-      Copiar
-    </button>
-
-    {rivalActivo?.HUDL_PLAYLIST && (
-
-      <a
-        href={rivalActivo.HUDL_PLAYLIST}
-        target="_blank"
-        className="flex items-center gap-2 rounded-xl bg-[#C8A96B]/10 px-4 py-2 hover:bg-[#C8A96B]/20"
-      >
-        <ExternalLink size={16} />
-        Abrir
-      </a>
-
-    )}
-
-  </div>
-
-</div>
-
-<div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6">
-
-  <p className="text-sm text-white/50">
-    HUDL
-  </p>
-
-  <h3 className="mt-2 text-xl font-bold mb-4">
-    Partido Completo
-  </h3>
-
-  <input
-    value={rivalActivo?.HUDL_PARTIDO || ""}
-    readOnly={!modoEdicion}
-    onChange={(e)=>
-      setRivalActivo({
-        ...rivalActivo,
-        HUDL_PARTIDO:e.target.value
-      })
-    }
-    className="w-full rounded-xl bg-[#111827] border border-white/10 p-3"
+  <ResourceCard
+    titulo="Playlist"
+    campo="HUDL_PLAYLIST"
+    icono={<Film className="text-[#C8A96B]" />}
   />
 
-</div>
-
-<div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6">
-
-  <p className="text-sm text-white/50">
-    HUDL
-  </p>
-
-  <h3 className="mt-2 text-xl font-bold mb-4">
-    Análisis
-  </h3>
-
-  <input
-    value={rivalActivo?.HUDL_ANALISIS || ""}
-    readOnly={!modoEdicion}
-    onChange={(e)=>
-      setRivalActivo({
-        ...rivalActivo,
-        HUDL_ANALISIS:e.target.value
-      })
-    }
-    className="w-full rounded-xl bg-[#111827] border border-white/10 p-3"
+  <ResourceCard
+    titulo="Partido Completo"
+    campo="HUDL_PARTIDO"
+    icono={<Film className="text-[#C8A96B]" />}
   />
 
-</div>
+  <ResourceCard
+    titulo="Análisis"
+    campo="HUDL_ANALISIS"
+    icono={<Film className="text-[#C8A96B]" />}
+  />
 
-<a
-href={rivalActivo?.DOC}
-target="_blank"
-className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6 hover:border-[#C8A96B] transition">
-
-<p className="text-sm text-white/50">
-Documento
-</p>
-
-<h3 className="mt-2 text-xl font-bold">
-Informe Rival
-</h3>
-
-</a>
+  <ResourceCard
+    titulo="Informe Rival"
+    campo="DOC"
+    icono={<FileText className="text-[#C8A96B]" />}
+  />
 
 </div>
 
