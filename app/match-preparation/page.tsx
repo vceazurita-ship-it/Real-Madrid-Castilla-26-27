@@ -379,23 +379,24 @@ duration-300">
 
   </div>
 
-  <div className="
+  <div
+  className="
 rounded-3xl
 border
 border-white/10
 bg-gradient-to-br
 from-white/[0.05]
 to-white/[0.02]
+p-6
 hover:border-red-400/40
 transition-all
+duration-300
 ">
 
-    <p className="text-red-400">
-      Fortalezas
-    </p>
+<h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">      Fortalezas
+    </h3>
 
-    <ul className="mt-5 space-y-2 text-white/80">
-
+<ul className="mt-6 space-y-3 text-white/80 leading-7">
       {rivalActivo?.FORTALEZAS
         ?.split(";")
         ?.map((item:string)=>(
@@ -408,23 +409,24 @@ transition-all
 
   </div>
 
-  <div className="
+  <div
+  className="
 rounded-3xl
 border
 border-white/10
 bg-gradient-to-br
 from-white/[0.05]
 to-white/[0.02]
+p-6
 hover:border-red-400/40
 transition-all
+duration-300
 ">
 
-    <p className="text-red-400">
-      Debilidades
-    </p>
+<h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">      Debilidades
+    </h3>
 
-    <ul className="mt-5 space-y-2 text-white/80">
-
+<ul className="mt-6 space-y-3 text-white/80 leading-7">
       {rivalActivo?.DEBILIDADES
         ?.split(";")
         ?.map((item:string)=>(
@@ -476,15 +478,18 @@ hover:border-[#C8A96B]/40
 transition-all
 duration-300">
 
-  <section className="
+  <div
+  className="
 rounded-3xl
 border
 border-white/10
 bg-gradient-to-br
 from-white/[0.05]
 to-white/[0.02]
+p-6
 hover:border-red-400/40
 transition-all
+duration-300
 ">
 
     <h2 className="text-xl font-bold mb-5">
@@ -516,7 +521,7 @@ focus:ring-[#C8A96B]/30
       "
     />
 
-  </section>
+  </div>
 
   <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
 hover:border-[#C8A96B]/40
