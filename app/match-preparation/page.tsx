@@ -207,10 +207,7 @@ useEffect(() => {
 }, [])
 
   return (
-    <div className="flex min-h-screen bg-white/5
-backdrop-blur-md focus:border-[#C8A96B]
-focus:ring-2
-focus:ring-[#C8A96B]/30 text-white">
+    <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
 
       <main className="flex-1">
@@ -285,17 +282,16 @@ transition
     disabled={guardando}
     onClick={guardarTodo}
     className="
-    rounded-2xl
-    border
-    border-green-500/30
-    bg-green-500/10
-    px-6
-    py-3
-    font-semibold
-    text-green-400
-    hover:bg-green-500/20
-    disabled:opacity-50
-    "
+rounded-xl
+bg-[#C8A96B]
+px-6
+py-3
+font-semibold
+text-black
+hover:opacity-90
+transition
+disabled:opacity-50
+"
   >
     {guardando ? (
 
@@ -327,16 +323,16 @@ border-t-transparent
   <button
     onClick={() => setModoEdicion(!modoEdicion)}
     className="
-    rounded-2xl
-    border
-    border-[#C8A96B]/30
-    bg-[#C8A96B]/10
-    px-6
-    py-3
-    font-semibold
-    text-[#C8A96B]
-    hover:bg-[#C8A96B]/20
-    "
+rounded-xl
+border
+border-[#C8A96B]
+px-6
+py-3
+font-semibold
+text-[#C8A96B]
+hover:bg-[#C8A96B]/10
+tran
+"
   >
     {modoEdicion ? "Cancelar" : "Editar Informe"}
   </button>
@@ -383,12 +379,18 @@ duration-300">
 
   </div>
 
-  <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
-
-    <p className="text-xs uppercase tracking-widest text-cyan-300 hover:shadow-2xl
-hover:border-[#C8A96B]/40
+  <div className="
+rounded-3xl
+border
+border-white/10
+bg-gradient-to-br
+from-white/[0.05]
+to-white/[0.02]
+hover:border-red-400/40
 transition-all
-duration-300">
+">
+
+    <p className="text-red-400">
       Fortalezas
     </p>
 
@@ -406,13 +408,19 @@ duration-300">
 
   </div>
 
-  <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6 hover:shadow-2xl
-hover:border-[#C8A96B]/40
+  <div className="
+rounded-3xl
+border
+border-white/10
+bg-gradient-to-br
+from-white/[0.05]
+to-white/[0.02]
+hover:border-red-400/40
 transition-all
-duration-300">
+">
 
-    <p className="text-xs uppercase tracking-widest text-red-300">
-      Vulnerabilidades
+    <p className="text-red-400">
+      Debilidades
     </p>
 
     <ul className="mt-5 space-y-2 text-white/80">
@@ -468,10 +476,16 @@ hover:border-[#C8A96B]/40
 transition-all
 duration-300">
 
-  <section className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6 hover:shadow-2xl
-hover:border-[#C8A96B]/40
+  <section className="
+rounded-3xl
+border
+border-white/10
+bg-gradient-to-br
+from-white/[0.05]
+to-white/[0.02]
+hover:border-red-400/40
 transition-all
-duration-300">
+">
 
     <h2 className="text-xl font-bold mb-5">
       Estado del Equipo

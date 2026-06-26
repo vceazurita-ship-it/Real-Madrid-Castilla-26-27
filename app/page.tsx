@@ -531,25 +531,59 @@ hover:scale-[1.02]
                   >
                     
                <Image
-  src="/hero-field.png"
+  src="/hero-field.webp"
   alt="Campo táctico"
-  width={920}
-  height={620}
-  className="
-    w-full
-    h-[350px]
-    object-cover
-    rounded-[28px]
-  "
+  fill
   priority
-/>    <div className="absolute top-6 left-6 z-20">
+  className="
+absolute
+inset-0
+object-cover
+animate-hero
+scale-105
+"
+/><div
+className="
+absolute
+inset-0
+opacity-[0.07]
+bg-[url('/tactical-grid.svg')]
+bg-cover
+pointer-events-none
+"
+/>  
+<div className="light-sweep" />
+<div
+className="
+absolute
+inset-0
+bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.55))]
+"
+/>
+<div
+className="
+absolute
+left-1/2
+top-1/2
+h-[500px]
+w-[500px]
+-translate-x-1/2
+-translate-y-1/2
+rounded-full
+bg-cyan-500/10
+blur-[170px]
+"
+/>
+ <div className="absolute top-6 left-6 z-20">
 
   <div className="
   rounded-full
   border
   border-cyan-500/30
-  bg-black/50
-  backdrop-blur
+  bg-[#02060D]/65
+backdrop-blur-xl
+border
+border-white/10
   px-4
   py-2
   ">
@@ -599,8 +633,10 @@ p-4
   </p>
 </div><div className="
 rounded-xl
-bg-black/50
-backdrop-blur
+bg-[#02060D]/65
+backdrop-blur-xl
+border
+border-white/10
 p-4
 ">
   <p className="text-xs text-white/60">
@@ -694,7 +730,11 @@ p-4
 border border-white/10
 bg-gradient-to-br from-[#06111D] to-[#030914]
 p-5
-transition duration-300 hover:scale-[1.02]
+transition-all
+duration-500
+hover:scale-[1.02]
+hover:-translate-y-1
+hover:border-cyan-400/40
 ${glow(item.glow)}`}
 ><div
   className="
