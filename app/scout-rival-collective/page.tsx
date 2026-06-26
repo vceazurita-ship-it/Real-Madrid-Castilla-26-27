@@ -16,16 +16,21 @@ const guardarRival = async () => {
 
   try {
 
-    const res = await fetch("https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=guardarRival", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "guardarRival",
-        ...rivalActivo,
-      }),
-    });
+    const body = new URLSearchParams();
+
+body.append("action", "guardarRival");
+
+Object.entries(rivalActivo).forEach(([key, value]) => {
+  body.append(key, String(value ?? ""));
+});
+
+const res = await fetch(
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec",
+  {
+    method: "POST",
+    body,
+  }
+);
 
     const data = await res.json();
 
