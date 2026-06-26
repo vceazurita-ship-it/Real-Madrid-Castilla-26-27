@@ -387,7 +387,7 @@ border-white/10
 bg-gradient-to-br
 from-white/[0.05]
 to-white/[0.02]
-p-6
+p-6 
 hover:border-red-400/40
 transition-all
 duration-300
