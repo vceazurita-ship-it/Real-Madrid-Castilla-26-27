@@ -501,17 +501,8 @@ hover:scale-[1.02]
                   {/* field */}
                   <Link
                     href="/collective"
-                    className="relative mt-4 xl:mt-12 block h-[420px] xl:h-[520px] overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"                  >
-                  <div
-className="
-absolute
-inset-0
-bg-gradient-to-b
-from-[#03111f]/10
-via-[#03111f]/30
-to-[#02060D]/70
-"
-/>
+                   className="relative mt-4 xl:mt-12 block h-[420px] xl:h-[520px] overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition-all duration-700 hover:scale-[1.02] hover:shadow-[0_0_70px_rgba(34,211,238,.25)]" 
+>
 
 <div
 className="
@@ -520,13 +511,29 @@ inset-0
 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.20),transparent_60%)]
 "
 />  
-              <Image
+<div className="particles" />
+
+<Image
   src="/hero-field.png"
   alt="Campo táctico"
   fill
   priority
-  className="absolute inset-0 object-cover"
- /> 
+  className="absolute inset-0 object-cover animate-hero"
+/>
+
+{/* Destellos */}
+<div className="absolute left-[18%] top-[28%] h-2 w-2 rounded-full bg-cyan-400 animate-ping opacity-70" />
+
+<div
+  className="absolute right-[22%] top-[42%] h-2 w-2 rounded-full bg-blue-400 animate-ping opacity-50"
+  style={{ animationDelay: "1.2s" }}
+/>
+
+<div
+  className="absolute left-[62%] bottom-[30%] h-2 w-2 rounded-full bg-white animate-ping opacity-40"
+  style={{ animationDelay: "2s" }}
+/>
+
 <div className="light-sweep" />
 <div
 className="
