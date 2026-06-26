@@ -188,7 +188,6 @@ const [defensaApartados, setDefensaApartados] =
         100
     )
   )
-}{
     setCobertura(
       Math.round(
         (jugadoresSeguimiento /
@@ -347,7 +346,7 @@ setPromedioSeguimientos(
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(37,99,235,.18),transparent_30%)]" />
 
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
-              <div className="relative z-10 grid grid-cols-1 gap-10 xl:grid-cols-[1fr_1fr]">
+              <div className="relative z-10">
                 {/* LEFT */}
                 <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-5 py-2">
@@ -398,11 +397,10 @@ el rendimiento colectivo y el análisis estratégico del rival.
                       </div>
                     </Link>
                   </div>
-                </div>
-
-                {/* RIGHT */}
-                <div className="relative mt-4 xl:mt-0">
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="mt-12">
+  <div className="grid gap-4 md:grid-cols-3">
+                  
+                
   <Link
     href="/game-model"
     className="
@@ -499,6 +497,8 @@ hover:scale-[1.02]
 </div>
 
                   {/* field */}
+                  <div className="mt-8">
+
                   <Link
                     href="/collective"
                    className="relative mt-4 xl:mt-12 block h-[420px] xl:h-[520px] overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition-all duration-700 hover:scale-[1.02] hover:shadow-[0_0_70px_rgba(34,211,238,.25)]" 
@@ -629,7 +629,10 @@ p-4
     {principiosCultura}
   </p>
 </div></div></Link>
+                </div></div>
                 </div>
+
+                
               </div>
 
               
