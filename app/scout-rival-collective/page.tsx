@@ -78,13 +78,13 @@ useEffect(() => {
               RMCF CASTILLA SCOUT RIVAL
             </p>
 
-            <h1 className="mt-2 text-4xl font-bold">
-              Análisis Colectivo
-            </h1>
+            <h1 className="mt-2 text-5xl font-bold tracking-tight">
+            {rivalActivo?.EQUIPO}
+          </h1>
 
-            <p className="mt-3 text-white/60">
-              Base de datos para la preparación estratégica del rival.
-            </p>
+          <p className="mt-3 text-white/50 text-lg">
+            Informe Colectivo del Rival
+          </p>
           </div>
           <div className="mb-8">
 
@@ -104,7 +104,11 @@ useEffect(() => {
       rounded-2xl
       border
       border-white/10
-      bg-[#111827]
+     bg-[#111827]
+text-lg
+font-semibold
+shadow-lg
+border-white/5
       px-4
       py-4
       text-white
@@ -127,7 +131,18 @@ useEffect(() => {
 </div>
 <div className="mb-8 grid gap-4 md:grid-cols-5">
 
-  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+  <div className="
+rounded-3xl
+border
+border-white/5
+bg-[#111827]
+p-5
+shadow-lg
+transition-all
+duration-300
+hover:border-[#C8A96B]/40
+hover:-translate-y-1
+">
     <p className="text-xs uppercase text-white/40">
       Jornada
     </p>
@@ -152,52 +167,6 @@ useEffect(() => {
 
   <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
     <p className="text-xs uppercase text-white/40">
-      Resultado
-    </p>
-
-    {modoEdicion ? (
-      <input
-        value={rivalActivo?.RESULTADO || ""}
-        onChange={(e) =>
-          setRivalActivo({
-            ...rivalActivo,
-            RESULTADO: e.target.value,
-          })
-        }
-        className="mt-2 w-full rounded-xl bg-[#0B0F14] p-2"
-      />
-    ) : (
-      <p className="mt-2 text-xl font-bold">
-        {rivalActivo?.RESULTADO}
-      </p>
-    )}
-  </div>
-
-  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
-    <p className="text-xs uppercase text-white/40">
-      Estado
-    </p>
-
-    {modoEdicion ? (
-      <input
-        value={rivalActivo?.ESTADO || ""}
-        onChange={(e) =>
-          setRivalActivo({
-            ...rivalActivo,
-            ESTADO: e.target.value,
-          })
-        }
-        className="mt-2 w-full rounded-xl bg-[#0B0F14] p-2"
-      />
-    ) : (
-      <p className="mt-2 text-xl font-bold">
-        {rivalActivo?.ESTADO}
-      </p>
-    )}
-  </div>
-
-  <div className="rounded-2xl border border-white/10 bg-[#111827] p-4">
-    <p className="text-xs uppercase text-white/40">
       Fecha
     </p>
 
@@ -214,7 +183,9 @@ useEffect(() => {
       />
     ) : (
       <p className="mt-2 text-xl font-bold">
-        {rivalActivo?.FECHA}
+        {rivalActivo?.FECHA
+  ? new Date(rivalActivo.FECHA).toLocaleDateString("es-ES")
+  : ""}
       </p>
     )}
   </div>
@@ -288,9 +259,20 @@ useEffect(() => {
   </button>
 
 </div>
-<div className="grid gap-6 md:grid-cols-2">
+<div className="grid gap-8 md:grid-cols-2">
 
-  <section className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+  <section
+className="
+rounded-3xl
+border
+border-cyan-500/20
+bg-gradient-to-br
+from-cyan-500/10
+to-[#111827]
+p-6
+shadow-lg
+"
+>
 
   <h2 className="text-xl font-semibold text-cyan-400">
     Estructura Ofensiva
@@ -329,7 +311,10 @@ useEffect(() => {
 
 </section>
 
- <section className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
+ <section className="rounded-3xl border border-blue-500/20
+bg-gradient-to-br
+from-blue-500/10
+to-[#111827] p-6">
 
   <h2 className="text-xl font-semibold text-blue-400">
     Estructura Defensiva
@@ -369,7 +354,7 @@ useEffect(() => {
 </section>
  <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
 
-  <h2 className="text-xl font-semibold">
+  <h2 className="text-2xl font-bold tracking-tight">
     Ataque
   </h2>
 
@@ -607,7 +592,10 @@ useEffect(() => {
 
 </section>
 
-  <section className="rounded-3xl border border-green-500/20 bg-green-500/5 p-6">
+  <section className="rounded-3xl border border-green-500/20
+bg-gradient-to-br
+from-green-500/10
+to-[#111827] p-6">
 
   <h2 className="text-xl font-semibold text-green-400">
     Fortalezas
@@ -652,7 +640,10 @@ useEffect(() => {
 
 </section>
 
- <section className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6">
+ <section className="rounded-3xl border border-red-500/20
+bg-gradient-to-br
+from-red-500/10
+to-[#111827] p-6">
 
   <h2 className="text-xl font-semibold text-red-400">
     Debilidades
@@ -755,7 +746,10 @@ useEffect(() => {
 )}
 </section>
 
-<div className="mt-6 rounded-3xl border border-[#C8A96B]/20 bg-[#C8A96B]/5 p-6">
+<div className="mt-6 rounded-3xl border border-[#C8A96B]/20
+bg-gradient-to-br
+from-[#C8A96B]/10
+to-[#111827] p-6">
 
   <h2 className="text-xl font-semibold text-[#C8A96B] mb-6">
     Recursos
