@@ -33,7 +33,7 @@ const guardarRival = async () => {
       alert("Informe guardado correctamente");
       setModoEdicion(false);
     } else {
-      alert("Error al guardar");
+      alert("Error al guardar: "+rivalActivo.ID);
     }
 
   } finally {
@@ -42,7 +42,7 @@ const guardarRival = async () => {
 }
  
 useEffect(() => {
-
+  console.log(rivalActivo);
   fetch(
     "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=rivales"
   )
