@@ -29,70 +29,55 @@ body {
 ::selection {
   background: rgba(200,169,107,0.3);
 }
-@keyframes heroZoom {
+@keyframes heroZoom{
 
 0%{
-transform:scale(1.02);
+transform:scale(1.05) translateY(0px);
 }
 
 50%{
-transform:scale(1.08);
+transform:scale(1.12) translateY(-12px);
 }
 
 100%{
-transform:scale(1.02);
+transform:scale(1.05) translateY(0px);
 }
 
 }
 
 .animate-hero{
+animation:heroZoom 26s ease-in-out infinite;
+}
+
+.animate-hero{
 animation:heroZoom 20s ease-in-out infinite;
 }
-.light-sweep{
-
-position:absolute;
-
-inset:0;
-
-overflow:hidden;
-
-}
-
 .light-sweep::after{
 
 content:"";
 
 position:absolute;
 
-top:-20%;
+top:-35%;
 
-left:-35%;
+left:-40%;
 
-width:35%;
+width:22%;
 
-height:160%;
+height:220%;
 
 background:linear-gradient(
 90deg,
 transparent,
-rgba(255,255,255,.12),
+rgba(255,255,255,.20),
+rgba(0,180,255,.15),
 transparent
 );
 
-transform:rotate(25deg);
+filter:blur(12px);
 
-animation:sweep 14s linear infinite;
+transform:rotate(18deg);
 
-}
-
-@keyframes sweep{
-
-0%{
-left:-40%;
-}
-
-100%{
-left:140%;
-}
+animation:sweep 18s linear infinite;
 
 }

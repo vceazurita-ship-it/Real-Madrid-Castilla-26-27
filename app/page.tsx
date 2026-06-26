@@ -503,9 +503,26 @@ hover:scale-[1.02]
                     href="/collective"
                     className="relative mt-4 xl:mt-12 block overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"
                   >
-                    
+                  <div
+className="
+absolute
+inset-0
+bg-gradient-to-b
+from-[#03111f]/10
+via-[#03111f]/30
+to-[#02060D]/70
+"
+/>
+
+<div
+className="
+absolute
+inset-0
+bg-[radial-gradient(circle_at_center,rgba(59,130,246,.20),transparent_60%)]
+"
+/>  
                <Image
-  src="/hero-field.webp"
+  src="/hero-field.png"
   alt="Campo táctico"
   fill
   priority
