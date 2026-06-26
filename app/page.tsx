@@ -364,34 +364,8 @@ setPromedioSeguimientos(
   <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
     RMCF Castilla
   </span>
-</h1><div className="mt-10 flex gap-10">
-  <div>
-    <p className="text-4xl xl:text-5xl font-bold">
-      {totalJugadores}
-    </p>
-    <p className="text-white/60">
-      Jugadores
-    </p>
-  </div>
+</h1>
 
-  <div>
-    <p className="text-4xl xl:text-5xl font-bold">
-      {seguimientos}
-    </p>
-    <p className="text-white/60">
-      Seguimientos
-    </p>
-  </div>
-
-  <div>
-    <p className="text-4xl xl:text-5xl font-bold">
-      {cobertura}%
-    </p>
-    <p className="text-white/60">
-      Cobertura
-    </p>
-  </div>
-</div>
 
                   <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
                     <div className="h-20 w-[3px] rounded-full bg-blue-500" />
