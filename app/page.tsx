@@ -188,13 +188,6 @@ const [defensaApartados, setDefensaApartados] =
         100
     )
   )
-    setCobertura(
-      Math.round(
-        (jugadoresSeguimiento /
-          totalJugadores) *
-          100
-      )
-    )
   }
 }, [
   totalJugadores,
@@ -348,7 +341,7 @@ setPromedioSeguimientos(
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
               <div className="relative z-10">
                 {/* LEFT */}
-                <div className="grid xl:grid-cols-[560px_1fr] gap-10 items-stretch">
+                <div className="grid xl:grid-cols-[620px_minmax(0,1fr)] gap-10 items-stretch">
                   <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-5 py-2">
                     <span className="h-2 w-2 rounded-full bg-[#F7D98B]" />
@@ -397,7 +390,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
                         Preparación Partido
                       </div>
                     </Link>
-                  </div>
+                  </div></div></div>
                   <div className="mt-12">
   <div className="space-y-4">
                   
@@ -495,22 +488,18 @@ hover:scale-[1.02]
     Elementos culturales
   </p>
 </Link>
-</div>
-
+</div></div>
+<div>
 <Link
-  href="/collective"
-  className="
-  relative
-  flex
-  h-full
-  min-h-[620px]
-  overflow-hidden
-  rounded-[32px]
-  border
-  border-white/10
-  bg-[#07111D]
-  hover:scale-[1.01]
-  transition
+href="/"
+className="
+relative
+block
+min-h-[760px]
+rounded-[32px]
+overflow-hidden
+border
+border-white/10
 "
 >
 
@@ -547,15 +536,8 @@ VISIÓN GLOBAL
 
 </Link>
 
-</div>
-
-</div>
-                </div>
-
-                
-              </div>
-
-              
+</div></div>
+        
   <div className="mt-12">
   <p className="text-xs uppercase tracking-[0.35em] text-[#37A6FF]">
     DESARROLLO INDIVIDUAL
