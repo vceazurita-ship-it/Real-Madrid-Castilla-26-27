@@ -348,7 +348,8 @@ setPromedioSeguimientos(
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
               <div className="relative z-10">
                 {/* LEFT */}
-                <div>
+                <div className="grid xl:grid-cols-[560px_1fr] gap-10 items-stretch">
+                  <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-5 py-2">
                     <span className="h-2 w-2 rounded-full bg-[#F7D98B]" />
 
@@ -398,7 +399,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
                     </Link>
                   </div>
                   <div className="mt-12">
-  <div className="grid gap-4 md:grid-cols-3">
+  <div className="space-y-4">
                   
                 
   <Link
@@ -496,140 +497,59 @@ hover:scale-[1.02]
 </Link>
 </div>
 
-                  {/* field */}
-                  <div className="mt-8">
-
-                  <Link
-                    href="/collective"
-                   className="relative mt-4 xl:mt-12 block h-[420px] xl:h-[520px] overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition-all duration-700 hover:scale-[1.02] hover:shadow-[0_0_70px_rgba(34,211,238,.25)]" 
+<Link
+  href="/collective"
+  className="
+  relative
+  flex
+  h-full
+  min-h-[620px]
+  overflow-hidden
+  rounded-[32px]
+  border
+  border-white/10
+  bg-[#07111D]
+  hover:scale-[1.01]
+  transition
+"
 >
 
-<div
-className="
-absolute
-inset-0
-bg-[radial-gradient(circle_at_center,rgba(59,130,246,.20),transparent_60%)]
-"
-/>  
-<div className="particles" />
-
 <Image
-  src="/hero-field.png"
-  alt="Campo táctico"
-  fill
-  priority
-  className="absolute inset-0 object-cover animate-hero"
+src="/hero-field.png"
+alt=""
+fill
+className="object-cover"
 />
 
-{/* Destellos */}
-<div className="absolute left-[18%] top-[28%] h-2 w-2 rounded-full bg-cyan-400 animate-ping opacity-70" />
+<div className="absolute inset-0 bg-gradient-to-l from-transparent via-black/10 to-[#02060D]/70"/>
 
-<div
-  className="absolute right-[22%] top-[42%] h-2 w-2 rounded-full bg-blue-400 animate-ping opacity-50"
-  style={{ animationDelay: "1.2s" }}
-/>
+<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(37,99,235,.18),transparent_60%)]"/>
 
-<div
-  className="absolute left-[62%] bottom-[30%] h-2 w-2 rounded-full bg-white animate-ping opacity-40"
-  style={{ animationDelay: "2s" }}
-/>
+<div className="absolute top-6 left-6">
 
-<div className="light-sweep" />
-<div
-className="
-absolute
-inset-0
-bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.55))]
-"
-/>
-<div
-className="
-absolute
-left-1/2
-top-1/2
-h-[500px]
-w-[500px]
--translate-x-1/2
--translate-y-1/2
+<div className="
 rounded-full
-bg-cyan-500/10
-blur-[170px]
-"
-/>
- <div className="absolute top-6 left-6 z-20">
-
-  <div className="
-  rounded-full
-  border
-  border-cyan-500/30
-  bg-[#02060D]/65
+bg-black/60
 backdrop-blur-xl
 border
-border-white/10
-  px-4
-  py-2
-  ">
-
-    <p className="text-xs tracking-[0.3em] text-cyan-400">
-      VISIÓN GLOBAL
-    </p>
-
-  </div>
-
-</div> 
-
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(0,0,0,.4))]" />
-                  <div className="
-absolute
-bottom-6
-left-6
-right-6
-grid
-grid-cols-1 md:grid-cols-4
-gap-4
-"><div className="
-rounded-xl
-bg-black/50
-backdrop-blur
-p-4
+border-cyan-500/30
+px-4
+py-2
 ">
-  <p className="text-xs text-white/60">
-    Ataque
-  </p>
 
-  <p className="text-3xl font-bold text-cyan-400">
-    {ataqueApartados}
-  </p>
-</div><div className="
-rounded-xl
-bg-black/50
-backdrop-blur
-p-4
-">
-  <p className="text-xs text-white/60">
-    Defensa
-  </p>
+<p className="text-xs tracking-[0.3em] text-cyan-400">
+VISIÓN GLOBAL
+</p>
 
-  <p className="text-3xl font-bold text-blue-400">
-    {defensaApartados}
-  </p>
-</div><div className="
-rounded-xl
-bg-[#02060D]/65
-backdrop-blur-xl
-border
-border-white/10
-p-4
-">
-  <p className="text-xs text-white/60">
-    Cultura
-  </p>
+</div>
 
-  <p className="text-3xl font-bold text-emerald-400">
-    {principiosCultura}
-  </p>
-</div></div></Link>
-                </div></div>
+</div>
+
+</Link>
+
+</div>
+
+</div>
                 </div>
 
                 
