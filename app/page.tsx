@@ -501,8 +501,7 @@ hover:scale-[1.02]
                   {/* field */}
                   <Link
                     href="/collective"
-                    className="relative mt-4 xl:mt-12 block overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"
-                  >
+                    className="relative mt-4 xl:mt-12 block h-[420px] xl:h-[520px] overflow-hidden rounded-[28px] xl:rounded-[34px] border border-white/10 bg-[#07111D]/40 transition hover:scale-[1.01]"                  >
                   <div
 className="
 absolute
@@ -521,28 +520,13 @@ inset-0
 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.20),transparent_60%)]
 "
 />  
-               <Image
+              <Image
   src="/hero-field.png"
   alt="Campo táctico"
   fill
   priority
-  className="
-absolute
-inset-0
-object-cover
-animate-hero
-scale-105
-"
-/><div
-className="
-absolute
-inset-0
-opacity-[0.07]
-bg-[url('/tactical-grid.svg')]
-bg-cover
-pointer-events-none
-"
-/>  
+  className="absolute inset-0 object-cover"
+ /> 
 <div className="light-sweep" />
 <div
 className="
