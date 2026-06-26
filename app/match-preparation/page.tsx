@@ -3,7 +3,13 @@
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useEffect, useState } from "react"
-
+import {
+  ExternalLink,
+  Copy,
+  CheckCircle2,
+  XCircle,
+  Film
+} from "lucide-react";
 export default function MatchPreparation() {
   const [rivales, setRivales] = useState<any[]>([])
 const [rivalActivo, setRivalActivo] = useState<any>(null)
@@ -55,10 +61,15 @@ const guardarRival = async () => {
 }
 );
 
-  return await res.json();
+  const json = await res.json();
+console.log(json);
+return json;
 
 }
- 
+ const copiarEnlace = (url: string) => {
+  if (!url) return;
+  navigator.clipboard.writeText(url);
+};
 useEffect(() => {
   console.log(rivalActivo);
   fetch(
@@ -407,50 +418,127 @@ HUDL & Recursos
 
 <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
 
-<a
-href={rivalActivo?.VIDEO}
-target="_blank"
-className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6 hover:border-[#C8A96B] transition">
+<div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6">
 
-<p className="text-sm text-white/50">
-HUDL
-</p>
+  <div className="flex justify-between items-center">
 
-<h3 className="mt-2 text-xl font-bold">
-Playlist
-</h3>
+    <div className="flex items-center gap-2">
 
-</a>
+      <Film className="text-[#C8A96B]" size={20} />
 
-<a
-href={rivalActivo?.HUDL_PARTIDO}
-target="_blank"
-className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6 hover:border-[#C8A96B] transition">
+      <h3 className="text-xl font-bold">
+        Playlist
+      </h3>
 
-<p className="text-sm text-white/50">
-HUDL
-</p>
+    </div>
 
-<h3 className="mt-2 text-xl font-bold">
-Partido Completo
-</h3>
+    {rivalActivo?.HUDL_PLAYLIST ? (
+      <CheckCircle2 className="text-green-400" size={20} />
+    ) : (
+      <XCircle className="text-red-400" size={20} />
+    )}
 
-</a>
+  </div>
 
-<a
-href={rivalActivo?.HUDL_ANALISIS}
-target="_blank"
-className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6 hover:border-[#C8A96B] transition">
+  <div className="mt-5">
 
-<p className="text-sm text-white/50">
-HUDL
-</p>
+    {modoEdicion ? (
 
-<h3 className="mt-2 text-xl font-bold">
-Análisis
-</h3>
+      <input
+        value={rivalActivo?.HUDL_PLAYLIST || ""}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            HUDL_PLAYLIST:e.target.value
+          })
+        }
+        className="w-full rounded-xl bg-[#111827] border border-white/10 p-3"
+      />
 
-</a>
+    ) : (
+
+      <p className="text-sm text-white/60 break-all">
+        {rivalActivo?.HUDL_PLAYLIST || "Sin enlace"}
+      </p>
+
+    )}
+
+  </div>
+
+  <div className="flex gap-3 mt-5">
+
+    <button
+      onClick={() => copiarEnlace(rivalActivo?.HUDL_PLAYLIST)}
+      className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 hover:bg-white/10"
+    >
+      <Copy size={16} />
+      Copiar
+    </button>
+
+    {rivalActivo?.HUDL_PLAYLIST && (
+
+      <a
+        href={rivalActivo.HUDL_PLAYLIST}
+        target="_blank"
+        className="flex items-center gap-2 rounded-xl bg-[#C8A96B]/10 px-4 py-2 hover:bg-[#C8A96B]/20"
+      >
+        <ExternalLink size={16} />
+        Abrir
+      </a>
+
+    )}
+
+  </div>
+
+</div>
+
+<div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6">
+
+  <p className="text-sm text-white/50">
+    HUDL
+  </p>
+
+  <h3 className="mt-2 text-xl font-bold mb-4">
+    Partido Completo
+  </h3>
+
+  <input
+    value={rivalActivo?.HUDL_PARTIDO || ""}
+    readOnly={!modoEdicion}
+    onChange={(e)=>
+      setRivalActivo({
+        ...rivalActivo,
+        HUDL_PARTIDO:e.target.value
+      })
+    }
+    className="w-full rounded-xl bg-[#111827] border border-white/10 p-3"
+  />
+
+</div>
+
+<div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-6">
+
+  <p className="text-sm text-white/50">
+    HUDL
+  </p>
+
+  <h3 className="mt-2 text-xl font-bold mb-4">
+    Análisis
+  </h3>
+
+  <input
+    value={rivalActivo?.HUDL_ANALISIS || ""}
+    readOnly={!modoEdicion}
+    onChange={(e)=>
+      setRivalActivo({
+        ...rivalActivo,
+        HUDL_ANALISIS:e.target.value
+      })
+    }
+    className="w-full rounded-xl bg-[#111827] border border-white/10 p-3"
+  />
+
+</div>
 
 <a
 href={rivalActivo?.DOC}
