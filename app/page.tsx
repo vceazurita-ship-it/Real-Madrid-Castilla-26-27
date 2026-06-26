@@ -390,7 +390,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
                         Preparación Partido
                       </div>
                     </Link>
-                  </div></div></div>
+                  </div>
                   <div className="mt-12">
   <div className="space-y-4">
                   
@@ -488,7 +488,7 @@ hover:scale-[1.02]
     Elementos culturales
   </p>
 </Link>
-</div></div>
+</div></div></div>
 <div>
 <Link
 href="/"
@@ -536,7 +536,7 @@ VISIÓN GLOBAL
 
 </Link>
 
-</div></div>
+</div></div></div>
         
   <div className="mt-12">
   <p className="text-xs uppercase tracking-[0.35em] text-[#37A6FF]">
