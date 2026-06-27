@@ -1,7 +1,7 @@
 {
-  "name": "Real Madrid C Performance",
-  "short_name": "Madrid C",
-  "description": "Análisis individual y colectivo del Real Madrid C",
+  "name": "Real Madrid CF Performance",
+  "short_name": "RMCF Castilla",
+  "description": "Plataforma Integral",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1020",
