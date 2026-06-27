@@ -397,7 +397,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
                     </Link>
                   </div>
                  <div className="mt-10">
-  <div className="grid grid-cols-3 gap-3">
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   
                 
   <Link
@@ -412,7 +412,7 @@ transition
 hover:scale-[1.02]
 "
   >
-    <p className="text-[10px] tracking-[0.08em] leading-tight uppercase whitespace-nowrap text-cyan-400">
+    <p className="text-[10px] tracking-[0.08em] leading-tight uppercase text-cyan-400">
       IDENTIDAD DE JUEGO
     </p>
 
@@ -444,7 +444,7 @@ transition
 hover:scale-[1.02]
 "
   >
-    <p className="text-[10px] tracking-[0.08em] leading-tight uppercase whitespace-nowrap text-blue-400">
+    <p className="text-[10px] tracking-[0.08em] leading-tight uppercase text-blue-400">
       IDENTIDAD DE JUEGO
     </p>
 
@@ -475,7 +475,7 @@ transition
 hover:scale-[1.02]
 "
 >
-  <p className="text-[10px] tracking-[0.08em] leading-tight uppercase whitespace-nowrap text-emerald-400">
+  <p className="text-[10px] tracking-[0.08em] leading-tight uppercase text-emerald-400">
     DINÁMICAS Y VALORES
   </p>
 
