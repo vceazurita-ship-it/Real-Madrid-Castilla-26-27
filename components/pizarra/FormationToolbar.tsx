@@ -1,80 +1,79 @@
 "use client";
 
+import { useState } from "react";
+import {
+  Save,
+  RotateCcw,
+  Share2,
+  Download,
+  LayoutGrid,
+} from "lucide-react";
+
 const formations = [
-
-"4-4-2",
-
-"4-3-3",
-
-"4-2-3-1",
-
-"3-5-2",
-
-"3-4-3"
-
+  "4-4-2",
+  "4-3-3",
+  "4-2-3-1",
+  "3-5-2",
+  "3-4-3",
 ];
 
-export default function FormationToolbar(){
+export default function FormationToolbar() {
+  const [selected, setSelected] = useState("4-4-2");
 
-return(
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-zinc-900 px-6 py-4">
 
-<div className="
-flex
-items-center
-justify-between
-border-b
-border-white/10
-bg-zinc-900
-px-5
-py-3
-">
+      {/* Formaciones */}
+      <div className="flex flex-wrap gap-2">
 
-<div className="flex gap-2">
+        {formations.map((formation) => (
+          <button
+            key={formation}
+            onClick={() => setSelected(formation)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all
 
-{formations.map(f=>(
+            ${
+              selected === formation
+                ? "bg-white text-black"
+                : "bg-zinc-800 text-white hover:bg-zinc-700"
+            }`}
+          >
+            {formation}
+          </button>
+        ))}
 
-<button
+      </div>
 
-key={f}
+      {/* Acciones */}
+      <div className="flex flex-wrap gap-2">
 
-className="
-rounded-lg
-bg-zinc-800
-px-4
-py-2
-text-sm
-text-white
-hover:bg-zinc-700
-"
+        <button className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white hover:bg-zinc-700">
+          <RotateCcw size={16} />
+          Reset
+        </button>
 
->
+        <button className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
+          <Save size={16} />
+          Guardar
+        </button>
 
-{f}
+        <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+          <Download size={16} />
+          Exportar
+        </button>
 
-</button>
+        <button className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500">
+          <Share2 size={16} />
+          Compartir
+        </button>
 
-))}
+        <button className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400">
+          <LayoutGrid size={16} />
+          Plantillas
+        </button>
 
-</div>
+      </div>
 
-<div className="flex gap-3">
-
-<button className="rounded-lg bg-red-600 px-4 py-2 text-white">
-
-Reset
-
-</button>
-
-<button className="rounded-lg bg-emerald-600 px-4 py-2 text-white">
-
-Guardar
-
-</button>
-
-</div>
-
-</div>
-
-)
-
+    </div>
+  );
 }
