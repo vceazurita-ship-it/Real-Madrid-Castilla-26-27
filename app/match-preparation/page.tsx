@@ -493,18 +493,18 @@ duration-300
 ">
 
     <h2 className="text-xl font-bold mb-5">
-      Estado del Equipo
+      Estructuras Ofensivas Rival
     </h2>
 
     <textarea
       rows={8}
-      value={rivalActivo?.ESTADO_EQUIPO || ""}
+      value={rivalActivo?.ESTRUCTURA_OF || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
 
        setRivalActivo({
   ...rivalActivo,
-          ESTADO_EQUIPO:e.target.value
+          ESTRUCTURA_OF:e.target.value
         })
 
       }
@@ -522,25 +522,24 @@ focus:ring-[#C8A96B]/30
     />
 
   </div>
-
-  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
+   <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
 hover:border-[#C8A96B]/40
 transition-all
 duration-300">
 
     <h2 className="text-xl font-bold mb-5">
-      Claves del Partido
+      Estructuras Defensivas Rival
     </h2>
 
     <textarea
       rows={8}
-      value={rivalActivo?.CLAVES_PARTIDO || ""}
+      value={rivalActivo?.ESTRUCTURA_DEF || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
 
         setRivalActivo({
   ...rivalActivo,
-          CLAVES_PARTIDO:e.target.value
+          ESTRUCTURA_DEF:e.target.value
         })
 
       }
@@ -558,54 +557,6 @@ focus:ring-[#C8A96B]/30
     />
 
   </section>
-<section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-6 mb-8 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
-
-<h2 className="text-xl font-bold mb-5">
-Estructuras Rival
-</h2>
-
-<input
-
-value={rivalActivo?.SISTEMA_RIVAL || ""}
-
-readOnly={!modoEdicion}
-
-onChange={(e)=>
-
-setRivalActivo({
-  ...rivalActivo,
-
-SISTEMA_RIVAL:e.target.value
-
-})
-
-}
-
-className="
-
-w-full
-
-rounded-2xl
-
-bg-white/5
-backdrop-blur-md focus:border-[#C8A96B]
-focus:ring-2
-focus:ring-[#C8A96B]/30
-
-border
-
-border-white/10
-
-p-4
-
-"
-
-/>
-
-</section>
 </div>
 <section className="rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8 hover:shadow-2xl hover:border-[#C8A96B]/40 transition-all duration-300">
 
