@@ -455,7 +455,7 @@ mb-8
 Plan de Partido
 </h2>
 
-<div className="grid lg:grid-cols-[2fr_2fr_1fr] gap-6 items-stretch">
+<div className="grid lg:grid-cols-[2fr_2fr_1fr] gap-6 items-start">
 <div>
 
 <h3 className="mb-4 font-semibold text-[#C8A96B]">
@@ -472,7 +472,16 @@ setRivalActivo({
 ATAQUE:e.target.value
 })
 }
-className="w-full h-full rounded-2xl bg-white/5 border border-white/10 p-4"
+className="
+w-full
+min-h-[420px]
+rounded-2xl
+bg-white/5
+border
+border-white/10
+p-4
+resize-none
+"
 />
 
 </div>
@@ -492,7 +501,16 @@ setRivalActivo({
 DEFENSA:e.target.value
 })
 }
-className="w-full h-full rounded-2xl bg-white/5 border border-white/10 p-4"
+className="
+w-full
+min-h-[420px]
+rounded-2xl
+bg-white/5
+border
+border-white/10
+p-4
+resize-none
+"
 />
 
 </div>
