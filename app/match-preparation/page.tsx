@@ -477,7 +477,92 @@ border-white/10
 hover:border-[#C8A96B]/40
 transition-all
 duration-300">
+<div className="grid gap-6 lg:grid-cols-2 mb-8 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
 
+  <div
+  className="
+rounded-3xl
+border
+border-white/10
+bg-gradient-to-br
+from-white/[0.05]
+to-white/[0.02]
+p-6
+hover:border-red-400/40
+transition-all
+duration-300
+">
+
+    <h2 className="text-xl font-bold mb-5">
+      Estado del Equipo
+    </h2>
+
+    <textarea
+      rows={8}
+      value={rivalActivo?.ESTADO_EQUIPO || ""}
+      readOnly={!modoEdicion}
+      onChange={(e)=>
+
+       setRivalActivo({
+  ...rivalActivo,
+          ESTADO_EQUIPO:e.target.value
+        })
+
+      }
+      className="
+      w-full
+      rounded-2xl
+      bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30
+      border
+      border-white/10
+      p-4
+      "
+    />
+
+  </div>
+
+  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
+hover:border-[#C8A96B]/40
+transition-all
+duration-300">
+
+    <h2 className="text-xl font-bold mb-5">
+      Claves del Partido
+    </h2>
+
+    <textarea
+      rows={8}
+      value={rivalActivo?.CLAVES_PARTIDO || ""}
+      readOnly={!modoEdicion}
+      onChange={(e)=>
+
+        setRivalActivo({
+  ...rivalActivo,
+          CLAVES_PARTIDO:e.target.value
+        })
+
+      }
+      className="
+      w-full
+      rounded-2xl
+      bg-white/5
+backdrop-blur-md focus:border-[#C8A96B]
+focus:ring-2
+focus:ring-[#C8A96B]/30
+      border
+      border-white/10
+      p-4
+      "
+    />
+
+  </section>
+  </div>
   <div
   className="
 rounded-3xl
