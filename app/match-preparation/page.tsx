@@ -496,9 +496,9 @@ className="w-full h-full rounded-2xl bg-white/5 border border-white/10 p-4"
 />
 
 </div>
-<div className="flex flex-col gap-6">
+<div className="grid grid-rows-2 gap-6 h-full">
 
-<div>
+<div className="h-full flex flex-col">
 
 <h3 className="mb-4 font-semibold text-[#C8A96B]">
 ABP Ofensivo
@@ -514,12 +514,21 @@ setRivalActivo({
 ABP_OF:e.target.value
 })
 }
-className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
+className="
+flex-1
+w-full
+rounded-2xl
+bg-white/5
+border
+border-white/10
+p-4
+resize-none
+"
 />
 
 </div>
 
-<div>
+<div className="h-full flex flex-col">
 
 <h3 className="mb-4 font-semibold text-[#C8A96B]">
 ABP Defensivo
@@ -535,7 +544,16 @@ setRivalActivo({
 ABP_DEF:e.target.value
 })
 }
-className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
+className="
+flex-1
+w-full
+rounded-2xl
+bg-white/5
+border
+border-white/10
+p-4
+resize-none
+"
 />
 
 </div>
@@ -548,7 +566,7 @@ className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
 hover:border-[#C8A96B]/40
 transition-all
 duration-300">
-<div className="grid gap-6 lg:grid-cols-3 mb-8 hover:shadow-2xl
+  <div className="grid gap-6 lg:grid-cols-2 mb-8 hover:shadow-2xl
 hover:border-[#C8A96B]/40
 transition-all
 duration-300">
@@ -630,23 +648,11 @@ focus:ring-[#C8A96B]/30
       border-yellow-500/20 bg-yellow-500/5
       p-4
       "
-    />
-
-  </section>
-  </div>
-  <div
-  className="
-rounded-3xl
-border
-border-violet-500/20
-bg-violet-500/5
-p-6
-hover:border-violet-400/40
+    /> </section>
+  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
+hover:border-[#C8A96B]/40
 transition-all
-duration-300
-"
->
-
+duration-300">
   <h2 className="text-xl font-bold mb-5">
     Claves Emocionales
   </h2>
@@ -676,6 +682,8 @@ duration-300
       focus:ring-[#C8A96B]/30
     "
   />
+
+</section>
 
 </div>
   <div
