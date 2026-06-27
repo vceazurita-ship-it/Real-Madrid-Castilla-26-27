@@ -455,7 +455,7 @@ mb-8
 Plan de Partido
 </h2>
 
-<div className="grid lg:grid-cols-[1fr_1fr_320px] gap-6">
+<div className="grid lg:grid-cols-[2fr_2fr_1fr] gap-6 items-stretch">
 <div>
 
 <h3 className="mb-4 font-semibold text-[#C8A96B]">
@@ -496,7 +496,7 @@ className="w-full h-full rounded-2xl bg-white/5 border border-white/10 p-4"
 />
 
 </div>
-<div className="grid grid-rows-2 gap-6 h-full">
+<div className="flex flex-col gap-6 h-full">
 
 <div className="h-full flex flex-col">
 
@@ -505,7 +505,7 @@ ABP Ofensivo
 </h3>
 
 <textarea
-rows={5}
+rows={6}
 value={rivalActivo?.ABP_OF || ""}
 readOnly={!modoEdicion}
 onChange={(e)=>
@@ -535,7 +535,7 @@ ABP Defensivo
 </h3>
 
 <textarea
-rows={5}
+rows={6}
 value={rivalActivo?.ABP_DEF || ""}
 readOnly={!modoEdicion}
 onChange={(e)=>
@@ -561,15 +561,6 @@ resize-none
 </div>
 </div>
 </section>
-
-<div className="grid gap-6 lg:grid-cols-2 mb-8 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
-  <div className="grid gap-6 lg:grid-cols-2 mb-8 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
 
   <div className="grid lg:grid-cols-3 gap-6 mb-8">
 
@@ -632,7 +623,7 @@ duration-300">
       className="w-full rounded-2xl bg-white/5 border border-violet-500/20 p-4"
     />
   </div>
-
+  
 </div>
 
 <div className="grid lg:grid-cols-2 gap-6 mb-8">
