@@ -391,8 +391,8 @@ el rendimiento colectivo y el análisis estratégico del rival.
                       </div>
                     </Link>
                   </div>
-                  <div className="mt-12">
- <div className="space-y-3 max-w-[520px]">
+                 <div className="mt-10">
+  <div className="grid grid-cols-3 gap-3">
                   
                 
   <Link
@@ -402,26 +402,26 @@ rounded-[24px]
 border
 border-cyan-500/20
 bg-cyan-500/5
-px-5 py-4
+p-4
 transition
 hover:scale-[1.02]
 "
   >
-    <p className="text-[11px] tracking-[0.15em] uppercase whitespace-nowrap text-cyan-400">
+    <p className="text-[10px] tracking-[0.08em] leading-tight uppercase whitespace-nowrap text-cyan-400">
       IDENTIDAD DE JUEGO
     </p>
 
-    <h3 className="mt-1 text-3xl font-bold">
+    <h3 className="mt-1 text-2xl font-bold">
   ATAQUE
 </h3>
 
 <div className="mt-4 h-px bg-white/10" />
 
-<p className="mt-3 text-4xl font-bold text-cyan-400">
+<p className="mt-3 text-3xl font-bold text-cyan-400">
   {ataqueApartados}
 </p>
 
-<p className="mt-2 text-white/60">
+<p className="mt-1 text-sm text-white/60 leading-tight">
   Apartados ofensivos
 </p>
     
@@ -434,26 +434,26 @@ rounded-[24px]
 border
 border-blue-500/20
 bg-blue-500/5
-px-5 py-4
+p-4
 transition
 hover:scale-[1.02]
 "
   >
-    <p className="text-[11px] tracking-[0.15em] uppercase whitespace-nowrap text-blue-400">
+    <p className="text-[10px] tracking-[0.08em] leading-tight uppercase whitespace-nowrap text-blue-400">
       IDENTIDAD DE JUEGO
     </p>
 
-    <h3 className="mt-1 text-3xl font-bold">
+    <h3 className="mt-1 text-2xl font-bold">
   DEFENSA
 </h3>
 
 <div className="mt-4 h-px bg-white/10" />
 
-<p className="mt-3 text-4xl font-bold text-blue-400">
+<p className="mt-3 text-3xl font-bold text-blue-400">
   {defensaApartados}
 </p>
 
-<p className="mt-2 text-white/60">
+<p className="mt-1 text-sm text-white/60 leading-tight">
   Apartados defensivos
 </p>
   </Link>
@@ -465,26 +465,26 @@ rounded-[24px]
 border
 border-emerald-500/20
 bg-emerald-500/5
-px-5 py-4
+p-4
 transition
 hover:scale-[1.02]
 "
 >
-  <p className="text-[11px] tracking-[0.15em] uppercase whitespace-nowrap text-emerald-400">
+  <p className="text-[10px] tracking-[0.08em] leading-tight uppercase whitespace-nowrap text-emerald-400">
     DINÁMICAS Y VALORES
   </p>
 
-  <h3 className="mt-1 text-3xl font-bold">
+  <h3 className="mt-1 text-2xl font-bold">
     CULTURA
   </h3>
 
   <div className="mt-4 h-px bg-white/10" />
 
-  <p className="mt-3 text-4xl font-bold text-emerald-400">
+  <p className="mt-3 text-3xl font-bold text-emerald-400">
     {principiosCultura}
   </p>
 
-  <p className="mt-2 text-white/60">
+  <p className="mt-1 text-sm text-white/60 leading-tight">
     Elementos culturales
   </p>
 </Link>
