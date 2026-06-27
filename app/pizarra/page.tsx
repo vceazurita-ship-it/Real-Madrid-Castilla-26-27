@@ -1,7 +1,7 @@
 "use client";
 
 import FootballPitch from "@/components/pizarra/FootballPitch";
-import PlayerSidebar from "@/components/pizarra/PlayerSideb";
+import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
 import FormationToolbar from "@/components/pizarra/FormationToolbar";
 import TopStats from "@/components/pizarra/TopStats";
 
