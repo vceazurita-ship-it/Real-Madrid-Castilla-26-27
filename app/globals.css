@@ -170,3 +170,14 @@ transform:rotate(18deg);
 animation:sweep 18s linear infinite;
 
 }
+@keyframes sweep {
+
+  0%{
+    left:-45%;
+  }
+
+  100%{
+    left:135%;
+  }
+
+}

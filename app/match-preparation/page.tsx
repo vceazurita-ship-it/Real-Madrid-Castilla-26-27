@@ -564,7 +564,7 @@ transition-all
 duration-300">
 
 <h2 className="text-xl font-bold mb-5">
-Sistema Rival
+Estructuras Rival
 </h2>
 
 <input

@@ -493,6 +493,7 @@ hover:scale-[1.02]
 <Link
 href="/"
 className="
+group
 relative
 block
 min-h-[760px]
@@ -500,14 +501,33 @@ rounded-[32px]
 overflow-hidden
 border
 border-white/10
+light-sweep
 "
 >
-
+<div
+  className="
+absolute
+left-1/2
+top-1/2
+w-80
+h-80
+rounded-full
+bg-cyan-400/20
+blur-3xl
+animate-pulse-glow
+"
+/><div className="particles" />
 <Image
 src="/hero-field.png"
 alt=""
 fill
-className="object-cover"
+  className="
+object-cover
+animate-hero
+transition-transform
+duration-[4000ms]
+group-hover:scale-110
+"
 />
 
 <div className="absolute inset-0 bg-gradient-to-l from-transparent via-black/10 to-[#02060D]/70"/>
@@ -533,7 +553,7 @@ VISIÓN GLOBAL
 </div>
 
 </div>
-
+<div className="scan-line" />
 </Link>
 
 </div></div></div>
