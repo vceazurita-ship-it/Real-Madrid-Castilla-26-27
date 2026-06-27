@@ -171,11 +171,24 @@ export default function FootballPitch() {
             top: position.top,
           }}
         >
-          <PlayerToken
-            nombre={position.nombre}
-            foto="/jugador.png"
-            estado="DISPONIBLE"
-          />
+          <div
+  className="
+    flex
+    h-16
+    w-16
+    items-center
+    justify-center
+    rounded-full
+    border-2
+    border-white/30
+    bg-white/10
+    text-xs
+    font-bold
+    text-white
+  "
+>
+  {position.nombre}
+</div>
         </div>
       ))}
     </div>
