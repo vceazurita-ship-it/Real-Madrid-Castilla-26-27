@@ -341,7 +341,12 @@ setPromedioSeguimientos(
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
               <div className="relative z-10">
                 {/* LEFT */}
-                <div className="grid xl:grid-cols-[620px_minmax(0,1fr)] gap-10 items-stretch">
+                <div className="flex flex-col h-full">
+                <div className="grid
+xl:grid-cols-[620px_minmax(0,1fr)]
+gap-10
+items-stretch
+xl:auto-rows-fr">
                   <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-5 py-2">
                     <span className="h-2 w-2 rounded-full bg-[#F7D98B]" />
@@ -488,15 +493,16 @@ hover:scale-[1.02]
     Elementos culturales
   </p>
 </Link>
-</div></div></div>
+</div></div></div></div>
 <div>
 <Link
-href="/"
-className="
+  href="/"
+  className="
 group
 relative
 block
-min-h-[760px]
+h-full
+min-h-[500px]
 rounded-[32px]
 overflow-hidden
 border
