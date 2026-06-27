@@ -571,20 +571,10 @@ hover:border-[#C8A96B]/40
 transition-all
 duration-300">
 
-  <div
-  className="
-rounded-3xl
-border
-border-white/10
-bg-gradient-to-br
-from-white/[0.05]
-to-white/[0.02]
-p-6
-hover:border-red-400/40
-transition-all
-duration-300
-">
+  <div className="grid lg:grid-cols-3 gap-6 mb-8">
 
+  {/* Estado */}
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
     <h2 className="text-xl font-bold mb-5">
       Estado del Equipo
     </h2>
@@ -594,33 +584,17 @@ duration-300
       value={rivalActivo?.ESTADO_EQUIPO || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
-
-       setRivalActivo({
-  ...rivalActivo,
+        setRivalActivo({
+          ...rivalActivo,
           ESTADO_EQUIPO:e.target.value
         })
-
       }
-      className="
-      w-full
-      rounded-2xl
-      bg-white/5
-backdrop-blur-md focus:border-[#C8A96B]
-focus:ring-2
-focus:ring-[#C8A96B]/30
-      border
-      border-white/10
-      p-4
-      "
+      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
     />
-
   </div>
 
-  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
-
+  {/* Claves */}
+  <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
     <h2 className="text-xl font-bold mb-5">
       Claves del Partido
     </h2>
@@ -630,76 +604,40 @@ duration-300">
       value={rivalActivo?.CLAVES_PARTIDO || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
-
         setRivalActivo({
-  ...rivalActivo,
+          ...rivalActivo,
           CLAVES_PARTIDO:e.target.value
         })
-
       }
-      className="
-      w-full
-      rounded-2xl
-      bg-white/5
-backdrop-blur-md focus:border-[#C8A96B]
-focus:ring-2
-focus:ring-[#C8A96B]/30
-      border
-      border-yellow-500/20 bg-yellow-500/5
-      p-4
-      "
-    /> </section>
-  <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
-  <h2 className="text-xl font-bold mb-5">
-    Claves Emocionales
-  </h2>
+      className="w-full rounded-2xl bg-white/5 border border-yellow-500/20 p-4"
+    />
+  </div>
 
-  <textarea
-    rows={8}
-    value={rivalActivo?.CLAVES_EMOCIONALES || ""}
-    readOnly={!modoEdicion}
-    onChange={(e)=>
+  {/* Claves emocionales */}
+  <div className="rounded-3xl border border-violet-500/20 bg-violet-500/5 p-6">
+    <h2 className="text-xl font-bold mb-5">
+      Claves Emocionales
+    </h2>
 
-      setRivalActivo({
-        ...rivalActivo,
-        CLAVES_EMOCIONALES: e.target.value
-      })
-
-    }
-    className="
-      w-full
-      rounded-2xl
-      bg-white/5
-      backdrop-blur-md
-      border
-      border-violet-500/20 bg-violet-500/5
-      p-4
-      focus:border-[#C8A96B]
-      focus:ring-2
-      focus:ring-[#C8A96B]/30
-    "
-  />
-
-</section>
+    <textarea
+      rows={8}
+      value={rivalActivo?.CLAVES_EMOCIONALES || ""}
+      readOnly={!modoEdicion}
+      onChange={(e)=>
+        setRivalActivo({
+          ...rivalActivo,
+          CLAVES_EMOCIONALES:e.target.value
+        })
+      }
+      className="w-full rounded-2xl bg-white/5 border border-violet-500/20 p-4"
+    />
+  </div>
 
 </div>
-  <div
-  className="
-rounded-3xl
-border
-border-white/10
-bg-gradient-to-br
-from-white/[0.05]
-to-white/[0.02]
-p-6
-hover:border-red-400/40
-transition-all
-duration-300
-">
 
+<div className="grid lg:grid-cols-2 gap-6 mb-8">
+
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
     <h2 className="text-xl font-bold mb-5">
       Estructuras Ofensivas Rival
     </h2>
@@ -709,32 +647,16 @@ duration-300
       value={rivalActivo?.ESTRUCTURA_OF || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
-
-       setRivalActivo({
-  ...rivalActivo,
+        setRivalActivo({
+          ...rivalActivo,
           ESTRUCTURA_OF:e.target.value
         })
-
       }
-      className="
-      w-full
-      rounded-2xl
-      bg-white/5
-backdrop-blur-md focus:border-[#C8A96B]
-focus:ring-2
-focus:ring-[#C8A96B]/30
-      border
-      border-white/10
-      p-4
-      "
+      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
     />
-
   </div>
-   <section className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
 
+  <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
     <h2 className="text-xl font-bold mb-5">
       Estructuras Defensivas Rival
     </h2>
@@ -744,27 +666,15 @@ duration-300">
       value={rivalActivo?.ESTRUCTURA_DEF || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
-
         setRivalActivo({
-  ...rivalActivo,
+          ...rivalActivo,
           ESTRUCTURA_DEF:e.target.value
         })
-
       }
-      className="
-      w-full
-      rounded-2xl
-      bg-white/5
-backdrop-blur-md focus:border-[#C8A96B]
-focus:ring-2
-focus:ring-[#C8A96B]/30
-      border
-      border-white/10
-      p-4
-      "
+      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
     />
+  </div>
 
-  </section>
 </div>
 <section className="rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8 hover:shadow-2xl hover:border-[#C8A96B]/40 transition-all duration-300">
 
