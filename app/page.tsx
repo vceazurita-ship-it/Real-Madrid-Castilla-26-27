@@ -341,7 +341,7 @@ setPromedioSeguimientos(
 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]" />
               <div className="relative z-10">
                 {/* LEFT */}
-                <div className="flex flex-col h-full">
+                
                 <div className="grid
 xl:grid-cols-[620px_minmax(0,1fr)]
 gap-10
@@ -493,7 +493,7 @@ hover:scale-[1.02]
     Elementos culturales
   </p>
 </Link>
-</div></div></div></div>
+</div></div></div>
 <div>
 <Link
   href="/"
