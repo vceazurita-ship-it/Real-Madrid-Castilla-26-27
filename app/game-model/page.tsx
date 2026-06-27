@@ -532,6 +532,7 @@ text-black
   text-white
   leading-relaxed
   break-words
+  whitespace-pre-wrap
   "
 >
       {p.PRINCIPIO}
@@ -545,6 +546,8 @@ text-black
   lg:text-sm
   text-gray-400
   break-words
+    whitespace-pre-wrap
+
   "
 >
         {p.OBSERVACIONES}
