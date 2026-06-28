@@ -26,3 +26,7 @@ export interface Player {
   hudl?: string;
 
 }
+export interface LineupSlot {
+  positionId: string;
+  playerId: string | null;
+}
