@@ -9,6 +9,15 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   turbopack: {},
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "assets.realmadrid.com",
+      },
+    ],
+  },
 };
 
 export default withPWA(nextConfig);
