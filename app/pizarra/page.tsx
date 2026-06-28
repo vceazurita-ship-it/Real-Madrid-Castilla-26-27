@@ -45,37 +45,37 @@ function PizarraContent() {
 
             <Topbar />
 
-            <div className="px-4 py-4 lg:px-6 xl:px-8">
+            <div className="px-3 py-3 lg:px-5 xl:px-6">
 
               {/* CABECERA */}
 
-              <div className="mb-5">
+<div className="mb-3">
 
-                <p className="text-[11px] uppercase tracking-[0.35em] text-[#C8A96B]">
-                  RMCF CASTILLA · COMPETICIÓN
-                </p>
+  <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
+    RMCF CASTILLA · COMPETICIÓN
+  </p>
 
-                <div className="mt-2 flex items-center gap-4">
+  <div className="mt-1 flex items-center gap-3">
 
-                  <h1 className="text-2xl font-semibold tracking-tight xl:text-3xl">
-                    Pizarra táctica
-                  </h1>
+    <h1 className="text-xl font-semibold xl:text-2xl">
+      Pizarra táctica
+    </h1>
 
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
+    <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
 
-                </div>
+  </div>
 
-              </div>
+</div>
 
               {/* ESTADÍSTICAS */}
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <TopStats />
               </div>
 
               {/* BARRA SUPERIOR */}
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <FormationToolbar />
               </div>
 
@@ -89,7 +89,7 @@ function PizarraContent() {
                   bg-gradient-to-b
                   from-[#151B23]
                   to-[#0E131A]
-                  p-3
+                  p-2 xl:p-3
                   shadow-[0_35px_90px_rgba(0,0,0,.55)]
                 "
               >
@@ -119,16 +119,17 @@ function PizarraContent() {
                   <section className="flex-1">
 
                     <div
-                      className="
-                        mx-auto
-                        w-full
-                        max-w-[1550px]
-                        aspect-[16/9]
-                        max-h-[76vh]
-                        overflow-hidden
-                        rounded-[26px]
-                      "
-                    >
+  className="
+    mx-auto
+    w-full
+    aspect-[16/9]
+    h-[calc(100vh-235px)]
+    max-h-[820px]
+    min-h-[520px]
+    overflow-hidden
+    rounded-[26px]
+  "
+>
                       <FootballPitch />
                     </div>
 

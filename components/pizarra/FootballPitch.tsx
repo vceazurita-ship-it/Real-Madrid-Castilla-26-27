@@ -1,21 +1,29 @@
 "use client";
 
+import { forwardRef } from "react";
 import Image from "next/image";
+
 import { usePlayers } from "@/hooks/usePlayers";
 import { useLineup } from "@/context/LineupContext";
 import PitchPosition from "./PitchPosition";
 import { formations } from "@/lib/formations";
 
-export default function FootballPitch() {
+const FootballPitch = forwardRef<
+  HTMLDivElement,
+  Record<string, never>
+>(function FootballPitch(_, ref) {
   const { players } = usePlayers();
 
   const { lineup, formation } = useLineup();
 
   const currentFormation =
-    formations[formation as keyof typeof formations] ?? [];
+    formations[
+      formation as keyof typeof formations
+    ] ?? [];
 
   return (
     <div
+      ref={ref}
       className="
         relative
         h-full
@@ -30,10 +38,11 @@ export default function FootballPitch() {
         bg-no-repeat
       "
       style={{
-        backgroundImage: "url('/emotional-field-bg.png')",
+        backgroundImage:
+          "url('/emotional-field-bg.png')",
       }}
     >
-      {/* Oscurecer ligeramente el fondo */}
+      {/* Oscurecer */}
       <div className="absolute inset-0 bg-black/35" />
 
       {/* Viñeta */}
@@ -50,7 +59,12 @@ export default function FootballPitch() {
           strokeWidth="0.35"
           fill="none"
         >
-          <rect x="2" y="2" width="96" height="96" />
+          <rect
+            x="2"
+            y="2"
+            width="96"
+            height="96"
+          />
 
           <line
             x1="2"
@@ -72,8 +86,6 @@ export default function FootballPitch() {
             fill="rgba(255,255,255,.25)"
           />
 
-          {/* Arriba */}
-
           <rect
             x="20"
             y="2"
@@ -89,8 +101,6 @@ export default function FootballPitch() {
           />
 
           <path d="M42 17 A8 8 0 0 0 58 17" />
-
-          {/* Abajo */}
 
           <rect
             x="20"
@@ -113,11 +123,13 @@ export default function FootballPitch() {
       {/* Jugadores */}
       {currentFormation.map((position) => {
         const slot = lineup.find(
-          (s) => s.positionId === position.id
+          (s) =>
+            s.positionId === position.id
         );
 
         const player = players.find(
-          (p) => p.id === slot?.playerId
+          (p) =>
+            p.id === slot?.playerId
         );
 
         return (
@@ -139,13 +151,14 @@ export default function FootballPitch() {
                     width={66}
                     height={66}
                     unoptimized
+                    draggable={false}
                     className="
                       rounded-full
                       border-[3px]
                       border-[#C8A96B]
                       object-cover
                       shadow-[0_0_22px_rgba(200,169,107,.45)]
-                      transition-all
+                      transition
                       duration-300
                       hover:scale-110
                     "
@@ -188,12 +201,12 @@ export default function FootballPitch() {
                       bg-black/45
                       backdrop-blur-sm
                       shadow-[0_0_18px_rgba(200,169,107,.25)]
-                      transition-all
+                      transition
                       duration-300
                       hover:scale-110
                     "
                   >
-                    <span className="text-[#C8A96B] text-lg">
+                    <span className="text-lg text-[#C8A96B]">
                       +
                     </span>
                   </div>
@@ -222,4 +235,9 @@ export default function FootballPitch() {
       })}
     </div>
   );
-}
+});
+
+FootballPitch.displayName =
+  "FootballPitch";
+
+export default FootballPitch;
