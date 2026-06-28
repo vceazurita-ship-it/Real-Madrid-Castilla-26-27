@@ -34,33 +34,34 @@ function PizarraContent() {
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
+
       <main className="min-h-screen bg-[#0B0F14] text-white">
 
         <div className="flex">
 
           <Sidebar />
 
-          <section className="flex flex-1 flex-col">
+          <section className="flex min-w-0 flex-1 flex-col">
 
             <Topbar />
 
-            <div className="px-4 pb-8 pt-6 sm:px-8 sm:pb-10">
+            <div className="px-4 py-4 lg:px-6 xl:px-8">
 
-              {/* HEADER */}
+              {/* CABECERA */}
 
-              <div className="mb-8">
+              <div className="mb-5">
 
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                <p className="text-[11px] uppercase tracking-[0.35em] text-[#C8A96B]">
                   RMCF CASTILLA · COMPETICIÓN
                 </p>
 
-                <div className="mt-4 flex items-center gap-5">
+                <div className="mt-2 flex items-center gap-4">
 
-                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                  <h1 className="text-2xl font-semibold tracking-tight xl:text-3xl">
                     Pizarra táctica
                   </h1>
 
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
 
                 </div>
 
@@ -68,50 +69,72 @@ function PizarraContent() {
 
               {/* ESTADÍSTICAS */}
 
-              <TopStats />
+              <div className="mb-4">
+                <TopStats />
+              </div>
 
-              {/* TOOLBAR */}
+              {/* BARRA SUPERIOR */}
 
-              <div className="mt-6">
+              <div className="mb-4">
                 <FormationToolbar />
               </div>
 
-              {/* ÁREA DE TRABAJO */}
+              {/* CONTENEDOR */}
 
               <div
                 className="
-                mt-6
-                flex
-                overflow-hidden
-                rounded-[28px]
-                border
-                border-white/10
-                bg-[#11161D]
-                shadow-[0_20px_60px_rgba(0,0,0,.35)]
+                  rounded-[30px]
+                  border
+                  border-[#C8A96B]/20
+                  bg-gradient-to-b
+                  from-[#151B23]
+                  to-[#0E131A]
+                  p-3
+                  shadow-[0_35px_90px_rgba(0,0,0,.55)]
                 "
               >
 
-                {/* PLANTILLA */}
+                <div className="flex flex-col gap-3 lg:flex-row">
 
-                <aside
-                  className="
-                  hidden
-                  w-[360px]
-                  shrink-0
-                  border-r
-                  border-white/10
-                  bg-[#11161D]
-                  lg:block
-                  "
-                >
-                  <PlayerSidebar />
-                </aside>
+                  {/* SIDEBAR */}
 
-                {/* CAMPO */}
+                  <aside
+                    className="
+                      lg:w-[260px]
+                      xl:w-[280px]
+                      shrink-0
+                      rounded-2xl
+                      border
+                      border-[#C8A96B]/15
+                      bg-[#11161D]/80
+                      backdrop-blur-xl
+                      overflow-hidden
+                    "
+                  >
+                    <PlayerSidebar />
+                  </aside>
 
-                <section className="min-w-0 flex-1 bg-[#0F1720]">
-                  <FootballPitch />
-                </section>
+                  {/* CAMPO */}
+
+                  <section className="flex-1">
+
+                    <div
+                      className="
+                        mx-auto
+                        w-full
+                        max-w-[1550px]
+                        aspect-[16/9]
+                        max-h-[76vh]
+                        overflow-hidden
+                        rounded-[26px]
+                      "
+                    >
+                      <FootballPitch />
+                    </div>
+
+                  </section>
+
+                </div>
 
               </div>
 
@@ -122,6 +145,7 @@ function PizarraContent() {
         </div>
 
       </main>
+
     </DndContext>
   );
 }

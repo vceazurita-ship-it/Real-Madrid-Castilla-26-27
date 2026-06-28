@@ -25,60 +25,170 @@ export default function FormationToolbar() {
   } = useLineup();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-zinc-900 px-6 py-4">
+    <div
+      className="
+        flex
+        flex-col
+        gap-3
+        rounded-2xl
+        border
+        border-[#C8A96B]/20
+        bg-[#121820]
+        p-4
+        lg:flex-row
+        lg:items-center
+        lg:justify-between
+      "
+    >
+      {/* FORMACIONES */}
 
-      {/* Formaciones */}
       <div className="flex flex-wrap gap-2">
 
         {formations.map((item) => (
+
           <button
             key={item}
             onClick={() => setFormation(item)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              formation === item
-                ? "bg-white text-black"
-                : "bg-zinc-800 text-white hover:bg-zinc-700"
-            }`}
+            className={`
+              rounded-xl
+              border
+              px-4
+              py-2
+              text-sm
+              font-semibold
+              transition-all
+              duration-300
+
+              ${
+                formation === item
+                  ? "border-[#C8A96B] bg-[#C8A96B] text-[#111]"
+                  : "border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
+              }
+            `}
           >
             {item}
           </button>
+
         ))}
 
       </div>
 
-      {/* Acciones */}
+      {/* ACCIONES */}
+
       <div className="flex flex-wrap gap-2">
 
         <button
           onClick={clearLineup}
-          className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white hover:bg-zinc-700"
+          className="
+            flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-white/10
+            bg-[#1A222C]
+            px-4
+            py-2
+            text-sm
+            text-white
+            transition-all
+            hover:border-[#C8A96B]/50
+            hover:bg-[#232D39]
+          "
         >
           <RotateCcw size={16} />
           Reset
         </button>
 
-        <button className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
+        <button
+          className="
+            flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-[#C8A96B]
+            bg-[#C8A96B]
+            px-4
+            py-2
+            text-sm
+            font-semibold
+            text-[#111]
+            transition-all
+            hover:brightness-110
+          "
+        >
           <Save size={16} />
           Guardar
         </button>
 
-        <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+        <button
+          className="
+            flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-white/10
+            bg-[#1A222C]
+            px-4
+            py-2
+            text-sm
+            text-white
+            transition-all
+            hover:border-[#C8A96B]/50
+            hover:bg-[#232D39]
+          "
+        >
           <Download size={16} />
           Exportar
         </button>
 
-        <button className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500">
+        <button
+          className="
+            flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-white/10
+            bg-[#1A222C]
+            px-4
+            py-2
+            text-sm
+            text-white
+            transition-all
+            hover:border-[#C8A96B]/50
+            hover:bg-[#232D39]
+          "
+        >
           <Share2 size={16} />
           Compartir
         </button>
 
-        <button className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400">
+        <button
+          className="
+            flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-white/10
+            bg-[#1A222C]
+            px-4
+            py-2
+            text-sm
+            text-white
+            transition-all
+            hover:border-[#C8A96B]/50
+            hover:bg-[#232D39]
+          "
+        >
           <LayoutGrid size={16} />
           Plantillas
         </button>
 
       </div>
-
     </div>
   );
 }
