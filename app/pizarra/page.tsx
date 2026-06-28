@@ -160,17 +160,26 @@ console.log(data.alineacion);
                     <div
   className="
     mx-auto
-    w-full
-    aspect-[16/9]
-    h-[calc(100vh-235px)]
-    max-h-[820px]
-    min-h-[520px]
     overflow-hidden
     rounded-[26px]
+
+    /* MÓVIL */
+    w-full
+    aspect-[9/16]
+    max-w-[430px]
+    h-auto
+
+    /* TABLET Y PC */
+    lg:max-w-none
+    lg:w-full
+    lg:aspect-[16/9]
+    lg:h-[calc(100vh-235px)]
+    lg:max-h-[820px]
+    lg:min-h-[520px]
   "
 >
-                      <FootballPitch />
-                    </div>
+  <FootballPitch />
+</div>
 
                   </section>
 

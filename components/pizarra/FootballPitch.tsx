@@ -1,8 +1,12 @@
 "use client";
 
-import { forwardRef } from "react";
-import Image from "next/image";
 
+import Image from "next/image";
+import {
+  forwardRef,
+  useEffect,
+  useState,
+} from "react";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useLineup } from "@/context/LineupContext";
 import PitchPosition from "./PitchPosition";
@@ -20,7 +24,19 @@ const FootballPitch = forwardRef<
     formations[
       formation as keyof typeof formations
     ] ?? [];
+const [mobile, setMobile] = useState(false);
 
+useEffect(() => {
+  const resize = () => {
+    setMobile(window.innerWidth < 1024);
+  };
+
+  resize();
+
+  window.addEventListener("resize", resize);
+
+  return () => window.removeEventListener("resize", resize);
+}, []);
   return (
     <div
       ref={ref}
@@ -68,9 +84,11 @@ const FootballPitch = forwardRef<
             key={position.id}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{
-              left: position.left,
-              top: position.top,
-            }}
+  left: mobile ? position.top : position.left,
+  top: mobile
+    ? `${100 - parseFloat(position.left)}%`
+    : position.top,
+}}
           >
             <PitchPosition id={position.id}>
               {player ? (
@@ -79,8 +97,8 @@ const FootballPitch = forwardRef<
                   <Image
                     src={player.foto}
                     alt={player.nombre}
-                    width={66}
-                    height={66}
+                    width={mobile ? 48 : 66}
+height={mobile ? 48 : 66}
                     unoptimized
                     draggable={false}
                     className="
@@ -96,21 +114,20 @@ const FootballPitch = forwardRef<
                   />
 
                   <div
-                    className="
-                      mt-2
-                      rounded-full
-                      border
-                      border-[#C8A96B]/40
-                      bg-black/70
-                      backdrop-blur-md
-                      px-3
-                      py-1
-                      text-[11px]
-                      font-semibold
-                      text-white
-                      whitespace-nowrap
-                    "
-                  >
+                    className={`
+  mt-2
+  rounded-full
+  border
+  border-[#C8A96B]/40
+  bg-black/70
+  backdrop-blur-md
+  px-3
+  py-1
+  ${mobile ? "text-[9px]" : "text-[11px]"}
+  font-semibold
+  text-white
+  whitespace-nowrap
+`}                  >
                     {player.nombre}
                   </div>
 
@@ -119,24 +136,23 @@ const FootballPitch = forwardRef<
                 <div className="flex flex-col items-center">
 
                   <div
-                    className="
-                      flex
-                      h-16
-                      w-16
-                      items-center
-                      justify-center
-                      rounded-full
-                      border-2
-                      border-dashed
-                      border-[#C8A96B]
-                      bg-black/45
-                      backdrop-blur-sm
-                      shadow-[0_0_18px_rgba(200,169,107,.25)]
-                      transition
-                      duration-300
-                      hover:scale-110
-                    "
-                  >
+  className={`
+    flex
+    ${mobile ? "h-12 w-12" : "h-16 w-16"}
+    items-center
+    justify-center
+    rounded-full
+    border-2
+    border-dashed
+    border-[#C8A96B]
+    bg-black/45
+    backdrop-blur-sm
+    shadow-[0_0_18px_rgba(200,169,107,.25)]
+    transition
+    duration-300
+    hover:scale-110
+  `}
+>
                     <span className="text-lg text-[#C8A96B]">
                       +
                     </span>
