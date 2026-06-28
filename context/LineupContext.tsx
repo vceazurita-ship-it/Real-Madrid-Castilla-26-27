@@ -32,6 +32,11 @@ interface LineupContextType {
 
   clearLineup: () => void;
 
+  loadLineup: (
+    formation: string,
+    lineup: LineupSlot[]
+  ) => void;
+
   getPlayerPosition: (
     positionId: string
   ) => LineupSlot | undefined;
@@ -57,6 +62,7 @@ const LineupContext =
   );
 
 export function LineupProvider({
+  
   children,
 }: {
   children: ReactNode;
@@ -66,6 +72,13 @@ export function LineupProvider({
     return "4-4-2";
 
   try {
+    function loadLineup(
+  newFormation: string,
+  newLineup: LineupSlot[]
+) {
+  setFormation(newFormation);
+  setLineup(newLineup);
+}
     const saved = localStorage.getItem(
       STORAGE_KEY
     );
@@ -239,17 +252,18 @@ const [lineup, setLineup] =
   }
 
   const value = useMemo(
-    () => ({
-      lineup,
-      formation,
-      setFormation,
-      assignPlayer,
-      removePlayer,
-      clearLineup,
-      getPlayerPosition,
-    }),
-    [lineup, formation]
-  );
+  () => ({
+    lineup,
+    formation,
+    setFormation,
+    assignPlayer,
+    removePlayer,
+    clearLineup,
+    loadLineup,
+    getPlayerPosition,
+  }),
+  [lineup, formation]
+);
 
   return (
     <LineupContext.Provider value={value}>

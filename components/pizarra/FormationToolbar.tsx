@@ -1,6 +1,8 @@
 "use client";
 
 import { useLineup } from "@/context/LineupContext";
+import { saveLineup } from "@/lib/saveLineup";
+import { usePlayers } from "@/hooks/usePlayers";
 import {
   Save,
   RotateCcw,
@@ -19,11 +21,54 @@ const formations = [
 
 export default function FormationToolbar() {
   const {
-    formation,
-    setFormation,
-    clearLineup,
-  } = useLineup();
+  formation,
+  lineup,
+  setFormation,
+  clearLineup,
+} = useLineup();
 
+const { players } = usePlayers();
+async function guardar() {
+
+  const nombre =
+    prompt("Nombre de la alineación");
+
+  if (!nombre) return;
+
+  const rival =
+    prompt("Rival") || "";
+
+  await saveLineup({
+
+    nombre,
+
+    rival,
+
+    fecha:new Date()
+      .toLocaleDateString(),
+
+    sistema:formation,
+
+    alineacion: lineup.map(slot=>({
+
+      positionId:slot.positionId,
+
+      playerId:slot.playerId,
+
+      jugador:
+        players.find(
+          p=>p.id===slot.playerId
+        )?.nombre || ""
+
+    })),
+
+    observaciones:""
+
+  });
+
+  alert("Alineación guardada");
+
+}
   return (
     <div
       className="
@@ -101,6 +146,7 @@ export default function FormationToolbar() {
         </button>
 
         <button
+  onClick={guardar}
           className="
             flex
             items-center

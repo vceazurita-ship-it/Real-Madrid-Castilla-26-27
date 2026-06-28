@@ -7,6 +7,7 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import SavedLineups from "@/components/pizarra/SavedLineups";
 
 import FootballPitch from "@/components/pizarra/FootballPitch";
 import FormationToolbar from "@/components/pizarra/FormationToolbar";
@@ -19,7 +20,10 @@ import {
 } from "@/context/LineupContext";
 
 function PizarraContent() {
-  const { assignPlayer } = useLineup();
+  const {
+  assignPlayer,
+  loadLineup,
+} = useLineup();
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -31,6 +35,27 @@ function PizarraContent() {
       String(active.id)
     );
   }
+  async function handleLoadLineup(id: number) {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}?action=getAlineacion&id=${id}`
+    );
+
+    const data = await res.json();
+
+    if (!data.success) {
+      alert("No se pudo cargar la alineación");
+      return;
+    }
+
+    loadLineup(
+      data.formacion,
+      JSON.parse(data.alineacion)
+    );
+  } catch {
+    alert("Error al cargar la alineación");
+  }
+}
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
@@ -111,7 +136,15 @@ function PizarraContent() {
                       overflow-hidden
                     "
                   >
-                    <PlayerSidebar />
+                    <div className="flex h-full flex-col gap-3 p-3">
+
+  <PlayerSidebar />
+
+  <SavedLineups
+    onLoad={handleLoadLineup}
+  />
+
+</div>
                   </aside>
 
                   {/* CAMPO */}
