@@ -72,13 +72,7 @@ export function LineupProvider({
     return "4-4-2";
 
   try {
-    function loadLineup(
-  newFormation: string,
-  newLineup: LineupSlot[]
-) {
-  setFormation(newFormation);
-  setLineup(newLineup);
-}
+    
     const saved = localStorage.getItem(
       STORAGE_KEY
     );
@@ -236,6 +230,18 @@ const [lineup, setLineup] =
       createLineup(formation)
     );
   }
+
+
+function loadLineup(
+  newFormation: string,
+  newLineup: LineupSlot[]
+) {
+  setFormation(newFormation);
+
+  setTimeout(() => {
+    setLineup(newLineup);
+  }, 0);
+}
 
   /* =======================================
      BUSCAR POSICIÓN
