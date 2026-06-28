@@ -29,10 +29,13 @@ export default function PlayerToken({ player }: Props) {
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
+  ref={setNodeRef}
+  style={{
+    ...style,
+    touchAction: "none",
+  }}
+  {...listeners}
+  {...attributes}
       className="
         group
         cursor-grab
