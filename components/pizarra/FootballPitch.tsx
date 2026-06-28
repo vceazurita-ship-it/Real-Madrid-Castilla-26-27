@@ -179,7 +179,8 @@ export default function FootballPitch() {
         const player = players.find(
           (p) => p.id === slot?.playerId
         );
-
+console.log("LINEUP", lineup);
+console.log("PLAYERS", players);
         return (
           <div
             key={position.id}
