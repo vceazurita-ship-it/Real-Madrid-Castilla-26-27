@@ -13,6 +13,9 @@ import { LineupSlot } from "@/types/player";
 
 interface LineupContextType {
   lineup: LineupSlot[];
+  getPlayerPosition: (
+  positionId: string
+) => LineupSlot | undefined;
 
   formation: string;
 
@@ -82,16 +85,21 @@ export function LineupProvider({
   function clearLineup() {
     setLineup(initialLineup);
   }
-
+function getPlayerPosition(positionId: string) {
+  return lineup.find(
+    (slot) => slot.positionId === positionId
+  );
+}
   const value = useMemo(
-    () => ({
-      lineup,
-      formation,
-      setFormation,
-      assignPlayer,
-      removePlayer,
-      clearLineup,
-    }),
+  () => ({
+    lineup,
+    formation,
+    setFormation,
+    assignPlayer,
+    removePlayer,
+    clearLineup,
+    getPlayerPosition,
+  }),
     [lineup, formation]
   );
 

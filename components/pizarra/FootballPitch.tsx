@@ -1,7 +1,9 @@
 "use client";
 
 import PlayerToken from "./PlayerToken";
-
+import { usePlayers } from "@/hooks/usePlayers";
+import { useLineup } from "@/context/LineupContext";
+import Image from "next/image";
 const formation442 = [
   {
     id: "POR",
@@ -72,6 +74,9 @@ const formation442 = [
 ];
 
 export default function FootballPitch() {
+  const { players } = usePlayers();
+
+const { lineup } = useLineup();
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#166534]">
       {/* CAMPO */}
@@ -162,35 +167,74 @@ export default function FootballPitch() {
       </div>
 
       {/* POSICIONES */}
-      {formation442.map((position) => (
-        <div
-          key={position.id}
-          className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: position.left,
-            top: position.top,
-          }}
-        >
-          <div
-  className="
-    flex
-    h-16
-    w-16
-    items-center
-    justify-center
-    rounded-full
-    border-2
-    border-white/30
-    bg-white/10
-    text-xs
-    font-bold
-    text-white
-  "
->
-  {position.nombre}
-</div>
+      {formation442.map((position) => {
+
+  const slot = lineup.find(
+    s => s.positionId === position.id
+  );
+
+  const player = players.find(
+    p => p.id === slot?.playerId
+  );
+
+  return (
+
+    <div
+      key={position.id}
+      className="absolute -translate-x-1/2 -translate-y-1/2"
+      style={{
+        left: position.left,
+        top: position.top,
+      }}
+    >
+
+      {player ? (
+
+        <div className="flex flex-col items-center">
+
+          <Image
+            src={player.foto}
+            alt={player.nombre}
+            width={58}
+            height={58}
+            className="rounded-full border-2 border-white shadow-lg"
+          />
+
+          <div className="mt-1 rounded bg-black/70 px-2 py-1 text-xs text-white">
+            {player.nombre}
+          </div>
+
         </div>
-      ))}
+
+      ) : (
+
+        <div
+          className="
+          flex
+          h-16
+          w-16
+          items-center
+          justify-center
+          rounded-full
+          border-2
+          border-dashed
+          border-white/40
+          bg-white/10
+          text-xs
+          font-bold
+          text-white
+          "
+        >
+          {position.nombre}
+        </div>
+
+      )}
+
+    </div>
+
+  );
+
+})}
     </div>
   );
 }

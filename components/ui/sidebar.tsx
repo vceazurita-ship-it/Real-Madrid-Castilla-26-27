@@ -331,7 +331,24 @@ const navLink = (
 
   </div>
 </div>
+{/* ÁREA PIZARRA */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Pizarra
+    </p>
+  )}
 
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/pizarra",
+      "Pizarra",
+      <Activity size={18} />
+    )}
+
+  </div>
+</div>
 {/* DATA */}
 <div>
   {!collapsed && (
