@@ -3,6 +3,7 @@
 import { useLineup } from "@/context/LineupContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
+import { toPng } from "html-to-image";
 import {
   Save,
   RotateCcw,
@@ -68,6 +69,54 @@ async function guardar() {
 
   alert("Alineación guardada");
 
+}
+async function exportPitch() {
+  const node = document.getElementById("football-pitch");
+
+  if (!node) return;
+
+  const dataUrl = await toPng(node, {
+    cacheBust: true,
+    pixelRatio: 2,
+  });
+
+  const link = document.createElement("a");
+
+  link.download = "alineacion.png";
+  link.href = dataUrl;
+  link.click();
+}
+async function sharePitch() {
+  const node = document.getElementById("football-pitch");
+
+  if (!node) return;
+
+  const dataUrl = await toPng(node, {
+    cacheBust: true,
+    pixelRatio: 2,
+  });
+
+  const blob = await (await fetch(dataUrl)).blob();
+
+  const file = new File(
+    [blob],
+    "alineacion.png",
+    {
+      type: "image/png",
+    }
+  );
+
+  if (
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
+    await navigator.share({
+      files: [file],
+      title: "Alineación",
+    });
+  } else {
+    window.open(dataUrl);
+  }
 }
   return (
     <div
@@ -169,48 +218,46 @@ async function guardar() {
         </button>
 
         <button
-          className="
-            flex
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-white/10
-            bg-[#1A222C]
-            px-4
-            py-2
-            text-sm
-            text-white
-            transition-all
-            hover:border-[#C8A96B]/50
-            hover:bg-[#232D39]
-          "
-        >
-          <Download size={16} />
-          Exportar
-        </button>
+  onClick={exportPitch}
+  className="
+    flex
+    items-center
+    gap-2
+    rounded-xl
+    border
+    border-white/10
+    bg-[#1A222C]
+    px-4
+    py-2
+    text-sm
+    text-white
+    transition-all
+    hover:border-[#C8A96B]/50
+    hover:bg-[#232D39]
+  "
+>
+  <Download size={16} />
+  Exportar
+</button>
 
         <button
-          className="
-            flex
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-white/10
-            bg-[#1A222C]
-            px-4
-            py-2
-            text-sm
-            text-white
-            transition-all
-            hover:border-[#C8A96B]/50
-            hover:bg-[#232D39]
-          "
-        >
-          <Share2 size={16} />
-          Compartir
-        </button>
+  className="
+    flex
+    items-center
+    gap-2
+    rounded-xl
+    border
+    border-white/10
+    bg-[#1A222C]
+    px-4
+    py-2
+    text-sm
+    text-white
+  "
+>
+  <Share2 size={16} />
+  Compartir
+</button>
 
         <button
           className="

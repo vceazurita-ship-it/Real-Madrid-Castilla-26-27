@@ -39,7 +39,8 @@ useEffect(() => {
 }, []);
   return (
     <div
-      ref={ref}
+  id="football-pitch"
+  ref={ref}
       className="
         relative
         h-full
