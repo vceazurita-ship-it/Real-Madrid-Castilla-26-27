@@ -1,14 +1,36 @@
 "use client";
 
+import {
+  DndContext,
+  DragEndEvent,
+} from "@dnd-kit/core";
+
 import FootballPitch from "@/components/pizarra/FootballPitch";
 import FormationToolbar from "@/components/pizarra/FormationToolbar";
 import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
 import TopStats from "@/components/pizarra/TopStats";
-import { LineupProvider } from "@/context/LineupContext";
 
-export default function PizarraPage() {
+import {
+  LineupProvider,
+  useLineup,
+} from "@/context/LineupContext";
+
+function PizarraContent() {
+  const { assignPlayer } = useLineup();
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    assignPlayer(
+      String(over.id),
+      String(active.id)
+    );
+  }
+
   return (
-    <LineupProvider>
+    <DndContext onDragEnd={handleDragEnd}>
 
       <main className="flex h-screen flex-col overflow-hidden bg-zinc-950">
 
@@ -30,6 +52,14 @@ export default function PizarraPage() {
 
       </main>
 
+    </DndContext>
+  );
+}
+
+export default function PizarraPage() {
+  return (
+    <LineupProvider>
+      <PizarraContent />
     </LineupProvider>
   );
 }
