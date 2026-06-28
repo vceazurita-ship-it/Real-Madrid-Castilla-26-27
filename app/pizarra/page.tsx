@@ -3,6 +3,10 @@
 import {
   DndContext,
   DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -62,9 +66,20 @@ console.log(data.alineacion);
     alert("Error al cargar la alineación");
   }
 }
-
+const sensors = useSensors(
+  useSensor(PointerSensor),
+  useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 150,
+      tolerance: 5,
+    },
+  })
+);
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext
+  sensors={sensors}
+  onDragEnd={handleDragEnd}
+>
 
       <main className="min-h-screen bg-[#0B0F14] text-white">
 
