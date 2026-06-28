@@ -30,7 +30,7 @@ export default function FootballPitch() {
         bg-no-repeat
       "
       style={{
-        backgroundImage: "url('/pizarra-field-bg.png')",
+        backgroundImage: "url('/emotional-field-bg.png')",
       }}
     >
       {/* Oscurecer ligeramente el fondo */}
