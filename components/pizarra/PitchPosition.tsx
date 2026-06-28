@@ -11,7 +11,11 @@ export default function PitchPosition({
   id,
   children,
 }: Props) {
-  const { setNodeRef, isOver } = useDroppable({
+
+  const {
+    setNodeRef,
+    isOver,
+  } = useDroppable({
     id,
   });
 
@@ -19,9 +23,6 @@ export default function PitchPosition({
     <div
       ref={setNodeRef}
       className={`
-        absolute
-        -translate-x-1/2
-        -translate-y-1/2
         transition-all
         duration-200
         ${

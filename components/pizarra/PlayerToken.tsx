@@ -18,8 +18,8 @@ export default function PlayerToken({ player }: Props) {
     transform,
     isDragging,
   } = useDraggable({
-    id: player.id,
-  });
+  id: `bench-${player.id}`,
+});
 
   const style = {
     transform: CSS.Translate.toString(transform),

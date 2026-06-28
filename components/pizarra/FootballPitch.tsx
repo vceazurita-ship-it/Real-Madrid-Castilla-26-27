@@ -11,6 +11,7 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { useLineup } from "@/context/LineupContext";
 import PitchPosition from "./PitchPosition";
 import { formations } from "@/lib/formations";
+import FieldPlayer from "./FieldPlayer";
 
 const FootballPitch = forwardRef<
   HTMLDivElement,
@@ -50,28 +51,34 @@ useEffect(() => {
         border
         border-[#C8A96B]/20
         shadow-[0_25px_80px_rgba(0,0,0,.45)]
-        bg-cover
-        bg-center
-        bg-no-repeat
       "
     >
-      <Image
-  src="/emotional-field-bg.png"
-  alt="Campo"
-  fill
-  priority
-  unoptimized
-  className={`
-    absolute
-    inset-0
-    object-cover
-    ${
-      mobile
-        ? "rotate-90 scale-[1.78]"
-        : ""
-    }
-  `}
-/>
+{/* Fondo del campo */}
+<div className="absolute inset-0 overflow-hidden">
+
+  <Image
+    src="/emotional-field-bg.png"
+    alt="Campo"
+    fill
+    priority
+    unoptimized
+    draggable={false}
+    className={`
+      object-cover
+      pointer-events-none
+      select-none
+      transition-all
+      duration-500
+
+      ${
+        mobile
+          ? "rotate-90 scale-[1.78]"
+          : "rotate-0 scale-100"
+      }
+    `}
+  />
+
+</div>
       {/* Oscurecer */}
       <div className="absolute inset-0 bg-black/35" />
 
@@ -106,47 +113,15 @@ useEffect(() => {
           >
             <PitchPosition id={position.id}>
               {player ? (
-                <div className="flex flex-col items-center">
 
-                  <Image
-                    src={player.foto}
-                    alt={player.nombre}
-                    width={mobile ? 48 : 66}
-height={mobile ? 48 : 66}
-                    unoptimized
-                    draggable={false}
-                    className="
-                      rounded-full
-                      border-[3px]
-                      border-[#C8A96B]
-                      object-cover
-                      shadow-[0_0_22px_rgba(200,169,107,.45)]
-                      transition
-                      duration-300
-                      hover:scale-110
-                    "
-                  />
+  <FieldPlayer
+    id={player.id}
+    foto={player.foto}
+    nombre={player.nombre}
+    mobile={mobile}
+  />
 
-                  <div
-                    className={`
-  mt-2
-  rounded-full
-  border
-  border-[#C8A96B]/40
-  bg-black/70
-  backdrop-blur-md
-  px-3
-  py-1
-  ${mobile ? "text-[9px]" : "text-[11px]"}
-  font-semibold
-  text-white
-  whitespace-nowrap
-`}                  >
-                    {player.nombre}
-                  </div>
-
-                </div>
-              ) : (
+) : (
                 <div className="flex flex-col items-center">
 
                   <div

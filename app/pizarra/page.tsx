@@ -2,7 +2,9 @@
 
 import {
   DndContext,
+  DragOverlay,
   DragEndEvent,
+  DragStartEvent,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -17,7 +19,8 @@ import FootballPitch from "@/components/pizarra/FootballPitch";
 import FormationToolbar from "@/components/pizarra/FormationToolbar";
 import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
 import TopStats from "@/components/pizarra/TopStats";
-
+import { useState } from "react";
+import { usePlayers } from "@/hooks/usePlayers";
 import {
   LineupProvider,
   useLineup,
@@ -29,16 +32,48 @@ function PizarraContent() {
   loadLineup,
 } = useLineup();
 
+const { players } = usePlayers();
+
+const [dragPlayer, setDragPlayer] = useState<
+  (typeof players)[number] | null
+>(null);
+function handleDragStart(event: DragStartEvent) {
+  const id = String(event.active.id)
+    .replace("bench-", "")
+    .replace("field-", "");
+
+  const player = players.find(
+    (p) => p.id === id
+  );
+
+  setDragPlayer(player ?? null);
+}
   function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
+  const { active, over } = event;
 
-    if (!over) return;
+  if (!over) return;
 
+  const activeId = String(active.id);
+  const positionId = String(over.id);
+
+  // Arrastrado desde la lista
+  if (activeId.startsWith("bench-")) {
     assignPlayer(
-      String(over.id),
-      String(active.id)
+      positionId,
+      activeId.replace("bench-", "")
     );
+    return;
   }
+
+  // Arrastrado desde el campo
+  if (activeId.startsWith("field-")) {
+    assignPlayer(
+      positionId,
+      activeId.replace("field-", "")
+    );
+    return;
+  }
+}
 async function handleLoadLineup(id: number) {
   try {
     const res = await fetch(
@@ -76,9 +111,14 @@ const sensors = useSensors(
   })
 );
   return (
+    
     <DndContext
   sensors={sensors}
-  onDragEnd={handleDragEnd}
+  onDragStart={handleDragStart}
+  onDragEnd={(event) => {
+    handleDragEnd(event);
+    setDragPlayer(null);
+  }}
 >
 
       <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -212,7 +252,26 @@ const sensors = useSensors(
         </div>
 
       </main>
+<DragOverlay>
 
+  {dragPlayer && (
+
+    <img
+      src={dragPlayer.foto}
+      alt={dragPlayer.nombre}
+      className="
+        h-16
+        w-16
+        rounded-full
+        border-4
+        border-[#C8A96B]
+        shadow-2xl
+      "
+    />
+
+  )}
+
+</DragOverlay>
     </DndContext>
   );
 }
