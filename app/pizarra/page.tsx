@@ -44,6 +44,8 @@ async function handleLoadLineup(id: number) {
     const data = await res.json();
 
     console.log(data);
+console.log(data.formacion);
+console.log(data.alineacion);
 
     if (!data.success) {
       alert("No se pudo cargar la alineación");
@@ -51,8 +53,8 @@ async function handleLoadLineup(id: number) {
     }
 
     loadLineup(
-      data.Sistema,
-      JSON.parse(data.Alineacion)
+      data.formacion,
+      JSON.parse(data.alineacion)
     );
 
   } catch (e) {
