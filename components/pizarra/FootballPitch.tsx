@@ -49,76 +49,7 @@ const FootballPitch = forwardRef<
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,.45))]" />
 
       {/* Campo */}
-      <svg
-        className="absolute inset-0 h-full w-full"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <g
-          stroke="rgba(255,255,255,.22)"
-          strokeWidth="0.35"
-          fill="none"
-        >
-          <rect
-            x="2"
-            y="2"
-            width="96"
-            height="96"
-          />
-
-          <line
-            x1="2"
-            y1="50"
-            x2="98"
-            y2="50"
-          />
-
-          <circle
-            cx="50"
-            cy="50"
-            r="8"
-          />
-
-          <circle
-            cx="50"
-            cy="50"
-            r="0.7"
-            fill="rgba(255,255,255,.25)"
-          />
-
-          <rect
-            x="20"
-            y="2"
-            width="60"
-            height="15"
-          />
-
-          <rect
-            x="35"
-            y="2"
-            width="30"
-            height="6"
-          />
-
-          <path d="M42 17 A8 8 0 0 0 58 17" />
-
-          <rect
-            x="20"
-            y="83"
-            width="60"
-            height="15"
-          />
-
-          <rect
-            x="35"
-            y="92"
-            width="30"
-            height="6"
-          />
-
-          <path d="M42 83 A8 8 0 0 1 58 83" />
-        </g>
-      </svg>
+      
 
       {/* Jugadores */}
       {currentFormation.map((position) => {
