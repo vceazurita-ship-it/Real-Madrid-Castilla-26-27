@@ -26,7 +26,7 @@ export default function SavedLineups({
   async function loadLineups() {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}?action=alineaciones`
+        `https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=alineaciones`
       );
 
       const data = await res.json();
