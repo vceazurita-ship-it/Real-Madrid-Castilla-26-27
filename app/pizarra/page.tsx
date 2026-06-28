@@ -140,65 +140,68 @@ const sensors = useSensors(
                 "
               >
 
-                <div className="flex flex-col gap-3 lg:flex-row">
+                <div className="flex flex-col lg:flex-row gap-3">
 
-                  {/* SIDEBAR */}
+  {/* IZQUIERDA EN PC */}
+  <aside
+    className="
+      lg:w-[260px]
+      xl:w-[280px]
+      shrink-0
+      rounded-2xl
+      border
+      border-[#C8A96B]/15
+      bg-[#11161D]/80
+      backdrop-blur-xl
+      overflow-hidden
+    "
+  >
 
-                  <aside
-                    className="
-                      lg:w-[260px]
-                      xl:w-[280px]
-                      shrink-0
-                      rounded-2xl
-                      border
-                      border-[#C8A96B]/15
-                      bg-[#11161D]/80
-                      backdrop-blur-xl
-                      overflow-hidden
-                    "
-                  >
-                    <div className="flex h-full flex-col gap-3 p-3">
+    {/* JUGADORES */}
+    <div className="p-3">
+      <PlayerSidebar />
+    </div>
 
-  <PlayerSidebar />
+    {/* ALINEACIONES SOLO EN PC */}
+    <div className="hidden lg:block p-3 pt-0">
+      <SavedLineups onLoad={handleLoadLineup} />
+    </div>
 
-  <SavedLineups
-    onLoad={handleLoadLineup}
-  />
+  </aside>
+
+  {/* CAMPO */}
+  <section className="flex-1 order-2 lg:order-none">
+
+    <div
+      className="
+        mx-auto
+        overflow-hidden
+        rounded-[26px]
+
+        w-full
+        aspect-[9/16]
+        max-w-[430px]
+        h-auto
+
+        lg:max-w-none
+        lg:w-full
+        lg:aspect-[16/9]
+        lg:h-[calc(100vh-235px)]
+        lg:max-h-[820px]
+        lg:min-h-[520px]
+      "
+    >
+      <FootballPitch />
+    </div>
+
+  </section>
+
+  {/* ALINEACIONES SOLO EN MÓVIL */}
+  <div className="block lg:hidden order-3">
+    <SavedLineups onLoad={handleLoadLineup} />
+  </div>
 
 </div>
-                  </aside>
-
-                  {/* CAMPO */}
-
-                  <section className="flex-1">
-
-                    <div
-  className="
-    mx-auto
-    overflow-hidden
-    rounded-[26px]
-
-    /* MÓVIL */
-    w-full
-    aspect-[9/16]
-    max-w-[430px]
-    h-auto
-
-    /* TABLET Y PC */
-    lg:max-w-none
-    lg:w-full
-    lg:aspect-[16/9]
-    lg:h-[calc(100vh-235px)]
-    lg:max-h-[820px]
-    lg:min-h-[520px]
-  "
->
-  <FootballPitch />
-</div>
-
-                  </section>
-
-                </div>
 
               </div>
 
