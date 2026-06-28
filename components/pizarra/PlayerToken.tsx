@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { CSS } from "@dnd-kit/utilities";
 import { useDraggable } from "@dnd-kit/core";
+
 import { Player } from "@/types/player";
 
 interface Props {
@@ -14,15 +16,16 @@ export default function PlayerToken({ player }: Props) {
     listeners,
     setNodeRef,
     transform,
+    isDragging,
   } = useDraggable({
     id: player.id,
   });
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.45 : 1,
+    zIndex: isDragging ? 999 : 1,
+  };
 
   return (
     <div
@@ -31,13 +34,17 @@ export default function PlayerToken({ player }: Props) {
       {...listeners}
       {...attributes}
       className="
-      cursor-grab
-      active:cursor-grabbing
-      rounded-xl
-      bg-zinc-800
-      p-3
-      hover:bg-zinc-700
-      transition
+        cursor-grab
+        active:cursor-grabbing
+        rounded-xl
+        bg-zinc-800
+        p-3
+        transition-all
+        duration-200
+        hover:bg-zinc-700
+        hover:scale-[1.02]
+        select-none
+        shadow-md
       "
     >
       <div className="flex items-center gap-3">
