@@ -20,8 +20,16 @@ export default function PlayerSidebar() {
   }, [players, search]);
 
   return (
-    <div className="flex h-full flex-col bg-[#11161D]">
-
+    <div
+      className="
+        flex
+        h-full
+        max-h-[calc(100vh-260px)]
+        flex-col
+        overflow-hidden
+        bg-[#11161D]
+      "
+    >
       {/* CABECERA */}
 
       <div
@@ -29,6 +37,7 @@ export default function PlayerSidebar() {
           sticky
           top-0
           z-20
+          shrink-0
           border-b
           border-[#C8A96B]/15
           bg-[#11161D]
@@ -36,9 +45,7 @@ export default function PlayerSidebar() {
         "
       >
         <div className="flex items-center justify-between">
-
           <div>
-
             <h2 className="text-lg font-semibold text-white">
               Plantilla
             </h2>
@@ -46,7 +53,6 @@ export default function PlayerSidebar() {
             <p className="text-xs uppercase tracking-[0.18em] text-white/45">
               {players.length} jugadores
             </p>
-
           </div>
 
           <div
@@ -62,13 +68,11 @@ export default function PlayerSidebar() {
           >
             STAFF
           </div>
-
         </div>
 
         {/* BUSCADOR */}
 
         <div className="relative mt-4">
-
           <Search
             size={15}
             className="
@@ -101,9 +105,7 @@ export default function PlayerSidebar() {
               focus:border-[#C8A96B]/60
             "
           />
-
         </div>
-
       </div>
 
       {/* LISTADO */}
@@ -111,21 +113,19 @@ export default function PlayerSidebar() {
       <div
         className="
           flex-1
+          min-h-0
           overflow-y-auto
           p-2
           space-y-1.5
         "
       >
         {filteredPlayers.map((player) => (
-
           <PlayerToken
             key={player.id}
             player={player}
           />
-
         ))}
       </div>
-
     </div>
   );
 }
