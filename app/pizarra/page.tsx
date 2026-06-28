@@ -38,7 +38,7 @@ function PizarraContent() {
   async function handleLoadLineup(id: number) {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}?action=getAlineacion&id=${id}`
+      `https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=getAlineacion&id=${id}`
     );
 
     const data = await res.json();
