@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLineup } from "@/context/LineupContext";
 import {
   Save,
   RotateCcw,
@@ -18,7 +18,11 @@ const formations = [
 ];
 
 export default function FormationToolbar() {
-  const [selected, setSelected] = useState("4-4-2");
+  const {
+    formation,
+    setFormation,
+    clearLineup,
+  } = useLineup();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-zinc-900 px-6 py-4">
@@ -26,19 +30,17 @@ export default function FormationToolbar() {
       {/* Formaciones */}
       <div className="flex flex-wrap gap-2">
 
-        {formations.map((formation) => (
+        {formations.map((item) => (
           <button
-            key={formation}
-            onClick={() => setSelected(formation)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all
-
-            ${
-              selected === formation
+            key={item}
+            onClick={() => setFormation(item)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+              formation === item
                 ? "bg-white text-black"
                 : "bg-zinc-800 text-white hover:bg-zinc-700"
             }`}
           >
-            {formation}
+            {item}
           </button>
         ))}
 
@@ -47,7 +49,10 @@ export default function FormationToolbar() {
       {/* Acciones */}
       <div className="flex flex-wrap gap-2">
 
-        <button className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white hover:bg-zinc-700">
+        <button
+          onClick={clearLineup}
+          className="flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-white hover:bg-zinc-700"
+        >
           <RotateCcw size={16} />
           Reset
         </button>
