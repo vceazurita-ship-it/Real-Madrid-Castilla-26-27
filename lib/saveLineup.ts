@@ -1,5 +1,4 @@
-const API =
-  process.env.NEXT_PUBLIC_GAS_URL!;
+const API = "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
 export async function saveLineup(data: {
   id?: string;
