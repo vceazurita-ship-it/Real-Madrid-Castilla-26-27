@@ -54,11 +54,24 @@ useEffect(() => {
         bg-center
         bg-no-repeat
       "
-      style={{
-        backgroundImage:
-          "url('/emotional-field-bg.png')",
-      }}
     >
+      <Image
+  src="/emotional-field-bg.png"
+  alt="Campo"
+  fill
+  priority
+  unoptimized
+  className={`
+    absolute
+    inset-0
+    object-cover
+    ${
+      mobile
+        ? "rotate-90 scale-[1.78]"
+        : ""
+    }
+  `}
+/>
       {/* Oscurecer */}
       <div className="absolute inset-0 bg-black/35" />
 
