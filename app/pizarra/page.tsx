@@ -35,7 +35,7 @@ function PizarraContent() {
       String(active.id)
     );
   }
-  async function handleLoadLineup(id: number) {
+async function handleLoadLineup(id: number) {
   try {
     const res = await fetch(
       `https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=getAlineacion&id=${id}`
@@ -43,16 +43,20 @@ function PizarraContent() {
 
     const data = await res.json();
 
+    console.log(data);
+
     if (!data.success) {
       alert("No se pudo cargar la alineación");
       return;
     }
 
     loadLineup(
-      data.formacion,
-      JSON.parse(data.alineacion)
+      data.Sistema,
+      JSON.parse(data.Alineacion)
     );
-  } catch {
+
+  } catch (e) {
+    console.error(e);
     alert("Error al cargar la alineación");
   }
 }

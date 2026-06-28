@@ -111,13 +111,18 @@ export default function PlayerSidebar() {
       {/* LISTADO */}
 
       <div
-        className="
-          flex-1
-          min-h-0
-          overflow-y-auto
-          p-2
-          space-y-1.5
-        "
+         className="
+    flex-1
+    min-h-0
+    overflow-y-auto
+    p-2
+    space-y-1.5
+
+    scrollbar-thin
+    scrollbar-track-transparent
+    scrollbar-thumb-[#C8A96B]/40
+    hover:scrollbar-thumb-[#C8A96B]/70
+  "
       >
         {filteredPlayers.map((player) => (
           <PlayerToken

@@ -181,3 +181,38 @@ animation:sweep 18s linear infinite;
   }
 
 }
+/* ===========================
+   SCROLL PREMIUM RMCF
+=========================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(200,169,107,.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: all .25s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(200,169,107,.75);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+
+*{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200,169,107,.45) transparent;
+}
