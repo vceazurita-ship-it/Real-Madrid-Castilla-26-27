@@ -1,21 +1,16 @@
 "use client";
 
-import { ReactNode } from "react";
 import { useDroppable } from "@dnd-kit/core";
 
-interface PitchPositionProps {
+interface Props {
   id: string;
-  left: string;
-  top: string;
-  children?: ReactNode;
+  children: React.ReactNode;
 }
 
 export default function PitchPosition({
   id,
-  left,
-  top,
   children,
-}: PitchPositionProps) {
+}: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
@@ -23,32 +18,19 @@ export default function PitchPosition({
   return (
     <div
       ref={setNodeRef}
-      className="absolute -translate-x-1/2 -translate-y-1/2"
-      style={{
-        left,
-        top,
-      }}
+      className={`
+        absolute
+        -translate-x-1/2
+        -translate-y-1/2
+        transition-all
+        ${
+          isOver
+            ? "scale-110"
+            : ""
+        }
+      `}
     >
-      <div
-        className={`
-          flex
-          h-20
-          w-20
-          items-center
-          justify-center
-          rounded-full
-          border-2
-          transition-all
-          duration-200
-          ${
-            isOver
-              ? "border-yellow-400 bg-yellow-400/20 scale-110"
-              : "border-white/40 bg-white/5"
-          }
-        `}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
