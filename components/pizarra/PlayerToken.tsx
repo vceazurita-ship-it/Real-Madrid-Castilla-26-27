@@ -116,29 +116,52 @@ export default function PlayerToken({ player }: Props) {
             {player.nombre}
           </div>
 
-          <div className="mt-0.5 flex items-center gap-2">
-            <span
-              className="
-                rounded-full
-                bg-[#C8A96B]/15
-                px-2
-                py-[2px]
-                text-[10px]
-                font-semibold
-                uppercase
-                tracking-wide
-                text-[#E2C38C]
-              "
-            >
-              {player.posicion}
-            </span>
+         <div className="mt-0.5 flex flex-wrap items-center gap-2">
 
-            {player.dorsal && (
-              <span className="text-[11px] font-bold text-white/70">
-                #{player.dorsal}
-              </span>
-            )}
-          </div>
+  <span
+    className="
+      rounded-full
+      bg-[#C8A96B]/15
+      px-2
+      py-[2px]
+      text-[10px]
+      font-semibold
+      uppercase
+      tracking-wide
+      text-[#E2C38C]
+    "
+  >
+    {player.posicion}
+  </span>
+
+  {player.licencia !== "RMCF Castilla" && (
+    <span
+      className={`
+        rounded-full
+        px-2
+        py-[2px]
+        text-[10px]
+        font-bold
+        uppercase
+        tracking-wide
+        ${
+          player.licencia === "RMC"
+            ? "bg-blue-500/20 text-blue-300 border border-blue-400/40"
+            : "bg-purple-500/20 text-purple-300 border border-purple-400/40"
+        }
+      `}
+    >
+      {player.licencia}
+    </span>
+  )}
+
+  {player.dorsal && (
+    <span className="text-[11px] font-bold text-white/70">
+      #{player.dorsal}
+    </span>
+  )}
+
+</div>
         </div>
 
         <div

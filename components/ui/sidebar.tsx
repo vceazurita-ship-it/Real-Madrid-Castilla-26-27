@@ -335,7 +335,23 @@ const navLink = (
 <div>
   {!collapsed && (
     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Pizarra
+      Pizarra Microciclo
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+    {navLink(
+      "/pizarra_microcycle",
+      "Pizarra Microciclo",
+      <Activity size={18} />
+    )}
+
+  </div>
+</div><div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Pizarra Competición
     </p>
   )}
 

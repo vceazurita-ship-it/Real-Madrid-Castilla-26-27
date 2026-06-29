@@ -117,12 +117,13 @@ useEffect(() => {
             <PitchPosition id={position.id}>
               {player ? (
 
- <FieldPlayer
+<FieldPlayer
   id={player.id}
   positionId={position.id}
   foto={player.foto}
   nombre={player.nombre}
   licencia={player.licencia}
+  estado={player.estado}
   mobile={mobile}
 />
 

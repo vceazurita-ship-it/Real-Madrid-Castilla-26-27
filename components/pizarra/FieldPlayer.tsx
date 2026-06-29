@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useLineup } from "@/context/LineupContext";
+import { EstadoJugador } from "@/types/player";
 
 interface Props {
   id: string;
@@ -12,6 +13,7 @@ interface Props {
   nombre: string;
   licencia: string;
   mobile: boolean;
+  estado?: EstadoJugador;
 }
 
 export default function FieldPlayer({
@@ -21,6 +23,7 @@ export default function FieldPlayer({
   nombre,
   licencia,
   mobile,
+  estado = "DISPONIBLE",
 }: Props) {
   const {
     attributes,
@@ -44,6 +47,40 @@ export default function FieldPlayer({
     zIndex: isDragging ? 999 : 1,
   };
 
+  const disabled =
+    estado === "LESIONADO" ||
+    estado === "PRIMER EQUIPO" ||
+    estado === "SELECCIÓN";
+
+  function estadoColor() {
+    switch (estado) {
+      case "LESIONADO":
+        return "bg-red-600 border-red-300";
+
+      case "PRIMER EQUIPO":
+        return "bg-slate-700 border-slate-300";
+
+      case "SELECCIÓN":
+        return "bg-green-600 border-green-300";
+
+      default:
+        return "";
+    }
+  }
+
+  function licenciaColor() {
+    switch (licencia) {
+      case "RMC":
+        return "bg-blue-600 border-blue-300";
+
+      case "JUV A":
+        return "bg-purple-600 border-purple-300";
+
+      default:
+        return "bg-[#C8A96B] border-[#E2C38C]";
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -60,59 +97,91 @@ export default function FieldPlayer({
     >
       <div className="flex flex-col items-center">
 
-        {/* SOLO LA FOTO ES DRAGGABLE */}
         <div
-  {...listeners}
-  {...attributes}
-  className="relative cursor-grab active:cursor-grabbing"
->
+          {...listeners}
+          {...attributes}
+          className="relative cursor-grab active:cursor-grabbing"
+        >
 
-  {licencia !== "RMCF Castilla" && (
-    <div
-      className={`
-        absolute
-        -top-1
-        -right-1
-        z-20
-        rounded-full
-        px-2
-        py-[2px]
-        text-[8px]
-        font-bold
-        leading-none
-        shadow-lg
-        border
-        ${
-          licencia === "RMC"
-            ? "bg-blue-600 border-blue-300 text-white"
-            : "bg-purple-600 border-purple-300 text-white"
-        }
-      `}
-    >
-      {licencia}
-    </div>
-  )}
+          {/* LICENCIA */}
+          {licencia !== "RMCF Castilla" && (
+            <div
+              className={`
+                absolute
+                -top-1
+                -right-1
+                z-30
+                rounded-full
+                border
+                px-2
+                py-[2px]
+                text-[8px]
+                font-bold
+                leading-none
+                text-white
+                shadow-lg
+                ${licenciaColor()}
+              `}
+            >
+              {licencia}
+            </div>
+          )}
 
-  <Image
-    src={foto}
-    alt={nombre}
-    width={mobile ? 48 : 66}
-    height={mobile ? 48 : 66}
-    unoptimized
-    draggable={false}
-    className="
-      rounded-full
-      border-[3px]
-      border-[#C8A96B]
-      object-cover
-      shadow-[0_0_22px_rgba(200,169,107,.45)]
-      transition-all
-      duration-300
-      hover:scale-110
-    "
-  />
+          {/* ESTADO */}
+          {disabled && (
+            <div
+              className={`
+                absolute
+                -bottom-1
+                left-1/2
+                -translate-x-1/2
+                z-30
+                rounded-full
+                border
+                px-2
+                py-[2px]
+                text-[8px]
+                font-bold
+                leading-none
+                text-white
+                shadow-lg
+                ${estadoColor()}
+              `}
+            >
+              {estado === "LESIONADO"
+                ? "LES"
+                : estado === "PRIMER EQUIPO"
+                ? "1º"
+                : "SEL"}
+            </div>
+          )}
 
-</div>
+          <Image
+            src={foto}
+            alt={nombre}
+            width={mobile ? 48 : 66}
+            height={mobile ? 48 : 66}
+            unoptimized
+            draggable={false}
+            className={`
+              rounded-full
+              border-[3px]
+              border-[#C8A96B]
+              object-cover
+              shadow-[0_0_22px_rgba(200,169,107,.45)]
+              transition-all
+              duration-300
+              hover:scale-110
+
+              ${
+                disabled
+                  ? "grayscale opacity-55"
+                  : ""
+              }
+            `}
+          />
+
+        </div>
 
         <div
           className={`
@@ -125,8 +194,12 @@ export default function FieldPlayer({
             px-3
             py-1
             font-semibold
-            text-white
             whitespace-nowrap
+            ${
+              disabled
+                ? "text-white/60"
+                : "text-white"
+            }
             ${mobile ? "text-[9px]" : "text-[11px]"}
           `}
         >
