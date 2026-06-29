@@ -34,7 +34,7 @@ export default function PlayerToken({ player }: Props) {
   };
 
   const selected =
-  selectedPlayer?.id === player.id;
+    selectedPlayer?.id === player.id;
 
   return (
     <div
@@ -43,12 +43,8 @@ export default function PlayerToken({ player }: Props) {
         ...style,
         touchAction: "none",
       }}
-      {...listeners}
-      {...attributes}
       className={`
         group
-        cursor-grab
-        active:cursor-grabbing
         select-none
         rounded-2xl
         border
@@ -79,14 +75,26 @@ export default function PlayerToken({ player }: Props) {
       `}
     >
       <div
-        className="flex items-center gap-3"
+        {...listeners}
+        {...attributes}
+        className="
+          flex
+          items-center
+          gap-3
+          cursor-grab
+          active:cursor-grabbing
+        "
         onClick={(e) => {
           e.stopPropagation();
-  console.log("Seleccionado:", player.nombre);
 
-          setSelectedPlayer(
-  selected ? null : player
-);
+          console.log("Seleccionado:", player.nombre);
+
+          const next =
+            selected ? null : player;
+
+          setSelectedPlayer(next);
+
+          console.log("Después:", next);
         }}
       >
         <Image
@@ -156,8 +164,8 @@ export default function PlayerToken({ player }: Props) {
             border
             border-[#C8A96B]/30
             bg-[#C8A96B]/10
-            text-[#C8A96B]
             text-lg
+            text-[#C8A96B]
             transition-all
             duration-300
             group-hover:bg-[#C8A96B]
