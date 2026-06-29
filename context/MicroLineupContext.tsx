@@ -127,55 +127,28 @@ export function MicroLineupProvider({
   //--------------------------------------------------
 
   function assignPlayer(
-    positionId: string,
-    playerId: string
-  ) {
+  positionId: string,
+  playerId: string
+) {
+  setLineup((current) =>
+    current.map((slot) => {
 
-    const player = players.find(
-      (p) => p.id === playerId
-    );
+      if (slot.positionId !== positionId)
+        return slot;
 
-    if (!player) return;
+      // Si ya está en el grupo, no lo duplica
+      if (slot.playerIds.includes(playerId))
+        return slot;
 
-    setLineup((current) => {
-
-      // Eliminamos al jugador de cualquier grupo anterior
-
-      const cleaned = current.map((slot) => ({
-
+      return {
         ...slot,
+        playerIds: [...slot.playerIds, playerId],
+      };
+    })
+  );
 
-        playerIds: slot.playerIds.filter(
-          (id) => id !== playerId
-        ),
-
-      }));
-
-      // Lo añadimos al nuevo grupo
-
-      return cleaned.map((slot) => {
-
-        if (slot.positionId !== positionId)
-          return slot;
-
-        return {
-
-          ...slot,
-
-          playerIds: [
-            ...slot.playerIds,
-            playerId,
-          ],
-
-        };
-
-      });
-
-    });
-
-    setSelectedPlayer(null);
-
-  }
+  setSelectedPlayer(null);
+}
 
   //--------------------------------------------------
   // Eliminar jugador
