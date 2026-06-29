@@ -77,8 +77,13 @@ export function LineupProvider({
 }: {
   children: ReactNode;
 }) {
-  const [selectedPlayer, setSelectedPlayer] =
+  const [selectedPlayer, _setSelectedPlayer] =
   useState<Player | null>(null);
+
+const setSelectedPlayer = (player: Player | null) => {
+  console.log("SET SELECTED:", player);
+  _setSelectedPlayer(player);
+};
   const [formation, setFormation] = useState(() => {
   if (typeof window === "undefined")
     return "4-4-2";
