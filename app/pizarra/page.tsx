@@ -48,33 +48,28 @@ function handleDragStart(event: DragStartEvent) {
 
   setDragPlayer(player ?? null);
 }
-  function handleDragEnd(event: DragEndEvent) {
+function handleDragEnd(event: DragEndEvent) {
   const { active, over } = event;
-console.log({
-  active: active.id,
-  over: over?.id,
-});
+
   if (!over) return;
 
   const activeId = String(active.id);
   const positionId = String(over.id);
 
-  // Arrastrado desde la lista
+  // Desde el banquillo
   if (activeId.startsWith("bench-")) {
     assignPlayer(
       positionId,
       activeId.replace("bench-", "")
     );
-    return;
   }
 
-  // Arrastrado desde el campo
-  if (activeId.startsWith("field-")) {
+  // Desde el campo
+  else {
     assignPlayer(
       positionId,
-      activeId.replace("field-", "")
+      activeId
     );
-    return;
   }
 }
 async function handleLoadLineup(id: number) {
