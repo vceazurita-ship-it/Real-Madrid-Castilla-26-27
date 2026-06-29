@@ -384,9 +384,9 @@ useEffect(() => {
   
   
   <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-    <h2 className="text-xl font-bold mb-5">
+    <h3 className="mb-4 font-semibold text-[#C8A96B]">
       Estado del Equipo
-    </h2>
+    </h3>
 
     <textarea
       rows={8}
@@ -404,9 +404,9 @@ useEffect(() => {
 
   {/* Claves */}
   <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
-    <h2 className="text-xl font-bold mb-5">
+    <h3 className="mb-4 font-semibold text-[#C8A96B]">
       Claves del Partido
-    </h2>
+    </h3>
 
     <textarea
       rows={8}
@@ -424,9 +424,9 @@ useEffect(() => {
 
   {/* Claves emocionales */}
   <div className="rounded-3xl border border-violet-500/20 bg-violet-500/5 p-6">
-    <h2 className="text-xl font-bold mb-5">
+    <h3 className="mb-4 font-semibold text-[#C8A96B]">
       Claves Emocionales
-    </h2>
+    </h3>
 
     <textarea
       rows={8}
@@ -597,7 +597,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Con Balón <span className="text-white/40"> ✓ Ventaja</span>
+        Con Balón <span className="text-white/40">     ✓ Ventaja</span>
       </h3>
 
       <textarea
@@ -626,7 +626,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Con Balón <span className="text-white/40"> ⚠ Desventaja</span>
+        Con Balón <span className="text-white/40">     ⚠ Desventaja</span>
       </h3>
 
       <textarea
@@ -655,7 +655,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Sin Balón <span className="text-white/40"> ✓ Ventaja</span>
+        Sin Balón <span className="text-white/40">     ✓ Ventaja</span>
       </h3>
 
       <textarea
@@ -684,7 +684,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Sin Balón <span className="text-white/40">⚠ Desventaja</span>
+        Sin Balón <span className="text-white/40">     ⚠ Desventaja</span>
       </h3>
 
       <textarea
