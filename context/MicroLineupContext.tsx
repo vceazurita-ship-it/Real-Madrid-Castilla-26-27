@@ -10,9 +10,9 @@ import {
 } from "react";
 
 import {
-  LineupSlot,
+  MicroLineupSlot,
   Player,
-} from "@/types/player";
+} from "@/types/MicroPlayer";
 
 import { microFormation } from "@/lib/microFormation";
 import { usePlayers } from "@/hooks/usePlayers";
@@ -20,7 +20,7 @@ import { usePlayers } from "@/hooks/usePlayers";
 const STORAGE_KEY = "rmcf-castilla-micro";
 
 interface MicroLineupContextType {
-  lineup: LineupSlot[];
+  lineup: MicroLineupSlot[];
 
   formation: string;
 
@@ -47,17 +47,18 @@ interface MicroLineupContextType {
 
   loadLineup: (
     formation: string,
-    lineup: LineupSlot[]
+    lineup: MicroLineupSlot[]
   ) => void;
 
   getPlayerPosition: (
     positionId: string
-  ) => LineupSlot | undefined;
+  ) => MicroLineupSlot | undefined;
 }
-function createLineup(): LineupSlot[] {
+
+function createLineup(): MicroLineupSlot[] {
   return microFormation.map((position) => ({
     positionId: position.id,
-    playerId: null,
+    playerIds: [],
   }));
 }
 
@@ -71,6 +72,7 @@ export function MicroLineupProvider({
 }: {
   children: ReactNode;
 }) {
+
   const { players } = usePlayers();
 
   const [
@@ -83,14 +85,18 @@ export function MicroLineupProvider({
   ) => {
     _setSelectedPlayer(player);
   };
-const [formation, setFormation] =
-  useState("Micro");
+
+  const [formation, setFormation] =
+    useState("Micro");
+
   const [lineup, setLineup] =
-    useState<LineupSlot[]>(() => {
+    useState<MicroLineupSlot[]>(() => {
+
       if (typeof window === "undefined")
         return createLineup();
 
       try {
+
         const saved =
           localStorage.getItem(STORAGE_KEY);
 
@@ -98,21 +104,33 @@ const [formation, setFormation] =
           return createLineup();
 
         return JSON.parse(saved);
+
       } catch {
+
         return createLineup();
+
       }
+
     });
 
   useEffect(() => {
+
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify(lineup)
     );
+
   }, [lineup]);
-    function assignPlayer(
+
+  //--------------------------------------------------
+  // Añadir jugador al grupo
+  //--------------------------------------------------
+
+  function assignPlayer(
     positionId: string,
     playerId: string
   ) {
+
     const player = players.find(
       (p) => p.id === playerId
     );
@@ -120,121 +138,135 @@ const [formation, setFormation] =
     if (!player) return;
 
     setLineup((current) => {
-      const origin = current.find(
-        (slot) => slot.playerId === playerId
-      );
 
-      const destination = current.find(
-        (slot) => slot.positionId === positionId
-      );
+      // Eliminamos al jugador de cualquier grupo anterior
 
-      if (!destination) return current;
+      const cleaned = current.map((slot) => ({
 
-      const destinationPlayer = players.find(
-        (p) => p.id === destination.playerId
-      );
+        ...slot,
 
-      // Desde el banquillo
-      if (!origin) {
-        return current.map((slot) => {
-          if (slot.positionId === positionId) {
-            return {
-              ...slot,
-              playerId,
-            };
-          }
+        playerIds: slot.playerIds.filter(
+          (id) => id !== playerId
+        ),
 
-          if (slot.playerId === playerId) {
-            return {
-              ...slot,
-              playerId: null,
-            };
-          }
+      }));
 
+      // Lo añadimos al nuevo grupo
+
+      return cleaned.map((slot) => {
+
+        if (slot.positionId !== positionId)
           return slot;
-        });
-      }
 
-      // Intercambio
-      return current.map((slot) => {
-        if (slot.positionId === positionId) {
-          return {
-            ...slot,
+        return {
+
+          ...slot,
+
+          playerIds: [
+            ...slot.playerIds,
             playerId,
-          };
-        }
+          ],
 
-        if (slot.positionId === origin.positionId) {
-          return {
-            ...slot,
-            playerId:
-              destinationPlayer?.id ?? null,
-          };
-        }
+        };
 
-        return slot;
       });
+
     });
 
     setSelectedPlayer(null);
+
   }
+
+  //--------------------------------------------------
+  // Eliminar jugador
+  //--------------------------------------------------
 
   function removePlayer(
     playerId: string
   ) {
+
     setLineup((current) =>
-      current.map((slot) =>
-        slot.playerId === playerId
-          ? {
-              ...slot,
-              playerId: null,
-            }
-          : slot
-      )
+
+      current.map((slot) => ({
+
+        ...slot,
+
+        playerIds: slot.playerIds.filter(
+          (id) => id !== playerId
+        ),
+
+      }))
+
     );
+
   }
 
+  //--------------------------------------------------
+
   function clearLineup() {
+
     setLineup(createLineup());
+
   }
-function loadLineup(
-  newFormation: string,
-  newLineup: LineupSlot[]
-) {
-  setFormation(newFormation);
-  setLineup(newLineup);
-}
+
+  //--------------------------------------------------
+
+  function loadLineup(
+    newFormation: string,
+    newLineup: MicroLineupSlot[]
+  ) {
+
+    setFormation(newFormation);
+
+    setLineup(newLineup);
+
+  }
+
+  //--------------------------------------------------
+
   function getPlayerPosition(
     positionId: string
   ) {
+
     return lineup.find(
       (slot) =>
         slot.positionId === positionId
     );
+
   }
 
-const value = useMemo(
-  () => ({
-    lineup,
+  //--------------------------------------------------
 
-    formation,
-    setFormation,
+  const value = useMemo(
+    () => ({
 
-    selectedPlayer,
-    setSelectedPlayer,
+      lineup,
 
-    assignPlayer,
-    removePlayer,
-    clearLineup,
-    loadLineup,
-    getPlayerPosition,
-  }),
-  [
-    lineup,
-    formation,
-    selectedPlayer,
-  ]
-);
+      formation,
+
+      setFormation,
+
+      selectedPlayer,
+
+      setSelectedPlayer,
+
+      assignPlayer,
+
+      removePlayer,
+
+      clearLineup,
+
+      loadLineup,
+
+      getPlayerPosition,
+
+    }),
+    [
+      lineup,
+      formation,
+      selectedPlayer,
+    ]
+  );
 
   return (
     <MicroLineupContext.Provider
@@ -243,17 +275,22 @@ const value = useMemo(
       {children}
     </MicroLineupContext.Provider>
   );
+
 }
 
 export function useMicroLineup() {
+
   const context =
     useContext(MicroLineupContext);
 
   if (!context) {
+
     throw new Error(
       "useMicroLineup debe utilizarse dentro de MicroLineupProvider"
     );
+
   }
 
   return context;
+
 }

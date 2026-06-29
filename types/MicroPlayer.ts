@@ -30,7 +30,7 @@ export interface Player {
 /**
  * Una posición puede contener varios jugadores.
  */
-export interface LineupSlot {
+export interface MicroLineupSlot {
   positionId: string;
   playerIds: string[];
 } 

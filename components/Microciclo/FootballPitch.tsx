@@ -8,10 +8,10 @@ import {
   useState,
 } from "react";
 import { usePlayers } from "@/hooks/usePlayers";
-import { useLineup } from "@/context/LineupContext";
+import { useMicroLineup } from "@/context/MicroLineupContext";
+import MicroGroup from "./MicroGroup";
 import PitchPosition from "./PitchPosition";
 import { formations } from "@/lib/formations";
-import FieldPlayer from "./FieldPlayer";
 
 const FootballPitch = forwardRef<
   HTMLDivElement,
@@ -22,7 +22,7 @@ const FootballPitch = forwardRef<
   const {
   lineup,
   formation,
-} = useLineup();
+} = useMicroLineup();
 
   const currentFormation =
     formations[
@@ -98,10 +98,10 @@ useEffect(() => {
             s.positionId === position.id
         );
 
-        const player = players.find(
-          (p) =>
-            p.id === slot?.playerId
-        );
+        const groupPlayers =
+  players.filter((player) =>
+    slot?.playerIds.includes(player.id)
+  );
 
         return (
           <div
@@ -115,15 +115,11 @@ useEffect(() => {
 }}
           >
             <PitchPosition id={position.id}>
-              {player ? (
+             {groupPlayers.length > 0 ? (
 
-<FieldPlayer
-  id={player.id}
+<MicroGroup
+  players={groupPlayers}
   positionId={position.id}
-  foto={player.foto}
-  nombre={player.nombre}
-  licencia={player.licencia}
-  estado={player.estado}
   mobile={mobile}
 />
 
