@@ -505,11 +505,10 @@ resize-none
     mb-8
   "
 >
-
-  <div className="grid lg:grid-cols-4 gap-6">
 <h2 className="text-2xl font-bold mb-8">
     Duelos
   </h2>
+  <div className="grid lg:grid-cols-4 gap-6">
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
