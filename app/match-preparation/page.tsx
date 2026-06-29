@@ -511,7 +511,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Con Balón <span className="text-white/40">✓ Ventaja</span>
+        Con Balón <span className="text-white/40"> ✓ Ventaja</span>
       </h3>
 
       <textarea
@@ -526,7 +526,6 @@ resize-none
         }
         className="
           w-full
-          min-h-[320px]
           rounded-2xl
           bg-white/5
           border
@@ -541,7 +540,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Con Balón <span className="text-white/40">⚠ Desventaja</span>
+        Con Balón <span className="text-white/40"> ⚠ Desventaja</span>
       </h3>
 
       <textarea
@@ -556,7 +555,6 @@ resize-none
         }
         className="
           w-full
-          min-h-[320px]
           rounded-2xl
           bg-white/5
           border
@@ -571,7 +569,7 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Sin Balón <span className="text-white/40">✓ Ventaja</span>
+        Sin Balón <span className="text-white/40"> ✓ Ventaja</span>
       </h3>
 
       <textarea
@@ -586,7 +584,6 @@ resize-none
         }
         className="
           w-full
-          min-h-[320px]
           rounded-2xl
           bg-white/5
           border
@@ -616,7 +613,6 @@ resize-none
         }
         className="
           w-full
-          min-h-[320px]
           rounded-2xl
           bg-white/5
           border
@@ -632,88 +628,92 @@ resize-none
 
 </section>
 
-<section
-className="
-rounded-3xl
-border
-border-white/10
-bg-white/5
-p-8
-mb-8
-">
+<section className="rounded-3xl border border-white/10 bg-white/5 p-8 mb-8">
 
-<h2 className="text-2xl font-bold mb-8">
-Rival
-</h2>
-<div className="grid lg:grid-cols-2 gap-6 mb-8">
+  <h2 className="text-2xl font-bold mb-8">
+    Rival
+  </h2>
 
-  
-    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-      Fortalezas
-    </h3>
+  <div className="grid lg:grid-cols-2 gap-6">
 
-    <ul className="mt-6 space-y-3 text-white/80 leading-7">
-      {rivalActivo?.FORTALEZAS
-        ?.split(";")
-        ?.map((item: string) => (
-          <li key={item}>
-            • {item}
-          </li>
+    {/* Fortalezas */}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+
+      <h3 className="text-[#C8A96B] font-semibold mb-4">
+        Fortalezas
+      </h3>
+
+      <ul className="space-y-3 text-white/80 leading-7">
+        {rivalActivo?.FORTALEZAS?.split(";").map((item:string)=>(
+          <li key={item}>• {item}</li>
         ))}
-    </ul>
+      </ul>
 
-    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-      Debilidades
-    </h3>
+    </div>
 
-    <ul className="mt-6 space-y-3 text-white/80 leading-7">
-      {rivalActivo?.DEBILIDADES
-        ?.split(";")
-        ?.map((item: string) => (
-          <li key={item}>
-            • {item}
-          </li>
+    {/* Debilidades */}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+
+      <h3 className="text-[#C8A96B] font-semibold mb-4">
+        Debilidades
+      </h3>
+
+      <ul className="space-y-3 text-white/80 leading-7">
+        {rivalActivo?.DEBILIDADES?.split(";").map((item:string)=>(
+          <li key={item}>• {item}</li>
         ))}
-    </ul>
+      </ul>
 
-</div>
-<div className="grid lg:grid-cols-2 gap-6 mb-8">
+    </div>
 
-    <h2 className="text-xl font-bold mb-5">
-      Estructuras Ofensivas
-    </h2>
+    {/* Estructuras Ofensivas */}
 
-    <textarea
-      rows={4}
-      value={rivalActivo?.ESTRUCTURA_OF || ""}
-      readOnly={!modoEdicion}
-      onChange={(e)=>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTRUCTURA_OF:e.target.value
-        })
-      }
-      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
-    />
-  
-    <h2 className="text-xl font-bold mb-5">
-      Estructuras Defensivas
-    </h2>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
 
-    <textarea
-      rows={4}
-      value={rivalActivo?.ESTRUCTURA_DEF || ""}
-      readOnly={!modoEdicion}
-      onChange={(e)=>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTRUCTURA_DEF:e.target.value
-        })
-      }
-      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
-    />
+      <h3 className="text-[#C8A96B] font-semibold mb-4">
+        Estructuras Ofensivas
+      </h3>
 
-</div>
+      <textarea
+        rows={4}
+        value={rivalActivo?.ESTRUCTURA_OF || ""}
+        readOnly={!modoEdicion}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            ESTRUCTURA_OF:e.target.value
+          })
+        }
+        className="w-full rounded-xl bg-white/5 border border-white/10 p-4"
+      />
+
+    </div>
+
+    {/* Estructuras Defensivas */}
+
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+
+      <h3 className="text-[#C8A96B] font-semibold mb-4">
+        Estructuras Defensivas
+      </h3>
+
+      <textarea
+        rows={4}
+        value={rivalActivo?.ESTRUCTURA_DEF || ""}
+        readOnly={!modoEdicion}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            ESTRUCTURA_DEF:e.target.value
+          })
+        }
+        className="w-full rounded-xl bg-white/5 border border-white/10 p-4"
+      />
+
+    </div>
+
+  </div>
+
 </section>
 
 <section className="rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8 hover:shadow-2xl hover:border-[#C8A96B]/40 transition-all duration-300">
