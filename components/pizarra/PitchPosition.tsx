@@ -28,7 +28,7 @@ export default function PitchPosition({
 
   const handleClick = () => {
      console.log("CLICK");
-  console.log(selectedPlayer);
+  console.log(selectedPlayer); 
 
     if (!selectedPlayer) return;
 
