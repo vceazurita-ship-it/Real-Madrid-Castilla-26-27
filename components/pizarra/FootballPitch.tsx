@@ -19,7 +19,10 @@ const FootballPitch = forwardRef<
 >(function FootballPitch(_, ref) {
   const { players } = usePlayers();
 
-  const { lineup, formation } = useLineup();
+  const {
+  lineup,
+  formation,
+} = useLineup();
 
   const currentFormation =
     formations[
@@ -115,7 +118,7 @@ useEffect(() => {
               {player ? (
 
   <FieldPlayer
-  id={`field-${player.id}`}
+  id={player.id}
   foto={player.foto}
   nombre={player.nombre}
   mobile={mobile}

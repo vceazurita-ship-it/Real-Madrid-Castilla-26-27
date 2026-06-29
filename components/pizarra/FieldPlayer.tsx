@@ -25,7 +25,7 @@ export default function FieldPlayer({
     transform,
     isDragging,
   } = useDraggable({
-    id: `field-${id}`,
+    id,
   });
 
   const style = {

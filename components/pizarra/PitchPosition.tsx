@@ -26,13 +26,13 @@ export default function PitchPosition({
     setSelectedPlayer,
   } = useLineup();
 
-  function handleClick() {
+  const handleClick = () => {
     if (!selectedPlayer) return;
 
     assignPlayer(id, selectedPlayer.id);
 
     setSelectedPlayer(null);
-  }
+  };
 
   return (
     <div
@@ -45,13 +45,20 @@ export default function PitchPosition({
 
         ${
           selectedPlayer
-            ? "ring-2 ring-[#C8A96B]/40 rounded-full"
+            ? `
+              ring-2
+              ring-[#C8A96B]/40
+              rounded-full
+            `
             : ""
         }
 
         ${
           isOver
-            ? "scale-110 drop-shadow-[0_0_20px_rgba(250,204,21,.8)]"
+            ? `
+              scale-110
+              drop-shadow-[0_0_20px_rgba(250,204,21,.8)]
+            `
             : ""
         }
       `}
