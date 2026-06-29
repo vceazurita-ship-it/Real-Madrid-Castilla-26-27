@@ -5,16 +5,34 @@ import {
   useContext,
   useMemo,
   useState,
+  useEffect,
   ReactNode,
 } from "react";
 
-interface Slot {
-  positionId: string;
-  playerId: string | null;
-}
+import {
+  LineupSlot,
+  Player,
+} from "@/types/player";
 
-interface ContextType {
-  lineup: Slot[];
+import { microFormation } from "@/lib/microFormation";
+import { usePlayers } from "@/hooks/usePlayers";
+
+const STORAGE_KEY = "rmcf-castilla-micro";
+
+interface MicroLineupContextType {
+  lineup: LineupSlot[];
+
+  formation: string;
+
+  selectedPlayer: Player | null;
+
+  setSelectedPlayer: (
+    player: Player | null
+  ) => void;
+
+  setFormation: (
+    formation: string
+  ) => void;
 
   assignPlayer: (
     positionId: string,
@@ -26,45 +44,118 @@ interface ContextType {
   ) => void;
 
   clearLineup: () => void;
+
+  loadLineup: (
+    formation: string,
+    lineup: LineupSlot[]
+  ) => void;
+
+  getPlayerPosition: (
+    positionId: string
+  ) => LineupSlot | undefined;
+}
+function createLineup(): LineupSlot[] {
+  return microFormation.map((position) => ({
+    positionId: position.id,
+    playerId: null,
+  }));
 }
 
-const initialLineup: Slot[] = [
-  { positionId: "POR", playerId: null },
-
-  { positionId: "LD", playerId: null },
-  { positionId: "DFC1", playerId: null },
-  { positionId: "DFC2", playerId: null },
-  { positionId: "LI", playerId: null },
-
-  { positionId: "MCD", playerId: null },
-  { positionId: "MCI", playerId: null },
-  { positionId: "MCO", playerId: null },
-  { positionId: "EI", playerId: null },
-
-  { positionId: "DC1", playerId: null },
-  { positionId: "DC2", playerId: null },
-];
-
 const MicroLineupContext =
-  createContext<ContextType | null>(null);
+  createContext<MicroLineupContextType | null>(
+    null
+  );
 
 export function MicroLineupProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  const [lineup, setLineup] =
-    useState(initialLineup);
+  const { players } = usePlayers();
 
-  function assignPlayer(
+  const [
+    selectedPlayer,
+    _setSelectedPlayer,
+  ] = useState<Player | null>(null);
+
+  const setSelectedPlayer = (
+    player: Player | null
+  ) => {
+    _setSelectedPlayer(player);
+  };
+const [formation, setFormation] =
+  useState("Micro");
+  const [lineup, setLineup] =
+    useState<LineupSlot[]>(() => {
+      if (typeof window === "undefined")
+        return createLineup();
+
+      try {
+        const saved =
+          localStorage.getItem(STORAGE_KEY);
+
+        if (!saved)
+          return createLineup();
+
+        return JSON.parse(saved);
+      } catch {
+        return createLineup();
+      }
+    });
+
+  useEffect(() => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(lineup)
+    );
+  }, [lineup]);
+    function assignPlayer(
     positionId: string,
     playerId: string
   ) {
+    const player = players.find(
+      (p) => p.id === playerId
+    );
+
+    if (!player) return;
+
     setLineup((current) => {
       const origin = current.find(
-        (s) => s.playerId === playerId
+        (slot) => slot.playerId === playerId
       );
 
+      const destination = current.find(
+        (slot) => slot.positionId === positionId
+      );
+
+      if (!destination) return current;
+
+      const destinationPlayer = players.find(
+        (p) => p.id === destination.playerId
+      );
+
+      // Desde el banquillo
+      if (!origin) {
+        return current.map((slot) => {
+          if (slot.positionId === positionId) {
+            return {
+              ...slot,
+              playerId,
+            };
+          }
+
+          if (slot.playerId === playerId) {
+            return {
+              ...slot,
+              playerId: null,
+            };
+          }
+
+          return slot;
+        });
+      }
+
+      // Intercambio
       return current.map((slot) => {
         if (slot.positionId === positionId) {
           return {
@@ -73,22 +164,24 @@ export function MicroLineupProvider({
           };
         }
 
-        if (
-          origin &&
-          slot.positionId === origin.positionId
-        ) {
+        if (slot.positionId === origin.positionId) {
           return {
             ...slot,
-            playerId: null,
+            playerId:
+              destinationPlayer?.id ?? null,
           };
         }
 
         return slot;
       });
     });
+
+    setSelectedPlayer(null);
   }
 
-  function removePlayer(playerId: string) {
+  function removePlayer(
+    playerId: string
+  ) {
     setLineup((current) =>
       current.map((slot) =>
         slot.playerId === playerId
@@ -102,34 +195,65 @@ export function MicroLineupProvider({
   }
 
   function clearLineup() {
-    setLineup(initialLineup);
+    setLineup(createLineup());
+  }
+function loadLineup(
+  newFormation: string,
+  newLineup: LineupSlot[]
+) {
+  setFormation(newFormation);
+  setLineup(newLineup);
+}
+  function getPlayerPosition(
+    positionId: string
+  ) {
+    return lineup.find(
+      (slot) =>
+        slot.positionId === positionId
+    );
   }
 
-  const value = useMemo(
-    () => ({
-      lineup,
-      assignPlayer,
-      removePlayer,
-      clearLineup,
-    }),
-    [lineup]
-  );
+const value = useMemo(
+  () => ({
+    lineup,
+
+    formation,
+    setFormation,
+
+    selectedPlayer,
+    setSelectedPlayer,
+
+    assignPlayer,
+    removePlayer,
+    clearLineup,
+    loadLineup,
+    getPlayerPosition,
+  }),
+  [
+    lineup,
+    formation,
+    selectedPlayer,
+  ]
+);
 
   return (
-    <MicroLineupContext.Provider value={value}>
+    <MicroLineupContext.Provider
+      value={value}
+    >
       {children}
     </MicroLineupContext.Provider>
   );
 }
 
 export function useMicroLineup() {
-  const ctx = useContext(MicroLineupContext);
+  const context =
+    useContext(MicroLineupContext);
 
-  if (!ctx) {
+  if (!context) {
     throw new Error(
       "useMicroLineup debe utilizarse dentro de MicroLineupProvider"
     );
   }
 
-  return ctx;
+  return context;
 }

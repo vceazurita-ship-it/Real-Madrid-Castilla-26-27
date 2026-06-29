@@ -1,99 +1,137 @@
 "use client";
 
-import { useMemo } from "react";
+import { Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { usePlayers } from "@/hooks/usePlayers";
-import { useMicroLineup } from "@/context/MicroLineupContext";
+import PlayerToken from "./MicroPlayerToken";
 
-import MicroPlayer from "./MicroPlayer";
-
-export default function MicroPlayerSidebar() {
+export default function PlayerSidebar() {
   const { players } = usePlayers();
 
-  const { lineup } = useMicroLineup();
+  const [search, setSearch] = useState("");
 
-  const availablePlayers = useMemo(() => {
-    return players.filter(
-      (player) =>
-        !lineup.some(
-          (slot) => slot.playerId === player.id
-        )
+  const filteredPlayers = useMemo(() => {
+    return players.filter((player) =>
+      player.nombre
+        .toLowerCase()
+        .includes(search.toLowerCase())
     );
-  }, [players, lineup]);
-
-  const grouped = useMemo(
-    () => ({
-      Porteros: availablePlayers.filter(
-        (p) => p.posicion === "Portero"
-      ),
-
-      Defensa: availablePlayers.filter((p) =>
-        ["LATERAL D.", "LATERAL I.", "CENTRAL"].includes(
-          p.posicion
-        )
-      ),
-
-      Centro: availablePlayers.filter((p) =>
-        ["6", "8", "10"].includes(
-          p.posicion
-        )
-      ),
-
-      Ataque: availablePlayers.filter((p) =>
-        ["7", "11", "9"].includes(
-          p.posicion
-        )
-      ),
-    }),
-    [availablePlayers]
-  );
+  }, [players, search]);
 
   return (
     <div
       className="
+        flex
         h-full
-        overflow-y-auto
-        rounded-2xl
-        border
-        border-[#C8A96B]/15
-        bg-[#11161D]/90
-        p-4
+        max-h-[calc(100vh-260px)]
+        flex-col
+        overflow-hidden
+        bg-[#11161D]
       "
     >
-      <h2 className="mb-4 text-lg font-semibold text-white">
-        Jugadores
-      </h2>
+      {/* CABECERA */}
 
-      {Object.entries(grouped).map(
-        ([title, list]) => (
-          <div key={title} className="mb-8">
-            <h3
-              className="
-                mb-3
-                border-b
-                border-[#C8A96B]/20
-                pb-2
-                text-sm
-                font-bold
-                uppercase
-                tracking-widest
-                text-[#C8A96B]
-              "
-            >
-              {title}
-            </h3>
+      <div
+        className="
+          sticky
+          top-0
+          z-20
+          shrink-0
+          border-b
+          border-[#C8A96B]/15
+          bg-[#11161D]
+          p-4
+        "
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">
+              Plantilla
+            </h2>
 
-            <div className="space-y-5">
-              {list.map((player) => (
-                <MicroPlayer
-                  key={player.id}
-                  player={player}
-                />
-              ))}
-            </div>
+            <p className="text-xs uppercase tracking-[0.18em] text-white/45">
+              {players.length} jugadores
+            </p>
           </div>
-        )
-      )}
+
+          <div
+            className="
+              rounded-full
+              bg-[#C8A96B]/15
+              px-3
+              py-1
+              text-xs
+              font-semibold
+              text-[#C8A96B]
+            "
+          >
+            STAFF
+          </div>
+        </div>
+
+        {/* BUSCADOR */}
+
+        <div className="relative mt-4">
+          <Search
+            size={15}
+            className="
+              absolute
+              left-3
+              top-1/2
+              -translate-y-1/2
+              text-white/40
+            "
+          />
+
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar jugador..."
+            className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-[#1A222C]
+              py-2
+              pl-9
+              pr-3
+              text-sm
+              text-white
+              outline-none
+              transition-all
+              placeholder:text-white/35
+              focus:border-[#C8A96B]/60
+            "
+          />
+        </div>
+      </div>
+
+      {/* LISTADO */}
+
+      <div
+  className="
+    flex-1
+    min-h-0
+    overflow-y-auto
+    touch-pan-y
+    p-2
+    space-y-1.5
+
+    scrollbar-thin
+    scrollbar-track-transparent
+    scrollbar-thumb-[#C8A96B]/40
+    hover:scrollbar-thumb-[#C8A96B]/70
+  "
+      >
+        {filteredPlayers.map((player) => (
+          <PlayerToken
+            key={player.id}
+            player={player}
+          />
+        ))}
+      </div>
     </div>
   );
 }

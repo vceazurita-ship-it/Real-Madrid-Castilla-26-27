@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { useLineup } from "@/context/LineupContext";
 import { EstadoJugador } from "@/types/player";
-import { useMicroLineup } from "@/context/MicroLineupContext";
 
 interface Props {
   id: string;
@@ -16,7 +16,7 @@ interface Props {
   estado?: EstadoJugador;
 }
 
-export default function MicroPlayer({
+export default function FieldPlayer({
   id,
   positionId,
   foto,
@@ -39,7 +39,7 @@ export default function MicroPlayer({
     selectedPlayer,
     assignPlayer,
     setSelectedPlayer,
-  } = useMicroLineup();
+  } = useLineup();
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -172,6 +172,7 @@ export default function MicroPlayer({
               transition-all
               duration-300
               hover:scale-110
+
               ${
                 disabled
                   ? "grayscale opacity-55"
