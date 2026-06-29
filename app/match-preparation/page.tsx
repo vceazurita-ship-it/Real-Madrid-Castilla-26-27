@@ -228,118 +228,76 @@ useEffect(() => {
   Estrategia operativa.
 </p>
           </div>
+{/* BOTONES */}
 <div className="flex justify-end gap-4 mb-6">
 
- {modoEdicion && (
-
-  <button
-    disabled={guardando}
-    onClick={guardarTodo}
-    className="
-rounded-xl
-bg-[#C8A96B]
-px-6
-py-3
-font-semibold
-text-black
-hover:opacity-90
-transition
-disabled:opacity-50
-"
-  >
-    {guardando ? (
-
-<div className="flex items-center gap-2">
-
-<div className="
-animate-spin
-h-5
-w-5
-rounded-full
-border-2
-border-white
-border-t-transparent
-"/>
-
-<span>Guardando...</span>
-
-</div>
-
-) : (
-
-"Guardar Cambios"
-
-)}
-  </button>
-
-)}
+  {modoEdicion && (
+    <button
+      disabled={guardando}
+      onClick={guardarTodo}
+      className="rounded-xl bg-[#C8A96B] px-6 py-3 font-semibold text-black"
+    >
+      {guardando ? "Guardando..." : "Guardar cambios"}
+    </button>
+  )}
 
   <button
     onClick={() => setModoEdicion(!modoEdicion)}
-    className="
-rounded-xl
-border
-border-[#C8A96B]
-px-6
-py-3
-font-semibold
-text-[#C8A96B]
-hover:bg-[#C8A96B]/10
-tran
-"
+    className="rounded-xl border border-[#C8A96B] px-6 py-3 text-[#C8A96B]"
   >
-    {modoEdicion ? "Cancelar" : "Editar Informe"}
+    {modoEdicion ? "Cancelar" : "Editar informe"}
   </button>
+
+</div>
+
+{/* SELECT */}
 
 <div className="mb-8">
 
-  <select
+<select
     value={rivalActivo?.ID || ""}
-    onChange={(e) => {
+    onChange={(e)=>{
 
-      const rival = rivales.find(
-        r => String(r.ID) === e.target.value
-      )
+        const rival=rivales.find(
+            r=>String(r.ID)===e.target.value
+        );
 
-      setRivalActivo(rival)
+        setRivalActivo(rival);
+
     }}
     className="
-      w-full
-      rounded-2xl
-      border
-      border-white/10
-     bg-[#111827]
-text-lg
-font-semibold
-shadow-lg
-border-white/5
-      px-4
-      py-4
-      text-white
-      focus:ring-2
-focus:ring-[#C8A96B]
-transition
+        w-full
+        rounded-2xl
+        bg-[#111827]
+        border
+        border-white/10
+        px-5
+        py-4
+        text-lg
+        font-semibold
+        text-white
+        focus:ring-2
+        focus:ring-[#C8A96B]
     "
-  >
-
-    {rivales.map((r) => (
-
-      <option
-  key={r.ID}
-  value={r.ID}
 >
-  {String(r.JORNADA).padStart(2, "0")}. {r.EQUIPO}
+
+{rivales.map((r)=>(
+
+<option key={r.ID} value={r.ID}>
+{String(r.JORNADA).padStart(2,"0")}. {r.EQUIPO}
 </option>
 
-    ))}
+))}
 
-  </select>
-
-</div>
+</select>
 
 </div>
+
+<div className="grid lg:grid-cols-3 gap-6 mb-8">
+
   {/* Estado */}
-  <div className="grid lg:grid-cols-3 gap-6 mb-8">
+  
+  
   <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
     <h2 className="text-xl font-bold mb-5">
       Estado del Equipo
@@ -357,7 +315,7 @@ transition
       }
       className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
     />
-  </div></div>
+  </div>
 
   {/* Claves */}
   <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
@@ -397,6 +355,8 @@ transition
       }
       className="w-full rounded-2xl bg-white/5 border border-violet-500/20 p-4"
     />
+  </div>
+
   </div>
 <section
 className="
@@ -533,6 +493,7 @@ resize-none
 </div>
 </div>
 </section>
+
 <section
   className="
     rounded-3xl
@@ -550,11 +511,11 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Con Balón <span className="text-white/40">· VENTAJA</span>
+        Con Balón <span className="text-white/40">✓ Ventaja</span>
       </h3>
 
       <textarea
-        rows={10}
+        rows={5}
         value={rivalActivo?.DUELOS_CB_FAVOR || ""}
         readOnly={!modoEdicion}
         onChange={(e)=>
@@ -580,11 +541,11 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Con Balón <span className="text-white/40">· DESVENTAJA</span>
+        Con Balón <span className="text-white/40">⚠ Desventaja</span>
       </h3>
 
       <textarea
-        rows={10}
+        rows={5}
         value={rivalActivo?.DUELOS_CB_CONTRA || ""}
         readOnly={!modoEdicion}
         onChange={(e)=>
@@ -610,11 +571,11 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Sin Balón <span className="text-white/40">· VENTAJA</span>
+        Sin Balón <span className="text-white/40">✓ Ventaja</span>
       </h3>
 
       <textarea
-        rows={10}
+        rows={5}
         value={rivalActivo?.DUELOS_SB_FAVOR || ""}
         readOnly={!modoEdicion}
         onChange={(e)=>
@@ -640,11 +601,11 @@ resize-none
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
-        Sin Balón <span className="text-white/40">· DESVENTAJA</span>
+        Sin Balón <span className="text-white/40">⚠ Desventaja</span>
       </h3>
 
       <textarea
-        rows={10}
+        rows={5}
         value={rivalActivo?.DUELOS_SB_CONTRA || ""}
         readOnly={!modoEdicion}
         onChange={(e)=>
@@ -670,6 +631,7 @@ resize-none
   </div>
 
 </section>
+
 <section
 className="
 rounded-3xl
@@ -685,23 +647,7 @@ Rival
 </h2>
 <div className="grid lg:grid-cols-2 gap-6 mb-8">
 
-  <div
-    className="
-      rounded-3xl
-      border
-      border-white/10
-      bg-gradient-to-br
-      from-white/[0.05]
-      to-white/[0.02]
-      p-6
-      hover:border-red-400/40
-      transition-all
-      duration-300
-    "
-  >
-    <h2 className="text-2xl font-bold mb-8">
-Rival
-</h2>
+  
     <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
       Fortalezas
     </h3>
@@ -715,23 +661,6 @@ Rival
           </li>
         ))}
     </ul>
-
-  </div>
-
-  <div
-    className="
-      rounded-3xl
-      border
-      border-white/10
-      bg-gradient-to-br
-      from-white/[0.05]
-      to-white/[0.02]
-      p-6
-      hover:border-red-400/40
-      transition-all
-      duration-300
-    "
-  >
 
     <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
       Debilidades
@@ -747,12 +676,9 @@ Rival
         ))}
     </ul>
 
-  </div>
-
 </div>
 <div className="grid lg:grid-cols-2 gap-6 mb-8">
 
-  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
     <h2 className="text-xl font-bold mb-5">
       Estructuras Ofensivas
     </h2>
@@ -769,9 +695,7 @@ Rival
       }
       className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
     />
-  </div>
-
-  <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
+  
     <h2 className="text-xl font-bold mb-5">
       Estructuras Defensivas
     </h2>
@@ -788,11 +712,10 @@ Rival
       }
       className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
     />
-  </div>
-  
 
 </div>
 </section>
+
 <section className="rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8 hover:shadow-2xl hover:border-[#C8A96B]/40 transition-all duration-300">
 
 <div className="flex justify-between items-center mb-8">
