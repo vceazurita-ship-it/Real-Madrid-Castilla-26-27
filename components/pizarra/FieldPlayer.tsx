@@ -6,10 +6,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { useLineup } from "@/context/LineupContext";
 
 interface Props {
-  id: string;          // jugador
-  positionId: string;  // posición
+  id: string;
+  positionId: string;
   foto: string;
   nombre: string;
+  licencia: string;
   mobile: boolean;
 }
 
@@ -18,6 +19,7 @@ export default function FieldPlayer({
   positionId,
   foto,
   nombre,
+  licencia,
   mobile,
 }: Props) {
   const {
@@ -60,29 +62,57 @@ export default function FieldPlayer({
 
         {/* SOLO LA FOTO ES DRAGGABLE */}
         <div
-          {...listeners}
-          {...attributes}
-          className="cursor-grab active:cursor-grabbing"
-        >
-          <Image
-            src={foto}
-            alt={nombre}
-            width={mobile ? 48 : 66}
-            height={mobile ? 48 : 66}
-            unoptimized
-            draggable={false}
-            className="
-              rounded-full
-              border-[3px]
-              border-[#C8A96B]
-              object-cover
-              shadow-[0_0_22px_rgba(200,169,107,.45)]
-              transition-all
-              duration-300
-              hover:scale-110
-            "
-          />
-        </div>
+  {...listeners}
+  {...attributes}
+  className="relative cursor-grab active:cursor-grabbing"
+>
+
+  {licencia !== "RMCF Castilla" && (
+    <div
+      className={`
+        absolute
+        -top-1
+        -right-1
+        z-20
+        rounded-full
+        px-2
+        py-[2px]
+        text-[8px]
+        font-bold
+        leading-none
+        shadow-lg
+        border
+        ${
+          licencia === "RMC"
+            ? "bg-blue-600 border-blue-300 text-white"
+            : "bg-purple-600 border-purple-300 text-white"
+        }
+      `}
+    >
+      {licencia}
+    </div>
+  )}
+
+  <Image
+    src={foto}
+    alt={nombre}
+    width={mobile ? 48 : 66}
+    height={mobile ? 48 : 66}
+    unoptimized
+    draggable={false}
+    className="
+      rounded-full
+      border-[3px]
+      border-[#C8A96B]
+      object-cover
+      shadow-[0_0_22px_rgba(200,169,107,.45)]
+      transition-all
+      duration-300
+      hover:scale-110
+    "
+  />
+
+</div>
 
         <div
           className={`
