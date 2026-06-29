@@ -32,16 +32,21 @@ export function usePlayers() {
         const plantilla: Player[] = data
           .filter((p) => p.ACTIVO === "TRUE")
           .map((p) => ({
-            id: p.ID_JUGADOR,
-            nombre: p.NOMBRE,
-            posicion: p.POSICION,
-            dorsal: Number(p.DORSAL) || undefined,
-            foto: p.FOTO_URL || "/jugador.png",
-            licencia: p.LICENCIA || "RMCF Castilla",
-            estado: p.ESTADO || "DISPONIBLE",
-            activo: true,
-            hudl: p.HUDL_PERFIL_URL || "",
-          }));
+  id: p.ID_JUGADOR,
+  nombre: p.NOMBRE,
+  posicion: p.POSICION,
+  dorsal: Number(p.DORSAL) || undefined,
+  foto: p.FOTO_URL || "/jugador.png",
+
+  licencia: p.LICENCIA || "RMCF Castilla",
+
+  esCastilla:
+    (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
+
+  estado: p.ESTADO || "DISPONIBLE",
+  activo: true,
+  hudl: p.HUDL_PERFIL_URL || "",
+}));
 
         setPlayers(plantilla);
         setLoading(false);

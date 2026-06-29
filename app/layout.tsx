@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DataProvider } from "@/app/contexts/data-context";
 import { AIProvider } from "@/app/contexts/ai-context";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,6 +44,7 @@ export default function RootLayout({
   <AIProvider>
     <DataProvider>
       {children}
+      <Toaster richColors position="top-center" />
     </DataProvider>
   </AIProvider>
 </body>

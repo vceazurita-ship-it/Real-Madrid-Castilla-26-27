@@ -14,6 +14,8 @@ import {
   Player,
 } from "@/types/player";
 import { formations } from "@/lib/formations";
+import { usePlayers } from "@/hooks/usePlayers";
+import { toast } from "sonner";
 
 const STORAGE_KEY = "rmcf-castilla-lineup";
 
@@ -79,7 +81,7 @@ export function LineupProvider({
 }) {
   const [selectedPlayer, _setSelectedPlayer] =
   useState<Player | null>(null);
-
+const { players } = usePlayers();
 const setSelectedPlayer = (player: Player | null) => {
   console.log("SET SELECTED:", player);
   _setSelectedPlayer(player);
@@ -172,24 +174,78 @@ const [lineup, setLineup] =
   /* =======================================
      MOVER / INTERCAMBIAR JUGADORES
   ======================================= */
+  function countNoCastilla(lineup: LineupSlot[]) {
+  return lineup.filter((slot) => {
+    if (!slot.playerId) return false;
 
-  function assignPlayer(
+    const player = players.find(
+      (p) => p.id === slot.playerId
+    );
+
+    return player && !player.esCastilla;
+  }).length;
+}
+ function assignPlayer(
   positionId: string,
   playerId: string
 ) {
+  const player = players.find(
+    (p) => p.id === playerId
+  );
+
+  if (!player) return;
+
   setLineup((current) => {
+
     const origin = current.find(
-      slot => slot.playerId === playerId
+      (slot) => slot.playerId === playerId
     );
 
     const destination = current.find(
-      slot => slot.positionId === positionId
+      (slot) => slot.positionId === positionId
     );
 
     if (!destination) return current;
 
-    const destinationPlayer =
-      destination.playerId;
+    const destinationPlayer = players.find(
+      (p) => p.id === destination.playerId
+    );
+    // ===========================
+// LÍMITE DE 4 NO CASTILLA
+// ===========================
+
+if (!player.esCastilla) {
+
+  let totalNoCastilla =
+    countNoCastilla(current);
+
+  // Si viene del banquillo aumenta uno
+  if (!origin) {
+    totalNoCastilla++;
+  }
+
+  // Si sustituye a otro no Castilla,
+  // realmente el total no aumenta.
+  if (
+    destinationPlayer &&
+    !destinationPlayer.esCastilla
+  ) {
+    totalNoCastilla--;
+  }
+
+  if (totalNoCastilla > 4) {
+
+   toast.error(
+  `No puedes añadir a ${player.nombre}`,
+  {
+    description:
+      "Ya hay cuatro jugadores sin licencia RMCF Castilla en la alineación."
+  }
+);
+
+return current;
+  }
+}
 
     // El jugador viene del banquillo
     if (!origin) {
@@ -226,11 +282,11 @@ const [lineup, setLineup] =
 
       // Posición origen
       if (slot.positionId === origin.positionId) {
-        return {
-          ...slot,
-          playerId: destinationPlayer ?? null,
-        };
-      }
+  return {
+    ...slot,
+    playerId: destinationPlayer?.id ?? null,
+  };
+}
 
       return slot;
     });

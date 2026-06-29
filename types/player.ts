@@ -2,15 +2,14 @@ export type EstadoJugador =
   | "DISPONIBLE"
   | "LESIONADO"
   | "PRIMER EQUIPO"
-  | "SELECCIÓN"  
+  | "SELECCIÓN"
   | "SANCIONADO";
 
 export interface Player {
-
   id: string;
 
-  nombre: string; 
- 
+  nombre: string;
+
   posicion: string;
 
   dorsal?: number;
@@ -19,13 +18,15 @@ export interface Player {
 
   licencia: string;
 
+  esCastilla: boolean;
+
   estado: EstadoJugador;
 
   activo: boolean;
 
   hudl?: string;
-
 }
+
 export interface LineupSlot {
   positionId: string;
   playerId: string | null;
