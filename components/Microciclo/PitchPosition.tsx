@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { useLineup } from "@/context/LineupContext";
+import { useMicroLineup } from "@/context/MicroLineupContext";
 
 interface Props {
   id: string;
@@ -24,7 +24,7 @@ export default function PitchPosition({
     selectedPlayer,
     assignPlayer,
     setSelectedPlayer,
-  } = useLineup();
+  } = useMicroLineup();
 
   const handleClick = () => {
      console.log("CLICK");
