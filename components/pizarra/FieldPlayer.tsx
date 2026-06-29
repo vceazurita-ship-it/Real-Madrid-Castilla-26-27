@@ -6,7 +6,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { useLineup } from "@/context/LineupContext";
 
 interface Props {
-  id: string;
+  id: string;          // jugador
+  positionId: string;  // posición
   foto: string;
   nombre: string;
   mobile: boolean;
@@ -14,6 +15,7 @@ interface Props {
 
 export default function FieldPlayer({
   id,
+  positionId,
   foto,
   nombre,
   mobile,
@@ -49,7 +51,7 @@ export default function FieldPlayer({
 
         if (!selectedPlayer) return;
 
-        assignPlayer(id, selectedPlayer.id);
+        assignPlayer(positionId, selectedPlayer.id);
         setSelectedPlayer(null);
       }}
       className="touch-none select-none"

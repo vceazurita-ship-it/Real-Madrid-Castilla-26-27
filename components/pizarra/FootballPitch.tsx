@@ -119,6 +119,7 @@ useEffect(() => {
 
   <FieldPlayer
   id={player.id}
+  positionId={position.id}
   foto={player.foto}
   nombre={player.nombre}
   mobile={mobile}
