@@ -293,6 +293,91 @@ useEffect(() => {
 
 </div>
 
+<div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4">
+
+  <div className="grid md:grid-cols-3 gap-6">
+
+   <div>
+  <p className="text-xs uppercase tracking-wider text-white/40 mb-2">
+    Fecha del partido
+  </p>
+
+  {modoEdicion ? (
+    <input
+      type="date"
+      value={rivalActivo?.FECHA || ""}
+      onChange={(e) =>
+        setRivalActivo({
+          ...rivalActivo,
+          FECHA: e.target.value,
+        })
+      }
+      className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2"
+    />
+  ) : (
+    <p className="font-semibold">
+      {rivalActivo?.FECHA
+        ? new Date(rivalActivo.FECHA).toLocaleDateString("es-ES", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : "-"}
+    </p>
+  )}
+</div>
+
+    <div>
+      <p className="text-xs uppercase tracking-wider text-white/40 mb-2">
+        Dimensiones del campo
+      </p>
+
+      {modoEdicion ? (
+        <input
+          value={rivalActivo?.DIMENSIONES || ""}
+          onChange={(e)=>
+            setRivalActivo({
+              ...rivalActivo,
+              DIMENSIONES: e.target.value
+            })
+          }
+          className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2"
+        />
+      ) : (
+        <p className="font-semibold">
+          {rivalActivo?.DIMENSIONES || "-"}
+        </p>
+      )}
+    </div>
+
+    <div>
+      <p className="text-xs uppercase tracking-wider text-white/40 mb-2">
+        Rival
+      </p>
+
+      {modoEdicion ? (
+        <input
+          value={rivalActivo?.EQUIPO || ""}
+          onChange={(e)=>
+            setRivalActivo({
+              ...rivalActivo,
+              EQUIPO: e.target.value
+            })
+          }
+          className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2"
+        />
+      ) : (
+        <p className="font-semibold">
+          {rivalActivo?.EQUIPO || "-"}
+        </p>
+      )}
+    </div>
+
+  </div>
+
+</div>
+
 <div className="grid lg:grid-cols-3 gap-6 mb-8">
 
   {/* Estado */}
