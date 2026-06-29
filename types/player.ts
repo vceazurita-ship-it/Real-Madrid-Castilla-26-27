@@ -27,10 +27,7 @@ export interface Player {
   hudl?: string;
 }
 
-/**
- * Una posición puede contener varios jugadores.
- */
 export interface LineupSlot {
   positionId: string;
-  playerIds: string[];
-} 
+  playerId: string | null;
+}

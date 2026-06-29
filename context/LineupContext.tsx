@@ -36,7 +36,7 @@ interface LineupContextType {
   assignPlayer: (
     positionId: string,
     playerId: string
-  ) => void;
+  ) => void;  
 
   removePlayer: (
     playerId: string
