@@ -27,7 +27,9 @@ export default function PitchPosition({
   } = useLineup();
 
   const handleClick = () => {
-    console.log(selectedPlayer);
+     console.log("CLICK");
+  console.log(selectedPlayer);
+
     if (!selectedPlayer) return;
 
     assignPlayer(id, selectedPlayer.id);

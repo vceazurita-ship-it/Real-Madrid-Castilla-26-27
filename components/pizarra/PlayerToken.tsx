@@ -82,6 +82,7 @@ export default function PlayerToken({ player }: Props) {
         className="flex items-center gap-3"
         onClick={(e) => {
           e.stopPropagation();
+  console.log("Seleccionado:", player.nombre);
 
           setSelectedPlayer(
   selected ? null : player
