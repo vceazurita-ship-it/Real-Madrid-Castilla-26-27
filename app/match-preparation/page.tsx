@@ -507,7 +507,9 @@ resize-none
 >
 
   <div className="grid lg:grid-cols-4 gap-6">
-
+<h2 className="text-2xl font-bold mb-8">
+    Duelos
+  </h2>
     <div>
 
       <h3 className="mb-4 font-semibold text-[#C8A96B]">
@@ -634,12 +636,13 @@ resize-none
     Rival
   </h2>
 
-  <div className="grid lg:grid-cols-2 gap-6">
+  {/* Fortalezas / Debilidades */}
 
-    {/* Fortalezas */}
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+  <div className="grid lg:grid-cols-2 gap-6 mb-8">
 
-      <h3 className="text-[#C8A96B] font-semibold mb-4">
+    <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6">
+
+      <h3 className="text-[#C8A96B] uppercase tracking-[0.2em] text-sm font-semibold mb-5">
         Fortalezas
       </h3>
 
@@ -651,10 +654,9 @@ resize-none
 
     </div>
 
-    {/* Debilidades */}
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+    <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6">
 
-      <h3 className="text-[#C8A96B] font-semibold mb-4">
+      <h3 className="text-[#C8A96B] uppercase tracking-[0.2em] text-sm font-semibold mb-5">
         Debilidades
       </h3>
 
@@ -666,9 +668,13 @@ resize-none
 
     </div>
 
-    {/* Estructuras Ofensivas */}
+  </div>
 
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+  {/* Estructuras */}
+
+  <div className="grid lg:grid-cols-2 gap-6">
+
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
 
       <h3 className="text-[#C8A96B] font-semibold mb-4">
         Estructuras Ofensivas
@@ -684,14 +690,12 @@ resize-none
             ESTRUCTURA_OF:e.target.value
           })
         }
-        className="w-full rounded-xl bg-white/5 border border-white/10 p-4"
+        className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
       />
 
     </div>
 
-    {/* Estructuras Defensivas */}
-
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
 
       <h3 className="text-[#C8A96B] font-semibold mb-4">
         Estructuras Defensivas
@@ -707,7 +711,7 @@ resize-none
             ESTRUCTURA_DEF:e.target.value
           })
         }
-        className="w-full rounded-xl bg-white/5 border border-white/10 p-4"
+        className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
       />
 
     </div>
