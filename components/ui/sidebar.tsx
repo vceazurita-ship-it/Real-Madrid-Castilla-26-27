@@ -283,7 +283,11 @@ const navLink = (
         "Competición",
         <Trophy size={18} />
       )}
-
+      {navLink(
+        "/collective_history",
+        "Histórico Competición",
+        <Trophy size={18} />
+      )}
       
     </div>
   </div>

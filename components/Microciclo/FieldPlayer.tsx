@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { useLineup } from "@/context/LineupContext";
+import { useMicroLineup } from "@/context/MicroLineupContext";
 import { EstadoJugador } from "@/types/player";
 
 interface Props {
@@ -39,7 +39,7 @@ export default function FieldPlayer({
     selectedPlayer,
     assignPlayer,
     setSelectedPlayer,
-  } = useLineup();
+  } = useMicroLineup();
 
   const style = {
     transform: CSS.Translate.toString(transform),
