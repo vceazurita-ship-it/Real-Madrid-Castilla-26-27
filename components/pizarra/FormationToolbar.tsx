@@ -91,31 +91,36 @@ async function sharePitch() {
 
   if (!node) return;
 
-  const dataUrl = await toPng(node, {
-    cacheBust: true,
-    pixelRatio: 2,
-  });
-
-  const blob = await (await fetch(dataUrl)).blob();
-
-  const file = new File(
-    [blob],
-    "alineacion.png",
-    {
-      type: "image/png",
-    }
-  );
-
-  if (
-    navigator.canShare &&
-    navigator.canShare({ files: [file] })
-  ) {
-    await navigator.share({
-      files: [file],
-      title: "Alineación",
+  try {
+    const dataUrl = await toPng(node, {
+      cacheBust: true,
+      pixelRatio: 2,
     });
-  } else {
-    window.open(dataUrl);
+
+    const blob = await (await fetch(dataUrl)).blob();
+
+    const file = new File(
+      [blob],
+      "alineacion.png",
+      {
+        type: "image/png",
+      }
+    );
+
+    if (
+      navigator.share &&
+      navigator.canShare?.({ files: [file] })
+    ) {
+      await navigator.share({
+        title: "Alineación RMCF Castilla",
+        text: "Alineación creada con la Pizarra RMCF Castilla",
+        files: [file],
+      });
+    } else {
+      window.open(dataUrl, "_blank");
+    }
+  } catch (err) {
+    console.error(err);
   }
 }
   return (
@@ -241,6 +246,7 @@ async function sharePitch() {
 </button>
 
         <button
+  onClick={sharePitch}
   className="
     flex
     items-center
@@ -253,6 +259,9 @@ async function sharePitch() {
     py-2
     text-sm
     text-white
+    transition-all
+    hover:border-[#C8A96B]/50
+    hover:bg-[#232D39]
   "
 >
   <Share2 size={16} />
