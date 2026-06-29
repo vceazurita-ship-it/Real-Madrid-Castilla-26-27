@@ -50,7 +50,10 @@ function handleDragStart(event: DragStartEvent) {
 }
   function handleDragEnd(event: DragEndEvent) {
   const { active, over } = event;
-
+console.log({
+  active: active.id,
+  over: over?.id,
+});
   if (!over) return;
 
   const activeId = String(active.id);
