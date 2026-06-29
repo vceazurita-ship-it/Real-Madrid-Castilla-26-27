@@ -13,24 +13,24 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import SavedLineups from "@/components/pizarra/SavedLineups";
+import SavedLineups from "@/components/Microciclo/SavedLineups";
 
-import FootballPitch from "@/components/pizarra/FootballPitch";
-import FormationToolbar from "@/components/pizarra/FormationToolbar";
-import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
-import TopStats from "@/components/pizarra/TopStats";
+import FootballPitch from "@/components/Microciclo/FootballPitch";
+import FormationToolbar from "@/components/Microciclo/FormationToolbar";
+import PlayerSidebar from "@/components/Microciclo/PlayerSidebar";
+import TopStats from "@/components/Microciclo/TopStats";
 import { useState } from "react";
 import { usePlayers } from "@/hooks/usePlayers";
 import {
-  LineupProvider,
-  useLineup,
-} from "@/context/LineupContext";
+  MicroLineupProvider,
+  useMicroLineup,
+} from "@/context/MicroLineupContext";
 
 function PizarraContent() {
   const {
   assignPlayer,
   loadLineup,
-} = useLineup();
+} = useMicroLineup();
 
 const { players } = usePlayers();
 
@@ -276,8 +276,8 @@ const sensors = useSensors(
 
 export default function PizarraPage() {
   return (
-    <LineupProvider>
+    <MicroLineupProvider>
       <PizarraContent />
-    </LineupProvider>
+    </MicroLineupProvider>
   );
 }

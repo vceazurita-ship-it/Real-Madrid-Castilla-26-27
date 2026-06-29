@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { CSS } from "@dnd-kit/utilities";
 import { useDraggable } from "@dnd-kit/core";
-import { useLineup } from "@/context/LineupContext";
+import { useMicroLineup } from "@/context/MicroLineupContext";
 
 import { Player } from "@/types/player";
 
@@ -25,7 +25,7 @@ export default function PlayerToken({ player }: Props) {
   const {
     selectedPlayer,
     setSelectedPlayer,
-  } = useLineup();
+  } = useMicroLineup();
 
   const style = {
     transform: CSS.Translate.toString(transform),
