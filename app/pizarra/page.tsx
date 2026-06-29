@@ -13,21 +13,24 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import MicroPitch from "@/components/Microciclo/MicroPitch";
-import MicroSidebar from "@/components/Microciclo/MicroPlayerSidebar";
-import MicroToolbar from "@/components/Microciclo/MicroToolbar";
-import MicroTopStats from "@/components/Microciclo/TopStats";
-import { usePlayers } from "@/hooks/usePlayers";
+import SavedLineups from "@/components/pizarra/SavedLineups";
+
+import FootballPitch from "@/components/pizarra/FootballPitch";
+import FormationToolbar from "@/components/pizarra/FormationToolbar";
+import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
+import TopStats from "@/components/pizarra/TopStats";
 import { useState } from "react";
+import { usePlayers } from "@/hooks/usePlayers";
 import {
-  MicroLineupProvider,
-  useMicroLineup,
-} from "@/context/MicroLineupContext";
+  LineupProvider,
+  useLineup,
+} from "@/context/LineupContext";
 
 function PizarraContent() {
   const {
   assignPlayer,
-} = useMicroLineup();
+  loadLineup,
+} = useLineup();
 
 const { players } = usePlayers();
 
@@ -86,10 +89,10 @@ console.log(data.alineacion);
       return;
     }
 
-    //loadLineup(
-     // data.formacion,
-      //JSON.parse(data.alineacion)
-    //);
+    loadLineup(
+      data.formacion,
+      JSON.parse(data.alineacion)
+    );
 
   } catch (e) {
     console.error(e);
@@ -133,7 +136,8 @@ const sensors = useSensors(
 <div className="mb-3">
 
   <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
-RMCF CASTILLA · MICROCICLO  </p>
+    RMCF CASTILLA · COMPETICIÓN
+  </p>
 
   <div className="mt-1 flex items-center gap-3">
 
@@ -150,12 +154,14 @@ RMCF CASTILLA · MICROCICLO  </p>
               {/* ESTADÍSTICAS */}
 
               <div className="mb-3">
-<MicroTopStats />              </div>
+                <TopStats />
+              </div>
 
               {/* BARRA SUPERIOR */}
 
               <div className="mb-3">
-<MicroToolbar />              </div>
+                <FormationToolbar />
+              </div>
 
               {/* CONTENEDOR */}
 
@@ -191,12 +197,13 @@ RMCF CASTILLA · MICROCICLO  </p>
 
     {/* JUGADORES */}
     <div className="p-3">
-<MicroSidebar />    </div>
+      <PlayerSidebar />
+    </div>
 
-    {/* ALINEACIONES SOLO EN PC
+    {/* ALINEACIONES SOLO EN PC */}
     <div className="hidden lg:block p-3 pt-0">
       <SavedLineups onLoad={handleLoadLineup} />
-    </div> */}
+    </div>
 
   </aside>
 
@@ -222,14 +229,15 @@ RMCF CASTILLA · MICROCICLO  </p>
         lg:min-h-[520px]
       "
     >
-<MicroPitch />    </div>
+      <FootballPitch />
+    </div>
 
   </section>
 
-  {/* ALINEACIONES SOLO EN MÓVIL 
+  {/* ALINEACIONES SOLO EN MÓVIL */}
   <div className="block lg:hidden order-3">
     <SavedLineups onLoad={handleLoadLineup} />
-  </div>*/}
+  </div>
 
 </div>
 
@@ -266,10 +274,10 @@ RMCF CASTILLA · MICROCICLO  </p>
   );
 }
 
-export default function MicroPage() {
+export default function PizarraPage() {
   return (
-    <MicroLineupProvider>
+    <LineupProvider>
       <PizarraContent />
-    </MicroLineupProvider>
+    </LineupProvider>
   );
 }
