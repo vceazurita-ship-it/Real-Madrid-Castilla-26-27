@@ -50,19 +50,19 @@ async function guardar() {
 
     sistema:formation,
 
-    alineacion: lineup.map(slot=>({
+alineacion: lineup.map((slot) => ({
 
-      positionId:slot.positionId,
+  positionId: slot.positionId,
 
-      playerId:slot.playerId,
+  playerIds: slot.playerIds,
 
-      jugador:
-        players.find(
-          p=>p.id===slot.playerId
-        )?.nombre || ""
+  jugadores: slot.playerIds.map((id) => ({
+    id,
+    nombre:
+      players.find((p) => p.id === id)?.nombre || "",
+  })),
 
-    })),
-
+})),
     observaciones:""
 
   });
