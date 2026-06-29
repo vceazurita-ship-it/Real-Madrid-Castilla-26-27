@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { usePlayers } from "@/hooks/usePlayers";
-import PlayerToken from "./MicroPlayerToken";
+import PlayerToken from "./PlayerToken";
 
 export default function PlayerSidebar() {
   const { players } = usePlayers();

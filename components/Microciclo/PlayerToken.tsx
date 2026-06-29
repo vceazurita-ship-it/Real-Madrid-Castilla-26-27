@@ -3,17 +3,15 @@
 import Image from "next/image";
 import { CSS } from "@dnd-kit/utilities";
 import { useDraggable } from "@dnd-kit/core";
+import { useLineup } from "@/context/LineupContext";
 
-import { useMicroLineup } from "@/context/MicroLineupContext";
 import { Player } from "@/types/player";
 
 interface Props {
   player: Player;
 }
 
-export default function MicroPlayerSidebar({
-  player,
-}: Props) {
+export default function PlayerToken({ player }: Props) {
   const {
     attributes,
     listeners,
@@ -27,7 +25,7 @@ export default function MicroPlayerSidebar({
   const {
     selectedPlayer,
     setSelectedPlayer,
-  } = useMicroLineup();
+  } = useLineup();
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -45,11 +43,13 @@ export default function MicroPlayerSidebar({
         ...style,
         touchAction: "none",
       }}
-      onClick={() =>
+      onClick={() => {
+        console.log("Seleccionado:", player.nombre);
+
         setSelectedPlayer(
           selected ? null : player
-        )
-      }
+        );
+      }}
       className={`
         group
         cursor-pointer
@@ -84,6 +84,7 @@ export default function MicroPlayerSidebar({
     >
       <div className="flex items-center gap-3">
 
+        {/* SOLO ESTA FOTO ARRASTRA */}
         <div
           {...listeners}
           {...attributes}
@@ -111,60 +112,56 @@ export default function MicroPlayerSidebar({
         </div>
 
         <div className="min-w-0 flex-1">
-
           <div className="truncate text-[13px] font-semibold text-white">
             {player.nombre}
           </div>
 
-          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+         <div className="mt-0.5 flex flex-wrap items-center gap-2">
 
-            <span
-              className="
-                rounded-full
-                bg-[#C8A96B]/15
-                px-2
-                py-[2px]
-                text-[10px]
-                font-semibold
-                uppercase
-                tracking-wide
-                text-[#E2C38C]
-              "
-            >
-              {player.posicion}
-            </span>
+  <span
+    className="
+      rounded-full
+      bg-[#C8A96B]/15
+      px-2
+      py-[2px]
+      text-[10px]
+      font-semibold
+      uppercase
+      tracking-wide
+      text-[#E2C38C]
+    "
+  >
+    {player.posicion}
+  </span>
 
-            {player.licencia !==
-              "RMCF Castilla" && (
-              <span
-                className={`
-                  rounded-full
-                  px-2
-                  py-[2px]
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-wide
+  {player.licencia !== "RMCF Castilla" && (
+    <span
+      className={`
+        rounded-full
+        px-2
+        py-[2px]
+        text-[10px]
+        font-bold
+        uppercase
+        tracking-wide
+        ${
+          player.licencia === "RMC"
+            ? "bg-blue-500/20 text-blue-300 border border-blue-400/40"
+            : "bg-purple-500/20 text-purple-300 border border-purple-400/40"
+        }
+      `}
+    >
+      {player.licencia}
+    </span>
+  )}
 
-                  ${
-                    player.licencia === "RMC"
-                      ? "bg-blue-500/20 text-blue-300 border border-blue-400/40"
-                      : "bg-purple-500/20 text-purple-300 border border-purple-400/40"
-                  }
-                `}
-              >
-                {player.licencia}
-              </span>
-            )}
+  {player.dorsal && (
+    <span className="text-[11px] font-bold text-white/70">
+      #{player.dorsal}
+    </span>
+  )}
 
-            {player.dorsal && (
-              <span className="text-[11px] font-bold text-white/70">
-                #{player.dorsal}
-              </span>
-            )}
-
-          </div>
-
+</div>
         </div>
 
         <div

@@ -13,24 +13,21 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import SavedLineups from "@/components/pizarra/SavedLineups";
-
-import FootballPitch from "@/components/pizarra/FootballPitch";
-import FormationToolbar from "@/components/pizarra/FormationToolbar";
-import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
-import TopStats from "@/components/pizarra/TopStats";
-import { useState } from "react";
+import MicroPitch from "@/components/Microciclo/MicroPitch";
+import MicroSidebar from "@/components/Microciclo/MicroPlayerSidebar";
+import MicroToolbar from "@/components/Microciclo/MicroToolbar";
+import MicroTopStats from "@/components/Microciclo/TopStats";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useState } from "react";
 import {
-  LineupProvider,
-  useLineup,
-} from "@/context/LineupContext";
+  MicroLineupProvider,
+  useMicroLineup,
+} from "@/context/MicroLineupContext";
 
 function PizarraContent() {
   const {
   assignPlayer,
-  loadLineup,
-} = useLineup();
+} = useMicroLineup();
 
 const { players } = usePlayers();
 
@@ -89,10 +86,10 @@ console.log(data.alineacion);
       return;
     }
 
-    loadLineup(
-      data.formacion,
-      JSON.parse(data.alineacion)
-    );
+    //loadLineup(
+     // data.formacion,
+      //JSON.parse(data.alineacion)
+    //);
 
   } catch (e) {
     console.error(e);
@@ -136,8 +133,7 @@ const sensors = useSensors(
 <div className="mb-3">
 
   <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
-    RMCF CASTILLA · COMPETICIÓN
-  </p>
+RMCF CASTILLA · MICROCICLO  </p>
 
   <div className="mt-1 flex items-center gap-3">
 
@@ -154,14 +150,12 @@ const sensors = useSensors(
               {/* ESTADÍSTICAS */}
 
               <div className="mb-3">
-                <TopStats />
-              </div>
+<MicroTopStats />              </div>
 
               {/* BARRA SUPERIOR */}
 
               <div className="mb-3">
-                <FormationToolbar />
-              </div>
+<MicroToolbar />              </div>
 
               {/* CONTENEDOR */}
 
@@ -197,13 +191,12 @@ const sensors = useSensors(
 
     {/* JUGADORES */}
     <div className="p-3">
-      <PlayerSidebar />
-    </div>
+<MicroSidebar />    </div>
 
-    {/* ALINEACIONES SOLO EN PC */}
+    {/* ALINEACIONES SOLO EN PC
     <div className="hidden lg:block p-3 pt-0">
       <SavedLineups onLoad={handleLoadLineup} />
-    </div>
+    </div> */}
 
   </aside>
 
@@ -229,15 +222,14 @@ const sensors = useSensors(
         lg:min-h-[520px]
       "
     >
-      <FootballPitch />
-    </div>
+<MicroPitch />    </div>
 
   </section>
 
-  {/* ALINEACIONES SOLO EN MÓVIL */}
+  {/* ALINEACIONES SOLO EN MÓVIL 
   <div className="block lg:hidden order-3">
     <SavedLineups onLoad={handleLoadLineup} />
-  </div>
+  </div>*/}
 
 </div>
 
@@ -274,10 +266,10 @@ const sensors = useSensors(
   );
 }
 
-export default function PizarraPage() {
+export default function MicroPage() {
   return (
-    <LineupProvider>
+    <MicroLineupProvider>
       <PizarraContent />
-    </LineupProvider>
+    </MicroLineupProvider>
   );
 }
