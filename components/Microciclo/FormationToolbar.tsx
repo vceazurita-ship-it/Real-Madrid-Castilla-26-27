@@ -1,6 +1,6 @@
 "use client";
 
-import { useLineup } from "@/context/LineupContext";
+import { useMicroLineup } from "@/context/MicroLineupContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
 import { toPng } from "html-to-image";
@@ -26,7 +26,7 @@ export default function FormationToolbar() {
   lineup,
   setFormation,
   clearLineup,
-} = useLineup();
+} = useMicroLineup();
 
 const { players } = usePlayers();
 async function guardar() {
