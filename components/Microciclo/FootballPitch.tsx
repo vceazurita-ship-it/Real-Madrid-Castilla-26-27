@@ -1,181 +1,68 @@
 "use client";
 
-
-import Image from "next/image";
-import {
-  forwardRef,
-  useEffect,
-  useState,
-} from "react";
-import { usePlayers } from "@/hooks/usePlayers";
+import { ReactNode } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { useMicroLineup } from "@/context/MicroLineupContext";
-import MicroGroup from "./MicroGroup";
-import PitchPosition from "./PitchPosition";
-import { formations } from "@/lib/formations";
 
-const FootballPitch = forwardRef<
-  HTMLDivElement,
-  Record<string, never>
->(function FootballPitch(_, ref) {
-  const { players } = usePlayers();
+interface Props {
+  id: string;
+  children: ReactNode;
+}
+
+export default function PitchPosition({
+  id,
+  children,
+}: Props) {
+  const {
+    setNodeRef,
+    isOver,
+  } = useDroppable({
+    id,
+  });
 
   const {
-  lineup,
-  formation,
-} = useMicroLineup();
+    selectedPlayer,
+    assignPlayer,
+    setSelectedPlayer,
+  } = useMicroLineup();
 
-  const currentFormation =
-    formations[
-      formation as keyof typeof formations
-    ] ?? [];
-const [mobile, setMobile] = useState(false);
+  const handleClick = () => {
+    if (!selectedPlayer) return;
 
-useEffect(() => {
-  const resize = () => {
-    setMobile(window.innerWidth < 1024);
+    assignPlayer(id, selectedPlayer.id);
+    setSelectedPlayer(null);
   };
 
-  resize();
-
-  window.addEventListener("resize", resize);
-
-  return () => window.removeEventListener("resize", resize);
-}, []);
   return (
     <div
-  id="football-pitch"
-  ref={ref}
-      className="
-        relative
-        h-full
-        w-full
-        overflow-hidden
-        rounded-[28px]
-        border
-        border-[#C8A96B]/20
-        shadow-[0_25px_80px_rgba(0,0,0,.45)]
-      "
+      ref={setNodeRef}
+      onClick={handleClick}
+      className={`
+        transition-all
+        duration-200
+        cursor-pointer
+
+        ${
+          selectedPlayer
+            ? `
+              ring-2
+              ring-[#C8A96B]/40
+              rounded-full
+            `
+            : ""
+        }
+
+        ${
+          isOver
+            ? `
+              scale-110
+              drop-shadow-[0_0_20px_rgba(250,204,21,.8)]
+            `
+            : ""
+        }
+      `}
     >
-{/* Fondo del campo */}
-<div className="absolute inset-0 overflow-hidden">
-
-  <Image
-    src="/emotional-field-bg.png"
-    alt="Campo"
-    fill
-    priority
-    unoptimized
-    draggable={false}
-    className={`
-      object-cover
-      pointer-events-none
-      select-none
-      transition-all
-      duration-500
-
-      ${
-        mobile
-          ? "rotate-90 scale-[1.78]"
-          : "rotate-0 scale-100"
-      }
-    `}
-  />
-
-</div>
-      {/* Oscurecer */}
-      <div className="absolute inset-0 bg-black/35" />
-
-      {/* Viñeta */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,.45))]" />
-
-      {/* Campo */}
-      
-
-      {/* Jugadores */}
-      {currentFormation.map((position) => {
-        const slot = lineup.find(
-          (s) =>
-            s.positionId === position.id
-        );
-
-        const groupPlayers =
-  players.filter((player) =>
-    slot?.playerIds.includes(player.id)
-  );
-
-        return (
-          <div
-            key={position.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{
-  left: mobile ? position.top : position.left,
-  top: mobile
-    ? `${100 - parseFloat(position.left)}%`
-    : position.top,
-}}
-          >
-            <PitchPosition id={position.id}>
-             {groupPlayers.length > 0 ? (
-
-<MicroGroup
-  players={groupPlayers}
-  positionId={position.id}
-  mobile={mobile}
-/>
-
-) : (
-                <div className="flex flex-col items-center">
-
-                  <div
-  className={`
-    flex
-    ${mobile ? "h-12 w-12" : "h-16 w-16"}
-    items-center
-    justify-center
-    rounded-full
-    border-2
-    border-dashed
-    border-[#C8A96B]
-    bg-black/45
-    backdrop-blur-sm
-    shadow-[0_0_18px_rgba(200,169,107,.25)]
-    transition
-    duration-300
-    hover:scale-110
-  `}
->
-                    <span className="text-lg text-[#C8A96B]">
-                      +
-                    </span>
-                  </div>
-
-                  <div
-                    className="
-                      mt-2
-                      rounded-full
-                      bg-black/60
-                      px-3
-                      py-1
-                      text-[10px]
-                      font-semibold
-                      tracking-wide
-                      text-white/90
-                    "
-                  >
-                    {position.nombre}
-                  </div>
-
-                </div>
-              )}
-            </PitchPosition>
-          </div>
-        );
-      })}
+      {children}
     </div>
   );
-});
-
-FootballPitch.displayName =
-  "FootballPitch";
-
-export default FootballPitch;
+}
