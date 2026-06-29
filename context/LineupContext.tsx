@@ -9,15 +9,25 @@ import {
   ReactNode,
 } from "react";
 
-import { LineupSlot } from "@/types/player";
+import {
+  LineupSlot,
+  Player,
+} from "@/types/player";
 import { formations } from "@/lib/formations";
 
 const STORAGE_KEY = "rmcf-castilla-lineup";
 
 interface LineupContextType {
+
   lineup: LineupSlot[];
 
   formation: string;
+
+  selectedPlayer: Player | null;
+
+  setSelectedPlayer: (
+  player: Player | null
+) => void;
 
   setFormation: (formation: string) => void;
 
@@ -67,6 +77,8 @@ export function LineupProvider({
 }: {
   children: ReactNode;
 }) {
+  const [selectedPlayer, setSelectedPlayer] =
+  useState<Player | null>(null);
   const [formation, setFormation] = useState(() => {
   if (typeof window === "undefined")
     return "4-4-2";
@@ -157,50 +169,70 @@ const [lineup, setLineup] =
   ======================================= */
 
   function assignPlayer(
-    positionId: string,
-    playerId: string
-  ) {
-    setLineup((current) => {
-      const origin = current.find(
-        (slot) =>
-          slot.playerId === playerId
-      );
+  positionId: string,
+  playerId: string
+) {
+  setLineup((current) => {
+    const origin = current.find(
+      slot => slot.playerId === playerId
+    );
 
-      const destination = current.find(
-        (slot) =>
-          slot.positionId ===
-          positionId
-      );
+    const destination = current.find(
+      slot => slot.positionId === positionId
+    );
 
-      const destinationPlayer =
-        destination?.playerId ?? null;
+    if (!destination) return current;
 
-      return current.map((slot) => {
-        if (
-          slot.positionId === positionId
-        ) {
+    const destinationPlayer =
+      destination.playerId;
+
+    // El jugador viene del banquillo
+    if (!origin) {
+      return current.map(slot => {
+
+        if (slot.positionId === positionId) {
           return {
             ...slot,
             playerId,
           };
         }
 
-        if (
-          origin &&
-          slot.positionId ===
-            origin.positionId
-        ) {
+        // Si ese jugador ya estaba colocado
+        if (slot.playerId === playerId) {
           return {
             ...slot,
-            playerId:
-              destinationPlayer,
+            playerId: null,
           };
         }
 
         return slot;
       });
+    }
+
+    return current.map(slot => {
+
+      // Posición destino
+      if (slot.positionId === positionId) {
+        return {
+          ...slot,
+          playerId,
+        };
+      }
+
+      // Posición origen
+      if (slot.positionId === origin.positionId) {
+        return {
+          ...slot,
+          playerId: destinationPlayer ?? null,
+        };
+      }
+
+      return slot;
     });
-  }
+  });
+
+  setSelectedPlayer(null);
+}
 
   /* =======================================
      ELIMINAR JUGADOR
@@ -257,10 +289,14 @@ function loadLineup(
     );
   }
 
-  const value = useMemo(
+const value = useMemo(
   () => ({
     lineup,
     formation,
+
+    selectedPlayer,
+    setSelectedPlayer,
+
     setFormation,
     assignPlayer,
     removePlayer,
@@ -268,7 +304,11 @@ function loadLineup(
     loadLineup,
     getPlayerPosition,
   }),
-  [lineup, formation]
+  [
+    lineup,
+    formation,
+    selectedPlayer,
+  ]
 );
 
   return (

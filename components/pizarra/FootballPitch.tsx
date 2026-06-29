@@ -115,11 +115,11 @@ useEffect(() => {
               {player ? (
 
   <FieldPlayer
-    id={player.id}
-    foto={player.foto}
-    nombre={player.nombre}
-    mobile={mobile}
-  />
+  id={`field-${player.id}`}
+  foto={player.foto}
+  nombre={player.nombre}
+  mobile={mobile}
+/>
 
 ) : (
                 <div className="flex flex-col items-center">

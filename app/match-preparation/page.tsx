@@ -262,11 +262,11 @@ transition
     {rivales.map((r) => (
 
       <option
-        key={r.ID}
-        value={r.ID}
-      >
-        {r.EQUIPO}
-      </option>
+  key={r.ID}
+  value={r.ID}
+>
+  {String(r.JORNADA).padStart(2, "0")}. {r.EQUIPO}
+</option>
 
     ))}
 
@@ -338,108 +338,65 @@ tran
   </button>
 
 </div>
-<div className="grid gap-6 lg:grid-cols-3 mb-8">
-
-  <div className="rounded-3xl border border-[#C8A96B]/20 bg-white/5 backdrop-blur-md p-6 hover:shadow-2xl
-hover:border-[#C8A96B]/40
-transition-all
-duration-300">
-
-    <p className="text-xs uppercase tracking-widest text-white/40">
-      Rival
-    </p>
-
-    <h2 className="mt-3 text-3xl font-bold">
-      {rivalActivo?.EQUIPO}
+  {/* Estado */}
+  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+    <h2 className="text-xl font-bold mb-5">
+      Estado del Equipo
     </h2>
 
-    <div className="mt-6 flex gap-6">
-
-      <div>
-        <p className="text-xs text-white/40 ">
-          Jornada
-        </p>
-
-        <p className="mt-1 text-xl font-semibold">
-          {rivalActivo?.JORNADA}
-        </p>
-      </div>
-
-      <div>
-        <p className="text-xs text-white/40">
-          Partido
-        </p>
-
-        <p className="mt-1 text-xl font-semibold">
-          {rivalActivo?.LOCAL_VISITANTE}
-        </p>
-      </div>
-
-    </div>
-
+    <textarea
+      rows={8}
+      value={rivalActivo?.ESTADO_EQUIPO || ""}
+      readOnly={!modoEdicion}
+      onChange={(e)=>
+        setRivalActivo({
+          ...rivalActivo,
+          ESTADO_EQUIPO:e.target.value
+        })
+      }
+      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
+    />
   </div>
 
-  <div
-  className="
-rounded-3xl
-border
-border-white/10
-bg-gradient-to-br
-from-white/[0.05]
-to-white/[0.02]
-p-6 
-hover:border-red-400/40
-transition-all
-duration-300
-">
+  {/* Claves */}
+  <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
+    <h2 className="text-xl font-bold mb-5">
+      Claves del Partido
+    </h2>
 
-<h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">      Fortalezas
-    </h3>
-
-<ul className="mt-6 space-y-3 text-white/80 leading-7">
-      {rivalActivo?.FORTALEZAS
-        ?.split(";")
-        ?.map((item:string)=>(
-          <li key={item}>
-            • {item}
-          </li>
-      ))}
-
-    </ul>
-
+    <textarea
+      rows={8}
+      value={rivalActivo?.CLAVES_PARTIDO || ""}
+      readOnly={!modoEdicion}
+      onChange={(e)=>
+        setRivalActivo({
+          ...rivalActivo,
+          CLAVES_PARTIDO:e.target.value
+        })
+      }
+      className="w-full rounded-2xl bg-white/5 border border-yellow-500/20 p-4"
+    />
   </div>
 
-  <div
-  className="
-rounded-3xl
-border
-border-white/10
-bg-gradient-to-br
-from-white/[0.05]
-to-white/[0.02]
-p-6
-hover:border-red-400/40
-transition-all
-duration-300
-">
+  {/* Claves emocionales */}
+  <div className="rounded-3xl border border-violet-500/20 bg-violet-500/5 p-6">
+    <h2 className="text-xl font-bold mb-5">
+      Claves Emocionales
+    </h2>
 
-<h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">      Debilidades
-    </h3>
-
-<ul className="mt-6 space-y-3 text-white/80 leading-7">
-      {rivalActivo?.DEBILIDADES
-        ?.split(";")
-        ?.map((item:string)=>(
-          <li key={item}>
-            • {item}
-          </li>
-      ))}
-
-    </ul>
-
+    <textarea
+      rows={8}
+      value={rivalActivo?.CLAVES_EMOCIONALES || ""}
+      readOnly={!modoEdicion}
+      onChange={(e)=>
+        setRivalActivo({
+          ...rivalActivo,
+          CLAVES_EMOCIONALES:e.target.value
+        })
+      }
+      className="w-full rounded-2xl bg-white/5 border border-violet-500/20 p-4"
+    />
   </div>
-
-</div>
 <section
 className="
 rounded-3xl
@@ -450,10 +407,6 @@ backdrop-blur-md
 p-8
 mb-8
 ">
-
-<h2 className="text-2xl font-bold mb-8">
-Plan de Partido
-</h2>
 
 <div className="grid lg:grid-cols-[2fr_2fr_1fr] gap-6 items-start">
 <div>
@@ -579,80 +532,222 @@ resize-none
 </div>
 </div>
 </section>
+<section
+  className="
+    rounded-3xl
+    border
+    border-white/10
+    bg-white/5
+    backdrop-blur-md
+    p-8
+    mb-8
+  "
+>
 
+  <div className="grid lg:grid-cols-4 gap-6">
+
+    <div>
+
+      <h3 className="mb-4 font-semibold text-[#C8A96B]">
+        Con Balón <span className="text-white/40">· Favor</span>
+      </h3>
+
+      <textarea
+        rows={10}
+        value={rivalActivo?.DUELOS_CB_FAVOR || ""}
+        readOnly={!modoEdicion}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            DUELOS_CB_FAVOR:e.target.value
+          })
+        }
+        className="
+          w-full
+          min-h-[320px]
+          rounded-2xl
+          bg-white/5
+          border
+          border-white/10
+          p-4
+          resize-none
+        "
+      />
+
+    </div>
+
+    <div>
+
+      <h3 className="mb-4 font-semibold text-[#C8A96B]">
+        Con Balón <span className="text-white/40">· Contra</span>
+      </h3>
+
+      <textarea
+        rows={10}
+        value={rivalActivo?.DUELOS_CB_CONTRA || ""}
+        readOnly={!modoEdicion}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            DUELOS_CB_CONTRA:e.target.value
+          })
+        }
+        className="
+          w-full
+          min-h-[320px]
+          rounded-2xl
+          bg-white/5
+          border
+          border-white/10
+          p-4
+          resize-none
+        "
+      />
+
+    </div>
+
+    <div>
+
+      <h3 className="mb-4 font-semibold text-[#C8A96B]">
+        Sin Balón <span className="text-white/40">· Favor</span>
+      </h3>
+
+      <textarea
+        rows={10}
+        value={rivalActivo?.DUELOS_SB_FAVOR || ""}
+        readOnly={!modoEdicion}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            DUELOS_SB_FAVOR:e.target.value
+          })
+        }
+        className="
+          w-full
+          min-h-[320px]
+          rounded-2xl
+          bg-white/5
+          border
+          border-white/10
+          p-4
+          resize-none
+        "
+      />
+
+    </div>
+
+    <div>
+
+      <h3 className="mb-4 font-semibold text-[#C8A96B]">
+        Sin Balón <span className="text-white/40">· Contra</span>
+      </h3>
+
+      <textarea
+        rows={10}
+        value={rivalActivo?.DUELOS_SB_CONTRA || ""}
+        readOnly={!modoEdicion}
+        onChange={(e)=>
+          setRivalActivo({
+            ...rivalActivo,
+            DUELOS_SB_CONTRA:e.target.value
+          })
+        }
+        className="
+          w-full
+          min-h-[320px]
+          rounded-2xl
+          bg-white/5
+          border
+          border-white/10
+          p-4
+          resize-none
+        "
+      />
+
+    </div>
+
+  </div>
+
+</section>
   <div className="grid lg:grid-cols-3 gap-6 mb-8">
-
-  {/* Estado */}
-  <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-    <h2 className="text-xl font-bold mb-5">
-      Estado del Equipo
-    </h2>
-
-    <textarea
-      rows={8}
-      value={rivalActivo?.ESTADO_EQUIPO || ""}
-      readOnly={!modoEdicion}
-      onChange={(e)=>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTADO_EQUIPO:e.target.value
-        })
-      }
-      className="w-full rounded-2xl bg-white/5 border border-white/10 p-4"
-    />
-  </div>
-
-  {/* Claves */}
-  <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
-    <h2 className="text-xl font-bold mb-5">
-      Claves del Partido
-    </h2>
-
-    <textarea
-      rows={8}
-      value={rivalActivo?.CLAVES_PARTIDO || ""}
-      readOnly={!modoEdicion}
-      onChange={(e)=>
-        setRivalActivo({
-          ...rivalActivo,
-          CLAVES_PARTIDO:e.target.value
-        })
-      }
-      className="w-full rounded-2xl bg-white/5 border border-yellow-500/20 p-4"
-    />
-  </div>
-
-  {/* Claves emocionales */}
-  <div className="rounded-3xl border border-violet-500/20 bg-violet-500/5 p-6">
-    <h2 className="text-xl font-bold mb-5">
-      Claves Emocionales
-    </h2>
-
-    <textarea
-      rows={8}
-      value={rivalActivo?.CLAVES_EMOCIONALES || ""}
-      readOnly={!modoEdicion}
-      onChange={(e)=>
-        setRivalActivo({
-          ...rivalActivo,
-          CLAVES_EMOCIONALES:e.target.value
-        })
-      }
-      className="w-full rounded-2xl bg-white/5 border border-violet-500/20 p-4"
-    />
-  </div>
-  
+ 
 </div>
+<div className="grid lg:grid-cols-2 gap-6 mb-8">
 
+  <div
+    className="
+      rounded-3xl
+      border
+      border-white/10
+      bg-gradient-to-br
+      from-white/[0.05]
+      to-white/[0.02]
+      p-6
+      hover:border-red-400/40
+      transition-all
+      duration-300
+    "
+  >
+    <h2 className="text-2xl font-bold mb-8">
+Rival
+</h2>
+    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+      Fortalezas
+    </h3>
+
+    <ul className="mt-6 space-y-3 text-white/80 leading-7">
+      {rivalActivo?.FORTALEZAS
+        ?.split(";")
+        ?.map((item: string) => (
+          <li key={item}>
+            • {item}
+          </li>
+        ))}
+    </ul>
+
+  </div>
+
+  <div
+    className="
+      rounded-3xl
+      border
+      border-white/10
+      bg-gradient-to-br
+      from-white/[0.05]
+      to-white/[0.02]
+      p-6
+      hover:border-red-400/40
+      transition-all
+      duration-300
+    "
+  >
+
+    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+      Debilidades
+    </h3>
+
+    <ul className="mt-6 space-y-3 text-white/80 leading-7">
+      {rivalActivo?.DEBILIDADES
+        ?.split(";")
+        ?.map((item: string) => (
+          <li key={item}>
+            • {item}
+          </li>
+        ))}
+    </ul>
+
+  </div>
+
+</div>
 <div className="grid lg:grid-cols-2 gap-6 mb-8">
 
   <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
     <h2 className="text-xl font-bold mb-5">
-      Estructuras Ofensivas Rival
+      Estructuras Ofensivas
     </h2>
 
     <textarea
-      rows={8}
+      rows={4}
       value={rivalActivo?.ESTRUCTURA_OF || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
@@ -667,11 +762,11 @@ resize-none
 
   <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/5 p-6">
     <h2 className="text-xl font-bold mb-5">
-      Estructuras Defensivas Rival
+      Estructuras Defensivas
     </h2>
 
     <textarea
-      rows={8}
+      rows={4}
       value={rivalActivo?.ESTRUCTURA_DEF || ""}
       readOnly={!modoEdicion}
       onChange={(e)=>
