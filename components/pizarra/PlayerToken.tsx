@@ -43,8 +43,16 @@ export default function PlayerToken({ player }: Props) {
         ...style,
         touchAction: "none",
       }}
+      onClick={() => {
+        console.log("Seleccionado:", player.nombre);
+
+        setSelectedPlayer(
+          selected ? null : player
+        );
+      }}
       className={`
         group
+        cursor-pointer
         select-none
         rounded-2xl
         border
@@ -74,48 +82,34 @@ export default function PlayerToken({ player }: Props) {
         }
       `}
     >
-      <div
-        {...listeners}
-        {...attributes}
-        className="
-          flex
-          items-center
-          gap-3
-          cursor-grab
-          active:cursor-grabbing
-        "
-        onClick={(e) => {
-          e.stopPropagation();
+      <div className="flex items-center gap-3">
 
-          console.log("Seleccionado:", player.nombre);
-
-          const next =
-            selected ? null : player;
-
-          setSelectedPlayer(next);
-
-          console.log("Después:", next);
-        }}
-      >
-        <Image
-          src={player.foto}
-          alt={player.nombre}
-          width={46}
-          height={46}
-          unoptimized
-          className="
-            h-11
-            w-11
-            rounded-full
-            border-2
-            border-[#C8A96B]
-            object-cover
-            shadow-md
-            transition-transform
-            duration-300
-            group-hover:scale-105
-          "
-        />
+        {/* SOLO ESTA FOTO ARRASTRA */}
+        <div
+          {...listeners}
+          {...attributes}
+          className="cursor-grab active:cursor-grabbing"
+        >
+          <Image
+            src={player.foto}
+            alt={player.nombre}
+            width={46}
+            height={46}
+            unoptimized
+            className="
+              h-11
+              w-11
+              rounded-full
+              border-2
+              border-[#C8A96B]
+              object-cover
+              shadow-md
+              transition-transform
+              duration-300
+              group-hover:scale-105
+            "
+          />
+        </div>
 
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-semibold text-white">
@@ -140,13 +134,7 @@ export default function PlayerToken({ player }: Props) {
             </span>
 
             {player.dorsal && (
-              <span
-                className="
-                  text-[11px]
-                  font-bold
-                  text-white/70
-                "
-              >
+              <span className="text-[11px] font-bold text-white/70">
                 #{player.dorsal}
               </span>
             )}
@@ -174,6 +162,7 @@ export default function PlayerToken({ player }: Props) {
         >
           +
         </div>
+
       </div>
     </div>
   );
