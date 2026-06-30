@@ -55,8 +55,11 @@ export default function PlayerToken({ player }: Props) {
   cursor-pointer
   select-none
 
-  min-w-[220px]
-  w-[220px]
+  min-w-[160px]
+w-[160px]
+
+lg:min-w-0
+lg:w-auto
   shrink-0
 
   lg:min-w-0

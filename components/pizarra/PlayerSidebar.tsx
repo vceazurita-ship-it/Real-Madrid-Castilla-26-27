@@ -129,16 +129,20 @@ export default function PlayerSidebar() {
         "
       >
         <div
-          className="
-            flex
-            gap-2
-            w-max
+  className="
+    grid
+    grid-flow-col
+    grid-rows-2
+    auto-cols-[170px]
+    gap-2
+    w-max
 
-            lg:w-auto
-            lg:flex-col
-            lg:gap-1.5
-          "
-        >
+    lg:flex
+    lg:flex-col
+    lg:w-auto
+    lg:gap-1.5
+  "
+>
           {filteredPlayers.map((player) => (
             <PlayerToken
               key={player.id}
