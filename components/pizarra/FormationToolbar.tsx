@@ -199,7 +199,16 @@ async function sharePitch() {
   <div className="mx-1 h-8 w-px shrink-0 bg-white/10" />
 
   {/* BOTONES */}
+<div
+  className="
+    flex
+    items-center
+    gap-3
+    shrink-0
 
+    lg:ml-auto
+  "
+>
   <button
     onClick={clearLineup}
     className="shrink-0 flex items-center gap-2 rounded-2xl border border-white/10 bg-[#1A222C] px-5 py-3 text-sm text-white hover:border-[#C8A96B]/50 hover:bg-[#232D39]"
@@ -238,7 +247,7 @@ async function sharePitch() {
     <LayoutGrid size={16} />
     Plantillas
   </button>
-
+</div>
 </div>
      {showSaveModal && (
 
