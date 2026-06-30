@@ -4,6 +4,8 @@ import { useMicroLineup } from "@/context/MicroLineupContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
 import { toPng } from "html-to-image";
+import { useState } from "react";
+
 import {
   Save,
   RotateCcw,
@@ -21,6 +23,11 @@ const formations = [
 ];
 
 export default function FormationToolbar() {
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  
+  const [nombre, setNombre] = useState("Jornada ");
+  
+  const [rival, setRival] = useState("");
   const {
   formation,
   lineup,
@@ -200,7 +207,7 @@ async function sharePitch() {
         </button>
 
         <button
-  onClick={guardar}
+  onClick={() => setShowSaveModal(true)}
           className="
             flex
             items-center
@@ -291,6 +298,132 @@ async function sharePitch() {
         </button>
 
       </div>
+      {showSaveModal && (
+
+<div
+  onClick={() => {
+    setShowSaveModal(false);
+    setNombre("Jornada ");
+    setRival("");
+  }}
+  className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+>
+
+<div
+  onClick={(e) => e.stopPropagation()}
+  className="w-full max-w-md rounded-3xl border border-[#C8A96B]/20 bg-[#151B23] p-6 shadow-2xl"
+>
+<h2 className="mb-5 text-xl font-semibold">
+Guardar alineación
+</h2>
+
+<label className="mb-2 block text-sm text-white/70">
+Nombre
+</label>
+
+<input
+value={nombre}
+onChange={(e)=>setNombre(e.target.value)}
+className="
+mb-4
+w-full
+rounded-xl
+border
+border-white/10
+bg-[#1A222C]
+p-3
+outline-none
+focus:border-[#C8A96B]
+"
+/>
+
+<label className="mb-2 block text-sm text-white/70">
+Rival
+</label>
+
+<input
+value={rival}
+onChange={(e)=>setRival(e.target.value)}
+className="
+w-full
+rounded-xl
+border
+border-white/10
+bg-[#1A222C]
+p-3
+outline-none
+focus:border-[#C8A96B]
+"
+/>
+
+<p className="mt-4 rounded-xl border border-[#C8A96B]/20 bg-[#C8A96B]/10 p-3 text-xs leading-5 text-[#C8A96B]">
+
+⚠️ Para que esta alineación aparezca en la pizarra de competición debe guardarse con el formato:
+
+<strong className="block mt-1">
+Jornada X
+</strong>
+
+Ejemplo:
+
+<strong>
+Jornada 1
+</strong>
+
+</p>
+
+<div className="mt-6 flex justify-end gap-3">
+
+<button
+
+onClick={()=>{
+setShowSaveModal(false);
+setNombre("Jornada ");
+setRival("");
+}}
+
+className="
+rounded-xl
+border
+border-white/10
+px-4
+py-2
+hover:bg-white/5
+"
+
+>
+
+Cancelar
+
+</button>
+
+<button
+
+onClick={guardar}
+
+className="
+rounded-xl
+bg-[#C8A96B]
+px-5
+py-2
+font-semibold
+text-[#111]
+hover:brightness-110
+"
+
+>
+
+Guardar
+
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+)}
     </div>
   );
 }

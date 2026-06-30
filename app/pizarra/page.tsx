@@ -180,29 +180,44 @@ const sensors = useSensors(
 
                 <div className="flex flex-col lg:flex-row gap-3">
 
-  {/* IZQUIERDA EN PC */}
-  <aside
- className="
- lg:w-[260px]
- xl:w-[280px]
- shrink-0
- flex
- flex-col
- lg:h-[calc(100vh-235px)]
- lg:max-h-[820px]
- lg:min-h-[520px]
- "
->
-
-    {/* JUGADORES */}
-    <div className="p-3">
-      <PlayerSidebar />
+    {/* SOLO MÓVIL */}
+    <div className="block lg:hidden p-3">
+        <SavedLineups onLoad={handleLoadLineup}/>
     </div>
 
-  </aside>
+  {/* IZQUIERDA EN PC */}
+<aside
+  className="
+    order-3
+    lg:order-none
+
+    lg:w-[260px]
+    xl:w-[280px]
+    shrink-0
+
+    flex
+    flex-col
+
+    lg:h-[calc(100vh-235px)]
+    lg:max-h-[820px]
+    lg:min-h-[520px]
+
+    overflow-hidden
+  "
+>
+    {/* JUGADORES */}
+    <div className="flex-1 min-h-0 overflow-hidden p-3">
+    <PlayerSidebar />
+</div>
+
+</aside>
 
   {/* CAMPO */}
-  <section className="flex-1 order-2 lg:order-none">
+  <section
+className="
+order-2
+lg:order-none
+flex-1">
 
     <div
       className="
@@ -227,15 +242,13 @@ const sensors = useSensors(
     </div>
 
   </section>
-
-  {/* ALINEACIONES */}
-    <div className="mt-4">
-      <SavedLineups onLoad={handleLoadLineup} />
-    </div>
-
-
 </div>
 
+  {/* SOLO ESCRITORIO jugadores */}
+{/* SOLO ESCRITORIO */}
+<div className="hidden lg:block mt-4">
+    <SavedLineups onLoad={handleLoadLineup} />
+</div>
               </div>
 
             </div>

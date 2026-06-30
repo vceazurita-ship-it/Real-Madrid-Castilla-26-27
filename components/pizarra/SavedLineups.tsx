@@ -67,7 +67,19 @@ function formatDate(date: string) {
           <button
             key={item.ID}
             onClick={() => onLoad(item.ID)}
-            className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-left transition hover:border-[#C8A96B]"
+            className="
+min-w-[220px]
+w-[220px]
+shrink-0
+rounded-xl
+border
+border-white/10
+bg-black/30
+p-3
+text-left
+transition
+hover:border-[#C8A96B]
+"
           >
 
             <div className="font-semibold">

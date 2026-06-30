@@ -115,6 +115,7 @@ export default function PlayerSidebar() {
     flex-1
     min-h-0
     overflow-y-auto
+
     p-2
     space-y-1.5
 
@@ -123,7 +124,7 @@ export default function PlayerSidebar() {
     scrollbar-thumb-[#C8A96B]/40
     hover:scrollbar-thumb-[#C8A96B]/70
   "
-      >
+>
         {filteredPlayers.map((player) => (
           <PlayerToken
             key={player.id}
