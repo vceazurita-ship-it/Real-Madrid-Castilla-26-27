@@ -26,43 +26,59 @@ function StatCard({
   return (
     <div
       className="
-        flex
-        items-center
-        gap-3
-        rounded-2xl
-        border
-        border-[#C8A96B]/15
-        bg-[#121820]
-        px-4
-        py-3
-        shadow-lg
-        transition-all
-        duration-300
-        hover:border-[#C8A96B]/40
-        hover:-translate-y-0.5
-      "
+  flex
+  items-center
+  gap-2
+
+  rounded-xl
+  lg:rounded-2xl
+
+  border
+  border-[#C8A96B]/15
+
+  bg-[#121820]
+
+  px-2
+  py-2
+
+  lg:px-4
+  lg:py-3
+
+  shadow-lg
+
+  transition-all
+  duration-300
+
+  hover:border-[#C8A96B]/40
+  lg:hover:-translate-y-0.5
+"
     >
       <div
         className={`
           flex
-          h-10
-          w-10
-          items-center
-          justify-center
-          rounded-xl
+          h-8
+w-8
+
+lg:h-10
+lg:w-10
+
+rounded-lg
+lg:rounded-xl
           ${color}
         `}
       >
         {icon}
       </div>
 
-      <div className="leading-tight">
+      <div className="leading-tight flex flex-col justify-center">
 
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+        <div className="text-[9px]
+lg:text-[11px] uppercase tracking-[0.18em] text-white/55">
           {label}
         </div>
 
-        <div className="text-2xl font-bold text-white">
+        <div className="text-lg
+lg:text-2xl font-bold text-white">
           {value}
         </div>
 
@@ -98,16 +114,18 @@ export default function TopStats() {
   return (
 
     <div
-      className="
-        grid
-        grid-cols-2
-        gap-3
-        lg:grid-cols-5
-      "
+  className="
+    grid
+    grid-cols-3
+    gap-2
+
+    lg:grid-cols-5
+    lg:gap-3
+  "
     >
 
       <StatCard
-        icon={<Shield size={20} className="text-white" />}
+        icon={<Shield className="h-4 w-4 lg:h-5 lg:w-5 text-white" />}
         label="Disponibles"
         value={disponibles}
         color="bg-emerald-600"
@@ -122,7 +140,7 @@ export default function TopStats() {
 
       <StatCard
         icon={<Trophy size={20} className="text-[#1A1A1A]" />}
-        label="Primer Equipo"
+        label="1º Equipo"
         value={primerEquipo}
         color="bg-[#C8A96B]"
       />
