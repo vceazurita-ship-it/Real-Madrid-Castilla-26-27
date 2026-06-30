@@ -98,7 +98,7 @@ console.log(data.alineacion);
     console.error(e);
     alert("Error al cargar la alineación");
   }
-}
+} 
 const sensors = useSensors(
   useSensor(PointerSensor, {
     activationConstraint: {
