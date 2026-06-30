@@ -213,7 +213,7 @@ function scrollRight() {
     hover:text-black
   "
 >
-  ←<ChevronRight size={24}/>
+  <ChevronRight size={24}/>
 
 </button>
 <button
@@ -248,7 +248,7 @@ function scrollRight() {
     hover:text-black
   "
 >
-  →<ChevronRight size={24}/>
+  <ChevronRight size={24}/>
 </button>
 </div>
 
