@@ -178,48 +178,69 @@ function scrollRight() {
   "
 >
   <button
-    onClick={scrollLeft}
-    className="
-      pointer-events-auto
-      flex
-      h-10
-      w-10
-      items-center
-      justify-center
-      rounded-full
-      border
-      border-[#C8A96B]/30
-      bg-[#11161D]/85
-      text-xl
-      text-[#C8A96B]
-      backdrop-blur
-      active:scale-90
-    "
-  >
-    ←
-  </button>
+  onClick={scrollLeft}
+  className="
+    ml-3
 
-  <button
-    onClick={scrollRight}
-    className="
-      pointer-events-auto
-      flex
-      h-10
-      w-10
-      items-center
-      justify-center
-      rounded-full
-      border
-      border-[#C8A96B]/30
-      bg-[#11161D]/85
-      text-xl
-      text-[#C8A96B]
-      backdrop-blur
-      active:scale-90
-    "
-  >
-    →
-  </button>
+    flex
+    h-10
+    w-10
+    items-center
+    justify-center
+
+    rounded-full
+
+    border
+    border-[#C8A96B]/30
+
+    bg-[#11161D]/85
+    backdrop-blur
+
+    text-2xl
+    text-[#C8A96B]
+
+    transition-all
+    duration-200
+
+    active:scale-90
+    hover:bg-[#C8A96B]
+    hover:text-black
+  "
+>
+  ←
+</button>
+<button
+  onClick={scrollRight}
+  className="
+    mr-3
+
+    flex
+    h-10
+    w-10
+    items-center
+    justify-center
+
+    rounded-full
+
+    border
+    border-[#C8A96B]/30
+
+    bg-[#11161D]/85
+    backdrop-blur
+
+    text-2xl
+    text-[#C8A96B]
+
+    transition-all
+    duration-200
+
+    active:scale-90
+    hover:bg-[#C8A96B]
+    hover:text-black
+  "
+>
+  →
+</button>
 </div>
 
 </div>
