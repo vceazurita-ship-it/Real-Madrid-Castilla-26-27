@@ -139,23 +139,36 @@ async function sharePitch() {
 }
   return (
     <div
-      className="
-        flex
-        flex-col
-        gap-3
-        rounded-2xl
-        border
-        border-[#C8A96B]/20
-        bg-[#121820]
-        p-4
-        lg:flex-row
-        lg:items-center
-        lg:justify-between
-      "
-    >
+  className="
+    rounded-3xl
+    border
+    border-[#C8A96B]/20
+    bg-[#121820]
+    p-3
+    shadow-xl
+  "
+>
       {/* FORMACIONES */}
 
-      <div className="flex flex-wrap gap-2">
+      <div
+  className="
+    flex
+    gap-3
+
+    overflow-x-auto
+    scroll-smooth
+
+    snap-x
+    snap-mandatory
+
+    scrollbar-none
+
+    pb-3
+
+    lg:flex-wrap
+    lg:overflow-visible
+  "
+>
 
         {formations.map((item) => (
 
@@ -163,21 +176,32 @@ async function sharePitch() {
             key={item}
             onClick={() => setFormation(item)}
             className={`
-              rounded-xl
-              border
-              px-4
-              py-2
-              text-sm
-              font-semibold
-              transition-all
-              duration-300
+shrink-0
+snap-start
 
-              ${
-                formation === item
-                  ? "border-[#C8A96B] bg-[#C8A96B] text-[#111]"
-                  : "border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
-              }
-            `}
+rounded-2xl
+
+border
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+transition-all
+duration-300
+
+${
+formation===item
+?
+"border-[#C8A96B] bg-[#C8A96B] text-[#111] shadow-[0_0_20px_rgba(200,169,107,.35)]"
+:
+"border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
+}
+`}
           >
             {item}
           </button>
@@ -188,25 +212,48 @@ async function sharePitch() {
 
       {/* ACCIONES */}
 
-      <div className="flex flex-wrap gap-2">
+      <div
+  className="
+    mt-3
+
+    flex
+    gap-3
+
+    overflow-x-auto
+    scroll-smooth
+
+    snap-x
+    snap-mandatory
+
+    scrollbar-none
+
+    pb-2
+
+    lg:mt-4
+    lg:flex-wrap
+    lg:overflow-visible
+  "
+>
 
         <button
           onClick={clearLineup}
           className="
-            flex
+            shrink-0
+snap-start
+flex
             items-center
             gap-2
-            rounded-xl
+            rounded-2xl
             border
             border-white/10
             bg-[#1A222C]
-            px-4
-            py-2
+            px-5 py-3
             text-sm
             text-white
             transition-all
             hover:border-[#C8A96B]/50
             hover:bg-[#232D39]
+            whitespace-nowrap
           "
         >
           <RotateCcw size={16} />
@@ -216,21 +263,36 @@ async function sharePitch() {
         <button
   onClick={() => setShowSaveModal(true)}
           className="
-            flex
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-[#C8A96B]
-            bg-[#C8A96B]
-            px-4
-            py-2
-            text-sm
-            font-semibold
-            text-[#111]
-            transition-all
-            hover:brightness-110
-          "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
         >
           <Save size={16} />
           Guardar
@@ -239,21 +301,36 @@ async function sharePitch() {
         <button
   onClick={exportPitch}
   className="
-    flex
-    items-center
-    gap-2
-    rounded-xl
-    border
-    border-white/10
-    bg-[#1A222C]
-    px-4
-    py-2
-    text-sm
-    text-white
-    transition-all
-    hover:border-[#C8A96B]/50
-    hover:bg-[#232D39]
-  "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
 >
   <Download size={16} />
   Exportar
@@ -262,21 +339,36 @@ async function sharePitch() {
         <button
   onClick={sharePitch}
   className="
-    flex
-    items-center
-    gap-2
-    rounded-xl
-    border
-    border-white/10
-    bg-[#1A222C]
-    px-4
-    py-2
-    text-sm
-    text-white
-    transition-all
-    hover:border-[#C8A96B]/50
-    hover:bg-[#232D39]
-  "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
 >
   <Share2 size={16} />
   Compartir
@@ -284,21 +376,36 @@ async function sharePitch() {
 
         <button
           className="
-            flex
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-white/10
-            bg-[#1A222C]
-            px-4
-            py-2
-            text-sm
-            text-white
-            transition-all
-            hover:border-[#C8A96B]/50
-            hover:bg-[#232D39]
-          "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
         >
           <LayoutGrid size={16} />
           Plantillas
