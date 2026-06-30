@@ -1,11 +1,10 @@
 "use client";
 
-import { useMicroLineup } from "@/context/MicroLineupContext";
+import { useLineup } from "@/context/LineupContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
 import { toPng } from "html-to-image";
 import { useState } from "react";
-
 import {
   Save,
   RotateCcw,
@@ -22,60 +21,68 @@ const formations = [
   "3-4-3",
 ];
 
+
 export default function FormationToolbar() {
   const [showSaveModal, setShowSaveModal] = useState(false);
-  
-  const [nombre, setNombre] = useState("Jornada ");
-  
-  const [rival, setRival] = useState("");
+
+const [nombre, setNombre] = useState("Jornada ");
+
+const [rival, setRival] = useState("");
   const {
   formation,
   lineup,
   setFormation,
   clearLineup,
-} = useMicroLineup();
+} = useLineup();
 
 const { players } = usePlayers();
 async function guardar() {
 
-  const nombre =
-    prompt("Nombre de la alineación");
+  const nombreLimpio = nombre.trim();
 
-  if (!nombre) return;
+  const valido = /^Jornada\s+\d+$/i.test(nombreLimpio);
 
-  const rival =
-    prompt("Rival") || "";
+  if (!valido) {
+    alert(
+      "El nombre debe tener el formato 'Jornada X'."
+    );
+    return;
+  }
 
   await saveLineup({
 
-    nombre,
+    nombre: nombreLimpio,
 
     rival,
 
-    fecha:new Date()
-      .toLocaleDateString(),
+    fecha: new Date().toLocaleDateString(),
 
-    sistema:formation,
+    sistema: formation,
 
-alineacion: lineup.map((slot) => ({
+    alineacion: lineup.map(slot => ({
 
-  positionId: slot.positionId,
+      positionId: slot.positionId,
 
-  playerIds: slot.playerIds,
+      playerId: slot.playerId,
 
-  jugadores: slot.playerIds.map((id) => ({
-    id,
-    nombre:
-      players.find((p) => p.id === id)?.nombre || "",
-  })),
+      jugador:
+        players.find(
+          p => p.id === slot.playerId
+        )?.nombre || ""
 
-})),
-    observaciones:""
+    })),
+
+    observaciones: ""
 
   });
 
-  alert("Alineación guardada");
+  setShowSaveModal(false);
 
+  setNombre("Jornada ");
+
+  setRival("");
+
+  alert("Alineación guardada.");
 }
 async function exportPitch() {
   const node = document.getElementById("football-pitch");
@@ -132,23 +139,36 @@ async function sharePitch() {
 }
   return (
     <div
-      className="
-        flex
-        flex-col
-        gap-3
-        rounded-2xl
-        border
-        border-[#C8A96B]/20
-        bg-[#121820]
-        p-4
-        lg:flex-row
-        lg:items-center
-        lg:justify-between
-      "
-    >
+  className="
+    rounded-3xl
+    border
+    border-[#C8A96B]/20
+    bg-[#121820]
+    p-3
+    shadow-xl
+  "
+>
       {/* FORMACIONES */}
 
-      <div className="flex flex-wrap gap-2">
+      <div
+  className="
+    flex
+    gap-3
+
+    overflow-x-auto
+    scroll-smooth
+
+    snap-x
+    snap-mandatory
+
+    scrollbar-none
+
+    pb-3
+
+    lg:flex-wrap
+    lg:overflow-visible
+  "
+>
 
         {formations.map((item) => (
 
@@ -156,21 +176,32 @@ async function sharePitch() {
             key={item}
             onClick={() => setFormation(item)}
             className={`
-              rounded-xl
-              border
-              px-4
-              py-2
-              text-sm
-              font-semibold
-              transition-all
-              duration-300
+shrink-0
+snap-start
 
-              ${
-                formation === item
-                  ? "border-[#C8A96B] bg-[#C8A96B] text-[#111]"
-                  : "border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
-              }
-            `}
+rounded-2xl
+
+border
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+transition-all
+duration-300
+
+${
+formation===item
+?
+"border-[#C8A96B] bg-[#C8A96B] text-[#111] shadow-[0_0_20px_rgba(200,169,107,.35)]"
+:
+"border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
+}
+`}
           >
             {item}
           </button>
@@ -181,25 +212,48 @@ async function sharePitch() {
 
       {/* ACCIONES */}
 
-      <div className="flex flex-wrap gap-2">
+      <div
+  className="
+    mt-3
+
+    flex
+    gap-3
+
+    overflow-x-auto
+    scroll-smooth
+
+    snap-x
+    snap-mandatory
+
+    scrollbar-none
+
+    pb-2
+
+    lg:mt-4
+    lg:flex-wrap
+    lg:overflow-visible
+  "
+>
 
         <button
           onClick={clearLineup}
           className="
-            flex
+            shrink-0
+snap-start
+flex
             items-center
             gap-2
-            rounded-xl
+            rounded-2xl
             border
             border-white/10
             bg-[#1A222C]
-            px-4
-            py-2
+            px-5 py-3
             text-sm
             text-white
             transition-all
             hover:border-[#C8A96B]/50
             hover:bg-[#232D39]
+            whitespace-nowrap
           "
         >
           <RotateCcw size={16} />
@@ -209,21 +263,36 @@ async function sharePitch() {
         <button
   onClick={() => setShowSaveModal(true)}
           className="
-            flex
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-[#C8A96B]
-            bg-[#C8A96B]
-            px-4
-            py-2
-            text-sm
-            font-semibold
-            text-[#111]
-            transition-all
-            hover:brightness-110
-          "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
         >
           <Save size={16} />
           Guardar
@@ -232,21 +301,36 @@ async function sharePitch() {
         <button
   onClick={exportPitch}
   className="
-    flex
-    items-center
-    gap-2
-    rounded-xl
-    border
-    border-white/10
-    bg-[#1A222C]
-    px-4
-    py-2
-    text-sm
-    text-white
-    transition-all
-    hover:border-[#C8A96B]/50
-    hover:bg-[#232D39]
-  "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
 >
   <Download size={16} />
   Exportar
@@ -255,21 +339,36 @@ async function sharePitch() {
         <button
   onClick={sharePitch}
   className="
-    flex
-    items-center
-    gap-2
-    rounded-xl
-    border
-    border-white/10
-    bg-[#1A222C]
-    px-4
-    py-2
-    text-sm
-    text-white
-    transition-all
-    hover:border-[#C8A96B]/50
-    hover:bg-[#232D39]
-  "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
 >
   <Share2 size={16} />
   Compartir
@@ -277,28 +376,43 @@ async function sharePitch() {
 
         <button
           className="
-            flex
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-white/10
-            bg-[#1A222C]
-            px-4
-            py-2
-            text-sm
-            text-white
-            transition-all
-            hover:border-[#C8A96B]/50
-            hover:bg-[#232D39]
-          "
+shrink-0
+snap-start
+
+flex
+items-center
+gap-2
+
+rounded-2xl
+
+border
+border-[#C8A96B]
+
+bg-[#C8A96B]
+
+px-5
+py-3
+
+whitespace-nowrap
+
+text-sm
+font-semibold
+
+text-[#111]
+
+shadow-[0_0_20px_rgba(200,169,107,.35)]
+
+transition-all
+
+hover:brightness-110
+"
         >
           <LayoutGrid size={16} />
           Plantillas
         </button>
 
       </div>
-      {showSaveModal && (
+     {showSaveModal && (
 
 <div
   onClick={() => {
