@@ -43,6 +43,9 @@ function formatDate(date: string) {
     year: "numeric",
   }).format(new Date(date));
 }
+const visibleLineups = lineups.filter((item) =>
+  /^Jornada\s+\d+$/i.test(item.Nombre.trim())
+);
   return (
     <div className="rounded-2xl border border-[#C8A96B]/20 bg-[#10161D] p-4">
 
@@ -62,7 +65,7 @@ function formatDate(date: string) {
  "
 >
 
-        {lineups.map((item) => (
+        {visibleLineups.map((item) => (
 
           <button
             key={item.ID}
