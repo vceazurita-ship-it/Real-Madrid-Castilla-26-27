@@ -149,20 +149,28 @@ export default function PlayerSidebar() {
     </div>
   </div>
 
-  <div
-    className="
-      pointer-events-none
-      absolute
-      right-0
-      top-0
-      h-full
-      w-10
-      bg-gradient-to-l
-      from-[#11161D]
-      to-transparent
-      lg:hidden
-    "
-  />
+ <div
+  className="
+    absolute
+    right-3
+    bottom-3
+    z-20
+
+    rounded-full
+    bg-black/60
+
+    px-3
+    py-1
+
+    text-[11px]
+    text-white/70
+
+    lg:hidden
+    pointer-events-none
+  "
+>
+    Desliza →
+</div>
 
 </div>
 
