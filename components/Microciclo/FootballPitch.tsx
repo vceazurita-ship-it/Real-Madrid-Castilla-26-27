@@ -143,20 +143,28 @@ slot?.playerIds?.includes(player.id)  );
                   </div>
 
                   <div
-                    className="
-                      mt-2
-                      rounded-full
-                      bg-black/60
-                      px-3
-                      py-1
-                      text-[10px]
-                      font-semibold
-                      tracking-wide
-                      text-white/90
-                    "
-                  >
-                    {position.nombre}
-                  </div>
+  className={`
+    mt-2
+    rounded-full
+    bg-black/60
+    px-3
+    py-1
+    text-[10px]
+    font-semibold
+    tracking-wide
+    text-white/90
+    whitespace-nowrap
+    backdrop-blur-sm
+
+    ${
+      mobile
+        ? "-rotate-90 origin-center"
+        : ""
+    }
+  `}
+>
+  {position.nombre}
+</div>
 
                 </div>
               )}

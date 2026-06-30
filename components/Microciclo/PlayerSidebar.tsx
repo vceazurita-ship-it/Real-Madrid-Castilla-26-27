@@ -9,20 +9,32 @@ import { useMemo, useRef, useState } from "react";
 
 import { usePlayers } from "@/hooks/usePlayers";
 import PlayerToken from "./PlayerToken";
-
+import { useMicroLineup } from "@/context/MicroLineupContext";
 
 export default function PlayerSidebar() {
   const { players } = usePlayers();
-
+const { lineup } = useMicroLineup();
   const [search, setSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+const playersOnPitch = useMemo(() => {
+  return new Set(
+    lineup.flatMap((slot) => slot.playerIds ?? [])
+  );
+}, [lineup]);
+
   const filteredPlayers = useMemo(() => {
-    return players.filter((player) =>
+  return players.filter((player) => {
+    const matchesSearch =
       player.nombre
         .toLowerCase()
-        .includes(search.toLowerCase())
-    );
-  }, [players, search]);
+        .includes(search.toLowerCase());
+
+    const alreadyOnPitch =
+      playersOnPitch.has(player.id);
+
+    return matchesSearch && !alreadyOnPitch;
+  });
+}, [players, search, playersOnPitch]);
 function scrollLeft() {
   scrollRef.current?.scrollBy({
     left: -300,
@@ -68,8 +80,7 @@ function scrollRight() {
             </h2>
 
             <p className="text-xs uppercase tracking-[0.18em] text-white/45">
-              {players.length} jugadores
-            </p>
+{filteredPlayers.length} jugadores disponibles            </p>
           </div>
 
           <div
@@ -157,12 +168,31 @@ function scrollRight() {
         lg:gap-1.5
       "
     >
-      {filteredPlayers.map((player) => (
-        <PlayerToken
-          key={player.id}
-          player={player}
-        />
-      ))}
+      {filteredPlayers.length > 0 ? (
+  filteredPlayers.map((player) => (
+    <PlayerToken
+      key={player.id}
+      player={player}
+    />
+  ))
+) : (
+  <div
+    className="
+      flex
+      items-center
+      justify-center
+      rounded-xl
+      border
+      border-dashed
+      border-white/10
+      py-8
+      text-sm
+      text-white/40
+    "
+  >
+    Todos los jugadores están en el campo
+  </div>
+)}
     </div>
   </div>
 

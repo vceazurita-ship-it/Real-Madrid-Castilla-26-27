@@ -14,6 +14,7 @@ interface Props {
   licencia: string;
   mobile: boolean;
   estado?: EstadoJugador;
+  showName?: boolean;
 }
 
 export default function FieldPlayer({
@@ -24,6 +25,7 @@ export default function FieldPlayer({
   licencia,
   mobile,
   estado = "DISPONIBLE",
+  showName = true,
 }: Props) {
   const {
     attributes,
@@ -183,28 +185,30 @@ export default function FieldPlayer({
 
         </div>
 
-        <div
-          className={`
-            mt-2
-            rounded-full
-            border
-            border-[#C8A96B]/40
-            bg-black/70
-            backdrop-blur-md
-            px-3
-            py-1
-            font-semibold
-            whitespace-nowrap
-            ${
-              disabled
-                ? "text-white/60"
-                : "text-white"
-            }
-            ${mobile ? "text-[9px]" : "text-[11px]"}
-          `}
-        >
-          {nombre}
-        </div>
+        {showName && (
+  <div
+    className={`
+      mt-2
+      rounded-full
+      border
+      border-[#C8A96B]/40
+      bg-black/70
+      backdrop-blur-md
+      px-3
+      py-1
+      font-semibold
+      whitespace-nowrap
+      ${
+        disabled
+          ? "text-white/60"
+          : "text-white"
+      }
+      ${mobile ? "text-[9px]" : "text-[11px]"}
+    `}
+  >
+    {nombre}
+  </div>
+)}
 
       </div>
     </div>

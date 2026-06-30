@@ -14,11 +14,7 @@ export default function MicroGroup({
   positionId,
   mobile = false,
 }: Props) {
-  if (players.length === 0) return null;
-
-  //----------------------------------
-  // Tamaño automático
-  //----------------------------------
+  if (!players.length) return null;
 
   let size = mobile ? 42 : 58;
 
@@ -26,70 +22,102 @@ export default function MicroGroup({
     case 1:
       size = mobile ? 50 : 68;
       break;
-
     case 2:
       size = mobile ? 46 : 60;
       break;
-
     case 3:
       size = mobile ? 42 : 56;
       break;
-
     case 4:
       size = mobile ? 40 : 52;
       break;
-
     default:
       size = mobile ? 36 : 46;
       break;
   }
 
-  //----------------------------------
-  // Columnas
-  //----------------------------------
+  const columns =
+    players.length <= 1
+      ? 1
+      : players.length <= 4
+      ? 2
+      : 3;
 
-  let columns = 1;
-
-  if (players.length === 2)
-    columns = 2;
-
-  if (players.length === 3)
-    columns = 2;
-
-  if (players.length === 4)
-    columns = 2;
-
-  if (players.length >= 5)
-    columns = 3;
-
-  //----------------------------------
+  const visibleNames = players.slice(0, 3);
+  const hiddenPlayers = players.length - 3;
 
   return (
-    <div
-      className="grid gap-1 justify-items-center"
-      style={{
-        gridTemplateColumns: `repeat(${columns}, auto)`,
-      }}
-    >
-      {players.map((player) => (
+    <div className="flex flex-col items-center">
+
+      <div
+        className="grid justify-items-center gap-1"
+        style={{
+          gridTemplateColumns: `repeat(${columns}, auto)`,
+        }}
+      >
+        {players.map((player) => (
+          <div
+            key={player.id}
+            style={{
+              width: size,
+              height: size,
+            }}
+          >
+            <MicroFieldPlayer
+              id={player.id}
+              positionId={positionId}
+              foto={player.foto}
+              nombre={player.nombre}
+              licencia={player.licencia}
+              estado={player.estado}
+              mobile={mobile}
+              showName={players.length === 1}
+            />
+          </div>
+        ))}
+      </div>
+
+      {players.length > 1 && (
         <div
-          key={player.id}
-          style={{
-            width: size,
-            height: size,
-          }}
+          className="
+            mt-2
+            rounded-xl
+            bg-black/70
+            backdrop-blur
+            px-3
+            py-1.5
+            text-center
+            shadow-lg
+          "
         >
-          <MicroFieldPlayer
-            id={player.id}
-            positionId={positionId}
-            foto={player.foto}
-            nombre={player.nombre}
-            licencia={player.licencia}
-            estado={player.estado}
-            mobile={mobile}
-          />
+          {visibleNames.map((player) => (
+            <div
+              key={player.id}
+              className={`
+                leading-tight
+                font-medium
+                text-white
+                ${mobile ? "text-[9px]" : "text-[10px]"}
+              `}
+            >
+              {player.nombre}
+            </div>
+          ))}
+
+          {hiddenPlayers > 0 && (
+            <div
+              className={`
+                font-bold
+                text-[#C8A96B]
+                ${mobile ? "text-[9px]" : "text-[10px]"}
+              `}
+            >
+              +{hiddenPlayers}
+            </div>
+          )}
         </div>
-      ))}
+      )}
+
     </div>
   );
 }
