@@ -24,7 +24,7 @@ export default function PlayerSidebar() {
       className="
         flex
         h-full
-        max-h-[calc(100vh-260px)]
+        
         flex-col
         overflow-hidden
         bg-[#11161D]
@@ -114,17 +114,27 @@ export default function PlayerSidebar() {
   className="
     flex-1
     min-h-0
-    overflow-y-auto
-    touch-pan-y
+
+    flex
+    flex-row
+    gap-2
+
+    overflow-x-auto
+    overflow-y-hidden
+
+    lg:flex-col
+    lg:gap-1.5
+    lg:overflow-y-auto
+    lg:overflow-x-hidden
+
     p-2
-    space-y-1.5
 
     scrollbar-thin
     scrollbar-track-transparent
     scrollbar-thumb-[#C8A96B]/40
     hover:scrollbar-thumb-[#C8A96B]/70
   "
-      >
+>
         {filteredPlayers.map((player) => (
           <PlayerToken
             key={player.id}

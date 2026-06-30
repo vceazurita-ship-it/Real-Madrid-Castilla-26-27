@@ -151,105 +151,113 @@ const sensors = useSensors(
 
 </div>
 
-              {/* ESTADÍSTICAS */}
-
-              <div className="mb-3">
-                <TopStats />
-              </div>
-
-              {/* BARRA SUPERIOR */}
-
-              <div className="mb-3">
-                <FormationToolbar />
-              </div>
-
-              {/* CONTENEDOR */}
-
-              <div
+               {/* ESTADÍSTICAS */}
+              
+                            <div className="mb-3">
+                              <TopStats />
+                            </div>
+              
+                            {/* BARRA SUPERIOR */}
+              
+                            <div className="mb-3">
+                              <FormationToolbar />
+                            </div>
+              
+                            {/* CONTENEDOR */}
+              
+                            <div
+                              className="
+                                rounded-[30px]
+                                border
+                                border-[#C8A96B]/20
+                                bg-gradient-to-b
+                                from-[#151B23]
+                                to-[#0E131A]
+                                p-2 xl:p-3
+                                shadow-[0_35px_90px_rgba(0,0,0,.55)]
+                              "
+                            >
+              
+                              <div className="flex flex-col lg:flex-row gap-3">
+              
+                  {/* SOLO MÓVIL */}
+                  <div className="block lg:hidden p-3">
+                      <SavedLineups onLoad={handleLoadLineup}/>
+                  </div>
+              
+                {/* IZQUIERDA EN PC */}
+              <aside
                 className="
-                  rounded-[30px]
-                  border
-                  border-[#C8A96B]/20
-                  bg-gradient-to-b
-                  from-[#151B23]
-                  to-[#0E131A]
-                  p-2 xl:p-3
-                  shadow-[0_35px_90px_rgba(0,0,0,.55)]
+                  order-3
+                  lg:order-none
+              
+                  lg:w-[260px]
+                  xl:w-[280px]
+                  shrink-0
+              
+                  flex
+                  flex-col
+              
+                  lg:h-[calc(100vh-235px)]
+                  lg:max-h-[820px]
+                  lg:min-h-[520px]
+              
+                  overflow-hidden
                 "
               >
-
-                <div className="flex flex-col lg:flex-row gap-3">
-
-  {/* IZQUIERDA EN PC */}
-  <aside
-    className="
-      lg:w-[260px]
-      xl:w-[280px]
-      shrink-0
-      rounded-2xl
-      border
-      border-[#C8A96B]/15
-      bg-[#11161D]/80
-      backdrop-blur-xl
-      overflow-hidden
-    "
-  >
-
-    {/* JUGADORES */}
-    <div className="p-3">
-      <PlayerSidebar />
-    </div>
-
-    {/* ALINEACIONES SOLO EN PC */}
-    <div className="hidden lg:block p-3 pt-0">
-      <SavedLineups onLoad={handleLoadLineup} />
-    </div>
-
-  </aside>
-
-  {/* CAMPO */}
-  <section className="flex-1 order-2 lg:order-none">
-
-    <div
-      className="
-        mx-auto
-        overflow-hidden
-        rounded-[26px]
-
-        w-full
-        aspect-[9/16]
-        max-w-[430px]
-        h-auto
-
-        lg:max-w-none
-        lg:w-full
-        lg:aspect-[16/9]
-        lg:h-[calc(100vh-235px)]
-        lg:max-h-[820px]
-        lg:min-h-[520px]
-      "
-    >
-      <FootballPitch />
-    </div>
-
-  </section>
-
-  {/* ALINEACIONES SOLO EN MÓVIL */}
-  <div className="block lg:hidden order-3">
-    <SavedLineups onLoad={handleLoadLineup} />
-  </div>
-
-</div>
-
+                  {/* JUGADORES */}
+                  <div className="flex-1 min-h-0 overflow-hidden p-3">
+                  <PlayerSidebar />
               </div>
-
-            </div>
-
-          </section>
-
-        </div>
-
-      </main>
+              
+              </aside>
+              
+                {/* CAMPO */}
+                <section
+              className="
+              order-2
+              lg:order-none
+              flex-1">
+              
+                  <div
+                    className="
+                      mx-auto
+                      overflow-hidden
+                      rounded-[26px]
+              
+                      w-full
+                      aspect-[9/16]
+                      max-w-[430px]
+                      h-auto
+              
+                      lg:max-w-none
+                      lg:w-full
+                      lg:aspect-[16/9]
+                      lg:h-[calc(100vh-235px)]
+                      lg:max-h-[820px]
+                      lg:min-h-[520px]
+                    "
+                  >
+                    <FootballPitch />
+                  </div>
+              
+                </section>
+              </div>
+              
+                {/* SOLO ESCRITORIO jugadores */}
+              {/* SOLO ESCRITORIO */}
+              <div className="hidden lg:block mt-4">
+                  <SavedLineups onLoad={handleLoadLineup} />
+              </div>
+                            </div>
+              
+                          </div>
+              
+                        </section>
+              
+                      </div>
+              
+                    </main>
 <DragOverlay>
 
   {dragPlayer && (
