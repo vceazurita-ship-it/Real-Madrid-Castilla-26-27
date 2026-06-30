@@ -147,268 +147,96 @@ async function sharePitch() {
 >
       {/* FORMACIONES */}
 
-      <div
+   <div
   className="
     flex
+    items-center
     gap-3
 
     overflow-x-auto
+    scrollbar-none
     scroll-smooth
 
-    snap-x
-    snap-mandatory
-
-    scrollbar-none
-
-    pb-3
-
-    lg:flex-wrap
-    lg:overflow-visible
-  "
->
-
-        {formations.map((item) => (
-
-          <button
-            key={item}
-            onClick={() => setFormation(item)}
-            className={`
-shrink-0
-snap-start
-
-rounded-2xl
-
-border
-
-px-5
-py-3
-
-whitespace-nowrap
-
-text-sm
-font-semibold
-
-transition-all
-duration-300
-
-${
-formation===item
-?
-"border-[#C8A96B] bg-[#C8A96B] text-[#111] shadow-[0_0_20px_rgba(200,169,107,.35)]"
-:
-"border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
-}
-`}
-          >
-            {item}
-          </button>
-
-        ))}
-
-      </div>
-
-      {/* ACCIONES */}
-
-      <div
-  className="
-    mt-3
-
-    flex
-    gap-3
-
-    overflow-x-auto
-    scroll-smooth
-
-    snap-x
-    snap-mandatory
-
-    scrollbar-none
+    whitespace-nowrap
 
     pb-2
-
-    lg:mt-4
-    lg:flex-wrap
-    lg:overflow-visible
   "
 >
 
-        <button
-          onClick={clearLineup}
-          className="
-            shrink-0
-snap-start
-flex
-            items-center
-            gap-2
-            rounded-2xl
-            border
-            border-white/10
-            bg-[#1A222C]
-            px-5 py-3
-            text-sm
-            text-white
-            transition-all
-            hover:border-[#C8A96B]/50
-            hover:bg-[#232D39]
-            whitespace-nowrap
-          "
-        >
-          <RotateCcw size={16} />
-          Reset
-        </button>
+  {/* FORMACIONES */}
 
-        <button
-  onClick={() => setShowSaveModal(true)}
-          className="
-shrink-0
-snap-start
+  {formations.map((item) => (
+    <button
+      key={item}
+      onClick={() => setFormation(item)}
+      className={`
+        shrink-0
+        rounded-2xl
+        border
+        px-5
+        py-3
+        text-sm
+        font-semibold
+        transition-all
+        duration-300
 
-flex
-items-center
-gap-2
+        ${
+          formation === item
+            ? "border-[#C8A96B] bg-[#C8A96B] text-[#111] shadow-[0_0_20px_rgba(200,169,107,.35)]"
+            : "border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
+        }
+      `}
+    >
+      {item}
+    </button>
+  ))}
 
-rounded-2xl
+  {/* Separador */}
 
-border
-border-[#C8A96B]
+  <div className="mx-1 h-8 w-px shrink-0 bg-white/10" />
 
-bg-[#C8A96B]
+  {/* BOTONES */}
 
-px-5
-py-3
+  <button
+    onClick={clearLineup}
+    className="shrink-0 flex items-center gap-2 rounded-2xl border border-white/10 bg-[#1A222C] px-5 py-3 text-sm text-white hover:border-[#C8A96B]/50 hover:bg-[#232D39]"
+  >
+    <RotateCcw size={16} />
+    Reset
+  </button>
 
-whitespace-nowrap
+  <button
+    onClick={() => setShowSaveModal(true)}
+    className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
+  >
+    <Save size={16} />
+    Guardar
+  </button>
 
-text-sm
-font-semibold
+  <button
+    onClick={exportPitch}
+    className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
+  >
+    <Download size={16} />
+    Exportar
+  </button>
 
-text-[#111]
+  <button
+    onClick={sharePitch}
+    className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
+  >
+    <Share2 size={16} />
+    Compartir
+  </button>
 
-shadow-[0_0_20px_rgba(200,169,107,.35)]
+  <button
+    className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
+  >
+    <LayoutGrid size={16} />
+    Plantillas
+  </button>
 
-transition-all
-
-hover:brightness-110
-"
-        >
-          <Save size={16} />
-          Guardar
-        </button>
-
-        <button
-  onClick={exportPitch}
-  className="
-shrink-0
-snap-start
-
-flex
-items-center
-gap-2
-
-rounded-2xl
-
-border
-border-[#C8A96B]
-
-bg-[#C8A96B]
-
-px-5
-py-3
-
-whitespace-nowrap
-
-text-sm
-font-semibold
-
-text-[#111]
-
-shadow-[0_0_20px_rgba(200,169,107,.35)]
-
-transition-all
-
-hover:brightness-110
-"
->
-  <Download size={16} />
-  Exportar
-</button>
-
-        <button
-  onClick={sharePitch}
-  className="
-shrink-0
-snap-start
-
-flex
-items-center
-gap-2
-
-rounded-2xl
-
-border
-border-[#C8A96B]
-
-bg-[#C8A96B]
-
-px-5
-py-3
-
-whitespace-nowrap
-
-text-sm
-font-semibold
-
-text-[#111]
-
-shadow-[0_0_20px_rgba(200,169,107,.35)]
-
-transition-all
-
-hover:brightness-110
-"
->
-  <Share2 size={16} />
-  Compartir
-</button>
-
-        <button
-          className="
-shrink-0
-snap-start
-
-flex
-items-center
-gap-2
-
-rounded-2xl
-
-border
-border-[#C8A96B]
-
-bg-[#C8A96B]
-
-px-5
-py-3
-
-whitespace-nowrap
-
-text-sm
-font-semibold
-
-text-[#111]
-
-shadow-[0_0_20px_rgba(200,169,107,.35)]
-
-transition-all
-
-hover:brightness-110
-"
-        >
-          <LayoutGrid size={16} />
-          Plantillas
-        </button>
-
-      </div>
+</div>
      {showSaveModal && (
 
 <div
