@@ -152,24 +152,36 @@ export default function PlayerSidebar() {
 <div
   className="
     absolute
-    right-3
-    bottom-3
+    right-0
+    top-0
+    bottom-0
     z-20
 
-    rounded-full
-    bg-black/60
+    flex
+    items-center
+    justify-end
 
-    px-3
-    py-1
+    w-20
 
-    text-[11px]
-    text-white/70
+    bg-gradient-to-l
+    from-[#11161D]
+    via-[#11161D]/70
+    to-transparent
 
-    lg:hidden
     pointer-events-none
+    lg:hidden
   "
 >
-    Desliza →
+  <span
+    className="
+      mr-3
+      text-3xl
+      text-[#C8A96B]
+      animate-pulse
+    "
+  >
+    →
+  </span>
 </div>
 
 </div>
