@@ -19,6 +19,13 @@ export default function PlayerSidebar() {
         .includes(search.toLowerCase())
     );
   }, [players, search]);
+function scrollLeft() {
+  scrollRef.current?.scrollBy({
+    left: -300,
+    behavior: "smooth",
+  });
+}
+
 function scrollRight() {
   scrollRef.current?.scrollBy({
     left: 300,
@@ -158,43 +165,56 @@ function scrollRight() {
 <div
   className="
     absolute
+    inset-y-0
+    left-0
     right-0
-    top-0
-    bottom-0
-    z-20
-
     flex
     items-center
-    justify-end
-
-    w-20
-
-    bg-gradient-to-l
-    from-[#11161D]
-    via-[#11161D]/70
-    to-transparent
-
+    justify-between
+    px-2
+    pointer-events-none
     lg:hidden
+    z-20
   "
 >
   <button
-    onClick={scrollRight}
+    onClick={scrollLeft}
     className="
-      mr-3
+      pointer-events-auto
       flex
       h-10
       w-10
       items-center
       justify-center
       rounded-full
-
-      bg-[#C8A96B]/15
       border
       border-[#C8A96B]/30
-
-      text-2xl
+      bg-[#11161D]/85
+      text-xl
       text-[#C8A96B]
+      backdrop-blur
+      active:scale-90
+    "
+  >
+    ←
+  </button>
 
+  <button
+    onClick={scrollRight}
+    className="
+      pointer-events-auto
+      flex
+      h-10
+      w-10
+      items-center
+      justify-center
+      rounded-full
+      border
+      border-[#C8A96B]/30
+      bg-[#11161D]/85
+      text-xl
+      text-[#C8A96B]
+      backdrop-blur
       active:scale-90
     "
   >
