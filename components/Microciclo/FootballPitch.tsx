@@ -61,18 +61,18 @@ useEffect(() => {
     unoptimized
     draggable={false}
     className={`
-      object-cover
-      pointer-events-none
-      select-none
-      transition-all
-      duration-500
+  object-cover
+  pointer-events-none
+  select-none
+  transition-all
+  duration-500
 
-      ${
-        mobile
-          ? "rotate-90 scale-[1.78]"
-          : "rotate-0 scale-100"
-      }
-    `}
+  ${
+    mobile
+      ? "rotate-0 scale-100"
+      : "rotate-90 scale-[1.78]"
+  }
+`}
   />
 
 </div>
@@ -101,10 +101,13 @@ slot?.playerIds?.includes(player.id)  );
             key={position.id}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{
-  left: mobile ? position.top : position.left,
-  top: mobile
-    ? `${100 - parseFloat(position.left)}%`
+  left: mobile
+    ? position.left
     : position.top,
+
+  top: mobile
+    ? position.top
+    : `${100 - parseFloat(position.left)}%`,
 }}
           >
             <PitchPosition id={position.id}>
