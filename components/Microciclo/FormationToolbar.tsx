@@ -1,6 +1,6 @@
 "use client";
 
-import { useLineup } from "@/context/LineupContext";
+import { useMicroLineup } from "@/context/MicroLineupContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
 import { toPng } from "html-to-image";
@@ -33,7 +33,7 @@ const [rival, setRival] = useState("");
   lineup,
   setFormation,
   clearLineup,
-} = useLineup();
+} = useMicroLineup();
 
 const { players } = usePlayers();
 async function guardar() {
@@ -60,17 +60,14 @@ async function guardar() {
     sistema: formation,
 
     alineacion: lineup.map(slot => ({
+  positionId: slot.positionId,
 
-      positionId: slot.positionId,
+  playerIds: slot.playerIds,
 
-      playerId: slot.playerId,
-
-      jugador:
-        players.find(
-          p => p.id === slot.playerId
-        )?.nombre || ""
-
-    })),
+  jugadores: slot.playerIds.map(
+    id => players.find(p => p.id === id)?.nombre ?? ""
+  )
+})),
 
     observaciones: ""
 
