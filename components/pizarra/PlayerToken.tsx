@@ -43,20 +43,13 @@ export default function PlayerToken({ player }: Props) {
         ...style,
         touchAction: "none",
       }}
-      onClick={() => {
-        console.log("Seleccionado:", player.nombre);
-
-        setSelectedPlayer(
-          selected ? null : player
-        );
-      }}
+      
       className={`
   group
-  cursor-pointer
   select-none
 
   min-w-[220px]
-w-[2200px]
+w-[220px]
 
 lg:min-w-0
 lg:w-auto
@@ -123,7 +116,15 @@ lg:w-auto
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold text-white">
+          <div
+  className="
+    truncate
+    whitespace-nowrap
+    text-[14px]
+    font-semibold
+    text-white
+  "
+>
             {player.nombre}
           </div>
 
@@ -176,26 +177,34 @@ lg:w-auto
         </div>
 
         <div
-          className="
-            flex
-            h-7
-            w-7
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-[#C8A96B]/30
-            bg-[#C8A96B]/10
-            text-lg
-            text-[#C8A96B]
-            transition-all
-            duration-300
-            group-hover:bg-[#C8A96B]
-            group-hover:text-black
-          "
-        >
-          +
-        </div>
+  onClick={(e) => {
+    e.stopPropagation();
+
+    setSelectedPlayer(
+      selected ? null : player
+    );
+  }}
+  className="
+    flex
+    h-7
+    w-7
+    cursor-pointer
+    items-center
+    justify-center
+    rounded-full
+    border
+    border-[#C8A96B]/30
+    bg-[#C8A96B]/10
+    text-lg
+    text-[#C8A96B]
+    transition-all
+    duration-300
+    group-hover:bg-[#C8A96B]
+    group-hover:text-black
+  "
+>
+  +
+</div>
 
       </div>
     </div>
