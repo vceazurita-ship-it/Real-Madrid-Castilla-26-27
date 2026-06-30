@@ -15,6 +15,7 @@ interface StatCardProps {
   label: string;
   value: string | number;
   color: string;
+  danger?: boolean;
 }
 
 function StatCard({
@@ -22,72 +23,107 @@ function StatCard({
   label,
   value,
   color,
+  danger = false,
 }: StatCardProps) {
   return (
     <div
-      className="
-  flex
-  items-center
-  gap-2
+      className={`
+        flex
+        flex-col
+        items-center
+        justify-center
+        text-center
 
-  rounded-xl
-  lg:rounded-2xl
+        rounded-2xl
+        border
 
-  border
-  border-[#C8A96B]/15
+        ${
+          danger
+            ? "border-red-500/40 bg-red-500/10"
+            : "border-[#C8A96B]/15 bg-[#121820]"
+        }
 
-  bg-[#121820]
+        px-2
+        py-4
 
-  px-2
-  py-2
+        lg:px-3
+        lg:py-5
 
-  lg:px-4
-  lg:py-3
+        shadow-lg
 
-  shadow-lg
+        transition-all
+        duration-300
 
-  transition-all
-  duration-300
-
-  hover:border-[#C8A96B]/40
-  lg:hover:-translate-y-0.5
-"
+        lg:hover:-translate-y-1
+        lg:hover:border-[#C8A96B]/45
+      `}
     >
       <div
         className={`
           flex
-          h-8
-w-8
+          items-center
+          justify-center
 
-lg:h-10
-lg:w-10
+          h-10
+          w-10
 
-rounded-lg
-lg:rounded-xl       ${color}
+          lg:h-12
+          lg:w-12
+
+          rounded-xl
+
+          ${color}
         `}
       >
         {icon}
       </div>
 
-      <div className="leading-tight flex flex-col justify-center">
-
-        <div className="text-[9px]
-lg:text-[11px] uppercase tracking-[0.18em] text-white/55">
-          {label}
-        </div>
-
-        <div className="text-lg
-lg:text-2xl font-bold text-white">
-          {value}
-        </div>
-
+      <div
+        className="
+          mt-3
+          text-3xl
+          lg:text-[34px]
+          font-black
+          leading-none
+          text-white
+        "
+      >
+        {value}
       </div>
+
+      <div
+        className="
+          mt-2
+          text-[10px]
+          lg:text-[11px]
+
+          uppercase
+          tracking-[0.16em]
+
+          text-white/55
+        "
+      >
+        {label}
+      </div>
+
+      {label === "No Castilla" && (
+        <div
+          className="
+            mt-1
+            text-[9px]
+            uppercase
+            tracking-widest
+            text-white/35
+          "
+        >
+          Máx. 4
+        </div>
+      )}
     </div>
   );
 }
 
 export default function TopStats() {
-
   const { players } = usePlayers();
 
   const disponibles = players.filter(
@@ -111,58 +147,64 @@ export default function TopStats() {
   ).length;
 
   return (
-
     <div
-  className="
-    grid
-    grid-cols-3
-    gap-2
+      className="
+        grid
+        grid-cols-5
+        gap-2
 
-    lg:grid-cols-5
-    lg:gap-3
-  "
+        lg:gap-4
+      "
     >
-
       <StatCard
-        icon={<Shield className="h-4 w-4 lg:h-5 lg:w-5 text-white" />}
+        icon={
+          <Shield className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+        }
         label="Disponibles"
         value={disponibles}
         color="bg-emerald-600"
       />
 
       <StatCard
-        icon={<HeartPulse size={20} className="text-white" />}
+        icon={
+          <HeartPulse className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+        }
         label="Lesionados"
         value={lesionados}
         color="bg-red-600"
       />
 
       <StatCard
-        icon={<Trophy size={20} className="text-[#1A1A1A]" />}
+        icon={
+          <Trophy className="h-5 w-5 lg:h-6 lg:w-6 text-[#111]" />
+        }
         label="1º Equipo"
         value={primerEquipo}
         color="bg-[#C8A96B]"
       />
 
       <StatCard
-        icon={<Flag size={20} className="text-white" />}
+        icon={
+          <Flag className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+        }
         label="Selección"
         value={seleccion}
         color="bg-blue-600"
       />
 
       <StatCard
-        icon={<Users size={20} className="text-[#1A1A1A]" />}
+        icon={
+          <Users className="h-5 w-5 lg:h-6 lg:w-6 text-[#111]" />
+        }
         label="No Castilla"
         value={`${noCastilla}/4`}
         color={
           noCastilla > 4
-            ? "bg-red-500"
+            ? "bg-red-600"
             : "bg-[#C8A96B]"
         }
+        danger={noCastilla > 4}
       />
-
     </div>
-
   );
 }

@@ -1,6 +1,10 @@
 "use client";
 
-import { Search } from "lucide-react";
+import {
+    Search,
+    ChevronLeft,
+    ChevronRight,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { usePlayers } from "@/hooks/usePlayers";
@@ -180,6 +184,8 @@ function scrollRight() {
   <button
   onClick={scrollLeft}
   className="
+      pointer-events-auto
+
     ml-3
 
     flex
@@ -212,6 +218,8 @@ function scrollRight() {
 <button
   onClick={scrollRight}
   className="
+      pointer-events-auto
+
     mr-3
 
     flex
