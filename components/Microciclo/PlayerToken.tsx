@@ -48,7 +48,7 @@ export default function PlayerToken({ player }: Props) {
   group
   select-none
 
-  min-w-[2200px]
+  min-w-[220px]
 w-[220px]
 
 lg:min-w-0
@@ -86,7 +86,7 @@ lg:w-auto
         }
       `}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
 
         {/* SOLO ESTA FOTO ARRASTRA */}
         <div
@@ -115,8 +115,8 @@ lg:w-auto
           />
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div
+<div className="min-w-0 flex-1 space-y-1">
+<div
   className="
     truncate
     whitespace-nowrap
@@ -176,7 +176,8 @@ lg:w-auto
 </div>
         </div>
 
-       <div
+       <button
+  type="button"
   onClick={(e) => {
     e.stopPropagation();
 
@@ -185,26 +186,36 @@ lg:w-auto
     );
   }}
   className="
+    self-start
+    mt-1
+
     flex
     h-7
     w-7
+
     cursor-pointer
+
     items-center
     justify-center
+
     rounded-full
     border
     border-[#C8A96B]/30
+
     bg-[#C8A96B]/10
+
     text-lg
     text-[#C8A96B]
+
     transition-all
     duration-300
-    group-hover:bg-[#C8A96B]
-    group-hover:text-black
+
+    hover:bg-[#C8A96B]
+    hover:text-black
   "
 >
   +
-</div>
+</button>
 
       </div>
     </div>
