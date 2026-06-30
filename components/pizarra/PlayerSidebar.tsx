@@ -24,7 +24,7 @@ export default function PlayerSidebar() {
       className="
         flex
         h-full
-        max-h-[calc(100vh-260px)]
+        
         flex-col
         overflow-hidden
         bg-[#11161D]
@@ -115,7 +115,6 @@ export default function PlayerSidebar() {
     flex-1
     min-h-0
     overflow-y-auto
-    touch-pan-y
     p-2
     space-y-1.5
 

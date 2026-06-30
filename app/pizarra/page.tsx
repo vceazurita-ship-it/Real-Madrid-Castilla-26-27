@@ -182,27 +182,21 @@ const sensors = useSensors(
 
   {/* IZQUIERDA EN PC */}
   <aside
-    className="
-      lg:w-[260px]
-      xl:w-[280px]
-      shrink-0
-      rounded-2xl
-      border
-      border-[#C8A96B]/15
-      bg-[#11161D]/80
-      backdrop-blur-xl
-      overflow-hidden
-    "
-  >
+ className="
+ lg:w-[260px]
+ xl:w-[280px]
+ shrink-0
+ flex
+ flex-col
+ lg:h-[calc(100vh-235px)]
+ lg:max-h-[820px]
+ lg:min-h-[520px]
+ "
+>
 
     {/* JUGADORES */}
     <div className="p-3">
       <PlayerSidebar />
-    </div>
-
-    {/* ALINEACIONES SOLO EN PC */}
-    <div className="hidden lg:block p-3 pt-0">
-      <SavedLineups onLoad={handleLoadLineup} />
     </div>
 
   </aside>
@@ -234,10 +228,11 @@ const sensors = useSensors(
 
   </section>
 
-  {/* ALINEACIONES SOLO EN MÓVIL */}
-  <div className="block lg:hidden order-3">
-    <SavedLineups onLoad={handleLoadLineup} />
-  </div>
+  {/* ALINEACIONES */}
+    <div className="mt-4">
+      <SavedLineups onLoad={handleLoadLineup} />
+    </div>
+
 
 </div>
 

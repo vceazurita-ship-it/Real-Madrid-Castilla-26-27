@@ -136,7 +136,7 @@ const sensors = useSensors(
 <div className="mb-3">
 
   <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
-    RMCF CASTILLA · COMPETICIÓN
+    RMCF CASTILLA · MICROCICLO
   </p>
 
   <div className="mt-1 flex items-center gap-3">

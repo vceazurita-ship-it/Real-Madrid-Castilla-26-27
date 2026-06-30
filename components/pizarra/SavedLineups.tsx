@@ -36,7 +36,13 @@ export default function SavedLineups({
       console.log("Error");
     }
   }
-
+function formatDate(date: string) {
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(date));
+}
   return (
     <div className="rounded-2xl border border-[#C8A96B]/20 bg-[#10161D] p-4">
 
@@ -44,7 +50,17 @@ export default function SavedLineups({
         Alineaciones guardadas
       </h3>
 
-      <div className="space-y-2">
+      <div
+ className="
+ flex
+ gap-3
+ overflow-x-auto
+ pb-2
+ snap-x
+ scrollbar-thin
+ scrollbar-thumb-[#C8A96B]/40
+ "
+>
 
         {lineups.map((item) => (
 
@@ -59,7 +75,7 @@ export default function SavedLineups({
             </div>
 
             <div className="text-xs text-white/60">
-              {item.Fecha}
+              {formatDate(item.Fecha)}
             </div>
 
             <div className="text-xs text-[#C8A96B]">
