@@ -109,48 +109,62 @@ export default function PlayerSidebar() {
       </div>
 
        {/* LISTADO */}
-      
-            <div
-              className="
-                flex-1
-                min-h-0
-      
-                overflow-x-auto
-                overflow-y-hidden
-      
-                lg:overflow-y-auto
-                lg:overflow-x-hidden
-      
-                p-2
-      
-                scrollbar-thin
-                scrollbar-track-transparent
-                scrollbar-thumb-[#C8A96B]/40
-              "
-            >
-              <div
-  className="
-    grid
-    grid-flow-col
-    grid-rows-2
-    auto-cols-[170px]
-    gap-2
-    w-max
 
-    lg:flex
-    lg:flex-col
-    lg:w-auto
-    lg:gap-1.5
-  "
->
-                {filteredPlayers.map((player) => (
-                  <PlayerToken
-                    key={player.id}
-                    player={player}
-                  />
-                ))}
-              </div>
-            </div>
+<div className="relative flex-1 min-h-0">
+
+  <div
+    className="
+      h-full
+
+      overflow-x-auto
+      overflow-y-hidden
+
+      lg:overflow-y-auto
+      lg:overflow-x-hidden
+
+      p-2
+
+      scrollbar-thin
+      scrollbar-track-transparent
+      scrollbar-thumb-[#C8A96B]/40
+    "
+  >
+    <div
+      className="
+        flex
+        gap-2
+        w-max
+
+        lg:w-auto
+        lg:flex-col
+        lg:gap-1.5
+      "
+    >
+      {filteredPlayers.map((player) => (
+        <PlayerToken
+          key={player.id}
+          player={player}
+        />
+      ))}
+    </div>
+  </div>
+
+  <div
+    className="
+      pointer-events-none
+      absolute
+      right-0
+      top-0
+      h-full
+      w-10
+      bg-gradient-to-l
+      from-[#11161D]
+      to-transparent
+      lg:hidden
+    "
+  />
+
+</div>
       
           </div>
         );
