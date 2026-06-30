@@ -197,7 +197,7 @@ function scrollRight() {
     rounded-full
 
     border
-    border-[#C8A96B]/30
+    border-[#C8A96B]/40
 
     bg-[#11161D]/85
     backdrop-blur
@@ -213,7 +213,8 @@ function scrollRight() {
     hover:text-black
   "
 >
-  ←
+  ←<ChevronRight size={24}/>
+
 </button>
 <button
   onClick={scrollRight}
@@ -231,7 +232,7 @@ function scrollRight() {
     rounded-full
 
     border
-    border-[#C8A96B]/30
+    border-[#C8A96B]/40
 
     bg-[#11161D]/85
     backdrop-blur
@@ -247,7 +248,7 @@ function scrollRight() {
     hover:text-black
   "
 >
-  →
+  →<ChevronRight size={24}/>
 </button>
 </div>
 
