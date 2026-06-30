@@ -36,7 +36,16 @@ export default function SavedLineups({
       console.log("Error");
     }
   }
-
+function formatDate(date: string) {
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(date));
+}
+const visibleLineups = lineups.filter((item) =>
+  /^Jornada\s+\d+$/i.test(item.Nombre.trim())
+);
   return (
     <div className="rounded-2xl border border-[#C8A96B]/20 bg-[#10161D] p-4">
 
@@ -44,14 +53,36 @@ export default function SavedLineups({
         Alineaciones guardadas
       </h3>
 
-      <div className="space-y-2">
+      <div
+ className="
+ flex
+ gap-3
+ overflow-x-auto
+ pb-2
+ snap-x
+ scrollbar-thin
+ scrollbar-thumb-[#C8A96B]/40
+ "
+>
 
-        {lineups.map((item) => (
+        {visibleLineups.map((item) => (
 
           <button
             key={item.ID}
             onClick={() => onLoad(item.ID)}
-            className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-left transition hover:border-[#C8A96B]"
+            className="
+min-w-[220px]
+w-[220px]
+shrink-0
+rounded-xl
+border
+border-white/10
+bg-black/30
+p-3
+text-left
+transition
+hover:border-[#C8A96B]
+"
           >
 
             <div className="font-semibold">
@@ -59,7 +90,7 @@ export default function SavedLineups({
             </div>
 
             <div className="text-xs text-white/60">
-              {item.Fecha}
+              {formatDate(item.Fecha)}
             </div>
 
             <div className="text-xs text-[#C8A96B]">
