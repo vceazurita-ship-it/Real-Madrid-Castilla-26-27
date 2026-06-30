@@ -29,30 +29,40 @@ function StatCard({
     <div
       className={`
         flex
+        min-w-[125px]
+        sm:min-w-[140px]
+        lg:min-w-0
+
+        snap-start
+
         flex-col
         items-center
         justify-center
         text-center
 
-        rounded-2xl
+        rounded-3xl
         border
 
         ${
           danger
-            ? "border-red-500/40 bg-red-500/10"
-            : "border-[#C8A96B]/15 bg-[#121820]"
+            ? "border-red-500/60 bg-gradient-to-b from-red-500/15 to-red-900/20"
+            : "border-[#C8A96B]/15 bg-gradient-to-b from-[#18212B] to-[#111820]"
         }
 
-        px-2
+        px-3
         py-4
 
-        lg:px-3
+        lg:px-4
         lg:py-5
 
         shadow-lg
+        ring-1
+        ring-white/5
 
         transition-all
         duration-300
+
+        hover:shadow-[0_0_30px_rgba(200,169,107,.18)]
 
         lg:hover:-translate-y-1
         lg:hover:border-[#C8A96B]/45
@@ -64,13 +74,17 @@ function StatCard({
           items-center
           justify-center
 
-          h-10
-          w-10
+          h-12
+          w-12
 
-          lg:h-12
-          lg:w-12
+          lg:h-14
+          lg:w-14
 
           rounded-xl
+          border
+          border-white/10
+
+          shadow-lg
 
           ${color}
         `}
@@ -81,8 +95,8 @@ function StatCard({
       <div
         className="
           mt-3
-          text-3xl
-          lg:text-[34px]
+          text-[30px]
+          lg:text-[36px]
           font-black
           leading-none
           text-white
@@ -93,14 +107,16 @@ function StatCard({
 
       <div
         className="
-          mt-2
+          mt-1.5
+
           text-[10px]
           lg:text-[11px]
 
           uppercase
-          tracking-[0.16em]
+          tracking-[0.08em]
+          leading-tight
 
-          text-white/55
+          text-white/65
         "
       >
         {label}
@@ -108,13 +124,17 @@ function StatCard({
 
       {label === "No Castilla" && (
         <div
-          className="
+          className={`
             mt-1
             text-[9px]
             uppercase
             tracking-widest
-            text-white/35
-          "
+            ${
+              danger
+                ? "font-semibold text-red-300"
+                : "text-white/35"
+            }
+          `}
         >
           Máx. 4
         </div>
@@ -149,16 +169,28 @@ export default function TopStats() {
   return (
     <div
       className="
-        grid
-        grid-cols-5
-        gap-2
+        flex
+        gap-3
 
+        overflow-x-auto
+        scroll-smooth
+
+        pb-2
+
+        snap-x
+        snap-mandatory
+
+        scrollbar-none
+
+        lg:grid
+        lg:grid-cols-5
         lg:gap-4
+        lg:overflow-visible
       "
     >
       <StatCard
         icon={
-          <Shield className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+          <Shield className="h-6 w-6 text-white" />
         }
         label="Disponibles"
         value={disponibles}
@@ -167,7 +199,7 @@ export default function TopStats() {
 
       <StatCard
         icon={
-          <HeartPulse className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+          <HeartPulse className="h-6 w-6 text-white" />
         }
         label="Lesionados"
         value={lesionados}
@@ -176,7 +208,7 @@ export default function TopStats() {
 
       <StatCard
         icon={
-          <Trophy className="h-5 w-5 lg:h-6 lg:w-6 text-[#111]" />
+          <Trophy className="h-6 w-6 text-[#111]" />
         }
         label="1º Equipo"
         value={primerEquipo}
@@ -185,7 +217,7 @@ export default function TopStats() {
 
       <StatCard
         icon={
-          <Flag className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+          <Flag className="h-6 w-6 text-white" />
         }
         label="Selección"
         value={seleccion}
@@ -194,7 +226,7 @@ export default function TopStats() {
 
       <StatCard
         icon={
-          <Users className="h-5 w-5 lg:h-6 lg:w-6 text-[#111]" />
+          <Users className="h-6 w-6 text-[#111]" />
         }
         label="No Castilla"
         value={`${noCastilla}/4`}
