@@ -61,18 +61,18 @@ useEffect(() => {
     unoptimized
     draggable={false}
     className={`
-  object-cover
-  pointer-events-none
-  select-none
-  transition-all
-  duration-500
+      object-cover
+      pointer-events-none
+      select-none
+      transition-all
+      duration-500
 
-  ${
-    mobile
-      ? "rotate-0 scale-100"
-      : "rotate-90 scale-[1.78]"
-  }
-`}
+      ${
+        mobile
+          ? "rotate-90 scale-[1.78]"
+          : "rotate-0 scale-100"
+      }
+    `}
   />
 
 </div>
