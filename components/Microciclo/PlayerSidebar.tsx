@@ -1,16 +1,17 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { usePlayers } from "@/hooks/usePlayers";
 import PlayerToken from "./PlayerToken";
+
 
 export default function PlayerSidebar() {
   const { players } = usePlayers();
 
   const [search, setSearch] = useState("");
-
+  const scrollRef = useRef<HTMLDivElement>(null);
   const filteredPlayers = useMemo(() => {
     return players.filter((player) =>
       player.nombre
@@ -18,7 +19,12 @@ export default function PlayerSidebar() {
         .includes(search.toLowerCase())
     );
   }, [players, search]);
-
+function scrollRight() {
+  scrollRef.current?.scrollBy({
+    left: 300,
+    behavior: "smooth",
+  });
+}
   return (
     <div
       className="
@@ -113,9 +119,9 @@ export default function PlayerSidebar() {
 <div className="relative flex-1 min-h-0">
 
   <div
-    className="
+  ref={scrollRef}
+  className="
       h-full
-
       overflow-x-auto
       overflow-y-hidden
 
@@ -168,20 +174,32 @@ export default function PlayerSidebar() {
     via-[#11161D]/70
     to-transparent
 
-    pointer-events-none
     lg:hidden
   "
 >
-  <span
+  <button
+    onClick={scrollRight}
     className="
       mr-3
-      text-3xl
+      flex
+      h-10
+      w-10
+      items-center
+      justify-center
+      rounded-full
+
+      bg-[#C8A96B]/15
+      border
+      border-[#C8A96B]/30
+
+      text-2xl
       text-[#C8A96B]
-      animate-pulse
+
+      active:scale-90
     "
   >
     →
-  </span>
+  </button>
 </div>
 
 </div>
