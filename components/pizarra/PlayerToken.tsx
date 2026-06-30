@@ -51,14 +51,22 @@ export default function PlayerToken({ player }: Props) {
         );
       }}
       className={`
-        group
-        cursor-pointer
-        select-none
-        rounded-2xl
-        border
-        p-2.5
-        transition-all
-        duration-300
+  group
+  cursor-pointer
+  select-none
+
+  min-w-[220px]
+  w-[220px]
+  shrink-0
+
+  lg:min-w-0
+  lg:w-auto
+
+  rounded-2xl
+  border
+  p-2.5
+  transition-all
+  duration-300
 
         ${
           selected
