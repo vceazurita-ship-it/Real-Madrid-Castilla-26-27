@@ -51,25 +51,17 @@ export default function FieldPlayer({
   };
 
   const disabled =
-    estado === "LESIONADO" ||
-    estado === "PRIMER EQUIPO" ||
-    estado === "SELECCIÓN";
+  estado === "LESIONADO" ||
+  estado === "PRIMER EQUIPO" ||
+  estado === "SELECCIÓN" ||
+  estado === "SANCIONADO";
 
-  function estadoColor() {
-    switch (estado) {
-      case "LESIONADO":
-        return "bg-red-600 border-red-300";
-
-      case "PRIMER EQUIPO":
-        return "bg-slate-700 border-slate-300";
-
-      case "SELECCIÓN":
-        return "bg-green-600 border-green-300";
-
-      default:
-        return "";
-    }
-  }
+const statusDot: Record<string, string> = {
+  DISPONIBLE: "bg-green-500",
+  "CONTROL DE CARGA": "bg-yellow-400",
+  TOCADO: "bg-orange-500",
+  REINCORPORACIÓN: "bg-blue-500",
+}; 
 
   function licenciaColor() {
     switch (licencia) {
@@ -135,45 +127,18 @@ export default function FieldPlayer({
             </div>
           )}
 
-          {/* ESTADO */}
-          {disabled && (
-            <div
-              className={`
-                absolute
-                -bottom-1
-                left-1/2
-                -translate-x-1/2
-                z-30
-                rounded-full
-                border
-                px-2
-                py-[2px]
-                text-[8px]
-                font-bold
-                leading-none
-                text-white
-                shadow-lg
-                ${estadoColor()}
-              `}
-            >
-              {estado === "LESIONADO"
-                ? "LES"
-                : estado === "PRIMER EQUIPO"
-                ? "1º"
-                : "SEL"}
-            </div>
-          )}
+          
 
           <Image
             src={foto}
             alt={nombre}
-            width={mobile ? 48 : 66}
-            height={mobile ? 48 : 66}
+            width={mobile ? 34 : 66}
+height={mobile ? 34 : 66}
             unoptimized
             draggable={false}
             className={`
               rounded-full
-              border-[3px]
+              ${mobile ? "border-2" : "border-[3px]"}
               border-[#C8A96B]
               object-cover
               shadow-[0_0_22px_rgba(200,169,107,.45)]
@@ -188,29 +153,37 @@ export default function FieldPlayer({
               }
             `}
           />
-
+{!disabled && (
+  <span
+    className={`
+      absolute
+      right-0
+      top-0
+      h-3
+      w-3
+      rounded-full
+      border-2
+      border-[#11161D]
+      ${statusDot[estado] ?? "bg-green-500"}
+    `}
+  />
+)}
         </div>
 
         {showName && (
   <div
     className={`
-      mt-2
-      rounded-full
-      border
-      border-[#C8A96B]/40
-      bg-black/70
-      backdrop-blur-md
-      px-3
-      py-1
-      font-semibold
-      whitespace-nowrap
-      ${
-        disabled
-          ? "text-white/60"
-          : "text-white"
-      }
-      ${mobile ? "text-[9px]" : "text-[11px]"}
-    `}
+  ${mobile ? "mt-1 px-2 py-0.5" : "mt-2 px-3 py-1"}
+  rounded-full
+  border
+  border-[#C8A96B]/40
+  bg-black/70
+  backdrop-blur-md
+  font-semibold
+  whitespace-nowrap
+  ${disabled ? "text-white/60" : "text-white"}
+  ${mobile ? "text-[8px]" : "text-[11px]"}
+`}
   >
     {nombre}
   </div>

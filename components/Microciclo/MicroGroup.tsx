@@ -16,25 +16,29 @@ export default function MicroGroup({
 }: Props) {
   if (!players.length) return null;
 
-  let size = mobile ? 42 : 58;
+  let size = mobile ? 30 : 58;
 
-  switch (players.length) {
-    case 1:
-      size = mobile ? 50 : 68;
-      break;
-    case 2:
-      size = mobile ? 46 : 60;
-      break;
-    case 3:
-      size = mobile ? 42 : 56;
-      break;
-    case 4:
-      size = mobile ? 40 : 52;
-      break;
-    default:
-      size = mobile ? 36 : 46;
-      break;
-  }
+switch (players.length) {
+  case 1:
+    size = mobile ? 36 : 68;
+    break;
+
+  case 2:
+    size = mobile ? 32 : 60;
+    break;
+
+  case 3:
+    size = mobile ? 28 : 56;
+    break;
+
+  case 4:
+    size = mobile ? 26 : 52;
+    break;
+
+  default:
+    size = mobile ? 24 : 46;
+    break;
+}
 
   const columns =
     players.length <= 1
@@ -50,7 +54,11 @@ export default function MicroGroup({
     <div className="flex flex-col items-center">
 
       <div
-        className="grid justify-items-center gap-1"
+        className={`
+  grid
+  justify-items-center
+  ${mobile ? "gap-0.5" : "gap-1"}
+`}
         style={{
           gridTemplateColumns: `repeat(${columns}, auto)`,
         }}
@@ -67,7 +75,7 @@ export default function MicroGroup({
               id={player.id}
               positionId={positionId}
               foto={player.foto}
-              nombre={player.nombre}
+              nombre={player.apodo || player.nombre}
               licencia={player.licencia}
               estado={player.estado}
               mobile={mobile}
@@ -79,16 +87,14 @@ export default function MicroGroup({
 
       {players.length > 1 && (
         <div
-          className="
-            mt-2
-            rounded-xl
-            bg-black/70
-            backdrop-blur
-            px-3
-            py-1.5
-            text-center
-            shadow-lg
-          "
+          className={`
+  ${mobile ? "mt-1 px-2 py-1" : "mt-2 px-3 py-1.5"}
+  rounded-xl
+  bg-black/70
+  backdrop-blur
+  text-center
+  shadow-lg
+`}
         >
           {visibleNames.map((player) => (
             <div
