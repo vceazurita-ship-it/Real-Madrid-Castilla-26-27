@@ -17,6 +17,7 @@ interface CsvPlayer {
   ESTADO: EstadoJugador;
   ACTIVO: string;
   HUDL_PERFIL_URL: string;
+  APODO: string;
 }
 
 export function usePlayers() {
@@ -34,6 +35,7 @@ export function usePlayers() {
           .map((p) => ({
   id: p.ID_JUGADOR,
   nombre: p.NOMBRE,
+apodo: p.APODO || p.NOMBRE,
   posicion: p.POSICION,
   dorsal: Number(p.DORSAL) || undefined,
   foto: p.FOTO_URL || "/jugador.png",

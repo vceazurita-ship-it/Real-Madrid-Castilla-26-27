@@ -35,22 +35,19 @@ export default function PlayerToken({ player }: Props) {
 
   const selected =
     selectedPlayer?.id === player.id;
-    const unavailable =
-  player.estado !== "DISPONIBLE";
-  const statusBadge: Record<Player["estado"], string> = {
-  DISPONIBLE: "",
+    const unavailableStates = [
+  "LESIONADO",
+  "SANCIONADO",
+  "PRIMER EQUIPO",
+  "SELECCIÓN",
+];
 
-  LESIONADO:
-    "bg-red-500/15 text-red-300 border border-red-400/30",
-
-  "PRIMER EQUIPO":
-    "bg-purple-500/15 text-purple-300 border border-purple-400/30",
-
-  SELECCIÓN:
-    "bg-blue-500/15 text-blue-300 border border-blue-400/30",
-
-  SANCIONADO:
-    "bg-orange-500/15 text-orange-300 border border-orange-400/30",
+const unavailable = unavailableStates.includes(player.estado);
+const statusDot: Record<string, string> = {
+  DISPONIBLE: "bg-green-500",
+  "CONTROL DE CARGA": "bg-yellow-400",
+  TOCADO: "bg-orange-500",
+  REINCORPORACIÓN: "bg-blue-500",
 };
 
   return (
@@ -117,35 +114,51 @@ lg:w-auto
   {...(!unavailable ? attributes : {})}
   className={
     unavailable
-      ? "cursor-not-allowed"
-      : "cursor-grab active:cursor-grabbing"
+      ? "relative cursor-not-allowed"
+      : "relative cursor-grab active:cursor-grabbing"
   }
 >
-          <Image
-            src={player.foto}
-            alt={player.nombre}
-            width={46}
-            height={46}
-            unoptimized
-            className={`
-  h-11
-  w-11
-  rounded-full
-  border-2
-  object-cover
-  shadow-md
-  transition-transform
-  duration-300
-  group-hover:scale-105
+  <Image
+    src={player.foto}
+    alt={player.nombre}
+    width={46}
+    height={46}
+    unoptimized
+    className={`
+      h-11
+      w-11
+      rounded-full
+      border-2
+      object-cover
+      shadow-md
+      transition-transform
+      duration-300
+      group-hover:scale-105
 
-  ${
-    unavailable
-      ? "border-gray-500 grayscale opacity-70"
-      : "border-[#C8A96B]"
-  }
-`}
-          />
-        </div>
+      ${
+        unavailable
+          ? "border-gray-500 grayscale opacity-70"
+          : "border-[#C8A96B]"
+      }
+    `}
+  />
+
+  {!unavailable && (
+    <span
+      className={`
+        absolute
+        right-0
+        top-0
+        h-3
+        w-3
+        rounded-full
+        border-2
+        border-[#11161D]
+        ${statusDot[player.estado] ?? "bg-green-500"}
+      `}
+    />
+  )}
+</div>
 
 <div className="min-w-0 flex-1 space-y-1">
 <div
@@ -161,76 +174,8 @@ lg:w-auto
   }
 `}
 >
-            {player.nombre}
+            {player.apodo || player.nombre}
           </div>
-
-         <div className="mt-0.5 flex flex-wrap items-center gap-2">
-
-  <span
-    className={`
-  rounded-full
-  px-2
-  py-[2px]
-  text-[10px]
-  font-semibold
-  uppercase
-  tracking-wide
-
-  ${
-    unavailable
-      ? "bg-gray-700 text-gray-300"
-      : "bg-[#C8A96B]/15 text-[#E2C38C]"
-  }
-`}
-  >
-    {player.posicion}
-  </span>
-
-  {player.licencia !== "RMCF Castilla" && (
-    <span
-      className={`
-        rounded-full
-        px-2
-        py-[2px]
-        text-[10px]
-        font-bold
-        uppercase
-        tracking-wide
-        ${
-          player.licencia === "RMC"
-            ? "bg-blue-500/20 text-blue-300 border border-blue-400/40"
-            : "bg-purple-500/20 text-purple-300 border border-purple-400/40"
-        }
-      `}
-    >
-      {player.licencia}
-    </span>
-  )}
-
-  {player.dorsal && (
-    <span className="text-[11px] font-bold text-white/70">
-      #{player.dorsal}
-    </span>
-  )}
-  {unavailable && (
-  <div className="mt-1">
-    <span
-      className={`
-        rounded-full
-        px-2
-        py-[2px]
-        text-[10px]
-        font-bold
-        uppercase
-        tracking-wide
-        ${statusBadge[player.estado]}
-      `}
-    >
-      {player.estado}
-    </span>
-  </div>
-)}
-</div>
         </div>
 
        <button

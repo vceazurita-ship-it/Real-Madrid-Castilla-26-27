@@ -1,5 +1,8 @@
 export type EstadoJugador =
   | "DISPONIBLE"
+  | "CONTROL DE CARGA"
+  | "TOCADO"
+  | "REINCORPORACIÓN"
   | "LESIONADO"
   | "PRIMER EQUIPO"
   | "SELECCIÓN"
@@ -9,6 +12,8 @@ export interface Player {
   id: string;
 
   nombre: string;
+
+  apodo?: string;
 
   posicion: string;
 

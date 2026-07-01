@@ -27,14 +27,15 @@ const playersOnPitch = useMemo(() => {
 
   const filteredPlayers = useMemo(() => {
   return players.filter((player) => {
-    const matchesSearch =
-      player.nombre
-        .toLowerCase()
-        .includes(search.toLowerCase());
+    const matchesSearch = player.nombre
+      .toLowerCase()
+      .includes(search.toLowerCase());
 
-    const alreadyOnPitch =
-      playersOnPitch.has(player.id);
+    const alreadyOnPitch = playersOnPitch.has(player.id);
 
+    // Solo ocultamos los que ya están en el campo.
+    // El resto (incluidos lesionados, sancionados, etc.)
+    // se mostrarán y PlayerToken decidirá si son arrastrables.
     return matchesSearch && !alreadyOnPitch;
   });
 }, [players, search, playersOnPitch]);
