@@ -5,6 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useMicroLineup } from "@/context/MicroLineupContext";
 import { EstadoJugador } from "@/types/player";
+import { getStatusBadge } from "@/lib/PlayerStatus";
 
 interface Props {
   id: string;
@@ -55,13 +56,8 @@ export default function FieldPlayer({
   estado === "PRIMER EQUIPO" ||
   estado === "SELECCIÓN" ||
   estado === "SANCIONADO";
+const badge = getStatusBadge(estado);
 
-const statusDot: Record<string, string> = {
-  DISPONIBLE: "bg-green-500",
-  "CONTROL DE CARGA": "bg-yellow-400",
-  TOCADO: "bg-orange-500",
-  REINCORPORACIÓN: "bg-blue-500",
-}; 
 
   function licenciaColor() {
     switch (licencia) {
@@ -153,20 +149,27 @@ height={mobile ? 34 : 66}
               }
             `}
           />
-{!disabled && (
-  <span
+{badge && (
+  <div
     className={`
       absolute
-      right-0
-      top-0
-      h-3
-      w-3
+      -top-1
+      -left-1
+      z-30
       rounded-full
-      border-2
-      border-[#11161D]
-      ${statusDot[estado] ?? "bg-green-500"}
+      border
+      px-2
+      py-[2px]
+      text-[8px]
+      font-bold
+      leading-none
+      text-white
+      shadow-lg
+      ${badge.color}
     `}
-  />
+  >
+    {badge.text}
+  </div>
 )}
         </div>
 

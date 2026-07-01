@@ -5,6 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useLineup } from "@/context/LineupContext";
 import { EstadoJugador } from "@/types/player";
+import { getStatusBadge } from "@/lib/PlayerStatus";
 
 interface Props {
   id: string;
@@ -48,26 +49,13 @@ export default function FieldPlayer({
     zIndex: isDragging ? 999 : 1,
   };
 
-  const disabled =
-    estado === "LESIONADO" ||
-    estado === "PRIMER EQUIPO" ||
-    estado === "SELECCIÓN";
-
-  function estadoColor() {
-    switch (estado) {
-      case "LESIONADO":
-        return "bg-red-600 border-red-300";
-
-      case "PRIMER EQUIPO":
-        return "bg-slate-700 border-slate-300";
-
-      case "SELECCIÓN":
-        return "bg-green-600 border-green-300";
-
-      default:
-        return "";
-    }
-  }
+ const disabled =
+  estado === "LESIONADO" ||
+  estado === "PRIMER EQUIPO" ||
+  estado === "SELECCIÓN" ||
+  estado === "SANCIONADO";
+const badge = getStatusBadge(estado);
+ 
 
   function licenciaColor() {
     switch (licencia) {
@@ -133,34 +121,28 @@ export default function FieldPlayer({
             </div>
           )}
 
-          {/* ESTADO */}
-          {disabled && (
-            <div
-              className={`
-                absolute
-                -bottom-1
-                left-1/2
-                -translate-x-1/2
-                z-30
-                rounded-full
-                border
-                px-2
-                py-[2px]
-                text-[8px]
-                font-bold
-                leading-none
-                text-white
-                shadow-lg
-                ${estadoColor()}
-              `}
-            >
-              {estado === "LESIONADO"
-                ? "LES"
-                : estado === "PRIMER EQUIPO"
-                ? "1º"
-                : "SEL"}
-            </div>
-          )}
+          {badge && (
+  <div
+    className={`
+      absolute
+      -bottom-1
+      left-1/2
+      -translate-x-1/2
+      z-30
+      rounded-full
+      border
+      px-2
+      py-[2px]
+      text-[8px]
+      font-bold
+      leading-none
+      shadow-lg
+      ${badge.color}
+    `}
+  >
+    {badge.text}
+  </div>
+)}
 
           <Image
             src={foto}

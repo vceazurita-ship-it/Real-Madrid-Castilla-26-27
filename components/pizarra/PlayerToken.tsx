@@ -4,7 +4,7 @@ import Image from "next/image";
 import { CSS } from "@dnd-kit/utilities";
 import { useDraggable } from "@dnd-kit/core";
 import { useLineup } from "@/context/LineupContext";
-
+import { getStatusBadge } from "@/lib/PlayerStatus";
 import { Player } from "@/types/player";
 
 interface Props {
@@ -43,14 +43,7 @@ const unavailableStates = [
 ];
 
 const unavailable = unavailableStates.includes(player.estado);
-const statusDot: Record<string, string> = {
-  DISPONIBLE: "bg-green-500",
-  "CONTROL DE CARGA": "bg-yellow-400",
-  TOCADO: "bg-orange-500",
-  REINCORPORACIÓN: "bg-blue-500",
-};
-
-
+const badge = getStatusBadge(player.estado);
   return (
     <div
       ref={setNodeRef}
@@ -142,23 +135,29 @@ lg:w-auto
           : "border-[#C8A96B]"
       }
     `}
-  />
-
-  {!unavailable && (
-    <span
-      className={`
-        absolute
-        right-0
-        top-0
-        h-3
-        w-3
-        rounded-full
-        border-2
-        border-[#11161D]
-        ${statusDot[player.estado] ?? "bg-green-500"}
-      `}
     />
-  )}
+{badge && (
+  <div
+    className={`
+      absolute
+      -top-1
+      -left-1
+      z-30
+      rounded-full
+      border
+      px-2
+      py-[2px]
+      text-[8px]
+      font-bold
+      leading-none
+      text-white
+      shadow-lg
+      ${badge.color}
+    `}
+  >
+    {badge.text}
+  </div>
+)}
 </div>
 
         <div className="min-w-0 flex-1 space-y-1">
