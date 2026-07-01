@@ -46,24 +46,23 @@ const currentFormation =
     >
 {/* Fondo del campo */}
 <div className="absolute inset-0 overflow-hidden">
-
   <Image
-  src="/emotional-field-bg.png"
-  alt="Campo"
-  fill
-  priority
-  unoptimized
-  draggable={false}
-  className="
-  object-cover
-  pointer-events-none
-  select-none
-  -rotate-90
-  scale-[1.75]
-  origin-center
-"
-/>
-
+    src="/emotional-field-bg.png"
+    alt="Campo"
+    fill
+    priority
+    unoptimized
+    draggable={false}
+    className="
+      object-cover
+      pointer-events-none
+      select-none
+    "
+    style={{
+      transform: "translateY(-22%) scale(2.05)",
+      transformOrigin: "center",
+    }}
+  />
 </div>
       {/* Oscurecer */}
       <div className="absolute inset-0 bg-black/35" />
