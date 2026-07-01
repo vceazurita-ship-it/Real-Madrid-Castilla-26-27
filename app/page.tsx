@@ -6,16 +6,29 @@ import {
   Brain,
   CalendarDays,
   ChevronRight,
-  HeartPulse,
-  PlayCircle,
   Rocket,
-  Target,
-  TrendingUp,
-  Users,
   Activity,
-  BarChart3, 
-  Zap,
-} from "lucide-react"  
+  BarChart3,
+  User,
+  ClipboardCheck,
+  Clipboard,
+  ClipboardPen,
+  Scale,
+  HeartHandshake,
+  Network,
+  Goal,
+  Shield,
+  Video,
+  MonitorPlay,
+  Swords,
+  History,
+  Search,
+  Binoculars,
+  Dumbbell,
+  Users,
+  Database,
+  Handshake,
+} from "lucide-react"
 
 import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
@@ -31,33 +44,35 @@ export default function Home() {
   APARTADO: string
 }
 const modules = [
-  {
-    href: "/game-model",
-    section: "IDENTIDAD",
-    title: "Identidad de Juego",
-    desc: "Principios ofensivos y defensivos que definen el comportamiento colectivo",
-    icon: Brain,
-    glow: "cyan",
-  },
-
+  // IDENTIDAD
   {
     href: "/team-values",
     section: "IDENTIDAD",
     title: "Dinámicas y Valores",
-    desc: "Normas culturales, comportamientos y principios del entorno",
-    icon: Users,
+    desc: "Cultura, normas y comportamientos del entorno competitivo",
+    icon: Handshake,
     glow: "amber",
   },
+  {
+    href: "/game-model",
+    section: "IDENTIDAD",
+    title: "Identidad de Juego",
+    desc: "Principios ofensivos y defensivos del modelo de juego",
+    icon: Brain,
+    glow: "cyan",
+  },
 
+  // COMPETICIÓN
   {
     href: "/match-preparation",
     section: "COMPETICIÓN",
-    title: "Preparación Partido",
-    desc: "Planificación estratégica y operativa para la competición",
-    icon: Rocket,
+    title: "Preparación de Partido",
+    desc: "Planificación estratégica previa a la competición",
+    icon: ClipboardCheck,
     glow: "blue",
   },
 
+  // METODOLOGÍA
   {
     href: "/microcycles",
     section: "METODOLOGÍA",
@@ -66,86 +81,161 @@ const modules = [
     icon: CalendarDays,
     glow: "cyan",
   },
-
+  {
+    href: "/pizarra_microcycle",
+    section: "METODOLOGÍA",
+    title: "Pizarra Microciclo",
+    desc: "Organización visual de tareas y jugadores",
+    icon: Clipboard,
+    glow: "emerald",
+  },
+  {
+    href: "/pizarra",
+    section: "METODOLOGÍA",
+    title: "Pizarra Competición",
+    desc: "Diseño táctico para el partido",
+    icon: Activity,
+    glow: "violet",
+  },
   {
     href: "/match-plans",
     section: "METODOLOGÍA",
     title: "Planes de Partido",
     desc: "Estructura táctica y operacional",
-    icon: PlayCircle,
-    glow: "violet",
+    icon: ClipboardPen,
+    glow: "blue",
   },
 
+  // INDIVIDUAL
   {
     href: "/individual",
     section: "INDIVIDUAL",
     title: "Plantilla",
-    desc: "Evaluación integral del jugador",
-    icon: Target,
+    desc: "Gestión integral del jugador",
+    icon: User,
     glow: "blue",
   },
-
+  {
+    href: "/video-individual",
+    section: "INDIVIDUAL",
+    title: "Videoteca Individual",
+    desc: "Biblioteca de clips individuales",
+    icon: Video,
+    glow: "cyan",
+  },
   {
     href: "/comparative_ind",
     section: "INDIVIDUAL",
     title: "Comparativo U-21",
-    desc: "Proyección y detección de talento",
-    icon: TrendingUp,
+    desc: "Comparación y proyección de talento",
+    icon: Scale,
     glow: "amber",
   },
 
+  // RELACIONAL
   {
     href: "/emotion",
     section: "RELACIONAL",
     title: "Emocional",
-    desc: "Estabilidad y eficiencia emocional competitiva",
-    icon: HeartPulse,
+    desc: "Seguimiento del rendimiento emocional",
+    icon: HeartHandshake,
     glow: "violet",
   },
-
   {
     href: "/sinergy",
     section: "RELACIONAL",
     title: "Sinergias",
-    desc: "Conexiones funcionales entre jugadores",
-    icon: Users,
+    desc: "Relaciones funcionales entre jugadores",
+    icon: Network,
     glow: "emerald",
   },
 
+  // COLECTIVO
+  {
+    href: "/setpieces",
+    section: "COLECTIVO",
+    title: "ABP Ofensivo",
+    desc: "Acciones ofensivas a balón parado",
+    icon: Goal,
+    glow: "cyan",
+  },
+  {
+    href: "/setpieces_def",
+    section: "COLECTIVO",
+    title: "ABP Defensivo",
+    desc: "Organización defensiva a balón parado",
+    icon: Shield,
+    glow: "violet",
+  },
+  {
+    href: "/video-collective",
+    section: "COLECTIVO",
+    title: "Videoteca Colectiva",
+    desc: "Biblioteca de clips colectivos",
+    icon: MonitorPlay,
+    glow: "blue",
+  },
   {
     href: "/team",
     section: "COLECTIVO",
     title: "Rendimiento",
-    desc: "Indicadores globales de rendimiento",
+    desc: "Indicadores globales del equipo",
     icon: BarChart3,
     glow: "amber",
   },
-
   {
     href: "/collective",
     section: "COLECTIVO",
     title: "Competición",
-    desc: "Transferencia al juego y evolución colectiva",
-    icon: Zap,
+    desc: "Análisis del rendimiento competitivo",
+    icon: Swords,
     glow: "blue",
   },
-
   {
-    href: "/setpieces",
-    section: "ABP",
-    title: "ABP Ofensivo",
-    desc: "Optimización ofensiva a balón parado",
-    icon: Rocket,
+    href: "/collective_history",
+    section: "COLECTIVO",
+    title: "Histórico Competición",
+    desc: "Evolución histórica del rendimiento",
+    icon: History,
+    glow: "emerald",
+  },
+
+  // RIVAL
+  {
+    href: "/scout-rival-individual",
+    section: "RIVAL",
+    title: "Scout Individual",
+    desc: "Análisis individual del rival",
+    icon: Search,
+    glow: "amber",
+  },
+  {
+    href: "/scout-rival-collective",
+    section: "RIVAL",
+    title: "Scout Colectivo",
+    desc: "Análisis colectivo del rival",
+    icon: Binoculars,
+    glow: "violet",
+  },
+
+  // RENDIMIENTO
+  {
+    href: "/performance",
+    section: "RENDIMIENTO",
+    title: "Área Condicional",
+    desc: "Control del rendimiento físico",
+    icon: Dumbbell,
     glow: "cyan",
   },
 
+  // DATA
   {
-    href: "/setpieces_def",
-    section: "ABP",
-    title: "ABP Defensivo",
-    desc: "Control defensivo a balón parado",
-    icon: Brain,
-    glow: "violet",
+    href: "/data-center",
+    section: "DATOS",
+    title: "Repositorio",
+    desc: "Centro documental y base de datos",
+    icon: Database,
+    glow: "blue",
   },
 ]
 
@@ -391,7 +481,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
                       className="rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-4 transition hover:bg-white/[0.06]"
                     >
                       <div className="flex items-center gap-2">
-                        <PlayCircle className="h-5 w-5" />
+                        <ClipboardCheck className="h-5 w-5" />
                         Preparación Partido
                       </div>
                     </Link>
