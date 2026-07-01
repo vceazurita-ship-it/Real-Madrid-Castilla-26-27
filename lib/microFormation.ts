@@ -32,6 +32,13 @@ export const microFormations: Record<
     { id: "ED", nombre: "7", posicion: "EXTREMO D.", left: "82%", top: "28%" },
 
     { id: "DC1", nombre: "9", posicion: "DELANTERO", left: "40%", top: "15%" },
+    {
+  id: "DC2",
+  nombre: "10",
+  posicion: "DELANTERO",
+  left: "60%",
+  top: "15%",
+},
   ],
 
   // ===================================================
@@ -80,10 +87,10 @@ export const microFormations: Record<
   // 3-5-2
   // ===================================================
   "3-5-2": [
-    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
+    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "94%" },
 
     { id: "LD", nombre: "Carrilero D.", posicion: "CARRILERO D.", left: "88%", top: "48%" },
-    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "74%" },
+    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "76%" },
     { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "78%" },
     { id: "LI", nombre: "Carrilero I.", posicion: "CARRILERO I.", left: "12%", top: "48%" },
 
@@ -95,16 +102,30 @@ export const microFormations: Record<
     { id: "ED", nombre: "10", posicion: "SEGUNDO PUNTA", left: "40%", top: "20%" },
 
     { id: "DC1", nombre: "9", posicion: "DELANTERO", left: "60%", top: "20%" },
+    {
+  id: "DFC3",
+  nombre: "Central",
+  posicion: "CENTRAL",
+  left: "72%",
+  top: "74%",
+},
+  {
+  id: "DC2",
+  nombre: "10",
+  posicion: "DELANTERO",
+  left: "60%",
+  top: "15%",
+},
   ],
 
   // ===================================================
   // 3-4-3
   // ===================================================
   "3-4-3": [
-    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
+    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "94%" },
 
     { id: "LD", nombre: "", posicion: "", left: "50%", top: "120%", visible: false},
-    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "74%" },
+    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "76%" },
     { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "78%" },
     { id: "LI", nombre: "", posicion: "", left: "50%", top: "120%", visible: false },
 
@@ -116,5 +137,20 @@ export const microFormations: Record<
     { id: "ED", nombre: "7", posicion: "EXTREMO D.", left: "84%", top: "18%" },
 
     { id: "DC1", nombre: "9", posicion: "DELANTERO", left: "50%", top: "10%" },
+    {
+  id: "LD",
+  nombre: "Carrilero D.",
+  posicion: "CARRILERO D.",
+  left: "88%",
+  top: "48%",
+},
+
+{
+  id: "LI",
+  nombre: "Carrilero I.",
+  posicion: "CARRILERO I.",
+  left: "12%",
+  top: "48%",
+},
   ],
 };

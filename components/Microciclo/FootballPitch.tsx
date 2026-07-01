@@ -55,10 +55,13 @@ const currentFormation =
   unoptimized
   draggable={false}
   className="
-    object-cover
-    pointer-events-none
-    select-none
-  "
+  object-cover
+  pointer-events-none
+  select-none
+  -rotate-90
+  scale-[1.75]
+  origin-center
+"
 />
 
 </div>
