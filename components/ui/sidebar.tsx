@@ -185,6 +185,16 @@ const navLink = (
       "Microciclos",
       <CalendarDays size={18} />
     )}
+    {navLink(
+      "/pizarra_microcycle",
+      "Pizarra Microciclo",
+      <Activity size={18} />
+    )}
+    {navLink(
+      "/pizarra",
+      "Pizarra",
+      <Activity size={18} />
+    )}
 
     {navLink(
       "/match-plans",
@@ -330,40 +340,6 @@ const navLink = (
     {navLink(
       "/performance",
       "Área Condicional",
-      <Activity size={18} />
-    )}
-
-  </div>
-</div>
-{/* ÁREA PIZARRA */}
-<div>
-  {!collapsed && (
-    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Pizarra Microciclo
-    </p>
-  )}
-
-  <div className="space-y-2 text-sm">
-
-    {navLink(
-      "/pizarra_microcycle",
-      "Pizarra Microciclo",
-      <Activity size={18} />
-    )}
-
-  </div>
-</div><div>
-  {!collapsed && (
-    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Pizarra Competición
-    </p>
-  )}
-
-  <div className="space-y-2 text-sm">
-
-    {navLink(
-      "/pizarra",
-      "Pizarra",
       <Activity size={18} />
     )}
 
