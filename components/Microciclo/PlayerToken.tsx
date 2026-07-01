@@ -175,7 +175,7 @@ lg:w-auto
   }
 `}
 >
-            {player.apodo || player.nombre}
+            {player.nombre}
           </div>
         </div>
 

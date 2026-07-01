@@ -174,7 +174,7 @@ lg:w-auto
   }
 `}
 >
-            {player.apodo || player.nombre}
+            {player.nombre}
           </div>
 
          <div className="mt-0.5 flex flex-wrap items-center gap-2">
