@@ -35,6 +35,24 @@ export default function PlayerToken({ player }: Props) {
 
   const selected =
     selectedPlayer?.id === player.id;
+const unavailable =
+  player.estado !== "DISPONIBLE";
+
+const statusBadge: Record<Player["estado"], string> = {
+  DISPONIBLE: "",
+
+  LESIONADO:
+    "bg-red-500/15 text-red-300 border border-red-400/30",
+
+  "PRIMER EQUIPO":
+    "bg-purple-500/15 text-purple-300 border border-purple-400/30",
+
+  SELECCIÓN:
+    "bg-blue-500/15 text-blue-300 border border-blue-400/30",
+
+  SANCIONADO:
+    "bg-orange-500/15 text-orange-300 border border-orange-400/30",
+};
 
   return (
     <div
@@ -65,65 +83,84 @@ lg:w-auto
   duration-300
 
         ${
-          selected
-            ? `
-              border-[#C8A96B]
-              ring-2
-              ring-[#C8A96B]
-              bg-[#1E2630]
-              shadow-[0_0_25px_rgba(200,169,107,.6)]
-              scale-[1.02]
-            `
-            : `
-              border-[#C8A96B]/10
-              bg-gradient-to-r
-              from-[#181F27]
-              to-[#10161D]
-              hover:border-[#C8A96B]/45
-              hover:shadow-[0_0_22px_rgba(200,169,107,.22)]
-              hover:-translate-y-[2px]
-            `
-        }
+  selected
+    ? `
+      border-[#C8A96B]
+      ring-2
+      ring-[#C8A96B]
+      bg-[#1E2630]
+      shadow-[0_0_25px_rgba(200,169,107,.6)]
+      scale-[1.02]
+    `
+    : unavailable
+    ? `
+      border-gray-600
+      bg-[#171717]
+      opacity-70
+    `
+    : `
+      border-[#C8A96B]/10
+      bg-gradient-to-r
+      from-[#181F27]
+      to-[#10161D]
+      hover:border-[#C8A96B]/45
+      hover:shadow-[0_0_22px_rgba(200,169,107,.22)]
+      hover:-translate-y-[2px]
+    `
+}
       `}
     >
       <div className="flex items-start gap-3">
 
         {/* SOLO ESTA FOTO ARRASTRA */}
-        <div
-          {...listeners}
-          {...attributes}
-          className="cursor-grab active:cursor-grabbing"
-        >
+       <div
+  {...(!unavailable ? listeners : {})}
+  {...(!unavailable ? attributes : {})}
+  className={
+    unavailable
+      ? "cursor-not-allowed"
+      : "cursor-grab active:cursor-grabbing"
+  }
+>
           <Image
             src={player.foto}
             alt={player.nombre}
             width={46}
             height={46}
             unoptimized
-            className="
-              h-11
-              w-11
-              rounded-full
-              border-2
-              border-[#C8A96B]
-              object-cover
-              shadow-md
-              transition-transform
-              duration-300
-              group-hover:scale-105
-            "
+            className={`
+  h-11
+  w-11
+  rounded-full
+  border-2
+  object-cover
+  shadow-md
+  transition-transform
+  duration-300
+  group-hover:scale-105
+
+  ${
+    unavailable
+      ? "border-gray-500 grayscale opacity-70"
+      : "border-[#C8A96B]"
+  }
+`}
           />
         </div>
 
         <div className="min-w-0 flex-1 space-y-1">
           <div
-  className="
-    truncate
-    whitespace-nowrap
-    text-[14px]
-    font-semibold
-    text-white
-  "
+ className={`
+  truncate
+  whitespace-nowrap
+  text-[14px]
+  font-semibold
+  ${
+    unavailable
+      ? "text-gray-400"
+      : "text-white"
+  }
+`}
 >
             {player.nombre}
           </div>
@@ -131,17 +168,21 @@ lg:w-auto
          <div className="mt-0.5 flex flex-wrap items-center gap-2">
 
   <span
-    className="
-      rounded-full
-      bg-[#C8A96B]/15
-      px-2
-      py-[2px]
-      text-[10px]
-      font-semibold
-      uppercase
-      tracking-wide
-      text-[#E2C38C]
-    "
+    className={`
+  rounded-full
+  px-2
+  py-[2px]
+  text-[10px]
+  font-semibold
+  uppercase
+  tracking-wide
+
+  ${
+    unavailable
+      ? "bg-gray-700 text-gray-300"
+      : "bg-[#C8A96B]/15 text-[#E2C38C]"
+  }
+`}
   >
     {player.posicion}
   </span>
@@ -172,47 +213,71 @@ lg:w-auto
       #{player.dorsal}
     </span>
   )}
-
+{unavailable && (
+  <div className="mt-1">
+    <span
+      className={`
+        rounded-full
+        px-2
+        py-[2px]
+        text-[10px]
+        font-bold
+        uppercase
+        tracking-wide
+        ${statusBadge[player.estado]}
+      `}
+    >
+      {player.estado}
+    </span>
+  </div>
+)}
 </div>
         </div>
 
         <button
   type="button"
+  disabled={unavailable}
   onClick={(e) => {
     e.stopPropagation();
+
+    if (unavailable) return;
 
     setSelectedPlayer(
       selected ? null : player
     );
   }}
-  className="
+  className={`
     self-start
     mt-1
-
     flex
     h-7
     w-7
-
-    cursor-pointer
-
     items-center
     justify-center
-
     rounded-full
     border
-    border-[#C8A96B]/30
-
-    bg-[#C8A96B]/10
-
-    text-lg
-    text-[#C8A96B]
-
     transition-all
     duration-300
 
-    hover:bg-[#C8A96B]
-    hover:text-black
-  "
+    disabled:opacity-40
+    disabled:cursor-not-allowed
+
+    ${
+      unavailable
+        ? `
+          border-gray-600
+          bg-gray-700/30
+          text-gray-500
+        `
+        : `
+          border-[#C8A96B]/30
+          bg-[#C8A96B]/10
+          text-[#C8A96B]
+          hover:bg-[#C8A96B]
+          hover:text-black
+        `
+    }
+  `}
 >
   +
 </button>

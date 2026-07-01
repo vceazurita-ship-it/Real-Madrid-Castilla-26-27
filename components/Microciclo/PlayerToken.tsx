@@ -113,10 +113,14 @@ lg:w-auto
 
         {/* SOLO ESTA FOTO ARRASTRA */}
         <div
-          {...listeners}
-          {...attributes}
-          className="cursor-grab active:cursor-grabbing"
-        >
+  {...(!unavailable ? listeners : {})}
+  {...(!unavailable ? attributes : {})}
+  className={
+    unavailable
+      ? "cursor-not-allowed"
+      : "cursor-grab active:cursor-grabbing"
+  }
+>
           <Image
             src={player.foto}
             alt={player.nombre}
@@ -231,43 +235,48 @@ lg:w-auto
 
        <button
   type="button"
+  disabled={unavailable}
   onClick={(e) => {
     e.stopPropagation();
+
+    if (unavailable) return;
 
     setSelectedPlayer(
       selected ? null : player
     );
   }}
   className={`
-  self-start
-  mt-1
-  flex
-  h-7
-  w-7
-  cursor-pointer
-  items-center
-  justify-center
-  rounded-full
-  border
-  transition-all
-  duration-300
+    self-start
+    mt-1
+    flex
+    h-7
+    w-7
+    items-center
+    justify-center
+    rounded-full
+    border
+    transition-all
+    duration-300
 
-  ${
-    unavailable
-      ? `
-        border-gray-600
-        bg-gray-700/30
-        text-gray-500
-      `
-      : `
-        border-[#C8A96B]/30
-        bg-[#C8A96B]/10
-        text-[#C8A96B]
-        hover:bg-[#C8A96B]
-        hover:text-black
-      `
-  }
-`}
+    disabled:opacity-40
+    disabled:cursor-not-allowed
+
+    ${
+      unavailable
+        ? `
+          border-gray-600
+          bg-gray-700/30
+          text-gray-500
+        `
+        : `
+          border-[#C8A96B]/30
+          bg-[#C8A96B]/10
+          text-[#C8A96B]
+          hover:bg-[#C8A96B]
+          hover:text-black
+        `
+    }
+  `}
 >
   +
 </button>
