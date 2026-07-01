@@ -44,7 +44,7 @@ function formatDate(date: string) {
   }).format(new Date(date));
 }
 const visibleLineups = lineups.filter((item) =>
-  /^Jornada\s+\d+$/i.test(item.Nombre.trim())
+  item.Nombre.trim().toLowerCase().startsWith("microciclo ")
 );
   return (
     <div className="rounded-2xl border border-[#C8A96B]/20 bg-[#10161D] p-4">

@@ -25,7 +25,7 @@ const formations = [
 export default function FormationToolbar() {
   const [showSaveModal, setShowSaveModal] = useState(false);
 
-const [nombre, setNombre] = useState("Jornada ");
+const [nombre, setNombre] = useState("Microciclo ");
 
 const [rival, setRival] = useState("");
   const {
@@ -40,11 +40,11 @@ async function guardar() {
 
   const nombreLimpio = nombre.trim();
 
-  const valido = /^Jornada\s+\d+$/i.test(nombreLimpio);
+  const valido = /^Microciclo\s+\d+$/i.test(nombreLimpio);
 
   if (!valido) {
     alert(
-      "El nombre debe tener el formato 'Jornada X'."
+      "El nombre debe tener el formato 'Microciclo X'."
     );
     return;
   }
@@ -75,7 +75,7 @@ async function guardar() {
 
   setShowSaveModal(false);
 
-  setNombre("Jornada ");
+  setNombre("Microciclo ");
 
   setRival("");
 
@@ -251,7 +251,7 @@ async function sharePitch() {
 <div
   onClick={() => {
     setShowSaveModal(false);
-    setNombre("Jornada ");
+    setNombre("Microciclo ");
     setRival("");
   }}
   className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
@@ -309,13 +309,13 @@ focus:border-[#C8A96B]
 ⚠️ Para que esta alineación aparezca en la pizarra de competición debe guardarse con el formato:
 
 <strong className="block mt-1">
-Jornada X
+Microciclo X
 </strong>
 
 Ejemplo:
 
 <strong>
-Jornada 1
+Microciclo 1
 </strong>
 
 </p>
@@ -326,7 +326,7 @@ Jornada 1
 
 onClick={()=>{
 setShowSaveModal(false);
-setNombre("Jornada ");
+setNombre("Microciclo ");
 setRival("");
 }}
 
