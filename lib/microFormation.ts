@@ -87,11 +87,11 @@ export const microFormations: Record<
   // 3-5-2
   // ===================================================
   "3-5-2": [
-    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "94%" },
+    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "93%" },
 
     { id: "LD", nombre: "Carrilero D.", posicion: "CARRILERO D.", left: "88%", top: "48%" },
     { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "76%" },
-    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "78%" },
+    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "77%" },
     { id: "LI", nombre: "Carrilero I.", posicion: "CARRILERO I.", left: "12%", top: "48%" },
 
     { id: "MC6", nombre: "6", posicion: "MEDIOCENTRO", left: "38%", top: "52%" },
@@ -109,24 +109,17 @@ export const microFormations: Record<
   left: "72%",
   top: "74%",
 },
-  {
-  id: "DC2",
-  nombre: "10",
-  posicion: "DELANTERO",
-  left: "60%",
-  top: "15%",
-},
   ],
 
   // ===================================================
   // 3-4-3
   // ===================================================
   "3-4-3": [
-    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "94%" },
+    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "93%" },
 
     { id: "LD", nombre: "", posicion: "", left: "50%", top: "120%", visible: false},
     { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "76%" },
-    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "78%" },
+    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "77%" },
     { id: "LI", nombre: "", posicion: "", left: "50%", top: "120%", visible: false },
 
     { id: "MC6", nombre: "6", posicion: "MEDIOCENTRO", left: "38%", top: "48%" },
@@ -151,6 +144,13 @@ export const microFormations: Record<
   posicion: "CARRILERO I.",
   left: "12%",
   top: "48%",
+},
+{
+  id: "DFC3",
+  nombre: "Central",
+  posicion: "CENTRAL",
+  left: "72%",
+  top: "74%",
 },
   ],
 };
