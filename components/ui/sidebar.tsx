@@ -4,22 +4,32 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import {
+  Home,
+  Users,
+  User,
   Menu,
   X,
-  Home,
-  User,
-  Brain,
-  Users,
-  Scale,
-  BarChart3,
-  Trophy,
-  Goal,
-  CalendarDays,
-  Shield,
-  PlayCircle,
-  Video,
-  ClipboardCheck,
   Activity,
+  ClipboardCheck,
+  Clipboard,
+  ClipboardPen,
+  CalendarDays,
+  Flag,
+  Scale,
+  HeartHandshake,
+  Network,
+  Goal,
+  Shield,
+  Video,
+  MonitorPlay,
+  BarChart3,
+  Swords,
+  History,
+  Search,
+  Binoculars,
+  Dumbbell,
+  Database,
+  Handshake,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -141,13 +151,13 @@ const navLink = (
     {navLink(
       "/team-values",
       "Dinámicas y Valores",
-      <Users size={18} />
+      <Handshake  size={18} />
     )}
 
     {navLink(
       "/game-model",
       "Identidad de Juego",
-      <Brain size={18} />
+      <Network  size={18} />
     )}
   </div>
 </div>
@@ -188,18 +198,18 @@ const navLink = (
     {navLink(
       "/pizarra_microcycle",
       "Pizarra Microciclo",
-      <Activity size={18} />
+      <Clipboard  size={18} />
     )}
     {navLink(
       "/pizarra",
-      "Pizarra",
+      "Pizarra Competición",
       <Activity size={18} />
     )}
 
     {navLink(
       "/match-plans",
       "Planes de Partido",
-      <PlayCircle size={18} />
+      <ClipboardPen  size={18} />
     )}
 
   </div>
@@ -244,13 +254,13 @@ const navLink = (
       {navLink(
         "/emotion",
         "Emocional",
-        <Brain size={18} />
+        <HeartHandshake  size={18} />
       )}
 
       {navLink(
         "/sinergy",
         "Sinergias",
-        <Users size={18} />
+        <Network  size={18} />
       )}
     </div>
   </div>
@@ -280,7 +290,7 @@ const navLink = (
       {navLink(
   "/video-collective",
   "Videoteca Colectiva",
-  <Video size={18} />
+  <MonitorPlay  size={18} />
 )}
       {navLink(
         "/team",
@@ -291,12 +301,12 @@ const navLink = (
       {navLink(
         "/collective",
         "Competición",
-        <Trophy size={18} />
+        <Swords  size={18} />
       )}
       {navLink(
         "/collective_history",
         "Histórico Competición",
-        <Trophy size={18} />
+        <History  size={18} />
       )}
       
     </div>
@@ -315,13 +325,13 @@ const navLink = (
     {navLink(
       "/scout-rival-individual",
       "Individual",
-      <User size={18} />
+      <Search  size={18} />
     )}
 
     {navLink(
       "/scout-rival-collective",
       "Colectivo",
-      <Users size={18} />
+      <Binoculars  size={18} />
     )}
 
   </div>
@@ -340,7 +350,7 @@ const navLink = (
     {navLink(
       "/performance",
       "Área Condicional",
-      <Activity size={18} />
+      <Dumbbell  size={18} />
     )}
 
   </div>
@@ -358,7 +368,7 @@ const navLink = (
     {navLink(
       "/data-center",
       "Repositorio",
-      <Activity size={18} />
+      <Database  size={18} />
     )}
 
   </div>
