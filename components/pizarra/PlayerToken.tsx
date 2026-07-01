@@ -230,7 +230,7 @@ lg:w-auto
       {player.estado}
     </span>
   </div>
-)}
+)}  
 </div>
         </div>
 
