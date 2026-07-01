@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useLineup } from "@/context/LineupContext";
-
+import { useDroppable } from "@dnd-kit/core";
 import { usePlayers } from "@/hooks/usePlayers";
 import PlayerToken from "./PlayerToken";
 
@@ -15,6 +15,9 @@ export default function PlayerSidebar() {
   const { players } = usePlayers();
   const { lineup } = useLineup();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { setNodeRef, isOver } = useDroppable({
+  id: "bench",
+});
 
   const [search, setSearch] = useState("");
 const playersOnPitch = useMemo(() => {
@@ -51,16 +54,24 @@ function scrollRight() {
   });
 }
   return (
-    <div
-      className="
-        flex
-        h-full
-        
-        flex-col
-        overflow-hidden
-        bg-[#11161D]
-      "
-    >
+   <div
+  ref={setNodeRef}
+  className={`
+    flex
+    h-full
+    flex-col
+    overflow-hidden
+    transition-all
+    duration-200
+    bg-[#11161D]
+
+    ${
+      isOver
+        ? "ring-2 ring-[#C8A96B] bg-[#1A222C]"
+        : ""
+    }
+  `}
+>
       {/* CABECERA */}
 
       <div

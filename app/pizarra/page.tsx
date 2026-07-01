@@ -29,6 +29,7 @@ import {
 function PizarraContent() {
   const {
   assignPlayer,
+  removePlayer,
   loadLineup,
 } = useLineup();
 
@@ -51,26 +52,33 @@ function handleDragStart(event: DragStartEvent) {
 function handleDragEnd(event: DragEndEvent) {
   const { active, over } = event;
 
+  setDragPlayer(null);
+
   if (!over) return;
 
   const activeId = String(active.id);
-  const positionId = String(over.id);
+  const overId = String(over.id);
 
-  // Desde el banquillo
+  // Campo -> Banquillo
+  if (overId === "bench") {
+    removePlayer(activeId.replace("field-", ""));
+    return;
+  }
+
+  // Banquillo -> Campo
   if (activeId.startsWith("bench-")) {
     assignPlayer(
-      positionId,
+      overId,
       activeId.replace("bench-", "")
     );
+    return;
   }
 
-  // Desde el campo
-  else {
-    assignPlayer(
-      positionId,
-      activeId
-    );
-  }
+  // Campo -> Campo
+  assignPlayer(
+    overId,
+    activeId.replace("field-", "")
+  );
 }
 async function handleLoadLineup(id: number) {
   try {

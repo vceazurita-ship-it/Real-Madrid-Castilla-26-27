@@ -28,14 +28,14 @@ export default function FieldPlayer({
   showName = true,
 }: Props) {
   const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id,
-  });
+  attributes,
+  listeners,
+  setNodeRef,
+  transform,
+  isDragging,
+} = useDraggable({
+  id: `field-${id}`,
+});
 
   const {
   selectedPlayer,
