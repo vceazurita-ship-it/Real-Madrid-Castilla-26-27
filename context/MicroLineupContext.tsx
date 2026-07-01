@@ -13,9 +13,9 @@ import {
   MicroLineupSlot,
   Player,
 } from "@/types/MicroPlayer";
-
+import { remapMicroFormation } from "@/lib/MicroFormationMapper";
 import { microFormations } from "@/lib/microFormation";
-import { usePlayers } from "@/hooks/usePlayers";
+
 
 const STORAGE_KEY = "rmcf-castilla-micro";
 
@@ -78,7 +78,7 @@ export function MicroLineupProvider({
   children: ReactNode;
 }) {
 
-  const { players } = usePlayers();
+  
 
   const [
     selectedPlayer,
@@ -100,19 +100,11 @@ function setFormation(
   _setFormation(newFormation);
 
   setLineup((current) => {
-    const previous = new Map(
-      current.map((slot) => [
-        slot.positionId,
-        slot.playerIds,
-      ])
-    );
+    const newLineup = createLineup(newFormation);
 
-    return createLineup(newFormation).map(
-      (slot) => ({
-        ...slot,
-        playerIds:
-          previous.get(slot.positionId) ?? [],
-      })
+    return remapMicroFormation(
+      current,
+      newLineup
     );
   });
 }

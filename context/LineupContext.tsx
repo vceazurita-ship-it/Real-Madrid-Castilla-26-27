@@ -16,7 +16,7 @@ import {
 import { formations } from "@/lib/formations";
 import { usePlayers } from "@/hooks/usePlayers";
 import { toast } from "sonner";
-
+import { remapFormation } from "@/lib/formationMapper";
 const STORAGE_KEY = "rmcf-castilla-lineup";
 
 interface LineupContextType {
@@ -135,27 +135,16 @@ const [lineup, setLineup] =
      CAMBIO DE FORMACIÓN
   ======================================= */
 
-  useEffect(() => {
-    setLineup((current) => {
-      const previousPlayers =
-        new Map(
-          current.map((slot) => [
-            slot.positionId,
-            slot.playerId,
-          ])
-        );
+ useEffect(() => {
+  setLineup((current) => {
+    const newLineup = createLineup(formation);
 
-      return createLineup(
-        formation
-      ).map((slot) => ({
-        ...slot,
-        playerId:
-          previousPlayers.get(
-            slot.positionId
-          ) ?? null,
-      }));
-    });
-  }, [formation]);
+    return remapFormation(
+      current,
+      newLineup
+    );
+  });
+}, [formation]);
 
   /* =======================================
      GUARDADO AUTOMÁTICO
