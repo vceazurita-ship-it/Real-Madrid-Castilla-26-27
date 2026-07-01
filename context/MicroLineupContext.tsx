@@ -14,7 +14,7 @@ import {
   Player,
 } from "@/types/MicroPlayer";
 
-import { microFormation } from "@/lib/microFormation";
+import { microFormations } from "@/lib/microFormation";
 import { usePlayers } from "@/hooks/usePlayers";
 
 const STORAGE_KEY = "rmcf-castilla-micro";
@@ -55,8 +55,13 @@ interface MicroLineupContextType {
   ) => MicroLineupSlot | undefined;
 }
 
-function createLineup(): MicroLineupSlot[] {
-  return microFormation.map((position) => ({
+function createLineup(
+  formation = "4-4-2"
+): MicroLineupSlot[] {
+  return (
+    microFormations[formation] ??
+    microFormations["4-4-2"]
+  ).map((position) => ({
     positionId: position.id,
     playerIds: [],
   }));
@@ -86,8 +91,31 @@ export function MicroLineupProvider({
     _setSelectedPlayer(player);
   };
 
-  const [formation, setFormation] =
-    useState("Micro");
+  const [formation, _setFormation] =
+  useState("4-4-2");
+
+function setFormation(
+  newFormation: string
+) {
+  _setFormation(newFormation);
+
+  setLineup((current) => {
+    const previous = new Map(
+      current.map((slot) => [
+        slot.positionId,
+        slot.playerIds,
+      ])
+    );
+
+    return createLineup(newFormation).map(
+      (slot) => ({
+        ...slot,
+        playerIds:
+          previous.get(slot.positionId) ?? [],
+      })
+    );
+  });
+}
 
   const [lineup, setLineup] =
     useState<MicroLineupSlot[]>(() => {

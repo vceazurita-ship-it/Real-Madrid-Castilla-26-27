@@ -11,7 +11,7 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { useMicroLineup } from "@/context/MicroLineupContext";
 import MicroGroup from "./MicroGroup";
 import PitchPosition from "./PitchPosition";
-import { microFormation } from "@/lib/microFormation";
+import { microFormations } from "@/lib/microFormation";
 
 const FootballPitch = forwardRef<
   HTMLDivElement,
@@ -19,22 +19,16 @@ const FootballPitch = forwardRef<
 >(function FootballPitch(_, ref) {
   const { players } = usePlayers();
 
-  const { lineup } = useMicroLineup();
+  const {
+  lineup,
+  formation,
+} = useMicroLineup();
 
-const currentFormation = microFormation;
-const [mobile, setMobile] = useState(false);
+const currentFormation =
+  microFormations[
+    formation as keyof typeof microFormations
+  ] ?? microFormations["4-4-2"];
 
-useEffect(() => {
-  const resize = () => {
-    setMobile(window.innerWidth < 1024);
-  };
-
-  resize();
-
-  window.addEventListener("resize", resize);
-
-  return () => window.removeEventListener("resize", resize);
-}, []);
   return (
     <div
   id="football-pitch"
@@ -54,26 +48,18 @@ useEffect(() => {
 <div className="absolute inset-0 overflow-hidden">
 
   <Image
-    src="/emotional-field-bg.png"
-    alt="Campo"
-    fill
-    priority
-    unoptimized
-    draggable={false}
-    className={`
-      object-cover
-      pointer-events-none
-      select-none
-      transition-all
-      duration-500
-
-      ${
-        mobile
-          ? "rotate-90 scale-[1.78]"
-          : "rotate-0 scale-100"
-      }
-    `}
-  />
+  src="/emotional-field-bg.png"
+  alt="Campo"
+  fill
+  priority
+  unoptimized
+  draggable={false}
+  className="
+    object-cover
+    pointer-events-none
+    select-none
+  "
+/>
 
 </div>
       {/* Oscurecer */}
@@ -86,94 +72,82 @@ useEffect(() => {
       
 
       {/* Jugadores */}
-      {currentFormation.map((position) => {
-        const slot = lineup.find(
-          (s) =>
-            s.positionId === position.id
-        );
+      {currentFormation
+  .filter((position) => position.visible !== false)
+  .map((position) => {
+    const slot = lineup.find(
+      (s) => s.positionId === position.id
+    );
 
-        const groupPlayers =
-  players.filter((player) =>
-slot?.playerIds?.includes(player.id)  );
+    const groupPlayers = players.filter((player) =>
+      slot?.playerIds?.includes(player.id)
+    );
 
-        return (
-          <div
-            key={position.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{
-  left: mobile
-    ? position.left
-    : position.top,
+    return (
+      <div
+        key={position.id}
+        className="absolute -translate-x-1/2 -translate-y-1/2"
+        style={{
+          left: position.left,
+          top: position.top,
+        }}
+      >
+        <PitchPosition id={position.id}>
+          {groupPlayers.length > 0 ? (
+            <MicroGroup
+              players={groupPlayers}
+              positionId={position.id}
+              mobile={false}
+            />
+          ) : (
+            <div className="flex flex-col items-center">
+              <div
+                className="
+                  flex
+                  h-16
+                  w-16
+                  items-center
+                  justify-center
+                  rounded-full
+                  border-2
+                  border-dashed
+                  border-[#C8A96B]
+                  bg-black/45
+                  backdrop-blur-sm
+                  shadow-[0_0_18px_rgba(200,169,107,.25)]
+                  transition
+                  duration-300
+                  hover:scale-110
+                "
+              >
+                <span className="text-lg text-[#C8A96B]">
+                  +
+                </span>
+              </div>
 
-  top: mobile
-    ? position.top
-    : `${100 - parseFloat(position.left)}%`,
-}}
-          >
-            <PitchPosition id={position.id}>
-             {groupPlayers.length > 0 ? (
-
-<MicroGroup
-  players={groupPlayers}
-  positionId={position.id}
-  mobile={mobile}
-/>
-
-) : (
-                <div className="flex flex-col items-center">
-
-                  <div
-  className={`
-    flex
-    ${mobile ? "h-12 w-12" : "h-16 w-16"}
-    items-center
-    justify-center
-    rounded-full
-    border-2
-    border-dashed
-    border-[#C8A96B]
-    bg-black/45
-    backdrop-blur-sm
-    shadow-[0_0_18px_rgba(200,169,107,.25)]
-    transition
-    duration-300
-    hover:scale-110
-  `}
->
-                    <span className="text-lg text-[#C8A96B]">
-                      +
-                    </span>
-                  </div>
-
-                  <div
-  className={`
-    mt-2
-    rounded-full
-    bg-black/60
-    px-3
-    py-1
-    text-[10px]
-    font-semibold
-    tracking-wide
-    text-white/90
-    whitespace-nowrap
-    backdrop-blur-sm
-    ${
-      mobile
-          ? "rotate-90 scale-[1.78]"
-          : "rotate-0 scale-100"
-    }
-  `}
->
-  {position.nombre}
-</div>
-
-                </div>
-              )}
-            </PitchPosition>
-          </div>
-        );
-      })}
+              <div
+                className="
+                  mt-2
+                  rounded-full
+                  bg-black/60
+                  px-3
+                  py-1
+                  text-[10px]
+                  font-semibold
+                  tracking-wide
+                  text-white/90
+                  whitespace-nowrap
+                  backdrop-blur-sm
+                "
+              >
+                {position.nombre}
+              </div>
+            </div>
+          )}
+        </PitchPosition>
+      </div>
+    );
+  })}
     </div>
   );
 });
