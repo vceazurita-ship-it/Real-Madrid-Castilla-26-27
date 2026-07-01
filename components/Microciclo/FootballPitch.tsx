@@ -158,7 +158,7 @@ slot?.playerIds?.includes(player.id)  );
     text-white/90
     whitespace-nowrap
     backdrop-blur-sm
-
+    rotate-90
     ${
       mobile
           ? "rotate-90 scale-[1.78]"
