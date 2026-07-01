@@ -161,8 +161,8 @@ slot?.playerIds?.includes(player.id)  );
 
     ${
       mobile
-        ? "-rotate-90 origin-center"
-        : ""
+          ? "rotate-90 scale-[1.78]"
+          : "rotate-0 scale-100"
     }
   `}
 >
