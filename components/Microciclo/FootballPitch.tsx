@@ -46,27 +46,32 @@ const currentFormation =
     >
 {/* Fondo del campo */}
 <div className="absolute inset-0 overflow-hidden">
-  <Image
-    src="/emotional-field-bg.png"
-    alt="Campo"
-    fill
-    priority
-    unoptimized
-    draggable={false}
-    className="
-      object-cover
-      object-center
-      pointer-events-none
-      select-none
-    "
+  <div
+    className="absolute inset-0"
     style={{
-      clipPath: "inset(0 0 50% 0)",
-      transform: "scaleY(2)",
-      transformOrigin: "top",
+      height: "200%",
+      top: "-2%",
     }}
-  />
+  >
+    <Image
+      src="/emotional-field-bg.png"
+      alt="Campo"
+      fill
+      priority
+      unoptimized
+      draggable={false}
+      className="
+        object-cover
+        object-top
+        pointer-events-none
+        select-none
+        -rotate-90
+      "
+    />
+  </div>
 </div>
-      {/* Oscurecer */}
+      {/* Oscurecer */}  
+
       <div className="absolute inset-0 bg-black/35" />
 
       {/* Viñeta */}
