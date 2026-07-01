@@ -55,12 +55,14 @@ const currentFormation =
     draggable={false}
     className="
       object-cover
+      object-center
       pointer-events-none
       select-none
     "
     style={{
-      transform: "translateY(-22%) scale(2.05)",
-      transformOrigin: "center",
+      clipPath: "inset(0 0 50% 0)",
+      transform: "scaleY(2)",
+      transformOrigin: "top",
     }}
   />
 </div>
