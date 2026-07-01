@@ -2,6 +2,7 @@ export type EstadoJugador =
   | "DISPONIBLE"
   | "CONTROL DE CARGA"
   | "TOCADO"
+  | "ÓPTIMO"
   | "REINCORPORACIÓN"
   | "LESIONADO"
   | "PRIMER EQUIPO"
