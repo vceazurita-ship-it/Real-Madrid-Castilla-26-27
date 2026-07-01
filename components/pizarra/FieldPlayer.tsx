@@ -36,10 +36,11 @@ export default function FieldPlayer({
   });
 
   const {
-    selectedPlayer,
-    assignPlayer,
-    setSelectedPlayer,
-  } = useLineup();
+  selectedPlayer,
+  assignPlayer,
+  setSelectedPlayer,
+  removePlayer,
+} = useLineup();
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -83,9 +84,14 @@ export default function FieldPlayer({
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      onClick={(e) => {
+  ref={setNodeRef}
+  style={style}
+  title="Doble clic para quitar del campo"
+  onDoubleClick={(e) => {
+    e.stopPropagation();
+    removePlayer(id);
+  }}
+  onClick={(e) => {
         e.stopPropagation();
 
         if (!selectedPlayer) return;
