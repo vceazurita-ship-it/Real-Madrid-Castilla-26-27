@@ -1482,17 +1482,8 @@ const playerReport = selected
 <p className="mt-2 text-gray-400">
   {selected.position}
 </p>
-
-<div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-  <p className="text-xs uppercase tracking-wide text-gray-400">
-    Seguimiento
-  </p>
-  <p className="text-2xl font-semibold text-[#C8A96B]">
-    {playerTracking.length}
-  </p>
-</div>
-            
-            <div className="mt-6 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+    
+  <div className="mt-6 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
   {[
     {
       key: "perfil",
@@ -2475,6 +2466,14 @@ tracking-wide
   }
   className="rounded-xl bg-white/5 p-3"
 />
+<div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+  <p className="text-xs uppercase tracking-wide text-gray-400">
+    Seguimiento
+  </p>
+  <p className="text-2xl font-semibold text-[#C8A96B]">
+    {playerTracking.length}
+  </p>
+</div>
 
         <div className="grid md:grid-cols-2 gap-4">
           <div>
