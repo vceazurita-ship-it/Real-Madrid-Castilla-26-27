@@ -724,15 +724,13 @@ VISIÓN GLOBAL
 <div
   id="modules-scroll"
   className="
-mt-6
-flex
-gap-5
-overflow-x-auto
-scroll-smooth
-pb-2
-hide-scrollbar
-"
+    mt-6
+    overflow-x-auto
+    hide-scrollbar
+    scroll-smooth
+  "
 >
+  <div className="flex gap-5 w-max pb-2">
                     {modules.map((item) => {
                     const Icon = item.icon
 
@@ -740,26 +738,23 @@ hide-scrollbar
                      <Link  
   key={item.title}
   href={item.href}
-  className={`
+  className={`relative
 flex-none
 w-[320px]
-relative
 z-20
+block
+cursor-pointer
 group
 rounded-[28px]
-border
-border-white/10
-bg-gradient-to-br
-from-[#06111D]
-to-[#030914]
+border border-white/10
+bg-gradient-to-br from-[#06111D] to-[#030914]
 p-5
 transition-all
 duration-500
 hover:scale-[1.02]
 hover:-translate-y-1
 hover:border-cyan-400/40
-${glow(item.glow)}
-`}
+${glow(item.glow)}`}
 ><div
   className="
 absolute
@@ -800,7 +795,7 @@ to-transparent
                         </div>
                       </Link>
                     )
-                  })}
+                  })} </div>
                 </div>
               </div>
             </div>
