@@ -1476,12 +1476,21 @@ const playerReport = selected
             />
 
             <h2 className="mt-5 text-3xl font-semibold">
-              {selected.name}
-            </h2>
+  {selected.name}
+</h2>
 
-            <p className="mt-2 text-gray-400">
-              {selected.position}
-            </p>
+<p className="mt-2 text-gray-400">
+  {selected.position}
+</p>
+
+<div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+  <p className="text-xs uppercase tracking-wide text-gray-400">
+    Seguimiento
+  </p>
+  <p className="text-2xl font-semibold text-[#C8A96B]">
+    {playerTracking.length}
+  </p>
+</div>
             
             <div className="mt-6 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
   {[
