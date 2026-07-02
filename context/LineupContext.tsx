@@ -6,7 +6,6 @@ import {
   useMemo,
   useState,
   useEffect,
-  useRef,
   ReactNode,
 } from "react";
 
@@ -136,16 +135,27 @@ const [lineup, setLineup] =
      CAMBIO DE FORMACIÓN
   ======================================= */
 
- useEffect(() => {
-  setLineup((current) => {
-    const newLineup = createLineup(formation);
+  useEffect(() => {
+    setLineup((current) => {
+      const previousPlayers =
+        new Map(
+          current.map((slot) => [
+            slot.positionId,
+            slot.playerId,
+          ])
+        );
 
-    return remapFormation(
-      current,
-      newLineup
-    );
-  });
-}, [formation]);
+      return createLineup(
+        formation
+      ).map((slot) => ({
+        ...slot,
+        playerId:
+          previousPlayers.get(
+            slot.positionId
+          ) ?? null,
+      }));
+    });
+  }, [formation]);
 
   /* =======================================
      GUARDADO AUTOMÁTICO
