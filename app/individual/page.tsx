@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import {
   Search,
   ChevronLeft,
@@ -481,6 +482,10 @@ function CarouselRow({
 }
 
 export default function IndividualPage() {
+  const searchParams = useSearchParams();
+
+const playerFromUrl = searchParams.get("player");
+  
   const [search, setSearch] =
     useState("");
 
@@ -1239,6 +1244,29 @@ useEffect(() => {
     setSelected(updatedPlayer);
   }
 }, [mergedPlayers]);
+useEffect(() => {
+
+    if (!playerFromUrl) return;
+
+    if (!players.length) return;
+
+    const jugador = players.find(
+        (p) => p.idJugador === playerFromUrl
+    );
+
+    if (!jugador) return;
+
+    const fullPlayer = mergedPlayers.find(
+        (p) => p.idJugador === jugador.idJugador
+    );
+
+    if (!fullPlayer) return;
+
+    setSelected(fullPlayer);
+
+    setActiveTab("perfil");
+
+}, [playerFromUrl, players, mergedPlayers]);
 
 const filtered =
   mergedPlayers.filter((p) =>
