@@ -119,41 +119,11 @@ const averageWeek =
 totalWeeks
 ? (totalSessions/totalWeeks).toFixed(1)
 :0;
-const coachData =
-useMemo(()=>{
 
-const map:{}|any={};
-
-tracking.forEach(s=>{
-
-map[s.QUIEN]=
-(map[s.QUIEN]??0)+1;
-
-});
-
-return Object.entries(map)
-
-.map(([name,value])=>({
-
-name,
-value
-
-}))
-
-.sort((a:any,b:any)=>
-
-b.value-a.value
-
-);
-
-},[tracking]);
-
-const topCoach=
-coachData[0]?.name ?? "-";
 const playerChart=
 useMemo(()=>{
 
-const map:{}|any={};
+const map: Record<string, number> = {};
 
 tracking.forEach(s=>{
 
@@ -172,28 +142,30 @@ map[nombre]=
 });
 
 return Object.entries(map)
-
-.map(([name,value])=>({
-
-name,
-value
-
-}))
-
-.sort((a:any,b:any)=>
-
-b.value-a.value
-
-);
+  .map(([name, value]) => ({
+    name,
+    value,
+  }))
+  .sort((a, b) => b.value - a.value);
 
 },[
 tracking,
 playerMap
 ]);
+
+const mostTrackedPlayer =
+  playerChart.length > 0
+    ? playerChart[0]
+    : { name: "-", value: 0 };
+
+const leastTrackedPlayer =
+  playerChart.length > 0
+    ? playerChart[playerChart.length - 1]
+    : { name: "-", value: 0 };
 const strategyData=
 useMemo(()=>{
 
-const map:{}|any={};
+const map: Record<string, number> = {};
 
 tracking.forEach(s=>{
 
@@ -203,19 +175,16 @@ map[s.ESTRATEGIA]=
 });
 
 return Object.entries(map)
-
-.map(([name,value])=>({
-
-name,
-value
-
-}));
+  .map(([name, value]) => ({
+    name,
+    value,
+  }));
 
 },[tracking]);
 const weeklyData=
 useMemo(()=>{
 
-const map:{}|any={};
+const map: Record<string, number> = {};
 
 tracking.forEach(s=>{
 
@@ -241,19 +210,11 @@ map[week]=
 });
 
 return Object.keys(map)
-
-.sort((a,b)=>
-
-Number(a)-Number(b)
-
-)
-
-.map(week=>({
-
-week,
-value:map[week]
-
-}));
+  .sort((a, b) => Number(a) - Number(b))
+  .map((week) => ({
+    week,
+    value: map[Number(week)],
+  }));
 
 },[tracking]);
 return (
@@ -266,25 +227,25 @@ return (
 
         <Topbar />
 
-        <div className="px-8 py-8">
+        <div className="px-4 md:px-8 py-6 md:py-8">
 
           <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
             RMCF CASTILLA · INDIVIDUAL
           </p>
 
-          <div className="mt-4 flex items-center gap-5">
+          <div className="mt-3 flex flex-col md:flex-row md:items-center gap-4">
 
-            <h1 className="text-4xl font-semibold">
+            <h1 className="text-2xl md:text-4xl font-semibold">
               Dashboard Seguimiento Individual
             </h1>
 
-            <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+            <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
 
           </div>
 
           {/* KPIs */}
 
-          <div className="grid grid-cols-4 gap-5 mt-10">
+          <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 md:gap-5 mt-8">
 
             <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
@@ -325,42 +286,68 @@ return (
             <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
               <p className="text-white/50 text-sm">
-                Coach más activo
+                Jugador más seguido
               </p>
 
               <h2 className="mt-3 text-2xl font-bold text-[#C8A96B]">
-                {topCoach}
+                {mostTrackedPlayer.name}
               </h2>
+              <p className="mt-2 text-sm text-white/50">
+{mostTrackedPlayer.value} seguimientos
+</p>
 
             </div>
+<div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
+  <p className="text-white/50 text-sm">
+    Jugador menos seguido
+  </p>
+
+  <h2 className="mt-3 text-2xl font-bold text-[#C8A96B]">
+    {leastTrackedPlayer.name}
+  </h2>
+
+  <p className="mt-2 text-sm text-white/50">
+    {leastTrackedPlayer.value} seguimientos
+  </p>
+
+</div>
           </div>
 
           {/* FILA 1 */}
 
-          <div className="grid grid-cols-2 gap-6 mt-10">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-10">
 
             {/* BARRAS */}
 
             <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
-              <h3 className="mb-6 text-lg font-semibold">
+              <h3 className="mb-6 text-base md:text-lg font-semibold">
                 Seguimientos por jugador
               </h3>
-
-              <ResponsiveContainer width="100%" height={350}>
+<div className="overflow-x-auto">
+  <div className="min-w-[900px] h-[320px]">
+              <ResponsiveContainer width="100%" height={320}>
 
                 <BarChart data={playerChart}>
 
                   <CartesianGrid stroke="#333" />
 
                   <XAxis
-                    dataKey="name"
-                    tick={{ fill: "#999", fontSize: 11 }}
-                  />
+    dataKey="name"
+    interval={0}
+    angle={-35}
+    textAnchor="end"
+    height={80}
+    tick={{
+        fill:"#999",
+        fontSize:10
+    }}
+/>
 
                   <YAxis
                     tick={{ fill: "#999" }}
+
                   />
 
                   <Tooltip />
@@ -374,17 +361,19 @@ return (
                 </BarChart>
 
               </ResponsiveContainer>
-
+ </div>
+</div>
             </div>
 
             {/* PIE */}
 
             <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
-              <h3 className="mb-6 text-lg font-semibold">
+              <h3 className="mb-6 text-base md:text-lg font-semibold">
                 Estrategias utilizadas
               </h3>
-
+<div className="overflow-x-auto">
+  <div className="min-w-[700px] h-[350px]">
               <ResponsiveContainer width="100%" height={350}>
 
                 <PieChart>
@@ -397,7 +386,7 @@ return (
 
                     nameKey="name"
 
-                    outerRadius={120}
+                    outerRadius={90}
 
                     label
 
@@ -426,20 +415,23 @@ return (
 
             </div>
 
+          </div> </div>
+
           </div>
 
           {/* FILA 2 */}
 
-          <div className="grid grid-cols-2 gap-6 mt-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
 
             {/* EVOLUCIÓN */}
 
             <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
-              <h3 className="mb-6 text-lg font-semibold">
+              <h3 className="mb-6 text-base md:text-lg font-semibold">
                 Evolución semanal
               </h3>
-
+<div className="overflow-x-auto">
+  <div className="min-w-[700px] h-[350px]">
               <ResponsiveContainer width="100%" height={350}>
 
                 <LineChart data={weeklyData}>
@@ -473,16 +465,17 @@ return (
 
               </ResponsiveContainer>
 
-            </div>
+            </div> </div> </div>
 
             {/* RADAR */}
 
             <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
 
-              <h3 className="mb-6 text-lg font-semibold">
+              <h3 className="mb-6 text-base md:text-lg font-semibold">
                 Distribución estrategias
               </h3>
-
+<div className="overflow-x-auto">
+  <div className="min-w-[450px] h-[350px]">
               <ResponsiveContainer width="100%" height={350}>
 
                 <RadarChart data={strategyData}>
@@ -510,7 +503,9 @@ return (
                 </RadarChart>
 
               </ResponsiveContainer>
+</div>
 
+          </div>
             </div>
 
           </div>

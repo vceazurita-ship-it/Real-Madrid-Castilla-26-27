@@ -150,7 +150,7 @@ useEffect(() => {
 
             <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
   <h1 className="text-2xl md:text-4xl font-semibold">
-    Calendario de Seguimiento
+    Calendario de Seguimiento 
   </h1>
 
   <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
