@@ -114,7 +114,11 @@ export default function IndividualPage() {
   return result;
 }, []);
 if (loading) {
-  return null;
+  return (
+    <main className="min-h-screen bg-[#0B0F14] flex items-center justify-center text-white">
+      Cargando jugadores...
+    </main>
+  );
 }
   const [currentMonth, setCurrentMonth] = useState(0);
 const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
