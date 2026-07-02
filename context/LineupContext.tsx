@@ -24,7 +24,11 @@ interface LineupContextType {
   lineup: LineupSlot[];
 
   formation: string;
+  loadedLineupName: string | null;
 
+setLoadedLineupName: (
+  name: string | null
+) => void;
   selectedPlayer: Player | null;
 
   setSelectedPlayer: (
@@ -44,10 +48,11 @@ interface LineupContextType {
 
   clearLineup: () => void;
 
-  loadLineup: (
-    formation: string,
-    lineup: LineupSlot[]
-  ) => void;
+ loadLineup: (
+  formation: string,
+  lineup: LineupSlot[],
+  name: string
+) => void;
 
   getPlayerPosition: (
     positionId: string
@@ -106,6 +111,10 @@ const setSelectedPlayer = (player: Player | null) => {
     return "4-4-2";
   }
 });
+const [
+  loadedLineupName,
+  setLoadedLineupName,
+] = useState<string | null>(null);
 
 const [lineup, setLineup] =
   useState<LineupSlot[]>(() => {
@@ -327,8 +336,11 @@ return current;
 
 function loadLineup(
   newFormation: string,
-  newLineup: LineupSlot[]
+  newLineup: LineupSlot[],
+  name: string
 ) {
+  setLoadedLineupName(name);
+
   setFormation(newFormation);
 
   setTimeout(() => {
@@ -355,6 +367,9 @@ const value = useMemo(
     lineup,
     formation,
 
+    loadedLineupName,
+    setLoadedLineupName,
+
     selectedPlayer,
     setSelectedPlayer,
 
@@ -365,11 +380,12 @@ const value = useMemo(
     loadLineup,
     getPlayerPosition,
   }),
-  [
-    lineup,
-    formation,
-    selectedPlayer,
-  ]
+[
+  lineup,
+  formation,
+  loadedLineupName,
+  selectedPlayer,
+]
 );
 
   return (

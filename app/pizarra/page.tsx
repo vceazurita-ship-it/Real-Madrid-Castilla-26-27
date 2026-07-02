@@ -31,6 +31,7 @@ function PizarraContent() {
   assignPlayer,
   removePlayer,
   loadLineup,
+  loadedLineupName,
 } = useLineup();
 
 const { players } = usePlayers();
@@ -98,9 +99,10 @@ console.log(data.alineacion);
     }
 
     loadLineup(
-      data.formacion,
-      JSON.parse(data.alineacion)
-    );
+  data.formacion,
+  JSON.parse(data.alineacion),
+  data.nombre
+);
 
   } catch (e) {
     console.error(e);
@@ -251,6 +253,19 @@ flex-1">
         lg:min-h-[520px]
       "
     >
+      {loadedLineupName && (
+  <div className="mb-3 text-center">
+    <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]/70">
+      Alineación cargada
+    </p>
+
+    <h2 className="text-lg font-semibold text-white">
+      {loadedLineupName}
+    </h2>
+  </div>
+)}
+
+<FootballPitch />
       <FootballPitch />
     </div>
 
