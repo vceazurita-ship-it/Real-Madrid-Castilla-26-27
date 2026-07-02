@@ -34,7 +34,7 @@ import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
 import { useEffect, useState } from "react"
 import Papa from "papaparse"
-
+import ModulesCarousel from "@/components/ui/ModulesCarousel"
 
 export default function Home() {
 
@@ -721,82 +721,7 @@ VISIÓN GLOBAL
                   ÁREAS ESTRATÉGICAS
                 </p>
 
-<div
-  id="modules-scroll"
-  className="
-    mt-6
-    overflow-x-auto
-    hide-scrollbar
-    scroll-smooth
-  "
->
-  <div className="flex gap-5 w-max pb-2">
-                    {modules.map((item) => {
-                    const Icon = item.icon
-
-                    return (
-                     <Link  
-  key={item.title}
-  href={item.href}
-  className={`relative
-flex-none
-w-[320px]
-z-20
-block
-cursor-pointer
-group
-rounded-[28px]
-border border-white/10
-bg-gradient-to-br from-[#06111D] to-[#030914]
-p-5
-transition-all
-duration-500
-hover:scale-[1.02]
-hover:-translate-y-1
-hover:border-cyan-400/40
-${glow(item.glow)}`}
-><div
-  className="
-absolute
-inset-0
-opacity-0
-group-hover:opacity-100
-transition
-duration-300
-bg-gradient-to-r
-from-blue-500/10
-to-transparent
-"
-/>
-                        <div className="relative z-10 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                          <div className="flex items-center gap-5">
-                            <div className="rounded-full border border-white/10 bg-white/[0.04] p-4">
-  <Icon className="h-5 w-5" />
-</div>
-
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
-                                {item.section}
-                              </p>
-
-                              <h3 className="mt-2 text-xl font-semibold">
-  {item.title}
-</h3>
-
-                              <p className="mt-2 text-sm text-white/60">
-  {item.desc}
-</p>
-                            </div>
-                          </div>
-
-                          <div className="rounded-full border border-white/10 bg-white/[0.04] p-5 transition group-hover:bg-blue-500/15">
-                            <ChevronRight className="h-6 w-6" />
-                          </div>
-                        </div>
-                      </Link>
-                    )
-                  })} </div>
-                </div>
+<ModulesCarousel modules={modules} />
               </div>
             </div>
           </section>
