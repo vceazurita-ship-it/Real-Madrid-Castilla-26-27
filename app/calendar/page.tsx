@@ -1,10 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { usePlayers } from "@/hooks/usePlayers";
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
+type TrackingRecord = {
+  ID_REGISTRO: string;
+  ID_JUGADOR: string;
+  FECHA: string;
+  OBJETIVO_OFENSIVO: string;
+  OBJETIVO_DEFENSIVO: string;
+  OBJETIVO_MENTAL: string;
+  FEEDBACK: string;
+  QUIEN: string;
+  MODALIDAD: string;
+  MOMENTO: string;
+  ESTRATEGIA: string;
+};
+ 
 const START_MONTH = new Date(2026, 6, 1); // Julio 2026
 const END_MONTH = new Date(2027, 5, 1);   // Junio 2027
 
@@ -70,31 +87,44 @@ function buildCalendar(month: number, year: number) {
 }
 
 export default function IndividualPage() {
-  const months = useMemo(() => {
-    const result = [];
+  const { players, loading } = usePlayers();
+  const playersMap = useMemo(() => {
+  return Object.fromEntries(
+    players.map((p) => [p.id, p])
+  ) as Record<string, (typeof players)[number]>;
+}, [players]);
+ const months = useMemo(() => {
+  const result = [];
 
-    let current = new Date(START_MONTH);
+  let current = new Date(START_MONTH);
 
-    while (current <= END_MONTH) {
-      result.push({
-        month: current.getMonth(),
-        year: current.getFullYear(),
-      });
+  while (current <= END_MONTH) {
+    result.push({
+      month: current.getMonth(),
+      year: current.getFullYear(),
+    });
 
-      current = new Date(
-        current.getFullYear(),
-        current.getMonth() + 1,
-        1
-      );
-    }
+    current = new Date(
+      current.getFullYear(),
+      current.getMonth() + 1,
+      1
+    );
+  }
 
-    return result;
-  }, []);
-
+  return result;
+}, []);
+if (loading) {
+  return null;
+}
   const [currentMonth, setCurrentMonth] = useState(0);
-
+const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
   const active = months[currentMonth];
-
+useEffect(() => {
+  fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
+    .then((r) => r.json())
+    .then((data) => setTrackingData(data))
+    .catch(console.error);
+}, []);
   const calendar = useMemo(() => {
     return buildCalendar(
       active.month,
@@ -188,103 +218,122 @@ export default function IndividualPage() {
     </div>
 
     {/* Semanas */}
-    <div className="space-y-2">
+<div className="space-y-2">
+  {calendar.map((week, weekIndex) => (
+    <div
+      key={weekIndex}
+      className="grid grid-cols-7 gap-2"
+    >
+      {week.map((date) => {
+        const isCurrentMonth =
+          date.getMonth() === active.month;
 
-      {calendar.map((week, weekIndex) => (
+        const isToday =
+          date.toDateString() ===
+          new Date().toDateString();
 
-        <div
-          key={weekIndex}
-          className="grid grid-cols-7 gap-2"
-        >
+        const disabled =
+          (active.month === 6 &&
+            date < new Date(2026, 6, 13)) ||
+          (active.month === 5 &&
+            active.year === 2027 &&
+            date > new Date(2027, 5, 30));
 
-          {week.map((date) => {
+        const key =
+  date.getFullYear() +
+  "-" +
+  String(date.getMonth() + 1).padStart(2, "0") +
+  "-" +
+  String(date.getDate()).padStart(2, "0");
 
-            const isCurrentMonth =
-              date.getMonth() === active.month;
+const daySessions = trackingData.filter((s) =>
+  s.FECHA.startsWith(key)
+);
 
-            const isToday =
-              date.toDateString() ===
-              new Date().toDateString();
-
-            const disabled =
-              (active.month === 6 &&
-                date < new Date(2026, 6, 13)) ||
-              (active.month === 5 &&
-                active.year === 2027 &&
-                date > new Date(2027, 5, 30));
-
-            return (
-
+        return (
+          <div
+            key={date.toISOString()}
+            className={`
+              relative
+              rounded-2xl
+              border
+              min-h-[140px]
+              p-3
+              transition-all
+              ${
+                disabled
+                  ? "opacity-30 border-white/5 bg-[#090C10]"
+                  : "border-white/10 bg-[#11161D] hover:border-[#C8A96B]/40 hover:bg-[#141B24]"
+              }
+            `}
+          >
+            <div className="flex justify-between items-center mb-3">
               <div
-                key={date.toISOString()}
                 className={`
-                  relative
-                  rounded-2xl
-                  border
-                  min-h-[140px]
-                  p-3
-                  transition-all
+                  h-8
+                  w-8
+                  rounded-full
+                  flex
+                  items-center
+                  justify-center
+                  text-sm
+                  font-semibold
                   ${
-                    disabled
-                      ? "opacity-30 border-white/5 bg-[#090C10]"
-                      : "border-white/10 bg-[#11161D] hover:border-[#C8A96B]/40 hover:bg-[#141B24]"
+                    isToday
+                      ? "bg-[#C8A96B] text-black"
+                      : isCurrentMonth
+                      ? "text-white"
+                      : "text-white/35"
                   }
                 `}
               >
-
-                <div className="flex justify-between items-center mb-3">
-
-                  <div
-                    className={`
-                      h-8
-                      w-8
-                      rounded-full
-                      flex
-                      items-center
-                      justify-center
-                      text-sm
-                      font-semibold
-                      ${
-                        isToday
-                          ? "bg-[#C8A96B] text-black"
-                          : isCurrentMonth
-                          ? "text-white"
-                          : "text-white/35"
-                      }
-                    `}
-                  >
-                    {date.getDate()}
-                  </div>
-
-                </div>
-
-                {/* Aquí irán las sesiones */}
-
-                <div
-                  className="space-y-2"
-                  id={date.toISOString()}
-                />
-
+                {date.getDate()}
               </div>
-
-            );
-
-          })}
-
-        </div>
-
-      ))}
-
-    </div>
-
-  </div>
-</div>
             </div>
 
+            <div className="space-y-2">
+              {daySessions.map((session) => {
+                const jugador = playersMap[session.ID_JUGADOR];
+
+                const color =
+                  session.ESTRATEGIA === "CAMPO"
+                    ? "bg-blue-500/20 border-blue-400/40"
+                    : session.ESTRATEGIA === "VÍDEO"
+                    ? "bg-amber-500/20 border-amber-400/40"
+                    : "bg-emerald-500/20 border-emerald-400/40";
+
+                return (
+                  <div
+                    key={session.ID_REGISTRO}
+                    className={`rounded-lg border px-2 py-1 ${color}`}
+                  >
+                    <p className="text-xs font-semibold truncate">
+                      {jugador?.nombre ?? session.ID_JUGADOR}
+                    </p>
+
+                    <p className="text-[10px] text-white/60">
+                      {session.ESTRATEGIA}
+                    </p>
+
+                    <p className="text-[10px] text-white/40">
+                      {session.QUIEN}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        );
+      })}
+    </div>
+      ))}
+    </div>
+  </div>
+</div>
 
+            </div>
+          </div>
         </section>
-
       </div>
     </main>
   );
