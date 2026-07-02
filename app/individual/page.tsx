@@ -2427,14 +2427,13 @@ tracking-wide
       "
     >
       <h3 className="mb-6 text-2xl font-semibold text-[#C8A96B]">
-        Editar perfil
+        EditarR perfil
       </h3>
-      <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+<div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
   <p className="text-xs uppercase tracking-wide text-gray-400">
     Sesiones de Seguimiento: {playerTracking.length}
   </p>
 </div>
-
       <div className="grid gap-4">
 
         <textarea
@@ -2471,6 +2470,7 @@ tracking-wide
   }
   className="rounded-xl bg-white/5 p-3"
 />
+
 
         <div className="grid md:grid-cols-2 gap-4">
           <div>
