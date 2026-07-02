@@ -721,19 +721,7 @@ VISIÓN GLOBAL
                   ÁREAS ESTRATÉGICAS
                 </p>
 
-<div
-  className="
-    mt-6
-    flex
-    gap-5
-    overflow-x-auto
-    pb-4
-    snap-x
-    snap-mandatory
-    scroll-smooth
-    hide-scrollbar
-  "
->
+<div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-5">
                     {modules.map((item) => {
                     const Icon = item.icon
 
@@ -741,27 +729,16 @@ VISIÓN GLOBAL
                      <Link  
   key={item.title}
   href={item.href}
-  className={`
-relative
-flex-none
-w-[320px]
-snap-start
-z-20
-group
-rounded-[28px]
-border
-border-white/10
-bg-gradient-to-br
-from-[#06111D]
-to-[#030914]
+  className={`relative z-20 block cursor-pointer group rounded-[28px]
+border border-white/10
+bg-gradient-to-br from-[#06111D] to-[#030914]
 p-5
 transition-all
 duration-500
 hover:scale-[1.02]
 hover:-translate-y-1
 hover:border-cyan-400/40
-${glow(item.glow)}
-`}
+${glow(item.glow)}`}
 ><div
   className="
 absolute
