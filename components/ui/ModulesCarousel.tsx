@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { useRef } from "react"
+import {
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 
 type Module = {
   href: string
@@ -25,132 +28,138 @@ function glow(color: string) {
   return map[color as keyof typeof map]
 }
 
+const PAGE_SIZE = 8
+
 export default function ModulesCarousel({
   modules,
 }: {
   modules: Module[]
 }) {
-  const ref = useRef<HTMLDivElement>(null)
 
-  const scroll = (direction: "left" | "right") => {
-    if (!ref.current) return
+  const [page, setPage] = useState(0)
 
-    ref.current.scrollBy({
-      left: direction === "right" ? 360 : -360,
-      behavior: "smooth",
-    })
-  }
+  const totalPages = Math.ceil(
+    modules.length / PAGE_SIZE
+  )
+
+  const current = modules.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE
+  )
 
   return (
-    <div className="relative mt-6">
 
-      {/* Flecha izquierda */}
-      <button
-        onClick={() => scroll("left")}
-        className="
-          absolute
-          left-0
-          top-1/2
-          -translate-y-1/2
-          z-30
-          hidden
-          xl:flex
+    <div className="mt-6">
+
+      <div className="flex items-center justify-end gap-3 mb-6">
+
+        <button
+          onClick={() =>
+            setPage((p) => Math.max(0, p - 1))
+          }
+          disabled={page === 0}
+          className="
           h-11
           w-11
-          items-center
-          justify-center
           rounded-full
           border
           border-white/10
-          bg-[#08111E]/90
-          backdrop-blur
-          hover:bg-blue-600
-          transition
-        "
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-
-      {/* Flecha derecha */}
-      <button
-        onClick={() => scroll("right")}
-        className="
-          absolute
-          right-0
-          top-1/2
-          -translate-y-1/2
-          z-30
-          hidden
-          xl:flex
-          h-11
-          w-11
-          items-center
-          justify-center
-          rounded-full
-          border
-          border-white/10
-          bg-[#08111E]/90
-          backdrop-blur
-          hover:bg-blue-600
-          transition
-        "
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
-
-      {/* Carrusel */}
-      <div
-        ref={ref}
-        className="
+          bg-[#07111E]
           flex
-          gap-5
-          overflow-x-auto
-          scroll-smooth
-          snap-x
-          snap-mandatory
-          pb-3
-          hide-scrollbar
+          items-center
+          justify-center
+          transition
+          hover:bg-blue-600
+          disabled:opacity-30
+          "
+        >
+          <ChevronLeft className="h-5 w-5"/>
+        </button>
+
+        <span className="text-sm text-white/60">
+          {page + 1} / {totalPages}
+        </span>
+
+        <button
+          onClick={() =>
+            setPage((p) =>
+              Math.min(totalPages - 1, p + 1)
+            )
+          }
+          disabled={page === totalPages - 1}
+          className="
+          h-11
+          w-11
+          rounded-full
+          border
+          border-white/10
+          bg-[#07111E]
+          flex
+          items-center
+          justify-center
+          transition
+          hover:bg-blue-600
+          disabled:opacity-30
+          "
+        >
+          <ChevronRight className="h-5 w-5"/>
+        </button>
+
+      </div>
+
+      <div
+        key={page}
+        className="
+        animate-in
+        fade-in
+        duration-500
+        grid
+        grid-cols-1
+        md:grid-cols-2
+        xl:grid-cols-4
+        gap-5
         "
       >
-        {modules.map((item) => {
+
+        {current.map((item) => {
+
           const Icon = item.icon
 
           return (
+
             <Link
               key={item.title}
               href={item.href}
               className={`
-                snap-start
-                shrink-0
-                w-[320px]
-                relative
-                group
-                rounded-[28px]
-                border
-                border-white/10
-                bg-gradient-to-br
-                from-[#06111D]
-                to-[#030914]
-                p-5
-                transition-all
-                duration-500
-                hover:scale-[1.02]
-                hover:-translate-y-1
-                hover:border-cyan-400/40
-                ${glow(item.glow)}
+              relative
+              group
+              rounded-[28px]
+              border
+              border-white/10
+              bg-gradient-to-br
+              from-[#06111D]
+              to-[#030914]
+              p-5
+              transition-all
+              duration-500
+              hover:scale-[1.02]
+              hover:-translate-y-1
+              hover:border-cyan-400/40
+              ${glow(item.glow)}
               `}
             >
+
               <div
                 className="
-                  absolute
-                  inset-0
-                  opacity-0
-                  group-hover:opacity-100
-                  transition
-                  duration-300
-                  bg-gradient-to-r
-                  from-blue-500/10
-                  to-transparent
+                absolute
+                inset-0
+                opacity-0
+                group-hover:opacity-100
+                transition
+                duration-300
+                bg-gradient-to-r
+                from-blue-500/10
+                to-transparent
                 "
               />
 
@@ -159,10 +168,11 @@ export default function ModulesCarousel({
                 <div className="flex items-center gap-5">
 
                   <div className="rounded-full border border-white/10 bg-white/[0.04] p-4">
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5"/>
                   </div>
 
                   <div>
+
                     <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
                       {item.section}
                     </p>
@@ -174,20 +184,29 @@ export default function ModulesCarousel({
                     <p className="mt-2 text-sm text-white/60">
                       {item.desc}
                     </p>
+
                   </div>
 
                 </div>
 
                 <div className="rounded-full border border-white/10 bg-white/[0.04] p-5 transition group-hover:bg-blue-500/15">
-                  <ChevronRight className="h-6 w-6" />
+
+                  <ChevronRight className="h-6 w-6"/>
+
                 </div>
 
               </div>
+
             </Link>
+
           )
+
         })}
+
       </div>
 
     </div>
+
   )
+
 }
