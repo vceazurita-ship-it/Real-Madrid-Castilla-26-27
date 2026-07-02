@@ -214,6 +214,11 @@ const navLink = (
   "Calendario Seguimiento",
   <ClipboardList size={18} />
 )}
+{navLink(
+  "/individual_proc",
+  "Dashboard Seguimiento",
+  <BarChart3 size={18} />
+)}
     {navLink(
       "/pizarra_microcycle",
       "Pizarra Microciclo",
