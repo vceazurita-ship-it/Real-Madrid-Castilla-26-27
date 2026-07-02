@@ -142,45 +142,43 @@ useEffect(() => {
 
           <Topbar />
 
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
 
             <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
               RMCF CASTILLA INDIVIDUAL
             </p>
 
-            <div className="mt-4 flex items-center gap-5">
+            <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
+  <h1 className="text-2xl md:text-4xl font-semibold">
+    Calendario de Seguimiento Individual
+  </h1>
 
-              <h1 className="text-4xl font-semibold">
-                Calendario de Seguimiento Individual
-              </h1>
+  <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+</div>
 
-              <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+            <div className="mt-8 md:mt-10 rounded-[20px] md:rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 md:p-8">
 
-            </div>
-
-            <div className="mt-10 rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-8">
-
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6 md:mb-8">
 
                 <button
                   disabled={currentMonth === 0}
                   onClick={() =>
                     setCurrentMonth((m) => m - 1)
                   }
-                  className="rounded-xl border border-white/10 bg-[#11161D] p-3 hover:border-[#C8A96B] disabled:opacity-30"
+                  className="rounded-xl border border-white/10 bg-[#11161D] p-2 md:p-3 hover:border-[#C8A96B] disabled:opacity-30"
                 >
                   <ChevronLeft />
                 </button>
 
                 <div>
 
-                  <h2 className="text-3xl font-semibold text-center">
+                  <h2 className="text-xl md:text-3xl font-semibold text-center">
 
                     {MONTHS[active.month]} {active.year}
 
                   </h2>
 
-                  <p className="text-center text-white/50 mt-1">
+                  <p className="text-xs md:text-base text-center text-white/50 mt-1">
 
                     Temporada 2026 / 2027
 
@@ -201,14 +199,14 @@ useEffect(() => {
               </div>
 
 <div className="overflow-x-auto">
-  <div className="min-w-[1100px]">
+  <div className="min-w-[700px] md:min-w-[1100px]">
 
     {/* Cabecera días */}
-    <div className="grid grid-cols-7 gap-2 mb-2">
+    <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
       {WEEK.map((day) => (
         <div
           key={day}
-          className="rounded-xl bg-[#11161D] border border-white/10 py-4 text-center"
+          className="rounded-lg md:rounded-xl bg-[#11161D] border border-white/10 py-2 md:py-4 text-center"
         >
           <span className="text-sm font-semibold text-[#C8A96B]">
             {day}
@@ -222,7 +220,7 @@ useEffect(() => {
   {calendar.map((week, weekIndex) => (
     <div
       key={weekIndex}
-      className="grid grid-cols-7 gap-2"
+      className="grid grid-cols-7 gap-1 md:gap-2"
     >
       {week.map((date) => {
         const isCurrentMonth =
@@ -255,10 +253,14 @@ const hasSessions = daySessions.length > 0;
             key={date.toISOString()}
             className={`
               relative
-              ${hasSessions ? "min-h-[160px]" : "min-h-[90px]"}
+              ${
+    hasSessions
+      ? "min-h-[120px] md:min-h-[160px]"
+      : "min-h-[70px] md:min-h-[90px]"
+}
               rounded-xl
               border
-              p-3
+              p-2 md:p-3
               transition-all
               ${
   disabled
@@ -271,16 +273,20 @@ const hasSessions = daySessions.length > 0;
 }
             `}
           >
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center mb-2 md:mb-3">
               <div
                 className={`
-                  h-8
-                  w-8
+                  h-6
+w-6
+md:h-8
+md:w-8
+text-[11px]
+md:text-sm
                   rounded-full
                   flex
                   items-center
                   justify-center
-                  text-sm
+                  
                   font-semibold
                   ${
                     isToday
@@ -295,7 +301,7 @@ const hasSessions = daySessions.length > 0;
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
+            <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
               {daySessions.slice(0, 4).map((session) => {
                 const jugador = playersMap[session.ID_JUGADOR];
                 const stripe =
@@ -314,17 +320,17 @@ const hasSessions = daySessions.length > 0;
                 return (
                   <div
                     key={session.ID_REGISTRO}
-                    className={`rounded-md border border-[#C8A96B]/20 bg-[#C8A96B]/10 border-l-4 ${stripe} px-2 py-1`}
+                    className={`rounded-md border border-[#C8A96B]/20 bg-[#C8A96B]/10 border-l-4 ${stripe} px-1.5 py-1`}
                   >
-                    <p className="text-[11px] font-semibold truncate">
+                    <p className="text-[9px] md:text-[11px] font-semibold truncate">
                       {jugador?.nombre ?? session.ID_JUGADOR}
                     </p>
 
-                    <p className="text-[9px] text-white/60">
+                    <p className="text-[8px] md:text-[9px] text-white/60">
                       {session.ESTRATEGIA}
                     </p>
 
-                    <p className="text-[10px] text-white/40">
+                    <p className="text-[8px] md:text-[8px] md:text-[10px] text-white/40">
                       {session.QUIEN}
                     </p>
                   </div>
