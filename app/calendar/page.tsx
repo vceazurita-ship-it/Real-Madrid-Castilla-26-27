@@ -5,6 +5,8 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useRouter } from "next/navigation";
+
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
@@ -57,10 +59,8 @@ function getMonday(date: Date) {
   d.setDate(d.getDate() + diff);
   return d;
 }
-
 function buildCalendar(month: number, year: number) {
   const firstDay = new Date(year, month, 1);
-
   const current = getMonday(firstDay);
 
   const weeks: Date[][] = [];
@@ -87,10 +87,17 @@ function buildCalendar(month: number, year: number) {
 }
 
 export default function Calendar() {
+const router = useRouter();
+
   const { players, loading } = usePlayers();
   const [currentMonth, setCurrentMonth] = useState(0);
 const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
-  const playersMap = useMemo(() => {
+const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+const [selectedSessions, setSelectedSessions] =
+useState<TrackingRecord[]>([]);
+  
+const playersMap = useMemo(() => {
   return Object.fromEntries(
     players.map((p) => [p.id, p])
   ) as Record<string, (typeof players)[number]>;
@@ -250,19 +257,28 @@ const daySessions = trackingData.filter((s) =>
 const hasSessions = daySessions.length > 0;
         return (
           <div
-            key={date.toISOString()}
-            className={`
-              relative
-              ${
-    hasSessions
-      ? "min-h-[120px] md:min-h-[160px]"
-      : "min-h-[70px] md:min-h-[90px]"
+    key={date.toISOString()}
+
+    onClick={() => {
+        if (!hasSessions) return;
+
+        setSelectedDate(date);
+        setSelectedSessions(daySessions);
+    }}
+
+    className={`
+relative
+${hasSessions ? "cursor-pointer" : ""}
+${
+  hasSessions
+    ? "min-h-[120px] md:min-h-[160px]"
+    : "min-h-[70px] md:min-h-[90px]"
 }
-              rounded-xl
-              border
-              p-2 md:p-3
-              transition-all
-              ${
+rounded-xl
+border
+p-2 md:p-3
+transition-all
+${
   disabled
     ? "opacity-30 border-white/5 bg-[#090C10]"
     : `border-white/10 ${
@@ -271,8 +287,8 @@ const hasSessions = daySessions.length > 0;
           : "bg-[#10151C]"
       } hover:border-[#C8A96B]/40`
 }
-            `}
-          >
+`}
+>
             <div className="flex justify-between items-center mb-2 md:mb-3">
               <div
                 className={`
@@ -319,9 +335,27 @@ md:text-sm
 
                 return (
                   <div
-                    key={session.ID_REGISTRO}
-                    className={`rounded-md border border-[#C8A96B]/20 bg-[#C8A96B]/10 border-l-4 ${stripe} px-1.5 py-1`}
-                  >
+    key={session.ID_REGISTRO}
+    onClick={(e) => {
+    e.stopPropagation();
+
+    router.push(`/individual?player=${session.ID_JUGADOR}`);
+}}
+    className={`
+rounded-md
+border
+border-[#C8A96B]/20
+bg-[#C8A96B]/10
+border-l-4
+${stripe}
+px-1.5
+py-1
+cursor-pointer
+transition-all
+hover:scale-[1.02]
+hover:border-[#C8A96B]
+`}
+>
                     <p className="text-[9px] md:text-[11px] font-semibold truncate">
                       {jugador?.nombre ?? session.ID_JUGADOR}
                     </p>
@@ -355,6 +389,143 @@ md:text-sm
 
             </div>
           </div>
+          {selectedDate && (
+    <div
+    className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+    onClick={() => {
+        setSelectedDate(null);
+        setSelectedSessions([]);
+    }}
+>
+
+        <div onClick={(e) => e.stopPropagation()} className="bg-[#141B24] rounded-2xl w-[95%] max-w-xl max-h-[85vh] overflow-y-auto p-6">
+
+            <div className="flex justify-between items-center mb-6">
+
+    <div>
+
+        <h2 className="text-2xl font-semibold">
+
+            {selectedDate?.toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+            })}
+
+        </h2>
+
+        <p className="text-white/50">
+
+            {selectedSessions.length} seguimientos
+
+        </p>
+
+    </div>
+
+    <button
+        onClick={() => {
+            setSelectedDate(null);
+            setSelectedSessions([]);
+        }}
+    >
+        ✕
+    </button>
+
+</div>
+<div className="space-y-3">
+
+  {selectedSessions.map((session) => {
+
+    const jugador = playersMap[session.ID_JUGADOR];
+
+    return (
+
+      <div
+    key={session.ID_REGISTRO}
+
+    onClick={() => {
+
+        setSelectedDate(null);
+
+        setSelectedSessions([]);
+
+        router.push(`/individual?player=${session.ID_JUGADOR}`);
+
+    }}
+
+    className="rounded-xl border border-white/10 bg-[#10151C] p-4 cursor-pointer hover:border-[#C8A96B] transition-all"
+>
+
+    <p className="text-lg font-semibold">
+        {jugador?.nombre}
+    </p>
+
+    <p className="text-sm text-[#C8A96B] mt-1">
+        {session.ESTRATEGIA} · {session.QUIEN}
+    </p>
+
+    <div className="mt-4 space-y-3">
+
+        <div>
+            <p className="text-xs text-white/50">
+                Objetivo ofensivo
+            </p>
+
+            <p>
+                {session.OBJETIVO_OFENSIVO}
+            </p>
+        </div>
+
+        <div>
+            <p className="text-xs text-white/50">
+                Objetivo defensivo
+            </p>
+
+            <p>
+                {session.OBJETIVO_DEFENSIVO}
+            </p>
+        </div>
+
+        <div>
+            <p className="text-xs text-white/50">
+                Objetivo mental
+            </p>
+
+            <p>
+                {session.OBJETIVO_MENTAL}
+            </p>
+        </div>
+
+        {session.FEEDBACK && (
+
+            <div>
+
+                <p className="text-xs text-white/50">
+                    Feedback
+                </p>
+
+                <p>
+                    {session.FEEDBACK}
+                </p>
+
+            </div>
+
+        )}
+
+    </div>
+
+</div>
+
+    );
+
+  })}
+
+</div>
+
+        </div>
+
+    </div>
+)}
         </section>
       </div>
     </main>
