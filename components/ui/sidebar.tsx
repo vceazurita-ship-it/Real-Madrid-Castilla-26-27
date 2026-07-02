@@ -30,6 +30,7 @@ import {
   Dumbbell,
   Database,
   Handshake,
+  ClipboardList,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -211,7 +212,7 @@ const navLink = (
     {navLink(
   "/calendar",
   "Calendario Seguimiento",
-  <CalendarDays size={18} />
+  <ClipboardList size={18} />
 )}
     {navLink(
       "/pizarra_microcycle",
