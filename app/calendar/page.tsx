@@ -86,7 +86,7 @@ function buildCalendar(month: number, year: number) {
   return weeks;
 }
 
-export default function IndividualPage() {
+export default function Calendar() {
   const { players, loading } = usePlayers();
   const [currentMonth, setCurrentMonth] = useState(0);
 const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
