@@ -1,286 +1,284 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play, Maximize2 } from "lucide-react";
 
-export default function IndividualPage() {
-  const toggleDashboardFullscreen = async () => {
-  try {
-    if (!document.fullscreenElement) {
-      await dashboardRef.current?.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  } catch (error) {
-    console.error(error);
-  }
-};
-  const [isDesktop, setIsDesktop] = useState(false);
-const [isFullscreen, setIsFullscreen] = useState(false);
+interface TrackingSession {
+  id: string;
+  jugador: string;
+  rival: string;
+  tipo: string;
+  fecha: string;
+}
 
-const videoRef = useRef<HTMLDivElement | null>(null);
-const dashboardRef = useRef<HTMLDivElement | null>(null);
+const START_DATE = new Date(2026, 6, 13); //13 julio
+const END_DATE = new Date(2027, 5, 30);   //30 junio
 
-  useEffect(() => {
-    const onResize = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
+const MONTHS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
-    onResize();
-    window.addEventListener("resize", onResize);
+const WEEK_DAYS = [
+  "L",
+  "M",
+  "X",
+  "J",
+  "V",
+  "S",
+  "D",
+];
 
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  useEffect(() => {
-  const handleFullscreen = () => {
-    setIsFullscreen(!!document.fullscreenElement);
-  };
+function formatDate(date: Date) {
+  return date.toISOString().split("T")[0];
+}
 
-  document.addEventListener(
-    "fullscreenchange",
-    handleFullscreen
+function sameDay(a: Date, b: Date) {
+  return (
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear()
   );
+}
 
-  return () => {
-    document.removeEventListener(
-      "fullscreenchange",
-      handleFullscreen
-    );
-  };
-}, []);
-useEffect(() => {
-  const handleKey = (
-    e: KeyboardEvent
-  ) => {
+function isInsideSeason(date: Date) {
+  return date >= START_DATE && date <= END_DATE;
+}
+
+function getMonday(date: Date) {
+  const d = new Date(date);
+
+  const day = d.getDay();
+
+  const diff = day === 0 ? -6 : 1 - day;
+
+  d.setDate(d.getDate() + diff);
+
+  return d;
+}
+
+function buildMonth(month: number, year: number) {
+  const first = new Date(year, month, 1);
+
+  const start = getMonday(first);
+
+  const weeks: Date[][] = [];
+
+  let current = new Date(start);
+
+  while (true) {
+    const week: Date[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      week.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+
+    weeks.push(week);
+
     if (
-      e.key === "Escape" &&
-      document.fullscreenElement
+      current.getMonth() !== month &&
+      current.getDay() === 1
     ) {
-      document.exitFullscreen();
+      break;
     }
-  };
-
-  window.addEventListener(
-    "keydown",
-    handleKey
-  );
-
-  return () =>
-    window.removeEventListener(
-      "keydown",
-      handleKey
-    );
-}, []);
-
-  const src = "https://app.powerbi.com/view?r=eyJrIjoiZmQ3ZjE5ODEtOGIxNC00ZWU3LTkxMzYtOGEyOWI2MTM2Yzk3IiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
-
-  const videoUrl =
-    "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/view";
-
-  const scrollToVideo = () => {
-    if (window.innerWidth < 1024) {
-      window.open(videoUrl, "_blank");
-      return;
-    }
-
-    videoRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-  const openDashboardFullscreen = async () => {
-  if (!dashboardRef.current) return;
-
-  try {
-    await dashboardRef.current.requestFullscreen();
-  } catch (error) {
-    console.error(error);
   }
-};
+
+  return weeks;
+}
+
+export default function TrackingCalendarPage() {
+  const [tracking, setTracking] = useState<TrackingSession[]>([]);
+
+  const [playerFilter, setPlayerFilter] = useState("");
+
+  const [rivalFilter, setRivalFilter] = useState("");
+
+  const [typeFilter, setTypeFilter] = useState("");
+
+  useEffect(() => {
+    // Aquí cargaremos posteriormente los seguimientos
+    // setTracking(...)
+  }, []);
+
+  const months = useMemo(() => {
+    const result = [];
+
+    let current = new Date(START_DATE);
+
+    while (current <= END_DATE) {
+      result.push({
+        year: current.getFullYear(),
+        month: current.getMonth(),
+        name:
+          MONTHS[current.getMonth()] +
+          " " +
+          current.getFullYear(),
+        weeks: buildMonth(
+          current.getMonth(),
+          current.getFullYear()
+        ),
+      });
+
+      current = new Date(
+        current.getFullYear(),
+        current.getMonth() + 1,
+        1
+      );
+    }
+
+    return result;
+  }, []);
+
+  const filteredTracking = useMemo(() => {
+    return tracking.filter((t) => {
+      if (
+        playerFilter &&
+        t.jugador !== playerFilter
+      )
+        return false;
+
+      if (
+        rivalFilter &&
+        t.rival !== rivalFilter
+      )
+        return false;
+
+      if (
+        typeFilter &&
+        t.tipo !== typeFilter
+      )
+        return false;
+
+      return true;
+    });
+  }, [
+    tracking,
+    playerFilter,
+    rivalFilter,
+    typeFilter,
+  ]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
         <Sidebar />
 
-        <section className="w-full relative">
+        <section className="w-full">
           <Topbar />
 
-          {/* Botón desktop */}
-          <button
-            onClick={scrollToVideo}
-            className="
-              hidden lg:flex
-              fixed right-6 top-1/2 -translate-y-1/2 z-50
-              items-center gap-3
-              rounded-full
-              border border-[#C8A96B]/40
-              bg-[#11161D]/90
-              px-5 py-3
-              text-sm font-medium
-              text-white
-              shadow-[0_12px_35px_rgba(0,0,0,0.35)]
-              backdrop-blur-md
-              hover:border-[#C8A96B]
-              hover:bg-[#161D26]
-              transition-all
-            "
-          >
-            <Play size={16} className="text-[#C8A96B]" />
-            Ver explicación
-          </button>
+          <div className="px-8 pt-8 pb-14">
 
-          {/* Botón móvil */}
-          <button
-            onClick={scrollToVideo}
-            className="
-              lg:hidden
-              fixed bottom-5 right-5 z-50
-              rounded-full
-              bg-[#C8A96B]
-              text-black
-              px-4 py-3
-              text-sm font-semibold
-              shadow-xl
-              hover:opacity-90
-              transition
-            "
-          >
-            Ver vídeo
-          </button>
+            <div className="mb-10">
 
-          <div className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
-            {/* Header */}
-            <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMCF CASTILLA COLECTIVO
+                RMCF CASTILLA
               </p>
 
-              <div className="mt-4 flex items-center gap-3 sm:gap-5">
-                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                  Competición
+              <div className="mt-4 flex items-center gap-5">
+
+                <h1 className="text-4xl font-semibold">
+                  Calendario de Seguimiento
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+
               </div>
+
+              <p className="mt-4 text-white/60">
+                Temporada 2026 / 2027
+              </p>
+
             </div>
 
-            <div
-  ref={dashboardRef}
-  className="relative rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
->
-  <button
-  onClick={toggleDashboardFullscreen}
-  className="
-    absolute
-    top-4
-    right-4
-    z-30
-    flex
-    items-center
-    gap-2
-    rounded-full
-    border border-[#C8A96B]/40
-    bg-[#11161D]/90
-    px-4
-    py-2
-    text-sm
-    font-medium
-    text-white
-    backdrop-blur-md
-    hover:border-[#C8A96B]
-    hover:bg-[#161D26]
-    transition-all
-  "
->
-  <Maximize2
-    size={16}
-    className="text-[#C8A96B]"
-  />
+            <div className="mb-10 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
 
-  {isFullscreen
-    ? "Salir pantalla completa"
-    : "Pantalla completa"}
-</button>
+              <div className="grid gap-5 lg:grid-cols-3">
 
-  <iframe
-    title="Power BI Report"
-    src={src}
-    className={`
-      block
-      w-full
-      border-0
-      rounded-[18px] sm:rounded-[24px]
-      bg-[#0B0F14]
-      ${
-        isFullscreen
-          ? "h-screen"
-          : "h-[72vh] sm:h-[78vh] lg:h-[840px]"
-      }
-    `}
-    allowFullScreen
-  />
-</div>
+                <div>
 
-            {/* Vídeo */}
-            <div ref={videoRef} className="mt-14 sm:mt-20">
-              <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  Explicación visual
-                </p>
+                  <label className="mb-2 block text-sm text-white/70">
+                    Jugador
+                  </label>
 
-                <div className="mt-4 flex items-center gap-3 sm:gap-5">
-                  <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                    Uso del dashboard
-                  </h2>
+                  <select
+                    value={playerFilter}
+                    onChange={(e) =>
+                      setPlayerFilter(e.target.value)
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-[#11161D] px-4 py-3"
+                  >
+                    <option value="">
+                      Todos
+                    </option>
+                  </select>
 
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
                 </div>
+
+                <div>
+
+                  <label className="mb-2 block text-sm text-white/70">
+                    Rival
+                  </label>
+
+                  <select
+                    value={rivalFilter}
+                    onChange={(e) =>
+                      setRivalFilter(e.target.value)
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-[#11161D] px-4 py-3"
+                  >
+                    <option value="">
+                      Todos
+                    </option>
+                  </select>
+
+                </div>
+
+                <div>
+
+                  <label className="mb-2 block text-sm text-white/70">
+                    Tipo
+                  </label>
+
+                  <select
+                    value={typeFilter}
+                    onChange={(e) =>
+                      setTypeFilter(e.target.value)
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-[#11161D] px-4 py-3"
+                  >
+                    <option value="">
+                      Todos
+                    </option>
+                  </select>
+
+                </div>
+
               </div>
 
-              {/* Desktop */}
-              <div className="hidden lg:block rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-                <iframe
-                  title="Video explicativo"
-                  src="https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/preview"
-                  className="
-                    w-full
-                    border-0
-                    rounded-[18px] sm:rounded-[24px]
-                    bg-black
-                    h-[640px]
-                  "
-                  allow="autoplay"
-                  allowFullScreen
-                />
-              </div>
-
-              {/* Móvil */}
-              <div className="lg:hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
-                <p className="text-white/80 text-sm mb-4">
-                  Ver explicación completa del dashboard
-                </p>
-
-                <button
-                  onClick={() => window.open(videoUrl, "_blank")}
-                  className="
-                    rounded-full
-                    bg-[#C8A96B]
-                    text-black
-                    px-5 py-3
-                    text-sm
-                    font-semibold
-                    shadow-xl
-                  "
-                >
-                  ▶ Abrir vídeo
-                </button>
-              </div>
             </div>
+
+            {/* ======================
+                 ENTREGA 2
+                 Aquí irá el calendario
+            ====================== */}
+
           </div>
+
         </section>
+
       </div>
     </main>
   );
