@@ -209,6 +209,11 @@ const navLink = (
       <CalendarDays size={18} />
     )}
     {navLink(
+  "/calendar",
+  "Calendario Seguimiento",
+  <CalendarDays size={18} />
+)}
+    {navLink(
       "/pizarra_microcycle",
       "Pizarra Microciclo",
       <Clipboard  size={18} />
