@@ -249,22 +249,26 @@ useEffect(() => {
 const daySessions = trackingData.filter((s) =>
   s.FECHA.startsWith(key)
 );
-
+const hasSessions = daySessions.length > 0;
         return (
           <div
             key={date.toISOString()}
             className={`
               relative
-              rounded-2xl
+              ${hasSessions ? "min-h-[160px]" : "min-h-[90px]"}
+              rounded-xl
               border
-              min-h-[140px]
               p-3
               transition-all
               ${
-                disabled
-                  ? "opacity-30 border-white/5 bg-[#090C10]"
-                  : "border-white/10 bg-[#11161D] hover:border-[#C8A96B]/40 hover:bg-[#141B24]"
-              }
+  disabled
+    ? "opacity-30 border-white/5 bg-[#090C10]"
+    : `border-white/10 ${
+        hasSessions
+          ? "bg-[#141B24]"
+          : "bg-[#10151C]"
+      } hover:border-[#C8A96B]/40`
+}
             `}
           >
             <div className="flex justify-between items-center mb-3">
@@ -291,27 +295,32 @@ const daySessions = trackingData.filter((s) =>
               </div>
             </div>
 
-            <div className="space-y-2">
-              {daySessions.map((session) => {
+            <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
+              {daySessions.slice(0, 4).map((session) => {
                 const jugador = playersMap[session.ID_JUGADOR];
-
+                const stripe =
+  session.ESTRATEGIA === "CAMPO"
+    ? "border-l-sky-400"
+    : session.ESTRATEGIA === "VÍDEO"
+    ? "border-l-yellow-400"
+    : "border-l-emerald-400";  
                 const color =
                   session.ESTRATEGIA === "CAMPO"
-                    ? "bg-blue-500/20 border-blue-400/40"
+                    ? "bg-sky-500/10 border-white/10"
                     : session.ESTRATEGIA === "VÍDEO"
-                    ? "bg-amber-500/20 border-amber-400/40"
-                    : "bg-emerald-500/20 border-emerald-400/40";
+                    ? "bg-yellow-500/10 border-white/10"
+                    : "bg-emerald-400/10 border-white/10";
 
                 return (
                   <div
                     key={session.ID_REGISTRO}
-                    className={`rounded-lg border px-2 py-1 ${color}`}
+                    className={`rounded-md border border-[#C8A96B]/20 bg-[#C8A96B]/10 border-l-4 ${stripe} px-2 py-1`}
                   >
-                    <p className="text-xs font-semibold truncate">
+                    <p className="text-[11px] font-semibold truncate">
                       {jugador?.nombre ?? session.ID_JUGADOR}
                     </p>
 
-                    <p className="text-[10px] text-white/60">
+                    <p className="text-[9px] text-white/60">
                       {session.ESTRATEGIA}
                     </p>
 
@@ -320,7 +329,14 @@ const daySessions = trackingData.filter((s) =>
                     </p>
                   </div>
                 );
-              })}
+                            })}
+
+              {daySessions.length > 4 && (
+                <div className="text-center text-[10px] text-white/40 pt-1">
+                  +{daySessions.length - 4} más
+                </div>
+              )}
+
             </div>
           </div>
         );
