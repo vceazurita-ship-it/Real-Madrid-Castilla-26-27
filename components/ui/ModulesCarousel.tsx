@@ -37,12 +37,55 @@ export default function ModulesCarousel({
 }) {
 
   const [page, setPage] = useState(0)
+const priority: Record<string, number> = {
+  "/game-model": 100,
+  "/match-preparation": 95,
+  "/microcycles": 90,
+  "/pizarra_microcycle": 88,
+  "/pizarra": 86,
+  "/match-plans": 84,
+  "/individual": 82,
+  "/team": 80,
 
+  "/collective": 70,
+  "/collective_history": 68,
+  "/setpieces": 66,
+  "/setpieces_def": 64,
+  "/video-collective": 62,
+  "/video-individual": 60,
+  "/comparative_ind": 58,
+  "/performance": 56,
+
+  "/scout-rival-collective": 45,
+  "/scout-rival-individual": 43,
+  "/sinergy": 41,
+  "/emotion": 39,
+  "/team-values": 37,
+  "/data-center": 35,
+}
+const usage =
+  typeof window !== "undefined"
+    ? JSON.parse(
+        localStorage.getItem("rmcf-module-usage") ?? "{}"
+      )
+    : {}
+
+const orderedModules = [...modules].sort((a, b) => {
+  const scoreA =
+    (priority[a.href] ?? 0) +
+    (usage[a.href] ?? 0)
+
+  const scoreB =
+    (priority[b.href] ?? 0) +
+    (usage[b.href] ?? 0)
+
+  return scoreB - scoreA
+})
   const totalPages = Math.ceil(
-    modules.length / PAGE_SIZE
-  )
+  orderedModules.length / PAGE_SIZE
+)
 
-  const current = modules.slice(
+  const current = orderedModules.slice(
     page * PAGE_SIZE,
     (page + 1) * PAGE_SIZE
   )
