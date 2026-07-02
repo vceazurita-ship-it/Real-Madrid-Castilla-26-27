@@ -1827,8 +1827,8 @@ tracking-wide
       >
         <div className="mb-4 flex items-center justify-between">
   <div className="text-sm text-[#C8A96B]">
-    {item.FECHA}
-  </div>
+  {new Date(item.FECHA).toLocaleDateString("es-ES")}
+</div>
 
   <div className="flex gap-2">
 
@@ -2250,77 +2250,125 @@ tracking-wide
 
         <div className="grid md:grid-cols-2 gap-4">
 
-          <select
-  value={trackingForm.QUIEN}
-  onChange={(e) =>
-    setTrackingForm({
-      ...trackingForm,
-      QUIEN: e.target.value,
-    })
-  }
-  className="rounded-xl bg-white/5 p-3"
->
-  <option value="">Quién</option>
-  {QUIEN_OPTIONS.map((o) => (
-    <option key={o} value={o}>
-      {o}
-    </option>
-  ))}
-</select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-          <select
-  value={trackingForm.MODALIDAD}
-  onChange={(e) =>
-    setTrackingForm({
-      ...trackingForm,
-      MODALIDAD: e.target.value,
-    })
-  }
-  className="rounded-xl bg-white/5 p-3"
->
-  <option value="">Modalidad</option>
-  {MODALIDAD_OPTIONS.map((o) => (
-    <option key={o} value={o}>
-      {o}
-    </option>
-  ))}
-</select>
+  <div className="space-y-2">
+    <label className="block text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+      Quién
+    </label>
 
-          <select
-  value={trackingForm.MOMENTO}
-  onChange={(e) =>
-    setTrackingForm({
-      ...trackingForm,
-      MOMENTO: e.target.value,
-    })
-  }
-  className="rounded-xl bg-white/5 p-3"
->
-  <option value="">Momento</option>
-  {MOMENTO_OPTIONS.map((o) => (
-    <option key={o} value={o}>
-      {o}
-    </option>
-  ))}
-</select>
+    <select
+      value={trackingForm.QUIEN}
+      onChange={(e) =>
+        setTrackingForm({
+          ...trackingForm,
+          QUIEN: e.target.value,
+        })
+      }
+      className="w-full rounded-xl border border-white/10 bg-[#20242C] px-4 py-3 text-white shadow-sm transition-all duration-200 outline-none hover:border-[#C8A96B]/60 focus:border-[#C8A96B] focus:ring-2 focus:ring-[#C8A96B]/30"
+    >
+      <option value="">Seleccionar...</option>
 
-          <select
-  value={trackingForm.ESTRATEGIA}
-  onChange={(e) =>
-    setTrackingForm({
-      ...trackingForm,
-      ESTRATEGIA: e.target.value,
-    })
-  }
-  className="rounded-xl bg-white/5 p-3"
->
-  <option value="">Estrategia</option>
-  {ESTRATEGIA_OPTIONS.map((o) => (
-    <option key={o} value={o}>
-      {o}
-    </option>
-  ))}
-</select>
+      {QUIEN_OPTIONS.map((o) => (
+        <option
+          key={o}
+          value={o}
+          style={{ backgroundColor: "#20242C", color: "#fff" }}
+        >
+          {o}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  <div className="space-y-2">
+    <label className="block text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+      Modalidad
+    </label>
+
+    <select
+      value={trackingForm.MODALIDAD}
+      onChange={(e) =>
+        setTrackingForm({
+          ...trackingForm,
+          MODALIDAD: e.target.value,
+        })
+      }
+      className="w-full rounded-xl border border-white/10 bg-[#20242C] px-4 py-3 text-white shadow-sm transition-all duration-200 outline-none hover:border-[#C8A96B]/60 focus:border-[#C8A96B] focus:ring-2 focus:ring-[#C8A96B]/30"
+    >
+      <option value="">Seleccionar...</option>
+
+      {MODALIDAD_OPTIONS.map((o) => (
+        <option
+          key={o}
+          value={o}
+          style={{ backgroundColor: "#20242C", color: "#fff" }}
+        >
+          {o}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  <div className="space-y-2">
+    <label className="block text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+      Momento
+    </label>
+
+    <select
+      value={trackingForm.MOMENTO}
+      onChange={(e) =>
+        setTrackingForm({
+          ...trackingForm,
+          MOMENTO: e.target.value,
+        })
+      }
+      className="w-full rounded-xl border border-white/10 bg-[#20242C] px-4 py-3 text-white shadow-sm transition-all duration-200 outline-none hover:border-[#C8A96B]/60 focus:border-[#C8A96B] focus:ring-2 focus:ring-[#C8A96B]/30"
+    >
+      <option value="">Seleccionar...</option>
+
+      {MOMENTO_OPTIONS.map((o) => (
+        <option
+          key={o}
+          value={o}
+          style={{ backgroundColor: "#20242C", color: "#fff" }}
+        >
+          {o}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  <div className="space-y-2">
+    <label className="block text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+      Estrategia
+    </label>
+
+    <select
+      value={trackingForm.ESTRATEGIA}
+      onChange={(e) =>
+        setTrackingForm({
+          ...trackingForm,
+          ESTRATEGIA: e.target.value,
+        })
+      }
+      className="w-full rounded-xl border border-white/10 bg-[#20242C] px-4 py-3 text-white shadow-sm transition-all duration-200 outline-none hover:border-[#C8A96B]/60 focus:border-[#C8A96B] focus:ring-2 focus:ring-[#C8A96B]/30"
+    >
+      <option value="">Seleccionar...</option>
+
+      {ESTRATEGIA_OPTIONS.map((o) => (
+        <option
+          key={o}
+          value={o}
+          style={{ backgroundColor: "#20242C", color: "#fff" }}
+        >
+          {o}
+        </option>
+      ))}
+    </select>
+  </div>
+
+</div>
 
         </div>
 
