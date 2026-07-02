@@ -88,6 +88,8 @@ function buildCalendar(month: number, year: number) {
 
 export default function IndividualPage() {
   const { players, loading } = usePlayers();
+  const [currentMonth, setCurrentMonth] = useState(0);
+const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
   const playersMap = useMemo(() => {
   return Object.fromEntries(
     players.map((p) => [p.id, p])
@@ -113,6 +115,12 @@ export default function IndividualPage() {
 
   return result;
 }, []);
+useEffect(() => {
+  fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
+    .then((r) => r.json())
+    .then((data) => setTrackingData(data))
+    .catch(console.error);
+}, []);
 if (loading) {
   return (
     <main className="min-h-screen bg-[#0B0F14] flex items-center justify-center text-white">
@@ -120,15 +128,9 @@ if (loading) {
     </main>
   );
 }
-  const [currentMonth, setCurrentMonth] = useState(0);
-const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
+  
   const active = months[currentMonth];
-useEffect(() => {
-  fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
-    .then((r) => r.json())
-    .then((data) => setTrackingData(data))
-    .catch(console.error);
-}, []);
+
   const calendar = useMemo(() => {
     return buildCalendar(
       active.month,
