@@ -6,12 +6,14 @@ interface Props {
   onSave: () => void;
   onLoad: () => void;
   onReset: () => void;
+  isEditing?: boolean;
 }
 
 export default function LineupActions({
   onSave,
   onLoad,
   onReset,
+  isEditing = false,
 }: Props) {
   return (
     <div className="flex flex-wrap gap-3">
@@ -30,7 +32,9 @@ export default function LineupActions({
         "
       >
         <Save size={18} />
-        Guardar alineación
+{isEditing
+  ? "Actualizar alineación"
+  : "Guardar alineación"}
       </button>
 
       <button

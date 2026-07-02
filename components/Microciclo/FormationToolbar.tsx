@@ -33,23 +33,23 @@ const [rival, setRival] = useState("");
   lineup,
   setFormation,
   clearLineup,
+  loadedLineupId,
+  loadedLineupName,
 } = useMicroLineup();
 
 const { players } = usePlayers();
 async function guardar() {
-
   const nombreLimpio = nombre.trim();
 
   const valido = /^Microciclo\s+\d+$/i.test(nombreLimpio);
 
   if (!valido) {
-    alert(
-      "El nombre debe tener el formato 'Microciclo X'."
-    );
+    alert("El nombre debe tener el formato 'Microciclo X'.");
     return;
   }
 
   await saveLineup({
+    id: loadedLineupId?.toString(),
 
     nombre: nombreLimpio,
 
@@ -59,18 +59,17 @@ async function guardar() {
 
     sistema: formation,
 
-    alineacion: lineup.map(slot => ({
-  positionId: slot.positionId,
+    alineacion: lineup.map((slot) => ({
+      positionId: slot.positionId,
 
-  playerIds: slot.playerIds,
+      playerIds: slot.playerIds,
 
-  jugadores: slot.playerIds.map(
-    id => players.find(p => p.id === id)?.nombre ?? ""
-  )
-})),
+      jugadores: slot.playerIds.map(
+        (id) => players.find((p) => p.id === id)?.nombre ?? ""
+      ),
+    })),
 
-    observaciones: ""
-
+    observaciones: "",
   });
 
   setShowSaveModal(false);
@@ -79,7 +78,11 @@ async function guardar() {
 
   setRival("");
 
-  alert("Alineación guardada.");
+  alert(
+    loadedLineupId
+      ? "Alineación actualizada."
+      : "Alineación guardada."
+  );
 }
 async function exportPitch() {
   const node = document.getElementById("football-pitch");
@@ -215,11 +218,17 @@ async function sharePitch() {
   </button>
 
   <button
-    onClick={() => setShowSaveModal(true)}
+    onClick={() => {
+  if (loadedLineupName) {
+    setNombre(loadedLineupName);
+  }
+
+  setShowSaveModal(true);
+}}
     className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
   >
     <Save size={16} />
-    Guardar
+{loadedLineupId ? "Actualizar" : "Guardar"}
   </button>
 
   <button
@@ -262,7 +271,9 @@ async function sharePitch() {
   className="w-full max-w-md rounded-3xl border border-[#C8A96B]/20 bg-[#151B23] p-6 shadow-2xl"
 >
 <h2 className="mb-5 text-xl font-semibold">
-Guardar alineación
+{loadedLineupId
+  ? "Actualizar alineación"
+  : "Guardar alineación"}
 </h2>
 
 <label className="mb-2 block text-sm text-white/70">
@@ -361,7 +372,9 @@ hover:brightness-110
 
 >
 
-Guardar
+{loadedLineupId
+  ? "Actualizar"
+  : "Guardar"}
 
 </button>
 

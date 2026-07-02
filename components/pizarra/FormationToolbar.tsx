@@ -33,6 +33,8 @@ const [rival, setRival] = useState("");
   lineup,
   setFormation,
   clearLineup,
+  loadedLineupId,
+  loadedLineupName,
 } = useLineup();
 
 const { players } = usePlayers();
@@ -51,30 +53,32 @@ async function guardar() {
 
   await saveLineup({
 
-    nombre: nombreLimpio,
+  id: loadedLineupId?.toString(),
 
-    rival,
+  nombre: nombreLimpio,
 
-    fecha: new Date().toLocaleDateString(),
+  rival,
 
-    sistema: formation,
+  fecha: new Date().toLocaleDateString(),
 
-    alineacion: lineup.map(slot => ({
+  sistema: formation,
 
-      positionId: slot.positionId,
+  alineacion: lineup.map(slot => ({
 
-      playerId: slot.playerId,
+    positionId: slot.positionId,
 
-      jugador:
-        players.find(
-          p => p.id === slot.playerId
-        )?.nombre || ""
+    playerId: slot.playerId,
 
-    })),
+    jugador:
+      players.find(
+        p => p.id === slot.playerId
+      )?.nombre || ""
 
-    observaciones: ""
+  })),
 
-  });
+  observaciones: ""
+
+});
 
   setShowSaveModal(false);
 
@@ -218,11 +222,17 @@ async function sharePitch() {
   </button>
 
   <button
-    onClick={() => setShowSaveModal(true)}
+    onClick={() => {
+  if (loadedLineupName) {
+    setNombre(loadedLineupName);
+  }
+
+  setShowSaveModal(true);
+}}
     className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
   >
     <Save size={16} />
-    Guardar
+{loadedLineupId ? "Actualizar" : "Guardar"}
   </button>
 
   <button
@@ -265,7 +275,9 @@ async function sharePitch() {
   className="w-full max-w-md rounded-3xl border border-[#C8A96B]/20 bg-[#151B23] p-6 shadow-2xl"
 >
 <h2 className="mb-5 text-xl font-semibold">
-Guardar alineación
+{loadedLineupId
+  ? "Actualizar alineación"
+  : "Guardar alineación"}
 </h2>
 
 <label className="mb-2 block text-sm text-white/70">

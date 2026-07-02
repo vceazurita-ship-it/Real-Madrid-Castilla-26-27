@@ -49,6 +49,7 @@ setLoadedLineupName: (
   clearLineup: () => void;
 
  loadLineup: (
+  id: number,
   formation: string,
   lineup: LineupSlot[],
   name: string
@@ -57,6 +58,11 @@ setLoadedLineupName: (
   getPlayerPosition: (
     positionId: string
   ) => LineupSlot | undefined;
+loadedLineupId: number | null;
+
+setLoadedLineupId: (
+  id: number | null
+) => void;
 }
 
 function createLineup(
@@ -115,7 +121,10 @@ const [
   loadedLineupName,
   setLoadedLineupName,
 ] = useState<string | null>(null);
-
+const [
+  loadedLineupId,
+  setLoadedLineupId,
+] = useState<number | null>(null);
 const [lineup, setLineup] =
   useState<LineupSlot[]>(() => {
     if (typeof window === "undefined")
@@ -335,17 +344,19 @@ return current;
 
 
 function loadLineup(
+  id: number,
   newFormation: string,
   newLineup: LineupSlot[],
   name: string
 ) {
-  setLoadedLineupName(name);
+  setLoadedLineupId(id);
+setLoadedLineupName(name);
 
-  setFormation(newFormation);
+setFormation(newFormation);
 
-  setTimeout(() => {
-    setLineup(newLineup);
-  }, 0);
+setTimeout(() => {
+  setLineup(newLineup);
+}, 0);
 }
 
   /* =======================================
@@ -367,6 +378,9 @@ const value = useMemo(
     lineup,
     formation,
 
+    loadedLineupId,
+    setLoadedLineupId,
+
     loadedLineupName,
     setLoadedLineupName,
 
@@ -380,12 +394,13 @@ const value = useMemo(
     loadLineup,
     getPlayerPosition,
   }),
-[
-  lineup,
-  formation,
-  loadedLineupName,
-  selectedPlayer,
-]
+  [
+    lineup,
+    formation,
+    loadedLineupId,
+    loadedLineupName,
+    selectedPlayer,
+  ]
 );
 
   return (

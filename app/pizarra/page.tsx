@@ -99,6 +99,7 @@ console.log(data.alineacion);
     }
 
     loadLineup(
+  data.id,
   data.formacion,
   JSON.parse(data.alineacion),
   data.nombre

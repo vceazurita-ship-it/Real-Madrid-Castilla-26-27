@@ -50,6 +50,7 @@ setLoadedLineupName: (
   clearLineup: () => void;
 
   loadLineup: (
+  id: number,
   formation: string,
   lineup: MicroLineupSlot[],
   name: string
@@ -58,7 +59,11 @@ setLoadedLineupName: (
   getPlayerPosition: (
     positionId: string
   ) => MicroLineupSlot | undefined;
-}
+loadedLineupId: number | null;
+
+setLoadedLineupId: (
+  id: number | null
+) => void;}
 
 function createLineup(
   formation = "4-4-2"
@@ -102,6 +107,11 @@ const [
   loadedLineupName,
   setLoadedLineupName,
 ] = useState<string | null>(null);
+const [
+  loadedLineupId,
+  setLoadedLineupId,
+] = useState<number | null>(null);
+
 function setFormation(
   newFormation: string
 ) {
@@ -213,10 +223,12 @@ function setFormation(
   //--------------------------------------------------
 
   function loadLineup(
+  id: number,
   newFormation: string,
   newLineup: MicroLineupSlot[],
   name: string
 ) {
+  setLoadedLineupId(id);
   setLoadedLineupName(name);
 
   setFormation(newFormation);
@@ -245,6 +257,9 @@ function setFormation(
 
     formation,
 
+    loadedLineupId,
+    setLoadedLineupId,
+
     loadedLineupName,
     setLoadedLineupName,
 
@@ -262,6 +277,7 @@ function setFormation(
     [
   lineup,
   formation,
+  loadedLineupId,
   loadedLineupName,
   selectedPlayer,
 ]
