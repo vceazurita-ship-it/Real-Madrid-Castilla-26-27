@@ -82,11 +82,11 @@ async function guardar() {
 
   setShowSaveModal(false);
 
-  setNombre("Jornada ");
-
-  setRival("");
-
-  alert("Alineación guardada.");
+alert(
+  loadedLineupId
+    ? "Alineación actualizada."
+    : "Alineación guardada."
+);
 }
 async function exportPitch() {
   const node = document.getElementById("football-pitch");
@@ -223,8 +223,11 @@ async function sharePitch() {
 
   <button
     onClick={() => {
-  if (loadedLineupName) {
-    setNombre(loadedLineupName);
+  if (loadedLineupId) {
+    setNombre(loadedLineupName ?? "");
+  } else {
+    setNombre("Jornada "); // Microciclo en la otra pizarra
+    setRival("");
   }
 
   setShowSaveModal(true);

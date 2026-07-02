@@ -337,10 +337,11 @@ return current;
   ======================================= */
 
   function clearLineup() {
-    setLineup(
-      createLineup(formation)
-    );
-  }
+  setLineup(createLineup(formation));
+
+  setLoadedLineupId(null);
+  setLoadedLineupName(null);
+}
 
 
 function loadLineup(
@@ -350,13 +351,10 @@ function loadLineup(
   name: string
 ) {
   setLoadedLineupId(id);
-setLoadedLineupName(name);
+  setLoadedLineupName(name);
 
-setFormation(newFormation);
-
-setTimeout(() => {
+  setFormation(newFormation);
   setLineup(newLineup);
-}, 0);
 }
 
   /* =======================================

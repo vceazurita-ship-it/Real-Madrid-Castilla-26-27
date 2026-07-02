@@ -215,10 +215,11 @@ function setFormation(
   //--------------------------------------------------
 
   function clearLineup() {
+  setLineup(createLineup(formation));
 
-    setLineup(createLineup());
-
-  }
+  setLoadedLineupId(null);
+  setLoadedLineupName(null);
+}
 
   //--------------------------------------------------
 
@@ -232,7 +233,6 @@ function setFormation(
   setLoadedLineupName(name);
 
   setFormation(newFormation);
-
   setLineup(newLineup);
 }
 
