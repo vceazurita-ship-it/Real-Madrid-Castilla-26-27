@@ -118,11 +118,11 @@ border-white/5
     {rivales.map((r) => (
 
       <option
-        key={r.ID}
-        value={r.ID}
-      >
-        {r.EQUIPO}
-      </option>
+  key={r.ID}
+  value={r.ID}
+>
+  J{r.JORNADA} · {r.EQUIPO}
+</option>
 
     ))}
 
