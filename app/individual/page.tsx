@@ -96,7 +96,32 @@ type ReportItem = {
   OBJETIVOS: string;
   OBSERVACIONES_FINALES: string;
 };
+const QUIEN_OPTIONS = [
+  "JULIÁN",
+  "MIGUEL",
+  "VICTOR",
+  "JULIÁN Y MIGUEL",
+  "JULIÁN Y VICTOR",
+  "MIGUEL Y VICTOR",
+  "TODOS",
+];
 
+const MODALIDAD_OPTIONS = [
+  "GRUPAL",
+  "INDIVIDUAL",
+];
+
+const MOMENTO_OPTIONS = [
+  "PRE-ENTRENAMIENTO",
+  "ENTRENAMIENTO",
+  "POST-ENTRENAMIENTO",
+];
+
+const ESTRATEGIA_OPTIONS = [
+  "CAMPO",
+  "VÍDEO",
+  "CHARLA",
+];
 const players: Player[] = [
   // PORTEROS
   {
@@ -2225,63 +2250,77 @@ tracking-wide
 
         <div className="grid md:grid-cols-2 gap-4">
 
-          <input
-            placeholder="Quién"
-            value={trackingForm.QUIEN}
-            onChange={(e) =>
-              setTrackingForm({
-                ...trackingForm,
-                QUIEN:
-                  e.target.value,
-              })
-            }
-            className="rounded-xl bg-white/5 p-3"
-          />
+          <select
+  value={trackingForm.QUIEN}
+  onChange={(e) =>
+    setTrackingForm({
+      ...trackingForm,
+      QUIEN: e.target.value,
+    })
+  }
+  className="rounded-xl bg-white/5 p-3"
+>
+  <option value="">Quién</option>
+  {QUIEN_OPTIONS.map((o) => (
+    <option key={o} value={o}>
+      {o}
+    </option>
+  ))}
+</select>
 
-          <input
-            placeholder="Modalidad"
-            value={
-              trackingForm.MODALIDAD
-            }
-            onChange={(e) =>
-              setTrackingForm({
-                ...trackingForm,
-                MODALIDAD:
-                  e.target.value,
-              })
-            }
-            className="rounded-xl bg-white/5 p-3"
-          />
+          <select
+  value={trackingForm.MODALIDAD}
+  onChange={(e) =>
+    setTrackingForm({
+      ...trackingForm,
+      MODALIDAD: e.target.value,
+    })
+  }
+  className="rounded-xl bg-white/5 p-3"
+>
+  <option value="">Modalidad</option>
+  {MODALIDAD_OPTIONS.map((o) => (
+    <option key={o} value={o}>
+      {o}
+    </option>
+  ))}
+</select>
 
-          <input
-            placeholder="Momento"
-            value={
-              trackingForm.MOMENTO
-            }
-            onChange={(e) =>
-              setTrackingForm({
-                ...trackingForm,
-                MOMENTO:
-                  e.target.value,
-              })
-            }
-            className="rounded-xl bg-white/5 p-3"
-          />
+          <select
+  value={trackingForm.MOMENTO}
+  onChange={(e) =>
+    setTrackingForm({
+      ...trackingForm,
+      MOMENTO: e.target.value,
+    })
+  }
+  className="rounded-xl bg-white/5 p-3"
+>
+  <option value="">Momento</option>
+  {MOMENTO_OPTIONS.map((o) => (
+    <option key={o} value={o}>
+      {o}
+    </option>
+  ))}
+</select>
 
-          <input
-            placeholder="Estrategia"
-            value={
-              trackingForm.ESTRATEGIA
-            }
-            onChange={(e) =>
-              setTrackingForm({
-                ...trackingForm,
-                ESTRATEGIA:
-                  e.target.value,
-              })
-            }
-            className="rounded-xl bg-white/5 p-3"
-          />
+          <select
+  value={trackingForm.ESTRATEGIA}
+  onChange={(e) =>
+    setTrackingForm({
+      ...trackingForm,
+      ESTRATEGIA: e.target.value,
+    })
+  }
+  className="rounded-xl bg-white/5 p-3"
+>
+  <option value="">Estrategia</option>
+  {ESTRATEGIA_OPTIONS.map((o) => (
+    <option key={o} value={o}>
+      {o}
+    </option>
+  ))}
+</select>
 
         </div>
 
@@ -2381,21 +2420,29 @@ tracking-wide
 />
 
         <div className="grid md:grid-cols-2 gap-4">
-
-          <input
-            type="number"
-            min="0"
-            max="10"
-            placeholder="Mentalidad"
-            value={profileForm.mentalidad}
-            onChange={(e) =>
-              setProfileForm({
-                ...profileForm,
-                mentalidad: e.target.value,
-              })
-            }
-            className="rounded-xl bg-white/5 p-3"
-          />
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-zinc-400">
+              Mentalidad
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              placeholder="Mentalidad"
+              value={profileForm.mentalidad}
+              onChange={(e) =>
+                setProfileForm({
+                  ...profileForm,
+                  mentalidad: e.target.value,
+                })
+              }
+              className="rounded-xl bg-white/5 p-3"
+            />
+          </div>
+          <div>
+  <label className="mb-1 block text-xs font-semibold text-zinc-400">
+    Hábitos
+  </label>
 
           <input
             type="number"
@@ -2411,7 +2458,11 @@ tracking-wide
             }
             className="rounded-xl bg-white/5 p-3"
           />
-
+</div>
+          <div>
+  <label className="mb-1 block text-xs font-semibold text-zinc-400">
+    Interpretación
+  </label>
           <input
             type="number"
             min="0"
@@ -2426,7 +2477,11 @@ tracking-wide
             }
             className="rounded-xl bg-white/5 p-3"
           />
-
+</div>
+          <div>
+  <label className="mb-1 block text-xs font-semibold text-zinc-400">
+    Capacidad física
+  </label>
           <input
             type="number"
             min="0"
@@ -2441,7 +2496,11 @@ tracking-wide
             }
             className="rounded-xl bg-white/5 p-3"
           />
-
+</div>
+          <div>
+  <label className="mb-1 block text-xs font-semibold text-zinc-400">
+    Técnica
+  </label>
           <input
             type="number"
             min="0"
@@ -2456,7 +2515,7 @@ tracking-wide
             }
             className="rounded-xl bg-white/5 p-3"
           />
-
+</div>
         </div>
 
         <div className="flex justify-end gap-3 pt-4">
