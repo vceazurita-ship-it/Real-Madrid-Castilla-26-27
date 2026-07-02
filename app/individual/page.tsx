@@ -734,7 +734,7 @@ useEffect(() => {
 
     tecnica: Number(jugador.TECNICA || 0),
   });
-
+window.history.replaceState({}, "", "/individual");
 }, [playerFromUrl, sheetData]);
 const saveTracking = async () => {
   if (!selected) return;
