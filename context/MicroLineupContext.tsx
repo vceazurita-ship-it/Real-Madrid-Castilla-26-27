@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
   useEffect,
+  useRef,
   ReactNode,
 } from "react";
 
@@ -97,7 +98,13 @@ export function MicroLineupProvider({
 function setFormation(
   newFormation: string
 ) {
+
   _setFormation(newFormation);
+
+  if (loadingLineup.current) {
+    loadingLineup.current = false;
+    return;
+  }
 
   setLineup((current) => {
     const newLineup = createLineup(newFormation);
@@ -107,6 +114,7 @@ function setFormation(
       newLineup
     );
   });
+
 }
 
   const [lineup, setLineup] =
@@ -132,7 +140,7 @@ function setFormation(
       }
 
     });
-
+const loadingLineup = useRef(false);
   useEffect(() => {
 
     localStorage.setItem(
@@ -196,24 +204,23 @@ function setFormation(
 
   //--------------------------------------------------
 
-  function clearLineup() {
-
-    setLineup(createLineup());
-
-  }
+ function clearLineup() {
+  setLineup(createLineup(formation));
+}
 
   //--------------------------------------------------
 
-  function loadLineup(
-    newFormation: string,
-    newLineup: MicroLineupSlot[]
-  ) {
+ function loadLineup(
+  newFormation: string,
+  newLineup: MicroLineupSlot[]
+) {
 
-    setFormation(newFormation);
+  loadingLineup.current = true;
 
-    setLineup(newLineup);
+  _setFormation(newFormation);
+  setLineup(newLineup);
 
-  }
+}
 
   //--------------------------------------------------
 
