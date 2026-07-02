@@ -269,6 +269,8 @@ const [ultimos30Dias, setUltimos30Dias] =
   useState(0)
 const [defensaApartados, setDefensaApartados] =
   useState(0)
+  const [sortedModules, setSortedModules] =
+  useState(modules)
   useEffect(() => {
   if (totalJugadores > 0) {
   setCobertura(
@@ -404,6 +406,20 @@ setPromedioSeguimientos(
       )
     })
 }, []) 
+
+useEffect(() => {
+  const usage = JSON.parse(
+    localStorage.getItem("rmcf-module-usage") ?? "{}"
+  )
+
+  const ordered = [...modules].sort(
+    (a, b) =>
+      (usage[b.href] ?? 0) -
+      (usage[a.href] ?? 0)
+  )
+
+  setSortedModules(ordered)
+}, [])
   return (
     
     <main className="min-h-screen bg-[#02060D] text-white">
@@ -734,7 +750,7 @@ VISIÓN GLOBAL
     hide-scrollbar
   "
 >
-                    {modules.map((item) => {
+                    {sortedModules.map((item) => {
                     const Icon = item.icon
 
                     return (

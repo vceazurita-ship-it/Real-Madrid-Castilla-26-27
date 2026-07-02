@@ -51,7 +51,20 @@ const navLink = (
 ) => (
   <Link
     href={href}
-    onClick={() => setOpen(false)}
+    onClick={() => {
+  const usage = JSON.parse(
+    localStorage.getItem("rmcf-module-usage") ?? "{}"
+  )
+
+  usage[href] = (usage[href] ?? 0) + 1
+
+  localStorage.setItem(
+    "rmcf-module-usage",
+    JSON.stringify(usage)
+  )
+
+  setOpen(false)
+}}
     className={pathname === href ? activeClass : normalClass}
   >
     {collapsed ? (
