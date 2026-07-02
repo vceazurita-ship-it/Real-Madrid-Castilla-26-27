@@ -23,7 +23,11 @@ interface MicroLineupContextType {
   lineup: MicroLineupSlot[];
 
   formation: string;
+loadedLineupName: string | null;
 
+setLoadedLineupName: (
+  name: string | null
+) => void;
   selectedPlayer: Player | null;
 
   setSelectedPlayer: (
@@ -46,9 +50,10 @@ interface MicroLineupContextType {
   clearLineup: () => void;
 
   loadLineup: (
-    formation: string,
-    lineup: MicroLineupSlot[]
-  ) => void;
+  formation: string,
+  lineup: MicroLineupSlot[],
+  name: string
+) => void;
 
   getPlayerPosition: (
     positionId: string
@@ -93,7 +98,10 @@ export function MicroLineupProvider({
 
   const [formation, _setFormation] =
   useState("4-4-2");
-
+const [
+  loadedLineupName,
+  setLoadedLineupName,
+] = useState<string | null>(null);
 function setFormation(
   newFormation: string
 ) {
@@ -205,15 +213,16 @@ function setFormation(
   //--------------------------------------------------
 
   function loadLineup(
-    newFormation: string,
-    newLineup: MicroLineupSlot[]
-  ) {
+  newFormation: string,
+  newLineup: MicroLineupSlot[],
+  name: string
+) {
+  setLoadedLineupName(name);
 
-    setFormation(newFormation);
+  setFormation(newFormation);
 
-    setLineup(newLineup);
-
-  }
+  setLineup(newLineup);
+}
 
   //--------------------------------------------------
 
@@ -231,34 +240,31 @@ function setFormation(
   //--------------------------------------------------
 
   const value = useMemo(
-    () => ({
+  () => ({
+    lineup,
 
-      lineup,
+    formation,
 
-      formation,
+    loadedLineupName,
+    setLoadedLineupName,
 
-      setFormation,
+    setFormation,
 
-      selectedPlayer,
+    selectedPlayer,
+    setSelectedPlayer,
 
-      setSelectedPlayer,
-
-      assignPlayer,
-
-      removePlayer,
-
-      clearLineup,
-
-      loadLineup,
-
-      getPlayerPosition,
-
-    }),
+    assignPlayer,
+    removePlayer,
+    clearLineup,
+    loadLineup,
+    getPlayerPosition,
+  }),
     [
-      lineup,
-      formation,
-      selectedPlayer,
-    ]
+  lineup,
+  formation,
+  loadedLineupName,
+  selectedPlayer,
+]
   );
 
   return (

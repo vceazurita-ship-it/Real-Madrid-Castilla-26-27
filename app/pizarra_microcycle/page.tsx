@@ -31,6 +31,7 @@ function PizarraContent() {
   assignPlayer,
   removePlayer,
   loadLineup,
+  loadedLineupName,
 } = useMicroLineup();
 
 const { players } = usePlayers();
@@ -98,9 +99,10 @@ console.log(data.alineacion);
     }
 
     loadLineup(
-      data.formacion,
-      JSON.parse(data.alineacion)
-    );
+  data.formacion,
+  JSON.parse(data.alineacion),
+  data.nombre
+);
 
   } catch (e) {
     console.error(e);
@@ -175,7 +177,17 @@ const sensors = useSensors(
                             <div className="mb-3">
                               <FormationToolbar />
                             </div>
-              
+                            {loadedLineupName && (
+  <div className="mb-3 rounded-xl border border-[#C8A96B]/20 bg-[#151B23] px-4 py-2">
+    <p className="text-xs uppercase tracking-widest text-[#C8A96B]">
+      Alineación cargada
+    </p>
+
+    <p className="text-lg font-semibold text-white">
+      {loadedLineupName}
+    </p>
+  </div>
+)}
                             {/* CONTENEDOR */}
               
                             <div
