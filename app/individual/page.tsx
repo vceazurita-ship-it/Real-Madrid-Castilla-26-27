@@ -2468,10 +2468,7 @@ tracking-wide
 />
 <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
   <p className="text-xs uppercase tracking-wide text-gray-400">
-    Seguimiento
-  </p>
-  <p className="text-2xl font-semibold text-[#C8A96B]">
-    {playerTracking.length}
+    Sesiones de Seguimiento: {playerTracking.length}
   </p>
 </div>
 
