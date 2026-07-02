@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "next/navigation";
+
 import {
   Search,
   ChevronLeft,
@@ -482,10 +482,7 @@ function CarouselRow({
 }
 
 export default function IndividualPage() {
-  const searchParams = useSearchParams();
-
-const playerFromUrl = searchParams.get("player");
-  
+    
   const [search, setSearch] =
     useState("");
 
@@ -580,6 +577,7 @@ const [profileForm, setProfileForm] =
     MOMENTO: "",
     ESTRATEGIA: "",
   });
+const [playerFromUrl, setPlayerFromUrl] = useState("");
 
 useEffect(() => {
   const checkMobile = () => {
@@ -603,6 +601,13 @@ useEffect(() => {
       checkMobile
     );
 }, []);
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+
+  setPlayerFromUrl(params.get("player") || "");
+}, []);
+
 useEffect(() => {
   if (!selected) return;
 
@@ -693,7 +698,44 @@ setSheetData(
     );
   });
 }, []);
+useEffect(() => {
+  if (!playerFromUrl) return;
 
+  if (!sheetData.length) return;
+
+  const jugador = sheetData.find(
+    (p: any) => p.ID_JUGADOR === playerFromUrl
+  );
+
+  if (!jugador) return;
+
+  const player = players.find(
+    (p) => p.idJugador === playerFromUrl
+  );
+
+  if (!player) return;
+
+  setSelected({
+    ...player,
+
+    fortalezas: jugador.FORTALEZAS,
+
+    aspectosMejora: jugador.ASPECTOS_MEJORA,
+
+    hudlPerfilUrl: jugador.HUDL_PERFIL_URL,
+
+    mentalidad: Number(jugador.MENTALIDAD || 0),
+
+    habitos: Number(jugador.HABITOS || 0),
+
+    interpretacion: Number(jugador.INTERPRETACION || 0),
+
+    capacidadFisica: Number(jugador.CAPACIDAD_FISICA || 0),
+
+    tecnica: Number(jugador.TECNICA || 0),
+  });
+
+}, [playerFromUrl, sheetData]);
 const saveTracking = async () => {
   if (!selected) return;
 
@@ -1249,7 +1291,7 @@ useEffect(() => {
     if (!playerFromUrl) return;
 
     if (!players.length) return;
-
+ 
     const jugador = players.find(
         (p) => p.idJugador === playerFromUrl
     );
