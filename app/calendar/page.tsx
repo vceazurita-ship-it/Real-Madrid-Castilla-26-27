@@ -121,13 +121,7 @@ useEffect(() => {
     .then((data) => setTrackingData(data))
     .catch(console.error);
 }, []);
-if (loading) {
-  return (
-    <main className="min-h-screen bg-[#0B0F14] flex items-center justify-center text-white">
-      Cargando jugadores...
-    </main>
-  );
-}
+
   
   const active = months[currentMonth];
 
