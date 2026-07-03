@@ -12,40 +12,59 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
 
-    console.log("FORMDATA OK");
-
     const image = formData.get("image") as File | null;
-
-    console.log("IMAGE:", image?.name);
 
     if (!image) {
       return Response.json(
-        { error: "Sin imagen" },
-        { status: 400 }
+        {
+          error: "No se ha recibido ninguna imagen.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const bytes = await image.arrayBuffer();
+    console.log("IMAGE:", image.name);
 
-    console.log("ARRAY BUFFER OK");
+    const bytes = await image.arrayBuffer();
 
     const base64 = Buffer.from(bytes).toString("base64");
 
-    console.log("BASE64 OK");
+    console.log("IMAGE CONVERTED");
 
-    return Response.json({
-      ok: true,
-      size: image.size,
-      mime: image.type,
-      base64Length: base64.length,
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: "Describe brevemente qué ves en esta imagen.",
+            },
+            {
+              inlineData: {
+                mimeType: image.type,
+                data: base64,
+              },
+            },
+          ],
+        },
+      ],
     });
 
-  } catch (error) {
+    console.log(response);
+
+    return Response.json({
+      answer: response.text,
+    });
+  } catch (error: any) {
+    console.error("GEMINI ERROR");
     console.error(error);
 
     return Response.json(
       {
-        error: String(error),
+        error: error?.message ?? "Error desconocido",
       },
       {
         status: 500,
