@@ -6,6 +6,7 @@ const ai = new GoogleGenAI({
 
 export async function POST(req: Request) {
   try {
+console.log("API KEY:", !!process.env.GEMINI_API_KEY);
     const formData = await req.formData();
 
     const image = formData.get("image") as File | null;
