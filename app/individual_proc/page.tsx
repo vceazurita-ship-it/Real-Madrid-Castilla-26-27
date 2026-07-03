@@ -24,6 +24,7 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  Legend,
 } from "recharts";
 
 const APPS_SCRIPT_URL =
@@ -607,7 +608,11 @@ text-sm
 
 >
 
-{key}: {value} ✕
+{
+key==="player"
+? playerMap[value]?.nombre
+: value
+} ✕
 
 </button>
 
@@ -617,40 +622,36 @@ text-sm
             <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
 
           </div>
-<div
-className="
+<div className="
+flex
+flex-wrap
+items-center
+gap-3
 rounded-2xl
 bg-[#121922]
 border
 border-white/10
-p-5
+px-5
+py-3
 mb-6
-"
->
-
-<h3 className="font-semibold">
-
+">
+<span className="text-white/60">
 Mostrando
+</span>
 
-</h3>
-
-<p>
-
-<strong>
-
+<span className="font-bold text-[#C8A96B]">
 {totalSessions}
+</span>
 
-</strong>
-
+<span className="text-white/60">
 seguimientos
-
-</p>
+</span>
 
 </div><div className="flex flex-wrap gap-2 mt-3">
 
 {filters.position && (
 
-<span>
+<span className="px-3 py-1 rounded-full bg-[#C8A96B]/15 text-[#C8A96B]">
 
 Posición:
 {filters.position}
@@ -661,7 +662,7 @@ Posición:
 
 {filters.coach && (
 
-<span>
+<span className="px-3 py-1 rounded-full bg-[#C8A96B]/15 text-[#C8A96B]">
 
 Entrenador:
 {filters.coach}
@@ -672,7 +673,7 @@ Entrenador:
 
 {filters.week && (
 
-<span>
+<span className="px-3 py-1 rounded-full bg-[#C8A96B]/15 text-[#C8A96B]">
 
 Semana:
 {filters.week}
@@ -683,7 +684,7 @@ Semana:
  
 {filters.strategy && (
 
-<span>
+<span className="px-3 py-1 rounded-full bg-[#C8A96B]/15 text-[#C8A96B]">
 
 Estrategia:
 {filters.strategy}
@@ -695,9 +696,11 @@ Estrategia:
 </div>
           {/* KPIs */}
 
-          <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 md:gap-5 mt-8">
+          <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 md:gap-5 mt-5">
 
-            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6 text-6xl hover:border-[#C8A96B]
+hover:cursor-pointer
+transition">
 
               <p className="text-white/50 text-sm">
                 Seguimientos
@@ -709,7 +712,9 @@ Estrategia:
 
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6 text-4xl hover:border-[#C8A96B]
+hover:cursor-pointer
+transition">
 
               <p className="text-white/50 text-sm">
                 Jugadores
@@ -721,7 +726,9 @@ Estrategia:
 
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6 text-4xl hover:border-[#C8A96B]
+hover:cursor-pointer
+transition">
 
               <p className="text-white/50 text-sm">
                 Media semanal
@@ -733,7 +740,9 @@ Estrategia:
 
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
+            <div className="rounded-3xl border border-white/10 bg-[#121922] p-6 text-4xl hover:border-[#C8A96B]
+hover:cursor-pointer
+transition">
 
               <p className="text-white/50 text-sm">
                 Jugador más seguido
@@ -747,7 +756,9 @@ Estrategia:
 </p>
 
             </div>
-<div className="rounded-3xl border border-white/10 bg-[#121922] p-6">
+<div className="rounded-3xl border border-white/10 bg-[#121922] p-6 text-4xl hover:border-[#C8A96B]
+hover:cursor-pointer
+transition">
 
   <p className="text-white/50 text-sm">
     Jugador menos seguido
@@ -786,12 +797,12 @@ Estrategia:
                   <XAxis
     dataKey="name"
     interval={0}
-    angle={-35}
+    angle={-55}
     textAnchor="end"
-    height={80}
+    height={95}
     tick={{
         fill:"#999",
-        fontSize:10
+        fontSize:9
     }}
 />
 
@@ -890,9 +901,10 @@ setFilters({
 
                     nameKey="name"
 
-                    outerRadius={90}
+                    outerRadius={120}
+                    innerRadius={45}
 
-                    label
+                    label={false}
 
                   >
 
@@ -917,7 +929,7 @@ filters.strategy
 />
 
                     ))}
-
+<Legend/>
                   </Pie>
 
                   <Tooltip />
@@ -980,12 +992,10 @@ setFilters({
 
                     stroke="#C8A96B"
 
-                    strokeWidth={
-filters.week
-?5
-:3
-}dot={{
-r:4
+                    strokeWidth={4}dot={{
+
+r:5
+
 }}
 
                   />
@@ -1023,7 +1033,7 @@ strategy:data.activePayload[0].payload.name
 });
 
 }}
-
+outerRadius={120}
 >
 
                   <PolarGrid/>
@@ -1033,7 +1043,7 @@ strategy:data.activePayload[0].payload.name
                   />
 
                   <PolarRadiusAxis/>
-
+tick={false}
                   <Radar
 
                     dataKey="value"
