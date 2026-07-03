@@ -42,6 +42,21 @@ type TrackingRecord = {
   MOMENTO: string;
   ESTRATEGIA: string;
 };
+const MONTHS = [
+"",
+"Enero",
+"Febrero",
+"Marzo",
+"Abril",
+"Mayo",
+"Junio",
+"Julio",
+"Agosto",
+"Septiembre",
+"Octubre",
+"Noviembre",
+"Diciembre"
+];
 
 const COLORS = [
   "#C8A96B",
@@ -56,9 +71,22 @@ const { players } = usePlayers();
 const [tracking,setTracking] =
 useState<TrackingRecord[]>([]);
 
-const [selectedPlayer,setSelectedPlayer] =
-useState("");
-
+const [filters, setFilters] = useState({
+  player: "",
+  position: "",
+  coach: "",
+  strategy: "",
+  month: "",
+  week: "",
+});
+const emptyFilters = {
+    player:"",
+    position:"",
+    coach:"",
+    strategy:"",
+    month:"",
+    week:""
+};
 useEffect(() => {
 
 fetch(
@@ -83,17 +111,82 @@ p
 );
 
 },[players]);
-const totalSessions = tracking.length;
+
+const filteredTracking = useMemo(() => {
+  return tracking.filter((s) => {
+    const jugador = playerMap[s.ID_JUGADOR];
+
+    const month = new Date(s.FECHA).getMonth() + 1;
+
+    const first = new Date(
+      new Date(s.FECHA).getFullYear(),
+      0,
+      1
+    );
+
+    const week = Math.ceil(
+      (
+        (
+          new Date(s.FECHA).getTime() -
+          first.getTime()
+        ) /
+        86400000 +
+        first.getDay() +
+        1
+      ) / 7
+    );
+
+    if (
+      filters.player &&
+      s.ID_JUGADOR !== filters.player
+    )
+      return false;
+
+    if (
+      filters.strategy &&
+      s.ESTRATEGIA !== filters.strategy
+    )
+      return false;
+
+    if (
+      filters.coach &&
+      s.QUIEN !== filters.coach
+    )
+      return false;
+
+    if (
+      filters.month &&
+      month !== Number(filters.month)
+    )
+      return false;
+
+    if (
+      filters.week &&
+      week !== Number(filters.week)
+    )
+      return false;
+
+    if (
+      filters.position &&
+      jugador?.posicion !== filters.position
+    )
+      return false;
+
+    return true;
+  });
+}, [tracking, playerMap, filters]);
+
+const totalSessions = filteredTracking.length;
 
 const totalPlayers =
 new Set(
-tracking.map(s=>s.ID_JUGADOR)
+filteredTracking.map(s=>s.ID_JUGADOR)
 ).size;
 
 const totalWeeks =
 new Set(
 
-tracking.map(s=>{
+filteredTracking.map(s=>{
 
 const d=new Date(s.FECHA);
 
@@ -125,7 +218,7 @@ useMemo(()=>{
 
 const map: Record<string, number> = {};
 
-tracking.forEach(s=>{
+filteredTracking.forEach(s=>{
 
 const jugador=
 
@@ -145,11 +238,15 @@ return Object.entries(map)
   .map(([name, value]) => ({
     name,
     value,
+    percentage:
+totalSessions
+?value*100/totalSessions
+:0
   }))
   .sort((a, b) => b.value - a.value);
 
 },[
-tracking,
+filteredTracking,
 playerMap
 ]);
 
@@ -167,7 +264,7 @@ useMemo(()=>{
 
 const map: Record<string, number> = {};
 
-tracking.forEach(s=>{
+filteredTracking.forEach(s=>{
 
 map[s.ESTRATEGIA]=
 (map[s.ESTRATEGIA]??0)+1;
@@ -178,15 +275,19 @@ return Object.entries(map)
   .map(([name, value]) => ({
     name,
     value,
+    percentage:
+totalSessions
+?value*100/totalSessions
+:0
   }));
 
-},[tracking]);
+},[filteredTracking]);
 const weeklyData=
 useMemo(()=>{
 
 const map: Record<string, number> = {};
 
-tracking.forEach(s=>{
+filteredTracking.forEach(s=>{
 
 const d=new Date(s.FECHA);
 
@@ -214,9 +315,84 @@ return Object.keys(map)
   .map((week) => ({
     week,
     value: map[Number(week)],
+    percentage:
+      totalSessions
+        ? map[Number(week)] * 100 / totalSessions
+        : 0
   }));
 
-},[tracking]);
+},[filteredTracking]);
+
+const filterOptions = useMemo(() => {
+
+    const positions = [...new Set(
+        players
+            .map(p => p.posicion)
+            .filter(Boolean)
+    )].sort();
+
+    const coaches = [...new Set(
+        tracking
+            .map(t => t.QUIEN)
+            .filter(Boolean)
+    )].sort();
+
+    const strategies = [...new Set(
+        tracking
+            .map(t => t.ESTRATEGIA)
+            .filter(Boolean)
+    )].sort();
+
+    const months = [...new Set(
+        tracking.map(t =>
+            new Date(t.FECHA).getMonth() + 1
+        )
+    )].sort((a,b)=>a-b);
+
+    const weeks = [...new Set(
+        tracking.map(t=>{
+
+            const d = new Date(t.FECHA);
+
+            const first = new Date(
+                d.getFullYear(),
+                0,
+                1
+            );
+
+            return Math.ceil(
+                (
+                    (d.getTime()-first.getTime())/86400000 +
+                    first.getDay()+1
+                )/7
+            );
+
+        })
+    )].sort((a,b)=>a-b);
+
+    return {
+        positions,
+        coaches,
+        strategies,
+        months,
+        weeks
+    };
+
+},[players,tracking]);
+const updateFilter = (
+    key:keyof typeof filters,
+    value:string
+)=>{
+
+    setFilters(prev=>({
+
+        ...prev,
+
+        [key]:value
+
+    }));
+
+}
 return (
   <main className="min-h-screen bg-[#0B0F14] text-white">
     <div className="flex">
@@ -238,11 +414,285 @@ return (
             <h1 className="text-2xl md:text-4xl font-semibold">
               Dashboard Seguimiento Individual
             </h1>
+<div className="mt-8 grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 gap-3">
 
+<select
+value={filters.player}
+onChange={(e)=>
+setFilters({
+...filters,
+player:e.target.value
+})
+}
+className="rounded-xl bg-[#121922] border border-white/10 p-3"
+>
+
+<option value="">Jugador</option>
+
+{players.map(p=>(
+
+<option
+key={p.id}
+value={p.id}
+>
+
+{p.nombre}
+
+</option>
+
+))}
+
+</select>
+<select
+    value={filters.position}
+    onChange={(e)=>
+        setFilters({
+            ...filters,
+            position:e.target.value
+        })
+    }
+    className="rounded-xl bg-[#121922] border border-white/10 p-3"
+>
+
+<option value="">Posición</option>
+
+{[
+...new Set(
+players.map(p=>p.posicion)
+)
+].map(pos=>(
+
+<option
+key={pos}
+value={pos}
+>
+
+{pos}
+
+</option>
+
+))}
+
+</select>
+<select
+value={filters.coach}
+onChange={(e)=>
+
+setFilters({
+
+...filters,
+
+coach:e.target.value
+
+})
+
+}
+
+className="rounded-xl bg-[#121922] border border-white/10 p-3"
+
+>
+
+<option value="">Entrenador</option>
+
+{filterOptions.coaches.map(coach=>(
+
+<option
+    key={coach}
+    value={coach}
+>
+    {coach}
+</option>
+
+))}
+
+</select>
+<select
+value={filters.week}
+onChange={(e)=>
+
+setFilters({
+
+...filters,
+
+week:e.target.value
+
+})
+
+}
+
+className="rounded-xl bg-[#121922] border border-white/10 p-3"
+
+>
+
+<option value="">Semana</option>
+
+{filterOptions.weeks.map(week=>(
+
+<option
+    key={week}
+    value={week}
+>
+    {week}
+</option>
+
+))}
+
+</select>
+
+<select
+value={filters.strategy}
+onChange={(e)=>
+
+setFilters({
+
+...filters,
+
+strategy:e.target.value
+
+})
+
+}
+
+className="rounded-xl bg-[#121922] border border-white/10 p-3"
+
+>
+
+<option value="">Estrategia</option>
+
+{filterOptions.strategies.map(strategy=>(
+
+<option
+    key={strategy}
+    value={strategy}
+>
+    {strategy}
+</option>
+
+))}
+
+</select>
+
+<button
+onClick={() => setFilters(emptyFilters)}
+className="rounded-xl bg-[#C8A96B] text-black font-semibold"
+>
+Limpiar
+</button>
+</div>
+<div className="flex flex-wrap gap-2 mt-4">
+
+{Object.entries(filters)
+
+.filter(([_,value])=>value)
+
+.map(([key,value])=>(
+
+<button
+
+key={key}
+
+onClick={()=>updateFilter(
+key as keyof typeof filters,
+""
+)}
+
+className="
+px-3
+py-1
+rounded-full
+bg-[#C8A96B]
+text-black
+text-sm
+"
+
+>
+
+{key}: {value} ✕
+
+</button>
+
+))}
+
+</div>
             <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
 
           </div>
+<div
+className="
+rounded-2xl
+bg-[#121922]
+border
+border-white/10
+p-5
+mb-6
+"
+>
 
+<h3 className="font-semibold">
+
+Mostrando
+
+</h3>
+
+<p>
+
+<strong>
+
+{totalSessions}
+
+</strong>
+
+seguimientos
+
+</p>
+
+</div><div className="flex flex-wrap gap-2 mt-3">
+
+{filters.position && (
+
+<span>
+
+Posición:
+{filters.position}
+
+</span>
+
+)}
+
+{filters.coach && (
+
+<span>
+
+Entrenador:
+{filters.coach}
+
+</span>
+
+)}
+
+{filters.week && (
+
+<span>
+
+Semana:
+{filters.week}
+
+</span>
+
+)}
+ 
+{filters.strategy && (
+
+<span>
+
+Estrategia:
+{filters.strategy}
+
+</span>
+
+)}
+
+</div>
           {/* KPIs */}
 
           <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 md:gap-5 mt-8">
@@ -353,10 +803,55 @@ return (
                   <Tooltip />
 
                   <Bar
-                    dataKey="value"
-                    fill="#C8A96B"
-                    radius={[6,6,0,0]}
-                  />
+    dataKey="value"
+    radius={[6,6,0,0]}
+    onClick={(data:any)=>{
+
+        const nombre =
+            data.payload?.name ?? data.name;
+
+        const jugador =
+            players.find(
+                p=>p.nombre===nombre
+            );
+
+        if(jugador){
+
+            updateFilter(
+                "player",
+                jugador.id
+            );
+
+        }
+
+    }}
+>
+
+{playerChart.map((item)=>(
+
+<Cell
+
+key={item.name}
+
+fill={
+
+filters.player
+
+? item.name === playerMap[filters.player]?.nombre
+
+    ? "#C8A96B"
+
+    : "#444"
+
+: "#C8A96B"
+
+}
+
+/>
+
+))}
+
+</Bar>
 
                 </BarChart>
 
@@ -379,7 +874,16 @@ return (
                 <PieChart>
 
                   <Pie
+onClick={(data:any)=>{
 
+if(!data?.name && !data?.payload) return;
+
+setFilters({
+    ...filters,
+    strategy:data.payload?.name ?? data.name
+});
+
+}}
                     data={strategyData}
 
                     dataKey="value"
@@ -392,16 +896,25 @@ return (
 
                   >
 
-                    {strategyData.map((_,i)=>(
+                    {strategyData.map((item,i)=>(
 
                       <Cell
-                        key={i}
-                        fill={
-                          COLORS[
-                            i % COLORS.length
-                          ]
-                        }
-                      />
+
+fill={
+
+filters.strategy
+
+? item.name===filters.strategy
+
+    ? COLORS[i]
+
+    : "#444"
+
+: COLORS[i]
+
+}
+
+/>
 
                     ))}
 
@@ -434,7 +947,17 @@ return (
   <div className="min-w-[700px] h-[350px]">
               <ResponsiveContainer width="100%" height={350}>
 
-                <LineChart data={weeklyData}>
+                <LineChart data={weeklyData} onClick={(state:any)=>{
+
+if(!state?.activeLabel) return;
+
+setFilters({
+    ...filters,
+    week:String(state.activeLabel)
+});
+
+}}
+>
 
                   <CartesianGrid stroke="#333"/>
 
@@ -457,7 +980,13 @@ return (
 
                     stroke="#C8A96B"
 
-                    strokeWidth={3}
+                    strokeWidth={
+filters.week
+?5
+:3
+}dot={{
+r:4
+}}
 
                   />
 
@@ -478,7 +1007,24 @@ return (
   <div className="min-w-[450px] h-[350px]">
               <ResponsiveContainer width="100%" height={350}>
 
-                <RadarChart data={strategyData}>
+                <RadarChart
+data={strategyData}
+
+onClick={(data:any)=>{
+
+if(!data?.activePayload) return;
+
+setFilters({
+
+...filters,
+
+strategy:data.activePayload[0].payload.name
+
+});
+
+}}
+
+>
 
                   <PolarGrid/>
 
@@ -496,7 +1042,11 @@ return (
 
                     fill="#C8A96B"
 
-                    fillOpacity={0.45}
+                    fillOpacity={
+filters.strategy
+?0.15
+:0.45
+}
 
                   />
 
