@@ -1,0 +1,161 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Papa from "papaparse";
+import { Player, EstadoJugador } from "../types/player";
+
+const CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
+
+interface CsvPlayer {
+  ID_JUGADOR: string;
+  NOMBRE: string;
+  POSICION: string;
+  DORSAL: string;
+  FOTO_URL: string;
+  LICENCIA: string;
+  ESTADO: EstadoJugador;
+  ACTIVO: string;
+  HUDL_PERFIL_URL: string;
+  APODO: string;
+}
+
+export function useTrainingPlayers() {
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Papa.parse<CsvPlayer>(CSV_URL, {
+      download: true,
+      header: true,
+
+      complete: ({ data }) => {
+        const ESTADOS_VALIDOS: EstadoJugador[] = [
+          "ÓPTIMO",
+          "SANCIONADO",
+          "CONTROL DE CARGA",
+          "REINCORPORACIÓN",
+          "TOCADO",
+        ];
+
+        // TODOS los jugadores del CSV
+        const plantillaCompleta: Player[] = data.map((p) => ({
+          id: p.ID_JUGADOR,
+          nombre: p.NOMBRE,
+          apodo: p.APODO || p.NOMBRE,
+          posicion: p.POSICION,
+          dorsal: Number(p.DORSAL) || undefined,
+
+          foto:
+            p.FOTO_URL && p.FOTO_URL.trim() !== ""
+              ? p.FOTO_URL
+              : "/players/default.png",
+
+          licencia: p.LICENCIA || "RMCF Castilla",
+
+          esCastilla:
+            (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
+
+          estado: p.ESTADO,
+
+          activo:
+            String(p.ACTIVO).toUpperCase() === "TRUE" ||
+            String(p.ACTIVO) === "1",
+
+          hudl: p.HUDL_PERFIL_URL || "",
+        }));
+
+        // Solo los jugadores que pueden aparecer en la sesión
+        const plantilla = plantillaCompleta.filter((p) =>
+          ESTADOS_VALIDOS.includes(p.estado)
+        );
+
+        setAllPlayers(plantillaCompleta);
+        setPlayers(plantilla);
+        setLoading(false);
+      },
+
+      error: (error) => {
+        console.error("Error cargando jugadores:", error);
+        setLoading(false);
+      },
+    });
+  }, []);
+
+  const disponibles = useMemo(
+    () => players.filter((p) => p.estado === "DISPONIBLE"),
+    [players]
+  );
+
+  const lesionados = useMemo(
+    () => players.filter((p) => p.estado === "LESIONADO"),
+    [players]
+  );
+
+  const primerEquipo = useMemo(
+    () => players.filter((p) => p.estado === "PRIMER EQUIPO"),
+    [players]
+  );
+
+  const seleccion = useMemo(
+    () => players.filter((p) => p.estado === "SELECCIÓN"),
+    [players]
+  );
+
+  const porteros = useMemo(
+    () =>
+      players.filter((p) =>
+        p.posicion.toUpperCase().includes("PORTERO")
+      ),
+    [players]
+  );
+
+  const defensas = useMemo(
+    () =>
+      players.filter(
+        (p) =>
+          p.posicion.toUpperCase().includes("LATERAL") ||
+          p.posicion.toUpperCase().includes("CENTRAL")
+      ),
+    [players]
+  );
+
+  const centrocampistas = useMemo(
+    () =>
+      players.filter((p) =>
+        ["6", "8", "10"].includes(p.posicion)
+      ),
+    [players]
+  );
+
+  const extremos = useMemo(
+    () =>
+      players.filter((p) =>
+        ["7", "11"].includes(p.posicion)
+      ),
+    [players]
+  );
+
+  const delanteros = useMemo(
+    () => players.filter((p) => p.posicion === "9"),
+    [players]
+  );
+
+  return {
+    players,
+    allPlayers,
+    loading,
+
+    disponibles,
+    lesionados,
+    primerEquipo,
+    seleccion,
+
+    porteros,
+    defensas,
+    centrocampistas,
+    extremos,
+    delanteros,
+  };
+}

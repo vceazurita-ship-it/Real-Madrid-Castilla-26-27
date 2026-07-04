@@ -7,18 +7,17 @@ import {
   useEffect,
   useState,
 } from "react";
-import { usePlayers } from "@/hooks/usePlayers";
+import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 import { useMicroLineup } from "@/context/MicroLineupContext";
-import MicroGroup from "./MicroGroup";
-import PitchPosition from "./PitchPosition";
+import MicroGroup from "../Microciclo/MicroGroup";
+import PitchPosition from "../Microciclo/PitchPosition";
 import { microFormations } from "@/lib/microFormation";
-import SessionGroup from "../Sesion/SessionGroup";
 
 const FootballPitch = forwardRef<
   HTMLDivElement,
   Record<string, never>
 >(function FootballPitch(_, ref) {
-  const { players } = usePlayers();
+  const { allPlayers } = useTrainingPlayers();
 
   const {
   lineup,
@@ -80,9 +79,9 @@ const currentFormation =
       (s) => s.positionId === position.id
     );
 
-    const groupPlayers = players.filter((player) =>
-      slot?.playerIds?.includes(player.id)
-    );
+    const groupPlayers = allPlayers.filter((player) =>
+  slot?.playerIds?.includes(player.id)
+);
 
     return (
       <div
@@ -95,10 +94,11 @@ const currentFormation =
       >
         <PitchPosition id={position.id}>
           {groupPlayers.length > 0 ? (
-            <SessionGroup
-  players={groupPlayers}
-  positionId={position.id}
-/>
+            <MicroGroup
+              players={groupPlayers}
+              positionId={position.id}
+              mobile={false}
+            />
           ) : (
             <div className="flex flex-col items-center">
               <div

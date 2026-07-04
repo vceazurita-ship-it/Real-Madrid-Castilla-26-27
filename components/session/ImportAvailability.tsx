@@ -5,13 +5,27 @@ import { Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export type TrainingImport = {
-  available: string[];
-  injury: string[];
-  promotion: string[];
-  nationalTeam: string[];
-  others: string[];
-};
+export interface TrainingPlayer {
+  detected: string;
+  official: string | null;
+  confidence: number;
+  photo: string;
+}
+
+export interface PendingPlayer {
+  name: string;
+  photo: string;
+}
+
+export interface TrainingImport {
+  available: TrainingPlayer[];
+  injury: TrainingPlayer[];
+  promotion: TrainingPlayer[];
+  nationalTeam: TrainingPlayer[];
+  others: TrainingPlayer[];
+
+  pendingPlayers: PendingPlayer[];
+}
 
 type Props = {
   onImport: (data: TrainingImport) => void;

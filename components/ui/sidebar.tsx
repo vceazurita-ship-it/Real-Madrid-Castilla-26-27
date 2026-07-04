@@ -31,6 +31,7 @@ import {
   Database,
   Handshake,
   ClipboardList,
+  LayoutDashboard,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -204,6 +205,16 @@ const navLink = (
 
   <div className="space-y-2 text-sm">
 
+    {navLink(
+  "/training",
+  "Jugadores Sesión",
+  <Users size={18} />
+    )}
+    {navLink(
+      "/pizarra_sesion",
+      "Pizarra Sesión",
+      <LayoutDashboard size={18} />
+    )}
     {navLink(
       "/microcycles",
       "Microciclos",
