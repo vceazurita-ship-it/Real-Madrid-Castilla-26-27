@@ -114,7 +114,7 @@ const POSITION_MAP: Record<string, string[]> = {
 
   "11": ["EI"],
 
-  "9": ["DC1", "DC2"],
+  "9": ["DC1"],
 };
 
 /*
