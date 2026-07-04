@@ -188,7 +188,8 @@ export function SessionLineupProvider({
       );
     });
   }
-
+const [initialized, setInitialized] =
+  useState(false);
   const [lineup, setLineup] =
     useState<MicroLineupSlot[]>(() => {
 
@@ -266,7 +267,7 @@ if (!options) {
 
     setLoadedLineupId(null);
     setLoadedLineupName(null);
-
+    setInitialized(true);
   }
     //--------------------------------------------------
   // Añadir jugador
@@ -327,6 +328,7 @@ if (!options) {
 
     setLoadedLineupId(null);
     setLoadedLineupName(null);
+    setInitialized(false);
 
   }
 
@@ -342,14 +344,11 @@ if (!options) {
   ) {
 
     setLoadedLineupId(id);
-    setLoadedLineupName(name);
-
-    setLoadedLineupId(id);
 setLoadedLineupName(name);
+  setInitialized(true);
 
-setFormation(newFormation);
+_setFormation(newFormation);
 setLineup(newLineup);
-
   }
 
   //--------------------------------------------------
