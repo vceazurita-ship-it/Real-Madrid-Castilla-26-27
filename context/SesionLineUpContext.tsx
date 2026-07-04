@@ -282,9 +282,9 @@ if (!options) {
     // Eliminar el jugador de cualquier posición
     const cleaned = current.map((slot) => ({
       ...slot,
-      playerIds: slot.playerIds.filter(
-        (id) => id !== playerId
-      ),
+      playerIds: (slot.playerIds ?? []).filter(
+  (id) => id !== playerId
+),
     }));
 
     // Añadirlo únicamente a la nueva posición
@@ -319,9 +319,9 @@ if (!options) {
     setLineup((current) =>
       current.map((slot) => ({
         ...slot,
-        playerIds: slot.playerIds.filter(
-          (id) => id !== playerId
-        ),
+        playerIds: (slot.playerIds ?? []).filter(
+  (id) => id !== playerId
+),
       }))
     );
 
@@ -345,20 +345,24 @@ if (!options) {
   // Cargar sesión guardada
   //--------------------------------------------------
 
-  function loadLineup(
-    id: number,
-    newFormation: string,
-    newLineup: MicroLineupSlot[],
-    name: string
-  ) {
+function loadLineup(
+  id: number,
+  newFormation: string,
+  newLineup: any[],
+  name: string
+) {
+  const normalized = newLineup.map((slot) => ({
+    positionId: slot.positionId,
+    playerIds: slot.playerIds ?? slot.playerId ?? [],
+  }));
 
-    setLoadedLineupId(id);
-setLoadedLineupName(name);
+  setLoadedLineupId(id);
+  setLoadedLineupName(name);
   setInitialized(true);
 
-_setFormation(newFormation);
-setLineup(newLineup);
-  }
+  _setFormation(newFormation);
+  setLineup(normalized);
+}
 
   //--------------------------------------------------
 
