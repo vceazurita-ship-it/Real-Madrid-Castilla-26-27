@@ -341,15 +341,19 @@ const pendingPlayers = [
 });
 
   } catch (error: any) {
-    console.error(error);
+  console.error("========== ERROR TRAINING ==========");
+  console.error(error);
+  console.error(error?.stack);
+  console.error(error?.cause);
 
-    return Response.json(
-      {
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+  return Response.json(
+    {
+      error: error?.message,
+      stack: error?.stack,
+    },
+    {
+      status: 500,
+    }
+  );
+}
 }
