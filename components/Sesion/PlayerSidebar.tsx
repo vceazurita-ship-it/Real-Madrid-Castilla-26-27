@@ -8,12 +8,12 @@ import {
 import { useMemo, useRef, useState } from "react";
 
 import PlayerToken from "../Microciclo/PlayerToken";
-import { useMicroLineup } from "@/context/MicroLineupContext";
+import { useSessionLineup } from "@/context/SesionLineUpContext";
 import { useDroppable } from "@dnd-kit/core";
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 export default function PlayerSidebar() {
   const { players } = useTrainingPlayers();
-const { lineup } = useMicroLineup();
+const { lineup } = useSessionLineup();
   const [search, setSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { setNodeRef, isOver } = useDroppable({

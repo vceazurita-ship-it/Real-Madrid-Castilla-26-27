@@ -2,7 +2,7 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { useMicroLineup } from "@/context/MicroLineupContext";
+import { useSessionLineup } from "@/context/SesionLineUpContext";
 import { EstadoJugador } from "@/types/player";
 
 interface Props {
@@ -33,7 +33,7 @@ export default function SessionFieldPlayer({
     assignPlayer,
     setSelectedPlayer,
     removePlayer,
-  } = useMicroLineup();
+  } = useSessionLineup();
 
   const style = {
     transform: CSS.Translate.toString(transform),
