@@ -164,26 +164,37 @@ function setFormation(
   // Añadir jugador al grupo
   //--------------------------------------------------
 
-  function assignPlayer(
+ function assignPlayer(
   positionId: string,
   playerId: string
 ) {
-  setLineup((current) =>
-    current.map((slot) => {
+  setLineup((current) => {
+
+    // Eliminar el jugador de cualquier posición
+    const cleaned = current.map((slot) => ({
+      ...slot,
+      playerIds: slot.playerIds.filter(
+        (id) => id !== playerId
+      ),
+    }));
+
+    // Añadirlo únicamente a la nueva posición
+    return cleaned.map((slot) => {
 
       if (slot.positionId !== positionId)
         return slot;
 
-      // Si ya está en el grupo, no lo duplica
-      if (slot.playerIds.includes(playerId))
-        return slot;
-
       return {
         ...slot,
-        playerIds: [...slot.playerIds, playerId],
+        playerIds: [
+          ...slot.playerIds,
+          playerId,
+        ],
       };
-    })
-  );
+
+    });
+
+  });
 
   setSelectedPlayer(null);
 }

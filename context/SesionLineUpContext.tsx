@@ -270,31 +270,40 @@ if (!options) {
   // Añadir jugador
   //--------------------------------------------------
 
-  function assignPlayer(
-    positionId: string,
-    playerId: string
-  ) {
-    setLineup((current) =>
-      current.map((slot) => {
+ function assignPlayer(
+  positionId: string,
+  playerId: string
+) {
+  setLineup((current) => {
 
-        if (slot.positionId !== positionId)
-          return slot;
+    // Eliminar el jugador de cualquier posición
+    const cleaned = current.map((slot) => ({
+      ...slot,
+      playerIds: slot.playerIds.filter(
+        (id) => id !== playerId
+      ),
+    }));
 
-        if (slot.playerIds.includes(playerId))
-          return slot;
+    // Añadirlo únicamente a la nueva posición
+    return cleaned.map((slot) => {
 
-        return {
-          ...slot,
-          playerIds: [
-            ...slot.playerIds,
-            playerId,
-          ],
-        };
-      })
-    );
+      if (slot.positionId !== positionId)
+        return slot;
 
-    setSelectedPlayer(null);
-  }
+      return {
+        ...slot,
+        playerIds: [
+          ...slot.playerIds,
+          playerId,
+        ],
+      };
+
+    });
+
+  });
+
+  setSelectedPlayer(null);
+}
 
   //--------------------------------------------------
   // Eliminar jugador
