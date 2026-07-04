@@ -64,17 +64,15 @@ async function guardar() {
   sistema: formation,
 
   alineacion: lineup.map(slot => ({
+  positionId: slot.positionId,
 
-    positionId: slot.positionId,
+  playerIds: slot.playerIds,
 
-    playerId: slot.playerIds,
-
-    jugador:
-      players.find(
-        p => p.id === slot.playerIds[0]
-      )?.nombre || ""
-
-  })),
+  jugador:
+    players.find(
+      p => p.id === slot.playerIds[0]
+    )?.nombre || ""
+})),
 
   observaciones: ""
 
