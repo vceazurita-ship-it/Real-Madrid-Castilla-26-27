@@ -19,10 +19,10 @@ export const microFormations: Record<
   "4-4-2": [
     { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
 
-    { id: "LD", nombre: "Lateral D.", posicion: "LATERAL D.", left: "18%", top: "70%" },
+    { id: "LD", nombre: "Lateral D.", posicion: "LATERAL D.", left: "82%", top: "70%" },
     { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "39%", top: "74%" },
     { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "61%", top: "74%" },
-    { id: "LI", nombre: "Lateral I.", posicion: "LATERAL I.", left: "82%", top: "70%" },
+    { id: "LI", nombre: "Lateral I.", posicion: "LATERAL I.", left: "18%", top: "70%" },
 
     { id: "MC6", nombre: "6", posicion: "MEDIOCENTRO", left: "38%", top: "50%" },
     { id: "MC8", nombre: "8", posicion: "MEDIOCENTRO", left: "62%", top: "50%" },
@@ -47,10 +47,10 @@ export const microFormations: Record<
   "4-3-3": [
     { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
 
-    { id: "LD", nombre: "Lateral D.", posicion: "LATERAL D.", left: "18%", top: "70%" },
+    { id: "LD", nombre: "Lateral D.", posicion: "LATERAL D.", left: "82%", top: "70%" },
     { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "39%", top: "74%" },
     { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "61%", top: "74%" },
-    { id: "LI", nombre: "Lateral I.", posicion: "LATERAL I.", left: "82%", top: "70%" },
+    { id: "LI", nombre: "Lateral I.", posicion: "LATERAL I.", left: "18%", top: "70%" },
 
     { id: "MC6", nombre: "6", posicion: "PIVOTE", left: "50%", top: "56%" },
     { id: "MC8", nombre: "8", posicion: "INTERIOR", left: "38%", top: "40%" },
@@ -68,10 +68,10 @@ export const microFormations: Record<
   "4-2-3-1": [
     { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
 
-    { id: "LD", nombre: "Lateral D.", posicion: "LATERAL D.", left: "18%", top: "70%" },
+    { id: "LD", nombre: "Lateral D.", posicion: "LATERAL D.", left: "82%", top: "70%" },
     { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "39%", top: "74%" },
     { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "61%", top: "74%" },
-    { id: "LI", nombre: "Lateral I.", posicion: "LATERAL I.", left: "82%", top: "70%" },
+    { id: "LI", nombre: "Lateral I.", posicion: "LATERAL I.", left: "18%", top: "70%" },
 
     { id: "MC6", nombre: "6", posicion: "PIVOTE", left: "40%", top: "55%" },
     { id: "MC8", nombre: "8", posicion: "PIVOTE", left: "60%", top: "55%" },

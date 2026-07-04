@@ -99,26 +99,22 @@ const SessionLineupContext =
 const POSITION_MAP: Record<string, string[]> = {
   PORTERO: ["POR"],
 
-  "LATERAL DERECHO": ["LD"],
-  "LATERAL IZQUIERDO": ["LI"],
+  "LATERAL D": ["LD"],
+  "LATERAL I": ["LI"],
 
-  LATERAL: ["LD", "LI"],
+  CENTRAL: ["DFC1", "DFC2"],
 
-  CENTRAL: ["DFC1", "DFC2", "DFC3"],
+  "6": ["MC6"],
 
-  "MEDIOCENTRO DEFENSIVO": ["MC6"],
-  PIVOTE: ["MC6"],
+  "8": ["MC8"],
 
-  MEDIOCENTRO: ["MC8"],
-  INTERIOR: ["MC8", "MC10"],
-  MEDIAPUNTA: ["MC10"],
+  "10": ["MC10"],
 
-  "EXTREMO DERECHO": ["ED"],
-  "EXTREMO IZQUIERDO": ["EI"],
-  EXTREMO: ["EI", "ED"],
+  "7": ["ED"],
 
-  DELANTERO: ["DC1", "DC2"],
-  "SEGUNDO PUNTA": ["DC2"],
+  "11": ["EI"],
+
+  "9": ["DC1", "DC2"],
 };
 
 /*
@@ -127,14 +123,22 @@ const POSITION_MAP: Record<string, string[]> = {
 |--------------------------------------------------------------------------
 */
 
-function findFreePosition(
+function findBestPosition(
   lineup: MicroLineupSlot[],
   options: string[]
 ) {
-  return lineup.find(
-    (slot) =>
+  // Primero intenta una posición vacía
+  const empty = lineup.find(
+    slot =>
       options.includes(slot.positionId) &&
       slot.playerIds.length === 0
+  );
+
+  if (empty) return empty;
+
+  // Si todas están ocupadas devuelve la primera
+  return lineup.find(slot =>
+    options.includes(slot.positionId)
   );
 }
 function normalizePosition(position: string) {
@@ -248,11 +252,10 @@ if (!options) {
   );
   return;
 }
-      const slot =
-        findFreePosition(
-          newLineup,
-          options
-        );
+      const slot = findBestPosition(
+  newLineup,
+  options
+);
 
       if (!slot) return;
 
