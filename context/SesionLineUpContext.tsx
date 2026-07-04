@@ -229,7 +229,7 @@ const [initialized, setInitialized] =
   function initializeFromPlayers(
     players: Player[]
   ) {
-
+    if (initialized) return;
     const newLineup =
       createLineup(formation);
 
@@ -248,9 +248,6 @@ if (!options) {
   );
   return;
 }
-
-      if (!options) return;
-
       const slot =
         findFreePosition(
           newLineup,
