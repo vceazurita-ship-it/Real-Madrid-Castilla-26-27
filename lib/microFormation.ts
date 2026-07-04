@@ -32,7 +32,7 @@ export const microFormations: Record<
     { id: "ED", nombre: "7", posicion: "EXTREMO D.", left: "82%", top: "28%" },
 
     { id: "DC1", nombre: "9", posicion: "DELANTERO", left: "40%", top: "15%" },
-    { id: "DC1", nombre: "9", posicion: "DELANTERO", left: "40%", top: "120%", visible: false },
+    { id: "DC2", nombre: "9", posicion: "DELANTERO", left: "40%", top: "120%", visible: false },
   ],
 
   // ===================================================
