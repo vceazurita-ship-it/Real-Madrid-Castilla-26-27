@@ -1,6 +1,6 @@
 "use client";
 
-import { useLineup } from "@/context/LineupContext";
+import { useSessionLineup } from "@/context/SesionLineUpContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
 import { toPng } from "html-to-image";
@@ -35,7 +35,7 @@ const [rival, setRival] = useState("");
   clearLineup,
   loadedLineupId,
   loadedLineupName,
-} = useLineup();
+} = useSessionLineup();
 
 const { players } = usePlayers();
 async function guardar() {
@@ -67,11 +67,11 @@ async function guardar() {
 
     positionId: slot.positionId,
 
-    playerId: slot.playerId,
+    playerId: slot.playerIds,
 
     jugador:
       players.find(
-        p => p.id === slot.playerId
+        p => p.id === slot.playerIds[0]
       )?.nombre || ""
 
   })),

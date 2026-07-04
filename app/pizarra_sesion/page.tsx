@@ -54,7 +54,7 @@ function handleDragStart(event: DragStartEvent) {
 
   const player = players.find(
     (p) => p.id === id
-  );
+  ); 
 
   setDragPlayer(player ?? null);
 }
