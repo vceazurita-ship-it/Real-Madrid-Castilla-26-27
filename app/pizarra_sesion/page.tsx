@@ -13,18 +13,18 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import SavedLineups from "@/components/Microciclo/SavedLineups";
+import SavedLineups from "@/components/Sesion/SavedLineups";
 
 import FootballPitch from "@/components/Sesion/FootballPitch";
-import FormationToolbar from "@/components/Microciclo/FormationToolbar";
+import FormationToolbar from "@/components/Sesion/FormationToolbar";
 import PlayerSidebar from "@/components/Sesion/PlayerSidebar";
-import TopStats from "@/components/Microciclo/TopStats";
-import { useState } from "react";
+import TopStats from "@/components/Sesion/TopStats";
+import { useEffect, useState } from "react";
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 import {
-  MicroLineupProvider,
-  useMicroLineup,
-} from "@/context/MicroLineupContext";
+  SessionLineupProvider,
+  useSessionLineup,
+} from "@/context/SesionLineUpContext";
 
 function PizarraContent() {
   const {
@@ -32,9 +32,17 @@ function PizarraContent() {
   removePlayer,
   loadLineup,
   loadedLineupName,
-} = useMicroLineup();
-
+  initializeFromPlayers,
+} = useSessionLineup();
 const { players } = useTrainingPlayers();
+
+useEffect(() => {
+
+  if (!players.length) return;
+
+  initializeFromPlayers(players);
+
+}, [players, initializeFromPlayers]);
 
 const [dragPlayer, setDragPlayer] = useState<
   (typeof players)[number] | null
@@ -152,20 +160,16 @@ const sensors = useSensors(
 <div className="mb-3">
 
   <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
-    RMCF CASTILLA · SESIÓN
-  </p>
+  RMCF CASTILLA · EQUIPO TAREAS
+</p>
 
-  <div className="mt-1 flex items-center gap-3">
-
-    <h1 className="text-xl font-semibold xl:text-2xl">
-      Pizarra entrenamiento
-    </h1>
+<h1 className="text-xl font-semibold xl:text-2xl">
+  Equipo Tareas · Sesión
+</h1>
 
     <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
 
   </div>
-
-</div>
 
                {/* ESTADÍSTICAS */}
               
@@ -181,7 +185,7 @@ const sensors = useSensors(
                             {loadedLineupName && (
   <div className="mb-3 rounded-xl border border-[#C8A96B]/20 bg-[#151B23] px-4 py-2">
     <p className="text-xs uppercase tracking-widest text-[#C8A96B]">
-      Alineación cargada
+      Sesión cargada
     </p>
 
     <p className="text-lg font-semibold text-white">
@@ -310,8 +314,8 @@ const sensors = useSensors(
 
 export default function PizarraPage() {
   return (
-    <MicroLineupProvider>
-      <PizarraContent />
-    </MicroLineupProvider>
+<SessionLineupProvider>
+  <PizarraContent />
+</SessionLineupProvider>
   );
 }

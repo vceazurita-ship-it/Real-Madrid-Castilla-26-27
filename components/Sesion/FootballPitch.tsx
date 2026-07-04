@@ -8,8 +8,8 @@ import {
   useState,
 } from "react";
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
-import { useMicroLineup } from "@/context/MicroLineupContext";
-import MicroGroup from "../Microciclo/MicroGroup";
+import { useSessionLineup } from "../../context/SesionLineUpContext";
+import SesionGroup from "../Sesion/SessionGroup";
 import PitchPosition from "../Microciclo/PitchPosition";
 import { microFormations } from "@/lib/microFormation";
 
@@ -22,7 +22,7 @@ const FootballPitch = forwardRef<
   const {
   lineup,
   formation,
-} = useMicroLineup();
+} = useSessionLineup();
 
 const currentFormation =
   microFormations[
@@ -94,7 +94,7 @@ const currentFormation =
       >
         <PitchPosition id={position.id}>
           {groupPlayers.length > 0 ? (
-            <MicroGroup
+            <SesionGroup
               players={groupPlayers}
               positionId={position.id}
               mobile={false}

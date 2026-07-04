@@ -92,7 +92,8 @@ function scrollRight() {
             </h2>
 
             <p className="text-xs uppercase tracking-[0.18em] text-white/45">
-{filteredPlayers.length} jugadores disponibles            </p>
+Pendientes de colocar: {filteredPlayers.length}
+</p>
           </div>
 
           <div

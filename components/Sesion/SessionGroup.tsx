@@ -6,6 +6,7 @@ import SessionFieldPlayer from "./FieldPlayer";
 interface Props {
   players: Player[];
   positionId: string;
+   mobile?: boolean;
 }
 
 export default function SessionGroup({
