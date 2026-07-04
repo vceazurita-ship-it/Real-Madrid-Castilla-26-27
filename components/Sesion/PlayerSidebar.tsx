@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import PlayerToken from "../Microciclo/PlayerToken";
+import PlayerToken from "../Sesion/PlayerToken";
 import { useSessionLineup } from "@/context/SesionLineUpContext";
 import { useDroppable } from "@dnd-kit/core";
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";

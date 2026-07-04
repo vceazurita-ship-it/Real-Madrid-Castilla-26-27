@@ -10,7 +10,7 @@ import {
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 import { useSessionLineup } from "../../context/SesionLineUpContext";
 import SesionGroup from "../Sesion/SessionGroup";
-import PitchPosition from "../Microciclo/PitchPosition";
+import PitchPosition from "../Sesion/PitchPosition";
 import { microFormations } from "@/lib/microFormation";
 
 const FootballPitch = forwardRef<
