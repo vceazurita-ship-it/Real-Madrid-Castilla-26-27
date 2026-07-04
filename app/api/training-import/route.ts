@@ -345,6 +345,9 @@ const pendingPlayers = [
   console.error(error);
   console.error(error?.stack);
   console.error(error?.cause);
+  console.log("APPS_SCRIPT_URL =", process.env.APPS_SCRIPT_URL);
+console.log("GEMINI =", !!process.env.GEMINI_API_KEY);
+
 
   return Response.json(
     {
