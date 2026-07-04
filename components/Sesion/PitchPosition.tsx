@@ -13,7 +13,7 @@ export default function PitchPosition({
   id,
   children,
 }: Props) {
-  const {
+  const {   
     setNodeRef,
     isOver,
   } = useDroppable({
