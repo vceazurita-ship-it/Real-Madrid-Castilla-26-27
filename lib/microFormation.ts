@@ -26,19 +26,12 @@ export const microFormations: Record<
 
     { id: "MC6", nombre: "6", posicion: "MEDIOCENTRO", left: "38%", top: "50%" },
     { id: "MC8", nombre: "8", posicion: "MEDIOCENTRO", left: "62%", top: "50%" },
-    { id: "MC10", nombre: "", posicion: "", left: "50%", top: "120%",visible: false },
+    { id: "MC10", nombre: "10", posicion: "MEDIA PUNTA", left: "15%", top: "60%", },
 
     { id: "EI", nombre: "11", posicion: "EXTREMO I.", left: "18%", top: "28%" },
     { id: "ED", nombre: "7", posicion: "EXTREMO D.", left: "82%", top: "28%" },
 
     { id: "DC1", nombre: "9", posicion: "DELANTERO", left: "40%", top: "15%" },
-    {
-  id: "DC2",
-  nombre: "10",
-  posicion: "DELANTERO",
-  left: "60%",
-  top: "15%",
-},
   ],
 
   // ===================================================
