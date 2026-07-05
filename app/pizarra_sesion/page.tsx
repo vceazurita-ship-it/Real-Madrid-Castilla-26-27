@@ -92,6 +92,10 @@ async function handleLoadLineup(id: number) {
     console.log(data);
 console.log(data.formacion);
 console.log(data.alineacion);
+console.log("DATA COMPLETA", data);
+console.log("FORMACION:", data.formacion);
+console.log("TIPO:", typeof data.formacion);
+console.log("ALINEACION:", data.alineacion);
 
     if (!data.success) {
       alert("No se pudo cargar la alineación");
