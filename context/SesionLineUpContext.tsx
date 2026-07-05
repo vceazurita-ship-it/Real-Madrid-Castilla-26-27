@@ -101,14 +101,12 @@ export function SessionLineupProvider({
   const [playersPerTeam, setPlayersPerTeam] =
   useState<5 | 6 | 7 | 8 | 9 | 10 | 11>(11);
 
- function changePlayersPerTeam(
+function changePlayersPerTeam(
   value: 5 | 6 | 7 | 8 | 9 | 10 | 11
 ) {
   if (value === playersPerTeam) return;
 
   setPlayersPerTeam(value);
-
-  setInitialized(false);
 
   setLoadedLineupId(null);
   setLoadedLineupName(null);
@@ -125,8 +123,7 @@ export function SessionLineupProvider({
     setLoadedLineupId,
   ] = useState<number | null>(null);
 
-const [initialized, setInitialized] =
-  useState(false);
+
  const [lineup, setLineup] =
   useState<MicroLineupSlot[]>(() => {
     if (typeof window === "undefined") {
@@ -155,13 +152,13 @@ const [initialized, setInitialized] =
 
   }, [lineup]);
 
+
     //--------------------------------------------------
   // Inicializar sesión automáticamente
   //--------------------------------------------------
 
 function initializeFromPlayers(players: Player[]) {
-  if (initialized) return;
-
+ 
   // Estados que SÍ pueden aparecer en el campo
   const availablePlayers = players.filter((player) =>
     [
@@ -263,9 +260,7 @@ function initializeFromPlayers(players: Player[]) {
   }
 
   setLineup(newLineup);
-  setLoadedLineupId(null);
-  setLoadedLineupName(null);
-  setInitialized(true);
+  
 }
     //--------------------------------------------------
   // Añadir jugador
@@ -330,15 +325,10 @@ function initializeFromPlayers(players: Player[]) {
   //--------------------------------------------------
 
   function clearLineup() {
-
-    setLineup(createLineup(playersPerTeam));
-
-    setLoadedLineupId(null);
-    setLoadedLineupName(null);
-    setInitialized(false);
-    setSelectedPlayer(null);
-
-  }
+  setLoadedLineupId(null);
+  setLoadedLineupName(null);
+  setSelectedPlayer(null);
+}
 
   //--------------------------------------------------
   // Cargar sesión guardada
@@ -357,7 +347,6 @@ function loadLineup(
 
   setLoadedLineupId(id);
   setLoadedLineupName(name);
-  setInitialized(true);
 
   setPlayersPerTeam(newPlayersPerTeam);
   setLineup(normalized);

@@ -17,11 +17,13 @@ const FootballPitch = forwardRef<
 >(function FootballPitch(_, ref) {
   const { allPlayers } = useTrainingPlayers();
 
-  const {
+const {
   lineup,
   playersPerTeam,
+  loadedLineupId,
   initializeFromPlayers,
 } = useSessionLineup();
+
 
   const layout = layouts[playersPerTeam];
 
@@ -30,10 +32,18 @@ const FootballPitch = forwardRef<
     ...layout.red,
   ];
   useEffect(() => {
-  if (allPlayers.length) {
-    initializeFromPlayers(allPlayers);
-  }
-}, [allPlayers, playersPerTeam]);
+  // Si hay una sesión cargada no la tocamos
+  if (loadedLineupId !== null) return;
+
+  if (allPlayers.length === 0) return;
+
+  initializeFromPlayers(allPlayers);
+}, [
+  allPlayers,
+  playersPerTeam,
+  loadedLineupId,
+  initializeFromPlayers,
+]);
 
   return (
     <div
