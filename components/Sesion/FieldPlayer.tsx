@@ -9,7 +9,9 @@ interface Props {
   id: string;
   positionId: string;
   nombre: string;
-  estado?: EstadoJugador;
+  estado: EstadoJugador;
+  badgeClass: string;
+  keeperClass: string;
 }
 
 export default function SessionFieldPlayer({
@@ -17,6 +19,8 @@ export default function SessionFieldPlayer({
   positionId,
   nombre,
   estado = "ÓPTIMO",
+  badgeClass,
+  keeperClass,
 }: Props) {
   const {
     attributes,
@@ -89,27 +93,27 @@ export default function SessionFieldPlayer({
       >
         <div
           className={`
-            min-w-[92px]
-            rounded-xl
-            border-2
-            ${borderColor()}
-            bg-black/75
-            px-3
-            py-2
+  min-w-[92px]
+  rounded-xl
+  border-2
+  ${borderColor()}
+  ${badgeClass}
 
-            text-center
-            text-[11px]
-            font-semibold
-            text-white
+  px-3
+  py-2
 
-            backdrop-blur-md
-            shadow-lg
+  text-center
+  text-[11px]
+  font-semibold
 
-            transition-all
-            duration-200
+  backdrop-blur-md
+  shadow-lg
 
-            hover:scale-105
-          `}
+  transition-all
+  duration-200
+
+  hover:scale-105
+`}
         >
           {nombre}
         </div>
