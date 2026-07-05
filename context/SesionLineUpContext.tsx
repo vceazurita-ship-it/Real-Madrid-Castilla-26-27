@@ -162,33 +162,44 @@ const [initialized, setInitialized] =
 function initializeFromPlayers(players: Player[]) {
   if (initialized) return;
 
+  // Estados que SÍ pueden aparecer en el campo
+  const availablePlayers = players.filter((player) =>
+    [
+      "ÓPTIMO",
+      "CONTROL DE CARGA",
+      "TOCADO",
+      "REINCORPORACIÓN",
+      "SANCIONADO",
+    ].includes(player.estado)
+  );
+
   const newLineup = createLineup(playersPerTeam);
 
-  const goalkeepers = players.filter((p) =>
+  const goalkeepers = availablePlayers.filter((p) =>
     ["POR", "GK", "PORTERO"].includes(
       p.posicion.toUpperCase()
     )
   );
 
-  const defenders = players.filter((p) =>
+  const defenders = availablePlayers.filter((p) =>
     ["DFC", "LD", "LI", "DEF"].some((x) =>
       p.posicion.toUpperCase().includes(x)
     )
   );
 
-  const midfielders = players.filter((p) =>
+  const midfielders = availablePlayers.filter((p) =>
     ["MCD", "MC", "MCO", "MI", "MD", "MED"].some((x) =>
       p.posicion.toUpperCase().includes(x)
     )
   );
 
-  const forwards = players.filter((p) =>
-    ["DC", "EI", "ED", "SD", "EXT", "DEL"].some((x) =>
+  const forwards = availablePlayers.filter((p) =>
+    ["DC", "SD", "EI", "ED", "DEL", "EXT"].some((x) =>
       p.posicion.toUpperCase().includes(x)
     )
   );
 
-  const remaining = players.filter(
+  const remaining = availablePlayers.filter(
     (p) =>
       !goalkeepers.includes(p) &&
       !defenders.includes(p) &&
@@ -200,6 +211,8 @@ function initializeFromPlayers(players: Player[]) {
     ids: string[],
     list: Player[]
   ) => {
+    if (!ids.length) return;
+
     list.forEach((player, index) => {
       const slot = ids[index % ids.length];
 
@@ -250,10 +263,8 @@ function initializeFromPlayers(players: Player[]) {
   }
 
   setLineup(newLineup);
-
   setLoadedLineupId(null);
   setLoadedLineupName(null);
-
   setInitialized(true);
 }
     //--------------------------------------------------
