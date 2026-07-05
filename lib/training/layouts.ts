@@ -12,161 +12,263 @@ export interface TeamLayout {
   red: LayoutPosition[];
 }
 
-type Row = {
-  top: number;
-  cols: number[];
-};
-
-const lineNames = ["GK", "DEF", "MID", "ATT"];
-
-function createBlue(rows: Row[]): LayoutPosition[] {
-  const positions: LayoutPosition[] = [];
-
-  rows.forEach((row, rowIndex) => {
-    const line = lineNames[rowIndex];
-
-    row.cols.forEach((left, colIndex) => {
-      let id = `B_${line}`;
-
-      if (line !== "GK") id += `_${colIndex + 1}`;
-
-      positions.push({
-        id,
-        left: `${left}%`,
-        top: `${row.top}%`,
-      });
-    });
-  });
-
-  return positions;
-}
-
-function createRed(rows: Row[]): LayoutPosition[] {
-  const positions: LayoutPosition[] = [];
-
-  rows.forEach((row, rowIndex) => {
-    const line = lineNames[rowIndex];
-
-    row.cols.forEach((left, colIndex) => {
-      let id = `R_${line}`;
-
-      if (line !== "GK") id += `_${colIndex + 1}`;
-
-      // espejo con separación extra
-      let top = 100 - row.top;
-
-      switch (line) {
-        case "GK":
-          top = 100 - row.top;
-          break;
-
-        case "DEF":
-          top = 100 - row.top + 4;
-          break;
-
-        case "MID":
-          top = 100 - row.top + 8;
-          break;
-
-        case "ATT":
-          top = 100 - row.top + 12;
-          break;
-      }
-
-      positions.push({
-        id,
-        left: `${left}%`,
-        top: `${top}%`,
-      });
-    });
-  });
-
-  return positions;
-}
-
-function createLayout(rows: Row[]): TeamLayout {
-  return {
-    blue: createBlue(rows),
-    red: createRed(rows),
-  };
+function createTeam(
+  prefix: "B" | "R",
+  positions: Array<{
+    id: string;
+    left: number;
+    top: number;
+  }>
+): LayoutPosition[] {
+  return positions.map((p) => ({
+    id: `${prefix}_${p.id}`,
+    left: `${p.left}%`,
+    top: `${p.top}%`,
+  }));
 }
 
 export const layouts: Record<
- 5 | 6 | 7 | 8 | 9 | 10 | 11,
- TeamLayout
+  5 | 6 | 7 | 8 | 9 | 10 | 11,
+  TeamLayout
 > = {
 
-  // ==================================================
+  // =====================================================
   // 5 vs 5
-  // GK + 2 DEF + 1 MID + 1 ATT
-  // ==================================================
-  5: createLayout([
-    { top: 90, cols: [50] },      // GK
-    { top: 72, cols: [32, 68] },  // DEF
-    { top: 60, cols: [50] },      // MID (más abajo)
-    { top: 42, cols: [50] },      // ATT (por delante del medio)
+  // =====================================================
+5: {
+  blue: createTeam("B", [
+    { id: "GK", left: 50, top: 91 },
+
+    { id: "DEF_1", left: 34, top: 75 },
+    { id: "DEF_2", left: 66, top: 75 },
+
+    { id: "MID_1", left: 50, top: 66 },
+
+    { id: "ATT_1", left: 50, top: 53 },
   ]),
 
-  // ==================================================
+  red: createTeam("R", [
+    { id: "GK", left: 50, top: 9 },
+
+    { id: "DEF_1", left: 34, top: 25 },
+    { id: "DEF_2", left: 66, top: 25 },
+
+    { id: "MID_1", left: 50, top: 34 },
+
+    { id: "ATT_1", left: 50, top: 46 },
+  ]),
+},
+
+  // =====================================================
   // 6 vs 6
-  // GK + 2 DEF + 2 MID + 1 ATT
-  // ==================================================
-  6: createLayout([
-    { top: 90, cols: [50] },
-    { top: 72, cols: [32, 68] },
-    { top: 54, cols: [32, 68] },
-    { top: 54, cols: [50] },      // delantero a la altura de los medios
-  ]),
+  // =====================================================
+  6: {
+    blue: createTeam("B", [
+      { id: "GK", left: 50, top: 91 },
 
-  // ==================================================
+      { id: "DEF_1", left: 34, top: 80 },
+      { id: "DEF_2", left: 66, top: 80 },
+
+      { id: "MID_1", left: 34, top: 61 },
+      { id: "MID_2", left: 66, top: 61 },
+
+      { id: "ATT_1", left: 50, top: 58 },
+    ]),
+
+    red: createTeam("R", [
+      { id: "GK", left: 50, top: 9 },
+
+      { id: "DEF_1", left: 34, top: 20 },
+      { id: "DEF_2", left: 66, top: 20 },
+
+      { id: "MID_1", left: 34, top: 39 },
+      { id: "MID_2", left: 66, top: 39 },
+
+      { id: "ATT_1", left: 50, top: 42 },
+    ]),
+  },
+
+  // =====================================================
   // 7 vs 7
-  // GK + 2 DEF + 3 MID + 1 ATT
-  // ==================================================
-  7: createLayout([
-    { top: 90, cols: [50] },
-    { top: 72, cols: [30, 70] },
-    { top: 54, cols: [20, 50, 80] },
-    { top: 72, cols: [50] },      // misma altura que la línea defensiva
-  ]),
+  // =====================================================
+  7: {
+    blue: createTeam("B", [
+      { id: "GK", left: 50, top: 91 },
 
-  // ==================================================
+      { id: "DEF_1", left: 34, top: 75 },
+      { id: "DEF_2", left: 66, top: 75 },
+
+      { id: "MID_1", left: 22, top: 60 },
+      { id: "MID_2", left: 50, top: 70 },
+      { id: "MID_3", left: 78, top: 60 },
+
+      { id: "ATT_1", left: 50, top: 55 },
+    ]),
+
+    red: createTeam("R", [
+      { id: "GK", left: 50, top: 9 },
+
+      { id: "DEF_1", left: 34, top: 25 },
+      { id: "DEF_2", left: 66, top: 25 },
+
+      { id: "MID_1", left: 22, top: 44 },
+      { id: "MID_2", left: 50, top: 30 },
+      { id: "MID_3", left: 78, top: 44 },
+
+      { id: "ATT_1", left: 50, top: 46 },
+    ]),
+  },
+
+    // =====================================================
   // 8 vs 8
-  // GK + 2 DEF + 3 MID + 2 ATT
-  // ==================================================
-  8: createLayout([
-    { top: 60, cols: [50] },          // DEF (intercambiado)
-    { top: 72, cols: [28, 72] },      // DEF real
-    { top: 46, cols: [18, 50, 82] },  // MID
-    { top: 82, cols: [32, 68] },      // ATT (intercambiado)
-  ]),
+  // =====================================================
+  8: {
+    blue: createTeam("B", [
+      { id: "GK", left: 50, top: 91 },
 
-  // ==================================================
+      { id: "DEF_1", left: 34, top: 82 },
+      { id: "DEF_2", left: 66, top: 82 },
+
+      { id: "MID_1", left: 22, top: 65 },
+      { id: "MID_2", left: 50, top: 65 },
+      { id: "MID_3", left: 78, top: 65 },
+
+      { id: "ATT_1", left: 38, top: 58 },
+      { id: "ATT_2", left: 62, top: 58 },
+    ]),
+
+    red: createTeam("R", [
+      { id: "GK", left: 50, top: 9 },
+
+      { id: "DEF_1", left: 34, top: 20 },
+      { id: "DEF_2", left: 66, top: 20 },
+
+      { id: "MID_1", left: 22, top: 35 },
+      { id: "MID_2", left: 50, top: 35 },
+      { id: "MID_3", left: 78, top: 35 },
+
+      { id: "ATT_1", left: 38, top: 48 },
+      { id: "ATT_2", left: 62, top: 48 },
+    ]),
+  },
+
+  // =====================================================
   // 9 vs 9
-  // ==================================================
-  9: createLayout([
-    { top: 90, cols: [50] },
-    { top: 72, cols: [15, 50, 85] },
-    { top: 52, cols: [22, 50, 78] },
-    { top: 34, cols: [32, 68] },
-  ]),
+  // =====================================================
+  9: {
+    blue: createTeam("B", [
+      { id: "GK", left: 50, top: 91 },
 
-  // ==================================================
+      { id: "DEF_1", left: 18, top: 82 },
+      { id: "DEF_2", left: 50, top: 82 },
+      { id: "DEF_3", left: 82, top: 82 },
+
+      { id: "MID_1", left: 24, top: 70 },
+      { id: "MID_2", left: 50, top: 70 },
+      { id: "MID_3", left: 76, top: 70 },
+
+      { id: "ATT_1", left: 38, top: 58 },
+      { id: "ATT_2", left: 62, top: 58 },
+    ]),
+
+    red: createTeam("R", [
+      { id: "GK", left: 50, top: 9 },
+
+      { id: "DEF_1", left: 18, top: 18 },
+      { id: "DEF_2", left: 50, top: 18 },
+      { id: "DEF_3", left: 82, top: 18 },
+
+      { id: "MID_1", left: 24, top: 30 },
+      { id: "MID_2", left: 50, top: 30 },
+      { id: "MID_3", left: 76, top: 30 },
+
+      { id: "ATT_1", left: 38, top: 42 },
+      { id: "ATT_2", left: 62, top: 42 },
+    ]),
+  },
+
+  // =====================================================
   // 10 vs 10
-  // ==================================================
-  10: createLayout([
-    { top: 90, cols: [50] },
-    { top: 72, cols: [12, 36, 64, 88] },
-    { top: 56, cols: [22, 50, 78] },   // medios
-    { top: 34, cols: [32, 68] },       // puntas bastante adelantados
-  ]),
+  // =====================================================
+  10: {
+    blue: createTeam("B", [
+      { id: "GK", left: 50, top: 91 },
 
-  // ==================================================
+      { id: "DEF_1", left: 14, top: 82 },
+      { id: "DEF_2", left: 38, top: 82 },
+      { id: "DEF_3", left: 62, top: 82 },
+      { id: "DEF_4", left: 86, top: 82 },
+
+      { id: "MID_1", left: 25, top: 70 },
+      { id: "MID_2", left: 50, top: 70 },
+      { id: "MID_3", left: 75, top: 70 },
+
+      { id: "ATT_1", left: 38, top: 58 },
+      { id: "ATT_2", left: 62, top: 58 },
+    ]),
+
+    red: createTeam("R", [
+      { id: "GK", left: 50, top: 9 },
+
+      { id: "DEF_1", left: 14, top: 18 },
+      { id: "DEF_2", left: 38, top: 18 },
+      { id: "DEF_3", left: 62, top: 18 },
+      { id: "DEF_4", left: 86, top: 18 },
+
+      { id: "MID_1", left: 25, top: 30 },
+      { id: "MID_2", left: 50, top: 30 },
+      { id: "MID_3", left: 75, top: 30 },
+
+      { id: "ATT_1", left: 38, top: 42 },
+      { id: "ATT_2", left: 62, top: 42 },
+    ]),
+  },
+
+   // =====================================================
   // 11 vs 11
-  // ==================================================
-  11: createLayout([
-    { top: 90, cols: [50] },
-    { top: 72, cols: [12, 36, 64, 88] },
-    { top: 56, cols: [20, 50, 80] },   // medios
-    { top: 30, cols: [12, 50, 88] },   // tres delanteros claramente separados
-  ]),
-};
+  // =====================================================
+  11: {
+    blue: createTeam("B", [
+      // Portero
+      { id: "GK", left: 50, top: 91 },
+
+      // Línea defensiva
+      { id: "DEF_1", left: 14, top: 82 },
+      { id: "DEF_2", left: 38, top: 82 },
+      { id: "DEF_3", left: 62, top: 82 },
+      { id: "DEF_4", left: 86, top: 82 },
+
+      // Centro del campo
+      { id: "MID_1", left: 24, top: 70 },
+      { id: "MID_2", left: 50, top: 70 },
+      { id: "MID_3", left: 76, top: 70 },
+
+      // Delantera
+      { id: "ATT_1", left: 20, top: 58 },
+      { id: "ATT_2", left: 50, top: 58 },
+      { id: "ATT_3", left: 80, top: 58 },
+    ]),
+
+    red: createTeam("R", [
+      // Portero
+      { id: "GK", left: 50, top: 9 },
+
+      // Línea defensiva
+      { id: "DEF_1", left: 14, top: 18 },
+      { id: "DEF_2", left: 38, top: 18 },
+      { id: "DEF_3", left: 62, top: 18 },
+      { id: "DEF_4", left: 86, top: 18 },
+
+      // Centro del campo
+      { id: "MID_1", left: 24, top: 30 },
+      { id: "MID_2", left: 50, top: 30 },
+      { id: "MID_3", left: 76, top: 30 },
+
+      // Delantera
+      { id: "ATT_1", left: 20, top: 42 },
+      { id: "ATT_2", left: 50, top: 42 },
+      { id: "ATT_3", left: 80, top: 42 },
+    ]),
+  },
+
+}; 
