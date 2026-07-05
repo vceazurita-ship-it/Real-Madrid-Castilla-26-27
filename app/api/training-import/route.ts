@@ -255,27 +255,42 @@ console.log({
     //--------------------------------------------------------
 
     const estados: Record<string, string> = {};
+    // Todos los jugadores que NO pertenecen a la plantilla activa
+// comienzan como NO CONVOCADO.
+jugadores.forEach((j: any) => {
+  if (String(j.ACTIVO).toUpperCase() === "FALSE") {
+    estados[j.ID_JUGADOR] = "NO CONVOCADO";
+  }
+});
 
     const asignarEstado = (
-      lista: {
-        official: string | null;
-      }[],
-      estado: string
-    ) => {
-      lista.forEach((p) => {
-        if (!p.official) return;
+  lista: {
+    official: string | null;
+  }[],
+  estado: string
+) => {
+  lista.forEach((p) => {
+    if (!p.official) return;
 
-        const jugador = jugadores.find(
-          (j: any) =>
-            j.NOMBRE === p.official ||
-            j.APODO === p.official
-        );
+    const jugador = jugadores.find(
+      (j: any) =>
+        j.NOMBRE === p.official ||
+        j.APODO === p.official
+    );
 
-        if (!jugador) return;
+    if (!jugador) return;
 
-        estados[jugador.ID_JUGADOR] = estado;
-      });
-    };
+    const activo =
+      String(jugador.ACTIVO).toUpperCase() === "TRUE";
+
+    // Si NO pertenece a la plantilla activa,
+    // cualquier aparición en la imagen significa
+    // que va a entrenaar en -> ÓPTIMO.
+    estados[jugador.ID_JUGADOR] = activo
+      ? estado
+      : "ÓPTIMO";
+  });
+};
 
     const ESTADOS = {
   available: "ÓPTIMO",
