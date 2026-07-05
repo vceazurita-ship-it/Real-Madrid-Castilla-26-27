@@ -36,14 +36,6 @@ function PizarraContent() {
 } = useSessionLineup();
 const { players } = useTrainingPlayers();
 
-useEffect(() => {
-
-  if (!players.length) return;
-
-  initializeFromPlayers(players);
-
-}, [players, initializeFromPlayers]);
-
 const [dragPlayer, setDragPlayer] = useState<
   (typeof players)[number] | null
 >(null);

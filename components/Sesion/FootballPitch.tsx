@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { forwardRef, useEffect } from "react";
+import { forwardRef } from "react";
 
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 import { useSessionLineup } from "../../context/SesionLineUpContext";
@@ -20,8 +20,6 @@ const FootballPitch = forwardRef<
 const {
   lineup,
   playersPerTeam,
-  loadedLineupId,
-  initializeFromPlayers,
 } = useSessionLineup();
 
 
@@ -31,20 +29,6 @@ const {
     ...layout.blue,
     ...layout.red,
   ];
-  useEffect(() => {
-  // Si hay una sesión cargada no la tocamos
-  if (loadedLineupId !== null) return;
-
-  if (allPlayers.length === 0) return;
-
-  initializeFromPlayers(allPlayers);
-}, [
-  allPlayers,
-  playersPerTeam,
-  loadedLineupId,
-  initializeFromPlayers,
-]);
-
   return (
     <div
       id="football-pitch"
