@@ -14,6 +14,14 @@ import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 export default function PlayerSidebar() {
   const { players } = useTrainingPlayers();
 const { lineup } = useSessionLineup();
+console.log(
+  "ESTADOS JUGADORES",
+  players.map((p) => ({
+    nombre: p.nombre,
+    estado: p.estado,
+    activo: p.activo,
+  }))
+);
   const [search, setSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { setNodeRef, isOver } = useDroppable({
