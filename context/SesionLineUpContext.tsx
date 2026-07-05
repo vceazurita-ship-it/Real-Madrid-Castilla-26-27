@@ -107,13 +107,88 @@ function changePlayersPerTeam(
 ) {
   if (value === playersPerTeam) return;
 
+  setLineup((current) => {
+    const layout = layouts[value];
+
+    const newLineup: MicroLineupSlot[] = [
+      ...layout.blue,
+      ...layout.red,
+    ].map((position) => ({
+      positionId: position.id,
+      playerIds: [],
+    }));
+
+    const getCategory = (id: string) => {
+      if (id.includes("_GK")) return "GK";
+      if (id.includes("_DEF")) return "DEF";
+      if (id.includes("_MID")) return "MID";
+      if (id.includes("_ATT")) return "ATT";
+      return "";
+    };
+
+    const getTeam = (id: string) =>
+      id.startsWith("B_") ? "B_" : "R_";
+
+    // 1. Mantener los jugadores cuya posición sigue existiendo
+    const orphanPlayers: {
+      playerIds: string[];
+      team: string;
+      category: string;
+    }[] = [];
+
+    current.forEach((slot) => {
+      const target = newLineup.find(
+        (s) => s.positionId === slot.positionId
+      );
+
+      if (target) {
+        target.playerIds.push(...slot.playerIds);
+      } else if (slot.playerIds.length) {
+        orphanPlayers.push({
+          playerIds: slot.playerIds,
+          team: getTeam(slot.positionId),
+          category: getCategory(slot.positionId),
+        });
+      }
+    });
+
+    // 2. Reubicar los jugadores de posiciones eliminadas
+    orphanPlayers.forEach((group) => {
+      group.playerIds.forEach((playerId) => {
+        let candidates = newLineup.filter(
+          (slot) =>
+            getTeam(slot.positionId) === group.team &&
+            getCategory(slot.positionId) === group.category
+        );
+
+        if (!candidates.length) {
+          candidates = newLineup.filter(
+            (slot) =>
+              getTeam(slot.positionId) === group.team
+          );
+        }
+
+        if (!candidates.length) {
+          candidates = newLineup;
+        }
+
+        const target = candidates.reduce((a, b) =>
+          a.playerIds.length <= b.playerIds.length ? a : b
+        );
+
+        target.playerIds.push(playerId);
+      });
+    });
+
+    return newLineup;
+  });
+
   setPlayersPerTeam(value);
 
   setLoadedLineupId(null);
   setLoadedLineupName(null);
   setSelectedPlayer(null);
 }
-
   const [
     loadedLineupName,
     setLoadedLineupName,
