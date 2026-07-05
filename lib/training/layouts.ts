@@ -17,29 +17,66 @@ type Row = {
   cols: number[];
 };
 
-function createTeam(
-  prefix: "B" | "R",
-  rows: Row[],
-  mirror = false
-): LayoutPosition[] {
-  const positions: LayoutPosition[] = [];
+const lineNames = ["GK", "DEF", "MID", "ATT"];
 
-  const lineNames = ["GK", "DEF", "MID", "ATT"];
+function createBlue(rows: Row[]): LayoutPosition[] {
+  const positions: LayoutPosition[] = [];
 
   rows.forEach((row, rowIndex) => {
     const line = lineNames[rowIndex];
 
     row.cols.forEach((left, colIndex) => {
-      let id = `${prefix}_${line}`;
+      let id = `B_${line}`;
 
-      if (line !== "GK") {
-        id += `_${colIndex + 1}`;
+      if (line !== "GK") id += `_${colIndex + 1}`;
+
+      positions.push({
+        id,
+        left: `${left}%`,
+        top: `${row.top}%`,
+      });
+    });
+  });
+
+  return positions;
+}
+
+function createRed(rows: Row[]): LayoutPosition[] {
+  const positions: LayoutPosition[] = [];
+
+  rows.forEach((row, rowIndex) => {
+    const line = lineNames[rowIndex];
+
+    row.cols.forEach((left, colIndex) => {
+      let id = `R_${line}`;
+
+      if (line !== "GK") id += `_${colIndex + 1}`;
+
+      // espejo con separación extra
+      let top = 100 - row.top;
+
+      switch (line) {
+        case "GK":
+          top = 100 - row.top;
+          break;
+
+        case "DEF":
+          top = 100 - row.top + 4;
+          break;
+
+        case "MID":
+          top = 100 - row.top + 8;
+          break;
+
+        case "ATT":
+          top = 100 - row.top + 12;
+          break;
       }
 
       positions.push({
         id,
         left: `${left}%`,
-        top: `${mirror ? 100 - row.top : row.top}%`,
+        top: `${top}%`,
       });
     });
   });
@@ -49,8 +86,8 @@ function createTeam(
 
 function createLayout(rows: Row[]): TeamLayout {
   return {
-    blue: createTeam("B", rows),
-    red: createTeam("R", rows, true),
+    blue: createBlue(rows),
+    red: createRed(rows),
   };
 }
 
@@ -58,76 +95,59 @@ export const layouts: Record<
   5 | 6 | 7 | 8 | 9 | 10 | 11,
   TeamLayout
 > = {
-  // ==================================================
-  // 5 vs 5
-  // ==================================================
+  // 5v5
   5: createLayout([
-    { top: 92, cols: [50] },
-    { top: 74, cols: [34, 66] },
-    { top: 58, cols: [50] },
-    { top: 18, cols: [50] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [32, 68] },
+    { top: 54, cols: [50] },
+    { top: 30, cols: [50] },
   ]),
 
-  // ==================================================
-  // 6 vs 6
-  // ==================================================
+  // 6v6
   6: createLayout([
-    { top: 92, cols: [50] },
-    { top: 74, cols: [34, 66] },
-    { top: 58, cols: [34, 66] },
-    { top: 18, cols: [50] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [32, 68] },
+    { top: 54, cols: [32, 68] },
+    { top: 28, cols: [50] },
   ]),
 
-  // ==================================================
-  // 7 vs 7
-  // ==================================================
+  // 7v7
   7: createLayout([
-    { top: 92, cols: [50] },
-    { top: 74, cols: [34, 66] },
-    { top: 58, cols: [24, 50, 76] },
-    { top: 18, cols: [50] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [30, 70] },
+    { top: 54, cols: [20, 50, 80] },
+    { top: 26, cols: [50] },
   ]),
 
-  // ==================================================
-  // 8 vs 8
-  // Mucho más separados en el centro
-  // ==================================================
+  // 8v8
   8: createLayout([
-    { top: 92, cols: [50] },
-    { top: 76, cols: [34, 66] },
-    { top: 60, cols: [24, 50, 76] },
-    { top: 14, cols: [34, 66] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [28, 72] },
+    { top: 54, cols: [18, 50, 82] },
+    { top: 22, cols: [32, 68] },
   ]),
 
-  // ==================================================
-  // 9 vs 9
-  // ==================================================
+  // 9v9
   9: createLayout([
-    { top: 92, cols: [50] },
-    { top: 77, cols: [18, 50, 82] },
-    { top: 61, cols: [24, 50, 76] },
-    { top: 13, cols: [34, 66] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [15, 50, 85] },
+    { top: 54, cols: [22, 50, 78] },
+    { top: 20, cols: [32, 68] },
   ]),
 
-  // ==================================================
-  // 10 vs 10
-  // Aquí era donde más se solapaban
-  // ==================================================
+  // 10v10
   10: createLayout([
-    { top: 92, cols: [50] },
-    { top: 78, cols: [14, 38, 62, 86] },
-    { top: 62, cols: [28, 50, 72] },
-    { top: 12, cols: [34, 66] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [12, 36, 64, 88] },
+    { top: 52, cols: [22, 50, 78] },
+    { top: 18, cols: [32, 68] },
   ]),
 
-  // ==================================================
-  // 11 vs 11
-  // Más parecido a un campo real
-  // ==================================================
+  // 11v11
   11: createLayout([
-    { top: 92, cols: [50] },
-    { top: 79, cols: [14, 38, 62, 86] },
-    { top: 63, cols: [28, 50, 72] },
-    { top: 11, cols: [20, 50, 80] },
+    { top: 90, cols: [50] },
+    { top: 72, cols: [12, 36, 64, 88] },
+    { top: 52, cols: [20, 50, 80] },
+    { top: 16, cols: [12, 50, 88] },
   ]),
 };
