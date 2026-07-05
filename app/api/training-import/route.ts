@@ -264,33 +264,25 @@ jugadores.forEach((j: any) => {
 });
 
     const asignarEstado = (
-  lista: {
-    official: string | null;
-  }[],
-  estado: string
-) => {
-  lista.forEach((p) => {
-    if (!p.official) return;
+      lista: {
+        official: string | null;
+      }[],
+      estado: string
+    ) => {
+      lista.forEach((p) => {
+        if (!p.official) return;
 
-    const jugador = jugadores.find(
-      (j: any) =>
-        j.NOMBRE === p.official ||
-        j.APODO === p.official
-    );
+        const jugador = jugadores.find(
+          (j: any) =>
+            j.NOMBRE === p.official ||
+            j.APODO === p.official
+        );
 
-    if (!jugador) return;
+        if (!jugador) return;
 
-    const activo =
-      String(jugador.ACTIVO).toUpperCase() === "TRUE";
-
-    // Si NO pertenece a la plantilla activa,
-    // cualquier aparición en la imagen significa
-    // que va a entrenaar en -> ÓPTIMO.
-    estados[jugador.ID_JUGADOR] = activo
-      ? estado
-      : "ÓPTIMO";
-  });
-};
+        estados[jugador.ID_JUGADOR] = estado;
+      });
+    };
 
     const ESTADOS = {
   available: "ÓPTIMO",
