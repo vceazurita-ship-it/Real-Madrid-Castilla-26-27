@@ -121,24 +121,6 @@ function StatCard({
       >
         {label}
       </div>
-
-      {label === "No Castilla" && (
-        <div
-          className={`
-            mt-1
-            text-[9px]
-            uppercase
-            tracking-widest
-            ${
-              danger
-                ? "font-semibold text-red-300"
-                : "text-white/35"
-            }
-          `}
-        >
-          Máx. 4
-        </div>
-      )}
     </div>
   );
 }
@@ -146,25 +128,25 @@ function StatCard({
 export default function TopStats() {
   const { players } = useTrainingPlayers();
 
-  const disponibles = players.filter(
-    (p) => p.estado === "DISPONIBLE"
-  ).length;
+ const optimos = players.filter(
+  (p) => p.estado === "ÓPTIMO"
+).length;
 
-  const lesionados = players.filter(
-    (p) => p.estado === "LESIONADO"
-  ).length;
+const controlCarga = players.filter(
+  (p) => p.estado === "CONTROL DE CARGA"
+).length;
 
-  const seleccion = players.filter(
-    (p) => p.estado === "SELECCIÓN"
-  ).length;
+const reincorporacion = players.filter(
+  (p) => p.estado === "REINCORPORACIÓN"
+).length;
 
-  const primerEquipo = players.filter(
-    (p) => p.estado === "PRIMER EQUIPO"
-  ).length;
+const tocados = players.filter(
+  (p) => p.estado === "TOCADO"
+).length;
 
-  const noCastilla = players.filter(
-    (p) => p.licencia !== "RMCF Castilla"
-  ).length;
+const noDisponibles = players.filter(
+  (p) => p.estado === "SANCIONADO"
+).length;
 
   return (
     <div
@@ -192,8 +174,8 @@ export default function TopStats() {
         icon={
           <Shield className="h-6 w-6 text-white" />
         }
-        label="Disponibles"
-        value={disponibles}
+        label="Óptimos"
+        value={optimos}
         color="bg-emerald-600"
       />
 
@@ -201,41 +183,36 @@ export default function TopStats() {
         icon={
           <HeartPulse className="h-6 w-6 text-white" />
         }
-        label="Lesionados"
-        value={lesionados}
-        color="bg-red-600"
+        label="Control de Carga"
+        value={controlCarga}
+        color="bg-[#C8A96B]"
       />
 
       <StatCard
         icon={
           <Trophy className="h-6 w-6 text-[#111]" />
         }
-        label="1º Equipo"
-        value={primerEquipo}
-        color="bg-[#C8A96B]"
+        label="Reincorporación"
+        value={reincorporacion}
+        color="bg-blue-600"
       />
 
       <StatCard
         icon={
           <Flag className="h-6 w-6 text-white" />
         }
-        label="Selección"
-        value={seleccion}
-        color="bg-blue-600"
+        label="Tocado"
+        value={tocados}
+        color="bg-red-600"
       />
 
       <StatCard
         icon={
-          <Users className="h-6 w-6 text-[#111]" />
+          <Users className="h-6 w-6 text-white" />
         }
-        label="No Castilla"
-        value={`${noCastilla}/4`}
-        color={
-          noCastilla > 4
-            ? "bg-red-600"
-            : "bg-[#C8A96B]"
-        }
-        danger={noCastilla > 4}
+        label="No disponibles"
+        value={noDisponibles}
+        color="bg-slate-600"
       />
     </div>
   );
