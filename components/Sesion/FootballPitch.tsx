@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { forwardRef } from "react";
+import { forwardRef, useEffect } from "react";
 
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 import { useSessionLineup } from "../../context/SesionLineUpContext";
@@ -18,9 +18,10 @@ const FootballPitch = forwardRef<
   const { allPlayers } = useTrainingPlayers();
 
   const {
-    lineup,
-    playersPerTeam,
-  } = useSessionLineup();
+  lineup,
+  playersPerTeam,
+  initializeFromPlayers,
+} = useSessionLineup();
 
   const layout = layouts[playersPerTeam];
 
@@ -28,6 +29,11 @@ const FootballPitch = forwardRef<
     ...layout.blue,
     ...layout.red,
   ];
+  useEffect(() => {
+  if (allPlayers.length) {
+    initializeFromPlayers(allPlayers);
+  }
+}, [allPlayers, playersPerTeam]);
 
   return (
     <div

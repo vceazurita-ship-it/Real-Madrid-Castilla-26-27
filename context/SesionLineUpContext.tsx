@@ -101,12 +101,14 @@ export function SessionLineupProvider({
   const [playersPerTeam, setPlayersPerTeam] =
   useState<5 | 6 | 7 | 8 | 9 | 10 | 11>(11);
 
-  function changePlayersPerTeam(
+ function changePlayersPerTeam(
   value: 5 | 6 | 7 | 8 | 9 | 10 | 11
 ) {
+  if (value === playersPerTeam) return;
+
   setPlayersPerTeam(value);
 
-  setLineup(createLineup(value));
+  setInitialized(false);
 
   setLoadedLineupId(null);
   setLoadedLineupName(null);
@@ -152,25 +154,106 @@ const [initialized, setInitialized] =
     );
 
   }, [lineup]);
+
     //--------------------------------------------------
   // Inicializar sesión automáticamente
   //--------------------------------------------------
 
- function initializeFromPlayers(players: Player[]) {
+function initializeFromPlayers(players: Player[]) {
   if (initialized) return;
 
   const newLineup = createLineup(playersPerTeam);
 
-  players.forEach((player, index) => {
-    if (index >= newLineup.length) return;
+  const goalkeepers = players.filter((p) =>
+    ["POR", "GK", "PORTERO"].includes(
+      p.posicion.toUpperCase()
+    )
+  );
 
-    newLineup[index].playerIds.push(player.id);
-  });
+  const defenders = players.filter((p) =>
+    ["DFC", "LD", "LI", "DEF"].some((x) =>
+      p.posicion.toUpperCase().includes(x)
+    )
+  );
+
+  const midfielders = players.filter((p) =>
+    ["MCD", "MC", "MCO", "MI", "MD", "MED"].some((x) =>
+      p.posicion.toUpperCase().includes(x)
+    )
+  );
+
+  const forwards = players.filter((p) =>
+    ["DC", "EI", "ED", "SD", "EXT", "DEL"].some((x) =>
+      p.posicion.toUpperCase().includes(x)
+    )
+  );
+
+  const remaining = players.filter(
+    (p) =>
+      !goalkeepers.includes(p) &&
+      !defenders.includes(p) &&
+      !midfielders.includes(p) &&
+      !forwards.includes(p)
+  );
+
+  const assignGroup = (
+    ids: string[],
+    list: Player[]
+  ) => {
+    list.forEach((player, index) => {
+      const slot = ids[index % ids.length];
+
+      newLineup
+        .find((s) => s.positionId === slot)
+        ?.playerIds.push(player.id);
+    });
+  };
+
+  assignGroup(
+    newLineup
+      .filter((s) => s.positionId.includes("_GK"))
+      .map((s) => s.positionId),
+    goalkeepers
+  );
+
+  assignGroup(
+    newLineup
+      .filter((s) => s.positionId.includes("_DEF"))
+      .map((s) => s.positionId),
+    defenders
+  );
+
+  assignGroup(
+    newLineup
+      .filter((s) => s.positionId.includes("_MID"))
+      .map((s) => s.positionId),
+    midfielders
+  );
+
+  assignGroup(
+    newLineup
+      .filter((s) => s.positionId.includes("_ATT"))
+      .map((s) => s.positionId),
+    forwards
+  );
+
+  if (remaining.length) {
+    const ids = newLineup.map((s) => s.positionId);
+
+    remaining.forEach((player, index) => {
+      const slot = ids[index % ids.length];
+
+      newLineup
+        .find((s) => s.positionId === slot)
+        ?.playerIds.push(player.id);
+    });
+  }
 
   setLineup(newLineup);
 
   setLoadedLineupId(null);
   setLoadedLineupName(null);
+
   setInitialized(true);
 }
     //--------------------------------------------------
