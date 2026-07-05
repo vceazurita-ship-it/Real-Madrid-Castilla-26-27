@@ -13,14 +13,6 @@ import {
   LayoutGrid,
 } from "lucide-react";
 
-const formations = [
-  "4-4-2",
-  "4-3-3",
-  "4-2-3-1",
-  "3-5-2",
-  "3-4-3",
-];
-
 
 export default function FormationToolbar() {
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -29,9 +21,9 @@ const [nombre, setNombre] = useState("Sesión ");
 
 const [rival, setRival] = useState("");
   const {
-  formation,
+  playersPerTeam,
+  changePlayersPerTeam,
   lineup,
-  setFormation,
   clearLineup,
   loadedLineupId,
   loadedLineupName,
@@ -61,7 +53,7 @@ async function guardar() {
 
   fecha: new Date().toLocaleDateString(),
 
-  sistema: formation,
+  sistema: `${playersPerTeam} vs ${playersPerTeam}`,
 
   alineacion: lineup.map(slot => ({
   positionId: slot.positionId,
@@ -170,31 +162,41 @@ async function sharePitch() {
 
   {/* FORMACIONES */}
 
-  {formations.map((item) => (
-    <button
-      key={item}
-      onClick={() => setFormation(item)}
-      className={`
-        shrink-0
-        rounded-2xl
-        border
-        px-5
-        py-3
-        text-sm
-        font-semibold
-        transition-all
-        duration-300
-
-        ${
-          formation === item
-            ? "border-[#C8A96B] bg-[#C8A96B] text-[#111] shadow-[0_0_20px_rgba(200,169,107,.35)]"
-            : "border-white/10 bg-[#1A222C] text-white hover:border-[#C8A96B]/60 hover:bg-[#232D39]"
-        }
-      `}
-    >
-      {item}
-    </button>
+ <select
+  value={playersPerTeam}
+  onChange={(e) =>
+    changePlayersPerTeam(
+      Number(e.target.value) as
+        | 5
+        | 6
+        | 7
+        | 8
+        | 9
+        | 10
+        | 11
+    )
+  }
+   className="
+    rounded-2xl
+    border
+    border-[#C8A96B]/30
+    bg-[#1A222C]
+    px-5
+    py-3
+    text-sm
+    font-semibold
+    text-white
+    outline-none
+    hover:border-[#C8A96B]
+    focus:border-[#C8A96B]
+  "
+>
+  {[5, 6, 7, 8, 9, 10, 11].map((n) => (
+    <option key={n} value={n}>
+      {n} vs {n}
+    </option>
   ))}
+</select>
 
   {/* Separador */}
 
@@ -250,13 +252,6 @@ async function sharePitch() {
   >
     <Share2 size={16} />
     Compartir
-  </button>
-
-  <button
-    className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
-  >
-    <LayoutGrid size={16} />
-    Plantillas
   </button>
 </div>
 </div>
