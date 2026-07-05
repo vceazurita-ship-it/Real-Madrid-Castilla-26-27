@@ -327,6 +327,20 @@ const pendingPlayers = [
   photo: p.photo,
 }));
 
+//--------------------------------------------------------
+// Jugadores convocados para esta sesión
+//--------------------------------------------------------
+
+const sessionPlayers = [
+  ...available,
+  ...promotion,
+  ...injury,
+  ...others,
+  ...nationalTeam,
+]
+  .filter((p) => p.official)
+  .map((p) => p.official!);
+
     //--------------------------------------------------------
     // Respuesta
     //--------------------------------------------------------
@@ -338,6 +352,7 @@ const pendingPlayers = [
   others,
   nationalTeam,
   pendingPlayers,
+  sessionPlayers,
 });
 
   } catch (error: any) {
