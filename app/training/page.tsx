@@ -141,11 +141,16 @@ setTrainingImport((prev) => {
             "
           >
             <ImportAvailability
-  onImport={(data) => {
+ onImport={(data) => {
 
-    setTrainingImport(data);
+  localStorage.setItem(
+    "training-session-players",
+    JSON.stringify(data.sessionPlayers)
+  );
 
-    const estados: Record<string, string> = {};
+  setTrainingImport(data);
+
+  const estados: Record<string, string> = {};
 
     data.available.forEach((p: any) => {
       if (p.official) {

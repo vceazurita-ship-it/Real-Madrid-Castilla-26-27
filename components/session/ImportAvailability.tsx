@@ -25,6 +25,8 @@ export interface TrainingImport {
   others: TrainingPlayer[];
 
   pendingPlayers: PendingPlayer[];
+    sessionPlayers: string[];
+
 }
 
 type Props = {
