@@ -104,7 +104,8 @@ console.log("ALINEACION:", data.alineacion);
 
     loadLineup(
   data.id,
-  data.formacion,
+  Number(String(data.formacion).split(" ")[0]) as
+    5 | 6 | 7 | 8 | 9 | 10 | 11,
   JSON.parse(data.alineacion),
   data.nombre
 );
