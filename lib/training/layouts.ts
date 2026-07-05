@@ -44,7 +44,7 @@ export const layouts: Record<
 
     { id: "MID_1", left: 50, top: 75 },
 
-    { id: "ATT_1", left: 50, top: 53 },
+    { id: "ATT_1", left: 50, top: 63 },
   ]),
 
   red: createTeam("R", [
@@ -55,7 +55,7 @@ export const layouts: Record<
 
     { id: "MID_1", left: 50, top: 25 },
 
-    { id: "ATT_1", left: 50, top: 46 },
+    { id: "ATT_1", left: 50, top: 33 },
   ]),
 },
 
