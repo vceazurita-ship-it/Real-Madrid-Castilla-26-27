@@ -42,7 +42,7 @@ export const layouts: Record<
     { id: "DEF_1", left: 34, top: 75 },
     { id: "DEF_2", left: 66, top: 75 },
 
-    { id: "MID_1", left: 50, top: 66 },
+    { id: "MID_1", left: 50, top: 75 },
 
     { id: "ATT_1", left: 50, top: 53 },
   ]),
@@ -53,7 +53,7 @@ export const layouts: Record<
     { id: "DEF_1", left: 34, top: 25 },
     { id: "DEF_2", left: 66, top: 25 },
 
-    { id: "MID_1", left: 50, top: 34 },
+    { id: "MID_1", left: 50, top: 25 },
 
     { id: "ATT_1", left: 50, top: 46 },
   ]),
