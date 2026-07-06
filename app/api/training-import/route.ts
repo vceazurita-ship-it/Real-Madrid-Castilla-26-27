@@ -302,7 +302,33 @@ console.log(estados);
     //--------------------------------------------------------
     // Actualizar estados en Google Sheets
     //--------------------------------------------------------
+console.log("ESTADOS COMPLETOS");
+console.log(JSON.stringify(estados, null, 2));
 
+console.log(
+  "BAILON",
+  jugadores.find(
+    (j: any) =>
+      j.NOMBRE === "Javi" ||
+      j.APODO === "Javi"
+  )
+);
+
+console.log(
+  "BETO",
+  jugadores.find(
+    (j: any) =>
+      j.NOMBRE === "Diego" ||
+      j.APODO === "Diego"
+  )
+);
+console.log(
+  available.find(p => p.detected.includes("Bail"))
+);
+
+console.log(
+  available.find(p => p.detected.includes("Beto"))
+);
    const res = await fetch(APPS_SCRIPT, {
   method: "POST",
   headers: {
