@@ -218,7 +218,7 @@ const [lineup, setLineup] =
 
 console.log("player:", player);
 
-if (!player) return;
+if (!player) return;  
 
   
 setLineup((current) => {
