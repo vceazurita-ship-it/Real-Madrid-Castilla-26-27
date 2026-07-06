@@ -32,7 +32,7 @@ export default function PitchPosition({
 
     if (!selectedPlayer) return;
 
-    assignPlayer(id, selectedPlayer.id);
+    assignPlayer(id, selectedPlayer);
 
     setSelectedPlayer(null);
   };
