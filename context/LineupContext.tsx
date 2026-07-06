@@ -38,9 +38,9 @@ setLoadedLineupName: (
   setFormation: (formation: string) => void;
 
   assignPlayer: (
-    positionId: string,
-    playerId: string
-  ) => void;  
+  positionId: string,
+  player: Player
+) => void;  
 
   removePlayer: (
     playerId: string
@@ -204,23 +204,19 @@ const [lineup, setLineup] =
     return player && !player.esCastilla;
   }).length;
 }
- function assignPlayer(
+function assignPlayer(
   positionId: string,
-  playerId: string
+  player: Player
 ) {
+  if (players.length === 0) return;
+
   console.log("ASSIGN PLAYER");
   console.log("positionId:", positionId);
-  console.log("playerId:", playerId);
 console.log("Todos los IDs:", players.map(p => p.id));
-console.log("Buscando:", playerId);
 
-  const player = players.find(
-  (p) => p.id === playerId
-);     
+  const playerId = player.id;     
 
 console.log("Encontrado:", player);
-
-if (!player) return;  
 
   
 setLineup((current) => {

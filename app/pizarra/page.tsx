@@ -40,6 +40,7 @@ const { players } = usePlayers();
 const [dragPlayer, setDragPlayer] = useState<
   (typeof players)[number] | null
 >(null);
+
 function handleDragStart(event: DragStartEvent) {
   const id = String(event.active.id)
     .replace("bench-", "")
@@ -53,8 +54,6 @@ function handleDragStart(event: DragStartEvent) {
 }
 function handleDragEnd(event: DragEndEvent) {
   const { active, over } = event;
-   console.log("ACTIVE:", active.id);
-  console.log("OVER:", over?.id);
 
   setDragPlayer(null);
 
@@ -67,22 +66,28 @@ function handleDragEnd(event: DragEndEvent) {
   if (overId === "bench") {
     removePlayer(activeId.replace("field-", ""));
     return;
-  }
+}
 
   // Banquillo -> Campo
   if (activeId.startsWith("bench-")) {
-    assignPlayer(
-      overId,
-      activeId.replace("bench-", "")
+    const player = players.find(
+      (p) => p.id === activeId.replace("bench-", "")
     );
+
+    if (!player) return;
+
+    assignPlayer(overId, player);
     return;
   }
 
   // Campo -> Campo
-  assignPlayer(
-    overId,
-    activeId.replace("field-", "")
+  const player = players.find(
+    (p) => p.id === activeId.replace("field-", "")
   );
+
+  if (!player) return;
+
+  assignPlayer(overId, player);
 }
 async function handleLoadLineup(id: number) {
   try {
