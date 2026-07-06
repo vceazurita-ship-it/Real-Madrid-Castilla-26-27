@@ -5,7 +5,7 @@ export interface MatchResult {
 }
 
 function normalize(text: string) {
-  return text
+  return (text ?? "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -20,9 +20,22 @@ function score(a: string, b: string) {
   const A = normalize(a);
   const B = normalize(b);
 
+  if (!A || !B) return 0;
+
   if (A === B) return 100;
 
-  if (A.includes(B) || B.includes(A)) return 95;
+  // Coincidencia completa
+  if (A.includes(B) || B.includes(A)) {
+    const wordsA = A.split(" ").length;
+    const wordsB = B.split(" ").length;
+
+    // Premiamos cuando coincide el nombre completo
+    if (Math.abs(wordsA - wordsB) <= 1) {
+      return 98;
+    }
+
+    return 95;
+  }
 
   const wordsA = A.split(" ");
   const wordsB = B.split(" ");
@@ -33,7 +46,9 @@ function score(a: string, b: string) {
     if (wordsB.includes(w)) common++;
   }
 
-  return Math.round((common / Math.max(wordsA.length, wordsB.length)) * 100);
+  return Math.round(
+    (common / Math.max(wordsA.length, wordsB.length)) * 100
+  );
 }
 
 export function matchPlayers(
@@ -41,22 +56,41 @@ export function matchPlayers(
   squad: string[]
 ): MatchResult[] {
   return detected.map((player) => {
-    let best = "";
-    let bestScore = 0;
+    const candidates = squad
+      .map((official) => ({
+        official,
+        score: score(player, official),
+      }))
+      .sort((a, b) => b.score - a.score);
 
-    for (const official of squad) {
-      const s = score(player, official);
+    const best = candidates[0];
+    const second = candidates[1];
 
-      if (s > bestScore) {
-        bestScore = s;
-        best = official;
-      }
+    if (!best || best.score < 70) {
+      return {
+        original: player,
+        matched: null,
+        confidence: best?.score ?? 0,
+      };
+    }
+
+    // Si hay empate casi perfecto, no asignamos automáticamente
+    if (
+      second &&
+      second.score >= 90 &&
+      best.score - second.score <= 2
+    ) {
+      return {
+        original: player,
+        matched: null,
+        confidence: best.score,
+      };
     }
 
     return {
       original: player,
-      matched: bestScore >= 70 ? best : null,
-      confidence: bestScore,
+      matched: best.official,
+      confidence: best.score,
     };
   });
 }
