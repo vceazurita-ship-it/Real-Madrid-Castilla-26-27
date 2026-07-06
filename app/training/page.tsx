@@ -30,10 +30,27 @@ export default function ImportTrainingPage() {
   const [availabilityStatus, setAvailabilityStatus] = useState<
   Record<string, string>
 >({});
+
+const getPlayerStatus = (name: string) => {
+  if (trainingImport?.promotion.some(p => p.detected === name))
+    return "PRIMER EQUIPO";
+
+  if (trainingImport?.injury.some(p => p.detected === name))
+    return "LESIONADO";
+
+  if (trainingImport?.others.some(p => p.detected === name))
+    return "OTROS";
+
+  if (trainingImport?.nationalTeam.some(p => p.detected === name))
+    return "SELECCIÓN";
+
+  return "ÓPTIMO";
+};
   const createPlayer = async (
-    name: string,
-    licencia: string
-  ) => {
+  name: string,
+  licencia: string,
+  estado: string
+) => {
     setCreating(name);
 
     try {
@@ -42,11 +59,11 @@ export default function ImportTrainingPage() {
   headers: {
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({
-    name,
-    licencia,
-    estado: "ÓPTIMO",
-  }),
+body: JSON.stringify({
+  name,
+  licencia,
+  estado,
+}),
 });
 
 const result = await response.json();
@@ -123,7 +140,7 @@ const associatePlayer = async (
     toast.success("Alias guardado correctamente");
 setAvailabilityStatus((prev) => ({
   ...prev,
-  [detected]: "ÓPTIMO",
+  [detected]: getPlayerStatus(detected),
 }));
     setTrainingImport((prev) => {
 
@@ -429,8 +446,8 @@ setAvailabilityStatus((prev) => ({
       <option value="RMC">Real Madrid C</option>
       <option value="JUV A">Juvenil A</option>
       <option value="JUV B">Juvenil B</option>
-      <option value="RMC">Real Madrid Castilla</option>
-      <option value="RMC">Otro</option>
+      <option value="RMCF Castilla">Real Madrid Castilla</option>
+      <option value="OTRO">Otro</option>
     </select>
 
     <button
@@ -444,11 +461,12 @@ setAvailabilityStatus((prev) => ({
       "
       disabled={creating === player.name}
       onClick={() =>
-        createPlayer(
-          player.name,
-          licencias[player.name] ?? "JUV A"
-        )
-      }
+  createPlayer(
+    player.name,
+    licencias[player.name] ?? "JUV A",
+    getPlayerStatus(player.name)
+  )
+}
     >
       {creating === player.name
         ? "Creando..."
