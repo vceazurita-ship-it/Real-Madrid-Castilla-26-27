@@ -325,11 +325,11 @@ console.log("BODY:", await res.text());
 //--------------------------------------------------------
 
 const pendingPlayers = [
-  ...available,
-  ...promotion,
-  ...injury,
-  ...others,
-  ...nationalTeam,
+  ...available.map(p => ({ ...p, estado: "ÓPTIMO" })),
+  ...promotion.map(p => ({ ...p, estado: "PRIMER EQUIPO" })),
+  ...injury.map(p => ({ ...p, estado: "LESIONADO" })),
+  ...others.map(p => ({ ...p, estado: "OTROS" })),
+  ...nationalTeam.map(p => ({ ...p, estado: "SELECCIÓN" })),
 ]
 .filter(
   p => !p.id || p.ambiguous
@@ -337,7 +337,8 @@ const pendingPlayers = [
 .map(p => ({
   name: p.detected,
   photo: p.photo,
-  candidates: p.candidates
+  estado: p.estado,
+  candidates: p.candidates,
 }));
 
 //--------------------------------------------------------
