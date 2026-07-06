@@ -12,7 +12,6 @@ import { useMicroLineup } from "@/context/MicroLineupContext";
 import MicroGroup from "./MicroGroup";
 import PitchPosition from "./PitchPosition";
 import { microFormations } from "@/lib/microFormation";
-import SessionGroup from "../Sesion/SessionGroup";
 
 const FootballPitch = forwardRef<
   HTMLDivElement,
@@ -95,7 +94,7 @@ const currentFormation =
       >
         <PitchPosition id={position.id}>
           {groupPlayers.length > 0 ? (
-            <SessionGroup
+            <MicroGroup
   players={groupPlayers}
   positionId={position.id}
 />
