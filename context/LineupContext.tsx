@@ -154,6 +154,7 @@ const [lineup, setLineup] =
   ======================================= */
 
   useEffect(() => {
+    console.log("LINEUP ACTUALIZADO", lineup);
     setLineup((current) => {
       const previousPlayers =
         new Map(
@@ -207,14 +208,21 @@ const [lineup, setLineup] =
   positionId: string,
   playerId: string
 ) {
+  console.log("ASSIGN PLAYER");
+  console.log("positionId:", positionId);
+  console.log("playerId:", playerId);
+
   const player = players.find(
-    (p) => p.id === playerId
-  );
+  (p) => p.id === playerId
+);
 
-  if (!player) return;
+console.log("player:", player);
 
-  setLineup((current) => {
+if (!player) return;
 
+  
+setLineup((current) => {
+  console.log("CURRENT LINEUP", current);
     const origin = current.find(
       (slot) => slot.playerId === playerId
     );
@@ -239,6 +247,7 @@ if (!player.esCastilla) {
 
   // Si viene del banquillo aumenta uno
   if (!origin) {
+    console.log("BANQUILLO -> CAMPO");
     totalNoCastilla++;
   }
 
@@ -268,6 +277,7 @@ return current;
     // El jugador viene del banquillo
     if (!origin) {
       return current.map(slot => {
+        console.log("CAMPO -> CAMPO");
 
         if (slot.positionId === positionId) {
           return {
