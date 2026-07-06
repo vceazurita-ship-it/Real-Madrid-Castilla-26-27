@@ -7,6 +7,7 @@ import {
   DragStartEvent,
   PointerSensor,
   TouchSensor,
+  closestCenter,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -129,6 +130,7 @@ const sensors = useSensors(
   return (
     
     <DndContext
+  collisionDetection={closestCenter}
   sensors={sensors}
   onDragStart={handleDragStart}
   onDragEnd={(event) => {
@@ -268,7 +270,6 @@ flex-1">
   </div>
 )}
 
-<FootballPitch />
       <FootballPitch />
     </div>
 
