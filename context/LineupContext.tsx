@@ -154,28 +154,13 @@ const [lineup, setLineup] =
   ======================================= */
 
   useEffect(() => {
-    console.log("LINEUP ACTUALIZADO", lineup);
-    setLineup((current) => {
-      const previousPlayers =
-        new Map(
-          current.map((slot) => [
-            slot.positionId,
-            slot.playerId,
-          ])
-        );
-
-      return createLineup(
-        formation
-      ).map((slot) => ({
-        ...slot,
-        playerId:
-          previousPlayers.get(
-            slot.positionId
-          ) ?? null,
-      }));
-    });
-  }, [formation]);
-
+  setLineup((current) =>
+    remapFormation(
+      current,
+      createLineup(formation)
+    )
+  );
+}, [formation]);
   /* =======================================
      GUARDADO AUTOMÁTICO
   ======================================= */
@@ -208,14 +193,16 @@ function assignPlayer(
   positionId: string,
   player: Player
 ) {
-  if (players.length === 0) return;
 
   console.log("ASSIGN PLAYER");
   console.log("positionId:", positionId);
 console.log("Todos los IDs:", players.map(p => p.id));
 
   const playerId = player.id;     
-
+  if (!playerId) {
+  console.error("Jugador inválido", player);
+  return;
+}
 console.log("Encontrado:", player);
 
   
