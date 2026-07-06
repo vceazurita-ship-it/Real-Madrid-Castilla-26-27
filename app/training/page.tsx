@@ -429,6 +429,8 @@ setAvailabilityStatus((prev) => ({
       <option value="RMC">Real Madrid C</option>
       <option value="JUV A">Juvenil A</option>
       <option value="JUV B">Juvenil B</option>
+      <option value="RMC">Real Madrid Castilla</option>
+      <option value="RMC">Otro</option>
     </select>
 
     <button
