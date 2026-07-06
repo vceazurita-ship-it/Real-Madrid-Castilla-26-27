@@ -39,23 +39,23 @@ export const layouts: Record<
   blue: createTeam("B", [
     { id: "GK", left: 50, top: 91 },
 
-    { id: "DEF_1", left: 34, top: 75 },
-    { id: "DEF_2", left: 66, top: 75 },
+    { id: "DEF_1", left: 20, top: 75 },
+    { id: "DEF_2", left: 80, top: 75 },
 
-    { id: "MID_1", left: 50, top: 75 },
+    { id: "MID_1", left: 65, top: 75 },
 
-    { id: "ATT_1", left: 50, top: 63 },
+    { id: "ATT_1", left: 35, top: 63 },
   ]),
 
   red: createTeam("R", [
     { id: "GK", left: 50, top: 9 },
 
-    { id: "DEF_1", left: 34, top: 25 },
-    { id: "DEF_2", left: 66, top: 25 },
+    { id: "DEF_1", left: 20, top: 25 },
+    { id: "DEF_2", left: 80, top: 25 },
 
-    { id: "MID_1", left: 50, top: 25 },
+    { id: "MID_1", left: 35, top: 25 },
 
-    { id: "ATT_1", left: 50, top: 33 },
+    { id: "ATT_1", left: 65, top: 33 },
   ]),
 },
 
@@ -102,7 +102,7 @@ export const layouts: Record<
       { id: "MID_2", left: 50, top: 70 },
       { id: "MID_3", left: 78, top: 60 },
 
-      { id: "ATT_1", left: 50, top: 55 },
+      { id: "ATT_1", left: 35, top: 55 },
     ]),
 
     red: createTeam("R", [
@@ -115,7 +115,7 @@ export const layouts: Record<
       { id: "MID_2", left: 50, top: 30 },
       { id: "MID_3", left: 78, top: 44 },
 
-      { id: "ATT_1", left: 50, top: 46 },
+      { id: "ATT_1", left: 65, top: 46 },
     ]),
   },
 
@@ -133,8 +133,8 @@ export const layouts: Record<
       { id: "MID_2", left: 50, top: 65 },
       { id: "MID_3", left: 78, top: 65 },
 
-      { id: "ATT_1", left: 38, top: 58 },
-      { id: "ATT_2", left: 62, top: 58 },
+      { id: "ATT_1", left: 38, top: 63 },
+      { id: "ATT_2", left: 62, top: 63 },
     ]),
 
     red: createTeam("R", [
@@ -147,8 +147,8 @@ export const layouts: Record<
       { id: "MID_2", left: 50, top: 35 },
       { id: "MID_3", left: 78, top: 35 },
 
-      { id: "ATT_1", left: 38, top: 48 },
-      { id: "ATT_2", left: 62, top: 48 },
+      { id: "ATT_1", left: 38, top: 38 },
+      { id: "ATT_2", left: 62, top: 38 },
     ]),
   },
 

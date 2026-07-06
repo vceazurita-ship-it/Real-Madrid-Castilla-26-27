@@ -52,6 +52,8 @@ function handleDragStart(event: DragStartEvent) {
 }
 function handleDragEnd(event: DragEndEvent) {
   const { active, over } = event;
+   console.log("ACTIVE:", active.id);
+  console.log("OVER:", over?.id);
 
   setDragPlayer(null);
 
