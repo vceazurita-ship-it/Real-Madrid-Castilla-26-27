@@ -46,17 +46,24 @@ function score(a: string, b: string) {
   const wordsA = A.split(" ");
   const wordsB = B.split(" ");
 
-  let common = 0;
+  const common = wordsA.filter(w => wordsB.includes(w));
 
-  for (const w of wordsA) {
-    if (wordsB.includes(w)) common++;
-  }
-
-  return Math.round(
-    (common / Math.max(wordsA.length, wordsB.length)) * 100
-  );
+// Si sólo coincide una palabra y ambos nombres tienen varias,
+// probablemente sólo coincide el nombre de pila (Diego, Javi...)
+// Penalizamos para evitar falsos positivos.
+if (
+  common.length === 1 &&
+  wordsA.length >= 2 &&
+  wordsB.length >= 2
+) {
+  return 40;
 }
 
+return Math.round(
+  (common.length / Math.max(wordsA.length, wordsB.length)) * 100
+);
+}
+ 
 export function matchPlayers(
   detected: string[],
   squad: Player[]
@@ -165,6 +172,33 @@ const ranked = squad
       };
 
     }
+    
+    const originalNorm = normalize(original);
+
+const bestName = normalize(best.player?.NOMBRE ?? "");
+
+const bestAlias = normalize(best.player?.APODO ?? "");
+
+const hasStrongWord = originalNorm
+  .split(" ")
+  .filter(word => word.length >= 4)
+  .some(word =>
+    bestName.includes(word) ||
+    bestAlias.includes(word)
+  );
+
+if (
+  best.score < 100 &&
+  !hasStrongWord
+) {
+  return {
+    original,
+    player: null,
+    confidence: best.score,
+    ambiguous: false,
+    candidates: [],
+  };
+}
 
     return{
 
