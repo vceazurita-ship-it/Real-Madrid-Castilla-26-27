@@ -64,20 +64,60 @@ export function matchPlayers(
 
   return detected.map(original => {
 
-    const ranked = squad
-      .map(player => {
+const ranked = squad
+  .map(player => {
 
-        const nameScore = score(original, player.NOMBRE);
+    const originalNorm = normalize(original);
+    const aliasNorm = normalize(player.APODO ?? "");
 
-        const aliasScore = score(original, player.APODO ?? "");
+    // --------------------------------------------------
+    // 1. Prioridad máxima:
+    // Si Gemini detectó un apodo entre comillas
+    // Ej: Diego Mtnez. "Beto"
+    // --------------------------------------------------
 
-        return {
-          player,
-          score: Math.max(nameScore, aliasScore)
-        };
+    const quotedAlias = original.match(/"([^"]+)"/);
 
-      })
-      .sort((a,b)=>b.score-a.score);
+    if (
+      quotedAlias &&
+      aliasNorm === normalize(quotedAlias[1])
+    ) {
+      return {
+        player,
+        score: 101,
+      };
+    }
+
+    // --------------------------------------------------
+    // 2. Si el alias aparece dentro del nombre detectado
+    // Ej: Francisco Javier Bailón
+    // --------------------------------------------------
+
+    if (
+      aliasNorm &&
+      originalNorm.includes(aliasNorm)
+    ) {
+      return {
+        player,
+        score: 100,
+      };
+    }
+
+    // --------------------------------------------------
+    // 3. Comparación normal
+    // --------------------------------------------------
+
+    const nameScore = score(original, player.NOMBRE);
+
+    const aliasScore = score(original, player.APODO ?? "");
+
+    return {
+      player,
+      score: Math.max(nameScore, aliasScore),
+    };
+
+  })
+  .sort((a, b) => b.score - a.score);
 
     const best = ranked[0];
 
@@ -104,10 +144,11 @@ export function matchPlayers(
     }
 
     if (
-      second &&
-      second.score >= 90 &&
-      best.score-second.score<=2
-    ){
+  best.score < 100 &&
+  second &&
+  second.score >= 90 &&
+  best.score - second.score <= 2
+){
 
       return{
 
