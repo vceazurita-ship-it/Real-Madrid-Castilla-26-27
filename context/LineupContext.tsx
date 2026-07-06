@@ -214,7 +214,7 @@ const [lineup, setLineup] =
 
   const player = players.find(
   (p) => p.id === playerId
-);
+);     
 
 console.log("player:", player);
 
