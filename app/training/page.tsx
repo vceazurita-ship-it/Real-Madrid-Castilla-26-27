@@ -22,6 +22,11 @@ export default function ImportTrainingPage() {
   const [creating, setCreating] = useState<string | null>(
     null
   );
+
+  const [selectedPlayer, setSelectedPlayer] = useState<
+  Record<string, string>
+>({});
+
   const [availabilityStatus, setAvailabilityStatus] = useState<
   Record<string, string>
 >({});
@@ -91,6 +96,85 @@ setTrainingImport((prev) => {
       setCreating(null);
     }
   };
+
+const associatePlayer = async (
+  detected: string,
+  playerId: string
+) => {
+  try {
+    const response = await fetch("/api/save-alias", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        alias: detected,
+        id: playerId,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      toast.error("No se pudo guardar el alias");
+      return;
+    }
+
+    toast.success("Alias guardado correctamente");
+setAvailabilityStatus((prev) => ({
+  ...prev,
+  [detected]: "ÓPTIMO",
+}));
+    setTrainingImport((prev) => {
+
+  if (!prev) return prev;
+
+  const pending = prev.pendingPlayers.find(
+    (p) => p.name === detected
+  );
+
+  const selected = pending?.candidates.find(
+    (c) => c.player.ID_JUGADOR === playerId
+  );
+
+  if (!selected) return prev;
+
+  const actualizar = (lista: any[]) =>
+    lista.map((p) =>
+      p.detected === detected
+        ? {
+            ...p,
+            official: selected.player.NOMBRE,
+            confidence: selected.confidence,
+            id: selected.player.ID_JUGADOR,
+          }
+        : p
+    );
+
+  return {
+
+    ...prev,
+
+    available: actualizar(prev.available),
+    promotion: actualizar(prev.promotion),
+    injury: actualizar(prev.injury),
+    others: actualizar(prev.others),
+    nationalTeam: actualizar(prev.nationalTeam),
+
+    pendingPlayers: prev.pendingPlayers.filter(
+      (p) => p.name !== detected
+    ),
+
+  };
+
+});
+
+  } catch (e) {
+
+    toast.error("Error guardando el alias");
+
+  }
+};
 
   return (
   <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -271,59 +355,105 @@ setTrainingImport((prev) => {
               </div>
 
               <div className="text-sm text-white/60">
-                Jugador nuevo detectado
-              </div>
+  {player.candidates?.length
+    ? "Coincidencia ambigua"
+    : "Jugador nuevo detectado"}
+</div>
             </div>
           </div>
 
-          <select
-            className="
-              rounded-xl
-              border
-              border-white/10
-              bg-[#1A212C]
-              px-4
-              py-3
-              text-white
-              outline-none
-            "
-            value={licencias[player.name] ?? "JUV A"}
-            onChange={(e) =>
-              setLicencias({
-                ...licencias,
-                [player.name]: e.target.value,
-              })
-            }
-          >
-            <option value="RMC">Real Madrid C</option>
-            <option value="JUV A">Juvenil A</option>
-            <option value="JUV B">Juvenil B</option>
-          </select>
+          {player.candidates?.length ? (
+  <div className="flex flex-col gap-3">
 
-          <button
-            className="
-              rounded-xl
-              bg-[#C8A96B]
-              px-6
-              py-3
-              font-semibold
-              text-[#0B0F14]
-              transition
-              hover:brightness-110
-              disabled:opacity-50
-            "
-            disabled={creating === player.name}
-            onClick={() =>
-              createPlayer(
-                player.name,
-                licencias[player.name] ?? "JUV A"
-              )
-            }
-          >
-            {creating === player.name
-              ? "Creando..."
-              : "Crear jugador"}
-          </button>
+    <select
+      className="rounded-xl border border-white/10 bg-[#1A212C] px-4 py-3"
+      value={selectedPlayer[player.name] ?? ""}
+      onChange={(e) =>
+        setSelectedPlayer({
+          ...selectedPlayer,
+          [player.name]: e.target.value,
+        })
+      }
+    >
+      <option value="">Crear jugador nuevo</option>
+
+      {player.candidates.map((c: any) => (
+        <option
+          key={c.player.ID_JUGADOR}
+          value={c.player.ID_JUGADOR}
+        >
+          {c.player.NOMBRE} ({c.confidence}%)
+        </option>
+      ))}
+    </select>
+      <button
+  className="
+    rounded-xl
+    bg-[#C8A96B]
+    px-6
+    py-3
+    font-semibold
+    text-[#0B0F14]
+  "
+  disabled={!selectedPlayer[player.name]}
+  onClick={() =>
+    associatePlayer(
+      player.name,
+      selectedPlayer[player.name]
+    )
+  }
+>
+  Asociar jugador
+</button>
+  </div>
+) : (
+  <>
+    <select
+      className="
+        rounded-xl
+        border
+        border-white/10
+        bg-[#1A212C]
+        px-4
+        py-3
+        text-white
+      "
+      value={licencias[player.name] ?? "JUV A"}
+      onChange={(e) =>
+        setLicencias({
+          ...licencias,
+          [player.name]: e.target.value,
+        })
+      }
+    >
+      <option value="RMC">Real Madrid C</option>
+      <option value="JUV A">Juvenil A</option>
+      <option value="JUV B">Juvenil B</option>
+    </select>
+
+    <button
+      className="
+        rounded-xl
+        bg-[#C8A96B]
+        px-6
+        py-3
+        font-semibold
+        text-[#0B0F14]
+      "
+      disabled={creating === player.name}
+      onClick={() =>
+        createPlayer(
+          player.name,
+          licencias[player.name] ?? "JUV A"
+        )
+      }
+    >
+      {creating === player.name
+        ? "Creando..."
+        : "Crear jugador"}
+    </button>
+  </>
+)}
         </div>
       ))}
     </div>

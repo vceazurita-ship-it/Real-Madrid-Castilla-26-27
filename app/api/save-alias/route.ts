@@ -14,5 +14,15 @@ export async function POST(req: Request) {
     }),
   });
 
+  if (!response.ok) {
+    return Response.json(
+      {
+        ok: false,
+        error: "No se pudo guardar el alias",
+      },
+      { status: response.status }
+    );
+  }
+
   return Response.json(await response.json());
 }

@@ -151,20 +151,9 @@ const jugadores = await jugadoresPromise;
     // Lista de candidatos
     //--------------------------------------------------------
 
-    const candidatos: string[] = [];
-
-    jugadores.forEach((j: any) => {
-      if (j.NOMBRE) candidatos.push(j.NOMBRE);
-      if (j.APODO) candidatos.push(j.APODO);
-    });
-
-    //--------------------------------------------------------
-    // Match IA
-    //--------------------------------------------------------
-
     const matches = matchPlayers(
       allDetected,
-      candidatos
+      jugadores
     );
 
     //--------------------------------------------------------
@@ -176,18 +165,11 @@ const jugadores = await jugadoresPromise;
   matches
     .filter(
       (m) =>
-        m.matched &&
+        m.player &&
+        !m.ambiguous &&
         m.confidence >= 90
     )
     .map(async (m) => {
-
-      const jugador = jugadores.find(
-        (j: any) =>
-          j.NOMBRE === m.matched ||
-          j.APODO === m.matched
-      );
-
-      if (!jugador) return;
 
       await fetch(APPS_SCRIPT, {
         method: "POST",
@@ -197,7 +179,7 @@ const jugadores = await jugadoresPromise;
         body: JSON.stringify({
           action: "saveAlias",
           alias: m.original,
-          id: jugador.ID_JUGADOR,
+          id: m.player!.ID_JUGADOR,
           confidence: m.confidence,
         }),
       });
@@ -210,46 +192,41 @@ const jugadores = await jugadoresPromise;
     // Reemplazar nombres
     //--------------------------------------------------------
 
-    const replaceNames = (list: string[]) =>
-      list.map((name) => {
-        const match = matches.find(
-          (m) => m.original === name
-        );
+   const replaceNames = (list: string[]) =>
+  list.map((name) => {
 
-        const jugador = jugadores.find(
-  (j:any)=>
-    j.NOMBRE===match?.matched ||
-    j.APODO===match?.matched
-);
+    const match = matches.find(
+      m => m.original === name
+    );
 
-return {
+    return {
 
-  detected:name,
+      detected: name,
 
-  official:match?.matched ?? null,
+      official: match?.player?.NOMBRE ?? null,
 
-  confidence:match?.confidence ?? 0,
+      id: match?.player?.ID_JUGADOR ?? null,
 
-  photo:
-    jugador?.FOTO_URL ?? null
+      confidence: match?.confidence ?? 0,
 
-};
-      });
+      ambiguous: match?.ambiguous ?? false,
 
-    const available = replaceNames(result.available);
-    const promotion = replaceNames(result.promotion);
-    const injury = replaceNames(result.injury);
-    const others = replaceNames(result.others);
-    const nationalTeam = replaceNames(result.nationalTeam);
-console.log("========== LISTAS ==========");
+      candidates: match?.candidates ?? [],
 
-console.log({
-  available,
-  promotion,
-  injury,
-  others,
-  nationalTeam,
+      photo: match?.player?.FOTO_URL ?? null
+
+    };
+
 });
+const available = replaceNames(result.available);
+
+const promotion = replaceNames(result.promotion);
+
+const injury = replaceNames(result.injury);
+
+const others = replaceNames(result.others);
+
+const nationalTeam = replaceNames(result.nationalTeam);
     //--------------------------------------------------------
     // Construir estados
     //--------------------------------------------------------
@@ -263,26 +240,22 @@ jugadores.forEach((j: any) => {
   }
 });
 
-    const asignarEstado = (
-      lista: {
-        official: string | null;
-      }[],
-      estado: string
-    ) => {
-      lista.forEach((p) => {
-        if (!p.official) return;
+const asignarEstado = (
+  lista: {
+    id: string | null;
+  }[],
+  estado: string
+) => {
 
-        const jugador = jugadores.find(
-          (j: any) =>
-            j.NOMBRE === p.official ||
-            j.APODO === p.official
-        );
+  lista.forEach((p) => {
 
-        if (!jugador) return;
+    if (!p.id) return;
 
-        estados[jugador.ID_JUGADOR] = estado;
-      });
-    };
+    estados[p.id] = estado;
+
+  });
+
+};
 
     const ESTADOS = {
   available: "ÓPTIMO",
@@ -354,10 +327,13 @@ const pendingPlayers = [
   ...others,
   ...nationalTeam,
 ]
-.filter((p) => !p.official)
-.map((p) => ({
+.filter(
+  p => !p.id || p.ambiguous
+)
+.map(p => ({
   name: p.detected,
   photo: p.photo,
+  candidates: p.candidates
 }));
 
 //--------------------------------------------------------
@@ -371,8 +347,8 @@ const sessionPlayers = [
   ...others,
   ...nationalTeam,
 ]
-  .filter((p) => p.official)
-  .map((p) => p.official!);
+.filter(p => p.id)
+.map(p => p.id);
 
     //--------------------------------------------------------
     // Respuesta

@@ -12,9 +12,21 @@ export interface TrainingPlayer {
   photo: string;
 }
 
-export interface PendingPlayer {
-  name: string;
-  photo: string;
+export interface PendingPlayer{
+
+name:string;
+
+photo:string;
+
+candidates:{
+   player:{
+      ID_JUGADOR:string;
+      NOMBRE:string;
+      FOTO_URL?:string;
+   };
+   confidence:number;
+}[];
+
 }
 
 export interface TrainingImport {

@@ -1,7 +1,19 @@
+export interface Player {
+  ID_JUGADOR: string;
+  NOMBRE: string;
+  APODO?: string;
+  FOTO_URL?: string;
+}
+
 export interface MatchResult {
   original: string;
-  matched: string | null;
+  player: Player | null;
   confidence: number;
+  ambiguous: boolean;
+  candidates: {
+  player: Player;
+  confidence: number;
+}[];
 }
 
 function normalize(text: string) {
@@ -24,17 +36,11 @@ function score(a: string, b: string) {
 
   if (A === B) return 100;
 
-  // Coincidencia completa
   if (A.includes(B) || B.includes(A)) {
-    const wordsA = A.split(" ").length;
-    const wordsB = B.split(" ").length;
+    const wa = A.split(" ").length;
+    const wb = B.split(" ").length;
 
-    // Premiamos cuando coincide el nombre completo
-    if (Math.abs(wordsA - wordsB) <= 1) {
-      return 98;
-    }
-
-    return 95;
+    return Math.abs(wa - wb) <= 1 ? 98 : 95;
   }
 
   const wordsA = A.split(" ");
@@ -53,44 +59,86 @@ function score(a: string, b: string) {
 
 export function matchPlayers(
   detected: string[],
-  squad: string[]
+  squad: Player[]
 ): MatchResult[] {
-  return detected.map((player) => {
-    const candidates = squad
-      .map((official) => ({
-        official,
-        score: score(player, official),
-      }))
-      .sort((a, b) => b.score - a.score);
 
-    const best = candidates[0];
-    const second = candidates[1];
+  return detected.map(original => {
+
+    const ranked = squad
+      .map(player => {
+
+        const nameScore = score(original, player.NOMBRE);
+
+        const aliasScore = score(original, player.APODO ?? "");
+
+        return {
+          player,
+          score: Math.max(nameScore, aliasScore)
+        };
+
+      })
+      .sort((a,b)=>b.score-a.score);
+
+    const best = ranked[0];
+
+    const second = ranked[1];
+  
+    const candidates = ranked
+  .filter(r => r.score >= 70)
+  .slice(0, 3)
+  .map(r => ({
+    player: r.player,
+    confidence: r.score
+  }));
 
     if (!best || best.score < 70) {
+
       return {
-        original: player,
-        matched: null,
-        confidence: best?.score ?? 0,
+        original,
+        player:null,
+        confidence:best?.score ?? 0,
+        ambiguous:false,
+        candidates:[]
       };
+
     }
 
-    // Si hay empate casi perfecto, no asignamos automáticamente
     if (
       second &&
       second.score >= 90 &&
-      best.score - second.score <= 2
-    ) {
-      return {
-        original: player,
-        matched: null,
-        confidence: best.score,
+      best.score-second.score<=2
+    ){
+
+      return{
+
+        original,
+
+        player:null,
+
+        confidence:best.score,
+
+        ambiguous:true,
+
+        candidates
+
       };
+
     }
 
-    return {
-      original: player,
-      matched: best.official,
-      confidence: best.score,
+    return{
+
+      original,
+
+      player:best.player,
+
+      confidence:best.score,
+
+      ambiguous:false,
+
+      candidates
+
     };
+
   });
+
 }
