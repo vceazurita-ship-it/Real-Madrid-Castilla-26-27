@@ -84,7 +84,7 @@ const badge = getStatusBadge(estado);
 
         if (!selectedPlayer) return;
 
-        assignPlayer(positionId, selectedPlayer.id);
+        assignPlayer(positionId, selectedPlayer);
         setSelectedPlayer(null);
       }}
       className="touch-none select-none"
