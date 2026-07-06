@@ -35,15 +35,17 @@ export default function PlayerToken({ player }: Props) {
 
   const selected =
     selectedPlayer?.id === player.id;
-const unavailableStates = [
+const unavailableStates = new Set([
   "LESIONADO",
   "SANCIONADO",
   "PRIMER EQUIPO",
   "SELECCIÓN",
-];
+]);
 
-const unavailable = unavailableStates.includes(player.estado);
-const badge = getStatusBadge(player.estado);
+const unavailable = unavailableStates.has(player.estado);
+const badge = player.estado
+  ? getStatusBadge(player.estado)
+  : null;
   return (
     <div
       ref={setNodeRef}
@@ -75,7 +77,13 @@ lg:w-auto
         ${
   selected
     ? `
-      border-[#C8A96B]
+      ${
+  unavailable
+    ? "border-gray-500 grayscale opacity-70"
+    : player.licencia === "RMCF Castilla"
+      ? "border-[#C8A96B]"
+      : "border-blue-400"
+}
       ring-2
       ring-[#C8A96B]
       bg-[#1E2630]
@@ -229,7 +237,8 @@ lg:w-auto
 </div>
         </div>
 
-        <button
+        {!unavailable && (
+  <button
   type="button"
   disabled={unavailable}
   onClick={(e) => {
@@ -275,7 +284,8 @@ lg:w-auto
   `}
 >
   +
-</button>
+  </button>
+)}
 
       </div>
     </div>
