@@ -211,12 +211,14 @@ const [lineup, setLineup] =
   console.log("ASSIGN PLAYER");
   console.log("positionId:", positionId);
   console.log("playerId:", playerId);
+console.log("Todos los IDs:", players.map(p => p.id));
+console.log("Buscando:", playerId);
 
   const player = players.find(
   (p) => p.id === playerId
 );     
 
-console.log("player:", player);
+console.log("Encontrado:", player);
 
 if (!player) return;  
 
