@@ -126,7 +126,8 @@ Formato:
         ?.replace(/```json/g, "")
         .replace(/```/g, "")
         .trim() ?? "";
-
+console.log("RAW GEMINI");
+console.log(raw);
     const result = JSON.parse(raw);
 
     //--------------------------------------------------------
@@ -146,7 +147,9 @@ Formato:
 //--------------------------------------------------------
 
 const jugadores = await jugadoresPromise;
-
+console.log("JUGADORES");
+console.log(jugadores);
+console.log(Array.isArray(jugadores));
     //--------------------------------------------------------
     // Lista de candidatos
     //--------------------------------------------------------
@@ -155,7 +158,8 @@ const jugadores = await jugadoresPromise;
       allDetected,
       jugadores
     );
-
+console.log("MATCHES");
+console.log(matches);
     //--------------------------------------------------------
     // Aprender alias automáticamente
     //--------------------------------------------------------
@@ -235,7 +239,7 @@ const nationalTeam = replaceNames(result.nationalTeam);
     // Todos los jugadores que NO pertenecen a la plantilla activa
 // comienzan como NO CONVOCADO.
 jugadores.forEach((j: any) => {
-  if (String(j.ACTIVO).toUpperCase() === "FALSE") {
+  if (String(j.ACTIVO ?? "").toUpperCase() === "FALSE") {
     estados[j.ID_JUGADOR] = "NO CONVOCADO";
   }
 });
