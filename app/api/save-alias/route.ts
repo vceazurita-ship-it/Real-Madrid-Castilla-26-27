@@ -1,5 +1,10 @@
 export async function POST(req: Request) {
+  console.log("1 - Entrando");
+
   const body = await req.json();
+  console.log("2 - Body", body);
+
+  console.log("3 - URL", process.env.NEXT_PUBLIC_API_URL);
 
   const response = await fetch(process.env.NEXT_PUBLIC_API_URL!, {
     method: "POST",
@@ -14,6 +19,8 @@ export async function POST(req: Request) {
     }),
   });
 
+  console.log("4 - Fetch realizado");
+
   if (!response.ok) {
     return Response.json(
       {
@@ -23,6 +30,8 @@ export async function POST(req: Request) {
       { status: response.status }
     );
   }
+
+  console.log("5 - Todo correcto");
 
   return Response.json(await response.json());
 }
