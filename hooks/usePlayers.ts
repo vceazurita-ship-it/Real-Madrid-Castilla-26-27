@@ -39,6 +39,8 @@ export function usePlayers(
     header: true,
 
     complete: ({ data }) => {
+        console.log("CSV RAW", data);
+
       const plantilla: Player[] = data
         .filter((p) => p.ACTIVO === "TRUE")
         .map((p) => ({

@@ -31,6 +31,8 @@ export function useTrainingPlayers() {
       header: true,
 
       complete: ({ data }) => {
+          console.log("CSV RAW", data);
+
         const ESTADOS_VALIDOS: EstadoJugador[] = [
           "ÓPTIMO",
           "SANCIONADO",
