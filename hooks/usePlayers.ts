@@ -4,9 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { Player, EstadoJugador } from "@/types/player";
 
-const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1735710063&single=true&output=csv";
-
 const CSV_URLS = {
   micro:
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=2041966583&single=true&output=csv",
@@ -34,7 +31,7 @@ export function usePlayers(
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+ useEffect(() => {
   setLoading(true);
 
   Papa.parse<CsvPlayer>(CSV_URLS[source], {
@@ -64,8 +61,8 @@ export function usePlayers(
       setLoading(false);
     },
 
-    error: (error) => {
-      console.error(error);
+    error: (err) => {
+      console.error(err);
       setLoading(false);
     },
   });
