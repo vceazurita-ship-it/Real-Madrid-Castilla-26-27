@@ -9,6 +9,7 @@ const CSV_URL =
 
 interface CsvPlayer {
   ID_JUGADOR: string;
+  FECHA: string; // <-- añadir
   NOMBRE: string;
   POSICION: string;
   DORSAL: string;
@@ -40,8 +41,22 @@ export function useTrainingPlayers() {
           "TOCADO",
         ];
 
-        // TODOS los jugadores del CSV
-        const plantillaCompleta: Player[] = data.map((p) => ({
+        // Eliminar filas vacías
+        const filas = data.filter((p) => p.ID_JUGADOR);
+
+        // Obtener la última fecha
+        const ultimaFecha = filas
+          .map((p) => (p.FECHA ?? "").trim())
+          .sort()
+          .pop();
+
+        // Quedarnos únicamente con esa fecha
+        const ultimaSesion = filas.filter(
+          (p) => (p.FECHA ?? "").trim() === ultimaFecha
+        );
+
+        // TODOS los jugadores de la última sesión
+        const plantillaCompleta: Player[] = ultimaSesion.map((p) => ({
           id: p.ID_JUGADOR,
           nombre: p.NOMBRE,
           apodo: p.APODO || p.NOMBRE,
@@ -66,18 +81,19 @@ export function useTrainingPlayers() {
 
           hudl: p.HUDL_PERFIL_URL || "",
         }));
-const plantillaActiva = plantillaCompleta.filter(
-  (p) => p.activo
-);
 
-// Solo los jugadores que pueden aparecer en la sesión
-const plantilla = plantillaCompleta.filter((p) =>
-  ESTADOS_VALIDOS.includes(p.estado)
-);
+        const plantillaActiva = plantillaCompleta.filter(
+          (p) => p.activo
+        );
 
-setAllPlayers(plantillaCompleta);
-setPlantillaActiva(plantillaActiva);
-setPlayers(plantilla);
+        const plantilla = plantillaCompleta.filter((p) =>
+          ESTADOS_VALIDOS.includes(p.estado)
+        );
+
+        setAllPlayers(plantillaCompleta);
+        setPlantillaActiva(plantillaActiva);
+        setPlayers(plantilla);
+
         setLoading(false);
       },
 
