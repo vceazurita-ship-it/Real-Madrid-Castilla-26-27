@@ -103,21 +103,23 @@ const badge = getStatusBadge(estado);
           {licencia !== "RMCF Castilla" && (
             <div
               className={`
-                absolute
-                -top-1
-                -right-1
-                z-30
-                rounded-full
-                border
-                px-2
-                py-[2px]
-                text-[8px]
-                font-bold
-                leading-none
-                text-white
-                shadow-lg
-                ${licenciaColor()}
-              `}
+  absolute
+  -top-1
+  -right-1
+  z-30
+  rounded-full
+  border
+  font-bold
+  leading-none
+  text-white
+  shadow-lg
+  ${
+    mobile
+      ? "px-1 py-[1px] text-[6px]"
+      : "px-2 py-[2px] text-[8px]"
+  }
+  ${licenciaColor()}
+`}
             >
               {licencia}
             </div>
@@ -153,18 +155,19 @@ height={mobile ? 34 : 66}
   <div
     className={`
       absolute
-      -top-1
-      -left-1
+      ${mobile ? "-top-0.5 -left-0.5" : "-top-1 -left-1"}
       z-30
       rounded-full
       border
-      px-2
-      py-[2px]
-      text-[8px]
       font-bold
       leading-none
       text-white
       shadow-lg
+      ${
+        mobile
+          ? "px-1 py-[1px] text-[6px]"
+          : "px-2 py-[2px] text-[8px]"
+      }
       ${badge.color}
     `}
   >
