@@ -322,6 +322,9 @@ console.log(
       j.APODO === "Diego"
   )
 );
+
+const fecha = new Date().toISOString().slice(0, 10);
+
 await fetch(APPS_SCRIPT, {
   method: "POST",
   headers: {
@@ -329,6 +332,7 @@ await fetch(APPS_SCRIPT, {
   },
   body: JSON.stringify({
     action: "appendSessionStatus",
+    fecha,
     players: playersForSession,
   }),
 });
