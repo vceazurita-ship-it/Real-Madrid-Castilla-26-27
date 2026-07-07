@@ -74,6 +74,14 @@ const modules = [
 
   // METODOLOGÍA
   {
+    href: "/training",
+    section: "METODOLOGÍA",
+    title: "Jugadores Próxima Sesión",
+    desc: "Importación y disponibilidad para la sesión",
+    icon: Users,
+    glow: "emerald",
+  },
+  {
     href: "/microcycles",
     section: "METODOLOGÍA",
     title: "Microciclos",
@@ -82,10 +90,18 @@ const modules = [
     glow: "cyan",
   },
   {
+    href: "/pizarra_sesion",
+    section: "METODOLOGÍA",
+    title: "Pizarra Sesión",
+    desc: "Organización visual de tareas y jugadores",
+    icon: Clipboard,
+    glow: "cyan",
+  },
+  {
     href: "/pizarra_microcycle",
     section: "METODOLOGÍA",
     title: "Pizarra Microciclo",
-    desc: "Organización visual de tareas y jugadores",
+    desc: "Organización visual del microciclo",
     icon: Clipboard,
     glow: "emerald",
   },
@@ -113,6 +129,22 @@ const modules = [
     title: "Plantilla",
     desc: "Gestión integral del jugador",
     icon: User,
+    glow: "blue",
+  },
+  {
+    href: "/calendar",
+    section: "INDIVIDUAL",
+    title: "Calendario Seguimiento",
+    desc: "Planificación y control de seguimientos",
+    icon: CalendarDays,
+    glow: "amber",
+  },
+  {
+    href: "/individual_proc",
+    section: "INDIVIDUAL",
+    title: "Dashboard Seguimiento",
+    desc: "Indicadores del desarrollo individual",
+    icon: BarChart3,
     glow: "blue",
   },
   {
