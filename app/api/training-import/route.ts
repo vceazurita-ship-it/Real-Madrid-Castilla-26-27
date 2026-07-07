@@ -68,7 +68,7 @@ const base64 = optimized.toString("base64");
 //--------------------------------------------------------
 
 const jugadoresPromise = fetch(
-  `${APPS_SCRIPT}?action=jugadores`
+  `${APPS_SCRIPT}?action=jugadoresSesion`
 ).then(res => res.json());
 
     //--------------------------------------------------------
@@ -312,7 +312,7 @@ console.log(
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    action: "updatePlayerStatus",
+      action: "updateSessionPlayers",
     players: estados,
   }),
 });
