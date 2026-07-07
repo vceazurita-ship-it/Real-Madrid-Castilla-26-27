@@ -80,18 +80,17 @@ alert(
 }
 async function exportPitch() {
   const node = document.getElementById("football-pitch");
-  node?.classList.add("export-mode");
-
-// generar imagen
-
-node?.classList.remove("export-mode");
 
   if (!node) return;
+
+  node.classList.add("export-mode");
 
   const dataUrl = await toPng(node, {
     cacheBust: true,
     pixelRatio: 2,
   });
+
+  node.classList.remove("export-mode");
 
   const link = document.createElement("a");
 
@@ -102,13 +101,9 @@ node?.classList.remove("export-mode");
 async function sharePitch() {
   const node = document.getElementById("football-pitch");
 
-  node?.classList.add("export-mode");
-
-// generar imagen
-
-node?.classList.remove("export-mode");
-
   if (!node) return;
+
+  node.classList.add("export-mode");
 
   try {
     const dataUrl = await toPng(node, {
@@ -116,15 +111,13 @@ node?.classList.remove("export-mode");
       pixelRatio: 2,
     });
 
+    node.classList.remove("export-mode");
+
     const blob = await (await fetch(dataUrl)).blob();
 
-    const file = new File(
-      [blob],
-      "alineacion.png",
-      {
-        type: "image/png",
-      }
-    );
+    const file = new File([blob], "alineacion.png", {
+      type: "image/png",
+    });
 
     if (
       navigator.share &&
@@ -139,6 +132,7 @@ node?.classList.remove("export-mode");
       window.open(dataUrl, "_blank");
     }
   } catch (err) {
+    node.classList.remove("export-mode");
     console.error(err);
   }
 }

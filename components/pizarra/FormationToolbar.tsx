@@ -93,10 +93,14 @@ async function exportPitch() {
 
   if (!node) return;
 
+  node.classList.add("export-mode");
+
   const dataUrl = await toPng(node, {
     cacheBust: true,
     pixelRatio: 2,
   });
+
+  node.classList.remove("export-mode");
 
   const link = document.createElement("a");
 
@@ -109,21 +113,21 @@ async function sharePitch() {
 
   if (!node) return;
 
+  node.classList.add("export-mode");
+
   try {
     const dataUrl = await toPng(node, {
       cacheBust: true,
       pixelRatio: 2,
     });
 
+    node.classList.remove("export-mode");
+
     const blob = await (await fetch(dataUrl)).blob();
 
-    const file = new File(
-      [blob],
-      "alineacion.png",
-      {
-        type: "image/png",
-      }
-    );
+    const file = new File([blob], "alineacion.png", {
+      type: "image/png",
+    });
 
     if (
       navigator.share &&
@@ -138,6 +142,7 @@ async function sharePitch() {
       window.open(dataUrl, "_blank");
     }
   } catch (err) {
+    node.classList.remove("export-mode");
     console.error(err);
   }
 }

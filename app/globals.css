@@ -245,3 +245,11 @@ scrollbar-width:none;
 .export-mode .session-player:hover {
     transform: none;
 }
+
+.export-mode .player-name {
+  box-shadow: none !important;
+}
+.export-mode .player-name {
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}

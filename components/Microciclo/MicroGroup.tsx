@@ -67,9 +67,9 @@ switch (players.length) {
           <div
             key={player.id}
             style={{
-              width: size,
-              height: size,
-            }}
+  width: size,
+  minHeight: size,
+}}
           >
             <MicroFieldPlayer
               id={player.id}
@@ -100,11 +100,14 @@ switch (players.length) {
             <div
               key={player.id}
               className={`
-                leading-tight
-                font-medium
-                text-white
-                ${mobile ? "text-[9px]" : "text-[10px]"}
-              `}
+    player-name
+    ${mobile ? "mt-1 px-2 py-1" : "mt-2 px-3 py-1.5"}
+    rounded-xl
+    bg-black/70
+    backdrop-blur
+    text-center
+    shadow-lg
+  `}
             >
               {player.nombre}
             </div>
