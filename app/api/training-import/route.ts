@@ -274,6 +274,29 @@ asignarEstado(promotion, ESTADOS.promotion);
 asignarEstado(injury, ESTADOS.injury);
 asignarEstado(others, ESTADOS.others);
 asignarEstado(nationalTeam, ESTADOS.nationalTeam);
+const playersForSession = jugadores.map((j:any)=>({
+
+  id: j.ID_JUGADOR,
+
+  nombre: j.NOMBRE,
+
+  apodo: j.APODO,
+
+  posicion: j.POSICION,
+
+  dorsal: j.DORSAL,
+
+  foto: j.FOTO_URL,
+
+  activo: j.ACTIVO,
+
+  licencia: j.LICENCIA,
+
+  estado:
+    estados[j.ID_JUGADOR] ??
+    "NO CONVOCADO"
+
+}));
 console.log("========== ESTADOS ==========");
 console.log(estados);
     //--------------------------------------------------------
@@ -306,19 +329,16 @@ console.log(
 console.log(
   available.find(p => p.detected.includes("Beto"))
 );
-   const res = await fetch(APPS_SCRIPT, {
+await fetch(APPS_SCRIPT, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-      action: "updateSessionPlayers",
-    players: estados,
+    action: "appendSessionStatus",
+    players: playersForSession,
   }),
 });
-
-console.log("STATUS:", res.status);
-console.log("BODY:", await res.text());
 
 //--------------------------------------------------------
 // Jugadores pendientes de crear
