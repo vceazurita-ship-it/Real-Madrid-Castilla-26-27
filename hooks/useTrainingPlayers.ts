@@ -66,17 +66,18 @@ export function useTrainingPlayers() {
 
           hudl: p.HUDL_PERFIL_URL || "",
         }));
-        const plantillaCastilla = plantillaCompleta.filter(
-          (p) => p.activo 
-        );
-        // Solo los jugadores que pueden aparecer en la sesión
-        const plantilla = plantillaCompleta.filter((p) =>
-          ESTADOS_VALIDOS.includes(p.estado)
-        );
+const plantillaActiva = plantillaCompleta.filter(
+  (p) => p.activo
+);
 
-        setAllPlayers(plantillaCompleta);
-        setPlantillaActiva(plantillaActiva);
-        setPlayers(plantilla);
+// Solo los jugadores que pueden aparecer en la sesión
+const plantilla = plantillaCompleta.filter((p) =>
+  ESTADOS_VALIDOS.includes(p.estado)
+);
+
+setAllPlayers(plantillaCompleta);
+setPlantillaActiva(plantillaActiva);
+setPlayers(plantilla);
         setLoading(false);
       },
 
