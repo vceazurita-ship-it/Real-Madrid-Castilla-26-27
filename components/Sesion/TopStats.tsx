@@ -127,8 +127,22 @@ function StatCard({
 
 export default function TopStats() {
 const { players, plantillaActiva } = useTrainingPlayers();
-console.log(
-  [...new Set(players.map((p) => p.estado))]
+console.log("PLAYERS");
+console.table(
+  players.map((p) => ({
+    nombre: p.nombre,
+    estado: p.estado,
+    activo: p.activo,
+  }))
+);
+
+console.log("PLANTILLA ACTIVA");
+console.table(
+  plantillaActiva.map((p) => ({
+    nombre: p.nombre,
+    estado: p.estado,
+    activo: p.activo,
+  }))
 );
  const optimos = players.filter(
   (p) => p.estado === "ÓPTIMO"
