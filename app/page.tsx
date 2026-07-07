@@ -672,56 +672,68 @@ VISIÓN GLOBAL
 
   <div className="mt-6 grid gap-4 md:grid-cols-3">
 
-    <div className="rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6">
-    <div className="flex justify-end">
-  <Activity className="h-8 w-8 text-[#D8B45A]" />
-</div>
+    <Link
+      href="/calendar"
+      className="group rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[#D8B45A]/40 hover:shadow-[0_0_30px_rgba(216,180,90,.12)]"
+    >
+      <div className="flex justify-end">
+        <Activity className="h-8 w-8 text-[#D8B45A]" />
+      </div>
+
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
         Seguimientos
       </p>
 
-      <h3 className="mt-3 text-5xl font-semibold">
+      <h3 className="mt-3 text-4xl font-semibold">
         {seguimientos}
       </h3>
 
-      <p className="mt-3 text-white/60">
+      <p className="mt-3 text-sm text-white/70">
         Sesiones registradas
       </p>
-    </div>
+    </Link>
 
-    <div className="rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6">
-    <div className="flex justify-end">
-  <Users className="h-8 w-8 text-[#D8B45A]" />
-</div>
+    <Link
+      href="/individual"
+      className="group rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[#D8B45A]/40 hover:shadow-[0_0_30px_rgba(216,180,90,.12)]"
+    >
+      <div className="flex justify-end">
+        <Users className="h-8 w-8 text-[#D8B45A]" />
+      </div>
+
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
         Jugadores
       </p>
 
-      <h3 className="mt-3 text-5xl font-semibold">
-  {totalJugadores}
-</h3>
+      <h3 className="mt-3 text-4xl font-semibold">
+        {totalJugadores}
+      </h3>
 
-<p className="mt-3 text-white/60">
-  Jugadores en plantilla
-</p>
-    </div>
+      <p className="mt-3 text-sm text-white/70">
+        Jugadores en plantilla
+      </p>
+    </Link>
 
-    <div className="rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6">
-    <div className="flex justify-end">
-  <BarChart3 className="h-8 w-8 text-[#D8B45A]" />
-</div>
+    <Link
+      href="/individual_proc"
+      className="group rounded-[24px] min-h-[180px] border border-white/10 bg-[#06111D] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[#D8B45A]/40 hover:shadow-[0_0_30px_rgba(216,180,90,.12)]"
+    >
+      <div className="flex justify-end">
+        <BarChart3 className="h-8 w-8 text-[#D8B45A]" />
+      </div>
+
       <p className="text-xs uppercase tracking-[0.3em] text-[#D8B45A]">
-  Promedio
-</p>
+        Promedio
+      </p>
 
-<h3 className="mt-3 text-5xl font-semibold">
-  {promedioSeguimientos}
-</h3>
+      <h3 className="mt-3 text-4xl font-semibold">
+        {promedioSeguimientos}
+      </h3>
 
-<p className="mt-3 text-white/60">
-  Seguimientos por jugador
-</p>
-    </div> 
+      <p className="mt-3 text-sm text-white/70">
+        Seguimientos por jugador
+      </p>
+    </Link>
 
   </div>
 </div>
