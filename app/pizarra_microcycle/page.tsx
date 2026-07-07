@@ -256,22 +256,6 @@ const sensors = useSensors(
     w-full
     aspect-[9/16]
 
-    overflow-auto
-    touch-pan-x
-    touch-pan-y
-
-    lg:aspect-[16/9]
-    lg:h-[calc(100vh-235px)]
-    lg:max-h-[820px]
-    lg:min-h-[520px]
-  "
->
-  <div
-  className="
-    mx-auto
-    w-full
-    aspect-[9/16]
-
     lg:aspect-[16/9]
     lg:h-[calc(100vh-235px)]
     lg:max-h-[820px]
@@ -282,31 +266,22 @@ const sensors = useSensors(
   "
 >
   <TransformWrapper
-    initialScale={0.58}
-    minScale={0.45}
-    maxScale={2.5}
+    initialScale={window.innerWidth < 1024 ? 0.58 : 1}
+    minScale={window.innerWidth < 1024 ? 0.45 : 1}
+    maxScale={window.innerWidth < 1024 ? 2.5 : 1}
     centerOnInit
     wheel={{ disabled: true }}
     doubleClick={{ disabled: true }}
     pinch={{ step: 5 }}
-    panning={{
-      disabled: false,
-    }}
+    panning={{ disabled: true }}
   >
     <TransformComponent
-      wrapperStyle={{
-        width: "100%",
-        height: "100%",
-      }}
-      contentStyle={{
-        width: "100%",
-        height: "100%",
-      }}
+      wrapperStyle={{ width: "100%", height: "100%" }}
+      contentStyle={{ width: "100%", height: "100%" }}
     >
       <FootballPitch />
     </TransformComponent>
   </TransformWrapper>
-</div>
 </div>
               
                 </section>
