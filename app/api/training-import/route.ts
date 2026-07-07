@@ -322,13 +322,6 @@ console.log(
       j.APODO === "Diego"
   )
 );
-console.log(
-  available.find(p => p.detected.includes("Bail"))
-);
-
-console.log(
-  available.find(p => p.detected.includes("Beto"))
-);
 await fetch(APPS_SCRIPT, {
   method: "POST",
   headers: {
