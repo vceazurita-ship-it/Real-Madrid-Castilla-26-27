@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import Papa from "papaparse";
-
+import { useSearchParams } from "next/navigation";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
@@ -40,6 +40,13 @@ const [originalData, setOriginalData] =
   const [editing, setEditing] =
     useState(false);
 
+  const searchParams = useSearchParams();
+
+const faseInicial =
+  searchParams.get("fase") === "DEFENSA"
+    ? "DEFENSA"
+    : "ATAQUE";
+
   useEffect(() => {
 
  fetch(
@@ -66,26 +73,27 @@ const [originalData, setOriginalData] =
         structuredClone(rows)
       );
 
-      if (rows.length > 0) {
+if (rows.length > 0) {
+  const primerBloque =
+    rows.find((r) => r.FASE === faseInicial)?.BLOQUE || "";
 
-        setFase(
-          rows[0].FASE
-        );
+  const primerApartado =
+    rows.find(
+      (r) =>
+        r.FASE === faseInicial &&
+        r.BLOQUE === primerBloque
+    )?.APARTADO || "";
 
-        setBloque(
-          rows[0].BLOQUE
-        );
-
-        setApartado(
-          rows[0].APARTADO
-        );
-      }
+  setFase(faseInicial);
+  setBloque(primerBloque);
+  setApartado(primerApartado);
+}
     })
     .catch((err) => {
       console.error(err);
     });
 
-}, []);
+}, [searchParams]);
 
   const bloques = useMemo(() => {
   if (!Array.isArray(data)) return [];

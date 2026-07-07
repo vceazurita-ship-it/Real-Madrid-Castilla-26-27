@@ -542,7 +542,7 @@ el rendimiento colectivo y el análisis estratégico del rival.
                   
                 
   <Link
-    href="/game-model"
+    href="/game-model?fase=ATAQUE"
     className="
 rounded-[24px]
 border
@@ -574,7 +574,7 @@ hover:scale-[1.02]
   </Link>
 
   <Link
-    href="/game-model"
+    href="/game-model?fase=DEFENSA"
     className="
 rounded-[24px]
 border
