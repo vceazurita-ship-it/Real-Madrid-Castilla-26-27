@@ -540,9 +540,9 @@ el rendimiento colectivo y el análisis estratégico del rival.
                  <div className="mt-10">
   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   
-                
+                  
   <Link
-    href="/game-model?fase=ATAQUE"
+    href="/game-model#ATAQUE"
     className="
 rounded-[24px]
 border
@@ -574,7 +574,7 @@ hover:scale-[1.02]
   </Link>
 
   <Link
-    href="/game-model?fase=DEFENSA"
+    href="/game-model#DEFENSA"
     className="
 rounded-[24px]
 border
