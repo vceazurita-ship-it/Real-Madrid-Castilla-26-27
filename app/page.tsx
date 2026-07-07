@@ -485,7 +485,18 @@ el rendimiento colectivo y el análisis estratégico del rival.
                         Preparación Partido
                       </div>
                     </Link>
+                    <Link
+                      href="/training"
+                      className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-600 to-emerald-500 px-8 py-4 font-medium shadow-[0_0_40px_rgba(16,185,129,.35)] transition hover:scale-[1.02]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Jugadores Próxima Sesión
+                      </div>
+                    </Link>
+                  
                   </div>
+
                  <div className="mt-10">
   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   
@@ -710,7 +721,7 @@ VISIÓN GLOBAL
 <p className="mt-3 text-white/60">
   Seguimientos por jugador
 </p>
-    </div>
+    </div> 
 
   </div>
 </div>
