@@ -93,7 +93,7 @@ switch (players.length) {
   bg-black/70
   backdrop-blur
   text-center
-  shadow-lg
+  
 `}
         >
           {visibleNames.map((player) => (
