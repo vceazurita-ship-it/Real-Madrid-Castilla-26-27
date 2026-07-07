@@ -10,7 +10,7 @@ export const formations: Record<string, FormationPosition[]> = {
   // 4-4-2
   // ==========================================
   "4-4-2": [
-    { id: "POR", nombre: "POR", left: "8%", top: "50%" },
+    { id: "POR", nombre: "POR", left: "12%", top: "50%" },
 
     { id: "LI", nombre: "LI", left: "23%", top: "18%" },
     { id: "DFC1", nombre: "DFC", left: "23%", top: "38%" },
@@ -30,7 +30,7 @@ export const formations: Record<string, FormationPosition[]> = {
   // 4-3-3
   // ==========================================
   "4-3-3": [
-    { id: "POR", nombre: "POR", left: "8%", top: "50%" },
+    { id: "POR", nombre: "POR", left: "12%", top: "50%" },
 
     { id: "LI", nombre: "LI", left: "23%", top: "18%" },
     { id: "DFC1", nombre: "DFC", left: "23%", top: "38%" },
@@ -50,7 +50,7 @@ export const formations: Record<string, FormationPosition[]> = {
   // 4-2-3-1
   // ==========================================
   "4-2-3-1": [
-    { id: "POR", nombre: "POR", left: "8%", top: "50%" },
+    { id: "POR", nombre: "POR", left: "12%", top: "50%" },
 
     { id: "LI", nombre: "LI", left: "23%", top: "18%" },
     { id: "DFC1", nombre: "DFC", left: "23%", top: "38%" },
@@ -71,7 +71,7 @@ export const formations: Record<string, FormationPosition[]> = {
   // 3-5-2
   // ==========================================
   "3-5-2": [
-    { id: "POR", nombre: "POR", left: "8%", top: "50%" },
+    { id: "POR", nombre: "POR", left: "12%", top: "50%" },
 
     { id: "DFC1", nombre: "DFC", left: "24%", top: "28%" },
     { id: "DFC2", nombre: "DFC", left: "20%", top: "50%" },
@@ -91,7 +91,7 @@ export const formations: Record<string, FormationPosition[]> = {
   // 3-4-3
   // ==========================================
   "3-4-3": [
-    { id: "POR", nombre: "POR", left: "8%", top: "50%" },
+    { id: "POR", nombre: "POR", left: "12%", top: "50%" },
 
     { id: "DFC1", nombre: "DFC", left: "24%", top: "28%" },
     { id: "DFC2", nombre: "DFC", left: "20%", top: "50%" },
