@@ -127,7 +127,9 @@ function StatCard({
 
 export default function TopStats() {
   const { players } = useTrainingPlayers();
-
+console.log(
+  [...new Set(players.map((p) => p.estado))]
+);
  const optimos = players.filter(
   (p) => p.estado === "ÓPTIMO"
 ).length;
@@ -144,15 +146,17 @@ const tocados = players.filter(
   (p) => p.estado === "TOCADO"
 ).length;
 
-  const NOavailableStates = new Set([
+const NOavailableStates = new Set([
   "LESIONADO",
   "PROMOCIÓN",
   "PRIMER EQUIPO",
   "1º EQUIPO",
   "OTROS",
+  "SELECCIÓN",
 ]);
+
 const noDisponibles = players.filter((p) =>
-  NOavailableStates.has(p.estado)
+  NOavailableStates.has((p.estado ?? "").trim())
 ).length;
 
   return (
