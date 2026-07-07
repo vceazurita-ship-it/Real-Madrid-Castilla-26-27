@@ -38,30 +38,47 @@ export default function ModulesCarousel({
 
   const [page, setPage] = useState(0)
 const priority: Record<string, number> = {
+  // PRIORIDAD PRINCIPAL
   "/game-model": 100,
-  "/match-preparation": 95,
-  "/microcycles": 90,
+  "/team-values": 99,
+  "/match-preparation": 98,
+  "/scout-rival-collective": 97,
+  "/training": 96,
+  "/pizarra_sesion": 95,
+  "/individual": 94,
+  "/calendar": 93,
+
+  // METODOLOGÍA
+  "/individual_proc": 90,
+  "/microcycles": 89,
   "/pizarra_microcycle": 88,
-  "/pizarra": 86,
-  "/match-plans": 84,
-  "/individual": 82,
+  "/pizarra": 87,
+  "/match-plans": 86,
+
+  // COLECTIVO
   "/team": 80,
+  "/collective": 79,
+  "/collective_history": 78,
+  "/setpieces": 77,
+  "/setpieces_def": 76,
+  "/video-collective": 75,
 
-  "/collective": 70,
-  "/collective_history": 68,
-  "/setpieces": 66,
-  "/setpieces_def": 64,
-  "/video-collective": 62,
-  "/video-individual": 60,
-  "/comparative_ind": 58,
-  "/performance": 56,
+  // INDIVIDUAL
+  "/video-individual": 70,
+  "/comparative_ind": 69,
 
-  "/scout-rival-collective": 45,
-  "/scout-rival-individual": 43,
-  "/sinergy": 41,
-  "/emotion": 39,
-  "/team-values": 37,
-  "/data-center": 35,
+  // RELACIONAL
+  "/emotion": 68,
+  "/sinergy": 67,
+
+  // RENDIMIENTO
+  "/performance": 60,
+
+  // RIVAL
+  "/scout-rival-individual": 55,
+
+  // DATOS
+  "/data-center": 50,
 }
 const usage =
   typeof window !== "undefined"
