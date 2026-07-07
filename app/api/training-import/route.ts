@@ -67,9 +67,19 @@ const base64 = optimized.toString("base64");
 // Descargar jugadores mientras Gemini analiza la imagen
 //--------------------------------------------------------
 
-const jugadoresPromise = fetch(
+const jugadoresResponse = await fetch(
   `${APPS_SCRIPT}?action=jugadoresSesion`
-).then(res => res.json());
+);
+
+console.log("STATUS", jugadoresResponse.status);
+console.log("CONTENT-TYPE", jugadoresResponse.headers.get("content-type"));
+
+const texto = await jugadoresResponse.text();
+
+console.log("RESPUESTA APPS SCRIPT:");
+console.log(texto);
+
+const jugadores = JSON.parse(texto);
 
     //--------------------------------------------------------
     // Gemini
@@ -142,14 +152,6 @@ console.log(raw);
       ...result.nationalTeam,
     ];
 
-//--------------------------------------------------------
-// Esperar a que termine la descarga
-//--------------------------------------------------------
-
-const jugadores = await jugadoresPromise;
-console.log("JUGADORES");
-console.log(jugadores);
-console.log(Array.isArray(jugadores));
     //--------------------------------------------------------
     // Lista de candidatos
     //--------------------------------------------------------
