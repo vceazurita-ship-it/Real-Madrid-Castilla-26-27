@@ -144,6 +144,15 @@ const tocados = players.filter(
   (p) => p.estado === "TOCADO"
 ).length;
 
+  const NOavailableStates = new Set([
+  "LESIONADO",
+  "PROMOCIÓN",
+  "PRIMER EQUIPO",
+  "1º EQUIPO",
+  "OTROS",
+]);
+
+
 const noDisponibles = players.filter(
   (p) => p.estado === "SANCIONADO"
 ).length;
