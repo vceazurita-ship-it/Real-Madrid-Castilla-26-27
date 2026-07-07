@@ -56,6 +56,9 @@ export function usePlayers(
           activo: true,
           hudl: p.HUDL_PERFIL_URL || "",
         }));
+console.log(source);
+console.log(CSV_URLS[source]);
+console.log(plantilla);
 
       setPlayers(plantilla);
       setLoading(false);

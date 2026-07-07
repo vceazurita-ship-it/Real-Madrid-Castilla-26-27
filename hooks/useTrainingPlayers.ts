@@ -70,7 +70,8 @@ export function useTrainingPlayers() {
         const plantilla = plantillaCompleta.filter((p) =>
           ESTADOS_VALIDOS.includes(p.estado)
         );
-
+console.log(plantillaCompleta);
+console.log(plantilla);
         setAllPlayers(plantillaCompleta);
         setPlayers(plantilla);
         setLoading(false);
