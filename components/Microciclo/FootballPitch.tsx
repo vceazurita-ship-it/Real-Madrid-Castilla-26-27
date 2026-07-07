@@ -23,7 +23,16 @@ const FootballPitch = forwardRef<
   lineup,
   formation,
 } = useMicroLineup();
+const [isMobile, setIsMobile] = useState(false);
 
+useEffect(() => {
+  const update = () => setIsMobile(window.innerWidth < 1024);
+
+  update();
+  window.addEventListener("resize", update);
+
+  return () => window.removeEventListener("resize", update);
+}, []);
 const currentFormation =
   microFormations[
     formation as keyof typeof microFormations
@@ -97,47 +106,47 @@ const currentFormation =
             <MicroGroup
   players={groupPlayers}
   positionId={position.id}
+  mobile={isMobile}
 />
           ) : (
             <div className="flex flex-col items-center">
               <div
-                className="
-                  flex
-                  h-16
-                  w-16
-                  items-center
-                  justify-center
-                  rounded-full
-                  border-2
-                  border-dashed
-                  border-[#C8A96B]
-                  bg-black/45
-                  backdrop-blur-sm
-                  shadow-[0_0_18px_rgba(200,169,107,.25)]
-                  transition
-                  duration-300
-                  hover:scale-110
-                "
+                className={`
+  flex
+  ${isMobile ? "h-8 w-8" : "h-16 w-16"}
+  items-center
+  justify-center
+  rounded-full
+  border-2
+  border-dashed
+  border-[#C8A96B]
+  bg-black/45
+  backdrop-blur-sm
+  shadow-[0_0_18px_rgba(200,169,107,.25)]
+  transition
+  duration-300
+  hover:scale-110
+`}
               >
-                <span className="text-lg text-[#C8A96B]">
-                  +
-                </span>
+                <span className={isMobile ? "text-sm text-[#C8A96B]" : "text-lg text-[#C8A96B]"}>
+  +
+</span>
               </div>
 
               <div
-                className="
-                  mt-2
-                  rounded-full
-                  bg-black/60
-                  px-3
-                  py-1
-                  text-[10px]
-                  font-semibold
-                  tracking-wide
-                  text-white/90
-                  whitespace-nowrap
-                  backdrop-blur-sm
-                "
+                className={`
+  mt-2
+  rounded-full
+  bg-black/60
+  px-3
+  py-1
+  font-semibold
+  tracking-wide
+  text-white/90
+  whitespace-nowrap
+  backdrop-blur-sm
+  ${isMobile ? "text-[8px]" : "text-[10px]"}
+`}
               >
                 {position.nombre}
               </div>

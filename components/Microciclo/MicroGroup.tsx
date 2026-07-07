@@ -16,27 +16,27 @@ export default function MicroGroup({
 }: Props) {
   if (!players.length) return null;
 
-  let size = mobile ? 30 : 58;
+  let size = mobile ? 33 : 58;
 
 switch (players.length) {
   case 1:
-    size = mobile ? 36 : 68;
+    size = mobile ? 33 : 68;
     break;
 
   case 2:
-    size = mobile ? 32 : 60;
+    size = mobile ? 29 : 60;
     break;
 
   case 3:
-    size = mobile ? 28 : 56;
+    size = mobile ? 25 : 56;
     break;
 
   case 4:
-    size = mobile ? 26 : 52;
+    size = mobile ? 23 : 52;
     break;
 
   default:
-    size = mobile ? 24 : 46;
+    size = mobile ? 21 : 46;
     break;
 }
 
