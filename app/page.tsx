@@ -132,6 +132,14 @@ const modules = [
     glow: "blue",
   },
   {
+    href: "/dashboard-plantilla",
+    section: "INDIVIDUAL",
+    title: "Dashboard Individual",
+    desc: "Dashboard comparativo de la plantilla",
+    icon: BarChart3,
+    glow: "blue",
+  },
+  {
     href: "/calendar",
     section: "INDIVIDUAL",
     title: "Calendario Seguimiento",

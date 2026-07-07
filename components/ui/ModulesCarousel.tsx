@@ -65,6 +65,7 @@ const priority: Record<string, number> = {
 
   // INDIVIDUAL
   "/video-individual": 70,
+  "/dashboard-plantilla": 70,
   "/comparative_ind": 69,
 
   // RELACIONAL
