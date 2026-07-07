@@ -133,7 +133,7 @@ useEffect(() => {
                   <div
   className={`
     flex
-    ${mobile ? "h-12 w-12" : "h-16 w-16"}
+    ${mobile ? "h-8 w-8" : "h-16 w-16"}
     items-center
     justify-center
     rounded-full
@@ -148,23 +148,28 @@ useEffect(() => {
     hover:scale-110
   `}
 >
-                    <span className="text-lg text-[#C8A96B]">
+                    <span
+  className={`
+    ${mobile ? "text-sm" : "text-lg"}
+    text-[#C8A96B]
+  `}
+>
                       +
                     </span>
                   </div>
 
                   <div
-                    className="
-                      mt-2
-                      rounded-full
-                      bg-black/60
-                      px-3
-                      py-1
-                      text-[10px]
-                      font-semibold
-                      tracking-wide
-                      text-white/90
-                    "
+                    className={`
+  mt-2
+  rounded-full
+  bg-black/60
+  px-3
+  py-1
+  font-semibold
+  tracking-wide
+  text-white/90
+  ${mobile ? "text-[8px]" : "text-[10px]"}
+`}
                   >
                     {position.nombre}
                   </div>

@@ -100,22 +100,19 @@ const badge = getStatusBadge(estado);
           {/* LICENCIA */}
           {licencia !== "RMCF Castilla" && (
             <div
-              className={`
-                absolute
-                -top-1
-                -right-1
-                z-30
-                rounded-full
-                border
-                px-2
-                py-[2px]
-                text-[8px]
-                font-bold
-                leading-none
-                text-white
-                shadow-lg
-                ${licenciaColor()}
-              `}
+             className={`
+absolute
+-top-1
+-right-1
+z-30
+rounded-full
+border
+font-bold
+leading-none
+shadow-lg
+${mobile ? "px-1 py-[1px] text-[6px]" : "px-2 py-[2px] text-[8px]"}
+${licenciaColor()}
+`}
             >
               {licencia}
             </div>
@@ -124,21 +121,19 @@ const badge = getStatusBadge(estado);
           {badge && (
   <div
     className={`
-      absolute
-      -bottom-1
-      left-1/2
-      -translate-x-1/2
-      z-30
-      rounded-full
-      border
-      px-2
-      py-[2px]
-      text-[8px]
-      font-bold
-      leading-none
-      shadow-lg
-      ${badge.color}
-    `}
+absolute
+-bottom-1
+left-1/2
+-translate-x-1/2
+z-30
+rounded-full
+border
+font-bold
+leading-none
+shadow-lg
+${mobile ? "px-1 py-[1px] text-[6px]" : "px-2 py-[2px] text-[8px]"}
+${badge.color}
+`}
   >
     {badge.text}
   </div>
@@ -147,8 +142,8 @@ const badge = getStatusBadge(estado);
           <Image
             src={foto}
             alt={nombre}
-            width={mobile ? 48 : 66}
-            height={mobile ? 48 : 66}
+            width={mobile ? 36 : 66}
+            height={mobile ?36 : 66}
             unoptimized
             draggable={false}
             className={`
@@ -188,7 +183,11 @@ const badge = getStatusBadge(estado);
                 ? "text-white/60"
                 : "text-white"
             }
-            ${mobile ? "text-[9px]" : "text-[11px]"}
+            ${
+      mobile
+        ? "text-[8px] px-2 py-0.5 mt-1"
+        : "text-[11px] px-3 py-1 mt-2"
+    }
           `}
         >
           {nombre}
