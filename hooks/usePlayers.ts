@@ -5,7 +5,15 @@ import Papa from "papaparse";
 import { Player, EstadoJugador } from "@/types/player";
 
 const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1735710063&single=true&output=csv";
+
+const CSV_URLS = {
+  micro:
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=2041966583&single=true&output=csv",
+
+  competicion:
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1735710063&single=true&output=csv",
+} as const;
 
 interface CsvPlayer {
   ID_JUGADOR: string;
@@ -20,12 +28,14 @@ interface CsvPlayer {
   APODO: string;
 }
 
-export function usePlayers() {
+export function usePlayers(
+  source: keyof typeof CSV_URLS = "micro"
+) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Papa.parse<CsvPlayer>(CSV_URL, {
+    Papa.parse<CsvPlayer>(CSV_URLS[source], {
       download: true,
       header: true,
 

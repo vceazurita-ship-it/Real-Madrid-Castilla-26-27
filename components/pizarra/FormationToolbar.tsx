@@ -37,7 +37,7 @@ const [rival, setRival] = useState("");
   loadedLineupName,
 } = useLineup();
 
-const { players } = usePlayers();
+const { players } = usePlayers("competicion");
 async function guardar() {
 
   const nombreLimpio = nombre.trim();

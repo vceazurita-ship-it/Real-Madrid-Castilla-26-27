@@ -34,7 +34,7 @@ function PizarraContent() {
   loadedLineupName,
 } = useMicroLineup();
 
-const { players } = usePlayers();
+const { players } = usePlayers("micro");
 
 const [dragPlayer, setDragPlayer] = useState<
   (typeof players)[number] | null

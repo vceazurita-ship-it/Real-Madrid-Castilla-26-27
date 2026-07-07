@@ -5,7 +5,7 @@ import Papa from "papaparse";
 import { Player, EstadoJugador } from "../types/player";
 
 const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=472545025&single=true&output=csv";
 
 interface CsvPlayer {
   ID_JUGADOR: string;

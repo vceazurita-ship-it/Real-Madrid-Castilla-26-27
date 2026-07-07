@@ -144,7 +144,7 @@ function StatCard({
 }
 
 export default function TopStats() {
-  const { players } = usePlayers();
+  const { players } = usePlayers("micro");
 
   const availableStates = new Set([
   "ÓPTIMO",
