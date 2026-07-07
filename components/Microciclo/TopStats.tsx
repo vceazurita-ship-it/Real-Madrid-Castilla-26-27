@@ -146,9 +146,17 @@ function StatCard({
 export default function TopStats() {
   const { players } = usePlayers();
 
-  const disponibles = players.filter(
-    (p) => p.estado === "DISPONIBLE"
-  ).length;
+  const availableStates = new Set([
+  "ÓPTIMO",
+  "CONTROL DE CARGA",
+  "TOCADO",
+  "REINCORPORACIÓN",
+  "DISPONIBLE",
+]);
+
+const disponibles = players.filter((p) =>
+  availableStates.has(p.estado)
+).length;
 
   const lesionados = players.filter(
     (p) => p.estado === "LESIONADO"
