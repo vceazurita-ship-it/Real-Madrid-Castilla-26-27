@@ -238,17 +238,16 @@ export const layouts: Record<
       { id: "DEF_3", left: 62, top: 82 },
       { id: "DEF_4", left: 86, top: 82 },
 
-      // Centro del campo
-      { id: "MID_1", left: 24, top: 70 },
-      { id: "MID_2", left: 50, top: 70 },
-      { id: "MID_3", left: 76, top: 70 },
+      // Centro del campo (4)
+      { id: "MID_1", left: 14, top: 70 },
+      { id: "MID_2", left: 38, top: 70 },
+      { id: "MID_3", left: 62, top: 70 },
+      { id: "MID_4", left: 86, top: 70 },
 
-      // Delantera
-      { id: "ATT_1", left: 20, top: 58 },
-      { id: "ATT_2", left: 50, top: 58 },
-      { id: "ATT_3", left: 80, top: 58 },
-    ]),
-
+      // Delantera (2)
+      { id: "ATT_1", left: 38, top: 56 },
+      { id: "ATT_2", left: 62, top: 56 },   
+      ]),
     red: createTeam("R", [
       // Portero
       { id: "GK", left: 50, top: 9 },
@@ -259,15 +258,15 @@ export const layouts: Record<
       { id: "DEF_3", left: 62, top: 18 },
       { id: "DEF_4", left: 86, top: 18 },
 
-      // Centro del campo
-      { id: "MID_1", left: 24, top: 30 },
-      { id: "MID_2", left: 50, top: 30 },
-      { id: "MID_3", left: 76, top: 30 },
+      // Centro del campo (4)
+      { id: "MID_1", left: 14, top: 30 },
+      { id: "MID_2", left: 38, top: 30 },
+      { id: "MID_3", left: 62, top: 30 },
+      { id: "MID_4", left: 86, top: 30 },
 
-      // Delantera
-      { id: "ATT_1", left: 20, top: 42 },
-      { id: "ATT_2", left: 50, top: 42 },
-      { id: "ATT_3", left: 80, top: 42 },
+      // Delantera (2)
+      { id: "ATT_1", left: 38, top: 44 },
+      { id: "ATT_2", left: 62, top: 44 },
     ]),
   },
 
