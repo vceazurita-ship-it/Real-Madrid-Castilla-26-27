@@ -151,10 +151,8 @@ const tocados = players.filter(
   "1º EQUIPO",
   "OTROS",
 ]);
-
-
-const noDisponibles = players.filter(
-  (p) => p.estado === "SANCIONADO"
+const noDisponibles = players.filter((p) =>
+  NOavailableStates.has(p.estado)
 ).length;
 
   return (
