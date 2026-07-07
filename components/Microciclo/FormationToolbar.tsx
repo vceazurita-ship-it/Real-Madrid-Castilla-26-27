@@ -37,7 +37,7 @@ const [rival, setRival] = useState("");
   loadedLineupName,
 } = useMicroLineup();
 
-const { players } = usePlayers("micro");
+const { players } = usePlayers();
 async function guardar() {
   const nombreLimpio = nombre.trim();
 

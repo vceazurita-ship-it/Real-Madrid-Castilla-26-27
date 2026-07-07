@@ -12,7 +12,7 @@ import PlayerToken from "./PlayerToken";
 import { useMicroLineup } from "@/context/MicroLineupContext";
 import { useDroppable } from "@dnd-kit/core";
 export default function PlayerSidebar() {
-  const { players } = usePlayers("micro");
+  const { players } = usePlayers();
 const { lineup } = useMicroLineup();
   const [search, setSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);

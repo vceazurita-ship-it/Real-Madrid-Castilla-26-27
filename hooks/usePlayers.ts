@@ -4,13 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { Player, EstadoJugador } from "@/types/player";
 
-const CSV_URLS = {
-  micro:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=2041966583&single=true&output=csv",
-
-  competicion:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1735710063&single=true&output=csv",
-} as const;
+const CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
 
 interface CsvPlayer {
   ID_JUGADOR: string;
@@ -25,53 +20,46 @@ interface CsvPlayer {
   APODO: string;
 }
 
-export function usePlayers(
-  source: keyof typeof CSV_URLS = "micro"
-) {
+export function usePlayers() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
- useEffect(() => {
-  setLoading(true);
+  useEffect(() => {
+    Papa.parse<CsvPlayer>(CSV_URL, {
+      download: true,
+      header: true,
 
-  Papa.parse<CsvPlayer>(CSV_URLS[source], {
-    download: true,
-    header: true,
+      complete: ({ data }) => {
+        const plantilla: Player[] = data
+          .filter((p) => p.ACTIVO === "TRUE")
+          .map((p) => ({
+  id: p.ID_JUGADOR,
+  nombre: p.NOMBRE,
+apodo: p.APODO || p.NOMBRE,
+  posicion: p.POSICION,
+  dorsal: Number(p.DORSAL) || undefined,
+  foto: p.FOTO_URL || "/jugador.png",
 
-    complete: ({ data }) => {
-        console.log("CSV RAW", data);
+  licencia: p.LICENCIA || "RMCF Castilla",
 
-      const plantilla: Player[] = data
-        .filter((p) => p.ACTIVO === "TRUE")
-        .map((p) => ({
-          id: p.ID_JUGADOR,
-          nombre: p.NOMBRE,
-          apodo: p.APODO || p.NOMBRE,
-          posicion: p.POSICION,
-          dorsal: Number(p.DORSAL) || undefined,
-          foto: p.FOTO_URL || "/jugador.png",
-          licencia: p.LICENCIA || "RMCF Castilla",
-          esCastilla:
-            (p.LICENCIA || "RMCF Castilla") ===
-            "RMCF Castilla",
-          estado: p.ESTADO || "DISPONIBLE",
-          activo: true,
-          hudl: p.HUDL_PERFIL_URL || "",
-        }));
-console.log(source);
-console.log(CSV_URLS[source]);
-console.log(plantilla);
+  esCastilla:
+    (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
 
-      setPlayers(plantilla);
-      setLoading(false);
-    },
+  estado: p.ESTADO || "DISPONIBLE",
+  activo: true,
+  hudl: p.HUDL_PERFIL_URL || "",
+}));
 
-    error: (err) => {
-      console.error(err);
-      setLoading(false);
-    },
-  });
-}, [source]);
+        setPlayers(plantilla);
+        setLoading(false);
+      },
+
+      error: (error) => {
+        console.error("Error cargando jugadores:", error);
+        setLoading(false);
+      },
+    });
+  }, []);
 
   const disponibles = useMemo(
     () => players.filter((p) => p.estado === "DISPONIBLE"),

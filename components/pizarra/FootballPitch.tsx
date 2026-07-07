@@ -17,7 +17,7 @@ const FootballPitch = forwardRef<
   HTMLDivElement,
   Record<string, never>
 >(function FootballPitch(_, ref) {
-  const { players } = usePlayers("competicion");
+  const { players } = usePlayers();
 
   const {
   lineup,

@@ -35,7 +35,7 @@ function PizarraContent() {
   loadedLineupName,
 } = useLineup();
 
-const { players } = usePlayers("competicion");
+const { players } = usePlayers();
 
 const [dragPlayer, setDragPlayer] = useState<
   (typeof players)[number] | null

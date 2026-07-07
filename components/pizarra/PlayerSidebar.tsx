@@ -12,7 +12,7 @@ import { usePlayers } from "@/hooks/usePlayers";
 import PlayerToken from "./PlayerToken";
 
 export default function PlayerSidebar() {
-  const { players } = usePlayers("competicion");
+  const { players } = usePlayers();
   const { lineup } = useLineup();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { setNodeRef, isOver } = useDroppable({

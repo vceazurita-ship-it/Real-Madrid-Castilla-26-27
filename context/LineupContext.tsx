@@ -92,7 +92,7 @@ export function LineupProvider({
 }) {
   const [selectedPlayer, _setSelectedPlayer] =
   useState<Player | null>(null);
-const { players } = usePlayers("competicion");
+const { players } = usePlayers();
 const setSelectedPlayer = (player: Player | null) => {
   console.log("SET SELECTED:", player);
   _setSelectedPlayer(player);
