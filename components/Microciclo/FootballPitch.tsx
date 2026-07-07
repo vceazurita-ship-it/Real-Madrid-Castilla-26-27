@@ -134,19 +134,19 @@ const currentFormation =
               </div>
 
               <div
-                className={`
-  mt-2
-  rounded-full
-  bg-black/60
-  px-3
-  py-1
-  font-semibold
-  tracking-wide
-  text-white/90
-  whitespace-nowrap
-  backdrop-blur-sm
-  ${isMobile ? "text-[8px]" : "text-[10px]"}
-`}
+                className="
+                  mt-2
+                  rounded-full
+                  bg-black/60
+                  px-3
+                  py-1
+                  text-[10px]
+                  font-semibold
+                  tracking-wide
+                  text-white/90
+                  whitespace-nowrap
+                  backdrop-blur-sm
+                "
               >
                 {position.nombre}
               </div>
