@@ -263,7 +263,11 @@ const navLink = (
         "Plantilla",
         <User size={18} />
       )}
-
+      {navLink(
+  "/dashboard-plantilla",
+  "Dashboard",
+  <BarChart3 size={18} />
+)}
       {navLink(
   "/video-individual",
   "Videoteca Individual",
