@@ -242,7 +242,7 @@ export const layouts: Record<
       { id: "MID_1", left: 14, top: 70 },
       { id: "MID_2", left: 38, top: 70 },
       { id: "MID_3", left: 62, top: 70 },
-      { id: "MID_4", left: 86, top: 70 },
+      { id: "ATT_3", left: 86, top: 70 },
 
       // Delantera (2)
       { id: "ATT_1", left: 38, top: 56 },
@@ -262,7 +262,7 @@ export const layouts: Record<
       { id: "MID_1", left: 14, top: 30 },
       { id: "MID_2", left: 38, top: 30 },
       { id: "MID_3", left: 62, top: 30 },
-      { id: "MID_4", left: 86, top: 30 },
+      { id: "ATT_3", left: 86, top: 30 },
 
       // Delantera (2)
       { id: "ATT_1", left: 38, top: 44 },
