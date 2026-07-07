@@ -80,6 +80,11 @@ alert(
 }
 async function exportPitch() {
   const node = document.getElementById("football-pitch");
+  node?.classList.add("export-mode");
+
+// generar imagen
+
+node?.classList.remove("export-mode");
 
   if (!node) return;
 
@@ -96,6 +101,12 @@ async function exportPitch() {
 }
 async function sharePitch() {
   const node = document.getElementById("football-pitch");
+
+  node?.classList.add("export-mode");
+
+// generar imagen
+
+node?.classList.remove("export-mode");
 
   if (!node) return;
 

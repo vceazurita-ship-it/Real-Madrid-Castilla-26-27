@@ -225,3 +225,23 @@ display:none;
 -ms-overflow-style:none;
 scrollbar-width:none;
 }
+.export-mode .session-player {
+    min-width: auto;
+    padding: 5px 10px;
+
+    border-width: 1px;
+
+    border-radius: 9999px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    box-shadow: none;
+
+    backdrop-filter: none;
+}
+
+.export-mode .session-player:hover {
+    transform: none;
+}

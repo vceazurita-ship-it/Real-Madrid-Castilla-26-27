@@ -93,26 +93,28 @@ export default function SessionFieldPlayer({
       >
         <div
           className={`
-  min-w-[92px]
-  rounded-xl
-  border-2
-  ${borderColor()}
-  ${badgeClass}
+session-player
 
-  px-3
-  py-2
+min-w-[92px]
+rounded-xl
+border-2
+${borderColor()}
+${badgeClass}
 
-  text-center
-  text-[11px]
-  font-semibold
+px-3
+py-2
 
-  backdrop-blur-md
-  shadow-lg
+text-center
+text-[11px]
+font-semibold
 
-  transition-all
-  duration-200
+backdrop-blur-md
+shadow-lg
 
-  hover:scale-105
+transition-all
+duration-200
+
+hover:scale-105
 `}
         >
           {nombre}
