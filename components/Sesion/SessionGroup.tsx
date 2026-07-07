@@ -12,6 +12,7 @@ interface Props {
 export default function SessionGroup({
   players,
   positionId,
+  mobile = false,
 }: Props) {
   if (!players.length) return null;
 
@@ -33,14 +34,15 @@ export default function SessionGroup({
     <div className="flex flex-col items-center gap-1">
       {players.map((player) => (
         <SessionFieldPlayer
-          key={player.id}
-          id={player.id}
-          positionId={positionId}
-          nombre={player.apodo ?? player.nombre}
-          estado={player.estado}
-          badgeClass={teamStyle.badge}
-          keeperClass={teamStyle.keeper}
-        />
+  key={player.id}
+  id={player.id}
+  positionId={positionId}
+  nombre={player.apodo ?? player.nombre}
+  estado={player.estado}
+  badgeClass={teamStyle.badge}
+  keeperClass={teamStyle.keeper}
+  mobile={mobile}
+/>
       ))}
     </div>
   );

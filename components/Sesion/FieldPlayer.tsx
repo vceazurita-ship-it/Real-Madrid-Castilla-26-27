@@ -12,6 +12,7 @@ interface Props {
   estado: EstadoJugador;
   badgeClass: string;
   keeperClass: string;
+    mobile?: boolean;
 }
 
 export default function SessionFieldPlayer({
@@ -21,6 +22,8 @@ export default function SessionFieldPlayer({
   estado = "ÓPTIMO",
   badgeClass,
   keeperClass,
+    mobile = false,
+
 }: Props) {
   const {
     attributes,
@@ -95,17 +98,16 @@ export default function SessionFieldPlayer({
           className={`
 session-player
 
-min-w-[92px]
+${mobile ? "min-w-[46px]" : "min-w-[92px]"}
 rounded-xl
 border-2
 ${borderColor()}
 ${badgeClass}
 
-px-3
-py-2
+${mobile ? "px-1.5 py-1" : "px-3 py-2"}
 
 text-center
-text-[11px]
+${mobile ? "text-[7px]" : "text-[11px]"}
 font-semibold
 
 backdrop-blur-md

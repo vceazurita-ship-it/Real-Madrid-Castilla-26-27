@@ -1,7 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { forwardRef } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useState,
+} from "react";
 
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
 import { useSessionLineup } from "../../context/SesionLineUpContext";
@@ -21,7 +25,21 @@ const {
   lineup,
   playersPerTeam,
 } = useSessionLineup();
+const [isMobile, setIsMobile] = useState(false);
 
+useEffect(() => {
+  const checkMobile = () => {
+    setIsMobile(window.innerWidth < 1024);
+  };
+
+  checkMobile();
+
+  window.addEventListener("resize", checkMobile);
+
+  return () => {
+    window.removeEventListener("resize", checkMobile);
+  };
+}, []);
 
   const layout = layouts[playersPerTeam];
 
@@ -114,58 +132,57 @@ const teamStyle = isBlueTeam
               <PitchPosition id={position.id}>
                 {groupPlayers.length > 0 ? (
                   <SesionGroup
-                    players={groupPlayers}
-                    positionId={position.id}
-                    mobile={false}
-                  />
+  players={groupPlayers}
+  positionId={position.id}
+  mobile={isMobile}
+/>
                 ) : (
                   <div className="flex flex-col items-center">
                     <div
   className={`
-    flex
-    h-16
-    w-16
-    items-center
-    justify-center
-    rounded-full
-    border-2
-    border-dashed
-    backdrop-blur-sm
-    transition
-    duration-300
-    hover:scale-110
+  flex
+  ${isMobile ? "h-8 w-8" : "h-16 w-16"}
+  items-center
+  justify-center
+  rounded-full
+  border-2
+  border-dashed
+  backdrop-blur-sm
+  transition
+  duration-300
+  hover:scale-110
 
-    ${
-      isGoalkeeper
-        ? teamStyle.keeper
-        : "border-[#C8A96B] bg-black/45 shadow-[0_0_18px_rgba(200,169,107,.25)]"
-    }
-  `}
+  ${
+    isGoalkeeper
+      ? teamStyle.keeper
+      : "border-[#C8A96B] bg-black/45 shadow-[0_0_18px_rgba(200,169,107,.25)]"
+  }
+`}
 >
-  <span
-    className={
-      isGoalkeeper
-        ? "text-white text-lg"
-        : "text-[#C8A96B] text-lg"
-    }
-  >
-    +
-  </span>
+<span
+  className={
+    isGoalkeeper
+      ? `${isMobile ? "text-sm" : "text-lg"} text-white`
+      : `${isMobile ? "text-sm" : "text-lg"} text-[#C8A96B]`
+  }
+>
+  +
+</span>
 </div>
 
                     <div
-  className={`
-    mt-2
-    rounded-full
-    px-3
-    py-1
-    text-[10px]
-    font-semibold
-    tracking-wide
-    whitespace-nowrap
-    backdrop-blur-sm
-    ${teamStyle.badge}
-  `}
+className={`
+  mt-2
+  rounded-full
+  px-3
+  py-1
+  font-semibold
+  tracking-wide
+  whitespace-nowrap
+  backdrop-blur-sm
+  ${isMobile ? "text-[8px]" : "text-[10px]"}
+  ${teamStyle.badge}
+`}
 >
   {getPositionLabel(position.id)}
 </div>
