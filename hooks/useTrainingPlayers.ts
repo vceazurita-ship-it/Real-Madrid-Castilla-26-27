@@ -23,6 +23,7 @@ interface CsvPlayer {
 export function useTrainingPlayers() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [plantillaActiva, setPlantillaActiva] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,13 +66,16 @@ export function useTrainingPlayers() {
 
           hudl: p.HUDL_PERFIL_URL || "",
         }));
-
+        const plantillaCastilla = plantillaCompleta.filter(
+          (p) => p.activo 
+        );
         // Solo los jugadores que pueden aparecer en la sesión
         const plantilla = plantillaCompleta.filter((p) =>
           ESTADOS_VALIDOS.includes(p.estado)
         );
 
         setAllPlayers(plantillaCompleta);
+        setPlantillaActiva(plantillaActiva);
         setPlayers(plantilla);
         setLoading(false);
       },
@@ -157,5 +161,6 @@ export function useTrainingPlayers() {
     centrocampistas,
     extremos,
     delanteros,
+    plantillaActiva,
   };
 }

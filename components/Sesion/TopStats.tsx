@@ -126,7 +126,7 @@ function StatCard({
 }
 
 export default function TopStats() {
-  const { players } = useTrainingPlayers();
+const { players, plantillaActiva } = useTrainingPlayers();
 console.log(
   [...new Set(players.map((p) => p.estado))]
 );
@@ -155,7 +155,7 @@ const NOavailableStates = new Set([
   "SELECCIÓN",
 ]);
 
-const noDisponibles = players.filter((p) =>
+const noDisponibles = plantillaActiva.filter((p) =>
   NOavailableStates.has((p.estado ?? "").trim())
 ).length;
 
