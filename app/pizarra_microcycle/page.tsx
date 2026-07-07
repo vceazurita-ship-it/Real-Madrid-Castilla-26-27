@@ -24,7 +24,7 @@ import FootballPitch from "@/components/Microciclo/FootballPitch";
 import FormationToolbar from "@/components/Microciclo/FormationToolbar";
 import PlayerSidebar from "@/components/Microciclo/PlayerSidebar";
 import TopStats from "@/components/Microciclo/TopStats";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlayers } from "@/hooks/usePlayers";
 import {
   MicroLineupProvider,
@@ -129,6 +129,17 @@ const sensors = useSensors(
     },
   })
 );
+
+const [isMobile, setIsMobile] = useState(false);
+
+useEffect(() => {
+  const update = () => setIsMobile(window.innerWidth < 1024);
+
+  update();
+  window.addEventListener("resize", update);
+
+  return () => window.removeEventListener("resize", update);
+}, []);
   return (
     
     <DndContext
@@ -245,46 +256,52 @@ const sensors = useSensors(
               
                 {/* CAMPO */}
                 <section
-              className="
-              order-2
-              lg:order-none
-              flex-1">
-              
-                  <div
   className="
-    mx-auto
-    w-full
-    aspect-[9/16]
-
-    lg:aspect-[16/9]
-    lg:h-[calc(100vh-235px)]
-    lg:max-h-[820px]
-    lg:min-h-[520px]
-
-    overflow-hidden
-    rounded-[26px]
+    order-2
+    lg:order-none
+    flex-1
   "
 >
-  <TransformWrapper
-    initialScale={window.innerWidth < 1024 ? 0.58 : 1}
-    minScale={window.innerWidth < 1024 ? 0.45 : 1}
-    maxScale={window.innerWidth < 1024 ? 2.5 : 1}
-    centerOnInit
-    wheel={{ disabled: true }}
-    doubleClick={{ disabled: true }}
-    pinch={{ step: 5 }}
-    panning={{ disabled: true }}
+  <div
+    className="
+      mx-auto
+      overflow-hidden
+      rounded-[26px]
+
+      w-full
+      aspect-[9/16]
+
+      lg:aspect-[16/9]
+      lg:h-[calc(100vh-235px)]
+      lg:max-h-[820px]
+      lg:min-h-[520px]
+    "
   >
-    <TransformComponent
-      wrapperStyle={{ width: "100%", height: "100%" }}
-      contentStyle={{ width: "100%", height: "100%" }}
+    <TransformWrapper
+      initialScale={isMobile ? 0.58 : 1}
+      minScale={isMobile ? 0.45 : 1}
+      maxScale={isMobile ? 2.5 : 1}
+      centerOnInit
+      wheel={{ disabled: !isMobile }}
+      doubleClick={{ disabled: true }}
+      pinch={{ disabled: !isMobile }}
+      panning={{ disabled: true }}
     >
-      <FootballPitch />
-    </TransformComponent>
-  </TransformWrapper>
-</div>
-              
-                </section>
+      <TransformComponent
+        wrapperStyle={{
+          width: "100%",
+          height: "100%",
+        }}
+        contentStyle={{
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <FootballPitch />
+      </TransformComponent>
+    </TransformWrapper>
+  </div>
+</section>
               </div>
               
                 {/* SOLO ESCRITORIO jugadores */}
