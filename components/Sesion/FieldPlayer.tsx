@@ -111,7 +111,6 @@ ${mobile ? "text-[7px]" : "text-[11px]"}
 font-semibold
 
 backdrop-blur-md
-shadow-lg
 
 transition-all
 duration-200
