@@ -22,12 +22,12 @@ export default function SessionGroup({
     ? {
         badge: "bg-[#C8A96B] text-[#111827]",
         keeper:
-          "border-[#C8A96B] bg-[#C8A96B]/20 shadow-[0_0_18px_rgba(200,169,107,.35)]",
+          "border-[#C8A96B] bg-[#C8A96B]/20 ",
       }
     : {
         badge: "bg-[#2A3646] text-white",
         keeper:
-          "border-[#5D728C] bg-[#2A3646]/60 shadow-[0_0_18px_rgba(93,114,140,.35)]",
+          "border-[#5D728C] bg-[#2A3646]/60 ",
       };
 
   return (
