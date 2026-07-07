@@ -11,6 +11,11 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 
+import {
+  TransformWrapper,
+  TransformComponent,
+} from "react-zoom-pan-pinch";
+
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import SavedLineups from "@/components/Microciclo/SavedLineups";
@@ -246,26 +251,63 @@ const sensors = useSensors(
               flex-1">
               
                   <div
-                    className="
-                      mx-auto
-                      overflow-hidden
-                      rounded-[26px]
-              
-                      w-full
-                      aspect-[9/16]
-                      max-w-[430px]
-                      h-auto
-              
-                      lg:max-w-none
-                      lg:w-full
-                      lg:aspect-[16/9]
-                      lg:h-[calc(100vh-235px)]
-                      lg:max-h-[820px]
-                      lg:min-h-[520px]
-                    "
-                  >
-                    <FootballPitch />
-                  </div>
+  className="
+    mx-auto
+    w-full
+    aspect-[9/16]
+
+    overflow-auto
+    touch-pan-x
+    touch-pan-y
+
+    lg:aspect-[16/9]
+    lg:h-[calc(100vh-235px)]
+    lg:max-h-[820px]
+    lg:min-h-[520px]
+  "
+>
+  <div
+  className="
+    mx-auto
+    w-full
+    aspect-[9/16]
+
+    lg:aspect-[16/9]
+    lg:h-[calc(100vh-235px)]
+    lg:max-h-[820px]
+    lg:min-h-[520px]
+
+    overflow-hidden
+    rounded-[26px]
+  "
+>
+  <TransformWrapper
+    initialScale={0.58}
+    minScale={0.45}
+    maxScale={2.5}
+    centerOnInit
+    wheel={{ disabled: true }}
+    doubleClick={{ disabled: true }}
+    pinch={{ step: 5 }}
+    panning={{
+      disabled: false,
+    }}
+  >
+    <TransformComponent
+      wrapperStyle={{
+        width: "100%",
+        height: "100%",
+      }}
+      contentStyle={{
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      <FootballPitch />
+    </TransformComponent>
+  </TransformWrapper>
+</div>
+</div>
               
                 </section>
               </div>
