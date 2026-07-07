@@ -35,41 +35,41 @@ export function usePlayers(
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Papa.parse<CsvPlayer>(CSV_URLS[source], {
-      download: true,
-      header: true,
+  setLoading(true);
 
-      complete: ({ data }) => {
-        const plantilla: Player[] = data
-          .filter((p) => p.ACTIVO === "TRUE")
-          .map((p) => ({
-  id: p.ID_JUGADOR,
-  nombre: p.NOMBRE,
-apodo: p.APODO || p.NOMBRE,
-  posicion: p.POSICION,
-  dorsal: Number(p.DORSAL) || undefined,
-  foto: p.FOTO_URL || "/jugador.png",
+  Papa.parse<CsvPlayer>(CSV_URLS[source], {
+    download: true,
+    header: true,
 
-  licencia: p.LICENCIA || "RMCF Castilla",
+    complete: ({ data }) => {
+      const plantilla: Player[] = data
+        .filter((p) => p.ACTIVO === "TRUE")
+        .map((p) => ({
+          id: p.ID_JUGADOR,
+          nombre: p.NOMBRE,
+          apodo: p.APODO || p.NOMBRE,
+          posicion: p.POSICION,
+          dorsal: Number(p.DORSAL) || undefined,
+          foto: p.FOTO_URL || "/jugador.png",
+          licencia: p.LICENCIA || "RMCF Castilla",
+          esCastilla:
+            (p.LICENCIA || "RMCF Castilla") ===
+            "RMCF Castilla",
+          estado: p.ESTADO || "DISPONIBLE",
+          activo: true,
+          hudl: p.HUDL_PERFIL_URL || "",
+        }));
 
-  esCastilla:
-    (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
+      setPlayers(plantilla);
+      setLoading(false);
+    },
 
-  estado: p.ESTADO || "DISPONIBLE",
-  activo: true,
-  hudl: p.HUDL_PERFIL_URL || "",
-}));
-
-        setPlayers(plantilla);
-        setLoading(false);
-      },
-
-      error: (error) => {
-        console.error("Error cargando jugadores:", error);
-        setLoading(false);
-      },
-    });
-  }, []);
+    error: (error) => {
+      console.error(error);
+      setLoading(false);
+    },
+  });
+}, [source]);
 
   const disponibles = useMemo(
     () => players.filter((p) => p.estado === "DISPONIBLE"),
