@@ -1143,56 +1143,7 @@ color:"#D4B06A"
             </ResponsiveContainer>
 
           </div>
-                    <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-  Plantilla vs Jugador seleccionado
-</h3>
-
-            <ResponsiveContainer width="100%" height={300}>
-
-              <RadarChart data={radarData}>
-
-                <PolarGrid />
-
-                <PolarAngleAxis dataKey="subject" />
-
-                <PolarRadiusAxis domain={[0, 10]} />
-
-                <Radar
-  name="Plantilla"
-  dataKey="plantilla"
-  stroke={THEME.gold}
-fill={THEME.gold}
-fillOpacity={0.28}
-/>
-
-<Radar
-  name={selectedPlayer?.apodo || selectedPlayer?.nombre || "Jugador"}
-  dataKey="jugador"
-  stroke="#E5E7EB"
-fill="#E5E7EB"
-fillOpacity={0.10}
-/>
-
-<Legend wrapperStyle={{
-color:"#C6CBD1"
-}}/>
-<Tooltip contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}}/>
-
-              </RadarChart>
-
-            </ResponsiveContainer>
-
-          </div>
 
           <div className="rounded-xl bg-neutral-900 p-4">
 
