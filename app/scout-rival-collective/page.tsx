@@ -73,7 +73,7 @@ useEffect(() => {
       <main className="flex-1">
         <Topbar />
 
-        <div className="p-6 md:p-10">
+        <div className="p-5 md:p-10">
 
           <div className="flex items-start justify-between mb-10">
 
@@ -283,10 +283,7 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
   </div>
 
 </div>
-<div className="mt-6 rounded-3xl border border-[#C8A96B]/20
-bg-gradient-to-br
-from-[#C8A96B]/10
-to-[#111827] p-6">
+<div className="mt-10 rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8">
 
   <h2 className="text-xl font-semibold text-[#C8A96B] mb-6">
     Recursos
@@ -426,7 +423,7 @@ to-[#111827] p-6">
   </div>
 
 </div>
-<div className="grid gap-6 xl:grid-cols-3">
+<div className="mt-10 grid gap-y-8 gap-x-6 xl:grid-cols-3">
 
   <section
 className="
@@ -435,7 +432,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -444,7 +441,7 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
 "
 >
 
-  <h2 className="mb-4 text-sm uppercase tracking-[0.25em] text-[#C8A96B]">
+  <h2 className="mb-4 text-sm uppercase tracking-[0.30em] text-[#C8A96B]">
     Estructura Ofensiva
   </h2>
 
@@ -487,7 +484,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -536,7 +533,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -577,7 +574,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -618,7 +615,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -659,7 +656,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -700,14 +697,14 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
 hover:bg-neutral-800/70
 hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
 
-  <h2 className="mb-4 text-sm uppercase tracking-[0.25em] text-[#C8A96B]">
+  <h2 className="mb-4 text-sm uppercase tracking-[0.30em] text-[#C8A96B]">
     Estructura Transición Ofensiva
   </h2>
 
@@ -741,7 +738,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -782,7 +779,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -823,7 +820,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -864,7 +861,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -920,7 +917,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -978,7 +975,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
@@ -1017,7 +1014,7 @@ rounded-3xl
 border
 border-white/5
 bg-[#111827]
-p-6
+p-5
 transition-all
 duration-300
 hover:border-[#C8A96B]/30
