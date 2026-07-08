@@ -37,13 +37,28 @@ const SCOUTING_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
 
 const COLORS = [
-  "#C8A96B",
-  "#D6B67A",
-  "#A58A54",
-  "#8E7546",
-  "#6B5734",
-  "#4D4D4D",
+  "#D4B06A",
+  "#B8924F",
+  "#8E6A37",
+  "#6B532F",
+  "#4B4238",
+  "#2E2E2E",
 ];
+const THEME = {
+  gold: "#D4B06A",
+  goldSoft: "#B8924F",
+  goldDark: "#8E6A37",
+
+  bg: "#171A1F",
+  card: "#1D2127",
+  border: "#2B3138",
+
+  grid: "#2F343C",
+  axis: "#8D949C",
+
+  white: "#F8F9FA",
+  text: "#C6CBD1",
+};
 
 type EstadoCSV = {
   ID_JUGADOR: string;
@@ -499,7 +514,32 @@ export default function DashboardPlantilla() {
           ) / totalPlayers
         ).toFixed(1)
       : "0";
+  
+  const bestScore =
+  filteredPlayers.length > 0
+    ? Math.max(...filteredPlayers.map((p) => p.media)).toFixed(1)
+    : "0";
 
+const worstScore =
+  filteredPlayers.length > 0
+    ? Math.min(...filteredPlayers.map((p) => p.media)).toFixed(1)
+    : "0";
+
+const elitePlayers =
+  filteredPlayers.filter((p) => p.media >= 8).length;
+
+const optimalPercentage =
+  totalPlayers > 0
+    ? ((optimalPlayers / totalPlayers) * 100).toFixed(0)
+    : "0";      
+const overallStatus =
+  Number(optimalPercentage) >= 80
+    ? "MUY BUENO"
+    : Number(optimalPercentage) >= 60
+    ? "BUENO"
+    : Number(optimalPercentage) >= 40
+    ? "MEJORABLE"
+    : "CRÍTICO";
   const estadoChart = useMemo(() => {
 
     const map: Record<string, number> = {};
@@ -511,18 +551,10 @@ export default function DashboardPlantilla() {
 
     });
 
-    return Object.entries(map)
-
-  .sort(
-    ([a], [b]) =>
-      new Date(a).getTime() -
-      new Date(b).getTime()
-  )
-
-  .map(([date, value]) => ({
-    date,
-    value,
-  }));
+    return Object.entries(map).map(([name, value]) => ({
+  name,
+  value,
+}));
 
   }, [filteredPlayers]);
 
@@ -546,104 +578,122 @@ export default function DashboardPlantilla() {
 
   }, [filteredPlayers]);
 
-  const radarData = useMemo(() => {
+const radarData = useMemo(() => {
 
-    if (!filteredPlayers.length)
-      return [];
+  if (!filteredPlayers.length) return [];
 
-    const avg = (
-      key:
-        | "mentalidad"
-        | "habitos"
-        | "interpretacion"
-        | "fisica"
-        | "tecnica"
-    ) =>
+  const avg = (
+    key:
+      | "mentalidad"
+      | "habitos"
+      | "interpretacion"
+      | "fisica"
+      | "tecnica"
+  ) =>
+    filteredPlayers.reduce((acc, p) => acc + p[key], 0) /
+    filteredPlayers.length;
 
-      filteredPlayers.reduce(
-        (acc, p) => acc + p[key],
-        0
-      ) / filteredPlayers.length;
+  return [
+    {
+      subject: "Mentalidad",
+      plantilla: avg("mentalidad"),
+      jugador: selectedPlayer?.mentalidad ?? avg("mentalidad"),
+    },
+    {
+      subject: "Hábitos",
+      plantilla: avg("habitos"),
+      jugador: selectedPlayer?.habitos ?? avg("habitos"),
+    },
+    {
+      subject: "Interpretación",
+      plantilla: avg("interpretacion"),
+      jugador: selectedPlayer?.interpretacion ?? avg("interpretacion"),
+    },
+    {
+      subject: "Física",
+      plantilla: avg("fisica"),
+      jugador: selectedPlayer?.fisica ?? avg("fisica"),
+    },
+    {
+      subject: "Técnica",
+      plantilla: avg("tecnica"),
+      jugador: selectedPlayer?.tecnica ?? avg("tecnica"),
+    },
+  ];
 
-    return [
-
-      {
-        subject: "Mentalidad",
-        value: avg("mentalidad"),
-      },
-
-      {
-        subject: "Hábitos",
-        value: avg("habitos"),
-      },
-
-      {
-        subject: "Interpretación",
-        value: avg("interpretacion"),
-      },
-
-      {
-        subject: "Física",
-        value: avg("fisica"),
-      },
-
-      {
-        subject: "Técnica",
-        value: avg("tecnica"),
-      },
-
-    ];
-
-  }, [filteredPlayers]);
+}, [filteredPlayers, selectedPlayer]);
 
   const rankingChart = useMemo(() => {
 
-    return [...filteredPlayers]
+  return [...filteredPlayers]
 
-      .sort(
-        (a, b) => b.media - a.media
-      )
+    .sort((a, b) => b.media - a.media)
 
-      .slice(0, 10)
+    .slice(0, 10)
 
-      .map((player) => ({
+    .map((player, index) => ({
 
-        id: player.id,
+      puesto: index + 1,
 
-        name:
-          player.apodo ||
-          player.nombre,
+      id: player.id,
 
-        value: Number(
-          player.media.toFixed(1)
-        ),
+      name: player.apodo || player.nombre,
 
-      }));
+      value: Number(player.media.toFixed(1)),
 
-  }, [filteredPlayers]);
+    }));
+
+}, [filteredPlayers]);
 
   const scatterData = useMemo(() => {
 
-    return filteredPlayers.map(
-      (player) => ({
+    return filteredPlayers.map((player) => ({
 
-        x: player.mentalidad,
+  x: player.mentalidad,
 
-        y: player.fisica,
+  y: player.fisica,
 
-        z: player.media,
+  z: player.media,
 
-        id: player.id,
+  id: player.id,
 
-        name:
-          player.apodo ||
-          player.nombre,
+  name: player.apodo || player.nombre,
 
-      })
-    );
+  estado: player.estado,
+
+  color:
+    player.estado === "ÓPTIMO"
+      ? "#52B788"
+      : player.estado === "LESIONADO"
+      ? "#D46A6A"
+      : player.estado === "SELECCIÓN"
+      ? "#7DA6D9º"
+      : player.estado === "RECUPERACIÓN"
+      ? "#facc15"
+      : "#C8A96B",
+
+}));
 
   }, [filteredPlayers]);
+const licenciaChart = useMemo(() => {
 
+  const map: Record<string, number> = {};
+
+  filteredPlayers.forEach((player) => {
+
+    map[player.licencia] =
+      (map[player.licencia] ?? 0) + 1;
+
+  });
+
+  return Object.entries(map).map(
+    ([name, value]) => ({
+      name,
+      value,
+    })
+  );
+
+}, [filteredPlayers]);
   const evolutionData = useMemo(() => {
 
     const map: Record<string, number> = {};
@@ -686,6 +736,51 @@ const handlePlayerSelect = (id: string) => {
     players.find((p) => p.id === id) ?? null;
 
   setSelectedPlayer(player);
+
+};
+
+const handleKpiClick = (title: string) => {
+
+  switch (title) {
+
+    case "Activos":
+      updateFilter(
+        "activo",
+        filters.activo === "true" ? "" : "true"
+      );
+      break;
+
+    case "Óptimos":
+      updateFilter(
+        "estado",
+        filters.estado === "ÓPTIMO"
+          ? ""
+          : "ÓPTIMO"
+      );
+      break;
+
+    case "Lesionados":
+      updateFilter(
+        "estado",
+        filters.estado === "LESIONADO"
+          ? ""
+          : "LESIONADO"
+      );
+      break;
+
+    case "Selección":
+      updateFilter(
+        "estado",
+        filters.estado === "SELECCIÓN"
+          ? ""
+          : "SELECCIÓN"
+      );
+      break;
+
+    default:
+      break;
+
+  }
 
 };
   return (
@@ -766,16 +861,31 @@ const handlePlayerSelect = (id: string) => {
                 updateFilter("activo", e.target.value)
               }
             >
-              <option value="">Activo</option>
+              <option value="">Todos los jugadores</option>
 
-              <option value="true">Sí</option>
+              <option value="true">RMCF Castilla</option>
 
-              <option value="false">No</option>
+              <option value="false">Promocionados a entrenar</option>
             </select>
 
             <button
               onClick={() => setFilters(emptyFilters)}
-              className="rounded-lg bg-amber-600 px-4 py-2"
+              className="inline-flex
+        items-center
+        gap-3
+        rounded-2xl
+        border
+        border-[#C8A96B]/20
+        bg-[#C8A96B]
+        px-6
+        py-3
+        text-base
+        font-medium
+        text-black
+        shadow-[0_8px_25px_rgba(200,169,107,0.25)]
+        transition-all
+        hover:-translate-y-0.5
+        hover:shadow-[0_12px_30px_rgba(200,169,107,0.35)]" 
             >
               Limpiar filtros
             </button>
@@ -783,32 +893,138 @@ const handlePlayerSelect = (id: string) => {
           </div>
 
         </div>
+<div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
 
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+
+    <div>
+      <h2 className="text-2xl font-bold">
+        REAL MADRID CASTILLA
+      </h2>
+
+      <p className="text-neutral-400 mt-1">
+        Resumen general de la plantilla
+      </p>
+    </div>
+
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+
+      <div>
+        <div className="text-sm text-neutral-400">
+          Jugadores
+        </div>
+
+        <div className="text-3xl font-bold">
+          {totalPlayers}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-sm text-neutral-400">
+          Media
+        </div>
+
+        <div className="text-3xl font-bold">
+          {averageScore}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-sm text-neutral-400">
+          Disponibles
+        </div>
+
+        <div className="text-3xl font-bold text-green-400">
+          {optimalPercentage}%
+        </div>
+      </div>
+
+      <div>
+        <div className="text-sm text-neutral-400">
+          Estado general
+        </div>
+
+        <div
+          className={`text-xl font-bold ${
+            overallStatus === "MUY BUENO"
+              ? "text-green-400"
+              : overallStatus === "BUENO"
+              ? "text-blue-400"
+              : overallStatus === "MEJORABLE"
+              ? "text-yellow-400"
+              : "text-red-400"
+          }`}
+        >
+          {overallStatus}
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
         {/* KPIs */}
 
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4">
 
           {[
-            ["Jugadores", totalPlayers],
-            ["Activos", activePlayers],
-            ["Óptimos", optimalPlayers],
-            ["Selección", selectedPlayers],
-            ["Lesionados", injuredPlayers],
-            ["Media", averageScore],
-          ].map(([title, value]) => (
+  ["Jugadores", totalPlayers],
+  ["Activos", activePlayers],
+  ["Óptimos", optimalPlayers],
+  ["Selección", selectedPlayers],
+  ["Lesionados", injuredPlayers],
+  ["Media", averageScore],
+  ["Mejor", bestScore],
+  ["Peor", worstScore],
+  ["Élite", elitePlayers],
+  ["% Óptimos", `${optimalPercentage}%`],
+].map(([title, value]) => (
 
             <div
-              key={String(title)}
-              className="rounded-xl bg-neutral-900 border border-neutral-800 p-4 hover:border-amber-500 transition"
-            >
+  key={String(title)}
+  onClick={() => handleKpiClick(String(title))}
+  className={`
+    group
+  rounded-xl
+  border
+  p-4
+  cursor-pointer
+  transition-all
+  duration-300
+  hover:-translate-y-1
+  hover:bg-neutral-800/70
+  hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
+  ${
+    (title === "Óptimos" &&
+      filters.estado === "ÓPTIMO") ||
 
+    (title === "Lesionados" &&
+      filters.estado === "LESIONADO") ||
+
+    (title === "Selección" &&
+      filters.estado === "SELECCIÓN") ||
+
+    (title === "Activos" &&
+      filters.activo === "true")
+
+      ? "bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(212,176,106,0.10)]"
+
+      : "bg-neutral-900 border-neutral-800 hover:border-amber-500"
+  }
+`}
+>
               <div className="text-sm text-neutral-400">
                 {title}
               </div>
 
-              <div className="text-3xl font-bold mt-2">
+              <div className="mt-2 text-3xl font-bold tracking-tight text-white transition-colors duration-300 group-hover:text-amber-300">
+
                 {value}
               </div>
+              <div className="text-xs text-neutral-500 mt-1">
+  Click para filtrar
+</div>
 
             </div>
 
@@ -822,7 +1038,7 @@ const handlePlayerSelect = (id: string) => {
 
           <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-4 font-semibold">
+            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
               Estado plantilla
             </h3>
 
@@ -831,12 +1047,19 @@ const handlePlayerSelect = (id: string) => {
               <PieChart>
 
                 <Pie
-                  data={estadoChart}
-                  dataKey="value"
-                  nameKey="name"
-                  outerRadius={90}
-                  label
-                >
+  data={estadoChart}
+  dataKey="value"
+  nameKey="name"
+  outerRadius={90}
+  label
+  cursor="pointer"
+  onClick={(data: any) => {
+    updateFilter(
+  "estado",
+  filters.estado === data.name ? "" : data.name
+);
+  }}
+>
 
                   {estadoChart.map((_, i) => (
 
@@ -849,7 +1072,15 @@ const handlePlayerSelect = (id: string) => {
 
                 </Pie>
 
-                <Tooltip />
+                <Tooltip contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}}/>
 
               </PieChart>
 
@@ -859,7 +1090,7 @@ const handlePlayerSelect = (id: string) => {
 
           <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-4 font-semibold">
+            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
               Jugadores por posición
             </h3>
 
@@ -867,19 +1098,45 @@ const handlePlayerSelect = (id: string) => {
 
               <BarChart data={positionChart}>
 
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+stroke={THEME.grid}
+strokeDasharray="2 2"
+/>
 
-                <XAxis dataKey="name" />
+                <XAxis dataKey="name" tick={{ fill: THEME.axis }}
+
+axisLine={{
+stroke: THEME.grid
+}}
+
+tickLine={{
+stroke: THEME.grid
+}}/>
 
                 <YAxis />
 
-                <Tooltip />
+                <Tooltip contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}}/>
 
                 <Bar
-                  dataKey="value"
-                  fill="#C8A96B"
-                  radius={[5, 5, 0, 0]}
-                />
+  dataKey="value"
+  fill={THEME.gold}
+  radius={[5, 5, 0, 0]}
+  cursor="pointer"
+  onClick={(data: any) => {
+    updateFilter(
+  "posicion",
+  filters.posicion === data.name ? "" : data.name
+);
+  }}
+/>
 
               </BarChart>
 
@@ -888,9 +1145,9 @@ const handlePlayerSelect = (id: string) => {
           </div>
                     <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-4 font-semibold">
-              Perfil medio de la plantilla
-            </h3>
+            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
+  Plantilla vs Jugador seleccionado
+</h3>
 
             <ResponsiveContainer width="100%" height={300}>
 
@@ -903,13 +1160,33 @@ const handlePlayerSelect = (id: string) => {
                 <PolarRadiusAxis domain={[0, 10]} />
 
                 <Radar
-                  dataKey="value"
-                  stroke="#C8A96B"
-                  fill="#C8A96B"
-                  fillOpacity={0.5}
-                />
+  name="Plantilla"
+  dataKey="plantilla"
+  stroke={THEME.gold}
+fill={THEME.gold}
+fillOpacity={0.28}
+/>
 
-                <Tooltip />
+<Radar
+  name={selectedPlayer?.apodo || selectedPlayer?.nombre || "Jugador"}
+  dataKey="jugador"
+  stroke="#E5E7EB"
+fill="#E5E7EB"
+fillOpacity={0.10}
+/>
+
+<Legend wrapperStyle={{
+color:"#C6CBD1"
+}}/>
+<Tooltip contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}}/>
 
               </RadarChart>
 
@@ -919,7 +1196,7 @@ const handlePlayerSelect = (id: string) => {
 
           <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-4 font-semibold">
+            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
               Top 10 valoración
             </h3>
 
@@ -930,23 +1207,63 @@ const handlePlayerSelect = (id: string) => {
                 layout="vertical"
               >
 
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+stroke={THEME.grid}
+strokeDasharray="2 2"
+/>
 
-                <XAxis type="number" domain={[0, 10]} />
+                <XAxis type="number" domain={[0, 10]} tick={{ fill: THEME.axis }}
+
+axisLine={{
+stroke: THEME.grid
+}}
+
+tickLine={{
+stroke: THEME.grid
+}} />
 
                 <YAxis
-                  dataKey="name"
-                  type="category"
-                  width={90}
-                />
+  dataKey="name"
+  type="category"
+  width={130}
+  tickFormatter={(value, index) => {
 
-                <Tooltip />
+    const medal =
+      index === 0
+        ? "🥇 "
+        : index === 1
+        ? "🥈 "
+        : index === 2
+        ? "🥉 "
+        : `${index + 1}. `;
+
+    return medal + value;
+
+  }}
+/>
+
+                <Tooltip
+  formatter={(value) => [
+    `${Number(value).toFixed(1)}/10`,
+    "Valoración",
+  ]}
+contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}}/>
 
                 <Bar
-                  dataKey="value"
-                  fill="#C8A96B"
-                  radius={[0, 6, 6, 0]}
-                />
+  dataKey="value"
+  fill={THEME.gold}
+  radius={[0, 6, 6, 0]}
+  cursor="pointer"
+  onClick={(data: any) => handlePlayerSelect(data.id)}
+/>
 
               </BarChart>
 
@@ -956,7 +1273,7 @@ const handlePlayerSelect = (id: string) => {
 
           <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-4 font-semibold">
+            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
               Mentalidad vs Física
             </h3>
 
@@ -971,6 +1288,15 @@ const handlePlayerSelect = (id: string) => {
                   dataKey="x"
                   domain={[0, 10]}
                   name="Mentalidad"
+                  tick={{ fill: THEME.axis }}
+
+axisLine={{
+stroke: THEME.grid
+}}
+
+tickLine={{
+stroke: THEME.grid
+}}
                 />
 
                 <YAxis
@@ -978,6 +1304,15 @@ const handlePlayerSelect = (id: string) => {
                   dataKey="y"
                   domain={[0, 10]}
                   name="Física"
+                  tick={{ fill: THEME.axis }}
+
+axisLine={{
+stroke: THEME.grid
+}}
+
+tickLine={{
+stroke: THEME.grid
+}}
                 />
 
                 <ZAxis
@@ -987,27 +1322,88 @@ const handlePlayerSelect = (id: string) => {
                 />
 
                 <Tooltip
-                  cursor={{ strokeDasharray: "3 3" }}
-                  formatter={(value) => value}
-                  labelFormatter={(_, payload) =>
-                    payload?.[0]?.payload?.name ?? ""
-                  }
-                />
+  cursor={{ strokeDasharray: "3 3" }}
+  content={({ active, payload }) => {
+
+    if (!active || !payload?.length) return null;
+
+    const p = payload[0].payload;
+
+    return (
+
+      <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-sm">
+
+        <div className="font-bold text-white">
+          {p.name}
+        </div>
+
+        <div>Mentalidad: {p.x}</div>
+
+        <div>Física: {p.y}</div>
+
+        <div>Media: {p.z.toFixed(1)}</div>
+
+        <div>Estado: {p.estado}</div>
+
+      </div>
+
+    );
+
+  }}
+contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}}/>
 
                 <Scatter
-                  data={scatterData}
-                  fill="#C8A96B"
-                />
+  data={scatterData}
+  cursor="pointer"
+  onClick={(data: any) => handlePlayerSelect(data.id)}
+>
+  {scatterData.map((entry, index) => (
+    <Cell
+      key={index}
+      fill={entry.color}
+    />
+  ))}
+</Scatter>
 
               </ScatterChart>
 
             </ResponsiveContainer>
+<div className="mt-4 flex flex-wrap gap-4 text-sm">
 
+  <div className="flex items-center gap-2">
+    <span className="h-3 w-3 rounded-full bg-green-500" />
+    ÓPTIMO
+  </div>
+
+  <div className="flex items-center gap-2">
+    <span className="h-3 w-3 rounded-full bg-red-500" />
+    LESIONADO
+  </div>
+
+  <div className="flex items-center gap-2">
+    <span className="h-3 w-3 rounded-full bg-blue-500" />
+    SELECCIÓN
+  </div>
+
+  <div className="flex items-center gap-2">
+    <span className="h-3 w-3 rounded-full bg-yellow-400" />
+    RECUPERACIÓN
+  </div>
+
+</div>
           </div>
 
           <div className="rounded-xl bg-neutral-900 p-4">
 
-            <h3 className="mb-4 font-semibold">
+            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
               Evolución registros
             </h3>
 
@@ -1015,21 +1411,46 @@ const handlePlayerSelect = (id: string) => {
 
               <LineChart data={evolutionData}>
 
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+stroke={THEME.grid}
+strokeDasharray="2 2"
+/>
 
-                <XAxis dataKey="date" />
+                <XAxis dataKey="date" tick={{ fill: THEME.axis }}
+
+axisLine={{
+stroke: THEME.grid
+}}
+
+tickLine={{
+stroke: THEME.grid
+}}/>
 
                 <YAxis />
 
-                <Tooltip />
+                <Tooltip contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}}/>
 
-                <Legend />
+                <Legend wrapperStyle={{
+color:"#C6CBD1"
+}}/>
 
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#C8A96B"
+                  stroke={THEME.gold}
                   strokeWidth={3}
+                  dot={{
+  r:4,
+  fill:THEME.gold
+}}
                 />
 
               </LineChart>
@@ -1037,158 +1458,67 @@ const handlePlayerSelect = (id: string) => {
             </ResponsiveContainer>
 
           </div>
+          <div className="rounded-xl bg-neutral-900 p-4">
+
+  <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
+    Distribución por licencias
+  </h3>
+
+  <ResponsiveContainer width="100%" height={300}>
+
+    <PieChart>
+
+      <Pie
+        data={licenciaChart}
+        dataKey="value"
+        nameKey="name"
+        innerRadius={65}
+        outerRadius={95}
+        paddingAngle={3}
+        label
+        cursor="pointer"
+        onClick={(data: any) =>
+          updateFilter(
+            "licencia",
+            filters.licencia === data.name
+              ? ""
+              : data.name
+          )
+        }
+      >
+
+        {licenciaChart.map((_, index) => (
+
+          <Cell
+            key={index}
+            fill={COLORS[index % COLORS.length]}
+          />
+
+        ))}
+
+      </Pie>
+
+      <Tooltip contentStyle={{
+background:"#1D2127",
+border:"1px solid #2B3138",
+borderRadius:12,
+color:"#FFF"
+}}
+labelStyle={{
+color:"#D4B06A"
+}} />
+
+      <Legend wrapperStyle={{
+color:"#C6CBD1"
+}} />
+
+    </PieChart>
+
+  </ResponsiveContainer>
+
+</div>
 
         </div>
-
-        {/* FICHA DEL JUGADOR */}
-
-        {selectedPlayer && (
-
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-
-            <div className="flex flex-col lg:flex-row gap-6">
-
-              <img
-                src={selectedPlayer.foto}
-                alt={selectedPlayer.nombre}
-                className="w-40 h-40 rounded-xl object-cover border border-neutral-700"
-              />
-
-              <div className="flex-1">
-
-                <h2 className="text-3xl font-bold">
-  {selectedPlayer.nombre}
-</h2>
-
-<p className="text-neutral-400 mt-1">
-  {selectedPlayer.posicion} · #{selectedPlayer.dorsal}
-</p>
-
-<div className="mt-3">
-
-  <span
-    className={`px-3 py-1 rounded-full text-sm font-semibold ${
-      selectedPlayer.estado === "ÓPTIMO"
-        ? "bg-green-500/20 text-green-300"
-        : selectedPlayer.estado === "LESIONADO"
-        ? "bg-red-500/20 text-red-300"
-        : selectedPlayer.estado === "SELECCIÓN"
-        ? "bg-blue-500/20 text-blue-300"
-        : "bg-yellow-500/20 text-yellow-300"
-    }`}
-  >
-    {selectedPlayer.estado}
-  </span>
-
-</div>
-<p className="text-neutral-400 mt-3">
-  Licencia: <span className="text-white">{selectedPlayer.licencia}</span>
-</p>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                                  {[
-                    ["Mentalidad", selectedPlayer.mentalidad],
-                    ["Hábitos", selectedPlayer.habitos],
-                    ["Interpretación", selectedPlayer.interpretacion],
-                    ["Capacidad Física", selectedPlayer.fisica],
-                    ["Técnica", selectedPlayer.tecnica],
-                    ["Media", selectedPlayer.media.toFixed(1)],
-                  ].map(([label, value]) => (
-
-                    <div
-                      key={String(label)}
-                      className="rounded-xl bg-neutral-800 border border-neutral-700 p-4 hover:border-amber-500 transition"
-                    >
-
-                      <div className="text-xs uppercase tracking-wide text-neutral-400">
-                        {label}
-                      </div>
-
-                      <div className="mt-2 text-2xl font-bold text-amber-300">
-                        {value}
-                      </div>
-
-                    </div>
-
-                  ))}
-
-                </div>
-
-<div className="mt-6">
-
-  <div className="flex justify-between text-sm text-neutral-400 mb-2">
-
-    <span>Valoración global</span>
-
-    <span>{selectedPlayer.media.toFixed(1)} / 10</span>
-
-  </div>
-
-  <div className="h-3 bg-neutral-700 rounded-full overflow-hidden">
-
-    <div
-      className="h-full bg-amber-500 rounded-full transition-all duration-500"
-      style={{
-        width: `${selectedPlayer.media * 10}%`,
-      }}
-    />
-
-  </div>
-
-</div>
-
-<div className="grid lg:grid-cols-2 gap-6 mt-8">
-
-                  <div>
-
-                    <h3 className="font-semibold text-amber-300 mb-2">
-                      Fortalezas
-                    </h3>
-
-                    <div className="rounded-lg bg-neutral-800 p-4 whitespace-pre-wrap leading-relaxed">
-                      {selectedPlayer.fortalezas || "Sin información"}
-                    </div>
-
-                  </div>
-
-                  <div>
-
-                    <h3 className="font-semibold text-amber-300 mb-2">
-                      Aspectos de mejora
-                    </h3>
-
-                    <div className="rounded-lg bg-neutral-800 p-4 whitespace-pre-wrap leading-relaxed">
-                      {selectedPlayer.aspectosMejora || "Sin información"}
-                    </div>
-
-                  </div>
-
-                </div>
-
-                {selectedPlayer.hudl && (
-
-                  <div className="mt-8">
-
-                    <a
-                      href={selectedPlayer.hudl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center rounded-lg bg-amber-600 hover:bg-amber-500 px-5 py-3 font-semibold shadow-lg transition-all duration-300 hover:scale-105"
-                    >
-                      Ver perfil HUDL
-                    </a>
-
-                  </div>
-
-                )}
-
-              </div>
-
-            </div>
-
-          </div>
-
-        )}
 
       </div>
 

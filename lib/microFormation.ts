@@ -81,11 +81,11 @@ export const microFormations: Record<
   // 3-5-2
   // ===================================================
   "3-5-2": [
-    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "93%" },
+    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
 
     { id: "LD", nombre: "Carrilero D.", posicion: "CARRILERO D.", left: "88%", top: "48%" },
-    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "76%" },
-    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "77%" },
+    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "68%" },
+    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "68%" },
     { id: "LI", nombre: "Carrilero I.", posicion: "CARRILERO I.", left: "12%", top: "48%" },
 
     { id: "MC6", nombre: "6", posicion: "MEDIOCENTRO", left: "38%", top: "52%" },
@@ -101,7 +101,7 @@ export const microFormations: Record<
   nombre: "Central",
   posicion: "CENTRAL",
   left: "72%",
-  top: "74%",
+  top: "68%",
 },
   ],
 
@@ -109,16 +109,13 @@ export const microFormations: Record<
   // 3-4-3
   // ===================================================
   "3-4-3": [
-    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "93%" },
+    { id: "POR", nombre: "Portero", posicion: "PORTERO", left: "50%", top: "90%" },
 
-    { id: "LD", nombre: "", posicion: "", left: "50%", top: "120%", visible: false},
-    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "76%" },
-    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "77%" },
-    { id: "LI", nombre: "", posicion: "", left: "50%", top: "120%", visible: false },
+    { id: "DFC1", nombre: "Central", posicion: "CENTRAL", left: "28%", top: "68%" },
+    { id: "DFC2", nombre: "Central", posicion: "CENTRAL", left: "50%", top: "68%" },
 
     { id: "MC6", nombre: "6", posicion: "MEDIOCENTRO", left: "38%", top: "48%" },
     { id: "MC8", nombre: "8", posicion: "MEDIOCENTRO", left: "62%", top: "48%" },
-    { id: "MC10", nombre: "", posicion: "", left: "50%", top: "120%", visible: false},
 
     { id: "EI", nombre: "11", posicion: "EXTREMO I.", left: "16%", top: "18%" },
     { id: "ED", nombre: "7", posicion: "EXTREMO D.", left: "84%", top: "18%" },
@@ -131,7 +128,6 @@ export const microFormations: Record<
   left: "88%",
   top: "48%",
 },
-
 {
   id: "LI",
   nombre: "Carrilero I.",
@@ -144,7 +140,7 @@ export const microFormations: Record<
   nombre: "Central",
   posicion: "CENTRAL",
   left: "72%",
-  top: "74%",
+  top: "68%",
 },
   ],
 };
