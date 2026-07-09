@@ -1,285 +1,139 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import Image from "next/image";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play, Maximize2 } from "lucide-react";
+import { X } from "lucide-react";
 
-export default function IndividualPage() {
-  const toggleDashboardFullscreen = async () => {
-  try {
-    if (!document.fullscreenElement) {
-      await dashboardRef.current?.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  } catch (error) {
-    console.error(error);
-  }
-};
-const [isDesktop, setIsDesktop] = useState(false);
-const [isFullscreen, setIsFullscreen] = useState(false);
+const weeks = [
+  {
+    title: "Planificación Pretemporada",
+    image: "/IMG-20260709-WA0010.jpg",
+  },
+  {
+    title: "Semana 0",
+    image: "/IMG-20260708-WA0001.jpg",
+  },
+  {
+    title: "Semana 1",
+    image: "/IMG-20260709-WA0011.jpg",
+  },
+  { title: "Semana 2" },
+  { title: "Semana 3" },
+  { title: "Semana 4" },
+  { title: "Semana 5" },
+  { title: "Semana 6" },
+  { title: "Semana 7" },
+  { title: "Semana 8" },
+];
 
-const videoRef = useRef<HTMLDivElement | null>(null);
-const dashboardRef = useRef<HTMLDivElement | null>(null);
-
-  const videoUrl =
-    "https://drive.google.com/file/d/1Ki1gmSMuwH5MsWGzIQbUrH_uBCkML7di/view";
-
-  useEffect(() => {
-    const onResize = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-
-    onResize();
-    window.addEventListener("resize", onResize);
-
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  useEffect(() => {
-  const handleKey = (
-    e: KeyboardEvent
-  ) => {
-    if (
-      e.key === "Escape" &&
-      document.fullscreenElement
-    ) {
-      document.exitFullscreen();
-    }
-  };
-
-  window.addEventListener(
-    "keydown",
-    handleKey
-  );
-
-  return () =>
-    window.removeEventListener(
-      "keydown",
-      handleKey
-    );
-}, []);
-  useEffect(() => {
-  const handleFullscreen = () => {
-    setIsFullscreen(!!document.fullscreenElement);
-  };
-
-  document.addEventListener(
-    "fullscreenchange",
-    handleFullscreen
-  );
-
-  return () => {
-    document.removeEventListener(
-      "fullscreenchange",
-      handleFullscreen
-    );
-  };
-}, []);
-
-  const scrollToVideo = () => {
-    if (window.innerWidth < 1024) {
-      window.open(videoUrl, "_blank");
-      return;
-    }
-
-    videoRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-  const openDashboardFullscreen = async () => {
-  if (!dashboardRef.current) return;
-
-  try {
-    await dashboardRef.current.requestFullscreen();
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-  const src = "https://app.powerbi.com/view?r=eyJrIjoiMWQ3NzA0OGEtZDZiNS00NjE2LTlkM2MtMzliYjY3OGIxNjIwIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
+export default function PerformancePage() {
+  const [selected, setSelected] = useState<string | null>(null);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
         <Sidebar />
 
-        <section className="w-full relative">
+        <section className="w-full">
           <Topbar />
 
-          {/* Botón desktop */}
-          {/*<button
-            onClick={scrollToVideo}
-            className="
-              hidden lg:flex
-              fixed right-6 top-1/2 -translate-y-1/2 z-50
-              items-center gap-3
-              rounded-full
-              border border-[#C8A96B]/40
-              bg-[#11161D]/90
-              px-5 py-3
-              text-sm font-medium
-              text-white
-              shadow-[0_12px_35px_rgba(0,0,0,0.35)]
-              backdrop-blur-md
-              hover:border-[#C8A96B]
-              hover:bg-[#161D26]
-              transition-all
-            "
-          >
-            <Play size={16} className="text-[#C8A96B]" />
-            Ver explicación
-          </button>
+          <div className="px-6 lg:px-10 py-8">
 
-          {/* Botón móvil */}
-          {/*<button
-            onClick={scrollToVideo}
-            className="
-              lg:hidden
-              fixed bottom-5 right-5 z-50
-              rounded-full
-              bg-[#C8A96B]
-              text-black
-              px-4 py-3
-              text-sm font-semibold
-              shadow-xl
-              hover:opacity-90
-              transition
-            "
-          >
-            Ver vídeo
-          </button>
+            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+              RMCF CASTILLA · PERFORMANCE
+            </p>
 
-          <div className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
-            {/* Header */}
-            <div className="mb-8">
-              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMCF CASTILLA COLECTIVO
-              </p>
+            <h1 className="mt-4 text-4xl font-semibold">
+              Área Condicional
+            </h1>
 
-              <div className="mt-4 flex items-center gap-3 sm:gap-5">
-                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                  Área condicional
-                </h1>
+            <p className="mt-4 text-white/60 max-w-3xl">
+              Planificación semanal del área de rendimiento.
+              Pulsa sobre cualquier semana para verla a tamaño completo.
+            </p>
 
-                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-              </div>
+            <div className="grid gap-6 mt-10 sm:grid-cols-2 xl:grid-cols-3">
+
+              {weeks.map((week) => (
+
+                <div
+                  key={week.title}
+                  className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]"
+                >
+
+                  {week.image ? (
+
+                    <button
+                      onClick={() => setSelected(week.image!)}
+                      className="block w-full"
+                    >
+
+                      <div className="relative h-64">
+
+                        <Image
+                          src={week.image}
+                          alt={week.title}
+                          fill
+                          className="object-cover hover:scale-105 transition"
+                        />
+
+                      </div>
+
+                    </button>
+
+                  ) : (
+
+                    <div className="h-64 flex items-center justify-center text-white/30">
+                      Próximamente
+                    </div>
+
+                  )}
+
+                  <div className="p-5">
+
+                    <h2 className="font-semibold text-xl">
+                      {week.title}
+                    </h2>
+
+                  </div>
+
+                </div>
+
+              ))}
+
             </div>
 
-            {/*<div
-  ref={dashboardRef}
-  className="relative rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
->
-  <button
-  onClick={toggleDashboardFullscreen}
-  className="
-    absolute
-    top-4
-    right-4
-    z-30
-    flex
-    items-center
-    gap-2
-    rounded-full
-    border border-[#C8A96B]/40
-    bg-[#11161D]/90
-    px-4
-    py-2
-    text-sm
-    font-medium
-    text-white
-    backdrop-blur-md
-    hover:border-[#C8A96B]
-    hover:bg-[#161D26]
-    transition-all
-  "
->
-  <Maximize2
-    size={16}
-    className="text-[#C8A96B]"
-  />
+                        {selected && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6"
+                onClick={() => setSelected(null)}
+              >
+                <div
+                  className="relative w-full max-w-6xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="absolute right-4 top-4 z-10 rounded-full bg-black/70 p-2 hover:bg-black"
+                  >
+                    <X size={22} />
+                  </button>
 
-  {isFullscreen
-    ? "Salir pantalla completa"
-    : "Pantalla completa"}
-</button>
-
-  <iframe
-    title="Power BI Report"
-    src={src}
-    className={`
-      block
-      w-full
-      border-0
-      rounded-[18px] sm:rounded-[24px]
-      bg-[#0B0F14]
-      ${
-        isFullscreen
-          ? "h-screen"
-          : "h-[72vh] sm:h-[78vh] lg:h-[840px]"
-      }
-    `}
-    allowFullScreen
-  />
-</div>
-
-            {/* Vídeo */}
-            {/*<div ref={videoRef} className="mt-14 sm:mt-20">
-              <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  Explicación visual
-                </p>
-
-                <div className="mt-4 flex items-center gap-3 sm:gap-5">
-                  <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                    Uso del dashboard
-                  </h2>
-
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+                  <div className="relative h-[85vh] w-full">
+                    <Image
+                      src={selected}
+                      alt="Planificación"
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
                 </div>
               </div>
+            )}
 
-              {/* Desktop */}
-              {/*<div className="hidden lg:block rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-                <iframe
-                  title="Video explicativo"
-                  src="https://drive.google.com/file/d/1Ki1gmSMuwH5MsWGzIQbUrH_uBCkML7di/preview"
-                  className="
-                    w-full
-                    border-0
-                    rounded-[18px] sm:rounded-[24px]
-                    bg-black
-                    h-[640px]
-                  "
-                  allow="autoplay"
-                  allowFullScreen
-                />
-              </div>
-
-              {/* Móvil */}
-              {/*<div className="lg:hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
-                <p className="text-white/80 text-sm mb-4">
-                  Ver explicación completa del dashboard
-                </p>
-
-                <button
-                  onClick={() => window.open(videoUrl, "_blank")}
-                  className="
-                    rounded-full
-                    bg-[#C8A96B]
-                    text-black
-                    px-5 py-3
-                    text-sm
-                    font-semibold
-                    shadow-xl
-                  "
-                >
-                  ▶ Abrir vídeo
-                </button>
-              </div>
-            </div>
-          </div>*/}
+          </div>
         </section>
       </div>
     </main>
