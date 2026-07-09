@@ -160,6 +160,8 @@ clone.classList.add("export-mode");
 
   clone.style.maxWidth = "1100px";
   clone.style.width = "100%";
+  clone.style.display = "block";
+clone.style.margin = "0 auto";
 
   pitchWrapper.appendChild(clone);
 
