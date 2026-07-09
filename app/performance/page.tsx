@@ -25,7 +25,7 @@ export default function PerformancePage() {
 
           <Topbar />
 
-          <div className="px-6 lg:px-10 py-8">
+          <div className="px-6 lg:px-10 py-8">     
 
             <Header />
 
