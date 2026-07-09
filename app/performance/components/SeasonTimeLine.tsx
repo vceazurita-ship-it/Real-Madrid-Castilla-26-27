@@ -141,7 +141,7 @@ export default function SeasonTimeline({
               );
 
             })}
-
+    
           </div>
 
         </section>
