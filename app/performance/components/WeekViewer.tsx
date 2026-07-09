@@ -16,37 +16,32 @@ export default function WeekViewer({ week }: Props) {
   if (!week) {
     return (
       <div className="rounded-3xl border border-white/10 bg-[#11161D] p-8">
-
-        <div className="flex h-[500px] flex-col items-center justify-center text-center">
-
+        <div className="flex h-[600px] flex-col items-center justify-center text-center">
           <CalendarDays
-            size={46}
-            className="text-[#C8A96B] mb-6"
+            size={48}
+            className="mb-6 text-[#C8A96B]"
           />
 
           <h2 className="text-2xl font-semibold">
             Selecciona una semana
           </h2>
 
-          <p className="mt-3 max-w-md text-white/50 leading-7">
+          <p className="mt-4 max-w-md text-white/50 leading-7">
             Pulsa sobre cualquier semana del calendario para
-            visualizar las imágenes, el PDF y toda la
-            información disponible.
+            visualizar las imágenes y el documento PDF de esa
+            semana.
           </p>
-
         </div>
-
       </div>
     );
   }
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-[#11161D] overflow-hidden">
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]">
 
       {/* CABECERA */}
 
       <div className="border-b border-white/10 p-8">
-
         <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
           {week.month}
         </p>
@@ -58,7 +53,6 @@ export default function WeekViewer({ week }: Props) {
         <p className="mt-3 text-white/60">
           {week.start} — {week.end}
         </p>
-
       </div>
 
       {/* ESTADÍSTICAS */}
@@ -66,44 +60,34 @@ export default function WeekViewer({ week }: Props) {
       <div className="grid grid-cols-2 gap-4 p-8">
 
         <div className="rounded-2xl bg-[#0B0F14] p-5">
-
           <div className="flex items-center gap-3 text-[#C8A96B]">
-
             <ImageIcon size={20} />
-
             <span className="text-sm uppercase">
               Imágenes
             </span>
-
           </div>
 
           <p className="mt-4 text-3xl font-semibold">
             {week.images.length}
           </p>
-
         </div>
 
         <div className="rounded-2xl bg-[#0B0F14] p-5">
-
           <div className="flex items-center gap-3 text-[#C8A96B]">
-
             <FileText size={20} />
-
             <span className="text-sm uppercase">
               PDF
             </span>
-
           </div>
 
           <p className="mt-4 text-3xl font-semibold">
             {week.pdf ? 1 : 0}
           </p>
-
         </div>
 
       </div>
 
-      {/* GALERÍA */}
+      {/* IMÁGENES */}
 
       <div className="px-8 pb-8">
 
@@ -119,21 +103,37 @@ export default function WeekViewer({ week }: Props) {
 
         ) : (
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-8">
 
             {week.images.map((image, index) => (
 
               <div
                 key={index}
-                className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10"
+                className="
+                  overflow-hidden
+                  rounded-2xl
+                  border
+                  border-white/10
+                  bg-black
+                "
               >
 
-                <Image
-                  src={image}
-                  alt={`${week.week}-${index}`}
-                  fill
-                  className="object-cover transition duration-500 group-hover:scale-105"
-                />
+                <div className="relative w-full">
+
+                  <Image
+                    src={image}
+                    alt={`${week.week}-${index}`}
+                    width={1800}
+                    height={1200}
+                    className="
+                      h-auto
+                      w-full
+                      object-contain
+                    "
+                    priority={index === 0}
+                  />
+
+                </div>
 
               </div>
 
@@ -158,6 +158,7 @@ export default function WeekViewer({ week }: Props) {
           <a
             href={week.pdf}
             target="_blank"
+            rel="noopener noreferrer"
             className="
               flex
               items-center
@@ -185,8 +186,8 @@ export default function WeekViewer({ week }: Props) {
             </div>
 
             <FileText
-              className="text-[#C8A96B]"
               size={24}
+              className="text-[#C8A96B]"
             />
 
           </a>

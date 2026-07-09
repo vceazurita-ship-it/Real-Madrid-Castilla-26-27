@@ -1,6 +1,10 @@
 "use client";
 
-import { CalendarDays, ImageIcon, FileText, ChevronRight } from "lucide-react";
+import {
+  CalendarDays,
+  ImageIcon,
+  FileText,
+} from "lucide-react";
 import { season, WeekData } from "../data";
 
 interface Props {
@@ -13,141 +17,117 @@ export default function SeasonTimeline({
   onSelectWeek,
 }: Props) {
   return (
-    <div className="space-y-10">
-
+    <div className="space-y-10 max-h-[calc(100vh-170px)] overflow-y-auto pr-2">
       {season.map((month) => (
-
         <section key={month.id}>
+          {/* CABECERA DEL MES */}
 
-          {/* Mes */}
+          <div className="sticky top-0 z-10 mb-6 bg-[#0B0F14] pb-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#11161D]">
+                <CalendarDays
+                  size={18}
+                  className="text-[#C8A96B]"
+                />
+              </div>
 
-          <div className="flex items-center gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {month.name}
+                </h2>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#11161D] border border-white/10">
+                <p className="text-sm text-white/50">
+                  {month.weeks.length} semanas
+                </p>
+              </div>
 
-              <CalendarDays
-                size={20}
-                className="text-[#C8A96B]"
-              />
-
+              <div className="h-px flex-1 bg-white/10" />
             </div>
-
-            <div>
-
-              <h2 className="text-2xl font-semibold">
-                {month.name}
-              </h2>
-
-              <p className="text-sm text-white/50">
-                {month.weeks.length} semanas
-              </p>
-
-            </div>
-
-            <div className="flex-1 h-px bg-white/10" />
-
           </div>
 
-          {/* Semanas */}
+          {/* TIMELINE */}
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-
+          <div className="relative ml-5 border-l border-white/10 pl-8 space-y-5">
             {month.weeks.map((week) => {
-
-              const active =
-                selectedWeek?.id === week.id;
+              const active = selectedWeek?.id === week.id;
 
               return (
-
                 <button
                   key={week.id}
                   onClick={() => onSelectWeek(week)}
-                  className={`
-                    text-left
-                    rounded-3xl
-                    border
-                    p-5
-                    transition-all
-                    duration-300
-                    ${
-                      active
-                        ? "border-[#C8A96B] bg-[#161D26] shadow-[0_0_25px_rgba(200,169,107,.25)]"
-                        : "border-white/10 bg-[#11161D] hover:border-[#C8A96B]/40 hover:-translate-y-1"
-                    }
-                  `}
+                  className={`group relative w-full rounded-3xl border p-6 text-left transition-all duration-300 ${
+                    active
+                      ? "border-[#C8A96B] bg-[#161D26] shadow-[0_0_30px_rgba(200,169,107,.20)]"
+                      : "border-white/10 bg-[#11161D] hover:border-[#C8A96B]/40 hover:bg-[#141A22]"
+                  }`}
                 >
+                  {/* PUNTO */}
 
-                  <div className="flex items-center justify-between">
+                  <div
+                    className={`absolute -left-[43px] top-8 h-5 w-5 rounded-full border-4 ${
+                      active
+                        ? "border-[#C8A96B] bg-[#C8A96B]"
+                        : "border-white/20 bg-[#0B0F14]"
+                    }`}
+                  />
 
+                  {/* TÍTULO */}
+
+                  <div className="flex items-start justify-between">
                     <div>
-
-                      <h3 className="font-semibold text-lg">
+                      <h3 className="text-lg font-semibold">
                         {week.week}
                       </h3>
 
-                      <p className="text-xs text-white/50 mt-1">
+                      <p className="mt-1 text-sm text-white/50">
                         {week.start} · {week.end}
                       </p>
-
                     </div>
 
-                    <ChevronRight
-                      size={18}
-                      className="text-[#C8A96B]"
-                    />
-
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        week.images.length
+                          ? "bg-green-500/20 text-green-400"
+                          : "bg-white/10 text-white/50"
+                      }`}
+                    >
+                      {week.images.length
+                        ? "Disponible"
+                        : "Pendiente"}
+                    </span>
                   </div>
 
-                  <div className="mt-6 flex gap-5">
+                  {/* DATOS */}
+
+                  <div className="mt-6 flex gap-8">
+                    <div className="flex items-center gap-2 text-sm text-white/60">
+                      <ImageIcon
+                        size={17}
+                        className="text-[#C8A96B]"
+                      />
+
+                      <span>
+                        {week.images.length} imágenes
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-2 text-sm text-white/60">
+                      <FileText
+                        size={17}
+                        className="text-[#C8A96B]"
+                      />
 
-                      <ImageIcon size={16} />
-
-                      {week.images.length}
-
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm text-white/60">
-
-                      <FileText size={16} />
-
-                      {week.pdf ? 1 : 0}
-
-                    </div>
-
-                  </div>
-
-                  <div className="mt-6">
-
-                    {week.images.length > 0 ? (
-
-                      <span className="inline-flex rounded-full bg-green-500/15 px-3 py-1 text-xs font-medium text-green-400">
-                        Disponible
+                      <span>
+                        {week.pdf ? "PDF" : "-"}
                       </span>
-
-                    ) : (
-
-                      <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/50">
-                        Pendiente
-                      </span>
-
-                    )}
-
+                    </div>
                   </div>
-
                 </button>
-
               );
-
             })}
-    
           </div>
-
         </section>
-
       ))}
-
     </div>
   );
 }
