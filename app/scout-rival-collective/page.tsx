@@ -24,7 +24,7 @@ export default function ScoutRivalCollective() {
       Object.entries(rivalActivo).forEach(([key, value]) => {
         body.append(key, String(value ?? ""));
       });
-
+console.log(rivalActivo);
       const res = await fetch(
         "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec",
         {
@@ -47,6 +47,7 @@ export default function ScoutRivalCollective() {
   };
 
   useEffect(() => {
+    console.log(rivalActivo);
     fetch(
       "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=rivales"
     )
