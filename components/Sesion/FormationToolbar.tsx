@@ -78,44 +78,101 @@ alert(
     : "Alineación guardada."
 );
 }
-async function exportPitch() {
-  const node = document.getElementById("football-pitch");
 
-  if (!node) return;
+async function generateImage() {
+  const pitch = document.getElementById("football-pitch");
 
-  node.classList.add("export-mode");
+  if (!pitch) return null;
 
-  const dataUrl = await toPng(node, {
+  pitch.classList.add("export-mode");
+
+  const wrapper = document.createElement("div");
+
+  wrapper.style.background = "#0F141A";
+  wrapper.style.padding = "30px";
+  wrapper.style.width = "1200px";
+  wrapper.style.display = "flex";
+  wrapper.style.flexDirection = "column";
+  wrapper.style.gap = "24px";
+
+  // Cabecera
+  const header = document.createElement("div");
+
+  header.style.display = "flex";
+  header.style.alignItems = "center";
+  header.style.gap = "18px";
+
+  // Escudo
+  const logo = document.createElement("img");
+  logo.src = "/images/logo.png"; // mismo logo que usas en la Topbar
+  logo.width = 60;
+  logo.height = 60;
+    
+  // Título
+  const title = document.createElement("div");
+
+  title.innerHTML = `
+    <div style="
+      color:white;
+      font-size:34px;
+      font-weight:700;  
+      font-family:sans-serif;
+    ">
+      Tarea de Entrenamiento
+    </div>
+
+    <div style="
+      color:#C8A96B;
+      font-size:18px;
+      margin-top:4px;
+      font-family:sans-serif;
+    ">
+      Real Madrid Castilla
+    </div>
+  `;
+
+  header.appendChild(logo);
+  header.appendChild(title);
+
+  const clone = pitch.cloneNode(true) as HTMLElement;
+
+  wrapper.appendChild(header);
+  wrapper.appendChild(clone);
+
+  document.body.appendChild(wrapper);
+
+  const dataUrl = await toPng(wrapper, {
     cacheBust: true,
     pixelRatio: 2,
   });
 
-  node.classList.remove("export-mode");
+  document.body.removeChild(wrapper);
+
+  pitch.classList.remove("export-mode");
+
+  return dataUrl;
+}
+
+async function exportPitch() {
+  const dataUrl = await generateImage();
+
+  if (!dataUrl) return;
 
   const link = document.createElement("a");
 
-  link.download = "alineacion.png";
+  link.download = "sesion-entrenamiento.png";
   link.href = dataUrl;
   link.click();
 }
 async function sharePitch() {
-  const node = document.getElementById("football-pitch");
-
-  if (!node) return;
-
-  node.classList.add("export-mode");
-
   try {
-    const dataUrl = await toPng(node, {
-      cacheBust: true,
-      pixelRatio: 2,
-    });
+    const dataUrl = await generateImage();
 
-    node.classList.remove("export-mode");
+    if (!dataUrl) return;
 
     const blob = await (await fetch(dataUrl)).blob();
 
-    const file = new File([blob], "alineacion.png", {
+    const file = new File([blob], "sesion-entrenamiento.png", {
       type: "image/png",
     });
 
@@ -124,15 +181,14 @@ async function sharePitch() {
       navigator.canShare?.({ files: [file] })
     ) {
       await navigator.share({
-        title: "Alineación RMCF Castilla",
-        text: "Alineación creada con la Pizarra RMCF Castilla",
+        title: "Sesión de Entrenamiento",
+        text: "Sesión creada con la Pizarra RMCF Castilla",
         files: [file],
       });
     } else {
       window.open(dataUrl, "_blank");
     }
   } catch (err) {
-    node.classList.remove("export-mode");
     console.error(err);
   }
 }

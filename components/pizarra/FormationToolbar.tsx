@@ -88,19 +88,91 @@ alert(
     : "Alineación guardada."
 );
 }
-async function exportPitch() {
-  const node = document.getElementById("football-pitch");
+async function generateImage() {
+  const pitch = document.getElementById("football-pitch");
 
-  if (!node) return;
+  if (!pitch) return null;
 
-  node.classList.add("export-mode");
+  pitch.classList.add("export-mode");
 
-  const dataUrl = await toPng(node, {
+  // Contenedor
+  const wrapper = document.createElement("div");
+
+  wrapper.style.background = "#0F141A";
+  wrapper.style.padding = "30px";
+  wrapper.style.width = "1200px";
+  wrapper.style.display = "flex";
+  wrapper.style.flexDirection = "column";
+  wrapper.style.gap = "24px";
+
+  // Cabecera
+  const header = document.createElement("div");
+
+  header.style.display = "flex";
+  header.style.alignItems = "center";
+  header.style.gap = "18px";
+
+  // Logo
+  const logo = document.createElement("img");
+  logo.src = "/images/logo.png"; // <-- mismo escudo que usas en la Topbar
+  logo.width = 60;
+  logo.height = 60;
+
+  // Título
+  const title = document.createElement("div");
+
+  title.innerHTML = `
+    <div style="
+      color:white;
+      font-size:34px;
+      font-weight:700;
+      font-family:sans-serif;
+    ">
+      Alineación
+    </div>
+
+    <div style="
+      color:#C8A96B;
+      font-size:18px;
+      margin-top:4px;
+      font-family:sans-serif;
+    ">
+      Real Madrid Castilla
+    </div>
+  `;
+
+  header.appendChild(logo);
+  header.appendChild(title);
+
+  // Clonar el campo
+  const clone = pitch.cloneNode(true) as HTMLElement;
+
+  clone.style.position = "relative";
+
+  wrapper.appendChild(header);
+  wrapper.appendChild(clone);
+
+  document.body.appendChild(wrapper);
+
+  const dataUrl = await toPng(wrapper, {
     cacheBust: true,
     pixelRatio: 2,
   });
 
-  node.classList.remove("export-mode");
+  document.body.removeChild(wrapper);
+
+  pitch.classList.remove("export-mode");
+
+  return dataUrl;
+}
+
+
+
+
+async function exportPitch() {
+  const dataUrl = await generateImage();
+
+  if (!dataUrl) return;
 
   const link = document.createElement("a");
 
@@ -109,19 +181,10 @@ async function exportPitch() {
   link.click();
 }
 async function sharePitch() {
-  const node = document.getElementById("football-pitch");
-
-  if (!node) return;
-
-  node.classList.add("export-mode");
-
   try {
-    const dataUrl = await toPng(node, {
-      cacheBust: true,
-      pixelRatio: 2,
-    });
+    const dataUrl = await generateImage();
 
-    node.classList.remove("export-mode");
+    if (!dataUrl) return;
 
     const blob = await (await fetch(dataUrl)).blob();
 
@@ -142,7 +205,6 @@ async function sharePitch() {
       window.open(dataUrl, "_blank");
     }
   } catch (err) {
-    node.classList.remove("export-mode");
     console.error(err);
   }
 }
