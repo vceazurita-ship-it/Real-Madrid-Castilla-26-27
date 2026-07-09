@@ -80,85 +80,105 @@ alert(
 }
 
 async function generateImage() {
-  const pitch = document.getElementById("football-pitch");
+  const node = document.getElementById("football-pitch");
 
-  if (!pitch) return null;
+  if (!node) return null;
 
-  pitch.classList.add("export-mode");
+  node.classList.add("export-mode");
 
+  // Clon del campo
+  const clone = node.cloneNode(true) as HTMLElement;
+
+  clone.style.width = "100%";
+  clone.style.height = "700px";
+  clone.style.minHeight = "700px";
+  clone.style.position = "relative";
+  clone.style.flex = "none";
+  clone.style.overflow = "hidden";
+
+  // Wrapper
   const wrapper = document.createElement("div");
 
-  wrapper.style.background = "#0F141A";
-  wrapper.style.padding = "30px";
+  wrapper.style.background = "#10151C";
   wrapper.style.width = "1200px";
+  wrapper.style.padding = "36px";
+  wrapper.style.boxSizing = "border-box";
   wrapper.style.display = "flex";
   wrapper.style.flexDirection = "column";
-  wrapper.style.gap = "24px";
 
-  // Cabecera
+  // ==========================
+  // CABECERA
+  // ==========================
+
   const header = document.createElement("div");
 
   header.style.display = "flex";
   header.style.alignItems = "center";
-  header.style.gap = "18px";
+  header.style.justifyContent = "space-between";
+  header.style.marginBottom = "28px";
 
-  // Escudo
+  const left = document.createElement("div");
+
+  left.style.display = "flex";
+  left.style.alignItems = "center";
+  left.style.gap = "24px";
+
   const logo = document.createElement("img");
-  logo.src = "/images/logo.png"; // mismo logo que usas en la Topbar
-  logo.width = 60;
-  logo.height = 60;
-    
-  // Título
+
+  logo.src = "/images/logo.png";
+  logo.style.width = "72px";
+  logo.style.height = "72px";
+  logo.style.objectFit = "contain";
+
+  const texts = document.createElement("div");
+
   const title = document.createElement("div");
 
-  title.innerHTML = `
-    <div style="
-      color:white;
-      font-size:34px;
-      font-weight:700;  
-      font-family:sans-serif;
-    ">
-      Tarea de Entrenamiento
-    </div>
+  title.textContent = "Tarea de Entrenamiento";
+  title.style.color = "#FFFFFF";
+  title.style.fontSize = "58px";
+  title.style.fontWeight = "700";
+  title.style.fontFamily = "Arial, sans-serif";
+  title.style.lineHeight = "1";
 
-    <div style="
-      color:#C8A96B;
-      font-size:18px;
-      margin-top:4px;
-      font-family:sans-serif;
-    ">
-      Real Madrid Castilla
-    </div>
-  `;
+  const subtitle = document.createElement("div");
 
-  header.appendChild(logo);
-  header.appendChild(title);
+  subtitle.textContent = "Real Madrid Castilla";
+  subtitle.style.color = "#C8A96B";
+  subtitle.style.fontSize = "28px";
+  subtitle.style.marginTop = "12px";
+  subtitle.style.fontFamily = "Arial, sans-serif";
 
-  const parent = pitch.parentElement;
-const nextSibling = pitch.nextSibling;
+  texts.appendChild(title);
+  texts.appendChild(subtitle);
 
-wrapper.appendChild(header);
-wrapper.appendChild(pitch);
+  left.appendChild(logo);
+  left.appendChild(texts);
 
-document.body.appendChild(wrapper);
+  header.appendChild(left);
 
-const dataUrl = await toPng(wrapper, {
-  cacheBust: true,
-  pixelRatio: 2,
-});
+  const divider = document.createElement("div");
 
-// Restaurar el DOM
-document.body.removeChild(wrapper);
+  divider.style.height = "2px";
+  divider.style.background = "#2A2F36";
+  divider.style.marginBottom = "28px";
 
-if (parent) {
-  if (nextSibling) {
-    parent.insertBefore(pitch, nextSibling);
-  } else {
-    parent.appendChild(pitch);
-  }
-}
+  // ==========================
 
-  pitch.classList.remove("export-mode");
+  wrapper.appendChild(header);
+  wrapper.appendChild(divider);
+  wrapper.appendChild(clone);
+
+  document.body.appendChild(wrapper);
+
+  const dataUrl = await toPng(wrapper, {
+    cacheBust: true,
+    pixelRatio: 2,
+  });
+
+  document.body.removeChild(wrapper);
+
+  node.classList.remove("export-mode");
 
   return dataUrl;
 }
