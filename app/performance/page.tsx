@@ -12,7 +12,7 @@ import { season, WeekData } from "./data";
 
 export default function PerformancePage() {
   const [selectedWeek, setSelectedWeek] = useState<WeekData | null>(
-    season[0].weeks[0]
+    season[0].weeks[0]  
   );
 
   return (
