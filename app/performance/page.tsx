@@ -18,7 +18,7 @@ export default function PerformancePage() {
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
-
+  
         <Sidebar />
 
         <section className="flex-1">
