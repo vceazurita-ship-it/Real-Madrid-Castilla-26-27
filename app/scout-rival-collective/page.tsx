@@ -33,14 +33,16 @@ console.log(rivalActivo);
         }
       );
 
-      const data = await res.json();
+     const data = await res.json();
 
-      if (data.success) {
-        alert("Informe guardado correctamente");
-        setModoEdicion(false);
-      } else {
-        alert("Error al guardar");
-      }
+console.log(data);
+
+if (data.success) {
+  alert("Informe guardado correctamente");
+  setModoEdicion(false);
+} else {
+  alert(JSON.stringify(data, null, 2));
+}
     } finally {
       setGuardando(false);
     }
