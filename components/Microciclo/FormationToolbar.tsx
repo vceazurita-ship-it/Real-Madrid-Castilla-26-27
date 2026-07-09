@@ -91,10 +91,12 @@ async function generateImage() {
 
   if (!pitch) return null;
 
-  pitch.classList.add("export-mode");
+pitch.classList.add("export-mode");
 
-  // Clon del campo (NO tocamos el original)
-  const clone = pitch.cloneNode(true) as HTMLElement;
+// Clon del campo
+const clone = pitch.cloneNode(true) as HTMLElement;
+
+clone.classList.add("export-mode");
 
   // Wrapper de la imagen
   const wrapper = document.createElement("div");
