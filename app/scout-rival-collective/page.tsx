@@ -572,17 +572,17 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
 <section className="mt-12">
 
 <h2 className="text-3xl font-bold">
-Bases de Juego
+  Bases de Juego
 </h2>
 
 <p className="mt-2 text-[#C8A96B] uppercase tracking-widest">
-Situaciones a dominar
+  Situaciones a dominar
 </p>
-
 
 {/* ================= OFENSIVO ================= */}
 
-<div className="
+<div
+  className="
 mt-8
 rounded-xl
 bg-red-600
@@ -590,13 +590,19 @@ py-3
 text-center
 font-bold
 uppercase
-">
-OFENSIVO
+"
+>
+  OFENSIVO
 </div>
-<div className="grid xl:grid-cols-2 gap-10 mt-8">
-<div>
 
-<div className="
+<div className="grid xl:grid-cols-2 gap-10 mt-8">
+
+  {/* ================= COLUMNA IZQUIERDA ================= */}
+
+  <div>
+
+    <div
+      className="
 rounded-xl
 bg-orange-200
 text-black
@@ -604,123 +610,124 @@ font-bold
 text-center
 py-3
 mb-6
-">
-REINICIOS OF
-</div>
+"
+    >
+      REINICIOS OF
+    </div>
 
-<div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4">
 
-<Campo
-  titulo="Situaciones en rombo"
-  campo="ESTRUCTURA_OF"
-/>
+      <Campo
+        titulo="Situaciones en rombo"
+        campo="ESTRUCTURA_OF"
+      />
 
-<Campo
-  titulo="Referencia partido ida"
-  campo="ATAQUE"
-/>
+      <Campo
+        titulo="Referencia partido ida"
+        campo="ATAQUE"
+      />
 
-<Campo
-  titulo="Referencias determinantes"
-  campo="FORTALEZAS"
-/>
+      <Campo
+        titulo="Referencias determinantes"
+        campo="FORTALEZAS"
+      />
 
-<Campo
-  titulo="Equipo presionante (2 puntas)"
-  campo="OBSERVACIONES"
-/>
+      <Campo
+        titulo="Equipo presionante (2 puntas)"
+        campo="OBSERVACIONES"
+      />
 
-<Campo
-  titulo="Contextualizar rival - resultado y minuto"
-  campo="OBSERVACIONES"
-  className="col-span-1"
-/>
+      <Campo
+        titulo="Contextualizar rival - resultado y minuto"
+        campo="OBSERVACIONES"
+      />
 
-<Campo
-  titulo="Cerrado"
-  campo="OBSERVACIONES"
-  className="col-span-1"
-/>
+      <Campo
+        titulo="Cerrado"
+        campo="OBSERVACIONES"
+      />
 
-</div>
+    </div>
 
-<TituloBloque>
-INICIOS - PROGRESIÓN
-</TituloBloque>
+    <TituloBloque>
+      INICIOS - PROGRESIÓN
+    </TituloBloque>
 
-<div className="grid grid-cols-2 gap-4 mt-4">
+    <div className="grid grid-cols-2 gap-4 mt-4">
 
-<Campo
-titulo="Estructura recientes ante equipos presionantes"
-campo="ESTRUCTURA_OF"
-/>
+      <Campo
+        titulo="Estructura recientes ante equipos presionantes"
+        campo="ESTRUCTURA_OF"
+      />
 
-<Campo
-titulo="Central con mayor y menor capacidad"
-campo="JUGADORES_CLAVE"
-/>
+      <Campo
+        titulo="Central con mayor y menor capacidad"
+        campo="JUGADORES_CLAVE"
+      />
 
-<Campo
-titulo="Capacidad para jugar al espacio"
-campo="ATAQUE"
-/>
+      <Campo
+        titulo="Capacidad para jugar al espacio"
+        campo="ATAQUE"
+      />
 
-<Campo
-titulo="Jugador débil por dentro"
-campo="DEBILIDADES"
-/>
+      <Campo
+        titulo="Jugador débil por dentro"
+        campo="DEBILIDADES"
+      />
 
-<Campo
-titulo="Capacidad de asociarse por dentro (3-4)"
-campo="FORTALEZAS"
-className="col-span-2"
-/>
+      <Campo
+        titulo="Capacidad de asociarse por dentro (3-4)"
+        campo="FORTALEZAS"
+        className="col-span-2"
+      />
 
-</div>
+    </div>
 
+  </div>
 
+  {/* ================= COLUMNA DERECHA ================= */}
 
-</div>
+  <div>
 
+    <TituloBloque>
+      CAMPO CONTRARIO
+    </TituloBloque>
 
-<TituloBloque>
-CAMPO CONTRARIO
-</TituloBloque>
+    <div className="grid grid-cols-2 gap-4 mt-4">
 
-<div className="grid grid-cols-2 gap-4 mt-4">
+      <Campo
+        titulo="Estructura general"
+        campo="ESTRUCTURA_OF"
+      />
 
-<Campo
-titulo="Estructura general"
-campo="ESTRUCTURA_OF"
-/>
+      <Campo
+        titulo="Atacan por carril exterior"
+        campo="ATAQUE"
+      />
 
-<Campo
-titulo="Atacan por carril exterior"
-campo="ATAQUE"
-/>
+      <Campo
+        titulo="Cuántos jugadores están por dentro"
+        campo="FORTALEZAS"
+      />
 
-<Campo
-titulo="Cuántos jugadores están por dentro"
-campo="FORTALEZAS"
-/>
+    </div>
 
-</div>
+    <div className="grid grid-cols-2 gap-4">
 
-<div className="grid grid-cols-2 gap-4">
+      <Campo
+        titulo="Cuántos jugadores entran"
+        campo="ATAQUE"
+      />
 
-<Campo
-titulo="Cuántos jugadores entran"
-campo="ATAQUE"
-/>
+      <Campo
+        titulo="Tipos de centros"
+        campo="OBSERVACIONES"
+      />
 
-<Campo
-titulo="Tipos de centros"
-campo="OBSERVACIONES"
-/>
+    </div>
 
-</div>
-
-<div className="
+    <div
+      className="
 mt-8
 rounded-xl
 bg-orange-600
@@ -728,31 +735,33 @@ font-bold
 text-center
 py-3
 mb-6
-">
-ATACAR ÁREA
-</div>
+"
+    >
+      ATACAR ÁREA
+    </div>
 
-<div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4">
 
-<Campo
-titulo="Estructura compensadora"
-campo="TRANSICION_DEF"
-/>
+      <Campo
+        titulo="Estructura compensadora"
+        campo="TRANSICION_DEF"
+      />
 
-<Campo
-titulo="Dificultades en la defensa a la espalda"
-campo="DEBILIDADES"
-/>
+      <Campo
+        titulo="Dificultades en la defensa a la espalda"
+        campo="DEBILIDADES"
+      />
 
-<Campo
-titulo="Primera intencionalidad tras la pérdida"
-campo="FORTALEZAS"
-className="col-span-2"
-/>
+      <Campo
+        titulo="Primera intencionalidad tras la pérdida"
+        campo="FORTALEZAS"
+        className="col-span-2"
+      />
 
-</div>
+    </div>
 
-<div className="
+    <div
+      className="
 mt-8
 rounded-xl
 bg-gray-600
@@ -760,28 +769,31 @@ font-bold
 text-center
 py-3
 mb-6
-">
-TRANSICIÓN DEFENSIVA
-</div>
+"
+    >
+      TRANSICIÓN DEFENSIVA
+    </div>
 
-<div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4">
 
-<Campo
-titulo="Estructura compensadora"
-campo="TRANSICION_DEF"
-/>
+      <Campo
+        titulo="Estructura compensadora"
+        campo="TRANSICION_DEF"
+      />
 
-<Campo
-titulo="Defensa espalda"
-campo="DEBILIDADES"
-/>
+      <Campo
+        titulo="Defensa espalda"
+        campo="DEBILIDADES"
+      />
 
-<Campo
-titulo="Primera intención tras pérdida"
-campo="FORTALEZAS"
-/>
+      <Campo
+        titulo="Primera intención tras pérdida"
+        campo="FORTALEZAS"
+      />
 
-</div>
+    </div>
+
+  </div>
 
 </div>
 
