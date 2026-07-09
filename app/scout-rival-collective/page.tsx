@@ -2,214 +2,130 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { useEffect, useState } from "react"
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function ScoutRivalCollective() {
-  const [rivales, setRivales] = useState<any[]>([])
-const [rivalActivo, setRivalActivo] = useState<any>(null)
-const [modoEdicion, setModoEdicion] = useState(false)
-const [guardando, setGuardando] = useState(false)
+  const [rivales, setRivales] = useState<any[]>([]);
+  const [rivalActivo, setRivalActivo] = useState<any>(null);
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
+  const guardarRival = async () => {
+    if (!rivalActivo) return;
 
-const guardarRival = async () => {
+    setGuardando(true);
 
-  setGuardando(true);
+    try {
+      const body = new URLSearchParams();
 
-  try {
+      body.append("action", "guardarRival");
 
-    const body = new URLSearchParams();
+      Object.entries(rivalActivo).forEach(([key, value]) => {
+        body.append(key, String(value ?? ""));
+      });
 
-body.append("action", "guardarRival");
+      const res = await fetch(
+        "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec",
+        {
+          method: "POST",
+          body,
+        }
+      );
 
-Object.entries(rivalActivo).forEach(([key, value]) => {
-  body.append(key, String(value ?? ""));
-});
+      const data = await res.json();
 
-const res = await fetch(
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec",
-  {
-    method: "POST",
-    body,
-  }
-);
-
-    const data = await res.json();
-
-    if (data.success) {
-      alert("Informe guardado correctamente");
-      setModoEdicion(false);
-    } else {
-      alert("Error al guardar: "+rivalActivo.ID);
-    }
-
-  } finally {
-    setGuardando(false);
-  }
-}
- 
-useEffect(() => {
-  console.log(rivalActivo);
-  fetch(
-    "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=rivales"
-  )
-    .then(r => r.json())
-    .then(data => {
-
-      setRivales(data)
-
-      if (data.length > 0) {
-        setRivalActivo(data[0])
+      if (data.success) {
+        alert("Informe guardado correctamente");
+        setModoEdicion(false);
+      } else {
+        alert("Error al guardar");
       }
-  
-    })
+    } finally {
+      setGuardando(false);
+    }
+  };
 
-}, [])
+  useEffect(() => {
+    fetch(
+      "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=rivales"
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        setRivales(data);
 
-const ayudasCampos: Record<string, string[]> = {
-  ESTRUCTURA_OF: [
-    "Situaciones en rombo",
-    "Estructura recientes",
-    "Estructura general",
-  ],
+        if (data.length) {
+          setRivalActivo(data[0]);
+        }
+      });
+  }, []);
 
-  ATAQUE: [
-    "Referencia partido ida",
-    "Capacidad jugar espacio",
-    "Carril exterior",
-    "Jugadores que entran",
-  ],
-
-  FORTALEZAS: [
-    "Referencias determinantes",
-    "Asociaciones por dentro",
-    "Jugadores por dentro",
-    "Primera intención tras pérdida",
-  ],
-
-  DEBILIDADES: [
-    "Jugador débil por dentro",
-    "Defensa espalda",
-    "Jugador débil área",
-    "Dificultades espalda",
-  ],
-
-  OBSERVACIONES: [
-    "Equipo presionante",
-    "Contextualización",
-    "Tipos de centros",
-    "Informe individual",
-  ],
-
-  ESTRUCTURA_DEF: [
-    "Emparejamientos",
-    "Presión alta",
-    "Bloque medio",
-  ],
-
-  DEFENSA: [
-    "Orientaciones",
-    "Trayectorias",
-    "Distancias",
-    "Defensa área",
-  ],
-
-  TRANSICION_DEF: [
-    "Presión",
-    "Compensación",
-    "Primera intención",
-    "Transición",
-  ],
-
-  ESTRUCTURA_TR_DEF: [
-    "Espalda línea",
-    "Cómo defiende espalda",
-  ],
-
-  JUGADORES_CLAVE: [
-    "Centrales",
-    "Jugadores clave",
-  ],
-
-  ABP_DEF: [
-    "Defensa ABP",
-  ],
-};
-
-const Campo = ({
-  titulo,
-  campo,
-  className = "",
-}: {
-  titulo: string;
-  campo: keyof typeof rivalActivo;
-  className?: string;
-}) => (
-  <div
-    className={`
+  const Campo = ({
+    titulo,
+    campo,
+    className = "",
+    rows = 4,
+  }: {
+    titulo: string;
+    campo: string;
+    className?: string;
+    rows?: number;
+  }) => (
+    <div
+      className={`
       rounded-xl
       border
-      ${modoEdicion
-  ? "border-amber-400"
-  : "border-[#C8A96B]/20"}
+      ${
+        modoEdicion
+          ? "border-amber-400"
+          : "border-[#C8A96B]/20"
+      }
       bg-[#111827]
       p-4
       min-h-[110px]
       ${className}
     `}
-  >
-    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
-      {titulo}
-    </p>
-      {modoEdicion && (
-  <>
-    <div className="mb-2 inline-block rounded bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300">
-      CSV: {String(campo)}
-    </div>
-
-    <p className="mb-3 text-[11px] text-white/40">
-      También aparece en:
-      {" "}
-      {ayudasCampos[String(campo)]?.join(" · ")}
-    </p>
-  </>
-)}
-    {modoEdicion ? (
-      <textarea
-        rows={4}
-        value={rivalActivo?.[campo] || ""}
-        onChange={(e) =>
-          setRivalActivo({
-            ...rivalActivo,
-            [campo]: e.target.value,
-          })
-        }
-        className="w-full rounded-xl bg-black/40
-border
-border-amber-400/30 p-3"
-      />
-    ) : (
-      <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
-        {rivalActivo?.[campo]}
+    >
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+        {titulo}
       </p>
-    )}
-  </div>
-);
-const TituloBloque = ({ children }: { children: React.ReactNode }) => (
-  <div
-    className="
-      col-span-2
-      rounded-xl
-      bg-[#1f3b6d]
-      py-3
-      text-center
-      font-bold
-      uppercase
-    "
-  >
-    {children}
-  </div>
-);
+
+      {modoEdicion && (
+        <div className="mb-2 inline-block rounded bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300">
+          CSV: {campo}
+        </div>
+      )}
+
+      {modoEdicion ? (
+        <textarea
+          rows={rows}
+          value={rivalActivo?.[campo] || ""}
+          onChange={(e) =>
+            setRivalActivo({
+              ...rivalActivo,
+              [campo]: e.target.value,
+            })
+          }
+          className="w-full rounded-xl border border-amber-400/30 bg-black/40 p-3"
+        />
+      ) : (
+        <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
+          {rivalActivo?.[campo]}
+        </p>
+      )}
+    </div>
+  );
+
+  const TituloBloque = ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => (
+    <div className="col-span-2 rounded-xl bg-[#1f3b6d] py-3 text-center font-bold uppercase">
+      {children}
+    </div>
+  );
+
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -434,7 +350,7 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
     Recursos
   </h2>
 
-  <div className="grid md:grid-cols-3 gap-6">
+  <div className="grid md:grid-cols-6 gap-6">
 
     <div>
       <p className="mb-2 text-sm text-white/50">
@@ -539,7 +455,45 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
 
       )}
         </div>
+<div>
 
+<p className="mb-2 text-sm text-white/50">
+HUDL Playlist
+</p>
+
+{modoEdicion ? (
+
+<input
+value={rivalActivo?.HUDL_PLAYLIST || ""}
+onChange={(e)=>
+setRivalActivo({
+...rivalActivo,
+HUDL_PLAYLIST:e.target.value
+})
+}
+className="w-full rounded-2xl border border-white/10 bg-[#111827] p-4"
+/>
+
+) : (
+
+rivalActivo?.HUDL_PLAYLIST && (
+
+<a
+href={rivalActivo.HUDL_PLAYLIST}
+target="_blank"
+rel="noreferrer"
+className="inline-block rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-6 py-3 font-semibold text-[#C8A96B]"
+>
+
+Abrir Playlist
+
+</a>
+
+)
+
+)}
+
+</div>
     <div>
       <p className="mb-2 text-sm text-white/50">
         Plan de Partido
@@ -572,471 +526,366 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
 <section className="mt-12">
 
 <h2 className="text-3xl font-bold">
-  Bases de Juego
+Bases de Juego
 </h2>
 
-<p className="mt-2 text-[#C8A96B] uppercase tracking-widest">
-  Situaciones a dominar
+<p className="mt-2 uppercase tracking-widest text-[#C8A96B]">
+Situaciones a dominar
 </p>
 
 {/* ================= OFENSIVO ================= */}
 
-<div
-  className="
-mt-8
-rounded-xl
-bg-red-600
-py-3
-text-center
-font-bold
-uppercase
-"
->
-  OFENSIVO
+<div className="mt-8 rounded-xl bg-red-600 py-3 text-center font-bold uppercase">
+OFENSIVO
 </div>
 
-<div className="grid xl:grid-cols-2 gap-10 mt-8">
+<div className="mt-8 grid gap-10 xl:grid-cols-2">
 
-  {/* ================= COLUMNA IZQUIERDA ================= */}
+{/* ================= IZQUIERDA ================= */}
 
-  <div>
+<div>
 
-    <div
-      className="
-rounded-xl
-bg-orange-200
-text-black
-font-bold
-text-center
-py-3
-mb-6
-"
-    >
-      REINICIOS OF
-    </div>
+<div className="mb-6 rounded-xl bg-orange-200 py-3 text-center font-bold text-black">
+REINICIOS OF
+</div>
 
-    <div className="grid grid-cols-2 gap-4">
+<div className="grid grid-cols-2 gap-4">
 
-      <Campo
-        titulo="Situaciones en rombo"
-        campo="ESTRUCTURA_OF"
-      />
+<Campo titulo="Situaciones en rombo" campo="OF_REINICIO_ROMBO" />
 
-      <Campo
-        titulo="Referencia partido ida"
-        campo="ATAQUE"
-      />
+<Campo titulo="Referencia partido ida" campo="OF_REINICIO_REFERENCIA_PARTIDO" />
 
-      <Campo
-        titulo="Referencias determinantes"
-        campo="FORTALEZAS"
-      />
+<Campo titulo="Referencias determinantes" campo="OF_REINICIO_REFERENCIAS" />
 
-      <Campo
-        titulo="Equipo presionante (2 puntas)"
-        campo="OBSERVACIONES"
-      />
+<Campo titulo="Equipo presionante" campo="OF_REINICIO_EQUIPO_PRESIONANTE" />
 
-      <Campo
-        titulo="Contextualizar rival - resultado y minuto"
-        campo="OBSERVACIONES"
-      />
+<Campo titulo="Contextualización" campo="OF_REINICIO_CONTEXTO" />
 
-      <Campo
-        titulo="Cerrado"
-        campo="OBSERVACIONES"
-      />
+<Campo titulo="Cerrado" campo="OF_REINICIO_CERRADO" />
 
-    </div>
+</div>
 
-    <TituloBloque>
-      INICIOS - PROGRESIÓN
-    </TituloBloque>
+<TituloBloque>
+INICIOS - PROGRESIÓN
+</TituloBloque>
 
-    <div className="grid grid-cols-2 gap-4 mt-4">
+<div className="mt-4 grid grid-cols-2 gap-4">
 
-      <Campo
-        titulo="Estructura recientes ante equipos presionantes"
-        campo="ESTRUCTURA_OF"
-      />
+<Campo
+titulo="Estructura"
+campo="OF_INICIO_ESTRUCTURA"
+/>
 
-      <Campo
-        titulo="Central con mayor y menor capacidad"
-        campo="JUGADORES_CLAVE"
-      />
+<Campo
+titulo="Central con mayor y menor capacidad"
+campo="OF_INICIO_CENTRAL_CAPACIDAD"
+/>
 
-      <Campo
-        titulo="Capacidad para jugar al espacio"
-        campo="ATAQUE"
-      />
+<Campo
+titulo="Capacidad para jugar al espacio"
+campo="OF_INICIO_JUGAR_ESPACIO"
+/>
 
-      <Campo
-        titulo="Jugador débil por dentro"
-        campo="DEBILIDADES"
-      />
+<Campo
+titulo="Jugador débil por dentro"
+campo="OF_INICIO_JUGADOR_DEBIL_DENTRO"
+/>
 
-      <Campo
-        titulo="Capacidad de asociarse por dentro (3-4)"
-        campo="FORTALEZAS"
-        className="col-span-2"
-      />
+<Campo
+titulo="Capacidad para asociarse por dentro"
+campo="OF_INICIO_ASOCIACIONES"
+className="col-span-2"
+/>
 
-    </div>
+</div>
 
-  </div>
+</div>
 
-  {/* ================= COLUMNA DERECHA ================= */}
+{/* ================= DERECHA ================= */}
 
-  <div>
+<div>
 
-    <TituloBloque>
-      CAMPO CONTRARIO
-    </TituloBloque>
+<TituloBloque>
 
-    <div className="grid grid-cols-2 gap-4 mt-4">
+CAMPO CONTRARIO
 
-      <Campo
-        titulo="Estructura general"
-        campo="ESTRUCTURA_OF"
-      />
+</TituloBloque>
 
-      <Campo
-        titulo="Atacan por carril exterior"
-        campo="ATAQUE"
-      />
+<div className="mt-4 grid grid-cols-2 gap-4">
 
-      <Campo
-        titulo="Cuántos jugadores están por dentro"
-        campo="FORTALEZAS"
-      />
+<Campo
+titulo="Estructura general"
+campo="OF_CAMPO_ESTRUCTURA"
+/>
 
-    </div>
+<Campo
+titulo="Carril exterior"
+campo="OF_CAMPO_CARRIL_EXTERIOR"
+/>
 
-    <div className="grid grid-cols-2 gap-4">
+<Campo
+titulo="Jugadores por dentro"
+campo="OF_CAMPO_JUGADORES_DENTRO"
+/>
 
-      <Campo
-        titulo="Cuántos jugadores entran"
-        campo="ATAQUE"
-      />
+</div>
 
-      <Campo
-        titulo="Tipos de centros"
-        campo="OBSERVACIONES"
-      />
+<div className="grid grid-cols-2 gap-4">
 
-    </div>
+<Campo
+titulo="Jugadores que atacan el área"
+campo="OF_AREA_JUGADORES"
+/>
 
-    <div
-      className="
-mt-8
-rounded-xl
-bg-orange-600
-font-bold
-text-center
-py-3
-mb-6
-"
-    >
-      ATACAR ÁREA
-    </div>
+<Campo
+titulo="Tipos de centros"
+campo="OF_AREA_CENTROS"
+/>
 
-    <div className="grid grid-cols-2 gap-4">
+</div>
 
-      <Campo
-        titulo="Estructura compensadora"
-        campo="TRANSICION_DEF"
-      />
+<div className="mt-8 mb-6 rounded-xl bg-gray-600 py-3 text-center font-bold">
 
-      <Campo
-        titulo="Dificultades en la defensa a la espalda"
-        campo="DEBILIDADES"
-      />
+TRANSICIÓN DEFENSIVA
 
-      <Campo
-        titulo="Primera intencionalidad tras la pérdida"
-        campo="FORTALEZAS"
-        className="col-span-2"
-      />
+</div>
 
-    </div>
+<div className="grid grid-cols-2 gap-4">
 
-    <div
-      className="
-mt-8
-rounded-xl
-bg-gray-600
-font-bold
-text-center
-py-3
-mb-6
-"
-    >
-      TRANSICIÓN DEFENSIVA
-    </div>
+<Campo
+titulo="Estructura compensadora"
+campo="TRANSICION_DEF_ESTRUCTURA"
+/>
 
-    <div className="grid grid-cols-2 gap-4">
+<Campo
+titulo="Dificultades espalda"
+campo="TRANSICION_DEF_DIFICULTADES_ESPALDA"
+/>
 
-      <Campo
-        titulo="Estructura compensadora"
-        campo="TRANSICION_DEF"
-      />
+<Campo
+titulo="Primera intención tras pérdida"
+campo="TRANSICION_DEF_PRIMERA_INTENCION"
+className="col-span-2"
+/>
 
-      <Campo
-        titulo="Defensa espalda"
-        campo="DEBILIDADES"
-      />
+</div>
 
-      <Campo
-        titulo="Primera intención tras pérdida"
-        campo="FORTALEZAS"
-      />
-
-    </div>
-
-  </div>
+</div>
 
 </div>
 
 {/* ================= DEFENSIVO ================= */}
 
-<div className="mt-12">
+<div className="mt-14 rounded-xl bg-blue-900 py-3 text-center font-bold uppercase">
 
-  <div className="rounded-xl bg-blue-900 py-3 text-center font-bold uppercase">
-    DEFENSIVO
-  </div>
-
-  <div className="grid xl:grid-cols-2 gap-10 mt-8">
-
-    <div>
-
-      {/* REINICIOS DEF */}
-
-      <div className="rounded-xl bg-blue-300 text-black font-bold text-center py-3 mb-6">
-        REINICIOS DEF
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-
-        <Campo
-          titulo="Emparejan o 1-4-1-3-2"
-          campo="ESTRUCTURA_DEF"
-        />
-
-        <Campo
-          titulo="A quién orientan"
-          campo="DEFENSA"
-        />
-
-        <Campo
-          titulo="Son activos en la presión"
-          campo="TRANSICION_DEF"
-        />
-
-        <Campo
-          titulo="Jugadores débiles en el duelo"
-          campo="DEBILIDADES"
-        />
-
-      </div>
-
-      {/* BLOQUE ALTO */}
-
-      <div className="mt-8 rounded-xl bg-blue-400 text-black font-bold text-center py-3 mb-6">
-        BLOQUE ALTO
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-
-        <Campo
-          titulo="Estructura presión"
-          campo="ESTRUCTURA_DEF"
-        />
-
-        <Campo
-          titulo="Trayectoria acoso"
-          campo="DEFENSA"
-        />
-
-        <Campo
-          titulo="Saltos pares/impares"
-          campo="TRANSICION_DEF"
-        />
-
-        <Campo
-          titulo="Distancia línea defensiva"
-          campo="ESTRUCTURA_TR_DEF"
-        />
-
-        <Campo
-          titulo="Jugadores con dificultad espalda"
-          campo="DEBILIDADES"
-        />
-
-      </div>
-
-    </div>
-
-    <div>
-
-      {/* BLOQUE MEDIO-BAJO */}
-
-      <div className="rounded-xl bg-blue-500 font-bold text-center py-3 mb-6">
-        BLOQUE MEDIO-BAJO
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-
-        <Campo
-          titulo="Estructura general"
-          campo="ESTRUCTURA_DEF"
-        />
-
-        <Campo
-          titulo="Distancias del bloque"
-          campo="DEFENSA"
-        />
-
-        <Campo
-          titulo="Si se fusionan"
-          campo="TRANSICION_DEF"
-        />
-
-        <Campo
-          titulo="Centrales saltadores"
-          campo="JUGADORES_CLAVE"
-        />
-
-        <Campo
-          titulo="Quién defiende corte central-lateral"
-          campo="DEFENSA"
-        />
-
-        <Campo
-          titulo="Cómo defiende espalda"
-          campo="ESTRUCTURA_TR_DEF"
-        />
-
-      </div>
-
-      {/* DEFENSA DE ÁREA */}
-
-      <div className="mt-8 rounded-xl bg-blue-700 font-bold text-center py-3 mb-6">
-        DEFENSA DE ÁREA
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-
-        <Campo
-          titulo="Se hunde la línea"
-          campo="DEFENSA"
-        />
-
-        <Campo
-          titulo="Jugador débil en área"
-          campo="DEBILIDADES"
-        />
-
-        <Campo
-          titulo="Defensa punto penalti"
-          campo="ABP_DEF"
-        />
-
-      </div>
-
-    </div>
-
-  </div>
+DEFENSIVO
 
 </div>
-</section>
 
-<section
-  className="
-  group
-  rounded-3xl
-  border
-  border-white/5
-  bg-[#111827]
-  p-5
-  mt-10
-  transition-all
-  duration-300
-  hover:border-[#C8A96B]/30
-  hover:bg-neutral-800/70
-  hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
-"
->
-  <h2 className="text-xl font-semibold text-amber-400">
-    Jugadores Clave
-  </h2>
+<div className="mt-8 grid gap-10 xl:grid-cols-2">
 
-{modoEdicion ? (
+{/* IZQUIERDA */}
 
-<textarea
-value={rivalActivo?.JUGADORES_CLAVE || ""}
-onChange={(e)=>
-setRivalActivo({
-...rivalActivo,
-JUGADORES_CLAVE:e.target.value
-})
-}
-rows={6}
-className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4"
+<div>
+
+<div className="mb-6 rounded-xl bg-blue-300 py-3 text-center font-bold text-black">
+
+REINICIOS DEF
+
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Emparejamientos"
+campo="DEF_REINICIO_EMPAREJAN"
 />
 
-) : (
+<Campo
+titulo="Orientaciones"
+campo="DEF_REINICIO_ORIENTAN"
+/>
 
-<p className="mt-4 whitespace-pre-wrap text-white/70">
-{rivalActivo?.JUGADORES_CLAVE}
-</p>
+<Campo
+titulo="Activos en presión"
+campo="DEF_REINICIO_ACTIVOS_PRESION"
+/>
 
-)}
+<Campo
+titulo="Jugadores débiles"
+campo="DEF_REINICIO_JUGADORES_DEBILES"
+/>
+
+</div>
+
+<div className="mt-8 mb-6 rounded-xl bg-blue-400 py-3 text-center font-bold text-black">
+
+BLOQUE ALTO
+
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Estructura"
+campo="DEF_BLOQUE_ALTO_ESTRUCTURA"
+/>
+
+<Campo
+titulo="Trayectoria de acoso"
+campo="DEF_BLOQUE_ALTO_TRAYECTORIA_ACOSO"
+/>
+
+<Campo
+titulo="Saltos pares / impares"
+campo="DEF_BLOQUE_ALTO_SALTOS_PARES_IMPARES"
+/>
+
+<Campo
+titulo="Distancias"
+campo="DEF_BLOQUE_ALTO_DISTANCIAS"
+/>
+
+<Campo
+titulo="Defensa espalda"
+campo="DEF_BLOQUE_ALTO_ESPALDA"
+className="col-span-2"
+/>
+
+</div>
+
+</div>
+
+{/* DERECHA */}
+
+<div>
+
+<div className="mb-6 rounded-xl bg-blue-500 py-3 text-center font-bold">
+
+BLOQUE MEDIO
+
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Estructura"
+campo="DEF_BLOQUE_MEDIO_ESTRUCTURA"
+/>
+
+<Campo
+titulo="Fusionan línea"
+campo="DEF_BLOQUE_MEDIO_FUSIONAN_LINEA"
+/>
+
+<Campo
+titulo="Quién defiende cortes"
+campo="DEF_BLOQUE_MEDIO_CORTES"
+/>
+
+<Campo
+titulo="Distancias"
+campo="DEF_BLOQUE_MEDIO_DISTANCIAS"
+/>
+
+<Campo
+titulo="Centrales saltadores"
+campo="DEF_BLOQUE_MEDIO_CENTRALES_SALTADORES"
+/>
+
+<Campo
+titulo="Defensa espalda"
+campo="DEF_BLOQUE_MEDIO_ESPALDA"
+/>
+
+</div>
+
+<div className="mt-8 mb-6 rounded-xl bg-blue-700 py-3 text-center font-bold">
+
+DEFENSA DE ÁREA
+
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Se hunde la línea"
+campo="DEF_AREA_HUNDE_LINEA"
+/>
+
+<Campo
+titulo="Defensa punto penalti"
+campo="DEF_AREA_PUNTO_PENALTI"
+/>
+
+<Campo
+titulo="Jugador débil"
+campo="DEF_AREA_JUGADOR_DEBIL"
+className="col-span-2"
+/>
+
+</div>
+
+</div>
+
+</div>
 
 </section>
 
-<section
-  className="
-  group
-  rounded-3xl
-  border
-  border-white/5
-  bg-[#111827]
-  p-5
-  transition-all
-  duration-300
-  hover:border-[#C8A96B]/30
-  hover:bg-neutral-800/70
-  hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
-"
->
-  <h2 className="text-xl font-semibold">
-    Puntos fuertes / débiles individuales
-  </h2>
+<div className="mt-10 grid gap-8 lg:grid-cols-2">
 
-  {modoEdicion ? (
-
-  <textarea
-    value={rivalActivo?.OBSERVACIONES || ""}
-    onChange={(e) =>
-      setRivalActivo({
-        ...rivalActivo,
-        OBSERVACIONES: e.target.value,
-      })
-    }
+  <Campo
+    titulo="Jugadores Clave"
+    campo="JUGADORES_CLAVE"
     rows={8}
-    className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
   />
 
-) : (
+  <Campo
+    titulo="Fortalezas Individuales"
+    campo="FORTALEZAS_INDIVIDUALES"
+    rows={8}
+  />
 
-  <p className="mt-4 text-white/70 whitespace-pre-wrap">
-    {rivalActivo?.OBSERVACIONES}
-  </p>
+  <Campo
+    titulo="Debilidades Individuales"
+    campo="DEBILIDADES_INDIVIDUALES"
+    rows={8}
+  />
 
-)}
+  <Campo
+    titulo="Estado del Equipo"
+    campo="ESTADO_EQUIPO"
+    rows={8}
+  />
 
-</section>
- </div>
+  <Campo
+    titulo="Claves del Partido"
+    campo="CLAVES_PARTIDO"
+    rows={8}
+  />
+
+  <Campo
+    titulo="Plan de Partido"
+    campo="PLAN_PARTIDO"
+    rows={8}
+  />
+
+  <Campo
+    titulo="Claves Emocionales"
+    campo="CLAVES_EMOCIONALES"
+    rows={8}
+  />
+
+  <Campo
+    titulo="Observaciones"
+    campo="OBSERVACIONES"
+    rows={10}
+    className="lg:col-span-2"
+  />
+
+</div>
+
+        </div>
       </main>
     </div>
   );
