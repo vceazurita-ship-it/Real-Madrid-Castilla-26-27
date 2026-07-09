@@ -678,6 +678,11 @@ className="col-span-2"
 
 </div>
 
+
+
+</div>
+
+
 <TituloBloque>
 CAMPO CONTRARIO
 </TituloBloque>
@@ -775,8 +780,6 @@ campo="DEBILIDADES"
 titulo="Primera intención tras pérdida"
 campo="FORTALEZAS"
 />
-
-</div>
 
 </div>
 
