@@ -96,90 +96,102 @@ pitch.classList.add("export-mode");
 // Clon del campo
 const clone = pitch.cloneNode(true) as HTMLElement;
 
-clone.classList.add("export-mode");
+clone.style.width = "100%";
+clone.style.height = "700px";
+clone.style.minHeight = "700px";
+clone.style.position = "relative";
+clone.style.flex = "none";
+clone.style.overflow = "hidden";
 
-  // Wrapper de la imagen
-  const wrapper = document.createElement("div");
+// Wrapper
+const wrapper = document.createElement("div");
 
-  wrapper.style.background = "#0F141A";
-  wrapper.style.padding = "32px";
-  wrapper.style.width = "1200px";
-  wrapper.style.display = "flex";
-  wrapper.style.flexDirection = "column";
-  wrapper.style.gap = "30px";
-  wrapper.style.boxSizing = "border-box";
+wrapper.style.background = "#10151C";
+wrapper.style.width = "1200px";
+wrapper.style.padding = "36px";
+wrapper.style.boxSizing = "border-box";
+wrapper.style.display = "flex";
+wrapper.style.flexDirection = "column";
 
-  // Cabecera
-  const header = document.createElement("div");
+// ==========================
+// CABECERA
+// ==========================
 
-  header.innerHTML = `
-    <div style="
-      display:flex;
-      align-items:center;
-      gap:26px;
-      padding-bottom:24px;
-      border-bottom:2px solid rgba(255,255,255,.08);
-    ">
-      <img
-        src="/images/logo.png"
-        width="92"
-        height="92"
-        style="display:block;"
-      />
+const header = document.createElement("div");
 
-      <div>
-        <div style="
-          color:#FFFFFF;
-          font-size:64px;
-          font-weight:800;
-          line-height:1;
-          font-family:Arial,sans-serif;
-        ">
-          Microciclo
-        </div>
+header.style.display = "flex";
+header.style.alignItems = "center";
+header.style.justifyContent = "space-between";
+header.style.marginBottom = "28px";
 
-        <div style="
-          margin-top:18px;
-          color:#C8A96B;
-          font-size:28px;
-          font-weight:500;
-          font-family:Arial,sans-serif;
-        ">
-          Real Madrid Castilla
-        </div>
-      </div>
-    </div>
-  `;
+// Lado izquierdo
+const left = document.createElement("div");
 
-  // Centrar el campo
-  const pitchWrapper = document.createElement("div");
+left.style.display = "flex";
+left.style.alignItems = "center";
+left.style.gap = "24px";
 
-  pitchWrapper.style.display = "flex";
-  pitchWrapper.style.justifyContent = "center";
-  pitchWrapper.style.width = "100%";
+// Escudo
+const logo = document.createElement("img");
 
-  clone.style.maxWidth = "1100px";
-  clone.style.width = "100%";
-  clone.style.display = "block";
-clone.style.margin = "0 auto";
+logo.src = "/images/logo.png";
+logo.style.width = "72px";
+logo.style.height = "72px";
+logo.style.objectFit = "contain";
 
-  pitchWrapper.appendChild(clone);
+// Textos
+const texts = document.createElement("div");
 
-  wrapper.appendChild(header);
-  wrapper.appendChild(pitchWrapper);
+const title = document.createElement("div");
 
-  document.body.appendChild(wrapper);
+title.textContent = "Microciclo";
+title.style.color = "#FFFFFF";
+title.style.fontSize = "58px";
+title.style.fontWeight = "700";
+title.style.fontFamily = "Arial, sans-serif";
+title.style.lineHeight = "1";
 
-  const dataUrl = await toPng(wrapper, {
-    cacheBust: true,
-    pixelRatio: 2,
-  });
+const subtitle = document.createElement("div");
 
-  document.body.removeChild(wrapper);
+subtitle.textContent = "Real Madrid Castilla";
+subtitle.style.color = "#C8A96B";
+subtitle.style.fontSize = "28px";
+subtitle.style.marginTop = "12px";
+subtitle.style.fontFamily = "Arial, sans-serif";
 
-  pitch.classList.remove("export-mode");
+texts.appendChild(title);
+texts.appendChild(subtitle);
 
-  return dataUrl;
+left.appendChild(logo);
+left.appendChild(texts);
+
+header.appendChild(left);
+
+// Línea inferior
+const divider = document.createElement("div");
+
+divider.style.height = "2px";
+divider.style.background = "#2A2F36";
+divider.style.marginBottom = "28px";
+
+// ==========================
+
+wrapper.appendChild(header);
+wrapper.appendChild(divider);
+wrapper.appendChild(clone);
+
+document.body.appendChild(wrapper);
+
+const dataUrl = await toPng(wrapper, {
+  cacheBust: true,
+  pixelRatio: 2,
+});
+
+document.body.removeChild(wrapper);
+
+pitch.classList.remove("export-mode");
+
+return dataUrl;
 }
 
 async function exportPitch() {
