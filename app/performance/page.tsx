@@ -23,7 +23,7 @@ export default function PerformancePage() {
 
         <section className="flex-1">
 
-          <Topbar />
+          <Topbar />  
 
           <div className="px-6 lg:px-10 py-8">     
 
