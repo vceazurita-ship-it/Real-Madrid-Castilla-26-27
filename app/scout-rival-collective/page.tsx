@@ -285,19 +285,19 @@ const TituloBloque = ({
 
     }}
     className="
-      w-full
-      rounded-2xl
-      border
-      border-white/10
-     bg-[#111827]
-text-lg
-font-semibold
-shadow-lg
-border-white/5
-      px-4
-      py-4
-      text-white
-    "
+    mb-8
+    w-full
+    rounded-2xl
+    border
+    border-white/5
+    bg-[#111827]
+    px-4
+    py-4
+    text-lg
+    font-semibold
+    text-white
+    shadow-lg
+  "
   >
 
     {rivales.map((r) => (
@@ -426,13 +426,20 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
   </div>
 
 </div>
-<div className="mt-10 rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/10 to-[#111827] p-8">
+<div className="
+mt-8
+rounded-2xl
+border
+border-[#C8A96B]/15
+bg-[#111827]
+p-5
+">
 
-  <h2 className="text-xl font-semibold text-[#C8A96B] mb-6">
+  <h2 className="mb-4 text-lg font-bold text-[#C8A96B]">
     Recursos
   </h2>
 
-  <div className="grid md:grid-cols-6 gap-6">
+  <div className="grid gap-5 md:grid-cols-4 xl:grid-cols-5">
 
     <div>
       <p className="mb-2 text-sm text-white/50">
