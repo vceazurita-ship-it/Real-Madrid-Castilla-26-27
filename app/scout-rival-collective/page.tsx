@@ -202,7 +202,7 @@ const TituloBloque = ({
 
         <div className="p-5 md:p-10">
 
-          <div className="flex items-start justify-between mb-10">
+          <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
 
   <div>
     <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
@@ -218,42 +218,58 @@ const TituloBloque = ({
     </p>
   </div>
 
-  <div className="flex gap-3">
+  <div className="flex flex-col gap-3 sm:flex-row">
 
-    <Link
-      href="/plan-partido"
-      className="
+  <Link
+    href="/plan-partido"
+    className="
+      flex
+      items-center
+      justify-center
       rounded-2xl
       bg-[#C8A96B]
       px-6
       py-3
       font-semibold
       text-black
-      hover:scale-105
       transition
+      hover:scale-105
+    "
+  >
+    Plan de Partido
+  </Link>
+
+  {modoEdicion && (
+    <button
+      disabled={guardando}
+      onClick={guardarRival}
+      className="
+        rounded-2xl
+        bg-green-600
+        px-6
+        py-3
+        font-semibold
       "
     >
-      Plan de Partido
-    </Link>
-
-    {modoEdicion && (
-      <button
-        disabled={guardando}
-        onClick={guardarRival}
-        className="rounded-2xl bg-green-600 px-6 py-3"
-      >
-        {guardando ? "Guardando..." : "Guardar"}
-      </button>
-    )}
-
-    <button
-      onClick={() => setModoEdicion(!modoEdicion)}
-      className="rounded-2xl border border-[#C8A96B]/40 px-6 py-3"
-    >
-      {modoEdicion ? "Cancelar" : "Editar"}
+      {guardando ? "Guardando..." : "Guardar"}
     </button>
+  )}
 
-  </div>
+  <button
+    onClick={() => setModoEdicion(!modoEdicion)}
+    className="
+      rounded-2xl
+      border
+      border-[#C8A96B]/40
+      px-6
+      py-3
+      font-semibold
+    "
+  >
+    {modoEdicion ? "Cancelar" : "Editar"}
+  </button>
+
+</div>
 
 </div>
 
