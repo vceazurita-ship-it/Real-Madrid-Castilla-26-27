@@ -96,57 +96,84 @@ async function generateImage() {
 
   node.classList.add("export-mode");
 
-  // Clonamos el campo
+  // Clon del campo
   const clone = node.cloneNode(true) as HTMLElement;
 
-  // Wrapper SOLO para la exportación
+  // Wrapper
   const wrapper = document.createElement("div");
 
-  wrapper.style.background = "#0F141A";
-  wrapper.style.padding = "32px";
+  wrapper.style.background = "#10151C";
   wrapper.style.width = "1200px";
+  wrapper.style.padding = "36px";
+  wrapper.style.boxSizing = "border-box";
   wrapper.style.display = "flex";
   wrapper.style.flexDirection = "column";
-  wrapper.style.gap = "24px";
 
-  // Cabecera
+  // ==========================
+  // CABECERA
+  // ==========================
+
   const header = document.createElement("div");
 
-  header.innerHTML = `
-    <div style="
-      display:flex;
-      align-items:center;
-      gap:18px;
-    ">
-      <img
-        src="/images/logo.png"
-        width="60"
-        height="60"
-      />
+  header.style.display = "flex";
+  header.style.alignItems = "center";
+  header.style.justifyContent = "space-between";
+  header.style.marginBottom = "28px";
 
-      <div>
-        <div style="
-          color:white;
-          font-size:34px;
-          font-weight:700;
-          font-family:sans-serif;
-        ">
-          Alineación
-        </div>
+  // Lado izquierdo
+  const left = document.createElement("div");
 
-        <div style="
-          color:#C8A96B;
-          font-size:18px;
-          margin-top:4px;
-          font-family:sans-serif;
-        ">
-          Real Madrid Castilla
-        </div>
-      </div>
-    </div>
-  `;
+  left.style.display = "flex";
+  left.style.alignItems = "center";
+  left.style.gap = "24px";
+
+  // Escudo
+  const logo = document.createElement("img");
+
+  logo.src = "/images/logo.png";
+  logo.style.width = "72px";
+  logo.style.height = "72px";
+  logo.style.objectFit = "contain";
+
+  // Textos
+  const texts = document.createElement("div");
+
+  const title = document.createElement("div");
+
+  title.textContent = "Alineación";
+  title.style.color = "#FFFFFF";
+  title.style.fontSize = "58px";
+  title.style.fontWeight = "700";
+  title.style.fontFamily = "Arial, sans-serif";
+  title.style.lineHeight = "1";
+
+  const subtitle = document.createElement("div");
+
+  subtitle.textContent = "Real Madrid Castilla";
+  subtitle.style.color = "#C8A96B";
+  subtitle.style.fontSize = "28px";
+  subtitle.style.marginTop = "12px";
+  subtitle.style.fontFamily = "Arial, sans-serif";
+
+  texts.appendChild(title);
+  texts.appendChild(subtitle);
+
+  left.appendChild(logo);
+  left.appendChild(texts);
+
+  header.appendChild(left);
+
+  // Línea inferior
+  const divider = document.createElement("div");
+
+  divider.style.height = "2px";
+  divider.style.background = "#2A2F36";
+  divider.style.marginBottom = "28px";
+
+  // ==========================
 
   wrapper.appendChild(header);
+  wrapper.appendChild(divider);
   wrapper.appendChild(clone);
 
   document.body.appendChild(wrapper);
