@@ -66,6 +66,151 @@ useEffect(() => {
 
 }, [])
 
+const ayudasCampos: Record<string, string[]> = {
+  ESTRUCTURA_OF: [
+    "Situaciones en rombo",
+    "Estructura recientes",
+    "Estructura general",
+  ],
+
+  ATAQUE: [
+    "Referencia partido ida",
+    "Capacidad jugar espacio",
+    "Carril exterior",
+    "Jugadores que entran",
+  ],
+
+  FORTALEZAS: [
+    "Referencias determinantes",
+    "Asociaciones por dentro",
+    "Jugadores por dentro",
+    "Primera intención tras pérdida",
+  ],
+
+  DEBILIDADES: [
+    "Jugador débil por dentro",
+    "Defensa espalda",
+    "Jugador débil área",
+    "Dificultades espalda",
+  ],
+
+  OBSERVACIONES: [
+    "Equipo presionante",
+    "Contextualización",
+    "Tipos de centros",
+    "Informe individual",
+  ],
+
+  ESTRUCTURA_DEF: [
+    "Emparejamientos",
+    "Presión alta",
+    "Bloque medio",
+  ],
+
+  DEFENSA: [
+    "Orientaciones",
+    "Trayectorias",
+    "Distancias",
+    "Defensa área",
+  ],
+
+  TRANSICION_DEF: [
+    "Presión",
+    "Compensación",
+    "Primera intención",
+    "Transición",
+  ],
+
+  ESTRUCTURA_TR_DEF: [
+    "Espalda línea",
+    "Cómo defiende espalda",
+  ],
+
+  JUGADORES_CLAVE: [
+    "Centrales",
+    "Jugadores clave",
+  ],
+
+  ABP_DEF: [
+    "Defensa ABP",
+  ],
+};
+
+const Campo = ({
+  titulo,
+  campo,
+  className = "",
+}: {
+  titulo: string;
+  campo: keyof typeof rivalActivo;
+  className?: string;
+}) => (
+  <div
+    className={`
+      rounded-xl
+      border
+      ${modoEdicion
+  ? "border-amber-400"
+  : "border-[#C8A96B]/20"}
+      bg-[#111827]
+      p-4
+      min-h-[110px]
+      ${className}
+    `}
+  >
+    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+      {titulo}
+    </p>
+      {modoEdicion && (
+  <>
+    <div className="mb-2 inline-block rounded bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300">
+      CSV: {String(campo)}
+    </div>
+
+    <p className="mb-3 text-[11px] text-white/40">
+      También aparece en:
+      {" "}
+      {ayudasCampos[String(campo)]?.join(" · ")}
+    </p>
+  </>
+)}
+    {modoEdicion ? (
+      <textarea
+        rows={4}
+        value={rivalActivo?.[campo] || ""}
+        onChange={(e) =>
+          setRivalActivo({
+            ...rivalActivo,
+            [campo]: e.target.value,
+          })
+        }
+        className="w-full rounded-xl bg-black/40
+border
+border-amber-400/30 p-3"
+      />
+    ) : (
+      <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
+        {rivalActivo?.[campo]}
+      </p>
+    )}
+  </div>
+);
+const TituloBloque = ({ children }: { children: React.ReactNode }) => (
+  <div
+    className="
+      col-span-2
+      rounded-xl
+      bg-[#1f3b6d]
+      py-3
+      text-center
+      font-bold
+      uppercase
+    "
+  >
+    {children}
+  </div>
+);
+
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
@@ -423,605 +568,434 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
   </div>
 
 </div>
-<div className="mt-10 grid gap-y-8 gap-x-6 xl:grid-cols-3">
 
-  <section
-className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
-"
->
-
-  <h2 className="mb-4 text-sm uppercase tracking-[0.30em] text-[#C8A96B]">
-    Estructura Ofensiva
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ESTRUCTURA_OF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTRUCTURA_OF: e.target.value,
-        })
-      }
-      rows={8}
-      className="
-      mt-4
-      w-full
-      rounded-2xl
-      border
-      border-white/10
-      bg-[#111827]
-      p-4
-      text-white
-      "
-    />
-
-  ) : (
-
-    <p className="mt-4 text-white/70 whitespace-pre-wrap">
-      {rivalActivo?.ESTRUCTURA_OF}
-    </p>
-
-  )}
-
-</section>
-
- <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold text-blue-400">
-    Estructura Defensiva
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ESTRUCTURA_DEF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTRUCTURA_DEF: e.target.value,
-        })
-      }
-      rows={8}
-      className="
-      mt-4
-      w-full
-      rounded-2xl
-      border
-      border-white/10
-      bg-[#111827]
-      p-4
-      text-white
-      "
-    />
-
-  ) : (
-
-    <p className="mt-4 text-white/70 whitespace-pre-wrap">
-      {rivalActivo?.ESTRUCTURA_DEF}
-    </p>
-
-  )}
-
-</section>
- <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-2xl font-bold tracking-tight">
-    Ataque
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ATAQUE || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ATAQUE: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="leading-8 text-white/80 whitespace-pre-wrap">
-      {rivalActivo?.ATAQUE}
-    </p>
-
-  )}
-
-</section>
-
-  <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold">
-    Defensa
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.DEFENSA || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          DEFENSA: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="leading-8 text-white/80 whitespace-pre-wrap">
-      {rivalActivo?.DEFENSA}
-    </p>
-
-  )}
-
-</section>
-
- <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold">
-    Transición Ofensiva
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.TRANSICION_OF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          TRANSICION_OF: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="leading-8 text-white/80 whitespace-pre-wrap">
-      {rivalActivo?.TRANSICION_OF}
-    </p>
-
-  )}
-
-</section>
-
-  <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold">
-    Transición Defensiva
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.TRANSICION_DEF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          TRANSICION_DEF: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="leading-8 text-white/80 whitespace-pre-wrap">
-      {rivalActivo?.TRANSICION_DEF}
-    </p>
-
-  )}
-
-</section>
-
- <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="mb-4 text-sm uppercase tracking-[0.30em] text-[#C8A96B]">
-    Estructura Transición Ofensiva
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ESTRUCTURA_TR_OF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTRUCTURA_TR_OF: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="mt-4 text-white/70 whitespace-pre-wrap">
-      {rivalActivo?.ESTRUCTURA_TR_OF}
-    </p>
-
-  )}
-
-</section>
-
-  <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold text-blue-400">
-    Estructura Transición Defensiva
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ESTRUCTURA_TR_DEF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ESTRUCTURA_TR_DEF: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="mt-4 text-white/70 whitespace-pre-wrap">
-      {rivalActivo?.ESTRUCTURA_TR_DEF}
-    </p>
-
-  )}
-
-</section>
-
-  <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold text-violet-400">
-    ABP Ofensivo
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ABP_OF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ABP_OF: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="mt-4 text-white/70 whitespace-pre-wrap">
-      {rivalActivo?.ABP_OF}
-    </p>
-
-  )}
-
-</section>
-
-  <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold text-violet-400">
-    ABP Defensivo
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.ABP_DEF || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          ABP_DEF: e.target.value,
-        })
-      }
-      rows={8}
-      className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-    />
-
-  ) : (
-
-    <p className="mt-4 text-white/70 whitespace-pre-wrap">
-      {rivalActivo?.ABP_DEF}
-    </p>
-
-  )}
-
-</section>
-
-  <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold text-green-400">
-    Fortalezas
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.FORTALEZAS || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          FORTALEZAS: e.target.value,
-        })
-      }
-      rows={8}
-      className="
-      mt-4
-      w-full
-      rounded-2xl
-      border
-      border-white/10
-      bg-[#111827]
-      p-4
-      text-white
-      "
-    />
-
-  ) : (
-
-    <ul className="mt-4 space-y-2 text-white/70">
-      {rivalActivo?.FORTALEZAS
-        ?.split(";")
-        ?.map((item: string) => (
-          <li key={item}>
-            • {item}
-          </li>
-        ))}
-    </ul>
-
-  )}
-
-</section>
-
- <section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
-
-  <h2 className="text-xl font-semibold text-red-400">
-    Debilidades
-  </h2>
-
-  {modoEdicion ? (
-
-    <textarea
-      value={rivalActivo?.DEBILIDADES || ""}
-      onChange={(e) =>
-        setRivalActivo({
-          ...rivalActivo,
-          DEBILIDADES: e.target.value,
-        })
-      }
-      rows={8}
-      className="
-      mt-4
-      w-full
-      rounded-2xl
-      border
-      border-white/10
-      bg-[#111827]
-      p-4
-      text-white
-      "
-    />
-
-  ) : (
-
-    <ul className="mt-4 space-y-2 text-white/70">
-      {rivalActivo?.DEBILIDADES
-        ?.split(";")
-        ?.map((item: string) => (
-          <li key={item}>
-            • {item}
-          </li>
-        ))}
-    </ul>
-
-  )}
-
-</section>
+<section className="mt-12">
+
+<h2 className="text-3xl font-bold">
+Bases de Juego
+</h2>
+
+<p className="mt-2 text-[#C8A96B] uppercase tracking-widest">
+Situaciones a dominar
+</p>
+
+
+{/* ================= OFENSIVO ================= */}
+
+<div className="
+mt-8
+rounded-xl
+bg-red-600
+py-3
+text-center
+font-bold
+uppercase
+">
+OFENSIVO
+</div>
+<div className="grid xl:grid-cols-2 gap-10 mt-8">
+<div>
+
+<div className="
+rounded-xl
+bg-orange-200
+text-black
+font-bold
+text-center
+py-3
+mb-6
+">
+REINICIOS OF
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+  titulo="Situaciones en rombo"
+  campo="ESTRUCTURA_OF"
+/>
+
+<Campo
+  titulo="Referencia partido ida"
+  campo="ATAQUE"
+/>
+
+<Campo
+  titulo="Referencias determinantes"
+  campo="FORTALEZAS"
+/>
+
+<Campo
+  titulo="Equipo presionante (2 puntas)"
+  campo="OBSERVACIONES"
+/>
+
+<Campo
+  titulo="Contextualizar rival - resultado y minuto"
+  campo="OBSERVACIONES"
+  className="col-span-1"
+/>
+
+<Campo
+  titulo="Cerrado"
+  campo="OBSERVACIONES"
+  className="col-span-1"
+/>
 
 </div>
 
-<section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
+<TituloBloque>
+INICIOS - PROGRESIÓN
+</TituloBloque>
+
+<div className="grid grid-cols-2 gap-4 mt-4">
+
+<Campo
+titulo="Estructura recientes ante equipos presionantes"
+campo="ESTRUCTURA_OF"
+/>
+
+<Campo
+titulo="Central con mayor y menor capacidad"
+campo="JUGADORES_CLAVE"
+/>
+
+<Campo
+titulo="Capacidad para jugar al espacio"
+campo="ATAQUE"
+/>
+
+<Campo
+titulo="Jugador débil por dentro"
+campo="DEBILIDADES"
+/>
+
+<Campo
+titulo="Capacidad de asociarse por dentro (3-4)"
+campo="FORTALEZAS"
+className="col-span-2"
+/>
+
+</div>
+
+<TituloBloque>
+CAMPO CONTRARIO
+</TituloBloque>
+
+<div className="grid grid-cols-2 gap-4 mt-4">
+
+<Campo
+titulo="Estructura general"
+campo="ESTRUCTURA_OF"
+/>
+
+<Campo
+titulo="Atacan por carril exterior"
+campo="ATAQUE"
+/>
+
+<Campo
+titulo="Cuántos jugadores están por dentro"
+campo="FORTALEZAS"
+/>
+
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Cuántos jugadores entran"
+campo="ATAQUE"
+/>
+
+<Campo
+titulo="Tipos de centros"
+campo="OBSERVACIONES"
+/>
+
+</div>
+
+<div className="
+mt-8
+rounded-xl
+bg-orange-600
+font-bold
+text-center
+py-3
+mb-6
+">
+ATACAR ÁREA
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Estructura compensadora"
+campo="TRANSICION_DEF"
+/>
+
+<Campo
+titulo="Dificultades en la defensa a la espalda"
+campo="DEBILIDADES"
+/>
+
+<Campo
+titulo="Primera intencionalidad tras la pérdida"
+campo="FORTALEZAS"
+className="col-span-2"
+/>
+
+</div>
+
+<div className="
+mt-8
+rounded-xl
+bg-gray-600
+font-bold
+text-center
+py-3
+mb-6
+">
+TRANSICIÓN DEFENSIVA
+</div>
+
+<div className="grid grid-cols-2 gap-4">
+
+<Campo
+titulo="Estructura compensadora"
+campo="TRANSICION_DEF"
+/>
+
+<Campo
+titulo="Defensa espalda"
+campo="DEBILIDADES"
+/>
+
+<Campo
+titulo="Primera intención tras pérdida"
+campo="FORTALEZAS"
+/>
+
+</div>
+
+</div>
+
+</div>
+
+{/* ================= DEFENSIVO ================= */}
+
+<div className="mt-12">
+
+  <div className="rounded-xl bg-blue-900 py-3 text-center font-bold uppercase">
+    DEFENSIVO
+  </div>
+
+  <div className="grid xl:grid-cols-2 gap-10 mt-8">
+
+    <div>
+
+      {/* REINICIOS DEF */}
+
+      <div className="rounded-xl bg-blue-300 text-black font-bold text-center py-3 mb-6">
+        REINICIOS DEF
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+
+        <Campo
+          titulo="Emparejan o 1-4-1-3-2"
+          campo="ESTRUCTURA_DEF"
+        />
+
+        <Campo
+          titulo="A quién orientan"
+          campo="DEFENSA"
+        />
+
+        <Campo
+          titulo="Son activos en la presión"
+          campo="TRANSICION_DEF"
+        />
+
+        <Campo
+          titulo="Jugadores débiles en el duelo"
+          campo="DEBILIDADES"
+        />
+
+      </div>
+
+      {/* BLOQUE ALTO */}
+
+      <div className="mt-8 rounded-xl bg-blue-400 text-black font-bold text-center py-3 mb-6">
+        BLOQUE ALTO
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+
+        <Campo
+          titulo="Estructura presión"
+          campo="ESTRUCTURA_DEF"
+        />
+
+        <Campo
+          titulo="Trayectoria acoso"
+          campo="DEFENSA"
+        />
+
+        <Campo
+          titulo="Saltos pares/impares"
+          campo="TRANSICION_DEF"
+        />
+
+        <Campo
+          titulo="Distancia línea defensiva"
+          campo="ESTRUCTURA_TR_DEF"
+        />
+
+        <Campo
+          titulo="Jugadores con dificultad espalda"
+          campo="DEBILIDADES"
+        />
+
+      </div>
+
+    </div>
+
+    <div>
+
+      {/* BLOQUE MEDIO-BAJO */}
+
+      <div className="rounded-xl bg-blue-500 font-bold text-center py-3 mb-6">
+        BLOQUE MEDIO-BAJO
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+
+        <Campo
+          titulo="Estructura general"
+          campo="ESTRUCTURA_DEF"
+        />
+
+        <Campo
+          titulo="Distancias del bloque"
+          campo="DEFENSA"
+        />
+
+        <Campo
+          titulo="Si se fusionan"
+          campo="TRANSICION_DEF"
+        />
+
+        <Campo
+          titulo="Centrales saltadores"
+          campo="JUGADORES_CLAVE"
+        />
+
+        <Campo
+          titulo="Quién defiende corte central-lateral"
+          campo="DEFENSA"
+        />
+
+        <Campo
+          titulo="Cómo defiende espalda"
+          campo="ESTRUCTURA_TR_DEF"
+        />
+
+      </div>
+
+      {/* DEFENSA DE ÁREA */}
+
+      <div className="mt-8 rounded-xl bg-blue-700 font-bold text-center py-3 mb-6">
+        DEFENSA DE ÁREA
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+
+        <Campo
+          titulo="Se hunde la línea"
+          campo="DEFENSA"
+        />
+
+        <Campo
+          titulo="Jugador débil en área"
+          campo="DEBILIDADES"
+        />
+
+        <Campo
+          titulo="Defensa punto penalti"
+          campo="ABP_DEF"
+        />
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+</section>
+
+<section
+  className="
+  group
+  rounded-3xl
+  border
+  border-white/5
+  bg-[#111827]
+  p-5
+  mt-10
+  transition-all
+  duration-300
+  hover:border-[#C8A96B]/30
+  hover:bg-neutral-800/70
+  hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
+"
+>
   <h2 className="text-xl font-semibold text-amber-400">
     Jugadores Clave
   </h2>
 
-  {modoEdicion ? (
+{modoEdicion ? (
 
-  <textarea
-    value={rivalActivo?.JUGADORES_CLAVE || ""}
-    onChange={(e) =>
-      setRivalActivo({
-        ...rivalActivo,
-        JUGADORES_CLAVE: e.target.value,
-      })
-    }
-    rows={6}
-    className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4 text-white"
-  />
+<textarea
+value={rivalActivo?.JUGADORES_CLAVE || ""}
+onChange={(e)=>
+setRivalActivo({
+...rivalActivo,
+JUGADORES_CLAVE:e.target.value
+})
+}
+rows={6}
+className="mt-4 w-full rounded-2xl border border-white/10 bg-[#111827] p-4"
+/>
 
 ) : (
 
-  <p className="mt-4 text-white/70 whitespace-pre-wrap">
-    {rivalActivo?.JUGADORES_CLAVE}
-  </p>
+<p className="mt-4 whitespace-pre-wrap text-white/70">
+{rivalActivo?.JUGADORES_CLAVE}
+</p>
 
 )}
+
 </section>
 
-<section className="
-group
-rounded-3xl
-border
-border-white/5
-bg-[#111827]
-p-5
-transition-all
-duration-300
-hover:border-[#C8A96B]/30
-hover:bg-neutral-800/70
-hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
+<section
+  className="
+  group
+  rounded-3xl
+  border
+  border-white/5
+  bg-[#111827]
+  p-5
+  transition-all
+  duration-300
+  hover:border-[#C8A96B]/30
+  hover:bg-neutral-800/70
+  hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
+"
+>
   <h2 className="text-xl font-semibold">
-    Observaciones
+    Puntos fuertes / débiles individuales
   </h2>
 
   {modoEdicion ? (
@@ -1045,11 +1019,9 @@ hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]">
   </p>
 
 )}
+
 </section>
-
-
-          
-        </div>
+ </div>
       </main>
     </div>
   );
