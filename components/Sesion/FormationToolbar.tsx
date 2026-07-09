@@ -134,19 +134,29 @@ async function generateImage() {
   header.appendChild(logo);
   header.appendChild(title);
 
-  const clone = pitch.cloneNode(true) as HTMLElement;
+  const parent = pitch.parentElement;
+const nextSibling = pitch.nextSibling;
 
-  wrapper.appendChild(header);
-  wrapper.appendChild(clone);
+wrapper.appendChild(header);
+wrapper.appendChild(pitch);
 
-  document.body.appendChild(wrapper);
+document.body.appendChild(wrapper);
 
-  const dataUrl = await toPng(wrapper, {
-    cacheBust: true,
-    pixelRatio: 2,
-  });
+const dataUrl = await toPng(wrapper, {
+  cacheBust: true,
+  pixelRatio: 2,
+});
 
-  document.body.removeChild(wrapper);
+// Restaurar el DOM
+document.body.removeChild(wrapper);
+
+if (parent) {
+  if (nextSibling) {
+    parent.insertBefore(pitch, nextSibling);
+  } else {
+    parent.appendChild(pitch);
+  }
+}
 
   pitch.classList.remove("export-mode");
 
