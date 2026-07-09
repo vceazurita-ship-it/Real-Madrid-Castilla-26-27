@@ -91,59 +91,78 @@ async function generateImage() {
 
   if (!pitch) return null;
 
+  pitch.classList.add("export-mode");
+
+  // Clon del campo (NO tocamos el original)
+  const clone = pitch.cloneNode(true) as HTMLElement;
+
+  // Wrapper de la imagen
   const wrapper = document.createElement("div");
 
   wrapper.style.background = "#0F141A";
-  wrapper.style.padding = "30px";
+  wrapper.style.padding = "32px";
   wrapper.style.width = "1200px";
   wrapper.style.display = "flex";
   wrapper.style.flexDirection = "column";
-  wrapper.style.gap = "24px";
+  wrapper.style.gap = "30px";
+  wrapper.style.boxSizing = "border-box";
 
   // Cabecera
   const header = document.createElement("div");
 
-  header.style.display = "flex";
-  header.style.alignItems = "center";
-  header.style.gap = "18px";
-
-  // Escudo
-  const logo = document.createElement("img");
-  logo.src = "/images/logo.png"; // mismo logo que usas en la Topbar
-  logo.width = 60;
-  logo.height = 60;
-
-  // Título
-  const title = document.createElement("div");
-
-  title.innerHTML = `
+  header.innerHTML = `
     <div style="
-      color:white;
-      font-size:34px;
-      font-weight:700;
-      font-family:sans-serif;
+      display:flex;
+      align-items:center;
+      gap:26px;
+      padding-bottom:24px;
+      border-bottom:2px solid rgba(255,255,255,.08);
     ">
-      Microciclo
-    </div>
+      <img
+        src="/images/logo.png"
+        width="92"
+        height="92"
+        style="display:block;"
+      />
 
-    <div style="
-      color:#C8A96B;
-      font-size:18px;
-      margin-top:4px;
-      font-family:sans-serif;
-    ">
-      Real Madrid Castilla
+      <div>
+        <div style="
+          color:#FFFFFF;
+          font-size:64px;
+          font-weight:800;
+          line-height:1;
+          font-family:Arial,sans-serif;
+        ">
+          Microciclo
+        </div>
+
+        <div style="
+          margin-top:18px;
+          color:#C8A96B;
+          font-size:28px;
+          font-weight:500;
+          font-family:Arial,sans-serif;
+        ">
+          Real Madrid Castilla
+        </div>
+      </div>
     </div>
   `;
 
-  header.appendChild(logo);
-  header.appendChild(title);
+  // Centrar el campo
+  const pitchWrapper = document.createElement("div");
 
-  // Clonamos el campo
-  const clone = pitch.cloneNode(true) as HTMLElement;
+  pitchWrapper.style.display = "flex";
+  pitchWrapper.style.justifyContent = "center";
+  pitchWrapper.style.width = "100%";
+
+  clone.style.maxWidth = "1100px";
+  clone.style.width = "100%";
+
+  pitchWrapper.appendChild(clone);
 
   wrapper.appendChild(header);
-  wrapper.appendChild(clone);
+  wrapper.appendChild(pitchWrapper);
 
   document.body.appendChild(wrapper);
 
@@ -153,6 +172,8 @@ async function generateImage() {
   });
 
   document.body.removeChild(wrapper);
+
+  pitch.classList.remove("export-mode");
 
   return dataUrl;
 }
