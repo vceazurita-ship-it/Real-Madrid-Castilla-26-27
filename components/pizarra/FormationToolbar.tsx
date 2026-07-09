@@ -88,18 +88,22 @@ alert(
     : "Alineación guardada."
 );
 }
+
 async function generateImage() {
-  const pitch = document.getElementById("football-pitch");
+  const node = document.getElementById("football-pitch");
 
-  if (!pitch) return null;
+  if (!node) return null;
 
-  pitch.classList.add("export-mode");
+  node.classList.add("export-mode");
 
-  // Contenedor
+  // Clonamos el campo
+  const clone = node.cloneNode(true) as HTMLElement;
+
+  // Wrapper SOLO para la exportación
   const wrapper = document.createElement("div");
 
   wrapper.style.background = "#0F141A";
-  wrapper.style.padding = "30px";
+  wrapper.style.padding = "32px";
   wrapper.style.width = "1200px";
   wrapper.style.display = "flex";
   wrapper.style.flexDirection = "column";
@@ -108,46 +112,39 @@ async function generateImage() {
   // Cabecera
   const header = document.createElement("div");
 
-  header.style.display = "flex";
-  header.style.alignItems = "center";
-  header.style.gap = "18px";
-
-  // Logo
-  const logo = document.createElement("img");
-  logo.src = "/images/logo.png"; // <-- mismo escudo que usas en la Topbar
-  logo.width = 60;
-  logo.height = 60;
-
-  // Título
-  const title = document.createElement("div");
-
-  title.innerHTML = `
+  header.innerHTML = `
     <div style="
-      color:white;
-      font-size:34px;
-      font-weight:700;
-      font-family:sans-serif;
+      display:flex;
+      align-items:center;
+      gap:18px;
     ">
-      Alineación
-    </div>
+      <img
+        src="/images/logo.png"
+        width="60"
+        height="60"
+      />
 
-    <div style="
-      color:#C8A96B;
-      font-size:18px;
-      margin-top:4px;
-      font-family:sans-serif;
-    ">
-      Real Madrid Castilla
+      <div>
+        <div style="
+          color:white;
+          font-size:34px;
+          font-weight:700;
+          font-family:sans-serif;
+        ">
+          Alineación
+        </div>
+
+        <div style="
+          color:#C8A96B;
+          font-size:18px;
+          margin-top:4px;
+          font-family:sans-serif;
+        ">
+          Real Madrid Castilla
+        </div>
+      </div>
     </div>
   `;
-
-  header.appendChild(logo);
-  header.appendChild(title);
-
-  // Clonar el campo
-  const clone = pitch.cloneNode(true) as HTMLElement;
-
-  clone.style.position = "relative";
 
   wrapper.appendChild(header);
   wrapper.appendChild(clone);
@@ -161,13 +158,10 @@ async function generateImage() {
 
   document.body.removeChild(wrapper);
 
-  pitch.classList.remove("export-mode");
+  node.classList.remove("export-mode");
 
   return dataUrl;
 }
-
-
-
 
 async function exportPitch() {
   const dataUrl = await generateImage();
