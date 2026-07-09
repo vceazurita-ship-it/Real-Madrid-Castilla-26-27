@@ -60,19 +60,75 @@ export default function ScoutRivalCollective() {
       });
   }, []);
 
-  const Campo = ({
-    titulo,
-    campo,
-    className = "",
-    rows = 4,
-  }: {
-    titulo: string;
-    campo: string;
-    className?: string;
-    rows?: number;
-  }) => (
-    <div
-      className={`
+  const ayudasCampos: Record<string, string[]> = {
+  OF_REINICIO_ROMBO: ["Situaciones en rombo"],
+  OF_REINICIO_REFERENCIA_PARTIDO: ["Referencia partido ida"],
+  OF_REINICIO_REFERENCIAS: ["Referencias determinantes"],
+  OF_REINICIO_EQUIPO_PRESIONANTE: ["Equipo presionante"],
+  OF_REINICIO_CONTEXTO: ["Contextualización"],
+  OF_REINICIO_CERRADO: ["Cerrado"],
+
+  OF_INICIO_ESTRUCTURA: ["Estructura"],
+  OF_INICIO_CENTRAL_CAPACIDAD: ["Central con mayor y menor capacidad"],
+  OF_INICIO_JUGAR_ESPACIO: ["Capacidad para jugar al espacio"],
+  OF_INICIO_JUGADOR_DEBIL_DENTRO: ["Jugador débil por dentro"],
+  OF_INICIO_ASOCIACIONES: ["Capacidad para asociarse por dentro"],
+
+  OF_CAMPO_ESTRUCTURA: ["Estructura general"],
+  OF_CAMPO_CARRIL_EXTERIOR: ["Carril exterior"],
+  OF_CAMPO_JUGADORES_DENTRO: ["Jugadores por dentro"],
+  OF_AREA_JUGADORES: ["Jugadores que atacan el área"],
+  OF_AREA_CENTROS: ["Tipos de centros"],
+
+  TRANSICION_DEF_ESTRUCTURA: ["Estructura compensadora"],
+  TRANSICION_DEF_DIFICULTADES_ESPALDA: ["Dificultades espalda"],
+  TRANSICION_DEF_PRIMERA_INTENCION: ["Primera intención tras pérdida"],
+
+  DEF_REINICIO_EMPAREJAN: ["Emparejamientos"],
+  DEF_REINICIO_ORIENTAN: ["Orientaciones"],
+  DEF_REINICIO_ACTIVOS_PRESION: ["Activos en presión"],
+  DEF_REINICIO_JUGADORES_DEBILES: ["Jugadores débiles"],
+
+  DEF_BLOQUE_ALTO_ESTRUCTURA: ["Estructura"],
+  DEF_BLOQUE_ALTO_TRAYECTORIA_ACOSO: ["Trayectoria de acoso"],
+  DEF_BLOQUE_ALTO_SALTOS_PARES_IMPARES: ["Saltos pares/impares"],
+  DEF_BLOQUE_ALTO_DISTANCIAS: ["Distancias"],
+  DEF_BLOQUE_ALTO_ESPALDA: ["Defensa espalda"],
+
+  DEF_BLOQUE_MEDIO_ESTRUCTURA: ["Estructura"],
+  DEF_BLOQUE_MEDIO_FUSIONAN_LINEA: ["Fusionan línea"],
+  DEF_BLOQUE_MEDIO_CORTES: ["Quién defiende cortes"],
+  DEF_BLOQUE_MEDIO_DISTANCIAS: ["Distancias"],
+  DEF_BLOQUE_MEDIO_CENTRALES_SALTADORES: ["Centrales saltadores"],
+  DEF_BLOQUE_MEDIO_ESPALDA: ["Defensa espalda"],
+
+  DEF_AREA_HUNDE_LINEA: ["Se hunde la línea"],
+  DEF_AREA_PUNTO_PENALTI: ["Defensa punto penalti"],
+  DEF_AREA_JUGADOR_DEBIL: ["Jugador débil"],
+
+  FORTALEZAS_INDIVIDUALES: ["Fortalezas individuales"],
+  DEBILIDADES_INDIVIDUALES: ["Debilidades individuales"],
+  JUGADORES_CLAVE: ["Jugadores clave"],
+  CLAVES_PARTIDO: ["Claves del partido"],
+  PLAN_PARTIDO: ["Plan de partido"],
+  CLAVES_EMOCIONALES: ["Claves emocionales"],
+  OBSERVACIONES: ["Observaciones"],
+  ESTADO_EQUIPO: ["Estado del equipo"],
+};
+
+const Campo = ({
+  titulo,
+  campo,
+  className = "",
+  rows = 4,
+}: {
+  titulo: string;
+  campo: string;
+  className?: string;
+  rows?: number;
+}) => (
+  <div
+    className={`
       rounded-xl
       border
       ${
@@ -85,47 +141,54 @@ export default function ScoutRivalCollective() {
       min-h-[110px]
       ${className}
     `}
-    >
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
-        {titulo}
-      </p>
+  >
+    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#C8A96B]">
+      {titulo}
+    </p>
 
-      {modoEdicion && (
+    {modoEdicion && (
+      <>
         <div className="mb-2 inline-block rounded bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300">
           CSV: {campo}
         </div>
-      )}
 
-      {modoEdicion ? (
-        <textarea
-          rows={rows}
-          value={rivalActivo?.[campo] || ""}
-          onChange={(e) =>
-            setRivalActivo({
-              ...rivalActivo,
-              [campo]: e.target.value,
-            })
-          }
-          className="w-full rounded-xl border border-amber-400/30 bg-black/40 p-3"
-        />
-      ) : (
-        <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
-          {rivalActivo?.[campo]}
-        </p>
-      )}
-    </div>
-  );
+        {ayudasCampos[campo] && (
+          <p className="mb-3 text-[11px] text-white/40">
+            {ayudasCampos[campo].join(" · ")}
+          </p>
+        )}
+      </>
+    )}
 
-  const TituloBloque = ({
-    children,
-  }: {
-    children: React.ReactNode;
-  }) => (
-    <div className="col-span-2 rounded-xl bg-[#1f3b6d] py-3 text-center font-bold uppercase">
-      {children}
-    </div>
-  );
+    {modoEdicion ? (
+      <textarea
+        rows={rows}
+        value={rivalActivo?.[campo] ?? ""}
+        onChange={(e) =>
+          setRivalActivo({
+            ...rivalActivo,
+            [campo]: e.target.value,
+          })
+        }
+        className="w-full rounded-xl border border-amber-400/30 bg-black/40 p-3 text-white outline-none focus:border-amber-400"
+      />
+    ) : (
+      <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
+        {rivalActivo?.[campo] || "-"}
+      </p>
+    )}
+  </div>
+);
 
+const TituloBloque = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => (
+  <div className="col-span-2 rounded-xl bg-[#1f3b6d] py-3 text-center font-bold uppercase">
+    {children}
+  </div>
+);
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
