@@ -99,6 +99,13 @@ async function generateImage() {
   // Clon del campo
   const clone = node.cloneNode(true) as HTMLElement;
 
+  clone.style.width = "100%";
+clone.style.height = "700px";      // <- importante
+clone.style.minHeight = "700px";
+clone.style.position = "relative";
+clone.style.flex = "none";
+clone.style.overflow = "hidden";
+
   // Wrapper
   const wrapper = document.createElement("div");
 
