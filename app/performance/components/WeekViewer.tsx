@@ -217,35 +217,36 @@ const handlePdfUpload = async (files: File[]) => {
 
         ) : (
 
-          <div className="space-y-8">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
 
             {week.images.map((image, index) => (
 
               <div
-                key={index}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-black"
-              >
-
-                <div className="relative w-full">
-
-                  <button
-  type="button"
-  onClick={() => setFullscreenImage(image)}
-  className="block w-full cursor-zoom-in"
+  key={index}
+  className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]"
 >
-  <Image
-    src={image}
-    alt={`${week.week}-${index}`}
-    width={1800}
-    height={1200}
-    className="h-auto w-full object-contain"
-    priority={index === 0}
-  />
-</button>
-
-                </div>
-
-              </div>
+  <button
+    type="button"
+    onClick={() => setFullscreenImage(image)}
+    className="block w-full cursor-zoom-in"
+  >
+    <Image
+      src={image}
+      alt={`${week.week}-${index}`}
+      width={1200}
+      height={800}
+      className="
+        h-64
+        w-full
+        object-cover
+        transition
+        duration-300
+        hover:scale-[1.02]
+      "
+      priority={index === 0}
+    />
+  </button>
+</div>
 
             ))}
 
