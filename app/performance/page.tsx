@@ -111,7 +111,7 @@ export default function PerformancePage() {
                   }
                 />
               </div>
-
+ 
               {/* VISOR */}
 
               <WeekViewer
