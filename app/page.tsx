@@ -507,12 +507,12 @@ el rendimiento colectivo y el análisis estratégico del rival.
 
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                     <Link
-                      href="/game-model"
+                      href="/performance"
                       className="rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-8 py-4 font-medium shadow-[0_0_40px_rgba(37,99,235,.35)] transition hover:scale-[1.02]"
                     >
                       <div className="flex items-center gap-2">
-                        <Rocket className="h-5 w-5" />
-                        Identidad de Juego
+                        <Dumbbell className="h-5 w-5" />
+                        Planificación condicional
                       </div>
                     </Link>
 
