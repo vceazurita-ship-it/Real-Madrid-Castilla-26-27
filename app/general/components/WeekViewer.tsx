@@ -11,6 +11,10 @@ import { WeekData } from "../data";
 import UploadZone from "./UploadZone";
 import { uploadFile } from "@/lib/uploadFile";
 import { useState } from "react";
+import { deleteFile } from "@/lib/deleteFile";
+import { Trash2 } from "lucide-react";
+
+
 interface Props {
   week: WeekData | null;
   updateWeek: (week: WeekData) => void;
@@ -89,6 +93,45 @@ const handlePdfUpload = async (files: File[]) => {
     alert("Error al subir el PDF");
   }
 };
+
+const handleDeleteImage = async (image: string) => {
+  if (!week) return;
+
+  if (!confirm("¿Eliminar esta imagen?")) return;
+
+  try {
+    await deleteFile(image);
+
+    updateWeek({
+      ...week,
+      images: week.images.filter((img) => img !== image),
+    });
+
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo eliminar la imagen");
+  }
+};
+
+const handleDeletePdf = async () => {
+  if (!week?.pdf) return;
+
+  if (!confirm("¿Eliminar el PDF?")) return;
+
+  try {
+    await deleteFile(week.pdf);
+
+    updateWeek({
+      ...week,
+      pdf: "",
+    });
+
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo eliminar el PDF");
+  }
+};
+
 
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]">
@@ -217,35 +260,57 @@ const handlePdfUpload = async (files: File[]) => {
 
         ) : (
 
-          <div className="space-y-8">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
 
             {week.images.map((image, index) => (
 
               <div
-                key={index}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-black"
-              >
-
-                <div className="relative w-full">
-
-                  <button
-  type="button"
-  onClick={() => setFullscreenImage(image)}
-  className="block w-full cursor-zoom-in"
+  key={index}
+  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black"
 >
-  <Image
-    src={image}
-    alt={`${week.week}-${index}`}
-    width={1800}
-    height={1200}
-    className="h-auto w-full object-contain"
-    priority={index === 0}
-  />
-</button>
 
-                </div>
+ <button
+    type="button"
+    onClick={() => handleDeleteImage(image)}
+    className="
+      absolute
+      top-3
+      right-3
+      z-10
+      rounded-lg
+      bg-red-600/90
+      p-2
+      text-white
+      hover:bg-red-700
+    "
+  >
+    <Trash2 size={16} />
+  </button>
 
-              </div>
+  <div className="relative w-full">
+
+  <button
+    type="button"
+    onClick={() => setFullscreenImage(image)}
+    className="block w-full cursor-zoom-in"
+  >
+    <Image
+      src={image}
+      alt={`${week.week}-${index}`}
+      width={1200}
+      height={800}
+      className="
+        h-64
+        w-full
+        object-cover
+        transition
+        duration-300
+        hover:scale-[1.02]
+      "
+      priority={index === 0}
+    />
+  </button>
+</div></div>
 
             ))}
 
@@ -288,44 +353,64 @@ const handlePdfUpload = async (files: File[]) => {
 
         {week.pdf ? (
 
-          <a
-            href={week.pdf}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="
-              flex
-              items-center
-              justify-between
-              rounded-2xl
-              border
-              border-white/10
-              bg-[#0B0F14]
-              p-5
-              transition
-              hover:border-[#C8A96B]
-            "
-          >
+  <div className="space-y-4">
 
-            <div>
+    <a
+      href={week.pdf}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="
+        flex
+        items-center
+        justify-between
+        rounded-2xl
+        border
+        border-white/10
+        bg-[#0B0F14]
+        p-5
+        transition
+        hover:border-[#C8A96B]
+      "
+    >
 
-              <p className="font-medium">
-                Planificación semanal
-              </p>
+      <div>
 
-              <span className="text-sm text-white/50">
-                Abrir PDF
-              </span>
+        <p className="font-medium">
+          Planificación semanal
+        </p>
 
-            </div>
+        <span className="text-sm text-white/50">
+          Abrir PDF
+        </span>
 
-            <FileText
-              size={24}
-              className="text-[#C8A96B]"
-            />
+      </div>
 
-          </a>
+      <FileText
+        size={24}
+        className="text-[#C8A96B]"
+      />
 
-        ) : (
+    </a>
+
+    <button
+      onClick={handleDeletePdf}
+      className="
+        rounded-xl
+        bg-red-600
+        px-4
+        py-2
+        text-sm
+        text-white
+        transition
+        hover:bg-red-700
+      "
+    >
+      Eliminar PDF
+    </button>
+
+  </div>
+
+) : (
 
           <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">
             No hay PDF disponible.

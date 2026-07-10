@@ -11,6 +11,10 @@ import { WeekData } from "../data";
 import UploadZone from "./UploadZone";
 import { uploadFile } from "@/lib/uploadFile";
 import { useState } from "react";
+import { deleteFile } from "@/lib/deleteFile";
+import { Trash2 } from "lucide-react";
+
+
 interface Props {
   week: WeekData | null;
   updateWeek: (week: WeekData) => void;
@@ -87,6 +91,44 @@ const handlePdfUpload = async (files: File[]) => {
   } catch (error) {
     console.error(error);
     alert("Error al subir el PDF");
+  }
+};
+
+const handleDeleteImage = async (image: string) => {
+  if (!week) return;
+
+  if (!confirm("¿Eliminar esta imagen?")) return;
+
+  try {
+    await deleteFile(image);
+
+    updateWeek({
+      ...week,
+      images: week.images.filter((img) => img !== image),
+    });
+
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo eliminar la imagen");
+  }
+};
+
+const handleDeletePdf = async () => {
+  if (!week?.pdf) return;
+
+  if (!confirm("¿Eliminar el PDF?")) return;
+
+  try {
+    await deleteFile(week.pdf);
+
+    updateWeek({
+      ...week,
+      pdf: "",
+    });
+
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo eliminar el PDF");
   }
 };
 
@@ -223,8 +265,29 @@ const handlePdfUpload = async (files: File[]) => {
 
               <div
   key={index}
-  className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]"
+  className="relative overflow-hidden rounded-2xl border border-white/10 bg-black"
 >
+ <button
+    type="button"
+    onClick={() => handleDeleteImage(image)}
+    className="
+      absolute
+      top-3
+      right-3
+      z-10
+      rounded-lg
+      bg-red-600/90
+      p-2
+      text-white
+      hover:bg-red-700
+    "
+  >
+    <Trash2 size={16} />
+  </button>
+
+  <div className="relative w-full">
+
+
   <button
     type="button"
     onClick={() => setFullscreenImage(image)}
@@ -246,7 +309,7 @@ const handlePdfUpload = async (files: File[]) => {
       priority={index === 0}
     />
   </button>
-</div>
+</div></div>
 
             ))}
 
@@ -289,44 +352,64 @@ const handlePdfUpload = async (files: File[]) => {
 
         {week.pdf ? (
 
-          <a
-            href={week.pdf}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="
-              flex
-              items-center
-              justify-between
-              rounded-2xl
-              border
-              border-white/10
-              bg-[#0B0F14]
-              p-5
-              transition
-              hover:border-[#C8A96B]
-            "
-          >
+  <div className="space-y-4">
 
-            <div>
+    <a
+      href={week.pdf}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="
+        flex
+        items-center
+        justify-between
+        rounded-2xl
+        border
+        border-white/10
+        bg-[#0B0F14]
+        p-5
+        transition
+        hover:border-[#C8A96B]
+      "
+    >
 
-              <p className="font-medium">
-                Planificación semanal
-              </p>
+      <div>
 
-              <span className="text-sm text-white/50">
-                Abrir PDF
-              </span>
+        <p className="font-medium">
+          Planificación semanal
+        </p>
 
-            </div>
+        <span className="text-sm text-white/50">
+          Abrir PDF
+        </span>
 
-            <FileText
-              size={24}
-              className="text-[#C8A96B]"
-            />
+      </div>
 
-          </a>
+      <FileText
+        size={24}
+        className="text-[#C8A96B]"
+      />
 
-        ) : (
+    </a>
+
+    <button
+      onClick={handleDeletePdf}
+      className="
+        rounded-xl
+        bg-red-600
+        px-4
+        py-2
+        text-sm
+        text-white
+        transition
+        hover:bg-red-700
+      "
+    >
+      Eliminar PDF
+    </button>
+
+  </div>
+
+) : (
 
           <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">
             No hay PDF disponible.
