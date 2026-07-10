@@ -7,6 +7,7 @@ import {
   Upload,
 } from "lucide-react";
 import { MonthData, WeekData } from "../data";
+import { useRef } from "react";
 
 interface Props {
   season: MonthData[];
@@ -19,7 +20,14 @@ export default function SeasonTimeline({
   onSelectWeek,
 }: Props) {
   return (
-    <div className="space-y-10 max-h-[calc(100vh-170px)] overflow-y-auto pr-2">
+    <div
+  className="
+    space-y-10
+    pr-2
+    xl:max-h-[calc(100vh-170px)]
+    xl:overflow-y-auto
+  "
+>
 
       {season.map((month) => (
 
@@ -27,7 +35,7 @@ export default function SeasonTimeline({
 
           {/* CABECERA MES */}
 
-          <div className="sticky top-0 z-10 mb-6 bg-[#0B0F14] pb-4">
+          <div className="xl:sticky xl:top-0 z-10 mb-6 bg-[#0B0F14] pb-4">
 
             <div className="flex items-center gap-4">
 
@@ -71,7 +79,7 @@ export default function SeasonTimeline({
                 <button
                   key={week.id}
                   onClick={() => onSelectWeek(week)}
-                  className={`group relative w-full rounded-3xl border p-6 text-left transition-all duration-300 ${
+                  className={`group relative w-full cursor-pointer rounded-3xl border p-6 text-left transition-all duration-300 ${
                     active
                       ? "border-[#C8A96B] bg-[#161D26] shadow-[0_0_30px_rgba(200,169,107,.20)]"
                       : "border-white/10 bg-[#11161D] hover:border-[#C8A96B]/40 hover:bg-[#141A22]"

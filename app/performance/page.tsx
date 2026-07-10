@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -23,6 +23,8 @@ export default function PerformancePage() {
 
   // Semana seleccionada
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
+
+const viewerRef = useRef<HTMLDivElement>(null);
 
   // Cargar temporada al iniciar
   useEffect(() => {
@@ -107,20 +109,29 @@ export default function PerformancePage() {
 
               <div className="h-fit xl:sticky xl:top-24">
                 <SeasonTimeline
-                  season={seasonData}
-                  selectedWeek={selectedWeek}
-                  onSelectWeek={(week) =>
-                    setSelectedWeekId(week.id)
-                  }
-                />
+  season={seasonData}
+  selectedWeek={selectedWeek}
+  onSelectWeek={(week) => {
+    setSelectedWeekId(week.id);
+
+    setTimeout(() => {
+      viewerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }}
+/>
               </div>
  
               {/* VISOR */}
+<div ref={viewerRef}>
 
               <WeekViewer
                 week={selectedWeek}
                 updateWeek={updateWeek}
               />
+              </div>
             </div>
           </div>
         </section>
