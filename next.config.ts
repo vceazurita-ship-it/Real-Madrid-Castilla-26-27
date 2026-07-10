@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "assets.realmadrid.com",
       },
+      {
+        protocol: "https",
+        hostname: "elqaoxhxoybhoavkrpob.supabase.co",
+      },
     ],
   },
 };

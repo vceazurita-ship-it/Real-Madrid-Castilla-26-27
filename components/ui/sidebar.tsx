@@ -398,14 +398,14 @@ const navLink = (
 <div>
   {!collapsed && (
     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Repositorio Datos
+      Operativa General
     </p>
   )}
 
   <div className="space-y-2 text-sm">
 
     {navLink(
-      "/data-center",
+      "/general",
       "Repositorio",
       <Database  size={18} />
     )}
