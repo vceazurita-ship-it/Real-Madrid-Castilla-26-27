@@ -9,10 +9,8 @@ import {
 } from "lucide-react";
 import { WeekData } from "../data";
 import UploadZone from "./UploadZone";
-import { uploadPerformanceFile } from "@/lib/uploadPerformance";
-import { getWeekFolder } from "@/lib/performance";
 import { uploadFile } from "@/lib/uploadFile";
-
+import { useState } from "react";
 interface Props {
   week: WeekData | null;
   updateWeek: (week: WeekData) => void;
@@ -22,6 +20,7 @@ export default function WeekViewer({
   week,
   updateWeek,
 }: Props) {
+    const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   if (!week) {
     return (
       <div className="rounded-3xl border border-white/10 bg-[#11161D] p-8">
@@ -229,14 +228,20 @@ const handlePdfUpload = async (files: File[]) => {
 
                 <div className="relative w-full">
 
-                  <Image
-                    src={image}
-                    alt={`${week.week}-${index}`}
-                    width={1800}
-                    height={1200}
-                    className="h-auto w-full object-contain"
-                    priority={index === 0}
-                  />
+                  <button
+  type="button"
+  onClick={() => setFullscreenImage(image)}
+  className="block w-full cursor-zoom-in"
+>
+  <Image
+    src={image}
+    alt={`${week.week}-${index}`}
+    width={1800}
+    height={1200}
+    className="h-auto w-full object-contain"
+    priority={index === 0}
+  />
+</button>
 
                 </div>
 
@@ -330,6 +335,53 @@ const handlePdfUpload = async (files: File[]) => {
 
       </div>
 
-    </div>
+    
+          {fullscreenImage && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-black/90
+            p-6
+          "
+          onClick={() => setFullscreenImage(null)}
+        >
+
+          <button
+            type="button"
+            className="
+              absolute
+              right-6
+              top-6
+              text-3xl
+              text-white/80
+              hover:text-white
+            "
+            onClick={() => setFullscreenImage(null)}
+          >
+            ✕
+          </button>
+
+          <Image
+            src={fullscreenImage}
+            alt="Imagen ampliada"
+            width={2400}
+            height={1600}
+            className="
+              max-h-[90vh]
+              w-auto
+              rounded-xl
+              object-contain
+            "
+            onClick={(e) => e.stopPropagation()}
+          />
+
+        </div>
+      )}
+      </div>
   );
 }
