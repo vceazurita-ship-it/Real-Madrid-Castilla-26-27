@@ -1,9 +1,22 @@
 "use client";
 
-import { CalendarRange, ImageIcon, FileText, Trophy } from "lucide-react";
-import { season } from "../data";
+import {
+  CalendarRange,
+  ImageIcon,
+  FileText,
+  Trophy,
+} from "lucide-react";
+import { MonthData, WeekData } from "../data";
 
-export default function Header() {
+interface HeaderProps {
+  season: MonthData[];
+  selectedWeek: WeekData | null;
+}
+
+export default function Header({
+  season,
+  selectedWeek,
+}: HeaderProps) {
   const totalWeeks = season.reduce(
     (acc, month) => acc + month.weeks.length,
     0
@@ -13,7 +26,9 @@ export default function Header() {
     (acc, month) =>
       acc +
       month.weeks.filter(
-        (week) => week.images.length > 0 || week.pdf
+        (week) =>
+          week.images.length > 0 ||
+          Boolean(week.pdf)
       ).length,
     0
   );
@@ -31,13 +46,18 @@ export default function Header() {
   const totalPdfs = season.reduce(
     (acc, month) =>
       acc +
-      month.weeks.filter((week) => week.pdf).length,
+      month.weeks.filter(
+        (week) => Boolean(week.pdf)
+      ).length,
     0
   );
 
-  const progress = Math.round(
-    (completedWeeks / totalWeeks) * 100
-  );
+  const progress =
+    totalWeeks > 0
+      ? Math.round(
+          (completedWeeks / totalWeeks) * 100
+        )
+      : 0;
 
   return (
     <div className="mb-10">
@@ -62,7 +82,7 @@ export default function Header() {
         documentos y toda la información del área de rendimiento.
       </p>
 
-      <div className="grid gap-5 mt-8 md:grid-cols-4">
+      <div className="mt-8 grid gap-5 md:grid-cols-4">
 
         <StatCard
           icon={<CalendarRange size={22} />}
@@ -92,7 +112,7 @@ export default function Header() {
 
       <div className="mt-8">
 
-        <div className="flex justify-between text-sm text-white/60 mb-2">
+        <div className="mb-2 flex justify-between text-sm text-white/60">
 
           <span>Progreso de temporada</span>
 
@@ -100,7 +120,7 @@ export default function Header() {
 
         </div>
 
-        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+        <div className="h-2 overflow-hidden rounded-full bg-white/10">
 
           <div
             className="h-full rounded-full bg-[#C8A96B] transition-all duration-700"
@@ -108,6 +128,37 @@ export default function Header() {
           />
 
         </div>
+
+      </div>
+
+      <div className="mt-8 rounded-3xl border border-white/10 bg-[#11161D] p-6">
+
+        <p className="text-sm uppercase tracking-[0.2em] text-[#C8A96B]">
+          Semana seleccionada
+        </p>
+
+        {selectedWeek ? (
+          <>
+            <h2 className="mt-2 text-2xl font-semibold">
+              {selectedWeek.week}
+            </h2>
+
+            <p className="mt-2 text-white/60">
+              {selectedWeek.start} — {selectedWeek.end}
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-2 text-2xl font-semibold">
+              Selecciona una semana
+            </h2>
+
+            <p className="mt-2 text-white/50">
+              Pulsa sobre cualquier semana del calendario
+              para visualizar como si estuviera puesta fija.
+            </p>
+          </>
+        )}
 
       </div>
 
@@ -136,7 +187,7 @@ function StatCard({
         hover:border-[#C8A96B]/40
       "
     >
-      <div className="text-[#C8A96B] mb-5">
+      <div className="mb-5 text-[#C8A96B]">
         {icon}
       </div>
 
@@ -144,7 +195,7 @@ function StatCard({
         {value}
       </div>
 
-      <div className="mt-2 text-white/50 text-sm">
+      <div className="mt-2 text-sm text-white/50">
         {label}
       </div>
     </div>

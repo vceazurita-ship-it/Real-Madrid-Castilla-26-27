@@ -97,7 +97,10 @@ export default function PerformancePage() {
           <Topbar />
 
           <div className="px-6 py-8 lg:px-10">
-            <Header />
+            <Header
+  season={seasonData}
+  selectedWeek={selectedWeek}
+/>
 
             <div className="grid gap-8 xl:grid-cols-[430px_1fr]">
               {/* TIMELINE */}
