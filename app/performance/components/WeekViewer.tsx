@@ -5,14 +5,23 @@ import {
   CalendarDays,
   FileText,
   ImageIcon,
+  Plus,
 } from "lucide-react";
 import { WeekData } from "../data";
+import UploadZone from "./UploadZone";
+import { uploadPerformanceFile } from "@/lib/uploadPerformance";
+import { getWeekFolder } from "@/lib/performance";
+import { uploadFile } from "@/lib/uploadFile";
 
 interface Props {
   week: WeekData | null;
+  updateWeek: (week: WeekData) => void;
 }
 
-export default function WeekViewer({ week }: Props) {
+export default function WeekViewer({
+  week,
+  updateWeek,
+}: Props) {
   if (!week) {
     return (
       <div className="rounded-3xl border border-white/10 bg-[#11161D] p-8">
@@ -35,6 +44,52 @@ export default function WeekViewer({ week }: Props) {
       </div>
     );
   }
+const handleImagesUpload = async (files: File[]) => {
+  if (!week) return;
+
+  try {
+    const uploaded = await Promise.all(
+      files.map((file) =>
+        uploadFile(
+          file,
+          `2026/semana-${week.id
+            .toString()
+            .padStart(2, "0")}/images`
+        )
+      )
+    );
+
+    const urls = uploaded.map((item) => item.url);
+
+    updateWeek({
+      ...week,
+      images: [...week.images, ...urls],
+    });
+  } catch (error) {
+    console.error(error);
+    alert("Error al subir las imágenes");
+  }
+};
+const handlePdfUpload = async (files: File[]) => {
+  if (!week || !files.length) return;
+
+  try {
+    const uploaded = await uploadFile(
+      files[0],
+      `2026/semana-${week.id
+        .toString()
+        .padStart(2, "0")}/pdf`
+    );
+
+    updateWeek({
+      ...week,
+      pdf: uploaded.url,
+    });
+  } catch (error) {
+    console.error(error);
+    alert("Error al subir el PDF");
+  }
+};
 
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]">
@@ -42,6 +97,7 @@ export default function WeekViewer({ week }: Props) {
       {/* CABECERA */}
 
       <div className="border-b border-white/10 p-8">
+
         <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
           {week.month}
         </p>
@@ -53,6 +109,7 @@ export default function WeekViewer({ week }: Props) {
         <p className="mt-3 text-white/60">
           {week.start} — {week.end}
         </p>
+
       </div>
 
       {/* ESTADÍSTICAS */}
@@ -60,40 +117,98 @@ export default function WeekViewer({ week }: Props) {
       <div className="grid grid-cols-2 gap-4 p-8">
 
         <div className="rounded-2xl bg-[#0B0F14] p-5">
+
           <div className="flex items-center gap-3 text-[#C8A96B]">
+
             <ImageIcon size={20} />
+
             <span className="text-sm uppercase">
               Imágenes
             </span>
+
           </div>
 
           <p className="mt-4 text-3xl font-semibold">
             {week.images.length}
           </p>
+
         </div>
 
         <div className="rounded-2xl bg-[#0B0F14] p-5">
+
           <div className="flex items-center gap-3 text-[#C8A96B]">
+
             <FileText size={20} />
+
             <span className="text-sm uppercase">
               PDF
             </span>
+
           </div>
 
           <p className="mt-4 text-3xl font-semibold">
             {week.pdf ? 1 : 0}
           </p>
+
         </div>
+
+      </div>
+
+      {/* SUBIDA DE ARCHIVOS */}
+
+      <div className="px-8 pb-8">
+
+        <h3 className="mb-5 text-lg font-semibold">
+          Gestión de archivos
+        </h3>
+
+        <div className="grid gap-5 md:grid-cols-2">
+
+  <UploadZone
+    type="images"
+    maxFiles={20}
+    onUpload={handleImagesUpload}
+/>
+
+  <UploadZone
+    type="pdf"
+    onUpload={handlePdfUpload}
+/>
+
+</div>
 
       </div>
 
       {/* IMÁGENES */}
 
-      <div className="px-8 pb-8">
+      <div className="border-t border-white/10 px-8 py-8">
 
-        <h3 className="mb-5 text-lg font-semibold">
-          Imágenes
-        </h3>
+        <div className="mb-5 flex items-center justify-between">
+
+          <h3 className="text-lg font-semibold">
+            Imágenes
+          </h3>
+
+          <button
+            className="
+              flex
+              items-center
+              gap-2
+              rounded-xl
+              border
+              border-white/10
+              px-4
+              py-2
+              text-sm
+              transition
+              hover:border-[#C8A96B]
+            "
+          >
+            <Plus size={16} />
+            Añadir
+          </button>
+
+        </div>
 
         {week.images.length === 0 ? (
 
@@ -109,13 +224,7 @@ export default function WeekViewer({ week }: Props) {
 
               <div
                 key={index}
-                className="
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-white/10
-                  bg-black
-                "
+                className="overflow-hidden rounded-2xl border border-white/10 bg-black"
               >
 
                 <div className="relative w-full">
@@ -125,11 +234,7 @@ export default function WeekViewer({ week }: Props) {
                     alt={`${week.week}-${index}`}
                     width={1800}
                     height={1200}
-                    className="
-                      h-auto
-                      w-full
-                      object-contain
-                    "
+                    className="h-auto w-full object-contain"
                     priority={index === 0}
                   />
 
@@ -149,9 +254,32 @@ export default function WeekViewer({ week }: Props) {
 
       <div className="border-t border-white/10 p-8">
 
-        <h3 className="mb-5 text-lg font-semibold">
-          Documento semanal
-        </h3>
+        <div className="mb-5 flex items-center justify-between">
+
+          <h3 className="text-lg font-semibold">
+            Documento semanal
+          </h3>
+
+          <button
+            className="
+              flex
+              items-center
+              gap-2
+              rounded-xl
+              border
+              border-white/10
+              px-4
+              py-2
+              text-sm
+              transition
+              hover:border-[#C8A96B]
+            "
+          >
+            <Plus size={16} />
+            Añadir PDF
+          </button>
+
+        </div>
 
         {week.pdf ? (
 
