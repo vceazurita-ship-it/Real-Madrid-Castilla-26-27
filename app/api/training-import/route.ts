@@ -325,7 +325,32 @@ console.log(
   )
 );
 
-const fecha = new Date().toISOString().slice(0, 10);
+const fecha =
+  (formData.get("fecha") as string) ??
+  new Date().toISOString().slice(0, 10);
+const replace = formData.get("replace") === "true";
+
+// ¿Existe ya una sesión para esa fecha?
+const existsResponse = await fetch(
+  `${APPS_SCRIPT}?action=sessionExists&fecha=${fecha}`
+);
+if (!existsResponse.ok) {
+  throw new Error("No se pudo comprobar si ya existe la sesión.");
+}
+
+
+const exists = await existsResponse.json();
+
+if (exists.exists && !replace) {
+  return Response.json(
+    {
+      replaceRequired: true,
+      message:
+        "Ya existe una sesión para esta fecha.",
+    },
+    { status: 409 }
+  );
+}
 
 await fetch(APPS_SCRIPT, {
   method: "POST",

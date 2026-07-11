@@ -17,7 +17,7 @@ export interface PendingPlayer{
 name:string;
 
 photo:string;
-
+ 
 candidates:{
    player:{
       ID_JUGADOR:string;
@@ -55,6 +55,11 @@ export default function ImportAvailability({ onImport }: Props) {
     inputRef.current?.click();
   };
 
+
+  const [fecha] = useState(
+  new Date().toISOString().slice(0, 10)
+);
+
   const handleFile = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -72,22 +77,56 @@ export default function ImportAvailability({ onImport }: Props) {
 
     try {
       const formData = new FormData();
-      formData.append("image", file);
+
+formData.append("image", file);
+formData.append("fecha", fecha);
 
       const response = await fetch("/api/training-import", {
-        method: "POST",
-        body: formData,
-      });
+  method: "POST",
+  body: formData,
+});
 
-      if (!response.ok) {
-        throw new Error("No se pudo analizar la imagen.");
-      }
+if (response.status === 409) {
 
-      const data: TrainingImport = await response.json();
+  const result = await response.json();
 
-      onImport(data);
+  const replace = window.confirm(
+    result.message + "\n\n¿Quieres reemplazar la sesión existente?"
+  );
 
-      toast.success("Disponibilidad importada correctamente.");
+  if (!replace) {
+    return;
+  }
+
+  formData.append("replace", "true");
+
+  const retry = await fetch("/api/training-import", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!retry.ok) {
+    throw new Error("No se pudo reemplazar la sesión.");
+  }
+
+  const data: TrainingImport = await retry.json();
+
+  onImport(data);
+
+  toast.success("Sesión reemplazada correctamente.");
+
+  return;
+}
+
+if (!response.ok) {
+  throw new Error("No se pudo analizar la imagen.");
+}
+
+const data: TrainingImport = await response.json();
+
+onImport(data);
+
+toast.success("Disponibilidad importada correctamente.");
     } catch (error) {
       console.error(error);
 
