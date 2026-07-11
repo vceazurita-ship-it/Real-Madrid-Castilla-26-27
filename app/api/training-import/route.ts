@@ -352,7 +352,7 @@ if (exists.exists && !replace) {
   );
 }
 
-await fetch(APPS_SCRIPT, {
+const saveResponse = await fetch(APPS_SCRIPT, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -360,9 +360,19 @@ await fetch(APPS_SCRIPT, {
   body: JSON.stringify({
     action: "appendSessionStatus",
     fecha,
+    replace,
     players: playersForSession,
   }),
 });
+
+const saveResult = await saveResponse.json();
+
+console.log("APPEND RESULT");
+console.log(saveResult);
+
+if (!saveResult.ok) {
+  throw new Error(saveResult.error || "Error guardando sesión");
+}
 
 //--------------------------------------------------------
 // Jugadores pendientes de crear
