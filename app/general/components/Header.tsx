@@ -79,7 +79,7 @@ export default function Header({
       <p className="mt-4 max-w-3xl text-white/60 leading-7">
         Calendario de planificación de la temporada 2026 / 2027.
         Accede rápidamente a cada semana, consulta las imágenes,
-        documentos y toda la información del Real Madrid Castilla.
+        documentos y toda la información del equipo.
       </p>
 
       <div className="mt-8 grid gap-5 md:grid-cols-4">
