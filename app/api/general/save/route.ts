@@ -10,14 +10,14 @@ const CURRENT_SEASON = "2026-2027";
 
 export async function POST(req: NextRequest) {
   try {
-    const seasonData = await req.json();
+    const body = await req.json();
 
-    const { error } = await supabase
-      .from("performance_seasons")
-      .update({
-        data: seasonData,
-        updated_at: new Date().toISOString(),
-      })
+const { error } = await supabase
+  .from("general_seasons")
+  .update({
+    data: body.data,
+    updated_at: new Date().toISOString(),
+  })
       .eq("season", CURRENT_SEASON);
 
     if (error) {
