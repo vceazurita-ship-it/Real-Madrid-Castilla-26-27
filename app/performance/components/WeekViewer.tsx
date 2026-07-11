@@ -100,7 +100,7 @@ const handleDeleteImage = async (image: string) => {
   if (!confirm("¿Eliminar esta imagen?")) return;
 
   try {
-    await deleteFile(image);
+    await deleteFile(image, "performance");
 
     updateWeek({
       ...week,
@@ -119,7 +119,7 @@ const handleDeletePdf = async () => {
   if (!confirm("¿Eliminar el PDF?")) return;
 
   try {
-    await deleteFile(week.pdf);
+    await deleteFile(week.pdf, "performance");
 
     updateWeek({
       ...week,

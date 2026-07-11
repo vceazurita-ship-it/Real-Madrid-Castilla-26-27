@@ -1,15 +1,19 @@
-export async function deleteFile(url: string) {
-  const marker = "/storage/v1/object/public/performance/";
+export async function deleteFile(
+  url: string,
+  bucket: "performance" | "general"
+) {
+  const marker = `/storage/v1/object/public/${bucket}/`;
 
   const index = url.indexOf(marker);
 
+  // Si no está en Supabase (imagen local), no hacemos nada
   if (index === -1) {
-    throw new Error("URL inválida");
+    return;
   }
 
   const path = url.substring(index + marker.length);
 
-  const response = await fetch("/api/performance/delete", {
+  const response = await fetch(`/api/${bucket}/delete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
