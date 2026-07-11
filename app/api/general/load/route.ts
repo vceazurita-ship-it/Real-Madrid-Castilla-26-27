@@ -11,7 +11,7 @@ const CURRENT_SEASON = "2026-2027";
 export async function GET() {
   try {
     const { data, error } = await supabase
-      .from("performance_seasons")
+      .from("general_seasons")
       .select("data")
       .eq("season", CURRENT_SEASON)
       .single();
