@@ -7,5 +7,5 @@ export async function loadSeason() {
 
   const json = await res.json();
 
-  return json.season.data;
+  return json.season;
 }
