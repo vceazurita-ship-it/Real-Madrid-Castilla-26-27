@@ -13,12 +13,12 @@ export async function POST(req: NextRequest) {
     const seasonData = await req.json();
 
     const { error } = await supabase
-      .from("performance_seasons")
-      .update({
-        data: seasonData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("season", CURRENT_SEASON);
+  .from("general_seasons")
+  .update({
+    data: seasonData,
+    updated_at: new Date().toISOString(),
+  })
+  .eq("season", CURRENT_SEASON);
 
     if (error) {
       return NextResponse.json(
