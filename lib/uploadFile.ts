@@ -7,7 +7,7 @@ export async function uploadFile(
   formData.append("file", file);
   formData.append("folder", folder);
 
-  const response = await fetch("/api/performance/upload", {
+  const response = await fetch("/api/general/upload", {
     method: "POST",
     body: formData,
   });
