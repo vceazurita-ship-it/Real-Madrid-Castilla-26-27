@@ -409,14 +409,29 @@ const sessionPlayers = [
 });
 
   } catch (error: any) {
+
   console.error("========== ERROR TRAINING ==========");
   console.error(error);
   console.error(error?.stack);
   console.error(error?.cause);
+
   console.log("APPS_SCRIPT_URL =", process.env.APPS_SCRIPT_URL);
-console.log("GEMINI =", !!process.env.GEMINI_API_KEY);
+  console.log("GEMINI =", !!process.env.GEMINI_API_KEY);
 
+  // Gemini sin cuota
+  if (error?.status === 429) {
+    return Response.json(
+      {
+        error:
+          "Se ha alcanzado la cuota diaria de PETICIONES. Inténtalo más tarde",
+      },
+      {
+        status: 429,
+      }
+    );
+  }
 
+  // Resto de errores
   return Response.json(
     {
       error: error?.message,
@@ -426,5 +441,6 @@ console.log("GEMINI =", !!process.env.GEMINI_API_KEY);
       status: 500,
     }
   );
+
 }
 }
