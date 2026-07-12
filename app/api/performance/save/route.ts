@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const seasonData = await req.json();
 
     const { error } = await supabase
-  .from("general_seasons")
+  .from("performance_seasons")
   .update({
     data: seasonData,
     updated_at: new Date().toISOString(),

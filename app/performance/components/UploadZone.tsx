@@ -34,7 +34,7 @@ export default function UploadZone({
     isDragActive,
   } = useDropzone({
     onDrop,
-    multiple: type === "images",
+    multiple: type === "images" || maxFiles > 1,
     maxFiles,
     accept:
       type === "images"
@@ -69,7 +69,6 @@ export default function UploadZone({
       <input {...getInputProps()} />
 
       <div className="flex flex-col items-center text-center">
-
         <div
           className="
             mb-6
@@ -100,7 +99,7 @@ export default function UploadZone({
         <h3 className="text-xl font-semibold">
           {type === "images"
             ? "Subir imágenes"
-            : "Subir PDF"}
+            : "Subir PDFs"}
         </h3>
 
         <p className="mt-3 max-w-md text-white/60 leading-7">
@@ -110,7 +109,6 @@ export default function UploadZone({
         </p>
 
         <div className="mt-8 flex items-center gap-3 rounded-full border border-[#C8A96B]/30 bg-[#11161D] px-6 py-3">
-
           <UploadCloud
             size={20}
             className="text-[#C8A96B]"
@@ -119,17 +117,13 @@ export default function UploadZone({
           <span className="text-sm font-medium">
             Seleccionar archivos
           </span>
-
         </div>
 
         <div className="mt-6 text-sm text-white/40">
-
           {type === "images"
             ? `JPG · PNG · WEBP · Máximo ${maxFiles}`
-            : "PDF · Máximo 1 archivo"}
-
+            : `PDF · Máximo ${maxFiles}`}
         </div>
-
       </div>
     </div>
   );

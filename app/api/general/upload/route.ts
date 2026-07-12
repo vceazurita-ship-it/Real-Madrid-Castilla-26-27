@@ -22,9 +22,11 @@ export async function POST(request: NextRequest) {
 
     const extension = file.name.split(".").pop();
 
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2)}.${extension}`;
+    const fileName = file.name
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/\s+/g, "-")
+  .replace(/[^a-zA-Z0-9._-]/g, "");
 
     const path = `${folder}/${fileName}`;
 

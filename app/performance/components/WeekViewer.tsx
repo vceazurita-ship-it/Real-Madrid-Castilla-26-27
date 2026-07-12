@@ -77,23 +77,30 @@ const handleImagesUpload = async (files: File[]) => {
   }
 };
 const handlePdfUpload = async (files: File[]) => {
-  if (!week || !files.length) return;
+  if (!week) return;
 
   try {
-    const uploaded = await uploadFile(
-      files[0],
-      `2026/semana-${week.id
-        .toString()
-        .padStart(2, "0")}/pdf`
+    const uploaded = await Promise.all(
+      files.map((file) =>
+        uploadFile(
+          file,
+          `2026/semana-${week.id
+            .toString()
+            .padStart(2, "0")}/pdf`
+        )
+      )
     );
+
+    const urls = uploaded.map((item) => item.url);
 
     updateWeek({
       ...week,
-      pdf: uploaded.url,
+      pdfs: [...(week.pdfs ?? []), ...urls],
     });
+
   } catch (error) {
     console.error(error);
-    alert("Error al subir el PDF");
+    alert("Error al subir los PDFs");
   }
 };
 
@@ -116,19 +123,18 @@ const handleDeleteImage = async (image: string) => {
   }
 };
 
-const handleDeletePdf = async () => {
-  if (!week?.pdf) return;
+const handleDeletePdf = async (pdf: string) => {
+  if (!week) return;
 
-  if (!confirm("¿Eliminar el PDF?")) return;
+  if (!confirm("¿Eliminar este PDF?")) return;
 
   try {
-    await deleteFile(week.pdf, "performance");
+    await deleteFile(pdf, "performance");
 
     updateWeek({
       ...week,
-      pdf: "",
+      pdfs: week.pdfs?.filter((p) => p !== pdf) ?? [],
     });
-
   } catch (error) {
     console.error(error);
     alert("No se pudo eliminar el PDF");
@@ -167,6 +173,16 @@ useEffect(() => {
   };
 }, [fullscreenIndex, week]);
 
+
+useEffect(() => {
+  if (
+    fullscreenIndex !== null &&
+    week &&
+    fullscreenIndex >= week.images.length
+  ) {
+    setFullscreenIndex(null);
+  }
+}, [week, fullscreenIndex]);
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]">
 
@@ -223,7 +239,7 @@ useEffect(() => {
           </div>
 
           <p className="mt-4 text-3xl font-semibold">
-            {week.pdf ? 1 : 0}
+            {week.pdfs?.length ?? 0}
           </p>
 
         </div>
@@ -385,64 +401,68 @@ useEffect(() => {
 
         </div>
 
-        {week.pdf ? (
+        {week.pdfs && week.pdfs.length > 0 ? (
 
-  <div className="space-y-4">
+ <div className="space-y-4">
+  {week.pdfs.map((pdf, index) => {
+    const fileName = decodeURIComponent(
+      pdf.split("/").pop() ?? "PDF"
+    );
 
-    <a
-      href={week.pdf}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="
-        flex
-        items-center
-        justify-between
-        rounded-2xl
-        border
-        border-white/10
-        bg-[#0B0F14]
-        p-5
-        transition
-        hover:border-[#C8A96B]
-      "
-    >
+    return (
+      <div
+        key={index}
+        className="
+          flex
+          items-center
+          justify-between
+          rounded-2xl
+          border
+          border-white/10
+          bg-[#0B0F14]
+          p-5
+        "
+      >
+        <a
+          href={pdf}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1"
+        >
+          <p className="font-medium">
+            {fileName}
+          </p>
 
-      <div>
+          <span className="text-sm text-white/50">
+            Abrir PDF
+          </span>
+        </a>
 
-        <p className="font-medium">
-          Planificación semanal
-        </p>
+        <div className="flex items-center gap-3">
+          <FileText
+            size={24}
+            className="text-[#C8A96B]"
+          />
 
-        <span className="text-sm text-white/50">
-          Abrir PDF
-        </span>
-
+          <button
+            type="button"
+            onClick={() => handleDeletePdf(pdf)}
+            className="
+              rounded-lg
+              bg-red-600
+              p-2
+              text-white
+              transition
+              hover:bg-red-700
+            "
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
-
-      <FileText
-        size={24}
-        className="text-[#C8A96B]"
-      />
-
-    </a>
-
-    <button
-      onClick={handleDeletePdf}
-      className="
-        rounded-xl
-        bg-red-600
-        px-4
-        py-2
-        text-sm
-        text-white
-        transition
-        hover:bg-red-700
-      "
-    >
-      Eliminar PDF
-    </button>
-
-  </div>
+    );
+  })}
+</div>
 
 ) : (
 

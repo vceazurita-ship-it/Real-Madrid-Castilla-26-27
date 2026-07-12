@@ -5,7 +5,7 @@ export interface WeekData {
   start: string;
   end: string;
   images: string[];
-  pdf?: string;
+  pdfs?: string[];
 }
 
 export interface MonthData {
@@ -30,7 +30,7 @@ export const season: MonthData[] = [
           "/IMG-20260708-WA0001.jpg",
           "/IMG-20260709-WA0011.jpg",
         ],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 2,
@@ -39,7 +39,7 @@ export const season: MonthData[] = [
         start: "6 Jul",
         end: "12 Jul",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 3,
@@ -48,7 +48,7 @@ export const season: MonthData[] = [
         start: "13 Jul",
         end: "19 Jul",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 4,
@@ -57,7 +57,7 @@ export const season: MonthData[] = [
         start: "20 Jul",
         end: "26 Jul",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -73,7 +73,7 @@ export const season: MonthData[] = [
         start: "27 Jul",
         end: "2 Ago",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 6,
@@ -82,7 +82,7 @@ export const season: MonthData[] = [
         start: "3 Ago",
         end: "9 Ago",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 7,
@@ -91,7 +91,7 @@ export const season: MonthData[] = [
         start: "10 Ago",
         end: "16 Ago",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 8,
@@ -100,7 +100,7 @@ export const season: MonthData[] = [
         start: "17 Ago",
         end: "23 Ago",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -116,7 +116,7 @@ export const season: MonthData[] = [
         start: "24 Ago",
         end: "30 Ago",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 10,
@@ -125,7 +125,7 @@ export const season: MonthData[] = [
         start: "31 Ago",
         end: "6 Sep",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 11,
@@ -134,7 +134,7 @@ export const season: MonthData[] = [
         start: "7 Sep",
         end: "13 Sep",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 12,
@@ -143,7 +143,7 @@ export const season: MonthData[] = [
         start: "14 Sep",
         end: "20 Sep",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -159,7 +159,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 14,
@@ -168,7 +168,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 15,
@@ -177,7 +177,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 16,
@@ -186,7 +186,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -202,7 +202,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 18,
@@ -211,7 +211,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 19,
@@ -220,7 +220,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 20,
@@ -229,7 +229,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -245,7 +245,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 22,
@@ -254,7 +254,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 23,
@@ -263,7 +263,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 24,
@@ -272,7 +272,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -287,7 +287,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 26,
@@ -296,7 +296,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 27,
@@ -305,7 +305,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 28,
@@ -314,7 +314,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -330,7 +330,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 30,
@@ -339,7 +339,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 31,
@@ -348,7 +348,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 32,
@@ -357,7 +357,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -373,7 +373,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 34,
@@ -382,7 +382,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 35,
@@ -391,7 +391,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 36,
@@ -400,7 +400,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -416,7 +416,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 38,
@@ -425,7 +425,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 39,
@@ -434,7 +434,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 40,
@@ -443,7 +443,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -459,7 +459,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 42,
@@ -468,7 +468,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 43,
@@ -477,7 +477,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 44,
@@ -486,7 +486,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
@@ -502,7 +502,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 46,
@@ -511,7 +511,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 47,
@@ -520,7 +520,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 48,
@@ -529,7 +529,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 49,
@@ -538,7 +538,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 50,
@@ -547,7 +547,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 51,
@@ -556,7 +556,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
       {
         id: 52,
@@ -565,7 +565,7 @@ export const season: MonthData[] = [
         start: "",
         end: "",
         images: [],
-        pdf: "",
+        pdfs: [],
       },
     ],
   },
