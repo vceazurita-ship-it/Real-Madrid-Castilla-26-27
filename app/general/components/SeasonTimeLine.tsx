@@ -151,8 +151,10 @@ export default function SeasonTimeline({
                       />
 
                       <span>
-                        {week.pdf ? "PDF disponible" : "Sin PDF"}
-                      </span>
+  {(week.pdfs?.length ?? 0) > 0
+    ? `${week.pdfs!.length} PDF${week.pdfs!.length > 1 ? "s" : ""}`
+    : "Sin PDF"}
+</span>
 
                     </div>
 
