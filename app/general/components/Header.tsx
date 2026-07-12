@@ -23,15 +23,15 @@ export default function Header({
   );
 
   const completedWeeks = season.reduce(
-    (acc, month) =>
-      acc +
-      month.weeks.filter(
-        (week) =>
-          week.images.length > 0 ||
-          Boolean(week.pdf)
-      ).length,
-    0
-  );
+  (acc, month) =>
+    acc +
+    month.weeks.filter(
+      (week) =>
+        week.images.length > 0 ||
+        (week.pdfs?.length ?? 0) > 0
+    ).length,
+  0
+);
 
   const totalImages = season.reduce(
     (acc, month) =>
@@ -44,13 +44,14 @@ export default function Header({
   );
 
   const totalPdfs = season.reduce(
-    (acc, month) =>
-      acc +
-      month.weeks.filter(
-        (week) => Boolean(week.pdf)
-      ).length,
-    0
-  );
+  (acc, month) =>
+    acc +
+    month.weeks.reduce(
+      (sum, week) => sum + (week.pdfs?.length ?? 0),
+      0
+    ),
+  0
+);
 
   const progress =
     totalWeeks > 0
