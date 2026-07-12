@@ -10,7 +10,7 @@ import {
 import { WeekData } from "../data";
 import UploadZone from "./UploadZone";
 import { uploadFile } from "@/lib/uploadFile";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { deleteFile } from "@/lib/deleteFile";
 import { Trash2 } from "lucide-react";
 
@@ -24,7 +24,10 @@ export default function WeekViewer({
   week,
   updateWeek,
 }: Props) {
-    const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+    const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+
+const fullscreenImage =
+  fullscreenIndex !== null ? week?.images[fullscreenIndex] ?? null : null;
   if (!week) {
     return (
       <div className="rounded-3xl border border-white/10 bg-[#11161D] p-8">
@@ -131,6 +134,38 @@ const handleDeletePdf = async () => {
     alert("No se pudo eliminar el PDF");
   }
 };
+
+useEffect(() => {
+  if (fullscreenIndex === null || !week) return;
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setFullscreenIndex(null);
+    }
+
+    if (e.key === "ArrowRight") {
+      setFullscreenIndex((prev) =>
+        prev === null
+          ? null
+          : (prev + 1) % week.images.length
+      );
+    }
+
+    if (e.key === "ArrowLeft") {
+      setFullscreenIndex((prev) =>
+        prev === null
+          ? null
+          : (prev - 1 + week.images.length) % week.images.length
+      );
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, [fullscreenIndex, week]);
 
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]">
@@ -290,7 +325,7 @@ const handleDeletePdf = async () => {
 
   <button
     type="button"
-    onClick={() => setFullscreenImage(image)}
+    onClick={() => setFullscreenIndex(index)}
     className="block w-full cursor-zoom-in"
   >
     <Image
@@ -432,37 +467,83 @@ const handleDeletePdf = async () => {
             bg-black/90
             p-6
           "
-          onClick={() => setFullscreenImage(null)}
+          onClick={() => setFullscreenIndex(null)}
         >
 
           <button
-            type="button"
-            className="
-              absolute
-              right-6
-              top-6
-              text-3xl
-              text-white/80
-              hover:text-white
-            "
-            onClick={() => setFullscreenImage(null)}
-          >
-            ✕
-          </button>
+  type="button"
+  className="
+    absolute
+    right-6
+    top-6
+    text-3xl
+    text-white/80
+    hover:text-white
+  "
+  onClick={() => setFullscreenIndex(null)}
+>
+  ✕
+</button>
 
-          <Image
-            src={fullscreenImage}
-            alt="Imagen ampliada"
-            width={2400}
-            height={1600}
-            className="
-              max-h-[90vh]
-              w-auto
-              rounded-xl
-              object-contain
-            "
-            onClick={(e) => e.stopPropagation()}
-          />
+<button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    setFullscreenIndex(
+      (fullscreenIndex! - 1 + week.images.length) %
+        week.images.length
+    );
+  }}
+  className="
+    absolute
+    left-6
+    top-1/2
+    -translate-y-1/2
+    text-6xl
+    text-white/70
+    hover:text-white
+    transition
+  "
+>
+  ‹
+</button>
+
+<button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    setFullscreenIndex(
+      (fullscreenIndex! + 1) %
+        week.images.length
+    );
+  }}
+  className="
+    absolute
+    right-6
+    top-1/2
+    -translate-y-1/2
+    text-6xl
+    text-white/70
+    hover:text-white
+    transition
+  "
+>
+  ›
+</button>
+
+<Image
+  src={fullscreenImage}
+  alt="Imagen ampliada"
+  width={2400}
+  height={1600}
+  className="
+    max-h-[90vh]
+    w-auto
+    rounded-xl
+    object-contain
+  "
+  onClick={(e) => e.stopPropagation()}
+/>
 
         </div>
       )}
