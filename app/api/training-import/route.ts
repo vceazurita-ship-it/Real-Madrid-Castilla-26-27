@@ -57,42 +57,28 @@ const optimized = await sharp(bytes)
     withoutEnlargement: true,
   })
   .jpeg({
-    quality: 80,
+    quality: 70,
   })
   .toBuffer();
 
 const base64 = optimized.toString("base64");
 
 //--------------------------------------------------------
-// Descargar jugadores mientras Gemini analiza la imagen
+// Descargar jugadores y analizar imagen en paralelo
 //--------------------------------------------------------
 
-const jugadoresResponse = await fetch(
+const jugadoresPromise = fetch(
   `${APPS_SCRIPT}?action=jugadoresSesion`
 );
 
-console.log("STATUS", jugadoresResponse.status);
-console.log("CONTENT-TYPE", jugadoresResponse.headers.get("content-type"));
-
-const texto = await jugadoresResponse.text();
-
-console.log("RESPUESTA APPS SCRIPT:");
-console.log(texto);
-
-const jugadores = JSON.parse(texto);
-
-    //--------------------------------------------------------
-    // Gemini
-    //--------------------------------------------------------
-
-    const gemini = await generarConReintento({
-      model: "gemini-2.5-flash",
-      contents: [
+const geminiPromise = generarConReintento({
+  model: "gemini-2.5-flash",
+  contents: [
+    {
+      role: "user",
+      parts: [
         {
-          role: "user",
-          parts: [
-            {
-              text: `
+          text: `
 Analiza esta imagen de un entrenamiento del Real Madrid Castilla.
 
 Extrae únicamente los nombres de los jugadores.
@@ -100,7 +86,7 @@ Extrae únicamente los nombres de los jugadores.
 Reglas:
 
 - Los jugadores sobre el terreno de juego pertenecen a "available".
-- Los nombres de la parte inferior pertenecen a una de estas categorías:
+- Los nombres de la parte inferior pertenecen a:
   - promotion
   - injury
   - others
@@ -119,18 +105,34 @@ Formato:
   "nationalTeam": []
 }
 `,
-            },
-            {
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64,
-              },
-            },
-          ],
+        },
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: base64,
+          },
         },
       ],
-    });
+    },
+  ],
+});
 
+const [jugadoresResponse, gemini] = await Promise.all([
+  jugadoresPromise,
+  geminiPromise,
+]);
+
+if (!jugadoresResponse.ok) {
+  throw new Error("No se pudieron obtener los jugadores.");
+}
+
+const texto = await jugadoresResponse.text();
+
+if (!jugadoresResponse.ok) {
+  throw new Error(texto);
+}
+
+const jugadores = JSON.parse(texto);
     const raw =
       gemini.text
         ?.replace(/```json/g, "")
@@ -160,6 +162,11 @@ console.log(raw);
       allDetected,
       jugadores
     );
+
+    const matchesMap = new Map(
+      matches.map(m => [m.original, m])
+    );
+
 console.log("MATCHES");
 console.log(matches);
     //--------------------------------------------------------
@@ -201,9 +208,7 @@ console.log(matches);
    const replaceNames = (list: string[]) =>
   list.map((name) => {
 
-    const match = matches.find(
-      m => m.original === name
-    );
+    const match = matchesMap.get(name);
 
     return {
 
@@ -304,26 +309,6 @@ console.log(estados);
     //--------------------------------------------------------
     // Actualizar estados en Google Sheets
     //--------------------------------------------------------
-console.log("ESTADOS COMPLETOS");
-console.log(JSON.stringify(estados, null, 2));
-
-console.log(
-  "BAILON",
-  jugadores.find(
-    (j: any) =>
-      j.NOMBRE === "Javi" ||
-      j.APODO === "Javi"
-  )
-);
-
-console.log(
-  "BETO",
-  jugadores.find(
-    (j: any) =>
-      j.NOMBRE === "Diego" ||
-      j.APODO === "Diego"
-  )
-);
 
 const fecha =
   (formData.get("fecha") as string) ??
