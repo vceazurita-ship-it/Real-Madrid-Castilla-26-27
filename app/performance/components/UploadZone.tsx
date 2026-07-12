@@ -120,10 +120,10 @@ export default function UploadZone({
         </div>
 
         <div className="mt-6 text-sm text-white/40">
-          {type === "images"
-            ? `JPG · PNG · WEBP · Máximo ${maxFiles}`
-            : `PDF · Máximo ${maxFiles}`}
-        </div>
+  {type === "images"
+    ? "JPG · PNG · WEBP"
+    : "PDF"}
+</div>
       </div>
     </div>
   );

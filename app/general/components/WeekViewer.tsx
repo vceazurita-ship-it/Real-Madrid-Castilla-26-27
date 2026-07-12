@@ -280,24 +280,7 @@ useEffect(() => {
             Imágenes
           </h3>
 
-          <button
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              border
-              border-white/10
-              px-4
-              py-2
-              text-sm
-              transition
-              hover:border-[#C8A96B]
-            "
-          >
-            <Plus size={16} />
-            Añadir
-          </button>
+          
 
         </div>
 
@@ -379,24 +362,7 @@ useEffect(() => {
             Documento semanal
           </h3>
 
-          <button
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              border
-              border-white/10
-              px-4
-              py-2
-              text-sm
-              transition
-              hover:border-[#C8A96B]
-            "
-          >
-            <Plus size={16} />
-            Añadir PDF
-          </button>
+    
 
         </div>
 
