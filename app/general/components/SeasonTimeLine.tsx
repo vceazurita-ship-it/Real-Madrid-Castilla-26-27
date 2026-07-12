@@ -113,14 +113,16 @@ export default function SeasonTimeline({
                     </div>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        week.images.length
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-white/10 text-white/50"
-                      }`}
-                    >
-                      {week.images.length ? "Disponible" : "Pendiente"}
-                    </span>
+  className={`rounded-full px-3 py-1 text-xs font-medium ${
+    week.images.length > 0 || (week.pdfs?.length ?? 0) > 0
+      ? "bg-green-500/20 text-green-400"
+      : "bg-white/10 text-white/50"
+  }`}
+>
+  {week.images.length > 0 || (week.pdfs?.length ?? 0) > 0
+    ? "Disponible"
+    : "Pendiente"}
+</span>
 
                   </div>
 
