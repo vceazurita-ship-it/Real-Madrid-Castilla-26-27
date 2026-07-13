@@ -30,6 +30,7 @@ import {
   Dumbbell,
   Database,
   Handshake,
+  ShieldHalf,
   ClipboardList,
   LayoutDashboard,
 } from "lucide-react"
@@ -174,6 +175,12 @@ const navLink = (
       "Identidad de Juego",
       <Network  size={18} />
     )}
+
+    {navLink(
+  "/identidad-posicional",
+  "Identidad Posicional",
+  <ShieldHalf size={18} />
+)}
   </div>
 </div>
 
