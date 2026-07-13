@@ -1,0 +1,646 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Papa from "papaparse";
+
+import { Sidebar } from "@/components/ui/sidebar";
+import { Topbar } from "@/components/ui/topbar";
+
+type PosicionItem = {
+  ID: number;
+  POSICION: string;
+  BLOQUE: string;
+  TITULO: string;
+  CONTENIDO: string;
+  ORDEN: number;
+  OBSERVACIONES?: string;
+  ACTIVO?: string;
+};
+
+const API =
+  "https://script.google.com/macros/s/TU_SCRIPT_ID/exec";
+
+export default function IdentidadPosicionalPage() {
+
+  const [data, setData] =
+    useState<PosicionItem[]>([]);
+
+  const [originalData, setOriginalData] =
+    useState<PosicionItem[]>([]);
+
+  const [posicion, setPosicion] =
+    useState("");
+
+  const [editing, setEditing] =
+    useState(false);
+
+  useEffect(() => {
+
+    fetch(
+      "PEGA_AQUI_EL_CSV_PUBLICO_DEL_GOOGLE_SHEETS"
+    )
+      .then((r) => r.text())
+      .then((csv) => {
+
+        const parsed =
+          Papa.parse<PosicionItem>(csv, {
+            header: true,
+            skipEmptyLines: true,
+          });
+
+        const rows =
+          parsed.data.filter(
+            (r) =>
+              String(r.ACTIVO).toUpperCase() !==
+              "FALSE"
+          );
+
+        setData(rows);
+
+        setOriginalData(
+          structuredClone(rows)
+        );
+
+        if (rows.length > 0) {
+          setPosicion(rows[0].POSICION);
+        }
+
+      });
+
+  }, []);
+
+  const posiciones =
+    useMemo(() => {
+
+      return [
+        ...new Set(
+          data.map(
+            (r) => r.POSICION
+          )
+        ),
+
+      ];
+
+    }, [data]);
+
+  const contenidos =
+    useMemo(() => {
+
+      return data
+        .filter(
+          (r) =>
+            r.POSICION === posicion
+        )
+        .sort(
+          (a, b) =>
+            Number(a.ORDEN) -
+            Number(b.ORDEN)
+        );
+
+    }, [data, posicion]);
+
+  const conBalon =
+    contenidos.filter(
+      (c) =>
+        c.BLOQUE ===
+        "CON BALÓN"
+    );
+
+  const sinBalon =
+    contenidos.filter(
+      (c) =>
+        c.BLOQUE ===
+        "SIN BALÓN"
+    );
+
+  const guardarCambios =
+    async () => {
+
+      try {
+
+        const cambios =
+          data.filter((item) => {
+
+            const original =
+              originalData.find(
+                (o) =>
+                  o.ID === item.ID
+              );
+
+            return (
+
+              original?.CONTENIDO !==
+                item.CONTENIDO ||
+
+              (original?.OBSERVACIONES ||
+                "") !==
+                (item.OBSERVACIONES ||
+                  "")
+
+            );
+
+          });
+
+        if (
+          cambios.length === 0
+        ) {
+
+          setEditing(false);
+
+          return;
+
+        }
+
+        await Promise.all(
+
+          cambios.map((p) =>
+
+            fetch(
+
+              `${API}?action=guardarIdentidadPosicional&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
+                p.CONTENIDO
+              )}&OBSERVACIONES=${encodeURIComponent(
+                p.OBSERVACIONES || ""
+              )}`
+
+            )
+
+          )
+
+        );
+
+        setOriginalData(
+          structuredClone(data)
+        );
+
+        setEditing(false);
+
+      } catch (err) {
+
+        console.error(err);
+
+      }
+
+    };
+
+  return (
+
+    <div className="flex min-h-screen bg-[#0B0F14]">
+
+      <Sidebar />
+
+      <div className="flex-1 min-w-0">
+
+        <Topbar />
+
+        <div className="flex flex-col lg:flex-row">
+                    {/* MENÚ IZQUIERDO */}
+
+          <div
+            className="
+              w-full
+              lg:w-[280px]
+              xl:w-[320px]
+              border-r
+              border-white/10
+              p-4
+              lg:p-6
+            "
+          >
+
+            <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
+              Posiciones
+            </h2>
+
+            <div className="flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-2">
+
+              {posiciones.map((p) => {
+
+                const total =
+                  data.filter(
+                    (x) =>
+                      x.POSICION === p
+                  ).length;
+
+                return (
+
+                  <button
+                    key={p}
+                    onClick={() =>
+                      setPosicion(p)
+                    }
+                    className={`
+                      shrink-0
+                      min-w-[140px]
+                      lg:w-full
+                      rounded-2xl
+                      p-4
+                      text-left
+                      transition-all
+                      ${
+                        posicion === p
+                          ? "bg-[#C8A96B] text-black"
+                          : "border border-white/10 text-white hover:border-[#C8A96B]/30"
+                      }
+                    `}
+                  >
+
+                    <div className="flex items-center justify-between">
+
+                      <span className="font-medium">
+                        {p}
+                      </span>
+
+                      <span className="text-xs opacity-70">
+                        {total}
+                      </span>
+
+                    </div>
+
+                  </button>
+
+                );
+
+              })}
+
+            </div>
+
+          </div>
+
+          {/* CONTENIDO */}
+
+          <div className="flex-1 p-4 lg:p-8">
+
+            <div
+              className="
+                rounded-3xl
+                border
+                border-white/10
+                bg-gradient-to-br
+                from-white/[0.05]
+                to-white/[0.02]
+                p-6
+                lg:p-10
+              "
+            >
+
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+
+                <div>
+
+                  <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+
+                    CONTENIDOS INDIVIDUALES
+
+                  </p>
+
+                  <h1 className="mt-4 text-4xl lg:text-6xl font-bold text-white">
+
+                    {posicion}
+
+                  </h1>
+
+                  <p className="mt-3 text-gray-400">
+
+                    Foco individual por posición
+
+                  </p>
+
+                </div>
+
+                <div className="flex gap-3">
+
+                  {editing && (
+
+                    <button
+                      onClick={guardarCambios}
+                      className="
+                        rounded-xl
+                        bg-[#C8A96B]
+                        px-5
+                        py-3
+                        font-semibold
+                        text-black
+                      "
+                    >
+
+                      Guardar
+
+                    </button>
+
+                  )}
+
+                  <button
+                    onClick={() => {
+
+                      if (editing) {
+
+                        setData(
+                          structuredClone(
+                            originalData
+                          )
+                        );
+
+                      }
+
+                      setEditing(
+                        !editing
+                      );
+
+                    }}
+                    className="
+                      rounded-xl
+                      border
+                      border-[#C8A96B]
+                      px-5
+                      py-3
+                      text-[#C8A96B]
+                    "
+                  >
+
+                    {editing
+                      ? "Cancelar"
+                      : "Editar"}
+
+                  </button>
+
+                </div>
+
+              </div>
+
+              <div className="mt-12 grid gap-10 lg:grid-cols-2">
+
+                {/* CON BALÓN */}
+
+                <div>
+
+                  <h2 className="mb-6 text-xl font-bold text-[#C8A96B]">
+
+                    CON BALÓN
+
+                  </h2>
+
+                  <div className="space-y-4">
+                                        {conBalon.map((item) => (
+
+                      <div
+                        key={item.ID}
+                        className="border-b border-white/10 pb-4"
+                      >
+
+                        {editing ? (
+
+                          <div className="space-y-3">
+
+                            <textarea
+                              value={item.CONTENIDO}
+                              rows={2}
+                              onChange={(e) => {
+
+                                setData((prev) =>
+                                  prev.map((x) =>
+                                    x.ID === item.ID
+                                      ? {
+                                          ...x,
+                                          CONTENIDO:
+                                            e.target.value,
+                                        }
+                                      : x
+                                  )
+                                );
+
+                              }}
+                              className="
+                                w-full
+                                rounded-xl
+                                border
+                                border-white/10
+                                bg-black/30
+                                p-3
+                                text-white
+                                outline-none
+                              "
+                            />
+
+                            <textarea
+                              value={
+                                item.OBSERVACIONES ||
+                                ""
+                              }
+                              rows={2}
+                              placeholder="Observaciones..."
+                              onChange={(e) => {
+
+                                setData((prev) =>
+                                  prev.map((x) =>
+                                    x.ID === item.ID
+                                      ? {
+                                          ...x,
+                                          OBSERVACIONES:
+                                            e.target.value,
+                                        }
+                                      : x
+                                  )
+                                );
+
+                              }}
+                              className="
+                                w-full
+                                rounded-xl
+                                border
+                                border-white/10
+                                bg-black/30
+                                p-3
+                                text-sm
+                                text-gray-300
+                                outline-none
+                              "
+                            />
+
+                          </div>
+
+                        ) : (
+
+                          <div>
+
+                            <div className="flex gap-3">
+
+                              <span className="text-[#C8A96B] font-bold">
+                                •
+                              </span>
+
+                              <div className="flex-1">
+
+                                <p className="text-white leading-relaxed">
+                                  {item.CONTENIDO}
+                                </p>
+
+                                {item.OBSERVACIONES && (
+
+                                  <p className="mt-2 text-sm text-gray-500">
+                                    {item.OBSERVACIONES}
+                                  </p>
+
+                                )}
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                </div>
+
+                {/* SIN BALÓN */}
+
+                <div>
+
+                  <h2 className="mb-6 text-xl font-bold text-[#C8A96B]">
+
+                    SIN BALÓN
+
+                  </h2>
+
+                  <div className="space-y-4">
+
+                    {sinBalon.map((item) => (
+
+                      <div
+                        key={item.ID}
+                        className="border-b border-white/10 pb-4"
+                      >
+
+                        {editing ? (
+
+                          <div className="space-y-3">
+
+                            <textarea
+                              value={item.CONTENIDO}
+                              rows={2}
+                              onChange={(e) => {
+
+                                setData((prev) =>
+                                  prev.map((x) =>
+                                    x.ID === item.ID
+                                      ? {
+                                          ...x,
+                                          CONTENIDO:
+                                            e.target.value,
+                                        }
+                                      : x
+                                  )
+                                );
+
+                              }}
+                              className="
+                                w-full
+                                rounded-xl
+                                border
+                                border-white/10
+                                bg-black/30
+                                p-3
+                                text-white
+                                outline-none
+                              "
+                            />
+
+                            <textarea
+                              value={
+                                item.OBSERVACIONES ||
+                                ""
+                              }
+                              rows={2}
+                              placeholder="Observaciones..."
+                              onChange={(e) => {
+
+                                setData((prev) =>
+                                  prev.map((x) =>
+                                    x.ID === item.ID
+                                      ? {
+                                          ...x,
+                                          OBSERVACIONES:
+                                            e.target.value,
+                                        }
+                                      : x
+                                  )
+                                );
+
+                              }}
+                              className="
+                                w-full
+                                rounded-xl
+                                border
+                                border-white/10
+                                bg-black/30
+                                p-3
+                                text-sm
+                                text-gray-300
+                                outline-none
+                              "
+                            />
+
+                          </div>
+
+                        ) : (
+
+                          <div>
+
+                            <div className="flex gap-3">
+
+                              <span className="text-[#C8A96B] font-bold">
+                                •
+                              </span>
+
+                              <div className="flex-1">
+
+                                <p className="text-white leading-relaxed">
+                                  {item.CONTENIDO}
+                                </p>
+
+                                {item.OBSERVACIONES && (
+
+                                  <p className="mt-2 text-sm text-gray-500">
+                                    {item.OBSERVACIONES}
+                                  </p>
+
+                                )}
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
