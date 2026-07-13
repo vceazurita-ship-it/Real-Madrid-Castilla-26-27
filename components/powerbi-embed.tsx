@@ -16,7 +16,7 @@ export default function PowerBIEmbed() {
 
         <p className="mt-6 max-w-xl text-gray-400">
           The Power BI environment is correctly connected to the
-          Real Madrid C Performance Intelligence platform.
+          Real Madrid CF Castilla Performance Intelligence platform.
         </p>
 
       </div>

@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Real Madrid C Performance",
-  description: "Análisis individual y colectivo del Real Madrid C",
+  title: "Real Madrid CF Castila",
+  description: "Plataforma Real Madrid CF Castilla",
   manifest: "/manifest.json",
   icons: {
     apple: "/icon-192.png",
