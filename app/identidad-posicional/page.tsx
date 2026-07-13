@@ -18,7 +18,7 @@ type PosicionItem = {
 };
 
 const API =
-  "https://script.google.com/macros/s/TU_SCRIPT_ID/exec";
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
 export default function IdentidadPosicionalPage() {
 
@@ -37,7 +37,7 @@ export default function IdentidadPosicionalPage() {
   useEffect(() => {
 
     fetch(
-      "PEGA_AQUI_EL_CSV_PUBLICO_DEL_GOOGLE_SHEETS"
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv"
     )
       .then((r) => r.text())
       .then((csv) => {
