@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Real Madrid CF Castila",
+  title: "Real Madrid CF Castilla",
   description: "Plataforma Real Madrid CF Castilla",
   manifest: "/manifest.json",
   icons: {
