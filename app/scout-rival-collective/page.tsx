@@ -4,13 +4,14 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
+import { useSearchParams } from "next/navigation";
 export default function ScoutRivalCollective() {
   const [rivales, setRivales] = useState<any[]>([]);
   const [rivalActivo, setRivalActivo] = useState<any>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
-
+  const searchParams = useSearchParams();
+const rivalId = searchParams.get("id");
   const guardarRival = async () => {
     if (!rivalActivo) return;
 
@@ -57,9 +58,13 @@ if (data.success) {
       .then((data) => {
         setRivales(data);
 
-        if (data.length) {
-          setRivalActivo(data[0]);
-        }
+       if (data.length > 0) {
+  const rivalSeleccionado =
+    data.find((r: any) => String(r.ID) === rivalId) ||
+    data[0];
+
+  setRivalActivo(rivalSeleccionado);
+}
       });
   }, []);
 
@@ -219,10 +224,9 @@ const TituloBloque = ({
   </div>
 
   <div className="flex flex-col gap-3 sm:flex-row">
-
-  <Link
-    href="/plan-partido"
-    className="
+<Link
+  href={`/plan-partido?id=${rivalActivo?.ID}`}
+  className="
       flex
       items-center
       justify-center
@@ -235,9 +239,9 @@ const TituloBloque = ({
       transition
       hover:scale-105
     "
-  >
-    Plan de Partido
-  </Link>
+>
+  Plan de Partido
+</Link>
 
   {modoEdicion && (
     <button
