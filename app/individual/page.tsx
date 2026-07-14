@@ -628,6 +628,7 @@ useEffect(() => {
   };
 }, [selected]);
 useEffect(() => {
+  
   Promise.allSettled([
     fetch(
       `${APPS_SCRIPT_URL}?action=jugadores`
@@ -714,6 +715,10 @@ useEffect(() => {
 
   if (!jugador) return;
 
+console.log("JUGADOR ORIGINAL", jugador);
+console.log("CON_BALON:", jugador.CON_BALON);
+console.log("SIN_BALON:", jugador.SIN_BALON);
+console.log("MENTAL:", jugador.MENTAL);
   const player = players.find(
     (p) => p.idJugador === playerFromUrl
   );
