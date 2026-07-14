@@ -317,6 +317,13 @@ const players: Player[] = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+  {
+    idJugador: "JUG-27",
+    name: "Carvajal",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ANGEL-CARVAJAL_JT14583?$Desktop$&fit=wrap&wid=420",
+  },
 ];
 function normalize(text = "") {
   return text
