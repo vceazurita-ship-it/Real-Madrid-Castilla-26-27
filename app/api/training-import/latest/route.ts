@@ -17,6 +17,9 @@ export async function GET() {
 
     const jugadores = await response.json();
 
+    console.log("JUGADORES SESION");
+console.log(jugadores);
+
     const imageUrl =
       Array.isArray(jugadores) && jugadores.length > 0
         ? jugadores[0].IMAGE_URL ?? ""
