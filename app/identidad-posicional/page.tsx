@@ -183,6 +183,28 @@ export default function IdentidadPosicionalPage() {
 
     };
 
+const borrarItem = async (id: number) => {
+
+  if (!confirm("¿Eliminar este contenido?")) return;
+
+  try {
+
+    await fetch(
+      `${API}?action=borrarIdentidadPosicional&ID=${id}`
+    );
+
+    setData(prev => prev.filter(x => x.ID !== id));
+    setOriginalData(prev => prev.filter(x => x.ID !== id));
+
+  } catch (err) {
+    console.error(err);
+  }
+
+};
+
+
+    
+
   return (
 
     <div className="flex min-h-screen bg-[#0B0F14]">
@@ -390,9 +412,18 @@ export default function IdentidadPosicionalPage() {
 
                         {editing ? (
 
-                          <div className="space-y-3">
+  <div className="space-y-3">
 
-                            <textarea
+    <div className="flex justify-end">
+      <button
+        onClick={() => borrarItem(item.ID)}
+        className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
+      >
+        Eliminar
+      </button>
+    </div>
+
+    <textarea
                               value={item.CONTENIDO}
                               rows={2}
                               onChange={(e) => {
@@ -520,9 +551,18 @@ export default function IdentidadPosicionalPage() {
 
                         {editing ? (
 
-                          <div className="space-y-3">
+  <div className="space-y-3">
 
-                            <textarea
+    <div className="flex justify-end">
+      <button
+        onClick={() => borrarItem(item.ID)}
+        className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
+      >
+        Eliminar
+      </button>
+    </div>
+
+    <textarea
                               value={item.CONTENIDO}
                               rows={2}
                               onChange={(e) => {
