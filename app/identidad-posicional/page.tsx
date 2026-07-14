@@ -477,9 +477,9 @@ export default function IdentidadPosicionalPage() {
 
                                 {item.OBSERVACIONES && (
 
-                                  <p className="mt-2 text-sm text-gray-500">
-                                    {item.OBSERVACIONES}
-                                  </p>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-500">
+  {item.OBSERVACIONES}
+</p>
 
                                 )}
 
@@ -607,9 +607,9 @@ export default function IdentidadPosicionalPage() {
 
                                 {item.OBSERVACIONES && (
 
-                                  <p className="mt-2 text-sm text-gray-500">
-                                    {item.OBSERVACIONES}
-                                  </p>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-500">
+  {item.OBSERVACIONES}
+</p>
 
                                 )}
 
