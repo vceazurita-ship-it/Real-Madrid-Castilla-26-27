@@ -37,11 +37,14 @@ const SHEET_INFORMES =
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
-  const DEFAULT_STRENGTH =
-  "Fortalezas por definir";
+  const DEFAULT_CON_BALON =
+  "Contenido por definir";
 
-const DEFAULT_IMPROVEMENT =
-  "Aspectos de mejora por definir";
+const DEFAULT_SIN_BALON =
+  "Contenido por definir";
+
+const DEFAULT_MENTAL =
+  "Contenido por definir";
 
 const DEFAULT_STRENGTH_VIDEO =
   "https://drive.google.com/file/d/1yZYbrjeocPk-MiG_OCO-t1hzMyv54lAY/preview";
@@ -55,9 +58,10 @@ type Player = {
   position: string;
   photo: string;
 
-  fortalezas?: string;
-  aspectosMejora?: string;
-  hudlPerfilUrl?: string;
+  conBalon?: string;
+sinBalon?: string;
+mental?: string;
+hudlPerfilUrl?: string;
 
   mentalidad?: number;
   habitos?: number;
@@ -553,8 +557,9 @@ const [videoForm, setVideoForm] =
   });
 const [profileForm, setProfileForm] =
   useState({
-    strengths: "",
-    improvements: "",
+    conBalon: "",
+    sinBalon: "",
+    mental: "",
     hudlPerfilUrl: "",
 
     mentalidad: "",
@@ -716,11 +721,14 @@ useEffect(() => {
   if (!player) return;
 
   setSelected({
-    ...player,
+  ...player,
 
-    fortalezas: jugador.FORTALEZAS,
+  conBalon: jugador.CON_BALON,
 
-    aspectosMejora: jugador.ASPECTOS_MEJORA,
+  sinBalon: jugador.SIN_BALON,
+
+  mental: jugador.MENTAL,
+
 
     hudlPerfilUrl: jugador.HUDL_PERFIL_URL,
 
@@ -937,8 +945,9 @@ const saveProfile = async () => {
       action: "editarPerfil",
       ID_JUGADOR: selected.idJugador,
 
-      FORTALEZAS: profileForm.strengths,
-      ASPECTOS_MEJORA: profileForm.improvements,
+      CON_BALON: profileForm.conBalon,
+SIN_BALON: profileForm.sinBalon,
+MENTAL: profileForm.mental,
 HUDL_PERFIL_URL:
   profileForm.hudlPerfilUrl,
 
@@ -985,10 +994,9 @@ HUDL_PERFIL_URL:
           selected.idJugador
             ? {
                 ...row,
-                FORTALEZAS:
-                  profileForm.strengths,
-                ASPECTOS_MEJORA:
-                  profileForm.improvements,
+                CON_BALON: profileForm.conBalon,
+SIN_BALON: profileForm.sinBalon,
+MENTAL: profileForm.mental,
 
                 MENTALIDAD:
                   profileForm.mentalidad,
@@ -1010,11 +1018,14 @@ HUDL_PERFIL_URL:
     ? {
         ...prev,
 
-        fortalezas:
-          profileForm.strengths,
+        conBalon:
+  profileForm.conBalon,
 
-        aspectosMejora:
-          profileForm.improvements,
+sinBalon:
+  profileForm.sinBalon,
+
+mental:
+  profileForm.mental,
 
         hudlPerfilUrl:
           profileForm.hudlPerfilUrl,
@@ -1237,13 +1248,17 @@ const mergedPlayers =
       return {
         ...p,
 
-        fortalezas:
-          row.FORTALEZAS ||
-          DEFAULT_STRENGTH,
+        conBalon:
+  row.CON_BALON ||
+  DEFAULT_CON_BALON,
 
-        aspectosMejora:
-          row.ASPECTOS_MEJORA ||
-          DEFAULT_IMPROVEMENT,
+sinBalon:
+  row.SIN_BALON ||
+  DEFAULT_SIN_BALON,
+
+mental:
+  row.MENTAL ||
+  DEFAULT_MENTAL,
 
         hudlPerfilUrl:
           row.HUDL_PERFIL_URL || "",
@@ -1546,7 +1561,7 @@ const playerReport = selected
             />
 
             <h2 className="mt-5 text-3xl font-semibold">
-  {selected.name}
+  {selected.name} 
 </h2>
 
 <p className="mt-2 text-gray-400">
@@ -1736,17 +1751,19 @@ tracking-wide
     </h2>
 
     <button
-      onClick={() => {
-        setProfileForm({
-          strengths: selected.fortalezas || "",
-          improvements: selected.aspectosMejora || "",
-          hudlPerfilUrl: selected.hudlPerfilUrl || "",
-          mentalidad: String(selected.mentalidad || ""),
-          habitos: String(selected.habitos || ""),
-          interpretacion: String(selected.interpretacion || ""),
-          capacidadFisica: String(selected.capacidadFisica || ""),
-          tecnica: String(selected.tecnica || ""),
-        });
+  onClick={() => {
+    setProfileForm({
+      conBalon: selected.conBalon || "",
+      sinBalon: selected.sinBalon || "",
+      mental: selected.mental || "",
+      hudlPerfilUrl: selected.hudlPerfilUrl || "",
+
+      mentalidad: String(selected.mentalidad || ""),
+      habitos: String(selected.habitos || ""),
+      interpretacion: String(selected.interpretacion || ""),
+      capacidadFisica: String(selected.capacidadFisica || ""),
+      tecnica: String(selected.tecnica || ""),
+    });
 
         setShowProfileForm(true);
       }}
@@ -1786,30 +1803,40 @@ tracking-wide
 
       Editar perfil
     </button>
+  </div></div>
+<div className="space-y-10">
+  {/* CON BALÓN */}
+  <div>
+    <h3 className="mb-3 text-[#C8A96B]">
+      Con balón
+    </h3>
+
+    <p className="mb-6 whitespace-pre-line text-gray-300">
+      {selected.conBalon || DEFAULT_CON_BALON}
+    </p>
   </div>
-</div>
-    <div className="space-y-10">
-           {/* FORTALEZAS */}
-<div>
-  <h3 className="mb-3 text-[#C8A96B]">
-    Fortalezas
-  </h3>
 
-  <p className="mb-6 text-gray-300 whitespace-pre-line">
-    {selected.fortalezas}
-  </p>
-</div>
+  {/* SIN BALÓN */}
+  <div>
+    <h3 className="mb-3 text-[#C8A96B]">
+      Sin balón
+    </h3>
 
-{/* ASPECTOS DE MEJORA */}
-<div>
-  <h3 className="mb-3 text-[#C8A96B]">
-    Aspectos de mejora
-  </h3>
+    <p className="mb-6 whitespace-pre-line text-gray-300">
+      {selected.sinBalon || DEFAULT_SIN_BALON}
+    </p>
+  </div>
 
-  <p className="mb-6 text-gray-300 whitespace-pre-line">
-    {selected.aspectosMejora}
-  </p>
-</div>
+  {/* MENTAL */}
+  <div>
+    <h3 className="mb-3 text-[#C8A96B]">
+      Mental
+    </h3>
+
+    <p className="mb-6 whitespace-pre-line text-gray-300">
+      {selected.mental || DEFAULT_MENTAL}
+    </p>
+  </div>
 
 {selected.hudlPerfilUrl && (
   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -2507,28 +2534,41 @@ tracking-wide
       <div className="grid gap-4">
 
         <textarea
-          placeholder="Fortalezas"
-          value={profileForm.strengths}
+  placeholder="Con balón"
+  value={profileForm.conBalon}
           onChange={(e) =>
             setProfileForm({
               ...profileForm,
-              strengths: e.target.value,
+      conBalon:e.target.value,
             })
           }
           className="rounded-xl bg-white/5 p-3 min-h-[120px]"
         />
 
         <textarea
-          placeholder="Aspectos de mejora"
-          value={profileForm.improvements}
+          placeholder="Sin balón"
+  value={profileForm.sinBalon}
           onChange={(e) =>
             setProfileForm({
               ...profileForm,
-              improvements: e.target.value,
+      sinBalon:e.target.value,
             })
           }
           className="rounded-xl bg-white/5 p-3 min-h-[120px]"
         />
+
+          <textarea
+          placeholder="Mental"
+  value={profileForm.mental}
+          onChange={(e) =>
+            setProfileForm({
+              ...profileForm,
+      mental:e.target.value,
+            })
+          }
+          className="rounded-xl bg-white/5 p-3 min-h-[120px]"
+        />
+
         <input
   placeholder="URL perfil Hudl"
   value={profileForm.hudlPerfilUrl}
