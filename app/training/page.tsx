@@ -33,6 +33,25 @@ export default function ImportTrainingPage() {
   Record<string, string>
 >({});
 
+useEffect(() => {
+  const loadLastSession = async () => {
+    try {
+      const res = await fetch("/api/training-import/latest");
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      console.log("LAST SESSION", data);
+
+      setInitialImageUrl(data.imageUrl ?? "");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  loadLastSession();
+}, []);
 
 
 const getPlayerStatus = (name: string) => {
