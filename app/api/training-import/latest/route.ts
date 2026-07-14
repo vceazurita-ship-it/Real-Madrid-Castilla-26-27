@@ -5,11 +5,11 @@ const APPS_SCRIPT = process.env.APPS_SCRIPT_URL!;
 export async function GET() {
   try {
     const response = await fetch(
-      `${APPS_SCRIPT}?action=getJugadoresSesion`,
-      {
-        cache: "no-store",
-      }
-    );
+  `${APPS_SCRIPT}?action=jugadoresSesion`,
+  {
+    cache: "no-store",
+  }
+);
 
     if (!response.ok) {
       throw new Error("No se pudo obtener la última sesión.");
