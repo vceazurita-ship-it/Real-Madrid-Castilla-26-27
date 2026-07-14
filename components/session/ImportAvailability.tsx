@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { uploadFile } from "@/lib/uploadFile";
+import Image from "next/image";
 
 export interface TrainingPlayer {
   detected: string;
@@ -42,10 +44,14 @@ export interface TrainingImport {
 }
 
 type Props = {
+  initialImageUrl?: string;
   onImport: (data: TrainingImport) => void;
 };
 
-export default function ImportAvailability({ onImport }: Props) {
+export default function ImportAvailability({
+  initialImageUrl,
+  onImport,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
@@ -76,10 +82,13 @@ export default function ImportAvailability({ onImport }: Props) {
     setLoading(true);
 
     try {
-      const formData = new FormData();
+  const upload = await uploadFile(file, "training");
 
-formData.append("image", file);
-formData.append("fecha", fecha);
+  const formData = new FormData();
+
+  formData.append("image", file);
+  formData.append("imageUrl", upload.url);
+  formData.append("fecha", fecha);
 
       const response = await fetch("/api/training-import", {
   method: "POST",
@@ -138,7 +147,7 @@ toast.success("Disponibilidad importada correctamente.");
         inputRef.current.value = "";
       }
     }
-  };
+    };
 
   return (
     <div className="flex flex-col gap-3">
@@ -174,6 +183,22 @@ toast.success("Disponibilidad importada correctamente.");
         <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
           <ImageIcon className="h-4 w-4" />
           <span className="truncate">{fileName}</span>
+        </div>
+      )}
+
+      {initialImageUrl && !fileName && (
+        <div className="mt-4">
+          <p className="mb-2 text-sm text-white/60">
+            Última imagen importada
+          </p>
+
+          <Image
+            src={initialImageUrl}
+            alt="Última sesión"
+            width={700}
+            height={400}
+            className="rounded-xl border border-white/10"
+          />
         </div>
       )}
 

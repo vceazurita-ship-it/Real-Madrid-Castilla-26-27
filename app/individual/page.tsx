@@ -1752,7 +1752,7 @@ tracking-wide
 <div className="relative border-b border-white/10 pb-6">
   <div className="flex items-center justify-between pr-24">
     <h2 className="text-3xl font-semibold tracking-tight">
-      Perfil del jugador
+      Aspectos de mejora
     </h2>
 
     <button
@@ -2533,7 +2533,7 @@ tracking-wide
       "
     >
       <h3 className="mb-6 text-2xl font-semibold text-[#C8A96B]">
-        Editar perfil
+        Editar
       </h3>
 
       <div className="grid gap-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 
@@ -14,6 +14,8 @@ import ImportAvailability, {
 export default function ImportTrainingPage() {
   const [trainingImport, setTrainingImport] =
     useState<TrainingImport | null>(null);
+    const [initialImageUrl, setInitialImageUrl] =
+  useState("");
 
   const [licencias, setLicencias] = useState<
     Record<string, string>
@@ -30,6 +32,8 @@ export default function ImportTrainingPage() {
   const [availabilityStatus, setAvailabilityStatus] = useState<
   Record<string, string>
 >({});
+
+
 
 const getPlayerStatus = (name: string) => {
   if (trainingImport?.promotion.some(p => p.detected === name))
@@ -242,7 +246,8 @@ setAvailabilityStatus((prev) => ({
             "
           >
             <ImportAvailability
- onImport={(data) => {
+  initialImageUrl={initialImageUrl}
+  onImport={(data) => {
 
   localStorage.setItem(
     "training-session-players",

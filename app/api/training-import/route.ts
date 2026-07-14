@@ -314,6 +314,8 @@ const fecha =
   (formData.get("fecha") as string) ??
   new Date().toISOString().slice(0, 10);
 const replace = formData.get("replace") === "true";
+const imageUrl =
+  (formData.get("imageUrl") as string) ?? "";
 
 // ¿Existe ya una sesión para esa fecha?
 const existsResponse = await fetch(
@@ -343,11 +345,12 @@ const saveResponse = await fetch(APPS_SCRIPT, {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    action: "appendSessionStatus",
-    fecha,
-    replace,
-    players: playersForSession,
-  }),
+  action: "appendSessionStatus",
+  fecha,
+  replace,
+  imageUrl,
+  players: playersForSession,
+}),
 });
 
 const saveResult = await saveResponse.json();
