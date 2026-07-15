@@ -139,9 +139,17 @@ useState<MicrocycleRecord[]>([]);
 useEffect(() => {
   fetch(`${APPS_SCRIPT_URL}?action=microciclo`)
     .then((r) => r.json())
-    .then((data) => setMicrocycleData(data))
-    console.log("MICROCICLO:", data);
+    .then((data) => {
+      console.log("MICROCICLO:", data);
       console.log("Es array:", Array.isArray(data));
+
+      if (Array.isArray(data)) {
+        setMicrocycleData(data);
+      } else {
+        console.error(data);
+        setMicrocycleData([]);
+      }
+    })
     .catch(console.error);
 }, []);
 
