@@ -47,9 +47,12 @@ const [nuevo, setNuevo] =
 
 const cargarDatos = async () => {
 
-  const r = await fetch(
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv"
-  );
+const r = await fetch(
+  `https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv&t=${Date.now()}`,
+  {
+    cache: "no-store",
+  }
+);
 
   const csv = await r.text();
 
@@ -200,7 +203,8 @@ const borrarItem = async (id: number) => {
       `${API}?action=borrarIdentidadPosicional&ID=${id}`
     );
 
-    await cargarDatos();
+    setData(prev => prev.filter(x => x.ID !== id));
+setOriginalData(prev => prev.filter(x => x.ID !== id));
 
   } catch (err) {
     console.error(err);
