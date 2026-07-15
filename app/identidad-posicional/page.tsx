@@ -13,7 +13,6 @@ type PosicionItem = {
   TITULO: string;
   CONTENIDO: string;
   ORDEN: number;
-  OBSERVACIONES?: string;
   ACTIVO?: string;
 };
 
@@ -41,7 +40,6 @@ const [nuevo, setNuevo] =
   useState({
     BLOQUE: "CON BALÓN",
     CONTENIDO: "",
-    OBSERVACIONES: "",
     ORDEN: "",
   }); 
 
@@ -143,12 +141,7 @@ const r = await fetch(
             return (
 
               original?.CONTENIDO !==
-                item.CONTENIDO ||
-
-              (original?.OBSERVACIONES ||
-                "") !==
-                (item.OBSERVACIONES ||
-                  "")
+                item.CONTENIDO             
 
             );
 
@@ -172,8 +165,6 @@ const r = await fetch(
 
               `${API}?action=guardarIdentidadPosicional&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
                 p.CONTENIDO
-              )}&OBSERVACIONES=${encodeURIComponent(
-                p.OBSERVACIONES || ""
               )}`
 
             )
@@ -226,7 +217,7 @@ const crearItem = async () => {
       `&POSICION=${encodeURIComponent(posicion)}` +
       `&BLOQUE=${encodeURIComponent(nuevo.BLOQUE)}` +
       `&CONTENIDO=${encodeURIComponent(nuevo.CONTENIDO)}` +
-      `&OBSERVACIONES=${encodeURIComponent(nuevo.OBSERVACIONES)}` +
+      
       `&ORDEN=${encodeURIComponent(nuevo.ORDEN)}`
     );
 
@@ -236,7 +227,6 @@ const crearItem = async () => {
 setNuevo({
   BLOQUE: "CON BALÓN",
   CONTENIDO: "",
-  OBSERVACIONES: "",
   ORDEN: "",
 });
 
@@ -487,7 +477,7 @@ await cargarDatos();
 
     <textarea
                               value={item.CONTENIDO}
-                              rows={2}
+                              rows={Math.max(2, item.CONTENIDO.split("\n").length)}
                               onChange={(e) => {
 
                                 setData((prev) =>
@@ -504,50 +494,17 @@ await cargarDatos();
 
                               }}
                               className="
-                                w-full
-                                rounded-xl
-                                border
-                                border-white/10
-                                bg-black/30
-                                p-3
-                                text-white
-                                outline-none
-                              "
-                            />
-
-                            <textarea
-                              value={
-                                item.OBSERVACIONES ||
-                                ""
-                              }
-                              rows={2}
-                              placeholder="Observaciones..."
-                              onChange={(e) => {
-
-                                setData((prev) =>
-                                  prev.map((x) =>
-                                    x.ID === item.ID
-                                      ? {
-                                          ...x,
-                                          OBSERVACIONES:
-                                            e.target.value,
-                                        }
-                                      : x
-                                  )
-                                );
-
-                              }}
-                              className="
-                                w-full
-                                rounded-xl
-                                border
-                                border-white/10
-                                bg-black/30
-                                p-3
-                                text-sm
-                                text-gray-300
-                                outline-none
-                              "
+  w-full
+  rounded-xl
+  border
+  border-white/10
+  bg-black/30
+  p-3
+  text-white
+  outline-none
+  whitespace-pre-wrap
+  resize-y
+"
                             />
 
                           </div>
@@ -564,17 +521,11 @@ await cargarDatos();
 
                               <div className="flex-1">
 
-                                <p className="text-white leading-relaxed">
+                                <p className="whitespace-pre-wrap text-white leading-relaxed">
                                   {item.CONTENIDO}
                                 </p>
 
-                                {item.OBSERVACIONES && (
-
-                                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-500">
-  {item.OBSERVACIONES}
-</p>
-
-                                )}
+                                
 
                               </div>
 
@@ -626,7 +577,7 @@ await cargarDatos();
 
     <textarea
                               value={item.CONTENIDO}
-                              rows={2}
+                              rows={Math.max(2, item.CONTENIDO.split("\n").length)}
                               onChange={(e) => {
 
                                 setData((prev) =>
@@ -643,50 +594,17 @@ await cargarDatos();
 
                               }}
                               className="
-                                w-full
-                                rounded-xl
-                                border
-                                border-white/10
-                                bg-black/30
-                                p-3
-                                text-white
-                                outline-none
-                              "
-                            />
-
-                            <textarea
-                              value={
-                                item.OBSERVACIONES ||
-                                ""
-                              }
-                              rows={2}
-                              placeholder="Observaciones..."
-                              onChange={(e) => {
-
-                                setData((prev) =>
-                                  prev.map((x) =>
-                                    x.ID === item.ID
-                                      ? {
-                                          ...x,
-                                          OBSERVACIONES:
-                                            e.target.value,
-                                        }
-                                      : x
-                                  )
-                                );
-
-                              }}
-                              className="
-                                w-full
-                                rounded-xl
-                                border
-                                border-white/10
-                                bg-black/30
-                                p-3
-                                text-sm
-                                text-gray-300
-                                outline-none
-                              "
+  w-full
+  rounded-xl
+  border
+  border-white/10
+  bg-black/30
+  p-3
+  text-white
+  outline-none
+  whitespace-pre-wrap
+  resize-y
+"
                             />
 
                           </div>
@@ -703,18 +621,12 @@ await cargarDatos();
 
                               <div className="flex-1">
 
-                                <p className="text-white leading-relaxed">
+                                <p className="whitespace-pre-wrap text-white leading-relaxed">
+
                                   {item.CONTENIDO}
                                 </p>
 
-                                {item.OBSERVACIONES && (
-
-                                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-500">
-  {item.OBSERVACIONES}
-</p>
-
-                                )}
-
+                                
                               </div>
 
                             </div>
@@ -773,36 +685,27 @@ await cargarDatos();
     </label>
 
     <textarea
-      rows={3}
-      value={nuevo.CONTENIDO}
-      onChange={(e)=>
-        setNuevo({
-          ...nuevo,
-          CONTENIDO:e.target.value
-        })
-      }
-      className="mb-5 w-full rounded-xl bg-black/30 p-3 text-white"
-    />
-
-    <label className="mb-2 block text-sm text-gray-400">
-      Observaciones
-    </label>
-
-    <textarea
-      rows={3}
-      value={nuevo.OBSERVACIONES}
-      onChange={(e)=>
-        setNuevo({
-          ...nuevo,
-          OBSERVACIONES:e.target.value
-        })
-      }
-      className="mb-5 w-full rounded-xl bg-black/30 p-3 text-white"
-    />
-
-    <label className="mb-2 block text-sm text-gray-400">
-      Orden
-    </label>
+  rows={3}
+  value={nuevo.CONTENIDO}
+  onChange={(e) =>
+    setNuevo({
+      ...nuevo,
+      CONTENIDO: e.target.value,
+    })
+  }
+  className="
+    w-full
+    rounded-xl
+    border
+    border-white/10
+    bg-black/30
+    p-3
+    text-white
+    outline-none
+    whitespace-pre-wrap
+    resize-y
+  "
+/>
 
     <input
       type="number"
