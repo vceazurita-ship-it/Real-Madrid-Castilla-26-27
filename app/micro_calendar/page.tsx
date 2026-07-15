@@ -140,6 +140,8 @@ useEffect(() => {
   fetch(`${APPS_SCRIPT_URL}?action=microciclo`)
     .then((r) => r.json())
     .then((data) => setMicrocycleData(data))
+    console.log("MICROCICLO:", data);
+      console.log("Es array:", Array.isArray(data));
     .catch(console.error);
 }, []);
 
