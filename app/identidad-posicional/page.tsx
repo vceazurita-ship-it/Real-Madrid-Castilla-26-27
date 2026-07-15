@@ -42,36 +42,29 @@ const [nuevo, setNuevo] =
     CONTENIDO: "",
     ORDEN: "",
   }); 
-
 const cargarDatos = async () => {
 
-const r = await fetch(
-  `https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv&t=${Date.now()}`,
-  {
-    cache: "no-store",
-  }
-);
+  const r = await fetch(
+    `${API}?action=getIdentidadPosicional&t=${Date.now()}`,
+    {
+      cache: "no-store",
+    }
+  );
 
-  const csv = await r.text();
+  const rows: PosicionItem[] = await r.json();
 
-  const parsed =
-    Papa.parse<PosicionItem>(csv, {
-      header: true,
-      skipEmptyLines: true,
-    });
-
-  const rows =
-    parsed.data.filter(
+  const activos =
+    rows.filter(
       (r) =>
         String(r.ACTIVO).toUpperCase() !== "FALSE"
     );
 
-  setData(rows);
+  setData(activos);
 
-  setOriginalData(structuredClone(rows));
+  setOriginalData(structuredClone(activos));
 
-  if (rows.length > 0) {
-    setPosicion((p) => p || rows[0].POSICION);
+  if (activos.length > 0) {
+    setPosicion((p) => p || activos[0].POSICION);
   }
 
 };
@@ -203,12 +196,7 @@ setOriginalData(prev => prev.filter(x => x.ID !== id));
 
 };
 
-const esperarActualizacion = async () => {
-  for (let i = 0; i < 5; i++) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await cargarDatos();
-  }
-};
+
 
 const crearItem = async () => {
 
@@ -237,7 +225,7 @@ setNuevo({
   ORDEN: "",
 });
 
-await esperarActualizacion();
+await cargarDatos();
   } catch (err) {
     console.error(err);
   }
