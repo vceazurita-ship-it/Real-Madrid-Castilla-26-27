@@ -20,7 +20,7 @@ import {
   Radar,
   ResponsiveContainer,
 } from "recharts";
-const VISIBLE_CARDS = 4;
+const VISIBLE_CARDS = 10;
 
 const SHEET_JUGADORES =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
@@ -461,33 +461,31 @@ function CarouselRow({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-        {visible.map((player) => (
-          <button
-            key={player.name}
-            onClick={() =>
-              onSelect(player)
-            }
-            className="rounded-3xl border border-white/10 bg-white/[0.04] p-3 sm:p-4 lg:p-5 text-center"
-          >
-            <div className="flex justify-center">
-              <img
-                src={player.photo}
-                alt={player.name}
-                className="h-[120px] w-[90px] sm:h-[140px] sm:w-[110px] lg:h-[150px] lg:w-[120px] rounded-2xl object-cover object-top"
-              />
-            </div>
-
-            <h3 className="mt-4 text-base font-semibold">
-              {player.name}
-            </h3>
-
-            <p className="mt-1 text-sm text-gray-400">
-              {player.position}
-            </p>
-          </button>
-        ))}
+      <div className="grid grid-cols-5 gap-3">
+  {visible.map((player) => (
+    <button
+      key={player.name}
+      onClick={() => onSelect(player)}
+      className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 text-center hover:bg-white/[0.06] transition"
+    >
+      <div className="flex justify-center">
+        <img
+          src={player.photo}
+          alt={player.name}
+          className="h-[100px] w-[75px] rounded-xl object-cover object-top"
+        />
       </div>
+
+      <h3 className="mt-2 text-sm font-semibold leading-tight">
+        {player.name}
+      </h3>
+
+      <p className="text-[11px] text-gray-400">
+        {player.position}
+      </p>
+    </button>
+  ))}
+</div>
     </div>
   );
 }
