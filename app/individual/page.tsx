@@ -20,7 +20,7 @@ import {
   Radar,
   ResponsiveContainer,
 } from "recharts";
-const VISIBLE_CARDS = 10;
+const VISIBLE_CARDS = 15;
 
 const SHEET_JUGADORES =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
