@@ -589,6 +589,8 @@ const [profileForm, setProfileForm] =
   });
 const [playerFromUrl, setPlayerFromUrl] = useState("");
 
+
+
 useEffect(() => {
   const checkMobile = () => {
     const touchDevice =
@@ -754,6 +756,9 @@ console.log("MENTAL:", jugador.MENTAL);
   });
 window.history.replaceState({}, "", "/individual");
 }, [playerFromUrl, sheetData]);
+
+
+
 const saveTracking = async () => {
   if (!selected) return;
 
@@ -1296,7 +1301,28 @@ mental:
     });
   }, [sheetData]);
 
-// 👇 AQUÍ
+const currentIndex = selected
+  ? mergedPlayers.findIndex(
+      (p) => p.idJugador === selected.idJugador
+    )
+  : -1;
+
+const previousPlayer =
+  currentIndex >= 0
+    ? mergedPlayers[
+        (currentIndex - 1 + mergedPlayers.length) %
+          mergedPlayers.length
+      ]
+    : null;
+
+const nextPlayer =
+  currentIndex >= 0
+    ? mergedPlayers[
+        (currentIndex + 1) %
+          mergedPlayers.length
+      ]
+    : null;
+
 useEffect(() => {
   if (!selected) return;
 
@@ -1334,7 +1360,29 @@ useEffect(() => {
     setActiveTab("perfil");
 
 }, [playerFromUrl, players, mergedPlayers]);
+useEffect(() => {
+  if (!selected) return;
 
+  const handleKey = (e: KeyboardEvent) => {
+    if (e.key === "ArrowLeft" && previousPlayer) {
+      setSelected(previousPlayer);
+    }
+
+    if (e.key === "ArrowRight" && nextPlayer) {
+      setSelected(nextPlayer);
+    }
+
+    if (e.key === "Escape") {
+      setSelected(null);
+    }
+  };
+
+  window.addEventListener("keydown", handleKey);
+
+  return () =>
+    window.removeEventListener("keydown", handleKey);
+
+}, [selected, previousPlayer, nextPlayer]);
 const filtered =
   mergedPlayers.filter((p) =>
     normalize(p.name).includes(
@@ -1577,6 +1625,9 @@ const playerReport = selected
 <p className="mt-2 text-gray-400">
   {selected.position}
 </p>
+<p className="text-sm text-[#C8A96B]">
+  {currentIndex + 1} / {mergedPlayers.length}
+</p>
     
   <div className="mt-6 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
   {[
@@ -1754,6 +1805,48 @@ tracking-wide
           </div>
         {activeTab === "perfil" && (
   <div className="space-y-6">
+    <button
+  onClick={() =>
+    previousPlayer &&
+    setSelected(previousPlayer)
+  }
+  className="
+    absolute
+    left-6
+    top-1/2
+    -translate-y-1/2
+    z-[100000]
+    rounded-full
+    border
+    border-white/10
+    bg-[#11161C]
+    p-4
+    hover:bg-white/10
+  "
+>
+  <ChevronLeft className="h-6 w-6" />
+</button>
+<button
+  onClick={() =>
+    nextPlayer &&
+    setSelected(nextPlayer)
+  }
+  className="
+    absolute
+    right-6
+    top-1/2
+    -translate-y-1/2
+    z-[100000]
+    rounded-full
+    border
+    border-white/10
+    bg-[#11161C]
+    p-4
+    hover:bg-white/10
+  "
+>
+  <ChevronRight className="h-6 w-6" />
+</button>
 <div className="relative border-b border-white/10 pb-6">
   <div className="flex items-center justify-between pr-24">
     <h2 className="text-3xl font-semibold tracking-tight">
