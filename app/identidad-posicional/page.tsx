@@ -45,34 +45,33 @@ const [nuevo, setNuevo] =
     ORDEN: "",
   }); 
 
-const cargarDatos = () => {
+const cargarDatos = async () => {
 
-  fetch(
+  const r = await fetch(
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv"
-  )
-    .then((r) => r.text())
-    .then((csv) => {
+  );
 
-      const parsed =
-        Papa.parse<PosicionItem>(csv, {
-          header: true,
-          skipEmptyLines: true,
-        });
+  const csv = await r.text();
 
-      const rows =
-        parsed.data.filter(
-          (r) =>
-            String(r.ACTIVO).toUpperCase() !== "FALSE"
-        );
-
-      setData(rows);
-      setOriginalData(structuredClone(rows));
-
-      if (rows.length > 0) {
-        setPosicion((p) => p || rows[0].POSICION);
-      }
-
+  const parsed =
+    Papa.parse<PosicionItem>(csv, {
+      header: true,
+      skipEmptyLines: true,
     });
+
+  const rows =
+    parsed.data.filter(
+      (r) =>
+        String(r.ACTIVO).toUpperCase() !== "FALSE"
+    );
+
+  setData(rows);
+
+  setOriginalData(structuredClone(rows));
+
+  if (rows.length > 0) {
+    setPosicion((p) => p || rows[0].POSICION);
+  }
 
 };
 
@@ -95,9 +94,9 @@ const cargarDatos = () => {
     }, [data]);
 
   const contenidos =
-    useMemo(() => {
+  useMemo(() => {
 
-      return data
+      return [...data]
         .filter(
           (r) =>
             r.POSICION === posicion
@@ -181,7 +180,7 @@ const cargarDatos = () => {
         );
 
         setEditing(false);
-cargarDatos();
+await cargarDatos();
 
       } catch (err) {
 
@@ -201,7 +200,7 @@ const borrarItem = async (id: number) => {
       `${API}?action=borrarIdentidadPosicional&ID=${id}`
     );
 
-    cargarDatos();
+    await cargarDatos();
 
   } catch (err) {
     console.error(err);
@@ -237,7 +236,7 @@ setNuevo({
   ORDEN: "",
 });
 
-cargarDatos();
+await cargarDatos();
 
   } catch (err) {
     console.error(err);
