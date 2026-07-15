@@ -203,6 +203,13 @@ setOriginalData(prev => prev.filter(x => x.ID !== id));
 
 };
 
+const esperarActualizacion = async () => {
+  for (let i = 0; i < 5; i++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await cargarDatos();
+  }
+};
+
 const crearItem = async () => {
 
   if (!nuevo.CONTENIDO.trim()) {
@@ -230,8 +237,7 @@ setNuevo({
   ORDEN: "",
 });
 
-await cargarDatos();
-
+await esperarActualizacion();
   } catch (err) {
     console.error(err);
   }
