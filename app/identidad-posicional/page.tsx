@@ -45,40 +45,40 @@ const [nuevo, setNuevo] =
     ORDEN: "",
   }); 
 
-  useEffect(() => {
+const cargarDatos = () => {
 
-    fetch(
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv"
-    )
-      .then((r) => r.text())
-      .then((csv) => {
+  fetch(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=554039137&single=true&output=csv"
+  )
+    .then((r) => r.text())
+    .then((csv) => {
 
-        const parsed =
-          Papa.parse<PosicionItem>(csv, {
-            header: true,
-            skipEmptyLines: true,
-          });
+      const parsed =
+        Papa.parse<PosicionItem>(csv, {
+          header: true,
+          skipEmptyLines: true,
+        });
 
-        const rows =
-          parsed.data.filter(
-            (r) =>
-              String(r.ACTIVO).toUpperCase() !==
-              "FALSE"
-          );
-
-        setData(rows);
-
-        setOriginalData(
-          structuredClone(rows)
+      const rows =
+        parsed.data.filter(
+          (r) =>
+            String(r.ACTIVO).toUpperCase() !== "FALSE"
         );
 
-        if (rows.length > 0) {
-          setPosicion(rows[0].POSICION);
-        }
+      setData(rows);
+      setOriginalData(structuredClone(rows));
 
-      });
+      if (rows.length > 0) {
+        setPosicion((p) => p || rows[0].POSICION);
+      }
 
-  }, []);
+    });
+
+};
+
+ useEffect(() => {
+  cargarDatos();
+}, []);
 
   const posiciones =
     useMemo(() => {
@@ -180,11 +180,8 @@ const [nuevo, setNuevo] =
 
         );
 
-        setOriginalData(
-          structuredClone(data)
-        );
-
         setEditing(false);
+cargarDatos();
 
       } catch (err) {
 
@@ -204,8 +201,7 @@ const borrarItem = async (id: number) => {
       `${API}?action=borrarIdentidadPosicional&ID=${id}`
     );
 
-    setData(prev => prev.filter(x => x.ID !== id));
-    setOriginalData(prev => prev.filter(x => x.ID !== id));
+    cargarDatos();
 
   } catch (err) {
     console.error(err);
@@ -232,7 +228,16 @@ const crearItem = async () => {
     );
 
     // Lo más sencillo: recargar la página
-    window.location.reload();
+    setShowNuevo(false);
+
+setNuevo({
+  BLOQUE: "CON BALÓN",
+  CONTENIDO: "",
+  OBSERVACIONES: "",
+  ORDEN: "",
+});
+
+cargarDatos();
 
   } catch (err) {
     console.error(err);
