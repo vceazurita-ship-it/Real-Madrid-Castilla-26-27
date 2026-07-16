@@ -222,7 +222,7 @@ const getPhaseStyle = (fase: string) => {
   if (value.includes("abp"))
     return "bg-violet-500/15 text-violet-300 border border-violet-500/30";
 
-  if (value.includes("readapt"))
+  if (value.includes("glob"))
     return "bg-yellow-500/15 text-yellow-300 border border-yellow-500/30";
 
   return "bg-white/10 text-white/70 border border-white/10";
