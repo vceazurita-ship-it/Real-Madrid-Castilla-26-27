@@ -292,9 +292,7 @@ selectedTasks.reduce((acc, task) => {
   String(date.getDate()).padStart(2, "0");
 
 const dayTasks = microcycleData.filter(
-  (t) =>
-    typeof t.Fecha === "string" &&
-    t.Fecha.startsWith(key)
+  (t) => t.Fecha === key
 );
 const bloques = [
   ...new Set(
