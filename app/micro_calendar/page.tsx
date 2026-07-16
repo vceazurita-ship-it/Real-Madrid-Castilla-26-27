@@ -312,6 +312,16 @@ const hasTasks = dayTasks.length > 0;
 
     onClick={() => {
         console.log("CLICK", dayTasks);
+        console.log(
+  key,
+  dayTasks.length,
+  dayTasks.map(t => ({
+    fecha: t.Fecha,
+    principal: t["Contenido Principal"],
+    secundario: t["Contenido Secundario"],
+    tarea: t.Tarea,
+  }))
+);
 
         if (!hasTasks) return;
 
