@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Rocket,
   Activity,
+  BookOpen,
   BarChart3,
   User,
   ClipboardCheck,
@@ -81,6 +82,14 @@ const modules = [
     icon: Users,
     glow: "emerald",
   },
+  {
+  href: "/micro_calendar",
+  section: "METODOLOGÍA",
+  title: "Contenidos Microciclo",
+  desc: "Planificación de contenidos ofensivos, defensivos y ABP durante la semana",
+  icon: BookOpen,
+  glow: "amber",
+},
   {
     href: "/microcycles",
     section: "METODOLOGÍA",
