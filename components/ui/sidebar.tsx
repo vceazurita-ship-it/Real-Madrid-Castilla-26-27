@@ -213,7 +213,7 @@ const navLink = (
 
   <div className="space-y-2 text-sm">
     {navLink(
-  "/microcycle_contents",
+  "/micro_calendar",
   "Contenidos Microciclo",
   <BookOpen size={18} />
 )}
