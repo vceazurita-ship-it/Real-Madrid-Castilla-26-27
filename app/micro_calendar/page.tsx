@@ -142,6 +142,8 @@ useEffect(() => {
     .then((data) => {
       console.log("MICROCICLO:", data);
       console.log("Es array:", Array.isArray(data));
+            console.log("Claves:", Object.keys(data[0]));
+
 
       if (Array.isArray(data)) {
         setMicrocycleData(data);
@@ -368,10 +370,10 @@ md:text-sm
             </div>
 
             <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
-{bloques.map(bloque => (
-   <div>
-      {bloque}
-   </div>
+{bloques.map((bloque) => (
+  <div key={bloque}>
+    {bloque}
+  </div>
 ))}
                 </div>
               
@@ -388,7 +390,7 @@ md:text-sm
 
             </div>
           </div>
-          {selectedDate && (
+  {/*         {selectedDate && (
     <div
     className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     onClick={() => {
@@ -473,7 +475,7 @@ md:text-sm
         </div>
 
     </div>
-)}
+)}*/}
         </section>
       </div>
     </main>
