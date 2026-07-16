@@ -3,7 +3,13 @@
 import { useMemo, useState, useEffect } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Dumbbell,
+  Brain,
+} from "lucide-react";
 
 import { useRouter } from "next/navigation";
 
@@ -179,6 +185,48 @@ selectedTasks.reduce((acc, task) => {
    return acc;
 
 }, {} as Record<string, MicrocycleRecord[]>);
+const MetricBar = ({
+  value,
+  max = 100,
+}: {
+  value: number;
+  max?: number;
+}) => (
+  <div className="w-full">
+    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+      <div
+        className="h-full rounded-full bg-[#C8A96B]"
+        style={{
+          width: `${Math.min((value / max) * 100, 100)}%`,
+        }}
+      />
+    </div>
+  </div>
+);
+
+const getPhaseStyle = (fase: string) => {
+  const value = (fase || "").toLowerCase();
+
+  if (value.includes("ofens"))
+    return "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
+
+  if (value.includes("defens"))
+    return "bg-red-500/15 text-red-300 border border-red-500/30";
+
+  if (value.includes("tr ofens"))
+    return "bg-sky-500/15 text-sky-300 border border-sky-500/30";
+
+  if (value.includes("tr defens"))
+    return "bg-orange-500/15 text-orange-300 border border-orange-500/30";
+
+  if (value.includes("abp"))
+    return "bg-violet-500/15 text-violet-300 border border-violet-500/30";
+
+  if (value.includes("readapt"))
+    return "bg-yellow-500/15 text-yellow-300 border border-yellow-500/30";
+
+  return "bg-white/10 text-white/70 border border-white/10";
+};
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -457,21 +505,87 @@ md:text-sm
 
     <div className="space-y-2">
 
-      {tareas.map((t) => (
+{tareas.map((t) => (
 
-        <div
-          key={t.Tarea + t["Contenido Secundario"]}
-          className="flex justify-between text-sm"
-        >
-          <span>{t["Contenido Secundario"]}</span>
+  <div
+    key={`${t.Tarea}-${t["Contenido Secundario"]}-${t.Tiempo}`}
+    className="rounded-2xl border border-white/10 bg-[#141B24] p-4 hover:border-[#C8A96B]/40 transition-all"
+  >
 
-          <span className="text-white/50">
-            {t.Tiempo}'
+    {/* Fase */}
+    <div
+  className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] mb-3 ${getPhaseStyle(
+    t.Fase
+  )}`}
+>
+  {t.Fase}
+</div>
+    {/* Contenido */}
+    <h4 className="text-base font-semibold text-white">
+      {t["Contenido Principal"]}
+    </h4>
+
+    <p className="mb-5 text-sm text-white/60">
+      {t["Contenido Secundario"]}
+    </p>
+
+    {/* Tiempo */}
+    <div className="mb-5 flex">
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#10151C] px-3 py-2">
+        <Clock3 size={15} className="text-[#C8A96B]" />
+        <span className="text-sm font-medium">
+          {t.Tiempo}'
+        </span>
+      </div>
+    </div>
+
+    {/* Carga física */}
+    <div className="mb-4">
+
+      <div className="mb-2 flex items-center justify-between">
+
+        <div className="flex items-center gap-2">
+          <Dumbbell size={16} className="text-[#C8A96B]" />
+          <span className="text-sm">
+            Carga física
           </span>
-
         </div>
 
-      ))}
+        <span className="text-sm font-semibold">
+          {t["Carga Ponderada"]}
+        </span>
+
+      </div>
+
+      <MetricBar value={Number(t["Carga Ponderada"])} />
+
+    </div>
+
+    {/* Carga cognitiva */}
+    <div>
+
+      <div className="mb-2 flex items-center justify-between">
+
+        <div className="flex items-center gap-2">
+          <Brain size={16} className="text-[#C8A96B]" />
+          <span className="text-sm">
+            Carga cognitiva
+          </span>
+        </div>
+
+        <span className="text-sm font-semibold">
+          {t["Carga Cog."]}
+        </span>
+
+      </div>
+
+      <MetricBar value={Number(t["Carga Cog."])} />
+
+    </div>
+
+  </div>
+
+))}
 
     </div>
 
