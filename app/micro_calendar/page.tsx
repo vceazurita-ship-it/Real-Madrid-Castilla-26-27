@@ -311,6 +311,8 @@ const hasTasks = dayTasks.length > 0;
     key={date.toISOString()}
 
     onClick={() => {
+        console.log("CLICK", dayTasks);
+
         if (!hasTasks) return;
 
 setSelectedDate(date);
@@ -390,7 +392,7 @@ md:text-sm
 
             </div>
           </div>
-  {/*         {selectedDate && (
+           {selectedDate && (
     <div
     className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
     onClick={() => {
@@ -475,7 +477,7 @@ md:text-sm
         </div>
 
     </div>
-)}*/}
+)}
         </section>
       </div>
     </main>
