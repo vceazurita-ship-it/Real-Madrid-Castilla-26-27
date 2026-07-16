@@ -15,6 +15,7 @@ import {
   ClipboardPen,
   CalendarDays,
   Flag,
+  BookOpen,
   Scale,
   HeartHandshake,
   Network,
@@ -211,7 +212,11 @@ const navLink = (
   )}
 
   <div className="space-y-2 text-sm">
-
+    {navLink(
+  "/microcycle_contents",
+  "Contenidos Microciclo",
+  <BookOpen size={18} />
+)}
     {navLink(
   "/training",
   "Jugadores Sesión",
