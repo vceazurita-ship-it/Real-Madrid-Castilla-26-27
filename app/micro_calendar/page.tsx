@@ -787,12 +787,13 @@ md:text-sm
         </div>
 
         <span className="text-sm font-semibold">
-          {t["Carga cognitiva"]}
+            {Math.round(Number(t["Carga cognitiva"]))}
+
         </span>
 
       </div>
 
-      <MetricBar value={Number(t["Carga cognitiva"])} />
+      <MetricBar value={Math.round(Number(t["Carga cognitiva"]))} />
 
     </div>
 
