@@ -1829,9 +1829,9 @@ tracking-wide
   onClick={() => previousPlayer && setSelected(previousPlayer)}
   className="
     absolute
-    left-3
-sm:left-5
-lg:-left-8
+    left-2
+    sm:left-4
+    lg:left-6
     top-1/2
     -translate-y-1/2
     z-[100001]
@@ -1859,9 +1859,9 @@ lg:-left-8
   onClick={() => nextPlayer && setSelected(nextPlayer)}
   className="
     absolute
-    right-3
-sm:right-5
-lg:-right-8
+    right-2
+    sm:right-4
+    lg:right-6
     top-1/2
     -translate-y-1/2
     z-[100001]
