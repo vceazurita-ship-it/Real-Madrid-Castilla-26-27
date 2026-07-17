@@ -185,6 +185,78 @@ selectedTasks.reduce((acc, task) => {
    return acc;
 
 }, {} as Record<string, MicrocycleRecord[]>);
+
+
+const sessionDays = useMemo(() => {
+
+  return [...new Set(
+    microcycleData.map(t => t.Fecha)
+  )].sort();
+
+}, [microcycleData]);
+
+const currentDayIndex =
+  selectedDate
+    ? sessionDays.findIndex(
+        d =>
+          d ===
+          selectedDate.toISOString().slice(0, 10)
+      )
+    : -1;
+
+ const openDay = (index: number) => {
+
+  const key = sessionDays[index];
+
+  if (!key) return;
+
+  const tasks = microcycleData.filter(
+    t => t.Fecha === key
+  );
+
+  setSelectedDate(new Date(key));
+  setSelectedTasks(tasks);
+
+};
+
+useEffect(() => {
+
+  if (!selectedDate) return;
+
+  const handle = (e: KeyboardEvent) => {
+
+    if (
+      e.key === "ArrowLeft" &&
+      currentDayIndex > 0
+    ) {
+      openDay(currentDayIndex - 1);
+    }
+
+    if (
+      e.key === "ArrowRight" &&
+      currentDayIndex < sessionDays.length - 1
+    ) {
+      openDay(currentDayIndex + 1);
+    }
+
+    if (e.key === "Escape") {
+      setSelectedDate(null);
+      setSelectedTasks([]);
+    }
+
+  };
+
+  window.addEventListener("keydown", handle);
+
+  return () =>
+    window.removeEventListener("keydown", handle);
+
+}, [
+  selectedDate,
+  currentDayIndex,
+  sessionDays
+]);
+
 const MetricBar = ({
   value,
   max = 100,
@@ -396,6 +468,10 @@ const getDayPhaseStyle = (fase: string) => {
 const dayTasks = microcycleData.filter(
   (t) => t.Fecha === key
 );
+const totalMinutes = dayTasks.reduce(
+  (sum, t) => sum + Number(t.Tiempo || 0),
+  0
+);
 const bloques = [
   ...new Set(
     dayTasks.map(
@@ -517,12 +593,46 @@ md:text-sm
             </div>
 
             <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
-{bloques.map((bloque) => (
-  <div key={bloque}>
-    {bloque}
-  </div>
-))}
-                </div>
+{bloques.map((bloque) => {
+
+  const minutos = dayTasks
+    .filter(
+      t => t["Contenido Principal"] === bloque
+    )
+    .reduce(
+      (s, t) => s + Number(t.Tiempo || 0),
+      0
+    );
+
+  const porcentaje =
+    totalMinutes > 0
+      ? (minutos / totalMinutes) * 100
+      : 0;
+
+  return (
+
+    <div key={bloque} className="mb-2">
+
+      <div className="text-xs truncate">
+        {bloque}
+      </div>
+
+      <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden">
+
+        <div
+          className="h-full rounded-full bg-[#C8A96B]"
+          style={{
+            width: `${porcentaje}%`,
+          }}
+        />
+
+      </div>
+
+    </div>
+
+  );
+
+})}                </div>
               
 
             </div>
@@ -548,27 +658,57 @@ md:text-sm
 
         <div onClick={(e) => e.stopPropagation()} className="bg-[#141B24] rounded-2xl w-[95%] max-w-xl max-h-[85vh] overflow-y-auto p-6">
 
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center justify-between mb-6">
 
-    <div>
+    <div className="flex items-center gap-4">
 
-        <h2 className="text-2xl font-semibold">
+  <button
+    disabled={currentDayIndex <= 0}
+    onClick={() => openDay(currentDayIndex - 1)}
+    className="
+      rounded-full
+      border
+      border-white/10
+      p-2
+      hover:border-[#C8A96B]
+      disabled:opacity-30
+    "
+  >
+    <ChevronLeft size={18} />
+  </button>
 
-            {selectedDate?.toLocaleDateString("es-ES", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-            })}
+  <div>
 
-        </h2>
+    <h2 className="text-2xl font-semibold">
+      {selectedDate?.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })}
+    </h2>
 
-        <p className="text-white/50">
+    <p className="text-white/50">
+      {selectedTasks.length} tareas
+    </p>
 
-            {selectedTasks.length} tareas
+  </div>
 
-        </p>
+  <button
+    disabled={currentDayIndex >= sessionDays.length - 1}
+    onClick={() => openDay(currentDayIndex + 1)}
+    className="
+      rounded-full
+      border
+      border-white/10
+      p-2
+      hover:border-[#C8A96B]
+      disabled:opacity-30
+    "
+  >
+    <ChevronRight size={18} />
+  </button>
 
-    </div>
+</div>
 
     <button
         onClick={() => {
