@@ -1596,28 +1596,30 @@ const playerReport = selected
       >
        <button
   onClick={() => setSelected(null)}
-  className="
-    absolute
-    top-4
-    right-4
-    sm:top-6
-    sm:right-6
-    z-[100001]
-    flex
-    h-12
-    w-12
-    items-center
-    justify-center
-    rounded-full
-    border
-    border-white/20
-    bg-black/70
-    backdrop-blur-md
-    shadow-xl
-    transition
-    hover:bg-[#C8A96B]
-    hover:text-black
-  "
+ className="
+  absolute
+  top-4
+  right-4
+  sm:top-6
+  sm:right-6
+  lg:top-10
+  lg:right-10
+  z-[100001]
+  flex
+  h-12
+  w-12
+  items-center
+  justify-center
+  rounded-full
+  border
+  border-white/20
+  bg-black/70
+  backdrop-blur-md
+  shadow-xl
+  transition
+  hover:bg-[#C8A96B]
+  hover:text-black
+"
 >
   <X className="h-6 w-6" />
 </button>
@@ -1827,9 +1829,9 @@ tracking-wide
   onClick={() => previousPlayer && setSelected(previousPlayer)}
   className="
     absolute
-    left-2
-    sm:left-4
-    lg:left-6
+    left-3
+sm:left-5
+lg:-left-8
     top-1/2
     -translate-y-1/2
     z-[100001]
@@ -1857,9 +1859,9 @@ tracking-wide
   onClick={() => nextPlayer && setSelected(nextPlayer)}
   className="
     absolute
-    right-2
-    sm:right-4
-    lg:right-6
+    right-3
+sm:right-5
+lg:-right-8
     top-1/2
     -translate-y-1/2
     z-[100001]
