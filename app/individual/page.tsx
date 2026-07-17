@@ -461,7 +461,7 @@ function CarouselRow({
         )}
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
   {visible.map((player) => (
     <button
       key={player.name}
@@ -472,7 +472,11 @@ function CarouselRow({
         <img
           src={player.photo}
           alt={player.name}
-          className="h-[100px] w-[75px] rounded-xl object-cover object-top"
+          className="
+h-[82px] w-[62px]
+sm:h-[90px] sm:w-[68px]
+lg:h-[100px] lg:w-[75px]
+"
         />
       </div>
 
@@ -1610,7 +1614,13 @@ const playerReport = selected
   <X className="h-5 w-5" />
 </button>
 
-        <div className="grid gap-6 lg:gap-8 md:grid-cols-[340px_1fr]">
+        <div className="
+grid
+gap-4
+md:gap-6
+lg:gap-8
+md:grid-cols-[320px_1fr]
+">
           <div>
             <img
               src={selected.photo}
@@ -1814,6 +1824,7 @@ tracking-wide
     absolute
     left-6
     top-1/2
+    hidden lg:flex
     -translate-y-1/2
     z-[100000]
     rounded-full
@@ -2372,7 +2383,7 @@ tracking-wide
         border-white/10
         bg-[#11161C]
         p-6
-        max-h-[90vh]
+        max-h-[95vh]
         overflow-y-auto
       "
     >
