@@ -1884,12 +1884,14 @@ tracking-wide
   <ChevronRight className="h-7 w-7" />
 </button>
 <div className="relative border-b border-white/10 pb-6">
-  <div className="flex items-center justify-between pr-24">
-    <h2 className="text-3xl font-semibold tracking-tight">
+  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+    <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
       Aspectos de mejora
     </h2>
 
     <button
+
   onClick={() => {
     setProfileForm({
       conBalon: selected.conBalon || "",
@@ -1908,15 +1910,19 @@ tracking-wide
       }}
       className="
         inline-flex
+        w-full
+        md:w-auto
         items-center
-        gap-3
+        justify-center
+        gap-2
         rounded-2xl
         border
         border-[#C8A96B]/20
         bg-[#C8A96B]
-        px-6
+        px-5
         py-3
-        text-base
+        text-sm
+        sm:text-base
         font-medium
         text-black
         shadow-[0_8px_25px_rgba(200,169,107,0.25)]
@@ -1942,7 +1948,9 @@ tracking-wide
 
       Editar perfil
     </button>
-  </div></div>
+
+  </div>
+</div>
 <div className="space-y-10">
   {/* CON BALÓN */}
   <div>
