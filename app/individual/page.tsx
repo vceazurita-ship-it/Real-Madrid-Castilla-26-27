@@ -1578,7 +1578,7 @@ const playerReport = selected
         className="
     relative
     w-full
-    max-w-6xl
+    max-w-5xl
     h-[92dvh]
     overflow-hidden
     rounded-3xl
@@ -1618,45 +1618,16 @@ const playerReport = selected
       sm:p-6
       lg:p-8
   ">
-          <div
-  className="
-    grid
-    lg:grid-cols-[320px_1fr]
-    gap-8
-    items-start
-  "
->
+          <div>
+            <img
+              src={selected.photo}
+              alt={selected.name}
+              className="h-[300px] w-full rounded-3xl object-cover object-top"
+            />
 
-  {/* COLUMNA FOTO */}
-  <div>
-    <img
-      src={selected.photo}
-      alt={selected.name}
-      className="
-        h-[420px]
-        w-full
-        rounded-3xl
-        object-cover
-        object-top
-      "
-    />
-
-    <h2 className="mt-5 text-3xl font-semibold">
-      {selected.name}
-    </h2>
-
-    <p className="mt-2 text-gray-400">
-      {selected.position}
-    </p>
-
-    <p className="text-sm text-[#C8A96B]">
-      {currentIndex + 1} / {mergedPlayers.length}
-    </p>
-  </div>
-
-
-  {/* COLUMNA CONTENIDO */}
-  <div>
+            <h2 className="mt-5 text-3xl font-semibold">
+  {selected.name} 
+</h2>
 
 <p className="mt-2 text-gray-400">
   {selected.position}
@@ -1839,8 +1810,6 @@ tracking-wide
   </div>
 </div>
           </div>
-           </div>
-
         {activeTab === "perfil" && (
   <div className="space-y-6">
     <button
@@ -1874,7 +1843,6 @@ tracking-wide
     absolute
     right-6
     top-1/2
-    hidden lg:flex
     -translate-y-1/2
     z-[100000]
     rounded-full
@@ -1883,7 +1851,7 @@ tracking-wide
     bg-[#11161C]
     p-4
     hover:bg-white/10
-"
+  "
 >
   <ChevronRight className="h-6 w-6" />
 </button>
