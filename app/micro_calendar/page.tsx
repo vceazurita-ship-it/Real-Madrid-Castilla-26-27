@@ -39,11 +39,11 @@ type MicrocycleRecord = {
 
   Tiempo: number;
 
-  "Intensidad (1-5)": number;
+  "Intensidad (1-10)": number;
   "Carga Ponderada": number;
 
-  "Exig.Cog.(1-5)": number;
-  "Carga Cog.": number;
+  "Demanda Cognitiva(1-10)": number;
+  "Carga cognitiva": number;
 
   Observaciones: string;
 };
@@ -787,12 +787,12 @@ md:text-sm
         </div>
 
         <span className="text-sm font-semibold">
-          {t["Carga Cog."]}
+          {t["Carga cognitiva"]}
         </span>
 
       </div>
 
-      <MetricBar value={Number(t["Carga Cog."])} />
+      <MetricBar value={Number(t["Carga cognitiva"])} />
 
     </div>
 
