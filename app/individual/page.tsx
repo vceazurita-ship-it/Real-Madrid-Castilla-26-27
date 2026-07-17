@@ -1561,28 +1561,22 @@ const playerReport = selected
      {selected &&
   createPortal(
     <div
-  className="
-    fixed
-    inset-0
-    z-[99999]
-    bg-black/75
-    p-2
-    sm:p-4
-    lg:p-6
+   className="
+    h-[92dvh]
     overflow-y-auto
-    flex
-    items-center
-    justify-center
+    p-4
+    sm:p-6
+    lg:p-8
   "
   onClick={() => setSelected(null)}
 >
       <div
-          className="
+           className="
     relative
     w-full
     max-w-5xl
-    max-h-[95vh]
-    lg:h-[92dvh]
+    h-[92dvh]
+    max-h-[92dvh]
     overflow-hidden
     rounded-3xl
     border border-white/10
@@ -1628,8 +1622,8 @@ const playerReport = selected
   src={selected.photo}
   alt={selected.name}
   className="
-    h-[180px]
-    sm:h-[240px]
+    h-[220px]
+    sm:h-[260px]
     lg:h-[300px]
     w-full
     rounded-3xl
@@ -1702,7 +1696,7 @@ tracking-wide
     Perfil competencial
   </h3>
 
-  <div className="h-[280px] w-full min-w-0">
+  <div className="h-[220px] sm:h-[280px] w-full min-w-0">
     <ResponsiveContainer
       width="100%"
       height="100%"
