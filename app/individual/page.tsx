@@ -1561,25 +1561,28 @@ const playerReport = selected
      {selected &&
   createPortal(
     <div
-      className="
-        fixed
-        inset-0
-        z-[99999]
-        bg-black/75
-        p-2 sm:p-6
-        overflow-hidden
-        flex
-        items-center
-        justify-center
-      "
-      onClick={() => setSelected(null)}
-    >
+  className="
+    fixed
+    inset-0
+    z-[99999]
+    bg-black/75
+    p-2
+    sm:p-4
+    lg:p-6
+    overflow-y-auto
+    flex
+    items-center
+    justify-center
+  "
+  onClick={() => setSelected(null)}
+>
       <div
-        className="
+          className="
     relative
     w-full
     max-w-5xl
-    h-[92dvh]
+    max-h-[95vh]
+    lg:h-[92dvh]
     overflow-hidden
     rounded-3xl
     border border-white/10
@@ -1593,37 +1596,47 @@ const playerReport = selected
         }
       >
        <button
-  onClick={() =>
-    setSelected(null)
-  }
+  onClick={() => setSelected(null)}
   className="
     absolute
-    right-3
-    top-3
+    right-4
+    top-4
     z-[999999]
     rounded-full
-    bg-white/10
+    bg-black/60
     p-2
     border
-    border-white/10
+    border-white/20
+    backdrop-blur
   "
 >
   <X className="h-5 w-5" />
 </button>
 
-         <div className="
-      h-full
-      overflow-y-auto
-      p-4
-      sm:p-6
-      lg:p-8
-  ">
+        <div
+  className="
+    h-full
+    overflow-y-auto
+    overscroll-contain
+    p-4
+    sm:p-6
+    lg:p-8
+  "
+>
           <div>
             <img
-              src={selected.photo}
-              alt={selected.name}
-              className="h-[300px] w-full rounded-3xl object-cover object-top"
-            />
+  src={selected.photo}
+  alt={selected.name}
+  className="
+    h-[180px]
+    sm:h-[240px]
+    lg:h-[300px]
+    w-full
+    rounded-3xl
+    object-cover
+    object-top
+  "
+/>
 
             <h2 className="mt-5 text-3xl font-semibold">
   {selected.name} 
@@ -1819,9 +1832,9 @@ tracking-wide
   }
   className="
     absolute
-    left-6
-    top-1/2
-    hidden lg:flex
+    left-2
+top-1/2
+hidden md:flex
     -translate-y-1/2
     z-[100000]
     rounded-full
@@ -1841,8 +1854,9 @@ tracking-wide
   }
   className="
     absolute
-    right-6
-    top-1/2
+    right-2
+top-1/2
+hidden md:flex
     -translate-y-1/2
     z-[100000]
     rounded-full
