@@ -231,6 +231,56 @@ const getPhaseStyle = (fase: string) => {
 
   return "bg-white/10 text-white/70 border border-white/10";
 };
+
+const getDayPhaseStyle = (fase: string) => {
+  const value = (fase || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (value.includes("ofens"))
+    return {
+      bg: "bg-emerald-500/10",
+      bar: "from-emerald-400 to-emerald-600",
+    };
+
+  if (value.includes("defens"))
+    return {
+      bg: "bg-red-500/10",
+      bar: "from-red-400 to-red-600",
+    };
+
+  if (value.includes("tr") && value.includes("ofens"))
+    return {
+      bg: "bg-sky-500/10",
+      bar: "from-sky-400 to-sky-600",
+    };
+
+  if (value.includes("tr") && value.includes("defens"))
+    return {
+      bg: "bg-orange-500/10",
+      bar: "from-orange-400 to-orange-600",
+    };
+
+  if (value.includes("abp"))
+    return {
+      bg: "bg-violet-500/10",
+      bar: "from-violet-400 to-violet-600",
+    };
+
+  if (value.includes("global"))
+    return {
+      bg: "bg-yellow-500/10",
+      bar: "from-yellow-300 to-yellow-500",
+    };
+
+  return {
+    bg: "bg-[#141B24]",
+    bar: "from-white/20 to-white/20",
+  };
+};
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -355,7 +405,21 @@ const bloques = [
 ];
 const hasTasks = dayTasks.length > 0;
 
+const phaseTotals = dayTasks.reduce((acc, task) => {
+  const fase = task.Fase || "Global";
 
+  acc[fase] =
+    (acc[fase] || 0) + Number(task.Tiempo || 0);
+
+  return acc;
+}, {} as Record<string, number>);
+
+const dominantPhase =
+  Object.entries(phaseTotals)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+
+const dayStyle =
+  getDayPhaseStyle(dominantPhase);
         return (
           <div
     key={date.toISOString()}
@@ -381,7 +445,7 @@ setSelectedTasks(dayTasks);
     }}
 
     className={`
-relative
+relative group
 ${hasTasks ? "cursor-pointer" : ""}
 ${
   hasTasks
@@ -391,18 +455,39 @@ ${
 rounded-xl
 border
 p-2 md:p-3
-transition-all
+transition-all duration-200 hover:scale-[1.015]
 ${
   disabled
     ? "opacity-30 border-white/5 bg-[#090C10]"
     : `border-white/10 ${
         hasTasks
-          ? "bg-[#141B24]"
-          : "bg-[#10151C]"
+  ? dayStyle.bg
+  : "bg-[#10151C]"
       } hover:border-[#C8A96B]/40`
 }
+
+
 `}
+
+
 >
+  {hasTasks && (
+  <div
+    className={`
+      absolute
+      top-0
+      left-0
+      right-0
+      h-1
+      rounded-t-xl
+      bg-gradient-to-r
+      ${dayStyle.bar}
+      transition-all
+      duration-200
+      group-hover:h-1.5
+    `}
+  />
+)}
             <div className="flex justify-between items-center mb-2 md:mb-3">
               <div
                 className={`
