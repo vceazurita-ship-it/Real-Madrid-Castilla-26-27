@@ -1576,17 +1576,15 @@ const playerReport = selected
     >
       <div
         className="
-          relative
-          w-full
-          max-w-6xl
-          h-[92dvh]
-          overflow-y-auto
-          overflow-x-hidden
-          rounded-3xl
-          border border-white/10
-          bg-[#11161C]
-          p-4 sm:p-6 lg:p-8
-        "
+    relative
+    w-full
+    max-w-6xl
+    h-[92dvh]
+    overflow-hidden
+    rounded-3xl
+    border border-white/10
+    bg-[#11161C]
+  "
         style={{
           WebkitOverflowScrolling: "touch",
         }}
@@ -1600,27 +1598,26 @@ const playerReport = selected
   }
   className="
     absolute
-    right-4 
-    top-4
-    z-50
-    rounded-2xl
-    bg-white/5
-    p-3
+    right-3
+    top-3
+    z-[999999]
+    rounded-full
+    bg-white/10
+    p-2
     border
     border-white/10
-    hover:bg-white/10
   "
 >
   <X className="h-5 w-5" />
 </button>
 
-        <div className="
-grid
-gap-4
-md:gap-6
-lg:gap-8
-md:grid-cols-[320px_1fr]
-">
+         <div className="
+      h-full
+      overflow-y-auto
+      p-4
+      sm:p-6
+      lg:p-8
+  ">
           <div>
             <img
               src={selected.photo}
