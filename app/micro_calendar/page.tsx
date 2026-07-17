@@ -547,23 +547,7 @@ ${
 
 
 >
-  {hasTasks && (
-  <div
-    className={`
-      absolute
-      top-0
-      left-0
-      right-0
-      h-1
-      rounded-t-xl
-      bg-gradient-to-r
-      ${dayStyle.bar}
-      transition-all
-      duration-200
-      group-hover:h-1.5
-    `}
-  />
-)}
+  
             <div className="flex justify-between items-center mb-2 md:mb-3">
               <div
                 className={`
