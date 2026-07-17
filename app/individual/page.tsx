@@ -1561,26 +1561,35 @@ const playerReport = selected
      {selected &&
   createPortal(
     <div
-   className="
-    h-[92dvh]
-    overflow-y-auto
-    p-4
-    sm:p-6
-    lg:p-8
-  "
-  onClick={() => setSelected(null)}
->
+      className="
+        fixed
+        inset-0
+        z-[99999]
+        flex
+        items-center
+        justify-center
+        bg-black/70
+        p-4
+        sm:p-6
+        lg:p-8
+      "
+      onClick={() => setSelected(null)}
+    >
       <div
            className="
     relative
+    flex
+    flex-col
     w-full
     max-w-5xl
     h-[92dvh]
     max-h-[92dvh]
     overflow-hidden
     rounded-3xl
-    border border-white/10
+    border
+    border-white/10
     bg-[#11161C]
+ 
   "
         style={{
           WebkitOverflowScrolling: "touch",
