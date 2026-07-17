@@ -1565,32 +1565,28 @@ const playerReport = selected
         fixed
         inset-0
         z-[99999]
+        bg-black/75
+        p-2 sm:p-6
+        overflow-hidden
         flex
         items-center
         justify-center
-        bg-black/70
-        p-4
-        sm:p-6
-        lg:p-8
       "
       onClick={() => setSelected(null)}
     >
       <div
-           className="
-    relative
-    flex
-    flex-col
-    w-full
-    max-w-5xl
-    h-[92dvh]
-    max-h-[92dvh]
-    overflow-hidden
-    rounded-3xl
-    border
-    border-white/10
-    bg-[#11161C]
- 
-  "
+        className="
+          relative
+          w-full
+          max-w-6xl
+          h-[92dvh]
+          overflow-y-auto
+          overflow-x-hidden
+          rounded-3xl
+          border border-white/10
+          bg-[#11161C]
+          p-4 sm:p-6 lg:p-8
+        "
         style={{
           WebkitOverflowScrolling: "touch",
         }}
@@ -1599,53 +1595,38 @@ const playerReport = selected
         }
       >
        <button
-  onClick={() => setSelected(null)}
+  onClick={() =>
+    setSelected(null)
+  }
   className="
     absolute
-    right-4
+    right-4 
     top-4
-    z-[999999]
-    rounded-full
-    bg-black/60
-    p-2
+    z-50
+    rounded-2xl
+    bg-white/5
+    p-3
     border
-    border-white/20
-    backdrop-blur
+    border-white/10
+    hover:bg-white/10
   "
 >
   <X className="h-5 w-5" />
 </button>
 
-        <div
-  className="
-    h-full
-    overflow-y-auto
-    overscroll-contain
-    p-4
-    sm:p-6
-    lg:p-8
-  "
->
-  <div
-    className="
-      grid
-      gap-8
-      lg:grid-cols-[340px_1fr]
-    "
-  >
+        <div className="
+grid
+gap-4
+md:gap-6
+lg:gap-8
+md:grid-cols-[320px_1fr]
+">
+          <div>
             <img
-  src={selected.photo}
-  alt={selected.name}
-  className="
-    h-[220px]
-    sm:h-[260px]
-    lg:h-[300px]
-    w-full
-    rounded-3xl
-    object-cover
-    object-top
-  "
-/>
+              src={selected.photo}
+              alt={selected.name}
+              className="h-[300px] w-full rounded-3xl object-cover object-top"
+            />
 
             <h2 className="mt-5 text-3xl font-semibold">
   {selected.name} 
@@ -1711,7 +1692,7 @@ tracking-wide
     Perfil competencial
   </h3>
 
-  <div className="h-[220px] sm:h-[280px] w-full min-w-0">
+  <div className="h-[280px] w-full min-w-0">
     <ResponsiveContainer
       width="100%"
       height="100%"
@@ -1841,9 +1822,9 @@ tracking-wide
   }
   className="
     absolute
-    left-2
-top-1/2
-hidden md:flex
+    left-6
+    top-1/2
+    hidden lg:flex
     -translate-y-1/2
     z-[100000]
     rounded-full
@@ -1863,9 +1844,8 @@ hidden md:flex
   }
   className="
     absolute
-    right-2
-top-1/2
-hidden md:flex
+    right-6
+    top-1/2
     -translate-y-1/2
     z-[100000]
     rounded-full
