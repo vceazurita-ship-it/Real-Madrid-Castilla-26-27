@@ -86,7 +86,7 @@ const modules = [
   href: "/micro_calendar",
   section: "METODOLOGÍA",
   title: "Contenidos Microciclo",
-  desc: "Planificación de contenidos ofensivos, defensivos y ABP durante la semana",
+  desc: "Planificación de contenidos durante el microciclo",
   icon: BookOpen,
   glow: "amber",
 },

@@ -205,24 +205,28 @@ const MetricBar = ({
 );
 
 const getPhaseStyle = (fase: string) => {
-  const value = (fase || "").toLowerCase();
+  const value = (fase || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-  if (value.includes("Ofens"))
+  if (value.includes("ofens"))
     return "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
 
-  if (value.includes("Defens"))
+  if (value.includes("defens"))
     return "bg-red-500/15 text-red-300 border border-red-500/30";
 
-  if (value.includes("Tr ofens"))
+  if (value.includes("tr") && value.includes("ofens"))
     return "bg-sky-500/15 text-sky-300 border border-sky-500/30";
 
-  if (value.includes("Tr defens"))
+  if (value.includes("tr") && value.includes("defens"))
     return "bg-orange-500/15 text-orange-300 border border-orange-500/30";
 
-  if (value.includes("Abp"))
+  if (value.includes("abp"))
     return "bg-violet-500/15 text-violet-300 border border-violet-500/30";
 
-  if (value.includes("Glob"))
+  if (value.includes("global"))
     return "bg-yellow-500/15 text-yellow-300 border border-yellow-500/30";
 
   return "bg-white/10 text-white/70 border border-white/10";
