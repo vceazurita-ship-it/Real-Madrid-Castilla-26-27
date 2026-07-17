@@ -1626,7 +1626,13 @@ const playerReport = selected
     lg:p-8
   "
 >
-          <div>
+  <div
+    className="
+      grid
+      gap-8
+      lg:grid-cols-[340px_1fr]
+    "
+  >
             <img
   src={selected.photo}
   alt={selected.name}
