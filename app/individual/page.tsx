@@ -1595,23 +1595,31 @@ const playerReport = selected
         }
       >
        <button
-  onClick={() =>
-    setSelected(null)
-  }
+  onClick={() => setSelected(null)}
   className="
     absolute
-    right-4 
     top-4
-    z-50
-    rounded-2xl
-    bg-white/5
-    p-3
+    right-4
+    sm:top-6
+    sm:right-6
+    z-[100001]
+    flex
+    h-12
+    w-12
+    items-center
+    justify-center
+    rounded-full
     border
-    border-white/10
-    hover:bg-white/10
+    border-white/20
+    bg-black/70
+    backdrop-blur-md
+    shadow-xl
+    transition
+    hover:bg-[#C8A96B]
+    hover:text-black
   "
 >
-  <X className="h-5 w-5" />
+  <X className="h-6 w-6" />
 </button>
 
         <div className="
@@ -1816,47 +1824,64 @@ tracking-wide
         {activeTab === "perfil" && (
   <div className="space-y-6">
     <button
-  onClick={() =>
-    previousPlayer &&
-    setSelected(previousPlayer)
-  }
+  onClick={() => previousPlayer && setSelected(previousPlayer)}
   className="
     absolute
-    left-6
+    left-2
+    sm:left-4
+    lg:left-6
     top-1/2
-    hidden lg:flex
     -translate-y-1/2
-    z-[100000]
+    z-[100001]
+    flex
+    h-12
+    w-12
+    sm:h-14
+    sm:w-14
+    items-center
+    justify-center
     rounded-full
     border
-    border-white/10
-    bg-[#11161C]
-    p-4
-    hover:bg-white/10
+    border-white/20
+    bg-black/70
+    backdrop-blur-md
+    shadow-xl
+    transition
+    hover:bg-[#C8A96B]
+    hover:text-black
   "
 >
-  <ChevronLeft className="h-6 w-6" />
+  <ChevronLeft className="h-7 w-7" />
 </button>
 <button
-  onClick={() =>
-    nextPlayer &&
-    setSelected(nextPlayer)
-  }
+  onClick={() => nextPlayer && setSelected(nextPlayer)}
   className="
     absolute
-    right-6
+    right-2
+    sm:right-4
+    lg:right-6
     top-1/2
     -translate-y-1/2
-    z-[100000]
+    z-[100001]
+    flex
+    h-12
+    w-12
+    sm:h-14
+    sm:w-14
+    items-center
+    justify-center
     rounded-full
     border
-    border-white/10
-    bg-[#11161C]
-    p-4
-    hover:bg-white/10
+    border-white/20
+    bg-black/70
+    backdrop-blur-md
+    shadow-xl
+    transition
+    hover:bg-[#C8A96B]
+    hover:text-black
   "
 >
-  <ChevronRight className="h-6 w-6" />
+  <ChevronRight className="h-7 w-7" />
 </button>
 <div className="relative border-b border-white/10 pb-6">
   <div className="flex items-center justify-between pr-24">
