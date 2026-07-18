@@ -1598,16 +1598,16 @@ const playerReport = selected
   onClick={() => setSelected(null)}
  className="
   absolute
-  top-4
-  right-4
+  top-3
+  right-3
   sm:top-6
   sm:right-6
   lg:top-10
   lg:right-10
   z-[100001]
   flex
-  h-12
-  w-12
+  h-9
+  w-9
   items-center
   justify-center
   rounded-full
@@ -1621,7 +1621,7 @@ const playerReport = selected
   hover:text-black
 "
 >
-  <X className="h-6 w-6" />
+  <X className="h-4 w-4" />
 </button>
 
         <div className="
@@ -1642,9 +1642,6 @@ md:grid-cols-[320px_1fr]
   {selected.name} 
 </h2>
 
-<p className="mt-2 text-gray-400">
-  {selected.position}
-</p>
 <p className="text-sm text-[#C8A96B]">
   {currentIndex + 1} / {mergedPlayers.length}
 </p>
@@ -1836,10 +1833,10 @@ tracking-wide
     -translate-y-1/2
     z-[100001]
     flex
-    h-12
-    w-12
-    sm:h-14
-    sm:w-14
+    h-10
+    w-10
+    sm:h-11
+    sm:w-11
     items-center
     justify-center
     rounded-full
@@ -1866,10 +1863,10 @@ tracking-wide
     -translate-y-1/2
     z-[100001]
     flex
-    h-12
-    w-12
-    sm:h-14
-    sm:w-14
+    h-10
+    w-10
+    sm:h-11
+    sm:w-11
     items-center
     justify-center
     rounded-full
