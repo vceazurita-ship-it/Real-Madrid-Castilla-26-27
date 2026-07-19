@@ -1906,27 +1906,12 @@ tracking-wide
         setShowProfileForm(true);
       }}
       className="
-        inline-flex
-        w-full
-        md:w-auto
-        items-center
-        justify-center
-        gap-2
-        rounded-2xl
-        border
-        border-[#C8A96B]/20
-        bg-[#C8A96B]
-        px-5
-        py-3
-        text-sm
-        sm:text-base
-        font-medium
-        text-black
-        shadow-[0_8px_25px_rgba(200,169,107,0.25)]
-        transition-all
-        hover:-translate-y-0.5
-        hover:shadow-[0_12px_30px_rgba(200,169,107,0.35)]
-      "
+          rounded-xl
+          bg-[#C8A96B]
+          px-4
+          py-2
+          text-black
+        "
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
