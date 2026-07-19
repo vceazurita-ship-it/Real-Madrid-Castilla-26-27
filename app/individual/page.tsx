@@ -1598,16 +1598,16 @@ const playerReport = selected
   onClick={() => setSelected(null)}
  className="
   absolute
-  top-1
-  right-2
-  sm:top-2
-  sm:right-2
+top-2
+right-2
+sm:top-3
+sm:right-3
   lg:top-10
   lg:right-10
   z-[100001]
   flex
-  h-9
-  w-9
+  h-7
+  w-7
   items-center
   justify-center
   rounded-full
@@ -1631,13 +1631,12 @@ md:gap-6
 lg:gap-8
 md:grid-cols-[320px_1fr]
 ">
-          <div>
+<div className="relative">
             <img
               src={selected.photo}
               alt={selected.name}
               className="h-[300px] w-full rounded-3xl object-cover object-top"
             />
-            <div className="mt-3 flex justify-center gap-3">
     <button
   onClick={() => previousPlayer && setSelected(previousPlayer)}
   className="
@@ -1697,7 +1696,7 @@ md:grid-cols-[320px_1fr]
   "
 >
   <ChevronRight className="h-7 w-7" />
-</button></div>------
+</button>
             <h2 className="mt-5 text-3xl font-semibold">
   {selected.name} 
 </h2>
