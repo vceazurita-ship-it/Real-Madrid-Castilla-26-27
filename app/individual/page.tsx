@@ -1703,7 +1703,7 @@ md:grid-cols-[320px_1fr]
   {currentIndex + 1} / {mergedPlayers.length}
 </p>
     
-  <div className="mt-6 flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+  <div className="mt-6 grid grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
   {[
     {
       key: "perfil",
@@ -1725,27 +1725,24 @@ md:grid-cols-[320px_1fr]
     <button
       key={tab.key}
       onClick={() =>
-        setActiveTab(
-          tab.key as any
-        )
+        setActiveTab(tab.key as any)
       }
       className={`
-  flex-1
-rounded-xl
-px-3
-py-2
-text-xs
-uppercase
-tracking-wide
-  text-sm
-  font-medium
-  transition-all
-  ${
-    activeTab === tab.key
-      ? "bg-[#C8A96B] text-black shadow-lg"
-      : "text-white hover:bg-white/10"
-  }
-`}
+        min-w-0
+        rounded-xl
+        px-1
+        py-2
+        text-[10px]
+        font-medium
+        uppercase
+        tracking-tight
+        transition-all
+        ${
+          activeTab === tab.key
+            ? "bg-[#C8A96B] text-black shadow-lg"
+            : "text-white hover:bg-white/10"
+        }
+      `}
     >
       {tab.label}
     </button>
