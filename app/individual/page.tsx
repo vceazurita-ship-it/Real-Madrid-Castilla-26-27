@@ -1644,7 +1644,7 @@ md:grid-cols-[320px_1fr]
     left-2
     sm:left-4
     lg:left-4
-    top-2
+    top-5
     z-[100001]
     flex
     h-7
@@ -1673,7 +1673,7 @@ md:grid-cols-[320px_1fr]
     right-2
     sm:right-4
     lg:right-4
-    top-2
+    top-5
     z-[100001]
     flex
     h-7
