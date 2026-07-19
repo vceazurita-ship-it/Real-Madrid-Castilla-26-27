@@ -1598,7 +1598,7 @@ const playerReport = selected
   onClick={() => setSelected(null)}
   className="
     absolute
-    top-2
+    top-1
     right-2
     sm:top-3
     sm:right-3
