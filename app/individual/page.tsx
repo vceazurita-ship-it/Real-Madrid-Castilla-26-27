@@ -1884,8 +1884,7 @@ md:grid-cols-[320px_1fr]
       Aspectos de mejora
     </h2>
 
-    <button
-
+   <button
   onClick={() => {
     setProfileForm({
       conBalon: selected.conBalon || "",
@@ -1900,33 +1899,37 @@ md:grid-cols-[320px_1fr]
       tecnica: String(selected.tecnica || ""),
     });
 
-        setShowProfileForm(true);
-      }}
-      className="
-          rounded-xl
-          bg-[#C8A96B]
-          px-4
-          py-2
-          text-black
-        "
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M15.232 5.232l3.536 3.536M9 11l6.768-6.768a2.5 2.5 0 113.536 3.536L12.536 14.536 9 15l.464-4z"
-        />
-      </svg>
+    setShowProfileForm(true);
+  }}
+  className="
+    inline-flex
+    items-center
+    justify-center
+    gap-2
+    rounded-xl
+    bg-[#C8A96B]
+    px-4
+    py-2
+    text-black
+  "
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-4 w-4 shrink-0"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.232 5.232l3.536 3.536M9 11l6.768-6.768a2.5 2.5 0 113.536 3.536L12.536 14.536 9 15l.464-4z"
+    />
+  </svg>
 
-      Editar perfil
-    </button>
+  <span>Editar perfil</span>
+</button>
 
   </div>
 </div>
