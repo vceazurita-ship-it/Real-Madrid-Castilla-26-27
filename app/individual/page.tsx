@@ -592,7 +592,7 @@ const [profileForm, setProfileForm] =
     ESTRATEGIA: "",
   });
 const [playerFromUrl, setPlayerFromUrl] = useState("");
-
+const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
 
 useEffect(() => {
@@ -1575,25 +1575,42 @@ const playerReport = selected
       onClick={() => setSelected(null)}
     >
       <div
-        className="
-          relative
-          w-full
-          max-w-6xl
-          h-[92dvh]
-          overflow-y-auto
-          overflow-x-hidden
-          rounded-3xl
-          border border-white/10
-          bg-[#11161C]
-          p-4 sm:p-6 lg:p-8
-        "
-        style={{
-          WebkitOverflowScrolling: "touch",
-        }}
-        onClick={(e) =>
-          e.stopPropagation()
-        }
-      >
+  className="
+    relative
+    w-full
+    max-w-6xl
+    h-[92dvh]
+    overflow-y-auto
+    overflow-x-hidden
+    rounded-3xl
+    border border-white/10
+    bg-[#11161C]
+    p-4 sm:p-6 lg:p-8
+  "
+  style={{
+    WebkitOverflowScrolling: "touch",
+  }}
+  onClick={(e) => e.stopPropagation()}
+  onTouchStart={(e) => {
+    setTouchStartX(e.touches[0].clientX);
+  }}
+  onTouchEnd={(e) => {
+    if (touchStartX === null) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const distance = touchStartX - touchEndX;
+
+    if (distance > 60 && nextPlayer) {
+      setSelected(nextPlayer);
+    }
+
+    if (distance < -60 && previousPlayer) {
+      setSelected(previousPlayer);
+    }
+
+    setTouchStartX(null);
+  }}
+>
        <button
   onClick={() => setSelected(null)}
   className="
