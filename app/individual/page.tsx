@@ -1600,8 +1600,8 @@ const playerReport = selected
   absolute
   top-1
   right-2
-  sm:top-6
-  sm:right-6
+  sm:top-2
+  sm:right-2
   lg:top-10
   lg:right-10
   z-[100001]
@@ -1697,7 +1697,7 @@ md:grid-cols-[320px_1fr]
   "
 >
   <ChevronRight className="h-7 w-7" />
-</button></div>
+</button></div>------
             <h2 className="mt-5 text-3xl font-semibold">
   {selected.name} 
 </h2>
