@@ -17,7 +17,6 @@ type CulturaItem = {
   TITULO: string;
   CONTENIDO: string;
   ORDEN: number;
-  OBSERVACIONES?: string;
 };
 
 const API =
@@ -92,16 +91,13 @@ const contenidos = useMemo(() => {
 }, [data, seccion]);
 const guardarCambios = async () => {
   try {
-
     const cambios = data.filter((item) => {
       const original = originalData.find(
         (o) => o.ID === item.ID
       );
 
       return (
-        original?.CONTENIDO !== item.CONTENIDO ||
-        (original?.OBSERVACIONES || "") !==
-          (item.OBSERVACIONES || "")
+        original?.CONTENIDO !== item.CONTENIDO
       );
     });
 
@@ -115,8 +111,6 @@ const guardarCambios = async () => {
         fetch(
           `${API}?action=guardarCultura&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
             p.CONTENIDO
-          )}&OBSERVACIONES=${encodeURIComponent(
-            p.OBSERVACIONES || ""
           )}`
         )
       )
@@ -496,38 +490,6 @@ font-bold
       "
       rows={3}
     />
-
-    <textarea
-      value={
-        p.OBSERVACIONES || ""
-      }
-      onChange={(e) => {
-        setData((prev) =>
-          prev.map((item) =>
-            item.ID === p.ID
-              ? {
-                  ...item,
-                  OBSERVACIONES:
-                    e.target.value,
-                }
-              : item
-          )
-        );
-      }}
-      className="
-      w-full
-      rounded-xl
-      border
-      border-white/10
-      bg-black/30
-      p-3
-      text-sm
-      text-gray-300
-      outline-none
-      "
-      rows={2}
-      placeholder="Observaciones..."
-    />
   </div>
 ) : (
   <>
@@ -574,12 +536,6 @@ font-bold
 >
   {p.CONTENIDO}
 </p>
-
-    {p.OBSERVACIONES && (
-      <p className="mt-2 text-sm text-gray-400">
-        {p.OBSERVACIONES}
-      </p>
-    )}
   </>
 )}
                     </div>

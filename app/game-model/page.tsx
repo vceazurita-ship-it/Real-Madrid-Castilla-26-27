@@ -17,7 +17,7 @@ type Principio = {
   APARTADO: string;
   PRINCIPIO: string;
   ORDEN: number;
-  OBSERVACIONES?: string;
+  
 };
 
 const API =
@@ -157,9 +157,7 @@ const guardarCambios = async () => {
       );
 
       return (
-        original?.PRINCIPIO !== item.PRINCIPIO ||
-        (original?.OBSERVACIONES || "") !==
-          (item.OBSERVACIONES || "")
+        original?.PRINCIPIO !== item.PRINCIPIO
       );
     });
 
@@ -173,8 +171,7 @@ const guardarCambios = async () => {
         fetch(
           `${API}?action=guardarPrincipio&ID=${p.ID}&PRINCIPIO=${encodeURIComponent(
             p.PRINCIPIO
-          )}&OBSERVACIONES=${encodeURIComponent(
-            p.OBSERVACIONES || ""
+          
           )}`
         )
       )
@@ -500,38 +497,6 @@ text-black
       "
       rows={3}
     />
-
-    <textarea
-      value={
-        p.OBSERVACIONES || ""
-      }
-      onChange={(e) => {
-        setData((prev) =>
-          prev.map((item) =>
-            item.ID === p.ID
-              ? {
-                  ...item,
-                  OBSERVACIONES:
-                    e.target.value,
-                }
-              : item
-          )
-        );
-      }}
-      className="
-      w-full
-      rounded-xl
-      border
-      border-white/10
-      bg-black/30
-      p-3
-      text-sm
-      text-gray-300
-      outline-none
-      "
-      rows={2}
-      placeholder="Observaciones..."
-    />
   </div>
 ) : (
   <>
@@ -547,22 +512,6 @@ text-black
 >
       {p.PRINCIPIO}
     </p>
-
-    {p.OBSERVACIONES && (
-      <p
-  className="
-  mt-2
-  text-xs
-  lg:text-sm
-  text-gray-400
-  break-words
-    whitespace-pre-wrap
-
-  "
->
-        {p.OBSERVACIONES}
-      </p>
-    )}
   </>
 )}
                     </div>
