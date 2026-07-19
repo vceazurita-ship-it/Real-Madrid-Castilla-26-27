@@ -1647,10 +1647,10 @@ md:grid-cols-[320px_1fr]
     top-2
     z-[100001]
     flex
-    h-10
-    w-10
-    sm:h-11
-    sm:w-11
+    h-7
+    w-7
+    sm:h-7
+    sm:w-7
     items-center
     justify-center
     rounded-full
@@ -1676,10 +1676,10 @@ md:grid-cols-[320px_1fr]
     top-2
     z-[100001]
     flex
-    h-10
-    w-10
-    sm:h-11
-    sm:w-11
+    h-7
+    w-7
+    sm:h-7
+    sm:w-7
     items-center
     justify-center
     rounded-full
