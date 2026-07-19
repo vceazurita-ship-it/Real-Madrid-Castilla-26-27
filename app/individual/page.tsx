@@ -1596,30 +1596,30 @@ const playerReport = selected
       >
        <button
   onClick={() => setSelected(null)}
- className="
-  absolute
-top-2
-right-2
-sm:top-3
-sm:right-3
-  lg:top-10
-  lg:right-10
-  z-[100001]
-  flex
-  h-7
-  w-7
-  items-center
-  justify-center
-  rounded-full
-  border
-  border-white/20
-  bg-black/70
-  backdrop-blur-md
-  shadow-xl
-  transition
-  hover:bg-[#C8A96B]
-  hover:text-black
-"
+  className="
+    absolute
+    top-2
+    right-2
+    sm:top-3
+    sm:right-3
+    lg:top-3
+    lg:right-3
+    z-[100001]
+    flex
+    h-7
+    w-7
+    items-center
+    justify-center
+    rounded-full
+    border
+    border-white/20
+    bg-black/70
+    backdrop-blur-md
+    shadow-xl
+    transition
+    hover:bg-[#C8A96B]
+    hover:text-black
+  "
 >
   <X className="h-4 w-4" />
 </button>
@@ -1643,9 +1643,8 @@ md:grid-cols-[320px_1fr]
     absolute
     left-2
     sm:left-4
-    lg:left-6
-    top-1/2
-    -translate-y-1/2
+    lg:left-4
+    top-2
     z-[100001]
     flex
     h-10
@@ -1673,9 +1672,8 @@ md:grid-cols-[320px_1fr]
     absolute
     right-2
     sm:right-4
-    lg:right-6
-    top-1/2
-    -translate-y-1/2
+    lg:right-4
+    top-2
     z-[100001]
     flex
     h-10
