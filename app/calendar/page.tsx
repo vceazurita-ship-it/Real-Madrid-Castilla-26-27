@@ -318,7 +318,7 @@ md:text-sm
             </div>
 
             <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
-              {daySessions.slice(0, 4).map((session) => {
+              {daySessions.map((session) => {
                 const jugador = playersMap[session.ID_JUGADOR];
                 const stripe =
   session.ESTRATEGIA === "CAMPO"
@@ -371,11 +371,7 @@ hover:border-[#C8A96B]
                 );
                             })}
 
-              {daySessions.length > 4 && (
-                <div className="text-center text-[10px] text-white/40 pt-1">
-                  +{daySessions.length - 4} más
-                </div>
-              )}
+              
 
             </div>
           </div>
