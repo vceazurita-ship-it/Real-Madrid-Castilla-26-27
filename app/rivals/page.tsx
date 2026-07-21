@@ -15,6 +15,8 @@ import {
   FileText,
   Video,
   UserRound,
+    Plus,
+  Trash2,
 } from "lucide-react";
 
 const APPS_SCRIPT_URL =
@@ -114,12 +116,17 @@ export default function RivalPlayersPage() {
   const [editForm, setEditForm] =
     useState<RivalPlayer | null>(null);
 
+const [isCreating, setIsCreating] =
+  useState(false);
+
   const [saving, setSaving] =
     useState(false);
 
   const [touchStartX, setTouchStartX] =
     useState<number | null>(null);
 
+
+    
   /*
   |--------------------------------------------------------------------------
   | CARGA DE PLANTILLAS
@@ -264,19 +271,63 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   */
 
-  const openPlayer = (
-    player: RivalPlayer
-  ) => {
-    setSelectedPlayer(player);
-    setEditForm({
-      ...player,
-    });
-  };
+const createEmptyPlayer = (): RivalPlayer => ({
+  ID_JUGADOR: "",
+  ID_EQUIPO: "",
+  NOMBRE_EQUIPO: selectedTeam,
+  DORSAL: "",
+  JUGADOR: "",
+  "NOMBRE DEPORTIVO": "",
+  "LUGAR DE NACIMIENTO": "",
+  EDAD: "",
+  PESO: "",
+  ALTURA: "",
+  "POSICIÓN": "",
+  "2º POSICIÓN": "",
+  "PIE DOMINANTE": "",
+  PROCEDENCIA: "",
+  "FECHA INCORPORACIÓN": "",
 
-  const closePlayer = () => {
-    setSelectedPlayer(null);
-    setEditForm(null);
-  };
+  IMPACTO: "",
+  ROL: "",
+  CARACTERÍSTICAS: "",
+  FORTALEZAS: "",
+  DEBILIDADES: "",
+  OBSERVACIONES: "",
+
+  VIDEO: "",
+  DOC: "",
+  FOTO: "",
+  ESTADO: "ACTIVO",
+});
+
+ const openPlayer = (
+  player: RivalPlayer
+) => {
+  setIsCreating(false);
+
+  setSelectedPlayer(player);
+
+  setEditForm({
+    ...player,
+  });
+};
+
+const openCreatePlayer = () => {
+  setIsCreating(true);
+
+  setSelectedPlayer(null);
+
+  setEditForm(
+    createEmptyPlayer()
+  );
+};
+
+const closePlayer = () => {
+  setSelectedPlayer(null);
+  setEditForm(null);
+  setIsCreating(false);
+};
 
   /*
   |--------------------------------------------------------------------------
@@ -371,63 +422,180 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   */
 
-  const savePlayer = async () => {
-    if (!editForm) return;
+ const savePlayer = async () => {
+  if (!editForm) return;
 
-    try {
-      setSaving(true);
+  try {
+    setSaving(true);
 
-      const response = await fetch(
-        APPS_SCRIPT_URL,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            action:
-              "guardarRivalJugador",
+    const action = isCreating
+      ? "crearRivalJugador"
+      : "guardarRivalJugador";
 
-            ...editForm,
-          }),
-        }
+    const playerToSave = {
+      ...editForm,
+
+      ID_JUGADOR:
+        editForm.ID_JUGADOR ||
+        `RIV-${Date.now()}`,
+
+      ID_EQUIPO:
+        editForm.ID_EQUIPO ||
+        `TEAM-${normalize(
+          editForm.NOMBRE_EQUIPO
+        )
+          .replace(/\s+/g, "-")
+          .toUpperCase()}`,
+    };
+
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          ...playerToSave,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+      throw new Error(
+        result.error ||
+          "No se pudo guardar"
+      );
+    }
+
+    if (isCreating) {
+
+      setPlayers((current) => [
+        ...current,
+        playerToSave,
+      ]);
+
+      setSelectedTeam(
+        playerToSave.NOMBRE_EQUIPO
       );
 
-      const result =
-        await response.json();
+      alert(
+        "Jugador añadido correctamente"
+      );
 
-      if (!result.success) {
-        throw new Error(
-          result.error ||
-            "No se pudo guardar"
-        );
-      }
+    } else {
 
       setPlayers((current) =>
         current.map((player) =>
           player.ID_JUGADOR ===
-          editForm.ID_JUGADOR
-            ? editForm
+          playerToSave.ID_JUGADOR
+            ? playerToSave
             : player
         )
       );
 
-      setSelectedPlayer(editForm);
+      setSelectedPlayer(
+        playerToSave
+      );
 
       alert(
         "Jugador guardado correctamente"
       );
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "No se pudo guardar el jugador"
-      );
-    } finally {
-      setSaving(false);
     }
-  };
+
+    closePlayer();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      isCreating
+        ? "No se pudo añadir el jugador"
+        : "No se pudo guardar el jugador"
+    );
+
+  } finally {
+    setSaving(false);
+  }
+};
+const deletePlayer = async () => {
+  if (!editForm) return;
+
+  const playerName =
+    editForm["NOMBRE DEPORTIVO"] ||
+    editForm.JUGADOR;
+
+  const confirmed =
+    window.confirm(
+      `¿Seguro que quieres eliminar a ${playerName}?`
+    );
+
+  if (!confirmed) return;
+
+  try {
+
+    setSaving(true);
+
+    const response = await fetch(
+      APPS_SCRIPT_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          action:
+            "eliminarRivalJugador",
+
+          ID_JUGADOR:
+            editForm.ID_JUGADOR,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (!result.success) {
+      throw new Error(
+        result.error ||
+          "No se pudo eliminar"
+      );
+    }
+
+    setPlayers((current) =>
+      current.filter(
+        (player) =>
+          player.ID_JUGADOR !==
+          editForm.ID_JUGADOR
+      )
+    );
+
+    closePlayer();
+
+    alert(
+      "Jugador eliminado correctamente"
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "No se pudo eliminar el jugador"
+    );
+
+  } finally {
+    setSaving(false);
+  }
+};
 
   /*
   |--------------------------------------------------------------------------
@@ -513,41 +681,75 @@ export default function RivalPlayersPage() {
 
             {/* SELECTOR DE EQUIPO */}
 
-            <div className="mt-8 flex max-w-full gap-2 overflow-x-auto pb-2">
+            {/* SELECTOR DE EQUIPO */}
 
-              {teams.map((team) => (
+<div className="mt-8 flex max-w-full items-center gap-2">
 
-                <button
-                  key={team}
-                  onClick={() => {
-                    setSelectedTeam(team);
-                    setPositionFilter(
-                      "TODAS"
-                    );
-                    setSearch("");
-                  }}
-                  className={`
-                    shrink-0
-                    whitespace-nowrap
-                    rounded-xl
-                    border
-                    px-4
-                    py-3
-                    text-sm
-                    transition
-                    ${
-                      selectedTeam === team
-                        ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
-                        : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
-                    }
-                  `}
-                >
-                  {team}
-                </button>
+  <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2">
 
-              ))}
+    {teams.map((team) => (
 
-            </div>
+      <button
+        key={team}
+        onClick={() => {
+          setSelectedTeam(team);
+          setPositionFilter(
+            "TODAS"
+          );
+          setSearch("");
+        }}
+        className={`
+          shrink-0
+          whitespace-nowrap
+          rounded-xl
+          border
+          px-4
+          py-3
+          text-sm
+          transition
+          ${
+            selectedTeam === team
+              ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+              : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
+          }
+        `}
+      >
+        {team}
+      </button>
+
+    ))}
+
+  </div>
+
+  <button
+    onClick={openCreatePlayer}
+    className="
+      flex
+      shrink-0
+      items-center
+      gap-2
+      rounded-xl
+      border
+      border-[#C8A96B]/40
+      bg-[#C8A96B]/10
+      px-4
+      py-3
+      text-sm
+      text-[#C8A96B]
+      transition
+      hover:bg-[#C8A96B]/20
+    "
+  >
+
+    <Plus size={16} />
+
+    <span className="hidden sm:inline">
+      Añadir jugador
+    </span>
+
+  </button>
+
+</div>
 
             {/* FILTROS */}
 
@@ -998,8 +1200,7 @@ export default function RivalPlayersPage() {
 
       {/* MODAL */}
 
-      {selectedPlayer &&
-        editForm && (
+      {editForm && (
 
           <div
             className="
@@ -1051,80 +1252,75 @@ export default function RivalPlayersPage() {
 
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
 
-                  <button
-                    onClick={() =>
-                      navigatePlayer(-1)
-                    }
-                    disabled={
-                      selectedIndex <= 0
-                    }
-                    className="
-                      shrink-0
-                      rounded-full
-                      border
-                      border-white/10
-                      p-2
-                      transition
-                      hover:border-[#C8A96B]
-                      disabled:opacity-20
-                    "
-                  >
-
-                    <ChevronLeft
-                      size={20}
-                    />
-
-                  </button>
+                  {!isCreating && (
+  <button
+    onClick={() =>
+      navigatePlayer(-1)
+    }
+    disabled={
+      selectedIndex <= 0
+    }
+    className="
+      shrink-0
+      rounded-full
+      border
+      border-white/10
+      p-2
+      transition
+      hover:border-[#C8A96B]
+      disabled:opacity-20
+    "
+  >
+    <ChevronLeft size={20} />
+  </button>
+)}
 
                   <div className="min-w-0">
 
                     <p className="truncate text-xs uppercase tracking-[0.2em] text-[#C8A96B]">
 
-                      {
-                        selectedPlayer.NOMBRE_EQUIPO
-                      }
+  {isCreating
+    ? "NUEVO JUGADOR"
+    : editForm.NOMBRE_EQUIPO}
 
-                    </p>
+</p>
 
-                    <h2 className="truncate text-lg font-semibold sm:text-xl md:text-2xl">
+<h2 className="truncate text-lg font-semibold sm:text-xl md:text-2xl">
 
-                      {
-                        selectedPlayer[
-                          "NOMBRE DEPORTIVO"
-                        ] ||
-                        selectedPlayer.JUGADOR
-                      }
+  {isCreating
+    ? "Añadir jugador"
+    : editForm[
+        "NOMBRE DEPORTIVO"
+      ] ||
+      editForm.JUGADOR}
 
-                    </h2>
+</h2>
 
                   </div>
 
-                  <button
-                    onClick={() =>
-                      navigatePlayer(1)
-                    }
-                    disabled={
-                      selectedIndex >=
-                      filteredPlayers.length -
-                        1
-                    }
-                    className="
-                      shrink-0
-                      rounded-full
-                      border
-                      border-white/10
-                      p-2
-                      transition
-                      hover:border-[#C8A96B]
-                      disabled:opacity-20
-                    "
-                  >
-
-                    <ChevronRight
-                      size={20}
-                    />
-
-                  </button>
+                  {!isCreating && (
+  <button
+    onClick={() =>
+      navigatePlayer(1)
+    }
+    disabled={
+      selectedIndex >=
+      filteredPlayers.length - 1
+    }
+    className="
+      shrink-0
+      rounded-full
+      border
+      border-white/10
+      p-2
+      transition
+      hover:border-[#C8A96B]
+      disabled:opacity-20
+    "
+  >
+    <ChevronRight size={20} />
+  </button>
+)}
 
                 </div>
 
@@ -1190,80 +1386,119 @@ export default function RivalPlayersPage() {
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
 
-                      <Info
-                        label="Dorsal"
-                        value={
-                          editForm.DORSAL
-                        }
-                      />
+  <EditableField
+    label="Dorsal"
+    value={editForm.DORSAL}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        DORSAL: value,
+      })
+    }
+  />
 
-                      <Info
-                        label="Edad"
-                        value={
-                          editForm.EDAD
-                        }
-                      />
+  <EditableField
+    label="Edad"
+    value={editForm.EDAD}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        EDAD: value,
+      })
+    }
+  />
 
-                      <Info
-                        label="Peso"
-                        value={
-                          editForm.PESO
-                        }
-                      />
+  <EditableField
+    label="Peso"
+    value={editForm.PESO}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        PESO: value,
+      })
+    }
+  />
 
-                      <Info
-                        label="Altura"
-                        value={
-                          editForm.ALTURA
-                        }
-                      />
+  <EditableField
+    label="Altura"
+    value={editForm.ALTURA}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        ALTURA: value,
+      })
+    }
+  />
 
-                      <Info
-                        label="Pie"
-                        value={
-                          editForm[
-                            "PIE DOMINANTE"
-                          ]
-                        }
-                      />
+  <EditableField
+    label="Pie"
+    value={
+      editForm["PIE DOMINANTE"]
+    }
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        "PIE DOMINANTE": value,
+      })
+    }
+  />
 
-                      <Info
-                        label="Posición"
-                        value={
-                          editForm[
-                            "POSICIÓN"
-                          ]
-                        }
-                      />
+  <EditableField
+    label="Posición"
+    value={
+      editForm["POSICIÓN"]
+    }
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        "POSICIÓN": value,
+      })
+    }
+  />
 
-                    </div>
+</div>
 
                     <div className="mt-4 space-y-2 text-sm">
 
-                      <InfoLine
-                        label="Procedencia"
-                        value={
-                          editForm.PROCEDENCIA
-                        }
-                      />
+                      <EditableField
+  label="Procedencia"
+  value={editForm.PROCEDENCIA}
+  onChange={(value) =>
+    setEditForm({
+      ...editForm,
+      PROCEDENCIA: value,
+    })
+  }
+/>
 
-                      <InfoLine
-                        label="Lugar nacimiento"
-                        value={
-                          editForm[
-                            "LUGAR DE NACIMIENTO"
-                          ]
-                        }
-                      />
+<EditableField
+  label="Lugar nacimiento"
+  value={
+    editForm[
+      "LUGAR DE NACIMIENTO"
+    ]
+  }
+  onChange={(value) =>
+    setEditForm({
+      ...editForm,
+      "LUGAR DE NACIMIENTO":
+        value,
+    })
+  }
+/>
 
-                      <InfoLine
-                        label="2ª posición"
-                        value={
-                          editForm[
-                            "2º POSICIÓN"
-                          ]
-                        }
-                      />
+<EditableField
+  label="2ª posición"
+  value={
+    editForm["2º POSICIÓN"]
+  }
+  onChange={(value) =>
+    setEditForm({
+      ...editForm,
+      "2º POSICIÓN": value,
+    })
+  }
+/>
 
                     </div>
 
@@ -1511,59 +1746,98 @@ export default function RivalPlayersPage() {
 
               </div>
 
-              {/* FOOTER */}
+              <div className="flex items-center justify-between gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6">
 
-              <div className="flex items-center justify-end gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6">
+  {!isCreating ? (
 
-                <button
-                  onClick={closePlayer}
-                  className="
-                    rounded-xl
-                    border
-                    border-white/10
-                    px-4
-                    py-3
-                    text-sm
-                    text-white/60
-                    transition
-                    hover:border-white/30
-                    hover:text-white
-                  "
-                >
+    <button
+      onClick={deletePlayer}
+      disabled={saving}
+      className="
+        flex
+        items-center
+        gap-2
+        rounded-xl
+        border
+        border-red-500/30
+        bg-red-500/10
+        px-4
+        py-3
+        text-sm
+        text-red-300
+        transition
+        hover:bg-red-500/20
+        disabled:opacity-50
+      "
+    >
 
-                  Cancelar
+      <Trash2 size={16} />
 
-                </button>
+      Eliminar
 
-                <button
-                  onClick={savePlayer}
-                  disabled={saving}
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    rounded-xl
-                    bg-[#C8A96B]
-                    px-5
-                    py-3
-                    text-sm
-                    font-semibold
-                    text-black
-                    transition
-                    hover:bg-[#d8ba7c]
-                    disabled:opacity-50
-                  "
-                >
+    </button>
 
-                  <Save size={16} />
+  ) : (
 
-                  {saving
-                    ? "Guardando..."
-                    : "Guardar"}
+    <div />
 
-                </button>
+  )}
 
-              </div>
+  <div className="flex items-center gap-3">
+
+    <button
+      onClick={closePlayer}
+      className="
+        rounded-xl
+        border
+        border-white/10
+        px-4
+        py-3
+        text-sm
+        text-white/60
+        transition
+        hover:border-white/30
+        hover:text-white
+      "
+    >
+
+      Cancelar
+
+    </button>
+
+    <button
+      onClick={savePlayer}
+      disabled={saving}
+      className="
+        flex
+        items-center
+        gap-2
+        rounded-xl
+        bg-[#C8A96B]
+        px-5
+        py-3
+        text-sm
+        font-semibold
+        text-black
+        transition
+        hover:bg-[#d8ba7c]
+        disabled:opacity-50
+      "
+    >
+
+      <Save size={16} />
+
+      {saving
+        ? "Guardando..."
+        : isCreating
+          ? "Añadir jugador"
+          : "Guardar"}
+
+    </button>
+
+  </div>
+
+</div>
 
             </div>
 
