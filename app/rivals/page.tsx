@@ -73,7 +73,12 @@ function getPositionStyle(position: string) {
     return "bg-blue-500/15 text-blue-300 border-blue-500/30";
   }
 
-  if (value.includes("medio")) {
+  if (
+    value.includes("medio") ||
+    value.includes("mediocentro") ||
+    value.includes("interior") ||
+    value.includes("pivote")
+  ) {
     return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
   }
 
@@ -88,9 +93,11 @@ function getPositionStyle(position: string) {
 }
 
 export default function RivalPlayersPage() {
-  const [players, setPlayers] = useState<RivalPlayer[]>([]);
+  const [players, setPlayers] =
+    useState<RivalPlayer[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
   const [selectedTeam, setSelectedTeam] =
     useState<string>("");
@@ -147,6 +154,8 @@ export default function RivalPlayersPage() {
           "Error cargando jugadores rivales:",
           error
         );
+
+        setPlayers([]);
       } finally {
         setLoading(false);
       }
@@ -166,7 +175,9 @@ export default function RivalPlayersPage() {
       ...new Set(
         players
           .map((player) =>
-            String(player.NOMBRE_EQUIPO || "")
+            String(
+              player.NOMBRE_EQUIPO || ""
+            )
           )
           .filter(Boolean)
       ),
@@ -186,10 +197,13 @@ export default function RivalPlayersPage() {
         players
           .filter(
             (player) =>
-              player.NOMBRE_EQUIPO === selectedTeam
+              player.NOMBRE_EQUIPO ===
+              selectedTeam
           )
           .map((player) =>
-            String(player["POSICIÓN"] || "")
+            String(
+              player["POSICIÓN"] || ""
+            )
           )
           .filter(Boolean)
       ),
@@ -203,30 +217,33 @@ export default function RivalPlayersPage() {
   */
 
   const filteredPlayers = useMemo(() => {
-    const searchValue = normalize(search);
+    const searchValue =
+      normalize(search);
 
     return players.filter((player) => {
       const sameTeam =
-        player.NOMBRE_EQUIPO === selectedTeam;
+        player.NOMBRE_EQUIPO ===
+        selectedTeam;
 
       const samePosition =
         positionFilter === "TODAS" ||
-        player["POSICIÓN"] === positionFilter;
+        player["POSICIÓN"] ===
+          positionFilter;
 
       const matchesSearch =
         !searchValue ||
-        normalize(player.JUGADOR).includes(
-          searchValue
-        ) ||
+        normalize(
+          player.JUGADOR
+        ).includes(searchValue) ||
         normalize(
           player["NOMBRE DEPORTIVO"]
         ).includes(searchValue) ||
-        String(player.DORSAL).includes(
-          searchValue
-        ) ||
-        normalize(player["POSICIÓN"]).includes(
-          searchValue
-        );
+        String(
+          player.DORSAL
+        ).includes(searchValue) ||
+        normalize(
+          player["POSICIÓN"]
+        ).includes(searchValue);
 
       return (
         sameTeam &&
@@ -243,13 +260,17 @@ export default function RivalPlayersPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | ABRIR JUGADOR
+  | ABRIR / CERRAR JUGADOR
   |--------------------------------------------------------------------------
   */
 
-  const openPlayer = (player: RivalPlayer) => {
+  const openPlayer = (
+    player: RivalPlayer
+  ) => {
     setSelectedPlayer(player);
-    setEditForm({ ...player });
+    setEditForm({
+      ...player,
+    });
   };
 
   const closePlayer = () => {
@@ -263,15 +284,18 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   */
 
-  const selectedIndex = selectedPlayer
-    ? filteredPlayers.findIndex(
-        (player) =>
-          player.ID_JUGADOR ===
-          selectedPlayer.ID_JUGADOR
-      )
-    : -1;
+  const selectedIndex =
+    selectedPlayer
+      ? filteredPlayers.findIndex(
+          (player) =>
+            player.ID_JUGADOR ===
+            selectedPlayer.ID_JUGADOR
+        )
+      : -1;
 
-  const navigatePlayer = (direction: number) => {
+  const navigatePlayer = (
+    direction: number
+  ) => {
     if (
       selectedIndex === -1 ||
       filteredPlayers.length === 0
@@ -284,7 +308,8 @@ export default function RivalPlayersPage() {
 
     if (
       nextIndex < 0 ||
-      nextIndex >= filteredPlayers.length
+      nextIndex >=
+        filteredPlayers.length
     ) {
       return;
     }
@@ -306,11 +331,15 @@ export default function RivalPlayersPage() {
     const handleKeyDown = (
       event: KeyboardEvent
     ) => {
-      if (event.key === "ArrowLeft") {
+      if (
+        event.key === "ArrowLeft"
+      ) {
         navigatePlayer(-1);
       }
 
-      if (event.key === "ArrowRight") {
+      if (
+        event.key === "ArrowRight"
+      ) {
         navigatePlayer(1);
       }
 
@@ -386,7 +415,9 @@ export default function RivalPlayersPage() {
 
       setSelectedPlayer(editForm);
 
-      alert("Jugador guardado correctamente");
+      alert(
+        "Jugador guardado correctamente"
+      );
     } catch (error) {
       console.error(error);
 
@@ -415,15 +446,22 @@ export default function RivalPlayersPage() {
   const handleTouchEnd = (
     event: React.TouchEvent
   ) => {
-    if (touchStartX === null) return;
+    if (
+      touchStartX === null
+    ) {
+      return;
+    }
 
     const endX =
-      event.changedTouches[0].clientX;
+      event.changedTouches[0]
+        .clientX;
 
     const difference =
       touchStartX - endX;
 
-    if (Math.abs(difference) > 60) {
+    if (
+      Math.abs(difference) > 60
+    ) {
       if (difference > 0) {
         navigatePlayer(1);
       } else {
@@ -441,16 +479,21 @@ export default function RivalPlayersPage() {
   */
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
-      <div className="flex">
+    <main className="min-h-screen overflow-x-hidden bg-[#0B0F14] text-white">
+
+      <div className="flex min-h-screen w-full">
+
+        {/* SIDEBAR */}
 
         <Sidebar />
 
-        <section className="w-full">
+        {/* CONTENIDO PRINCIPAL */}
+
+        <section className="min-w-0 flex-1">
 
           <Topbar />
 
-          <div className="px-4 py-6 md:px-8 md:py-8">
+          <div className="w-full min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8">
 
             {/* HEADER */}
 
@@ -458,19 +501,19 @@ export default function RivalPlayersPage() {
               RMCF CASTILLA · RIVALES
             </p>
 
-            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
+            <div className="mt-4 flex min-w-0 items-center gap-4">
 
-              <h1 className="text-2xl font-semibold md:text-4xl">
+              <h1 className="min-w-0 truncate text-2xl font-semibold md:text-4xl">
                 Plantillas rivales
               </h1>
 
-              <div className="hidden h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
+              <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
 
             </div>
 
             {/* SELECTOR DE EQUIPO */}
 
-            <div className="mt-8 flex gap-2 overflow-x-auto pb-2">
+            <div className="mt-8 flex max-w-full gap-2 overflow-x-auto pb-2">
 
               {teams.map((team) => (
 
@@ -478,10 +521,13 @@ export default function RivalPlayersPage() {
                   key={team}
                   onClick={() => {
                     setSelectedTeam(team);
-                    setPositionFilter("TODAS");
+                    setPositionFilter(
+                      "TODAS"
+                    );
                     setSearch("");
                   }}
                   className={`
+                    shrink-0
                     whitespace-nowrap
                     rounded-xl
                     border
@@ -505,9 +551,9 @@ export default function RivalPlayersPage() {
 
             {/* FILTROS */}
 
-            <div className="mt-6 grid gap-3 md:grid-cols-[1fr_220px]">
+            <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
 
-              <div className="relative">
+              <div className="relative min-w-0">
 
                 <Search
                   size={18}
@@ -524,6 +570,7 @@ export default function RivalPlayersPage() {
                   placeholder="Buscar jugador..."
                   className="
                     w-full
+                    min-w-0
                     rounded-xl
                     border
                     border-white/10
@@ -547,6 +594,8 @@ export default function RivalPlayersPage() {
                   )
                 }
                 className="
+                  w-full
+                  min-w-0
                   rounded-xl
                   border
                   border-white/10
@@ -578,15 +627,15 @@ export default function RivalPlayersPage() {
 
             {/* CONTADOR */}
 
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-6 flex min-w-0 items-center justify-between gap-4">
 
-              <p className="text-sm text-white/50">
+              <p className="shrink-0 text-sm text-white/50">
 
                 {filteredPlayers.length} jugadores
 
               </p>
 
-              <p className="text-xs text-white/30">
+              <p className="min-w-0 truncate text-right text-xs text-white/30">
 
                 {selectedTeam}
 
@@ -594,284 +643,352 @@ export default function RivalPlayersPage() {
 
             </div>
 
-{/* PLANTILLA POR LÍNEAS */}
-
-{loading ? (
-
-  <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/50">
-
-    Cargando plantilla...
-
-  </div>
-
-) : (
-
-  <div className="mt-6 space-y-5">
-
-    {[
-      {
-        title: "PORTEROS",
-        positions: [
-          "portero",
-        ],
-      },
-      {
-        title: "DEFENSAS",
-        positions: [
-          "lateral derecho",
-          "lateral d",
-          "central",
-          "lateral izquierdo",
-          "lateral izq",
-          "lateral i",
-          "lateral",
-          "carrilero",
-          "defensa",
-        ],
-      },
-      {
-        title: "CENTROCAMPISTAS",
-        positions: [
-          "mediocentro",
-          "pivote",
-          "interior",
-          "medio",
-        ],
-      },
-      {
-        title: "ATACANTES",
-        positions: [
-          "extremo derecho",
-          "extremo d",
-          "extremo izquierdo",
-          "extremo izq",
-          "extremo i",
-          "extremo",
-          "delantero",
-        ],
-      },
-    ].map((line) => {
-
-      const linePlayers =
-        filteredPlayers
-          .filter((player) => {
-
-            const position =
-              normalize(
-                player["POSICIÓN"]
-              );
-
-            return line.positions.some(
-              (item) =>
-                position.includes(
-                  normalize(item)
-                )
-            );
-
-          })
-          .sort((a, b) => {
-
-            const positionA =
-              normalize(
-                a["POSICIÓN"]
-              );
-
-            const positionB =
-              normalize(
-                b["POSICIÓN"]
-              );
-
-            const orderA =
-              line.positions.findIndex(
-                (position) =>
-                  positionA.includes(
-                    normalize(position)
-                  )
-              );
-
-            const orderB =
-              line.positions.findIndex(
-                (position) =>
-                  positionB.includes(
-                    normalize(position)
-                  )
-              );
+            {/* PLANTILLA POR LÍNEAS */}
+
+            {loading ? (
+
+              <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/50">
+
+                Cargando plantilla...
+
+              </div>
+
+            ) : (
+
+              <div className="mt-6 min-w-0 space-y-5">
+
+                {[
+                  {
+                    title: "PORTEROS",
+
+                    positions: [
+                      "portero",
+                    ],
+                  },
+
+                  {
+                    title: "DEFENSAS",
+
+                    positions: [
+                      "lateral derecho",
+                      "lateral d",
+                      "central",
+                      "lateral izquierdo",
+                      "lateral izq",
+                      "lateral i",
+                      "carrilero",
+                      "lateral",
+                      "defensa",
+                    ],
+                  },
+
+                  {
+                    title: "CENTROCAMPISTAS",
+
+                    positions: [
+                      "mediocentro",
+                      "pivote",
+                      "interior",
+                      "medio",
+                    ],
+                  },
+
+                  {
+                    title: "ATACANTES",
+
+                    positions: [
+                      "extremo derecho",
+                      "extremo d",
+                      "extremo izquierdo",
+                      "extremo izq",
+                      "extremo i",
+                      "extremo",
+                      "delantero",
+                    ],
+                  },
+                ].map((line) => {
+
+                  const linePlayers =
+                    filteredPlayers
+                      .filter((player) => {
+
+                        const position =
+                          normalize(
+                            player[
+                              "POSICIÓN"
+                            ]
+                          );
+
+                        return line.positions.some(
+                          (item) =>
+                            position.includes(
+                              normalize(
+                                item
+                              )
+                            )
+                        );
+
+                      })
+                      .sort((a, b) => {
+
+                        const positionA =
+                          normalize(
+                            a[
+                              "POSICIÓN"
+                            ]
+                          );
+
+                        const positionB =
+                          normalize(
+                            b[
+                              "POSICIÓN"
+                            ]
+                          );
+
+                        const orderA =
+                          line.positions.findIndex(
+                            (position) =>
+                              positionA.includes(
+                                normalize(
+                                  position
+                                )
+                              )
+                          );
+
+                        const orderB =
+                          line.positions.findIndex(
+                            (position) =>
+                              positionB.includes(
+                                normalize(
+                                  position
+                                )
+                              )
+                          );
+
+                        if (
+                          orderA !==
+                          orderB
+                        ) {
+                          return (
+                            orderA -
+                            orderB
+                          );
+                        }
+
+                        const dorsalA =
+                          Number(
+                            a.DORSAL
+                          ) || 999;
+
+                        const dorsalB =
+                          Number(
+                            b.DORSAL
+                          ) || 999;
+
+                        return (
+                          dorsalA -
+                          dorsalB
+                        );
+
+                      });
+
+                  if (
+                    linePlayers.length ===
+                    0
+                  ) {
+                    return null;
+                  }
+
+                  return (
+
+                    <section
+                      key={line.title}
+                      className="
+                        min-w-0
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-white/10
+                        bg-white/[0.025]
+                      "
+                    >
+
+                      {/* CABECERA */}
+
+                      <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+
+                        <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+
+                          {line.title}
+
+                        </h2>
+
+                        <span className="shrink-0 text-xs text-white/30">
+
+                          {linePlayers.length} jugadores
+
+                        </span>
+
+                      </div>
+
+                      {/* JUGADORES */}
+
+                      <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+                        {linePlayers.map(
+                          (player) => (
+
+                            <button
+                              key={
+                                player.ID_JUGADOR
+                              }
+                              onClick={() =>
+                                openPlayer(
+                                  player
+                                )
+                              }
+                              className="
+                                group
+                                flex
+                                min-w-0
+                                items-center
+                                gap-3
+                                bg-[#11161D]
+                                p-3
+                                text-left
+                                transition
+                                hover:bg-white/[0.07]
+                              "
+                            >
 
-            return orderA - orderB;
+                              {/* FOTO */}
 
-          });
+                              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
 
-      if (linePlayers.length === 0) {
-        return null;
-      }
+                                {player.FOTO ? (
 
-      return (
+                                  <img
+                                    src={
+                                      player.FOTO
+                                    }
+                                    alt={
+                                      player[
+                                        "NOMBRE DEPORTIVO"
+                                      ] ||
+                                      player.JUGADOR
+                                    }
+                                    className="h-full w-full object-cover transition group-hover:scale-110"
+                                  />
 
-        <section
-          key={line.title}
-          className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
-        >
+                                ) : (
 
-          {/* CABECERA */}
+                                  <div className="flex h-full items-center justify-center">
 
-          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                                    <UserRound
+                                      size={
+                                        20
+                                      }
+                                      className="text-white/20"
+                                    />
 
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+                                  </div>
 
-              {line.title}
+                                )}
 
-            </h2>
+                              </div>
 
-            <span className="text-xs text-white/30">
+                              {/* DORSAL */}
 
-              {linePlayers.length} jugadores
+                              <div className="w-8 shrink-0 text-center">
 
-            </span>
+                                <span className="text-lg font-bold text-white/30">
 
-          </div>
+                                  {
+                                    player.DORSAL
+                                  }
 
-          {/* JUGADORES */}
+                                </span>
 
-          <div className="grid gap-px bg-white/5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              </div>
 
-            {linePlayers.map((player) => (
+                              {/* NOMBRE Y POSICIÓN */}
 
-              <button
-                key={player.ID_JUGADOR}
-                onClick={() =>
-                  openPlayer(player)
-                }
-                className="
-                  group
-                  flex
-                  items-center
-                  gap-3
-                  bg-[#11161D]
-                  p-3
-                  text-left
-                  transition
-                  hover:bg-white/[0.07]
-                "
-              >
+                              <div className="min-w-0 flex-1">
 
-                {/* FOTO PEQUEÑA */}
+                                <p className="truncate font-semibold">
 
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
+                                  {
+                                    player[
+                                      "NOMBRE DEPORTIVO"
+                                    ] ||
+                                    player.JUGADOR
+                                  }
 
-                  {player.FOTO ? (
+                                </p>
 
-                    <img
-                      src={player.FOTO}
-                      alt={
-                        player[
-                          "NOMBRE DEPORTIVO"
-                        ] ||
-                        player.JUGADOR
-                      }
-                      className="h-full w-full object-cover transition group-hover:scale-110"
-                    />
+                                <p className="mt-0.5 truncate text-xs text-white/40">
 
-                  ) : (
+                                  {
+                                    player[
+                                      "POSICIÓN"
+                                    ]
+                                  }
 
-                    <div className="flex h-full items-center justify-center">
+                                </p>
 
-                      <UserRound
-                        size={20}
-                        className="text-white/20"
-                      />
+                              </div>
 
-                    </div>
+                              {/* IMPACTO */}
 
-                  )}
+                              {player.IMPACTO && (
 
-                </div>
+                                <div className="hidden min-w-0 shrink-0 text-right lg:block">
 
-                {/* DORSAL */}
+                                  <p className="text-[9px] uppercase tracking-wider text-white/30">
 
-                <div className="w-8 shrink-0 text-center">
+                                    Impacto
 
-                  <span className="text-lg font-bold text-white/30">
+                                  </p>
 
-                    {player.DORSAL}
+                                  <p className="mt-0.5 max-w-[80px] truncate text-xs text-[#C8A96B]">
 
-                  </span>
+                                    {
+                                      player.IMPACTO
+                                    }
 
-                </div>
+                                  </p>
 
-                {/* NOMBRE Y POSICIÓN */}
+                                </div>
 
-                <div className="min-w-0 flex-1">
+                              )}
 
-                  <p className="truncate font-semibold">
+                            </button>
 
-                    {
-                      player[
-                        "NOMBRE DEPORTIVO"
-                      ] ||
-                      player.JUGADOR
-                    }
+                          )
+                        )}
 
-                  </p>
+                      </div>
 
-                  <p className="mt-0.5 truncate text-xs text-white/40">
+                    </section>
 
-                    {
-                      player[
-                        "POSICIÓN"
-                      ]
-                    }
+                  );
 
-                  </p>
+                })}
 
-                </div>
+                {filteredPlayers.length ===
+                  0 && (
 
-                {/* IMPACTO */}
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
 
-                {player.IMPACTO && (
-
-                  <div className="hidden shrink-0 text-right lg:block">
-
-                    <p className="text-[9px] uppercase tracking-wider text-white/30">
-
-                      Impacto
-
-                    </p>
-
-                    <p className="mt-0.5 max-w-[80px] truncate text-xs text-[#C8A96B]">
-
-                      {player.IMPACTO}
-
-                    </p>
+                    No se han encontrado jugadores.
 
                   </div>
 
                 )}
 
-              </button>
+              </div>
 
-            ))}
-
-          </div>
-
-        </section>
-
-      );
-
-    })}
-
-    {filteredPlayers.length === 0 && (
-
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
-
-        No se han encontrado jugadores.
-
-      </div>
-
-    )}
-
-  </div>
-
-)}
+            )}
 
           </div>
 
@@ -892,8 +1009,10 @@ export default function RivalPlayersPage() {
               flex
               items-center
               justify-center
+              overflow-y-auto
               bg-black/80
-              p-3
+              p-2
+              sm:p-4
               md:p-8
             "
             onClick={closePlayer}
@@ -903,9 +1022,10 @@ export default function RivalPlayersPage() {
               className="
                 relative
                 flex
-                max-h-[95vh]
+                max-h-[96vh]
                 w-full
                 max-w-6xl
+                min-w-0
                 flex-col
                 overflow-hidden
                 rounded-2xl
@@ -927,9 +1047,9 @@ export default function RivalPlayersPage() {
 
               {/* HEADER MODAL */}
 
-              <div className="flex items-center justify-between border-b border-white/10 p-4 md:p-6">
+              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 p-3 sm:p-4 md:p-6">
 
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
 
                   <button
                     onClick={() =>
@@ -939,6 +1059,7 @@ export default function RivalPlayersPage() {
                       selectedIndex <= 0
                     }
                     className="
+                      shrink-0
                       rounded-full
                       border
                       border-white/10
@@ -955,15 +1076,17 @@ export default function RivalPlayersPage() {
 
                   </button>
 
-                  <div>
+                  <div className="min-w-0">
 
-                    <p className="text-xs uppercase tracking-[0.2em] text-[#C8A96B]">
+                    <p className="truncate text-xs uppercase tracking-[0.2em] text-[#C8A96B]">
 
-                      {selectedPlayer.NOMBRE_EQUIPO}
+                      {
+                        selectedPlayer.NOMBRE_EQUIPO
+                      }
 
                     </p>
 
-                    <h2 className="text-xl font-semibold md:text-2xl">
+                    <h2 className="truncate text-lg font-semibold sm:text-xl md:text-2xl">
 
                       {
                         selectedPlayer[
@@ -982,9 +1105,11 @@ export default function RivalPlayersPage() {
                     }
                     disabled={
                       selectedIndex >=
-                      filteredPlayers.length - 1
+                      filteredPlayers.length -
+                        1
                     }
                     className="
+                      shrink-0
                       rounded-full
                       border
                       border-white/10
@@ -1006,6 +1131,7 @@ export default function RivalPlayersPage() {
                 <button
                   onClick={closePlayer}
                   className="
+                    shrink-0
                     rounded-full
                     p-2
                     text-white/50
@@ -1023,13 +1149,13 @@ export default function RivalPlayersPage() {
 
               {/* BODY */}
 
-              <div className="overflow-y-auto">
+              <div className="min-w-0 overflow-y-auto">
 
-                <div className="grid gap-6 p-4 md:grid-cols-[320px_1fr] md:p-6">
+                <div className="grid min-w-0 gap-6 p-3 sm:p-4 md:grid-cols-[280px_minmax(0,1fr)] md:p-6 lg:grid-cols-[320px_minmax(0,1fr)]">
 
                   {/* COLUMNA IZQUIERDA */}
 
-                  <div>
+                  <div className="min-w-0">
 
                     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
 
@@ -1145,7 +1271,7 @@ export default function RivalPlayersPage() {
 
                   {/* COLUMNA DERECHA */}
 
-                  <div className="space-y-5">
+                  <div className="min-w-0 space-y-5">
 
                     <div className="grid gap-4 md:grid-cols-2">
 
@@ -1387,7 +1513,7 @@ export default function RivalPlayersPage() {
 
               {/* FOOTER */}
 
-              <div className="flex items-center justify-end gap-3 border-t border-white/10 p-4 md:p-6">
+              <div className="flex items-center justify-end gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6">
 
                 <button
                   onClick={closePlayer}
@@ -1463,15 +1589,15 @@ function Info({
   value: unknown;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
 
-      <p className="text-[10px] uppercase tracking-wider text-white/40">
+      <p className="truncate text-[10px] uppercase tracking-wider text-white/40">
 
         {label}
 
       </p>
 
-      <p className="mt-1 text-sm font-medium">
+      <p className="mt-1 truncate text-sm font-medium">
 
         {String(value || "—")}
 
@@ -1489,15 +1615,15 @@ function InfoLine({
   value: unknown;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/5 pb-2">
+    <div className="flex min-w-0 items-start justify-between gap-4 border-b border-white/5 pb-2">
 
-      <span className="text-white/40">
+      <span className="shrink-0 text-white/40">
 
         {label}
 
       </span>
 
-      <span className="text-right">
+      <span className="min-w-0 truncate text-right">
 
         {String(value || "—")}
 
@@ -1519,7 +1645,7 @@ function EditableField({
   ) => void;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
 
       <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
 
@@ -1536,6 +1662,7 @@ function EditableField({
         }
         className="
           w-full
+          min-w-0
           rounded-xl
           border
           border-white/10
@@ -1565,7 +1692,7 @@ function EditableTextarea({
   ) => void;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
 
       <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
 
@@ -1583,6 +1710,7 @@ function EditableTextarea({
         rows={4}
         className="
           w-full
+          min-w-0
           resize-none
           rounded-xl
           border
