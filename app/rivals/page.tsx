@@ -594,187 +594,241 @@ export default function RivalPlayersPage() {
 
             </div>
 
-            {/* GRID */}
+{/* PLANTILLA POR LÍNEAS */}
 
-            {loading ? (
+{loading ? (
 
-              <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/50">
+  <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/50">
 
-                Cargando plantilla...
+    Cargando plantilla...
 
-              </div>
+  </div>
 
-            ) : (
+) : (
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+  <div className="mt-6 space-y-5">
 
-                {filteredPlayers.map(
-                  (player) => (
+    {[
+      {
+        title: "PORTEROS",
+        positions: ["portero"],
+      },
+      {
+        title: "DEFENSAS",
+        positions: [
+          "defensa",
+          "central",
+          "lateral",
+          "carrilero",
+        ],
+      },
+      {
+        title: "CENTROCAMPISTAS",
+        positions: [
+          "medio",
+          "mediocentro",
+          "interior",
+          "pivote",
+        ],
+      },
+      {
+        title: "ATACANTES",
+        positions: [
+          "extremo",
+          "delantero",
+        ],
+      },
+    ].map((line) => {
 
-                    <button
-                      key={
-                        player.ID_JUGADOR
+      const linePlayers =
+        filteredPlayers.filter((player) => {
+
+          const position =
+            normalize(
+              player["POSICIÓN"]
+            );
+
+          return line.positions.some(
+            (item) =>
+              position.includes(
+                normalize(item)
+              )
+          );
+
+        });
+
+      if (linePlayers.length === 0) {
+        return null;
+      }
+
+      return (
+
+        <section
+          key={line.title}
+          className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+        >
+
+          {/* CABECERA */}
+
+          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
+
+            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+
+              {line.title}
+
+            </h2>
+
+            <span className="text-xs text-white/30">
+
+              {linePlayers.length} jugadores
+
+            </span>
+
+          </div>
+
+          {/* JUGADORES */}
+
+          <div className="grid gap-px bg-white/5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+            {linePlayers.map((player) => (
+
+              <button
+                key={player.ID_JUGADOR}
+                onClick={() =>
+                  openPlayer(player)
+                }
+                className="
+                  group
+                  flex
+                  items-center
+                  gap-3
+                  bg-[#11161D]
+                  p-3
+                  text-left
+                  transition
+                  hover:bg-white/[0.07]
+                "
+              >
+
+                {/* FOTO PEQUEÑA */}
+
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
+
+                  {player.FOTO ? (
+
+                    <img
+                      src={player.FOTO}
+                      alt={
+                        player[
+                          "NOMBRE DEPORTIVO"
+                        ] ||
+                        player.JUGADOR
                       }
-                      onClick={() =>
-                        openPlayer(
-                          player
-                        )
-                      }
-                      className="
-                        group
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-white/10
-                        bg-gradient-to-b
-                        from-white/[0.05]
-                        to-white/[0.02]
-                        text-left
-                        transition
-                        hover:-translate-y-1
-                        hover:border-[#C8A96B]/50
-                      "
-                    >
+                      className="h-full w-full object-cover transition group-hover:scale-110"
+                    />
 
-                      {/* FOTO */}
+                  ) : (
 
-                      <div className="relative aspect-[4/3] overflow-hidden bg-[#11161D]">
+                    <div className="flex h-full items-center justify-center">
 
-                        {player.FOTO ? (
+                      <UserRound
+                        size={20}
+                        className="text-white/20"
+                      />
 
-                          <img
-                            src={
-                              player.FOTO
-                            }
-                            alt={
-                              player[
-                                "NOMBRE DEPORTIVO"
-                              ] ||
-                              player.JUGADOR
-                            }
-                            className="
-                              h-full
-                              w-full
-                              object-cover
-                              transition
-                              duration-500
-                              group-hover:scale-105
-                            "
-                          />
+                    </div>
 
-                        ) : (
+                  )}
 
-                          <div className="flex h-full items-center justify-center">
+                </div>
 
-                            <UserRound
-                              size={54}
-                              className="text-white/20"
-                            />
+                {/* DORSAL */}
 
-                          </div>
+                <div className="w-8 shrink-0 text-center">
 
-                        )}
+                  <span className="text-lg font-bold text-white/30">
 
-                        <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-sm font-semibold backdrop-blur">
+                    {player.DORSAL}
 
-                          #{player.DORSAL}
+                  </span>
 
-                        </div>
+                </div>
 
-                        <div
-                          className={`
-                            absolute
-                            right-3
-                            top-3
-                            rounded-full
-                            border
-                            px-3
-                            py-1
-                            text-[10px]
-                            font-semibold
-                            uppercase
-                            tracking-wider
-                            ${getPositionStyle(
-                              player[
-                                "POSICIÓN"
-                              ]
-                            )}
-                          `}
-                        >
+                {/* NOMBRE Y POSICIÓN */}
 
-                          {
-                            player[
-                              "POSICIÓN"
-                            ]
-                          }
+                <div className="min-w-0 flex-1">
 
-                        </div>
+                  <p className="truncate font-semibold">
 
-                      </div>
+                    {
+                      player[
+                        "NOMBRE DEPORTIVO"
+                      ] ||
+                      player.JUGADOR
+                    }
 
-                      {/* INFO */}
+                  </p>
 
-                      <div className="p-4">
+                  <p className="mt-0.5 truncate text-xs text-white/40">
 
-                        <h2 className="text-lg font-semibold">
+                    {
+                      player[
+                        "POSICIÓN"
+                      ]
+                    }
 
-                          {
-                            player[
-                              "NOMBRE DEPORTIVO"
-                            ] ||
-                            player.JUGADOR
-                          }
+                  </p>
 
-                        </h2>
+                </div>
 
-                        <p className="mt-1 text-sm text-white/50">
+                {/* IMPACTO */}
 
-                          {player.JUGADOR}
+                {player.IMPACTO && (
 
-                        </p>
+                  <div className="hidden shrink-0 text-right lg:block">
 
-                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-[9px] uppercase tracking-wider text-white/30">
 
-                          <div className="rounded-lg bg-white/[0.04] p-2">
+                      Impacto
 
-                            <p className="text-white/40">
-                              Edad
-                            </p>
+                    </p>
 
-                            <p className="mt-1 font-medium">
-                              {player.EDAD}
-                            </p>
+                    <p className="mt-0.5 max-w-[80px] truncate text-xs text-[#C8A96B]">
 
-                          </div>
+                      {player.IMPACTO}
 
-                          <div className="rounded-lg bg-white/[0.04] p-2">
+                    </p>
 
-                            <p className="text-white/40">
-                              Pie
-                            </p>
+                  </div>
 
-                            <p className="mt-1 font-medium">
-                              {
-                                player[
-                                  "PIE DOMINANTE"
-                                ]
-                              }
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    </button>
-
-                  )
                 )}
 
-              </div>
+              </button>
 
-            )}
+            ))}
+
+          </div>
+
+        </section>
+
+      );
+
+    })}
+
+    {filteredPlayers.length === 0 && (
+
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
+
+        No se han encontrado jugadores.
+
+      </div>
+
+    )}
+
+  </div>
+
+)}
+
 
           </div>
 
