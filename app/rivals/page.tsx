@@ -19,8 +19,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+const RIVALS_API_URL = "/api/rivals";
 
 type RivalPlayer = {
   ID_JUGADOR: string;
@@ -139,8 +138,8 @@ const [isCreating, setIsCreating] =
         setLoading(true);
 
         const response = await fetch(
-          `${APPS_SCRIPT_URL}?action=rivalesPlantillas`
-        );
+  `${RIVALS_API_URL}?action=rivalesPlantillas`
+);
 
         const data = await response.json();
 
@@ -448,20 +447,20 @@ const closePlayer = () => {
           .toUpperCase()}`,
     };
 
-    const response = await fetch(
-      APPS_SCRIPT_URL,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          ...playerToSave,
-        }),
-      }
-    );
+   const response = await fetch(
+  RIVALS_API_URL,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type":
+        "application/json",
+    },
+    body: JSON.stringify({
+      action,
+      ...playerToSave,
+    }),
+  }
+);
 
     const result =
       await response.json();
@@ -543,22 +542,20 @@ const deletePlayer = async () => {
     setSaving(true);
 
     const response = await fetch(
-      APPS_SCRIPT_URL,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          action:
-            "eliminarRivalJugador",
-
-          ID_JUGADOR:
-            editForm.ID_JUGADOR,
-        }),
-      }
-    );
+  RIVALS_API_URL,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type":
+        "application/json",
+    },
+    body: JSON.stringify({
+      action: "eliminarRivalJugador",
+      ID_JUGADOR:
+        editForm.ID_JUGADOR,
+    }),
+  }
+);
 
     const result =
       await response.json();
