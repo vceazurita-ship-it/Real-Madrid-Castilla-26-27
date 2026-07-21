@@ -374,6 +374,12 @@ const navLink = (
   <div className="space-y-2 text-sm">
 
     {navLink(
+  "/rivals",
+  "Plantillas",
+  <Users size={18} />
+)}
+    
+    {navLink(
       "/scout-rival-individual",
       "Individual",
       <Search  size={18} />
