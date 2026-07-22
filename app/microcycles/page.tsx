@@ -200,14 +200,18 @@ export default function Page() {
   const [micro, setMicro] =
     useState("ALL");
 
-  const [tipoFilter, setTipoFilter] =
-  useState<string | null>(null);
+    
+const [tipoFilter, setTipoFilter] =
+  useState("ALL");
 
 const [contenidoPrincipalFilter, setContenidoPrincipalFilter] =
-  useState<string | null>(null);
+  useState("ALL");
 
-const [faseFilter, setFaseFilter] =
-  useState<string | null>(null);
+const [evaluacionFilter, setEvaluacionFilter] =
+  useState("ALL");
+
+  const [faseFilter, setFaseFilter] =
+  useState("ALL");
 
 useEffect(() => {
   const check = () => {
@@ -256,31 +260,36 @@ useEffect(() => {
     const matchesMicro =
       micro === "ALL" ||
       String(r.micro) === micro;
+      const matchesFase =
+  faseFilter === "ALL" ||
+  r.fase === faseFilter;
 
     const matchesTipo =
-      !tipoFilter ||
+      tipoFilter === "ALL" ||
       r.tipo === tipoFilter;
 
     const matchesContenido =
-      !contenidoPrincipalFilter ||
+      contenidoPrincipalFilter === "ALL" ||
       r.contenidoPrincipal === contenidoPrincipalFilter;
 
-    const matchesFase =
-      !faseFilter ||
-      r.fase === faseFilter;
+    const matchesEvaluacion =
+      evaluacionFilter === "ALL" ||
+      r.evaluacion >= Number(evaluacionFilter);
 
     return (
-      matchesMicro &&
-      matchesTipo &&
-      matchesContenido &&
-      matchesFase
-    );
+  matchesMicro &&
+  matchesTipo &&
+  matchesContenido &&
+  matchesEvaluacion &&
+  matchesFase
+);
   });
 }, [
   rows,
   micro,
   tipoFilter,
   contenidoPrincipalFilter,
+  evaluacionFilter,
   faseFilter,
 ]);
   const metrics = {
@@ -567,6 +576,27 @@ const microOptions = useMemo(() => {
     };
   });
 }, [micros, rows]);
+const contenidoPrincipalOptions =
+  useMemo(() => {
+    return [
+      ...new Set(
+        rows
+          .map((r) =>
+            r.contenidoPrincipal.trim()
+          )
+          .filter(Boolean)
+      ),
+    ].sort();
+  }, [rows]);
+const tipoOptions = useMemo(() => {
+  return [
+    ...new Set(
+      rows
+        .map((r) => r.tipo.trim())
+        .filter(Boolean)
+    ),
+  ].sort();
+}, [rows]);
   const phaseData = useMemo(() => {
     const grouped: Record<
       string,
@@ -751,75 +781,106 @@ return Object.entries(grouped)
   {/* Selector + KPIs */}
 <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
-  <select
-  value={micro}
-  onChange={(e) => setMicro(e.target.value)}
-  className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
->
-  <option value="ALL">
-    Todos los microciclos
-  </option>
+<div className="flex flex-col sm:flex-row gap-3 flex-wrap">
 
-  {microOptions.map((item) => (
-    <option
-      key={item.micro}
-      value={item.micro}
-    >
-      Micro {item.micro}
-      {item.rival
-        ? ` · ${item.rival}`
-        : ""}
+  {/* SELECTOR DE MICROCICLO */}
+  <select
+    value={micro}
+    onChange={(e) => setMicro(e.target.value)}
+    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+  >
+    <option value="ALL">
+      Todos los microciclos
     </option>
-  ))}
-</select>
+
+    {microOptions.map((item) => (
+      <option
+        key={item.micro}
+        value={item.micro}
+      >
+        Micro {item.micro}
+        {item.rival
+          ? ` · ${item.rival}`
+          : ""}
+      </option>
+    ))}
+  </select>
+
+  {/* SELECTOR DE EVALUACIÓN */}
+  <select
+    value={evaluacionFilter}
+    onChange={(e) =>
+      setEvaluacionFilter(e.target.value)
+    }
+    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+  >
+    <option value="ALL">
+      Todas las evaluaciones
+    </option>
+
+    <option value="5">
+      Evaluación ≥ 5
+    </option>
+
+    <option value="6">
+      Evaluación ≥ 6
+    </option>
+
+    <option value="7">
+      Evaluación ≥ 7
+    </option>
+
+    <option value="8">
+      Evaluación ≥ 8
+    </option>
+
+    <option value="9">
+      Evaluación ≥ 9
+    </option>
+  </select>
+
+</div>
 {(
   micro !== "ALL" ||
-  tipoFilter ||
-  contenidoPrincipalFilter ||
-  faseFilter
+  evaluacionFilter !== "ALL" ||
+  tipoFilter !== "ALL" ||
+  contenidoPrincipalFilter !== "ALL" ||
+  faseFilter !== "ALL"
 ) && (
   <div className="mt-5 flex flex-wrap gap-2">
+
     {micro !== "ALL" && (
       <button
-        onClick={() =>
-          setMicro("ALL")
-        }
+        onClick={() => setMicro("ALL")}
         className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-xs text-[#C8A96B]"
       >
         Micro {micro} ×
       </button>
     )}
 
-    {tipoFilter && (
+    {tipoFilter !== "ALL" && (
       <button
-        onClick={() =>
-          setTipoFilter(null)
-        }
+        onClick={() => setTipoFilter("ALL")}
         className="rounded-full border border-blue-400/40 bg-blue-400/10 px-3 py-1.5 text-xs text-blue-300"
       >
         Tipo: {tipoFilter} ×
       </button>
     )}
 
-    {contenidoPrincipalFilter && (
+    {contenidoPrincipalFilter !== "ALL" && (
       <button
         onClick={() =>
-          setContenidoPrincipalFilter(
-            null
-          )
+          setContenidoPrincipalFilter("ALL")
         }
         className="rounded-full border border-purple-400/40 bg-purple-400/10 px-3 py-1.5 text-xs text-purple-300"
       >
-        Contenido:{" "}
-        {contenidoPrincipalFilter} ×
+        Contenido: {contenidoPrincipalFilter} ×
       </button>
     )}
 
-    {faseFilter && (
+    {faseFilter !== "ALL" && (
       <button
-        onClick={() =>
-          setFaseFilter(null)
-        }
+        onClick={() => setFaseFilter("ALL")}
         className="rounded-full border border-green-400/40 bg-green-400/10 px-3 py-1.5 text-xs text-green-300"
       >
         Fase: {faseFilter} ×
@@ -829,19 +890,18 @@ return Object.entries(grouped)
     <button
       onClick={() => {
         setMicro("ALL");
-        setTipoFilter(null);
-        setContenidoPrincipalFilter(
-          null
-        );
-        setFaseFilter(null);
+        setTipoFilter("ALL");
+        setContenidoPrincipalFilter("ALL");
+        setFaseFilter("ALL");
+        setEvaluacionFilter("ALL");
       }}
       className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10"
     >
       Limpiar todo
     </button>
+
   </div>
 )}
-
   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
     <Card
       title="Avg Eval"
