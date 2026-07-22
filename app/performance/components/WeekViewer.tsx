@@ -10,7 +10,7 @@ import {
 import { WeekData } from "../data";
 import UploadZone from "./UploadZone";
 import { uploadFile } from "@/lib/uploadFile";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { deleteFile } from "@/lib/deleteFile";
 import { Trash2 } from "lucide-react";
 
@@ -25,6 +25,8 @@ export default function WeekViewer({
   updateWeek,
 }: Props) {
     const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+    const imagesSectionRef = useRef<HTMLDivElement>(null);
+const pdfSectionRef = useRef<HTMLDivElement>(null);
 
 const fullscreenImage =
   fullscreenIndex !== null ? week?.images[fullscreenIndex] ?? null : null;
@@ -208,43 +210,94 @@ useEffect(() => {
 
       <div className="grid grid-cols-2 gap-4 p-8">
 
-        <div className="rounded-2xl bg-[#0B0F14] p-5">
+  {/* TOTAL IMÁGENES */}
 
-          <div className="flex items-center gap-3 text-[#C8A96B]">
+  <button
+    type="button"
+    onClick={() => {
+      imagesSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }}
+    className="
+      rounded-2xl
+      bg-[#0B0F14]
+      p-5
+      text-left
+      transition
+      hover:bg-white/[0.06]
+      hover:ring-1
+      hover:ring-[#C8A96B]/40
+      cursor-pointer
+    "
+  >
 
-            <ImageIcon size={20} />
+    <div className="flex items-center gap-3 text-[#C8A96B]">
 
-            <span className="text-sm uppercase">
-              Imágenes
-            </span>
+      <ImageIcon size={20} />
 
-          </div>
+      <span className="text-sm uppercase">
+        Imágenes
+      </span>
 
-          <p className="mt-4 text-3xl font-semibold">
-            {week.images.length}
-          </p>
+    </div>
 
-        </div>
+    <p className="mt-4 text-3xl font-semibold">
+      {week.images.length}
+    </p>
 
-        <div className="rounded-2xl bg-[#0B0F14] p-5">
+    <p className="mt-1 text-xs text-white/40">
+      Ver todas las imágenes →
+    </p>
 
-          <div className="flex items-center gap-3 text-[#C8A96B]">
+  </button>
 
-            <FileText size={20} />
 
-            <span className="text-sm uppercase">
-              PDF
-            </span>
+  {/* TOTAL PDF */}
 
-          </div>
+  <button
+    type="button"
+    onClick={() => {
+      pdfSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }}
+    className="
+      rounded-2xl
+      bg-[#0B0F14]
+      p-5
+      text-left
+      transition
+      hover:bg-white/[0.06]
+      hover:ring-1
+      hover:ring-[#C8A96B]/40
+      cursor-pointer
+    "
+  >
 
-          <p className="mt-4 text-3xl font-semibold">
-            {week.pdfs?.length ?? 0}
-          </p>
+    <div className="flex items-center gap-3 text-[#C8A96B]">
 
-        </div>
+      <FileText size={20} />
 
-      </div>
+      <span className="text-sm uppercase">
+        PDF
+      </span>
+
+    </div>
+
+    <p className="mt-4 text-3xl font-semibold">
+      {week.pdfs?.length ?? 0}
+    </p>
+
+    <p className="mt-1 text-xs text-white/40">
+      Ver todos los PDF →
+    </p>
+
+  </button>
+
+</div>
 
       {/* SUBIDA DE ARCHIVOS */}
 
@@ -273,7 +326,10 @@ useEffect(() => {
 
       {/* IMÁGENES */}
 
-      <div className="border-t border-white/10 px-8 py-8">
+      <div
+  ref={imagesSectionRef}
+  className="scroll-mt-24 border-t border-white/10 px-8 py-8"
+>
 
         <div className="mb-5 flex items-center justify-between">
 
@@ -354,7 +410,10 @@ useEffect(() => {
 
       {/* PDF */}
 
-      <div className="border-t border-white/10 p-8">
+      <div
+  ref={pdfSectionRef}
+  className="scroll-mt-24 border-t border-white/10 p-8"
+>
 
         <div className="mb-5 flex items-center justify-between">
 
