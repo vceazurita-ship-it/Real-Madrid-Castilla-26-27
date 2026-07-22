@@ -8,6 +8,7 @@ import { Topbar } from "@/components/ui/topbar";
 import Header from "./components/Header";
 import SeasonTimeline from "./components/SeasonTimeLine";
 import WeekViewer from "./components/WeekViewer";
+import GlobalFilesViewer from "./components/GlobalFilesViewer";
 
 import { WeekData, MonthData } from "./data";
 
@@ -23,6 +24,9 @@ export default function PerformancePage() {
 
   // Semana seleccionada
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
+  const [globalViewer, setGlobalViewer] = useState<
+  "images" | "pdfs" | null
+>(null);
 
 const viewerRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +65,37 @@ const viewerRef = useRef<HTMLDivElement>(null);
           .flatMap((month) => month.weeks)
           .find((week) => week.id === selectedWeekId) ?? null
       : null;
+
+const allImages = seasonData
+  .flatMap((month) =>
+    month.weeks.flatMap((week) =>
+      week.images.map((image) => ({
+        url: image,
+        week: week.week,
+        month: week.month,
+        start: week.start,
+        end: week.end,
+        weekId: week.id,
+      }))
+    )
+  )
+  .sort((a, b) => b.weekId - a.weekId);
+
+
+const allPdfs = seasonData
+  .flatMap((month) =>
+    month.weeks.flatMap((week) =>
+      (week.pdfs ?? []).map((pdf) => ({
+        url: pdf,
+        week: week.week,
+        month: month.name,
+        start: week.start,
+        end: week.end,
+        weekId: week.id,
+      }))
+    )
+  )
+  .sort((a, b) => b.weekId - a.weekId);
 
   // Actualizar una semana
   const updateWeek = async (updatedWeek: WeekData) => {
@@ -102,6 +137,8 @@ const viewerRef = useRef<HTMLDivElement>(null);
             <Header
   season={seasonData}
   selectedWeek={selectedWeek}
+  onOpenImages={() => setGlobalViewer("images")}
+  onOpenPdfs={() => setGlobalViewer("pdfs")}
 />
 
             <div className="grid gap-8 xl:grid-cols-[430px_1fr]">
