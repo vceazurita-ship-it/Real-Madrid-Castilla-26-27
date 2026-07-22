@@ -1572,16 +1572,16 @@ const deletePlayer = async () => {
   }
 />
 
- <EditableField
-    label="Fecha incorporación"
-    value={editForm["FECHA INCORPORACIÓN"]}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        "FECHA INCORPORACIÓN": value,
-      })
-    }
-  />
+<EditableDateField
+  label="Fecha incorporación"
+  value={editForm["FECHA INCORPORACIÓN"]}
+  onChange={(value) =>
+    setEditForm({
+      ...editForm,
+      "FECHA INCORPORACIÓN": value,
+    })
+  }
+/>
 
                     </div>
 
@@ -2087,6 +2087,61 @@ function EditableTextarea({
           px-4
           py-3
           text-sm
+          outline-none
+          transition
+          focus:border-[#C8A96B]
+        "
+      />
+
+    </label>
+  );
+}
+function formatDateForInput(value: unknown) {
+  if (!value) return "";
+
+  const date = new Date(
+    String(value)
+  );
+
+  if (isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().split("T")[0];
+}
+function EditableDateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: unknown;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block min-w-0">
+
+      <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
+        {label}
+      </span>
+
+      <input
+        type="date"
+        value={formatDateForInput(value)}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="
+          w-full
+          min-w-0
+          rounded-xl
+          border
+          border-white/10
+          bg-[#0B0F14]
+          px-4
+          py-3
+          text-sm
+          text-white
           outline-none
           transition
           focus:border-[#C8A96B]
