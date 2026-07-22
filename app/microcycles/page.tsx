@@ -199,6 +199,16 @@ export default function Page() {
 
   const [micro, setMicro] =
     useState("ALL");
+
+  const [tipoFilter, setTipoFilter] =
+  useState<string | null>(null);
+
+const [contenidoPrincipalFilter, setContenidoPrincipalFilter] =
+  useState<string | null>(null);
+
+const [faseFilter, setFaseFilter] =
+  useState<string | null>(null);
+
 useEffect(() => {
   const check = () => {
     setIsMobile(
@@ -241,13 +251,38 @@ useEffect(() => {
     [rows]
   );
 
-  const filtered =
-    micro === "ALL"
-      ? rows
-      : rows.filter(
-          (r) => String(r.micro) === micro
-        );
+  const filtered = useMemo(() => {
+  return rows.filter((r) => {
+    const matchesMicro =
+      micro === "ALL" ||
+      String(r.micro) === micro;
 
+    const matchesTipo =
+      !tipoFilter ||
+      r.tipo === tipoFilter;
+
+    const matchesContenido =
+      !contenidoPrincipalFilter ||
+      r.contenidoPrincipal === contenidoPrincipalFilter;
+
+    const matchesFase =
+      !faseFilter ||
+      r.fase === faseFilter;
+
+    return (
+      matchesMicro &&
+      matchesTipo &&
+      matchesContenido &&
+      matchesFase
+    );
+  });
+}, [
+  rows,
+  micro,
+  tipoFilter,
+  contenidoPrincipalFilter,
+  faseFilter,
+]);
   const metrics = {
     eval: avg(
       filtered
@@ -737,6 +772,75 @@ return Object.entries(grouped)
     </option>
   ))}
 </select>
+{(
+  micro !== "ALL" ||
+  tipoFilter ||
+  contenidoPrincipalFilter ||
+  faseFilter
+) && (
+  <div className="mt-5 flex flex-wrap gap-2">
+    {micro !== "ALL" && (
+      <button
+        onClick={() =>
+          setMicro("ALL")
+        }
+        className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-xs text-[#C8A96B]"
+      >
+        Micro {micro} ×
+      </button>
+    )}
+
+    {tipoFilter && (
+      <button
+        onClick={() =>
+          setTipoFilter(null)
+        }
+        className="rounded-full border border-blue-400/40 bg-blue-400/10 px-3 py-1.5 text-xs text-blue-300"
+      >
+        Tipo: {tipoFilter} ×
+      </button>
+    )}
+
+    {contenidoPrincipalFilter && (
+      <button
+        onClick={() =>
+          setContenidoPrincipalFilter(
+            null
+          )
+        }
+        className="rounded-full border border-purple-400/40 bg-purple-400/10 px-3 py-1.5 text-xs text-purple-300"
+      >
+        Contenido:{" "}
+        {contenidoPrincipalFilter} ×
+      </button>
+    )}
+
+    {faseFilter && (
+      <button
+        onClick={() =>
+          setFaseFilter(null)
+        }
+        className="rounded-full border border-green-400/40 bg-green-400/10 px-3 py-1.5 text-xs text-green-300"
+      >
+        Fase: {faseFilter} ×
+      </button>
+    )}
+
+    <button
+      onClick={() => {
+        setMicro("ALL");
+        setTipoFilter(null);
+        setContenidoPrincipalFilter(
+          null
+        );
+        setFaseFilter(null);
+      }}
+      className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10"
+    >
+      Limpiar todo
+    </button>
+  </div>
+)}
 
   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
     <Card
@@ -1042,14 +1146,33 @@ return Object.entries(grouped)
       />
 
       <Line
-        dataKey="value"
-        stroke={COLORS.gold}
-        strokeWidth={3}
-        dot={{
-          r: 4,
-          fill: COLORS.gold,
-        }}
-      />
+  dataKey="value"
+  stroke={COLORS.gold}
+  strokeWidth={3}
+  dot={(props: any) => (
+    <circle
+      cx={props.cx}
+      cy={props.cy}
+      r={5}
+      fill={COLORS.gold}
+      style={{
+        cursor: "pointer",
+      }}
+      onClick={() => {
+        const microNumber =
+          Number(
+            String(
+              props.payload.micro
+            ).replace("M", "")
+          );
+
+        setMicro(
+          String(microNumber)
+        );
+      }}
+    />
+  )}
+/>
     </AreaChart>
   </Chart>
 </Panel>
@@ -1308,12 +1431,27 @@ margin={{
       ? 16
       : 20
   }
+  cursor="pointer"
+  onClick={(data: any) => {
+    const tipo =
+      data?.payload?.tipo;
+
+    if (tipo) {
+      setTipoFilter(tipo);
+    }
+  }}
 >
 {taskEvalData.map(
   (entry, index) => (
     <Cell
       key={index}
       fill={getEvalColor(entry.eval)}
+      opacity={
+        tipoFilter &&
+        tipoFilter !== entry.tipo
+          ? 0.25
+          : 1
+      }
     />
   )
 )}
@@ -1407,15 +1545,33 @@ margin={{
       ? 16
       : 20
   }
+  cursor="pointer"
+  onClick={(data: any) => {
+    const contenido =
+      data?.payload?.name;
+
+    if (contenido) {
+      setContenidoPrincipalFilter(
+        contenido
+      );
+    }
+  }}
 >
   {contenidoPrincipalData.map(
-    (entry, index) => (
-      <Cell
-        key={index}
-        fill={getEvalColor(entry.eval)}
-      />
-    )
-  )}
+  (entry, index) => (
+    <Cell
+      key={index}
+      fill={getEvalColor(entry.eval)}
+      opacity={
+        contenidoPrincipalFilter &&
+        contenidoPrincipalFilter !==
+          entry.name
+          ? 0.25
+          : 1
+      }
+    />
+  )
+)}
         <LabelList
   dataKey="eval"
   position="right"
@@ -1505,15 +1661,30 @@ margin={{
       ? 16
       : 20
   }
+  cursor="pointer"
+  onClick={(data: any) => {
+    const fase =
+      data?.payload?.name;
+
+    if (fase) {
+      setFaseFilter(fase);
+    }
+  }}
 >
   {faseEvalData.map(
-    (entry, index) => (
-      <Cell
-        key={index}
-        fill={getEvalColor(entry.eval)}
-      />
-    )
-  )}
+  (entry, index) => (
+    <Cell
+      key={index}
+      fill={getEvalColor(entry.eval)}
+      opacity={
+        faseFilter &&
+        faseFilter !== entry.name
+          ? 0.25
+          : 1
+      }
+    />
+  )
+)}
         <LabelList
           dataKey="eval"
           position="right"
