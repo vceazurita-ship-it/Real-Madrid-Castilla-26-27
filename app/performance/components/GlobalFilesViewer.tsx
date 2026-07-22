@@ -1,10 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useState, useRef } from "react";
+
 import {
   X,
   FileText,
   ImageIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface FileItem {
@@ -27,6 +31,106 @@ export default function GlobalFilesViewer({
   files,
   onClose,
 }: Props) {
+
+  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(
+    null
+  );
+
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+    const showNextImage = () => {
+    setFullscreenIndex((current) => {
+      if (current === null || files.length === 0) return current;
+
+      return (current + 1) % files.length;
+    });
+  };
+
+  const showPreviousImage = () => {
+    setFullscreenIndex((current) => {
+      if (current === null || files.length === 0) return current;
+
+      return (
+        (current - 1 + files.length) %
+        files.length
+      );
+    });
+  };
+
+    useEffect(() => {
+    if (fullscreenIndex === null) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFullscreenIndex(null);
+      }
+
+      if (event.key === "ArrowRight") {
+        showNextImage();
+      }
+
+      if (event.key === "ArrowLeft") {
+        showPreviousImage();
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [fullscreenIndex, files.length]);
+
+    const handleTouchStart = (
+    event: React.TouchEvent
+  ) => {
+    touchStartX.current =
+      event.changedTouches[0].screenX;
+  };
+
+  const handleTouchEnd = (
+    event: React.TouchEvent
+  ) => {
+    touchEndX.current =
+      event.changedTouches[0].screenX;
+
+    if (
+      touchStartX.current === null ||
+      touchEndX.current === null
+    ) {
+      return;
+    }
+
+    const distance =
+      touchStartX.current -
+      touchEndX.current;
+
+    const minimumSwipeDistance = 50;
+
+    if (
+      Math.abs(distance) <
+      minimumSwipeDistance
+    ) {
+      return;
+    }
+
+    if (distance > 0) {
+      showNextImage();
+    } else {
+      showPreviousImage();
+    }
+
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0B0F14]">
 
@@ -166,17 +270,26 @@ export default function GlobalFilesViewer({
                 "
               >
 
-                <Image
-                  src={file.url}
-                  alt={`${file.week} - ${file.month}`}
-                  width={1200}
-                  height={800}
-                  className="
-                    h-64
-                    w-full
-                    object-cover
-                  "
-                />
+                <button
+  type="button"
+  onClick={() => setFullscreenIndex(index)}
+  className="block w-full cursor-zoom-in"
+>
+  <Image
+    src={file.url}
+    alt={`${file.week} - ${file.month}`}
+    width={1200}
+    height={800}
+    className="
+      h-64
+      w-full
+      object-cover
+      transition
+      duration-300
+      hover:scale-[1.02]
+    "
+  />
+</button>
 
                 <div className="p-4">
 
@@ -272,7 +385,162 @@ export default function GlobalFilesViewer({
         )}
 
       </div>
+      {fullscreenIndex !== null &&
+        files[fullscreenIndex] && (
+          <div
+            className="
+              fixed
+              inset-0
+              z-[60]
+              flex
+              items-center
+              justify-center
+              bg-black/95
+              p-4
+              sm:p-6
+            "
+            onClick={() =>
+              setFullscreenIndex(null)
+            }
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
 
+            {/* CERRAR */}
+
+            <button
+              type="button"
+              onClick={() =>
+                setFullscreenIndex(null)
+              }
+              className="
+                absolute
+                right-4
+                top-4
+                z-20
+                rounded-full
+                bg-black/50
+                p-3
+                text-white/80
+                transition
+                hover:bg-white/10
+                hover:text-white
+                sm:right-6
+                sm:top-6
+              "
+            >
+              <X size={26} />
+            </button>
+
+
+            {/* ANTERIOR */}
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                showPreviousImage();
+              }}
+              className="
+                absolute
+                left-2
+                top-1/2
+                z-20
+                -translate-y-1/2
+                rounded-full
+                bg-black/50
+                p-2
+                text-white/80
+                transition
+                hover:bg-white/10
+                hover:text-white
+                sm:left-6
+                sm:p-3
+              "
+            >
+              <ChevronLeft
+                size={32}
+              />
+            </button>
+
+
+            {/* IMAGEN */}
+
+            <Image
+              src={files[fullscreenIndex].url}
+              alt={
+                files[fullscreenIndex].week
+              }
+              width={2400}
+              height={1600}
+              className="
+                max-h-[90vh]
+                max-w-[90vw]
+                rounded-xl
+                object-contain
+                select-none
+              "
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            />
+
+
+            {/* SIGUIENTE */}
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                showNextImage();
+              }}
+              className="
+                absolute
+                right-2
+                top-1/2
+                z-20
+                -translate-y-1/2
+                rounded-full
+                bg-black/50
+                p-2
+                text-white/80
+                transition
+                hover:bg-white/10
+                hover:text-white
+                sm:right-6
+                sm:p-3
+              "
+            >
+              <ChevronRight
+                size={32}
+              />
+            </button>
+
+
+            {/* INFORMACIÓN */}
+
+            <div
+              className="
+                absolute
+                bottom-4
+                left-1/2
+                -translate-x-1/2
+                rounded-xl
+                bg-black/60
+                px-4
+                py-2
+                text-center
+                text-sm
+                text-white/70
+              "
+            >
+              {fullscreenIndex + 1} /{" "}
+              {files.length}
+            </div>
+
+          </div>
+        )}
     </div>
+    
   );
 }
