@@ -781,9 +781,10 @@ return Object.entries(grouped)
   {/* Selector + KPIs */}
 <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
-<div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-
   {/* SELECTOR DE MICROCICLO */}
+  <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+
+  {/* MICRO */}
   <select
     value={micro}
     onChange={(e) => setMicro(e.target.value)}
@@ -806,11 +807,64 @@ return Object.entries(grouped)
     ))}
   </select>
 
-  {/* SELECTOR DE EVALUACIÓN */}
+
+  {/* TIPO DE TAREA */}
+  <select
+    value={tipoFilter}
+    onChange={(e) =>
+      setTipoFilter(e.target.value)
+    }
+    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+  >
+    <option value="ALL">
+      Todos los tipos de tarea
+    </option>
+
+    {tipoOptions.map((tipo) => (
+      <option
+        key={tipo}
+        value={tipo}
+      >
+        {tipo}
+      </option>
+    ))}
+  </select>
+
+
+  {/* CONTENIDO PRINCIPAL */}
+  <select
+    value={contenidoPrincipalFilter}
+    onChange={(e) =>
+      setContenidoPrincipalFilter(
+        e.target.value
+      )
+    }
+    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+  >
+    <option value="ALL">
+      Todos los contenidos
+    </option>
+
+    {contenidoPrincipalOptions.map(
+      (contenido) => (
+        <option
+          key={contenido}
+          value={contenido}
+        >
+          {contenido}
+        </option>
+      )
+    )}
+  </select>
+
+
+  {/* EVALUACIÓN */}
   <select
     value={evaluacionFilter}
     onChange={(e) =>
-      setEvaluacionFilter(e.target.value)
+      setEvaluacionFilter(
+        e.target.value
+      )
     }
     className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
   >
