@@ -421,7 +421,7 @@ const closePlayer = () => {
   |--------------------------------------------------------------------------
   */
 
- const savePlayer = async () => {
+const savePlayer = async () => {
   if (!editForm) return;
 
   try {
@@ -431,39 +431,96 @@ const closePlayer = () => {
       ? "crearRivalJugador"
       : "guardarRivalJugador";
 
-    const playerToSave = {
-      ...editForm,
-
+    const playerToSave: RivalPlayer = {
       ID_JUGADOR:
         editForm.ID_JUGADOR ||
-        `RIV-${Date.now()}`,
+        `RIV-JUG-${Date.now()}`,
 
       ID_EQUIPO:
         editForm.ID_EQUIPO ||
-        `TEAM-${normalize(
-          editForm.NOMBRE_EQUIPO
-        )
-          .replace(/\s+/g, "-")
-          .toUpperCase()}`,
+        `RIV-${Date.now()}`,
+
+      NOMBRE_EQUIPO:
+        editForm.NOMBRE_EQUIPO ||
+        selectedTeam,
+
+      DORSAL: editForm.DORSAL || "",
+
+      JUGADOR: editForm.JUGADOR || "",
+
+      "NOMBRE DEPORTIVO":
+        editForm["NOMBRE DEPORTIVO"] || "",
+
+      "LUGAR DE NACIMIENTO":
+        editForm["LUGAR DE NACIMIENTO"] || "",
+
+      EDAD: editForm.EDAD || "",
+
+      PESO: editForm.PESO || "",
+
+      ALTURA: editForm.ALTURA || "",
+
+      "POSICIÓN":
+        editForm["POSICIÓN"] || "",
+
+      "2º POSICIÓN":
+        editForm["2º POSICIÓN"] || "",
+
+      "PIE DOMINANTE":
+        editForm["PIE DOMINANTE"] || "",
+
+      PROCEDENCIA:
+        editForm.PROCEDENCIA || "",
+
+      "FECHA INCORPORACIÓN":
+        editForm["FECHA INCORPORACIÓN"] || "",
+
+      IMPACTO:
+        editForm.IMPACTO || "",
+
+      ROL:
+        editForm.ROL || "",
+
+      CARACTERÍSTICAS:
+        editForm.CARACTERÍSTICAS || "",
+
+      FORTALEZAS:
+        editForm.FORTALEZAS || "",
+
+      DEBILIDADES:
+        editForm.DEBILIDADES || "",
+
+      OBSERVACIONES:
+        editForm.OBSERVACIONES || "",
+
+      VIDEO:
+        editForm.VIDEO || "",
+
+      DOC:
+        editForm.DOC || "",
+
+      FOTO:
+        editForm.FOTO || "",
+
+      ESTADO:
+        editForm.ESTADO || "ACTIVO",
     };
 
-   const response = await fetch(
-  RIVALS_API_URL,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type":
-        "application/json",
-    },
-    body: JSON.stringify({
-      action,
-      ...playerToSave,
-    }),
-  }
-);
+    const response = await fetch(
+      RIVALS_API_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          player: playerToSave,
+        }),
+      }
+    );
 
-    const result =
-      await response.json();
+    const result = await response.json();
 
     if (!result.success) {
       throw new Error(
@@ -473,7 +530,6 @@ const closePlayer = () => {
     }
 
     if (isCreating) {
-
       setPlayers((current) => [
         ...current,
         playerToSave,
@@ -486,9 +542,7 @@ const closePlayer = () => {
       alert(
         "Jugador añadido correctamente"
       );
-
     } else {
-
       setPlayers((current) =>
         current.map((player) =>
           player.ID_JUGADOR ===
@@ -496,10 +550,6 @@ const closePlayer = () => {
             ? playerToSave
             : player
         )
-      );
-
-      setSelectedPlayer(
-        playerToSave
       );
 
       alert(
@@ -510,7 +560,6 @@ const closePlayer = () => {
     closePlayer();
 
   } catch (error) {
-
     console.error(error);
 
     alert(
@@ -1380,7 +1429,33 @@ const deletePlayer = async () => {
                       )}
 
                     </div>
+{/* IDENTIDAD */}
 
+<div className="mt-4 space-y-4">
+
+  <EditableField
+    label="Nombre completo"
+    value={editForm.JUGADOR}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        JUGADOR: value,
+      })
+    }
+  />
+
+  <EditableField
+    label="Nombre deportivo"
+    value={editForm["NOMBRE DEPORTIVO"]}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        "NOMBRE DEPORTIVO": value,
+      })
+    }
+  />
+
+</div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
 
   <EditableField
@@ -1497,6 +1572,17 @@ const deletePlayer = async () => {
   }
 />
 
+ <EditableField
+    label="Fecha incorporación"
+    value={editForm["FECHA INCORPORACIÓN"]}
+    onChange={(value) =>
+      setEditForm({
+        ...editForm,
+        "FECHA INCORPORACIÓN": value,
+      })
+    }
+  />
+
                     </div>
 
                   </div>
@@ -1505,7 +1591,18 @@ const deletePlayer = async () => {
 
                   <div className="min-w-0 space-y-5">
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-3">
+
+                        <EditableField
+      label="Estado"
+      value={editForm.ESTADO}
+      onChange={(value) =>
+        setEditForm({
+          ...editForm,
+          ESTADO: value,
+        })
+      }
+    />
 
                       <EditableField
                         label="Impacto"
