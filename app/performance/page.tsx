@@ -13,6 +13,7 @@ import { WeekData, MonthData } from "./data";
 
 import { loadSeason } from "@/lib/loadSeason";
 import { saveSeason } from "@/lib/saveSeason";
+import GlobalFilesViewer from "./components/GlobalFilesViewer";
 
 export default function PerformancePage() {
   // Temporada cargada desde Supabase
@@ -66,6 +67,36 @@ const viewerRef = useRef<HTMLDivElement>(null);
           .find((week) => week.id === selectedWeekId) ?? null
       : null;
 
+const allImages = seasonData
+  .flatMap((month) =>
+    month.weeks.flatMap((week) =>
+      week.images.map((image) => ({
+        url: image,
+        week: week.week,
+        month: week.month,
+        start: week.start,
+        end: week.end,
+        weekId: week.id,
+      }))
+    )
+  )
+  .sort((a, b) => b.weekId - a.weekId);
+
+const allPdfs = seasonData
+  .flatMap((month) =>
+    month.weeks.flatMap((week) =>
+      (week.pdfs ?? []).map((pdf) => ({
+        url: pdf,
+        week: week.week,
+        month: week.month,
+        start: week.start,
+        end: week.end,
+        weekId: week.id,
+      }))
+    )
+  )
+  .sort((a, b) => b.weekId - a.weekId);
+
   // Actualizar una semana
   const updateWeek = async (updatedWeek: WeekData) => {
     const updatedSeason = seasonData.map((month) => ({
@@ -94,6 +125,19 @@ const viewerRef = useRef<HTMLDivElement>(null);
     );
   }
 
+  if (globalViewer) {
+  return (
+    <GlobalFilesViewer
+      type={globalViewer}
+      files={
+        globalViewer === "images"
+          ? allImages
+          : allPdfs
+      }
+      onClose={() => setGlobalViewer(null)}
+    />
+  );
+}
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
