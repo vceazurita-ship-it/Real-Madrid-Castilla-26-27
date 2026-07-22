@@ -173,6 +173,19 @@ const allPdfs = seasonData
           </div>
         </section>
       </div>
+
+      {globalViewer && (
+        <GlobalFilesViewer
+          type={globalViewer}
+          files={
+            globalViewer === "images"
+              ? allImages
+              : allPdfs
+          }
+          onClose={() => setGlobalViewer(null)}
+        />
+      )}
+
     </main>
   );
 }
