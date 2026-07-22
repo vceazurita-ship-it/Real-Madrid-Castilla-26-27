@@ -24,6 +24,10 @@ export default function PerformancePage() {
   // Semana seleccionada
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
 
+  const [globalViewer, setGlobalViewer] = useState<
+  "images" | "pdfs" | null
+>(null);
+
 const viewerRef = useRef<HTMLDivElement>(null);
 
   // Cargar temporada al iniciar
@@ -102,6 +106,8 @@ const viewerRef = useRef<HTMLDivElement>(null);
             <Header
   season={seasonData}
   selectedWeek={selectedWeek}
+  onOpenImages={() => setGlobalViewer("images")}
+  onOpenPdfs={() => setGlobalViewer("pdfs")}
 />
 
             <div className="grid gap-8 xl:grid-cols-[430px_1fr]">

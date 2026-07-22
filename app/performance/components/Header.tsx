@@ -11,11 +11,15 @@ import { MonthData, WeekData } from "../data";
 interface HeaderProps {
   season: MonthData[];
   selectedWeek: WeekData | null;
+  onOpenImages: () => void;
+  onOpenPdfs: () => void;
 }
 
 export default function Header({
   season,
   selectedWeek,
+  onOpenImages,
+  onOpenPdfs,
 }: HeaderProps) {
   const totalWeeks = season.reduce(
     (acc, month) => acc + month.weeks.length,
@@ -92,16 +96,18 @@ export default function Header({
         />
 
         <StatCard
-          icon={<ImageIcon size={22} />}
-          value={totalImages}
-          label="Imágenes"
-        />
+  icon={<ImageIcon size={22} />}
+  value={totalImages}
+  label="Imágenes"
+  onClick={onOpenImages}
+/>
 
-        <StatCard
-          icon={<FileText size={22} />}
-          value={totalPdfs}
-          label="PDFs"
-        />
+<StatCard
+  icon={<FileText size={22} />}
+  value={totalPdfs}
+  label="PDFs"
+  onClick={onOpenPdfs}
+/>
 
         <StatCard
           icon={<Trophy size={22} />}
@@ -171,23 +177,30 @@ function StatCard({
   icon,
   value,
   label,
+  onClick,
 }: {
   icon: React.ReactNode;
   value: string | number;
   label: string;
+  onClick?: () => void;
 }) {
   return (
-    <div
-      className="
-        rounded-3xl
-        border
-        border-white/10
-        bg-[#11161D]
-        p-6
-        transition-all
-        hover:border-[#C8A96B]/40
-      "
-    >
+    <button
+  type="button"
+  onClick={onClick}
+  className="
+    w-full
+    rounded-3xl
+    border
+    border-white/10
+    bg-[#11161D]
+    p-6
+    text-left
+    transition-all
+    hover:border-[#C8A96B]/40
+    hover:bg-white/[0.03]
+  "
+>
       <div className="mb-5 text-[#C8A96B]">
         {icon}
       </div>
@@ -199,6 +212,6 @@ function StatCard({
       <div className="mt-2 text-sm text-white/50">
         {label}
       </div>
-    </div>
+    </button>
   );
 }
