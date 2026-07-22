@@ -106,8 +106,8 @@ export default function RivalPlayersPage() {
   const [search, setSearch] =
     useState("");
 
-  const [positionFilter, setPositionFilter] =
-    useState("TODAS");
+  const [positionSearch, setPositionSearch] =
+  useState("");
 
   const [selectedPlayer, setSelectedPlayer] =
     useState<RivalPlayer | null>(null);
@@ -196,73 +196,85 @@ const [isCreating, setIsCreating] =
   |--------------------------------------------------------------------------
   */
 
-  const positions = useMemo(() => {
-    return [
-      "TODAS",
-      ...new Set(
-        players
-          .filter(
-            (player) =>
-              player.NOMBRE_EQUIPO ===
-              selectedTeam
-          )
-          .map((player) =>
-            String(
-              player["POSICIÓN"] || ""
-            )
-          )
-          .filter(Boolean)
-      ),
-    ];
-  }, [players, selectedTeam]);
-
   /*
   |--------------------------------------------------------------------------
   | FILTRADO
   |--------------------------------------------------------------------------
   */
 
-  const filteredPlayers = useMemo(() => {
-    const searchValue =
-      normalize(search);
+ const filteredPlayers = useMemo(() => {
+  const searchValue = normalize(search);
 
-    return players.filter((player) => {
-      const sameTeam =
-        player.NOMBRE_EQUIPO ===
-        selectedTeam;
+  const positionSearchValue =
+    normalize(positionSearch);
 
-      const samePosition =
-        positionFilter === "TODAS" ||
-        player["POSICIÓN"] ===
-          positionFilter;
+  return players.filter((player) => {
+    const sameTeam =
+      player.NOMBRE_EQUIPO === selectedTeam;
 
-      const matchesSearch =
-        !searchValue ||
-        normalize(
-          player.JUGADOR
-        ).includes(searchValue) ||
-        normalize(
-          player["NOMBRE DEPORTIVO"]
-        ).includes(searchValue) ||
-        String(
-          player.DORSAL
-        ).includes(searchValue) ||
-        normalize(
-          player["POSICIÓN"]
-        ).includes(searchValue);
+    const matchesSearch =
+      !searchValue ||
+      normalize(player.JUGADOR).includes(
+        searchValue
+      ) ||
+      normalize(
+        player["NOMBRE DEPORTIVO"]
+      ).includes(searchValue) ||
+      normalize(
+        player.NOMBRE_EQUIPO
+      ).includes(searchValue) ||
+      String(player.DORSAL).includes(
+        searchValue
+      ) ||
+      normalize(
+        player["POSICIÓN"]
+      ).includes(searchValue) ||
+      normalize(
+        player["2º POSICIÓN"]
+      ).includes(searchValue);
 
+    const matchesPosition =
+      !positionSearchValue ||
+      normalize(
+        player["POSICIÓN"]
+      ).includes(positionSearchValue) ||
+      normalize(
+        player["2º POSICIÓN"]
+      ).includes(positionSearchValue);
+
+    /*
+    |--------------------------------------------------------------------------
+    | SIN BÚSQUEDA GENERAL
+    |--------------------------------------------------------------------------
+    | Se muestra únicamente el equipo seleccionado
+    */
+
+    if (!searchValue) {
       return (
         sameTeam &&
-        samePosition &&
-        matchesSearch
+        matchesPosition
       );
-    });
-  }, [
-    players,
-    selectedTeam,
-    positionFilter,
-    search,
-  ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CON BÚSQUEDA GENERAL
+    |--------------------------------------------------------------------------
+    | También puede encontrar jugadores
+    | por nombre de equipo
+    */
+
+    return (
+      matchesSearch &&
+      matchesPosition
+    );
+  });
+}, [
+  players,
+  selectedTeam,
+  search,
+  positionSearch,
+]);
 
   /*
   |--------------------------------------------------------------------------
@@ -738,12 +750,10 @@ const deletePlayer = async () => {
       <button
         key={team}
         onClick={() => {
-          setSelectedTeam(team);
-          setPositionFilter(
-            "TODAS"
-          );
-          setSearch("");
-        }}
+  setSelectedTeam(team);
+  setPositionSearch("");
+  setSearch("");
+}}
         className={`
           shrink-0
           whitespace-nowrap
@@ -799,7 +809,7 @@ const deletePlayer = async () => {
 
             {/* FILTROS */}
 
-            <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
 
               <div className="relative min-w-0">
 
@@ -815,7 +825,7 @@ const deletePlayer = async () => {
                       event.target.value
                     )
                   }
-                  placeholder="Buscar jugador..."
+                  placeholder="Buscar jugador o equipo..."
                   className="
                     w-full
                     min-w-0
@@ -833,43 +843,44 @@ const deletePlayer = async () => {
                 />
 
               </div>
+<div className="relative min-w-0">
 
-              <select
-                value={positionFilter}
-                onChange={(event) =>
-                  setPositionFilter(
-                    event.target.value
-                  )
-                }
-                className="
-                  w-full
-                  min-w-0
-                  rounded-xl
-                  border
-                  border-white/10
-                  bg-[#11161D]
-                  px-4
-                  py-3
-                  text-white
-                  outline-none
-                  focus:border-[#C8A96B]
-                "
-              >
+  <Search
+    size={18}
+    className="
+      absolute
+      left-4
+      top-1/2
+      -translate-y-1/2
+      text-white/40
+    "
+  />
 
-                {positions.map(
-                  (position) => (
+  <input
+    value={positionSearch}
+    onChange={(event) =>
+      setPositionSearch(
+        event.target.value
+      )
+    }
+    placeholder="Buscar posición..."
+    className="
+      w-full
+      min-w-0
+      rounded-xl
+      border
+      border-white/10
+      bg-[#11161D]
+      py-3
+      pl-11
+      pr-4
+      outline-none
+      transition
+      focus:border-[#C8A96B]
+    "
+  />
 
-                    <option
-                      key={position}
-                      value={position}
-                    >
-                      {position}
-                    </option>
-
-                  )
-                )}
-
-              </select>
+</div>
 
             </div>
 
