@@ -2062,133 +2062,144 @@ md:grid-cols-[320px_1fr]
   </div>
 )}
     {playerTracking.map((item) => (
-      <div
-        key={item.ID_REGISTRO}
-        className="
-          rounded-2xl
-          border
-          border-white/10
-          bg-white/[0.03]
-          p-5
-        "
-      >
-        <div className="mb-4 flex items-center justify-between">
-  <div className="text-sm text-[#C8A96B]">
-  {new Date(item.FECHA).toLocaleDateString("es-ES")}
-</div>
-
-  <div className="flex gap-2">
-
-    <button
-      onClick={() => {
-        setEditingTracking(item);
-
-        setTrackingForm({
-           FECHA:
-    item.FECHA?.split("T")[0] || "",
-          OBJETIVO_OFENSIVO:
-            item.OBJETIVO_OFENSIVO,
-          OBJETIVO_DEFENSIVO:
-            item.OBJETIVO_DEFENSIVO,
-          OBJETIVO_MENTAL:
-            item.OBJETIVO_MENTAL,
-          FEEDBACK:
-            item.FEEDBACK,
-          QUIEN:
-            item.QUIEN,
-          MODALIDAD:
-            item.MODALIDAD,
-          MOMENTO:
-            item.MOMENTO,
-          ESTRATEGIA:
-            item.ESTRATEGIA,
-        });
-
-        setShowTrackingForm(true);
-      }}
-      className="rounded-lg bg-blue-500 px-3 py-1 text-xs"
-    >
-      Editar
-    </button>
-
-    <button
-      onClick={() =>
-        deleteTracking(
-          item.ID_REGISTRO
-        )
-      }
-      className="rounded-lg bg-red-500 px-3 py-1 text-xs"
-    >
-      Borrar
-    </button>
-
-  </div>
-</div>
-
-        <div className="grid gap-4">
-
-          <div>
-            <h4 className="font-medium mb-1">
-              Objetivo ofensivo
-            </h4>
-
-            <p className="text-gray-300">
-              {item.OBJETIVO_OFENSIVO}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-1">
-              Objetivo defensivo
-            </h4>
-
-            <p className="text-gray-300">
-              {item.OBJETIVO_DEFENSIVO}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-1">
-              Objetivo mental
-            </h4>
-
-            <p className="text-gray-300">
-              {item.OBJETIVO_MENTAL}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-1">
-              Feedback
-            </h4>
-
-            <p className="text-gray-300">
-              {item.FEEDBACK}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-
-            <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
-              {item.QUIEN}
-            </span>
-
-            <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
-              {item.MODALIDAD}
-            </span>
-
-            <span className="rounded-full bg-white/5 px-3 py-1 text-xs">
-              {item.MOMENTO}
-            </span>
-
-            <span className="rounded-full bg-[#C8A96B]/20 px-3 py-1 text-xs text-[#C8A96B]">
-              {item.ESTRATEGIA}
-            </span>
-
-          </div>
-        </div>
+  <div
+    key={item.ID_REGISTRO}
+    className="
+      rounded-2xl
+      border
+      border-white/10
+      bg-white/[0.03]
+      p-4
+    "
+  >
+    {/* CABECERA */}
+    <div className="mb-3 flex items-center justify-between">
+      <div className="text-xs font-medium text-[#C8A96B]">
+        {new Date(item.FECHA).toLocaleDateString("es-ES")}
       </div>
-    ))}
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            setEditingTracking(item);
+
+            setTrackingForm({
+              FECHA: item.FECHA?.split("T")[0] || "",
+              OBJETIVO_OFENSIVO: item.OBJETIVO_OFENSIVO,
+              OBJETIVO_DEFENSIVO: item.OBJETIVO_DEFENSIVO,
+              OBJETIVO_MENTAL: item.OBJETIVO_MENTAL,
+              FEEDBACK: item.FEEDBACK,
+              QUIEN: item.QUIEN,
+              MODALIDAD: item.MODALIDAD,
+              MOMENTO: item.MOMENTO,
+              ESTRATEGIA: item.ESTRATEGIA,
+            });
+
+            setShowTrackingForm(true);
+          }}
+          className="
+            rounded-lg
+            bg-blue-500/80
+            px-2.5
+            py-1
+            text-[11px]
+          "
+        >
+          Editar
+        </button>
+
+        <button
+          onClick={() =>
+            deleteTracking(item.ID_REGISTRO)
+          }
+          className="
+            rounded-lg
+            bg-red-500/80
+            px-2.5
+            py-1
+            text-[11px]
+          "
+        >
+          Borrar
+        </button>
+      </div>
+    </div>
+
+    {/* CONTENIDO COMPACTO */}
+    <div className="grid gap-3 md:grid-cols-2">
+
+      <div className="rounded-xl bg-white/[0.025] p-3">
+        <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#C8A96B]">
+          Objetivo ofensivo
+        </h4>
+
+        <p className="text-sm leading-relaxed text-gray-300">
+          {item.OBJETIVO_OFENSIVO || "—"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-white/[0.025] p-3">
+        <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#C8A96B]">
+          Objetivo defensivo
+        </h4>
+
+        <p className="text-sm leading-relaxed text-gray-300">
+          {item.OBJETIVO_DEFENSIVO || "—"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-white/[0.025] p-3">
+        <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#C8A96B]">
+          Objetivo mental
+        </h4>
+
+        <p className="text-sm leading-relaxed text-gray-300">
+          {item.OBJETIVO_MENTAL || "—"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-white/[0.025] p-3">
+        <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#C8A96B]">
+          Feedback
+        </h4>
+
+        <p className="text-sm leading-relaxed text-gray-300">
+          {item.FEEDBACK || "—"}
+        </p>
+      </div>
+
+    </div>
+
+    {/* METADATOS */}
+    <div className="mt-3 flex flex-wrap gap-1.5">
+
+      {item.QUIEN && (
+        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-gray-300">
+          {item.QUIEN}
+        </span>
+      )}
+
+      {item.MODALIDAD && (
+        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-gray-300">
+          {item.MODALIDAD}
+        </span>
+      )}
+
+      {item.MOMENTO && (
+        <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-gray-300">
+          {item.MOMENTO}
+        </span>
+      )}
+
+      {item.ESTRATEGIA && (
+        <span className="rounded-full bg-[#C8A96B]/20 px-2.5 py-1 text-[10px] text-[#C8A96B]">
+          {item.ESTRATEGIA}
+        </span>
+      )}
+
+    </div>
+  </div>
+))}
   </div>
 )}{activeTab === "videos" && (
   <div className="space-y-6">
