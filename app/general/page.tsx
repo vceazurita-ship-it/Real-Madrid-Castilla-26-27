@@ -188,4 +188,4 @@ const allPdfs = seasonData
 
     </main>
   );
-}
+}   
