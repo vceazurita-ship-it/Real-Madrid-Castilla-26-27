@@ -326,7 +326,7 @@ export default function GlobalFilesViewer({
         ) : (
 
           /* =========================
-             LISTADO DE PDF
+             LISTADO DE PDF  
           ========================= */
 
           <div className="space-y-6">

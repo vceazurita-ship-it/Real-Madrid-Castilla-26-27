@@ -18,7 +18,7 @@ const PdfPreview = dynamic(
       <div className="flex h-[500px] items-center justify-center text-white/40">
         Cargando previsualización...
       </div>
-    ),
+    ),  
   }
 );
 interface FileItem {
