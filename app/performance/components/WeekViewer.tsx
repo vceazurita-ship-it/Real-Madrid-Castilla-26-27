@@ -13,9 +13,18 @@ import { uploadFile } from "@/lib/uploadFile";
 import { useEffect, useState, useRef } from "react";
 import { deleteFile } from "@/lib/deleteFile";
 import { Trash2 } from "lucide-react";
-import { Document, Page, pdfjs } from "react-pdf";
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-
+import dynamic from "next/dynamic";
+const PdfPreview = dynamic(
+  () => import("../../../components/performance/PdfPreview"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[500px] items-center justify-center text-white/40">
+        Cargando previsualización...
+      </div>
+    ),
+  }
+);
 
 interface Props {
   week: WeekData | null;
