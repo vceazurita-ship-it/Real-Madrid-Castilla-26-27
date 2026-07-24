@@ -29,7 +29,7 @@ export default function PdfPreview({
       >  
         <Page
           pageNumber={1}
-          width={900}
+          width={700}
           renderTextLayer={false}
           renderAnnotationLayer={false}
         />

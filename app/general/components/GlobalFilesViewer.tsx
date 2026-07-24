@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
-
+import dynamic from "next/dynamic";
 import {
   X,
   FileText,
@@ -10,7 +10,17 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-
+const PdfPreview = dynamic(
+  () => import("../../../components/performance/PdfPreview"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[500px] items-center justify-center text-white/40">
+        Cargando previsualización...
+      </div>
+    ),
+  }
+);
 interface FileItem {
   url: string;
   week: string;
@@ -319,68 +329,79 @@ export default function GlobalFilesViewer({
              LISTADO DE PDF
           ========================= */
 
-          <div className="space-y-4">
+          <div className="space-y-6">
 
-            {files.map((file, index) => {
+  {files.map((file, index) => {
 
-              const fileName = decodeURIComponent(
-                file.url.split("/").pop() ?? "PDF"
-              );
+    const fileName = decodeURIComponent(
+      file.url.split("/").pop() ?? "PDF"
+    );
 
-              return (
+    return (
 
-                <a
-                  key={`${file.url}-${index}`}
-                  href={file.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-4
-                    rounded-2xl
-                    border
-                    border-white/10
-                    bg-[#11161D]
-                    p-5
-                    transition
-                    hover:border-[#C8A96B]/50
-                    hover:bg-white/[0.04]
-                  "
-                >
+      <div
+        key={`${file.url}-${index}`}
+        className="
+          overflow-hidden
+          rounded-2xl
+          border
+          border-white/10
+          bg-[#11161D]
+          transition
+          hover:border-[#C8A96B]/40
+        "
+      >
 
-                  <div className="min-w-0">
+        {/* PREVISUALIZACIÓN DEL PDF */}
 
-                    <p className="truncate font-medium">
-                      {fileName}
-                    </p>
+        <a
+          href={file.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="
+            group
+            block
+            cursor-pointer
+            border-b
+            border-white/10
+            bg-black
+          "
+        >
 
-                    <p className="mt-1 text-sm text-white/50">
-                      {file.week} · {file.month}
-                    </p>
+          <PdfPreview file={file.url} />
 
-                    <p className="mt-1 text-xs text-white/40">
-                      {file.start} — {file.end}
-                    </p>
+        </a>
 
-                  </div>
 
-                  <FileText
-                    size={24}
-                    className="
-                      shrink-0
-                      text-[#C8A96B]
-                    "
-                  />
+        {/* INFORMACIÓN */}
 
-                </a>
+        <div className="p-4">
 
-              );
+          <p className="truncate font-medium">
+            {fileName}
+          </p>
 
-            })}
+          <p className="mt-1 text-sm text-white/50">
+            {file.week} · {file.month}
+          </p>
 
-          </div>
+          <p className="mt-1 text-xs text-white/40">
+            {file.start} — {file.end}
+          </p>
+
+          <p className="mt-2 text-xs text-[#C8A96B]">
+            Abrir PDF completo →
+          </p>
+
+        </div>
+
+      </div>
+
+    );
+
+  })}
+
+</div>
 
         )}
 
