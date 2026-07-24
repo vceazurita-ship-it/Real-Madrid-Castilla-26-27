@@ -13,6 +13,8 @@ import { uploadFile } from "@/lib/uploadFile";
 import { useEffect, useState, useRef } from "react";
 import { deleteFile } from "@/lib/deleteFile";
 import { Trash2 } from "lucide-react";
+import { Document, Page, pdfjs } from "react-pdf";
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 
 interface Props {
@@ -427,74 +429,167 @@ useEffect(() => {
 
         {week.pdfs && week.pdfs.length > 0 ? (
 
- <div className="space-y-4">
-  {week.pdfs.map((pdf, index) => {
-    const fileName = decodeURIComponent(
-      pdf.split("/").pop() ?? "PDF"
-    );
+  <div className="space-y-6">
 
-    return (
-      <div
-        key={index}
-        className="
-          flex
-          items-center
-          justify-between
-          rounded-2xl
-          border
-          border-white/10
-          bg-[#0B0F14]
-          p-5
-        "
-      >
-        <a
-          href={pdf}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1"
+    {week.pdfs.map((pdf, index) => {
+
+      const fileName = decodeURIComponent(
+        pdf.split("/").pop() ?? "PDF"
+      );
+
+      return (
+
+        <div
+          key={index}
+          className="
+            overflow-hidden
+            rounded-2xl
+            border
+            border-white/10
+            bg-[#0B0F14]
+          "
         >
-          <p className="font-medium">
-            {fileName}
-          </p>
 
-          <span className="text-sm text-white/50">
-            Abrir PDF
-          </span>
-        </a>
+          {/* PREVISUALIZACIÓN DE LA PRIMERA PÁGINA */}
 
-        <div className="flex items-center gap-3">
-          <FileText
-            size={24}
-            className="text-[#C8A96B]"
-          />
-
-          <button
-            type="button"
-            onClick={() => handleDeletePdf(pdf)}
+          <a
+            href={pdf}
+            target="_blank"
+            rel="noopener noreferrer"
             className="
-              rounded-lg
-              bg-red-600
-              p-2
-              text-white
-              transition
-              hover:bg-red-700
+              group
+              block
+              cursor-pointer
+              border-b
+              border-white/10
+              bg-black
             "
           >
-            <Trash2 size={16} />
-          </button>
+
+            <Document
+              file={pdf}
+              loading={
+                <div className="flex h-[500px] items-center justify-center text-white/40">
+                  Cargando PDF...
+                </div>
+              }
+              error={
+                <div className="flex h-[500px] items-center justify-center text-white/40">
+                  No se pudo cargar la previsualización
+                </div>
+              }
+            >
+
+              <Page
+                pageNumber={1}
+                width={900}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+                className="
+                  mx-auto
+                  transition
+                  duration-300
+                  group-hover:opacity-80
+                "
+              />
+
+            </Document>
+
+          </a>
+
+
+          {/* INFORMACIÓN Y ACCIONES */}
+
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              gap-4
+              p-5
+            "
+          >
+
+            <a
+              href={pdf}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-w-0 flex-1"
+            >
+
+              <p className="truncate font-medium">
+                {fileName}
+              </p>
+
+              <span className="text-sm text-white/50">
+                Abrir PDF completo
+              </span>
+
+            </a>
+
+
+            <div className="flex items-center gap-3">
+
+              <FileText
+                size={24}
+                className="shrink-0 text-[#C8A96B]"
+              />
+
+              <a
+                href={pdf}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  rounded-lg
+                  border
+                  border-white/10
+                  px-3
+                  py-2
+                  text-sm
+                  text-white/70
+                  transition
+                  hover:bg-white/[0.06]
+                  hover:text-white
+                "
+              >
+                Descargar
+              </a>
+
+              <button
+                type="button"
+                onClick={() => handleDeletePdf(pdf)}
+                className="
+                  rounded-lg
+                  bg-red-600
+                  p-2
+                  text-white
+                  transition
+                  hover:bg-red-700
+                "
+              >
+                <Trash2 size={16} />
+              </button>
+
+            </div>
+
+          </div>
+
         </div>
-      </div>
-    );
-  })}
-</div>
+
+      );
+
+    })}
+
+  </div>
 
 ) : (
 
-          <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">
-            No hay PDF disponible.
-          </div>
+  <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-white/40">
+    No hay PDF disponible.
+  </div>
 
-        )}
+)}
 
       </div>
 
