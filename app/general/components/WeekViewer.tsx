@@ -56,7 +56,7 @@ const fullscreenImage =
             Pulsa sobre cualquier semana del calendario para
             visualizar las imágenes y el documento PDF de esa
             semana.  
-          </p>
+          </p>    
         </div>
       </div>
     );

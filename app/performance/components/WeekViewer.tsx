@@ -438,7 +438,7 @@ useEffect(() => {
 
         {week.pdfs && week.pdfs.length > 0 ? (
 
-  <div className="space-y-6">   
+  <div className="space-y-6">
 
     {week.pdfs.map((pdf, index) => {
 
