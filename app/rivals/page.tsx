@@ -918,7 +918,7 @@ const deletePlayer = async () => {
 
 ) : (
 
-  <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
+  <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
 
     {/* ===================================================== */}
     {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
@@ -1245,9 +1245,9 @@ const deletePlayer = async () => {
     {/* COLUMNA DERECHA — CAMPOGRAMA ÚNICO */}
     {/* ===================================================== */}
 
-    <div className="min-w-0">
+    <div className="flex min-w-0">
 
-      <div className="sticky top-6 overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
+      <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
 
         {/* CABECERA */}
 
@@ -2212,42 +2212,35 @@ function TacticalPitch({
   return (
 
     <div
-      className="
-        relative
-        aspect-[3/4]
-        min-h-[700px]
-        w-full
-        overflow-hidden
-        bg-[#173b2a]
-      "
-    >
+  className="
+    relative
+    h-full
+    min-h-[760px]
+    overflow-hidden
+    bg-[#173b2a]
+  "
+>
 
-      {/* ================================================= */}
-      {/* FONDO DEL CAMPO */}
-      {/* ================================================= */}
+     {/* ================================================= */}
+{/* FONDO DEL CAMPO */}
+{/* ================================================= */}
 
-      <img
-        src="/emotional-field-bg.png"
-        alt=""
-        className="
-          pointer-events-none
-          absolute
-          left-1/2
-          top-1/2
-          h-[140%]
-          w-[140%]
-          max-w-none
-          -translate-x-1/2
-          -translate-y-1/2
-          rotate-90
-          object-cover
-        "
-      />
+<img
+  src="/emotional-field-bg.png"
+  alt=""
+  className="
+    pointer-events-none
+    absolute
+    inset-0
+    h-full
+    w-full
+    object-cover
+  "
+/>
 
-      {/* OSCURECER LIGERAMENTE */}
+{/* OSCURECER LIGERAMENTE */}
 
-      <div className="pointer-events-none absolute inset-0 bg-black/20" />
-
+<div className="pointer-events-none absolute inset-0 bg-black/20" />
 
       {/* ================================================= */}
       {/* JUGADORES */}
