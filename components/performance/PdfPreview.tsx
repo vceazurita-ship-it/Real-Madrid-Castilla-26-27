@@ -26,7 +26,7 @@ export default function PdfPreview({
             No se pudo cargar la previsualización
           </div>
         }
-      >
+      >  
         <Page
           pageNumber={1}
           width={900}

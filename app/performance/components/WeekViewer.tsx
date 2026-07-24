@@ -438,7 +438,7 @@ useEffect(() => {
 
         {week.pdfs && week.pdfs.length > 0 ? (
 
-  <div className="space-y-6">
+  <div className="space-y-6">   
 
     {week.pdfs.map((pdf, index) => {
 
@@ -475,34 +475,7 @@ useEffect(() => {
             "
           >
 
-            <Document
-              file={pdf}
-              loading={
-                <div className="flex h-[500px] items-center justify-center text-white/40">
-                  Cargando PDF...
-                </div>
-              }
-              error={
-                <div className="flex h-[500px] items-center justify-center text-white/40">
-                  No se pudo cargar la previsualización
-                </div>
-              }
-            >
-
-              <Page
-                pageNumber={1}
-                width={900}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                className="
-                  mx-auto
-                  transition
-                  duration-300
-                  group-hover:opacity-80
-                "
-              />
-
-            </Document>
+            <PdfPreview file={pdf} />
 
           </a>
 

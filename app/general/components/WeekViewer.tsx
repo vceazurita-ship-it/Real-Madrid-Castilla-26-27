@@ -55,7 +55,7 @@ const fullscreenImage =
           <p className="mt-4 max-w-md text-white/50 leading-7">
             Pulsa sobre cualquier semana del calendario para
             visualizar las imágenes y el documento PDF de esa
-            semana.
+            semana.  
           </p>
         </div>
       </div>
