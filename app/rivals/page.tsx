@@ -2221,22 +2221,29 @@ function TacticalPitch({
   "
 >
 
-     {/* ================================================= */}
+    {/* ================================================= */}
 {/* FONDO DEL CAMPO */}
 {/* ================================================= */}
 
-<img
-  src="/emotional-field-bg.png"
-  alt=""
-  className="
-    pointer-events-none
-    absolute
-    inset-0
-    h-full
-    w-full
-    object-cover
-  "
-/>
+<div className="pointer-events-none absolute inset-0 overflow-hidden">
+
+  <img
+    src="/emotional-field-bg.png"
+    alt=""
+    className="
+      absolute
+      left-1/2
+      top-1/2
+      h-full
+      w-full
+      -translate-x-1/2
+      -translate-y-1/2
+      rotate-90
+      object-fill
+    "
+  />
+
+</div>
 
 {/* OSCURECER LIGERAMENTE */}
 
