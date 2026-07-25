@@ -2235,7 +2235,7 @@ function TacticalPitch({
       absolute
       left-1/2
       top-1/2
-      h-[80%]
+      h-[75%]
       w-[250%]
       max-w-none
       -translate-x-1/2
@@ -2246,8 +2246,8 @@ function TacticalPitch({
       sm:h-[130%]
       sm:w-[240%]
 
-      lg:h-[125%]
-      lg:w-[115%]
+      lg:h-[135%]
+      lg:w-[100%]
     "
   />
 
