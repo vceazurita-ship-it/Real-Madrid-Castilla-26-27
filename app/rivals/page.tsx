@@ -2243,8 +2243,8 @@ function TacticalPitch({
       rotate-90
       object-fill
 
-      sm:h-[100%]
-      sm:w-[130%]
+      sm:h-[130%]
+      sm:w-[100%]
     "
   />
 
