@@ -2755,7 +2755,7 @@ function getPitchPlayers(
   }[] = [];
 
 
- /*
+/*
 |--------------------------------------------------------------------------
 | PORTERO
 |--------------------------------------------------------------------------
@@ -2764,36 +2764,29 @@ function getPitchPlayers(
 result.push(
   ...distributePlayers(
     groups.portero,
-    93,
+    95,
     50,
-    24,
-    20
+    20,
+    18
   )
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| DEFENSA
+| DEFENSAS
 |--------------------------------------------------------------------------
 */
+
+// LATERALES: más arriba que los centrales
+// para que queden más dentro del campo.
 
 result.push(
   ...distributePlayers(
     groups.lateralIzquierdo,
-    76,
-    12,
+    69,
+    15,
     24,
-    18
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.lateral,
-    76,
-    50,
-    60,
     18
   )
 );
@@ -2803,16 +2796,16 @@ result.push(
     groups.central,
     76,
     50,
-    42,
-    20
+    32,
+    18
   )
 );
 
 result.push(
   ...distributePlayers(
     groups.lateralDerecho,
-    76,
-    88,
+    69,
+    85,
     24,
     18
   )
@@ -2821,26 +2814,18 @@ result.push(
 
 /*
 |--------------------------------------------------------------------------
-| MEDIOCENTROS
+| MEDIOS
 |--------------------------------------------------------------------------
 */
+
+// MEDIOCENTROS: más arriba y separados de los centrales
 
 result.push(
   ...distributePlayers(
     groups.mediocentro,
-    61,
+    57,
     50,
-    42,
-    20
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.pivote,
-    61,
-    50,
-    42,
+    34,
     20
   )
 );
@@ -2855,19 +2840,9 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.interiorIzquierdo,
-    50,
+    48,
     30,
-    30,
-    20
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.interior,
-    50,
-    50,
-    40,
+    28,
     20
   )
 );
@@ -2875,9 +2850,9 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.interiorDerecho,
-    50,
+    48,
     70,
-    30,
+    28,
     20
   )
 );
@@ -2889,12 +2864,14 @@ result.push(
 |--------------------------------------------------------------------------
 */
 
+// Más arriba que los interiores
+
 result.push(
   ...distributePlayers(
     groups.mediaPunta,
-    39,
+    37,
     50,
-    42,
+    34,
     20
   )
 );
@@ -2909,19 +2886,9 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.extremoIzquierdo,
+    25,
+    20,
     28,
-    18,
-    28,
-    20
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.extremo,
-    28,
-    50,
-    42,
     20
   )
 );
@@ -2929,8 +2896,8 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.extremoDerecho,
-    28,
-    82,
+    25,
+    80,
     28,
     20
   )
@@ -2943,13 +2910,15 @@ result.push(
 |--------------------------------------------------------------------------
 */
 
+// Más arriba, cerca de la portería rival
+
 result.push(
   ...distributePlayers(
     groups.delantero,
-    15,
+    8,
     50,
-    42,
-    22
+    34,
+    20
   )
 );
 
@@ -2963,9 +2932,9 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.otro,
-    38,
+    42,
     50,
-    36,
+    28,
     20
   )
 );
