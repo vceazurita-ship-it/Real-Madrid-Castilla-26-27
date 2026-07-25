@@ -2222,7 +2222,7 @@ function TacticalPitch({
   "
 >
 
-    {/* ================================================= */}
+  {/* ================================================= */}
 {/* FONDO DEL CAMPO */}
 {/* ================================================= */}
 
@@ -2235,8 +2235,8 @@ function TacticalPitch({
       absolute
       left-1/2
       top-1/2
-     h-[130%]
-w-[130%]
+      h-[150%]
+      w-[150%]
       max-w-none
       -translate-x-1/2
       -translate-y-1/2
@@ -2297,8 +2297,8 @@ w-[130%]
             <div
   className="
     relative
-    h-12
-    w-12
+    h-10
+    w-10
     overflow-hidden
     rounded-full
     border-2
@@ -2307,6 +2307,8 @@ w-[130%]
     shadow-xl
     sm:h-14
     sm:w-14
+    md:h-16
+    md:w-16
   "
 >
 
@@ -2376,21 +2378,22 @@ w-[130%]
 
             {/* NOMBRE */}
 
-            <span
+           <span
   className="
     mt-1
-    max-w-[82px]
+    max-w-[90px]
     truncate
     rounded
-    bg-black/70
+    bg-black/75
     px-1.5
     py-0.5
     text-[9px]
     font-semibold
     text-white
-    sm:max-w-[110px]
-    sm:px-2
+    sm:max-w-[120px]
     sm:text-[11px]
+    md:max-w-[140px]
+    md:text-xs
   "
 >
 
@@ -2474,177 +2477,269 @@ function getPitchPlayers(
 
   players.forEach((player) => {
 
-    const position =
-      normalize(
-        player["POSICIÓN"]
-      );
+  const position = normalize(
+    player["POSICIÓN"]
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | PORTERO
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    position.includes("portero") ||
+    position.includes("arquero") ||
+    position.includes("guardameta")
+  ) {
+    groups.portero.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | PORTERO
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | LATERAL IZQUIERDO
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "portero"
-      )
-    ) {
-
-      groups.portero.push(
-        player
-      );
-
-      return;
-
-    }
+  if (
+  position.includes("lateral izquierdo") ||
+  position.includes("lateral izq") ||
+  position.includes("lateral i") ||
+  position.includes("lat izquierdo") ||
+  position.includes("lat izq") ||
+  position.includes("lat i")
+) {
+  groups.lateralIzquierdo.push(player);
+  return;
+}
 
 
-    /*
-    |----------------------------------------------------------------------
-    | LATERAL
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | LATERAL DERECHO
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "lateral"
-      ) ||
-      position.includes(
-        "carrilero"
-      )
-    ) {
-
-      groups.lateral.push(
-        player
-      );
-
-      return;
-
-    }
+  if (
+    position.includes("lateral derecho") ||
+    position.includes("lateral dcho") ||
+    position.includes("lateral der") ||
+    position.includes("lateral d") ||
+    position.includes("lat derecho") ||
+    position.includes("lat dcho") ||
+    position.includes("lat der") ||
+    position.includes("lat d")
+  ) {
+    groups.lateralDerecho.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | CENTRAL
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | LATERAL GENÉRICO
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "central"
-      )
-    ) {
-
-      groups.central.push(
-        player
-      );
-
-      return;
-
-    }
+  if (
+    position.includes("lateral") ||
+    position.includes("carrilero") ||
+    position.includes("lat ")
+  ) {
+    groups.lateral.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | PIVOTE / MEDIOCENTRO
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | CENTRAL
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "pivote"
-      ) ||
-      position.includes(
-        "mediocentro"
-      )
-    ) {
-
-      groups.pivote.push(
-        player
-      );
-
-      return;
-
-    }
+  if (
+    position.includes("central") ||
+    position.includes("defensa central") ||
+    position.includes("zaguero")
+  ) {
+    groups.central.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | INTERIOR
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | MEDIOCENTRO
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "interior"
-      ) ||
-      position === "medio"
-    ) {
-
-      groups.interior.push(
-        player
-      );
-
-      return;
-
-    }
+  if (
+    position.includes("mediocentro") ||
+    position.includes("medio centro") ||
+    position.includes("mc") ||
+    position.includes("pivote") ||
+    position.includes("medio defensivo") ||
+    position.includes("md")
+  ) {
+    groups.mediocentro.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | EXTREMO
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | INTERIOR IZQUIERDO
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "extremo"
-      )
-    ) {
-
-      groups.extremo.push(
-        player
-      );
-
-      return;
-
-    }
+  if (
+    position.includes("interior izquierdo") ||
+    position.includes("interior izq") ||
+    position.includes("interior i") ||
+    position.includes("int izquierdo") ||
+    position.includes("int izq") ||
+    position.includes("int i")
+  ) {
+    groups.interiorIzquierdo.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | DELANTERO
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | INTERIOR DERECHO
+  |--------------------------------------------------------------------------
+  */
 
-    if (
-      position.includes(
-        "delantero"
-      )
-    ) {
+  if (
+    position.includes("interior derecho") ||
+    position.includes("interior dcho") ||
+    position.includes("interior der") ||
+    position.includes("interior d") ||
+    position.includes("int derecho") ||
+    position.includes("int dcho") ||
+    position.includes("int der") ||
+    position.includes("int d")
+  ) {
+    groups.interiorDerecho.push(player);
+    return;
+  }
 
-      groups.delantero.push(
-        player
-      );
 
-      return;
+  /*
+  |--------------------------------------------------------------------------
+  | INTERIOR GENÉRICO
+  |--------------------------------------------------------------------------
+  */
 
-    }
+  if (
+    position.includes("interior")
+  ) {
+    groups.interior.push(player);
+    return;
+  }
 
 
-    /*
-    |----------------------------------------------------------------------
-    | OTROS
-    |----------------------------------------------------------------------
-    */
+  /*
+  |--------------------------------------------------------------------------
+  | MEDIA PUNTA
+  |--------------------------------------------------------------------------
+  */
 
-    groups.otro.push(
-      player
-    );
+  if (
+    position.includes("media punta") ||
+    position.includes("mediapunta") ||
+    position.includes("media-punta") ||
+    position.includes("mp") ||
+    position.includes("enganche")
+  ) {
+    groups.mediaPunta.push(player);
+    return;
+  }
 
-  });
+
+  /*
+  |--------------------------------------------------------------------------
+  | EXTREMO IZQUIERDO
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    position.includes("extremo izquierdo") ||
+    position.includes("extremo izq") ||
+    position.includes("extremo i") ||
+    position.includes("extremo izquierdo") ||
+    position.includes("ext izq") ||
+    position.includes("ext i")
+  ) {
+    groups.extremoIzquierdo.push(player);
+    return;
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | EXTREMO DERECHO
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    position.includes("extremo derecho") ||
+    position.includes("extremo dcho") ||
+    position.includes("extremo der") ||
+    position.includes("extremo d") ||
+    position.includes("ext dcho") ||
+    position.includes("ext der") ||
+    position.includes("ext d")
+  ) {
+    groups.extremoDerecho.push(player);
+    return;
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | EXTREMO GENÉRICO
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    position.includes("extremo") ||
+    position.includes("ext ")
+  ) {
+    groups.extremo.push(player);
+    return;
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | DELANTERO
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    position.includes("delantero") ||
+    position.includes("punta") ||
+    position.includes("ariete") ||
+    position.includes("9")
+  ) {
+    groups.delantero.push(player);
+    return;
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | OTROS
+  |--------------------------------------------------------------------------
+  */
+
+  groups.otro.push(player);
+
+});
 
 
   const result: {
@@ -2654,7 +2749,7 @@ function getPitchPlayers(
   }[] = [];
 
 
-  /*
+ /*
 |--------------------------------------------------------------------------
 | PORTERO
 |--------------------------------------------------------------------------
@@ -2663,17 +2758,17 @@ function getPitchPlayers(
 result.push(
   ...distributePlayers(
     groups.portero,
-    92,
+    93,
     50,
-    20,
-    18
+    24,
+    20
   )
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| DEFENSAS
+| DEFENSA
 |--------------------------------------------------------------------------
 */
 
@@ -2681,9 +2776,19 @@ result.push(
   ...distributePlayers(
     groups.lateralIzquierdo,
     76,
-    15,
-    20,
-    14
+    12,
+    24,
+    18
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.lateral,
+    76,
+    50,
+    60,
+    18
   )
 );
 
@@ -2692,8 +2797,8 @@ result.push(
     groups.central,
     76,
     50,
-    28,
-    14
+    42,
+    20
   )
 );
 
@@ -2701,9 +2806,9 @@ result.push(
   ...distributePlayers(
     groups.lateralDerecho,
     76,
-    85,
-    20,
-    14
+    88,
+    24,
+    18
   )
 );
 
@@ -2719,8 +2824,18 @@ result.push(
     groups.mediocentro,
     61,
     50,
-    28,
-    14
+    42,
+    20
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.pivote,
+    61,
+    50,
+    42,
+    20
   )
 );
 
@@ -2734,20 +2849,30 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.interiorIzquierdo,
-    51,
+    50,
     30,
-    20,
-    14
+    30,
+    20
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.interior,
+    50,
+    50,
+    40,
+    20
   )
 );
 
 result.push(
   ...distributePlayers(
     groups.interiorDerecho,
-    51,
+    50,
     70,
-    20,
-    14
+    30,
+    20
   )
 );
 
@@ -2761,10 +2886,10 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.mediaPunta,
-    40,
+    39,
     50,
-    28,
-    14
+    42,
+    20
   )
 );
 
@@ -2778,20 +2903,30 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.extremoIzquierdo,
-    27,
-    20,
-    20,
-    14
+    28,
+    18,
+    28,
+    20
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.extremo,
+    28,
+    50,
+    42,
+    20
   )
 );
 
 result.push(
   ...distributePlayers(
     groups.extremoDerecho,
-    27,
-    80,
-    20,
-    14
+    28,
+    82,
+    28,
+    20
   )
 );
 
@@ -2805,10 +2940,10 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.delantero,
-    14,
+    15,
     50,
-    28,
-    14
+    42,
+    22
   )
 );
 
@@ -2824,8 +2959,8 @@ result.push(
     groups.otro,
     38,
     50,
-    20,
-    14
+    36,
+    20
   )
 );
 
@@ -2839,6 +2974,7 @@ function distributePlayers(
   maxWidth: number,
   minSpacing: number
 ) {
+
   if (players.length === 0) {
     return [];
   }
@@ -2846,7 +2982,7 @@ function distributePlayers(
 
   /*
   |--------------------------------------------------------------------------
-  | UN SOLO JUGADOR
+  | UN JUGADOR
   |--------------------------------------------------------------------------
   */
 
@@ -2868,21 +3004,26 @@ function distributePlayers(
   */
 
   if (players.length === 2) {
+
     const spacing = Math.min(
       minSpacing,
-      maxWidth / 2
+      maxWidth
     );
 
     return [
       {
         player: players[0],
         top,
-        left: centerLeft - spacing / 2,
+        left:
+          centerLeft -
+          spacing / 2,
       },
       {
         player: players[1],
         top,
-        left: centerLeft + spacing / 2,
+        left:
+          centerLeft +
+          spacing / 2,
       },
     ];
   }
@@ -2895,6 +3036,7 @@ function distributePlayers(
   */
 
   if (players.length === 3) {
+
     const spacing = Math.min(
       minSpacing,
       maxWidth / 2
@@ -2903,8 +3045,9 @@ function distributePlayers(
     return [
       {
         player: players[0],
-        top: top - 2,
-        left: centerLeft - spacing,
+        top: top - 4,
+        left:
+          centerLeft - spacing,
       },
       {
         player: players[1],
@@ -2913,8 +3056,9 @@ function distributePlayers(
       },
       {
         player: players[2],
-        top: top - 2,
-        left: centerLeft + spacing,
+        top: top - 4,
+        left:
+          centerLeft + spacing,
       },
     ];
   }
@@ -2922,15 +3066,8 @@ function distributePlayers(
 
   /*
   |--------------------------------------------------------------------------
-  | CUATRO O MÁS JUGADORES
+  | CUATRO O MÁS
   |--------------------------------------------------------------------------
-  |
-  | Se colocan en dos filas.
-  |
-  |        JUGADOR     JUGADOR
-  |
-  |   JUGADOR     JUGADOR     JUGADOR
-  |
   */
 
   const firstRowCount =
@@ -2948,27 +3085,22 @@ function distributePlayers(
     rowTop: number
   ) => {
 
-    if (
-      rowPlayers.length === 1
-    ) {
+    if (rowPlayers.length === 1) {
       return [
         {
-          player:
-            rowPlayers[0],
+          player: rowPlayers[0],
           top: rowTop,
-          left:
-            centerLeft,
+          left: centerLeft,
         },
       ];
     }
 
 
-    const rowWidth =
-      Math.min(
-        maxWidth,
-        (rowPlayers.length - 1) *
-          minSpacing
-      );
+    const rowWidth = Math.min(
+      maxWidth,
+      (rowPlayers.length - 1) *
+        minSpacing
+    );
 
 
     const spacing =
@@ -2986,16 +3118,12 @@ function distributePlayers(
         player,
         index
       ) => ({
-
         player,
-
         top: rowTop,
-
         left:
           start +
           index *
             spacing,
-
       })
     );
   };
@@ -3007,7 +3135,7 @@ function distributePlayers(
         0,
         firstRowCount
       ),
-      top - 4
+      top - 6
     );
 
 
@@ -3017,7 +3145,7 @@ function distributePlayers(
           players.slice(
             firstRowCount
           ),
-          top + 4
+          top + 6
         )
       : [];
 
