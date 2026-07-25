@@ -2235,16 +2235,16 @@ function TacticalPitch({
       absolute
       left-1/2
       top-1/2
-      h-[170%]
-      w-[100%]
+      h-[280%]
+      w-[75%]
       max-w-none
       -translate-x-1/2
       -translate-y-1/2
       rotate-90
       object-fill
 
-      sm:h-[170%]
-      sm:w-[100%]
+      sm:h-[220%]
+      sm:w-[85%]
 
       lg:h-[190%]
       lg:w-[100%]
