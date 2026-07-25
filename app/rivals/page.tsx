@@ -2295,18 +2295,20 @@ w-[130%]
             {/* FOTO */}
 
             <div
-              className="
-                relative
-                h-14
-                w-14
-                overflow-hidden
-                rounded-full
-                border-2
-                border-white/80
-                bg-[#11161D]
-                shadow-xl
-              "
-            >
+  className="
+    relative
+    h-12
+    w-12
+    overflow-hidden
+    rounded-full
+    border-2
+    border-white/80
+    bg-[#11161D]
+    shadow-xl
+    sm:h-14
+    sm:w-14
+  "
+>
 
               {player.FOTO ? (
 
@@ -2377,18 +2379,18 @@ w-[130%]
             <span
   className="
     mt-1
-    max-w-[140px]
+    max-w-[82px]
     truncate
     rounded
-    bg-black/75
-    px-2
-    py-1
-    text-[11px]
+    bg-black/70
+    px-1.5
+    py-0.5
+    text-[9px]
     font-semibold
-    leading-tight
     text-white
-    sm:max-w-[150px]
-    sm:text-xs
+    sm:max-w-[110px]
+    sm:px-2
+    sm:text-[11px]
   "
 >
 
@@ -2837,63 +2839,191 @@ function distributePlayers(
   maxWidth: number,
   minSpacing: number
 ) {
-  if (
-    players.length === 0
-  ) {
+  if (players.length === 0) {
     return [];
   }
 
 
-  if (
-    players.length === 1
-  ) {
+  /*
+  |--------------------------------------------------------------------------
+  | UN SOLO JUGADOR
+  |--------------------------------------------------------------------------
+  */
 
+  if (players.length === 1) {
     return [
       {
-        player:
-          players[0],
+        player: players[0],
         top,
-        left:
-          centerLeft,
+        left: centerLeft,
       },
     ];
-
   }
 
 
-  const totalWidth =
-    Math.min(
-      maxWidth,
-      (players.length - 1) *
-        minSpacing
+  /*
+  |--------------------------------------------------------------------------
+  | DOS JUGADORES
+  |--------------------------------------------------------------------------
+  */
+
+  if (players.length === 2) {
+    const spacing = Math.min(
+      minSpacing,
+      maxWidth / 2
+    );
+
+    return [
+      {
+        player: players[0],
+        top,
+        left: centerLeft - spacing / 2,
+      },
+      {
+        player: players[1],
+        top,
+        left: centerLeft + spacing / 2,
+      },
+    ];
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | TRES JUGADORES
+  |--------------------------------------------------------------------------
+  */
+
+  if (players.length === 3) {
+    const spacing = Math.min(
+      minSpacing,
+      maxWidth / 2
+    );
+
+    return [
+      {
+        player: players[0],
+        top: top - 2,
+        left: centerLeft - spacing,
+      },
+      {
+        player: players[1],
+        top,
+        left: centerLeft,
+      },
+      {
+        player: players[2],
+        top: top - 2,
+        left: centerLeft + spacing,
+      },
+    ];
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | CUATRO O MÁS JUGADORES
+  |--------------------------------------------------------------------------
+  |
+  | Se colocan en dos filas.
+  |
+  |        JUGADOR     JUGADOR
+  |
+  |   JUGADOR     JUGADOR     JUGADOR
+  |
+  */
+
+  const firstRowCount =
+    Math.ceil(
+      players.length / 2
+    );
+
+  const secondRowCount =
+    players.length -
+    firstRowCount;
+
+
+  const createRow = (
+    rowPlayers: RivalPlayer[],
+    rowTop: number
+  ) => {
+
+    if (
+      rowPlayers.length === 1
+    ) {
+      return [
+        {
+          player:
+            rowPlayers[0],
+          top: rowTop,
+          left:
+            centerLeft,
+        },
+      ];
+    }
+
+
+    const rowWidth =
+      Math.min(
+        maxWidth,
+        (rowPlayers.length - 1) *
+          minSpacing
+      );
+
+
+    const spacing =
+      rowWidth /
+      (rowPlayers.length - 1);
+
+
+    const start =
+      centerLeft -
+      rowWidth / 2;
+
+
+    return rowPlayers.map(
+      (
+        player,
+        index
+      ) => ({
+
+        player,
+
+        top: rowTop,
+
+        left:
+          start +
+          index *
+            spacing,
+
+      })
+    );
+  };
+
+
+  const firstRow =
+    createRow(
+      players.slice(
+        0,
+        firstRowCount
+      ),
+      top - 4
     );
 
 
-  const spacing =
-    totalWidth /
-    (players.length - 1);
+  const secondRow =
+    secondRowCount > 0
+      ? createRow(
+          players.slice(
+            firstRowCount
+          ),
+          top + 4
+        )
+      : [];
 
 
-  const start =
-    centerLeft -
-    totalWidth / 2;
-
-
-  return players.map(
-    (
-      player,
-      index
-    ) => ({
-
-      player,
-
-      top,
-
-      left:
-        start +
-        index *
-          spacing,
-
-    })
-  );
+  return [
+    ...firstRow,
+    ...secondRow,
+  ];
 }
