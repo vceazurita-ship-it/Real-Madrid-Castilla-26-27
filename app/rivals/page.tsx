@@ -2214,10 +2214,9 @@ function TacticalPitch({
     <div
   className="
     relative
-    h-full
-    min-h-[850px]
-sm:min-h-[900px]
-lg:min-h-[760px
+    h-[min(900px,calc(100vh-120px))]
+    min-h-[700px]
+    w-full
     overflow-hidden
     bg-[#173b2a]
   "
@@ -2236,8 +2235,8 @@ lg:min-h-[760px
       absolute
       left-1/2
       top-1/2
-      h-full
-      w-[130%]
+     h-[130%]
+w-[130%]
       max-w-none
       -translate-x-1/2
       -translate-y-1/2
@@ -2440,31 +2439,35 @@ function getPitchPlayers(
 ) {
   const groups = {
 
-    portero:
-      [] as RivalPlayer[],
+  portero: [] as RivalPlayer[],
 
-    lateral:
-      [] as RivalPlayer[],
+  lateralIzquierdo: [] as RivalPlayer[],
+  lateral: [] as RivalPlayer[],
 
-    central:
-      [] as RivalPlayer[],
+  central: [] as RivalPlayer[],
 
-    pivote:
-      [] as RivalPlayer[],
+  lateralDerecho: [] as RivalPlayer[],
 
-    interior:
-      [] as RivalPlayer[],
+  mediocentro: [] as RivalPlayer[],
+  pivote: [] as RivalPlayer[],
 
-    extremo:
-      [] as RivalPlayer[],
+  interior: [] as RivalPlayer[],
+  interiorIzquierdo: [] as RivalPlayer[],
 
-    delantero:
-      [] as RivalPlayer[],
+  interiorDerecho: [] as RivalPlayer[],
 
-    otro:
-      [] as RivalPlayer[],
+  mediaPunta: [] as RivalPlayer[],
 
-  };
+  extremo: [] as RivalPlayer[],
+  extremoIzquierdo: [] as RivalPlayer[],
+
+  extremoDerecho: [] as RivalPlayer[],
+
+  delantero: [] as RivalPlayer[],
+
+  otro: [] as RivalPlayer[],
+
+};
 
 
   players.forEach((player) => {
@@ -2650,41 +2653,18 @@ function getPitchPlayers(
 
 
   /*
-  |----------------------------------------------------------------------
-  | PORTEROS
-  |----------------------------------------------------------------------
-  */
-
-  result.push(
-    ...distributePlayers(
-      groups.portero,
-      91,
-      50,
-      18,
-      20
-    )
-  );
-
-
-  /*
-  |----------------------------------------------------------------------
-  | DEFENSAS
-  |----------------------------------------------------------------------
-  */
-
- /*
 |--------------------------------------------------------------------------
-| PORTEROS
+| PORTERO
 |--------------------------------------------------------------------------
 */
 
 result.push(
   ...distributePlayers(
     groups.portero,
-    91,
+    92,
     50,
-    18,
-    20
+    20,
+    18
   )
 );
 
@@ -2697,75 +2677,136 @@ result.push(
 
 result.push(
   ...distributePlayers(
-    groups.lateral,
-    73,
-    50,
-    70,
-    12
+    groups.lateralIzquierdo,
+    76,
+    15,
+    20,
+    14
   )
 );
 
 result.push(
   ...distributePlayers(
     groups.central,
-    73,
+    76,
     50,
-    35,
-    12
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| CENTROCAMPISTAS
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.interior,
-    48,
-    50,
-    35,
-    12
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.pivote,
-    55,
-    50,
-    35,
-    12
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| ATACANTES
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.extremo,
     28,
-    50,
-    65,
-    12
+    14
   )
 );
+
+result.push(
+  ...distributePlayers(
+    groups.lateralDerecho,
+    76,
+    85,
+    20,
+    14
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| MEDIOCENTROS
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.mediocentro,
+    61,
+    50,
+    28,
+    14
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| INTERIORES
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.interiorIzquierdo,
+    51,
+    30,
+    20,
+    14
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.interiorDerecho,
+    51,
+    70,
+    20,
+    14
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| MEDIA PUNTAS
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.mediaPunta,
+    40,
+    50,
+    28,
+    14
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| EXTREMOS
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.extremoIzquierdo,
+    27,
+    20,
+    20,
+    14
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.extremoDerecho,
+    27,
+    80,
+    20,
+    14
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| DELANTEROS
+|--------------------------------------------------------------------------
+*/
 
 result.push(
   ...distributePlayers(
     groups.delantero,
-    15,
+    14,
     50,
-    65,
-    12
+    28,
+    14
   )
 );
 
@@ -2781,87 +2822,13 @@ result.push(
     groups.otro,
     38,
     50,
-    60,
-    12
+    20,
+    14
   )
 );
 
 
 return result;
-
-
-  /*
-  |----------------------------------------------------------------------
-  | CENTROCAMPISTAS
-  |----------------------------------------------------------------------
-  */
-
-  result.push(
-    ...distributePlayers(
-      groups.interior,
-      48,
-      50,
-      35,
-      12
-    )
-  );
-
-  result.push(
-    ...distributePlayers(
-      groups.pivote,
-      55,
-      50,
-      35,
-      12
-    )
-  );
-
-
-  /*
-  |----------------------------------------------------------------------
-  | ATACANTES
-  |----------------------------------------------------------------------
-  */
-
-  result.push(
-    ...distributePlayers(
-      groups.extremo,
-      28,
-      50,
-      65,
-      12
-    )
-  );
-
-  result.push(
-    ...distributePlayers(
-      groups.delantero,
-      15,
-      50,
-      65,
-      12
-    )
-  );
-
-
-  /*
-  |----------------------------------------------------------------------
-  | OTROS
-  |----------------------------------------------------------------------
-  */
-
-  result.push(
-    ...distributePlayers(
-      groups.otro,
-      38,
-      50,
-      60,
-      12
-    )
-  );
-
-
-  return result;
 }
 function distributePlayers(
   players: RivalPlayer[],
