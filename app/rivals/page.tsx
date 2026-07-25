@@ -2757,7 +2757,7 @@ function getPitchPlayers(
 
 /*
 |--------------------------------------------------------------------------
-| PORTERO
+| PORTEROS — 2 a 4
 |--------------------------------------------------------------------------
 */
 
@@ -2765,68 +2765,88 @@ result.push(
   ...distributePlayers(
     groups.portero,
     95,
-    50,
-    20,
-    18
+    52,
+    30,
+    24
   )
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| DEFENSAS
+| DEFENSA
 |--------------------------------------------------------------------------
 */
 
-// LATERALES: más arriba que los centrales
-// para que queden más dentro del campo.
+// LATERAL IZQUIERDO — 2 a 3
 
 result.push(
   ...distributePlayers(
     groups.lateralIzquierdo,
-    69,
-    15,
-    24,
-    18
+    68,
+    17,
+    26,
+    22
   )
 );
+
+
+// CENTRALES — 3 a 5
 
 result.push(
   ...distributePlayers(
     groups.central,
     76,
-    50,
-    32,
-    18
+    52,
+    38,
+    22
   )
 );
+
+
+// LATERAL DERECHO — 2 a 3
 
 result.push(
   ...distributePlayers(
     groups.lateralDerecho,
-    69,
-    85,
-    24,
-    18
+    68,
+    87,
+    26,
+    22
   )
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| MEDIOS
+| MEDIOCENTROS — 3 a 6
 |--------------------------------------------------------------------------
 */
-
-// MEDIOCENTROS: más arriba y separados de los centrales
 
 result.push(
   ...distributePlayers(
     groups.mediocentro,
-    57,
-    50,
-    34,
-    20
+    56,
+    52,
+    42,
+    22
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| MEDIA PUNTAS — 2 a 5
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.mediaPunta,
+    36,
+    52,
+    42,
+    22
   )
 );
 
@@ -2840,85 +2860,71 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.interiorIzquierdo,
-    48,
-    30,
-    28,
-    20
+    47,
+    32,
+    32,
+    22
   )
 );
 
 result.push(
   ...distributePlayers(
     groups.interiorDerecho,
-    48,
-    70,
-    28,
-    20
+    47,
+    72,
+    32,
+    22
   )
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| MEDIA PUNTAS
-|--------------------------------------------------------------------------
-*/
-
-// Más arriba que los interiores
-
-result.push(
-  ...distributePlayers(
-    groups.mediaPunta,
-    37,
-    50,
-    34,
-    20
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| EXTREMOS
+| EXTREMO IZQUIERDO — 2 a 3
 |--------------------------------------------------------------------------
 */
 
 result.push(
   ...distributePlayers(
     groups.extremoIzquierdo,
-    25,
+    24,
     20,
-    28,
-    20
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.extremoDerecho,
-    25,
-    80,
-    28,
-    20
+    30,
+    22
   )
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| DELANTEROS
+| EXTREMO DERECHO — 2 a 3
 |--------------------------------------------------------------------------
 */
 
-// Más arriba, cerca de la portería rival
+result.push(
+  ...distributePlayers(
+    groups.extremoDerecho,
+    24,
+    84,
+    30,
+    22
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| DELANTEROS — 2 a 4
+|--------------------------------------------------------------------------
+*/
 
 result.push(
   ...distributePlayers(
     groups.delantero,
     8,
-    50,
-    34,
-    20
+    52,
+    42,
+    24
   )
 );
 
@@ -2933,9 +2939,9 @@ result.push(
   ...distributePlayers(
     groups.otro,
     42,
-    50,
-    28,
-    20
+    52,
+    34,
+    22
   )
 );
 
@@ -2949,11 +2955,9 @@ function distributePlayers(
   maxWidth: number,
   minSpacing: number
 ) {
-
   if (players.length === 0) {
     return [];
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -2979,26 +2983,21 @@ function distributePlayers(
   */
 
   if (players.length === 2) {
-
     const spacing = Math.min(
-      minSpacing,
-      maxWidth
+      minSpacing * 1.5,
+      maxWidth / 2
     );
 
     return [
       {
         player: players[0],
         top,
-        left:
-          centerLeft -
-          spacing / 2,
+        left: centerLeft - spacing,
       },
       {
         player: players[1],
         top,
-        left:
-          centerLeft +
-          spacing / 2,
+        left: centerLeft + spacing,
       },
     ];
   }
@@ -3011,29 +3010,26 @@ function distributePlayers(
   */
 
   if (players.length === 3) {
-
     const spacing = Math.min(
-      minSpacing,
+      minSpacing * 1.4,
       maxWidth / 2
     );
 
     return [
       {
         player: players[0],
-        top: top - 4,
-        left:
-          centerLeft - spacing,
+        top,
+        left: centerLeft - spacing,
       },
       {
         player: players[1],
-        top,
+        top: top - 2,
         left: centerLeft,
       },
       {
         player: players[2],
-        top: top - 4,
-        left:
-          centerLeft + spacing,
+        top,
+        left: centerLeft + spacing,
       },
     ];
   }
@@ -3046,13 +3042,10 @@ function distributePlayers(
   */
 
   const firstRowCount =
-    Math.ceil(
-      players.length / 2
-    );
+    Math.ceil(players.length / 2);
 
   const secondRowCount =
-    players.length -
-    firstRowCount;
+    players.length - firstRowCount;
 
 
   const createRow = (
@@ -3071,10 +3064,17 @@ function distributePlayers(
     }
 
 
+    /*
+    |----------------------------------------------------------------------
+    | MÁS ESPACIO ENTRE JUGADORES
+    |----------------------------------------------------------------------
+    */
+
     const rowWidth = Math.min(
       maxWidth,
       (rowPlayers.length - 1) *
-        minSpacing
+        minSpacing *
+        1.35
     );
 
 
@@ -3089,12 +3089,11 @@ function distributePlayers(
 
 
     return rowPlayers.map(
-      (
+      (player, index) => ({
         player,
-        index
-      ) => ({
-        player,
+
         top: rowTop,
+
         left:
           start +
           index *
@@ -3104,15 +3103,27 @@ function distributePlayers(
   };
 
 
+  /*
+  |--------------------------------------------------------------------------
+  | FILA SUPERIOR
+  |--------------------------------------------------------------------------
+  */
+
   const firstRow =
     createRow(
       players.slice(
         0,
         firstRowCount
       ),
-      top - 6
+      top - 5
     );
 
+
+  /*
+  |--------------------------------------------------------------------------
+  | FILA INFERIOR
+  |--------------------------------------------------------------------------
+  */
 
   const secondRow =
     secondRowCount > 0
@@ -3120,7 +3131,7 @@ function distributePlayers(
           players.slice(
             firstRowCount
           ),
-          top + 6
+          top + 5
         )
       : [];
 
