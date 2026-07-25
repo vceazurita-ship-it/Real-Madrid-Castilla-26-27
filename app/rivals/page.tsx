@@ -2215,7 +2215,9 @@ function TacticalPitch({
   className="
     relative
     h-full
-    min-h-[760px]
+    min-h-[850px]
+sm:min-h-[900px]
+lg:min-h-[760px
     overflow-hidden
     bg-[#173b2a]
   "
@@ -2235,7 +2237,8 @@ function TacticalPitch({
       left-1/2
       top-1/2
       h-full
-      w-full
+      w-[130%]
+      max-w-none
       -translate-x-1/2
       -translate-y-1/2
       rotate-90
@@ -2373,19 +2376,22 @@ function TacticalPitch({
             {/* NOMBRE */}
 
             <span
-              className="
-                mt-1
-                max-w-[100px]
-                truncate
-                rounded
-                bg-black/70
-                px-2
-                py-0.5
-                text-[10px]
-                font-semibold
-                text-white
-              "
-            >
+  className="
+    mt-1
+    max-w-[140px]
+    truncate
+    rounded
+    bg-black/75
+    px-2
+    py-1
+    text-[11px]
+    font-semibold
+    leading-tight
+    text-white
+    sm:max-w-[150px]
+    sm:text-xs
+  "
+>
 
               {
                 player[
@@ -2401,14 +2407,16 @@ function TacticalPitch({
             {player.ROL && (
 
               <span
-                className="
-                  max-w-[100px]
-                  truncate
-                  text-[9px]
-                  font-medium
-                  text-white/70
-                "
-              >
+  className="
+    max-w-[140px]
+    truncate
+    text-[10px]
+    font-medium
+    text-white/80
+    sm:max-w-[150px]
+    sm:text-[11px]
+  "
+>
 
                 {
                   player.ROL
@@ -2664,25 +2672,122 @@ function getPitchPlayers(
   |----------------------------------------------------------------------
   */
 
-  result.push(
-    ...distributePlayers(
-      groups.lateral,
-      73,
-      50,
-      70,
-      12
-    )
-  );
+ /*
+|--------------------------------------------------------------------------
+| PORTEROS
+|--------------------------------------------------------------------------
+*/
 
-  result.push(
-    ...distributePlayers(
-      groups.central,
-      73,
-      50,
-      35,
-      12
-    )
-  );
+result.push(
+  ...distributePlayers(
+    groups.portero,
+    91,
+    50,
+    18,
+    20
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| DEFENSAS
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.lateral,
+    73,
+    50,
+    70,
+    12
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.central,
+    73,
+    50,
+    35,
+    12
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| CENTROCAMPISTAS
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.interior,
+    48,
+    50,
+    35,
+    12
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.pivote,
+    55,
+    50,
+    35,
+    12
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ATACANTES
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.extremo,
+    28,
+    50,
+    65,
+    12
+  )
+);
+
+result.push(
+  ...distributePlayers(
+    groups.delantero,
+    15,
+    50,
+    65,
+    12
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| OTROS
+|--------------------------------------------------------------------------
+*/
+
+result.push(
+  ...distributePlayers(
+    groups.otro,
+    38,
+    50,
+    60,
+    12
+  )
+);
+
+
+return result;
 
 
   /*
