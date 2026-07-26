@@ -2784,7 +2784,7 @@ result.push(
     groups.lateralIzquierdo,
     69,
     15,
-    8
+    12
   )
 );
 
@@ -2809,7 +2809,7 @@ result.push(
     groups.lateralDerecho,
     69,
     87,
-    8
+    12
   )
 );
 
@@ -2823,7 +2823,7 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.mediocentro,
-    56,
+    50,
     52,
     42,
     22
@@ -2840,7 +2840,7 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.mediaPunta,
-    36,
+    29,
     52,
     42,
     22
@@ -2886,7 +2886,7 @@ result.push(
     groups.extremoIzquierdo,
     25,
     15,
-    8
+    12
   )
 );
 
@@ -2902,7 +2902,7 @@ result.push(
     groups.extremoIzquierdo,
     25,
     15,
-    8
+    12
   )
 );
 
@@ -3110,7 +3110,7 @@ function distributePlayers(
         0,
         firstRowCount
       ),
-      top - 5
+      top - 8
     );
 
 
@@ -3126,7 +3126,7 @@ function distributePlayers(
           players.slice(
             firstRowCount
           ),
-          top + 5
+          top + 8
         )
       : [];
 
