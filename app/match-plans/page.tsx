@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSh09fkRENqEbw7HEdvstBrx7tTqMUttHj4p61dnFDly1cyaSXEed24uSqM3KvQ_ThkNUrp3gFTRMef/pub?gid=953333469&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=953333469&single=true&output=csv";
 
 type MatchRow = {
   microciclo: string;
@@ -35,8 +35,8 @@ function parseCSV(text: string): MatchRow[] {
 }
 function getOpponent(partido: string) {
   return partido
-    .replace("Real Madrid C - ", "")
-    .replace(" - Real Madrid C", "");
+    .replace("Real Madrid - ", "")
+    .replace(" - Real Madrid", "");
 }
 
 function getMatchResult(
@@ -48,7 +48,7 @@ function getMatchResult(
     .map((n) => Number(n));
 
   const isHome =
-    partido.startsWith("Real Madrid C");
+    partido.startsWith("Real Madrid");
 
   const rmGoals = isHome ? a : b;
   const oppGoals = isHome ? b : a;
@@ -134,7 +134,7 @@ const micros = useMemo<
 
     const isHome =
       m.partido.startsWith(
-        "Real Madrid C"
+        "Real Madrid"
       );
 
     const rmGoals = isHome ? a : b;
