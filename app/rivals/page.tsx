@@ -2340,7 +2340,7 @@ function TacticalPitch({
               ) : (
 
                 <UserRound
-                  size={24}
+                  size={20}
                   className="
                     absolute
                     left-1/2
@@ -2384,22 +2384,21 @@ function TacticalPitch({
 
             {/* NOMBRE */}
 
-           <span
+<span
   className="
     mt-1
-    max-w-[90px]
+    max-w-[72px]
     truncate
     rounded
-    bg-black/75
-    px-1.5
+    bg-black/70
+    px-1
     py-0.5
-    text-[9px]
+    text-[8px]
     font-semibold
     text-white
-    sm:max-w-[120px]
+    sm:max-w-[110px]
+    sm:px-2
     sm:text-[11px]
-    md:max-w-[140px]
-    md:text-xs
   "
 >
 
@@ -2418,9 +2417,9 @@ function TacticalPitch({
 
               <span
   className="
-    max-w-[140px]
+    max-w-[90px]
     truncate
-    text-[10px]
+    text-[8px]
     font-medium
     text-white/80
     sm:max-w-[150px]
@@ -2781,12 +2780,11 @@ result.push(
 // LATERAL IZQUIERDO — 2 a 3
 
 result.push(
-  ...distributePlayers(
+  ...distributePlayersVertical(
     groups.lateralIzquierdo,
-    68,
-    17,
-    26,
-    22
+    69,
+    15,
+    8
   )
 );
 
@@ -2807,12 +2805,11 @@ result.push(
 // LATERAL DERECHO — 2 a 3
 
 result.push(
-  ...distributePlayers(
+  ...distributePlayersVertical(
     groups.lateralDerecho,
-    68,
+    69,
     87,
-    26,
-    22
+    8
   )
 );
 
@@ -2885,12 +2882,11 @@ result.push(
 */
 
 result.push(
-  ...distributePlayers(
+  ...distributePlayersVertical(
     groups.extremoIzquierdo,
-    24,
-    20,
-    30,
-    22
+    25,
+    15,
+    8
   )
 );
 
@@ -2902,12 +2898,11 @@ result.push(
 */
 
 result.push(
-  ...distributePlayers(
-    groups.extremoDerecho,
-    24,
-    84,
-    30,
-    22
+  ...distributePlayersVertical(
+    groups.extremoIzquierdo,
+    25,
+    15,
+    8
   )
 );
 
@@ -3140,4 +3135,66 @@ function distributePlayers(
     ...firstRow,
     ...secondRow,
   ];
+}
+function distributePlayersVertical(
+  players: RivalPlayer[],
+  top: number,
+  left: number,
+  verticalSpacing: number
+) {
+  if (players.length === 0) {
+    return [];
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | UN SOLO JUGADOR
+  |--------------------------------------------------------------------------
+  */
+
+  if (players.length === 1) {
+    return [
+      {
+        player: players[0],
+        top,
+        left,
+      },
+    ];
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | DISTRIBUCIÓN VERTICAL
+  |--------------------------------------------------------------------------
+  |
+  | Ejemplo:
+  |
+  |        jugador 1
+  |
+  |        jugador 2
+  |
+  |        jugador 3
+  |
+  */
+
+  const totalHeight =
+    (players.length - 1) *
+    verticalSpacing;
+
+  const start =
+    top -
+    totalHeight / 2;
+
+  return players.map(
+    (player, index) => ({
+      player,
+
+      top:
+        start +
+        index *
+          verticalSpacing,
+
+      left,
+    })
+  );
 }
