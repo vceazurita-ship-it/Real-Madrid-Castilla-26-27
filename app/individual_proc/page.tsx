@@ -60,10 +60,10 @@ const MONTHS = [
 ];
 
 const COLORS = [
-  "#C8A96B",
-  "#D6B67A",
-  "#A58A54",
-  "#8E7546",
+  "#C8A96B", // Oro ESS
+  "#4F8EF7", // Azul zafiro
+  "#5BC0BE", // Turquesa
+  "#D96C75", // Coral elegante
 ];
 export default function DashboardSeguimiento() {
 
