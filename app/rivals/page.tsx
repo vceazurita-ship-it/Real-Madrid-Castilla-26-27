@@ -2794,7 +2794,7 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.central,
-    76,
+    73,
     52,
     38,
     22
@@ -2823,7 +2823,7 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.mediocentro,
-    50,
+    45,
     52,
     42,
     22
@@ -2840,7 +2840,7 @@ result.push(
 result.push(
   ...distributePlayers(
     groups.mediaPunta,
-    29,
+    24,
     52,
     42,
     22
