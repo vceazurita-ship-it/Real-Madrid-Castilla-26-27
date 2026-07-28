@@ -42,12 +42,12 @@ const COLORS = {
 };
 
 const PIE_COLORS = [
-  "#C8A96B",
-  "#D6B985",
-  "#E5CCA2",
-  "#8A6A35",
-  "#B8945B",
-  "#F1E4C8",
+  "#C8A96B", // Oro
+  "#66758A", // Acero azulado
+  "#567A68", // Verde bosque
+  "#8A6262", // Burdeos
+  "#5E7FB8", // Azul real
+  "#7C6F9F", // Púrpura grisáceo
 ];
 
 type Row = {
