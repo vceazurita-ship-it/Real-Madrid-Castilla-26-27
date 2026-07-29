@@ -435,21 +435,21 @@ const players: Player[] = [
     name: "Barroso",
     position: "Delantero",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/JAIME%20BARROSO_DB10239380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-31",
     name: "Carlos D.",
     position: "Centrocampista",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/CARLOS%20DIEZ_DB10299_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-32",
     name: "Ginés",
     position: "Delantero",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
 
