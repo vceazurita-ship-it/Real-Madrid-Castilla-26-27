@@ -331,7 +331,7 @@ const players: Player[] = [
     name: "Illia",
     position: "Portero",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ILLIA_VOLOSHYN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/IILIA%20VOLOSHYN_DB10246_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-44",
@@ -347,7 +347,7 @@ const players: Player[] = [
     name: "Bailón",
     position: "Defensa",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/JAVIER_BAILON_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/JAVIER%20BAILON_JT11321_JT11482_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-38",
@@ -361,7 +361,7 @@ const players: Player[] = [
     name: "Liberto",
     position: "Defensa",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/LIBERTO_NAVASCUES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/LIBERTO%20NAVASCUES_DB10237_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-40",
@@ -375,7 +375,7 @@ const players: Player[] = [
     name: "Seco",
     position: "Defensa",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_SECO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/FERRAN%20SECO_JT11296_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-45",
