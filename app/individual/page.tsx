@@ -415,7 +415,6 @@ const players: Player[] = [
   idJugador: "JUG-46",
   name: "Izan",
   position: "Centrocampista",
-  externo: true,
   photo:
     "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
 },
@@ -620,7 +619,7 @@ function CarouselRow({
     >
       {player.externo && (
         <span className="absolute top-2 right-2 rounded-full bg-[#C8A96B] px-2 py-0.5 text-[9px] font-bold uppercase text-black">
-          Externo
+          Otro equipo
         </span>
       )}
 
