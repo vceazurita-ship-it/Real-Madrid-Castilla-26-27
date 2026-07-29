@@ -564,6 +564,110 @@ const radarData = [
   }))
   .sort((a, b) => b.eval - a.eval);
   }, [filtered]);
+  const contenidoPrincipalMetrics = useMemo(() => {
+  const grouped: Record<
+    string,
+    { tareas: number; tiempo: number; cog: number; ponderada: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    const key = r.contenidoPrincipal || "Sin contenido";
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        tareas: 0,
+        tiempo: 0,
+        cog: 0,
+        ponderada: 0,
+      };
+    }
+
+    grouped[key].tareas += 1;
+    grouped[key].tiempo += r.carga; // usamos carga física como tiempo efectivo
+    grouped[key].cog += r.cargaCog;
+    grouped[key].ponderada += r.carga * r.cargaCog;
+  });
+
+  return Object.entries(grouped)
+    .map(([name, v]) => ({
+      name,
+      tareas: v.tareas,
+      tiempo: Math.round(v.tiempo),
+      cargaCog: Math.round(v.cog),
+      ponderada: Math.round(v.ponderada),
+    }))
+    .sort((a, b) => b.tareas - a.tareas);
+}, [filtered]);
+
+const contenidoSecundarioMetrics = useMemo(() => {
+  const grouped: Record<
+    string,
+    { tareas: number; tiempo: number; cog: number; ponderada: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    const key = r.contenidoSecundario || "Sin contenido";
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        tareas: 0,
+        tiempo: 0,
+        cog: 0,
+        ponderada: 0,
+      };
+    }
+
+    grouped[key].tareas += 1;
+    grouped[key].tiempo += r.carga;
+    grouped[key].cog += r.cargaCog;
+    grouped[key].ponderada += r.carga * r.cargaCog;
+  });
+
+  return Object.entries(grouped)
+    .map(([name, v]) => ({
+      name,
+      tareas: v.tareas,
+      tiempo: Math.round(v.tiempo),
+      cargaCog: Math.round(v.cog),
+      ponderada: Math.round(v.ponderada),
+    }))
+    .sort((a, b) => b.tareas - a.tareas);
+}, [filtered]);
+
+const faseMetrics = useMemo(() => {
+  const grouped: Record<
+    string,
+    { tareas: number; tiempo: number; cog: number; ponderada: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    const key = r.fase || "Sin fase";
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        tareas: 0,
+        tiempo: 0,
+        cog: 0,
+        ponderada: 0,
+      };
+    }
+
+    grouped[key].tareas += 1;
+    grouped[key].tiempo += r.carga;
+    grouped[key].cog += r.cargaCog;
+    grouped[key].ponderada += r.carga * r.cargaCog;
+  });
+
+  return Object.entries(grouped)
+    .map(([name, v]) => ({
+      name,
+      tareas: v.tareas,
+      tiempo: Math.round(v.tiempo),
+      cargaCog: Math.round(v.cog),
+      ponderada: Math.round(v.ponderada),
+    }))
+    .sort((a, b) => b.tareas - a.tareas);
+}, [filtered]);
 const microOptions = useMemo(() => {
   return micros.map((m) => {
     const firstRow = rows.find(
@@ -981,6 +1085,134 @@ return Object.entries(grouped)
 </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
+
+{/* NUEVOS GRÁFICOS METODOLÓGICOS */}
+
+
+<Panel title="Nº de tareas por Contenido Principal">
+  <Chart>
+    <BarChart
+      data={contenidoPrincipalMetrics}
+      layout="vertical"
+      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
+    >
+      <CartesianGrid stroke="#1E232A" vertical={false} />
+      <XAxis type="number" />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={isMobile ? 120 : isNarrow ? 160 : 220}
+        interval={0}
+        tick={renderMultilineTick}
+      />
+      <Tooltip />
+      <Bar dataKey="tareas" fill={COLORS.gold} radius={[0, 12, 12, 0]}>
+        <LabelList dataKey="tareas" position="right" />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
+
+<Panel title="Carga Cognitiva por Contenido Principal">
+  <Chart>
+    <BarChart
+      data={contenidoPrincipalMetrics}
+      layout="vertical"
+      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
+    >
+      <CartesianGrid stroke="#1E232A" vertical={false} />
+      <XAxis type="number" />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={isMobile ? 120 : isNarrow ? 160 : 220}
+        interval={0}
+        tick={renderMultilineTick}
+      />
+      <Tooltip />
+      <Bar dataKey="cargaCog" fill={COLORS.blue} radius={[0, 12, 12, 0]}>
+        <LabelList dataKey="cargaCog" position="right" />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
+
+<Panel title="Tiempo por Contenido Principal">
+  <Chart>
+    <BarChart
+      data={contenidoPrincipalMetrics}
+      layout="vertical"
+      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
+    >
+      <CartesianGrid stroke="#1E232A" vertical={false} />
+      <XAxis type="number" />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={isMobile ? 120 : isNarrow ? 160 : 220}
+        interval={0}
+        tick={renderMultilineTick}
+      />
+      <Tooltip />
+      <Bar dataKey="tiempo" fill={COLORS.green} radius={[0, 12, 12, 0]}>
+        <LabelList dataKey="tiempo" position="right" />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
+
+<Panel title="Carga Ponderada por Contenido Principal">
+  <Chart>
+    <BarChart
+      data={contenidoPrincipalMetrics}
+      layout="vertical"
+      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
+    >
+      <CartesianGrid stroke="#1E232A" vertical={false} />
+      <XAxis type="number" />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={isMobile ? 120 : isNarrow ? 160 : 220}
+        interval={0}
+        tick={renderMultilineTick}
+      />
+      <Tooltip />
+      <Bar dataKey="ponderada" fill={COLORS.purple} radius={[0, 12, 12, 0]}>
+        <LabelList dataKey="ponderada" position="right" />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
+
+<Panel title="Nº de tareas por Fase">
+  <Chart>
+    <BarChart
+      data={faseMetrics}
+      layout="vertical"
+      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
+    >
+      <CartesianGrid stroke="#1E232A" vertical={false} />
+      <XAxis type="number" />
+      <YAxis
+        type="category"
+        dataKey="name"
+        width={isMobile ? 120 : isNarrow ? 160 : 220}
+        interval={0}
+        tick={renderMultilineTick}
+      />
+      <Tooltip />
+      <Bar dataKey="tareas" fill={COLORS.gray} radius={[0, 12, 12, 0]}>
+        <LabelList dataKey="tareas" position="right" />
+      </Bar>
+    </BarChart>
+  </Chart>
+</Panel>
+
 <Panel title="Perfil del Microciclo">
   <Chart>
 <RadarChart
