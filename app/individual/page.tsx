@@ -324,6 +324,113 @@ const players: Player[] = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ANGEL-CARVAJAL_JT14583?$Desktop$&fit=wrap&wid=420",
   },
+  //NUEVOS
+    // PORTEROS
+  {
+    idJugador: "JUG-43",
+    name: "Illia",
+    position: "Portero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ILLIA_VOLOSHYN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-44",
+    name: "Álvaro",
+    position: "Portero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  // DEFENSAS
+  {
+    idJugador: "JUG-37",
+    name: "Bailón",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/JAVIER_BAILON_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-38",
+    name: "Jime",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DAVID_JIMENEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-39",
+    name: "Liberto",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/LIBERTO_NAVASCUES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-40",
+    name: "Aimar Gar",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/AIMAR_GAR_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-42",
+    name: "Seco",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/FERRAN_SECO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-45",
+    name: "Sotres",
+    position: "Defensa",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/ALFREDO_SOTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  // CENTROCAMPISTAS
+  {
+    idJugador: "JUG-34",
+    name: "Mami",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/MANUEL_ANGEL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-35",
+    name: "Beto",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_MARTINEZ_BETO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-46",
+    name: "Izan",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-47",
+    name: "Cherif",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/CHERIF_ACACIO_FOFANA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
+  // DELANTEROS
+  {
+    idJugador: "JUG-33",
+    name: "Castrelo",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-48",
+    name: "Gabri",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_VALERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
 ];
 function normalize(text = "") {
   return text
