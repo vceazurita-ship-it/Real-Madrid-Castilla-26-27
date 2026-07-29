@@ -68,11 +68,11 @@ const COLORS = [
 function getSeasonWeek(fecha: string) {
   const d = new Date(fecha);
 
-  // La temporada empieza el 1 de julio
+  // La temporada empieza el 8 de julio
   const seasonStartYear =
     d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
 
-  const seasonStart = new Date(seasonStartYear, 6, 1); // 1 de julio
+  const seasonStart = new Date(seasonStartYear, 6, 8); // 8 de julio
 
   const diffDays = Math.floor(
     (d.getTime() - seasonStart.getTime()) / 86400000
