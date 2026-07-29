@@ -217,16 +217,7 @@ const navLink = (
   "Contenidos Microciclo",
   <BookOpen size={18} />
 )}
-    {navLink(
-  "/training",
-  "Jugadores Sesión",
-  <Users size={18} />
-    )}
-    {navLink(
-      "/pizarra_sesion",
-      "Pizarra Sesión",
-      <LayoutDashboard size={18} />
-    )}
+   
     {navLink(
       "/microcycles",
       "Microciclos",
@@ -242,16 +233,6 @@ const navLink = (
   "Dashboard Seguimiento",
   <BarChart3 size={18} />
 )}
-    {navLink(
-      "/pizarra_microcycle",
-      "Pizarra Microciclo",
-      <Clipboard  size={18} />
-    )}
-    {navLink(
-      "/pizarra",
-      "Pizarra Competición",
-      <Activity size={18} />
-    )}
 
     {navLink(
       "/match-plans",
@@ -280,11 +261,7 @@ const navLink = (
   "Dashboard",
   <BarChart3 size={18} />
 )}
-      {navLink(
-  "/video-individual",
-  "Videoteca Individual",
-  <Video size={18} />
-)}
+      
       {navLink(
         "/comparative_ind",
         "Comparativo U-21",
@@ -306,13 +283,7 @@ const navLink = (
         "/emotion",
         "Emocional",
         <HeartHandshake  size={18} />
-      )}
-
-      {navLink(
-        "/sinergy",
-        "Sinergias",
-        <Network  size={18} />
-      )}
+      )} 
     </div>
   </div>
 
@@ -338,22 +309,6 @@ const navLink = (
         <Shield size={18} />
       )}
       
-      {navLink(
-  "/video-collective",
-  "Videoteca Colectiva",
-  <MonitorPlay  size={18} />
-)}
-      {navLink(
-        "/team",
-        "Rendimiento",
-        <BarChart3 size={18} />
-      )}
-
-      {navLink(
-        "/collective",
-        "Competición",
-        <Swords  size={18} />
-      )}
       {navLink(
         "/collective_history",
         "Histórico Competición",
@@ -430,6 +385,68 @@ const navLink = (
 
   </div>
 </div>
+
+{/* otras áreas */}
+<div>
+  {!collapsed && (
+    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
+      Otras áreas
+    </p>
+  )}
+
+  <div className="space-y-2 text-sm">
+
+     {navLink(
+  "/training",
+  "Jugadores Sesión",
+  <Users size={18} />
+    )}
+    {navLink(
+      "/pizarra_sesion",
+      "Pizarra Sesión",
+      <LayoutDashboard size={18} />
+    )}
+     {navLink(
+      "/pizarra_microcycle",
+      "Pizarra Microciclo",
+      <Clipboard  size={18} />
+    )}
+    {navLink(
+      "/pizarra",
+      "Pizarra Competición",
+      <Activity size={18} />
+    )}
+    {navLink(
+  "/video-individual",
+  "Videoteca Individual",
+  <Video size={18} />
+)}
+{navLink(
+        "/sinergy",
+        "Sinergias",
+        <Network  size={18} />
+      )}
+            {navLink(
+  "/video-collective",
+  "Videoteca Colectiva",
+  <MonitorPlay  size={18} />
+)}
+      {navLink(
+        "/team",
+        "Rendimiento",
+        <BarChart3 size={18} />
+      )}
+
+      {navLink(
+        "/collective",
+        "Competición",
+        <Swords  size={18} />
+      )}
+
+  </div>
+</div>
+
+
 </nav>
       </aside>
     </>
