@@ -368,7 +368,7 @@ const players: Player[] = [
     name: "Aimar Gar",
     position: "Defensa",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/AIMAR_GAR_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "/players/AIMAR_GARCIA.jpg",
   },
   {
     idJugador: "JUG-42",
