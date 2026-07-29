@@ -624,7 +624,7 @@ key==="player"
 
           </div>
 <div className="
-mt-8
+mt-10
 flex
 flex-wrap
 items-center
