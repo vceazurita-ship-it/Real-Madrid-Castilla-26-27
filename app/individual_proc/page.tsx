@@ -65,6 +65,21 @@ const COLORS = [
   "#4C7A67", // Verde petróleo
   "#8B5E5E", // Burdeos apagado
 ];
+function getSeasonWeek(fecha: string) {
+  const d = new Date(fecha);
+
+  // La temporada empieza el 1 de julio
+  const seasonStartYear =
+    d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
+
+  const seasonStart = new Date(seasonStartYear, 6, 1); // 1 de julio
+
+  const diffDays = Math.floor(
+    (d.getTime() - seasonStart.getTime()) / 86400000
+  );
+
+  return Math.floor(diffDays / 7) + 1;
+}
 export default function DashboardSeguimiento() {
 
 const { players } = usePlayers();
@@ -119,23 +134,7 @@ const filteredTracking = useMemo(() => {
 
     const month = new Date(s.FECHA).getMonth() + 1;
 
-    const first = new Date(
-      new Date(s.FECHA).getFullYear(),
-      0,
-      1
-    );
-
-    const week = Math.ceil(
-      (
-        (
-          new Date(s.FECHA).getTime() -
-          first.getTime()
-        ) /
-        86400000 +
-        first.getDay() +
-        1
-      ) / 7
-    );
+    const week = getSeasonWeek(s.FECHA);
 
     if (
       filters.player &&
@@ -189,21 +188,7 @@ new Set(
 
 filteredTracking.map(s=>{
 
-const d=new Date(s.FECHA);
-
-const first=new Date(
-d.getFullYear(),
-0,
-1
-);
-
-return Math.ceil(
-
-((d.getTime()-first.getTime())/
-86400000+
-first.getDay()+1)/7
-
-);
+return getSeasonWeek(s.FECHA);
 
 })
 
@@ -290,21 +275,7 @@ const map: Record<string, number> = {};
 
 filteredTracking.forEach(s=>{
 
-const d=new Date(s.FECHA);
-
-const first=new Date(
-d.getFullYear(),
-0,
-1
-);
-
-const week=Math.ceil(
-
-((d.getTime()-first.getTime())/
-86400000+
-first.getDay()+1)/7
-
-);
+const week = getSeasonWeek(s.FECHA);
 
 map[week]=
 (map[week]??0)+1;
@@ -353,20 +324,7 @@ const filterOptions = useMemo(() => {
     const weeks = [...new Set(
         tracking.map(t=>{
 
-            const d = new Date(t.FECHA);
-
-            const first = new Date(
-                d.getFullYear(),
-                0,
-                1
-            );
-
-            return Math.ceil(
-                (
-                    (d.getTime()-first.getTime())/86400000 +
-                    first.getDay()+1
-                )/7
-            );
+            return getSeasonWeek(t.FECHA);
 
         })
     )].sort((a,b)=>a-b);
