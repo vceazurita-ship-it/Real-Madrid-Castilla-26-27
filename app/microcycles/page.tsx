@@ -570,23 +570,35 @@ const radarData = [
     { tareas: number; tiempo: number; cog: number; ponderada: number }
   > = {};
 
-  filtered.forEach((r) => {
-    const key = r.contenidoPrincipal || "Sin contenido";
+filtered.forEach((r) => {
+  const fase = (r.fase || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-    if (!grouped[key]) {
-      grouped[key] = {
-        tareas: 0,
-        tiempo: 0,
-        cog: 0,
-        ponderada: 0,
-      };
-    }
+  // Excluir competición
+  if (fase.includes("competicion")) return;
 
-    grouped[key].tareas += 1;
-    grouped[key].tiempo += r.carga; // usamos carga física como tiempo efectivo
-    grouped[key].cog += r.cargaCog;
-    grouped[key].ponderada += r.carga * r.cargaCog;
-  });
+  // Excluir contenidos vacíos
+  if (!r.contenidoPrincipal?.trim()) return;
+
+  const key = r.contenidoPrincipal.trim();
+
+  if (!grouped[key]) {
+    grouped[key] = {
+      tareas: 0,
+      tiempo: 0,
+      cog: 0,
+      ponderada: 0,
+    };
+  }
+
+  grouped[key].tareas += 1;
+  grouped[key].tiempo += r.carga;
+  grouped[key].cog += r.cargaCog;
+  grouped[key].ponderada += r.carga * r.cargaCog;
+});
 
   return Object.entries(grouped)
     .map(([name, v]) => ({
@@ -605,23 +617,32 @@ const contenidoSecundarioMetrics = useMemo(() => {
     { tareas: number; tiempo: number; cog: number; ponderada: number }
   > = {};
 
-  filtered.forEach((r) => {
-    const key = r.contenidoSecundario || "Sin contenido";
+ filtered.forEach((r) => {
+  const fase = (r.fase || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-    if (!grouped[key]) {
-      grouped[key] = {
-        tareas: 0,
-        tiempo: 0,
-        cog: 0,
-        ponderada: 0,
-      };
-    }
+  if (fase.includes("competicion")) return;
+  if (!r.contenidoSecundario?.trim()) return;
 
-    grouped[key].tareas += 1;
-    grouped[key].tiempo += r.carga;
-    grouped[key].cog += r.cargaCog;
-    grouped[key].ponderada += r.carga * r.cargaCog;
-  });
+  const key = r.contenidoSecundario.trim();
+
+  if (!grouped[key]) {
+    grouped[key] = {
+      tareas: 0,
+      tiempo: 0,
+      cog: 0,
+      ponderada: 0,
+    };
+  }
+
+  grouped[key].tareas += 1;
+  grouped[key].tiempo += r.carga;
+  grouped[key].cog += r.cargaCog;
+  grouped[key].ponderada += r.carga * r.cargaCog;
+});
 
   return Object.entries(grouped)
     .map(([name, v]) => ({
@@ -640,23 +661,32 @@ const faseMetrics = useMemo(() => {
     { tareas: number; tiempo: number; cog: number; ponderada: number }
   > = {};
 
-  filtered.forEach((r) => {
-    const key = r.fase || "Sin fase";
+ filtered.forEach((r) => {
+  const fase = (r.fase || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-    if (!grouped[key]) {
-      grouped[key] = {
-        tareas: 0,
-        tiempo: 0,
-        cog: 0,
-        ponderada: 0,
-      };
-    }
+  if (fase.includes("competicion")) return;
+  if (!r.fase?.trim()) return;
 
-    grouped[key].tareas += 1;
-    grouped[key].tiempo += r.carga;
-    grouped[key].cog += r.cargaCog;
-    grouped[key].ponderada += r.carga * r.cargaCog;
-  });
+  const key = r.fase.trim();
+
+  if (!grouped[key]) {
+    grouped[key] = {
+      tareas: 0,
+      tiempo: 0,
+      cog: 0,
+      ponderada: 0,
+    };
+  }
+
+  grouped[key].tareas += 1;
+  grouped[key].tiempo += r.carga;
+  grouped[key].cog += r.cargaCog;
+  grouped[key].ponderada += r.carga * r.cargaCog;
+});
 
   return Object.entries(grouped)
     .map(([name, v]) => ({
