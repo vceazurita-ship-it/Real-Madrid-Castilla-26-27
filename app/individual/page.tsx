@@ -382,7 +382,7 @@ const players: Player[] = [
     name: "Sotres",
     position: "Defensa",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALFREDO_SOTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
   // CENTROCAMPISTAS
@@ -398,7 +398,7 @@ const players: Player[] = [
     name: "Beto",
     position: "Centrocampista",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/DIEGO_MARTINEZ_BETO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/diego_martinez?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-46",
@@ -412,24 +412,46 @@ const players: Player[] = [
     name: "Cherif",
     position: "Centrocampista",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/CHERIF_ACACIO_FOFANA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/MOCTAR%20CHERIF_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
 
   // DELANTEROS
   {
     idJugador: "JUG-33",
     name: "Castrelo",
-    position: "Delantero",
+    position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-48",
     name: "Gabri",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-28",
+    name: "Barroso",
     position: "Delantero",
     photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_VALERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
+  {
+    idJugador: "JUG-31",
+    name: "Carlos D.",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+  {
+    idJugador: "JUG-32",
+    name: "Ginés",
+    position: "Delantero",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
+
 
 ];
 function normalize(text = "") {
