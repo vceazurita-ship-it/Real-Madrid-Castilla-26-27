@@ -98,9 +98,14 @@ const [selectedSessions, setSelectedSessions] =
 useState<TrackingRecord[]>([]);
   
 const playersMap = useMemo(() => {
-  return Object.fromEntries(
-    players.map((p) => [p.id, p])
-  ) as Record<string, (typeof players)[number]>;
+  const map: Record<string, (typeof players)[number]> = {};
+
+  players.forEach((p) => {
+    map[p.id] = p;       // búsqueda por ID
+    map[p.nombre] = p;   // búsqueda por nombre
+  });
+
+  return map;
 }, [players]);
  const months = useMemo(() => {
   const result = [];
