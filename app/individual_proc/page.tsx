@@ -580,6 +580,7 @@ className="rounded-xl bg-[#C8A96B] text-black font-semibold"
 Limpiar
 </button>
 </div>
+<br></br>
 <div className="flex flex-wrap gap-2 mt-4">
 
 {Object.entries(filters)
