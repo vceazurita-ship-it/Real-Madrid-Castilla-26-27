@@ -580,7 +580,7 @@ className="rounded-xl bg-[#C8A96B] text-black font-semibold"
 Limpiar
 </button>
 </div>
-<br></br>
+
 <div className="flex flex-wrap gap-2 mt-4">
 
 {Object.entries(filters)
@@ -619,7 +619,7 @@ key==="player"
 
 ))}
 
-</div>
+</div><br></br>
             <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
 
           </div>
