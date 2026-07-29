@@ -58,6 +58,8 @@ type Player = {
   position: string;
   photo: string;
 
+  externo?: boolean;
+
   conBalon?: string;
 sinBalon?: string;
 mental?: string;
@@ -324,133 +326,149 @@ const players: Player[] = [
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ANGEL-CARVAJAL_JT14583?$Desktop$&fit=wrap&wid=420",
   },
-  //NUEVOS
-    // PORTEROS
-  {
-    idJugador: "JUG-43",
-    name: "Illia",
-    position: "Portero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/IILIA%20VOLOSHYN_DB10246_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-44",
-    name: "Álvaro",
-    position: "Portero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
+  // NUEVOS
+// PORTEROS
+{
+  idJugador: "JUG-43",
+  name: "Illia",
+  position: "Portero",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/IILIA%20VOLOSHYN_DB10246_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-44",
+  name: "Álvaro",
+  position: "Portero",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GONZALEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
 
-  // DEFENSAS
-  {
-    idJugador: "JUG-37",
-    name: "Bailón",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/JAVIER%20BAILON_JT11321_JT11482_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-38",
-    name: "Jime",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/DAVID_JIMENEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-39",
-    name: "Liberto",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/LIBERTO%20NAVASCUES_DB10237_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-40",
-    name: "Aimar Gar",
-    position: "Defensa",
-    photo:
-      "/players/AIMAR_GARCIA.jpg",
-  },
-  {
-    idJugador: "JUG-42",
-    name: "Seco",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/FERRAN%20SECO_JT11296_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-45",
-    name: "Sotres",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
+// DEFENSAS
+{
+  idJugador: "JUG-37",
+  name: "Bailón",
+  position: "Defensa",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/JAVIER%20BAILON_JT11321_JT11482_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-38",
+  name: "Jime",
+  position: "Defensa",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/DAVID_JIMENEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-39",
+  name: "Liberto",
+  position: "Defensa",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/LIBERTO%20NAVASCUES_DB10237_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-40",
+  name: "Aimar Gar",
+  position: "Defensa",
+  externo: true,
+  photo: "/players/AIMAR_GARCIA.jpg",
+},
+{
+  idJugador: "JUG-42",
+  name: "Seco",
+  position: "Defensa",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/FERRAN%20SECO_JT11296_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-45",
+  name: "Sotres",
+  position: "Defensa",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
 
-  // CENTROCAMPISTAS
-  {
-    idJugador: "JUG-34",
-    name: "Mami",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/MANUEL_ANGEL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-35",
-    name: "Beto",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/diego_martinez?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-46",
-    name: "Izan",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-47",
-    name: "Cherif",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/MOCTAR%20CHERIF_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
+// CENTROCAMPISTAS
+{
+  idJugador: "JUG-34",
+  name: "Mami",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/MANUEL_ANGEL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-35",
+  name: "Beto",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/diego_martinez?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-46",
+  name: "Izan",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-47",
+  name: "Cherif",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/MOCTAR%20CHERIF_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+},
 
-  // DELANTEROS
-  {
-    idJugador: "JUG-33",
-    name: "Castrelo",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-48",
-    name: "Gabri",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-28",
-    name: "Barroso",
-    position: "Delantero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/JAIME%20BARROSO_DB10239380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-31",
-    name: "Carlos D.",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/CARLOS%20DIEZ_DB10299_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-32",
-    name: "Ginés",
-    position: "Delantero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
+// DELANTEROS
+{
+  idJugador: "JUG-33",
+  name: "Castrelo",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL_CASTRELO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-48",
+  name: "Gabri",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/GABRIEL%20VALERO_JT11314_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-28",
+  name: "Barroso",
+  position: "Delantero",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/JAIME%20BARROSO_DB10239380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-31",
+  name: "Carlos D.",
+  position: "Centrocampista",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/CARLOS%20DIEZ_DB10299_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  idJugador: "JUG-32",
+  name: "Ginés",
+  position: "Delantero",
+  externo: true,
+  photo:
+    "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
 
 
 ];
@@ -589,23 +607,32 @@ function CarouselRow({
           </div>
         )}
       </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
   {visible.map((player) => (
     <button
       key={player.name}
       onClick={() => onSelect(player)}
-      className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 text-center hover:bg-white/[0.06] transition"
+      className={`relative rounded-2xl border p-2 text-center transition hover:bg-white/[0.06] ${
+        player.externo
+          ? "border-[#C8A96B] border-dashed bg-[#C8A96B]/5"
+          : "border-white/10 bg-white/[0.04]"
+      }`}
     >
+      {player.externo && (
+        <span className="absolute top-2 right-2 rounded-full bg-[#C8A96B] px-2 py-0.5 text-[9px] font-bold uppercase text-black">
+          Externo
+        </span>
+      )}
+
       <div className="flex justify-center">
         <img
           src={player.photo}
           alt={player.name}
           className="
-h-[82px] w-[62px]
-sm:h-[90px] sm:w-[68px]
-lg:h-[100px] lg:w-[75px]
-"
+            h-[82px] w-[62px]
+            sm:h-[90px] sm:w-[68px]
+            lg:h-[100px] lg:w-[75px]
+          "
         />
       </div>
 
