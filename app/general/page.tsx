@@ -31,32 +31,80 @@ export default function PerformancePage() {
 const viewerRef = useRef<HTMLDivElement>(null);
 
   // Cargar temporada al iniciar
-  useEffect(() => {
-    const fetchSeason = async () => {
-      try {
-        const data = await loadSeason();
+useEffect(() => {
+  const fetchSeason = async () => {
+    try {
+      const data = await loadSeason();
 
-        if (Array.isArray(data)) {
-          setSeasonData(data);
+      if (Array.isArray(data)) {
+        setSeasonData(data);
 
-          const firstWeek = data
-            .flatMap((month) => month.weeks)[0];
+        const monthMap: Record<string, number> = {
+          Ene: 0,
+          Feb: 1,
+          Mar: 2,
+          Abr: 3,
+          May: 4,
+          Jun: 5,
+          Jul: 6,
+          Ago: 7,
+          Sep: 8,
+          Oct: 9,
+          Nov: 10,
+          Dic: 11,
+        };
 
-          if (firstWeek) {
-            setSelectedWeekId(firstWeek.id);
+        const parseDate = (value: string) => {
+          if (!value) return new Date(NaN);
+
+          // Si ya viene en formato ISO (2026-07-27)
+          if (value.includes("-")) {
+            return new Date(value);
           }
-        } else {
-          console.error("La temporada recibida no es válida:", data);
-        }
-      } catch (error) {
-        console.error("Error cargando temporada:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchSeason();
-  }, []);
+          // Formato "27 Jul", "2 Ago", etc.
+          const [day, mon] = value.trim().split(" ");
+          const month = monthMap[mon];
+
+          // Julio-Diciembre = 2026, Enero-Junio = 2027
+          const year = month >= 6 ? 2026 : 2027;
+
+          return new Date(year, month, Number(day));
+        };
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const weeks = data.flatMap((month) => month.weeks);
+
+        const currentWeek =
+          weeks.find((week) => {
+            const start = parseDate(week.start);
+            const end = parseDate(week.end);
+
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+
+            return today >= start && today <= end;
+          }) ?? weeks[0];
+
+        if (currentWeek) {
+          setSelectedWeekId(currentWeek.id);
+        }
+      } else {
+        console.error("La temporada recibida no es válida:", data);
+      }
+    } catch (error) {
+      console.error("Error cargando temporada:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchSeason();
+}, []);
 
   // Obtener siempre la semana desde seasonData
   const selectedWeek =
