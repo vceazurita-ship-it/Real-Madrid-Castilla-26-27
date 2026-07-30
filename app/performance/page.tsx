@@ -40,12 +40,26 @@ const viewerRef = useRef<HTMLDivElement>(null);
         if (Array.isArray(data)) {
           setSeasonData(data);
 
-          const firstWeek = data
-            .flatMap((month) => month.weeks)[0];
+          const today = new Date();
+today.setHours(0, 0, 0, 0);
 
-          if (firstWeek) {
-            setSelectedWeekId(firstWeek.id);
-          }
+const currentWeek =
+  data
+    .flatMap((month) => month.weeks)
+    .find((week) => {
+      const start = new Date(week.start);
+      const end = new Date(week.end);
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      return today >= start && today <= end;
+    }) ??
+  data.flatMap((month) => month.weeks)[0];
+
+if (currentWeek) {
+  setSelectedWeekId(currentWeek.id);
+}
         } else {
           console.error("La temporada recibida no es válida:", data);
         }
