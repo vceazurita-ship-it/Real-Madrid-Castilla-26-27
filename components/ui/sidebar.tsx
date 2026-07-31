@@ -360,6 +360,11 @@ const navLink = (
   <div className="space-y-2 text-sm">
 
     {navLink(
+  "/calendar_performance",
+  "Calendario Condicional",
+  <BookOpen size={18} />
+)}
+    {navLink(
       "/performance",
       "Área Condicional",
       <Dumbbell  size={18} />
