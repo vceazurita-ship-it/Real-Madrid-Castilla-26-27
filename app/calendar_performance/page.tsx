@@ -499,7 +499,11 @@ export default function Calendar() {
                         </button>
 
                         <button
-                          onClick={() => deleteEvent(event.ID_EVENTO)}
+                          onClick={async () => {
+  await deleteEvent(event.ID_EVENTO);
+  setSelectedDate(null);
+  setSelectedEvents([]);
+}}
                           className="rounded-lg border border-red-500 px-3 py-2 text-sm text-red-400"
                         >
                           Eliminar
