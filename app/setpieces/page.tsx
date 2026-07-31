@@ -6,6 +6,7 @@ import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
+import ABPFlowField from './components/ABPFlowField';
 
 import {
   useEffect,
@@ -269,6 +270,7 @@ const sacadores = [
 const tiposAccion = [
   ...new Set(rows.map(r => r.tipoAccion))
 ];
+
 const filtered = rows.filter((r) => {
   const jornadaOk =
     jornada === "ALL" ||
@@ -717,16 +719,16 @@ const abpFlow = useMemo(() => {
   const links: Record<string, number> = {};
 
   filtered.forEach((r) => {
-    const from = zoneCoords[r.zonaCaida] ? r.zonaCaida : null;
-    const activation = zoneCoords[r.tipoAccion] ? r.tipoAccion : null;
-    const intention = zoneCoords[r.tipoCarrera] ? r.tipoCarrera : null;
-    const finish = zoneCoords[r.zonaRemate] ? r.zonaRemate : null;
+    const chain = [
+      r.zonaCaida,
+      r.tipoAccion,
+      r.tipoCarrera,
+      r.zonaRemate,
+    ].filter(Boolean) as string[];
 
-    [from, activation, intention, finish].forEach((k) => {
-      if (k) nodes[k] = (nodes[k] || 0) + 1;
+    chain.forEach((k) => {
+      nodes[k] = (nodes[k] || 0) + 1;
     });
-
-    const chain = [from, activation, intention, finish].filter(Boolean) as string[];
 
     for (let i = 0; i < chain.length - 1; i++) {
       const key = `${chain[i]}->${chain[i + 1]}`;
@@ -2903,121 +2905,6 @@ function Panel({
       </h2>
 
       {children}
-    </div>
-  );
-}
-function ABPFlowField({
-  nodes,
-  links,
-}: {
-  nodes: Record<string, number>;
-  links: Record<string, number>;
-}) {
-  const maxNode = Math.max(...Object.values(nodes), 1);
-  const maxLink = Math.max(...Object.values(links), 1);
-
-  return (
-    <div className="w-full aspect-[4/5]">
-      <svg viewBox="0 0 100 110" className="w-full h-full">
-        <rect
-          x="5"
-          y="5"
-          width="90"
-          height="100"
-          rx="2"
-          fill="#0F1720"
-          stroke="#FFFFFF"
-          strokeWidth="0.4"
-        />
-
-        <rect
-          x="22"
-          y="5"
-          width="56"
-          height="18"
-          fill="none"
-          stroke="#FFFFFF"
-          strokeWidth="0.4"
-        />
-
-        <rect
-          x="34"
-          y="5"
-          width="32"
-          height="7"
-          fill="none"
-          stroke="#FFFFFF"
-          strokeWidth="0.4"
-        />
-
-        <circle cx="50" cy="15" r="0.8" fill="#FFFFFF" />
-
-        <line x1="5" y1="48" x2="95" y2="48" stroke="#475569" strokeWidth="0.3" />
-        <line x1="5" y1="68" x2="95" y2="68" stroke="#475569" strokeWidth="0.3" />
-
-        <text x="50" y="102" textAnchor="middle" fill="#94A3B8" fontSize="3">
-          Origen
-        </text>
-        <text x="50" y="73" textAnchor="middle" fill="#94A3B8" fontSize="3">
-          Activación
-        </text>
-        <text x="50" y="47" textAnchor="middle" fill="#94A3B8" fontSize="3">
-          Intención
-        </text>
-        <text x="50" y="25" textAnchor="middle" fill="#94A3B8" fontSize="3">
-          Remate
-        </text>
-
-        {Object.entries(links).map(([key, value]) => {
-          const [from, to] = key.split("->");
-          const a = zoneCoords[from];
-          const b = zoneCoords[to];
-          if (!a || !b) return null;
-
-          return (
-            <line
-              key={key}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke="#C8A96B"
-              strokeOpacity={0.65}
-              strokeWidth={0.4 + (value / maxLink) * 2.2}
-              strokeLinecap="round"
-            />
-          );
-        })}
-
-        {Object.entries(nodes).map(([name, value]) => {
-          const p = zoneCoords[name];
-          if (!p) return null;
-
-          return (
-            <g key={name}>
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={1.6 + (value / maxNode) * 3.8}
-                fill="#C8A96B"
-                fillOpacity={0.28 + (value / maxNode) * 0.45}
-                stroke="#F5E7C8"
-                strokeWidth="0.3"
-              />
-              <text
-                x={p.x}
-                y={p.y + 0.9}
-                textAnchor="middle"
-                fill="#FFFFFF"
-                fontSize="1.8"
-                fontWeight="700"
-              >
-                {value}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
     </div>
   );
 }
