@@ -407,6 +407,39 @@ export default function Calendar() {
                   + Nuevo trabajo
                 </button>
 
+{isCreating && (
+  <EventForm
+    players={players}
+    date={selectedDate!}
+    onCancel={() => setIsCreating(false)}
+    onSave={async (form) => {
+      await createEvent({
+        FECHA: selectedDate!.toISOString().split("T")[0],
+        TIPO: form.TIPO,
+        TITULO: form.TITULO,
+        DESCRIPCION: form.DESCRIPCION,
+        JUGADORES: form.JUGADORES,
+        RESPONSABLE: form.RESPONSABLE,
+        DURACION: form.DURACION,
+        INTENSIDAD: form.INTENSIDAD,
+      });
+
+      await reloadEvents();
+
+      setSelectedEvents(
+        events.filter((e) =>
+          e.FECHA.startsWith(
+            selectedDate!.toISOString().split("T")[0]
+          )
+        )
+      );
+
+      setIsCreating(false);
+    }}
+  />
+)}
+
+
                 <div className="space-y-3">
                   {selectedEvents.map((event) => (
                     <div
@@ -461,4 +494,111 @@ export default function Calendar() {
     </div>
   </main>
 );
+function EventForm({
+  players,
+  date,
+  onCancel,
+  onSave,
+}: {
+  players: any[];
+  date: Date;
+  onCancel: () => void;
+  onSave: (data: any) => void;
+}) {
+  const [TIPO, setTIPO] = useState<ConditionalEvent["TIPO"]>("FUERZA");
+  const [TITULO, setTITULO] = useState("");
+  const [DESCRIPCION, setDESCRIPCION] = useState("");
+  const [JUGADORES, setJUGADORES] = useState("");
+  const [RESPONSABLE, setRESPONSABLE] = useState("");
+  const [DURACION, setDURACION] = useState("");
+  const [INTENSIDAD, setINTENSIDAD] = useState("");
+
+  return (
+    <div className="mb-6 rounded-2xl border border-white/10 bg-[#10151C] p-4 space-y-4">
+      <h3 className="text-lg font-semibold">Nuevo trabajo condicional</h3>
+
+      <select
+        value={TIPO}
+        onChange={(e) => setTIPO(e.target.value as any)}
+        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+      >
+        <option value="FUERZA">Fuerza</option>
+        <option value="PREVENTIVO">Preventivo</option>
+        <option value="READAPTACION">Readaptación</option>
+        <option value="MOVILIDAD">Movilidad</option>
+        <option value="RECUPERACION">Recuperación</option>
+      </select>
+
+      <input
+        value={TITULO}
+        onChange={(e) => setTITULO(e.target.value)}
+        placeholder="Título"
+        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+      />
+
+      <textarea
+        value={DESCRIPCION}
+        onChange={(e) => setDESCRIPCION(e.target.value)}
+        placeholder="Descripción"
+        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+      />
+
+      <input
+        value={JUGADORES}
+        onChange={(e) => setJUGADORES(e.target.value)}
+        placeholder="Jugadores (IDs o nombres separados por comas)"
+        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+      />
+
+      <input
+        value={RESPONSABLE}
+        onChange={(e) => setRESPONSABLE(e.target.value)}
+        placeholder="Responsable"
+        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <input
+          value={DURACION}
+          onChange={(e) => setDURACION(e.target.value)}
+          placeholder="Duración"
+          className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+        />
+
+        <input
+          value={INTENSIDAD}
+          onChange={(e) => setINTENSIDAD(e.target.value)}
+          placeholder="Intensidad"
+          className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+        />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="rounded-xl border border-white/10 px-4 py-2"
+        >
+          Cancelar
+        </button>
+
+        <button
+          onClick={() =>
+            onSave({
+              TIPO,
+              TITULO,
+              DESCRIPCION,
+              JUGADORES,
+              RESPONSABLE,
+              DURACION,
+              INTENSIDAD,
+            })
+          }
+          className="rounded-xl border border-[#C8A96B] bg-[#C8A96B]/10 px-4 py-2"
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
+  );
+}
 }
