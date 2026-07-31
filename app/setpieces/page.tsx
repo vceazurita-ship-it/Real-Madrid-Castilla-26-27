@@ -1799,7 +1799,14 @@ originalStyles.forEach(
 
 <Panel title="Patrones de ABP: origen → activación → intención → remate">
   <div id="grafico-abp-flow">
-    <ABPFlowField rows={filtered} />
+    <ABPFlowField
+  rows={filtered.map((r) => ({
+    zonaCaida: r.zonaCaida,
+    tipoAccion: r.tipoAccion,
+    tipoCarrera: r.tipoCarrera,
+    zonaRemate: r.zonaRemate,
+  }))}
+/>
   </div>
 </Panel>
 

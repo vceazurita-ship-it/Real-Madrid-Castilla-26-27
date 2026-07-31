@@ -38,30 +38,66 @@ const zoneCoords: Record<string, { x: number; y: number; label: string }> = {
 };
 
 export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
-  const { nodes, links } = useMemo(() => {
-    const nodes: Record<string, number> = {};
-    const links: Record<string, number> = {};
+const { nodes, links } = useMemo(() => {
+  const nodes: Record<string, number> = {};
+  const links: Record<string, number> = {};
 
-    rows.forEach((r) => {
-      const chain = [
-        r.zonaCaida,
-        r.tipoAccion,
-        r.tipoCarrera,
-        r.zonaRemate,
-      ].filter((v) => zoneCoords[v]) as string[];
+  const mapZonaCaida = (v: string) => {
+    const t = (v || "").toLowerCase();
+    if (t.includes("primer palo")) return "Primer palo";
+    if (t.includes("penal")) return "Punto de penalti";
+    if (t.includes("segundo palo")) return "Segundo palo";
+    if (t.includes("frontal")) return "Rechace frontal";
+    if (t.includes("6m")) return "Punto de penalti";
+    return "Punto de penalti";
+  };
 
-      chain.forEach((k) => {
-        nodes[k] = (nodes[k] || 0) + 1;
-      });
+  const mapTipoAccion = (v: string) => {
+    const t = (v || "").toLowerCase();
+    if (t.includes("corto")) return "Corto";
+    if (t.includes("segundo")) return "Segundo balón";
+    if (t.includes("bloqueo")) return "Bloqueo";
+    if (t.includes("arrastre")) return "Arrastre";
+    return "Directo";
+  };
 
-      for (let i = 0; i < chain.length - 1; i++) {
-        const key = `${chain[i]}->${chain[i + 1]}`;
-        links[key] = (links[key] || 0) + 1;
-      }
+  const mapTipoCarrera = (v: string) => {
+    const t = (v || "").toLowerCase();
+    if (t.includes("primer")) return "Primer palo";
+    if (t.includes("segundo")) return "Segundo palo";
+    if (t.includes("frontal")) return "Rechace frontal";
+    return "Punto de penalti";
+  };
+
+  const mapZonaRemate = (v: string) => {
+    const t = (v || "").toLowerCase();
+    if (t === "1p" || t.includes("primer")) return "Primer palo remate";
+    if (t === "2p" || t.includes("segundo")) return "Segundo palo remate";
+    if (t.includes("area")) return "Área pequeña izquierda";
+    if (t.includes("6m")) return "Área pequeña derecha";
+    return "Área pequeña izquierda";
+  };
+
+  rows.forEach((r) => {
+    const chain = [
+      mapZonaCaida(r.zonaCaida),
+      mapTipoAccion(r.tipoAccion),
+      mapTipoCarrera(r.tipoCarrera),
+      mapZonaRemate(r.zonaRemate),
+    ];
+
+    chain.forEach((k) => {
+      nodes[k] = (nodes[k] || 0) + 1;
     });
 
-    return { nodes, links };
-  }, [rows]);
+    for (let i = 0; i < chain.length - 1; i++) {
+      const key = chain[i] + "->" + chain[i + 1];
+      links[key] = (links[key] || 0) + 1;
+    }
+  });
+
+  return { nodes, links };
+}, [rows]);
 
   const maxNode = Math.max(...Object.values(nodes), 1);
   const maxLink = Math.max(...Object.values(links), 1);
