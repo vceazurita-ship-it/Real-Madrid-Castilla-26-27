@@ -413,42 +413,34 @@ export default function Calendar() {
     date={selectedDate!}
     onCancel={() => setIsCreating(false)}
     onSave={async (form) => {
-      const fecha = selectedDate!.toISOString().split("T")[0];
+      const fecha = [
+        selectedDate!.getFullYear(),
+        String(selectedDate!.getMonth() + 1).padStart(2, "0"),
+        String(selectedDate!.getDate()).padStart(2, "0"),
+      ].join("-");
 
-      try {
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "crearEventoCondicional",
-            FECHA: fecha,
-            TIPO: form.TIPO,
-            TITULO: form.TITULO,
-            DESCRIPCION: form.DESCRIPCION,
-            JUGADORES: form.JUGADORES,
-            RESPONSABLE: form.RESPONSABLE,
-            DURACION: form.DURACION,
-            INTENSIDAD: form.INTENSIDAD,
-          }),
-        });
+      await createEvent({
+        FECHA: fecha,
+        TIPO: form.TIPO,
+        TITULO: form.TITULO,
+        DESCRIPCION: form.DESCRIPCION,
+        JUGADORES: form.JUGADORES,
+        RESPONSABLE: form.RESPONSABLE,
+        DURACION: form.DURACION,
+        INTENSIDAD: form.INTENSIDAD,
+      });
 
-        const text = await res.text();
-        console.log("Respuesta Apps Script:", text);
+      // Recargamos los eventos desde Google Sheets
+      const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
+      const data: ConditionalEvent[] = await r.json();
 
-        // Recargamos desde el servidor
-        const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
-        const data: ConditionalEvent[] = await r.json();
+      setEvents(data);
+      setSelectedEvents(data.filter((e) => e.FECHA.startsWith(fecha)));
 
-        setEvents(data);
-        setSelectedEvents(data.filter((e) => e.FECHA.startsWith(fecha)));
-        setIsCreating(false);
-      } catch (err) {
-        console.error("Error guardando evento:", err);
-        alert("No se pudo guardar el trabajo condicional");
-      }
+      setIsCreating(false);
     }}
   />
 )}
-
 
                 <div className="space-y-3">
                   {selectedEvents.map((event) => (
