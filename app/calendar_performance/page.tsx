@@ -413,11 +413,14 @@ export default function Calendar() {
     date={selectedDate!}
     onCancel={() => setIsCreating(false)}
     onSave={async (form) => {
-      const fecha = [
-        selectedDate!.getFullYear(),
-        String(selectedDate!.getMonth() + 1).padStart(2, "0"),
-        String(selectedDate!.getDate()).padStart(2, "0"),
-      ].join("-");
+      const localDate = new Date(selectedDate!);
+localDate.setHours(12, 0, 0, 0);
+
+const fecha = [
+  localDate.getFullYear(),
+  String(localDate.getMonth() + 1).padStart(2, "0"),
+  String(localDate.getDate()).padStart(2, "0"),
+].join("-");
 
       await createEvent({
         FECHA: fecha,
