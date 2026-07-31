@@ -414,40 +414,50 @@ export default function Calendar() {
                   + Nuevo trabajo
                 </button>
 
-{isCreating && (
+{(isCreating || editingEvent) && (
   <EventForm
     players={players}
     date={selectedDate!}
-    onCancel={() => setIsCreating(false)}
+    initialData={editingEvent}
+    onCancel={() => {
+      setIsCreating(false);
+      setEditingEvent(null);
+    }}
     onSave={async (form) => {
       const localDate = new Date(selectedDate!);
-localDate.setHours(12, 0, 0, 0);
+      localDate.setHours(12, 0, 0, 0);
 
-const fecha = [
-  localDate.getFullYear(),
-  String(localDate.getMonth() + 1).padStart(2, "0"),
-  String(localDate.getDate()).padStart(2, "0"),
-].join("-");
+      const fecha = [
+        localDate.getFullYear(),
+        String(localDate.getMonth() + 1).padStart(2, '0'),
+        String(localDate.getDate()).padStart(2, '0'),
+      ].join('-');
 
-      await createEvent({
-        FECHA: fecha,
-        TIPO: form.TIPO,
-        TITULO: form.TITULO,
-        DESCRIPCION: form.DESCRIPCION,
-        JUGADORES: form.JUGADORES,
-        RESPONSABLE: form.RESPONSABLE,
-        DURACION: form.DURACION,
-        INTENSIDAD: form.INTENSIDAD,
-      });
+      if (editingEvent) {
+        await updateEvent({
+          ...editingEvent,
+          FECHA: fecha,
+          ...form,
+        });
+      } else {
+        await createEvent({
+          FECHA: fecha,
+          ...form,
+        });
+      }
 
-      // Recargamos los eventos desde Google Sheets
       const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
       const data: ConditionalEvent[] = await r.json();
 
       setEvents(data);
-      setSelectedEvents(data.filter((e) => e.FECHA.startsWith(fecha)));
+      setSelectedEvents(data.filter((e) => e.FECHA === fecha));
 
       setIsCreating(false);
+      setEditingEvent(null);
+
+      // Cierra el popup completo
+      setSelectedDate(null);
+      setSelectedEvents([]);
     }}
   />
 )}
@@ -509,29 +519,37 @@ const fecha = [
 function EventForm({
   players,
   date,
+  initialData,
   onCancel,
   onSave,
 }: {
   players: any[];
   date: Date;
+  initialData?: ConditionalEvent | null;
   onCancel: () => void;
   onSave: (data: any) => void;
 }) {
-  const [TIPO, setTIPO] = useState<ConditionalEvent["TIPO"]>("FUERZA");
-  const [TITULO, setTITULO] = useState("");
-  const [DESCRIPCION, setDESCRIPCION] = useState("");
-  const [JUGADORES, setJUGADORES] = useState("");
-  const [RESPONSABLE, setRESPONSABLE] = useState("");
-  const [DURACION, setDURACION] = useState("");
-  const [INTENSIDAD, setINTENSIDAD] = useState("");
+  const [TIPO, setTIPO] = useState<ConditionalEvent["TIPO"]>(
+    initialData?.TIPO ?? "FUERZA"
+  );
+  const [TITULO, setTITULO] = useState(initialData?.TITULO ?? "");
+  const [DESCRIPCION, setDESCRIPCION] = useState(initialData?.DESCRIPCION ?? "");
+  const [JUGADORES, setJUGADORES] = useState(initialData?.JUGADORES ?? "");
+  const [RESPONSABLE, setRESPONSABLE] = useState(initialData?.RESPONSABLE ?? "");
+  const [DURACION, setDURACION] = useState(initialData?.DURACION ?? "");
+  const [INTENSIDAD, setINTENSIDAD] = useState(initialData?.INTENSIDAD ?? "");
 
   return (
     <div className="mb-6 rounded-2xl border border-white/10 bg-[#10151C] p-4 space-y-4">
-      <h3 className="text-lg font-semibold">Nuevo trabajo condicional</h3>
+      <h3 className="text-lg font-semibold">
+        {initialData ? "Editar trabajo condicional" : "Nuevo trabajo condicional"}
+      </h3>
 
       <select
         value={TIPO}
-        onChange={(e) => setTIPO(e.target.value as any)}
+        onChange={(e) =>
+          setTIPO(e.target.value as ConditionalEvent["TIPO"])
+        }
         className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
       >
         <option value="FUERZA">Fuerza</option>
@@ -607,7 +625,7 @@ function EventForm({
           }
           className="rounded-xl border border-[#C8A96B] bg-[#C8A96B]/10 px-4 py-2"
         >
-          Guardar
+          {initialData ? "Guardar cambios" : "Guardar"}
         </button>
       </div>
     </div>
