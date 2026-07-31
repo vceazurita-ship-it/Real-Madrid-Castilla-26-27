@@ -1799,10 +1799,7 @@ originalStyles.forEach(
 
 <Panel title="Patrones de ABP: origen → activación → intención → remate">
   <div id="grafico-abp-flow">
-    <ABPFlowField
-      nodes={abpFlow.nodes}
-      links={abpFlow.links}
-    />
+    <ABPFlowField rows={filtered} />
   </div>
 </Panel>
 
