@@ -362,7 +362,7 @@ const navLink = (
     {navLink(
   "/calendar_performance",
   "Calendario Condicional",
-  <BookOpen size={18} />
+  <CalendarDays size={18} />
 )}
     {navLink(
       "/performance",
