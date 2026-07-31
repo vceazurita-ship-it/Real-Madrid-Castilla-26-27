@@ -266,10 +266,17 @@ export default function Calendar() {
                           "-" +
                           String(date.getDate()).padStart(2, "0");
 
-                        const dayEvents = events.filter((e) =>
-                          e.FECHA.startsWith(key)
-                        );
+                        const dayEvents = events.filter((e) => {
+  const eventDate = new Date(e.FECHA);
 
+  const eventKey = [
+    eventDate.getUTCFullYear(),
+    String(eventDate.getUTCMonth() + 1).padStart(2, "0"),
+    String(eventDate.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+
+  return eventKey === key;
+});
                         const hasEvents = dayEvents.length > 0;
 
                         return (
