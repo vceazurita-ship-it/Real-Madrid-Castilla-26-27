@@ -50,6 +50,35 @@ const PIE_COLORS = [
   "#7C6F9F", // Púrpura grisáceo
 ];
 
+const zoneCoords: Record<string, { x: number; y: number }> = {
+  // Origen del saque (parte inferior)
+  "Córner izquierdo": { x: 15, y: 95 },
+  "Córner derecho": { x: 85, y: 95 },
+  "Falta lateral izquierda": { x: 22, y: 82 },
+  "Falta lateral derecha": { x: 78, y: 82 },
+  "Frontal": { x: 50, y: 82 },
+
+  // Activación (centro)
+  "Directo": { x: 50, y: 58 },
+  "Corto": { x: 32, y: 58 },
+  "Segundo balón": { x: 68, y: 58 },
+  "Bloqueo": { x: 20, y: 58 },
+  "Arrastre": { x: 80, y: 58 },
+
+  // Intención (tercio superior)
+  "Primer palo": { x: 34, y: 34 },
+  "Punto de penalti": { x: 50, y: 28 },
+  "Segundo palo": { x: 66, y: 34 },
+  "Rechace frontal": { x: 50, y: 42 },
+
+  // Remate (área)
+  "Área pequeña izquierda": { x: 40, y: 16 },
+  "Área pequeña derecha": { x: 60, y: 16 },
+  "Primer palo remate": { x: 36, y: 12 },
+  "Segundo palo remate": { x: 64, y: 12 },
+};
+
+
 type Row = {
   jornada: number;
   rival: string;
@@ -682,6 +711,32 @@ const xgZonaCaida =
           b.total - a.total
       );
   }, [filtered]);
+
+const abpFlow = useMemo(() => {
+  const nodes: Record<string, number> = {};
+  const links: Record<string, number> = {};
+
+  filtered.forEach((r) => {
+    const from = zoneCoords[r.zonaCaida] ? r.zonaCaida : null;
+    const activation = zoneCoords[r.tipoAccion] ? r.tipoAccion : null;
+    const intention = zoneCoords[r.tipoCarrera] ? r.tipoCarrera : null;
+    const finish = zoneCoords[r.zonaRemate] ? r.zonaRemate : null;
+
+    [from, activation, intention, finish].forEach((k) => {
+      if (k) nodes[k] = (nodes[k] || 0) + 1;
+    });
+
+    const chain = [from, activation, intention, finish].filter(Boolean) as string[];
+
+    for (let i = 0; i < chain.length - 1; i++) {
+      const key = `${chain[i]}->${chain[i + 1]}`;
+      links[key] = (links[key] || 0) + 1;
+    }
+  });
+
+  return { nodes, links };
+}, [filtered]);
+
 
 const resultadoData = [
   {
@@ -1498,6 +1553,8 @@ originalStyles.forEach(
       .slice(0, 10)}.pdf`
   );
 };
+
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -1737,6 +1794,16 @@ originalStyles.forEach(
   </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
+
+<Panel title="Patrones de ABP: origen → activación → intención → remate">
+  <div id="grafico-abp-flow">
+    <ABPFlowField
+      nodes={abpFlow.nodes}
+      links={abpFlow.links}
+    />
+  </div>
+</Panel>
+
 
               <Panel title="Tipo de acción">
                 <div id="grafico-tipo-accion">
@@ -2836,6 +2903,121 @@ function Panel({
       </h2>
 
       {children}
+    </div>
+  );
+}
+function ABPFlowField({
+  nodes,
+  links,
+}: {
+  nodes: Record<string, number>;
+  links: Record<string, number>;
+}) {
+  const maxNode = Math.max(...Object.values(nodes), 1);
+  const maxLink = Math.max(...Object.values(links), 1);
+
+  return (
+    <div className="w-full aspect-[4/5]">
+      <svg viewBox="0 0 100 110" className="w-full h-full">
+        <rect
+          x="5"
+          y="5"
+          width="90"
+          height="100"
+          rx="2"
+          fill="#0F1720"
+          stroke="#FFFFFF"
+          strokeWidth="0.4"
+        />
+
+        <rect
+          x="22"
+          y="5"
+          width="56"
+          height="18"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="0.4"
+        />
+
+        <rect
+          x="34"
+          y="5"
+          width="32"
+          height="7"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="0.4"
+        />
+
+        <circle cx="50" cy="15" r="0.8" fill="#FFFFFF" />
+
+        <line x1="5" y1="48" x2="95" y2="48" stroke="#475569" strokeWidth="0.3" />
+        <line x1="5" y1="68" x2="95" y2="68" stroke="#475569" strokeWidth="0.3" />
+
+        <text x="50" y="102" textAnchor="middle" fill="#94A3B8" fontSize="3">
+          Origen
+        </text>
+        <text x="50" y="73" textAnchor="middle" fill="#94A3B8" fontSize="3">
+          Activación
+        </text>
+        <text x="50" y="47" textAnchor="middle" fill="#94A3B8" fontSize="3">
+          Intención
+        </text>
+        <text x="50" y="25" textAnchor="middle" fill="#94A3B8" fontSize="3">
+          Remate
+        </text>
+
+        {Object.entries(links).map(([key, value]) => {
+          const [from, to] = key.split("->");
+          const a = zoneCoords[from];
+          const b = zoneCoords[to];
+          if (!a || !b) return null;
+
+          return (
+            <line
+              key={key}
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+              stroke="#C8A96B"
+              strokeOpacity={0.65}
+              strokeWidth={0.4 + (value / maxLink) * 2.2}
+              strokeLinecap="round"
+            />
+          );
+        })}
+
+        {Object.entries(nodes).map(([name, value]) => {
+          const p = zoneCoords[name];
+          if (!p) return null;
+
+          return (
+            <g key={name}>
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={1.6 + (value / maxNode) * 3.8}
+                fill="#C8A96B"
+                fillOpacity={0.28 + (value / maxNode) * 0.45}
+                stroke="#F5E7C8"
+                strokeWidth="0.3"
+              />
+              <text
+                x={p.x}
+                y={p.y + 0.9}
+                textAnchor="middle"
+                fill="#FFFFFF"
+                fontSize="1.8"
+                fontWeight="700"
+              >
+                {value}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
