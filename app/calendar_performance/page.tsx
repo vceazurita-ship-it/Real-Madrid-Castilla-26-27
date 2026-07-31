@@ -413,28 +413,38 @@ export default function Calendar() {
     date={selectedDate!}
     onCancel={() => setIsCreating(false)}
     onSave={async (form) => {
-      await createEvent({
-        FECHA: selectedDate!.toISOString().split("T")[0],
-        TIPO: form.TIPO,
-        TITULO: form.TITULO,
-        DESCRIPCION: form.DESCRIPCION,
-        JUGADORES: form.JUGADORES,
-        RESPONSABLE: form.RESPONSABLE,
-        DURACION: form.DURACION,
-        INTENSIDAD: form.INTENSIDAD,
-      });
+      const fecha = selectedDate!.toISOString().split("T")[0];
 
-      await reloadEvents();
+      try {
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "crearEventoCondicional",
+            FECHA: fecha,
+            TIPO: form.TIPO,
+            TITULO: form.TITULO,
+            DESCRIPCION: form.DESCRIPCION,
+            JUGADORES: form.JUGADORES,
+            RESPONSABLE: form.RESPONSABLE,
+            DURACION: form.DURACION,
+            INTENSIDAD: form.INTENSIDAD,
+          }),
+        });
 
-      setSelectedEvents(
-        events.filter((e) =>
-          e.FECHA.startsWith(
-            selectedDate!.toISOString().split("T")[0]
-          )
-        )
-      );
+        const text = await res.text();
+        console.log("Respuesta Apps Script:", text);
 
-      setIsCreating(false);
+        // Recargamos desde el servidor
+        const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
+        const data: ConditionalEvent[] = await r.json();
+
+        setEvents(data);
+        setSelectedEvents(data.filter((e) => e.FECHA.startsWith(fecha)));
+        setIsCreating(false);
+      } catch (err) {
+        console.error("Error guardando evento:", err);
+        alert("No se pudo guardar el trabajo condicional");
+      }
     }}
   />
 )}
