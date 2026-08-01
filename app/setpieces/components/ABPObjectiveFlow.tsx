@@ -270,6 +270,56 @@ return (
   })
 )}
 
+{objetivos.map(([o, count], i) => {
+  const y = yFor(i, objetivos.length);
+
+  return (
+    <g
+      key={o}
+      onClick={() =>
+        setSelected({ objetivo: o, zona: "", resultado: "" })
+      }
+      style={{ cursor: "pointer" }}
+    >
+      <rect
+        x="10"
+        y={y - 14}
+        width="150"
+        height="28"
+        rx="10"
+        fill="#0B1320"
+        stroke="#334155"
+      />
+      <circle
+        cx="26"
+        cy={y}
+        r="5"
+        fill={COLORS.gold}
+        stroke={COLORS.goldLight}
+      />
+      <text
+        x="40"
+        y={y + 4}
+        fill="white"
+        fontSize="12"
+        fontWeight="600"
+      >
+        {o}
+      </text>
+      <text
+        x="148"
+        y={y + 4}
+        textAnchor="end"
+        fill={COLORS.goldLight}
+        fontSize="12"
+        fontWeight="700"
+      >
+        {count}
+      </text>
+    </g>
+  );
+})}
+
 
       {resultados.map(([res, count], i) => {
         const y = yFor(i, resultados.length);
