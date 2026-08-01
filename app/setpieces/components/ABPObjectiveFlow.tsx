@@ -11,6 +11,8 @@ rival?: string;
 minuto?: number | string;
 tipoAccion: string;
 tipoEnvio?: string;
+  perfil?: string;        // <-- AÑADIR
+
 intencion?: string;
 zonaCaida?: string;
 zonaRemate?: string;
@@ -37,7 +39,14 @@ return (r.intencion || "Sin definir").trim();
 }
 
 function zona(r: ABPRow): string {
-return (r.zonaCaida || "Sin zona").trim();
+  const z = (r.zonaCaida || "Sin zona").trim();
+  const p = (r.perfil || "").toLowerCase();
+
+  if (p.includes("derecho")) return `${z} (D)`;
+  if (p.includes("izquierdo")) return `${z} (I)`;
+  if (p.includes("centro")) return `${z} (C)`;
+
+  return z;
 }
 
 function resultado(r: ABPRow): string {
@@ -134,29 +143,61 @@ return (
   Resultado final
 </text>
 
-      {objetivos.map(([o], oi) =>
-        zonas.map(([z], zi) => {
-          const value = data.linksOZ.get(`${o}__${z}`) || 0;
-          if (!value) return null;
+{zonas.map(([z, count], i) => {
+  const y = yFor(i, zonas.length);
 
-          const y1 = yFor(oi, objetivos.length);
-          const y2 = yFor(zi, zonas.length);
-          const w = 2 + (value / maxLink) * 10;
+  let x = 360;
 
-          return (
-            <path
-              key={`${o}-${z}`}
-              d={`M 170 ${y1} C 250 ${y1}, 285 ${y2}, 360 ${y2}`}
-              fill="none"
-              stroke="url(#goldPath)"
-              strokeWidth={w}
-              strokeLinecap="round"
-              opacity={0.82}
-              filter="url(#glow)"
-            />
-          );
-        })
-      )}
+  if (z.endsWith("(D)")) x = 320;
+  else if (z.endsWith("(I)")) x = 400;
+  else if (z.endsWith("(C)")) x = 360;
+
+  return (
+    <g
+      key={z}
+      onClick={() =>
+        setSelected({ objetivo: "", zona: z, resultado: "" })
+      }
+      style={{ cursor: "pointer" }}
+    >
+      <rect
+        x={x}
+        y={y - 14}
+        width="150"
+        height="28"
+        rx="10"
+        fill="#0B1320"
+        stroke="#334155"
+      />
+      <circle
+        cx={x + 16}
+        cy={y}
+        r="5"
+        fill={COLORS.gold}
+        stroke={COLORS.goldLight}
+      />
+      <text
+        x={x + 30}
+        y={y + 4}
+        fill="white"
+        fontSize="12"
+        fontWeight="600"
+      >
+        {z.replace(" (D)", "").replace(" (I)", "").replace(" (C)", "")}
+      </text>
+      <text
+        x={x + 138}
+        y={y + 4}
+        textAnchor="end"
+        fill={COLORS.goldLight}
+        fontSize="12"
+        fontWeight="700"
+      >
+        {count}
+      </text>
+    </g>
+  );
+})}
 
       {zonas.map(([z], zi) =>
         resultados.map(([res], ri) => {
@@ -193,54 +234,35 @@ return (
         })
       )}
 
-      {objetivos.map(([o, count], i) => {
-        const y = yFor(i, objetivos.length);
-        return (
-          <g
-            key={o}
-            onClick={() =>
-              setSelected({ objetivo: o, zona: "", resultado: "" })
-            }
-            style={{ cursor: "pointer" }}
-          >
-            <rect
-              x="10"
-              y={y - 14}
-              width="150"
-              height="28"
-              rx="10"
-              fill="#0B1320"
-              stroke="#334155"
-            />
-            <circle
-              cx="26"
-              cy={y}
-              r="5"
-              fill={COLORS.gold}
-              stroke={COLORS.goldLight}
-            />
-            <text
-              x="40"
-              y={y + 4}
-              fill="white"
-              fontSize="12"
-              fontWeight="600"
-            >
-              {o}
-            </text>
-            <text
-              x="148"
-              y={y + 4}
-              textAnchor="end"
-              fill={COLORS.goldLight}
-              fontSize="12"
-              fontWeight="700"
-            >
-              {count}
-            </text>
-          </g>
-        );
-      })}
+{objetivos.map(([o], oi) =>
+  zonas.map(([z], zi) => {
+    const value = data.linksOZ.get(`${o}__${z}`) || 0;
+    if (!value) return null;
+
+    const y1 = yFor(oi, objetivos.length);
+    const y2 = yFor(zi, zonas.length);
+    const w = 2 + (value / maxLink) * 10;
+
+    // Posición horizontal según el perfil
+    const x2 =
+      z.endsWith("(D)") ? 320 :
+      z.endsWith("(I)") ? 400 :
+      360;
+
+    return (
+      <path
+        key={`${o}-${z}`}
+        d={`M 170 ${y1} C 250 ${y1}, 285 ${y2}, ${x2} ${y2}`}
+        fill="none"
+        stroke="url(#goldPath)"
+        strokeWidth={w}
+        strokeLinecap="round"
+        opacity={0.82}
+        filter="url(#glow)"
+      />
+    );
+  })
+)}
 
       {zonas.map(([z, count], i) => {
         const y = yFor(i, zonas.length);
