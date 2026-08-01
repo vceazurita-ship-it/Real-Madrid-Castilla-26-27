@@ -91,7 +91,7 @@ const zonas = Array.from(data.zonas.entries());
 const resultados = Array.from(data.resultados.entries());
 
 const yFor = (index: number, total: number) =>
-26 + index * (178 / Math.max(1, total - 1));
+  44 + index * (160 / Math.max(1, total - 1));
 
 const totalAcciones = rows.length;
 const ocasiones = rows.filter((r) => resultado(r) === "Ocasión").length;
@@ -107,7 +107,7 @@ return acc + (Number.isFinite(x) ? x : 0);
 return (
 <div className="w-full">
 <div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
-<svg viewBox="0 0 820 230" className="w-full min-w-[760px]">
+<svg viewBox="0 0 820 260" className="w-full min-w-[760px]">
 <defs>
 <filter id="glow">
 <feGaussianBlur stdDeviation="3" result="blur" />
@@ -124,15 +124,15 @@ return (
         </linearGradient>
       </defs>
 
-      <text x="10" y="14" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Intención
-      </text>
-      <text x="340" y="14" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Zona de caída
-      </text>
-      <text x="640" y="14" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Resultado final
-      </text>
+      <text x="10" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+  Intención
+</text>
+<text x="340" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+  Zona de caída
+</text>
+<text x="640" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+  Resultado final
+</text>
 
       {objetivos.map(([o], oi) =>
         zonas.map(([z], zi) => {
