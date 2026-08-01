@@ -446,19 +446,38 @@ return (
   const ratioDirecto = total ? directo / total : 0;
 
   // Destino según el lado
-  let targetX = 70;
-  let targetY = 16;
+// Destino según origen + perfil
+let targetX = 70;
+let targetY = 14;
 
-  if (name.includes("(D)")) {
-    targetX = 86; // lado derecho
-    targetY = 14;
-  } else if (name.includes("(I)")) {
-    targetX = 54; // lado izquierdo
-    targetY = 14;
-  } else if (name.includes("Centrada") || name.includes("(C)")) {
-    targetX = 70;
-    targetY = 12;
-  }
+if (name.startsWith("Córner (I)")) {
+  targetX = 60;
+  targetY = directo >= corto ? 8 : 12;
+} else if (name.startsWith("Córner (D)")) {
+  targetX = 80;
+  targetY = directo >= corto ? 8 : 12;
+} else if (name.startsWith("Falta lateral exterior")) {
+  targetX = name.includes("(D)") ? 84 : 56;
+  targetY = 12;
+} else if (name.startsWith("Falta lateral interior")) {
+  targetX = name.includes("(D)") ? 78 : 62;
+  targetY = 14;
+} else if (name.startsWith("Falta lateral centrada")) {
+  targetX = 70;
+  targetY = 12;
+} else if (name.startsWith("Falta diagonal")) {
+  targetX = name.includes("(D)") ? 78 : 62;
+  targetY = 10;
+} else if (name.startsWith("Falta directa centrada")) {
+  targetX = 70;
+  targetY = 6;
+} else if (name.startsWith("Falta directa perfilada")) {
+  targetX = 74;
+  targetY = 8;
+} else if (name.startsWith("Penalti")) {
+  targetX = 70;
+  targetY = 4;
+}
 
   return (
     <g
