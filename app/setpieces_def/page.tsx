@@ -1649,7 +1649,7 @@ Mayor xG concedido  </p>
   
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
-<Panel title="Patrones de ABP: origen → activación → intención → remate">
+<Panel title="Situación Global">
   <div id="grafico-abp-flow">
 <ABPFlowField
   rows={filtered.map((r) => ({
