@@ -6,19 +6,43 @@
 import { useMemo, useState } from "react";
 
 export type ABPRow = {
-jornada?: number | string;
-rival?: string;
-minuto?: number | string;
-tipoAccion: string;
-tipoEnvio?: string;
-perfil?: string;
-intencion?: string;
-zonaCaida?: string;
-zonaRemate?: string;
-xG?: number | string;
-rematador?: string;
-tipoRemate?: string;
-resultadoFinal?: string;
+  jornada?: number | string;
+  JORNADA?: number | string;
+
+  rival?: string;
+  Rival?: string;
+
+  minuto?: number | string;
+  Minuto?: number | string;
+
+  tipoAccion?: string;
+  Tipo_Accion?: string;
+
+  perfil?: string;
+  Perfil?: string;
+
+  tipoEnvio?: string;
+  Tipo_Envio?: string;
+
+  intencion?: string;
+  Intencion?: string;
+
+  zonaCaida?: string;
+  Zona_Caida?: string;
+
+  zonaRemate?: string;
+  Zona_Remate?: string;
+
+  xG?: number | string;
+
+  rematador?: string;
+  Rematador?: string;
+
+  tipoRemate?: string;
+  Tipo_Remate?: string;
+
+  resultadoFinal?: string;
+  Resultado_Final?: string;
 };
 
 const COLORS = {
