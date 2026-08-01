@@ -451,7 +451,7 @@ return (
 
     {/* Nodos de origen */}
        {/* Nodos de origen + dirección del envío */}
-   {Object.entries(originCounts).map(([name, value]) => {
+{Object.entries(originCounts).map(([name, value]) => {
   const p = zoneCoords[name];
   if (!p) return null;
 
@@ -468,6 +468,21 @@ return (
   const ratioCorto = total ? corto / total : 0;
   const ratioDirecto = total ? directo / total : 0;
 
+  // Destino según el lado
+  let targetX = 70;
+  let targetY = 16;
+
+  if (name.includes("(D)")) {
+    targetX = 86; // lado derecho
+    targetY = 14;
+  } else if (name.includes("(I)")) {
+    targetX = 54; // lado izquierdo
+    targetY = 14;
+  } else if (name.includes("Centrada") || name.includes("(C)")) {
+    targetX = 70;
+    targetY = 12;
+  }
+
   return (
     <g
       key={name}
@@ -475,54 +490,52 @@ return (
       onClick={() => setSelectedOrigin(name)}
       style={{ cursor: "pointer" }}
     >
-      {/* Trayectoria directa */}
-     {ratioDirecto > 0 && (
-  <>
-    <path
-      d={`M ${p.x} ${p.y} Q ${(p.x + 70) / 2} ${Math.max(8, p.y - 10)} 70 16`}
-      fill="none"
-      stroke="#F5E7C8"
-      strokeWidth={2.8 + ratioDirecto * 1.2}
-      strokeLinecap="round"
-      opacity="0.12"
-      filter="url(#pathGlow)"
-    />
-    <path
-      d={`M ${p.x} ${p.y} Q ${(p.x + 70) / 2} ${Math.max(8, p.y - 10)} 70 16`}
-      fill="none"
-      stroke="url(#goldPath)"
-      strokeWidth={1.4 + ratioDirecto * 1.1}
-      strokeLinecap="round"
-      opacity={0.7 + ratioDirecto * 0.2}
-      markerEnd="url(#arrowGold)"
-    />
-  </>
-)}
+      {ratioDirecto > 0 && (
+        <>
+          <path
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(6, p.y - 10)} ${targetX} ${targetY}`}
+            fill="none"
+            stroke="#F5E7C8"
+            strokeWidth={2.8 + ratioDirecto * 1.2}
+            strokeLinecap="round"
+            opacity="0.12"
+            filter="url(#pathGlow)"
+          />
+          <path
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(6, p.y - 10)} ${targetX} ${targetY}`}
+            fill="none"
+            stroke="url(#goldPath)"
+            strokeWidth={1.4 + ratioDirecto * 1.1}
+            strokeLinecap="round"
+            opacity={0.7 + ratioDirecto * 0.2}
+            markerEnd="url(#arrowGold)"
+          />
+        </>
+      )}
 
-      {/* Trayectoria corto */}
       {ratioCorto > 0 && (
-  <>
-    <path
-      d={`M ${p.x} ${p.y} Q ${(p.x + 42) / 2} ${p.y - 4} 42 28`}
-      fill="none"
-      stroke="#DBEAFE"
-      strokeWidth={2.4 + ratioCorto * 1.0}
-      strokeLinecap="round"
-      opacity="0.10"
-      filter="url(#pathGlow)"
-    />
-    <path
-      d={`M ${p.x} ${p.y} Q ${(p.x + 42) / 2} ${p.y - 4} 42 28`}
-      fill="none"
-      stroke="url(#bluePath)"
-      strokeWidth={1.2 + ratioCorto * 0.9}
-      strokeLinecap="round"
-      strokeDasharray="3 2.5"
-      opacity={0.7 + ratioCorto * 0.2}
-      markerEnd="url(#arrowBlue)"
-    />
-  </>
-)}
+        <>
+          <path
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${p.y - 4} ${(p.x + targetX) / 2} ${p.y + 8}`}
+            fill="none"
+            stroke="#DBEAFE"
+            strokeWidth={2.4 + ratioCorto * 1.0}
+            strokeLinecap="round"
+            opacity="0.10"
+            filter="url(#pathGlow)"
+          />
+          <path
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${p.y - 4} ${(p.x + targetX) / 2} ${p.y + 8}`}
+            fill="none"
+            stroke="url(#bluePath)"
+            strokeWidth={1.2 + ratioCorto * 0.9}
+            strokeLinecap="round"
+            strokeDasharray="3 2.5"
+            opacity={0.7 + ratioCorto * 0.2}
+            markerEnd="url(#arrowBlue)"
+          />
+        </>
+      )}
 
       <circle
         cx={p.x}
