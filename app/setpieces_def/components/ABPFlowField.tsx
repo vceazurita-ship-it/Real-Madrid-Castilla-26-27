@@ -134,37 +134,39 @@ export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
 const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
 const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
 
-const { originCounts, remateStats } = useMemo(() => {
-const originCounts: Record<string, number> = {};
-const remateStats: Record<
-string,
-{ xg: number; actions: ABPRow[] }
-> = {};
+const { originCounts, originEnvios, remateStats } = useMemo(() => {
+  const originCounts: Record<string, number> = {};
+  const originEnvios: Record<string, Record<string, number>> = {};
+  const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
 
-rows.forEach((r) => {
-  const origen = normalizeTipoAccion(r.tipoAccion);
-  if (origen) {
-    originCounts[origen] = (originCounts[origen] || 0) + 1;
-  }
+  rows.forEach((r) => {
+    const origen = normalizeTipoAccion(r.tipoAccion);
 
-  const remate = normalizeZonaRemate(r.zonaRemate);
-  if (remate) {
-    if (!remateStats[remate]) {
-      remateStats[remate] = { xg: 0, actions: [] };
+    if (origen) {
+      originCounts[origen] = (originCounts[origen] || 0) + 1;
+
+      const envio = (r.tipoEnvio || "Directo").trim();
+      if (!originEnvios[origen]) originEnvios[origen] = {};
+      originEnvios[origen][envio] = (originEnvios[origen][envio] || 0) + 1;
     }
 
-    const xg =
-      typeof r.xG === "number"
-        ? r.xG
-        : parseFloat(String(r.xG || 0).replace(",", "."));
+    const remate = normalizeZonaRemate(r.zonaRemate);
+    if (remate) {
+      if (!remateStats[remate]) {
+        remateStats[remate] = { xg: 0, actions: [] };
+      }
 
-    remateStats[remate].xg += Number.isFinite(xg) ? xg : 0;
-    remateStats[remate].actions.push(r);
-  }
-});
+      const xg =
+        typeof r.xG === "number"
+          ? r.xG
+          : parseFloat(String(r.xG || 0).replace(",", "."));
 
-return { originCounts, remateStats };
+      remateStats[remate].xg += Number.isFinite(xg) ? xg : 0;
+      remateStats[remate].actions.push(r);
+    }
+  });
 
+  return { originCounts, originEnvios, remateStats };
 }, [rows]);
 
 const maxOrigin = Math.max(...Object.values(originCounts), 1);
@@ -185,6 +187,31 @@ return (
         <stop offset="65%" stopColor="#C8A96B" />
         <stop offset="100%" stopColor="#A8894D" />
       </radialGradient>
+            {/* Flecha dorada (tenso / bombeado / directo) */}
+      <marker
+        id="arrowGold"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="4"
+        markerHeight="4"
+        orient="auto-start-reverse"
+      >
+        <path d="M0 0 L10 5 L0 10 Z" fill="#C8A96B" />
+      </marker>
+
+      {/* Flecha azul (corto) */}
+      <marker
+        id="arrowBlue"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="4"
+        markerHeight="4"
+        orient="auto-start-reverse"
+      >
+        <path d="M0 0 L10 5 L0 10 Z" fill="#3B82F6" />
+      </marker>
     </defs>
 
     {/* Fondo */}
@@ -276,12 +303,23 @@ return (
       Centrado
     </text>
 
-    {/* Nodos de origen */}
+    {/* Nodos de origen + dirección del envío */}
     {Object.entries(originCounts).map(([name, value]) => {
       const p = zoneCoords[name];
       if (!p) return null;
 
       const r = 3 + Math.sqrt(value) * 2.2;
+      const envios = originEnvios[name] || {};
+
+      const corto = envios["Corto"] || 0;
+      const directo =
+        (envios["Tenso"] || 0) +
+        (envios["Bombeado"] || 0) +
+        (envios["Directo"] || 0);
+
+      const total = corto + directo;
+      const ratioCorto = total ? corto / total : 0;
+      const ratioDirecto = total ? directo / total : 0;
 
       return (
         <g
@@ -290,6 +328,35 @@ return (
           onClick={() => setSelectedOrigin(name)}
           style={{ cursor: "pointer" }}
         >
+          {/* Flecha directa hacia el área */}
+          {ratioDirecto > 0 && (
+            <line
+              x1={p.x}
+              y1={p.y}
+              x2={70}
+              y2={16}
+              stroke="#C8A96B"
+              strokeWidth={1 + ratioDirecto * 2}
+              strokeOpacity={0.35 + ratioDirecto * 0.45}
+              markerEnd="url(#arrowGold)"
+            />
+          )}
+
+          {/* Flecha corto hacia zona de apoyo */}
+          {ratioCorto > 0 && (
+            <line
+              x1={p.x}
+              y1={p.y}
+              x2={42}
+              y2={28}
+              stroke="#3B82F6"
+              strokeWidth={1 + ratioCorto * 2}
+              strokeOpacity={0.35 + ratioCorto * 0.45}
+              strokeDasharray="2 1"
+              markerEnd="url(#arrowBlue)"
+            />
+          )}
+
           <circle
             cx={p.x}
             cy={p.y}
