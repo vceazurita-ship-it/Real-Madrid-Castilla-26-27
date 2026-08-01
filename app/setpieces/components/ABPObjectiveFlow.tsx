@@ -199,40 +199,46 @@ return (
   );
 })}
 
-      {zonas.map(([z], zi) =>
-        resultados.map(([res], ri) => {
-          const value = data.linksZR.get(`${z}__${res}`) || 0;
-          if (!value) return null;
+{zonas.map(([z], zi) =>
+  resultados.map(([res], ri) => {
+    const value = data.linksZR.get(`${z}__${res}`) || 0;
+    if (!value) return null;
 
-          const y1 = yFor(zi, zonas.length);
-          const y2 = yFor(ri, resultados.length);
-          const w = 2 + (value / maxLink) * 10;
+    const y1 = yFor(zi, zonas.length);
+    const y2 = yFor(ri, resultados.length);
+    const w = 2 + (value / maxLink) * 10;
 
-          const color =
-            res === "Gol"
-              ? COLORS.green
-              : res === "Ocasión"
-              ? COLORS.green
-              : res === "ABP"
-              ? COLORS.blue
-              : res === "Transición rival"
-              ? COLORS.amber
-              : COLORS.gray;
+    const color =
+      res === "Gol"
+        ? COLORS.green
+        : res === "Ocasión"
+        ? COLORS.green
+        : res === "ABP"
+        ? COLORS.blue
+        : res === "Transición rival"
+        ? COLORS.amber
+        : COLORS.gray;
 
-          return (
-            <path
-              key={`${z}-${res}`}
-              d={`M 470 ${y1} C 550 ${y1}, 585 ${y2}, 660 ${y2}`}
-              fill="none"
-              stroke={color}
-              strokeWidth={w}
-              strokeLinecap="round"
-              opacity={0.84}
-              filter="url(#glow)"
-            />
-          );
-        })
-      )}
+    // Salida según el perfil
+    const x1 =
+      z.endsWith("(D)") ? 470 :
+      z.endsWith("(I)") ? 550 :
+      510;
+
+    return (
+      <path
+        key={`${z}-${res}`}
+        d={`M ${x1} ${y1} C ${x1 + 40} ${y1}, 600 ${y2}, 660 ${y2}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={w}
+        strokeLinecap="round"
+        opacity={0.84}
+        filter="url(#glow)"
+      />
+    );
+  })
+)}
 
 {objetivos.map(([o], oi) =>
   zonas.map(([z], zi) => {
@@ -264,54 +270,6 @@ return (
   })
 )}
 
-      {zonas.map(([z, count], i) => {
-        const y = yFor(i, zonas.length);
-        return (
-          <g
-            key={z}
-            onClick={() =>
-              setSelected({ objetivo: "", zona: z, resultado: "" })
-            }
-            style={{ cursor: "pointer" }}
-          >
-            <rect
-              x="360"
-              y={y - 14}
-              width="150"
-              height="28"
-              rx="10"
-              fill="#0B1320"
-              stroke="#334155"
-            />
-            <circle
-              cx="376"
-              cy={y}
-              r="5"
-              fill={COLORS.gold}
-              stroke={COLORS.goldLight}
-            />
-            <text
-              x="390"
-              y={y + 4}
-              fill="white"
-              fontSize="12"
-              fontWeight="600"
-            >
-              {z}
-            </text>
-            <text
-              x="498"
-              y={y + 4}
-              textAnchor="end"
-              fill={COLORS.goldLight}
-              fontSize="12"
-              fontWeight="700"
-            >
-              {count}
-            </text>
-          </g>
-        );
-      })}
 
       {resultados.map(([res, count], i) => {
         const y = yFor(i, resultados.length);
