@@ -102,7 +102,7 @@ type Row = {
   resultadoFinal: string;
   rutina: string;
   repetir: string;
-    intencion?: string;
+    intencion: string;
 };
 
 function num(v?: string) {
@@ -137,7 +137,7 @@ function parseCSV(text: string): Row[] {
       perfilGolpeo: r[9] || "",
       tipoEnvio: r[10] || "",
       zonaCaida: r[11] || "",
-
+intencion: r[13] || "",
       tipoCarrera: r[16] || "",
 
       defensaRival: r[21] || "",
@@ -153,6 +153,7 @@ function parseCSV(text: string): Row[] {
       resultadoFinal: r[29] || "",
       rutina: r[30] || "",
       repetir: r[31] || "",
+      
     }))
     .filter((r) => r.jornada > 0);
 }
