@@ -6,6 +6,8 @@ import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
+import ABPFlowField from './components/ABPFlowField';
+
 
 import {
   useEffect,
@@ -1647,6 +1649,41 @@ Mayor xG concedido  </p>
   
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
+<Panel title="Patrones de ABP: origen → activación → intención → remate">
+  <div id="grafico-abp-flow">
+<ABPFlowField
+  rows={filtered.map((r) => ({
+    jornada: String(r.jornada),
+    rival: r.rival,
+    tiempo: r.tiempo,
+    perfil: r.perfil,
+
+    tipoAccion: r.tipoAccion,
+    perfilGolpeo: r.perfilGolpeo,
+    tipoEnvio: r.tipoEnvio,
+    zonaCaida: r.zonaCaida,
+    calidadEnvio: r.calidadEnvio,
+
+    nAtacantes: r.nAtacantes,
+    tipoCarrera: r.tipoCarrera,
+
+    oc1P: r.oc1P,
+    ocCentral: r.ocCentral,
+    oc2P: r.oc2P,
+    ocFrontal: r.ocFrontal,
+
+    remate: r.remate,
+    tipoRemate: r.tipoRemate,
+    zonaRemate: r.zonaRemate,
+
+    xG: r.xg,
+
+    segundoBalon: r.segundoBalon,
+    resultadoFinal: r.resultadoFinal,
+  }))}
+/>
+  </div>
+</Panel>
 
               <Panel title="Tipo de acción">
                 <div id="grafico-tipo-accion">
