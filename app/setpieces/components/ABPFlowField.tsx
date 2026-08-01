@@ -4,69 +4,103 @@ import { useMemo, useState } from "react";
 
 export type ABPRow = {
   jornada?: string;
+  JORNADA?: string;
+
   rival?: string;
+  Rival?: string;
+
   minuto?: number | string;
-  tipoAccion: string;
+  Minuto?: number | string;
+
+  tipoAccion?: string;
+  Tipo_Accion?: string;
+
+  perfil?: string;
+  Perfil?: string;
+
   tipoEnvio?: string;
+  Tipo_Envio?: string;
+
   zonaRemate?: string;
+  Zona_Remate?: string;
+
   xG?: number | string;
+
   rematador?: string;
+  Rematador?: string;
+
   tipoRemate?: string;
+  Tipo_Remate?: string;
+
   resultadoFinal?: string;
+  Resultado_Final?: string;
 };
+const zoneCoords: Record<
+  string,
+  { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }
+> = {
+  // CÓRNER
+  "Córner": { x: 6, y: 6, lane: "Exterior" },
+  "Córner (D)": { x: 6, y: 10, lane: "Exterior" },
+  "Córner (I)": { x: 6, y: 2, lane: "Exterior" },
+  "Córner (C)": { x: 10, y: 6, lane: "Centrado" },
 
-const zoneCoords: Record<string, { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }> = {
-// Córner
-"Córner": { x: 6, y: 6, lane: "Exterior" },
+  // PENALTI
+  "Penalti": { x: 70, y: 16, lane: "Centrado" },
 
-// Penalti
-"Penalti": { x: 70, y: 16, lane: "Centrado" },
+  // DIAGONAL
+  "Falta diagonal": { x: 22, y: 18, lane: "Exterior" },
+  "Falta diagonal (D)": { x: 18, y: 18, lane: "Exterior" },
+  "Falta diagonal (I)": { x: 26, y: 18, lane: "Exterior" },
+  "Falta diagonal (C)": { x: 22, y: 22, lane: "Centrado" },
 
-// Diagonal
-"Falta diagonal": { x: 22, y: 18, lane: "Exterior" },
+  // FALTA LATERAL GENÉRICA
+  "Falta lateral (D)": { x: 10, y: 44, lane: "Exterior" },
+  "Falta lateral (I)": { x: 18, y: 44, lane: "Interior" },
+  "Falta lateral (C)": { x: 34, y: 44, lane: "Centrado" },
 
-// Pasillo exterior
-"Falta lateral exterior Z1": { x: 8, y: 22, lane: "Exterior" },
-"Falta lateral exterior Z2": { x: 8, y: 30, lane: "Exterior" },
-"Falta lateral exterior Z3": { x: 8, y: 38, lane: "Exterior" },
-"Falta lateral exterior Z4": { x: 8, y: 46, lane: "Exterior" },
-"Falta lateral exterior Z5": { x: 8, y: 54, lane: "Exterior" },
-"Falta lateral exterior Z6": { x: 8, y: 62, lane: "Exterior" },
+  // PASILLO EXTERIOR
+  "Falta lateral exterior Z1": { x: 8, y: 22, lane: "Exterior" },
+  "Falta lateral exterior Z2": { x: 8, y: 30, lane: "Exterior" },
+  "Falta lateral exterior Z3": { x: 8, y: 38, lane: "Exterior" },
+  "Falta lateral exterior Z4": { x: 8, y: 46, lane: "Exterior" },
+  "Falta lateral exterior Z5": { x: 8, y: 54, lane: "Exterior" },
+  "Falta lateral exterior Z6": { x: 8, y: 62, lane: "Exterior" },
 
-// Pasillo interior
-"Falta lateral interior Z1": { x: 18, y: 22, lane: "Interior" },
-"Falta lateral interior Z2": { x: 18, y: 30, lane: "Interior" },
-"Falta lateral interior Z3": { x: 18, y: 38, lane: "Interior" },
-"Falta lateral interior Z4": { x: 18, y: 46, lane: "Interior" },
-"Falta lateral interior Z5": { x: 18, y: 54, lane: "Interior" },
-"Falta lateral interior Z6": { x: 18, y: 62, lane: "Interior" },
+  // PASILLO INTERIOR
+  "Falta lateral interior Z1": { x: 18, y: 22, lane: "Interior" },
+  "Falta lateral interior Z2": { x: 18, y: 30, lane: "Interior" },
+  "Falta lateral interior Z3": { x: 18, y: 38, lane: "Interior" },
+  "Falta lateral interior Z4": { x: 18, y: 46, lane: "Interior" },
+  "Falta lateral interior Z5": { x: 18, y: 54, lane: "Interior" },
+  "Falta lateral interior Z6": { x: 18, y: 62, lane: "Interior" },
 
-// Pasillo centrado
-"Falta lateral centrada Z1": { x: 34, y: 22, lane: "Centrado" },
-"Falta lateral centrada Z2": { x: 34, y: 30, lane: "Centrado" },
-"Falta lateral centrada Z3": { x: 34, y: 38, lane: "Centrado" },
-"Falta lateral centrada Z4": { x: 34, y: 46, lane: "Centrado" },
-"Falta lateral centrada Z5": { x: 34, y: 54, lane: "Centrado" },
-"Falta lateral centrada Z6": { x: 34, y: 62, lane: "Centrado" },
+  // PASILLO CENTRADO
+  "Falta lateral centrada Z1": { x: 34, y: 22, lane: "Centrado" },
+  "Falta lateral centrada Z2": { x: 34, y: 30, lane: "Centrado" },
+  "Falta lateral centrada Z3": { x: 34, y: 38, lane: "Centrado" },
+  "Falta lateral centrada Z4": { x: 34, y: 46, lane: "Centrado" },
+  "Falta lateral centrada Z5": { x: 34, y: 54, lane: "Centrado" },
+  "Falta lateral centrada Z6": { x: 34, y: 62, lane: "Centrado" },
 
-// Directas perfiladas
-"Falta directa perfilada Z3": { x: 24, y: 38, lane: "Interior" },
-"Falta directa perfilada Z4": { x: 26, y: 46, lane: "Interior" },
-"Falta directa perfilada Z5": { x: 28, y: 54, lane: "Interior" },
-"Falta directa perfilada Z6": { x: 30, y: 62, lane: "Interior" },
+  // DIRECTAS PERFILADAS
+  "Falta directa perfilada Z3": { x: 24, y: 38, lane: "Interior" },
+  "Falta directa perfilada Z4": { x: 26, y: 46, lane: "Interior" },
+  "Falta directa perfilada Z5": { x: 28, y: 54, lane: "Interior" },
+  "Falta directa perfilada Z6": { x: 30, y: 62, lane: "Interior" },
 
-// Directas centradas
-"Falta directa centrada Z3": { x: 70, y: 38, lane: "Centrado" },
-"Falta directa centrada Z4": { x: 70, y: 46, lane: "Centrado" },
-"Falta directa centrada Z5": { x: 70, y: 54, lane: "Centrado" },
-"Falta directa centrada Z6": { x: 70, y: 62, lane: "Centrado" },
+  // DIRECTAS CENTRADAS
+  "Falta directa centrada Z3": { x: 70, y: 38, lane: "Centrado" },
+  "Falta directa centrada Z4": { x: 70, y: 46, lane: "Centrado" },
+  "Falta directa centrada Z5": { x: 70, y: 54, lane: "Centrado" },
+  "Falta directa centrada Z6": { x: 70, y: 62, lane: "Centrado" },
 
-// Indirectas
-"Falta indirecta en área": { x: 46, y: 16, lane: "Centrado" },
-"Falta indirecta Z3": { x: 44, y: 38, lane: "Centrado" },
-"Falta indirecta Z4": { x: 46, y: 46, lane: "Centrado" },
-"Falta indirecta Z5": { x: 48, y: 54, lane: "Centrado" },
-"Falta indirecta Z6": { x: 50, y: 62, lane: "Centrado" },
+  // INDIRECTAS
+  "Falta indirecta en área": { x: 46, y: 16, lane: "Centrado" },
+  "Falta indirecta Z3": { x: 44, y: 38, lane: "Centrado" },
+  "Falta indirecta Z4": { x: 46, y: 46, lane: "Centrado" },
+  "Falta indirecta Z5": { x: 48, y: 54, lane: "Centrado" },
+  "Falta indirecta Z6": { x: 50, y: 62, lane: "Centrado" },
 };
 
 const remateCoords: Record<string, { x: number; y: number }> = {
@@ -89,31 +123,57 @@ function normalizeTipoAccion(
   const t = tipo.toLowerCase();
   const p = (perfil || "").toLowerCase();
 
-  // CÓRNERS
+  // CÓRNER
   if (t.includes("córner") || t.includes("corner")) {
-    if (p.includes("derecho")) return "Córner (D)";
-    if (p.includes("izquierdo")) return "Córner (I)";
-    return "Córner (C)";
+    return "Córner";
   }
 
   // PENALTI
-  if (t.includes("penalti")) return "Penalti";
+  if (t.includes("penalti")) {
+    return "Penalti";
+  }
 
   // FALTA DIAGONAL
   if (t.includes("diagonal")) {
-    if (p.includes("derecho")) return "Falta diagonal (D)";
-    if (p.includes("izquierdo")) return "Falta diagonal (I)";
-    return "Falta diagonal (C)";
+    return "Falta diagonal";
   }
 
   // FALTAS LATERALES
-  if (t.includes("lateral")) {
-    if (p.includes("derecho")) return "Falta lateral (D)";
-    if (p.includes("izquierdo")) return "Falta lateral (I)";
-    return "Falta lateral (C)";
+  if (t.includes("falta lateral")) {
+    // Mantener la zona Z1-Z6
+    const match = tipo.match(/Z([1-6])/i);
+    const zona = match ? `Z${match[1]}` : "Z6";
+
+    if (p.includes("derecho")) return `Falta lateral interior ${zona}`;
+    if (p.includes("izquierdo")) return `Falta lateral exterior ${zona}`;
+    return `Falta lateral centrada ${zona}`;
   }
 
-  return tipo;
+  // FALTAS DIRECTAS PERFILADAS
+  if (t.includes("falta directa perfilada")) {
+    const match = tipo.match(/Z([3-6])/i);
+    const zona = match ? `Z${match[1]}` : "Z3";
+    return `Falta directa perfilada ${zona}`;
+  }
+
+  // FALTAS DIRECTAS CENTRADAS
+  if (t.includes("falta directa centrada")) {
+    const match = tipo.match(/Z([3-6])/i);
+    const zona = match ? `Z${match[1]}` : "Z3";
+    return `Falta directa centrada ${zona}`;
+  }
+
+  // INDIRECTAS
+  if (t.includes("falta indirecta")) {
+    const match = tipo.match(/Z([3-6])/i);
+    if (match) return `Falta indirecta Z${match[1]}`;
+    return "Falta indirecta en área";
+  }
+
+  // Si ya coincide exactamente con una clave del mapa
+  if (zoneCoords[tipo]) return tipo;
+
+  return null;
 }
 
 function normalizeZonaRemate(v?: string): string | null {
@@ -142,17 +202,20 @@ const { originCounts, originEnvios, remateStats } = useMemo(() => {
   const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
 
   rows.forEach((r) => {
-    const origen = normalizeTipoAccion(r.tipoAccion, (r as any).perfil);
+    const origen = normalizeTipoAccion(
+  r.tipoAccion ?? r.Tipo_Accion ?? "",
+  r.perfil ?? r.Perfil ?? ""
+);
 
     if (origen) {
       originCounts[origen] = (originCounts[origen] || 0) + 1;
 
-      const envio = (r.tipoEnvio || "Directo").trim();
+      const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
       if (!originEnvios[origen]) originEnvios[origen] = {};
       originEnvios[origen][envio] = (originEnvios[origen][envio] || 0) + 1;
     }
 
-    const remate = normalizeZonaRemate(r.zonaRemate);
+    const remate = normalizeZonaRemate(r.zonaRemate ?? r.Zona_Remate);
     if (remate) {
       if (!remateStats[remate]) {
         remateStats[remate] = { xg: 0, actions: [] };
@@ -509,21 +572,24 @@ return (
 
       <div className="space-y-2">
         {rows
-          .filter((r) => normalizeTipoAccion(r.tipoAccion) === selectedOrigin)
-          .map((r, idx) => (
+  .filter(
+    (r) =>
+      normalizeTipoAccion(
+        r.tipoAccion ?? r.Tipo_Accion ?? "",
+        r.perfil ?? r.Perfil ?? ""
+      ) === selectedOrigin
+  )
+  .map((r, idx) => (
+
             <div
               key={idx}
               className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
             >
               <div className="font-medium">
-                {r.jornada || "Partido"}
-                {r.rival ? ` · ${r.rival}` : ""}
-              </div>
-              <div className="text-slate-300">
-                Min {r.minuto ?? "-"}
-              </div>
-              <div className="text-slate-300">
-                Resultado: {r.resultadoFinal || "-"}
+                {r.jornada ?? r.JORNADA ?? "Partido"}
+{(r.rival ?? r.Rival) ? ` · ${r.rival ?? r.Rival}` : ""}
+Min {r.minuto ?? r.Minuto ?? "-"}
+Resultado: {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
               </div>
             </div>
           ))}
@@ -555,14 +621,12 @@ return (
             className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
           >
             <div className="font-medium">
-              {r.rematador || "Sin rematador"}
-            </div>
-            <div className="text-slate-300">
-              {r.tipoRemate || "Remate"} · xG {Number(r.xG || 0).toFixed(2)}
-            </div>
-            <div className="text-slate-300">
-              Min {r.minuto ?? "-"}
-              {r.resultadoFinal ? ` · ${r.resultadoFinal}` : ""}
+              {r.rematador ?? r.Rematador ?? "Sin rematador"}
+{r.tipoRemate ?? r.Tipo_Remate ?? "Remate"}
+Min {r.minuto ?? r.Minuto ?? "-"}
+{(r.resultadoFinal ?? r.Resultado_Final)
+  ? ` · ${r.resultadoFinal ?? r.Resultado_Final}`
+  : ""}
             </div>
           </div>
         ))}
