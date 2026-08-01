@@ -99,6 +99,7 @@ type Row = {
   zonaRemate: string;
   xg: number;
   segundoBalon: string;
+  perfil: string;
   resultadoFinal: string;
   rutina: string;
   repetir: string;
@@ -132,7 +133,7 @@ function parseCSV(text: string): Row[] {
       minuto: num(r[3]),
 
       sacador: r[6] || "",
-
+perfil: r[7] || "",
       tipoAccion: r[8] || "",
       perfilGolpeo: r[9] || "",
       tipoEnvio: r[10] || "",
@@ -1820,12 +1821,13 @@ originalStyles.forEach(
 
 <Panel title="Flujo ofensivo">
   <div id="grafico-abp-objective-flow">
-    <ABPObjectiveFlow
+   <ABPObjectiveFlow
   rows={filtered.map((r) => ({
     jornada: String(r.jornada),
     rival: r.rival,
     minuto: r.minuto,
     tipoAccion: r.tipoAccion,
+    perfil: r.perfil,
     tipoEnvio: r.tipoEnvio,
     intencion: r.intencion,
     zonaCaida: r.zonaCaida,
