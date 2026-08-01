@@ -142,88 +142,65 @@ const remateCoords: Record<string, { x: number; y: number }> = {
 "No aplica": { x: 96, y: 28 },
 };
 
-function normalizeTipoAccion(
-  tipo: string,
-  perfil?: string
-): string | null {
+function normalizeTipoAccion(tipo: string, perfil?: string): string | null {
   if (!tipo) return null;
 
   const t = tipo.toLowerCase();
   const p = (perfil || "").toLowerCase();
 
-  // =========================
-  // CÓRNER
-  // =========================
+  // Córner
   if (t.includes("córner") || t.includes("corner")) {
     if (p.includes("izquierdo")) return "Córner (I)";
     if (p.includes("derecho")) return "Córner (D)";
     return "Córner (C)";
   }
 
-  // =========================
-  // PENALTI
-  // =========================
+  // Penalti
   if (t.includes("penalti")) return "Penalti";
 
-  // =========================
-  // FALTA DIAGONAL
-  // =========================
+  // Falta diagonal
   if (t.includes("diagonal")) {
     if (p.includes("izquierdo")) return "Falta diagonal (I)";
     if (p.includes("derecho")) return "Falta diagonal (D)";
     return "Falta diagonal (C)";
   }
 
-  // =========================
-  // FALTAS LATERALES
-  // =========================
+  // Faltas laterales
   if (t.includes("falta lateral")) {
-    const match = tipo.match(/Z([1-6])/i);
-    const zona = match ? `Z${match[1]}` : "Z6";
+    const z = tipo.match(/Z([1-6])/i)?.[1] ?? "6";
 
     if (p.includes("izquierdo")) {
-      if (t.includes("interior")) return `Falta lateral interior ${zona}`;
-      return `Falta lateral exterior ${zona}`;
+      if (t.includes("interior")) return `Falta lateral interior Z${z}`;
+      return `Falta lateral exterior Z${z}`;
     }
 
     if (p.includes("derecho")) {
-      if (t.includes("interior")) return `Falta lateral interior ${zona} (D)`;
-      return `Falta lateral exterior ${zona} (D)`;
+      if (t.includes("interior")) return `Falta lateral interior Z${z} (D)`;
+      return `Falta lateral exterior Z${z} (D)`;
     }
 
-    return `Falta lateral centrada ${zona}`;
+    return `Falta lateral centrada Z${z}`;
   }
 
-  // =========================
-  // FALTAS DIRECTAS PERFILADAS
-  // =========================
+  // Directas perfiladas
   if (t.includes("falta directa perfilada")) {
-    const match = tipo.match(/Z([3-6])/i);
-    const zona = match ? `Z${match[1]}` : "Z3";
-    return `Falta directa perfilada ${zona}`;
+    const z = tipo.match(/Z([3-6])/i)?.[1] ?? "3";
+    return `Falta directa perfilada Z${z}`;
   }
 
-  // =========================
-  // FALTAS DIRECTAS CENTRADAS
-  // =========================
+  // Directas centradas
   if (t.includes("falta directa centrada")) {
-    const match = tipo.match(/Z([3-6])/i);
-    const zona = match ? `Z${match[1]}` : "Z3";
-    return `Falta directa centrada ${zona}`;
+    const z = tipo.match(/Z([3-6])/i)?.[1] ?? "3";
+    return `Falta directa centrada Z${z}`;
   }
 
-  // =========================
-  // INDIRECTAS
-  // =========================
+  // Indirectas
   if (t.includes("falta indirecta")) {
-    const match = tipo.match(/Z([3-6])/i);
-    if (match) return `Falta indirecta Z${match[1]}`;
-    return "Falta indirecta en área";
+    const z = tipo.match(/Z([3-6])/i)?.[1];
+    return z ? `Falta indirecta Z${z}` : "Falta indirecta en área";
   }
 
-  if (zoneCoords[tipo]) return tipo;
-
-  return null;
+  return tipo;
 }
 
 function normalizeZonaRemate(v?: string): string | null {
@@ -252,34 +229,34 @@ const { originCounts, originEnvios, remateStats } = useMemo(() => {
   const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
 
   rows.forEach((r) => {
-    const origen = normalizeTipoAccion(
-  r.tipoAccion ?? r.Tipo_Accion ?? "",
-  r.perfil ?? r.Perfil ?? ""
-);
+  const origen = normalizeTipoAccion(
+    r.tipoAccion ?? r.Tipo_Accion ?? "",
+    r.perfil ?? r.Perfil ?? ""
+  );
 
-    if (origen) {
-      originCounts[origen] = (originCounts[origen] || 0) + 1;
+  if (origen) {
+    originCounts[origen] = (originCounts[origen] || 0) + 1;
 
-      const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
-      if (!originEnvios[origen]) originEnvios[origen] = {};
-      originEnvios[origen][envio] = (originEnvios[origen][envio] || 0) + 1;
+    const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
+    if (!originEnvios[origen]) originEnvios[origen] = {};
+    originEnvios[origen][envio] = (originEnvios[origen][envio] || 0) + 1;
+  }
+
+  const remate = normalizeZonaRemate(r.zonaRemate ?? r.Zona_Remate);
+  if (remate) {
+    if (!remateStats[remate]) {
+      remateStats[remate] = { xg: 0, actions: [] };
     }
 
-    const remate = normalizeZonaRemate(r.zonaRemate ?? r.Zona_Remate);
-    if (remate) {
-      if (!remateStats[remate]) {
-        remateStats[remate] = { xg: 0, actions: [] };
-      }
+    const xg =
+      typeof r.xG === "number"
+        ? r.xG
+        : parseFloat(String(r.xG || 0).replace(",", "."));
 
-      const xg =
-        typeof r.xG === "number"
-          ? r.xG
-          : parseFloat(String(r.xG || 0).replace(",", "."));
-
-      remateStats[remate].xg += Number.isFinite(xg) ? xg : 0;
-      remateStats[remate].actions.push(r);
-    }
-  });
+    remateStats[remate].xg += Number.isFinite(xg) ? xg : 0;
+    remateStats[remate].actions.push(r);
+  }
+});
 
   return { originCounts, originEnvios, remateStats };
 }, [rows]);
