@@ -80,21 +80,40 @@ const remateCoords: Record<string, { x: number; y: number }> = {
 "No aplica": { x: 96, y: 28 },
 };
 
-function normalizeTipoAccion(v: string): string | null {
-if (!v) return null;
-if (zoneCoords[v]) return v;
+function normalizeTipoAccion(
+  tipo: string,
+  perfil?: string
+): string | null {
+  if (!tipo) return null;
 
-const t = v.toLowerCase();
+  const t = tipo.toLowerCase();
+  const p = (perfil || "").toLowerCase();
 
-if (t.includes("córner") || t.includes("corner")) return "Córner";
-if (t.includes("penalti")) return "Penalti";
-if (t.includes("diagonal")) return "Falta diagonal";
+  // CÓRNERS
+  if (t.includes("córner") || t.includes("corner")) {
+    if (p.includes("derecho")) return "Córner (D)";
+    if (p.includes("izquierdo")) return "Córner (I)";
+    return "Córner (C)";
+  }
 
-for (const k of Object.keys(zoneCoords)) {
-if (t === k.toLowerCase()) return k;
-}
+  // PENALTI
+  if (t.includes("penalti")) return "Penalti";
 
-return null;
+  // FALTA DIAGONAL
+  if (t.includes("diagonal")) {
+    if (p.includes("derecho")) return "Falta diagonal (D)";
+    if (p.includes("izquierdo")) return "Falta diagonal (I)";
+    return "Falta diagonal (C)";
+  }
+
+  // FALTAS LATERALES
+  if (t.includes("lateral")) {
+    if (p.includes("derecho")) return "Falta lateral (D)";
+    if (p.includes("izquierdo")) return "Falta lateral (I)";
+    return "Falta lateral (C)";
+  }
+
+  return tipo;
 }
 
 function normalizeZonaRemate(v?: string): string | null {
@@ -123,7 +142,7 @@ const { originCounts, originEnvios, remateStats } = useMemo(() => {
   const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
 
   rows.forEach((r) => {
-    const origen = normalizeTipoAccion(r.tipoAccion);
+    const origen = normalizeTipoAccion(r.tipoAccion, (r as any).perfil);
 
     if (origen) {
       originCounts[origen] = (originCounts[origen] || 0) + 1;
