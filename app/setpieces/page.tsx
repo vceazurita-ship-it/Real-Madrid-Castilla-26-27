@@ -7,6 +7,7 @@ import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import ABPFlowField from './components/ABPFlowField';
+import ABPObjectiveFlow from "./components/ABPObjectiveFlow";
 
 import {
   useEffect,
@@ -1814,6 +1815,10 @@ originalStyles.forEach(
 />
   </div>
 </Panel>
+
+<div className="mt-8">
+  <ABPObjectiveFlow rows={rows} />
+</div>
 
 
               <Panel title="Tipo de acción">
