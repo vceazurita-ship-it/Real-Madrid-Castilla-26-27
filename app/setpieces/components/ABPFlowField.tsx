@@ -225,7 +225,13 @@ const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
 
 const { originCounts, originEnvios, remateStats } = useMemo(() => {
   const originCounts: Record<string, number> = {};
-  const originEnvios: Record<string, Record<string, number>> = {};
+  const originEnvios: Record<
+  string,
+  {
+    envios: Record<string, number>;
+    perfil: string;
+  }
+> = {};
   const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
 
   rows.forEach((r) => {
@@ -238,8 +244,17 @@ const { originCounts, originEnvios, remateStats } = useMemo(() => {
     originCounts[origen] = (originCounts[origen] || 0) + 1;
 
     const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
-    if (!originEnvios[origen]) originEnvios[origen] = {};
-    originEnvios[origen][envio] = (originEnvios[origen][envio] || 0) + 1;
+const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
+
+if (!originEnvios[origen]) {
+  originEnvios[origen] = {
+    envios: {},
+    perfil,
+  };
+}
+
+originEnvios[origen].envios[envio] =
+  (originEnvios[origen].envios[envio] || 0) + 1;
   }
 
   const remate = normalizeZonaRemate(r.zonaRemate ?? r.Zona_Remate);
@@ -434,45 +449,71 @@ return (
 
   const r = 3 + Math.sqrt(value) * 2.2;
 
-  const envios = originEnvios[name] || {};
-  const corto = envios["Corto"] || 0;
-  const directo =
-    (envios["Tenso"] || 0) +
-    (envios["Bombeado"] || 0) +
-    (envios["Directo"] || 0);
+  const data = originEnvios[name];
+const envios = data?.envios || {};
+const perfil = data?.perfil || "";
+
+const corto = envios["Corto"] || 0;
+const directo =
+  (envios["Tenso"] || 0) +
+  (envios["Bombeado"] || 0) +
+  (envios["Directo"] || 0);
 
   const total = corto + directo;
   const ratioCorto = total ? corto / total : 0;
   const ratioDirecto = total ? directo / total : 0;
 
   // Destino según el lado
-// Destino según origen + perfil
 let targetX = 70;
 let targetY = 14;
 
-if (name.startsWith("Córner (I)")) {
-  targetX = 60;
-  targetY = directo >= corto ? 8 : 12;
-} else if (name.startsWith("Córner (D)")) {
-  targetX = 80;
-  targetY = directo >= corto ? 8 : 12;
-} else if (name.startsWith("Falta lateral exterior")) {
-  targetX = name.includes("(D)") ? 84 : 56;
+const esIzq = perfil.includes("izquier");
+const esDer = perfil.includes("derech");
+
+// CÓRNER
+if (name.startsWith("Córner")) {
+  if (esIzq) {
+    targetX = corto > directo ? 58 : 54;
+    targetY = corto > directo ? 13 : 8;
+  } else if (esDer) {
+    targetX = corto > directo ? 82 : 86;
+    targetY = corto > directo ? 13 : 8;
+  } else {
+    targetX = 70;
+    targetY = corto > directo ? 12 : 8;
+  }
+}
+
+// FALTA LATERAL EXTERIOR
+else if (name.startsWith("Falta lateral exterior")) {
+  targetX = esDer ? 84 : 56;
   targetY = 12;
-} else if (name.startsWith("Falta lateral interior")) {
-  targetX = name.includes("(D)") ? 78 : 62;
+}
+
+// FALTA LATERAL INTERIOR
+else if (name.startsWith("Falta lateral interior")) {
+  targetX = esDer ? 78 : 62;
   targetY = 14;
-} else if (name.startsWith("Falta lateral centrada")) {
+}
+
+// FALTA LATERAL CENTRADA
+else if (name.startsWith("Falta lateral centrada")) {
   targetX = 70;
   targetY = 12;
-} else if (name.startsWith("Falta diagonal")) {
-  targetX = name.includes("(D)") ? 78 : 62;
+}
+
+// FALTA DIAGONAL
+else if (name.startsWith("Falta diagonal")) {
+  targetX = esDer ? 80 : 60;
   targetY = 10;
-} else if (name.startsWith("Falta directa centrada")) {
+}
+
+// DIRECTAS
+else if (name.startsWith("Falta directa centrada")) {
   targetX = 70;
   targetY = 6;
 } else if (name.startsWith("Falta directa perfilada")) {
-  targetX = 74;
+  targetX = esDer ? 76 : 64;
   targetY = 8;
 } else if (name.startsWith("Penalti")) {
   targetX = 70;
