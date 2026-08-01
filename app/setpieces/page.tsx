@@ -1804,19 +1804,20 @@ originalStyles.forEach(
 <Panel title="Situación Global">
   <div id="grafico-abp-flow">
     <ABPFlowField
-      rows={filtered.map((r) => ({
-        jornada: String(r.jornada),
-        rival: r.rival,
-        minuto: r.minuto,
-        tipoAccion: r.tipoAccion,
-        perfil: r.perfil,          // 👈 FALTABA ESTA LÍNEA
-        zonaRemate: r.zonaRemate,
-        xG: Number(r.xg ?? 0),
-        rematador: r.rematador,
-        tipoRemate: r.tipoRemate,
-        resultadoFinal: r.resultadoFinal,
-      }))}
-    />
+  rows={filtered.map((r) => ({
+    jornada: String(r.jornada),
+    rival: r.rival,
+    minuto: r.minuto,
+    tipoAccion: r.tipoAccion,
+    perfil: r.perfil,          
+    tipoEnvio: r.tipoEnvio,    
+    zonaRemate: r.zonaRemate,
+    xG: Number(r.xg ?? 0),
+    rematador: r.rematador,
+    tipoRemate: r.tipoRemate,
+    resultadoFinal: r.resultadoFinal,
+  }))}
+/>
   </div>
 </Panel>
 
