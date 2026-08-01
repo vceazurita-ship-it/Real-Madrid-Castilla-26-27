@@ -102,6 +102,7 @@ type Row = {
   resultadoFinal: string;
   rutina: string;
   repetir: string;
+    intencion?: string;
 };
 
 function num(v?: string) {
@@ -1825,8 +1826,8 @@ originalStyles.forEach(
     minuto: r.minuto,
     tipoAccion: r.tipoAccion,
     tipoEnvio: r.tipoEnvio,
-    intencion: (r as any).Intencion,
-    zonaCaida: (r as any).Zona_Caida,
+    intencion: r.intencion,
+    zonaCaida: r.zonaCaida,
     zonaRemate: r.zonaRemate,
     xG: Number(r.xg ?? 0),
     rematador: r.rematador,
