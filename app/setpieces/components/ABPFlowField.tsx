@@ -473,7 +473,7 @@ return (
 
   {/* Popup origen */}
   {selectedOrigin && (
-    <div className="absolute right-2 top-2 w-72 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur">
+    <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-2 sm:w-72 max-h-[58vw] sm:max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-3 sm:p-4 text-white shadow-2xl backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold">{selectedOrigin}</h3>
         <button
@@ -514,7 +514,7 @@ return (
 
   {/* Popup remate */}
   {selectedRemate && (
-    <div className="absolute right-2 bottom-2 w-80 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur">
+    <div className="absolute left-2 right-2 bottom-2 sm:left-auto sm:right-2 sm:w-80 max-h-[58vw] sm:max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-3 sm:p-4 text-white shadow-2xl backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold">{selectedRemate}</h3>
         <button
