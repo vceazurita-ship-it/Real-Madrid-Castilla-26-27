@@ -178,27 +178,70 @@ return (
 <div className="relative w-full max-w-[980px] mx-auto aspect-[8/5]">
 <svg viewBox="0 0 140 70" className="w-full h-full">
 <defs>
-<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-<feDropShadow dx="0" dy="1" stdDeviation="1.4" floodColor="#000000" floodOpacity="0.35" />
-</filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="1" stdDeviation="1.4" floodColor="#000000" floodOpacity="0.35" />
+  </filter>
 
-      <radialGradient id="goldNode" cx="50%" cy="40%" r="65%">
-        <stop offset="0%" stopColor="#E7D2A0" />
-        <stop offset="65%" stopColor="#C8A96B" />
-        <stop offset="100%" stopColor="#A8894D" />
-      </radialGradient>
-                 {/* Degradado para trayectorias */}
-      <linearGradient id="goldPath" x1="0%" y1="100%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#C8A96B" stopOpacity="0.10" />
-        <stop offset="100%" stopColor="#E7D2A0" stopOpacity="0.55" />
-      </linearGradient>
+  <filter id="pathGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="1.6" result="blur" />
+    <feMerge>
+      <feMergeNode in="blur" />
+      <feMergeNode in="SourceGraphic" />
+    </feMerge>
+  </filter>
 
-      <linearGradient id="bluePath" x1="0%" y1="100%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.10" />
-        <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.50" />
-      </linearGradient>
-      
-    </defs>
+  <radialGradient id="goldNode" cx="50%" cy="40%" r="65%">
+    <stop offset="0%" stopColor="#E7D2A0" />
+    <stop offset="65%" stopColor="#C8A96B" />
+    <stop offset="100%" stopColor="#A8894D" />
+  </radialGradient>
+
+  <linearGradient id="goldPath" x1="0%" y1="100%" x2="100%" y2="0%">
+    <stop offset="0%" stopColor="#8A6A35" stopOpacity="0.15" />
+    <stop offset="40%" stopColor="#C8A96B" stopOpacity="0.55" />
+    <stop offset="100%" stopColor="#F5E7C8" stopOpacity="0.95" />
+  </linearGradient>
+
+  <linearGradient id="bluePath" x1="0%" y1="100%" x2="100%" y2="0%">
+    <stop offset="0%" stopColor="#1D4ED8" stopOpacity="0.15" />
+    <stop offset="50%" stopColor="#60A5FA" stopOpacity="0.55" />
+    <stop offset="100%" stopColor="#DBEAFE" stopOpacity="0.9" />
+  </linearGradient>
+
+  <marker
+    id="arrowGold"
+    markerWidth="8"
+    markerHeight="8"
+    refX="7"
+    refY="4"
+    orient="auto"
+    markerUnits="strokeWidth"
+  >
+    <path
+      d="M0,0 L8,4 L0,8 L2.2,4 Z"
+      fill="#E7D2A0"
+      stroke="#FFF4DA"
+      strokeWidth="0.35"
+    />
+  </marker>
+
+  <marker
+    id="arrowBlue"
+    markerWidth="8"
+    markerHeight="8"
+    refX="7"
+    refY="4"
+    orient="auto"
+    markerUnits="strokeWidth"
+  >
+    <path
+      d="M0,0 L8,4 L0,8 L2.2,4 Z"
+      fill="#BFDBFE"
+      stroke="#FFFFFF"
+      strokeWidth="0.35"
+    />
+  </marker>
+</defs>
 
     {/* Fondo */}
     <rect
@@ -316,32 +359,52 @@ return (
         >
           {/* Flecha directa hacia el área */}
           {ratioDirecto > 0 && (
-            <line
-              x1={p.x}
-              y1={p.y}
-              x2={70}
-              y2={16}
-              stroke="#C8A96B"
-              strokeWidth={1 + ratioDirecto * 2}
-              strokeOpacity={0.35 + ratioDirecto * 0.45}
-              markerEnd="url(#arrowGold)"
-            />
-          )}
+  <>
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + 70) / 2} ${Math.max(8, p.y - 10)} 70 16`}
+      fill="none"
+      stroke="#F5E7C8"
+      strokeWidth={2.8 + ratioDirecto * 1.2}
+      strokeLinecap="round"
+      opacity="0.12"
+      filter="url(#pathGlow)"
+    />
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + 70) / 2} ${Math.max(8, p.y - 10)} 70 16`}
+      fill="none"
+      stroke="url(#goldPath)"
+      strokeWidth={1.4 + ratioDirecto * 1.1}
+      strokeLinecap="round"
+      opacity={0.7 + ratioDirecto * 0.2}
+      markerEnd="url(#arrowGold)"
+    />
+  </>
+)}
 
           {/* Flecha corto hacia zona de apoyo */}
-          {ratioCorto > 0 && (
-            <line
-              x1={p.x}
-              y1={p.y}
-              x2={42}
-              y2={28}
-              stroke="#3B82F6"
-              strokeWidth={1 + ratioCorto * 2}
-              strokeOpacity={0.35 + ratioCorto * 0.45}
-              strokeDasharray="2 1"
-              markerEnd="url(#arrowBlue)"
-            />
-          )}
+{ratioCorto > 0 && (
+  <>
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + 42) / 2} ${p.y - 4} 42 28`}
+      fill="none"
+      stroke="#DBEAFE"
+      strokeWidth={2.4 + ratioCorto * 1.0}
+      strokeLinecap="round"
+      opacity="0.10"
+      filter="url(#pathGlow)"
+    />
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + 42) / 2} ${p.y - 4} 42 28`}
+      fill="none"
+      stroke="url(#bluePath)"
+      strokeWidth={1.2 + ratioCorto * 0.9}
+      strokeLinecap="round"
+      strokeDasharray="3 2.5"
+      opacity={0.7 + ratioCorto * 0.2}
+      markerEnd="url(#arrowBlue)"
+    />
+  </>
+)}
 
           <circle
             cx={p.x}
