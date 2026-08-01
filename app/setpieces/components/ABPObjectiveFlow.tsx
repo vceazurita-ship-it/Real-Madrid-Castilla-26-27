@@ -1,5 +1,8 @@
 "use client";
 
+// Reemplaza el componente actual por esta versión.
+// El flujo pasa a ser: Intención → Zona de caída → Resultado final.
+
 import { useMemo, useState } from "react";
 
 export type ABPRow = {
@@ -8,6 +11,8 @@ rival?: string;
 minuto?: number | string;
 tipoAccion: string;
 tipoEnvio?: string;
+intencion?: string;
+zonaCaida?: string;
 zonaRemate?: string;
 xG?: number | string;
 rematador?: string;
@@ -27,88 +32,70 @@ amber: "#F59E0B",
 gray: "#64748B",
 };
 
-function objetivoDesdeAccion(tipo: string): string {
-const t = (tipo || "").toLowerCase();
-if (t.includes("penalti") || t.includes("directa")) return "Finalizar";
-if (t.includes("córner") || t.includes("corner")) return "Finalizar";
-if (t.includes("diagonal")) return "Progresar";
-if (t.includes("indirecta")) return "Fijar";
-if (t.includes("lateral")) return "Progresar";
-return "Progresar";
+function objetivo(r: ABPRow): string {
+return (r.intencion || "Sin definir").trim();
 }
 
-function zonaDestino(zona?: string): string {
-const z = (zona || "").toLowerCase();
-if (z.includes("1p") || z.includes("primer")) return "Primer palo";
-if (z.includes("2p") || z.includes("segundo")) return "Segundo palo";
-if (z.includes("6m")) return "6 m";
-if (z.includes("penal")) return "Punto de penalti";
-if (z.includes("fuera")) return "Fuera de área";
-return "Borde del área";
+function zona(r: ABPRow): string {
+return (r.zonaCaida || "Sin zona").trim();
 }
 
-function consecuencia(r: ABPRow): string {
-const xg =
-typeof r.xG === "number"
-? r.xG
-: parseFloat(String(r.xG || 0).replace(",", "."));
-
-if (Number.isFinite(xg) && xg >= 0.3) return "Gol / Gran ocasión";
-if (Number.isFinite(xg) && xg > 0) return "Remate";
-
-const t = (r.tipoRemate || "").toLowerCase();
-if (t.includes("despeje")) return "Despeje";
-if (t.includes("rechace")) return "Rechace";
-return "Pérdida";
+function resultado(r: ABPRow): string {
+const t = (r.resultadoFinal || "Nada").trim();
+if (t.toLowerCase() === "gol") return "Gol";
+if (t.toLowerCase().includes("ocas")) return "Ocasión";
+if (t.toLowerCase().includes("abp")) return "ABP";
+if (t.toLowerCase().includes("transici")) return "Transición rival";
+return "Nada";
 }
 
 export default function ABPObjectiveFlow({ rows }: { rows: ABPRow[] }) {
 const [selected, setSelected] = useState<{
 objetivo: string;
 zona: string;
-consecuencia: string;
+resultado: string;
 } | null>(null);
 
 const data = useMemo(() => {
 const objetivos = new Map<string, number>();
 const zonas = new Map<string, number>();
-const consecuencias = new Map<string, number>();
+const resultados = new Map<string, number>();
 const linksOZ = new Map<string, number>();
-const linksZC = new Map<string, number>();
+const linksZR = new Map<string, number>();
 
 rows.forEach((r) => {
-  const o = objetivoDesdeAccion(r.tipoAccion);
-  const z = zonaDestino(r.zonaRemate);
-  const c = consecuencia(r);
+  const o = objetivo(r);
+  const z = zona(r);
+  const res = resultado(r);
 
   objetivos.set(o, (objetivos.get(o) || 0) + 1);
   zonas.set(z, (zonas.get(z) || 0) + 1);
-  consecuencias.set(c, (consecuencias.get(c) || 0) + 1);
+  resultados.set(res, (resultados.get(res) || 0) + 1);
 
   linksOZ.set(`${o}__${z}`, (linksOZ.get(`${o}__${z}`) || 0) + 1);
-  linksZC.set(`${z}__${c}`, (linksZC.get(`${z}__${c}`) || 0) + 1);
+  linksZR.set(`${z}__${res}`, (linksZR.get(`${z}__${res}`) || 0) + 1);
 });
 
-return { objetivos, zonas, consecuencias, linksOZ, linksZC };
+return { objetivos, zonas, resultados, linksOZ, linksZR };
 
 }, [rows]);
 
 const maxLink = Math.max(
 1,
 ...Array.from(data.linksOZ.values()),
-...Array.from(data.linksZC.values())
+...Array.from(data.linksZR.values())
 );
 
 const objetivos = Array.from(data.objetivos.entries());
 const zonas = Array.from(data.zonas.entries());
-const consecuencias = Array.from(data.consecuencias.entries());
+const resultados = Array.from(data.resultados.entries());
 
 const yFor = (index: number, total: number) =>
 26 + index * (178 / Math.max(1, total - 1));
 
 const totalAcciones = rows.length;
-const remates = rows.filter((r) => consecuencia(r) === "Remate").length;
-const goles = rows.filter((r) => consecuencia(r) === "Gol / Gran ocasión").length;
+const ocasiones = rows.filter((r) => resultado(r) === "Ocasión").length;
+const goles = rows.filter((r) => resultado(r) === "Gol").length;
 const xgTotal = rows.reduce((acc, r) => {
 const x =
 typeof r.xG === "number"
@@ -119,16 +106,16 @@ return acc + (Number.isFinite(x) ? x : 0);
 
 return (
 <div className="w-full">
-  <div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
-    <svg viewBox="0 0 820 230" className="w-full min-w-[760px]">
-      <defs>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
+<div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
+<svg viewBox="0 0 820 230" className="w-full min-w-[760px]">
+<defs>
+<filter id="glow">
+<feGaussianBlur stdDeviation="3" result="blur" />
+<feMerge>
+<feMergeNode in="blur" />
+<feMergeNode in="SourceGraphic" />
+</feMerge>
+</filter>
 
         <linearGradient id="goldPath" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#8A6A35" stopOpacity="0.35" />
@@ -138,13 +125,13 @@ return (
       </defs>
 
       <text x="10" y="14" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Objetivo
+        Intención
       </text>
       <text x="340" y="14" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Zona de destino
+        Zona de caída
       </text>
       <text x="640" y="14" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Consecuencia
+        Resultado final
       </text>
 
       {objetivos.map(([o], oi) =>
@@ -164,7 +151,7 @@ return (
               stroke="url(#goldPath)"
               strokeWidth={w}
               strokeLinecap="round"
-              opacity={0.8}
+              opacity={0.82}
               filter="url(#glow)"
             />
           );
@@ -172,34 +159,34 @@ return (
       )}
 
       {zonas.map(([z], zi) =>
-        consecuencias.map(([c], ci) => {
-          const value = data.linksZC.get(`${z}__${c}`) || 0;
+        resultados.map(([res], ri) => {
+          const value = data.linksZR.get(`${z}__${res}`) || 0;
           if (!value) return null;
 
           const y1 = yFor(zi, zonas.length);
-          const y2 = yFor(ci, consecuencias.length);
+          const y2 = yFor(ri, resultados.length);
           const w = 2 + (value / maxLink) * 10;
 
           const color =
-            c === "Gol / Gran ocasión"
+            res === "Gol"
               ? COLORS.green
-              : c === "Remate"
+              : res === "Ocasión"
               ? COLORS.green
-              : c === "Rechace"
+              : res === "ABP"
               ? COLORS.blue
-              : c === "Despeje"
+              : res === "Transición rival"
               ? COLORS.amber
               : COLORS.gray;
 
           return (
             <path
-              key={`${z}-${c}`}
+              key={`${z}-${res}`}
               d={`M 470 ${y1} C 550 ${y1}, 585 ${y2}, 660 ${y2}`}
               fill="none"
               stroke={color}
               strokeWidth={w}
               strokeLinecap="round"
-              opacity={0.82}
+              opacity={0.84}
               filter="url(#glow)"
             />
           );
@@ -212,7 +199,7 @@ return (
           <g
             key={o}
             onClick={() =>
-              setSelected({ objetivo: o, zona: "", consecuencia: "" })
+              setSelected({ objetivo: o, zona: "", resultado: "" })
             }
             style={{ cursor: "pointer" }}
           >
@@ -261,7 +248,7 @@ return (
           <g
             key={z}
             onClick={() =>
-              setSelected({ objetivo: "", zona: z, consecuencia: "" })
+              setSelected({ objetivo: "", zona: z, resultado: "" })
             }
             style={{ cursor: "pointer" }}
           >
@@ -304,25 +291,25 @@ return (
         );
       })}
 
-      {consecuencias.map(([c, count], i) => {
-        const y = yFor(i, consecuencias.length);
+      {resultados.map(([res, count], i) => {
+        const y = yFor(i, resultados.length);
 
         const color =
-          c === "Gol / Gran ocasión"
+          res === "Gol"
             ? COLORS.green
-            : c === "Remate"
+            : res === "Ocasión"
             ? COLORS.green
-            : c === "Rechace"
+            : res === "ABP"
             ? COLORS.blue
-            : c === "Despeje"
+            : res === "Transición rival"
             ? COLORS.amber
             : COLORS.gray;
 
         return (
           <g
-            key={c}
+            key={res}
             onClick={() =>
-              setSelected({ objetivo: "", zona: "", consecuencia: c })
+              setSelected({ objetivo: "", zona: "", resultado: res })
             }
             style={{ cursor: "pointer" }}
           >
@@ -343,7 +330,7 @@ return (
               fontSize="12"
               fontWeight="600"
             >
-              {c}
+              {res}
             </text>
             <text
               x="798"
@@ -373,16 +360,16 @@ return (
 
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
-        Remates
+        Ocasiones
       </div>
       <div className="mt-1 text-2xl font-semibold text-emerald-400">
-        {remates}
+        {ocasiones}
       </div>
     </div>
 
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
-        Grandes ocasiones
+        Goles
       </div>
       <div className="mt-1 text-2xl font-semibold text-emerald-400">
         {goles}
@@ -404,7 +391,7 @@ return (
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">
-            {selected.objetivo || selected.zona || selected.consecuencia}
+            {selected.objetivo || selected.zona || selected.resultado}
           </h3>
           <p className="text-sm text-slate-400">
             Acciones relacionadas
@@ -422,14 +409,14 @@ return (
       <div className="grid gap-3 md:grid-cols-2">
         {rows
           .filter((r) => {
-            const o = objetivoDesdeAccion(r.tipoAccion);
-            const z = zonaDestino(r.zonaRemate);
-            const c = consecuencia(r);
+            const o = objetivo(r);
+            const z = zona(r);
+            const res = resultado(r);
 
             return (
               (!selected.objetivo || selected.objetivo === o) &&
               (!selected.zona || selected.zona === z) &&
-              (!selected.consecuencia || selected.consecuencia === c)
+              (!selected.resultado || selected.resultado === res)
             );
           })
           .slice(0, 12)
@@ -449,7 +436,7 @@ return (
               </div>
 
               <div className="mt-2 text-xs text-slate-400">
-                {r.tipoAccion} → {zonaDestino(r.zonaRemate)} → {consecuencia(r)}
+                {objetivo(r)} → {zona(r)} → {resultado(r)}
               </div>
             </div>
           ))}
