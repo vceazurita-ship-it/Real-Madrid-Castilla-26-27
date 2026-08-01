@@ -125,7 +125,9 @@ function normalizeTipoAccion(
 
   // CÓRNER
   if (t.includes("córner") || t.includes("corner")) {
-    return "Córner";
+    if (p.includes("derecho")) return "Córner (D)";
+    if (p.includes("izquierdo")) return "Córner (I)";
+    return "Córner (C)";
   }
 
   // PENALTI
@@ -135,12 +137,13 @@ function normalizeTipoAccion(
 
   // FALTA DIAGONAL
   if (t.includes("diagonal")) {
-    return "Falta diagonal";
+    if (p.includes("derecho")) return "Falta diagonal (D)";
+    if (p.includes("izquierdo")) return "Falta diagonal (I)";
+    return "Falta diagonal (C)";
   }
 
   // FALTAS LATERALES
   if (t.includes("falta lateral")) {
-    // Mantener la zona Z1-Z6
     const match = tipo.match(/Z([1-6])/i);
     const zona = match ? `Z${match[1]}` : "Z6";
 
