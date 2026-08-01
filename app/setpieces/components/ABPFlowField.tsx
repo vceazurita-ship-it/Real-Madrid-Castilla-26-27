@@ -40,23 +40,23 @@ const zoneCoords: Record<
   { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }
 > = {
   // CÓRNER
-  "Córner": { x: 6, y: 6, lane: "Exterior" },
-  "Córner (D)": { x: 6, y: 10, lane: "Exterior" },
-  "Córner (I)": { x: 6, y: 2, lane: "Exterior" },
-  "Córner (C)": { x: 10, y: 6, lane: "Centrado" },
+  "Córner": { x: 8, y: 6, lane: "Exterior" },
+  "Córner (I)": { x: 3, y: 6, lane: "Exterior" },
+  "Córner (D)": { x: 13, y: 6, lane: "Exterior" },
+  "Córner (C)": { x: 8, y: 6, lane: "Centrado" },
 
   // PENALTI
   "Penalti": { x: 70, y: 16, lane: "Centrado" },
 
-  // DIAGONAL
+  // FALTA DIAGONAL
   "Falta diagonal": { x: 22, y: 18, lane: "Exterior" },
-  "Falta diagonal (D)": { x: 18, y: 18, lane: "Exterior" },
-  "Falta diagonal (I)": { x: 26, y: 18, lane: "Exterior" },
+  "Falta diagonal (I)": { x: 16, y: 18, lane: "Exterior" },
+  "Falta diagonal (D)": { x: 28, y: 18, lane: "Exterior" },
   "Falta diagonal (C)": { x: 22, y: 22, lane: "Centrado" },
 
   // FALTA LATERAL GENÉRICA
-  "Falta lateral (D)": { x: 10, y: 44, lane: "Exterior" },
-  "Falta lateral (I)": { x: 18, y: 44, lane: "Interior" },
+  "Falta lateral (I)": { x: 10, y: 44, lane: "Exterior" },
+  "Falta lateral (D)": { x: 18, y: 44, lane: "Interior" },
   "Falta lateral (C)": { x: 34, y: 44, lane: "Centrado" },
 
   // PASILLO EXTERIOR
