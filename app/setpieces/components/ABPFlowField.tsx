@@ -39,63 +39,90 @@ const zoneCoords: Record<
   string,
   { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }
 > = {
+  // =========================
   // CÓRNER
+  // =========================
   "Córner": { x: 8, y: 6, lane: "Exterior" },
-  "Córner (I)": { x: 3, y: 6, lane: "Exterior" },
-  "Córner (D)": { x: 13, y: 6, lane: "Exterior" },
+  "Córner (I)": { x: 2, y: 6, lane: "Exterior" },
+  "Córner (D)": { x: 14, y: 6, lane: "Exterior" },
   "Córner (C)": { x: 8, y: 6, lane: "Centrado" },
 
+  // =========================
   // PENALTI
+  // =========================
   "Penalti": { x: 70, y: 16, lane: "Centrado" },
 
+  // =========================
   // FALTA DIAGONAL
+  // =========================
   "Falta diagonal": { x: 22, y: 18, lane: "Exterior" },
   "Falta diagonal (I)": { x: 16, y: 18, lane: "Exterior" },
-  "Falta diagonal (D)": { x: 28, y: 18, lane: "Exterior" },
-  "Falta diagonal (C)": { x: 22, y: 22, lane: "Centrado" },
+  "Falta diagonal (D)": { x: 30, y: 18, lane: "Exterior" },
+  "Falta diagonal (C)": { x: 23, y: 22, lane: "Centrado" },
 
-  // FALTA LATERAL GENÉRICA
-  "Falta lateral (I)": { x: 10, y: 44, lane: "Exterior" },
-  "Falta lateral (D)": { x: 18, y: 44, lane: "Interior" },
-  "Falta lateral (C)": { x: 34, y: 44, lane: "Centrado" },
+  // =========================
+  // FALTAS LATERALES IZQUIERDA
+  // =========================
+  "Falta lateral exterior Z1": { x: 6, y: 22, lane: "Exterior" },
+  "Falta lateral exterior Z2": { x: 6, y: 30, lane: "Exterior" },
+  "Falta lateral exterior Z3": { x: 6, y: 38, lane: "Exterior" },
+  "Falta lateral exterior Z4": { x: 6, y: 46, lane: "Exterior" },
+  "Falta lateral exterior Z5": { x: 6, y: 54, lane: "Exterior" },
+  "Falta lateral exterior Z6": { x: 6, y: 62, lane: "Exterior" },
 
-  // PASILLO EXTERIOR
-  "Falta lateral exterior Z1": { x: 8, y: 22, lane: "Exterior" },
-  "Falta lateral exterior Z2": { x: 8, y: 30, lane: "Exterior" },
-  "Falta lateral exterior Z3": { x: 8, y: 38, lane: "Exterior" },
-  "Falta lateral exterior Z4": { x: 8, y: 46, lane: "Exterior" },
-  "Falta lateral exterior Z5": { x: 8, y: 54, lane: "Exterior" },
-  "Falta lateral exterior Z6": { x: 8, y: 62, lane: "Exterior" },
+  "Falta lateral interior Z1": { x: 16, y: 22, lane: "Interior" },
+  "Falta lateral interior Z2": { x: 16, y: 30, lane: "Interior" },
+  "Falta lateral interior Z3": { x: 16, y: 38, lane: "Interior" },
+  "Falta lateral interior Z4": { x: 16, y: 46, lane: "Interior" },
+  "Falta lateral interior Z5": { x: 16, y: 54, lane: "Interior" },
+  "Falta lateral interior Z6": { x: 16, y: 62, lane: "Interior" },
 
-  // PASILLO INTERIOR
-  "Falta lateral interior Z1": { x: 18, y: 22, lane: "Interior" },
-  "Falta lateral interior Z2": { x: 18, y: 30, lane: "Interior" },
-  "Falta lateral interior Z3": { x: 18, y: 38, lane: "Interior" },
-  "Falta lateral interior Z4": { x: 18, y: 46, lane: "Interior" },
-  "Falta lateral interior Z5": { x: 18, y: 54, lane: "Interior" },
-  "Falta lateral interior Z6": { x: 18, y: 62, lane: "Interior" },
+  // =========================
+  // FALTAS LATERALES DERECHA
+  // =========================
+  "Falta lateral exterior Z1 (D)": { x: 30, y: 22, lane: "Exterior" },
+  "Falta lateral exterior Z2 (D)": { x: 30, y: 30, lane: "Exterior" },
+  "Falta lateral exterior Z3 (D)": { x: 30, y: 38, lane: "Exterior" },
+  "Falta lateral exterior Z4 (D)": { x: 30, y: 46, lane: "Exterior" },
+  "Falta lateral exterior Z5 (D)": { x: 30, y: 54, lane: "Exterior" },
+  "Falta lateral exterior Z6 (D)": { x: 30, y: 62, lane: "Exterior" },
 
-  // PASILLO CENTRADO
-  "Falta lateral centrada Z1": { x: 34, y: 22, lane: "Centrado" },
-  "Falta lateral centrada Z2": { x: 34, y: 30, lane: "Centrado" },
-  "Falta lateral centrada Z3": { x: 34, y: 38, lane: "Centrado" },
-  "Falta lateral centrada Z4": { x: 34, y: 46, lane: "Centrado" },
-  "Falta lateral centrada Z5": { x: 34, y: 54, lane: "Centrado" },
-  "Falta lateral centrada Z6": { x: 34, y: 62, lane: "Centrado" },
+  "Falta lateral interior Z1 (D)": { x: 22, y: 22, lane: "Interior" },
+  "Falta lateral interior Z2 (D)": { x: 22, y: 30, lane: "Interior" },
+  "Falta lateral interior Z3 (D)": { x: 22, y: 38, lane: "Interior" },
+  "Falta lateral interior Z4 (D)": { x: 22, y: 46, lane: "Interior" },
+  "Falta lateral interior Z5 (D)": { x: 22, y: 54, lane: "Interior" },
+  "Falta lateral interior Z6 (D)": { x: 22, y: 62, lane: "Interior" },
 
+  // =========================
+  // CENTRADAS
+  // =========================
+  "Falta lateral centrada Z1": { x: 38, y: 22, lane: "Centrado" },
+  "Falta lateral centrada Z2": { x: 38, y: 30, lane: "Centrado" },
+  "Falta lateral centrada Z3": { x: 38, y: 38, lane: "Centrado" },
+  "Falta lateral centrada Z4": { x: 38, y: 46, lane: "Centrado" },
+  "Falta lateral centrada Z5": { x: 38, y: 54, lane: "Centrado" },
+  "Falta lateral centrada Z6": { x: 38, y: 62, lane: "Centrado" },
+
+  // =========================
   // DIRECTAS PERFILADAS
+  // =========================
   "Falta directa perfilada Z3": { x: 24, y: 38, lane: "Interior" },
   "Falta directa perfilada Z4": { x: 26, y: 46, lane: "Interior" },
   "Falta directa perfilada Z5": { x: 28, y: 54, lane: "Interior" },
   "Falta directa perfilada Z6": { x: 30, y: 62, lane: "Interior" },
 
+  // =========================
   // DIRECTAS CENTRADAS
+  // =========================
   "Falta directa centrada Z3": { x: 70, y: 38, lane: "Centrado" },
   "Falta directa centrada Z4": { x: 70, y: 46, lane: "Centrado" },
   "Falta directa centrada Z5": { x: 70, y: 54, lane: "Centrado" },
   "Falta directa centrada Z6": { x: 70, y: 62, lane: "Centrado" },
 
+  // =========================
   // INDIRECTAS
+  // =========================
   "Falta indirecta en área": { x: 46, y: 16, lane: "Centrado" },
   "Falta indirecta Z3": { x: 44, y: 38, lane: "Centrado" },
   "Falta indirecta Z4": { x: 46, y: 46, lane: "Centrado" },
@@ -144,13 +171,15 @@ function normalizeTipoAccion(
 
   // FALTAS LATERALES
   if (t.includes("falta lateral")) {
-    const match = tipo.match(/Z([1-6])/i);
-    const zona = match ? `Z${match[1]}` : "Z6";
+  const match = tipo.match(/Z([1-6])/i);
+  const zona = match ? `Z${match[1]}` : "Z6";
 
-    if (p.includes("derecho")) return `Falta lateral interior ${zona}`;
-    if (p.includes("izquierdo")) return `Falta lateral exterior ${zona}`;
-    return `Falta lateral centrada ${zona}`;
-  }
+  if (p.includes("izquierdo")) return `Falta lateral exterior ${zona}`;
+  if (p.includes("derecho")) return `Falta lateral exterior ${zona} (D)`;
+  if (p.includes("centro")) return `Falta lateral centrada ${zona}`;
+
+  return `Falta lateral centrada ${zona}`;
+}
 
   // FALTAS DIRECTAS PERFILADAS
   if (t.includes("falta directa perfilada")) {
