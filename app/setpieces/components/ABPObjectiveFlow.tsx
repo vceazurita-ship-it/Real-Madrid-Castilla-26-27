@@ -1,48 +1,23 @@
 "use client";
 
 // Reemplaza el componente actual por esta versión.
-// Flujo: Intención → Zona de caída (según perfil) → Resultado final.
+// El flujo pasa a ser: Intención → Zona de caída → Resultado final.
 
 import { useMemo, useState } from "react";
 
 export type ABPRow = {
-  jornada?: number | string;
-  JORNADA?: number | string;
-
-  rival?: string;
-  Rival?: string;
-
-  minuto?: number | string;
-  Minuto?: number | string;
-
-  tipoAccion?: string;
-  Tipo_Accion?: string;
-
-  perfil?: string;
-  Perfil?: string;
-
-  tipoEnvio?: string;
-  Tipo_Envio?: string;
-
-  intencion?: string;
-  Intencion?: string;
-
-  zonaCaida?: string;
-  Zona_Caida?: string;
-
-  zonaRemate?: string;
-  Zona_Remate?: string;
-
-  xG?: number | string;
-
-  rematador?: string;
-  Rematador?: string;
-
-  tipoRemate?: string;
-  Tipo_Remate?: string;
-
-  resultadoFinal?: string;
-  Resultado_Final?: string;
+jornada?: number | string;
+rival?: string;
+minuto?: number | string;
+tipoAccion: string;
+tipoEnvio?: string;
+intencion?: string;
+zonaCaida?: string;
+zonaRemate?: string;
+xG?: number | string;
+rematador?: string;
+tipoRemate?: string;
+resultadoFinal?: string;
 };
 
 const COLORS = {
@@ -58,82 +33,20 @@ gray: "#64748B",
 };
 
 function objetivo(r: ABPRow): string {
-  return String(r.intencion ?? r.Intencion ?? "Sin definir").trim();
+return (r.intencion || "Sin definir").trim();
 }
 
 function zona(r: ABPRow): string {
-  const base = String(r.zonaCaida ?? r.Zona_Caida ?? "Sin zona").trim();
-  const perfil = String(r.perfil ?? r.Perfil ?? "").toLowerCase();
-  const accion = String(r.tipoAccion ?? r.Tipo_Accion ?? "").toLowerCase();
-
-  // CÓRNERS
-  if (accion.includes("córner") || accion.includes("corner")) {
-    if (perfil.includes("derecho")) return `${base} · Córner (D)`;
-    if (perfil.includes("izquierdo")) return `${base} · Córner (I)`;
-    return `${base} · Córner`;
-  }
-
-  // FALTAS LATERALES
-  if (accion.includes("lateral")) {
-    if (perfil.includes("derecho")) return `${base} · Lateral (D)`;
-    if (perfil.includes("izquierdo")) return `${base} · Lateral (I)`;
-    return `${base} · Lateral`;
-  }
-
-  // FALTAS DIAGONALES
-  if (accion.includes("diagonal")) {
-    if (perfil.includes("derecho")) return `${base} · Diagonal (D)`;
-    if (perfil.includes("izquierdo")) return `${base} · Diagonal (I)`;
-    return `${base} · Diagonal`;
-  }
-
-  // RESTO
-  if (perfil.includes("derecho")) return `${base} (D)`;
-  if (perfil.includes("izquierdo")) return `${base} (I)`;
-  if (perfil.includes("centro")) return `${base} (C)`;
-
-  return base;
+return (r.zonaCaida || "Sin zona").trim();
 }
 
 function resultado(r: ABPRow): string {
-  const t = String(r.resultadoFinal ?? r.Resultado_Final ?? "Nada")
-    .trim()
-    .toLowerCase();
-
-  if (t === "gol") return "Gol";
-  if (t.includes("ocas")) return "Ocasión";
-  if (t.includes("abp")) return "ABP";
-  if (t.includes("transici")) return "Transición rival";
-
-  return "Nada";
-}
-
-// ------------------------------------------------------------
-// Posición visual de cada zona según perfil y tipo de acción
-// ------------------------------------------------------------
-function getZonaPosition(z: string) {
-const label = z.toLowerCase();
-
-let x = 335;
-let yOffset = 0;
-
-// Perfil
-if (label.endsWith("(d)")) x = 250;
-else if (label.endsWith("(i)")) x = 420;
-else if (label.endsWith("(c)")) x = 335;
-
-// Faltas laterales: separar mucho ambos perfiles
-if (label.includes("lateral")) {
-if (label.endsWith("(d)")) x = 210;
-if (label.endsWith("(i)")) x = 460;
-}
-
-// Faltas diagonales: más retrasadas (cerca del medio campo)
-if (label.includes("diagonal")) {
-yOffset = 32;
-}
-
-return { x, yOffset };
+const t = (r.resultadoFinal || "Nada").trim();
+if (t.toLowerCase() === "gol") return "Gol";
+if (t.toLowerCase().includes("ocas")) return "Ocasión";
+if (t.toLowerCase().includes("abp")) return "ABP";
+if (t.toLowerCase().includes("transici")) return "Transición rival";
+return "Nada";
 }
 
 export default function ABPObjectiveFlow({ rows }: { rows: ABPRow[] }) {
@@ -178,26 +91,23 @@ const zonas = Array.from(data.zonas.entries());
 const resultados = Array.from(data.resultados.entries());
 
 const yFor = (index: number, total: number) =>
-44 + index * (160 / Math.max(1, total - 1));
+  44 + index * (160 / Math.max(1, total - 1));
 
 const totalAcciones = rows.length;
 const ocasiones = rows.filter((r) => resultado(r) === "Ocasión").length;
 const goles = rows.filter((r) => resultado(r) === "Gol").length;
-
 const xgTotal = rows.reduce((acc, r) => {
 const x =
 typeof r.xG === "number"
 ? r.xG
 : parseFloat(String(r.xG || 0).replace(",", "."));
-
 return acc + (Number.isFinite(x) ? x : 0);
-
 }, 0);
 
 return (
 <div className="w-full">
 <div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
-<svg viewBox="0 0 820 280" className="w-full min-w-[760px]">
+<svg viewBox="0 0 820 260" className="w-full min-w-[760px]">
 <defs>
 <filter id="glow">
 <feGaussianBlur stdDeviation="3" result="blur" />
@@ -215,37 +125,29 @@ return (
       </defs>
 
       <text x="10" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Intención
-      </text>
-      <text x="340" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Zona de caída
-      </text>
-      <text x="640" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
-        Resultado final
-      </text>
+  Intención
+</text>
+<text x="340" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+  Zona de caída
+</text>
+<text x="640" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+  Resultado final
+</text>
 
-      {/* Objetivo → Zona */}
-{objetivos.map(([o], oi) =>
-  zonas.map(([z], zi) => {
-    const value = data.linksOZ.get(`${o}__${z}`) || 0;
-    if (!value) return null;
+      {objetivos.map(([o], oi) =>
+        zonas.map(([z], zi) => {
+          const value = data.linksOZ.get(`${o}__${z}`) || 0;
+          if (!value) return null;
 
-    const y1 = yFor(oi, objetivos.length);
+          const y1 = yFor(oi, objetivos.length);
+          const y2 = yFor(zi, zonas.length);
+          const w = 2 + (value / maxLink) * 10;
 
-    const { x: x2, yOffset } = getZonaPosition(z);
-    const yy2 = yFor(zi, zonas.length) + yOffset;
-
-    const w = 2 + (value / maxLink) * 10;
-
-    // Curva adaptada a la posición real de la zona
-    const c1 = 230;
-    const c2 = x2 - 40;
-
-    return (
-      <path
-        key={`${o}-${z}`}
-        d={`M 170 ${y1} C ${c1} ${y1}, ${c2} ${yy2}, ${x2} ${yy2}`}
-        fill="none"
+          return (
+            <path
+              key={`${o}-${z}`}
+              d={`M 170 ${y1} C 250 ${y1}, 285 ${y2}, 360 ${y2}`}
+              fill="none"
               stroke="url(#goldPath)"
               strokeWidth={w}
               strokeLinecap="round"
@@ -256,7 +158,6 @@ return (
         })
       )}
 
-      {/* Zona → Resultado */}
       {zonas.map(([z], zi) =>
         resultados.map(([res], ri) => {
           const value = data.linksZR.get(`${z}__${res}`) || 0;
@@ -264,12 +165,6 @@ return (
 
           const y1 = yFor(zi, zonas.length);
           const y2 = yFor(ri, resultados.length);
-
-          const { x, yOffset } = getZonaPosition(z);
-          const yy1 = y1 + yOffset;
-
-          const x1 = x + 150;
-
           const w = 2 + (value / maxLink) * 10;
 
           const color =
@@ -286,7 +181,7 @@ return (
           return (
             <path
               key={`${z}-${res}`}
-              d={`M ${x1} ${yy1} C ${x1 + 40} ${yy1}, 600 ${y2}, 660 ${y2}`}
+              d={`M 470 ${y1} C 550 ${y1}, 585 ${y2}, 660 ${y2}`}
               fill="none"
               stroke={color}
               strokeWidth={w}
@@ -298,10 +193,8 @@ return (
         })
       )}
 
-      {/* Objetivos */}
       {objetivos.map(([o, count], i) => {
         const y = yFor(i, objetivos.length);
-
         return (
           <g
             key={o}
@@ -349,13 +242,8 @@ return (
         );
       })}
 
-      {/* Zonas */}
       {zonas.map(([z, count], i) => {
         const y = yFor(i, zonas.length);
-
-        const { x, yOffset } = getZonaPosition(z);
-        const yy = y + yOffset;
-
         return (
           <g
             key={z}
@@ -365,8 +253,8 @@ return (
             style={{ cursor: "pointer" }}
           >
             <rect
-              x={x}
-              y={yy - 14}
+              x="360"
+              y={y - 14}
               width="150"
               height="28"
               rx="10"
@@ -374,24 +262,24 @@ return (
               stroke="#334155"
             />
             <circle
-              cx={x + 16}
-              cy={yy}
+              cx="376"
+              cy={y}
               r="5"
               fill={COLORS.gold}
               stroke={COLORS.goldLight}
             />
             <text
-              x={x + 30}
-              y={yy + 4}
+              x="390"
+              y={y + 4}
               fill="white"
               fontSize="12"
               fontWeight="600"
             >
-              {z.replace(" (D)", "").replace(" (I)", "").replace(" (C)", "")}
+              {z}
             </text>
             <text
-              x={x + 138}
-              y={yy + 4}
+              x="498"
+              y={y + 4}
               textAnchor="end"
               fill={COLORS.goldLight}
               fontSize="12"
@@ -403,7 +291,6 @@ return (
         );
       })}
 
-      {/* Resultados */}
       {resultados.map(([res, count], i) => {
         const y = yFor(i, resultados.length);
 
@@ -461,7 +348,6 @@ return (
     </svg>
   </div>
 
-  {/* Métricas */}
   <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
@@ -500,7 +386,6 @@ return (
     </div>
   </div>
 
-  {/* Detalle */}
   {selected && (
     <div className="mt-5 rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="mb-3 flex items-center justify-between">
