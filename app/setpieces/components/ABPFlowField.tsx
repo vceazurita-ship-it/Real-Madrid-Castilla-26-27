@@ -1,63 +1,82 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 export type ABPRow = {
+jornada?: string;
+rival?: string;
+minuto?: number | string;
 tipoAccion: string;
+zonaRemate?: string;
+xG?: number | string;
+rematador?: string;
+tipoRemate?: string;
+resultadoFinal?: string;
 };
 
-const zoneCoords: Record<string, { x: number; y: number }> = {
+const zoneCoords: Record<string, { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }> = {
 // Córner
-"Córner": { x: 5, y: 5 },
+"Córner": { x: 6, y: 6, lane: "Exterior" },
 
 // Penalti
-"Penalti": { x: 60, y: 18 },
+"Penalti": { x: 70, y: 16, lane: "Centrado" },
 
 // Diagonal
-"Falta diagonal": { x: 18, y: 22 },
+"Falta diagonal": { x: 22, y: 18, lane: "Exterior" },
 
 // Pasillo exterior
-"Falta lateral exterior Z1": { x: 8, y: 24 },
-"Falta lateral exterior Z2": { x: 8, y: 34 },
-"Falta lateral exterior Z3": { x: 8, y: 46 },
-"Falta lateral exterior Z4": { x: 8, y: 58 },
-"Falta lateral exterior Z5": { x: 8, y: 72 },
-"Falta lateral exterior Z6": { x: 8, y: 86 },
+"Falta lateral exterior Z1": { x: 8, y: 22, lane: "Exterior" },
+"Falta lateral exterior Z2": { x: 8, y: 30, lane: "Exterior" },
+"Falta lateral exterior Z3": { x: 8, y: 38, lane: "Exterior" },
+"Falta lateral exterior Z4": { x: 8, y: 46, lane: "Exterior" },
+"Falta lateral exterior Z5": { x: 8, y: 54, lane: "Exterior" },
+"Falta lateral exterior Z6": { x: 8, y: 62, lane: "Exterior" },
 
 // Pasillo interior
-"Falta lateral interior Z1": { x: 18, y: 24 },
-"Falta lateral interior Z2": { x: 18, y: 34 },
-"Falta lateral interior Z3": { x: 18, y: 46 },
-"Falta lateral interior Z4": { x: 18, y: 58 },
-"Falta lateral interior Z5": { x: 18, y: 72 },
-"Falta lateral interior Z6": { x: 18, y: 86 },
+"Falta lateral interior Z1": { x: 18, y: 22, lane: "Interior" },
+"Falta lateral interior Z2": { x: 18, y: 30, lane: "Interior" },
+"Falta lateral interior Z3": { x: 18, y: 38, lane: "Interior" },
+"Falta lateral interior Z4": { x: 18, y: 46, lane: "Interior" },
+"Falta lateral interior Z5": { x: 18, y: 54, lane: "Interior" },
+"Falta lateral interior Z6": { x: 18, y: 62, lane: "Interior" },
 
 // Pasillo centrado
-"Falta lateral centrada Z1": { x: 34, y: 24 },
-"Falta lateral centrada Z2": { x: 34, y: 34 },
-"Falta lateral centrada Z3": { x: 34, y: 46 },
-"Falta lateral centrada Z4": { x: 34, y: 58 },
-"Falta lateral centrada Z5": { x: 34, y: 72 },
-"Falta lateral centrada Z6": { x: 34, y: 86 },
+"Falta lateral centrada Z1": { x: 34, y: 22, lane: "Centrado" },
+"Falta lateral centrada Z2": { x: 34, y: 30, lane: "Centrado" },
+"Falta lateral centrada Z3": { x: 34, y: 38, lane: "Centrado" },
+"Falta lateral centrada Z4": { x: 34, y: 46, lane: "Centrado" },
+"Falta lateral centrada Z5": { x: 34, y: 54, lane: "Centrado" },
+"Falta lateral centrada Z6": { x: 34, y: 62, lane: "Centrado" },
 
 // Directas perfiladas
-"Falta directa perfilada Z3": { x: 22, y: 46 },
-"Falta directa perfilada Z4": { x: 24, y: 58 },
-"Falta directa perfilada Z5": { x: 26, y: 72 },
-"Falta directa perfilada Z6": { x: 28, y: 86 },
+"Falta directa perfilada Z3": { x: 24, y: 38, lane: "Interior" },
+"Falta directa perfilada Z4": { x: 26, y: 46, lane: "Interior" },
+"Falta directa perfilada Z5": { x: 28, y: 54, lane: "Interior" },
+"Falta directa perfilada Z6": { x: 30, y: 62, lane: "Interior" },
 
 // Directas centradas
-"Falta directa centrada Z3": { x: 60, y: 46 },
-"Falta directa centrada Z4": { x: 60, y: 58 },
-"Falta directa centrada Z5": { x: 60, y: 72 },
-"Falta directa centrada Z6": { x: 60, y: 86 },
+"Falta directa centrada Z3": { x: 70, y: 38, lane: "Centrado" },
+"Falta directa centrada Z4": { x: 70, y: 46, lane: "Centrado" },
+"Falta directa centrada Z5": { x: 70, y: 54, lane: "Centrado" },
+"Falta directa centrada Z6": { x: 70, y: 62, lane: "Centrado" },
 
 // Indirectas
-"Falta indirecta en área": { x: 42, y: 18 },
-"Falta indirecta Z3": { x: 40, y: 46 },
-"Falta indirecta Z4": { x: 42, y: 58 },
-"Falta indirecta Z5": { x: 44, y: 72 },
-"Falta indirecta Z6": { x: 46, y: 86 },
+"Falta indirecta en área": { x: 46, y: 16, lane: "Centrado" },
+"Falta indirecta Z3": { x: 44, y: 38, lane: "Centrado" },
+"Falta indirecta Z4": { x: 46, y: 46, lane: "Centrado" },
+"Falta indirecta Z5": { x: 48, y: 54, lane: "Centrado" },
+"Falta indirecta Z6": { x: 50, y: 62, lane: "Centrado" },
+};
+
+const remateCoords: Record<string, { x: number; y: number }> = {
+"1P": { x: 50, y: 8 },
+"Primer Palo": { x: 50, y: 8 },
+"6m": { x: 70, y: 10 },
+"Segundo Palo": { x: 88, y: 8 },
+"2P": { x: 88, y: 8 },
+"Penalti": { x: 70, y: 16 },
+"Fuera de área": { x: 70, y: 24 },
+"No aplica": { x: 96, y: 28 },
 };
 
 function normalizeTipoAccion(v: string): string | null {
@@ -77,42 +96,84 @@ if (t === k.toLowerCase()) return k;
 return null;
 }
 
+function normalizeZonaRemate(v?: string): string | null {
+if (!v) return null;
+if (remateCoords[v]) return v;
+
+const t = v.toLowerCase();
+
+if (t === "1p" || t.includes("primer")) return "1P";
+if (t === "2p" || t.includes("segundo")) return "2P";
+if (t.includes("6m")) return "6m";
+if (t.includes("penal")) return "Penalti";
+if (t.includes("fuera")) return "Fuera de área";
+if (t.includes("no aplica")) return "No aplica";
+
+return null;
+}
+
 export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
-const nodes = useMemo(() => {
-const counts: Record<string, number> = {};
+const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
+
+const { originCounts, remateStats } = useMemo(() => {
+const originCounts: Record<string, number> = {};
+const remateStats: Record<
+string,
+{ xg: number; actions: ABPRow[] }
+> = {};
 
 rows.forEach((r) => {
   const origen = normalizeTipoAccion(r.tipoAccion);
-  if (!origen) return;
-  counts[origen] = (counts[origen] || 0) + 1;
+  if (origen) {
+    originCounts[origen] = (originCounts[origen] || 0) + 1;
+  }
+
+  const remate = normalizeZonaRemate(r.zonaRemate);
+  if (remate) {
+    if (!remateStats[remate]) {
+      remateStats[remate] = { xg: 0, actions: [] };
+    }
+
+    const xg =
+      typeof r.xG === "number"
+        ? r.xG
+        : parseFloat(String(r.xG || 0).replace(",", "."));
+
+    remateStats[remate].xg += Number.isFinite(xg) ? xg : 0;
+    remateStats[remate].actions.push(r);
+  }
 });
 
-return counts;
+return { originCounts, remateStats };
 
 }, [rows]);
 
-const values = Object.values(nodes);
-const maxNode = values.length ? Math.max(...values) : 1;
-
+const maxOrigin = Math.max(...Object.values(originCounts), 1);
+const maxXG = Math.max(
+...Object.values(remateStats).map((v) => v.xg),
+0.01
+);
 return (
-<div className="w-full max-w-[980px] mx-auto aspect-[8/5]">
-<svg viewBox="0 0 120 70" className="w-full h-full">
+<div className="relative w-full max-w-[980px] mx-auto aspect-[8/5]">
+<svg viewBox="0 0 140 70" className="w-full h-full">
 <defs>
 <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-<feDropShadow dx="0" dy="0.8" stdDeviation="1.2" floodColor="#000000" floodOpacity="0.35" />
+<feDropShadow dx="0" dy="1" stdDeviation="1.4" floodColor="#000000" floodOpacity="0.35" />
 </filter>
-<radialGradient id="goldNode" cx="50%" cy="40%" r="65%">
-<stop offset="0%" stopColor="#E7D2A0" />
-<stop offset="65%" stopColor="#C8A96B" />
-<stop offset="100%" stopColor="#A8894D" />
-</radialGradient>
-</defs>
+
+      <radialGradient id="goldNode" cx="50%" cy="40%" r="65%">
+        <stop offset="0%" stopColor="#E7D2A0" />
+        <stop offset="65%" stopColor="#C8A96B" />
+        <stop offset="100%" stopColor="#A8894D" />
+      </radialGradient>
+    </defs>
 
     {/* Fondo */}
     <rect
       x="2"
       y="2"
-      width="116"
+      width="136"
       height="66"
       rx="2.5"
       fill="#07111F"
@@ -122,9 +183,9 @@ return (
 
     {/* Área grande */}
     <rect
-      x="26"
+      x="32"
       y="2"
-      width="68"
+      width="76"
       height="18"
       fill="none"
       stroke="#F4F4F5"
@@ -133,9 +194,9 @@ return (
 
     {/* Área pequeña */}
     <rect
-      x="44"
+      x="56"
       y="2"
-      width="32"
+      width="28"
       height="7"
       fill="none"
       stroke="#F4F4F5"
@@ -143,73 +204,74 @@ return (
     />
 
     {/* Punto de penalti */}
-    <circle cx="60" cy="12" r="0.9" fill="#F4F4F5" />
+    <circle cx="70" cy="12" r="0.9" fill="#F4F4F5" />
 
-    {/* Galleta / arco */}
+    {/* Galleta */}
     <path
-      d="M48 20 A12 12 0 0 0 72 20"
+      d="M58 20 A12 12 0 0 0 82 20"
       fill="none"
       stroke="#F4F4F5"
       strokeWidth="0.45"
     />
 
     {/* Portería */}
-    <line x1="54" y1="2" x2="66" y2="2" stroke="#F4F4F5" strokeWidth="1" />
+    <line x1="64" y1="2" x2="76" y2="2" stroke="#F4F4F5" strokeWidth="1" />
 
-    {/* Referencias Z1-Z6 */}
-    {[24, 34, 44, 54, 64, 74].map((_, i) => {
-      const y = 24 + i * 8;
-      return (
-        <g key={i}>
-          <line
-            x1="2"
-            y1={y}
-            x2="14"
-            y2={y}
-            stroke="#233248"
-            strokeWidth="0.3"
-            strokeDasharray="1.5 2"
-          />
-          <text
-            x="1.5"
-            y={y + 0.8}
-            textAnchor="end"
-            fill="#64748B"
-            fontSize="1.9"
-            fontWeight="500"
-          >
-            Z{i + 1}
-          </text>
-        </g>
-      );
-    })}
+    {/* Referencias Z dentro del campo */}
+    {[22, 30, 38, 46, 54, 62].map((y, i) => (
+      <g key={i}>
+        <line
+          x1="3"
+          y1={y}
+          x2="16"
+          y2={y}
+          stroke="#233248"
+          strokeWidth="0.3"
+          strokeDasharray="1.5 2"
+        />
+        <text
+          x="4"
+          y={y + 0.8}
+          textAnchor="start"
+          fill="#64748B"
+          fontSize="1.8"
+          fontWeight="500"
+        >
+          Z{i + 1}
+        </text>
+      </g>
+    ))}
 
-    {/* Pasillos */}
-    <line x1="12" y1="20" x2="12" y2="66" stroke="#1F2937" strokeWidth="0.25" />
-    <line x1="24" y1="20" x2="24" y2="66" stroke="#1F2937" strokeWidth="0.25" />
-    <line x1="40" y1="20" x2="40" y2="66" stroke="#1F2937" strokeWidth="0.25" />
+    {/* Carriles */}
+    <line x1="14" y1="20" x2="14" y2="66" stroke="#1F2937" strokeWidth="0.25" />
+    <line x1="26" y1="20" x2="26" y2="66" stroke="#1F2937" strokeWidth="0.25" />
+    <line x1="42" y1="20" x2="42" y2="66" stroke="#1F2937" strokeWidth="0.25" />
 
-    {/* Leyenda superior */}
-    <g>
-      <circle cx="10" cy="68.5" r="1" fill="#C8A96B" />
-      <text x="12" y="69.2" fill="#94A3B8" fontSize="2.1">Exterior</text>
+    {/* Leyenda carriles */}
+    <text x="8" y="18" fill="#94A3B8" fontSize="2" fontWeight="600">
+      Exterior
+    </text>
+    <text x="18" y="18" fill="#94A3B8" fontSize="2" fontWeight="600">
+      Interior
+    </text>
+    <text x="34" y="18" fill="#94A3B8" fontSize="2" fontWeight="600">
+      Centrado
+    </text>
 
-      <circle cx="28" cy="68.5" r="1" fill="#C8A96B" />
-      <text x="30" y="69.2" fill="#94A3B8" fontSize="2.1">Interior</text>
-
-      <circle cx="48" cy="68.5" r="1" fill="#C8A96B" />
-      <text x="50" y="69.2" fill="#94A3B8" fontSize="2.1">Centrado</text>
-    </g>
-
-    {/* Nodos */}
-    {Object.entries(nodes).map(([name, value]) => {
+    {/* Nodos de origen */}
+    {Object.entries(originCounts).map(([name, value]) => {
       const p = zoneCoords[name];
       if (!p) return null;
 
       const r = 3 + Math.sqrt(value) * 2.2;
 
       return (
-        <g key={name} filter="url(#shadow)">
+        <g
+          key={name}
+          filter="url(#shadow)"
+          onClick={() => setSelectedOrigin(name)}
+          style={{ cursor: "pointer" }}
+        >
           <circle
             cx={p.x}
             cy={p.y}
@@ -240,7 +302,132 @@ return (
         </g>
       );
     })}
+
+    {/* Zonas de remate */}
+    {Object.entries(remateStats).map(([name, stat]) => {
+      const p = remateCoords[name];
+      if (!p) return null;
+
+      const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
+
+      return (
+        <g
+          key={name}
+          filter="url(#shadow)"
+          onClick={() => setSelectedRemate(name)}
+          style={{ cursor: "pointer" }}
+        >
+          <circle
+            cx={p.x}
+            cy={p.y}
+            r={r + 0.6}
+            fill="none"
+            stroke="#A7F3D0"
+            strokeWidth="0.5"
+          />
+          <circle
+            cx={p.x}
+            cy={p.y}
+            r={r}
+            fill="#10B981"
+            fillOpacity="0.9"
+            stroke="#D1FAE5"
+            strokeWidth="0.3"
+          />
+          <text
+            x={p.x}
+            y={p.y + 0.7}
+            textAnchor="middle"
+            fill="#FFFFFF"
+            fontSize="1.9"
+            fontWeight="700"
+          >
+            {stat.xg.toFixed(2)}
+          </text>
+        </g>
+      );
+    })}
   </svg>
+
+  {/* Popup origen */}
+  {selectedOrigin && (
+    <div className="absolute right-2 top-2 w-72 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-semibold">{selectedOrigin}</h3>
+        <button
+          onClick={() => setSelectedOrigin(null)}
+          className="text-slate-400 hover:text-white"
+        >
+          ×
+        </button>
+      </div>
+
+      <p className="mb-3 text-sm text-slate-300">
+        {originCounts[selectedOrigin]} acciones registradas
+      </p>
+
+      <div className="space-y-2">
+        {rows
+          .filter((r) => normalizeTipoAccion(r.tipoAccion) === selectedOrigin)
+          .map((r, idx) => (
+            <div
+              key={idx}
+              className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
+            >
+              <div className="font-medium">
+                {r.jornada || "Partido"}
+                {r.rival ? ` · ${r.rival}` : ""}
+              </div>
+              <div className="text-slate-300">
+                Min {r.minuto ?? "-"}
+              </div>
+              <div className="text-slate-300">
+                Resultado: {r.resultadoFinal || "-"}
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
+  )}
+
+  {/* Popup remate */}
+  {selectedRemate && (
+    <div className="absolute right-2 bottom-2 w-80 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-semibold">{selectedRemate}</h3>
+        <button
+          onClick={() => setSelectedRemate(null)}
+          className="text-slate-400 hover:text-white"
+        >
+          ×
+        </button>
+      </div>
+
+      <p className="mb-3 text-sm text-slate-300">
+        xG acumulado: {remateStats[selectedRemate].xg.toFixed(2)}
+      </p>
+
+      <div className="space-y-2">
+        {remateStats[selectedRemate].actions.map((r, idx) => (
+          <div
+            key={idx}
+            className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
+          >
+            <div className="font-medium">
+              {r.rematador || "Sin rematador"}
+            </div>
+            <div className="text-slate-300">
+              {r.tipoRemate || "Remate"} · xG {Number(r.xG || 0).toFixed(2)}
+            </div>
+            <div className="text-slate-300">
+              Min {r.minuto ?? "-"}
+              {r.resultadoFinal ? ` · ${r.resultadoFinal}` : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
 </div>
 
 );
