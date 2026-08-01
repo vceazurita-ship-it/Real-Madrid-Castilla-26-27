@@ -208,39 +208,41 @@ return (
     <stop offset="100%" stopColor="#DBEAFE" stopOpacity="0.9" />
   </linearGradient>
 
-  <marker
-    id="arrowGold"
-    markerWidth="8"
-    markerHeight="8"
-    refX="7"
-    refY="4"
-    orient="auto"
-    markerUnits="strokeWidth"
-  >
-    <path
-      d="M0,0 L8,4 L0,8 L2.2,4 Z"
-      fill="#E7D2A0"
-      stroke="#FFF4DA"
-      strokeWidth="0.35"
-    />
-  </marker>
+  {/* Flecha oro muy pequeña */}
+<marker
+  id="arrowGold"
+  markerWidth="3.2"
+  markerHeight="3.2"
+  refX="2.9"
+  refY="1.6"
+  orient="auto"
+  markerUnits="userSpaceOnUse"
+>
+  <path
+    d="M0,0 L3.2,1.6 L0,3.2 L0.9,1.6 Z"
+    fill="#E7D2A0"
+    stroke="#FFF4DA"
+    strokeWidth="0.18"
+  />
+</marker>
 
-  <marker
-    id="arrowBlue"
-    markerWidth="8"
-    markerHeight="8"
-    refX="7"
-    refY="4"
-    orient="auto"
-    markerUnits="strokeWidth"
-  >
-    <path
-      d="M0,0 L8,4 L0,8 L2.2,4 Z"
-      fill="#BFDBFE"
-      stroke="#FFFFFF"
-      strokeWidth="0.35"
-    />
-  </marker>
+{/* Flecha azul muy pequeña */}
+<marker
+  id="arrowBlue"
+  markerWidth="3.2"
+  markerHeight="3.2"
+  refX="2.9"
+  refY="1.6"
+  orient="auto"
+  markerUnits="userSpaceOnUse"
+>
+  <path
+    d="M0,0 L3.2,1.6 L0,3.2 L0.9,1.6 Z"
+    fill="#BFDBFE"
+    stroke="#FFFFFF"
+    strokeWidth="0.18"
+  />
+</marker>
 </defs>
 
     {/* Fondo */}
