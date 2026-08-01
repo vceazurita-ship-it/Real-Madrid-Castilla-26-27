@@ -146,11 +146,11 @@ return (
 {zonas.map(([z, count], i) => {
   const y = yFor(i, zonas.length);
 
-  let x = 360;
+  let x = 350;
 
-  if (z.endsWith("(D)")) x = 320;
-  else if (z.endsWith("(I)")) x = 400;
-  else if (z.endsWith("(C)")) x = 360;
+if (z.endsWith("(D)")) x = 285;      // lado derecho del saque
+else if (z.endsWith("(I)")) x = 415; // lado izquierdo del saque
+else if (z.endsWith("(C)")) x = 350; // centrado
 
   return (
     <g
@@ -220,10 +220,10 @@ return (
         : COLORS.gray;
 
     // Salida según el perfil
-    const x1 =
-      z.endsWith("(D)") ? 470 :
-      z.endsWith("(I)") ? 550 :
-      510;
+  const x1 =
+  z.endsWith("(D)") ? 435 :
+  z.endsWith("(I)") ? 565 :
+  500;
 
     return (
       <path
@@ -250,10 +250,10 @@ return (
     const w = 2 + (value / maxLink) * 10;
 
     // Posición horizontal según el perfil
-    const x2 =
-      z.endsWith("(D)") ? 320 :
-      z.endsWith("(I)") ? 400 :
-      360;
+const x2 =
+  z.endsWith("(D)") ? 285 :
+  z.endsWith("(I)") ? 415 :
+  350;
 
     return (
       <path
