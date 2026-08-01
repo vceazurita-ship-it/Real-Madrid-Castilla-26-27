@@ -118,16 +118,7 @@ return acc + (Number.isFinite(x) ? x : 0);
 }, 0);
 
 return (
-<div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#07111F] via-[#081526] to-[#07111F] p-5 sm:p-6 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
-<div className="mb-5">
-<h2 className="text-xl sm:text-2xl font-semibold text-white">
-Flujo ofensivo
-</h2>
-<p className="text-sm text-slate-400">
-Objetivo de la acción → Zona de destino → Consecuencia
-</p>
-</div>
-
+<div className="w-full">
   <div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
     <svg viewBox="0 0 820 230" className="w-full min-w-[760px]">
       <defs>

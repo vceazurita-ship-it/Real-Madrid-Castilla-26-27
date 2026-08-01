@@ -1816,9 +1816,24 @@ originalStyles.forEach(
   </div>
 </Panel>
 
-<div className="mt-8">
-  <ABPObjectiveFlow rows={rows} />
-</div>
+<Panel title="Flujo ofensivo">
+  <div id="grafico-abp-objective-flow">
+    <ABPObjectiveFlow
+      rows={filtered.map((r) => ({
+        jornada: String(r.jornada),
+        rival: r.rival,
+        minuto: r.minuto,
+        tipoAccion: r.tipoAccion,
+        tipoEnvio: r.tipoEnvio,
+        zonaRemate: r.zonaRemate,
+        xG: Number(r.xg ?? 0),
+        rematador: r.rematador,
+        tipoRemate: r.tipoRemate,
+        resultadoFinal: r.resultadoFinal,
+      }))}
+    />
+  </div>
+</Panel>
 
 
               <Panel title="Tipo de acción">
