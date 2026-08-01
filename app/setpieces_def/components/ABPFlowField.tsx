@@ -187,31 +187,17 @@ return (
         <stop offset="65%" stopColor="#C8A96B" />
         <stop offset="100%" stopColor="#A8894D" />
       </radialGradient>
-            {/* Flecha dorada (tenso / bombeado / directo) */}
-      <marker
-        id="arrowGold"
-        viewBox="0 0 10 10"
-        refX="9"
-        refY="5"
-        markerWidth="4"
-        markerHeight="4"
-        orient="auto-start-reverse"
-      >
-        <path d="M0 0 L10 5 L0 10 Z" fill="#C8A96B" />
-      </marker>
+                 {/* Degradado para trayectorias */}
+      <linearGradient id="goldPath" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#C8A96B" stopOpacity="0.10" />
+        <stop offset="100%" stopColor="#E7D2A0" stopOpacity="0.55" />
+      </linearGradient>
 
-      {/* Flecha azul (corto) */}
-      <marker
-        id="arrowBlue"
-        viewBox="0 0 10 10"
-        refX="9"
-        refY="5"
-        markerWidth="4"
-        markerHeight="4"
-        orient="auto-start-reverse"
-      >
-        <path d="M0 0 L10 5 L0 10 Z" fill="#3B82F6" />
-      </marker>
+      <linearGradient id="bluePath" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.10" />
+        <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.50" />
+      </linearGradient>
+      
     </defs>
 
     {/* Fondo */}
@@ -389,49 +375,89 @@ return (
     })}
 
     {/* Zonas de remate */}
-    {Object.entries(remateStats).map(([name, stat]) => {
-      const p = remateCoords[name];
-      if (!p) return null;
+{Object.entries(originCounts).map(([name, value]) => {
+  const p = zoneCoords[name];
+  if (!p) return null;
 
-      const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
+  const r = 3 + Math.sqrt(value) * 2.2;
 
-      return (
-        <g
-          key={name}
-          filter="url(#shadow)"
-          onClick={() => setSelectedRemate(name)}
-          style={{ cursor: "pointer" }}
-        >
-          <circle
-            cx={p.x}
-            cy={p.y}
-            r={r + 0.6}
-            fill="none"
-            stroke="#A7F3D0"
-            strokeWidth="0.5"
-          />
-          <circle
-            cx={p.x}
-            cy={p.y}
-            r={r}
-            fill="#10B981"
-            fillOpacity="0.9"
-            stroke="#D1FAE5"
-            strokeWidth="0.3"
-          />
-          <text
-            x={p.x}
-            y={p.y + 0.7}
-            textAnchor="middle"
-            fill="#FFFFFF"
-            fontSize="1.9"
-            fontWeight="700"
-          >
-            {stat.xg.toFixed(2)}
-          </text>
-        </g>
-      );
-    })}
+  const envios = originEnvios[name] || {};
+  const corto = envios["Corto"] || 0;
+  const directo =
+    (envios["Tenso"] || 0) +
+    (envios["Bombeado"] || 0) +
+    (envios["Directo"] || 0);
+
+  const total = corto + directo;
+  const ratioCorto = total ? corto / total : 0;
+  const ratioDirecto = total ? directo / total : 0;
+
+  return (
+    <g
+      key={name}
+      filter="url(#shadow)"
+      onClick={() => setSelectedOrigin(name)}
+      style={{ cursor: "pointer" }}
+    >
+      {/* Trayectoria directa */}
+      {ratioDirecto > 0 && (
+        <path
+          d={`M ${p.x} ${p.y} Q ${(p.x + 70) / 2} ${Math.max(8, p.y - 10)} 70 16`}
+          fill="none"
+          stroke="url(#goldPath)"
+          strokeWidth={1.1 + ratioDirecto * 1.2}
+          strokeLinecap="round"
+          opacity={0.45 + ratioDirecto * 0.35}
+          filter="url(#pathGlow)"
+        />
+      )}
+
+      {/* Trayectoria corto */}
+      {ratioCorto > 0 && (
+        <path
+          d={`M ${p.x} ${p.y} Q ${(p.x + 42) / 2} ${p.y - 4} 42 28`}
+          fill="none"
+          stroke="url(#bluePath)"
+          strokeWidth={1 + ratioCorto * 1.1}
+          strokeLinecap="round"
+          strokeDasharray="2.5 2.5"
+          opacity={0.45 + ratioCorto * 0.35}
+          filter="url(#pathGlow)"
+        />
+      )}
+
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={r + 0.7}
+        fill="none"
+        stroke="#F5E7C8"
+        strokeWidth="0.6"
+        opacity="0.95"
+      />
+
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={r}
+        fill="url(#goldNode)"
+        stroke="#F5E7C8"
+        strokeWidth="0.35"
+      />
+
+      <text
+        x={p.x}
+        y={p.y + 0.8}
+        textAnchor="middle"
+        fill="#FFFFFF"
+        fontSize="2.2"
+        fontWeight="700"
+      >
+        {value}
+      </text>
+    </g>
+  );
+})}
   </svg>
 
   {/* Popup origen */}
