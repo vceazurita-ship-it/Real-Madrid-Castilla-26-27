@@ -225,24 +225,27 @@ return (
       </text>
 
       {/* Objetivo → Zona */}
-      {objetivos.map(([o], oi) =>
-        zonas.map(([z], zi) => {
-          const value = data.linksOZ.get(`${o}__${z}`) || 0;
-          if (!value) return null;
+{objetivos.map(([o], oi) =>
+  zonas.map(([z], zi) => {
+    const value = data.linksOZ.get(`${o}__${z}`) || 0;
+    if (!value) return null;
 
-          const y1 = yFor(oi, objetivos.length);
-          const y2 = yFor(zi, zonas.length);
+    const y1 = yFor(oi, objetivos.length);
 
-          const { x: x2, yOffset } = getZonaPosition(z);
-          const yy2 = y2 + yOffset;
+    const { x: x2, yOffset } = getZonaPosition(z);
+    const yy2 = yFor(zi, zonas.length) + yOffset;
 
-          const w = 2 + (value / maxLink) * 10;
+    const w = 2 + (value / maxLink) * 10;
 
-          return (
-            <path
-              key={`${o}-${z}`}
-              d={`M 170 ${y1} C 250 ${y1}, 285 ${yy2}, ${x2} ${yy2}`}
-              fill="none"
+    // Curva adaptada a la posición real de la zona
+    const c1 = 230;
+    const c2 = x2 - 40;
+
+    return (
+      <path
+        key={`${o}-${z}`}
+        d={`M 170 ${y1} C ${c1} ${y1}, ${c2} ${yy2}, ${x2} ${yy2}`}
+        fill="none"
               stroke="url(#goldPath)"
               strokeWidth={w}
               strokeLinecap="round"
