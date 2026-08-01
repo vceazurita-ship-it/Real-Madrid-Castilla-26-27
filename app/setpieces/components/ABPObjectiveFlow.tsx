@@ -58,29 +58,36 @@ gray: "#64748B",
 };
 
 function objetivo(r: ABPRow): string {
-return (r.intencion || "Sin definir").trim();
+  return String(r.intencion ?? r.Intencion ?? "Sin definir").trim();
 }
 
 function zona(r: ABPRow): string {
-  const base = (r.zonaCaida || "Sin zona").trim();
-  const perfil = (r.perfil || "").toLowerCase();
-  const accion = (r.tipoAccion || "").toLowerCase();
+  const base = String(r.zonaCaida ?? r.Zona_Caida ?? "Sin zona").trim();
+  const perfil = String(r.perfil ?? r.Perfil ?? "").toLowerCase();
+  const accion = String(r.tipoAccion ?? r.Tipo_Accion ?? "").toLowerCase();
 
-  // Faltas laterales: separar por perfil
+  // CÓRNERS
+  if (accion.includes("córner") || accion.includes("corner")) {
+    if (perfil.includes("derecho")) return `${base} · Córner (D)`;
+    if (perfil.includes("izquierdo")) return `${base} · Córner (I)`;
+    return `${base} · Córner`;
+  }
+
+  // FALTAS LATERALES
   if (accion.includes("lateral")) {
     if (perfil.includes("derecho")) return `${base} · Lateral (D)`;
     if (perfil.includes("izquierdo")) return `${base} · Lateral (I)`;
     return `${base} · Lateral`;
   }
 
-  // Faltas diagonales: separar por perfil
+  // FALTAS DIAGONALES
   if (accion.includes("diagonal")) {
     if (perfil.includes("derecho")) return `${base} · Diagonal (D)`;
     if (perfil.includes("izquierdo")) return `${base} · Diagonal (I)`;
     return `${base} · Diagonal`;
   }
 
-  // Córners y resto
+  // RESTO
   if (perfil.includes("derecho")) return `${base} (D)`;
   if (perfil.includes("izquierdo")) return `${base} (I)`;
   if (perfil.includes("centro")) return `${base} (C)`;
@@ -89,14 +96,16 @@ function zona(r: ABPRow): string {
 }
 
 function resultado(r: ABPRow): string {
-const t = (r.resultadoFinal || "Nada").trim().toLowerCase();
+  const t = String(r.resultadoFinal ?? r.Resultado_Final ?? "Nada")
+    .trim()
+    .toLowerCase();
 
-if (t === "gol") return "Gol";
-if (t.includes("ocas")) return "Ocasión";
-if (t.includes("abp")) return "ABP";
-if (t.includes("transici")) return "Transición rival";
+  if (t === "gol") return "Gol";
+  if (t.includes("ocas")) return "Ocasión";
+  if (t.includes("abp")) return "ABP";
+  if (t.includes("transici")) return "Transición rival";
 
-return "Nada";
+  return "Nada";
 }
 
 // ------------------------------------------------------------
