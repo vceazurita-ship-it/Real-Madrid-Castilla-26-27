@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 export type ABPRow = {
-  jornada?: string;
+  jornada?: number | string;
   rival?: string;
   minuto?: number | string;
   tipoAccion: string;
