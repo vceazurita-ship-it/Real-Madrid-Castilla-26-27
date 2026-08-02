@@ -46,8 +46,15 @@ const Z_Y: Record<string, number> = {
 };
 
 function getOriginCoords(tipoAccion: string, perfil?: string) {
-  const t = (tipoAccion || "").toLowerCase();
-  const p = (perfil || "").toLowerCase();
+const t = (tipoAccion || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const p = (perfil || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
   const lado = p.includes("izquier")
     ? "I"
@@ -58,7 +65,7 @@ function getOriginCoords(tipoAccion: string, perfil?: string) {
   // -------------------------
   // CÓRNER
   // -------------------------
-  if (t.includes("córner") || t.includes("corner")) {
+  if (t.includes("corner")) {
     if (lado === "I") return { x: 2, y: 6, lane: "Exterior" as const };
     if (lado === "D") return { x: 46, y: 6, lane: "Exterior" as const };
     return { x: 24, y: 8, lane: "Centrado" as const };
@@ -115,8 +122,8 @@ function getOriginCoords(tipoAccion: string, perfil?: string) {
     const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
     const y = Z_Y[z];
 
-    if (lado === "I") return { x: 28, y, lane: "Interior" as const };
-    if (lado === "D") return { x: 20, y, lane: "Interior" as const };
+    if (lado === "I") return { x: 20, y, lane: "Interior" as const };
+if (lado === "D") return { x: 28, y, lane: "Interior" as const };
 
     return { x: 24, y, lane: "Centrado" as const };
   }
@@ -162,7 +169,10 @@ function normalizeZonaRemate(v?: string): string | null {
 if (!v) return null;
 if (remateCoords[v]) return v;
 
-const t = v.toLowerCase();
+const t = v
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
 
 if (t === "1p" || t.includes("primer")) return "1P";
 if (t === "2p" || t.includes("segundo")) return "2P";
@@ -190,15 +200,18 @@ const { originCounts, originEnvios, remateStats } = useMemo(() => {
   const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
 
   rows.forEach((r) => {
-  const origen = normalizeTipoAccion(
+  const tipo = normalizeTipoAccion(
   r.tipoAccion ?? r.Tipo_Accion ?? ""
 );
 
-  if (origen) {
-    originCounts[origen] = (originCounts[origen] || 0) + 1;
-
-    const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
 const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
+
+// La clave incluye el perfil para separar izquierda/derecha/centro
+const origen = `${tipo}__${perfil}`;
+
+originCounts[origen] = (originCounts[origen] || 0) + 1;
+
+const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
 
 if (!originEnvios[origen]) {
   originEnvios[origen] = {
@@ -209,7 +222,6 @@ if (!originEnvios[origen]) {
 
 originEnvios[origen].envios[envio] =
   (originEnvios[origen].envios[envio] || 0) + 1;
-  }
 
   const remate = normalizeZonaRemate(r.zonaRemate ?? r.Zona_Remate);
   if (remate) {
@@ -397,8 +409,12 @@ return (
 
     {/* Nodos de origen */}
        {/* Nodos de origen + dirección del envío */}
-{Object.entries(originCounts).map(([name, value]) => {
-  const data = originEnvios[name];
+{Object.entries(originCounts).map(([key, value]) => {
+  const data = originEnvios[key];
+
+  // La clave es: "TipoAccion__perfil"
+  const [name] = key.split("__");
+
   const p = getOriginCoords(name, data?.perfil);
   if (!p) return null;
 
@@ -417,75 +433,77 @@ return (
   const ratioCorto = total ? corto / total : 0;
   const ratioDirecto = total ? directo / total : 0;
 
-
   // Destino según el lado
-let targetX = 70;
-let targetY = 14;
+  let targetX = 70;
+  let targetY = 14;
 
-const esIzq = perfil.includes("izquier");
-const esDer = perfil.includes("derech");
+  const esIzq = perfil.includes("izquier");
+  const esDer = perfil.includes("derech");
 
-// CÓRNER
-if (name.startsWith("Córner")) {
-  if (esIzq) {
-    targetX = corto > directo ? 58 : 54;
-    targetY = corto > directo ? 13 : 8;
-  } else if (esDer) {
-    targetX = corto > directo ? 82 : 86;
-    targetY = corto > directo ? 13 : 8;
-  } else {
-    targetX = 70;
-    targetY = corto > directo ? 12 : 8;
+  // CÓRNER
+  if (name.startsWith("Córner")) {
+    if (esIzq) {
+      targetX = corto > directo ? 58 : 54;
+      targetY = corto > directo ? 13 : 8;
+    } else if (esDer) {
+      targetX = corto > directo ? 82 : 86;
+      targetY = corto > directo ? 13 : 8;
+    } else {
+      targetX = 70;
+      targetY = corto > directo ? 12 : 8;
+    }
   }
-}
 
-// FALTA LATERAL EXTERIOR
-else if (name.startsWith("Falta lateral exterior")) {
-  targetX = esDer ? 84 : 56;
-  targetY = 12;
-}
+  // FALTA LATERAL EXTERIOR
+  else if (name.startsWith("Falta lateral exterior")) {
+    targetX = esDer ? 84 : 56;
+    targetY = 12;
+  }
 
-// FALTA LATERAL INTERIOR
-else if (name.startsWith("Falta lateral interior")) {
-  targetX = esDer ? 78 : 62;
-  targetY = 14;
-}
+  // FALTA LATERAL INTERIOR
+  else if (name.startsWith("Falta lateral interior")) {
+    targetX = esDer ? 78 : 62;
+    targetY = 14;
+  }
 
-// FALTA LATERAL CENTRADA
-else if (name.startsWith("Falta lateral centrada")) {
-  targetX = 70;
-  targetY = 12;
-}
+  // FALTA LATERAL CENTRADA
+  else if (name.startsWith("Falta lateral centrada")) {
+    targetX = 70;
+    targetY = 12;
+  }
 
-// FALTA DIAGONAL
-else if (name.startsWith("Falta diagonal")) {
-  targetX = esDer ? 80 : 60;
-  targetY = 10;
-}
+  // FALTA DIAGONAL
+  else if (name.startsWith("Falta diagonal")) {
+    targetX = esDer ? 80 : 60;
+    targetY = 10;
+  }
 
-// DIRECTAS
-else if (name.startsWith("Falta directa centrada")) {
-  targetX = 70;
-  targetY = 6;
-} else if (name.startsWith("Falta directa perfilada")) {
-  targetX = esDer ? 76 : 64;
-  targetY = 8;
-} else if (name.startsWith("Penalti")) {
-  targetX = 70;
-  targetY = 4;
-}
+  // DIRECTAS
+  else if (name.startsWith("Falta directa centrada")) {
+    targetX = 70;
+    targetY = 6;
+  } else if (name.startsWith("Falta directa perfilada")) {
+    targetX = esDer ? 76 : 64;
+    targetY = 8;
+  } else if (name.startsWith("Penalti")) {
+    targetX = 70;
+    targetY = 4;
+  }
 
   return (
     <g
-      key={name}
+      key={key}
       filter="url(#shadow)"
-      onClick={() => setSelectedOrigin(name)}
+      onClick={() => setSelectedOrigin(key)}
       style={{ cursor: "pointer" }}
     >
       {ratioDirecto > 0 && (
         <>
           <path
-            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(6, p.y - 10)} ${targetX} ${targetY}`}
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
+              6,
+              p.y - 10
+            )} ${targetX} ${targetY}`}
             fill="none"
             stroke="#F5E7C8"
             strokeWidth={2.8 + ratioDirecto * 1.2}
@@ -494,7 +512,10 @@ else if (name.startsWith("Falta directa centrada")) {
             filter="url(#pathGlow)"
           />
           <path
-            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(6, p.y - 10)} ${targetX} ${targetY}`}
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
+              6,
+              p.y - 10
+            )} ${targetX} ${targetY}`}
             fill="none"
             stroke="url(#goldPath)"
             strokeWidth={1.4 + ratioDirecto * 1.1}
@@ -508,7 +529,9 @@ else if (name.startsWith("Falta directa centrada")) {
       {ratioCorto > 0 && (
         <>
           <path
-            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${p.y - 4} ${(p.x + targetX) / 2} ${p.y + 8}`}
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${
+              p.y - 4
+            } ${(p.x + targetX) / 2} ${p.y + 8}`}
             fill="none"
             stroke="#DBEAFE"
             strokeWidth={2.4 + ratioCorto * 1.0}
@@ -517,7 +540,9 @@ else if (name.startsWith("Falta directa centrada")) {
             filter="url(#pathGlow)"
           />
           <path
-            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${p.y - 4} ${(p.x + targetX) / 2} ${p.y + 8}`}
+            d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${
+              p.y - 4
+            } ${(p.x + targetX) / 2} ${p.y + 8}`}
             fill="none"
             stroke="url(#bluePath)"
             strokeWidth={1.2 + ratioCorto * 0.9}
@@ -612,7 +637,14 @@ else if (name.startsWith("Falta directa centrada")) {
   {selectedOrigin && (
     <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-2 sm:w-72 max-h-[58vw] sm:max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-3 sm:p-4 text-white shadow-2xl backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-semibold">{selectedOrigin}</h3>
+        {(() => {
+  const [popupName, popupPerfil] = selectedOrigin.split("__");
+  return (
+    <h3 className="font-semibold">
+      {popupName} {popupPerfil ? `(${popupPerfil})` : ""}
+    </h3>
+  );
+})()}
         <button
           onClick={() => setSelectedOrigin(null)}
           className="text-slate-400 hover:text-white"
@@ -627,12 +659,13 @@ else if (name.startsWith("Falta directa centrada")) {
 
       <div className="space-y-2">
         {rows
-  .filter(
-    (r) =>
-      normalizeTipoAccion(
-        r.tipoAccion ?? r.Tipo_Accion ?? ""
-      ) === selectedOrigin
-  )
+  .filter((r) => {
+  const tipo = normalizeTipoAccion(
+    r.tipoAccion ?? r.Tipo_Accion ?? ""
+  );
+  const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
+  return `${tipo}__${perfil}` === selectedOrigin;
+})
   .map((r, idx) => (
 
             <div
