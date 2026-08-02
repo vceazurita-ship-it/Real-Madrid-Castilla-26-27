@@ -699,55 +699,82 @@ else if (tipo.startsWith("penalti")) {
     </svg>
 
     {/* Popup origen */}
-    {selectedOrigin && (
-      <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-2 sm:w-72 max-h-[58vw] sm:max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-3 sm:p-4 text-white shadow-2xl backdrop-blur">
-        <div className="mb-2 flex items-center justify-between">
-          {(() => {
-    const [popupName, popupPerfil] = selectedOrigin.split("__");
-    return (
-      <h3 className="font-semibold">
-        {popupName} {popupPerfil ? `(${popupPerfil})` : ""}
-      </h3>
-    );
-  })()}
-          <button
-            onClick={() => setSelectedOrigin(null)}
-            className="text-slate-400 hover:text-white"
+{selectedOrigin && (
+  <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-3 sm:w-80 max-h-[62vw] sm:max-h-[26rem] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md">
+    <div className="mb-3 flex items-start justify-between gap-3">
+      {(() => {
+        const [popupName, popupPerfil] = selectedOrigin.split("__");
+        return (
+          <div>
+            <h3 className="text-base font-semibold leading-tight">
+              {popupName}
+            </h3>
+            {popupPerfil && (
+              <p className="text-xs text-slate-400 mt-0.5 capitalize">
+                {popupPerfil}
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
+      <button
+        onClick={() => setSelectedOrigin(null)}
+        className="rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
+      >
+        ×
+      </button>
+    </div>
+
+    <div className="mb-4 rounded-xl border border-[#C8A96B]/20 bg-[#0B1728] px-3 py-2">
+      <p className="text-xs uppercase tracking-wide text-slate-400">
+        Acciones registradas
+      </p>
+      <p className="text-lg font-semibold text-[#E7D2A0]">
+        {originCounts[selectedOrigin]}
+      </p>
+    </div>
+
+    <div className="space-y-2">
+      {rows
+        .filter((r) => {
+          const tipo = normalizeTipoAccion(
+            r.tipoAccion ?? r.Tipo_Accion ?? ""
+          );
+          const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
+          return `${tipo}__${perfil}` === selectedOrigin;
+        })
+        .map((r, idx) => (
+          <div
+            key={idx}
+            className="rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
           >
-            ×
-          </button>
-        </div>
-
-        <p className="mb-3 text-sm text-slate-300">
-          {originCounts[selectedOrigin]} acciones registradas
-        </p>
-
-        <div className="space-y-2">
-          {rows
-    .filter((r) => {
-    const tipo = normalizeTipoAccion(
-      r.tipoAccion ?? r.Tipo_Accion ?? ""
-    );
-    const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
-    return `${tipo}__${perfil}` === selectedOrigin;
-  })
-    .map((r, idx) => (
-
-              <div
-                key={idx}
-                className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
-              >
-                <div className="font-medium">
-                  {r.jornada ?? r.JORNADA ?? "Partido"}
-  {(r.rival ?? r.Rival) ? ` · ${r.rival ?? r.Rival}` : ""}
-  Min {r.minuto ?? r.Minuto ?? "-"}
-  Resultado: {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
-                </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium text-sm">
+                {r.jornada ?? r.JORNADA ?? "Partido"}
+                {(r.rival ?? r.Rival) && (
+                  <span className="text-slate-400">
+                    {" "}· {r.rival ?? r.Rival}
+                  </span>
+                )}
               </div>
-            ))}
-        </div>
-      </div>
-    )}
+
+              <div className="text-xs text-slate-400 whitespace-nowrap">
+                Min {r.minuto ?? r.Minuto ?? "-"}
+              </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className="text-slate-400">Resultado</span>
+              <span className="font-medium text-[#E7D2A0]">
+                {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
+              </span>
+            </div>
+          </div>
+        ))}
+    </div>
+  </div>
+)}
 
     {/* Popup remate */}
     {selectedRemate && (

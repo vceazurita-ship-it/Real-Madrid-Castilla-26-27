@@ -476,54 +476,76 @@ return (
   </svg>
 
   {/* Popup origen */}
-  {selectedOrigin && (
-    <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-2 sm:w-72 max-h-[58vw] sm:max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-3 sm:p-4 text-white shadow-2xl backdrop-blur">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-semibold">{selectedOrigin}</h3>
-        <button
-          onClick={() => setSelectedOrigin(null)}
-          className="text-slate-400 hover:text-white"
-        >
-          ×
-        </button>
+{selectedOrigin && (
+
+<div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-3 sm:w-80 max-h-[62vw] sm:max-h-[26rem] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md"> <div className="mb-3 flex items-start justify-between gap-3"> <h3 className="text-base font-semibold leading-tight"> {selectedOrigin} </h3>
+
+  <button
+    onClick={() => setSelectedOrigin(null)}
+    className="rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
+  >
+    ×
+  </button>
+</div>
+
+<div className="mb-4 rounded-xl border border-[#C8A96B]/20 bg-[#0B1728] px-3 py-2">
+  <p className="text-xs uppercase tracking-wide text-slate-400">
+    Acciones registradas
+  </p>
+  <p className="text-lg font-semibold text-[#E7D2A0]">
+    {originCounts[selectedOrigin]}
+  </p>
+</div>
+
+<div className="space-y-2">
+  {rows
+    .filter((r) => normalizeTipoAccion(r.tipoAccion) === selectedOrigin)
+    .map((r, idx) => (
+      <div
+        key={idx}
+        className="rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-medium text-sm">
+            {r.jornada || "Partido"}
+            {r.rival && (
+              <span className="text-slate-400"> · {r.rival}</span>
+            )}
+          </div>
+
+          <div className="text-xs text-slate-400 whitespace-nowrap">
+            {r.tiempo || "-"}
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <div>
+            <span className="text-slate-400">Perfil</span>
+            <div className="text-slate-200">{r.perfil || "-"}</div>
+          </div>
+
+          <div>
+            <span className="text-slate-400">Envío</span>
+            <div className="text-slate-200">{r.tipoEnvio || "-"}</div>
+          </div>
+
+          <div className="col-span-2">
+            <span className="text-slate-400">Caída</span>
+            <div className="text-slate-200">{r.zonaCaida || "-"}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-xs">
+          <span className="text-slate-400">Resultado</span>
+          <span className="font-medium text-[#E7D2A0]">
+            {r.resultadoFinal || "-"}
+          </span>
+        </div>
       </div>
-
-      <p className="mb-3 text-sm text-slate-300">
-        {originCounts[selectedOrigin]} acciones registradas
-      </p>
-
-      <div className="space-y-2">
-        {rows
-          .filter((r) => normalizeTipoAccion(r.tipoAccion) === selectedOrigin)
-          .map((r, idx) => (
-            <div
-              key={idx}
-              className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
-            >
-              <div className="font-medium">
-                {r.jornada || "Partido"}
-                {r.rival ? ` · ${r.rival}` : ""}
-              </div>
-              <div className="text-slate-300">
-  {r.tiempo || "-"} · {r.perfil || "-"}
+    ))}
 </div>
 
-<div className="text-slate-300">
-  Envío: {r.tipoEnvio || "-"}
-</div>
-
-<div className="text-slate-300">
-  Caída: {r.zonaCaida || "-"}
-</div>
-
-<div className="text-slate-300">
-  Resultado: {r.resultadoFinal || "-"}
-</div>
-            </div>
-          ))}
-      </div>
-    </div>
-  )}
+</div> )}
 
   {/* Popup remate */}
   {selectedRemate && (
