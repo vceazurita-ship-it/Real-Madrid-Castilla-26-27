@@ -47,15 +47,15 @@
 
 function getOriginCoords(tipoAccion: string, perfil?: string) {
   const t = (tipoAccion || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "");
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
 
-  const p = (perfil || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "");
-
+const p = (perfil || "")
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+  
   const lado = p.includes("izquier")
     ? "I"
     : p.includes("derech")
