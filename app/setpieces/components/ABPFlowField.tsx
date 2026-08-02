@@ -80,15 +80,18 @@ const p = (perfil || "")
   }
 
   // -------------------------
-  // FALTA DIAGONAL
-  // -------------------------
-  if (t.includes("diagonal")) {
-    if (lado === "I") return { x: 12, y: 18, lane: "Exterior" as const };
-    if (lado === "D") return { x: 128, y: 18, lane: "Exterior" as const };
-    return { x: 70, y: 22, lane: "Centrado" as const };
-  }
+// FALTA DIAGONAL
+// -------------------------
+if (t.includes("diagonal")) {
+  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "5") as keyof typeof Z_Y;
+  const y = Z_Y[z] + 6; // un escalón más lejos que la lateral
 
- // -------------------------
+  if (lado === "I") return { x: 22, y, lane: "Interior" as const };
+  if (lado === "D") return { x: 118, y, lane: "Interior" as const };
+  return { x: 70, y, lane: "Centrado" as const };
+}
+
+// -------------------------
 // FALTAS LATERALES
 // -------------------------
 if (t.includes("falta lateral")) {
@@ -96,8 +99,8 @@ if (t.includes("falta lateral")) {
   const y = Z_Y[z];
   const interior = t.includes("interior");
 
-  // Pasillo exterior pegado a la banda
-  // Pasillo interior pegado al borde del área grande
+  // Exterior pegado a la banda
+  // Interior pegado al borde del área grande
   if (lado === "I") {
     return {
       x: interior ? 30 : 8,
@@ -117,35 +120,46 @@ if (t.includes("falta lateral")) {
   return { x: 70, y, lane: "Centrado" as const };
 }
 
-  // -------------------------
-  // FALTA DIRECTA PERFILADA
-  // -------------------------
-  if (t.includes("falta directa perfilada")) {
-    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
-    const y = Z_Y[z];
+// -------------------------
+// FALTA DIRECTA PERFILADA
+// -------------------------
+if (t.includes("falta directa perfilada")) {
+  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "4") as keyof typeof Z_Y;
+  const y = Z_Y[z] - 2;
 
-    if (lado === "I") return { x: 56, y, lane: "Interior" as const };
-    if (lado === "D") return { x: 84, y, lane: "Interior" as const };
+  // Muy cerca de la frontal y ligeramente escorada
+  if (lado === "I") return { x: 56, y, lane: "Interior" as const };
+  if (lado === "D") return { x: 84, y, lane: "Interior" as const };
 
-    return { x: 70, y, lane: "Centrado" as const };
-  }
+  return { x: 70, y, lane: "Centrado" as const };
+}
 
-  // -------------------------
-  // FALTA DIRECTA CENTRADA
-  // -------------------------
-  if (t.includes("falta directa centrada")) {
-    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
-    return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
-  }
+// -------------------------
+// FALTA DIRECTA CENTRADA
+// -------------------------
+if (t.includes("falta directa centrada")) {
+  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
 
-  // -------------------------
-  // FALTA INDIRECTA
-  // -------------------------
-  if (t.includes("falta indirecta")) {
-    const z = tipoAccion.match(/Z([3-6])/i)?.[1] as keyof typeof Z_Y | undefined;
-    if (z) return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
-    return { x: 70, y: 18, lane: "Centrado" as const };
-  }
+  // En el eje central, desde la frontal hacia atrás
+  const yMap: Record<keyof typeof Z_Y, number> = {
+    Z1: 20,
+    Z2: 26,
+    Z3: 34,
+    Z4: 42,
+    Z5: 50,
+    Z6: 58,
+  };
+
+  return { x: 70, y: yMap[z], lane: "Centrado" as const };
+}
+
+// -------------------------
+// FALTA INDIRECTA
+// -------------------------
+if (t.includes("falta indirecta")) {
+  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "4") as keyof typeof Z_Y;
+  return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
+}
 
   return null;
 }
