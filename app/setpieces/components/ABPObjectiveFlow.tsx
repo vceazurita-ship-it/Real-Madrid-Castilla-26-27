@@ -429,34 +429,42 @@ return (
             style={{ cursor: "pointer" }}
           >
             <rect
-              x="660"
-              y={y - 14}
-              width="150"
-              height="28"
-              rx="10"
-              fill="#0B1320"
-              stroke={color}
-            />
-            <circle cx="676" cy={y} r="5" fill={color} />
-            <text
-              x="690"
-              y={y + 4}
-              fill="white"
-              fontSize="12"
-              fontWeight="600"
-            >
-              {res}
-            </text>
-            <text
-              x="798"
-              y={y + 4}
-              textAnchor="end"
-              fill={color}
-              fontSize="12"
-              fontWeight="700"
-            >
-              {count}
-            </text>
+  x="900"
+  y={y - 14}
+  width="180"
+  height="28"
+  rx="10"
+  fill="#0B1320"
+  stroke={color}
+/>
+
+<circle
+  cx="916"
+  cy={y}
+  r="5"
+  fill={color}
+/>
+
+<text
+  x="930"
+  y={y + 4}
+  fill="white"
+  fontSize="11"
+  fontWeight="600"
+>
+  {res}
+</text>
+
+<text
+  x="1068"
+  y={y + 4}
+  textAnchor="end"
+  fill={color}
+  fontSize="12"
+  fontWeight="700"
+>
+  {count}
+</text>
           </g>
         );
       })}
