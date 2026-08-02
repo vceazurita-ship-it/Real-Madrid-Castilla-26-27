@@ -45,108 +45,107 @@
     Z6: 62,
   };
 
-  function getOriginCoords(tipoAccion: string, perfil?: string) {
+function getOriginCoords(tipoAccion: string, perfil?: string) {
   const t = (tipoAccion || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "");
 
-    const p = (perfil || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  const p = (perfil || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "");
 
-    const lado = p.includes("izquier")
-      ? "I"
-      : p.includes("derech")
-      ? "D"
-      : "C";
+  const lado = p.includes("izquier")
+    ? "I"
+    : p.includes("derech")
+    ? "D"
+    : "C";
 
-    // -------------------------
-    // CÓRNER
-    // -------------------------
-    if (t.includes("corner")) {
-      if (lado === "I") return { x: 2, y: 6, lane: "Exterior" as const };
-      if (lado === "D") return { x: 46, y: 6, lane: "Exterior" as const };
-      return { x: 24, y: 8, lane: "Centrado" as const };
-    }
-
-    // -------------------------
-    // PENALTI
-    // -------------------------
-    if (t.includes("penalti")) {
-      return { x: 70, y: 16, lane: "Centrado" as const };
-    }
-
-    // -------------------------
-    // FALTA DIAGONAL
-    // -------------------------
-    if (t.includes("diagonal")) {
-      if (lado === "I") return { x: 14, y: 18, lane: "Exterior" as const };
-      if (lado === "D") return { x: 34, y: 18, lane: "Exterior" as const };
-      return { x: 24, y: 22, lane: "Centrado" as const };
-    }
-
-    // -------------------------
-    // FALTAS LATERALES
-    // -------------------------
-    if (t.includes("falta lateral")) {
-      const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
-      const y = Z_Y[z];
-
-      const interior = t.includes("interior");
-
-      if (lado === "I") {
-        return {
-          x: interior ? 16 : 6,
-          y,
-          lane: interior ? ("Interior" as const) : ("Exterior" as const),
-        };
-      }
-
-      if (lado === "D") {
-        return {
-          x: interior ? 34 : 42,
-          y,
-          lane: interior ? ("Interior" as const) : ("Exterior" as const),
-        };
-      }
-
-      return { x: 24, y, lane: "Centrado" as const };
-    }
-
-    // -------------------------
-    // FALTA DIRECTA PERFILADA
-    // -------------------------
-    if (t.includes("falta directa perfilada")) {
-      const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
-      const y = Z_Y[z];
-
-      if (lado === "I") return { x: 20, y, lane: "Interior" as const };
-  if (lado === "D") return { x: 28, y, lane: "Interior" as const };
-
-      return { x: 24, y, lane: "Centrado" as const };
-    }
-
-    // -------------------------
-    // FALTA DIRECTA CENTRADA
-    // -------------------------
-    if (t.includes("falta directa centrada")) {
-      const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
-      return { x: 24, y: Z_Y[z], lane: "Centrado" as const };
-    }
-
-    // -------------------------
-    // FALTA INDIRECTA
-    // -------------------------
-    if (t.includes("falta indirecta")) {
-      const z = tipoAccion.match(/Z([3-6])/i)?.[1] as keyof typeof Z_Y | undefined;
-      if (z) return { x: 24, y: Z_Y[z], lane: "Centrado" as const };
-      return { x: 24, y: 18, lane: "Centrado" as const };
-    }
-
-    return null;
+  // -------------------------
+  // CÓRNER (PRUEBA EXAGERADA)
+  // -------------------------
+  if (t.includes("corner")) {
+    if (lado === "I") return { x: 2, y: 6, lane: "Exterior" as const };
+    if (lado === "D") return { x: 138, y: 6, lane: "Exterior" as const };
+    return { x: 70, y: 8, lane: "Centrado" as const };
   }
+
+  // -------------------------
+  // PENALTI
+  // -------------------------
+  if (t.includes("penalti")) {
+    return { x: 70, y: 16, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA DIAGONAL
+  // -------------------------
+  if (t.includes("diagonal")) {
+    if (lado === "I") return { x: 12, y: 18, lane: "Exterior" as const };
+    if (lado === "D") return { x: 128, y: 18, lane: "Exterior" as const };
+    return { x: 70, y: 22, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTAS LATERALES
+  // -------------------------
+  if (t.includes("falta lateral")) {
+    const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+    const y = Z_Y[z];
+    const interior = t.includes("interior");
+
+    if (lado === "I") {
+      return {
+        x: interior ? 18 : 6,
+        y,
+        lane: interior ? ("Interior" as const) : ("Exterior" as const),
+      };
+    }
+
+    if (lado === "D") {
+      return {
+        x: interior ? 122 : 134,
+        y,
+        lane: interior ? ("Interior" as const) : ("Exterior" as const),
+      };
+    }
+
+    return { x: 70, y, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA DIRECTA PERFILADA
+  // -------------------------
+  if (t.includes("falta directa perfilada")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
+    const y = Z_Y[z];
+
+    if (lado === "I") return { x: 56, y, lane: "Interior" as const };
+    if (lado === "D") return { x: 84, y, lane: "Interior" as const };
+
+    return { x: 70, y, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA DIRECTA CENTRADA
+  // -------------------------
+  if (t.includes("falta directa centrada")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
+    return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA INDIRECTA
+  // -------------------------
+  if (t.includes("falta indirecta")) {
+    const z = tipoAccion.match(/Z([3-6])/i)?.[1] as keyof typeof Z_Y | undefined;
+    if (z) return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
+    return { x: 70, y: 18, lane: "Centrado" as const };
+  }
+
+  return null;
+}
 
   function normalizeTipoAccion(tipo: string): string {
     return (tipo || "").trim();
