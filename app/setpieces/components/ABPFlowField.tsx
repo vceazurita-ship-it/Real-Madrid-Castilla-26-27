@@ -37,13 +37,13 @@
   };
 
   const Z_Y: Record<string, number> = {
-    Z1: 22,
-    Z2: 30,
-    Z3: 38,
-    Z4: 46,
-    Z5: 54,
-    Z6: 62,
-  };
+  Z1: 11, // mitad entre línea de fondo (2) y borde del área (20)
+  Z2: 20, // borde del área grande
+  Z3: 29,
+  Z4: 38,
+  Z5: 47,
+  Z6: 56,
+};
 
 function getOriginCoords(tipoAccion: string, perfil?: string) {
   const t = (tipoAccion || "")
@@ -144,10 +144,10 @@ if (t.includes("falta directa centrada")) {
   const yMap: Record<keyof typeof Z_Y, number> = {
     Z1: 20,
     Z2: 26,
-    Z3: 34,
-    Z4: 42,
-    Z5: 50,
-    Z6: 58,
+    Z3: 29,
+    Z4: 38,
+    Z5: 47,
+    Z6: 56,
   };
 
   return { x: 70, y: yMap[z], lane: "Centrado" as const };
