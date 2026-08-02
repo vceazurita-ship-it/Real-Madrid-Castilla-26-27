@@ -153,53 +153,121 @@ return (
   Resultado final
 </text>
 
-{acciones.map(([a], ai) =>
-  objetivos.map(([o], oi) => {
-    const value = data.linksAO.get(`${a}__${o}`) || 0;
-    if (!value) return null;
+{acciones.map(([a, count], i) => {
+  const y = yFor(i, acciones.length);
 
-    const y1 = yFor(ai, acciones.length);
-    const y2 = yFor(oi, objetivos.length);
-    const w = 2 + (value / maxLink) * 10;
-
-    return (
-      <path
-        key={`${a}-${o}`}
-        d={`M 170 ${y1} C 215 ${y1}, 235 ${y2}, 280 ${y2}`}
-        fill="none"
-        stroke="url(#goldPath)"
-        strokeWidth={w}
-        strokeLinecap="round"
-        opacity={0.82}
-        filter="url(#glow)"
+  return (
+    <g
+      key={a}
+      onClick={() =>
+        setSelected({
+          accion: a,
+          objetivo: "",
+          zona: "",
+          resultado: "",
+        })
+      }
+      style={{ cursor: "pointer" }}
+    >
+      <rect
+        x="10"
+        y={y - 14}
+        width="240"
+        height="28"
+        rx="10"
+        fill="#0B1320"
+        stroke="#334155"
       />
-    );
-  })
-)}
 
-{objetivos.map(([o], oi) =>
-  zonas.map(([z], zi) => {
-    const value = data.linksOZ.get(`${o}__${z}`) || 0;
-    if (!value) return null;
-
-    const y1 = yFor(oi, objetivos.length);
-    const y2 = yFor(zi, zonas.length);
-    const w = 2 + (value / maxLink) * 10;
-
-    return (
-      <path
-        key={`${o}-${z}`}
-        d={`M 440 ${y1} C 490 ${y1}, 510 ${y2}, 560 ${y2}`}
-        fill="none"
-        stroke="url(#goldPath)"
-        strokeWidth={w}
-        strokeLinecap="round"
-        opacity={0.82}
-        filter="url(#glow)"
+      <circle
+        cx="26"
+        cy={y}
+        r="5"
+        fill={COLORS.gold}
+        stroke={COLORS.goldLight}
       />
-    );
-  })
-)}
+
+      <text
+        x="40"
+        y={y + 4}
+        fill="white"
+        fontSize="11"
+        fontWeight="600"
+      >
+        {a}
+      </text>
+
+      <text
+        x="238"
+        y={y + 4}
+        textAnchor="end"
+        fill={COLORS.goldLight}
+        fontSize="12"
+        fontWeight="700"
+      >
+        {count}
+      </text>
+    </g>
+  );
+})}
+
+{objetivos.map(([o, count], i) => {
+  const y = yFor(i, objetivos.length);
+
+  return (
+    <g
+      key={o}
+      onClick={() =>
+        setSelected({
+          accion: "",
+          objetivo: o,
+          zona: "",
+          resultado: "",
+        })
+      }
+      style={{ cursor: "pointer" }}
+    >
+      <rect
+        x="280"
+        y={y - 14}
+        width="240"
+        height="28"
+        rx="10"
+        fill="#0B1320"
+        stroke="#334155"
+      />
+
+      <circle
+        cx="296"
+        cy={y}
+        r="5"
+        fill={COLORS.gold}
+        stroke={COLORS.goldLight}
+      />
+
+      <text
+        x="310"
+        y={y + 4}
+        fill="white"
+        fontSize="11"
+        fontWeight="600"
+      >
+        {o}
+      </text>
+
+      <text
+        x="518"
+        y={y + 4}
+        textAnchor="end"
+        fill={COLORS.goldLight}
+        fontSize="12"
+        fontWeight="700"
+      >
+        {count}
+      </text>
+    </g>
+  );
+})}
 
 {acciones.map(([a, count], i) => {
   const y = yFor(i, acciones.length);
