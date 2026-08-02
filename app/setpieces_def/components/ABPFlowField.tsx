@@ -32,59 +32,103 @@ export type ABPRow = {
   resultadoFinal?: string;
 };
 
-const zoneCoords: Record<string, { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }> = {
-// Córner
-"Córner": { x: 6, y: 6, lane: "Exterior" },
-
-// Penalti
-"Penalti": { x: 70, y: 16, lane: "Centrado" },
-
-// Diagonal
-"Falta diagonal": { x: 22, y: 18, lane: "Exterior" },
-
-// Pasillo exterior
-"Falta lateral exterior Z1": { x: 8, y: 22, lane: "Exterior" },
-"Falta lateral exterior Z2": { x: 8, y: 30, lane: "Exterior" },
-"Falta lateral exterior Z3": { x: 8, y: 38, lane: "Exterior" },
-"Falta lateral exterior Z4": { x: 8, y: 46, lane: "Exterior" },
-"Falta lateral exterior Z5": { x: 8, y: 54, lane: "Exterior" },
-"Falta lateral exterior Z6": { x: 8, y: 62, lane: "Exterior" },
-
-// Pasillo interior
-"Falta lateral interior Z1": { x: 18, y: 22, lane: "Interior" },
-"Falta lateral interior Z2": { x: 18, y: 30, lane: "Interior" },
-"Falta lateral interior Z3": { x: 18, y: 38, lane: "Interior" },
-"Falta lateral interior Z4": { x: 18, y: 46, lane: "Interior" },
-"Falta lateral interior Z5": { x: 18, y: 54, lane: "Interior" },
-"Falta lateral interior Z6": { x: 18, y: 62, lane: "Interior" },
-
-// Pasillo centrado
-"Falta lateral centrada Z1": { x: 34, y: 22, lane: "Centrado" },
-"Falta lateral centrada Z2": { x: 34, y: 30, lane: "Centrado" },
-"Falta lateral centrada Z3": { x: 34, y: 38, lane: "Centrado" },
-"Falta lateral centrada Z4": { x: 34, y: 46, lane: "Centrado" },
-"Falta lateral centrada Z5": { x: 34, y: 54, lane: "Centrado" },
-"Falta lateral centrada Z6": { x: 34, y: 62, lane: "Centrado" },
-
-// Directas perfiladas
-"Falta directa perfilada Z3": { x: 24, y: 38, lane: "Interior" },
-"Falta directa perfilada Z4": { x: 26, y: 46, lane: "Interior" },
-"Falta directa perfilada Z5": { x: 28, y: 54, lane: "Interior" },
-"Falta directa perfilada Z6": { x: 30, y: 62, lane: "Interior" },
-
-// Directas centradas
-"Falta directa centrada Z3": { x: 70, y: 38, lane: "Centrado" },
-"Falta directa centrada Z4": { x: 70, y: 46, lane: "Centrado" },
-"Falta directa centrada Z5": { x: 70, y: 54, lane: "Centrado" },
-"Falta directa centrada Z6": { x: 70, y: 62, lane: "Centrado" },
-
-// Indirectas
-"Falta indirecta en área": { x: 46, y: 16, lane: "Centrado" },
-"Falta indirecta Z3": { x: 44, y: 38, lane: "Centrado" },
-"Falta indirecta Z4": { x: 46, y: 46, lane: "Centrado" },
-"Falta indirecta Z5": { x: 48, y: 54, lane: "Centrado" },
-"Falta indirecta Z6": { x: 50, y: 62, lane: "Centrado" },
+const Z_Y: Record<string, number> = {
+  Z1: 11, // mitad entre línea de fondo (2) y borde del área (20)
+  Z2: 20, // borde del área grande
+  Z3: 29,
+  Z4: 38,
+  Z5: 47,
+  Z6: 56,
 };
+
+function getOriginCoords(tipoAccion: string, perfil?: string) {
+  const t = (tipoAccion || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "");
+
+  const p = (perfil || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "");
+
+  const lado =
+    p.includes("izq") || p.includes("izquier")
+      ? "I"
+      : p.includes("der") || p.includes("derech")
+      ? "D"
+      : "C";
+
+  // CÓRNER
+  if (t.includes("corner")) {
+    if (lado === "I") return { x: 2, y: 6, lane: "Exterior" as const };
+    if (lado === "D") return { x: 138, y: 6, lane: "Exterior" as const };
+    return { x: 70, y: 8, lane: "Centrado" as const };
+  }
+
+  // PENALTI
+  if (t.includes("penalti")) {
+    return { x: 70, y: 16, lane: "Centrado" as const };
+  }
+
+  // FALTA DIAGONAL
+  if (t.includes("diagonal")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+    const y = Math.min(Z_Y[z] + 9, 65);
+
+    if (lado === "I") return { x: 22, y, lane: "Interior" as const };
+    if (lado === "D") return { x: 118, y, lane: "Interior" as const };
+    return { x: 70, y, lane: "Centrado" as const };
+  }
+
+  // FALTAS LATERALES
+  if (t.includes("falta lateral")) {
+    const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+    const y = Z_Y[z];
+
+    if (t.includes("exterior")) {
+      if (lado === "I") return { x: 8, y, lane: "Exterior" as const };
+      if (lado === "D") return { x: 132, y, lane: "Exterior" as const };
+      return { x: 8, y, lane: "Exterior" as const };
+    }
+
+    if (t.includes("interior")) {
+      if (lado === "I") return { x: 30, y, lane: "Interior" as const };
+      if (lado === "D") return { x: 110, y, lane: "Interior" as const };
+      return { x: 30, y, lane: "Interior" as const };
+    }
+
+    if (lado === "I") return { x: 42, y, lane: "Centrado" as const };
+    if (lado === "D") return { x: 98, y, lane: "Centrado" as const };
+    return { x: 70, y, lane: "Centrado" as const };
+  }
+
+  // FALTA DIRECTA PERFILADA
+  if (t.includes("falta directa perfilada")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "4") as keyof typeof Z_Y;
+    const y = Z_Y[z];
+
+    if (lado === "I") return { x: 56, y, lane: "Interior" as const };
+    if (lado === "D") return { x: 84, y, lane: "Interior" as const };
+    return { x: 70, y, lane: "Centrado" as const };
+  }
+
+  // FALTA DIRECTA CENTRADA
+  if (t.includes("falta directa centrada")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
+    return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
+  }
+
+  // FALTA INDIRECTA
+  if (t.includes("falta indirecta")) {
+    if (t.includes("area")) return { x: 46, y: 16, lane: "Centrado" as const };
+
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "4") as keyof typeof Z_Y;
+    return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
+  }
+
+  return null;
+}
 
 const remateCoords: Record<string, { x: number; y: number }> = {
 "1P": { x: 50, y: 8 },
@@ -97,21 +141,8 @@ const remateCoords: Record<string, { x: number; y: number }> = {
 "No aplica": { x: 96, y: 28 },
 };
 
-function normalizeTipoAccion(v: string): string | null {
-if (!v) return null;
-if (zoneCoords[v]) return v;
-
-const t = v.toLowerCase();
-
-if (t.includes("córner") || t.includes("corner")) return "Córner";
-if (t.includes("penalti")) return "Penalti";
-if (t.includes("diagonal")) return "Falta diagonal";
-
-for (const k of Object.keys(zoneCoords)) {
-if (t === k.toLowerCase()) return k;
-}
-
-return null;
+function normalizeTipoAccion(tipo: string): string {
+  return (tipo || "").trim();
 }
 
 function normalizeZonaRemate(v?: string): string | null {
@@ -336,8 +367,12 @@ return (
 
     {/* Nodos de origen + dirección del envío */}
     {Object.entries(originCounts).map(([name, value]) => {
-      const p = zoneCoords[name];
-      if (!p) return null;
+  const perfil = rows.find(
+    (r) => normalizeTipoAccion(r.tipoAccion) === name
+  )?.perfil;
+
+  const p = getOriginCoords(name, perfil);
+  if (!p) return null;
 
       const r = 3 + Math.sqrt(value) * 2.2;
       const envios = originEnvios[name] || {};
@@ -438,91 +473,6 @@ return (
         </g>
       );
     })}
-
-    {/* Zonas de remate */}
-{Object.entries(originCounts).map(([name, value]) => {
-  const p = zoneCoords[name];
-  if (!p) return null;
-
-  const r = 3 + Math.sqrt(value) * 2.2;
-
-  const envios = originEnvios[name] || {};
-  const corto = envios["Corto"] || 0;
-  const directo =
-    (envios["Tenso"] || 0) +
-    (envios["Bombeado"] || 0) +
-    (envios["Directo"] || 0);
-
-  const total = corto + directo;
-  const ratioCorto = total ? corto / total : 0;
-  const ratioDirecto = total ? directo / total : 0;
-
-  return (
-    <g
-      key={name}
-      filter="url(#shadow)"
-      onClick={() => setSelectedOrigin(name)}
-      style={{ cursor: "pointer" }}
-    >
-      {/* Trayectoria directa */}
-      {ratioDirecto > 0 && (
-        <path
-          d={`M ${p.x} ${p.y} Q ${(p.x + 70) / 2} ${Math.max(8, p.y - 10)} 70 16`}
-          fill="none"
-          stroke="url(#goldPath)"
-          strokeWidth={1.1 + ratioDirecto * 1.2}
-          strokeLinecap="round"
-          opacity={0.45 + ratioDirecto * 0.35}
-          filter="url(#pathGlow)"
-        />
-      )}
-
-      {/* Trayectoria corto */}
-      {ratioCorto > 0 && (
-        <path
-          d={`M ${p.x} ${p.y} Q ${(p.x + 42) / 2} ${p.y - 4} 42 28`}
-          fill="none"
-          stroke="url(#bluePath)"
-          strokeWidth={1 + ratioCorto * 1.1}
-          strokeLinecap="round"
-          strokeDasharray="2.5 2.5"
-          opacity={0.45 + ratioCorto * 0.35}
-          filter="url(#pathGlow)"
-        />
-      )}
-
-      <circle
-        cx={p.x}
-        cy={p.y}
-        r={r + 0.7}
-        fill="none"
-        stroke="#F5E7C8"
-        strokeWidth="0.6"
-        opacity="0.95"
-      />
-
-      <circle
-        cx={p.x}
-        cy={p.y}
-        r={r}
-        fill="url(#goldNode)"
-        stroke="#F5E7C8"
-        strokeWidth="0.35"
-      />
-
-      <text
-        x={p.x}
-        y={p.y + 0.8}
-        textAnchor="middle"
-        fill="#FFFFFF"
-        fontSize="2.2"
-        fontWeight="700"
-      >
-        {value}
-      </text>
-    </g>
-  );
-})}
   </svg>
 
   {/* Popup origen */}
