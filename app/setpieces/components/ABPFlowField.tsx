@@ -55,10 +55,11 @@ const p = (perfil || "")
   .toLowerCase()
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "");
-  
-  const lado = p.includes("izquier")
+
+  const lado =
+  p.includes("izq") || p.includes("izquier")
     ? "I"
-    : p.includes("derech")
+    : p.includes("der") || p.includes("derech")
     ? "D"
     : "C";
 
@@ -87,32 +88,34 @@ const p = (perfil || "")
     return { x: 70, y: 22, lane: "Centrado" as const };
   }
 
-  // -------------------------
-  // FALTAS LATERALES
-  // -------------------------
-  if (t.includes("falta lateral")) {
-    const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
-    const y = Z_Y[z];
-    const interior = t.includes("interior");
+ // -------------------------
+// FALTAS LATERALES
+// -------------------------
+if (t.includes("falta lateral")) {
+  const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+  const y = Z_Y[z];
+  const interior = t.includes("interior");
 
-    if (lado === "I") {
-      return {
-        x: interior ? 18 : 6,
-        y,
-        lane: interior ? ("Interior" as const) : ("Exterior" as const),
-      };
-    }
-
-    if (lado === "D") {
-      return {
-        x: interior ? 122 : 134,
-        y,
-        lane: interior ? ("Interior" as const) : ("Exterior" as const),
-      };
-    }
-
-    return { x: 70, y, lane: "Centrado" as const };
+  // Pasillo exterior pegado a la banda
+  // Pasillo interior pegado al borde del área grande
+  if (lado === "I") {
+    return {
+      x: interior ? 30 : 8,
+      y,
+      lane: interior ? ("Interior" as const) : ("Exterior" as const),
+    };
   }
+
+  if (lado === "D") {
+    return {
+      x: interior ? 110 : 132,
+      y,
+      lane: interior ? ("Interior" as const) : ("Exterior" as const),
+    };
+  }
+
+  return { x: 70, y, lane: "Centrado" as const };
+}
 
   // -------------------------
   // FALTA DIRECTA PERFILADA
@@ -206,7 +209,7 @@ const p = (perfil || "")
   const perfil = (r.perfil ?? r.Perfil ?? "")
   .toLowerCase()
   .normalize("NFD")
-  .replace(/[\\u0300-\\u036f]/g, "");
+  .replace(/[\u0300-\u036f]/g, "");
 
 // La clave incluye el perfil para separar izquierda/derecha/centro
 const origen = `${tipo}__${perfil}`;
@@ -426,14 +429,14 @@ const origen = `${tipo}__${perfil}`;
 
   // Normalizamos para comparar siempre igual
   const perfil = (data?.perfil || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "");
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
 
   const tipo = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "");
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
 
   const corto = envios["Corto"] || 0;
   const directo =
