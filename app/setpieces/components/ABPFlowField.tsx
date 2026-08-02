@@ -35,101 +35,116 @@ export type ABPRow = {
   resultadoFinal?: string;
   Resultado_Final?: string;
 };
-const zoneCoords: Record<
-  string,
-  { x: number; y: number; lane?: "Exterior" | "Interior" | "Centrado" }
-> = {
-  // =========================
-  // CÓRNER
-  // =========================
-  // Izquierda
-  "Córner (I)": { x: 2, y: 6, lane: "Exterior" },
-  // Derecha
-  "Córner (D)": { x: 46, y: 6, lane: "Exterior" },
-  // Centro
-  "Córner (C)": { x: 24, y: 8, lane: "Centrado" },
 
-  // =========================
-  // PENALTI
-  // =========================
-  "Penalti": { x: 70, y: 16, lane: "Centrado" },
-
-  // =========================
-  // FALTA DIAGONAL
-  // =========================
-  "Falta diagonal (I)": { x: 14, y: 18, lane: "Exterior" },
-  "Falta diagonal (D)": { x: 34, y: 18, lane: "Exterior" },
-  "Falta diagonal (C)": { x: 24, y: 22, lane: "Centrado" },
-
-  // =========================
-  // FALTAS LATERALES IZQUIERDA
-  // =========================
-  "Falta lateral exterior Z1": { x: 6, y: 22, lane: "Exterior" },
-  "Falta lateral exterior Z2": { x: 6, y: 30, lane: "Exterior" },
-  "Falta lateral exterior Z3": { x: 6, y: 38, lane: "Exterior" },
-  "Falta lateral exterior Z4": { x: 6, y: 46, lane: "Exterior" },
-  "Falta lateral exterior Z5": { x: 6, y: 54, lane: "Exterior" },
-  "Falta lateral exterior Z6": { x: 6, y: 62, lane: "Exterior" },
-
-  "Falta lateral interior Z1": { x: 16, y: 22, lane: "Interior" },
-  "Falta lateral interior Z2": { x: 16, y: 30, lane: "Interior" },
-  "Falta lateral interior Z3": { x: 16, y: 38, lane: "Interior" },
-  "Falta lateral interior Z4": { x: 16, y: 46, lane: "Interior" },
-  "Falta lateral interior Z5": { x: 16, y: 54, lane: "Interior" },
-  "Falta lateral interior Z6": { x: 16, y: 62, lane: "Interior" },
-
-  // =========================
-  // FALTAS LATERALES DERECHA
-  // =========================
-  "Falta lateral exterior Z1 (D)": { x: 42, y: 22, lane: "Exterior" },
-  "Falta lateral exterior Z2 (D)": { x: 42, y: 30, lane: "Exterior" },
-  "Falta lateral exterior Z3 (D)": { x: 42, y: 38, lane: "Exterior" },
-  "Falta lateral exterior Z4 (D)": { x: 42, y: 46, lane: "Exterior" },
-  "Falta lateral exterior Z5 (D)": { x: 42, y: 54, lane: "Exterior" },
-  "Falta lateral exterior Z6 (D)": { x: 42, y: 62, lane: "Exterior" },
-
-  "Falta lateral interior Z1 (D)": { x: 34, y: 22, lane: "Interior" },
-  "Falta lateral interior Z2 (D)": { x: 34, y: 30, lane: "Interior" },
-  "Falta lateral interior Z3 (D)": { x: 34, y: 38, lane: "Interior" },
-  "Falta lateral interior Z4 (D)": { x: 34, y: 46, lane: "Interior" },
-  "Falta lateral interior Z5 (D)": { x: 34, y: 54, lane: "Interior" },
-  "Falta lateral interior Z6 (D)": { x: 34, y: 62, lane: "Interior" },
-
-  // =========================
-  // CENTRADAS
-  // =========================
-  "Falta lateral centrada Z1": { x: 24, y: 22, lane: "Centrado" },
-  "Falta lateral centrada Z2": { x: 24, y: 30, lane: "Centrado" },
-  "Falta lateral centrada Z3": { x: 24, y: 38, lane: "Centrado" },
-  "Falta lateral centrada Z4": { x: 24, y: 46, lane: "Centrado" },
-  "Falta lateral centrada Z5": { x: 24, y: 54, lane: "Centrado" },
-  "Falta lateral centrada Z6": { x: 24, y: 62, lane: "Centrado" },
-
-  // =========================
-  // DIRECTAS PERFILADAS
-  // =========================
-  "Falta directa perfilada Z3": { x: 24, y: 38, lane: "Interior" },
-  "Falta directa perfilada Z4": { x: 26, y: 46, lane: "Interior" },
-  "Falta directa perfilada Z5": { x: 28, y: 54, lane: "Interior" },
-  "Falta directa perfilada Z6": { x: 30, y: 62, lane: "Interior" },
-
-  // =========================
-  // DIRECTAS CENTRADAS
-  // =========================
-  "Falta directa centrada Z3": { x: 70, y: 38, lane: "Centrado" },
-  "Falta directa centrada Z4": { x: 70, y: 46, lane: "Centrado" },
-  "Falta directa centrada Z5": { x: 70, y: 54, lane: "Centrado" },
-  "Falta directa centrada Z6": { x: 70, y: 62, lane: "Centrado" },
-
-  // =========================
-  // INDIRECTAS
-  // =========================
-  "Falta indirecta en área": { x: 46, y: 16, lane: "Centrado" },
-  "Falta indirecta Z3": { x: 44, y: 38, lane: "Centrado" },
-  "Falta indirecta Z4": { x: 46, y: 46, lane: "Centrado" },
-  "Falta indirecta Z5": { x: 48, y: 54, lane: "Centrado" },
-  "Falta indirecta Z6": { x: 50, y: 62, lane: "Centrado" },
+const Z_Y: Record<string, number> = {
+  Z1: 22,
+  Z2: 30,
+  Z3: 38,
+  Z4: 46,
+  Z5: 54,
+  Z6: 62,
 };
+
+function getOriginCoords(tipoAccion: string, perfil?: string) {
+  const t = (tipoAccion || "").toLowerCase();
+  const p = (perfil || "").toLowerCase();
+
+  const lado = p.includes("izquier")
+    ? "I"
+    : p.includes("derech")
+    ? "D"
+    : "C";
+
+  // -------------------------
+  // CÓRNER
+  // -------------------------
+  if (t.includes("córner") || t.includes("corner")) {
+    if (lado === "I") return { x: 2, y: 6, lane: "Exterior" as const };
+    if (lado === "D") return { x: 46, y: 6, lane: "Exterior" as const };
+    return { x: 24, y: 8, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // PENALTI
+  // -------------------------
+  if (t.includes("penalti")) {
+    return { x: 70, y: 16, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA DIAGONAL
+  // -------------------------
+  if (t.includes("diagonal")) {
+    if (lado === "I") return { x: 14, y: 18, lane: "Exterior" as const };
+    if (lado === "D") return { x: 34, y: 18, lane: "Exterior" as const };
+    return { x: 24, y: 22, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTAS LATERALES
+  // -------------------------
+  if (t.includes("falta lateral")) {
+    const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+    const y = Z_Y[z];
+
+    const interior = t.includes("interior");
+
+    if (lado === "I") {
+      return {
+        x: interior ? 16 : 6,
+        y,
+        lane: interior ? ("Interior" as const) : ("Exterior" as const),
+      };
+    }
+
+    if (lado === "D") {
+      return {
+        x: interior ? 34 : 42,
+        y,
+        lane: interior ? ("Interior" as const) : ("Exterior" as const),
+      };
+    }
+
+    return { x: 24, y, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA DIRECTA PERFILADA
+  // -------------------------
+  if (t.includes("falta directa perfilada")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
+    const y = Z_Y[z];
+
+    if (lado === "I") return { x: 28, y, lane: "Interior" as const };
+    if (lado === "D") return { x: 20, y, lane: "Interior" as const };
+
+    return { x: 24, y, lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA DIRECTA CENTRADA
+  // -------------------------
+  if (t.includes("falta directa centrada")) {
+    const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
+    return { x: 24, y: Z_Y[z], lane: "Centrado" as const };
+  }
+
+  // -------------------------
+  // FALTA INDIRECTA
+  // -------------------------
+  if (t.includes("falta indirecta")) {
+    const z = tipoAccion.match(/Z([3-6])/i)?.[1] as keyof typeof Z_Y | undefined;
+    if (z) return { x: 24, y: Z_Y[z], lane: "Centrado" as const };
+    return { x: 24, y: 18, lane: "Centrado" as const };
+  }
+
+  return null;
+}
+
+function normalizeTipoAccion(tipo: string): string {
+  return (tipo || "").trim();
+}
+
 
 const remateCoords: Record<string, { x: number; y: number }> = {
 "1P": { x: 50, y: 8 },
@@ -142,66 +157,6 @@ const remateCoords: Record<string, { x: number; y: number }> = {
 "No aplica": { x: 96, y: 28 },
 };
 
-function normalizeTipoAccion(tipo: string, perfil?: string): string | null {
-  if (!tipo) return null;
-
-  const t = tipo.toLowerCase();
-  const p = (perfil || "").toLowerCase();
-
-  // Córner
-  if (t.includes("córner") || t.includes("corner")) {
-    if (p.includes("izquierdo")) return "Córner (I)";
-    if (p.includes("derecho")) return "Córner (D)";
-    return "Córner (C)";
-  }
-
-  // Penalti
-  if (t.includes("penalti")) return "Penalti";
-
-  // Falta diagonal
-  if (t.includes("diagonal")) {
-    if (p.includes("izquierdo")) return "Falta diagonal (I)";
-    if (p.includes("derecho")) return "Falta diagonal (D)";
-    return "Falta diagonal (C)";
-  }
-
-  // Faltas laterales
-  if (t.includes("falta lateral")) {
-    const z = tipo.match(/Z([1-6])/i)?.[1] ?? "6";
-
-    if (p.includes("izquierdo")) {
-      if (t.includes("interior")) return `Falta lateral interior Z${z}`;
-      return `Falta lateral exterior Z${z}`;
-    }
-
-    if (p.includes("derecho")) {
-      if (t.includes("interior")) return `Falta lateral interior Z${z} (D)`;
-      return `Falta lateral exterior Z${z} (D)`;
-    }
-
-    return `Falta lateral centrada Z${z}`;
-  }
-
-  // Directas perfiladas
-  if (t.includes("falta directa perfilada")) {
-    const z = tipo.match(/Z([3-6])/i)?.[1] ?? "3";
-    return `Falta directa perfilada Z${z}`;
-  }
-
-  // Directas centradas
-  if (t.includes("falta directa centrada")) {
-    const z = tipo.match(/Z([3-6])/i)?.[1] ?? "3";
-    return `Falta directa centrada Z${z}`;
-  }
-
-  // Indirectas
-  if (t.includes("falta indirecta")) {
-    const z = tipo.match(/Z([3-6])/i)?.[1];
-    return z ? `Falta indirecta Z${z}` : "Falta indirecta en área";
-  }
-
-  return tipo;
-}
 
 function normalizeZonaRemate(v?: string): string | null {
 if (!v) return null;
@@ -236,9 +191,8 @@ const { originCounts, originEnvios, remateStats } = useMemo(() => {
 
   rows.forEach((r) => {
   const origen = normalizeTipoAccion(
-    r.tipoAccion ?? r.Tipo_Accion ?? "",
-    r.perfil ?? r.Perfil ?? ""
-  );
+  r.tipoAccion ?? r.Tipo_Accion ?? ""
+);
 
   if (origen) {
     originCounts[origen] = (originCounts[origen] || 0) + 1;
@@ -444,24 +398,25 @@ return (
     {/* Nodos de origen */}
        {/* Nodos de origen + dirección del envío */}
 {Object.entries(originCounts).map(([name, value]) => {
-  const p = zoneCoords[name];
+  const data = originEnvios[name];
+  const p = getOriginCoords(name, data?.perfil);
   if (!p) return null;
 
   const r = 3 + Math.sqrt(value) * 2.2;
 
-  const data = originEnvios[name];
-const envios = data?.envios || {};
-const perfil = data?.perfil || "";
+  const envios = data?.envios || {};
+  const perfil = data?.perfil || "";
 
-const corto = envios["Corto"] || 0;
-const directo =
-  (envios["Tenso"] || 0) +
-  (envios["Bombeado"] || 0) +
-  (envios["Directo"] || 0);
+  const corto = envios["Corto"] || 0;
+  const directo =
+    (envios["Tenso"] || 0) +
+    (envios["Bombeado"] || 0) +
+    (envios["Directo"] || 0);
 
   const total = corto + directo;
   const ratioCorto = total ? corto / total : 0;
   const ratioDirecto = total ? directo / total : 0;
+
 
   // Destino según el lado
 let targetX = 70;
@@ -675,8 +630,7 @@ else if (name.startsWith("Falta directa centrada")) {
   .filter(
     (r) =>
       normalizeTipoAccion(
-        r.tipoAccion ?? r.Tipo_Accion ?? "",
-        r.perfil ?? r.Perfil ?? ""
+        r.tipoAccion ?? r.Tipo_Accion ?? ""
       ) === selectedOrigin
   )
   .map((r, idx) => (
