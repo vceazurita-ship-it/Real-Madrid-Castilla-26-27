@@ -654,48 +654,50 @@ else if (tipo.startsWith("penalti")) {
 
       {/* Zonas de remate */}
       {Object.entries(remateStats).map(([name, stat]) => {
-        const p = remateCoords[name];
-        if (!p) return null;
+  const p = remateCoords[name];
+  if (!p) return null;
 
-        const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
+  const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
 
-        return (
-          <g
-            key={name}
-            filter="url(#shadow)"
-            onClick={() => setSelectedRemate(name)}
-            style={{ cursor: "pointer" }}
-          >
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={r + 0.6}
-              fill="none"
-              stroke="#A7F3D0"
-              strokeWidth="0.5"
-            />
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={r}
-              fill="#10B981"
-              fillOpacity="0.9"
-              stroke="#D1FAE5"
-              strokeWidth="0.3"
-            />
-            <text
-              x={p.x}
-              y={p.y + 0.7}
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontSize="1.9"
-              fontWeight="700"
-            >
-              {stat.xg.toFixed(2)}
-            </text>
-          </g>
-        );
-      })}
+  return (
+    <g
+      key={name}
+      filter="url(#shadow)"
+      onClick={() => setSelectedRemate(name)}
+      style={{ cursor: "pointer" }}
+    >
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={r + 0.6}
+        fill="none"
+        stroke="#F5C2C7"
+        strokeWidth="0.5"
+      />
+
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={r}
+        fill="#7A1F2B"
+        fillOpacity="0.92"
+        stroke="#F8D7DA"
+        strokeWidth="0.3"
+      />
+
+      <text
+        x={p.x}
+        y={p.y + 0.7}
+        textAnchor="middle"
+        fill="#FFFFFF"
+        fontSize="1.9"
+        fontWeight="700"
+      >
+        {stat.xg.toFixed(2)}
+      </text>
+    </g>
+  );
+})}
     </svg>
 
     {/* Popup origen */}
