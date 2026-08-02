@@ -95,31 +95,33 @@ if (t.includes("diagonal")) {
 // FALTAS LATERALES
 // -------------------------
 if (t.includes("falta lateral")) {
-  const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+  // OJO: usamos el texto normalizado "t", no tipoAccion
+  const match = t.match(/z([1-6])/);
+  const z = (match ? (`Z${match[1]}` as keyof typeof Z_Y) : "Z6");
   const y = Z_Y[z];
 
   const esExterior = t.includes("exterior");
   const esInterior = t.includes("interior");
   const esCentrada = t.includes("centrada");
 
-  // Lateral centrada
+  // Centradas
   if (esCentrada || lado === "C") {
     return { x: 70, y, lane: "Centrado" as const };
   }
 
-  // Lateral interior (pegada al borde del área grande)
+  // Interiores
   if (esInterior) {
     if (lado === "I") return { x: 30, y, lane: "Interior" as const };
     if (lado === "D") return { x: 110, y, lane: "Interior" as const };
   }
 
-  // Lateral exterior (pegada a la banda)
+  // Exteriores
   if (esExterior) {
     if (lado === "I") return { x: 8, y, lane: "Exterior" as const };
     if (lado === "D") return { x: 132, y, lane: "Exterior" as const };
   }
 
-  // Fallback por si viene sin especificar
+  // Fallback
   if (lado === "I") return { x: 8, y, lane: "Exterior" as const };
   if (lado === "D") return { x: 132, y, lane: "Exterior" as const };
   return { x: 70, y, lane: "Centrado" as const };
