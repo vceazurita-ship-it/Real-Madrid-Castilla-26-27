@@ -51,41 +51,57 @@ return "Nada";
 
 export default function ABPObjectiveFlow({ rows }: { rows: ABPRow[] }) {
 const [selected, setSelected] = useState<{
-objetivo: string;
-zona: string;
-resultado: string;
+  accion: string;
+  objetivo: string;
+  zona: string;
+  resultado: string;
 } | null>(null);
 
 const data = useMemo(() => {
-const objetivos = new Map<string, number>();
-const zonas = new Map<string, number>();
-const resultados = new Map<string, number>();
-const linksOZ = new Map<string, number>();
-const linksZR = new Map<string, number>();
+  const acciones = new Map<string, number>();
+  const objetivos = new Map<string, number>();
+  const zonas = new Map<string, number>();
+  const resultados = new Map<string, number>();
 
-rows.forEach((r) => {
-  const o = objetivo(r);
-  const z = zona(r);
-  const res = resultado(r);
+  const linksAO = new Map<string, number>();
+  const linksOZ = new Map<string, number>();
+  const linksZR = new Map<string, number>();
 
-  objetivos.set(o, (objetivos.get(o) || 0) + 1);
-  zonas.set(z, (zonas.get(z) || 0) + 1);
-  resultados.set(res, (resultados.get(res) || 0) + 1);
+  rows.forEach((r) => {
+    const a = (r.tipoAccion || "Sin acción").trim();
+    const o = objetivo(r);
+    const z = zona(r);
+    const res = resultado(r);
 
-  linksOZ.set(`${o}__${z}`, (linksOZ.get(`${o}__${z}`) || 0) + 1);
-  linksZR.set(`${z}__${res}`, (linksZR.get(`${z}__${res}`) || 0) + 1);
-});
+    acciones.set(a, (acciones.get(a) || 0) + 1);
+    objetivos.set(o, (objetivos.get(o) || 0) + 1);
+    zonas.set(z, (zonas.get(z) || 0) + 1);
+    resultados.set(res, (resultados.get(res) || 0) + 1);
 
-return { objetivos, zonas, resultados, linksOZ, linksZR };
+    linksAO.set(`${a}__${o}`, (linksAO.get(`${a}__${o}`) || 0) + 1);
+    linksOZ.set(`${o}__${z}`, (linksOZ.get(`${o}__${z}`) || 0) + 1);
+    linksZR.set(`${z}__${res}`, (linksZR.get(`${z}__${res}`) || 0) + 1);
+  });
 
+  return {
+    acciones,
+    objetivos,
+    zonas,
+    resultados,
+    linksAO,
+    linksOZ,
+    linksZR,
+  };
 }, [rows]);
 
 const maxLink = Math.max(
-1,
-...Array.from(data.linksOZ.values()),
-...Array.from(data.linksZR.values())
+  1,
+  ...Array.from(data.linksAO.values()),
+  ...Array.from(data.linksOZ.values()),
+  ...Array.from(data.linksZR.values())
 );
 
+const acciones = Array.from(data.acciones.entries());
 const objetivos = Array.from(data.objetivos.entries());
 const zonas = Array.from(data.zonas.entries());
 const resultados = Array.from(data.resultados.entries());
@@ -107,10 +123,10 @@ return acc + (Number.isFinite(x) ? x : 0);
 return (
 <div className="w-full">
 <div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
-<svg viewBox="0 0 820 260" className="w-full min-w-[760px]">
+<svg viewBox="0 0 1120 260" className="w-full min-w-[980px]">
 <defs>
 <filter id="glow">
-<feGaussianBlur stdDeviation="3" result="blur" />
+<feGaussianBlur stdDeviation="3" result="blur" /> 
 <feMerge>
 <feMergeNode in="blur" />
 <feMergeNode in="SourceGraphic" />
@@ -125,122 +141,119 @@ return (
       </defs>
 
       <text x="10" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+  Tipo de acción
+</text>
+<text x="280" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
   Intención
 </text>
-<text x="340" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+<text x="560" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
   Zona de caída
 </text>
-<text x="640" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
+<text x="860" y="22" fill="#94A3B8" fontSize="11" fontWeight="600">
   Resultado final
 </text>
 
-      {objetivos.map(([o], oi) =>
-        zonas.map(([z], zi) => {
-          const value = data.linksOZ.get(`${o}__${z}`) || 0;
-          if (!value) return null;
+{acciones.map(([a], ai) =>
+  objetivos.map(([o], oi) => {
+    const value = data.linksAO.get(`${a}__${o}`) || 0;
+    if (!value) return null;
 
-          const y1 = yFor(oi, objetivos.length);
-          const y2 = yFor(zi, zonas.length);
-          const w = 2 + (value / maxLink) * 10;
+    const y1 = yFor(ai, acciones.length);
+    const y2 = yFor(oi, objetivos.length);
+    const w = 2 + (value / maxLink) * 10;
 
-          return (
-            <path
-              key={`${o}-${z}`}
-              d={`M 170 ${y1} C 250 ${y1}, 285 ${y2}, 360 ${y2}`}
-              fill="none"
-              stroke="url(#goldPath)"
-              strokeWidth={w}
-              strokeLinecap="round"
-              opacity={0.82}
-              filter="url(#glow)"
-            />
-          );
+    return (
+      <path
+        key={`${a}-${o}`}
+        d={`M 170 ${y1} C 215 ${y1}, 235 ${y2}, 280 ${y2}`}
+        fill="none"
+        stroke="url(#goldPath)"
+        strokeWidth={w}
+        strokeLinecap="round"
+        opacity={0.82}
+        filter="url(#glow)"
+      />
+    );
+  })
+)}
+
+{objetivos.map(([o], oi) =>
+  zonas.map(([z], zi) => {
+    const value = data.linksOZ.get(`${o}__${z}`) || 0;
+    if (!value) return null;
+
+    const y1 = yFor(oi, objetivos.length);
+    const y2 = yFor(zi, zonas.length);
+    const w = 2 + (value / maxLink) * 10;
+
+    return (
+      <path
+        key={`${o}-${z}`}
+        d={`M 440 ${y1} C 490 ${y1}, 510 ${y2}, 560 ${y2}`}
+        fill="none"
+        stroke="url(#goldPath)"
+        strokeWidth={w}
+        strokeLinecap="round"
+        opacity={0.82}
+        filter="url(#glow)"
+      />
+    );
+  })
+)}
+
+{acciones.map(([a, count], i) => {
+  const y = yFor(i, acciones.length);
+  return (
+    <g
+      key={a}
+      onClick={() =>
+        setSelected({
+          accion: a,
+          objetivo: "",
+          zona: "",
+          resultado: "",
         })
-      )}
-
-      {zonas.map(([z], zi) =>
-        resultados.map(([res], ri) => {
-          const value = data.linksZR.get(`${z}__${res}`) || 0;
-          if (!value) return null;
-
-          const y1 = yFor(zi, zonas.length);
-          const y2 = yFor(ri, resultados.length);
-          const w = 2 + (value / maxLink) * 10;
-
-          const color =
-            res === "Gol"
-              ? COLORS.green
-              : res === "Ocasión"
-              ? COLORS.green
-              : res === "ABP"
-              ? COLORS.blue
-              : res === "Transición rival"
-              ? COLORS.amber
-              : COLORS.gray;
-
-          return (
-            <path
-              key={`${z}-${res}`}
-              d={`M 470 ${y1} C 550 ${y1}, 585 ${y2}, 660 ${y2}`}
-              fill="none"
-              stroke={color}
-              strokeWidth={w}
-              strokeLinecap="round"
-              opacity={0.84}
-              filter="url(#glow)"
-            />
-          );
-        })
-      )}
-
-      {objetivos.map(([o, count], i) => {
-        const y = yFor(i, objetivos.length);
-        return (
-          <g
-            key={o}
-            onClick={() =>
-              setSelected({ objetivo: o, zona: "", resultado: "" })
-            }
-            style={{ cursor: "pointer" }}
-          >
-            <rect
-              x="10"
-              y={y - 14}
-              width="150"
-              height="28"
-              rx="10"
-              fill="#0B1320"
-              stroke="#334155"
-            />
-            <circle
-              cx="26"
-              cy={y}
-              r="5"
-              fill={COLORS.gold}
-              stroke={COLORS.goldLight}
-            />
-            <text
-              x="40"
-              y={y + 4}
-              fill="white"
-              fontSize="12"
-              fontWeight="600"
-            >
-              {o}
-            </text>
-            <text
-              x="148"
-              y={y + 4}
-              textAnchor="end"
-              fill={COLORS.goldLight}
-              fontSize="12"
-              fontWeight="700"
-            >
-              {count}
-            </text>
-          </g>
-        );
-      })}
+      }
+      style={{ cursor: "pointer" }}
+    >
+      <rect
+        x="10"
+        y={y - 14}
+        width="240"
+        height="28"
+        rx="10"
+        fill="#0B1320"
+        stroke="#334155"
+      />
+      <circle
+        cx="26"
+        cy={y}
+        r="5"
+        fill={COLORS.gold}
+        stroke={COLORS.goldLight}
+      />
+      <text
+        x="40"
+        y={y + 4}
+        fill="white"
+        fontSize="11"
+        fontWeight="600"
+      >
+        {a}
+      </text>
+      <text
+        x="238"
+        y={y + 4}
+        textAnchor="end"
+        fill={COLORS.goldLight}
+        fontSize="12"
+        fontWeight="700"
+      >
+        {count}
+      </text>
+    </g>
+  );
+})}
 
       {zonas.map(([z, count], i) => {
         const y = yFor(i, zonas.length);
@@ -248,7 +261,7 @@ return (
           <g
             key={z}
             onClick={() =>
-              setSelected({ objetivo: "", zona: z, resultado: "" })
+              setSelected({ accion: "", objetivo: "", zona: z, resultado: "" })
             }
             style={{ cursor: "pointer" }}
           >
@@ -309,7 +322,7 @@ return (
           <g
             key={res}
             onClick={() =>
-              setSelected({ objetivo: "", zona: "", resultado: res })
+              setSelected({ accion: "", objetivo: "", zona: "", resultado: res })
             }
             style={{ cursor: "pointer" }}
           >
@@ -413,11 +426,14 @@ return (
             const z = zona(r);
             const res = resultado(r);
 
-            return (
-              (!selected.objetivo || selected.objetivo === o) &&
-              (!selected.zona || selected.zona === z) &&
-              (!selected.resultado || selected.resultado === res)
-            );
+const a = (r.tipoAccion || "Sin acción").trim();
+
+return (
+  (!selected.accion || selected.accion === a) &&
+  (!selected.objetivo || selected.objetivo === o) &&
+  (!selected.zona || selected.zona === z) &&
+  (!selected.resultado || selected.resultado === res)
+);
           })
           .slice(0, 12)
           .map((r, idx) => (
