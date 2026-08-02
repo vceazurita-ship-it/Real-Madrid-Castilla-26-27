@@ -79,12 +79,12 @@ const p = (perfil || "")
     return { x: 70, y: 16, lane: "Centrado" as const };
   }
 
-  // -------------------------
+// -------------------------
 // FALTA DIAGONAL
 // -------------------------
 if (t.includes("diagonal")) {
-  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "5") as keyof typeof Z_Y;
-  const y = Z_Y[z] + 6; // un escalón más lejos que la lateral
+  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "6") as keyof typeof Z_Y;
+  const y = Math.min(Z_Y[z] + 9, 65); // un escalón más lejos que Z6
 
   if (lado === "I") return { x: 22, y, lane: "Interior" as const };
   if (lado === "D") return { x: 118, y, lane: "Interior" as const };
@@ -97,26 +97,31 @@ if (t.includes("diagonal")) {
 if (t.includes("falta lateral")) {
   const z = (tipoAccion.match(/Z([1-6])/i)?.[1] || "6") as keyof typeof Z_Y;
   const y = Z_Y[z];
-  const interior = t.includes("interior");
 
-  // Exterior pegado a la banda
-  // Interior pegado al borde del área grande
-  if (lado === "I") {
-    return {
-      x: interior ? 30 : 8,
-      y,
-      lane: interior ? ("Interior" as const) : ("Exterior" as const),
-    };
+  const esExterior = t.includes("exterior");
+  const esInterior = t.includes("interior");
+  const esCentrada = t.includes("centrada");
+
+  // Lateral centrada
+  if (esCentrada || lado === "C") {
+    return { x: 70, y, lane: "Centrado" as const };
   }
 
-  if (lado === "D") {
-    return {
-      x: interior ? 110 : 132,
-      y,
-      lane: interior ? ("Interior" as const) : ("Exterior" as const),
-    };
+  // Lateral interior (pegada al borde del área grande)
+  if (esInterior) {
+    if (lado === "I") return { x: 30, y, lane: "Interior" as const };
+    if (lado === "D") return { x: 110, y, lane: "Interior" as const };
   }
 
+  // Lateral exterior (pegada a la banda)
+  if (esExterior) {
+    if (lado === "I") return { x: 8, y, lane: "Exterior" as const };
+    if (lado === "D") return { x: 132, y, lane: "Exterior" as const };
+  }
+
+  // Fallback por si viene sin especificar
+  if (lado === "I") return { x: 8, y, lane: "Exterior" as const };
+  if (lado === "D") return { x: 132, y, lane: "Exterior" as const };
   return { x: 70, y, lane: "Centrado" as const };
 }
 
@@ -486,21 +491,16 @@ if (tipo.startsWith("corner")) {
 // FALTA LATERAL EXTERIOR
 else if (tipo.startsWith("falta lateral exterior")) {
   targetX = esDer ? 84 : 56;
+  targetY = 10;
+}
+else if (tipo.startsWith("falta lateral interior")) {
+  targetX = esDer ? 76 : 64;
   targetY = 12;
 }
-
-// FALTA LATERAL INTERIOR
-else if (tipo.startsWith("falta lateral interior")) {
-  targetX = esDer ? 78 : 62;
-  targetY = 14;
-}
-
-// FALTA LATERAL CENTRADA
 else if (tipo.startsWith("falta lateral centrada")) {
   targetX = 70;
-  targetY = 12;
+  targetY = 10;
 }
-
 // FALTA DIAGONAL
 else if (tipo.startsWith("falta diagonal")) {
   targetX = esDer ? 80 : 60;
