@@ -131,12 +131,24 @@ if (t.includes("falta lateral")) {
 // FALTA DIRECTA PERFILADA
 // -------------------------
 if (t.includes("falta directa perfilada")) {
-  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "4") as keyof typeof Z_Y;
-  const y = Z_Y[z] - 2;
+  const match = t.match(/z([3-6])/);
+  const z = (match ? (`Z${match[1]}` as keyof typeof Z_Y) : "Z3");
 
-  // Muy cerca de la frontal y ligeramente escorada
-  if (lado === "I") return { x: 56, y, lane: "Interior" as const };
-  if (lado === "D") return { x: 84, y, lane: "Interior" as const };
+  // Escala propia de directas: desde la frontal hacia atrás
+  const yMap: Record<keyof typeof Z_Y, number> = {
+    Z1: 11,
+    Z2: 20,
+    Z3: 26,
+    Z4: 34,
+    Z5: 42,
+    Z6: 50,
+  };
+
+  const y = yMap[z];
+
+  // Perfilada: ligeramente escorada respecto al eje central
+  if (lado === "I") return { x: 60, y, lane: "Interior" as const };
+  if (lado === "D") return { x: 80, y, lane: "Interior" as const };
 
   return { x: 70, y, lane: "Centrado" as const };
 }
@@ -145,16 +157,16 @@ if (t.includes("falta directa perfilada")) {
 // FALTA DIRECTA CENTRADA
 // -------------------------
 if (t.includes("falta directa centrada")) {
-  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "3") as keyof typeof Z_Y;
+  const match = t.match(/z([3-6])/);
+  const z = (match ? (`Z${match[1]}` as keyof typeof Z_Y) : "Z3");
 
-  // En el eje central, desde la frontal hacia atrás
   const yMap: Record<keyof typeof Z_Y, number> = {
-    Z1: 20,
-    Z2: 26,
-    Z3: 29,
-    Z4: 38,
-    Z5: 47,
-    Z6: 56,
+    Z1: 11,
+    Z2: 20,
+    Z3: 26,
+    Z4: 34,
+    Z5: 42,
+    Z6: 50,
   };
 
   return { x: 70, y: yMap[z], lane: "Centrado" as const };
@@ -164,8 +176,24 @@ if (t.includes("falta directa centrada")) {
 // FALTA INDIRECTA
 // -------------------------
 if (t.includes("falta indirecta")) {
-  const z = (tipoAccion.match(/Z([3-6])/i)?.[1] || "4") as keyof typeof Z_Y;
-  return { x: 70, y: Z_Y[z], lane: "Centrado" as const };
+  // Indirecta en área
+  if (t.includes("area")) {
+    return { x: 70, y: 16, lane: "Centrado" as const };
+  }
+
+  const match = t.match(/z([3-6])/);
+  const z = (match ? (`Z${match[1]}` as keyof typeof Z_Y) : "Z3");
+
+  const yMap: Record<keyof typeof Z_Y, number> = {
+    Z1: 11,
+    Z2: 20,
+    Z3: 26,
+    Z4: 34,
+    Z5: 42,
+    Z6: 50,
+  };
+
+  return { x: 70, y: yMap[z], lane: "Centrado" as const };
 }
 
   return null;
@@ -516,6 +544,10 @@ else if (tipo.startsWith("falta directa centrada")) {
 }
 else if (tipo.startsWith("falta directa perfilada")) {
   targetX = esDer ? 76 : 64;
+  targetY = 7;
+}
+else if (tipo.startsWith("falta indirecta")) {
+  targetX = 70;
   targetY = 8;
 }
 else if (tipo.startsWith("penalti")) {
