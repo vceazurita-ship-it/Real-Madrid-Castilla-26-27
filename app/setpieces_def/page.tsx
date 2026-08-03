@@ -302,7 +302,7 @@ const filtered = rows.filter((r) => {
         .includes("gol")
     : !r.resultadoFinal
         .toLowerCase()
-        .includes("gol")))
+        .includes("gol")));
 
   return (
     matchJornada &&
@@ -321,33 +321,29 @@ const equiposVisualizados = useMemo(
 );
 
   const metrics = {
-    total: filtered.length,
+  total: filtered.length,
 
-    xg: filtered.reduce(
-      (a, b) => a + b.xg,
-      0
-    ),
+  xg: filtered.reduce(
+    (a, b) => a + b.xg,
+    0
+  ),
 
-    shots: filtered.filter((r) => {
-  const remate =
-    r.remate
-      ?.trim()
-      .toLowerCase();
+  shots: filtered.filter((r) => {
+    const remate = r.remate?.trim().toLowerCase();
+    return remate === "sí" || remate === "si";
+  }).length,
 
-  return (
-    remate === "sí" ||
-    remate === "si"
-  );
-}).length,
+  // Gol que marca el rival (encajado)
+  goalsAgainst: filtered.filter((r) => {
+    const res = r.resultadoFinal.toLowerCase();
+    return res.includes("gol") && !res.includes("gol rmcf");
+  }).length,
 
-
-    goals: filtered.filter(
-      (r) =>
-        r.resultadoFinal
-          .toLowerCase()
-          .includes("gol")
-    ).length,
-  };
+  // Gol que marca el RMCF tras transición
+  goalsRMCF: filtered.filter((r) =>
+    r.resultadoFinal.toLowerCase().includes("gol rmcf")
+  ).length,
+};
 
   const tipoAccion =
     countBy(filtered, "tipoAccion");
@@ -544,23 +540,12 @@ const xgZonaCaida =
 
 const resultadoData = [
   {
-    name: "Gol",
-    total:
-      filtered.filter((r) =>
-        r.resultadoFinal
-          .toLowerCase()
-          .includes("gol")
-      ).length,
+    name: "Gol Rival",
+    total: metrics.goalsAgainst,
   },
   {
     name: "No Gol",
-    total:
-      filtered.filter(
-        (r) =>
-          !r.resultadoFinal
-            .toLowerCase()
-            .includes("gol")
-      ).length,
+    total: filtered.length - metrics.goalsAgainst,
   },
 ];
   const timeline = [
@@ -600,7 +585,7 @@ const resultadoData = [
 };
 const conversion =
   metrics.shots > 0
-    ? (metrics.goals / metrics.shots) * 100
+    ? (metrics.goalsAgainst / metrics.shots) * 100
     : 0;
 
 const xgAccion =
@@ -754,10 +739,14 @@ const cards = [
     "Remates",
     metrics.shots.toString(),
   ],
-  [
-    "Goles Encajados",
-    metrics.goals.toString(),
-  ],
+[
+  "Gol Rival",
+  metrics.goalsAgainst.toString(),
+],
+[
+  "Gol RMCF",
+  metrics.goalsRMCF.toString(),
+],
   [
     "Conversión Rival",
     `${conversion.toFixed(1)}%`,
@@ -830,13 +819,13 @@ const miniCards = [
       Math.max(metrics.total, 1)
     ).toFixed(2),
   ],
-  [
-    "Goles / ABP",
-    (
-      metrics.goals /
-      Math.max(metrics.total, 1)
-    ).toFixed(2),
-  ],
+[
+  "Gol Rival / ABP",
+  (
+    metrics.goalsAgainst /
+    Math.max(metrics.total, 1)
+  ).toFixed(2),
+],
 ];
 
 miniCards.forEach(
@@ -897,9 +886,10 @@ miniCards.forEach(
 const resumen = [
   `• ${metrics.total} acciones ABP defensivas analizadas`,
   `• ${metrics.xg.toFixed(2)} xG concedido`,
-  `• Conversión rival del ${conversion.toFixed(1)}%`,
-  `• ${metrics.shots} remates recibidos`,
-  `• ${metrics.goals} goles encajados`,
+`• Conversión rival del ${conversion.toFixed(1)}%`,
+`• ${metrics.shots} remates recibidos`,
+`• ${metrics.goalsAgainst} goles encajados`,
+`• ${metrics.goalsRMCF} goles RMCF tras transición`,
   `• Sacador rival más peligroso: ${sacadorData[0]?.name || "-"}`,
   `• xG concedido por acción: ${xgAccion.toFixed(2)}`,
 ];
@@ -1615,9 +1605,14 @@ originalStyles.forEach(
   />
 
   <Card
-    title="Goles"
-    value={metrics.goals.toLocaleString()}
-  />
+  title="Gol Rival"
+  value={metrics.goalsAgainst.toLocaleString()}
+/>
+
+<Card
+  title="Gol RMCF"
+  value={metrics.goalsRMCF.toLocaleString()}
+/>
   <div
 className="
   h-[96px]
@@ -2454,12 +2449,13 @@ const words =
       <Pie
         data={resultadoData}
          onClick={(data) =>
-    toggleFilter(
-      "resultadoFinal",
-      data.name === "Gol"
-        ? "Gol"
-        : "No Gol"
-    )}
+  toggleFilter(
+    "resultadoFinal",
+    data.name === "Gol Rival"
+      ? "Gol Rival"
+      : "No Gol"
+  )
+}
         dataKey="total"
         nameKey="name"
 innerRadius={isMobile ? 65 : 95}
