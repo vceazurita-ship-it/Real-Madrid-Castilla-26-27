@@ -1540,9 +1540,8 @@ originalStyles.forEach(
     grid
     gap-3
     grid-cols-2
-    sm:grid-cols-3
-    lg:grid-cols-4
-    xl:grid-cols-7
+    sm:grid-cols-4
+    xl:grid-cols-8
   "
 >
   <Card
@@ -2546,29 +2545,29 @@ function Card({
         border-white/10
         bg-white/[0.03]
         p-3
-        sm:p-5
+        sm:p-4
         flex
         flex-col
         justify-between
       "
     >
-      <p className="text-xs sm:text-sm text-zinc-400">
-  {title}
-</p>
+      <p className="text-[11px] sm:text-xs text-zinc-400 leading-tight">
+        {title}
+      </p>
 
-<h3
-  className="
-    mt-2
-    text-lg
-    sm:text-2xl
-    lg:text-[34px]
-    font-semibold
-    leading-none
-    truncate
-  "
->
-  {value}
-</h3>
+      <h3
+        className="
+          mt-2
+          text-lg
+          sm:text-xl
+          xl:text-2xl
+          font-semibold
+          leading-none
+          text-white
+        "
+      >
+        {value}
+      </h3>
     </div>
   );
 }
