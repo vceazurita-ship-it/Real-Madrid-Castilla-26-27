@@ -727,36 +727,16 @@ doc.text(
   // ==========================================
 
 const cards = [
-  [
-    "ABP",
-    metrics.total.toString(),
-  ],
-  [
-    "xG Concedido",
-    metrics.xg.toFixed(2),
-  ],
-  [
-    "Remates",
-    metrics.shots.toString(),
-  ],
-[
-  "Gol Rival",
-  metrics.goalsAgainst.toString(),
-],
-[
-  "Gol RMCF",
-  metrics.goalsRMCF.toString(),
-],
-  [
-    "Conversión Rival",
-    `${conversion.toFixed(1)}%`,
-  ],
+  ["ABP", metrics.total.toString()],
+  ["xG Concedido", metrics.xg.toFixed(2)],
+  ["Remates", metrics.shots.toString()],
+  ["Gol Rival", metrics.goalsAgainst.toString()],
+  ["Gol RMCF", metrics.goalsRMCF.toString()],
+  ["Conversión Rival", `${conversion.toFixed(1)}%`],
 ];
 
-  cards.forEach(
-    ([title, value], i) => {
-      const x =
-        20 + i * 50;
+  cards.forEach(([title, value], i) => {
+  const x = 18 + i * 44;
 
       doc.setFillColor(
         245,
