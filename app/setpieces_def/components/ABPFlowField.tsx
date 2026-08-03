@@ -236,7 +236,10 @@ if (t.includes("falta indirecta")) {
   }
 
   export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
-  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+  const [selectedOrigin, setSelectedOrigin] = useState<{
+  key: string;
+  tipo: "corto" | "directo" | "origen";
+} | null>(null);
   const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
 
   const { originCounts, originEnvios, remateStats } = useMemo(() => {
@@ -497,158 +500,282 @@ const origen = `${tipo}__${perfil}`;
   const ratioCorto = total ? corto / total : 0;
   const ratioDirecto = total ? directo / total : 0;
 
-  // Destino según el lado
-  let targetX = 70;
-  let targetY = 14;
+ // Destino según el lado
+let targetX = 70;
+let targetY = 14;
 
-  const esIzq = perfil.includes("izquier");
-  const esDer = perfil.includes("derech");
+// Destino para juego en corto (azul)
+let cortoX = p.x;
+let cortoY = p.y + 8;
 
-   // CÓRNER
+// Destinos posibles al área (dorado)
+let destinosArea: { x: number; y: number }[] = [];
+
+const esIzq = perfil.includes("izquier");
+const esDer = perfil.includes("derech");
+
+// ---------- CÓRNER ----------
 if (tipo.startsWith("corner")) {
-  if (esIzq) {
-    targetX = corto > directo ? 58 : 54;
-    targetY = corto > directo ? 13 : 8;
-  } else if (esDer) {
-    targetX = corto > directo ? 82 : 86;
-    targetY = corto > directo ? 13 : 8;
-  } else {
-    targetX = 70;
-    targetY = corto > directo ? 12 : 8;
-  }
+  cortoX = esIzq ? 22 : esDer ? 118 : 70;
+  cortoY = 16;
+
+  destinosArea = esIzq
+    ? [
+        { x: 56, y: 8 },   // Primer palo
+        { x: 70, y: 10 },  // Penalti
+        { x: 84, y: 8 },   // Segundo palo
+        { x: 70, y: 18 },  // Frontal
+      ]
+    : [
+        { x: 84, y: 8 },
+        { x: 70, y: 10 },
+        { x: 56, y: 8 },
+        { x: 70, y: 18 },
+      ];
 }
 
-// FALTA LATERAL EXTERIOR
+// ---------- FALTA LATERAL EXTERIOR ----------
 else if (tipo.startsWith("falta lateral exterior")) {
-  targetX = esDer ? 84 : 56;
-  targetY = 10;
+  cortoX = esIzq ? 18 : 122;
+  cortoY = p.y + 5;
+
+  destinosArea = esIzq
+    ? [
+        { x: 54, y: 8 },
+        { x: 70, y: 10 },
+        { x: 86, y: 8 },
+      ]
+    : [
+        { x: 86, y: 8 },
+        { x: 70, y: 10 },
+        { x: 54, y: 8 },
+      ];
 }
+
+// ---------- FALTA LATERAL INTERIOR ----------
 else if (tipo.startsWith("falta lateral interior")) {
-  targetX = esDer ? 76 : 64;
-  targetY = 12;
+  cortoX = esIzq ? 38 : 102;
+  cortoY = p.y + 4;
+
+  destinosArea = esIzq
+    ? [
+        { x: 60, y: 10 },
+        { x: 72, y: 12 },
+        { x: 84, y: 10 },
+      ]
+    : [
+        { x: 80, y: 10 },
+        { x: 68, y: 12 },
+        { x: 56, y: 10 },
+      ];
 }
+
+// ---------- FALTA LATERAL CENTRADA ----------
 else if (tipo.startsWith("falta lateral centrada")) {
-  targetX = 70;
-  targetY = 10;
+  cortoX = 70;
+  cortoY = p.y + 4;
+
+  destinosArea = [
+    { x: 58, y: 10 },
+    { x: 70, y: 9 },
+    { x: 82, y: 10 },
+  ];
 }
-// FALTA DIAGONAL
+
+// ---------- FALTA DIAGONAL ----------
 else if (tipo.startsWith("falta diagonal")) {
-  targetX = esDer ? 80 : 60;
-  targetY = 10;
+  cortoX = esIzq ? p.x + 10 : p.x - 10;
+  cortoY = p.y + 4;
+
+  destinosArea = esIzq
+    ? [
+        { x: 58, y: 9 },
+        { x: 70, y: 10 },
+        { x: 84, y: 8 },
+      ]
+    : [
+        { x: 82, y: 8 },
+        { x: 70, y: 10 },
+        { x: 56, y: 9 },
+      ];
 }
 
-// DIRECTAS
+// ---------- FALTA DIRECTA CENTRADA ----------
 else if (tipo.startsWith("falta directa centrada")) {
-  targetX = 70;
-  targetY = 6;
-}
-else if (tipo.startsWith("falta directa perfilada")) {
-  targetX = esDer ? 76 : 64;
-  targetY = 7;
-}
-else if (tipo.startsWith("falta indirecta")) {
-  targetX = 70;
-  targetY = 8;
-}
-else if (tipo.startsWith("penalti")) {
-  targetX = 70;
-  targetY = 4;
+  cortoX = 70;
+  cortoY = p.y + 3;
+
+  destinosArea = [
+    { x: 70, y: 4 },
+    { x: 66, y: 6 },
+    { x: 74, y: 6 },
+  ];
 }
 
+// ---------- FALTA DIRECTA PERFILADA ----------
+else if (tipo.startsWith("falta directa perfilada")) {
+  cortoX = esIzq ? p.x + 8 : p.x - 8;
+  cortoY = p.y + 3;
+
+  destinosArea = esIzq
+    ? [
+        { x: 64, y: 5 },
+        { x: 70, y: 4 },
+        { x: 76, y: 6 },
+      ]
+    : [
+        { x: 76, y: 5 },
+        { x: 70, y: 4 },
+        { x: 64, y: 6 },
+      ];
+}
+
+// ---------- FALTA INDIRECTA ----------
+else if (tipo.startsWith("falta indirecta")) {
+  cortoX = 70;
+  cortoY = p.y + 4;
+
+  destinosArea = [
+    { x: 60, y: 8 },
+    { x: 70, y: 9 },
+    { x: 80, y: 8 },
+  ];
+}
+
+// ---------- PENALTI ----------
+else if (tipo.startsWith("penalti")) {
+  cortoX = 70;
+  cortoY = 18;
+
+  destinosArea = [
+    { x: 66, y: 3 },
+    { x: 70, y: 2.5 },
+    { x: 74, y: 3 },
+  ];
+}
+
+// Elegimos un destino diferente para el envío al área
+if (destinosArea.length > 0) {
+  const d = destinosArea[value % destinosArea.length];
+  targetX = d.x;
+  targetY = d.y;
+}
     return (
       <g
-        key={key}
-        filter="url(#shadow)"
-        onClick={() => setSelectedOrigin(key)}
-        style={{ cursor: "pointer" }}
-      >
-        {ratioDirecto > 0 && (
-          <>
-            <path
-              d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
-                6,
-                p.y - 10
-              )} ${targetX} ${targetY}`}
-              fill="none"
-              stroke="#F5E7C8"
-              strokeWidth={2.8 + ratioDirecto * 1.2}
-              strokeLinecap="round"
-              opacity="0.12"
-              filter="url(#pathGlow)"
-            />
-            <path
-              d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
-                6,
-                p.y - 10
-              )} ${targetX} ${targetY}`}
-              fill="none"
-              stroke="url(#goldPath)"
-              strokeWidth={1.4 + ratioDirecto * 1.1}
-              strokeLinecap="round"
-              opacity={0.7 + ratioDirecto * 0.2}
-              markerEnd="url(#arrowGold)"
-            />
-          </>
-        )}
+  key={key}
+  filter="url(#shadow)"
+  onClick={() =>
+  setSelectedOrigin({
+    key,
+    tipo: "origen",
+  })
+}
+  style={{ cursor: "pointer" }}
+>
+  {/* Envío directo al área (DORADO) */}
+{ratioDirecto > 0 && (
+  <>
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
+        6,
+        p.y - 10
+      )} ${targetX} ${targetY}`}
+      fill="none"
+      stroke="#F5E7C8"
+      strokeWidth={2.8 + ratioDirecto * 1.2}
+      strokeLinecap="round"
+      opacity="0.12"
+      filter="url(#pathGlow)"
+    />
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
+        6,
+        p.y - 10
+      )} ${targetX} ${targetY}`}
+      fill="none"
+      stroke="url(#goldPath)"
+      strokeWidth={1.4 + ratioDirecto * 1.1}
+      strokeLinecap="round"
+      opacity={0.75 + ratioDirecto * 0.2}
+      markerEnd="url(#arrowGold)"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedOrigin({
+          key,
+          tipo: "directo",
+        });
+      }}
+      style={{ cursor: "pointer" }}
+    />
+  </>
+)}
 
-        {ratioCorto > 0 && (
-          <>
-            <path
-              d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${
-                p.y - 4
-              } ${(p.x + targetX) / 2} ${p.y + 8}`}
-              fill="none"
-              stroke="#DBEAFE"
-              strokeWidth={2.4 + ratioCorto * 1.0}
-              strokeLinecap="round"
-              opacity="0.10"
-              filter="url(#pathGlow)"
-            />
-            <path
-              d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${
-                p.y - 4
-              } ${(p.x + targetX) / 2} ${p.y + 8}`}
-              fill="none"
-              stroke="url(#bluePath)"
-              strokeWidth={1.2 + ratioCorto * 0.9}
-              strokeLinecap="round"
-              strokeDasharray="3 2.5"
-              opacity={0.7 + ratioCorto * 0.2}
-              markerEnd="url(#arrowBlue)"
-            />
-          </>
-        )}
+{/* Juego en corto (AZUL) */}
+{ratioCorto > 0 && (
+  <>
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + cortoX) / 2} ${p.y - 3} ${cortoX} ${cortoY}`}
+      fill="none"
+      stroke="#DBEAFE"
+      strokeWidth={2.4 + ratioCorto * 1.0}
+      strokeLinecap="round"
+      opacity="0.10"
+      filter="url(#pathGlow)"
+    />
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + cortoX) / 2} ${p.y - 3} ${cortoX} ${cortoY}`}
+      fill="none"
+      stroke="url(#bluePath)"
+      strokeWidth={1.2 + ratioCorto * 0.9}
+      strokeLinecap="round"
+      strokeDasharray="3 2.5"
+      opacity={0.75 + ratioCorto * 0.2}
+      markerEnd="url(#arrowBlue)"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedOrigin({
+          key,
+          tipo: "corto",
+        });
+      }}
+      style={{ cursor: "pointer" }}
+    />
+  </>
+)}
 
-        <circle
-          cx={p.x}
-          cy={p.y}
-          r={r + 0.7}
-          fill="none"
-          stroke="#F5E7C8"
-          strokeWidth="0.6"
-          opacity="0.95"
-        />
+  {/* Nodo exterior */}
+  <circle
+    cx={p.x}
+    cy={p.y}
+    r={r + 0.7}
+    fill="none"
+    stroke="#F5E7C8"
+    strokeWidth="0.6"
+    opacity="0.95"
+  />
 
-        <circle
-          cx={p.x}
-          cy={p.y}
-          r={r}
-          fill="url(#goldNode)"
-          stroke="#F5E7C8"
-          strokeWidth="0.35"
-        />
+  {/* Nodo principal */}
+  <circle
+    cx={p.x}
+    cy={p.y}
+    r={r}
+    fill="url(#goldNode)"
+    stroke="#F5E7C8"
+    strokeWidth="0.35"
+  />
 
-        <text
-          x={p.x}
-          y={p.y + 0.8}
-          textAnchor="middle"
-          fill="#FFFFFF"
-          fontSize="2.2"
-          fontWeight="700"
-        >
-          {value}
-        </text>
-      </g>
+  {/* Contador */}
+  <text
+    x={p.x}
+    y={p.y + 0.8}
+    textAnchor="middle"
+    fill="#FFFFFF"
+    fontSize="2.2"
+    fontWeight="700"
+  >
+    {value}
+  </text>
+</g>
     );
   })}
 
@@ -700,83 +827,91 @@ else if (tipo.startsWith("penalti")) {
 })}
     </svg>
 
-    {/* Popup origen */}
-{selectedOrigin && (
-  <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-3 sm:w-80 max-h-[62vw] sm:max-h-[26rem] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md">
-    <div className="mb-3 flex items-start justify-between gap-3">
-      {(() => {
-        const [popupName, popupPerfil] = selectedOrigin.split("__");
-        return (
-          <div>
-            <h3 className="text-base font-semibold leading-tight">
-              {popupName}
-            </h3>
-            {popupPerfil && (
-              <p className="text-xs text-slate-400 mt-0.5 capitalize">
-                {popupPerfil}
-              </p>
-            )}
-          </div>
-        );
-      })()}
+   {/* Popup origen */}
+{selectedOrigin && (() => {
+  const origin = selectedOrigin;
+  const [popupName, popupPerfil] = origin.key.split("__");
 
-      <button
-        onClick={() => setSelectedOrigin(null)}
-        className="rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
-      >
-        ×
-      </button>
-    </div>
+  const subtitle =
+    origin.tipo === "corto"
+      ? "Juego en corto"
+      : origin.tipo === "directo"
+      ? "Envíos al área"
+      : "Todas las variantes";
 
-    <div className="mb-4 rounded-xl border border-[#C8A96B]/20 bg-[#0B1728] px-3 py-2">
-      <p className="text-xs uppercase tracking-wide text-slate-400">
-        Acciones registradas
-      </p>
-      <p className="text-lg font-semibold text-[#E7D2A0]">
-        {originCounts[selectedOrigin]}
-      </p>
-    </div>
+  return (
+    <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-3 sm:w-80 max-h-[62vw] sm:max-h-[26rem] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md">
 
-    <div className="space-y-2">
-      {rows
-        .filter((r) => {
-          const tipo = normalizeTipoAccion(
-            r.tipoAccion ?? r.Tipo_Accion ?? ""
-          );
-          const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
-          return `${tipo}__${perfil}` === selectedOrigin;
-        })
-        .map((r, idx) => (
-          <div
-            key={idx}
-            className="rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-sm">
-                {r.jornada ?? r.JORNADA ?? "Partido"}
-                {(r.rival ?? r.Rival) && (
-                  <span className="text-slate-400">
-                    {" "}· {r.rival ?? r.Rival}
-                  </span>
-                )}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold leading-tight">
+            {popupName}
+          </h3>
+
+          <p className="mt-0.5 text-xs text-slate-400 capitalize">
+            {popupPerfil ? `${popupPerfil} · ` : ""}
+            {subtitle}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setSelectedOrigin(null)}
+          className="rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-[#C8A96B]/20 bg-[#0B1728] px-3 py-2">
+        <p className="text-xs uppercase tracking-wide text-slate-400">
+          Acciones registradas
+        </p>
+        <p className="text-lg font-semibold text-[#E7D2A0]">
+          {originCounts[origin.key]}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {rows
+          .filter((r) => {
+            const tipo = normalizeTipoAccion(
+              r.tipoAccion ?? r.Tipo_Accion ?? ""
+            );
+            const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
+            return `${tipo}__${perfil}` === origin.key;
+          })
+          .map((r, idx) => (
+            <div
+              key={idx}
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium text-sm">
+                  {r.jornada ?? r.JORNADA ?? "Partido"}
+                  {(r.rival ?? r.Rival) && (
+                    <span className="text-slate-400">
+                      {" "}· {r.rival ?? r.Rival}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-xs text-slate-400 whitespace-nowrap">
+                  Min {r.minuto ?? r.Minuto ?? "-"}
+                </div>
               </div>
 
-              <div className="text-xs text-slate-400 whitespace-nowrap">
-                Min {r.minuto ?? r.Minuto ?? "-"}
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-slate-400">Resultado</span>
+                <span className="font-medium text-[#E7D2A0]">
+                  {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
+                </span>
               </div>
             </div>
-
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-slate-400">Resultado</span>
-              <span className="font-medium text-[#E7D2A0]">
-                {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
-              </span>
-            </div>
-          </div>
-        ))}
+          ))}
+      </div>
     </div>
-  </div>
-)}
+  );
+})()}
 
     {/* Popup remate */}
     {selectedRemate && (

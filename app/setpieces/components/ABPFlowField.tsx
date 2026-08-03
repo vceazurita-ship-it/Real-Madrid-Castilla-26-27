@@ -236,7 +236,10 @@ if (t.includes("falta indirecta")) {
   }
 
   export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
-  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+  const [selectedOrigin, setSelectedOrigin] = useState<{
+  key: string;
+  tipo: "corto" | "directo" | "origen";
+} | null>(null);
   const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
 
   const { originCounts, originEnvios, remateStats } = useMemo(() => {
@@ -662,63 +665,84 @@ if (destinosArea.length > 0) {
       <g
   key={key}
   filter="url(#shadow)"
-  onClick={() => setSelectedOrigin(key)}
+  onClick={() =>
+    setSelectedOrigin({
+      key,
+      tipo: "origen",
+    })
+  }
   style={{ cursor: "pointer" }}
 >
   {/* Envío directo al área (DORADO) */}
-  {ratioDirecto > 0 && (
-    <>
-      <path
-        d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
-          6,
-          p.y - 10
-        )} ${targetX} ${targetY}`}
-        fill="none"
-        stroke="#F5E7C8"
-        strokeWidth={2.8 + ratioDirecto * 1.2}
-        strokeLinecap="round"
-        opacity="0.12"
-        filter="url(#pathGlow)"
-      />
-      <path
-        d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
-          6,
-          p.y - 10
-        )} ${targetX} ${targetY}`}
-        fill="none"
-        stroke="url(#goldPath)"
-        strokeWidth={1.4 + ratioDirecto * 1.1}
-        strokeLinecap="round"
-        opacity={0.75 + ratioDirecto * 0.2}
-        markerEnd="url(#arrowGold)"
-      />
-    </>
-  )}
+ {ratioDirecto > 0 && (
+  <>
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
+        6,
+        p.y - 10
+      )} ${targetX} ${targetY}`}
+      fill="none"
+      stroke="#F5E7C8"
+      strokeWidth={2.8 + ratioDirecto * 1.2}
+      strokeLinecap="round"
+      opacity="0.12"
+      filter="url(#pathGlow)"
+    />
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
+        6,
+        p.y - 10
+      )} ${targetX} ${targetY}`}
+      fill="none"
+      stroke="url(#goldPath)"
+      strokeWidth={1.4 + ratioDirecto * 1.1}
+      strokeLinecap="round"
+      opacity={0.75 + ratioDirecto * 0.2}
+      markerEnd="url(#arrowGold)"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedOrigin({
+          key,
+          tipo: "directo",
+        });
+      }}
+      style={{ cursor: "pointer" }}
+    />
+  </>
+)}
 
-  {/* Juego en corto (AZUL) */}
-  {ratioCorto > 0 && (
-    <>
-      <path
-        d={`M ${p.x} ${p.y} Q ${(p.x + cortoX) / 2} ${p.y - 3} ${cortoX} ${cortoY}`}
-        fill="none"
-        stroke="#DBEAFE"
-        strokeWidth={2.4 + ratioCorto * 1.0}
-        strokeLinecap="round"
-        opacity="0.10"
-        filter="url(#pathGlow)"
-      />
-      <path
-        d={`M ${p.x} ${p.y} Q ${(p.x + cortoX) / 2} ${p.y - 3} ${cortoX} ${cortoY}`}
-        fill="none"
-        stroke="url(#bluePath)"
-        strokeWidth={1.2 + ratioCorto * 0.9}
-        strokeLinecap="round"
-        strokeDasharray="3 2.5"
-        opacity={0.75 + ratioCorto * 0.2}
-        markerEnd="url(#arrowBlue)"
-      />
-    </>
-  )}
+{/* Juego en corto (AZUL) */}
+{ratioCorto > 0 && (
+  <>
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + cortoX) / 2} ${p.y - 3} ${cortoX} ${cortoY}`}
+      fill="none"
+      stroke="#DBEAFE"
+      strokeWidth={2.4 + ratioCorto * 1.0}
+      strokeLinecap="round"
+      opacity="0.10"
+      filter="url(#pathGlow)"
+    />
+    <path
+      d={`M ${p.x} ${p.y} Q ${(p.x + cortoX) / 2} ${p.y - 3} ${cortoX} ${cortoY}`}
+      fill="none"
+      stroke="url(#bluePath)"
+      strokeWidth={1.2 + ratioCorto * 0.9}
+      strokeLinecap="round"
+      strokeDasharray="3 2.5"
+      opacity={0.75 + ratioCorto * 0.2}
+      markerEnd="url(#arrowBlue)"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedOrigin({
+          key,
+          tipo: "corto",
+        });
+      }}
+      style={{ cursor: "pointer" }}
+    />
+  </>
+)}
 
   {/* Nodo exterior */}
   <circle
@@ -763,6 +787,8 @@ if (destinosArea.length > 0) {
 
         const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
 
+
+
         return (
           <g
             key={name}
@@ -803,82 +829,163 @@ if (destinosArea.length > 0) {
     </svg>
 
     {/* Popup origen */}
-{selectedOrigin && (
-  <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-3 sm:w-80 max-h-[62vw] sm:max-h-[26rem] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md">
-    <div className="mb-3 flex items-start justify-between gap-3">
-      {(() => {
-        const [popupName, popupPerfil] = selectedOrigin.split("__");
-        return (
-          <div>
-            <h3 className="text-base font-semibold leading-tight">
-              {popupName}
-            </h3>
-            {popupPerfil && (
-              <p className="text-xs text-slate-400 mt-0.5 capitalize">
-                {popupPerfil}
+{/* Popup origen */}
+{selectedOrigin && (() => {
+  const envioStats = originEnvios[selectedOrigin.key]?.envios || {};
+
+  const cortoCount = envioStats["Corto"] || 0;
+
+  const directoCount =
+    (envioStats["Directo"] || 0) +
+    (envioStats["Tenso"] || 0) +
+    (envioStats["Bombeado"] || 0);
+
+  const [popupName, popupPerfil] = selectedOrigin.key.split("__");
+
+  const subtitle =
+    selectedOrigin.tipo === "corto"
+      ? "Juego en corto"
+      : selectedOrigin.tipo === "directo"
+      ? "Envíos al área"
+      : "Todas las variantes";
+
+  return (
+    <div className="absolute left-2 right-2 top-2 sm:left-auto sm:right-3 sm:w-80 max-h-[62vw] sm:max-h-[26rem] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold leading-tight">
+            {popupName}
+          </h3>
+
+          <p className="mt-0.5 text-xs text-slate-400">
+            {popupPerfil ? `${popupPerfil} · ` : ""}
+            {subtitle}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setSelectedOrigin(null)}
+          className="rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Resumen */}
+      <div className="mb-4 rounded-xl border border-[#C8A96B]/20 bg-[#0B1728] p-3">
+        <div className="mb-3">
+          <p className="text-xs uppercase tracking-wide text-slate-400">
+            Acciones registradas
+          </p>
+          <p className="text-xl font-semibold text-[#E7D2A0]">
+            {originCounts[selectedOrigin.key]}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-blue-400/20 bg-blue-400/10 p-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-blue-300" />
+              <p className="text-[11px] uppercase tracking-wide text-blue-200">
+                Juego en corto
               </p>
-            )}
+            </div>
+            <p className="mt-1 text-lg font-semibold text-blue-100">
+              {cortoCount}
+            </p>
           </div>
-        );
-      })()}
 
-      <button
-        onClick={() => setSelectedOrigin(null)}
-        className="rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
-      >
-        ×
-      </button>
-    </div>
+          <div className="rounded-lg border border-[#C8A96B]/20 bg-[#C8A96B]/10 p-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-[#E7D2A0]" />
+              <p className="text-[11px] uppercase tracking-wide text-[#E7D2A0]">
+                Envíos al área
+              </p>
+            </div>
+            <p className="mt-1 text-lg font-semibold text-[#F5E7C8]">
+              {directoCount}
+            </p>
+          </div>
+        </div>
+      </div>
 
-    <div className="mb-4 rounded-xl border border-[#C8A96B]/20 bg-[#0B1728] px-3 py-2">
-      <p className="text-xs uppercase tracking-wide text-slate-400">
-        Acciones registradas
-      </p>
-      <p className="text-lg font-semibold text-[#E7D2A0]">
-        {originCounts[selectedOrigin]}
-      </p>
-    </div>
+      {/* Lista de acciones */}
+      <div className="space-y-2">
+        {rows
+          .filter((r) => {
+            const tipo = normalizeTipoAccion(
+              r.tipoAccion ?? r.Tipo_Accion ?? ""
+            );
 
-    <div className="space-y-2">
-      {rows
-        .filter((r) => {
-          const tipo = normalizeTipoAccion(
-            r.tipoAccion ?? r.Tipo_Accion ?? ""
-          );
-          const perfil = (r.perfil ?? r.Perfil ?? "").toLowerCase();
-          return `${tipo}__${perfil}` === selectedOrigin;
-        })
-        .map((r, idx) => (
-          <div
-            key={idx}
-            className="rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-sm">
-                {r.jornada ?? r.JORNADA ?? "Partido"}
-                {(r.rival ?? r.Rival) && (
-                  <span className="text-slate-400">
-                    {" "}· {r.rival ?? r.Rival}
+            const perfil = (r.perfil ?? r.Perfil ?? "")
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+
+            if (`${tipo}__${perfil}` !== selectedOrigin.key) return false;
+
+            const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
+
+            if (selectedOrigin.tipo === "corto") {
+              return envio === "Corto";
+            }
+
+            if (selectedOrigin.tipo === "directo") {
+              return (
+                envio === "Directo" ||
+                envio === "Tenso" ||
+                envio === "Bombeado"
+              );
+            }
+
+            return true;
+          })
+          .map((r, idx) => {
+            const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
+            const esCorto = envio === "Corto";
+
+            return (
+              <div
+                key={idx}
+                className="rounded-xl border border-white/10 bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium text-sm">
+                    {r.jornada ?? r.JORNADA ?? "Partido"}
+                    {(r.rival ?? r.Rival) && (
+                      <span className="text-slate-400">
+                        {" "}· {r.rival ?? r.Rival}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-slate-400 whitespace-nowrap">
+                    Min {r.minuto ?? r.Minuto ?? "-"}
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span
+                    className={
+                      esCorto
+                        ? "rounded-full border border-blue-400/30 bg-blue-400/10 px-2 py-1 text-blue-200"
+                        : "rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-1 text-[#E7D2A0]"
+                    }
+                  >
+                    {esCorto ? "Juego en corto" : envio}
                   </span>
-                )}
-              </div>
 
-              <div className="text-xs text-slate-400 whitespace-nowrap">
-                Min {r.minuto ?? r.Minuto ?? "-"}
+                  <span className="font-medium text-[#E7D2A0]">
+                    {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
+                  </span>
+                </div>
               </div>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-slate-400">Resultado</span>
-              <span className="font-medium text-[#E7D2A0]">
-                {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
-              </span>
-            </div>
-          </div>
-        ))}
+            );
+          })}
+      </div>
     </div>
-  </div>
-)}
+  );
+})()}
 
     {/* Popup remate */}
     {selectedRemate && (
