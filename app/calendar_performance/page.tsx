@@ -86,16 +86,6 @@ function buildCalendar(month: number, year: number) {
   return weeks;
 }
 export default function Calendar() {
-  const { players } = usePlayers();
-
-  const [events, setEvents] = useState<ConditionalEvent[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedEvents, setSelectedEvents] = useState<ConditionalEvent[]>([]);
-  const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-
-  const [currentMonth, setCurrentMonth] = useState(0);
-
   const months = useMemo(() => {
     const result: { month: number; year: number }[] = [];
 
@@ -116,6 +106,27 @@ export default function Calendar() {
 
     return result;
   }, []);
+
+  const { players } = usePlayers();
+
+  const [events, setEvents] = useState<ConditionalEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedEvents, setSelectedEvents] = useState<ConditionalEvent[]>([]);
+  const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [currentMonth, setCurrentMonth] = useState(() => {
+  const today = new Date();
+
+  const index = months.findIndex(
+    (m) =>
+      m.month === today.getMonth() &&
+      m.year === today.getFullYear()
+  );
+
+  return index !== -1 ? index : 0;
+});
+
 
   const active = months[currentMonth];
 

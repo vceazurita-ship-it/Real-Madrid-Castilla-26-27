@@ -87,27 +87,8 @@ function buildCalendar(month: number, year: number) {
 }
 
 export default function Calendar() {
-const router = useRouter();
 
-  const { players, loading } = usePlayers();
-  const [currentMonth, setCurrentMonth] = useState(0);
-const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
-const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-const [selectedSessions, setSelectedSessions] =
-useState<TrackingRecord[]>([]);
-  
-const playersMap = useMemo(() => {
-  const map: Record<string, (typeof players)[number]> = {};
-
-  players.forEach((p) => {
-    map[p.id] = p;       // búsqueda por ID
-    map[p.nombre] = p;   // búsqueda por nombre
-  });
-
-  return map;
-}, [players]);
- const months = useMemo(() => {
+   const months = useMemo(() => {
   const result = [];
 
   let current = new Date(START_MONTH);
@@ -127,6 +108,38 @@ const playersMap = useMemo(() => {
 
   return result;
 }, []);
+
+const router = useRouter();
+
+  const { players, loading } = usePlayers();
+  const [currentMonth, setCurrentMonth] = useState(() => {
+  const today = new Date();
+
+  const index = months.findIndex(
+    (m) =>
+      m.month === today.getMonth() &&
+      m.year === today.getFullYear()
+  );
+
+  return index !== -1 ? index : 0;
+});
+const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
+const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+const [selectedSessions, setSelectedSessions] =
+useState<TrackingRecord[]>([]);
+  
+const playersMap = useMemo(() => {
+  const map: Record<string, (typeof players)[number]> = {};
+
+  players.forEach((p) => {
+    map[p.id] = p;       // búsqueda por ID
+    map[p.nombre] = p;   // búsqueda por nombre
+  });
+
+  return map;
+}, [players]);
+
 useEffect(() => {
   fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
     .then((r) => r.json())
