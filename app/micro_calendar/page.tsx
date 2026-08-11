@@ -112,16 +112,6 @@ function buildCalendar(month: number, year: number) {
 
 export default function Calendar() {
 
-  const [currentMonth, setCurrentMonth] = useState(0);
-
-const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-const [microcycleData, setMicrocycleData] =
-useState<MicrocycleRecord[]>([]);
-
-const [selectedTasks, setSelectedTasks] =
-useState<MicrocycleRecord[]>([]);
-
  const months = useMemo(() => {
   const result = [];
 
@@ -142,6 +132,28 @@ useState<MicrocycleRecord[]>([]);
 
   return result;
 }, []);
+
+  const [currentMonth, setCurrentMonth] = useState(() => {
+  const today = new Date();
+
+  const index = months.findIndex(
+    (m) =>
+      m.month === today.getMonth() &&
+      m.year === today.getFullYear()
+  );
+
+  return index !== -1 ? index : 0;
+});
+
+const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+const [microcycleData, setMicrocycleData] =
+useState<MicrocycleRecord[]>([]);
+
+const [selectedTasks, setSelectedTasks] =
+useState<MicrocycleRecord[]>([]);
+
+
 useEffect(() => {
   fetch(`${APPS_SCRIPT_URL}?action=microciclo`)
     .then((r) => r.json())
