@@ -276,6 +276,8 @@ useEffect(() => {
       evaluacionFilter === "ALL" ||
       r.evaluacion >= Number(evaluacionFilter);
 
+
+
     return (
   matchesMicro &&
   matchesTipo &&
@@ -888,6 +890,11 @@ return Object.entries(grouped)
   .sort((a, b) => b.eval - a.eval);
     }, [filtered]);
 
+
+    const taskChartHeight = Math.max(
+  420,
+  taskEvalData.length * (isMobile ? 34 : 32) + 40
+);
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -1739,118 +1746,97 @@ return Object.entries(grouped)
   </Chart>
 </Panel>
 
-              <Panel title="Evaluación por Tipo de Tarea">
-  <Chart>
-    <BarChart
-      data={taskEvalData}
-      layout="vertical"
-margin={{
-  top: 10,
-  right: 24,
-  left: 20,
-  bottom: 10,
-}}
-      barCategoryGap={24}
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
 
-      <XAxis
-  type="number"
-  domain={[0, 10]}
-  tick={{
-    fill: "#94A3B8",
-    fontSize: 11,
-  }}
-  axisLine={false}
-  tickLine={false}
-/>
-    <YAxis
-  type="category"
-  dataKey="tipo"
-  width={
-  isMobile
-    ? 120
-    : isNarrow
-    ? 160
-    : 220
-}
-  interval={0}
-  axisLine={false}
-  tickLine={false}
-  tick={renderMultilineTick}
-/>
-
-      <Tooltip
-        cursor={{
-          fill:
-            "rgba(255,255,255,0.03)",
+<Panel title="Evaluación por Tipo de Tarea">
+  <div style={{ height: taskChartHeight, width: "100%" }}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart
+        data={taskEvalData}
+        layout="vertical"
+        margin={{
+          top: 10,
+          right: 24,
+          left: 20,
+          bottom: 10,
         }}
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+        barCategoryGap={10}
+      >
+        <CartesianGrid stroke="#1E232A" vertical={false} />
 
-      <Bar
-  dataKey="eval"
-  name="Evaluación"
-  fill={COLORS.gold}
-  radius={[0, 12, 12, 0]}
-  barSize={
-    isMobile
-      ? 16
-      : 20
-  }
-  cursor="pointer"
-  onClick={(data: any) => {
-    const tipo =
-      data?.payload?.tipo;
+        <XAxis
+          type="number"
+          domain={[0, 10]}
+          tick={{
+            fill: "#94A3B8",
+            fontSize: 11,
+          }}
+          axisLine={false}
+          tickLine={false}
+        />
 
-    if (tipo) {
-      setTipoFilter(tipo);
-    }
-  }}
->
-{taskEvalData.map(
-  (entry, index) => (
-    <Cell
-      key={index}
-      fill={getEvalColor(entry.eval)}
-      opacity={
-        tipoFilter &&
-        tipoFilter !== entry.tipo
-          ? 0.25
-          : 1
-      }
-    />
-  )
-)}
+        <YAxis
+          type="category"
+          dataKey="tipo"
+          width={isMobile ? 150 : isNarrow ? 180 : 240}
+          interval={0}
+          axisLine={false}
+          tickLine={false}
+          tick={renderMultilineTick}
+        />
 
+        <Tooltip
+          cursor={{
+            fill: "rgba(255,255,255,0.03)",
+          }}
+          contentStyle={{
+            background: "#11161C",
+            border: "1px solid rgba(255,255,255,.08)",
+            borderRadius: "16px",
+            color: "#fff",
+          }}
+        />
 
-  <LabelList
-    dataKey="eval"
-    position="right"
-    formatter={(value) =>
-      typeof value === "number"
-        ? value.toFixed(1)
-        : value ?? ""
-    }
-    style={{
-      fill: "#fff",
-      fontSize: 12,
-      fontWeight: 600,
-    }}
-  />
-</Bar>
-    </BarChart>
-  </Chart>
+        <Bar
+          dataKey="eval"
+          name="Evaluación"
+          radius={[0, 12, 12, 0]}
+          barSize={isMobile ? 16 : 18}
+          cursor="pointer"
+          onClick={(data: any) => {
+            const tipo = data?.payload?.tipo;
+            if (tipo) setTipoFilter(tipo);
+          }}
+        >
+          {taskEvalData.map((entry, index) => (
+            <Cell
+              key={index}
+              fill={getEvalColor(entry.eval)}
+              opacity={
+                tipoFilter && tipoFilter !== entry.tipo ? 0.25 : 1
+              }
+            />
+          ))}
+
+          <LabelList
+            dataKey="eval"
+            position="right"
+            formatter={(value) =>
+              typeof value === "number"
+                ? value.toFixed(1)
+                : value ?? ""
+            }
+            style={{
+              fill: "#fff",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
 </Panel>
+
 
 
               <Panel title="Evaluación por Contenido Principal">
