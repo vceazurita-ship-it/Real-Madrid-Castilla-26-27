@@ -132,7 +132,13 @@ function parseCSV(text: string): Row[] {
       segundoBalon: r[19] || "",
       resultadoFinal: r[20] || "",
     }))
-    .filter((r) => r.jornada > 0);
+    .filter(
+  (r) =>
+    r.jornada > 0 &&
+    !r.tipoAccion
+      .toLowerCase()
+      .includes("penal")
+);
 }
 
 function countBy(rows: Row[], key: keyof Row) {
