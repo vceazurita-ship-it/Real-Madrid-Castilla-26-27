@@ -138,7 +138,7 @@ function parseCSV(text: string): Row[] {
     !r.tipoAccion
       .toLowerCase()
       .includes("penal")
-);
+); 
 }
 
 function countBy(rows: Row[], key: keyof Row) {
