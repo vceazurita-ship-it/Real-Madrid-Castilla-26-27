@@ -156,7 +156,13 @@ intencion: r[13] || "",
       repetir: r[31] || "",
       
     }))
-    .filter((r) => r.jornada > 0);
+    .filter(
+  (r) =>
+    r.jornada > 0 &&
+    !r.tipoAccion
+      .toLowerCase()
+      .includes("penal")
+);
 }
 
 function countBy(rows: Row[], key: keyof Row) {
