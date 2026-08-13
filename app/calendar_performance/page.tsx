@@ -139,6 +139,7 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<ConditionalEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
+  const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -225,6 +226,65 @@ useEffect(() => {
   loadFiles();
 }, []);
 
+useEffect(() => {
+    if (!selectedDate || fullscreenImageIndex !== null) return;
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      changeSelectedDay(-1);
+    }
+
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      changeSelectedDay(1);
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () =>
+    window.removeEventListener("keydown", handleKeyDown);
+}, [selectedDate, events, fullscreenImageIndex]);
+
+useEffect(() => {
+  if (fullscreenImageIndex === null || !selectedDate) return;
+
+  const dayKey = [
+    selectedDate.getFullYear(),
+    String(selectedDate.getMonth() + 1).padStart(2, "0"),
+    String(selectedDate.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const images = filesByDay[dayKey]?.images ?? [];
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setFullscreenImageIndex(null);
+    }
+
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setFullscreenImageIndex((prev) =>
+        prev === null ? null : (prev + 1) % images.length
+      );
+    }
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setFullscreenImageIndex((prev) =>
+        prev === null
+          ? null
+          : (prev - 1 + images.length) % images.length
+      );
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () =>
+    window.removeEventListener("keydown", handleKeyDown);
+}, [fullscreenImageIndex, selectedDate, filesByDay]);
 
 
   async function createEvent(data: Partial<ConditionalEvent>) {
@@ -262,6 +322,33 @@ useEffect(() => {
 
     await reloadEvents();
   }
+
+  const changeSelectedDay = (offset: number) => {
+  if (!selectedDate) return;
+
+  const d = new Date(selectedDate);
+  d.setDate(d.getDate() + offset);
+
+  const key = [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const dayEvents = events.filter((e) => {
+    const eventDate = new Date(e.FECHA);
+    const eventKey = [
+      eventDate.getUTCFullYear(),
+      String(eventDate.getUTCMonth() + 1).padStart(2, "0"),
+      String(eventDate.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+
+    return eventKey === key;
+  });
+
+  setSelectedDate(d);
+  setSelectedEvents(dayEvents);
+};
 
   return (
   <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -496,9 +583,25 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
               }}
             >
               <div
-                onClick={(e) => e.stopPropagation()}
-                className="bg-[#141B24] rounded-2xl w-[95%] max-w-xl max-h-[85vh] overflow-y-auto p-6"
-              >
+  onClick={(e) => e.stopPropagation()}
+  className="relative bg-[#141B24] rounded-2xl w-[95%] max-w-xl max-h-[85vh] overflow-y-auto p-6"
+>
+
+  <button
+    type="button"
+    onClick={() => changeSelectedDay(-1)}
+    className="absolute left-3 top-1/2 -translate-y-1/2 text-4xl text-white/60 hover:text-white transition"
+  >
+    ‹
+  </button>
+
+  <button
+    type="button"
+    onClick={() => changeSelectedDay(1)}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-4xl text-white/60 hover:text-white transition"
+  >
+    ›
+  </button>
                 <div className="flex justify-between items-center mb-6">
                   <div>
                     <h2 className="text-2xl font-semibold">
@@ -557,20 +660,19 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
 
           <div className="grid grid-cols-2 gap-3">
             {files.images.map((img, i) => (
-              <a
-                key={i}
-                href={img.url}
-                target="_blank"
-                rel="noreferrer"
-                className="overflow-hidden rounded-xl border border-white/10 bg-[#10151C]"
-              >
-                <img
-                  src={img.url}
-                  alt={img.name}
-                  className="h-32 w-full object-cover transition hover:scale-[1.02]"
-                />
-              </a>
-            ))}
+  <button
+    key={i}
+    type="button"
+    onClick={() => setFullscreenImageIndex(i)}
+    className="overflow-hidden rounded-xl border border-white/10 bg-[#10151C] cursor-zoom-in"
+  >
+    <img
+      src={img.url}
+      alt={img.name}
+      className="h-32 w-full object-cover transition hover:scale-[1.02]"
+    />
+  </button>
+))}
           </div>
         </div>
       )}
@@ -602,6 +704,7 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
       )}
     </div>
   );
+
 })()}
 
 {(isCreating || editingEvent) && (
@@ -701,7 +804,72 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
                       </div>
                     </div>
                   ))}
+                  
                 </div>
+                {fullscreenImageIndex !== null && selectedDate && (() => {
+  const dayKey = [
+    selectedDate.getFullYear(),
+    String(selectedDate.getMonth() + 1).padStart(2, "0"),
+    String(selectedDate.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const images = filesByDay[dayKey]?.images ?? [];
+  const image = images[fullscreenImageIndex];
+
+  if (!image) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-6"
+      onClick={() => setFullscreenImageIndex(null)}
+    >
+      <button
+        type="button"
+        onClick={() => setFullscreenImageIndex(null)}
+        className="absolute right-6 top-6 text-3xl text-white/80 hover:text-white"
+      >
+        ✕
+      </button>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setFullscreenImageIndex(
+            (fullscreenImageIndex - 1 + images.length) % images.length
+          );
+        }}
+        className="absolute left-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 hover:text-white transition"
+      >
+        ‹
+      </button>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setFullscreenImageIndex(
+            (fullscreenImageIndex + 1) % images.length
+          );
+        }}
+        className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 hover:text-white transition"
+      >
+        ›
+      </button>
+
+      <img
+        src={image.url}
+        alt={image.name}
+        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-black/60 px-4 py-2 text-sm text-white/70">
+        {fullscreenImageIndex + 1} / {images.length}
+      </div>
+    </div>
+  );
+})()}
               </div>
             </div>
           )}
