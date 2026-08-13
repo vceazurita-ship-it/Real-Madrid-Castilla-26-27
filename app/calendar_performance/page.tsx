@@ -3,8 +3,16 @@
 import { useMemo, useState, useEffect } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  FileText,
+} from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
+import { loadSeason } from "@/lib/loadSeason";
+import { MonthData } from "@/app/performance/data";
+
 
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
@@ -110,6 +118,7 @@ export default function Calendar() {
   const { players } = usePlayers();
 
   const [events, setEvents] = useState<ConditionalEvent[]>([]);
+  const [seasonData, setSeasonData] = useState<MonthData[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<ConditionalEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
@@ -147,6 +156,21 @@ export default function Calendar() {
   useEffect(() => {
     reloadEvents();
   }, []);
+
+  useEffect(() => {
+  const fetchSeason = async () => {
+    try {
+      const data = await loadSeason();
+      if (Array.isArray(data)) {
+        setSeasonData(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchSeason();
+}, []);
 
   async function createEvent(data: Partial<ConditionalEvent>) {
     await fetch(APPS_SCRIPT_URL, {
@@ -290,6 +314,55 @@ export default function Calendar() {
 });
                         const hasEvents = dayEvents.length > 0;
 
+                        const monthMap: Record<string, number> = {
+  Ene: 0,
+  Feb: 1,
+  Mar: 2,
+  Abr: 3,
+  May: 4,
+  Jun: 5,
+  Jul: 6,
+  Ago: 7,
+  Sep: 8,
+  Oct: 9,
+  Nov: 10,
+  Dic: 11,
+};
+
+const parseSeasonDate = (value: string) => {
+  if (!value) return new Date(NaN);
+
+  if (value.includes("-")) {
+    const d = new Date(value);
+    d.setHours(12, 0, 0, 0);
+    return d;
+  }
+
+  const [day, mon] = value.trim().split(" ");
+  const month = monthMap[mon];
+  const year = month >= 6 ? 2026 : 2027;
+
+  const d = new Date(year, month, Number(day));
+  d.setHours(12, 0, 0, 0);
+  return d;
+};
+
+const currentDay = new Date(date);
+currentDay.setHours(12, 0, 0, 0);
+
+const weekWithFiles = seasonData
+  .flatMap((m) => m.weeks)
+  .find((week) => {
+    const start = parseSeasonDate(week.start);
+    const end = parseSeasonDate(week.end);
+
+    return currentDay >= start && currentDay <= end;
+  });
+
+const imageCount = weekWithFiles?.images?.length ?? 0;
+const pdfCount = weekWithFiles?.pdfs?.length ?? 0;
+const hasFiles = imageCount > 0 || pdfCount > 0;
+
                         return (
                           <div
                             key={date.toISOString()}
@@ -334,6 +407,27 @@ export default function Calendar() {
                                 {date.getDate()}
                               </div>
                             </div>
+                            {hasFiles && (
+  <div className="flex gap-2 mb-2">
+    {imageCount > 0 && (
+      <div className="flex items-center gap-1 rounded-full bg-sky-500/15 border border-sky-500/30 px-2 py-0.5">
+        <ImageIcon className="h-3 w-3 text-sky-300" />
+        <span className="text-[10px] text-sky-200 font-medium">
+          {imageCount}
+        </span>
+      </div>
+    )}
+
+    {pdfCount > 0 && (
+      <div className="flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5">
+        <FileText className="h-3 w-3 text-amber-300" />
+        <span className="text-[10px] text-amber-200 font-medium">
+          {pdfCount}
+        </span>
+      </div>
+    )}
+  </div>
+)}
 
                             <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
                               {dayEvents.map((event) => {
