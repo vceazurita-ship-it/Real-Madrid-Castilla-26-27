@@ -834,11 +834,12 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
       <button
         type="button"
         onClick={(e) => {
-          e.stopPropagation();
-          setFullscreenImageIndex(
-            (fullscreenImageIndex - 1 + images.length) % images.length
-          );
-        }}
+  e.stopPropagation();
+  if (images.length === 0) return;
+  setFullscreenImageIndex(
+    (fullscreenImageIndex - 1 + images.length) % images.length
+  );
+}}
         className="absolute left-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 hover:text-white transition"
       >
         ‹
@@ -847,11 +848,12 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
       <button
         type="button"
         onClick={(e) => {
-          e.stopPropagation();
-          setFullscreenImageIndex(
-            (fullscreenImageIndex + 1) % images.length
-          );
-        }}
+  e.stopPropagation();
+  if (images.length === 0) return;
+  setFullscreenImageIndex(
+    (fullscreenImageIndex + 1) % images.length
+  );
+}}
         className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 hover:text-white transition"
       >
         ›
