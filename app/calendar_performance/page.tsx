@@ -34,6 +34,22 @@ type ConditionalEvent = {
   INTENSIDAD: string;
 };
 
+type DayFile = {
+  url: string;
+  name: string;
+  created_at: string;
+  type: "image" | "pdf";
+};
+
+type FilesByDay = Record<
+  string,
+  {
+    images: DayFile[];
+    pdfs: DayFile[];
+  }
+>
+;
+
 const START_MONTH = new Date(2026, 6, 1);
 const END_MONTH = new Date(2027, 5, 1);
 
@@ -119,6 +135,7 @@ export default function Calendar() {
 
   const [events, setEvents] = useState<ConditionalEvent[]>([]);
   const [seasonData, setSeasonData] = useState<MonthData[]>([]);
+  const [filesByDay, setFilesByDay] = useState<FilesByDay>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<ConditionalEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
@@ -171,6 +188,44 @@ export default function Calendar() {
 
   fetchSeason();
 }, []);
+
+useEffect(() => {
+  const loadFiles = async () => {
+    try {
+      const response = await fetch("/api/performance-files");
+      const files: DayFile[] = await response.json();
+
+      const grouped: FilesByDay = {};
+
+      for (const file of files) {
+        const day = new Date(file.created_at)
+          .toISOString()
+          .slice(0, 10);
+
+        if (!grouped[day]) {
+          grouped[day] = {
+            images: [],
+            pdfs: [],
+          };
+        }
+
+        if (file.type === "image") {
+          grouped[day].images.push(file);
+        } else {
+          grouped[day].pdfs.push(file);
+        }
+      }
+
+      setFilesByDay(grouped);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  loadFiles();
+}, []);
+
+
 
   async function createEvent(data: Partial<ConditionalEvent>) {
     await fetch(APPS_SCRIPT_URL, {
@@ -314,53 +369,13 @@ export default function Calendar() {
 });
                         const hasEvents = dayEvents.length > 0;
 
-                        const monthMap: Record<string, number> = {
-  Ene: 0,
-  Feb: 1,
-  Mar: 2,
-  Abr: 3,
-  May: 4,
-  Jun: 5,
-  Jul: 6,
-  Ago: 7,
-  Sep: 8,
-  Oct: 9,
-  Nov: 10,
-  Dic: 11,
+                       const dayFiles = filesByDay[key] ?? {
+  images: [],
+  pdfs: [],
 };
 
-const parseSeasonDate = (value: string) => {
-  if (!value) return new Date(NaN);
-
-  if (value.includes("-")) {
-    const d = new Date(value);
-    d.setHours(12, 0, 0, 0);
-    return d;
-  }
-
-  const [day, mon] = value.trim().split(" ");
-  const month = monthMap[mon];
-  const year = month >= 6 ? 2026 : 2027;
-
-  const d = new Date(year, month, Number(day));
-  d.setHours(12, 0, 0, 0);
-  return d;
-};
-
-const currentDay = new Date(date);
-currentDay.setHours(12, 0, 0, 0);
-
-const weekWithFiles = seasonData
-  .flatMap((m) => m.weeks)
-  .find((week) => {
-    const start = parseSeasonDate(week.start);
-    const end = parseSeasonDate(week.end);
-
-    return currentDay >= start && currentDay <= end;
-  });
-
-const imageCount = weekWithFiles?.images?.length ?? 0;
-const pdfCount = weekWithFiles?.pdfs?.length ?? 0;
+const imageCount = dayFiles.images.length;
+const pdfCount = dayFiles.pdfs.length;
 const hasFiles = imageCount > 0 || pdfCount > 0;
 
                         return (
@@ -518,6 +533,76 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
                 >
                   + Nuevo trabajo
                 </button>
+                {selectedDate && (() => {
+  const dayKey = [
+    selectedDate.getFullYear(),
+    String(selectedDate.getMonth() + 1).padStart(2, "0"),
+    String(selectedDate.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const files = filesByDay[dayKey];
+
+  if (!files || (files.images.length === 0 && files.pdfs.length === 0)) {
+    return null;
+  }
+
+  return (
+    <div className="mb-6 space-y-5">
+      {files.images.length > 0 && (
+        <div>
+          <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+            <ImageIcon size={18} className="text-[#C8A96B]" />
+            Imágenes del día
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            {files.images.map((img, i) => (
+              <a
+                key={i}
+                href={img.url}
+                target="_blank"
+                rel="noreferrer"
+                className="overflow-hidden rounded-xl border border-white/10 bg-[#10151C]"
+              >
+                <img
+                  src={img.url}
+                  alt={img.name}
+                  className="h-32 w-full object-cover transition hover:scale-[1.02]"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {files.pdfs.length > 0 && (
+        <div>
+          <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+            <FileText size={18} className="text-[#C8A96B]" />
+            PDFs del día
+          </h3>
+
+          <div className="space-y-2">
+            {files.pdfs.map((pdf, i) => (
+              <a
+                key={i}
+                href={pdf.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-xl border border-white/10 bg-[#10151C] p-3 transition hover:border-[#C8A96B]/40"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="text-[#C8A96B]" />
+                  <span className="truncate">{pdf.name}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+})()}
 
 {(isCreating || editingEvent) && (
   <EventForm
