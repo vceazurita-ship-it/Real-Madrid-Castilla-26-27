@@ -902,11 +902,17 @@ if (destinosArea.length > 0) {
                 </div>
               </div>
 
-              <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center text-xs">
-                <span className="mr-1 text-slate-400">Resultado:</span>
-                <span className="font-medium text-[#E7D2A0]">
-                  {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
-                </span>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="col-span-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                  <p className="text-slate-400">Tipo de acción</p>
+                  <p className="mt-0.5 font-medium text-white">{r.tipoAccion ?? r.Tipo_Accion ?? "-"}</p>
+                </div>
+                <div className="col-span-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center">
+                  <span className="mr-1 text-slate-400">Resultado:</span>
+                  <span className="font-medium text-[#E7D2A0]">
+                    {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
+                  </span>
+                </div>
               </div>
             </div>
           ))}

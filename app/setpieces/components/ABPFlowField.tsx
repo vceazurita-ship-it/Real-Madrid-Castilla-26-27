@@ -967,6 +967,10 @@ if (destinosArea.length > 0) {
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="col-span-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                    <p className="text-slate-400">Tipo de acción</p>
+                    <p className="mt-0.5 font-medium text-white">{r.tipoAccion ?? r.Tipo_Accion ?? "-"}</p>
+                  </div>
                   <span
                     className={
                       esCorto
