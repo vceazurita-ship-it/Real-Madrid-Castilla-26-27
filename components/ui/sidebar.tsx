@@ -308,6 +308,16 @@ const navLink = (
         "ABP Defensivo",
         <Shield size={18} />
       )}
+      {navLink(
+        "/throw-ins",
+        "Saque de Banda Ofensivo",
+        <Flag size={18} />
+      )}
+      {navLink(
+        "/throw-ins-def",
+        "Saque de Banda Defensivo",
+        <Shield size={18} />
+      )}
       
       {navLink(
         "/collective_history",
