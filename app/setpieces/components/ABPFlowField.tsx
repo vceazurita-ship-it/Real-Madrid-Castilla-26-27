@@ -1034,9 +1034,9 @@ if (destinosArea.length > 0) {
                   <dt className="text-slate-400">Minuto</dt>
                   <dd className="mt-0.5 font-medium">{r.minuto ?? r.Minuto ?? "-"}</dd>
                 </div>
-                <div className="col-span-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-2 py-1.5">
-                  <dt className="text-emerald-200">xG de la acción</dt>
-                  <dd className="mt-0.5 font-medium text-emerald-100">{Number(r.xG ?? 0).toFixed(2)}</dd>
+                <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
+                  <dt className="text-slate-400">xG</dt>
+                  <dd className="mt-0.5 font-medium">{Number(r.xG ?? 0).toFixed(2)}</dd>
                 </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                   <dt className="text-slate-400">Tipo de acción</dt>
