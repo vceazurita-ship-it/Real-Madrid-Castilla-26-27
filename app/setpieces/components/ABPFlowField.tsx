@@ -1031,6 +1031,10 @@ if (destinosArea.length > 0) {
                   <dd className="mt-0.5 font-medium">{r.minuto ?? r.Minuto ?? "-"}</dd>
                 </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
+                  <dt className="text-slate-400">Tipo de acción</dt>
+                  <dd className="mt-0.5 font-medium">{r.tipoAccion ?? r.Tipo_Accion ?? "-"}</dd>
+                </div>
+                <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                   <dt className="text-slate-400">Resultado</dt>
                   <dd className="mt-0.5 font-medium text-[#E7D2A0]">{r.resultadoFinal ?? r.Resultado_Final ?? "-"}</dd>
                 </div>
