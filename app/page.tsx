@@ -217,6 +217,22 @@ const modules = [
     glow: "violet",
   },
   {
+    href: "/throw-ins",
+    section: "COLECTIVO",
+    title: "Saque de Banda Ofensivo",
+    desc: "Análisis de saques de banda a favor",
+    icon: Flag,
+    glow: "cyan",
+  },
+  {
+    href: "/throw-ins-def",
+    section: "COLECTIVO",
+    title: "Saque de Banda Defensivo",
+    desc: "Análisis de saques de banda en contra",
+    icon: Shield,
+    glow: "violet",
+  },
+  {
     href: "/video-collective",
     section: "COLECTIVO",
     title: "Videoteca Colectiva",
