@@ -783,7 +783,7 @@ if (destinosArea.length > 0) {
       {/* Zonas de remate */}
       {Object.entries(remateStats).map(([name, stat]) => {
         const p = remateCoords[name];
-        if (!p) return null;
+        if (!p || stat.xg <= 0) return null;
 
         const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
 
@@ -990,36 +990,51 @@ if (destinosArea.length > 0) {
 })()}
 
     {/* Popup remate */}
-    {selectedRemate && (
-      <div className="absolute left-2 right-2 bottom-2 sm:left-auto sm:right-2 sm:w-80 max-h-[58vw] sm:max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-[#07111F]/95 p-3 sm:p-4 text-white shadow-2xl backdrop-blur">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-semibold">{selectedRemate}</h3>
+    {selectedRemate && remateStats[selectedRemate]?.xg > 0 && (
+      <div className="absolute bottom-2 left-2 right-2 max-h-[calc(100%-1rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-3 sm:w-80 sm:max-h-80">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="break-words text-base font-semibold leading-tight">{selectedRemate}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">Detalle de los remates</p>
+          </div>
           <button
+            type="button"
+            aria-label="Cerrar detalle de remates"
             onClick={() => setSelectedRemate(null)}
-            className="text-slate-400 hover:text-white"
+            className="shrink-0 rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
           >
             ×
           </button>
         </div>
 
-        <p className="mb-3 text-sm text-slate-300">
-          xG acumulado: {remateStats[selectedRemate].xg.toFixed(2)}
-        </p>
+        <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2">
+          <p className="text-xs uppercase tracking-wide text-emerald-200">xG acumulado</p>
+          <p className="text-xl font-semibold text-emerald-100">{remateStats[selectedRemate].xg.toFixed(2)}</p>
+        </div>
 
         <div className="space-y-2">
           {remateStats[selectedRemate].actions.map((r, idx) => (
             <div
               key={idx}
-              className="rounded-lg border border-white/10 bg-white/5 p-2 text-sm"
+              className="rounded-xl border border-white/10 bg-white/[0.04] p-3"
             >
-              <div className="font-medium">
+              <p className="break-words text-sm font-medium">
                 {r.rematador ?? r.Rematador ?? "Sin rematador"}
-  {r.tipoRemate ?? r.Tipo_Remate ?? "Remate"}
-  Min {r.minuto ?? r.Minuto ?? "-"}
-  {(r.resultadoFinal ?? r.Resultado_Final)
-    ? ` · ${r.resultadoFinal ?? r.Resultado_Final}`
-    : ""}
-              </div>
+              </p>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-white/5 px-2 py-1.5">
+                  <dt className="text-slate-400">Tipo de remate</dt>
+                  <dd className="mt-0.5 font-medium">{r.tipoRemate ?? r.Tipo_Remate ?? "-"}</dd>
+                </div>
+                <div className="rounded-lg bg-white/5 px-2 py-1.5">
+                  <dt className="text-slate-400">Minuto</dt>
+                  <dd className="mt-0.5 font-medium">{r.minuto ?? r.Minuto ?? "-"}</dd>
+                </div>
+                <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
+                  <dt className="text-slate-400">Resultado</dt>
+                  <dd className="mt-0.5 font-medium text-[#E7D2A0]">{r.resultadoFinal ?? r.Resultado_Final ?? "-"}</dd>
+                </div>
+              </dl>
             </div>
           ))}
         </div>
