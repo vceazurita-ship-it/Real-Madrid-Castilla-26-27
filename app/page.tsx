@@ -29,6 +29,7 @@ import {
   Users,
   Database,
   Handshake,
+  Flag,
 } from "lucide-react"
 
 import { Sidebar } from "@/components/ui/sidebar"
