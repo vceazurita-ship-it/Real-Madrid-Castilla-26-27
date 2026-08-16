@@ -1629,6 +1629,7 @@ Mayor xG concedido  </p>
   
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
+<div className="md:col-span-2">
 <Panel title="Situación Global">
   <div id="grafico-abp-flow">
 <ABPFlowField
@@ -1664,6 +1665,7 @@ Mayor xG concedido  </p>
 />
   </div>
 </Panel>
+</div>
 
               <Panel title="Tipo de acción">
                 <div id="grafico-tipo-accion">
