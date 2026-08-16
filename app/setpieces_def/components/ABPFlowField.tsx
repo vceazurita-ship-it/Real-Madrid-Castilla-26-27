@@ -962,6 +962,10 @@ if (destinosArea.length > 0) {
                   <dt className="text-slate-400">Minuto</dt>
                   <dd className="mt-0.5 font-medium">{r.minuto ?? r.Minuto ?? "-"}</dd>
                 </div>
+                <div className="col-span-2 rounded-lg border border-[#F5C2C7]/20 bg-[#7A1F2B]/30 px-2 py-1.5">
+                  <dt className="text-[#F5C2C7]">xG de la acción</dt>
+                  <dd className="mt-0.5 font-medium text-[#F8D7DA]">{Number(r.xG ?? 0).toFixed(2)}</dd>
+                </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                   <dt className="text-slate-400">Tipo de acción</dt>
                   <dd className="mt-0.5 font-medium">{r.tipoAccion ?? r.Tipo_Accion ?? "-"}</dd>
