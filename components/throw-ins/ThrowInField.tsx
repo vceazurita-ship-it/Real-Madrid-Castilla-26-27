@@ -84,28 +84,14 @@ export function ThrowInField({ rows, mode, read }: ThrowInFieldProps) {
         <p className="text-sm text-slate-400">Pulsa una zona para ver las acciones registradas.</p>
       </div>
 
-      <div className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 bg-[#0A5139] shadow-inner">
+      <div 
+        className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner"
+        style={{ backgroundImage: "url(/emotional-field-bg.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+      >
         <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" role="img" aria-label="Campo de fútbol completo con distribución de saques de banda">
           <defs>
-            <linearGradient id="field-stripes" x1="0" x2="1">
-              <stop offset="0" stopColor="#0C6647" />
-              <stop offset="0.5" stopColor="#0A5A40" />
-              <stop offset="1" stopColor="#0C6647" />
-            </linearGradient>
             <filter id="field-glow"><feGaussianBlur stdDeviation="0.7" /></filter>
           </defs>
-          <rect width="100" height="100" fill="url(#field-stripes)" />
-          {[10, 30, 50, 70, 90].map((x) => <rect key={x} x={x} width="10" height="100" fill="rgba(0,0,0,0.045)" />)}
-          <rect x="4" y="3" width="92" height="94" rx="1" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <line x1="4" x2="96" y1="50" y2="50" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <circle cx="50" cy="50" r="10" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <circle cx="50" cy="50" r="0.6" fill="rgba(255,255,255,0.9)" />
-          <rect x="30" y="3" width="40" height="15" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <rect x="38" y="3" width="24" height="6" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <rect x="30" y="82" width="40" height="15" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <rect x="38" y="91" width="24" height="6" fill="none" stroke="rgba(255,255,255,0.78)" strokeWidth="0.38" />
-          <path d="M 44 3 L 56 3" stroke="rgba(255,255,255,0.9)" strokeWidth="1.1" />
-          <path d="M 44 97 L 56 97" stroke="rgba(255,255,255,0.9)" strokeWidth="1.1" />
 
           {nodes.map((node) => {
             const x = node.side === "left" ? 5 : 95;
