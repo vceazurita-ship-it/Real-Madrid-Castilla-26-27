@@ -166,23 +166,32 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     (resultado === "ALL" || read(row, "Resultado_Final") === resultado)
   ), [rows, jornada, rival, perfil, zonaSaque, tipoEnvio, resultado]);
 
-  const totals = useMemo(() => ({
-    actions: filtered.length,
-    goals: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase().includes("gol")).length,
-    chances: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase().includes("ocasi")).length,
-    abp: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase() === "abp").length,
-    // Nuevos KPI significativos
-    progression: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("progresion")).length,
-    progressionRate: Math.round((filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("progresion")).length / Math.max(filtered.length, 1)) * 100),
-    exterior: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("exterior")).length,
-    interior: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("interior")).length,
-    shortPass: filtered.filter((row) => read(row, "Tipo_Envio").toLowerCase().includes("corto")).length,
-    longPass: filtered.filter((row) => read(row, "Tipo_Envio").toLowerCase().includes("largo")).length,
-    successRate: Math.round((filtered.filter((row) => {
-      const result = read(row, "Resultado_Final").toLowerCase();
-      return result.includes("gol") || result.includes("ocasi") || result === "abp" || result.includes("progres");
-    }).length / Math.max(filtered.length, 1)) * 100),
-  }), [filtered]);
+  const totals = useMemo(() => {
+    // Éxito = Posicional, ABP, Conquista de último tercio, Ocasión, Gol
+    const isSuccess = (result: string) => {
+      const r = result.toLowerCase();
+      return r.includes("posicional") || 
+             r === "abp" || 
+             r.includes("conquista de último tercio") || 
+             r.includes("ocasión") || 
+             r.includes("gol");
+    };
+
+    return {
+      actions: filtered.length,
+      goals: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase().includes("gol")).length,
+      chances: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase().includes("ocasión")).length,
+      abp: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase() === "abp").length,
+      // Nuevos KPI significativos
+      progression: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("progresion")).length,
+      progressionRate: Math.round((filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("progresion")).length / Math.max(filtered.length, 1)) * 100),
+      exterior: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("exterior")).length,
+      interior: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("interior")).length,
+      shortPass: filtered.filter((row) => read(row, "Tipo_Envio").toLowerCase().includes("corto")).length,
+      longPass: filtered.filter((row) => read(row, "Tipo_Envio").toLowerCase().includes("largo")).length,
+      successRate: Math.round((filtered.filter((row) => isSuccess(read(row, "Resultado_Final"))).length / Math.max(filtered.length, 1)) * 100),
+    };
+  }, [filtered]);
 
   const tableRows = filtered.slice(0, 100);
   const isOffensive = mode === "offensive";
