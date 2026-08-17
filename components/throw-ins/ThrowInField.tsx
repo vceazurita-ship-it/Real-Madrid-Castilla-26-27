@@ -19,8 +19,9 @@ type FieldNode = {
   rows: RecordRow[];
 };
 
-// Z1 = Nuestra portería (arriba), Z2 = Intermedia, Z3 = Portería rival (abajo)
-const ZONE_Y = [15, 50, 85, 15, 50, 85];
+// Z1 = Nuestra portería (izquierda), Z2 = Intermedia, Z3 = Portería rival (derecha)
+// Posiciones horizontales para las zonas (campo horizontal)
+const ZONE_X = [15, 50, 85, 15, 50, 85];
 
 function getSide(value: string): "left" | "right" {
   const normalized = value
@@ -39,9 +40,9 @@ function getZone(value: string) {
 function targetFor(node: FieldNode, mode: "offensive" | "defensive", read: ThrowInFieldProps["read"]) {
   const falls = node.rows.map((row) => read(row, "Zona_Caida").toLowerCase());
   const combined = falls.join(" ");
-  const direction = mode === "offensive" ? -1 : 1;
-  const x = combined.includes("izq") ? 32 : combined.includes("der") ? 68 : 50;
-  const y = Math.max(12, Math.min(88, ZONE_Y[node.zone - 1] + direction * 24));
+  const direction = mode === "offensive" ? 1 : -1;
+  const x = Math.max(12, Math.min(88, ZONE_X[node.zone - 1] + direction * 24));
+  const y = combined.includes("izq") ? 32 : combined.includes("der") ? 68 : 50;
   return { x, y };
 }
 
@@ -94,8 +95,8 @@ export function ThrowInField({ rows, mode, read }: ThrowInFieldProps) {
           </defs>
 
           {nodes.map((node) => {
-            const x = node.side === "left" ? 5 : 95;
-            const y = ZONE_Y[node.zone - 1];
+            const x = ZONE_X[node.zone - 1];
+            const y = node.side === "left" ? 5 : 95;
             const target = targetFor(node, mode, read);
             const radius = 2.5 + Math.sqrt(node.count / maxCount) * 3.6;
             const color = isOffensive ? "#C8A96B" : "#F08A96";
@@ -120,7 +121,7 @@ export function ThrowInField({ rows, mode, read }: ThrowInFieldProps) {
         </svg>
 
         <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
-          {isOffensive ? "Ataque hacia la portería rival (abajo)" : "Amenaza rival hacia nuestra portería (arriba)"}
+          {isOffensive ? "Ataque hacia la portería rival (derecha)" : "Amenaza rival hacia nuestra portería (izquierda)"}
         </div>
         <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
           {nodes.length ? `${nodes.length} zonas activas · tamaño = volumen de acciones` : "Sin zonas activas todavía"}
