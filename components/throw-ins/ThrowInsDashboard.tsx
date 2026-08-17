@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 
 type RecordRow = Record<string, string>;
 
@@ -200,6 +201,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
             {error ? <p className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</p> : null}
             {loading ? <p className="py-24 text-center text-slate-400">Cargando saques de banda…</p> : (
               <>
+                <ThrowInField rows={filtered} mode={mode} read={read} />
                 <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <MetricCard label="Saques registrados" value={totals.actions} accent />
                   <MetricCard label="Ocasiones" value={totals.chances} />
