@@ -19,7 +19,8 @@ type FieldNode = {
   rows: RecordRow[];
 };
 
-const ZONE_Y = [82, 69, 56, 44, 31, 18];
+// Z1 = Nuestra portería (arriba), Z2 = Intermedia, Z3 = Portería rival (abajo)
+const ZONE_Y = [15, 50, 85, 15, 50, 85];
 
 function getSide(value: string): "left" | "right" {
   const normalized = value
@@ -133,7 +134,7 @@ export function ThrowInField({ rows, mode, read }: ThrowInFieldProps) {
         </svg>
 
         <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
-          {isOffensive ? "Ataque hacia la portería superior" : "Amenaza rival hacia la portería inferior"}
+          {isOffensive ? "Ataque hacia la portería rival (abajo)" : "Amenaza rival hacia nuestra portería (arriba)"}
         </div>
         <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
           {nodes.length ? `${nodes.length} zonas activas · tamaño = volumen de acciones` : "Sin zonas activas todavía"}

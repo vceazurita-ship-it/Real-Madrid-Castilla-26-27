@@ -171,6 +171,17 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     goals: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase().includes("gol")).length,
     chances: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase().includes("ocasi")).length,
     abp: filtered.filter((row) => read(row, "Resultado_Final").toLowerCase() === "abp").length,
+    // Nuevos KPI significativos
+    progression: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("progresion")).length,
+    progressionRate: Math.round((filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("progresion")).length / Math.max(filtered.length, 1)) * 100),
+    exterior: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("exterior")).length,
+    interior: filtered.filter((row) => read(row, "Intencion").toLowerCase().includes("interior")).length,
+    shortPass: filtered.filter((row) => read(row, "Tipo_Envio").toLowerCase().includes("corto")).length,
+    longPass: filtered.filter((row) => read(row, "Tipo_Envio").toLowerCase().includes("largo")).length,
+    successRate: Math.round((filtered.filter((row) => {
+      const result = read(row, "Resultado_Final").toLowerCase();
+      return result.includes("gol") || result.includes("ocasi") || result === "abp" || result.includes("progres");
+    }).length / Math.max(filtered.length, 1)) * 100),
   }), [filtered]);
 
   const tableRows = filtered.slice(0, 100);
@@ -204,17 +215,17 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 <ThrowInField rows={filtered} mode={mode} read={read} />
                 <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <MetricCard label="Saques registrados" value={totals.actions} accent />
-                  <MetricCard label="Ocasiones" value={totals.chances} />
-                  <MetricCard label="Goles" value={totals.goals} />
-                  <MetricCard label="Continuidad ABP" value={totals.abp} />
+                  <MetricCard label="% Tasa de progresión" value={`${totals.progressionRate}%`} />
+                  <MetricCard label="% Tasa de éxito" value={`${totals.successRate}%`} />
+                  <MetricCard label="Acciones por carril" value={`${totals.exterior}(E) / ${totals.interior}(I)`} />
                 </div>
 
                 <div className="grid gap-5 xl:grid-cols-2">
                   <DistributionChart title="Zona de saque" data={groupBy(filtered, "Zona_Saque")} />
                   <DistributionChart title="Tipo de envío" data={groupBy(filtered, "Tipo_Envio")} />
+                  <DistributionChart title="Intención / Dirección" data={groupBy(filtered, "Intencion")} />
                   <DistributionChart title="Zona de caída" data={groupBy(filtered, "Zona_Caida")} />
                   <DistributionChart title="Resultado final" data={groupBy(filtered, "Resultado_Final")} />
-                  <DistributionChart title="Perfil" data={groupBy(filtered, "Perfil")} />
                   <DistributionChart title={isOffensive ? "Sacadores" : "Receptores"} data={groupBy(filtered, isOffensive ? "Sacador" : "Receptor")} />
                 </div>
 
