@@ -7,6 +7,7 @@ import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import ABPFlowField from './components/ABPFlowField';
+import ABPObjectiveFlow from "./components/ABPObjectiveFlow";
 import ABPZoneMap from "./components/ABPZoneMap";
 
 
@@ -1886,6 +1887,28 @@ Mayor xG concedido  </p>
     xG: r.xg,
 
     segundoBalon: r.segundoBalon,
+    resultadoFinal: r.resultadoFinal,
+  }))}
+/>
+  </div>
+</Panel>
+</div>
+
+<div className="md:col-span-2">
+<Panel title="Flujo defensivo">
+  <div id="grafico-abp-objective-flow">
+   <ABPObjectiveFlow
+  rows={filtered.map((r) => ({
+    jornada: String(r.jornada),
+    rival: r.rival,
+    tiempo: r.tiempo,
+    tipoAccion: r.tipoAccion,
+    tipoEnvio: r.tipoEnvio,
+    calidadEnvio: r.calidadEnvio,
+    zonaCaida: r.zonaCaida,
+    zonaRemate: r.zonaRemate,
+    xG: Number(r.xg ?? 0),
+    tipoRemate: r.tipoRemate,
     resultadoFinal: r.resultadoFinal,
   }))}
 />
