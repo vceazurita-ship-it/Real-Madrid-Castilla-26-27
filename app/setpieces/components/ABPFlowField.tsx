@@ -21,6 +21,9 @@
     tipoEnvio?: string;
     Tipo_Envio?: string;
 
+    zonaCaida?: string;
+    Zona_Caida?: string;
+
     zonaRemate?: string;
     Zona_Remate?: string;
 
@@ -208,11 +211,11 @@ if (t.includes("falta indirecta")) {
   "1P": { x: 50, y: 8 },
   "Primer Palo": { x: 50, y: 8 },
   "6m": { x: 70, y: 10 },
+  "Central": { x: 70, y: 13 },
   "Segundo Palo": { x: 88, y: 8 },
   "2P": { x: 88, y: 8 },
   "Penalti": { x: 70, y: 16 },
   "Fuera de área": { x: 70, y: 24 },
-  "No aplica": { x: 96, y: 28 },
   };
 
 
@@ -225,14 +228,110 @@ if (t.includes("falta indirecta")) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+  // "No aplica" y "No remate" no son zonas: no deben pintarse sobre el campo.
+  if (t.includes("no aplica") || t.includes("no remate")) return null;
+
   if (t === "1p" || t.includes("primer")) return "1P";
   if (t === "2p" || t.includes("segundo")) return "2P";
   if (t.includes("6m")) return "6m";
+  if (t.includes("central")) return "Central";
   if (t.includes("penal")) return "Penalti";
   if (t.includes("fuera")) return "Fuera de área";
-  if (t.includes("no aplica")) return "No aplica";
 
   return null;
+  }
+
+  /** Zona del área donde cae el envío, normalizada al vocabulario del campo. */
+  function normalizeZonaCaida(v?: string): string | null {
+  const t = (v || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+
+  if (!t) return null;
+
+  // Las superioridades (2v1, 3v2...) las representa la flecha de juego en corto.
+  if (/^\d+\s*v\s*\d+$/.test(t)) return null;
+
+  if (t.includes("arriba")) return "Portería arriba";
+  if (t.includes("abajo")) return "Portería abajo";
+  if (t.includes("primer")) return "Primer palo";
+  if (t.includes("segundo")) return "Segundo palo";
+  if (t.includes("6m")) return "6m";
+  if (t.includes("penalti")) return "Penalti";
+  if (t.includes("barrera")) return "Directa a barrera";
+  if (t.includes("fuera") || t.includes("frontal")) return "Frontal";
+
+  return null;
+  }
+
+  /**
+   * Coordenadas reales de la zona de caída sobre el campo.
+   * Primer y segundo palo dependen del lado desde el que se golpea.
+   */
+  function caidaCoords(
+  zona: string,
+  esIzq: boolean,
+  esDer: boolean
+  ): { x: number; y: number } | null {
+  const palo = esIzq
+    ? { primero: 58, segundo: 82 }
+    : esDer
+    ? { primero: 82, segundo: 58 }
+    : { primero: 60, segundo: 80 };
+
+  switch (zona) {
+    case "Primer palo":
+      return { x: palo.primero, y: 7 };
+    case "Segundo palo":
+      return { x: palo.segundo, y: 7 };
+    case "6m":
+      return { x: 70, y: 6.5 };
+    case "Penalti":
+      return { x: 70, y: 12 };
+    case "Frontal":
+      return { x: 70, y: 24 };
+    case "Directa a barrera":
+      return { x: 70, y: 18 };
+    case "Portería arriba":
+      return { x: 66, y: 2.6 };
+    case "Portería abajo":
+      return { x: 74, y: 3.6 };
+    default:
+      return null;
+  }
+  }
+
+  /** Mezcla acero → oro → verde según el % de acciones que acaban en gol u ocasión. */
+  function peligroColor(t: number) {
+  const stops: { p: number; c: [number, number, number] }[] = [
+    { p: 0, c: [90, 103, 122] },
+    { p: 0.5, c: [200, 169, 107] },
+    { p: 1, c: [16, 185, 129] },
+  ];
+
+  const ratio = Math.max(0, Math.min(1, t));
+
+  let a = stops[0];
+  let b = stops[stops.length - 1];
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (ratio >= stops[i].p && ratio <= stops[i + 1].p) {
+      a = stops[i];
+      b = stops[i + 1];
+      break;
+    }
+  }
+
+  const span = b.p - a.p || 1;
+  const local = (ratio - a.p) / span;
+
+  const rgb = a.c.map((channel, i) =>
+    Math.round(channel + (b.c[i] - channel) * local)
+  );
+
+  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   }
 
   export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
@@ -241,6 +340,7 @@ if (t.includes("falta indirecta")) {
   tipo: "corto" | "directo" | "origen";
 } | null>(null);
   const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
+  const [metric, setMetric] = useState<"acciones" | "xg">("acciones");
 
   const { originCounts, originEnvios, remateStats } = useMemo(() => {
     const originCounts: Record<string, number> = {};
@@ -249,6 +349,10 @@ if (t.includes("falta indirecta")) {
     {
       envios: Record<string, number>;
       perfil: string;
+      // Reparto real de zonas de caída: es lo que marca hacia dónde apunta la flecha.
+      caidas: Record<string, number>;
+      xg: number;
+      peligro: number;
     }
   > = {};
     const remateStats: Record<string, { xg: number; actions: ABPRow[] }> = {};
@@ -274,11 +378,37 @@ const origen = `${tipo}__${perfil}`;
     originEnvios[origen] = {
       envios: {},
       perfil,
+      caidas: {},
+      xg: 0,
+      peligro: 0,
     };
   }
 
   originEnvios[origen].envios[envio] =
     (originEnvios[origen].envios[envio] || 0) + 1;
+
+  const caida = normalizeZonaCaida(r.zonaCaida ?? r.Zona_Caida);
+
+  if (caida) {
+    originEnvios[origen].caidas[caida] =
+      (originEnvios[origen].caidas[caida] || 0) + 1;
+  }
+
+  const xgFila =
+    typeof r.xG === "number"
+      ? r.xG
+      : parseFloat(String(r.xG || 0).replace(",", "."));
+
+  originEnvios[origen].xg += Number.isFinite(xgFila) ? xgFila : 0;
+
+  const res = (r.resultadoFinal ?? r.Resultado_Final ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+  if (res === "gol" || res.includes("ocas")) {
+    originEnvios[origen].peligro += 1;
+  }
 
     const remate = normalizeZonaRemate(r.zonaRemate ?? r.Zona_Remate);
     if (remate) {
@@ -300,13 +430,82 @@ const origen = `${tipo}__${perfil}`;
   }, [rows]);
 
   const maxOrigin = Math.max(...Object.values(originCounts), 1);
+
+  const maxOriginXg = Math.max(
+    ...Object.values(originEnvios).map((v) => v.xg),
+    0.01
+  );
   const maxXG = Math.max(
   ...Object.values(remateStats).map((v) => v.xg),
   0.01
   );
   return (
+  <div className="w-full">
+  {/* Selector de métrica y leyenda */}
+  <div className="mx-auto mb-4 flex max-w-[980px] flex-wrap items-center gap-x-5 gap-y-2">
+    <div className="flex gap-2">
+      {(
+        [
+          { key: "acciones", label: "Acciones" },
+          { key: "xg", label: "xG" },
+        ] as const
+      ).map((m) => (
+        <button
+          key={m.key}
+          type="button"
+          onClick={() => setMetric(m.key)}
+          className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
+            metric === m.key
+              ? "border-[#C8A96B] bg-[#C8A96B] text-black"
+              : "border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08]"
+          }`}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-zinc-400">
+      <span className="flex items-center gap-1.5">
+        <span className="h-0.5 w-5 rounded-full bg-[#E7D2A0]" />
+        Envío al área
+      </span>
+
+      <span className="flex items-center gap-1.5">
+        <span className="h-0.5 w-5 rounded-full border-t border-dashed border-blue-300 bg-transparent" />
+        Juego en corto
+      </span>
+
+      <span className="flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        xG por zona de remate
+      </span>
+
+      <span className="flex items-center gap-1.5">
+        <span
+          className="h-2 w-6 rounded-full"
+          style={{
+            background: `linear-gradient(90deg, ${peligroColor(
+              0
+            )}, ${peligroColor(0.5)}, ${peligroColor(1)})`,
+          }}
+        />
+        Anillo = % gol u ocasión
+      </span>
+    </div>
+  </div>
+
   <div className="relative w-full max-w-[980px] mx-auto aspect-[8/5]">
-  <svg viewBox="0 0 140 70" className="w-full h-full">
+  <svg
+    viewBox="0 0 140 70"
+    className="w-full h-full"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        setSelectedOrigin(null);
+        setSelectedRemate(null);
+      }
+    }}
+  >
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="1" stdDeviation="1.4" floodColor="#000000" floodOpacity="0.35" />
@@ -475,7 +674,16 @@ const origen = `${tipo}__${perfil}`;
   const p = getOriginCoords(name, data?.perfil);
   if (!p) return null;
 
-  const r = 3 + Math.sqrt(value) * 2.2;
+  // El tamaño responde a la métrica elegida: volumen de acciones o xG generado.
+  const magnitud =
+    metric === "xg" ? data?.xg || 0 : value;
+
+  const escala =
+    metric === "xg" ? Math.max(maxOriginXg, 0.01) : maxOrigin;
+
+  const r = 3 + Math.sqrt(magnitud / escala) * 6.2;
+
+  const ratioPeligro = value ? (data?.peligro || 0) / value : 0;
 
   const envios = data?.envios || {};
 
@@ -654,17 +862,50 @@ else if (tipo.startsWith("penalti")) {
   ];
 }
 
-// Elegimos un destino diferente para el envío al área
-if (destinosArea.length > 0) {
-  const d = destinosArea[value % destinosArea.length];
-  targetX = d.x;
-  targetY = d.y;
+// Destino real del envío: las zonas de caída registradas para este origen.
+// Antes se elegía con `value % destinosArea.length`, así que la flecha
+// apuntaba a un sitio arbitrario que no describía nada.
+const caidasOrigen = data?.caidas || {};
+
+const enviosAlArea = Object.values(caidasOrigen).reduce(
+  (acc, n) => acc + n,
+  0
+);
+
+const destinosReales = Object.entries(caidasOrigen)
+  .map(([zonaNombre, n]) => {
+    const c = caidaCoords(zonaNombre, esIzq, esDer);
+    if (!c) return null;
+
+    return {
+      zona: zonaNombre,
+      n,
+      share: enviosAlArea ? n / enviosAlArea : 0,
+      ...c,
+    };
+  })
+  .filter(
+    (d): d is NonNullable<typeof d> => d !== null
+  )
+  .sort((a, b) => b.n - a.n)
+  // Sólo los destinos con peso real: por debajo del 25% ensucian el campo.
+  .filter((d, i) => i === 0 || d.share >= 0.25)
+  .slice(0, 3);
+
+// Sin zona de caída registrada usamos el destino de referencia del tipo de acción.
+if (destinosReales.length === 0 && destinosArea.length > 0) {
+  targetX = destinosArea[0].x;
+  targetY = destinosArea[0].y;
 }
+
+const atenuado =
+  !!selectedOrigin && selectedOrigin.key !== key;
 
     return (
       <g
   key={key}
   filter="url(#shadow)"
+  opacity={atenuado ? 0.22 : 1}
   onClick={() =>
     setSelectedOrigin({
       key,
@@ -673,43 +914,71 @@ if (destinosArea.length > 0) {
   }
   style={{ cursor: "pointer" }}
 >
-  {/* Envío directo al área (DORADO) */}
- {ratioDirecto > 0 && (
-  <>
-    <path
-      d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
-        6,
-        p.y - 10
-      )} ${targetX} ${targetY}`}
-      fill="none"
-      stroke="#F5E7C8"
-      strokeWidth={2.8 + ratioDirecto * 1.2}
-      strokeLinecap="round"
-      opacity="0.12"
-      filter="url(#pathGlow)"
-    />
-    <path
-      d={`M ${p.x} ${p.y} Q ${(p.x + targetX) / 2} ${Math.max(
-        6,
-        p.y - 10
-      )} ${targetX} ${targetY}`}
-      fill="none"
-      stroke="url(#goldPath)"
-      strokeWidth={1.4 + ratioDirecto * 1.1}
-      strokeLinecap="round"
-      opacity={0.75 + ratioDirecto * 0.2}
-      markerEnd="url(#arrowGold)"
-      onClick={(e) => {
-        e.stopPropagation();
-        setSelectedOrigin({
-          key,
-          tipo: "directo",
-        });
-      }}
-      style={{ cursor: "pointer" }}
-    />
-  </>
-)}
+  <title>
+    {`${name} · ${value} acciones · ${(data?.xg || 0).toFixed(2)} xG`}
+  </title>
+
+  {/* Envíos al área (DORADO): una flecha por zona de caída real */}
+ {ratioDirecto > 0 &&
+  (destinosReales.length > 0
+    ? destinosReales
+    : [
+        {
+          zona: "Sin zona registrada",
+          n: 0,
+          share: 1,
+          x: targetX,
+          y: targetY,
+        },
+      ]
+  ).map((d) => {
+    const curva = `M ${p.x} ${p.y} Q ${(p.x + d.x) / 2} ${Math.max(
+      6,
+      p.y - 10
+    )} ${d.x} ${d.y}`;
+
+    // El grosor sigue el peso de esa zona dentro del origen.
+    const peso = ratioDirecto * (0.45 + d.share * 0.55);
+
+    return (
+      <g key={`${key}-${d.zona}`}>
+        <path
+          d={curva}
+          fill="none"
+          stroke="#F5E7C8"
+          strokeWidth={2.8 + peso * 1.2}
+          strokeLinecap="round"
+          opacity="0.12"
+          filter="url(#pathGlow)"
+        />
+        <path
+          d={curva}
+          fill="none"
+          stroke="url(#goldPath)"
+          strokeWidth={1.4 + peso * 1.1}
+          strokeLinecap="round"
+          opacity={0.7 + d.share * 0.25}
+          markerEnd="url(#arrowGold)"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedOrigin({
+              key,
+              tipo: "directo",
+            });
+          }}
+          style={{ cursor: "pointer" }}
+        >
+          <title>
+            {d.n > 0
+              ? `${d.zona}: ${d.n} envíos (${(d.share * 100).toFixed(
+                  0
+                )}%)`
+              : "Envío al área sin zona de caída registrada"}
+          </title>
+        </path>
+      </g>
+    );
+  })}
 
 {/* Juego en corto (AZUL) */}
 {ratioCorto > 0 && (
@@ -744,14 +1013,14 @@ if (destinosArea.length > 0) {
   </>
 )}
 
-  {/* Nodo exterior */}
+  {/* Anillo exterior: verde cuanto más gol u ocasión produce este origen */}
   <circle
     cx={p.x}
     cy={p.y}
-    r={r + 0.7}
+    r={r + 0.9}
     fill="none"
-    stroke="#F5E7C8"
-    strokeWidth="0.6"
+    stroke={peligroColor(ratioPeligro)}
+    strokeWidth="0.9"
     opacity="0.95"
   />
 
@@ -765,7 +1034,7 @@ if (destinosArea.length > 0) {
     strokeWidth="0.35"
   />
 
-  {/* Contador */}
+  {/* Valor de la métrica activa */}
   <text
     x={p.x}
     y={p.y + 0.8}
@@ -774,7 +1043,7 @@ if (destinosArea.length > 0) {
     fontSize="2.2"
     fontWeight="700"
   >
-    {value}
+    {metric === "xg" ? (data?.xg || 0).toFixed(2) : value}
   </text>
 </g>
     );
@@ -909,7 +1178,74 @@ if (destinosArea.length > 0) {
             </p>
           </div>
         </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-white/5 px-2 py-1.5">
+            <p className="text-[11px] text-slate-400">xG generado</p>
+            <p className="mt-0.5 text-sm font-semibold text-white">
+              {(originEnvios[selectedOrigin.key]?.xg || 0).toFixed(2)}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-white/5 px-2 py-1.5">
+            <p className="text-[11px] text-slate-400">Gol u ocasión</p>
+            <p className="mt-0.5 text-sm font-semibold text-white">
+              {originCounts[selectedOrigin.key]
+                ? (
+                    ((originEnvios[selectedOrigin.key]?.peligro || 0) /
+                      originCounts[selectedOrigin.key]) *
+                    100
+                  ).toFixed(0)
+                : 0}
+              %
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Reparto real de zonas de caída: es lo que dibujan las flechas doradas */}
+      {(() => {
+        const caidas = Object.entries(
+          originEnvios[selectedOrigin.key]?.caidas || {}
+        ).sort((a, b) => b[1] - a[1]);
+
+        const totalCaidas = caidas.reduce(
+          (acc, [, n]) => acc + n,
+          0
+        );
+
+        if (!totalCaidas) return null;
+
+        return (
+          <div className="mb-4 rounded-xl border border-white/10 bg-[#0B1728] p-3">
+            <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">
+              Dónde cae el envío
+            </p>
+
+            <div className="space-y-2">
+              {caidas.map(([zonaNombre, n]) => (
+                <div key={zonaNombre}>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-300">{zonaNombre}</span>
+                    <span className="text-slate-500">
+                      {n} · {((n / totalCaidas) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+
+                  <div className="h-1.5 w-full rounded-full bg-white/5">
+                    <div
+                      className="h-1.5 rounded-full bg-[#C8A96B]"
+                      style={{
+                        width: `${(n / totalCaidas) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Lista de acciones */}
       <div className="space-y-2">
@@ -1052,6 +1388,7 @@ if (destinosArea.length > 0) {
         </div>
       </div>
     )}
+  </div>
   </div>
 
   );

@@ -7,6 +7,7 @@ import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import ABPFlowField from './components/ABPFlowField';
+import ABPZoneMap from "./components/ABPZoneMap";
 
 
 import {
@@ -31,6 +32,7 @@ import {
   Cell,
   LabelList,
   Legend,
+  ComposedChart,
 } from "recharts";
 
 const CSV_URL =
@@ -51,6 +53,41 @@ const PIE_COLORS = [
   "#5E7FB8", // Azul real
   "#7C6F9F", // Púrpura grisáceo
 ];
+
+const RESULTADO_COLORS: Record<string, string> = {
+  "Gol Rival": "#B45454",
+  "Ocasión": "#D08A7E",
+  "ABP": "#5E7FB8",
+  "Nada": "#475569",
+  "Transición Ofensiva": "#567A68",
+  "Gol RMCF": "#10B981",
+};
+
+/**
+ * Normaliza el resultado final defensivo al vocabulario cerrado del cuerpo técnico.
+ * Ojo al orden: "Gol RMCF" es gol nuestro tras transición, no gol encajado.
+ */
+function normalizaResultado(v?: string): string {
+  const t = (v || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+
+  if (!t) return "Nada";
+  if (t.includes("gol") && t.includes("rmcf")) return "Gol RMCF";
+  if (t.includes("gol")) return "Gol Rival";
+  if (t.includes("ocas")) return "Ocasión";
+  if (t.includes("transici")) return "Transición Ofensiva";
+  if (t.includes("abp")) return "ABP";
+
+  return "Nada";
+}
+
+/** true cuando el valor de Zona_Caida describe una superioridad en corto (3v2, 2v1...). */
+function esSuperioridad(v?: string) {
+  return /^\s*\d+\s*v\s*\d+\s*$/i.test(v || "");
+}
 
 type Row = {
   jornada: number;
@@ -302,13 +339,8 @@ const filtered = rows.filter((r) => {
       r.tipoCarrera ===
         visualFilters.tipoCarrera) &&
     (!visualFilters.resultadoFinal ||
-  (visualFilters.resultadoFinal === "Gol"
-    ? r.resultadoFinal
-        .toLowerCase()
-        .includes("gol")
-    : !r.resultadoFinal
-        .toLowerCase()
-        .includes("gol")));
+      normalizaResultado(r.resultadoFinal) ===
+        visualFilters.resultadoFinal);
 
   return (
     matchJornada &&
@@ -442,7 +474,13 @@ const sacadorData =
     filtered.forEach((r) => {
       if (
         !r.tipoRemate ||
-        r.tipoRemate === "No Remate"
+        [
+          "no remate",
+          "no aplica",
+          "no",
+          "sin remate",
+          "-",
+        ].includes(r.tipoRemate.trim().toLowerCase())
       )
         return;
 
@@ -527,6 +565,10 @@ const xgZonaCaida =
     filtered.forEach((r) => {
       if (!r.zonaCaida) return;
 
+      // Las superioridades (3v2, 2v1...) tienen su propio panel:
+      // no son zonas del área y ensucian esta comparativa.
+      if (esSuperioridad(r.zonaCaida)) return;
+
       grouped[r.zonaCaida] =
         (grouped[r.zonaCaida] || 0) +
         r.xg;
@@ -544,16 +586,158 @@ const xgZonaCaida =
       );
   }, [filtered]);
 
-const resultadoData = [
-  {
-    name: "Gol Rival",
-    total: metrics.goalsAgainst,
-  },
-  {
-    name: "No Gol",
-    total: filtered.length - metrics.goalsAgainst,
-  },
-];
+// Desglose completo del resultado final
+// (Gol Rival / Ocasión / ABP / Nada / Transición Ofensiva / Gol RMCF)
+const resultadoData = useMemo(() => {
+  const orden = [
+    "Gol Rival",
+    "Ocasión",
+    "ABP",
+    "Nada",
+    "Transición Ofensiva",
+    "Gol RMCF",
+  ];
+
+  const grouped: Record<string, number> = {};
+
+  filtered.forEach((r) => {
+    const k = normalizaResultado(r.resultadoFinal);
+    grouped[k] = (grouped[k] || 0) + 1;
+  });
+
+  return orden
+    .filter((name) => grouped[name] > 0)
+    .map((name) => ({
+      name,
+      total: grouped[name],
+    }));
+}, [filtered]);
+
+// Acciones en las que el rival acaba generando peligro (gol u ocasión)
+const accionesPeligrosas = filtered.filter((r) => {
+  const res = normalizaResultado(r.resultadoFinal);
+  return res === "Gol Rival" || res === "Ocasión";
+}).length;
+
+const tasaPeligro =
+  filtered.length > 0
+    ? (accionesPeligrosas / filtered.length) * 100
+    : 0;
+
+// Calidad del envío rival (1-4) frente al peligro que nos genera
+const calidadEnvioData = useMemo(() => {
+  const grouped: Record<
+    number,
+    { total: number; xg: number; remates: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    const calidad = num(r.calidadEnvio);
+    if (!calidad) return;
+
+    if (!grouped[calidad]) {
+      grouped[calidad] = {
+        total: 0,
+        xg: 0,
+        remates: 0,
+      };
+    }
+
+    grouped[calidad].total += 1;
+    grouped[calidad].xg += r.xg;
+
+    if (
+      r.tipoRemate &&
+      !["", "No Remate", "No aplica"].includes(r.tipoRemate)
+    ) {
+      grouped[calidad].remates += 1;
+    }
+  });
+
+  return Object.entries(grouped)
+    .map(([calidad, v]) => ({
+      name: `Calidad ${calidad}`,
+      total: v.total,
+      xg: +v.xg.toFixed(2),
+      remates: v.remates,
+      pctRemate: +((v.remates / v.total) * 100).toFixed(1),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}, [filtered]);
+
+// Superioridades que el rival genera en el juego en corto (3v2, 2v1...)
+const superioridadData = useMemo(() => {
+  const grouped: Record<
+    string,
+    { total: number; xg: number; goles: number }
+  > = {};
+
+  filtered
+    .filter((r) => esSuperioridad(r.zonaCaida))
+    .forEach((r) => {
+      const k = r.zonaCaida.trim();
+
+      if (!grouped[k]) {
+        grouped[k] = { total: 0, xg: 0, goles: 0 };
+      }
+
+      grouped[k].total += 1;
+      grouped[k].xg += r.xg;
+
+      if (normalizaResultado(r.resultadoFinal) === "Gol Rival") {
+        grouped[k].goles += 1;
+      }
+    });
+
+  return Object.entries(grouped)
+    .map(([name, v]) => ({
+      name,
+      total: v.total,
+      xg: +v.xg.toFixed(2),
+      goles: v.goles,
+    }))
+    .sort((a, b) => b.total - a.total);
+}, [filtered]);
+
+// Estructura de la jugada: atacantes rivales frente al xG concedido
+// y a la ocupación media que desplegamos dentro del área.
+const estructuraData = useMemo(() => {
+  const grouped: Record<
+    number,
+    { total: number; xg: number; ocupacion: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    if (!r.nAtacantes) return;
+
+    if (!grouped[r.nAtacantes]) {
+      grouped[r.nAtacantes] = {
+        total: 0,
+        xg: 0,
+        ocupacion: 0,
+      };
+    }
+
+    grouped[r.nAtacantes].total += 1;
+    grouped[r.nAtacantes].xg += r.xg;
+    grouped[r.nAtacantes].ocupacion +=
+      num(r.oc1P) +
+      num(r.ocCentral) +
+      num(r.oc2P) +
+      num(r.ocFrontal);
+  });
+
+  return Object.entries(grouped)
+    .map(([atacantes, v]) => ({
+      name: `${atacantes} atacantes`,
+      total: v.total,
+      xgMedio: +(v.xg / v.total).toFixed(3),
+      ocupacionMedia: +(v.ocupacion / v.total).toFixed(1),
+    }))
+    .sort(
+      (a, b) => parseInt(a.name) - parseInt(b.name)
+    );
+}, [filtered]);
   const timeline = [
   {
     tramo: "1T",
@@ -878,6 +1062,7 @@ const resumen = [
 `• ${metrics.goalsRMCF} goles RMCF tras transición`,
   `• Sacador rival más peligroso: ${sacadorData[0]?.name || "-"}`,
   `• xG concedido por acción: ${xgAccion.toFixed(2)}`,
+  `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión del rival`,
 ];
 
 // ==========================================
@@ -1069,8 +1254,24 @@ resumen.forEach(
     title: "xG zona caída",
   },
   {
+    id: "grafico-zone-map",
+    title: "Mapa de zonas",
+  },
+  {
+    id: "grafico-calidad-envio",
+    title: "Calidad envío",
+  },
+  {
+    id: "grafico-superioridad",
+    title: "Superioridad en corto",
+  },
+  {
+    id: "grafico-estructura",
+    title: "Estructura jugada",
+  },
+  {
     id: "grafico-conversion",
-    title: "Conversión",
+    title: "Resultado final",
   },
 ];
 
@@ -1546,8 +1747,8 @@ originalStyles.forEach(
     grid
     gap-3
     grid-cols-2
-    sm:grid-cols-4
-    xl:grid-cols-8
+    sm:grid-cols-3
+    xl:grid-cols-5
   "
 >
   <Card
@@ -1598,6 +1799,11 @@ originalStyles.forEach(
   title="Gol RMCF"
   value={metrics.goalsRMCF.toLocaleString()}
 />
+
+<Card
+  title="Gol u ocasión"
+  value={`${tasaPeligro.toFixed(1)}%`}
+/>
   <div
 className="
   h-[96px]
@@ -1629,6 +1835,26 @@ Mayor xG concedido  </p>
   
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
+<div className="md:col-span-2">
+<Panel title="Mapa de zonas del área">
+  <div id="grafico-zone-map">
+    <ABPZoneMap
+      rows={filtered.map((r) => ({
+        zonaCaida: r.zonaCaida,
+        zonaRemate: r.zonaRemate,
+        xg: r.xg,
+        resultadoFinal: r.resultadoFinal,
+        tipoRemate: r.tipoRemate,
+        oc1P: num(r.oc1P),
+        ocCentral: num(r.ocCentral),
+        oc2P: num(r.oc2P),
+        ocFrontal: num(r.ocFrontal),
+      }))}
+    />
+  </div>
+</Panel>
+</div>
+
 <div className="md:col-span-2">
 <Panel title="Situación Global">
   <div id="grafico-abp-flow">
@@ -2430,19 +2656,21 @@ const words =
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Conversión"><div id="grafico-conversion">
+<Panel title="Resultado final">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    {accionesPeligrosas} de {metrics.total} acciones acaban en gol u
+    ocasión del rival ({tasaPeligro.toFixed(1)}%). Pulsa un sector para
+    filtrar.
+  </p>
+
+  <div id="grafico-conversion">
   <Chart>
     <PieChart>
       <Pie
         data={resultadoData}
-         onClick={(data) =>
-  toggleFilter(
-    "resultadoFinal",
-    data.name === "Gol Rival"
-      ? "Gol Rival"
-      : "No Gol"
-  )
-}
+        onClick={(data: any) =>
+          toggleFilter("resultadoFinal", data.name)
+        }
         dataKey="total"
         nameKey="name"
 innerRadius={isMobile ? 65 : 95}
@@ -2450,36 +2678,258 @@ outerRadius={isMobile ? 90 : 120}
         paddingAngle={4}
         cornerRadius={8}
         stroke="transparent"
-><Label
-  value={filtered.length}
+>
+        {resultadoData.map((entry) => (
+          <Cell
+            key={entry.name}
+            fill={
+              RESULTADO_COLORS[entry.name] ||
+              "#475569"
+            }
+            cursor="pointer"
+          />
+        ))}
+
+<Label
+  value={`${tasaPeligro.toFixed(0)}%`}
   position="center"
   fill="#fff"
   fontSize={isMobile ? 22 : 30}
-/> 
+/>
+
 <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>{!isMobile && (
-  <LabelList
-    dataKey="total"
-    position="inside"
-    fill="#fff"
-    fontSize={12}
-  />
-)}
-        <Cell fill="#10B981" />
-        <Cell fill="#475569" />
+/>
       </Pie>
 
       <Tooltip />
 
-      <Legend />
+      <Legend {...pieLegendProps} />
     </PieChart>
   </Chart></div>
 </Panel>
 
+<Panel title="Calidad del envío rival">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Escala 1-4 valorada por el cuerpo técnico: volumen de envíos del
+    rival y porcentaje que termina en remate.
+  </p>
+
+  <div id="grafico-calidad-envio">
+  <Chart>
+    <ComposedChart
+      data={calidadEnvioData}
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="left"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        unit="%"
+        domain={[0, 100]}
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Legend {...pieLegendProps} />
+
+      <Bar
+        yAxisId="left"
+        dataKey="total"
+        name="Envíos"
+        fill={COLORS.gold}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList dataKey="total" position="top" />
+      </Bar>
+
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="pctRemate"
+        name="% que acaba en remate"
+        stroke="#B45454"
+        strokeWidth={2.5}
+        dot={{ r: 4 }}
+      />
+    </ComposedChart>
+  </Chart></div>
+</Panel>
+
+<Panel title="Superioridad en corto">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Ventajas numéricas que el rival crea antes del envío al área. Estos
+    valores no son zonas de caída, por eso se analizan aparte.
+  </p>
+
+  <div id="grafico-superioridad">
+  <Chart>
+    <BarChart
+      data={superioridadData}
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Legend {...pieLegendProps} />
+
+      <Bar
+        dataKey="total"
+        name="Acciones"
+        fill="#5E7FB8"
+        radius={[8, 8, 0, 0]}
+        onClick={(data: any) =>
+          toggleFilter("zonaCaida", data.name)
+        }
+        cursor="pointer"
+      >
+        <LabelList dataKey="total" position="top" />
+      </Bar>
+
+      <Bar
+        dataKey="goles"
+        name="Goles encajados"
+        fill="#B45454"
+        radius={[8, 8, 0, 0]}
+      />
+    </BarChart>
+  </Chart></div>
+</Panel>
+
+<Panel title="Estructura de la jugada">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Número de atacantes rivales implicados frente al xG medio concedido y
+    a la ocupación media que desplegamos en el área.
+  </p>
+
+  <div id="grafico-estructura">
+  <Chart>
+    <ComposedChart
+      data={estructuraData}
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="left"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Legend {...pieLegendProps} />
+
+      <Bar
+        yAxisId="left"
+        dataKey="total"
+        name="Acciones"
+        fill="#66758A"
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList dataKey="total" position="top" />
+      </Bar>
+
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="xgMedio"
+        name="xG medio concedido"
+        stroke="#D08A7E"
+        strokeWidth={2.5}
+        dot={{ r: 4 }}
+      />
+
+      {/* La ocupación va al eje izquierdo: comparte magnitud con el
+          volumen de acciones y no aplasta la línea de xG. */}
+      <Line
+        yAxisId="left"
+        type="monotone"
+        dataKey="ocupacionMedia"
+        name="Ocupación propia (media)"
+        stroke={COLORS.gold}
+        strokeWidth={2}
+        strokeDasharray="5 4"
+        dot={{ r: 3 }}
+      />
+    </ComposedChart>
+  </Chart></div>
+</Panel>
 
             </div>
 
