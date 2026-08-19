@@ -2,9 +2,26 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import type { LegendProps } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  Brain,
+  CalendarDays,
+  Clock,
+  Download,
+  Flame,
+  Gauge,
+  Layers,
+  ListChecks,
+  Minus,
+  Search,
+  Sparkles,
+  Star,
+  Target,
+} from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,7 +31,6 @@ import {
   Tooltip,
   Line,
   CartesianGrid,
-  AreaChart,
   Area,
   ComposedChart,
   Legend,
@@ -30,7 +46,9 @@ import {
   ScatterChart,
   Scatter,
   ZAxis,
+  ReferenceLine,
 } from "recharts";
+
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=111318766&single=true&output=csv";
 
@@ -39,6 +57,8 @@ const COLORS = {
   blue: "#3B82F6",
   purple: "#8B5CF6",
   green: "#10B981",
+  orange: "#F97316",
+  pink: "#EC4899",
   gray: "#64748B",
 };
 
@@ -49,80 +69,31 @@ const PIE_COLORS = [
   "#10B981",
   "#F97316",
   "#EC4899",
+  "#64748B",
+  "#EAB308",
+  "#06B6D4",
 ];
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
 const getEvalColor = (value: number) => {
   if (value >= 7.5) return "#10B981";
   if (value >= 6.5) return "#C8A96B";
   if (value >= 5.5) return "#F59E0B";
-  return "#EF4444";
+  if (value > 0) return "#EF4444";
+  return "#475569";
 };
 
-const renderMultilineTick = (
-  props: any
-) => {
-  const {
-    x,
-    y,
-    payload,
-  } = props;
+const norm = (v?: string) =>
+  (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-  const label = String(
-    payload.value
-  );
-
-  const words =
-    label.length > 18
-      ? label.split(" ")
-      : [label];
-
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="#CBD5E1"
-      fontSize="11"
-      textAnchor="end"
-    >
-      {words.map(
-        (
-          word: string,
-          index: number
-        ) => (
-          <tspan
-            key={index}
-            x={x}
-            dy={
-              index === 0
-                ? -(words.length - 1) *
-                  6
-                : 12
-            }
-          >
-            {word}
-          </tspan>
-        )
-      )}
-    </text>
-  );
-};
-
-type Row = {
-  contenidoPrincipal: string;
-  contenidoSecundario: string;
-  temporada: string;
-  micro: number;
-  rival: string;
-  md: string;
-  fecha: string;
-  tarea: string;
-  tipo: string;
-  evaluacion: number;
-  analisisPost: string;
-  fase: string;
-  intensidad: number;
-  carga: number;
-  cargaCog: number;
-};
+const isCompeticion = (fase?: string) => norm(fase).includes("competicion");
 
 function num(v?: string) {
   if (!v) return 0;
@@ -139,20 +110,138 @@ function num(v?: string) {
 function avg(arr: number[]) {
   if (!arr.length) return 0;
 
-  return +(
-    arr.reduce((a, b) => a + b, 0) /
-    arr.length
-  ).toFixed(1);
+  return +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+}
+
+function sum(arr: number[]) {
+  return arr.reduce((a, b) => a + b, 0);
 }
 
 function normalizeMD(v?: string) {
   if (!v) return "";
 
-  return String(v)
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "");
+  return String(v).trim().toUpperCase().replace(/\s+/g, "");
 }
+
+function fmtInt(n: number) {
+  return Math.round(n).toLocaleString("es-ES");
+}
+
+function fmtMin(n: number) {
+  const h = Math.floor(n / 60);
+  const m = Math.round(n % 60);
+
+  return h > 0 ? `${h}h ${m}'` : `${m}'`;
+}
+
+/** dd/mm/yyyy -> Date */
+function parseFecha(v?: string): Date | null {
+  if (!v) return null;
+
+  const m = String(v).trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+
+  if (!m) {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const year = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);
+
+  return new Date(year, Number(m[2]) - 1, Number(m[1]));
+}
+
+function fmtFechaCorta(v?: string) {
+  const d = parseFecha(v);
+
+  if (!d) return v || "—";
+
+  return d.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+const MD_SEQUENCE = [
+  "MD-7",
+  "MD-6",
+  "MD-5",
+  "MD-4",
+  "MD-3",
+  "MD-2",
+  "MD-1",
+  "MD",
+  "MD+1",
+  "MD+2",
+];
+
+const DIA_LABEL: Record<string, string> = {
+  L: "Lunes",
+  M: "Martes",
+  X: "Miércoles",
+  J: "Jueves",
+  V: "Viernes",
+  S: "Sábado",
+  D: "Domingo",
+};
+
+const renderMultilineTick = (props: any) => {
+  const { x, y, payload } = props;
+
+  const label = String(payload.value ?? "");
+
+  const words = label.length > 18 ? label.split(" ") : [label];
+
+  return (
+    <text x={x} y={y} fill="#CBD5E1" fontSize="11" textAnchor="end">
+      {words.map((word: string, index: number) => (
+        <tspan
+          key={index}
+          x={x}
+          dy={index === 0 ? -(words.length - 1) * 6 : 12}
+        >
+          {word}
+        </tspan>
+      ))}
+    </text>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Data                                                                */
+/* ------------------------------------------------------------------ */
+
+type Row = {
+  temporada: string;
+  micro: number;
+  rival: string;
+  dia: string;
+  md: string;
+  fecha: string;
+  tarea: string;
+  tipo: string;
+  evaluacion: number;
+  analisisPost: string;
+  formato: string;
+  grupo: string;
+  espacio: string;
+  contenidoPrincipal: string;
+  contenidoSecundario: string;
+  fase: string;
+  tiempo: number;
+  intensidad: number;
+  carga: number;
+  exigCog: number;
+  cargaCog: number;
+  demandaCog: number;
+  densidad: number;
+  nJug: number;
+  nComodines: number;
+  normativa: number;
+  incertidumbre: number;
+  familiaridad: number;
+  motivacion: number;
+  observaciones: string;
+};
 
 function parseCSV(text: string): Row[] {
   const parsed = Papa.parse<string[]>(text, {
@@ -166,1909 +255,3048 @@ function parseCSV(text: string): Row[] {
       temporada: r[0] || "",
       micro: num(r[1]),
       rival: r[2] || "",
+      dia: (r[3] || "").trim().toUpperCase(),
       md: normalizeMD(r[4]),
       fecha: r[5] || "",
       tarea: r[6] || "",
       tipo: r[7] || "",
       evaluacion: num(r[8]),
       analisisPost: r[9] || "",
+      formato: r[10] || "",
+      grupo: r[12] || "",
+      espacio: r[13] || "",
       contenidoPrincipal: r[14] || "",
       contenidoSecundario: r[15] || "",
       fase: r[16] || "",
+      tiempo: num(r[17]),
       intensidad: num(r[18]),
       carga: num(r[19]),
+      exigCog: num(r[20]),
       cargaCog: num(r[21]),
+      demandaCog: num(r[22]),
+      densidad: num(r[23]),
+      nJug: num(r[24]),
+      nComodines: num(r[25]),
+      normativa: num(r[26]),
+      incertidumbre: num(r[27]),
+      familiaridad: num(r[28]),
+      motivacion: num(r[29]),
+      observaciones: r[30] || "",
     }))
-    .filter(
-      (r) =>
-        r.micro > 0 &&
-        r.md &&
-        r.tarea.trim() !== ""
-    );
+    .filter((r) => r.micro > 0 && r.md && r.tarea.trim() !== "");
 }
 
+type TabKey =
+  | "resumen"
+  | "cargas"
+  | "contenidos"
+  | "cognitivo"
+  | "tareas";
+
+const TABS: { key: TabKey; label: string; icon: any }[] = [
+  { key: "resumen", label: "Resumen", icon: Sparkles },
+  { key: "cargas", label: "Cargas", icon: Flame },
+  { key: "contenidos", label: "Contenidos", icon: Layers },
+  { key: "cognitivo", label: "Cognitivo", icon: Brain },
+  { key: "tareas", label: "Tareas", icon: ListChecks },
+];
+
+const CONTENT_METRICS = [
+  { key: "tareas", label: "Nº Tareas", color: COLORS.gold, unit: "" },
+  { key: "tiempo", label: "Tiempo", color: COLORS.green, unit: "'" },
+  { key: "carga", label: "Carga Física", color: COLORS.blue, unit: "" },
+  { key: "cargaCog", label: "Carga Cognitiva", color: COLORS.purple, unit: "" },
+  { key: "eval", label: "Evaluación", color: COLORS.orange, unit: "" },
+] as const;
+
+type ContentMetricKey = (typeof CONTENT_METRICS)[number]["key"];
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function Page() {
-  const [isMobile, setIsMobile] =
-    useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
 
-  const [isNarrow, setIsNarrow] =
-    useState(false);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [rows, setRows] =
-    useState<Row[]>([]);
+  const [tab, setTab] = useState<TabKey>("resumen");
 
-  const [micro, setMicro] =
+  const [micro, setMicro] = useState("ALL");
+  const [tipoFilter, setTipoFilter] = useState("ALL");
+  const [contenidoPrincipalFilter, setContenidoPrincipalFilter] =
     useState("ALL");
+  const [evaluacionFilter, setEvaluacionFilter] = useState("ALL");
+  const [faseFilter, setFaseFilter] = useState("ALL");
+  const [mdFilter, setMdFilter] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [excludeComp, setExcludeComp] = useState(true);
 
-    
-const [tipoFilter, setTipoFilter] =
-  useState("ALL");
+  const [contentMetric, setContentMetric] =
+    useState<ContentMetricKey>("tareas");
 
-const [contenidoPrincipalFilter, setContenidoPrincipalFilter] =
-  useState("ALL");
+  const [sortKey, setSortKey] = useState<keyof Row>("micro");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-const [evaluacionFilter, setEvaluacionFilter] =
-  useState("ALL");
+  useEffect(() => {
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsNarrow(window.innerWidth < 1200);
+    };
 
-  const [faseFilter, setFaseFilter] =
-  useState("ALL");
+    check();
 
-useEffect(() => {
-  const check = () => {
-    setIsMobile(
-      window.innerWidth < 768
-    );
+    window.addEventListener("resize", check);
 
-    setIsNarrow(
-      window.innerWidth < 1200
-    );
-  };
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-  check();
-
-  window.addEventListener(
-    "resize",
-    check
-  );
-
-  return () =>
-    window.removeEventListener(
-      "resize",
-      check
-    );
-}, []);
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
       .then((t) => {
-        const parsed = parseCSV(t);
-        setRows(parsed);
+        setRows(parseCSV(t));
+        setLoading(false);
       })
-      .catch(console.error);
+      .catch((e) => {
+        console.error(e);
+        setLoading(false);
+      });
   }, []);
 
   const micros = useMemo(
-    () =>
-      [...new Set(rows.map((r) => r.micro))].sort(
-        (a, b) => a - b
-      ),
+    () => [...new Set(rows.map((r) => r.micro))].sort((a, b) => a - b),
     [rows]
   );
 
+  const mdOrder = useMemo(
+    () => MD_SEQUENCE.filter((md) => rows.some((r) => r.md === md)),
+    [rows]
+  );
+
+  /* ---------------- filtering ---------------- */
+
   const filtered = useMemo(() => {
-  return rows.filter((r) => {
-    const matchesMicro =
-      micro === "ALL" ||
-      String(r.micro) === micro;
-      const matchesFase =
-  faseFilter === "ALL" ||
-  r.fase === faseFilter;
+    const q = norm(search);
 
-    const matchesTipo =
-      tipoFilter === "ALL" ||
-      r.tipo === tipoFilter;
+    return rows.filter((r) => {
+      if (micro !== "ALL" && String(r.micro) !== micro) return false;
+      if (faseFilter !== "ALL" && r.fase !== faseFilter) return false;
+      if (tipoFilter !== "ALL" && r.tipo !== tipoFilter) return false;
+      if (mdFilter !== "ALL" && r.md !== mdFilter) return false;
 
-    const matchesContenido =
-      contenidoPrincipalFilter === "ALL" ||
-      r.contenidoPrincipal === contenidoPrincipalFilter;
+      if (
+        contenidoPrincipalFilter !== "ALL" &&
+        r.contenidoPrincipal !== contenidoPrincipalFilter
+      )
+        return false;
 
-    const matchesEvaluacion =
-      evaluacionFilter === "ALL" ||
-      r.evaluacion >= Number(evaluacionFilter);
+      if (
+        evaluacionFilter !== "ALL" &&
+        r.evaluacion < Number(evaluacionFilter)
+      )
+        return false;
 
+      if (
+        q &&
+        !norm(
+          `${r.tarea} ${r.tipo} ${r.contenidoPrincipal} ${r.contenidoSecundario} ${r.fase} ${r.formato} ${r.analisisPost}`
+        ).includes(q)
+      )
+        return false;
 
-
-    return (
-  matchesMicro &&
-  matchesTipo &&
-  matchesContenido &&
-  matchesEvaluacion &&
-  matchesFase
-);
-  });
-}, [
-  rows,
-  micro,
-  tipoFilter,
-  contenidoPrincipalFilter,
-  evaluacionFilter,
-  faseFilter,
-]);
-  const metrics = {
-    eval: avg(
-      filtered
-        .map((r) => r.evaluacion)
-        .filter((n) => n > 0)
-    ),
-    load: filtered.reduce(
-      (a, b) => a + b.carga,
-      0
-    ),
-    cog: filtered.reduce(
-      (a, b) => a + b.cargaCog,
-      0
-    ),
-    tasks: filtered.length,
-  };
-const avgLoadPerTask =
-  metrics.tasks > 0
-    ? metrics.load / metrics.tasks
-    : 0;
-
-const avgCogPerTask =
-  metrics.tasks > 0
-    ? metrics.cog / metrics.tasks
-    : 0;
-    const taskDiversity =
-  new Set(
-    filtered.map((r) => r.tipo)
-  ).size;
-  const competitionTasks =
-  filtered.filter(
-    (r) =>
-      r.fase
-        .toLowerCase()
-        .includes("compet")
-  ).length;
-
-const competitionRatio =
-  metrics.tasks > 0
-    ? competitionTasks /
-      metrics.tasks
-    : 0;
-    const maxAvgLoadPerTask =
-  Math.max(
-    ...micros.map((m) => {
-      const set = rows.filter(
-        (r) => r.micro === m
-      );
-
-      const load =
-        set.reduce(
-          (a, b) => a + b.carga,
-          0
-        ) / set.length;
-
-      return load;
-    }),
-    1
-  );
-
-const maxAvgCogPerTask =
-  Math.max(
-    ...micros.map((m) => {
-      const set = rows.filter(
-        (r) => r.micro === m
-      );
-
-      const cog =
-        set.reduce(
-          (a, b) => a + b.cargaCog,
-          0
-        ) / set.length;
-
-      return cog;
-    }),
-    1
-  );
-
-const maxTaskDiversity =
-  Math.max(
-    ...micros.map((m) => {
-      const set = rows.filter(
-        (r) => r.micro === m
-      );
-
-      return new Set(
-        set.map((r) => r.tipo)
-      ).size;
-    }),
-    1
-  );
-  const mdOrder = [
-    "MD-4",
-    "MD-3",
-    "MD-2",
-    "MD-1",
-    "MD",
-  ];
-
-  const mdData = mdOrder.map((md) => {
-    const set = filtered.filter(
-      (r) => r.md === md
-    );
-
-    return {
-      md,
-      carga: set.reduce(
-        (a, b) => a + b.carga,
-        0
-      ),
-      cargaCog: set.reduce(
-        (a, b) => a + b.cargaCog,
-        0
-      ),
-      intensidad: avg(
-        set.map((r) => r.intensidad)
-      ),
-    };
-  });
-
-  const trendData = micros.map((m) => {
-    const set = rows.filter(
-      (r) => r.micro === m
-    );
-
-    return {
-      micro: `M${m}`,
-      value: avg(
-        set
-          .map((r) => r.evaluacion)
-          .filter((n) => n > 0)
-      ),
-    };
-  });
-
-const loadCorrelationData = filtered
-  .filter((r) => {
-    const fase = (r.fase || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim();
-
-    return (
-      r.carga > 0 &&
-      r.cargaCog > 0 &&
-      r.evaluacion > 0 &&
-      !fase.includes("competicion")
-    );
-  })
-  .map((r) => ({
-    carga: r.carga,
-    cargaCog: r.cargaCog,
-    eval: r.evaluacion,
-    tipo: r.tipo,
-  }));  
-const scatterColoredData =
-  loadCorrelationData.map((d) => ({
-    ...d,
-    fill: getEvalColor(d.eval),
-  }));
-const compareData = micros.map((m) => {
-  const set = rows.filter(
-    (r) => r.micro === m
-  );
-
-  return {
-    micro: `M${m}`,
-    eval: avg(
-      set
-        .map((r) => r.evaluacion)
-        .filter((n) => n > 0)
-    ),
-    load: set.reduce(
-      (a, b) => a + b.carga,
-      0
-    ),
-    cog: set.reduce(
-      (a, b) => a + b.cargaCog,
-      0
-    ),
-  };
-});
-
-const maxTasks = Math.max(
-  ...micros.map(
-    (m) =>
-      rows.filter(
-        (r) => r.micro === m
-      ).length
-  )
-);
-const maxLoad = Math.max(
-  ...micros.map((m) =>
-    rows
-      .filter((r) => r.micro === m)
-      .reduce((a, b) => a + b.carga, 0)
-  ),
-  1
-);
-
-const maxCog = Math.max(
-  ...micros.map((m) =>
-    rows
-      .filter((r) => r.micro === m)
-      .reduce((a, b) => a + b.cargaCog, 0)
-  ),
-  1
-);
-
-const maxIntensity = Math.max(
-  ...rows.map((r) => r.intensidad),
-  1
-);
-const radarData = [
-  {
-    metric: "Evaluación",
-    value: metrics.eval,
-  },
-  {
-    metric: "Intensidad",
-    value: avg(
-      filtered.map(r => r.intensidad)
-    ) * 2.5,
-  },
-  {
-    metric: "Carga/Tarea",
-    value: Math.min(
-      avgLoadPerTask / 8,
-      10
-    ),
-  },
-  {
-    metric: "Cog/Tarea",
-    value: Math.min(
-      avgCogPerTask / 8,
-      10
-    ),
-  },
-  {
-    metric: "Diversidad",
-    value: Math.min(
-      (taskDiversity / 12) * 10,
-      10
-    ),
-  },
-];
-  const taskEvalData = useMemo(() => {
-    const grouped: Record<
-      string,
-      number[]
-    > = {};
-
-    filtered.forEach((r) => {
-      const key = r.tipo || "Unknown";
-
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-
-      if (r.evaluacion > 0) {
-        grouped[key].push(r.evaluacion);
-      }
+      return true;
     });
+  }, [
+    rows,
+    micro,
+    tipoFilter,
+    contenidoPrincipalFilter,
+    evaluacionFilter,
+    faseFilter,
+    mdFilter,
+    search,
+  ]);
 
-    return Object.entries(grouped)
-  .map(([tipo, vals]) => ({
-    tipo,
-    eval: avg(vals),
-  }))
-  .sort((a, b) => b.eval - a.eval);
-  }, [filtered]);
-  const contenidoPrincipalMetrics = useMemo(() => {
-  const grouped: Record<
-    string,
-    { tareas: number; tiempo: number; cog: number; ponderada: number }
-  > = {};
+  /** Working set for methodology analytics (competition optionally excluded) */
+  const work = useMemo(
+    () => (excludeComp ? filtered.filter((r) => !isCompeticion(r.fase)) : filtered),
+    [filtered, excludeComp]
+  );
 
-filtered.forEach((r) => {
-  const fase = (r.fase || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+  const activeFilters =
+    (micro !== "ALL" ? 1 : 0) +
+    (tipoFilter !== "ALL" ? 1 : 0) +
+    (contenidoPrincipalFilter !== "ALL" ? 1 : 0) +
+    (evaluacionFilter !== "ALL" ? 1 : 0) +
+    (faseFilter !== "ALL" ? 1 : 0) +
+    (mdFilter !== "ALL" ? 1 : 0) +
+    (search ? 1 : 0);
 
-  // Excluir competición
-  if (fase.includes("competicion")) return;
+  const clearAll = () => {
+    setMicro("ALL");
+    setTipoFilter("ALL");
+    setContenidoPrincipalFilter("ALL");
+    setFaseFilter("ALL");
+    setEvaluacionFilter("ALL");
+    setMdFilter("ALL");
+    setSearch("");
+  };
 
-  // Excluir contenidos vacíos
-  if (!r.contenidoPrincipal?.trim()) return;
+  /* ---------------- global metrics ---------------- */
 
-  const key = r.contenidoPrincipal.trim();
-
-  if (!grouped[key]) {
-    grouped[key] = {
-      tareas: 0,
-      tiempo: 0,
-      cog: 0,
-      ponderada: 0,
-    };
-  }
-
-  grouped[key].tareas += 1;
-  grouped[key].tiempo += r.carga;
-  grouped[key].cog += r.cargaCog;
-  grouped[key].ponderada += r.carga * r.cargaCog;
-});
-
-  return Object.entries(grouped)
-    .map(([name, v]) => ({
-      name,
-      tareas: v.tareas,
-      tiempo: Math.round(v.tiempo),
-      cargaCog: Math.round(v.cog),
-      ponderada: Math.round(v.ponderada),
-    }))
-    .sort((a, b) => b.tareas - a.tareas);
-}, [filtered]);
-
-const contenidoSecundarioMetrics = useMemo(() => {
-  const grouped: Record<
-    string,
-    { tareas: number; tiempo: number; cog: number; ponderada: number }
-  > = {};
-
- filtered.forEach((r) => {
-  const fase = (r.fase || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-  if (fase.includes("competicion")) return;
-  if (!r.contenidoSecundario?.trim()) return;
-
-  const key = r.contenidoSecundario.trim();
-
-  if (!grouped[key]) {
-    grouped[key] = {
-      tareas: 0,
-      tiempo: 0,
-      cog: 0,
-      ponderada: 0,
-    };
-  }
-
-  grouped[key].tareas += 1;
-  grouped[key].tiempo += r.carga;
-  grouped[key].cog += r.cargaCog;
-  grouped[key].ponderada += r.carga * r.cargaCog;
-});
-
-  return Object.entries(grouped)
-    .map(([name, v]) => ({
-      name,
-      tareas: v.tareas,
-      tiempo: Math.round(v.tiempo),
-      cargaCog: Math.round(v.cog),
-      ponderada: Math.round(v.ponderada),
-    }))
-    .sort((a, b) => b.tareas - a.tareas);
-}, [filtered]);
-
-const faseMetrics = useMemo(() => {
-  const grouped: Record<
-    string,
-    { tareas: number; tiempo: number; cog: number; ponderada: number }
-  > = {};
-
- filtered.forEach((r) => {
-  const fase = (r.fase || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-  if (fase.includes("competicion")) return;
-  if (!r.fase?.trim()) return;
-
-  const key = r.fase.trim();
-
-  if (!grouped[key]) {
-    grouped[key] = {
-      tareas: 0,
-      tiempo: 0,
-      cog: 0,
-      ponderada: 0,
-    };
-  }
-
-  grouped[key].tareas += 1;
-  grouped[key].tiempo += r.carga;
-  grouped[key].cog += r.cargaCog;
-  grouped[key].ponderada += r.carga * r.cargaCog;
-});
-
-  return Object.entries(grouped)
-    .map(([name, v]) => ({
-      name,
-      tareas: v.tareas,
-      tiempo: Math.round(v.tiempo),
-      cargaCog: Math.round(v.cog),
-      ponderada: Math.round(v.ponderada),
-    }))
-    .sort((a, b) => b.tareas - a.tareas);
-}, [filtered]);
-const microOptions = useMemo(() => {
-  return micros.map((m) => {
-    const firstRow = rows.find(
-      (r) => r.micro === m
-    );
+  const metrics = useMemo(() => {
+    const evals = filtered.map((r) => r.evaluacion).filter((n) => n > 0);
 
     return {
+      eval: avg(evals),
+      load: sum(filtered.map((r) => r.carga)),
+      cog: sum(filtered.map((r) => r.cargaCog)),
+      tasks: filtered.length,
+      tiempo: sum(filtered.map((r) => r.tiempo)),
+      intensidad: avg(filtered.map((r) => r.intensidad).filter((n) => n > 0)),
+      exigCog: avg(filtered.map((r) => r.exigCog).filter((n) => n > 0)),
+      demandaCog: avg(
+        filtered.map((r) => r.demandaCog).filter((n) => n > 0)
+      ),
+      evaluadas: evals.length,
+      sesiones: new Set(filtered.map((r) => `${r.micro}-${r.md}`)).size,
+      diversidad: new Set(filtered.map((r) => r.tipo).filter(Boolean)).size,
+      jugadores: avg(filtered.map((r) => r.nJug).filter((n) => n > 0)),
+    };
+  }, [filtered]);
+
+  const avgLoadPerTask = metrics.tasks ? metrics.load / metrics.tasks : 0;
+  const avgCogPerTask = metrics.tasks ? metrics.cog / metrics.tasks : 0;
+  const avgTimePerTask = metrics.tasks ? metrics.tiempo / metrics.tasks : 0;
+  const cogRatio = metrics.load ? metrics.cog / metrics.load : 0;
+
+  /** Per-microcycle aggregates over the FULL dataset (for trends & rail) */
+  const microStats = useMemo(() => {
+    return micros.map((m) => {
+      const set = rows.filter((r) => r.micro === m);
+      const noComp = set.filter((r) => !isCompeticion(r.fase));
+      const evals = set.map((r) => r.evaluacion).filter((n) => n > 0);
+      const fecha = set.map((r) => parseFecha(r.fecha)).filter(Boolean) as Date[];
+
+      return {
+        micro: m,
+        label: `M${m}`,
+        rival: set.find((r) => r.rival)?.rival || "",
+        tareas: set.length,
+        tiempo: sum(set.map((r) => r.tiempo)),
+        eval: avg(evals),
+        load: sum(set.map((r) => r.carga)),
+        cog: sum(set.map((r) => r.cargaCog)),
+        intensidad: avg(set.map((r) => r.intensidad).filter((n) => n > 0)),
+        diversidad: new Set(noComp.map((r) => r.tipo).filter(Boolean)).size,
+        desde: fecha.length
+          ? new Date(Math.min(...fecha.map((d) => d.getTime())))
+          : null,
+        hasta: fecha.length
+          ? new Date(Math.max(...fecha.map((d) => d.getTime())))
+          : null,
+      };
+    });
+  }, [micros, rows]);
+
+  const maxMicroLoad = Math.max(...microStats.map((m) => m.load), 1);
+
+  /** Delta of current micro vs previous one */
+  const microDelta = useMemo(() => {
+    if (micro === "ALL") return null;
+
+    const idx = microStats.findIndex((m) => String(m.micro) === micro);
+
+    if (idx <= 0) return null;
+
+    const cur = microStats[idx];
+    const prev = microStats[idx - 1];
+
+    return {
+      prev,
+      eval: +(cur.eval - prev.eval).toFixed(1),
+      load: cur.load - prev.load,
+      cog: cur.cog - prev.cog,
+      tareas: cur.tareas - prev.tareas,
+      tiempo: cur.tiempo - prev.tiempo,
+    };
+  }, [micro, microStats]);
+
+  /* ---------------- MD distribution ---------------- */
+
+  const mdData = useMemo(() => {
+    return mdOrder.map((md) => {
+      const set = filtered.filter((r) => r.md === md);
+      const totalLoad = sum(filtered.map((r) => r.carga)) || 1;
+
+      return {
+        md,
+        tareas: set.length,
+        carga: sum(set.map((r) => r.carga)),
+        cargaCog: sum(set.map((r) => r.cargaCog)),
+        tiempo: sum(set.map((r) => r.tiempo)),
+        intensidad: avg(set.map((r) => r.intensidad).filter((n) => n > 0)),
+        exigCog: avg(set.map((r) => r.exigCog).filter((n) => n > 0)),
+        eval: avg(set.map((r) => r.evaluacion).filter((n) => n > 0)),
+        pctCarga: +((sum(set.map((r) => r.carga)) / totalLoad) * 100).toFixed(1),
+      };
+    });
+  }, [filtered, mdOrder]);
+
+  const peakMD = useMemo(
+    () =>
+      mdData.reduce(
+        (best, cur) => (cur.carga > best.carga ? cur : best),
+        mdData[0] ?? { md: "—", carga: 0, pctCarga: 0 }
+      ),
+    [mdData]
+  );
+
+  /* ---------------- heatmap micro x MD ---------------- */
+
+  const heatmap = useMemo(() => {
+    const cells = micros.map((m) => ({
       micro: m,
-      rival: firstRow?.rival || "",
-    };
-  });
-}, [micros, rows]);
-const contenidoPrincipalOptions =
-  useMemo(() => {
+      rival: rows.find((r) => r.micro === m && r.rival)?.rival || "",
+      values: mdOrder.map((md) => {
+        const set = rows.filter((r) => r.micro === m && r.md === md);
+
+        return {
+          md,
+          carga: sum(set.map((r) => r.carga)),
+          cog: sum(set.map((r) => r.cargaCog)),
+          tiempo: sum(set.map((r) => r.tiempo)),
+          tareas: set.length,
+          eval: avg(set.map((r) => r.evaluacion).filter((n) => n > 0)),
+        };
+      }),
+    }));
+
+    const max = Math.max(
+      ...cells.flatMap((c) => c.values.map((v) => v.carga)),
+      1
+    );
+
+    return { cells, max };
+  }, [micros, mdOrder, rows]);
+
+  /* ---------------- trends ---------------- */
+
+  const trendData = useMemo(
+    () =>
+      microStats.map((m) => ({
+        micro: m.label,
+        value: m.eval,
+        rival: m.rival,
+        load: m.load,
+        cog: m.cog,
+        tareas: m.tareas,
+      })),
+    [microStats]
+  );
+
+  const evalMean = avg(trendData.map((d) => d.value).filter((n) => n > 0));
+
+  const compareData = useMemo(
+    () =>
+      microStats.map((m) => ({
+        micro: m.label,
+        eval: m.eval,
+        load: m.load,
+        cog: m.cog,
+        tiempo: m.tiempo,
+        intensidad: m.intensidad,
+      })),
+    [microStats]
+  );
+
+  /* ---------------- scatter ---------------- */
+
+  const scatterData = useMemo(
+    () =>
+      work
+        .filter((r) => r.carga > 0 && r.cargaCog > 0 && r.evaluacion > 0)
+        .map((r) => ({
+          carga: r.carga,
+          cargaCog: r.cargaCog,
+          eval: r.evaluacion,
+          tipo: r.tipo,
+          tarea: r.tarea,
+          md: r.md,
+          micro: r.micro,
+          fill: getEvalColor(r.evaluacion),
+        })),
+    [work]
+  );
+
+  /* ---------------- radar profile ---------------- */
+
+  const radarData = useMemo(() => {
+    const scale = (value: number, max: number) =>
+      +Math.min((value / (max || 1)) * 10, 10).toFixed(1);
+
+    const maxLoadTask = Math.max(...rows.map((r) => r.carga), 1);
+    const maxCogTask = Math.max(...rows.map((r) => r.cargaCog), 1);
+    const maxDiversidad = Math.max(
+      ...microStats.map((m) => m.diversidad),
+      1
+    );
+
     return [
-      ...new Set(
-        rows
-          .map((r) =>
-            r.contenidoPrincipal.trim()
-          )
-          .filter(Boolean)
-      ),
-    ].sort();
-  }, [rows]);
-const tipoOptions = useMemo(() => {
-  return [
-    ...new Set(
-      rows
-        .map((r) => r.tipo.trim())
-        .filter(Boolean)
-    ),
-  ].sort();
-}, [rows]);
-  const phaseData = useMemo(() => {
+      { metric: "Evaluación", value: metrics.eval, raw: metrics.eval },
+      { metric: "Intensidad", value: metrics.intensidad, raw: metrics.intensidad },
+      { metric: "Exig. Cognitiva", value: metrics.exigCog, raw: metrics.exigCog },
+      {
+        metric: "Carga/Tarea",
+        value: scale(avgLoadPerTask, maxLoadTask),
+        raw: Math.round(avgLoadPerTask),
+      },
+      {
+        metric: "Cog/Tarea",
+        value: scale(avgCogPerTask, maxCogTask),
+        raw: Math.round(avgCogPerTask),
+      },
+      {
+        metric: "Diversidad",
+        value: scale(metrics.diversidad, maxDiversidad),
+        raw: metrics.diversidad,
+      },
+    ];
+  }, [
+    rows,
+    metrics,
+    avgLoadPerTask,
+    avgCogPerTask,
+    microStats,
+  ]);
+
+  /* ---------------- grouped aggregations ---------------- */
+
+  const groupBy = (key: keyof Row, source: Row[] = work) => {
     const grouped: Record<
       string,
-      number
+      {
+        tareas: number;
+        tiempo: number;
+        carga: number;
+        cargaCog: number;
+        ponderada: number;
+        evals: number[];
+        intens: number[];
+      }
     > = {};
 
-    filtered.forEach((r) => {
-      const key =
-        r.fase || "Unknown";
+    source.forEach((r) => {
+      const raw = String(r[key] ?? "").trim();
 
-      grouped[key] =
-        (grouped[key] || 0) + 1;
+      if (!raw) return;
+
+      if (!grouped[raw]) {
+        grouped[raw] = {
+          tareas: 0,
+          tiempo: 0,
+          carga: 0,
+          cargaCog: 0,
+          ponderada: 0,
+          evals: [],
+          intens: [],
+        };
+      }
+
+      const g = grouped[raw];
+
+      g.tareas += 1;
+      g.tiempo += r.tiempo;
+      g.carga += r.carga;
+      g.cargaCog += r.cargaCog;
+      g.ponderada += r.carga * r.cargaCog;
+
+      if (r.evaluacion > 0) g.evals.push(r.evaluacion);
+      if (r.intensidad > 0) g.intens.push(r.intensidad);
     });
 
-    return Object.entries(
-      grouped
-    ).map(([fase, total]) => ({
-      fase,
-      total,
-    }));
-  }, [filtered]);
+    const totalTareas = source.length || 1;
+    const totalTiempo = sum(source.map((r) => r.tiempo)) || 1;
 
-  const analysisData = useMemo(() => {
-    const grouped: Record<
-      string,
-      number[]
-    > = {};
+    return Object.entries(grouped)
+      .map(([name, v]) => ({
+        name,
+        tareas: v.tareas,
+        tiempo: Math.round(v.tiempo),
+        carga: Math.round(v.carga),
+        cargaCog: Math.round(v.cargaCog),
+        ponderada: Math.round(v.ponderada),
+        eval: avg(v.evals),
+        intensidad: avg(v.intens),
+        pctTareas: +((v.tareas / totalTareas) * 100).toFixed(1),
+        pctTiempo: +((v.tiempo / totalTiempo) * 100).toFixed(1),
+      }))
+      .sort((a, b) => b.tareas - a.tareas);
+  };
 
-    filtered.forEach((r) => {
-      const key =
-        r.analisisPost ||
-        "No Analysis";
+  const contenidoPrincipalMetrics = useMemo(
+    () => groupBy("contenidoPrincipal"),
+    [work]
+  );
 
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
+  const contenidoSecundarioMetrics = useMemo(
+    () => groupBy("contenidoSecundario"),
+    [work]
+  );
 
-      if (r.evaluacion > 0) {
-        grouped[key].push(
-          r.evaluacion
-        );
-      }
+  const faseMetrics = useMemo(() => groupBy("fase", filtered), [filtered]);
+
+  const tipoMetrics = useMemo(() => groupBy("tipo"), [work]);
+
+  const formatoMetrics = useMemo(() => groupBy("formato"), [work]);
+
+  const analisisMetrics = useMemo(() => groupBy("analisisPost"), [work]);
+
+  const sortedByMetric = (
+    data: ReturnType<typeof groupBy>,
+    key: ContentMetricKey
+  ) => [...data].sort((a, b) => (b as any)[key] - (a as any)[key]);
+
+  /* ---------------- cognitive ---------------- */
+
+  const cognitiveRadar = useMemo(() => {
+    const src = work.filter((r) => r.demandaCog > 0 || r.normativa > 0);
+
+    return [
+      {
+        metric: "Normativa",
+        value: avg(src.map((r) => r.normativa).filter((n) => n > 0)) * 2,
+        raw: avg(src.map((r) => r.normativa).filter((n) => n > 0)),
+      },
+      {
+        metric: "Incertidumbre",
+        value: avg(src.map((r) => r.incertidumbre).filter((n) => n > 0)) * 2,
+        raw: avg(src.map((r) => r.incertidumbre).filter((n) => n > 0)),
+      },
+      {
+        metric: "Dificultad",
+        value: avg(src.map((r) => r.familiaridad).filter((n) => n > 0)) * 2,
+        raw: avg(src.map((r) => r.familiaridad).filter((n) => n > 0)),
+      },
+      {
+        metric: "Motivación",
+        value: avg(src.map((r) => r.motivacion).filter((n) => n > 0)) * 2,
+        raw: avg(src.map((r) => r.motivacion).filter((n) => n > 0)),
+      },
+      {
+        metric: "Exigencia",
+        value: avg(src.map((r) => r.exigCog).filter((n) => n > 0)),
+        raw: avg(src.map((r) => r.exigCog).filter((n) => n > 0)),
+      },
+      {
+        metric: "Demanda",
+        value: avg(src.map((r) => r.demandaCog).filter((n) => n > 0)),
+        raw: avg(src.map((r) => r.demandaCog).filter((n) => n > 0)),
+      },
+    ];
+  }, [work]);
+
+  const cognitiveByMD = useMemo(
+    () =>
+      mdOrder.map((md) => {
+        const set = work.filter((r) => r.md === md);
+
+        return {
+          md,
+          normativa: avg(set.map((r) => r.normativa).filter((n) => n > 0)),
+          incertidumbre: avg(
+            set.map((r) => r.incertidumbre).filter((n) => n > 0)
+          ),
+          familiaridad: avg(
+            set.map((r) => r.familiaridad).filter((n) => n > 0)
+          ),
+          motivacion: avg(set.map((r) => r.motivacion).filter((n) => n > 0)),
+          demandaCog: avg(set.map((r) => r.demandaCog).filter((n) => n > 0)),
+        };
+      }),
+    [work, mdOrder]
+  );
+
+  const cognitiveByTipo = useMemo(() => {
+    const grouped: Record<string, Row[]> = {};
+
+    work.forEach((r) => {
+      const key = r.tipo || "—";
+
+      if (!grouped[key]) grouped[key] = [];
+
+      grouped[key].push(r);
     });
 
     return Object.entries(grouped)
-  .map(([name, vals]) => ({
-    name,
-    eval: avg(vals),
-  }))
-  .sort((a, b) => b.eval - a.eval);
-  }, [filtered]);
-  const faseEvalData = useMemo(() => {
-  const grouped: Record<
-    string,
-    number[]
-  > = {};
+      .map(([tipo, set]) => ({
+        tipo,
+        tareas: set.length,
+        normativa: avg(set.map((r) => r.normativa).filter((n) => n > 0)),
+        incertidumbre: avg(
+          set.map((r) => r.incertidumbre).filter((n) => n > 0)
+        ),
+        familiaridad: avg(set.map((r) => r.familiaridad).filter((n) => n > 0)),
+        motivacion: avg(set.map((r) => r.motivacion).filter((n) => n > 0)),
+        demandaCog: avg(set.map((r) => r.demandaCog).filter((n) => n > 0)),
+        eval: avg(set.map((r) => r.evaluacion).filter((n) => n > 0)),
+      }))
+      .sort((a, b) => b.demandaCog - a.demandaCog);
+  }, [work]);
 
-  filtered.forEach((r) => {
- const key = r.fase || "No Phase";
+  const cogVsEval = useMemo(
+    () =>
+      work
+        .filter((r) => r.demandaCog > 0 && r.evaluacion > 0)
+        .map((r) => ({
+          demandaCog: r.demandaCog,
+          eval: r.evaluacion,
+          tiempo: r.tiempo,
+          tarea: r.tarea,
+          tipo: r.tipo,
+          fill: getEvalColor(r.evaluacion),
+        })),
+    [work]
+  );
 
-const normalizedKey = key
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase()
-  .trim();
+  /* ---------------- intensity histogram ---------------- */
 
-if (
-  normalizedKey.includes("competicion") ||
-  normalizedKey === "competicion"
-) {
-  return;
-}
+  const intensityHistogram = useMemo(() => {
+    const buckets: Record<number, number> = {};
 
-  if (!grouped[key]) {
-    grouped[key] = [];
-  }
+    work.forEach((r) => {
+      if (r.intensidad <= 0) return;
 
-  if (r.evaluacion > 0) {
-    grouped[key].push(r.evaluacion);
-  }
-});
+      const b = Math.round(r.intensidad);
 
-  return Object.entries(grouped)
-    .map(([name, vals]) => ({
-      name,
-      eval: avg(vals),
-    }))
-    .sort((a, b) => b.eval - a.eval);
-}, [filtered]);
-  const contenidoPrincipalData =
-    useMemo(() => {
-      const grouped: Record<
-        string,
-        number[]
-      > = {};
+      buckets[b] = (buckets[b] || 0) + 1;
+    });
 
-      filtered.forEach((r) => {
-  const key =
-    r.contenidoPrincipal ||
-    "No Content";
+    return Object.entries(buckets)
+      .map(([k, v]) => ({ intensidad: Number(k), tareas: v }))
+      .sort((a, b) => a.intensidad - b.intensidad);
+  }, [work]);
 
-  if (
-    key.toLowerCase().includes(
-      "competición"
-    )
-  ) {
-    return;
-  }
+  /* ---------------- best / worst tasks ---------------- */
 
-  if (!grouped[key]) {
-    grouped[key] = [];
-  }
+  const rankedTasks = useMemo(
+    () =>
+      work
+        .filter((r) => r.evaluacion > 0)
+        .sort((a, b) => b.evaluacion - a.evaluacion),
+    [work]
+  );
 
-  if (r.evaluacion > 0) {
-    grouped[key].push(r.evaluacion);
-  }
-});
+  const topTasks = rankedTasks.slice(0, 5);
+  const bottomTasks = [...rankedTasks].reverse().slice(0, 5);
 
-return Object.entries(grouped)
-  .map(([name, vals]) => ({
-    name,
-    eval: avg(vals),
-  }))
-  .sort((a, b) => b.eval - a.eval);
-    }, [filtered]);
+  /* ---------------- task table ---------------- */
 
-  const contenidoSecundarioData =
-    useMemo(() => {
-      const grouped: Record<
-        string,
-        number[]
-      > = {};
+  const sortedTasks = useMemo(() => {
+    const data = [...filtered];
 
-      filtered.forEach((r) => {
-        const key =
-          r.contenidoSecundario ||
-          "No Content";
+    data.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
 
-        if (!grouped[key]) {
-          grouped[key] = [];
-        }
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
 
-        if (r.evaluacion > 0) {
-          grouped[key].push(
-            r.evaluacion
-          );
-        }
+      return sortDir === "asc"
+        ? String(av).localeCompare(String(bv))
+        : String(bv).localeCompare(String(av));
+    });
+
+    return data;
+  }, [filtered, sortKey, sortDir]);
+
+  const toggleSort = (key: keyof Row) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const exportCSV = () => {
+    const csv = Papa.unparse(
+      sortedTasks.map((r) => ({
+        Micro: r.micro,
+        Rival: r.rival,
+        Dia: r.dia,
+        MD: r.md,
+        Fecha: r.fecha,
+        Tarea: r.tarea,
+        Tipo: r.tipo,
+        Fase: r.fase,
+        "Contenido Principal": r.contenidoPrincipal,
+        "Contenido Secundario": r.contenidoSecundario,
+        Formato: r.formato,
+        Tiempo: r.tiempo,
+        Intensidad: r.intensidad,
+        "Carga Fisica": r.carga,
+        "Exig. Cognitiva": r.exigCog,
+        "Carga Cognitiva": r.cargaCog,
+        "Demanda Cognitiva": r.demandaCog,
+        Evaluacion: r.evaluacion,
+        "Analisis Post": r.analisisPost,
+      }))
+    );
+
+    const blob = new Blob([`﻿${csv}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = `microciclos_${micro === "ALL" ? "todos" : micro}.csv`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  /* ---------------- insights ---------------- */
+
+  const insights = useMemo(() => {
+    const out: { icon: any; text: string; tone: string }[] = [];
+
+    if (!filtered.length) return out;
+
+    if (peakMD && peakMD.carga > 0) {
+      out.push({
+        icon: Flame,
+        tone: "text-[#C8A96B]",
+        text: `${peakMD.md} concentra el ${peakMD.pctCarga}% de la carga física del periodo.`,
       });
+    }
 
-return Object.entries(grouped)
-  .map(([name, vals]) => ({
-    name,
-    eval: avg(vals),
-  }))
-  .sort((a, b) => b.eval - a.eval);
-    }, [filtered]);
+    const bestTipo = [...tipoMetrics]
+      .filter((t) => t.eval > 0 && t.tareas >= 2)
+      .sort((a, b) => b.eval - a.eval)[0];
 
+    if (bestTipo) {
+      out.push({
+        icon: Star,
+        tone: "text-emerald-400",
+        text: `"${bestTipo.name}" es el tipo de tarea mejor valorado (${bestTipo.eval} de media en ${bestTipo.tareas} tareas).`,
+      });
+    }
 
-    const taskChartHeight = Math.max(
-  420,
-  taskEvalData.length * (isMobile ? 34 : 32) + 40
-);
+    const worstTipo = [...tipoMetrics]
+      .filter((t) => t.eval > 0 && t.tareas >= 2)
+      .sort((a, b) => a.eval - b.eval)[0];
+
+    if (worstTipo && bestTipo && worstTipo.name !== bestTipo.name) {
+      out.push({
+        icon: Target,
+        tone: "text-rose-400",
+        text: `"${worstTipo.name}" es el peor valorado (${worstTipo.eval}) — revisar diseño o momento de aplicación.`,
+      });
+    }
+
+    out.push({
+      icon: Brain,
+      tone: "text-violet-400",
+      text: `Ratio cognitivo/físico de ${cogRatio.toFixed(
+        2
+      )} — ${cogRatio >= 0.7 ? "sesgo cognitivo alto" : cogRatio >= 0.5 ? "equilibrio adecuado" : "predominio del componente físico"}.`,
+    });
+
+    const topContenido = contenidoPrincipalMetrics[0];
+
+    if (topContenido) {
+      out.push({
+        icon: Layers,
+        tone: "text-sky-400",
+        text: `El contenido más trabajado es "${topContenido.name}" (${topContenido.tareas} tareas · ${topContenido.pctTareas}% del total).`,
+      });
+    }
+
+    if (microDelta) {
+      const arrow = microDelta.eval > 0 ? "sube" : microDelta.eval < 0 ? "baja" : "se mantiene";
+
+      out.push({
+        icon: Activity,
+        tone: "text-amber-400",
+        text: `Respecto a M${microDelta.prev.micro}, la evaluación ${arrow} ${Math.abs(
+          microDelta.eval
+        )} pts y la carga varía ${microDelta.load >= 0 ? "+" : ""}${fmtInt(
+          microDelta.load
+        )}.`,
+      });
+    }
+
+    const sinEval = filtered.length - metrics.evaluadas;
+
+    if (sinEval > 0) {
+      out.push({
+        icon: ListChecks,
+        tone: "text-white/60",
+        text: `${sinEval} tarea${sinEval === 1 ? "" : "s"} sin evaluación registrada.`,
+      });
+    }
+
+    return out;
+  }, [
+    filtered,
+    peakMD,
+    tipoMetrics,
+    cogRatio,
+    contenidoPrincipalMetrics,
+    microDelta,
+    metrics.evaluadas,
+  ]);
+
+  /* ---------------- options ---------------- */
+
+  const microOptions = useMemo(
+    () =>
+      micros.map((m) => ({
+        micro: m,
+        rival: rows.find((r) => r.micro === m && r.rival)?.rival || "",
+      })),
+    [micros, rows]
+  );
+
+  const uniqueSorted = (key: keyof Row) =>
+    [
+      ...new Set(rows.map((r) => String(r[key] ?? "").trim()).filter(Boolean)),
+    ].sort();
+
+  const contenidoPrincipalOptions = useMemo(
+    () => uniqueSorted("contenidoPrincipal"),
+    [rows]
+  );
+
+  const tipoOptions = useMemo(() => uniqueSorted("tipo"), [rows]);
+  const faseOptions = useMemo(() => uniqueSorted("fase"), [rows]);
+
+  const selectedMicroStat =
+    micro === "ALL"
+      ? null
+      : microStats.find((m) => String(m.micro) === micro) ?? null;
+
+  const taskChartHeight = Math.max(
+    420,
+    tipoMetrics.length * (isMobile ? 34 : 32) + 60
+  );
+
+  const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
+
+  /* ------------------------------------------------------------------ */
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
-        <Sidebar /> 
+        <Sidebar />
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Topbar />
 
-<section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
-
-  {/* Header */}
-  <div className="mb-8">
-    <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-      RMCF CASTILLA METODOLOGÍA
-    </p>
-
-    <div className="mt-4 flex items-center gap-3 sm:gap-5">
-      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-        Microciclos
-      </h1>
-
-      <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-    </div></div>
-
-  {/* Selector + KPIs */}
-<div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
-
-  {/* SELECTOR DE MICROCICLO */}
-  <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-
-  {/* MICRO */}
-  <select
-    value={micro}
-    onChange={(e) => setMicro(e.target.value)}
-    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-  >
-    <option value="ALL">
-      Todos los microciclos
-    </option>
-
-    {microOptions.map((item) => (
-      <option
-        key={item.micro}
-        value={item.micro}
-      >
-        Micro {item.micro}
-        {item.rival
-          ? ` · ${item.rival}`
-          : ""}
-      </option>
-    ))}
-  </select>
-
-
-  {/* TIPO DE TAREA */}
-  <select
-    value={tipoFilter}
-    onChange={(e) =>
-      setTipoFilter(e.target.value)
-    }
-    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-  >
-    <option value="ALL">
-      Todos los tipos de tarea
-    </option>
-
-    {tipoOptions.map((tipo) => (
-      <option
-        key={tipo}
-        value={tipo}
-      >
-        {tipo}
-      </option>
-    ))}
-  </select>
-
-
-  {/* CONTENIDO PRINCIPAL */}
-  <select
-    value={contenidoPrincipalFilter}
-    onChange={(e) =>
-      setContenidoPrincipalFilter(
-        e.target.value
-      )
-    }
-    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-  >
-    <option value="ALL">
-      Todos los contenidos
-    </option>
-
-    {contenidoPrincipalOptions.map(
-      (contenido) => (
-        <option
-          key={contenido}
-          value={contenido}
-        >
-          {contenido}
-        </option>
-      )
-    )}
-  </select>
-
-
-  {/* EVALUACIÓN */}
-  <select
-    value={evaluacionFilter}
-    onChange={(e) =>
-      setEvaluacionFilter(
-        e.target.value
-      )
-    }
-    className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
-  >
-    <option value="ALL">
-      Todas las evaluaciones
-    </option>
-
-    <option value="5">
-      Evaluación ≥ 5
-    </option>
-
-    <option value="6">
-      Evaluación ≥ 6
-    </option>
-
-    <option value="7">
-      Evaluación ≥ 7
-    </option>
-
-    <option value="8">
-      Evaluación ≥ 8
-    </option>
-
-    <option value="9">
-      Evaluación ≥ 9
-    </option>
-  </select>
-
-</div>
-{(
-  micro !== "ALL" ||
-  evaluacionFilter !== "ALL" ||
-  tipoFilter !== "ALL" ||
-  contenidoPrincipalFilter !== "ALL" ||
-  faseFilter !== "ALL"
-) && (
-  <div className="mt-5 flex flex-wrap gap-2">
-
-    {micro !== "ALL" && (
-      <button
-        onClick={() => setMicro("ALL")}
-        className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-xs text-[#C8A96B]"
-      >
-        Micro {micro} ×
-      </button>
-    )}
-
-    {tipoFilter !== "ALL" && (
-      <button
-        onClick={() => setTipoFilter("ALL")}
-        className="rounded-full border border-blue-400/40 bg-blue-400/10 px-3 py-1.5 text-xs text-blue-300"
-      >
-        Tipo: {tipoFilter} ×
-      </button>
-    )}
-
-    {contenidoPrincipalFilter !== "ALL" && (
-      <button
-        onClick={() =>
-          setContenidoPrincipalFilter("ALL")
-        }
-        className="rounded-full border border-purple-400/40 bg-purple-400/10 px-3 py-1.5 text-xs text-purple-300"
-      >
-        Contenido: {contenidoPrincipalFilter} ×
-      </button>
-    )}
-
-    {faseFilter !== "ALL" && (
-      <button
-        onClick={() => setFaseFilter("ALL")}
-        className="rounded-full border border-green-400/40 bg-green-400/10 px-3 py-1.5 text-xs text-green-300"
-      >
-        Fase: {faseFilter} ×
-      </button>
-    )}
-
-    <button
-      onClick={() => {
-        setMicro("ALL");
-        setTipoFilter("ALL");
-        setContenidoPrincipalFilter("ALL");
-        setFaseFilter("ALL");
-        setEvaluacionFilter("ALL");
-      }}
-      className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10"
-    >
-      Limpiar todo
-    </button>
-
-  </div>
-)}
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-8 sm:mt-10">
-    <Card
-      title="Avg Eval"
-      value={metrics.eval}
-    />
-
-    <Card
-      title="Physical Load"
-      value={metrics.load}
-    />
-
-    <Card
-      title="Cognitive Load"
-      value={metrics.cog}
-    />
-
-    <Card
-      title="Tasks"
-      value={metrics.tasks}
-    />
-  </div>
-
-</div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6 mt-8 sm:mt-10">
-
-{/* NUEVOS GRÁFICOS METODOLÓGICOS */}
-
-
-<Panel title="Nº de tareas por Contenido Principal">
-  <Chart>
-    <BarChart
-      data={contenidoPrincipalMetrics}
-      layout="vertical"
-      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
-    >
-      <CartesianGrid stroke="#1E232A" vertical={false} />
-      <XAxis type="number" />
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={isMobile ? 120 : isNarrow ? 160 : 220}
-        interval={0}
-        tick={renderMultilineTick}
-      />
-      <Tooltip />
-      <Bar dataKey="tareas" fill={COLORS.gold} radius={[0, 12, 12, 0]}>
-        <LabelList dataKey="tareas" position="right" />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-
-
-<Panel title="Carga Cognitiva por Contenido Principal">
-  <Chart>
-    <BarChart
-      data={contenidoPrincipalMetrics}
-      layout="vertical"
-      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
-    >
-      <CartesianGrid stroke="#1E232A" vertical={false} />
-      <XAxis type="number" />
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={isMobile ? 120 : isNarrow ? 160 : 220}
-        interval={0}
-        tick={renderMultilineTick}
-      />
-      <Tooltip />
-      <Bar dataKey="cargaCog" fill={COLORS.blue} radius={[0, 12, 12, 0]}>
-        <LabelList dataKey="cargaCog" position="right" />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-
-
-<Panel title="Tiempo por Contenido Principal">
-  <Chart>
-    <BarChart
-      data={contenidoPrincipalMetrics}
-      layout="vertical"
-      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
-    >
-      <CartesianGrid stroke="#1E232A" vertical={false} />
-      <XAxis type="number" />
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={isMobile ? 120 : isNarrow ? 160 : 220}
-        interval={0}
-        tick={renderMultilineTick}
-      />
-      <Tooltip />
-      <Bar dataKey="tiempo" fill={COLORS.green} radius={[0, 12, 12, 0]}>
-        <LabelList dataKey="tiempo" position="right" />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-
-
-<Panel title="Carga Ponderada por Contenido Principal">
-  <Chart>
-    <BarChart
-      data={contenidoPrincipalMetrics}
-      layout="vertical"
-      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
-    >
-      <CartesianGrid stroke="#1E232A" vertical={false} />
-      <XAxis type="number" />
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={isMobile ? 120 : isNarrow ? 160 : 220}
-        interval={0}
-        tick={renderMultilineTick}
-      />
-      <Tooltip />
-      <Bar dataKey="ponderada" fill={COLORS.purple} radius={[0, 12, 12, 0]}>
-        <LabelList dataKey="ponderada" position="right" />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-
-
-<Panel title="Nº de tareas por Fase">
-  <Chart>
-    <BarChart
-      data={faseMetrics}
-      layout="vertical"
-      margin={{ top: 10, right: 24, left: 20, bottom: 10 }}
-    >
-      <CartesianGrid stroke="#1E232A" vertical={false} />
-      <XAxis type="number" />
-      <YAxis
-        type="category"
-        dataKey="name"
-        width={isMobile ? 120 : isNarrow ? 160 : 220}
-        interval={0}
-        tick={renderMultilineTick}
-      />
-      <Tooltip />
-      <Bar dataKey="tareas" fill={COLORS.gray} radius={[0, 12, 12, 0]}>
-        <LabelList dataKey="tareas" position="right" />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-
-<Panel title="Perfil del Microciclo">
-  <Chart>
-<RadarChart
-  cx="50%"
-  cy="45%"
-  outerRadius={isMobile ? "58%" : "80%"}
-  data={radarData}
->
-  <PolarGrid stroke="rgba(255,255,255,.12)" />
-
-  <PolarAngleAxis
-    dataKey="metric"
-    tick={{
-      fill: "#E2E8F0",
-      fontSize: isMobile ? 10 : 13,
-      fontWeight: 500,
-    }}
-  />
-
-  <PolarRadiusAxis
-    domain={[0, 10]}
-    tick={false}
-    axisLine={false}
-  />
-
-  <Radar
-    dataKey="value"
-    stroke={COLORS.gold}
-    strokeWidth={3}
-    fill={COLORS.gold}
-    fillOpacity={0.35}
-  />
-</RadarChart>
-  </Chart>
-</Panel>
-<Panel title="Carga Física vs Carga Cognitiva">
-  <Chart>
-    <ScatterChart
-      margin={{
-        top: 20,
-        right: 20,
-        bottom: 20,
-        left: 20,
-      }}
-    >
-      <CartesianGrid stroke="#1E232A" />
-
-      <XAxis
-        type="number"
-        dataKey="carga"
-        name="Carga Física"
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 11,
-        }}
-      />
-
-      <YAxis
-        type="number"
-        dataKey="cargaCog"
-        name="Carga Cognitiva"
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 11,
-        }}
-      />
-      <ZAxis
-  dataKey="eval"
-  range={[80, 400]}
-/>
-
-      <Tooltip
-  content={({ active, payload }) => {
-    if (!active || !payload?.length)
-      return null;
-
-    const d = payload[0].payload;
-
-    return (
-      <div className="rounded-xl border border-white/10 bg-[#1A212B] p-3 shadow-xl">
-        <p className="font-semibold text-white">
-          Evaluación: {d.eval}
-        </p>
-
-        <p className="text-slate-300">
-          Carga Física: {d.carga}
-        </p>
-
-        <p className="text-slate-300">
-          Carga Cognitiva: {d.cargaCog}
-        </p>
-
-        <p className="text-slate-300">
-          Tipo: {d.tipo}
-        </p>
-      </div>
-    );
-  }}
-/>
-
-      <Scatter data={scatterColoredData}>
-        {scatterColoredData.map(
-          (entry, index) => (
-            <Cell
-              key={index}
-              fill={entry.fill}
-            />
-          )
-        )}
-      </Scatter>
-    </ScatterChart>
-  </Chart>
-</Panel>
-
-
-              <Panel title="Carga e Intensidad en Microciclo">
-  <Chart>
-    <ComposedChart
-  data={mdData}
-  margin={{
-    top: 10,
-    right: 10,
-    left: 10,
-    bottom: 40,
-  }}
->
-      <CartesianGrid stroke="#1E232A" />
-
-      <XAxis dataKey="md" />
-
-      {/* eje cargas */}
-      <YAxis yAxisId="left" />
-
-      {/* eje intensidad */}
-      <YAxis
-        yAxisId="right"
-        orientation="right"
-        domain={[0, 10]}
-      />
-
-      <Tooltip />
-      <Legend
-  layout="horizontal"
-  verticalAlign="bottom"
-  align="center"
-  wrapperStyle={{
-    fontSize: 11,
-    color: "#CBD5E1",
-    paddingTop: 20,
-  }}
-/>
-      <Bar
-        yAxisId="left"
-        dataKey="carga"
-        fill={COLORS.gold}
-        radius={[8, 8, 0, 0]}
-      />
-
-      <Bar
-        yAxisId="left"
-        dataKey="cargaCog"
-        fill={COLORS.blue}
-        radius={[8, 8, 0, 0]}
-      />
-
-      <Line
-        yAxisId="right"
-        type="monotone"
-        dataKey="intensidad"
-        stroke={COLORS.purple}
-        strokeWidth={3}
-        dot={{
-          r: 4,
-          fill: COLORS.purple,
-        }}
-        activeDot={{ r: 6 }}
-      />
-    </ComposedChart>
-  </Chart>
-</Panel>
-
-              <Panel title="Carga Cognitiva en Microciclo">
-                <Chart>
-                  <AreaChart
-  data={mdData}
-  margin={{
-    top: 10,
-    right: 10,
-    left: 10,
-    bottom: 40,
-  }}
->
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis
-  dataKey="md"
-  height={70}
-  tick={{
-    fill: "#94A3B8",
-    fontSize: 11,
-  }}
-  axisLine={false}
-  tickLine={false}
-/>
-                    <YAxis />
-                    <Tooltip />
-
-                    <Area
-                      dataKey="cargaCog"
-                      stroke={COLORS.gray}
-                      fill={COLORS.gray}
-                      fillOpacity={0.25}
+          <section className="px-4 sm:px-8 pb-12 pt-6 sm:pt-10">
+            {/* ---------------- Header ---------------- */}
+
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                RMCF CASTILLA · METODOLOGÍA
+              </p>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3 sm:gap-5">
+                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+                  Microciclos
+                </h1>
+
+                {selectedMicroStat && (
+                  <span className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-xs sm:text-sm text-[#C8A96B]">
+                    M{selectedMicroStat.micro}
+                    {selectedMicroStat.rival
+                      ? ` · ${selectedMicroStat.rival}`
+                      : ""}
+                  </span>
+                )}
+
+                {selectedMicroStat?.desde && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-white/50">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {selectedMicroStat.desde.toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                    {" — "}
+                    {selectedMicroStat.hasta?.toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                  </span>
+                )}
+
+                <div className="hidden sm:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+              </div>
+            </div>
+
+            {/* ---------------- Micro rail ---------------- */}
+
+            {!loading && microStats.length > 0 && (
+              <div className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+                <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin">
+                  <button
+                    onClick={() => setMicro("ALL")}
+                    className={`shrink-0 w-[150px] rounded-2xl border p-4 text-left transition ${
+                      micro === "ALL"
+                        ? "border-[#C8A96B] bg-[#C8A96B]/10"
+                        : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                    }`}
+                  >
+                    <p className="text-xs text-white/50">Temporada</p>
+
+                    <p className="mt-1 text-lg font-semibold">Todos</p>
+
+                    <p className="mt-3 text-xs text-white/50">
+                      {rows.length} tareas
+                    </p>
+
+                    <div className="mt-2 h-1.5 rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-[#C8A96B]"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  </button>
+
+                  {microStats.map((m) => {
+                    const active = String(m.micro) === micro;
+
+                    return (
+                      <button
+                        key={m.micro}
+                        onClick={() =>
+                          setMicro(active ? "ALL" : String(m.micro))
+                        }
+                        className={`shrink-0 w-[190px] rounded-2xl border p-4 text-left transition ${
+                          active
+                            ? "border-[#C8A96B] bg-[#C8A96B]/10"
+                            : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-white/50">
+                            Micro {m.micro}
+                          </p>
+
+                          <span
+                            className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
+                            style={{
+                              background: `${getEvalColor(m.eval)}22`,
+                              color: getEvalColor(m.eval),
+                            }}
+                          >
+                            {m.eval || "—"}
+                          </span>
+                        </div>
+
+                        <p
+                          className="mt-1 truncate text-sm font-semibold"
+                          title={m.rival}
+                        >
+                          {m.rival || "—"}
+                        </p>
+
+                        <p className="mt-3 text-[11px] text-white/50">
+                          {m.tareas} tareas · {fmtMin(m.tiempo)}
+                        </p>
+
+                        <div className="mt-2 h-1.5 rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-[#C8A96B]"
+                            style={{
+                              width: `${(m.load / maxMicroLoad) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ---------------- Filters ---------------- */}
+
+            <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                <Select
+                  value={micro}
+                  onChange={setMicro}
+                  label="Microciclo"
+                  options={[
+                    { value: "ALL", label: "Todos los microciclos" },
+                    ...microOptions.map((m) => ({
+                      value: String(m.micro),
+                      label: `Micro ${m.micro}${m.rival ? ` · ${m.rival}` : ""}`,
+                    })),
+                  ]}
+                />
+
+                <Select
+                  value={mdFilter}
+                  onChange={setMdFilter}
+                  label="Día (MD)"
+                  options={[
+                    { value: "ALL", label: "Todos los días" },
+                    ...mdOrder.map((md) => ({ value: md, label: md })),
+                  ]}
+                />
+
+                <Select
+                  value={tipoFilter}
+                  onChange={setTipoFilter}
+                  label="Tipo de tarea"
+                  options={[
+                    { value: "ALL", label: "Todos los tipos" },
+                    ...tipoOptions.map((t) => ({ value: t, label: t })),
+                  ]}
+                />
+
+                <Select
+                  value={contenidoPrincipalFilter}
+                  onChange={setContenidoPrincipalFilter}
+                  label="Contenido principal"
+                  options={[
+                    { value: "ALL", label: "Todos los contenidos" },
+                    ...contenidoPrincipalOptions.map((c) => ({
+                      value: c,
+                      label: c,
+                    })),
+                  ]}
+                />
+
+                <Select
+                  value={faseFilter}
+                  onChange={setFaseFilter}
+                  label="Fase"
+                  options={[
+                    { value: "ALL", label: "Todas las fases" },
+                    ...faseOptions.map((f) => ({ value: f, label: f })),
+                  ]}
+                />
+
+                <Select
+                  value={evaluacionFilter}
+                  onChange={setEvaluacionFilter}
+                  label="Evaluación"
+                  options={[
+                    { value: "ALL", label: "Todas las evaluaciones" },
+                    ...[5, 6, 7, 8, 9].map((n) => ({
+                      value: String(n),
+                      label: `Evaluación ≥ ${n}`,
+                    })),
+                  ]}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar tarea, contenido, formato, análisis…"
+                    className="w-full rounded-2xl border border-white/10 bg-[#11161C] py-3 pl-10 pr-4 text-sm outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setExcludeComp((v) => !v)}
+                  className={`rounded-2xl border px-4 py-3 text-sm transition ${
+                    excludeComp
+                      ? "border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#C8A96B]"
+                      : "border-white/10 bg-[#11161C] text-white/60 hover:border-white/25"
+                  }`}
+                  title="Excluye las tareas de fase Competición de los análisis metodológicos"
+                >
+                  {excludeComp ? "Competición excluida" : "Competición incluida"}
+                </button>
+              </div>
+
+              {activeFilters > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {micro !== "ALL" && (
+                    <FilterChip
+                      color="gold"
+                      onClear={() => setMicro("ALL")}
+                      label={`Micro ${micro}`}
                     />
-                  </AreaChart>
-                </Chart>
-              </Panel>
-              <Panel title="Intensidad en Microciclo">
-                <Chart>
-                  <BarChart data={mdData}>
-                    <CartesianGrid stroke="#1E232A" />
-                    <XAxis
-  dataKey="md"
-  height={70}
-  tick={{
-    fill: "#94A3B8",
-    fontSize: 11,
-  }}
-  axisLine={false}
-  tickLine={false}
-/>
-                    <YAxis />
-                    <Tooltip />
+                  )}
 
-                    <Bar
-                      dataKey="intensidad"
-                      fill={COLORS.purple}
-                      radius={[8, 8, 0, 0]}
+                  {mdFilter !== "ALL" && (
+                    <FilterChip
+                      color="orange"
+                      onClear={() => setMdFilter("ALL")}
+                      label={mdFilter}
                     />
-                  </BarChart>
-                </Chart>
-              </Panel>
+                  )}
 
-              <Panel title="Tendencia de Evaluación por Microciclo">
-  <Chart>
-    <AreaChart data={trendData}>
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
+                  {tipoFilter !== "ALL" && (
+                    <FilterChip
+                      color="blue"
+                      onClear={() => setTipoFilter("ALL")}
+                      label={`Tipo: ${tipoFilter}`}
+                    />
+                  )}
 
-      <XAxis
-  dataKey="micro"
-  interval={0}
-  minTickGap={0}
-  angle={-45}
-  textAnchor="end"
-  height={70}
-/>
+                  {contenidoPrincipalFilter !== "ALL" && (
+                    <FilterChip
+                      color="purple"
+                      onClear={() => setContenidoPrincipalFilter("ALL")}
+                      label={`Contenido: ${contenidoPrincipalFilter}`}
+                    />
+                  )}
 
-<YAxis
-  domain={[0, 10]}
-/>
+                  {faseFilter !== "ALL" && (
+                    <FilterChip
+                      color="green"
+                      onClear={() => setFaseFilter("ALL")}
+                      label={`Fase: ${faseFilter}`}
+                    />
+                  )}
 
-      <Tooltip
-  contentStyle={{
-    background: "#11161C",
-    border:
-      "1px solid rgba(255,255,255,.08)",
-    borderRadius: "16px",
-    color: "#fff",
-  }}
-/>
+                  {evaluacionFilter !== "ALL" && (
+                    <FilterChip
+                      color="gold"
+                      onClear={() => setEvaluacionFilter("ALL")}
+                      label={`Eval ≥ ${evaluacionFilter}`}
+                    />
+                  )}
 
-      <Area
-        dataKey="value"
-        fill={COLORS.gold}
-        fillOpacity={0.2}
-      />
+                  {search && (
+                    <FilterChip
+                      color="blue"
+                      onClear={() => setSearch("")}
+                      label={`"${search}"`}
+                    />
+                  )}
 
-      <Line
-  dataKey="value"
-  stroke={COLORS.gold}
-  strokeWidth={3}
-  dot={(props: any) => (
-    <circle
-      cx={props.cx}
-      cy={props.cy}
-      r={5}
-      fill={COLORS.gold}
-      style={{
-        cursor: "pointer",
-      }}
-      onClick={() => {
-        const microNumber =
-          Number(
-            String(
-              props.payload.micro
-            ).replace("M", "")
-          );
+                  <button
+                    onClick={clearAll}
+                    className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10"
+                  >
+                    Limpiar todo
+                  </button>
+                </div>
+              )}
 
-        setMicro(
-          String(microNumber)
-        );
-      }}
-    />
-  )}
-/>
-    </AreaChart>
-  </Chart>
-</Panel>
+              {/* KPIs */}
 
-              
+              <div className="mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+                <StatCard
+                  icon={ListChecks}
+                  title="Tareas"
+                  value={fmtInt(metrics.tasks)}
+                  hint={`${metrics.sesiones} sesiones`}
+                  delta={microDelta?.tareas}
+                />
 
-              <Panel title="Comparativa de Evaluación y Carga Cognitiva">
-  <Chart>
-    <ComposedChart data={compareData}>
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
+                <StatCard
+                  icon={Clock}
+                  title="Tiempo total"
+                  value={fmtMin(metrics.tiempo)}
+                  hint={`${Math.round(avgTimePerTask)}' por tarea`}
+                  delta={microDelta?.tiempo}
+                  deltaSuffix="'"
+                />
 
-      <XAxis
-        dataKey="micro"
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+                <StatCard
+                  icon={Star}
+                  title="Evaluación media"
+                  value={metrics.eval || "—"}
+                  hint={`${metrics.evaluadas} evaluadas`}
+                  accent={getEvalColor(metrics.eval)}
+                  delta={microDelta?.eval}
+                  decimals={1}
+                />
 
-      <YAxis
-        yAxisId="left"
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+                <StatCard
+                  icon={Flame}
+                  title="Carga física"
+                  value={fmtInt(metrics.load)}
+                  hint={`${Math.round(avgLoadPerTask)} / tarea`}
+                  accent={COLORS.blue}
+                  delta={microDelta?.load}
+                />
 
-      <YAxis
-        yAxisId="right"
-        orientation="right"
-        domain={[0, 10]}
-        tick={{
-          fill: COLORS.gold,
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+                <StatCard
+                  icon={Brain}
+                  title="Carga cognitiva"
+                  value={fmtInt(metrics.cog)}
+                  hint={`${Math.round(avgCogPerTask)} / tarea`}
+                  accent={COLORS.purple}
+                  delta={microDelta?.cog}
+                />
 
-      <Tooltip
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+                <StatCard
+                  icon={Gauge}
+                  title="Ratio Cog/Fís"
+                  value={cogRatio.toFixed(2)}
+                  hint={`Int. media ${metrics.intensidad}`}
+                  accent={COLORS.green}
+                />
+              </div>
+            </div>
 
-      <Legend
-        verticalAlign="top"
-        align="right"
-        iconType="circle"
-        wrapperStyle={{
-          paddingBottom: 20,
-          fontSize: 13,
-        }}
-      />
+            {/* ---------------- Tabs ---------------- */}
 
-      <Bar
-        yAxisId="left"
-        dataKey="cog"
-        name="Carga Cognitiva"
-        fill={COLORS.purple}
-        radius={[10, 10, 0, 0]}
-        barSize={34}
-      />
+            <div className="mt-8 flex gap-2 overflow-x-auto pb-1">
+              {TABS.map((t) => {
+                const Icon = t.icon;
+                const active = tab === t.key;
 
-      <Line
-        yAxisId="right"
-        type="monotone"
-        dataKey="eval"
-        name="Evaluación"
-        stroke={COLORS.gold}
-        strokeWidth={3}
-        dot={{
-          r: 4,
-          strokeWidth: 2,
-          stroke: COLORS.gold,
-          fill: "#0B0F14",
-        }}
-        activeDot={{
-          r: 6,
-          fill: COLORS.gold,
-        }}
-      />
-    </ComposedChart>
-  </Chart>
-</Panel>
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    className={`inline-flex shrink-0 items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm transition ${
+                      active
+                        ? "border-[#C8A96B] bg-[#C8A96B] text-black font-semibold"
+                        : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/25 hover:text-white"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
 
-             <Panel title="Comparativa de Evaluación y Carga Física">
-  <Chart>
-    <ComposedChart data={compareData}>
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
+            {loading && (
+              <div className="mt-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-[380px] animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]"
+                  />
+                ))}
+              </div>
+            )}
 
-      <XAxis
-        dataKey="micro"
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+            {!loading && filtered.length === 0 && (
+              <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center">
+                <p className="text-lg font-semibold">Sin resultados</p>
 
-      {/* carga */}
-      <YAxis
-        yAxisId="left"
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+                <p className="mt-2 text-sm text-white/50">
+                  Ningún registro coincide con los filtros seleccionados.
+                </p>
 
-      {/* evaluación */}
-      <YAxis
-        yAxisId="right"
-        orientation="right"
-        domain={[0, 10]}
-        tick={{
-          fill: COLORS.gold,
-          fontSize: 12,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+                <button
+                  onClick={clearAll}
+                  className="mt-5 rounded-2xl bg-[#C8A96B] px-5 py-2.5 text-sm font-semibold text-black"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
 
-      <Tooltip
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+            {/* ================= RESUMEN ================= */}
 
-      <Legend
-        verticalAlign="top"
-        align="right"
-        iconType="circle"
-        wrapperStyle={{
-          paddingBottom: 20,
-          fontSize: 13,
-        }}
-      />
+            {!loading && filtered.length > 0 && tab === "resumen" && (
+              <div className="mt-8 space-y-6">
+                {insights.length > 0 && (
+                  <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
+                    <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
+                      <Sparkles className="h-5 w-5 text-[#C8A96B]" />
+                      Lecturas del periodo
+                    </h2>
 
-      <Bar
-        yAxisId="left"
-        dataKey="load"
-        name="Carga Física"
-        fill={COLORS.blue}
-        radius={[10, 10, 0, 0]}
-        barSize={34}
-      />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
+                      {insights.map((i, idx) => {
+                        const Icon = i.icon;
 
-      <Line
-        yAxisId="right"
-        type="monotone"
-        dataKey="eval"
-        name="Evaluación"
-        stroke={COLORS.gold}
-        strokeWidth={3}
-        dot={{
-          r: 4,
-          strokeWidth: 2,
-          stroke: COLORS.gold,
-          fill: "#0B0F14",
-        }}
-        activeDot={{
-          r: 6,
-          fill: COLORS.gold,
-        }}
-      />
-    </ComposedChart>
-  </Chart>
-</Panel>
+                        return (
+                          <div key={idx} className="flex items-start gap-3">
+                            <Icon
+                              className={`mt-0.5 h-4 w-4 shrink-0 ${i.tone}`}
+                            />
 
+                            <p className="text-sm leading-relaxed text-white/75">
+                              {i.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-<Panel title="Evaluación por Tipo de Tarea">
-  <div style={{ height: taskChartHeight, width: "100%" }}>
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart
-        data={taskEvalData}
-        layout="vertical"
-        margin={{
-          top: 10,
-          right: 24,
-          left: 20,
-          bottom: 10,
-        }}
-        barCategoryGap={10}
-      >
-        <CartesianGrid stroke="#1E232A" vertical={false} />
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                  <Panel
+                    title="Distribución de carga en el microciclo"
+                    subtitle="Carga física y cognitiva por día, con intensidad media"
+                  >
+                    <Chart>
+                      <ComposedChart
+                        data={mdData}
+                        margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
+                      >
+                        <CartesianGrid stroke="#1E232A" vertical={false} />
 
-        <XAxis
-          type="number"
-          domain={[0, 10]}
-          tick={{
-            fill: "#94A3B8",
-            fontSize: 11,
-          }}
-          axisLine={false}
-          tickLine={false}
-        />
+                        <XAxis
+                          dataKey="md"
+                          tick={{ fill: "#94A3B8", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
 
-        <YAxis
-          type="category"
-          dataKey="tipo"
-          width={isMobile ? 150 : isNarrow ? 180 : 240}
-          interval={0}
-          axisLine={false}
-          tickLine={false}
-          tick={renderMultilineTick}
-        />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
 
-        <Tooltip
-          cursor={{
-            fill: "rgba(255,255,255,0.03)",
-          }}
-          contentStyle={{
-            background: "#11161C",
-            border: "1px solid rgba(255,255,255,.08)",
-            borderRadius: "16px",
-            color: "#fff",
-          }}
-        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          domain={[0, 10]}
+                          tick={{ fill: COLORS.purple, fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
 
-        <Bar
-          dataKey="eval"
-          name="Evaluación"
-          radius={[0, 12, 12, 0]}
-          barSize={isMobile ? 16 : 18}
-          cursor="pointer"
-          onClick={(data: any) => {
-            const tipo = data?.payload?.tipo;
-            if (tipo) setTipoFilter(tipo);
-          }}
-        >
-          {taskEvalData.map((entry, index) => (
-            <Cell
-              key={index}
-              fill={getEvalColor(entry.eval)}
-              opacity={
-                tipoFilter && tipoFilter !== entry.tipo ? 0.25 : 1
-              }
-            />
-          ))}
+                        <Tooltip content={<DarkTooltip />} />
 
-          <LabelList
-            dataKey="eval"
-            position="right"
-            formatter={(value) =>
-              typeof value === "number"
-                ? value.toFixed(1)
-                : value ?? ""
-            }
-            style={{
-              fill: "#fff",
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  </div>
-</Panel>
+                        <Legend
+                          verticalAlign="bottom"
+                          wrapperStyle={{
+                            fontSize: 11,
+                            color: "#CBD5E1",
+                            paddingTop: 16,
+                          }}
+                        />
 
+                        <Bar
+                          yAxisId="left"
+                          dataKey="carga"
+                          name="Carga física"
+                          fill={COLORS.gold}
+                          radius={[8, 8, 0, 0]}
+                        />
 
+                        <Bar
+                          yAxisId="left"
+                          dataKey="cargaCog"
+                          name="Carga cognitiva"
+                          fill={COLORS.blue}
+                          radius={[8, 8, 0, 0]}
+                        />
 
-              <Panel title="Evaluación por Contenido Principal">
-  <Chart>
-    <BarChart
-      data={contenidoPrincipalData}
-      layout="vertical"
-     margin={{
-  top: 10,
-  right: 24,
-  left: 20,
-  bottom: 10,
-}}
-      barCategoryGap={24}
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="intensidad"
+                          name="Intensidad"
+                          stroke={COLORS.purple}
+                          strokeWidth={3}
+                          dot={{ r: 4, fill: COLORS.purple }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </ComposedChart>
+                    </Chart>
+                  </Panel>
 
-   <XAxis
-  type="number"
-  domain={[0, 10]}
-  tick={{
-    fill: "#94A3B8",
-    fontSize: 11,
-  }}
-  axisLine={false}
-  tickLine={false}
-/>
+                  <Panel
+                    title="Perfil del microciclo"
+                    subtitle="Todas las dimensiones normalizadas a escala 0-10"
+                  >
+                    <Chart>
+                      <RadarChart
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={isMobile ? "58%" : "72%"}
+                        data={radarData}
+                      >
+                        <PolarGrid stroke="rgba(255,255,255,.12)" />
 
-<YAxis
-  type="category"
-  dataKey="name"
- width={
-  isMobile
-    ? 120
-    : isNarrow
-    ? 160
-    : 220
-}
-  interval={0}
-  axisLine={false}
-  tickLine={false}
-  tick={renderMultilineTick}
-/>
+                        <PolarAngleAxis
+                          dataKey="metric"
+                          tick={{
+                            fill: "#E2E8F0",
+                            fontSize: isMobile ? 10 : 12,
+                            fontWeight: 500,
+                          }}
+                        />
 
-      <Tooltip
-        cursor={{
-          fill:
-            "rgba(255,255,255,0.03)",
-        }}
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+                        <PolarRadiusAxis
+                          domain={[0, 10]}
+                          tick={false}
+                          axisLine={false}
+                        />
 
-      <Bar
-  dataKey="eval"
-  name="Evaluación"
-  radius={[0, 12, 12, 0]}
-  barSize={
-    isMobile
-      ? 16
-      : 20
-  }
-  cursor="pointer"
-  onClick={(data: any) => {
-    const contenido =
-      data?.payload?.name;
+                        <Tooltip
+                          content={
+                            <DarkTooltip
+                              rows={[["Valor real", "raw"]]}
+                            />
+                          }
+                        />
 
-    if (contenido) {
-      setContenidoPrincipalFilter(
-        contenido
-      );
-    }
-  }}
->
-  {contenidoPrincipalData.map(
-  (entry, index) => (
-    <Cell
-      key={index}
-      fill={getEvalColor(entry.eval)}
-      opacity={
-        contenidoPrincipalFilter &&
-        contenidoPrincipalFilter !==
-          entry.name
-          ? 0.25
-          : 1
-      }
-    />
-  )
-)}
-        <LabelList
-  dataKey="eval"
-  position="right"
-  formatter={(value) =>
-    typeof value === "number"
-      ? value.toFixed(1)
-      : value ?? ""
-  }
-  style={{
-    fill: "#fff",
-    fontSize: 12,
-    fontWeight: 600,
-  }}
-/>
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-<Panel title="Evaluación por Fase">
-  <Chart>
-    <BarChart
-      data={faseEvalData}
-      layout="vertical"
-      margin={{
-        top: 10,
-        right: 24,
-        left: 20,
-        bottom: 10,
-      }}
-      barCategoryGap={24}
-    >
-      <CartesianGrid
-        stroke="#1E232A"
-        vertical={false}
-      />
+                        <Radar
+                          name="Perfil"
+                          dataKey="value"
+                          stroke={COLORS.gold}
+                          strokeWidth={3}
+                          fill={COLORS.gold}
+                          fillOpacity={0.35}
+                        />
+                      </RadarChart>
+                    </Chart>
 
-      <XAxis
-        type="number"
-        domain={[0, 10]}
-        tick={{
-          fill: "#94A3B8",
-          fontSize: 11,
-        }}
-        axisLine={false}
-        tickLine={false}
-      />
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {radarData.map((d) => (
+                        <div
+                          key={d.metric}
+                          className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2"
+                        >
+                          <p className="truncate text-[10px] uppercase tracking-wider text-white/40">
+                            {d.metric}
+                          </p>
 
-      <YAxis
-  type="category"
-  dataKey="name"
-  width={
-    isMobile
-      ? 120
-      : isNarrow
-      ? 160 
-      : 220
-  }
-  interval={0}
-  axisLine={false}
-  tickLine={false}
-  tick={{
-    fill: "#CBD5E1",
-    fontSize: 11,
-  }}
-/>
+                          <p className="text-sm font-semibold text-[#C8A96B]">
+                            {d.raw}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
 
-      <Tooltip
-        cursor={{
-          fill:
-            "rgba(255,255,255,0.03)",
-        }}
-        contentStyle={{
-          background: "#11161C",
-          border:
-            "1px solid rgba(255,255,255,.08)",
-          borderRadius: "16px",
-          color: "#fff",
-        }}
-      />
+                  <Panel
+                    title="Tendencia de evaluación por microciclo"
+                    subtitle={`Media de la temporada: ${evalMean}`}
+                  >
+                    <Chart>
+                      <ComposedChart data={trendData}>
+                        <defs>
+                          <linearGradient
+                            id="evalGrad"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor={COLORS.gold}
+                              stopOpacity={0.45}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor={COLORS.gold}
+                              stopOpacity={0}
+                            />
+                          </linearGradient>
+                        </defs>
 
-      <Bar
-  dataKey="eval"
-  name="Evaluación"
-  radius={[0, 8, 8, 0]}
-  barSize={
-    isMobile
-      ? 16
-      : 20
-  }
-  cursor="pointer"
-  onClick={(data: any) => {
-    const fase =
-      data?.payload?.name;
+                        <CartesianGrid stroke="#1E232A" vertical={false} />
 
-    if (fase) {
-      setFaseFilter(fase);
-    }
-  }}
->
-  {faseEvalData.map(
-  (entry, index) => (
-    <Cell
-      key={index}
-      fill={getEvalColor(entry.eval)}
-      opacity={
-        faseFilter &&
-        faseFilter !== entry.name
-          ? 0.25
-          : 1
-      }
-    />
-  )
-)}
-        <LabelList
-          dataKey="eval"
-          position="right"
-          formatter={(value) =>
-            typeof value === "number"
-              ? value.toFixed(1)
-              : value ?? ""
-          }
-          style={{
-            fill: "#fff",
-            fontSize: 12,
-            fontWeight: 600,
-          }}
-        />
-      </Bar>
-    </BarChart>
-  </Chart>
-</Panel>
-</div>
-              
+                        <XAxis
+                          dataKey="micro"
+                          interval={0}
+                          tick={{ fill: "#94A3B8", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
 
-            
+                        <YAxis
+                          domain={[0, 10]}
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <Tooltip
+                          content={
+                            <DarkTooltip
+                              rows={[
+                                ["Rival", "rival"],
+                                ["Tareas", "tareas"],
+                                ["Carga", "load"],
+                              ]}
+                            />
+                          }
+                        />
+
+                        <ReferenceLine
+                          y={evalMean}
+                          stroke="rgba(255,255,255,.35)"
+                          strokeDasharray="4 4"
+                        />
+
+                        <Area
+                          dataKey="value"
+                          name="Evaluación"
+                          stroke={COLORS.gold}
+                          strokeWidth={3}
+                          fill="url(#evalGrad)"
+                          dot={{ r: 4, fill: COLORS.gold }}
+                          activeDot={{ r: 7 }}
+                        />
+                      </ComposedChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Reparto por fase de juego"
+                    subtitle="Peso de cada fase sobre el total de tareas"
+                  >
+                    <div className="flex flex-col lg:flex-row items-center gap-4">
+                      <div className="h-[260px] w-full lg:w-1/2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={faseMetrics}
+                              dataKey="tareas"
+                              nameKey="name"
+                              innerRadius={58}
+                              outerRadius={100}
+                              paddingAngle={2}
+                              cursor="pointer"
+                              onClick={(d: any) => {
+                                const name = d?.payload?.name ?? d?.name;
+                                if (name) setFaseFilter(name);
+                              }}
+                            >
+                              {faseMetrics.map((f, i) => (
+                                <Cell
+                                  key={f.name}
+                                  fill={PIE_COLORS[i % PIE_COLORS.length]}
+                                  opacity={
+                                    faseFilter !== "ALL" &&
+                                    faseFilter !== f.name
+                                      ? 0.25
+                                      : 1
+                                  }
+                                />
+                              ))}
+                            </Pie>
+
+                            <Tooltip content={<DarkTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="w-full lg:w-1/2 space-y-2">
+                        {faseMetrics.map((f, i) => (
+                          <button
+                            key={f.name}
+                            onClick={() =>
+                              setFaseFilter(
+                                faseFilter === f.name ? "ALL" : f.name
+                              )
+                            }
+                            className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/5"
+                          >
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{
+                                background: PIE_COLORS[i % PIE_COLORS.length],
+                              }}
+                            />
+
+                            <span className="flex-1 truncate text-sm text-white/80">
+                              {f.name}
+                            </span>
+
+                            <span className="text-sm font-semibold">
+                              {f.tareas}
+                            </span>
+
+                            <span className="w-12 text-right text-xs text-white/45">
+                              {f.pctTareas}%
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+            )}
+
+            {/* ================= CARGAS ================= */}
+
+            {!loading && filtered.length > 0 && tab === "cargas" && (
+              <div className="mt-8 space-y-6">
+                <Panel
+                  title="Mapa de calor · Carga por microciclo y día"
+                  subtitle="Cada celda muestra la carga física acumulada. Pulsa para filtrar."
+                >
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[720px]">
+                      <div
+                        className="grid gap-1.5"
+                        style={{
+                          gridTemplateColumns: `170px repeat(${mdOrder.length}, minmax(0,1fr))`,
+                        }}
+                      >
+                        <div />
+
+                        {mdOrder.map((md) => (
+                          <div
+                            key={md}
+                            className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wider text-white/45"
+                          >
+                            {md}
+                          </div>
+                        ))}
+
+                        {heatmap.cells.map((row) => (
+                          <FragmentRow
+                            key={row.micro}
+                            row={row}
+                            max={heatmap.max}
+                            selected={String(row.micro) === micro}
+                            onSelectMicro={() =>
+                              setMicro(
+                                String(row.micro) === micro
+                                  ? "ALL"
+                                  : String(row.micro)
+                              )
+                            }
+                            onSelectCell={(md: string) => {
+                              setMicro(String(row.micro));
+                              setMdFilter(md);
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <div className="mt-5 flex items-center gap-3 text-[11px] text-white/45">
+                        <span>Menos carga</span>
+
+                        <div className="flex gap-1">
+                          {[0.12, 0.3, 0.48, 0.66, 0.84, 1].map((t) => (
+                            <span
+                              key={t}
+                              className="h-3 w-7 rounded"
+                              style={{
+                                background: `rgba(200,169,107,${t})`,
+                              }}
+                            />
+                          ))}
+                        </div>
+
+                        <span>Más carga</span>
+                      </div>
+                    </div>
+                  </div>
+                </Panel>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                  <Panel
+                    title="Carga acumulada por microciclo"
+                    subtitle="Física vs cognitiva, con evaluación superpuesta"
+                  >
+                    <Chart>
+                      <ComposedChart data={compareData}>
+                        <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                        <XAxis
+                          dataKey="micro"
+                          tick={{ fill: "#94A3B8", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          domain={[0, 10]}
+                          tick={{ fill: COLORS.gold, fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <Tooltip content={<DarkTooltip />} />
+
+                        <Legend
+                          verticalAlign="top"
+                          align="right"
+                          iconType="circle"
+                          wrapperStyle={{ paddingBottom: 16, fontSize: 12 }}
+                        />
+
+                        <Bar
+                          yAxisId="left"
+                          dataKey="load"
+                          name="Carga física"
+                          fill={COLORS.blue}
+                          radius={[8, 8, 0, 0]}
+                          barSize={22}
+                        />
+
+                        <Bar
+                          yAxisId="left"
+                          dataKey="cog"
+                          name="Carga cognitiva"
+                          fill={COLORS.purple}
+                          radius={[8, 8, 0, 0]}
+                          barSize={22}
+                        />
+
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="eval"
+                          name="Evaluación"
+                          stroke={COLORS.gold}
+                          strokeWidth={3}
+                          dot={{
+                            r: 4,
+                            strokeWidth: 2,
+                            stroke: COLORS.gold,
+                            fill: "#0B0F14",
+                          }}
+                        />
+                      </ComposedChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Carga física vs cognitiva por tarea"
+                    subtitle="Tamaño y color según evaluación de la tarea"
+                  >
+                    <Chart>
+                      <ScatterChart
+                        margin={{ top: 20, right: 20, bottom: 20, left: 10 }}
+                      >
+                        <CartesianGrid stroke="#1E232A" />
+
+                        <XAxis
+                          type="number"
+                          dataKey="carga"
+                          name="Carga física"
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                        />
+
+                        <YAxis
+                          type="number"
+                          dataKey="cargaCog"
+                          name="Carga cognitiva"
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                        />
+
+                        <ZAxis dataKey="eval" range={[70, 380]} />
+
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          content={({ active, payload }: any) => {
+                            if (!active || !payload?.length) return null;
+
+                            const d = payload[0].payload;
+
+                            return (
+                              <div className="rounded-xl border border-white/10 bg-[#141A22] p-3 shadow-xl">
+                                <p className="mb-1 font-semibold text-white">
+                                  {d.tarea}
+                                </p>
+
+                                <p className="text-xs text-white/50">
+                                  M{d.micro} · {d.md} · {d.tipo}
+                                </p>
+
+                                <div className="mt-2 space-y-0.5 text-xs">
+                                  <p style={{ color: getEvalColor(d.eval) }}>
+                                    Evaluación: {d.eval}
+                                  </p>
+
+                                  <p className="text-slate-300">
+                                    Carga física: {d.carga}
+                                  </p>
+
+                                  <p className="text-slate-300">
+                                    Carga cognitiva: {d.cargaCog}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+
+                        <Scatter data={scatterData}>
+                          {scatterData.map((entry, index) => (
+                            <Cell key={index} fill={entry.fill} />
+                          ))}
+                        </Scatter>
+                      </ScatterChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Tiempo y tareas por día del microciclo"
+                    subtitle="Volumen de trabajo repartido en la semana"
+                  >
+                    <Chart>
+                      <ComposedChart data={mdData}>
+                        <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                        <XAxis
+                          dataKey="md"
+                          tick={{ fill: "#94A3B8", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fill: COLORS.green, fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <Tooltip content={<DarkTooltip />} />
+
+                        <Legend
+                          verticalAlign="top"
+                          align="right"
+                          iconType="circle"
+                          wrapperStyle={{ paddingBottom: 16, fontSize: 12 }}
+                        />
+
+                        <Bar
+                          yAxisId="left"
+                          dataKey="tiempo"
+                          name="Minutos"
+                          fill={COLORS.green}
+                          radius={[8, 8, 0, 0]}
+                        >
+                          <LabelList
+                            dataKey="tiempo"
+                            position="top"
+                            style={{ fill: "#94A3B8", fontSize: 11 }}
+                          />
+                        </Bar>
+
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="tareas"
+                          name="Nº tareas"
+                          stroke={COLORS.orange}
+                          strokeWidth={3}
+                          dot={{ r: 4, fill: COLORS.orange }}
+                        />
+                      </ComposedChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Distribución de intensidad"
+                    subtitle="Cuántas tareas se diseñan en cada nivel de intensidad"
+                  >
+                    <Chart>
+                      <BarChart data={intensityHistogram}>
+                        <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                        <XAxis
+                          dataKey="intensidad"
+                          tick={{ fill: "#94A3B8", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <YAxis
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <Tooltip content={<DarkTooltip />} />
+
+                        <Bar
+                          dataKey="tareas"
+                          name="Tareas"
+                          radius={[8, 8, 0, 0]}
+                        >
+                          {intensityHistogram.map((d) => (
+                            <Cell
+                              key={d.intensidad}
+                              fill={
+                                d.intensidad >= 8
+                                  ? COLORS.orange
+                                  : d.intensidad >= 6
+                                  ? COLORS.gold
+                                  : COLORS.gray
+                              }
+                            />
+                          ))}
+
+                          <LabelList
+                            dataKey="tareas"
+                            position="top"
+                            style={{ fill: "#94A3B8", fontSize: 11 }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </Chart>
+                  </Panel>
+                </div>
+              </div>
+            )}
+
+            {/* ================= CONTENIDOS ================= */}
+
+            {!loading && filtered.length > 0 && tab === "contenidos" && (
+              <div className="mt-8 space-y-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="mr-1 text-sm text-white/45">
+                    Métrica:
+                  </span>
+
+                  {CONTENT_METRICS.map((m) => (
+                    <button
+                      key={m.key}
+                      onClick={() => setContentMetric(m.key)}
+                      className={`rounded-xl border px-3.5 py-2 text-xs sm:text-sm transition ${
+                        contentMetric === m.key
+                          ? "border-transparent font-semibold text-black"
+                          : "border-white/10 bg-white/[0.03] text-white/65 hover:border-white/25"
+                      }`}
+                      style={
+                        contentMetric === m.key
+                          ? { background: m.color }
+                          : undefined
+                      }
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                  <Panel
+                    title="Contenido principal"
+                    subtitle={`Ordenado por ${
+                      CONTENT_METRICS.find((m) => m.key === contentMetric)
+                        ?.label
+                    }`}
+                  >
+                    <div
+                      style={{
+                        height: Math.max(
+                          380,
+                          contenidoPrincipalMetrics.length * 30 + 50
+                        ),
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={sortedByMetric(
+                            contenidoPrincipalMetrics,
+                            contentMetric
+                          )}
+                          layout="vertical"
+                          margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
+                        >
+                          <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                          <XAxis
+                            type="number"
+                            domain={
+                              contentMetric === "eval" ? [0, 10] : undefined
+                            }
+                            tick={{ fill: "#94A3B8", fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={yAxisWidth}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={renderMultilineTick}
+                          />
+
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                            content={
+                              <DarkTooltip
+                                rows={[
+                                  ["Tareas", "tareas"],
+                                  ["Tiempo", "tiempo"],
+                                  ["Carga física", "carga"],
+                                  ["Carga cognitiva", "cargaCog"],
+                                  ["Evaluación", "eval"],
+                                ]}
+                              />
+                            }
+                          />
+
+                          <Bar
+                            dataKey={contentMetric}
+                            radius={[0, 10, 10, 0]}
+                            barSize={16}
+                            cursor="pointer"
+                            onClick={(d: any) => {
+                              const name = d?.payload?.name;
+                              if (name)
+                                setContenidoPrincipalFilter(
+                                  contenidoPrincipalFilter === name
+                                    ? "ALL"
+                                    : name
+                                );
+                            }}
+                          >
+                            {sortedByMetric(
+                              contenidoPrincipalMetrics,
+                              contentMetric
+                            ).map((entry) => (
+                              <Cell
+                                key={entry.name}
+                                fill={
+                                  contentMetric === "eval"
+                                    ? getEvalColor(entry.eval)
+                                    : CONTENT_METRICS.find(
+                                        (m) => m.key === contentMetric
+                                      )!.color
+                                }
+                                opacity={
+                                  contenidoPrincipalFilter !== "ALL" &&
+                                  contenidoPrincipalFilter !== entry.name
+                                    ? 0.25
+                                    : 1
+                                }
+                              />
+                            ))}
+
+                            <LabelList
+                              dataKey={contentMetric}
+                              position="right"
+                              formatter={(v: any) =>
+                                typeof v === "number"
+                                  ? contentMetric === "eval"
+                                    ? v.toFixed(1)
+                                    : fmtInt(v)
+                                  : v ?? ""
+                              }
+                              style={{
+                                fill: "#fff",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Panel>
+
+                  <Panel
+                    title="Contenido secundario"
+                    subtitle="Top 15 subcontenidos trabajados"
+                  >
+                    <div
+                      style={{
+                        height: Math.max(
+                          380,
+                          Math.min(contenidoSecundarioMetrics.length, 15) * 30 +
+                            50
+                        ),
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={sortedByMetric(
+                            contenidoSecundarioMetrics,
+                            contentMetric
+                          ).slice(0, 15)}
+                          layout="vertical"
+                          margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
+                        >
+                          <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                          <XAxis
+                            type="number"
+                            domain={
+                              contentMetric === "eval" ? [0, 10] : undefined
+                            }
+                            tick={{ fill: "#94A3B8", fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={yAxisWidth}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={renderMultilineTick}
+                          />
+
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                            content={
+                              <DarkTooltip
+                                rows={[
+                                  ["Tareas", "tareas"],
+                                  ["Tiempo", "tiempo"],
+                                  ["Carga cognitiva", "cargaCog"],
+                                  ["Evaluación", "eval"],
+                                ]}
+                              />
+                            }
+                          />
+
+                          <Bar
+                            dataKey={contentMetric}
+                            radius={[0, 10, 10, 0]}
+                            barSize={16}
+                            fill={COLORS.pink}
+                          >
+                            {sortedByMetric(
+                              contenidoSecundarioMetrics,
+                              contentMetric
+                            )
+                              .slice(0, 15)
+                              .map((entry) => (
+                                <Cell
+                                  key={entry.name}
+                                  fill={
+                                    contentMetric === "eval"
+                                      ? getEvalColor(entry.eval)
+                                      : COLORS.pink
+                                  }
+                                />
+                              ))}
+
+                            <LabelList
+                              dataKey={contentMetric}
+                              position="right"
+                              formatter={(v: any) =>
+                                typeof v === "number"
+                                  ? contentMetric === "eval"
+                                    ? v.toFixed(1)
+                                    : fmtInt(v)
+                                  : v ?? ""
+                              }
+                              style={{
+                                fill: "#fff",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Panel>
+                </div>
+
+                <Panel
+                  title="Tabla comparativa de contenidos principales"
+                  subtitle="Todas las métricas en una sola vista"
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/40">
+                          <th className="pb-3 pr-3 font-medium">Contenido</th>
+                          <th className="pb-3 px-3 text-right font-medium">
+                            Tareas
+                          </th>
+                          <th className="pb-3 px-3 text-right font-medium">
+                            % Tareas
+                          </th>
+                          <th className="pb-3 px-3 text-right font-medium">
+                            Tiempo
+                          </th>
+                          <th className="pb-3 px-3 text-right font-medium">
+                            % Tiempo
+                          </th>
+                          <th className="pb-3 px-3 text-right font-medium">
+                            C. Física
+                          </th>
+                          <th className="pb-3 px-3 text-right font-medium">
+                            C. Cognitiva
+                          </th>
+                          <th className="pb-3 pl-3 text-right font-medium">
+                            Evaluación
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {contenidoPrincipalMetrics.map((c) => (
+                          <tr
+                            key={c.name}
+                            onClick={() =>
+                              setContenidoPrincipalFilter(
+                                contenidoPrincipalFilter === c.name
+                                  ? "ALL"
+                                  : c.name
+                              )
+                            }
+                            className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.04]"
+                          >
+                            <td className="py-3 pr-3">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-[#C8A96B]" />
+                                {c.name}
+                              </div>
+                            </td>
+
+                            <td className="px-3 text-right font-semibold">
+                              {c.tareas}
+                            </td>
+
+                            <td className="px-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="h-1.5 w-16 rounded-full bg-white/10">
+                                  <div
+                                    className="h-full rounded-full bg-[#C8A96B]"
+                                    style={{
+                                      width: `${Math.min(c.pctTareas * 2, 100)}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <span className="w-11 text-white/60">
+                                  {c.pctTareas}%
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="px-3 text-right text-white/75">
+                              {c.tiempo}&apos;
+                            </td>
+
+                            <td className="px-3 text-right text-white/50">
+                              {c.pctTiempo}%
+                            </td>
+
+                            <td className="px-3 text-right text-white/75">
+                              {fmtInt(c.carga)}
+                            </td>
+
+                            <td className="px-3 text-right text-white/75">
+                              {fmtInt(c.cargaCog)}
+                            </td>
+
+                            <td className="pl-3 text-right">
+                              <span
+                                className="rounded-md px-2 py-1 text-xs font-bold"
+                                style={{
+                                  background: `${getEvalColor(c.eval)}22`,
+                                  color: getEvalColor(c.eval),
+                                }}
+                              >
+                                {c.eval || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                  <Panel
+                    title="Evaluación por tipo de tarea"
+                    subtitle="Pulsa una barra para filtrar el dashboard"
+                  >
+                    <div style={{ height: taskChartHeight }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={[...tipoMetrics].sort(
+                            (a, b) => b.eval - a.eval
+                          )}
+                          layout="vertical"
+                          margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
+                          barCategoryGap={8}
+                        >
+                          <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                          <XAxis
+                            type="number"
+                            domain={[0, 10]}
+                            tick={{ fill: "#94A3B8", fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={isMobile ? 140 : isNarrow ? 170 : 220}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={renderMultilineTick}
+                          />
+
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                            content={
+                              <DarkTooltip
+                                rows={[
+                                  ["Tareas", "tareas"],
+                                  ["Tiempo", "tiempo"],
+                                  ["Intensidad", "intensidad"],
+                                ]}
+                              />
+                            }
+                          />
+
+                          <Bar
+                            dataKey="eval"
+                            name="Evaluación"
+                            radius={[0, 10, 10, 0]}
+                            barSize={isMobile ? 15 : 17}
+                            cursor="pointer"
+                            onClick={(d: any) => {
+                              const name = d?.payload?.name;
+                              if (name)
+                                setTipoFilter(
+                                  tipoFilter === name ? "ALL" : name
+                                );
+                            }}
+                          >
+                            {[...tipoMetrics]
+                              .sort((a, b) => b.eval - a.eval)
+                              .map((entry) => (
+                                <Cell
+                                  key={entry.name}
+                                  fill={getEvalColor(entry.eval)}
+                                  opacity={
+                                    tipoFilter !== "ALL" &&
+                                    tipoFilter !== entry.name
+                                      ? 0.25
+                                      : 1
+                                  }
+                                />
+                              ))}
+
+                            <LabelList
+                              dataKey="eval"
+                              position="right"
+                              formatter={(v: any) =>
+                                typeof v === "number" ? v.toFixed(1) : v ?? ""
+                              }
+                              style={{
+                                fill: "#fff",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Panel>
+
+                  <Panel
+                    title="Formatos de tarea más usados"
+                    subtitle="Top 12 estructuras de juego (jugadores + comodines)"
+                  >
+                    <div
+                      style={{
+                        height: Math.max(
+                          380,
+                          Math.min(formatoMetrics.length, 12) * 30 + 50
+                        ),
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={formatoMetrics.slice(0, 12)}
+                          layout="vertical"
+                          margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
+                        >
+                          <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                          <XAxis
+                            type="number"
+                            tick={{ fill: "#94A3B8", fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={90}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#CBD5E1", fontSize: 12 }}
+                          />
+
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                            content={
+                              <DarkTooltip
+                                rows={[
+                                  ["Tiempo", "tiempo"],
+                                  ["Evaluación", "eval"],
+                                ]}
+                              />
+                            }
+                          />
+
+                          <Bar
+                            dataKey="tareas"
+                            name="Tareas"
+                            fill={COLORS.green}
+                            radius={[0, 10, 10, 0]}
+                            barSize={16}
+                          >
+                            <LabelList
+                              dataKey="tareas"
+                              position="right"
+                              style={{
+                                fill: "#fff",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+            )}
+
+            {/* ================= COGNITIVO ================= */}
+
+            {!loading && filtered.length > 0 && tab === "cognitivo" && (
+              <div className="mt-8 space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+                  {cognitiveRadar.map((c) => (
+                    <div
+                      key={c.metric}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <p className="text-xs text-white/45">{c.metric}</p>
+
+                      <p className="mt-2 text-2xl font-semibold text-violet-300">
+                        {c.raw || "—"}
+                      </p>
+
+                      <div className="mt-3 h-1.5 rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-violet-400"
+                          style={{
+                            width: `${Math.min((c.value / 10) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                  <Panel
+                    title="Perfil cognitivo de las tareas"
+                    subtitle="Normativa, incertidumbre, dificultad y motivación escaladas a 0-10"
+                  >
+                    <Chart>
+                      <RadarChart
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={isMobile ? "58%" : "72%"}
+                        data={cognitiveRadar}
+                      >
+                        <PolarGrid stroke="rgba(255,255,255,.12)" />
+
+                        <PolarAngleAxis
+                          dataKey="metric"
+                          tick={{
+                            fill: "#E2E8F0",
+                            fontSize: isMobile ? 10 : 12,
+                          }}
+                        />
+
+                        <PolarRadiusAxis
+                          domain={[0, 10]}
+                          tick={false}
+                          axisLine={false}
+                        />
+
+                        <Tooltip
+                          content={<DarkTooltip rows={[["Valor real", "raw"]]} />}
+                        />
+
+                        <Radar
+                          name="Perfil cognitivo"
+                          dataKey="value"
+                          stroke={COLORS.purple}
+                          strokeWidth={3}
+                          fill={COLORS.purple}
+                          fillOpacity={0.32}
+                        />
+                      </RadarChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Evolución cognitiva en el microciclo"
+                    subtitle="Cómo varían las exigencias cognitivas día a día"
+                  >
+                    <Chart>
+                      <ComposedChart data={cognitiveByMD}>
+                        <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                        <XAxis
+                          dataKey="md"
+                          tick={{ fill: "#94A3B8", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <YAxis
+                          domain={[0, 10]}
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+
+                        <Tooltip content={<DarkTooltip />} />
+
+                        <Legend
+                          verticalAlign="bottom"
+                          wrapperStyle={{
+                            fontSize: 11,
+                            color: "#CBD5E1",
+                            paddingTop: 12,
+                          }}
+                        />
+
+                        <Bar
+                          dataKey="demandaCog"
+                          name="Demanda cognitiva"
+                          fill="rgba(139,92,246,0.35)"
+                          radius={[8, 8, 0, 0]}
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="incertidumbre"
+                          name="Incertidumbre"
+                          stroke={COLORS.orange}
+                          strokeWidth={2.5}
+                          dot={{ r: 3 }}
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="normativa"
+                          name="Normativa"
+                          stroke={COLORS.blue}
+                          strokeWidth={2.5}
+                          dot={{ r: 3 }}
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="familiaridad"
+                          name="Dificultad"
+                          stroke={COLORS.pink}
+                          strokeWidth={2.5}
+                          dot={{ r: 3 }}
+                        />
+
+                        <Line
+                          type="monotone"
+                          dataKey="motivacion"
+                          name="Motivación"
+                          stroke={COLORS.green}
+                          strokeWidth={2.5}
+                          dot={{ r: 3 }}
+                        />
+                      </ComposedChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Demanda cognitiva vs evaluación"
+                    subtitle="¿Las tareas más exigentes se valoran mejor?"
+                  >
+                    <Chart>
+                      <ScatterChart
+                        margin={{ top: 20, right: 20, bottom: 20, left: 10 }}
+                      >
+                        <CartesianGrid stroke="#1E232A" />
+
+                        <XAxis
+                          type="number"
+                          dataKey="demandaCog"
+                          name="Demanda cognitiva"
+                          domain={[0, 10]}
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                        />
+
+                        <YAxis
+                          type="number"
+                          dataKey="eval"
+                          name="Evaluación"
+                          domain={[0, 10]}
+                          tick={{ fill: "#94A3B8", fontSize: 11 }}
+                        />
+
+                        <ZAxis dataKey="tiempo" range={[60, 320]} />
+
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          content={({ active, payload }: any) => {
+                            if (!active || !payload?.length) return null;
+
+                            const d = payload[0].payload;
+
+                            return (
+                              <div className="rounded-xl border border-white/10 bg-[#141A22] p-3 shadow-xl">
+                                <p className="font-semibold text-white">
+                                  {d.tarea}
+                                </p>
+
+                                <p className="text-xs text-white/50">
+                                  {d.tipo}
+                                </p>
+
+                                <div className="mt-2 space-y-0.5 text-xs text-slate-300">
+                                  <p>Demanda cognitiva: {d.demandaCog}</p>
+                                  <p style={{ color: getEvalColor(d.eval) }}>
+                                    Evaluación: {d.eval}
+                                  </p>
+                                  <p>Tiempo: {d.tiempo}&apos;</p>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+
+                        <Scatter data={cogVsEval}>
+                          {cogVsEval.map((e, i) => (
+                            <Cell key={i} fill={e.fill} />
+                          ))}
+                        </Scatter>
+                      </ScatterChart>
+                    </Chart>
+                  </Panel>
+
+                  <Panel
+                    title="Análisis post-tarea"
+                    subtitle="Etiquetas cualitativas registradas por el staff"
+                  >
+                    <div
+                      style={{
+                        height: Math.max(
+                          320,
+                          analisisMetrics.length * 40 + 40
+                        ),
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={analisisMetrics}
+                          layout="vertical"
+                          margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
+                        >
+                          <CartesianGrid stroke="#1E232A" vertical={false} />
+
+                          <XAxis
+                            type="number"
+                            tick={{ fill: "#94A3B8", fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={yAxisWidth}
+                            interval={0}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={renderMultilineTick}
+                          />
+
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                            content={
+                              <DarkTooltip
+                                rows={[["Evaluación media", "eval"]]}
+                              />
+                            }
+                          />
+
+                          <Bar
+                            dataKey="tareas"
+                            name="Tareas"
+                            radius={[0, 10, 10, 0]}
+                            barSize={18}
+                          >
+                            {analisisMetrics.map((entry) => (
+                              <Cell
+                                key={entry.name}
+                                fill={getEvalColor(entry.eval)}
+                              />
+                            ))}
+
+                            <LabelList
+                              dataKey="tareas"
+                              position="right"
+                              style={{
+                                fill: "#fff",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Panel>
+                </div>
+
+                <Panel
+                  title="Matriz cognitiva por tipo de tarea"
+                  subtitle="Intensidad de color = mayor exigencia en esa dimensión"
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/40">
+                          <th className="pb-3 pr-3 font-medium">
+                            Tipo de tarea
+                          </th>
+                          <th className="pb-3 px-2 text-center font-medium">
+                            Tareas
+                          </th>
+                          <th className="pb-3 px-2 text-center font-medium">
+                            Normativa
+                          </th>
+                          <th className="pb-3 px-2 text-center font-medium">
+                            Incert.
+                          </th>
+                          <th className="pb-3 px-2 text-center font-medium">
+                            Dificultad
+                          </th>
+                          <th className="pb-3 px-2 text-center font-medium">
+                            Motivación
+                          </th>
+                          <th className="pb-3 px-2 text-center font-medium">
+                            Demanda
+                          </th>
+                          <th className="pb-3 pl-2 text-center font-medium">
+                            Eval
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {cognitiveByTipo.map((t) => (
+                          <tr
+                            key={t.tipo}
+                            className="border-b border-white/5 hover:bg-white/[0.03]"
+                          >
+                            <td className="py-2.5 pr-3">{t.tipo}</td>
+
+                            <td className="px-2 text-center text-white/55">
+                              {t.tareas}
+                            </td>
+
+                            <CogCell value={t.normativa} max={5} />
+                            <CogCell value={t.incertidumbre} max={5} />
+                            <CogCell value={t.familiaridad} max={5} />
+                            <CogCell value={t.motivacion} max={5} />
+                            <CogCell value={t.demandaCog} max={10} />
+
+                            <td className="pl-2 text-center">
+                              <span
+                                className="rounded-md px-2 py-1 text-xs font-bold"
+                                style={{
+                                  background: `${getEvalColor(t.eval)}22`,
+                                  color: getEvalColor(t.eval),
+                                }}
+                              >
+                                {t.eval || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+              </div>
+            )}
+
+            {/* ================= TAREAS ================= */}
+
+            {!loading && filtered.length > 0 && tab === "tareas" && (
+              <div className="mt-8 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+                  <Panel
+                    title="Mejor valoradas"
+                    subtitle="Las 5 tareas con mayor evaluación"
+                  >
+                    <div className="space-y-2.5">
+                      {topTasks.map((t) => (
+                        <TaskRow key={`${t.micro}-${t.tarea}`} row={t} />
+                      ))}
+
+                      {!topTasks.length && (
+                        <p className="text-sm text-white/40">
+                          Sin tareas evaluadas.
+                        </p>
+                      )}
+                    </div>
+                  </Panel>
+
+                  <Panel
+                    title="A revisar"
+                    subtitle="Las 5 tareas con menor evaluación"
+                  >
+                    <div className="space-y-2.5">
+                      {bottomTasks.map((t) => (
+                        <TaskRow key={`${t.micro}-${t.tarea}-b`} row={t} />
+                      ))}
+
+                      {!bottomTasks.length && (
+                        <p className="text-sm text-white/40">
+                          Sin tareas evaluadas.
+                        </p>
+                      )}
+                    </div>
+                  </Panel>
+                </div>
+
+                <Panel
+                  title={`Detalle de tareas (${sortedTasks.length})`}
+                  subtitle="Pulsa una columna para ordenar"
+                  action={
+                    <button
+                      onClick={exportCSV}
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Exportar CSV
+                    </button>
+                  }
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1080px] text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/40">
+                          <Th
+                            label="Micro"
+                            k="micro"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                          />
+                          <Th
+                            label="Día"
+                            k="md"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                          />
+                          <Th
+                            label="Tarea"
+                            k="tarea"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                          />
+                          <Th
+                            label="Tipo"
+                            k="tipo"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                          />
+                          <Th
+                            label="Contenido"
+                            k="contenidoPrincipal"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                          />
+                          <Th
+                            label="Fase"
+                            k="fase"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                          />
+                          <Th
+                            label="Formato"
+                            k="formato"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                            align="center"
+                          />
+                          <Th
+                            label="Min"
+                            k="tiempo"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                            align="right"
+                          />
+                          <Th
+                            label="Int"
+                            k="intensidad"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                            align="right"
+                          />
+                          <Th
+                            label="C.Fís"
+                            k="carga"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                            align="right"
+                          />
+                          <Th
+                            label="C.Cog"
+                            k="cargaCog"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                            align="right"
+                          />
+                          <Th
+                            label="Eval"
+                            k="evaluacion"
+                            sortKey={sortKey}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                            align="center"
+                          />
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {sortedTasks.map((r, i) => (
+                          <tr
+                            key={`${r.micro}-${r.tarea}-${i}`}
+                            className="border-b border-white/5 transition hover:bg-white/[0.04]"
+                          >
+                            <td className="py-3 pr-3 whitespace-nowrap">
+                              <span className="rounded-md bg-white/5 px-2 py-1 text-xs">
+                                M{r.micro}
+                              </span>
+                            </td>
+
+                            <td className="px-3 whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-semibold text-[#C8A96B]">
+                                  {r.md}
+                                </span>
+
+                                <span className="text-[10px] text-white/35">
+                                  {DIA_LABEL[r.dia] || r.dia} ·{" "}
+                                  {fmtFechaCorta(r.fecha)}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="px-3 font-medium">{r.tarea}</td>
+
+                            <td className="px-3 text-white/70">{r.tipo}</td>
+
+                            <td className="px-3">
+                              <div className="flex flex-col">
+                                <span className="text-white/70">
+                                  {r.contenidoPrincipal || "—"}
+                                </span>
+
+                                {r.contenidoSecundario && (
+                                  <span className="text-[11px] text-white/35">
+                                    {r.contenidoSecundario}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-3">
+                              <span className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] text-white/60">
+                                {r.fase || "—"}
+                              </span>
+                            </td>
+
+                            <td className="px-3 text-center text-white/60">
+                              {r.formato || "—"}
+                            </td>
+
+                            <td className="px-3 text-right text-white/70">
+                              {r.tiempo || "—"}
+                            </td>
+
+                            <td className="px-3 text-right text-white/70">
+                              {r.intensidad || "—"}
+                            </td>
+
+                            <td className="px-3 text-right text-white/70">
+                              {fmtInt(r.carga)}
+                            </td>
+
+                            <td className="px-3 text-right text-white/70">
+                              {fmtInt(r.cargaCog)}
+                            </td>
+
+                            <td className="px-3 text-center">
+                              <span
+                                className="rounded-md px-2 py-1 text-xs font-bold"
+                                style={{
+                                  background: `${getEvalColor(r.evaluacion)}22`,
+                                  color: getEvalColor(r.evaluacion),
+                                }}
+                              >
+                                {r.evaluacion || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -2076,56 +3304,297 @@ return Object.entries(grouped)
   );
 }
 
-function Chart({
-  children,
-}: any) {
+/* ------------------------------------------------------------------ */
+/* UI pieces                                                           */
+/* ------------------------------------------------------------------ */
+
+function Chart({ children, height }: any) {
   return (
-    <div
-     className="
-        h-[420px]
-        sm:h-[420px]
-        md:h-[360px]
-        w-full
-      "
-    >
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-      >
+    <div className="w-full" style={{ height: height ?? 380 }}>
+      <ResponsiveContainer width="100%" height="100%">
         {children}
       </ResponsiveContainer>
     </div>
   );
 }
 
-function Card({
-  title,
-  value,
-}: any) {
+function Panel({ title, subtitle, action, children }: any) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6">
-      <p className="text-xs sm:text-sm text-zinc-400">
-        {title}
-      </p>
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6 shadow-xl">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base sm:text-xl font-semibold leading-tight">
+            {title}
+          </h2>
 
-      <h3 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-semibold">
-        {value}
-      </h3>
+          {subtitle && (
+            <p className="mt-1 text-xs sm:text-sm text-white/40">{subtitle}</p>
+          )}
+        </div>
+
+        {action}
+      </div>
+
+      {children}
     </div>
   );
 }
 
-function Panel({
+function StatCard({
+  icon: Icon,
   title,
-  children,
+  value,
+  hint,
+  accent = "#C8A96B",
+  delta,
+  deltaSuffix = "",
+  decimals = 0,
 }: any) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-8 shadow-xl overflow-hidden">
-      <h2 className="mb-4 sm:mb-6 text-lg sm:text-2xl font-semibold leading-tight">
-        {title}
-      </h2>
+  const showDelta = typeof delta === "number" && delta !== 0;
 
-      {children}
+  const DeltaIcon = !showDelta ? Minus : delta > 0 ? ArrowUp : ArrowDown;
+
+  return (
+    <div className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/25">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-wider text-white/40">
+          {title}
+        </p>
+
+        <Icon className="h-4 w-4 opacity-60" style={{ color: accent }} />
+      </div>
+
+      <p
+        className="mt-2.5 text-2xl sm:text-[28px] font-semibold leading-none"
+        style={{ color: accent }}
+      >
+        {value}
+      </p>
+
+      <div className="mt-2.5 flex items-center gap-2">
+        {hint && <span className="text-[11px] text-white/40">{hint}</span>}
+
+        {showDelta && (
+          <span
+            className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+              delta > 0
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-rose-500/15 text-rose-400"
+            }`}
+          >
+            <DeltaIcon className="h-2.5 w-2.5" />
+            {Math.abs(delta).toFixed(decimals)}
+            {deltaSuffix}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Select({ value, onChange, label, options }: any) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/35">
+        {label}
+      </span>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-2xl border border-white/10 bg-[#11161C] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#C8A96B]/50"
+      >
+        {options.map((o: any) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+const CHIP_STYLES: Record<string, string> = {
+  gold: "border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#C8A96B]",
+  blue: "border-blue-400/40 bg-blue-400/10 text-blue-300",
+  purple: "border-purple-400/40 bg-purple-400/10 text-purple-300",
+  green: "border-green-400/40 bg-green-400/10 text-green-300",
+  orange: "border-orange-400/40 bg-orange-400/10 text-orange-300",
+};
+
+function FilterChip({ label, color, onClear }: any) {
+  return (
+    <button
+      onClick={onClear}
+      className={`rounded-full border px-3 py-1.5 text-xs transition hover:opacity-80 ${CHIP_STYLES[color]}`}
+    >
+      {label} ×
+    </button>
+  );
+}
+
+function Th({ label, k, sortKey, sortDir, onSort, align = "left" }: any) {
+  const active = sortKey === k;
+
+  return (
+    <th
+      onClick={() => onSort(k)}
+      className={`cursor-pointer select-none pb-3 px-3 font-medium transition hover:text-white ${
+        active ? "text-[#C8A96B]" : ""
+      } ${
+        align === "right"
+          ? "text-right"
+          : align === "center"
+          ? "text-center"
+          : "text-left"
+      }`}
+    >
+      {label}
+      {active && (sortDir === "asc" ? " ↑" : " ↓")}
+    </th>
+  );
+}
+
+function DarkTooltip({ active, payload, label, rows }: any) {
+  if (!active || !payload?.length) return null;
+
+  const d = payload[0].payload ?? {};
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#141A22] p-3 shadow-2xl">
+      {label !== undefined && (
+        <p className="mb-1.5 text-sm font-semibold text-white">{label}</p>
+      )}
+
+      <div className="space-y-0.5">
+        {payload.map((p: any, i: number) => (
+          <p key={i} className="text-xs" style={{ color: p.color ?? "#CBD5E1" }}>
+            {p.name}: <span className="font-semibold">{p.value}</span>
+          </p>
+        ))}
+
+        {rows?.map(([rowLabel, key]: [string, string]) =>
+          d[key] !== undefined && d[key] !== "" ? (
+            <p key={key} className="text-xs text-white/50">
+              {rowLabel}: <span className="font-semibold">{d[key]}</span>
+            </p>
+          ) : null
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CogCell({ value, max }: { value: number; max: number }) {
+  const t = max ? Math.min(value / max, 1) : 0;
+
+  return (
+    <td className="px-2 text-center">
+      <span
+        className="inline-block min-w-[38px] rounded-md px-2 py-1 text-xs font-semibold"
+        style={{
+          background: `rgba(139,92,246,${0.08 + t * 0.55})`,
+          color: t > 0.55 ? "#fff" : "#C4B5FD",
+        }}
+      >
+        {value || "—"}
+      </span>
+    </td>
+  );
+}
+
+function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
+  return (
+    <>
+      <button
+        onClick={onSelectMicro}
+        className={`flex flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition ${
+          selected
+            ? "border-[#C8A96B] bg-[#C8A96B]/10"
+            : "border-white/5 bg-white/[0.02] hover:border-white/20"
+        }`}
+      >
+        <span className="text-xs font-semibold">Micro {row.micro}</span>
+
+        <span className="w-full truncate text-[10px] text-white/40">
+          {row.rival || "—"}
+        </span>
+      </button>
+
+      {row.values.map((v: any) => {
+        const t = max ? v.carga / max : 0;
+
+        return (
+          <button
+            key={v.md}
+            onClick={() => v.tareas > 0 && onSelectCell(v.md)}
+            disabled={!v.tareas}
+            title={
+              v.tareas
+                ? `M${row.micro} · ${v.md}\n${v.tareas} tareas · ${v.tiempo}'\nCarga ${fmtInt(
+                    v.carga
+                  )} · Cog ${fmtInt(v.cog)}${v.eval ? `\nEval ${v.eval}` : ""}`
+                : "Sin tareas"
+            }
+            className="flex h-[54px] flex-col items-center justify-center rounded-xl border border-white/5 transition hover:border-white/30 disabled:cursor-default disabled:hover:border-white/5"
+            style={{
+              background: v.carga
+                ? `rgba(200,169,107,${0.12 + t * 0.78})`
+                : "rgba(255,255,255,0.02)",
+            }}
+          >
+            <span
+              className="text-sm font-semibold"
+              style={{ color: t > 0.5 ? "#0B0F14" : "#E2E8F0" }}
+            >
+              {v.carga ? fmtInt(v.carga) : "·"}
+            </span>
+
+            {v.tareas > 0 && (
+              <span
+                className="text-[10px]"
+                style={{
+                  color: t > 0.5 ? "rgba(11,15,20,.65)" : "rgba(255,255,255,.4)",
+                }}
+              >
+                {v.tareas} tar.
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+function TaskRow({ row }: { row: Row }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+      <span
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold"
+        style={{
+          background: `${getEvalColor(row.evaluacion)}22`,
+          color: getEvalColor(row.evaluacion),
+        }}
+      >
+        {row.evaluacion}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{row.tarea}</p>
+
+        <p className="truncate text-xs text-white/40">
+          M{row.micro} · {row.md} · {row.tipo}
+        </p>
+      </div>
+
+      <div className="hidden shrink-0 text-right sm:block">
+        <p className="text-xs text-white/60">{row.tiempo}&apos;</p>
+
+        <p className="text-[11px] text-white/35">
+          {row.formato || "—"}
+        </p>
+      </div>
     </div>
   );
 }
