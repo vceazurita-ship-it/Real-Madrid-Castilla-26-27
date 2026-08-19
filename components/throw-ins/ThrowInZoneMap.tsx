@@ -14,6 +14,7 @@ import {
   esFavorable,
   esProduccion,
   esProgresion,
+  esTransicion,
   heatColor,
   type Mode,
   norm,
@@ -25,6 +26,7 @@ import {
   read,
   type RecordRow,
   resultColor,
+  textoSobre,
   type Tono,
   type Zona,
   zonaLabel,
@@ -35,6 +37,7 @@ type MetricKey =
   | "progresion"
   | "favorable"
   | "produccion"
+  | "transicion"
   | "calidad"
   | "largo"
   | "bloqueadores";
@@ -53,7 +56,7 @@ type Metric = {
 function metricsFor(mode: Mode): Metric[] {
   const of = mode === "offensive";
 
-  return [
+  const metrics: Metric[] = [
     {
       key: "saques",
       label: of ? "Saques" : "Saques rival",
@@ -126,6 +129,22 @@ function metricsFor(mode: Mode): Metric[] {
       scale: "max",
     },
   ];
+
+  // En ataque la transición coincide con la producción, así que sólo aporta
+  // información en defensa: mide el contragolpe tras robar el saque rival.
+  if (!of) {
+    metrics.splice(4, 0, {
+      key: "transicion",
+      label: "% Transición",
+      hint: "Saques del rival que acabamos convirtiendo en último tercio, ocasión o gol nuestro",
+      decimals: 0,
+      suffix: "%",
+      tono: "positivo",
+      scale: "porcentaje",
+    });
+  }
+
+  return metrics;
 }
 
 type CellStats = Record<MetricKey, number> & {
@@ -173,6 +192,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
         progresion: number;
         favorable: number;
         produccion: number;
+        transicion: number;
         largo: number;
         calidadSuma: number;
         calidadN: number;
@@ -201,6 +221,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
           progresion: 0,
           favorable: 0,
           produccion: 0,
+          transicion: 0,
           largo: 0,
           calidadSuma: 0,
           calidadN: 0,
@@ -219,6 +240,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
       if (esProgresion(row)) cell.progresion += 1;
       if (esFavorable(resultado)) cell.favorable += 1;
       if (esProduccion(resultado, mode)) cell.produccion += 1;
+      if (esTransicion(resultado)) cell.transicion += 1;
       if (norm(read(row, "Tipo_Envio")).includes("largo")) cell.largo += 1;
 
       if (calidad !== null) {
@@ -248,6 +270,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
         progresion: pct(cell.progresion),
         favorable: pct(cell.favorable),
         produccion: pct(cell.produccion),
+        transicion: pct(cell.transicion),
         largo: pct(cell.largo),
         calidad: cell.calidadN ? cell.calidadSuma / cell.calidadN : 0,
         bloqueadores: cell.bloqN ? cell.bloqSuma / cell.bloqN : 0,
@@ -266,8 +289,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
   const format = (value: number) =>
     `${active.decimals === 0 ? Math.round(value) : value.toFixed(active.decimals)}${active.suffix}`;
 
-  const ratioFor = (value: number, total: number) => {
-    if (!total) return 0;
+  const ratioFor = (value: number) => {
     if (active.scale === "porcentaje") return value / 100;
     if (active.scale === "calidad") return value > 0 ? (value - 1) / 3 : 0;
     return maxValue > 0 ? value / maxValue : 0;
@@ -287,8 +309,11 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
     return list.sort((a, b) => b.value - a.value);
   }, [cells, metric]);
 
-  const selectedCell = selected ? cells.get(selected) : null;
-  const [selBanda, selZona] = (selected ?? "").split("-") as [Banda, string];
+  // Al cambiar los filtros la celda elegida puede desaparecer: derivamos la
+  // selección de los datos vivos en vez de dejar un detalle huérfano.
+  const selectedKey = selected && cells.has(selected) ? selected : null;
+  const selectedCell = selectedKey ? cells.get(selectedKey) ?? null : null;
+  const [selBanda, selZona] = (selectedKey ?? "").split("-") as [Banda, string];
 
   return (
     <section className="mb-7 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-xl md:p-7">
@@ -343,8 +368,12 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                 const box = cellBox(banda, zona, mode);
                 const cell = cells.get(key);
                 const value = cell ? cell[metric] : 0;
-                const ratio = ratioFor(value, cell?.total ?? 0);
-                const isSelected = selected === key;
+                const ratio = ratioFor(value);
+                const isSelected = selectedKey === key;
+                const fondo = cell ? heatColor(ratio, active.tono) : "#0B1320";
+                // El umbral fijo pintaba texto claro sobre el oro de media rampa.
+                const textoFuerte = textoSobre(fondo);
+                const textoSuave = textoSobre(fondo, "#1F2937", "#94A3B8");
 
                 return (
                   <g key={key} onClick={() => setSelected(isSelected ? null : key)} style={{ cursor: "pointer" }}>
@@ -355,7 +384,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                       y={box.y}
                       width={box.w}
                       height={box.h}
-                      fill={cell ? heatColor(ratio, active.tono) : "#0B1320"}
+                      fill={fondo}
                       fillOpacity={cell ? 0.92 : 0.5}
                       stroke={isSelected ? "#FFFFFF" : "#0B1728"}
                       strokeWidth={isSelected ? 0.6 : 0.25}
@@ -367,7 +396,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                       textAnchor="middle"
                       fontSize="5"
                       fontWeight="700"
-                      fill={ratio > 0.55 ? "#0B1728" : "#F8FAFC"}
+                      fill={cell ? textoFuerte : "#F8FAFC"}
                     >
                       {cell ? format(value) : "–"}
                     </text>
@@ -378,7 +407,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                       textAnchor="middle"
                       fontSize="2"
                       fontWeight="600"
-                      fill={ratio > 0.55 ? "#1F2937" : "#94A3B8"}
+                      fill={cell ? textoSuave : "#94A3B8"}
                     >
                       {`${BANDA_LABEL[banda].toUpperCase()} · ${zonaLabel(zona, mode).toUpperCase()}`}
                     </text>
@@ -389,7 +418,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                         y={box.y + 3}
                         textAnchor="end"
                         fontSize="2"
-                        fill={ratio > 0.55 ? "#1F2937" : "#64748B"}
+                        fill={textoSuave}
                       >
                         {cell.total} saques
                       </text>
@@ -505,8 +534,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
             <div className="mt-4 space-y-3">
               {ranking.length ? (
                 ranking.map((item) => {
-                  const cell = cells.get(item.key);
-                  const ratio = ratioFor(item.value, cell?.total ?? 0);
+                  const ratio = ratioFor(item.value);
 
                   return (
                     <button key={item.key} type="button" onClick={() => setSelected(item.key)} className="block w-full text-left">

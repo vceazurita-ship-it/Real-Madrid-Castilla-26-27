@@ -6,16 +6,20 @@
 // ("Progresión Carril Exterior", "Retroceso Carril Interior", "Area").
 // Antes se buscaba "izq"/"der" en esa columna, que nunca aparece ahí, así que
 // todas las flechas apuntaban al mismo punto.
+//
+// Cada zona dibuja UNA flecha por dirección registrada, con grosor según su
+// peso. Con una sola flecha dominante, una zona repartida al 50% entre
+// progresión y retroceso se leía como si sólo progresara.
 
 import { useMemo, useState } from "react";
 import {
   type Banda,
   BANDA_LABEL,
+  direccionDe,
   esProduccion,
   heatColor,
   type Mode,
   parseBanda,
-  parseDireccion,
   parseResultado,
   parseZona,
   read,
@@ -31,6 +35,15 @@ type ThrowInFieldProps = {
   mode: Mode;
 };
 
+type Salida = {
+  clave: string;
+  label: string;
+  sentido: string;
+  carril: string;
+  count: number;
+  produccion: number;
+};
+
 type FieldNode = {
   key: string;
   banda: Banda;
@@ -38,6 +51,7 @@ type FieldNode = {
   count: number;
   produccion: number;
   rows: RecordRow[];
+  salidas: Salida[];
 };
 
 /** Igual que en el mapa de zonas: la vista defensiva gira el campo 180 grados. */
@@ -49,31 +63,17 @@ function origen(banda: Banda, zona: Zona, mode: Mode) {
   return { x, y: arriba ? 7 : 93, dir: flip ? -1 : 1 };
 }
 
-/** Destino del envío según su dirección registrada. */
-function destino(node: FieldNode, mode: Mode) {
-  const { x, y, dir } = origen(node.banda, node.zona, mode);
+/** Destino de una dirección concreta salida de esa zona. */
+function destino(banda: Banda, zona: Zona, mode: Mode, salida: Salida) {
+  const { x, y, dir } = origen(banda, zona, mode);
 
-  const direcciones = node.rows.map((row) => parseDireccion(read(row, "Zona_Caida")));
-  const dominante =
-    direcciones
-      .reduce<[string, number][]>((acc, direccion) => {
-        const clave = `${direccion.sentido ?? "otro"}|${direccion.carril ?? "otro"}`;
-        const found = acc.find(([key]) => key === clave);
-        if (found) found[1] += 1;
-        else acc.push([clave, 1]);
-        return acc;
-      }, [])
-      .sort((a, b) => b[1] - a[1])[0]?.[0] ?? "otro|otro";
-
-  const [sentido, carril] = dominante.split("|");
-  const haciaCentro = y < 50 ? 1 : -1;
-
-  if (sentido === "area") {
+  if (salida.sentido === "area") {
     return { x: mode === "defensive" ? 12 : 88, y: 50 };
   }
 
-  const avance = sentido === "progresion" ? 20 : sentido === "retroceso" ? -16 : 8;
-  const desplazamientoY = carril === "interior" ? 34 : carril === "exterior" ? 13 : 20;
+  const haciaCentro = y < 50 ? 1 : -1;
+  const avance = salida.sentido === "progresion" ? 20 : salida.sentido === "retroceso" ? -16 : 8;
+  const desplazamientoY = salida.carril === "interior" ? 34 : salida.carril === "exterior" ? 13 : 20;
 
   return {
     x: Math.max(8, Math.min(92, x + dir * avance)),
@@ -82,32 +82,67 @@ function destino(node: FieldNode, mode: Mode) {
 }
 
 export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
-  const [selected, setSelected] = useState<FieldNode | null>(null);
+  // Guardamos la clave, no el nodo: con el nodo el panel seguía mostrando las
+  // acciones capturadas al pulsar aunque después se cambiaran los filtros.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const isOffensive = mode === "offensive";
   const tono = tonoDeModo(mode);
 
-  const nodes = useMemo(() => {
+  const { nodes, sinUbicar } = useMemo(() => {
     const grouped = new Map<string, FieldNode>();
+    const salidasPorZona = new Map<string, Map<string, Salida>>();
+    let sinUbicar = 0;
 
     rows.forEach((row) => {
       const banda = parseBanda(row);
       const zona = parseZona(row);
-      if (!banda || !zona) return;
+
+      if (!banda || !zona) {
+        sinUbicar += 1;
+        return;
+      }
 
       const key = `${banda}-${zona}`;
-      const node =
-        grouped.get(key) ?? { key, banda, zona, count: 0, produccion: 0, rows: [] as RecordRow[] };
+      const node: FieldNode =
+        grouped.get(key) ?? { key, banda, zona, count: 0, produccion: 0, rows: [], salidas: [] };
+
+      const produce = esProduccion(parseResultado(read(row, "Resultado_Final")), mode);
 
       node.count += 1;
       node.rows.push(row);
-      if (esProduccion(parseResultado(read(row, "Resultado_Final")), mode)) node.produccion += 1;
-
+      if (produce) node.produccion += 1;
       grouped.set(key, node);
+
+      const direccion = direccionDe(row);
+      const clave = `${direccion.sentido ?? "otro"}|${direccion.carril ?? "otro"}`;
+      const salidas = salidasPorZona.get(key) ?? new Map<string, Salida>();
+      const salida: Salida = salidas.get(clave) ?? {
+        clave,
+        label: direccion.label,
+        sentido: direccion.sentido ?? "otro",
+        carril: direccion.carril ?? "otro",
+        count: 0,
+        produccion: 0,
+      };
+
+      salida.count += 1;
+      if (produce) salida.produccion += 1;
+      salidas.set(clave, salida);
+      salidasPorZona.set(key, salidas);
     });
 
-    return [...grouped.values()].sort((a, b) => b.count - a.count);
+    grouped.forEach((node, key) => {
+      node.salidas = [...(salidasPorZona.get(key)?.values() ?? [])].sort((a, b) => b.count - a.count);
+    });
+
+    return {
+      nodes: [...grouped.values()].sort((a, b) => b.count - a.count),
+      sinUbicar,
+    };
   }, [rows, mode]);
 
+  // El detalle se deriva de los datos vivos: sigue los filtros o se cierra solo.
+  const selected = nodes.find((node) => node.key === selectedKey) ?? null;
   const maxCount = Math.max(...nodes.map((node) => node.count), 1);
 
   return (
@@ -138,24 +173,71 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
             </filter>
           </defs>
 
+          {/* Flechas primero: los discos de zona quedan siempre por encima. */}
           {nodes.map((node) => {
             const { x, y } = origen(node.banda, node.zona, mode);
-            const target = destino(node, mode);
+
+            return node.salidas.map((salida) => {
+              const target = destino(node.banda, node.zona, mode, salida);
+              const color = heatColor(salida.produccion / salida.count, tono);
+              const peso = salida.count / node.count;
+
+              return (
+                <g key={`${node.key}-${salida.clave}`} pointerEvents="none">
+                  <title>
+                    {`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${salida.label}: ${salida.count} de ${node.count}`}
+                  </title>
+                  <path
+                    d={`M ${x} ${y} Q ${(x + target.x) / 2} ${(y + target.y) / 2 - 4} ${target.x} ${target.y}`}
+                    fill="none"
+                    stroke={color}
+                    strokeOpacity={0.35 + peso * 0.5}
+                    strokeWidth={0.35 + peso * 1.1}
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx={target.x}
+                    cy={target.y}
+                    r={0.7 + peso * 1.1}
+                    fill={color}
+                    fillOpacity="0.85"
+                    filter="url(#field-glow)"
+                  />
+                </g>
+              );
+            });
+          })}
+
+          {nodes.map((node) => {
+            const { x, y } = origen(node.banda, node.zona, mode);
             const radius = 2.5 + Math.sqrt(node.count / maxCount) * 3.6;
             const color = heatColor(node.produccion / node.count, tono);
+            const isSelected = selectedKey === node.key;
 
             return (
-              <g key={node.key} className="cursor-pointer" onClick={() => setSelected(node)}>
-                <path
-                  d={`M ${x} ${y} Q ${(x + target.x) / 2} ${(y + target.y) / 2 - 4} ${target.x} ${target.y}`}
+              <g
+                key={node.key}
+                className="cursor-pointer"
+                role="button"
+                tabIndex={0}
+                aria-label={`${BANDA_LABEL[node.banda]}, ${zonaLabel(node.zona, mode)}, ${node.count} acciones`}
+                onClick={() => setSelectedKey(isSelected ? null : node.key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedKey(isSelected ? null : node.key);
+                  }
+                }}
+              >
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={radius + 0.9}
                   fill="none"
-                  stroke={color}
-                  strokeOpacity="0.75"
-                  strokeWidth="0.6"
-                  strokeLinecap="round"
+                  stroke={isSelected ? "#FFF7E5" : color}
+                  strokeOpacity={isSelected ? 1 : 0.55}
+                  strokeWidth={isSelected ? 0.8 : 0.55}
                 />
-                <circle cx={target.x} cy={target.y} r="1.25" fill={color} fillOpacity="0.8" filter="url(#field-glow)" />
-                <circle cx={x} cy={y} r={radius + 0.9} fill="none" stroke={color} strokeOpacity="0.55" strokeWidth="0.55" />
                 <circle cx={x} cy={y} r={radius} fill={color} fillOpacity="0.96" stroke="#FFF7E5" strokeWidth="0.35" />
                 <text x={x} y={y + 0.7} textAnchor="middle" fill="#0B1728" fontSize="2.2" fontWeight="700">
                   {node.count}
@@ -170,12 +252,13 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
             ? "Atacamos hacia la portería rival (derecha)"
             : "El rival ataca hacia nuestra portería (izquierda)"}
         </div>
-        <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
+        <div className="pointer-events-none absolute bottom-4 left-4 max-w-[75%] rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
           {nodes.length
-            ? `${nodes.length} zonas activas · tamaño = volumen · color = ${
+            ? `${nodes.length} zonas activas · tamaño = volumen · grosor de flecha = peso de la dirección · color = ${
                 isOffensive ? "producción generada" : "peligro concedido"
               }`
             : "Sin zonas activas todavía"}
+          {sinUbicar ? ` · ${sinUbicar} sin banda o zona` : ""}
         </div>
 
         {!nodes.length ? (
@@ -197,24 +280,41 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
                 <h3 className="mt-1 text-lg font-semibold">{BANDA_LABEL[selected.banda]}</h3>
                 <p className="text-sm text-slate-400">{zonaLabel(selected.zona, mode)}</p>
                 <p className="mt-1 text-sm text-slate-400">
-                  {selected.count} {selected.count === 1 ? "acción" : "acciones"} registradas
+                  {selected.count} {selected.count === 1 ? "acción" : "acciones"} ·{" "}
+                  {Math.round((selected.produccion / selected.count) * 100)}%{" "}
+                  {isOffensive ? "producción" : "peligro concedido"}
                 </p>
               </div>
               <button
                 type="button"
                 aria-label="Cerrar detalle"
-                onClick={() => setSelected(null)}
+                onClick={() => setSelectedKey(null)}
                 className="rounded-full p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
               >
                 ×
               </button>
             </div>
+
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {selected.salidas.map((salida) => (
+                <span
+                  key={salida.clave}
+                  className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300"
+                >
+                  {salida.label} · {salida.count}
+                </span>
+              ))}
+            </div>
+
             <div className="mt-4 space-y-2">
               {selected.rows.map((row, index) => {
                 const resultado = parseResultado(read(row, "Resultado_Final"));
 
                 return (
-                  <div key={`${read(row, "JORNADA")}-${index}`} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm">
+                  <div
+                    key={`${read(row, "JORNADA")}-${index}`}
+                    className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm"
+                  >
                     <div className="flex justify-between gap-3">
                       <p className="font-medium">
                         {read(row, "JORNADA") || "Partido"}{" "}
@@ -229,7 +329,7 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
                       </p>
                       <p className="rounded-lg bg-white/5 px-2 py-1.5">
                         <span className="block text-slate-400">Dirección</span>
-                        {parseDireccion(read(row, "Zona_Caida")).label}
+                        {direccionDe(row).label}
                       </p>
                       <p className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                         <span className="block text-slate-400">Resultado</span>

@@ -129,7 +129,9 @@ export function parseResultado(value: string): Resultado {
   if (t.includes("posicional")) return { label: `Posicional${sufijo}`, owner, rank: 1 };
   if (t.includes("nada")) return { label: "Nada", owner: "neutro", rank: 0 };
 
-  return { label: value.trim(), owner, rank: 0 };
+  // Vocabulario desconocido: sólo damos por rival lo que se declara rival.
+  // Firmarlo como RMCF inflaría retención y recuperación sin que nadie lo vea.
+  return { label: value.trim(), owner: owner === "rival" ? "rival" : "neutro", rank: 0 };
 }
 
 /** Nos quedamos con el balón: en ataque es retención, en defensa recuperación. */
@@ -137,13 +139,26 @@ export function esFavorable(resultado: Resultado) {
   return resultado.owner === "rmcf" && resultado.rank > 0;
 }
 
+/** Conquista de último tercio, ocasión o gol firmados por un equipo concreto. */
+export function produccionDe(resultado: Resultado, owner: Owner) {
+  return resultado.owner === owner && resultado.rank >= 3;
+}
+
 /**
  * Producción real de la jugada: conquista de último tercio, ocasión o gol.
  * En ataque la firma el RMCF; en defensa es exactamente lo que concedemos.
  */
 export function esProduccion(resultado: Resultado, mode: Mode) {
-  const dueño: Owner = mode === "offensive" ? "rmcf" : "rival";
-  return resultado.owner === dueño && resultado.rank >= 3;
+  return produccionDe(resultado, mode === "offensive" ? "rmcf" : "rival");
+}
+
+/**
+ * Transición: el saque acaba en producción NUESTRA sea cual sea la vista.
+ * En la hoja defensiva es el contragolpe tras robar el saque del rival, que
+ * es justo lo que esProduccion() no puede medir ahí.
+ */
+export function esTransicion(resultado: Resultado) {
+  return produccionDe(resultado, "rmcf");
 }
 
 export const RESULT_COLORS: Record<string, string> = {
@@ -219,6 +234,20 @@ export function heatColor(t: number, tono: Tono) {
   return ramp(t, RAMPS[tono]);
 }
 
+/**
+ * Texto legible sobre un color del mapa de calor. Un umbral fijo sobre el
+ * ratio no vale: a mitad de rampa el tono positivo es oro claro (pide texto
+ * oscuro) y el negativo es granate (pide texto claro). Se decide por la
+ * luminancia real del color pintado.
+ */
+export function textoSobre(color: string, oscuro = "#0B1728", claro = "#F8FAFC") {
+  const rgb = color.match(/(\d+)\D+(\d+)\D+(\d+)/);
+  if (!rgb) return claro;
+
+  const [r, g, b] = rgb.slice(1, 4).map(Number);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? oscuro : claro;
+}
+
 /** Tono de una métrica "cuanto más, peor para nosotros" según la vista. */
 export function tonoDeModo(mode: Mode): Tono {
   return mode === "offensive" ? "positivo" : "negativo";
@@ -226,3 +255,79 @@ export function tonoDeModo(mode: Mode): Tono {
 
 export const ACCENT = "#C8A96B";
 export const ACCENT_LIGHT = "#E7D2A0";
+
+// ----------------------------------------------------------------- Resumen
+
+/** Etiqueta canónica de la dirección del envío de una fila. */
+export function direccionDe(row: RecordRow) {
+  return parseDireccion(read(row, "Zona_Caida"));
+}
+
+export type Resumen = {
+  acciones: number;
+  /** Porcentajes ya redondeables sobre el total de acciones. */
+  progresionPct: number;
+  favorablePct: number;
+  produccion: number;
+  produccionPct: number;
+  transicion: number;
+  transicionPct: number;
+  rival: number;
+  /** null cuando ninguna fila trae el dato. */
+  calidad: number | null;
+  bloqueadores: number | null;
+};
+
+/**
+ * Agregado único de un conjunto de saques. El panel, el mapa de zonas y el
+ * flujo mostraban los mismos KPIs calculados tres veces por separado, que es
+ * como se cuelan discrepancias entre bloques de la misma pantalla.
+ */
+export function resumenDe(rows: RecordRow[], mode: Mode): Resumen {
+  let progresion = 0;
+  let favorable = 0;
+  let produccion = 0;
+  let transicion = 0;
+  let rival = 0;
+  let calidadSuma = 0;
+  let calidadN = 0;
+  let bloqSuma = 0;
+  let bloqN = 0;
+
+  rows.forEach((row) => {
+    const resultado = parseResultado(read(row, "Resultado_Final"));
+
+    if (esProgresion(row)) progresion += 1;
+    if (esFavorable(resultado)) favorable += 1;
+    if (esProduccion(resultado, mode)) produccion += 1;
+    if (esTransicion(resultado)) transicion += 1;
+    if (resultado.owner === "rival") rival += 1;
+
+    const calidad = numero(read(row, "Calidad_Envio"));
+    if (calidad !== null) {
+      calidadSuma += calidad;
+      calidadN += 1;
+    }
+
+    const bloqueadores = numero(read(row, "N_Bloqueadores"));
+    if (bloqueadores !== null) {
+      bloqSuma += bloqueadores;
+      bloqN += 1;
+    }
+  });
+
+  const pct = (value: number) => (rows.length ? (value / rows.length) * 100 : 0);
+
+  return {
+    acciones: rows.length,
+    progresionPct: pct(progresion),
+    favorablePct: pct(favorable),
+    produccion,
+    produccionPct: pct(produccion),
+    transicion,
+    transicionPct: pct(transicion),
+    rival,
+    calidad: calidadN ? calidadSuma / calidadN : null,
+    bloqueadores: bloqN ? bloqSuma / bloqN : null,
+  };
+}

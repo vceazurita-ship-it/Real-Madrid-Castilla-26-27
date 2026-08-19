@@ -11,16 +11,15 @@ import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 import ThrowInZoneMap from "@/components/throw-ins/ThrowInZoneMap";
 import ThrowInFlow from "@/components/throw-ins/ThrowInFlow";
 import {
-  esFavorable,
-  esProduccion,
-  esProgresion,
+  BANDA_LABEL,
+  direccionDe,
   type Mode,
-  numero,
-  parseDireccion,
+  parseBanda,
   parseResultado,
   read,
   type RecordRow,
   resultColor,
+  resumenDe,
 } from "@/components/throw-ins/throwInModel";
 
 type ThrowInsDashboardProps = {
@@ -32,9 +31,28 @@ type ThrowInsDashboardProps = {
 const COLORS = ["#C8A96B", "#3B82F6", "#8B5CF6", "#10B981", "#F97316", "#EC4899"];
 
 /**
- * Filtros por vista. La hoja defensiva no tiene Intencion, Sacador, Rutina ni
- * Velocidad_Saque, y llama Defensa / Debilidad_Defensiva a lo que en la
- * ofensiva son Defensa_Rival / Debilidad_Rival.
+ * Columnas que no se leen tal cual de la hoja. Filtro y gráfico comparten el
+ * mismo accesor: si el gráfico agrupa "Área" y el filtro busca "Area", elegir
+ * esa opción devolvía cero filas.
+ */
+const ACCESSORS: Record<string, (row: RecordRow) => string> = {
+  Perfil: (row) => {
+    const banda = parseBanda(row);
+    return banda ? BANDA_LABEL[banda] : "Sin dato";
+  },
+  Zona_Caida: (row) => direccionDe(row).label,
+  Resultado_Final: (row) => parseResultado(read(row, "Resultado_Final")).label,
+};
+
+function valorDe(row: RecordRow, key: string) {
+  const accessor = ACCESSORS[key];
+  return accessor ? accessor(row) : read(row, key) || "Sin dato";
+}
+
+/**
+ * Filtros por vista. La hoja defensiva no tiene Intencion, Sacador, Rutina,
+ * Velocidad_Saque ni Repetir, y llama Defensa / Debilidad_Defensiva a lo que
+ * en la ofensiva son Defensa_Rival / Debilidad_Rival.
  */
 function filtersFor(mode: Mode): { key: string; label: string }[] {
   const common = [
@@ -44,8 +62,10 @@ function filtersFor(mode: Mode): { key: string; label: string }[] {
     { key: "Perfil", label: "Banda" },
     { key: "Zona_Saque", label: "Zona de saque" },
     { key: "Tipo_Envio", label: "Tipo de envío" },
+    { key: "Zona_Caida", label: "Dirección del envío" },
     { key: "Calidad_Envio", label: "Calidad de envío" },
     { key: "N_Bloqueadores", label: "Nº bloqueadores" },
+    { key: "Receptor", label: "Receptor" },
   ];
 
   const propios =
@@ -54,6 +74,10 @@ function filtersFor(mode: Mode): { key: string; label: string }[] {
           { key: "Intencion", label: "Intención" },
           { key: "Rutina", label: "Rutina" },
           { key: "Sacador", label: "Sacador" },
+          { key: "Velocidad_Saque", label: "Velocidad de saque" },
+          { key: "Repetir", label: "Repetible" },
+          { key: "Defensa_Rival", label: "Defensa del rival" },
+          { key: "Debilidad_Rival", label: "Debilidad del rival" },
         ]
       : [
           { key: "Defensa", label: "Nuestra defensa" },
@@ -79,6 +103,8 @@ function chartsFor(mode: Mode): { key: string; title: string }[] {
           { key: "Intencion", title: "Intención" },
           { key: "Sacador", title: "Sacadores" },
           { key: "Rutina", title: "Rutina" },
+          { key: "Velocidad_Saque", title: "Velocidad de saque" },
+          { key: "Repetir", title: "¿Rutina repetible?" },
           { key: "Defensa_Rival", title: "Defensa del rival" },
           { key: "Debilidad_Rival", title: "Debilidad del rival" },
         ]
@@ -87,31 +113,19 @@ function chartsFor(mode: Mode): { key: string; title: string }[] {
           { key: "Debilidad_Defensiva", title: "Debilidad defensiva" },
         ];
 
-  return [...common, ...propios];
+  return [...common, ...propios, { key: "Resultado_Final", title: "Resultado final" }];
 }
 
 function groupBy(rows: RecordRow[], key: string) {
   return Object.entries(
     rows.reduce<Record<string, number>>((acc, row) => {
-      const value = read(row, key) || "Sin dato";
+      const value = valorDe(row, key);
       acc[value] = (acc[value] ?? 0) + 1;
       return acc;
     }, {})
   )
     .map(([name, total]) => ({ name, total }))
     .sort((a, b) => b.total - a.total);
-}
-
-/** El resultado se agrupa por su etiqueta canónica, no por el texto crudo. */
-function groupResults(rows: RecordRow[]) {
-  const acc = new Map<string, number>();
-
-  rows.forEach((row) => {
-    const label = parseResultado(read(row, "Resultado_Final")).label;
-    acc.set(label, (acc.get(label) ?? 0) + 1);
-  });
-
-  return [...acc.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
 }
 
 function SelectFilter({
@@ -214,6 +228,8 @@ function DistributionChart({
   );
 }
 
+const MAX_TABLA = 100;
+
 export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProps) {
   const [rows, setRows] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -256,7 +272,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     const map: Record<string, string[]> = {};
 
     FILTERS.forEach(({ key }) => {
-      const values = [...new Set(rows.map((row) => read(row, key)).filter(Boolean))];
+      // Sólo ofrecemos valores presentes en la hoja; "Sin dato" se descarta
+      // porque no distingue "no ocurrió" de "no se anotó".
+      const values = [...new Set(rows.map((row) => valorDe(row, key)))].filter(
+        (value) => value && value !== "Sin dato"
+      );
+
       map[key] = key === "JORNADA" ? values : values.sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
     });
 
@@ -268,45 +289,15 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       rows.filter((row) =>
         FILTERS.every(({ key }) => {
           const selected = filters[key] ?? "ALL";
-          return selected === "ALL" || read(row, key) === selected;
+          return selected === "ALL" || valorDe(row, key) === selected;
         })
       ),
     [rows, filters, FILTERS]
   );
 
-  const activeFilters = FILTERS.filter(({ key }) => (filters[key] ?? "ALL") !== "ALL").length;
+  const activos = FILTERS.filter(({ key }) => (filters[key] ?? "ALL") !== "ALL");
 
-  const totals = useMemo(() => {
-    let favorable = 0;
-    let produccion = 0;
-    let progresion = 0;
-    let calidadSuma = 0;
-    let calidadN = 0;
-
-    filtered.forEach((row) => {
-      const resultado = parseResultado(read(row, "Resultado_Final"));
-      if (esFavorable(resultado)) favorable += 1;
-      if (esProduccion(resultado, mode)) produccion += 1;
-      if (esProgresion(row)) progresion += 1;
-
-      const calidad = numero(read(row, "Calidad_Envio"));
-      if (calidad !== null) {
-        calidadSuma += calidad;
-        calidadN += 1;
-      }
-    });
-
-    const pct = (value: number) => (filtered.length ? Math.round((value / filtered.length) * 100) : 0);
-
-    return {
-      acciones: filtered.length,
-      progresion: pct(progresion),
-      favorable: pct(favorable),
-      produccion,
-      produccionPct: pct(produccion),
-      calidad: calidadN ? (calidadSuma / calidadN).toFixed(1) : "–",
-    };
-  }, [filtered, mode]);
+  const totals = useMemo(() => resumenDe(filtered, mode), [filtered, mode]);
 
   const exportPng = useCallback(async () => {
     if (!contentRef.current) return;
@@ -314,6 +305,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     setExporting(true);
 
     try {
+      // El PNG salía sin título ni filtros: dos capturas del mismo panel eran
+      // indistinguibles. Esperamos a que React pinte la cabecera de exportación.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
       const dataUrl = await htmlToImage.toPng(contentRef.current, {
         backgroundColor: "#0B0F14",
         pixelRatio: 2,
@@ -333,11 +328,40 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     }
   }, [isOffensive]);
 
-  const tableRows = filtered.slice(0, 100);
+  const tableRows = filtered.slice(0, MAX_TABLA);
 
   const tableColumns = isOffensive
-    ? ["Jornada", "Rival", "Tiempo", "Sacador", "Banda", "Zona saque", "Envío", "Dirección", "Intención", "Rutina", "Resultado"]
-    : ["Jornada", "Rival", "Tiempo", "Banda", "Zona saque", "Envío", "Dirección", "Receptor", "Defensa", "Debilidad", "Resultado"];
+    ? [
+        "Jornada",
+        "Rival",
+        "Tiempo",
+        "Sacador",
+        "Banda",
+        "Zona saque",
+        "Envío",
+        "Dirección",
+        "Receptor",
+        "Intención",
+        "Rutina",
+        "Resultado",
+      ]
+    : [
+        "Jornada",
+        "Rival",
+        "Tiempo",
+        "Banda",
+        "Zona saque",
+        "Envío",
+        "Dirección",
+        "Receptor",
+        "Defensa",
+        "Debilidad",
+        "Resultado",
+      ];
+
+  const resumenFiltros = activos.length
+    ? activos.map(({ key, label }) => `${label}: ${filters[key]}`).join(" · ")
+    : "Sin filtros · todos los saques registrados";
 
   return (
     <div className="min-h-screen bg-[#0B0F14] text-white">
@@ -384,10 +408,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                 <span>
                   {filtered.length} de {rows.length} saques registrados
-                  {activeFilters ? ` · ${activeFilters} ${activeFilters === 1 ? "filtro" : "filtros"} activos` : ""}
+                  {activos.length ? ` · ${activos.length} ${activos.length === 1 ? "filtro" : "filtros"} activos` : ""}
                 </span>
 
-                {activeFilters ? (
+                {activos.length ? (
                   <button
                     type="button"
                     onClick={() => setFilters({})}
@@ -407,7 +431,21 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
               <p className="py-24 text-center text-slate-400">Cargando saques de banda…</p>
             ) : (
               <div ref={contentRef}>
-                <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                {/* Cabecera que sólo viaja en el PNG, para que la captura se
+                    explique sola fuera de la aplicación. */}
+                <div
+                  style={{ display: exporting ? "block" : "none" }}
+                  className="mb-6 rounded-2xl border border-[#C8A96B]/30 bg-white/[0.03] p-5"
+                >
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#C8A96B]">RMCF Castilla · Colectivo</p>
+                  <h2 className="mt-1 text-2xl font-semibold">{title}</h2>
+                  <p className="mt-2 text-sm text-slate-300">{resumenFiltros}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {filtered.length} de {rows.length} saques registrados
+                  </p>
+                </div>
+
+                <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                   <MetricCard
                     label={isOffensive ? "Saques registrados" : "Saques del rival"}
                     value={totals.acciones}
@@ -415,26 +453,33 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                   <MetricCard
                     label={isOffensive ? "% Progresión" : "% Progresión concedida"}
-                    value={`${totals.progresion}%`}
+                    value={`${Math.round(totals.progresionPct)}%`}
                     hint="Envíos hacia delante o al área"
                   />
                   <MetricCard
                     label={isOffensive ? "% Retención" : "% Recuperación"}
-                    value={`${totals.favorable}%`}
+                    value={`${Math.round(totals.favorablePct)}%`}
                     hint="Acaba con el balón para el RMCF"
                   />
                   <MetricCard
                     label={isOffensive ? "Producción" : "Peligro concedido"}
-                    value={`${totals.produccion} · ${totals.produccionPct}%`}
+                    value={`${totals.produccion} · ${Math.round(totals.produccionPct)}%`}
                     hint={
                       isOffensive
                         ? "Conquista de último tercio, ocasión o gol nuestro"
                         : "Conquista de último tercio, ocasión o gol del rival"
                     }
                   />
+                  {!isOffensive ? (
+                    <MetricCard
+                      label="Transición"
+                      value={`${totals.transicion} · ${Math.round(totals.transicionPct)}%`}
+                      hint="Robamos el saque rival y llegamos a último tercio, ocasión o gol"
+                    />
+                  ) : null}
                   <MetricCard
                     label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
-                    value={totals.calidad}
+                    value={totals.calidad === null ? "–" : totals.calidad.toFixed(1)}
                     hint="Escala 1 a 4"
                   />
                 </div>
@@ -456,21 +501,22 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
                 <div className="grid gap-5 xl:grid-cols-2">
                   {CHARTS.map(({ key, title: chartTitle }) => (
-                    <DistributionChart key={key} title={chartTitle} data={groupBy(filtered, key)} />
+                    <DistributionChart
+                      key={key}
+                      title={chartTitle}
+                      data={groupBy(filtered, key)}
+                      colorFor={key === "Resultado_Final" ? (name) => resultColor(name) : undefined}
+                    />
                   ))}
-
-                  <DistributionChart
-                    title="Resultado final"
-                    data={groupResults(filtered)}
-                    colorFor={(name) => resultColor(name)}
-                  />
                 </div>
 
                 <section className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   <div className="border-b border-white/10 px-5 py-4 md:px-6">
                     <h2 className="text-lg font-semibold">Registro de acciones</h2>
                     <p className="mt-1 text-sm text-slate-400">
-                      Mostrando hasta 100 acciones según los filtros aplicados.
+                      {filtered.length > MAX_TABLA
+                        ? `Mostrando las ${MAX_TABLA} primeras de ${filtered.length} acciones filtradas.`
+                        : `${filtered.length} ${filtered.length === 1 ? "acción" : "acciones"} según los filtros aplicados.`}
                     </p>
                   </div>
                   <div className="overflow-x-auto">
@@ -494,10 +540,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                               <td className="px-4 py-3">{read(row, "Rival") || "-"}</td>
                               <td className="px-4 py-3">{read(row, "Tiempo") || "-"}</td>
                               {isOffensive ? <td className="px-4 py-3">{read(row, "Sacador") || "-"}</td> : null}
-                              <td className="px-4 py-3">{read(row, "Perfil") || "-"}</td>
+                              <td className="px-4 py-3">{valorDe(row, "Perfil")}</td>
                               <td className="px-4 py-3">{read(row, "Zona_Saque") || "-"}</td>
                               <td className="px-4 py-3">{read(row, "Tipo_Envio") || "-"}</td>
-                              <td className="px-4 py-3">{parseDireccion(read(row, "Zona_Caida")).label}</td>
+                              <td className="px-4 py-3">{direccionDe(row).label}</td>
+                              <td className="px-4 py-3">{read(row, "Receptor") || "-"}</td>
                               {isOffensive ? (
                                 <>
                                   <td className="px-4 py-3">{read(row, "Intencion") || "-"}</td>
@@ -505,7 +552,6 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                 </>
                               ) : (
                                 <>
-                                  <td className="px-4 py-3">{read(row, "Receptor") || "-"}</td>
                                   <td className="px-4 py-3">{read(row, "Defensa") || "-"}</td>
                                   <td className="px-4 py-3">{read(row, "Debilidad_Defensiva") || "-"}</td>
                                 </>

@@ -13,18 +13,18 @@
 import { useMemo, useState } from "react";
 import {
   ACCENT_LIGHT,
+  direccionDe,
   esFavorable,
   esProduccion,
-  esProgresion,
   heatColor,
   type Mode,
   parseBanda,
-  parseDireccion,
   parseResultado,
   parseZona,
   read,
   type RecordRow,
   resultColor,
+  resumenDe,
   tonoDeModo,
 } from "./throwInModel";
 
@@ -42,10 +42,16 @@ const TOP = 46;
 const NODE_H = 26;
 const STEP = 35;
 
+const STAGES: { source: ColKey; target: ColKey }[] = [
+  { source: "saque", target: "envio" },
+  { source: "envio", target: "medio" },
+  { source: "medio", target: "resultado" },
+];
+
 /** Recorta la etiqueta al ancho disponible del nodo. */
 function truncate(label: string, width: number) {
-  const max = Math.floor((width - 70) / 5.6);
-  return label.length > max ? `${label.slice(0, max - 1)}…` : label;
+  const max = Math.max(6, Math.floor((width - 70) / 5.6));
+  return label.length > max ? label.slice(0, max - 1) + "…" : label;
 }
 
 function saqueLabel(row: RecordRow) {
@@ -67,7 +73,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
   const tono = tonoDeModo(mode);
 
   const [medioKey, setMedioKey] = useState<MedioKey>("direccion");
-  const [focus, setFocus] = useState<{ col: ColKey; value: string } | null>(null);
+  const [focusRaw, setFocus] = useState<{ col: ColKey; value: string } | null>(null);
 
   const medio = medioKey === "intencion" && isOffensive ? "intencion" : "direccion";
 
@@ -78,7 +84,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
       medio:
         medio === "intencion"
           ? (row) => read(row, "Intencion") || "Sin definir"
-          : (row) => parseDireccion(read(row, "Zona_Caida")).label,
+          : (row) => direccionDe(row).label,
       resultado: (row) => parseResultado(read(row, "Resultado_Final")).label,
     }),
     [medio]
@@ -125,6 +131,11 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
     } as Record<ColKey, NodeStat[]>;
   }, [rows, accessors, mode]);
 
+  // Al cambiar los filtros el nodo aislado puede desaparecer del flujo. Si ya
+  // no existe se ignora, en vez de dejar el lienzo vacío y sin forma de salir.
+  const focus =
+    focusRaw && columns[focusRaw.col].some((node) => node.name === focusRaw.value) ? focusRaw : null;
+
   const activeRows = useMemo(
     () => (focus ? rows.filter((row) => accessors[focus.col](row) === focus.value) : rows),
     [rows, focus, accessors]
@@ -154,21 +165,13 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
     [accessors, mode]
   );
 
-  const STAGES: { source: ColKey; target: ColKey }[] = [
-    { source: "saque", target: "envio" },
-    { source: "envio", target: "medio" },
-    { source: "medio", target: "resultado" },
-  ];
-
   const allLinks = useMemo(
     () => STAGES.map((stage) => buildLinks(stage.source, stage.target, rows)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, buildLinks]
   );
 
   const activeLinks = useMemo(
     () => STAGES.map((stage) => buildLinks(stage.source, stage.target, activeRows)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeRows, buildLinks]
   );
 
@@ -206,30 +209,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
 
   const total = activeRows.length;
 
-  const resumen = useMemo(() => {
-    let favorable = 0;
-    let produccion = 0;
-    let progresion = 0;
-    let rival = 0;
-
-    activeRows.forEach((row) => {
-      const resultado = parseResultado(read(row, "Resultado_Final"));
-      if (esFavorable(resultado)) favorable += 1;
-      if (esProduccion(resultado, mode)) produccion += 1;
-      if (esProgresion(row)) progresion += 1;
-      if (resultado.owner === "rival") rival += 1;
-    });
-
-    const pct = (value: number) => (total ? (value / total) * 100 : 0);
-
-    return {
-      favorable: pct(favorable),
-      produccion,
-      produccionPct: pct(produccion),
-      progresion: pct(progresion),
-      rival,
-    };
-  }, [activeRows, total, mode]);
+  const resumen = useMemo(() => resumenDe(activeRows, mode), [activeRows, mode]);
 
   const linkPath = (x1: number, y1: number, x2: number, y2: number) => {
     const dx = (x2 - x1) * 0.45;
@@ -408,7 +388,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
         ) : null}
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className={`mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 ${isOffensive ? "lg:grid-cols-5" : "lg:grid-cols-6"}`}>
         <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
           <div className="text-xs uppercase tracking-wide text-slate-400">Saques</div>
           <div className="mt-1 text-2xl font-semibold text-white">{total}</div>
@@ -418,14 +398,14 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
           <div className="text-xs uppercase tracking-wide text-slate-400">
             {isOffensive ? "Retención" : "Recuperación"}
           </div>
-          <div className="mt-1 text-2xl font-semibold text-[#E7D2A0]">{resumen.favorable.toFixed(1)}%</div>
+          <div className="mt-1 text-2xl font-semibold text-[#E7D2A0]">{resumen.favorablePct.toFixed(1)}%</div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
           <div className="text-xs uppercase tracking-wide text-slate-400">
             {isOffensive ? "Progresión" : "Progresión concedida"}
           </div>
-          <div className="mt-1 text-2xl font-semibold text-white">{resumen.progresion.toFixed(1)}%</div>
+          <div className="mt-1 text-2xl font-semibold text-white">{resumen.progresionPct.toFixed(1)}%</div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
@@ -439,6 +419,13 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
             {resumen.produccion}
           </div>
         </div>
+
+        {!isOffensive ? (
+          <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
+            <div className="text-xs uppercase tracking-wide text-slate-400">Transición</div>
+            <div className="mt-1 text-2xl font-semibold text-[#10B981]">{resumen.transicion}</div>
+          </div>
+        ) : null}
 
         <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
           <div className="text-xs uppercase tracking-wide text-slate-400">
