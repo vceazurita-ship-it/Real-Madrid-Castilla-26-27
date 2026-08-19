@@ -1,31 +1,42 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { Sidebar } from "@/components/ui/sidebar";
-import { Topbar } from "@/components/ui/topbar";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Image as ImageIcon,
-  FileText,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FileText, Image as ImageIcon, Plus, Trash2, Pencil } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
-import { loadSeason } from "@/lib/loadSeason";
-import { MonthData } from "@/app/performance/data";
-
+import {
+  CalendarShell,
+  CalendarStat,
+  type CalendarLegendItem,
+} from "@/components/ui/calendar-shell";
+import {
+  CalendarDayModal,
+  CalendarEmptyState,
+} from "@/components/ui/calendar-day-modal";
+import {
+  SEASON_FIRST_DAY,
+  SEASON_LAST_DAY,
+  buildSeasonMonths,
+  currentMonthIndex,
+  dateKey,
+  parseDateKey,
+  recordDateKey,
+} from "@/lib/calendar";
+import { cn } from "@/lib/utils";
 
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
+type EventType =
+  | "FUERZA"
+  | "PREVENTIVO"
+  | "READAPTACION"
+  | "MOVILIDAD"
+  | "RECUPERACION";
+
 type ConditionalEvent = {
   ID_EVENTO: string;
   FECHA: string;
-  TIPO:
-    | "FUERZA"
-    | "PREVENTIVO"
-    | "READAPTACION"
-    | "MOVILIDAD"
-    | "RECUPERACION";
+  TIPO: EventType;
   TITULO: string;
   DESCRIPCION: string;
   JUGADORES: string;
@@ -41,271 +52,242 @@ type DayFile = {
   type: "image" | "pdf";
 };
 
-type FilesByDay = Record<
-  string,
-  {
-    images: DayFile[];
-    pdfs: DayFile[];
-  }
->
-;
+type FilesByDay = Record<string, { images: DayFile[]; pdfs: DayFile[] }>;
 
-const START_MONTH = new Date(2026, 6, 1);
-const END_MONTH = new Date(2027, 5, 1);
+const TYPE_THEMES: Record<
+  EventType,
+  { label: string; dot: string; stripe: string }
+> = {
+  FUERZA: { label: "Fuerza", dot: "bg-red-400", stripe: "border-l-red-400" },
+  PREVENTIVO: {
+    label: "Preventivo",
+    dot: "bg-emerald-400",
+    stripe: "border-l-emerald-400",
+  },
+  READAPTACION: {
+    label: "Readaptación",
+    dot: "bg-sky-400",
+    stripe: "border-l-sky-400",
+  },
+  MOVILIDAD: {
+    label: "Movilidad",
+    dot: "bg-purple-400",
+    stripe: "border-l-purple-400",
+  },
+  RECUPERACION: {
+    label: "Recuperación",
+    dot: "bg-yellow-400",
+    stripe: "border-l-yellow-400",
+  },
+};
 
-const MONTHS = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
+const EVENT_TYPES = Object.keys(TYPE_THEMES) as EventType[];
 
-const WEEK = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
-];
+const LEGEND: CalendarLegendItem[] = EVENT_TYPES.map((type) => ({
+  label: TYPE_THEMES[type].label,
+  color: TYPE_THEMES[type].dot,
+}));
 
-function getMonday(date: Date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
+const EMPTY_FILES = { images: [] as DayFile[], pdfs: [] as DayFile[] };
 
-function buildCalendar(month: number, year: number) {
-  const firstDay = new Date(year, month, 1);
-  const current = getMonday(firstDay);
+const MAX_VISIBLE_PER_DAY = 3;
 
-  const weeks: Date[][] = [];
-
-  while (true) {
-    const week: Date[] = [];
-
-    for (let i = 0; i < 7; i++) {
-      week.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-
-    weeks.push(week);
-
-    if (current.getMonth() !== month && current.getDay() === 1) {
-      break;
-    }
-  }
-
-  return weeks;
-}
-export default function Calendar() {
-  const months = useMemo(() => {
-    const result: { month: number; year: number }[] = [];
-
-    let current = new Date(START_MONTH);
-
-    while (current <= END_MONTH) {
-      result.push({
-        month: current.getMonth(),
-        year: current.getFullYear(),
-      });
-
-      current = new Date(
-        current.getFullYear(),
-        current.getMonth() + 1,
-        1
-      );
-    }
-
-    return result;
-  }, []);
+export default function CalendarPerformance() {
+  const months = useMemo(() => buildSeasonMonths(), []);
 
   const { players } = usePlayers();
 
+  const [currentMonth, setCurrentMonth] = useState(() =>
+    currentMonthIndex(months)
+  );
   const [events, setEvents] = useState<ConditionalEvent[]>([]);
-  const [seasonData, setSeasonData] = useState<MonthData[]>([]);
   const [filesByDay, setFilesByDay] = useState<FilesByDay>({});
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedEvents, setSelectedEvents] = useState<ConditionalEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
-  const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-
-  const [currentMonth, setCurrentMonth] = useState(() => {
-  const today = new Date();
-
-  const index = months.findIndex(
-    (m) =>
-      m.month === today.getMonth() &&
-      m.year === today.getFullYear()
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(
+    null
   );
 
-  return index !== -1 ? index : 0;
-});
+  const reloadEvents = useCallback(async () => {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
+    const data = await r.json();
 
+    if (!Array.isArray(data)) throw new Error("Respuesta inesperada");
 
-  const active = months[currentMonth];
-
-  const calendar = useMemo(() => {
-    return buildCalendar(active.month, active.year);
-  }, [active]);
-
-  const reloadEvents = async () => {
-    try {
-      const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
-      const data = await r.json();
-      setEvents(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    reloadEvents();
+    setEvents(data);
+    return data as ConditionalEvent[];
   }, []);
 
   useEffect(() => {
-  const fetchSeason = async () => {
-    try {
-      const data = await loadSeason();
-      if (Array.isArray(data)) {
-        setSeasonData(data);
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        await reloadEvents();
+        if (!cancelled) setError(null);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setError("No se pudieron cargar los trabajos");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    };
 
-  fetchSeason();
-}, []);
+    load();
 
-useEffect(() => {
-  const loadFiles = async () => {
-    try {
-      const response = await fetch("/api/performance-files");
-      const files: DayFile[] = await response.json();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadEvents]);
 
-      const grouped: FilesByDay = {};
+  useEffect(() => {
+    let cancelled = false;
 
-      for (const file of files) {
-        const day = new Date(file.created_at)
-          .toISOString()
-          .slice(0, 10);
+    const loadFiles = async () => {
+      try {
+        const response = await fetch("/api/performance-files");
+        const files: DayFile[] = await response.json();
 
-        if (!grouped[day]) {
-          grouped[day] = {
-            images: [],
-            pdfs: [],
-          };
+        if (cancelled || !Array.isArray(files)) return;
+
+        const grouped: FilesByDay = {};
+
+        for (const file of files) {
+          // Fecha LOCAL de subida, para que coincida con la rejilla del calendario.
+          const day = dateKey(new Date(file.created_at));
+
+          if (!grouped[day]) grouped[day] = { images: [], pdfs: [] };
+
+          if (file.type === "image") grouped[day].images.push(file);
+          else grouped[day].pdfs.push(file);
         }
 
-        if (file.type === "image") {
-          grouped[day].images.push(file);
-        } else {
-          grouped[day].pdfs.push(file);
-        }
+        setFilesByDay(grouped);
+      } catch (err) {
+        console.error(err);
       }
+    };
 
-      setFilesByDay(grouped);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    loadFiles();
 
-  loadFiles();
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-useEffect(() => {
-    if (!selectedDate || fullscreenImageIndex !== null) return;
+  /** Eventos agrupados por día. */
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, ConditionalEvent[]>();
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      changeSelectedDay(-1);
-    }
+    events.forEach((event) => {
+      const key = recordDateKey(event.FECHA);
+      if (!key) return;
 
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      changeSelectedDay(1);
-    }
-  };
-
-  window.addEventListener("keydown", handleKeyDown);
-
-  return () =>
-    window.removeEventListener("keydown", handleKeyDown);
-}, [selectedDate, events, fullscreenImageIndex]);
-
-useEffect(() => {
-  if (fullscreenImageIndex === null || !selectedDate) return;
-
-  const dayKey = [
-    selectedDate.getFullYear(),
-    String(selectedDate.getMonth() + 1).padStart(2, "0"),
-    String(selectedDate.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  const images = filesByDay[dayKey]?.images ?? [];
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      setFullscreenImageIndex(null);
-    }
-
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      setFullscreenImageIndex((prev) =>
-        prev === null ? null : (prev + 1) % images.length
-      );
-    }
-
-    if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      setFullscreenImageIndex((prev) =>
-        prev === null
-          ? null
-          : (prev - 1 + images.length) % images.length
-      );
-    }
-  };
-
-  window.addEventListener("keydown", handleKeyDown);
-
-  return () =>
-    window.removeEventListener("keydown", handleKeyDown);
-}, [fullscreenImageIndex, selectedDate, filesByDay]);
-
-
-  async function createEvent(data: Partial<ConditionalEvent>) {
-    await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        action: "crearEventoCondicional",
-        ...data,
-      }),
+      const list = map.get(key);
+      if (list) list.push(event);
+      else map.set(key, [event]);
     });
 
-    await reloadEvents();
-  }
+    return map;
+  }, [events]);
 
-  async function updateEvent(data: ConditionalEvent) {
+  const active = months[currentMonth];
+
+  const monthStats = useMemo(() => {
+    const inMonth = (key: string) => {
+      const d = parseDateKey(key);
+      return d.getMonth() === active.month && d.getFullYear() === active.year;
+    };
+
+    let trabajos = 0;
+    let dias = 0;
+
+    eventsByDay.forEach((list, key) => {
+      if (!inMonth(key)) return;
+      trabajos += list.length;
+      dias += 1;
+    });
+
+    let imagenes = 0;
+    let pdfs = 0;
+
+    Object.entries(filesByDay).forEach(([key, files]) => {
+      if (!inMonth(key)) return;
+      imagenes += files.images.length;
+      pdfs += files.pdfs.length;
+    });
+
+    return { trabajos, dias, imagenes, pdfs };
+  }, [eventsByDay, filesByDay, active]);
+
+  const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
+  const selectedEvents = selectedKey ? eventsByDay.get(selectedKey) ?? [] : [];
+  const selectedFiles = selectedKey ? filesByDay[selectedKey] ?? EMPTY_FILES : EMPTY_FILES;
+
+  const closeModal = useCallback(() => {
+    setSelectedKey(null);
+    setIsCreating(false);
+    setEditingEvent(null);
+    setDeletingId(null);
+    setFullscreenImageIndex(null);
+  }, []);
+
+  const openDay = useCallback((key: string) => {
+    setSelectedKey(key);
+    setIsCreating(false);
+    setEditingEvent(null);
+    setDeletingId(null);
+  }, []);
+
+  /** Mueve el día seleccionado ±1 dentro de la temporada y sincroniza el mes. */
+  const shiftSelectedDay = useCallback(
+    (offset: number) => {
+      if (!selectedKey) return;
+
+      const d = parseDateKey(selectedKey);
+      d.setDate(d.getDate() + offset);
+
+      if (d < SEASON_FIRST_DAY || d > SEASON_LAST_DAY) return;
+
+      const monthIdx = months.findIndex(
+        (m) => m.month === d.getMonth() && m.year === d.getFullYear()
+      );
+
+      if (monthIdx !== -1) setCurrentMonth(monthIdx);
+      openDay(dateKey(d));
+    },
+    [selectedKey, months, openDay]
+  );
+
+  const canShift = (offset: number) => {
+    if (!selectedKey) return false;
+
+    const d = parseDateKey(selectedKey);
+    d.setDate(d.getDate() + offset);
+
+    return d >= SEASON_FIRST_DAY && d <= SEASON_LAST_DAY;
+  };
+
+  async function saveEvent(
+    payload: Partial<ConditionalEvent>,
+    existing: ConditionalEvent | null
+  ) {
     await fetch(APPS_SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({
-        action: "editarEventoCondicional",
-        ...data,
-      }),
+      body: JSON.stringify(
+        existing
+          ? {
+              action: "editarEventoCondicional",
+              ...existing,
+              ...payload,
+            }
+          : { action: "crearEventoCondicional", ...payload }
+      ),
     });
 
     await reloadEvents();
@@ -323,331 +305,285 @@ useEffect(() => {
     await reloadEvents();
   }
 
-  const changeSelectedDay = (offset: number) => {
-  if (!selectedDate) return;
-
-  const d = new Date(selectedDate);
-  d.setDate(d.getDate() + offset);
-
-  const key = [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  const dayEvents = events.filter((e) => {
-    const eventDate = new Date(e.FECHA);
-    const eventKey = [
-      eventDate.getUTCFullYear(),
-      String(eventDate.getUTCMonth() + 1).padStart(2, "0"),
-      String(eventDate.getUTCDate()).padStart(2, "0"),
-    ].join("-");
-
-    return eventKey === key;
-  });
-
-  setSelectedDate(d);
-  setSelectedEvents(dayEvents);
-};
-
   return (
-  <main className="min-h-screen bg-[#0B0F14] text-white">
-    <div className="flex">
-      <Sidebar />
+    <CalendarShell
+      eyebrow="RMCF CASTILLA CONDICIONAL"
+      title="Calendario Condicional"
+      months={months}
+      monthIndex={currentMonth}
+      onMonthChange={setCurrentMonth}
+      loading={loading}
+      keyboardEnabled={!selectedKey}
+      legend={LEGEND}
+      stats={
+        <>
+          <CalendarStat
+            label="Trabajos"
+            value={monthStats.trabajos}
+            hint={`${monthStats.dias} días con trabajo`}
+          />
+          <CalendarStat label="Días programados" value={monthStats.dias} />
+          <CalendarStat label="Imágenes" value={monthStats.imagenes} />
+          <CalendarStat label="PDFs" value={monthStats.pdfs} />
+        </>
+      }
+      renderDay={({ key }) => {
+        const dayEvents = eventsByDay.get(key) ?? [];
+        const dayFiles = filesByDay[key] ?? EMPTY_FILES;
 
-      <section className="w-full">
-        <Topbar />
+        const imageCount = dayFiles.images.length;
+        const pdfCount = dayFiles.pdfs.length;
+        const hasContent = dayEvents.length > 0 || imageCount > 0 || pdfCount > 0;
 
-        <div className="px-4 md:px-8 py-6 md:py-8">
-          <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-            RMCF CASTILLA CONDICIONAL
-          </p>
+        const visible = dayEvents.slice(0, MAX_VISIBLE_PER_DAY);
+        const hidden = dayEvents.length - visible.length;
 
-          <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
-            <h1 className="text-2xl md:text-4xl font-semibold">
-              Calendario Condicional
-            </h1>
+        return {
+          hasContent,
+          // Todos los días son clicables: aquí se crean trabajos nuevos.
+          onClick: () => openDay(key),
+          badges: (
+            <div className="flex items-center gap-1">
+              {imageCount > 0 && (
+                <span className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5">
+                  <ImageIcon className="h-3 w-3 text-sky-300" />
+                  <span className="text-[10px] font-medium text-sky-200">
+                    {imageCount}
+                  </span>
+                </span>
+              )}
 
-            <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-          </div>
-
-          <div className="mt-8 md:mt-10 rounded-[20px] md:rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 md:p-8">
-            <div className="flex items-center justify-between mb-6 md:mb-8">
-              <button
-                disabled={currentMonth === 0}
-                onClick={() => setCurrentMonth((m) => m - 1)}
-                className="rounded-xl border border-white/10 bg-[#11161D] p-2 md:p-3 hover:border-[#C8A96B] disabled:opacity-30"
-              >
-                <ChevronLeft />
-              </button>
-
-              <div>
-                <h2 className="text-xl md:text-3xl font-semibold text-center">
-                  {MONTHS[active.month]} {active.year}
-                </h2>
-
-                <p className="text-xs md:text-base text-center text-white/50 mt-1">
-                  Temporada 2026 / 2027
-                </p>
-              </div>
-
-              <button
-                disabled={currentMonth === months.length - 1}
-                onClick={() => setCurrentMonth((m) => m + 1)}
-                className="rounded-xl border border-white/10 bg-[#11161D] p-2 md:p-3 hover:border-[#C8A96B] disabled:opacity-30"
-              >
-                <ChevronRight />
-              </button>
+              {pdfCount > 0 && (
+                <span className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5">
+                  <FileText className="h-3 w-3 text-amber-300" />
+                  <span className="text-[10px] font-medium text-amber-200">
+                    {pdfCount}
+                  </span>
+                </span>
+              )}
             </div>
+          ),
+          children:
+            dayEvents.length > 0 ? (
+              <>
+                {visible.map((event) => (
+                  <div
+                    key={event.ID_EVENTO}
+                    className={cn(
+                      "rounded-md border border-l-4 border-[#C8A96B]/20 bg-[#C8A96B]/10 px-1.5 py-1",
+                      TYPE_THEMES[event.TIPO]?.stripe ?? "border-l-white/30"
+                    )}
+                  >
+                    <p className="truncate text-[9px] font-semibold md:text-[11px]">
+                      {event.TITULO}
+                    </p>
 
-            <div className="overflow-x-auto">
-              <div className="min-w-[700px] md:min-w-[1100px]">
-                <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
-                  {WEEK.map((day) => (
-                    <div
-                      key={day}
-                      className="rounded-lg md:rounded-xl bg-[#11161D] border border-white/10 py-2 md:py-4 text-center"
-                    >
-                      <span className="text-sm font-semibold text-[#C8A96B]">
-                        {day}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                    <p className="text-[8px] text-white/60 md:text-[9px]">
+                      {event.TIPO}
+                    </p>
 
-                <div className="space-y-2">
-                  {calendar.map((week, weekIndex) => (
-                    <div
-                      key={weekIndex}
-                      className="grid grid-cols-7 gap-1 md:gap-2"
-                    >
-                      {week.map((date) => {
-                        const isCurrentMonth =
-                          date.getMonth() === active.month;
-
-                        const isToday =
-                          date.toDateString() ===
-                          new Date().toDateString();
-
-                        const disabled =
-                          (active.month === 6 &&
-                            date < new Date(2026, 6, 13)) ||
-                          (active.month === 5 &&
-                            active.year === 2027 &&
-                            date > new Date(2027, 5, 30));
-
-                        const key =
-                          date.getFullYear() +
-                          "-" +
-                          String(date.getMonth() + 1).padStart(2, "0") +
-                          "-" +
-                          String(date.getDate()).padStart(2, "0");
-
-                        const dayEvents = events.filter((e) => {
-  const eventDate = new Date(e.FECHA);
-
-  const eventKey = [
-    eventDate.getUTCFullYear(),
-    String(eventDate.getUTCMonth() + 1).padStart(2, "0"),
-    String(eventDate.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-
-  return eventKey === key;
-});
-                        const hasEvents = dayEvents.length > 0;
-
-                       const dayFiles = filesByDay[key] ?? {
-  images: [],
-  pdfs: [],
-};
-
-const imageCount = dayFiles.images.length;
-const pdfCount = dayFiles.pdfs.length;
-const hasFiles = imageCount > 0 || pdfCount > 0;
-
-                        return (
-                          <div
-                            key={date.toISOString()}
-                            onClick={() => {
-                              setSelectedDate(date);
-                              setSelectedEvents(dayEvents);
-                              setIsCreating(false);
-                              setEditingEvent(null);
-                            }}
-                            className={`
-                              relative
-                              cursor-pointer
-                              ${hasEvents ? "min-h-[120px] md:min-h-[160px]" : "min-h-[70px] md:min-h-[90px]"}
-                              rounded-xl
-                              border
-                              p-2 md:p-3
-                              transition-all
-                              ${
-                                disabled
-                                  ? "opacity-30 border-white/5 bg-[#090C10]"
-                                  : `border-white/10 ${
-                                      hasEvents ? "bg-[#141B24]" : "bg-[#10151C]"
-                                    } hover:border-[#C8A96B]/40`
-                              }
-                            `}
-                          >
-                            <div className="flex justify-between items-center mb-2 md:mb-3">
-                              <div
-                                className={`
-                                  h-6 w-6 md:h-8 md:w-8 text-[11px] md:text-sm
-                                  rounded-full flex items-center justify-center
-                                  font-semibold
-                                  ${
-                                    isToday
-                                      ? "bg-[#C8A96B] text-black"
-                                      : isCurrentMonth
-                                      ? "text-white"
-                                      : "text-white/35"
-                                  }
-                                `}
-                              >
-                                {date.getDate()}
-                              </div>
-                            </div>
-                            {hasFiles && (
-  <div className="flex gap-2 mb-2">
-    {imageCount > 0 && (
-      <div className="flex items-center gap-1 rounded-full bg-sky-500/15 border border-sky-500/30 px-2 py-0.5">
-        <ImageIcon className="h-3 w-3 text-sky-300" />
-        <span className="text-[10px] text-sky-200 font-medium">
-          {imageCount}
-        </span>
-      </div>
-    )}
-
-    {pdfCount > 0 && (
-      <div className="flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5">
-        <FileText className="h-3 w-3 text-amber-300" />
-        <span className="text-[10px] text-amber-200 font-medium">
-          {pdfCount}
-        </span>
-      </div>
-    )}
-  </div>
-)}
-
-                            <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
-                              {dayEvents.map((event) => {
-                                const stripe =
-                                  event.TIPO === "FUERZA"
-                                    ? "border-l-red-400"
-                                    : event.TIPO === "PREVENTIVO"
-                                    ? "border-l-emerald-400"
-                                    : event.TIPO === "READAPTACION"
-                                    ? "border-l-sky-400"
-                                    : event.TIPO === "MOVILIDAD"
-                                    ? "border-l-purple-400"
-                                    : "border-l-yellow-400";
-
-                                return (
-                                  <div
-                                    key={event.ID_EVENTO}
-                                    className={`rounded-md border border-[#C8A96B]/20 bg-[#C8A96B]/10 border-l-4 ${stripe} px-1.5 py-1`}
-                                  >
-                                    <p className="text-[9px] md:text-[11px] font-semibold truncate">
-                                      {event.TITULO}
-                                    </p>
-
-                                    <p className="text-[8px] md:text-[9px] text-white/60">
-                                      {event.TIPO}
-                                    </p>
-
-                                    <p className="text-[8px] md:text-[10px] text-white/40">
-                                      {event.RESPONSABLE}
-                                    </p>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {selectedDate && (
-            <div
-              className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-              onClick={() => {
-                setSelectedDate(null);
-                setSelectedEvents([]);
-              }}
-            >
-              <div
-  onClick={(e) => e.stopPropagation()}
-  className="relative bg-[#141B24] rounded-2xl w-[95%] max-w-xl max-h-[85vh] overflow-y-auto p-6"
->
-
-  <button
-    type="button"
-    onClick={() => changeSelectedDay(-1)}
-    className="absolute left-3 top-1/2 -translate-y-1/2 text-4xl text-white/60 hover:text-white transition"
-  >
-    ‹
-  </button>
-
-  <button
-    type="button"
-    onClick={() => changeSelectedDay(1)}
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-4xl text-white/60 hover:text-white transition"
-  >
-    ›
-  </button>
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-semibold">
-                      {selectedDate.toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </h2>
-
-                    <p className="text-white/50">
-                      {selectedEvents.length} trabajos programados
+                    <p className="truncate text-[8px] text-white/40 md:text-[10px]">
+                      {event.RESPONSABLE}
                     </p>
                   </div>
+                ))}
 
-                  <button
-                    onClick={() => {
-                      setSelectedDate(null);
-                      setSelectedEvents([]);
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
+                {hidden > 0 && (
+                  <p className="pt-0.5 text-center text-[10px] font-medium text-[#C8A96B]/80">
+                    +{hidden} más
+                  </p>
+                )}
+              </>
+            ) : undefined,
+        };
+      }}
+    >
+      {error && !loading && (
+        <div className="px-4 pb-6 md:px-8">
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {error}
+          </p>
+        </div>
+      )}
 
-                <button
-                  onClick={() => {
-                    setIsCreating(true);
-                    setEditingEvent(null);
-                  }}
-                  className="mb-4 rounded-xl border border-[#C8A96B] bg-[#C8A96B]/10 px-4 py-2 text-sm font-medium hover:bg-[#C8A96B]/20"
+      {selectedDate && selectedKey && (
+        <CalendarDayModal
+          date={selectedDate}
+          size="lg"
+          subtitle={`${selectedEvents.length} ${
+            selectedEvents.length === 1
+              ? "trabajo programado"
+              : "trabajos programados"
+          }`}
+          onClose={closeModal}
+          onPrev={() => shiftSelectedDay(-1)}
+          onNext={() => shiftSelectedDay(1)}
+          canPrev={canShift(-1)}
+          canNext={canShift(1)}
+          keyboardEnabled={fullscreenImageIndex === null}
+          actions={
+            !isCreating &&
+            !editingEvent && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreating(true);
+                  setEditingEvent(null);
+                }}
+                className="flex items-center gap-2 rounded-xl border border-[#C8A96B] bg-[#C8A96B]/10 px-4 py-2 text-sm font-medium transition hover:bg-[#C8A96B]/20"
+              >
+                <Plus size={16} />
+                Nuevo trabajo
+              </button>
+            )
+          }
+        >
+          {(isCreating || editingEvent) && (
+            <EventForm
+              // La key reinicia el formulario al cambiar de evento editado.
+              key={editingEvent?.ID_EVENTO ?? "nuevo"}
+              players={players}
+              initialData={editingEvent}
+              onCancel={() => {
+                setIsCreating(false);
+                setEditingEvent(null);
+              }}
+              onSave={async (form) => {
+                await saveEvent({ FECHA: selectedKey, ...form }, editingEvent);
+
+                setIsCreating(false);
+                setEditingEvent(null);
+              }}
+            />
+          )}
+
+          <FilesSection
+            files={selectedFiles}
+            onOpenImage={setFullscreenImageIndex}
+          />
+
+          <div className="space-y-3">
+            {selectedEvents.length === 0 &&
+              !isCreating &&
+              !editingEvent &&
+              selectedFiles.images.length === 0 &&
+              selectedFiles.pdfs.length === 0 && (
+                <CalendarEmptyState>
+                  Sin trabajo condicional programado este día.
+                </CalendarEmptyState>
+              )}
+
+            {selectedEvents.map((event) => {
+              const theme = TYPE_THEMES[event.TIPO];
+              const confirming = deletingId === event.ID_EVENTO;
+
+              return (
+                <div
+                  key={event.ID_EVENTO}
+                  className={cn(
+                    "rounded-xl border border-l-4 border-white/10 bg-[#10151C] p-4",
+                    theme?.stripe ?? "border-l-white/30"
+                  )}
                 >
-                  + Nuevo trabajo
-                </button>
-                {selectedDate && (() => {
-  const dayKey = [
-    selectedDate.getFullYear(),
-    String(selectedDate.getMonth() + 1).padStart(2, "0"),
-    String(selectedDate.getDate()).padStart(2, "0"),
-  ].join("-");
+                  <p className="text-lg font-semibold">{event.TITULO}</p>
 
-  const files = filesByDay[dayKey];
+                  <p className="mt-1 text-sm text-[#C8A96B]">
+                    {event.TIPO}
+                    {event.RESPONSABLE ? ` · ${event.RESPONSABLE}` : ""}
+                  </p>
 
-  if (!files || (files.images.length === 0 && files.pdfs.length === 0)) {
-    return null;
-  }
+                  <div className="mt-3 space-y-2">
+                    {event.DESCRIPCION && (
+                      <p className="text-white/80">{event.DESCRIPCION}</p>
+                    )}
+
+                    {event.JUGADORES && (
+                      <p className="text-xs text-white/50">
+                        Jugadores: {event.JUGADORES}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-x-4 text-xs text-white/50">
+                      {event.DURACION && <span>Duración: {event.DURACION}</span>}
+                      {event.INTENSIDAD && (
+                        <span>Intensidad: {event.INTENSIDAD}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEvent(event);
+                        setIsCreating(false);
+                        setDeletingId(null);
+                      }}
+                      className="flex items-center gap-2 rounded-lg border border-[#C8A96B] px-3 py-2 text-sm transition hover:bg-[#C8A96B]/10"
+                    >
+                      <Pencil size={14} />
+                      Editar
+                    </button>
+
+                    {confirming ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setDeletingId(null);
+                            await deleteEvent(event.ID_EVENTO);
+                          }}
+                          className="rounded-lg border border-red-500 bg-red-500/15 px-3 py-2 text-sm text-red-300"
+                        >
+                          Confirmar borrado
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingId(null)}
+                          className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white/60"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDeletingId(event.ID_EVENTO)}
+                        className="flex items-center gap-2 rounded-lg border border-red-500/60 px-3 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
+                      >
+                        <Trash2 size={14} />
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {fullscreenImageIndex !== null && (
+            <ImageViewer
+              images={selectedFiles.images}
+              index={fullscreenImageIndex}
+              onIndexChange={setFullscreenImageIndex}
+              onClose={() => setFullscreenImageIndex(null)}
+            />
+          )}
+        </CalendarDayModal>
+      )}
+    </CalendarShell>
+  );
+}
+
+function FilesSection({
+  files,
+  onOpenImage,
+}: {
+  files: { images: DayFile[]; pdfs: DayFile[] };
+  onOpenImage: (index: number) => void;
+}) {
+  if (files.images.length === 0 && files.pdfs.length === 0) return null;
 
   return (
     <div className="mb-6 space-y-5">
@@ -658,21 +594,22 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
             Imágenes del día
           </h3>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {files.images.map((img, i) => (
-  <button
-    key={i}
-    type="button"
-    onClick={() => setFullscreenImageIndex(i)}
-    className="overflow-hidden rounded-xl border border-white/10 bg-[#10151C] cursor-zoom-in"
-  >
-    <img
-      src={img.url}
-      alt={img.name}
-      className="h-32 w-full object-cover transition hover:scale-[1.02]"
-    />
-  </button>
-))}
+              <button
+                key={img.url}
+                type="button"
+                onClick={() => onOpenImage(i)}
+                className="cursor-zoom-in overflow-hidden rounded-xl border border-white/10 bg-[#10151C] transition hover:border-[#C8A96B]/40"
+              >
+                <img
+                  src={img.url}
+                  alt={img.name}
+                  loading="lazy"
+                  className="h-32 w-full object-cover transition hover:scale-[1.03]"
+                />
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -685,16 +622,16 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
           </h3>
 
           <div className="space-y-2">
-            {files.pdfs.map((pdf, i) => (
+            {files.pdfs.map((pdf) => (
               <a
-                key={i}
+                key={pdf.url}
                 href={pdf.url}
                 target="_blank"
                 rel="noreferrer"
                 className="block rounded-xl border border-white/10 bg-[#10151C] p-3 transition hover:border-[#C8A96B]/40"
               >
                 <div className="flex items-center gap-3">
-                  <FileText className="text-[#C8A96B]" />
+                  <FileText className="shrink-0 text-[#C8A96B]" />
                   <span className="truncate">{pdf.name}</span>
                 </div>
               </a>
@@ -704,160 +641,86 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
       )}
     </div>
   );
+}
 
-})()}
+function ImageViewer({
+  images,
+  index,
+  onIndexChange,
+  onClose,
+}: {
+  images: DayFile[];
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+}) {
+  const image = images[index];
 
-{(isCreating || editingEvent) && (
-  <EventForm
-    players={players}
-    date={selectedDate!}
-    initialData={editingEvent}
-    onCancel={() => {
-      setIsCreating(false);
-      setEditingEvent(null);
-    }}
-    onSave={async (form) => {
-      const localDate = new Date(selectedDate!);
-      localDate.setHours(12, 0, 0, 0);
-
-      const fecha = [
-        localDate.getFullYear(),
-        String(localDate.getMonth() + 1).padStart(2, '0'),
-        String(localDate.getDate()).padStart(2, '0'),
-      ].join('-');
-
-      if (editingEvent) {
-        await updateEvent({
-          ...editingEvent,
-          FECHA: fecha,
-          ...form,
-        });
-      } else {
-        await createEvent({
-          FECHA: fecha,
-          ...form,
-        });
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
       }
 
-      const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
-      const data: ConditionalEvent[] = await r.json();
+      if (e.key === "ArrowRight" && images.length > 0) {
+        e.preventDefault();
+        onIndexChange((index + 1) % images.length);
+      }
 
-      setEvents(data);
-      setSelectedEvents(data.filter((e) => e.FECHA === fecha));
+      if (e.key === "ArrowLeft" && images.length > 0) {
+        e.preventDefault();
+        onIndexChange((index - 1 + images.length) % images.length);
+      }
+    };
 
-      setIsCreating(false);
-      setEditingEvent(null);
-
-      // Cierra el popup completo
-      setSelectedDate(null);
-      setSelectedEvents([]);
-    }}
-  />
-)}
-
-                <div className="space-y-3">
-                  {selectedEvents.map((event) => (
-                    <div
-                      key={event.ID_EVENTO}
-                      className="rounded-xl border border-white/10 bg-[#10151C] p-4"
-                    >
-                      <p className="text-lg font-semibold">
-                        {event.TITULO}
-                      </p>
-
-                      <p className="text-sm text-[#C8A96B] mt-1">
-                        {event.TIPO} · {event.RESPONSABLE}
-                      </p>
-
-                      <div className="mt-3 space-y-2">
-                        <p className="text-white/80">
-                          {event.DESCRIPCION}
-                        </p>
-
-                        <p className="text-xs text-white/50">
-                          Duración: {event.DURACION}
-                        </p>
-
-                        <p className="text-xs text-white/50">
-                          Intensidad: {event.INTENSIDAD}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() => setEditingEvent(event)}
-                          className="rounded-lg border border-[#C8A96B] px-3 py-2 text-sm"
-                        >
-                          Editar
-                        </button>
-
-                        <button
-                          onClick={async () => {
-  await deleteEvent(event.ID_EVENTO);
-  setSelectedDate(null);
-  setSelectedEvents([]);
-}}
-                          className="rounded-lg border border-red-500 px-3 py-2 text-sm text-red-400"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                </div>
-                {fullscreenImageIndex !== null && selectedDate && (() => {
-  const dayKey = [
-    selectedDate.getFullYear(),
-    String(selectedDate.getMonth() + 1).padStart(2, "0"),
-    String(selectedDate.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  const images = filesByDay[dayKey]?.images ?? [];
-  const image = images[fullscreenImageIndex];
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [index, images.length, onIndexChange, onClose]);
 
   if (!image) return null;
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-6"
-      onClick={() => setFullscreenImageIndex(null)}
+      onClick={onClose}
     >
       <button
         type="button"
-        onClick={() => setFullscreenImageIndex(null)}
-        className="absolute right-6 top-6 text-3xl text-white/80 hover:text-white"
+        aria-label="Cerrar"
+        onClick={onClose}
+        className="absolute right-6 top-6 text-3xl text-white/80 transition hover:text-white"
       >
         ✕
       </button>
 
-      <button
-        type="button"
-        onClick={(e) => {
-  e.stopPropagation();
-  if (images.length === 0) return;
-  setFullscreenImageIndex(
-    (fullscreenImageIndex - 1 + images.length) % images.length
-  );
-}}
-        className="absolute left-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 hover:text-white transition"
-      >
-        ‹
-      </button>
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Imagen anterior"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndexChange((index - 1 + images.length) % images.length);
+            }}
+            className="absolute left-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 transition hover:text-white"
+          >
+            ‹
+          </button>
 
-      <button
-        type="button"
-        onClick={(e) => {
-  e.stopPropagation();
-  if (images.length === 0) return;
-  setFullscreenImageIndex(
-    (fullscreenImageIndex + 1) % images.length
-  );
-}}
-        className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 hover:text-white transition"
-      >
-        ›
-      </button>
+          <button
+            type="button"
+            aria-label="Imagen siguiente"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndexChange((index + 1) % images.length);
+            }}
+            className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 transition hover:text-white"
+          >
+            ›
+          </button>
+        </>
+      )}
 
       <img
         src={image.url}
@@ -867,35 +730,24 @@ const hasFiles = imageCount > 0 || pdfCount > 0;
       />
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-black/60 px-4 py-2 text-sm text-white/70">
-        {fullscreenImageIndex + 1} / {images.length}
+        {index + 1} / {images.length}
       </div>
     </div>
   );
-})()}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
-  </main>
-);
+}
+
 function EventForm({
   players,
-  date,
   initialData,
   onCancel,
   onSave,
 }: {
-  players: any[];
-  date: Date;
+  players: { id: string; nombre: string }[];
   initialData?: ConditionalEvent | null;
   onCancel: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: Partial<ConditionalEvent>) => Promise<void>;
 }) {
-  const [TIPO, setTIPO] = useState<ConditionalEvent["TIPO"]>(
-    initialData?.TIPO ?? "FUERZA"
-  );
+  const [TIPO, setTIPO] = useState<EventType>(initialData?.TIPO ?? "FUERZA");
   const [TITULO, setTITULO] = useState(initialData?.TITULO ?? "");
   const [DESCRIPCION, setDESCRIPCION] = useState(initialData?.DESCRIPCION ?? "");
   const [JUGADORES, setJUGADORES] = useState(initialData?.JUGADORES ?? "");
@@ -903,52 +755,93 @@ function EventForm({
   const [DURACION, setDURACION] = useState(initialData?.DURACION ?? "");
   const [INTENSIDAD, setINTENSIDAD] = useState(initialData?.INTENSIDAD ?? "");
 
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const inputClass =
+    "w-full rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2 outline-none transition focus:border-[#C8A96B]";
+
+  const handleSave = async () => {
+    if (!TITULO.trim()) {
+      setFormError("El título es obligatorio");
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+
+    try {
+      await onSave({
+        TIPO,
+        TITULO: TITULO.trim(),
+        DESCRIPCION,
+        JUGADORES,
+        RESPONSABLE,
+        DURACION,
+        INTENSIDAD,
+      });
+    } catch (err) {
+      console.error(err);
+      setFormError("No se pudo guardar. Inténtalo de nuevo.");
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="mb-6 rounded-2xl border border-white/10 bg-[#10151C] p-4 space-y-4">
+    <div className="mb-6 space-y-4 rounded-2xl border border-white/10 bg-[#10151C] p-4">
       <h3 className="text-lg font-semibold">
         {initialData ? "Editar trabajo condicional" : "Nuevo trabajo condicional"}
       </h3>
 
       <select
         value={TIPO}
-        onChange={(e) =>
-          setTIPO(e.target.value as ConditionalEvent["TIPO"])
-        }
-        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+        onChange={(e) => setTIPO(e.target.value as EventType)}
+        aria-label="Tipo de trabajo"
+        className={inputClass}
       >
-        <option value="FUERZA">Fuerza</option>
-        <option value="PREVENTIVO">Preventivo</option>
-        <option value="READAPTACION">Readaptación</option>
-        <option value="MOVILIDAD">Movilidad</option>
-        <option value="RECUPERACION">Recuperación</option>
+        {EVENT_TYPES.map((type) => (
+          <option key={type} value={type}>
+            {TYPE_THEMES[type].label}
+          </option>
+        ))}
       </select>
 
       <input
         value={TITULO}
         onChange={(e) => setTITULO(e.target.value)}
         placeholder="Título"
-        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+        className={inputClass}
       />
 
       <textarea
         value={DESCRIPCION}
         onChange={(e) => setDESCRIPCION(e.target.value)}
         placeholder="Descripción"
-        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+        rows={3}
+        className={inputClass}
       />
 
-      <input
-        value={JUGADORES}
-        onChange={(e) => setJUGADORES(e.target.value)}
-        placeholder="Jugadores (IDs o nombres separados por comas)"
-        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
-      />
+      <div>
+        <input
+          value={JUGADORES}
+          onChange={(e) => setJUGADORES(e.target.value)}
+          placeholder="Jugadores (nombres separados por comas)"
+          list="players-datalist"
+          className={inputClass}
+        />
+
+        <datalist id="players-datalist">
+          {players.map((p) => (
+            <option key={p.id} value={p.nombre} />
+          ))}
+        </datalist>
+      </div>
 
       <input
         value={RESPONSABLE}
         onChange={(e) => setRESPONSABLE(e.target.value)}
         placeholder="Responsable"
-        className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+        className={inputClass}
       />
 
       <div className="grid grid-cols-2 gap-3">
@@ -956,43 +849,42 @@ function EventForm({
           value={DURACION}
           onChange={(e) => setDURACION(e.target.value)}
           placeholder="Duración"
-          className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+          className={inputClass}
         />
 
         <input
           value={INTENSIDAD}
           onChange={(e) => setINTENSIDAD(e.target.value)}
           placeholder="Intensidad"
-          className="w-full rounded-xl bg-[#0B0F14] border border-white/10 px-3 py-2"
+          className={inputClass}
         />
       </div>
 
+      {formError && <p className="text-sm text-red-400">{formError}</p>}
+
       <div className="flex justify-end gap-2">
         <button
+          type="button"
           onClick={onCancel}
-          className="rounded-xl border border-white/10 px-4 py-2"
+          disabled={saving}
+          className="rounded-xl border border-white/10 px-4 py-2 disabled:opacity-40"
         >
           Cancelar
         </button>
 
         <button
-          onClick={() =>
-            onSave({
-              TIPO,
-              TITULO,
-              DESCRIPCION,
-              JUGADORES,
-              RESPONSABLE,
-              DURACION,
-              INTENSIDAD,
-            })
-          }
-          className="rounded-xl border border-[#C8A96B] bg-[#C8A96B]/10 px-4 py-2"
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-xl border border-[#C8A96B] bg-[#C8A96B]/10 px-4 py-2 transition hover:bg-[#C8A96B]/20 disabled:opacity-40"
         >
-          {initialData ? "Guardar cambios" : "Guardar"}
+          {saving
+            ? "Guardando…"
+            : initialData
+            ? "Guardar cambios"
+            : "Guardar"}
         </button>
       </div>
     </div>
   );
-}
 }

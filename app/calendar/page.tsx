@@ -1,11 +1,26 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { Sidebar } from "@/components/ui/sidebar";
-import { Topbar } from "@/components/ui/topbar";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { usePlayers } from "@/hooks/usePlayers";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Users } from "lucide-react";
+import { usePlayers } from "@/hooks/usePlayers";
+import {
+  CalendarShell,
+  CalendarStat,
+  type CalendarLegendItem,
+} from "@/components/ui/calendar-shell";
+import {
+  CalendarDayModal,
+  CalendarEmptyState,
+} from "@/components/ui/calendar-day-modal";
+import {
+  buildSeasonMonths,
+  currentMonthIndex,
+  normalizeText,
+  parseDateKey,
+  recordDateKey,
+} from "@/lib/calendar";
+import { cn } from "@/lib/utils";
 
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
@@ -23,525 +38,358 @@ type TrackingRecord = {
   MOMENTO: string;
   ESTRATEGIA: string;
 };
- 
-const START_MONTH = new Date(2026, 6, 1); // Julio 2026
-const END_MONTH = new Date(2027, 5, 1);   // Junio 2027
 
-const MONTHS = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
+type StrategyKey = "CAMPO" | "VIDEO" | "OTRO";
 
-const WEEK = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
-];
+const STRATEGY_STYLES: Record<
+  StrategyKey,
+  { stripe: string; dot: string; label: string }
+> = {
+  CAMPO: { stripe: "border-l-sky-400", dot: "bg-sky-400", label: "Campo" },
+  VIDEO: { stripe: "border-l-yellow-400", dot: "bg-yellow-400", label: "Vídeo" },
+  OTRO: { stripe: "border-l-emerald-400", dot: "bg-emerald-400", label: "Otros" },
+};
 
-function getMonday(date: Date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-function buildCalendar(month: number, year: number) {
-  const firstDay = new Date(year, month, 1);
-  const current = getMonday(firstDay);
+const LEGEND: CalendarLegendItem[] = (
+  Object.keys(STRATEGY_STYLES) as StrategyKey[]
+).map((key) => ({
+  label: STRATEGY_STYLES[key].label,
+  color: STRATEGY_STYLES[key].dot,
+}));
 
-  const weeks: Date[][] = [];
+/** Máximo de tarjetas visibles dentro de una celda antes de resumir. */
+const MAX_VISIBLE_PER_DAY = 3;
 
-  while (true) {
-    const week: Date[] = [];
+function strategyKey(value: string): StrategyKey {
+  const normalized = normalizeText(value);
 
-    for (let i = 0; i < 7; i++) {
-      week.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-
-    weeks.push(week);
-
-    if (
-      current.getMonth() !== month &&
-      current.getDay() === 1
-    ) {
-      break;
-    }
-  }
-
-  return weeks;
+  if (normalized.includes("CAMPO")) return "CAMPO";
+  if (normalized.includes("VIDEO")) return "VIDEO";
+  return "OTRO";
 }
 
 export default function Calendar() {
+  const router = useRouter();
+  const months = useMemo(() => buildSeasonMonths(), []);
 
-   const months = useMemo(() => {
-  const result = [];
+  const { players, loading: playersLoading } = usePlayers();
 
-  let current = new Date(START_MONTH);
+  const [currentMonth, setCurrentMonth] = useState(() =>
+    currentMonthIndex(months)
+  );
+  const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [playerFilter, setPlayerFilter] = useState("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  while (current <= END_MONTH) {
-    result.push({
-      month: current.getMonth(),
-      year: current.getFullYear(),
+  const playersMap = useMemo(() => {
+    const map: Record<string, (typeof players)[number]> = {};
+
+    players.forEach((p) => {
+      map[p.id] = p; // búsqueda por ID
+      map[p.nombre] = p; // búsqueda por nombre
     });
 
-    current = new Date(
-      current.getFullYear(),
-      current.getMonth() + 1,
-      1
-    );
-  }
+    return map;
+  }, [players]);
 
-  return result;
-}, []);
+  useEffect(() => {
+    let cancelled = false;
 
-const router = useRouter();
+    fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
 
-  const { players, loading } = usePlayers();
-  const [currentMonth, setCurrentMonth] = useState(() => {
-  const today = new Date();
+        setTrackingData(Array.isArray(data) ? data : []);
+        setError(Array.isArray(data) ? null : "Respuesta inesperada del servidor");
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) setError("No se pudo cargar el seguimiento");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  const index = months.findIndex(
-    (m) =>
-      m.month === today.getMonth() &&
-      m.year === today.getFullYear()
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const visibleData = useMemo(
+    () =>
+      playerFilter
+        ? trackingData.filter((s) => s.ID_JUGADOR === playerFilter)
+        : trackingData,
+    [trackingData, playerFilter]
   );
 
-  return index !== -1 ? index : 0;
-});
-const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
-const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  /** Sesiones agrupadas por día: evita recorrer todo el array en cada celda. */
+  const sessionsByDay = useMemo(() => {
+    const map = new Map<string, TrackingRecord[]>();
 
-const [selectedSessions, setSelectedSessions] =
-useState<TrackingRecord[]>([]);
-  
-const playersMap = useMemo(() => {
-  const map: Record<string, (typeof players)[number]> = {};
+    visibleData.forEach((session) => {
+      const key = recordDateKey(session.FECHA);
+      if (!key) return;
 
-  players.forEach((p) => {
-    map[p.id] = p;       // búsqueda por ID
-    map[p.nombre] = p;   // búsqueda por nombre
-  });
+      const list = map.get(key);
+      if (list) list.push(session);
+      else map.set(key, [session]);
+    });
 
-  return map;
-}, [players]);
+    return map;
+  }, [visibleData]);
 
-useEffect(() => {
-  fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
-    .then((r) => r.json())
-    .then((data) => setTrackingData(data))
-    .catch(console.error);
-}, []);
+  const sessionDays = useMemo(
+    () => [...sessionsByDay.keys()].sort(),
+    [sessionsByDay]
+  );
 
-  
   const active = months[currentMonth];
 
-  const calendar = useMemo(() => {
-    return buildCalendar(
-      active.month,
-      active.year
-    );
-  }, [active]);
+  const monthStats = useMemo(() => {
+    const inMonth = visibleData.filter((s) => {
+      const key = recordDateKey(s.FECHA);
+      if (!key) return false;
+
+      const d = parseDateKey(key);
+      return d.getMonth() === active.month && d.getFullYear() === active.year;
+    });
+
+    const jugadores = new Set(inMonth.map((s) => s.ID_JUGADOR)).size;
+    const campo = inMonth.filter(
+      (s) => strategyKey(s.ESTRATEGIA) === "CAMPO"
+    ).length;
+    const video = inMonth.filter(
+      (s) => strategyKey(s.ESTRATEGIA) === "VIDEO"
+    ).length;
+
+    return { total: inMonth.length, jugadores, campo, video };
+  }, [visibleData, active]);
+
+  const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
+  const selectedSessions = selectedKey ? sessionsByDay.get(selectedKey) ?? [] : [];
+  const selectedIndex = selectedKey ? sessionDays.indexOf(selectedKey) : -1;
+
+  /** Salta al día con seguimientos anterior/siguiente y sincroniza el mes. */
+  const goToDay = useCallback(
+    (index: number) => {
+      const key = sessionDays[index];
+      if (!key) return;
+
+      const date = parseDateKey(key);
+      const monthIdx = months.findIndex(
+        (m) => m.month === date.getMonth() && m.year === date.getFullYear()
+      );
+
+      if (monthIdx !== -1) setCurrentMonth(monthIdx);
+      setSelectedKey(key);
+    },
+    [sessionDays, months]
+  );
+
+  const openPlayer = (id: string) => {
+    setSelectedKey(null);
+    router.push(`/individual?player=${encodeURIComponent(id)}`);
+  };
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
-      <div className="flex">
+    <CalendarShell
+      eyebrow="RMCF CASTILLA INDIVIDUAL"
+      title="Calendario de Seguimiento"
+      months={months}
+      monthIndex={currentMonth}
+      onMonthChange={setCurrentMonth}
+      loading={loading}
+      keyboardEnabled={!selectedKey}
+      legend={LEGEND}
+      stats={
+        <>
+          <CalendarStat label="Seguimientos" value={monthStats.total} />
+          <CalendarStat label="Jugadores" value={monthStats.jugadores} />
+          <CalendarStat label="Campo" value={monthStats.campo} />
+          <CalendarStat label="Vídeo" value={monthStats.video} />
+        </>
+      }
+      toolbar={
+        <div className="relative hidden md:block">
+          <Users
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#C8A96B]"
+          />
 
-        <Sidebar />
+          <select
+            value={playerFilter}
+            onChange={(e) => setPlayerFilter(e.target.value)}
+            aria-label="Filtrar por jugador"
+            className="max-w-[200px] rounded-xl border border-white/10 bg-[#11161D] py-2 pl-9 pr-3 text-sm outline-none transition hover:border-[#C8A96B] focus:border-[#C8A96B]"
+          >
+            <option value="">Todos los jugadores</option>
 
-        <section className="w-full">
-
-          <Topbar />
-
-          <div className="px-4 md:px-8 py-6 md:py-8">
-
-            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-              RMCF CASTILLA INDIVIDUAL
-            </p>
-
-            <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
-  <h1 className="text-2xl md:text-4xl font-semibold">
-    Calendario de Seguimiento 
-  </h1>
-
-  <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-</div>
-
-            <div className="mt-8 md:mt-10 rounded-[20px] md:rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 md:p-8">
-
-              <div className="flex items-center justify-between mb-6 md:mb-8">
-
-                <button
-                  disabled={currentMonth === 0}
-                  onClick={() =>
-                    setCurrentMonth((m) => m - 1)
-                  }
-                  className="rounded-xl border border-white/10 bg-[#11161D] p-2 md:p-3 hover:border-[#C8A96B] disabled:opacity-30"
-                >
-                  <ChevronLeft />
-                </button>
-
-                <div>
-
-                  <h2 className="text-xl md:text-3xl font-semibold text-center">
-
-                    {MONTHS[active.month]} {active.year}
-
-                  </h2>
-
-                  <p className="text-xs md:text-base text-center text-white/50 mt-1">
-
-                    Temporada 2026 / 2027
-
-                  </p>
-
-                </div>
-
-                <button
-                  disabled={currentMonth === months.length - 1}
-                  onClick={() =>
-                    setCurrentMonth((m) => m + 1)
-                  }
-                  className="rounded-xl border border-white/10 bg-[#11161D] p-3 hover:border-[#C8A96B] disabled:opacity-30"
-                >
-                  <ChevronRight />
-                </button>
-
-              </div>
-
-<div className="overflow-x-auto">
-  <div className="min-w-[700px] md:min-w-[1100px]">
-
-    {/* Cabecera días */}
-    <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
-      {WEEK.map((day) => (
-        <div
-          key={day}
-          className="rounded-lg md:rounded-xl bg-[#11161D] border border-white/10 py-2 md:py-4 text-center"
-        >
-          <span className="text-sm font-semibold text-[#C8A96B]">
-            {day}
-          </span>
+            {players.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
         </div>
-      ))}
-    </div>
+      }
+      renderDay={({ key }) => {
+        const daySessions = sessionsByDay.get(key) ?? [];
+        const hasSessions = daySessions.length > 0;
 
-    {/* Semanas */}
-<div className="space-y-2">
-  {calendar.map((week, weekIndex) => (
-    <div
-      key={weekIndex}
-      className="grid grid-cols-7 gap-1 md:gap-2"
-    >
-      {week.map((date) => {
-        const isCurrentMonth =
-          date.getMonth() === active.month;
+        if (!hasSessions) return {};
 
-        const isToday =
-          date.toDateString() ===
-          new Date().toDateString();
+        const visible = daySessions.slice(0, MAX_VISIBLE_PER_DAY);
+        const hidden = daySessions.length - visible.length;
 
-        const disabled =
-          (active.month === 6 &&
-            date < new Date(2026, 6, 13)) ||
-          (active.month === 5 &&
-            active.year === 2027 &&
-            date > new Date(2027, 5, 30));
-
-        const key =
-  date.getFullYear() +
-  "-" +
-  String(date.getMonth() + 1).padStart(2, "0") +
-  "-" +
-  String(date.getDate()).padStart(2, "0");
-
-const daySessions = trackingData.filter((s) =>
-  s.FECHA.startsWith(key)
-);
-const hasSessions = daySessions.length > 0;
-        return (
-          <div
-    key={date.toISOString()}
-
-    onClick={() => {
-        if (!hasSessions) return;
-
-        setSelectedDate(date);
-        setSelectedSessions(daySessions);
-    }}
-
-    className={`
-relative
-${hasSessions ? "cursor-pointer" : ""}
-${
-  hasSessions
-    ? "min-h-[120px] md:min-h-[160px]"
-    : "min-h-[70px] md:min-h-[90px]"
-}
-rounded-xl
-border
-p-2 md:p-3
-transition-all
-${
-  disabled
-    ? "opacity-30 border-white/5 bg-[#090C10]"
-    : `border-white/10 ${
-        hasSessions
-          ? "bg-[#141B24]"
-          : "bg-[#10151C]"
-      } hover:border-[#C8A96B]/40`
-}
-`}
->
-            <div className="flex justify-between items-center mb-2 md:mb-3">
-              <div
-                className={`
-                  h-6
-w-6
-md:h-8
-md:w-8
-text-[11px]
-md:text-sm
-                  rounded-full
-                  flex
-                  items-center
-                  justify-center
-                  
-                  font-semibold
-                  ${
-                    isToday
-                      ? "bg-[#C8A96B] text-black"
-                      : isCurrentMonth
-                      ? "text-white"
-                      : "text-white/35"
-                  }
-                `}
-              >
-                {date.getDate()}
-              </div>
-            </div>
-
-            <div className="space-y-1 md:space-y-2 max-h-[80px] md:max-h-[120px] overflow-y-auto pr-1">
-              {daySessions.map((session) => {
+        return {
+          hasContent: true,
+          onClick: () => setSelectedKey(key),
+          badges: (
+            <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
+              {daySessions.length}
+            </span>
+          ),
+          children: (
+            <>
+              {visible.map((session) => {
                 const jugador = playersMap[session.ID_JUGADOR];
-                const stripe =
-  session.ESTRATEGIA === "CAMPO"
-    ? "border-l-sky-400"
-    : session.ESTRATEGIA === "VÍDEO"
-    ? "border-l-yellow-400"
-    : "border-l-emerald-400";  
-                const color =
-                  session.ESTRATEGIA === "CAMPO"
-                    ? "bg-sky-500/10 border-white/10"
-                    : session.ESTRATEGIA === "VÍDEO"
-                    ? "bg-yellow-500/10 border-white/10"
-                    : "bg-emerald-400/10 border-white/10";
+                const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
 
                 return (
                   <div
-    key={session.ID_REGISTRO}
-    onClick={(e) => {
-    e.stopPropagation();
-
-    router.push(`/individual?player=${session.ID_JUGADOR}`);
-}}
-    className={`
-rounded-md
-border
-border-[#C8A96B]/20
-bg-[#C8A96B]/10
-border-l-4
-${stripe}
-px-1.5
-py-1
-cursor-pointer
-transition-all
-hover:scale-[1.02]
-hover:border-[#C8A96B]
-`}
->
-                    <p className="text-[9px] md:text-[11px] font-semibold truncate">
+                    key={session.ID_REGISTRO}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openPlayer(session.ID_JUGADOR);
+                    }}
+                    className={cn(
+                      "cursor-pointer rounded-md border border-l-4 border-[#C8A96B]/20 bg-[#C8A96B]/10 px-1.5 py-1 transition-all hover:border-[#C8A96B]",
+                      style.stripe
+                    )}
+                  >
+                    <p className="truncate text-[9px] font-semibold md:text-[11px]">
                       {jugador?.nombre ?? session.ID_JUGADOR}
                     </p>
 
-                    <p className="text-[8px] md:text-[9px] text-white/60">
+                    <p className="text-[8px] text-white/60 md:text-[9px]">
                       {session.ESTRATEGIA}
                     </p>
 
-                    <p className="text-[8px] md:text-[8px] md:text-[10px] text-white/40">
+                    <p className="truncate text-[8px] text-white/40 md:text-[10px]">
                       {session.QUIEN}
                     </p>
                   </div>
                 );
-                            })}
+              })}
 
-              
-
-            </div>
-          </div>
-        );
-      })}
-    </div>
-      ))}
-    </div>
-  </div>
-</div>
-
-            </div>
-          </div>
-          {selectedDate && (
-    <div
-    className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-    onClick={() => {
-        setSelectedDate(null);
-        setSelectedSessions([]);
-    }}
->
-
-        <div onClick={(e) => e.stopPropagation()} className="bg-[#141B24] rounded-2xl w-[95%] max-w-xl max-h-[85vh] overflow-y-auto p-6">
-
-            <div className="flex justify-between items-center mb-6">
-
-    <div>
-
-        <h2 className="text-2xl font-semibold">
-
-            {selectedDate?.toLocaleDateString("es-ES", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-            })}
-
-        </h2>
-
-        <p className="text-white/50">
-
-            {selectedSessions.length} seguimientos
-
-        </p>
-
-    </div>
-
-    <button
-        onClick={() => {
-            setSelectedDate(null);
-            setSelectedSessions([]);
-        }}
+              {hidden > 0 && (
+                <p className="pt-0.5 text-center text-[10px] font-medium text-[#C8A96B]/80">
+                  +{hidden} más
+                </p>
+              )}
+            </>
+          ),
+        };
+      }}
     >
-        ✕
-    </button>
-
-</div>
-<div className="space-y-3">
-
-  {selectedSessions.map((session) => {
-
-    const jugador = playersMap[session.ID_JUGADOR];
-
-    return (
-
-      <div
-    key={session.ID_REGISTRO}
-
-    onClick={() => {
-
-        setSelectedDate(null);
-
-        setSelectedSessions([]);
-
-        router.push(`/individual?player=${session.ID_JUGADOR}`);
-
-    }}
-
-    className="rounded-xl border border-white/10 bg-[#10151C] p-4 cursor-pointer hover:border-[#C8A96B] transition-all"
->
-
-    <p className="text-lg font-semibold">
-        {jugador?.nombre}
-    </p>
-
-    <p className="text-sm text-[#C8A96B] mt-1">
-        {session.ESTRATEGIA} · {session.QUIEN}
-    </p>
-
-    <div className="mt-4 space-y-3">
-
-        <div>
-            <p className="text-xs text-white/50">
-                Objetivo ofensivo
-            </p>
-
-            <p>
-                {session.OBJETIVO_OFENSIVO}
-            </p>
+      {error && !loading && (
+        <div className="px-4 pb-6 md:px-8">
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {error}
+          </p>
         </div>
+      )}
 
-        <div>
-            <p className="text-xs text-white/50">
-                Objetivo defensivo
-            </p>
+      {selectedDate && (
+        <CalendarDayModal
+          date={selectedDate}
+          subtitle={`${selectedSessions.length} ${
+            selectedSessions.length === 1 ? "seguimiento" : "seguimientos"
+          }`}
+          onClose={() => setSelectedKey(null)}
+          onPrev={() => goToDay(selectedIndex - 1)}
+          onNext={() => goToDay(selectedIndex + 1)}
+          canPrev={selectedIndex > 0}
+          canNext={selectedIndex >= 0 && selectedIndex < sessionDays.length - 1}
+        >
+          <div className="space-y-3">
+            {selectedSessions.length === 0 && (
+              <CalendarEmptyState>
+                No hay seguimientos registrados este día.
+              </CalendarEmptyState>
+            )}
 
-            <p>
-                {session.OBJETIVO_DEFENSIVO}
-            </p>
-        </div>
+            {selectedSessions.map((session) => {
+              const jugador = playersMap[session.ID_JUGADOR];
+              const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
 
-        <div>
-            <p className="text-xs text-white/50">
-                Objetivo mental
-            </p>
+              return (
+                <div
+                  key={session.ID_REGISTRO}
+                  onClick={() => openPlayer(session.ID_JUGADOR)}
+                  className={cn(
+                    "cursor-pointer rounded-xl border border-l-4 border-white/10 bg-[#10151C] p-4 transition-all hover:border-[#C8A96B]",
+                    style.stripe
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-lg font-semibold">
+                        {jugador?.nombre ?? session.ID_JUGADOR}
+                      </p>
 
-            <p>
-                {session.OBJETIVO_MENTAL}
-            </p>
-        </div>
+                      <p className="mt-1 text-sm text-[#C8A96B]">
+                        {session.ESTRATEGIA}
+                        {session.QUIEN ? ` · ${session.QUIEN}` : ""}
+                      </p>
+                    </div>
 
-        {session.FEEDBACK && (
+                    <ArrowRight
+                      size={18}
+                      className="mt-1 shrink-0 text-white/30"
+                    />
+                  </div>
 
-            <div>
+                  <div className="mt-4 space-y-3">
+                    <Objective
+                      label="Objetivo ofensivo"
+                      value={session.OBJETIVO_OFENSIVO}
+                    />
+                    <Objective
+                      label="Objetivo defensivo"
+                      value={session.OBJETIVO_DEFENSIVO}
+                    />
+                    <Objective
+                      label="Objetivo mental"
+                      value={session.OBJETIVO_MENTAL}
+                    />
+                    <Objective label="Feedback" value={session.FEEDBACK} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CalendarDayModal>
+      )}
 
-                <p className="text-xs text-white/50">
-                    Feedback
-                </p>
+      {playersLoading && !loading && (
+        <span className="sr-only">Cargando jugadores…</span>
+      )}
+    </CalendarShell>
+  );
+}
 
-                <p>
-                    {session.FEEDBACK}
-                </p>
+function Objective({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
 
-            </div>
-
-        )}
-
+  return (
+    <div>
+      <p className="text-xs text-white/50">{label}</p>
+      <p className="text-sm text-white/90">{value}</p>
     </div>
-
-</div>
-
-    );
-
-  })}
-
-</div>
-
-        </div>
-
-    </div>
-)}
-        </section>
-      </div>
-    </main>
   );
 }
