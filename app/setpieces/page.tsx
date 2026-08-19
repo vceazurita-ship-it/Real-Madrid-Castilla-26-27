@@ -8,6 +8,7 @@ import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import ABPFlowField from './components/ABPFlowField';
 import ABPObjectiveFlow from "./components/ABPObjectiveFlow";
+import ABPZoneMap from "./components/ABPZoneMap";
 
 import {
   useEffect,
@@ -31,6 +32,7 @@ import {
   Cell,
   LabelList,
   Legend,
+  ComposedChart,
 } from "recharts";
 
 const CSV_URL =
@@ -52,34 +54,35 @@ const PIE_COLORS = [
   "#7C6F9F", // Púrpura grisáceo
 ];
 
-const zoneCoords: Record<string, { x: number; y: number }> = {
-  // Origen del saque (parte inferior)
-  "Córner izquierdo": { x: 15, y: 95 },
-  "Córner derecho": { x: 85, y: 95 },
-  "Falta lateral izquierda": { x: 22, y: 82 },
-  "Falta lateral derecha": { x: 78, y: 82 },
-  "Frontal": { x: 50, y: 82 },
-
-  // Activación (centro)
-  "Directo": { x: 50, y: 58 },
-  "Corto": { x: 32, y: 58 },
-  "Segundo balón": { x: 68, y: 58 },
-  "Bloqueo": { x: 20, y: 58 },
-  "Arrastre": { x: 80, y: 58 },
-
-  // Intención (tercio superior)
-  "Primer palo": { x: 34, y: 34 },
-  "Punto de penalti": { x: 50, y: 28 },
-  "Segundo palo": { x: 66, y: 34 },
-  "Rechace frontal": { x: 50, y: 42 },
-
-  // Remate (área)
-  "Área pequeña izquierda": { x: 40, y: 16 },
-  "Área pequeña derecha": { x: 60, y: 16 },
-  "Primer palo remate": { x: 36, y: 12 },
-  "Segundo palo remate": { x: 64, y: 12 },
+const RESULTADO_COLORS: Record<string, string> = {
+  "Gol": "#10B981",
+  "Ocasión": "#C8A96B",
+  "ABP": "#5E7FB8",
+  "Nada": "#475569",
+  "Transición Rival": "#8A6262",
 };
 
+/** Normaliza el resultado final al vocabulario cerrado que usa el cuerpo técnico. */
+function normalizaResultado(v?: string): string {
+  const t = (v || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  if (!t) return "Nada";
+  if (t === "gol") return "Gol";
+  if (t.includes("ocas")) return "Ocasión";
+  if (t.includes("transici")) return "Transición Rival";
+  if (t.includes("abp")) return "ABP";
+
+  return "Nada";
+}
+
+/** true cuando el valor de Zona_Caida describe una superioridad en corto (3v2, 2v1...). */
+function esSuperioridad(v?: string) {
+  return /^\s*\d+\s*v\s*\d+\s*$/i.test(v || "");
+}
 
 type Row = {
   jornada: number;
@@ -104,6 +107,18 @@ type Row = {
   rutina: string;
   repetir: string;
     intencion: string;
+
+  // Columnas del CSV que antes no se leían
+  golesRMC: number;
+  golesRival: number;
+  calidadEnvio: number;
+  nAtacantes: number;
+  nBloqueadores: number;
+  oc1P: number;
+  ocCentral: number;
+  oc2P: number;
+  ocFrontal: number;
+  remate: string;
 };
 
 function num(v?: string) {
@@ -154,7 +169,17 @@ intencion: r[13] || "",
       resultadoFinal: r[29] || "",
       rutina: r[30] || "",
       repetir: r[31] || "",
-      
+
+      golesRMC: num(r[4]),
+      golesRival: num(r[5]),
+      calidadEnvio: num(r[12]),
+      nAtacantes: num(r[14]),
+      nBloqueadores: num(r[15]),
+      oc1P: num(r[17]),
+      ocCentral: num(r[18]),
+      oc2P: num(r[19]),
+      ocFrontal: num(r[20]),
+      remate: r[23] || "",
     }))
     .filter(
   (r) =>
@@ -337,15 +362,8 @@ const rematadorOk =
 
 const resultadoOk =
   resultadoFilter === "ALL" ||
-  (
-    resultadoFilter === "Gol"
-      ? r.resultadoFinal
-          .toLowerCase()
-          .includes("gol")
-      : !r.resultadoFinal
-          .toLowerCase()
-          .includes("gol")
-  );
+  normalizaResultado(r.resultadoFinal) ===
+    resultadoFilter;
 
   return (
     jornadaOk &&
@@ -595,9 +613,15 @@ const metrics = {
     (r) =>
       r.rematador &&
       ![
-        "Nadie",
-        "No aplica",
-      ].includes(r.rematador)
+        "nadie",
+        "no aplica",
+        "no",
+        "no remate",
+        "sin remate",
+        "-",
+      ].includes(
+        r.rematador.trim().toLowerCase()
+      )
   )
       .forEach((r) => {
         grouped[r.rematador] =
@@ -707,6 +731,10 @@ const xgZonaCaida =
     filtered.forEach((r) => {
       if (!r.zonaCaida) return;
 
+      // Las superioridades (3v2, 2v1...) tienen su propio panel:
+      // no son zonas del área y ensucian esta comparativa.
+      if (esSuperioridad(r.zonaCaida)) return;
+
       grouped[r.zonaCaida] =
         (grouped[r.zonaCaida] || 0) +
         r.xg;
@@ -750,32 +778,166 @@ const abpFlow = useMemo(() => {
 }, [filtered]);
 
 
-const resultadoData = [
-  {
-    name: "Gol",
-    total:
-      filtered.filter((r) =>
-        r.resultadoFinal
-          .toLowerCase()
-          .includes("gol")
-      ).length,
-  },
-  {
-    name: "No Gol",
-    total:
-      filtered.filter(
-        (r) =>
-          !r.resultadoFinal
-            .toLowerCase()
-            .includes("gol")
-      ).length,
-  },
-];
+// Desglose completo del resultado final (Gol / Ocasión / ABP / Nada / Transición Rival)
+const resultadoData = useMemo(() => {
+  const orden = [
+    "Gol",
+    "Ocasión",
+    "ABP",
+    "Nada",
+    "Transición Rival",
+  ];
+
+  const grouped: Record<string, number> = {};
+
+  filtered.forEach((r) => {
+    const k = normalizaResultado(r.resultadoFinal);
+    grouped[k] = (grouped[k] || 0) + 1;
+  });
+
+  return orden
+    .filter((name) => grouped[name] > 0)
+    .map((name) => ({
+      name,
+      total: grouped[name],
+    }));
+}, [filtered]);
+
+// Acciones que terminan produciendo peligro (gol u ocasión)
+const accionesPeligrosas = filtered.filter((r) => {
+  const res = normalizaResultado(r.resultadoFinal);
+  return res === "Gol" || res === "Ocasión";
+}).length;
+
+const tasaPeligro =
+  filtered.length > 0
+    ? (accionesPeligrosas / filtered.length) * 100
+    : 0;
+
+// Calidad del envío (1-4) frente al peligro que genera
+const calidadEnvioData = useMemo(() => {
+  const grouped: Record<
+    number,
+    { total: number; xg: number; remates: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    if (!r.calidadEnvio) return;
+
+    if (!grouped[r.calidadEnvio]) {
+      grouped[r.calidadEnvio] = {
+        total: 0,
+        xg: 0,
+        remates: 0,
+      };
+    }
+
+    grouped[r.calidadEnvio].total += 1;
+    grouped[r.calidadEnvio].xg += r.xg;
+
+    if (
+      r.tipoRemate &&
+      !["", "No Remate", "No aplica"].includes(r.tipoRemate)
+    ) {
+      grouped[r.calidadEnvio].remates += 1;
+    }
+  });
+
+  return Object.entries(grouped)
+    .map(([calidad, v]) => ({
+      name: `Calidad ${calidad}`,
+      total: v.total,
+      xg: +v.xg.toFixed(2),
+      remates: v.remates,
+      pctRemate: +((v.remates / v.total) * 100).toFixed(1),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}, [filtered]);
+
+// Superioridades generadas en el juego en corto (3v2, 2v1...)
+const superioridadData = useMemo(() => {
+  const grouped: Record<
+    string,
+    { total: number; xg: number; goles: number }
+  > = {};
+
+  filtered
+    .filter((r) => esSuperioridad(r.zonaCaida))
+    .forEach((r) => {
+      const k = r.zonaCaida.trim();
+
+      if (!grouped[k]) {
+        grouped[k] = { total: 0, xg: 0, goles: 0 };
+      }
+
+      grouped[k].total += 1;
+      grouped[k].xg += r.xg;
+
+      if (normalizaResultado(r.resultadoFinal) === "Gol") {
+        grouped[k].goles += 1;
+      }
+    });
+
+  return Object.entries(grouped)
+    .map(([name, v]) => ({
+      name,
+      total: v.total,
+      xg: +v.xg.toFixed(2),
+      goles: v.goles,
+    }))
+    .sort((a, b) => b.total - a.total);
+}, [filtered]);
+
+// Estructura de la jugada: atacantes y bloqueadores frente al xG generado
+const estructuraData = useMemo(() => {
+  const grouped: Record<
+    number,
+    { total: number; xg: number; bloqueadores: number }
+  > = {};
+
+  filtered.forEach((r) => {
+    if (!r.nAtacantes) return;
+
+    if (!grouped[r.nAtacantes]) {
+      grouped[r.nAtacantes] = {
+        total: 0,
+        xg: 0,
+        bloqueadores: 0,
+      };
+    }
+
+    grouped[r.nAtacantes].total += 1;
+    grouped[r.nAtacantes].xg += r.xg;
+    grouped[r.nAtacantes].bloqueadores += r.nBloqueadores;
+  });
+
+  return Object.entries(grouped)
+    .map(([atacantes, v]) => ({
+      name: `${atacantes} atacantes`,
+      total: v.total,
+      xgMedio: +(v.xg / v.total).toFixed(3),
+      bloqueadoresMedio: +(
+        v.bloqueadores / v.total
+      ).toFixed(1),
+    }))
+    .sort(
+      (a, b) => parseInt(a.name) - parseInt(b.name)
+    );
+}, [filtered]);
 const totalTipoCarrera =
   tipoCarrera.reduce(
     (acc, item) => acc + item.total,
     0
   );
+  // Las acciones sin minuto registrado (minuto = 0) se excluyen para no
+  // generar un pico artificial en el primer tramo.
+  const conMinuto = filtered.filter(
+    (r) => r.minuto > 0
+  );
+
+  const sinMinuto =
+    filtered.length - conMinuto.length;
+
   const timeline =
     Array.from(
       { length: 6 },
@@ -783,15 +945,18 @@ const totalTipoCarrera =
         const start =
           i * 15;
 
+        const esUltimo = i === 5;
+
         return {
           tramo: `${start}-${start + 15}`,
           total:
-            filtered.filter(
+            conMinuto.filter(
               (r) =>
-                r.minuto >=
-                  start &&
-                r.minuto <
-                  start + 15
+                r.minuto > start &&
+                (esUltimo
+                  ? true
+                  : r.minuto <=
+                    start + 15)
             ).length,
         };
       }
@@ -1212,6 +1377,7 @@ const resumen = [
   `• ${metrics.goals} goles obtenidos`,
   `• Mejor sacador: ${sacadorData[0]?.name || "-"}`,
   `• xG por acción: ${metrics.xgAccion.toFixed(2)}`,
+  `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión`,
 ];
 
 resumen.forEach(
@@ -1245,6 +1411,9 @@ const chartNodes = document.querySelectorAll(
    #grafico-xg-tipo-accion, \
    #grafico-rivales-xg-concedido, \
    #grafico-xg-caida, \
+   #grafico-calidad-envio, \
+   #grafico-superioridad, \
+   #grafico-estructura, \
    #grafico-conversión"
 );
 
@@ -1336,8 +1505,24 @@ chartNodes.forEach((chart) => {
       title: "Zona caída",
     },
     {
+      id: "grafico-zone-map",
+      title: "Mapa de zonas",
+    },
+    {
+      id: "grafico-calidad-envio",
+      title: "Calidad envío",
+    },
+    {
+      id: "grafico-superioridad",
+      title: "Superioridad en corto",
+    },
+    {
+      id: "grafico-estructura",
+      title: "Estructura jugada",
+    },
+    {
       id: "grafico-conversión",
-      title: "Conversión",
+      title: "Resultado final",
     },
   ];
 
@@ -1752,7 +1937,7 @@ originalStyles.forEach(
       </button>
     ))}
 </div>
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 sm:gap-5 mt-5 sm:mt-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
         title="ABP"
         value={metrics.total}
@@ -1783,6 +1968,11 @@ originalStyles.forEach(
   value={metrics.xgAccion.toFixed(2)}
 />
 
+<Card
+  title="Gol u ocasión"
+  value={`${tasaPeligro.toFixed(1)}%`}
+/>
+
 <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
   <p className="text-sm text-zinc-400">
     Mejor sacador
@@ -1806,6 +1996,26 @@ originalStyles.forEach(
   </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
+
+<div className="md:col-span-2">
+<Panel title="Mapa de zonas del área">
+  <div id="grafico-zone-map">
+    <ABPZoneMap
+      rows={filtered.map((r) => ({
+        zonaCaida: r.zonaCaida,
+        zonaRemate: r.zonaRemate,
+        xg: r.xg,
+        resultadoFinal: r.resultadoFinal,
+        tipoRemate: r.tipoRemate,
+        oc1P: r.oc1P,
+        ocCentral: r.ocCentral,
+        oc2P: r.oc2P,
+        ocFrontal: r.ocFrontal,
+      }))}
+    />
+  </div>
+</Panel>
+</div>
 
 <div className="md:col-span-2">
 <Panel title="Situación Global">
@@ -2501,6 +2711,12 @@ margin={{
   </Chart></div>
 </Panel>
 <Panel title="Timeline">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Distribución por tramos de 15&apos;.
+    {sinMinuto > 0 &&
+      ` ${sinMinuto} acciones quedan fuera por no tener minuto registrado.`}
+  </p>
+
   <div id="grafico-timeline">
 
   <Chart>
@@ -2793,7 +3009,12 @@ const words =
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Conversión">
+<Panel title="Resultado final">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    {accionesPeligrosas} de {metrics.total} acciones acaban en gol u
+    ocasión ({tasaPeligro.toFixed(1)}%). Pulsa un sector para filtrar.
+  </p>
+
   <div id="grafico-conversión">
 
   <Chart>
@@ -2805,7 +3026,7 @@ const words =
     left: isMobile ? 10 : 20,
   }}
 >
-      
+
       <Pie
        onClick={(data:any) =>
     setResultadoFilter(
@@ -2830,32 +3051,255 @@ outerRadius={
   cornerRadius={8}
   stroke="transparent"
 >
-        <Cell fill="#10B981" />
-        <Cell fill="#475569" />
+        {resultadoData.map((entry) => (
+          <Cell
+            key={entry.name}
+            fill={
+              RESULTADO_COLORS[entry.name] ||
+              "#475569"
+            }
+            cursor="pointer"
+          />
+        ))}
    <Label
-value={`${metrics.conversion.toFixed(0)}%`}
+value={`${tasaPeligro.toFixed(0)}%`}
   position="center"
   fill="#fff"
   fontSize={isMobile ? 22 : 30}
-/>    <LabelList
+/>
+    <LabelList
   dataKey="total"
   position="inside"
   fill="#fff"
   fontSize={12}
-/>{!isMobile && (
-  <LabelList
-    dataKey="total"
-    position="inside"
-    fill="#fff"
-    fontSize={12}
-  />
-)}
+/>
       </Pie>
 
       <Tooltip />
 
-      <Legend />
+      <Legend {...pieLegendProps} />
     </PieChart>
+  </Chart></div>
+</Panel>
+
+<Panel title="Calidad del envío">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Escala 1-4 valorada por el cuerpo técnico: volumen de envíos y
+    porcentaje que termina en remate.
+  </p>
+
+  <div id="grafico-calidad-envio">
+  <Chart>
+    <ComposedChart
+      data={calidadEnvioData}
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="left"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        unit="%"
+        domain={[0, 100]}
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Legend {...pieLegendProps} />
+
+      <Bar
+        yAxisId="left"
+        dataKey="total"
+        name="Envíos"
+        fill={COLORS.gold}
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList dataKey="total" position="top" />
+      </Bar>
+
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="pctRemate"
+        name="% que acaba en remate"
+        stroke={COLORS.green}
+        strokeWidth={2.5}
+        dot={{ r: 4 }}
+      />
+    </ComposedChart>
+  </Chart></div>
+</Panel>
+
+<Panel title="Superioridad en corto">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Ventajas numéricas creadas antes del envío al área. Estos valores no
+    son zonas de caída, por eso se analizan aparte.
+  </p>
+
+  <div id="grafico-superioridad">
+  <Chart>
+    <BarChart
+      data={superioridadData}
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Legend {...pieLegendProps} />
+
+      <Bar
+        dataKey="total"
+        name="Acciones"
+        fill={COLORS.blue}
+        radius={[8, 8, 0, 0]}
+        onClick={(data: any) =>
+          setZonaCaidaFilter(
+            zonaCaidaFilter === data.name
+              ? "ALL"
+              : data.name
+          )
+        }
+        cursor="pointer"
+      >
+        <LabelList dataKey="total" position="top" />
+      </Bar>
+
+      <Bar
+        dataKey="goles"
+        name="Goles"
+        fill={COLORS.green}
+        radius={[8, 8, 0, 0]}
+      />
+    </BarChart>
+  </Chart></div>
+</Panel>
+
+<Panel title="Estructura de la jugada">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Número de atacantes implicados frente al xG medio generado y a los
+    bloqueadores utilizados.
+  </p>
+
+  <div id="grafico-estructura">
+  <Chart>
+    <ComposedChart
+      data={estructuraData}
+      margin={{
+        top: 10,
+        right: 24,
+        left: 10,
+        bottom: 10,
+      }}
+    >
+      <CartesianGrid
+        stroke="#1E232A"
+        vertical={false}
+      />
+
+      <XAxis
+        dataKey="name"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="left"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis
+        yAxisId="right"
+        orientation="right"
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <Tooltip />
+
+      <Legend {...pieLegendProps} />
+
+      <Bar
+        yAxisId="left"
+        dataKey="total"
+        name="Acciones"
+        fill="#66758A"
+        radius={[8, 8, 0, 0]}
+      >
+        <LabelList dataKey="total" position="top" />
+      </Bar>
+
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="xgMedio"
+        name="xG medio"
+        stroke={COLORS.gold}
+        strokeWidth={2.5}
+        dot={{ r: 4 }}
+      />
+
+      <Line
+        yAxisId="right"
+        type="monotone"
+        dataKey="bloqueadoresMedio"
+        name="Bloqueadores (media)"
+        stroke={COLORS.purple}
+        strokeWidth={2}
+        strokeDasharray="5 4"
+        dot={{ r: 3 }}
+      />
+    </ComposedChart>
   </Chart></div>
 </Panel>
 
