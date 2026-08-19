@@ -25,6 +25,7 @@ import {
   read,
   type RecordRow,
   resultColor,
+  textoSobre,
   tonoDeModo,
   type Zona,
   zonaLabel,
@@ -210,9 +211,17 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
 
           {nodes.map((node) => {
             const { x, y } = origen(node.banda, node.zona, mode);
-            const radius = 2.5 + Math.sqrt(node.count / maxCount) * 3.6;
+            const radius = 3 + Math.sqrt(node.count / maxCount) * 3.6;
             const color = heatColor(node.produccion / node.count, tono);
             const isSelected = selectedKey === node.key;
+            // La cifra se pintaba siempre en azul noche, pero el disco toma el
+            // color del mapa de calor: una zona sin producción queda casi negra
+            // y el número desaparecía. Se decide por la luminancia del relleno.
+            const textoDisco = textoSobre(color);
+            // Y el cuerpo se ajusta al hueco: con tamaño fijo un contador de
+            // tres dígitos se salía del disco más pequeño.
+            const digitos = String(node.count).length;
+            const cuerpo = Math.min(3.2, (radius * 1.7) / digitos);
 
             return (
               <g
@@ -239,7 +248,15 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
                   strokeWidth={isSelected ? 0.8 : 0.55}
                 />
                 <circle cx={x} cy={y} r={radius} fill={color} fillOpacity="0.96" stroke="#FFF7E5" strokeWidth="0.35" />
-                <text x={x} y={y + 0.7} textAnchor="middle" fill="#0B1728" fontSize="2.2" fontWeight="700">
+                <text
+                  x={x}
+                  y={y + cuerpo * 0.35}
+                  textAnchor="middle"
+                  fill={textoDisco}
+                  fontSize={cuerpo}
+                  fontWeight="700"
+                  pointerEvents="none"
+                >
                   {node.count}
                 </text>
               </g>

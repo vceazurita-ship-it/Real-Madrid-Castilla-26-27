@@ -156,6 +156,17 @@ type CellStats = Record<MetricKey, number> & {
 const BANDAS: Banda[] = ["izq", "der"];
 const ZONAS: Zona[] = [1, 2, 3];
 
+/**
+ * Etiqueta corta para pintar DENTRO de la celda. La larga
+ * ("BANDA IZQUIERDA · ZONA 3 · JUNTO A NUESTRA ÁREA") medía casi el doble que
+ * la celda y se desbordaba sobre las vecinas y fuera del campo. El nombre
+ * completo sigue en el tooltip y en el panel de detalle.
+ */
+const BANDA_CORTA: Record<Banda, string> = {
+  izq: "IZQUIERDA",
+  der: "DERECHA",
+};
+
 const CELL_W = 32;
 const CELL_H = 15;
 const TOP_Y = 3;
@@ -392,33 +403,37 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
 
                     <text
                       x={box.x + box.w / 2}
-                      y={box.y + box.h / 2 + 0.6}
+                      y={box.y + 8.6}
                       textAnchor="middle"
-                      fontSize="5"
+                      fontSize="4.4"
                       fontWeight="700"
                       fill={cell ? textoFuerte : "#F8FAFC"}
+                      pointerEvents="none"
                     >
                       {cell ? format(value) : "–"}
                     </text>
 
                     <text
                       x={box.x + box.w / 2}
-                      y={box.y + box.h / 2 + 4.8}
+                      y={box.y + 12.2}
                       textAnchor="middle"
-                      fontSize="2"
+                      fontSize="1.9"
                       fontWeight="600"
+                      letterSpacing="0.1"
                       fill={cell ? textoSuave : "#94A3B8"}
+                      pointerEvents="none"
                     >
-                      {`${BANDA_LABEL[banda].toUpperCase()} · ${zonaLabel(zona, mode).toUpperCase()}`}
+                      {`${BANDA_CORTA[banda]} · Z${zona}`}
                     </text>
 
                     {cell ? (
                       <text
                         x={box.x + box.w - 1.4}
-                        y={box.y + 3}
+                        y={box.y + 3.2}
                         textAnchor="end"
-                        fontSize="2"
+                        fontSize="1.9"
                         fill={textoSuave}
+                        pointerEvents="none"
                       >
                         {cell.total} saques
                       </text>
@@ -436,10 +451,10 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
             <line x1="2" y1="27" x2="2" y2="37" stroke="#F4F4F5" strokeWidth="1" />
             <line x1="98" y1="27" x2="98" y2="37" stroke="#F4F4F5" strokeWidth="1" />
 
-            <text x="4" y="32.8" fontSize="2.2" fill="#94A3B8">
+            <text x="4" y="32.8" fontSize="2" fill="#94A3B8">
               Nuestra portería
             </text>
-            <text x="96" y="32.8" fontSize="2.2" textAnchor="end" fill="#94A3B8">
+            <text x="96" y="32.8" fontSize="2" textAnchor="end" fill="#94A3B8">
               Portería rival
             </text>
           </svg>
