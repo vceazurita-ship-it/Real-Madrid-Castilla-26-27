@@ -17,7 +17,8 @@ body {
 
   color: var(--foreground);
 
-  font-family: Arial, Helvetica, sans-serif;
+  /* Geist se carga en app/layout.tsx; Arial queda como fallback. */
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 
   min-height: 100vh;
 }
@@ -252,4 +253,29 @@ scrollbar-width:none;
 .export-mode .player-name {
   box-shadow: none !important;
   backdrop-filter: none !important;
+}
+/* ===========================
+   ACCESIBILIDAD: MOVIMIENTO REDUCIDO
+   Desactiva las animaciones ambientales de la portada
+   para quien lo tenga configurado en el sistema.
+=========================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .animate-hero,
+  .particles::before,
+  .animate-pulse-glow,
+  .scan-line,
+  .light-sweep::after {
+    animation: none;
+  }
+
+  .scan-line {
+    opacity: 0;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
 }

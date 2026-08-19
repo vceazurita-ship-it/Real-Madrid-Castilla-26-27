@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import {
   ChevronLeft,
@@ -12,8 +12,27 @@ type Module = {
   section: string
   title: string
   desc: string
-  icon: any
+  icon: React.ElementType
   glow: string
+}
+
+const USAGE_KEY = "rmcf-module-usage"
+
+/* El uso por módulo vive en localStorage. Se lee con useSyncExternalStore
+   para que el servidor y el cliente coincidan en el primer render
+   (leerlo durante el render provocaría un error de hidratación). */
+
+function subscribeToUsage(onChange: () => void) {
+  window.addEventListener("storage", onChange)
+  return () => window.removeEventListener("storage", onChange)
+}
+
+function getUsageSnapshot() {
+  return localStorage.getItem(USAGE_KEY) ?? "{}"
+}
+
+function getUsageServerSnapshot() {
+  return "{}"
 }
 
 function glow(color: string) {
@@ -37,6 +56,21 @@ export default function ModulesCarousel({
 }) {
 
   const [page, setPage] = useState(0)
+
+  const rawUsage = useSyncExternalStore(
+    subscribeToUsage,
+    getUsageSnapshot,
+    getUsageServerSnapshot
+  )
+
+  const usage = useMemo<Record<string, number>>(() => {
+    try {
+      return JSON.parse(rawUsage)
+    } catch {
+      return {}
+    }
+  }, [rawUsage])
+
 const priority: Record<string, number> = {
   // PRIORIDAD PRINCIPAL
   "/game-model": 100,
@@ -81,13 +115,6 @@ const priority: Record<string, number> = {
   // DATOS
   "/data-center": 50,
 }
-const usage =
-  typeof window !== "undefined"
-    ? JSON.parse(
-        localStorage.getItem("rmcf-module-usage") ?? "{}"
-      )
-    : {}
-
 const orderedModules = [...modules].sort((a, b) => {
   const scoreA =
     (priority[a.href] ?? 0) +
@@ -119,6 +146,7 @@ const orderedModules = [...modules].sort((a, b) => {
             setPage((p) => Math.max(0, p - 1))
           }
           disabled={page === 0}
+          aria-label="Página anterior de áreas estratégicas"
           className="
           h-11
           w-11
@@ -148,6 +176,7 @@ const orderedModules = [...modules].sort((a, b) => {
             )
           }
           disabled={page === totalPages - 1}
+          aria-label="Página siguiente de áreas estratégicas"
           className="
           h-11
           w-11

@@ -621,14 +621,6 @@ export default function DashboardSeguimiento() {
       });
     }
 
-    if (coachData[0]) {
-      out.push({
-        icon: Users,
-        tone: "text-[#C8A96B]",
-        text: `${coachData[0].name} lidera el seguimiento con ${coachData[0].value} registros (${coachData[0].percentage}%).`,
-      });
-    }
-
     if (momentData[0]) {
       out.push({
         icon: Clock,
@@ -668,7 +660,6 @@ export default function DashboardSeguimiento() {
     coverage,
     untrackedPlayers,
     strategyData,
-    coachData,
     momentData,
     weeklyDelta,
     weeklyMean,
