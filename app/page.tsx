@@ -655,29 +655,56 @@ export default function Home() {
                     {/* CTAs */}
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                       <Link
-                        href="/performance"
+                        href="/micro_calendar"
                         className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
                       >
-                        <Dumbbell className="h-[18px] w-[18px]" />
-                        Planificación condicional
+                        <BookOpen className="h-[18px] w-[18px]" />
+                        Calendario de Contenidos
                         <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                       </Link>
 
                       <Link
-                        href="/training"
+                        href="/calendar_performance"
                         className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(16,185,129,.28)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(16,185,129,.42)]"
                       >
-                        <Users className="h-[18px] w-[18px]" />
-                        Jugadores Próxima Sesión
+                        <CalendarDays className="h-[18px] w-[18px]" />
+                        Calendario Condicional
                         <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                      </Link>
+                    </div>
+
+                    {/* Accesos a estrategia */}
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Link
+                        href="/setpieces"
+                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/40 hover:bg-white/[0.07] hover:text-white"
+                      >
+                        <Goal className="h-[17px] w-[17px] shrink-0 text-cyan-400" />
+                        ABP Ofensivo
                       </Link>
 
                       <Link
-                        href="/match-preparation"
-                        className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-3.5 text-[15px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
+                        href="/setpieces_def"
+                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-400/40 hover:bg-white/[0.07] hover:text-white"
                       >
-                        <ClipboardCheck className="h-[18px] w-[18px]" />
-                        Preparación Partido
+                        <Shield className="h-[17px] w-[17px] shrink-0 text-violet-400" />
+                        ABP Defensivo
+                      </Link>
+
+                      <Link
+                        href="/throw-ins"
+                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/40 hover:bg-white/[0.07] hover:text-white"
+                      >
+                        <Flag className="h-[17px] w-[17px] shrink-0 text-cyan-400" />
+                        Saque de Banda Ofensivo
+                      </Link>
+
+                      <Link
+                        href="/throw-ins-def"
+                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-400/40 hover:bg-white/[0.07] hover:text-white"
+                      >
+                        <Shield className="h-[17px] w-[17px] shrink-0 text-violet-400" />
+                        Saque de Banda Defensivo
                       </Link>
                     </div>
 
