@@ -7,6 +7,15 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
 import {
+  AlertTriangle,
+  ExternalLink,
+  RotateCcw,
+  Search,
+  UserRound,
+  X,
+} from "lucide-react";
+
+import {
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -36,29 +45,55 @@ const ESTADOS_CSV =
 const SCOUTING_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
 
-const COLORS = [
-  "#D4B06A",
-  "#B8924F",
-  "#8E6A37",
-  "#6B532F",
-  "#4B4238",
-  "#2E2E2E",
-];
 const THEME = {
-  gold: "#D4B06A",
+  gold: "#C8A96B",
   goldSoft: "#B8924F",
   goldDark: "#8E6A37",
 
-  bg: "#171A1F",
-  card: "#1D2127",
+  bg: "#0B0F14",
+  card: "#11161D",
   border: "#2B3138",
 
-  grid: "#2F343C",
+  grid: "#232A33",
   axis: "#8D949C",
 
   white: "#F8F9FA",
   text: "#C6CBD1",
 };
+
+/* Paleta de apoyo para series sin significado semántico (posiciones, licencias). */
+const COLORS = [
+  "#C8A96B",
+  "#B8924F",
+  "#8E6A37",
+  "#6B532F",
+  "#4B4238",
+  "#7DA6D9",
+];
+
+/* Colores semánticos por estado: se usan en la tarta, el scatter y las leyendas. */
+const ESTADO_COLORS: Record<string, string> = {
+  "ÓPTIMO": "#52B788",
+  "LESIONADO": "#D46A6A",
+  "SELECCIÓN": "#7DA6D9",
+  "RECUPERACIÓN": "#EAB308",
+};
+
+const ESTADO_FALLBACK = "#C8A96B";
+
+function estadoColor(estado: string) {
+  return ESTADO_COLORS[estado] ?? ESTADO_FALLBACK;
+}
+
+const METRICAS = [
+  { key: "mentalidad", label: "Mentalidad" },
+  { key: "habitos", label: "Hábitos" },
+  { key: "interpretacion", label: "Interpretación" },
+  { key: "fisica", label: "Física" },
+  { key: "tecnica", label: "Técnica" },
+] as const;
+
+type MetricaKey = (typeof METRICAS)[number]["key"];
 
 type EstadoCSV = {
   ID_JUGADOR: string;
@@ -96,1386 +131,1686 @@ type ScoutingCSV = {
 
 type Player = {
   id: string;
-
   fecha: string;
-
   nombre: string;
-
   apodo: string;
-
   posicion: string;
-
   dorsal: string;
-
   foto: string;
-
   licencia: string;
-
   estado: string;
-
   activo: boolean;
 
   mentalidad: number;
-
   habitos: number;
-
   interpretacion: number;
-
   fisica: number;
-
   tecnica: number;
-
   media: number;
 
+  /* Un jugador sin ficha de scouting tiene todas las métricas a 0: se excluye
+     de medias, mejor/peor y ranking para no falsear los agregados. */
+  valorado: boolean;
+
   fortalezas: string;
-
   aspectosMejora: string;
-
   hudl: string;
 };
 
-export default function DashboardPlantilla() {
+/*
+|--------------------------------------------------------------------------
+| FECHAS
+|--------------------------------------------------------------------------
+| Las hojas mezclan "YYYY-MM-DD" y "DD/MM/YYYY". `new Date()` interpreta el
+| segundo formato como MM/DD, así que lo normalizamos a mano.
+*/
 
-  const [estadoRows, setEstadoRows] =
-    useState<EstadoCSV[]>([]);
+function parseFecha(value: unknown): number {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
 
-  const [scoutingRows, setScoutingRows] =
-    useState<ScoutingCSV[]>([]);
+  const slash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
 
-  const [selectedPlayer, setSelectedPlayer] =
-    useState<Player | null>(null);
+  if (slash) {
+    const [, day, month, year] = slash;
+    return Date.UTC(Number(year), Number(month) - 1, Number(day));
+  }
 
-  const [filters, setFilters] = useState({
+  const iso = Date.parse(raw);
 
-    jugador: "",
+  return Number.isNaN(iso) ? 0 : iso;
+}
 
-    posicion: "",
+function formatFecha(value: unknown) {
+  const timestamp = parseFecha(value);
+  if (!timestamp) return String(value || "—");
 
-    estado: "",
-
-    licencia: "",
-
-    activo: "",
-
-    fecha: "",
-
+  return new Date(timestamp).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
+}
 
-  const emptyFilters = {
+function toNumber(value: unknown) {
+  const parsed = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
-    jugador: "",
+function normalize(value: unknown) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
-    posicion: "",
+const emptyFilters = {
+  jugador: "",
+  posicion: "",
+  estado: "",
+  licencia: "",
+  activo: "",
+  fecha: "",
+};
 
-    estado: "",
+type Filters = typeof emptyFilters;
 
-    licencia: "",
+const FILTER_LABELS: Record<keyof Filters, string> = {
+  jugador: "Jugador",
+  posicion: "Posición",
+  estado: "Estado",
+  licencia: "Licencia",
+  activo: "Grupo",
+  fecha: "Fecha",
+};
 
-    activo: "",
+export default function DashboardPlantilla() {
+  const [estadoRows, setEstadoRows] = useState<EstadoCSV[]>([]);
+  const [scoutingRows, setScoutingRows] = useState<ScoutingCSV[]>([]);
 
-    fecha: "",
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  };
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [playerSearch, setPlayerSearch] = useState("");
 
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CARGA DE DATOS
+  |--------------------------------------------------------------------------
+  */
+
+  /* `loading` arranca en true y sólo se reinicia desde el botón de reintentar,
+     para no encadenar renders llamando a setState en el cuerpo del efecto. */
   useEffect(() => {
+    let cancelled = false;
 
-    Papa.parse(ESTADOS_CSV, {
+    const parseCsv = <T,>(url: string) =>
+      new Promise<T[]>((resolve, reject) => {
+        Papa.parse<T>(url, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+          error: (error: unknown) => reject(error),
+        });
+      });
 
-      download: true,
+    Promise.all([
+      parseCsv<EstadoCSV>(ESTADOS_CSV),
+      parseCsv<ScoutingCSV>(SCOUTING_CSV),
+    ])
+      .then(([estados, scouting]) => {
+        if (cancelled) return;
 
-      header: true,
+        setEstadoRows(estados);
+        setScoutingRows(scouting);
+      })
+      .catch((error) => {
+        if (cancelled) return;
 
-      skipEmptyLines: true,
+        console.error("Error cargando datos de plantilla:", error);
+        setLoadError("No se han podido cargar los datos de la plantilla.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-      complete: (results) => {
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
-        setEstadoRows(results.data as EstadoCSV[]);
+  /*
+  |--------------------------------------------------------------------------
+  | JUGADORES
+  |--------------------------------------------------------------------------
+  */
 
-      },
-
-    });
-
-    Papa.parse(SCOUTING_CSV, {
-
-      download: true,
-
-      header: true,
-
-      skipEmptyLines: true,
-
-      complete: (results) => {
-
-        setScoutingRows(results.data as ScoutingCSV[]);
-
-      },
-
-    });
-
-  }, []);
-    const players = useMemo<Player[]>(() => {
-
+  const players = useMemo<Player[]>(() => {
     if (!estadoRows.length) return [];
 
     // Nos quedamos con el registro más reciente de cada jugador
     const latestMap = new Map<string, EstadoCSV>();
 
     estadoRows.forEach((row) => {
+      if (!row.ID_JUGADOR) return;
 
       const previous = latestMap.get(row.ID_JUGADOR);
 
       if (!previous) {
-
         latestMap.set(row.ID_JUGADOR, row);
         return;
-
       }
 
-      const currentDate = new Date(row.FECHA).getTime();
-      const previousDate = new Date(previous.FECHA).getTime();
-
-      if (currentDate >= previousDate) {
-
+      if (parseFecha(row.FECHA) >= parseFecha(previous.FECHA)) {
         latestMap.set(row.ID_JUGADOR, row);
-
       }
-
     });
 
     const scoutingMap = new Map<string, ScoutingCSV>();
 
     scoutingRows.forEach((row) => {
-
-      scoutingMap.set(row.ID_JUGADOR, row);
-
+      if (row.ID_JUGADOR) scoutingMap.set(row.ID_JUGADOR, row);
     });
 
     return [...latestMap.values()]
-
       .map((estado) => {
+        const scout = scoutingMap.get(estado.ID_JUGADOR);
 
-        const scout = scoutingMap.get(
-          estado.ID_JUGADOR
-        );
+        const mentalidad = toNumber(scout?.MENTALIDAD);
+        const habitos = toNumber(scout?.HABITOS);
+        const interpretacion = toNumber(scout?.INTERPRETACION);
+        const fisica = toNumber(scout?.CAPACIDAD_FISICA);
+        const tecnica = toNumber(scout?.TECNICA);
 
-        const mentalidad = Number(
-          scout?.MENTALIDAD ?? 0
-        );
+        const valores = [
+          mentalidad,
+          habitos,
+          interpretacion,
+          fisica,
+          tecnica,
+        ].filter((value) => value > 0);
 
-        const habitos = Number(
-          scout?.HABITOS ?? 0
-        );
-
-        const interpretacion = Number(
-          scout?.INTERPRETACION ?? 0
-        );
-
-        const fisica = Number(
-          scout?.CAPACIDAD_FISICA ?? 0
-        );
-
-        const tecnica = Number(
-          scout?.TECNICA ?? 0
-        );
-
-        const media =
-          (
-            mentalidad +
-            habitos +
-            interpretacion +
-            fisica +
-            tecnica
-          ) / 5;
+        const media = valores.length
+          ? valores.reduce((acc, value) => acc + value, 0) / valores.length
+          : 0;
 
         return {
-
           id: estado.ID_JUGADOR,
-
           fecha: estado.FECHA,
 
-          nombre:
-            scout?.NOMBRE ??
-            estado.NOMBRE,
+          nombre: scout?.NOMBRE || estado.NOMBRE || "",
+          apodo: scout?.APODO || estado.APODO || "",
+          posicion: scout?.POSICION || estado.POSICION || "",
+          dorsal: scout?.DORSAL || estado.DORSAL || "",
+          foto: scout?.FOTO_URL || estado.FOTO_URL || "",
+          licencia: scout?.LICENCIA || estado.LICENCIA || "",
 
-          apodo:
-            scout?.APODO ??
-            estado.APODO,
-
-          posicion:
-            scout?.POSICION ??
-            estado.POSICION,
-
-          dorsal:
-            scout?.DORSAL ??
-            estado.DORSAL,
-
-          foto:
-            scout?.FOTO_URL ??
-            estado.FOTO_URL,
-
-          licencia:
-            scout?.LICENCIA ??
-            estado.LICENCIA,
-
-          estado:
-            estado.ESTADO,
-
-          activo:
-            String(
-              estado.ACTIVO
-            ).toUpperCase() === "TRUE",
+          estado: estado.ESTADO || "",
+          activo: String(estado.ACTIVO).toUpperCase() === "TRUE",
 
           mentalidad,
-
           habitos,
-
           interpretacion,
-
           fisica,
-
           tecnica,
-
           media,
+          valorado: valores.length > 0,
 
-          fortalezas:
-            scout?.FORTALEZAS ?? "",
-
-          aspectosMejora:
-            scout?.ASPECTOS_MEJORA ?? "",
-
-          hudl:
-            scout?.HUDL_PERFIL_URL ?? "",
-
+          fortalezas: scout?.FORTALEZAS ?? "",
+          aspectosMejora: scout?.ASPECTOS_MEJORA ?? "",
+          hudl: scout?.HUDL_PERFIL_URL ?? "",
         };
-
       })
-
-      .sort((a, b) =>
-        a.nombre.localeCompare(b.nombre)
-      );
-
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [estadoRows, scoutingRows]);
 
- useEffect(() => {
+  const updateFilter = (key: keyof Filters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
-  if (
-    players.length &&
-    !selectedPlayer &&
-    !filters.jugador
-  ) {
-    setSelectedPlayer(players[0]);
-  }
-
-}, [players, selectedPlayer, filters.jugador]);
-
-  const updateFilter = (
-    key: keyof typeof filters,
-    value: string
-  ) => {
-
+  const toggleFilter = (key: keyof Filters, value: string) => {
     setFilters((prev) => ({
-
       ...prev,
-
-      [key]: value,
-
+      [key]: prev[key] === value ? "" : value,
     }));
-
   };
 
   const filterOptions = useMemo(() => {
+    const unique = (values: string[]) =>
+      [...new Set(values.filter(Boolean))].sort();
 
     return {
-
-      posiciones: [
-
-        ...new Set(
-
-          players
-            .map((p) => p.posicion)
-            .filter(Boolean)
-
-        ),
-
-      ].sort(),
-
-      estados: [
-
-        ...new Set(
-
-          players
-            .map((p) => p.estado)
-            .filter(Boolean)
-
-        ),
-
-      ].sort(),
-
-      licencias: [
-
-        ...new Set(
-
-          players
-            .map((p) => p.licencia)
-            .filter(Boolean)
-
-        ),
-
-      ].sort(),
-
+      posiciones: unique(players.map((p) => p.posicion)),
+      estados: unique(players.map((p) => p.estado)),
+      licencias: unique(players.map((p) => p.licencia)),
       fechas: [
-
-        ...new Set(
-
-          players
-            .map((p) => p.fecha)
-            .filter(Boolean)
-
-        ),
-
-      ].sort(),
-
+        ...new Set(estadoRows.map((row) => row.FECHA).filter(Boolean)),
+      ].sort((a, b) => parseFecha(b) - parseFecha(a)),
     };
+  }, [players, estadoRows]);
 
-  }, [players]);
-    const filteredPlayers = useMemo(() => {
+  const filteredPlayers = useMemo(() => {
+    const search = normalize(playerSearch);
 
     return players.filter((player) => {
+      if (filters.jugador && player.id !== filters.jugador) return false;
+      if (filters.posicion && player.posicion !== filters.posicion) return false;
+      if (filters.estado && player.estado !== filters.estado) return false;
+      if (filters.licencia && player.licencia !== filters.licencia) return false;
+      if (filters.activo && String(player.activo) !== filters.activo)
+        return false;
+      if (filters.fecha && player.fecha !== filters.fecha) return false;
 
       if (
-        filters.jugador &&
-        player.id !== filters.jugador
-      )
+        search &&
+        !normalize(player.nombre).includes(search) &&
+        !normalize(player.apodo).includes(search) &&
+        !normalize(player.posicion).includes(search) &&
+        !String(player.dorsal).includes(search)
+      ) {
         return false;
-
-      if (
-        filters.posicion &&
-        player.posicion !== filters.posicion
-      )
-        return false;
-
-      if (
-        filters.estado &&
-        player.estado !== filters.estado
-      )
-        return false;
-
-      if (
-        filters.licencia &&
-        player.licencia !== filters.licencia
-      )
-        return false;
-
-      if (
-        filters.activo &&
-        String(player.activo) !== filters.activo
-      )
-        return false;
-
-      if (
-        filters.fecha &&
-        player.fecha !== filters.fecha
-      )
-        return false;
+      }
 
       return true;
-
     });
+  }, [players, filters, playerSearch]);
 
-  }, [players, filters]);
+  /* El jugador seleccionado siempre debe existir dentro del filtro activo. */
+  const selectedPlayer = useMemo(() => {
+    if (!filteredPlayers.length) return null;
 
-  const totalPlayers = filteredPlayers.length;
+    return (
+      filteredPlayers.find((p) => p.id === selectedPlayerId) ??
+      filteredPlayers[0]
+    );
+  }, [filteredPlayers, selectedPlayerId]);
 
-  const activePlayers =
-    filteredPlayers.filter(
-      (p) => p.activo
-    ).length;
+  /*
+  |--------------------------------------------------------------------------
+  | AGREGADOS
+  |--------------------------------------------------------------------------
+  */
 
-  const optimalPlayers =
-    filteredPlayers.filter(
-      (p) => p.estado === "ÓPTIMO"
-    ).length;
+  const stats = useMemo(() => {
+    const total = filteredPlayers.length;
+    const valorados = filteredPlayers.filter((p) => p.valorado);
 
-  const selectedPlayers =
-    filteredPlayers.filter(
-      (p) => p.estado === "SELECCIÓN"
-    ).length;
+    const countEstado = (estado: string) =>
+      filteredPlayers.filter((p) => p.estado === estado).length;
 
-  const injuredPlayers =
-    filteredPlayers.filter(
-      (p) => p.estado === "LESIONADO"
-    ).length;
+    const optimos = countEstado("ÓPTIMO");
 
-  const averageScore =
-    totalPlayers
-      ? (
-          filteredPlayers.reduce(
-            (acc, p) => acc + p.media,
-            0
-          ) / totalPlayers
-        ).toFixed(1)
-      : "0";
-  
-  const bestScore =
-  filteredPlayers.length > 0
-    ? Math.max(...filteredPlayers.map((p) => p.media)).toFixed(1)
-    : "0";
+    const media = valorados.length
+      ? valorados.reduce((acc, p) => acc + p.media, 0) / valorados.length
+      : 0;
 
-const worstScore =
-  filteredPlayers.length > 0
-    ? Math.min(...filteredPlayers.map((p) => p.media)).toFixed(1)
-    : "0";
+    const optimalPercentage = total ? Math.round((optimos / total) * 100) : 0;
 
-const elitePlayers =
-  filteredPlayers.filter((p) => p.media >= 8).length;
+    return {
+      total,
+      activos: filteredPlayers.filter((p) => p.activo).length,
+      optimos,
+      seleccion: countEstado("SELECCIÓN"),
+      lesionados: countEstado("LESIONADO"),
+      recuperacion: countEstado("RECUPERACIÓN"),
 
-const optimalPercentage =
-  totalPlayers > 0
-    ? ((optimalPlayers / totalPlayers) * 100).toFixed(0)
-    : "0";      
-const overallStatus =
-  Number(optimalPercentage) >= 80
-    ? "MUY BUENO"
-    : Number(optimalPercentage) >= 60
-    ? "BUENO"
-    : Number(optimalPercentage) >= 40
-    ? "MEJORABLE"
-    : "CRÍTICO";
+      valorados: valorados.length,
+      sinValorar: total - valorados.length,
+
+      media: valorados.length ? media.toFixed(1) : "—",
+      mejor: valorados.length
+        ? Math.max(...valorados.map((p) => p.media)).toFixed(1)
+        : "—",
+      peor: valorados.length
+        ? Math.min(...valorados.map((p) => p.media)).toFixed(1)
+        : "—",
+      elite: valorados.filter((p) => p.media >= 8).length,
+
+      optimalPercentage,
+    };
+  }, [filteredPlayers]);
+
+  const overallStatus =
+    stats.optimalPercentage >= 80
+      ? "MUY BUENO"
+      : stats.optimalPercentage >= 60
+        ? "BUENO"
+        : stats.optimalPercentage >= 40
+          ? "MEJORABLE"
+          : "CRÍTICO";
+
   const estadoChart = useMemo(() => {
-
     const map: Record<string, number> = {};
 
     filteredPlayers.forEach((player) => {
-
-      map[player.estado] =
-        (map[player.estado] ?? 0) + 1;
-
+      const key = player.estado || "SIN ESTADO";
+      map[key] = (map[key] ?? 0) + 1;
     });
 
-    return Object.entries(map).map(([name, value]) => ({
-  name,
-  value,
-}));
-
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredPlayers]);
 
   const positionChart = useMemo(() => {
-
     const map: Record<string, number> = {};
 
     filteredPlayers.forEach((player) => {
-
-      map[player.posicion] =
-        (map[player.posicion] ?? 0) + 1;
-
+      const key = player.posicion || "SIN POSICIÓN";
+      map[key] = (map[key] ?? 0) + 1;
     });
 
-    return Object.entries(map).map(
-      ([name, value]) => ({
-        name,
-        value,
-      })
-    );
-
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredPlayers]);
 
-const radarData = useMemo(() => {
+  const licenciaChart = useMemo(() => {
+    const map: Record<string, number> = {};
 
-  if (!filteredPlayers.length) return [];
+    filteredPlayers.forEach((player) => {
+      const key = player.licencia || "SIN LICENCIA";
+      map[key] = (map[key] ?? 0) + 1;
+    });
 
-  const avg = (
-    key:
-      | "mentalidad"
-      | "habitos"
-      | "interpretacion"
-      | "fisica"
-      | "tecnica"
-  ) =>
-    filteredPlayers.reduce((acc, p) => acc + p[key], 0) /
-    filteredPlayers.length;
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredPlayers]);
 
-  return [
-    {
-      subject: "Mentalidad",
-      plantilla: avg("mentalidad"),
-      jugador: selectedPlayer?.mentalidad ?? avg("mentalidad"),
-    },
-    {
-      subject: "Hábitos",
-      plantilla: avg("habitos"),
-      jugador: selectedPlayer?.habitos ?? avg("habitos"),
-    },
-    {
-      subject: "Interpretación",
-      plantilla: avg("interpretacion"),
-      jugador: selectedPlayer?.interpretacion ?? avg("interpretacion"),
-    },
-    {
-      subject: "Física",
-      plantilla: avg("fisica"),
-      jugador: selectedPlayer?.fisica ?? avg("fisica"),
-    },
-    {
-      subject: "Técnica",
-      plantilla: avg("tecnica"),
-      jugador: selectedPlayer?.tecnica ?? avg("tecnica"),
-    },
-  ];
+  const radarData = useMemo(() => {
+    const valorados = filteredPlayers.filter((p) => p.valorado);
+    if (!valorados.length) return [];
 
-}, [filteredPlayers, selectedPlayer]);
+    const avg = (key: MetricaKey) =>
+      Number(
+        (
+          valorados.reduce((acc, p) => acc + p[key], 0) / valorados.length
+        ).toFixed(2),
+      );
+
+    return METRICAS.map(({ key, label }) => ({
+      subject: label,
+      plantilla: avg(key),
+      jugador: selectedPlayer?.valorado ? selectedPlayer[key] : avg(key),
+    }));
+  }, [filteredPlayers, selectedPlayer]);
 
   const rankingChart = useMemo(() => {
-
-  return [...filteredPlayers]
-
-    .sort((a, b) => b.media - a.media)
-
-    .slice(0, 10)
-
-    .map((player, index) => ({
-
-      puesto: index + 1,
-
-      id: player.id,
-
-      name: player.apodo || player.nombre,
-
-      value: Number(player.media.toFixed(1)),
-
-    }));
-
-}, [filteredPlayers]);
+    return filteredPlayers
+      .filter((p) => p.valorado)
+      .sort((a, b) => b.media - a.media)
+      .slice(0, 10)
+      .map((player, index) => ({
+        puesto: index + 1,
+        id: player.id,
+        name: player.apodo || player.nombre,
+        value: Number(player.media.toFixed(1)),
+      }));
+  }, [filteredPlayers]);
 
   const scatterData = useMemo(() => {
-
-    return filteredPlayers.map((player) => ({
-
-  x: player.mentalidad,
-
-  y: player.fisica,
-
-  z: player.media,
-
-  id: player.id,
-
-  name: player.apodo || player.nombre,
-
-  estado: player.estado,
-
-  color:
-    player.estado === "ÓPTIMO"
-      ? "#52B788"
-      : player.estado === "LESIONADO"
-      ? "#D46A6A"
-      : player.estado === "SELECCIÓN"
-      ? "#7DA6D9º"
-      : player.estado === "RECUPERACIÓN"
-      ? "#facc15"
-      : "#C8A96B",
-
-}));
-
+    return filteredPlayers
+      .filter((p) => p.valorado)
+      .map((player) => ({
+        x: player.mentalidad,
+        y: player.fisica,
+        z: Number(player.media.toFixed(1)),
+        id: player.id,
+        name: player.apodo || player.nombre,
+        estado: player.estado,
+        color: estadoColor(player.estado),
+      }));
   }, [filteredPlayers]);
-const licenciaChart = useMemo(() => {
 
-  const map: Record<string, number> = {};
-
-  filteredPlayers.forEach((player) => {
-
-    map[player.licencia] =
-      (map[player.licencia] ?? 0) + 1;
-
-  });
-
-  return Object.entries(map).map(
-    ([name, value]) => ({
-      name,
-      value,
-    })
-  );
-
-}, [filteredPlayers]);
+  /* Evolución: nº de registros por fecha, ordenado cronológicamente. */
   const evolutionData = useMemo(() => {
-
     const map: Record<string, number> = {};
 
     estadoRows.forEach((row) => {
-
-      if (
-        filters.fecha &&
-        row.FECHA !== filters.fecha
-      )
-        return;
-
-      map[row.FECHA] =
-        (map[row.FECHA] ?? 0) + 1;
-
+      if (!row.FECHA) return;
+      map[row.FECHA] = (map[row.FECHA] ?? 0) + 1;
     });
 
-    return Object.entries(map).map(
-      ([date, value]) => ({
-
+    return Object.entries(map)
+      .map(([date, value]) => ({
         date,
-
+        label: formatFecha(date),
         value,
+      }))
+      .sort((a, b) => parseFecha(a.date) - parseFecha(b.date));
+  }, [estadoRows]);
 
-      })
-    );
+  const handlePlayerSelect = (id: string) => {
+    setSelectedPlayerId(id || null);
+  };
 
-  }, [estadoRows, filters.fecha]);
+  const activeFilters = (Object.keys(filters) as (keyof Filters)[])
+    .filter((key) => filters[key])
+    .map((key) => {
+      let value = filters[key];
 
-const handlePlayerSelect = (id: string) => {
+      if (key === "jugador") {
+        value = players.find((p) => p.id === value)?.nombre ?? value;
+      }
 
-  updateFilter("jugador", id);
+      if (key === "activo") {
+        value = value === "true" ? "RMCF Castilla" : "Promocionados a entrenar";
+      }
 
-  if (!id) {
-    setSelectedPlayer(null);
-    return;
-  }
+      if (key === "fecha") {
+        value = formatFecha(value);
+      }
 
-  const player =
-    players.find((p) => p.id === id) ?? null;
+      return { key, label: FILTER_LABELS[key], value };
+    });
 
-  setSelectedPlayer(player);
+  const hasActiveFilters = activeFilters.length > 0 || Boolean(playerSearch);
 
-};
+  const resetFilters = () => {
+    setFilters(emptyFilters);
+    setPlayerSearch("");
+  };
 
-const handleKpiClick = (title: string) => {
+  /*
+  |--------------------------------------------------------------------------
+  | KPIs
+  |--------------------------------------------------------------------------
+  */
 
-  switch (title) {
+  const kpis: {
+    title: string;
+    value: string | number;
+    filter?: { key: keyof Filters; value: string };
+    tone?: string;
+  }[] = [
+    { title: "Jugadores", value: stats.total },
+    {
+      title: "Activos",
+      value: stats.activos,
+      filter: { key: "activo", value: "true" },
+    },
+    {
+      title: "Óptimos",
+      value: stats.optimos,
+      filter: { key: "estado", value: "ÓPTIMO" },
+      tone: "text-emerald-300",
+    },
+    {
+      title: "Selección",
+      value: stats.seleccion,
+      filter: { key: "estado", value: "SELECCIÓN" },
+      tone: "text-sky-300",
+    },
+    {
+      title: "Lesionados",
+      value: stats.lesionados,
+      filter: { key: "estado", value: "LESIONADO" },
+      tone: "text-red-300",
+    },
+    { title: "Media", value: stats.media },
+    { title: "Mejor", value: stats.mejor },
+    { title: "Peor", value: stats.peor },
+    { title: "Élite (≥8)", value: stats.elite },
+    { title: "% Óptimos", value: `${stats.optimalPercentage}%` },
+  ];
 
-    case "Activos":
-      updateFilter(
-        "activo",
-        filters.activo === "true" ? "" : "true"
-      );
-      break;
+  /*
+  |--------------------------------------------------------------------------
+  | RENDER
+  |--------------------------------------------------------------------------
+  */
 
-    case "Óptimos":
-      updateFilter(
-        "estado",
-        filters.estado === "ÓPTIMO"
-          ? ""
-          : "ÓPTIMO"
-      );
-      break;
-
-    case "Lesionados":
-      updateFilter(
-        "estado",
-        filters.estado === "LESIONADO"
-          ? ""
-          : "LESIONADO"
-      );
-      break;
-
-    case "Selección":
-      updateFilter(
-        "estado",
-        filters.estado === "SELECCIÓN"
-          ? ""
-          : "SELECCIÓN"
-      );
-      break;
-
-    default:
-      break;
-
-  }
-
-};
   return (
-  <div className="flex min-h-screen bg-neutral-950 text-white">
-    <Sidebar />
+    <div className="flex min-h-screen bg-[#0B0F14] text-white">
+      <Sidebar />
 
-    <main className="flex-1">
-      <Topbar />
+      <main className="min-w-0 flex-1">
+        <Topbar />
 
-      <div className="p-6 space-y-6">
+        <div className="w-full min-w-0 space-y-6 px-4 py-6 sm:px-6 md:px-8 md:py-8">
+          {/* HEADER */}
 
-        {/* FILTROS */}
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+              RMCF CASTILLA · PLANTILLA
+            </p>
 
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
+            <div className="mt-4 flex min-w-0 items-center gap-4">
+              <h1 className="min-w-0 truncate text-2xl font-semibold md:text-4xl">
+                Dashboard de plantilla
+              </h1>
 
-          <div className="flex flex-wrap gap-3">
-
-            <select
-              className="rounded-lg bg-neutral-800 px-3 py-2"
-              value={filters.jugador}
-              onChange={(e) => handlePlayerSelect(e.target.value)}
-            >
-              <option value="">Jugador</option>
-
-              {players.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="rounded-lg bg-neutral-800 px-3 py-2"
-              value={filters.posicion}
-              onChange={(e) =>
-                updateFilter("posicion", e.target.value)
-              }
-            >
-              <option value="">Posición</option>
-
-              {filterOptions.posiciones.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-
-            <select
-              className="rounded-lg bg-neutral-800 px-3 py-2"
-              value={filters.estado}
-              onChange={(e) =>
-                updateFilter("estado", e.target.value)
-              }
-            >
-              <option value="">Estado</option>
-
-              {filterOptions.estados.map((e) => (
-                <option key={e}>{e}</option>
-              ))}
-            </select>
-
-            <select
-              className="rounded-lg bg-neutral-800 px-3 py-2"
-              value={filters.licencia}
-              onChange={(e) =>
-                updateFilter("licencia", e.target.value)
-              }
-            >
-              <option value="">Licencia</option>
-
-              {filterOptions.licencias.map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-
-            <select
-              className="rounded-lg bg-neutral-800 px-3 py-2"
-              value={filters.activo}
-              onChange={(e) =>
-                updateFilter("activo", e.target.value)
-              }
-            >
-              <option value="">Todos los jugadores</option>
-
-              <option value="true">RMCF Castilla</option>
-
-              <option value="false">Promocionados a entrenar</option>
-            </select>
-
-            <button
-              onClick={() => setFilters(emptyFilters)}
-              className="inline-flex
-        items-center
-        gap-3
-        rounded-2xl
-        border
-        border-[#C8A96B]/20
-        bg-[#C8A96B]
-        px-6
-        py-3
-        text-base
-        font-medium
-        text-black
-        shadow-[0_8px_25px_rgba(200,169,107,0.25)]
-        transition-all
-        hover:-translate-y-0.5
-        hover:shadow-[0_12px_30px_rgba(200,169,107,0.35)]" 
-            >
-              Limpiar filtros
-            </button>
-
+              <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
+            </div>
           </div>
 
-        </div>
-<div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
+          {/* ERROR */}
 
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          {loadError && (
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+              <AlertTriangle size={18} className="shrink-0" />
 
-    <div>
-      <h2 className="text-2xl font-bold">
-        REAL MADRID CASTILLA
-      </h2>
+              <span className="min-w-0 flex-1">{loadError}</span>
 
-      <p className="text-neutral-400 mt-1">
-        Resumen general de la plantilla
-      </p>
-    </div>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  setLoadError(null);
+                  setReloadKey((key) => key + 1);
+                }}
+                className="flex items-center gap-2 rounded-xl border border-red-400/40 px-4 py-2 transition hover:bg-red-500/20"
+              >
+                <RotateCcw size={14} />
+                Reintentar
+              </button>
+            </div>
+          )}
 
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {/* FILTROS */}
 
-      <div>
-        <div className="text-sm text-neutral-400">
-          Jugadores
-        </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="relative min-w-0 xl:col-span-2">
+                <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">
+                  Buscar
+                </span>
 
-        <div className="text-3xl font-bold">
-          {totalPlayers}
-        </div>
-      </div>
+                <Search
+                  size={18}
+                  className="absolute left-4 top-[2.6rem] text-white/40"
+                />
 
-      <div>
-        <div className="text-sm text-neutral-400">
-          Media
-        </div>
-
-        <div className="text-3xl font-bold">
-          {averageScore}
-        </div>
-      </div>
-
-      <div>
-        <div className="text-sm text-neutral-400">
-          Disponibles
-        </div>
-
-        <div className="text-3xl font-bold text-green-400">
-          {optimalPercentage}%
-        </div>
-      </div>
-
-      <div>
-        <div className="text-sm text-neutral-400">
-          Estado general
-        </div>
-
-        <div
-          className={`text-xl font-bold ${
-            overallStatus === "MUY BUENO"
-              ? "text-green-400"
-              : overallStatus === "BUENO"
-              ? "text-blue-400"
-              : overallStatus === "MEJORABLE"
-              ? "text-yellow-400"
-              : "text-red-400"
-          }`}
-        >
-          {overallStatus}
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-
-</div>
-        {/* KPIs */}
-
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4">
-
-          {[
-  ["Jugadores", totalPlayers],
-  ["Activos", activePlayers],
-  ["Óptimos", optimalPlayers],
-  ["Selección", selectedPlayers],
-  ["Lesionados", injuredPlayers],
-  ["Media", averageScore],
-  ["Mejor", bestScore],
-  ["Peor", worstScore],
-  ["Élite", elitePlayers],
-  ["% Óptimos", `${optimalPercentage}%`],
-].map(([title, value]) => (
-
-            <div
-  key={String(title)}
-  onClick={() => handleKpiClick(String(title))}
-  className={`
-    group
-  rounded-xl
-  border
-  p-4
-  cursor-pointer
-  transition-all
-  duration-300
-  hover:-translate-y-1
-  hover:bg-neutral-800/70
-  hover:shadow-[0_0_20px_rgba(212,176,106,0.08)]
-  ${
-    (title === "Óptimos" &&
-      filters.estado === "ÓPTIMO") ||
-
-    (title === "Lesionados" &&
-      filters.estado === "LESIONADO") ||
-
-    (title === "Selección" &&
-      filters.estado === "SELECCIÓN") ||
-
-    (title === "Activos" &&
-      filters.activo === "true")
-
-      ? "bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(212,176,106,0.10)]"
-
-      : "bg-neutral-900 border-neutral-800 hover:border-amber-500"
-  }
-`}
->
-              <div className="text-sm text-neutral-400">
-                {title}
+                <input
+                  value={playerSearch}
+                  onChange={(event) => setPlayerSearch(event.target.value)}
+                  placeholder="Nombre, dorsal o posición..."
+                  className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#C8A96B]"
+                />
               </div>
 
-              <div className="mt-2 text-3xl font-bold tracking-tight text-white transition-colors duration-300 group-hover:text-amber-300">
+              <FilterSelect
+                label="Jugador"
+                value={filters.jugador}
+                onChange={(value) => updateFilter("jugador", value)}
+                options={players.map((p) => ({
+                  value: p.id,
+                  label: p.nombre || p.apodo,
+                }))}
+              />
 
-                {value}
-              </div>
-              <div className="text-xs text-neutral-500 mt-1">
-  Click para filtrar
-</div>
+              <FilterSelect
+                label="Posición"
+                value={filters.posicion}
+                onChange={(value) => updateFilter("posicion", value)}
+                options={filterOptions.posiciones.map((p) => ({
+                  value: p,
+                  label: p,
+                }))}
+              />
 
+              <FilterSelect
+                label="Estado"
+                value={filters.estado}
+                onChange={(value) => updateFilter("estado", value)}
+                options={filterOptions.estados.map((e) => ({
+                  value: e,
+                  label: e,
+                }))}
+              />
+
+              <FilterSelect
+                label="Licencia"
+                value={filters.licencia}
+                onChange={(value) => updateFilter("licencia", value)}
+                options={filterOptions.licencias.map((l) => ({
+                  value: l,
+                  label: l,
+                }))}
+              />
+
+              <FilterSelect
+                label="Fecha de control"
+                value={filters.fecha}
+                onChange={(value) => updateFilter("fecha", value)}
+                options={filterOptions.fechas.map((f) => ({
+                  value: f,
+                  label: formatFecha(f),
+                }))}
+              />
+
+              <FilterSelect
+                label="Grupo"
+                placeholder="Todos los jugadores"
+                value={filters.activo}
+                onChange={(value) => updateFilter("activo", value)}
+                options={[
+                  { value: "true", label: "RMCF Castilla" },
+                  { value: "false", label: "Promocionados a entrenar" },
+                ]}
+              />
             </div>
 
-          ))}
+            {/* CHIPS DE FILTROS ACTIVOS */}
 
-        </div>
+            {hasActiveFilters && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
+                {playerSearch && (
+                  <Chip
+                    label="Búsqueda"
+                    value={playerSearch}
+                    onClear={() => setPlayerSearch("")}
+                  />
+                )}
 
-        {/* GRÁFICOS */}
+                {activeFilters.map((filter) => (
+                  <Chip
+                    key={filter.key}
+                    label={filter.label}
+                    value={filter.value}
+                    onClear={() => updateFilter(filter.key, "")}
+                  />
+                ))}
 
-        <div className="grid lg:grid-cols-2 gap-6">
+                <button
+                  onClick={resetFilters}
+                  className="ml-auto flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                >
+                  <RotateCcw size={14} />
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+          </div>
 
-          <div className="rounded-xl bg-neutral-900 p-4">
+          {loading ? (
+            <DashboardSkeleton />
+          ) : players.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
+              No hay datos de plantilla disponibles.
+            </div>
+          ) : (
+            <>
+              {/* RESUMEN */}
 
-            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-              Estado plantilla
-            </h3>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
+                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-bold">REAL MADRID CASTILLA</h2>
 
-            <ResponsiveContainer width="100%" height={280}>
+                    <p className="mt-1 text-sm text-white/50">
+                      Resumen general de la plantilla
+                      {stats.sinValorar > 0 && (
+                        <>
+                          {" · "}
+                          <span className="text-[#C8A96B]">
+                            {stats.sinValorar} sin ficha de scouting
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
 
-              <PieChart>
+                  <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+                    <SummaryStat label="Jugadores" value={stats.total} />
+                    <SummaryStat label="Media" value={stats.media} />
+                    <SummaryStat
+                      label="Disponibles"
+                      value={`${stats.optimalPercentage}%`}
+                      className="text-emerald-400"
+                    />
+                    <SummaryStat
+                      label="Estado general"
+                      value={overallStatus}
+                      size="text-xl"
+                      className={
+                        overallStatus === "MUY BUENO"
+                          ? "text-emerald-400"
+                          : overallStatus === "BUENO"
+                            ? "text-sky-400"
+                            : overallStatus === "MEJORABLE"
+                              ? "text-yellow-400"
+                              : "text-red-400"
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
 
-                <Pie
-  data={estadoChart}
-  dataKey="value"
-  nameKey="name"
-  outerRadius={90}
-  label
-  cursor="pointer"
-  onClick={(data: any) => {
-    updateFilter(
-  "estado",
-  filters.estado === data.name ? "" : data.name
-);
-  }}
->
+              {/* KPIs */}
 
-                  {estadoChart.map((_, i) => (
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5">
+                {kpis.map((kpi) => {
+                  const clickable = Boolean(kpi.filter);
 
-                    <Cell
-                      key={i}
-                      fill={COLORS[i % COLORS.length]}
+                  const active = Boolean(
+                    kpi.filter && filters[kpi.filter.key] === kpi.filter.value,
+                  );
+
+                  const className = `group rounded-xl border p-4 text-left transition-all duration-300 ${
+                    clickable
+                      ? "cursor-pointer hover:-translate-y-1 hover:border-[#C8A96B] hover:bg-white/[0.06]"
+                      : ""
+                  } ${
+                    active
+                      ? "border-[#C8A96B] bg-[#C8A96B]/10 shadow-[0_0_20px_rgba(200,169,107,0.15)]"
+                      : "border-white/10 bg-white/[0.025]"
+                  }`;
+
+                  const body = (
+                    <>
+                      <div className="text-sm text-white/50">{kpi.title}</div>
+
+                      <div
+                        className={`mt-2 text-3xl font-bold tracking-tight transition-colors duration-300 ${
+                          kpi.tone ?? "text-white"
+                        } ${clickable ? "group-hover:text-[#C8A96B]" : ""}`}
+                      >
+                        {kpi.value}
+                      </div>
+
+                      <div className="mt-1 text-xs text-white/30">
+                        {clickable
+                          ? active
+                            ? "Filtro activo · click para quitar"
+                            : "Click para filtrar"
+                          : " "}
+                      </div>
+                    </>
+                  );
+
+                  if (!clickable) {
+                    return (
+                      <div key={kpi.title} className={className}>
+                        {body}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={kpi.title}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        toggleFilter(kpi.filter!.key, kpi.filter!.value)
+                      }
+                      className={className}
+                    >
+                      {body}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {filteredPlayers.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
+                  Ningún jugador coincide con los filtros seleccionados.
+                </div>
+              ) : (
+                <>
+                  {/* FICHA + RADAR */}
+
+                  <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+                    <PlayerCard
+                      player={selectedPlayer}
+                      onSelect={handlePlayerSelect}
+                      players={filteredPlayers}
                     />
 
-                  ))}
+                    <ChartCard
+                      title="Perfil comparado"
+                      subtitle={
+                        selectedPlayer
+                          ? `${
+                              selectedPlayer.apodo || selectedPlayer.nombre
+                            } vs. media de la plantilla filtrada`
+                          : undefined
+                      }
+                    >
+                      {radarData.length ? (
+                        <ResponsiveContainer width="100%" height={340}>
+                          <RadarChart data={radarData} outerRadius="72%">
+                            <PolarGrid stroke={THEME.grid} />
 
-                </Pie>
+                            <PolarAngleAxis
+                              dataKey="subject"
+                              tick={{ fill: THEME.axis, fontSize: 12 }}
+                            />
 
-                <Tooltip contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}}/>
+                            <PolarRadiusAxis
+                              domain={[0, 10]}
+                              tick={{ fill: THEME.axis, fontSize: 10 }}
+                              stroke={THEME.grid}
+                            />
 
-              </PieChart>
+                            <Radar
+                              name="Plantilla"
+                              dataKey="plantilla"
+                              stroke="#7DA6D9"
+                              fill="#7DA6D9"
+                              fillOpacity={0.18}
+                            />
 
-            </ResponsiveContainer>
+                            <Radar
+                              name={
+                                selectedPlayer?.apodo ||
+                                selectedPlayer?.nombre ||
+                                "Jugador"
+                              }
+                              dataKey="jugador"
+                              stroke={THEME.gold}
+                              fill={THEME.gold}
+                              fillOpacity={0.35}
+                            />
 
-          </div>
+                            <Legend wrapperStyle={{ color: THEME.text }} />
 
-          <div className="rounded-xl bg-neutral-900 p-4">
+                            <Tooltip
+                              formatter={(value) =>
+                                `${Number(value).toFixed(1)}/10`
+                              }
+                              contentStyle={TOOLTIP_STYLE}
+                              labelStyle={TOOLTIP_LABEL_STYLE}
+                            />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <EmptyChart message="Sin datos de scouting para el filtro actual." />
+                      )}
+                    </ChartCard>
+                  </div>
 
-            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-              Jugadores por posición
-            </h3>
+                  {/* GRÁFICOS */}
 
-            <ResponsiveContainer width="100%" height={280}>
+                  <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                    <ChartCard
+                      title="Estado de la plantilla"
+                      subtitle="Click en un sector para filtrar"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={estadoChart}
+                            dataKey="value"
+                            nameKey="name"
+                            outerRadius={95}
+                            label={({ name, value }) => `${name}: ${value}`}
+                            cursor="pointer"
+                            onClick={(data: { name?: string }) =>
+                              data?.name && toggleFilter("estado", data.name)
+                            }
+                          >
+                            {estadoChart.map((entry) => (
+                              <Cell
+                                key={entry.name}
+                                fill={estadoColor(entry.name)}
+                                stroke={THEME.card}
+                              />
+                            ))}
+                          </Pie>
 
-              <BarChart data={positionChart}>
+                          <Tooltip
+                            contentStyle={TOOLTIP_STYLE}
+                            labelStyle={TOOLTIP_LABEL_STYLE}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
 
-                <CartesianGrid
-stroke={THEME.grid}
-strokeDasharray="2 2"
-/>
+                      <ColorLegend
+                        items={estadoChart.map((entry) => ({
+                          label: entry.name,
+                          color: estadoColor(entry.name),
+                        }))}
+                      />
+                    </ChartCard>
 
-                <XAxis dataKey="name" tick={{ fill: THEME.axis }}
+                    <ChartCard
+                      title="Jugadores por posición"
+                      subtitle="Click en una barra para filtrar"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart
+                          data={positionChart}
+                          margin={{ top: 10, right: 10, bottom: 0, left: -20 }}
+                        >
+                          <CartesianGrid
+                            stroke={THEME.grid}
+                            strokeDasharray="2 2"
+                          />
 
-axisLine={{
-stroke: THEME.grid
-}}
+                          <XAxis
+                            dataKey="name"
+                            interval={0}
+                            angle={-20}
+                            textAnchor="end"
+                            height={70}
+                            {...AXIS_PROPS}
+                          />
 
-tickLine={{
-stroke: THEME.grid
-}}/>
+                          <YAxis allowDecimals={false} {...AXIS_PROPS} />
 
-                <YAxis />
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                            contentStyle={TOOLTIP_STYLE}
+                            labelStyle={TOOLTIP_LABEL_STYLE}
+                          />
 
-                <Tooltip contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}}/>
+                          <Bar
+                            dataKey="value"
+                            name="Jugadores"
+                            fill={THEME.gold}
+                            radius={[5, 5, 0, 0]}
+                            cursor="pointer"
+                            onClick={(data: { name?: string }) =>
+                              data?.name && toggleFilter("posicion", data.name)
+                            }
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
 
-                <Bar
-  dataKey="value"
-  fill={THEME.gold}
-  radius={[5, 5, 0, 0]}
-  cursor="pointer"
-  onClick={(data: any) => {
-    updateFilter(
-  "posicion",
-  filters.posicion === data.name ? "" : data.name
-);
-  }}
-/>
+                    <ChartCard
+                      title="Top 10 valoración"
+                      subtitle="Click en una barra para ver la ficha"
+                    >
+                      {rankingChart.length ? (
+                        <ResponsiveContainer width="100%" height={340}>
+                          <BarChart data={rankingChart} layout="vertical">
+                            <CartesianGrid
+                              stroke={THEME.grid}
+                              strokeDasharray="2 2"
+                            />
 
-              </BarChart>
+                            <XAxis
+                              type="number"
+                              domain={[0, 10]}
+                              {...AXIS_PROPS}
+                            />
 
-            </ResponsiveContainer>
+                            <YAxis
+                              dataKey="name"
+                              type="category"
+                              width={150}
+                              {...AXIS_PROPS}
+                              tickFormatter={(value: string, index: number) => {
+                                const medal =
+                                  index === 0
+                                    ? "🥇 "
+                                    : index === 1
+                                      ? "🥈 "
+                                      : index === 2
+                                        ? "🥉 "
+                                        : `${index + 1}. `;
 
-          </div>
+                                return medal + value;
+                              }}
+                            />
 
+                            <Tooltip
+                              cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                              formatter={(value) => [
+                                `${Number(value).toFixed(1)}/10`,
+                                "Valoración",
+                              ]}
+                              contentStyle={TOOLTIP_STYLE}
+                              labelStyle={TOOLTIP_LABEL_STYLE}
+                            />
 
-          <div className="rounded-xl bg-neutral-900 p-4">
+                            <Bar
+                              dataKey="value"
+                              radius={[0, 6, 6, 0]}
+                              cursor="pointer"
+                              onClick={(data: { id?: string }) =>
+                                data?.id && handlePlayerSelect(data.id)
+                              }
+                            >
+                              {rankingChart.map((entry) => (
+                                <Cell
+                                  key={entry.id}
+                                  fill={
+                                    selectedPlayer?.id === entry.id
+                                      ? "#F0D8A8"
+                                      : THEME.gold
+                                  }
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <EmptyChart message="Sin jugadores valorados en el filtro actual." />
+                      )}
+                    </ChartCard>
 
-            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-              Top 10 valoración
-            </h3>
+                    <ChartCard
+                      title="Mentalidad vs Física"
+                      subtitle="El tamaño del punto indica la media global"
+                    >
+                      {scatterData.length ? (
+                        <>
+                          <ResponsiveContainer width="100%" height={340}>
+                            <ScatterChart
+                              margin={{
+                                top: 10,
+                                right: 20,
+                                bottom: 10,
+                                left: -10,
+                              }}
+                            >
+                              <CartesianGrid
+                                stroke={THEME.grid}
+                                strokeDasharray="2 2"
+                              />
 
-            <ResponsiveContainer width="100%" height={300}>
+                              <XAxis
+                                type="number"
+                                dataKey="x"
+                                domain={[0, 10]}
+                                name="Mentalidad"
+                                {...AXIS_PROPS}
+                              />
 
-              <BarChart
-                data={rankingChart}
-                layout="vertical"
-              >
+                              <YAxis
+                                type="number"
+                                dataKey="y"
+                                domain={[0, 10]}
+                                name="Física"
+                                {...AXIS_PROPS}
+                              />
 
-                <CartesianGrid
-stroke={THEME.grid}
-strokeDasharray="2 2"
-/>
+                              <ZAxis
+                                type="number"
+                                dataKey="z"
+                                range={[80, 320]}
+                              />
 
-                <XAxis type="number" domain={[0, 10]} tick={{ fill: THEME.axis }}
+                              <Tooltip
+                                cursor={{ strokeDasharray: "3 3" }}
+                                content={({ active, payload }) => {
+                                  if (!active || !payload?.length) return null;
 
-axisLine={{
-stroke: THEME.grid
-}}
+                                  const p = payload[0].payload;
 
-tickLine={{
-stroke: THEME.grid
-}} />
+                                  return (
+                                    <div className="rounded-xl border border-white/10 bg-[#11161D] p-3 text-sm shadow-xl">
+                                      <div className="font-bold text-white">
+                                        {p.name}
+                                      </div>
 
-                <YAxis
-  dataKey="name"
-  type="category"
-  width={130}
-  tickFormatter={(value, index) => {
+                                      <div className="mt-1 text-white/60">
+                                        Mentalidad: {p.x}
+                                      </div>
+                                      <div className="text-white/60">
+                                        Física: {p.y}
+                                      </div>
+                                      <div className="text-white/60">
+                                        Media: {p.z}
+                                      </div>
 
-    const medal =
-      index === 0
-        ? "🥇 "
-        : index === 1
-        ? "🥈 "
-        : index === 2
-        ? "🥉 "
-        : `${index + 1}. `;
+                                      <div
+                                        className="mt-1 font-medium"
+                                        style={{ color: p.color }}
+                                      >
+                                        {p.estado}
+                                      </div>
+                                    </div>
+                                  );
+                                }}
+                              />
 
-    return medal + value;
+                              <Scatter
+                                data={scatterData}
+                                cursor="pointer"
+                                onClick={(data) => {
+                                  /* Recharts entrega el punto, no el dato:
+                                     el registro original está en `payload`. */
+                                  const point = data as unknown as {
+                                    id?: string;
+                                    payload?: { id?: string };
+                                  };
 
-  }}
-/>
+                                  const id = point?.payload?.id ?? point?.id;
 
-                <Tooltip
-  formatter={(value) => [
-    `${Number(value).toFixed(1)}/10`,
-    "Valoración",
-  ]}
-contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}}/>
+                                  if (id) handlePlayerSelect(id);
+                                }}
+                              >
+                                {scatterData.map((entry) => (
+                                  <Cell
+                                    key={entry.id}
+                                    fill={entry.color}
+                                    stroke={
+                                      selectedPlayer?.id === entry.id
+                                        ? "#FFFFFF"
+                                        : "transparent"
+                                    }
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Scatter>
+                            </ScatterChart>
+                          </ResponsiveContainer>
 
-                <Bar
-  dataKey="value"
-  fill={THEME.gold}
-  radius={[0, 6, 6, 0]}
-  cursor="pointer"
-  onClick={(data: any) => handlePlayerSelect(data.id)}
-/>
+                          <ColorLegend
+                            items={Object.entries(ESTADO_COLORS).map(
+                              ([label, color]) => ({ label, color }),
+                            )}
+                          />
+                        </>
+                      ) : (
+                        <EmptyChart message="Sin jugadores valorados en el filtro actual." />
+                      )}
+                    </ChartCard>
 
-              </BarChart>
+                    <ChartCard
+                      title="Evolución de registros"
+                      subtitle="Controles de estado registrados por fecha"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart
+                          data={evolutionData}
+                          margin={{ top: 10, right: 10, bottom: 0, left: -20 }}
+                        >
+                          <CartesianGrid
+                            stroke={THEME.grid}
+                            strokeDasharray="2 2"
+                          />
 
-            </ResponsiveContainer>
+                          <XAxis dataKey="label" {...AXIS_PROPS} />
 
-          </div>
+                          <YAxis allowDecimals={false} {...AXIS_PROPS} />
 
-          <div className="rounded-xl bg-neutral-900 p-4">
+                          <Tooltip
+                            contentStyle={TOOLTIP_STYLE}
+                            labelStyle={TOOLTIP_LABEL_STYLE}
+                          />
 
-            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-              Mentalidad vs Física
-            </h3>
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            name="Registros"
+                            stroke={THEME.gold}
+                            strokeWidth={3}
+                            dot={{ r: 4, fill: THEME.gold }}
+                            activeDot={{ r: 6 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
 
-            <ResponsiveContainer width="100%" height={300}>
+                    <ChartCard
+                      title="Distribución por licencias"
+                      subtitle="Click en un sector para filtrar"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={licenciaChart}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={65}
+                            outerRadius={95}
+                            paddingAngle={3}
+                            label={({ value }) => value}
+                            cursor="pointer"
+                            onClick={(data: { name?: string }) =>
+                              data?.name && toggleFilter("licencia", data.name)
+                            }
+                          >
+                            {licenciaChart.map((entry, index) => (
+                              <Cell
+                                key={entry.name}
+                                fill={COLORS[index % COLORS.length]}
+                                stroke={THEME.card}
+                              />
+                            ))}
+                          </Pie>
 
-              <ScatterChart>
+                          <Tooltip
+                            contentStyle={TOOLTIP_STYLE}
+                            labelStyle={TOOLTIP_LABEL_STYLE}
+                          />
 
-                <CartesianGrid />
-
-                <XAxis
-                  type="number"
-                  dataKey="x"
-                  domain={[0, 10]}
-                  name="Mentalidad"
-                  tick={{ fill: THEME.axis }}
-
-axisLine={{
-stroke: THEME.grid
-}}
-
-tickLine={{
-stroke: THEME.grid
-}}
-                />
-
-                <YAxis
-                  type="number"
-                  dataKey="y"
-                  domain={[0, 10]}
-                  name="Física"
-                  tick={{ fill: THEME.axis }}
-
-axisLine={{
-stroke: THEME.grid
-}}
-
-tickLine={{
-stroke: THEME.grid
-}}
-                />
-
-                <ZAxis
-                  type="number"
-                  dataKey="z"
-                  range={[80, 320]}
-                />
-
-                <Tooltip
-  cursor={{ strokeDasharray: "3 3" }}
-  content={({ active, payload }) => {
-
-    if (!active || !payload?.length) return null;
-
-    const p = payload[0].payload;
-
-    return (
-
-      <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-sm">
-
-        <div className="font-bold text-white">
-          {p.name}
+                          <Legend wrapperStyle={{ color: THEME.text }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
+      </main>
+    </div>
+  );
+}
 
-        <div>Mentalidad: {p.x}</div>
+/*
+|--------------------------------------------------------------------------
+| ESTILOS COMPARTIDOS DE RECHARTS
+|--------------------------------------------------------------------------
+*/
 
-        <div>Física: {p.y}</div>
+const TOOLTIP_STYLE = {
+  background: THEME.card,
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 12,
+  color: "#FFF",
+} as const;
 
-        <div>Media: {p.z.toFixed(1)}</div>
+const TOOLTIP_LABEL_STYLE = {
+  color: THEME.gold,
+} as const;
 
-        <div>Estado: {p.estado}</div>
+const AXIS_PROPS = {
+  tick: { fill: THEME.axis, fontSize: 12 },
+  axisLine: { stroke: THEME.grid },
+  tickLine: { stroke: THEME.grid },
+} as const;
 
-      </div>
+/*
+|--------------------------------------------------------------------------
+| COMPONENTES AUXILIARES
+|--------------------------------------------------------------------------
+*/
 
-    );
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  return (
+    <label className="block min-w-0">
+      <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">
+        {label}
+      </span>
 
-  }}
-contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}}/>
-
-                <Scatter
-  data={scatterData}
-  cursor="pointer"
-  onClick={(data: any) => handlePlayerSelect(data.id)}
->
-  {scatterData.map((entry, index) => (
-    <Cell
-      key={index}
-      fill={entry.color}
-    />
-  ))}
-</Scatter>
-
-              </ScatterChart>
-
-            </ResponsiveContainer>
-<div className="mt-4 flex flex-wrap gap-4 text-sm">
-
-  <div className="flex items-center gap-2">
-    <span className="h-3 w-3 rounded-full bg-green-500" />
-    ÓPTIMO
-  </div>
-
-  <div className="flex items-center gap-2">
-    <span className="h-3 w-3 rounded-full bg-red-500" />
-    LESIONADO
-  </div>
-
-  <div className="flex items-center gap-2">
-    <span className="h-3 w-3 rounded-full bg-blue-500" />
-    SELECCIÓN
-  </div>
-
-  <div className="flex items-center gap-2">
-    <span className="h-3 w-3 rounded-full bg-yellow-400" />
-    RECUPERACIÓN
-  </div>
-
-</div>
-          </div>
-
-          <div className="rounded-xl bg-neutral-900 p-4">
-
-            <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-              Evolución registros
-            </h3>
-
-            <ResponsiveContainer width="100%" height={300}>
-
-              <LineChart data={evolutionData}>
-
-                <CartesianGrid
-stroke={THEME.grid}
-strokeDasharray="2 2"
-/>
-
-                <XAxis dataKey="date" tick={{ fill: THEME.axis }}
-
-axisLine={{
-stroke: THEME.grid
-}}
-
-tickLine={{
-stroke: THEME.grid
-}}/>
-
-                <YAxis />
-
-                <Tooltip contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}}/>
-
-                <Legend wrapperStyle={{
-color:"#C6CBD1"
-}}/>
-
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={THEME.gold}
-                  strokeWidth={3}
-                  dot={{
-  r:4,
-  fill:THEME.gold
-}}
-                />
-
-              </LineChart>
-
-            </ResponsiveContainer>
-
-          </div>
-          <div className="rounded-xl bg-neutral-900 p-4">
-
-  <h3 className="mb-5 text-lg font-semibold tracking-wide text-neutral-100">
-    Distribución por licencias
-  </h3>
-
-  <ResponsiveContainer width="100%" height={300}>
-
-    <PieChart>
-
-      <Pie
-        data={licenciaChart}
-        dataKey="value"
-        nameKey="name"
-        innerRadius={65}
-        outerRadius={95}
-        paddingAngle={3}
-        label
-        cursor="pointer"
-        onClick={(data: any) =>
-          updateFilter(
-            "licencia",
-            filters.licencia === data.name
-              ? ""
-              : data.name
-          )
-        }
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`w-full min-w-0 rounded-xl border bg-[#11161D] px-3 py-3 text-sm outline-none transition focus:border-[#C8A96B] ${
+          value
+            ? "border-[#C8A96B]/50 text-[#C8A96B]"
+            : "border-white/10 text-white/80"
+        }`}
       >
+        <option value="">{placeholder ?? `Todas · ${label}`}</option>
 
-        {licenciaChart.map((_, index) => (
-
-          <Cell
-            key={index}
-            fill={COLORS[index % COLORS.length]}
-          />
-
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
         ))}
+      </select>
+    </label>
+  );
+}
 
-      </Pie>
+function Chip({
+  label,
+  value,
+  onClear,
+}: {
+  label: string;
+  value: string;
+  onClear: () => void;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 py-1 pl-3 pr-1 text-xs text-[#C8A96B]">
+      <span className="text-white/40">{label}:</span>
 
-      <Tooltip contentStyle={{
-background:"#1D2127",
-border:"1px solid #2B3138",
-borderRadius:12,
-color:"#FFF"
-}}
-labelStyle={{
-color:"#D4B06A"
-}} />
+      <span className="max-w-[160px] truncate font-medium">{value}</span>
 
-      <Legend wrapperStyle={{
-color:"#C6CBD1"
-}} />
+      <button
+        onClick={onClear}
+        aria-label={`Quitar filtro ${label}`}
+        className="rounded-full p-1 transition hover:bg-[#C8A96B]/20"
+      >
+        <X size={12} />
+      </button>
+    </span>
+  );
+}
 
-    </PieChart>
+function SummaryStat({
+  label,
+  value,
+  className = "",
+  size = "text-3xl",
+}: {
+  label: string;
+  value: string | number;
+  className?: string;
+  size?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-sm text-white/50">{label}</div>
 
-  </ResponsiveContainer>
+      <div className={`${size} font-bold ${className}`}>{value}</div>
+    </div>
+  );
+}
 
-</div>
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:p-5">
+      <div className="mb-5 min-w-0">
+        <h3 className="truncate text-lg font-semibold tracking-wide text-neutral-100">
+          {title}
+        </h3>
 
-        </div>
-
+        {subtitle && (
+          <p className="mt-1 truncate text-xs text-white/35">{subtitle}</p>
+        )}
       </div>
 
-    </main>
+      {children}
+    </div>
+  );
+}
 
-  </div>
+function EmptyChart({ message }: { message: string }) {
+  return (
+    <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed border-white/10 px-6 text-center text-sm text-white/30">
+      {message}
+    </div>
+  );
+}
 
-);
+function ColorLegend({ items }: { items: { label: string; color: string }[] }) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-4 text-xs text-white/60">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-center gap-2">
+          <span
+            className="h-3 w-3 rounded-full"
+            style={{ background: item.color }}
+          />
+          {item.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MetricBar({
+  label,
+  value,
+  reference,
+}: {
+  label: string;
+  value: number;
+  reference?: number;
+}) {
+  const percentage = Math.max(0, Math.min(100, (value / 10) * 100));
+
+  const diff =
+    reference !== undefined ? Number((value - reference).toFixed(1)) : null;
+
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-3 text-xs">
+        <span className="truncate text-white/50">{label}</span>
+
+        <span className="shrink-0 font-semibold text-white">
+          {value ? value.toFixed(1) : "—"}
+
+          {diff !== null && value > 0 && (
+            <span
+              className={`ml-2 font-normal ${
+                diff > 0
+                  ? "text-emerald-400"
+                  : diff < 0
+                    ? "text-red-400"
+                    : "text-white/30"
+              }`}
+              title="Diferencia respecto a la media de la plantilla filtrada"
+            >
+              {diff > 0 ? "+" : ""}
+              {diff}
+            </span>
+          )}
+        </span>
+      </div>
+
+      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#8E6A37] to-[#C8A96B] transition-all duration-500"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PlayerCard({
+  player,
+  players,
+  onSelect,
+}: {
+  player: Player | null;
+  players: Player[];
+  onSelect: (id: string) => void;
+}) {
+  if (!player) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-10 text-center text-sm text-white/30">
+        Selecciona un jugador.
+      </div>
+    );
+  }
+
+  const index = players.findIndex((p) => p.id === player.id);
+
+  const go = (direction: number) => {
+    const next = index + direction;
+    if (next < 0 || next >= players.length) return;
+    onSelect(players[next].id);
+  };
+
+  const referencia = players.filter((p) => p.valorado);
+
+  const media = (key: MetricaKey) =>
+    referencia.length
+      ? referencia.reduce((acc, p) => acc + p[key], 0) / referencia.length
+      : 0;
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+      {/* CABECERA */}
+
+      <div className="flex min-w-0 items-center gap-4">
+        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
+          {player.foto ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={player.foto}
+              alt={player.nombre}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <UserRound size={32} className="text-white/20" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            {player.dorsal && (
+              <span className="shrink-0 text-sm font-bold text-[#C8A96B]">
+                #{player.dorsal}
+              </span>
+            )}
+
+            <span
+              className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+              style={{
+                background: `${estadoColor(player.estado)}22`,
+                color: estadoColor(player.estado),
+              }}
+            >
+              {player.estado || "SIN ESTADO"}
+            </span>
+          </div>
+
+          <h3 className="mt-1 truncate text-lg font-semibold">
+            {player.apodo || player.nombre}
+          </h3>
+
+          <p className="truncate text-xs text-white/40">
+            {player.posicion || "—"}
+            {player.licencia ? ` · ${player.licencia}` : ""}
+          </p>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <div className="text-[10px] uppercase tracking-wider text-white/30">
+            Media
+          </div>
+
+          <div className="text-3xl font-bold text-[#C8A96B]">
+            {player.valorado ? player.media.toFixed(1) : "—"}
+          </div>
+        </div>
+      </div>
+
+      {/* NAVEGACIÓN */}
+
+      <div className="mt-4 flex items-center justify-between gap-3 text-xs text-white/40">
+        <button
+          onClick={() => go(-1)}
+          disabled={index <= 0}
+          className="rounded-lg border border-white/10 px-3 py-1.5 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-20"
+        >
+          ← Anterior
+        </button>
+
+        <span className="shrink-0">
+          {index + 1} / {players.length}
+        </span>
+
+        <button
+          onClick={() => go(1)}
+          disabled={index >= players.length - 1}
+          className="rounded-lg border border-white/10 px-3 py-1.5 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-20"
+        >
+          Siguiente →
+        </button>
+      </div>
+
+      {/* MÉTRICAS */}
+
+      <div className="mt-5 space-y-3 border-t border-white/5 pt-5">
+        {player.valorado ? (
+          METRICAS.map(({ key, label }) => (
+            <MetricBar
+              key={key}
+              label={label}
+              value={player[key]}
+              reference={media(key)}
+            />
+          ))
+        ) : (
+          <p className="text-sm text-white/30">
+            Este jugador todavía no tiene ficha de scouting.
+          </p>
+        )}
+      </div>
+
+      {/* TEXTOS */}
+
+      {(player.fortalezas || player.aspectosMejora) && (
+        <div className="mt-5 space-y-4 border-t border-white/5 pt-5 text-sm">
+          {player.fortalezas && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-emerald-400/70">
+                Fortalezas
+              </p>
+              <p className="mt-1 text-white/70">{player.fortalezas}</p>
+            </div>
+          )}
+
+          {player.aspectosMejora && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#C8A96B]/70">
+                Aspectos de mejora
+              </p>
+              <p className="mt-1 text-white/70">{player.aspectosMejora}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PIE */}
+
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-white/30">
+        <span className="truncate">
+          Último control: {formatFecha(player.fecha)}
+        </span>
+
+        {player.hudl && (
+          <a
+            href={player.hudl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex shrink-0 items-center gap-1.5 text-[#C8A96B] transition hover:text-[#e0c68d]"
+          >
+            Hudl
+            <ExternalLink size={12} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
+          />
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-[360px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
+          />
+        ))}
+      </div>
+    </div>
+  );
 }

@@ -1,21 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 
 import {
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
   Search,
+  Shirt,
   X,
   Save,
   ExternalLink,
   FileText,
   Video,
   UserRound,
-    Plus,
+  Plus,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 
@@ -59,73 +71,168 @@ function normalize(value: unknown) {
     .trim();
 }
 
-function getPositionStyle(position: string) {
+/*
+|--------------------------------------------------------------------------
+| LÍNEAS DE POSICIÓN
+|--------------------------------------------------------------------------
+| Una única fuente de verdad para clasificar posiciones: la usan el listado
+| por líneas, el color del badge y el campograma.
+*/
+
+type LineKey = "portero" | "defensa" | "medio" | "ataque";
+
+const LINE_DEFINITIONS: {
+  key: LineKey;
+  title: string;
+  /* Prefijos por orden de preferencia dentro de la línea. */
+  positions: string[];
+  color: string;
+  badge: string;
+}[] = [
+  {
+    key: "portero",
+    title: "PORTEROS",
+    positions: ["portero", "arquero", "guardameta"],
+    color: "#EAB308",
+    badge: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
+  },
+  {
+    key: "defensa",
+    title: "DEFENSAS",
+    positions: [
+      "lateral derecho",
+      "lateral d",
+      "central",
+      "zaguero",
+      "lateral izquierdo",
+      "lateral izq",
+      "lateral i",
+      "carrilero",
+      "lateral",
+      "defensa",
+    ],
+    color: "#7DA6D9",
+    badge: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  },
+  {
+    key: "medio",
+    title: "CENTROCAMPISTAS",
+    positions: [
+      "mediocentro",
+      "medio centro",
+      "pivote",
+      "interior",
+      "media punta",
+      "mediapunta",
+      "enganche",
+      "medio",
+    ],
+    color: "#52B788",
+    badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  },
+  {
+    key: "ataque",
+    title: "ATACANTES",
+    positions: [
+      "extremo derecho",
+      "extremo d",
+      "extremo izquierdo",
+      "extremo izq",
+      "extremo i",
+      "extremo",
+      "delantero",
+      "punta",
+      "ariete",
+    ],
+    color: "#D46A6A",
+    badge: "bg-red-500/15 text-red-300 border-red-500/30",
+  },
+];
+
+function getLine(position: string) {
   const value = normalize(position);
+  if (!value) return null;
 
-  if (value.includes("portero")) {
-    return "bg-yellow-500/15 text-yellow-300 border-yellow-500/30";
-  }
-
-  if (
-    value.includes("central") ||
-    value.includes("lateral") ||
-    value.includes("carrilero")
-  ) {
-    return "bg-blue-500/15 text-blue-300 border-blue-500/30";
-  }
-
-  if (
-    value.includes("medio") ||
-    value.includes("mediocentro") ||
-    value.includes("interior") ||
-    value.includes("pivote")
-  ) {
-    return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-  }
-
-  if (
-    value.includes("extremo") ||
-    value.includes("delantero")
-  ) {
-    return "bg-red-500/15 text-red-300 border-red-500/30";
-  }
-
-  return "bg-white/10 text-white/70 border-white/10";
+  return (
+    LINE_DEFINITIONS.find((line) =>
+      line.positions.some((item) => value.includes(normalize(item))),
+    ) ?? null
+  );
 }
 
+function getPositionStyle(position: string) {
+  return getLine(position)?.badge ?? "bg-white/10 text-white/70 border-white/10";
+}
+
+/* Orden de un jugador dentro de su línea (portero → lateral → central → ...). */
+function positionRank(position: string) {
+  const line = getLine(position);
+  if (!line) return 999;
+
+  const value = normalize(position);
+
+  const index = line.positions.findIndex((item) =>
+    value.includes(normalize(item)),
+  );
+
+  return index === -1 ? 998 : index;
+}
+
+const EMPTY_PLAYER_KEYS: (keyof RivalPlayer)[] = [
+  "DORSAL",
+  "JUGADOR",
+  "NOMBRE DEPORTIVO",
+  "LUGAR DE NACIMIENTO",
+  "EDAD",
+  "PESO",
+  "ALTURA",
+  "POSICIÓN",
+  "2º POSICIÓN",
+  "PIE DOMINANTE",
+  "PROCEDENCIA",
+  "FECHA INCORPORACIÓN",
+  "IMPACTO",
+  "ROL",
+  "CARACTERÍSTICAS",
+  "FORTALEZAS",
+  "DEBILIDADES",
+  "OBSERVACIONES",
+  "VIDEO",
+  "DOC",
+  "FOTO",
+  "ESTADO",
+];
+
 export default function RivalPlayersPage() {
-  const [players, setPlayers] =
-    useState<RivalPlayer[]>([]);
+  const [players, setPlayers] = useState<RivalPlayer[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const [selectedTeam, setSelectedTeam] =
-    useState<string>("");
+  const [selectedTeam, setSelectedTeam] = useState<string>("");
 
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
+  const [positionSearch, setPositionSearch] = useState("");
 
-  const [positionSearch, setPositionSearch] =
-  useState("");
+  const [selectedPlayer, setSelectedPlayer] = useState<RivalPlayer | null>(
+    null,
+  );
 
-  const [selectedPlayer, setSelectedPlayer] =
-    useState<RivalPlayer | null>(null);
+  const [editForm, setEditForm] = useState<RivalPlayer | null>(null);
 
-  const [editForm, setEditForm] =
-    useState<RivalPlayer | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-const [isCreating, setIsCreating] =
-  useState(false);
+  const [showPitch, setShowPitch] = useState(true);
 
-  const [saving, setSaving] =
-    useState(false);
+  const touchStartX = useRef<number | null>(null);
 
-  const [touchStartX, setTouchStartX] =
-    useState<number | null>(null);
+  /* Snapshot del jugador al abrir el modal, para detectar cambios sin guardar. */
+  const [pristineForm, setPristineForm] = useState("");
 
+  useBodyScrollLock(Boolean(editForm));
 
-    
   /*
   |--------------------------------------------------------------------------
   | CARGA DE PLANTILLAS
@@ -133,42 +240,54 @@ const [isCreating, setIsCreating] =
   */
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadPlayers() {
       try {
         setLoading(true);
+        setLoadError(null);
 
         const response = await fetch(
-  `${RIVALS_API_URL}?action=rivalesPlantillas`
-);
+          `${RIVALS_API_URL}?action=rivalesPlantillas`,
+        );
 
         const data = await response.json();
+
+        if (cancelled) return;
 
         if (Array.isArray(data)) {
           setPlayers(data);
 
-          if (data.length > 0) {
-            setSelectedTeam(
-              data[0].NOMBRE_EQUIPO
-            );
-          }
+          setSelectedTeam((current) => {
+            if (current && data.some((p) => p.NOMBRE_EQUIPO === current)) {
+              return current;
+            }
+
+            return data[0]?.NOMBRE_EQUIPO ?? "";
+          });
         } else {
           console.error(data);
           setPlayers([]);
+          setLoadError("La respuesta del servidor no es válida.");
         }
       } catch (error) {
-        console.error(
-          "Error cargando jugadores rivales:",
-          error
-        );
+        if (cancelled) return;
+
+        console.error("Error cargando jugadores rivales:", error);
 
         setPlayers([]);
+        setLoadError("No se han podido cargar las plantillas rivales.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadPlayers();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   /*
   |--------------------------------------------------------------------------
@@ -177,24 +296,19 @@ const [isCreating, setIsCreating] =
   */
 
   const teams = useMemo(() => {
-    return [
-      ...new Set(
-        players
-          .map((player) =>
-            String(
-              player.NOMBRE_EQUIPO || ""
-            )
-          )
-          .filter(Boolean)
-      ),
-    ];
-  }, [players]);
+    const counts = new Map<string, number>();
 
-  /*
-  |--------------------------------------------------------------------------
-  | POSICIONES
-  |--------------------------------------------------------------------------
-  */
+    players.forEach((player) => {
+      const team = String(player.NOMBRE_EQUIPO || "");
+      if (!team) return;
+
+      counts.set(team, (counts.get(team) ?? 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [players]);
 
   /*
   |--------------------------------------------------------------------------
@@ -202,79 +316,90 @@ const [isCreating, setIsCreating] =
   |--------------------------------------------------------------------------
   */
 
- const filteredPlayers = useMemo(() => {
-  const searchValue = normalize(search);
+  const filteredPlayers = useMemo(() => {
+    const searchValue = normalize(search);
+    const positionSearchValue = normalize(positionSearch);
 
-  const positionSearchValue =
-    normalize(positionSearch);
+    return players.filter((player) => {
+      const matchesPosition =
+        !positionSearchValue ||
+        normalize(player["POSICIÓN"]).includes(positionSearchValue) ||
+        normalize(player["2º POSICIÓN"]).includes(positionSearchValue);
 
-  return players.filter((player) => {
-    const sameTeam =
-      player.NOMBRE_EQUIPO === selectedTeam;
+      if (!matchesPosition) return false;
 
-    const matchesSearch =
-      !searchValue ||
-      normalize(player.JUGADOR).includes(
-        searchValue
-      ) ||
-      normalize(
-        player["NOMBRE DEPORTIVO"]
-      ).includes(searchValue) ||
-      normalize(
-        player.NOMBRE_EQUIPO
-      ).includes(searchValue) ||
-      String(player.DORSAL).includes(
-        searchValue
-      ) ||
-      normalize(
-        player["POSICIÓN"]
-      ).includes(searchValue) ||
-      normalize(
-        player["2º POSICIÓN"]
-      ).includes(searchValue);
+      /* Sin búsqueda general se muestra solo el equipo seleccionado. */
+      if (!searchValue) {
+        return player.NOMBRE_EQUIPO === selectedTeam;
+      }
 
-    const matchesPosition =
-      !positionSearchValue ||
-      normalize(
-        player["POSICIÓN"]
-      ).includes(positionSearchValue) ||
-      normalize(
-        player["2º POSICIÓN"]
-      ).includes(positionSearchValue);
-
-    /*
-    |--------------------------------------------------------------------------
-    | SIN BÚSQUEDA GENERAL
-    |--------------------------------------------------------------------------
-    | Se muestra únicamente el equipo seleccionado
-    */
-
-    if (!searchValue) {
+      /* Con búsqueda general se busca en todos los equipos. */
       return (
-        sameTeam &&
-        matchesPosition
+        normalize(player.JUGADOR).includes(searchValue) ||
+        normalize(player["NOMBRE DEPORTIVO"]).includes(searchValue) ||
+        normalize(player.NOMBRE_EQUIPO).includes(searchValue) ||
+        String(player.DORSAL).includes(searchValue) ||
+        normalize(player["POSICIÓN"]).includes(searchValue) ||
+        normalize(player["2º POSICIÓN"]).includes(searchValue) ||
+        normalize(player.ROL).includes(searchValue)
       );
-    }
+    });
+  }, [players, selectedTeam, search, positionSearch]);
 
-    /*
-    |--------------------------------------------------------------------------
-    | CON BÚSQUEDA GENERAL
-    |--------------------------------------------------------------------------
-    | También puede encontrar jugadores
-    | por nombre de equipo
-    */
+  /* Equipos representados en el resultado actual (relevante al buscar global). */
+  const teamsInResults = useMemo(() => {
+    return [
+      ...new Set(filteredPlayers.map((p) => String(p.NOMBRE_EQUIPO || ""))),
+    ].filter(Boolean);
+  }, [filteredPlayers]);
 
-    return (
-      matchesSearch &&
-      matchesPosition
+  /*
+  |--------------------------------------------------------------------------
+  | CAMPOGRAMA
+  |--------------------------------------------------------------------------
+  | Sólo tiene sentido con un equipo: si la búsqueda mezcla plantillas nos
+  | quedamos con la del equipo seleccionado (o la primera del resultado).
+  */
+
+  const pitchTeam = useMemo(() => {
+    if (teamsInResults.includes(selectedTeam)) return selectedTeam;
+    return teamsInResults[0] ?? "";
+  }, [teamsInResults, selectedTeam]);
+
+  const pitchPlayers = useMemo(() => {
+    return filteredPlayers.filter(
+      (player) =>
+        player["POSICIÓN"] && player.NOMBRE_EQUIPO === pitchTeam,
     );
-  });
-}, [
-  players,
-  selectedTeam,
-  search,
-  positionSearch,
-]);
+  }, [filteredPlayers, pitchTeam]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | AGRUPACIÓN POR LÍNEAS
+  |--------------------------------------------------------------------------
+  */
+
+  const lines = useMemo(() => {
+    return LINE_DEFINITIONS.map((line) => {
+      const linePlayers = filteredPlayers
+        .filter((player) => getLine(player["POSICIÓN"])?.key === line.key)
+        .sort((a, b) => {
+          const rankA = positionRank(a["POSICIÓN"]);
+          const rankB = positionRank(b["POSICIÓN"]);
+
+          if (rankA !== rankB) return rankA - rankB;
+
+          return (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999);
+        });
+
+      return { ...line, players: linePlayers };
+    });
+  }, [filteredPlayers]);
+
+  /* Jugadores cuya posición no encaja en ninguna línea conocida. */
+  const unclassified = useMemo(() => {
+    return filteredPlayers.filter((player) => !getLine(player["POSICIÓN"]));
+  }, [filteredPlayers]);
 
   /*
   |--------------------------------------------------------------------------
@@ -282,63 +407,66 @@ const [isCreating, setIsCreating] =
   |--------------------------------------------------------------------------
   */
 
-const createEmptyPlayer = (): RivalPlayer => ({
-  ID_JUGADOR: "",
-  ID_EQUIPO: "",
-  NOMBRE_EQUIPO: selectedTeam,
-  DORSAL: "",
-  JUGADOR: "",
-  "NOMBRE DEPORTIVO": "",
-  "LUGAR DE NACIMIENTO": "",
-  EDAD: "",
-  PESO: "",
-  ALTURA: "",
-  "POSICIÓN": "",
-  "2º POSICIÓN": "",
-  "PIE DOMINANTE": "",
-  PROCEDENCIA: "",
-  "FECHA INCORPORACIÓN": "",
+  const createEmptyPlayer = useCallback((): RivalPlayer => {
+    const empty = {
+      ID_JUGADOR: "",
+      ID_EQUIPO: "",
+      NOMBRE_EQUIPO: selectedTeam,
+    } as RivalPlayer;
 
-  IMPACTO: "",
-  ROL: "",
-  CARACTERÍSTICAS: "",
-  FORTALEZAS: "",
-  DEBILIDADES: "",
-  OBSERVACIONES: "",
+    EMPTY_PLAYER_KEYS.forEach((key) => {
+      (empty as Record<string, unknown>)[key] = "";
+    });
 
-  VIDEO: "",
-  DOC: "",
-  FOTO: "",
-  ESTADO: "ACTIVO",
-});
+    empty.ESTADO = "ACTIVO";
 
- const openPlayer = (
-  player: RivalPlayer
-) => {
-  setIsCreating(false);
+    return empty;
+  }, [selectedTeam]);
 
-  setSelectedPlayer(player);
+  const openPlayer = useCallback((player: RivalPlayer) => {
+    const copy = { ...player };
 
-  setEditForm({
-    ...player,
-  });
-};
+    setIsCreating(false);
+    setSelectedPlayer(player);
+    setPristineForm(JSON.stringify(copy));
+    setEditForm(copy);
+  }, []);
 
-const openCreatePlayer = () => {
-  setIsCreating(true);
+  const openCreatePlayer = () => {
+    const empty = createEmptyPlayer();
 
-  setSelectedPlayer(null);
+    setIsCreating(true);
+    setSelectedPlayer(null);
+    setPristineForm(JSON.stringify(empty));
+    setEditForm(empty);
+  };
 
-  setEditForm(
-    createEmptyPlayer()
+  const isDirty =
+    editForm !== null && JSON.stringify(editForm) !== pristineForm;
+
+  const closePlayer = useCallback(
+    (force = false) => {
+      if (!force && isDirty) {
+        const confirmed = window.confirm(
+          "Hay cambios sin guardar. ¿Seguro que quieres cerrar?",
+        );
+
+        if (!confirmed) return;
+      }
+
+      setSelectedPlayer(null);
+      setEditForm(null);
+      setIsCreating(false);
+      setPristineForm("");
+    },
+    [isDirty],
   );
-};
 
-const closePlayer = () => {
-  setSelectedPlayer(null);
-  setEditForm(null);
-  setIsCreating(false);
-};
+  const updateForm = (key: keyof RivalPlayer, value: string) => {
+    setEditForm((current) =>
+      current ? { ...current, [key]: value } : current,
+    );
+  };
 
   /*
   |--------------------------------------------------------------------------
@@ -346,90 +474,68 @@ const closePlayer = () => {
   |--------------------------------------------------------------------------
   */
 
-  const selectedIndex =
-    selectedPlayer
-      ? filteredPlayers.findIndex(
-          (player) =>
-            player.ID_JUGADOR ===
-            selectedPlayer.ID_JUGADOR
-        )
-      : -1;
-const pitchPlayers = useMemo(() => {
-  return filteredPlayers.filter((player) => {
-    return player["POSICIÓN"];
-  });
-}, [filteredPlayers]);
-  const navigatePlayer = (
-    direction: number
-  ) => {
-    if (
-      selectedIndex === -1 ||
-      filteredPlayers.length === 0
-    ) {
-      return;
-    }
+  const selectedIndex = selectedPlayer
+    ? filteredPlayers.findIndex(
+        (player) => player.ID_JUGADOR === selectedPlayer.ID_JUGADOR,
+      )
+    : -1;
 
-    const nextIndex =
-      selectedIndex + direction;
+  const navigatePlayer = useCallback(
+    (direction: number) => {
+      if (selectedIndex === -1 || filteredPlayers.length === 0) return;
 
-    if (
-      nextIndex < 0 ||
-      nextIndex >=
-        filteredPlayers.length
-    ) {
-      return;
-    }
+      const nextIndex = selectedIndex + direction;
 
-    openPlayer(
-      filteredPlayers[nextIndex]
-    );
-  };
+      if (nextIndex < 0 || nextIndex >= filteredPlayers.length) return;
+
+      if (isDirty) {
+        const confirmed = window.confirm(
+          "Hay cambios sin guardar. ¿Seguro que quieres cambiar de jugador?",
+        );
+
+        if (!confirmed) return;
+      }
+
+      openPlayer(filteredPlayers[nextIndex]);
+    },
+    [selectedIndex, filteredPlayers, openPlayer, isDirty],
+  );
 
   /*
   |--------------------------------------------------------------------------
   | TECLADO
   |--------------------------------------------------------------------------
+  | Las flechas no deben navegar entre jugadores mientras se está escribiendo
+  | dentro de un campo del formulario.
   */
 
   useEffect(() => {
-    if (!selectedPlayer) return;
+    if (!editForm) return;
 
-    const handleKeyDown = (
-      event: KeyboardEvent
-    ) => {
-      if (
-        event.key === "ArrowLeft"
-      ) {
-        navigatePlayer(-1);
-      }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
 
-      if (
-        event.key === "ArrowRight"
-      ) {
-        navigatePlayer(1);
-      }
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable;
 
       if (event.key === "Escape") {
         closePlayer();
+        return;
       }
+
+      if (typing || isCreating) return;
+
+      if (event.key === "ArrowLeft") navigatePlayer(-1);
+      if (event.key === "ArrowRight") navigatePlayer(1);
     };
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
-    return () => {
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-    };
-  }, [
-    selectedPlayer,
-    selectedIndex,
-    filteredPlayers,
-  ]);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editForm, isCreating, navigatePlayer, closePlayer]);
 
   /*
   |--------------------------------------------------------------------------
@@ -437,227 +543,121 @@ const pitchPlayers = useMemo(() => {
   |--------------------------------------------------------------------------
   */
 
-const savePlayer = async () => {
-  if (!editForm) return;
+  const savePlayer = async () => {
+    if (!editForm) return;
 
-  try {
-    setSaving(true);
+    if (!editForm.JUGADOR.trim() && !editForm["NOMBRE DEPORTIVO"].trim()) {
+      toast.error("Indica al menos el nombre del jugador.");
+      return;
+    }
 
-    const action = isCreating
-      ? "crearRivalJugador"
-      : "guardarRivalJugador";
+    try {
+      setSaving(true);
 
-    const playerToSave: RivalPlayer = {
-      ID_JUGADOR:
-        editForm.ID_JUGADOR ||
-        `RIV-JUG-${Date.now()}`,
+      const action = isCreating
+        ? "crearRivalJugador"
+        : "guardarRivalJugador";
 
-      ID_EQUIPO:
-        editForm.ID_EQUIPO ||
-        `RIV-${Date.now()}`,
+      const timestamp = Date.now();
 
-      NOMBRE_EQUIPO:
-        editForm.NOMBRE_EQUIPO ||
-        selectedTeam,
+      const playerToSave: RivalPlayer = {
+        ...editForm,
 
-      DORSAL: editForm.DORSAL || "",
+        ID_JUGADOR: editForm.ID_JUGADOR || `RIV-JUG-${timestamp}`,
+        ID_EQUIPO: editForm.ID_EQUIPO || `RIV-${timestamp}`,
+        NOMBRE_EQUIPO: editForm.NOMBRE_EQUIPO || selectedTeam,
+        ESTADO: editForm.ESTADO || "ACTIVO",
+      };
 
-      JUGADOR: editForm.JUGADOR || "",
-
-      "NOMBRE DEPORTIVO":
-        editForm["NOMBRE DEPORTIVO"] || "",
-
-      "LUGAR DE NACIMIENTO":
-        editForm["LUGAR DE NACIMIENTO"] || "",
-
-      EDAD: editForm.EDAD || "",
-
-      PESO: editForm.PESO || "",
-
-      ALTURA: editForm.ALTURA || "",
-
-      "POSICIÓN":
-        editForm["POSICIÓN"] || "",
-
-      "2º POSICIÓN":
-        editForm["2º POSICIÓN"] || "",
-
-      "PIE DOMINANTE":
-        editForm["PIE DOMINANTE"] || "",
-
-      PROCEDENCIA:
-        editForm.PROCEDENCIA || "",
-
-      "FECHA INCORPORACIÓN":
-        editForm["FECHA INCORPORACIÓN"] || "",
-
-      IMPACTO:
-        editForm.IMPACTO || "",
-
-      ROL:
-        editForm.ROL || "",
-
-      CARACTERÍSTICAS:
-        editForm.CARACTERÍSTICAS || "",
-
-      FORTALEZAS:
-        editForm.FORTALEZAS || "",
-
-      DEBILIDADES:
-        editForm.DEBILIDADES || "",
-
-      OBSERVACIONES:
-        editForm.OBSERVACIONES || "",
-
-      VIDEO:
-        editForm.VIDEO || "",
-
-      DOC:
-        editForm.DOC || "",
-
-      FOTO:
-        editForm.FOTO || "",
-
-      ESTADO:
-        editForm.ESTADO || "ACTIVO",
-    };
-
-    const response = await fetch(
-      RIVALS_API_URL,
-      {
+      const response = await fetch(RIVALS_API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          player: playerToSave,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, player: playerToSave }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "No se pudo guardar");
       }
+
+      if (isCreating) {
+        setPlayers((current) => [...current, playerToSave]);
+        setSelectedTeam(playerToSave.NOMBRE_EQUIPO);
+
+        toast.success("Jugador añadido correctamente");
+      } else {
+        setPlayers((current) =>
+          current.map((player) =>
+            player.ID_JUGADOR === playerToSave.ID_JUGADOR
+              ? playerToSave
+              : player,
+          ),
+        );
+
+        toast.success("Jugador guardado correctamente");
+      }
+
+      closePlayer(true);
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        isCreating
+          ? "No se pudo añadir el jugador"
+          : "No se pudo guardar el jugador",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deletePlayer = async () => {
+    if (!editForm) return;
+
+    const playerName = editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR;
+
+    const confirmed = window.confirm(
+      `¿Seguro que quieres eliminar a ${playerName}?`,
     );
 
-    const result = await response.json();
+    if (!confirmed) return;
 
-    if (!result.success) {
-      throw new Error(
-        result.error ||
-          "No se pudo guardar"
-      );
-    }
+    try {
+      setSaving(true);
 
-    if (isCreating) {
-      setPlayers((current) => [
-        ...current,
-        playerToSave,
-      ]);
+      const response = await fetch(RIVALS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "eliminarRivalJugador",
+          ID_JUGADOR: editForm.ID_JUGADOR,
+        }),
+      });
 
-      setSelectedTeam(
-        playerToSave.NOMBRE_EQUIPO
-      );
+      const result = await response.json();
 
-      alert(
-        "Jugador añadido correctamente"
-      );
-    } else {
+      if (!result.success) {
+        throw new Error(result.error || "No se pudo eliminar");
+      }
+
       setPlayers((current) =>
-        current.map((player) =>
-          player.ID_JUGADOR ===
-          playerToSave.ID_JUGADOR
-            ? playerToSave
-            : player
-        )
+        current.filter(
+          (player) => player.ID_JUGADOR !== editForm.ID_JUGADOR,
+        ),
       );
 
-      alert(
-        "Jugador guardado correctamente"
-      );
+      closePlayer(true);
+
+      toast.success("Jugador eliminado correctamente");
+    } catch (error) {
+      console.error(error);
+
+      toast.error("No se pudo eliminar el jugador");
+    } finally {
+      setSaving(false);
     }
-
-    closePlayer();
-
-  } catch (error) {
-    console.error(error);
-
-    alert(
-      isCreating
-        ? "No se pudo añadir el jugador"
-        : "No se pudo guardar el jugador"
-    );
-
-  } finally {
-    setSaving(false);
-  }
-};
-const deletePlayer = async () => {
-  if (!editForm) return;
-
-  const playerName =
-    editForm["NOMBRE DEPORTIVO"] ||
-    editForm.JUGADOR;
-
-  const confirmed =
-    window.confirm(
-      `¿Seguro que quieres eliminar a ${playerName}?`
-    );
-
-  if (!confirmed) return;
-
-  try {
-
-    setSaving(true);
-
-    const response = await fetch(
-  RIVALS_API_URL,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type":
-        "application/json",
-    },
-    body: JSON.stringify({
-      action: "eliminarRivalJugador",
-      ID_JUGADOR:
-        editForm.ID_JUGADOR,
-    }),
-  }
-);
-
-    const result =
-      await response.json();
-
-    if (!result.success) {
-      throw new Error(
-        result.error ||
-          "No se pudo eliminar"
-      );
-    }
-
-    setPlayers((current) =>
-      current.filter(
-        (player) =>
-          player.ID_JUGADOR !==
-          editForm.ID_JUGADOR
-      )
-    );
-
-    closePlayer();
-
-    alert(
-      "Jugador eliminado correctamente"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "No se pudo eliminar el jugador"
-    );
-
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
   /*
   |--------------------------------------------------------------------------
@@ -665,42 +665,31 @@ const deletePlayer = async () => {
   |--------------------------------------------------------------------------
   */
 
-  const handleTouchStart = (
-    event: React.TouchEvent
-  ) => {
-    setTouchStartX(
-      event.touches[0].clientX
-    );
+  const handleTouchStart = (event: React.TouchEvent) => {
+    touchStartX.current = event.touches[0].clientX;
   };
 
-  const handleTouchEnd = (
-    event: React.TouchEvent
-  ) => {
-    if (
-      touchStartX === null
-    ) {
+  const handleTouchEnd = (event: React.TouchEvent) => {
+    if (touchStartX.current === null || isCreating) {
+      touchStartX.current = null;
       return;
     }
 
-    const endX =
-      event.changedTouches[0]
-        .clientX;
+    const difference = touchStartX.current - event.changedTouches[0].clientX;
 
-    const difference =
-      touchStartX - endX;
-
-    if (
-      Math.abs(difference) > 60
-    ) {
-      if (difference > 0) {
-        navigatePlayer(1);
-      } else {
-        navigatePlayer(-1);
-      }
+    if (Math.abs(difference) > 60) {
+      navigatePlayer(difference > 0 ? 1 : -1);
     }
 
-    setTouchStartX(null);
+    touchStartX.current = null;
   };
+
+  const resetFilters = () => {
+    setSearch("");
+    setPositionSearch("");
+  };
+
+  const hasFilters = Boolean(search || positionSearch);
 
   /*
   |--------------------------------------------------------------------------
@@ -710,21 +699,13 @@ const deletePlayer = async () => {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#0B0F14] text-white">
-
       <div className="flex min-h-screen w-full">
-
-        {/* SIDEBAR */}
-
         <Sidebar />
 
-        {/* CONTENIDO PRINCIPAL */}
-
         <section className="min-w-0 flex-1">
-
           <Topbar />
 
           <div className="w-full min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8">
-
             {/* HEADER */}
 
             <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
@@ -732,1259 +713,590 @@ const deletePlayer = async () => {
             </p>
 
             <div className="mt-4 flex min-w-0 items-center gap-4">
-
               <h1 className="min-w-0 truncate text-2xl font-semibold md:text-4xl">
                 Plantillas rivales
               </h1>
 
               <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
-
             </div>
 
-            {/* SELECTOR DE EQUIPO */}
+            {/* ERROR */}
+
+            {loadError && (
+              <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                <span className="min-w-0 flex-1">{loadError}</span>
+
+                <button
+                  onClick={() => setReloadKey((key) => key + 1)}
+                  className="flex items-center gap-2 rounded-xl border border-red-400/40 px-4 py-2 transition hover:bg-red-500/20"
+                >
+                  <RotateCcw size={14} />
+                  Reintentar
+                </button>
+              </div>
+            )}
 
             {/* SELECTOR DE EQUIPO */}
 
-<div className="mt-8 flex max-w-full items-center gap-2">
+            <div className="mt-8 flex max-w-full items-center gap-2">
+              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2">
+                {teams.map((team) => (
+                  <button
+                    key={team.name}
+                    onClick={() => {
+                      setSelectedTeam(team.name);
+                      setPositionSearch("");
+                      setSearch("");
+                    }}
+                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-3 text-sm transition ${
+                      selectedTeam === team.name
+                        ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                        : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
+                    }`}
+                  >
+                    {team.name}
 
-  <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] ${
+                        selectedTeam === team.name
+                          ? "bg-[#C8A96B]/20"
+                          : "bg-white/5 text-white/40"
+                      }`}
+                    >
+                      {team.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-    {teams.map((team) => (
+              <button
+                onClick={openCreatePlayer}
+                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-3 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+              >
+                <Plus size={16} />
 
-      <button
-        key={team}
-        onClick={() => {
-  setSelectedTeam(team);
-  setPositionSearch("");
-  setSearch("");
-}}
-        className={`
-          shrink-0
-          whitespace-nowrap
-          rounded-xl
-          border
-          px-4
-          py-3
-          text-sm
-          transition
-          ${
-            selectedTeam === team
-              ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
-              : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
-          }
-        `}
-      >
-        {team}
-      </button>
-
-    ))}
-
-  </div>
-
-  <button
-    onClick={openCreatePlayer}
-    className="
-      flex
-      shrink-0
-      items-center
-      gap-2
-      rounded-xl
-      border
-      border-[#C8A96B]/40
-      bg-[#C8A96B]/10
-      px-4
-      py-3
-      text-sm
-      text-[#C8A96B]
-      transition
-      hover:bg-[#C8A96B]/20
-    "
-  >
-
-    <Plus size={16} />
-
-    <span className="hidden sm:inline">
-      Añadir jugador
-    </span>
-
-  </button>
-
-</div>
+                <span className="hidden sm:inline">Añadir jugador</span>
+              </button>
+            </div>
 
             {/* FILTROS */}
 
             <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Buscar jugador, equipo, dorsal o rol..."
+              />
 
-              <div className="relative min-w-0">
-
-                <Search
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40"
-                />
-
-                <input
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Buscar jugador o equipo..."
-                  className="
-                    w-full
-                    min-w-0
-                    rounded-xl
-                    border
-                    border-white/10
-                    bg-[#11161D]
-                    py-3
-                    pl-11
-                    pr-4
-                    outline-none
-                    transition
-                    focus:border-[#C8A96B]
-                  "
-                />
-
-              </div>
-<div className="relative min-w-0">
-
-  <Search
-    size={18}
-    className="
-      absolute
-      left-4
-      top-1/2
-      -translate-y-1/2
-      text-white/40
-    "
-  />
-
-  <input
-    value={positionSearch}
-    onChange={(event) =>
-      setPositionSearch(
-        event.target.value
-      )
-    }
-    placeholder="Buscar posición..."
-    className="
-      w-full
-      min-w-0
-      rounded-xl
-      border
-      border-white/10
-      bg-[#11161D]
-      py-3
-      pl-11
-      pr-4
-      outline-none
-      transition
-      focus:border-[#C8A96B]
-    "
-  />
-
-</div>
-
+              <SearchInput
+                value={positionSearch}
+                onChange={setPositionSearch}
+                placeholder="Buscar posición..."
+              />
             </div>
 
             {/* CONTADOR */}
 
-            <div className="mt-6 flex min-w-0 items-center justify-between gap-4">
+            <div className="mt-6 flex min-w-0 flex-wrap items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <p className="shrink-0 text-sm text-white/50">
+                  {filteredPlayers.length}{" "}
+                  {filteredPlayers.length === 1 ? "jugador" : "jugadores"}
+                </p>
 
-              <p className="shrink-0 text-sm text-white/50">
+                {search && teamsInResults.length > 1 && (
+                  <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]">
+                    {teamsInResults.length} equipos en el resultado
+                  </span>
+                )}
 
-                {filteredPlayers.length} jugadores
-
-              </p>
-
-              <p className="min-w-0 truncate text-right text-xs text-white/30">
-
-                {selectedTeam}
-
-              </p>
-
-            </div>
-
-           {/* PLANTILLA + CAMPOGRAMA */}
-
-{loading ? (
-
-  <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/50">
-
-    Cargando plantilla...
-
-  </div>
-
-) : (
-
-  <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
-
-    {/* ===================================================== */}
-    {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
-    {/* ===================================================== */}
-
-    <div className="min-w-0 space-y-5">
-
-      {[
-
-        {
-          title: "PORTEROS",
-
-          positions: [
-            "portero",
-          ],
-        },
-
-        {
-          title: "DEFENSAS",
-
-          positions: [
-            "lateral derecho",
-            "lateral d",
-            "central",
-            "lateral izquierdo",
-            "lateral izq",
-            "lateral i",
-            "carrilero",
-            "lateral",
-            "defensa",
-          ],
-        },
-
-        {
-          title: "CENTROCAMPISTAS",
-
-          positions: [
-            "mediocentro",
-            "pivote",
-            "interior",
-            "medio",
-          ],
-        },
-
-        {
-          title: "ATACANTES",
-
-          positions: [
-            "extremo derecho",
-            "extremo d",
-            "extremo izquierdo",
-            "extremo izq",
-            "extremo i",
-            "extremo",
-            "delantero",
-          ],
-        },
-
-      ].map((line) => {
-
-        const linePlayers =
-          filteredPlayers
-            .filter((player) => {
-
-              const position =
-                normalize(
-                  player["POSICIÓN"]
-                );
-
-              return line.positions.some(
-                (item) =>
-                  position.includes(
-                    normalize(item)
-                  )
-              );
-
-            })
-            .sort((a, b) => {
-
-              const positionA =
-                normalize(
-                  a["POSICIÓN"]
-                );
-
-              const positionB =
-                normalize(
-                  b["POSICIÓN"]
-                );
-
-              const orderA =
-                line.positions.findIndex(
-                  (position) =>
-                    positionA.includes(
-                      normalize(position)
-                    )
-                );
-
-              const orderB =
-                line.positions.findIndex(
-                  (position) =>
-                    positionB.includes(
-                      normalize(position)
-                    )
-                );
-
-              if (
-                orderA !== orderB
-              ) {
-                return (
-                  orderA -
-                  orderB
-                );
-              }
-
-              const dorsalA =
-                Number(a.DORSAL) ||
-                999;
-
-              const dorsalB =
-                Number(b.DORSAL) ||
-                999;
-
-              return (
-                dorsalA -
-                dorsalB
-              );
-
-            });
-
-        if (
-          linePlayers.length === 0
-        ) {
-          return null;
-        }
-
-        return (
-
-          <section
-            key={line.title}
-            className="
-              min-w-0
-              overflow-hidden
-              rounded-2xl
-              border
-              border-white/10
-              bg-white/[0.025]
-            "
-          >
-
-            {/* CABECERA */}
-
-            <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
-
-              <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-
-                {line.title}
-
-              </h2>
-
-              <span className="shrink-0 text-xs text-white/30">
-
-                {linePlayers.length} jugadores
-
-              </span>
-
-            </div>
-
-            {/* JUGADORES */}
-
-            <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
-
-              {linePlayers.map(
-                (player) => (
-
+                {hasFilters && (
                   <button
-                    key={
-                      player.ID_JUGADOR
-                    }
-                    onClick={() =>
-                      openPlayer(
-                        player
-                      )
-                    }
-                    className="
-                      group
-                      flex
-                      min-w-0
-                      items-center
-                      gap-3
-                      bg-[#11161D]
-                      p-3
-                      text-left
-                      transition
-                      hover:bg-white/[0.07]
-                    "
+                    onClick={resetFilters}
+                    className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 text-xs text-white/50 transition hover:border-white/30 hover:text-white"
                   >
+                    <RotateCcw size={12} />
+                    Limpiar
+                  </button>
+                )}
+              </div>
 
-                    {/* FOTO */}
+              <div className="flex shrink-0 items-center gap-3">
+                <p className="min-w-0 truncate text-right text-xs text-white/30">
+                  {selectedTeam}
+                </p>
 
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
+                <button
+                  onClick={() => setShowPitch((value) => !value)}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 transition hover:border-[#C8A96B] hover:text-white lg:hidden"
+                >
+                  {showPitch ? <Shirt size={14} /> : <LayoutGrid size={14} />}
+                  {showPitch ? "Ver listado" : "Ver campograma"}
+                </button>
+              </div>
+            </div>
 
-                      {player.FOTO ? (
+            {/* PLANTILLA + CAMPOGRAMA */}
 
-                        <img
-                          src={
-                            player.FOTO
-                          }
-                          alt={
-                            player[
-                              "NOMBRE DEPORTIVO"
-                            ] ||
-                            player.JUGADOR
-                          }
-                          className="h-full w-full object-cover transition group-hover:scale-110"
-                        />
+            {loading ? (
+              <RivalsSkeleton />
+            ) : (
+              <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
+                {/* ============================================ */}
+                {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
+                {/* ============================================ */}
 
-                      ) : (
+                <div
+                  className={`min-w-0 space-y-5 ${
+                    showPitch ? "hidden lg:block" : ""
+                  }`}
+                >
+                  {lines.map((line) =>
+                    line.players.length === 0 ? null : (
+                      <section
+                        key={line.key}
+                        className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+                      >
+                        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                          <h2 className="flex min-w-0 items-center gap-2 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: line.color }}
+                            />
+                            {line.title}
+                          </h2>
 
-                        <div className="flex h-full items-center justify-center">
-
-                          <UserRound
-                            size={20}
-                            className="text-white/20"
-                          />
-
+                          <span className="shrink-0 text-xs text-white/30">
+                            {line.players.length}
+                          </span>
                         </div>
 
-                      )}
+                        <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
+                          {line.players.map((player) => (
+                            <PlayerRow
+                              key={player.ID_JUGADOR}
+                              player={player}
+                              showTeam={teamsInResults.length > 1}
+                              onClick={() => openPlayer(player)}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ),
+                  )}
 
-                    </div>
+                  {unclassified.length > 0 && (
+                    <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+                      <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                        <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-white/40">
+                          SIN CLASIFICAR
+                        </h2>
 
-                    {/* DORSAL */}
-
-                    <div className="w-8 shrink-0 text-center">
-
-                      <span className="text-lg font-bold text-white/30">
-
-                        {
-                          player.DORSAL
-                        }
-
-                      </span>
-
-                    </div>
-
-                    {/* NOMBRE Y POSICIÓN */}
-
-                    <div className="min-w-0 flex-1">
-
-                      <p className="truncate font-semibold">
-
-                        {
-                          player[
-                            "NOMBRE DEPORTIVO"
-                          ] ||
-                          player.JUGADOR
-                        }
-
-                      </p>
-
-                      <p className="mt-0.5 truncate text-xs text-white/40">
-
-                        {
-                          player[
-                            "POSICIÓN"
-                          ]
-                        }
-
-                      </p>
-
-                    </div>
-
-                    {/* ROL */}
-
-                    {player.ROL && (
-
-                      <div className="hidden min-w-0 shrink-0 text-right xl:block">
-
-                        <p className="text-[9px] uppercase tracking-wider text-white/30">
-
-                          Rol
-
-                        </p>
-
-                        <p className="mt-0.5 max-w-[80px] truncate text-xs text-[#C8A96B]">
-
-                          {
-                            player.ROL
-                          }
-
-                        </p>
-
+                        <span className="shrink-0 text-xs text-white/30">
+                          {unclassified.length}
+                        </span>
                       </div>
 
-                    )}
+                      <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
+                        {unclassified.map((player) => (
+                          <PlayerRow
+                            key={player.ID_JUGADOR}
+                            player={player}
+                            showTeam={teamsInResults.length > 1}
+                            onClick={() => openPlayer(player)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
-                  </button>
+                  {filteredPlayers.length === 0 && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
+                      No se han encontrado jugadores.
+                    </div>
+                  )}
+                </div>
 
-                )
-              )}
+                {/* ============================================ */}
+                {/* COLUMNA DERECHA — CAMPOGRAMA */}
+                {/* ============================================ */}
 
-            </div>
+                <div
+                  className={`flex min-w-0 ${
+                    showPitch ? "" : "hidden lg:flex"
+                  }`}
+                >
+                  <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
+                    <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                      <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+                        CAMPOGRAMA
+                        {pitchTeam && teamsInResults.length > 1 && (
+                          <span className="ml-2 normal-case tracking-normal text-white/30">
+                            · {pitchTeam}
+                          </span>
+                        )}
+                      </h2>
 
-          </section>
+                      <span className="shrink-0 text-xs text-white/30">
+                        {pitchPlayers.length} jugadores
+                      </span>
+                    </div>
 
-        );
-
-      })}
-
-      {filteredPlayers.length === 0 && (
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
-
-          No se han encontrado jugadores.
-
-        </div>
-
-      )}
-
-    </div>
-
-
-    {/* ===================================================== */}
-    {/* COLUMNA DERECHA — CAMPOGRAMA ÚNICO */}
-    {/* ===================================================== */}
-
-    <div className="flex min-w-0">
-
-      <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
-
-        {/* CABECERA */}
-
-        <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
-
-          <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-
-            CAMPOGRAMA
-
-          </h2>
-
-          <span className="text-xs text-white/30">
-
-            {pitchPlayers.length} jugadores
-
-          </span>
-
-        </div>
-
-        {/* CAMPO */}
-
-        <TacticalPitch
-          players={pitchPlayers}
-          onPlayerClick={openPlayer}
-        />
-
-      </div>
-
-    </div>
-
-  </div>
-
-)}
-
-            
-
+                    <TacticalPitch
+                      players={pitchPlayers}
+                      selectedId={selectedPlayer?.ID_JUGADOR}
+                      onPlayerClick={openPlayer}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-
         </section>
-
       </div>
 
       {/* MODAL */}
 
       {editForm && (
-
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-2 backdrop-blur-sm sm:p-4 md:p-8"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => closePlayer()}
+        >
           <div
-            className="
-              fixed
-              inset-0
-              z-50
-              flex
-              items-center
-              justify-center
-              overflow-y-auto
-              bg-black/80
-              p-2
-              sm:p-4
-              md:p-8
-            "
-            onClick={closePlayer}
+            className="relative flex max-h-[96vh] w-full min-w-0 max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
+            {/* HEADER MODAL */}
 
-            <div
-              className="
-                relative
-                flex
-                max-h-[96vh]
-                w-full
-                max-w-6xl
-                min-w-0
-                flex-col
-                overflow-hidden
-                rounded-2xl
-                border
-                border-white/10
-                bg-[#11161D]
-                shadow-2xl
-              "
-              onClick={(event) =>
-                event.stopPropagation()
-              }
-              onTouchStart={
-                handleTouchStart
-              }
-              onTouchEnd={
-                handleTouchEnd
-              }
-            >
+            <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 p-3 sm:p-4 md:p-6">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                {!isCreating && (
+                  <button
+                    onClick={() => navigatePlayer(-1)}
+                    disabled={selectedIndex <= 0}
+                    aria-label="Jugador anterior"
+                    className="shrink-0 rounded-full border border-white/10 p-2 transition hover:border-[#C8A96B] disabled:opacity-20"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                )}
 
-              {/* HEADER MODAL */}
+                <div className="min-w-0">
+                  <p className="truncate text-xs uppercase tracking-[0.2em] text-[#C8A96B]">
+                    {isCreating ? "NUEVO JUGADOR" : editForm.NOMBRE_EQUIPO}
 
-              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 p-3 sm:p-4 md:p-6">
+                    {!isCreating && selectedIndex >= 0 && (
+                      <span className="ml-2 text-white/25">
+                        {selectedIndex + 1}/{filteredPlayers.length}
+                      </span>
+                    )}
+                  </p>
 
-                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-
-                  {!isCreating && (
-  <button
-    onClick={() =>
-      navigatePlayer(-1)
-    }
-    disabled={
-      selectedIndex <= 0
-    }
-    className="
-      shrink-0
-      rounded-full
-      border
-      border-white/10
-      p-2
-      transition
-      hover:border-[#C8A96B]
-      disabled:opacity-20
-    "
-  >
-    <ChevronLeft size={20} />
-  </button>
-)}
-
-                  <div className="min-w-0">
-
-                    <p className="truncate text-xs uppercase tracking-[0.2em] text-[#C8A96B]">
-
-  {isCreating
-    ? "NUEVO JUGADOR"
-    : editForm.NOMBRE_EQUIPO}
-
-</p>
-
-<h2 className="truncate text-lg font-semibold sm:text-xl md:text-2xl">
-
-  {isCreating
-    ? "Añadir jugador"
-    : editForm[
-        "NOMBRE DEPORTIVO"
-      ] ||
-      editForm.JUGADOR}
-
-</h2>
-
-                  </div>
-
-                  {!isCreating && (
-  <button
-    onClick={() =>
-      navigatePlayer(1)
-    }
-    disabled={
-      selectedIndex >=
-      filteredPlayers.length - 1
-    }
-    className="
-      shrink-0
-      rounded-full
-      border
-      border-white/10
-      p-2
-      transition
-      hover:border-[#C8A96B]
-      disabled:opacity-20
-    "
-  >
-    <ChevronRight size={20} />
-  </button>
-)}
-
+                  <h2 className="truncate text-lg font-semibold sm:text-xl md:text-2xl">
+                    {isCreating
+                      ? "Añadir jugador"
+                      : editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR}
+                  </h2>
                 </div>
+
+                {!isCreating && (
+                  <button
+                    onClick={() => navigatePlayer(1)}
+                    disabled={selectedIndex >= filteredPlayers.length - 1}
+                    aria-label="Jugador siguiente"
+                    className="shrink-0 rounded-full border border-white/10 p-2 transition hover:border-[#C8A96B] disabled:opacity-20"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                {isDirty && (
+                  <span className="hidden rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B] sm:inline">
+                    Cambios sin guardar
+                  </span>
+                )}
 
                 <button
-                  onClick={closePlayer}
-                  className="
-                    shrink-0
-                    rounded-full
-                    p-2
-                    text-white/50
-                    transition
-                    hover:bg-white/10
-                    hover:text-white
-                  "
+                  onClick={() => closePlayer()}
+                  aria-label="Cerrar"
+                  className="shrink-0 rounded-full p-2 text-white/50 transition hover:bg-white/10 hover:text-white"
                 >
-
                   <X size={22} />
-
                 </button>
-
               </div>
-
-              {/* BODY */}
-
-              <div className="min-w-0 overflow-y-auto">
-
-                <div className="grid min-w-0 gap-6 p-3 sm:p-4 md:grid-cols-[280px_minmax(0,1fr)] md:p-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-
-                  {/* COLUMNA IZQUIERDA */}
-
-                  <div className="min-w-0">
-
-                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
-
-                      {editForm.FOTO ? (
-
-                        <img
-                          src={
-                            editForm.FOTO
-                          }
-                          alt={
-                            editForm[
-                              "NOMBRE DEPORTIVO"
-                            ]
-                          }
-                          className="aspect-[3/4] w-full object-cover"
-                        />
-
-                      ) : (
-
-                        <div className="flex aspect-[3/4] items-center justify-center">
-
-                          <UserRound
-                            size={80}
-                            className="text-white/20"
-                          />
-
-                        </div>
-
-                      )}
-
-                    </div>
-{/* IDENTIDAD */}
-
-<div className="mt-4 space-y-4">
-
-  <EditableField
-    label="Nombre completo"
-    value={editForm.JUGADOR}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        JUGADOR: value,
-      })
-    }
-  />
-
-  <EditableField
-    label="Nombre deportivo"
-    value={editForm["NOMBRE DEPORTIVO"]}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        "NOMBRE DEPORTIVO": value,
-      })
-    }
-  />
-
-</div>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-
-  <EditableField
-    label="Dorsal"
-    value={editForm.DORSAL}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        DORSAL: value,
-      })
-    }
-  />
-
-  <EditableField
-    label="Edad"
-    value={editForm.EDAD}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        EDAD: value,
-      })
-    }
-  />
-
-  <EditableField
-    label="Peso"
-    value={editForm.PESO}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        PESO: value,
-      })
-    }
-  />
-
-  <EditableField
-    label="Altura"
-    value={editForm.ALTURA}
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        ALTURA: value,
-      })
-    }
-  />
-
-  <EditableField
-    label="Pie"
-    value={
-      editForm["PIE DOMINANTE"]
-    }
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        "PIE DOMINANTE": value,
-      })
-    }
-  />
-
-  <EditableField
-    label="Posición"
-    value={
-      editForm["POSICIÓN"]
-    }
-    onChange={(value) =>
-      setEditForm({
-        ...editForm,
-        "POSICIÓN": value,
-      })
-    }
-  />
-
-</div>
-
-                    <div className="mt-4 space-y-2 text-sm">
-
-                      <EditableField
-  label="Procedencia"
-  value={editForm.PROCEDENCIA}
-  onChange={(value) =>
-    setEditForm({
-      ...editForm,
-      PROCEDENCIA: value,
-    })
-  }
-/>
-
-<EditableField
-  label="Lugar nacimiento"
-  value={
-    editForm[
-      "LUGAR DE NACIMIENTO"
-    ]
-  }
-  onChange={(value) =>
-    setEditForm({
-      ...editForm,
-      "LUGAR DE NACIMIENTO":
-        value,
-    })
-  }
-/>
-
-<EditableField
-  label="2ª posición"
-  value={
-    editForm["2º POSICIÓN"]
-  }
-  onChange={(value) =>
-    setEditForm({
-      ...editForm,
-      "2º POSICIÓN": value,
-    })
-  }
-/>
-
-<EditableDateField
-  label="Fecha incorporación"
-  value={editForm["FECHA INCORPORACIÓN"]}
-  onChange={(value) =>
-    setEditForm({
-      ...editForm,
-      "FECHA INCORPORACIÓN": value,
-    })
-  }
-/>
-
-                    </div>
-
-                  </div>
-
-                  {/* COLUMNA DERECHA */}
-
-                  <div className="min-w-0 space-y-5">
-
-                    <div className="grid gap-4 md:grid-cols-3">
-
-                        <EditableField
-      label="Estado"
-      value={editForm.ESTADO}
-      onChange={(value) =>
-        setEditForm({
-          ...editForm,
-          ESTADO: value,
-        })
-      }
-    />
-
-                      <EditableField
-                        label="Impacto"
-                        value={
-                          editForm.IMPACTO
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          setEditForm({
-                            ...editForm,
-                            IMPACTO:
-                              value,
-                          })
-                        }
-                      />
-
-                      <EditableField
-                        label="Rol"
-                        value={
-                          editForm.ROL
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          setEditForm({
-                            ...editForm,
-                            ROL: value,
-                          })
-                        }
-                      />
-
-                    </div>
-
-                    <EditableTextarea
-                      label="Características"
-                      value={
-                        editForm.CARACTERÍSTICAS
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        setEditForm({
-                          ...editForm,
-                          CARACTERÍSTICAS:
-                            value,
-                        })
-                      }
-                    />
-
-                    <EditableTextarea
-                      label="Fortalezas"
-                      value={
-                        editForm.FORTALEZAS
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        setEditForm({
-                          ...editForm,
-                          FORTALEZAS:
-                            value,
-                        })
-                      }
-                    />
-
-                    <EditableTextarea
-                      label="Debilidades"
-                      value={
-                        editForm.DEBILIDADES
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        setEditForm({
-                          ...editForm,
-                          DEBILIDADES:
-                            value,
-                        })
-                      }
-                    />
-
-                    <EditableTextarea
-                      label="Observaciones"
-                      value={
-                        editForm.OBSERVACIONES
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        setEditForm({
-                          ...editForm,
-                          OBSERVACIONES:
-                            value,
-                        })
-                      }
-                    />
-
-                    <div className="grid gap-4 md:grid-cols-2">
-
-                      <EditableField
-                        label="Foto URL"
-                        value={
-                          editForm.FOTO
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          setEditForm({
-                            ...editForm,
-                            FOTO: value,
-                          })
-                        }
-                      />
-
-                      <EditableField
-                        label="Vídeo URL"
-                        value={
-                          editForm.VIDEO
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          setEditForm({
-                            ...editForm,
-                            VIDEO: value,
-                          })
-                        }
-                      />
-
-                    </div>
-
-                    <EditableField
-                      label="Documento URL"
-                      value={
-                        editForm.DOC
-                      }
-                      onChange={(
-                        value
-                      ) =>
-                        setEditForm({
-                          ...editForm,
-                          DOC: value,
-                        })
-                      }
-                    />
-
-                    {/* LINKS */}
-
-                    <div className="flex flex-wrap gap-3">
-
-                      {editForm.VIDEO && (
-
-                        <a
-                          href={
-                            editForm.VIDEO
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                          className="
-                            flex
-                            items-center
-                            gap-2
-                            rounded-xl
-                            border
-                            border-white/10
-                            bg-white/[0.04]
-                            px-4
-                            py-3
-                            text-sm
-                            transition
-                            hover:border-[#C8A96B]
-                          "
-                        >
-
-                          <Video
-                            size={16}
-                            className="text-[#C8A96B]"
-                          />
-
-                          Ver vídeo
-
-                          <ExternalLink
-                            size={14}
-                          />
-
-                        </a>
-
-                      )}
-
-                      {editForm.DOC && (
-
-                        <a
-                          href={
-                            editForm.DOC
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                          className="
-                            flex
-                            items-center
-                            gap-2
-                            rounded-xl
-                            border
-                            border-white/10
-                            bg-white/[0.04]
-                            px-4
-                            py-3
-                            text-sm
-                            transition
-                            hover:border-[#C8A96B]
-                          "
-                        >
-
-                          <FileText
-                            size={16}
-                            className="text-[#C8A96B]"
-                          />
-
-                          Ver documento
-
-                          <ExternalLink
-                            size={14}
-                          />
-
-                        </a>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              <div className="flex items-center justify-between gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6">
-
-  {!isCreating ? (
-
-    <button
-      onClick={deletePlayer}
-      disabled={saving}
-      className="
-        flex
-        items-center
-        gap-2
-        rounded-xl
-        border
-        border-red-500/30
-        bg-red-500/10
-        px-4
-        py-3
-        text-sm
-        text-red-300
-        transition
-        hover:bg-red-500/20
-        disabled:opacity-50
-      "
-    >
-
-      <Trash2 size={16} />
-
-      Eliminar
-
-    </button>
-
-  ) : (
-
-    <div />
-
-  )}
-
-  <div className="flex items-center gap-3">
-
-    <button
-      onClick={closePlayer}
-      className="
-        rounded-xl
-        border
-        border-white/10
-        px-4
-        py-3
-        text-sm
-        text-white/60
-        transition
-        hover:border-white/30
-        hover:text-white
-      "
-    >
-
-      Cancelar
-
-    </button>
-
-    <button
-      onClick={savePlayer}
-      disabled={saving}
-      className="
-        flex
-        items-center
-        gap-2
-        rounded-xl
-        bg-[#C8A96B]
-        px-5
-        py-3
-        text-sm
-        font-semibold
-        text-black
-        transition
-        hover:bg-[#d8ba7c]
-        disabled:opacity-50
-      "
-    >
-
-      <Save size={16} />
-
-      {saving
-        ? "Guardando..."
-        : isCreating
-          ? "Añadir jugador"
-          : "Guardar"}
-
-    </button>
-
-  </div>
-
-</div>
-
             </div>
 
+            {/* BODY */}
+
+            <div className="min-w-0 overflow-y-auto">
+              <div className="grid min-w-0 gap-6 p-3 sm:p-4 md:grid-cols-[280px_minmax(0,1fr)] md:p-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+                {/* COLUMNA IZQUIERDA */}
+
+                <div className="min-w-0">
+                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
+                    {editForm.FOTO ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={editForm.FOTO}
+                        alt={
+                          editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || ""
+                        }
+                        className="aspect-[3/4] w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex aspect-[3/4] items-center justify-center">
+                        <UserRound size={80} className="text-white/20" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* IDENTIDAD */}
+
+                  <div className="mt-4 space-y-4">
+                    <EditableField
+                      label="Nombre completo"
+                      value={editForm.JUGADOR}
+                      onChange={(value) => updateForm("JUGADOR", value)}
+                    />
+
+                    <EditableField
+                      label="Nombre deportivo"
+                      value={editForm["NOMBRE DEPORTIVO"]}
+                      onChange={(value) =>
+                        updateForm("NOMBRE DEPORTIVO", value)
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <EditableField
+                      label="Dorsal"
+                      value={editForm.DORSAL}
+                      inputMode="numeric"
+                      onChange={(value) => updateForm("DORSAL", value)}
+                    />
+
+                    <EditableField
+                      label="Edad"
+                      value={editForm.EDAD}
+                      inputMode="numeric"
+                      onChange={(value) => updateForm("EDAD", value)}
+                    />
+
+                    <EditableField
+                      label="Peso"
+                      value={editForm.PESO}
+                      onChange={(value) => updateForm("PESO", value)}
+                    />
+
+                    <EditableField
+                      label="Altura"
+                      value={editForm.ALTURA}
+                      onChange={(value) => updateForm("ALTURA", value)}
+                    />
+
+                    <EditableField
+                      label="Pie"
+                      value={editForm["PIE DOMINANTE"]}
+                      onChange={(value) =>
+                        updateForm("PIE DOMINANTE", value)
+                      }
+                    />
+
+                    <EditableField
+                      label="Posición"
+                      value={editForm["POSICIÓN"]}
+                      onChange={(value) => updateForm("POSICIÓN", value)}
+                    />
+                  </div>
+
+                  <div className="mt-4 space-y-2 text-sm">
+                    <EditableField
+                      label="Equipo"
+                      value={editForm.NOMBRE_EQUIPO}
+                      onChange={(value) =>
+                        updateForm("NOMBRE_EQUIPO", value)
+                      }
+                    />
+
+                    <EditableField
+                      label="Procedencia"
+                      value={editForm.PROCEDENCIA}
+                      onChange={(value) => updateForm("PROCEDENCIA", value)}
+                    />
+
+                    <EditableField
+                      label="Lugar nacimiento"
+                      value={editForm["LUGAR DE NACIMIENTO"]}
+                      onChange={(value) =>
+                        updateForm("LUGAR DE NACIMIENTO", value)
+                      }
+                    />
+
+                    <EditableField
+                      label="2ª posición"
+                      value={editForm["2º POSICIÓN"]}
+                      onChange={(value) => updateForm("2º POSICIÓN", value)}
+                    />
+
+                    <EditableDateField
+                      label="Fecha incorporación"
+                      value={editForm["FECHA INCORPORACIÓN"]}
+                      onChange={(value) =>
+                        updateForm("FECHA INCORPORACIÓN", value)
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* COLUMNA DERECHA */}
+
+                <div className="min-w-0 space-y-5">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <EditableField
+                      label="Estado"
+                      value={editForm.ESTADO}
+                      onChange={(value) => updateForm("ESTADO", value)}
+                    />
+
+                    <EditableField
+                      label="Impacto"
+                      value={editForm.IMPACTO}
+                      onChange={(value) => updateForm("IMPACTO", value)}
+                    />
+
+                    <EditableField
+                      label="Rol"
+                      value={editForm.ROL}
+                      onChange={(value) => updateForm("ROL", value)}
+                    />
+                  </div>
+
+                  <EditableTextarea
+                    label="Características"
+                    value={editForm.CARACTERÍSTICAS}
+                    onChange={(value) => updateForm("CARACTERÍSTICAS", value)}
+                  />
+
+                  <EditableTextarea
+                    label="Fortalezas"
+                    value={editForm.FORTALEZAS}
+                    onChange={(value) => updateForm("FORTALEZAS", value)}
+                  />
+
+                  <EditableTextarea
+                    label="Debilidades"
+                    value={editForm.DEBILIDADES}
+                    onChange={(value) => updateForm("DEBILIDADES", value)}
+                  />
+
+                  <EditableTextarea
+                    label="Observaciones"
+                    value={editForm.OBSERVACIONES}
+                    onChange={(value) => updateForm("OBSERVACIONES", value)}
+                  />
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <EditableField
+                      label="Foto URL"
+                      value={editForm.FOTO}
+                      onChange={(value) => updateForm("FOTO", value)}
+                    />
+
+                    <EditableField
+                      label="Vídeo URL"
+                      value={editForm.VIDEO}
+                      onChange={(value) => updateForm("VIDEO", value)}
+                    />
+                  </div>
+
+                  <EditableField
+                    label="Documento URL"
+                    value={editForm.DOC}
+                    onChange={(value) => updateForm("DOC", value)}
+                  />
+
+                  {/* LINKS */}
+
+                  <div className="flex flex-wrap gap-3">
+                    {editForm.VIDEO && (
+                      <a
+                        href={editForm.VIDEO}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:border-[#C8A96B]"
+                      >
+                        <Video size={16} className="text-[#C8A96B]" />
+                        Ver vídeo
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+
+                    {editForm.DOC && (
+                      <a
+                        href={editForm.DOC}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:border-[#C8A96B]"
+                      >
+                        <FileText size={16} className="text-[#C8A96B]" />
+                        Ver documento
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FOOTER MODAL */}
+
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6">
+              {!isCreating ? (
+                <button
+                  onClick={deletePlayer}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  Eliminar
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => closePlayer()}
+                  className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60 transition hover:border-white/30 hover:text-white"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={savePlayer}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#d8ba7c] disabled:opacity-50"
+                >
+                  <Save size={16} />
+
+                  {saving
+                    ? "Guardando..."
+                    : isCreating
+                      ? "Añadir jugador"
+                      : "Guardar"}
+                </button>
+              </div>
+            </div>
           </div>
-
-        )}
-
+        </div>
+      )}
     </main>
   );
 }
@@ -1995,55 +1307,120 @@ const deletePlayer = async () => {
 |--------------------------------------------------------------------------
 */
 
-function Info({
-  label,
+function SearchInput({
   value,
+  onChange,
+  placeholder,
 }: {
-  label: string;
-  value: unknown;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="relative min-w-0">
+      <Search
+        size={18}
+        className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40"
+      />
 
-      <p className="truncate text-[10px] uppercase tracking-wider text-white/40">
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] py-3 pl-11 pr-11 outline-none transition focus:border-[#C8A96B]"
+      />
 
-        {label}
-
-      </p>
-
-      <p className="mt-1 truncate text-sm font-medium">
-
-        {String(value || "—")}
-
-      </p>
-
+      {value && (
+        <button
+          onClick={() => onChange("")}
+          aria-label="Limpiar búsqueda"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-white/40 transition hover:bg-white/10 hover:text-white"
+        >
+          <X size={16} />
+        </button>
+      )}
     </div>
   );
 }
 
-function InfoLine({
-  label,
-  value,
+function PlayerRow({
+  player,
+  showTeam,
+  onClick,
 }: {
-  label: string;
-  value: unknown;
+  player: RivalPlayer;
+  showTeam: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className="flex min-w-0 items-start justify-between gap-4 border-b border-white/5 pb-2">
+    <button
+      onClick={onClick}
+      className="group flex min-w-0 items-center gap-3 bg-[#11161D] p-3 text-left transition hover:bg-white/[0.07]"
+    >
+      {/* FOTO */}
 
-      <span className="shrink-0 text-white/40">
+      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
+        {player.FOTO ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={player.FOTO}
+            alt={player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+            loading="lazy"
+            className="h-full w-full object-cover transition group-hover:scale-110"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <UserRound size={20} className="text-white/20" />
+          </div>
+        )}
+      </div>
 
-        {label}
+      {/* DORSAL */}
 
-      </span>
+      <div className="w-8 shrink-0 text-center">
+        <span className="text-lg font-bold text-white/30">
+          {player.DORSAL || "—"}
+        </span>
+      </div>
 
-      <span className="min-w-0 truncate text-right">
+      {/* NOMBRE Y POSICIÓN */}
 
-        {String(value || "—")}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold">
+          {player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+        </p>
 
-      </span>
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          <span
+            className={`shrink-0 truncate rounded-md border px-1.5 py-0.5 text-[10px] ${getPositionStyle(
+              player["POSICIÓN"],
+            )}`}
+          >
+            {player["POSICIÓN"] || "—"}
+          </span>
 
-    </div>
+          {showTeam && (
+            <span className="min-w-0 truncate text-[10px] text-white/30">
+              {player.NOMBRE_EQUIPO}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ROL */}
+
+      {player.ROL && (
+        <div className="hidden min-w-0 shrink-0 text-right xl:block">
+          <p className="text-[9px] uppercase tracking-wider text-white/30">
+            Rol
+          </p>
+
+          <p className="mt-0.5 max-w-[80px] truncate text-xs text-[#C8A96B]">
+            {player.ROL}
+          </p>
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -2051,45 +1428,25 @@ function EditableField({
   label,
   value,
   onChange,
+  inputMode,
 }: {
   label: string;
   value: unknown;
-  onChange: (
-    value: string
-  ) => void;
+  onChange: (value: string) => void;
+  inputMode?: "numeric" | "text";
 }) {
   return (
     <label className="block min-w-0">
-
       <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
-
         {label}
-
       </span>
 
       <input
-        value={String(value || "")}
-        onChange={(event) =>
-          onChange(
-            event.target.value
-          )
-        }
-        className="
-          w-full
-          min-w-0
-          rounded-xl
-          border
-          border-white/10
-          bg-[#0B0F14]
-          px-4
-          py-3
-          text-sm
-          outline-none
-          transition
-          focus:border-[#C8A96B]
-        "
+        value={String(value ?? "")}
+        inputMode={inputMode}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0B0F14] px-4 py-3 text-sm outline-none transition focus:border-[#C8A96B]"
       />
-
     </label>
   );
 }
@@ -2101,60 +1458,44 @@ function EditableTextarea({
 }: {
   label: string;
   value: unknown;
-  onChange: (
-    value: string
-  ) => void;
+  onChange: (value: string) => void;
 }) {
   return (
     <label className="block min-w-0">
-
       <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
-
         {label}
-
       </span>
 
       <textarea
-        value={String(value || "")}
-        onChange={(event) =>
-          onChange(
-            event.target.value
-          )
-        }
+        value={String(value ?? "")}
+        onChange={(event) => onChange(event.target.value)}
         rows={4}
-        className="
-          w-full
-          min-w-0
-          resize-none
-          rounded-xl
-          border
-          border-white/10
-          bg-[#0B0F14]
-          px-4
-          py-3
-          text-sm
-          outline-none
-          transition
-          focus:border-[#C8A96B]
-        "
+        className="w-full min-w-0 resize-y rounded-xl border border-white/10 bg-[#0B0F14] px-4 py-3 text-sm outline-none transition focus:border-[#C8A96B]"
       />
-
     </label>
   );
 }
+
 function formatDateForInput(value: unknown) {
   if (!value) return "";
 
-  const date = new Date(
-    String(value)
-  );
+  const raw = String(value).trim();
 
-  if (isNaN(date.getTime())) {
-    return "";
+  /* "DD/MM/YYYY" no lo interpreta bien `new Date()`: lo convertimos a mano. */
+  const slash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (slash) {
+    const [, day, month, year] = slash;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
+
+  const date = new Date(raw);
+
+  if (isNaN(date.getTime())) return "";
 
   return date.toISOString().split("T")[0];
 }
+
 function EditableDateField({
   label,
   value,
@@ -2166,7 +1507,6 @@ function EditableDateField({
 }) {
   return (
     <label className="block min-w-0">
-
       <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
         {label}
       </span>
@@ -2174,1027 +1514,510 @@ function EditableDateField({
       <input
         type="date"
         value={formatDateForInput(value)}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        className="
-          w-full
-          min-w-0
-          rounded-xl
-          border
-          border-white/10
-          bg-[#0B0F14]
-          px-4
-          py-3
-          text-sm
-          text-white
-          outline-none
-          transition
-          focus:border-[#C8A96B]
-        "
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0B0F14] px-4 py-3 text-sm text-white outline-none transition focus:border-[#C8A96B]"
       />
-
     </label>
   );
 }
+
+function RivalsSkeleton() {
+  return (
+    <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
+      <div className="space-y-5">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-56 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
+          />
+        ))}
+      </div>
+
+      <div className="h-[700px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| CAMPOGRAMA
+|--------------------------------------------------------------------------
+*/
+
 function TacticalPitch({
   players,
+  selectedId,
   onPlayerClick,
 }: {
   players: RivalPlayer[];
-  onPlayerClick: (
-    player: RivalPlayer
-  ) => void;
+  selectedId?: string;
+  onPlayerClick: (player: RivalPlayer) => void;
 }) {
-  const positionedPlayers =
-    getPitchPlayers(players);
+  const positionedPlayers = useMemo(
+    () => getPitchPlayers(players),
+    [players],
+  );
 
   return (
+    <div className="relative h-[min(900px,calc(100vh-120px))] min-h-[560px] w-full overflow-hidden bg-[#173b2a]">
+      {/* FONDO DEL CAMPO */}
 
-    <div
-  className="
-    relative
-    h-[min(900px,calc(100vh-120px))]
-    min-h-[700px]
-    w-full
-    overflow-hidden
-    bg-[#173b2a]
-  "
->
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/emotional-field-bg.png"
+          alt=""
+          className="absolute left-1/2 top-1/2 h-[75%] w-[240%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-fill sm:h-[133%] sm:w-[240%] lg:h-[135%] lg:w-[100%]"
+        />
+      </div>
 
-{/* ================================================= */}
-{/* FONDO DEL CAMPO */}
-{/* ================================================= */}
+      <div className="pointer-events-none absolute inset-0 bg-black/20" />
 
-<div className="pointer-events-none absolute inset-0 overflow-hidden">
-
-  <img
-    src="/emotional-field-bg.png"
-    alt=""
-    className="
-      absolute
-      left-1/2
-      top-1/2
-      h-[75%]
-      w-[240%]
-      max-w-none
-      -translate-x-1/2
-      -translate-y-1/2
-      rotate-90
-      object-fill
-
-      sm:h-[133%]
-      sm:w-[240%]
-
-      lg:h-[135%]
-      lg:w-[100%]
-    "
-  />
-
-</div>
-
-{/* OSCURECER LIGERAMENTE */}
-
-<div className="pointer-events-none absolute inset-0 bg-black/20" />
-
-      {/* ================================================= */}
       {/* JUGADORES */}
-      {/* ================================================= */}
 
-      {positionedPlayers.map(
-        ({
-          player,
-          top,
-          left,
-        }) => (
+      {positionedPlayers.map(({ player, top, left }) => {
+        const selected = selectedId === player.ID_JUGADOR;
 
+        return (
           <button
-            key={
-              player.ID_JUGADOR
-            }
-            onClick={() =>
-              onPlayerClick(
-                player
-              )
-            }
-            className="
-              group
-              absolute
-              z-10
-              flex
-              -translate-x-1/2
-              -translate-y-1/2
-              flex-col
-              items-center
-              transition
-              hover:z-20
-              hover:scale-110
-            "
-            style={{
-              top:
-                `${top}%`,
-              left:
-                `${left}%`,
-            }}
+            key={player.ID_JUGADOR}
+            onClick={() => onPlayerClick(player)}
+            title={`${player["NOMBRE DEPORTIVO"] || player.JUGADOR} · ${
+              player["POSICIÓN"]
+            }`}
+            className="group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center transition hover:z-20 hover:scale-110"
+            style={{ top: `${top}%`, left: `${left}%` }}
           >
-
             {/* FOTO */}
 
             <div
-  className="
-    relative
-    h-10
-    w-10
-    overflow-hidden
-    rounded-full
-    border-2
-    border-white/80
-    bg-[#11161D]
-    shadow-xl
-    sm:h-14
-    sm:w-14
-    md:h-16
-    md:w-16
-  "
->
-
+              className={`relative h-10 w-10 overflow-hidden rounded-full border-2 bg-[#11161D] shadow-xl sm:h-14 sm:w-14 md:h-16 md:w-16 ${
+                selected
+                  ? "border-[#C8A96B] ring-2 ring-[#C8A96B]/60"
+                  : "border-white/80"
+              }`}
+            >
               {player.FOTO ? (
-
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={
-                    player.FOTO
-                  }
-                  alt={
-                    player[
-                      "NOMBRE DEPORTIVO"
-                    ] ||
-                    player.JUGADOR
-                  }
-                  className="
-                    h-full
-                    w-full
-                    object-cover
-                  "
+                  src={player.FOTO}
+                  alt={player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
                 />
-
               ) : (
-
                 <UserRound
                   size={20}
-                  className="
-                    absolute
-                    left-1/2
-                    top-1/2
-                    -translate-x-1/2
-                    -translate-y-1/2
-                    text-white/30
-                  "
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
                 />
-
               )}
 
               {/* DORSAL */}
 
-              <span
-                className="
-                  absolute
-                  bottom-0
-                  right-0
-                  flex
-                  h-5
-                  min-w-5
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-[#C8A96B]
-                  px-1
-                  text-[9px]
-                  font-bold
-                  text-black
-                "
-              >
-
-                {
-                  player.DORSAL
-                }
-
-              </span>
-
+              {player.DORSAL !== "" && player.DORSAL !== undefined && (
+                <span className="absolute bottom-0 right-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C8A96B] px-1 text-[9px] font-bold text-black">
+                  {player.DORSAL}
+                </span>
+              )}
             </div>
 
             {/* NOMBRE */}
 
-<span
-  className="
-    mt-1
-    max-w-[72px]
-    truncate
-    rounded
-    bg-black/70
-    px-1
-    py-0.5
-    text-[8px]
-    font-semibold
-    text-white
-    sm:max-w-[110px]
-    sm:px-2
-    sm:text-[11px]
-  "
->
-
-              {
-                player[
-                  "NOMBRE DEPORTIVO"
-                ] ||
-                player.JUGADOR
-              }
-
+            <span className="mt-1 max-w-[72px] truncate rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white sm:max-w-[110px] sm:px-2 sm:text-[11px]">
+              {player["NOMBRE DEPORTIVO"] || player.JUGADOR}
             </span>
 
             {/* ROL */}
 
             {player.ROL && (
-
-              <span
-  className="
-    max-w-[90px]
-    truncate
-    text-[8px]
-    font-medium
-    text-white/80
-    sm:max-w-[150px]
-    sm:text-[11px]
-  "
->
-
-                {
-                  player.ROL
-                }
-
+              <span className="max-w-[90px] truncate text-[8px] font-medium text-white/80 sm:max-w-[150px] sm:text-[11px]">
+                {player.ROL}
               </span>
-
             )}
-
           </button>
+        );
+      })}
 
-        )
+      {positionedPlayers.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/50">
+          No hay jugadores con posición asignada.
+        </div>
       )}
-
     </div>
-
   );
 }
-function getPitchPlayers(
-  players: RivalPlayer[]
-) {
-  const groups = {
 
-  portero: [] as RivalPlayer[],
+/*
+|--------------------------------------------------------------------------
+| COLOCACIÓN EN EL CAMPO
+|--------------------------------------------------------------------------
+| Cada grupo tiene una zona (top/left en %). Todos los grupos declarados aquí
+| se pintan: los genéricos (lateral, interior, extremo sin lado) también, para
+| que ningún jugador con posición desaparezca del campograma.
+*/
 
-  lateralIzquierdo: [] as RivalPlayer[],
-  lateral: [] as RivalPlayer[],
-
-  central: [] as RivalPlayer[],
-
-  lateralDerecho: [] as RivalPlayer[],
-
-  mediocentro: [] as RivalPlayer[],
-  pivote: [] as RivalPlayer[],
-
-  interior: [] as RivalPlayer[],
-  interiorIzquierdo: [] as RivalPlayer[],
-
-  interiorDerecho: [] as RivalPlayer[],
-
-  mediaPunta: [] as RivalPlayer[],
-
-  extremo: [] as RivalPlayer[],
-  extremoIzquierdo: [] as RivalPlayer[],
-
-  extremoDerecho: [] as RivalPlayer[],
-
-  delantero: [] as RivalPlayer[],
-
-  otro: [] as RivalPlayer[],
-
+type PitchSlot = {
+  /* Coordenadas en % sobre el contenedor. top 0 = portería rival. */
+  top: number;
+  left: number;
+  /* "horizontal": se reparten en abanico. "vertical": en columna. */
+  mode: "horizontal" | "vertical";
+  maxWidth?: number;
+  spacing: number;
+  matches: (position: string) => boolean;
 };
 
+const PITCH_SLOTS: PitchSlot[] = [
+  {
+    top: 95,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 30,
+    spacing: 24,
+    matches: (p) =>
+      p.includes("portero") || p.includes("arquero") || p.includes("guardameta"),
+  },
+
+  /* DEFENSA */
+
+  {
+    top: 69,
+    left: 15,
+    mode: "vertical",
+    spacing: 12,
+    matches: (p) =>
+      p.includes("lateral izquierdo") ||
+      p.includes("lateral izq") ||
+      p.includes("lateral i") ||
+      p.includes("lat izquierdo") ||
+      p.includes("lat izq") ||
+      p.includes("lat i") ||
+      p.includes("carrilero izquierdo") ||
+      p.includes("carrilero izq"),
+  },
+  {
+    top: 69,
+    left: 87,
+    mode: "vertical",
+    spacing: 12,
+    matches: (p) =>
+      p.includes("lateral derecho") ||
+      p.includes("lateral dcho") ||
+      p.includes("lateral der") ||
+      p.includes("lateral d") ||
+      p.includes("lat derecho") ||
+      p.includes("lat dcho") ||
+      p.includes("lat der") ||
+      p.includes("lat d") ||
+      p.includes("carrilero derecho") ||
+      p.includes("carrilero der"),
+  },
+  {
+    top: 73,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 38,
+    spacing: 22,
+    matches: (p) =>
+      p.includes("central") ||
+      p.includes("zaguero") ||
+      p.includes("defensa central"),
+  },
+  /* Laterales/carrileros sin lado definido: entre los dos costados. */
+  {
+    top: 78,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 46,
+    spacing: 24,
+    matches: (p) =>
+      p.includes("lateral") || p.includes("carrilero") || p.includes("lat "),
+  },
+  {
+    top: 76,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 42,
+    spacing: 22,
+    matches: (p) => p.includes("defensa"),
+  },
+
+  /* MEDIO */
+
+  {
+    top: 52,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 42,
+    spacing: 22,
+    matches: (p) =>
+      p.includes("mediocentro") ||
+      p.includes("medio centro") ||
+      p.includes("pivote") ||
+      p.includes("medio defensivo"),
+  },
+  {
+    top: 44,
+    left: 30,
+    mode: "vertical",
+    spacing: 11,
+    matches: (p) =>
+      p.includes("interior izquierdo") ||
+      p.includes("interior izq") ||
+      p.includes("interior i") ||
+      p.includes("int izquierdo") ||
+      p.includes("int izq") ||
+      p.includes("int i"),
+  },
+  {
+    top: 44,
+    left: 74,
+    mode: "vertical",
+    spacing: 11,
+    matches: (p) =>
+      p.includes("interior derecho") ||
+      p.includes("interior dcho") ||
+      p.includes("interior der") ||
+      p.includes("interior d") ||
+      p.includes("int derecho") ||
+      p.includes("int dcho") ||
+      p.includes("int der") ||
+      p.includes("int d"),
+  },
+  {
+    top: 40,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 46,
+    spacing: 24,
+    matches: (p) => p.includes("interior"),
+  },
+  {
+    top: 28,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 42,
+    spacing: 22,
+    matches: (p) =>
+      p.includes("media punta") ||
+      p.includes("mediapunta") ||
+      p.includes("media-punta") ||
+      p.includes("enganche"),
+  },
+  {
+    top: 48,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 42,
+    spacing: 22,
+    matches: (p) => p.includes("medio"),
+  },
+
+  /* ATAQUE */
+
+  {
+    top: 22,
+    left: 14,
+    mode: "vertical",
+    spacing: 12,
+    matches: (p) =>
+      p.includes("extremo izquierdo") ||
+      p.includes("extremo izq") ||
+      p.includes("extremo i") ||
+      p.includes("ext izquierdo") ||
+      p.includes("ext izq") ||
+      p.includes("ext i"),
+  },
+  {
+    top: 22,
+    left: 88,
+    mode: "vertical",
+    spacing: 12,
+    matches: (p) =>
+      p.includes("extremo derecho") ||
+      p.includes("extremo dcho") ||
+      p.includes("extremo der") ||
+      p.includes("extremo d") ||
+      p.includes("ext derecho") ||
+      p.includes("ext dcho") ||
+      p.includes("ext der") ||
+      p.includes("ext d"),
+  },
+  {
+    top: 18,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 50,
+    spacing: 24,
+    matches: (p) => p.includes("extremo") || p.includes("ext "),
+  },
+  {
+    top: 8,
+    left: 52,
+    mode: "horizontal",
+    maxWidth: 42,
+    spacing: 24,
+    matches: (p) =>
+      p.includes("delantero") ||
+      p.includes("punta") ||
+      p.includes("ariete") ||
+      p.includes("9"),
+  },
+];
+
+/* Zona por defecto para posiciones que no encajan en ningún slot. */
+const FALLBACK_SLOT: Omit<PitchSlot, "matches"> = {
+  top: 60,
+  left: 52,
+  mode: "horizontal",
+  maxWidth: 34,
+  spacing: 22,
+};
+
+function getPitchPlayers(players: RivalPlayer[]) {
+  const buckets = PITCH_SLOTS.map(() => [] as RivalPlayer[]);
+  const fallback: RivalPlayer[] = [];
 
   players.forEach((player) => {
+    const position = normalize(player["POSICIÓN"]);
 
-  const position = normalize(
-    player["POSICIÓN"]
-  );
+    const index = PITCH_SLOTS.findIndex((slot) => slot.matches(position));
 
-  /*
-  |--------------------------------------------------------------------------
-  | PORTERO
-  |--------------------------------------------------------------------------
-  */
+    if (index === -1) {
+      fallback.push(player);
+      return;
+    }
 
-  if (
-    position.includes("portero") ||
-    position.includes("arquero") ||
-    position.includes("guardameta")
-  ) {
-    groups.portero.push(player);
-    return;
-  }
+    buckets[index].push(player);
+  });
 
+  const result: { player: RivalPlayer; top: number; left: number }[] = [];
 
-  /*
-  |--------------------------------------------------------------------------
-  | LATERAL IZQUIERDO
-  |--------------------------------------------------------------------------
-  */
+  const place = (
+    slot: Omit<PitchSlot, "matches">,
+    slotPlayers: RivalPlayer[],
+  ) => {
+    if (slotPlayers.length === 0) return;
 
-  if (
-  position.includes("lateral izquierdo") ||
-  position.includes("lateral izq") ||
-  position.includes("lateral i") ||
-  position.includes("lat izquierdo") ||
-  position.includes("lat izq") ||
-  position.includes("lat i")
-) {
-  groups.lateralIzquierdo.push(player);
-  return;
+    if (slot.mode === "vertical") {
+      result.push(
+        ...distributePlayersVertical(
+          slotPlayers,
+          slot.top,
+          slot.left,
+          slot.spacing,
+        ),
+      );
+      return;
+    }
+
+    result.push(
+      ...distributePlayers(
+        slotPlayers,
+        slot.top,
+        slot.left,
+        slot.maxWidth ?? 40,
+        slot.spacing,
+      ),
+    );
+  };
+
+  PITCH_SLOTS.forEach((slot, index) => place(slot, buckets[index]));
+
+  place(FALLBACK_SLOT, fallback);
+
+  return result;
 }
 
-
-  /*
-  |--------------------------------------------------------------------------
-  | LATERAL DERECHO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("lateral derecho") ||
-    position.includes("lateral dcho") ||
-    position.includes("lateral der") ||
-    position.includes("lateral d") ||
-    position.includes("lat derecho") ||
-    position.includes("lat dcho") ||
-    position.includes("lat der") ||
-    position.includes("lat d")
-  ) {
-    groups.lateralDerecho.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | LATERAL GENÉRICO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("lateral") ||
-    position.includes("carrilero") ||
-    position.includes("lat ")
-  ) {
-    groups.lateral.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | CENTRAL
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("central") ||
-    position.includes("defensa central") ||
-    position.includes("zaguero")
-  ) {
-    groups.central.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | MEDIOCENTRO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("mediocentro") ||
-    position.includes("medio centro") ||
-    position.includes("mc") ||
-    position.includes("pivote") ||
-    position.includes("medio defensivo") ||
-    position.includes("md")
-  ) {
-    groups.mediocentro.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | INTERIOR IZQUIERDO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("interior izquierdo") ||
-    position.includes("interior izq") ||
-    position.includes("interior i") ||
-    position.includes("int izquierdo") ||
-    position.includes("int izq") ||
-    position.includes("int i")
-  ) {
-    groups.interiorIzquierdo.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | INTERIOR DERECHO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("interior derecho") ||
-    position.includes("interior dcho") ||
-    position.includes("interior der") ||
-    position.includes("interior d") ||
-    position.includes("int derecho") ||
-    position.includes("int dcho") ||
-    position.includes("int der") ||
-    position.includes("int d")
-  ) {
-    groups.interiorDerecho.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | INTERIOR GENÉRICO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("interior")
-  ) {
-    groups.interior.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | MEDIA PUNTA
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("media punta") ||
-    position.includes("mediapunta") ||
-    position.includes("media-punta") ||
-    position.includes("mp") ||
-    position.includes("enganche")
-  ) {
-    groups.mediaPunta.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | EXTREMO IZQUIERDO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("extremo izquierdo") ||
-    position.includes("extremo izq") ||
-    position.includes("extremo i") ||
-    position.includes("extremo izquierdo") ||
-    position.includes("ext izq") ||
-    position.includes("ext i")
-  ) {
-    groups.extremoIzquierdo.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | EXTREMO DERECHO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("extremo derecho") ||
-    position.includes("extremo dcho") ||
-    position.includes("extremo der") ||
-    position.includes("extremo d") ||
-    position.includes("ext dcho") ||
-    position.includes("ext der") ||
-    position.includes("ext d")
-  ) {
-    groups.extremoDerecho.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | EXTREMO GENÉRICO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("extremo") ||
-    position.includes("ext ")
-  ) {
-    groups.extremo.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | DELANTERO
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    position.includes("delantero") ||
-    position.includes("punta") ||
-    position.includes("ariete") ||
-    position.includes("9")
-  ) {
-    groups.delantero.push(player);
-    return;
-  }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | OTROS
-  |--------------------------------------------------------------------------
-  */
-
-  groups.otro.push(player);
-
-});
-
-
-  const result: {
-    player: RivalPlayer;
-    top: number;
-    left: number;
-  }[] = [];
-
-
-/*
-|--------------------------------------------------------------------------
-| PORTEROS — 2 a 4
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.portero,
-    95,
-    52,
-    30,
-    24
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| DEFENSA
-|--------------------------------------------------------------------------
-*/
-
-// LATERAL IZQUIERDO — 2 a 3
-
-result.push(
-  ...distributePlayersVertical(
-    groups.lateralIzquierdo,
-    69,
-    15,
-    12
-  )
-);
-
-
-// CENTRALES — 3 a 5
-
-result.push(
-  ...distributePlayers(
-    groups.central,
-    73,
-    52,
-    38,
-    22
-  )
-);
-
-
-// LATERAL DERECHO — 2 a 3
-
-result.push(
-  ...distributePlayersVertical(
-    groups.lateralDerecho,
-    69,
-    87,
-    12
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| MEDIOCENTROS — 3 a 6
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.mediocentro,
-    45,
-    52,
-    42,
-    22
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| MEDIA PUNTAS — 2 a 5
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.mediaPunta,
-    24,
-    52,
-    42,
-    22
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| INTERIORES
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.interiorIzquierdo,
-    47,
-    32,
-    32,
-    22
-  )
-);
-
-result.push(
-  ...distributePlayers(
-    groups.interiorDerecho,
-    47,
-    72,
-    32,
-    22
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| EXTREMO IZQUIERDO — 2 a 3
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayersVertical(
-    groups.extremoIzquierdo,
-    25,
-    15,
-    12
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| EXTREMO DERECHO — 2 a 3
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayersVertical(
-    groups.extremoIzquierdo,
-    25,
-    15,
-    12
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| DELANTEROS — 2 a 4
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.delantero,
-    8,
-    52,
-    42,
-    24
-  )
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| OTROS
-|--------------------------------------------------------------------------
-*/
-
-result.push(
-  ...distributePlayers(
-    groups.otro,
-    42,
-    52,
-    34,
-    22
-  )
-);
-
-
-return result;
-}
 function distributePlayers(
   players: RivalPlayer[],
   top: number,
   centerLeft: number,
   maxWidth: number,
-  minSpacing: number
+  minSpacing: number,
 ) {
-  if (players.length === 0) {
-    return [];
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | UN JUGADOR
-  |--------------------------------------------------------------------------
-  */
+  if (players.length === 0) return [];
 
   if (players.length === 1) {
-    return [
-      {
-        player: players[0],
-        top,
-        left: centerLeft,
-      },
-    ];
+    return [{ player: players[0], top, left: centerLeft }];
   }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | DOS JUGADORES
-  |--------------------------------------------------------------------------
-  */
 
   if (players.length === 2) {
-    const spacing = Math.min(
-      minSpacing * 1.5,
-      maxWidth / 2
-    );
+    const spacing = Math.min(minSpacing * 1.5, maxWidth / 2);
 
     return [
-      {
-        player: players[0],
-        top,
-        left: centerLeft - spacing,
-      },
-      {
-        player: players[1],
-        top,
-        left: centerLeft + spacing,
-      },
+      { player: players[0], top, left: centerLeft - spacing },
+      { player: players[1], top, left: centerLeft + spacing },
     ];
   }
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | TRES JUGADORES
-  |--------------------------------------------------------------------------
-  */
 
   if (players.length === 3) {
-    const spacing = Math.min(
-      minSpacing * 1.4,
-      maxWidth / 2
-    );
+    const spacing = Math.min(minSpacing * 1.4, maxWidth / 2);
 
     return [
-      {
-        player: players[0],
-        top,
-        left: centerLeft - spacing,
-      },
-      {
-        player: players[1],
-        top: top - 2,
-        left: centerLeft,
-      },
-      {
-        player: players[2],
-        top,
-        left: centerLeft + spacing,
-      },
+      { player: players[0], top, left: centerLeft - spacing },
+      { player: players[1], top: top - 2, left: centerLeft },
+      { player: players[2], top, left: centerLeft + spacing },
     ];
   }
 
-
   /*
   |--------------------------------------------------------------------------
-  | CUATRO O MÁS
+  | CUATRO O MÁS: DOS FILAS
   |--------------------------------------------------------------------------
   */
 
-  const firstRowCount =
-    Math.ceil(players.length / 2);
+  const firstRowCount = Math.ceil(players.length / 2);
+  const secondRowCount = players.length - firstRowCount;
 
-  const secondRowCount =
-    players.length - firstRowCount;
-
-
-  const createRow = (
-    rowPlayers: RivalPlayer[],
-    rowTop: number
-  ) => {
-
+  const createRow = (rowPlayers: RivalPlayer[], rowTop: number) => {
     if (rowPlayers.length === 1) {
-      return [
-        {
-          player: rowPlayers[0],
-          top: rowTop,
-          left: centerLeft,
-        },
-      ];
+      return [{ player: rowPlayers[0], top: rowTop, left: centerLeft }];
     }
-
-
-    /*
-    |----------------------------------------------------------------------
-    | MÁS ESPACIO ENTRE JUGADORES
-    |----------------------------------------------------------------------
-    */
 
     const rowWidth = Math.min(
       maxWidth,
-      (rowPlayers.length - 1) *
-        minSpacing *
-        1.35
+      (rowPlayers.length - 1) * minSpacing * 1.35,
     );
 
+    const spacing = rowWidth / (rowPlayers.length - 1);
+    const start = centerLeft - rowWidth / 2;
 
-    const spacing =
-      rowWidth /
-      (rowPlayers.length - 1);
-
-
-    const start =
-      centerLeft -
-      rowWidth / 2;
-
-
-    return rowPlayers.map(
-      (player, index) => ({
-        player,
-
-        top: rowTop,
-
-        left:
-          start +
-          index *
-            spacing,
-      })
-    );
+    return rowPlayers.map((player, index) => ({
+      player,
+      top: rowTop,
+      left: start + index * spacing,
+    }));
   };
 
-
-  /*
-  |--------------------------------------------------------------------------
-  | FILA SUPERIOR
-  |--------------------------------------------------------------------------
-  */
-
-  const firstRow =
-    createRow(
-      players.slice(
-        0,
-        firstRowCount
-      ),
-      top - 8
-    );
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | FILA INFERIOR
-  |--------------------------------------------------------------------------
-  */
+  const firstRow = createRow(players.slice(0, firstRowCount), top - 8);
 
   const secondRow =
     secondRowCount > 0
-      ? createRow(
-          players.slice(
-            firstRowCount
-          ),
-          top + 8
-        )
+      ? createRow(players.slice(firstRowCount), top + 8)
       : [];
 
-
-  return [
-    ...firstRow,
-    ...secondRow,
-  ];
+  return [...firstRow, ...secondRow];
 }
+
 function distributePlayersVertical(
   players: RivalPlayer[],
   top: number,
   left: number,
-  verticalSpacing: number
+  verticalSpacing: number,
 ) {
-  if (players.length === 0) {
-    return [];
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | UN SOLO JUGADOR
-  |--------------------------------------------------------------------------
-  */
+  if (players.length === 0) return [];
 
   if (players.length === 1) {
-    return [
-      {
-        player: players[0],
-        top,
-        left,
-      },
-    ];
+    return [{ player: players[0], top, left }];
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | DISTRIBUCIÓN VERTICAL
-  |--------------------------------------------------------------------------
-  |
-  | Ejemplo:
-  |
-  |        jugador 1
-  |
-  |        jugador 2
-  |
-  |        jugador 3
-  |
-  */
+  const totalHeight = (players.length - 1) * verticalSpacing;
+  const start = top - totalHeight / 2;
 
-  const totalHeight =
-    (players.length - 1) *
-    verticalSpacing;
-
-  const start =
-    top -
-    totalHeight / 2;
-
-  return players.map(
-    (player, index) => ({
-      player,
-
-      top:
-        start +
-        index *
-          verticalSpacing,
-
-      left,
-    })
-  );
+  return players.map((player, index) => ({
+    player,
+    top: start + index * verticalSpacing,
+    left,
+  }));
 }
