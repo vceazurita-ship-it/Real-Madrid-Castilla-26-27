@@ -15,21 +15,42 @@ import { Topbar } from "@/components/ui/topbar";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 
 import {
+  AlertTriangle,
+  ArrowBigUp,
+  BatteryCharging,
+  Brain,
   ChevronLeft,
   ChevronRight,
-  LayoutGrid,
-  Search,
-  Shirt,
-  X,
-  Save,
+  Crown,
+  Dumbbell,
   ExternalLink,
   FileText,
-  Video,
-  UserRound,
+  Flag,
+  Flame,
+  Footprints,
+  Handshake,
+  LayoutGrid,
   Plus,
   RotateCcw,
+  Ruler,
+  Save,
+  Search,
+  Shirt,
+  Shuffle,
+  Sparkles,
+  Star,
+  Swords,
+  Tags,
+  Target,
   Trash2,
+  UserRound,
+  Video,
+  Wind,
+  X,
+  Zap,
 } from "lucide-react";
+
+import type { LucideIcon } from "lucide-react";
 
 const RIVALS_API_URL = "/api/rivals";
 
@@ -215,6 +236,9 @@ export default function RivalPlayersPage() {
   const [search, setSearch] = useState("");
   const [positionSearch, setPositionSearch] = useState("");
 
+  /* Claves de etiqueta activas: un jugador debe tenerlas TODAS para pasar. */
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+
   const [selectedPlayer, setSelectedPlayer] = useState<RivalPlayer | null>(
     null,
   );
@@ -341,10 +365,41 @@ export default function RivalPlayersPage() {
         String(player.DORSAL).includes(searchValue) ||
         normalize(player["POSICIÓN"]).includes(searchValue) ||
         normalize(player["2º POSICIÓN"]).includes(searchValue) ||
-        normalize(player.ROL).includes(searchValue)
+        normalize(player.ROL).includes(searchValue) ||
+        normalize(player.IMPACTO).includes(searchValue)
       );
     });
   }, [players, selectedTeam, search, positionSearch]);
+
+  /*
+  | El filtro por etiquetas sólo recorta el listado: en el campograma se sigue
+  | pintando la plantilla entera y los que no cumplen quedan atenuados, que es
+  | justo la lectura útil (dónde están los que me interesan).
+  */
+  const listPlayers = useMemo(() => {
+    if (activeTags.length === 0) return filteredPlayers;
+
+    return filteredPlayers.filter((player) => {
+      const keys = new Set(
+        parseTags(player.IMPACTO).tags.map((tag) => tag.key),
+      );
+
+      return activeTags.every((key) => keys.has(key));
+    });
+  }, [filteredPlayers, activeTags]);
+
+  /* Recuento por etiqueta dentro del ámbito actual, para las píldoras. */
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    filteredPlayers.forEach((player) => {
+      parseTags(player.IMPACTO).tags.forEach((tag) => {
+        counts.set(tag.key, (counts.get(tag.key) ?? 0) + 1);
+      });
+    });
+
+    return counts;
+  }, [filteredPlayers]);
 
   /* Equipos representados en el resultado actual (relevante al buscar global). */
   const teamsInResults = useMemo(() => {
@@ -381,7 +436,7 @@ export default function RivalPlayersPage() {
 
   const lines = useMemo(() => {
     return LINE_DEFINITIONS.map((line) => {
-      const linePlayers = filteredPlayers
+      const linePlayers = listPlayers
         .filter((player) => getLine(player["POSICIÓN"])?.key === line.key)
         .sort((a, b) => {
           const rankA = positionRank(a["POSICIÓN"]);
@@ -394,12 +449,12 @@ export default function RivalPlayersPage() {
 
       return { ...line, players: linePlayers };
     });
-  }, [filteredPlayers]);
+  }, [listPlayers]);
 
   /* Jugadores cuya posición no encaja en ninguna línea conocida. */
   const unclassified = useMemo(() => {
-    return filteredPlayers.filter((player) => !getLine(player["POSICIÓN"]));
-  }, [filteredPlayers]);
+    return listPlayers.filter((player) => !getLine(player["POSICIÓN"]));
+  }, [listPlayers]);
 
   /*
   |--------------------------------------------------------------------------
@@ -475,18 +530,18 @@ export default function RivalPlayersPage() {
   */
 
   const selectedIndex = selectedPlayer
-    ? filteredPlayers.findIndex(
+    ? listPlayers.findIndex(
         (player) => player.ID_JUGADOR === selectedPlayer.ID_JUGADOR,
       )
     : -1;
 
   const navigatePlayer = useCallback(
     (direction: number) => {
-      if (selectedIndex === -1 || filteredPlayers.length === 0) return;
+      if (selectedIndex === -1 || listPlayers.length === 0) return;
 
       const nextIndex = selectedIndex + direction;
 
-      if (nextIndex < 0 || nextIndex >= filteredPlayers.length) return;
+      if (nextIndex < 0 || nextIndex >= listPlayers.length) return;
 
       if (isDirty) {
         const confirmed = window.confirm(
@@ -496,9 +551,9 @@ export default function RivalPlayersPage() {
         if (!confirmed) return;
       }
 
-      openPlayer(filteredPlayers[nextIndex]);
+      openPlayer(listPlayers[nextIndex]);
     },
-    [selectedIndex, filteredPlayers, openPlayer, isDirty],
+    [selectedIndex, listPlayers, openPlayer, isDirty],
   );
 
   /*
@@ -687,9 +742,12 @@ export default function RivalPlayersPage() {
   const resetFilters = () => {
     setSearch("");
     setPositionSearch("");
+    setActiveTags([]);
   };
 
-  const hasFilters = Boolean(search || positionSearch);
+  const hasFilters = Boolean(
+    search || positionSearch || activeTags.length > 0,
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -795,13 +853,63 @@ export default function RivalPlayersPage() {
               />
             </div>
 
+            {/* ETIQUETAS */}
+
+            <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
+                  <Tags size={14} />
+                  Etiquetas
+                </span>
+
+                <span className="text-[11px] text-white/30">
+                  {activeTags.length > 0
+                    ? "Se atenúan en el campo los que no las cumplen"
+                    : "Pulsa para filtrar · se editan en la ficha del jugador"}
+                </span>
+              </div>
+
+              <div className="flex min-w-0 flex-wrap gap-2">
+                {PLAYER_TAGS.map((tag) => {
+                  const count = tagCounts.get(tag.key) ?? 0;
+
+                  /* Sin nadie etiquetado la píldora sigue visible pero apagada. */
+                  return (
+                    <TagChip
+                      key={tag.key}
+                      tag={tag}
+                      count={count}
+                      active={activeTags.includes(tag.key)}
+                      onClick={() =>
+                        setActiveTags((current) =>
+                          current.includes(tag.key)
+                            ? current.filter((key) => key !== tag.key)
+                            : [...current, tag.key],
+                        )
+                      }
+                    />
+                  );
+                })}
+
+                {activeTags.length > 0 && (
+                  <button
+                    onClick={() => setActiveTags([])}
+                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/50 transition hover:border-white/30 hover:text-white"
+                  >
+                    <X size={11} />
+                    Quitar filtro
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* CONTADOR */}
 
             <div className="mt-6 flex min-w-0 flex-wrap items-center justify-between gap-4">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
                 <p className="shrink-0 text-sm text-white/50">
-                  {filteredPlayers.length}{" "}
-                  {filteredPlayers.length === 1 ? "jugador" : "jugadores"}
+                  {listPlayers.length}{" "}
+                  {listPlayers.length === 1 ? "jugador" : "jugadores"}
                 </p>
 
                 {search && teamsInResults.length > 1 && (
@@ -910,7 +1018,7 @@ export default function RivalPlayersPage() {
                     </section>
                   )}
 
-                  {filteredPlayers.length === 0 && (
+                  {listPlayers.length === 0 && (
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
                       No se han encontrado jugadores.
                     </div>
@@ -938,6 +1046,12 @@ export default function RivalPlayersPage() {
                       </h2>
 
                       <span className="shrink-0 text-xs text-white/30">
+                        {activeTags.length > 0 && (
+                          <span className="mr-2 text-[#C8A96B]">
+                            {listPlayers.length} destacados
+                          </span>
+                        )}
+
                         {pitchPlayers.length} jugadores
                       </span>
                     </div>
@@ -945,6 +1059,7 @@ export default function RivalPlayersPage() {
                     <TacticalPitch
                       players={pitchPlayers}
                       selectedId={selectedPlayer?.ID_JUGADOR}
+                      activeTags={activeTags}
                       onPlayerClick={openPlayer}
                     />
                   </div>
@@ -991,7 +1106,7 @@ export default function RivalPlayersPage() {
 
                     {!isCreating && selectedIndex >= 0 && (
                       <span className="ml-2 text-white/25">
-                        {selectedIndex + 1}/{filteredPlayers.length}
+                        {selectedIndex + 1}/{listPlayers.length}
                       </span>
                     )}
                   </p>
@@ -1006,7 +1121,7 @@ export default function RivalPlayersPage() {
                 {!isCreating && (
                   <button
                     onClick={() => navigatePlayer(1)}
-                    disabled={selectedIndex >= filteredPlayers.length - 1}
+                    disabled={selectedIndex >= listPlayers.length - 1}
                     aria-label="Jugador siguiente"
                     className="shrink-0 rounded-full border border-white/10 p-2 transition hover:border-[#C8A96B] disabled:opacity-20"
                   >
@@ -1158,17 +1273,11 @@ export default function RivalPlayersPage() {
                 {/* COLUMNA DERECHA */}
 
                 <div className="min-w-0 space-y-5">
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <EditableField
                       label="Estado"
                       value={editForm.ESTADO}
                       onChange={(value) => updateForm("ESTADO", value)}
-                    />
-
-                    <EditableField
-                      label="Impacto"
-                      value={editForm.IMPACTO}
-                      onChange={(value) => updateForm("IMPACTO", value)}
                     />
 
                     <EditableField
@@ -1177,6 +1286,11 @@ export default function RivalPlayersPage() {
                       onChange={(value) => updateForm("ROL", value)}
                     />
                   </div>
+
+                  <TagPicker
+                    value={editForm.IMPACTO}
+                    onChange={(value) => updateForm("IMPACTO", value)}
+                  />
 
                   <EditableTextarea
                     label="Características"
@@ -1352,6 +1466,8 @@ function PlayerRow({
   showTeam: boolean;
   onClick: () => void;
 }) {
+  const { tags } = parseTags(player.IMPACTO);
+
   return (
     <button
       onClick={onClick}
@@ -1405,6 +1521,31 @@ function PlayerRow({
             </span>
           )}
         </div>
+
+        {/* ETIQUETAS */}
+
+        {tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {tags.map((tag) => {
+              const Icon = tag.icon;
+
+              return (
+                <span
+                  key={tag.key}
+                  title={tag.label}
+                  className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                  style={{
+                    background: `${tag.color}1F`,
+                    color: tag.color,
+                  }}
+                >
+                  <Icon size={9} className="shrink-0" />
+                  {tag.short}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ROL */}
@@ -1540,26 +1681,737 @@ function RivalsSkeleton() {
 
 /*
 |--------------------------------------------------------------------------
-| CAMPOGRAMA
+| ETIQUETAS DE JUGADOR
+|--------------------------------------------------------------------------
+| Viven en el campo IMPACTO de la hoja, separadas por ";" (o ","), guardadas
+| con su etiqueta legible para que la hoja siga siendo entendible a simple
+| vista. Al leer aceptamos también la clave y varios alias, así que da igual
+| si alguien escribe "cerebro", "El cerebro" u "organizador".
+*/
+
+type PlayerTag = {
+  key: string;
+  label: string;
+  /* Texto corto que se pinta en fichas y tooltips del campograma. */
+  short: string;
+  icon: LucideIcon;
+  color: string;
+  aliases: string[];
+};
+
+const PLAYER_TAGS: PlayerTag[] = [
+  {
+    key: "cerebro",
+    label: "El cerebro",
+    short: "Cerebro",
+    icon: Brain,
+    color: "#A78BFA",
+    aliases: ["cerebro", "organizador", "director de juego", "faro"],
+  },
+  {
+    key: "crack",
+    label: "El crack",
+    short: "Crack",
+    icon: Star,
+    color: "#C8A96B",
+    aliases: ["crack", "estrella", "diferencial", "franquicia"],
+  },
+  {
+    key: "desequilibrante",
+    label: "El desequilibrante",
+    short: "Desequilibra",
+    icon: Zap,
+    color: "#E879F9",
+    aliases: ["desequilibrante", "desequilibra", "desborde"],
+  },
+  {
+    key: "regateador",
+    label: "El regateador",
+    short: "Regate",
+    icon: Shuffle,
+    color: "#F472B6",
+    aliases: ["regateador", "regate", "driblador", "encarador"],
+  },
+  {
+    key: "rapido",
+    label: "El rápido",
+    short: "Rápido",
+    icon: Wind,
+    color: "#22D3EE",
+    aliases: ["rapido", "veloz", "velocidad", "explosivo"],
+  },
+  {
+    key: "fuerte",
+    label: "El fuerte",
+    short: "Fuerte",
+    icon: Dumbbell,
+    color: "#FB923C",
+    aliases: ["fuerte", "potente", "fisico", "poderoso"],
+  },
+  {
+    key: "duro",
+    label: "El duro",
+    short: "Duro",
+    icon: Swords,
+    color: "#F87171",
+    aliases: ["duro", "agresivo", "intenso", "guerrero"],
+  },
+  {
+    key: "alto",
+    label: "El alto",
+    short: "Alto",
+    icon: Ruler,
+    color: "#7DD3FC",
+    aliases: ["alto", "aereo", "juego aereo", "dominante por alto"],
+  },
+  {
+    key: "goleador",
+    label: "El goleador",
+    short: "Gol",
+    icon: Target,
+    color: "#EF4444",
+    aliases: ["goleador", "gol", "killer", "definidor"],
+  },
+  {
+    key: "asistente",
+    label: "El asistente",
+    short: "Asiste",
+    icon: Handshake,
+    color: "#34D399",
+    aliases: ["asistente", "asistencias", "ultimo pase", "pasador"],
+  },
+  {
+    key: "tecnico",
+    label: "El técnico",
+    short: "Técnico",
+    icon: Sparkles,
+    color: "#2DD4BF",
+    aliases: ["tecnico", "calidad", "talento", "buen pie"],
+  },
+  {
+    key: "motor",
+    label: "El motor",
+    short: "Motor",
+    icon: BatteryCharging,
+    color: "#A3E635",
+    aliases: ["motor", "incansable", "box to box", "recorrido", "pulmon"],
+  },
+  {
+    key: "presionador",
+    label: "El presionador",
+    short: "Presiona",
+    icon: Flame,
+    color: "#FB7185",
+    aliases: ["presionador", "presion", "primer presionador", "robador"],
+  },
+  {
+    key: "lider",
+    label: "El líder",
+    short: "Líder",
+    icon: Crown,
+    color: "#FBBF24",
+    aliases: ["lider", "capitan", "referente"],
+  },
+  {
+    key: "zurdo",
+    label: "Zurdo diferencial",
+    short: "Zurdo",
+    icon: Footprints,
+    color: "#818CF8",
+    aliases: ["zurdo diferencial", "zurdo", "pierna izquierda"],
+  },
+  {
+    key: "abp-sacador",
+    label: "Sacador de ABP",
+    short: "Saca ABP",
+    icon: Flag,
+    color: "#60A5FA",
+    aliases: [
+      "sacador de abp",
+      "sacador abp",
+      "lanzador",
+      "lanzador de abp",
+      "saca abp",
+      "especialista abp",
+    ],
+  },
+  {
+    key: "abp-rematador",
+    label: "Rematador de ABP",
+    short: "Remata ABP",
+    icon: ArrowBigUp,
+    color: "#F59E0B",
+    aliases: [
+      "rematador de abp",
+      "rematador abp",
+      "remata abp",
+      "referencia abp",
+      "rematador",
+    ],
+  },
+  {
+    key: "peligro",
+    label: "Peligro",
+    short: "Peligro",
+    icon: AlertTriangle,
+    color: "#F43F5E",
+    aliases: ["peligro", "vigilar", "atencion", "ojo"],
+  },
+];
+
+const TAG_BY_TOKEN = new Map<string, PlayerTag>();
+
+PLAYER_TAGS.forEach((tag) => {
+  TAG_BY_TOKEN.set(tag.key, tag);
+  TAG_BY_TOKEN.set(normalize(tag.label), tag);
+
+  tag.aliases.forEach((alias) => TAG_BY_TOKEN.set(normalize(alias), tag));
+});
+
+/* Etiquetas del catálogo + cualquier texto suelto que ya hubiera escrito. */
+type ParsedTags = { tags: PlayerTag[]; extra: string[] };
+
+const NO_TAGS: ParsedTags = { tags: [], extra: [] };
+
+function parseTags(value: unknown): ParsedTags {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) return NO_TAGS;
+
+  const tags: PlayerTag[] = [];
+  const extra: string[] = [];
+  const seen = new Set<string>();
+
+  raw
+    .split(/[;,|/\n]+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .forEach((token) => {
+      const tag = TAG_BY_TOKEN.get(normalize(token));
+
+      if (!tag) {
+        extra.push(token);
+        return;
+      }
+
+      if (seen.has(tag.key)) return;
+
+      seen.add(tag.key);
+      tags.push(tag);
+    });
+
+  return { tags, extra };
+}
+
+function serializeTags({ tags, extra }: ParsedTags) {
+  return [...tags.map((tag) => tag.label), ...extra].join("; ");
+}
+
+function toggleTagValue(value: unknown, tag: PlayerTag) {
+  const parsed = parseTags(value);
+
+  const exists = parsed.tags.some((item) => item.key === tag.key);
+
+  const tags = exists
+    ? parsed.tags.filter((item) => item.key !== tag.key)
+    : [...parsed.tags, tag];
+
+  return serializeTags({ tags, extra: parsed.extra });
+}
+
+/*
+|--------------------------------------------------------------------------
+| COMPONENTES DE ETIQUETA
+|--------------------------------------------------------------------------
+*/
+
+function TagChip({
+  tag,
+  active = true,
+  size = "md",
+  count,
+  onClick,
+}: {
+  tag: PlayerTag;
+  active?: boolean;
+  size?: "sm" | "md";
+  count?: number;
+  onClick?: () => void;
+}) {
+  const Icon = tag.icon;
+
+  const className = `flex shrink-0 items-center gap-1.5 rounded-full border transition ${
+    size === "sm" ? "px-1.5 py-0.5 text-[9px]" : "px-2.5 py-1 text-[11px]"
+  } ${
+    active
+      ? ""
+      : "border-white/10 bg-white/[0.03] text-white/40 hover:border-white/25 hover:text-white/70"
+  }`;
+
+  const style = active
+    ? {
+        borderColor: `${tag.color}59`,
+        background: `${tag.color}1F`,
+        color: tag.color,
+      }
+    : undefined;
+
+  const content = (
+    <>
+      <Icon size={size === "sm" ? 9 : 12} className="shrink-0" />
+
+      <span className="truncate">{size === "sm" ? tag.short : tag.label}</span>
+
+      {count !== undefined && (
+        <span className={active ? "opacity-60" : "text-white/25"}>{count}</span>
+      )}
+    </>
+  );
+
+  if (!onClick) {
+    return (
+      <span className={className} style={style} title={tag.label}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={className} style={style}>
+      {content}
+    </button>
+  );
+}
+
+/* Selector de etiquetas del modal: escribe sobre el campo IMPACTO. */
+function TagPicker({
+  value,
+  onChange,
+}: {
+  value: unknown;
+  onChange: (value: string) => void;
+}) {
+  const parsed = useMemo(() => parseTags(value), [value]);
+
+  const activeKeys = useMemo(
+    () => new Set(parsed.tags.map((tag) => tag.key)),
+    [parsed.tags],
+  );
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0B0F14] p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
+          <Tags size={14} className="text-[#C8A96B]" />
+          Etiquetas
+        </span>
+
+        <span className="text-[11px] text-white/30">
+          {parsed.tags.length} seleccionadas · se guardan en IMPACTO
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {PLAYER_TAGS.map((tag) => (
+          <TagChip
+            key={tag.key}
+            tag={tag}
+            active={activeKeys.has(tag.key)}
+            onClick={() => onChange(toggleTagValue(value, tag))}
+          />
+        ))}
+      </div>
+
+      {parsed.extra.length > 0 && (
+        <p className="mt-3 text-[11px] text-white/40">
+          Texto libre conservado:{" "}
+          <span className="text-white/60">{parsed.extra.join(", ")}</span>
+        </p>
+      )}
+
+      <label className="mt-4 block">
+        <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
+          Valor guardado
+        </span>
+
+        <input
+          value={String(value ?? "")}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="El cerebro; Sacador de ABP"
+          className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] px-4 py-2.5 text-xs outline-none transition focus:border-[#C8A96B]"
+        />
+      </label>
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| CAMPOGRAMA · MOTOR DE COLOCACIÓN
+|--------------------------------------------------------------------------
+| El reparto se calcula en píxeles sobre el tamaño real del contenedor, no
+| con porcentajes fijos: así entra la plantilla completa sin solaparse.
+|
+|   1. Cada posición cae en una línea y recibe una preferencia horizontal en
+|      [-1, 1] según el lado (izq/centro/dcho) y lo abierto que juegue
+|      (lateral y extremo abren más que interior, e interior más que central).
+|   2. Una línea con demasiada gente se abre en varias sub-filas alternando
+|      jugadores, de modo que cada sub-fila conserva el abanico completo.
+|   3. El tamaño de ficha se despeja para que TODAS las sub-filas quepan a lo
+|      alto y a lo ancho, y después se relajan las alturas para garantizar la
+|      separación mínima entre ellas.
+*/
+
+type PitchRowKey = "del" | "band" | "med" | "piv" | "def" | "por";
+
+/* Altura preferida de cada línea, en fracción del alto del campo. */
+const PITCH_ROWS: { key: PitchRowKey; top: number }[] = [
+  { key: "del", top: 0.1 },
+  { key: "band", top: 0.26 },
+  { key: "med", top: 0.44 },
+  { key: "piv", top: 0.585 },
+  { key: "def", top: 0.745 },
+  { key: "por", top: 0.915 },
+];
+
+/* La hoja mezcla IZQUIERDO / IZQ / IZDO / I y DERECHO / DCHO / DER / D. */
+const LEFT_PATTERN =
+  /(^|[\s\-/(.])(izquierd[oa]|izq(da|do)?|izd[oa]?|zurd[oa]|i)([\s\-/).]|$)/;
+
+const RIGHT_PATTERN =
+  /(^|[\s\-/(.])(derech[oa]|dch[oa]|dcha|der|dr|d)([\s\-/).]|$)/;
+
+function detectSide(position: string) {
+  if (LEFT_PATTERN.test(position)) return -1;
+  if (RIGHT_PATTERN.test(position)) return 1;
+
+  return 0;
+}
+
+function detectRow(position: string): PitchRowKey {
+  const p = position;
+
+  if (
+    p.includes("portero") ||
+    p.includes("arquero") ||
+    p.includes("guardameta") ||
+    p.includes("cancerbero")
+  ) {
+    return "por";
+  }
+
+  /* Antes que "punta": si no, "media punta" caería en delanteros. */
+  if (
+    p.includes("media punta") ||
+    p.includes("mediapunta") ||
+    p.includes("media-punta") ||
+    p.includes("enganche") ||
+    p.includes("medio ofensivo") ||
+    p.includes("mediocentro ofensivo") ||
+    p.includes("medio centro of")
+  ) {
+    return "band";
+  }
+
+  if (
+    p.includes("extremo") ||
+    p.includes("ext ") ||
+    p.includes("banda") ||
+    p.includes("winger")
+  ) {
+    return "band";
+  }
+
+  if (
+    p.includes("delanter") ||
+    p.includes("punta") ||
+    p.includes("ariete") ||
+    /(^|\s)9($|\s)/.test(p)
+  ) {
+    return "del";
+  }
+
+  if (
+    p.includes("lateral") ||
+    p.includes("lat ") ||
+    p.includes("carrilero") ||
+    p.includes("central") ||
+    p.includes("defensa") ||
+    p.includes("zaguero") ||
+    p.includes("libero") ||
+    p.includes("dfc")
+  ) {
+    return "def";
+  }
+
+  if (
+    p.includes("pivote") ||
+    p.includes("ancla") ||
+    p.includes("medio centro def") ||
+    p.includes("mediocentro def") ||
+    p.includes("medio defensivo") ||
+    p.includes("mcd")
+  ) {
+    return "piv";
+  }
+
+  return "med";
+}
+
+/* Cuánto abre: lateral y extremo pegados a la banda, central al eje. */
+function widthRank(position: string) {
+  if (
+    position.includes("lateral") ||
+    position.includes("lat ") ||
+    position.includes("carrilero") ||
+    position.includes("extremo") ||
+    position.includes("ext ")
+  ) {
+    return 2;
+  }
+
+  if (position.includes("interior") || position.includes("volante")) return 1;
+
+  return 0;
+}
+
+function horizontalPreference(position: string) {
+  const side = detectSide(position);
+
+  if (side === 0) return 0;
+
+  return side * (0.55 + 0.22 * widthRank(position));
+}
+
+type PlacedPlayer = { player: RivalPlayer; x: number; y: number };
+
+type PitchLayout = {
+  placed: PlacedPlayer[];
+  avatar: number;
+};
+
+const EMPTY_LAYOUT: PitchLayout = { placed: [], avatar: 0 };
+
+function layoutPitch(
+  players: RivalPlayer[],
+  width: number,
+  height: number,
+): PitchLayout {
+  if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
+
+  /* 1 · Agrupar por línea y ordenar de izquierda a derecha. */
+
+  const grouped = new Map<PitchRowKey, RivalPlayer[]>();
+
+  players.forEach((player) => {
+    const key = detectRow(normalize(player["POSICIÓN"]));
+
+    const list = grouped.get(key);
+
+    if (list) list.push(player);
+    else grouped.set(key, [player]);
+  });
+
+  grouped.forEach((list) => {
+    list.sort((a, b) => {
+      const prefA = horizontalPreference(normalize(a["POSICIÓN"]));
+      const prefB = horizontalPreference(normalize(b["POSICIÓN"]));
+
+      if (prefA !== prefB) return prefA - prefB;
+
+      return (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999);
+    });
+  });
+
+  /* 2 · Repartir cada línea en sub-filas que cubran todo el ancho. */
+
+  /*
+  | En pantallas estrechas conviene apretar la sub-fila antes que abrir otra:
+  | cada sub-fila extra cuesta mucho más alto del que ahorra de ancho.
+  */
+  const maxPerSubRow = Math.max(4, Math.min(6, Math.floor(width / 96)));
+
+  const subRows: { players: RivalPlayer[]; band: number; top: number }[] = [];
+
+  PITCH_ROWS.forEach((row) => {
+    const list = grouped.get(row.key);
+
+    if (!list || list.length === 0) return;
+
+    const count = Math.ceil(list.length / maxPerSubRow);
+
+    const chunks: RivalPlayer[][] = Array.from({ length: count }, () => []);
+
+    /* Alterno en vez de trocear: cada sub-fila mantiene el abanico entero. */
+    list.forEach((player, index) => chunks[index % count].push(player));
+
+    chunks.forEach((chunk, index) => {
+      const maxPreference = chunk.reduce(
+        (max, player) =>
+          Math.max(
+            max,
+            Math.abs(horizontalPreference(normalize(player["POSICIÓN"]))),
+          ),
+        0,
+      );
+
+      /* Ancho que ocupa la sub-fila: nunca menor del que pide su gente. */
+      const band = Math.min(
+        1,
+        Math.max(0.45, maxPreference + 0.12, 0.22 * chunk.length),
+      );
+
+      subRows.push({
+        players: chunk,
+        band,
+        top: row.top * height + (index - (count - 1) / 2),
+      });
+    });
+  });
+
+  if (subRows.length === 0) return EMPTY_LAYOUT;
+
+  subRows.sort((a, b) => a.top - b.top);
+
+  /* 3 · Tamaño de ficha con el que todas las sub-filas caben. */
+
+  const rows = subRows.length;
+
+  const padY = 18;
+  const padX = 30;
+  const labelHeight = 34;
+  const rowGapExtra = 6;
+
+  const byHeight =
+    (height - 2 * padY - rowGapExtra * (rows - 1)) / rows - labelHeight;
+
+  const narrowestSlot = subRows.reduce((min, row) => {
+    const slot = ((width - 2 * padX) * row.band) / row.players.length;
+
+    return Math.min(min, slot);
+  }, Infinity);
+
+  const avatar = Math.max(24, Math.min(62, byHeight, narrowestSlot * 0.74));
+
+  const cardHeight = avatar + labelHeight;
+  const gap = cardHeight + rowGapExtra;
+
+  /* 4 · Relajar alturas: separación mínima y todo dentro del campo. */
+
+  const minTop = padY + cardHeight / 2;
+  const maxTop = height - padY - cardHeight / 2;
+
+  const tops = subRows.map((row) => row.top);
+
+  tops[0] = Math.max(tops[0], minTop);
+
+  for (let index = 1; index < rows; index += 1) {
+    tops[index] = Math.max(tops[index], tops[index - 1] + gap);
+  }
+
+  if (tops[rows - 1] > maxTop) {
+    tops[rows - 1] = maxTop;
+
+    for (let index = rows - 2; index >= 0; index -= 1) {
+      tops[index] = Math.min(tops[index], tops[index + 1] - gap);
+    }
+
+    for (let index = 0; index < rows; index += 1) {
+      tops[index] = Math.max(tops[index], minTop + index * gap);
+    }
+  }
+
+  /*
+  | Red de seguridad: si la ficha ya está en su tamaño mínimo y aun así no cabe
+  | todo, preferimos amontonar un poco a que alguien se salga del campo.
+  */
+  for (let index = 0; index < rows; index += 1) {
+    tops[index] = Math.min(Math.max(tops[index], minTop), maxTop);
+  }
+
+  /* 5 · Posición horizontal: reparto uniforme dentro de la banda. */
+
+  const usableWidth = Math.max(80, width - 2 * padX);
+
+  const placed: PlacedPlayer[] = [];
+
+  subRows.forEach((row, rowIndex) => {
+    const count = row.players.length;
+    const y = tops[rowIndex];
+
+    if (count === 1) {
+      placed.push({ player: row.players[0], x: width / 2, y });
+      return;
+    }
+
+    const bandWidth = usableWidth * row.band;
+    const start = width / 2 - bandWidth / 2;
+
+    row.players.forEach((player, index) => {
+      placed.push({
+        player,
+        x: start + (bandWidth * (index + 0.5)) / count,
+        y,
+      });
+    });
+  });
+
+  return { placed, avatar };
+}
+
+/*
+|--------------------------------------------------------------------------
+| CAMPOGRAMA · RENDER
 |--------------------------------------------------------------------------
 */
 
 function TacticalPitch({
   players,
   selectedId,
+  activeTags,
   onPlayerClick,
 }: {
   players: RivalPlayer[];
   selectedId?: string;
+  activeTags: string[];
   onPlayerClick: (player: RivalPlayer) => void;
 }) {
-  const positionedPlayers = useMemo(
-    () => getPitchPlayers(players),
-    [players],
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = containerRef.current;
+
+    if (!node) return;
+
+    const update = () =>
+      setSize({ width: node.clientWidth, height: node.clientHeight });
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const { placed, avatar } = useMemo(
+    () => layoutPitch(players, size.width, size.height),
+    [players, size.width, size.height],
   );
 
+  const badgeSize = Math.max(11, Math.min(19, Math.round(avatar * 0.32)));
+  const nameFont = Math.max(9, Math.min(12, Math.round(avatar * 0.21)));
+
+  const maxBadges = avatar < 34 ? 2 : avatar < 48 ? 3 : 4;
+
   return (
-    <div className="relative h-[min(900px,calc(100vh-120px))] min-h-[560px] w-full overflow-hidden bg-[#173b2a]">
+    <div
+      ref={containerRef}
+      className="relative h-[min(900px,calc(100vh-120px))] min-h-[560px] w-full overflow-hidden bg-[#173b2a]"
+    >
       {/* FONDO DEL CAMPO */}
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -1571,43 +2423,59 @@ function TacticalPitch({
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-black/20" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/45" />
 
       {/* JUGADORES */}
 
-      {positionedPlayers.map(({ player, top, left }) => {
+      {placed.map(({ player, x, y }) => {
         const selected = selectedId === player.ID_JUGADOR;
+
+        const { tags } = parseTags(player.IMPACTO);
+
+        const matchesFilter =
+          activeTags.length === 0 ||
+          activeTags.every((key) => tags.some((tag) => tag.key === key));
+
+        const visibleTags = tags.slice(0, maxBadges);
+        const hiddenCount = tags.length - visibleTags.length;
+
+        const name = player["NOMBRE DEPORTIVO"] || player.JUGADOR;
 
         return (
           <button
             key={player.ID_JUGADOR}
             onClick={() => onPlayerClick(player)}
-            title={`${player["NOMBRE DEPORTIVO"] || player.JUGADOR} · ${
-              player["POSICIÓN"]
+            title={`${name} · ${player["POSICIÓN"]}${
+              tags.length ? ` · ${tags.map((tag) => tag.label).join(", ")}` : ""
             }`}
-            className="group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center transition hover:z-20 hover:scale-110"
-            style={{ top: `${top}%`, left: `${left}%` }}
+            className={`group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center transition duration-200 hover:z-30 ${
+              matchesFilter
+                ? "opacity-100 hover:scale-110"
+                : "opacity-20 grayscale hover:opacity-70"
+            }`}
+            style={{ left: x, top: y }}
           >
             {/* FOTO */}
 
             <div
-              className={`relative h-10 w-10 overflow-hidden rounded-full border-2 bg-[#11161D] shadow-xl sm:h-14 sm:w-14 md:h-16 md:w-16 ${
+              className={`relative shrink-0 overflow-hidden rounded-full border-2 bg-[#11161D] shadow-[0_4px_14px_rgba(0,0,0,0.55)] ${
                 selected
                   ? "border-[#C8A96B] ring-2 ring-[#C8A96B]/60"
                   : "border-white/80"
               }`}
+              style={{ height: avatar, width: avatar }}
             >
               {player.FOTO ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={player.FOTO}
-                  alt={player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+                  alt={name}
                   loading="lazy"
                   className="h-full w-full object-cover"
                 />
               ) : (
                 <UserRound
-                  size={20}
+                  size={Math.round(avatar * 0.5)}
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
                 />
               )}
@@ -1615,7 +2483,14 @@ function TacticalPitch({
               {/* DORSAL */}
 
               {player.DORSAL !== "" && player.DORSAL !== undefined && (
-                <span className="absolute bottom-0 right-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C8A96B] px-1 text-[9px] font-bold text-black">
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-[#C8A96B] px-0.5 font-bold text-black shadow"
+                  style={{
+                    height: badgeSize,
+                    minWidth: badgeSize,
+                    fontSize: Math.max(8, Math.round(badgeSize * 0.55)),
+                  }}
+                >
                   {player.DORSAL}
                 </span>
               )}
@@ -1623,401 +2498,103 @@ function TacticalPitch({
 
             {/* NOMBRE */}
 
-            <span className="mt-1 max-w-[72px] truncate rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white sm:max-w-[110px] sm:px-2 sm:text-[11px]">
-              {player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+            <span
+              className="mt-1 truncate rounded bg-black/75 px-1.5 py-0.5 font-semibold leading-tight text-white"
+              style={{ fontSize: nameFont, maxWidth: avatar * 2.2 }}
+            >
+              {name}
             </span>
 
-            {/* ROL */}
+            {/* ETIQUETAS */}
 
-            {player.ROL && (
-              <span className="max-w-[90px] truncate text-[8px] font-medium text-white/80 sm:max-w-[150px] sm:text-[11px]">
-                {player.ROL}
+            {tags.length > 0 && (
+              <span className="mt-1 flex items-center justify-center gap-0.5">
+                {visibleTags.map((tag) => {
+                  const Icon = tag.icon;
+
+                  return (
+                    <span
+                      key={tag.key}
+                      title={tag.label}
+                      className="flex items-center justify-center rounded-full border border-black/40 shadow"
+                      style={{
+                        height: badgeSize,
+                        width: badgeSize,
+                        background: tag.color,
+                      }}
+                    >
+                      <Icon
+                        size={Math.round(badgeSize * 0.62)}
+                        strokeWidth={2.6}
+                        className="text-black"
+                      />
+                    </span>
+                  );
+                })}
+
+                {hiddenCount > 0 && (
+                  <span
+                    className="flex items-center justify-center rounded-full bg-black/80 font-bold text-white"
+                    style={{
+                      height: badgeSize,
+                      minWidth: badgeSize,
+                      fontSize: Math.max(7, Math.round(badgeSize * 0.5)),
+                    }}
+                  >
+                    +{hiddenCount}
+                  </span>
+                )}
               </span>
             )}
+
+            {/* DETALLE AL PASAR EL RATÓN */}
+
+            <span
+              className={`pointer-events-none absolute left-1/2 z-40 w-48 -translate-x-1/2 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl backdrop-blur transition group-hover:opacity-100 ${
+                y > size.height / 2 ? "bottom-full mb-2" : "top-full mt-2"
+              }`}
+            >
+              <span className="block truncate text-[11px] font-semibold text-white">
+                {name}
+              </span>
+
+              <span className="mt-0.5 block truncate text-[10px] text-[#C8A96B]">
+                {player["POSICIÓN"] || "—"}
+
+                {player["2º POSICIÓN"] && player["2º POSICIÓN"] !== "." && (
+                  <span className="text-white/35">
+                    {" "}
+                    · {player["2º POSICIÓN"]}
+                  </span>
+                )}
+              </span>
+
+              {tags.length > 0 && (
+                <span className="mt-1.5 flex flex-wrap gap-1">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag.key}
+                      className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                      style={{
+                        background: `${tag.color}26`,
+                        color: tag.color,
+                      }}
+                    >
+                      {tag.short}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </span>
           </button>
         );
       })}
 
-      {positionedPlayers.length === 0 && (
+      {players.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/50">
           No hay jugadores con posición asignada.
         </div>
       )}
     </div>
   );
-}
-
-/*
-|--------------------------------------------------------------------------
-| COLOCACIÓN EN EL CAMPO
-|--------------------------------------------------------------------------
-| Cada grupo tiene una zona (top/left en %). Todos los grupos declarados aquí
-| se pintan: los genéricos (lateral, interior, extremo sin lado) también, para
-| que ningún jugador con posición desaparezca del campograma.
-*/
-
-type PitchSlot = {
-  /* Coordenadas en % sobre el contenedor. top 0 = portería rival. */
-  top: number;
-  left: number;
-  /* "horizontal": se reparten en abanico. "vertical": en columna. */
-  mode: "horizontal" | "vertical";
-  maxWidth?: number;
-  spacing: number;
-  matches: (position: string) => boolean;
-};
-
-const PITCH_SLOTS: PitchSlot[] = [
-  {
-    top: 95,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 30,
-    spacing: 24,
-    matches: (p) =>
-      p.includes("portero") || p.includes("arquero") || p.includes("guardameta"),
-  },
-
-  /* DEFENSA */
-
-  {
-    top: 69,
-    left: 15,
-    mode: "vertical",
-    spacing: 12,
-    matches: (p) =>
-      p.includes("lateral izquierdo") ||
-      p.includes("lateral izq") ||
-      p.includes("lateral i") ||
-      p.includes("lat izquierdo") ||
-      p.includes("lat izq") ||
-      p.includes("lat i") ||
-      p.includes("carrilero izquierdo") ||
-      p.includes("carrilero izq"),
-  },
-  {
-    top: 69,
-    left: 87,
-    mode: "vertical",
-    spacing: 12,
-    matches: (p) =>
-      p.includes("lateral derecho") ||
-      p.includes("lateral dcho") ||
-      p.includes("lateral der") ||
-      p.includes("lateral d") ||
-      p.includes("lat derecho") ||
-      p.includes("lat dcho") ||
-      p.includes("lat der") ||
-      p.includes("lat d") ||
-      p.includes("carrilero derecho") ||
-      p.includes("carrilero der"),
-  },
-  {
-    top: 73,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 38,
-    spacing: 22,
-    matches: (p) =>
-      p.includes("central") ||
-      p.includes("zaguero") ||
-      p.includes("defensa central"),
-  },
-  /* Laterales/carrileros sin lado definido: entre los dos costados. */
-  {
-    top: 78,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 46,
-    spacing: 24,
-    matches: (p) =>
-      p.includes("lateral") || p.includes("carrilero") || p.includes("lat "),
-  },
-  {
-    top: 76,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 42,
-    spacing: 22,
-    matches: (p) => p.includes("defensa"),
-  },
-
-  /* MEDIO */
-
-  {
-    top: 52,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 42,
-    spacing: 22,
-    matches: (p) =>
-      p.includes("mediocentro") ||
-      p.includes("medio centro") ||
-      p.includes("pivote") ||
-      p.includes("medio defensivo"),
-  },
-  {
-    top: 44,
-    left: 30,
-    mode: "vertical",
-    spacing: 11,
-    matches: (p) =>
-      p.includes("interior izquierdo") ||
-      p.includes("interior izq") ||
-      p.includes("interior i") ||
-      p.includes("int izquierdo") ||
-      p.includes("int izq") ||
-      p.includes("int i"),
-  },
-  {
-    top: 44,
-    left: 74,
-    mode: "vertical",
-    spacing: 11,
-    matches: (p) =>
-      p.includes("interior derecho") ||
-      p.includes("interior dcho") ||
-      p.includes("interior der") ||
-      p.includes("interior d") ||
-      p.includes("int derecho") ||
-      p.includes("int dcho") ||
-      p.includes("int der") ||
-      p.includes("int d"),
-  },
-  {
-    top: 40,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 46,
-    spacing: 24,
-    matches: (p) => p.includes("interior"),
-  },
-  {
-    top: 28,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 42,
-    spacing: 22,
-    matches: (p) =>
-      p.includes("media punta") ||
-      p.includes("mediapunta") ||
-      p.includes("media-punta") ||
-      p.includes("enganche"),
-  },
-  {
-    top: 48,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 42,
-    spacing: 22,
-    matches: (p) => p.includes("medio"),
-  },
-
-  /* ATAQUE */
-
-  {
-    top: 22,
-    left: 14,
-    mode: "vertical",
-    spacing: 12,
-    matches: (p) =>
-      p.includes("extremo izquierdo") ||
-      p.includes("extremo izq") ||
-      p.includes("extremo i") ||
-      p.includes("ext izquierdo") ||
-      p.includes("ext izq") ||
-      p.includes("ext i"),
-  },
-  {
-    top: 22,
-    left: 88,
-    mode: "vertical",
-    spacing: 12,
-    matches: (p) =>
-      p.includes("extremo derecho") ||
-      p.includes("extremo dcho") ||
-      p.includes("extremo der") ||
-      p.includes("extremo d") ||
-      p.includes("ext derecho") ||
-      p.includes("ext dcho") ||
-      p.includes("ext der") ||
-      p.includes("ext d"),
-  },
-  {
-    top: 18,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 50,
-    spacing: 24,
-    matches: (p) => p.includes("extremo") || p.includes("ext "),
-  },
-  {
-    top: 8,
-    left: 52,
-    mode: "horizontal",
-    maxWidth: 42,
-    spacing: 24,
-    matches: (p) =>
-      p.includes("delantero") ||
-      p.includes("punta") ||
-      p.includes("ariete") ||
-      p.includes("9"),
-  },
-];
-
-/* Zona por defecto para posiciones que no encajan en ningún slot. */
-const FALLBACK_SLOT: Omit<PitchSlot, "matches"> = {
-  top: 60,
-  left: 52,
-  mode: "horizontal",
-  maxWidth: 34,
-  spacing: 22,
-};
-
-function getPitchPlayers(players: RivalPlayer[]) {
-  const buckets = PITCH_SLOTS.map(() => [] as RivalPlayer[]);
-  const fallback: RivalPlayer[] = [];
-
-  players.forEach((player) => {
-    const position = normalize(player["POSICIÓN"]);
-
-    const index = PITCH_SLOTS.findIndex((slot) => slot.matches(position));
-
-    if (index === -1) {
-      fallback.push(player);
-      return;
-    }
-
-    buckets[index].push(player);
-  });
-
-  const result: { player: RivalPlayer; top: number; left: number }[] = [];
-
-  const place = (
-    slot: Omit<PitchSlot, "matches">,
-    slotPlayers: RivalPlayer[],
-  ) => {
-    if (slotPlayers.length === 0) return;
-
-    if (slot.mode === "vertical") {
-      result.push(
-        ...distributePlayersVertical(
-          slotPlayers,
-          slot.top,
-          slot.left,
-          slot.spacing,
-        ),
-      );
-      return;
-    }
-
-    result.push(
-      ...distributePlayers(
-        slotPlayers,
-        slot.top,
-        slot.left,
-        slot.maxWidth ?? 40,
-        slot.spacing,
-      ),
-    );
-  };
-
-  PITCH_SLOTS.forEach((slot, index) => place(slot, buckets[index]));
-
-  place(FALLBACK_SLOT, fallback);
-
-  return result;
-}
-
-function distributePlayers(
-  players: RivalPlayer[],
-  top: number,
-  centerLeft: number,
-  maxWidth: number,
-  minSpacing: number,
-) {
-  if (players.length === 0) return [];
-
-  if (players.length === 1) {
-    return [{ player: players[0], top, left: centerLeft }];
-  }
-
-  if (players.length === 2) {
-    const spacing = Math.min(minSpacing * 1.5, maxWidth / 2);
-
-    return [
-      { player: players[0], top, left: centerLeft - spacing },
-      { player: players[1], top, left: centerLeft + spacing },
-    ];
-  }
-
-  if (players.length === 3) {
-    const spacing = Math.min(minSpacing * 1.4, maxWidth / 2);
-
-    return [
-      { player: players[0], top, left: centerLeft - spacing },
-      { player: players[1], top: top - 2, left: centerLeft },
-      { player: players[2], top, left: centerLeft + spacing },
-    ];
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | CUATRO O MÁS: DOS FILAS
-  |--------------------------------------------------------------------------
-  */
-
-  const firstRowCount = Math.ceil(players.length / 2);
-  const secondRowCount = players.length - firstRowCount;
-
-  const createRow = (rowPlayers: RivalPlayer[], rowTop: number) => {
-    if (rowPlayers.length === 1) {
-      return [{ player: rowPlayers[0], top: rowTop, left: centerLeft }];
-    }
-
-    const rowWidth = Math.min(
-      maxWidth,
-      (rowPlayers.length - 1) * minSpacing * 1.35,
-    );
-
-    const spacing = rowWidth / (rowPlayers.length - 1);
-    const start = centerLeft - rowWidth / 2;
-
-    return rowPlayers.map((player, index) => ({
-      player,
-      top: rowTop,
-      left: start + index * spacing,
-    }));
-  };
-
-  const firstRow = createRow(players.slice(0, firstRowCount), top - 8);
-
-  const secondRow =
-    secondRowCount > 0
-      ? createRow(players.slice(firstRowCount), top + 8)
-      : [];
-
-  return [...firstRow, ...secondRow];
-}
-
-function distributePlayersVertical(
-  players: RivalPlayer[],
-  top: number,
-  left: number,
-  verticalSpacing: number,
-) {
-  if (players.length === 0) return [];
-
-  if (players.length === 1) {
-    return [{ player: players[0], top, left }];
-  }
-
-  const totalHeight = (players.length - 1) * verticalSpacing;
-  const start = top - totalHeight / 2;
-
-  return players.map((player, index) => ({
-    player,
-    top: start + index * verticalSpacing,
-    left,
-  }));
 }
