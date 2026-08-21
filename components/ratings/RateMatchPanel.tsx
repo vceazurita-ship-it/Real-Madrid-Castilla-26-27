@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarPlus,
+  Check,
   ChevronDown,
   Eraser,
+  RotateCcw,
   Save,
   Search,
   Trash2,
@@ -35,6 +37,7 @@ import {
   GoldButton,
   Panel,
   RatingBadge,
+  SegmentedControl,
   inputClass,
 } from "./ui";
 
@@ -104,7 +107,18 @@ export function RateMatchPanel({
 
   const [search, setSearch] = useState("");
   const [line, setLine] = useState("todas");
+  const [status, setStatus] = useState<"todos" | "hechos" | "pendientes">(
+    "todos"
+  );
+  const [statusStamp, setStatusStamp] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const pickStatus = (next: typeof status) => {
+    setStatus(next);
+
+    /* Volver a pulsar el filtro rehace la foto fija de abajo. */
+    setStatusStamp((value) => value + 1);
+  };
 
   const [showNewMatch, setShowNewMatch] = useState(false);
 
@@ -173,6 +187,23 @@ export function RateMatchPanel({
     });
   };
 
+  /* Marcar titular sin minutos casi siempre significa noventa: se rellena solo. */
+  const toggleStarter = (playerId: string) => {
+    patchDraft((previous) => {
+      const base = previous[playerId] ?? emptyRating(playerId);
+      const starter = !base.starter;
+
+      return {
+        ...previous,
+        [playerId]: {
+          ...base,
+          starter,
+          minutes: starter && !base.minutes ? 90 : base.minutes,
+        },
+      };
+    });
+  };
+
   const clearPlayer = (playerId: string) => {
     patchDraft((previous) => {
       const next = { ...previous };
@@ -183,11 +214,74 @@ export function RateMatchPanel({
     });
   };
 
+  /* Cambiar de partido tira el borrador: se avisa antes de perderlo. */
+  const changeMatch = (nextId: string) => {
+    if (
+      dirty &&
+      !window.confirm(
+        "Hay valoraciones sin guardar en este partido. Si cambias de partido se perderán. ¿Continuar?"
+      )
+    ) {
+      return;
+    }
+
+    setPickedId(nextId);
+  };
+
+  const discard = () => {
+    if (!window.confirm("¿Descartar los cambios y volver a lo guardado?")) return;
+
+    setState({
+      matchId: selectedId,
+      season,
+      draft: draftFromSeason(season, selectedId),
+      dirty: false,
+    });
+  };
+
+  useEffect(() => {
+    if (!dirty) return;
+
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+
+    window.addEventListener("beforeunload", warn);
+
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  /*
+  | El filtro por estado se congela al activarlo: si mirase el borrador vivo,
+  | poner la nota haría desaparecer la fila que estás rellenando. Se refresca
+  | al cambiar de partido o al volver a pulsar el filtro.
+  */
+  const [frozen, setFrozen] = useState<{ key: string; ids: Set<string> } | null>(
+    null
+  );
+
+  const freezeKey = `${selectedId}|${status}|${players.length}|${statusStamp}`;
+
+  if (status !== "todos" && frozen?.key !== freezeKey) {
+    setFrozen({
+      key: freezeKey,
+      ids: new Set(
+        players
+          .filter((player) => {
+            const done = (draft[player.id]?.rating ?? 0) > 0;
+
+            return status === "hechos" ? done : !done;
+          })
+          .map((player) => player.id)
+      ),
+    });
+  }
+
   const visible = useMemo(() => {
     const query = normalize(search);
 
     return players.filter((player) => {
       if (line !== "todas" && lineOf(player.posicion) !== line) return false;
+
+      if (status !== "todos" && !frozen?.ids.has(player.id)) return false;
 
       if (!query) return true;
 
@@ -197,14 +291,22 @@ export function RateMatchPanel({
         normalize(player.posicion).includes(query)
       );
     });
-  }, [players, search, line]);
+  }, [players, search, line, status, frozen]);
 
   const grouped = useMemo(() => {
-    return LINES.map((group) => ({
-      ...group,
-      players: visible.filter((player) => lineOf(player.posicion) === group.key),
-    })).filter((group) => group.players.length > 0);
-  }, [visible]);
+    return LINES.map((group) => {
+      const list = visible.filter(
+        (player) => lineOf(player.posicion) === group.key
+      );
+
+      return {
+        ...group,
+        players: list,
+        rated: list.filter((player) => (draft[player.id]?.rating ?? 0) > 0)
+          .length,
+      };
+    }).filter((group) => group.players.length > 0);
+  }, [visible, draft]);
 
   const filled = useMemo(
     () => Object.values(draft).filter((entry) => entry.rating > 0),
@@ -214,6 +316,17 @@ export function RateMatchPanel({
   const average = filled.length
     ? filled.reduce((total, entry) => total + entry.rating, 0) / filled.length
     : 0;
+
+  /*
+  | El avance se mide contra la convocatoria, no contra los 40 y pico de la
+  | plantilla: cuenta el que tiene algún dato del partido (minutos, titular…).
+  */
+  const called = useMemo(
+    () => Object.values(draft).filter(hasContent).length,
+    [draft]
+  );
+
+  const progress = called ? Math.round((filled.length / called) * 100) : 0;
 
   const handleSave = async () => {
     if (!selected) return;
@@ -236,6 +349,14 @@ export function RateMatchPanel({
 
   const handleDelete = async () => {
     if (!selected) return;
+
+    if (
+      !window.confirm(
+        `Se borrarán todas las valoraciones guardadas de ${matchLabel(selected)}. Esto no se puede deshacer. ¿Seguro?`
+      )
+    ) {
+      return;
+    }
 
     try {
       await onDelete(selected.id);
@@ -271,7 +392,7 @@ export function RateMatchPanel({
         <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <select
             value={selectedId}
-            onChange={(event) => setPickedId(event.target.value)}
+            onChange={(event) => changeMatch(event.target.value)}
             className={inputClass}
           >
             {ordered.length === 0 && <option value="">Sin partidos</option>}
@@ -333,7 +454,7 @@ export function RateMatchPanel({
         <>
           {/* FILTROS */}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 rounded-2xl bg-[#0B0F14]/90 px-1 py-2 backdrop-blur">
             <div className="relative min-w-[180px] flex-1">
               <Search
                 size={14}
@@ -348,22 +469,34 @@ export function RateMatchPanel({
               />
             </div>
 
-            <GhostButton
-              onClick={() => setLine("todas")}
-              active={line === "todas"}
-            >
-              Todas
-            </GhostButton>
+            <SegmentedControl
+              options={[
+                { key: "todas", label: "Todas" },
+                ...LINES.map((group) => ({
+                  key: group.key,
+                  label: group.label,
+                })),
+              ]}
+              value={line}
+              onChange={setLine}
+            />
 
-            {LINES.map((group) => (
-              <GhostButton
-                key={group.key}
-                onClick={() => setLine(group.key)}
-                active={line === group.key}
-              >
-                {group.label}
-              </GhostButton>
-            ))}
+            <SegmentedControl
+              options={[
+                { key: "todos" as const, label: "Todos" },
+                { key: "pendientes" as const, label: "Sin nota" },
+                { key: "hechos" as const, label: `Con nota (${filled.length})` },
+              ]}
+              value={status}
+              onChange={pickStatus}
+            />
+
+            {status !== "todos" && (
+              <span className="w-full text-[10px] text-white/25 sm:w-auto">
+                Lista fija mientras rellenas · vuelve a pulsar el filtro para
+                refrescarla
+              </span>
+            )}
           </div>
 
           {/* JUGADORES */}
@@ -372,15 +505,26 @@ export function RateMatchPanel({
             <Panel
               key={group.key}
               title={group.label}
-              subtitle={`${group.players.length} jugadores`}
+              subtitle={`${group.rated} de ${group.players.length} con nota`}
               bodyClassName="divide-y divide-white/5"
             >
               {group.players.map((player) => {
                 const entry = draft[player.id] ?? emptyRating(player.id);
                 const open = expanded === player.id;
+                const rated = entry.rating > 0;
 
                 return (
-                  <div key={player.id} className="min-w-0 px-4 py-3 sm:px-5">
+                  <div
+                    key={player.id}
+                    className={`min-w-0 border-l-2 px-4 py-3 transition-colors sm:px-5 ${
+                      rated ? "bg-white/[0.02]" : "border-l-transparent"
+                    }`}
+                    style={
+                      rated
+                        ? { borderLeftColor: ratingColor(entry.rating) }
+                        : undefined
+                    }
+                  >
                     <div className="flex min-w-0 flex-wrap items-center gap-3">
                       {/* IDENTIDAD */}
 
@@ -399,11 +543,20 @@ export function RateMatchPanel({
                         />
 
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-white">
+                          <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-white">
                             {player.apodo || player.nombre}
+
+                            {rated && (
+                              <Check
+                                size={12}
+                                className="shrink-0"
+                                style={{ color: ratingColor(entry.rating) }}
+                              />
+                            )}
                           </p>
 
                           <p className="truncate text-[10px] uppercase tracking-[0.16em] text-white/30">
+                            {player.dorsal ? `${player.dorsal} · ` : ""}
                             {player.posicion}
                           </p>
                         </div>
@@ -448,9 +601,8 @@ export function RateMatchPanel({
 
                       <button
                         type="button"
-                        onClick={() =>
-                          update(player.id, { starter: !entry.starter })
-                        }
+                        onClick={() => toggleStarter(player.id)}
+                        title="Titular (pone 90′ si aún no hay minutos)"
                         className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
                           entry.starter
                             ? "border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[#C8A96B]"
@@ -604,6 +756,23 @@ export function RateMatchPanel({
             <EmptyState
               icon={Search}
               title="Ningún jugador coincide con el filtro"
+              description={
+                status === "hechos"
+                  ? "Todavía no has puesto ninguna nota en este partido."
+                  : "Prueba a quitar la búsqueda o el filtro de línea."
+              }
+              action={
+                <GhostButton
+                  icon={RotateCcw}
+                  onClick={() => {
+                    setSearch("");
+                    setLine("todas");
+                    pickStatus("todos");
+                  }}
+                >
+                  Quitar filtros
+                </GhostButton>
+              }
             />
           )}
 
@@ -611,28 +780,64 @@ export function RateMatchPanel({
 
           <div
             data-export-hide
-            className="fixed bottom-4 left-4 right-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#11161D]/95 px-4 py-3 shadow-2xl backdrop-blur md:left-auto md:right-8 md:w-auto"
+            className={`fixed bottom-4 left-4 right-4 z-30 overflow-hidden rounded-2xl border bg-[#11161D]/95 shadow-2xl backdrop-blur transition-colors md:left-auto md:right-8 md:w-auto ${
+              dirty ? "border-[#C8A96B]/45" : "border-white/10"
+            }`}
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="text-[11px] text-white/40">
-                {matchLabel(selected)} · {formatMatchDate(selected)}
-              </span>
+            {/* AVANCE DE LA CONVOCATORIA */}
 
-              <span className="hidden text-[11px] text-white/30 sm:inline">
-                Media {formatRating(average)} · {filled.length} valorados
-              </span>
+            <div className="h-0.5 w-full bg-white/5">
+              <div
+                className="h-full bg-[#C8A96B] transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              {season.matches[selected.id] && (
-                <GhostButton icon={Trash2} onClick={handleDelete} disabled={saving}>
-                  Borrar
-                </GhostButton>
-              )}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="text-[11px] text-white/45">
+                  {matchLabel(selected)} · {formatMatchDate(selected)}
+                </span>
 
-              <GoldButton icon={Save} onClick={handleSave} disabled={saving || !dirty}>
-                {saving ? "Guardando…" : dirty ? "Guardar" : "Guardado"}
-              </GoldButton>
+                <span className="text-[11px] text-white/30">
+                  {filled.length}
+                  {called > filled.length ? `/${called}` : ""} con nota · media{" "}
+                  {formatRating(average)}
+                </span>
+
+                {dirty && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#C8A96B]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#C8A96B]" />
+                    Sin guardar
+                  </span>
+                )}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                {season.matches[selected.id] && (
+                  <GhostButton
+                    icon={Trash2}
+                    onClick={handleDelete}
+                    disabled={saving}
+                  >
+                    Borrar
+                  </GhostButton>
+                )}
+
+                {dirty && (
+                  <GhostButton icon={RotateCcw} onClick={discard} disabled={saving}>
+                    Descartar
+                  </GhostButton>
+                )}
+
+                <GoldButton
+                  icon={dirty ? Save : Check}
+                  onClick={handleSave}
+                  disabled={saving || !dirty}
+                >
+                  {saving ? "Guardando…" : dirty ? "Guardar" : "Guardado"}
+                </GoldButton>
+              </div>
             </div>
           </div>
         </>

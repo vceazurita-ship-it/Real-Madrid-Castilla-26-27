@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -43,6 +49,24 @@ const TABS: { key: TabKey; label: string; icon: typeof Star }[] = [
   { key: "historico", label: "Histórico", icon: History },
 ];
 
+const TAB_KEYS = TABS.map((item) => item.key);
+
+const DEFAULT_TAB: TabKey = "equipo";
+
+/* La pestaña vive en el hash: refrescar o compartir el enlace te devuelve a ella. */
+
+function subscribeHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
+function tabOf(hash: string): TabKey {
+  const key = hash.replace("#", "") as TabKey;
+
+  return TAB_KEYS.includes(key) ? key : DEFAULT_TAB;
+}
+
 export default function RatingsPage() {
   const { players, loading: loadingPlayers } = usePlayers();
 
@@ -57,7 +81,18 @@ export default function RatingsPage() {
     deleteMatch,
   } = useRatings();
 
-  const [tab, setTab] = useState<TabKey>("equipo");
+  const hash = useSyncExternalStore(
+    subscribeHash,
+    () => window.location.hash,
+    () => ""
+  );
+
+  const tab = tabOf(hash);
+
+  const goToTab = useCallback((key: TabKey) => {
+    window.location.hash = key;
+  }, []);
+
   const [openPlayer, setOpenPlayer] = useState<string | null>(null);
   const [pendingMatch, setPendingMatch] = useState<MatchMeta | null>(null);
   const [editMatchId, setEditMatchId] = useState<string | null>(null);
@@ -188,7 +223,7 @@ export default function RatingsPage() {
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => setTab(item.key)}
+                    onClick={() => goToTab(item.key)}
                     className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
                       active
                         ? "text-[#C8A96B]"
@@ -255,7 +290,7 @@ export default function RatingsPage() {
                     onSelectPlayer={selectPlayer}
                     onEditMatch={(matchId) => {
                       setEditMatchId(matchId);
-                      setTab("registrar");
+                      goToTab("registrar");
                     }}
                   />
                 )}
