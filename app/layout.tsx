@@ -4,6 +4,7 @@ import "./globals.css";
 import { DataProvider } from "@/app/contexts/data-context";
 import { AIProvider } from "@/app/contexts/ai-context";
 import { Toaster } from "sonner";
+import { PageExportButton } from "@/components/page-export-button";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
   <AIProvider>
     <DataProvider>
       {children}
+      <PageExportButton />
       <Toaster richColors position="top-center" />
     </DataProvider>
   </AIProvider>
