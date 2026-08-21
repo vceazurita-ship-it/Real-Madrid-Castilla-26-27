@@ -279,3 +279,60 @@ scrollbar-width:none;
   }
 
 }
+
+/* ===========================
+   IMPRESIÓN DEL PLAN DE PARTIDO
+   Se activa solo en páginas que renderizan `.mp-print-area`
+   (hoy, /match-preparation) para no afectar al resto de módulos.
+=========================== */
+
+@media print {
+
+  body:has(.mp-print-area) {
+    background: #fff !important;
+  }
+
+  /* Fuera navegación, barras y acciones. */
+  body:has(.mp-print-area) aside,
+  body:has(.mp-print-area) header:not(.mp-page-title),
+  .mp-print-area .mp-no-print,
+  .mp-no-print {
+    display: none !important;
+  }
+
+  .mp-print-area {
+    padding: 0 !important;
+    color: #111 !important;
+  }
+
+  .mp-print-area * {
+    color: #111 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-color: #d4d4d4 !important;
+  }
+
+  /* El dorado corporativo se mantiene en titulares. */
+  .mp-print-area h1,
+  .mp-print-area h2,
+  .mp-print-area h3 {
+    color: #8a6d2f !important;
+  }
+
+  .mp-print-area .mp-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #d4d4d4 !important;
+  }
+
+  .mp-print-area section {
+    break-inside: avoid;
+  }
+
+  .mp-print-area textarea {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+}
