@@ -689,7 +689,7 @@ function ImageViewer({
         type="button"
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute right-6 top-6 text-3xl text-white/80 transition hover:text-white"
+        className="absolute right-3 top-3 text-3xl text-white/80 transition hover:text-white sm:right-6 sm:top-6"
       >
         ✕
       </button>
@@ -703,7 +703,7 @@ function ImageViewer({
               e.stopPropagation();
               onIndexChange((index - 1 + images.length) % images.length);
             }}
-            className="absolute left-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 transition hover:text-white"
+            className="absolute left-1 top-1/2 -translate-y-1/2 px-2 text-4xl text-white/70 transition hover:text-white sm:left-6 sm:text-6xl"
           >
             ‹
           </button>
@@ -715,7 +715,7 @@ function ImageViewer({
               e.stopPropagation();
               onIndexChange((index + 1) % images.length);
             }}
-            className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl text-white/70 transition hover:text-white"
+            className="absolute right-1 top-1/2 -translate-y-1/2 px-2 text-4xl text-white/70 transition hover:text-white sm:right-6 sm:text-6xl"
           >
             ›
           </button>
@@ -725,7 +725,7 @@ function ImageViewer({
       <img
         src={image.url}
         alt={image.name}
-        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain"
+        className="max-h-[86vh] max-w-[78vw] rounded-xl object-contain sm:max-w-[86vw]"
         onClick={(e) => e.stopPropagation()}
       />
 

@@ -68,7 +68,7 @@ useEffect(() => {
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
 
-      <main className="flex-1">
+      <main className="min-w-0 flex-1">
         <Topbar />
 
         <div className="p-6 md:p-10">
@@ -78,7 +78,7 @@ useEffect(() => {
               RMCF CASTILLA SCOUT RIVAL
             </p>
 
-            <h1 className="mt-2 text-5xl font-bold tracking-tight">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             {rivalActivo?.EQUIPO}
           </h1>
 

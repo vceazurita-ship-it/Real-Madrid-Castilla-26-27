@@ -11,13 +11,27 @@
  *       separan las líneas hasta garantizar el hueco mínimo.
  *   2 · Cada línea se abre en sub-filas cuando hay demasiada gente, y las
  *       mejores notas ocupan la sub-fila de delante.
- *   3 · Dentro de la sub-fila se reparte a lo ancho de forma uniforme, con
- *       laterales y extremos abriéndose a su banda.
+ *   3 · Dentro de la sub-fila se reparte de forma uniforme, con laterales y
+ *       extremos abriéndose a su banda.
+ *
+ * El campo se pinta en dos orientaciones y el motor es el mismo para las dos:
+ * en vertical se ataca hacia arriba (móvil, pantalla alta y estrecha) y en
+ * horizontal hacia la derecha (portátil y escritorio, pantalla apaisada).
+ * Internamente no se razona en X/Y sino en dos ejes abstractos:
+ *
+ *   · «profundidad» — el eje del ataque, el que separa las líneas.
+ *   · «anchura»     — el eje perpendicular, el que reparte una línea.
+ *
+ * En vertical profundidad = Y y anchura = X; en horizontal, al revés. Sólo el
+ * último paso traduce esos dos números a píxeles de pantalla.
  */
 
 export type PitchRowKey = "del" | "band" | "diez" | "ocho" | "piv" | "def" | "por";
 
-/** Altura preferida de cada línea, en fracción del alto del campo. */
+/** Cómo se pinta el campo: atacando hacia arriba o hacia la derecha. */
+export type PitchOrientation = "vertical" | "horizontal";
+
+/** Altura preferida de cada línea, en fracción de la profundidad del campo. */
 const PITCH_ROWS: { key: PitchRowKey; top: number }[] = [
   { key: "del", top: 0.1 },
   { key: "band", top: 0.25 },
@@ -39,9 +53,18 @@ export const ROW_LABELS: Record<PitchRowKey, string> = {
 };
 
 /** Ancho mínimo cómodo por ficha: por debajo, los nombres se solapan. */
-const MIN_SLOT = 96;
+const MIN_SLOT_X = 96;
 
-/** Separación entre sub-filas de una misma línea, en fracción del alto. */
+/** Alto mínimo cómodo por ficha: foto pequeña + su pie. */
+const MIN_SLOT_Y = 66;
+
+/** Cuánta gente cabe en una sub-fila antes de abrir otra. */
+const MAX_PER_SUB_ROW: Record<PitchOrientation, number> = {
+  vertical: 5,
+  horizontal: 6,
+};
+
+/** Separación entre sub-filas de una misma línea, en fracción de profundidad. */
 const SUB_ROW_SPREAD = 0.085;
 
 const PAD_X = 24;
@@ -80,7 +103,13 @@ export function detectRow(position: string): PitchRowKey {
   return "ocho";
 }
 
-/** Cuánto se abre hacia una banda: −1 izquierda, +1 derecha. */
+/**
+ * Cuánto se abre hacia una banda: −1 su izquierda, +1 su derecha.
+ *
+ * En vertical (atacando arriba) eso es izquierda y derecha de la pantalla; en
+ * horizontal (atacando a la derecha) el campo gira en el sentido del reloj, así
+ * que la banda derecha queda abajo. La traducción la hace `layoutPitch`.
+ */
 function horizontalPreference(position: string) {
   const p = normalize(position);
 
@@ -104,7 +133,7 @@ export type PlacedItem<T extends PitchItem> = {
   row: PitchRowKey;
   x: number;
   y: number;
-  /** Ancho reservado para esta ficha: recorta el nombre sin invadir al vecino. */
+  /** Ancho en píxeles reservado al nombre: lo recorta sin invadir al vecino. */
   slot: number;
 };
 
@@ -119,16 +148,50 @@ function empty<T extends PitchItem>(): PitchLayout<T> {
   return { placed: [], avatar: 0, compact: false };
 }
 
-/** Cuántas fichas caben una al lado de otra con el ancho disponible. */
-function perSubRow(width: number) {
-  const usable = Math.max(120, width - 2 * PAD_X);
+/** El eje que reparte cada línea: su tamaño, su margen y su hueco mínimo. */
+function acrossAxis(
+  orientation: PitchOrientation,
+  width: number,
+  height: number
+) {
+  const vertical = orientation === "vertical";
 
-  return Math.max(2, Math.min(5, Math.floor(usable / MIN_SLOT)));
+  const extent = vertical ? width : height;
+  const pad = vertical ? PAD_X : PAD_Y;
+
+  return {
+    extent,
+    pad,
+    usable: Math.max(120, extent - 2 * pad),
+    minSlot: vertical ? MIN_SLOT_X : MIN_SLOT_Y,
+  };
 }
 
-/** En cuántas sub-filas acaba repartiéndose la lista con este ancho. */
-function countSubRows<T extends PitchItem>(items: T[], width: number) {
-  const perRow = perSubRow(width);
+/** Cuántas fichas caben una junto a otra con el espacio disponible. */
+function perSubRow(
+  orientation: PitchOrientation,
+  width: number,
+  height: number
+) {
+  const across = acrossAxis(orientation, width, height);
+
+  return Math.max(
+    2,
+    Math.min(
+      MAX_PER_SUB_ROW[orientation],
+      Math.floor(across.usable / across.minSlot)
+    )
+  );
+}
+
+/** En cuántas sub-filas acaba repartiéndose la lista con este espacio. */
+function countSubRows<T extends PitchItem>(
+  items: T[],
+  orientation: PitchOrientation,
+  width: number,
+  height: number
+) {
+  const max = perSubRow(orientation, width, height);
 
   const counts = new Map<PitchRowKey, number>();
 
@@ -141,7 +204,7 @@ function countSubRows<T extends PitchItem>(items: T[], width: number) {
   let rows = 0;
 
   counts.forEach((total) => {
-    rows += Math.ceil(total / perRow);
+    rows += Math.ceil(total / max);
   });
 
   return rows;
@@ -150,18 +213,24 @@ function countSubRows<T extends PitchItem>(items: T[], width: number) {
 /**
  * Alto que necesita el campo para que nadie se pise.
  *
- * Con la plantilla entera y una pantalla estrecha no hay forma de meter 44
- * fichas legibles en una sola vista: en vez de amontonarlas, el campo crece
- * y se desplaza. Con los valorados —el caso normal— devuelve el alto de base.
+ * En vertical, con la plantilla entera y una pantalla estrecha no hay forma de
+ * meter 44 fichas legibles en una sola vista: en vez de amontonarlas, el campo
+ * crece y la página se desplaza. Con los valorados —el caso normal— devuelve el
+ * alto de base.
+ *
+ * En horizontal las líneas se separan a lo ancho, no a lo alto: el campo se
+ * queda con el alto de base para no obligar a hacer scroll en un portátil.
  */
 export function recommendedHeight<T extends PitchItem>(
   items: T[],
   width: number,
-  base: number
+  base: number,
+  orientation: PitchOrientation = "vertical"
 ) {
   if (items.length === 0 || width < 120) return base;
+  if (orientation === "horizontal") return base;
 
-  const rows = countSubRows(items, width);
+  const rows = countSubRows(items, orientation, width, base);
 
   /* Foto cómoda (44) + pie compacto + aire entre líneas. */
   const perRowHeight = 44 + LABEL_COMPACT + ROW_GAP;
@@ -182,9 +251,12 @@ function chunkSizes(total: number, count: number) {
 export function layoutPitch<T extends PitchItem>(
   items: T[],
   width: number,
-  height: number
+  height: number,
+  orientation: PitchOrientation = "vertical"
 ): PitchLayout<T> {
   if (items.length === 0 || width < 120 || height < 200) return empty<T>();
+
+  const vertical = orientation === "vertical";
 
   /* 1 · Agrupar por línea. */
 
@@ -200,11 +272,14 @@ export function layoutPitch<T extends PitchItem>(
 
   /* 2 · Partir cada línea en sub-filas: las mejores notas, delante. */
 
-  const usableWidth = Math.max(120, width - 2 * PAD_X);
+  const across = acrossAxis(orientation, width, height);
 
-  const maxPerSubRow = perSubRow(width);
+  const depthExtent = vertical ? height : width;
+  const depthPad = vertical ? PAD_Y : PAD_X;
 
-  const subRows: { items: T[]; band: number; top: number }[] = [];
+  const maxPerSubRow = perSubRow(orientation, width, height);
+
+  const subRows: { items: T[]; band: number; depth: number }[] = [];
 
   PITCH_ROWS.forEach((row) => {
     const list = grouped.get(row.key);
@@ -227,7 +302,7 @@ export function layoutPitch<T extends PitchItem>(
 
       cursor += size;
 
-      /* Dentro de la sub-fila mandan las bandas: izquierda → derecha. */
+      /* Dentro de la sub-fila mandan las bandas: de su izquierda a su derecha. */
       chunk.sort((a, b) => {
         const prefA = horizontalPreference(a.position);
         const prefB = horizontalPreference(b.position);
@@ -247,110 +322,141 @@ export function layoutPitch<T extends PitchItem>(
         Math.max(0.34, maxPreference + 0.2, 0.22 * chunk.length)
       );
 
+      const fraction = row.top + (index - (count - 1) / 2) * SUB_ROW_SPREAD;
+
+      /* Vertical ataca hacia arriba; horizontal, hacia la derecha. */
       subRows.push({
         items: chunk,
         band,
-        top: (row.top + (index - (count - 1) / 2) * SUB_ROW_SPREAD) * height,
+        depth: (vertical ? fraction : 1 - fraction) * depthExtent,
       });
     });
   });
 
   if (subRows.length === 0) return empty<T>();
 
-  subRows.sort((a, b) => a.top - b.top);
+  subRows.sort((a, b) => a.depth - b.depth);
 
   /* 3 · Tamaño de ficha con el que todas las sub-filas caben a la vez. */
 
   const rows = subRows.length;
 
-  const spacePerRow = (height - 2 * PAD_Y - ROW_GAP * (rows - 1)) / rows;
+  const spacePerRow = (depthExtent - 2 * depthPad - ROW_GAP * (rows - 1)) / rows;
+
+  const slotOf = (span: number, row: { band: number; items: T[] }) =>
+    (span * row.band) / row.items.length;
+
+  const rawSlot = subRows.reduce(
+    (min, row) => Math.min(min, slotOf(across.usable, row)),
+    Infinity
+  );
 
   /*
   | El pie de ficha (PJ · minutos) se sacrifica antes que el tamaño de la foto:
-  | sólo se mantiene si con él la foto sigue siendo grande de verdad.
+  | sólo se mantiene si con él la foto sigue siendo grande de verdad. Lo que lo
+  | aprieta es el eje vertical, que en horizontal es el que reparte la línea.
   */
-  const compact = spacePerRow - LABEL_FULL < 44;
+  const compact = (vertical ? spacePerRow : rawSlot) - LABEL_FULL < 44;
   const labelHeight = compact ? LABEL_COMPACT : LABEL_FULL;
 
-  const narrowestSlot = subRows.reduce((min, row) => {
-    const slot = (usableWidth * row.band) / row.items.length;
+  /* El nombre cuelga bajo la foto: en horizontal se come parte de la línea. */
+  const acrossSpan = vertical
+    ? across.usable
+    : Math.max(120, across.usable - labelHeight);
 
-    return Math.min(min, slot);
-  }, Infinity);
+  const narrowestSlot = subRows.reduce(
+    (min, row) => Math.min(min, slotOf(acrossSpan, row)),
+    Infinity
+  );
 
   const avatar = Math.max(
     MIN_AVATAR,
-    Math.min(MAX_AVATAR, spacePerRow - labelHeight, narrowestSlot * 0.82)
+    Math.min(
+      MAX_AVATAR,
+      /* En vertical el pie roba profundidad; en horizontal, anchura de línea. */
+      vertical ? spacePerRow - labelHeight : spacePerRow,
+      vertical ? narrowestSlot * 0.82 : narrowestSlot - labelHeight
+    )
   );
 
-  /* La foto se centra en `y` y el nombre cuelga por debajo: no es simétrico. */
-  const cardHeight = avatar + labelHeight;
-  const gap = cardHeight + ROW_GAP;
+  /* La foto se centra y el nombre cuelga por debajo: en Y no es simétrico. */
+  const depthSpan = vertical ? avatar + labelHeight : avatar;
+  const gap = depthSpan + ROW_GAP;
 
-  /* 4 · Relajar alturas: hueco mínimo garantizado y todo dentro del campo. */
+  /* 4 · Relajar la profundidad: hueco mínimo garantizado y todo dentro del campo. */
 
-  const minTop = PAD_Y + avatar / 2;
-  const maxTop = height - PAD_Y - avatar / 2 - labelHeight;
+  const minDepth = depthPad + avatar / 2;
 
-  const tops = subRows.map((row) => row.top);
+  const maxDepth =
+    depthExtent - depthPad - avatar / 2 - (vertical ? labelHeight : 0);
 
-  tops[0] = Math.max(tops[0], minTop);
+  const depths = subRows.map((row) => row.depth);
+
+  depths[0] = Math.max(depths[0], minDepth);
 
   for (let index = 1; index < rows; index += 1) {
-    tops[index] = Math.max(tops[index], tops[index - 1] + gap);
+    depths[index] = Math.max(depths[index], depths[index - 1] + gap);
   }
 
-  /* Si el empujón hacia abajo se sale del campo, se recoloca de abajo arriba. */
-  if (tops[rows - 1] > maxTop) {
-    tops[rows - 1] = maxTop;
+  /* Si el empujón hacia el final se sale del campo, se recoloca al revés. */
+  if (depths[rows - 1] > maxDepth) {
+    depths[rows - 1] = maxDepth;
 
     for (let index = rows - 2; index >= 0; index -= 1) {
-      tops[index] = Math.min(tops[index], tops[index + 1] - gap);
+      depths[index] = Math.min(depths[index], depths[index + 1] - gap);
     }
   }
 
-  /* Última red: si ni así cabe todo, reparto uniforme de arriba abajo. */
-  if (tops[0] < minTop) {
-    const span = Math.max(0, maxTop - minTop);
+  /* Última red: si ni así cabe todo, reparto uniforme de principio a fin. */
+  if (depths[0] < minDepth) {
+    const span = Math.max(0, maxDepth - minDepth);
 
     for (let index = 0; index < rows; index += 1) {
-      tops[index] =
-        rows === 1 ? (minTop + maxTop) / 2 : minTop + (span * index) / (rows - 1);
+      depths[index] =
+        rows === 1
+          ? (minDepth + maxDepth) / 2
+          : minDepth + (span * index) / (rows - 1);
     }
   }
 
-  /* 5 · Posición horizontal: reparto uniforme dentro de la banda de la sub-fila. */
+  /* 5 · Reparto uniforme dentro de la banda de cada sub-fila. */
+
+  /* En horizontal el centro sube media etiqueta: el pie cuelga hacia abajo. */
+  const acrossCenter = vertical
+    ? across.extent / 2
+    : (across.extent - labelHeight) / 2;
+
+  /* En horizontal el nombre dispone del ancho de su columna, no de su hueco. */
+  const labelSlot = (slot: number) => (vertical ? slot : spacePerRow);
 
   const placed: PlacedItem<T>[] = [];
 
   subRows.forEach((row, rowIndex) => {
     const count = row.items.length;
-    const y = tops[rowIndex];
-    const bandWidth = usableWidth * row.band;
-    const slot = bandWidth / count;
+    const depth = depths[rowIndex];
+    const bandSpan = acrossSpan * row.band;
+    const slot = bandSpan / count;
+
+    const put = (item: T, position: number, itemSlot: number) => {
+      placed.push({
+        item,
+        row: detectRow(item.position),
+        x: vertical ? position : depth,
+        y: vertical ? depth : position,
+        slot: labelSlot(itemSlot),
+      });
+    };
 
     if (count === 1) {
-      placed.push({
-        item: row.items[0],
-        row: detectRow(row.items[0].position),
-        x: width / 2,
-        y,
-        slot: Math.min(usableWidth, MIN_SLOT * 1.6),
-      });
+      put(row.items[0], acrossCenter, Math.min(across.usable, MIN_SLOT_X * 1.6));
 
       return;
     }
 
-    const start = width / 2 - bandWidth / 2;
+    const start = acrossCenter - bandSpan / 2;
 
     row.items.forEach((item, index) => {
-      placed.push({
-        item,
-        row: detectRow(item.position),
-        x: start + slot * (index + 0.5),
-        y,
-        slot,
-      });
+      put(item, start + slot * (index + 0.5), slot);
     });
   });
 

@@ -1554,7 +1554,7 @@ originalStyles.forEach(
   <Sidebar />
 
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <Topbar />
 
           <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-3 sm:pt-5">

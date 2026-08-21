@@ -222,11 +222,11 @@ setAvailabilityStatus((prev) => ({
 
       <Sidebar />
 
-      <section className="w-full">
+      <section className="min-w-0 flex-1">
 
         <Topbar />
 
-        <div className="px-6 lg:px-10 py-8 space-y-8">
+        <div className="min-w-0 px-4 py-8 space-y-8 sm:px-6 lg:px-10">
 
           {/* Header */}
 
@@ -236,7 +236,7 @@ setAvailabilityStatus((prev) => ({
             </p>
 
             <div className="mt-4 flex items-center gap-5">
-              <h1 className="text-4xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
                 Importador de entrenamiento
               </h1>
 

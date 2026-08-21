@@ -126,7 +126,7 @@ const navLink = (
           transition-all duration-300 ease-in-out
           ${collapsed ? "w-[78px] px-2" : "w-[280px] px-6"}
           ${open ? "translate-x-0" : "-translate-x-full"}
-          md:static md:translate-x-0 md:overflow-visible
+          md:static md:shrink-0 md:translate-x-0 md:overflow-visible
         `}
         style={{ WebkitOverflowScrolling: "touch" }}
       >

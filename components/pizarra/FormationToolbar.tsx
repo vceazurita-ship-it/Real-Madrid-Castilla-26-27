@@ -365,12 +365,12 @@ async function sharePitch() {
     setNombre("Jornada ");
     setRival("");
   }}
-  className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+  className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
 >
 
 <div
   onClick={(e) => e.stopPropagation()}
-  className="w-full max-w-md rounded-3xl border border-[#C8A96B]/20 bg-[#151B23] p-6 shadow-2xl"
+  className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#C8A96B]/20 bg-[#151B23] p-6 shadow-2xl"
 >
 <h2 className="mb-5 text-xl font-semibold">
 {loadedLineupId

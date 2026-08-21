@@ -6,6 +6,13 @@ import { Star, UserRound } from "lucide-react";
 import { formatRating, ratingColor } from "@/lib/ratings/compute";
 import { layoutPitch, recommendedHeight } from "@/lib/ratings/pitch";
 
+/**
+ * A partir de aquí la pantalla es más apaisada que alta: el campo se pinta
+ * tumbado —atacando a la derecha— y aprovecha todo el ancho del portátil.
+ * Por debajo (móvil en vertical) se mantiene el campo de pie.
+ */
+const HORIZONTAL_FROM = 820;
+
 export type PitchPlayer = {
   id: string;
   position: string;
@@ -71,19 +78,34 @@ export function SquadPitch({
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  /* En cuanto hay ancho de sobra, el campo se tumba: es lo que pide un portátil. */
+  const horizontal = width >= HORIZONTAL_FROM;
+
   /*
   | El alto no se mide, se decide: de base lo que cabe en pantalla y, si hay
   | tanta gente que se pisarían, el campo crece y la página se desplaza.
+  |
+  | Tumbado no crece: se queda con la proporción de un campo real, sin pasarse
+  | de lo que entra en la ventana, porque las líneas se separan a lo ancho.
   */
   const height = useMemo(() => {
-    const base = Math.max(540, Math.min(880, (viewport || 900) - 190));
+    const room = viewport || 900;
 
-    return recommendedHeight(players, width, base);
-  }, [players, width, viewport]);
+    const base = horizontal
+      ? Math.max(320, Math.min(room - 210, 680, Math.round(width * 0.62)))
+      : Math.max(540, Math.min(880, room - 190));
+
+    return recommendedHeight(
+      players,
+      width,
+      base,
+      horizontal ? "horizontal" : "vertical"
+    );
+  }, [players, width, viewport, horizontal]);
 
   const { placed, avatar, compact } = useMemo(
-    () => layoutPitch(players, width, height),
-    [players, width, height]
+    () => layoutPitch(players, width, height, horizontal ? "horizontal" : "vertical"),
+    [players, width, height, horizontal]
   );
 
   const badgeSize = Math.max(18, Math.min(30, Math.round(avatar * 0.46)));
@@ -103,16 +125,28 @@ export function SquadPitch({
     >
       {/* FONDO DEL CAMPO */}
 
+      {/* La imagen es un campo apaisado: de pie hay que girarla, tumbada no. */}
+
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/emotional-field-bg.png"
           alt=""
-          className="absolute left-1/2 top-1/2 h-[75%] w-[240%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-fill sm:h-[133%] sm:w-[240%] lg:h-[135%] lg:w-[100%]"
+          className={
+            horizontal
+              ? "absolute inset-0 h-full w-full object-cover"
+              : "absolute left-1/2 top-1/2 h-[75%] w-[240%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-fill sm:h-[133%] sm:w-[240%]"
+          }
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/55" />
+      <div
+        className={`pointer-events-none absolute inset-0 ${
+          horizontal
+            ? "bg-gradient-to-r from-black/55 via-black/20 to-black/55"
+            : "bg-gradient-to-b from-black/55 via-black/20 to-black/55"
+        }`}
+      />
 
       {/* JUGADORES */}
 
@@ -240,6 +274,7 @@ export function SquadPitch({
           y={hoveredCard.y}
           avatar={avatar}
           width={width}
+          height={height}
         />
       )}
 
@@ -252,28 +287,46 @@ export function SquadPitch({
   );
 }
 
-/** Ficha flotante: sitúa el detalle sin salirse del campo por los lados. */
+/**
+ * Ficha flotante: sitúa el detalle sin salirse del campo.
+ *
+ * El campo recorta lo que se sale, así que la tarjeta se ciñe por los lados y,
+ * cuando no cabe por encima del jugador —la primera línea, y muchas más con el
+ * campo tumbado—, se descuelga por debajo.
+ */
 function HoverCard({
   player,
   x,
   y,
   avatar,
   width,
+  height,
 }: {
   player: PitchPlayer;
   x: number;
   y: number;
   avatar: number;
   width: number;
+  height: number;
 }) {
   const CARD = 190;
 
+  /* Alto aproximado de la tarjeta: basta para saber si cabe por encima. */
+  const CARD_HEIGHT = 104;
+
   const left = Math.min(Math.max(x, CARD / 2 + 8), Math.max(CARD / 2 + 8, width - CARD / 2 - 8));
+
+  const fitsAbove = y - avatar / 2 - 10 - CARD_HEIGHT >= 4;
+
+  /* La tarjeta se ancla por su base (`-translate-y-full`). */
+  const top = fitsAbove
+    ? y - avatar / 2 - 10
+    : Math.min(y + avatar / 2 + 12 + CARD_HEIGHT, height - 4);
 
   return (
     <div
       className="pointer-events-none absolute z-50 -translate-x-1/2 -translate-y-full rounded-xl border border-white/15 bg-[#0B0F14]/95 px-3 py-2 shadow-2xl backdrop-blur"
-      style={{ left, top: y - avatar / 2 - 10, width: CARD }}
+      style={{ left, top, width: CARD }}
     >
       <p className="truncate text-xs font-semibold text-white">{player.name}</p>
 

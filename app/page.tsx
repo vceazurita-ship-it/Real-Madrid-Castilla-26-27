@@ -584,7 +584,7 @@ export default function Home() {
       <div className="flex">
         <Sidebar />
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <Topbar />
 
           <section className="p-4 sm:p-6 xl:p-10">

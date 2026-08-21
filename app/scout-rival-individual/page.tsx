@@ -86,7 +86,7 @@ export default function VideoIndividual() {
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
 
-      <main className="flex-1">
+      <main className="min-w-0 flex-1">
         <Topbar />
 
         <div className="p-6 md:p-10">
@@ -96,7 +96,7 @@ export default function VideoIndividual() {
               RMCF CASTILLA SCOUT INDIVIDUAL
             </p>
 
-            <h1 className="mt-2 text-4xl font-bold">
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
               Videoteca
             </h1>
 
