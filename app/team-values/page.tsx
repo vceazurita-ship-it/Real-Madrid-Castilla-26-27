@@ -1,14 +1,28 @@
-﻿"use client";
+"use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Papa from "papaparse";
+import { toast } from "sonner";
+import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import Papa from "papaparse";
+import {
+  AutoTextarea,
+  EditToolbar,
+  EmptyState,
+  ErrorState,
+  Highlight,
+  LoadingState,
+  NavButton,
+  SearchField,
+  SectionLabel,
+  focusRing,
+  matches,
+  useEditShortcuts,
+  useUnsavedGuard,
+} from "@/components/ui/knowledge-kit";
+import { cn } from "@/lib/utils";
 
 type CulturaItem = {
   ID: number;
@@ -22,113 +36,259 @@ type CulturaItem = {
 const API =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
-export default function GameModelPage() {
-  const [data, setData] =
-  useState<CulturaItem[]>([]);
+const CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv";
 
-const [originalData, setOriginalData] =
-  useState<CulturaItem[]>([]);
+/** Descripción de cada etapa del roadmap. Las secciones nuevas caen al texto por defecto. */
+const DESCRIPCIONES: Record<string, string> = {
+  MARCO: "Fundamentos conceptuales sobre identidad, propósito y cultura.",
+  PLANIFICACION: "Diseño del proceso y estructura de implementación.",
+  "SEMANA 1": "Construcción del significado de pertenecer al grupo.",
+  "SEMANA 2": "Definición de valores y comportamientos observables.",
+  "SEMANA 3": "Establecimiento de estándares e innegociables.",
+  "SEMANA 4": "Consolidación de hábitos y herramientas culturales.",
+};
 
-const [seccion, setSeccion] =
-  useState("");
+const DESCRIPCION_POR_DEFECTO =
+  "Contenidos culturales de esta etapa del roadmap.";
 
-  const [editing, setEditing] =
-    useState(false);
+const TIPO_STYLES: Record<string, string> = {
+  VALOR: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/25",
+  ANTIVALOR: "bg-red-500/15 text-red-300 ring-red-500/25",
+  INNEGOCIABLE: "bg-sky-500/15 text-sky-300 ring-sky-500/25",
+  INTOLERABLE: "bg-orange-500/15 text-orange-300 ring-orange-500/25",
+};
 
- useEffect(() => {
+const TIPO_POR_DEFECTO = "bg-[#C8A96B]/15 text-[#C8A96B] ring-[#C8A96B]/25";
 
-  fetch(
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv"
-  )
-    .then((r) => r.text())
-    .then((csv) => {
+export default function TeamValuesPage() {
+  const [data, setData] = useState<CulturaItem[]>([]);
+  const [originalData, setOriginalData] = useState<CulturaItem[]>([]);
 
-      const parsed =
-        Papa.parse<CulturaItem>(
-          csv,
-          {
-            header: true,
-            skipEmptyLines: true,
-          }
+  const [seccion, setSeccion] = useState("");
+  const [query, setQuery] = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
+
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0);
+
+  /* ------------------------------------------------------------ carga */
+
+  useEffect(() => {
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const res = await fetch(CSV_URL);
+        if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+
+        const csv = await res.text();
+
+        const parsed = Papa.parse<CulturaItem>(csv, {
+          header: true,
+          skipEmptyLines: true,
+        });
+
+        const rows = parsed.data.filter((r) => r?.SECCION);
+
+        if (cancelado) return;
+
+        setData(rows);
+        setOriginalData(structuredClone(rows));
+
+        const hash = decodeURIComponent(
+          window.location.hash.replace("#", ""),
+        ).toUpperCase();
+
+        const inicial =
+          rows.find((r) => r.SECCION.toUpperCase() === hash)?.SECCION ??
+          rows[0]?.SECCION ??
+          "";
+
+        setSeccion((actual) => actual || inicial);
+        setError(null);
+      } catch (err) {
+        if (cancelado) return;
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Error desconocido al leer la hoja de cálculo.",
         );
-
-      const rows =
-        parsed.data;
-
-      setData(rows);
-
-      setOriginalData(
-        structuredClone(rows)
-      );
-
-      if (rows.length > 0) {
-        setSeccion(
-          rows[0].SECCION
-        );
+      } finally {
+        if (!cancelado) setLoading(false);
       }
-    });
+    })();
 
-}, []);
-const secciones = useMemo(() => {
-  return [
-    ...new Set(
-      data.map((r) => r.SECCION)
-    ),
-  ];
-}, [data]);
+    return () => {
+      cancelado = true;
+    };
+  }, [recarga]);
 
-const contenidos = useMemo(() => {
-  return data
-    .filter(
+  const recargar = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setRecarga((n) => n + 1);
+  }, []);
+
+  /* ------------------------------------------------------------ derivados */
+
+  const secciones = useMemo(
+    () => [...new Set(data.map((r) => r.SECCION))],
+    [data],
+  );
+
+  /** Solo los tipos presentes en la etapa actual: filtrar por uno vacío no aporta nada. */
+  const tipos = useMemo(
+    () =>
+      [
+        ...new Set(
+          data
+            .filter((r) => r.SECCION === seccion)
+            .map((r) => r.TIPO)
+            .filter(Boolean),
+        ),
+      ].sort(),
+    [data, seccion],
+  );
+
+  // Al cambiar de etapa, un filtro de tipo que ya no existe dejaría la lista vacía sin motivo.
+  const tipoActivo =
+    tipoFiltro && tipos.includes(tipoFiltro) ? tipoFiltro : null;
+
+  /** Filtros de búsqueda: se desactivan durante la edición para no ocultar lo que se escribe. */
+  const visibles = useMemo(() => {
+    if (editing) return data;
+
+    return data.filter(
       (r) =>
-        r.SECCION === seccion
-    )
-    .sort(
-      (a, b) =>
-        Number(a.ORDEN) -
-        Number(b.ORDEN)
+        (!tipoActivo || r.TIPO === tipoActivo) &&
+        matches(query, r.TITULO, r.CONTENIDO, r.TIPO),
     );
-}, [data, seccion]);
-const guardarCambios = async () => {
-  try {
-    const cambios = data.filter((item) => {
-      const original = originalData.find(
-        (o) => o.ID === item.ID
-      );
+  }, [data, editing, query, tipoActivo]);
 
-      return (
-        original?.CONTENIDO !== item.CONTENIDO
-      );
-    });
+  const contenidos = useMemo(
+    () =>
+      visibles
+        .filter((r) => r.SECCION === seccion)
+        .sort((a, b) => Number(a.ORDEN) - Number(b.ORDEN)),
+    [visibles, seccion],
+  );
 
+  const totalSeccion = useMemo(
+    () => data.filter((r) => r.SECCION === seccion).length,
+    [data, seccion],
+  );
+
+  const etapaIndex = secciones.indexOf(seccion);
+  const filtrando = !editing && (query.trim() !== "" || tipoActivo !== null);
+
+  const cambios = useMemo(
+    () =>
+      data.filter((item) => {
+        const original = originalData.find((o) => o.ID === item.ID);
+        return original && original.CONTENIDO !== item.CONTENIDO;
+      }),
+    [data, originalData],
+  );
+
+  useUnsavedGuard(editing && cambios.length > 0);
+
+  /* ------------------------------------------------------------ navegación */
+
+  const irASeccion = useCallback((valor: string) => {
+    setSeccion(valor);
+    window.history.replaceState(null, "", `#${encodeURIComponent(valor)}`);
+  }, []);
+
+  const saltarEtapa = (delta: number) => {
+    const destino = secciones[etapaIndex + delta];
+    if (destino) {
+      irASeccion(destino);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  /* ------------------------------------------------------------ edición */
+
+  const entrarEnEdicion = () => {
+    setQuery("");
+    setTipoFiltro(null);
+    setEditing(true);
+  };
+
+  const salirDeEdicion = useCallback(() => {
+    setData(structuredClone(originalData));
+    setEditing(false);
+  }, [originalData]);
+
+  const guardarCambios = useCallback(async () => {
     if (cambios.length === 0) {
       setEditing(false);
       return;
     }
 
-    await Promise.all(
-      cambios.map((p) =>
-        fetch(
-          `${API}?action=guardarCultura&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
-            p.CONTENIDO
-          )}`
-        )
-      )
-    );
+    setSaving(true);
 
-    setOriginalData(
-      structuredClone(data)
-    );
+    try {
+      const resultados = await Promise.allSettled(
+        cambios.map((p) =>
+          fetch(
+            `${API}?action=guardarCultura&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
+              p.CONTENIDO,
+            )}`,
+          ),
+        ),
+      );
 
-    setEditing(false);
+      const fallidos = resultados.filter((r) => r.status === "rejected").length;
 
-  } catch (err) {
-    console.error(
-      "Error guardando:",
-      err
-    );
-  }
-};
+      if (fallidos > 0) {
+        toast.error(
+          `${fallidos} de ${cambios.length} cambios no se han podido guardar. Revisa la conexión y vuelve a intentarlo.`,
+        );
+        return;
+      }
+
+      setOriginalData(structuredClone(data));
+      setEditing(false);
+
+      toast.success(
+        `${cambios.length} cambio${cambios.length === 1 ? "" : "s"} guardado${
+          cambios.length === 1 ? "" : "s"
+        }`,
+      );
+    } catch (err) {
+      console.error("Error guardando:", err);
+      toast.error("No se han podido guardar los cambios");
+    } finally {
+      setSaving(false);
+    }
+  }, [cambios, data]);
+
+  useEditShortcuts({
+    editing,
+    onSave: guardarCambios,
+    onCancel: salirDeEdicion,
+  });
+
+  /* ------------------------------------------------------------ render */
+
+  const toolbar = (
+    <EditToolbar
+      editing={editing}
+      dirtyCount={cambios.length}
+      saving={saving}
+      onEdit={entrarEnEdicion}
+      onCancel={salirDeEdicion}
+      onSave={guardarCambios}
+    />
+  );
+
   return (
     <div className="flex min-h-screen bg-[#0B0F14]">
       <Sidebar />
@@ -137,415 +297,323 @@ const guardarCambios = async () => {
         <Topbar />
 
         <div className="flex flex-col lg:flex-row">
-          {/* MENÚ IZQUIERDO */}
+          {/* ---------------------------------------------- rail izquierdo */}
 
-          <div
-  className="
-w-full
-lg:w-[300px]
-xl:w-[340px]
-lg:border-r
-border-white/10
-p-4
-lg:p-6
-"
->
-            
+          <aside
+            aria-label="Etapas del roadmap cultural"
+            className="w-full border-white/10 p-4 lg:w-[300px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[340px]"
+          >
+            <SectionLabel className="text-[#C8A96B]">
+              Roadmap cultural
+            </SectionLabel>
 
-           <div
-  className="
-  flex
-  gap-2
-  overflow-x-auto
-  pb-2
-  lg:block
-  lg:space-y-2
-  "
->
-  {secciones.map((s) => {
+            <SearchField
+              value={query}
+              onChange={setQuery}
+              placeholder="Buscar valor, hábito…"
+              label="Buscar en los contenidos culturales"
+              className={cn("mt-4", editing && "pointer-events-none opacity-40")}
+            />
 
-  const total =
-    data.filter(
-      (item) =>
-        item.SECCION === s
-    ).length;
+            <nav className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible">
+              {secciones.map((s, i) => {
+                const total = visibles.filter((r) => r.SECCION === s).length;
 
-  return (
-    <button
-      key={s}
-      onClick={() =>
-        setSeccion(s)
-      }
-      className={`
-shrink-0
-min-w-[120px]
-lg:w-full
-rounded-xl
-p-3
-text-left ${
-        seccion === s
-          ? "bg-[#C8A96B] text-black"
-          : "border border-white/10 text-white"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <span>{s}</span>
-        <span className="text-xs opacity-70">
-          {total}
-        </span>
-      </div>
-    </button>
-  );
-})}
-</div>
+                return (
+                  <NavButton
+                    key={s}
+                    active={s === seccion}
+                    onClick={() => irASeccion(s)}
+                    label={s}
+                    sublabel={`Etapa ${i + 1}`}
+                    count={total}
+                    dimmed={filtrando && total === 0}
+                  />
+                );
+              })}
+            </nav>
 
-            
-          </div>
+            {loading && (
+              <div className="mt-2 space-y-2 lg:mt-5">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-14 animate-pulse rounded-2xl bg-white/[0.04]"
+                  />
+                ))}
+              </div>
+            )}
+          </aside>
 
-          {/* CONTENIDO */}
+          {/* ---------------------------------------------- contenido */}
 
-          <div className="flex-1 p-4 lg:p-8">
-            <div
-  className="
-rounded-2xl lg:rounded-3xl
-border
-border-white/10
-bg-gradient-to-br
-from-white/[0.05]
-to-white/[0.02]
-p-6
-transition-all
-hover:border-[#C8A96B]/30
-"
->
+          <main
+            className={cn(
+              "min-w-0 flex-1 p-4 lg:p-8",
+              editing && "pb-32 lg:pb-32",
+            )}
+          >
+            {/* Cabecera con stepper */}
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 lg:rounded-3xl lg:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionLabel className="text-[#C8A96B]">
+                  Roadmap cultural
+                </SectionLabel>
 
-  <p
-    className="
-    text-xs
-    uppercase
-    tracking-[0.3em]
-    text-[#C8A96B]
-    "
-  >
-    ROADMAP CULTURAL
-  </p>
+                {secciones.length > 0 && (
+                  <p className="text-xs tabular-nums text-gray-500">
+                    Etapa {etapaIndex + 1} de {secciones.length}
+                  </p>
+                )}
+              </div>
 
-<div
-  className="
-  mt-4
-  flex
-  items-center
-  overflow-x-auto
-  pb-2
-  scrollbar-hide
-  "
->
-    {secciones.map((s, i) => (
+              <ol className="mt-4 flex items-center overflow-x-auto pb-1 scrollbar-none">
+                {secciones.map((s, i) => (
+                  <li key={s} className="flex shrink-0 items-center">
+                    <button
+                      type="button"
+                      onClick={() => irASeccion(s)}
+                      title={s}
+                      aria-label={`Etapa ${i + 1}: ${s}`}
+                      aria-current={s === seccion ? "step" : undefined}
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all lg:h-10 lg:w-10 lg:text-sm",
+                        focusRing,
+                        s === seccion
+                          ? "bg-[#C8A96B] text-black shadow-[0_0_0_4px_rgba(200,169,107,0.18)]"
+                          : i < etapaIndex
+                            ? "bg-[#C8A96B]/25 text-[#C8A96B] hover:bg-[#C8A96B]/40"
+                            : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white",
+                      )}
+                    >
+                      {i + 1}
+                    </button>
 
-      <div
-        key={s}
-        className="
-        flex
-        items-center
-        shrink-0
-        "
-      >
-
-        <button
-  onClick={() =>
-    setSeccion(s)
-  }
-  className={`
-    flex
-    h-8
-    w-8
-    lg:h-10
-    lg:w-10
-    items-center
-    justify-center
-    rounded-full
-    text-xs
-    lg:text-sm
-    font-bold
-    transition-all
-    ${
-      s === seccion
-        ? "bg-[#C8A96B] text-black"
-        : "bg-white/10 text-white hover:bg-white/20"
-    }
-  `}
->
-  {i + 1}
-</button>
-
-        {i <
-          secciones.length - 1 && (
-          <div
-            className="
-            h-[2px]
-            w-6 lg:w-10
-            bg-white/10
-            "
-          />
-        )}
-
-      </div>
-
-    ))}
-  </div>
-</div>
-<div className="mb-8 mt-5">
-<p
-  className="
-  text-sm
-  text-gray-500
-  "
->
-  Etapa {secciones.findIndex(
-    (s) => s === seccion
-  ) + 1}
-  {" de "}
-  {secciones.length}
-</p>
-
-  <div
-    className="
-    mt-3
-    flex
-    flex-col
-    gap-6
-    lg:flex-row
-    lg:items-start
-    lg:justify-between
-    "
-  >
-    <div>
-      <h1
-        className="
-        text-2xl
-        sm:text-4xl
-        lg:text-5xl
-        font-bold
-        text-white
-        leading-none
-        "
-      >
-        {seccion}
-      </h1>
-
-      <p
-        className="
-        mt-3
-        max-w-2xl
-        text-sm
-        lg:text-base
-        text-gray-400
-        "
-      >
-        {
-          seccion === "MARCO"
-            ? "Fundamentos conceptuales sobre identidad, propósito y cultura."
-            : seccion === "PLANIFICACION"
-            ? "Diseño del proceso y estructura de implementación."
-            : seccion === "SEMANA 1"
-            ? "Construcción del significado de pertenecer al grupo."
-            : seccion === "SEMANA 2"
-            ? "Definición de valores y comportamientos observables."
-            : seccion === "SEMANA 3"
-            ? "Establecimiento de estándares e innegociables."
-            : seccion === "SEMANA 4"
-            ? "Consolidación de hábitos y herramientas culturales."
-            : ""
-        }
-      </p>
-    </div>
-
-    <div className="flex w-full gap-3 lg:w-auto">
-      {editing && (
-        <button
-          type="button"
-          onClick={guardarCambios}
-          className="
-          flex-1
-          rounded-xl
-          bg-[#C8A96B]
-          px-4
-          py-3
-          font-medium
-          text-black
-          lg:flex-none
-          "
-        >
-          Guardar
-        </button>
-      )}
-
-      <button
-        onClick={() => {
-          if (editing) {
-            setData(
-              JSON.parse(
-                JSON.stringify(originalData)
-              )
-            );
-          }
-
-          setEditing(!editing);
-        }}
-        className="
-        flex-1
-        rounded-xl
-        border
-        border-[#C8A96B]
-        px-4
-        py-3
-        text-[#C8A96B]
-        lg:flex-none
-        "
-      >
-        {editing ? "Cancelar" : "Editar"}
-      </button>
-    </div>
-  </div>
-</div>
-            <div className="space-y-3">
-              {contenidos.map((p) => (
-                <div
-                  key={p.ID}
-                  className="
-group
-rounded-3xl
-border
-border-white/10
-bg-gradient-to-br
-from-white/[0.05]
-to-white/[0.02]
-p-4 lg:p-6
-transition-all
-hover:-translate-y-1
-hover:border-[#C8A96B]/40
-hover:bg-white/[0.05]
-"
-                >
-                  <div className="flex items-start gap-4 min-w-0">
-                    <div
-  className="
-  flex
-  h-8
-w-8
-lg:h-12
-lg:w-12
-  items-center
-  justify-center
-  rounded-2xl
-  bg-[#C8A96B]
-  text-xs
-lg:text-lg
-font-bold
-  text-black
-  "
->
-                      {p.ORDEN}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                     {editing ? (
-  <div className="space-y-6">
-
-    <h3
-  className="
-  text-base
-  lg:text-lg
-  font-semibold
-  text-white
-  break-words
-  "
->
-      {p.TITULO}
-    </h3>
-    <textarea
-      value={p.CONTENIDO}
-      onChange={(e) => {
-        setData((prev) =>
-          prev.map((item) =>
-            item.ID === p.ID
-              ? {
-                  ...item,
-                  CONTENIDO:
-                    e.target.value,
-                }
-              : item
-          )
-        );
-      }}
-      className="
-      w-full
-      rounded-xl
-      border
-      border-white/10
-      bg-black/30
-      p-3
-      text-white
-      outline-none
-      "
-      rows={3}
-    />
-  </div>
-) : (
-  <>
-   <div className="mb-3">
-  <h3
-  className="
-  text-base
-  lg:text-lg
-  font-semibold
-  text-white
-  break-words
-  "
->
-    {p.TITULO}
-  </h3>
-
-  {p.TIPO && (
-    <span
-  className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-    p.TIPO === "VALOR"
-      ? "bg-green-500/20 text-green-400"
-      : p.TIPO === "ANTIVALOR"
-      ? "bg-red-500/20 text-red-400"
-      : p.TIPO === "INNEGOCIABLE"
-      ? "bg-blue-500/20 text-blue-400"
-      : p.TIPO === "INTOLERABLE"
-      ? "bg-orange-500/20 text-orange-400"
-      : "bg-[#C8A96B]/20 text-[#C8A96B]"
-  }`}
->
-  {p.TIPO}
-</span>
-  )}
-</div>
-
-<p
-  className="
-  text-sm
-  lg:text-base
-  text-gray-300
-  leading-relaxed
-  break-words
-  "
->
-  {p.CONTENIDO}
-</p>
-  </>
-)}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    {i < secciones.length - 1 && (
+                      <div
+                        aria-hidden
+                        className={cn(
+                          "h-[2px] w-6 lg:w-10",
+                          i < etapaIndex ? "bg-[#C8A96B]/40" : "bg-white/10",
+                        )}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ol>
             </div>
-          </div>
+
+            {/* Título + acciones */}
+            <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
+                  {seccion || "—"}
+                </h1>
+
+                <p className="mt-3 max-w-2xl text-sm text-gray-400 lg:text-base">
+                  {DESCRIPCIONES[seccion] ??
+                    (seccion ? DESCRIPCION_POR_DEFECTO : "")}
+                </p>
+              </div>
+
+              {!editing && !loading && !error && toolbar}
+            </div>
+
+            {/* Filtros por tipo */}
+            {!editing && tipos.length > 0 && (
+              <div className="mt-6 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTipoFiltro(null)}
+                  aria-pressed={tipoActivo === null}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors",
+                    focusRing,
+                    tipoActivo === null
+                      ? "bg-white/[0.12] text-white ring-white/20"
+                      : "text-gray-400 ring-white/10 hover:text-white",
+                  )}
+                >
+                  Todos
+                </button>
+
+                {tipos.map((t) => {
+                  const total = data.filter(
+                    (r) => r.SECCION === seccion && r.TIPO === t,
+                  ).length;
+
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTipoFiltro(tipoActivo === t ? null : t)}
+                      aria-pressed={tipoActivo === t}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors",
+                        focusRing,
+                        TIPO_STYLES[t] ?? TIPO_POR_DEFECTO,
+                        tipoActivo === t
+                          ? "ring-2"
+                          : "opacity-70 hover:opacity-100",
+                      )}
+                    >
+                      {t}
+                      {total > 0 && (
+                        <span className="ml-1.5 tabular-nums opacity-70">
+                          {total}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Lista */}
+            <div className="mt-6">
+              {loading ? (
+                <LoadingState />
+              ) : error ? (
+                <ErrorState message={error} onRetry={recargar} />
+              ) : contenidos.length === 0 ? (
+                filtrando ? (
+                  <EmptyState
+                    icon={<SearchX className="h-6 w-6" aria-hidden />}
+                    title="Sin resultados en esta etapa"
+                    hint={
+                      totalSeccion > 0
+                        ? `«${seccion}» tiene ${totalSeccion} contenidos, pero ninguno coincide con el filtro. Prueba en otra etapa del rail izquierdo.`
+                        : "Prueba con otra búsqueda o cambia de etapa."
+                    }
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuery("");
+                          setTipoFiltro(null);
+                        }}
+                        className={cn(
+                          "rounded-xl border border-white/15 px-4 py-2.5 text-sm text-white transition-colors hover:bg-white/10",
+                          focusRing,
+                        )}
+                      >
+                        Limpiar filtros
+                      </button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    title="Esta etapa aún no tiene contenidos"
+                    hint="Añádelos desde la hoja de cálculo del roadmap cultural."
+                  />
+                )
+              ) : (
+                <>
+                  {filtrando && (
+                    <p className="mb-3 text-xs text-gray-500">
+                      {contenidos.length} de {totalSeccion} contenidos
+                    </p>
+                  )}
+
+                  <ul className="space-y-3">
+                    {contenidos.map((p) => (
+                      <li
+                        key={p.ID}
+                        className="group rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 transition-all hover:border-[#C8A96B]/40 hover:bg-white/[0.05] lg:rounded-3xl lg:p-6"
+                      >
+                        <div className="flex min-w-0 items-start gap-4">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#C8A96B] text-xs font-bold tabular-nums text-black lg:h-12 lg:w-12 lg:text-lg">
+                            {p.ORDEN}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                              <h3 className="break-words text-base font-semibold text-white lg:text-lg">
+                                <Highlight text={p.TITULO} query={query} />
+                              </h3>
+
+                              {p.TIPO && (
+                                <span
+                                  className={cn(
+                                    "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1",
+                                    TIPO_STYLES[p.TIPO] ?? TIPO_POR_DEFECTO,
+                                  )}
+                                >
+                                  {p.TIPO}
+                                </span>
+                              )}
+                            </div>
+
+                            {editing ? (
+                              <AutoTextarea
+                                value={p.CONTENIDO}
+                                aria-label={`Contenido de ${p.TITULO}`}
+                                onChange={(e) =>
+                                  setData((prev) =>
+                                    prev.map((item) =>
+                                      item.ID === p.ID
+                                        ? { ...item, CONTENIDO: e.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-300 lg:text-base">
+                                <Highlight text={p.CONTENIDO} query={query} />
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+
+            {/* Etapa anterior / siguiente */}
+            {!loading && !error && secciones.length > 1 && (
+              <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/10 pt-6">
+                <button
+                  type="button"
+                  onClick={() => saltarEtapa(-1)}
+                  disabled={etapaIndex <= 0}
+                  className={cn(
+                    "inline-flex min-w-0 items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:invisible",
+                    focusRing,
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="truncate">{secciones[etapaIndex - 1]}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => saltarEtapa(1)}
+                  disabled={etapaIndex >= secciones.length - 1}
+                  className={cn(
+                    "inline-flex min-w-0 items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:invisible",
+                    focusRing,
+                  )}
+                >
+                  <span className="truncate">{secciones[etapaIndex + 1]}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                </button>
+              </div>
+            )}
+          </main>
         </div>
       </div>
-    </div>  
+
+      {/* Barra de guardado siempre accesible durante la edición */}
+      {editing && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0B0F14]/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:px-8">
+          <div className="mx-auto flex max-w-5xl items-center justify-end">
+            {toolbar}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
