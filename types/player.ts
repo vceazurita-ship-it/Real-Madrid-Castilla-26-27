@@ -22,6 +22,9 @@ export interface Player {
 
   foto: string;
 
+  /** Recorte de plano medio, para tarjetas y cabeceras grandes. */
+  fotoLejos?: string;
+
   licencia: string;
 
   esCastilla: boolean;

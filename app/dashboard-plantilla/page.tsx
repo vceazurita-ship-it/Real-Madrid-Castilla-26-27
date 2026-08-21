@@ -5,6 +5,7 @@ import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { getPlayerImage } from "@/lib/playerImages";
 
 import {
   AlertTriangle,
@@ -348,7 +349,15 @@ export default function DashboardPlantilla() {
           apodo: scout?.APODO || estado.APODO || "",
           posicion: scout?.POSICION || estado.POSICION || "",
           dorsal: scout?.DORSAL || estado.DORSAL || "",
-          foto: scout?.FOTO_URL || estado.FOTO_URL || "",
+          foto:
+            getPlayerImage(
+              scout?.NOMBRE || estado.NOMBRE,
+              "cerca",
+              estado.ID_JUGADOR
+            ) ||
+            scout?.FOTO_URL ||
+            estado.FOTO_URL ||
+            "",
           licencia: scout?.LICENCIA || estado.LICENCIA || "",
 
           estado: estado.ESTADO || "",

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 
+import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import ImportAvailability, {
   TrainingImport,
 } from "@/components/session/ImportAvailability";
@@ -383,7 +384,7 @@ setAvailabilityStatus((prev) => ({
         >
           <div className="flex items-center gap-4 flex-1">
             <Image
-              src={player.photo || "/players/default.png"}
+              src={player.photo || PLAYER_PHOTO_FALLBACK}
               alt={player.name}
               width={60}
               height={60}

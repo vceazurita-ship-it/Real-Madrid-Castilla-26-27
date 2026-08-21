@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
+import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 
 import {
   AlertTriangle,
@@ -340,7 +341,7 @@ export default function DashboardSeguimiento() {
         dias: daysAgo(v.last),
         percentage: pct(v.value, totalSessions),
         posicion: playerMap[v.id]?.posicion ?? "—",
-        foto: playerMap[v.id]?.foto ?? "/jugador.png",
+        foto: playerMap[v.id]?.foto ?? PLAYER_PHOTO_FALLBACK,
         dorsal: playerMap[v.id]?.dorsal,
       }))
       .sort((a, b) => b.value - a.value);
@@ -1844,7 +1845,7 @@ export default function DashboardSeguimiento() {
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={jugador?.foto ?? "/jugador.png"}
+                              src={jugador?.foto ?? PLAYER_PHOTO_FALLBACK}
                               alt={nameOf(s)}
                               className="h-11 w-11 shrink-0 rounded-xl object-cover"
                             />

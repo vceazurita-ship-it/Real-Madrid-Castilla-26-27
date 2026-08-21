@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { matchPlayers } from "@/lib/playerMatcher";
+import { getPlayerImage } from "@/lib/playerImages";
 import sharp from "sharp";
 
 const ai = new GoogleGenAI({
@@ -224,7 +225,14 @@ console.log(matches);
 
       candidates: match?.candidates ?? [],
 
-      photo: match?.player?.FOTO_URL ?? null
+      photo:
+        getPlayerImage(
+          match?.player?.NOMBRE,
+          "cerca",
+          match?.player?.ID_JUGADOR
+        ) ??
+        match?.player?.FOTO_URL ??
+        null
 
     };
 
@@ -293,7 +301,7 @@ const playersForSession = jugadores.map((j:any)=>({
 
   dorsal: j.DORSAL,
 
-  foto: j.FOTO_URL,
+  foto: getPlayerImage(j.NOMBRE, "cerca", j.ID_JUGADOR) ?? j.FOTO_URL,
 
   activo: j.ACTIVO,
 

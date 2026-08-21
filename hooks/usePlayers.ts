@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { Player, EstadoJugador } from "@/types/player";
+import { getPlayerImage, getPlayerPhotoSrc } from "@/lib/playerImages";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
@@ -38,7 +39,13 @@ export function usePlayers() {
 apodo: p.APODO || p.NOMBRE,
   posicion: p.POSICION,
   dorsal: Number(p.DORSAL) || undefined,
-  foto: p.FOTO_URL || "/jugador.png",
+  foto: getPlayerPhotoSrc(p.NOMBRE, {
+    id: p.ID_JUGADOR,
+    variant: "cerca",
+    fallbackUrl: p.FOTO_URL,
+  }),
+
+  fotoLejos: getPlayerImage(p.NOMBRE, "lejos", p.ID_JUGADOR) ?? undefined,
 
   licencia: p.LICENCIA || "RMCF Castilla",
 

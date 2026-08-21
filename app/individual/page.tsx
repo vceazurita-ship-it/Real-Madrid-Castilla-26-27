@@ -38,6 +38,7 @@ import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
+import { getPlayerImage } from "@/lib/playerImages";
 
 import {
   RadarChart,
@@ -75,7 +76,12 @@ type Player = {
   idJugador: string;
   name: string;
   position: string;
+
+  /** Plano medio: tarjeta de la rejilla y aside del detalle. */
   photo: string;
+
+  /** Primer plano de cara: avatar de la cabecera. */
+  photoFace: string;
 
   externo?: boolean;
 
@@ -191,7 +197,7 @@ const LINES = [
   { key: "Delantero", title: "Delanteros", color: "#F87171" },
 ];
 
-const players: Player[] = [
+const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   // PORTEROS
   {
     idJugador: "JUG-24",
@@ -533,6 +539,20 @@ const players: Player[] = [
 
 
 ];
+
+/**
+ * Sustituye las fotos remotas por los recortes locales. Se resuelve por
+ * nombre a propósito: los `idJugador` de esta lista no coinciden con los de
+ * la hoja. Si alguien no tiene recorte, se queda con su URL original.
+ */
+const players: Player[] = PLAYERS_BASE.map((player) => ({
+  ...player,
+  photo: getPlayerImage(player.name, "lejos") ?? player.photo,
+  photoFace:
+    getPlayerImage(player.name, "cerca") ??
+    getPlayerImage(player.name, "lejos") ??
+    player.photo,
+}));
 
 /* ------------------------------------------------------------------ */
 /*  UTILIDADES                                                         */
@@ -2326,7 +2346,7 @@ export default function IndividualPage() {
 
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={selected.photo}
+                    src={selected.photoFace}
                     alt={selected.name}
                     className="hidden h-11 w-11 shrink-0 rounded-xl border border-white/10 object-cover object-top sm:block"
                   />

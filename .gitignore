@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# fotos originales sin optimizar (~380 MB): la versión servida está en
+# /public/players, generada a partir de estas carpetas
+/public/images/Recorte cerca/
+/public/images/Recorte lejos/
+
+# metadatos de macOS
+._*
