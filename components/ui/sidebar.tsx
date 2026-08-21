@@ -88,6 +88,7 @@ const navLink = (
     <>
       {/* BOTÓN MÓVIL */}
       <button
+        data-export-hide
         onClick={() => setOpen(true)}
         className="fixed left-1 top-1 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
       >
@@ -97,6 +98,7 @@ const navLink = (
       {/* OVERLAY MÓVIL */}
       {open && (
         <div
+          data-export-hide
           onClick={() => setOpen(false)}
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
         />
@@ -104,6 +106,7 @@ const navLink = (
   
       {/* SIDEBAR */}
       <aside
+  data-export-hide
   onMouseEnter={() =>
     window.innerWidth >= 768 &&
     setCollapsed(false)

@@ -3,7 +3,15 @@
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Play, RefreshCw, Users, X } from "lucide-react";
+import {
+  Check,
+  Eraser,
+  Play,
+  RefreshCw,
+  Search,
+  Users,
+  X,
+} from "lucide-react";
 import Papa from "papaparse";
 import {
   PolarAngleAxis,
@@ -70,6 +78,15 @@ const AXES: {
 
 const SERIES_COLORS = ["#36DAFF", "#B66BFF", "#62E8FF", "#D17DFF"];
 
+/* Escala cromática compartida: el mismo valor se lee siempre con el mismo
+   color, tanto en los paneles como en la cabecera. */
+const SCALE = [
+  { min: 8.5, tone: "#3BEA9A", label: "ÉLITE" },
+  { min: 7.5, tone: "#36DAFF", label: "ALTA" },
+  { min: 6.5, tone: "#8D7CFF", label: "MEDIA" },
+  { min: 0, tone: "#FFB84D", label: "MEJORABLE" },
+];
+
 /* Composición por defecto de cada panel. Si un jugador no está en el CSV
    simplemente se ignora, así la página nunca queda vacía. */
 const DEFAULT_GROUPS = {
@@ -81,6 +98,14 @@ const DEFAULT_GROUPS = {
 } as const;
 
 type GroupKey = keyof typeof DEFAULT_GROUPS;
+
+const EMPTY_GROUPS: Record<GroupKey, string[]> = {
+  leftSide: [],
+  defense: [],
+  rightSide: [],
+  midfield: [],
+  strikers: [],
+};
 
 function num(v?: string) {
   return Number(String(v || "").replace(",", ".")) || 0;
@@ -108,20 +133,24 @@ function average(player: Player) {
   return AXES.reduce((acc, axis) => acc + player[axis.key], 0) / AXES.length;
 }
 
-/* Escala cromática compartida: el mismo valor se lee siempre con el mismo color,
-   tanto en los paneles como en la cabecera. */
+function bandFor(score: number) {
+  return SCALE.find((band) => score >= band.min) ?? SCALE[SCALE.length - 1];
+}
+
 function toneFor(score: number) {
-  if (score >= 8.5) return "#3BEA9A";
-  if (score >= 7.5) return "#36DAFF";
-  if (score >= 6.5) return "#8D7CFF";
-  return "#FFB84D";
+  return bandFor(score).tone;
 }
 
 function labelFor(score: number) {
-  if (score >= 8.5) return "ÉLITE";
-  if (score >= 7.5) return "ALTA";
-  if (score >= 6.5) return "MEDIA";
-  return "MEJORABLE";
+  return bandFor(score).label;
+}
+
+/* Comparación tolerante a acentos para el buscador de jugadores. */
+function normalize(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 export default function EmotionPage() {
@@ -132,13 +161,7 @@ export default function EmotionPage() {
   const [error, setError] = useState(false);
   const [showTeamAverage, setShowTeamAverage] = useState(true);
 
-  const [groups, setGroups] = useState<Record<GroupKey, string[]>>({
-    leftSide: [],
-    defense: [],
-    rightSide: [],
-    midfield: [],
-    strikers: [],
-  });
+  const [groups, setGroups] = useState<Record<GroupKey, string[]>>(EMPTY_GROUPS);
 
   /* Cambiar la clave relanza la descarga: así el botón de reintento
      no necesita duplicar la lógica de carga. */
@@ -238,7 +261,19 @@ export default function EmotionPage() {
     setGroups((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const scrollToVideo = () => {
+  const resetGroups = useCallback(() => {
+    const known = new Set(names);
+
+    setGroups({
+      leftSide: DEFAULT_GROUPS.leftSide.filter((n) => known.has(n)),
+      defense: DEFAULT_GROUPS.defense.filter((n) => known.has(n)),
+      rightSide: DEFAULT_GROUPS.rightSide.filter((n) => known.has(n)),
+      midfield: DEFAULT_GROUPS.midfield.filter((n) => known.has(n)),
+      strikers: DEFAULT_GROUPS.strikers.filter((n) => known.has(n)),
+    });
+  }, [names]);
+
+  const openVideo = () => {
     if (window.innerWidth < 1024) {
       window.open(VIDEO_URL, "_blank");
       return;
@@ -264,39 +299,63 @@ export default function EmotionPage() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          {/* Acceso al vídeo: anclado en desktop, flotante en móvil */}
-          <button
-            onClick={scrollToVideo}
-            className="fixed right-6 top-1/2 z-50 hidden -translate-y-1/2 items-center gap-3 rounded-full border border-[#C8A96B]/40 bg-[#11161D]/90 px-5 py-3 text-sm font-medium text-white shadow-[0_12px_35px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all hover:border-[#C8A96B] hover:bg-[#161D26] lg:flex"
-          >
-            <Play size={16} className="text-[#C8A96B]" />
-            Ver explicación
-          </button>
-
-          <button
-            onClick={scrollToVideo}
-            className="fixed bottom-5 right-5 z-50 rounded-full bg-[#C8A96B] px-4 py-3 text-sm font-semibold text-black shadow-xl transition hover:opacity-90 lg:hidden"
-          >
-            Ver vídeo
-          </button>
-
-          <section className="px-4 pb-8 pt-6 sm:px-8 sm:pb-12 sm:pt-10">
-            {/* Header */}
-            <div className="mb-5">
+          <section className="px-4 pb-10 pt-6 sm:px-8 sm:pb-14 sm:pt-10">
+            {/* ---------------------------------------------- Cabecera */}
+            <header className="mb-6">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMCF CASTILLA INDIVIDUAL
+                RMCF Castilla · Individual
               </p>
 
-              <div className="mt-4 flex items-center gap-3 sm:gap-5">
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                  Rendimiento emocional
-                </h1>
+              <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                    Rendimiento emocional
+                  </h1>
 
-                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
+                    Perfil atencional de cada jugador en las cuatro dimensiones
+                    del modelo. Selecciona jugadores en cada línea para comparar
+                    perfiles y detectar sinergias.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2" data-export-hide>
+                  <button
+                    onClick={() => setShowTeamAverage((v) => !v)}
+                    aria-pressed={showTeamAverage}
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition ${
+                      showTeamAverage
+                        ? "border-white/25 bg-white/[0.08] text-white"
+                        : "border-white/10 bg-transparent text-white/50 hover:text-white/80"
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className="h-px w-5 border-t border-dashed border-current"
+                    />
+                    Media del equipo
+                  </button>
+
+                  <button
+                    onClick={resetGroups}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/60 transition hover:border-white/25 hover:text-white"
+                  >
+                    <RefreshCw size={13} />
+                    Restablecer líneas
+                  </button>
+
+                  <button
+                    onClick={openVideo}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-xs font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
+                  >
+                    <Play size={13} />
+                    Ver explicación
+                  </button>
+                </div>
               </div>
-            </div>
+            </header>
 
-            {/* Resumen de plantilla */}
+            {/* ---------------------------------------------- Resumen */}
             <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryTile
                 label="Jugadores analizados"
@@ -345,28 +404,30 @@ export default function EmotionPage() {
               </div>
             )}
 
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            {/* ---------------------------------------------- Escala */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-[11px] uppercase tracking-[.25em] text-white/40">
                 Perfiles por línea
               </p>
 
-              <button
-                onClick={() => setShowTeamAverage((v) => !v)}
-                aria-pressed={showTeamAverage}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-medium transition ${
-                  showTeamAverage
-                    ? "border-white/25 bg-white/[0.08] text-white"
-                    : "border-white/10 bg-transparent text-white/50 hover:text-white/80"
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className="h-px w-5 border-t border-dashed border-current"
-                />
-                Media del equipo
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                {SCALE.map((band) => (
+                  <span
+                    key={band.label}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[.12em] text-white/45"
+                  >
+                    <span
+                      aria-hidden
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: band.tone }}
+                    />
+                    {band.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
+            {/* ---------------------------------------------- Radares */}
             <div
               className="rounded-[34px] p-4 sm:p-5 lg:p-6"
               style={{
@@ -403,45 +464,66 @@ export default function EmotionPage() {
               </div>
             </div>
 
-            {/* Leyenda: cada tarjeta es uno de los ejes del radar */}
+            {/* ------------------------------------- Leyenda de los ejes */}
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {AXES.map((axis) => (
-                <div
-                  key={axis.code}
-                  className="rounded-2xl border border-white/10 bg-[#08131F]/85 px-4 py-4 transition hover:border-[#E1C77B]/30"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
-                      {axis.label}
+              {AXES.map((axis) => {
+                const value = teamAverage ? teamAverage[axis.key] : null;
+
+                return (
+                  <div
+                    key={axis.code}
+                    className="rounded-2xl border border-white/10 bg-[#08131F]/85 px-4 py-4 transition hover:border-[#E1C77B]/30"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
+                        {axis.label}
+                      </div>
+
+                      <span className="rounded-md border border-[#E1C77B]/30 px-1.5 py-0.5 text-[10px] font-bold text-[#E1C77B]">
+                        {axis.code}
+                      </span>
                     </div>
 
-                    <span className="rounded-md border border-[#E1C77B]/30 px-1.5 py-0.5 text-[10px] font-bold text-[#E1C77B]">
-                      {axis.code}
-                    </span>
-                  </div>
+                    <div className="mt-2 text-sm font-medium leading-snug text-white">
+                      {axis.detail}
+                    </div>
 
-                  <div className="mt-2 text-sm font-medium leading-snug text-white">
-                    {axis.detail}
-                  </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-white/55">
+                      <span>{axis.moment}</span>
 
-                  <div className="mt-2 flex items-center justify-between text-xs text-white/55">
-                    <span>{axis.moment}</span>
+                      {value !== null && (
+                        <span className="tabular-nums text-white/70">
+                          {value.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
 
-                    {teamAverage && (
-                      <span className="tabular-nums text-white/70">
-                        {teamAverage[axis.key].toFixed(1)}
-                      </span>
+                    {value !== null && (
+                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.min(100, value * 10)}%`,
+                            background: toneFor(value),
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Vídeo explicativo */}
-            <div ref={videoRef} className="mt-14 sm:mt-20">
-              <div className="mb-6">
+            {/* ------------------------------------- Vídeo explicativo */}
+            <div ref={videoRef} className="mt-14 sm:mt-20" data-export-hide>
+              <div className="mb-5">
                 <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
                   Explicación visual
+                </p>
+
+                <p className="mt-2 text-sm text-white/45">
+                  Cómo se leen las cuatro dimensiones y qué se entrena en cada
+                  una.
                 </p>
               </div>
 
@@ -568,6 +650,9 @@ function RadarTooltip({
 
 const TEAM_SERIES = "Media equipo";
 
+/* A partir de esta cantidad de jugadores el buscador ahorra scroll. */
+const SEARCH_THRESHOLD = 10;
+
 function RadarPanel({
   title,
   players,
@@ -587,6 +672,8 @@ function RadarPanel({
   loading: boolean;
   horizontal?: boolean;
 }) {
+  const [query, setQuery] = useState("");
+
   const series = useMemo(
     () =>
       selected
@@ -620,6 +707,17 @@ function RadarPanel({
     [series, teamAverage]
   );
 
+  /* Media del grupo por eje: alimenta las barras bajo el radar. */
+  const groupAverages = useMemo(() => {
+    if (series.length === 0) return null;
+
+    return AXES.map((axis) => ({
+      axis,
+      value:
+        series.reduce((acc, s) => acc + s.values[axis.key], 0) / series.length,
+    }));
+  }, [series]);
+
   const synergyScore =
     series.length === 0
       ? 0
@@ -627,6 +725,20 @@ function RadarPanel({
 
   const radarTone = toneFor(synergyScore);
   const synergyLabel = labelFor(synergyScore);
+
+  /* Seleccionados primero: evita perderlos de vista en listas largas. */
+  const visiblePlayers = useMemo(() => {
+    const q = normalize(query.trim());
+
+    const filtered = q
+      ? players.filter((name) => normalize(name).includes(q))
+      : players;
+
+    return [...filtered].sort((a, b) => {
+      const diff = Number(selected.includes(b)) - Number(selected.includes(a));
+      return diff !== 0 ? diff : a.localeCompare(b, "es");
+    });
+  }, [players, query, selected]);
 
   const toggle = (name: string) => {
     onChange(
@@ -648,154 +760,251 @@ function RadarPanel({
       }}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
+        <div className="min-w-0 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
           {title}
         </div>
 
-        {series.length > 0 && (
-          <div
-            className="rounded-full px-3 py-1 text-[10px] font-bold"
-            style={{ background: radarTone, color: "#031018" }}
-          >
-            {synergyLabel}
-          </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-[11px] text-white/60">
+            Sinergia{" "}
+            <span className="tabular-nums font-semibold text-white">
+              {synergyScore.toFixed(1)}
+            </span>
+            <span className="text-white/35"> / 10</span>
+          </span>
+
+          {series.length > 0 && (
+            <span
+              className="rounded-full px-2.5 py-1 text-[10px] font-bold"
+              style={{ background: radarTone, color: "#031018" }}
+            >
+              {synergyLabel}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Jugadores activos del panel */}
+      <div className="mb-3 flex min-h-[24px] flex-wrap items-center gap-1.5">
+        {series.length === 0 ? (
+          <span className="text-[11px] text-white/35">
+            Sin jugadores seleccionados
+          </span>
+        ) : (
+          series.map((s) => (
+            <button
+              key={s.name}
+              onClick={() => toggle(s.name)}
+              title={`Quitar ${s.name}`}
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition hover:brightness-125"
+              style={{
+                background: `${s.color}25`,
+                color: s.color,
+                border: `1px solid ${s.color}40`,
+              }}
+            >
+              {s.name}
+              <X size={9} aria-hidden />
+            </button>
+          ))
         )}
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-[11px] text-white/65">
-          Sinergia:{" "}
-          <span className="tabular-nums text-white">
-            {synergyScore.toFixed(1)}
-          </span>{" "}
-          / 10
-        </span>
-
-        {series.map((s) => (
-          <button
-            key={s.name}
-            onClick={() => toggle(s.name)}
-            title={`Quitar ${s.name}`}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium transition hover:brightness-125"
-            style={{
-              background: `${s.color}25`,
-              color: s.color,
-              border: `1px solid ${s.color}40`,
-            }}
-          >
-            {s.name}
-            <X size={9} />
-          </button>
-        ))}
-      </div>
-
       <div className="flex flex-col gap-3 lg:flex-row">
-        {/* Selector de jugadores: chips accesibles, mejor en táctil que un multi-select */}
+        {/* Selector: chips accesibles, mejor en táctil que un multi-select */}
         <div
-          role="group"
-          aria-label={`Jugadores en ${title}`}
-          className={`flex max-h-[130px] flex-wrap content-start gap-1.5 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.04] p-2 shadow-[inset_0_0_14px_rgba(255,255,255,.03)] backdrop-blur-xl lg:max-h-[230px] ${
-            horizontal ? "lg:w-[220px]" : "lg:w-[150px]"
+          className={`flex shrink-0 flex-col gap-2 ${
+            horizontal ? "lg:w-[230px]" : "lg:w-[160px]"
           }`}
+          data-export-hide
         >
-          {loading && players.length === 0 && (
-            <div className="w-full space-y-1.5 p-1">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-5 w-full animate-pulse rounded-full bg-white/10"
-                />
-              ))}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-[.18em] text-white/35">
+              {selected.length}/{players.length}
+            </span>
+
+            <button
+              onClick={() => onChange([])}
+              disabled={selected.length === 0}
+              className="inline-flex items-center gap-1 text-[10px] text-white/40 transition hover:text-white disabled:opacity-30 disabled:hover:text-white/40"
+            >
+              <Eraser size={10} />
+              Limpiar
+            </button>
+          </div>
+
+          {players.length > SEARCH_THRESHOLD && (
+            <div className="relative">
+              <Search
+                size={11}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30"
+              />
+
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar…"
+                aria-label={`Buscar jugador en ${title}`}
+                className="w-full rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-7 pr-2 text-[11px] text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+              />
             </div>
           )}
 
-          {players.map((name) => {
-            const active = selected.includes(name);
-
-            return (
-              <button
-                key={name}
-                onClick={() => toggle(name)}
-                aria-pressed={active}
-                className={`rounded-full border px-2 py-1 text-[10px] leading-none transition ${
-                  active
-                    ? "border-white/30 bg-white/15 text-white"
-                    : "border-white/10 bg-transparent text-white/55 hover:border-white/25 hover:text-white"
-                }`}
-              >
-                {name}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="h-[230px] w-full lg:flex-1">
-          {series.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 text-center text-[11px] text-white/40">
-              {loading
-                ? "Cargando perfiles…"
-                : "Selecciona jugadores para dibujar el perfil"}
-            </div>
-          ) : (
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              initialDimension={{ width: horizontal ? 520 : 300, height: 230 }}
-            >
-              <RadarChart
-                data={chartData}
-                outerRadius="78%"
-                margin={{ top: 8, right: 16, bottom: 8, left: 16 }}
-              >
-                <PolarGrid stroke={`${radarTone}40`} />
-
-                <PolarAngleAxis
-                  dataKey="key"
-                  tick={{ fill: "#ffffff", fontSize: 11 }}
-                />
-
-                <PolarRadiusAxis
-                  domain={[0, 10]}
-                  tick={false}
-                  axisLine={false}
-                />
-
-                <Tooltip
-                  cursor={false}
-                  content={({ active, payload, label }) => (
-                    <RadarTooltip
-                      active={active}
-                      payload={payload as unknown as TooltipEntry[]}
-                      label={String(label ?? "")}
-                    />
-                  )}
-                />
-
-                {teamAverage && (
-                  <Radar
-                    name={TEAM_SERIES}
-                    dataKey={TEAM_SERIES}
-                    stroke="#8FA3B8"
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                    fill="#8FA3B8"
-                    fillOpacity={0.05}
-                  />
-                )}
-
-                {series.map((s) => (
-                  <Radar
-                    key={s.name}
-                    name={s.name}
-                    dataKey={s.name}
-                    stroke={s.color}
-                    fill={s.color}
-                    fillOpacity={0.12}
-                    strokeWidth={2.6}
+          <div
+            role="group"
+            aria-label={`Jugadores en ${title}`}
+            className="flex max-h-[150px] flex-wrap content-start gap-1.5 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.04] p-2 shadow-[inset_0_0_14px_rgba(255,255,255,.03)] backdrop-blur-xl lg:max-h-[210px]"
+          >
+            {loading && players.length === 0 && (
+              <div className="w-full space-y-1.5 p-1">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-5 w-full animate-pulse rounded-full bg-white/10"
                   />
                 ))}
-              </RadarChart>
-            </ResponsiveContainer>
+              </div>
+            )}
+
+            {!loading && visiblePlayers.length === 0 && (
+              <span className="p-1 text-[10px] text-white/30">
+                Sin resultados
+              </span>
+            )}
+
+            {visiblePlayers.map((name) => {
+              const active = selected.includes(name);
+
+              return (
+                <button
+                  key={name}
+                  onClick={() => toggle(name)}
+                  aria-pressed={active}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] leading-none transition ${
+                    active
+                      ? "border-white/30 bg-white/15 text-white"
+                      : "border-white/10 bg-transparent text-white/55 hover:border-white/25 hover:text-white"
+                  }`}
+                >
+                  {active && <Check size={9} aria-hidden />}
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="h-[240px] w-full">
+            {series.length === 0 ? (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 text-center text-[11px] text-white/40">
+                {loading
+                  ? "Cargando perfiles…"
+                  : "Selecciona jugadores para dibujar el perfil"}
+              </div>
+            ) : (
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: horizontal ? 520 : 300, height: 240 }}
+              >
+                <RadarChart
+                  data={chartData}
+                  outerRadius="78%"
+                  margin={{ top: 8, right: 16, bottom: 8, left: 16 }}
+                >
+                  <PolarGrid stroke={`${radarTone}40`} />
+
+                  <PolarAngleAxis
+                    dataKey="key"
+                    tick={{ fill: "#ffffff", fontSize: 11 }}
+                  />
+
+                  <PolarRadiusAxis
+                    domain={[0, 10]}
+                    tick={false}
+                    axisLine={false}
+                  />
+
+                  <Tooltip
+                    cursor={false}
+                    content={({ active, payload, label }) => (
+                      <RadarTooltip
+                        active={active}
+                        payload={payload as unknown as TooltipEntry[]}
+                        label={String(label ?? "")}
+                      />
+                    )}
+                  />
+
+                  {teamAverage && (
+                    <Radar
+                      name={TEAM_SERIES}
+                      dataKey={TEAM_SERIES}
+                      stroke="#8FA3B8"
+                      strokeDasharray="4 4"
+                      strokeWidth={1.5}
+                      fill="#8FA3B8"
+                      fillOpacity={0.05}
+                      isAnimationActive={false}
+                    />
+                  )}
+
+                  {series.map((s) => (
+                    <Radar
+                      key={s.name}
+                      name={s.name}
+                      dataKey={s.name}
+                      stroke={s.color}
+                      fill={s.color}
+                      fillOpacity={0.12}
+                      strokeWidth={2.6}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </RadarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Lectura numérica: el radar da la forma, esto da el dato */}
+          {groupAverages && (
+            <div
+              className={`mt-2 grid gap-2 ${
+                horizontal ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"
+              }`}
+            >
+              {groupAverages.map(({ axis, value }) => (
+                <div
+                  key={axis.code}
+                  className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-1.5"
+                  title={`${axis.label} · ${axis.detail}`}
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[10px] font-bold tracking-wider text-white/45">
+                      {axis.code}
+                    </span>
+
+                    <span
+                      className="text-[12px] font-semibold tabular-nums"
+                      style={{ color: toneFor(value) }}
+                    >
+                      {value.toFixed(1)}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(100, value * 10)}%`,
+                        background: toneFor(value),
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
