@@ -34,6 +34,7 @@ import {
   ShieldHalf,
   ClipboardList,
   LayoutDashboard,
+  Star,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -264,7 +265,12 @@ const navLink = (
   "Dashboard",
   <BarChart3 size={18} />
 )}
-      
+      {navLink(
+  "/ratings",
+  "Valoraciones",
+  <Star size={18} />
+)}
+
       {navLink(
         "/comparative_ind",
         "Comparativo U-21",

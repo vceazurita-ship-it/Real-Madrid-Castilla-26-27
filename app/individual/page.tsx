@@ -22,6 +22,7 @@ import {
   RotateCcw,
   Search,
   Shield,
+  Star,
   Target,
   Trash2,
   Users,
@@ -34,6 +35,9 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
+import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
+import { useRatingsSeason } from "@/hooks/useRatings";
+import { playerEntries } from "@/lib/ratings/compute";
 
 import {
   RadarChart,
@@ -140,7 +144,12 @@ type ReportItem = {
   OBSERVACIONES_FINALES: string;
 };
 
-type TabKey = "perfil" | "seguimiento" | "videos" | "informe";
+type TabKey =
+  | "perfil"
+  | "seguimiento"
+  | "valoraciones"
+  | "videos"
+  | "informe";
 
 /* ------------------------------------------------------------------ */
 /*  OPCIONES DE FORMULARIO                                             */
@@ -1095,12 +1104,15 @@ function PlayerCard({
 const TABS: { key: TabKey; label: string }[] = [
   { key: "perfil", label: "Perfil" },
   { key: "seguimiento", label: "Seguimiento" },
+  { key: "valoraciones", label: "Valoraciones" },
   { key: "videos", label: "Vídeos" },
   { key: "informe", label: "Informe" },
 ];
 
 export default function IndividualPage() {
   /* ---------------- datos remotos ---------------- */
+
+  const { season: ratingsSeason, loading: loadingRatings } = useRatingsSeason();
 
   const [sheetData, setSheetData] = useState<Record<string, string>[]>([]);
   const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
@@ -1483,6 +1495,11 @@ export default function IndividualPage() {
   const playerReport = selected
     ? reportData.find((item) => item.ID_JUGADOR === selected.idJugador)
     : null;
+
+  const playerRatings = useMemo(
+    () => (selected ? playerEntries(ratingsSeason, selected.idJugador) : []),
+    [ratingsSeason, selected],
+  );
 
   /* ---------------- acciones ---------------- */
 
@@ -2362,7 +2379,9 @@ export default function IndividualPage() {
                         ? playerTracking.length
                         : tab.key === "videos"
                           ? playerVideos.length
-                          : null;
+                          : tab.key === "valoraciones"
+                            ? playerRatings.length
+                            : null;
 
                     const active = activeTab === tab.key;
 
@@ -2793,6 +2812,48 @@ export default function IndividualPage() {
                               </article>
                             ))}
                           </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ---------- VALORACIONES ---------- */}
+
+                    {activeTab === "valoraciones" && (
+                      <div className="min-w-0 space-y-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="text-lg font-semibold sm:text-xl">
+                              Valoraciones de partido
+                            </h3>
+
+                            <p className="text-xs text-white/35">
+                              Histórico de notas, evolución y comentarios
+                            </p>
+                          </div>
+
+                          <a
+                            href="/ratings"
+                            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-xs font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                          >
+                            <Star size={14} />
+                            Registrar valoraciones
+                          </a>
+                        </div>
+
+                        {loadingRatings ? (
+                          <div className="flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-[#11161D] py-16 text-sm text-white/40">
+                            <Loader2
+                              size={18}
+                              className="animate-spin text-[#C8A96B]"
+                            />
+                            Cargando valoraciones…
+                          </div>
+                        ) : (
+                          <PlayerRatingsTab
+                            season={ratingsSeason}
+                            playerId={selected.idJugador}
+                            compact
+                          />
                         )}
                       </div>
                     )}
