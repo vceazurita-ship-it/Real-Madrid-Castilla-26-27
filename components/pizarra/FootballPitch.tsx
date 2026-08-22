@@ -121,9 +121,8 @@ useEffect(() => {
   id={player.id}
   positionId={position.id}
   foto={player.foto}
-  nombre={player.nombre}
+  nombre={player.apodo || player.nombre}
   licencia={player.licencia}
-  estado={player.estado}
   mobile={mobile}
 />
 

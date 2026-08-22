@@ -1,15 +1,26 @@
 /**
- * Fotos locales de la plantilla (`/public/players`).
+ * Fotos de la plantilla, servidas desde Supabase (`performance/players`).
  *
  * Dos recortes por persona, ambos 4:5 y con fondo transparente:
  *   - `cerca`: primer plano de cara. Para avatares y fichas pequeñas (<= 80px).
  *   - `lejos`: plano medio con equipación. Para tarjetas y cabeceras grandes.
  *
- * Las hojas de cálculo siguen mandando FOTO_URL, pero resolvemos la foto
- * localmente a partir del ID o del nombre para no depender de assets remotos.
+ * Las hojas de cálculo siguen mandando FOTO_URL, pero resolvemos la foto por
+ * ID (o por nombre) para garantizar que la cara corresponde al jugador. Los
+ * mismos archivos siguen en `/public/players` y hacen de respaldo si no hay
+ * Supabase configurado.
  */
 
 export type PlayerImageVariant = "cerca" | "lejos";
+
+/** Carpeta pública de las fotos: Supabase si está configurado, si no local. */
+const PHOTO_BASE = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  return url
+    ? `${url.replace(/\/$/, "")}/storage/v1/object/public/performance/players`
+    : "/players";
+})();
 
 /** Slugs con archivo en `/public/players/{cerca,lejos}`. */
 export const PLAYER_IMAGE_SLUGS = [
@@ -79,7 +90,7 @@ export type PlayerImageSlug = (typeof PLAYER_IMAGE_SLUGS)[number];
 const SLUG_SET = new Set<string>(PLAYER_IMAGE_SLUGS);
 
 /** Foto por defecto cuando el jugador no tiene recorte propio. */
-export const PLAYER_PHOTO_FALLBACK = "/players/placeholder.webp";
+export const PLAYER_PHOTO_FALLBACK = `${PHOTO_BASE}/placeholder.webp`;
 
 /**
  * ID de la hoja -> slug. Es la vía principal: los IDs no cambian aunque
@@ -224,12 +235,23 @@ export function getPlayerImage(
   id?: string | null
 ): string | null {
   const slug = resolvePlayerSlug(nombre, id);
-  return slug ? `/players/${variant}/${slug}.webp` : null;
+  return slug ? `${PHOTO_BASE}/${variant}/${slug}.webp` : null;
 }
 
 /**
- * Foto lista para pintar: recorte local si existe, si no la URL que venga de
- * la hoja y, en último caso, el placeholder.
+ * URLs de la hoja que no son una foto: el marcador de posición de un
+ * despliegue antiguo, que además ya no responde. Mostrarlas es peor que el
+ * placeholder propio, porque parecen la foto real de otra persona.
+ */
+function isPlaceholderUrl(url: string) {
+  const value = url.toLowerCase();
+
+  return value.includes("default.png") || value.includes("placeholder");
+}
+
+/**
+ * Foto lista para pintar: el recorte de la plantilla si existe, si no la URL
+ * que venga de la hoja y, en último caso, el placeholder.
  */
 export function getPlayerPhotoSrc(
   nombre?: string | null,
@@ -241,8 +263,12 @@ export function getPlayerPhotoSrc(
 ): string {
   const { id, variant = "cerca", fallbackUrl } = options;
 
-  return (
-    getPlayerImage(nombre, variant, id) ||
-    (fallbackUrl && fallbackUrl.trim() !== "" ? fallbackUrl : PLAYER_PHOTO_FALLBACK)
-  );
+  const own = getPlayerImage(nombre, variant, id);
+  if (own) return own;
+
+  const external = fallbackUrl?.trim();
+
+  return external && !isPlaceholderUrl(external)
+    ? external
+    : PLAYER_PHOTO_FALLBACK;
 }

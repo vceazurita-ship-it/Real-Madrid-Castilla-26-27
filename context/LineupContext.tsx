@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
@@ -182,9 +183,10 @@ const [lineup, setLineup] =
     );
   }
 
-  function removeFromBench(playerId: string) {
+  // Memorizadas: la pizarra las usa como dependencia de un efecto.
+  const removeFromBench = useCallback((playerId: string) => {
     setBench((current) => current.filter((id) => id !== playerId));
-  }
+  }, []);
 
   function clearBench() {
     setBench([]);
@@ -356,20 +358,13 @@ return current;
      ELIMINAR JUGADOR
   ======================================= */
 
-  function removePlayer(
-    playerId: string
-  ) {
+  const removePlayer = useCallback((playerId: string) => {
     setLineup((current) =>
       current.map((slot) =>
-        slot.playerId === playerId
-          ? {
-              ...slot,
-              playerId: null,
-            }
-          : slot
+        slot.playerId === playerId ? { ...slot, playerId: null } : slot
       )
     );
-  }
+  }, []);
 
   /* =======================================
      LIMPIAR PIZARRA
@@ -443,6 +438,8 @@ const value = useMemo(
     loadedLineupId,
     loadedLineupName,
     selectedPlayer,
+    removePlayer,
+    removeFromBench,
   ]
 );
 

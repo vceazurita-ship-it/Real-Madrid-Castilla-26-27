@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +25,10 @@ import PlayerSidebar from "@/components/pizarra/PlayerSidebar";
 import TopStats from "@/components/pizarra/TopStats";
 import { usePlayers } from "@/hooks/usePlayers";
 import { LineupProvider, useLineup } from "@/context/LineupContext";
+import {
+  AvailabilityProvider,
+  useAvailability,
+} from "@/context/AvailabilityContext";
 import { cn } from "@/lib/utils";
 
 const APPS_SCRIPT_URL =
@@ -40,6 +44,8 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 function PizarraContent() {
   const {
+    lineup,
+    bench,
     assignPlayer,
     removePlayer,
     addToBench,
@@ -49,8 +55,18 @@ function PizarraContent() {
   } = useLineup();
 
   const { players } = usePlayers();
+  const { bajas, isAvailable, status, localOnly } = useAvailability();
 
   const [tab, setTab] = useState<Tab>("alineacion");
+
+  // Una baja saca al jugador de la convocatoria, aunque la marque otro
+  // miembro del staff desde otro dispositivo.
+  useEffect(() => {
+    for (const id of Object.keys(bajas)) {
+      if (lineup.some((slot) => slot.playerId === id)) removePlayer(id);
+      if (bench.includes(id)) removeFromBench(id);
+    }
+  }, [bajas, lineup, bench, removePlayer, removeFromBench]);
 
   const [dragPlayer, setDragPlayer] = useState<
     (typeof players)[number] | null
@@ -76,17 +92,20 @@ function PizarraContent() {
 
     const playerId = activeId.replace("bench-", "").replace("field-", "");
 
+    // De vuelta a la plantilla: siempre permitido, también para una baja.
+    if (overId === "bench") {
+      removePlayer(playerId);
+      removeFromBench(playerId);
+      return;
+    }
+
+    // Una baja no entra en la convocatoria por mucho que se arrastre.
+    if (!isAvailable(playerId)) return;
+
     // Al banquillo de la convocatoria
     if (overId === "bench-list") {
       removePlayer(playerId);
       addToBench(playerId);
-      return;
-    }
-
-    // De vuelta a la plantilla
-    if (overId === "bench") {
-      removePlayer(playerId);
-      removeFromBench(playerId);
       return;
     }
 
@@ -192,6 +211,44 @@ function PizarraContent() {
 
               {tab === "alineacion" ? (
                 <>
+                  {/* AYUDA Y ESTADO DE GUARDADO */}
+
+                  <div
+                    data-export-hide
+                    className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#11161D] px-3 py-2"
+                  >
+                    <p className="text-[11px] text-white/45">
+                      Arrastra la foto al campo, o pulsa{" "}
+                      <span className="font-semibold text-[#C8A96B]">+</span> y
+                      luego una posición. Doble clic sobre un jugador lo saca
+                      del campo.
+                    </p>
+
+                    <p
+                      className={cn(
+                        "flex items-center gap-1.5 text-[11px]",
+                        localOnly ? "text-amber-300" : "text-white/40"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          localOnly
+                            ? "bg-amber-400"
+                            : status === "saving"
+                            ? "bg-[#C8A96B] animate-pulse"
+                            : "bg-emerald-400"
+                        )}
+                      />
+
+                      {localOnly
+                        ? "Disponibilidad sólo en este dispositivo"
+                        : status === "saving"
+                        ? "Guardando disponibilidad..."
+                        : "Disponibilidad compartida con el staff"}
+                    </p>
+                  </div>
+
                   <div className="mb-3">
                     <TopStats />
                   </div>
@@ -274,8 +331,10 @@ function PizarraContent() {
 
 export default function PizarraPage() {
   return (
-    <LineupProvider>
-      <PizarraContent />
-    </LineupProvider>
+    <AvailabilityProvider>
+      <LineupProvider>
+        <PizarraContent />
+      </LineupProvider>
+    </AvailabilityProvider>
   );
 }

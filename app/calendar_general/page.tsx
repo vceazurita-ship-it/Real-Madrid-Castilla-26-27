@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   FileText,
   Image as ImageIcon,
@@ -53,11 +54,18 @@ interface EventsDoc {
   events: GeneralEvent[];
 }
 
+/** Documento del Área General, fechado en su día de subida por la API. */
 type DayFile = {
   url: string;
   name: string;
   created_at: string;
   type: "image" | "pdf";
+  /** Día del calendario: el de la subida ("YYYY-MM-DD"). */
+  date?: string;
+  /** Semana del Área General a la que pertenece ("" si es un archivo suelto). */
+  week?: string;
+  weekRange?: string;
+  month?: string;
 };
 
 type FilesByDay = Record<string, { images: DayFile[]; pdfs: DayFile[] }>;
@@ -138,7 +146,10 @@ export default function CalendarGeneralPage() {
 
     const loadFiles = async () => {
       try {
-        const response = await fetch("/api/general-files");
+        const response = await fetch("/api/general-files", {
+          cache: "no-store",
+        });
+
         const files: DayFile[] = await response.json();
 
         if (cancelled || !Array.isArray(files)) return;
@@ -146,7 +157,8 @@ export default function CalendarGeneralPage() {
         const grouped: FilesByDay = {};
 
         for (const file of files) {
-          const day = dateKey(new Date(file.created_at));
+          // La API ya fecha cada documento por el día en que se subió.
+          const day = file.date || dateKey(new Date(file.created_at));
 
           if (!grouped[day]) grouped[day] = { images: [], pdfs: [] };
 
@@ -218,6 +230,9 @@ export default function CalendarGeneralPage() {
   const selectedFiles = selectedKey
     ? filesByDay[selectedKey] ?? EMPTY_FILES
     : EMPTY_FILES;
+
+  const selectedFilesCount =
+    selectedFiles.images.length + selectedFiles.pdfs.length;
 
   const closeModal = useCallback(() => {
     setSelectedKey(null);
@@ -392,9 +407,18 @@ export default function CalendarGeneralPage() {
         <CalendarDayModal
           date={selectedDate}
           size="lg"
-          subtitle={`${selectedEvents.length} ${
-            selectedEvents.length === 1 ? "evento" : "eventos"
-          }`}
+          subtitle={[
+            `${selectedEvents.length} ${
+              selectedEvents.length === 1 ? "evento" : "eventos"
+            }`,
+            selectedFilesCount > 0
+              ? `${selectedFilesCount} ${
+                  selectedFilesCount === 1 ? "documento" : "documentos"
+                }`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           onClose={closeModal}
           onPrev={() => shiftSelectedDay(-1)}
           onNext={() => shiftSelectedDay(1)}
@@ -564,11 +588,24 @@ function FilesSection({
 
   return (
     <div className="mb-6 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs uppercase tracking-[0.2em] text-white/40">
+          Documentación del Área General
+        </p>
+
+        <Link
+          href="/general"
+          className="text-xs text-[#C8A96B] transition hover:underline"
+        >
+          Abrir Área General →
+        </Link>
+      </div>
+
       {files.images.length > 0 && (
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
             <ImageIcon size={18} className="text-[#C8A96B]" />
-            Imágenes del día
+            Imágenes ({files.images.length})
           </h3>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -577,7 +614,7 @@ function FilesSection({
                 key={img.url}
                 type="button"
                 onClick={() => onOpenImage(index)}
-                className="cursor-zoom-in overflow-hidden rounded-xl border border-white/10 bg-[#10151C] transition hover:border-[#C8A96B]/40"
+                className="cursor-zoom-in overflow-hidden rounded-xl border border-white/10 bg-[#10151C] text-left transition hover:border-[#C8A96B]/40"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -586,6 +623,8 @@ function FilesSection({
                   loading="lazy"
                   className="h-32 w-full object-cover transition hover:scale-[1.03]"
                 />
+
+                <FileOrigin file={img} className="px-2 py-1.5" />
               </button>
             ))}
           </div>
@@ -596,7 +635,7 @@ function FilesSection({
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
             <FileText size={18} className="text-[#C8A96B]" />
-            PDFs del día
+            PDFs ({files.pdfs.length})
           </h3>
 
           <div className="space-y-2">
@@ -610,7 +649,11 @@ function FilesSection({
               >
                 <div className="flex items-center gap-3">
                   <FileText className="shrink-0 text-[#C8A96B]" />
-                  <span className="truncate">{pdf.name}</span>
+
+                  <span className="min-w-0">
+                    <span className="block truncate">{pdf.name}</span>
+                    <FileOrigin file={pdf} />
+                  </span>
                 </div>
               </a>
             ))}
@@ -618,6 +661,23 @@ function FilesSection({
         </div>
       )}
     </div>
+  );
+}
+
+/** "Semana 3 · 13 Jul — 19 Jul": de qué semana del área viene el documento. */
+function FileOrigin({ file, className }: { file: DayFile; className?: string }) {
+  if (!file.week) return null;
+
+  return (
+    <span
+      className={cn(
+        "block truncate text-[10px] text-white/45 md:text-[11px]",
+        className
+      )}
+    >
+      {file.week}
+      {file.weekRange ? ` · ${file.weekRange}` : ""}
+    </span>
   );
 }
 

@@ -6,6 +6,7 @@ import { Users, X } from "lucide-react";
 import { useLineup } from "@/context/LineupContext";
 import { usePlayers } from "@/hooks/usePlayers";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
+import { REASON_STATUS, useAvailability } from "@/context/AvailabilityContext";
 import { statusTheme } from "@/lib/session-board/status";
 import type { Player } from "@/types/player";
 import { cn } from "@/lib/utils";
@@ -86,7 +87,10 @@ function BenchToken({
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `bench-${player.id}` });
 
-  const status = statusTheme(player.estado);
+  const { reasonFor } = useAvailability();
+
+  const reason = reasonFor(player.id);
+  const status = statusTheme(reason ? REASON_STATUS[reason] : "DISPONIBLE");
 
   return (
     <div
