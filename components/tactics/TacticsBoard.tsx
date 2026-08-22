@@ -32,6 +32,14 @@ import {
 
 import type { Player } from "@/types/player";
 import PitchMarkings from "./PitchMarkings";
+import RivalPicker from "./RivalPicker";
+import {
+  freeSpot,
+  RivalPick,
+  RivalSquad,
+  rivalSpot,
+  rivalTokenId,
+} from "@/lib/tactics/rivals";
 import {
   clampToPitch,
   duplicateScene,
@@ -45,6 +53,7 @@ import {
   CROP_LABEL,
   CROP_VIEWBOX,
   DRAW_COLORS,
+  PITCH_HEIGHT,
   PitchCrop,
   Point,
   TacticScene,
@@ -84,6 +93,10 @@ interface Props {
   onChange: (doc: TacticsDoc) => void;
   /** Plantilla real, para añadir fichas con dorsal y nombre. */
   roster?: Player[];
+  /** Plantillas rivales: cada dorsal se enciende o se apaga sobre el campo. */
+  rivalSquads?: RivalSquad[];
+  /** Equipo rival fijo: oculta el selector de equipo del panel de dorsales. */
+  lockedRivalTeam?: string;
   /** Tablero de una sola escena: oculta la tira de escenas y la animación. */
   singleScene?: boolean;
   /** Texto de ayuda bajo el tablero. */
@@ -94,6 +107,8 @@ export default function TacticsBoard({
   doc,
   onChange,
   roster = [],
+  rivalSquads = [],
+  lockedRivalTeam,
   singleScene = false,
   hint,
 }: Props) {
@@ -324,6 +339,69 @@ export default function TacticsBoard({
     }));
 
   // ---------------------------------------------------------------
+  // Dorsales rivales
+  // ---------------------------------------------------------------
+
+  /** Los rivales de la hoja que ya están sobre la escena actual. */
+  const rivalIds = useMemo(() => {
+    const ids = new Set(scene.tokens.map((token) => token.id));
+
+    return rivalSquads
+      .flatMap((squad) => squad.players)
+      .filter((player) => ids.has(rivalTokenId(player.id)))
+      .map((player) => player.id);
+  }, [rivalSquads, scene.tokens]);
+
+  /** Enciende o apaga el dorsal: segunda pulsación, ficha fuera. */
+  const toggleRival = (player: RivalPick) => {
+    const id = rivalTokenId(player.id);
+
+    if (scene.tokens.some((token) => token.id === id)) {
+      updateScene((current) => ({
+        ...current,
+        tokens: current.tokens.filter((token) => token.id !== id),
+      }));
+
+      return;
+    }
+
+    const spot = freeSpot(rivalSpot(player.posicion), scene.tokens);
+
+    const token: TacticToken = {
+      id,
+      kind: "away",
+      label: player.dorsal || player.nombre.slice(0, 2).toUpperCase(),
+      nombre: player.nombre,
+      x: spot.x,
+      y: spot.y,
+    };
+
+    updateScene((current) => ({
+      ...current,
+      tokens: [...current.tokens, token],
+    }));
+  };
+
+  /** Dorsal suelto, para un rival que todavía no está en la hoja. */
+  const addRivalNumber = (label: string) => {
+    const spot = freeSpot({ x: 72, y: PITCH_HEIGHT / 2 }, scene.tokens);
+
+    updateScene((current) => ({
+      ...current,
+      tokens: [
+        ...current.tokens,
+        { id: tacticId("token"), kind: "away", label, x: spot.x, y: spot.y },
+      ],
+    }));
+  };
+
+  const clearRivals = () =>
+    updateScene((current) => ({
+      ...current,
+      tokens: current.tokens.filter((token) => token.kind !== "away"),
+    }));
+
+  // ---------------------------------------------------------------
   // Escenas
   // ---------------------------------------------------------------
 
@@ -548,6 +626,19 @@ export default function TacticsBoard({
           />
         </div>
       </div>
+
+      {/* DORSALES RIVALES */}
+
+      {rivalSquads.length > 0 && (
+        <RivalPicker
+          squads={rivalSquads}
+          activeIds={rivalIds}
+          onToggle={toggleRival}
+          onAddNumber={addRivalNumber}
+          onClear={clearRivals}
+          lockedTeam={lockedRivalTeam}
+        />
+      )}
 
       {/* RECORTE DEL CAMPO */}
 

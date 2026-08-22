@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
+import RivalBoardPanel from "@/components/tactics/RivalBoardPanel";
+import { buildRivalSquads } from "@/lib/tactics/rivals";
 
 import {
   AlertTriangle,
@@ -36,6 +38,7 @@ import {
   Save,
   Search,
   Shirt,
+  SquarePen,
   Shuffle,
   Sparkles,
   Star,
@@ -250,6 +253,9 @@ export default function RivalPlayersPage() {
 
   const [showPitch, setShowPitch] = useState(true);
 
+  /* Plantilla (listado + campograma) o pizarra táctica del rival. */
+  const [view, setView] = useState<"plantilla" | "pizarra">("plantilla");
+
   const touchStartX = useRef<number | null>(null);
 
   /* Snapshot del jugador al abrir el modal, para detectar cambios sin guardar. */
@@ -333,6 +339,17 @@ export default function RivalPlayersPage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [players]);
+
+  /* La plantilla del equipo elegido, reducida a lo que pinta la pizarra. */
+  const boardSquad = useMemo(() => {
+    if (!selectedTeam) return null;
+
+    const [squad] = buildRivalSquads(
+      players.filter((player) => player.NOMBRE_EQUIPO === selectedTeam),
+    );
+
+    return squad ?? { equipo: selectedTeam, players: [] };
+  }, [players, selectedTeam]);
 
   /*
   |--------------------------------------------------------------------------
@@ -776,6 +793,32 @@ export default function RivalPlayersPage() {
               </h1>
 
               <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
+
+              <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+                <button
+                  onClick={() => setView("plantilla")}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition ${
+                    view === "plantilla"
+                      ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  <Shirt size={14} />
+                  <span className="hidden sm:inline">Plantilla</span>
+                </button>
+
+                <button
+                  onClick={() => setView("pizarra")}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition ${
+                    view === "pizarra"
+                      ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  <SquarePen size={14} />
+                  <span className="hidden sm:inline">Pizarra</span>
+                </button>
+              </div>
             </div>
 
             {/* ERROR */}
@@ -837,150 +880,178 @@ export default function RivalPlayersPage() {
               </button>
             </div>
 
-            {/* FILTROS */}
+            {view === "plantilla" && (
+              <>
+              {/* FILTROS */}
 
-            <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Buscar jugador, equipo, dorsal o rol..."
-              />
+              <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Buscar jugador, equipo, dorsal o rol..."
+                />
 
-              <SearchInput
-                value={positionSearch}
-                onChange={setPositionSearch}
-                placeholder="Buscar posición..."
-              />
-            </div>
-
-            {/* ETIQUETAS */}
-
-            <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
-                  <Tags size={14} />
-                  Etiquetas
-                </span>
-
-                <span className="text-[11px] text-white/30">
-                  {activeTags.length > 0
-                    ? "Se atenúan en el campo los que no las cumplen"
-                    : "Pulsa para filtrar · se editan en la ficha del jugador"}
-                </span>
+                <SearchInput
+                  value={positionSearch}
+                  onChange={setPositionSearch}
+                  placeholder="Buscar posición..."
+                />
               </div>
 
-              <div className="flex min-w-0 flex-wrap gap-2">
-                {PLAYER_TAGS.map((tag) => {
-                  const count = tagCounts.get(tag.key) ?? 0;
+              {/* ETIQUETAS */}
 
-                  /* Sin nadie etiquetado la píldora sigue visible pero apagada. */
-                  return (
-                    <TagChip
-                      key={tag.key}
-                      tag={tag}
-                      count={count}
-                      active={activeTags.includes(tag.key)}
-                      onClick={() =>
-                        setActiveTags((current) =>
-                          current.includes(tag.key)
-                            ? current.filter((key) => key !== tag.key)
-                            : [...current, tag.key],
-                        )
-                      }
-                    />
-                  );
-                })}
-
-                {activeTags.length > 0 && (
-                  <button
-                    onClick={() => setActiveTags([])}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/50 transition hover:border-white/30 hover:text-white"
-                  >
-                    <X size={11} />
-                    Quitar filtro
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* CONTADOR */}
-
-            <div className="mt-6 flex min-w-0 flex-wrap items-center justify-between gap-4">
-              <div className="flex min-w-0 flex-wrap items-center gap-3">
-                <p className="shrink-0 text-sm text-white/50">
-                  {listPlayers.length}{" "}
-                  {listPlayers.length === 1 ? "jugador" : "jugadores"}
-                </p>
-
-                {search && teamsInResults.length > 1 && (
-                  <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]">
-                    {teamsInResults.length} equipos en el resultado
+              <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
+                    <Tags size={14} />
+                    Etiquetas
                   </span>
-                )}
 
-                {hasFilters && (
+                  <span className="text-[11px] text-white/30">
+                    {activeTags.length > 0
+                      ? "Se atenúan en el campo los que no las cumplen"
+                      : "Pulsa para filtrar · se editan en la ficha del jugador"}
+                  </span>
+                </div>
+
+                <div className="flex min-w-0 flex-wrap gap-2">
+                  {PLAYER_TAGS.map((tag) => {
+                    const count = tagCounts.get(tag.key) ?? 0;
+
+                    /* Sin nadie etiquetado la píldora sigue visible pero apagada. */
+                    return (
+                      <TagChip
+                        key={tag.key}
+                        tag={tag}
+                        count={count}
+                        active={activeTags.includes(tag.key)}
+                        onClick={() =>
+                          setActiveTags((current) =>
+                            current.includes(tag.key)
+                              ? current.filter((key) => key !== tag.key)
+                              : [...current, tag.key],
+                          )
+                        }
+                      />
+                    );
+                  })}
+
+                  {activeTags.length > 0 && (
+                    <button
+                      onClick={() => setActiveTags([])}
+                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/50 transition hover:border-white/30 hover:text-white"
+                    >
+                      <X size={11} />
+                      Quitar filtro
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* CONTADOR */}
+
+              <div className="mt-6 flex min-w-0 flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-3">
+                  <p className="shrink-0 text-sm text-white/50">
+                    {listPlayers.length}{" "}
+                    {listPlayers.length === 1 ? "jugador" : "jugadores"}
+                  </p>
+
+                  {search && teamsInResults.length > 1 && (
+                    <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]">
+                      {teamsInResults.length} equipos en el resultado
+                    </span>
+                  )}
+
+                  {hasFilters && (
+                    <button
+                      onClick={resetFilters}
+                      className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 text-xs text-white/50 transition hover:border-white/30 hover:text-white"
+                    >
+                      <RotateCcw size={12} />
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center gap-3">
+                  <p className="min-w-0 truncate text-right text-xs text-white/30">
+                    {selectedTeam}
+                  </p>
+
                   <button
-                    onClick={resetFilters}
-                    className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 text-xs text-white/50 transition hover:border-white/30 hover:text-white"
+                    onClick={() => setShowPitch((value) => !value)}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 transition hover:border-[#C8A96B] hover:text-white lg:hidden"
                   >
-                    <RotateCcw size={12} />
-                    Limpiar
+                    {showPitch ? <Shirt size={14} /> : <LayoutGrid size={14} />}
+                    {showPitch ? "Ver listado" : "Ver campograma"}
                   </button>
-                )}
+                </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-3">
-                <p className="min-w-0 truncate text-right text-xs text-white/30">
-                  {selectedTeam}
-                </p>
+              {/* PLANTILLA + CAMPOGRAMA */}
 
-                <button
-                  onClick={() => setShowPitch((value) => !value)}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60 transition hover:border-[#C8A96B] hover:text-white lg:hidden"
-                >
-                  {showPitch ? <Shirt size={14} /> : <LayoutGrid size={14} />}
-                  {showPitch ? "Ver listado" : "Ver campograma"}
-                </button>
-              </div>
-            </div>
+              {loading ? (
+                <RivalsSkeleton />
+              ) : (
+                <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
+                  {/* ============================================ */}
+                  {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
+                  {/* ============================================ */}
 
-            {/* PLANTILLA + CAMPOGRAMA */}
+                  <div
+                    className={`min-w-0 space-y-5 ${
+                      showPitch ? "hidden lg:block" : ""
+                    }`}
+                  >
+                    {lines.map((line) =>
+                      line.players.length === 0 ? null : (
+                        <section
+                          key={line.key}
+                          className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+                        >
+                          <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                            <h2 className="flex min-w-0 items-center gap-2 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full"
+                                style={{ background: line.color }}
+                              />
+                              {line.title}
+                            </h2>
 
-            {loading ? (
-              <RivalsSkeleton />
-            ) : (
-              <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
-                {/* ============================================ */}
-                {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
-                {/* ============================================ */}
+                            <span className="shrink-0 text-xs text-white/30">
+                              {line.players.length}
+                            </span>
+                          </div>
 
-                <div
-                  className={`min-w-0 space-y-5 ${
-                    showPitch ? "hidden lg:block" : ""
-                  }`}
-                >
-                  {lines.map((line) =>
-                    line.players.length === 0 ? null : (
-                      <section
-                        key={line.key}
-                        className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
-                      >
+                          <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
+                            {line.players.map((player) => (
+                              <PlayerRow
+                                key={player.ID_JUGADOR}
+                                player={player}
+                                showTeam={teamsInResults.length > 1}
+                                onClick={() => openPlayer(player)}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      ),
+                    )}
+
+                    {unclassified.length > 0 && (
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
                         <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
-                          <h2 className="flex min-w-0 items-center gap-2 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-                            <span
-                              className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ background: line.color }}
-                            />
-                            {line.title}
+                          <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-white/40">
+                            SIN CLASIFICAR
                           </h2>
 
                           <span className="shrink-0 text-xs text-white/30">
-                            {line.players.length}
+                            {unclassified.length}
                           </span>
                         </div>
 
                         <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
-                          {line.players.map((player) => (
+                          {unclassified.map((player) => (
                             <PlayerRow
                               key={player.ID_JUGADOR}
                               player={player}
@@ -990,81 +1061,63 @@ export default function RivalPlayersPage() {
                           ))}
                         </div>
                       </section>
-                    ),
-                  )}
+                    )}
 
-                  {unclassified.length > 0 && (
-                    <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
-                      <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] px-4 py-3">
-                        <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-white/40">
-                          SIN CLASIFICAR
+                    {listPlayers.length === 0 && (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
+                        No se han encontrado jugadores.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ============================================ */}
+                  {/* COLUMNA DERECHA — CAMPOGRAMA */}
+                  {/* ============================================ */}
+
+                  <div
+                    className={`flex min-w-0 ${
+                      showPitch ? "" : "hidden lg:flex"
+                    }`}
+                  >
+                    <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
+                      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                        <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
+                          CAMPOGRAMA
+                          {pitchTeam && teamsInResults.length > 1 && (
+                            <span className="ml-2 normal-case tracking-normal text-white/30">
+                              · {pitchTeam}
+                            </span>
+                          )}
                         </h2>
 
                         <span className="shrink-0 text-xs text-white/30">
-                          {unclassified.length}
+                          {activeTags.length > 0 && (
+                            <span className="mr-2 text-[#C8A96B]">
+                              {listPlayers.length} destacados
+                            </span>
+                          )}
+
+                          {pitchPlayers.length} jugadores
                         </span>
                       </div>
 
-                      <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
-                        {unclassified.map((player) => (
-                          <PlayerRow
-                            key={player.ID_JUGADOR}
-                            player={player}
-                            showTeam={teamsInResults.length > 1}
-                            onClick={() => openPlayer(player)}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {listPlayers.length === 0 && (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
-                      No se han encontrado jugadores.
+                      <TacticalPitch
+                        players={pitchPlayers}
+                        selectedId={selectedPlayer?.ID_JUGADOR}
+                        activeTags={activeTags}
+                        onPlayerClick={openPlayer}
+                      />
                     </div>
-                  )}
-                </div>
-
-                {/* ============================================ */}
-                {/* COLUMNA DERECHA — CAMPOGRAMA */}
-                {/* ============================================ */}
-
-                <div
-                  className={`flex min-w-0 ${
-                    showPitch ? "" : "hidden lg:flex"
-                  }`}
-                >
-                  <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
-                    <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
-                      <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-                        CAMPOGRAMA
-                        {pitchTeam && teamsInResults.length > 1 && (
-                          <span className="ml-2 normal-case tracking-normal text-white/30">
-                            · {pitchTeam}
-                          </span>
-                        )}
-                      </h2>
-
-                      <span className="shrink-0 text-xs text-white/30">
-                        {activeTags.length > 0 && (
-                          <span className="mr-2 text-[#C8A96B]">
-                            {listPlayers.length} destacados
-                          </span>
-                        )}
-
-                        {pitchPlayers.length} jugadores
-                      </span>
-                    </div>
-
-                    <TacticalPitch
-                      players={pitchPlayers}
-                      selectedId={selectedPlayer?.ID_JUGADOR}
-                      activeTags={activeTags}
-                      onPlayerClick={openPlayer}
-                    />
                   </div>
                 </div>
-              </div>
+              )}
+              </>
+            )}
+
+            {/* PIZARRA TÁCTICA DEL RIVAL */}
+
+            {view === "pizarra" && boardSquad && (
+              <RivalBoardPanel key={boardSquad.equipo} squad={boardSquad} />
             )}
           </div>
         </section>

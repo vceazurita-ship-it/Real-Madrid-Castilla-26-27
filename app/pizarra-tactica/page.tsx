@@ -18,8 +18,10 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import TacticsBoard from "@/components/tactics/TacticsBoard";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
+import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ const EMPTY_INDEX: BoardIndex = { boards: [] };
 
 export default function PizarraTacticaPage() {
   const { players } = usePlayers();
+  const { squads } = useRivalSquads();
 
   const {
     value: index,
@@ -234,6 +237,7 @@ export default function PizarraTacticaPage() {
                     boardId={active.id}
                     nombre={active.nombre}
                     roster={players}
+                    rivalSquads={squads}
                   />
                 ) : (
                   <div className="flex flex-col items-center px-6 py-24 text-center">
@@ -270,10 +274,12 @@ function BoardEditor({
   boardId,
   nombre,
   roster,
+  rivalSquads,
 }: {
   boardId: string;
   nombre: string;
   roster: ReturnType<typeof usePlayers>["players"];
+  rivalSquads: RivalSquad[];
 }) {
   const fallback = useMemo(() => emptyDoc(nombre), [nombre]);
 
@@ -330,7 +336,8 @@ function BoardEditor({
         doc={doc}
         onChange={setValue}
         roster={roster}
-        hint="Dibuja con las herramientas de la barra. Duplica la escena, mueve las fichas y pulsa Animar para ver la transición."
+        rivalSquads={rivalSquads}
+        hint="Elige el equipo rival y pulsa sus dorsales para pintarlos. Dibuja con las herramientas de la barra, duplica la escena, mueve las fichas y pulsa Animar para ver la transición."
       />
     </div>
   );
