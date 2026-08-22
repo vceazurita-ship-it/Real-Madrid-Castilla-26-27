@@ -14,7 +14,9 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import RivalBoardPanel from "@/components/tactics/RivalBoardPanel";
+import RivalVoicePanel from "@/components/voice/RivalVoicePanel";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
+import type { RivalVoiceField } from "@/lib/voice/types";
 
 import {
   AlertTriangle,
@@ -539,6 +541,57 @@ export default function RivalPlayersPage() {
       current ? { ...current, [key]: value } : current,
     );
   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | DICTADO POR VOZ
+  |--------------------------------------------------------------------------
+  | El dictado solo escribe en el formulario: el guardado sigue siendo manual,
+  | así que siempre queda margen para corregir antes de tocar la hoja.
+  */
+
+  /* Del catálogo de etiquetas al dictado solo le hace falta cómo se llaman. */
+  const voiceTagCatalog = useMemo(
+    () =>
+      PLAYER_TAGS.map(({ key, label, aliases }) => ({ key, label, aliases })),
+    [],
+  );
+
+  const voiceTagKeys = useMemo(
+    () => parseTags(editForm?.IMPACTO).tags.map((tag) => tag.key),
+    [editForm?.IMPACTO],
+  );
+
+  const applyVoice = useCallback(
+    ({
+      campos,
+      etiquetas,
+    }: {
+      campos: Partial<Record<RivalVoiceField, string>>;
+      etiquetas: string[] | null;
+    }) => {
+      setEditForm((current) => {
+        if (!current) return current;
+
+        const next = { ...current, ...campos } as RivalPlayer;
+
+        if (etiquetas) {
+          const known = new Map(PLAYER_TAGS.map((tag) => [tag.key, tag]));
+
+          next.IMPACTO = serializeTags({
+            tags: etiquetas
+              .map((key) => known.get(key))
+              .filter((tag): tag is PlayerTag => Boolean(tag)),
+            /* El texto suelto que ya hubiera en IMPACTO se respeta. */
+            extra: parseTags(current.IMPACTO).extra,
+          });
+        }
+
+        return next;
+      });
+    },
+    [],
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -1326,6 +1379,14 @@ export default function RivalPlayersPage() {
                 {/* COLUMNA DERECHA */}
 
                 <div className="min-w-0 space-y-5">
+                  <RivalVoicePanel
+                    current={editForm as unknown as Record<string, unknown>}
+                    equipo={editForm.NOMBRE_EQUIPO || selectedTeam}
+                    tagCatalog={voiceTagCatalog}
+                    activeTagKeys={voiceTagKeys}
+                    onApply={applyVoice}
+                  />
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <EditableField
                       label="Estado"

@@ -10,7 +10,7 @@ import {
   Menu,
   X,
   Activity,
-  ClipboardCheck,
+  ClipboardCheck,
   ClipboardPen,
   CalendarDays,
   Flag,
@@ -37,6 +37,9 @@ import {
   PenTool,
 } from "lucide-react"
 import type { ReactNode } from "react"
+
+import { trackModuleVisit } from "@/lib/module-usage"
+
 export function Sidebar() {
   const pathname = usePathname()
 
@@ -57,19 +60,9 @@ const navLink = (
   <Link
     href={href}
     onClick={() => {
-  const usage = JSON.parse(
-    localStorage.getItem("rmcf-module-usage") ?? "{}"
-  )
-
-  usage[href] = (usage[href] ?? 0) + 1
-
-  localStorage.setItem(
-    "rmcf-module-usage",
-    JSON.stringify(usage)
-  )
-
-  setOpen(false)
-}}
+      trackModuleVisit(href)
+      setOpen(false)
+    }}
     className={pathname === href ? activeClass : normalClass}
   >
     {collapsed ? (
@@ -237,6 +230,12 @@ const navLink = (
   "Dashboard Seguimiento",
   <BarChart3 size={18} />
 )}
+
+    {navLink(
+      "/pizarra-tactica",
+      "Pizarra Táctica",
+      <PenTool size={18} />
+    )}
 
     {navLink(
       "/match-plans",
@@ -441,11 +440,6 @@ const navLink = (
       "/pizarra",
       "Pizarra Competición",
       <Activity size={18} />
-    )}
-    {navLink(
-      "/pizarra-tactica",
-      "Pizarra Táctica",
-      <PenTool size={18} />
     )}
     {navLink(
   "/video-individual",

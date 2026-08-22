@@ -2,41 +2,25 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { useEffect, useState } from "react"
+import Papa from "papaparse"
 import {
-  Brain,
+  Activity,
+  BarChart3,
+  BookOpen,
   CalendarDays,
   ChevronRight,
-  Activity,
-  BookOpen,
-  BarChart3,
-  User,
-  ClipboardCheck,
-  Clipboard,
-  ClipboardPen,
-  Scale,
-  HeartHandshake,
-  Network,
-  Goal,
-  Shield,
-  Video,
-  MonitorPlay,
-  Swords,
-  History,
-  Search,
-  Binoculars,
-  Dumbbell,
-  Users,
-  Database,
   Handshake,
-  Flag,
-  PenTool,
+  LayoutGrid,
+  Shield,
+  Swords,
+  Users,
 } from "lucide-react"
 
 import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
-import { useEffect, useState } from "react"
-import Papa from "papaparse"
-import ModulesCarousel from "@/components/ui/ModulesCarousel"
+import ModulesExplorer from "@/components/ui/ModulesExplorer"
+import QuickAccess from "@/components/ui/QuickAccess"
 
 type Principio = {
   FASE: string
@@ -61,297 +45,43 @@ const CSV_CULTURA =
 const CSV_PRINCIPIOS =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv"
 
-const modules = [
-  // IDENTIDAD
-  {
-    href: "/team-values",
-    section: "IDENTIDAD",
-    title: "Dinámicas y Valores",
-    desc: "Cultura, normas y comportamientos del entorno competitivo",
-    icon: Handshake,
-    glow: "amber",
-  },
-  {
-    href: "/game-model",
-    section: "IDENTIDAD",
-    title: "Identidad de Juego",
-    desc: "Principios ofensivos y defensivos del modelo de juego",
-    icon: Brain,
-    glow: "cyan",
-  },
-
-  // COMPETICIÓN
-  {
-    href: "/match-preparation",
-    section: "COMPETICIÓN",
-    title: "Preparación de Partido",
-    desc: "Planificación estratégica previa a la competición",
-    icon: ClipboardCheck,
-    glow: "blue",
-  },
-
-  // METODOLOGÍA
-  {
-    href: "/training",
-    section: "METODOLOGÍA",
-    title: "Jugadores Próxima Sesión",
-    desc: "Importación y disponibilidad para la sesión",
-    icon: Users,
-    glow: "emerald",
-  },
-  {
-    href: "/micro_calendar",
-    section: "METODOLOGÍA",
-    title: "Contenidos Microciclo",
-    desc: "Planificación de contenidos durante el microciclo",
-    icon: BookOpen,
-    glow: "amber",
-  },
-  {
-    href: "/microcycles",
-    section: "METODOLOGÍA",
-    title: "Microciclos",
-    desc: "Diseño y control del proceso semanal",
-    icon: CalendarDays,
-    glow: "cyan",
-  },
-  {
-    href: "/pizarra_sesion",
-    section: "METODOLOGÍA",
-    title: "Pizarra Sesión",
-    desc: "Organización visual de tareas y jugadores",
-    icon: Clipboard,
-    glow: "cyan",
-  },  {
-    href: "/pizarra",
-    section: "METODOLOGÍA",
-    title: "Pizarra Competición",
-    desc: "Diseño táctico para el partido",
-    icon: Activity,
-    glow: "violet",
-  },
-  {
-    href: "/pizarra-tactica",
-    section: "METODOLOGÍA",
-    title: "Pizarra Táctica",
-    desc: "Dibujo, escenas y animación táctica",
-    icon: PenTool,
-    glow: "cyan",
-  },
-  {
-    href: "/match-plans",
-    section: "METODOLOGÍA",
-    title: "Planes de Partido",
-    desc: "Estructura táctica y operacional",
-    icon: ClipboardPen,
-    glow: "blue",
-  },
-
-  // INDIVIDUAL
-  {
-    href: "/individual",
-    section: "INDIVIDUAL",
-    title: "Plantilla",
-    desc: "Gestión integral del jugador",
-    icon: User,
-    glow: "blue",
-  },
-  {
-    href: "/dashboard-plantilla",
-    section: "INDIVIDUAL",
-    title: "Dashboard Individual",
-    desc: "Dashboard comparativo de la plantilla",
-    icon: BarChart3,
-    glow: "blue",
-  },
-  {
-    href: "/calendar",
-    section: "INDIVIDUAL",
-    title: "Calendario Seguimiento",
-    desc: "Planificación y control de seguimientos",
-    icon: CalendarDays,
-    glow: "amber",
-  },
-  {
-    href: "/individual_proc",
-    section: "INDIVIDUAL",
-    title: "Dashboard Seguimiento",
-    desc: "Indicadores del desarrollo individual",
-    icon: BarChart3,
-    glow: "blue",
-  },
-  {
-    href: "/video-individual",
-    section: "INDIVIDUAL",
-    title: "Videoteca Individual",
-    desc: "Biblioteca de clips individuales",
-    icon: Video,
-    glow: "cyan",
-  },
-  {
-    href: "/comparative_ind",
-    section: "INDIVIDUAL",
-    title: "Comparativo U-21",
-    desc: "Comparación y proyección de talento",
-    icon: Scale,
-    glow: "amber",
-  },
-
-  // RELACIONAL
-  {
-    href: "/emotion",
-    section: "RELACIONAL",
-    title: "Emocional",
-    desc: "Seguimiento del rendimiento emocional",
-    icon: HeartHandshake,
-    glow: "violet",
-  },
-  {
-    href: "/sinergy",
-    section: "RELACIONAL",
-    title: "Sinergias",
-    desc: "Relaciones funcionales entre jugadores",
-    icon: Network,
-    glow: "emerald",
-  },
-
-  // COLECTIVO
-  {
-    href: "/setpieces",
-    section: "COLECTIVO",
-    title: "ABP Ofensivo",
-    desc: "Acciones ofensivas a balón parado",
-    icon: Goal,
-    glow: "cyan",
-  },
-  {
-    href: "/setpieces_def",
-    section: "COLECTIVO",
-    title: "ABP Defensivo",
-    desc: "Organización defensiva a balón parado",
-    icon: Shield,
-    glow: "violet",
-  },
-  {
-    href: "/throw-ins",
-    section: "COLECTIVO",
-    title: "Saque de Banda Ofensivo",
-    desc: "Análisis de saques de banda a favor",
-    icon: Flag,
-    glow: "cyan",
-  },
-  {
-    href: "/throw-ins-def",
-    section: "COLECTIVO",
-    title: "Saque de Banda Defensivo",
-    desc: "Análisis de saques de banda en contra",
-    icon: Shield,
-    glow: "violet",
-  },
-  {
-    href: "/video-collective",
-    section: "COLECTIVO",
-    title: "Videoteca Colectiva",
-    desc: "Biblioteca de clips colectivos",
-    icon: MonitorPlay,
-    glow: "blue",
-  },
-  {
-    href: "/team",
-    section: "COLECTIVO",
-    title: "Rendimiento",
-    desc: "Indicadores globales del equipo",
-    icon: BarChart3,
-    glow: "amber",
-  },
-  {
-    href: "/collective",
-    section: "COLECTIVO",
-    title: "Competición",
-    desc: "Análisis del rendimiento competitivo",
-    icon: Swords,
-    glow: "blue",
-  },
-  {
-    href: "/collective_history",
-    section: "COLECTIVO",
-    title: "Histórico Competición",
-    desc: "Evolución histórica del rendimiento",
-    icon: History,
-    glow: "emerald",
-  },
-
-  // RIVAL
-  {
-    href: "/scout-rival-individual",
-    section: "RIVAL",
-    title: "Scout Individual",
-    desc: "Análisis individual del rival",
-    icon: Search,
-    glow: "amber",
-  },
-  {
-    href: "/scout-rival-collective",
-    section: "RIVAL",
-    title: "Scout Colectivo",
-    desc: "Análisis colectivo del rival",
-    icon: Binoculars,
-    glow: "violet",
-  },
-
-  // RENDIMIENTO
-  {
-    href: "/performance",
-    section: "RENDIMIENTO",
-    title: "Área Condicional",
-    desc: "Control del rendimiento físico",
-    icon: Dumbbell,
-    glow: "cyan",
-  },
-
-  // DATA
-  {
-    href: "/calendar_general",
-    section: "DATOS",
-    title: "Calendario Operativa",
-    desc: "Reuniones, viajes y logística del staff",
-    icon: CalendarDays,
-    glow: "amber",
-  },
-  {
-    href: "/data-center",
-    section: "DATOS",
-    title: "Repositorio",
-    desc: "Centro documental y base de datos",
-    icon: Database,
-    glow: "blue",
-  },
-]
-
 /* ---------------------------------------------------------------
-   Piezas compartidas: un único sistema visual para la portada
-   (etiquetas de sección, métricas con estado de carga y tarjetas).
+   Piezas compartidas.
+
+   Un único sistema visual: el dorado es el color de la interfaz
+   (rótulos, métricas propias) y el color solo cambia cuando
+   identifica algo —el área de un módulo, la fase de juego—.
 --------------------------------------------------------------- */
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionHeader({
+  icon: Icon,
+  title,
+  caption,
+}: {
+  icon: React.ElementType
+  title: string
+  caption?: string
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="h-4 w-[3px] rounded-full bg-gradient-to-b from-[#37A6FF] to-transparent" />
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#D8B45A]/25 bg-[#D8B45A]/[0.08]">
+          <Icon className="h-4 w-4 text-[#D8B45A]" />
+        </span>
 
-      <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#37A6FF]">
-        {children}
-      </p>
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.3em] text-white/85">
+          {title}
+        </h2>
+      </div>
+
+      {caption && (
+        <p className="text-[12px] text-white/35">{caption}</p>
+      )}
     </div>
   )
 }
 
-function Metric({
-  value,
-  loading,
-}: {
-  value: number
-  loading: boolean
-}) {
+function Metric({ value, loading }: { value: number; loading: boolean }) {
   if (loading) {
     return (
       <span
@@ -364,78 +94,7 @@ function Metric({
   return <span className="tabular-nums">{value.toLocaleString("es-ES")}</span>
 }
 
-const identityAccents = {
-  cyan: {
-    border: "border-cyan-500/20 hover:border-cyan-400/50",
-    bg: "bg-cyan-500/[0.06]",
-    text: "text-cyan-400",
-    shadow: "hover:shadow-[0_0_40px_rgba(6,182,212,.14)]",
-  },
-  blue: {
-    border: "border-blue-500/20 hover:border-blue-400/50",
-    bg: "bg-blue-500/[0.06]",
-    text: "text-blue-400",
-    shadow: "hover:shadow-[0_0_40px_rgba(59,130,246,.14)]",
-  },
-  emerald: {
-    border: "border-emerald-500/20 hover:border-emerald-400/50",
-    bg: "bg-emerald-500/[0.06]",
-    text: "text-emerald-400",
-    shadow: "hover:shadow-[0_0_40px_rgba(16,185,129,.14)]",
-  },
-} as const
-
-function IdentityCard({
-  href,
-  eyebrow,
-  title,
-  value,
-  caption,
-  loading,
-  accent,
-  icon: Icon,
-}: {
-  href: string
-  eyebrow: string
-  title: string
-  value: number
-  caption: string
-  loading: boolean
-  accent: keyof typeof identityAccents
-  icon: React.ElementType
-}) {
-  const a = identityAccents[accent]
-
-  return (
-    <Link
-      href={href}
-      className={`group flex flex-col rounded-[22px] border ${a.border} ${a.bg} ${a.shadow} p-5 transition-all duration-300 hover:-translate-y-1`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p
-          className={`text-[10px] font-medium uppercase leading-tight tracking-[0.18em] ${a.text}`}
-        >
-          {eyebrow}
-        </p>
-
-        <Icon
-          className={`h-4 w-4 shrink-0 opacity-50 transition group-hover:opacity-100 ${a.text}`}
-        />
-      </div>
-
-      <h3 className="mt-2 text-xl font-bold tracking-tight">{title}</h3>
-
-      <div className="mt-4 h-px bg-white/10" />
-
-      <p className={`mt-3 text-[32px] font-bold leading-none ${a.text}`}>
-        <Metric value={value} loading={loading} />
-      </p>
-
-      <p className="mt-2 text-[13px] leading-tight text-white/55">{caption}</p>
-    </Link>
-  )
-}
-
+/** Tarjeta de dato: el número manda y el resto acompaña. */
 function StatCard({
   href,
   label,
@@ -443,6 +102,7 @@ function StatCard({
   caption,
   loading,
   icon: Icon,
+  suffix,
 }: {
   href: string
   label: string
@@ -450,32 +110,87 @@ function StatCard({
   caption: string
   loading: boolean
   icon: React.ElementType
+  suffix?: string
 }) {
   return (
     <Link
       href={href}
-      className="group relative flex min-h-[184px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#06111D] to-[#040C16] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[#D8B45A]/40 hover:shadow-[0_0_40px_rgba(216,180,90,.12)]"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#07121F] to-[#040B14] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[#D8B45A]/40 hover:shadow-[0_18px_50px_-20px_rgba(216,180,90,.35)] sm:p-6"
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#D8B45A]/[0.07] opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
+        className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#D8B45A]/[0.08] opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
       />
 
       <div className="relative flex items-start justify-between gap-3">
-        <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#D8B45A]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#D8B45A]">
           {label}
         </p>
 
-        <Icon className="h-6 w-6 shrink-0 text-[#D8B45A]/70 transition group-hover:text-[#D8B45A]" />
+        <Icon className="h-5 w-5 shrink-0 text-[#D8B45A]/60 transition group-hover:text-[#D8B45A]" />
       </div>
 
-      <div className="relative">
-        <h3 className="text-[44px] font-bold leading-none tracking-tight">
+      <div className="relative mt-8">
+        <p className="text-[40px] font-bold leading-none tracking-tight">
           <Metric value={value} loading={loading} />
-        </h3>
 
-        <p className="mt-3 text-sm text-white/60">{caption}</p>
+          {suffix && (
+            <span className="ml-0.5 text-xl font-semibold text-white/40">
+              {suffix}
+            </span>
+          )}
+        </p>
+
+        <p className="mt-2.5 text-[13px] text-white/50">{caption}</p>
       </div>
+    </Link>
+  )
+}
+
+/** Tarjeta de fase de juego: aquí el color sí identifica (ataque / defensa / cultura). */
+function IdentityCard({
+  href,
+  title,
+  value,
+  caption,
+  loading,
+  color,
+  icon: Icon,
+}: {
+  href: string
+  title: string
+  value: number
+  caption: string
+  loading: boolean
+  color: string
+  icon: React.ElementType
+}) {
+  return (
+    <Link
+      href={href}
+      style={{ ["--accent" as string]: color }}
+      className="group relative flex items-center gap-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--accent)]/45 hover:bg-white/[0.04] sm:p-6"
+    >
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[3px] bg-[color:var(--accent)] opacity-50 transition-opacity duration-300 group-hover:opacity-100"
+      />
+
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[color:var(--accent)] transition-colors duration-300 group-hover:border-[color:var(--accent)]/40 group-hover:bg-[color:var(--accent)]/10">
+        <Icon className="h-5 w-5" />
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold uppercase tracking-[0.22em] text-white/85">
+          {title}
+        </span>
+
+        <span className="mt-1 block text-[12px] text-white/40">{caption}</span>
+      </span>
+
+      <span className="text-[34px] font-bold leading-none text-[color:var(--accent)]">
+        <Metric value={value} loading={loading} />
+      </span>
     </Link>
   )
 }
@@ -595,8 +310,10 @@ export default function Home() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="p-4 sm:p-6 xl:p-10">
-            <div className="relative overflow-hidden rounded-[28px] border border-[#173A61]/60 bg-[#030B15] p-5 shadow-[0_0_80px_rgba(0,80,255,.08)] sm:p-8 xl:rounded-[40px] xl:p-10">
+          <section className="space-y-12 p-4 sm:p-6 xl:space-y-14 xl:p-10">
+            {/* ============================ PORTADA ============================ */}
+
+            <div className="relative overflow-hidden rounded-[28px] border border-[#173A61]/60 bg-[#030B15] shadow-[0_0_80px_rgba(0,80,255,.08)] xl:rounded-[36px]">
               {/* Fondo ambiental: estadio + halos de color */}
               <Image
                 src="/stadium-bg.png"
@@ -614,275 +331,247 @@ export default function Home() {
 
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(59,130,246,.18),transparent_30%)]"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(59,130,246,.20),transparent_38%)]"
               />
 
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(37,99,235,.18),transparent_30%)]"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_85%,rgba(216,180,90,.12),transparent_35%)]"
               />
 
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_72%,rgba(245,158,11,.10),transparent_28%)]"
-              />
+              <div className="relative z-10 grid items-stretch gap-8 p-5 sm:p-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,480px)] xl:gap-10 xl:p-10">
+                {/* ---------- IZQUIERDA: mensaje y arranque ---------- */}
 
-              <div className="relative z-10">
-                <div className="grid items-stretch gap-8 xl:auto-rows-fr xl:grid-cols-[minmax(0,620px)_minmax(0,1fr)] xl:gap-10">
-                  {/* ---------- COLUMNA IZQUIERDA ---------- */}
-                  <div className="flex flex-col">
-                    <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-4 py-2">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F7D98B] opacity-60" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#F7D98B]" />
-                      </span>
+                <div className="flex flex-col justify-center">
+                  <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-4 py-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F7D98B] opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#F7D98B]" />
+                    </span>
 
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#F7D98B]">
-                        Fase competitiva activa
-                      </span>
-                    </div>
-
-                    <h1 className="mt-6 max-w-[760px] text-[44px] font-bold leading-[0.94] tracking-[-0.04em] sm:text-[58px] xl:mt-8 xl:text-[76px] xl:leading-[0.88]">
-                      Plataforma Integral
-                      <br />
-                      <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
-                        RMCF Castilla
-                      </span>
-                    </h1>
-
-                    <div className="mt-6 flex gap-4 xl:mt-8 xl:gap-5">
-                      <div className="w-[3px] shrink-0 rounded-full bg-gradient-to-b from-blue-400 via-blue-500 to-transparent" />
-
-                      <p className="max-w-[620px] text-base leading-relaxed text-white/70 sm:text-lg xl:text-[19px]">
-                        Ecosistema integral para la gestión de la identidad, la
-                        competición, el desarrollo individual, el rendimiento
-                        colectivo y el análisis estratégico del rival.
-                      </p>
-                    </div>
-
-                    {/* CTAs */}
-                    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                      <Link
-                        href="/micro_calendar"
-                        className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
-                      >
-                        <BookOpen className="h-[18px] w-[18px]" />
-                        Calendario de Contenidos
-                        <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                      </Link>
-
-                      <Link
-                        href="/calendar_performance"
-                        className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(16,185,129,.28)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(16,185,129,.42)]"
-                      >
-                        <CalendarDays className="h-[18px] w-[18px]" />
-                        Calendario Condicional
-                        <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                      </Link>
-                    </div>
-
-                    {/* Accesos a estrategia */}
-                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <Link
-                        href="/setpieces"
-                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/40 hover:bg-white/[0.07] hover:text-white"
-                      >
-                        <Goal className="h-[17px] w-[17px] shrink-0 text-cyan-400" />
-                        ABP Ofensivo
-                      </Link>
-
-                      <Link
-                        href="/setpieces_def"
-                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-400/40 hover:bg-white/[0.07] hover:text-white"
-                      >
-                        <Shield className="h-[17px] w-[17px] shrink-0 text-violet-400" />
-                        ABP Defensivo
-                      </Link>
-
-                      <Link
-                        href="/throw-ins"
-                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/40 hover:bg-white/[0.07] hover:text-white"
-                      >
-                        <Flag className="h-[17px] w-[17px] shrink-0 text-cyan-400" />
-                        Saque de Banda Ofensivo
-                      </Link>
-
-                      <Link
-                        href="/throw-ins-def"
-                        className="group inline-flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[13px] text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-400/40 hover:bg-white/[0.07] hover:text-white"
-                      >
-                        <Shield className="h-[17px] w-[17px] shrink-0 text-violet-400" />
-                        Saque de Banda Defensivo
-                      </Link>
-                    </div>
-
-                    {/* Tarjetas de identidad */}
-                    <div className="mt-auto pt-10">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <IdentityCard
-                          href="/game-model#ATAQUE"
-                          eyebrow="Identidad de juego"
-                          title="ATAQUE"
-                          value={ataqueApartados}
-                          caption="Apartados ofensivos"
-                          loading={loadingPrincipios}
-                          accent="cyan"
-                          icon={Swords}
-                        />
-
-                        <IdentityCard
-                          href="/game-model#DEFENSA"
-                          eyebrow="Identidad de juego"
-                          title="DEFENSA"
-                          value={defensaApartados}
-                          caption="Apartados defensivos"
-                          loading={loadingPrincipios}
-                          accent="blue"
-                          icon={Shield}
-                        />
-
-                        <IdentityCard
-                          href="/team-values"
-                          eyebrow="Dinámicas y valores"
-                          title="CULTURA"
-                          value={principiosCultura}
-                          caption="Elementos culturales"
-                          loading={loadingCultura}
-                          accent="emerald"
-                          icon={Handshake}
-                        />
-                      </div>
-                    </div>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#F7D98B]">
+                      Temporada 26/27 · en curso
+                    </span>
                   </div>
 
-                  {/* ---------- COLUMNA DERECHA ---------- */}
-                  <div>
+                  <h1 className="mt-6 text-[40px] font-bold leading-[0.95] tracking-[-0.035em] sm:text-[54px] xl:text-[64px] xl:leading-[0.92]">
+                    Plataforma Integral
+                    <br />
+                    <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
+                      RMCF Castilla
+                    </span>
+                  </h1>
+
+                  <div className="mt-6 flex gap-4">
+                    <div className="w-[3px] shrink-0 rounded-full bg-gradient-to-b from-blue-400 via-blue-500 to-transparent" />
+
+                    <p className="max-w-[620px] text-base leading-relaxed text-white/70 sm:text-[17px]">
+                      Identidad, competición, desarrollo individual, rendimiento
+                      colectivo y análisis del rival, en un mismo sitio.
+                    </p>
+                  </div>
+
+                  <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <Link
-                      href="/general"
-                      className="light-sweep group relative block h-full min-h-[420px] overflow-hidden rounded-[32px] border border-white/10 xl:min-h-[500px]"
+                      href="/micro_calendar"
+                      className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
                     >
-                      <div
-                        aria-hidden
-                        className="animate-pulse-glow absolute left-1/2 top-1/2 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl"
-                      />
+                      <BookOpen className="h-[18px] w-[18px]" />
+                      Calendario de Contenidos
+                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </Link>
 
-                      <div className="particles" aria-hidden />
-
-                      <Image
-                        src="/hero-field.png"
-                        alt=""
-                        fill
-                        sizes="(max-width: 1279px) 100vw, 55vw"
-                        className="animate-hero object-cover transition-transform duration-[4000ms] group-hover:scale-110"
-                      />
-
-                      <div
-                        aria-hidden
-                        className="absolute inset-0 bg-gradient-to-l from-transparent via-black/10 to-[#02060D]/70"
-                      />
-
-                      <div
-                        aria-hidden
-                        className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(37,99,235,.18),transparent_60%)]"
-                      />
-
-                      <div className="absolute left-6 top-6">
-                        <div className="rounded-full border border-cyan-500/30 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-cyan-400/60">
-                          <p className="text-[11px] font-medium tracking-[0.3em] text-cyan-400">
-                            VISIÓN GLOBAL
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Pie del panel: cobertura de seguimiento */}
-                      <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-4 rounded-[22px] border border-white/10 bg-black/45 px-5 py-4 backdrop-blur-xl">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-white/50">
-                            Cobertura de seguimiento
-                          </p>
-
-                          <p className="mt-2 text-3xl font-bold leading-none text-white">
-                            <Metric
-                              value={cobertura}
-                              loading={loadingSeguimiento || loadingJugadores}
-                            />
-                            <span className="ml-0.5 text-lg text-white/50">
-                              %
-                            </span>
-                          </p>
-
-                          <div className="mt-3 h-1 w-40 max-w-full overflow-hidden rounded-full bg-white/10">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-[width] duration-1000 ease-out"
-                              style={{ width: `${Math.min(cobertura, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-white/50">
-                            Últimos 30 días
-                          </p>
-
-                          <p className="mt-2 text-3xl font-bold leading-none text-cyan-400">
-                            <Metric
-                              value={ultimos30Dias}
-                              loading={loadingSeguimiento}
-                            />
-                          </p>
-
-                          <p className="mt-1 text-[11px] text-white/45">
-                            registros
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="scan-line" aria-hidden />
+                    <Link
+                      href="/calendar_performance"
+                      className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-6 py-3.5 text-[15px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-400/45 hover:bg-white/[0.07] hover:text-white"
+                    >
+                      <CalendarDays className="h-[18px] w-[18px] text-emerald-400" />
+                      Calendario Condicional
+                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                     </Link>
                   </div>
                 </div>
 
-                {/* ---------- DESARROLLO INDIVIDUAL ---------- */}
-                <div className="mt-14">
-                  <SectionLabel>Desarrollo individual</SectionLabel>
+                {/* ---------- DERECHA: visión global ---------- */}
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
-                    <StatCard
-                      href="/calendar"
-                      label="Seguimientos"
-                      value={seguimientos}
-                      caption="Sesiones registradas"
-                      loading={loadingSeguimiento}
-                      icon={Activity}
-                    />
+                <Link
+                  href="/general"
+                  className="light-sweep group relative block min-h-[320px] overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[400px]"
+                >
+                  <div
+                    aria-hidden
+                    className="animate-pulse-glow absolute left-1/2 top-1/2 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl"
+                  />
 
-                    <StatCard
-                      href="/individual"
-                      label="Jugadores"
-                      value={totalJugadores}
-                      caption="Jugadores en plantilla"
-                      loading={loadingJugadores}
-                      icon={Users}
-                    />
+                  <div className="particles" aria-hidden />
 
-                    <StatCard
-                      href="/individual_proc"
-                      label="Promedio"
-                      value={promedioSeguimientos}
-                      caption="Seguimientos por jugador"
-                      loading={loadingSeguimiento}
-                      icon={BarChart3}
-                    />
+                  <Image
+                    src="/hero-field.png"
+                    alt=""
+                    fill
+                    sizes="(max-width: 1279px) 100vw, 480px"
+                    className="animate-hero object-cover transition-transform duration-[4000ms] group-hover:scale-110"
+                  />
+
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 bg-gradient-to-t from-[#02060D]/90 via-[#02060D]/25 to-transparent"
+                  />
+
+                  <div className="absolute left-5 top-5">
+                    <div className="rounded-full border border-cyan-500/30 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-cyan-400/60">
+                      <p className="text-[11px] font-medium tracking-[0.3em] text-cyan-400">
+                        VISIÓN GLOBAL
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* ---------- ÁREAS ESTRATÉGICAS ---------- */}
-                <div className="mt-14 border-t border-white/10 pt-10">
-                  <SectionLabel>Áreas estratégicas</SectionLabel>
+                  {/* Pie del panel: cobertura de seguimiento */}
+                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4 rounded-[22px] border border-white/10 bg-black/50 px-5 py-4 backdrop-blur-xl">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-white/50">
+                        Cobertura de seguimiento
+                      </p>
 
-                  <ModulesCarousel modules={modules} />
-                </div>
+                      <p className="mt-2 text-3xl font-bold leading-none text-white">
+                        <Metric
+                          value={cobertura}
+                          loading={loadingSeguimiento || loadingJugadores}
+                        />
+                        <span className="ml-0.5 text-lg text-white/50">%</span>
+                      </p>
+
+                      <div className="mt-3 h-1 w-36 max-w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-[width] duration-1000 ease-out"
+                          style={{ width: `${Math.min(cobertura, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-white/50">
+                        Últimos 30 días
+                      </p>
+
+                      <p className="mt-2 text-3xl font-bold leading-none text-cyan-400">
+                        <Metric value={ultimos30Dias} loading={loadingSeguimiento} />
+                      </p>
+
+                      <p className="mt-1 text-[11px] text-white/45">registros</p>
+                    </div>
+                  </div>
+
+                  <div className="scan-line" aria-hidden />
+                </Link>
               </div>
+            </div>
+
+            {/* ========================= ACCESO RÁPIDO ========================= */}
+
+            <div>
+              <SectionHeader
+                icon={Activity}
+                title="Acceso rápido"
+                caption="Se reordena según lo que más abres"
+              />
+
+              <div className="mt-5">
+                <QuickAccess />
+              </div>
+            </div>
+
+            {/* ====================== DESARROLLO INDIVIDUAL ==================== */}
+
+            <div>
+              <SectionHeader
+                icon={Users}
+                title="Desarrollo individual"
+                caption="Datos en vivo de la hoja de seguimiento"
+              />
+
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <StatCard
+                  href="/calendar"
+                  label="Seguimientos"
+                  value={seguimientos}
+                  caption="Sesiones registradas"
+                  loading={loadingSeguimiento}
+                  icon={Activity}
+                />
+
+                <StatCard
+                  href="/individual"
+                  label="Jugadores"
+                  value={totalJugadores}
+                  caption="Jugadores en plantilla"
+                  loading={loadingJugadores}
+                  icon={Users}
+                />
+
+                <StatCard
+                  href="/individual_proc"
+                  label="Promedio"
+                  value={promedioSeguimientos}
+                  caption="Seguimientos por jugador"
+                  loading={loadingSeguimiento}
+                  icon={BarChart3}
+                />
+              </div>
+            </div>
+
+            {/* ======================= IDENTIDAD DE JUEGO ====================== */}
+
+            <div>
+              <SectionHeader
+                icon={Swords}
+                title="Identidad de juego"
+                caption="Apartados definidos del modelo"
+              />
+
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <IdentityCard
+                  href="/game-model#ATAQUE"
+                  title="Ataque"
+                  value={ataqueApartados}
+                  caption="Apartados ofensivos"
+                  loading={loadingPrincipios}
+                  color="#22D3EE"
+                  icon={Swords}
+                />
+
+                <IdentityCard
+                  href="/game-model#DEFENSA"
+                  title="Defensa"
+                  value={defensaApartados}
+                  caption="Apartados defensivos"
+                  loading={loadingPrincipios}
+                  color="#60A5FA"
+                  icon={Shield}
+                />
+
+                <IdentityCard
+                  href="/team-values"
+                  title="Cultura"
+                  value={principiosCultura}
+                  caption="Elementos culturales"
+                  loading={loadingCultura}
+                  color="#34D399"
+                  icon={Handshake}
+                />
+              </div>
+            </div>
+
+            {/* ======================== ÁREAS DE TRABAJO ======================= */}
+
+            <div className="border-t border-white/[0.07] pt-10">
+              <SectionHeader
+                icon={LayoutGrid}
+                title="Áreas de trabajo"
+                caption="Pulsa / para buscar"
+              />
+
+              <ModulesExplorer />
             </div>
           </section>
         </div>

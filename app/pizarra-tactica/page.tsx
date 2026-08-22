@@ -102,7 +102,7 @@ export default function PizarraTacticaPage() {
           <div className="space-y-5 px-4 py-6 sm:px-6 lg:px-10">
             <header>
               <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMCF Castilla · Táctica
+                RMCF Castilla · Metodología
               </p>
 
               <div className="mt-3 flex flex-wrap items-center gap-4">

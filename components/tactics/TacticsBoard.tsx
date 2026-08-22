@@ -17,6 +17,7 @@ import {
   Cone,
   Download,
   Eraser,
+  Mic,
   Minus,
   MousePointer2,
   Pause,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 
 import type { Player } from "@/types/player";
+import TacticsVoicePanel from "@/components/voice/TacticsVoicePanel";
 import PitchMarkings from "./PitchMarkings";
 import RivalPicker from "./RivalPicker";
 import {
@@ -124,6 +126,7 @@ export default function TacticsBoard({
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [dictating, setDictating] = useState(false);
 
   const [past, setPast] = useState<TacticsDoc[]>([]);
   const [future, setFuture] = useState<TacticsDoc[]>([]);
@@ -420,6 +423,56 @@ export default function TacticsBoard({
   };
 
   // ---------------------------------------------------------------
+  // Dictado
+  // ---------------------------------------------------------------
+
+  /**
+   * Vuelca en la pizarra las escenas dictadas.
+   *
+   * Pasa por `commit`, así que un dictado que no convenza se deshace con la
+   * misma flecha que cualquier otro cambio.
+   */
+  const applyVoice = ({
+    scenes: dictated,
+    crop,
+    mode,
+  }: {
+    scenes: TacticScene[];
+    crop?: PitchCrop;
+    mode: "append" | "replace";
+  }) => {
+    if (dictated.length === 0) return;
+
+    const next = { ...doc, crop: crop ?? doc.crop };
+
+    /* Tablero de una sola escena: el dictado ocupa la que hay. */
+    if (singleScene) {
+      const [first] = dictated;
+
+      commit({
+        ...next,
+        scenes: doc.scenes.map((item, index) =>
+          index === safeIndex
+            ? { ...item, tokens: first.tokens, shapes: first.shapes }
+            : item
+        ),
+      });
+
+      setSceneIndex(safeIndex);
+      return;
+    }
+
+    if (mode === "replace") {
+      commit({ ...next, scenes: dictated });
+      setSceneIndex(0);
+      return;
+    }
+
+    commit({ ...next, scenes: [...doc.scenes, ...dictated] });
+    setSceneIndex(doc.scenes.length);
+  };
+
+  // ---------------------------------------------------------------
   // Animación entre escenas
   // ---------------------------------------------------------------
 
@@ -598,6 +651,21 @@ export default function TacticsBoard({
           </select>
         )}
 
+        <button
+          type="button"
+          onClick={() => setDictating((open) => !open)}
+          title="Explicar la jugada por voz"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[11px] font-semibold transition",
+            dictating
+              ? "bg-[#C8A96B] text-[#0B0F14]"
+              : "border border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#C8A96B] hover:bg-[#C8A96B]/20"
+          )}
+        >
+          <Mic size={14} />
+          <span className="hidden lg:inline">Dictar</span>
+        </button>
+
         <div className="ml-auto flex items-center gap-1">
           <IconButton
             title="Deshacer"
@@ -626,6 +694,20 @@ export default function TacticsBoard({
           />
         </div>
       </div>
+
+      {/* DICTADO */}
+
+      {dictating && (
+        <TacticsVoicePanel
+          doc={doc}
+          scene={scene}
+          roster={roster}
+          rivalSquads={rivalSquads}
+          singleScene={singleScene}
+          onApply={applyVoice}
+          onClose={() => setDictating(false)}
+        />
+      )}
 
       {/* DORSALES RIVALES */}
 
