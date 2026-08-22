@@ -35,10 +35,12 @@ export async function POST(req: Request) {
 
     const image = formData.get("image") as File | null;
 
-    if (!image) {
+    const texto = ((formData.get("text") as string | null) ?? "").trim();
+
+    if (!image && !texto) {
       return Response.json(
         {
-          error: "No se ha recibido ninguna imagen.",
+          error: "Envía una imagen o el texto de WhatsApp de la sesión.",
         },
         {
           status: 400,
@@ -50,9 +52,11 @@ export async function POST(req: Request) {
     // Imagen -> Base64
     //--------------------------------------------------------
 
-    const bytes = Buffer.from(await image.arrayBuffer());
+    const bytes = image
+      ? Buffer.from(await image.arrayBuffer())
+      : null;
 
-const optimized = await sharp(bytes)
+const optimized = bytes && await sharp(bytes)
   .resize({
     width: 1400,
     withoutEnlargement: true,
@@ -62,7 +66,7 @@ const optimized = await sharp(bytes)
   })
   .toBuffer();
 
-const base64 = optimized.toString("base64");
+const base64 = optimized ? optimized.toString("base64") : null;
 
 //--------------------------------------------------------
 // Descargar jugadores y analizar imagen en paralelo
@@ -72,29 +76,19 @@ const jugadoresPromise = fetch(
   `${APPS_SCRIPT}?action=jugadoresSesion`
 );
 
-const geminiPromise = generarConReintento({
-  model: "gemini-2.5-flash",
-  contents: [
-    {
-      role: "user",
-      parts: [
-        {
-          text: `
-Analiza esta imagen de un entrenamiento del Real Madrid Castilla.
-
-Extrae únicamente los nombres de los jugadores.
+const CATEGORIAS = `
+Clasifica cada jugador en una de estas categorías:
+- "available": entrena con normalidad / está disponible.
+- "promotion": sube o se entrena con el primer equipo.
+- "injury": lesionado, tocado o que no entrena por molestias.
+- "others": ausente por cualquier otro motivo (permiso, estudios, sanción, gimnasio).
+- "nationalTeam": convocado con una selección.
 
 Reglas:
-
-- Los jugadores sobre el terreno de juego pertenecen a "available".
-- Los nombres de la parte inferior pertenecen a:
-  - promotion
-  - injury
-  - others
-  - nationalTeam
-- No inventes nombres.
+- No inventes nombres ni completes apellidos que no aparezcan.
+- Devuelve el nombre tal y como aparece, sin dorsales ni emojis.
 - Si una categoría está vacía devuelve [].
-- Devuelve exclusivamente JSON válido.
+- Devuelve exclusivamente JSON válido, sin explicaciones ni bloques de código.
 
 Formato:
 
@@ -105,15 +99,52 @@ Formato:
   "others": [],
   "nationalTeam": []
 }
+`;
+
+const parts = texto
+  ? [
+      {
+        text: `
+Analiza este mensaje de WhatsApp del cuerpo técnico del Real Madrid Castilla
+sobre la próxima sesión de entrenamiento y extrae los nombres de los jugadores.
+
+Ignora horas, lugares, instrucciones y cualquier texto que no sea un nombre.
+
+${CATEGORIAS}
+
+MENSAJE:
+"""
+${texto}
+"""
 `,
+      },
+    ]
+  : [
+      {
+        text: `
+Analiza esta imagen de un entrenamiento del Real Madrid Castilla y extrae
+únicamente los nombres de los jugadores.
+
+Los jugadores sobre el terreno de juego pertenecen a "available"; los nombres
+de la parte inferior se reparten entre el resto de categorías.
+
+${CATEGORIAS}
+`,
+      },
+      {
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: base64 as string,
         },
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: base64,
-          },
-        },
-      ],
+      },
+    ];
+
+const geminiPromise = generarConReintento({
+  model: "gemini-2.5-flash",
+  contents: [
+    {
+      role: "user",
+      parts,
     },
   ],
 });
@@ -127,13 +158,9 @@ if (!jugadoresResponse.ok) {
   throw new Error("No se pudieron obtener los jugadores.");
 }
 
-const texto = await jugadoresResponse.text();
+const jugadoresRaw = await jugadoresResponse.text();
 
-if (!jugadoresResponse.ok) {
-  throw new Error(texto);
-}
-
-const jugadores = JSON.parse(texto);
+const jugadores = JSON.parse(jugadoresRaw);
     const raw =
       gemini.text
         ?.replace(/```json/g, "")

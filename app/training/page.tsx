@@ -1,657 +1,706 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  Loader2,
+  RefreshCw,
+  Save,
+  Search,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-
-import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import ImportAvailability, {
   TrainingImport,
 } from "@/components/session/ImportAvailability";
+import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
+import { statusTheme } from "@/lib/session-board/status";
+import type { EstadoJugador } from "@/types/player";
+import { cn } from "@/lib/utils";
 
-export default function ImportTrainingPage() {
+interface SquadPlayer {
+  id: string;
+  nombre: string;
+  apodo: string;
+  posicion: string;
+  dorsal?: number;
+  foto: string;
+  licencia: string;
+  activo: boolean;
+  estado: string;
+}
+
+/** Estados que puede tener un jugador en la sesión. */
+const ESTADOS = [
+  "ÓPTIMO",
+  "CONTROL DE CARGA",
+  "TOCADO",
+  "REINCORPORACIÓN",
+  "SANCIONADO",
+  "LESIONADO",
+  "PRIMER EQUIPO",
+  "SELECCIÓN",
+  "OTROS",
+  "NO CONVOCADO",
+] as const;
+
+/** Estados con los que el jugador pisa el campo. */
+const ENTRENAN = new Set([
+  "ÓPTIMO",
+  "CONTROL DE CARGA",
+  "TOCADO",
+  "REINCORPORACIÓN",
+  "SANCIONADO",
+]);
+
+type Filter = "todos" | "entrenan" | "fuera";
+
+function todayKey() {
+  const now = new Date();
+
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+export default function JugadoresSesionPage() {
+  const [squad, setSquad] = useState<SquadPlayer[]>([]);
+  const [estados, setEstados] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const [initialImageUrl, setInitialImageUrl] = useState("");
   const [trainingImport, setTrainingImport] =
     useState<TrainingImport | null>(null);
-    const [initialImageUrl, setInitialImageUrl] =
-  useState("");
 
-  const [licencias, setLicencias] = useState<
-    Record<string, string>
-  >({});
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("todos");
+  const [fecha, setFecha] = useState(todayKey);
 
-  const [creating, setCreating] = useState<string | null>(
-    null
+  const [licencias, setLicencias] = useState<Record<string, string>>({});
+  const [selectedPlayer, setSelectedPlayer] = useState<Record<string, string>>(
+    {}
   );
+  const [creating, setCreating] = useState<string | null>(null);
 
-  const [selectedPlayer, setSelectedPlayer] = useState<
-  Record<string, string>
->({});
-
-  const [availabilityStatus, setAvailabilityStatus] = useState<
-  Record<string, string>
->({});
-
-useEffect(() => {
-  const loadLastSession = async () => {
+  const loadSquad = useCallback(async () => {
     try {
-      const res = await fetch("/api/training-import/latest");
+      const response = await fetch("/api/training-session", {
+        cache: "no-store",
+      });
 
-      if (!res.ok) return;
+      const body = await response.json();
 
-      const data = await res.json();
+      if (!response.ok || !body.success) throw new Error(body.error);
 
-      console.log("LAST SESSION", data);
+      const players: SquadPlayer[] = body.players;
 
-      setInitialImageUrl(data.imageUrl ?? "");
-    } catch (err) {
-      console.error(err);
+      setSquad(players);
+      setEstados(
+        Object.fromEntries(
+          players.map((player) => [player.id, player.estado || "NO CONVOCADO"])
+        )
+      );
+      setDirty(false);
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo cargar la plantilla.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Los `setState` de `loadSquad` ocurren tras el `await`, nunca de forma
+    // síncrona dentro del efecto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadSquad();
+  }, [loadSquad]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const response = await fetch("/api/training-import/latest");
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        setInitialImageUrl(data.imageUrl ?? "");
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void load();
+  }, []);
+
+  /** Vuelca en el panel manual lo que ha detectado la importación. */
+  const applyImport = (data: TrainingImport) => {
+    setTrainingImport(data);
+
+    const detected: Record<string, string> = {};
+
+    const assign = (list: TrainingImport["available"], estado: string) =>
+      list.forEach((player) => {
+        if (player.id) detected[player.id] = estado;
+      });
+
+    assign(data.available, "ÓPTIMO");
+    assign(data.promotion, "PRIMER EQUIPO");
+    assign(data.injury, "LESIONADO");
+    assign(data.others, "OTROS");
+    assign(data.nationalTeam, "SELECCIÓN");
+
+    setEstados((current) => {
+      const next: Record<string, string> = {};
+
+      Object.keys(current).forEach((id) => {
+        next[id] = detected[id] ?? "NO CONVOCADO";
+      });
+
+      return { ...next, ...detected };
+    });
+
+    setDirty(false);
+
+    localStorage.setItem(
+      "training-session-players",
+      JSON.stringify(data.sessionPlayers)
+    );
+  };
+
+  const setEstado = (id: string, estado: string) => {
+    setEstados((current) => ({ ...current, [id]: estado }));
+    setDirty(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/training-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fecha, estados, imageUrl: initialImageUrl }),
+      });
+
+      const body = await response.json();
+
+      if (!response.ok || !body.success) throw new Error(body.error);
+
+      setDirty(false);
+      toast.success("Disponibilidad guardada");
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar la disponibilidad."
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
-  loadLastSession();
-}, []);
-
-
-const getPlayerStatus = (name: string) => {
-  if (trainingImport?.promotion.some(p => p.detected === name))
-    return "PRIMER EQUIPO";
-
-  if (trainingImport?.injury.some(p => p.detected === name))
-    return "LESIONADO";
-
-  if (trainingImport?.others.some(p => p.detected === name))
-    return "OTROS";
-
-  if (trainingImport?.nationalTeam.some(p => p.detected === name))
-    return "SELECCIÓN";
-
-  return "ÓPTIMO";
-};
-  const createPlayer = async (
-  name: string,
-  licencia: string,
-  estado: string
-) => {
+  const createPlayer = async (name: string, licencia: string) => {
     setCreating(name);
 
     try {
       const response = await fetch("/api/create-player", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-body: JSON.stringify({
-  name,
-  licencia,
-  estado,
-}),
-});
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, licencia, estado: "ÓPTIMO" }),
+      });
 
-const result = await response.json();
+      const result = await response.json();
 
-console.log("CREATE PLAYER:", result);
+      if (!result.ok) {
+        toast.error("No se pudo crear el jugador");
+        return;
+      }
 
-if (!result.ok) {
-toast.error("No se pudo crear el jugador");
-  return;
-}
+      toast.success(`${name} creado correctamente`);
 
-toast.success(`${name} creado correctamente`);
+      setTrainingImport((current) =>
+        current
+          ? {
+              ...current,
+              pendingPlayers: current.pendingPlayers.filter(
+                (player) => player.name !== name
+              ),
+            }
+          : current
+      );
 
-setTrainingImport((prev) => {
-
-  if (!prev) return prev;
-
-  const actualizar = (lista: any[]) =>
-    lista.map((p) =>
-      p.detected === name
-        ? {
-            ...p,
-            official: name,
-            confidence: 100,
-          }
-        : p
-    );
-
-  return {
-
-    ...prev,
-
-    available: actualizar(prev.available),
-    promotion: actualizar(prev.promotion),
-    injury: actualizar(prev.injury),
-    others: actualizar(prev.others),
-    nationalTeam: actualizar(prev.nationalTeam),
-
-    pendingPlayers: prev.pendingPlayers.filter(
-      (p) => p.name !== name
-    ),
-
-  };
-
-});
+      await loadSquad();
     } finally {
       setCreating(null);
     }
   };
 
-const associatePlayer = async (
-  detected: string,
-  playerId: string
-) => {
-  try {
-    const response = await fetch("/api/save-alias", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        alias: detected,
-        id: playerId,
-      }),
-    });
+  const associatePlayer = async (detected: string, playerId: string) => {
+    try {
+      const response = await fetch("/api/save-alias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alias: detected, id: playerId }),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    if (!result.ok) {
-      toast.error("No se pudo guardar el alias");
-      return;
+      if (!result.ok) {
+        toast.error("No se pudo guardar el alias");
+        return;
+      }
+
+      toast.success("Alias guardado correctamente");
+
+      setEstado(playerId, "ÓPTIMO");
+
+      setTrainingImport((current) =>
+        current
+          ? {
+              ...current,
+              pendingPlayers: current.pendingPlayers.filter(
+                (player) => player.name !== detected
+              ),
+            }
+          : current
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Error guardando el alias");
     }
-
-    toast.success("Alias guardado correctamente");
-setAvailabilityStatus((prev) => ({
-  ...prev,
-  [detected]: getPlayerStatus(detected),
-}));
-    setTrainingImport((prev) => {
-
-  if (!prev) return prev;
-
-  const pending = prev.pendingPlayers.find(
-    (p) => p.name === detected
-  );
-
-  const selected = pending?.candidates.find(
-    (c) => c.player.ID_JUGADOR === playerId
-  );
-
-  if (!selected) return prev;
-
-  const actualizar = (lista: any[]) =>
-    lista.map((p) =>
-      p.detected === detected
-        ? {
-            ...p,
-            official: selected.player.NOMBRE,
-            confidence: selected.confidence,
-            id: selected.player.ID_JUGADOR,
-          }
-        : p
-    );
-
-  return {
-
-    ...prev,
-
-    available: actualizar(prev.available),
-    promotion: actualizar(prev.promotion),
-    injury: actualizar(prev.injury),
-    others: actualizar(prev.others),
-    nationalTeam: actualizar(prev.nationalTeam),
-
-    pendingPlayers: prev.pendingPlayers.filter(
-      (p) => p.name !== detected
-    ),
-
   };
 
-});
+  const counts = useMemo(() => {
+    const totals: Record<string, number> = {};
 
-  } catch (e) {
-
-    toast.error("Error guardando el alias");
-
-  }
-};
-
-  return (
-  <main className="min-h-screen bg-[#0B0F14] text-white">
-    <div className="flex">
-
-      <Sidebar />
-
-      <section className="min-w-0 flex-1">
-
-        <Topbar />
-
-        <div className="min-w-0 px-4 py-8 space-y-8 sm:px-6 lg:px-10">
-
-          {/* Header */}
-
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-              RMCF CASTILLA · SESIÓN
-            </p>
-
-            <div className="mt-4 flex items-center gap-5">
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                Importador de entrenamiento
-              </h1>
-
-              <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-            </div>
-
-            <p className="mt-4 max-w-3xl text-white/60">
-              Sube una imagen del entrenamiento para detectar automáticamente
-              la disponibilidad de todos los jugadores.
-            </p>
-          </div>
-
-          {/* Importador */}
-
-          <div
-            className="
-              rounded-[28px]
-              border
-              border-white/10
-              bg-gradient-to-b
-              from-white/[0.05]
-              to-white/[0.02]
-              p-8
-              backdrop-blur-sm
-              shadow-[0_12px_40px_rgba(0,0,0,0.35)]
-            "
-          >
-            <ImportAvailability
-  initialImageUrl={initialImageUrl}
-  onImport={(data) => {
-
-  localStorage.setItem(
-    "training-session-players",
-    JSON.stringify(data.sessionPlayers)
-  );
-
-  setTrainingImport(data);
-
-  const estados: Record<string, string> = {};
-
-    data.available.forEach((p: any) => {
-      if (p.official) {
-        estados[p.official] = "ÓPTIMO";
-      }
+    Object.values(estados).forEach((estado) => {
+      totals[estado] = (totals[estado] ?? 0) + 1;
     });
 
-    setAvailabilityStatus(estados);
+    return totals;
+  }, [estados]);
 
-  }}
-/>
-          </div>
+  const entrenan = useMemo(
+    () =>
+      Object.values(estados).filter((estado) => ENTRENAN.has(estado)).length,
+    [estados]
+  );
 
-          {trainingImport && (
-        <>
-          {/* Resumen */}
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
 
-          <div className="grid grid-cols-2 xl:grid-cols-5 gap-5">
+    return squad.filter((player) => {
+      const estado = estados[player.id] ?? "NO CONVOCADO";
 
-  {[
-    ["Disponibles", trainingImport.available.length],
-    ["Promoción", trainingImport.promotion.length],
-    ["Lesión", trainingImport.injury.length],
-    ["Otros", trainingImport.others.length],
-    ["Selección", trainingImport.nationalTeam.length],
-  ].map(([titulo, total]) => (
-    <div
-      key={titulo as string}
-      className="
-        rounded-[22px]
-        border
-        border-white/10
-        bg-gradient-to-b
-        from-white/[0.06]
-        to-white/[0.03]
-        p-6
-        backdrop-blur-sm
-        shadow-lg
-        transition-all
-        hover:border-[#C8A96B]/40
-        hover:-translate-y-1
-      "
-    >
-      <div className="text-4xl font-bold text-[#C8A96B]">
-        {total}
-      </div>
+      if (filter === "entrenan" && !ENTRENAN.has(estado)) return false;
+      if (filter === "fuera" && ENTRENAN.has(estado)) return false;
 
-      <div className="mt-3 text-sm uppercase tracking-wider text-white/65">
-        {titulo}
-      </div>
-    </div>
-  ))}
+      if (!term) return true;
 
-</div>
+      return (
+        player.nombre.toLowerCase().includes(term) ||
+        player.apodo.toLowerCase().includes(term)
+      );
+    });
+  }, [squad, estados, filter, search]);
 
-          {/* Jugadores nuevos */}
+  return (
+    <main className="min-h-screen bg-[#0B0F14] text-white">
+      <div className="flex">
+        <Sidebar />
 
-          {trainingImport.pendingPlayers.length > 0 && (
-  <div
-    className="
-      rounded-[28px]
-      border
-      border-[#C8A96B]/30
-      bg-gradient-to-b
-      from-[#161D26]
-      to-[#11161D]
-      p-8
-      shadow-[0_12px_40px_rgba(0,0,0,0.35)]
-    "
-  >
-    <div className="mb-6 flex items-center justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold">
-          Nuevos jugadores detectados
-        </h2>
+        <section className="min-w-0 flex-1">
+          <Topbar />
 
-        <p className="mt-1 text-white/60">
-          Estos jugadores no existen todavía en la base de datos.
-        </p>
-      </div>
+          <div className="min-w-0 space-y-6 px-4 py-6 sm:px-6 lg:px-10">
+            {/* CABECERA */}
 
-      <div className="rounded-full bg-[#C8A96B]/15 px-4 py-2 text-sm text-[#C8A96B]">
-        {trainingImport.pendingPlayers.length} pendientes
-      </div>
-    </div>
+            <header>
+              <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
+                RMCF Castilla · Sesión
+              </p>
 
-    <div className="space-y-4">
-      {trainingImport.pendingPlayers.map((player: any) => (
-        <div
-          key={player.name}
-          className="
-            flex
-            flex-col
-            lg:flex-row
-            lg:items-center
-            gap-5
-            rounded-2xl
-            border
-            border-white/10
-            bg-white/[0.04]
-            p-5
-            transition
-            hover:border-[#C8A96B]/40
-          "
-        >
-          <div className="flex items-center gap-4 flex-1">
-            <Image
-              src={player.photo || PLAYER_PHOTO_FALLBACK}
-              alt={player.name}
-              width={60}
-              height={60}
-              className="rounded-full border border-white/10 object-cover"
-            />
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Jugadores Sesión
+                </h1>
 
-            <div>
-              <div className="text-lg font-semibold">
-                {player.name}
+                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
               </div>
 
-              <div className="text-sm text-white/60">
-  {player.candidates?.length
-    ? "Coincidencia ambigua"
-    : "Jugador nuevo detectado"}
-</div>
-            </div>
-          </div>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/55">
+                Sube la imagen del entrenamiento o pega el mensaje de WhatsApp
+                para detectar la disponibilidad, y ajústala jugador a jugador
+                antes de guardarla.
+              </p>
+            </header>
 
-          {player.candidates?.length ? (
-  <div className="flex flex-col gap-3">
+            {/* IMPORTADOR */}
 
-    <select
-      className="rounded-xl border border-white/10 bg-[#1A212C] px-4 py-3"
-      value={selectedPlayer[player.name] ?? ""}
-      onChange={(e) =>
-        setSelectedPlayer({
-          ...selectedPlayer,
-          [player.name]: e.target.value,
-        })
-      }
-    >
-      <option value="">Crear jugador nuevo</option>
+            <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] sm:p-7">
+              <h2 className="mb-4 text-lg font-semibold">
+                Importar disponibilidad
+              </h2>
 
-      {player.candidates.map((c: any) => (
-        <option
-          key={c.player.ID_JUGADOR}
-          value={c.player.ID_JUGADOR}
-        >
-          {c.player.NOMBRE} ({c.confidence}%)
-        </option>
-      ))}
-    </select>
-      <button
-  className="
-    rounded-xl
-    bg-[#C8A96B]
-    px-6
-    py-3
-    font-semibold
-    text-[#0B0F14]
-  "
-  disabled={!selectedPlayer[player.name]}
-  onClick={() =>
-    associatePlayer(
-      player.name,
-      selectedPlayer[player.name]
-    )
-  }
->
-  Asociar jugador
-</button>
-  </div>
-) : (
-  <>
-    <select
-      className="
-        rounded-xl
-        border
-        border-white/10
-        bg-[#1A212C]
-        px-4
-        py-3
-        text-white
-      "
-      value={licencias[player.name] ?? "JUV A"}
-      onChange={(e) =>
-        setLicencias({
-          ...licencias,
-          [player.name]: e.target.value,
-        })
-      }
-    >
-      <option value="RMC">Real Madrid C</option>
-      <option value="JUV A">Juvenil A</option>
-      <option value="JUV B">Juvenil B</option>
-      <option value="RMCF Castilla">Real Madrid Castilla</option>
-      <option value="OTRO">Otro</option>
-    </select>
+              <ImportAvailability
+                initialImageUrl={initialImageUrl}
+                onImport={applyImport}
+              />
+            </section>
 
-    <button
-      className="
-        rounded-xl
-        bg-[#C8A96B]
-        px-6
-        py-3
-        font-semibold
-        text-[#0B0F14]
-      "
-      disabled={creating === player.name}
-      onClick={() =>
-  createPlayer(
-    player.name,
-    licencias[player.name] ?? "JUV A",
-    getPlayerStatus(player.name)
-  )
-}
-    >
-      {creating === player.name
-        ? "Creando..."
-        : "Crear jugador"}
-    </button>
-  </>
-)}
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+            {/* JUGADORES NUEVOS DETECTADOS */}
 
-          {/* Tablas */}
+            {trainingImport && trainingImport.pendingPlayers.length > 0 && (
+              <section className="rounded-[28px] border border-[#C8A96B]/30 bg-gradient-to-b from-[#161D26] to-[#11161D] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] sm:p-7">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Nombres sin identificar
+                    </h2>
 
-          <div className="space-y-8">
+                    <p className="mt-0.5 text-xs text-white/50">
+                      Asócialos a un jugador existente o créalos en la base de
+                      datos.
+                    </p>
+                  </div>
 
-  {[
-    ["Disponibles", trainingImport.available],
-    ["Promoción", trainingImport.promotion],
-    ["Lesión", trainingImport.injury],
-    ["Otros", trainingImport.others],
-    ["Selección", trainingImport.nationalTeam],
-  ].map(([titulo, lista]) => (
-    <div
-      key={titulo as string}
-      className="
-        rounded-[28px]
-        border
-        border-white/10
-        bg-gradient-to-b
-        from-white/[0.04]
-        to-white/[0.02]
-        backdrop-blur-sm
-        overflow-hidden
-        shadow-[0_10px_35px_rgba(0,0,0,0.30)]
-      "
-    >
-
-      {/* Cabecera */}
-
-      <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-
-        <h2 className="text-xl font-semibold">
-          {titulo as string}
-        </h2>
-
-        <span className="rounded-full bg-[#C8A96B]/15 px-3 py-1 text-sm text-[#C8A96B]">
-          {(lista as any[]).length} jugadores
-        </span>
-
-      </div>
-
-      <div className="overflow-x-auto">
-
-        <table className="w-full min-w-[700px]">
-
-          <thead>
-
-            <tr className="border-b border-white/10 bg-white/[0.03]">
-
-              <th className="px-6 py-4 text-left text-xs uppercase tracking-widest text-[#C8A96B]">
-                Detectado
-              </th>
-
-              <th className="px-6 py-4 text-left text-xs uppercase tracking-widest text-[#C8A96B]">
-                Jugador oficial
-              </th>
-
-              <th className="px-6 py-4 text-center text-xs uppercase tracking-widest text-[#C8A96B]">
-                Confianza
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {(lista as any[]).map((p, i) => (
-
-              <tr
-                key={i}
-                className="
-                  border-b
-                  border-white/5
-                  transition
-                  hover:bg-white/[0.03]
-                "
-              >
-
-                <td className="px-6 py-4 font-medium">
-                  {p.detected}
-                </td>
-
-                <td className="px-6 py-4">
-
-                  {p.official ? (
-
-                    <span className="text-white">
-                      {p.official}
-                    </span>
-
-                  ) : (
-
-                    <span className="text-red-400">
-                      Sin identificar
-                    </span>
-
-                  )}
-
-                </td>
-
-                <td className="px-6 py-4 text-center">
-
-                  <span
-                    className={`
-                      inline-flex
-                      rounded-full
-                      px-3
-                      py-1
-                      text-sm
-                      font-semibold
-                      ${
-                        p.confidence >= 90
-                          ? "bg-green-500/15 text-green-400"
-                          : p.confidence >= 70
-                          ? "bg-yellow-500/15 text-yellow-400"
-                          : "bg-red-500/15 text-red-400"
-                      }
-                    `}
-                  >
-                    {p.confidence}%
+                  <span className="rounded-full bg-[#C8A96B]/15 px-3 py-1 text-xs font-semibold text-[#C8A96B]">
+                    {trainingImport.pendingPlayers.length} pendientes
                   </span>
+                </div>
 
-                </td>
+                <div className="space-y-3">
+                  {trainingImport.pendingPlayers.map((player) => (
+                    <div
+                      key={player.name}
+                      className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:flex-row lg:items-center"
+                    >
+                      <div className="flex flex-1 items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={player.photo || PLAYER_PHOTO_FALLBACK}
+                          alt=""
+                          className="h-11 w-11 rounded-full border border-white/10 object-cover"
+                        />
 
-              </tr>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">
+                            {player.name}
+                          </p>
 
-            ))}
+                          <p className="text-xs text-white/45">
+                            {player.candidates?.length
+                              ? "Coincidencia ambigua"
+                              : "Jugador nuevo detectado"}
+                          </p>
+                        </div>
+                      </div>
 
-          </tbody>
+                      {player.candidates?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          <select
+                            value={selectedPlayer[player.name] ?? ""}
+                            onChange={(event) =>
+                              setSelectedPlayer({
+                                ...selectedPlayer,
+                                [player.name]: event.target.value,
+                              })
+                            }
+                            className="rounded-xl border border-white/10 bg-[#1A212C] px-3 py-2 text-sm outline-none"
+                          >
+                            <option value="">Selecciona jugador…</option>
 
-        </table>
+                            {player.candidates.map((candidate) => (
+                              <option
+                                key={candidate.player.ID_JUGADOR}
+                                value={candidate.player.ID_JUGADOR}
+                              >
+                                {candidate.player.NOMBRE} (
+                                {candidate.confidence}%)
+                              </option>
+                            ))}
+                          </select>
 
+                          <button
+                            type="button"
+                            disabled={!selectedPlayer[player.name]}
+                            onClick={() =>
+                              associatePlayer(
+                                player.name,
+                                selectedPlayer[player.name]
+                              )
+                            }
+                            className="rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-[#0B0F14] transition hover:bg-[#d8bd85] disabled:opacity-40"
+                          >
+                            Asociar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <select
+                            value={licencias[player.name] ?? "JUV A"}
+                            onChange={(event) =>
+                              setLicencias({
+                                ...licencias,
+                                [player.name]: event.target.value,
+                              })
+                            }
+                            className="rounded-xl border border-white/10 bg-[#1A212C] px-3 py-2 text-sm outline-none"
+                          >
+                            <option value="RMC">Real Madrid C</option>
+                            <option value="JUV A">Juvenil A</option>
+                            <option value="JUV B">Juvenil B</option>
+                            <option value="RMCF Castilla">
+                              Real Madrid Castilla
+                            </option>
+                            <option value="OTRO">Otro</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            disabled={creating === player.name}
+                            onClick={() =>
+                              createPlayer(
+                                player.name,
+                                licencias[player.name] ?? "JUV A"
+                              )
+                            }
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-[#0B0F14] transition hover:bg-[#d8bd85] disabled:opacity-40"
+                          >
+                            {creating === player.name ? (
+                              <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                              <UserPlus size={15} />
+                            )}
+                            Crear
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* DISPONIBILIDAD */}
+
+            <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-5 shadow-[0_35px_90px_rgba(0,0,0,.5)] sm:p-7">
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Disponibilidad de la plantilla
+                  </h2>
+
+                  <p className="mt-0.5 text-xs text-white/50">
+                    Ajusta el estado de cada jugador y guarda la sesión.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] uppercase tracking-[0.25em] text-white/40">
+                      Fecha
+                    </span>
+
+                    <input
+                      type="date"
+                      value={fecha}
+                      onChange={(event) =>
+                        setFecha(event.target.value || todayKey())
+                      }
+                      className="rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm outline-none transition focus:border-[#C8A96B]/60"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoading(true);
+                      void loadSquad();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-xs font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <RefreshCw size={14} />
+                    Recargar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void save()}
+                    disabled={saving || loading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-xs font-semibold text-[#0B0F14] transition hover:bg-[#d8bd85] disabled:opacity-40"
+                  >
+                    {saving ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : dirty ? (
+                      <Save size={14} />
+                    ) : (
+                      <Check size={14} />
+                    )}
+                    {saving
+                      ? "Guardando…"
+                      : dirty
+                      ? "Guardar disponibilidad"
+                      : "Guardado"}
+                  </button>
+                </div>
+              </div>
+
+              {/* RESUMEN */}
+
+              <div className="mb-5 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1.5 text-xs font-semibold text-[#C8A96B]">
+                  <Users size={13} />
+                  {entrenan} entrenan
+                </span>
+
+                {ESTADOS.filter((estado) => counts[estado]).map((estado) => {
+                  const theme = statusTheme(estado as EstadoJugador);
+
+                  return (
+                    <span
+                      key={estado}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium",
+                        theme.chip
+                      )}
+                    >
+                      <span
+                        className={cn("h-1.5 w-1.5 rounded-full", theme.dot)}
+                      />
+                      {estado}
+                      <span className="tabular-nums opacity-70">
+                        {counts[estado]}
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* FILTROS */}
+
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[220px] flex-1">
+                  <Search
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35"
+                  />
+
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar jugador…"
+                    className="w-full rounded-xl border border-white/10 bg-[#11161D] py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-white/30 focus:border-[#C8A96B]/60"
+                  />
+                </div>
+
+                {(
+                  [
+                    ["todos", "Todos"],
+                    ["entrenan", "Entrenan"],
+                    ["fuera", "Fuera"],
+                  ] as [Filter, string][]
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setFilter(id)}
+                    className={cn(
+                      "rounded-xl border px-3.5 py-2 text-xs font-semibold transition",
+                      filter === id
+                        ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
+                        : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* LISTA */}
+
+              {loading ? (
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 9 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-[68px] animate-pulse rounded-2xl border border-white/10 bg-[#11161D]"
+                    />
+                  ))}
+                </div>
+              ) : visible.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/15 px-6 py-12 text-center text-sm text-white/40">
+                  Ningún jugador coincide con el filtro.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {visible.map((player) => {
+                    const estado = estados[player.id] ?? "NO CONVOCADO";
+                    const theme = statusTheme(estado as EstadoJugador);
+
+                    return (
+                      <div
+                        key={player.id}
+                        className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#11161D] p-2.5 transition hover:border-[#C8A96B]/35"
+                      >
+                        <span
+                          className={cn(
+                            "relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-black/40 ring-2",
+                            theme.ring
+                          )}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={player.foto || PLAYER_PHOTO_FALLBACK}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">
+                            {player.apodo || player.nombre}
+                          </p>
+
+                          <p className="truncate text-[11px] text-white/40">
+                            {player.posicion || "—"} · {player.licencia}
+                          </p>
+                        </div>
+
+                        <select
+                          value={estado}
+                          onChange={(event) =>
+                            setEstado(player.id, event.target.value)
+                          }
+                          className="w-[128px] shrink-0 rounded-xl border border-white/10 bg-[#0F141B] px-2 py-1.5 text-[11px] font-medium text-white outline-none transition focus:border-[#C8A96B]/60"
+                        >
+                          {ESTADOS.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+        </section>
       </div>
-
-    </div>
-  ))}
-
-</div>
-
-            </>
-          )}
-
-        </div>
-
-      </section>
-
-    </div>
-  </main>
-);
+    </main>
+  );
 }

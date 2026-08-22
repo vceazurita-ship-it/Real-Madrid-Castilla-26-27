@@ -10,8 +10,7 @@ import {
   Menu,
   X,
   Activity,
-  ClipboardCheck,
-  Clipboard,
+  ClipboardCheck,
   ClipboardPen,
   CalendarDays,
   Flag,
@@ -35,6 +34,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Star,
+  PenTool,
 } from "lucide-react"
 import type { ReactNode } from "react"
 export function Sidebar() {
@@ -402,6 +402,12 @@ const navLink = (
   <div className="space-y-2 text-sm">
 
     {navLink(
+      "/calendar_general",
+      "Calendario Operativa",
+      <CalendarDays size={18} />
+    )}
+
+    {navLink(
       "/general",
       "Repositorio",
       <Database  size={18} />
@@ -430,15 +436,16 @@ const navLink = (
       "Pizarra Sesión",
       <LayoutDashboard size={18} />
     )}
-     {navLink(
-      "/pizarra_microcycle",
-      "Pizarra Microciclo",
-      <Clipboard  size={18} />
-    )}
+
     {navLink(
       "/pizarra",
       "Pizarra Competición",
       <Activity size={18} />
+    )}
+    {navLink(
+      "/pizarra-tactica",
+      "Pizarra Táctica",
+      <PenTool size={18} />
     )}
     {navLink(
   "/video-individual",

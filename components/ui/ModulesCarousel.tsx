@@ -84,9 +84,8 @@ const priority: Record<string, number> = {
 
   // METODOLOGÍA
   "/individual_proc": 90,
-  "/microcycles": 89,
-  "/pizarra_microcycle": 88,
-  "/pizarra": 87,
+  "/microcycles": 89,  "/pizarra": 87,
+  "/pizarra-tactica": 86,
   "/match-plans": 86,
 
   // COLECTIVO

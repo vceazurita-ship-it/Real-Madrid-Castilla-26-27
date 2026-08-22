@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+/** Archivos subidos al Área General, agrupables por día en el calendario. */
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -23,12 +25,12 @@ async function listFolder(path: string): Promise<FileItem[]> {
 
   if (error || !data) return [];
 
-  let files: FileItem[] = [];
+  const files: FileItem[] = [];
 
   for (const item of data) {
     const fullPath = `${path}/${item.name}`;
 
-    if ((item as any).id) {
+    if (item.id) {
       const { data: publicUrl } = supabase.storage
         .from("performance")
         .getPublicUrl(fullPath);
@@ -36,7 +38,7 @@ async function listFolder(path: string): Promise<FileItem[]> {
       files.push({
         url: publicUrl.publicUrl,
         name: item.name,
-        created_at: (item as any).created_at,
+        created_at: item.created_at ?? new Date().toISOString(),
         type: item.name.toLowerCase().endsWith(".pdf")
           ? "pdf"
           : "image",
@@ -52,7 +54,7 @@ async function listFolder(path: string): Promise<FileItem[]> {
 
 export async function GET() {
   try {
-    const files = await listFolder("2026/performance");
+    const files = await listFolder("2026/general");
 
     return NextResponse.json(files);
   } catch (e) {

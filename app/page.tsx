@@ -29,6 +29,7 @@ import {
   Database,
   Handshake,
   Flag,
+  PenTool,
 } from "lucide-react"
 
 import { Sidebar } from "@/components/ui/sidebar"
@@ -121,22 +122,21 @@ const modules = [
     desc: "Organización visual de tareas y jugadores",
     icon: Clipboard,
     glow: "cyan",
-  },
-  {
-    href: "/pizarra_microcycle",
-    section: "METODOLOGÍA",
-    title: "Pizarra Microciclo",
-    desc: "Organización visual del microciclo",
-    icon: Clipboard,
-    glow: "emerald",
-  },
-  {
+  },  {
     href: "/pizarra",
     section: "METODOLOGÍA",
     title: "Pizarra Competición",
     desc: "Diseño táctico para el partido",
     icon: Activity,
     glow: "violet",
+  },
+  {
+    href: "/pizarra-tactica",
+    section: "METODOLOGÍA",
+    title: "Pizarra Táctica",
+    desc: "Dibujo, escenas y animación táctica",
+    icon: PenTool,
+    glow: "cyan",
   },
   {
     href: "/match-plans",
@@ -310,6 +310,14 @@ const modules = [
   },
 
   // DATA
+  {
+    href: "/calendar_general",
+    section: "DATOS",
+    title: "Calendario Operativa",
+    desc: "Reuniones, viajes y logística del staff",
+    icon: CalendarDays,
+    glow: "amber",
+  },
   {
     href: "/data-center",
     section: "DATOS",

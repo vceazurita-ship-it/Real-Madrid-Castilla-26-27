@@ -48,6 +48,15 @@ setLoadedLineupName: (
 
   clearLineup: () => void;
 
+  /** Jugadores convocados que empiezan en el banquillo. */
+  bench: string[];
+
+  addToBench: (playerId: string) => void;
+
+  removeFromBench: (playerId: string) => void;
+
+  clearBench: () => void;
+
  loadLineup: (
   id: number,
   formation: string,
@@ -149,6 +158,38 @@ const [lineup, setLineup] =
 
   
 
+  const [bench, setBench] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+
+      if (!saved) return [];
+
+      return JSON.parse(saved).bench ?? [];
+    } catch {
+      return [];
+    }
+  });
+
+  /* =======================================
+     BANQUILLO
+  ======================================= */
+
+  function addToBench(playerId: string) {
+    setBench((current) =>
+      current.includes(playerId) ? current : [...current, playerId]
+    );
+  }
+
+  function removeFromBench(playerId: string) {
+    setBench((current) => current.filter((id) => id !== playerId));
+  }
+
+  function clearBench() {
+    setBench([]);
+  }
+
   /* =======================================
      CAMBIO DE FORMACIÓN
   ======================================= */
@@ -171,9 +212,10 @@ const [lineup, setLineup] =
       JSON.stringify({
         formation,
         lineup,
+        bench,
       })
     );
-  }, [formation, lineup]);
+  }, [formation, lineup, bench]);
 
   /* =======================================
      MOVER / INTERCAMBIAR JUGADORES
@@ -304,6 +346,8 @@ return current;
       return slot;
     });
   });
+  removeFromBench(playerId);
+
 
   setSelectedPlayer(null);
 }
@@ -386,10 +430,16 @@ const value = useMemo(
     clearLineup,
     loadLineup,
     getPlayerPosition,
+
+    bench,
+    addToBench,
+    removeFromBench,
+    clearBench,
   }),
   [
     lineup,
     formation,
+    bench,
     loadedLineupId,
     loadedLineupName,
     selectedPlayer,

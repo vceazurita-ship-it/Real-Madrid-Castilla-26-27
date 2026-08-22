@@ -13,7 +13,7 @@ import PlayerToken from "./PlayerToken";
 
 export default function PlayerSidebar() {
   const { players } = usePlayers();
-  const { lineup } = useLineup();
+  const { lineup, bench } = useLineup();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { setNodeRef, isOver } = useDroppable({
   id: "bench",
@@ -35,12 +35,14 @@ const playersOnPitch = useMemo(() => {
 
     const alreadyOnPitch = playersOnPitch.has(player.id);
 
+    const onBench = bench.includes(player.id);
+
     // Solo ocultamos los que ya están en el campo.
     // El resto (incluidos lesionados, sancionados, etc.)
     // se mostrarán y PlayerToken decidirá si son arrastrables.
-    return matchesSearch && !alreadyOnPitch;
+    return matchesSearch && !alreadyOnPitch && !onBench;
   });
-}, [players, search, playersOnPitch]);
+}, [players, search, playersOnPitch, bench]);
 function scrollLeft() {
   scrollRef.current?.scrollBy({
     left: -300,
@@ -205,7 +207,7 @@ function scrollRight() {
       text-white/40
     "
   >
-    Todos los jugadores están en el campo
+    Todos los jugadores están en el campo o en el banquillo
   </div>
 )}
     </div>

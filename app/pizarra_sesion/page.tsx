@@ -1,318 +1,578 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
 import {
   DndContext,
-  DragOverlay,
   DragEndEvent,
+  DragOverlay,
   DragStartEvent,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import {
+  CalendarDays,
+  Check,
+  CloudOff,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import SavedLineups from "@/components/Sesion/SavedLineups";
-
-import FootballPitch from "@/components/Sesion/FootballPitch";
-import FormationToolbar from "@/components/Sesion/FormationToolbar";
-import PlayerSidebar from "@/components/Sesion/PlayerSidebar";
-import TopStats from "@/components/Sesion/TopStats";
-import { useEffect, useState } from "react";
+import PlayerChip from "@/components/session-board/PlayerChip";
+import SessionPitch from "@/components/session-board/SessionPitch";
+import TaskBoard from "@/components/session-board/TaskBoard";
 import { useTrainingPlayers } from "@/hooks/useTrainingPlayers";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { BIB_ORDER, bibTheme } from "@/lib/session-board/bibs";
 import {
-  SessionLineupProvider,
-  useSessionLineup,
-} from "@/context/SesionLineUpContext";
+  balanceTeams,
+  canTrain,
+  createBoard,
+  createTask,
+  normalizeBoard,
+  todayKey,
+} from "@/lib/session-board/helpers";
+import { statusTheme } from "@/lib/session-board/status";
+import type { BoardTask, SessionBoard } from "@/lib/session-board/types";
+import type { Player } from "@/types/player";
+import { cn } from "@/lib/utils";
 
-function PizarraContent() {
-  const {
-  assignPlayer,
-  removePlayer,
-  loadLineup,
-  loadedLineupName,
-  initializeFromPlayers,
-} = useSessionLineup();
-const { players } = useTrainingPlayers();
+const STATUS_LEGEND = [
+  "ÓPTIMO",
+  "CONTROL DE CARGA",
+  "TOCADO",
+  "REINCORPORACIÓN",
+  "SANCIONADO",
+] as const;
 
-const [dragPlayer, setDragPlayer] = useState<
-  (typeof players)[number] | null
->(null);
-function handleDragStart(event: DragStartEvent) {
-  const id = String(event.active.id)
-    .replace("bench-", "")
-    .replace("field-", "");
+export default function PizarraSesionPage() {
+  const { players, loading } = useTrainingPlayers();
 
-  const player = players.find(
-    (p) => p.id === id
-  ); 
+  const [fecha, setFecha] = useState(todayKey);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<Player | null>(null);
 
-  setDragPlayer(player ?? null);
-}
-function handleDragEnd(event: DragEndEvent) {
-  const { active, over } = event;
+  const fallback = useMemo(() => createBoard(fecha), [fecha]);
 
-  setDragPlayer(null);
+  const { value, setValue, status, localOnly, reload } =
+    useRemoteDoc<SessionBoard>({
+      key: `session-board:${fecha}`,
+      kind: "session-board",
+      fallback,
+    });
 
-  if (!over) return;
+  const board = useMemo(() => normalizeBoard(value), [value]);
 
-  const activeId = String(active.id);
-  const overId = String(over.id);
-
-  // Campo -> Banquillo
-  if (overId === "bench") {
-    removePlayer(activeId.replace("field-", ""));
-    return;
-  }
-
-  // Banquillo -> Campo
-  if (activeId.startsWith("bench-")) {
-    assignPlayer(
-      overId,
-      activeId.replace("bench-", "")
-    );
-    return;
-  }
-
-  // Campo -> Campo
-  assignPlayer(
-    overId,
-    activeId.replace("field-", "")
+  const update = useCallback(
+    (updater: (current: SessionBoard) => SessionBoard) => {
+      setValue((current) => updater(normalizeBoard(current)));
+    },
+    [setValue]
   );
-}
-async function handleLoadLineup(id: number) {
-  try {
-    const res = await fetch(
-      `https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=getAlineacion&id=${id}`
-    );
 
-    const data = await res.json();
+  /** Jugadores que pueden entrenar hoy, según el estado de la última sesión. */
+  const convocados = useMemo(
+    () => players.filter(canTrain),
+    [players]
+  );
 
-    console.log(data);
-console.log(data.formacion);
-console.log(data.alineacion);
-console.log("DATA COMPLETA", data);
-console.log("FORMACION:", data.formacion);
-console.log("TIPO:", typeof data.formacion);
-console.log("ALINEACION:", data.alineacion);
+  const excluidos = useMemo(
+    () => new Set(board.excluidos),
+    [board.excluidos]
+  );
 
-    if (!data.success) {
-      alert("No se pudo cargar la alineación");
-      return;
-    }
+  const enSesion = useMemo(
+    () => convocados.filter((player) => !excluidos.has(player.id)),
+    [convocados, excluidos]
+  );
 
-    loadLineup(
-  data.id,
-  Number(String(data.formacion).split(" ")[0]) as
-    5 | 6 | 7 | 8 | 9 | 10 | 11,
-  JSON.parse(data.alineacion),
-  data.nombre
-);
+  const activeTask =
+    board.tasks.find((task) => task.id === activeTaskId) ?? board.tasks[0];
 
-  } catch (e) {
-    console.error(e);
-    alert("Error al cargar la alineación");
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 180, tolerance: 8 },
+    })
+  );
+
+  const toggleExcluido = (playerId: string) =>
+    update((current) => {
+      const off = current.excluidos.includes(playerId);
+
+      return {
+        ...current,
+        excluidos: off
+          ? current.excluidos.filter((id) => id !== playerId)
+          : [...current.excluidos, playerId],
+        // Al apartar a un jugador desaparece también de todas las tareas.
+        tasks: off
+          ? current.tasks
+          : current.tasks.map((task) => ({
+              ...task,
+              teams: task.teams.map((team) => ({
+                ...team,
+                playerIds: team.playerIds.filter((id) => id !== playerId),
+              })),
+            })),
+      };
+    });
+
+  const replaceTask = (next: BoardTask) =>
+    update((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) => (task.id === next.id ? next : task)),
+    }));
+
+  const addTask = () => {
+    const task = createTask(board.tasks.length);
+
+    update((current) => ({ ...current, tasks: [...current.tasks, task] }));
+    setActiveTaskId(task.id);
+  };
+
+  const removeTask = (taskId: string) => {
+    if (board.tasks.length <= 1) return;
+
+    const remaining = board.tasks.filter((task) => task.id !== taskId);
+
+    update((current) => ({
+      ...current,
+      tasks: current.tasks.filter((task) => task.id !== taskId),
+    }));
+
+    if (taskId === activeTask?.id) setActiveTaskId(remaining[0]?.id ?? null);
+  };
+
+  const autoBalance = (taskId: string) =>
+    update((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) =>
+        task.id === taskId
+          ? { ...task, teams: balanceTeams(task.teams, enSesion) }
+          : task
+      ),
+    }));
+
+  function handleDragStart(event: DragStartEvent) {
+    const playerId = event.active.data.current?.playerId as string | undefined;
+
+    setDragging(enSesion.find((player) => player.id === playerId) ?? null);
   }
-} 
-const sensors = useSensors(
-  useSensor(PointerSensor, {
-    activationConstraint: {
-      distance: 8,
-    },
-  }),
 
-  useSensor(TouchSensor, {
-    activationConstraint: {
-      delay: 250,
-      tolerance: 8,
-    },
-  })
-);
+  function handleDragEnd(event: DragEndEvent) {
+    setDragging(null);
+
+    const { active, over } = event;
+
+    if (!over || !activeTask) return;
+
+    const playerId = active.data.current?.playerId as string | undefined;
+    if (!playerId) return;
+
+    const overId = String(over.id);
+
+    const targetTeamId = overId.startsWith("team:")
+      ? overId.slice("team:".length)
+      : null;
+
+    replaceTask({
+      ...activeTask,
+      teams: activeTask.teams.map((team) => {
+        const without = team.playerIds.filter((id) => id !== playerId);
+
+        return team.id === targetTeamId
+          ? { ...team, playerIds: [...without, playerId] }
+          : { ...team, playerIds: without };
+      }),
+    });
+  }
+
   return (
-    
     <DndContext
-  sensors={sensors}
-  onDragStart={handleDragStart}
-  onDragEnd={(event) => {
-    handleDragEnd(event);
-    setDragPlayer(null);
-  }}
->
-
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setDragging(null)}
+    >
       <main className="min-h-screen bg-[#0B0F14] text-white">
-
         <div className="flex">
-
           <Sidebar />
 
           <section className="flex min-w-0 flex-1 flex-col">
-
             <Topbar />
 
-            <div className="px-3 py-3 lg:px-5 xl:px-6">
-
+            <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-10">
               {/* CABECERA */}
 
-<div className="mb-3">
+              <header>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
+                  RMCF Castilla · Sesión
+                </p>
 
-  <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
-  RMCF CASTILLA · EQUIPO TAREAS
-</p>
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                    Pizarra de Sesión
+                  </h1>
 
-<h1 className="text-xl font-semibold xl:text-2xl">
-  Equipo Tareas · Sesión
-</h1>
+                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
 
-    <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
+                  <SaveBadge status={status} localOnly={localOnly} />
+                </div>
 
-  </div>
+                <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/55">
+                  Un campograma con todos los jugadores que pueden entrenar y un
+                  campograma por tarea para repartir equipos con peto amarillo,
+                  naranja, verde o sin peto.
+                </p>
+              </header>
 
-               {/* ESTADÍSTICAS */}
-              
-                            <div className="mb-3">
-                              <TopStats />
-                            </div>
-              
-                            {/* BARRA SUPERIOR */}
-              
-                            <div className="mb-3">
-                              <FormationToolbar />
-                            </div>
-                            {loadedLineupName && (
-  <div className="mb-3 rounded-xl border border-[#C8A96B]/20 bg-[#151B23] px-4 py-2">
-    <p className="text-xs uppercase tracking-widest text-[#C8A96B]">
-      Sesión cargada
-    </p>
+              {/* CONTROLES */}
 
-    <p className="text-lg font-semibold text-white">
-      {loadedLineupName}
-    </p>
-  </div>
-)}
-                            {/* CONTENEDOR */}
-              
-                            <div
-                              className="
-                                rounded-[30px]
-                                border
-                                border-[#C8A96B]/20
-                                bg-gradient-to-b
-                                from-[#151B23]
-                                to-[#0E131A]
-                                p-2 xl:p-3
-                                shadow-[0_35px_90px_rgba(0,0,0,.55)]
-                              "
-                            >
-              
-                              <div className="flex flex-col lg:flex-row gap-3">
-              
-                  {/* SOLO MÓVIL */}
-                  <div className="block lg:hidden p-3">
-                      <SavedLineups onLoad={handleLoadLineup}/>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="block">
+                  <span className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.25em] text-white/40">
+                    <CalendarDays size={12} />
+                    Fecha de la sesión
+                  </span>
+
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(event) =>
+                      setFecha(event.target.value || todayKey())
+                    }
+                    className="rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/60"
+                  />
+                </label>
+
+                <label className="block min-w-[220px] flex-1">
+                  <span className="mb-1 block text-[10px] uppercase tracking-[0.25em] text-white/40">
+                    Título de la sesión
+                  </span>
+
+                  <input
+                    value={board.titulo}
+                    onChange={(event) =>
+                      update((current) => ({
+                        ...current,
+                        titulo: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/60"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={reload}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                >
+                  <RefreshCw size={14} />
+                  Recargar
+                </button>
+              </div>
+
+              {localOnly && (
+                <p className="flex items-start gap-2 rounded-2xl border border-amber-400/25 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200/90">
+                  <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+                  <span>
+                    La pizarra se está guardando solo en este dispositivo. Para
+                    sincronizarla, ejecuta{" "}
+                    <code className="rounded bg-black/40 px-1">
+                      supabase/app_documents.sql
+                    </code>{" "}
+                    en Supabase.
+                  </span>
+                </p>
+              )}
+
+              {/* MÉTRICAS */}
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Stat label="Convocados" value={convocados.length} />
+                <Stat label="En sesión" value={enSesion.length} accent />
+                <Stat label="Apartados" value={board.excluidos.length} />
+                <Stat label="Tareas" value={board.tasks.length} />
+              </div>
+
+              {/* CAMPOGRAMA DE SESIÓN */}
+
+              <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-3 shadow-[0_35px_90px_rgba(0,0,0,.5)] sm:p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Campograma de sesión
+                    </h2>
+
+                    <p className="mt-0.5 text-xs text-white/45">
+                      Todos los que pueden entrenar hoy. Haz clic en un jugador
+                      para apartarlo de la sesión.
+                    </p>
                   </div>
-              
-                {/* IZQUIERDA EN PC */}
-              <aside
-                className="
-                  order-3
-                  lg:order-none
-              
-                  lg:w-[260px]
-                  xl:w-[280px]
-                  shrink-0
-              
-                  flex
-                  flex-col
-              
-                  lg:h-[calc(100vh-235px)]
-                  lg:max-h-[820px]
-                  lg:min-h-[520px]
-              
-                  overflow-hidden
-                "
-              >
-                  {/* JUGADORES */}
-                  <div className="flex-1 min-h-0 overflow-hidden p-3">
-                  <PlayerSidebar />
-              </div>
-              
-              </aside>
-              
-                {/* CAMPO */}
-                <section
-              className="
-              order-2
-              lg:order-none
-              flex-1">
-              
-                  <div
-                    className="
-                      mx-auto
-                      overflow-hidden
-                      rounded-[26px]
-              
-                      w-full
-                      aspect-[9/16]
-                      max-w-[430px]
-                      h-auto
-              
-                      lg:max-w-none
-                      lg:w-full
-                      lg:aspect-[16/9]
-                      lg:h-[calc(100vh-235px)]
-                      lg:max-h-[820px]
-                      lg:min-h-[520px]
-                    "
-                  >
-                    <FootballPitch />
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUS_LEGEND.map((estado) => {
+                      const theme = statusTheme(estado);
+
+                      return (
+                        <span
+                          key={estado}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium",
+                            theme.chip
+                          )}
+                        >
+                          <span
+                            className={cn("h-1.5 w-1.5 rounded-full", theme.dot)}
+                          />
+                          {theme.label}
+                        </span>
+                      );
+                    })}
                   </div>
-              
-                </section>
-              </div>
-              
-                {/* SOLO ESCRITORIO jugadores */}
-              {/* SOLO ESCRITORIO */}
-              <div className="hidden lg:block mt-4">
-                  <SavedLineups onLoad={handleLoadLineup} />
-              </div>
-                            </div>
-              
-                          </div>
-              
-                        </section>
-              
+                </div>
+
+                {loading ? (
+                  <div className="h-[420px] animate-pulse rounded-[26px] border border-white/10 bg-[#11161D]" />
+                ) : convocados.length === 0 ? (
+                  <p className="rounded-[26px] border border-dashed border-white/15 px-6 py-16 text-center text-sm text-white/45">
+                    No hay jugadores disponibles. Importa la disponibilidad en
+                    Jugadores Sesión.
+                  </p>
+                ) : (
+                  <SessionPitch
+                    players={convocados}
+                    excluidos={board.excluidos}
+                    onToggle={toggleExcluido}
+                  />
+                )}
+              </section>
+
+              {/* TAREAS */}
+
+              <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-3 shadow-[0_35px_90px_rgba(0,0,0,.5)] sm:p-5">
+                <div className="mb-4">
+                  <h2 className="text-lg font-semibold">Campogramas por tarea</h2>
+
+                  <p className="mt-0.5 text-xs text-white/45">
+                    Un campograma por tarea para formar los equipos de la sesión.
+                  </p>
+                </div>
+
+                {/* PESTAÑAS */}
+
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  {board.tasks.map((task, index) => {
+                    const isActive = task.id === activeTask?.id;
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={cn(
+                          "group flex items-center gap-1 rounded-xl border px-1 transition",
+                          isActive
+                            ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
+                            : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setActiveTaskId(task.id)}
+                          className={cn(
+                            "flex items-center gap-2 px-2.5 py-2 text-xs font-semibold",
+                            isActive ? "text-[#C8A96B]" : "text-white/65"
+                          )}
+                        >
+                          <span className="tabular-nums opacity-60">
+                            {index + 1}
+                          </span>
+
+                          <span className="max-w-[160px] truncate">
+                            {task.nombre}
+                          </span>
+
+                          <span className="flex gap-0.5">
+                            {task.teams.map((team) => (
+                              <span
+                                key={team.id}
+                                className={cn(
+                                  "h-2 w-2 rounded-full",
+                                  bibTheme(team.color).dot
+                                )}
+                              />
+                            ))}
+                          </span>
+                        </button>
+
+                        {board.tasks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeTask(task.id)}
+                            title="Eliminar tarea"
+                            className="rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/15 hover:text-red-300"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
-              
-                    </main>
-<DragOverlay>
+                    );
+                  })}
 
-  {dragPlayer && (
+                  <button
+                    type="button"
+                    onClick={addTask}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
+                  >
+                    <Plus size={14} />
+                    Nueva tarea
+                  </button>
+                </div>
 
-    <img
-      src={dragPlayer.foto}
-      alt={dragPlayer.nombre}
-      className="
-        h-16
-        w-16
-        rounded-full
-        border-4
-        border-[#C8A96B]
-        shadow-2xl
-      "
-    />
+                {activeTask && (
+                  <TaskBoard
+                    key={activeTask.id}
+                    task={activeTask}
+                    players={enSesion}
+                    onChange={replaceTask}
+                    onAutoBalance={() => autoBalance(activeTask.id)}
+                  />
+                )}
 
-  )}
+                {/* LEYENDA DE PETOS */}
 
-</DragOverlay>
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-white/35">
+                    Petos
+                  </span>
+
+                  {BIB_ORDER.map((color) => {
+                    const theme = bibTheme(color);
+
+                    return (
+                      <span
+                        key={color}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-medium text-white/70"
+                      >
+                        <span
+                          className={cn("h-2 w-2 rounded-full", theme.dot)}
+                        />
+                        {theme.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <DragOverlay dropAnimation={null}>
+        {dragging && (
+          <PlayerChip player={dragging} from="overlay" size="sm" />
+        )}
+      </DragOverlay>
     </DndContext>
   );
 }
 
-export default function PizarraPage() {
+function Stat({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
   return (
-<SessionLineupProvider>
-  <PizarraContent />
-</SessionLineupProvider>
+    <div className="rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3">
+      <p
+        className={cn(
+          "text-2xl font-semibold tabular-nums",
+          accent ? "text-[#C8A96B]" : "text-white"
+        )}
+      >
+        {value}
+      </p>
+
+      <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-white/40">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function SaveBadge({
+  status,
+  localOnly,
+}: {
+  status: string;
+  localOnly: boolean;
+}) {
+  if (localOnly) {
+    return (
+      <Badge tone="amber" icon={<CloudOff size={13} />}>
+        Solo en este dispositivo
+      </Badge>
+    );
+  }
+
+  if (status === "loading" || status === "saving") {
+    return (
+      <Badge tone="neutral" icon={<Loader2 size={13} className="animate-spin" />}>
+        {status === "loading" ? "Cargando" : "Guardando"}
+      </Badge>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <Badge tone="red" icon={<TriangleAlert size={13} />}>
+        Error al guardar
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge tone="green" icon={<Check size={13} />}>
+      Guardado
+    </Badge>
+  );
+}
+
+function Badge({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "green" | "amber" | "red" | "neutral";
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const tones = {
+    green: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+    amber: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+    red: "border-red-500/30 bg-red-500/10 text-red-300",
+    neutral: "border-white/15 bg-white/5 text-white/60",
+  } as const;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium",
+        tones[tone]
+      )}
+    >
+      {icon}
+      {children}
+    </span>
   );
 }
