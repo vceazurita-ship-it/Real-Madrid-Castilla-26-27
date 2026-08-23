@@ -15,6 +15,11 @@
  * Como el puntero cae sobre un plano inclinado, `unproject` deshace la
  * proyección y devuelve el punto del campo que hay debajo del cursor. Sin
  * eso, dibujar en modo retransmisión pintaría desplazado.
+ *
+ * El arrastre no vive en la capa que lo empieza sino en `window`: así la
+ * cámara sigue moviéndose aunque el puntero se salga del campo, y el mismo
+ * gesto puede arrancar desde la capa de navegación o desde un atajo (rueda
+ * central, Alt, dos dedos) sobre el propio dibujo.
  */
 
 import {
@@ -36,6 +41,19 @@ export type PitchCameraMode = "broadcast" | "top" | "goal" | "follow";
 
 /** `2d` apaga la perspectiva y aplana el campo; `3d` la enciende. */
 export type PitchRender = "2d" | "3d";
+
+/** Lo único que se necesita de un evento para mover la cámara. */
+export interface PointerSample {
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+}
+
+/** Punto de pantalla al que se ancla el zoom. */
+export interface ScreenAnchor {
+  clientX: number;
+  clientY: number;
+}
 
 export interface CameraPose {
   /** Inclinación sobre el eje X, en grados. 0 es cenital. */
@@ -63,7 +81,7 @@ export const CAMERA_MODES: {
   short: string;
 }[] = [
   { id: "broadcast", label: "Retransmisión (TV)", short: "TV" },
-  { id: "top", label: "Cenital", short: "Top" },
+  { id: "top", label: "Cenital · campo plano", short: "Top" },
   { id: "goal", label: "Desde portería", short: "Portería" },
   { id: "follow", label: "Seguir la jugada", short: "Seguir" },
 ];
@@ -104,16 +122,26 @@ const PRESETS: Record<PitchCameraMode, CameraPose> = {
   },
 };
 
+/** Modo que se recupera al volver a encender la perspectiva. */
+const DEFAULT_3D_MODE: PitchCameraMode = "broadcast";
+
 export const TILT_MIN = 0;
 export const TILT_MAX = 74;
 export const ZOOM_MIN = 0.55;
 export const ZOOM_MAX = 3.4;
+
+/** Tope del desplazamiento, como fracción del contenedor. Evita perder el campo. */
+const PAN_LIMIT = 0.62;
 
 /** Distancia del observador, como múltiplo del ancho del contenedor. */
 const PERSPECTIVE_RATIO = 1.35;
 
 /** Constante de tiempo del suavizado, en milisegundos. */
 const EASE_MS = 190;
+
+/** Grados de giro y de inclinación por píxel arrastrado. */
+const ORBIT_YAW_SPEED = 0.32;
+const ORBIT_TILT_SPEED = 0.28;
 
 // ---------------------------------------------------------------
 // Matrices 4x4 en orden por columnas, como espera `matrix3d`
@@ -216,9 +244,33 @@ function samePose(a: CameraPose, b: CameraPose) {
   );
 }
 
+/**
+ * Profundidad de un punto del plano, ya girado e inclinado.
+ *
+ * Sirve para pintar primero lo que queda lejos. Solo depende de la postura,
+ * así que se calcula una vez por render y se aplica a todas las fichas.
+ */
+export function planeDepth(
+  pose: CameraPose,
+  x: number,
+  y: number
+): number {
+  const yaw = (pose.yaw * Math.PI) / 180;
+  const tilt = (pose.tilt * Math.PI) / 180;
+
+  return Math.sin(tilt) * (Math.sin(yaw) * x + Math.cos(yaw) * y);
+}
+
 // ---------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------
+
+/** Qué hace el arrastre en curso. */
+type GestureKind = "orbit" | "pan";
+
+type Gesture =
+  | { kind: GestureKind; id: number; x: number; y: number }
+  | { kind: "pinch"; distance: number; cx: number; cy: number };
 
 export interface UsePitchCameraOptions {
   /** Modo con el que arranca la pizarra. */
@@ -256,13 +308,23 @@ export interface PitchCamera {
 
   orbitBy: (deltaYaw: number, deltaTilt: number) => void;
   panBy: (deltaX: number, deltaY: number) => void;
-  zoomBy: (factor: number) => void;
+  /** El ancla mantiene fijo el punto del campo que hay bajo el cursor. */
+  zoomBy: (factor: number, anchor?: ScreenAnchor) => void;
   setTilt: (tilt: number) => void;
   setYaw: (yaw: number) => void;
   reset: () => void;
 
   /** Punto del plano bajo el cursor, en 0..1. `null` si aún no hay medidas. */
   unproject: (clientX: number, clientY: number) => NormalizedPoint | null;
+
+  /**
+   * Arranca un arrastre de cámara desde cualquier sitio.
+   *
+   * Lo usa tanto la capa de navegación como los atajos que funcionan con
+   * otra herramienta activa (botón central, Alt, dos dedos). El seguimiento
+   * se hace en `window`, así que basta con llamar aquí una vez.
+   */
+  beginNavigation: (pointer: PointerSample, kind: GestureKind) => void;
 
   /**
    * Handlers para la capa de navegación que cubre el campo.
@@ -272,9 +334,6 @@ export interface PitchCamera {
    */
   navigationHandlers: {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
-    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
-    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
-    onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void;
     onContextMenu: (event: ReactMouseEvent<HTMLElement>) => void;
   };
 }
@@ -461,10 +520,22 @@ export function usePitchCamera(
   // Modos
   // -------------------------------------------------------------
 
+  /**
+   * Cambia el modo y, con él, la perspectiva.
+   *
+   * Cenital es una vista plana y las otras tres solo se entienden con
+   * perspectiva. Antes había que acertar con dos botones distintos —elegir
+   * «Portería» con el campo en 2D no movía nada—, así que ahora el modo
+   * decide y el interruptor 2D/3D queda como matiz.
+   */
   const setMode = useCallback(
     (next: PitchCameraMode) => {
       setModeState(next);
       setAdjusted(false);
+
+      const wanted: PitchRender = next === "top" ? "2d" : "3d";
+      setRenderState(wanted);
+      renderRef.current = wanted;
 
       const preset = PRESETS[next];
 
@@ -482,10 +553,21 @@ export function usePitchCamera(
     [retarget]
   );
 
-  const setRender = useCallback((next: PitchRender) => {
-    setRenderState(next);
-    renderRef.current = next;
-  }, []);
+  const setRender = useCallback(
+    (next: PitchRender) => {
+      setRenderState(next);
+      renderRef.current = next;
+
+      // Encender la perspectiva desde la cenital dejaba el campo igual de
+      // plano: no hay inclinación que enseñar. Se sale a retransmisión.
+      if (next === "3d" && mode === "top") {
+        setModeState(DEFAULT_3D_MODE);
+        setAdjusted(false);
+        retarget(() => ({ ...PRESETS[DEFAULT_3D_MODE] }));
+      }
+    },
+    [mode, retarget]
+  );
 
   // -------------------------------------------------------------
   // Seguimiento del balón o del jugador
@@ -510,6 +592,18 @@ export function usePitchCamera(
 
   const touch = useCallback(() => setAdjusted(true), []);
 
+  /** Mantiene el campo a la vista por muy lejos que se arrastre. */
+  const clampPan = useCallback((next: CameraPose): CameraPose => {
+    const { width, height } = sizeRef.current;
+    if (width === 0 || height === 0) return next;
+
+    return {
+      ...next,
+      panX: clamp(next.panX, -width * PAN_LIMIT, width * PAN_LIMIT),
+      panY: clamp(next.panY, -height * PAN_LIMIT, height * PAN_LIMIT),
+    };
+  }, []);
+
   const orbitBy = useCallback(
     (deltaYaw: number, deltaTilt: number) => {
       touch();
@@ -527,25 +621,54 @@ export function usePitchCamera(
     (deltaX: number, deltaY: number) => {
       touch();
 
-      retarget((current) => ({
-        ...current,
-        panX: current.panX + deltaX,
-        panY: current.panY + deltaY,
-      }));
+      retarget((current) =>
+        clampPan({
+          ...current,
+          panX: current.panX + deltaX,
+          panY: current.panY + deltaY,
+        })
+      );
     },
-    [retarget, touch]
+    [clampPan, retarget, touch]
   );
 
+  /**
+   * Zoom, opcionalmente anclado a un punto de la pantalla.
+   *
+   * Con ancla, el trozo de campo que hay bajo el cursor se queda quieto: es
+   * lo que espera cualquiera que use la rueda para acercarse a un detalle.
+   * Sin ella se acerca al centro, como antes.
+   */
   const zoomBy = useCallback(
-    (factor: number) => {
+    (factor: number, anchor?: ScreenAnchor) => {
       touch();
 
-      retarget((current) => ({
-        ...current,
-        zoom: clamp(current.zoom * factor, ZOOM_MIN, ZOOM_MAX),
-      }));
+      retarget((current) => {
+        const zoom = clamp(current.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+        const ratio = zoom / current.zoom;
+
+        const element = containerRef.current;
+        if (!anchor || !element || Math.abs(ratio - 1) < 1e-6) {
+          return { ...current, zoom };
+        }
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return { ...current, zoom };
+
+        // El punto se proyecta en  pantalla = pan + zoom · plano. Manteniendo
+        // «plano» fijo y despejando el pan nuevo sale esta interpolación.
+        const sx = anchor.clientX - rect.left - rect.width / 2;
+        const sy = anchor.clientY - rect.top - rect.height / 2;
+
+        return clampPan({
+          ...current,
+          zoom,
+          panX: sx * (1 - ratio) + ratio * current.panX,
+          panY: sy * (1 - ratio) + ratio * current.panY,
+        });
+      });
     },
-    [retarget, touch]
+    [clampPan, retarget, touch]
   );
 
   const setTilt = useCallback(
@@ -633,71 +756,146 @@ export function usePitchCamera(
   );
 
   // -------------------------------------------------------------
-  // Navegación con el ratón
+  // Navegación con el ratón y con los dedos
   // -------------------------------------------------------------
 
-  const dragRef = useRef<{
-    id: number;
-    x: number;
-    y: number;
-    kind: "orbit" | "pan";
-  } | null>(null);
+  /** Punteros que ahora mismo están moviendo la cámara. */
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const gestureRef = useRef<Gesture | null>(null);
 
-  const endDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (dragRef.current?.id !== event.pointerId) return;
+  const beginNavigation = useCallback(
+    (pointer: PointerSample, kind: GestureKind) => {
+      const pointers = pointersRef.current;
 
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    dragRef.current = null;
-    setNavigating(false);
-  }, []);
+      pointers.set(pointer.pointerId, {
+        x: pointer.clientX,
+        y: pointer.clientY,
+      });
+
+      const active = [...pointers.values()];
+
+      if (active.length >= 2) {
+        // Dos dedos: pellizcar para el zoom y arrastrar para desplazar.
+        const [a, b] = active.slice(-2);
+
+        gestureRef.current = {
+          kind: "pinch",
+          distance: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+          cx: (a.x + b.x) / 2,
+          cy: (a.y + b.y) / 2,
+        };
+      } else {
+        gestureRef.current = {
+          kind,
+          id: pointer.pointerId,
+          x: pointer.clientX,
+          y: pointer.clientY,
+        };
+      }
+
+      setNavigating(true);
+    },
+    []
+  );
+
+  /*
+   * El seguimiento vive en `window` para que el gesto no se corte al salir
+   * del campo y para que dé igual desde qué capa se haya empezado.
+   */
+  useEffect(() => {
+    const handleMove = (event: PointerEvent) => {
+      const pointers = pointersRef.current;
+      if (!pointers.has(event.pointerId)) return;
+
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      const gesture = gestureRef.current;
+      if (!gesture) return;
+
+      if (gesture.kind === "pinch") {
+        const [a, b] = [...pointers.values()];
+        if (!a || !b) return;
+
+        const distance = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        const cx = (a.x + b.x) / 2;
+        const cy = (a.y + b.y) / 2;
+
+        zoomBy(distance / gesture.distance, { clientX: cx, clientY: cy });
+        panBy(cx - gesture.cx, cy - gesture.cy);
+
+        gesture.distance = distance;
+        gesture.cx = cx;
+        gesture.cy = cy;
+        return;
+      }
+
+      if (gesture.id !== event.pointerId) return;
+
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+
+      gesture.x = event.clientX;
+      gesture.y = event.clientY;
+
+      if (gesture.kind === "pan") {
+        panBy(dx, dy);
+        return;
+      }
+
+      // Horizontal gira el campo; vertical lo inclina.
+      orbitBy(dx * ORBIT_YAW_SPEED, -dy * ORBIT_TILT_SPEED);
+    };
+
+    const handleUp = (event: PointerEvent) => {
+      const pointers = pointersRef.current;
+      if (!pointers.delete(event.pointerId)) return;
+
+      // Al levantar un dedo del pellizco, el que queda sigue desplazando.
+      if (gestureRef.current?.kind === "pinch" && pointers.size === 1) {
+        const [id] = [...pointers.keys()];
+        const point = pointers.get(id);
+
+        if (point) {
+          gestureRef.current = { kind: "pan", id, x: point.x, y: point.y };
+          return;
+        }
+      }
+
+      if (pointers.size > 0) return;
+
+      gestureRef.current = null;
+      setNavigating(false);
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
+  }, [orbitBy, panBy, zoomBy]);
 
   const navigationHandlers = useMemo(
     () => ({
       onPointerDown(event: ReactPointerEvent<HTMLElement>) {
         // Botón central o derecho, o con Mayús: paneo. El resto, órbita.
         const kind =
-          event.button === 0 && !event.shiftKey ? ("orbit" as const) : ("pan" as const);
+          event.button === 0 && !event.shiftKey
+            ? ("orbit" as const)
+            : ("pan" as const);
 
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-
-        dragRef.current = {
-          id: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-          kind,
-        };
-
-        setNavigating(true);
+        beginNavigation(event.nativeEvent, kind);
       },
-
-      onPointerMove(event: ReactPointerEvent<HTMLElement>) {
-        const drag = dragRef.current;
-        if (!drag || drag.id !== event.pointerId) return;
-
-        const dx = event.clientX - drag.x;
-        const dy = event.clientY - drag.y;
-
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-
-        if (drag.kind === "pan") {
-          panBy(dx, dy);
-          return;
-        }
-
-        // Horizontal gira el campo; vertical lo inclina.
-        orbitBy(dx * 0.32, -dy * 0.28);
-      },
-
-      onPointerUp: endDrag,
-      onPointerCancel: endDrag,
 
       onContextMenu(event: ReactMouseEvent<HTMLElement>) {
         event.preventDefault();
       },
     }),
-    [endDrag, orbitBy, panBy]
+    [beginNavigation]
   );
 
   // -------------------------------------------------------------
@@ -743,6 +941,7 @@ export function usePitchCamera(
     setYaw,
     reset,
     unproject,
+    beginNavigation,
     navigationHandlers,
   };
 }

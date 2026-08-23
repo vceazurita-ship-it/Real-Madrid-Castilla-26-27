@@ -41,7 +41,7 @@ export const BOARD_TOOLS: {
   {
     id: "camera",
     label: "Cámara",
-    hint: "Arrastra para orbitar · Mayús o botón derecho para desplazar · rueda para zoom",
+    hint: "Arrastra para orbitar · Mayús o botón derecho desplaza · rueda para el zoom · flechas del teclado también",
     icon: <Move3d size={15} />,
   },
   {

@@ -39,7 +39,7 @@ import PitchCameraBar, { FollowSubject } from "./PitchCameraBar";
 import PitchTimelineBar from "./PitchTimelineBar";
 import BoardToolPalette from "./BoardToolPalette";
 import BoardStyleBar from "./BoardStyleBar";
-import { usePitchCamera } from "@/hooks/usePitchCamera";
+import { planeDepth, usePitchCamera } from "@/hooks/usePitchCamera";
 import { usePitchTimeline } from "@/hooks/usePitchTimeline";
 import {
   freeSpot,
@@ -49,7 +49,6 @@ import {
   rivalTokenId,
 } from "@/lib/tactics/rivals";
 import {
-  clampToPitch,
   duplicateScene,
   emptyScene,
   interpolateTokens,
@@ -112,6 +111,14 @@ export default function TacticsBoard({
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Distancia entre el centro de la ficha y el punto donde se agarró.
+   *
+   * Sin ella la ficha saltaba para centrarse bajo el cursor, un tirón que
+   * con el campo inclinado se notaba todavía más.
+   */
+  const grabRef = useRef<Point | null>(null);
 
   const [tool, setTool] = useState<ToolId>("select");
   const [color, setColor] = useState(DRAW_COLORS[0]);
@@ -214,19 +221,74 @@ export default function TacticsBoard({
 
   const { unproject } = camera;
 
-  /** Coordenadas del puntero en el espacio del campo, ya des-proyectadas. */
-  const toPitch = useCallback(
-    (event: ReactPointerEvent): Point => {
-      const point = unproject(event.clientX, event.clientY);
-      if (!point) return { x: 0, y: 0 };
+  /** Deja el punto dentro del encuadre visible, no solo dentro del campo. */
+  const clampToView = useCallback(
+    (point: Point): Point => ({
+      x: Math.min(viewBox.minX + viewBox.width, Math.max(viewBox.minX, point.x)),
+      y: Math.min(
+        viewBox.minY + viewBox.height,
+        Math.max(viewBox.minY, point.y)
+      ),
+    }),
+    [viewBox]
+  );
 
-      return clampToPitch({
+  /**
+   * Coordenadas del puntero en el espacio del campo, ya des-proyectadas.
+   *
+   * Devuelve `null` si la cámara todavía no tiene medidas: antes se caía al
+   * (0,0) y una ficha se iba de golpe a la esquina.
+   */
+  const toPitch = useCallback(
+    (event: ReactPointerEvent): Point | null => {
+      const point = unproject(event.clientX, event.clientY);
+      if (!point) return null;
+
+      return clampToView({
         x: viewBox.minX + point.x * viewBox.width,
         y: viewBox.minY + point.y * viewBox.height,
       });
     },
-    [unproject, viewBox]
+    [clampToView, unproject, viewBox]
   );
+
+  /**
+   * Cuánto hay que estirar las fichas para que se lean con el campo inclinado.
+   *
+   * La perspectiva aplasta el plano por el eje vertical; multiplicar por
+   * 1/cos(tilt) deshace ese aplastamiento solo en las fichas, así que los
+   * dorsales y los nombres siguen siendo redondos y legibles mientras el
+   * césped, las flechas y las zonas se quedan tumbados donde les toca. El
+   * tope evita que con la cámara casi a ras de suelo se vuelvan gigantes.
+   */
+  const tokenLift = useMemo(() => {
+    if (camera.render !== "3d" || exporting) return 1;
+
+    return Math.min(1 / Math.cos((camera.pose.tilt * Math.PI) / 180), 2.4);
+  }, [camera.render, camera.pose.tilt, exporting]);
+
+  /**
+   * Fichas ordenadas de lejos a cerca.
+   *
+   * El SVG pinta en el orden del documento, así que sin esto una ficha del
+   * fondo podía taparse encima de otra que está en primer plano.
+   */
+  const paintedTokens = useMemo(() => {
+    if (camera.render !== "3d" || exporting) return visibleTokens;
+
+    const pose = camera.pose;
+
+    return [...visibleTokens].sort(
+      (a, b) => planeDepth(pose, a.x, a.y) - planeDepth(pose, b.x, b.y)
+    );
+  }, [camera.render, camera.pose, exporting, visibleTokens]);
+
+  /** El gesto de cámara se ha llevado el puntero: no dejes nada a medias. */
+  const cancelEditGesture = useCallback(() => {
+    setDraft(null);
+    setDraggingToken(null);
+    grabRef.current = null;
+  }, []);
 
   // ---------------------------------------------------------------
   // Historial
@@ -281,6 +343,7 @@ export default function TacticsBoard({
     if (tool === "select" || tool === "erase" || tool === "camera") return;
 
     const point = toPitch(event);
+    if (!point) return;
 
     svgRef.current?.setPointerCapture(event.pointerId);
 
@@ -317,8 +380,13 @@ export default function TacticsBoard({
     if (live) return;
 
     const point = toPitch(event);
+    if (!point) return;
 
     if (draggingToken) {
+      // La ficha conserva el punto por el que se agarró.
+      const grab = grabRef.current ?? { x: 0, y: 0 };
+      const spot = clampToView({ x: point.x + grab.x, y: point.y + grab.y });
+
       onChange({
         ...doc,
         scenes: doc.scenes.map((item, index) =>
@@ -327,7 +395,7 @@ export default function TacticsBoard({
                 ...item,
                 tokens: item.tokens.map((token) =>
                   token.id === draggingToken
-                    ? { ...token, x: point.x, y: point.y }
+                    ? { ...token, x: spot.x, y: spot.y }
                     : token
                 ),
               }
@@ -361,6 +429,7 @@ export default function TacticsBoard({
 
     if (draggingToken) {
       setDraggingToken(null);
+      grabRef.current = null;
       // El arrastre ya escribió posiciones; guardamos un punto de deshacer.
       setPast((current) => [...current.slice(-40), doc]);
       return;
@@ -757,6 +826,7 @@ export default function TacticsBoard({
         aspect={`${viewBox.width} / ${viewBox.height}`}
         navigable={tool === "camera"}
         frameRef={frameRef}
+        onGestureStart={cancelEditGesture}
         cameraBar={
           <PitchCameraBar
             camera={camera}
@@ -858,7 +928,7 @@ export default function TacticsBoard({
 
           {/* Fichas */}
           <g>
-            {visibleTokens.map((token) => {
+            {paintedTokens.map((token) => {
               const style = TOKEN_STYLE[token.kind];
               const anchored =
                 follow === "player" && followId === token.id;
@@ -878,10 +948,18 @@ export default function TacticsBoard({
 
                     if (tool !== "select") return;
 
+                    const point = toPitch(event);
+                    if (!point) return;
+
                     event.stopPropagation();
 
                     // La última ficha tocada es la que persigue la cámara.
                     if (token.kind !== "ball") setFollowId(token.id);
+
+                    grabRef.current = {
+                      x: token.x - point.x,
+                      y: token.y - point.y,
+                    };
 
                     svgRef.current?.setPointerCapture(event.pointerId);
                     setDraggingToken(token.id);
@@ -893,7 +971,7 @@ export default function TacticsBoard({
                 >
                   <title>{token.nombre ?? token.label}</title>
 
-                  {/* Sombra: da volumen cuando el campo está inclinado. */}
+                  {/* Sombra: se queda tumbada en el césped, bajo la ficha. */}
                   <ellipse
                     cx={0}
                     cy={style.radius * 0.55}
@@ -903,6 +981,7 @@ export default function TacticsBoard({
                     style={{ pointerEvents: "none" }}
                   />
 
+                  {/* Marca del anclaje: también pintada sobre el césped. */}
                   {anchored && (
                     <circle
                       r={style.radius + 1.1}
@@ -914,6 +993,16 @@ export default function TacticsBoard({
                     />
                   )}
 
+                  {/*
+                    La ficha se endereza para que la perspectiva no la
+                    aplaste: se estira lo justo para volver a verse redonda.
+                    El estirado sale de la sombra hacia arriba, así que la
+                    ficha parece de pie sobre el césped en vez de tumbada.
+                  */}
+                  <g
+                    transform={`translate(0 ${style.radius * 0.55}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-style.radius * 0.55})`}
+                    style={{ transition: "transform 190ms ease-out" }}
+                  >
                   {token.kind === "cone" ? (
                     <polygon
                       points={`0,${-style.radius} ${style.radius},${style.radius} ${-style.radius},${style.radius}`}
@@ -954,6 +1043,7 @@ export default function TacticsBoard({
                       {token.nombre}
                     </text>
                   )}
+                  </g>
                 </g>
               );
             })}

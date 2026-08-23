@@ -10,9 +10,21 @@
  *
  * El SVG que se le pasa no sabe nada de la cámara: sigue dibujando en su
  * espacio de campo. Por eso el mismo escenario vale para cualquier tablero.
+ *
+ * Aquí viven además los atajos de cámara que funcionan sin soltar la
+ * herramienta que se esté usando: rueda central o botón derecho para
+ * desplazar, Alt para orbitar, Ctrl/⌘ + rueda para el zoom y dos dedos para
+ * pellizcar. Sin ellos había que ir a la paleta y volver cada vez que se
+ * quería mirar la jugada desde otro sitio.
  */
 
-import { ReactNode, Ref, useEffect, useRef } from "react";
+import {
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactNode,
+  Ref,
+  useEffect,
+  useRef,
+} from "react";
 
 import type { PitchCamera } from "@/hooks/usePitchCamera";
 import { cn } from "@/lib/utils";
@@ -25,6 +37,13 @@ interface Props {
   navigable: boolean;
   /** Referencia al marco completo, para exportar la imagen. */
   frameRef?: Ref<HTMLDivElement>;
+  /**
+   * Aviso de que un atajo se ha quedado con el gesto.
+   *
+   * El tablero lo usa para tirar el trazo a medias o soltar la ficha que
+   * estuviera arrastrando, y que mover la cámara no deje un garabato.
+   */
+  onGestureStart?: () => void;
   /** El campo. */
   children: ReactNode;
   /** Barra de modos de cámara (arriba a la derecha). */
@@ -38,11 +57,16 @@ interface Props {
   className?: string;
 }
 
+/** Paso del teclado, en grados y en píxeles. */
+const KEY_ORBIT = 4;
+const KEY_PAN = 24;
+
 export default function PitchStage({
   camera,
   aspect,
   navigable,
   frameRef,
+  onGestureStart,
   children,
   cameraBar,
   toolbar,
@@ -50,7 +74,7 @@ export default function PitchStage({
   timeline,
   className,
 }: Props) {
-  const navRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const {
     attachContainer,
@@ -59,26 +83,154 @@ export default function PitchStage({
     planeStyle,
     navigating,
     navigationHandlers,
+    beginNavigation,
+    orbitBy,
+    panBy,
     zoomBy,
+    reset,
+    render,
   } = camera;
 
   /**
-   * La rueda hace zoom, y para eso hay que cancelar el desplazamiento de la
-   * página. React registra `wheel` como pasivo, así que se engancha a mano.
+   * La rueda hace zoom sobre el punto que hay bajo el cursor.
+   *
+   * Con la herramienta de cámara basta girarla; con cualquier otra hace
+   * falta Ctrl o ⌘, que es además lo que envía el pellizco del trackpad.
+   * En ambos casos hay que cancelar el desplazamiento de la página, y React
+   * registra `wheel` en modo pasivo, así que se engancha a mano.
    */
   useEffect(() => {
-    const element = navRef.current;
-    if (!element || !navigable) return;
+    const element = stageRef.current;
+    if (!element) return;
 
     const onWheel = (event: WheelEvent) => {
+      const zooming = navigable || event.ctrlKey || event.metaKey;
+      if (!zooming) return;
+
       event.preventDefault();
-      zoomBy(event.deltaY < 0 ? 1.09 : 1 / 1.09);
+
+      // El pellizco del trackpad manda saltos grandes; se suaviza el paso.
+      const step = Math.min(0.2, Math.abs(event.deltaY) / 400 + 0.04);
+
+      zoomBy(event.deltaY < 0 ? 1 + step : 1 / (1 + step), {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
     };
 
     element.addEventListener("wheel", onWheel, { passive: false });
 
     return () => element.removeEventListener("wheel", onWheel);
   }, [navigable, zoomBy]);
+
+  /**
+   * Atajos de cámara mientras se dibuja o se mueven fichas.
+   *
+   * Se escuchan en captura para adelantarse al SVG: si el gesto es de
+   * cámara, el dibujo ni se entera.
+   */
+  useEffect(() => {
+    const element = stageRef.current;
+    if (!element || navigable) return;
+
+    /** Dedos apoyados ahora mismo sobre el campo. */
+    const touches = new Map<number, { x: number; y: number }>();
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "touch") {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        // Un dedo dibuja; el segundo convierte el gesto en pellizco.
+        if (touches.size !== 2) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        onGestureStart?.();
+
+        for (const [pointerId, point] of touches) {
+          beginNavigation(
+            { pointerId, clientX: point.x, clientY: point.y },
+            "pan"
+          );
+        }
+
+        return;
+      }
+
+      // Rueda central o botón derecho: desplazar. Alt: orbitar.
+      const kind =
+        event.button === 1 || event.button === 2
+          ? ("pan" as const)
+          : event.altKey
+          ? event.shiftKey
+            ? ("pan" as const)
+            : ("orbit" as const)
+          : null;
+
+      if (!kind) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      onGestureStart?.();
+      beginNavigation(event, kind);
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      if (!touches.has(event.pointerId)) return;
+
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      touches.delete(event.pointerId);
+    };
+
+    // El menú contextual estorba al usar el botón derecho para desplazar.
+    const onContextMenu = (event: MouseEvent) => event.preventDefault();
+
+    element.addEventListener("pointerdown", onPointerDown, { capture: true });
+    element.addEventListener("pointermove", onPointerMove, { capture: true });
+    element.addEventListener("pointerup", onPointerUp, { capture: true });
+    element.addEventListener("pointercancel", onPointerUp, { capture: true });
+    element.addEventListener("contextmenu", onContextMenu);
+
+    return () => {
+      element.removeEventListener("pointerdown", onPointerDown, {
+        capture: true,
+      });
+      element.removeEventListener("pointermove", onPointerMove, {
+        capture: true,
+      });
+      element.removeEventListener("pointerup", onPointerUp, { capture: true });
+      element.removeEventListener("pointercancel", onPointerUp, {
+        capture: true,
+      });
+      element.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [beginNavigation, navigable, onGestureStart]);
+
+  /** Flechas para orbitar, con Mayús para desplazar; +/- zoom y 0 reinicia. */
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const pan = event.shiftKey;
+
+    const moves: Record<string, () => void> = {
+      ArrowLeft: () => (pan ? panBy(KEY_PAN, 0) : orbitBy(-KEY_ORBIT, 0)),
+      ArrowRight: () => (pan ? panBy(-KEY_PAN, 0) : orbitBy(KEY_ORBIT, 0)),
+      ArrowUp: () => (pan ? panBy(0, KEY_PAN) : orbitBy(0, KEY_ORBIT)),
+      ArrowDown: () => (pan ? panBy(0, -KEY_PAN) : orbitBy(0, -KEY_ORBIT)),
+      "+": () => zoomBy(1.12),
+      "=": () => zoomBy(1.12),
+      "-": () => zoomBy(1 / 1.12),
+      "0": () => reset(),
+    };
+
+    const move = moves[event.key];
+    if (!move) return;
+
+    event.preventDefault();
+    move();
+  };
 
   return (
     <div
@@ -88,7 +240,7 @@ export default function PitchStage({
         className
       )}
     >
-      <div className="relative">
+      <div ref={stageRef} className="relative">
         {/* Fondo del estadio: al inclinar el campo queda hueco alrededor. */}
         <div
           aria-hidden
@@ -114,14 +266,30 @@ export default function PitchStage({
         */}
         {navigable && (
           <div
-            ref={navRef}
             data-export-hide
+            tabIndex={0}
+            role="application"
+            aria-label="Navegación de la cámara. Flechas para orbitar, Mayús y flechas para desplazar, más y menos para el zoom, cero para reiniciar."
             {...navigationHandlers}
+            onKeyDown={handleKeyDown}
             className={cn(
-              "absolute inset-0 z-20 touch-none",
+              "absolute inset-0 z-20 touch-none outline-none ring-inset focus-visible:ring-2 focus-visible:ring-[#C8A96B]/60",
               navigating ? "cursor-grabbing" : "cursor-grab"
             )}
           />
+        )}
+
+        {/* AYUDA DE NAVEGACIÓN */}
+
+        {(navigable || render === "3d") && (
+          <p
+            data-export-hide
+            className="pointer-events-none absolute bottom-3 right-3 z-30 hidden max-w-[58%] rounded-lg bg-[#0B0F14]/75 px-2 py-1 text-right text-[10px] leading-tight text-white/45 backdrop-blur-sm sm:block"
+          >
+            {navigable
+              ? "Arrastra para orbitar · Mayús o botón derecho para desplazar · rueda para el zoom"
+              : "Alt + arrastrar orbita · botón central o derecho desplaza · Ctrl + rueda hace zoom"}
+          </p>
         )}
 
         {/* BARRA DE CÁMARA */}
