@@ -9,9 +9,17 @@
  * las páginas se lean igual y se arreglen una sola vez.
  */
 
-import { Check, ChevronDown, CloudOff, Info, Loader2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  CloudOff,
+  Info,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 /* ------------------------------------------------------------------ */
 /*  CABECERA                                                           */
@@ -416,37 +424,178 @@ export function Segmented<T extends string>({
   );
 }
 
-/** Selector horizontal de equipo: más rápido que abrir un desplegable. */
+/** Quita acentos y mayúsculas para que "atletico" encuentre al "Atlético". */
+function normalizeTeamText(text: string) {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Selector de equipo con buscador.
+ *
+ * Era una tira horizontal con la barra de scroll oculta: con veinte rivales de
+ * liga los últimos quedaban fuera de pantalla, la rueda del ratón no mueve un
+ * contenedor horizontal y no había forma de buscar por nombre, así que a media
+ * lista no se llegaba. Ahora los equipos fluyen en varias líneas dentro de una
+ * caja que sí scrollea en vertical y encima hay un campo de búsqueda que filtra
+ * ignorando acentos; Enter elige la primera coincidencia.
+ */
 export function TeamPicker({
   teams,
   value,
   onChange,
+  countOf,
 }: {
   teams: string[];
   value: string;
   onChange: (team: string) => void;
+  /** Acciones ya registradas del equipo: marca en el chip los que tienen datos. */
+  countOf?: (team: string) => number;
 }) {
-  return (
-    <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {teams.map((team) => {
-        const active = team === value;
+  const [query, setQuery] = useState("");
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const selectedRef = useRef<HTMLButtonElement | null>(null);
 
-        return (
-          <button
-            key={team}
-            type="button"
-            onClick={() => onChange(team)}
-            aria-pressed={active}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-              active
-                ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
-                : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
-            }`}
-          >
-            {team}
-          </button>
-        );
-      })}
+  /* Con pocos equipos el buscador estorba más de lo que ayuda. */
+  const searchable = teams.length > 6;
+
+  const matches = useMemo(() => {
+    const needle = normalizeTeamText(query);
+
+    if (!needle) return teams;
+
+    return teams.filter((team) => normalizeTeamText(team).includes(needle));
+  }, [teams, query]);
+
+  /* El elegido se pinta siempre, aunque el filtro no lo alcance: si no, al
+     escribir se pierde de vista con qué rival se está trabajando. */
+  const visible = useMemo(
+    () => (value && !matches.includes(value) ? [value, ...matches] : matches),
+    [matches, value],
+  );
+
+  /* El rival de la semana puede caer en una línea que no se ve al abrir. Se
+     mueve la caja a mano, no con `scrollIntoView`, para no arrastrar también
+     la página entera si el selector queda fuera de pantalla. */
+  useEffect(() => {
+    const box = listRef.current;
+    const chip = selectedRef.current;
+
+    if (!box || !chip) return;
+
+    const boxRect = box.getBoundingClientRect();
+    const chipRect = chip.getBoundingClientRect();
+
+    if (chipRect.top < boxRect.top || chipRect.bottom > boxRect.bottom) {
+      box.scrollTop +=
+        chipRect.top - boxRect.top - (boxRect.height - chipRect.height) / 2;
+    }
+  }, [value]);
+
+  const pickFirstMatch = () => {
+    const first = matches[0];
+
+    if (!first) return;
+
+    onChange(first);
+    setQuery("");
+  };
+
+  return (
+    <div className="min-w-0 space-y-2.5">
+      {searchable && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+            />
+
+            <input
+              type="text"
+              value={query}
+              placeholder="Buscar equipo…"
+              aria-label="Buscar equipo"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  pickFirstMatch();
+                } else if (event.key === "Escape") {
+                  setQuery("");
+                }
+              }}
+              className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-8 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+            />
+
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Limpiar la búsqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-white/35 transition hover:text-white"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <span className="text-[11px] tabular-nums text-white/35">
+            {query
+              ? `${matches.length} de ${teams.length} equipos`
+              : `${teams.length} equipos`}
+          </span>
+        </div>
+      )}
+
+      {query && matches.length === 0 && (
+        <p className="text-[11px] text-white/40">
+          Ningún equipo coincide con «{query}».
+        </p>
+      )}
+
+      <div
+        ref={listRef}
+        className="flex max-h-[10.5rem] min-w-0 flex-wrap content-start gap-2 overflow-y-auto rounded-xl border border-white/5 bg-white/[0.02] p-2"
+      >
+        {visible.map((team) => {
+          const active = team === value;
+          const registradas = countOf?.(team) ?? 0;
+
+          return (
+            <button
+              key={team}
+              ref={active ? selectedRef : undefined}
+              type="button"
+              onClick={() => onChange(team)}
+              aria-pressed={active}
+              className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+                active
+                  ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+                  : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              {team}
+
+              {registradas > 0 && (
+                <span
+                  title={`${registradas} acciones registradas`}
+                  className={`rounded-full px-1.5 text-[10px] tabular-nums ${
+                    active
+                      ? "bg-[#C8A96B]/25 text-[#C8A96B]"
+                      : "bg-emerald-400/15 text-emerald-300"
+                  }`}
+                >
+                  {registradas}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

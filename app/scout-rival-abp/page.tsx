@@ -210,7 +210,10 @@ export default function ScoutRivalAbpPage() {
      Albacete, Ferrol, Ponferradina… No son de la competición y no deben
      mezclarse con el análisis de la jornada. */
   const equiposPretemporada = useMemo(
-    () => equiposHoja.filter((nombre) => !clavesLiga.has(teamKey(nombre))),
+    () =>
+      equiposHoja
+        .filter((nombre) => !clavesLiga.has(teamKey(nombre)))
+        .sort((a, b) => a.localeCompare(b, "es")),
     [equiposHoja, clavesLiga],
   );
 
@@ -427,7 +430,7 @@ export default function ScoutRivalAbpPage() {
         <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
           <AbpHeader
             area="RMCF Castilla · Rival"
-            title="ABP del Rival"
+            title={equipo ? `ABP · ${equipo}` : "ABP del Rival"}
             lead="Cómo ataca y cómo defiende el rival a balón parado: córners, faltas, penaltis y saques de banda por zona, con sus lanzadores, sus rematadores y la estatura que meten al área."
             aside={
               equipo ? (
@@ -472,7 +475,7 @@ export default function ScoutRivalAbpPage() {
 
                   <span className="text-[11px] text-white/35">
                     {grupo === "liga"
-                      ? `${equiposLiga.length} rivales de Primera RFEF`
+                      ? "Rivales de Primera RFEF"
                       : "Amistosos de pretemporada, fuera de la competición"}
                   </span>
                 </div>
@@ -480,11 +483,11 @@ export default function ScoutRivalAbpPage() {
                 {equiposVisibles.length === 0 ? (
                   <EmptyState title="No hay equipos en esta lista" />
                 ) : (
-                  <TeamPickerConDatos
+                  <TeamPicker
                     teams={equiposVisibles}
                     value={equipo}
                     onChange={pickTeam}
-                    counts={registradas}
+                    countOf={(nombre) => registradas.get(scoutKey(nombre)) ?? 0}
                   />
                 )}
 
@@ -826,63 +829,6 @@ export default function ScoutRivalAbpPage() {
 /* ------------------------------------------------------------------ */
 /*  SUBCOMPONENTES                                                     */
 /* ------------------------------------------------------------------ */
-
-/** `TeamPicker` con el número de acciones propias ya registradas. */
-function TeamPickerConDatos({
-  teams,
-  value,
-  onChange,
-  counts,
-}: {
-  teams: string[];
-  value: string;
-  onChange: (team: string) => void;
-  counts: Map<string, number>;
-}) {
-  const conDatos = teams.some((team) => counts.get(scoutKey(team)));
-
-  if (!conDatos) {
-    return <TeamPicker teams={teams} value={value} onChange={onChange} />;
-  }
-
-  return (
-    <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {teams.map((team) => {
-        const active = team === value;
-        const registradas = counts.get(scoutKey(team)) ?? 0;
-
-        return (
-          <button
-            key={team}
-            type="button"
-            onClick={() => onChange(team)}
-            aria-pressed={active}
-            className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-              active
-                ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
-                : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
-            }`}
-          >
-            {team}
-
-            {registradas > 0 && (
-              <span
-                title={`${registradas} acciones registradas`}
-                className={`rounded-full px-1.5 text-[10px] tabular-nums ${
-                  active
-                    ? "bg-[#C8A96B]/25 text-[#C8A96B]"
-                    : "bg-emerald-400/15 text-emerald-300"
-                }`}
-              >
-                {registradas}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function PeopleList({
   people,
