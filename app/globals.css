@@ -1,8 +1,85 @@
 @import "tailwindcss";
 
+/* ===========================
+   TEMA: MODO NOCHE (por defecto) Y MODO DÍA
+   `data-theme` lo fija el script en línea de app/layout.tsx antes del primer
+   pintado, así que al recargar no hay parpadeo. Sin atributo manda el oscuro,
+   que es el diseño original de la plataforma.
+
+   El modo día no reescribe los componentes: al final de este archivo hay una
+   tabla de equivalencias que traduce las clases del tema oscuro
+   (`text-white`, `bg-white/[0.03]`, `bg-[#0B0F14]`…) a su versión clara.
+=========================== */
+
 :root {
+  color-scheme: dark;
+
   --background: #0B0F14;
   --foreground: #F5F7FA;
+
+  --rmcf-border: rgba(255,255,255,0.08);
+  --rmcf-selection: rgba(200,169,107,0.30);
+  --rmcf-scroll-thumb: rgba(200,169,107,.35);
+  --rmcf-scroll-thumb-hover: rgba(200,169,107,.75);
+
+  --rmcf-body-bg:
+    radial-gradient(circle at top left, rgba(200,169,107,0.08), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(79,107,255,0.08), transparent 25%),
+    #0B0F14;
+
+  /* Oro corporativo tal cual: en modo día se oscurece para poder leerlo. */
+  --rmcf-gold-ink: #C8A96B;
+
+  /* Mando para oscurecer colores pastel arbitrarios (etiquetas de rival, por
+     ejemplo) sin tener que declarar una variable por color. En modo noche se
+     conserva el 100%, así que el color no cambia. */
+  --rmcf-chip-keep: 100%;
+  --rmcf-chip-mix: #000;
+
+  /* Escala de color de las notas (0-10). Se consume desde JS
+     (`lib/ratings/compute.ts`) para que cambie con el tema. */
+  --rmcf-rate-none: #64748B;
+  --rmcf-rate-low:  #F87171;
+  --rmcf-rate-mid:  #FBBF24;
+  --rmcf-rate-good: #4ADE80;
+  --rmcf-rate-top:  #22D3EE;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #EBEEF3;
+  --foreground: #0B0F14;
+
+  /* Piezas del modo día que usa la tabla de equivalencias. */
+  --rmcf-page: #EBEEF3;
+  --rmcf-surface: #FFFFFF;
+  --rmcf-surface-2: #F3F5F9;
+  --rmcf-ink: #0B0F14;
+  --rmcf-ink-rgb: 11 15 20;
+  --rmcf-gold-ink: #8A6A2C;
+
+  --rmcf-border: rgba(11,15,20,0.10);
+  --rmcf-selection: rgba(200,169,107,0.45);
+  --rmcf-scroll-thumb: rgba(138,106,44,.35);
+  --rmcf-scroll-thumb-hover: rgba(138,106,44,.70);
+
+  --rmcf-body-bg:
+    radial-gradient(circle at top left, rgba(200,169,107,0.14), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(79,107,255,0.10), transparent 25%),
+    #EBEEF3;
+
+  /* Los pastel puros no llegan a 2:1 sobre blanco: se mezclan con negro. */
+  --rmcf-chip-keep: 62%;
+  --rmcf-chip-mix: #000;
+
+  /* Los tonos 400 de la escala de notas se apagan sobre blanco (contraste
+     ~1,6:1), así que en modo día se bajan a la familia 600-700. */
+  --rmcf-rate-none: #64748B;
+  --rmcf-rate-low:  #DC2626;
+  --rmcf-rate-mid:  #B45309;
+  --rmcf-rate-good: #15803D;
+  --rmcf-rate-top:  #0E7490;
 }
 
 html {
@@ -10,10 +87,7 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(circle at top left, rgba(200,169,107,0.08), transparent 25%),
-    radial-gradient(circle at bottom right, rgba(79,107,255,0.08), transparent 25%),
-    #0B0F14;
+  background: var(--rmcf-body-bg);
 
   color: var(--foreground);
 
@@ -23,12 +97,19 @@ body {
   min-height: 100vh;
 }
 
+/* Ojo: esta regla está fuera de `@layer`, y en la cascada una declaración sin
+   capa gana a cualquier utilidad de Tailwind (que vive en `@layer utilities`),
+   sin importar la especificidad. Es decir: fija el color de TODOS los bordes
+   de la aplicación y las clases `border-*` de los componentes no se aplican.
+   Por eso el modo día se resuelve aquí, cambiando la variable, y no clase a
+   clase. */
+
 * {
-  border-color: rgba(255,255,255,0.08);
+  border-color: var(--rmcf-border);
 }
 
 ::selection {
-  background: rgba(200,169,107,0.3);
+  background: var(--rmcf-selection);
 }
 @keyframes hero {
   0% {
@@ -196,7 +277,7 @@ animation:sweep 18s linear infinite;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(200,169,107,.35);
+  background: var(--rmcf-scroll-thumb);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -204,7 +285,7 @@ animation:sweep 18s linear infinite;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(200,169,107,.75);
+  background: var(--rmcf-scroll-thumb-hover);
 }
 
 ::-webkit-scrollbar-corner {
@@ -215,7 +296,7 @@ animation:sweep 18s linear infinite;
 
 *{
   scrollbar-width: thin;
-  scrollbar-color: rgba(200,169,107,.45) transparent;
+  scrollbar-color: var(--rmcf-scroll-thumb) transparent;
 }
 
 .scrollbar-none::-webkit-scrollbar{
@@ -335,4 +416,718 @@ scrollbar-width:none;
     overflow: visible !important;
   }
 
+}
+
+
+/* ===========================
+   MODO DÍA: TABLA DE EQUIVALENCIAS
+
+   La interfaz está escrita con clases pensadas para fondo oscuro
+   (`text-white/60`, `bg-white/[0.03]`, `bg-[#11161D]`…). En vez de tocar los
+   ~113 componentes, aquí se traduce cada una de esas clases a su equivalente
+   claro. Solo se activan con `data-theme="light"`, así que el modo noche
+   queda exactamente igual que antes.
+
+   Dos detalles que hacen que esto funcione:
+
+   - Estas reglas están fuera de `@layer`, y en la cascada una declaración sin
+     capa gana a cualquier utilidad de Tailwind (que vive en `@layer
+     utilities`), sin importar la especificidad.
+   - Se usa `[class~="…"]`, que casa el token completo. Así `bg-white/5` no
+     captura por error `hover:bg-white/5`, que se trata aparte más abajo.
+
+   Si añades una clase de color nueva pensada para el tema oscuro, añádela
+   también aquí.
+=========================== */
+
+/* Tinta: el blanco del tema oscuro pasa a tinta oscura,
+   conservando la jerarquia que daba cada nivel de opacidad. */
+:root[data-theme="light"] [class~="text-white"] {
+  color: var(--rmcf-ink);
+}
+:root[data-theme="light"] [class~="text-white/90"] {
+  color: rgb(var(--rmcf-ink-rgb) / .88);
+}
+:root[data-theme="light"] [class~="text-white/85"] {
+  color: rgb(var(--rmcf-ink-rgb) / .85);
+}
+:root[data-theme="light"] [class~="text-white/80"] {
+  color: rgb(var(--rmcf-ink-rgb) / .8);
+}
+:root[data-theme="light"] [class~="text-white/75"] {
+  color: rgb(var(--rmcf-ink-rgb) / .76);
+}
+:root[data-theme="light"] [class~="text-white/70"] {
+  color: rgb(var(--rmcf-ink-rgb) / .72);
+}
+:root[data-theme="light"] [class~="text-white/65"] {
+  color: rgb(var(--rmcf-ink-rgb) / .68);
+}
+:root[data-theme="light"] [class~="text-white/60"] {
+  color: rgb(var(--rmcf-ink-rgb) / .64);
+}
+:root[data-theme="light"] [class~="text-white/55"] {
+  color: rgb(var(--rmcf-ink-rgb) / .6);
+}
+:root[data-theme="light"] [class~="text-white/50"] {
+  color: rgb(var(--rmcf-ink-rgb) / .58);
+}
+:root[data-theme="light"] [class~="text-white/45"] {
+  color: rgb(var(--rmcf-ink-rgb) / .55);
+}
+:root[data-theme="light"] [class~="text-white/40"] {
+  color: rgb(var(--rmcf-ink-rgb) / .52);
+}
+:root[data-theme="light"] [class~="text-white/35"] {
+  color: rgb(var(--rmcf-ink-rgb) / .5);
+}
+:root[data-theme="light"] [class~="text-white/30"] {
+  color: rgb(var(--rmcf-ink-rgb) / .46);
+}
+:root[data-theme="light"] [class~="text-white/25"] {
+  color: rgb(var(--rmcf-ink-rgb) / .42);
+}
+:root[data-theme="light"] [class~="text-white/20"] {
+  color: rgb(var(--rmcf-ink-rgb) / .38);
+}
+
+/* Superficies: los velos blancos del tema oscuro se vuelven tarjetas
+   blancas sobre el lienzo gris; los velos mas opacos, gris suave. */
+:root[data-theme="light"] [class~="bg-white/[0.02]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.025]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.03]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.04]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.05]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/5"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.06]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.07]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/[0.08]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-white/10"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .06);
+}
+:root[data-theme="light"] [class~="bg-white/[0.12]"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .07);
+}
+:root[data-theme="light"] [class~="bg-white/15"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .08);
+}
+:root[data-theme="light"] [class~="bg-white/20"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .1);
+}
+:root[data-theme="light"] [class~="bg-white/30"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .14);
+}
+:root[data-theme="light"] [class~="bg-white/40"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .18);
+}
+:root[data-theme="light"] [class~="bg-white/50"] {
+  background-color: rgb(var(--rmcf-ink-rgb) / .22);
+}
+
+/* Fondos profundos: lienzo de pagina */
+:root[data-theme="light"] [class~="bg-[#02060D]"],
+:root[data-theme="light"] [class~="bg-[#030811]"],
+:root[data-theme="light"] [class~="bg-[#030B15]"],
+:root[data-theme="light"] [class~="bg-[#050A10]"],
+:root[data-theme="light"] [class~="bg-[#050E18]"],
+:root[data-theme="light"] [class~="bg-[#05101D]"],
+:root[data-theme="light"] [class~="bg-[#07111F]"],
+:root[data-theme="light"] [class~="bg-[#08131F]"],
+:root[data-theme="light"] [class~="bg-[#090C10]"],
+:root[data-theme="light"] [class~="bg-[#0B0F14]"],
+:root[data-theme="light"] [class~="bg-[#0B1320]"],
+:root[data-theme="light"] [class~="bg-[#0B1728]"],
+:root[data-theme="light"] [class~="bg-[#07121F]"],
+:root[data-theme="light"] [class~="bg-[#040B14]"] {
+  background-color: var(--rmcf-page);
+}
+
+/* Paneles y tarjetas */
+:root[data-theme="light"] [class~="bg-[#0E141C]"],
+:root[data-theme="light"] [class~="bg-[#0F141B]"],
+:root[data-theme="light"] [class~="bg-[#10151C]"],
+:root[data-theme="light"] [class~="bg-[#10161D]"],
+:root[data-theme="light"] [class~="bg-[#11161C]"],
+:root[data-theme="light"] [class~="bg-[#11161D]"],
+:root[data-theme="light"] [class~="bg-[#111827]"],
+:root[data-theme="light"] [class~="bg-[#121820]"],
+:root[data-theme="light"] [class~="bg-[#121922]"],
+:root[data-theme="light"] [class~="bg-[#14181E]"],
+:root[data-theme="light"] [class~="bg-[#141A22]"],
+:root[data-theme="light"] [class~="bg-[#141B24]"],
+:root[data-theme="light"] [class~="bg-[#151B23]"],
+:root[data-theme="light"] [class~="bg-[#161D26]"],
+:root[data-theme="light"] [class~="bg-[#0E131A]"],
+:root[data-theme="light"] [class~="bg-[#111820]"] {
+  background-color: var(--rmcf-surface);
+}
+
+/* Superficies elevadas / estados hover */
+:root[data-theme="light"] [class~="bg-[#1A212C]"],
+:root[data-theme="light"] [class~="bg-[#1A222C]"],
+:root[data-theme="light"] [class~="bg-[#1E2630]"],
+:root[data-theme="light"] [class~="bg-[#232D39]"],
+:root[data-theme="light"] [class~="bg-[#181F27]"],
+:root[data-theme="light"] [class~="bg-[#18212B]"] {
+  background-color: var(--rmcf-surface-2);
+}
+
+/* Degradados de superficie */
+:root[data-theme="light"] [class~="from-[#02060D]"],
+:root[data-theme="light"] [class~="from-[#030811]"],
+:root[data-theme="light"] [class~="from-[#030B15]"],
+:root[data-theme="light"] [class~="from-[#050A10]"],
+:root[data-theme="light"] [class~="from-[#050E18]"],
+:root[data-theme="light"] [class~="from-[#05101D]"],
+:root[data-theme="light"] [class~="from-[#07111F]"],
+:root[data-theme="light"] [class~="from-[#08131F]"],
+:root[data-theme="light"] [class~="from-[#090C10]"],
+:root[data-theme="light"] [class~="from-[#0B0F14]"],
+:root[data-theme="light"] [class~="from-[#0B1320]"],
+:root[data-theme="light"] [class~="from-[#0B1728]"],
+:root[data-theme="light"] [class~="from-[#07121F]"],
+:root[data-theme="light"] [class~="from-[#040B14]"],
+:root[data-theme="light"] [class~="from-[#0E141C]"],
+:root[data-theme="light"] [class~="from-[#0F141B]"],
+:root[data-theme="light"] [class~="from-[#10151C]"],
+:root[data-theme="light"] [class~="from-[#10161D]"],
+:root[data-theme="light"] [class~="from-[#11161C]"],
+:root[data-theme="light"] [class~="from-[#11161D]"],
+:root[data-theme="light"] [class~="from-[#111827]"],
+:root[data-theme="light"] [class~="from-[#121820]"],
+:root[data-theme="light"] [class~="from-[#121922]"],
+:root[data-theme="light"] [class~="from-[#14181E]"],
+:root[data-theme="light"] [class~="from-[#141A22]"],
+:root[data-theme="light"] [class~="from-[#141B24]"],
+:root[data-theme="light"] [class~="from-[#151B23]"],
+:root[data-theme="light"] [class~="from-[#161D26]"],
+:root[data-theme="light"] [class~="from-[#0E131A]"],
+:root[data-theme="light"] [class~="from-[#111820]"],
+:root[data-theme="light"] [class~="from-[#1A212C]"],
+:root[data-theme="light"] [class~="from-[#1A222C]"],
+:root[data-theme="light"] [class~="from-[#1E2630]"],
+:root[data-theme="light"] [class~="from-[#232D39]"],
+:root[data-theme="light"] [class~="from-[#181F27]"],
+:root[data-theme="light"] [class~="from-[#18212B]"] {
+  --tw-gradient-from: var(--rmcf-page);
+}
+
+:root[data-theme="light"] [class~="to-[#02060D]"],
+:root[data-theme="light"] [class~="to-[#030811]"],
+:root[data-theme="light"] [class~="to-[#030B15]"],
+:root[data-theme="light"] [class~="to-[#050A10]"],
+:root[data-theme="light"] [class~="to-[#050E18]"],
+:root[data-theme="light"] [class~="to-[#05101D]"],
+:root[data-theme="light"] [class~="to-[#07111F]"],
+:root[data-theme="light"] [class~="to-[#08131F]"],
+:root[data-theme="light"] [class~="to-[#090C10]"],
+:root[data-theme="light"] [class~="to-[#0B0F14]"],
+:root[data-theme="light"] [class~="to-[#0B1320]"],
+:root[data-theme="light"] [class~="to-[#0B1728]"],
+:root[data-theme="light"] [class~="to-[#07121F]"],
+:root[data-theme="light"] [class~="to-[#040B14]"],
+:root[data-theme="light"] [class~="to-[#0E141C]"],
+:root[data-theme="light"] [class~="to-[#0F141B]"],
+:root[data-theme="light"] [class~="to-[#10151C]"],
+:root[data-theme="light"] [class~="to-[#10161D]"],
+:root[data-theme="light"] [class~="to-[#11161C]"],
+:root[data-theme="light"] [class~="to-[#11161D]"],
+:root[data-theme="light"] [class~="to-[#111827]"],
+:root[data-theme="light"] [class~="to-[#121820]"],
+:root[data-theme="light"] [class~="to-[#121922]"],
+:root[data-theme="light"] [class~="to-[#14181E]"],
+:root[data-theme="light"] [class~="to-[#141A22]"],
+:root[data-theme="light"] [class~="to-[#141B24]"],
+:root[data-theme="light"] [class~="to-[#151B23]"],
+:root[data-theme="light"] [class~="to-[#161D26]"],
+:root[data-theme="light"] [class~="to-[#0E131A]"],
+:root[data-theme="light"] [class~="to-[#111820]"],
+:root[data-theme="light"] [class~="to-[#1A212C]"],
+:root[data-theme="light"] [class~="to-[#1A222C]"],
+:root[data-theme="light"] [class~="to-[#1E2630]"],
+:root[data-theme="light"] [class~="to-[#232D39]"],
+:root[data-theme="light"] [class~="to-[#181F27]"],
+:root[data-theme="light"] [class~="to-[#18212B]"] {
+  --tw-gradient-to: var(--rmcf-surface);
+}
+
+:root[data-theme="light"] [class~="via-[#02060D]"],
+:root[data-theme="light"] [class~="via-[#030811]"],
+:root[data-theme="light"] [class~="via-[#030B15]"],
+:root[data-theme="light"] [class~="via-[#050A10]"],
+:root[data-theme="light"] [class~="via-[#050E18]"],
+:root[data-theme="light"] [class~="via-[#05101D]"],
+:root[data-theme="light"] [class~="via-[#07111F]"],
+:root[data-theme="light"] [class~="via-[#08131F]"],
+:root[data-theme="light"] [class~="via-[#090C10]"],
+:root[data-theme="light"] [class~="via-[#0B0F14]"],
+:root[data-theme="light"] [class~="via-[#0B1320]"],
+:root[data-theme="light"] [class~="via-[#0B1728]"],
+:root[data-theme="light"] [class~="via-[#07121F]"],
+:root[data-theme="light"] [class~="via-[#040B14]"],
+:root[data-theme="light"] [class~="via-[#0E141C]"],
+:root[data-theme="light"] [class~="via-[#0F141B]"],
+:root[data-theme="light"] [class~="via-[#10151C]"],
+:root[data-theme="light"] [class~="via-[#10161D]"],
+:root[data-theme="light"] [class~="via-[#11161C]"],
+:root[data-theme="light"] [class~="via-[#11161D]"],
+:root[data-theme="light"] [class~="via-[#111827]"],
+:root[data-theme="light"] [class~="via-[#121820]"],
+:root[data-theme="light"] [class~="via-[#121922]"],
+:root[data-theme="light"] [class~="via-[#14181E]"],
+:root[data-theme="light"] [class~="via-[#141A22]"],
+:root[data-theme="light"] [class~="via-[#141B24]"],
+:root[data-theme="light"] [class~="via-[#151B23]"],
+:root[data-theme="light"] [class~="via-[#161D26]"],
+:root[data-theme="light"] [class~="via-[#0E131A]"],
+:root[data-theme="light"] [class~="via-[#111820]"],
+:root[data-theme="light"] [class~="via-[#1A212C]"],
+:root[data-theme="light"] [class~="via-[#1A222C]"],
+:root[data-theme="light"] [class~="via-[#1E2630]"],
+:root[data-theme="light"] [class~="via-[#232D39]"],
+:root[data-theme="light"] [class~="via-[#181F27]"],
+:root[data-theme="light"] [class~="via-[#18212B]"] {
+  --tw-gradient-via: var(--rmcf-surface);
+}
+
+/* Degradados construidos con velos blancos */
+:root[data-theme="light"] [class~="from-white/[0.05]"],
+:root[data-theme="light"] [class~="from-white/[0.07]"] {
+  --tw-gradient-from: var(--rmcf-surface);
+}
+
+:root[data-theme="light"] [class~="to-white/[0.02]"] {
+  --tw-gradient-to: var(--rmcf-surface);
+}
+
+:root[data-theme="light"] [class~="via-white/10"] {
+  --tw-gradient-via: rgb(var(--rmcf-ink-rgb) / .1);
+}
+
+:root[data-theme="light"] [class~="to-white"] {
+  --tw-gradient-to: var(--rmcf-ink);
+}
+
+/* Oro corporativo: sobre fondo claro baja de luminosidad para ser legible */
+:root[data-theme="light"] [class~="text-[#C8A96B]"],
+:root[data-theme="light"] [class~="text-[#D8B45A]"],
+:root[data-theme="light"] [class~="text-[#E7D2A0]"],
+:root[data-theme="light"] [class~="text-[#E4C977]"],
+:root[data-theme="light"] [class~="text-[#F7D98B]"],
+:root[data-theme="light"] [class~="text-[#F5E7C8]"],
+:root[data-theme="light"] [class~="text-[#E2C38C]"],
+:root[data-theme="light"] [class~="text-[#E1C77B]"],
+:root[data-theme="light"] [class~="text-[#F2E2C0]"],
+:root[data-theme="light"] [class~="text-[#e0c68d]"] {
+  color: var(--rmcf-gold-ink);
+}
+
+/* Oros palidos usados como borde: se asientan en el oro base */
+:root[data-theme="light"] [class~="border-[#D8B45A]"],
+:root[data-theme="light"] [class~="border-[#E1C77B]"],
+:root[data-theme="light"] [class~="border-[#E2C38C]"] {
+  border-color: #C8A96B;
+}
+
+/* Colores de estado escritos a mano */
+:root[data-theme="light"] [class~="text-[#4ADE80]"] {
+  color: #15803D;
+}
+:root[data-theme="light"] [class~="text-[#10B981]"] {
+  color: #047857;
+}
+:root[data-theme="light"] [class~="text-[#F87171]"] {
+  color: #B91C1C;
+}
+:root[data-theme="light"] [class~="text-[#FCA5A5]"] {
+  color: #B91C1C;
+}
+:root[data-theme="light"] [class~="text-[#F08A96]"] {
+  color: #BE123C;
+}
+:root[data-theme="light"] [class~="text-[#FFB84D]"] {
+  color: #B45309;
+}
+
+/* Texto de color: los tonos 100-400 estan calibrados para fondo
+   oscuro; sobre blanco necesitan bajar a 600-700. */
+:root[data-theme="light"] [class~="text-red-200"],
+:root[data-theme="light"] [class~="text-red-300"],
+:root[data-theme="light"] [class~="text-red-400"] {
+  color: #B91C1C;
+}
+:root[data-theme="light"] [class~="text-rose-300"],
+:root[data-theme="light"] [class~="text-rose-400"] {
+  color: #BE123C;
+}
+:root[data-theme="light"] [class~="text-emerald-100"],
+:root[data-theme="light"] [class~="text-emerald-200"],
+:root[data-theme="light"] [class~="text-emerald-300"],
+:root[data-theme="light"] [class~="text-emerald-400"] {
+  color: #047857;
+}
+:root[data-theme="light"] [class~="text-green-300"],
+:root[data-theme="light"] [class~="text-green-400"] {
+  color: #15803D;
+}
+:root[data-theme="light"] [class~="text-amber-200"],
+:root[data-theme="light"] [class~="text-amber-300"],
+:root[data-theme="light"] [class~="text-amber-400"] {
+  color: #B45309;
+}
+:root[data-theme="light"] [class~="text-yellow-300"],
+:root[data-theme="light"] [class~="text-yellow-400"] {
+  color: #A16207;
+}
+:root[data-theme="light"] [class~="text-orange-300"] {
+  color: #C2410C;
+}
+:root[data-theme="light"] [class~="text-sky-200"],
+:root[data-theme="light"] [class~="text-sky-300"],
+:root[data-theme="light"] [class~="text-sky-400"] {
+  color: #0369A1;
+}
+:root[data-theme="light"] [class~="text-blue-100"],
+:root[data-theme="light"] [class~="text-blue-200"],
+:root[data-theme="light"] [class~="text-blue-300"],
+:root[data-theme="light"] [class~="text-blue-400"] {
+  color: #1D4ED8;
+}
+:root[data-theme="light"] [class~="text-cyan-400"] {
+  color: #0E7490;
+}
+:root[data-theme="light"] [class~="text-violet-300"],
+:root[data-theme="light"] [class~="text-violet-400"] {
+  color: #6D28D9;
+}
+:root[data-theme="light"] [class~="text-purple-300"] {
+  color: #7E22CE;
+}
+
+/* Grises claros de texto: sobre blanco pasan a un gris legible */
+:root[data-theme="light"] [class~="text-slate-100"],
+:root[data-theme="light"] [class~="text-slate-200"],
+:root[data-theme="light"] [class~="text-slate-300"],
+:root[data-theme="light"] [class~="text-slate-400"],
+:root[data-theme="light"] [class~="text-zinc-100"],
+:root[data-theme="light"] [class~="text-zinc-200"],
+:root[data-theme="light"] [class~="text-zinc-300"],
+:root[data-theme="light"] [class~="text-zinc-400"],
+:root[data-theme="light"] [class~="text-gray-100"],
+:root[data-theme="light"] [class~="text-gray-200"],
+:root[data-theme="light"] [class~="text-gray-300"],
+:root[data-theme="light"] [class~="text-gray-400"],
+:root[data-theme="light"] [class~="text-neutral-100"],
+:root[data-theme="light"] [class~="text-neutral-200"],
+:root[data-theme="light"] [class~="text-neutral-300"],
+:root[data-theme="light"] [class~="text-neutral-400"],
+:root[data-theme="light"] [class~="text-stone-100"],
+:root[data-theme="light"] [class~="text-stone-200"],
+:root[data-theme="light"] [class~="text-stone-300"],
+:root[data-theme="light"] [class~="text-stone-400"] {
+  color: #4B5563;
+}
+
+/* Anillos de foco y placeholders */
+:root[data-theme="light"] [class~="ring-white/5"],
+:root[data-theme="light"] [class~="ring-white/10"],
+:root[data-theme="light"] [class~="ring-white/20"] {
+  --tw-ring-color: rgb(var(--rmcf-ink-rgb) / .12);
+}
+:root[data-theme="light"] [class~="placeholder-white/25"]::placeholder {
+  color: rgb(var(--rmcf-ink-rgb) / .4);
+}
+
+/* Hover y focus sobre velo blanco: en claro oscurecen en vez de aclarar.
+   Se usa [class*=] porque el token lleva el prefijo de variante. */
+:root[data-theme="light"] [class*="hover:bg-white/"]:hover {
+  background-color: rgb(var(--rmcf-ink-rgb) / .055);
+}
+:root[data-theme="light"] [class*="focus:bg-white/"]:focus {
+  background-color: rgb(var(--rmcf-ink-rgb) / .055);
+}
+
+/* Excepcion: sobre un fondo solido de color (chips de estado, overlays,
+   contenedores de video) el texto sigue siendo blanco en ambos temas.
+   Especificidad mayor que las reglas de tinta de arriba, asi que gana. */
+:root[data-theme="light"] [class~="bg-amber-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-amber-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-amber-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-amber-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-300"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-300"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-600"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-blue-600"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-cyan-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-cyan-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-cyan-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-cyan-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-emerald-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-emerald-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-emerald-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-emerald-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-emerald-600"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-emerald-600"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-green-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-green-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-green-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-green-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-orange-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-orange-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-orange-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-orange-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-purple-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-purple-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-purple-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-purple-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-purple-600"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-purple-600"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-300"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-300"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-600"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-600"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-700"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-red-700"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-rose-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-rose-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-rose-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-rose-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-sky-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-sky-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-sky-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-sky-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-sky-600"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-sky-600"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-violet-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-violet-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-violet-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-violet-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-yellow-400"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-yellow-400"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-yellow-500"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-yellow-500"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-zinc-950"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-zinc-950"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/15"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/15"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/25"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/25"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/30"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/30"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/35"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/35"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/40"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/40"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/45"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/45"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/50"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/50"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/60"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/60"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/70"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/70"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/75"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/75"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/80"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/80"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/85"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/85"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/95"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/95"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#F87171]"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#F87171]"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#D08A7E]"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#D08A7E]"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#5E7FB8]"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#5E7FB8]"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#64748B]"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-[#64748B]"] [class*="text-white"] {
+  color: #fff;
+}
+
+
+/* Superficies oscuras translúcidas (barras fijas, paneles, velos):
+   en claro se vuelven blanco translúcido con la misma opacidad, para
+   que el `backdrop-blur` siga leyéndose igual. */
+:root[data-theme="light"] [class~="bg-[#11161D]/90"],
+:root[data-theme="light"] [class~="bg-[#0B0F14]/90"],
+:root[data-theme="light"] [class~="bg-[#151B23]/90"],
+:root[data-theme="light"] [class~="bg-[#111827]/90"] {
+  background-color: rgb(255 255 255 / .90);
+}
+:root[data-theme="light"] [class~="bg-[#08131F]/85"],
+:root[data-theme="light"] [class~="bg-[#11161D]/85"],
+:root[data-theme="light"] [class~="bg-[#151B23]/85"],
+:root[data-theme="light"] [class~="bg-[#05101D]/85"],
+:root[data-theme="light"] [class~="bg-[#0B0F14]/85"] {
+  background-color: rgb(255 255 255 / .85);
+}
+:root[data-theme="light"] [class~="bg-[#08131F]/70"],
+:root[data-theme="light"] [class~="bg-[#0B0F14]/70"],
+:root[data-theme="light"] [class~="bg-[#050A10]/70"] {
+  background-color: rgb(255 255 255 / .70);
+}
+:root[data-theme="light"] [class~="bg-[#050E18]/95"],
+:root[data-theme="light"] [class~="bg-[#0B0F14]/95"],
+:root[data-theme="light"] [class~="bg-[#07111F]/95"],
+:root[data-theme="light"] [class~="bg-[#121820]/95"],
+:root[data-theme="light"] [class~="bg-[#11161D]/95"] {
+  background-color: rgb(255 255 255 / .95);
+}
+:root[data-theme="light"] [class~="via-[#0B0F14]/25"],
+:root[data-theme="light"] [class~="via-[#02060D]/25"] {
+  --tw-gradient-via: rgb(255 255 255 / .25);
+}
+:root[data-theme="light"] [class~="bg-[#0B0F14]/50"] {
+  background-color: rgb(255 255 255 / .50);
+}
+:root[data-theme="light"] [class~="via-[#030B15]/60"] {
+  --tw-gradient-via: rgb(255 255 255 / .60);
+}
+:root[data-theme="light"] [class~="from-[#02060D]/90"] {
+  --tw-gradient-from: rgb(255 255 255 / .90);
+}
+:root[data-theme="light"] [class~="from-[#050A10]/75"] {
+  --tw-gradient-from: rgb(255 255 255 / .75);
+}
+:root[data-theme="light"] [class~="via-[#050A10]/55"] {
+  --tw-gradient-via: rgb(255 255 255 / .55);
+}
+:root[data-theme="light"] [class~="to-[#050A10]/80"] {
+  --tw-gradient-to: rgb(255 255 255 / .80);
+}
+:root[data-theme="light"] [class~="bg-[#07111F]/80"] {
+  background-color: rgb(255 255 255 / .80);
+}
+:root[data-theme="light"] [class~="bg-[#07111F]/45"] {
+  background-color: rgb(255 255 255 / .45);
+}
+
+/* Oro con opacidad usado como texto */
+:root[data-theme="light"] [class~="text-[#C8A96B]/80"],
+:root[data-theme="light"] [class~="text-[#C8A96B]/70"],
+:root[data-theme="light"] [class~="text-[#D8B45A]/60"] {
+  color: var(--rmcf-gold-ink);
+}
+
+
+/* ===========================
+   MODO DÍA: AMBIENTE Y GRÁFICAS
+=========================== */
+
+/* Las animaciones de la portada son destellos claros sobre negro: en modo día
+   se bajan para que no ensucien el fondo. */
+
+:root[data-theme="light"] .particles::before {
+  opacity: .07;
+}
+
+:root[data-theme="light"] .scan-line {
+  opacity: .25;
+}
+
+:root[data-theme="light"] .light-sweep::after {
+  opacity: .35;
+}
+
+:root[data-theme="light"] .animate-pulse-glow {
+  opacity: .5;
+}
+
+/* Recharts pinta ejes y rejillas con colores fijos elegidos para fondo oscuro.
+   Se corrigen por atributo: un selector CSS gana siempre a un atributo de
+   presentación como `fill="#CBD5E1"`. */
+
+:root[data-theme="light"] [fill="#CBD5E1"],
+:root[data-theme="light"] [fill="#94A3B8"],
+:root[data-theme="light"] [fill="#F4F4F5"],
+:root[data-theme="light"] .recharts-cartesian-axis-tick text {
+  fill: #4B5563;
+}
+
+:root[data-theme="light"] [stroke="#1E232A"],
+:root[data-theme="light"] [stroke="#1F2937"],
+:root[data-theme="light"] [stroke="#E5E7EB"],
+:root[data-theme="light"] .recharts-cartesian-grid line {
+  stroke: rgba(11,15,20,.10);
+}
+
+/* Series y etiquetas dibujadas en blanco: sobre fondo claro desaparecen. */
+:root[data-theme="light"] [stroke="#F4F4F5"],
+:root[data-theme="light"] [stroke="#FFFFFF"] {
+  stroke: #334155;
+}
+
+/* Escala de notas dentro de SVG (sectores de recharts, aro de ScoreRing).
+   Ahí no vale `var()`: un atributo de presentación no resuelve variables CSS,
+   así que el JS pinta el hexadecimal del tema oscuro y se corrige aquí. */
+
+:root[data-theme="light"] [fill="#F87171"] { fill: #DC2626; }
+:root[data-theme="light"] [fill="#FBBF24"] { fill: #B45309; }
+:root[data-theme="light"] [fill="#4ADE80"] { fill: #15803D; }
+:root[data-theme="light"] [fill="#22D3EE"] { fill: #0E7490; }
+
+:root[data-theme="light"] [stroke="#C8A96B"] { stroke: #A8842F; }
+:root[data-theme="light"] [stroke="#E7D2A0"] { stroke: #A8842F; }
+:root[data-theme="light"] [fill="#E7D2A0"]   { fill:   #A8842F; }
+:root[data-theme="light"] [stroke="#F87171"] { stroke: #DC2626; }
+:root[data-theme="light"] [stroke="#FBBF24"] { stroke: #B45309; }
+:root[data-theme="light"] [stroke="#4ADE80"] { stroke: #15803D; }
+:root[data-theme="light"] [stroke="#22D3EE"] { stroke: #0E7490; }
+
+/* El tooltip lleva estilos en línea, así que aquí sí hace falta !important. */
+:root[data-theme="light"] .recharts-default-tooltip {
+  background: #fff !important;
+  border-color: rgba(11,15,20,.12) !important;
+  color: #0B0F14 !important;
+}
+
+:root[data-theme="light"] .recharts-legend-item-text {
+  color: #4B5563 !important;
+}
+
+/* ===========================
+   MODO DÍA: CONMUTADOR
+   El botón dibuja los dos iconos y deja que el CSS enseñe el que toca. Así no
+   depende del estado de React y no parpadea durante la hidratación.
+=========================== */
+
+.theme-when-light {
+  display: none;
+}
+
+:root[data-theme="light"] .theme-when-light {
+  display: block;
+}
+
+:root[data-theme="light"] .theme-when-dark {
+  display: none;
 }

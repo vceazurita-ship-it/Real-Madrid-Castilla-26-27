@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 
+import { chipInk } from "@/lib/theme";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -1650,7 +1651,7 @@ function PlayerRow({
                   className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium"
                   style={{
                     background: `${tag.color}1F`,
-                    color: tag.color,
+                    color: chipInk(tag.color),
                   }}
                 >
                   <Icon size={9} className="shrink-0" />
@@ -2066,7 +2067,7 @@ function TagChip({
     ? {
         borderColor: `${tag.color}59`,
         background: `${tag.color}1F`,
-        color: tag.color,
+        color: chipInk(tag.color),
       }
     : undefined;
 
@@ -2691,7 +2692,7 @@ function TacticalPitch({
                       className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
                       style={{
                         background: `${tag.color}26`,
-                        color: tag.color,
+                        color: chipInk(tag.color),
                       }}
                     >
                       {tag.short}

@@ -3,8 +3,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DataProvider } from "@/app/contexts/data-context";
 import { AIProvider } from "@/app/contexts/ai-context";
-import { Toaster } from "sonner";
 import { PageExportButton } from "@/components/page-export-button";
+import { ThemeProvider } from "@/components/theme-provider";
+import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemedToaster } from "@/components/themed-toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +31,26 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0b1020",
+  /* El proveedor de tema reescribe esta etiqueta al cambiar de modo. */
+  themeColor: "#0B0F14",
 };
+
+/**
+ * Fija `data-theme` antes de que el navegador pinte nada, para que al recargar
+ * en modo día no se vea un fogonazo oscuro. Va en línea a propósito: cualquier
+ * script externo llegaría tarde.
+ */
+const themeInitScript = `
+(function(){
+  try {
+    var stored = localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
+    var theme = stored === "light" || stored === "dark" ? stored : ${JSON.stringify(DEFAULT_THEME)};
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", ${JSON.stringify(DEFAULT_THEME)});
+  }
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -40,16 +61,22 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-screen flex flex-col overflow-x-hidden">
-  <AIProvider>
-    <DataProvider>
-      {children}
-      <PageExportButton />
-      <Toaster richColors position="top-center" />
-    </DataProvider>
-  </AIProvider>
-</body>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+
+        <ThemeProvider>
+          <AIProvider>
+            <DataProvider>
+              {children}
+              <ThemeToggle />
+              <PageExportButton />
+              <ThemedToaster />
+            </DataProvider>
+          </AIProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

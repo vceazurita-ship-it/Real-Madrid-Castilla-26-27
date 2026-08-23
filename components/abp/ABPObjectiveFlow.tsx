@@ -1,9 +1,15 @@
 "use client";
 
-// Flujo: Tipo de acción → Intención → Zona de caída → Resultado final.
+// Flujo del balón parado en cuatro etapas:
+//   Tipo de acción → (Intención | Tipo de envío) → Zona de caída → Resultado.
 //
-// El alto del lienzo se calcula a partir de la columna más larga: con los
-// 9-12 valores reales de la hoja, un alto fijo solapaba los nodos.
+// La segunda etapa cambia con el lado. Atacando se registra la Intención,
+// que es nuestra; defendiendo esa columna no existe —es del ataque rival—,
+// así que se lee su Tipo de envío, que es lo que mejor describe su intención
+// con los datos disponibles.
+//
+// El alto del lienzo se calcula a partir de la columna más larga: con un alto
+// fijo los nodos se solapaban.
 
 import { useMemo, useState } from "react";
 
@@ -11,9 +17,11 @@ export type ABPRow = {
 jornada?: number | string;
 rival?: string;
 minuto?: number | string;
+tiempo?: number | string;
 tipoAccion: string;
 tipoEnvio?: string;
 intencion?: string;
+calidadEnvio?: string;
 zonaCaida?: string;
 zonaRemate?: string;
 xG?: number | string;
@@ -28,29 +36,49 @@ goldLight: "#E7D2A0",
 green: "#10B981",
 blue: "#5E7FB8",
 amber: "#8A6262",
+red: "#B45454",
 gray: "#64748B",
 steel: "#3A4658",
 };
 
-const RESULT_COLORS: Record<string, string> = {
-  "Gol": COLORS.green,
-  "Ocasión": COLORS.gold,
-  "ABP": COLORS.blue,
-  "Transición Rival": COLORS.amber,
-  "Nada": COLORS.gray,
-};
+/**
+ * Vocabulario cromático de cada lado. Atacando, el verde es nuestro gol;
+ * defendiendo, el gol que importa es el del rival y va en rojo, mientras que
+ * el verde queda para el que marcamos nosotros tras robar.
+ */
+function resultColorsFor(def: boolean): Record<string, string> {
+  return def
+    ? {
+        "Gol Rival": "#B45454",
+        "Ocasión": "#D08A7E",
+        "ABP": "#5E7FB8",
+        "Transición Ofensiva": "#567A68",
+        "Gol RMCF": "#10B981",
+        "Nada": "#475569",
+      }
+    : {
+        "Gol": COLORS.green,
+        "Ocasión": COLORS.gold,
+        "ABP": COLORS.blue,
+        "Transición Rival": COLORS.amber,
+        "Nada": COLORS.gray,
+      };
+}
 
-type ColKey = "accion" | "intencion" | "zona" | "resultado";
+/** `medio` es la segunda etapa; qué representa lo decide el modo. */
+type ColKey = "accion" | "medio" | "zona" | "resultado";
 
-const COLS: Record<
+function colsFor(def: boolean): Record<
   ColKey,
   { x: number; w: number; title: string }
-> = {
-  accion: { x: 12, w: 250, title: "Tipo de acción" },
-  intencion: { x: 312, w: 230, title: "Intención" },
-  zona: { x: 592, w: 230, title: "Zona de caída" },
-  resultado: { x: 872, w: 210, title: "Resultado final" },
-};
+> {
+  return {
+    accion: { x: 12, w: 250, title: "Tipo de acción" },
+    medio: { x: 312, w: 230, title: def ? "Tipo de envío" : "Intención" },
+    zona: { x: 592, w: 230, title: "Zona de caída" },
+    resultado: { x: 872, w: 210, title: "Resultado final" },
+  };
+}
 
 const TOP = 46;
 const NODE_H = 26;
@@ -99,10 +127,28 @@ function zona(r: ABPRow): string {
 }
 
 /** Mismo vocabulario cerrado que el resto del panel ofensivo. */
-function resultado(r: ABPRow): string {
+/**
+ * Normaliza el resultado al vocabulario de cada lado.
+ *
+ * Atacando, un gol sin más es nuestro y la transición es del rival. Defendiendo
+ * se invierte: la hoja marca "Gol RMCF" cuando lo metemos nosotros al robar, y
+ * cualquier otro gol es del rival.
+ */
+function resultadoDe(r: ABPRow, def: boolean): string {
   const t = norm(r.resultadoFinal);
 
   if (!t) return "Nada";
+
+  if (def) {
+    if (t.includes("gol") && t.includes("rmcf")) return "Gol RMCF";
+    if (t.includes("gol")) return "Gol Rival";
+    if (t.includes("ocas")) return "Ocasión";
+    if (t.includes("transici")) return "Transición Ofensiva";
+    if (t.includes("abp")) return "ABP";
+
+    return "Nada";
+  }
+
   if (t === "gol") return "Gol";
   if (t.includes("ocas")) return "Ocasión";
   if (t.includes("transici")) return "Transición Rival";
@@ -111,16 +157,33 @@ function resultado(r: ABPRow): string {
   return "Nada";
 }
 
-const ACCESSORS: Record<ColKey, (r: ABPRow) => string> = {
-  accion,
-  intencion,
-  zona,
-  resultado,
-};
+/** Tipo de envío del rival: es la columna que hace de "intención" en defensa. */
+function envio(r: ABPRow): string {
+  const raw = (r.tipoEnvio || "").trim();
+  return raw || "Sin definir";
+}
 
-/** Mezcla acero → oro → verde según la proporción de gol u ocasión del flujo. */
-function peligroColor(t: number) {
-  const stops: { p: number; c: [number, number, number] }[] = [
+function accessorsFor(def: boolean): Record<ColKey, (r: ABPRow) => string> {
+  return {
+    accion,
+    medio: def ? envio : intencion,
+    zona,
+    resultado: (r: ABPRow) => resultadoDe(r, def),
+  };
+}
+
+/**
+ * Rampa del flujo. El extremo caliente significa lo contrario en cada lado:
+ * atacando es peligro generado (verde) y defendiendo peligro concedido (rojo).
+ */
+function peligroColor(t: number, def: boolean) {
+  const stops: { p: number; c: [number, number, number] }[] = def
+    ? [
+        { p: 0, c: [58, 70, 88] },
+        { p: 0.5, c: [200, 169, 107] },
+        { p: 1, c: [180, 84, 84] },
+      ]
+    : [
     { p: 0, c: [58, 70, 88] },
     { p: 0.5, c: [200, 169, 107] },
     { p: 1, c: [16, 185, 129] },
@@ -162,7 +225,32 @@ type NodeStat = {
   peligro: number;
 };
 
-export default function ABPObjectiveFlow({ rows }: { rows: ABPRow[] }) {
+export type ABPFlowMode = "offensive" | "defensive";
+
+/**
+ * Diagrama de flujo del balón parado en cuatro etapas.
+ *
+ * Un solo componente para ataque y defensa: la maquinaria de nodos y enlaces
+ * es idéntica y el modo decide qué se lee en la segunda etapa, con qué
+ * vocabulario se clasifica el resultado y hacia qué color calienta la rampa.
+ */
+export default function ABPObjectiveFlow({
+  rows,
+  mode = "offensive",
+}: {
+  rows: ABPRow[];
+  mode?: ABPFlowMode;
+}) {
+  const def = mode === "defensive";
+
+  /* Configuración derivada del modo. Memoizada porque alimenta las
+     dependencias de los useMemo del cálculo. */
+  const COLS = useMemo(() => colsFor(def), [def]);
+  const ACCESSORS = useMemo(() => accessorsFor(def), [def]);
+  const RESULT_COLORS = useMemo(() => resultColorsFor(def), [def]);
+
+  /** Etiqueta del resultado que cuenta como gol propio del lado analizado. */
+  const GOL = def ? "Gol Rival" : "Gol";
 const [focus, setFocus] = useState<{
   col: ColKey;
   value: string;
@@ -174,7 +262,7 @@ const activeRows = useMemo(
     focus
       ? rows.filter((r) => ACCESSORS[focus.col](r) === focus.value)
       : rows,
-  [rows, focus]
+  [rows, focus, ACCESSORS]
 );
 
 const columns = useMemo(() => {
@@ -189,14 +277,14 @@ const columns = useMemo(() => {
       const prev =
         grouped.get(k) || { total: 0, xg: 0, peligro: 0 };
 
-      const res = resultado(r);
+      const res = resultadoDe(r, def);
 
       grouped.set(k, {
         total: prev.total + 1,
         xg: prev.xg + numero(r.xG),
         peligro:
           prev.peligro +
-          (res === "Gol" || res === "Ocasión" ? 1 : 0),
+          (res === GOL || res === "Ocasión" ? 1 : 0),
       });
     });
 
@@ -211,12 +299,12 @@ const columns = useMemo(() => {
   };
 
   return {
-    accion: build(accion),
-    intencion: build(intencion),
-    zona: build(zona),
-    resultado: build(resultado),
+    accion: build(ACCESSORS.accion),
+    medio: build(ACCESSORS.medio),
+    zona: build(ACCESSORS.zona),
+    resultado: build(ACCESSORS.resultado),
   } as Record<ColKey, NodeStat[]>;
-}, [rows]);
+}, [rows, ACCESSORS, GOL, def]);
 
 /** Enlaces de un tramo, con la proporción de gol u ocasión de cada uno. */
 const buildLinks = useMemo(
@@ -240,7 +328,7 @@ const buildLinks = useMemo(
           grouped.get(key) ||
           { from, to, total: 0, peligro: 0 };
 
-        const res = resultado(r);
+        const res = resultadoDe(r, def);
 
         grouped.set(key, {
           from,
@@ -248,18 +336,18 @@ const buildLinks = useMemo(
           total: prev.total + 1,
           peligro:
             prev.peligro +
-            (res === "Gol" || res === "Ocasión" ? 1 : 0),
+            (res === GOL || res === "Ocasión" ? 1 : 0),
         });
       });
 
       return Array.from(grouped.values());
     },
-  []
+  [ACCESSORS, GOL, def]
 );
 
 const STAGES: { source: ColKey; target: ColKey }[] = [
-  { source: "accion", target: "intencion" },
-  { source: "intencion", target: "zona" },
+  { source: "accion", target: "medio" },
+  { source: "medio", target: "zona" },
   { source: "zona", target: "resultado" },
 ];
 
@@ -303,7 +391,7 @@ const yIndex = useMemo(() => {
   });
 
   return map;
-}, [columns]);
+}, [columns, COLS]);
 
 /** Nodos que siguen participando con la selección activa. */
 const activeNodes = useMemo(() => {
@@ -314,14 +402,14 @@ const activeNodes = useMemo(() => {
   });
 
   return map;
-}, [activeRows]);
+}, [activeRows, ACCESSORS, COLS]);
 
 const totalAcciones = activeRows.length;
 const ocasiones = activeRows.filter(
-  (r) => resultado(r) === "Ocasión"
+  (r) => resultadoDe(r, def) === "Ocasión"
 ).length;
 const goles = activeRows.filter(
-  (r) => resultado(r) === "Gol"
+  (r) => resultadoDe(r, def) === GOL
 ).length;
 const xgTotal = activeRows.reduce(
   (acc, r) => acc + numero(r.xG),
@@ -362,7 +450,7 @@ const renderStage = (
     const color =
       target === "resultado"
         ? RESULT_COLORS[l.to] || COLORS.gray
-        : peligroColor(l.peligro / Math.max(1, l.total));
+        : peligroColor(l.peligro / Math.max(1, l.total), def);
 
     return (
       <path
@@ -392,7 +480,7 @@ const renderColumn = (col: ColKey) => {
     const dot =
       col === "resultado"
         ? RESULT_COLORS[n.name] || COLORS.gray
-        : peligroColor(n.peligro);
+        : peligroColor(n.peligro, def);
 
     return (
       <g
@@ -408,7 +496,9 @@ const renderColumn = (col: ColKey) => {
         <title>
           {`${n.name} · ${n.total} acciones · ${n.xg.toFixed(
             2
-          )} xG · ${(n.peligro * 100).toFixed(0)}% gol u ocasión`}
+          )} xG${def ? " concedido" : ""} · ${(n.peligro * 100).toFixed(
+            0
+          )}% ${def ? "acaba en gol u ocasión rival" : "gol u ocasión"}`}
         </title>
 
         <rect
@@ -467,12 +557,11 @@ return (
       <span
         className="h-2 w-6 rounded-full"
         style={{
-          background: `linear-gradient(90deg, ${peligroColor(
-            0
-          )}, ${peligroColor(0.5)}, ${peligroColor(1)})`,
+          background: `linear-gradient(90deg, ${peligroColor(0, def)}, ${peligroColor(0.5, def)}, ${peligroColor(1, def)})`,
         }}
       />
       Grosor = acciones · color = % que acaba en gol u ocasión
+      {def ? " rival" : ""}
     </span>
 
     <span>Pulsa un nodo para aislar su recorrido completo</span>
@@ -538,7 +627,7 @@ return (
 
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
-        Ocasiones
+        {def ? "Ocasiones concedidas" : "Ocasiones"}
       </div>
       <div className="mt-1 text-2xl font-semibold text-[#E7D2A0]">
         {ocasiones}
@@ -547,16 +636,20 @@ return (
 
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
-        Goles
+        {def ? "Goles rival" : "Goles"}
       </div>
-      <div className="mt-1 text-2xl font-semibold text-emerald-400">
+      <div
+        className={`mt-1 text-2xl font-semibold ${
+          def ? "text-[#F08A96]" : "text-emerald-400"
+        }`}
+      >
         {goles}
       </div>
     </div>
 
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
-        xG total
+        {def ? "xG concedido" : "xG total"}
       </div>
       <div className="mt-1 text-2xl font-semibold text-white">
         {xgTotal.toFixed(2)}
@@ -616,24 +709,29 @@ return (
               </div>
 
               <div className="mt-1 text-sm text-slate-300">
-                Min {r.minuto ?? "-"}
-                {r.rematador ? ` · ${r.rematador}` : ""}
+                {def
+                  ? `${r.tiempo ? `${r.tiempo}` : "Tiempo -"}${
+                      r.tipoRemate ? ` · ${r.tipoRemate}` : ""
+                    }`
+                  : `Min ${r.minuto ?? "-"}${
+                      r.rematador ? ` · ${r.rematador}` : ""
+                    }`}
               </div>
 
               <div className="mt-2 text-xs text-slate-400">
                 <span className="text-[#E7D2A0]">{accion(r)}</span>
                 {" → "}
-                {intencion(r)}
+                {ACCESSORS.medio(r)}
                 {" → "}
                 {zona(r)}
                 {" → "}
                 <span
                   style={{
                     color:
-                      RESULT_COLORS[resultado(r)] || COLORS.gray,
+                      RESULT_COLORS[resultadoDe(r, def)] || COLORS.gray,
                   }}
                 >
-                  {resultado(r)}
+                  {resultadoDe(r, def)}
                 </span>
               </div>
             </div>

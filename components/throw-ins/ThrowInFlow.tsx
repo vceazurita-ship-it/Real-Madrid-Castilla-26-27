@@ -24,6 +24,7 @@ import {
   read,
   type RecordRow,
   resultColor,
+  resultInk,
   resumenDe,
   tonoDeModo,
 } from "./throwInModel";
@@ -477,7 +478,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
                     {" → "}
                     {accessors.medio(row)}
                     {" → "}
-                    <span style={{ color: resultColor(resultado.label) }}>{resultado.label}</span>
+                    <span style={{ color: resultInk(resultado.label) }}>{resultado.label}</span>
                   </div>
                 </div>
               );

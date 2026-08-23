@@ -24,7 +24,7 @@ import {
   parseZona,
   read,
   type RecordRow,
-  resultColor,
+  resultInk,
   textoSobre,
   tonoDeModo,
   type Zona,
@@ -350,7 +350,7 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
                       </p>
                       <p className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                         <span className="block text-slate-400">Resultado</span>
-                        <span style={{ color: resultColor(resultado.label) }}>{resultado.label}</span>
+                        <span style={{ color: resultInk(resultado.label) }}>{resultado.label}</span>
                       </p>
                     </div>
                   </div>

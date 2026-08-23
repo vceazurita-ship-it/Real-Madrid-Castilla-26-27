@@ -6,9 +6,10 @@ import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
-import ABPFlowField from './components/ABPFlowField';
-import ABPObjectiveFlow from "./components/ABPObjectiveFlow";
-import ABPZoneMap from "./components/ABPZoneMap";
+import ABPFlowField from '@/components/abp/ABPFlowField';
+import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
+import ABPObjectiveFlow from "@/components/abp/ABPObjectiveFlow";
+import ABPZoneMap from "@/components/abp/ABPZoneMap";
 
 import {
   useEffect,
@@ -1764,125 +1765,68 @@ originalStyles.forEach(
 
           <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
 
-  {/* Header */}
-  <div className="mb-8">
-    <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-      RMCF CASTILLA COLECTIVO
-    </p>
-
-    <div className="mt-4 flex items-center gap-3 sm:gap-5">
-      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-        ABP Ofensivo
-      </h1>
-
-      <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-    </div>
-  </div>
+  <AbpHeader
+    area="RMCF Castilla · Colectivo"
+    title="ABP Ofensivo"
+    lead="Córners y faltas a favor: qué se lanza, dónde cae el balón, quién remata y cuánto peligro acaba generando cada rutina."
+  />
 
   {/* Selector + KPIs */}
-  <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+  <div className="mt-6 rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
-    <select
-      value={jornada}
-      onChange={(e) =>
-        setJornada(e.target.value)
+    {/* Los cinco desplegables iban sueltos y sin etiqueta: sólo se sabía qué
+        filtraba cada uno abriéndolo. Ahora van plegados y rotulados. */}
+    <FilterDrawer
+      activeCount={
+        [jornada, rival, sacador, tipoAccionFilter, tiempo].filter(
+          (value) => value !== "ALL"
+        ).length
       }
-      className="w-full sm:w-auto rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3 text-sm sm:text-base"
+      summary="5 filtros disponibles"
     >
-      <option value="ALL">
-        Todas
-      </option>
+      <Select
+        label="Jornada"
+        value={jornada}
+        onChange={setJornada}
+        options={[
+          { value: "ALL", label: "Todas" },
+          ...jornadas.map((m) => ({ value: String(m), label: `Jornada ${m}` })),
+        ]}
+      />
 
-      {jornadas.map((m) => (
-        <option
-          key={m}
-          value={m}
-        >
-          Jornada {m}
-        </option>
-      ))}
-    </select>
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+      <Select
+        label="Rival"
+        value={rival}
+        onChange={setRival}
+        options={[{ value: "ALL", label: "Todos los rivales" }, ...rivales]}
+      />
 
-  <select
-    value={rival}
-    onChange={(e) =>
-      setRival(e.target.value)
-    }
-    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
-  >
-    <option value="ALL">
-      Todos los rivales
-    </option>
+      <Select
+        label="Sacador"
+        value={sacador}
+        onChange={setSacador}
+        options={[{ value: "ALL", label: "Todos los sacadores" }, ...sacadores]}
+      />
 
-    {rivales.map((v) => (
-      <option key={v} value={v}>
-        {v}
-      </option>
-    ))}
-  </select>
+      <Select
+        label="Tipo de acción"
+        value={tipoAccionFilter}
+        onChange={setTipoAccionFilter}
+        options={[{ value: "ALL", label: "Todas las acciones" }, ...tiposAccion]}
+      />
 
-  <select
-    value={sacador}
-    onChange={(e) =>
-      setSacador(e.target.value)
-    }
-    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
-  >
-    <option value="ALL">
-      Todos los sacadores
-    </option>
-
-    {sacadores.map((v) => (
-      <option key={v} value={v}>
-        {v}
-      </option>
-    ))}
-  </select>
-
-  <select
-    value={tipoAccionFilter}
-    onChange={(e) =>
-      setTipoAccionFilter(
-        e.target.value
-      )
-    }
-    className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
-  >
-    <option value="ALL">
-      Todas las acciones
-    </option>
-
-    {tiposAccion.map((v) => (
-      <option key={v} value={v}>
-        {v}
-      </option>
-    ))}
-  </select>
-  <select
-  value={tiempo}
-  onChange={(e) =>
-    setTiempo(e.target.value)
-  }
-  className="rounded-2xl border border-white/10 bg-[#11161C] text-white px-4 py-3"
->
-  <option value="ALL">
-    Todo el partido
-  </option>
-
-  <option value="0-30">
-    0 - 30'
-  </option>
-
-  <option value="30-60">
-    30' - 60'
-  </option>
-
-  <option value="60-90">
-    60' - 90'
-  </option>
-</select>
-</div>
+      <Select
+        label="Tramo del partido"
+        value={tiempo}
+        onChange={setTiempo}
+        options={[
+          { value: "ALL", label: "Todo el partido" },
+          { value: "0-30", label: "0 - 30'" },
+          { value: "30-60", label: "30' - 60'" },
+          { value: "60-90", label: "60' - 90'" },
+        ]}
+      />
+    </FilterDrawer>
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
     Equipos visualizados (
@@ -1941,36 +1885,43 @@ originalStyles.forEach(
       <Card
         title="ABP"
         value={metrics.total}
+        hint="Acciones lanzadas"
       />
 
       <Card
         title="xG"
         value={metrics.xg.toFixed(2)}
+        hint="Goles esperados acumulados"
       />
- 
+
       <Card
         title="Remates"
         value={metrics.shots}
+        hint="Acciones que acaban en remate"
       />
 
       <Card
         title="Goles"
         value={metrics.goals}
+        hint="Marcados a balón parado"
       />
       <Card
   title="Conversión"
   value={`${metrics.conversion.toFixed(
     1
   )}%`}
+  hint="Goles sobre el total de ABP"
 />
 <Card
   title="xG / ABP"
   value={metrics.xgAccion.toFixed(2)}
+  hint="Peligro medio de cada lanzamiento"
 />
 
 <Card
   title="Gol u ocasión"
   value={`${tasaPeligro.toFixed(1)}%`}
+  hint="ABP que terminan en peligro real"
 />
 
 <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
@@ -2001,6 +1952,7 @@ originalStyles.forEach(
 <Panel title="Mapa de zonas del área">
   <div id="grafico-zone-map">
     <ABPZoneMap
+      mode="offensive"
       rows={filtered.map((r) => ({
         zonaCaida: r.zonaCaida,
         zonaRemate: r.zonaRemate,
@@ -2044,6 +1996,7 @@ originalStyles.forEach(
 <Panel title="Flujo ofensivo">
   <div id="grafico-abp-objective-flow">
    <ABPObjectiveFlow
+  mode="offensive"
   rows={filtered.map((r) => ({
     jornada: String(r.jornada),
     rival: r.rival,
@@ -3361,10 +3314,22 @@ h-[360px]
   );
 }
 
+/**
+ * Tarjeta de indicador.
+ *
+ * `hint` no es decorativo: "Conversión" o "xG / ABP" no se interpretan igual
+ * según quién mire la página, y la definición corta debajo del número evita
+ * que cada uno la entienda a su manera.
+ */
 function Card({
   title,
   value,
-}: any) {
+  hint,
+}: {
+  title: string;
+  value: React.ReactNode;
+  hint?: string;
+}) {
   return (
     <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-6">
       <p className="text-sm text-zinc-400">
@@ -3382,6 +3347,10 @@ function Card({
 >
         {value}
       </h3>
+
+      {hint && (
+        <p className="mt-2 text-[11px] leading-snug text-white/35">{hint}</p>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { chipInk } from "@/lib/theme";
 import { useEffect, useState } from "react"
 import Papa from "papaparse"
 import {
@@ -168,7 +169,7 @@ function IdentityCard({
   return (
     <Link
       href={href}
-      style={{ ["--accent" as string]: color }}
+      style={{ ["--accent" as string]: chipInk(color) }}
       className="group relative flex items-center gap-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--accent)]/45 hover:bg-white/[0.04] sm:p-6"
     >
       <span

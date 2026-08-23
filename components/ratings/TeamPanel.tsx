@@ -32,6 +32,7 @@ import {
   formatRating,
   formatSigned,
   ratingColor,
+  ratingColorHex,
   round,
 } from "@/lib/ratings/compute";
 import { formatMatchDateShort, matchLabel } from "@/lib/ratings/matches";
@@ -215,7 +216,7 @@ export function TeamPanel({
               ? `${formatRating(best.summary.avg)} en ${best.summary.played} partidos`
               : undefined
           }
-          accent="#C8A96B"
+          accent="var(--rmcf-gold-ink)"
         />
 
         <StatCard
@@ -228,7 +229,7 @@ export function TeamPanel({
           hint={
             mostImproved ? `${formatSigned(mostImproved.summary.trend)} últimas 3` : undefined
           }
-          accent="#4ADE80"
+          accent="var(--rmcf-rate-good)"
         />
 
         <StatCard
@@ -241,7 +242,7 @@ export function TeamPanel({
               ? `${topScorer.summary.goals} goles · ${topScorer.summary.assists} asistencias`
               : undefined
           }
-          accent="#22D3EE"
+          accent="var(--rmcf-rate-top)"
         />
       </div>
 
@@ -407,7 +408,7 @@ export function TeamPanel({
 
                   <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18}>
                     {topChart.map((point) => (
-                      <Cell key={point.name} fill={ratingColor(point.value)} />
+                      <Cell key={point.name} fill={ratingColorHex(point.value)} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -475,7 +476,7 @@ export function TeamPanel({
 
                     <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={34}>
                       {byLine.map((point) => (
-                        <Cell key={point.name} fill={ratingColor(point.value)} />
+                        <Cell key={point.name} fill={ratingColorHex(point.value)} />
                       ))}
                     </Bar>
                   </BarChart>

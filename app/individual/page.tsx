@@ -685,7 +685,21 @@ function averageScore(player: Player) {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
+/**
+ * Color de la puntuación. Devuelve variables CSS para que la escala siga al
+ * tema: los tonos del modo noche se apagan sobre el blanco del modo día.
+ * Para atributos SVG hay que usar `scoreColorHex`, que no resuelve `var()`.
+ */
 function scoreColor(score: number) {
+  if (score >= 8) return "var(--rmcf-rate-good)";
+  if (score >= 6.5) return "var(--rmcf-gold-ink)";
+  if (score >= 5) return "var(--rmcf-rate-mid)";
+
+  return "var(--rmcf-rate-low)";
+}
+
+/** La misma escala en hexadecimal, para `fill` y `stroke` de SVG. */
+function scoreColorHex(score: number) {
   if (score >= 8) return "#4ADE80";
   if (score >= 6.5) return GOLD;
   if (score >= 5) return "#FBBF24";
@@ -728,6 +742,7 @@ function ScoreRing({ value, size = 56 }: { value: number; size?: number }) {
   const clamped = Math.max(0, Math.min(10, value));
   const pct = (clamped / 10) * 100;
   const color = scoreColor(clamped);
+  const ringColor = scoreColorHex(clamped);
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -746,7 +761,7 @@ function ScoreRing({ value, size = 56 }: { value: number; size?: number }) {
           cy="18"
           r="15.9155"
           fill="none"
-          stroke={color}
+          stroke={ringColor}
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray={`${pct} ${100 - pct}`}
@@ -1062,9 +1077,11 @@ function PlayerCard({
         {player.score > 0 && (
           <span
             className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums backdrop-blur"
+            /* Este distintivo va siempre sobre un velo negro encima de la
+               foto, en los dos temas: mantiene la escala luminosa. */
             style={{
-              color: scoreColor(player.score),
-              borderColor: `${scoreColor(player.score)}55`,
+              color: scoreColorHex(player.score),
+              borderColor: `${scoreColorHex(player.score)}55`,
               background: "rgba(0,0,0,0.55)",
             }}
           >

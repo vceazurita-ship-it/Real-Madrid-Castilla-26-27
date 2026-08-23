@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  ACCENT_LIGHT,
+  ACCENT_INK,
   BANDA_LABEL,
   type Banda,
   esFavorable,
@@ -557,7 +557,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                         <span className="min-w-0 truncate text-zinc-300">
                           {BANDA_LABEL[item.banda]} · Z{item.zona}
                         </span>
-                        <span className="shrink-0 font-semibold" style={{ color: ACCENT_LIGHT }}>
+                        <span className="shrink-0 font-semibold" style={{ color: ACCENT_INK }}>
                           {format(item.value)}
                         </span>
                       </div>

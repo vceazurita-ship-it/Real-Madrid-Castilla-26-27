@@ -201,14 +201,43 @@ export function summarizeMatches(season: RatingsSeason): MatchSummary[] {
   });
 }
 
-/** Color de la nota: rojo por debajo de 5, ámbar hasta 7, verde por encima. */
+/**
+ * Color de la nota: rojo por debajo de 5, ámbar hasta 6,5, verde hasta 8 y
+ * cian por encima.
+ *
+ * Devuelve una variable CSS (definida en `app/globals.css`) para que la escala
+ * se adapte al tema: los tonos 400 del modo noche quedan ilegibles sobre el
+ * blanco del modo día. Vale en cualquier estilo en línea (`color`,
+ * `background`, `borderColor`, degradados, sombras).
+ *
+ * Para atributos SVG usa `ratingColorHex`: un atributo de presentación no
+ * resuelve `var()`.
+ */
 export function ratingColor(value: number) {
+  if (value <= 0) return "var(--rmcf-rate-none)";
+  if (value < 5) return "var(--rmcf-rate-low)";
+  if (value < 6.5) return "var(--rmcf-rate-mid)";
+  if (value < 8) return "var(--rmcf-rate-good)";
+
+  return "var(--rmcf-rate-top)";
+}
+
+/**
+ * La misma escala en hexadecimal, para atributos SVG (`fill`, `stroke`).
+ * Devuelve los valores del modo noche; el modo día los corrige por CSS.
+ */
+export function ratingColorHex(value: number) {
   if (value <= 0) return "#64748B";
   if (value < 5) return "#F87171";
   if (value < 6.5) return "#FBBF24";
   if (value < 8) return "#4ADE80";
 
   return "#22D3EE";
+}
+
+/** Mezcla la nota con transparencia; sustituye a concatenar `${color}55`. */
+export function ratingColorAlpha(value: number, percent: number) {
+  return `color-mix(in srgb, ${ratingColor(value)} ${percent}%, transparent)`;
 }
 
 export function ratingTone(value: number) {

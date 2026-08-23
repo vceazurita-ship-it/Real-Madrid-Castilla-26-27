@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { formatRating, ratingColor } from "@/lib/ratings/compute";
+import { formatRating, ratingColor, ratingColorAlpha } from "@/lib/ratings/compute";
 import { formatMatchDate, matchId, matchLabel } from "@/lib/ratings/matches";
 import {
   AREA_KEYS,
@@ -537,7 +537,7 @@ export function RateMatchPanel({
                           style={{
                             borderColor:
                               entry.rating > 0
-                                ? `${ratingColor(entry.rating)}88`
+                                ? ratingColorAlpha(entry.rating, 53)
                                 : undefined,
                           }}
                         />

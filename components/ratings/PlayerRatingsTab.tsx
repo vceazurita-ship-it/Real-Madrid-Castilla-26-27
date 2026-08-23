@@ -128,7 +128,7 @@ export function PlayerRatingsTab({
           label="Mejor partido"
           value={formatRating(summary.best?.entry.rating ?? 0)}
           hint={summary.best ? matchLabel(summary.best.match) : undefined}
-          accent="#22D3EE"
+          accent="var(--rmcf-rate-top)"
         />
 
         <StatCard

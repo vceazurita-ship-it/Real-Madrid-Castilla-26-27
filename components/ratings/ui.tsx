@@ -2,7 +2,11 @@
 
 import type { ComponentType, ReactNode } from "react";
 
-import { formatRating, ratingColor } from "@/lib/ratings/compute";
+import {
+  formatRating,
+  ratingColor,
+  ratingColorAlpha,
+} from "@/lib/ratings/compute";
 
 export const GOLD = "#C8A96B";
 
@@ -75,7 +79,7 @@ export function StatCard({
 
       <p
         className="mt-1.5 truncate text-2xl font-semibold tabular-nums"
-        style={{ color: accent ?? "#FFFFFF" }}
+        style={accent ? { color: accent } : undefined}
       >
         {value}
       </p>
@@ -143,8 +147,8 @@ export function RatingBadge({
       className={`inline-flex items-center justify-center rounded-xl border px-2 font-semibold tabular-nums ${dimensions}`}
       style={{
         color,
-        borderColor: `${color}55`,
-        backgroundColor: `${color}1A`,
+        borderColor: ratingColorAlpha(value, 33),
+        backgroundColor: ratingColorAlpha(value, 10),
       }}
     >
       {formatRating(value)}

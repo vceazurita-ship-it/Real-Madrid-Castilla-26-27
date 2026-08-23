@@ -1,5 +1,6 @@
 "use client";
 
+import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -586,7 +587,7 @@ function SummaryTile({
 
       <p
         className="mt-2 text-2xl font-semibold tabular-nums"
-        style={{ color: tone ?? "#FFFFFF" }}
+        style={tone ? { color: chipInk(tone) } : undefined}
       >
         {value}
       </p>

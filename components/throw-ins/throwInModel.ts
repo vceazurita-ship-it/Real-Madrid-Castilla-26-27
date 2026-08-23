@@ -1,3 +1,5 @@
+import { chipInk } from "@/lib/theme";
+
 // Modelo compartido de saques de banda (ofensivo y defensivo).
 //
 // Las dos hojas usan el MISMO vocabulario y siempre en términos absolutos:
@@ -180,6 +182,18 @@ export function resultColor(label: string) {
   return RESULT_COLORS[label] ?? "#64748B";
 }
 
+/**
+ * El mismo color, pero legible como texto en modo día: los tonos de arriba
+ * están pensados para fondo oscuro y sobre blanco no llegan a 2,5:1. Las
+ * variables `--rmcf-chip-*` (en `app/globals.css`) solo oscurecen en modo día.
+ *
+ * Para atributos SVG hay que seguir usando `resultColor`: `var()` no se
+ * resuelve dentro de un atributo de presentación.
+ */
+export function resultInk(label: string) {
+  return chipInk(resultColor(label));
+}
+
 // ------------------------------------------------------------------ Colores
 
 type Stop = { p: number; c: [number, number, number] };
@@ -255,6 +269,9 @@ export function tonoDeModo(mode: Mode): Tono {
 
 export const ACCENT = "#C8A96B";
 export const ACCENT_LIGHT = "#E7D2A0";
+
+/** El oro claro como tinta de texto; en modo día baja de luminosidad. */
+export const ACCENT_INK = "var(--rmcf-gold-ink)";
 
 // ----------------------------------------------------------------- Resumen
 

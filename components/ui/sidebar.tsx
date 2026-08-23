@@ -119,7 +119,8 @@ const navLink = (
           transition-all duration-300 ease-in-out
           ${collapsed ? "w-[78px] px-2" : "w-[280px] px-6"}
           ${open ? "translate-x-0" : "-translate-x-full"}
-          md:static md:shrink-0 md:translate-x-0 md:overflow-visible
+          md:sticky md:inset-y-auto md:top-0 md:h-screen
+          md:shrink-0 md:translate-x-0 md:self-start md:overflow-y-auto
         `}
         style={{ WebkitOverflowScrolling: "touch" }}
       >
@@ -220,6 +221,13 @@ const navLink = (
       "Microciclos",
       <CalendarDays size={18} />
     )}
+
+    {navLink(
+      "/training",
+      "Jugadores Sesión",
+      <Users size={18} />
+    )}
+
     {navLink(
   "/calendar",
   "Calendario Seguimiento",
@@ -230,6 +238,18 @@ const navLink = (
   "Dashboard Seguimiento",
   <BarChart3 size={18} />
 )}
+
+    {navLink(
+      "/pizarra_sesion",
+      "Pizarra Sesión",
+      <LayoutDashboard size={18} />
+    )}
+
+    {navLink(
+      "/pizarra",
+      "Pizarra Competición",
+      <Activity size={18} />
+    )}
 
     {navLink(
       "/pizarra-tactica",
@@ -364,6 +384,12 @@ const navLink = (
       <Binoculars  size={18} />
     )}
 
+    {navLink(
+      "/scout-rival-abp",
+      "ABP del Rival",
+      <Flag size={18} />
+    )}
+
   </div>
 </div>
 
@@ -425,22 +451,6 @@ const navLink = (
 
   <div className="space-y-2 text-sm">
 
-     {navLink(
-  "/training",
-  "Jugadores Sesión",
-  <Users size={18} />
-    )}
-    {navLink(
-      "/pizarra_sesion",
-      "Pizarra Sesión",
-      <LayoutDashboard size={18} />
-    )}
-
-    {navLink(
-      "/pizarra",
-      "Pizarra Competición",
-      <Activity size={18} />
-    )}
     {navLink(
   "/video-individual",
   "Videoteca Individual",

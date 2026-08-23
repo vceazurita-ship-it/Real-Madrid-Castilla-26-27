@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Star, UserRound } from "lucide-react";
 
-import { formatRating, ratingColor } from "@/lib/ratings/compute";
+import { formatRating, ratingColorHex } from "@/lib/ratings/compute";
 import { layoutPitch, recommendedHeight } from "@/lib/ratings/pitch";
 
 /**
@@ -152,7 +152,9 @@ export function SquadPitch({
 
       {placed.map(({ item, x, y, slot }) => {
         const rated = item.value > 0;
-        const color = ratingColor(item.value);
+        /* El campo es verde oscuro en los dos temas, así que aquí se usa
+           siempre la escala luminosa. */
+        const color = ratingColorHex(item.value);
         const active = selectedId === item.id;
         const isHovered = hovered === item.id;
 

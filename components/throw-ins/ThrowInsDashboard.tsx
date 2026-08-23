@@ -7,6 +7,7 @@ import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { AbpHeader, FilterDrawer } from "@/components/abp/ui";
 import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 import ThrowInZoneMap from "@/components/throw-ins/ThrowInZoneMap";
 import ThrowInFlow from "@/components/throw-ins/ThrowInFlow";
@@ -19,6 +20,7 @@ import {
   read,
   type RecordRow,
   resultColor,
+  resultInk,
   resumenDe,
 } from "@/components/throw-ins/throwInModel";
 
@@ -364,36 +366,47 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     : "Sin filtros · todos los saques registrados";
 
   return (
-    <div className="min-h-screen bg-[#0B0F14] text-white">
-      <Topbar />
-      <div className="flex">
-        <Sidebar />
-        <main className="min-w-0 flex-1 px-4 py-7 md:px-8 md:py-10">
-          <div className="mx-auto max-w-[1600px]">
-            <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-[#C8A96B]">RMCF Castilla · Colectivo</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-400">
-                  Análisis de saques de banda {isOffensive ? "a favor" : "en contra"}. Un resultado sin sufijo es del
-                  RMCF y uno acabado en &laquo;Rival&raquo; es del rival: sobre esa regla se calculan retención,
-                  progresión y peligro.
-                </p>
-              </div>
+    <div className="flex min-h-screen bg-[#0B0F14] text-white">
+      <Sidebar />
 
-              <button
-                type="button"
-                onClick={exportPng}
-                disabled={exporting || loading}
-                className="flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm text-[#E7D2A0] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-50"
+      <main className="min-w-0 flex-1">
+        <Topbar />
+
+        <div className="px-4 py-7 md:px-8 md:py-10">
+          <div className="mx-auto min-w-0 max-w-[1600px]">
+            <AbpHeader
+              area="RMCF Castilla · Colectivo"
+              title={title}
+              lead={
+                <>
+                  Análisis de saques de banda {isOffensive ? "a favor" : "en contra"}. Un
+                  resultado sin sufijo es del RMCF y uno acabado en
+                  &laquo;Rival&raquo; es del rival: sobre esa regla se calculan
+                  retención, progresión y peligro.
+                </>
+              }
+              aside={
+                <button
+                  type="button"
+                  onClick={exportPng}
+                  disabled={exporting || loading}
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm text-[#E7D2A0] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FileDown size={16} />
+                  {exporting ? "Generando…" : "Descargar PNG"}
+                </button>
+              }
+            />
+
+            {/* Los filtros van plegados: son dieciocho y ocupaban la primera
+                pantalla entera antes de enseñar un solo dato. El recuento de
+                abajo queda siempre visible para que nadie lea una gráfica
+                filtrada creyendo que la ve completa. */}
+            <div className="mb-7 mt-6 space-y-2.5">
+              <FilterDrawer
+                activeCount={activos.length}
+                summary={`${FILTERS.length} filtros disponibles`}
               >
-                <FileDown size={16} />
-                {exporting ? "Generando…" : "Descargar PNG"}
-              </button>
-            </div>
-
-            <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {FILTERS.map(({ key, label }) => (
                   <SelectFilter
                     key={key}
@@ -403,9 +416,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     options={options[key] ?? []}
                   />
                 ))}
-              </div>
+              </FilterDrawer>
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-white/40">
                 <span>
                   {filtered.length} de {rows.length} saques registrados
                   {activos.length ? ` · ${activos.length} ${activos.length === 1 ? "filtro" : "filtros"} activos` : ""}
@@ -415,7 +428,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   <button
                     type="button"
                     onClick={() => setFilters({})}
-                    className="rounded-full border border-white/10 px-3 py-1 text-slate-300 transition hover:border-white/25 hover:text-white"
+                    className="rounded-full border border-white/10 px-3 py-1 text-white/70 transition hover:border-white/25 hover:text-white"
                   >
                     Limpiar filtros
                   </button>
@@ -556,7 +569,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                   <td className="px-4 py-3">{read(row, "Debilidad_Defensiva") || "-"}</td>
                                 </>
                               )}
-                              <td className="px-4 py-3 font-medium" style={{ color: resultColor(resultado.label) }}>
+                              <td className="px-4 py-3 font-medium" style={{ color: resultInk(resultado.label) }}>
                                 {resultado.label}
                               </td>
                             </tr>
@@ -576,8 +589,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
               </div>
             )}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

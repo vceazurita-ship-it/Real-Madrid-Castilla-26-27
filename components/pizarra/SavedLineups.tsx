@@ -77,7 +77,7 @@ shrink-0
 rounded-xl
 border
 border-white/10
-bg-black/30
+bg-white/[0.03]
 p-3
 text-left
 transition

@@ -39,64 +39,90 @@ const ZONES: {
   { key: "frontal", label: "Frontal", x: 21.5, y: 25, w: 57, h: 12 },
 ];
 
-const METRICS: {
+/**
+ * Rótulos de las métricas. Cambian con el lado: el mismo número es «Remates»
+ * cuando atacamos y «Remates concedidos» cuando defendemos.
+ */
+function metricsFor(def: boolean): {
   key: Metric;
   label: string;
   hint: string;
   decimals: number;
-}[] = [
+}[] {
+  return [
   {
     key: "ocupacion",
     label: "Ocupación",
-    hint: "Media de jugadores situados en la zona por acción",
+    hint: def
+      ? "Media de jugadores situados en la zona por acción defendida"
+      : "Media de jugadores situados en la zona por acción",
     decimals: 1,
   },
   {
     key: "caidas",
     label: "Envíos recibidos",
-    hint: "Acciones cuyo balón cae en la zona",
+    hint: def
+      ? "Acciones del rival cuyo balón cae en la zona"
+      : "Acciones cuyo balón cae en la zona",
     decimals: 0,
   },
   {
     key: "remates",
-    label: "Remates",
-    hint: "Remates producidos desde la zona",
+    label: def ? "Remates concedidos" : "Remates",
+    hint: def
+      ? "Remates que el rival produce desde la zona"
+      : "Remates producidos desde la zona",
     decimals: 0,
   },
   {
     key: "xg",
-    label: "xG",
-    hint: "xG acumulado generado desde la zona",
+    label: def ? "xG concedido" : "xG",
+    hint: def
+      ? "xG acumulado que el rival genera desde la zona"
+      : "xG acumulado generado desde la zona",
     decimals: 2,
   },
   {
     key: "goles",
-    label: "Goles",
-    hint: "Goles marcados desde la zona",
+    label: def ? "Goles encajados" : "Goles",
+    hint: def
+      ? "Goles del rival marcados desde la zona"
+      : "Goles marcados desde la zona",
     decimals: 0,
   },
   {
     key: "xgPorCaida",
     label: "xG / envío",
-    hint: "Peligro generado por cada balón que cae en la zona",
+    hint: def
+      ? "Peligro concedido por cada balón que cae en la zona"
+      : "Peligro generado por cada balón que cae en la zona",
     decimals: 3,
   },
-];
+  ];
+}
 
 function norm(v?: string) {
   return (v || "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim();
 }
 
-/** Zona del área donde cae el envío. `corto` = combinación previa, no llega al área. */
-function zoneFromCaida(v?: string): ZoneKey | "corto" | null {
+/**
+ * Zona del área donde cae el envío rival.
+ * `corto` = superioridad previa (3v2, 2v1...), `barrera` = golpeo directo contra la barrera.
+ */
+function zoneFromCaida(
+  v: string | undefined,
+  def: boolean
+): ZoneKey | "corto" | "barrera" | null {
   const t = norm(v);
   if (!t) return null;
 
   if (/^\d+\s*v\s*\d+$/.test(t)) return "corto";
+  /* Sólo la hoja defensiva registra el golpeo directo contra la barrera. */
+  if (def && t.includes("barrera")) return "barrera";
 
   if (t.includes("primer")) return "1P";
   if (t.includes("segundo")) return "2P";
@@ -106,7 +132,7 @@ function zoneFromCaida(v?: string): ZoneKey | "corto" | null {
   return null;
 }
 
-/** Zona desde la que se produce el remate. */
+/** Zona desde la que el rival produce el remate. */
 function zoneFromRemate(v?: string): ZoneKey | null {
   const t = norm(v);
   if (!t) return null;
@@ -121,17 +147,36 @@ function zoneFromRemate(v?: string): ZoneKey | null {
   return null;
 }
 
-function esGol(v?: string) {
-  return norm(v) === "gol";
+/**
+ * Gol atribuible al equipo que ejecuta la acción.
+ *
+ * La hoja defensiva escribe "Gol RMCF" cuando el gol es nuestro tras una
+ * transición, así que ahí hay que descartarlo. En la ofensiva el vocabulario
+ * es cerrado y basta la igualdad exacta.
+ */
+function esGol(v: string | undefined, def: boolean) {
+  const t = norm(v);
+
+  return def ? t.includes("gol") && !t.includes("rmcf") : t === "gol";
 }
 
-/** Rampa secuencial navy -> oro, legible sobre el fondo oscuro del campo. */
-function heatColor(t: number) {
-  const stops: { p: number; c: [number, number, number] }[] = [
-    { p: 0, c: [14, 24, 38] },
-    { p: 0.5, c: [124, 100, 58] },
-    { p: 1, c: [231, 210, 160] },
-  ];
+/**
+ * Rampa secuencial desde navy. En ataque sube al oro corporativo —peligro
+ * generado— y en defensa al rojo —peligro concedido—: el mismo mapa se lee
+ * distinto según de quién sea la amenaza.
+ */
+function heatColor(t: number, def: boolean) {
+  const stops: { p: number; c: [number, number, number] }[] = def
+    ? [
+        { p: 0, c: [14, 24, 38] },
+        { p: 0.5, c: [122, 58, 58] },
+        { p: 1, c: [233, 150, 140] },
+      ]
+    : [
+        { p: 0, c: [14, 24, 38] },
+        { p: 0.5, c: [124, 100, 58] },
+        { p: 1, c: [231, 210, 160] },
+      ];
 
   const ratio = Math.max(0, Math.min(1, t));
 
@@ -156,11 +201,28 @@ function heatColor(t: number) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
+export type ABPZoneMode = "offensive" | "defensive";
+
+/**
+ * Mapa de calor de la zona de caída del balón parado.
+ *
+ * Un único componente para ataque y defensa: el cálculo es el mismo y lo que
+ * cambia es la lectura —rótulos, rampa de color y las dos reglas propias de
+ * la hoja defensiva (golpeo a la barrera y "Gol RMCF")—.
+ */
+export default function ABPZoneMap({
+  rows,
+  mode = "offensive",
+}: {
+  rows: ZoneRow[];
+  mode?: ABPZoneMode;
+}) {
+  const def = mode === "defensive";
+
   const [metric, setMetric] = useState<Metric>("ocupacion");
   const [selectedZone, setSelectedZone] = useState<ZoneKey | null>(null);
 
-  const { stats, corto, sinZona } = useMemo(() => {
+  const { stats, corto, barrera, sinZona } = useMemo(() => {
     const base: Record<
       ZoneKey,
       {
@@ -207,6 +269,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
     };
 
     let corto = 0;
+    let barrera = 0;
     let sinZona = 0;
 
     rows.forEach((r) => {
@@ -230,9 +293,10 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
         }
       });
 
-      const caida = zoneFromCaida(r.zonaCaida);
+      const caida = zoneFromCaida(r.zonaCaida, def);
 
       if (caida === "corto") corto += 1;
+      else if (caida === "barrera") barrera += 1;
       else if (caida) base[caida].caidas += 1;
       else sinZona += 1;
 
@@ -241,7 +305,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
       if (remate) {
         base[remate].remates += 1;
         base[remate].xg += Number(r.xg) || 0;
-        if (esGol(r.resultadoFinal)) base[remate].goles += 1;
+        if (esGol(r.resultadoFinal, def)) base[remate].goles += 1;
       }
     });
 
@@ -262,8 +326,10 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
       };
     });
 
-    return { stats, corto, sinZona };
-  }, [rows]);
+    return { stats, corto, barrera, sinZona };
+  }, [rows, def]);
+
+  const METRICS = useMemo(() => metricsFor(def), [def]);
 
   const activeMetric =
     METRICS.find((m) => m.key === metric) || METRICS[0];
@@ -315,7 +381,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
           <svg viewBox="0 0 100 46" className="h-full w-full">
             <defs>
               <filter
-                id="zoneShadow"
+                id="zoneShadowDef"
                 x="-20%"
                 y="-20%"
                 width="140%"
@@ -362,7 +428,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
                     y={z.y}
                     width={z.w}
                     height={z.h}
-                    fill={heatColor(ratio)}
+                    fill={heatColor(ratio, def)}
                     fillOpacity={0.9}
                     stroke={isSelected ? "#FFFFFF" : "#0B1728"}
                     strokeWidth={isSelected ? 0.7 : 0.3}
@@ -375,7 +441,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
                     fontSize="4.4"
                     fontWeight="700"
                     fill={ratio > 0.55 ? "#0B1728" : "#F8FAFC"}
-                    filter="url(#zoneShadow)"
+                    filter="url(#zoneShadowDef)"
                   >
                     {format(value)}
                   </text>
@@ -452,13 +518,13 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
               strokeOpacity="0.6"
             />
 
-            {/* Juego en corto: no llega al área */}
+            {/* Juego en corto del rival: no llega al área */}
             {corto > 0 && (
               <g>
                 <rect
                   x="4"
                   y="37"
-                  width="30"
+                  width="29"
                   height="6"
                   rx="1.4"
                   fill="#0B1728"
@@ -466,7 +532,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
                   strokeWidth="0.35"
                 />
                 <text
-                  x="19"
+                  x="18.5"
                   y="40"
                   textAnchor="middle"
                   fontSize="2.2"
@@ -476,7 +542,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
                   Juego en corto
                 </text>
                 <text
-                  x="19"
+                  x="18.5"
                   y="42.4"
                   textAnchor="middle"
                   fontSize="2"
@@ -485,6 +551,45 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
                   {corto} envíos ·{" "}
                   {rows.length
                     ? ((corto / rows.length) * 100).toFixed(0)
+                    : 0}
+                  %
+                </text>
+              </g>
+            )}
+
+            {/* Golpeo directo contra la barrera */}
+            {def && barrera > 0 && (
+              <g>
+                <rect
+                  x="35.5"
+                  y="37"
+                  width="29"
+                  height="6"
+                  rx="1.4"
+                  fill="#0B1728"
+                  stroke="#C8A96B"
+                  strokeWidth="0.35"
+                />
+                <text
+                  x="50"
+                  y="40"
+                  textAnchor="middle"
+                  fontSize="2.2"
+                  fontWeight="700"
+                  fill="#E7D2A0"
+                >
+                  Directa a barrera
+                </text>
+                <text
+                  x="50"
+                  y="42.4"
+                  textAnchor="middle"
+                  fontSize="2"
+                  fill="#D8C39A"
+                >
+                  {barrera} acciones ·{" "}
+                  {rows.length
+                    ? ((barrera / rows.length) * 100).toFixed(0)
                     : 0}
                   %
                 </text>
@@ -511,9 +616,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
             <div
               className="h-2 flex-1 rounded-full"
               style={{
-                background: `linear-gradient(90deg, ${heatColor(
-                  0
-                )}, ${heatColor(0.5)}, ${heatColor(1)})`,
+                background: `linear-gradient(90deg, ${heatColor(0, def)}, ${heatColor(0.5, def)}, ${heatColor(1, def)})`,
               }}
             />
 
@@ -574,20 +677,22 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
             </dl>
 
             <p className="mt-3 text-[11px] leading-snug text-zinc-500">
-              Ocupación y envíos miden lo que planificamos; remates, xG y
-              goles miden lo que conseguimos.
+              {def
+                ? "Ocupación y envíos miden cómo defendemos la zona; remates, xG y goles miden lo que el rival nos saca de ella."
+                : "Ocupación y envíos miden lo que planificamos; remates, xG y goles miden lo que conseguimos."}
             </p>
           </div>
         ) : (
-        /* Balance ocupación vs. peligro */
+        /* Balance ocupación vs. peligro concedido */
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-xs uppercase tracking-wide text-zinc-400">
-            Ocupación vs. peligro
+            {def ? "Ocupación vs. peligro concedido" : "Ocupación vs. peligro"}
           </p>
 
           <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-            Reparto de jugadores frente al reparto de xG generado en cada
-            zona.
+            {def
+              ? "Reparto de jugadores frente al reparto de xG que el rival genera en cada zona."
+              : "Reparto de jugadores frente al reparto de xG generado en cada zona."}
           </p>
 
           <div className="mt-4 space-y-4">
@@ -619,7 +724,7 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
 
                     <div className="h-1.5 w-full rounded-full bg-white/5">
                       <div
-                        className="h-1.5 rounded-full bg-[#C8A96B]"
+                        className={`h-1.5 rounded-full ${def ? "bg-[#D08A7E]" : "bg-[#C8A96B]"}`}
                         style={{ width: `${xgShare}%` }}
                       />
                     </div>
@@ -636,8 +741,10 @@ export default function ABPZoneMap({ rows }: { rows: ZoneRow[] }) {
             </span>
 
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#C8A96B]" />
-              xG
+              <span
+                className={`h-2 w-2 rounded-full ${def ? "bg-[#D08A7E]" : "bg-[#C8A96B]"}`}
+              />
+              {def ? "xG concedido" : "xG"}
             </span>
           </div>
 

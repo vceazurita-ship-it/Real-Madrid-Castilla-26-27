@@ -356,6 +356,15 @@ export const MODULES: AppModule[] = [
     icon: Search,
     rank: 83,
   },
+  {
+    href: "/scout-rival-abp",
+    area: "RIVAL",
+    title: "ABP del Rival",
+    desc: "Su balón parado: córners, faltas, bandas y amenaza aérea",
+    icon: Flag,
+    rank: 84,
+    alias: ["abp rival", "balon parado rival", "corners rival", "estrategia rival"],
+  },
 
   /* -------------------------------------------------------------- RENDIMIENTO */
   {
