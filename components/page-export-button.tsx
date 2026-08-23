@@ -101,6 +101,27 @@ function nextFrame() {
   );
 }
 
+function wait(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+/** ¿Hay imágenes servidas desde otro dominio dentro de la captura? */
+function hasRemoteImages(root: HTMLElement) {
+  return Array.from(root.querySelectorAll("img")).some((img) => {
+    const src = img.currentSrc || img.src;
+
+    if (!src || src.startsWith("data:") || src.startsWith("blob:")) {
+      return false;
+    }
+
+    try {
+      return new URL(src, window.location.href).origin !== window.location.origin;
+    } catch {
+      return false;
+    }
+  });
+}
+
 function isClipping(value: string) {
   return value === "auto" || value === "scroll" || value === "hidden";
 }
@@ -182,24 +203,44 @@ function enterExportMode(): Cleanup {
     if (cs.position === "sticky") {
       patch(el, { position: "static" });
     }
+  }
 
-    const clipsY = isClipping(cs.overflowY);
-    const clipsX = isClipping(cs.overflowX);
+  /* Los contenedores con scroll se despliegan de dentro hacia fuera: si
+     empezáramos por el padre, todavía no habría crecido y su recorte se
+     quedaría puesto (era lo que cortaba las tablas anchas). `html` y
+     `body` entran también en la lista: el layout usa `overflow-x-hidden`
+     en el body y sin levantarlo nada puede sobresalir. */
+  const scrollers = [
+    ...elements.reverse(),
+    document.body,
+    document.documentElement,
+  ];
 
-    const overflowsY = el.scrollHeight > el.clientHeight + 1;
-    const overflowsX = el.scrollWidth > el.clientWidth + 1;
+  for (const el of scrollers) {
+    if (el.closest("[data-export-hide]")) continue;
 
-    if (clipsY && overflowsY) {
-      patch(el, {
-        "overflow-y": "visible",
-        "max-height": "none",
-        height: "auto",
-      });
+    const cs = getComputedStyle(el);
+
+    if (cs.display === "none") continue;
+
+    const needsY = isClipping(cs.overflowY) && el.scrollHeight > el.clientHeight + 1;
+    const needsX = isClipping(cs.overflowX) && el.scrollWidth > el.clientWidth + 1;
+
+    if (!needsX && !needsY) continue;
+
+    /* Los dos ejes a la vez: en CSS un `overflow-x: visible` junto a un
+       `overflow-y: hidden` vuelve a comportarse como `auto` y seguiría
+       recortando. */
+    const styles: Record<string, string> = { overflow: "visible" };
+
+    if (needsY) {
+      styles["max-height"] = "none";
+      styles.height = "auto";
     }
 
-    if (clipsX && overflowsX) {
-      patch(el, { "overflow-x": "visible", "max-width": "none" });
-    }
+    if (needsX) styles["max-width"] = "none";
+
+    patch(el, styles);
   }
 
   return () => {
@@ -230,7 +271,14 @@ async function waitForAssets(root: HTMLElement) {
     )
   );
 
+  /* Al desplegar los contenedores cambian los anchos: los gráficos
+     (ResponsiveContainer) se remiden con un ResizeObserver, así que hay
+     que darles un respiro antes de capturar o saldrían con el tamaño
+     antiguo. */
+  window.dispatchEvent(new Event("resize"));
+
   await nextFrame();
+  await wait(260);
   await nextFrame();
 }
 
@@ -344,10 +392,9 @@ async function capturePage(): Promise<Capture> {
 
     const htmlToImage = await import("html-to-image");
 
-    const dataUrl = await htmlToImage.toPng(root, {
+    const options = {
       width,
       height,
-      pixelRatio,
       cacheBust: true,
       backgroundColor: resolveBackground(root),
       imagePlaceholder: TRANSPARENT_PIXEL,
@@ -356,7 +403,7 @@ async function capturePage(): Promise<Capture> {
         transform: "none",
         transformOrigin: "top left",
       },
-      filter: (node) => {
+      filter: (node: HTMLElement) => {
         if (!(node instanceof HTMLElement)) return true;
 
         if (node.hasAttribute("data-export-hide")) return false;
@@ -366,9 +413,43 @@ async function capturePage(): Promise<Capture> {
 
         return true;
       },
-    });
+    };
 
-    return { dataUrl, width, height, pixelRatio, boxes };
+    /* Pasada de calentamiento: html-to-image descarga e incrusta las
+       imágenes remotas la primera vez, así que sin ella la captura buena
+       sale a veces sin fotos. Solo hace falta cuando hay imágenes de otro
+       dominio (Supabase, escudos…); va a resolución mínima y deja los
+       recursos en la caché interna de la librería. */
+    if (hasRemoteImages(root)) {
+      await htmlToImage
+        .toPng(root, { ...options, pixelRatio: 0.05 })
+        .catch(() => undefined);
+    }
+
+    /* Si el lienzo se pasa de tamaño el navegador devuelve una imagen en
+       blanco en lugar de fallar: bajamos la resolución y repetimos. Solo
+       tiene sentido vigilarlo en páginas grandes; en una corta un PNG
+       pequeño es simplemente un PNG pequeño. */
+    const risky = width * height * pixelRatio * pixelRatio > 12_000_000;
+
+    const looksEmpty = (url: string) => risky && url.length < 6000;
+
+    let dataUrl = "";
+    let used = pixelRatio;
+
+    for (const ratio of [pixelRatio, pixelRatio * 0.6, pixelRatio * 0.35]) {
+      used = Math.max(0.25, ratio);
+
+      dataUrl = await htmlToImage.toPng(root, { ...options, pixelRatio: used });
+
+      if (!looksEmpty(dataUrl)) break;
+    }
+
+    if (looksEmpty(dataUrl)) {
+      throw new Error("La captura ha salido vacía");
+    }
+
+    return { dataUrl, width, height, pixelRatio: used, boxes };
   } finally {
     restore();
   }
@@ -461,7 +542,7 @@ function sliceToDataUrl(
     sourceH
   );
 
-  return canvas.toDataURL("image/jpeg", 0.92);
+  return canvas.toDataURL("image/jpeg", 0.95);
 }
 
 async function buildPagedPdf(capture: Capture) {

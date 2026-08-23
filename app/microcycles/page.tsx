@@ -184,27 +184,232 @@ const DIA_LABEL: Record<string, string> = {
   D: "Domingo",
 };
 
-const renderMultilineTick = (props: any) => {
-  const { x, y, payload } = props;
+/* ------------------------------------------------------------------ */
+/* Etiquetas de ejes                                                   */
+/* ------------------------------------------------------------------ */
 
-  const label = String(payload.value ?? "");
+/*
+ * Con muchas categorías (o con nombres largos) las etiquetas se pisaban
+ * unas con otras. El texto se reparte ahora en varias líneas según el
+ * ancho real reservado para el eje, se recorta con puntos suspensivos a
+ * partir de cierto número de líneas y la altura del gráfico se calcula
+ * a partir de las líneas que realmente ocupa la etiqueta más alta.
+ */
 
-  const words = label.length > 18 ? label.split(" ") : [label];
+/** Ancho medio de un carácter a 11px con la tipografía de la app. */
+const TICK_CHAR_WIDTH = 6.15;
 
-  return (
-    <text x={x} y={y} fill="#CBD5E1" fontSize="11" textAnchor="end">
-      {words.map((word: string, index: number) => (
-        <tspan
-          key={index}
-          x={x}
-          dy={index === 0 ? -(words.length - 1) * 6 : 12}
-        >
-          {word}
-        </tspan>
-      ))}
-    </text>
+/** Interlineado de las etiquetas de categoría. */
+const TICK_LINE_HEIGHT = 13;
+
+function wrapLabel(label: string, maxChars: number, maxLines: number) {
+  const words = String(label ?? "")
+    .trim()
+    .split(/s+/)
+    .filter(Boolean);
+
+  if (!words.length) return [""];
+
+  const lines: string[] = [];
+
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+
+    if (!current || candidate.length <= maxChars) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+
+  lines.push(current);
+
+  /* Una palabra suelta más larga que la línea se parte por la fuerza. */
+  const split: string[] = [];
+
+  for (const line of lines) {
+    if (line.length <= maxChars) {
+      split.push(line);
+      continue;
+    }
+
+    for (let i = 0; i < line.length; i += maxChars) {
+      split.push(line.slice(i, i + maxChars));
+    }
+  }
+
+  if (split.length <= maxLines) return split;
+
+  const trimmed = split.slice(0, maxLines);
+
+  trimmed[maxLines - 1] =
+    `${trimmed[maxLines - 1].slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
+
+  return trimmed;
+}
+
+/** Líneas que ocupa una etiqueta dentro del ancho reservado al eje. */
+function labelLines(label: string, width: number, maxLines = 3) {
+  const maxChars = Math.max(6, Math.floor((width - 14) / TICK_CHAR_WIDTH));
+
+  return wrapLabel(label, maxChars, maxLines);
+}
+
+/** Alto que necesita cada banda para que dos etiquetas no se toquen. */
+function categoryBandHeight(
+  items: { name: string }[],
+  width: number,
+  maxLines = 3
+) {
+  const lines = items.reduce(
+    (max, item) => Math.max(max, labelLines(item.name, width, maxLines).length),
+    1
   );
+
+  return Math.max(30, lines * TICK_LINE_HEIGHT + 12);
+}
+
+/** Alto total de un gráfico de barras horizontales. */
+function categoryChartHeight(
+  items: { name: string }[],
+  width: number,
+  { min = 320, maxLines = 3, extra = 56 } = {}
+) {
+  return Math.max(
+    min,
+    items.length * categoryBandHeight(items, width, maxLines) + extra
+  );
+}
+
+/* Recharts entrega las coordenadas como `string | number`. */
+type AxisTickProps = {
+  x?: string | number;
+  y?: string | number;
+  payload?: { value?: string | number };
 };
+
+type PolarTickProps = AxisTickProps & {
+  cx?: string | number;
+  cy?: string | number;
+};
+
+/** Tick de categoría (eje Y de las barras horizontales). */
+const makeCategoryTick =
+  (width: number, maxLines = 3) =>
+  function CategoryTick({ x, y, payload }: AxisTickProps) {
+    const label = String(payload?.value ?? "");
+
+    const px = Number(x) || 0;
+    const py = Number(y) || 0;
+
+    const lines = labelLines(label, width, maxLines);
+
+    return (
+      <text
+        x={px}
+        y={py}
+        fill="#CBD5E1"
+        fontSize={11}
+        textAnchor="end"
+        dominantBaseline="middle"
+      >
+        <title>{label}</title>
+
+        {lines.map((line, index) => (
+          <tspan
+            key={index}
+            x={px}
+            dy={
+              index === 0
+                ? -((lines.length - 1) * TICK_LINE_HEIGHT) / 2
+                : TICK_LINE_HEIGHT
+            }
+          >
+            {line}
+          </tspan>
+        ))}
+      </text>
+    );
+  };
+
+/**
+ * Propiedades del eje X cuando el número de categorías es variable:
+ * a partir de cierto punto se inclinan las etiquetas y, si aun así no
+ * caben, se muestra una de cada N.
+ */
+function categoryAxisProps(count: number, isMobile: boolean) {
+  const maxTicks = isMobile ? 8 : 26;
+
+  const interval = count > maxTicks ? Math.ceil(count / maxTicks) - 1 : 0;
+
+  const rotate = count > (isMobile ? 5 : 12);
+
+  return {
+    interval,
+    axisLine: false,
+    tickLine: false,
+    tick: { fill: "#94A3B8", fontSize: count > 18 ? 10 : 12 },
+    ...(rotate
+      ? {
+          angle: -40,
+          textAnchor: "end" as const,
+          height: 64,
+          tickMargin: 6,
+        }
+      : { height: 34, tickMargin: 8 }),
+  };
+}
+
+/** Tick de un radar: parte los nombres largos y los separa del polígono. */
+const makePolarTick =
+  (fontSize: number) =>
+  function PolarTick({ x, y, cx, cy, payload }: PolarTickProps) {
+    const label = String(payload?.value ?? "");
+
+    const px = Number(x) || 0;
+    const py = Number(y) || 0;
+    const centerX = Number(cx) || 0;
+    const centerY = Number(cy) || 0;
+
+    const lines = label.length > 11 ? wrapLabel(label, 11, 2) : [label];
+
+    const anchor =
+      Math.abs(px - centerX) < 14 ? "middle" : px > centerX ? "start" : "end";
+
+    /* Un pequeño empujón radial evita que el texto toque el polígono. */
+    const offsetX = anchor === "middle" ? 0 : px > centerX ? 4 : -4;
+
+    const above = py < centerY;
+
+    const startDy = above ? -((lines.length - 1) * (fontSize + 2)) : 0;
+
+    return (
+      <text
+        x={px + offsetX}
+        y={py}
+        fill="#E2E8F0"
+        fontSize={fontSize}
+        fontWeight={500}
+        textAnchor={anchor}
+        dominantBaseline="middle"
+      >
+        <title>{label}</title>
+
+        {lines.map((line, index) => (
+          <tspan
+            key={index}
+            x={px + offsetX}
+            dy={index === 0 ? startDy : fontSize + 2}
+          >
+            {line}
+          </tspan>
+        ))}
+      </text>
+    );
+  };
 
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
@@ -1083,12 +1288,52 @@ export default function Page() {
       ? null
       : microStats.find((m) => String(m.micro) === micro) ?? null;
 
-  const taskChartHeight = Math.max(
-    420,
-    tipoMetrics.length * (isMobile ? 34 : 32) + 60
+  const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
+
+  const tipoAxisWidth = isMobile ? 140 : isNarrow ? 170 : 220;
+
+  const formatoAxisWidth = isMobile ? 96 : 120;
+
+  /* Los altos se calculan a partir de las líneas que ocupa la etiqueta
+     más larga, para que dos categorías nunca se solapen. */
+
+  const taskChartHeight = categoryChartHeight(tipoMetrics, tipoAxisWidth, {
+    min: 420,
+    extra: 60,
+  });
+
+  const contenidoPrincipalHeight = categoryChartHeight(
+    contenidoPrincipalMetrics,
+    yAxisWidth,
+    { min: 380 }
   );
 
-  const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
+  const contenidoSecundarioTop = sortedByMetric(
+    contenidoSecundarioMetrics,
+    contentMetric
+  ).slice(0, 15);
+
+  const contenidoSecundarioHeight = categoryChartHeight(
+    contenidoSecundarioTop,
+    yAxisWidth,
+    { min: 380 }
+  );
+
+  const formatoTop = formatoMetrics.slice(0, 12);
+
+  const formatoHeight = categoryChartHeight(formatoTop, formatoAxisWidth, {
+    min: 380,
+    maxLines: 2,
+  });
+
+  const analisisHeight = categoryChartHeight(analisisMetrics, yAxisWidth, {
+    min: 320,
+    extra: 40,
+  });
+
+  const microAxisProps = categoryAxisProps(trendData.length, isMobile);
+
+  const polarTick = makePolarTick(isMobile ? 10 : 12);
 
   /* ------------------------------------------------------------------ */
 
@@ -1623,14 +1868,7 @@ export default function Page() {
                       >
                         <PolarGrid stroke="rgba(255,255,255,.12)" />
 
-                        <PolarAngleAxis
-                          dataKey="metric"
-                          tick={{
-                            fill: "#E2E8F0",
-                            fontSize: isMobile ? 10 : 12,
-                            fontWeight: 500,
-                          }}
-                        />
+                        <PolarAngleAxis dataKey="metric" tick={polarTick} />
 
                         <PolarRadiusAxis
                           domain={[0, 10]}
@@ -1704,13 +1942,7 @@ export default function Page() {
 
                         <CartesianGrid stroke="#1E232A" vertical={false} />
 
-                        <XAxis
-                          dataKey="micro"
-                          interval={0}
-                          tick={{ fill: "#94A3B8", fontSize: 12 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
+                        <XAxis dataKey="micro" {...microAxisProps} />
 
                         <YAxis
                           domain={[0, 10]}
@@ -1906,12 +2138,7 @@ export default function Page() {
                       <ComposedChart data={compareData}>
                         <CartesianGrid stroke="#1E232A" vertical={false} />
 
-                        <XAxis
-                          dataKey="micro"
-                          tick={{ fill: "#94A3B8", fontSize: 12 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
+                        <XAxis dataKey="micro" {...microAxisProps} />
 
                         <YAxis
                           yAxisId="left"
@@ -2201,14 +2428,7 @@ export default function Page() {
                         ?.label
                     }`}
                   >
-                    <div
-                      style={{
-                        height: Math.max(
-                          380,
-                          contenidoPrincipalMetrics.length * 30 + 50
-                        ),
-                      }}
-                    >
+                    <div style={{ height: contenidoPrincipalHeight }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={sortedByMetric(
@@ -2237,7 +2457,7 @@ export default function Page() {
                             interval={0}
                             axisLine={false}
                             tickLine={false}
-                            tick={renderMultilineTick}
+                            tick={makeCategoryTick(yAxisWidth)}
                           />
 
                           <Tooltip
@@ -2318,21 +2538,10 @@ export default function Page() {
                     title="Contenido secundario"
                     subtitle="Top 15 subcontenidos trabajados"
                   >
-                    <div
-                      style={{
-                        height: Math.max(
-                          380,
-                          Math.min(contenidoSecundarioMetrics.length, 15) * 30 +
-                            50
-                        ),
-                      }}
-                    >
+                    <div style={{ height: contenidoSecundarioHeight }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                          data={sortedByMetric(
-                            contenidoSecundarioMetrics,
-                            contentMetric
-                          ).slice(0, 15)}
+                          data={contenidoSecundarioTop}
                           layout="vertical"
                           margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
                         >
@@ -2355,7 +2564,7 @@ export default function Page() {
                             interval={0}
                             axisLine={false}
                             tickLine={false}
-                            tick={renderMultilineTick}
+                            tick={makeCategoryTick(yAxisWidth)}
                           />
 
                           <Tooltip
@@ -2378,21 +2587,16 @@ export default function Page() {
                             barSize={16}
                             fill={COLORS.pink}
                           >
-                            {sortedByMetric(
-                              contenidoSecundarioMetrics,
-                              contentMetric
-                            )
-                              .slice(0, 15)
-                              .map((entry) => (
-                                <Cell
-                                  key={entry.name}
-                                  fill={
-                                    contentMetric === "eval"
-                                      ? getEvalColor(entry.eval)
-                                      : COLORS.pink
-                                  }
-                                />
-                              ))}
+                            {contenidoSecundarioTop.map((entry) => (
+                              <Cell
+                                key={entry.name}
+                                fill={
+                                  contentMetric === "eval"
+                                    ? getEvalColor(entry.eval)
+                                    : COLORS.pink
+                                }
+                              />
+                            ))}
 
                             <LabelList
                               dataKey={contentMetric}
@@ -2553,11 +2757,11 @@ export default function Page() {
                           <YAxis
                             type="category"
                             dataKey="name"
-                            width={isMobile ? 140 : isNarrow ? 170 : 220}
+                            width={tipoAxisWidth}
                             interval={0}
                             axisLine={false}
                             tickLine={false}
-                            tick={renderMultilineTick}
+                            tick={makeCategoryTick(tipoAxisWidth)}
                           />
 
                           <Tooltip
@@ -2624,17 +2828,10 @@ export default function Page() {
                     title="Formatos de tarea más usados"
                     subtitle="Top 12 estructuras de juego (jugadores + comodines)"
                   >
-                    <div
-                      style={{
-                        height: Math.max(
-                          380,
-                          Math.min(formatoMetrics.length, 12) * 30 + 50
-                        ),
-                      }}
-                    >
+                    <div style={{ height: formatoHeight }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                          data={formatoMetrics.slice(0, 12)}
+                          data={formatoTop}
                           layout="vertical"
                           margin={{ top: 6, right: 46, left: 10, bottom: 6 }}
                         >
@@ -2650,11 +2847,11 @@ export default function Page() {
                           <YAxis
                             type="category"
                             dataKey="name"
-                            width={90}
+                            width={formatoAxisWidth}
                             interval={0}
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: "#CBD5E1", fontSize: 12 }}
+                            tick={makeCategoryTick(formatoAxisWidth, 2)}
                           />
 
                           <Tooltip
@@ -2736,13 +2933,7 @@ export default function Page() {
                       >
                         <PolarGrid stroke="rgba(255,255,255,.12)" />
 
-                        <PolarAngleAxis
-                          dataKey="metric"
-                          tick={{
-                            fill: "#E2E8F0",
-                            fontSize: isMobile ? 10 : 12,
-                          }}
-                        />
+                        <PolarAngleAxis dataKey="metric" tick={polarTick} />
 
                         <PolarRadiusAxis
                           domain={[0, 10]}
@@ -2915,14 +3106,7 @@ export default function Page() {
                     title="Análisis post-tarea"
                     subtitle="Etiquetas cualitativas registradas por el staff"
                   >
-                    <div
-                      style={{
-                        height: Math.max(
-                          320,
-                          analisisMetrics.length * 40 + 40
-                        ),
-                      }}
-                    >
+                    <div style={{ height: analisisHeight }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={analisisMetrics}
@@ -2945,7 +3129,7 @@ export default function Page() {
                             interval={0}
                             axisLine={false}
                             tickLine={false}
-                            tick={renderMultilineTick}
+                            tick={makeCategoryTick(yAxisWidth)}
                           />
 
                           <Tooltip
