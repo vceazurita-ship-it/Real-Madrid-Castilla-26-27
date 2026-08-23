@@ -16,18 +16,14 @@ import {
   Handshake,
   HeartHandshake,
   History,
-  MonitorPlay,
-  Network,
   PenTool,
   Scale,
   Search,
   Shield,
   ShieldHalf,
   Star,
-  Swords,
   User,
   Users,
-  Video,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -122,14 +118,6 @@ export const MODULES: AppModule[] = [
     icon: ClipboardCheck,
     rank: 98,
     alias: ["preparacion de partido", "previa"],
-  },
-  {
-    href: "/collective",
-    area: "COMPETICIÓN",
-    title: "Análisis de Competición",
-    desc: "Rendimiento del equipo partido a partido",
-    icon: Swords,
-    rank: 79,
   },
   {
     href: "/collective_history",
@@ -244,14 +232,6 @@ export const MODULES: AppModule[] = [
     rank: 89,
   },
   {
-    href: "/video-individual",
-    area: "INDIVIDUAL",
-    title: "Videoteca Individual",
-    desc: "Biblioteca de clips por jugador",
-    icon: Video,
-    rank: 70,
-  },
-  {
     href: "/comparative_ind",
     area: "INDIVIDUAL",
     title: "Comparativo U-21",
@@ -268,14 +248,6 @@ export const MODULES: AppModule[] = [
     desc: "Seguimiento del estado emocional del grupo",
     icon: HeartHandshake,
     rank: 68,
-  },
-  {
-    href: "/sinergy",
-    area: "RELACIONAL",
-    title: "Sinergias",
-    desc: "Relaciones funcionales entre jugadores",
-    icon: Network,
-    rank: 67,
   },
 
   /* ---------------------------------------------------------------- COLECTIVO */
@@ -312,22 +284,6 @@ export const MODULES: AppModule[] = [
     desc: "Saques de banda en contra",
     icon: Shield,
     rank: 73,
-  },
-  {
-    href: "/video-collective",
-    area: "COLECTIVO",
-    title: "Videoteca Colectiva",
-    desc: "Biblioteca de clips de equipo",
-    icon: MonitorPlay,
-    rank: 75,
-  },
-  {
-    href: "/team",
-    area: "COLECTIVO",
-    title: "Rendimiento de Equipo",
-    desc: "Indicadores globales del colectivo",
-    icon: BarChart3,
-    rank: 80,
   },
 
   /* -------------------------------------------------------------------- RIVAL */

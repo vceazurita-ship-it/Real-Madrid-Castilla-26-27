@@ -2013,7 +2013,7 @@ export default function IndividualPage() {
 
   return (
     <>
-      <main className="min-h-screen overflow-x-hidden bg-[#0B0F14] text-white">
+      <main className="min-h-screen overflow-x-clip bg-[#0B0F14] text-white">
         <div className="flex min-h-screen w-full">
           <Sidebar />
 

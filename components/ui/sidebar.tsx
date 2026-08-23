@@ -20,10 +20,7 @@ import {
   Network,
   Goal,
   Shield,
-  Video,
-  MonitorPlay,
   BarChart3,
-  Swords,
   History,
   Search,
   Binoculars,
@@ -110,22 +107,21 @@ const navLink = (
     setCollapsed(true)
   }
   className={`
-        
+
           fixed inset-y-0 left-0 z-50
+          flex flex-col
           transform
-          overflow-y-auto overscroll-contain
           border-r border-white/10 bg-[#111827]
           py-8
           transition-all duration-300 ease-in-out
           ${collapsed ? "w-[78px] px-2" : "w-[280px] px-6"}
           ${open ? "translate-x-0" : "-translate-x-full"}
-          md:sticky md:inset-y-auto md:top-0 md:h-screen
-          md:shrink-0 md:translate-x-0 md:self-start md:overflow-y-auto
+          md:sticky md:inset-y-auto md:top-0 md:h-[100dvh] md:max-h-[100dvh]
+          md:shrink-0 md:translate-x-0 md:self-start
         `}
-        style={{ WebkitOverflowScrolling: "touch" }}
       >
         {/* CERRAR MÓVIL */}
-        <div className="mb-6 flex justify-end md:hidden">
+        <div className="mb-6 flex shrink-0 justify-end md:hidden">
           <button
             onClick={() => setOpen(false)}
             className="rounded-xl p-2 text-white hover:bg-white/5"
@@ -134,10 +130,15 @@ const navLink = (
           </button>
         </div>
 
-        {/* COLAPSAR DESKTOP */}
-        
-
-        <nav className="space-y-10">
+        {/*
+          El menú es más alto que la pantalla: scrollea aquí dentro, no en la
+          página. Así el listado completo se alcanza siempre, aunque el
+          contenedor de la página cree su propio contexto de scroll.
+        */}
+        <nav
+          className="min-h-0 flex-1 space-y-10 overflow-y-auto overflow-x-hidden overscroll-contain pb-8"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
 
   {/* INICIO */}
   <div>
@@ -437,46 +438,6 @@ const navLink = (
       "Repositorio",
       <Database  size={18} />
     )}
-
-  </div>
-</div>
-
-{/* otras áreas */}
-<div>
-  {!collapsed && (
-    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-gray-500">
-      Otras áreas
-    </p>
-  )}
-
-  <div className="space-y-2 text-sm">
-
-    {navLink(
-  "/video-individual",
-  "Videoteca Individual",
-  <Video size={18} />
-)}
-{navLink(
-        "/sinergy",
-        "Sinergias",
-        <Network  size={18} />
-      )}
-            {navLink(
-  "/video-collective",
-  "Videoteca Colectiva",
-  <MonitorPlay  size={18} />
-)}
-      {navLink(
-        "/team",
-        "Rendimiento",
-        <BarChart3 size={18} />
-      )}
-
-      {navLink(
-        "/collective",
-        "Competición",
-        <Swords  size={18} />
-      )}
 
   </div>
 </div>

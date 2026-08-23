@@ -294,7 +294,7 @@ export default function EmotionPage() {
 
   return (
     <main className="min-h-screen bg-[#030811] text-white">
-      <div className="flex flex-col lg:flex-row">
+      <div className="flex flex-col md:flex-row">
         <Sidebar />
 
         <div className="min-w-0 flex-1">
