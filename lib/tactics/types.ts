@@ -8,6 +8,7 @@
 
 export type ToolId =
   | "select"
+  | "camera"
   | "arrow"
   | "dashed"
   | "line"
@@ -15,6 +16,12 @@ export type ToolId =
   | "zone"
   | "text"
   | "erase";
+
+/** Herramientas que dejan una forma dibujada sobre el campo. */
+export type DrawToolId = Exclude<ToolId, "select" | "erase" | "camera">;
+
+/** Tipo de trazo del dibujo. */
+export type LineDash = "solid" | "dashed" | "dotted";
 
 export type TokenKind = "home" | "away" | "ball" | "cone";
 
@@ -36,10 +43,14 @@ export interface TacticToken extends Point {
 
 export interface TacticShape {
   id: string;
-  tool: Exclude<ToolId, "select" | "erase">;
+  tool: DrawToolId;
   color: string;
   points: Point[];
   text?: string;
+  /** Grosor del trazo en unidades de campo. Si falta, se usa `LINE_WIDTHS[1]`. */
+  width?: number;
+  /** Tipo de trazo. Si falta, lo decide la herramienta. */
+  dash?: LineDash;
 }
 
 export interface TacticScene {
@@ -79,3 +90,21 @@ export const DRAW_COLORS = [
   "#F87171",
   "#FBBF24",
 ];
+
+/** Grosores del trazo, en unidades del campo (el ancho es 100). */
+export const LINE_WIDTHS = [0.3, 0.5, 0.85, 1.3] as const;
+
+export const LINE_WIDTH_LABEL = ["Fino", "Normal", "Grueso", "Muy grueso"];
+
+/** Patrón de guiones de cada tipo de trazo, en unidades de campo. */
+export const LINE_DASH_ARRAY: Record<LineDash, string | undefined> = {
+  solid: undefined,
+  dashed: "1.6 1.2",
+  dotted: "0.05 1.1",
+};
+
+export const LINE_DASH_LABEL: Record<LineDash, string> = {
+  solid: "Continuo",
+  dashed: "Discontinuo",
+  dotted: "Punteado",
+};

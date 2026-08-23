@@ -1,9 +1,20 @@
 "use client";
 
+/**
+ * Pizarra táctica.
+ *
+ * Es el único tablero de la aplicación: lo usan la pizarra táctica libre, las
+ * fases del partido y la pizarra de cada rival. Todo lo que se añada aquí
+ * aparece en las tres.
+ *
+ * El campo se dibuja en SVG sobre el espacio 100 x 68. La cámara
+ * (`usePitchCamera`) lo inclina y lo gira desde fuera, y el reproductor
+ * (`usePitchTimeline`) recorre las escenas interpolando las fichas.
+ */
+
 import {
   PointerEvent as ReactPointerEvent,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -11,30 +22,25 @@ import {
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import {
-  ArrowUpRight,
   Circle,
-  Copy,
   Cone,
+  Copy,
   Download,
-  Eraser,
   Mic,
-  Minus,
-  MousePointer2,
-  Pause,
-  Play,
   Plus,
-  Redo2,
-  Square,
-  Trash2,
-  Type as TypeIcon,
-  Undo2,
-  Waves,
 } from "lucide-react";
 
 import type { Player } from "@/types/player";
 import TacticsVoicePanel from "@/components/voice/TacticsVoicePanel";
 import PitchMarkings from "./PitchMarkings";
 import RivalPicker from "./RivalPicker";
+import PitchStage from "./PitchStage";
+import PitchCameraBar, { FollowSubject } from "./PitchCameraBar";
+import PitchTimelineBar from "./PitchTimelineBar";
+import BoardToolPalette from "./BoardToolPalette";
+import BoardStyleBar from "./BoardStyleBar";
+import { usePitchCamera } from "@/hooks/usePitchCamera";
+import { usePitchTimeline } from "@/hooks/usePitchTimeline";
 import {
   freeSpot,
   RivalPick,
@@ -55,6 +61,9 @@ import {
   CROP_LABEL,
   CROP_VIEWBOX,
   DRAW_COLORS,
+  LINE_DASH_ARRAY,
+  LINE_WIDTHS,
+  LineDash,
   PITCH_HEIGHT,
   PitchCrop,
   Point,
@@ -67,17 +76,6 @@ import {
 } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
 
-const TOOLS: { id: ToolId; label: string; icon: React.ReactNode }[] = [
-  { id: "select", label: "Mover", icon: <MousePointer2 size={15} /> },
-  { id: "arrow", label: "Desplazamiento", icon: <ArrowUpRight size={15} /> },
-  { id: "dashed", label: "Pase", icon: <Minus size={15} /> },
-  { id: "line", label: "Línea", icon: <Minus size={15} /> },
-  { id: "free", label: "Trazo libre", icon: <Waves size={15} /> },
-  { id: "zone", label: "Zona", icon: <Square size={15} /> },
-  { id: "text", label: "Texto", icon: <TypeIcon size={15} /> },
-  { id: "erase", label: "Borrar", icon: <Eraser size={15} /> },
-];
-
 const TOKEN_STYLE: Record<
   TokenKind,
   { fill: string; stroke: string; text: string; radius: number }
@@ -88,8 +86,6 @@ const TOKEN_STYLE: Record<
   cone: { fill: "#FB923C", stroke: "#0B0F14", text: "#0B0F14", radius: 1.5 },
 };
 
-const ANIMATION_MS = 1100;
-
 interface Props {
   doc: TacticsDoc;
   onChange: (doc: TacticsDoc) => void;
@@ -99,7 +95,7 @@ interface Props {
   rivalSquads?: RivalSquad[];
   /** Equipo rival fijo: oculta el selector de equipo del panel de dorsales. */
   lockedRivalTeam?: string;
-  /** Tablero de una sola escena: oculta la tira de escenas y la animación. */
+  /** Tablero de una sola escena: oculta la animación entre escenas. */
   singleScene?: boolean;
   /** Texto de ayuda bajo el tablero. */
   hint?: string;
@@ -119,14 +115,18 @@ export default function TacticsBoard({
 
   const [tool, setTool] = useState<ToolId>("select");
   const [color, setColor] = useState(DRAW_COLORS[0]);
+  const [strokeWidth, setStrokeWidth] = useState<number>(LINE_WIDTHS[1]);
+  const [dash, setDash] = useState<LineDash>("solid");
+
   const [sceneIndex, setSceneIndex] = useState(0);
   const [draft, setDraft] = useState<TacticShape | null>(null);
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
   const [editingShape, setEditingShape] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [dictating, setDictating] = useState(false);
+
+  const [follow, setFollow] = useState<FollowSubject>("ball");
+  const [followId, setFollowId] = useState<string | null>(null);
 
   const [past, setPast] = useState<TacticsDoc[]>([]);
   const [future, setFuture] = useState<TacticsDoc[]>([]);
@@ -134,6 +134,103 @@ export default function TacticsBoard({
   const scenes = doc.scenes;
   const safeIndex = Math.min(sceneIndex, scenes.length - 1);
   const scene = scenes[safeIndex] ?? emptyScene();
+
+  // ---------------------------------------------------------------
+  // Encuadre
+  // ---------------------------------------------------------------
+
+  /** `minX minY ancho alto` del recorte activo, ya en números. */
+  const viewBox = useMemo(() => {
+    const [minX, minY, width, height] = CROP_VIEWBOX[doc.crop]
+      .split(" ")
+      .map(Number);
+
+    return { minX, minY, width, height };
+  }, [doc.crop]);
+
+  // ---------------------------------------------------------------
+  // Reproductor
+  // ---------------------------------------------------------------
+
+  const timeline = usePitchTimeline(singleScene ? 1 : scenes.length);
+
+  /** `true` mientras la jugada corre o se arrastra el cursor del tiempo. */
+  const live = timeline.playing || timeline.scrubbing;
+
+  // Con la jugada en marcha manda el reproductor; parada, la escena editada.
+  const displayIndex = live ? Math.min(timeline.index, scenes.length - 1) : safeIndex;
+  const displayScene = scenes[displayIndex] ?? scene;
+  const nextScene = scenes[displayIndex + 1];
+
+  const visibleTokens = useMemo(() => {
+    if (!live || !nextScene) return displayScene.tokens;
+
+    return interpolateTokens(
+      displayScene.tokens,
+      nextScene.tokens,
+      timeline.t
+    );
+  }, [live, nextScene, displayScene.tokens, timeline.t]);
+
+  /*
+   * Mientras la jugada corre, la escena en edición sigue al reproductor: al
+   * pausar se queda donde se paró, sin volver de golpe a la anterior.
+   *
+   * Es un ajuste en pleno render —el patrón que React recomienda para
+   * sincronizar estado— y no un efecto, que dispararía un render en cascada
+   * en cada keyframe.
+   */
+  if (timeline.playing && sceneIndex !== timeline.index) {
+    setSceneIndex(timeline.index);
+  }
+
+  // ---------------------------------------------------------------
+  // Cámara
+  // ---------------------------------------------------------------
+
+  /** Ficha a la que se ancla el modo «Seguir». */
+  const followToken = useMemo(() => {
+    if (follow === "ball") {
+      return visibleTokens.find((token) => token.kind === "ball") ?? null;
+    }
+
+    return visibleTokens.find((token) => token.id === followId) ?? null;
+  }, [follow, followId, visibleTokens]);
+
+  const followTarget = useMemo(() => {
+    if (!followToken) return null;
+
+    return {
+      x: (followToken.x - viewBox.minX) / viewBox.width,
+      y: (followToken.y - viewBox.minY) / viewBox.height,
+    };
+  }, [followToken, viewBox]);
+
+  const camera = usePitchCamera({
+    followTarget,
+    // Al exportar el campo vuelve a plano, para que el PNG salga limpio.
+    neutral: exporting,
+  });
+
+  const { unproject } = camera;
+
+  /** Coordenadas del puntero en el espacio del campo, ya des-proyectadas. */
+  const toPitch = useCallback(
+    (event: ReactPointerEvent): Point => {
+      const point = unproject(event.clientX, event.clientY);
+      if (!point) return { x: 0, y: 0 };
+
+      return clampToPitch({
+        x: viewBox.minX + point.x * viewBox.width,
+        y: viewBox.minY + point.y * viewBox.height,
+      });
+    },
+    [unproject, viewBox]
+  );
+
+  // ---------------------------------------------------------------
+  // Historial
+  // ---------------------------------------------------------------
 
   /** Aplica un cambio guardando el estado anterior para deshacer. */
   const commit = useCallback(
@@ -175,30 +272,13 @@ export default function TacticsBoard({
     onChange(next);
   };
 
-  /** Coordenadas del puntero dentro del espacio del campo. */
-  const toPitch = useCallback((event: ReactPointerEvent): Point => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-
-    const matrix = svg.getScreenCTM();
-    if (!matrix) return { x: 0, y: 0 };
-
-    const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
-
-    const local = point.matrixTransform(matrix.inverse());
-
-    return clampToPitch({ x: local.x, y: local.y });
-  }, []);
-
   // ---------------------------------------------------------------
   // Dibujo
   // ---------------------------------------------------------------
 
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
-    if (playing) return;
-    if (tool === "select" || tool === "erase") return;
+    if (live) return;
+    if (tool === "select" || tool === "erase" || tool === "camera") return;
 
     const point = toPitch(event);
 
@@ -211,6 +291,7 @@ export default function TacticsBoard({
         color,
         points: [point],
         text: "",
+        width: strokeWidth,
       };
 
       updateScene((current) => ({
@@ -227,11 +308,13 @@ export default function TacticsBoard({
       tool,
       color,
       points: [point, point],
+      width: strokeWidth,
+      dash: tool === "dashed" ? "dashed" : dash,
     });
   }
 
   function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
-    if (playing) return;
+    if (live) return;
 
     const point = toPitch(event);
 
@@ -262,8 +345,7 @@ export default function TacticsBoard({
 
       if (current.tool === "free") {
         const last = current.points[current.points.length - 1];
-        const far =
-          Math.hypot(point.x - last.x, point.y - last.y) > 0.6;
+        const far = Math.hypot(point.x - last.x, point.y - last.y) > 0.6;
 
         return far
           ? { ...current, points: [...current.points, point] }
@@ -473,71 +555,27 @@ export default function TacticsBoard({
   };
 
   // ---------------------------------------------------------------
-  // Animación entre escenas
-  // ---------------------------------------------------------------
-
-  useEffect(() => {
-    if (!playing) return;
-
-    let frame = 0;
-    let start = 0;
-    let index = safeIndex;
-
-    const step = (time: number) => {
-      if (!start) start = time;
-
-      const t = Math.min(1, (time - start) / ANIMATION_MS);
-
-      setProgress(t);
-
-      if (t < 1) {
-        frame = requestAnimationFrame(step);
-        return;
-      }
-
-      index += 1;
-
-      if (index >= scenes.length - 1) {
-        setSceneIndex(scenes.length - 1);
-        setProgress(0);
-        setPlaying(false);
-        return;
-      }
-
-      setSceneIndex(index);
-      setProgress(0);
-      start = 0;
-      frame = requestAnimationFrame(step);
-    };
-
-    frame = requestAnimationFrame(step);
-
-    return () => cancelAnimationFrame(frame);
-    // Arrancamos la animación desde la escena visible al pulsar reproducir.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, scenes.length]);
-
-  const nextScene = scenes[safeIndex + 1];
-
-  const visibleTokens = useMemo(() => {
-    if (!playing || !nextScene) return scene.tokens;
-
-    return interpolateTokens(scene.tokens, nextScene.tokens, progress);
-  }, [playing, nextScene, scene.tokens, progress]);
-
-  // ---------------------------------------------------------------
   // Exportar
   // ---------------------------------------------------------------
 
   const exportPng = async () => {
     if (!frameRef.current) return;
 
+    timeline.pause();
     setExporting(true);
 
     try {
+      // Un par de fotogramas para que la cámara ya esté en reposo al capturar.
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      );
+
       const dataUrl = await toPng(frameRef.current, {
         pixelRatio: 2,
         backgroundColor: "#0B0F14",
+        filter: (node) =>
+          !(node instanceof HTMLElement) ||
+          !node.hasAttribute("data-export-hide"),
       });
 
       const link = document.createElement("a");
@@ -557,57 +595,19 @@ export default function TacticsBoard({
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
 
+  const followedLabel =
+    follow === "player"
+      ? followToken?.nombre ?? followToken?.label ?? undefined
+      : undefined;
+
   return (
     <div className="space-y-3">
-      {/* BARRA DE HERRAMIENTAS */}
+      {/* BARRA DE FICHAS Y ACCIONES */}
 
       <div
         data-export-hide
         className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-[#11161D] p-2"
       >
-        <div className="flex flex-wrap gap-1">
-          {TOOLS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTool(item.id)}
-              title={item.label}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[11px] font-semibold transition",
-                tool === item.id
-                  ? "bg-[#C8A96B] text-[#0B0F14]"
-                  : "text-white/60 hover:bg-white/[0.07] hover:text-white",
-                item.id === "dashed" && "italic"
-              )}
-            >
-              {item.icon}
-              <span className="hidden lg:inline">{item.label}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="mx-1 h-6 w-px bg-white/10" />
-
-        <div className="flex gap-1">
-          {DRAW_COLORS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setColor(option)}
-              title="Color de dibujo"
-              style={{ backgroundColor: option }}
-              className={cn(
-                "h-6 w-6 rounded-full border-2 transition",
-                color === option
-                  ? "scale-110 border-white"
-                  : "border-white/20 hover:border-white/50"
-              )}
-            />
-          ))}
-        </div>
-
-        <div className="mx-1 h-6 w-px bg-white/10" />
-
         <div className="flex flex-wrap gap-1">
           <TokenButton
             label="Propio"
@@ -666,32 +666,40 @@ export default function TacticsBoard({
           <span className="hidden lg:inline">Dictar</span>
         </button>
 
-        <div className="ml-auto flex items-center gap-1">
-          <IconButton
-            title="Deshacer"
-            disabled={!canUndo}
-            onClick={undo}
-            icon={<Undo2 size={15} />}
-          />
-          <IconButton
-            title="Rehacer"
-            disabled={!canRedo}
-            onClick={redo}
-            icon={<Redo2 size={15} />}
-          />
-          <IconButton
-            title="Vaciar escena"
-            onClick={() =>
-              updateScene((current) => ({ ...current, tokens: [], shapes: [] }))
-            }
-            icon={<Trash2 size={15} />}
-          />
-          <IconButton
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          {!singleScene && (
+            <>
+              <TokenButton
+                label="Duplicar escena"
+                icon={<Copy size={13} />}
+                onClick={addScene}
+              />
+              <TokenButton
+                label="Escena vacía"
+                icon={<Plus size={13} />}
+                onClick={() => {
+                  commit({
+                    ...doc,
+                    scenes: [
+                      ...scenes,
+                      emptyScene(`Escena ${scenes.length + 1}`),
+                    ],
+                  });
+                  setSceneIndex(scenes.length);
+                }}
+              />
+            </>
+          )}
+
+          <button
+            type="button"
             title="Descargar PNG"
             disabled={exporting}
             onClick={exportPng}
-            icon={<Download size={15} />}
-          />
+            className="rounded-xl p-2 text-white/55 transition hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Download size={15} />
+          </button>
         </div>
       </div>
 
@@ -744,9 +752,55 @@ export default function TacticsBoard({
 
       {/* CAMPO */}
 
-      <div
-        ref={frameRef}
-        className="overflow-hidden rounded-[26px] border border-[#C8A96B]/20 bg-[#0B1A12] shadow-[0_25px_80px_rgba(0,0,0,.5)]"
+      <PitchStage
+        camera={camera}
+        aspect={`${viewBox.width} / ${viewBox.height}`}
+        navigable={tool === "camera"}
+        frameRef={frameRef}
+        cameraBar={
+          <PitchCameraBar
+            camera={camera}
+            follow={follow}
+            onFollowChange={setFollow}
+            followedLabel={followedLabel}
+          />
+        }
+        toolbar={
+          <BoardToolPalette
+            tool={tool}
+            onToolChange={setTool}
+            onUndo={undo}
+            onRedo={redo}
+            onClear={() =>
+              updateScene((current) => ({ ...current, tokens: [], shapes: [] }))
+            }
+            canUndo={canUndo}
+            canRedo={canRedo}
+            disabled={live}
+          />
+        }
+        styleBar={
+          <BoardStyleBar
+            color={color}
+            onColorChange={setColor}
+            width={strokeWidth}
+            onWidthChange={setStrokeWidth}
+            dash={dash}
+            onDashChange={setDash}
+            disabled={live}
+          />
+        }
+        timeline={
+          singleScene ? undefined : (
+            <PitchTimelineBar
+              timeline={timeline}
+              keyframes={scenes.map((item) => item.nombre)}
+              activeIndex={displayIndex}
+              onSelectKeyframe={setSceneIndex}
+              onRemoveKeyframe={scenes.length > 1 ? removeScene : undefined}
+            />
+          )
+        }
       >
         <svg
           ref={svgRef}
@@ -757,10 +811,11 @@ export default function TacticsBoard({
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
           className={cn(
-            "block w-full touch-none select-none",
-            tool === "select" ? "cursor-default" : "cursor-crosshair"
+            "block h-full w-full touch-none select-none",
+            tool === "select" || tool === "camera"
+              ? "cursor-default"
+              : "cursor-crosshair"
           )}
-          style={{ aspectRatio: aspectOf(doc.crop) }}
         >
           <defs>
             <marker
@@ -780,11 +835,11 @@ export default function TacticsBoard({
 
           {/* Formas */}
           <g>
-            {[...scene.shapes, ...(draft ? [draft] : [])].map((shape) => (
+            {[...displayScene.shapes, ...(draft ? [draft] : [])].map((shape) => (
               <ShapeNode
                 key={shape.id}
                 shape={shape}
-                interactive={tool === "erase" || tool === "select"}
+                interactive={!live && (tool === "erase" || tool === "select")}
                 editing={editingShape === shape.id}
                 onErase={() => tool === "erase" && removeShape(shape.id)}
                 onEdit={() => setEditingShape(shape.id)}
@@ -805,13 +860,15 @@ export default function TacticsBoard({
           <g>
             {visibleTokens.map((token) => {
               const style = TOKEN_STYLE[token.kind];
+              const anchored =
+                follow === "player" && followId === token.id;
 
               return (
                 <g
                   key={token.id}
                   transform={`translate(${token.x} ${token.y})`}
                   onPointerDown={(event) => {
-                    if (playing) return;
+                    if (live || tool === "camera") return;
 
                     if (tool === "erase") {
                       event.stopPropagation();
@@ -822,6 +879,10 @@ export default function TacticsBoard({
                     if (tool !== "select") return;
 
                     event.stopPropagation();
+
+                    // La última ficha tocada es la que persigue la cámara.
+                    if (token.kind !== "ball") setFollowId(token.id);
+
                     svgRef.current?.setPointerCapture(event.pointerId);
                     setDraggingToken(token.id);
                   }}
@@ -831,6 +892,27 @@ export default function TacticsBoard({
                   )}
                 >
                   <title>{token.nombre ?? token.label}</title>
+
+                  {/* Sombra: da volumen cuando el campo está inclinado. */}
+                  <ellipse
+                    cx={0}
+                    cy={style.radius * 0.55}
+                    rx={style.radius * 0.95}
+                    ry={style.radius * 0.42}
+                    fill="rgba(0,0,0,.38)"
+                    style={{ pointerEvents: "none" }}
+                  />
+
+                  {anchored && (
+                    <circle
+                      r={style.radius + 1.1}
+                      fill="none"
+                      stroke="#C8A96B"
+                      strokeWidth={0.35}
+                      strokeDasharray="1 0.8"
+                      style={{ pointerEvents: "none" }}
+                    />
+                  )}
 
                   {token.kind === "cone" ? (
                     <polygon
@@ -877,98 +959,11 @@ export default function TacticsBoard({
             })}
           </g>
         </svg>
-      </div>
-
-      {/* ESCENAS */}
-
-      {!singleScene && (
-        <div
-          data-export-hide
-          className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-[#11161D] p-2"
-        >
-          <button
-            type="button"
-            onClick={() => setPlaying((value) => !value)}
-            disabled={scenes.length < 2}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-35"
-          >
-            {playing ? <Pause size={14} /> : <Play size={14} />}
-            {playing ? "Pausar" : "Animar"}
-          </button>
-
-          <div className="mx-1 h-6 w-px bg-white/10" />
-
-          <div className="flex flex-1 flex-wrap gap-1.5">
-            {scenes.map((item, index) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex items-center rounded-xl border transition",
-                  index === safeIndex
-                    ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
-                    : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlaying(false);
-                    setSceneIndex(index);
-                  }}
-                  className={cn(
-                    "px-2.5 py-2 text-[11px] font-semibold",
-                    index === safeIndex ? "text-[#C8A96B]" : "text-white/60"
-                  )}
-                >
-                  {index + 1}. {item.nombre}
-                </button>
-
-                {scenes.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeScene(index)}
-                    title="Eliminar escena"
-                    className="rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/15 hover:text-red-300"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addScene}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2 text-[11px] font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
-          >
-            <Copy size={13} />
-            Duplicar escena
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              commit({ ...doc, scenes: [...scenes, emptyScene(`Escena ${scenes.length + 1}`)] });
-              setSceneIndex(scenes.length);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2 text-[11px] font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
-          >
-            <Plus size={13} />
-            Escena vacía
-          </button>
-        </div>
-      )}
+      </PitchStage>
 
       {hint && <p className="text-[11px] leading-relaxed text-white/40">{hint}</p>}
     </div>
   );
-}
-
-/** Proporción del recorte, para que el SVG no deforme el campo. */
-function aspectOf(crop: PitchCrop) {
-  const [, , width, height] = CROP_VIEWBOX[crop].split(" ").map(Number);
-  return `${width} / ${height}`;
 }
 
 function ShapeNode({
@@ -988,9 +983,14 @@ function ShapeNode({
   onText: (text: string) => void;
   onCloseEdit: () => void;
 }) {
+  const width = shape.width ?? LINE_WIDTHS[1];
+
+  // Las herramientas antiguas no guardaban trazo: el pase sigue discontinuo.
+  const dash = shape.dash ?? (shape.tool === "dashed" ? "dashed" : "solid");
+
   const common = {
     stroke: shape.color,
-    strokeWidth: 0.5,
+    strokeWidth: width,
     fill: "none",
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
@@ -1010,7 +1010,8 @@ function ShapeNode({
         {...rect}
         rx={1}
         stroke={shape.color}
-        strokeWidth={0.5}
+        strokeWidth={width}
+        strokeDasharray={LINE_DASH_ARRAY[dash]}
         fill={shape.color}
         fillOpacity={0.14}
         onPointerDown={common.onPointerDown}
@@ -1045,7 +1046,7 @@ function ShapeNode({
         x={point.x}
         y={point.y}
         textAnchor="middle"
-        fontSize={3}
+        fontSize={2.2 + width * 1.6}
         fontWeight={700}
         fill={shape.color}
         onPointerDown={(event) => {
@@ -1065,7 +1066,7 @@ function ShapeNode({
     <path
       {...common}
       d={pathFrom(shape)}
-      strokeDasharray={shape.tool === "dashed" ? "1.6 1.2" : undefined}
+      strokeDasharray={LINE_DASH_ARRAY[dash]}
       markerEnd={shape.tool === "arrow" ? "url(#tactics-arrow)" : undefined}
     />
   );
@@ -1084,34 +1085,11 @@ function TokenButton({
     <button
       type="button"
       onClick={onClick}
+      title={label}
       className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
     >
       {icon}
       {label}
-    </button>
-  );
-}
-
-function IconButton({
-  title,
-  icon,
-  onClick,
-  disabled = false,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-xl p-2 text-white/55 transition hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      {icon}
     </button>
   );
 }
