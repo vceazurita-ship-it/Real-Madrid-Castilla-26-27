@@ -4,9 +4,19 @@
  * Escenario de la pizarra.
  *
  * Envuelve el campo (un SVG cualquiera) en el contenedor con perspectiva que
- * mueve `usePitchCamera`, y coloca alrededor las piezas fijas de la interfaz:
- * la barra de cámara arriba a la derecha, la paleta flotante a la izquierda,
- * el selector de estilo abajo a la izquierda y el reproductor bajo el campo.
+ * mueve `usePitchCamera`, y coloca alrededor las piezas fijas de la interfaz.
+ *
+ * Hay dos repartos, y los dos reciben las mismas piezas:
+ *
+ * - En pantalla grande flotan sobre el césped: la barra de cámara arriba a la
+ *   derecha, la paleta a la izquierda y el estilo del trazo abajo.
+ * - En móvil bajan a un muelle bajo el campo. Flotando tapaban casi todo el
+ *   césped —la paleta sola es más alta que el campo de un teléfono— y no se
+ *   veía ni la jugada ni lo que se estaba dibujando.
+ *
+ * El campo, además, nunca es más alto que la pantalla: se estrecha antes que
+ * salirse, así que en apaisado o con un recorte vertical se sigue viendo
+ * entero sin desplazarse.
  *
  * El SVG que se le pasa no sabe nada de la cámara: sigue dibujando en su
  * espacio de campo. Por eso el mismo escenario vale para cualquier tablero.
@@ -19,12 +29,16 @@
  */
 
 import {
+  CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
   Ref,
   useEffect,
+  useMemo,
   useRef,
+  useState,
 } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 
 import type { PitchCamera } from "@/hooks/usePitchCamera";
 import { cn } from "@/lib/utils";
@@ -46,12 +60,21 @@ interface Props {
   onGestureStart?: () => void;
   /** El campo. */
   children: ReactNode;
-  /** Barra de modos de cámara (arriba a la derecha). */
+  /** Barra de modos de cámara flotante (arriba a la derecha). */
   cameraBar?: ReactNode;
-  /** Paleta de herramientas (flotante a la izquierda). */
+  /** Paleta de herramientas flotante (a la izquierda). */
   toolbar?: ReactNode;
-  /** Selector de color, grosor y trazo (abajo a la izquierda). */
+  /** Selector de color, grosor y trazo flotante (abajo a la izquierda). */
   styleBar?: ReactNode;
+  /** Paleta de herramientas del muelle del móvil, en horizontal. */
+  dockToolbar?: ReactNode;
+  /**
+   * Panel contextual del muelle del móvil.
+   *
+   * Es el estilo del trazo mientras se dibuja y los mandos de cámara el resto
+   * del tiempo, así que bajo la paleta solo hay una fila más.
+   */
+  dockPanel?: ReactNode;
   /** Reproductor y línea de tiempo (bajo el campo). */
   timeline?: ReactNode;
   className?: string;
@@ -71,10 +94,15 @@ export default function PitchStage({
   cameraBar,
   toolbar,
   styleBar,
+  dockToolbar,
+  dockPanel,
   timeline,
   className,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
+
+  /** Pizarra a pantalla completa: en el móvil es lo que la hace grande. */
+  const [expanded, setExpanded] = useState(false);
 
   const {
     attachContainer,
@@ -90,6 +118,37 @@ export default function PitchStage({
     reset,
     render,
   } = camera;
+
+  /**
+   * Proporción del encuadre como número, para poder limitar la altura.
+   *
+   * El recorte del último tercio es más alto que ancho: sin ese tope ocupaba
+   * más de una pantalla de teléfono y había que desplazarse para verlo.
+   */
+  const ratio = useMemo(() => {
+    const [width, height] = aspect.split("/").map(Number);
+
+    return height > 0 ? width / height : 100 / 68;
+  }, [aspect]);
+
+  /** Con la pizarra ampliada la página no se mueve detrás, y Esc la cierra. */
+  useEffect(() => {
+    if (!expanded) return;
+
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded]);
 
   /**
    * La rueda hace zoom sobre el punto que hay bajo el cursor.
@@ -236,11 +295,20 @@ export default function PitchStage({
     <div
       ref={frameRef}
       className={cn(
-        "overflow-hidden rounded-[26px] border border-[#C8A96B]/20 bg-[#07120C] shadow-[0_25px_80px_rgba(0,0,0,.5)]",
+        "flex flex-col overflow-hidden bg-[#07120C]",
+        expanded
+          ? "fixed inset-0 z-[70] rounded-none"
+          : "rounded-[26px] border border-[#C8A96B]/20 shadow-[0_25px_80px_rgba(0,0,0,.5)]",
         className
       )}
     >
-      <div ref={stageRef} className="relative">
+      <div
+        ref={stageRef}
+        className={cn(
+          "relative",
+          expanded && "flex min-h-0 flex-1 items-center justify-center"
+        )}
+      >
         {/* Fondo del estadio: al inclinar el campo queda hueco alrededor. */}
         <div
           aria-hidden
@@ -250,13 +318,23 @@ export default function PitchStage({
         {/* CONTENEDOR DE PERSPECTIVA */}
 
         <div
-          ref={attachContainer}
-          style={{ ...containerStyle, aspectRatio: aspect }}
-          className="relative w-full"
+          data-expanded={expanded ? "true" : undefined}
+          style={{ "--pitch-ratio": ratio } as CSSProperties}
+          className="pitch-stage-fit mx-auto w-full"
         >
-          {/* El plano del campo: aquí se escribe la matriz de la cámara. */}
-          <div ref={attachPlane} style={planeStyle} className="absolute inset-0">
-            {children}
+          <div
+            ref={attachContainer}
+            style={{ ...containerStyle, aspectRatio: aspect }}
+            className="relative w-full"
+          >
+            {/* El plano del campo: aquí se escribe la matriz de la cámara. */}
+            <div
+              ref={attachPlane}
+              style={planeStyle}
+              className="absolute inset-0"
+            >
+              {children}
+            </div>
           </div>
         </div>
 
@@ -284,7 +362,7 @@ export default function PitchStage({
         {(navigable || render === "3d") && (
           <p
             data-export-hide
-            className="pointer-events-none absolute bottom-3 right-3 z-30 hidden max-w-[58%] rounded-lg bg-[#0B0F14]/75 px-2 py-1 text-right text-[10px] leading-tight text-white/45 backdrop-blur-sm sm:block"
+            className="pointer-events-none absolute bottom-3 right-14 z-30 hidden max-w-[52%] rounded-lg bg-[#0B0F14]/75 px-2 py-1 text-right text-[10px] leading-tight text-white/45 backdrop-blur-sm sm:block"
           >
             {navigable
               ? "Arrastra para orbitar · Mayús o botón derecho para desplazar · rueda para el zoom"
@@ -292,12 +370,27 @@ export default function PitchStage({
           </p>
         )}
 
+        {/* PANTALLA COMPLETA */}
+
+        <button
+          type="button"
+          data-export-hide
+          onClick={() => setExpanded((value) => !value)}
+          title={
+            expanded ? "Salir de pantalla completa" : "Ver a pantalla completa"
+          }
+          aria-pressed={expanded}
+          className="absolute bottom-2.5 right-2.5 z-30 rounded-xl border border-white/12 bg-[#0B0F14]/85 p-2 text-white/60 backdrop-blur-md transition hover:text-white sm:bottom-3 sm:right-3"
+        >
+          {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </button>
+
         {/* BARRA DE CÁMARA */}
 
         {cameraBar && (
           <div
             data-export-hide
-            className="absolute right-2.5 top-2.5 z-30 sm:right-3 sm:top-3"
+            className="absolute right-2.5 top-2.5 z-30 hidden pitch-float:block lg:right-3 lg:top-3"
           >
             {cameraBar}
           </div>
@@ -308,7 +401,7 @@ export default function PitchStage({
         {toolbar && (
           <div
             data-export-hide
-            className="absolute left-2.5 top-2.5 z-30 sm:left-3 sm:top-3"
+            className="absolute left-2.5 top-2.5 z-30 hidden pitch-float:block lg:left-3 lg:top-3"
           >
             {toolbar}
           </div>
@@ -319,19 +412,41 @@ export default function PitchStage({
         {styleBar && (
           <div
             data-export-hide
-            className="absolute bottom-2.5 left-2.5 z-30 sm:bottom-3 sm:left-3"
+            className="absolute bottom-2.5 left-2.5 z-30 hidden pitch-float:block lg:bottom-3 lg:left-3"
           >
             {styleBar}
           </div>
         )}
       </div>
 
+      {/* MUELLE DEL MÓVIL */}
+
+      {(dockToolbar || dockPanel) && (
+        <div
+          data-export-hide
+          className={cn(
+            "shrink-0 overflow-y-auto border-t border-white/10 bg-[#0B0F14]/85 pitch-float:hidden",
+            // A pantalla completa nada puede empujar al reproductor fuera.
+            expanded && "max-h-[30svh]"
+          )}
+        >
+          {dockToolbar && <div className="p-2">{dockToolbar}</div>}
+
+          {dockPanel && (
+            <div className="border-t border-white/[0.06] p-2">{dockPanel}</div>
+          )}
+        </div>
+      )}
+
       {/* REPRODUCTOR */}
 
       {timeline && (
         <div
           data-export-hide
-          className="border-t border-white/10 bg-[#0B0F14]/85"
+          className={cn(
+            "shrink-0 overflow-y-auto border-t border-white/10 bg-[#0B0F14]/85",
+            expanded && "max-h-[24svh]"
+          )}
         >
           {timeline}
         </div>

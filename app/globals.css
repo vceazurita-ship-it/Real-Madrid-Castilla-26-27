@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Las barras de la pizarra solo pueden flotar sobre el césped si hay sitio de
+   verdad. La paleta mide unos 400 px de alto, así que no basta con mirar el
+   ancho: un teléfono apaisado es ancho y bajo, y allí volvían a tapar el
+   campo. Por debajo de este umbral las barras bajan al muelle. */
+@custom-variant pitch-float (@media (min-width: 768px) and (min-height: 620px));
+
 /* ===========================
    TEMA: MODO NOCHE (por defecto) Y MODO DÍA
    `data-theme` lo fija el script en línea de app/layout.tsx antes del primer
@@ -335,6 +341,37 @@ scrollbar-width:none;
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
+/* ===========================
+   PIZARRAS: EL CAMPO NUNCA MÁS ALTO QUE LA PANTALLA
+   El campo mantiene su proporción con `aspect-ratio`, así que si solo se le
+   limita el ancho crece hacia abajo sin freno: el recorte del último tercio
+   (38 x 68) llegaba a medir dos pantallas de teléfono, y en apaisado ni el
+   campo completo cabía. Aquí se le pone tope a la altura traduciéndola a
+   ancho con la proporción que `PitchStage` escribe en `--pitch-ratio`.
+=========================== */
+
+.pitch-stage-fit {
+  max-width: calc(58svh * var(--pitch-ratio, 1.47));
+}
+
+/* A pantalla completa el muelle y el reproductor se reparten el resto. */
+.pitch-stage-fit[data-expanded="true"] {
+  max-width: calc(46svh * var(--pitch-ratio, 1.47));
+}
+
+/* Con las barras flotando no hay muelle que dejar hueco. */
+@media (min-width: 768px) and (min-height: 620px) {
+
+  .pitch-stage-fit {
+    max-width: calc(76svh * var(--pitch-ratio, 1.47));
+  }
+
+  .pitch-stage-fit[data-expanded="true"] {
+    max-width: calc(80svh * var(--pitch-ratio, 1.47));
+  }
+
+}
+
 /* ===========================
    ACCESIBILIDAD: MOVIMIENTO REDUCIDO
    Desactiva las animaciones ambientales de la portada

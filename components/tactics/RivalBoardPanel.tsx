@@ -45,7 +45,7 @@ export default function RivalBoardPanel({ squad }: { squad: RivalSquad }) {
   const squads = useMemo(() => [squad], [squad]);
 
   return (
-    <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-[#11161D] p-3 sm:p-5">
+    <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-[#11161D] p-2 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
           PIZARRA TÁCTICA

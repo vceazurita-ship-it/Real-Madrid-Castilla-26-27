@@ -99,7 +99,7 @@ export default function PizarraTacticaPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="space-y-5 px-4 py-6 sm:px-6 lg:px-10">
+          <div className="space-y-5 px-3 py-5 sm:px-6 sm:py-6 lg:px-10">
             <header>
               <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
                 RMCF Castilla · Metodología
@@ -151,9 +151,11 @@ export default function PizarraTacticaPage() {
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
+                {/* En el móvil la biblioteca se desliza en una fila: en columna
+                    empujaba el campo hasta bien pasado el final de la pantalla. */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 xl:block xl:space-y-1.5 xl:overflow-x-visible xl:pb-0">
                   {boards.length === 0 && (
-                    <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-[11px] text-white/35">
+                    <p className="w-full rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-[11px] text-white/35">
                       Todavía no hay ninguna pizarra
                     </p>
                   )}
@@ -162,7 +164,7 @@ export default function PizarraTacticaPage() {
                     <div
                       key={board.id}
                       className={cn(
-                        "flex items-center gap-1 rounded-xl border px-1 transition",
+                        "flex shrink-0 items-center gap-1 rounded-xl border px-1 transition xl:shrink",
                         board.id === activeId
                           ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
                           : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
@@ -180,14 +182,14 @@ export default function PizarraTacticaPage() {
                             if (event.key === "Enter") event.currentTarget.blur();
                             if (event.key === "Escape") setRenaming(null);
                           }}
-                          className="min-w-0 flex-1 rounded-lg bg-black/40 px-2 py-2 text-xs text-white outline-none"
+                          className="min-w-0 max-w-[9rem] flex-1 rounded-lg bg-black/40 px-2 py-2 text-xs text-white outline-none xl:max-w-none"
                         />
                       ) : (
                         <button
                           type="button"
                           onClick={() => setActiveId(board.id)}
                           className={cn(
-                            "min-w-0 flex-1 truncate px-2 py-2 text-left text-xs font-semibold",
+                            "min-w-0 max-w-[9rem] flex-1 truncate px-2 py-2 text-left text-xs font-semibold xl:max-w-none",
                             board.id === activeId
                               ? "text-[#C8A96B]"
                               : "text-white/65"
@@ -230,7 +232,7 @@ export default function PizarraTacticaPage() {
 
               {/* TABLERO */}
 
-              <div className="min-w-0 rounded-[30px] border border-[#C8A96B]/20 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-3 shadow-[0_35px_90px_rgba(0,0,0,.5)] sm:p-5">
+              <div className="min-w-0 rounded-[30px] border border-[#C8A96B]/20 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-2 shadow-[0_35px_90px_rgba(0,0,0,.5)] sm:p-5">
                 {active ? (
                   <BoardEditor
                     key={active.id}

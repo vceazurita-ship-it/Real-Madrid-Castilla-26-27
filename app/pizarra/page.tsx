@@ -303,7 +303,7 @@ function PizarraContent() {
                   </div>
                 </>
               ) : (
-                <div className="rounded-[30px] border border-[#C8A96B]/20 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-3 shadow-[0_35px_90px_rgba(0,0,0,.55)] xl:p-5">
+                <div className="rounded-[30px] border border-[#C8A96B]/20 bg-gradient-to-b from-[#151B23] to-[#0E131A] p-2 shadow-[0_35px_90px_rgba(0,0,0,.55)] sm:p-3 xl:p-5">
                   <PhaseBoard
                     key={tab}
                     phase={tab === "defensiva" ? "defensiva" : "ofensiva"}

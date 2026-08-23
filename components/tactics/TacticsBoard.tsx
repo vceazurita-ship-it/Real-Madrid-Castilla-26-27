@@ -664,6 +664,18 @@ export default function TacticsBoard({
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
 
+  const clearScene = () =>
+    updateScene((current) => ({ ...current, tokens: [], shapes: [] }));
+
+  /**
+   * Hay una herramienta de dibujo en la mano.
+   *
+   * En el móvil decide qué se ve bajo la paleta: el estilo del trazo mientras
+   * se dibuja y los mandos de cámara el resto del tiempo. Los dos a la vez no
+   * caben sin comerse el campo, que es justo lo que se quería evitar.
+   */
+  const drawing = tool !== "select" && tool !== "erase" && tool !== "camera";
+
   const followedLabel =
     follow === "player"
       ? followToken?.nombre ?? followToken?.label ?? undefined
@@ -677,24 +689,29 @@ export default function TacticsBoard({
         data-export-hide
         className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-[#11161D] p-2"
       >
-        <div className="flex flex-wrap gap-1">
+        {/* En el móvil las cuatro fichas se reparten el ancho de la fila. */}
+        <div className="flex w-full gap-1 sm:w-auto sm:flex-wrap">
           <TokenButton
             label="Propio"
+            className="flex-1 justify-center sm:flex-none"
             icon={<Circle size={14} />}
             onClick={() => addToken("home")}
           />
           <TokenButton
             label="Rival"
+            className="flex-1 justify-center sm:flex-none"
             icon={<Circle size={14} />}
             onClick={() => addToken("away")}
           />
           <TokenButton
             label="Balón"
+            className="flex-1 justify-center sm:flex-none"
             icon={<Circle size={12} />}
             onClick={() => addToken("ball")}
           />
           <TokenButton
             label="Cono"
+            className="flex-1 justify-center sm:flex-none"
             icon={<Cone size={14} />}
             onClick={() => addToken("cone")}
           />
@@ -707,7 +724,7 @@ export default function TacticsBoard({
               const player = roster.find((p) => p.id === event.target.value);
               if (player) addToken("home", player);
             }}
-            className="rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-[11px] text-white/75 outline-none"
+            className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-[11px] text-white/75 outline-none sm:w-auto"
           >
             <option value="">Añadir jugador…</option>
 
@@ -841,9 +858,7 @@ export default function TacticsBoard({
             onToolChange={setTool}
             onUndo={undo}
             onRedo={redo}
-            onClear={() =>
-              updateScene((current) => ({ ...current, tokens: [], shapes: [] }))
-            }
+            onClear={clearScene}
             canUndo={canUndo}
             canRedo={canRedo}
             disabled={live}
@@ -859,6 +874,42 @@ export default function TacticsBoard({
             onDashChange={setDash}
             disabled={live}
           />
+        }
+        dockToolbar={
+          <BoardToolPalette
+            dock
+            tool={tool}
+            onToolChange={setTool}
+            onUndo={undo}
+            onRedo={redo}
+            onClear={clearScene}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            disabled={live}
+          />
+        }
+        dockPanel={
+          drawing ? (
+            <BoardStyleBar
+              dock
+              color={color}
+              onColorChange={setColor}
+              width={strokeWidth}
+              onWidthChange={setStrokeWidth}
+              dash={dash}
+              onDashChange={setDash}
+              disabled={live}
+            />
+          ) : (
+            <PitchCameraBar
+              dock
+              compact={tool !== "camera"}
+              camera={camera}
+              follow={follow}
+              onFollowChange={setFollow}
+              followedLabel={followedLabel}
+            />
+          )
         }
         timeline={
           singleScene ? undefined : (
@@ -1003,6 +1054,15 @@ export default function TacticsBoard({
                     transform={`translate(0 ${style.radius * 0.55}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-style.radius * 0.55})`}
                     style={{ transition: "transform 190ms ease-out" }}
                   >
+                  {/*
+                    Área de agarre, invisible y más ancha que la ficha.
+
+                    En un teléfono la ficha mide unos dieciséis píxeles: con el
+                    dedo se fallaba una de cada dos veces. `transparent` sigue
+                    recibiendo el puntero, `none` no.
+                  */}
+                  <circle r={style.radius + 1.4} fill="transparent" />
+
                   {token.kind === "cone" ? (
                     <polygon
                       points={`0,${-style.radius} ${style.radius},${style.radius} ${-style.radius},${style.radius}`}
@@ -1166,17 +1226,22 @@ function TokenButton({
   label,
   icon,
   onClick,
+  className,
 }: {
   label: string;
   icon: React.ReactNode;
   onClick: () => void;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={label}
-      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white",
+        className
+      )}
     >
       {icon}
       {label}

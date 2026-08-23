@@ -138,8 +138,10 @@ export default function RivalPicker({
         </div>
       </div>
 
+      {/* En el móvil la lista se queda en dos filas para no empujar el campo
+          fuera de la pantalla; el resto de dorsales sigue ahí al deslizar. */}
       {open && (
-        <div className="mt-2 max-h-32 overflow-y-auto pr-1">
+        <div className="mt-2 max-h-[4.75rem] overflow-y-auto pr-1 md:max-h-32">
           {!squad || squad.players.length === 0 ? (
             <p className="px-1 py-2 text-[11px] text-white/35">
               {squads.length === 0

@@ -126,7 +126,7 @@ export default function PitchTimelineBar({
 
       {/* LÍNEA DE TIEMPO */}
 
-      <div className="flex min-w-[180px] flex-1 items-center gap-2">
+      <div className="flex min-w-[140px] flex-1 items-center gap-2 sm:min-w-[180px]">
         <div
           ref={trackRef}
           role="slider"
@@ -228,12 +228,14 @@ export default function PitchTimelineBar({
 
       {/* FASES */}
 
-      <div className="flex w-full flex-wrap items-center gap-1 sm:w-auto">
+      {/* En el móvil las escenas se deslizan en una sola fila: apiladas se
+          comían la pantalla en cuanto la jugada pasaba de cuatro escenas. */}
+      <div className="flex w-full items-center gap-1 overflow-x-auto pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-x-visible sm:pb-0">
         {keyframes.map((nombre, index) => (
           <span
             key={`chip-${index}`}
             className={cn(
-              "inline-flex items-center rounded-xl border transition",
+              "inline-flex shrink-0 items-center rounded-xl border transition",
               index === activeIndex
                 ? "border-[#C8A96B]/50 bg-[#C8A96B]/12"
                 : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"
