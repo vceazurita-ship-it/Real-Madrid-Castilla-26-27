@@ -9,9 +9,9 @@
  * las páginas se lean igual y se arreglen una sola vez.
  */
 
-import { ChevronDown, Info } from "lucide-react";
+import { Check, ChevronDown, CloudOff, Info, Loader2, X } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 /* ------------------------------------------------------------------ */
 /*  CABECERA                                                           */
@@ -448,5 +448,287 @@ export function TeamPicker({
         );
       })}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  FORMULARIO                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Campo de texto con la misma etiqueta y el mismo marco que `Select`.
+ *
+ * `suggestions` monta un `datalist`: sugiere sin cerrar la puerta a escribir
+ * otra cosa, que es lo que hace falta para el sacador o el rematador —la
+ * plantilla ayuda, pero a veces remata alguien que no está en la lista—.
+ */
+export function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  hint,
+  suggestions,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: "text" | "number";
+  hint?: string;
+  suggestions?: string[];
+}) {
+  const id = useId();
+  const listId = `${id}-list`;
+
+  return (
+    <label htmlFor={id} className="block min-w-0">
+      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </span>
+
+      <input
+        id={id}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        list={suggestions?.length ? listId : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+      />
+
+      {suggestions?.length ? (
+        <datalist id={listId}>
+          {suggestions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+      ) : null}
+
+      {hint && <span className="mt-1 block text-[10px] text-white/30">{hint}</span>}
+    </label>
+  );
+}
+
+/** Área de texto para la observación libre de una acción. */
+export function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  const id = useId();
+
+  return (
+    <label htmlFor={id} className="block min-w-0">
+      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </span>
+
+      <textarea
+        id={id}
+        rows={rows}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+      />
+    </label>
+  );
+}
+
+export function Button({
+  children,
+  onClick,
+  tone = "ghost",
+  type = "button",
+  disabled,
+  icon: Icon,
+  title,
+}: {
+  children?: ReactNode;
+  onClick?: () => void;
+  tone?: "primary" | "ghost" | "danger";
+  type?: "button" | "submit";
+  disabled?: boolean;
+  icon?: ComponentType<{ size?: number; className?: string }>;
+  title?: string;
+}) {
+  const styles = {
+    primary:
+      "border-[#C8A96B] bg-[#C8A96B] text-black hover:bg-[#d8bc82] disabled:bg-[#C8A96B]/40",
+    ghost:
+      "border-white/12 text-white/70 hover:border-white/25 hover:text-white",
+    danger:
+      "border-red-400/30 text-red-300/80 hover:border-red-400/60 hover:text-red-300",
+  }[tone];
+
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}
+    >
+      {Icon && <Icon size={13} />}
+      {children}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  DIÁLOGO                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Panel modal para editar una acción.
+ *
+ * Cierra con Escape salvo que el foco esté dentro de un campo, donde Escape
+ * suele significar «descartar lo que estoy escribiendo» y perder el formulario
+ * entero sería peor que no cerrar.
+ */
+export function Dialog({
+  title,
+  subtitle,
+  onClose,
+  footer,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+
+      const target = event.target as HTMLElement | null;
+
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement;
+
+      if (!typing) onClose();
+    };
+
+    window.addEventListener("keydown", handleKey);
+
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+    >
+      <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl">
+        <header className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-3.5">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold text-white">{title}</h2>
+
+            {subtitle && (
+              <p className="mt-0.5 text-[11px] text-white/40">{subtitle}</p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-lg p-1.5 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+
+        {footer && (
+          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 px-5 py-3">
+            {footer}
+          </footer>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  ESTADO DE GUARDADO                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Qué está pasando con el documento remoto, en una línea discreta. */
+export function SaveState({
+  status,
+  localOnly,
+  savedAt,
+}: {
+  status: "loading" | "saved" | "saving" | "offline" | "error";
+  localOnly?: boolean;
+  savedAt?: string | null;
+}) {
+  if (status === "saving") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-white/45">
+        <Loader2 size={12} className="animate-spin" />
+        Guardando…
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-red-300">
+        <CloudOff size={12} />
+        No se pudo guardar
+      </span>
+    );
+  }
+
+  if (status === "offline" || localOnly) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-300">
+        <CloudOff size={12} />
+        Sólo en este navegador
+      </span>
+    );
+  }
+
+  if (status === "loading") {
+    return <span className="text-[11px] text-white/35">Cargando…</span>;
+  }
+
+  const hora = savedAt
+    ? new Date(savedAt).toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-white/40">
+      <Check size={12} className="text-emerald-400" />
+      {hora ? `Guardado ${hora}` : "Guardado"}
+    </span>
   );
 }

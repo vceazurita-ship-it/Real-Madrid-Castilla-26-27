@@ -155,6 +155,43 @@ function toEvent(
   };
 }
 
+/**
+ * Convierte filas con el contrato de la hoja de scouting rival en eventos.
+ *
+ * Lo usan las dos rutas de scouting —la hoja publicada en Google Sheets y el
+ * registro que se guarda desde la propia app (`lib/abp/rivalScout.ts`)— para
+ * que ambas puntúen exactamente igual. El `implicitOwner` es el detalle
+ * delicado: si se equivoca, el peligro se le asigna al equipo que no es.
+ */
+export function scoutRowsToEvents(rows: SheetRow[]): AbpEvent[] {
+  const events: AbpEvent[] = [];
+
+  rows.forEach((row) => {
+    const equipo = pick(row, "Equipo", "EQUIPO");
+    if (!equipo) return;
+
+    const side: AbpSide = norm(pick(row, "Condicion", "Condición")).startsWith(
+      "d",
+    )
+      ? "defensivo"
+      : "ofensivo";
+
+    events.push(
+      toEvent(row, {
+        source: "scout",
+        equipo,
+        side,
+        /* En la hoja de scouting el «dueño» del peligro es siempre el equipo
+           analizado cuando ataca, y su oponente cuando defiende. */
+        owner: side === "ofensivo" ? "rmcf" : "rival",
+        implicitOwner: side === "ofensivo" ? "rmcf" : "rival",
+      }),
+    );
+  });
+
+  return events;
+}
+
 /* ------------------------------------------------------------------ */
 /*  CARGA                                                              */
 /* ------------------------------------------------------------------ */
@@ -183,28 +220,7 @@ export async function loadRivalAbp(): Promise<AbpDataset> {
   const events: AbpEvent[] = [];
 
   /* --- Hoja de scouting: el equipo analizado viene en la propia fila. --- */
-  scout.forEach((row) => {
-    const equipo = pick(row, "Equipo", "EQUIPO");
-    if (!equipo) return;
-
-    const side: AbpSide = norm(pick(row, "Condicion", "Condición")).startsWith(
-      "d",
-    )
-      ? "defensivo"
-      : "ofensivo";
-
-    events.push(
-      toEvent(row, {
-        source: "scout",
-        equipo,
-        side,
-        /* En la hoja de scouting el «dueño» del peligro es siempre el equipo
-           analizado cuando ataca, y su oponente cuando defiende. */
-        owner: side === "ofensivo" ? "rmcf" : "rival",
-        implicitOwner: side === "ofensivo" ? "rmcf" : "rival",
-      }),
-    );
-  });
+  events.push(...scoutRowsToEvents(scout));
 
   /* --- Derivado: nuestra hoja defensiva es el ataque del rival. --- */
   piezasDef.forEach((row) => {
