@@ -201,21 +201,21 @@ const LINES = [
 const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   // PORTEROS
   {
-    idJugador: "JUG-24",
+    idJugador: "JUG-23",
     name: "Mestre",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/SERGIO_MESTRE_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-25",
+    idJugador: "JUG-24",
     name: "Javi Navarro",
     position: "Portero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JAVI_NAVARRO_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-26",
+    idJugador: "JUG-25",
     name: "F. Quetglas",
     position: "Portero",
     photo:
@@ -310,56 +310,56 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
       "https://assets.realmadrid.com/is/image/realmadrid/CRISTIAN_DAVID_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-15",
+    idJugador: "JUG-14",
     name: "M. Rezola",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/MANEX-REZOLA_AV17806_550x650?$Desktop$&fit=wrap&wid=420",
   },
   {
-    idJugador: "JUG-14",
+    idJugador: "JUG-13",
     name: "Diego Lacosta",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DIEGO%20LASCOSTA_JT11305_550X650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-16",
+    idJugador: "JUG-15",
     name: "Roberto",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ROBERTO_MARTIN_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-17",
+    idJugador: "JUG-16",
     name: "Pol Fortuny",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/POL_FORTUNY_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-18",
+    idJugador: "JUG-17",
     name: "Mesonero",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_MESONERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-19",
+    idJugador: "JUG-18",
     name: "Yáñez",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/DANIEL_YAÑEZ_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-20",
+    idJugador: "JUG-19",
     name: "Alexis Ciria",
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALEXIS-CIRIA_JT10268_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-21",
+    idJugador: "JUG-20",
     name: "Á. Leiva",
     position: "Centrocampista",
     photo:
@@ -368,21 +368,21 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
 
   // DELANTEROS
   {
-    idJugador: "JUG-23",
+    idJugador: "JUG-22",
     name: "Rachad",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/RACHAD_FETTAL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-22",
+    idJugador: "JUG-21",
     name: "Jacobo",
     position: "Delantero",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-27",
+    idJugador: "JUG-26",
     name: "Carvajal",
     position: "Delantero",
     photo:
@@ -515,7 +515,7 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
     "https://assets.realmadrid.com/is/image/realmadrid/JAIME%20BARROSO_DB10239380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
 },
 {
-  idJugador: "JUG-31",
+  idJugador: "JUG-32",
   name: "Carlos D.",
   position: "Centrocampista",
   externo: true,
@@ -523,7 +523,7 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
     "https://assets.realmadrid.com/is/image/realmadrid/CARLOS%20DIEZ_DB10299_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
 },
 {
-  idJugador: "JUG-32",
+  idJugador: "JUG-31",
   name: "Ginés",
   position: "Delantero",
   externo: true,
@@ -536,8 +536,9 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
 
 /**
  * Sustituye las fotos remotas por los recortes locales. Se resuelve por
- * nombre a propósito: los `idJugador` de esta lista no coinciden con los de
- * la hoja. Si alguien no tiene recorte, se queda con su URL original.
+ * nombre a propósito: la hoja ha renumerado los `ID_JUGADOR` alguna vez y el
+ * nombre es lo único que se mueve con la persona. Si alguien no tiene
+ * recorte, se queda con su URL original.
  */
 const players: Player[] = PLAYERS_BASE.map((player) => ({
   ...player,

@@ -100,8 +100,13 @@ const SLUG_SET = new Set<string>(PLAYER_IMAGE_SLUGS);
 export const PLAYER_PHOTO_FALLBACK = `${PHOTO_BASE}/placeholder.webp`;
 
 /**
- * ID de la hoja -> slug. Es la vía principal: los IDs no cambian aunque
- * alguien reescriba el nombre en la hoja.
+ * ID de la hoja -> slug. Es la red de seguridad para los nombres que el
+ * resolver no sabe leer solo, como "Valdepeñas" (la ñ no está en el slug).
+ *
+ * OJO: la hoja ha renumerado los IDs al menos una vez. En agosto de 2026 los
+ * porteros pasaron de JUG-24/25/26 a JUG-23/24/25 y todo el bloque JUG-14..27
+ * bajó un número, así que este mapa apuntaba a la persona equivocada. Por eso
+ * el nombre manda sobre el ID: si vuelves a tocarlo, cópialo de la hoja.
  */
 const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-01": "jesus-fortea",
@@ -116,23 +121,21 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-10": "ariel-nkoghe",
   "JUG-11": "jorge-cestero",
   "JUG-12": "cristian-david",
-  "JUG-14": "diego-lacosta",
-  "JUG-15": "manex-rezola",
-  "JUG-16": "roberto-martin",
-  "JUG-17": "pol-fortuny",
-  "JUG-18": "daniel-mesonero",
-  "JUG-19": "daniel-yanez",
-  "JUG-20": "alexis-ciria",
-  "JUG-21": "alvaro-leiva",
-  "JUG-22": "jacobo-ortega",
-  "JUG-23": "rachad-fettal",
-  "JUG-24": "sergio-mestre",
-  "JUG-25": "javi-navarro",
-  "JUG-26": "ferran-quetglas",
-  "JUG-27": "angel-carvajal",
-  "JUG-28": "cesar-palacios",
-  "JUG-29": "jaime-barroso",
-  "JUG-30": "fran-gonzalez",
+  "JUG-13": "diego-lacosta",
+  "JUG-14": "manex-rezola",
+  "JUG-15": "roberto-martin",
+  "JUG-16": "pol-fortuny",
+  "JUG-17": "daniel-mesonero",
+  "JUG-18": "daniel-yanez",
+  "JUG-19": "alexis-ciria",
+  "JUG-20": "alvaro-leiva",
+  "JUG-21": "jacobo-ortega",
+  "JUG-22": "rachad-fettal",
+  "JUG-23": "sergio-mestre",
+  "JUG-24": "javi-navarro",
+  "JUG-25": "ferran-quetglas",
+  "JUG-26": "angel-carvajal",
+  "JUG-28": "jaime-barroso",
   "JUG-31": "alvaro-gines",
   "JUG-32": "carlos-diez",
   "JUG-33": "gabriel-castrelo",
@@ -142,7 +145,6 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-38": "david-jimenez",
   "JUG-39": "liberto-navascues",
   "JUG-40": "aimar-garcia",
-  "JUG-41": "leo-lemaitre",
   "JUG-42": "ferran-seco",
   "JUG-43": "illia-voloshyn",
   "JUG-44": "alvaro-gonzalez",
@@ -150,9 +152,6 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-46": "izan-regueira",
   "JUG-47": "cherif-fofana",
   "JUG-48": "gabriel-valero",
-  "JUG-49": "guille-gonzalez",
-  "JUG-50": "hugo-de-llanos",
-  "JUG-51": "jorge-cestero",
 };
 
 /**
@@ -216,13 +215,8 @@ function onlyMatch(predicate: (tokens: string[]) => boolean): PlayerImageSlug | 
   return (found as PlayerImageSlug) ?? null;
 }
 
-/** Slug de la persona, o `null` si no tiene recorte. */
-export function resolvePlayerSlug(
-  nombre?: string | null,
-  id?: string | null
-): PlayerImageSlug | null {
-  if (id && ID_TO_SLUG[id]) return ID_TO_SLUG[id];
-
+/** Slug deducido sólo del nombre, o `null` si no hay una única coincidencia. */
+function slugFromName(nombre?: string | null): PlayerImageSlug | null {
   if (!nombre || nombre.trim() === "") return null;
 
   const normalized = normalizePlayerName(nombre);
@@ -247,6 +241,21 @@ export function resolvePlayerSlug(
   }
 
   return null;
+}
+
+/**
+ * Slug de la persona, o `null` si no tiene recorte.
+ *
+ * El nombre va primero y el ID sólo cubre lo que el nombre no resuelve. Es al
+ * revés de como estaba: la hoja renumeró los IDs y el mapa siguió apuntando al
+ * jugador anterior, así que la ficha salía con la cara de otro. El nombre, aun
+ * con erratas, es lo único que se mueve con la persona.
+ */
+export function resolvePlayerSlug(
+  nombre?: string | null,
+  id?: string | null
+): PlayerImageSlug | null {
+  return slugFromName(nombre) ?? (id ? ID_TO_SLUG[id] ?? null : null);
 }
 
 /** Ruta pública del recorte pedido, o `null` si esa persona no tiene foto. */

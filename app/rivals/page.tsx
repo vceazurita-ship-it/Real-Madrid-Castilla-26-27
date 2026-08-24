@@ -2660,6 +2660,66 @@ const SLOT_ANCHORS: Record<string, { x: number; y: number; xSide?: number }> = {
 
 const FALLBACK_ANCHOR = { x: 0.5, y: 0.56 };
 
+/*
+| Reparte una fila de cajas entre `from` y `to`: cada una lo más cerca posible
+| de donde querría estar, sin pisar a la anterior y sin salirse. Devuelve los
+| centros.
+|
+| La clave es que los límites se encadenan desde los dos extremos: el mínimo de
+| una caja sale del sitio que ya ocupan todas las anteriores y su máximo del que
+| necesitan todas las siguientes. Empujar sólo hacia un lado y recortar al final
+| —como se hacía antes— dejaba dos cajas en la misma posición cuando la fila no
+| cabía. Si no cabe, el hueco se encoge (puede quedar negativo) y el apretón se
+| reparte entre todas en vez de amontonarse en un extremo.
+*/
+function packRow(
+  widths: number[],
+  wanted: number[],
+  from: number,
+  to: number,
+  gap: number,
+): number[] {
+  const halves = widths.map((width) => width / 2);
+
+  const total = widths.reduce((sum, width) => sum + width, 0);
+
+  const room = Math.min(
+    gap,
+    (to - from - total) / Math.max(1, widths.length - 1),
+  );
+
+  const low: number[] = [];
+  const high: number[] = [];
+
+  halves.forEach((half, index) => {
+    low[index] =
+      index === 0
+        ? from + half
+        : low[index - 1] + halves[index - 1] + room + half;
+  });
+
+  for (let index = halves.length - 1; index >= 0; index -= 1) {
+    high[index] =
+      index === halves.length - 1
+        ? to - halves[index]
+        : high[index + 1] - halves[index + 1] - room - halves[index];
+  }
+
+  const centers: number[] = [];
+
+  let nextMin = -Infinity;
+
+  halves.forEach((half, index) => {
+    const target = Math.min(Math.max(wanted[index], low[index]), high[index]);
+
+    centers[index] = Math.max(target, nextMin);
+
+    nextMin = centers[index] + half + room + (halves[index + 1] ?? 0);
+  });
+
+  return centers;
+}
+
 /* La hoja mezcla IZQUIERDO / IZQ / IZDO / I y DERECHO / DCHO / DER / D. */
 const LEFT_PATTERN =
   /(^|[\s\-/(.])(izquierd[oa]|izq(da|do)?|izd[oa]?|zurd[oa]|i)([\s\-/).]|$)/;
@@ -2687,6 +2747,12 @@ type PlacedPlayer = {
   x: number;
   y: number;
   color: string;
+  /**
+   * El bloque reserva fila de chapas. Se pinta aunque este jugador no lleve
+   * ninguna: si unas fichas la tienen y otras no, cada una se centra con una
+   * altura distinta y las fotos de una misma fila quedan a distinto nivel.
+   */
+  tagRow: boolean;
 };
 
 type PlacedCluster = {
@@ -2719,11 +2785,34 @@ type PitchCluster = {
   anchorX: number;
   anchorY: number;
   players: RivalPlayer[];
+  /** Alguien del bloque lleva chapas de IMPACTO: su ficha es más alta. */
+  tagged: boolean;
   cols: number;
   rows: number;
   x: number;
   width: number;
+  /** Alto de una ficha del bloque y salto entre filas, ya con su etiqueta. */
+  cardHeight: number;
+  stepY: number;
 };
+
+/*
+| Medidas de la ficha para un tamaño de foto dado. Las comparten el motor de
+| colocación (para reservar sitio) y el render (para pintar): cuando sólo las
+| sabía el render, el motor reservaba menos alto del que ocupaba la ficha y las
+| filas se pisaban.
+*/
+function cardMetrics(avatar: number, compact: boolean) {
+  const badge = compact
+    ? Math.max(9, Math.min(14, Math.round(avatar * 0.32)))
+    : Math.max(11, Math.min(19, Math.round(avatar * 0.32)));
+
+  const nameFont = compact
+    ? Math.max(8, Math.min(11, Math.round(avatar * 0.21)))
+    : Math.max(9, Math.min(12, Math.round(avatar * 0.21)));
+
+  return { badge, nameFont };
+}
 
 function layoutPitch(
   players: RivalPlayer[],
@@ -2762,10 +2851,13 @@ function layoutPitch(
       anchorX: anchor.x + side * (anchor.xSide ?? 0),
       anchorY: anchor.y,
       players: [player],
+      tagged: false,
       cols: 0,
       rows: 0,
       x: 0,
       width: 0,
+      cardHeight: 0,
+      stepY: 0,
     });
   });
 
@@ -2774,6 +2866,10 @@ function layoutPitch(
   clusters.forEach((cluster) => {
     cluster.players.sort(
       (a, b) => (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999),
+    );
+
+    cluster.tagged = cluster.players.some(
+      (player) => parseTags(player.IMPACTO).tags.length > 0,
     );
   });
 
@@ -2817,58 +2913,131 @@ function layoutPitch(
   /* 3 · Tamaño de ficha con el que todo cabe. */
 
   /*
-  | En móvil el campo mide poco más de 300 px de ancho: con los márgenes y los
-  | pasos de escritorio el reparto pedía más sitio del que hay, el avatar se
-  | quedaba clavado en su mínimo y las fichas acababan pisándose. Ahí apretamos
-  | márgenes, huecos y la altura de la etiqueta; en PC no cambia nada.
+  | Medidas del reparto. En móvil el campo mide poco más de 300 px de ancho:
+  | con los márgenes y los pasos de escritorio pedía más sitio del que hay, así
+  | que ahí van todos apretados. Los valores de PC son los de siempre.
   */
   const padX = compact ? 10 : 26;
   const padY = compact ? 10 : 16;
-  const labelHeight = compact ? 28 : 34;
   const chipHeight = compact ? 13 : 15;
   const rowGap = compact ? 6 : 8;
   const bandGap = compact ? 7 : 10;
   const stepFactor = compact ? 1.18 : 1.45;
   const gapFactor = compact ? 0.46 : 0.62;
-  const minAvatar = compact ? 18 : 22;
+  /*
+  | Suelo del tamaño de foto. Es sólo una red por si `fitAvatar` devolviera
+  | algo absurdo: como ya devuelve la foto más grande que CABE, cualquier
+  | mínimo por encima de ella es pedir un solape a cambio de unos píxeles. Con
+  | plantillas reales nunca baja de 22 px; este número sólo entra en juego con
+  | plantillas imposibles (30 y pico jugadores en un campo muy corto), y ahí
+  | preferimos la foto diminuta a dos fichas una encima de otra.
+  */
+  const minAvatar = 6;
 
   const freeWidth = width - 2 * padX;
 
   /*
-  | Cada fila ocupa avatar + nombre + hueco; cada banda suma además su chapa,
-  | y entre bandas va otro hueco. De ahí se despeja el avatar más grande que
-  | deja que todo entre a lo alto. A lo ancho: paso entre fichas `stepFactor` ·
-  | avatar y hueco entre bloques `gapFactor` · avatar.
+  | Paso entre fichas de un mismo bloque. La foto no mide `avatar` sino
+  | `avatar` más 2 px de borde por lado, así que con el factor a secas, en
+  | fotos pequeñas, el paso se quedaba corto y los círculos se tocaban. El
+  | mínimo garantiza el borde y un poco de aire.
+  */
+  const stepFor = (size: number) => Math.max(size * stepFactor, size + 6);
+
+  /*
+  | Lo que cuelga por debajo de la foto, medido con las mismas fórmulas que
+  | pinta el render. Antes era un número fijo (28 en móvil, 34 en PC) que se
+  | quedaba corto en cuanto la ficha llevaba fila de chapas, y las filas se
+  | pisaban. La fila de chapas sólo se reserva en los bloques que llevan
+  | alguna: reservarla para todos encogía la foto en plantillas donde casi
+  | nadie va etiquetado.
+  */
+  const labelFor = (size: number, tagged: boolean) => {
+    const { badge, nameFont } = cardMetrics(size, compact);
+
+    /* border-2 (2+2) + mt-1 + alto de línea leading-tight + py-0.5 (2+2). */
+    const base = 4 + 4 + Math.round(nameFont * 1.25) + 4;
+
+    return tagged ? base + 4 + badge : base;
+  };
+
+  /* Alto total que pide el reparto con una foto de este tamaño. */
+  const heightFor = (size: number) =>
+    2 * padY +
+    (bands.length - 1) * bandGap +
+    bands.reduce(
+      (total, band) =>
+        total +
+        chipHeight +
+        band.clusters.reduce(
+          (tallest, cluster) =>
+            Math.max(
+              tallest,
+              cluster.rows * (size + labelFor(size, cluster.tagged) + rowGap),
+            ),
+          0,
+        ),
+      0,
+    );
+
+  /*
+  | Ancho de la chapa de posición: px-1.5 y borde a cada lado, el código a 9 px
+  | y el contador al lado. Un bloque de una sola columna es más estrecho que su
+  | chapa, así que las chapas se reparten aparte (paso 6): ensanchar el bloque
+  | para que cupiera la chapa le costaba 6 px de foto a toda la plantilla.
+  */
+  const chipWidth = (cluster: PitchCluster) =>
+    14 +
+    cluster.code.length * 5.6 +
+    4 +
+    String(cluster.players.length).length * 5.4;
+
+  /* Ancho que pide la banda más apretada. */
+  const widthFor = (size: number) =>
+    bands.reduce((widest, band) => {
+      const cols = band.clusters.reduce((sum, item) => sum + item.cols, 0);
+
+      return Math.max(
+        widest,
+        cols * stepFor(size) + (band.clusters.length - 1) * size * gapFactor,
+      );
+    }, 0);
+
+  /*
+  | El alto de la ficha depende del propio tamaño de la foto (la tipografía y
+  | la chapa del dorsal están topadas por arriba y por abajo), así que ya no se
+  | puede despejar de una fórmula: buscamos por bisección la foto más grande
+  | con la que todo cabe de verdad, a lo alto y a lo ancho. Con las medidas de
+  | escritorio esto da el mismo número que la fórmula que había antes.
   */
   const fitAvatar = () => {
-    const totalRows = bands.reduce((sum, band) => sum + band.rows, 0);
+    const fits = (size: number) =>
+      heightFor(size) <= height && widthFor(size) <= freeWidth;
 
-    const freeHeight =
-      height -
-      2 * padY -
-      bands.length * chipHeight -
-      (bands.length - 1) * bandGap;
+    let low = 1;
+    let high = 62;
 
-    const byHeight = freeHeight / totalRows - labelHeight - rowGap;
+    if (!fits(low)) return low;
+    if (fits(high)) return high;
 
-    const byWidth = bands.reduce((min, band) => {
-      const cols = band.clusters.reduce((sum, item) => sum + item.cols, 0);
-      const need = stepFactor * cols + gapFactor * (band.clusters.length - 1);
+    for (let step = 0; step < 40; step += 1) {
+      const mid = (low + high) / 2;
 
-      return Math.min(min, freeWidth / need);
-    }, Infinity);
+      if (fits(mid)) low = mid;
+      else high = mid;
+    }
 
-    return Math.min(62, byHeight, byWidth);
+    return low;
   };
 
   /*
-  | En móvil el ancho es lo que aprieta: en una banda con muchos bloques (por
-  | ejemplo laterales + tres bloques de centrales) el avatar se quedaba clavado
-  | en su mínimo y las fichas se pisaban. Probamos también bloques de dos y de
-  | una columna — apilar en vertical estrecha la banda — y nos quedamos con el
-  | reparto que deja la foto más grande. En PC sólo se prueba el de siempre.
+  | En una banda con muchos bloques (laterales + tres bloques de centrales es el
+  | caso típico) el ancho es lo que aprieta y la foto se queda diminuta.
+  | Probamos también bloques de dos y de una columna —apilar en vertical
+  | estrecha la banda— y nos quedamos con el reparto que deja la foto más
+  | grande. Como `fitAvatar` elige el máximo, probar de más nunca empeora.
   */
-  const columnOptions = compact ? [3, 2, 1] : [3];
+  const columnOptions = [3, 2, 1];
 
   let bestCols = columnOptions[0];
   let bestFit = -Infinity;
@@ -2888,69 +3057,57 @@ function layoutPitch(
 
   const avatar = Math.max(minAvatar, bestFit);
 
-  const stepX = avatar * stepFactor;
+  const stepX = stepFor(avatar);
   const clusterGap = avatar * gapFactor;
-  const cardHeight = avatar + labelHeight;
-  const stepY = cardHeight + rowGap;
 
-  /* 4 · Reparto horizontal: cada bloque en su ancla, sin pisarse. */
+  /* Cada bloque sabe ya lo que mide su ficha: los etiquetados son más altos. */
+  clusters.forEach((cluster) => {
+    cluster.cardHeight = avatar + labelFor(avatar, cluster.tagged);
+    cluster.stepY = cluster.cardHeight + rowGap;
+  });
+
+  /*
+  | 4 · Reparto horizontal: cada bloque en su ancla, sin pisarse.
+  |
+  | Antes se empujaba cada bloque hacia la derecha sin tope y, al final, un
+  | clamp devolvía al campo lo que se hubiera salido. En una banda que no cabe
+  | entera —laterales derechos + tres bloques de centrales es el caso típico—
+  | ese clamp dejaba dos bloques en la misma X, uno encima del otro; y en PC,
+  | donde no había clamp, el último bloque se salía del campo y el recorte se
+  | lo comía. `packRow` no puede hacer ni una cosa ni la otra.
+  */
 
   bands.forEach((band) => {
     band.clusters.sort((a, b) => a.anchorX - b.anchorX);
 
     band.clusters.forEach((cluster) => {
       cluster.width = cluster.cols * stepX;
-
-      const half = cluster.width / 2;
-
-      cluster.x = Math.min(
-        Math.max(cluster.anchorX * width, padX + half),
-        Math.max(padX + half, width - padX - half),
-      );
     });
 
-    for (let i = 1; i < band.clusters.length; i += 1) {
-      const prev = band.clusters[i - 1];
-      const current = band.clusters[i];
+    const centers = packRow(
+      band.clusters.map((cluster) => cluster.width),
+      band.clusters.map((cluster) => cluster.anchorX * width),
+      padX,
+      width - padX,
+      clusterGap,
+    );
 
-      current.x = Math.max(
-        current.x,
-        prev.x + prev.width / 2 + current.width / 2 + clusterGap,
-      );
-    }
-
-    for (let i = band.clusters.length - 2; i >= 0; i -= 1) {
-      const next = band.clusters[i + 1];
-      const current = band.clusters[i];
-
-      current.x = Math.min(
-        current.x,
-        next.x - next.width / 2 - current.width / 2 - clusterGap,
-      );
-    }
-
-    band.clusters.forEach((cluster) => {
-      cluster.x = Math.max(cluster.x, padX + cluster.width / 2);
+    band.clusters.forEach((cluster, index) => {
+      cluster.x = centers[index];
     });
-
-    /*
-    | El empujón hacia la derecha no tiene tope, así que en una banda que no
-    | cabe entera el último bloque se salía del campo (y el recorte se lo
-    | comía). En móvil, donde eso pasa, preferimos apretarla y que se vea todo.
-    */
-    if (compact) {
-      band.clusters.forEach((cluster) => {
-        cluster.x = Math.min(
-          cluster.x,
-          Math.max(padX + cluster.width / 2, width - padX - cluster.width / 2),
-        );
-      });
-    }
   });
 
   /* 5 · Reparto vertical: cada banda a su altura, sin pisar a la anterior. */
 
-  const bandHeights = bands.map((band) => band.rows * stepY + chipHeight);
+  /* El alto de la banda lo marca su bloque más alto, chapa incluida. */
+  const bandHeights = bands.map(
+    (band) =>
+      chipHeight +
+      band.clusters.reduce(
+        (tallest, cluster) => Math.max(tallest, cluster.rows * cluster.stepY),
+        0,
+      ),
+  );
 
   const centers = bands.map((band) => band.anchorY * height);
 
@@ -2999,23 +3156,28 @@ function layoutPitch(
   bands.forEach((band, bandIndex) => {
     const bandTop = centers[bandIndex] - bandHeights[bandIndex] / 2;
 
+    const bandChips: PlacedCluster[] = [];
+
     band.clusters.forEach((cluster) => {
       /* El bloque se centra a lo alto de la banda, con su chapa encima. */
-      const blockHeight = cluster.rows * stepY;
+      const blockHeight = cluster.rows * cluster.stepY;
 
       const blockTop =
         bandTop +
         chipHeight +
         (bandHeights[bandIndex] - chipHeight - blockHeight) / 2;
 
-      placedClusters.push({
+      const chip: PlacedCluster = {
         key: cluster.key,
         code: cluster.code,
         color: cluster.color,
         count: cluster.players.length,
         x: cluster.x,
         y: blockTop - 3,
-      });
+      };
+
+      bandChips.push(chip);
+      placedClusters.push(chip);
 
       cluster.players.forEach((player, index) => {
         const row = Math.floor(index / cluster.cols);
@@ -3029,11 +3191,33 @@ function layoutPitch(
         placed.push({
           player,
           color: cluster.color,
+          tagRow: cluster.tagged,
           x: cluster.x + (column - (inRow - 1) / 2) * stepX,
-          y: blockTop + row * stepY + cardHeight / 2,
+          y: blockTop + row * cluster.stepY + cluster.cardHeight / 2,
         });
       });
     });
+
+    /*
+    | Las chapas se deslizan lo justo para no pisarse. Van centradas sobre su
+    | bloque, pero una chapa es más ancha que un bloque de una sola columna, así
+    | que en bandas apretadas dos vecinas se tocaban. Que una chapa quede un
+    | poco descentrada sobre los suyos no se nota; que se solape con la de al
+    | lado, sí.
+    */
+    if (bandChips.length > 1) {
+      const centersX = packRow(
+        band.clusters.map(chipWidth),
+        bandChips.map((chip) => chip.x),
+        padX,
+        width - padX,
+        3,
+      );
+
+      bandChips.forEach((chip, index) => {
+        chip.x = centersX[index];
+      });
+    }
   });
 
   return { placed, clusters: placedClusters, avatar, stepX };
@@ -3102,24 +3286,25 @@ function TacticalPitch({
     [players, size.width, size.height, compact],
   );
 
-  const badgeSize = compact
-    ? Math.max(9, Math.min(14, Math.round(avatar * 0.32)))
-    : Math.max(11, Math.min(19, Math.round(avatar * 0.32)));
+  /* Las mismas medidas con las que el motor ha reservado el sitio. */
+  const { badge: badgeSize, nameFont } = cardMetrics(avatar, compact);
 
-  const nameFont = compact
-    ? Math.max(8, Math.min(11, Math.round(avatar * 0.21)))
-    : Math.max(9, Math.min(12, Math.round(avatar * 0.21)));
-
-  /* El nombre nunca puede ser más ancho que el paso entre fichas: si lo es,
-     las etiquetas de dos vecinos se solapan aunque las fotos no lo hagan. */
-  const nameWidth = Math.max(compact ? 26 : 46, stepX - 4);
+  /*
+  | El nombre nunca puede ser más ancho que el paso entre fichas: si lo es, las
+  | etiquetas de dos vecinos se solapan aunque las fotos no lo hagan. En móvil
+  | por eso ya no lleva suelo: el de 26 px en móvil y el de 46 en PC se comían
+  | el paso en cuanto la foto era pequeña, que es cuando la plantilla aprieta.
+  */
+  const nameWidth = stepX - 4;
 
   const maxBadges = avatar < 34 ? 2 : avatar < 48 ? 3 : 4;
 
   return (
     <div
       ref={containerRef}
-      className="pitch-photo relative h-[min(900px,calc(100vh-120px))] min-h-[680px] w-full overflow-hidden bg-[#173b2a] md:min-h-[560px]"
+      /* El alto manda: con menos de 680 px una plantilla de 25 no cabe en las
+         seis bandas y la foto se va al mínimo. Antes bajaba a 560 en md. */
+      className="pitch-photo relative h-[min(900px,calc(100vh-120px))] min-h-[680px] w-full overflow-hidden bg-[#173b2a]"
     >
       {/* FONDO DEL CAMPO */}
 
@@ -3160,7 +3345,7 @@ function TacticalPitch({
 
       {/* JUGADORES */}
 
-      {placed.map(({ player, x, y, color }) => {
+      {placed.map(({ player, x, y, color, tagRow }) => {
         const selected = selectedId === player.ID_JUGADOR;
 
         const { tags } = parseTags(player.IMPACTO);
@@ -3244,8 +3429,11 @@ function TacticalPitch({
 
             {/* ETIQUETAS */}
 
-            {tags.length > 0 && (
-              <span className="mt-1 flex items-center justify-center gap-0.5">
+            {tagRow && (
+              <span
+                className="mt-1 flex items-center justify-center gap-0.5"
+                style={{ height: badgeSize }}
+              >
                 {visibleTags.map((tag) => {
                   const Icon = tag.icon;
 
