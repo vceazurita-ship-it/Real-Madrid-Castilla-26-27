@@ -341,6 +341,20 @@ function formatDate(value?: string) {
       });
 }
 
+/**
+ * Plan de partido de este mismo rival.
+ *
+ * Las dos páginas leen la misma hoja (`action=rivales`), así que el ID basta
+ * para que el plan abra el partido que se está scouteando.
+ */
+function enlacePlanDePartido(rival: Rival | null) {
+  const id = String(rival?.ID ?? "").trim();
+
+  return id
+    ? `/match-preparation?rival=${encodeURIComponent(id)}`
+    : "/match-preparation";
+}
+
 export default function ScoutRivalCollective() {
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
@@ -365,7 +379,21 @@ export default function ScoutRivalCollective() {
         if (cancelled) return;
 
         setRivales(data);
-        setRivalActivo(data.length ? data[0] : null);
+
+        /* Enlace directo desde el plan de partido:
+           /scout-rival-collective?rival=<ID>. */
+        const enlazado = new URLSearchParams(window.location.search).get(
+          "rival"
+        );
+
+        setRivalActivo(
+          data.find((r) => String(r.ID) === String(enlazado)) ??
+            (data.length ? data[0] : null)
+        );
+
+        if (enlazado)
+          window.history.replaceState({}, "", "/scout-rival-collective");
+
         setError(false);
       })
       .catch(() => {
@@ -495,7 +523,7 @@ export default function ScoutRivalCollective() {
 
             <div className="flex flex-wrap items-center gap-3" data-export-hide>
               <Link
-                href="/match-plans"
+                href={enlacePlanDePartido(rivalActivo)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90"
               >
                 <ClipboardList size={16} />
@@ -686,7 +714,7 @@ export default function ScoutRivalCollective() {
                   </p>
 
                   <Link
-                    href="/match-plans"
+                    href={enlacePlanDePartido(rivalActivo)}
                     className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-5 py-2.5 text-sm font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
                   >
                     Abrir plan

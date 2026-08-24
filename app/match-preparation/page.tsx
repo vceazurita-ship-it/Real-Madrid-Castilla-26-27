@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -15,6 +16,7 @@ import { Topbar } from "@/components/ui/topbar";
 
 import {
   Activity,
+  Binoculars,
   Brain,
   CalendarDays,
   ChevronDown,
@@ -289,6 +291,20 @@ function enlaceSeguro(url: unknown) {
   if (!texto) return "";
 
   return texto.startsWith("http") ? texto : `https://${texto}`;
+}
+
+/**
+ * Informe colectivo del rival de este partido.
+ *
+ * El scouting y el plan comparten la misma hoja (`action=rivales`), así que
+ * basta con arrastrar el ID para que la otra página abra el mismo partido.
+ */
+function enlaceAnalisisRival(rival: Rival | null) {
+  const id = String(rival?.ID ?? "").trim();
+
+  return id
+    ? `/scout-rival-collective?rival=${encodeURIComponent(id)}`
+    : "/scout-rival-collective";
 }
 
 /*
@@ -979,10 +995,19 @@ export default function MatchPreparation() {
             return dias !== null && dias >= 0;
           }) ?? lista[lista.length - 1];
 
+        /* Enlace directo desde el análisis del rival:
+           /match-preparation?rival=<ID>. Manda sobre el próximo partido, pero
+           no sobre el partido que se estuviera viendo antes de un reintento. */
+        const enlazado = new URLSearchParams(window.location.search).get(
+          "rival"
+        );
+
+        const buscado = idPreferido.current ?? enlazado ?? undefined;
+
         const elegido =
-          lista.find((r) => String(r.ID) === String(idPreferido.current)) ??
-          proximo ??
-          null;
+          lista.find((r) => String(r.ID) === String(buscado)) ?? proximo ?? null;
+
+        if (enlazado) window.history.replaceState({}, "", "/match-preparation");
 
         setRivalActivo(elegido ?? null);
         setSnapshot(elegido ?? null);
@@ -1281,6 +1306,22 @@ export default function MatchPreparation() {
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     Sin guardar
                   </span>
+                )}
+
+                {rivalActivo && (
+                  <Link
+                    href={enlaceAnalisisRival(rivalActivo)}
+                    title="Abrir el informe completo del rival"
+                    className="
+                      flex items-center gap-2 rounded-xl border border-white/10
+                      bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70 transition
+                      hover:border-white/25 hover:text-white
+                    "
+                  >
+                    <Binoculars size={15} />
+
+                    <span className="hidden md:inline">Análisis rival</span>
+                  </Link>
                 )}
 
                 {!editando && (
@@ -1754,7 +1795,7 @@ export default function MatchPreparation() {
                 id="rival"
                 className="mp-card scroll-mt-56 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-7"
               >
-                <div className="mb-6 flex items-center gap-3">
+                <div className="mb-6 flex flex-wrap items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/10 text-[#C8A96B]">
                     <Shield size={17} />
                   </span>
@@ -1774,6 +1815,19 @@ export default function MatchPreparation() {
                       Fortalezas, debilidades y estructuras de referencia
                     </p>
                   </div>
+
+                  <Link
+                    href={enlaceAnalisisRival(rivalActivo)}
+                    className="
+                      mp-no-print ml-auto flex shrink-0 items-center gap-2 rounded-xl
+                      border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3.5 py-2
+                      text-xs font-semibold text-[#E4C977] transition
+                      hover:border-[#C8A96B] hover:bg-[#C8A96B]/20
+                    "
+                  >
+                    <Binoculars size={14} />
+                    Informe completo
+                  </Link>
                 </div>
 
                 <div className="grid gap-5 lg:grid-cols-2">

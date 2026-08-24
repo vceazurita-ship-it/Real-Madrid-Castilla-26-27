@@ -44,6 +44,7 @@ next-env.d.ts
 # /public/players, generada a partir de estas carpetas
 /public/images/Recorte cerca/
 /public/images/Recorte lejos/
+/public/players/RMC/
 
 # metadatos de macOS
 ._*
