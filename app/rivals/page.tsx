@@ -22,10 +22,14 @@ import type { RivalVoiceField } from "@/lib/voice/types";
 import {
   AlertTriangle,
   ArrowBigUp,
+  Ban,
+  Bandage,
   BatteryCharging,
+  BatteryLow,
   Brain,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   Crown,
   Dumbbell,
   ExternalLink,
@@ -33,14 +37,21 @@ import {
   Flag,
   Flame,
   Footprints,
+  Frown,
+  Ghost,
   Handshake,
+  HeartPulse,
   LayoutGrid,
+  MoveDown,
   Plus,
+  RectangleHorizontal,
   RotateCcw,
   Ruler,
   Save,
   Search,
+  ShieldOff,
   Shirt,
+  Snail,
   SquarePen,
   Shuffle,
   Sparkles,
@@ -48,6 +59,7 @@ import {
   Swords,
   Tags,
   Target,
+  ThumbsDown,
   Trash2,
   UserRound,
   Video,
@@ -968,27 +980,37 @@ export default function RivalPlayersPage() {
                   </span>
                 </div>
 
-                <div className="flex min-w-0 flex-wrap gap-2">
-                  {PLAYER_TAGS.map((tag) => {
-                    const count = tagCounts.get(tag.key) ?? 0;
+                <div className="min-w-0 space-y-3">
+                  {TAG_GROUPS.map((group) => (
+                    <div key={group.tone} className="min-w-0">
+                      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+                        {group.label}
+                      </span>
 
-                    /* Sin nadie etiquetado la píldora sigue visible pero apagada. */
-                    return (
-                      <TagChip
-                        key={tag.key}
-                        tag={tag}
-                        count={count}
-                        active={activeTags.includes(tag.key)}
-                        onClick={() =>
-                          setActiveTags((current) =>
-                            current.includes(tag.key)
-                              ? current.filter((key) => key !== tag.key)
-                              : [...current, tag.key],
-                          )
-                        }
-                      />
-                    );
-                  })}
+                      <div className="flex min-w-0 flex-wrap gap-2">
+                        {group.tags.map((tag) => {
+                          const count = tagCounts.get(tag.key) ?? 0;
+
+                          /* Sin nadie etiquetado la píldora sigue visible pero apagada. */
+                          return (
+                            <TagChip
+                              key={tag.key}
+                              tag={tag}
+                              count={count}
+                              active={activeTags.includes(tag.key)}
+                              onClick={() =>
+                                setActiveTags((current) =>
+                                  current.includes(tag.key)
+                                    ? current.filter((key) => key !== tag.key)
+                                    : [...current, tag.key],
+                                )
+                              }
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
 
                   {activeTags.length > 0 && (
                     <button
@@ -1804,6 +1826,16 @@ function RivalsSkeleton() {
 | si alguien escribe "cerebro", "El cerebro" u "organizador".
 */
 
+/**
+ * De qué habla la etiqueta: de lo que hace bien o de por dónde se le gana.
+ *
+ * No es sólo cosmética. Una ficha de rival se lee buscando dos cosas
+ * distintas —a quién hay que frenar y por dónde se le puede hacer daño—, así
+ * que el catálogo se presenta separado en los dos bloques y las debilidades
+ * mandan en el campograma, donde sólo caben unas pocas píldoras.
+ */
+type TagTone = "fortaleza" | "debilidad";
+
 type PlayerTag = {
   key: string;
   label: string;
@@ -1812,9 +1844,13 @@ type PlayerTag = {
   icon: LucideIcon;
   color: string;
   aliases: string[];
+  tone: TagTone;
 };
 
-const PLAYER_TAGS: PlayerTag[] = [
+/* El tono lo pone el bloque al que pertenece, no cada entrada. */
+type TagDef = Omit<PlayerTag, "tone">;
+
+const FORTALEZAS: TagDef[] = [
   {
     key: "cerebro",
     label: "El cerebro",
@@ -1974,6 +2010,201 @@ const PLAYER_TAGS: PlayerTag[] = [
   },
 ];
 
+/*
+ * Por dónde se le gana. Se escriben en el mismo campo IMPACTO y con la misma
+ * mecánica que las fortalezas: lo único que cambia es el bloque en el que se
+ * presentan y que pesan más al recortar píldoras.
+ */
+const DEBILIDADES: TagDef[] = [
+  {
+    key: "perdedor-duelos",
+    label: "Perdedor de duelos",
+    short: "Pierde duelos",
+    icon: ThumbsDown,
+    color: "#F87171",
+    aliases: [
+      "perdedor de duelo",
+      "perdedor de duelos",
+      "pierde duelos",
+      "pierde los duelos",
+      "flojo en el duelo",
+      "debil en el duelo",
+    ],
+  },
+  {
+    key: "lento",
+    label: "Lento",
+    short: "Lento",
+    icon: Snail,
+    color: "#94A3B8",
+    aliases: [
+      "lento",
+      "lentitud",
+      "poca velocidad",
+      "falta de ritmo",
+      "le ganan la espalda",
+    ],
+  },
+  {
+    key: "errores",
+    label: "Comete errores no forzados",
+    short: "Errores",
+    icon: CircleAlert,
+    color: "#FCA5A5",
+    aliases: [
+      "comete errores no forzados",
+      "errores no forzados",
+      "errores",
+      "impreciso",
+      "regala balones",
+      "perdidas",
+    ],
+  },
+  {
+    key: "lesionado",
+    label: "Lesionado",
+    short: "Lesionado",
+    icon: Bandage,
+    color: "#EF4444",
+    aliases: ["lesionado", "lesion", "baja", "de baja", "no disponible"],
+  },
+  {
+    key: "tocado",
+    label: "Tocado",
+    short: "Tocado",
+    icon: HeartPulse,
+    color: "#FB7185",
+    aliases: [
+      "tocado",
+      "con molestias",
+      "molestias",
+      "entre algodones",
+      "duda fisica",
+    ],
+  },
+  {
+    key: "tarjeteable",
+    label: "Tarjeteable",
+    short: "Tarjeta",
+    icon: RectangleHorizontal,
+    color: "#FACC15",
+    aliases: [
+      "tarjeteable",
+      "apercibido",
+      "amonestado",
+      "tarjetas",
+      "ve muchas tarjetas",
+    ],
+  },
+  {
+    key: "flojo-alto",
+    label: "Flojo por alto",
+    short: "Flojo alto",
+    icon: MoveDown,
+    color: "#60A5FA",
+    aliases: [
+      "flojo por alto",
+      "flojo de cabeza",
+      "no gana por alto",
+      "debil en el juego aereo",
+      "bajo",
+    ],
+  },
+  {
+    key: "perfil-unico",
+    label: "Sólo una pierna",
+    short: "Perfil único",
+    icon: Ban,
+    color: "#A78BFA",
+    aliases: [
+      "solo una pierna",
+      "solo un perfil",
+      "perfil unico",
+      "no usa la otra pierna",
+      "monopierna",
+    ],
+  },
+  {
+    key: "presionable",
+    label: "Sufre la presión",
+    short: "Presionable",
+    icon: ShieldOff,
+    color: "#FB923C",
+    aliases: [
+      "sufre la presion",
+      "presionable",
+      "se le presiona bien",
+      "no sale bajo presion",
+      "se atasca con presion",
+    ],
+  },
+  {
+    key: "no-repliega",
+    label: "No repliega",
+    short: "No repliega",
+    icon: Ghost,
+    color: "#A3A3A3",
+    aliases: [
+      "no repliega",
+      "no vuelve",
+      "no defiende",
+      "deja la espalda",
+      "poco trabajo defensivo",
+    ],
+  },
+  {
+    key: "se-cae",
+    label: "Se cae físicamente",
+    short: "Se cae",
+    icon: BatteryLow,
+    color: "#FBBF24",
+    aliases: [
+      "se cae fisicamente",
+      "se cae",
+      "baja el ritmo",
+      "le falta fondo",
+      "poco fondo",
+    ],
+  },
+  {
+    key: "descentrado",
+    label: "Se descentra",
+    short: "Descentra",
+    icon: Frown,
+    color: "#C084FC",
+    aliases: [
+      "se descentra",
+      "nervioso",
+      "se calienta",
+      "pierde la cabeza",
+      "reactivo",
+    ],
+  },
+];
+
+const TAG_GROUPS: { tone: TagTone; label: string; tags: PlayerTag[] }[] = [
+  {
+    tone: "fortaleza",
+    label: "Fortalezas",
+    tags: FORTALEZAS.map((tag) => ({ ...tag, tone: "fortaleza" as const })),
+  },
+  {
+    tone: "debilidad",
+    label: "Por dónde se le gana",
+    tags: DEBILIDADES.map((tag) => ({ ...tag, tone: "debilidad" as const })),
+  },
+];
+
+const PLAYER_TAGS: PlayerTag[] = TAG_GROUPS.flatMap((group) => group.tags);
+
+/* En el campograma sólo caben unas pocas: que una lesión no se quede fuera. */
+function tagsByPriority(tags: PlayerTag[]) {
+  return [
+    ...tags.filter((tag) => tag.tone === "debilidad"),
+    ...tags.filter((tag) => tag.tone === "fortaleza"),
+  ];
+}
+
 const TAG_BY_TOKEN = new Map<string, PlayerTag>();
 
 PLAYER_TAGS.forEach((tag) => {
@@ -2126,14 +2357,24 @@ function TagPicker({
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {PLAYER_TAGS.map((tag) => (
-          <TagChip
-            key={tag.key}
-            tag={tag}
-            active={activeKeys.has(tag.key)}
-            onClick={() => onChange(toggleTagValue(value, tag))}
-          />
+      <div className="space-y-3">
+        {TAG_GROUPS.map((group) => (
+          <div key={group.tone}>
+            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+              {group.label}
+            </span>
+
+            <div className="flex flex-wrap gap-2">
+              {group.tags.map((tag) => (
+                <TagChip
+                  key={tag.key}
+                  tag={tag}
+                  active={activeKeys.has(tag.key)}
+                  onClick={() => onChange(toggleTagValue(value, tag))}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -2551,7 +2792,7 @@ function TacticalPitch({
           activeTags.length === 0 ||
           activeTags.every((key) => tags.some((tag) => tag.key === key));
 
-        const visibleTags = tags.slice(0, maxBadges);
+        const visibleTags = tagsByPriority(tags).slice(0, maxBadges);
         const hiddenCount = tags.length - visibleTags.length;
 
         const name = player["NOMBRE DEPORTIVO"] || player.JUGADOR;

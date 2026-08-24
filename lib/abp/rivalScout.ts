@@ -79,6 +79,16 @@ export interface RivalScoutAction {
 /** Acciones por equipo, indexadas por `teamKey` para aguantar CF/CD y tildes. */
 export interface RivalScoutStore {
   teams: Record<string, RivalScoutAction[]>;
+  /**
+   * Catálogo de patrones que mantiene el cuerpo técnico.
+   *
+   * Mientras no exista, el combo se rellena solo con lo ya escrito más las
+   * sugerencias de fábrica (`patternCatalog`). En cuanto se toca —se añade,
+   * se renombra o se quita algo— pasa a mandar esta lista y nada vuelve a
+   * colarse sola: si no, quitar un patrón no serviría de nada porque
+   * reaparecería en cuanto quedara una acción con ese texto.
+   */
+  patterns?: string[];
 }
 
 export const EMPTY_SCOUT_STORE: RivalScoutStore = { teams: {} };
@@ -493,6 +503,134 @@ export function knownPatterns(store: RivalScoutStore | null | undefined) {
       (option) => !vistos.some((seen) => norm(seen) === norm(option)),
     ),
   ];
+}
+
+/* ------------------------------------------------------------------ */
+/*  CATÁLOGO DE PATRONES                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Los patrones que ofrece el combo al registrar una acción.
+ *
+ * Devuelve el catálogo guardado si el cuerpo técnico ya lo ha tocado, y si no
+ * el derivado de siempre: lo escrito en cualquier rival más las sugerencias.
+ * Ese derivado es sólo la semilla; a la primera edición se materializa.
+ */
+export function patternCatalog(store: RivalScoutStore | null | undefined) {
+  const guardado = store?.patterns;
+
+  /* La semilla derivada puede traer variantes de mayúsculas del mismo texto:
+     el catálogo se queda con una sola entrada de cada. */
+  const lista: string[] = [];
+  const vistos = new Set<string>();
+
+  (Array.isArray(guardado) ? guardado : knownPatterns(store)).forEach(
+    (patron) => {
+      const limpio = (patron || "").trim();
+
+      if (!limpio || vistos.has(norm(limpio))) return;
+
+      vistos.add(norm(limpio));
+      lista.push(limpio);
+    },
+  );
+
+  return lista;
+}
+
+/** Cuántas acciones usan cada entrada del catálogo, para avisar al quitarla. */
+export function patternUsage(
+  store: RivalScoutStore | null | undefined,
+  catalogo: string[],
+) {
+  const usos: Record<string, number> = {};
+
+  const porTexto = new Map<string, string>();
+
+  catalogo.forEach((patron) => {
+    usos[patron] = 0;
+    porTexto.set(norm(patron), patron);
+  });
+
+  Object.values(store?.teams ?? {}).forEach((actions) => {
+    (actions ?? []).forEach((action) => {
+      const entrada = porTexto.get(norm(action.patron ?? ""));
+
+      if (entrada) usos[entrada] += 1;
+    });
+  });
+
+  return usos;
+}
+
+/** Escribe el catálogo materializado, que es lo que vuelve editable el combo. */
+function withCatalog(store: RivalScoutStore, patterns: string[]) {
+  return { ...store, patterns };
+}
+
+/** Añade un patrón al final: el orden lo decide quien lo mantiene. */
+export function addPattern(store: RivalScoutStore, patron: string) {
+  const lista = patternCatalog(store);
+
+  const limpio = patron.trim();
+
+  if (!limpio || lista.some((item) => norm(item) === norm(limpio))) {
+    return withCatalog(store, lista);
+  }
+
+  return withCatalog(store, [...lista, limpio]);
+}
+
+/**
+ * Renombra un patrón **y reescribe las acciones que lo usaban**.
+ *
+ * Sin lo segundo el panel de patrones partiría el grupo en dos —las viejas con
+ * el texto anterior y las nuevas con el corregido—, que es justo lo que
+ * `knownPatterns` lleva evitando desde el principio compartiendo vocabulario
+ * entre todos los rivales.
+ */
+export function renamePattern(
+  store: RivalScoutStore,
+  from: string,
+  to: string,
+) {
+  const limpio = to.trim();
+
+  if (!limpio || norm(from) === norm(limpio)) {
+    return withCatalog(store, patternCatalog(store));
+  }
+
+  const lista: string[] = [];
+
+  patternCatalog(store).forEach((item) =>
+    push(lista, norm(item) === norm(from) ? limpio : item),
+  );
+
+  const teams: Record<string, RivalScoutAction[]> = {};
+
+  Object.entries(store.teams ?? {}).forEach(([key, actions]) => {
+    teams[key] = (actions ?? []).map((action) =>
+      norm(action.patron ?? "") === norm(from)
+        ? { ...action, patron: limpio }
+        : action,
+    );
+  });
+
+  return withCatalog({ ...store, teams }, lista);
+}
+
+/**
+ * Quita un patrón del combo sin tocar las acciones ya registradas.
+ *
+ * Lo escrito en una acción es una observación de un partido concreto y no se
+ * borra por limpiar el vocabulario: el panel de patrones lo sigue agrupando,
+ * simplemente deja de ofrecerse al teclear.
+ */
+export function removePattern(store: RivalScoutStore, patron: string) {
+  return withCatalog(
+    store,
+    patternCatalog(store).filter((item) => norm(item) !== norm(patron)),
+  );
 }
 
 /* ------------------------------------------------------------------ */

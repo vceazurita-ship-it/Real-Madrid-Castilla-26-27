@@ -41,6 +41,7 @@ import {
   TeamPicker,
 } from "@/components/abp/ui";
 import { RivalPatterns } from "@/components/abp/RivalPatterns";
+import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
@@ -63,8 +64,12 @@ import {
   SCOUT_DOC_KIND,
   actionsOf,
   actionsToEvents,
+  addPattern,
   groupPatterns,
-  knownPatterns,
+  patternCatalog,
+  patternUsage,
+  removePattern,
+  renamePattern,
   scoutKey,
 } from "@/lib/abp/rivalScout";
 
@@ -382,10 +387,39 @@ export default function ScoutRivalAbpPage() {
     [accionesFiltradas],
   );
 
-  /* El vocabulario de patrones se comparte entre todos los rivales. */
-  const patronesConocidos = useMemo(
-    () => knownPatterns(scout.value),
+  /*
+   * El vocabulario de patrones se comparte entre todos los rivales y lo
+   * mantiene el cuerpo técnico: se añade, se renombra y se quita desde el
+   * propio combo del registro. Vive en el mismo documento que las acciones,
+   * así que renombrar puede arrastrar el texto de las ya registradas y el
+   * panel de patrones no parte el grupo en dos.
+   */
+  const catalogoPatrones = useMemo(
+    () => patternCatalog(scout.value),
     [scout.value],
+  );
+
+  const usosPatrones = useMemo(
+    () => patternUsage(scout.value, catalogoPatrones),
+    [scout.value, catalogoPatrones],
+  );
+
+  const catalogo = useMemo<PatternCatalog>(
+    () => ({
+      lista: catalogoPatrones,
+      usos: usosPatrones,
+      onAdd: (patron) =>
+        setScout((current) => addPattern(current ?? EMPTY_SCOUT_STORE, patron)),
+      onRename: (from, to) =>
+        setScout((current) =>
+          renamePattern(current ?? EMPTY_SCOUT_STORE, from, to),
+        ),
+      onRemove: (patron) =>
+        setScout((current) =>
+          removePattern(current ?? EMPTY_SCOUT_STORE, patron),
+        ),
+    }),
+    [catalogoPatrones, usosPatrones, setScout],
   );
 
   const familyStats = useMemo(() => statsByFamily(filtered), [filtered]);
@@ -859,7 +893,7 @@ export default function ScoutRivalAbpPage() {
                   localOnly={scout.localOnly}
                   savedAt={scout.lastSavedAt}
                   squadNames={nombresPlantilla}
-                  patronesConocidos={patronesConocidos}
+                  patrones={catalogo}
                 />
               )}
 

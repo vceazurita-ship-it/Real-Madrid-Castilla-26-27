@@ -23,6 +23,10 @@ import {
 } from "lucide-react";
 
 import {
+  PatternCatalog,
+  PatternCombo,
+} from "@/components/abp/PatternCombo";
+import {
   Button,
   Dialog,
   EmptyState,
@@ -80,7 +84,7 @@ export function RivalScoutEditor({
   localOnly,
   savedAt,
   squadNames,
-  patronesConocidos,
+  patrones,
 }: {
   equipo: string;
   actions: RivalScoutAction[];
@@ -90,8 +94,8 @@ export function RivalScoutEditor({
   savedAt: string | null;
   /** Nombres de su plantilla, para sugerir sacador y rematador. */
   squadNames: string[];
-  /** Patrones ya escritos en cualquier rival, para reutilizar el vocabulario. */
-  patronesConocidos: string[];
+  /** Catálogo de patrones compartido por todos los rivales, con su edición. */
+  patrones: PatternCatalog;
 }) {
   const [draft, setDraft] = useState<RivalScoutAction | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -317,7 +321,7 @@ export function RivalScoutEditor({
           draft={draft}
           isNew={isNew}
           squadNames={squadNames}
-          patronesConocidos={patronesConocidos}
+          patrones={patrones}
           onChange={setDraft}
           onClose={close}
           onSave={save}
@@ -336,7 +340,7 @@ function ActionDialog({
   draft,
   isNew,
   squadNames,
-  patronesConocidos,
+  patrones,
   onChange,
   onClose,
   onSave,
@@ -345,7 +349,7 @@ function ActionDialog({
   draft: RivalScoutAction;
   isNew: boolean;
   squadNames: string[];
-  patronesConocidos: string[];
+  patrones: PatternCatalog;
   onChange: (action: RivalScoutAction) => void;
   onClose: () => void;
   onSave: (again?: boolean) => void;
@@ -606,13 +610,10 @@ function ActionDialog({
 
         <Group title="Para el plan de partido">
           <div className="sm:col-span-2 lg:col-span-3">
-            <Field
-              label="Patrón"
+            <PatternCombo
               value={draft.patron}
               onChange={(value) => set("patron", value)}
-              suggestions={patronesConocidos}
-              placeholder="Bloqueo doble al primer palo"
-              hint="Déjalo vacío si la acción no aporta nada. Lo que escribas aquí sube al panel de patrones, y las que repitan el mismo texto se agrupan."
+              patrones={patrones}
             />
           </div>
 
