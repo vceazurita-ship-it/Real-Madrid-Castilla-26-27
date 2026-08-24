@@ -120,101 +120,234 @@ function normalize(value: unknown) {
 
 type LineKey = "portero" | "defensa" | "medio" | "ataque";
 
+/*
+| Cada línea se parte en "slots": la posición canónica con su código corto
+| (POR, LD, DFC…). El orden de los slots manda en la aparición de los
+| subgrupos dentro de la línea; para clasificar un texto libre no vale ese
+| orden, sino el patrón más largo que encaje (ver getSlot).
+*/
+
+type PositionSlot = {
+  key: string;
+  code: string;
+  label: string;
+  match: string[];
+};
+
 const LINE_DEFINITIONS: {
   key: LineKey;
   title: string;
-  /* Prefijos por orden de preferencia dentro de la línea. */
-  positions: string[];
+  slots: PositionSlot[];
   color: string;
-  badge: string;
 }[] = [
   {
     key: "portero",
     title: "PORTEROS",
-    positions: ["portero", "arquero", "guardameta"],
-    color: "#EAB308",
-    badge: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
+    color: "#D4A017",
+    slots: [
+      {
+        key: "por",
+        code: "POR",
+        label: "Portero",
+        match: ["portero", "arquero", "guardameta", "guardavallas"],
+      },
+    ],
   },
   {
     key: "defensa",
     title: "DEFENSAS",
-    positions: [
-      "lateral derecho",
-      "lateral d",
-      "central",
-      "zaguero",
-      "lateral izquierdo",
-      "lateral izq",
-      "lateral i",
-      "carrilero",
-      "lateral",
-      "defensa",
-    ],
     color: "#7DA6D9",
-    badge: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+    slots: [
+      {
+        key: "ld",
+        code: "LD",
+        label: "Lateral derecho",
+        match: [
+          "lateral derecho",
+          "lateral der",
+          "lateral d",
+          "defensa derecho",
+          "carrilero derecho",
+          "carrilero der",
+        ],
+      },
+      {
+        key: "dfc",
+        code: "DFC",
+        label: "Central",
+        match: ["central", "zaguero", "defensa central", "libero"],
+      },
+      {
+        key: "li",
+        code: "LI",
+        label: "Lateral izquierdo",
+        match: [
+          "lateral izquierdo",
+          "lateral izq",
+          "lateral i",
+          "defensa izquierdo",
+          "carrilero izquierdo",
+          "carrilero izq",
+        ],
+      },
+      {
+        key: "car",
+        code: "CAR",
+        label: "Carrilero",
+        match: ["carrilero"],
+      },
+      {
+        key: "def",
+        code: "DEF",
+        label: "Defensa",
+        match: ["lateral", "defensa"],
+      },
+    ],
   },
   {
     key: "medio",
     title: "CENTROCAMPISTAS",
-    positions: [
-      "mediocentro",
-      "medio centro",
-      "pivote",
-      "interior",
-      "media punta",
-      "mediapunta",
-      "enganche",
-      "medio",
-    ],
     color: "#52B788",
-    badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    slots: [
+      {
+        key: "mcd",
+        code: "MCD",
+        label: "Pivote",
+        match: [
+          "mediocentro defensivo",
+          "medio centro defensivo",
+          "mediocampista defensivo",
+          /* La hoja abrevia: "MEDIO CENTRO DEF". */
+          "mediocentro def",
+          "medio centro def",
+          "pivote",
+        ],
+      },
+      {
+        key: "mc",
+        code: "MC",
+        label: "Mediocentro",
+        match: [
+          "mediocentro",
+          "medio centro",
+          "centrocampista",
+          "mediocampista",
+        ],
+      },
+      {
+        key: "int",
+        code: "INT",
+        label: "Interior",
+        /* "interir" es una errata que trae la hoja. */
+        match: ["interior", "interir", "volante"],
+      },
+      {
+        key: "mp",
+        code: "MP",
+        label: "Media punta",
+        match: [
+          "media punta",
+          "mediapunta",
+          "enganche",
+          "mediocentro ofensivo",
+          "medio centro ofensivo",
+          /* La hoja abrevia: "MEDIO CENTRO OF". */
+          "mediocentro of",
+          "medio centro of",
+        ],
+      },
+      {
+        key: "med",
+        code: "MED",
+        label: "Medio",
+        match: ["medio"],
+      },
+    ],
   },
   {
     key: "ataque",
     title: "ATACANTES",
-    positions: [
-      "extremo derecho",
-      "extremo d",
-      "extremo izquierdo",
-      "extremo izq",
-      "extremo i",
-      "extremo",
-      "delantero",
-      "punta",
-      "ariete",
-    ],
     color: "#D46A6A",
-    badge: "bg-red-500/15 text-red-300 border-red-500/30",
+    slots: [
+      {
+        key: "ed",
+        code: "ED",
+        label: "Extremo derecho",
+        match: ["extremo derecho", "extremo der", "extremo d", "banda derecha"],
+      },
+      {
+        key: "ei",
+        code: "EI",
+        label: "Extremo izquierdo",
+        match: [
+          "extremo izquierdo",
+          "extremo izq",
+          "extremo i",
+          "banda izquierda",
+        ],
+      },
+      {
+        key: "ext",
+        code: "EXT",
+        label: "Extremo",
+        match: ["extremo", "exterior"],
+      },
+      {
+        key: "sd",
+        code: "SD",
+        label: "Segundo punta",
+        match: ["segundo delantero", "segunda punta", "segundo punta"],
+      },
+      {
+        key: "dc",
+        code: "DC",
+        label: "Delantero",
+        match: ["delantero", "punta", "ariete", "killer"],
+      },
+    ],
   },
 ];
 
-function getLine(position: string) {
+/* Índice plano línea+slot con los patrones ya normalizados. */
+const SLOT_INDEX = LINE_DEFINITIONS.flatMap((line) =>
+  line.slots.map((slot, slotIndex) => ({
+    line,
+    slot,
+    slotIndex,
+    patterns: slot.match.map(normalize).filter(Boolean),
+  })),
+);
+
+/*
+| Gana el patrón más largo que encaje, no el primero: así "mediocentro
+| ofensivo" cae en MP y no en MC, y "lateral izquierdo" en LI y no en DEF.
+*/
+function getSlot(position: string) {
   const value = normalize(position);
   if (!value) return null;
 
-  return (
-    LINE_DEFINITIONS.find((line) =>
-      line.positions.some((item) => value.includes(normalize(item))),
-    ) ?? null
-  );
+  let best: (typeof SLOT_INDEX)[number] | null = null;
+  let bestLength = 0;
+
+  for (const entry of SLOT_INDEX) {
+    for (const pattern of entry.patterns) {
+      if (pattern.length > bestLength && value.includes(pattern)) {
+        best = entry;
+        bestLength = pattern.length;
+      }
+    }
+  }
+
+  return best;
 }
 
-function getPositionStyle(position: string) {
-  return getLine(position)?.badge ?? "bg-white/10 text-white/70 border-white/10";
+function getLine(position: string) {
+  return getSlot(position)?.line ?? null;
 }
 
-/* Orden de un jugador dentro de su línea (portero → lateral → central → ...). */
+/* Orden de un jugador dentro de su línea (lateral → central → ...). */
 function positionRank(position: string) {
-  const line = getLine(position);
-  if (!line) return 999;
-
-  const value = normalize(position);
-
-  const index = line.positions.findIndex((item) =>
-    value.includes(normalize(item)),
-  );
-
-  return index === -1 ? 998 : index;
+  return getSlot(position)?.slotIndex ?? 999;
 }
 
 const EMPTY_PLAYER_KEYS: (keyof RivalPlayer)[] = [
@@ -380,7 +513,14 @@ export default function RivalPlayersPage() {
       const matchesPosition =
         !positionSearchValue ||
         normalize(player["POSICIÓN"]).includes(positionSearchValue) ||
-        normalize(player["2º POSICIÓN"]).includes(positionSearchValue);
+        normalize(player["2º POSICIÓN"]).includes(positionSearchValue) ||
+        /* También se puede buscar por el código corto: LD, DFC, MP… */
+        normalize(getSlot(player["POSICIÓN"])?.slot.code).startsWith(
+          positionSearchValue,
+        ) ||
+        normalize(getSlot(player["2º POSICIÓN"])?.slot.code).startsWith(
+          positionSearchValue,
+        );
 
       if (!matchesPosition) return false;
 
@@ -479,7 +619,17 @@ export default function RivalPlayersPage() {
           return (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999);
         });
 
-      return { ...line, players: linePlayers };
+      /* Subgrupos por posición concreta, en el orden de los slots. */
+      const groups = line.slots
+        .map((slot) => ({
+          slot,
+          players: linePlayers.filter(
+            (player) => getSlot(player["POSICIÓN"])?.slot.key === slot.key,
+          ),
+        }))
+        .filter((group) => group.players.length > 0);
+
+      return { ...line, players: linePlayers, groups };
     });
   }, [listPlayers]);
 
@@ -1100,14 +1250,53 @@ export default function RivalPlayersPage() {
                             </span>
                           </div>
 
-                          <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
-                            {line.players.map((player) => (
-                              <PlayerRow
-                                key={player.ID_JUGADOR}
-                                player={player}
-                                showTeam={teamsInResults.length > 1}
-                                onClick={() => openPlayer(player)}
-                              />
+                          {/* Subgrupos por posición concreta.
+                              El `gap-px` es `bg-white/10` y no `bg-white/5`
+                              porque en modo día esta última se resuelve al
+                              mismo blanco que las filas: las separaciones se
+                              perdían. */}
+
+                          <div className="min-w-0">
+                            {line.groups.map((group) => (
+                              <div key={group.slot.key} className="min-w-0">
+                                {line.groups.length > 1 && (
+                                  /* `bg-[#181F27]` y no `bg-white/[0.02]`: en
+                                     modo día las utilidades `bg-white/[0.0x]`
+                                     caen todas en `--rmcf-surface`, el mismo
+                                     blanco de las filas, y la banda
+                                     desaparecía. */
+                                  <div className="flex min-w-0 items-center gap-2 border-y border-white/5 bg-[#181F27] px-4 py-1.5">
+                                    <span
+                                      className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider"
+                                      style={{
+                                        background: `${line.color}26`,
+                                        color: chipInk(line.color),
+                                      }}
+                                    >
+                                      {group.slot.code}
+                                    </span>
+
+                                    <span className="min-w-0 truncate text-[10px] uppercase tracking-[0.18em] text-white/40">
+                                      {group.slot.label}
+                                    </span>
+
+                                    <span className="ml-auto shrink-0 text-[10px] text-white/25">
+                                      {group.players.length}
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2">
+                                  {group.players.map((player) => (
+                                    <PlayerRow
+                                      key={player.ID_JUGADOR}
+                                      player={player}
+                                      showTeam={teamsInResults.length > 1}
+                                      onClick={() => openPlayer(player)}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
                             ))}
                           </div>
                         </section>
@@ -1126,7 +1315,7 @@ export default function RivalPlayersPage() {
                           </span>
                         </div>
 
-                        <div className="grid min-w-0 gap-px bg-white/5 sm:grid-cols-2">
+                        <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2">
                           {unclassified.map((player) => (
                             <PlayerRow
                               key={player.ID_JUGADOR}
@@ -1604,6 +1793,11 @@ function PlayerRow({
   onClick: () => void;
 }) {
   const { tags } = parseTags(player.IMPACTO);
+  const slotEntry = getSlot(player["POSICIÓN"]);
+
+  /* La 2ª posición sólo aporta si es distinta de la principal. */
+  const second = getSlot(player["2º POSICIÓN"]);
+  const secondSlot = second?.slot.key === slotEntry?.slot.key ? null : second;
 
   return (
     <button
@@ -1643,21 +1837,42 @@ function PlayerRow({
           {player["NOMBRE DEPORTIVO"] || player.JUGADOR}
         </p>
 
-        <div className="mt-1 flex min-w-0 items-center gap-2">
-          <span
-            className={`shrink-0 truncate rounded-md border px-1.5 py-0.5 text-[10px] ${getPositionStyle(
-              player["POSICIÓN"],
-            )}`}
-          >
+        <div className="mt-1 flex min-w-0 items-center gap-1.5">
+          {slotEntry ? (
+            <span
+              className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
+              style={{
+                background: `${slotEntry.line.color}26`,
+                color: chipInk(slotEntry.line.color),
+              }}
+            >
+              {slotEntry.slot.code}
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-md border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px] text-white/70">
+              ?
+            </span>
+          )}
+
+          <span className="min-w-0 truncate text-[10px] text-white/45">
             {player["POSICIÓN"] || "—"}
           </span>
 
-          {showTeam && (
-            <span className="min-w-0 truncate text-[10px] text-white/30">
-              {player.NOMBRE_EQUIPO}
+          {secondSlot && (
+            <span
+              title={player["2º POSICIÓN"]}
+              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[9px] text-white/35"
+            >
+              2ª {secondSlot.slot.code}
             </span>
           )}
         </div>
+
+        {showTeam && (
+          <p className="mt-1 min-w-0 truncate text-[10px] text-white/30">
+            {player.NOMBRE_EQUIPO}
+          </p>
+        )}
 
         {/* ETIQUETAS */}
 
