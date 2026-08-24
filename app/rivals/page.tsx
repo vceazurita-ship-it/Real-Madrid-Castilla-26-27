@@ -2620,30 +2620,45 @@ function TagPicker({
 |--------------------------------------------------------------------------
 | CAMPOGRAMA · MOTOR DE COLOCACIÓN
 |--------------------------------------------------------------------------
-| El reparto se calcula en píxeles sobre el tamaño real del contenedor, no
-| con porcentajes fijos: así entra la plantilla completa sin solaparse.
+| El campograma ya no reparte a la gente por líneas anchas, sino por
+| POSICIÓN: cada slot (POR, LI, DFC, MCD, EI…) tiene su ancla en el campo y
+| todos los jugadores de ese slot se pintan juntos, en bloque compacto y bajo
+| una misma chapa. Así se ve de un golpe cuántos centrales o extremos hay.
 |
-|   1. Cada posición cae en una línea y recibe una preferencia horizontal en
-|      [-1, 1] según el lado (izq/centro/dcho) y lo abierto que juegue
-|      (lateral y extremo abren más que interior, e interior más que central).
-|   2. Una línea con demasiada gente se abre en varias sub-filas alternando
-|      jugadores, de modo que cada sub-fila conserva el abanico completo.
-|   3. El tamaño de ficha se despeja para que TODAS las sub-filas quepan a lo
-|      alto y a lo ancho, y después se relajan las alturas para garantizar la
-|      separación mínima entre ellas.
+|   1. Cada jugador cae en un slot (el mismo getSlot que usa el listado) y,
+|      si el slot admite lado, se separa en variante izquierda / derecha.
+|   2. Los slots a alturas parecidas comparten "banda" para no gastar alto de
+|      más; dentro de la banda los bloques van uno al lado del otro.
+|   3. El tamaño de ficha se despeja para que quepan todas las bandas a lo
+|      alto y todos los bloques a lo ancho; después se resuelven los solapes
+|      (horizontales dentro de la banda, verticales entre bandas).
 */
 
-type PitchRowKey = "del" | "band" | "med" | "piv" | "def" | "por";
+/*
+| Ancla de cada slot en fracciones del campo (el ataque, arriba). `xSide` es
+| cuánto se desplaza a los lados cuando la posición trae lado ("interior
+| derecho"); los slots que ya son de un lado (LI, LD, EI, ED) no lo llevan.
+*/
+const SLOT_ANCHORS: Record<string, { x: number; y: number; xSide?: number }> = {
+  dc: { x: 0.5, y: 0.1, xSide: 0.16 },
+  sd: { x: 0.5, y: 0.19, xSide: 0.16 },
+  ei: { x: 0.12, y: 0.28 },
+  ed: { x: 0.88, y: 0.28 },
+  ext: { x: 0.5, y: 0.28, xSide: 0.38 },
+  mp: { x: 0.5, y: 0.35, xSide: 0.16 },
+  int: { x: 0.5, y: 0.47, xSide: 0.26 },
+  mc: { x: 0.5, y: 0.5, xSide: 0.18 },
+  med: { x: 0.5, y: 0.5, xSide: 0.18 },
+  mcd: { x: 0.5, y: 0.63, xSide: 0.18 },
+  car: { x: 0.5, y: 0.7, xSide: 0.4 },
+  li: { x: 0.11, y: 0.79 },
+  ld: { x: 0.89, y: 0.79 },
+  dfc: { x: 0.5, y: 0.81, xSide: 0.15 },
+  def: { x: 0.5, y: 0.81, xSide: 0.3 },
+  por: { x: 0.5, y: 0.93 },
+};
 
-/* Altura preferida de cada línea, en fracción del alto del campo. */
-const PITCH_ROWS: { key: PitchRowKey; top: number }[] = [
-  { key: "del", top: 0.1 },
-  { key: "band", top: 0.26 },
-  { key: "med", top: 0.44 },
-  { key: "piv", top: 0.585 },
-  { key: "def", top: 0.745 },
-  { key: "por", top: 0.915 },
-];
+const FALLBACK_ANCHOR = { x: 0.5, y: 0.56 };
 
 /* La hoja mezcla IZQUIERDO / IZQ / IZDO / I y DERECHO / DCHO / DER / D. */
 const LEFT_PATTERN =
@@ -2659,109 +2674,56 @@ function detectSide(position: string) {
   return 0;
 }
 
-function detectRow(position: string): PitchRowKey {
-  const p = position;
+/* Forma del bloque: cuadrado antes que fila larga, para que quede apretado. */
+function clusterColumns(count: number) {
+  if (count <= 3) return count;
+  if (count === 4) return 2;
 
-  if (
-    p.includes("portero") ||
-    p.includes("arquero") ||
-    p.includes("guardameta") ||
-    p.includes("cancerbero")
-  ) {
-    return "por";
-  }
-
-  /* Antes que "punta": si no, "media punta" caería en delanteros. */
-  if (
-    p.includes("media punta") ||
-    p.includes("mediapunta") ||
-    p.includes("media-punta") ||
-    p.includes("enganche") ||
-    p.includes("medio ofensivo") ||
-    p.includes("mediocentro ofensivo") ||
-    p.includes("medio centro of")
-  ) {
-    return "band";
-  }
-
-  if (
-    p.includes("extremo") ||
-    p.includes("ext ") ||
-    p.includes("banda") ||
-    p.includes("winger")
-  ) {
-    return "band";
-  }
-
-  if (
-    p.includes("delanter") ||
-    p.includes("punta") ||
-    p.includes("ariete") ||
-    /(^|\s)9($|\s)/.test(p)
-  ) {
-    return "del";
-  }
-
-  if (
-    p.includes("lateral") ||
-    p.includes("lat ") ||
-    p.includes("carrilero") ||
-    p.includes("central") ||
-    p.includes("defensa") ||
-    p.includes("zaguero") ||
-    p.includes("libero") ||
-    p.includes("dfc")
-  ) {
-    return "def";
-  }
-
-  if (
-    p.includes("pivote") ||
-    p.includes("ancla") ||
-    p.includes("medio centro def") ||
-    p.includes("mediocentro def") ||
-    p.includes("medio defensivo") ||
-    p.includes("mcd")
-  ) {
-    return "piv";
-  }
-
-  return "med";
+  return 3;
 }
 
-/* Cuánto abre: lateral y extremo pegados a la banda, central al eje. */
-function widthRank(position: string) {
-  if (
-    position.includes("lateral") ||
-    position.includes("lat ") ||
-    position.includes("carrilero") ||
-    position.includes("extremo") ||
-    position.includes("ext ")
-  ) {
-    return 2;
-  }
+type PlacedPlayer = {
+  player: RivalPlayer;
+  x: number;
+  y: number;
+  color: string;
+};
 
-  if (position.includes("interior") || position.includes("volante")) return 1;
-
-  return 0;
-}
-
-function horizontalPreference(position: string) {
-  const side = detectSide(position);
-
-  if (side === 0) return 0;
-
-  return side * (0.55 + 0.22 * widthRank(position));
-}
-
-type PlacedPlayer = { player: RivalPlayer; x: number; y: number };
+type PlacedCluster = {
+  key: string;
+  code: string;
+  color: string;
+  count: number;
+  x: number;
+  y: number;
+};
 
 type PitchLayout = {
   placed: PlacedPlayer[];
+  clusters: PlacedCluster[];
   avatar: number;
+  stepX: number;
 };
 
-const EMPTY_LAYOUT: PitchLayout = { placed: [], avatar: 0 };
+const EMPTY_LAYOUT: PitchLayout = {
+  placed: [],
+  clusters: [],
+  avatar: 0,
+  stepX: 0,
+};
+
+type PitchCluster = {
+  key: string;
+  code: string;
+  color: string;
+  anchorX: number;
+  anchorY: number;
+  players: RivalPlayer[];
+  cols: number;
+  rows: number;
+  x: number;
+  width: number;
+};
 
 function layoutPitch(
   players: RivalPlayer[],
@@ -2770,164 +2732,247 @@ function layoutPitch(
 ): PitchLayout {
   if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
 
-  /* 1 · Agrupar por línea y ordenar de izquierda a derecha. */
+  /* 1 · Un bloque por posición (slot + lado). */
 
-  const grouped = new Map<PitchRowKey, RivalPlayer[]>();
+  const byKey = new Map<string, PitchCluster>();
 
   players.forEach((player) => {
-    const key = detectRow(normalize(player["POSICIÓN"]));
+    const position = player["POSICIÓN"];
+    const entry = getSlot(position);
 
-    const list = grouped.get(key);
+    const slotKey = entry?.slot.key ?? "otros";
+    const anchor = SLOT_ANCHORS[slotKey] ?? FALLBACK_ANCHOR;
 
-    if (list) list.push(player);
-    else grouped.set(key, [player]);
-  });
+    const side = anchor.xSide ? detectSide(normalize(position)) : 0;
+    const key = `${slotKey}:${side}`;
 
-  grouped.forEach((list) => {
-    list.sort((a, b) => {
-      const prefA = horizontalPreference(normalize(a["POSICIÓN"]));
-      const prefB = horizontalPreference(normalize(b["POSICIÓN"]));
+    const existing = byKey.get(key);
 
-      if (prefA !== prefB) return prefA - prefB;
-
-      return (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999);
-    });
-  });
-
-  /* 2 · Repartir cada línea en sub-filas que cubran todo el ancho. */
-
-  /*
-  | En pantallas estrechas conviene apretar la sub-fila antes que abrir otra:
-  | cada sub-fila extra cuesta mucho más alto del que ahorra de ancho.
-  */
-  const maxPerSubRow = Math.max(4, Math.min(6, Math.floor(width / 96)));
-
-  const subRows: { players: RivalPlayer[]; band: number; top: number }[] = [];
-
-  PITCH_ROWS.forEach((row) => {
-    const list = grouped.get(row.key);
-
-    if (!list || list.length === 0) return;
-
-    const count = Math.ceil(list.length / maxPerSubRow);
-
-    const chunks: RivalPlayer[][] = Array.from({ length: count }, () => []);
-
-    /* Alterno en vez de trocear: cada sub-fila mantiene el abanico entero. */
-    list.forEach((player, index) => chunks[index % count].push(player));
-
-    chunks.forEach((chunk, index) => {
-      const maxPreference = chunk.reduce(
-        (max, player) =>
-          Math.max(
-            max,
-            Math.abs(horizontalPreference(normalize(player["POSICIÓN"]))),
-          ),
-        0,
-      );
-
-      /* Ancho que ocupa la sub-fila: nunca menor del que pide su gente. */
-      const band = Math.min(
-        1,
-        Math.max(0.45, maxPreference + 0.12, 0.22 * chunk.length),
-      );
-
-      subRows.push({
-        players: chunk,
-        band,
-        top: row.top * height + (index - (count - 1) / 2),
-      });
-    });
-  });
-
-  if (subRows.length === 0) return EMPTY_LAYOUT;
-
-  subRows.sort((a, b) => a.top - b.top);
-
-  /* 3 · Tamaño de ficha con el que todas las sub-filas caben. */
-
-  const rows = subRows.length;
-
-  const padY = 18;
-  const padX = 30;
-  const labelHeight = 34;
-  const rowGapExtra = 6;
-
-  const byHeight =
-    (height - 2 * padY - rowGapExtra * (rows - 1)) / rows - labelHeight;
-
-  const narrowestSlot = subRows.reduce((min, row) => {
-    const slot = ((width - 2 * padX) * row.band) / row.players.length;
-
-    return Math.min(min, slot);
-  }, Infinity);
-
-  const avatar = Math.max(24, Math.min(62, byHeight, narrowestSlot * 0.74));
-
-  const cardHeight = avatar + labelHeight;
-  const gap = cardHeight + rowGapExtra;
-
-  /* 4 · Relajar alturas: separación mínima y todo dentro del campo. */
-
-  const minTop = padY + cardHeight / 2;
-  const maxTop = height - padY - cardHeight / 2;
-
-  const tops = subRows.map((row) => row.top);
-
-  tops[0] = Math.max(tops[0], minTop);
-
-  for (let index = 1; index < rows; index += 1) {
-    tops[index] = Math.max(tops[index], tops[index - 1] + gap);
-  }
-
-  if (tops[rows - 1] > maxTop) {
-    tops[rows - 1] = maxTop;
-
-    for (let index = rows - 2; index >= 0; index -= 1) {
-      tops[index] = Math.min(tops[index], tops[index + 1] - gap);
-    }
-
-    for (let index = 0; index < rows; index += 1) {
-      tops[index] = Math.max(tops[index], minTop + index * gap);
-    }
-  }
-
-  /*
-  | Red de seguridad: si la ficha ya está en su tamaño mínimo y aun así no cabe
-  | todo, preferimos amontonar un poco a que alguien se salga del campo.
-  */
-  for (let index = 0; index < rows; index += 1) {
-    tops[index] = Math.min(Math.max(tops[index], minTop), maxTop);
-  }
-
-  /* 5 · Posición horizontal: reparto uniforme dentro de la banda. */
-
-  const usableWidth = Math.max(80, width - 2 * padX);
-
-  const placed: PlacedPlayer[] = [];
-
-  subRows.forEach((row, rowIndex) => {
-    const count = row.players.length;
-    const y = tops[rowIndex];
-
-    if (count === 1) {
-      placed.push({ player: row.players[0], x: width / 2, y });
+    if (existing) {
+      existing.players.push(player);
       return;
     }
 
-    const bandWidth = usableWidth * row.band;
-    const start = width / 2 - bandWidth / 2;
+    byKey.set(key, {
+      key,
+      code:
+        (entry?.slot.code ?? "S/P") + (side < 0 ? " I" : side > 0 ? " D" : ""),
+      color: entry?.line.color ?? "#9AA3AD",
+      anchorX: anchor.x + side * (anchor.xSide ?? 0),
+      anchorY: anchor.y,
+      players: [player],
+      cols: 0,
+      rows: 0,
+      x: 0,
+      width: 0,
+    });
+  });
 
-    row.players.forEach((player, index) => {
-      placed.push({
-        player,
-        x: start + (bandWidth * (index + 0.5)) / count,
-        y,
+  const clusters = [...byKey.values()];
+
+  clusters.forEach((cluster) => {
+    cluster.players.sort(
+      (a, b) => (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999),
+    );
+
+    cluster.cols = clusterColumns(cluster.players.length);
+    cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
+  });
+
+  /* 2 · Bandas: slots a alturas parecidas comparten fila del campo. */
+
+  clusters.sort((a, b) => a.anchorY - b.anchorY);
+
+  const bands: { clusters: PitchCluster[]; anchorY: number; rows: number }[] =
+    [];
+
+  clusters.forEach((cluster) => {
+    const last = bands[bands.length - 1];
+
+    if (last && cluster.anchorY - last.anchorY <= 0.07) {
+      last.clusters.push(cluster);
+      last.rows = Math.max(last.rows, cluster.rows);
+      return;
+    }
+
+    bands.push({
+      clusters: [cluster],
+      anchorY: cluster.anchorY,
+      rows: cluster.rows,
+    });
+  });
+
+  /* 3 · Tamaño de ficha con el que todo cabe. */
+
+  const padX = 26;
+  const padY = 16;
+  const labelHeight = 34;
+  const chipHeight = 15;
+  const rowGap = 8;
+  const bandGap = 10;
+
+  const totalRows = bands.reduce((sum, band) => sum + band.rows, 0);
+
+  /*
+  | Cada fila ocupa avatar + nombre + hueco; cada banda suma además su chapa,
+  | y entre bandas va otro hueco. De ahí se despeja el avatar más grande que
+  | deja que todo entre a lo alto.
+  */
+  const freeHeight =
+    height -
+    2 * padY -
+    bands.length * chipHeight -
+    (bands.length - 1) * bandGap;
+
+  const byHeight = freeHeight / totalRows - labelHeight - rowGap;
+
+  /* A lo ancho: paso entre fichas 1.45 · avatar y hueco entre bloques 0.62. */
+  const freeWidth = width - 2 * padX;
+
+  const byWidth = bands.reduce((min, band) => {
+    const cols = band.clusters.reduce((sum, item) => sum + item.cols, 0);
+    const need = 1.45 * cols + 0.62 * (band.clusters.length - 1);
+
+    return Math.min(min, freeWidth / need);
+  }, Infinity);
+
+  const avatar = Math.max(22, Math.min(62, byHeight, byWidth));
+
+  const stepX = avatar * 1.45;
+  const clusterGap = avatar * 0.62;
+  const cardHeight = avatar + labelHeight;
+  const stepY = cardHeight + rowGap;
+
+  /* 4 · Reparto horizontal: cada bloque en su ancla, sin pisarse. */
+
+  bands.forEach((band) => {
+    band.clusters.sort((a, b) => a.anchorX - b.anchorX);
+
+    band.clusters.forEach((cluster) => {
+      cluster.width = cluster.cols * stepX;
+
+      const half = cluster.width / 2;
+
+      cluster.x = Math.min(
+        Math.max(cluster.anchorX * width, padX + half),
+        Math.max(padX + half, width - padX - half),
+      );
+    });
+
+    for (let i = 1; i < band.clusters.length; i += 1) {
+      const prev = band.clusters[i - 1];
+      const current = band.clusters[i];
+
+      current.x = Math.max(
+        current.x,
+        prev.x + prev.width / 2 + current.width / 2 + clusterGap,
+      );
+    }
+
+    for (let i = band.clusters.length - 2; i >= 0; i -= 1) {
+      const next = band.clusters[i + 1];
+      const current = band.clusters[i];
+
+      current.x = Math.min(
+        current.x,
+        next.x - next.width / 2 - current.width / 2 - clusterGap,
+      );
+    }
+
+    band.clusters.forEach((cluster) => {
+      cluster.x = Math.max(cluster.x, padX + cluster.width / 2);
+    });
+  });
+
+  /* 5 · Reparto vertical: cada banda a su altura, sin pisar a la anterior. */
+
+  const bandHeights = bands.map((band) => band.rows * stepY + chipHeight);
+
+  const centers = bands.map((band) => band.anchorY * height);
+
+  /* Bajando: nadie pisa a la banda de arriba. */
+  let cursor = padY;
+
+  bands.forEach((band, index) => {
+    const half = bandHeights[index] / 2;
+
+    centers[index] = Math.max(centers[index], cursor + half);
+    cursor = centers[index] + half + bandGap;
+  });
+
+  /* Subiendo: lo que se haya salido por abajo vuelve a entrar. */
+  let limit = height - padY;
+
+  for (let index = bands.length - 1; index >= 0; index -= 1) {
+    const half = bandHeights[index] / 2;
+
+    centers[index] = Math.min(centers[index], limit - half);
+    limit = centers[index] - half - bandGap;
+  }
+
+  /*
+  | Red de seguridad: si ni con la ficha al mínimo cabe todo, preferimos
+  | amontonar un poco a que alguien acabe fuera del campo.
+  */
+  cursor = padY;
+
+  bands.forEach((band, index) => {
+    const half = bandHeights[index] / 2;
+
+    centers[index] = Math.min(
+      Math.max(centers[index], cursor + half),
+      Math.max(padY + half, height - padY - half),
+    );
+
+    cursor = centers[index] + half + bandGap;
+  });
+
+  /* 6 · Colocar a cada jugador dentro de su bloque. */
+
+  const placed: PlacedPlayer[] = [];
+  const placedClusters: PlacedCluster[] = [];
+
+  bands.forEach((band, bandIndex) => {
+    const bandTop = centers[bandIndex] - bandHeights[bandIndex] / 2;
+
+    band.clusters.forEach((cluster) => {
+      /* El bloque se centra a lo alto de la banda, con su chapa encima. */
+      const blockHeight = cluster.rows * stepY;
+
+      const blockTop =
+        bandTop +
+        chipHeight +
+        (bandHeights[bandIndex] - chipHeight - blockHeight) / 2;
+
+      placedClusters.push({
+        key: cluster.key,
+        code: cluster.code,
+        color: cluster.color,
+        count: cluster.players.length,
+        x: cluster.x,
+        y: blockTop - 3,
+      });
+
+      cluster.players.forEach((player, index) => {
+        const row = Math.floor(index / cluster.cols);
+        const column = index % cluster.cols;
+
+        const inRow = Math.min(
+          cluster.cols,
+          cluster.players.length - row * cluster.cols,
+        );
+
+        placed.push({
+          player,
+          color: cluster.color,
+          x: cluster.x + (column - (inRow - 1) / 2) * stepX,
+          y: blockTop + row * stepY + cardHeight / 2,
+        });
       });
     });
   });
 
-  return { placed, avatar };
+  return { placed, clusters: placedClusters, avatar, stepX };
 }
 
 /*
@@ -2968,7 +3013,7 @@ function TacticalPitch({
     return () => observer.disconnect();
   }, []);
 
-  const { placed, avatar } = useMemo(
+  const { placed, clusters, avatar, stepX } = useMemo(
     () => layoutPitch(players, size.width, size.height),
     [players, size.width, size.height],
   );
@@ -2996,9 +3041,29 @@ function TacticalPitch({
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/45" />
 
+      {/* CHAPA DE POSICIÓN — una por bloque, encima de su gente */}
+
+      {clusters.map((cluster) => (
+        <span
+          key={cluster.key}
+          className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm"
+          style={{
+            left: cluster.x,
+            top: cluster.y,
+            color: cluster.color,
+            borderColor: `${cluster.color}66`,
+            background: "rgba(8,12,16,0.72)",
+          }}
+        >
+          {cluster.code}
+
+          <span className="font-semibold text-white/45">{cluster.count}</span>
+        </span>
+      ))}
+
       {/* JUGADORES */}
 
-      {placed.map(({ player, x, y }) => {
+      {placed.map(({ player, x, y, color }) => {
         const selected = selectedId === player.ID_JUGADOR;
 
         const { tags } = parseTags(player.IMPACTO);
@@ -3026,15 +3091,17 @@ function TacticalPitch({
             }`}
             style={{ left: x, top: y }}
           >
-            {/* FOTO */}
+            {/* FOTO — el borde lleva el color de la línea */}
 
             <div
               className={`relative shrink-0 overflow-hidden rounded-full border-2 bg-[#11161D] shadow-[0_4px_14px_rgba(0,0,0,0.55)] ${
-                selected
-                  ? "border-[#C8A96B] ring-2 ring-[#C8A96B]/60"
-                  : "border-white/80"
+                selected ? "ring-2 ring-[#C8A96B]/60" : ""
               }`}
-              style={{ height: avatar, width: avatar }}
+              style={{
+                height: avatar,
+                width: avatar,
+                borderColor: selected ? "#C8A96B" : color,
+              }}
             >
               {player.FOTO ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -3071,7 +3138,7 @@ function TacticalPitch({
 
             <span
               className="mt-1 truncate rounded bg-black/75 px-1.5 py-0.5 font-semibold leading-tight text-white"
-              style={{ fontSize: nameFont, maxWidth: avatar * 2.2 }}
+              style={{ fontSize: nameFont, maxWidth: Math.max(46, stepX - 4) }}
             >
               {name}
             </span>
