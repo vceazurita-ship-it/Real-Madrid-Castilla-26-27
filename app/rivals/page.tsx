@@ -2729,6 +2729,7 @@ function layoutPitch(
   players: RivalPlayer[],
   width: number,
   height: number,
+  compact = false,
 ): PitchLayout {
   if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
 
@@ -2774,9 +2775,6 @@ function layoutPitch(
     cluster.players.sort(
       (a, b) => (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999),
     );
-
-    cluster.cols = clusterColumns(cluster.players.length);
-    cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
   });
 
   /* 2 · Bandas: slots a alturas parecidas comparten fila del campo. */
@@ -2791,55 +2789,107 @@ function layoutPitch(
 
     if (last && cluster.anchorY - last.anchorY <= 0.07) {
       last.clusters.push(cluster);
-      last.rows = Math.max(last.rows, cluster.rows);
       return;
     }
 
     bands.push({
       clusters: [cluster],
       anchorY: cluster.anchorY,
-      rows: cluster.rows,
+      rows: 0,
     });
   });
 
+  /* Forma de los bloques con un tope de columnas dado. */
+  const shapeClusters = (maxCols: number) => {
+    clusters.forEach((cluster) => {
+      cluster.cols = Math.min(clusterColumns(cluster.players.length), maxCols);
+      cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
+    });
+
+    bands.forEach((band) => {
+      band.rows = band.clusters.reduce(
+        (max, cluster) => Math.max(max, cluster.rows),
+        0,
+      );
+    });
+  };
+
   /* 3 · Tamaño de ficha con el que todo cabe. */
 
-  const padX = 26;
-  const padY = 16;
-  const labelHeight = 34;
-  const chipHeight = 15;
-  const rowGap = 8;
-  const bandGap = 10;
+  /*
+  | En móvil el campo mide poco más de 300 px de ancho: con los márgenes y los
+  | pasos de escritorio el reparto pedía más sitio del que hay, el avatar se
+  | quedaba clavado en su mínimo y las fichas acababan pisándose. Ahí apretamos
+  | márgenes, huecos y la altura de la etiqueta; en PC no cambia nada.
+  */
+  const padX = compact ? 10 : 26;
+  const padY = compact ? 10 : 16;
+  const labelHeight = compact ? 28 : 34;
+  const chipHeight = compact ? 13 : 15;
+  const rowGap = compact ? 6 : 8;
+  const bandGap = compact ? 7 : 10;
+  const stepFactor = compact ? 1.18 : 1.45;
+  const gapFactor = compact ? 0.46 : 0.62;
+  const minAvatar = compact ? 18 : 22;
 
-  const totalRows = bands.reduce((sum, band) => sum + band.rows, 0);
+  const freeWidth = width - 2 * padX;
 
   /*
   | Cada fila ocupa avatar + nombre + hueco; cada banda suma además su chapa,
   | y entre bandas va otro hueco. De ahí se despeja el avatar más grande que
-  | deja que todo entre a lo alto.
+  | deja que todo entre a lo alto. A lo ancho: paso entre fichas `stepFactor` ·
+  | avatar y hueco entre bloques `gapFactor` · avatar.
   */
-  const freeHeight =
-    height -
-    2 * padY -
-    bands.length * chipHeight -
-    (bands.length - 1) * bandGap;
+  const fitAvatar = () => {
+    const totalRows = bands.reduce((sum, band) => sum + band.rows, 0);
 
-  const byHeight = freeHeight / totalRows - labelHeight - rowGap;
+    const freeHeight =
+      height -
+      2 * padY -
+      bands.length * chipHeight -
+      (bands.length - 1) * bandGap;
 
-  /* A lo ancho: paso entre fichas 1.45 · avatar y hueco entre bloques 0.62. */
-  const freeWidth = width - 2 * padX;
+    const byHeight = freeHeight / totalRows - labelHeight - rowGap;
 
-  const byWidth = bands.reduce((min, band) => {
-    const cols = band.clusters.reduce((sum, item) => sum + item.cols, 0);
-    const need = 1.45 * cols + 0.62 * (band.clusters.length - 1);
+    const byWidth = bands.reduce((min, band) => {
+      const cols = band.clusters.reduce((sum, item) => sum + item.cols, 0);
+      const need = stepFactor * cols + gapFactor * (band.clusters.length - 1);
 
-    return Math.min(min, freeWidth / need);
-  }, Infinity);
+      return Math.min(min, freeWidth / need);
+    }, Infinity);
 
-  const avatar = Math.max(22, Math.min(62, byHeight, byWidth));
+    return Math.min(62, byHeight, byWidth);
+  };
 
-  const stepX = avatar * 1.45;
-  const clusterGap = avatar * 0.62;
+  /*
+  | En móvil el ancho es lo que aprieta: en una banda con muchos bloques (por
+  | ejemplo laterales + tres bloques de centrales) el avatar se quedaba clavado
+  | en su mínimo y las fichas se pisaban. Probamos también bloques de dos y de
+  | una columna — apilar en vertical estrecha la banda — y nos quedamos con el
+  | reparto que deja la foto más grande. En PC sólo se prueba el de siempre.
+  */
+  const columnOptions = compact ? [3, 2, 1] : [3];
+
+  let bestCols = columnOptions[0];
+  let bestFit = -Infinity;
+
+  columnOptions.forEach((maxCols) => {
+    shapeClusters(maxCols);
+
+    const fit = fitAvatar();
+
+    if (fit > bestFit) {
+      bestFit = fit;
+      bestCols = maxCols;
+    }
+  });
+
+  shapeClusters(bestCols);
+
+  const avatar = Math.max(minAvatar, bestFit);
+
+  const stepX = avatar * stepFactor;
+  const clusterGap = avatar * gapFactor;
   const cardHeight = avatar + labelHeight;
   const stepY = cardHeight + rowGap;
 
@@ -2882,6 +2932,20 @@ function layoutPitch(
     band.clusters.forEach((cluster) => {
       cluster.x = Math.max(cluster.x, padX + cluster.width / 2);
     });
+
+    /*
+    | El empujón hacia la derecha no tiene tope, así que en una banda que no
+    | cabe entera el último bloque se salía del campo (y el recorte se lo
+    | comía). En móvil, donde eso pasa, preferimos apretarla y que se vea todo.
+    */
+    if (compact) {
+      band.clusters.forEach((cluster) => {
+        cluster.x = Math.min(
+          cluster.x,
+          Math.max(padX + cluster.width / 2, width - padX - cluster.width / 2),
+        );
+      });
+    }
   });
 
   /* 5 · Reparto vertical: cada banda a su altura, sin pisar a la anterior. */
@@ -2996,6 +3060,26 @@ function TacticalPitch({
 
   const [size, setSize] = useState({ width: 0, height: 0 });
 
+  /*
+  | Móvil = por debajo de `md`, que es donde el campograma pasa a ocupar el
+  | ancho completo de un teléfono. No vale mirar el ancho del contenedor: en PC
+  | la columna del campo también puede ser estrecha y ahí el reparto de
+  | escritorio ya está bien.
+  */
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+
+    const update = () => setCompact(query.matches);
+
+    update();
+
+    query.addEventListener("change", update);
+
+    return () => query.removeEventListener("change", update);
+  }, []);
+
   useEffect(() => {
     const node = containerRef.current;
 
@@ -3014,19 +3098,28 @@ function TacticalPitch({
   }, []);
 
   const { placed, clusters, avatar, stepX } = useMemo(
-    () => layoutPitch(players, size.width, size.height),
-    [players, size.width, size.height],
+    () => layoutPitch(players, size.width, size.height, compact),
+    [players, size.width, size.height, compact],
   );
 
-  const badgeSize = Math.max(11, Math.min(19, Math.round(avatar * 0.32)));
-  const nameFont = Math.max(9, Math.min(12, Math.round(avatar * 0.21)));
+  const badgeSize = compact
+    ? Math.max(9, Math.min(14, Math.round(avatar * 0.32)))
+    : Math.max(11, Math.min(19, Math.round(avatar * 0.32)));
+
+  const nameFont = compact
+    ? Math.max(8, Math.min(11, Math.round(avatar * 0.21)))
+    : Math.max(9, Math.min(12, Math.round(avatar * 0.21)));
+
+  /* El nombre nunca puede ser más ancho que el paso entre fichas: si lo es,
+     las etiquetas de dos vecinos se solapan aunque las fotos no lo hagan. */
+  const nameWidth = Math.max(compact ? 26 : 46, stepX - 4);
 
   const maxBadges = avatar < 34 ? 2 : avatar < 48 ? 3 : 4;
 
   return (
     <div
       ref={containerRef}
-      className="pitch-photo relative h-[min(900px,calc(100vh-120px))] min-h-[560px] w-full overflow-hidden bg-[#173b2a]"
+      className="pitch-photo relative h-[min(900px,calc(100vh-120px))] min-h-[680px] w-full overflow-hidden bg-[#173b2a] md:min-h-[560px]"
     >
       {/* FONDO DEL CAMPO */}
 
@@ -3141,8 +3234,10 @@ function TacticalPitch({
             {/* NOMBRE */}
 
             <span
-              className="mt-1 truncate rounded bg-black/75 px-1.5 py-0.5 font-semibold leading-tight text-white"
-              style={{ fontSize: nameFont, maxWidth: Math.max(46, stepX - 4) }}
+              className={`mt-1 truncate rounded bg-black/75 py-0.5 font-semibold leading-tight text-white ${
+                compact ? "px-1" : "px-1.5"
+              }`}
+              style={{ fontSize: nameFont, maxWidth: nameWidth }}
             >
               {name}
             </span>
@@ -3193,6 +3288,10 @@ function TacticalPitch({
 
             <span
               className={`pointer-events-none absolute left-1/2 z-40 w-48 -translate-x-1/2 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl backdrop-blur transition group-hover:opacity-100 ${
+                /* En móvil no hay ratón: el detalle sólo aparecía recortado
+                   por el borde del campo al tocar la ficha. */
+                compact ? "hidden" : ""
+              } ${
                 y > size.height / 2 ? "bottom-full mb-2" : "top-full mt-2"
               }`}
             >
