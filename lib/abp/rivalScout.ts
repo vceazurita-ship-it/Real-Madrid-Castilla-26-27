@@ -18,7 +18,15 @@
  * complicarlo.
  */
 
-import { AbpFamily, FAMILY_LABEL, teamKey } from "./model";
+import {
+  AbpFamily,
+  AbpOwner,
+  FAMILY_LABEL,
+  abpResult,
+  esPeligro,
+  norm,
+  teamKey,
+} from "./model";
 import { AbpEvent, AbpSide, scoutRowsToEvents } from "./rival";
 import { SheetRow } from "./sheets";
 
@@ -58,6 +66,13 @@ export interface RivalScoutAction {
   xg: string;
   segundoBalon: string;
   resultado: string;
+  /**
+   * Patrón o rutina reconocible: "bloqueo doble al primer palo", "salida en
+   * corto y centro atrás"… Se rellena sólo en las acciones que significan
+   * algo para el plan de partido, y es lo que agrupa el panel de patrones.
+   * Vacío = acción registrada pero sin nada que destacar.
+   */
+  patron: string;
   observaciones: string;
 }
 
@@ -76,11 +91,25 @@ export function scoutKey(equipo: string) {
   return teamKey(equipo) || "sin-equipo";
 }
 
+/**
+ * Acciones de un rival, con los campos que puedan faltar rellenados.
+ *
+ * El documento guardado en `app_documents` es de la versión que lo escribió:
+ * las acciones registradas antes de que existiera el patrón no traen ese
+ * campo. Se completa al leer y no al guardar, para no tener que reescribir el
+ * documento entero por cada campo nuevo.
+ */
 export function actionsOf(
   store: RivalScoutStore | null | undefined,
   equipo: string,
 ): RivalScoutAction[] {
-  return store?.teams?.[scoutKey(equipo)] ?? [];
+  const stored = store?.teams?.[scoutKey(equipo)] ?? [];
+
+  return stored.map((action) => ({
+    ...action,
+    patron: action.patron ?? "",
+    observaciones: action.observaciones ?? "",
+  }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -113,6 +142,28 @@ export const TIPO_CARRERA = ["Desde atrás", "Estático", "No aplica"];
 export const REMATE = ["Sí", "No", "No aplica"];
 export const TIPO_REMATE = ["Limpio", "Forzado", "No Remate", "No aplica"];
 export const SEGUNDO_BALON = ["Ganado", "Perdido", "No hubo"];
+
+/**
+ * Patrones habituales, como punto de partida al escribir.
+ *
+ * Es una lista de sugerencias, no un cerrojo: el campo admite cualquier texto
+ * porque cada rival tiene sus manías y forzarlas dentro de doce etiquetas
+ * haría perder justo el detalle que sirve para preparar el partido.
+ */
+export const PATRON_SUGERIDO = [
+  "Bloqueo al portero",
+  "Bloqueo doble al primer palo",
+  "Cortina y salida al segundo palo",
+  "Arrastre al primer palo y remate atrás",
+  "Salida en corto",
+  "Envío tenso al primer palo",
+  "Balón al punto de penalti",
+  "Rechace preparado en la frontal",
+  "Saque de banda largo al área",
+  "Todos fuera del área y entrada lanzada",
+  "Marcaje mixto con dos en zona",
+  "Marcaje al hombre sin nadie en palos",
+];
 
 /** Dónde cae el balón: el área tiene un vocabulario y la banda, otro. */
 export const ZONA_CAIDA_AREA = [
@@ -211,6 +262,7 @@ export function newAction(
     xg: "",
     segundoBalon: "",
     resultado: "Nada",
+    patron: "",
     observaciones: "",
     ...partial,
   };
@@ -263,6 +315,7 @@ export function actionToRow(
     xG: action.xg,
     Segundo_Balon: action.segundoBalon,
     Resultado_Final: action.resultado,
+    Patron: action.patron,
     Observaciones: action.observaciones,
   };
 }
@@ -275,6 +328,171 @@ export function actionsToEvents(
   if (!equipo || !actions.length) return [];
 
   return scoutRowsToEvents(actions.map((action) => actionToRow(action, equipo)));
+}
+
+/* ------------------------------------------------------------------ */
+/*  PATRONES                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un patrón agrupado: la misma rutina vista en varias acciones.
+ *
+ * Lo que se lleva al plan de partido no es la acción suelta sino la repetición
+ * —«tres veces el bloqueo al portero, dos acabaron en remate»—, así que aquí
+ * se juntan por el texto del patrón y se cuenta qué produjeron.
+ */
+export interface PatternGroup {
+  /** Texto tal y como se escribió la primera vez. */
+  patron: string;
+  condicion: AbpSide;
+  veces: number;
+  familias: AbpFamily[];
+  remates: number;
+  peligro: number;
+  goles: number;
+  jornadas: string[];
+  sacadores: string[];
+  rematadores: string[];
+  zonas: string[];
+  /** Observaciones de cada acción del grupo, con su partido y su minuto. */
+  notas: { id: string; jornada: string; minuto: string; texto: string }[];
+  acciones: RivalScoutAction[];
+}
+
+/** De quién es el resultado que registra la acción. */
+function ownerOf(condicion: AbpSide): AbpOwner {
+  return condicion === "ofensivo" ? "rmcf" : "rival";
+}
+
+/**
+ * ¿La acción acabó en gol u ocasión para quien atacaba?
+ *
+ * Se calcula igual que en `scoutRowsToEvents` —mismo `abpResult`, mismo
+ * dueño implícito— para que el panel de patrones no cuente un peligro distinto
+ * del que cuentan los totales de arriba.
+ */
+export function esPeligroAccion(action: RivalScoutAction) {
+  const owner = ownerOf(action.condicion);
+
+  return esPeligro(abpResult(action.resultado, owner), owner);
+}
+
+export function esGolAccion(action: RivalScoutAction) {
+  const owner = ownerOf(action.condicion);
+  const result = abpResult(action.resultado, owner);
+
+  return result.rank === 5 && esPeligro(result, owner);
+}
+
+/** Añade sin repetir y sin colar vacíos. */
+function push(list: string[], value: string) {
+  const clean = value.trim();
+
+  if (clean && !list.includes(clean)) list.push(clean);
+}
+
+/** La zona que describe la acción: la de la falta o la del saque de banda. */
+function zonaDe(action: RivalScoutAction) {
+  return action.zonaFalta || action.zonaSaque || "";
+}
+
+/**
+ * Agrupa por patrón las acciones que lo tengan escrito.
+ *
+ * Las que no lo llevan quedan fuera a propósito: el registro sirve para contar
+ * volumen y el patrón para preparar el partido, y mezclarlos convertiría el
+ * panel en la misma tabla de abajo.
+ *
+ * La clave junta lado y texto normalizado, así que «Bloqueo al portero» y
+ * «bloqueo al portero » son el mismo patrón, pero atacando y defendiendo se
+ * cuentan por separado —significan cosas opuestas—.
+ */
+export function groupPatterns(actions: RivalScoutAction[]): PatternGroup[] {
+  const groups = new Map<string, PatternGroup>();
+
+  actions.forEach((action) => {
+    const patron = action.patron.trim();
+
+    if (!patron) return;
+
+    const key = `${action.condicion}|${norm(patron)}`;
+
+    const group = groups.get(key) ?? {
+      patron,
+      condicion: action.condicion,
+      veces: 0,
+      familias: [] as AbpFamily[],
+      remates: 0,
+      peligro: 0,
+      goles: 0,
+      jornadas: [] as string[],
+      sacadores: [] as string[],
+      rematadores: [] as string[],
+      zonas: [] as string[],
+      notas: [] as PatternGroup["notas"],
+      acciones: [] as RivalScoutAction[],
+    };
+
+    group.veces += 1;
+    group.acciones.push(action);
+
+    if (!group.familias.includes(action.family))
+      group.familias.push(action.family);
+
+    if (action.remate === "Sí") group.remates += 1;
+    if (esPeligroAccion(action)) group.peligro += 1;
+    if (esGolAccion(action)) group.goles += 1;
+
+    push(group.jornadas, action.jornada);
+    push(group.sacadores, action.sacador);
+    push(group.rematadores, action.rematador);
+    push(group.zonas, zonaDe(action));
+
+    if (action.observaciones.trim()) {
+      group.notas.push({
+        id: action.id,
+        jornada: action.jornada,
+        minuto: action.minuto,
+        texto: action.observaciones.trim(),
+      });
+    }
+
+    groups.set(key, group);
+  });
+
+  /* Primero lo que hace daño, luego lo que más se repite: es el orden en que
+     se decide qué entra en la pizarra. */
+  return [...groups.values()].sort(
+    (a, b) =>
+      b.goles - a.goles ||
+      b.peligro - a.peligro ||
+      b.veces - a.veces ||
+      a.patron.localeCompare(b.patron, "es"),
+  );
+}
+
+/**
+ * Patrones ya escritos en cualquier rival, para sugerirlos al teclear.
+ *
+ * Se miran todos los equipos y no sólo el analizado: el vocabulario del cuerpo
+ * técnico es el mismo para toda la liga, y así «Bloqueo al portero» se escribe
+ * igual en el Bilbao Athletic que en el Osasuna B y los grupos no se parten.
+ */
+export function knownPatterns(store: RivalScoutStore | null | undefined) {
+  const vistos: string[] = [];
+
+  Object.values(store?.teams ?? {}).forEach((actions) => {
+    (actions ?? []).forEach((action) => push(vistos, action.patron ?? ""));
+  });
+
+  vistos.sort((a, b) => a.localeCompare(b, "es"));
+
+  return [
+    ...vistos,
+    ...PATRON_SUGERIDO.filter(
+      (option) => !vistos.some((seen) => norm(seen) === norm(option)),
+    ),
+  ];
 }
 
 /* ------------------------------------------------------------------ */
@@ -306,6 +524,7 @@ const CSV_HEADERS = [
   "xG",
   "Segundo_Balon",
   "Resultado_Final",
+  "Patron",
   "Observaciones",
 ];
 

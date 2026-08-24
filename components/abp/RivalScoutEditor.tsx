@@ -13,7 +13,14 @@
  */
 
 import { useMemo, useState } from "react";
-import { Download, ListPlus, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  Download,
+  ListPlus,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
 import {
   Button,
@@ -73,6 +80,7 @@ export function RivalScoutEditor({
   localOnly,
   savedAt,
   squadNames,
+  patronesConocidos,
 }: {
   equipo: string;
   actions: RivalScoutAction[];
@@ -82,6 +90,8 @@ export function RivalScoutEditor({
   savedAt: string | null;
   /** Nombres de su plantilla, para sugerir sacador y rematador. */
   squadNames: string[];
+  /** Patrones ya escritos en cualquier rival, para reutilizar el vocabulario. */
+  patronesConocidos: string[];
 }) {
   const [draft, setDraft] = useState<RivalScoutAction | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -251,6 +261,15 @@ export function RivalScoutEditor({
 
                     <td className="px-4 py-3 text-white/85">
                       {composeTipoAccion(action)}
+
+                      {/* El patrón se marca aquí porque es lo que distingue a
+                          una acción de plan de partido de una de volumen. */}
+                      {action.patron.trim() && (
+                        <span className="mt-1 flex items-center gap-1.5 text-[11px] text-[#C8A96B]">
+                          <Sparkles size={11} className="shrink-0" />
+                          <span className="truncate">{action.patron}</span>
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-4 py-3 text-[12px] text-white/50">
@@ -298,6 +317,7 @@ export function RivalScoutEditor({
           draft={draft}
           isNew={isNew}
           squadNames={squadNames}
+          patronesConocidos={patronesConocidos}
           onChange={setDraft}
           onClose={close}
           onSave={save}
@@ -316,6 +336,7 @@ function ActionDialog({
   draft,
   isNew,
   squadNames,
+  patronesConocidos,
   onChange,
   onClose,
   onSave,
@@ -324,6 +345,7 @@ function ActionDialog({
   draft: RivalScoutAction;
   isNew: boolean;
   squadNames: string[];
+  patronesConocidos: string[];
   onChange: (action: RivalScoutAction) => void;
   onClose: () => void;
   onSave: (again?: boolean) => void;
@@ -580,13 +602,26 @@ function ActionDialog({
             options={withBlank(SEGUNDO_BALON)}
             onChange={(value) => set("segundoBalon", toStored(value))}
           />
+        </Group>
 
-          <div className="sm:col-span-2">
+        <Group title="Para el plan de partido">
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Field
+              label="Patrón"
+              value={draft.patron}
+              onChange={(value) => set("patron", value)}
+              suggestions={patronesConocidos}
+              placeholder="Bloqueo doble al primer palo"
+              hint="Déjalo vacío si la acción no aporta nada. Lo que escribas aquí sube al panel de patrones, y las que repitan el mismo texto se agrupan."
+            />
+          </div>
+
+          <div className="sm:col-span-2 lg:col-span-3">
             <TextArea
               label="Observaciones"
               value={draft.observaciones}
               onChange={(value) => set("observaciones", value)}
-              placeholder="Rutina, bloqueo, quién arrastra marca…"
+              placeholder="Quién bloquea, quién arrastra marca, dónde queda el rechace…"
               rows={2}
             />
           </div>

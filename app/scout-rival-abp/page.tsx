@@ -40,6 +40,7 @@ import {
   StatRow,
   TeamPicker,
 } from "@/components/abp/ui";
+import { RivalPatterns } from "@/components/abp/RivalPatterns";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
@@ -62,6 +63,8 @@ import {
   SCOUT_DOC_KIND,
   actionsOf,
   actionsToEvents,
+  groupPatterns,
+  knownPatterns,
   scoutKey,
 } from "@/lib/abp/rivalScout";
 
@@ -352,6 +355,39 @@ export default function ScoutRivalAbpPage() {
 
   /* --------------------------- agregados --------------------------- */
 
+  /* Los patrones se sacan de las acciones y no de los eventos: el patrón es
+     un campo del registro propio, y lo deducido de nuestras hojas no lo tiene.
+     Se filtran igual que los eventos para que el panel hable siempre de lo
+     mismo que las tablas de al lado. */
+  const accionesFiltradas = useMemo(
+    () =>
+      acciones.filter((action) => {
+        if (action.condicion !== side) return false;
+        if (jornadaActiva !== TODOS && action.jornada !== jornadaActiva) {
+          return false;
+        }
+        if (
+          familiaActiva !== TODOS &&
+          FAMILY_LABEL[action.family] !== familiaActiva
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [acciones, side, jornadaActiva, familiaActiva],
+  );
+
+  const patrones = useMemo(
+    () => groupPatterns(accionesFiltradas),
+    [accionesFiltradas],
+  );
+
+  /* El vocabulario de patrones se comparte entre todos los rivales. */
+  const patronesConocidos = useMemo(
+    () => knownPatterns(scout.value),
+    [scout.value],
+  );
+
   const familyStats = useMemo(() => statsByFamily(filtered), [filtered]);
 
   const statsPorFamilia = useMemo(
@@ -598,6 +634,17 @@ export default function ScoutRivalAbpPage() {
                     />
                   </StatRow>
 
+                  {/* --------------------- patrones -------------------- */}
+
+                  {origenActivo !== "derivado" && (
+                    <RivalPatterns
+                      patrones={patrones}
+                      side={side}
+                      equipo={equipo}
+                      total={accionesFiltradas.length}
+                    />
+                  )}
+
                   {/* ------------- amenaza por tipo de ABP -------------- */}
 
                   <Panel
@@ -812,6 +859,7 @@ export default function ScoutRivalAbpPage() {
                   localOnly={scout.localOnly}
                   savedAt={scout.lastSavedAt}
                   squadNames={nombresPlantilla}
+                  patronesConocidos={patronesConocidos}
                 />
               )}
 

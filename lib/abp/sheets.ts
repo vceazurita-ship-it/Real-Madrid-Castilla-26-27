@@ -33,7 +33,7 @@ export const ABP_GIDS = {
  *   Zona_Saque · Sacador · Perfil_Golpeo · Tipo_Envio · Zona_Caida ·
  *   Calidad_Envio · N_Atacantes · N_Bloqueadores · Tipo_Carrera · Remate ·
  *   Rematador · Tipo_Remate · Zona_Remate · xG · Segundo_Balon ·
- *   Resultado_Final · Observaciones
+ *   Resultado_Final · Patron · Observaciones
  */
 export const RIVAL_SCOUT_GID = "";
 
@@ -69,6 +69,10 @@ export const RIVAL_SCOUT_COLUMNS: { name: string; hint: string }[] = [
   { name: "xG", hint: "xG de la acción" },
   { name: "Segundo_Balon", hint: "Quién gana el rechace" },
   { name: "Resultado_Final", hint: "Gol · Ocasión · ABP · Posicional · Nada (+ « Rival »)" },
+  {
+    name: "Patron",
+    hint: "Rutina reconocible — sólo en las acciones que van al plan de partido",
+  },
   { name: "Observaciones", hint: "Texto libre" },
 ];
 
