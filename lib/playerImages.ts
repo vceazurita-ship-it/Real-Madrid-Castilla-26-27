@@ -158,6 +158,7 @@ const NAME_ALIASES: Record<string, PlayerImageSlug> = {
   "joan mascaro": "joan-martinez",
   "leo maitre": "leo-lemaitre",
   "manuel angel moran": "manuel-angel",
+  "gabri valero": "gabriel-valero",
 
   // Apodos de la columna APODO (algunas pantallas sólo manejan el apodo).
   valde: "victor-valdepenas",
@@ -168,6 +169,7 @@ const NAME_ALIASES: Record<string, PlayerImageSlug> = {
   mami: "manuel-angel",
   beto: "diego-martinez",
   jime: "david-jimenez",
+  gabri: "gabriel-valero",
   alvaro: "alvaro-gonzalez",
 };
 
