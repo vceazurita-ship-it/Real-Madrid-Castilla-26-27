@@ -3026,7 +3026,7 @@ function TacticalPitch({
   return (
     <div
       ref={containerRef}
-      className="relative h-[min(900px,calc(100vh-120px))] min-h-[560px] w-full overflow-hidden bg-[#173b2a]"
+      className="pitch-photo relative h-[min(900px,calc(100vh-120px))] min-h-[560px] w-full overflow-hidden bg-[#173b2a]"
     >
       {/* FONDO DEL CAMPO */}
 
@@ -3039,7 +3039,11 @@ function TacticalPitch({
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/45" />
+      <div className="pitch-photo-veil pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/45" />
+
+      {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
+
+      <div className="pitch-photo-wash" />
 
       {/* CHAPA DE POSICIÓN — una por bloque, encima de su gente */}
 

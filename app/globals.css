@@ -1153,13 +1153,14 @@ scrollbar-width:none;
 
 
 /* ===========================
-   MODO DÍA: LA FOTO DEL CAMPO DE LAS PIZARRAS
+   MODO DÍA: LA FOTO DEL CAMPO DE PIZARRAS Y CAMPOGRAMAS
 
    `/emotional-field-bg.png` y `/field2.png` son césped casi negro con las
    líneas en claro: nacieron para el tema oscuro y sobre una página #EBEEF3
    quedan como un agujero. En vez de cambiar la foto se le pone encima
    `.pitch-photo-wash`, dentro del mismo marco y por debajo de fichas y
-   jugadores.
+   jugadores. Lo llevan las dos pizarras, el campograma de sesión y
+   los de rivales y valoraciones: cualquier marco con la foto dentro.
 
    El velo mezcla en `screen`, no en `normal`, y esa es la parte que importa:
    un blanco translúcido sube el césped y las líneas por igual, así que el

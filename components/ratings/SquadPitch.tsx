@@ -119,7 +119,7 @@ export function SquadPitch({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden bg-[#173b2a]"
+      className="pitch-photo relative w-full overflow-hidden bg-[#173b2a]"
       style={{ height }}
       onMouseLeave={() => setHovered(null)}
     >
@@ -141,19 +141,23 @@ export function SquadPitch({
       </div>
 
       <div
-        className={`pointer-events-none absolute inset-0 ${
+        className={`pitch-photo-veil pointer-events-none absolute inset-0 ${
           horizontal
             ? "bg-gradient-to-r from-black/55 via-black/20 to-black/55"
             : "bg-gradient-to-b from-black/55 via-black/20 to-black/55"
         }`}
       />
 
+      {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
+
+      <div className="pitch-photo-wash" />
+
       {/* JUGADORES */}
 
       {placed.map(({ item, x, y, slot }) => {
         const rated = item.value > 0;
-        /* El campo es verde oscuro en los dos temas, así que aquí se usa
-           siempre la escala luminosa. */
+        /* La escala luminosa vale en los dos temas: la nota se pinta sobre
+           su propia píldora de color, no sobre el césped. */
         const color = ratingColorHex(item.value);
         const active = selectedId === item.id;
         const isHovered = hovered === item.id;
