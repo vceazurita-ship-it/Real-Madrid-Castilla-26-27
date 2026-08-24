@@ -31,7 +31,7 @@ export default function SessionPitch({ players, excluidos, onToggle }: Props) {
   }, {} as Record<LineKey, Player[]>);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[26px] border border-[#C8A96B]/20 shadow-[0_25px_80px_rgba(0,0,0,.45)]">
+    <div className="pitch-photo relative w-full overflow-hidden rounded-[26px] border border-[#C8A96B]/20 shadow-[0_25px_80px_rgba(0,0,0,.45)]">
       <Image
         src="/field2.png"
         alt=""
@@ -42,7 +42,10 @@ export default function SessionPitch({ players, excluidos, onToggle }: Props) {
         className="pointer-events-none select-none object-cover"
       />
 
-      <div className="absolute inset-0 bg-gradient-to-b from-[#050A10]/75 via-[#050A10]/55 to-[#050A10]/80" />
+      <div className="pitch-photo-veil absolute inset-0 bg-gradient-to-b from-[#050A10]/75 via-[#050A10]/55 to-[#050A10]/80" />
+
+      {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
+      <div className="pitch-photo-wash" />
 
       <div className="relative grid gap-2 p-3 sm:gap-3 sm:p-5">
         {LINE_ORDER.map((line) => (

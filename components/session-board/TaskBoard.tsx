@@ -188,7 +188,7 @@ export default function TaskBoard({
 
       {/* CAMPOGRAMA DE LA TAREA */}
 
-      <div className="relative overflow-hidden rounded-[26px] border border-[#C8A96B]/20 shadow-[0_25px_80px_rgba(0,0,0,.45)]">
+      <div className="pitch-photo relative overflow-hidden rounded-[26px] border border-[#C8A96B]/20 shadow-[0_25px_80px_rgba(0,0,0,.45)]">
         <Image
           src="/field2.png"
           alt=""
@@ -198,7 +198,10 @@ export default function TaskBoard({
           className="pointer-events-none select-none object-cover"
         />
 
-        <div className="absolute inset-0 bg-[#050A10]/70" />
+        <div className="pitch-photo-veil absolute inset-0 bg-[#050A10]/70" />
+
+        {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
+        <div className="pitch-photo-wash" />
 
         <div
           className={cn(

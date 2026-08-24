@@ -1151,6 +1151,50 @@ scrollbar-width:none;
   color: #4B5563 !important;
 }
 
+
+/* ===========================
+   MODO DÍA: LA FOTO DEL CAMPO DE LAS PIZARRAS
+
+   `/emotional-field-bg.png` y `/field2.png` son césped casi negro con las
+   líneas en claro: nacieron para el tema oscuro y sobre una página #EBEEF3
+   quedan como un agujero. En vez de cambiar la foto se le pone encima
+   `.pitch-photo-wash`, dentro del mismo marco y por debajo de fichas y
+   jugadores.
+
+   El velo mezcla en `screen`, no en `normal`, y esa es la parte que importa:
+   un blanco translúcido sube el césped y las líneas por igual, así que el
+   dibujo del campo se pierde. `screen` levanta las sombras mucho más que las
+   luces, de modo que el césped queda verde salvia claro y las líneas se van
+   casi al blanco.
+
+   Los velos oscuros que la foto llevaba encima se marcan como
+   `.pitch-photo-veil` y se apagan en claro: existían para que se leyera la
+   tinta blanca, y en modo día la tinta ya es oscura.
+=========================== */
+
+.pitch-photo {
+  /* Sin esto, `screen` mezclaría también con lo que haya detrás del marco. */
+  isolation: isolate;
+}
+
+.pitch-photo-wash {
+  display: none;
+}
+
+:root[data-theme="light"] .pitch-photo-veil {
+  display: none;
+}
+
+:root[data-theme="light"] .pitch-photo-wash {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  /* Los bordes aclaran algo más para compensar la viñeta de la propia foto. */
+  background: radial-gradient(120% 95% at 50% 45%, #828E80 0%, #8E9A8C 55%, #A1AB9F 100%);
+}
+
 /* ===========================
    MODO DÍA: CONMUTADOR
    El botón dibuja los dos iconos y deja que el CSS enseñe el que toca. Así no
