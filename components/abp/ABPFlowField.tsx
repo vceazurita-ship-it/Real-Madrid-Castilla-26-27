@@ -2,6 +2,8 @@
 
   import { useMemo, useState } from "react";
 
+  import BoardViewport from "@/components/board/BoardViewport";
+
   export type ABPRow = {
     jornada?: string;
     JORNADA?: string;
@@ -496,6 +498,10 @@ const origen = `${tipo}__${perfil}`;
   </div>
 
   <div className="relative w-full max-w-[980px] mx-auto aspect-[8/5]">
+  <BoardViewport
+    className="h-full w-full rounded-2xl"
+    label="Mapa de acciones a balón parado"
+  >
   <svg
     viewBox="0 0 140 70"
     className="w-full h-full"
@@ -1096,6 +1102,7 @@ const atenuado =
         );
       })}
     </svg>
+  </BoardViewport>
 
     {/* Popup origen */}
 {/* Popup origen */}

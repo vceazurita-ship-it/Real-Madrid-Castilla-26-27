@@ -11,6 +11,8 @@
 // nodos se solapaban al crecer el vocabulario.
 
 import { useMemo, useState } from "react";
+
+import BoardViewport from "@/components/board/BoardViewport";
 import {
   ACCENT_LIGHT,
   direccionDe,
@@ -355,7 +357,16 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
         ) : null}
       </div>
 
-      <div className="relative w-full overflow-x-auto rounded-2xl border border-white/10 bg-[#05101D] p-4">
+      {/*
+        El visor sustituye a la barra de desplazamiento: el diagrama es más
+        ancho que la pantalla y ahora se arrastra con el ratón o con el dedo.
+      */}
+      <div className="relative w-full rounded-2xl border border-white/10 bg-[#05101D] p-4">
+        <BoardViewport
+          className="w-full"
+          contentClassName="w-max min-w-full"
+          label="Flujo del saque de banda"
+        >
         <svg
           viewBox={`0 0 1094 ${svgHeight}`}
           className="w-full min-w-[980px]"
@@ -379,6 +390,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
             <g key={`col-${key}`}>{renderColumn(key)}</g>
           ))}
         </svg>
+        </BoardViewport>
 
         {!rows.length ? (
           <div className="absolute inset-0 grid place-items-center bg-[#05101D]/85 p-6 text-center">

@@ -75,6 +75,49 @@ const navLink = (
   </Link>
 )
 
+/**
+ * Entrada apagada: el módulo sigue existiendo pero todavía está en obras.
+ *
+ * Se deja a la vista para que no parezca que ha desaparecido, pero no es un
+ * enlace: ni se puede pinchar ni se tabula hasta él. Con el menú desplegado
+ * lleva la etiqueta «En obras» y, plegado, sólo el icono en gris; el `title`
+ * cuenta el motivo en los dos casos.
+ */
+const disabledClass =
+  "flex cursor-not-allowed select-none items-center gap-3 rounded-2xl px-4 py-3 text-gray-500 opacity-60"
+
+const disabledLink = (
+  label: string,
+  icon: ReactNode,
+  reason = "Todavía estamos haciendo cambios"
+) => (
+  <div
+    aria-disabled="true"
+    title={`${label} — ${reason}`}
+    className={disabledClass}
+  >
+    {collapsed ? (
+      <div className="w-full flex justify-center">
+        {icon}
+      </div>
+    ) : (
+      <>
+        {icon}
+
+        <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <span className="truncate line-through decoration-gray-600">
+            {label}
+          </span>
+
+          <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-500">
+            En obras
+          </span>
+        </span>
+      </>
+    )}
+  </div>
+)
+
   return (
     <>
       {/* BOTÓN MÓVIL */}
@@ -224,12 +267,6 @@ const navLink = (
     )}
 
     {navLink(
-      "/training",
-      "Jugadores Sesión",
-      <Users size={18} />
-    )}
-
-    {navLink(
   "/calendar",
   "Calendario Seguimiento",
   <ClipboardList size={18} />
@@ -264,6 +301,12 @@ const navLink = (
       <ClipboardPen  size={18} />
     )}
 
+    {/* En obras: baja al final de Metodología hasta que se retome. */}
+    {disabledLink(
+      "Jugadores Sesión",
+      <Users size={18} />
+    )}
+
   </div>
 </div>
   {/* INDIVIDUAL */}
@@ -281,11 +324,6 @@ const navLink = (
         <User size={18} />
       )}
       {navLink(
-  "/dashboard-plantilla",
-  "Dashboard",
-  <BarChart3 size={18} />
-)}
-      {navLink(
   "/ratings",
   "Valoraciones",
   <Star size={18} />
@@ -295,6 +333,12 @@ const navLink = (
         "/comparative_ind",
         "Comparativo U-21",
         <Scale size={18} />
+      )}
+
+      {/* En obras: baja al final de Individual hasta que se retome. */}
+      {disabledLink(
+        "Dashboard",
+        <BarChart3 size={18} />
       )}
     </div>
   </div>

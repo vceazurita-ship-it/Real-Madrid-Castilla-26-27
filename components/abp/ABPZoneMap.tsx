@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import BoardViewport from "@/components/board/BoardViewport";
+
 export type ZoneRow = {
   zonaCaida?: string;
   zonaRemate?: string;
@@ -378,6 +380,7 @@ export default function ABPZoneMap({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
         {/* Campo */}
         <div className="relative mx-auto w-full max-w-[720px]">
+          <BoardViewport className="w-full rounded-2xl" label="Mapa de zonas">
           <svg viewBox="0 0 100 46" className="h-full w-full">
             <defs>
               <filter
@@ -608,6 +611,7 @@ export default function ABPZoneMap({
               </text>
             )}
           </svg>
+          </BoardViewport>
 
           {/* Escala */}
           <div className="mt-3 flex items-center gap-3">

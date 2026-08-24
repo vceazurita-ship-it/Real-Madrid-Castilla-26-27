@@ -12,6 +12,8 @@
 // progresión y retroceso se leía como si sólo progresara.
 
 import { useMemo, useState } from "react";
+
+import BoardViewport from "@/components/board/BoardViewport";
 import {
   type Banda,
   BANDA_LABEL,
@@ -158,10 +160,18 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
         <p className="text-sm text-slate-400">Pulsa una zona para ver las acciones registradas.</p>
       </div>
 
-      <div
-        className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner"
-        style={{ backgroundImage: "url(/emotional-field-bg.png)", backgroundSize: "cover", backgroundPosition: "center" }}
-      >
+      <div className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
+        <BoardViewport className="absolute inset-0" label="Mapa de saques de banda">
+        {/*
+          El césped viaja dentro del visor: si se quedara en el marco, al
+          acercarse las flechas se despegarían del campo.
+        */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{ backgroundImage: "url(/emotional-field-bg.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+        />
+
         <svg
           viewBox="0 0 100 100"
           className="absolute inset-0 h-full w-full"
@@ -263,6 +273,7 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
             );
           })}
         </svg>
+        </BoardViewport>
 
         <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
           {isOffensive

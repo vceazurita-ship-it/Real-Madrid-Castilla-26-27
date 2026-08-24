@@ -7,6 +7,8 @@
 // y su banda izquierda queda abajo: gira el mapa 180 grados, no las etiquetas.
 
 import { useMemo, useState } from "react";
+
+import BoardViewport from "@/components/board/BoardViewport";
 import {
   ACCENT_INK,
   BANDA_LABEL,
@@ -361,6 +363,10 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="w-full">
+          <BoardViewport
+            className="w-full rounded-2xl"
+            label="Mapa de calor de saques de banda"
+          >
           <svg viewBox="0 0 100 64" className="h-full w-full">
             <rect
               x="2"
@@ -458,6 +464,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
               Portería rival
             </text>
           </svg>
+          </BoardViewport>
 
           <div className="mt-3 flex items-center gap-3">
             <span className="text-[11px] text-zinc-500">0</span>
