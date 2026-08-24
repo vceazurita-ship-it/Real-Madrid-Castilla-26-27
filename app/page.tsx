@@ -22,6 +22,7 @@ import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
+import { isHiddenPlayer } from "@/lib/hiddenPlayers"
 
 type Principio = {
   FASE: string
@@ -223,7 +224,12 @@ export default function Home() {
     fetch(ENDPOINT_JUGADORES)
       .then((r) => r.json())
       .then((rows) => {
-        setTotalJugadores(Array.isArray(rows) ? rows.length : 0)
+        const jugadores: { NOMBRE?: string; APODO?: string }[] =
+          Array.isArray(rows) ? rows : []
+
+        setTotalJugadores(
+          jugadores.filter((j) => !isHiddenPlayer(j.NOMBRE, j.APODO)).length
+        )
       })
       .catch(() => {})
       .finally(() => setLoadingJugadores(false))

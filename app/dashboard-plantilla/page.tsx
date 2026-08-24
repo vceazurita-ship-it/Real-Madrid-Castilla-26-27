@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { getPlayerImage } from "@/lib/playerImages";
+import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 import {
   AlertTriangle,
@@ -268,8 +269,11 @@ export default function DashboardPlantilla() {
       .then(([estados, scouting]) => {
         if (cancelled) return;
 
-        setEstadoRows(estados);
-        setScoutingRows(scouting);
+        const visible = <T extends { NOMBRE: string; APODO: string }>(rows: T[]) =>
+          rows.filter((row) => !isHiddenPlayer(row.NOMBRE, row.APODO));
+
+        setEstadoRows(visible(estados));
+        setScoutingRows(visible(scouting));
       })
       .catch((error) => {
         if (cancelled) return;

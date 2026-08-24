@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
-import { matchPlayers } from "@/lib/playerMatcher";
+import { matchPlayers, type Player } from "@/lib/playerMatcher";
 import { getPlayerImage } from "@/lib/playerImages";
+import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import sharp from "sharp";
 
 const ai = new GoogleGenAI({
@@ -160,7 +161,11 @@ if (!jugadoresResponse.ok) {
 
 const jugadoresRaw = await jugadoresResponse.text();
 
-const jugadores = JSON.parse(jugadoresRaw);
+// Fuera los jugadores ocultos: ni se emparejan con lo que detecta Gemini ni
+// llegan a la sesión que se guarda.
+const jugadores = (JSON.parse(jugadoresRaw) as Player[]).filter(
+  (j) => !isHiddenPlayer(j?.NOMBRE, j?.APODO)
+);
     const raw =
       gemini.text
         ?.replace(/```json/g, "")
@@ -180,7 +185,7 @@ console.log(raw);
       ...result.injury,
       ...result.others,
       ...result.nationalTeam,
-    ];
+    ].filter((name: string) => !isHiddenPlayer(name));
 
     //--------------------------------------------------------
     // Lista de candidatos
@@ -234,7 +239,9 @@ console.log(matches);
     //--------------------------------------------------------
 
    const replaceNames = (list: string[]) =>
-  list.map((name) => {
+  list
+  .filter((name) => !isHiddenPlayer(name))
+  .map((name) => {
 
     const match = matchesMap.get(name);
 

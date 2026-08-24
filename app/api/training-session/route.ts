@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlayerImage } from "@/lib/playerImages";
+import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 /**
  * Plantilla y disponibilidad de la sesión.
@@ -34,7 +35,13 @@ async function fetchSquad(): Promise<SheetPlayer[]> {
 
   const data = await response.json();
 
-  return Array.isArray(data) ? data : [];
+  const squad: SheetPlayer[] = Array.isArray(data) ? data : [];
+
+  // Los jugadores ocultos siguen llegando de la hoja; se descartan aquí para
+  // que ninguna pantalla los reciba.
+  return squad.filter(
+    (player) => !isHiddenPlayer(player.NOMBRE, player.APODO)
+  );
 }
 
 function toClient(player: SheetPlayer) {

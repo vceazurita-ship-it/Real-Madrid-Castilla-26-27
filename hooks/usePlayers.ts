@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { Player, EstadoJugador } from "@/types/player";
 import { getPlayerImage, getPlayerPhotoSrc } from "@/lib/playerImages";
+import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
@@ -33,6 +34,7 @@ export function usePlayers() {
       complete: ({ data }) => {
         const plantilla: Player[] = data
           .filter((p) => p.ACTIVO === "TRUE")
+          .filter((p) => !isHiddenPlayer(p.NOMBRE, p.APODO))
           .map((p) => ({
   id: p.ID_JUGADOR,
   nombre: p.NOMBRE,

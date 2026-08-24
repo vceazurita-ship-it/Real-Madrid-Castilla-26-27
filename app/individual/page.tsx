@@ -39,6 +39,7 @@ import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage } from "@/lib/playerImages";
+import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 import {
   RadarChart,
@@ -307,13 +308,6 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/CRISTIAN_DAVID_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-13",
-    name: "Thiago",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/THIAGO_PITARCH_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-15",
@@ -1264,8 +1258,14 @@ export default function IndividualPage() {
       const informes =
         results[3].status === "fulfilled" ? results[3].value : "";
 
+      const filasJugadores: Record<string, string>[] = Array.isArray(jugadores)
+        ? jugadores
+        : jugadores?.data || [];
+
       setSheetData(
-        Array.isArray(jugadores) ? jugadores : jugadores?.data || [],
+        filasJugadores.filter(
+          (fila) => !isHiddenPlayer(fila.NOMBRE, fila.APODO),
+        ),
       );
 
       setTrackingData(Array.isArray(seguimiento) ? seguimiento : []);
@@ -2986,6 +2986,7 @@ export default function IndividualPage() {
             subtitle={selected.name}
             saving={saving}
             submitLabel={editingTracking ? "Actualizar" : "Guardar"}
+            maxWidth="max-w-5xl"
             onClose={() => {
               setShowTrackingForm(false);
               setEditingTracking(null);
@@ -3106,7 +3107,7 @@ export default function IndividualPage() {
                       })
                     }
                     placeholder="Qué trabajamos con balón..."
-                    className={`${FIELD_CLASS} min-h-[110px] resize-y`}
+                    className={`${FIELD_CLASS} min-h-[220px] resize-y`}
                   />
                 </Field>
 
@@ -3120,7 +3121,7 @@ export default function IndividualPage() {
                       })
                     }
                     placeholder="Qué trabajamos sin balón..."
-                    className={`${FIELD_CLASS} min-h-[110px] resize-y`}
+                    className={`${FIELD_CLASS} min-h-[220px] resize-y`}
                   />
                 </Field>
 
@@ -3134,7 +3135,7 @@ export default function IndividualPage() {
                       })
                     }
                     placeholder="Actitud, hábitos, competitividad..."
-                    className={`${FIELD_CLASS} min-h-[110px] resize-y`}
+                    className={`${FIELD_CLASS} min-h-[220px] resize-y`}
                   />
                 </Field>
               </div>
@@ -3148,7 +3149,7 @@ export default function IndividualPage() {
                       FEEDBACK: e.target.value,
                     })
                   }
-                  className={`${FIELD_CLASS} min-h-[130px] resize-y`}
+                  className={`${FIELD_CLASS} min-h-[220px] resize-y`}
                 />
               </Field>
             </div>

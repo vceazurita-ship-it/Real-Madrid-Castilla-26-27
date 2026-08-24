@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { Player, EstadoJugador } from "../types/player";
 import { getPlayerImage, getPlayerPhotoSrc } from "../lib/playerImages";
+import { isHiddenPlayer } from "../lib/hiddenPlayers";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1978494160&single=true&output=csv";
@@ -43,7 +44,9 @@ export function useTrainingPlayers() {
         ];
 
         // Eliminar filas vacías
-        const filas = data.filter((p) => p.ID_JUGADOR);
+        const filas = data.filter(
+          (p) => p.ID_JUGADOR && !isHiddenPlayer(p.NOMBRE, p.APODO)
+        );
 
         // Obtener la última fecha
         const ultimaFecha = filas

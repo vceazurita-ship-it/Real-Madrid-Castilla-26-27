@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import Papa from "papaparse";
+import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -94,7 +95,7 @@ const DEFAULT_GROUPS = {
   leftSide: ["Diego Aguado", "Alexis Ciria"],
   defense: ["Diego Aguado", "Mario Rivas", "Joan Martínez", "Fortea"],
   rightSide: ["Fortea", "Yáñez"],
-  midfield: ["Cestero", "Thiago", "Pol Fortuny"],
+  midfield: ["Cestero", "Pol Fortuny"],
   strikers: ["Rachad", "Pol Fortuny"],
 } as const;
 
@@ -127,7 +128,7 @@ function parseCSV(text: string): Player[] {
       ia: num(r[4]),
       ee: num(r[5]),
     }))
-    .filter((r) => r.jugador);
+    .filter((r) => r.jugador && !isHiddenPlayer(r.jugador));
 }
 
 function average(player: Player) {
