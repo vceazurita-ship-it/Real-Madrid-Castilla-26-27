@@ -5,6 +5,10 @@
 |
 | Se apoya en `useRemoteDoc`, así que ya trae autoguardado y caché local: se
 | marca un titular y se queda marcado sin pulsar nada. Un equipo, un documento.
+|
+| Guarda además cómo se quiere ver el once en el PDF —qué dudas se pintan en
+| el campo y dónde ha quedado cada uno—, que es lo que se decide en el pop-up
+| de antes de exportar.
 */
 
 import { useCallback, useMemo } from "react";
@@ -14,12 +18,16 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
   ONCE_VACIO,
   RIVAL_ONCE_KIND,
+  conEnCampo,
   conEstado,
+  conPosicion,
   estadoDe,
   normalizarOnce,
   rivalOnceKey,
   siguienteEstado,
+  sinPosiciones,
   type OnceEstado,
+  type OncePos,
   type RivalOnceDoc,
 } from "@/lib/rivals/once";
 
@@ -58,9 +66,41 @@ export function useRivalOnce(equipo: string) {
     [setValue]
   );
 
+  /* Arrastrar en el pop-up del PDF: un jugador, un sitio. */
+  const mover = useCallback(
+    (key: string, pos: OncePos | null) => {
+      setValue((actual) => conPosicion(normalizarOnce(actual), key, pos));
+    },
+    [setValue]
+  );
+
+  /* Meter o sacar del campo a una duda, también desde el pop-up. */
+  const alCampo = useCallback(
+    (key: string, meter: boolean) => {
+      setValue((actual) => conEnCampo(normalizarOnce(actual), key, meter));
+    },
+    [setValue]
+  );
+
+  /* Volver a la colocación automática sin tocar quién está en el once. */
+  const recolocar = useCallback(() => {
+    setValue((actual) => sinPosiciones(normalizarOnce(actual)));
+  }, [setValue]);
+
   const limpiar = useCallback(() => setValue(ONCE_VACIO), [setValue]);
 
-  return { doc, estado, marcar, ciclar, limpiar, status, localOnly };
+  return {
+    doc,
+    estado,
+    marcar,
+    ciclar,
+    mover,
+    alCampo,
+    recolocar,
+    limpiar,
+    status,
+    localOnly,
+  };
 }
 
 export default useRivalOnce;

@@ -32,8 +32,12 @@ import {
   PARAM_JUGADOR,
   fichaRivalPath,
   playerKey,
+  seDibuja,
   type OnceEstado,
 } from "@/lib/rivals/once";
+import OnceCampoDialog, {
+  type OnceCampoFicha,
+} from "@/components/rivals/OnceCampoDialog";
 import { enlaceAbrible } from "@/lib/rivals/media";
 import {
   exportOncePdf,
@@ -743,9 +747,17 @@ export default function RivalPlayersPage() {
   |
   | Se mira la plantilla entera del equipo, **no** la lista filtrada: una
   | búsqueda a medias no puede dejar fuera del PDF a medio once.
+  |
+  | El botón no descarga directamente: abre antes el pop-up
+  | `OnceCampoDialog`, donde se coloca a cada uno en el campo y se decide qué
+  | dudas se pintan. Lo que se decide ahí se guarda en el documento del once
+  | y es lo que se le pasa a `once-pdf`.
   */
 
   const [exportando, setExportando] = useState(false);
+
+  /* Con el pop-up abierto, lo que se está preparando es el documento. */
+  const [preparandoPdf, setPreparandoPdf] = useState(false);
 
   /* El PDF sale con el tema con el que se está viendo la plataforma: en modo
      día, sobre papel blanco; en modo noche, oscuro como la pantalla. */
@@ -764,6 +776,29 @@ export default function RivalPlayersPage() {
           fila.estado !== null,
       );
   }, [players, equipoDelOnce, once]);
+
+  /* Lo que necesita el pop-up: la cara, el dorsal y a qué línea tira cada
+     uno. El PDF se monta aparte, con la ficha entera. */
+  const campoJugadores = useMemo<OnceCampoFicha[]>(
+    () =>
+      marcados.map(({ player, estado }) => {
+        const slotEntry = getSlot(player["POSICIÓN"]);
+
+        return {
+          clave: playerKey(player),
+          dorsal: textoUtil(player.DORSAL),
+          nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
+          posCode: slotEntry?.slot.code ?? "",
+          posicion: textoUtil(player["POSICIÓN"]),
+          linea: slotEntry?.line.key ?? null,
+          color: slotEntry?.line.color ?? "#8892A0",
+          foto: textoUtil(player.FOTO),
+          estado,
+          enCampo: seDibuja(once.doc, playerKey(player)),
+        };
+      }),
+    [marcados, once.doc],
+  );
 
   const exportarOncePdf = useCallback(async () => {
     if (!marcados.length) return;
@@ -849,6 +884,9 @@ export default function RivalPlayersPage() {
             linea: slotEntry?.line.key ?? null,
             color: slotEntry?.line.color ?? "#8892A0",
             estado,
+            /* Los titulares siempre; las dudas, sólo las que se hayan metido
+               en el campo desde el pop-up. */
+            enCampo: seDibuja(once.doc, playerKey(player)),
             foto: textoUtil(player.FOTO),
             datos,
             /* El mapa de zona se deduce de la posición, igual que en la ficha
@@ -883,9 +921,13 @@ export default function RivalPlayersPage() {
         }),
         jugadores,
         tema: theme,
+        /* Dónde ha dejado el entrenador a cada uno en el pop-up. */
+        campo: once.doc.campo,
       });
 
       toast.success("Once probable exportado", { description: nombre });
+
+      setPreparandoPdf(false);
     } catch (error) {
       console.error("Error exportando el once probable:", error);
 
@@ -893,7 +935,7 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [marcados, equipoDelOnce, statsDoc, theme]);
+  }, [marcados, equipoDelOnce, statsDoc, theme, once.doc]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1958,9 +2000,11 @@ export default function RivalPlayersPage() {
                             <button
                               type="button"
                               data-export-hide
-                              onClick={() => void exportarOncePdf()}
+                              /* No descarga: abre el pop-up donde se coloca
+                                 el once y se eligen las dudas que se pintan. */
+                              onClick={() => setPreparandoPdf(true)}
                               disabled={exportando}
-                              title={`Descargar el once probable de ${equipoDelOnce} en PDF`}
+                              title={`Preparar el PDF del once probable de ${equipoDelOnce}`}
                               className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
                             >
                               {exportando ? (
@@ -2020,6 +2064,23 @@ export default function RivalPlayersPage() {
           </div>
         </section>
       </div>
+
+      {/* CÓMO VA A SALIR EL ONCE — PASO PREVIO AL PDF */}
+
+      {preparandoPdf && (
+        <OnceCampoDialog
+          equipo={equipoDelOnce}
+          jugadores={campoJugadores}
+          campo={once.doc.campo}
+          tema={theme}
+          exportando={exportando}
+          onMover={once.mover}
+          onAlCampo={once.alCampo}
+          onRecolocar={once.recolocar}
+          onExportar={() => void exportarOncePdf()}
+          onCerrar={() => setPreparandoPdf(false)}
+        />
+      )}
 
       {/* MODAL */}
 

@@ -43,9 +43,24 @@ import {
   TEMPORADAS_VISIBLES,
 } from "@/lib/rivals/stats-table";
 
+import type { OncePos } from "@/lib/rivals/once";
+
+/*
+| Quién va dónde en el campo no se decide aquí: lo reparte `once-campo`, que
+| es el mismo motor que mueve el pop-up de antes de exportar. Lo que se ve al
+| arrastrar tiene que ser lo que salga en la hoja.
+*/
+import {
+  LINEA_LABEL,
+  LINEA_ORDEN,
+  reparteCampo,
+  reparteLinea,
+  type OnceLinea,
+} from "@/lib/rivals/once-campo";
+
 export type OncePdfEstado = "titular" | "duda";
 
-export type OncePdfLinea = "portero" | "defensa" | "medio" | "ataque";
+export type OncePdfLinea = OnceLinea;
 
 export type OncePdfTag = {
   label: string;
@@ -83,6 +98,12 @@ export type OncePdfPlayer = {
   /** Color de la línea, en hexadecimal. */
   color: string;
   estado: OncePdfEstado;
+  /**
+   * Si se pinta en el campo. El titular siempre; la duda, sólo cuando se ha
+   * metido en el pop-up de antes de exportar. Quien no entra sigue teniendo
+   * su sitio en la lista de la derecha y su ficha, como siempre.
+   */
+  enCampo: boolean;
   /** URL de la foto de la ficha. Se descarga al montar el documento. */
   foto: string;
   /** Edad, altura, pie… ya limpios y en el orden en que se leen. */
@@ -128,6 +149,12 @@ export type OncePdfData = {
    * oscuro, que es el diseño original.
    */
   tema?: Theme;
+  /**
+   * Dónde ha dejado el entrenador a cada uno en el pop-up de antes de
+   * exportar, en tanto por uno del campo. Quien no venga aquí se coloca solo
+   * con su línea.
+   */
+  campo?: Record<string, OncePos>;
 };
 
 /*
@@ -148,7 +175,7 @@ export type OncePdfData = {
 | sobre oscuro, hacia el negro sobre claro. Es lo que hace `realza()`.
 */
 
-type Paleta = {
+export type OncePaleta = {
   fondo: string;
   panel: string;
   panelHondo: string;
@@ -168,7 +195,7 @@ type Paleta = {
   realce: 1 | -1;
 };
 
-const PALETA_NOCHE: Paleta = {
+const PALETA_NOCHE: OncePaleta = {
   fondo: "#0B0F14",
   panel: "#131A22",
   panelHondo: "#0E141B",
@@ -195,7 +222,7 @@ const PALETA_NOCHE: Paleta = {
 | se imprime mejor así, y las tarjetas necesitan un gris propio para
 | distinguirse del fondo.
 */
-const PALETA_DIA: Paleta = {
+const PALETA_DIA: OncePaleta = {
   fondo: "#FFFFFF",
   panel: "#F4F6FA",
   panelHondo: "#EBEEF3",
@@ -220,7 +247,18 @@ const PALETA_DIA: Paleta = {
 | por todas no aportaría nada. `buildOncePdf` la fija antes de pintar el
 | primer trazo —y antes de recortar las fotos, que también miran el fondo—.
 */
-let C: Paleta = PALETA_NOCHE;
+let C: OncePaleta = PALETA_NOCHE;
+
+/**
+ * La paleta del documento, para quien quiera enseñarla antes de imprimirla.
+ *
+ * La usa el pop-up de antes de exportar: si la vista previa se pintara con
+ * los colores de la pantalla, el campo que se ve al arrastrar no sería el que
+ * sale en la hoja —y el pop-up está justo para eso—.
+ */
+export function paletaOnce(tema?: Theme): OncePaleta {
+  return tema === "light" ? PALETA_DIA : PALETA_NOCHE;
+}
 
 function estadoColor(estado: OncePdfEstado) {
   return estado === "titular" ? C.verde : C.ambar;
@@ -229,24 +267,6 @@ function estadoColor(estado: OncePdfEstado) {
 const ESTADO_LABEL: Record<OncePdfEstado, string> = {
   titular: "TITULAR",
   duda: "DUDA",
-};
-
-const LINEA_LABEL: Record<OncePdfLinea, string> = {
-  portero: "PORTERÍA",
-  defensa: "DEFENSA",
-  medio: "MEDIO CAMPO",
-  ataque: "ATAQUE",
-};
-
-/* De atrás hacia adelante: es como se lee un once. */
-const LINEA_ORDEN: OncePdfLinea[] = ["portero", "defensa", "medio", "ataque"];
-
-/* Altura de cada línea dentro del campo, con el ataque hacia arriba. */
-const LINEA_Y: Record<OncePdfLinea, number> = {
-  portero: 0.88,
-  defensa: 0.66,
-  medio: 0.43,
-  ataque: 0.2,
 };
 
 /** Lo que se lee en los dos botones vivos de cada jugador. */
@@ -727,41 +747,11 @@ function dibujaCampo(doc: Doc, x: number, y: number, w: number, h: number) {
 
 /*
 |--------------------------------------------------------------------------
-| COLOCACIÓN EN EL CAMPO
+| LOS JUGADORES EN EL CAMPO
 |--------------------------------------------------------------------------
-| El campograma de la pantalla reparte a toda la plantilla con su propio
-| motor; aquí sólo entran los once marcados, así que basta con repartir cada
-| línea a lo ancho. Lo único que hay que respetar es el lado: un lateral
-| izquierdo dibujado a la derecha se lee mal aunque el nombre esté bien.
+| Dónde cae cada uno lo dice `once-campo`, el mismo motor que mueve el pop-up
+| de antes de exportar; aquí sólo se pinta lo que aquél reparte.
 */
-
-/*
-| Códigos que llevan banda dentro. Se miraba la última letra —"acaba en D, a
-| la derecha"—, pero eso manda a la banda a MCD (mediocentro *defensivo*) y a
-| SD (*segundo* delantero), que juegan por dentro: el once salía con el pivote
-| escorado a la derecha y un interior de menos en el centro.
-*/
-const POS_IZQUIERDA = new Set(["LI", "EI"]);
-const POS_DERECHA = new Set(["LD", "ED"]);
-
-/** Izquierda 0, centro 1, derecha 2. Sale del código corto de la posición. */
-function ladoDe(posCode: string) {
-  if (POS_IZQUIERDA.has(posCode)) return 0;
-  if (POS_DERECHA.has(posCode)) return 2;
-
-  return 1;
-}
-
-function reparteLinea(jugadores: OncePdfPlayer[]) {
-  return jugadores
-    .map((jugador, indice) => ({ jugador, indice }))
-    .sort((a, b) => {
-      const lado = ladoDe(a.jugador.posCode) - ladoDe(b.jugador.posCode);
-
-      return lado !== 0 ? lado : a.indice - b.indice;
-    })
-    .map((item) => item.jugador);
-}
 
 /** Radio de la cara de un jugador en el campograma. */
 const CARA = 16;
@@ -1096,9 +1086,18 @@ function columnaResumen(
     let dy = cursor + 32;
 
     dudas.forEach((jugador) => {
+      /* La duda que se ha metido en el campo lleva el punto de su línea, el
+         mismo que las filas del once: es lo que dice de un vistazo a cuál de
+         ellas hay que buscar ahí arriba. Las demás dejan el hueco vacío para
+         que las dos listas sigan alineadas. */
+      if (jugador.enCampo) {
+        fill(doc, realza(jugador.color, 0.1));
+        doc.circle(x + 14, dy - 2.6, 2.1, "F");
+      }
+
       filaResumen(doc, jugador, x, dy, w, {
-        dorsalX: 12,
-        nombreX: 30,
+        dorsalX: 21,
+        nombreX: 38,
         colorDorsal: realza(C.ambar, 0.15),
         ancla,
       });
@@ -2103,26 +2102,38 @@ export async function buildOncePdf(data: OncePdfData) {
     );
   });
 
-  LINEA_ORDEN.forEach((linea) => {
-    const jugadores = porLinea.get(linea) ?? [];
+  /*
+  | En el campo entran los titulares y las dudas que se hayan metido en el
+  | pop-up de antes de exportar. Quien no tiene línea reconocible no tiene
+  | sitio en el campo —sale en la columna de la derecha—.
+  |
+  | Las dudas se pintan antes: si el entrenador ha dejado a una pegada a un
+  | titular, el que manda encima es el que va a jugar.
+  */
+  const enElCampo = data.jugadores
+    .filter(
+      (jugador) =>
+        jugador.linea !== null &&
+        (jugador.estado === "titular" || jugador.enCampo),
+    )
+    .sort((a, b) => Number(a.estado === "titular") - Number(b.estado === "titular"));
 
-    if (!jugadores.length) return;
+  const sitios = reparteCampo(enElCampo, data.campo ?? {});
 
-    const util = CAMPO_W - 26;
-    const paso = util / jugadores.length;
-    const cy = campoY + CAMPO_H * LINEA_Y[linea];
+  enElCampo.forEach((jugador) => {
+    const sitio = sitios.get(jugador.clave);
 
-    jugadores.forEach((jugador, i) => {
-      pintaJugadorEnCampo(
-        doc,
-        jugador,
-        fotos,
-        MARGEN + 13 + paso * (i + 0.5),
-        cy,
-        Math.min(paso - 4, 78),
-        ancla,
-      );
-    });
+    if (!sitio) return;
+
+    pintaJugadorEnCampo(
+      doc,
+      jugador,
+      fotos,
+      MARGEN + sitio.x * CAMPO_W,
+      campoY + sitio.y * CAMPO_H,
+      Math.min(sitio.ancho * CAMPO_W - 4, 78),
+      ancla,
+    );
   });
 
   /* Un titular con la posición vacía o irreconocible no tiene sitio en el
