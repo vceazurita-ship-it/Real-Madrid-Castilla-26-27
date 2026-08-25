@@ -23,13 +23,22 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
-import { findStats } from "@/lib/rivals/stats";
+import { defaultSeason, findStats } from "@/lib/rivals/stats";
 import {
   ONCE_COLOR,
   ONCE_ETIQUETA,
+  PARAM_EQUIPO,
+  PARAM_JUGADOR,
+  fichaRivalPath,
   playerKey,
   type OnceEstado,
 } from "@/lib/rivals/once";
+import { enlaceAbrible } from "@/lib/rivals/media";
+import {
+  exportOncePdf,
+  type OncePdfPlayer,
+  type OncePdfEstado,
+} from "@/lib/rivals/once-pdf";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
 import type { RivalVoiceField } from "@/lib/voice/types";
 
@@ -48,6 +57,7 @@ import {
   Crown,
   Dumbbell,
   ExternalLink,
+  FileDown,
   FileText,
   Flag,
   Flame,
@@ -57,6 +67,7 @@ import {
   Handshake,
   HeartPulse,
   LayoutGrid,
+  Loader2,
   MoveDown,
   Plus,
   RectangleHorizontal,
@@ -130,6 +141,31 @@ function normalize(value: unknown) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+/** Texto de la hoja listo para pintar: el "." de "sin dato" cuenta como vac\u00edo. */
+function textoUtil(value: unknown) {
+  const texto = String(value ?? "").trim();
+
+  return texto && texto !== "." ? texto : "";
+}
+
+/*
+| Enlace directo a una ficha: `/rivals?equipo=\u2026&jugador=\u2026`.
+|
+| Es lo que llevan dentro los PDF del once probable, que se leen en el m\u00f3vil y
+| desde donde hay que poder saltar al jugador sin buscarlo a mano. Se lee una
+| sola vez, al montar la p\u00e1gina, y despu\u00e9s la URL se limpia.
+*/
+function leerEnlaceDirecto() {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+
+  const equipo = params.get(PARAM_EQUIPO) ?? "";
+  const clave = params.get(PARAM_JUGADOR) ?? "";
+
+  return equipo || clave ? { equipo, clave } : null;
 }
 
 /*
@@ -404,7 +440,16 @@ export default function RivalPlayersPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [selectedTeam, setSelectedTeam] = useState<string>("");
+  /*
+  | El enlace directo se resuelve antes del primer render: así la carga de
+  | plantillas ya arranca con el equipo puesto y no se ve el salto desde el
+  | primero de la lista al del enlace.
+  */
+  const [enlaceDirecto] = useState(leerEnlaceDirecto);
+
+  const [selectedTeam, setSelectedTeam] = useState<string>(
+    () => enlaceDirecto?.equipo ?? "",
+  );
 
   const [search, setSearch] = useState("");
   const [positionSearch, setPositionSearch] = useState("");
@@ -686,6 +731,167 @@ export default function RivalPlayersPage() {
 
   /*
   |--------------------------------------------------------------------------
+  | PDF DEL ONCE PROBABLE
+  |--------------------------------------------------------------------------
+  | Once titular y dudas en un documento que se pasa por WhatsApp, con un
+  | enlace por jugador a su ficha en la app y otro a su vídeo. Lo dibuja
+  | `lib/rivals/once-pdf.ts`; aquí sólo se resuelve qué entra y con qué datos.
+  |
+  | Se mira la plantilla entera del equipo, **no** la lista filtrada: una
+  | búsqueda a medias no puede dejar fuera del PDF a medio once.
+  */
+
+  const [exportando, setExportando] = useState(false);
+
+  const equipoDelOnce = pitchTeam || selectedTeam;
+
+  const marcados = useMemo(() => {
+    if (!equipoDelOnce) return [];
+
+    return players
+      .filter((player) => player.NOMBRE_EQUIPO === equipoDelOnce)
+      .map((player) => ({ player, estado: once.estado(playerKey(player)) }))
+      .filter(
+        (fila): fila is { player: RivalPlayer; estado: OncePdfEstado } =>
+          fila.estado !== null,
+      );
+  }, [players, equipoDelOnce, once]);
+
+  const exportarOncePdf = useCallback(async () => {
+    if (!marcados.length) return;
+
+    setExportando(true);
+
+    try {
+      const jugadores: OncePdfPlayer[] = [...marcados]
+        /* Portería → defensa → medio → ataque, y dentro de cada línea por
+           posición: el mismo orden que tiene la lista en pantalla. */
+        .sort((a, b) => {
+          const lineaA = LINE_DEFINITIONS.findIndex(
+            (linea) => linea.key === getLine(a.player["POSICIÓN"])?.key,
+          );
+
+          const lineaB = LINE_DEFINITIONS.findIndex(
+            (linea) => linea.key === getLine(b.player["POSICIÓN"])?.key,
+          );
+
+          if (lineaA !== lineaB) return lineaA - lineaB;
+
+          return (
+            positionRank(a.player["POSICIÓN"]) -
+            positionRank(b.player["POSICIÓN"])
+          );
+        })
+        .map(({ player, estado }) => {
+          const slotEntry = getSlot(player["POSICIÓN"]);
+          const segundo = getSlot(player["2º POSICIÓN"]);
+
+          const stats = findStats(statsDoc, player);
+          const temporada = defaultSeason(stats);
+
+          const numeros: string[] = [];
+
+          if (temporada) {
+            numeros.push(`${temporada.partidos} PJ`);
+
+            if (temporada.minutos) {
+              numeros.push(`${temporada.minutos.toLocaleString("es-ES")} min`);
+            }
+
+            if (temporada.titular) numeros.push(`${temporada.titular} de inicio`);
+            if (temporada.goles) numeros.push(`${temporada.goles} goles`);
+
+            if (temporada.asistencias) {
+              numeros.push(`${temporada.asistencias} asist.`);
+            }
+
+            if (temporada.encajados !== undefined) {
+              numeros.push(`${temporada.encajados} encajados`);
+            }
+
+            if (temporada.amarillas) numeros.push(`${temporada.amarillas} amar.`);
+            if (temporada.rojas) numeros.push(`${temporada.rojas} rojas`);
+          }
+
+          const enlaces = [
+            {
+              label: "Ficha",
+              url: new URL(
+                fichaRivalPath(player.NOMBRE_EQUIPO, playerKey(player)),
+                window.location.origin,
+              ).toString(),
+            },
+          ];
+
+          const video = textoUtil(player.VIDEO);
+          const doc = textoUtil(player.DOC);
+
+          if (video) enlaces.push({ label: "Vídeo", url: enlaceAbrible(video) });
+          if (doc) enlaces.push({ label: "Informe", url: enlaceAbrible(doc) });
+
+          /* La ficha de BeSoccer trae vídeos y datos de partido a partido: es
+             el segundo sitio al que se va cuando el vídeo propio no basta. */
+          if (stats?.url) {
+            enlaces.push({ label: "BeSoccer", url: enlaceAbrible(stats.url) });
+          }
+
+          const edad = textoUtil(player.EDAD);
+
+          return {
+            clave: playerKey(player),
+            dorsal: textoUtil(player.DORSAL),
+            nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
+            posCode: slotEntry?.slot.code ?? "",
+            posicion: textoUtil(player["POSICIÓN"]),
+            segunda:
+              segundo && segundo.slot.key !== slotEntry?.slot.key
+                ? `2ª ${segundo.slot.code}`
+                : "",
+            linea: slotEntry?.line.key ?? null,
+            color: slotEntry?.line.color ?? "#8892A0",
+            estado,
+            datos: [
+              edad ? `${edad} años` : "",
+              textoUtil(player.ALTURA),
+              textoUtil(player.PESO),
+              textoUtil(player["PIE DOMINANTE"]),
+              textoUtil(player.ESTADO),
+            ].filter(Boolean),
+            stats: numeros,
+            tags: parseTags(player.IMPACTO).tags.map((tag) => ({
+              label: tag.short,
+              tone: tag.tone,
+            })),
+            caracteristicas: textoUtil(player["CARACTERÍSTICAS"]),
+            fortalezas: textoUtil(player.FORTALEZAS),
+            debilidades: textoUtil(player.DEBILIDADES),
+            observaciones: textoUtil(player.OBSERVACIONES),
+            enlaces,
+          };
+        });
+
+      const nombre = await exportOncePdf({
+        equipo: equipoDelOnce,
+        fecha: new Date().toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+        jugadores,
+      });
+
+      toast.success("Once probable exportado", { description: nombre });
+    } catch (error) {
+      console.error("Error exportando el once probable:", error);
+
+      toast.error("No se ha podido generar el PDF del once.");
+    } finally {
+      setExportando(false);
+    }
+  }, [marcados, equipoDelOnce, statsDoc]);
+
+  /*
+  |--------------------------------------------------------------------------
   | AGRUPACIÓN POR LÍNEAS
   |--------------------------------------------------------------------------
   */
@@ -772,6 +978,43 @@ export default function RivalPlayersPage() {
       setEditForm(empty);
     });
   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | ENLACE DIRECTO A UNA FICHA
+  |--------------------------------------------------------------------------
+  | El equipo ya viaja en el estado inicial; lo que falta es abrir la ficha, y
+  | para eso hacen falta las plantillas cargadas.
+  |
+  | La clave del jugador es la misma que usa el once (`playerKey`), no el
+  | `ID_JUGADOR` de la hoja: esos se renumeran con cada alta y el enlace
+  | acabaría apuntando a otro.
+  */
+
+  const enlaceAtendido = useRef(false);
+
+  useEffect(() => {
+    if (enlaceAtendido.current || !enlaceDirecto || !players.length) return;
+
+    enlaceAtendido.current = true;
+
+    const { equipo, clave } = enlaceDirecto;
+
+    if (clave) {
+      const encontrado = players.find(
+        (player) =>
+          playerKey(player) === clave &&
+          (!equipo || player.NOMBRE_EQUIPO === equipo),
+      );
+
+      if (encontrado) openPlayer(encontrado);
+      else toast.error("Ese jugador ya no está en la plantilla del rival.");
+    }
+
+    /* La URL vuelve a su sitio: si no, recargar reabriría la ficha y quien
+       copiase la barra de direcciones compartiría la de otro jugador. */
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [enlaceDirecto, players, openPlayer]);
 
   const isDirty =
     editForm !== null && JSON.stringify(editForm) !== pristineForm;
@@ -1702,6 +1945,26 @@ export default function RivalPlayersPage() {
                             >
                               {onceResumen.dudas} ?
                             </span>
+                          )}
+
+                          {/* El once, en un PDF con enlace a cada ficha. */}
+
+                          {marcados.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => void exportarOncePdf()}
+                              disabled={exportando}
+                              title={`Descargar el once probable de ${equipoDelOnce} en PDF`}
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <FileDown size={11} />
+                              )}
+                              PDF
+                            </button>
                           )}
 
                           {(onceResumen.titulares > 0 ||

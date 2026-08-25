@@ -49,6 +49,24 @@ export function playerKey(player: {
   return `nm:${nameKey(player.NOMBRE_EQUIPO, player.JUGADOR)}`;
 }
 
+/*
+| Nombres de los parámetros con los que se puede llegar directo a una ficha.
+| Los usan los PDF del once, que se leen en el móvil y tienen que poder abrir
+| al jugador dentro de la app sin obligar a buscarlo a mano.
+*/
+export const PARAM_EQUIPO = "equipo";
+export const PARAM_JUGADOR = "jugador";
+
+/** Ruta que abre la app en la ficha de ese jugador. */
+export function fichaRivalPath(equipo: string, clave: string): string {
+  const params = new URLSearchParams({
+    [PARAM_EQUIPO]: equipo,
+    [PARAM_JUGADOR]: clave,
+  });
+
+  return `/rivals?${params.toString()}`;
+}
+
 export function normalizarOnce(data: unknown): RivalOnceDoc {
   const bruto = (data ?? {}) as Partial<RivalOnceDoc>;
 
