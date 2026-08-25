@@ -1440,7 +1440,10 @@ export default function RivalPlayersPage() {
 
       {editForm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-2 backdrop-blur-sm sm:p-4 md:p-8"
+          /* `modal-veil` y no `bg-black/80`: esa clase de Tailwind arrastra a
+             blanco todo el texto que lleva dentro en modo día (ver
+             `app/globals.css`), y la ficha se quedaba en blanco sobre blanco. */
+          className="modal-veil fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-2 backdrop-blur-sm sm:p-4 md:p-8"
           role="dialog"
           aria-modal="true"
           onClick={() => closePlayer()}

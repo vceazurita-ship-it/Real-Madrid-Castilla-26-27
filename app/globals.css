@@ -987,6 +987,8 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="bg-black/45"] [class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/50"][class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/50"] [class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/55"][class*="text-white"],
+:root[data-theme="light"] [class~="bg-black/55"] [class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/60"][class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/60"] [class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/70"][class*="text-white"],
@@ -1066,6 +1068,20 @@ scrollbar-width:none;
 }
 :root[data-theme="light"] [class~="bg-[#07111F]/45"] {
   background-color: rgb(255 255 255 / .45);
+}
+
+/* Velo de los modales que llevan dentro un panel claro (la ficha del jugador
+   rival, por ejemplo). No usa `bg-black/80`: esa clase está en la lista de
+   arriba y pinta de blanco TODO el texto que cuelga de ella —pensada para un
+   chip o un rótulo sobre foto, no para un velo a pantalla completa—, así que
+   dejaba la ficha entera en blanco sobre blanco en modo día. */
+.modal-veil {
+  background-color: rgb(0 0 0 / .8);
+}
+:root[data-theme="light"] .modal-veil {
+  /* Más suave que el negro: el panel de la ficha ya es blanco y con un velo
+     al 80 % la página de detrás desaparecía del todo. */
+  background-color: rgb(11 15 20 / .45);
 }
 
 /* Oro con opacidad usado como texto */
