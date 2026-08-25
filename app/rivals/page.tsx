@@ -23,7 +23,7 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
-import { defaultSeason, findStats } from "@/lib/rivals/stats";
+import { findStats } from "@/lib/rivals/stats";
 import {
   ONCE_COLOR,
   ONCE_ETIQUETA,
@@ -36,6 +36,7 @@ import {
 import { enlaceAbrible } from "@/lib/rivals/media";
 import {
   exportOncePdf,
+  type OncePdfEnlace,
   type OncePdfPlayer,
   type OncePdfEstado,
 } from "@/lib/rivals/once-pdf";
@@ -733,8 +734,10 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   | PDF DEL ONCE PROBABLE
   |--------------------------------------------------------------------------
-  | Once titular y dudas en un documento que se pasa por WhatsApp, con un
-  | enlace por jugador a su ficha en la app y otro a su vídeo. Lo dibuja
+  | Once titular y dudas en un documento que se pasa por WhatsApp. De cada
+  | jugador sale la misma ficha que se abre al pulsarlo aquí —foto, datos,
+  | rendimiento y análisis—, y con dos enlaces vivos: uno a su ficha en la app
+  | y otro a su vídeo, tanto en el campograma como en la tarjeta. Lo dibuja
   | `lib/rivals/once-pdf.ts`; aquí sólo se resuelve qué entra y con qué datos.
   |
   | Se mira la plantilla entera del equipo, **no** la lista filtrada: una
@@ -782,52 +785,43 @@ export default function RivalPlayersPage() {
             positionRank(b.player["POSICIÓN"])
           );
         })
-        .map(({ player, estado }) => {
+        .map(({ player, estado }): OncePdfPlayer => {
           const slotEntry = getSlot(player["POSICIÓN"]);
           const segundo = getSlot(player["2º POSICIÓN"]);
 
           const stats = findStats(statsDoc, player);
-          const temporada = defaultSeason(stats);
 
-          const numeros: string[] = [];
+          const edad = textoUtil(player.EDAD);
 
-          if (temporada) {
-            numeros.push(`${temporada.partidos} PJ`);
-
-            if (temporada.minutos) {
-              numeros.push(`${temporada.minutos.toLocaleString("es-ES")} min`);
-            }
-
-            if (temporada.titular) numeros.push(`${temporada.titular} de inicio`);
-            if (temporada.goles) numeros.push(`${temporada.goles} goles`);
-
-            if (temporada.asistencias) {
-              numeros.push(`${temporada.asistencias} asist.`);
-            }
-
-            if (temporada.encajados !== undefined) {
-              numeros.push(`${temporada.encajados} encajados`);
-            }
-
-            if (temporada.amarillas) numeros.push(`${temporada.amarillas} amar.`);
-            if (temporada.rojas) numeros.push(`${temporada.rojas} rojas`);
-          }
-
-          const enlaces = [
+          /* La misma banda de datos que se lee en la cabecera de la ficha. */
+          const datos = [
+            { label: "Edad", valor: edad ? `${edad} años` : "" },
+            { label: "Altura", valor: textoUtil(player.ALTURA) },
+            { label: "Peso", valor: textoUtil(player.PESO) },
+            { label: "Pie", valor: textoUtil(player["PIE DOMINANTE"]) },
+            { label: "Estado", valor: textoUtil(player.ESTADO) },
+            { label: "Procedencia", valor: textoUtil(player.PROCEDENCIA) },
             {
-              label: "Ficha",
-              url: new URL(
-                fichaRivalPath(player.NOMBRE_EQUIPO, playerKey(player)),
-                window.location.origin,
-              ).toString(),
+              label: "Nacimiento",
+              valor: textoUtil(player["LUGAR DE NACIMIENTO"]),
             },
-          ];
+            {
+              label: "Incorporación",
+              valor: textoUtil(player["FECHA INCORPORACIÓN"]),
+            },
+          ].filter((dato) => dato.valor);
 
+          /* La ficha y el vídeo viajan aparte del resto de enlaces: el PDF les
+             da sitio propio —un botón cada uno en la tarjeta y su chapa en el
+             campograma—, porque son los dos que se buscan con el dedo. */
           const video = textoUtil(player.VIDEO);
-          const doc = textoUtil(player.DOC);
+          const documento = textoUtil(player.DOC);
 
-          if (video) enlaces.push({ label: "Vídeo", url: enlaceAbrible(video) });
-          if (doc) enlaces.push({ label: "Informe", url: enlaceAbrible(doc) });
+          const enlaces: OncePdfEnlace[] = [];
+
+          if (documento) {
+            enlaces.push({ label: "Informe", url: enlaceAbrible(documento) });
+          }
 
           /* La ficha de BeSoccer trae vídeos y datos de partido a partido: es
              el segundo sitio al que se va cuando el vídeo propio no basta. */
@@ -835,29 +829,29 @@ export default function RivalPlayersPage() {
             enlaces.push({ label: "BeSoccer", url: enlaceAbrible(stats.url) });
           }
 
-          const edad = textoUtil(player.EDAD);
-
           return {
             clave: playerKey(player),
             dorsal: textoUtil(player.DORSAL),
             nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
+            nombreCompleto: textoUtil(player.JUGADOR),
             posCode: slotEntry?.slot.code ?? "",
             posicion: textoUtil(player["POSICIÓN"]),
             segunda:
               segundo && segundo.slot.key !== slotEntry?.slot.key
                 ? `2ª ${segundo.slot.code}`
                 : "",
+            rol: textoUtil(player.ROL),
             linea: slotEntry?.line.key ?? null,
             color: slotEntry?.line.color ?? "#8892A0",
             estado,
-            datos: [
-              edad ? `${edad} años` : "",
-              textoUtil(player.ALTURA),
-              textoUtil(player.PESO),
-              textoUtil(player["PIE DOMINANTE"]),
-              textoUtil(player.ESTADO),
-            ].filter(Boolean),
-            stats: numeros,
+            foto: textoUtil(player.FOTO),
+            datos,
+            /* El mapa de zona se deduce de la posición, igual que en la ficha
+               de pantalla: el slot dice dónde y el lado hacia qué banda. */
+            slot: slotEntry?.slot.key ?? null,
+            side: detectSide(player["POSICIÓN"] || ""),
+            portero: Boolean(stats?.portero),
+            temporadas: stats?.temporadas ?? [],
             tags: parseTags(player.IMPACTO).tags.map((tag) => ({
               label: tag.short,
               tone: tag.tone,
@@ -866,6 +860,11 @@ export default function RivalPlayersPage() {
             fortalezas: textoUtil(player.FORTALEZAS),
             debilidades: textoUtil(player.DEBILIDADES),
             observaciones: textoUtil(player.OBSERVACIONES),
+            ficha: new URL(
+              fichaRivalPath(player.NOMBRE_EQUIPO, playerKey(player)),
+              window.location.origin,
+            ).toString(),
+            video: video ? enlaceAbrible(video) : "",
             enlaces,
           };
         });

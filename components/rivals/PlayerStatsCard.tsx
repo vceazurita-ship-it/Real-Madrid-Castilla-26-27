@@ -8,14 +8,12 @@ import PositionHeatmap from "@/components/rivals/PositionHeatmap";
 
 import { chipInk } from "@/lib/theme";
 
+import { defaultSeason, type RivalPlayerStats } from "@/lib/rivals/stats";
+
 import {
-  defaultSeason,
-  goalsAgainstPerGame,
-  minutesPerGame,
-  starterShare,
-  type RivalPlayerStats,
-  type RivalSeasonStats,
-} from "@/lib/rivals/stats";
+  columnasTemporada,
+  TEMPORADAS_VISIBLES,
+} from "@/lib/rivals/stats-table";
 
 /*
 |--------------------------------------------------------------------------
@@ -24,8 +22,7 @@ import {
 |
 | Dos cosas en la misma tarjeta porque se leen juntas: **dónde** juega (mapa
 | de calor deducido de la posición) y **cuánto** juega (partidos, minutos,
-| goles, tarjetas). Los porteros cambian dos columnas: donde los de campo
-| llevan goles y asistencias, ellos llevan goles encajados y penaltis parados.
+| goles, tarjetas).
 |
 | El formato es de tabla, como en BeSoccer: una fila por temporada y todas a
 | la vista. Antes había un selector de temporada y seis cuadraditos con la
@@ -33,143 +30,12 @@ import {
 | algo de un jugador no es su 2026/27 aislado, sino ver que pasó de 2.400
 | minutos a 600, o que las tarjetas se le han disparado este año.
 |
+| Qué columnas son y cómo se formatean está en `lib/rivals/stats-table.ts`:
+| el PDF del once pinta esta misma tabla y no puede irse por su lado.
+|
 | Los números son de BeSoccer y llegan desde Supabase; el mapa no es medido y
 | la propia tarjeta lo advierte.
 */
-
-type Columna = {
-  key: string;
-  /** Cabecera corta, la de una tabla de fútbol. */
-  label: string;
-  /** Nombre completo, en el `title` de la cabecera. */
-  titulo: string;
-  valor: (season: RivalSeasonStats) => string;
-  /** Segunda línea pequeña bajo el número (ritmo, porcentaje…). */
-  detalle?: (season: RivalSeasonStats) => string | undefined;
-  /** Color del número cuando no es cero. */
-  color?: string;
-  /** Se estrecha en móvil. */
-  secundaria?: boolean;
-};
-
-function fmt(value: number | undefined | null) {
-  return value === undefined || value === null ? "—" : String(value);
-}
-
-/*
-| Por debajo de esto el ritmo por 90' no dice nada: el gol suelto de un
-| central sale como "0.07 cada 90'", que es ruido. Con volumen sí distingue
-| al que marca porque juega del que marca de verdad.
-*/
-const MIN_PARA_RITMO = 3;
-
-/** Ritmo por 90 minutos, con dos decimales y sin ceros de adorno. */
-function per90(total: number, minutos: number) {
-  if (!minutos) return "0";
-
-  return String(Math.round((total / minutos) * 90 * 100) / 100);
-}
-
-function ritmo(total: number | undefined, minutos: number) {
-  if (!total || total < MIN_PARA_RITMO) return undefined;
-
-  return `${per90(total, minutos)}/90'`;
-}
-
-const COMUNES_INICIO: Columna[] = [
-  {
-    key: "partidos",
-    label: "PJ",
-    titulo: "Partidos jugados",
-    valor: (s) => String(s.partidos),
-  },
-  {
-    key: "titular",
-    label: "Tit",
-    titulo: "Partidos de titular",
-    valor: (s) => String(s.titular),
-    detalle: (s) => {
-      const share = starterShare(s);
-
-      return share === null ? undefined : `${share}%`;
-    },
-  },
-  {
-    key: "minutos",
-    label: "Min",
-    titulo: "Minutos jugados",
-    valor: (s) => s.minutos.toLocaleString("es-ES"),
-    detalle: (s) => (s.partidos ? `${minutesPerGame(s)}'/pj` : undefined),
-  },
-];
-
-const COMUNES_FIN: Columna[] = [
-  {
-    key: "amarillas",
-    label: "TA",
-    titulo: "Tarjetas amarillas",
-    valor: (s) => String(s.amarillas),
-    color: "#FACC15",
-    secundaria: true,
-  },
-  {
-    key: "rojas",
-    label: "TR",
-    titulo: "Tarjetas rojas",
-    valor: (s) => String(s.rojas),
-    color: "#EF4444",
-    secundaria: true,
-  },
-];
-
-const DE_CAMPO: Columna[] = [
-  {
-    key: "goles",
-    label: "G",
-    titulo: "Goles",
-    valor: (s) => fmt(s.goles),
-    detalle: (s) => ritmo(s.goles, s.minutos),
-    color: "#F87171",
-  },
-  {
-    key: "asistencias",
-    label: "A",
-    titulo: "Asistencias",
-    valor: (s) => fmt(s.asistencias),
-    detalle: (s) => ritmo(s.asistencias, s.minutos),
-    color: "#34D399",
-  },
-];
-
-const DE_PORTERO: Columna[] = [
-  {
-    key: "encajados",
-    label: "GC",
-    titulo: "Goles encajados",
-    valor: (s) => fmt(s.encajados),
-    detalle: (s) => {
-      const porPartido = goalsAgainstPerGame(s);
-
-      return porPartido === null ? undefined : `${porPartido}/pj`;
-    },
-    color: "#F87171",
-  },
-  {
-    key: "penaltis",
-    label: "PP",
-    titulo: "Penaltis parados",
-    valor: (s) => fmt(s.penaltisParados),
-    color: "#34D399",
-  },
-];
-
-function columnas(portero: boolean): Columna[] {
-  return [
-    ...COMUNES_INICIO,
-    ...(portero ? DE_PORTERO : DE_CAMPO),
-    ...COMUNES_FIN,
-  ];
-}
 
 export function PlayerStatsCard({
   stats,
@@ -188,15 +54,14 @@ export function PlayerStatsCard({
   /** No hay documento de estadísticas: falta correr el script de descarga. */
   missing?: boolean;
 }) {
-  /* Sólo las últimas: más atrás ya no dice nada de cómo llega al partido. */
   const temporadas = useMemo(
-    () => (stats?.temporadas ?? []).slice(0, 5),
+    () => (stats?.temporadas ?? []).slice(0, TEMPORADAS_VISIBLES),
     [stats],
   );
 
   const portero = Boolean(stats?.portero);
 
-  const cols = useMemo(() => columnas(portero), [portero]);
+  const cols = useMemo(() => columnasTemporada(portero), [portero]);
 
   /* La que manda: la que se resalta y la que se lee de un vistazo. */
   const destacada = defaultSeason(stats)?.temporada ?? null;

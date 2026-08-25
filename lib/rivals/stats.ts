@@ -109,11 +109,16 @@ export function findStats(
  * minutos. En cuanto suma partidos, la actual pasa a mandar ella.
  */
 export function defaultSeason(stats: RivalPlayerStats | null) {
-  if (!stats?.temporadas.length) return null;
+  return highlightSeason(stats?.temporadas ?? []);
+}
 
-  const played = stats.temporadas.find((season) => season.partidos > 0);
+/** Lo mismo, cuando lo que se tiene a mano es la lista y no la ficha entera. */
+export function highlightSeason(temporadas: RivalSeasonStats[]) {
+  if (!temporadas.length) return null;
 
-  return played ?? stats.temporadas[0];
+  const played = temporadas.find((season) => season.partidos > 0);
+
+  return played ?? temporadas[0];
 }
 
 /** Minutos por partido, para leer de un vistazo cuánto pesa en el equipo. */
