@@ -2281,7 +2281,7 @@ export default function RivalPlayersPage() {
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] transition hover:border-[#C8A96B]"
                       >
                         <Video size={14} className="text-[#C8A96B]" />
-                        Vídeo
+                        Ver vídeo
                         <ExternalLink size={11} />
                       </a>
                     )}
@@ -2435,9 +2435,10 @@ export default function RivalPlayersPage() {
                     />
 
                     <EditableField
-                      label="Vídeo URL"
+                      label="Vídeo YouTube (URL)"
                       value={editForm.VIDEO}
                       onChange={(value) => updateForm("VIDEO", value)}
+                      placeholder="https://youtu.be/…"
                     />
 
                     <EditableField
@@ -2838,11 +2839,13 @@ function EditableField({
   value,
   onChange,
   inputMode,
+  placeholder,
 }: {
   label: string;
   value: unknown;
   onChange: (value: string) => void;
   inputMode?: "numeric" | "text";
+  placeholder?: string;
 }) {
   return (
     <label className="block min-w-0">
@@ -2853,6 +2856,7 @@ function EditableField({
       <input
         value={String(value ?? "")}
         inputMode={inputMode}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0B0F14] px-4 py-3 text-sm outline-none transition focus:border-[#C8A96B]"
       />

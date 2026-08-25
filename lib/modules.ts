@@ -192,10 +192,13 @@ export const MODULES: AppModule[] = [
   {
     href: "/match-plans",
     area: "METODOLOGÍA",
-    title: "Planes de Partido",
-    desc: "Biblioteca de planes ya trabajados",
+    title: "Vídeo Análisis de Partidos",
+    desc: "Biblioteca de vídeos de los partidos ya jugados",
     icon: ClipboardPen,
     rank: 86,
+    /* El nombre viejo sigue encontrando la página: era «Planes de Partido» y
+       se confundía con la previa de /match-preparation. */
+    alias: ["planes de partido", "video analisis", "biblioteca de videos"],
   },
 
   /* --------------------------------------------------------------- INDIVIDUAL */

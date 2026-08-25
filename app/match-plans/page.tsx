@@ -449,15 +449,17 @@ export default function Page() {
 
               <div className="mt-4 flex items-center gap-5">
                 <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                  Planes de Partido
+                  Vídeo Análisis de Partidos
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
 
               <p className="mt-3 max-w-2xl text-sm text-white/55">
-                Biblioteca de vídeo análisis por microciclo: estructura táctica y
-                operacional de cada partido de la temporada.
+                Los vídeos de análisis de cada partido ya jugado, microciclo a
+                microciclo. No es la previa del próximo rival —eso es
+                «Preparación de Partido»—: aquí está el material de vídeo de la
+                temporada.
               </p>
             </header>
 
@@ -605,7 +607,7 @@ export default function Page() {
                   }
                   description={
                     matches.length === 0
-                      ? "Los planes de partido aparecerán aquí en cuanto se añadan a la hoja de la temporada."
+                      ? "Los vídeos de análisis aparecerán aquí en cuanto se añadan a la hoja de la temporada."
                       : "Prueba a ampliar la búsqueda o restablece los filtros activos."
                   }
                   action={
@@ -942,7 +944,7 @@ function MatchCard({ match, onOpen }: { match: Match; onOpen: () => void }) {
         {hasVideo ? (
           <span className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black transition group-hover:opacity-90">
             <Play className="h-4 w-4" />
-            Ver plan de partido
+            Ver vídeo análisis
           </span>
         ) : (
           <span className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2.5 text-sm text-white/35">
@@ -1025,7 +1027,7 @@ function MatchModal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Plan de partido: ${match.partido}`}
+      aria-label={`Vídeo análisis: ${match.partido}`}
       className="modal-veil fixed inset-0 z-[99999] flex flex-col p-3 backdrop-blur-sm sm:p-6 lg:p-10"
     >
       {/* Clic fuera para cerrar */}
@@ -1124,7 +1126,7 @@ function MatchModal({
             <iframe
               key={match.embed}
               src={match.embed}
-              title={`Plan de partido: ${match.partido}`}
+              title={`Vídeo análisis: ${match.partido}`}
               className="h-full w-full"
               allow="autoplay; fullscreen"
               allowFullScreen

@@ -297,7 +297,7 @@ const disabledLink = (
 
     {navLink(
       "/match-plans",
-      "Planes de Partido",
+      "Vídeo Análisis Partidos",
       <ClipboardPen  size={18} />
     )}
 

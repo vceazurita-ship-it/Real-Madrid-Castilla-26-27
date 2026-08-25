@@ -18,9 +18,13 @@
 | los módulos que también usa la pantalla (`lib/rivals/heatmap.ts` y
 | `lib/rivals/stats-table.ts`), no de una copia hecha aquí.
 |
-| Cada jugador lleva dos enlaces vivos, y en los dos sitios donde aparece —el
-| campograma de la portada y su ficha—: «Más información», que abre su ficha
-| dentro de la app, y «Ver vídeo», que abre el vídeo de la hoja.
+| La portada no manda fuera del documento: pulsar a un jugador —en el campo o
+| en la lista— salta a la página donde está su ficha, dentro del propio PDF.
+| Es lo que se pide de camino al campo, donde no siempre hay cobertura para
+| abrir la app. Los enlaces que sí salen fuera son dos y viven en la ficha:
+| «Más información», que abre al jugador en la app, y «Ver vídeo», que abre su
+| vídeo de YouTube. El de vídeo se repite como chapa en el campograma, porque
+| es lo que más se busca con el dedo.
 |
 | El módulo **no sabe nada de la hoja ni del estado de la página**: recibe a
 | los jugadores ya resueltos (posición, etiquetas, estadísticas y enlaces) y
@@ -100,6 +104,16 @@ export type OncePdfPlayer = {
   /** Lo demás que se pueda abrir: informe, BeSoccer… */
   enlaces: OncePdfEnlace[];
 };
+
+/**
+ * Apunta un rectángulo de la portada que tiene que saltar a la ficha de un
+ * jugador.
+ *
+ * El salto no se puede escribir mientras se pinta el campo: las fichas van
+ * después y todavía no se sabe en qué página cae cada una. Se guarda el hueco
+ * y se resuelve al final, volviendo a la página 1 con `doc.setPage`.
+ */
+type Ancla = (clave: string, x: number, y: number, w: number, h: number) => void;
 
 export type OncePdfData = {
   equipo: string;
@@ -676,6 +690,7 @@ function pintaJugadorEnCampo(
   cx: number,
   cy: number,
   hueco: number,
+  ancla: Ancla,
 ) {
   const radio = 13;
   const color = ESTADO_COLOR[jugador.estado];
@@ -711,18 +726,16 @@ function pintaJugadorEnCampo(
 
   doc.text(pos, cx - ancho(doc, pos) / 2, cy + radio + 19);
 
-  /* La chapa entera abre la ficha, no sólo el nombre: en el móvil hay que
-     poder acertar con el dedo. */
-  if (jugador.ficha) {
-    doc.link(cx - radio, cy - radio, radio * 2, radio * 2 + 21, {
-      url: jugador.ficha,
-    });
-  }
+  /* La chapa entera salta a su ficha, no sólo el nombre: en el móvil hay que
+     poder acertar con el dedo. Y salta dentro del documento —no abre el
+     navegador—, así que el PDF se lee entero sin cobertura. */
+  ancla(jugador.clave, cx - radio, cy - radio, radio * 2, radio * 2 + 21);
 
   /*
   | Chapa de vídeo debajo del nombre. Es lo que se pide del campograma: verlo
-  | montado y poder abrir de ahí mismo el vídeo del jugador que interesa, sin
-  | pasar por su ficha. Sólo aparece cuando la hoja trae el enlace.
+  | montado y poder abrir de ahí mismo el vídeo de YouTube del jugador que
+  | interesa, sin pasar por su ficha. Éste sí sale fuera del PDF. Sólo aparece
+  | cuando la ficha del jugador trae el enlace.
   */
   if (!jugador.video) return;
 
@@ -820,9 +833,10 @@ function cabecera(doc: Doc, data: OncePdfData, titulares: number, dudas: number)
 /**
  * Una fila del resumen de la derecha.
  *
- * La fila entera abre la ficha del jugador; el triangulito del final, cuando
- * lo hay, abre su vídeo. Son dos enlaces distintos sobre la misma línea, así
- * que el de la ficha se recorta para no comerse al del vídeo.
+ * La fila entera salta a la ficha del jugador dentro del PDF; el triangulito
+ * del final, cuando lo hay, abre su vídeo en YouTube. Son dos destinos
+ * distintos sobre la misma línea, así que el de la ficha se recorta para no
+ * comerse al del vídeo.
  */
 function filaResumen(
   doc: Doc,
@@ -830,9 +844,14 @@ function filaResumen(
   x: number,
   y: number,
   w: number,
-  opciones: { dorsalX: number; nombreX: number; colorDorsal: string | RGB },
+  opciones: {
+    dorsalX: number;
+    nombreX: number;
+    colorDorsal: string | RGB;
+    ancla: Ancla;
+  },
 ) {
-  const { dorsalX, nombreX, colorDorsal } = opciones;
+  const { dorsalX, nombreX, colorDorsal, ancla } = opciones;
 
   const conVideo = Boolean(jugador.video);
   const derecha = x + w - 12 - (conVideo ? 12 : 0);
@@ -858,9 +877,7 @@ function filaResumen(
   ink(doc, C.tintaTenue);
   doc.text(jugador.posCode, derecha - anchoPos, y);
 
-  if (jugador.ficha) {
-    doc.link(x + 8, y - 9, derecha - (x + 8), 12, { url: jugador.ficha });
-  }
+  ancla(jugador.clave, x + 8, y - 9, derecha - (x + 8), 12);
 
   if (!conVideo) return;
 
@@ -876,6 +893,7 @@ function columnaResumen(
   porLinea: Map<OncePdfLinea, OncePdfPlayer[]>,
   sinLinea: OncePdfPlayer[],
   dudas: OncePdfPlayer[],
+  ancla: Ancla,
 ) {
   const x = COL_X;
   const w = COL_W;
@@ -922,6 +940,7 @@ function columnaResumen(
         dorsalX: 21,
         nombreX: 38,
         colorDorsal: C.tintaMedia,
+        ancla,
       });
 
       fy += 13.5;
@@ -952,6 +971,7 @@ function columnaResumen(
         dorsalX: 12,
         nombreX: 30,
         colorDorsal: aclara(C.ambar, 0.15),
+        ancla,
       });
 
       dy += 13.5;
@@ -970,7 +990,7 @@ function columnaResumen(
   fuente(doc, 6, "italic");
 
   const nota: string[] = doc.splitTextToSize(
-    "Pulsa a un jugador —en el campo o en la lista— y se abre su ficha en la app. El triangulito abre su vídeo.",
+    "Pulsa a un jugador —en el campo o en la lista— y el PDF salta a su ficha. El triangulito abre su vídeo de YouTube.",
     w - 24,
   );
 
@@ -1006,7 +1026,7 @@ function columnaResumen(
 
   fuente(doc, 7, "normal");
   ink(doc, C.tintaMedia);
-  doc.text("Vídeo del jugador", x + 26, ly);
+  doc.text("Vídeo del jugador (YouTube)", x + 26, ly);
 
   ly += 12;
 
@@ -1839,6 +1859,33 @@ function pies(doc: Doc, data: OncePdfData) {
     const paginacion = `${pagina} / ${total}`;
 
     doc.text(paginacion, PAGE_W - MARGEN - ancho(doc, paginacion), PAGE_H - MARGEN);
+
+    /* Vuelta al campograma. Si desde el campo se salta a una ficha, tiene que
+       haber camino de vuelta: en el móvil no hay botón «atrás» del visor que
+       se encuentre a la primera. En la portada no se pinta, que ya se está. */
+    if (pagina === 1) continue;
+
+    fuente(doc, 6.5, "bold");
+    ink(doc, aclara(C.oro, 0.2));
+
+    const volver = "Volver al once";
+    const anchoVolver = ancho(doc, volver);
+    const volverX = (PAGE_W - anchoVolver + 10) / 2;
+
+    doc.text(volver, volverX, PAGE_H - MARGEN);
+
+    /* Punta hacia arriba: la flecha no existe en WinAnsi, así que se pinta. */
+    fill(doc, aclara(C.oro, 0.2));
+
+    const px = volverX - 10;
+    const py = PAGE_H - MARGEN - 6.4;
+
+    doc.triangle(px + 2.6, py, px, py + 4.6, px + 5.2, py + 4.6, "F");
+
+    doc.link(volverX - 16, PAGE_H - MARGEN - 9, anchoVolver + 24, 13, {
+      pageNumber: 1,
+      top: 0,
+    });
   }
 }
 
@@ -1899,6 +1946,21 @@ export async function buildOncePdf(data: OncePdfData) {
 
   dibujaCampo(doc, MARGEN, campoY, CAMPO_W, CAMPO_H);
 
+  /*
+  | Los saltos de la portada se apuntan aquí mientras se pinta el campo y la
+  | lista, y se escriben al final: hasta que no están montadas las fichas no
+  | se sabe en qué página cae cada jugador.
+  */
+  const saltos: {
+    clave: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }[] = [];
+
+  const ancla: Ancla = (clave, x, y, w, h) => saltos.push({ clave, x, y, w, h });
+
   const porLinea = new Map<OncePdfLinea, OncePdfPlayer[]>();
 
   LINEA_ORDEN.forEach((linea) => {
@@ -1924,6 +1986,7 @@ export async function buildOncePdf(data: OncePdfData) {
         MARGEN + 13 + paso * (i + 0.5),
         cy,
         Math.min(paso - 4, 78),
+        ancla,
       );
     });
   });
@@ -1933,7 +1996,7 @@ export async function buildOncePdf(data: OncePdfData) {
      de la derecha y tiene su ficha como los demás. */
   const sinLinea = titulares.filter((jugador) => jugador.linea === null);
 
-  columnaResumen(doc, campoY, porLinea, sinLinea, dudas);
+  columnaResumen(doc, campoY, porLinea, sinLinea, dudas, ancla);
 
   /* ---------------- FICHAS ---------------- */
 
@@ -1942,6 +2005,10 @@ export async function buildOncePdf(data: OncePdfData) {
     ...sinLinea,
     ...dudas,
   ];
+
+  /* Dónde ha acabado la ficha de cada jugador: la página y el alto por el que
+     tiene que quedarse el visor al llegar. Es el destino de los saltos. */
+  const destinos = new Map<string, { pagina: number; top: number }>();
 
   if (enOrden.length) {
     doc.addPage();
@@ -1954,7 +2021,7 @@ export async function buildOncePdf(data: OncePdfData) {
     fuente(doc, 7, "normal");
     ink(doc, C.tintaTenue);
 
-    const ayuda = `«${BOTON_FICHA}» abre al jugador en la app · «${BOTON_VIDEO}», su vídeo`;
+    const ayuda = `«${BOTON_FICHA}» abre al jugador en la app · «${BOTON_VIDEO}», su vídeo de YouTube`;
 
     doc.text(ayuda, PAGE_W - MARGEN - ancho(doc, ayuda), MARGEN + 8);
 
@@ -1973,10 +2040,49 @@ export async function buildOncePdf(data: OncePdfData) {
         cursor = MARGEN + 10;
       }
 
+      destinos.set(jugador.clave, {
+        pagina: doc.getCurrentPageInfo().pageNumber,
+        /* Un poco por encima del borde de la tarjeta: si se cuadra al pixel,
+           el visor deja la ficha pegada al filo de la pantalla. */
+        top: Math.max(0, cursor - 14),
+      });
+
       pintaFicha(doc, jugador, fotos, cursor, medidas);
 
       cursor += medidas.alto + 10;
     });
+  }
+
+  /*
+  | Ahora sí: se vuelve a la portada y se escriben los saltos. Un jugador sin
+  | ficha montada —no debería pasar, pero el documento no puede quedarse con
+  | una zona muerta— se queda con el enlace a la app, que es lo que había.
+  */
+  if (saltos.length) {
+    const ultima = doc.getCurrentPageInfo().pageNumber;
+
+    doc.setPage(1);
+
+    saltos.forEach((salto) => {
+      const destino = destinos.get(salto.clave);
+
+      if (destino) {
+        doc.link(salto.x, salto.y, salto.w, salto.h, {
+          pageNumber: destino.pagina,
+          top: destino.top,
+        });
+
+        return;
+      }
+
+      const jugador = data.jugadores.find((item) => item.clave === salto.clave);
+
+      if (jugador?.ficha) {
+        doc.link(salto.x, salto.y, salto.w, salto.h, { url: jugador.ficha });
+      }
+    });
+
+    doc.setPage(ultima);
   }
 
   pies(doc, data);
