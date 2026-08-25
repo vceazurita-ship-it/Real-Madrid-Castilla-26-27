@@ -6,6 +6,8 @@ import { Sparkles } from "lucide-react";
 
 import PositionHeatmap from "@/components/rivals/PositionHeatmap";
 
+import { chipInk } from "@/lib/theme";
+
 import {
   defaultSeason,
   goalsAgainstPerGame,
@@ -315,10 +317,20 @@ export function PlayerStatsCard({
                             >
                               <span
                                 className="block text-[13px] font-semibold leading-tight"
+                                /* Ni el número ni su color se escriben en
+                                   blanco fijo: en modo día eso quedaba blanco
+                                   sobre blanco y la tabla entera desaparecía.
+                                   La tinta sale de la variable del tema, y el
+                                   color de columna pasa por `chipInk`, que
+                                   oscurece el pastel lo justo para leerlo
+                                   sobre el lienzo claro. */
                                 style={
-                                  vivo
-                                    ? { color: col.color }
-                                    : { color: "rgba(255,255,255,0.82)" }
+                                  vivo && col.color
+                                    ? { color: chipInk(col.color) }
+                                    : {
+                                        color:
+                                          "rgb(var(--rmcf-ink-rgb) / .86)",
+                                      }
                                 }
                               >
                                 {valor}

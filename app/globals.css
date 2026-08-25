@@ -853,6 +853,7 @@ scrollbar-width:none;
   color: #15803D;
 }
 :root[data-theme="light"] [class~="text-amber-200"],
+:root[data-theme="light"] [class~="text-amber-200/80"],
 :root[data-theme="light"] [class~="text-amber-300"],
 :root[data-theme="light"] [class~="text-amber-400"] {
   color: #B45309;

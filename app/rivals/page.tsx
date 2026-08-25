@@ -1991,8 +1991,13 @@ export default function RivalPlayersPage() {
                                     }
                                   : activo
                                     ? {
-                                        borderColor: "rgba(255,255,255,0.35)",
-                                        color: "#fff",
+                                        /* «Fuera» no tiene color propio, así
+                                           que lleva la tinta del tema: en
+                                           blanco fijo desaparecía en modo
+                                           día. */
+                                        borderColor:
+                                          "rgb(var(--rmcf-ink-rgb) / .35)",
+                                        color: "rgb(var(--rmcf-ink-rgb) / 1)",
                                       }
                                     : undefined
                               }
