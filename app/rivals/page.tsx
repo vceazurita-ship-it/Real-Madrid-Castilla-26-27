@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { chipInk } from "@/lib/theme";
+import { useTheme } from "@/components/theme-provider";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -746,6 +747,10 @@ export default function RivalPlayersPage() {
 
   const [exportando, setExportando] = useState(false);
 
+  /* El PDF sale con el tema con el que se está viendo la plataforma: en modo
+     día, sobre papel blanco; en modo noche, oscuro como la pantalla. */
+  const { theme } = useTheme();
+
   const equipoDelOnce = pitchTeam || selectedTeam;
 
   const marcados = useMemo(() => {
@@ -877,6 +882,7 @@ export default function RivalPlayersPage() {
           year: "numeric",
         }),
         jugadores,
+        tema: theme,
       });
 
       toast.success("Once probable exportado", { description: nombre });
@@ -887,7 +893,7 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [marcados, equipoDelOnce, statsDoc]);
+  }, [marcados, equipoDelOnce, statsDoc, theme]);
 
   /*
   |--------------------------------------------------------------------------

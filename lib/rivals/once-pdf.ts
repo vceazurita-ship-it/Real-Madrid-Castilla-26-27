@@ -34,6 +34,8 @@
 
 import { heatBlobs, HEAT_GRASS, HEAT_STOPS } from "@/lib/rivals/heatmap";
 
+import type { Theme } from "@/lib/theme";
+
 import { highlightSeason, type RivalSeasonStats } from "@/lib/rivals/stats";
 
 import {
@@ -120,6 +122,12 @@ export type OncePdfData = {
   /** "25 de agosto de 2026". */
   fecha: string;
   jugadores: OncePdfPlayer[];
+  /**
+   * El tema con el que se está viendo la app. El documento sale igual: en
+   * modo noche, oscuro; en modo día, sobre papel blanco. Sin él manda el
+   * oscuro, que es el diseño original.
+   */
+  tema?: Theme;
 };
 
 /*
@@ -130,9 +138,37 @@ export type OncePdfData = {
 | mezclan aquí contra su fondo y se pintan ya planas. Un PDF lleno de
 | transparencias pesa más, tarda en abrirse en el móvil y algunos visores lo
 | imprimen mal.
+|
+| Hay dos, una por tema. El documento tiene que salir como se está viendo la
+| plataforma: quien trabaja en modo día no quiere que le llegue una hoja negra
+| —ni gastarse el tóner en imprimirla—, y quien trabaja de noche no quiere un
+| fogonazo blanco al abrirla en el móvil de camino al campo.
+|
+| `realce` dice hacia dónde separar un color de su fondo: hacia el blanco
+| sobre oscuro, hacia el negro sobre claro. Es lo que hace `realza()`.
 */
 
-const C = {
+type Paleta = {
+  fondo: string;
+  panel: string;
+  panelHondo: string;
+  borde: string;
+  bordeSuave: string;
+  tinta: string;
+  tintaMedia: string;
+  tintaTenue: string;
+  oro: string;
+  verde: string;
+  ambar: string;
+  rojo: string;
+  cesped: string;
+  /** Franjas de siega: el césped un punto por encima o por debajo. */
+  siega: string;
+  lineaCampo: string;
+  realce: 1 | -1;
+};
+
+const PALETA_NOCHE: Paleta = {
   fondo: "#0B0F14",
   panel: "#131A22",
   panelHondo: "#0E141B",
@@ -146,13 +182,49 @@ const C = {
   ambar: "#FBBF24",
   rojo: "#F87171",
   cesped: "#0E1A14",
+  siega: "#14201A",
   lineaCampo: "#33463C",
+  realce: 1,
 };
 
-const ESTADO_COLOR: Record<OncePdfEstado, string> = {
-  titular: C.verde,
-  duda: C.ambar,
+/*
+| El modo día no es el nocturno invertido: los pastel de la familia 300-400 no
+| llegan a 2:1 sobre blanco, así que verde, ámbar, rojo y oro bajan a la
+| familia 600-700 —los mismos valores que usa `globals.css` para el tema
+| claro—. El papel es blanco puro y no el gris de la página: una hoja se lee y
+| se imprime mejor así, y las tarjetas necesitan un gris propio para
+| distinguirse del fondo.
+*/
+const PALETA_DIA: Paleta = {
+  fondo: "#FFFFFF",
+  panel: "#F4F6FA",
+  panelHondo: "#EBEEF3",
+  borde: "#C4CDD8",
+  bordeSuave: "#DDE3EA",
+  tinta: "#0B0F14",
+  tintaMedia: "#4B5663",
+  tintaTenue: "#78838F",
+  oro: "#8A6A2C",
+  verde: "#15803D",
+  ambar: "#B45309",
+  rojo: "#DC2626",
+  cesped: "#E3EFE6",
+  siega: "#D6E5DA",
+  lineaCampo: "#93B49E",
+  realce: -1,
 };
+
+/*
+| Paleta viva del documento que se está montando. Es estado de módulo y no un
+| parámetro porque la firman las cuarenta funciones de dibujo: pasarla a mano
+| por todas no aportaría nada. `buildOncePdf` la fija antes de pintar el
+| primer trazo —y antes de recortar las fotos, que también miran el fondo—.
+*/
+let C: Paleta = PALETA_NOCHE;
+
+function estadoColor(estado: OncePdfEstado) {
+  return estado === "titular" ? C.verde : C.ambar;
+}
 
 const ESTADO_LABEL: Record<OncePdfEstado, string> = {
   titular: "TITULAR",
@@ -268,18 +340,25 @@ function mezcla(color: string | RGB, fondo: string | RGB, alfa: number): RGB {
 }
 
 /**
- * Aclara un color hasta que se lea sobre fondo oscuro.
+ * Separa un color de su fondo hasta que se lea.
  *
  * Los colores de línea están pensados para chapas con fondo translúcido; en
  * texto plano sobre el panel algunos —el azul de la defensa— se quedan justos.
+ * En modo noche eso se arregla aclarando; en modo día, oscureciendo.
+ *
+ * Sobre papel se empuja un 60 % más: el mismo salto que basta contra el negro
+ * se queda corto contra el blanco, donde el ojo perdona mucho menos.
  */
-function aclara(color: string, cantidad: number): RGB {
+function realza(color: string, cantidad: number): RGB {
   const [r, g, b] = hexToRgb(color);
 
+  const destino = C.realce > 0 ? 255 : 0;
+  const paso = C.realce > 0 ? cantidad : Math.min(0.75, cantidad * 1.6);
+
   return [
-    Math.round(r + (255 - r) * cantidad),
-    Math.round(g + (255 - g) * cantidad),
-    Math.round(b + (255 - b) * cantidad),
+    Math.round(r + (destino - r) * paso),
+    Math.round(g + (destino - g) * paso),
+    Math.round(b + (destino - b) * paso),
   ];
 }
 
@@ -390,7 +469,7 @@ function chapa(
   stroke(doc, mezcla(color, fondo, 0.45), 0.5);
   doc.roundedRect(x, y, w, alto, alto / 2, alto / 2, "FD");
 
-  ink(doc, aclara(color, 0.25));
+  ink(doc, realza(color, 0.25));
   doc.text(texto, x + padding, y + alto / 2 + tamano * 0.36);
 
   return w;
@@ -458,8 +537,8 @@ function botonEnlace(
   const w = ancho(doc, texto) + 26 + icono;
 
   if (solido) {
-    fill(doc, aclara(color, 0.04));
-    stroke(doc, aclara(color, 0.3), 0.6);
+    fill(doc, realza(color, 0.04));
+    stroke(doc, realza(color, 0.3), 0.6);
   } else {
     fill(doc, mezcla(color, fondo, 0.12));
     stroke(doc, mezcla(color, fondo, 0.45), 0.6);
@@ -467,7 +546,7 @@ function botonEnlace(
 
   doc.roundedRect(x, y, w, alto, alto / 2, alto / 2, "FD");
 
-  const tintaBoton: RGB = solido ? hexToRgb(C.fondo) : aclara(color, 0.2);
+  const tintaBoton: RGB = solido ? hexToRgb(C.fondo) : realza(color, 0.2);
 
   if (play) trianguloPlay(doc, x + 10, y + alto / 2 - 3.4, 6.8, tintaBoton);
 
@@ -601,7 +680,7 @@ function dibujaCampo(doc: Doc, x: number, y: number, w: number, h: number) {
   const franjas = 8;
   const altoFranja = h / franjas;
 
-  fill(doc, mezcla("#FFFFFF", C.cesped, 0.025));
+  fill(doc, C.siega);
 
   for (let i = 0; i < franjas; i += 2) {
     doc.rect(x + 1, y + 1 + i * altoFranja, w - 2, altoFranja, "F");
@@ -684,52 +763,102 @@ function reparteLinea(jugadores: OncePdfPlayer[]) {
     .map((item) => item.jugador);
 }
 
+/** Radio de la cara de un jugador en el campograma. */
+const CARA = 16;
+
 function pintaJugadorEnCampo(
   doc: Doc,
   jugador: OncePdfPlayer,
+  fotos: FotoCache,
   cx: number,
   cy: number,
   hueco: number,
   ancla: Ancla,
 ) {
-  const radio = 13;
-  const color = ESTADO_COLOR[jugador.estado];
+  const radio = CARA;
+  const color = estadoColor(jugador.estado);
+  const foto = jugador.foto ? fotos.get(jugador.foto) : undefined;
+
+  /* Fondo del recorte: se ve por las esquinas de un retrato que no llene el
+     círculo, y es lo que queda entero cuando no hay foto. */
+  fill(doc, mezcla(jugador.color, C.cesped, 0.32));
+  doc.circle(cx, cy, radio, "F");
+
+  /*
+  | La cara del jugador dentro del círculo. Es lo que se pide del campograma:
+  | leer el once por caras y no por dorsales, que es como se reconoce a un
+  | rival desde la banda. La foto ya viene recortada en cuadrado desde
+  | `cargaFoto`, así que basta con recortar en círculo y encajarla.
+  |
+  | El `alias` es la URL: sin él jsPDF incrusta la misma foto dos veces —aquí
+  | y en la ficha— y el documento pesa el doble.
+  */
+  if (foto) {
+    doc.saveGraphicsState();
+    doc.circle(cx, cy, radio, null);
+    doc.clip();
+    doc.discardPath();
+
+    doc.addImage(
+      foto,
+      "JPEG",
+      cx - radio,
+      cy - radio,
+      radio * 2,
+      radio * 2,
+      jugador.foto,
+    );
+
+    doc.restoreGraphicsState();
+  } else {
+    siluetaFoto(doc, cx - radio, cy - radio, radio * 2);
+  }
 
   /* Aro exterior del estado: verde continuo el titular, ámbar discontinuo la
-     duda. Se distinguen incluso impresos en blanco y negro. */
-  fill(doc, mezcla(jugador.color, C.cesped, 0.32));
-  stroke(doc, color, 1.3);
+     duda. Se distinguen incluso impresos en blanco y negro. Va después de la
+     foto para que quede por encima del recorte. */
+  stroke(doc, color, 1.4);
 
   if (jugador.estado === "duda") doc.setLineDashPattern([2, 1.8], 0);
 
-  doc.circle(cx, cy, radio, "FD");
+  doc.circle(cx, cy, radio, "S");
   doc.setLineDashPattern([], 0);
 
-  fuente(doc, 10, "bold");
-  ink(doc, C.tinta);
-
+  /* Dorsal en chapa dorada abajo a la derecha, como en la ficha: dentro del
+     círculo taparía la cara. */
   const dorsal = jugador.dorsal || "—";
 
-  doc.text(dorsal, cx - ancho(doc, dorsal) / 2, cy + 3.4);
+  fuente(doc, 7, "bold");
+
+  const anchoDorsal = Math.max(14, ancho(doc, dorsal) + 8);
+  const dorsalX = cx + radio - anchoDorsal + 3;
+  const dorsalY = cy + radio - 9;
+
+  fill(doc, C.oro);
+  stroke(doc, C.cesped, 0.8);
+  doc.roundedRect(dorsalX, dorsalY, anchoDorsal, 11, 5.5, 5.5, "FD");
+
+  ink(doc, C.fondo);
+  doc.text(dorsal, dorsalX + (anchoDorsal - ancho(doc, dorsal)) / 2, dorsalY + 7.7);
 
   fuente(doc, 7, "bold");
   ink(doc, C.tinta);
 
   const nombre = recorta(doc, jugador.nombre, hueco);
 
-  doc.text(nombre, cx - ancho(doc, nombre) / 2, cy + radio + 11);
+  doc.text(nombre, cx - ancho(doc, nombre) / 2, cy + radio + 12);
 
   fuente(doc, 5.5, "normal");
-  ink(doc, aclara(jugador.color, 0.2));
+  ink(doc, realza(jugador.color, 0.2));
 
   const pos = recorta(doc, jugador.posCode || jugador.posicion, hueco);
 
-  doc.text(pos, cx - ancho(doc, pos) / 2, cy + radio + 19);
+  doc.text(pos, cx - ancho(doc, pos) / 2, cy + radio + 20);
 
-  /* La chapa entera salta a su ficha, no sólo el nombre: en el móvil hay que
-     poder acertar con el dedo. Y salta dentro del documento —no abre el
-     navegador—, así que el PDF se lee entero sin cobertura. */
-  ancla(jugador.clave, cx - radio, cy - radio, radio * 2, radio * 2 + 21);
+  /* La cara entera salta a su ficha, y con ella el nombre y la posición: en el
+     móvil hay que poder acertar con el dedo. Y salta dentro del documento —no
+     abre el navegador—, así que el PDF se lee entero sin cobertura. */
+  ancla(jugador.clave, cx - radio, cy - radio, radio * 2, radio * 2 + 22);
 
   /*
   | Chapa de vídeo debajo del nombre. Es lo que se pide del campograma: verlo
@@ -744,13 +873,13 @@ function pintaJugadorEnCampo(
   const texto = "VÍDEO";
   const anchoChapa = ancho(doc, texto) + 18;
   const chapaX = cx - anchoChapa / 2;
-  const chapaY = cy + radio + 23;
+  const chapaY = cy + radio + 24;
 
   fill(doc, mezcla(C.oro, C.cesped, 0.2));
   stroke(doc, mezcla(C.oro, C.cesped, 0.55), 0.5);
   doc.roundedRect(chapaX, chapaY, anchoChapa, 11, 5.5, 5.5, "FD");
 
-  const tintaChapa = aclara(C.oro, 0.25);
+  const tintaChapa = realza(C.oro, 0.25);
 
   trianguloPlay(doc, chapaX + 6, chapaY + 3.4, 4.4, tintaChapa);
 
@@ -881,7 +1010,7 @@ function filaResumen(
 
   if (!conVideo) return;
 
-  trianguloPlay(doc, x + w - 12, y - 6.4, 7, aclara(C.oro, 0.2));
+  trianguloPlay(doc, x + w - 12, y - 6.4, 7, realza(C.oro, 0.2));
 
   doc.link(x + w - 16, y - 9, 14, 12, { url: jugador.video });
 }
@@ -933,7 +1062,7 @@ function columnaResumen(
 
     grupo.jugadores.forEach((jugador) => {
       /* Punto del color de la línea: ata la fila con su sitio en el campo. */
-      fill(doc, aclara(jugador.color, 0.1));
+      fill(doc, realza(jugador.color, 0.1));
       doc.circle(x + 14, fy - 2.6, 2.1, "F");
 
       filaResumen(doc, jugador, x, fy, w, {
@@ -970,7 +1099,7 @@ function columnaResumen(
       filaResumen(doc, jugador, x, dy, w, {
         dorsalX: 12,
         nombreX: 30,
-        colorDorsal: aclara(C.ambar, 0.15),
+        colorDorsal: realza(C.ambar, 0.15),
         ancla,
       });
 
@@ -1022,7 +1151,7 @@ function columnaResumen(
     ly += 12;
   });
 
-  trianguloPlay(doc, x + 13, ly - 6.6, 7, aclara(C.oro, 0.2));
+  trianguloPlay(doc, x + 13, ly - 6.6, 7, realza(C.oro, 0.2));
 
   fuente(doc, 7, "normal");
   ink(doc, C.tintaMedia);
@@ -1248,7 +1377,7 @@ function dibujaTemporadas(
     }
 
     fuente(doc, 7, "bold");
-    ink(doc, actual ? aclara(C.oro, 0.15) : C.tintaMedia);
+    ink(doc, actual ? realza(C.oro, 0.15) : C.tintaMedia);
     doc.text(recorta(doc, season.temporada, wTemporada - 6), x, top + 8);
 
     if (season.equipos.length) {
@@ -1271,7 +1400,7 @@ function dibujaTemporadas(
       const vivo = col.color && valor !== "0" && valor !== "—";
 
       fuente(doc, 8, "bold");
-      ink(doc, vivo && col.color ? aclara(col.color, 0.1) : C.tinta);
+      ink(doc, vivo && col.color ? realza(col.color, 0.1) : C.tinta);
       doc.text(valor, derecha - ancho(doc, valor), top + 8);
 
       const detalle = col.detalle?.(season);
@@ -1492,7 +1621,7 @@ function bloqueTexto(
   doc.circle(x + 2, y - 2, 1.8, "F");
 
   fuente(doc, 5.5, "bold");
-  ink(doc, aclara(color, 0.15));
+  ink(doc, realza(color, 0.15));
   rotulo(doc, titulo, x + 8, y, 0.9);
 
   fuente(doc, 7.5, "normal");
@@ -1540,7 +1669,7 @@ function pintaFoto(
     doc.clip();
     doc.discardPath();
 
-    doc.addImage(dataUrl, "JPEG", x, y, FOTO, FOTO);
+    doc.addImage(dataUrl, "JPEG", x, y, FOTO, FOTO, jugador.foto);
 
     doc.restoreGraphicsState();
 
@@ -1576,7 +1705,7 @@ function pintaFicha(
   const { alto } = medidas;
   const x = MARGEN;
   const w = CONTENT_W;
-  const color = ESTADO_COLOR[jugador.estado];
+  const color = estadoColor(jugador.estado);
 
   fill(doc, C.panel);
   stroke(doc, C.bordeSuave, 0.6);
@@ -1866,7 +1995,7 @@ function pies(doc: Doc, data: OncePdfData) {
     if (pagina === 1) continue;
 
     fuente(doc, 6.5, "bold");
-    ink(doc, aclara(C.oro, 0.2));
+    ink(doc, realza(C.oro, 0.2));
 
     const volver = "Volver al once";
     const anchoVolver = ancho(doc, volver);
@@ -1875,7 +2004,7 @@ function pies(doc: Doc, data: OncePdfData) {
     doc.text(volver, volverX, PAGE_H - MARGEN);
 
     /* Punta hacia arriba: la flecha no existe en WinAnsi, así que se pinta. */
-    fill(doc, aclara(C.oro, 0.2));
+    fill(doc, realza(C.oro, 0.2));
 
     const px = volverX - 10;
     const py = PAGE_H - MARGEN - 6.4;
@@ -1918,7 +2047,11 @@ function nombreArchivo(equipo: string) {
 export async function buildOncePdf(data: OncePdfData) {
   const { jsPDF } = await import("jspdf");
 
-  /* Las fotos primero: son lo único del documento que hay que ir a buscar
+  /* El tema, lo primero de todo: manda sobre cada trazo del documento y
+     también sobre el fondo con el que se recortan las fotos. */
+  C = data.tema === "light" ? PALETA_DIA : PALETA_NOCHE;
+
+  /* Las fotos después: son lo único del documento que hay que ir a buscar
      fuera, y con jsPDF ya cargado tardan lo mismo. */
   const fotos = await cargaFotos(data.jugadores);
 
@@ -1983,6 +2116,7 @@ export async function buildOncePdf(data: OncePdfData) {
       pintaJugadorEnCampo(
         doc,
         jugador,
+        fotos,
         MARGEN + 13 + paso * (i + 0.5),
         cy,
         Math.min(paso - 4, 78),
