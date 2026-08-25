@@ -306,7 +306,7 @@ export default function RatingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm"
+            className="modal-veil fixed inset-0 z-[60] flex items-center justify-center p-3 backdrop-blur-sm"
             onClick={() => setOpenPlayer(null)}
           >
             <div

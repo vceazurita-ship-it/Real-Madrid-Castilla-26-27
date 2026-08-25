@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/ui/sidebar";
+import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -959,7 +960,7 @@ function Campo({
       <div className="mb-2 flex items-start justify-between gap-2">
         <p
           className="text-[11px] font-semibold uppercase tracking-wider"
-          style={{ color: editando ? "#FBBF24" : accent }}
+          style={{ color: chipInk(editando ? "#FBBF24" : accent) }}
         >
           {field.titulo}
         </p>

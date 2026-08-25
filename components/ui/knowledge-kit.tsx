@@ -541,7 +541,7 @@ export function Modal({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-6"
+      className="modal-veil fixed inset-0 z-50 flex items-end justify-center backdrop-blur-sm sm:items-center sm:p-6"
     >
       <div
         className={cn(

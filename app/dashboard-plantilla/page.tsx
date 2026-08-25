@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { chipInk } from "@/lib/theme";
 import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -1269,7 +1270,7 @@ export default function DashboardPlantilla() {
 
                                       <div
                                         className="mt-1 font-medium"
-                                        style={{ color: p.color }}
+                                        style={{ color: chipInk(p.color) }}
                                       >
                                         {p.estado}
                                       </div>
@@ -1684,7 +1685,7 @@ function PlayerCard({
               className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
               style={{
                 background: `${estadoColor(player.estado)}22`,
-                color: estadoColor(player.estado),
+                color: chipInk(estadoColor(player.estado)),
               }}
             >
               {player.estado || "SIN ESTADO"}

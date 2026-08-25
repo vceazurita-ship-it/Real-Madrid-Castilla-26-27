@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { chipInk } from "@/lib/theme";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -1998,12 +1999,15 @@ function StatCard({
           {title}
         </p>
 
-        <Icon className="h-4 w-4 opacity-60" style={{ color: accent }} />
+        <Icon
+          className="h-4 w-4 opacity-60"
+          style={{ color: chipInk(accent) }}
+        />
       </div>
 
       <p
         className="mt-2.5 text-2xl md:text-[28px] font-semibold leading-none"
-        style={{ color: accent }}
+        style={{ color: chipInk(accent) }}
       >
         {value}
       </p>
@@ -2155,7 +2159,11 @@ function DarkTooltip({ active, payload, label, rows }: any) {
 
       <div className="space-y-0.5">
         {payload.map((p: any, i: number) => (
-          <p key={i} className="text-xs" style={{ color: p.color ?? "#CBD5E1" }}>
+          <p
+            key={i}
+            className="text-xs"
+            style={{ color: chipInk(p.color ?? "#CBD5E1") }}
+          >
             {p.name}: <span className="font-semibold">{p.value}</span>
           </p>
         ))}
@@ -2203,7 +2211,7 @@ function HeatRow({ row, max, selected, onSelectPlayer, onSelectCell }: any) {
               background: c.count
                 ? `rgba(200,169,107,${0.12 + t * 0.8})`
                 : "rgba(255,255,255,0.02)",
-              color: t > 0.5 ? "#0B0F14" : "rgba(255,255,255,.45)",
+              color: t > 0.5 ? "#0B0F14" : "rgb(var(--rmcf-ink-rgb) / .5)",
             }}
           >
             {c.count || ""}
@@ -2247,7 +2255,7 @@ function MatrixRow({ row, max, selected, onSelectCoach, onSelectCell }: any) {
               background: c.count
                 ? `rgba(200,169,107,${0.12 + t * 0.8})`
                 : "rgba(255,255,255,0.02)",
-              color: t > 0.5 ? "#0B0F14" : "rgba(255,255,255,.5)",
+              color: t > 0.5 ? "#0B0F14" : "rgb(var(--rmcf-ink-rgb) / .55)",
             }}
           >
             {c.count || "·"}

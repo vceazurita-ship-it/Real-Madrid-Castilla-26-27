@@ -45,7 +45,7 @@ export default function ConfirmDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="modal-veil fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div

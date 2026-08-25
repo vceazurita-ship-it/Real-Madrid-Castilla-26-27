@@ -1026,7 +1026,7 @@ function MatchModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Plan de partido: ${match.partido}`}
-      className="fixed inset-0 z-[99999] flex flex-col bg-black/85 p-3 backdrop-blur-sm sm:p-6 lg:p-10"
+      className="modal-veil fixed inset-0 z-[99999] flex flex-col p-3 backdrop-blur-sm sm:p-6 lg:p-10"
     >
       {/* Clic fuera para cerrar */}
       <button

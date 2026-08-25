@@ -1,4 +1,5 @@
 "use client";
+import { chipInk } from "@/lib/theme";
 
 // Flujo del saque de banda: Zona de saque -> Tipo de envío -> Dirección -> Resultado.
 //
@@ -427,7 +428,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
           </div>
           <div
             className="mt-1 text-2xl font-semibold"
-            style={{ color: isOffensive ? "#10B981" : "#F08A96" }}
+            style={{ color: chipInk(isOffensive ? "#10B981" : "#F08A96") }}
           >
             {resumen.produccion}
           </div>

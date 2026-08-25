@@ -1934,7 +1934,7 @@ margin={{
               : ""
           }
           style={{
-            fill: "#F8FAFC",
+            fill: "var(--foreground)",
             fontWeight: 600,
             fontSize: 12,
           }}

@@ -1522,9 +1522,15 @@ export default function RivalPlayersPage() {
                 <RivalsSkeleton />
               ) : (
                 /* El campograma manda: es donde se lee la plantilla de un
-                   golpe. El listado se queda en un cuarto del ancho, en una
-                   sola columna, como índice para buscar a alguien concreto. */
-                <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(230px,1fr)_minmax(0,3fr)]">
+                   golpe. El listado se queda en una sola columna, como índice
+                   para buscar a alguien concreto.
+
+                   En `xl` —el ancho de un portátil normal— el listado pasa a
+                   ancho fijo y TODO lo que sobra es del campograma: tumbado, el
+                   campo se dibuja con las proporciones de la foto de fondo
+                   (3:2), así que cada píxel de ancho que gana son dos tercios
+                   de alto, y con ellos fichas más grandes. */
+                <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(230px,1fr)_minmax(0,3fr)] xl:gap-4 xl:grid-cols-[236px_minmax(0,1fr)]">
                   {/* ============================================ */}
                   {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
                   {/* ============================================ */}
@@ -3492,6 +3498,16 @@ type PlacedCluster = {
   count: number;
   x: number;
   y: number;
+  /**
+   * Caja del bloque: el fondo que agrupa bajo una misma chapa a todos los de
+   * una posición. Lleva su propia X porque la chapa puede acabar desplazada
+   * (paso 6) para no pisar a la vecina, y el fondo tiene que quedarse donde
+   * está su gente.
+   */
+  boxX: number;
+  boxTop: number;
+  boxWidth: number;
+  boxHeight: number;
 };
 
 type PitchLayout = {
@@ -3738,8 +3754,13 @@ function layoutPitch(
   | a gusto. Tumbado los bloques van uno debajo de otro y ya vienen separados
   | por la chapa de posición del de abajo: cobrarles además medio ancho de foto
   | dejaba la ficha en 19 px en las plantillas con muchos bloques atrás.
+  |
+  | Los seis píxeles de más son para que se vea el corte entre un bloque y el
+  | siguiente: cada bloque lleva ahora un fondo propio y, pegados, dos fondos
+  | seguidos se leían como una sola mancha. Salen del alto que gana el campo al
+  | ensancharse, así que no le cuestan tamaño a la foto.
   */
-  const gapFor = (size: number) => (horizontal ? rowGap : size * gapFactor);
+  const gapFor = (size: number) => (horizontal ? rowGap + 6 : size * gapFactor);
 
   const deepOf = (cluster: PitchCluster, size: number) =>
     horizontal ? blockWidthFor(cluster, size) : blockHeightFor(cluster, size);
@@ -4031,6 +4052,16 @@ function layoutPitch(
         count: cluster.players.length,
         x: blockX,
         y: blockTop - 3,
+        /*
+        | El bloque ya reserva medio hueco de fila por arriba y por abajo
+        | (`stepY` es ficha + `rowGap`), así que la caja se sube medio hueco y
+        | mide filas enteras: queda el mismo aire por los cuatro lados sin
+        | pedirle sitio de más al reparto.
+        */
+        boxX: blockX,
+        boxTop: blockTop - rowGap / 2,
+        boxWidth: cluster.width,
+        boxHeight: cluster.rows * cluster.stepY,
       };
 
       bandChips.push(chip);
@@ -4194,13 +4225,23 @@ function TacticalPitch({
       ref={containerRef}
       className={`pitch-photo relative w-full overflow-hidden bg-[#173b2a] ${
         horizontal
-          ? /* Tumbado el campo se queda con lo que cabe en la ventana de un
-               portátil, tarjeta y márgenes incluidos, así que no hay que hacer
-               scroll para verlo entero. El suelo de 500 px no es decorativo: lo
-               que aprieta tumbado es el alto —es donde se reparten los bloques
-               de cada banda— y por debajo la foto se queda en nada (a 460 px,
-               una plantilla con cinco bloques atrás baja a 18 px). */
-            "h-[clamp(500px,calc(100vh-200px),640px)]"
+          ? /* Tumbado el campo ya no lleva un alto suelto: toma el ancho que
+               le da la columna y de ahí saca el alto con la proporción de la
+               foto de fondo (1536×1024 = 3:2). Antes el alto mandaba y la caja
+               salía mucho más cuadrada que la foto, así que `object-cover` se
+               comía las dos áreas —justo los extremos que se miran cuando el
+               campo ataca hacia la derecha—. Ahora la caja ES la foto: se ve
+               entera y, como en `xl` la columna se queda con todo el ancho
+               sobrante, además es más grande que antes.
+
+               El techo mantiene la tarjeta dentro de la ventana (nada de
+               scroll para ver la plantilla) y el suelo de 500 px no es
+               decorativo: lo que aprieta tumbado es el alto —es donde se
+               reparten los bloques de cada banda— y por debajo la foto se
+               queda en nada (a 460 px, una plantilla con cinco bloques atrás
+               baja a 18 px). Sólo en pantallas de 1280 px justos entra ese
+               suelo, y ahí la foto se estira un pelo en vez de recortarse. */
+            "aspect-[3/2] max-h-[calc(100vh-96px)] min-h-[500px]"
           : /* De pie el alto manda: con menos de 680 px una plantilla de 25 no
                cabe en las seis bandas y la foto se va al mínimo. Antes bajaba a
                560 en md. */
@@ -4218,7 +4259,12 @@ function TacticalPitch({
           alt=""
           className={
             horizontal
-              ? "absolute inset-0 h-full w-full object-cover"
+              ? /* `object-fill` y no `object-cover`: la caja ya viene con la
+                   proporción de la foto, así que las dos dan lo mismo salvo
+                   cuando entra el suelo de alto. Ahí `cover` recortaría los
+                   extremos del campo y `fill` los conserva a cambio de un
+                   estiramiento que no se nota en el césped. */
+                "absolute inset-0 h-full w-full object-fill"
               : "absolute left-1/2 top-1/2 h-[75%] w-[240%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-fill sm:h-[133%] sm:w-[240%] lg:h-[135%] lg:w-[100%]"
           }
         />
@@ -4229,6 +4275,29 @@ function TacticalPitch({
       {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
 
       <div className="pitch-photo-wash" />
+
+      {/* FONDO DEL BLOQUE — el grupo de una posición, de un vistazo */}
+
+      {/* Los colores van en `style` y no en clases de Tailwind porque son los
+          de cada línea, y porque las utilidades `bg-white/[0.0x]` se resuelven
+          al mismo blanco en modo día (ver `app/globals.css`) y el fondo
+          desaparecería sobre el césped aclarado. */}
+
+      {clusters.map((cluster) => (
+        <div
+          key={`caja-${cluster.key}`}
+          className="pointer-events-none absolute rounded-2xl border"
+          style={{
+            left: cluster.boxX - cluster.boxWidth / 2,
+            top: cluster.boxTop,
+            width: cluster.boxWidth,
+            height: cluster.boxHeight,
+            borderColor: `${cluster.color}33`,
+            background: `${cluster.color}16`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+          }}
+        />
+      ))}
 
       {/* CHAPA DE POSICIÓN — una por bloque, encima de su gente */}
 

@@ -801,7 +801,7 @@ function RadarPanel({
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition hover:brightness-125"
               style={{
                 background: `${s.color}25`,
-                color: s.color,
+                color: chipInk(s.color),
                 border: `1px solid ${s.color}40`,
               }}
             >
@@ -989,7 +989,7 @@ function RadarPanel({
 
                     <span
                       className="text-[12px] font-semibold tabular-nums"
-                      style={{ color: toneFor(value) }}
+                      style={{ color: chipInk(toneFor(value)) }}
                     >
                       {value.toFixed(1)}
                     </span>

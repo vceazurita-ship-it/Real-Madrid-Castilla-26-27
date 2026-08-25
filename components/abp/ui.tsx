@@ -788,7 +788,7 @@ export function Dialog({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+      className="modal-veil fixed inset-0 z-50 flex items-end justify-center p-0 backdrop-blur-sm sm:items-center sm:p-6"
     >
       <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-3.5">

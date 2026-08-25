@@ -23,7 +23,10 @@ import {
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1662164849&single=true&output=csv";
 
-const GOLD = "#C8A96B";
+/* Como TINTA el oro va por la variable del tema: el oro corporativo puro se
+   queda en 2,25:1 sobre el blanco del modo día. Para un atributo SVG hay que
+   seguir pasando el hexadecimal, que ahí `var()` no se resuelve. */
+const GOLD = "var(--rmcf-gold-ink)";
 
 /* ------------------------------------------------------------------ */
 /* Datos                                                               */

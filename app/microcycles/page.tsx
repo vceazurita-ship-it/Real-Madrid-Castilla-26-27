@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/ui/sidebar";
+import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -1439,7 +1440,7 @@ export default function Page() {
                             className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
                             style={{
                               background: `${getEvalColor(m.eval)}22`,
-                              color: getEvalColor(m.eval),
+                              color: chipInk(getEvalColor(m.eval)),
                             }}
                           >
                             {m.eval || "—"}
@@ -2245,7 +2246,7 @@ export default function Page() {
                                 </p>
 
                                 <div className="mt-2 space-y-0.5 text-xs">
-                                  <p style={{ color: getEvalColor(d.eval) }}>
+                                  <p style={{ color: chipInk(getEvalColor(d.eval)) }}>
                                     Evaluación: {d.eval}
                                   </p>
 
@@ -2716,7 +2717,7 @@ export default function Page() {
                                 className="rounded-md px-2 py-1 text-xs font-bold"
                                 style={{
                                   background: `${getEvalColor(c.eval)}22`,
-                                  color: getEvalColor(c.eval),
+                                  color: chipInk(getEvalColor(c.eval)),
                                 }}
                               >
                                 {c.eval || "—"}
@@ -3083,7 +3084,7 @@ export default function Page() {
 
                                 <div className="mt-2 space-y-0.5 text-xs text-slate-300">
                                   <p>Demanda cognitiva: {d.demandaCog}</p>
-                                  <p style={{ color: getEvalColor(d.eval) }}>
+                                  <p style={{ color: chipInk(getEvalColor(d.eval)) }}>
                                     Evaluación: {d.eval}
                                   </p>
                                   <p>Tiempo: {d.tiempo}&apos;</p>
@@ -3228,7 +3229,7 @@ export default function Page() {
                                 className="rounded-md px-2 py-1 text-xs font-bold"
                                 style={{
                                   background: `${getEvalColor(t.eval)}22`,
-                                  color: getEvalColor(t.eval),
+                                  color: chipInk(getEvalColor(t.eval)),
                                 }}
                               >
                                 {t.eval || "—"}
@@ -3467,7 +3468,7 @@ export default function Page() {
                                 className="rounded-md px-2 py-1 text-xs font-bold"
                                 style={{
                                   background: `${getEvalColor(r.evaluacion)}22`,
-                                  color: getEvalColor(r.evaluacion),
+                                  color: chipInk(getEvalColor(r.evaluacion)),
                                 }}
                               >
                                 {r.evaluacion || "—"}
@@ -3545,12 +3546,15 @@ function StatCard({
           {title}
         </p>
 
-        <Icon className="h-4 w-4 opacity-60" style={{ color: accent }} />
+        <Icon
+          className="h-4 w-4 opacity-60"
+          style={{ color: chipInk(accent) }}
+        />
       </div>
 
       <p
         className="mt-2.5 text-2xl sm:text-[28px] font-semibold leading-none"
-        style={{ color: accent }}
+        style={{ color: chipInk(accent) }}
       >
         {value}
       </p>
@@ -3652,7 +3656,11 @@ function DarkTooltip({ active, payload, label, rows }: any) {
 
       <div className="space-y-0.5">
         {payload.map((p: any, i: number) => (
-          <p key={i} className="text-xs" style={{ color: p.color ?? "#CBD5E1" }}>
+          <p
+            key={i}
+            className="text-xs"
+            style={{ color: chipInk(p.color ?? "#CBD5E1") }}
+          >
             {p.name}: <span className="font-semibold">{p.value}</span>
           </p>
         ))}
@@ -3678,7 +3686,7 @@ function CogCell({ value, max }: { value: number; max: number }) {
         className="inline-block min-w-[38px] rounded-md px-2 py-1 text-xs font-semibold"
         style={{
           background: `rgba(139,92,246,${0.08 + t * 0.55})`,
-          color: t > 0.55 ? "#fff" : "#C4B5FD",
+          color: t > 0.55 ? "#fff" : chipInk("#C4B5FD"),
         }}
       >
         {value || "—"}
@@ -3729,7 +3737,9 @@ function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
           >
             <span
               className="text-sm font-semibold"
-              style={{ color: t > 0.5 ? "#0B0F14" : "#E2E8F0" }}
+              style={{
+                color: t > 0.5 ? "#0B0F14" : "rgb(var(--rmcf-ink-rgb) / .88)",
+              }}
             >
               {v.carga ? fmtInt(v.carga) : "·"}
             </span>
@@ -3738,7 +3748,10 @@ function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
               <span
                 className="text-[10px]"
                 style={{
-                  color: t > 0.5 ? "rgba(11,15,20,.65)" : "rgba(255,255,255,.4)",
+                  color:
+                    t > 0.5
+                      ? "rgba(11,15,20,.65)"
+                      : "rgb(var(--rmcf-ink-rgb) / .45)",
                 }}
               >
                 {v.tareas} tar.
@@ -3758,7 +3771,7 @@ function TaskRow({ row }: { row: Row }) {
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold"
         style={{
           background: `${getEvalColor(row.evaluacion)}22`,
-          color: getEvalColor(row.evaluacion),
+          color: chipInk(getEvalColor(row.evaluacion)),
         }}
       >
         {row.evaluacion}

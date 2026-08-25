@@ -23,6 +23,13 @@
   --background: #0B0F14;
   --foreground: #F5F7FA;
 
+  /* La tinta del tema en RGB suelto, para que un componente pueda pedir
+     "el color de texto de este tema al 45 %" desde un `style` en línea y
+     valga en los dos temas. Antes solo existía en el bloque de modo día, así
+     que todo lo que se escribía a mano —los números de un mapa de calor, por
+     ejemplo— se quedaba en blanco sobre blanco al pasar a claro. */
+  --rmcf-ink-rgb: 245 247 250;
+
   --rmcf-border: rgba(255,255,255,0.08);
   --rmcf-selection: rgba(200,169,107,0.30);
   --rmcf-scroll-thumb: rgba(200,169,107,.35);
@@ -65,7 +72,10 @@
   --rmcf-ink-rgb: 11 15 20;
   --rmcf-gold-ink: #8A6A2C;
 
-  --rmcf-border: rgba(11,15,20,0.10);
+  /* Sobre blanco, un canto al 10 % desaparece y las tarjetas se funden con el
+     lienzo; sobre negro el mismo 8 % sí se ve. Es la misma asimetría que la de
+     la tinta. */
+  --rmcf-border: rgba(11,15,20,0.14);
   --rmcf-selection: rgba(200,169,107,0.45);
   --rmcf-scroll-thumb: rgba(138,106,44,.35);
   --rmcf-scroll-thumb-hover: rgba(138,106,44,.70);
@@ -477,55 +487,65 @@ scrollbar-width:none;
    también aquí.
 =========================== */
 
-/* Tinta: el blanco del tema oscuro pasa a tinta oscura,
-   conservando la jerarquia que daba cada nivel de opacidad. */
+/* Tinta: el blanco del tema oscuro pasa a tinta oscura, conservando la
+   jerarquia que daba cada nivel de opacidad.
+
+   La escala NO es la misma opacidad de vuelta, y es a propósito: un blanco al
+   30 % sobre negro sigue brillando, pero un negro al 30 % sobre blanco se lee
+   lavado y borroso. Cada peldaño lleva por eso más tinta de la que llevaba de
+   luz, lo justo para que el escalón siga notándose: el cuerpo del texto
+   (`/60`–`/70`) pasa de 5,8–7,8:1 a 7,8–9,1:1, los rótulos pequeños
+   (`/30`–`/40`) suben de 3,2–3,9:1 a 4,1–5,1:1 —que es donde estaba el
+   problema, porque ahí viven casi todas las etiquetas de 10 y 11 px— y solo
+   `/20` y `/25` se quedan por debajo de 4,5:1, que son los apagados de
+   verdad (deshabilitados y adornos). */
 :root[data-theme="light"] [class~="text-white"] {
   color: var(--rmcf-ink);
 }
 :root[data-theme="light"] [class~="text-white/90"] {
-  color: rgb(var(--rmcf-ink-rgb) / .88);
+  color: rgb(var(--rmcf-ink-rgb) / .92);
 }
 :root[data-theme="light"] [class~="text-white/85"] {
-  color: rgb(var(--rmcf-ink-rgb) / .85);
+  color: rgb(var(--rmcf-ink-rgb) / .88);
 }
 :root[data-theme="light"] [class~="text-white/80"] {
-  color: rgb(var(--rmcf-ink-rgb) / .8);
+  color: rgb(var(--rmcf-ink-rgb) / .84);
 }
 :root[data-theme="light"] [class~="text-white/75"] {
-  color: rgb(var(--rmcf-ink-rgb) / .76);
+  color: rgb(var(--rmcf-ink-rgb) / .8);
 }
 :root[data-theme="light"] [class~="text-white/70"] {
-  color: rgb(var(--rmcf-ink-rgb) / .72);
+  color: rgb(var(--rmcf-ink-rgb) / .76);
 }
 :root[data-theme="light"] [class~="text-white/65"] {
-  color: rgb(var(--rmcf-ink-rgb) / .68);
+  color: rgb(var(--rmcf-ink-rgb) / .74);
 }
 :root[data-theme="light"] [class~="text-white/60"] {
-  color: rgb(var(--rmcf-ink-rgb) / .64);
+  color: rgb(var(--rmcf-ink-rgb) / .72);
 }
 :root[data-theme="light"] [class~="text-white/55"] {
-  color: rgb(var(--rmcf-ink-rgb) / .6);
+  color: rgb(var(--rmcf-ink-rgb) / .69);
 }
 :root[data-theme="light"] [class~="text-white/50"] {
-  color: rgb(var(--rmcf-ink-rgb) / .58);
+  color: rgb(var(--rmcf-ink-rgb) / .66);
 }
 :root[data-theme="light"] [class~="text-white/45"] {
-  color: rgb(var(--rmcf-ink-rgb) / .55);
+  color: rgb(var(--rmcf-ink-rgb) / .63);
 }
 :root[data-theme="light"] [class~="text-white/40"] {
-  color: rgb(var(--rmcf-ink-rgb) / .52);
+  color: rgb(var(--rmcf-ink-rgb) / .6);
 }
 :root[data-theme="light"] [class~="text-white/35"] {
-  color: rgb(var(--rmcf-ink-rgb) / .5);
+  color: rgb(var(--rmcf-ink-rgb) / .57);
 }
 :root[data-theme="light"] [class~="text-white/30"] {
-  color: rgb(var(--rmcf-ink-rgb) / .46);
+  color: rgb(var(--rmcf-ink-rgb) / .54);
 }
 :root[data-theme="light"] [class~="text-white/25"] {
-  color: rgb(var(--rmcf-ink-rgb) / .42);
+  color: rgb(var(--rmcf-ink-rgb) / .48);
 }
 :root[data-theme="light"] [class~="text-white/20"] {
-  color: rgb(var(--rmcf-ink-rgb) / .38);
+  color: rgb(var(--rmcf-ink-rgb) / .44);
 }
 
 /* Superficies: los velos blancos del tema oscuro se vuelven tarjetas
@@ -755,6 +775,12 @@ scrollbar-width:none;
   --tw-gradient-to: var(--rmcf-surface);
 }
 
+/* El titular de portada es un degradado recortado sobre el texto: el azul
+   claro del centro se perdía sobre el lienzo claro. */
+:root[data-theme="light"] [class~="via-[#60A5FA]"] {
+  --tw-gradient-via: #1D4ED8;
+}
+
 :root[data-theme="light"] [class~="via-white/10"] {
   --tw-gradient-via: rgb(var(--rmcf-ink-rgb) / .1);
 }
@@ -806,6 +832,7 @@ scrollbar-width:none;
 
 /* Texto de color: los tonos 100-400 estan calibrados para fondo
    oscuro; sobre blanco necesitan bajar a 600-700. */
+:root[data-theme="light"] [class~="text-red-100"],
 :root[data-theme="light"] [class~="text-red-200"],
 :root[data-theme="light"] [class~="text-red-300"],
 :root[data-theme="light"] [class~="text-red-400"] {
@@ -848,6 +875,7 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-blue-400"] {
   color: #1D4ED8;
 }
+:root[data-theme="light"] [class~="text-cyan-300"],
 :root[data-theme="light"] [class~="text-cyan-400"] {
   color: #0E7490;
 }
@@ -889,9 +917,7 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="ring-white/20"] {
   --tw-ring-color: rgb(var(--rmcf-ink-rgb) / .12);
 }
-:root[data-theme="light"] [class~="placeholder-white/25"]::placeholder {
-  color: rgb(var(--rmcf-ink-rgb) / .4);
-}
+/* (el placeholder claro se resuelve más abajo, junto a los `placeholder:`) */
 
 /* Hover y focus sobre velo blanco: en claro oscurecen en vez de aclarar.
    Se usa [class*=] porque el token lleva el prefijo de variante. */
@@ -900,6 +926,81 @@ scrollbar-width:none;
 }
 :root[data-theme="light"] [class*="focus:bg-white/"]:focus {
   background-color: rgb(var(--rmcf-ink-rgb) / .055);
+}
+
+/* ---------------------------------------------------------------------------
+   TINTA CON PREFIJO DE VARIANTE (hover:, placeholder:, disabled:, group-hover:)
+
+   Las reglas de arriba usan `[class~="text-white/40"]`, que casa el token
+   COMPLETO: `hover:text-white` es otro token distinto y no lo captura ninguna.
+   Como el modo día no las traducía, quedaban tal cual estaban escritas para el
+   tema oscuro y en claro hacían justo lo contrario de lo que debían:
+
+   - `hover:text-white` (158 usos, casi todos en botones y filas de tabla)
+     ponía el texto en blanco puro AL PASAR EL RATÓN, es decir, lo borraba justo
+     encima de la tarjeta blanca. El sitio donde peor se nota es el menú.
+   - los `placeholder:text-white/NN` dejaban el texto de ayuda de cada campo en
+     un blanco casi invisible.
+
+   El estado hover lleva un peso más que la regla base (la pseudo-clase suma
+   especificidad), así que gana sin necesidad de `!important`.
+--------------------------------------------------------------------------- */
+
+/* Hover: el texto SUBE de contraste, que es lo que hacía en modo noche. */
+:root[data-theme="light"] [class~="hover:text-white"]:hover {
+  color: var(--rmcf-ink);
+}
+:root[data-theme="light"] [class~="hover:text-white/80"]:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .84);
+}
+:root[data-theme="light"] [class~="hover:text-white/75"]:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .8);
+}
+:root[data-theme="light"] [class~="hover:text-white/70"]:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .76);
+}
+:root[data-theme="light"] [class~="hover:text-white/60"]:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .72);
+}
+
+/* Deshabilitado: el hover no debe subir el contraste, se queda apagado. */
+:root[data-theme="light"] [class~="disabled:hover:text-white/70"]:disabled:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .76);
+}
+:root[data-theme="light"] [class~="disabled:hover:text-white/45"]:disabled:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .63);
+}
+:root[data-theme="light"] [class~="disabled:hover:text-white/40"]:disabled:hover {
+  color: rgb(var(--rmcf-ink-rgb) / .6);
+}
+:root[data-theme="light"] [class~="disabled:text-white/25"]:disabled {
+  color: rgb(var(--rmcf-ink-rgb) / .48);
+}
+:root[data-theme="light"] [class~="disabled:hover:text-slate-200"]:disabled:hover {
+  color: #4B5563;
+}
+
+/* Texto de ayuda de los campos: gris legible, no blanco. */
+:root[data-theme="light"] [class~="placeholder:text-white/20"]::placeholder,
+:root[data-theme="light"] [class~="placeholder:text-white/25"]::placeholder,
+:root[data-theme="light"] [class~="placeholder:text-white/30"]::placeholder,
+:root[data-theme="light"] [class~="placeholder:text-white/35"]::placeholder,
+:root[data-theme="light"] [class~="placeholder-white/25"]::placeholder {
+  color: rgb(var(--rmcf-ink-rgb) / .5);
+}
+
+/* Rojo de "eliminar" al pasar el ratón. */
+:root[data-theme="light"] [class~="hover:text-red-200"]:hover,
+:root[data-theme="light"] [class~="hover:text-red-300"]:hover {
+  color: #B91C1C;
+}
+
+/* Oro al pasar el ratón, también cuando lo dispara la tarjeta entera. */
+:root[data-theme="light"] [class~="hover:text-[#C8A96B]"]:hover,
+:root[data-theme="light"] [class~="hover:text-[#e0c68d]"]:hover,
+:root[data-theme="light"] .group:hover [class~="group-hover:text-[#C8A96B]"],
+:root[data-theme="light"] .group:hover [class~="group-hover:text-[#D8B45A]"] {
+  color: var(--rmcf-gold-ink);
 }
 
 /* Excepcion: sobre un fondo solido de color (chips de estado, overlays,
@@ -1016,12 +1117,14 @@ scrollbar-width:none;
 /* Superficies oscuras translúcidas (barras fijas, paneles, velos):
    en claro se vuelven blanco translúcido con la misma opacidad, para
    que el `backdrop-blur` siga leyéndose igual. */
+:root[data-theme="light"] [class~="bg-[#07111F]/90"],
 :root[data-theme="light"] [class~="bg-[#11161D]/90"],
 :root[data-theme="light"] [class~="bg-[#0B0F14]/90"],
 :root[data-theme="light"] [class~="bg-[#151B23]/90"],
 :root[data-theme="light"] [class~="bg-[#111827]/90"] {
   background-color: rgb(255 255 255 / .90);
 }
+:root[data-theme="light"] [class~="bg-[#07111F]/85"],
 :root[data-theme="light"] [class~="bg-[#08131F]/85"],
 :root[data-theme="light"] [class~="bg-[#11161D]/85"],
 :root[data-theme="light"] [class~="bg-[#151B23]/85"],
@@ -1031,8 +1134,15 @@ scrollbar-width:none;
 }
 :root[data-theme="light"] [class~="bg-[#08131F]/70"],
 :root[data-theme="light"] [class~="bg-[#0B0F14]/70"],
+:root[data-theme="light"] [class~="bg-[#0B0F14]/75"],
 :root[data-theme="light"] [class~="bg-[#050A10]/70"] {
   background-color: rgb(255 255 255 / .70);
+}
+
+/* El bloque de edición de la ficha rival: un escalón por debajo de la tarjeta
+   que lo envuelve, igual que el gris del tema oscuro sobre el panel. */
+:root[data-theme="light"] [class~="bg-[#0B0F14]/60"] {
+  background-color: var(--rmcf-surface-2);
 }
 :root[data-theme="light"] [class~="bg-[#050E18]/95"],
 :root[data-theme="light"] [class~="bg-[#0B0F14]/95"],
@@ -1120,6 +1230,7 @@ scrollbar-width:none;
    presentación como `fill="#CBD5E1"`. */
 
 :root[data-theme="light"] [fill="#CBD5E1"],
+:root[data-theme="light"] [fill="#E2E8F0"],
 :root[data-theme="light"] [fill="#94A3B8"],
 :root[data-theme="light"] [fill="#F4F4F5"],
 :root[data-theme="light"] .recharts-cartesian-axis-tick text {

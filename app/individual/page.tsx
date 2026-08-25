@@ -992,7 +992,7 @@ function FormModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
+      className="modal-veil fixed inset-0 z-[999999] flex items-center justify-center p-3 backdrop-blur-sm sm:p-6"
       onClick={onClose}
     >
       <div
@@ -2451,7 +2451,7 @@ export default function IndividualPage() {
       {selected &&
         createPortal(
           <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-2 backdrop-blur-sm sm:p-4 md:p-6"
+            className="modal-veil fixed inset-0 z-[99999] flex items-center justify-center p-2 backdrop-blur-sm sm:p-4 md:p-6"
             onClick={closePlayer}
           >
             <div

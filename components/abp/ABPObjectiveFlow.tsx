@@ -1,4 +1,5 @@
 "use client";
+import { chipInk } from "@/lib/theme";
 
 // Flujo del balón parado en cuatro etapas:
 //   Tipo de acción → (Intención | Tipo de envío) → Zona de caída → Resultado.
@@ -739,8 +740,9 @@ return (
                 {" → "}
                 <span
                   style={{
-                    color:
+                    color: chipInk(
                       RESULT_COLORS[resultadoDe(r, def)] || COLORS.gray,
+                    ),
                   }}
                 >
                   {resultadoDe(r, def)}

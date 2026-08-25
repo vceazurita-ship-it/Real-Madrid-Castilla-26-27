@@ -96,7 +96,7 @@ export function SaveGuardDialog({
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="save-guard-titulo"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      className="modal-veil fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
     >
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-amber-400/30 bg-[#11161C] shadow-2xl">
         {/* ----------------------------------------------------- CABECERA */}
