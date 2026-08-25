@@ -34,6 +34,7 @@ import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
@@ -609,6 +610,37 @@ function parseCSV(text: string) {
       obj[h.trim()] = (r[i] || "").trim();
       return obj;
     }, {}),
+  );
+}
+
+/**
+ * Relee una hoja publicada como CSV para verificar un guardado.
+ *
+ * Google sirve estos CSV cacheados varios minutos, así que el contenido puede
+ * ir por detrás de lo que se acaba de escribir. Solo vale para comprobar qué
+ * columnas existen —la fila de cabeceras sí es fiable—, por eso quien lo use
+ * tiene que pedir la verificación con `soloColumnas`.
+ *
+ * Si la fila concreta todavía no aparece se devuelve la primera, que trae las
+ * mismas claves: así una creación reciente no se confunde con un fallo.
+ */
+async function releerCsvPublicado(
+  url: string,
+  campoId: string,
+  valorId: string,
+): Promise<Record<string, string> | null> {
+  const respuesta = await fetch(url, { cache: "no-store" });
+
+  if (!respuesta.ok) return null;
+
+  const filas = parseCSV(await respuesta.text()) as Record<string, string>[];
+
+  if (!filas.length) return null;
+
+  return (
+    filas.find((fila) => String(fila[campoId]) === String(valorId)) ??
+    filas[0] ??
+    null
   );
 }
 
@@ -1228,6 +1260,11 @@ export default function IndividualPage() {
 
   const [saving, setSaving] = useState(false);
 
+  /* Todas las escrituras acaban en una hoja que descarta lo que no tiene
+     columna. Se releen para confirmar antes de cerrar cada formulario. */
+  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
+    useSaveGuard();
+
   const anyFormOpen =
     showTrackingForm || showProfileForm || showVideoForm || showReportForm;
 
@@ -1653,6 +1690,35 @@ export default function IndividualPage() {
         return;
       }
 
+      /* `success` no garantiza que la hoja se haya quedado con el texto. */
+      const idRegistro = editingTracking?.ID_REGISTRO ?? result.id;
+
+      const verificacion = await verificarGuardado({
+        titulo: `Seguimiento · ${selected.name}`,
+        enviado: payload,
+        releer: async () => {
+          const respuesta = await fetch(
+            `${APPS_SCRIPT_URL}?action=seguimiento`,
+            { cache: "no-store" },
+          );
+
+          if (!respuesta.ok) return null;
+
+          const filas = await respuesta.json();
+
+          if (!Array.isArray(filas)) return null;
+
+          return (
+            filas.find(
+              (fila) => String(fila?.ID_REGISTRO) === String(idRegistro),
+            ) ?? null
+          );
+        },
+      });
+
+      /* Con pérdidas, el formulario se queda abierto con el texto dentro. */
+      if (!verificacion.ok) return;
+
       if (editingTracking) {
         setTrackingData((prev) =>
           prev.map((r) =>
@@ -1716,6 +1782,22 @@ export default function IndividualPage() {
         return;
       }
 
+      /* La única lectura de vídeos es el CSV publicado, que va cacheado: se
+         comprueban las columnas, no el contenido. */
+      const verificacion = await verificarGuardado({
+        titulo: `Vídeo · ${videoForm.TITULO}`,
+        enviado: payload,
+        soloColumnas: true,
+        releer: () =>
+          releerCsvPublicado(
+            SHEET_VIDEOS,
+            "ID_VIDEO",
+            String(editingVideo?.ID_VIDEO ?? result.id ?? ""),
+          ),
+      });
+
+      if (!verificacion.ok) return;
+
       if (editingVideo) {
         setVideoData((prev) =>
           prev.map((v) =>
@@ -1753,7 +1835,7 @@ export default function IndividualPage() {
     setSaving(true);
 
     try {
-      const result = await postToScript({
+      const enviado = {
         action: "editarPerfil",
         ID_JUGADOR: selected.idJugador,
 
@@ -1767,12 +1849,41 @@ export default function IndividualPage() {
         INTERPRETACION: profileForm.interpretacion,
         CAPACIDAD_FISICA: profileForm.capacidadFisica,
         TECNICA: profileForm.tecnica,
-      });
+      };
+
+      const result = await postToScript(enviado);
 
       if (!result.success) {
         toast.error("Error guardando el perfil");
         return;
       }
+
+      const verificacion = await verificarGuardado({
+        titulo: `Perfil · ${selected.name}`,
+        enviado,
+        releer: async () => {
+          const respuesta = await fetch(`${APPS_SCRIPT_URL}?action=jugadores`, {
+            cache: "no-store",
+          });
+
+          if (!respuesta.ok) return null;
+
+          const cuerpo = await respuesta.json();
+
+          const filas = Array.isArray(cuerpo) ? cuerpo : cuerpo?.data;
+
+          if (!Array.isArray(filas)) return null;
+
+          return (
+            filas.find(
+              (fila) =>
+                String(fila?.ID_JUGADOR) === String(selected.idJugador),
+            ) ?? null
+          );
+        },
+      });
+
+      if (!verificacion.ok) return;
 
       setSheetData((prev) => {
         const exists = prev.some(
@@ -1816,16 +1927,33 @@ export default function IndividualPage() {
     setSaving(true);
 
     try {
-      const result = await postToScript({
+      const enviado = {
         action: "editarInforme",
         ID_JUGADOR: selected.idJugador,
         ...reportForm,
-      });
+      };
+
+      const result = await postToScript(enviado);
 
       if (!result.success) {
         toast.error("Error guardando el informe");
         return;
       }
+
+      /* Igual que los vídeos: el informe solo se lee del CSV cacheado. */
+      const verificacion = await verificarGuardado({
+        titulo: `Informe · ${selected.name}`,
+        enviado,
+        soloColumnas: true,
+        releer: () =>
+          releerCsvPublicado(
+            SHEET_INFORMES,
+            "ID_JUGADOR",
+            String(selected.idJugador),
+          ),
+      });
+
+      if (!verificacion.ok) return;
 
       setReportData((prev) => {
         const exists = prev.some((r) => r.ID_JUGADOR === selected.idJugador);
@@ -3438,6 +3566,7 @@ export default function IndividualPage() {
           document.body,
         )}
 
+      {avisoGuardado}
     </>
   );
 }

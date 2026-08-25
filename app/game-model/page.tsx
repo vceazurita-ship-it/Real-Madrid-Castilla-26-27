@@ -14,6 +14,7 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import {
   AutoTextarea,
   EditToolbar,
@@ -78,6 +79,9 @@ export default function GameModelPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
+
+  /* Deja rescatar el texto de los principios que el servidor no acepte. */
+  const { reportarRechazo, dialogo: avisoGuardado } = useSaveGuard();
 
   /* ------------------------------------------------------------ carga */
 
@@ -330,12 +334,26 @@ export default function GameModelPage() {
         ),
       );
 
-      const fallidos = resultados.filter((r) => r.status === "rejected").length;
+      /* Una respuesta de error también es un principio perdido: darla por
+         buena porque la petición se completó es lo que hace que el texto
+         desaparezca sin avisar. */
+      const fallidos = cambios.filter((_, indice) => {
+        const resultado = resultados[indice];
 
-      if (fallidos > 0) {
-        toast.error(
-          `${fallidos} de ${cambios.length} principios no se han podido guardar. Revisa la conexión y vuelve a intentarlo.`,
-        );
+        return resultado.status === "rejected" || !resultado.value.ok;
+      });
+
+      if (fallidos.length > 0) {
+        reportarRechazo({
+          titulo: "Modelo de juego · principios sin guardar",
+          campos: Object.fromEntries(
+            fallidos.map((p) => [
+              `${p.FASE} · ${p.BLOQUE} · ${p.APARTADO || p.ID}`,
+              p.PRINCIPIO,
+            ]),
+          ),
+        });
+
         return;
       }
 
@@ -353,7 +371,7 @@ export default function GameModelPage() {
     } finally {
       setSaving(false);
     }
-  }, [cambios, data]);
+  }, [cambios, data, reportarRechazo]);
 
   useEditShortcuts({
     editing,
@@ -675,6 +693,8 @@ export default function GameModelPage() {
           </div>
         </div>
       )}
+
+      {avisoGuardado}
     </div>
   );
 }

@@ -13,9 +13,13 @@ import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import RivalBoardPanel from "@/components/tactics/RivalBoardPanel";
 import RivalVoicePanel from "@/components/voice/RivalVoicePanel";
+import PlayerStatsCard from "@/components/rivals/PlayerStatsCard";
+import { useRivalStats } from "@/hooks/useRivalStats";
+import { findStats } from "@/lib/rivals/stats";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
 import type { RivalVoiceField } from "@/lib/voice/types";
 
@@ -398,6 +402,17 @@ export default function RivalPlayersPage() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  /* Comprueba que la hoja se ha quedado de verdad con lo que se le envía. */
+  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
+    useSaveGuard();
+
+  /* Partidos, minutos, goles y tarjetas de BeSoccer (Supabase, sólo lectura). */
+  const {
+    doc: statsDoc,
+    loading: statsLoading,
+    missing: statsMissing,
+  } = useRivalStats();
 
   const [showPitch, setShowPitch] = useState(true);
 
@@ -868,6 +883,39 @@ export default function RivalPlayersPage() {
       if (!result.success) {
         throw new Error(result.error || "No se pudo guardar");
       }
+
+      /* La hoja escribe por nombre de columna: lo que no tiene cabecera se
+         descarta sin que la respuesta lo refleje. Se relee la plantilla y se
+         compara antes de cerrar la ficha. */
+      const verificacion = await verificarGuardado({
+        titulo: `Jugador rival · ${
+          playerToSave["NOMBRE DEPORTIVO"] || playerToSave.JUGADOR
+        }`,
+        enviado: playerToSave as unknown as Record<string, unknown>,
+        releer: async () => {
+          const relectura = await fetch(
+            `${RIVALS_API_URL}?action=rivalesPlantillas`,
+            { cache: "no-store" },
+          );
+
+          if (!relectura.ok) return null;
+
+          const filas = await relectura.json();
+
+          if (!Array.isArray(filas)) return null;
+
+          return (
+            filas.find(
+              (fila) =>
+                String(fila?.ID_JUGADOR) === String(playerToSave.ID_JUGADOR),
+            ) ?? null
+          );
+        },
+      });
+
+      /* Con campos perdidos la ficha se queda abierta y con el texto puesto,
+         que es la única copia que queda. */
+      if (!verificacion.ok) return;
 
       if (isCreating) {
         setPlayers((current) => [...current, playerToSave]);
@@ -1398,6 +1446,9 @@ export default function RivalPlayersPage() {
           onClick={() => closePlayer()}
         >
           <div
+            /* Lo que se lleva la exportación a PNG / PDF: la ficha, no la
+               página que ha quedado detrás del velo. */
+            data-export-panel
             className="relative flex max-h-[96vh] w-full min-w-0 max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] shadow-2xl"
             onClick={(event) => event.stopPropagation()}
             onTouchStart={handleTouchStart}
@@ -1409,6 +1460,7 @@ export default function RivalPlayersPage() {
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 {!isCreating && (
                   <button
+                    data-export-hide
                     onClick={() => navigatePlayer(-1)}
                     disabled={selectedIndex <= 0}
                     aria-label="Jugador anterior"
@@ -1438,6 +1490,7 @@ export default function RivalPlayersPage() {
 
                 {!isCreating && (
                   <button
+                    data-export-hide
                     onClick={() => navigatePlayer(1)}
                     disabled={selectedIndex >= listPlayers.length - 1}
                     aria-label="Jugador siguiente"
@@ -1448,7 +1501,9 @@ export default function RivalPlayersPage() {
                 )}
               </div>
 
-              <div className="flex shrink-0 items-center gap-3">
+              {/* Los mandos de la ventana no pintan nada en un PDF. */}
+
+              <div data-export-hide className="flex shrink-0 items-center gap-3">
                 {isDirty && (
                   <span className="hidden rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B] sm:inline">
                     Cambios sin guardar
@@ -1591,13 +1646,28 @@ export default function RivalPlayersPage() {
                 {/* COLUMNA DERECHA */}
 
                 <div className="min-w-0 space-y-5">
-                  <RivalVoicePanel
-                    current={editForm as unknown as Record<string, unknown>}
-                    equipo={editForm.NOMBRE_EQUIPO || selectedTeam}
-                    tagCatalog={voiceTagCatalog}
-                    activeTagKeys={voiceTagKeys}
-                    onApply={applyVoice}
+                  {/* RENDIMIENTO — mapa de calor por posición + números */}
+
+                  <PlayerStatsCard
+                    stats={findStats(statsDoc, editForm)}
+                    loading={statsLoading}
+                    missing={statsMissing}
+                    slot={getSlot(editForm["POSICIÓN"])?.slot.key ?? null}
+                    side={detectSide(editForm["POSICIÓN"])}
+                    positionCode={getSlot(editForm["POSICIÓN"])?.slot.code}
                   />
+
+                  {/* El dictado es una herramienta de edición: fuera del PDF. */}
+
+                  <div data-export-hide>
+                    <RivalVoicePanel
+                      current={editForm as unknown as Record<string, unknown>}
+                      equipo={editForm.NOMBRE_EQUIPO || selectedTeam}
+                      tagCatalog={voiceTagCatalog}
+                      activeTagKeys={voiceTagKeys}
+                      onApply={applyVoice}
+                    />
+                  </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <EditableField
@@ -1697,7 +1767,10 @@ export default function RivalPlayersPage() {
 
             {/* FOOTER MODAL */}
 
-            <div className="flex items-center justify-between gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6">
+            <div
+              data-export-hide
+              className="flex items-center justify-between gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6"
+            >
               {!isCreating ? (
                 <button
                   onClick={deletePlayer}
@@ -1737,6 +1810,8 @@ export default function RivalPlayersPage() {
           </div>
         </div>
       )}
+
+      {avisoGuardado}
     </main>
   );
 }
@@ -2051,6 +2126,19 @@ function RivalsSkeleton() {
  */
 type TagTone = "fortaleza" | "debilidad";
 
+/*
+| El color sale del tono, no de la etiqueta.
+|
+| Antes cada una traía el suyo y una chapa morada no decía nada por sí sola:
+| había que leerla para saber si era buena o mala noticia. Con verde y rojo la
+| ficha se lee de un vistazo —lo verde es lo que hay que frenar, lo rojo por
+| dónde se le gana— y quien distingue una etiqueta de otra es el icono.
+*/
+const TONE_COLOR: Record<TagTone, string> = {
+  fortaleza: "#34D399",
+  debilidad: "#F87171",
+};
+
 type PlayerTag = {
   key: string;
   label: string;
@@ -2062,8 +2150,8 @@ type PlayerTag = {
   tone: TagTone;
 };
 
-/* El tono lo pone el bloque al que pertenece, no cada entrada. */
-type TagDef = Omit<PlayerTag, "tone">;
+/* El tono —y con él el color— lo pone el bloque, no cada entrada. */
+type TagDef = Omit<PlayerTag, "tone" | "color">;
 
 const FORTALEZAS: TagDef[] = [
   {
@@ -2071,7 +2159,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El cerebro",
     short: "Cerebro",
     icon: Brain,
-    color: "#A78BFA",
     aliases: ["cerebro", "organizador", "director de juego", "faro"],
   },
   {
@@ -2079,7 +2166,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El crack",
     short: "Crack",
     icon: Star,
-    color: "#C8A96B",
     aliases: ["crack", "estrella", "diferencial", "franquicia"],
   },
   {
@@ -2087,7 +2173,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El desequilibrante",
     short: "Desequilibra",
     icon: Zap,
-    color: "#E879F9",
     aliases: ["desequilibrante", "desequilibra", "desborde"],
   },
   {
@@ -2095,7 +2180,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El regateador",
     short: "Regate",
     icon: Shuffle,
-    color: "#F472B6",
     aliases: ["regateador", "regate", "driblador", "encarador"],
   },
   {
@@ -2103,7 +2187,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El rápido",
     short: "Rápido",
     icon: Wind,
-    color: "#22D3EE",
     aliases: ["rapido", "veloz", "velocidad", "explosivo"],
   },
   {
@@ -2111,7 +2194,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El fuerte",
     short: "Fuerte",
     icon: Dumbbell,
-    color: "#FB923C",
     aliases: ["fuerte", "potente", "fisico", "poderoso"],
   },
   {
@@ -2119,7 +2201,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El duro",
     short: "Duro",
     icon: Swords,
-    color: "#F87171",
     aliases: ["duro", "agresivo", "intenso", "guerrero"],
   },
   {
@@ -2127,7 +2208,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El alto",
     short: "Alto",
     icon: Ruler,
-    color: "#7DD3FC",
     aliases: ["alto", "aereo", "juego aereo", "dominante por alto"],
   },
   {
@@ -2135,7 +2215,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El goleador",
     short: "Gol",
     icon: Target,
-    color: "#EF4444",
     aliases: ["goleador", "gol", "killer", "definidor"],
   },
   {
@@ -2143,7 +2222,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El asistente",
     short: "Asiste",
     icon: Handshake,
-    color: "#34D399",
     aliases: ["asistente", "asistencias", "ultimo pase", "pasador"],
   },
   {
@@ -2151,7 +2229,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El técnico",
     short: "Técnico",
     icon: Sparkles,
-    color: "#2DD4BF",
     aliases: ["tecnico", "calidad", "talento", "buen pie"],
   },
   {
@@ -2159,7 +2236,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El motor",
     short: "Motor",
     icon: BatteryCharging,
-    color: "#A3E635",
     aliases: ["motor", "incansable", "box to box", "recorrido", "pulmon"],
   },
   {
@@ -2167,7 +2243,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El presionador",
     short: "Presiona",
     icon: Flame,
-    color: "#FB7185",
     aliases: ["presionador", "presion", "primer presionador", "robador"],
   },
   {
@@ -2175,7 +2250,6 @@ const FORTALEZAS: TagDef[] = [
     label: "El líder",
     short: "Líder",
     icon: Crown,
-    color: "#FBBF24",
     aliases: ["lider", "capitan", "referente"],
   },
   {
@@ -2183,7 +2257,6 @@ const FORTALEZAS: TagDef[] = [
     label: "Zurdo diferencial",
     short: "Zurdo",
     icon: Footprints,
-    color: "#818CF8",
     aliases: ["zurdo diferencial", "zurdo", "pierna izquierda"],
   },
   {
@@ -2191,7 +2264,6 @@ const FORTALEZAS: TagDef[] = [
     label: "Sacador de ABP",
     short: "Saca ABP",
     icon: Flag,
-    color: "#60A5FA",
     aliases: [
       "sacador de abp",
       "sacador abp",
@@ -2206,7 +2278,6 @@ const FORTALEZAS: TagDef[] = [
     label: "Rematador de ABP",
     short: "Remata ABP",
     icon: ArrowBigUp,
-    color: "#F59E0B",
     aliases: [
       "rematador de abp",
       "rematador abp",
@@ -2220,7 +2291,6 @@ const FORTALEZAS: TagDef[] = [
     label: "Peligro",
     short: "Peligro",
     icon: AlertTriangle,
-    color: "#F43F5E",
     aliases: ["peligro", "vigilar", "atencion", "ojo"],
   },
 ];
@@ -2236,7 +2306,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Perdedor de duelos",
     short: "Pierde duelos",
     icon: ThumbsDown,
-    color: "#F87171",
     aliases: [
       "perdedor de duelo",
       "perdedor de duelos",
@@ -2251,7 +2320,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Lento",
     short: "Lento",
     icon: Snail,
-    color: "#94A3B8",
     aliases: [
       "lento",
       "lentitud",
@@ -2265,7 +2333,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Comete errores no forzados",
     short: "Errores",
     icon: CircleAlert,
-    color: "#FCA5A5",
     aliases: [
       "comete errores no forzados",
       "errores no forzados",
@@ -2280,7 +2347,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Lesionado",
     short: "Lesionado",
     icon: Bandage,
-    color: "#EF4444",
     aliases: ["lesionado", "lesion", "baja", "de baja", "no disponible"],
   },
   {
@@ -2288,7 +2354,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Tocado",
     short: "Tocado",
     icon: HeartPulse,
-    color: "#FB7185",
     aliases: [
       "tocado",
       "con molestias",
@@ -2302,7 +2367,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Tarjeteable",
     short: "Tarjeta",
     icon: RectangleHorizontal,
-    color: "#FACC15",
     aliases: [
       "tarjeteable",
       "apercibido",
@@ -2316,7 +2380,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Flojo por alto",
     short: "Flojo alto",
     icon: MoveDown,
-    color: "#60A5FA",
     aliases: [
       "flojo por alto",
       "flojo de cabeza",
@@ -2330,7 +2393,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Sólo una pierna",
     short: "Perfil único",
     icon: Ban,
-    color: "#A78BFA",
     aliases: [
       "solo una pierna",
       "solo un perfil",
@@ -2344,7 +2406,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Sufre la presión",
     short: "Presionable",
     icon: ShieldOff,
-    color: "#FB923C",
     aliases: [
       "sufre la presion",
       "presionable",
@@ -2358,7 +2419,6 @@ const DEBILIDADES: TagDef[] = [
     label: "No repliega",
     short: "No repliega",
     icon: Ghost,
-    color: "#A3A3A3",
     aliases: [
       "no repliega",
       "no vuelve",
@@ -2372,7 +2432,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Se cae físicamente",
     short: "Se cae",
     icon: BatteryLow,
-    color: "#FBBF24",
     aliases: [
       "se cae fisicamente",
       "se cae",
@@ -2386,7 +2445,6 @@ const DEBILIDADES: TagDef[] = [
     label: "Se descentra",
     short: "Descentra",
     icon: Frown,
-    color: "#C084FC",
     aliases: [
       "se descentra",
       "nervioso",
@@ -2397,16 +2455,20 @@ const DEBILIDADES: TagDef[] = [
   },
 ];
 
+function withTone(tags: TagDef[], tone: TagTone): PlayerTag[] {
+  return tags.map((tag) => ({ ...tag, tone, color: TONE_COLOR[tone] }));
+}
+
 const TAG_GROUPS: { tone: TagTone; label: string; tags: PlayerTag[] }[] = [
   {
     tone: "fortaleza",
     label: "Fortalezas",
-    tags: FORTALEZAS.map((tag) => ({ ...tag, tone: "fortaleza" as const })),
+    tags: withTone(FORTALEZAS, "fortaleza"),
   },
   {
     tone: "debilidad",
     label: "Por dónde se le gana",
-    tags: DEBILIDADES.map((tag) => ({ ...tag, tone: "debilidad" as const })),
+    tags: withTone(DEBILIDADES, "debilidad"),
   },
 ];
 
@@ -2492,12 +2554,15 @@ function TagChip({
   size = "md",
   count,
   onClick,
+  hideOnExport = false,
 }: {
   tag: PlayerTag;
   active?: boolean;
   size?: "sm" | "md";
   count?: number;
   onClick?: () => void;
+  /** No sale en el PNG / PDF: es una opción del catálogo, no un dato. */
+  hideOnExport?: boolean;
 }) {
   const Icon = tag.icon;
 
@@ -2529,16 +2594,29 @@ function TagChip({
     </>
   );
 
+  const exportAttr = hideOnExport ? { "data-export-hide": "" } : {};
+
   if (!onClick) {
     return (
-      <span className={className} style={style} title={tag.label}>
+      <span
+        {...exportAttr}
+        className={className}
+        style={style}
+        title={tag.label}
+      >
         {content}
       </span>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} className={className} style={style}>
+    <button
+      {...exportAttr}
+      type="button"
+      onClick={onClick}
+      className={className}
+      style={style}
+    >
       {content}
     </button>
   );
@@ -2567,30 +2645,47 @@ function TagPicker({
           Etiquetas
         </span>
 
-        <span className="text-[11px] text-white/30">
+        <span data-export-hide className="text-[11px] text-white/30">
           {parsed.tags.length} seleccionadas · se guardan en IMPACTO
         </span>
       </div>
 
+      {/*
+      | En el PNG / PDF se queda sólo lo elegido: el catálogo entero son 30
+      | píldoras apagadas que en pantalla son el selector y en papel, ruido.
+      | Cada grupo desaparece si no ha quedado nada suyo marcado.
+      */}
       <div className="space-y-3">
-        {TAG_GROUPS.map((group) => (
-          <div key={group.tone}>
-            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
-              {group.label}
-            </span>
+        {TAG_GROUPS.map((group) => {
+          const chosen = group.tags.filter((tag) => activeKeys.has(tag.key));
 
-            <div className="flex flex-wrap gap-2">
-              {group.tags.map((tag) => (
-                <TagChip
-                  key={tag.key}
-                  tag={tag}
-                  active={activeKeys.has(tag.key)}
-                  onClick={() => onChange(toggleTagValue(value, tag))}
-                />
-              ))}
+          return (
+            <div
+              key={group.tone}
+              {...(chosen.length ? {} : { "data-export-hide": "" })}
+            >
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+                {group.label}
+              </span>
+
+              <div className="flex flex-wrap gap-2">
+                {group.tags.map((tag) => {
+                  const active = activeKeys.has(tag.key);
+
+                  return (
+                    <TagChip
+                      key={tag.key}
+                      tag={tag}
+                      active={active}
+                      hideOnExport={!active}
+                      onClick={() => onChange(toggleTagValue(value, tag))}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {parsed.extra.length > 0 && (
@@ -2600,7 +2695,7 @@ function TagPicker({
         </p>
       )}
 
-      <label className="mt-4 block">
+      <label data-export-hide className="mt-4 block">
         <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
           Valor guardado
         </span>

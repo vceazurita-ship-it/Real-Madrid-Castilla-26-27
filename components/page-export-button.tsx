@@ -13,14 +13,20 @@ import { toast } from "sonner";
 /**
  * Botón flotante disponible en todas las páginas.
  *
- * Captura SIEMPRE la página entera (no solo la parte visible): antes de la
- * captura se entra en "modo exportación", que despega los elementos sticky,
- * esconde el cromo flotante (menús, FABs, toasts) y expande cualquier
- * contenedor con scroll interno para que nada quede recortado.
+ * Captura la página entera (no solo la parte visible): antes de la captura se
+ * entra en "modo exportación", que despega los elementos sticky, esconde el
+ * cromo flotante (menús, FABs, toasts) y expande cualquier contenedor con
+ * scroll interno para que nada quede recortado.
+ *
+ * **Con un pop-up abierto se exporta solo el pop-up.** Es lo que se está
+ * mirando, y la página de detrás queda tapada por el velo: capturarla entera
+ * daba un PDF de la pantalla equivocada.
  *
  * - Para exportar solo una zona concreta, añade `data-export-root` al
  *   contenedor que quieras capturar.
  * - Para excluir un elemento de la captura, añade `data-export-hide`.
+ * - Para marcar a mano qué tarjeta de un modal es la exportable, añade
+ *   `data-export-panel`.
  */
 
 const TRANSPARENT_PIXEL =
@@ -53,9 +59,11 @@ type Capture = {
   height: number;
   pixelRatio: number;
   boxes: Box[];
+  /** La captura es la de un pop-up abierto, no la de la página. */
+  dialog: boolean;
 };
 
-function fileBaseName() {
+function fileBaseName(suffix?: string) {
   const fromPath = window.location.pathname
     .split("/")
     .filter(Boolean)
@@ -78,7 +86,7 @@ function fileBaseName() {
 
   const name = (fromPath || fromTitle || "pagina").slice(0, 60);
 
-  return `${name}_${stamp}`;
+  return [name, suffix, stamp].filter(Boolean).join("_");
 }
 
 function resolveBackground(root: HTMLElement) {
@@ -127,10 +135,57 @@ function isClipping(value: string) {
 }
 
 /**
+ * Panel del pop-up abierto, si lo hay.
+ *
+ * Se reconoce por `role="dialog"` + `aria-modal`, que es como están montados
+ * los modales de la app, y gana el último del DOM: es el que está encima.
+ */
+function findOpenDialog(): HTMLElement | null {
+  const selector =
+    '[data-export-modal], [role="dialog"][aria-modal="true"]';
+
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>(selector)
+  ).filter((el) => {
+    if (el.closest("[data-export-hide]")) return false;
+
+    const cs = getComputedStyle(el);
+
+    if (cs.display === "none" || cs.visibility === "hidden") return false;
+
+    const rect = el.getBoundingClientRect();
+
+    return rect.width > 80 && rect.height > 80;
+  });
+
+  const dialog = candidates[candidates.length - 1];
+
+  if (!dialog) return null;
+
+  const marked = dialog.querySelector<HTMLElement>("[data-export-panel]");
+
+  if (marked) return marked;
+
+  /* El nodo que lleva `role="dialog"` suele ser el velo a pantalla completa:
+     si de él cuelga un único hijo, ese hijo es la tarjeta y lo demás fondo. */
+  const children = Array.from(dialog.children).filter(
+    (node): node is HTMLElement => node instanceof HTMLElement
+  );
+
+  return children.length === 1 ? children[0] : dialog;
+}
+
+/**
  * Deja el documento listo para una captura completa y devuelve la función que
  * restaura el estado original.
+ *
+ * `keep` es la raíz de la captura: ni ella, ni lo que lleva dentro, ni los
+ * contenedores de los que cuelga pueden esconderse por la regla que aparta el
+ * cromo flotante. Sin esa salvedad, exportar un modal —que vive dentro de un
+ * velo `position: fixed`— se llevaba por delante justamente lo que se quería
+ * capturar.
  */
-function enterExportMode(): Cleanup {
+function enterExportMode(keep?: HTMLElement | null): Cleanup {
   const undo: Cleanup[] = [];
 
   const scrollX = window.scrollX;
@@ -191,9 +246,12 @@ function enterExportMode(): Cleanup {
 
     if (cs.display === "none") continue;
 
+    const inCapture =
+      keep && (el === keep || el.contains(keep) || keep.contains(el));
+
     /* El cromo flotante (FABs, drawers, modales) nunca forma parte del
        documento: fuera de la captura. */
-    if (cs.position === "fixed") {
+    if (cs.position === "fixed" && !inCapture) {
       patch(el, { display: "none" });
       continue;
     }
@@ -343,13 +401,18 @@ function buildOccupancy(capture: Capture, sliceHeight: number) {
 }
 
 async function capturePage(): Promise<Capture> {
-  const restore = enterExportMode();
+  /* El pop-up manda sobre `data-export-root`: si hay uno abierto es lo que el
+     usuario está mirando. */
+  const dialog = findOpenDialog();
+
+  const root =
+    dialog ??
+    (document.querySelector("[data-export-root]") as HTMLElement | null) ??
+    document.body;
+
+  const restore = enterExportMode(dialog);
 
   try {
-    const root =
-      (document.querySelector("[data-export-root]") as HTMLElement | null) ??
-      document.body;
-
     await waitForAssets(root);
 
     const rect = root.getBoundingClientRect();
@@ -449,7 +512,14 @@ async function capturePage(): Promise<Capture> {
       throw new Error("La captura ha salido vacía");
     }
 
-    return { dataUrl, width, height, pixelRatio: used, boxes };
+    return {
+      dataUrl,
+      width,
+      height,
+      pixelRatio: used,
+      boxes,
+      dialog: Boolean(dialog),
+    };
   } finally {
     restore();
   }
@@ -550,7 +620,18 @@ async function buildPagedPdf(capture: Capture) {
 
   const { jsPDF } = await import("jspdf");
 
-  const orientation = capture.width > 1150 ? "landscape" : "portrait";
+  /*
+  | Una página ancha pide apaisado. Una ficha no: mide poco más de 1150 px de
+  | ancho pero es mucho más alta, y en apaisado cabe la mitad de alto por
+  | hoja, así que se parte en el doble de páginas. Ahí manda la proporción.
+  */
+  const orientation = capture.dialog
+    ? capture.width > capture.height
+      ? "landscape"
+      : "portrait"
+    : capture.width > 1150
+      ? "landscape"
+      : "portrait";
 
   const doc = new jsPDF({
     orientation,
@@ -644,6 +725,10 @@ export function PageExportButton() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Mode | null>(null);
 
+  /* Qué se va a capturar. Se mira al abrir el menú, no en cada render: es
+     una lectura del DOM y sólo hace falta para rotular las opciones. */
+  const [onDialog, setOnDialog] = useState(false);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -690,10 +775,13 @@ export function PageExportButton() {
     []
   );
 
+  /* Sufijo del nombre de fichero: distingue la ficha de la página. */
+  const suffix = (capture: Capture) => (capture.dialog ? "ficha" : undefined);
+
   const exportPng = useCallback(
     () =>
-      run("png", "Generando PNG de la página completa…", async (capture) => {
-        downloadDataUrl(capture.dataUrl, `${fileBaseName()}.png`);
+      run("png", "Generando PNG…", async (capture) => {
+        downloadDataUrl(capture.dataUrl, `${fileBaseName(suffix(capture))}.png`);
 
         return `PNG descargado (${capture.width}×${capture.height} px)`;
       }),
@@ -705,7 +793,7 @@ export function PageExportButton() {
       run("pdf", "Generando PDF A4…", async (capture) => {
         const { doc, pages } = await buildPagedPdf(capture);
 
-        doc.save(`${fileBaseName()}.pdf`);
+        doc.save(`${fileBaseName(suffix(capture))}.pdf`);
 
         return `PDF descargado (${pages} ${pages === 1 ? "página" : "páginas"})`;
       }),
@@ -717,7 +805,7 @@ export function PageExportButton() {
       run("pdf-single", "Generando PDF de una hoja…", async (capture) => {
         const doc = await buildSinglePagePdf(capture);
 
-        doc.save(`${fileBaseName()}_hoja-unica.pdf`);
+        doc.save(`${fileBaseName(suffix(capture))}_hoja-unica.pdf`);
 
         return "PDF de una hoja descargado";
       }),
@@ -733,7 +821,7 @@ export function PageExportButton() {
       {open && !busy && (
         <div className="w-[248px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur">
           <p className="border-b border-white/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.2em] text-white/40">
-            Exportar página completa
+            {onDialog ? "Exportar solo la ficha" : "Exportar página completa"}
           </p>
 
           <button
@@ -767,7 +855,7 @@ export function PageExportButton() {
               </span>
 
               <span className="block text-[11px] text-white/45">
-                Toda la página sin cortes
+                {onDialog ? "La ficha sin cortes" : "Toda la página sin cortes"}
               </span>
             </span>
           </button>
@@ -792,11 +880,19 @@ export function PageExportButton() {
 
       <button
         type="button"
-        aria-label="Exportar página"
+        aria-label={onDialog ? "Exportar ficha" : "Exportar página"}
         aria-expanded={open}
-        title="Exportar página completa (PDF / PNG)"
+        title={
+          onDialog
+            ? "Exportar solo la ficha abierta (PDF / PNG)"
+            : "Exportar página completa (PDF / PNG)"
+        }
         disabled={busy !== null}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) setOnDialog(Boolean(findOpenDialog()));
+
+          setOpen(!open);
+        }}
         className="flex h-11 w-11 items-center justify-center rounded-full bg-[#C8A96B] text-black shadow-xl transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
       >
         {busy ? (

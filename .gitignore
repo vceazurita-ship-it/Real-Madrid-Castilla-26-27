@@ -48,3 +48,6 @@ next-env.d.ts
 
 # metadatos de macOS
 ._*
+
+# caché de scrapers (scripts/rivals-stats.mjs)
+/.cache/

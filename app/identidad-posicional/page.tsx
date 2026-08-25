@@ -6,6 +6,7 @@ import { Plus, SearchX, Trash2 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import {
   AutoTextarea,
   ConfirmDialog,
@@ -58,6 +59,9 @@ export default function IdentidadPosicionalPage() {
 
   const [porBorrar, setPorBorrar] = useState<PosicionItem | null>(null);
   const [borrando, setBorrando] = useState(false);
+
+  /* Deja rescatar el texto de los contenidos que el servidor no acepte. */
+  const { reportarRechazo, dialogo: avisoGuardado } = useSaveGuard();
 
   const [nuevoBloque, setNuevoBloque] = useState<string | null>(null);
   const [nuevoContenido, setNuevoContenido] = useState("");
@@ -194,12 +198,26 @@ export default function IdentidadPosicionalPage() {
         ),
       );
 
-      const fallidos = resultados.filter((r) => r.status === "rejected").length;
+      /* Una respuesta de error también es un cambio perdido: contarla como
+         éxito porque la petición se completó es lo que hace que el texto
+         desaparezca sin avisar. */
+      const fallidos = cambios.filter((_, indice) => {
+        const resultado = resultados[indice];
 
-      if (fallidos > 0) {
-        toast.error(
-          `${fallidos} de ${cambios.length} cambios no se han podido guardar. Revisa la conexión y vuelve a intentarlo.`,
-        );
+        return resultado.status === "rejected" || !resultado.value.ok;
+      });
+
+      if (fallidos.length > 0) {
+        reportarRechazo({
+          titulo: "Identidad posicional · cambios sin guardar",
+          campos: Object.fromEntries(
+            fallidos.map((p) => [
+              `${p.POSICION} · ${p.BLOQUE} · ${p.TITULO || p.ID}`,
+              p.CONTENIDO,
+            ]),
+          ),
+        });
+
         return;
       }
 
@@ -217,7 +235,7 @@ export default function IdentidadPosicionalPage() {
     } finally {
       setSaving(false);
     }
-  }, [cambios, recargar]);
+  }, [cambios, recargar, reportarRechazo]);
 
   useEditShortcuts({
     editing,
@@ -304,7 +322,15 @@ export default function IdentidadPosicionalPage() {
       recargar(false);
     } catch (err) {
       console.error(err);
-      toast.error("No se ha podido crear el contenido");
+
+      /* El texto sigue en el formulario, pero se ofrece exportarlo por si la
+         siguiente acción del usuario es cerrar o recargar. */
+      reportarRechazo({
+        titulo: "Identidad posicional · contenido sin crear",
+        campos: {
+          [`${posicion} · ${nuevoBloque ?? ""}`]: nuevoContenido.trim(),
+        },
+      });
     } finally {
       setCreando(false);
     }
@@ -671,6 +697,8 @@ export default function IdentidadPosicionalPage() {
         onConfirm={confirmarBorrado}
         onCancel={() => !borrando && setPorBorrar(null)}
       />
+
+      {avisoGuardado}
     </div>
   );
 }

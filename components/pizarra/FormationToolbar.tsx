@@ -51,7 +51,7 @@ async function guardar() {
     return;
   }
 
-  await saveLineup({
+  const resultado = await saveLineup({
 
   id: loadedLineupId?.toString(),
 
@@ -79,6 +79,18 @@ async function guardar() {
   observaciones: ""
 
 });
+
+  /* Si no ha entrado, el modal se queda abierto con el nombre puesto para
+     poder reintentar sin volver a montar la alineación. */
+  if (!resultado?.success) {
+    alert(
+      `No se ha podido guardar la alineación.\n\n${
+        resultado?.error ?? "Revisa la conexión e inténtalo de nuevo."
+      }`
+    );
+
+    return;
+  }
 
   setShowSaveModal(false);
 

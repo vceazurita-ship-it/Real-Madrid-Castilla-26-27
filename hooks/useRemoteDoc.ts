@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { descargarJson } from "@/lib/save-guard/exportar";
 
 export type DocStatus = "loading" | "saved" | "saving" | "offline" | "error";
 
@@ -48,6 +51,11 @@ export function useRemoteDoc<T>({
 
   /** Evita guardar durante la carga inicial y en el primer render. */
   const ready = useRef(false);
+
+  /* El autoguardado se dispara cada pocos segundos: sin esto, un servidor
+     caído llenaría la pantalla de avisos repetidos. Se avisa una vez por
+     racha de fallos y se rearma al primer guardado bueno. */
+  const yaAvisado = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<T | null>(null);
 
@@ -135,6 +143,32 @@ export function useRemoteDoc<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, reloadToken, readCache, writeCache]);
 
+  /**
+   * Avisa de que el trabajo solo está en este navegador y ofrece bajarlo.
+   *
+   * El estado sigue en la caché local, así que no se pierde al recargar, pero
+   * esa copia vive solo en este equipo: si el servidor no responde hay que
+   * poder sacar el documento antes de cambiar de sitio.
+   */
+  const avisarDeGuardadoLocal = useCallback(
+    (motivo: string, documento: T) => {
+      if (yaAvisado.current) return;
+
+      yaAvisado.current = true;
+
+      toast.warning("Guardado solo en este navegador", {
+        id: `doc-local-${key}`,
+        duration: 12000,
+        description: `${motivo}. Tus cambios siguen aquí, pero no están en el servidor.`,
+        action: {
+          label: "Descargar copia",
+          onClick: () => descargarJson(key, documento),
+        },
+      });
+    },
+    [key]
+  );
+
   const flush = useCallback(async () => {
     const next = pending.current;
 
@@ -158,17 +192,31 @@ export function useRemoteDoc<T>({
       if (body.missingTable) {
         setLocalOnly(true);
         setStatus("offline");
+
+        avisarDeGuardadoLocal(
+          "La tabla de documentos no existe todavía en el servidor",
+          next
+        );
+
         return;
       }
 
       setLocalOnly(false);
       setLastSavedAt(body.updatedAt ?? null);
       setStatus("saved");
+
+      yaAvisado.current = false;
     } catch (error) {
       console.error("[useRemoteDoc] guardado", error);
+
       setStatus("error");
+
+      avisarDeGuardadoLocal(
+        "El servidor no ha aceptado el guardado automático",
+        next
+      );
     }
-  }, [key, kind]);
+  }, [key, kind, avisarDeGuardadoLocal]);
 
   const setValue = useCallback(
     (updater: T | ((current: T) => T)) => {

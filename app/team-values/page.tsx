@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import {
   AutoTextarea,
   EditToolbar,
@@ -75,6 +76,9 @@ export default function TeamValuesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
+
+  /* Deja rescatar el texto de los cambios que el servidor no acepte. */
+  const { reportarRechazo, dialogo: avisoGuardado } = useSaveGuard();
 
   /* ------------------------------------------------------------ carga */
 
@@ -245,12 +249,26 @@ export default function TeamValuesPage() {
         ),
       );
 
-      const fallidos = resultados.filter((r) => r.status === "rejected").length;
+      /* Una respuesta de error también es un cambio perdido: contarla como
+         éxito solo porque la petición llegó a completarse es justo lo que
+         hace que el texto desaparezca sin avisar. */
+      const fallidos = cambios.filter((_, indice) => {
+        const resultado = resultados[indice];
 
-      if (fallidos > 0) {
-        toast.error(
-          `${fallidos} de ${cambios.length} cambios no se han podido guardar. Revisa la conexión y vuelve a intentarlo.`,
-        );
+        return resultado.status === "rejected" || !resultado.value.ok;
+      });
+
+      if (fallidos.length > 0) {
+        reportarRechazo({
+          titulo: "Valores de equipo · cambios sin guardar",
+          campos: Object.fromEntries(
+            fallidos.map((p) => [
+              `${p.SECCION} · ${p.TITULO || p.ID}`,
+              p.CONTENIDO,
+            ]),
+          ),
+        });
+
         return;
       }
 
@@ -268,7 +286,7 @@ export default function TeamValuesPage() {
     } finally {
       setSaving(false);
     }
-  }, [cambios, data]);
+  }, [cambios, data, reportarRechazo]);
 
   useEditShortcuts({
     editing,
@@ -614,6 +632,8 @@ export default function TeamValuesPage() {
           </div>
         </div>
       )}
+
+      {avisoGuardado}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -367,6 +368,11 @@ export default function ScoutRivalCollective() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
 
+  /* El informe y el plan de partido comparten fila: si la hoja no tiene la
+     columna, el valor se descarta en silencio. Se verifica tras guardar. */
+  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
+    useSaveGuard();
+
   useEffect(() => {
     let cancelled = false;
 
@@ -474,6 +480,34 @@ export default function ScoutRivalCollective() {
       const data = await res.json();
 
       if (data.success) {
+        /* La hoja solo escribe los campos con cabecera propia y aun así
+           responde `success`. Se relee el rival para comprobar qué ha
+           llegado antes de cerrar la edición. */
+        const verificacion = await verificarGuardado({
+          titulo: `Informe de scouting · ${rivalActivo.EQUIPO ?? ""}`,
+          enviado: rivalActivo,
+          ignorar: ["FECHA"],
+          releer: async () => {
+            const respuesta = await fetch(`${ENDPOINT}?action=rivales`, {
+              cache: "no-store",
+            });
+
+            if (!respuesta.ok) return null;
+
+            const filas: Rival[] = await respuesta.json();
+
+            return (
+              filas.find((r) => String(r.ID) === String(rivalActivo.ID)) ?? null
+            );
+          },
+        });
+
+        if (!verificacion.ok) {
+          toast.dismiss(toastId);
+
+          return;
+        }
+
         toast.success("Informe guardado correctamente", { id: toastId });
 
         setSnapshot(null);
@@ -816,6 +850,7 @@ export default function ScoutRivalCollective() {
             </div>
           </section>
         </div>
+        {avisoGuardado}
       </main>
     </div>
   );

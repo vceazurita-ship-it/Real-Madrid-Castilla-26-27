@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 
 import {
   Activity,
@@ -949,6 +950,11 @@ export default function MatchPreparation() {
   const [error, setError] = useState<string | null>(null);
   const [seccionActiva, setSeccionActiva] = useState("contexto");
 
+  /* La hoja de destino descarta en silencio los campos sin columna propia,
+     así que el guardado se comprueba releyendo antes de cerrar la edición. */
+  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
+    useSaveGuard();
+
   /* ---------------------------------------------------------------- CARGA */
 
   /* `recargas` fuerza un nuevo fetch; `idPreferido` conserva el partido
@@ -1120,6 +1126,38 @@ export default function MatchPreparation() {
         throw new Error(json?.error || "El servidor rechazó los cambios");
       }
 
+      /* `success` solo confirma que la petición se aceptó, no que el texto
+         haya llegado a la hoja. Se relee el partido y se compara campo a
+         campo antes de dar el guardado por bueno. */
+      const verificacion = await verificarGuardado({
+        titulo: `Plan de partido · ${rivalActivo.EQUIPO ?? ""} · Jornada ${
+          rivalActivo.JORNADA ?? "-"
+        }`,
+        enviado: rivalActivo,
+        ignorar: ["FECHA"],
+        releer: async () => {
+          const respuesta = await fetch(`${APPS_SCRIPT_URL}?action=rivales`, {
+            cache: "no-store",
+          });
+
+          if (!respuesta.ok) return null;
+
+          const filas: Rival[] = await respuesta.json();
+
+          return (
+            filas.find((r) => String(r.ID) === String(rivalActivo.ID)) ?? null
+          );
+        },
+      });
+
+      /* Si se ha perdido algo, el aviso ya está abierto: la edición sigue
+         abierta y con el texto en pantalla para poder exportarlo. */
+      if (!verificacion.ok) {
+        toast.dismiss(idToast);
+
+        return;
+      }
+
       setSnapshot(rivalActivo);
 
       setRivales((previo) =>
@@ -1149,7 +1187,7 @@ export default function MatchPreparation() {
     } finally {
       setGuardando(false);
     }
-  }, [rivalActivo, guardando]);
+  }, [rivalActivo, guardando, verificarGuardado]);
 
   /* --------------------------------------------------------------- ATAJOS */
 
@@ -1988,6 +2026,8 @@ export default function MatchPreparation() {
             </button>
           </div>
         )}
+
+        {avisoGuardado}
       </main>
     </div>
   );

@@ -6,7 +6,7 @@ export async function saveLineup(data: {
   fecha: string;
   rival: string;
   sistema: string;
-  alineacion: any;
+  alineacion: unknown;
   observaciones: string;
 }) {
 
@@ -55,6 +55,32 @@ export async function saveLineup(data: {
     body
   });
 
-  return await res.json();
+  /* La respuesta se normaliza siempre a { success }: antes se devolvía el
+     JSON en crudo y quien llamaba lo ignoraba, así que un error del servidor
+     acababa con un "guardado" en pantalla y la alineación sin escribir. */
+  if (!res.ok) {
+    return {
+      success: false,
+      error: `El servidor respondió ${res.status}`,
+    };
+  }
+
+  try {
+    const cuerpo = await res.json();
+
+    if (cuerpo?.success === false) {
+      return {
+        success: false,
+        error: String(cuerpo?.error ?? "El servidor rechazó la alineación"),
+      };
+    }
+
+    return { success: true, ...cuerpo };
+  } catch {
+    return {
+      success: false,
+      error: "La respuesta del servidor no se ha podido leer",
+    };
+  }
 
 }

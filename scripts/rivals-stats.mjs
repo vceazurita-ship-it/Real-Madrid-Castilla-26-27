@@ -1,0 +1,630 @@
+/**
+ * Descarga de BeSoccer las estadísticas de todos los jugadores rivales y las
+ * guarda en Supabase (`app_documents`, clave `rivals:stats`).
+ *
+ *   node scripts/rivals-stats.mjs            descarga lo que falte y sube
+ *   node scripts/rivals-stats.mjs --solo-subir   sólo reconstruye y sube
+ *   node scripts/rivals-stats.mjs --refrescar    ignora la caché y baja todo
+ *
+ * ¿Por qué Supabase y no la hoja? La hoja RIVALES escribe **por nombre de
+ * columna** y no tiene cabeceras para partidos, minutos, goles ni tarjetas: un
+ * guardado ahí se descartaría en silencio devolviendo `success: true`. Estos
+ * números además no los edita nadie a mano, así que un documento JSON que se
+ * regenera con este script es el sitio natural.
+ *
+ * La clave de cada jugador es su **id de resfu**, el que ya viaja dentro de la
+ * URL de la columna FOTO (`players/medium/<id>.jpg`). Es el id propio de
+ * BeSoccer y no se mueve; los `ID_JUGADOR` de la hoja sí se renumeran.
+ *
+ * Notas de scraping (ver también la nota "besoccer-plantillas-rivales"):
+ * - BeSoccer devuelve 406 sin cabeceras de navegador, y el `fetch` de Node
+ *   falla de forma intermitente donde `curl --compressed` funciona siempre.
+ * - Se deja ~1,5 s entre peticiones. Son ~450 páginas: media hora larga.
+ * - La descarga se cachea en `.cache/rivals-stats/`, así que se puede cortar y
+ *   reanudar sin repetir nada.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+
+import { createClient } from "@supabase/supabase-js";
+
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+
+const CACHE_DIR = ".cache/rivals-stats";
+const CACHE_FILE = path.join(CACHE_DIR, "besoccer.json");
+
+const DOC_KEY = "rivals:stats";
+const DOC_KIND = "rivals";
+
+/** Temporada en curso: la que se enseña de entrada si el jugador ya ha jugado. */
+const TEMPORADA = "2026/27";
+
+/* Slug de BeSoccer de cada equipo rival. Salen de la clasificación del grupo:
+   https://es.besoccer.com/competicion/clasificacion/primera_division_rfef/2027/grupo2 */
+const TEAM_SLUGS = {
+  "RIV-01": "teruel",
+  "RIV-02": "juventud-torremolinos",
+  "RIV-03": "aguilas-cf",
+  "RIV-04": "sant-andreu",
+  "RIV-05": "ad-alcorcon",
+  "RIV-06": "at-madrid-b",
+  "RIV-07": "ibiza-eivissa",
+  "RIV-08": "antequera",
+  "RIV-09": "algeciras-cf",
+  "RIV-10": "cartagena",
+  "RIV-11": "hercules",
+  "RIV-12": "gimnastic-tarragona",
+  "RIV-13": "real-murcia",
+  "RIV-14": "rayo-majadahonda",
+  "RIV-15": "real-jaen",
+  "RIV-16": "real-zaragoza",
+  "RIV-17": "huesca",
+  "RIV-18": "ce-europa",
+  "RIV-19": "villarreal-b",
+};
+
+/*
+| Emparejamientos a mano: fila de la hoja -> id de resfu.
+|
+| Sólo para quien no tiene foto en la hoja **y** aparece en BeSoccer con otro
+| nombre, que es donde el emparejamiento automático no puede acertar. Antes de
+| añadir a alguien aquí, confírmalo con edad + altura + peso de su ficha; el
+| nombre solo no basta.
+*/
+const OVERRIDES = {
+  /* "Goyo" (Gregorio Medina, Teruel): BeSoccer lo escribe "Gollo". Coinciden
+     26 años, 62 kg y 177 cm. */
+  "RIV-01|gregorio medina": "676931",
+};
+
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+const args = new Set(process.argv.slice(2));
+
+const soloSubir = args.has("--solo-subir");
+const refrescar = args.has("--refrescar");
+
+/*
+|--------------------------------------------------------------------------
+| UTILIDADES
+|--------------------------------------------------------------------------
+*/
+
+const sleep = (ms) =>
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+function curl(url) {
+  return execFileSync(
+    "curl",
+    [
+      "-s",
+      "--compressed",
+      "--max-time",
+      "45",
+      "-H",
+      `User-Agent: ${UA}`,
+      "-H",
+      "Accept: text/html,application/xhtml+xml",
+      "-H",
+      "Accept-Language: es-ES,es;q=0.9",
+      url,
+    ],
+    { maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }
+  );
+}
+
+const strip = (html) =>
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const toNumber = (text) => {
+  const match = String(text).replace(/\./g, "").match(/-?\d+/);
+
+  return match ? Number(match[0]) : 0;
+};
+
+const normalize = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const NOISE = new Set(["de", "del", "la", "el", "los", "las", "da", "dos", "van", "der"]);
+
+const tokens = (name) =>
+  normalize(name)
+    .split(" ")
+    .filter((token) => token && !NOISE.has(token));
+
+const resfuId = (foto) => {
+  const match = String(foto ?? "").match(/players\/[a-z]+\/(\d+)/);
+
+  return match ? match[1] : null;
+};
+
+/*
+|--------------------------------------------------------------------------
+| PARSEO DE LA FICHA
+|--------------------------------------------------------------------------
+| La tabla `table_parents` de la ficha tiene una fila `parent_row` por
+| equipo-temporada y filas `parent_son` por competición dentro de ella. Nos
+| quedamos con las `parent_row`: son el total en ese club esa temporada.
+|
+| El orden de columnas es fijo, pero el significado de dos de ellas cambia
+| según el puesto: a los porteros se les dan goles encajados y penaltis
+| parados donde a los de campo se les dan goles y asistencias. Lo decide la
+| cabecera, no la posición que tengamos nosotros en la hoja.
+*/
+
+function rows(tableHtml) {
+  return [...tableHtml.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/g)].map((m) => ({
+    attrs: m[1],
+    html: m[2],
+  }));
+}
+
+function cells(rowHtml) {
+  return [...rowHtml.matchAll(/<(td|th)\b([^>]*)>([\s\S]*?)<\/\1>/g)].map((m) => ({
+    html: m[3],
+  }));
+}
+
+function trajectoryTable(html) {
+  const start = html.indexOf("table_parents");
+
+  if (start < 0) return null;
+
+  const from = html.lastIndexOf("<table", start);
+  const to = html.indexOf("</table>", start);
+
+  if (from < 0 || to < 0) return null;
+
+  return html.slice(from, to);
+}
+
+function parsePlayer(html) {
+  const table = trajectoryTable(html);
+
+  if (!table) return null;
+
+  const all = rows(table);
+  const head = all.find((row) => /row-head/.test(row.attrs));
+
+  if (!head) return null;
+
+  const portero = /Goles concedidos/i.test(head.html);
+
+  const temporadas = [];
+
+  for (const row of all) {
+    if (!/parent_row/.test(row.attrs)) continue;
+
+    const cs = cells(row.html);
+
+    if (cs.length < 11) continue;
+
+    const temporada = (strip(cs[1].html).match(/\d{4}\/\d{2}/) || [""])[0];
+
+    if (!temporada) continue;
+
+    const entry = {
+      temporada,
+      equipo: strip(cs[0].html),
+      partidos: toNumber(strip(cs[2].html)),
+      amarillas: toNumber(strip(cs[5].html)),
+      rojas: toNumber(strip(cs[6].html)),
+      titular: toNumber(strip(cs[8].html)),
+      suplente: toNumber(strip(cs[9].html)),
+      minutos: toNumber(strip(cs[10].html)),
+    };
+
+    if (portero) {
+      entry.encajados = toNumber(strip(cs[3].html));
+      entry.penaltisParados = toNumber(strip(cs[4].html));
+    } else {
+      entry.goles = toNumber(strip(cs[3].html));
+      entry.asistencias = toNumber(strip(cs[4].html));
+    }
+
+    temporadas.push(entry);
+  }
+
+  return { portero, temporadas };
+}
+
+/**
+ * Junta las filas de una misma temporada.
+ *
+ * Un jugador puede haber pasado por dos clubes en un año (cedido en enero,
+ * por ejemplo) y BeSoccer le da una fila a cada uno. Al preparar un partido
+ * interesa el total del curso, no el desglose, así que se suman y se
+ * conservan los nombres de los clubes para poder explicarlo en la ficha.
+ */
+function mergeSeasons(temporadas) {
+  const merged = new Map();
+
+  for (const entry of temporadas) {
+    const current = merged.get(entry.temporada);
+
+    if (!current) {
+      const { equipo, ...rest } = entry;
+
+      merged.set(entry.temporada, { ...rest, equipos: equipo ? [equipo] : [] });
+      continue;
+    }
+
+    for (const key of [
+      "partidos",
+      "titular",
+      "suplente",
+      "minutos",
+      "amarillas",
+      "rojas",
+      "goles",
+      "asistencias",
+      "encajados",
+      "penaltisParados",
+    ]) {
+      if (entry[key] === undefined) continue;
+
+      current[key] = (current[key] ?? 0) + entry[key];
+    }
+
+    if (entry.equipo && !current.equipos.includes(entry.equipo)) {
+      current.equipos.push(entry.equipo);
+    }
+  }
+
+  /* De la más reciente a la más antigua: "2026/27" ordena bien como texto. */
+  return [...merged.values()].sort((a, b) =>
+    b.temporada.localeCompare(a.temporada)
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| DESCARGA
+|--------------------------------------------------------------------------
+*/
+
+async function loadRivals() {
+  const response = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`, {
+    cache: "no-store",
+  });
+
+  const data = await response.json();
+
+  if (!Array.isArray(data)) throw new Error("La hoja no ha devuelto una lista.");
+
+  /* Las plantillas traen filas en blanco reservadas para altas futuras. */
+  return data.filter((player) => String(player.JUGADOR || "").trim());
+}
+
+function fetchSquads() {
+  const squads = {};
+
+  for (const [id, slug] of Object.entries(TEAM_SLUGS)) {
+    let html = "";
+
+    for (let attempt = 0; attempt < 3 && html.length < 5000; attempt += 1) {
+      if (attempt) sleep(3000);
+
+      try {
+        html = curl(`https://es.besoccer.com/equipo/plantilla/${slug}`);
+      } catch {
+        html = "";
+      }
+    }
+
+    const jugadores = {};
+
+    for (const m of html.matchAll(
+      /href="https:\/\/es\.besoccer\.com\/jugador\/([a-z0-9-]+?-(\d+))"/g
+    )) {
+      jugadores[m[2]] = m[1];
+    }
+
+    squads[id] = { slug, jugadores };
+
+    console.log(`plantilla ${id} ${slug}: ${Object.keys(jugadores).length}`);
+
+    sleep(1500);
+  }
+
+  return squads;
+}
+
+/**
+ * A qué ficha de BeSoccer corresponde cada fila de la hoja.
+ *
+ * Manda el id de la foto, que cubre casi todo. Para las filas sin foto se
+ * puntúa por nombre **dentro de su propio equipo**, exigiendo que coincida el
+ * último token: compartir sólo el nombre de pila empareja a dos personas
+ * distintas (Pau Cifuentes ≠ Pau Martínez).
+ */
+function resolve(players, squads) {
+  return players.map((player) => {
+    const squad = squads[player.ID_EQUIPO];
+
+    const manual =
+      OVERRIDES[`${player.ID_EQUIPO}|${normalize(player.JUGADOR)}`];
+
+    if (manual) {
+      return {
+        player,
+        id: manual,
+        slug: squad?.jugadores[manual] ?? null,
+        how: "manual",
+      };
+    }
+
+    const fromPhoto = resfuId(player.FOTO);
+
+    /* Aunque BeSoccer ya no lo liste en la plantilla, su ficha sigue viva y es
+       la que queremos: la hoja puede ir por delante o por detrás. */
+    if (fromPhoto) {
+      return {
+        player,
+        id: fromPhoto,
+        slug: squad?.jugadores[fromPhoto] ?? null,
+        how: squad?.jugadores[fromPhoto] ? "foto" : "foto-fuera",
+      };
+    }
+
+    if (!squad) return { player, id: null, slug: null, how: null };
+
+    const want = tokens(player.JUGADOR || player["NOMBRE DEPORTIVO"]);
+    const surname = want[want.length - 1];
+
+    let best = null;
+
+    for (const [candidateId, slug] of Object.entries(squad.jugadores)) {
+      const have = tokens(slug.replace(/-\d+$/, "").replace(/-/g, " "));
+
+      if (!surname || !have.includes(surname)) continue;
+
+      const score = have.filter((token) => want.includes(token)).length;
+
+      if (!best || score > best.score) best = { id: candidateId, slug, score };
+    }
+
+    return best
+      ? { player, id: best.id, slug: best.slug, how: "nombre" }
+      : { player, id: null, slug: null, how: null };
+  });
+}
+
+function readCache() {
+  if (refrescar || !fs.existsSync(CACHE_FILE)) return {};
+
+  try {
+    return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeCache(cache) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
+}
+
+function scrape(targets, cache) {
+  const pending = targets.filter((row) => row.id && !cache[row.id]);
+
+  console.log(`fichas por descargar: ${pending.length}`);
+
+  const failures = [];
+
+  let done = 0;
+
+  for (const row of pending) {
+    done += 1;
+
+    const url = `https://es.besoccer.com/jugador/${row.slug || `x-${row.id}`}`;
+
+    let parsed = null;
+    let error = null;
+
+    for (let attempt = 0; attempt < 3 && !parsed; attempt += 1) {
+      if (attempt) sleep(4000);
+
+      try {
+        const html = curl(url);
+
+        /* Una respuesta corta es un bloqueo o un error, no una ficha vacía. */
+        if (html.length < 20000) {
+          error = `respuesta corta (${html.length})`;
+          continue;
+        }
+
+        parsed = parsePlayer(html);
+
+        if (!parsed) error = "sin tabla de trayectoria";
+      } catch (e) {
+        error = String(e?.message ?? e).slice(0, 120);
+      }
+    }
+
+    /*
+    | Un fallo NO se cachea. BeSoccer devuelve de vez en cuando la ficha sin
+    | el módulo de trayectoria: es un tropiezo del servidor, no un jugador
+    | sin datos. Guardarlo dejaba a esa gente sin estadísticas para siempre
+    | (pasó con 6 el 25/08/2026, y al reintentarlos salieron a la primera).
+    | Sin cachearlo, la siguiente pasada los vuelve a pedir.
+    */
+    if (parsed) {
+      cache[row.id] = { url, portero: parsed.portero, temporadas: parsed.temporadas };
+    } else {
+      failures.push(`${row.player.NOMBRE_EQUIPO} · ${row.player.JUGADOR}: ${error ?? "desconocido"}`);
+    }
+
+    if (done % 10 === 0 || done === pending.length) {
+      writeCache(cache);
+
+      console.log(
+        `${done}/${pending.length} · ${row.player.NOMBRE_EQUIPO} · ${row.player.JUGADOR}`
+      );
+    }
+
+    sleep(1500);
+  }
+
+  writeCache(cache);
+
+  if (failures.length) {
+    console.log(`fichas que no han salido (se reintentan al volver a correr): ${failures.length}`);
+
+    failures.forEach((line) => console.log(`  · ${line}`));
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| DOCUMENTO Y SUBIDA
+|--------------------------------------------------------------------------
+*/
+
+function buildDoc(targets, cache) {
+  const porId = {};
+  const porNombre = {};
+
+  for (const row of targets) {
+    const entry = row.id ? cache[row.id] : null;
+
+    if (!entry || entry.error) continue;
+
+    porId[row.id] = {
+      portero: entry.portero,
+      url: entry.url,
+      temporadas: mergeSeasons(entry.temporadas),
+    };
+
+    /* Índice de respaldo para las filas de la hoja que no traen foto. */
+    const key = `${normalize(row.player.NOMBRE_EQUIPO)}|${normalize(
+      row.player.JUGADOR
+    )}`;
+
+    porNombre[key] = row.id;
+  }
+
+  return {
+    actualizado: new Date().toISOString(),
+    fuente: "besoccer",
+    temporada: TEMPORADA,
+    porId,
+    porNombre,
+  };
+}
+
+function readEnv() {
+  /* El fichero viene con saltos de Windows y en JS el `.` de una expresión
+     regular no cruza un `\r`: sin quitarlos, ninguna línea encaja. */
+  const raw = fs.readFileSync(".env.local", "utf8").replace(/\r/g, "");
+
+  const env = {};
+
+  for (const line of raw.split("\n")) {
+    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+
+    if (match) env[match[1]] = match[2].trim();
+  }
+
+  return env;
+}
+
+async function upload(doc) {
+  const env = readEnv();
+
+  const supabase = createClient(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const { error } = await supabase
+    .from("app_documents")
+    .upsert(
+      { key: DOC_KEY, kind: DOC_KIND, data: doc, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+
+  if (error) throw new Error(error.message);
+
+  /* Relectura: un `success` sin comprobar no prueba que se haya escrito. */
+  const { data, error: readError } = await supabase
+    .from("app_documents")
+    .select("data")
+    .eq("key", DOC_KEY)
+    .maybeSingle();
+
+  if (readError) throw new Error(readError.message);
+
+  const saved = Object.keys(data?.data?.porId ?? {}).length;
+  const sent = Object.keys(doc.porId).length;
+
+  if (saved !== sent) {
+    throw new Error(`Se enviaron ${sent} jugadores y la tabla guardó ${saved}.`);
+  }
+
+  console.log(`Supabase: ${saved} jugadores verificados en ${DOC_KEY}.`);
+}
+
+/*
+|--------------------------------------------------------------------------
+| MAIN
+|--------------------------------------------------------------------------
+*/
+
+const players = await loadRivals();
+
+console.log(`jugadores en la hoja: ${players.length}`);
+
+const squadsFile = path.join(CACHE_DIR, "squads.json");
+
+let squads;
+
+if (!refrescar && fs.existsSync(squadsFile)) {
+  squads = JSON.parse(fs.readFileSync(squadsFile, "utf8"));
+} else {
+  squads = fetchSquads();
+
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+  fs.writeFileSync(squadsFile, JSON.stringify(squads));
+}
+
+const targets = resolve(players, squads);
+
+const sinFicha = targets.filter((row) => !row.id);
+
+if (sinFicha.length) {
+  console.log(`sin ficha en BeSoccer (${sinFicha.length}):`);
+
+  sinFicha.forEach((row) =>
+    console.log(`  · ${row.player.NOMBRE_EQUIPO} · ${row.player.JUGADOR}`)
+  );
+}
+
+const cache = readCache();
+
+if (!soloSubir) scrape(targets, cache);
+
+const doc = buildDoc(targets, cache);
+
+const conFicha = targets.filter((row) => row.id).length;
+
+console.log(
+  `documento: ${Object.keys(doc.porId).length} de ${conFicha} jugadores con ficha`
+);
+
+await upload(doc);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileText, Image as ImageIcon, Plus, Trash2, Pencil } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useSaveGuard } from "@/hooks/useSaveGuard";
 import {
   CalendarShell,
   CalendarStat,
@@ -109,6 +110,13 @@ export default function CalendarPerformance() {
   const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  /* Comprueba que la hoja se queda con el texto de cada trabajo. */
+  const {
+    verificar: verificarGuardado,
+    reportarRechazo,
+    dialogo: avisoGuardado,
+  } = useSaveGuard();
   const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(
     null
   );
@@ -277,20 +285,75 @@ export default function CalendarPerformance() {
     payload: Partial<ConditionalEvent>,
     existing: ConditionalEvent | null
   ) {
-    await fetch(APPS_SCRIPT_URL, {
+    const enviado = existing
+      ? {
+          action: "editarEventoCondicional",
+          ...existing,
+          ...payload,
+        }
+      : { action: "crearEventoCondicional", ...payload };
+
+    const respuesta = await fetch(APPS_SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify(
-        existing
-          ? {
-              action: "editarEventoCondicional",
-              ...existing,
-              ...payload,
-            }
-          : { action: "crearEventoCondicional", ...payload }
-      ),
+      body: JSON.stringify(enviado),
     });
 
-    await reloadEvents();
+    /* Sin esto, un error del servidor pasaba desapercibido: se recargaba la
+       lista y el trabajo escrito simplemente no aparecía. */
+    if (!respuesta.ok) {
+      reportarRechazo({
+        titulo: `Trabajo condicional · ${enviado.TITULO ?? ""}`,
+        campos: {
+          TITULO: String(enviado.TITULO ?? ""),
+          DESCRIPCION: String(enviado.DESCRIPCION ?? ""),
+          JUGADORES: String(enviado.JUGADORES ?? ""),
+          RESPONSABLE: String(enviado.RESPONSABLE ?? ""),
+        },
+      });
+
+      throw new Error(`El servidor respondió ${respuesta.status}`);
+    }
+
+    const frescos = await reloadEvents();
+
+    /* Recién creado el ID lo pone la hoja, así que el trabajo se localiza por
+       fecha y título, que es justo lo que acabamos de escribir. */
+    const guardado = existing?.ID_EVENTO
+      ? frescos.find(
+          (evento) => String(evento.ID_EVENTO) === String(existing.ID_EVENTO)
+        )
+      : frescos.find(
+          (evento) =>
+            evento.FECHA === enviado.FECHA && evento.TITULO === enviado.TITULO
+        );
+
+    /* Si tras recargar el trabajo no aparece, no ha llegado a escribirse por
+       mucho que la respuesta fuera correcta. */
+    if (!guardado) {
+      reportarRechazo({
+        titulo: `Trabajo condicional · ${enviado.TITULO ?? ""}`,
+        campos: {
+          TITULO: String(enviado.TITULO ?? ""),
+          DESCRIPCION: String(enviado.DESCRIPCION ?? ""),
+          JUGADORES: String(enviado.JUGADORES ?? ""),
+          RESPONSABLE: String(enviado.RESPONSABLE ?? ""),
+        },
+      });
+
+      throw new Error("El trabajo no aparece en la hoja después de guardar");
+    }
+
+    /* La hoja escribe por columna: se comprueba que el texto ha llegado. */
+    const verificacion = await verificarGuardado({
+      titulo: `Trabajo condicional · ${enviado.TITULO ?? ""}`,
+      enviado,
+      ignorar: ["FECHA"],
+      releer: async () => guardado,
+    });
+
+    if (!verificacion.ok) {
+      throw new Error("El guardado no ha conservado todo el contenido");
+    }
   }
 
   async function deleteEvent(id: string) {
@@ -572,6 +635,8 @@ export default function CalendarPerformance() {
           )}
         </CalendarDayModal>
       )}
+
+      {avisoGuardado}
     </CalendarShell>
   );
 }
