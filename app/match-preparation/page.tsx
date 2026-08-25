@@ -14,21 +14,24 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
+import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
+import RecursosRival, {
+  type RecursoFijo,
+} from "@/components/rivals/RecursosRival";
 
 import {
   Activity,
   Binoculars,
   Brain,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
-  CircleCheck,
   ClipboardList,
-  Copy,
-  ExternalLink,
-  FileText,
   Film,
   Flame,
   LoaderCircle,
@@ -37,7 +40,6 @@ import {
   Printer,
   RotateCcw,
   Ruler,
-  Save,
   Search,
   Shield,
   Sparkles,
@@ -60,8 +62,9 @@ import type { LucideIcon } from "lucide-react";
 |   · LECTURA  -> el contenido se muestra como texto/listas legibles.
 |   · EDICIÓN  -> los mismos bloques se convierten en campos editables.
 |
-| Todo el estado editable vive en `rivalActivo`; `snapshot` guarda la última
-| versión confirmada para poder cancelar sin perder datos del servidor.
+| Todo el estado editable vive en `rivalActivo` y, en edición, se guarda solo
+| unos segundos después de cada cambio (`useAutoSave`). `alEntrar` conserva la
+| versión con la que se abrió la edición: es a la que vuelve «Deshacer».
 */
 
 const APPS_SCRIPT_URL =
@@ -270,28 +273,6 @@ function aVinetas(valor: unknown, separarPorPuntoYComa = false) {
   return partes
     .map((linea) => linea.replace(/^[\s•\-–·]+/, "").trim())
     .filter(Boolean);
-}
-
-function dominio(url: unknown) {
-  const texto = String(url ?? "").trim();
-
-  if (!texto) return "";
-
-  try {
-    return new URL(
-      texto.startsWith("http") ? texto : `https://${texto}`
-    ).hostname.replace(/^www\./, "");
-  } catch {
-    return texto.replace(/^https?:\/\//, "").split("/")[0];
-  }
-}
-
-function enlaceSeguro(url: unknown) {
-  const texto = String(url ?? "").trim();
-
-  if (!texto) return "";
-
-  return texto.startsWith("http") ? texto : `https://${texto}`;
 }
 
 /**
@@ -505,149 +486,6 @@ function DatoCabecera({
       </p>
 
       <div className="mt-1.5 text-sm font-semibold text-white">{children}</div>
-    </div>
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| TARJETA DE RECURSO (HUDL / DOC)
-|--------------------------------------------------------------------------
-*/
-
-function ResourceCard({
-  titulo,
-  descripcion,
-  valor,
-  icon: Icon,
-  editando,
-  onChange,
-}: {
-  titulo: string;
-  descripcion: string;
-  valor: unknown;
-  icon: LucideIcon;
-  editando: boolean;
-  onChange: (valor: string) => void;
-}) {
-  const url = String(valor ?? "").trim();
-
-  const disponible = url.length > 0;
-
-  const copiar = async () => {
-    if (!disponible) return;
-
-    try {
-      await navigator.clipboard.writeText(enlaceSeguro(url));
-
-      toast.success("Enlace copiado", { description: titulo });
-    } catch {
-      toast.error("No se ha podido copiar el enlace");
-    }
-  };
-
-  return (
-    <div
-      className={`
-        mp-card flex flex-col rounded-2xl border p-5 transition-all duration-200
-        ${
-          disponible
-            ? "border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] hover:border-[#C8A96B]/50"
-            : "border-white/10 bg-white/[0.02]"
-        }
-      `}
-    >
-      <div className="flex items-start gap-3">
-        <span
-          className={`
-            flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border
-            ${
-              disponible
-                ? "border-[#C8A96B]/30 bg-[#C8A96B]/10 text-[#C8A96B]"
-                : "border-white/10 bg-white/[0.03] text-white/30"
-            }
-          `}
-        >
-          <Icon size={16} />
-        </span>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-white">{titulo}</h3>
-
-          <p className="mt-0.5 text-[11px] text-white/40">{descripcion}</p>
-        </div>
-
-        {disponible ? (
-          <CircleCheck size={16} className="mt-0.5 shrink-0 text-emerald-400" />
-        ) : (
-          <CircleAlert size={16} className="mt-0.5 shrink-0 text-white/25" />
-        )}
-      </div>
-
-      <div className="mt-4 flex-1">
-        {editando ? (
-          <input
-            aria-label={`Enlace de ${titulo}`}
-            value={url}
-            placeholder="https://..."
-            onChange={(e) => onChange(e.target.value)}
-            className="
-              w-full rounded-xl border border-white/15 bg-[#0B0F14]/70
-              px-3 py-2.5 text-sm text-white outline-none transition
-              placeholder:text-white/25
-              focus:border-[#C8A96B] focus:ring-2 focus:ring-[#C8A96B]/25
-            "
-          />
-        ) : (
-          <p
-            className={`truncate text-xs ${
-              disponible ? "text-white/55" : "text-white/25"
-            }`}
-            title={disponible ? url : undefined}
-          >
-            {disponible ? dominio(url) : "Sin enlace asignado"}
-          </p>
-        )}
-      </div>
-
-      <div className="mp-no-print mt-4 flex gap-2">
-        <a
-          href={disponible ? enlaceSeguro(url) : undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-disabled={!disponible}
-          onClick={(e) => {
-            if (!disponible) e.preventDefault();
-          }}
-          className={`
-            flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5
-            text-xs font-semibold transition
-            ${
-              disponible
-                ? "bg-[#C8A96B] text-black hover:bg-[#d9bd82]"
-                : "cursor-not-allowed bg-white/[0.04] text-white/25"
-            }
-          `}
-        >
-          <ExternalLink size={14} />
-          Abrir
-        </a>
-
-        <button
-          type="button"
-          onClick={copiar}
-          disabled={!disponible}
-          title="Copiar enlace"
-          aria-label={`Copiar enlace de ${titulo}`}
-          className="
-            rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5
-            text-white/70 transition hover:border-white/25 hover:text-white
-            disabled:cursor-not-allowed disabled:opacity-30
-          "
-        >
-          <Copy size={14} />
-        </button>
-      </div>
     </div>
   );
 }
@@ -942,7 +780,6 @@ function Esqueleto() {
 export default function MatchPreparation() {
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
-  const [snapshot, setSnapshot] = useState<Rival | null>(null);
 
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -952,8 +789,11 @@ export default function MatchPreparation() {
 
   /* La hoja de destino descarta en silencio los campos sin columna propia,
      así que el guardado se comprueba releyendo antes de cerrar la edición. */
-  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
-    useSaveGuard();
+  const {
+    verificar: verificarGuardado,
+    dialogo: avisoGuardado,
+    columnasPerdidas,
+  } = useSaveGuard();
 
   /* ---------------------------------------------------------------- CARGA */
 
@@ -1016,8 +856,7 @@ export default function MatchPreparation() {
         if (enlazado) window.history.replaceState({}, "", "/match-preparation");
 
         setRivalActivo(elegido ?? null);
-        setSnapshot(elegido ?? null);
-      } catch (e) {
+          } catch (e) {
         if (cancelado) return;
 
         console.error("Error cargando rivales:", e);
@@ -1040,11 +879,6 @@ export default function MatchPreparation() {
   }, [recargas]);
 
   /* --------------------------------------------------------------- ESTADO */
-
-  const hayCambios = useMemo(
-    () => JSON.stringify(rivalActivo) !== JSON.stringify(snapshot),
-    [rivalActivo, snapshot]
-  );
 
   const setCampo = useCallback((campo: string, valor: string) => {
     setRivalActivo((previo) =>
@@ -1077,9 +911,15 @@ export default function MatchPreparation() {
 
   /* ------------------------------------------------------------- ACCIONES */
 
+  /* Puente hacia el `flush` del autoguardado, que se declara más abajo. */
+  const flushPendiente = useRef<() => Promise<void>>(async () => {});
+
   const seleccionarRival = useCallback((rival: Rival) => {
-    setRivalActivo(rival);
-    setSnapshot(rival);
+    /* Con el retardo del autoguardado a medias, cambiar de partido se llevaría
+       por delante lo último escrito: primero se consolida. */
+    void flushPendiente.current().then(() => {
+      setRivalActivo(rival);
+    });
   }, []);
 
   const navegar = useCallback(
@@ -1093,26 +933,72 @@ export default function MatchPreparation() {
     [indiceActual, rivales, seleccionarRival]
   );
 
-  const cancelarEdicion = useCallback(() => {
-    if (hayCambios) toast.info("Cambios descartados");
+  /*
+  | Foto del plan al entrar en edición.
+  |
+  | No vale comparar con la última versión guardada: el autoguardado la va
+  | adelantando a cada escritura, así que al pulsar «Deshacer» ya sería
+  | idéntica a lo que hay en pantalla y el botón no haría nada. Ésta se queda
+  | quieta desde que se abre la edición.
+  */
+  const [alEntrar, setAlEntrar] = useState<Rival | null>(null);
 
-    setRivalActivo(snapshot);
-    setModoEdicion(false);
-  }, [snapshot, hayCambios]);
+  const entrarEnEdicion = useCallback(() => {
+    setAlEntrar(rivalActivo);
+    setModoEdicion(true);
+  }, [rivalActivo]);
 
-  const guardar = useCallback(async () => {
-    if (!rivalActivo || guardando) return;
+  const hayCambiosDeSesion =
+    modoEdicion && JSON.stringify(rivalActivo) !== JSON.stringify(alEntrar);
 
-    setGuardando(true);
+  /*
+  | Deshacer con autoguardado no es «no guardar»: lo escrito ya está en la
+  | hoja. Lo que se hace es devolver la fila a como estaba al entrar en
+  | edición y dejar que el autoguardado escriba de vuelta esa versión.
+  */
+  const deshacerCambios = useCallback(() => {
+    if (!hayCambiosDeSesion) {
+      setModoEdicion(false);
+      return;
+    }
 
-    const idToast = toast.loading("Guardando plan de partido...");
+    if (
+      !window.confirm(
+        "¿Devolver el plan a como estaba al entrar en edición? Lo escrito desde entonces ya se ha guardado, así que esto lo revierte también en la hoja."
+      )
+    ) {
+      return;
+    }
 
-    try {
+    setRivalActivo(alEntrar);
+
+    toast.info("Cambios deshechos");
+  }, [alEntrar, hayCambiosDeSesion]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | AUTOGUARDADO
+  |--------------------------------------------------------------------------
+  |
+  | El plan se escribe la noche antes del partido y en varias sentadas. Ya no
+  | depende de que alguien se acuerde de pulsar «Guardar»: en cuanto se deja
+  | de escribir, sale hacia la hoja.
+  |
+  | Lo que no cambia es la desconfianza: la hoja escribe por nombre de columna
+  | y descarta en silencio lo que no tiene cabecera, así que cada envío se
+  | verifica releyendo la fila. Con `modoAuto`, el aviso a pantalla completa
+  | sale una vez por columna nueva y después vive en la banda roja de arriba.
+  */
+
+  const guardarEnLaHoja = useCallback(
+    async (rival: Rival | null) => {
+      if (!rival) return true;
+
       const body = new URLSearchParams();
 
       body.append("action", "guardarRival");
 
-      Object.entries(rivalActivo).forEach(([clave, valor]) => {
+      Object.entries(rival).forEach(([clave, valor]) => {
         body.append(clave, String(valor ?? ""));
       });
 
@@ -1126,15 +1012,13 @@ export default function MatchPreparation() {
         throw new Error(json?.error || "El servidor rechazó los cambios");
       }
 
-      /* `success` solo confirma que la petición se aceptó, no que el texto
-         haya llegado a la hoja. Se relee el partido y se compara campo a
-         campo antes de dar el guardado por bueno. */
       const verificacion = await verificarGuardado({
-        titulo: `Plan de partido · ${rivalActivo.EQUIPO ?? ""} · Jornada ${
-          rivalActivo.JORNADA ?? "-"
+        titulo: `Plan de partido · ${rival.EQUIPO ?? ""} · Jornada ${
+          rival.JORNADA ?? "-"
         }`,
-        enviado: rivalActivo,
+        enviado: rival,
         ignorar: ["FECHA"],
+        modoAuto: true,
         releer: async () => {
           const respuesta = await fetch(`${APPS_SCRIPT_URL}?action=rivales`, {
             cache: "no-store",
@@ -1144,50 +1028,87 @@ export default function MatchPreparation() {
 
           const filas: Rival[] = await respuesta.json();
 
-          return (
-            filas.find((r) => String(r.ID) === String(rivalActivo.ID)) ?? null
-          );
+          return filas.find((r) => String(r.ID) === String(rival.ID)) ?? null;
         },
       });
 
-      /* Si se ha perdido algo, el aviso ya está abierto: la edición sigue
-         abierta y con el texto en pantalla para poder exportarlo. */
-      if (!verificacion.ok) {
-        toast.dismiss(idToast);
-
-        return;
+      if (verificacion.ok) {
+  
+        setRivales((previo) =>
+          previo.map((r) => (String(r.ID) === String(rival.ID) ? rival : r))
+        );
       }
 
-      setSnapshot(rivalActivo);
+      return verificacion.ok;
+    },
+    [verificarGuardado]
+  );
 
-      setRivales((previo) =>
-        previo.map((r) =>
-          String(r.ID) === String(rivalActivo.ID) ? rivalActivo : r
-        )
-      );
+  const auto = useAutoSave<Rival | null>({
+    value: rivalActivo,
+    enabled: modoEdicion,
+    debounce: 1800,
+    save: guardarEnLaHoja,
+  });
 
-      setModoEdicion(false);
+  useEffect(() => {
+    flushPendiente.current = auto.flush;
+  }, [auto.flush]);
 
-      toast.success("Plan de partido guardado", {
-        id: idToast,
-        description: `${rivalActivo.EQUIPO ?? ""} · Jornada ${
-          rivalActivo.JORNADA ?? "-"
-        }`,
-      });
-    } catch (e) {
-      console.error("Error guardando rival:", e);
+  /* Cambiar de partido no es una edición del usuario: nueva base y a otra cosa. */
+  const idRivalActivo = String(rivalActivo?.ID ?? "");
+  const idAnterior = useRef(idRivalActivo);
 
-      toast.error("No se ha podido guardar", {
-        id: idToast,
-        description:
-          e instanceof Error
-            ? e.message
-            : "Revisa la conexión e inténtalo de nuevo",
-      });
+  useEffect(() => {
+    if (idAnterior.current === idRivalActivo) return;
+
+    idAnterior.current = idRivalActivo;
+
+    auto.sync();
+  }, [idRivalActivo, auto]);
+
+  const terminarEdicion = useCallback(async () => {
+    setGuardando(true);
+
+    try {
+      await auto.flush();
     } finally {
       setGuardando(false);
     }
-  }, [rivalActivo, guardando, verificarGuardado]);
+
+    setModoEdicion(false);
+  }, [auto]);
+
+  /* Columnas de la hoja que se pintan dentro de la lista de recursos. */
+  const recursosFijos = useMemo<RecursoFijo[]>(
+    () => [
+      {
+        campo: "HUDL_PLAYLIST",
+        nombre: "HUDL · Playlist",
+        tipo: "video",
+        url: String(rivalActivo?.HUDL_PLAYLIST ?? ""),
+      },
+      {
+        campo: "HUDL_PARTIDO",
+        nombre: "HUDL · Partido completo",
+        tipo: "video",
+        url: String(rivalActivo?.HUDL_PARTIDO ?? ""),
+      },
+      {
+        campo: "HUDL_ANALISIS",
+        nombre: "HUDL · Análisis",
+        tipo: "video",
+        url: String(rivalActivo?.HUDL_ANALISIS ?? ""),
+      },
+      {
+        campo: "DOC",
+        nombre: "Informe del rival",
+        tipo: "doc",
+        url: String(rivalActivo?.DOC ?? ""),
+      },
+    ],
+    [rivalActivo]
+  );
 
   /* --------------------------------------------------------------- ATAJOS */
 
@@ -1199,38 +1120,28 @@ export default function MatchPreparation() {
 
       const tecla = evento.key.toLowerCase();
 
+      /* Ctrl+S ya no es «guarda esto»: el plan se guarda solo. Es «cierra la
+         edición», que es lo que el dedo quiere decir al pulsarlo. */
       if (tecla === "s" && modoEdicion) {
         evento.preventDefault();
 
-        guardar();
+        void terminarEdicion();
       }
 
       if (tecla === "e" && !modoEdicion) {
         evento.preventDefault();
 
-        setModoEdicion(true);
+        entrarEnEdicion();
       }
     };
 
     window.addEventListener("keydown", atajos);
 
     return () => window.removeEventListener("keydown", atajos);
-  }, [modoEdicion, guardar]);
+  }, [modoEdicion, terminarEdicion, entrarEnEdicion]);
 
-  /* Aviso al salir con cambios sin guardar. */
-  useEffect(() => {
-    if (!hayCambios) return;
-
-    const aviso = (evento: BeforeUnloadEvent) => {
-      evento.preventDefault();
-
-      evento.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", aviso);
-
-    return () => window.removeEventListener("beforeunload", aviso);
-  }, [hayCambios]);
+  /* El aviso de «tienes cosas sin guardar» al cerrar la pestaña lo pone ya
+     `useAutoSave`, que además intenta un último envío. */
 
   /* Sección visible para resaltar el índice de navegación. */
   useEffect(() => {
@@ -1339,7 +1250,10 @@ export default function MatchPreparation() {
 
               {/* Acciones */}
               <div className="flex items-center gap-2">
-                {hayCambios && (
+                {/* El estado del autoguardado ya se pinta al lado de «Hecho»;
+                    esta chapa sólo tiene sentido fuera de la edición, cuando
+                    algo se ha quedado sin escribir en la hoja. */}
+                {!editando && auto.pending && (
                   <span className="hidden items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-300 sm:flex">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                     Sin guardar
@@ -1381,10 +1295,18 @@ export default function MatchPreparation() {
 
                 {editando ? (
                   <>
+                    <AutoSaveStatus
+                      estado={auto.status}
+                      guardadoEn={auto.lastSavedAt}
+                      onReintentar={() => void auto.flush()}
+                      className="hidden lg:inline-flex"
+                    />
+
                     <button
                       type="button"
-                      onClick={cancelarEdicion}
-                      disabled={guardando}
+                      onClick={deshacerCambios}
+                      disabled={guardando || !hayCambiosDeSesion}
+                      title="Volver a como estaba al entrar en edición"
                       className="
                         hidden items-center gap-2 rounded-xl border border-white/15
                         px-3.5 py-2.5 text-sm text-white/70 transition
@@ -1393,14 +1315,14 @@ export default function MatchPreparation() {
                       "
                     >
                       <RotateCcw size={15} />
-                      Cancelar
+                      Deshacer
                     </button>
 
                     <button
                       type="button"
-                      onClick={guardar}
-                      disabled={guardando || !hayCambios}
-                      title="Guardar cambios (Ctrl+S)"
+                      onClick={terminarEdicion}
+                      disabled={guardando}
+                      title="Guardar lo pendiente y salir de edición (Ctrl+S)"
                       className="
                         hidden items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5
                         text-sm font-semibold text-black transition
@@ -1411,10 +1333,10 @@ export default function MatchPreparation() {
                       {guardando ? (
                         <LoaderCircle size={15} className="animate-spin" />
                       ) : (
-                        <Save size={15} />
+                        <Check size={15} />
                       )}
 
-                      {guardando ? "Guardando..." : "Guardar"}
+                      {guardando ? "Guardando..." : "Hecho"}
                     </button>
 
                     <span className="rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2.5 text-xs font-semibold text-[#C8A96B] lg:hidden">
@@ -1424,7 +1346,7 @@ export default function MatchPreparation() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setModoEdicion(true)}
+                    onClick={entrarEnEdicion}
                     disabled={!rivalActivo}
                     title="Editar informe (Ctrl+E)"
                     className="
@@ -1469,6 +1391,8 @@ export default function MatchPreparation() {
               </nav>
             )}
           </div>
+
+          <ColumnasPerdidas columnas={columnasPerdidas} />
 
           {/* ESTADOS */}
           {cargando && <Esqueleto />}
@@ -1953,43 +1877,16 @@ export default function MatchPreparation() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <ResourceCard
-                    titulo="Playlist"
-                    descripcion="Clips seleccionados"
-                    valor={rivalActivo.HUDL_PLAYLIST}
-                    icon={Film}
-                    editando={editando}
-                    onChange={(v) => setCampo("HUDL_PLAYLIST", v)}
-                  />
-
-                  <ResourceCard
-                    titulo="Partido completo"
-                    descripcion="Último encuentro del rival"
-                    valor={rivalActivo.HUDL_PARTIDO}
-                    icon={Film}
-                    editando={editando}
-                    onChange={(v) => setCampo("HUDL_PARTIDO", v)}
-                  />
-
-                  <ResourceCard
-                    titulo="Análisis"
-                    descripcion="Vídeo analizado"
-                    valor={rivalActivo.HUDL_ANALISIS}
-                    icon={Film}
-                    editando={editando}
-                    onChange={(v) => setCampo("HUDL_ANALISIS", v)}
-                  />
-
-                  <ResourceCard
-                    titulo="Informe rival"
-                    descripcion="Documento de scouting"
-                    valor={rivalActivo.DOC}
-                    icon={FileText}
-                    editando={editando}
-                    onChange={(v) => setCampo("DOC", v)}
-                  />
-                </div>
+                {/* Las columnas HUDL_* y DOC de la hoja se pintan dentro de la
+                    misma lista; los vídeos y documentos nuevos —tantos como
+                    hagan falta, con su nombre— van a Supabase. */}
+                <RecursosRival
+                  key={String(rivalActivo.ID ?? "")}
+                  idRival={String(rivalActivo.ID ?? "")}
+                  editando={editando}
+                  fijos={recursosFijos}
+                  onCampoFijo={setCampo}
+                />
               </section>
             </div>
           )}
@@ -1998,31 +1895,34 @@ export default function MatchPreparation() {
         {/* BARRA FLOTANTE DE EDICIÓN (MÓVIL / TABLET) */}
         {editando && (
           <div className="mp-no-print fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-white/10 bg-[#0B0F14]/95 px-4 py-3 backdrop-blur-xl lg:hidden">
-            <span className="flex-1 text-xs text-white/50">
-              {hayCambios ? "Cambios sin guardar" : "Modo edición"}
-            </span>
+            <AutoSaveStatus
+              estado={auto.status}
+              guardadoEn={auto.lastSavedAt}
+              onReintentar={() => void auto.flush()}
+              className="flex-1"
+            />
 
             <button
               type="button"
-              onClick={cancelarEdicion}
-              disabled={guardando}
+              onClick={deshacerCambios}
+              disabled={guardando || !hayCambiosDeSesion}
               className="rounded-xl border border-white/15 px-4 py-2.5 text-sm text-white/70 disabled:opacity-40"
             >
-              Cancelar
+              Deshacer
             </button>
 
             <button
               type="button"
-              onClick={guardar}
-              disabled={guardando || !hayCambios}
+              onClick={terminarEdicion}
+              disabled={guardando}
               className="flex items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black disabled:opacity-40"
             >
               {guardando ? (
                 <LoaderCircle size={15} className="animate-spin" />
               ) : (
-                <Save size={15} />
+                <Check size={15} />
               )}
-              Guardar
+              Hecho
             </button>
           </div>
         )}

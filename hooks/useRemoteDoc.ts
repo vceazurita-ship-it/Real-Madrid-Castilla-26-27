@@ -52,6 +52,9 @@ export function useRemoteDoc<T>({
   /** Evita guardar durante la carga inicial y en el primer render. */
   const ready = useRef(false);
 
+  /** Clave a la que pertenece el valor que hay ahora mismo en pantalla. */
+  const claveDelValor = useRef(key);
+
   /* El autoguardado se dispara cada pocos segundos: sin esto, un servidor
      caído llenaría la pantalla de avisos repetidos. Se avisa una vez por
      racha de fallos y se rearma al primer guardado bueno. */
@@ -92,7 +95,23 @@ export function useRemoteDoc<T>({
       setStatus("loading");
 
       const cached = readCache();
-      if (cached !== null) setInternal(cached);
+
+      if (cached !== null) {
+        setInternal(cached);
+      } else if (claveDelValor.current !== key) {
+        /*
+        | Se ha cambiado de documento (de equipo, de rival…) y de este no hay
+        | copia local: hasta que conteste el servidor, en pantalla estaría el
+        | documento ANTERIOR, que es de otro. Se parte de vacío.
+        |
+        | Sólo al cambiar de clave: en un `reload()` de la misma clave, borrar
+        | lo que hay para volver a pintarlo un segundo después es un parpadeo
+        | gratis.
+        */
+        setInternal(fallback);
+      }
+
+      claveDelValor.current = key;
 
       try {
         const response = await fetch(

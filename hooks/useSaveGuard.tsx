@@ -30,7 +30,7 @@
 | porque en ese momento la pantalla es la única copia que queda.
 */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -63,6 +63,20 @@ export interface OpcionesVerificacion<T extends Record<string, unknown>> {
    * cuando en pantalla hay más contexto del que viaja en el guardado.
    */
   registro?: Record<string, unknown>;
+  /**
+   * Verificación de un autoguardado.
+   *
+   * Con autoguardado la misma comprobación se repite cada pocos segundos. Si
+   * la hoja no tiene una columna, no la va a tener en el intento siguiente:
+   * abrir el aviso a pantalla completa cada vez haría la página inusable y,
+   * peor, enseñaría a cerrarlo sin leerlo.
+   *
+   * En este modo el aviso se abre **la primera vez** que aparece una columna
+   * perdida nueva. Mientras sigan siendo las mismas, la pérdida se mantiene
+   * viva en `columnasPerdidas` para que la página la enseñe fija en la
+   * cabecera, pero no se vuelve a interrumpir.
+   */
+  modoAuto?: boolean;
 }
 
 export type ResultadoVerificacion =
@@ -77,6 +91,14 @@ interface EstadoAviso {
 
 export function useSaveGuard() {
   const [aviso, setAviso] = useState<EstadoAviso | null>(null);
+
+  /*
+  | Columnas que ya sabemos que la hoja no acepta, para el modo autoguardado.
+  | Se conservan mientras dure la pantalla: la página las enseña fijas y el
+  | aviso a pantalla completa solo vuelve a salir si aparece alguna nueva.
+  */
+  const [columnasPerdidas, setColumnasPerdidas] = useState<string[]>([]);
+  const yaReportadas = useRef<Set<string>>(new Set());
 
   /* Con el aviso abierto, la pantalla es la única copia del trabajo. */
   useEffect(() => {
@@ -102,6 +124,7 @@ export function useSaveGuard() {
       ignorar,
       soloColumnas,
       registro,
+      modoAuto,
     }: OpcionesVerificacion<T>): Promise<ResultadoVerificacion> => {
       let guardadoEnServidor: Record<string, unknown> | null = null;
 
@@ -116,10 +139,14 @@ export function useSaveGuard() {
       /* Sin relectura no acusamos al servidor, pero tampoco damos por bueno
          el guardado en silencio: se dice claramente que no está comprobado. */
       if (!guardadoEnServidor) {
-        toast.warning("Guardado sin verificar", {
-          description:
-            "No se ha podido releer el registro. Revisa que el contenido siga ahí antes de cerrar.",
-        });
+        /* En autoguardado esto pasa con cualquier corte de red pasajero y el
+           siguiente intento lo resolverá solo: no se interrumpe por ello. */
+        if (!modoAuto) {
+          toast.warning("Guardado sin verificar", {
+            description:
+              "No se ha podido releer el registro. Revisa que el contenido siga ahí antes de cerrar.",
+          });
+        }
 
         return { ok: true, verificado: false };
       }
@@ -130,6 +157,19 @@ export function useSaveGuard() {
       });
 
       if (!perdidos.length) return { ok: true, verificado: true };
+
+      if (modoAuto) {
+        const nuevas = perdidos
+          .map((perdido) => perdido.campo)
+          .filter((campo) => !yaReportadas.current.has(campo));
+
+        perdidos.forEach((perdido) => yaReportadas.current.add(perdido.campo));
+
+        setColumnasPerdidas([...yaReportadas.current].sort());
+
+        /* Nada nuevo: la página ya lo está enseñando en la cabecera. */
+        if (!nuevas.length) return { ok: false, perdidos };
+      }
 
       setAviso({
         titulo,
@@ -190,5 +230,7 @@ export function useSaveGuard() {
     reportarRechazo,
     dialogo,
     avisoAbierto: aviso !== null,
+    /** Columnas que la hoja ha rechazado durante esta sesión (modo auto). */
+    columnasPerdidas,
   };
 }

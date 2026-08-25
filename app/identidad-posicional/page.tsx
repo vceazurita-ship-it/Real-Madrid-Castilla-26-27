@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Plus, SearchX, Trash2 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import {
   AutoTextarea,
   ConfirmDialog,
@@ -23,7 +24,6 @@ import {
   focusRing,
   matches,
   useEditShortcuts,
-  useUnsavedGuard,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 
@@ -165,31 +165,64 @@ export default function IdentidadPosicionalPage() {
     [data, originalData],
   );
 
-  useUnsavedGuard(editing && cambios.length > 0);
-
   /* ------------------------------------------------------------ edición */
 
+  /*
+  | Foto del contenido al entrar en edición. No es lo mismo que
+  | `originalData`, que el autoguardado va adelantando conforme escribe: esta
+  | se queda quieta y es a la que vuelve «Deshacer».
+  */
+  const [alEntrar, setAlEntrar] = useState<PosicionItem[]>([]);
+
   const entrarEnEdicion = () => {
+    setAlEntrar(structuredClone(data));
+
     setQuery("");
     setEditing(true);
   };
 
-  const salirDeEdicion = useCallback(() => {
-    setData(structuredClone(originalData));
-    setEditing(false);
-  }, [originalData]);
+  const tocados = useMemo(
+    () =>
+      editing
+        ? data.filter((item) => {
+            const inicial = alEntrar.find((o) => o.ID === item.ID);
+            return inicial && inicial.CONTENIDO !== item.CONTENIDO;
+          }).length
+        : 0,
+    [data, editing, alEntrar],
+  );
 
-  const guardarCambios = useCallback(async () => {
-    if (cambios.length === 0) {
-      setEditing(false);
-      return;
-    }
+  /*
+  |--------------------------------------------------------------------------
+  | AUTOGUARDADO
+  |--------------------------------------------------------------------------
+  |
+  | En edición no hay botón de guardar: cada contenido sale hacia la hoja unos
+  | segundos después de dejar de escribirlo. Sólo viajan los que han cambiado
+  | respecto a la última versión confirmada, así que escribir en un bloque no
+  | reenvía los otros veinte.
+  */
 
-    setSaving(true);
+  /* La base contra la que se calcula el diff, siempre fresca dentro del
+     temporizador del autoguardado. */
+  const baseRef = useRef(originalData);
 
-    try {
+  useEffect(() => {
+    baseRef.current = originalData;
+  });
+
+  const escribirCambios = useCallback(
+    async (actual: PosicionItem[]) => {
+      const pendientes = actual.filter((item) => {
+        const original = baseRef.current.find((o) => o.ID === item.ID);
+
+        return original && original.CONTENIDO !== item.CONTENIDO;
+      });
+
+      if (pendientes.length === 0) return true;
+
       const resultados = await Promise.allSettled(
-        cambios.map((p) =>
+        pendientes.map((p) =>
           fetch(
             `${API}?action=guardarIdentidadPosicional&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
               p.CONTENIDO,
@@ -201,7 +234,7 @@ export default function IdentidadPosicionalPage() {
       /* Una respuesta de error también es un cambio perdido: contarla como
          éxito porque la petición se completó es lo que hace que el texto
          desaparezca sin avisar. */
-      const fallidos = cambios.filter((_, indice) => {
+      const fallidos = pendientes.filter((_, indice) => {
         const resultado = resultados[indice];
 
         return resultado.status === "rejected" || !resultado.value.ok;
@@ -218,28 +251,63 @@ export default function IdentidadPosicionalPage() {
           ),
         });
 
-        return;
+        return false;
       }
 
-      toast.success(
-        `${cambios.length} cambio${cambios.length === 1 ? "" : "s"} guardado${
-          cambios.length === 1 ? "" : "s"
-        }`,
-      );
+      /* Lo escrito pasa a ser la nueva base. No se recarga de la hoja: eso
+         machacaría lo que el usuario esté tecleando en este momento. */
+      setOriginalData(structuredClone(actual));
 
+      return true;
+    },
+    [reportarRechazo],
+  );
+
+  const auto = useAutoSave<PosicionItem[]>({
+    value: data,
+    enabled: editing,
+    debounce: 1500,
+    save: escribirCambios,
+  });
+
+  const salirDeEdicion = useCallback(() => {
+    if (tocados === 0) {
       setEditing(false);
-      recargar(false);
-    } catch (err) {
-      console.error(err);
-      toast.error("No se han podido guardar los cambios");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "¿Deshacer todo lo escrito desde que entraste en edición? Ya está guardado, así que esto lo revierte en la hoja.",
+      )
+    ) {
+      return;
+    }
+
+    setData(structuredClone(alEntrar));
+
+    toast.info("Cambios deshechos");
+  }, [tocados, alEntrar]);
+
+  const terminarEdicion = useCallback(async () => {
+    setSaving(true);
+
+    try {
+      await auto.flush();
     } finally {
       setSaving(false);
     }
-  }, [cambios, recargar, reportarRechazo]);
+
+    setEditing(false);
+
+    /* Ya fuera de edición se relee: nadie está escribiendo y así entra lo que
+       hayan tocado otros. */
+    recargar(false);
+  }, [auto, recargar]);
 
   useEditShortcuts({
     editing,
-    onSave: guardarCambios,
+    onSave: terminarEdicion,
     onCancel: salirDeEdicion,
   });
 
@@ -282,9 +350,10 @@ export default function IdentidadPosicionalPage() {
   );
 
   const abrirNuevo = (bloque: string) => {
+    /* Crear recarga la lista desde la hoja, así que lo que aún no se haya
+       escrito se perdería: primero se consolida lo pendiente. */
     if (cambios.length > 0) {
-      toast.warning("Guarda los cambios pendientes antes de añadir contenido");
-      return;
+      void auto.flush();
     }
 
     setNuevoBloque(bloque);
@@ -341,11 +410,16 @@ export default function IdentidadPosicionalPage() {
   const toolbar = (
     <EditToolbar
       editing={editing}
-      dirtyCount={cambios.length}
+      dirtyCount={tocados}
       saving={saving}
       onEdit={entrarEnEdicion}
       onCancel={salirDeEdicion}
-      onSave={guardarCambios}
+      onSave={terminarEdicion}
+      autoSave={{
+        estado: auto.status,
+        guardadoEn: auto.lastSavedAt,
+        onReintentar: () => void auto.flush(),
+      }}
     />
   );
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import {
   AutoTextarea,
   EditToolbar,
@@ -21,7 +22,6 @@ import {
   focusRing,
   matches,
   useEditShortcuts,
-  useUnsavedGuard,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 
@@ -191,17 +191,6 @@ export default function TeamValuesPage() {
   const etapaIndex = secciones.indexOf(seccion);
   const filtrando = !editing && (query.trim() !== "" || tipoActivo !== null);
 
-  const cambios = useMemo(
-    () =>
-      data.filter((item) => {
-        const original = originalData.find((o) => o.ID === item.ID);
-        return original && original.CONTENIDO !== item.CONTENIDO;
-      }),
-    [data, originalData],
-  );
-
-  useUnsavedGuard(editing && cambios.length > 0);
-
   /* ------------------------------------------------------------ navegación */
 
   const irASeccion = useCallback((valor: string) => {
@@ -219,28 +208,60 @@ export default function TeamValuesPage() {
 
   /* ------------------------------------------------------------ edición */
 
+  /*
+  | Foto del contenido al entrar en edición. No es `originalData`, que el
+  | autoguardado va adelantando conforme se escribe: ésta se queda quieta y es
+  | a la que vuelve «Deshacer».
+  */
+  const [alEntrar, setAlEntrar] = useState<CulturaItem[]>([]);
+
   const entrarEnEdicion = () => {
+    setAlEntrar(structuredClone(data));
+
     setQuery("");
     setTipoFiltro(null);
     setEditing(true);
   };
 
-  const salirDeEdicion = useCallback(() => {
-    setData(structuredClone(originalData));
-    setEditing(false);
-  }, [originalData]);
+  const tocados = useMemo(
+    () =>
+      editing
+        ? data.filter((item) => {
+            const inicial = alEntrar.find((o) => o.ID === item.ID);
+            return inicial && inicial.CONTENIDO !== item.CONTENIDO;
+          }).length
+        : 0,
+    [data, editing, alEntrar],
+  );
 
-  const guardarCambios = useCallback(async () => {
-    if (cambios.length === 0) {
-      setEditing(false);
-      return;
-    }
+  /*
+  |--------------------------------------------------------------------------
+  | AUTOGUARDADO
+  |--------------------------------------------------------------------------
+  |
+  | En edición no hay botón de guardar: cada contenido sale hacia la hoja unos
+  | segundos después de dejar de escribirlo. Sólo viajan los que han cambiado
+  | respecto a la última versión confirmada.
+  */
 
-    setSaving(true);
+  const baseRef = useRef(originalData);
 
-    try {
+  useEffect(() => {
+    baseRef.current = originalData;
+  });
+
+  const escribirCambios = useCallback(
+    async (actual: CulturaItem[]) => {
+      const pendientes = actual.filter((item) => {
+        const original = baseRef.current.find((o) => o.ID === item.ID);
+
+        return original && original.CONTENIDO !== item.CONTENIDO;
+      });
+
+      if (pendientes.length === 0) return true;
+
       const resultados = await Promise.allSettled(
-        cambios.map((p) =>
+        pendientes.map((p) =>
           fetch(
             `${API}?action=guardarCultura&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
               p.CONTENIDO,
@@ -252,7 +273,7 @@ export default function TeamValuesPage() {
       /* Una respuesta de error también es un cambio perdido: contarla como
          éxito solo porque la petición llegó a completarse es justo lo que
          hace que el texto desaparezca sin avisar. */
-      const fallidos = cambios.filter((_, indice) => {
+      const fallidos = pendientes.filter((_, indice) => {
         const resultado = resultados[indice];
 
         return resultado.status === "rejected" || !resultado.value.ok;
@@ -269,28 +290,57 @@ export default function TeamValuesPage() {
           ),
         });
 
-        return;
+        return false;
       }
 
-      setOriginalData(structuredClone(data));
-      setEditing(false);
+      setOriginalData(structuredClone(actual));
 
-      toast.success(
-        `${cambios.length} cambio${cambios.length === 1 ? "" : "s"} guardado${
-          cambios.length === 1 ? "" : "s"
-        }`,
-      );
-    } catch (err) {
-      console.error("Error guardando:", err);
-      toast.error("No se han podido guardar los cambios");
+      return true;
+    },
+    [reportarRechazo],
+  );
+
+  const auto = useAutoSave<CulturaItem[]>({
+    value: data,
+    enabled: editing,
+    debounce: 1500,
+    save: escribirCambios,
+  });
+
+  const salirDeEdicion = useCallback(() => {
+    if (tocados === 0) {
+      setEditing(false);
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "¿Deshacer todo lo escrito desde que entraste en edición? Ya está guardado, así que esto lo revierte en la hoja.",
+      )
+    ) {
+      return;
+    }
+
+    setData(structuredClone(alEntrar));
+
+    toast.info("Cambios deshechos");
+  }, [tocados, alEntrar]);
+
+  const terminarEdicion = useCallback(async () => {
+    setSaving(true);
+
+    try {
+      await auto.flush();
     } finally {
       setSaving(false);
     }
-  }, [cambios, data, reportarRechazo]);
+
+    setEditing(false);
+  }, [auto]);
 
   useEditShortcuts({
     editing,
-    onSave: guardarCambios,
+    onSave: terminarEdicion,
     onCancel: salirDeEdicion,
   });
 
@@ -299,11 +349,16 @@ export default function TeamValuesPage() {
   const toolbar = (
     <EditToolbar
       editing={editing}
-      dirtyCount={cambios.length}
+      dirtyCount={tocados}
       saving={saving}
       onEdit={entrarEnEdicion}
       onCancel={salirDeEdicion}
-      onSave={guardarCambios}
+      onSave={terminarEdicion}
+      autoSave={{
+        estado: auto.status,
+        guardadoEn: auto.lastSavedAt,
+        onReintentar: () => void auto.flush(),
+      }}
     />
   );
 

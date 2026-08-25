@@ -3,23 +3,24 @@
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
+import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
+import RecursosRival, {
+  type RecursoFijo,
+} from "@/components/rivals/RecursosRival";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  FileText,
-  Film,
-  ListVideo,
   Loader2,
   MapPin,
   Pencil,
-  Save,
-  Undo2,
 } from "lucide-react";
-import { toast } from "sonner";
 
 const ENDPOINT =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
@@ -360,9 +361,6 @@ export default function ScoutRivalCollective() {
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
 
-  /* Copia previa a la edición: permite cancelar sin perder el informe. */
-  const [snapshot, setSnapshot] = useState<Rival | null>(null);
-
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -370,8 +368,11 @@ export default function ScoutRivalCollective() {
 
   /* El informe y el plan de partido comparten fila: si la hoja no tiene la
      columna, el valor se descarta en silencio. Se verifica tras guardar. */
-  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
-    useSaveGuard();
+  const {
+    verificar: verificarGuardado,
+    dialogo: avisoGuardado,
+    columnasPerdidas,
+  } = useSaveGuard();
 
   useEffect(() => {
     let cancelled = false;
@@ -414,6 +415,10 @@ export default function ScoutRivalCollective() {
     };
   }, []);
 
+  /* Puente hacia el `flush` del autoguardado: `cambiarRival` se declara antes
+     que el hook y necesita poder consolidar lo pendiente. */
+  const flushPendiente = useRef<() => Promise<void>>(async () => {});
+
   const indice = useMemo(
     () =>
       rivalActivo
@@ -434,14 +439,11 @@ export default function ScoutRivalCollective() {
     (rival: Rival | undefined) => {
       if (!rival) return;
 
-      if (modoEdicion) {
-        toast.error("Guarda o cancela los cambios antes de cambiar de rival");
-        return;
-      }
-
-      setRivalActivo(rival);
+      /* Cambiar de rival con el retardo del autoguardado a medias se llevaría
+         por delante lo último escrito: primero se consolida, luego se cambia. */
+      void flushPendiente.current().then(() => setRivalActivo(rival));
     },
-    [modoEdicion]
+    []
   );
 
   const setCampo = useCallback((campo: string, valor: string) => {
@@ -449,81 +451,134 @@ export default function ScoutRivalCollective() {
   }, []);
 
   const empezarEdicion = () => {
-    setSnapshot(rivalActivo ? { ...rivalActivo } : null);
     setModoEdicion(true);
   };
 
-  const cancelarEdicion = () => {
-    if (snapshot) setRivalActivo(snapshot);
+  /*
+  |--------------------------------------------------------------------------
+  | AUTOGUARDADO
+  |--------------------------------------------------------------------------
+  |
+  | En edición ya no hay botón de guardar: el informe sale solo hacia la hoja
+  | cada vez que el usuario para de escribir. Y como la hoja escribe por
+  | nombre de columna y descarta en silencio lo que no tiene cabecera, cada
+  | envío se sigue verificando releyendo la fila.
+  |
+  | `modoAuto` hace que el aviso a pantalla completa salga sólo la primera vez
+  | que aparece una columna perdida; a partir de ahí vive en la banda roja de
+  | la cabecera, que no se puede cerrar por error.
+  */
 
-    setSnapshot(null);
-    setModoEdicion(false);
-  };
+  const guardarEnLaHoja = useCallback(
+    async (rival: Rival | null) => {
+      if (!rival) return true;
 
-  const guardarRival = async () => {
-    if (!rivalActivo) return;
-
-    setGuardando(true);
-
-    const toastId = toast.loading("Guardando informe…");
-
-    try {
       const body = new URLSearchParams();
 
       body.append("action", "guardarRival");
 
-      Object.entries(rivalActivo).forEach(([key, value]) => {
+      Object.entries(rival).forEach(([key, value]) => {
         body.append(key, String(value ?? ""));
       });
 
       const res = await fetch(ENDPOINT, { method: "POST", body });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       const data = await res.json();
 
-      if (data.success) {
-        /* La hoja solo escribe los campos con cabecera propia y aun así
-           responde `success`. Se relee el rival para comprobar qué ha
-           llegado antes de cerrar la edición. */
-        const verificacion = await verificarGuardado({
-          titulo: `Informe de scouting · ${rivalActivo.EQUIPO ?? ""}`,
-          enviado: rivalActivo,
-          ignorar: ["FECHA"],
-          releer: async () => {
-            const respuesta = await fetch(`${ENDPOINT}?action=rivales`, {
-              cache: "no-store",
-            });
-
-            if (!respuesta.ok) return null;
-
-            const filas: Rival[] = await respuesta.json();
-
-            return (
-              filas.find((r) => String(r.ID) === String(rivalActivo.ID)) ?? null
-            );
-          },
-        });
-
-        if (!verificacion.ok) {
-          toast.dismiss(toastId);
-
-          return;
-        }
-
-        toast.success("Informe guardado correctamente", { id: toastId });
-
-        setSnapshot(null);
-        setModoEdicion(false);
-      } else {
-        toast.error(data.error || "El servidor rechazó el guardado", {
-          id: toastId,
-        });
+      if (data?.success === false) {
+        throw new Error(data?.error || "El servidor rechazó el guardado");
       }
-    } catch (e) {
-      console.error("[scout] guardar", e);
-      toast.error("No se pudo guardar el informe", { id: toastId });
+
+      const verificacion = await verificarGuardado({
+        titulo: `Informe de scouting · ${rival.EQUIPO ?? ""}`,
+        enviado: rival,
+        ignorar: ["FECHA"],
+        modoAuto: true,
+        releer: async () => {
+          const respuesta = await fetch(`${ENDPOINT}?action=rivales`, {
+            cache: "no-store",
+          });
+
+          if (!respuesta.ok) return null;
+
+          const filas: Rival[] = await respuesta.json();
+
+          return filas.find((r) => String(r.ID) === String(rival.ID)) ?? null;
+        },
+      });
+
+      if (verificacion.ok) {
+        setRivales((previo) =>
+          previo.map((r) => (String(r.ID) === String(rival.ID) ? rival : r))
+        );
+      }
+
+      return verificacion.ok;
+    },
+    [verificarGuardado]
+  );
+
+  const auto = useAutoSave<Rival | null>({
+    value: rivalActivo,
+    enabled: modoEdicion,
+    debounce: 1800,
+    save: guardarEnLaHoja,
+  });
+
+  useEffect(() => {
+    flushPendiente.current = auto.flush;
+  }, [auto.flush]);
+
+  /* Cambiar de rival no es una edición: se toma como nueva base. */
+  const idRivalActivo = String(rivalActivo?.ID ?? "");
+  const idAnterior = useRef(idRivalActivo);
+
+  useEffect(() => {
+    if (idAnterior.current === idRivalActivo) return;
+
+    idAnterior.current = idRivalActivo;
+
+    auto.sync();
+  }, [idRivalActivo, auto]);
+
+  const terminarEdicion = useCallback(async () => {
+    setGuardando(true);
+
+    try {
+      await auto.flush();
     } finally {
       setGuardando(false);
     }
-  };
+
+    setModoEdicion(false);
+  }, [auto]);
+
+  /* Columnas de la hoja que se enseñan dentro de la lista de recursos. */
+  const recursosFijos = useMemo<RecursoFijo[]>(
+    () => [
+      {
+        campo: "VIDEO",
+        nombre: "Vídeo del partido",
+        tipo: "video",
+        url: String(rivalActivo?.VIDEO ?? ""),
+      },
+      {
+        campo: "HUDL_PLAYLIST",
+        nombre: "HUDL Playlist",
+        tipo: "video",
+        url: String(rivalActivo?.HUDL_PLAYLIST ?? ""),
+      },
+      {
+        campo: "DOC",
+        nombre: "Informe del rival",
+        tipo: "doc",
+        url: String(rivalActivo?.DOC ?? ""),
+      },
+    ],
+    [rivalActivo]
+  );
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -566,26 +621,23 @@ export default function ScoutRivalCollective() {
 
               {modoEdicion ? (
                 <>
+                  <AutoSaveStatus
+                    estado={auto.status}
+                    guardadoEn={auto.lastSavedAt}
+                    onReintentar={() => void auto.flush()}
+                  />
+
                   <button
                     disabled={guardando}
-                    onClick={guardarRival}
+                    onClick={terminarEdicion}
                     className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
                   >
                     {guardando ? (
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      <Save size={16} />
+                      <Check size={16} />
                     )}
-                    {guardando ? "Guardando…" : "Guardar"}
-                  </button>
-
-                  <button
-                    disabled={guardando}
-                    onClick={cancelarEdicion}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-5 py-3 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white disabled:opacity-50"
-                  >
-                    <Undo2 size={16} />
-                    Cancelar
+                    {guardando ? "Guardando…" : "Hecho"}
                   </button>
                 </>
               ) : (
@@ -624,14 +676,16 @@ export default function ScoutRivalCollective() {
             </div>
           )}
 
+          <ColumnasPerdidas columnas={columnasPerdidas} />
+
           {modoEdicion && (
             <div
               data-export-hide
               className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-5 py-3 text-sm text-amber-200"
             >
               <Pencil size={15} className="shrink-0" />
-              Modo edición activo. Los cambios no se guardan hasta pulsar
-              «Guardar».
+              Modo edición activo. Los cambios se guardan solos unos segundos
+              después de dejar de escribir.
             </div>
           )}
 
@@ -709,52 +763,30 @@ export default function ScoutRivalCollective() {
 
             {/* Recursos */}
             <div className="mt-4 rounded-3xl border border-[#C8A96B]/15 bg-[#111827] p-5">
-              <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-[#C8A96B]">
-                Recursos
-              </h2>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#C8A96B]">
+                  Recursos
+                </h2>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Recurso
-                  icon={Film}
-                  label="Vídeo"
-                  cta="Ver vídeo"
-                  url={rivalActivo?.VIDEO}
-                  editando={modoEdicion}
-                  onChange={(v) => setCampo("VIDEO", v)}
-                />
-
-                <Recurso
-                  icon={FileText}
-                  label="Documento"
-                  cta="Abrir informe"
-                  url={rivalActivo?.DOC}
-                  editando={modoEdicion}
-                  onChange={(v) => setCampo("DOC", v)}
-                />
-
-                <Recurso
-                  icon={ListVideo}
-                  label="HUDL Playlist"
-                  cta="Abrir playlist"
-                  url={rivalActivo?.HUDL_PLAYLIST}
-                  editando={modoEdicion}
-                  onChange={(v) => setCampo("HUDL_PLAYLIST", v)}
-                />
-
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
-                    <ClipboardList size={13} />
-                    Plan de partido
-                  </p>
-
-                  <Link
-                    href={enlacePlanDePartido(rivalActivo)}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-5 py-2.5 text-sm font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
-                  >
-                    Abrir plan
-                  </Link>
-                </div>
+                <Link
+                  href={enlacePlanDePartido(rivalActivo)}
+                  data-export-hide
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-2 text-sm font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
+                >
+                  <ClipboardList size={14} />
+                  Abrir plan de partido
+                </Link>
               </div>
+
+              {/* Los vídeos y documentos nuevos van a Supabase; las columnas de
+                  la hoja se pintan aquí mismo para no partir la lista en dos. */}
+              <RecursosRival
+                key={String(rivalActivo?.ID ?? "")}
+                idRival={String(rivalActivo?.ID ?? "")}
+                editando={modoEdicion}
+                fijos={recursosFijos}
+                onCampoFijo={setCampo}
+              />
             </div>
           </section>
 
@@ -889,54 +921,6 @@ function DatoClave({
         />
       ) : (
         <p className="mt-2 text-xl font-bold">{mostrar ?? valor ?? "—"}</p>
-      )}
-    </div>
-  );
-}
-
-function Recurso({
-  icon: Icon,
-  label,
-  cta,
-  url,
-  editando,
-  onChange,
-}: {
-  icon: React.ElementType;
-  label: string;
-  cta: string;
-  url?: string;
-  editando: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
-        <Icon size={13} />
-        {label}
-      </p>
-
-      {editando ? (
-        <input
-          aria-label={label}
-          value={url ?? ""}
-          placeholder="https://…"
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-2xl border border-amber-400/30 bg-[#0B0F14] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-amber-400"
-        />
-      ) : url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-5 py-2.5 text-sm font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
-        >
-          {cta}
-        </a>
-      ) : (
-        <p className="rounded-2xl border border-dashed border-white/10 px-5 py-2.5 text-sm text-white/25">
-          Sin enlace
-        </p>
       )}
     </div>
   );

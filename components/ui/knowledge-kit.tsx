@@ -27,6 +27,9 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
+
+import type { AutoSaveStatus as AutoSaveStatusValue } from "@/hooks/useAutoSave";
 
 export const GOLD = "#C8A96B";
 
@@ -373,6 +376,12 @@ export function SectionLabel({
 /**
  * Barra Editar / Guardar / Descartar con contador de cambios pendientes
  * y estado de guardado. Evita el doble envío y el guardado en vacío.
+ *
+ * Con `autoSave` la barra cambia de idioma: ya no hay «Guardar» —el contenido
+ * sale solo—, sino el estado del autoguardado y un «Hecho» que consolida lo
+ * pendiente y cierra la edición. «Descartar» pasa a ser «Deshacer», porque lo
+ * escrito ya está en el servidor y lo que se hace es volver atrás, no evitar
+ * un guardado que nunca llegó a ocurrir.
  */
 export function EditToolbar({
   editing,
@@ -382,6 +391,7 @@ export function EditToolbar({
   onCancel,
   onSave,
   extra,
+  autoSave,
 }: {
   editing: boolean;
   dirtyCount: number;
@@ -390,6 +400,11 @@ export function EditToolbar({
   onCancel: () => void;
   onSave: () => void;
   extra?: ReactNode;
+  autoSave?: {
+    estado: AutoSaveStatusValue;
+    guardadoEn: Date | null;
+    onReintentar: () => void;
+  };
 }) {
   if (!editing) {
     return (
@@ -413,19 +428,28 @@ export function EditToolbar({
 
   return (
     <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
-      <span
-        aria-live="polite"
-        className={cn(
-          "order-last w-full rounded-full px-3 py-1 text-center text-xs font-medium lg:order-first lg:w-auto",
-          dirtyCount > 0
-            ? "bg-[#C8A96B]/15 text-[#C8A96B]"
-            : "bg-white/[0.05] text-gray-500",
-        )}
-      >
-        {dirtyCount > 0
-          ? `${dirtyCount} cambio${dirtyCount === 1 ? "" : "s"} sin guardar`
-          : "Sin cambios"}
-      </span>
+      {autoSave ? (
+        <AutoSaveStatus
+          estado={autoSave.estado}
+          guardadoEn={autoSave.guardadoEn}
+          onReintentar={autoSave.onReintentar}
+          className="order-last w-full justify-center lg:order-first lg:w-auto"
+        />
+      ) : (
+        <span
+          aria-live="polite"
+          className={cn(
+            "order-last w-full rounded-full px-3 py-1 text-center text-xs font-medium lg:order-first lg:w-auto",
+            dirtyCount > 0
+              ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+              : "bg-white/[0.05] text-gray-500",
+          )}
+        >
+          {dirtyCount > 0
+            ? `${dirtyCount} cambio${dirtyCount === 1 ? "" : "s"} sin guardar`
+            : "Sin cambios"}
+        </span>
+      )}
 
       {extra}
 
@@ -438,22 +462,34 @@ export function EditToolbar({
           focusRing,
         )}
       >
-        <X className="h-4 w-4" aria-hidden />
-        {dirtyCount > 0 ? "Descartar" : "Salir"}
+        {autoSave ? (
+          <RotateCcw className="h-4 w-4" aria-hidden />
+        ) : (
+          <X className="h-4 w-4" aria-hidden />
+        )}
+
+        {dirtyCount > 0 ? (autoSave ? "Deshacer" : "Descartar") : "Salir"}
       </button>
 
       <button
         type="button"
         onClick={onSave}
-        disabled={saving || dirtyCount === 0}
-        title="Guardar (Ctrl+S)"
+        /* Con autoguardado, «Hecho» siempre está disponible: cierra la
+           edición aunque no quede nada pendiente por escribir. */
+        disabled={saving || (!autoSave && dirtyCount === 0)}
+        title={
+          autoSave
+            ? "Guardar lo pendiente y salir de edición (Ctrl+S)"
+            : "Guardar (Ctrl+S)"
+        }
         className={cn(
           "inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#d8bd85] disabled:cursor-not-allowed disabled:opacity-40 lg:flex-none",
           focusRing,
         )}
       >
         {saving ? <Spinner /> : <Check className="h-4 w-4" aria-hidden />}
-        {saving ? "Guardando…" : "Guardar"}
+
+        {saving ? "Guardando…" : autoSave ? "Hecho" : "Guardar"}
       </button>
     </div>
   );

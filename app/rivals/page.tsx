@@ -19,7 +19,17 @@ import RivalBoardPanel from "@/components/tactics/RivalBoardPanel";
 import RivalVoicePanel from "@/components/voice/RivalVoicePanel";
 import PlayerStatsCard from "@/components/rivals/PlayerStatsCard";
 import { useRivalStats } from "@/hooks/useRivalStats";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
+import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
+import { useRivalOnce } from "@/hooks/useRivalOnce";
 import { findStats } from "@/lib/rivals/stats";
+import {
+  ONCE_COLOR,
+  ONCE_ETIQUETA,
+  playerKey,
+  type OnceEstado,
+} from "@/lib/rivals/once";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
 import type { RivalVoiceField } from "@/lib/voice/types";
 
@@ -31,6 +41,7 @@ import {
   BatteryCharging,
   BatteryLow,
   Brain,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -75,6 +86,13 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 const RIVALS_API_URL = "/api/rivals";
+
+/* Los tres estados del once en la ficha, en el orden en que se piensan. */
+const ESTADOS_ONCE: { label: string; valor: OnceEstado }[] = [
+  { label: "Titular", valor: "titular" },
+  { label: "Duda", valor: "duda" },
+  { label: "Fuera", valor: null },
+];
 
 type RivalPlayer = {
   ID_JUGADOR: string;
@@ -404,8 +422,11 @@ export default function RivalPlayersPage() {
   const [saving, setSaving] = useState(false);
 
   /* Comprueba que la hoja se ha quedado de verdad con lo que se le envía. */
-  const { verificar: verificarGuardado, dialogo: avisoGuardado } =
-    useSaveGuard();
+  const {
+    verificar: verificarGuardado,
+    dialogo: avisoGuardado,
+    columnasPerdidas,
+  } = useSaveGuard();
 
   /* Partidos, minutos, goles y tarjetas de BeSoccer (Supabase, sólo lectura). */
   const {
@@ -423,6 +444,13 @@ export default function RivalPlayersPage() {
 
   /* Snapshot del jugador al abrir el modal, para detectar cambios sin guardar. */
   const [pristineForm, setPristineForm] = useState("");
+
+  /*
+  | La ficha se consulta mucho más de lo que se edita: los quince campos de
+  | datos (altura, peso, procedencia, URLs…) viven plegados detrás de «Editar
+  | datos» y lo que manda en pantalla es el análisis del jugador.
+  */
+  const [editandoDatos, setEditandoDatos] = useState(false);
 
   useBodyScrollLock(Boolean(editForm));
 
@@ -617,6 +645,47 @@ export default function RivalPlayersPage() {
 
   /*
   |--------------------------------------------------------------------------
+  | ONCE PROBABLE
+  |--------------------------------------------------------------------------
+  | Quién sale de inicio y de quién se duda. Va por equipo, se guarda solo en
+  | `app_documents` y no toca la hoja: es una lectura de análisis que cambia
+  | varias veces por semana, no un dato del club.
+  */
+
+  const once = useRivalOnce(pitchTeam || selectedTeam);
+
+  /*
+  | El once vive por equipo, así que sólo se marca a la gente del equipo que
+  | está en el campo. Con una búsqueda que cruce plantillas, las filas de los
+  | otros equipos se quedan sin control en vez de escribir en el once que no es.
+  */
+  const onceDe = useCallback(
+    (player: RivalPlayer): OnceEstado =>
+      player.NOMBRE_EQUIPO === pitchTeam ? once.estado(playerKey(player)) : null,
+    [once, pitchTeam],
+  );
+
+  const ciclarOnceDe = useCallback(
+    (player: RivalPlayer) =>
+      player.NOMBRE_EQUIPO === pitchTeam
+        ? () => once.ciclar(playerKey(player))
+        : undefined,
+    [once, pitchTeam],
+  );
+
+  const onceResumen = useMemo(() => {
+    const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
+
+    /* Sólo cuenta la gente que sigue en la plantilla: si alguien se da de
+       baja, su marca no puede seguir sumando en el contador. */
+    return {
+      titulares: once.doc.titulares.filter((key) => claves.has(key)).length,
+      dudas: once.doc.dudas.filter((key) => claves.has(key)).length,
+    };
+  }, [once.doc, pitchPlayers]);
+
+  /*
+  |--------------------------------------------------------------------------
   | AGRUPACIÓN POR LÍNEAS
   |--------------------------------------------------------------------------
   */
@@ -675,22 +744,33 @@ export default function RivalPlayersPage() {
     return empty;
   }, [selectedTeam]);
 
-  const openPlayer = useCallback((player: RivalPlayer) => {
-    const copy = { ...player };
+  /*
+  | Cambiar de ficha con el retardo del autoguardado a medias se llevaría por
+  | delante lo último escrito, así que primero se consolida. El puente por
+  | referencia hace falta porque el hook se declara más abajo.
+  */
+  const flushFicha = useRef<() => Promise<void>>(async () => {});
 
-    setIsCreating(false);
-    setSelectedPlayer(player);
-    setPristineForm(JSON.stringify(copy));
-    setEditForm(copy);
+  const openPlayer = useCallback((player: RivalPlayer) => {
+    void flushFicha.current().then(() => {
+      const copy = { ...player };
+
+      setIsCreating(false);
+      setSelectedPlayer(player);
+      setPristineForm(JSON.stringify(copy));
+      setEditForm(copy);
+    });
   }, []);
 
   const openCreatePlayer = () => {
-    const empty = createEmptyPlayer();
+    void flushFicha.current().then(() => {
+      const empty = createEmptyPlayer();
 
-    setIsCreating(true);
-    setSelectedPlayer(null);
-    setPristineForm(JSON.stringify(empty));
-    setEditForm(empty);
+      setIsCreating(true);
+      setSelectedPlayer(null);
+      setPristineForm(JSON.stringify(empty));
+      setEditForm(empty);
+    });
   };
 
   const isDirty =
@@ -698,20 +778,26 @@ export default function RivalPlayersPage() {
 
   const closePlayer = useCallback(
     (force = false) => {
-      if (!force && isDirty) {
+      /* Con un jugador nuevo a medias todavía no hay nada guardado: la ficha
+         sigue siendo la única copia y por eso aquí sí se pregunta. */
+      if (!force && isCreating && isDirty) {
         const confirmed = window.confirm(
-          "Hay cambios sin guardar. ¿Seguro que quieres cerrar?",
+          "El jugador nuevo no se ha añadido todavía. ¿Descartarlo?",
         );
 
         if (!confirmed) return;
       }
+
+      /* Los cambios sobre un jugador que ya existe se guardan solos; lo que
+         quede pendiente sale ahora, sin preguntar nada. */
+      if (!isCreating) void flushFicha.current();
 
       setSelectedPlayer(null);
       setEditForm(null);
       setIsCreating(false);
       setPristineForm("");
     },
-    [isDirty],
+    [isDirty, isCreating],
   );
 
   const updateForm = (key: keyof RivalPlayer, value: string) => {
@@ -724,8 +810,9 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   | DICTADO POR VOZ
   |--------------------------------------------------------------------------
-  | El dictado solo escribe en el formulario: el guardado sigue siendo manual,
-  | así que siempre queda margen para corregir antes de tocar la hoja.
+  | El dictado escribe en el formulario y de ahí lo recoge el autoguardado,
+  | igual que si se hubiera tecleado: hay unos segundos de margen para
+  | corregir antes de que salga hacia la hoja.
   */
 
   /* Del catálogo de etiquetas al dictado solo le hace falta cómo se llaman. */
@@ -770,6 +857,64 @@ export default function RivalPlayersPage() {
     },
     [],
   );
+
+  /*
+  |--------------------------------------------------------------------------
+  | DERIVADOS DE LA FICHA
+  |--------------------------------------------------------------------------
+  */
+
+  const slotDelJugador = useMemo(
+    () => (editForm ? getSlot(editForm["POSICIÓN"]) : null),
+    [editForm],
+  );
+
+  /*
+  | Los datos de la cabecera, en horizontal. Sólo entran los que tienen valor:
+  | una chapa que pone "Peso —" ocupa el mismo sitio que una que informa.
+  */
+  const datosCabecera = useMemo(() => {
+    if (!editForm) return [];
+
+    const limpio = (valor: unknown) => {
+      const texto = String(valor ?? "").trim();
+
+      /* La hoja escribe "." donde no hay dato (ver la 2ª posición). */
+      return texto && texto !== "." ? texto : "";
+    };
+
+    return [
+      { label: "Edad", valor: limpio(editForm.EDAD) },
+      { label: "Altura", valor: limpio(editForm.ALTURA) },
+      { label: "Peso", valor: limpio(editForm.PESO) },
+      { label: "Pie", valor: limpio(editForm["PIE DOMINANTE"]) },
+      { label: "Estado", valor: limpio(editForm.ESTADO) },
+      { label: "Procedencia", valor: limpio(editForm.PROCEDENCIA) },
+      { label: "Nacimiento", valor: limpio(editForm["LUGAR DE NACIMIENTO"]) },
+      {
+        label: "Incorporación",
+        valor: limpio(editForm["FECHA INCORPORACIÓN"]),
+      },
+    ].filter((dato) => dato.valor);
+  }, [editForm]);
+
+  /*
+  | El once vive por equipo: la ficha sólo lo ofrece si el jugador es del
+  | equipo que hay en el campo. Con un jugador de otro equipo (búsqueda global)
+  | no hay nada que marcar sin escribir en el once que no es.
+  */
+  const onceDelJugador = useMemo(() => {
+    if (!editForm || isCreating) return null;
+
+    if (editForm.NOMBRE_EQUIPO !== pitchTeam) return null;
+
+    const key = playerKey(editForm);
+
+    return {
+      estado: once.estado(key),
+      marcar: (siguiente: OnceEstado) => once.marcar(key, siguiente),
+    };
+  }, [editForm, isCreating, once, pitchTeam]);
 
   /*
   |--------------------------------------------------------------------------
@@ -839,6 +984,104 @@ export default function RivalPlayersPage() {
 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [editForm, isCreating, navigatePlayer, closePlayer]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | AUTOGUARDADO DE LA FICHA
+  |--------------------------------------------------------------------------
+  |
+  | Una ficha de rival se rellena a trozos: se ve un vídeo, se anota una
+  | debilidad, se cambia de jugador con las flechas. Ahí es donde un
+  | «Guardar» olvidado se lleva el trabajo, así que lo escrito sale solo unos
+  | segundos después.
+  |
+  | Sólo para jugadores que ya existen. Dar de alta a uno nuevo sigue siendo
+  | un botón: autoguardar un formulario a medias crearía una fila en la hoja
+  | por cada pausa al teclear.
+  */
+
+  const escribirJugador = useCallback(
+    async (form: RivalPlayer | null) => {
+      if (!form?.ID_JUGADOR) return true;
+
+      const response = await fetch(RIVALS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "guardarRivalJugador",
+          player: form,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "No se pudo guardar");
+      }
+
+      const verificacion = await verificarGuardado({
+        titulo: `Jugador rival · ${
+          form["NOMBRE DEPORTIVO"] || form.JUGADOR
+        }`,
+        enviado: form as unknown as Record<string, unknown>,
+        modoAuto: true,
+        releer: async () => {
+          const relectura = await fetch(
+            `${RIVALS_API_URL}?action=rivalesPlantillas`,
+            { cache: "no-store" },
+          );
+
+          if (!relectura.ok) return null;
+
+          const filas = await relectura.json();
+
+          if (!Array.isArray(filas)) return null;
+
+          return (
+            filas.find(
+              (fila) => String(fila?.ID_JUGADOR) === String(form.ID_JUGADOR),
+            ) ?? null
+          );
+        },
+      });
+
+      if (verificacion.ok) {
+        setPlayers((current) =>
+          current.map((player) =>
+            player.ID_JUGADOR === form.ID_JUGADOR ? form : player,
+          ),
+        );
+
+        setPristineForm(JSON.stringify(form));
+      }
+
+      return verificacion.ok;
+    },
+    [verificarGuardado],
+  );
+
+  const autoFicha = useAutoSave<RivalPlayer | null>({
+    value: editForm,
+    enabled: Boolean(editForm) && !isCreating,
+    debounce: 1800,
+    save: escribirJugador,
+  });
+
+  useEffect(() => {
+    flushFicha.current = autoFicha.flush;
+  }, [autoFicha.flush]);
+
+  /* Abrir otra ficha no es una edición: se toma como nueva base. */
+  const idFicha = editForm?.ID_JUGADOR ?? "";
+  const idFichaAnterior = useRef(idFicha);
+
+  useEffect(() => {
+    if (idFichaAnterior.current === idFicha) return;
+
+    idFichaAnterior.current = idFicha;
+
+    autoFicha.sync();
+  }, [idFicha, autoFicha]);
 
   /*
   |--------------------------------------------------------------------------
@@ -958,6 +1201,10 @@ export default function RivalPlayersPage() {
     );
 
     if (!confirmed) return;
+
+    /* Sin esto, un autoguardado pendiente volvería a escribir la fila que se
+       acaba de borrar. `sync` da por buena la versión actual sin enviarla. */
+    autoFicha.sync();
 
     try {
       setSaving(true);
@@ -1263,12 +1510,21 @@ export default function RivalPlayersPage() {
                 </div>
               </div>
 
+              {columnasPerdidas.length > 0 && (
+                <div className="mt-6">
+                  <ColumnasPerdidas columnas={columnasPerdidas} />
+                </div>
+              )}
+
               {/* PLANTILLA + CAMPOGRAMA */}
 
               {loading ? (
                 <RivalsSkeleton />
               ) : (
-                <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
+                /* El campograma manda: es donde se lee la plantilla de un
+                   golpe. El listado se queda en un cuarto del ancho, en una
+                   sola columna, como índice para buscar a alguien concreto. */
+                <div className="mt-6 grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(230px,1fr)_minmax(0,3fr)]">
                   {/* ============================================ */}
                   {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
                   {/* ============================================ */}
@@ -1334,12 +1590,14 @@ export default function RivalPlayersPage() {
                                   </div>
                                 )}
 
-                                <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2">
+                                <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2 lg:grid-cols-1">
                                   {group.players.map((player) => (
                                     <PlayerRow
                                       key={player.ID_JUGADOR}
                                       player={player}
                                       showTeam={teamsInResults.length > 1}
+                                      onceEstado={onceDe(player)}
+                                      onCiclarOnce={ciclarOnceDe(player)}
                                       onClick={() => openPlayer(player)}
                                     />
                                   ))}
@@ -1363,12 +1621,14 @@ export default function RivalPlayersPage() {
                           </span>
                         </div>
 
-                        <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2">
+                        <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2 lg:grid-cols-1">
                           {unclassified.map((player) => (
                             <PlayerRow
                               key={player.ID_JUGADOR}
                               player={player}
                               showTeam={teamsInResults.length > 1}
+                              onceEstado={onceDe(player)}
+                              onCiclarOnce={ciclarOnceDe(player)}
                               onClick={() => openPlayer(player)}
                             />
                           ))}
@@ -1403,21 +1663,72 @@ export default function RivalPlayersPage() {
                           )}
                         </h2>
 
-                        <span className="shrink-0 text-xs text-white/30">
+                        <div className="flex shrink-0 items-center gap-2 text-xs text-white/30">
                           {activeTags.length > 0 && (
-                            <span className="mr-2 text-[#C8A96B]">
+                            <span className="text-[#C8A96B]">
                               {listPlayers.length} destacados
                             </span>
                           )}
 
-                          {pitchPlayers.length} jugadores
-                        </span>
+                          {/* ONCE PROBABLE — cuántos hay puestos y cuántas dudas */}
+
+                          <span
+                            title="Titulares marcados en el once probable"
+                            className="flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold"
+                            style={{
+                              borderColor: `${ONCE_COLOR.titular}55`,
+                              background: `${ONCE_COLOR.titular}18`,
+                              color: chipInk(ONCE_COLOR.titular),
+                            }}
+                          >
+                            {onceResumen.titulares}/11
+                          </span>
+
+                          {onceResumen.dudas > 0 && (
+                            <span
+                              title="Jugadores en duda para el once"
+                              className="flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold"
+                              style={{
+                                borderColor: `${ONCE_COLOR.duda}55`,
+                                background: `${ONCE_COLOR.duda}18`,
+                                color: chipInk(ONCE_COLOR.duda),
+                              }}
+                            >
+                              {onceResumen.dudas} ?
+                            </span>
+                          )}
+
+                          {(onceResumen.titulares > 0 ||
+                            onceResumen.dudas > 0) && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "¿Vaciar el once probable de este equipo?",
+                                  )
+                                ) {
+                                  once.limpiar();
+                                }
+                              }}
+                              title="Vaciar el once probable"
+                              className="rounded-full border border-white/10 p-1 text-white/35 transition hover:border-white/30 hover:text-white"
+                            >
+                              <RotateCcw size={11} />
+                            </button>
+                          )}
+
+                          <span>{pitchPlayers.length} jugadores</span>
+                        </div>
                       </div>
 
                       <TacticalPitch
                         players={pitchPlayers}
                         selectedId={selectedPlayer?.ID_JUGADOR}
                         activeTags={activeTags}
+                        onceEstado={onceDe}
+                        onCiclarOnce={ciclarOnceDe}
                         onPlayerClick={openPlayer}
                       />
                     </div>
@@ -1452,7 +1763,9 @@ export default function RivalPlayersPage() {
             /* Lo que se lleva la exportación a PNG / PDF: la ficha, no la
                página que ha quedado detrás del velo. */
             data-export-panel
-            className="relative flex max-h-[96vh] w-full min-w-0 max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] shadow-2xl"
+            /* La ficha ya no es una columna estrecha con todo apilado: se
+               despliega a lo ancho, así que necesita el ancho de la pantalla. */
+            className="relative flex max-h-[96vh] w-full min-w-0 max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] shadow-2xl"
             onClick={(event) => event.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -1507,10 +1820,19 @@ export default function RivalPlayersPage() {
               {/* Los mandos de la ventana no pintan nada en un PDF. */}
 
               <div data-export-hide className="flex shrink-0 items-center gap-3">
-                {isDirty && (
-                  <span className="hidden rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B] sm:inline">
-                    Cambios sin guardar
-                  </span>
+                {isCreating ? (
+                  isDirty && (
+                    <span className="hidden rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B] sm:inline">
+                      Sin añadir todavía
+                    </span>
+                  )
+                ) : (
+                  <AutoSaveStatus
+                    estado={autoFicha.status}
+                    guardadoEn={autoFicha.lastSavedAt}
+                    onReintentar={() => void autoFicha.flush()}
+                    className="hidden sm:inline-flex"
+                  />
                 )}
 
                 <button
@@ -1526,11 +1848,15 @@ export default function RivalPlayersPage() {
             {/* BODY */}
 
             <div className="min-w-0 overflow-y-auto">
-              <div className="grid min-w-0 gap-6 p-3 sm:p-4 md:grid-cols-[280px_minmax(0,1fr)] md:p-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-                {/* COLUMNA IZQUIERDA */}
+              {/* ================================================== */}
+              {/* BANDA DE CABECERA — la ficha en horizontal          */}
+              {/* ================================================== */}
 
-                <div className="min-w-0">
-                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
+              <div className="flex min-w-0 flex-col gap-4 border-b border-white/10 bg-gradient-to-r from-[#C8A96B]/[0.07] via-transparent to-transparent p-3 sm:p-4 md:flex-row md:items-start md:gap-5 md:p-6">
+                {/* FOTO */}
+
+                <div className="relative shrink-0 self-center md:self-start">
+                  <div className="h-32 w-32 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14] sm:h-40 sm:w-40">
                     {editForm.FOTO ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -1538,18 +1864,199 @@ export default function RivalPlayersPage() {
                         alt={
                           editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || ""
                         }
-                        className="aspect-[3/4] w-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex aspect-[3/4] items-center justify-center">
-                        <UserRound size={80} className="text-white/20" />
+                      <div className="flex h-full items-center justify-center">
+                        <UserRound size={64} className="text-white/20" />
                       </div>
                     )}
                   </div>
 
-                  {/* IDENTIDAD */}
+                  {editForm.DORSAL !== "" && editForm.DORSAL !== undefined && (
+                    <span className="absolute -bottom-2 -right-2 flex h-9 min-w-9 items-center justify-center rounded-full bg-[#C8A96B] px-2 text-base font-bold text-black shadow-lg">
+                      {editForm.DORSAL}
+                    </span>
+                  )}
+                </div>
 
-                  <div className="mt-4 space-y-4">
+                {/* IDENTIDAD Y DATOS */}
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {slotDelJugador && (
+                      <span
+                        className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tracking-wider"
+                        style={{
+                          background: `${slotDelJugador.line.color}26`,
+                          color: chipInk(slotDelJugador.line.color),
+                        }}
+                      >
+                        {slotDelJugador.slot.code}
+                      </span>
+                    )}
+
+                    <span className="min-w-0 truncate text-sm text-white/50">
+                      {editForm["POSICIÓN"] || "Sin posición"}
+                    </span>
+
+                    {editForm["2º POSICIÓN"] &&
+                      editForm["2º POSICIÓN"] !== "." && (
+                        <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] text-white/40">
+                          2ª {editForm["2º POSICIÓN"]}
+                        </span>
+                      )}
+
+                    {editForm.ROL && (
+                      <span className="shrink-0 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#E4C977]">
+                        {editForm.ROL}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-2 min-w-0 truncate text-sm text-white/45">
+                    {editForm.JUGADOR}
+                  </p>
+
+                  {/* DATOS EN HORIZONTAL — lo que se mira de un vistazo */}
+
+                  <dl className="mt-3 flex min-w-0 flex-wrap gap-2">
+                    {datosCabecera.map((dato) => (
+                      <div
+                        key={dato.label}
+                        className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5"
+                      >
+                        <dt className="text-[9px] uppercase tracking-[0.16em] text-white/35">
+                          {dato.label}
+                        </dt>
+
+                        <dd className="mt-0.5 max-w-[160px] truncate text-sm font-semibold text-white">
+                          {dato.valor}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+
+                {/* ONCE PROBABLE + ENLACES */}
+
+                <div className="flex shrink-0 flex-col gap-3 md:w-52">
+                  {onceDelJugador && (
+                    <div className="rounded-2xl border border-white/10 bg-[#0B0F14] p-3">
+                      <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/35">
+                        Once probable
+                      </p>
+
+                      {/*
+                      | En el PNG / PDF sobrevive sólo la opción marcada: las
+                      | otras dos son un selector que en papel no se puede
+                      | pulsar, y la que queda se lee como el dato. Es el mismo
+                      | criterio que siguen las etiquetas.
+                      */}
+                      <div
+                        role="group"
+                        aria-label="Estado en el once probable"
+                        className="flex items-center gap-1"
+                      >
+                        {ESTADOS_ONCE.map((opcion) => {
+                          const activo = onceDelJugador.estado === opcion.valor;
+
+                          const color = opcion.valor
+                            ? ONCE_COLOR[opcion.valor]
+                            : null;
+
+                          return (
+                            <button
+                              key={opcion.label}
+                              type="button"
+                              {...(activo ? {} : { "data-export-hide": "" })}
+                              onClick={() => onceDelJugador.marcar(opcion.valor)}
+                              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
+                                activo
+                                  ? ""
+                                  : "border-white/10 text-white/40 hover:border-white/30 hover:text-white/70"
+                              }`}
+                              style={
+                                activo && color
+                                  ? {
+                                      borderColor: `${color}80`,
+                                      background: `${color}26`,
+                                      color: chipInk(color),
+                                    }
+                                  : activo
+                                    ? {
+                                        borderColor: "rgba(255,255,255,0.35)",
+                                        color: "#fff",
+                                      }
+                                    : undefined
+                              }
+                            >
+                              {opcion.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    {editForm.VIDEO && (
+                      <a
+                        href={editForm.VIDEO}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] transition hover:border-[#C8A96B]"
+                      >
+                        <Video size={14} className="text-[#C8A96B]" />
+                        Vídeo
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
+
+                    {editForm.DOC && (
+                      <a
+                        href={editForm.DOC}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] transition hover:border-[#C8A96B]"
+                      >
+                        <FileText size={14} className="text-[#C8A96B]" />
+                        Documento
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    data-export-hide
+                    onClick={() => setEditandoDatos((abierto) => !abierto)}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-semibold transition ${
+                      editandoDatos
+                        ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+                        : "border-white/10 text-white/55 hover:border-[#C8A96B] hover:text-white"
+                    }`}
+                  >
+                    {editandoDatos ? <X size={13} /> : <SquarePen size={13} />}
+                    {editandoDatos ? "Cerrar datos" : "Editar datos"}
+                  </button>
+                </div>
+              </div>
+
+              {/* ================================================== */}
+              {/* FICHA DE DATOS — sólo al pedirla                    */}
+              {/* ================================================== */}
+
+              {editandoDatos && (
+                <div
+                  data-export-hide
+                  className="min-w-0 border-b border-white/10 bg-[#0B0F14]/60 p-3 sm:p-4 md:p-6"
+                >
+                  <p className="mb-4 text-[10px] uppercase tracking-[0.2em] text-white/35">
+                    Datos del jugador
+                  </p>
+
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <EditableField
                       label="Nombre completo"
                       value={editForm.JUGADOR}
@@ -1563,14 +2070,36 @@ export default function RivalPlayersPage() {
                         updateForm("NOMBRE DEPORTIVO", value)
                       }
                     />
-                  </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <EditableField
+                      label="Equipo"
+                      value={editForm.NOMBRE_EQUIPO}
+                      onChange={(value) => updateForm("NOMBRE_EQUIPO", value)}
+                    />
+
                     <EditableField
                       label="Dorsal"
                       value={editForm.DORSAL}
                       inputMode="numeric"
                       onChange={(value) => updateForm("DORSAL", value)}
+                    />
+
+                    <EditableField
+                      label="Posición"
+                      value={editForm["POSICIÓN"]}
+                      onChange={(value) => updateForm("POSICIÓN", value)}
+                    />
+
+                    <EditableField
+                      label="2ª posición"
+                      value={editForm["2º POSICIÓN"]}
+                      onChange={(value) => updateForm("2º POSICIÓN", value)}
+                    />
+
+                    <EditableField
+                      label="Pie"
+                      value={editForm["PIE DOMINANTE"]}
+                      onChange={(value) => updateForm("PIE DOMINANTE", value)}
                     />
 
                     <EditableField
@@ -1581,39 +2110,15 @@ export default function RivalPlayersPage() {
                     />
 
                     <EditableField
-                      label="Peso"
-                      value={editForm.PESO}
-                      onChange={(value) => updateForm("PESO", value)}
-                    />
-
-                    <EditableField
                       label="Altura"
                       value={editForm.ALTURA}
                       onChange={(value) => updateForm("ALTURA", value)}
                     />
 
                     <EditableField
-                      label="Pie"
-                      value={editForm["PIE DOMINANTE"]}
-                      onChange={(value) =>
-                        updateForm("PIE DOMINANTE", value)
-                      }
-                    />
-
-                    <EditableField
-                      label="Posición"
-                      value={editForm["POSICIÓN"]}
-                      onChange={(value) => updateForm("POSICIÓN", value)}
-                    />
-                  </div>
-
-                  <div className="mt-4 space-y-2 text-sm">
-                    <EditableField
-                      label="Equipo"
-                      value={editForm.NOMBRE_EQUIPO}
-                      onChange={(value) =>
-                        updateForm("NOMBRE_EQUIPO", value)
-                      }
+                      label="Peso"
+                      value={editForm.PESO}
+                      onChange={(value) => updateForm("PESO", value)}
                     />
 
                     <EditableField
@@ -1630,12 +2135,6 @@ export default function RivalPlayersPage() {
                       }
                     />
 
-                    <EditableField
-                      label="2ª posición"
-                      value={editForm["2º POSICIÓN"]}
-                      onChange={(value) => updateForm("2º POSICIÓN", value)}
-                    />
-
                     <EditableDateField
                       label="Fecha incorporación"
                       value={editForm["FECHA INCORPORACIÓN"]}
@@ -1643,36 +2142,7 @@ export default function RivalPlayersPage() {
                         updateForm("FECHA INCORPORACIÓN", value)
                       }
                     />
-                  </div>
-                </div>
 
-                {/* COLUMNA DERECHA */}
-
-                <div className="min-w-0 space-y-5">
-                  {/* RENDIMIENTO — mapa de calor por posición + números */}
-
-                  <PlayerStatsCard
-                    stats={findStats(statsDoc, editForm)}
-                    loading={statsLoading}
-                    missing={statsMissing}
-                    slot={getSlot(editForm["POSICIÓN"])?.slot.key ?? null}
-                    side={detectSide(editForm["POSICIÓN"])}
-                    positionCode={getSlot(editForm["POSICIÓN"])?.slot.code}
-                  />
-
-                  {/* El dictado es una herramienta de edición: fuera del PDF. */}
-
-                  <div data-export-hide>
-                    <RivalVoicePanel
-                      current={editForm as unknown as Record<string, unknown>}
-                      equipo={editForm.NOMBRE_EQUIPO || selectedTeam}
-                      tagCatalog={voiceTagCatalog}
-                      activeTagKeys={voiceTagKeys}
-                      onApply={applyVoice}
-                    />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
                     <EditableField
                       label="Estado"
                       value={editForm.ESTADO}
@@ -1684,38 +2154,7 @@ export default function RivalPlayersPage() {
                       value={editForm.ROL}
                       onChange={(value) => updateForm("ROL", value)}
                     />
-                  </div>
 
-                  <TagPicker
-                    value={editForm.IMPACTO}
-                    onChange={(value) => updateForm("IMPACTO", value)}
-                  />
-
-                  <EditableTextarea
-                    label="Características"
-                    value={editForm.CARACTERÍSTICAS}
-                    onChange={(value) => updateForm("CARACTERÍSTICAS", value)}
-                  />
-
-                  <EditableTextarea
-                    label="Fortalezas"
-                    value={editForm.FORTALEZAS}
-                    onChange={(value) => updateForm("FORTALEZAS", value)}
-                  />
-
-                  <EditableTextarea
-                    label="Debilidades"
-                    value={editForm.DEBILIDADES}
-                    onChange={(value) => updateForm("DEBILIDADES", value)}
-                  />
-
-                  <EditableTextarea
-                    label="Observaciones"
-                    value={editForm.OBSERVACIONES}
-                    onChange={(value) => updateForm("OBSERVACIONES", value)}
-                  />
-
-                  <div className="grid gap-4 md:grid-cols-2">
                     <EditableField
                       label="Foto URL"
                       value={editForm.FOTO}
@@ -1727,42 +2166,82 @@ export default function RivalPlayersPage() {
                       value={editForm.VIDEO}
                       onChange={(value) => updateForm("VIDEO", value)}
                     />
+
+                    <EditableField
+                      label="Documento URL"
+                      value={editForm.DOC}
+                      onChange={(value) => updateForm("DOC", value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ================================================== */}
+              {/* RENDIMIENTO — a todo lo ancho, que es como se lee    */}
+              {/* ================================================== */}
+
+              <div className="min-w-0 p-3 sm:p-4 md:p-6">
+                <PlayerStatsCard
+                  stats={findStats(statsDoc, editForm)}
+                  loading={statsLoading}
+                  missing={statsMissing}
+                  slot={slotDelJugador?.slot.key ?? null}
+                  side={detectSide(editForm["POSICIÓN"])}
+                  positionCode={slotDelJugador?.slot.code}
+                />
+
+                {/* El dictado es una herramienta de edición: fuera del PDF. */}
+
+                <div data-export-hide className="mt-5">
+                  <RivalVoicePanel
+                    current={editForm as unknown as Record<string, unknown>}
+                    equipo={editForm.NOMBRE_EQUIPO || selectedTeam}
+                    tagCatalog={voiceTagCatalog}
+                    activeTagKeys={voiceTagKeys}
+                    onApply={applyVoice}
+                  />
+                </div>
+
+                {/* ============================================== */}
+                {/* ANÁLISIS — tres columnas, no una lista larga    */}
+                {/* ============================================== */}
+
+                <div className="mt-5 grid min-w-0 gap-4 xl:grid-cols-3">
+                  <div className="min-w-0 space-y-4">
+                    <TagPicker
+                      value={editForm.IMPACTO}
+                      onChange={(value) => updateForm("IMPACTO", value)}
+                    />
+
+                    <EditableTextarea
+                      label="Características"
+                      value={editForm.CARACTERÍSTICAS}
+                      onChange={(value) =>
+                        updateForm("CARACTERÍSTICAS", value)
+                      }
+                    />
                   </div>
 
-                  <EditableField
-                    label="Documento URL"
-                    value={editForm.DOC}
-                    onChange={(value) => updateForm("DOC", value)}
-                  />
+                  <div className="min-w-0 space-y-4">
+                    <EditableTextarea
+                      label="Fortalezas"
+                      value={editForm.FORTALEZAS}
+                      onChange={(value) => updateForm("FORTALEZAS", value)}
+                    />
 
-                  {/* LINKS */}
+                    <EditableTextarea
+                      label="Debilidades"
+                      value={editForm.DEBILIDADES}
+                      onChange={(value) => updateForm("DEBILIDADES", value)}
+                    />
+                  </div>
 
-                  <div className="flex flex-wrap gap-3">
-                    {editForm.VIDEO && (
-                      <a
-                        href={editForm.VIDEO}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:border-[#C8A96B]"
-                      >
-                        <Video size={16} className="text-[#C8A96B]" />
-                        Ver vídeo
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
-
-                    {editForm.DOC && (
-                      <a
-                        href={editForm.DOC}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:border-[#C8A96B]"
-                      >
-                        <FileText size={16} className="text-[#C8A96B]" />
-                        Ver documento
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
+                  <div className="min-w-0">
+                    <EditableTextarea
+                      label="Observaciones"
+                      value={editForm.OBSERVACIONES}
+                      onChange={(value) => updateForm("OBSERVACIONES", value)}
+                    />
                   </div>
                 </div>
               </div>
@@ -1788,26 +2267,45 @@ export default function RivalPlayersPage() {
               )}
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => closePlayer()}
-                  className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60 transition hover:border-white/30 hover:text-white"
-                >
-                  Cancelar
-                </button>
+                {/* Dar de alta sigue siendo un botón: hasta pulsarlo, el
+                    jugador nuevo no existe en ningún sitio. Editar uno que ya
+                    existe, en cambio, se guarda solo. */}
+                {isCreating ? (
+                  <>
+                    <button
+                      onClick={() => closePlayer()}
+                      className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60 transition hover:border-white/30 hover:text-white"
+                    >
+                      Cancelar
+                    </button>
 
-                <button
-                  onClick={savePlayer}
-                  disabled={saving}
-                  className="flex items-center gap-2 rounded-xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#d8ba7c] disabled:opacity-50"
-                >
-                  <Save size={16} />
+                    <button
+                      onClick={savePlayer}
+                      disabled={saving}
+                      className="flex items-center gap-2 rounded-xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#d8ba7c] disabled:opacity-50"
+                    >
+                      <Save size={16} />
+                      {saving ? "Añadiendo..." : "Añadir jugador"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <AutoSaveStatus
+                      estado={autoFicha.status}
+                      guardadoEn={autoFicha.lastSavedAt}
+                      onReintentar={() => void autoFicha.flush()}
+                      className="sm:hidden"
+                    />
 
-                  {saving
-                    ? "Guardando..."
-                    : isCreating
-                      ? "Añadir jugador"
-                      : "Guardar"}
-                </button>
+                    <button
+                      onClick={() => closePlayer()}
+                      className="flex items-center gap-2 rounded-xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#d8ba7c]"
+                    >
+                      <Check size={16} />
+                      Hecho
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1864,10 +2362,15 @@ function SearchInput({
 function PlayerRow({
   player,
   showTeam,
+  onceEstado = null,
+  onCiclarOnce,
   onClick,
 }: {
   player: RivalPlayer;
   showTeam: boolean;
+  /** Marca en el once probable, si el equipo tiene once montado. */
+  onceEstado?: OnceEstado;
+  onCiclarOnce?: () => void;
   onClick: () => void;
 }) {
   const { tags } = parseTags(player.IMPACTO);
@@ -1877,14 +2380,35 @@ function PlayerRow({
   const second = getSlot(player["2º POSICIÓN"]);
   const secondSlot = second?.slot.key === slotEntry?.slot.key ? null : second;
 
+  const onceColor = onceEstado ? ONCE_COLOR[onceEstado] : null;
+
   return (
-    <button
+    /* `div` y no `button`: dentro va el botón del once, y un botón dentro de
+       otro no es HTML válido —el navegador lo desanida y se pierde el clic. */
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="group flex min-w-0 items-center gap-3 bg-[#11161D] p-3 text-left transition hover:bg-white/[0.07]"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="group flex min-w-0 cursor-pointer items-center gap-3 bg-[#11161D] p-3 text-left transition hover:bg-white/[0.07]"
     >
       {/* FOTO */}
 
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
+      <div
+        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border bg-[#0B0F14]"
+        style={{
+          borderColor: onceColor ?? "rgba(255,255,255,0.1)",
+          borderWidth: onceEstado ? 2 : 1,
+          /* La duda va en línea discontinua: sin mirar el color ya se
+             distingue del titular confirmado. */
+          borderStyle: onceEstado === "duda" ? "dashed" : "solid",
+        }}
+      >
         {player.FOTO ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -1902,7 +2426,7 @@ function PlayerRow({
 
       {/* DORSAL */}
 
-      <div className="w-8 shrink-0 text-center">
+      <div className="w-6 shrink-0 text-center">
         <span className="text-lg font-bold text-white/30">
           {player.DORSAL || "—"}
         </span>
@@ -1978,10 +2502,10 @@ function PlayerRow({
         )}
       </div>
 
-      {/* ROL */}
+      {/* ROL — la columna estrecha ya no le deja sitio; vuelve en pantallas anchas */}
 
       {player.ROL && (
-        <div className="hidden min-w-0 shrink-0 text-right xl:block">
+        <div className="hidden min-w-0 shrink-0 text-right 2xl:block">
           <p className="text-[9px] uppercase tracking-wider text-white/30">
             Rol
           </p>
@@ -1991,7 +2515,48 @@ function PlayerRow({
           </p>
         </div>
       )}
-    </button>
+
+      {/* ONCE PROBABLE — un clic recorre titular → duda → fuera */}
+
+      {onCiclarOnce && (
+        <button
+          type="button"
+          data-export-hide
+          onClick={(event) => {
+            /* El clic es del botón, no de la fila: si sube, abre la ficha. */
+            event.stopPropagation();
+            onCiclarOnce();
+          }}
+          title={
+            onceEstado
+              ? `${ONCE_ETIQUETA[onceEstado]} · pulsa para cambiar`
+              : "Marcar en el once probable"
+          }
+          aria-label={`Once probable de ${
+            player["NOMBRE DEPORTIVO"] || player.JUGADOR
+          }: ${onceEstado ? ONCE_ETIQUETA[onceEstado] : "sin marcar"}`}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition"
+          style={
+            onceColor
+              ? {
+                  borderColor: `${onceColor}80`,
+                  background: `${onceColor}26`,
+                  color: chipInk(onceColor),
+                  borderStyle: onceEstado === "duda" ? "dashed" : "solid",
+                }
+              : undefined
+          }
+        >
+          {onceEstado === "titular" ? (
+            "11"
+          ) : onceEstado === "duda" ? (
+            "?"
+          ) : (
+            <Shirt size={13} className="text-white/20" />
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -2094,7 +2659,7 @@ function EditableDateField({
 
 function RivalsSkeleton() {
   return (
-    <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,1fr)]">
+    <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[minmax(230px,1fr)_minmax(0,3fr)]">
       <div className="space-y-5">
         {Array.from({ length: 3 }).map((_, index) => (
           <div
@@ -2625,7 +3190,15 @@ function TagChip({
   );
 }
 
-/* Selector de etiquetas del modal: escribe sobre el campo IMPACTO. */
+/*
+| Selector de etiquetas del modal: escribe sobre el campo IMPACTO.
+|
+| De entrada sólo se ven **las elegidas**. El catálogo son treinta píldoras y
+| en una ficha que se consulta más de lo que se edita eran treinta veces más
+| ruido que dato: había que buscar las cuatro encendidas entre las apagadas.
+| El catálogo entero vive detrás de «Editar», y ahí sí se despliega completo,
+| agrupado y con su campo de texto libre.
+*/
 function TagPicker({
   value,
   onChange,
@@ -2633,6 +3206,8 @@ function TagPicker({
   value: unknown;
   onChange: (value: string) => void;
 }) {
+  const [editando, setEditando] = useState(false);
+
   const parsed = useMemo(() => parseTags(value), [value]);
 
   const activeKeys = useMemo(
@@ -2640,56 +3215,118 @@ function TagPicker({
     [parsed.tags],
   );
 
+  /* Agrupadas por tono para que las debilidades no se mezclen con las
+     fortalezas ni siquiera en la vista corta. */
+  const elegidasPorGrupo = TAG_GROUPS.map((group) => ({
+    ...group,
+    chosen: group.tags.filter((tag) => activeKeys.has(tag.key)),
+  })).filter((group) => group.chosen.length > 0);
+
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0B0F14] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
           <Tags size={14} className="text-[#C8A96B]" />
           Etiquetas
+
+          {parsed.tags.length > 0 && (
+            <span className="rounded-full bg-white/[0.06] px-1.5 text-[10px] text-white/40">
+              {parsed.tags.length}
+            </span>
+          )}
         </span>
 
-        <span data-export-hide className="text-[11px] text-white/30">
-          {parsed.tags.length} seleccionadas · se guardan en IMPACTO
-        </span>
+        <button
+          type="button"
+          data-export-hide
+          onClick={() => setEditando((abierto) => !abierto)}
+          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+            editando
+              ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+              : "border-white/15 text-white/55 hover:border-[#C8A96B] hover:text-white"
+          }`}
+        >
+          {editando ? <X size={11} /> : <SquarePen size={11} />}
+          {editando ? "Cerrar" : "Editar"}
+        </button>
       </div>
 
-      {/*
-      | En el PNG / PDF se queda sólo lo elegido: el catálogo entero son 30
-      | píldoras apagadas que en pantalla son el selector y en papel, ruido.
-      | Cada grupo desaparece si no ha quedado nada suyo marcado.
-      */}
-      <div className="space-y-3">
-        {TAG_GROUPS.map((group) => {
-          const chosen = group.tags.filter((tag) => activeKeys.has(tag.key));
+      {/* LO ELEGIDO — lo único que se ve de entrada y lo único que sale en PDF */}
 
-          return (
-            <div
-              key={group.tone}
-              {...(chosen.length ? {} : { "data-export-hide": "" })}
-            >
+      {elegidasPorGrupo.length > 0 ? (
+        <div className="space-y-2.5">
+          {elegidasPorGrupo.map((group) => (
+            <div key={group.tone}>
               <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
                 {group.label}
               </span>
 
               <div className="flex flex-wrap gap-2">
-                {group.tags.map((tag) => {
-                  const active = activeKeys.has(tag.key);
-
-                  return (
-                    <TagChip
-                      key={tag.key}
-                      tag={tag}
-                      active={active}
-                      hideOnExport={!active}
-                      onClick={() => onChange(toggleTagValue(value, tag))}
-                    />
-                  );
-                })}
+                {group.chosen.map((tag) => (
+                  <TagChip
+                    key={tag.key}
+                    tag={tag}
+                    active
+                    /* En la vista corta la píldora también quita: es el gesto
+                       que se espera al ver algo marcado. */
+                    onClick={
+                      editando
+                        ? undefined
+                        : () => onChange(toggleTagValue(value, tag))
+                    }
+                  />
+                ))}
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[11px] text-white/30">
+          Sin etiquetas.{" "}
+          {!editando && "Pulsa «Editar» para elegirlas del catálogo."}
+        </p>
+      )}
+
+      {/* CATÁLOGO COMPLETO — sólo al editar, y nunca en el PNG / PDF */}
+
+      {editando && (
+        <div
+          data-export-hide
+          className="mt-4 space-y-3 border-t border-white/10 pt-4"
+        >
+          {TAG_GROUPS.map((group) => (
+            <div key={group.tone}>
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+                {group.label}
+              </span>
+
+              <div className="flex flex-wrap gap-2">
+                {group.tags.map((tag) => (
+                  <TagChip
+                    key={tag.key}
+                    tag={tag}
+                    active={activeKeys.has(tag.key)}
+                    onClick={() => onChange(toggleTagValue(value, tag))}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <label className="block pt-1">
+            <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
+              Valor guardado (columna IMPACTO)
+            </span>
+
+            <input
+              value={String(value ?? "")}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder="El cerebro; Sacador de ABP"
+              className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] px-4 py-2.5 text-xs outline-none transition focus:border-[#C8A96B]"
+            />
+          </label>
+        </div>
+      )}
 
       {parsed.extra.length > 0 && (
         <p className="mt-3 text-[11px] text-white/40">
@@ -2697,19 +3334,6 @@ function TagPicker({
           <span className="text-white/60">{parsed.extra.join(", ")}</span>
         </p>
       )}
-
-      <label data-export-hide className="mt-4 block">
-        <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
-          Valor guardado
-        </span>
-
-        <input
-          value={String(value ?? "")}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="El cerebro; Sacador de ABP"
-          className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] px-4 py-2.5 text-xs outline-none transition focus:border-[#C8A96B]"
-        />
-      </label>
     </div>
   );
 }
@@ -3327,15 +3951,27 @@ function layoutPitch(
 |--------------------------------------------------------------------------
 */
 
+/*
+| Ancho del detalle que sale al pasar el ratón. Está aquí y no en una clase de
+| Tailwind porque hace falta el número para saber cuánto hay que empujarlo
+| hacia dentro en las fichas pegadas a una banda.
+*/
+const TOOLTIP_ANCHO = 192;
+
 function TacticalPitch({
   players,
   selectedId,
   activeTags,
+  onceEstado,
+  onCiclarOnce,
   onPlayerClick,
 }: {
   players: RivalPlayer[];
   selectedId?: string;
   activeTags: string[];
+  /** Marca de cada jugador en el once probable. */
+  onceEstado?: (player: RivalPlayer) => OnceEstado;
+  onCiclarOnce?: (player: RivalPlayer) => (() => void) | undefined;
   onPlayerClick: (player: RivalPlayer) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -3457,14 +4093,41 @@ function TacticalPitch({
 
         const name = player["NOMBRE DEPORTIVO"] || player.JUGADOR;
 
+        const enElOnce = onceEstado?.(player) ?? null;
+        const ciclar = onCiclarOnce?.(player);
+
+        /*
+        | El detalle es un cuadro de 192 px centrado en la ficha, y el campo
+        | recorta lo que se salga (`overflow-hidden`). En los extremos —el
+        | lateral izquierdo, el extremo derecho— eso dejaba media ventana
+        | fuera: justo la gente que más se mira al preparar una banda. Se
+        | empuja hacia dentro lo justo para que quepa entera.
+        */
+        const mitad = TOOLTIP_ANCHO / 2;
+
+        const desplazado =
+          size.width > TOOLTIP_ANCHO + 8
+            ? Math.min(Math.max(x, mitad + 4), size.width - mitad - 4) - x
+            : 0;
+
         return (
-          <button
+          <div
             key={player.ID_JUGADOR}
+            role="button"
+            tabIndex={0}
             onClick={() => onPlayerClick(player)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onPlayerClick(player);
+              }
+            }}
             title={`${name} · ${player["POSICIÓN"]}${
+              enElOnce ? ` · ${ONCE_ETIQUETA[enElOnce]}` : ""
+            }${
               tags.length ? ` · ${tags.map((tag) => tag.label).join(", ")}` : ""
             }`}
-            className={`group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center transition duration-200 hover:z-30 ${
+            className={`group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center transition duration-200 hover:z-30 ${
               matchesFilter
                 ? "opacity-100 hover:scale-110"
                 : "opacity-20 grayscale hover:opacity-70"
@@ -3473,30 +4136,47 @@ function TacticalPitch({
           >
             {/* FOTO — el borde lleva el color de la línea */}
 
+            {/* Contenedor sin recorte: el recorte circular es del `img` de
+                dentro, para que dorsal y chapa del once puedan asomar fuera. */}
             <div
-              className={`relative shrink-0 overflow-hidden rounded-full border-2 bg-[#11161D] shadow-[0_4px_14px_rgba(0,0,0,0.55)] ${
-                selected ? "ring-2 ring-[#C8A96B]/60" : ""
-              }`}
-              style={{
-                height: avatar,
-                width: avatar,
-                borderColor: selected ? "#C8A96B" : color,
-              }}
+              className="relative shrink-0"
+              style={{ height: avatar, width: avatar }}
             >
-              {player.FOTO ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={player.FOTO}
-                  alt={name}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <UserRound
-                  size={Math.round(avatar * 0.5)}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
-                />
-              )}
+              <div
+                className={`h-full w-full overflow-hidden rounded-full border-2 bg-[#11161D] shadow-[0_4px_14px_rgba(0,0,0,0.55)] ${
+                  selected ? "ring-2 ring-[#C8A96B]/60" : ""
+                }`}
+                style={{
+                  borderColor: selected ? "#C8A96B" : color,
+                  /*
+                  | El once se ve antes que nada: un aro exterior verde para el
+                  | titular y ámbar para la duda, por fuera del borde de línea
+                  | para no pisar el color de la posición. Con `box-shadow` en
+                  | vez de otro borde porque no cambia el tamaño de la foto y
+                  | el motor de colocación ya repartió el sitio contando con él.
+                  */
+                  boxShadow: enElOnce
+                    ? `0 0 0 3px ${ONCE_COLOR[enElOnce]}${
+                        enElOnce === "duda" ? "99" : ""
+                      }, 0 4px 14px rgba(0,0,0,0.55)`
+                    : undefined,
+                }}
+              >
+                {player.FOTO ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={player.FOTO}
+                    alt={name}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <UserRound
+                    size={Math.round(avatar * 0.5)}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
+                  />
+                )}
+              </div>
 
               {/* DORSAL */}
 
@@ -3511,6 +4191,59 @@ function TacticalPitch({
                 >
                   {player.DORSAL}
                 </span>
+              )}
+
+              {/* ONCE PROBABLE — chapa arriba a la izquierda, y también el
+                  botón para marcarlo sin abrir la ficha. */}
+
+              {ciclar ? (
+                <button
+                  type="button"
+                  data-export-hide={enElOnce ? undefined : ""}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    ciclar();
+                  }}
+                  title={
+                    enElOnce
+                      ? `${ONCE_ETIQUETA[enElOnce]} · pulsa para cambiar`
+                      : "Marcar en el once probable"
+                  }
+                  aria-label={`Once probable de ${name}: ${
+                    enElOnce ? ONCE_ETIQUETA[enElOnce] : "sin marcar"
+                  }`}
+                  className={`absolute -left-1 -top-1 flex items-center justify-center rounded-full border border-black/40 font-bold shadow transition ${
+                    enElOnce
+                      ? ""
+                      : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                  }`}
+                  style={{
+                    height: badgeSize,
+                    minWidth: badgeSize,
+                    fontSize: Math.max(8, Math.round(badgeSize * 0.5)),
+                    background: enElOnce
+                      ? ONCE_COLOR[enElOnce]
+                      : "rgba(8,12,16,0.85)",
+                    color: enElOnce ? "#000" : "rgba(255,255,255,0.7)",
+                  }}
+                >
+                  {enElOnce === "titular" ? "11" : enElOnce === "duda" ? "?" : "+"}
+                </button>
+              ) : (
+                enElOnce && (
+                  <span
+                    title={ONCE_ETIQUETA[enElOnce]}
+                    className="absolute -left-1 -top-1 flex items-center justify-center rounded-full border border-black/40 font-bold text-black shadow"
+                    style={{
+                      height: badgeSize,
+                      minWidth: badgeSize,
+                      fontSize: Math.max(8, Math.round(badgeSize * 0.5)),
+                      background: ONCE_COLOR[enElOnce],
+                    }}
+                  >
+                    {enElOnce === "titular" ? "11" : "?"}
+                  </span>
+                )
               )}
             </div>
 
@@ -3573,13 +4306,19 @@ function TacticalPitch({
             {/* DETALLE AL PASAR EL RATÓN */}
 
             <span
-              className={`pointer-events-none absolute left-1/2 z-40 w-48 -translate-x-1/2 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl backdrop-blur transition group-hover:opacity-100 ${
+              className={`pointer-events-none absolute left-1/2 z-40 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl backdrop-blur transition group-hover:opacity-100 ${
                 /* En móvil no hay ratón: el detalle sólo aparecía recortado
                    por el borde del campo al tocar la ficha. */
                 compact ? "hidden" : ""
               } ${
                 y > size.height / 2 ? "bottom-full mb-2" : "top-full mt-2"
               }`}
+              style={{
+                width: TOOLTIP_ANCHO,
+                /* `-50%` centra sobre la ficha; `desplazado` lo mete dentro
+                   del campo cuando la ficha está pegada a una banda. */
+                transform: `translateX(calc(-50% + ${desplazado}px))`,
+              }}
             >
               <span className="block truncate text-[11px] font-semibold text-white">
                 {name}
@@ -3595,6 +4334,19 @@ function TacticalPitch({
                   </span>
                 )}
               </span>
+
+              {enElOnce && (
+                <span
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                  style={{
+                    background: `${ONCE_COLOR[enElOnce]}26`,
+                    color: chipInk(ONCE_COLOR[enElOnce]),
+                  }}
+                >
+                  {enElOnce === "titular" ? "11" : "?"}{" "}
+                  {ONCE_ETIQUETA[enElOnce]}
+                </span>
+              )}
 
               {tags.length > 0 && (
                 <span className="mt-1.5 flex flex-wrap gap-1">
@@ -3613,7 +4365,7 @@ function TacticalPitch({
                 </span>
               )}
             </span>
-          </button>
+          </div>
         );
       })}
 

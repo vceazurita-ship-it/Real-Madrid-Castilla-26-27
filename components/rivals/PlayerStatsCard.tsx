@@ -1,22 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import {
-  Clock,
-  Goal,
-  Handshake,
-  Hand,
-  RectangleHorizontal,
-  ShieldAlert,
-  Shirt,
-  Sparkles,
-} from "lucide-react";
-
-import type { LucideIcon } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import PositionHeatmap from "@/components/rivals/PositionHeatmap";
-import { chipInk } from "@/lib/theme";
 
 import {
   defaultSeason,
@@ -34,21 +22,32 @@ import {
 |
 | Dos cosas en la misma tarjeta porque se leen juntas: **dónde** juega (mapa
 | de calor deducido de la posición) y **cuánto** juega (partidos, minutos,
-| goles, tarjetas). Los porteros cambian dos casillas: donde los de campo
+| goles, tarjetas). Los porteros cambian dos columnas: donde los de campo
 | llevan goles y asistencias, ellos llevan goles encajados y penaltis parados.
+|
+| El formato es de tabla, como en BeSoccer: una fila por temporada y todas a
+| la vista. Antes había un selector de temporada y seis cuadraditos con la
+| elegida, que es exactamente lo contrario de lo que se necesita —lo que dice
+| algo de un jugador no es su 2026/27 aislado, sino ver que pasó de 2.400
+| minutos a 600, o que las tarjetas se le han disparado este año.
 |
 | Los números son de BeSoccer y llegan desde Supabase; el mapa no es medido y
 | la propia tarjeta lo advierte.
 */
 
-type Tile = {
+type Columna = {
   key: string;
+  /** Cabecera corta, la de una tabla de fútbol. */
   label: string;
-  value: string;
-  /** Segunda línea pequeña. */
-  hint?: string;
-  icon: LucideIcon;
-  color: string;
+  /** Nombre completo, en el `title` de la cabecera. */
+  titulo: string;
+  valor: (season: RivalSeasonStats) => string;
+  /** Segunda línea pequeña bajo el número (ritmo, porcentaje…). */
+  detalle?: (season: RivalSeasonStats) => string | undefined;
+  /** Color del número cuando no es cero. */
+  color?: string;
+  /** Se estrecha en móvil. */
+  secundaria?: boolean;
 };
 
 function fmt(value: number | undefined | null) {
@@ -62,130 +61,112 @@ function fmt(value: number | undefined | null) {
 */
 const MIN_PARA_RITMO = 3;
 
-function rateHint(total: number | undefined, minutos: number) {
-  if (!total || total < MIN_PARA_RITMO) return undefined;
-
-  return `${per90(total, minutos)} cada 90'`;
-}
-
-function outfieldTiles(season: RivalSeasonStats): Tile[] {
-  return [
-    {
-      key: "goles",
-      label: "Goles",
-      value: fmt(season.goles),
-      hint: rateHint(season.goles, season.minutos),
-      icon: Goal,
-      color: "#F87171",
-    },
-    {
-      key: "asistencias",
-      label: "Asistencias",
-      value: fmt(season.asistencias),
-      hint: rateHint(season.asistencias, season.minutos),
-      icon: Handshake,
-      color: "#34D399",
-    },
-  ];
-}
-
-function keeperTiles(season: RivalSeasonStats): Tile[] {
-  const perGame = goalsAgainstPerGame(season);
-
-  return [
-    {
-      key: "encajados",
-      label: "Encajados",
-      value: fmt(season.encajados),
-      hint: perGame === null ? undefined : `${perGame} por partido`,
-      icon: ShieldAlert,
-      color: "#F87171",
-    },
-    {
-      key: "penaltis",
-      label: "Penaltis parados",
-      value: fmt(season.penaltisParados),
-      icon: Hand,
-      color: "#34D399",
-    },
-  ];
-}
-
-/** Ritmo por 90 minutos, con un decimal y sin ceros de adorno. */
+/** Ritmo por 90 minutos, con dos decimales y sin ceros de adorno. */
 function per90(total: number, minutos: number) {
   if (!minutos) return "0";
 
-  const value = Math.round((total / minutos) * 90 * 100) / 100;
-
-  return String(value);
+  return String(Math.round((total / minutos) * 90 * 100) / 100);
 }
 
-function buildTiles(season: RivalSeasonStats, portero: boolean): Tile[] {
-  const share = starterShare(season);
+function ritmo(total: number | undefined, minutos: number) {
+  if (!total || total < MIN_PARA_RITMO) return undefined;
 
+  return `${per90(total, minutos)}/90'`;
+}
+
+const COMUNES_INICIO: Columna[] = [
+  {
+    key: "partidos",
+    label: "PJ",
+    titulo: "Partidos jugados",
+    valor: (s) => String(s.partidos),
+  },
+  {
+    key: "titular",
+    label: "Tit",
+    titulo: "Partidos de titular",
+    valor: (s) => String(s.titular),
+    detalle: (s) => {
+      const share = starterShare(s);
+
+      return share === null ? undefined : `${share}%`;
+    },
+  },
+  {
+    key: "minutos",
+    label: "Min",
+    titulo: "Minutos jugados",
+    valor: (s) => s.minutos.toLocaleString("es-ES"),
+    detalle: (s) => (s.partidos ? `${minutesPerGame(s)}'/pj` : undefined),
+  },
+];
+
+const COMUNES_FIN: Columna[] = [
+  {
+    key: "amarillas",
+    label: "TA",
+    titulo: "Tarjetas amarillas",
+    valor: (s) => String(s.amarillas),
+    color: "#FACC15",
+    secundaria: true,
+  },
+  {
+    key: "rojas",
+    label: "TR",
+    titulo: "Tarjetas rojas",
+    valor: (s) => String(s.rojas),
+    color: "#EF4444",
+    secundaria: true,
+  },
+];
+
+const DE_CAMPO: Columna[] = [
+  {
+    key: "goles",
+    label: "G",
+    titulo: "Goles",
+    valor: (s) => fmt(s.goles),
+    detalle: (s) => ritmo(s.goles, s.minutos),
+    color: "#F87171",
+  },
+  {
+    key: "asistencias",
+    label: "A",
+    titulo: "Asistencias",
+    valor: (s) => fmt(s.asistencias),
+    detalle: (s) => ritmo(s.asistencias, s.minutos),
+    color: "#34D399",
+  },
+];
+
+const DE_PORTERO: Columna[] = [
+  {
+    key: "encajados",
+    label: "GC",
+    titulo: "Goles encajados",
+    valor: (s) => fmt(s.encajados),
+    detalle: (s) => {
+      const porPartido = goalsAgainstPerGame(s);
+
+      return porPartido === null ? undefined : `${porPartido}/pj`;
+    },
+    color: "#F87171",
+  },
+  {
+    key: "penaltis",
+    label: "PP",
+    titulo: "Penaltis parados",
+    valor: (s) => fmt(s.penaltisParados),
+    color: "#34D399",
+  },
+];
+
+function columnas(portero: boolean): Columna[] {
   return [
-    {
-      key: "partidos",
-      label: "Partidos",
-      /* El paréntesis son las titularidades: un 24 (6) y un 24 (24) son dos
-         jugadores muy distintos y el número suelto no los separa. */
-      value: `${season.partidos} (${season.titular})`,
-      hint: share === null ? undefined : `${share}% de titular`,
-      icon: Shirt,
-      color: "#C8A96B",
-    },
-    {
-      key: "minutos",
-      label: "Minutos",
-      value: season.minutos.toLocaleString("es-ES"),
-      hint: season.partidos ? `${minutesPerGame(season)}' por partido` : undefined,
-      icon: Clock,
-      color: "#7DD3FC",
-    },
-    ...(portero ? keeperTiles(season) : outfieldTiles(season)),
-    {
-      key: "amarillas",
-      label: "Amarillas",
-      value: String(season.amarillas),
-      icon: RectangleHorizontal,
-      color: "#FACC15",
-    },
-    {
-      key: "rojas",
-      label: "Rojas",
-      value: String(season.rojas),
-      icon: RectangleHorizontal,
-      color: "#EF4444",
-    },
+    ...COMUNES_INICIO,
+    ...(portero ? DE_PORTERO : DE_CAMPO),
+    ...COMUNES_FIN,
   ];
-}
-
-function StatTile({ tile }: { tile: Tile }) {
-  const Icon = tile.icon;
-
-  return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2">
-      <div className="flex items-center gap-1.5">
-        {/* `chipInk` para que el pastel del tema oscuro siga leyéndose en
-            modo día, donde un amarillo 400 sobre blanco no llega a 2:1. */}
-        <Icon
-          size={12}
-          style={{ color: chipInk(tile.color) }}
-          className="shrink-0"
-        />
-
-        <span className="truncate text-[9px] uppercase tracking-[0.14em] text-white/40">
-          {tile.label}
-        </span>
-      </div>
-
-      <p className="mt-0.5 truncate text-lg font-semibold leading-tight text-white">
-        {tile.value}
-      </p>
-
-      <p className="truncate text-[10px] text-white/35">{tile.hint ?? " "}</p>
-    </div>
-  );
 }
 
 export function PlayerStatsCard({
@@ -206,66 +187,33 @@ export function PlayerStatsCard({
   missing?: boolean;
 }) {
   /* Sólo las últimas: más atrás ya no dice nada de cómo llega al partido. */
-  const selectable = useMemo(
-    () => (stats?.temporadas ?? []).slice(0, 4),
+  const temporadas = useMemo(
+    () => (stats?.temporadas ?? []).slice(0, 5),
     [stats],
   );
 
-  const [temporada, setTemporada] = useState<string | null>(null);
+  const portero = Boolean(stats?.portero);
 
-  /*
-  | La temporada elegida se guarda como texto, no como índice, y se resuelve
-  | contra el jugador que hay delante. Así al pasar de ficha en ficha con las
-  | flechas del modal se mantiene la comparación —todos en 2025/26, por
-  | ejemplo— y quien no tenga esa temporada cae solo en la suya por defecto,
-  | sin necesidad de un efecto que reinicie el estado.
-  */
-  const season =
-    selectable.find((item) => item.temporada === temporada) ??
-    defaultSeason(stats);
+  const cols = useMemo(() => columnas(portero), [portero]);
 
-  const tiles = season ? buildTiles(season, Boolean(stats?.portero)) : [];
+  /* La que manda: la que se resalta y la que se lee de un vistazo. */
+  const destacada = defaultSeason(stats)?.temporada ?? null;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
+    <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
           <Sparkles size={12} className="text-[#C8A96B]" />
           Rendimiento
         </h3>
 
-        {/*
-        | En el PNG / PDF sólo sobrevive la temporada que se está viendo: las
-        | otras son un selector que en papel no se puede pulsar, y la que
-        | queda se lee como el rótulo del bloque.
-        */}
-        {selectable.length > 1 && (
-          <div className="flex flex-wrap gap-1">
-            {selectable.map((item) => {
-              const active = item.temporada === season?.temporada;
-
-              return (
-                <button
-                  key={item.temporada}
-                  type="button"
-                  {...(active ? {} : { "data-export-hide": "" })}
-                  onClick={() => setTemporada(item.temporada)}
-                  className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
-                    active
-                      ? "border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[#C8A96B]"
-                      : "border-white/10 text-white/40 hover:border-white/30 hover:text-white/70"
-                  }`}
-                >
-                  {item.temporada}
-                </button>
-              );
-            })}
-          </div>
+        {stats?.url && (
+          <span className="text-[10px] text-white/25">BeSoccer</span>
         )}
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
-        <div>
+      <div className="grid min-w-0 gap-3 sm:grid-cols-[104px_minmax(0,1fr)]">
+        <div className="min-w-0">
           <PositionHeatmap
             slot={slot}
             side={side}
@@ -280,28 +228,116 @@ export function PlayerStatsCard({
 
         <div className="min-w-0">
           {loading ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
+            <div className="space-y-1.5">
+              {Array.from({ length: 4 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-[68px] animate-pulse rounded-xl border border-white/10 bg-white/[0.04]"
+                  className="h-9 animate-pulse rounded-lg border border-white/10 bg-white/[0.04]"
                 />
               ))}
             </div>
-          ) : season ? (
-            <>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {tiles.map((tile) => (
-                  <StatTile key={tile.key} tile={tile} />
-                ))}
-              </div>
+          ) : temporadas.length ? (
+            /* La tabla nunca empuja el ancho de la ficha: se desplaza sola. */
+            <div className="min-w-0 overflow-x-auto">
+              <table className="w-full min-w-[380px] border-collapse text-right tabular-nums">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th
+                      scope="col"
+                      className="py-1.5 pr-2 text-left text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35"
+                    >
+                      Temporada
+                    </th>
 
-              <p className="mt-2 truncate text-[10px] text-white/30">
-                {season.temporada}
-                {season.equipos.length ? ` · ${season.equipos.join(" / ")}` : ""}
-                {stats?.url ? " · BeSoccer" : ""}
-              </p>
-            </>
+                    {cols.map((col) => (
+                      <th
+                        key={col.key}
+                        scope="col"
+                        title={col.titulo}
+                        className={`px-1.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-white/35 ${
+                          col.secundaria ? "hidden sm:table-cell" : ""
+                        }`}
+                      >
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {temporadas.map((season) => {
+                    const actual = season.temporada === destacada;
+
+                    return (
+                      <tr
+                        key={season.temporada}
+                        className={`border-b border-white/[0.06] last:border-0 ${
+                          actual ? "bg-[#C8A96B]/[0.07]" : ""
+                        }`}
+                      >
+                        <th
+                          scope="row"
+                          className="min-w-0 py-1.5 pr-2 text-left font-normal"
+                        >
+                          <span
+                            className={`block text-[11px] font-semibold ${
+                              actual ? "text-[#C8A96B]" : "text-white/70"
+                            }`}
+                          >
+                            {season.temporada}
+                          </span>
+
+                          {season.equipos.length > 0 && (
+                            <span
+                              title={season.equipos.join(" / ")}
+                              className="block max-w-[140px] truncate text-[9px] text-white/30"
+                            >
+                              {season.equipos.join(" / ")}
+                            </span>
+                          )}
+                        </th>
+
+                        {cols.map((col) => {
+                          const valor = col.valor(season);
+                          const detalle = col.detalle?.(season);
+
+                          /* El color sólo cuando hay algo que destacar: una
+                             columna de ceros en rojo y amarillo es ruido. */
+                          const vivo =
+                            col.color && valor !== "0" && valor !== "—";
+
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-1.5 py-1.5 ${
+                                col.secundaria ? "hidden sm:table-cell" : ""
+                              }`}
+                            >
+                              <span
+                                className="block text-[13px] font-semibold leading-tight"
+                                style={
+                                  vivo
+                                    ? { color: col.color }
+                                    : { color: "rgba(255,255,255,0.82)" }
+                                }
+                              >
+                                {valor}
+                              </span>
+
+                              {detalle && (
+                                <span className="block text-[9px] leading-tight text-white/30">
+                                  {detalle}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="flex h-full min-h-[120px] items-center justify-center rounded-xl border border-dashed border-white/10 px-4 text-center text-xs text-white/35">
               {missing

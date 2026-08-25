@@ -1,19 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Check,
-  Loader2,
-  RefreshCw,
-  Save,
-  Search,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, RefreshCw, Search, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import ImportAvailability, {
   TrainingImport,
 } from "@/components/session/ImportAvailability";
@@ -73,8 +67,6 @@ export default function JugadoresSesionPage() {
   const [squad, setSquad] = useState<SquadPlayer[]>([]);
   const [estados, setEstados] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
 
   const [initialImageUrl, setInitialImageUrl] = useState("");
   const [trainingImport, setTrainingImport] =
@@ -90,6 +82,9 @@ export default function JugadoresSesionPage() {
   );
   const [creating, setCreating] = useState<string | null>(null);
 
+  /* Marca que el próximo cambio de `estados` viene del servidor, no del dedo. */
+  const vieneDeFuera = useRef(false);
+
   const loadSquad = useCallback(async () => {
     try {
       const response = await fetch("/api/training-session", {
@@ -103,12 +98,14 @@ export default function JugadoresSesionPage() {
       const players: SquadPlayer[] = body.players;
 
       setSquad(players);
+
+      vieneDeFuera.current = true;
+
       setEstados(
         Object.fromEntries(
           players.map((player) => [player.id, player.estado || "NO CONVOCADO"])
         )
       );
-      setDirty(false);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo cargar la plantilla.");
@@ -159,6 +156,8 @@ export default function JugadoresSesionPage() {
     assign(data.others, "OTROS");
     assign(data.nationalTeam, "SELECCIÓN");
 
+    vieneDeFuera.current = true;
+
     setEstados((current) => {
       const next: Record<string, string> = {};
 
@@ -169,7 +168,6 @@ export default function JugadoresSesionPage() {
       return { ...next, ...detected };
     });
 
-    setDirty(false);
 
     localStorage.setItem(
       "training-session-players",
@@ -179,37 +177,58 @@ export default function JugadoresSesionPage() {
 
   const setEstado = (id: string, estado: string) => {
     setEstados((current) => ({ ...current, [id]: estado }));
-    setDirty(true);
   };
 
-  const save = async () => {
-    setSaving(true);
-
-    try {
+  const escribirDisponibilidad = useCallback(
+    async (actual: Record<string, string>) => {
       const response = await fetch("/api/training-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fecha, estados, imageUrl: initialImageUrl }),
+        body: JSON.stringify({
+          fecha,
+          estados: actual,
+          imageUrl: initialImageUrl,
+        }),
       });
 
       const body = await response.json();
 
       if (!response.ok || !body.success) throw new Error(body.error);
 
-      setDirty(false);
-      toast.success("Disponibilidad guardada");
-    } catch (error) {
-      console.error(error);
 
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "No se pudo guardar la disponibilidad."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+      return true;
+    },
+    [fecha, initialImageUrl]
+  );
+
+  /*
+  | La disponibilidad se toca sobre la marcha, en el campo y desde el móvil:
+  | es justo donde un "se me olvidó darle a guardar" cuesta una sesión mal
+  | montada. Se escribe sola en cuanto se deja de tocar.
+  |
+  | Sin `enabled`: aquí no hay modo edición, la pantalla siempre lo es. La
+  | carga inicial y las importaciones no disparan guardado porque llaman a
+  | `auto.sync()` para fijar la nueva base.
+  */
+  const auto = useAutoSave<Record<string, string>>({
+    value: estados,
+    debounce: 900,
+    save: escribirDisponibilidad,
+  });
+
+  /*
+  | Cargar la plantilla o volcar una importación cambia los estados de golpe,
+  | y eso no es una edición: devolverlo al servidor sería escribir encima lo
+  | que se acaba de leer. Este efecto va después del hook a propósito, para
+  | poder cancelar el temporizador que aquél acaba de programar.
+  */
+  useEffect(() => {
+    if (!vieneDeFuera.current) return;
+
+    vieneDeFuera.current = false;
+
+    auto.sync();
+  }, [estados, auto]);
 
   const createPlayer = async (name: string, licencia: string) => {
     setCreating(name);
@@ -536,25 +555,11 @@ export default function JugadoresSesionPage() {
                     Recargar
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => void save()}
-                    disabled={saving || loading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-xs font-semibold text-[#0B0F14] transition hover:bg-[#d8bd85] disabled:opacity-40"
-                  >
-                    {saving ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : dirty ? (
-                      <Save size={14} />
-                    ) : (
-                      <Check size={14} />
-                    )}
-                    {saving
-                      ? "Guardando…"
-                      : dirty
-                      ? "Guardar disponibilidad"
-                      : "Guardado"}
-                  </button>
+                  <AutoSaveStatus
+                    estado={auto.status}
+                    guardadoEn={auto.lastSavedAt}
+                    onReintentar={() => void auto.flush()}
+                  />
                 </div>
               </div>
 
