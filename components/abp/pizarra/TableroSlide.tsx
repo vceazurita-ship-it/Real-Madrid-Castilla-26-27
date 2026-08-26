@@ -134,6 +134,7 @@ function Ficha({
 
       <button
         type="button"
+        data-export-hide
         onPointerDown={(event) => event.stopPropagation()}
         onClick={onQuitar}
         aria-label="Quitar del tablero"
@@ -162,9 +163,15 @@ function Hueco({
   label: string;
   onClick: () => void;
 }) {
+  /*
+  | Va marcado como cromo de edición: un puesto sin nadie es un botón para
+  | asignar, no algo que enseñar en la sala. Al exportar —a PPT, a PDF o con el
+  | botón de la plataforma— se cae, y la diapositiva sale con quien está.
+  */
   return (
     <button
       type="button"
+      data-export-hide
       onClick={onClick}
       title={`${code} · ${label} — pulsa para asignar`}
       className="absolute flex flex-col items-center justify-center rounded-md border border-dashed transition hover:border-solid"

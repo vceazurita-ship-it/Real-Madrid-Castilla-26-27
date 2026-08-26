@@ -67,6 +67,7 @@ import {
 } from "@/components/abp/ui";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
+import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
 import {
@@ -1329,6 +1330,24 @@ export default function PizarraAbpPage() {
                         className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm leading-relaxed text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
                       />
                     </Panel>
+                  </div>
+                )}
+
+                {/* ==================== EXPORTAR ====================== */}
+
+                {tablero && tablero.slides.length > 0 && (
+                  <div className="mt-5">
+                    <ExportaPizarra
+                      slides={tablero.slides}
+                      players={porId}
+                      temporada={temporadaCorta(RATINGS_SEASON)}
+                      rival={tablero.rival || partido.opponent}
+                      jornada={
+                        tablero.jornada
+                          ? `J${String(tablero.jornada).padStart(2, "0")}`
+                          : undefined
+                      }
+                    />
                   </div>
                 )}
 
