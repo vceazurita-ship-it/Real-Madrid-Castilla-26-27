@@ -23,10 +23,10 @@
 | La portada no manda fuera del documento: pulsar a un jugador —en el campo o
 | en la lista— salta a la página donde está su ficha, dentro del propio PDF.
 | Es lo que se pide de camino al campo, donde no siempre hay cobertura para
-| abrir la app. Los enlaces que sí salen fuera son dos y viven en la ficha:
-| «Más información», que abre al jugador en la app, y «Ver vídeo», que abre su
-| vídeo de YouTube. El de vídeo se repite como chapa en el campograma, porque
-| es lo que más se busca con el dedo.
+| abrir la app. De hecho el PDF no enlaza a la app en ninguna ficha: el único
+| enlace que sale fuera es «Ver vídeo», que abre el vídeo de YouTube del
+| jugador. Se repite como chapa en el campograma, porque es lo que más se
+| busca con el dedo.
 |
 | El módulo **no sabe nada de la hoja ni del estado de la página**: recibe a
 | los jugadores ya resueltos (posición, etiquetas, estadísticas y enlaces) y
@@ -122,7 +122,11 @@ export type OncePdfPlayer = {
   fortalezas: string;
   debilidades: string;
   observaciones: string;
-  /** Adónde lleva «Más información»: su ficha dentro de la app. */
+  /**
+   * Su ficha dentro de la app. La ficha del PDF ya no enlaza a ella: sólo se
+   * usa como red de seguridad en el campograma, si un jugador se quedara sin
+   * página propia y el salto interno no tuviera adónde ir.
+   */
   ficha: string;
   /** Vídeo del jugador. Sin él, el botón no se pinta. */
   video: string;
@@ -279,8 +283,7 @@ const ESTADO_LABEL: Record<OncePdfEstado, string> = {
   duda: "DUDA",
 };
 
-/** Lo que se lee en los dos botones vivos de cada jugador. */
-const BOTON_FICHA = "Más información";
+/** Lo que se lee en el único botón vivo de cada jugador. */
 const BOTON_VIDEO = "Ver vídeo";
 
 /*
@@ -545,7 +548,7 @@ function trianguloPlay(
 }
 
 /**
- * Botón con enlace de verdad: el que abre la ficha o el vídeo del jugador.
+ * Botón con enlace de verdad: el que abre el vídeo del jugador.
  *
  * Devuelve lo que ha ocupado de ancho, para poder encadenar los siguientes.
  */
@@ -2090,17 +2093,13 @@ function pintaFicha(
     }
   }
 
-  /* Nombre: el enlace principal a la ficha del jugador. */
+  /* Nombre. Va sin enlace: la ficha del PDF no manda a la app. */
   fuente(doc, 14, "bold");
   ink(doc, C.tinta);
 
   const nombre = recorta(doc, jugador.nombre, x + w - PAD - px);
 
   doc.text(nombre, px, y + 46);
-
-  if (jugador.ficha) {
-    doc.link(px, y + 34, ancho(doc, nombre), 16, { url: jugador.ficha });
-  }
 
   if (medidas.yNombreCompleto !== null) {
     fuente(doc, 7, "normal");
@@ -2147,19 +2146,12 @@ function pintaFicha(
 
   let bx = x + PAD;
 
-  if (jugador.ficha) {
-    bx +=
-      botonEnlace(doc, BOTON_FICHA, jugador.ficha, bx, by, {
-        color: C.oro,
-        solido: true,
-      }) + 7;
-  }
-
   if (jugador.video) {
     bx +=
       botonEnlace(doc, BOTON_VIDEO, jugador.video, bx, by, {
         color: C.oro,
         play: true,
+        solido: true,
       }) + 7;
   }
 
@@ -2503,7 +2495,7 @@ export async function buildOncePdf(data: OncePdfData) {
     fuente(doc, 7, "normal");
     ink(doc, C.tintaTenue);
 
-    const ayuda = `«${BOTON_FICHA}» abre al jugador en la app · «${BOTON_VIDEO}», su vídeo de YouTube`;
+    const ayuda = `«${BOTON_VIDEO}» abre el vídeo de YouTube del jugador`;
 
     doc.text(ayuda, PAGE_W - MARGEN - ancho(doc, ayuda), MARGEN + 8);
 

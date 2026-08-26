@@ -2154,7 +2154,7 @@ export default function RivalPlayersPage() {
                             </span>
                           )}
 
-                          {/* El once, en un PDF con enlace a cada ficha. */}
+                          {/* El once, en un PDF que salta a cada ficha. */}
 
                           {marcados.length > 0 && (
                             <button
@@ -4204,6 +4204,31 @@ function clusterColumns(count: number) {
   return 3;
 }
 
+/*
+| Slots de banda: extremos, laterales y carrileros. Su bloque se lee de
+| izquierda a derecha, en una sola fila, en vez de apilarse.
+|
+| El bloque cuadrado de `clusterColumns` va bien en el centro del campo, donde
+| hay ancho de sobra a los dos lados. Pegado a la línea de banda no: los tres
+| laterales izquierdos quedaban uno debajo de otro, una columna larga que se
+| comía el fondo del campo y empujaba a la banda de al lado. En fila ocupan lo
+| que tienen a mano —el ancho hacia dentro del campo— y la banda queda a la
+| altura que le toca.
+*/
+const SLOTS_DE_BANDA = new Set(["ei", "ed", "ext", "li", "ld", "car"]);
+
+/*
+| Tope de la fila. Con cuatro en línea el bloque ya es más ancho que medio
+| campo; a partir de ahí seguir estirando le quita tamaño a la foto de TODA la
+| plantilla, así que el quinto baja a una segunda fila.
+*/
+const COLUMNAS_DE_BANDA = 4;
+
+/* Cuántas columnas quiere un bloque de banda: las suyas, hasta el tope. */
+function bandColumns(count: number) {
+  return Math.min(count, COLUMNAS_DE_BANDA);
+}
+
 type PlacedPlayer = {
   player: RivalPlayer;
   x: number;
@@ -4259,6 +4284,8 @@ type PitchCluster = {
   players: RivalPlayer[];
   /** Alguien del bloque lleva chapas de IMPACTO: su ficha es más alta. */
   tagged: boolean;
+  /** Bloque pegado a una banda: se coloca en fila, no apilado. */
+  banda: boolean;
   cols: number;
   rows: number;
   /** Centro del bloque en el eje que reparte su banda (X de pie, Y tumbado). */
@@ -4328,6 +4355,7 @@ function layoutPitch(
       anchorY: anchor.y,
       players: [player],
       tagged: false,
+      banda: SLOTS_DE_BANDA.has(slotKey),
       cols: 0,
       rows: 0,
       along: 0,
@@ -4399,7 +4427,12 @@ function layoutPitch(
   /* Forma de los bloques con un tope de columnas dado. */
   const shapeClusters = (maxCols: number) => {
     clusters.forEach((cluster) => {
-      cluster.cols = Math.min(clusterColumns(cluster.players.length), maxCols);
+      /* Los de banda van en fila y no entran en la prueba de columnas: si el
+         tope común los apilara, volveríamos a la columna que se quería quitar. */
+      cluster.cols = cluster.banda
+        ? bandColumns(cluster.players.length)
+        : Math.min(clusterColumns(cluster.players.length), maxCols);
+
       cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
     });
 
@@ -4564,8 +4597,11 @@ function layoutPitch(
   const shapeBands = (size: number) => {
     bands.forEach((band) => {
       band.clusters.forEach((cluster) => {
-        cluster.cols = 1;
-        cluster.rows = cluster.players.length;
+        /* Tumbado se empieza con todo en una columna y se ensancha lo que no
+           quepa; los de banda ya arrancan en fila y el bucle los deja como
+           están mientras no les falte sitio. */
+        cluster.cols = cluster.banda ? bandColumns(cluster.players.length) : 1;
+        cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
       });
 
       const bandAlong = () =>
