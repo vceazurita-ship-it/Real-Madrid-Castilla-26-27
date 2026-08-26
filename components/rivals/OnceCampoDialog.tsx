@@ -14,7 +14,13 @@
 | Aquí se hacen las dos cosas antes de exportar:
 |
 |   · se arrastra a cada jugador a su sitio,
-|   · y se meten (o se sacan) las dudas que se quieren ver dibujadas.
+|   · se meten (o se sacan) las dudas que se quieren ver dibujadas,
+|   · y se cambia o se quita a quien no toca, sin volver al campograma.
+|
+| Lo de cambiar y quitar está aquí a posta: el once se marca en el campograma
+| —un clic por jugador—, pero el repaso de última hora se hace mirando el
+| dibujo, y bajar a buscar la fila de un jugador en la lista para desmarcarlo
+| rompía ese repaso.
 |
 | Lo que se ve es lo que sale: el campo se pinta con la paleta del PDF y con
 | sus mismas medidas —un punto del documento es `k` píxeles aquí—, y el
@@ -32,7 +38,18 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { FileDown, Loader2, Minus, Plus, RotateCcw, UserRound, X } from "lucide-react";
+import {
+  ArrowLeftRight,
+  FileDown,
+  Loader2,
+  Minus,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  UserRound,
+  X,
+} from "lucide-react";
 
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
@@ -40,8 +57,13 @@ import { paletaOnce } from "@/lib/rivals/once-pdf";
 import type { OncePos } from "@/lib/rivals/once";
 import type { Theme } from "@/lib/theme";
 
-/** Lo que hace falta saber aquí de un jugador marcado en el once. */
-export type OnceCampoFicha = {
+/**
+ * Lo que hace falta saber aquí de cualquiera de la plantilla del rival.
+ *
+ * Vale tanto para el que ya está en el once como para el que puede entrar en
+ * su lugar: la lista de recambios se pinta con las mismas caras que el campo.
+ */
+export type OnceCampoCandidato = {
   clave: string;
   dorsal: string;
   nombre: string;
@@ -51,6 +73,10 @@ export type OnceCampoFicha = {
   /** Color de su línea, el mismo que lleva en el campograma de la pantalla. */
   color: string;
   foto: string;
+};
+
+/** Un jugador marcado en el once. */
+export type OnceCampoFicha = OnceCampoCandidato & {
   estado: "titular" | "duda";
   /** Si se pinta en el campo. Las dudas entran y salen desde aquí. */
   enCampo: boolean;
@@ -59,12 +85,22 @@ export type OnceCampoFicha = {
 interface OnceCampoDialogProps {
   equipo: string;
   jugadores: OnceCampoFicha[];
+  /**
+   * La plantilla entera del rival, en el orden en que se lee un once. De aquí
+   * salen los recambios; los que ya están marcados vienen igualmente, para
+   * poder ascender a titular a una duda sin dar dos pasos.
+   */
+  plantilla: OnceCampoCandidato[];
   /** Sitios puestos a mano, en tanto por uno del campo. */
   campo: Record<string, OncePos>;
   tema?: Theme;
   exportando: boolean;
   onMover: (clave: string, pos: OncePos | null) => void;
   onAlCampo: (clave: string, meter: boolean) => void;
+  /** Fuera del once del todo: ni campo, ni lista, ni ficha en el PDF. */
+  onQuitar: (clave: string) => void;
+  /** Uno por otro; el que entra hereda el sitio y el estado del que sale. */
+  onSustituir: (saliente: string, entrante: string) => void;
   /** Devuelve el campo al reparto automático por líneas. */
   onRecolocar: () => void;
   onExportar: () => void;
@@ -81,6 +117,14 @@ const CAMPO_H = 632;
 
 /** Radio de la cara, igual que en `once-pdf`. */
 const CARA = 16;
+
+/*
+| Lo que hay que mover el dedo para que esto sea un arrastre y no un clic.
+| Sin margen, el temblor de un ratón al pulsar escribía una posición a mano
+| —y ahora, además, se comería el menú del jugador, que se abre al soltar sin
+| haber movido.
+*/
+const UMBRAL_ARRASTRE = 4;
 
 /* ---------------- COLOR ---------------- */
 
@@ -293,16 +337,251 @@ function Cara({
   );
 }
 
+/* ---------------- CAMBIAR O QUITAR ---------------- */
+
+const normaliza = (texto: string) =>
+  texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+/** La cara de alguien de la plantilla, en pequeño y sin dorsal. */
+function Retrato({
+  jugador,
+  tamano = 32,
+  borde = "rgba(255,255,255,0.15)",
+}: {
+  jugador: OnceCampoCandidato;
+  tamano?: number;
+  borde?: string;
+}) {
+  return (
+    <span
+      className="relative block shrink-0 overflow-hidden rounded-full border bg-black/40"
+      style={{ width: tamano, height: tamano, borderColor: borde }}
+    >
+      {jugador.foto ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={jugador.foto}
+          alt={jugador.nombre}
+          draggable={false}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <UserRound
+          size={Math.round(tamano * 0.5)}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/25"
+        />
+      )}
+    </span>
+  );
+}
+
+/**
+ * Qué hacer con el jugador que se acaba de pulsar.
+ *
+ * Dos salidas en una sola pantalla: quitarlo del once, o cambiarlo por
+ * cualquiera de la plantilla. La lista trae a todos —también a los que ya
+ * están marcados, avisando de cómo—, porque el cambio más habitual el viernes
+ * es «éste no, el que tenía de duda».
+ */
+function MenuJugador({
+  jugador,
+  plantilla,
+  enElOnce,
+  onQuitar,
+  onSustituir,
+  onCerrar,
+}: {
+  jugador: OnceCampoFicha;
+  plantilla: OnceCampoCandidato[];
+  /** clave → cómo está marcado ahora mismo, para avisar en la lista. */
+  enElOnce: Map<string, "titular" | "duda">;
+  onQuitar: () => void;
+  onSustituir: (entrante: string) => void;
+  onCerrar: () => void;
+}) {
+  const [busca, setBusca] = useState("");
+
+  const candidatos = useMemo(() => {
+    const query = normaliza(busca.trim());
+
+    return plantilla
+      .filter((item) => item.clave !== jugador.clave)
+      .filter((item) => {
+        if (!query) return true;
+
+        return (
+          normaliza(item.nombre).includes(query) ||
+          normaliza(item.posicion).includes(query) ||
+          normaliza(item.posCode).includes(query) ||
+          item.dorsal.includes(query)
+        );
+      });
+  }, [plantilla, jugador.clave, busca]);
+
+  return (
+    <div
+      className="modal-veil fixed inset-0 z-[70] flex items-center justify-center p-3 backdrop-blur-sm sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Cambiar o quitar a ${jugador.nombre}`}
+      onClick={(evento) => {
+        evento.stopPropagation();
+        onCerrar();
+      }}
+    >
+      <div
+        className="flex max-h-[86vh] w-full max-w-[420px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] shadow-2xl"
+        onClick={(evento) => evento.stopPropagation()}
+      >
+        {/* QUIÉN */}
+
+        <div className="flex items-center gap-3 border-b border-white/10 p-4">
+          <Retrato
+            jugador={jugador}
+            tamano={40}
+            borde={jugador.estado === "titular" ? "#34D399" : "#FBBF24"}
+          />
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{jugador.nombre}</p>
+            <p className="truncate text-[11px] text-white/40">
+              {jugador.dorsal ? `${jugador.dorsal} · ` : ""}
+              {jugador.posCode || jugador.posicion || "Sin posición"} ·{" "}
+              <span
+                style={{
+                  color: jugador.estado === "titular" ? "#34D399" : "#FBBF24",
+                }}
+              >
+                {jugador.estado === "titular" ? "Titular" : "Duda"}
+              </span>
+            </p>
+          </div>
+
+          <button
+            type="button"
+            data-export-hide
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-full border border-white/10 p-2 text-white/40 transition hover:border-white/30 hover:text-white"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* QUITAR */}
+
+        <div className="border-b border-white/10 p-3">
+          <button
+            type="button"
+            data-export-hide
+            onClick={onQuitar}
+            className="flex w-full items-center gap-2 rounded-lg border border-[#F87171]/30 bg-[#F87171]/10 px-3 py-2 text-xs font-semibold text-[#F87171] transition hover:bg-[#F87171]/20"
+          >
+            <Trash2 size={14} />
+            Quitar del once
+            <span className="ml-auto text-[10px] font-normal text-[#F87171]/60">
+              sale también del PDF
+            </span>
+          </button>
+        </div>
+
+        {/* CAMBIAR POR */}
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center gap-2 px-3 pt-3">
+            <ArrowLeftRight size={13} className="text-white/35" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+              CAMBIAR POR
+            </p>
+          </div>
+
+          <div className="relative m-3 mb-2">
+            <Search
+              size={13}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25"
+            />
+            <input
+              autoFocus
+              value={busca}
+              onChange={(evento) => setBusca(evento.target.value)}
+              placeholder="Nombre, dorsal o posición"
+              className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-8 pr-3 text-xs outline-none transition placeholder:text-white/25 focus:border-white/30"
+            />
+          </div>
+
+          <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+            {candidatos.length === 0 && (
+              <li className="px-1 py-3 text-xs text-white/35">
+                Nadie más en la plantilla con ese nombre.
+              </li>
+            )}
+
+            {candidatos.map((item) => {
+              const marcado = enElOnce.get(item.clave);
+
+              return (
+                <li key={item.clave}>
+                  <button
+                    type="button"
+                    data-export-hide
+                    onClick={() => onSustituir(item.clave)}
+                    className="flex w-full items-center gap-2 rounded-lg border border-white/5 bg-black/20 p-1.5 text-left transition hover:border-white/25 hover:bg-black/40"
+                  >
+                    <Retrato jugador={item} />
+
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold">
+                        {item.nombre}
+                      </span>
+                      <span className="block truncate text-[10px] text-white/35">
+                        {item.dorsal ? `${item.dorsal} · ` : ""}
+                        {item.posCode || item.posicion || "Sin posición"}
+                      </span>
+                    </span>
+
+                    {/* Ya marcado: se puede elegir igual —dejará el hueco que
+                        tenía—, pero hay que decirlo antes de pulsar. */}
+                    {marcado && (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]"
+                        style={{
+                          color: marcado === "titular" ? "#34D399" : "#FBBF24",
+                          background:
+                            marcado === "titular"
+                              ? "rgba(52,211,153,0.12)"
+                              : "rgba(251,191,36,0.12)",
+                        }}
+                      >
+                        {marcado === "titular" ? "Titular" : "Duda"}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- EL POP-UP ---------------- */
 
 export default function OnceCampoDialog({
   equipo,
   jugadores,
+  plantilla,
   campo,
   tema,
   exportando,
   onMover,
   onAlCampo,
+  onQuitar,
+  onSustituir,
   onRecolocar,
   onExportar,
   onCerrar,
@@ -333,15 +612,27 @@ export default function OnceCampoDialog({
 
   useBodyScrollLock(true);
 
+  /*
+  | El jugador cuyo menú está abierto. Se llega pulsándolo —en el campo, en la
+  | lista de dudas o en el aviso de los que no tienen sitio—, y desde ahí se le
+  | quita del once o se le cambia por otro.
+  */
+  const [menu, setMenu] = useState<string | null>(null);
+
   useEffect(() => {
     const alPulsar = (evento: KeyboardEvent) => {
-      if (evento.key === "Escape") onCerrar();
+      if (evento.key !== "Escape") return;
+
+      /* El escape cierra primero el menú: si se llevara por delante el pop-up
+         entero, deshacer un clic costaría volver a colocar el once. */
+      if (menu) setMenu(null);
+      else onCerrar();
     };
 
     window.addEventListener("keydown", alPulsar);
 
     return () => window.removeEventListener("keydown", alPulsar);
-  }, [onCerrar]);
+  }, [menu, onCerrar]);
 
   /*
   | Quién se pinta y dónde. El reparto es el del PDF: quien tenga sitio puesto
@@ -362,6 +653,24 @@ export default function OnceCampoDialog({
   const dudas = useMemo(
     () => jugadores.filter((jugador) => jugador.estado === "duda"),
     [jugadores],
+  );
+
+  /* Cómo está marcado cada uno, para avisarlo en la lista de recambios. */
+  const enElOnce = useMemo(
+    () =>
+      new Map(
+        jugadores.map(
+          (jugador) => [jugador.clave, jugador.estado] as const,
+        ),
+      ),
+    [jugadores],
+  );
+
+  /* El del menú se busca en la lista viva: al quitarlo desaparece de ella y
+     el menú se cierra solo, sin tener que acordarse de cerrarlo. */
+  const enMenu = useMemo(
+    () => jugadores.find((jugador) => jugador.clave === menu) ?? null,
+    [jugadores, menu],
   );
 
   /* Un titular sin posición reconocible no tiene sitio en el campo, ni aquí
@@ -389,6 +698,9 @@ export default function OnceCampoDialog({
     dx: number;
     dy: number;
     desdeElCampo: boolean;
+    /** Dónde se pulsó, para medir si esto llega a ser un arrastre. */
+    px: number;
+    py: number;
     /** Para no confundir un clic con un arrastre de un píxel. */
     movido: boolean;
   };
@@ -424,6 +736,8 @@ export default function OnceCampoDialog({
         dx: caja.left + caja.width / 2 - evento.clientX,
         dy: caja.top + caja.height / 2 - evento.clientY,
         desdeElCampo,
+        px: evento.clientX,
+        py: evento.clientY,
         movido: false,
       });
     },
@@ -442,11 +756,15 @@ export default function OnceCampoDialog({
 
       evento.preventDefault();
 
+      const lejos =
+        Math.abs(evento.clientX - actual.px) > UMBRAL_ARRASTRE ||
+        Math.abs(evento.clientY - actual.py) > UMBRAL_ARRASTRE;
+
       ponArrastre({
         ...actual,
         cx: evento.clientX + actual.dx,
         cy: evento.clientY + actual.dy,
-        movido: true,
+        movido: actual.movido || lejos,
       });
     };
 
@@ -467,6 +785,14 @@ export default function OnceCampoDialog({
         actual.cy <= caja.bottom;
 
       if (dentro && caja) {
+        /* Pulsar sin arrastrar no coloca nada: abre el menú del jugador, que
+           es desde donde se le cambia o se le quita. */
+        if (actual.desdeElCampo && !actual.movido) {
+          setMenu(actual.clave);
+
+          return;
+        }
+
         const pos = {
           x: (actual.cx - caja.left) / caja.width,
           y: (actual.cy - caja.top) / caja.height,
@@ -535,7 +861,8 @@ export default function OnceCampoDialog({
 
             <p className="mt-1 text-xs text-white/40">
               Arrastra a los jugadores por el campo y decide qué dudas se
-              pintan además de los titulares. El PDF sale así.
+              pintan además de los titulares. Pulsa a cualquiera para
+              cambiarlo por otro o quitarlo. El PDF sale así.
             </p>
           </div>
 
@@ -578,9 +905,9 @@ export default function OnceCampoDialog({
                     <div
                       key={jugador.clave}
                       onPointerDown={(evento) => empezar(evento, jugador, true)}
-                      title={`${jugador.nombre} — arrastra para colocarlo${
+                      title={`${jugador.nombre} — púlsalo para cambiarlo o quitarlo, arrástralo para colocarlo${
                         jugador.estado === "duda"
-                          ? "; sácalo del campo para quitarlo"
+                          ? "; sácalo del campo para dejarlo sólo en la lista"
                           : ""
                       }`}
                       className="absolute cursor-grab touch-none active:cursor-grabbing"
@@ -589,8 +916,9 @@ export default function OnceCampoDialog({
                         top: `${sitio.y * 100}%`,
                         transform: "translate(-50%, -50%)",
                         /* El que se está moviendo va pegado al dedo, aparte;
-                           aquí sólo queda su hueco. */
-                        opacity: moviendose ? 0.25 : 1,
+                           aquí sólo queda su hueco. Un clic no vacía nada: el
+                           fantasma no sale hasta que hay arrastre de verdad. */
+                        opacity: moviendose && arrastre?.movido ? 0.25 : 1,
                         zIndex: jugador.estado === "titular" ? 2 : 1,
                       }}
                     >
@@ -685,7 +1013,13 @@ export default function OnceCampoDialog({
                           )}
                         </span>
 
-                        <span className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          data-export-hide
+                          onClick={() => setMenu(jugador.clave)}
+                          title="Cambiar por otro o quitar del once"
+                          className="min-w-0 flex-1 text-left"
+                        >
                           <span className="block truncate text-xs font-semibold">
                             {jugador.nombre}
                           </span>
@@ -693,7 +1027,7 @@ export default function OnceCampoDialog({
                             {jugador.dorsal ? `${jugador.dorsal} · ` : ""}
                             {jugador.posCode || jugador.posicion || "Sin posición"}
                           </span>
-                        </span>
+                        </button>
 
                         {jugador.linea === null ? (
                           <span
@@ -738,14 +1072,46 @@ export default function OnceCampoDialog({
               )}
             </div>
 
+            {/* Sin sitio en el campo no hay cara que pulsar, así que se les
+                da una fila aquí: si no, no habría manera de cambiarlos ni de
+                quitarlos sin volver al campograma. */}
+
             {sinSitio.length > 0 && (
-              <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[11px] text-white/40">
-                {sinSitio.length === 1
-                  ? `${sinSitio[0].nombre} no tiene posición reconocible`
-                  : `${sinSitio.length} jugadores no tienen posición reconocible`}
-                : saldrán en la lista del PDF y con su ficha, pero no en el
-                campo.
-              </p>
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                <p className="text-[11px] text-white/40">
+                  {sinSitio.length === 1
+                    ? `${sinSitio[0].nombre} no tiene posición reconocible`
+                    : `${sinSitio.length} jugadores no tienen posición reconocible`}
+                  : saldrán en la lista del PDF y con su ficha, pero no en el
+                  campo.
+                </p>
+
+                <ul className="mt-2 space-y-1">
+                  {sinSitio.map((jugador) => (
+                    <li key={jugador.clave}>
+                      <button
+                        type="button"
+                        data-export-hide
+                        onClick={() => setMenu(jugador.clave)}
+                        title="Cambiar por otro o quitar del once"
+                        className="flex w-full items-center gap-2 rounded-lg border border-white/5 bg-black/20 p-1.5 text-left transition hover:border-white/25"
+                      >
+                        <Retrato jugador={jugador} tamano={28} />
+
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-semibold">
+                            {jugador.nombre}
+                          </span>
+                          <span className="block truncate text-[10px] text-white/35">
+                            {jugador.dorsal ? `${jugador.dorsal} · ` : ""}
+                            {jugador.posicion || "Sin posición"}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </div>
@@ -794,7 +1160,7 @@ export default function OnceCampoDialog({
 
       {/* El que se está moviendo, pegado al dedo y por encima de todo. */}
 
-      {arrastre && enArrastre && k > 0 && (
+      {arrastre?.movido && enArrastre && k > 0 && (
         <div
           className="pointer-events-none fixed z-[60]"
           style={{
@@ -811,6 +1177,25 @@ export default function OnceCampoDialog({
             arrastrando
           />
         </div>
+      )}
+
+      {/* CAMBIAR O QUITAR AL QUE SE HA PULSADO */}
+
+      {enMenu && (
+        <MenuJugador
+          jugador={enMenu}
+          plantilla={plantilla}
+          enElOnce={enElOnce}
+          onQuitar={() => {
+            onQuitar(enMenu.clave);
+            setMenu(null);
+          }}
+          onSustituir={(entrante) => {
+            onSustituir(enMenu.clave, entrante);
+            setMenu(null);
+          }}
+          onCerrar={() => setMenu(null)}
+        />
       )}
     </div>
   );

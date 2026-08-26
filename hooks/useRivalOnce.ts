@@ -21,6 +21,7 @@ import {
   conEnCampo,
   conEstado,
   conPosicion,
+  conSustitucion,
   estadoDe,
   normalizarOnce,
   rivalOnceKey,
@@ -82,6 +83,25 @@ export function useRivalOnce(equipo: string) {
     [setValue]
   );
 
+  /* Quitar a alguien del once del todo: se va del campo, de la lista de
+     dudas y del PDF. Es lo que hace el pop-up de antes de exportar. */
+  const quitar = useCallback(
+    (key: string) => {
+      setValue((actual) => conEstado(normalizarOnce(actual), key, null));
+    },
+    [setValue]
+  );
+
+  /* Cambiar a uno por otro heredando su sitio y su estado. */
+  const sustituir = useCallback(
+    (saliente: string, entrante: string) => {
+      setValue((actual) =>
+        conSustitucion(normalizarOnce(actual), saliente, entrante)
+      );
+    },
+    [setValue]
+  );
+
   /* Volver a la colocación automática sin tocar quién está en el once. */
   const recolocar = useCallback(() => {
     setValue((actual) => sinPosiciones(normalizarOnce(actual)));
@@ -96,6 +116,8 @@ export function useRivalOnce(equipo: string) {
     ciclar,
     mover,
     alCampo,
+    quitar,
+    sustituir,
     recolocar,
     limpiar,
     status,

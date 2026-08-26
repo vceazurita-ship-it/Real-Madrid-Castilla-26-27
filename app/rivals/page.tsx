@@ -45,6 +45,7 @@ import {
   type OnceEstado,
 } from "@/lib/rivals/once";
 import OnceCampoDialog, {
+  type OnceCampoCandidato,
   type OnceCampoFicha,
 } from "@/components/rivals/OnceCampoDialog";
 import { enlaceAbrible } from "@/lib/rivals/media";
@@ -446,6 +447,27 @@ function positionRank(position: string) {
   return getSlot(position)?.slotIndex ?? 999;
 }
 
+/*
+| La cara de un jugador tal como la pinta el pop-up de antes del PDF. La usan
+| los que están marcados en el once y también la plantilla entera —de ahí
+| salen los recambios cuando allí se cambia a uno por otro—, así que vive
+| fuera del componente.
+*/
+function fichaDeCampo(player: RivalPlayer): OnceCampoCandidato {
+  const slotEntry = getSlot(player["POSICIÓN"]);
+
+  return {
+    clave: playerKey(player),
+    dorsal: textoUtil(player.DORSAL),
+    nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
+    posCode: slotEntry?.slot.code ?? "",
+    posicion: textoUtil(player["POSICIÓN"]),
+    linea: slotEntry?.line.key ?? null,
+    color: slotEntry?.line.color ?? "#8892A0",
+    foto: textoUtil(player.FOTO),
+  };
+}
+
 const EMPTY_PLAYER_KEYS: (keyof RivalPlayer)[] = [
   "DORSAL",
   "JUGADOR",
@@ -826,24 +848,52 @@ export default function RivalPlayersPage() {
      uno. El PDF se monta aparte, con la ficha entera. */
   const campoJugadores = useMemo<OnceCampoFicha[]>(
     () =>
-      marcados.map(({ player, estado }) => {
-        const slotEntry = getSlot(player["POSICIÓN"]);
-
-        return {
-          clave: playerKey(player),
-          dorsal: textoUtil(player.DORSAL),
-          nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
-          posCode: slotEntry?.slot.code ?? "",
-          posicion: textoUtil(player["POSICIÓN"]),
-          linea: slotEntry?.line.key ?? null,
-          color: slotEntry?.line.color ?? "#8892A0",
-          foto: textoUtil(player.FOTO),
-          estado,
-          enCampo: seDibuja(once.doc, playerKey(player)),
-        };
-      }),
+      marcados.map(({ player, estado }) => ({
+        ...fichaDeCampo(player),
+        estado,
+        enCampo: seDibuja(once.doc, playerKey(player)),
+      })),
     [marcados, once.doc],
   );
+
+  /*
+  | La plantilla entera del rival, de portería a ataque: de aquí salen los
+  | recambios cuando en el pop-up se cambia a uno por otro. Va sin filtrar por
+  | la búsqueda, igual que `marcados` —una búsqueda a medias no puede esconder
+  | al jugador por el que se quiere cambiar—.
+  */
+  const plantillaDelOnce = useMemo<OnceCampoCandidato[]>(() => {
+    if (!equipoDelOnce) return [];
+
+    /* La hoja acaba en filas en blanco —el sitio donde se dan las altas—:
+       sin nombre no hay jugador, y además todas comparten clave. */
+    const dePlantilla = players.filter(
+      (player) =>
+        player.NOMBRE_EQUIPO === equipoDelOnce &&
+        Boolean(textoUtil(player["NOMBRE DEPORTIVO"]) || textoUtil(player.JUGADOR)),
+    );
+
+    /* Sin posición reconocible no hay línea, y ésos van al final: la lista se
+       lee de portería a ataque. */
+    const linea = (player: RivalPlayer) => {
+      const indice = LINE_DEFINITIONS.findIndex(
+        (item) => item.key === getLine(player["POSICIÓN"])?.key,
+      );
+
+      return indice < 0 ? LINE_DEFINITIONS.length : indice;
+    };
+
+    return dePlantilla
+      .sort((a, b) => {
+        const lineaA = linea(a);
+        const lineaB = linea(b);
+
+        if (lineaA !== lineaB) return lineaA - lineaB;
+
+        return positionRank(a["POSICIÓN"]) - positionRank(b["POSICIÓN"]);
+      })
+      .map(fichaDeCampo);
+  }, [players, equipoDelOnce]);
 
   const exportarOncePdf = useCallback(async () => {
     if (!marcados.length) return;
@@ -2231,11 +2281,14 @@ export default function RivalPlayersPage() {
         <OnceCampoDialog
           equipo={equipoDelOnce}
           jugadores={campoJugadores}
+          plantilla={plantillaDelOnce}
           campo={once.doc.campo}
           tema={theme}
           exportando={exportando}
           onMover={once.mover}
           onAlCampo={once.alCampo}
+          onQuitar={once.quitar}
+          onSustituir={once.sustituir}
           onRecolocar={once.recolocar}
           onExportar={() => void exportarOncePdf()}
           onCerrar={() => setPreparandoPdf(false)}

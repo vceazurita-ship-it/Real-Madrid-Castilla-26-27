@@ -216,6 +216,54 @@ export function conEnCampo(
   return { ...doc, enCampo, campo };
 }
 
+/**
+ * Cambia a un jugador por otro sin deshacer el once.
+ *
+ * El que entra hereda lo del que sale: si era titular sale de titular, y si
+ * era una duda pintada en el campo entra pintada y **en su mismo sitio**. Un
+ * cambio de nombre no puede tirar por tierra la colocación que se acaba de
+ * hacer a mano, que es justo lo que se estaba haciendo cuando se decide el
+ * cambio.
+ *
+ * Si el que entra ya estaba marcado —era duda y resulta que sale de inicio—,
+ * deja antes el hueco que ocupaba: nadie puede salir dos veces en el mismo
+ * once.
+ */
+export function conSustitucion(
+  doc: RivalOnceDoc,
+  saliente: string,
+  entrante: string
+): RivalOnceDoc {
+  if (!entrante || saliente === entrante) return doc;
+
+  const estado = estadoDe(doc, saliente);
+
+  /* Sólo se sustituye a quien está en el once: sin hueco que heredar esto
+     sería un alta encubierta, y para dar altas está el campograma. */
+  if (!estado) return doc;
+
+  const sitio = doc.campo[saliente];
+  const pintado = doc.enCampo.includes(saliente);
+
+  /* Se vacían los dos huecos primero —el del que sale y el que el que entra
+     pudiera tener ya— y sólo después se ocupa uno. */
+  let siguiente = conEstado(conEstado(doc, entrante, null), saliente, null);
+
+  siguiente = conEstado(siguiente, entrante, estado);
+
+  if (estado === "duda" && pintado) {
+    siguiente = conEnCampo(siguiente, entrante, true);
+  }
+
+  /* El sitio a mano sólo viaja si el que entra se va a pintar en el campo:
+     una duda que se queda en la lista no tiene dónde estar. */
+  if (sitio && (estado === "titular" || pintado)) {
+    siguiente = conPosicion(siguiente, entrante, sitio);
+  }
+
+  return siguiente;
+}
+
 /** Devuelve el campo a la colocación automática, sin tocar quién está. */
 export function sinPosiciones(doc: RivalOnceDoc): RivalOnceDoc {
   return { ...doc, campo: {} };
