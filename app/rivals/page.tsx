@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 
 import { chipInk } from "@/lib/theme";
@@ -53,6 +54,7 @@ import {
   ArrowBigUp,
   Ban,
   Bandage,
+  BarChart3,
   BatteryCharging,
   BatteryLow,
   Brain,
@@ -1187,6 +1189,24 @@ export default function RivalPlayersPage() {
       },
     ].filter((dato) => dato.valor);
   }, [editForm]);
+
+  /*
+  | Estadísticas del jugador y, con ellas, su ficha en BeSoccer.
+  |
+  | El enlace lo llevaba el PDF del once y no la pantalla, que es donde más se
+  | usa: es a donde se va cuando el vídeo propio no basta —ahí están los datos
+  | partido a partido y los vídeos de BeSoccer—. La URL no está en la hoja: la
+  | trae el documento de estadísticas, que es quien sabe con qué ficha se ha
+  | emparejado a cada uno.
+  */
+  const statsDelJugador = useMemo(
+    () => (editForm ? findStats(statsDoc, editForm) : null),
+    [statsDoc, editForm],
+  );
+
+  const besoccerDelJugador = statsDelJugador?.url
+    ? enlaceAbrible(statsDelJugador.url)
+    : "";
 
   /*
   | El once vive por equipo: la ficha sólo lo ofrece si el jugador es del
@@ -2365,6 +2385,19 @@ export default function RivalPlayersPage() {
                         <ExternalLink size={11} />
                       </a>
                     )}
+
+                    {besoccerDelJugador && (
+                      <a
+                        href={besoccerDelJugador}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] transition hover:border-[#C8A96B]"
+                      >
+                        <BarChart3 size={14} className="text-[#C8A96B]" />
+                        BeSoccer
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
                   </div>
 
                   <button
@@ -2523,7 +2556,7 @@ export default function RivalPlayersPage() {
 
               <div className="min-w-0 p-3 sm:p-4 md:p-6">
                 <PlayerStatsCard
-                  stats={findStats(statsDoc, editForm)}
+                  stats={statsDelJugador}
                   loading={statsLoading}
                   missing={statsMissing}
                   slot={slotDelJugador?.slot.key ?? null}
@@ -2544,46 +2577,75 @@ export default function RivalPlayersPage() {
                 </div>
 
                 {/* ============================================== */}
-                {/* ANÁLISIS — tres columnas, no una lista larga    */}
+                {/* ANÁLISIS                                        */}
                 {/* ============================================== */}
 
-                <div className="mt-5 grid min-w-0 gap-4 xl:grid-cols-3">
-                  <div className="min-w-0 space-y-4">
-                    <TagPicker
-                      value={editForm.IMPACTO}
-                      onChange={(value) => updateForm("IMPACTO", value)}
-                    />
+                {/*
+                | Las etiquetas, en una franja fina a todo lo ancho: son el
+                | resumen de lo que viene debajo y se leen de corrido, no
+                | metidas en una columna.
+                |
+                | Y debajo tres columnas del mismo ancho y el mismo alto —lo que
+                | hace bien en verde, por dónde se le gana en rojo, y quién es en
+                | la tercera—, que es como sale también el PDF del once. Antes
+                | eran tres columnas descuadradas (etiquetas + características,
+                | fortalezas + debilidades, observaciones sola) y no había manera
+                | de comparar lo bueno con lo malo de un vistazo.
+                */}
 
+                <div className="mt-5">
+                  <TagPicker
+                    value={editForm.IMPACTO}
+                    onChange={(value) => updateForm("IMPACTO", value)}
+                    compacto
+                  />
+                </div>
+
+                <div className="mt-3 grid min-w-0 items-stretch gap-3 lg:grid-cols-3">
+                  <AnalisisColumna color={TONE_COLOR.fortaleza}>
+                    <EditableTextarea
+                      label="Fortalezas"
+                      color={TONE_COLOR.fortaleza}
+                      crece
+                      value={editForm.FORTALEZAS}
+                      onChange={(value) => updateForm("FORTALEZAS", value)}
+                    />
+                  </AnalisisColumna>
+
+                  <AnalisisColumna color={TONE_COLOR.debilidad}>
+                    <EditableTextarea
+                      label="Debilidades"
+                      color={TONE_COLOR.debilidad}
+                      crece
+                      value={editForm.DEBILIDADES}
+                      onChange={(value) => updateForm("DEBILIDADES", value)}
+                    />
+                  </AnalisisColumna>
+
+                  {/* La tercera junta las dos que describen al jugador: se leen
+                      del tirón y por separado dejaban la fila coja. */}
+
+                  <AnalisisColumna color={ORO}>
                     <EditableTextarea
                       label="Características"
+                      color={ORO}
+                      crece
+                      rows={3}
                       value={editForm.CARACTERÍSTICAS}
                       onChange={(value) =>
                         updateForm("CARACTERÍSTICAS", value)
                       }
                     />
-                  </div>
 
-                  <div className="min-w-0 space-y-4">
-                    <EditableTextarea
-                      label="Fortalezas"
-                      value={editForm.FORTALEZAS}
-                      onChange={(value) => updateForm("FORTALEZAS", value)}
-                    />
-
-                    <EditableTextarea
-                      label="Debilidades"
-                      value={editForm.DEBILIDADES}
-                      onChange={(value) => updateForm("DEBILIDADES", value)}
-                    />
-                  </div>
-
-                  <div className="min-w-0">
                     <EditableTextarea
                       label="Observaciones"
+                      color={ORO}
+                      crece
+                      rows={3}
                       value={editForm.OBSERVACIONES}
                       onChange={(value) => updateForm("OBSERVACIONES", value)}
                     />
-                  </div>
+                  </AnalisisColumna>
                 </div>
               </div>
             </div>
@@ -2931,28 +2993,83 @@ function EditableField({
   );
 }
 
+/*
+| Un texto de análisis.
+|
+| `color` es el tono del bloque —verde lo que hace bien, rojo por dónde se le
+| gana— y tiñe el rótulo, el punto que lo precede y el filo del recuadro. Va en
+| `style` y no en clases de Tailwind porque son colores de dato: los mismos que
+| llevan las etiquetas y el PDF del once.
+|
+| Con `crece` la caja se estira hasta llenar su columna. Es lo que mantiene a la
+| misma altura las tres columnas del análisis aunque una lleve un párrafo y otra
+| dos líneas.
+*/
 function EditableTextarea({
   label,
   value,
   onChange,
+  color,
+  crece = false,
+  rows = 4,
 }: {
   label: string;
   value: unknown;
   onChange: (value: string) => void;
+  color?: string;
+  crece?: boolean;
+  rows?: number;
 }) {
   return (
-    <label className="block min-w-0">
-      <span className="mb-2 block text-xs uppercase tracking-wider text-white/40">
+    <label className={`flex min-w-0 flex-col ${crece ? "flex-1" : ""}`}>
+      <span
+        className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-white/40"
+        style={color ? { color: chipInk(color) } : undefined}
+      >
+        {color && (
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: color }}
+          />
+        )}
+
         {label}
       </span>
 
       <textarea
         value={String(value ?? "")}
         onChange={(event) => onChange(event.target.value)}
-        rows={4}
-        className="w-full min-w-0 resize-y rounded-xl border border-white/10 bg-[#0B0F14] px-4 py-3 text-sm outline-none transition focus:border-[#C8A96B]"
+        rows={rows}
+        className={`w-full min-w-0 resize-y rounded-xl border border-white/10 bg-[#0B0F14] px-4 py-3 text-sm outline-none transition focus:border-[#C8A96B] ${
+          crece ? "min-h-[110px] flex-1" : ""
+        }`}
+        style={color ? { borderColor: `${color}3D` } : undefined}
       />
     </label>
+  );
+}
+
+/*
+| Una de las tres columnas del análisis. El panel tintado es lo que las hace
+| distinguibles de un vistazo —y lo que ata la ficha de pantalla con la del PDF,
+| que las pinta igual—. Todas ocupan el mismo ancho y la rejilla las estira al
+| mismo alto.
+*/
+function AnalisisColumna({
+  color,
+  children,
+}: {
+  color: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="flex min-w-0 flex-col gap-4 rounded-2xl border p-3 sm:p-4"
+      style={{ borderColor: `${color}2E`, background: `${color}0F` }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -3046,6 +3163,10 @@ type TagTone = "fortaleza" | "debilidad";
 | ficha se lee de un vistazo —lo verde es lo que hay que frenar, lo rojo por
 | dónde se le gana— y quien distingue una etiqueta de otra es el icono.
 */
+/* El dorado de la casa. La tercera columna del análisis —la que describe al
+   jugador— no es ni fortaleza ni debilidad, así que lleva éste. */
+const ORO = "#C8A96B";
+
 const TONE_COLOR: Record<TagTone, string> = {
   fortaleza: "#34D399",
   debilidad: "#F87171",
@@ -3543,12 +3664,25 @@ function TagChip({
 | El catálogo entero vive detrás de «Editar», y ahí sí se despliega completo,
 | agrupado y con su campo de texto libre.
 */
+/*
+| Las etiquetas de IMPACTO.
+|
+| `compacto` es la forma que tiene en la ficha del jugador: una franja fina a
+| todo lo ancho, con el rótulo y las chapas en la misma línea. La forma alta
+| —cada grupo con su titulillo y sus chapas debajo— sigue estando para donde el
+| selector es el contenido y no un resumen.
+|
+| El catálogo completo, se elija la forma que se elija, sólo aparece al pulsar
+| «Editar» y nunca sale en el PNG ni en el PDF.
+*/
 function TagPicker({
   value,
   onChange,
+  compacto = false,
 }: {
   value: unknown;
   onChange: (value: string) => void;
+  compacto?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
 
@@ -3565,6 +3699,109 @@ function TagPicker({
     ...group,
     chosen: group.tags.filter((tag) => activeKeys.has(tag.key)),
   })).filter((group) => group.chosen.length > 0);
+
+  /*
+  | En la franja fina las chapas van seguidas, sin partir en dos bloques: las
+  | debilidades primero, que es lo que se busca antes de un partido, y detrás
+  | las fortalezas. El color de cada chapa ya dice de cuál se trata, así que el
+  | titulillo del grupo sólo hace falta en la forma alta.
+  */
+  const enFila = [
+    ...parsed.tags.filter((tag) => tag.tone === "debilidad"),
+    ...parsed.tags.filter((tag) => tag.tone === "fortaleza"),
+  ];
+
+  if (compacto) {
+    return (
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2">
+        <span className="flex shrink-0 items-center gap-2 text-[11px] uppercase tracking-wider text-white/40">
+          <Tags size={13} className="text-[#C8A96B]" />
+          Etiquetas
+        </span>
+
+        {enFila.length > 0 ? (
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            {enFila.map((tag) => (
+              <TagChip
+                key={tag.key}
+                tag={tag}
+                active
+                onClick={
+                  editando ? undefined : () => onChange(toggleTagValue(value, tag))
+                }
+              />
+            ))}
+          </span>
+        ) : (
+          <span className="flex-1 text-[11px] text-white/30">
+            Sin etiquetas.
+          </span>
+        )}
+
+        <button
+          type="button"
+          data-export-hide
+          onClick={() => setEditando((abierto) => !abierto)}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+            editando
+              ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+              : "border-white/15 text-white/55 hover:border-[#C8A96B] hover:text-white"
+          }`}
+        >
+          {editando ? <X size={11} /> : <SquarePen size={11} />}
+          {editando ? "Cerrar" : "Editar"}
+        </button>
+
+        {/* CATÁLOGO COMPLETO — sólo al editar, y nunca en el PNG / PDF */}
+
+        {editando && (
+          <div
+            data-export-hide
+            className="w-full space-y-3 border-t border-white/10 pt-3"
+          >
+            {TAG_GROUPS.map((group) => (
+              <div key={group.tone}>
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+                  {group.label}
+                </span>
+
+                <div className="flex flex-wrap gap-2">
+                  {group.tags.map((tag) => (
+                    <TagChip
+                      key={tag.key}
+                      tag={tag}
+                      active={activeKeys.has(tag.key)}
+                      onClick={() => onChange(toggleTagValue(value, tag))}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <label className="block pt-1">
+              <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
+                Valor guardado (columna IMPACTO)
+              </span>
+
+              <input
+                value={String(value ?? "")}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder="El cerebro; Sacador de ABP"
+                className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] px-4 py-2.5 text-xs outline-none transition focus:border-[#C8A96B]"
+              />
+            </label>
+          </div>
+        )}
+
+        {parsed.extra.length > 0 && (
+          <p className="w-full text-[11px] text-white/40">
+            Texto libre conservado:{" "}
+            <span className="text-white/60">{parsed.extra.join(", ")}</span>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0B0F14] p-4">
@@ -3966,13 +4203,29 @@ function layoutPitch(
 
   clusters.sort((a, b) => a.anchorY - b.anchorY);
 
+  /*
+  | Cuánto se parecen dos alturas para compartir banda.
+  |
+  | De pie una banda es una FILA y las bandas se apilan a lo alto, que es lo
+  | que escasea: agrupar de más es lo que hace que quepa la plantilla. Tumbado
+  | una banda es una COLUMNA y lo que escasea es el alto DENTRO de ella, así
+  | que partir una banda en dos no cuesta nada —hay ancho de sobra— y además
+  | reparte su gente en dos columnas más cortas.
+  |
+  | Con el margen ancho de siempre, tumbado, la media punta caía en la banda de
+  | los extremos y el carrilero en la del pivote: cuatro cosas distintas
+  | apiladas en la misma columna, sin manera de ver dónde acababa una y
+  | empezaba otra. Con el margen fino cada una se lleva su columna.
+  */
+  const margenBanda = horizontal ? 0.03 : 0.07;
+
   const bands: { clusters: PitchCluster[]; anchorY: number; rows: number }[] =
     [];
 
   clusters.forEach((cluster) => {
     const last = bands[bands.length - 1];
 
-    if (last && cluster.anchorY - last.anchorY <= 0.07) {
+    if (last && cluster.anchorY - last.anchorY <= margenBanda) {
       last.clusters.push(cluster);
       return;
     }
@@ -4093,12 +4346,14 @@ function layoutPitch(
   | por la chapa de posición del de abajo: cobrarles además medio ancho de foto
   | dejaba la ficha en 19 px en las plantillas con muchos bloques atrás.
   |
-  | Los seis píxeles de más son para que se vea el corte entre un bloque y el
-  | siguiente: cada bloque lleva ahora un fondo propio y, pegados, dos fondos
-  | seguidos se leían como una sola mancha. Salen del alto que gana el campo al
-  | ensancharse, así que no le cuestan tamaño a la foto.
+  | Los píxeles de más son para que se vea el corte entre un bloque y el
+  | siguiente: cada bloque lleva un fondo propio y, pegados, dos fondos seguidos
+  | se leían como una sola mancha —sobre todo entre bloques de la misma línea,
+  | que comparten color: tres bloques de centrales seguidos parecían uno—.
+  | Salen del alto que gana el campo al ensancharse, así que casi no le cuestan
+  | tamaño a la foto.
   */
-  const gapFor = (size: number) => (horizontal ? rowGap + 6 : size * gapFactor);
+  const gapFor = (size: number) => (horizontal ? rowGap + 12 : size * gapFactor);
 
   const deepOf = (cluster: PitchCluster, size: number) =>
     horizontal ? blockWidthFor(cluster, size) : blockHeightFor(cluster, size);
@@ -4630,9 +4885,12 @@ function TacticalPitch({
             top: cluster.boxTop,
             width: cluster.boxWidth,
             height: cluster.boxHeight,
-            borderColor: `${cluster.color}33`,
-            background: `${cluster.color}16`,
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+            borderColor: `${cluster.color}59`,
+            background: `${cluster.color}1F`,
+            /* Un filo oscuro por fuera separa dos bloques vecinos de la misma
+               línea, que llevan el mismo color y pegados se leían como uno. */
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(8,12,16,0.35)",
           }}
         />
       ))}
@@ -4643,17 +4901,21 @@ function TacticalPitch({
         <span
           key={cluster.key}
           className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm"
+          /* Chapa sólida del color de la línea: es el rótulo del bloque y
+             tiene que ganarle al césped y a los bloques de al lado. Antes era
+             texto de color sobre fondo oscuro y, en una columna con tres
+             bloques seguidos, no marcaba dónde empezaba cada uno. */
           style={{
             left: cluster.x,
             top: cluster.y,
-            color: cluster.color,
-            borderColor: `${cluster.color}66`,
-            background: "rgba(8,12,16,0.72)",
+            color: "#0B0F14",
+            borderColor: "rgba(8,12,16,0.45)",
+            background: cluster.color,
           }}
         >
           {cluster.code}
 
-          <span className="font-semibold text-white/45">{cluster.count}</span>
+          <span className="font-semibold text-black/45">{cluster.count}</span>
         </span>
       ))}
 

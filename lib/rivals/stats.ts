@@ -20,6 +20,15 @@ export type RivalSeasonStats = {
   temporada: string;
   /** Equipos en los que jugó esa temporada, en orden de más reciente. */
   equipos: string[];
+  /**
+   * Escudo de cada uno de esos equipos, en el mismo orden que `equipos`.
+   *
+   * Es opcional a propósito: el documento que ya está subido en Supabase es
+   * anterior a que el script los descargara, y sin escudo la ficha pinta la
+   * inicial del club en vez de romperse. Se rellenan al volver a correr
+   * `scripts/rivals-stats.mjs`.
+   */
+  escudos?: string[];
   partidos: number;
   /** Partidos de titular; el resto entró desde el banquillo. */
   titular: number;

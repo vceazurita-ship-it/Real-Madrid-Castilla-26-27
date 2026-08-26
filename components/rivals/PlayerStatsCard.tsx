@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Sparkles } from "lucide-react";
 
@@ -36,6 +36,52 @@ import {
 | Los números son de BeSoccer y llegan desde Supabase; el mapa no es medido y
 | la propia tarjeta lo advierte.
 */
+
+/*
+| Un club del historial: su escudo y su nombre.
+|
+| El nombre iba a 9 px bajo la temporada y no se leía —y es justo el dato que
+| dice si el jugador viene de Segunda o de un filial—, así que ahora manda él:
+| escudo al lado y tipografía de lectura. El escudo puede faltar (el documento
+| subido antes de que el script los bajara no los trae, y BeSoccer se deja
+| alguno), y entonces queda la inicial dentro del mismo círculo: el hueco es
+| el mismo y las filas no se descuadran.
+*/
+function ClubDelHistorial({
+  nombre,
+  escudo,
+}: {
+  nombre: string;
+  escudo?: string;
+}) {
+  const [roto, setRoto] = useState(false);
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span
+        aria-hidden
+        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.06] text-[9px] font-bold text-white/45"
+      >
+        {escudo && !roto ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={escudo}
+            alt=""
+            loading="lazy"
+            onError={() => setRoto(true)}
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          nombre.charAt(0).toUpperCase()
+        )}
+      </span>
+
+      <span className="min-w-0 truncate text-[11px] font-medium text-white/60">
+        {nombre}
+      </span>
+    </span>
+  );
+}
 
 export function PlayerStatsCard({
   stats,
@@ -147,8 +193,8 @@ export function PlayerStatsCard({
                           className="min-w-0 py-1.5 pr-2 text-left font-normal"
                         >
                           <span
-                            className={`block text-[11px] font-semibold ${
-                              actual ? "text-[#C8A96B]" : "text-white/70"
+                            className={`block text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                              actual ? "text-[#C8A96B]" : "text-white/45"
                             }`}
                           >
                             {season.temporada}
@@ -157,9 +203,15 @@ export function PlayerStatsCard({
                           {season.equipos.length > 0 && (
                             <span
                               title={season.equipos.join(" / ")}
-                              className="block max-w-[140px] truncate text-[9px] text-white/30"
+                              className="mt-0.5 flex max-w-[160px] flex-wrap items-center gap-x-2 gap-y-0.5"
                             >
-                              {season.equipos.join(" / ")}
+                              {season.equipos.map((equipo, index) => (
+                                <ClubDelHistorial
+                                  key={`${equipo}-${index}`}
+                                  nombre={equipo}
+                                  escudo={season.escudos?.[index]}
+                                />
+                              ))}
                             </span>
                           )}
                         </th>

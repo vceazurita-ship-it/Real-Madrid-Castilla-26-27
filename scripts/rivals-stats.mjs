@@ -16,6 +16,13 @@
  * URL de la columna FOTO (`players/medium/<id>.jpg`). Es el id propio de
  * BeSoccer y no se mueve; los `ID_JUGADOR` de la hoja sí se renumeran.
  *
+ * De cada temporada se guarda también el **escudo** de los clubes por los que
+ * pasó, que es lo que hace legible el historial en la ficha y en el PDF del
+ * once. La caché guarda lo ya parseado, no el HTML, así que las fichas que se
+ * bajaron antes de esto no lo tienen: una pasada normal las detecta y las
+ * vuelve a pedir ella sola (`--solo-subir` no, que no baja nada). Mientras no
+ * se corra, la ficha pinta la inicial del club en el hueco del escudo.
+ *
  * Notas de scraping (ver también la nota "besoccer-plantillas-rivales"):
  * - BeSoccer devuelve 406 sin cabeceras de navegador, y el `fetch` de Node
  *   falla de forma intermitente donde `curl --compressed` funciona siempre.
@@ -180,6 +187,18 @@ function cells(rowHtml) {
   }));
 }
 
+/*
+| Escudo del club en la celda del equipo. Viene como
+| `cdn.resfu.com/img_data/escudos/medium/<id>.jpg?size=60x&lossy=1`; el
+| `&amp;` de la entidad HTML hay que deshacerlo o el CDN devuelve la imagen
+| por defecto.
+*/
+function escudoDe(cellHtml) {
+  const match = cellHtml.match(/<img[^>]+src="([^"]+)"/);
+
+  return match ? match[1].replace(/&amp;/g, "&") : "";
+}
+
 function trajectoryTable(html) {
   const start = html.indexOf("table_parents");
 
@@ -221,6 +240,11 @@ function parsePlayer(html) {
     const entry = {
       temporada,
       equipo: strip(cs[0].html),
+      /* La celda del equipo trae su escudo:
+         cdn.resfu.com/img_data/escudos/medium/<id>.jpg. Es lo que hace legible
+         de un vistazo el historial de la ficha, donde el nombre del club
+         escrito a 9 px no se lee. */
+      escudo: escudoDe(cs[0].html),
       partidos: toNumber(strip(cs[2].html)),
       amarillas: toNumber(strip(cs[5].html)),
       rojas: toNumber(strip(cs[6].html)),
@@ -258,9 +282,16 @@ function mergeSeasons(temporadas) {
     const current = merged.get(entry.temporada);
 
     if (!current) {
-      const { equipo, ...rest } = entry;
+      const { equipo, escudo, ...rest } = entry;
 
-      merged.set(entry.temporada, { ...rest, equipos: equipo ? [equipo] : [] });
+      merged.set(entry.temporada, {
+        ...rest,
+        equipos: equipo ? [equipo] : [],
+        /* Mismo índice que `equipos`: la ficha empareja escudo y nombre por
+           posición, así que si un club se queda sin escudo hay que dejarle su
+           hueco vacío, no saltárselo. */
+        escudos: equipo ? [escudo || ""] : [],
+      });
       continue;
     }
 
@@ -283,6 +314,7 @@ function mergeSeasons(temporadas) {
 
     if (entry.equipo && !current.equipos.includes(entry.equipo)) {
       current.equipos.push(entry.equipo);
+      current.escudos.push(entry.escudo || "");
     }
   }
 
@@ -420,8 +452,20 @@ function writeCache(cache) {
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
 }
 
+/*
+| Una ficha cacheada antes de que existieran los escudos no los tiene y no hay
+| forma de sacarlos sin volver a la página: la caché guarda lo ya parseado, no
+| el HTML. Se marcan como pendientes para que una pasada normal las refresque
+| sola, sin obligar a un `--refrescar` que tiraría también las buenas.
+*/
+function completa(entry) {
+  if (!entry || !Array.isArray(entry.temporadas)) return false;
+
+  return entry.temporadas.every((season) => season.escudo !== undefined);
+}
+
 function scrape(targets, cache) {
-  const pending = targets.filter((row) => row.id && !cache[row.id]);
+  const pending = targets.filter((row) => row.id && !completa(cache[row.id]));
 
   console.log(`fichas por descargar: ${pending.length}`);
 

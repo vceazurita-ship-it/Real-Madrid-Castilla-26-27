@@ -12,10 +12,12 @@
 | pantalla.
 |
 | De cada jugador sale **la misma ficha que se abre al pulsarlo en la app**:
-| foto y dorsal, posición y rol, la banda de datos, el mapa de zona, la tabla
-| de temporadas, las etiquetas y los cuatro textos de análisis. Para que las
-| dos no se separen con el tiempo, el mapa y las columnas de la tabla salen de
-| los módulos que también usa la pantalla (`lib/rivals/heatmap.ts` y
+| foto y dorsal, posición y rol, la banda de datos, el mapa de zona, el
+| historial de clubes con sus escudos, la franja de etiquetas y el análisis en
+| tres columnas —fortalezas en verde, por dónde se le gana en rojo, y quién es
+| (características y observaciones) en la tercera—. Para que las dos no se
+| separen con el tiempo, el mapa y las columnas de la tabla salen de los
+| módulos que también usa la pantalla (`lib/rivals/heatmap.ts` y
 | `lib/rivals/stats-table.ts`), no de una copia hecha aquí.
 |
 | La portada no manda fuera del documento: pulsar a un jugador —en el campo o
@@ -311,17 +313,29 @@ const ZONA_W = 66;
 const ZONA_H = 99;
 
 const TABLA_CABECERA = 12;
-const TABLA_FILA = 15;
+/*
+| Alto de una fila del historial. Eran 15 pt con el club escrito a 5 pt bajo
+| la temporada; ahora el club manda —escudo y nombre legible—, y la fila
+| necesita dos pt más. No le cuesta alto a la ficha: el mapa de zona sigue
+| siendo lo más hondo del bloque de rendimiento.
+*/
+const TABLA_FILA = 17;
+
+/** Lado del escudo del club dentro de la fila. */
+const ESCUDO_FILA = 9;
 
 /**
  * Tope de líneas de cada texto de análisis.
  *
  * Sin tope, una ficha con cuatro párrafos largos crece más que la hoja y se
- * parte por la mitad. Diez líneas son unas cuarenta palabras: lo que se lee
- * de pie antes de un partido. Lo que sobra se corta con puntos suspensivos y
- * sigue estando entero en la app, a un toque de «Más información».
+ * parte por la mitad. Lo que sobra se corta con puntos suspensivos y sigue
+ * estando entero en la app, a un toque de «Más información».
+ *
+ * Eran diez con los textos a media hoja de ancho; en tres columnas la misma
+ * cantidad de texto ocupa más líneas, así que el tope sube a catorce para
+ * cortar por donde cortaba antes.
  */
-const MAX_LINEAS_BLOQUE = 10;
+const MAX_LINEAS_BLOQUE = 14;
 
 /*
 |--------------------------------------------------------------------------
@@ -595,9 +609,28 @@ function botonEnlace(
 /** Lado en píxeles al que se normaliza la foto antes de meterla en el PDF. */
 const FOTO_PX = 220;
 
+/*
+| Los escudos del historial de clubes van a un lado del nombre y se pintan a 9
+| pt: con 64 px de lienzo sobran para que no se vean los dientes al imprimir,
+| y pesan una décima parte de lo que pesaría un retrato.
+*/
+const ESCUDO_PX = 64;
+
 type FotoCache = Map<string, string>;
 
-async function cargaFoto(url: string): Promise<string | null> {
+/**
+ * Descarga una imagen y la deja lista para el PDF.
+ *
+ * `encaje` decide qué hacer cuando no es cuadrada: los retratos se recortan
+ * (`cover`, el `object-cover` de la ficha) y los escudos se encajan enteros
+ * (`contain`), porque a un escudo recortado se le va justo la parte por la que
+ * se reconoce.
+ */
+async function cargaImagen(
+  url: string,
+  lado: number,
+  encaje: "cover" | "contain",
+): Promise<string | null> {
   const respuesta = await fetch(
     `/api/rivals/foto?url=${encodeURIComponent(url)}`,
   );
@@ -620,25 +653,27 @@ async function cargaFoto(url: string): Promise<string | null> {
 
     const lienzo = document.createElement("canvas");
 
-    lienzo.width = FOTO_PX;
-    lienzo.height = FOTO_PX;
+    lienzo.width = lado;
+    lienzo.height = lado;
 
     const ctx = lienzo.getContext("2d");
 
     if (!ctx) return null;
 
-    /* Recorte cuadrado centrado: el mismo `object-cover` de la ficha. */
-    fillLienzo(ctx);
+    fillLienzo(ctx, lado);
 
-    const escala = Math.max(
-      FOTO_PX / imagen.naturalWidth,
-      FOTO_PX / imagen.naturalHeight,
-    );
+    const escalas = [
+      lado / imagen.naturalWidth,
+      lado / imagen.naturalHeight,
+    ];
+
+    const escala =
+      encaje === "cover" ? Math.max(...escalas) : Math.min(...escalas);
 
     const w = imagen.naturalWidth * escala;
     const h = imagen.naturalHeight * escala;
 
-    ctx.drawImage(imagen, (FOTO_PX - w) / 2, (FOTO_PX - h) / 2, w, h);
+    ctx.drawImage(imagen, (lado - w) / 2, (lado - h) / 2, w, h);
 
     /* JPEG y no PNG: son fotos, y once retratos en PNG multiplican por cinco
        lo que pesa el documento que luego se manda por WhatsApp. */
@@ -648,27 +683,57 @@ async function cargaFoto(url: string): Promise<string | null> {
   }
 }
 
-/** Fondo del recorte, para las fotos con transparencia o proporción rara. */
-function fillLienzo(ctx: CanvasRenderingContext2D) {
+/** Fondo del recorte, para las imágenes con transparencia o proporción rara. */
+function fillLienzo(ctx: CanvasRenderingContext2D, lado: number) {
   ctx.fillStyle = C.panelHondo;
-  ctx.fillRect(0, 0, FOTO_PX, FOTO_PX);
+  ctx.fillRect(0, 0, lado, lado);
 }
 
+/*
+| Todo lo que hay que ir a buscar fuera, en una sola tanda: los retratos del
+| campograma y de las fichas, y los escudos del historial de clubes. Van
+| juntos porque el documento no puede empezar a montarse hasta que estén, y
+| separarlos en dos esperas sólo alargaba la espera.
+|
+| Una imagen que no se puede descargar **no** tumba el PDF: en su hueco va la
+| silueta (retratos) o la inicial del club (escudos).
+*/
 async function cargaFotos(jugadores: OncePdfPlayer[]): Promise<FotoCache> {
   const cache: FotoCache = new Map();
 
   if (typeof document === "undefined") return cache;
 
-  const urls = [
-    ...new Set(jugadores.map((jugador) => jugador.foto).filter(Boolean)),
+  const retratos = new Set(
+    jugadores.map((jugador) => jugador.foto).filter(Boolean),
+  );
+
+  const escudos = new Set<string>();
+
+  jugadores.forEach((jugador) =>
+    jugador.temporadas
+      .slice(0, TEMPORADAS_VISIBLES)
+      .forEach((season) =>
+        (season.escudos ?? []).forEach((escudo) => {
+          if (escudo) escudos.add(escudo);
+        }),
+      ),
+  );
+
+  const encargos = [
+    ...[...retratos].map(
+      (url) => [url, FOTO_PX, "cover"] as [string, number, "cover"],
+    ),
+    ...[...escudos].map(
+      (url) => [url, ESCUDO_PX, "contain"] as [string, number, "contain"],
+    ),
   ];
 
   const descargas = await Promise.all(
-    urls.map(async (url) => {
+    encargos.map(async ([url, lado, encaje]) => {
       try {
-        return [url, await cargaFoto(url)] as const;
+        return [url, await cargaImagen(url, lado, encaje)] as const;
       } catch (error) {
-        console.warn("No se ha podido descargar la foto del rival:", url, error);
+        console.warn("No se ha podido descargar la imagen del rival:", url, error);
 
         return [url, null] as const;
       }
@@ -753,8 +818,15 @@ function dibujaCampo(doc: Doc, x: number, y: number, w: number, h: number) {
 | de antes de exportar; aquí sólo se pinta lo que aquél reparte.
 */
 
-/** Radio de la cara de un jugador en el campograma. */
-const CARA = 16;
+/*
+| Radio de la cara de un jugador en el campograma.
+|
+| Eran 16 pt. El campo reparte 63 pt por jugador en una línea de cinco, así
+| que sobraba sitio, y en el móvil —que es donde se lee este PDF— una cara de
+| 32 pt de diámetro es un objetivo pequeño para el dedo. A 18 la cara se
+| reconoce mejor y el toque acierta.
+*/
+const CARA = 18;
 
 function pintaJugadorEnCampo(
   doc: Doc,
@@ -831,24 +903,69 @@ function pintaJugadorEnCampo(
   ink(doc, C.fondo);
   doc.text(dorsal, dorsalX + (anchoDorsal - ancho(doc, dorsal)) / 2, dorsalY + 7.7);
 
+  /*
+  | Nombre y posición sobre una chapa oscura y no sueltos sobre el césped. Dos
+  | cosas a la vez: se leen igual caiga la cara sobre franja clara u oscura, y
+  | la ficha se ve como una pieza —cara + nombre— que se puede pulsar, que es
+  | lo que hay que adivinar al abrir el documento.
+  */
   fuente(doc, 7, "bold");
-  ink(doc, C.tinta);
 
-  const nombre = recorta(doc, jugador.nombre, hueco);
-
-  doc.text(nombre, cx - ancho(doc, nombre) / 2, cy + radio + 12);
+  const nombre = recorta(doc, jugador.nombre, hueco - 12);
+  const anchoNombre = ancho(doc, nombre);
 
   fuente(doc, 5.5, "normal");
-  ink(doc, realza(jugador.color, 0.2));
 
-  const pos = recorta(doc, jugador.posCode || jugador.posicion, hueco);
+  const pos = recorta(doc, jugador.posCode || jugador.posicion, hueco - 12);
+  const anchoPos = ancho(doc, pos);
 
-  doc.text(pos, cx - ancho(doc, pos) / 2, cy + radio + 20);
+  const anchoTexto = Math.max(anchoNombre, anchoPos);
 
-  /* La cara entera salta a su ficha, y con ella el nombre y la posición: en el
-     móvil hay que poder acertar con el dedo. Y salta dentro del documento —no
-     abre el navegador—, así que el PDF se lee entero sin cobertura. */
-  ancla(jugador.clave, cx - radio, cy - radio, radio * 2, radio * 2 + 22);
+  /* Nunca más ancha que el sitio que el reparto le da al jugador: si se pasa,
+     la chapa del vecino se le monta encima y el toque acaba en el que no es. */
+  const anchoChapaNombre = Math.min(hueco, anchoTexto + 12);
+  const chapaNombreX = cx - anchoChapaNombre / 2;
+  const chapaNombreY = cy + radio + 3;
+  const altoChapaNombre = 21;
+
+  fill(doc, mezcla(C.fondo, C.cesped, 0.62));
+  stroke(doc, mezcla(jugador.color, C.cesped, 0.45), 0.5);
+  doc.roundedRect(
+    chapaNombreX,
+    chapaNombreY,
+    anchoChapaNombre,
+    altoChapaNombre,
+    5,
+    5,
+    "FD",
+  );
+
+  fuente(doc, 7, "bold");
+  ink(doc, C.tinta);
+  doc.text(nombre, cx - ancho(doc, nombre) / 2, chapaNombreY + 9);
+
+  fuente(doc, 5.5, "normal");
+  ink(doc, realza(jugador.color, 0.25));
+  doc.text(pos, cx - ancho(doc, pos) / 2, chapaNombreY + 17);
+
+  /*
+  | La ficha entera salta a la del jugador: la cara, el nombre y la posición.
+  | Antes el enlace era una caja del ancho de la cara —36 pt— y el nombre, que
+  | es lo más grande de la pieza y donde va el dedo, quedaba fuera; ahora el
+  | rectángulo es exactamente lo que se ve pintado, cara y chapa incluidas.
+  |
+  | Salta dentro del documento —no abre el navegador—, así que el PDF se lee
+  | entero de camino al campo aunque no haya cobertura.
+  */
+  const anclaW = Math.max(radio * 2, anchoChapaNombre);
+
+  ancla(
+    jugador.clave,
+    cx - anclaW / 2,
+    cy - radio - 2,
+    anclaW,
+    radio + 2 + (chapaNombreY - cy) + altoChapaNombre,
+  );
 
   /*
   | Chapa de vídeo debajo del nombre. Es lo que se pide del campograma: verlo
@@ -863,7 +980,10 @@ function pintaJugadorEnCampo(
   const texto = "VÍDEO";
   const anchoChapa = ancho(doc, texto) + 18;
   const chapaX = cx - anchoChapa / 2;
-  const chapaY = cy + radio + 24;
+
+  /* Justo debajo de la chapa del nombre, sin tocarla: son dos destinos
+     distintos —la ficha y YouTube— y pegadas se pulsa la que no es. */
+  const chapaY = chapaNombreY + altoChapaNombre + 3;
 
   fill(doc, mezcla(C.oro, C.cesped, 0.2));
   stroke(doc, mezcla(C.oro, C.cesped, 0.55), 0.5);
@@ -1314,12 +1434,73 @@ function altoTemporadas(jugador: OncePdfPlayer) {
   return filas ? TABLA_CABECERA + filas * TABLA_FILA : 46;
 }
 
+/*
+| El club de una temporada: su escudo y su nombre. Sin escudo —el documento de
+| estadísticas puede ser anterior a que el script los bajara— queda la inicial
+| dentro del mismo círculo, así que la fila mide igual en los dos casos.
+*/
+function clubDeLaFila(
+  doc: Doc,
+  fotos: FotoCache,
+  nombre: string,
+  escudo: string | undefined,
+  x: number,
+  y: number,
+  maxW: number,
+) {
+  const dataUrl = escudo ? fotos.get(escudo) : undefined;
+  const centro = y - ESCUDO_FILA / 2 + 0.5;
+
+  if (dataUrl) {
+    doc.saveGraphicsState();
+    doc.circle(x + ESCUDO_FILA / 2, centro + ESCUDO_FILA / 2, ESCUDO_FILA / 2, null);
+    doc.clip();
+    doc.discardPath();
+
+    doc.addImage(
+      dataUrl,
+      "JPEG",
+      x,
+      centro,
+      ESCUDO_FILA,
+      ESCUDO_FILA,
+      escudo,
+    );
+
+    doc.restoreGraphicsState();
+  } else {
+    fill(doc, mezcla(C.tintaTenue, C.panelHondo, 0.3));
+    doc.circle(x + ESCUDO_FILA / 2, centro + ESCUDO_FILA / 2, ESCUDO_FILA / 2, "F");
+
+    fuente(doc, 5.5, "bold");
+    ink(doc, C.tintaMedia);
+
+    const inicial = nombre.charAt(0).toUpperCase();
+
+    doc.text(
+      inicial,
+      x + ESCUDO_FILA / 2 - ancho(doc, inicial) / 2,
+      centro + ESCUDO_FILA / 2 + 2,
+    );
+  }
+
+  fuente(doc, 6.5, "normal");
+  ink(doc, C.tintaMedia);
+
+  const texto = recorta(doc, nombre, maxW - ESCUDO_FILA - 3);
+
+  doc.text(texto, x + ESCUDO_FILA + 3, y);
+
+  return ESCUDO_FILA + 3 + ancho(doc, texto);
+}
+
 function dibujaTemporadas(
   doc: Doc,
   x: number,
   y: number,
   w: number,
   jugador: OncePdfPlayer,
+  fotos: FotoCache,
 ) {
   const temporadas = jugador.temporadas.slice(0, TEMPORADAS_VISIBLES);
 
@@ -1342,7 +1523,7 @@ function dibujaTemporadas(
   const cols = columnasTemporada(jugador.portero);
   const destacada = highlightSeason(temporadas)?.temporada ?? null;
 
-  const wTemporada = Math.min(112, w * 0.3);
+  const wTemporada = Math.min(126, w * 0.34);
   const paso = (w - wTemporada) / cols.length;
 
   /* ---------------- CABECERA ---------------- */
@@ -1375,19 +1556,34 @@ function dibujaTemporadas(
       doc.rect(x - 4, top + 1, w + 8, TABLA_FILA - 1, "F");
     }
 
-    fuente(doc, 7, "bold");
-    ink(doc, actual ? realza(C.oro, 0.15) : C.tintaMedia);
-    doc.text(recorta(doc, season.temporada, wTemporada - 6), x, top + 8);
+    fuente(doc, 6, "bold");
+    ink(doc, actual ? realza(C.oro, 0.15) : C.tintaTenue);
+    rotulo(doc, recorta(doc, season.temporada, wTemporada - 6), x, top + 7, 0.7);
 
+    /*
+    | Los clubes, debajo y con escudo. Es el dato que dice de dónde viene el
+    | jugador —de Segunda, de un filial, cedido a mitad de curso— y a 5 pt no
+    | se leía. Con dos clubes en la misma temporada se pinta el primero y se
+    | avisa del otro con "+1": dos escudos con sus dos nombres no caben en la
+    | columna sin comerse los números.
+    */
     if (season.equipos.length) {
-      fuente(doc, 5, "normal");
-      ink(doc, C.tintaTenue);
-
-      doc.text(
-        recorta(doc, season.equipos.join(" / "), wTemporada - 6),
+      const usado = clubDeLaFila(
+        doc,
+        fotos,
+        season.equipos[0],
+        season.escudos?.[0],
         x,
-        top + 13.5,
+        top + 14.5,
+        wTemporada - 6 - (season.equipos.length > 1 ? 14 : 0),
       );
+
+      if (season.equipos.length > 1) {
+        fuente(doc, 5.5, "bold");
+        ink(doc, C.tintaTenue);
+
+        doc.text(`+${season.equipos.length - 1}`, x + usado + 4, top + 14.5);
+      }
     }
 
     cols.forEach((col, i) => {
@@ -1426,18 +1622,54 @@ function dibujaTemporadas(
 | que queda de página y no partirla por la mitad.
 */
 
-/** Los cuatro textos de análisis, en el orden en que se leen. */
-function bloquesDe(jugador: OncePdfPlayer) {
+/*
+| El análisis, en tres columnas fijas: lo que le sale bien, por dónde se le
+| gana y quién es. Las dos primeras son las que se leen antes de un partido y
+| por eso van solas y con su color —verde y rojo, como las etiquetas—; la
+| tercera junta características y observaciones, que se leen del tirón.
+|
+| Antes eran cuatro bloques repartidos en dos columnas alternas: fortalezas
+| arriba a la izquierda, debilidades arriba a la derecha, y debajo los otros
+| dos. Con textos de distinto largo las columnas acababan descuadradas y no se
+| veía dónde terminaba una cosa y empezaba otra.
+|
+| Las tres columnas ocupan el mismo ancho y **se pintan a la misma altura**,
+| aunque una lleve menos texto: es lo que hace que la tarjeta se lea en
+| horizontal, comparando lo bueno con lo malo.
+*/
+function columnasDe(jugador: OncePdfPlayer) {
   return [
-    { titulo: "Fortalezas", texto: jugador.fortalezas, color: C.verde },
-    { titulo: "Por dónde se le gana", texto: jugador.debilidades, color: C.rojo },
-    { titulo: "Características", texto: jugador.caracteristicas, color: C.oro },
-    { titulo: "Observaciones", texto: jugador.observaciones, color: C.tintaMedia },
-  ].filter((bloque) => bloque.texto);
+    {
+      color: C.verde,
+      bloques: [{ titulo: "Fortalezas", texto: jugador.fortalezas }],
+    },
+    {
+      color: C.rojo,
+      bloques: [{ titulo: "Por dónde se le gana", texto: jugador.debilidades }],
+    },
+    {
+      color: C.oro,
+      bloques: [
+        { titulo: "Características", texto: jugador.caracteristicas },
+        { titulo: "Observaciones", texto: jugador.observaciones },
+      ],
+    },
+  ].map((columna) => ({
+    ...columna,
+    bloques: columna.bloques.filter((bloque) => bloque.texto),
+  }));
 }
 
-/** Ancho de cada una de las dos columnas de análisis. */
-const COLUMNA_ANALISIS = (CONTENT_W - 28) / 2 - 6;
+/** Hueco entre columnas de análisis y aire dentro del panel de cada una. */
+const ANALISIS_HUECO = 12;
+const ANALISIS_PAD = 9;
+
+/** Ancho de cada una de las tres columnas de análisis. */
+const COLUMNA_ANALISIS =
+  (CONTENT_W - PAD * 2 - ANALISIS_HUECO * 2) / 3;
+
+/** Ancho útil del texto dentro del panel de una columna. */
+const TEXTO_ANALISIS = COLUMNA_ANALISIS - ANALISIS_PAD * 2;
 
 type FilaDatos = { dato: OncePdfDato; w: number }[];
 
@@ -1480,15 +1712,21 @@ function distribuyeDatos(doc: Doc, datos: OncePdfDato[], maxW: number) {
 
 type BloqueMedido = {
   titulo: string;
-  color: string;
   lineas: string[];
+};
+
+type ColumnaMedida = {
+  color: string;
+  bloques: BloqueMedido[];
 };
 
 type MedidasFicha = {
   alto: number;
   /** Filas de la banda de datos, ya repartidas. */
   filasDatos: FilaDatos[];
-  bloques: BloqueMedido[];
+  columnas: ColumnaMedida[];
+  /** Alto del panel de las tres columnas: el de la más larga. */
+  altoAnalisis: number;
   /** Desplazamientos desde el borde superior de la tarjeta. `null` si no hay. */
   yNombreCompleto: number | null;
   yDatos: number | null;
@@ -1549,26 +1787,18 @@ function medidasFicha(doc: Doc, jugador: OncePdfPlayer): MedidasFicha {
 
   /* ---------------- ANÁLISIS ---------------- */
 
-  const bloques: BloqueMedido[] = [];
-
   let yBloques: number | null = null;
+  let altoAnalisis = 0;
 
-  const crudos = bloquesDe(jugador);
+  fuente(doc, 7.5, "normal");
 
-  if (crudos.length) {
-    yBloques = cursor + 4;
+  const columnas: ColumnaMedida[] = columnasDe(jugador).map((columna) => ({
+    color: columna.color,
+    bloques: columna.bloques.map((bloque) => {
+      const lineas: string[] = doc.splitTextToSize(bloque.texto, TEXTO_ANALISIS);
 
-    fuente(doc, 7.5, "normal");
-
-    crudos.forEach((bloque) => {
-      const lineas: string[] = doc.splitTextToSize(
-        bloque.texto,
-        COLUMNA_ANALISIS,
-      );
-
-      bloques.push({
+      return {
         titulo: bloque.titulo,
-        color: bloque.color,
         lineas:
           lineas.length > MAX_LINEAS_BLOQUE
             ? [
@@ -1576,27 +1806,35 @@ function medidasFicha(doc: Doc, jugador: OncePdfPlayer): MedidasFicha {
                 `${lineas[MAX_LINEAS_BLOQUE - 1].trimEnd()}…`,
               ]
             : lineas,
-      });
-    });
+      };
+    }),
+  }));
 
-    const altos = bloques.map((bloque) => 11 + bloque.lineas.length * 9.5 + 8);
+  if (columnas.some((columna) => columna.bloques.length)) {
+    yBloques = cursor + 4;
 
-    /* Van en dos columnas alternas: manda la que acabe más abajo. */
-    const izquierda = altos
-      .filter((_, i) => i % 2 === 0)
-      .reduce((total, valor) => total + valor, 0);
+    /* El panel de las tres mide lo que la columna más larga: es lo que las
+       deja alineadas por abajo y no sólo por arriba. */
+    altoAnalisis = Math.max(
+      ...columnas.map(
+        (columna) =>
+          ANALISIS_PAD * 2 +
+          columna.bloques.reduce(
+            (total, bloque, i) =>
+              total + (i ? 10 : 0) + 11 + bloque.lineas.length * 9.5,
+            0,
+          ),
+      ),
+    );
 
-    const derecha = altos
-      .filter((_, i) => i % 2 === 1)
-      .reduce((total, valor) => total + valor, 0);
-
-    cursor = yBloques + Math.max(izquierda, derecha);
+    cursor = yBloques + altoAnalisis;
   }
 
   return {
     alto: cursor + 8,
     filasDatos,
-    bloques,
+    columnas,
+    altoAnalisis,
     yNombreCompleto,
     yDatos,
     yBotones,
@@ -1911,12 +2149,31 @@ function pintaFicha(
     zonaY,
     x + w - PAD - 12 - (zonaX + ZONA_W + 16),
     jugador,
+    fotos,
   );
 
   /* ---------------- ETIQUETAS ---------------- */
 
+  /*
+  | Franja fina a todo lo ancho, justo encima de las tres columnas de
+  | análisis: las etiquetas son el resumen de lo que viene debajo y se leen de
+  | corrido, así que ocupan la misma anchura que ellas y ni un pt más de alto
+  | del que piden las chapas.
+  */
   if (medidas.yTags !== null) {
-    let tx = x + PAD - 1;
+    fill(doc, mezcla("#FFFFFF", C.panel, 0.03));
+    stroke(doc, C.bordeSuave, 0.5);
+    doc.roundedRect(
+      x + PAD,
+      y + medidas.yTags - 11.5,
+      w - PAD * 2,
+      16,
+      6,
+      6,
+      "FD",
+    );
+
+    let tx = x + PAD + 5;
 
     jugador.tags.forEach((tag) => {
       fuente(doc, 6, "bold");
@@ -1925,7 +2182,7 @@ function pintaFicha(
 
       /* Lo que no cabe en la fila se cae: son un resumen visual, y una
          segunda fila descuadraría el alto ya calculado. */
-      if (tx + anchoChapa > x + w - PAD) return;
+      if (tx + anchoChapa > x + w - PAD - 5) return;
 
       chapa(doc, tag.label, tx, y + medidas.yTags! - 8, {
         color: tag.tone === "fortaleza" ? C.verde : C.rojo,
@@ -1942,21 +2199,32 @@ function pintaFicha(
 
   if (medidas.yBloques === null) return;
 
-  const cursores = [y + medidas.yBloques, y + medidas.yBloques];
+  const ay = y + medidas.yBloques;
 
-  medidas.bloques.forEach((bloque, i) => {
-    const columna = i % 2;
-    const bloqueX = x + PAD + columna * (COLUMNA_ANALISIS + 12);
+  medidas.columnas.forEach((columna, i) => {
+    const bloqueX = x + PAD + i * (COLUMNA_ANALISIS + ANALISIS_HUECO);
 
-    cursores[columna] +=
-      bloqueTexto(
+    /* Panel tintado del color de la columna: verde lo que hace bien, rojo por
+       dónde se le gana. Es lo que se busca de un vistazo con la hoja en la
+       mano, y en blanco y negro sigue distinguiéndose por el rótulo. */
+    fill(doc, mezcla(columna.color, C.panel, 0.07));
+    stroke(doc, mezcla(columna.color, C.panel, 0.3), 0.6);
+    doc.roundedRect(bloqueX, ay, COLUMNA_ANALISIS, medidas.altoAnalisis, 7, 7, "FD");
+
+    let cursor = ay + ANALISIS_PAD + 4;
+
+    columna.bloques.forEach((bloque, indice) => {
+      if (indice) cursor += 10;
+
+      cursor += bloqueTexto(
         doc,
-        bloqueX,
-        cursores[columna],
+        bloqueX + ANALISIS_PAD,
+        cursor,
         bloque.titulo,
         bloque.lineas,
-        bloque.color,
-      ) + 8;
+        columna.color,
+      );
+    });
   });
 }
 
