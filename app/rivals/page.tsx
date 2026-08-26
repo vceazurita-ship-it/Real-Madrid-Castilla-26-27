@@ -25,7 +25,15 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
-import { findStats } from "@/lib/rivals/stats";
+import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
+import EscudoEquipo from "@/components/rivals/EscudoEquipo";
+import {
+  exportPortadaPdf,
+  exportPortadaPng,
+  metricasDeTemporada,
+  type PortadaData,
+} from "@/lib/rivals/portada";
+import { ofrecePortada } from "@/lib/rivals/portada-slot";
 import {
   ONCE_COLOR,
   ONCE_ETIQUETA,
@@ -156,6 +164,28 @@ function textoUtil(value: unknown) {
   const texto = String(value ?? "").trim();
 
   return texto && texto !== "." ? texto : "";
+}
+
+/*
+| El retrato de la hoja, a la resoluci\u00f3n que pide una portada.
+|
+| La columna FOTO trae el recorte de BeSoccer a 128 px, que en la ficha va
+| sobrado y en una diapositiva a 1920 px se ve a cuadros. El CDN sirve el
+| mismo archivo al tama\u00f1o que se le pida con `?size=`, as\u00ed que se le piden
+| 500, que es el m\u00e1ximo que devuelve. Cualquier otra URL \u2014una foto subida a
+| Supabase, por ejemplo\u2014 se deja como est\u00e1.
+*/
+function fotoGrande(url: string) {
+  if (!url || !/cdn\.resfu\.com/.test(url) || /[?&]size=/.test(url)) return url;
+
+  return `${url}${url.includes("?") ? "&" : "?"}size=500x&lossy=1`;
+}
+
+/** "2026/27" -> "26 / 27", como lo escribe la plantilla de la portada. */
+function temporadaCorta(temporada: string | undefined) {
+  const match = String(temporada ?? "").match(/(\d{2})(\d{2})\/(\d{2})/);
+
+  return match ? `${match[2]} / ${match[3]}` : "26 / 27";
 }
 
 /*
@@ -584,6 +614,19 @@ export default function RivalPlayersPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [players]);
 
+  /*
+  | El escudo de un club rival.
+  |
+  | Viaja en el documento de estadísticas y no en la hoja: RIVALES escribe por
+  | nombre de columna y no tiene ninguna para el escudo, así que un guardado
+  | ahí se descartaría en silencio. Lo baja `scripts/rivals-stats.mjs`.
+  */
+  const escudoDe = useCallback(
+    (equipo: { ID_EQUIPO?: unknown; NOMBRE_EQUIPO?: unknown } | string | null) =>
+      findTeam(statsDoc, equipo)?.escudo,
+    [statsDoc],
+  );
+
   /* La plantilla del equipo elegido, reducida a lo que pinta la pizarra. */
   const boardSquad = useMemo(() => {
     if (!selectedTeam) return null;
@@ -916,6 +959,10 @@ export default function RivalPlayersPage() {
 
       const nombre = await exportOncePdf({
         equipo: equipoDelOnce,
+        /* El escudo firma el título de la portada: en una carpeta con los
+           diecinueve documentos del grupo es lo que dice de quién es cada
+           hoja de un vistazo. */
+        escudo: escudoDe(equipoDelOnce),
         fecha: new Date().toLocaleDateString("es-ES", {
           day: "numeric",
           month: "long",
@@ -937,7 +984,93 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [marcados, equipoDelOnce, statsDoc, theme, once.doc]);
+  }, [marcados, equipoDelOnce, escudoDe, statsDoc, theme, once.doc]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | PORTADA DEL JUGADOR
+  |--------------------------------------------------------------------------
+  | La diapositiva que abre un análisis individual: escudo del rival, cara del
+  | jugador y "ANÁLISIS INDIVIDUAL" a toda página, con los números de la
+  | temporada que manda. La dibuja `lib/rivals/portada.ts`; aquí sólo se
+  | resuelve con qué datos.
+  |
+  | La descarga no sale de la ficha sino del botón flotante de exportar, junto
+  | al PNG y a los dos PDF: es el mismo gesto —«llévame esto»— y no tenía
+  | sentido repartirlo en dos sitios de la pantalla. Como ese botón vive en el
+  | layout y no sabe qué hay debajo, la portada se le **ofrece** mientras la
+  | ficha está abierta (`lib/rivals/portada-slot.ts`).
+  */
+  const datosPortada = useMemo<PortadaData | null>(() => {
+    if (!editForm || isCreating) return null;
+
+    const stats = findStats(statsDoc, editForm);
+
+    /* La misma temporada que se resalta en la ficha: en agosto la actual
+       está a cero y la que dice algo es la anterior. */
+    const season = highlightSeason(stats?.temporadas ?? []);
+
+    return {
+      equipo: textoUtil(editForm.NOMBRE_EQUIPO),
+      escudo: escudoDe(editForm),
+      temporada: temporadaCorta(statsDoc?.temporada),
+      nombre:
+        editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || "Sin nombre",
+      nombreCompleto: textoUtil(editForm.JUGADOR),
+      posicion: textoUtil(editForm["POSICIÓN"]),
+      dorsal: textoUtil(editForm.DORSAL),
+      foto: fotoGrande(textoUtil(editForm.FOTO)),
+      contexto: season
+        ? [season.temporada, season.equipos.join(" / ")]
+            .filter(Boolean)
+            .join(" · ")
+        : undefined,
+      metricas: season
+        ? metricasDeTemporada(season, Boolean(stats?.portero))
+        : undefined,
+    };
+  }, [editForm, isCreating, statsDoc, escudoDe]);
+
+  /*
+  | Los datos van por referencia y no dentro de lo que se ofrece: el objeto se
+  | rehace con cada tecla que se escribe en la ficha, y registrarlo cada vez
+  | obligaría a repintar el menú del botón flotante mientras se teclea. Lo que
+  | se ofrece sólo cambia al cambiar de jugador.
+  */
+  const portadaRef = useRef<PortadaData | null>(null);
+
+  useEffect(() => {
+    portadaRef.current = datosPortada;
+  }, [datosPortada]);
+
+  const etiquetaPortada = datosPortada
+    ? [datosPortada.nombre, datosPortada.equipo].filter(Boolean).join(" · ")
+    : "";
+
+  useEffect(() => {
+    if (!etiquetaPortada) {
+      ofrecePortada(null);
+
+      return;
+    }
+
+    ofrecePortada({
+      etiqueta: etiquetaPortada,
+      exportar: (formato) => {
+        const data = portadaRef.current;
+
+        if (!data) throw new Error("Ya no hay ninguna ficha abierta.");
+
+        return formato === "png"
+          ? exportPortadaPng(data)
+          : exportPortadaPdf(data);
+      },
+    });
+
+    return () => {
+      ofrecePortada(null);
+    };
+  }, [etiquetaPortada]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1676,6 +1809,13 @@ export default function RivalPlayersPage() {
                         : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
                     }`}
                   >
+                    {/* El escudo se reconoce antes que el nombre escrito. */}
+                    <EscudoEquipo
+                      nombre={team.name}
+                      escudo={escudoDe(team.name)}
+                      lado={22}
+                    />
+
                     {team.name}
 
                     <span
@@ -2139,6 +2279,17 @@ export default function RivalPlayersPage() {
                   >
                     <ChevronLeft size={20} />
                   </button>
+                )}
+
+                {/* El club al que se está mirando, con su escudo: la ficha se
+                    exporta suelta y sin él no se sabe de quién es. */}
+                {!isCreating && (
+                  <EscudoEquipo
+                    nombre={editForm.NOMBRE_EQUIPO || ""}
+                    escudo={escudoDe(editForm)}
+                    lado={40}
+                    className="hidden sm:flex"
+                  />
                 )}
 
                 <div className="min-w-0">

@@ -6,9 +6,13 @@ import {
   FileImage,
   FileStack,
   FileText,
+  IdCard,
   Loader2,
+  Presentation,
 } from "lucide-react";
 import { toast } from "sonner";
+
+import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
 
 /**
  * Botón flotante disponible en todas las páginas.
@@ -27,6 +31,11 @@ import { toast } from "sonner";
  * - Para excluir un elemento de la captura, añade `data-export-hide`.
  * - Para marcar a mano qué tarjeta de un modal es la exportable, añade
  *   `data-export-panel`.
+ *
+ * Además de las tres capturas, el menú puede llevar opciones que **no** son
+ * una foto de la pantalla: con la ficha de un jugador rival abierta aparece
+ * su portada de análisis individual, que se dibuja desde cero. La ofrece la
+ * página desde `lib/rivals/portada-slot`.
  */
 
 const TRANSPARENT_PIXEL =
@@ -719,11 +728,19 @@ async function buildSinglePagePdf(capture: Capture) {
   return doc;
 }
 
-type Mode = "png" | "pdf" | "pdf-single";
+type Mode = "png" | "pdf" | "pdf-single" | "portada-png" | "portada-pdf";
 
 export function PageExportButton() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Mode | null>(null);
+
+  /*
+  | La portada del jugador rival no se captura de la pantalla: se dibuja con
+  | los datos del jugador que hay abierto. La ofrece la página de rivales
+  | mientras su pop-up está abierto; en el resto de la app no hay ninguna y
+  | las dos opciones no aparecen.
+  */
+  const portada = usePortadaOfrecida();
 
   /* Qué se va a capturar. Se mira al abrir el menú, no en cada render: es
      una lectura del DOM y sólo hace falta para rotular las opciones. */
@@ -812,6 +829,40 @@ export function PageExportButton() {
     [run]
   );
 
+  /*
+  | La portada no pasa por `run`: ese flujo captura la pantalla antes de
+  | actuar, y aquí no hay nada que capturar —la diapositiva se dibuja desde
+  | cero con los datos del jugador—.
+  */
+  const exportPortada = useCallback(
+    async (formato: "png" | "pdf") => {
+      if (!portada) return;
+
+      const modo = formato === "png" ? "portada-png" : "portada-pdf";
+
+      setBusy(modo);
+      setOpen(false);
+
+      const toastId = toast.loading("Generando portada…");
+
+      try {
+        const nombre = await portada.exportar(formato);
+
+        toast.success("Portada descargada", {
+          id: toastId,
+          description: nombre,
+        });
+      } catch (error) {
+        console.error("[export] portada", error);
+
+        toast.error("No se pudo generar la portada", { id: toastId });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [portada]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -875,6 +926,52 @@ export function PageExportButton() {
               </span>
             </span>
           </button>
+
+          {/* LA PORTADA DEL JUGADOR — sólo con su ficha abierta */}
+
+          {portada && (
+            <>
+              <p className="border-y border-white/10 bg-white/[0.03] px-4 py-2.5 text-[10px] uppercase tracking-[0.2em] text-white/40">
+                Portada · {portada.etiqueta}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => void exportPortada("png")}
+                className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-white/10"
+              >
+                <Presentation className="mt-0.5 h-4 w-4 shrink-0 text-[#C8A96B]" />
+
+                <span>
+                  <span className="block text-sm font-medium text-white">
+                    Portada PNG
+                  </span>
+
+                  <span className="block text-[11px] text-white/45">
+                    Diapositiva 16:9 para pegar en la presentación
+                  </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void exportPortada("pdf")}
+                className="flex w-full items-start gap-3 border-t border-white/10 px-4 py-3 text-left transition hover:bg-white/10"
+              >
+                <IdCard className="mt-0.5 h-4 w-4 shrink-0 text-[#C8A96B]" />
+
+                <span>
+                  <span className="block text-sm font-medium text-white">
+                    Portada PDF
+                  </span>
+
+                  <span className="block text-[11px] text-white/45">
+                    La misma portada, en una hoja apaisada
+                  </span>
+                </span>
+              </button>
+            </>
+          )}
         </div>
       )}
 

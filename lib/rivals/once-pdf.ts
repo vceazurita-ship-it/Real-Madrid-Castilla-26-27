@@ -142,6 +142,14 @@ type Ancla = (clave: string, x: number, y: number, w: number, h: number) => void
 
 export type OncePdfData = {
   equipo: string;
+  /**
+   * Escudo del rival, para la cabecera de la portada.
+   *
+   * Sale del documento de estadísticas (`equipos`), no de la hoja. Sin él la
+   * cabecera queda como estaba, con el nombre pegado al margen: un documento
+   * de estadísticas anterior al escudo no puede dejar el PDF a medias.
+   */
+  escudo?: string;
   /** "25 de agosto de 2026". */
   fecha: string;
   jugadores: OncePdfPlayer[];
@@ -616,6 +624,16 @@ const FOTO_PX = 220;
 */
 const ESCUDO_PX = 64;
 
+/*
+| El escudo del rival que firma la cabecera se pinta a 46 pt, cinco veces más
+| grande que los del historial, así que necesita su propio lienzo: con 64 px
+| se le verían los dientes en cuanto alguien imprima la hoja.
+*/
+const ESCUDO_CABECERA_PX = 200;
+
+/** Lado del escudo del rival en la cabecera de la portada. */
+const ESCUDO_CABECERA = 46;
+
 type FotoCache = Map<string, string>;
 
 /**
@@ -630,6 +648,7 @@ async function cargaImagen(
   url: string,
   lado: number,
   encaje: "cover" | "contain",
+  fondo: string = C.panelHondo,
 ): Promise<string | null> {
   const respuesta = await fetch(
     `/api/rivals/foto?url=${encodeURIComponent(url)}`,
@@ -660,7 +679,7 @@ async function cargaImagen(
 
     if (!ctx) return null;
 
-    fillLienzo(ctx, lado);
+    fillLienzo(ctx, lado, fondo);
 
     const escalas = [
       lado / imagen.naturalWidth,
@@ -684,8 +703,12 @@ async function cargaImagen(
 }
 
 /** Fondo del recorte, para las imágenes con transparencia o proporción rara. */
-function fillLienzo(ctx: CanvasRenderingContext2D, lado: number) {
-  ctx.fillStyle = C.panelHondo;
+function fillLienzo(
+  ctx: CanvasRenderingContext2D,
+  lado: number,
+  color: string,
+) {
+  ctx.fillStyle = color;
   ctx.fillRect(0, 0, lado, lado);
 }
 
@@ -698,7 +721,10 @@ function fillLienzo(ctx: CanvasRenderingContext2D, lado: number) {
 | Una imagen que no se puede descargar **no** tumba el PDF: en su hueco va la
 | silueta (retratos) o la inicial del club (escudos).
 */
-async function cargaFotos(jugadores: OncePdfPlayer[]): Promise<FotoCache> {
+async function cargaFotos(
+  jugadores: OncePdfPlayer[],
+  escudoEquipo?: string,
+): Promise<FotoCache> {
   const cache: FotoCache = new Map();
 
   if (typeof document === "undefined") return cache;
@@ -719,19 +745,28 @@ async function cargaFotos(jugadores: OncePdfPlayer[]): Promise<FotoCache> {
       ),
   );
 
-  const encargos = [
+  type Encargo = [string, number, "cover" | "contain", string];
+
+  const encargos: Encargo[] = [
     ...[...retratos].map(
-      (url) => [url, FOTO_PX, "cover"] as [string, number, "cover"],
+      (url): Encargo => [url, FOTO_PX, "cover", C.panelHondo],
     ),
     ...[...escudos].map(
-      (url) => [url, ESCUDO_PX, "contain"] as [string, number, "contain"],
+      (url): Encargo => [url, ESCUDO_PX, "contain", C.panelHondo],
     ),
   ];
 
+  /* El escudo del rival va sobre el papel de la cabecera, no dentro de un
+     círculo de panel: se recorta contra el fondo de la página o se le vería
+     el cuadrado alrededor. */
+  if (escudoEquipo) {
+    encargos.push([escudoEquipo, ESCUDO_CABECERA_PX, "contain", C.fondo]);
+  }
+
   const descargas = await Promise.all(
-    encargos.map(async ([url, lado, encaje]) => {
+    encargos.map(async ([url, lado, encaje, fondo]) => {
       try {
-        return [url, await cargaImagen(url, lado, encaje)] as const;
+        return [url, await cargaImagen(url, lado, encaje, fondo)] as const;
       } catch (error) {
         console.warn("No se ha podido descargar la imagen del rival:", url, error);
 
@@ -1014,20 +1049,53 @@ function fondoPagina(doc: Doc) {
   doc.rect(0, 0, PAGE_W, 3, "F");
 }
 
-function cabecera(doc: Doc, data: OncePdfData, titulares: number, dudas: number) {
+function cabecera(
+  doc: Doc,
+  data: OncePdfData,
+  fotos: FotoCache,
+  titulares: number,
+  dudas: number,
+) {
   const y = MARGEN;
+
+  /*
+  | El escudo del rival firma el título: en una carpeta con los diecinueve
+  | documentos del grupo, es lo que dice de quién es cada hoja antes de leer
+  | nada. Si no está descargado, el bloque de texto se queda pegado al margen
+  | como antes.
+  */
+  const escudo = data.escudo ? fotos.get(data.escudo) : undefined;
+
+  if (escudo) {
+    doc.addImage(
+      escudo,
+      "JPEG",
+      MARGEN,
+      y + 8,
+      ESCUDO_CABECERA,
+      ESCUDO_CABECERA,
+      data.escudo,
+    );
+  }
+
+  /* Donde empieza el bloque de texto: tras el escudo, si lo hay. */
+  const titulo = escudo ? MARGEN + ESCUDO_CABECERA + 14 : MARGEN;
 
   fuente(doc, 6.5, "bold");
   ink(doc, C.oro);
-  rotulo(doc, "RMCF CASTILLA · SCOUTING RIVAL", MARGEN, y + 8, 1.6);
+  rotulo(doc, "RMCF CASTILLA · SCOUTING RIVAL", titulo, y + 8, 1.6);
 
   fuente(doc, 23, "bold");
   ink(doc, C.tinta);
-  doc.text(recorta(doc, data.equipo || "Rival", CONTENT_W - 180), MARGEN, y + 34);
+  doc.text(
+    recorta(doc, data.equipo || "Rival", PAGE_W - MARGEN - 180 - titulo),
+    titulo,
+    y + 34,
+  );
 
   fuente(doc, 8.5, "normal");
   ink(doc, C.tintaMedia);
-  doc.text(`Once probable · ${data.fecha}`, MARGEN, y + 49);
+  doc.text(`Once probable · ${data.fecha}`, titulo, y + 49);
 
   /* Contadores a la derecha, alineados con el título. Se colocan de derecha a
      izquierda para que el bloque quede pegado al margen. */
@@ -2320,7 +2388,7 @@ export async function buildOncePdf(data: OncePdfData) {
 
   /* Las fotos después: son lo único del documento que hay que ir a buscar
      fuera, y con jsPDF ya cargado tardan lo mismo. */
-  const fotos = await cargaFotos(data.jugadores);
+  const fotos = await cargaFotos(data.jugadores, data.escudo);
 
   const doc = new jsPDF({
     orientation: "portrait",
@@ -2342,7 +2410,8 @@ export async function buildOncePdf(data: OncePdfData) {
 
   fondoPagina(doc);
 
-  const campoY = cabecera(doc, data, titulares.length, dudas.length) + 18;
+  const campoY =
+    cabecera(doc, data, fotos, titulares.length, dudas.length) + 18;
 
   dibujaCampo(doc, MARGEN, campoY, CAMPO_W, CAMPO_H);
 

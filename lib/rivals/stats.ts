@@ -53,6 +53,28 @@ export type RivalPlayerStats = {
   temporadas: RivalSeasonStats[];
 };
 
+/**
+ * El equipo rival como club: su escudo.
+ *
+ * La hoja RIVALES no tiene columna de escudo —y no se le puede añadir sin
+ * tocar el Apps Script—, así que el escudo del club viaja aquí, junto a los
+ * números, y lo baja el mismo script. Es lo que firma la cabecera del PDF del
+ * once y la portada del jugador.
+ */
+export type RivalTeamInfo = {
+  /** `ID_EQUIPO` de la hoja ("RIV-01"). */
+  id: string;
+  /** Nombre tal y como lo escribe la hoja ("Teruel"). */
+  nombre: string;
+  /**
+   * PNG con transparencia y a 500 px de lado
+   * (`cdn.resfu.com/img_data/equipos/<id>.png`). En PNG y no en el `.jpg` de
+   * los escudos pequeños porque este se pinta grande y sobre fondos distintos:
+   * el recuadro blanco del JPEG se vería.
+   */
+  escudo: string;
+};
+
 export type RivalStatsDoc = {
   /** ISO de la última descarga. */
   actualizado: string;
@@ -63,6 +85,13 @@ export type RivalStatsDoc = {
   porId: Record<string, RivalPlayerStats>;
   /** `equipo|nombre` normalizados -> id de resfu, para las filas sin foto. */
   porNombre: Record<string, string>;
+  /**
+   * Los diecinueve clubes del grupo, por `ID_EQUIPO`.
+   *
+   * Opcional como los escudos del historial: un documento subido antes de que
+   * el script los bajara no los trae, y entonces se pinta la inicial del club.
+   */
+  equipos?: Record<string, RivalTeamInfo>;
 };
 
 /** Clave del documento en `app_documents`. */
@@ -108,6 +137,36 @@ export function findStats(
   const byName = doc.porNombre[nameKey(player.NOMBRE_EQUIPO, player.JUGADOR)];
 
   return (byName && doc.porId[byName]) || null;
+}
+
+/**
+ * El club rival dentro del documento, con su escudo.
+ *
+ * Se busca por `ID_EQUIPO`, que es la clave con la que se guardó, y si la
+ * fila no lo trae —o el documento es anterior— se cae al nombre normalizado,
+ * que es lo único que tienen a mano el campograma y el pop-up del once.
+ */
+export function findTeam(
+  doc: RivalStatsDoc | null,
+  equipo: { ID_EQUIPO?: unknown; NOMBRE_EQUIPO?: unknown } | string | null,
+): RivalTeamInfo | null {
+  if (!doc?.equipos || !equipo) return null;
+
+  const id = typeof equipo === "string" ? "" : String(equipo.ID_EQUIPO ?? "");
+
+  if (id && doc.equipos[id]) return doc.equipos[id];
+
+  const nombre = normalizeKey(
+    typeof equipo === "string" ? equipo : equipo.NOMBRE_EQUIPO,
+  );
+
+  if (!nombre) return null;
+
+  return (
+    Object.values(doc.equipos).find(
+      (club) => normalizeKey(club.nombre) === nombre,
+    ) ?? null
+  );
 }
 
 /**

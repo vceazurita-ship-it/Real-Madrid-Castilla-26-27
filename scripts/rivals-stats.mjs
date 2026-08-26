@@ -23,6 +23,10 @@
  * vuelve a pedir ella sola (`--solo-subir` no, que no baja nada). Mientras no
  * se corra, la ficha pinta la inicial del club en el hueco del escudo.
  *
+ * Del propio equipo rival se guarda además su **escudo grande** (`equipos`),
+ * que es el que firma la cabecera del PDF del once y la portada del jugador.
+ * No puede salir de la hoja RIVALES: no tiene columna para él.
+ *
  * Notas de scraping (ver también la nota "besoccer-plantillas-rivales"):
  * - BeSoccer devuelve 406 sin cabeceras de navegador, y el `fetch` de Node
  *   falla de forma intermitente donde `curl --compressed` funciona siempre.
@@ -343,6 +347,29 @@ async function loadRivals() {
   return data.filter((player) => String(player.JUGADOR || "").trim());
 }
 
+/*
+| Escudo del club, de la propia página de plantilla.
+|
+| Lo da la etiqueta `og:image`:
+| `cdn.resfu.com/img_data/equipos/<id>.png?size=120x&lossy=1`. Se le sube el
+| `size` a 500 porque este escudo no se pinta a 9 px como los del historial:
+| firma la cabecera del PDF del once y ocupa una esquina entera de la portada
+| del jugador, y a 120 px se le ven los dientes.
+|
+| PNG y no el `.jpg` de los escudos pequeños: el PNG viene con transparencia y
+| la portada lo pone sobre blanco, el PDF sobre papel o sobre fondo oscuro
+| según el tema, y un recuadro blanco cantaría en el segundo.
+*/
+function escudoDelEquipo(html) {
+  const match = html.match(
+    /<meta property="og:image" content="([^"]+equipos\/[^"]+)"/
+  );
+
+  if (!match) return "";
+
+  return match[1].replace(/&amp;/g, "&").replace(/size=\d+x/, "size=500x");
+}
+
 function fetchSquads() {
   const squads = {};
 
@@ -367,14 +394,55 @@ function fetchSquads() {
       jugadores[m[2]] = m[1];
     }
 
-    squads[id] = { slug, jugadores };
+    squads[id] = { slug, jugadores, escudo: escudoDelEquipo(html) };
 
-    console.log(`plantilla ${id} ${slug}: ${Object.keys(jugadores).length}`);
+    console.log(
+      `plantilla ${id} ${slug}: ${Object.keys(jugadores).length}` +
+        (squads[id].escudo ? "" : " (sin escudo)")
+    );
 
     sleep(1500);
   }
 
   return squads;
+}
+
+/**
+ * Completa los escudos que falten en un `squads.json` ya cacheado.
+ *
+ * La caché de plantillas se guardó antes de que existiera el escudo, y tirarla
+ * entera para recuperarlo obligaría a volver a bajar las diecinueve páginas
+ * cada vez que se toque algo. Se piden sólo las que les falta, y con eso
+ * `--solo-subir` también puede dejar el documento completo.
+ */
+function completaEscudos(squads) {
+  const faltan = Object.entries(squads).filter(([, team]) => !team.escudo);
+
+  if (!faltan.length) return false;
+
+  console.log(`escudos de equipo por descargar: ${faltan.length}`);
+
+  for (const [id, team] of faltan) {
+    let html = "";
+
+    for (let attempt = 0; attempt < 3 && html.length < 5000; attempt += 1) {
+      if (attempt) sleep(3000);
+
+      try {
+        html = curl(`https://es.besoccer.com/equipo/plantilla/${team.slug}`);
+      } catch {
+        html = "";
+      }
+    }
+
+    team.escudo = escudoDelEquipo(html);
+
+    console.log(`escudo ${id} ${team.slug}: ${team.escudo || "no encontrado"}`);
+
+    sleep(1500);
+  }
+
+  return true;
 }
 
 /**
@@ -540,9 +608,29 @@ function scrape(targets, cache) {
 |--------------------------------------------------------------------------
 */
 
-function buildDoc(targets, cache) {
+function buildDoc(targets, cache, squads) {
   const porId = {};
   const porNombre = {};
+
+  /* El club, con el nombre que le da la hoja —que es el que se lee en la app—
+     y el escudo que le ha sacado BeSoccer. */
+  const equipos = {};
+
+  for (const { player } of targets) {
+    const id = String(player.ID_EQUIPO || "");
+
+    if (!id || equipos[id]) continue;
+
+    const escudo = squads?.[id]?.escudo || "";
+
+    if (!escudo) continue;
+
+    equipos[id] = {
+      id,
+      nombre: String(player.NOMBRE_EQUIPO || "").trim(),
+      escudo,
+    };
+  }
 
   for (const row of targets) {
     const entry = row.id ? cache[row.id] : null;
@@ -569,6 +657,7 @@ function buildDoc(targets, cache) {
     temporada: TEMPORADA,
     porId,
     porNombre,
+    equipos,
   };
 }
 
@@ -621,7 +710,17 @@ async function upload(doc) {
     throw new Error(`Se enviaron ${sent} jugadores y la tabla guardó ${saved}.`);
   }
 
-  console.log(`Supabase: ${saved} jugadores verificados en ${DOC_KEY}.`);
+  const clubes = Object.keys(data?.data?.equipos ?? {}).length;
+
+  if (clubes !== Object.keys(doc.equipos).length) {
+    throw new Error(
+      `Se enviaron ${Object.keys(doc.equipos).length} escudos de equipo y la tabla guardó ${clubes}.`
+    );
+  }
+
+  console.log(
+    `Supabase: ${saved} jugadores y ${clubes} escudos de equipo verificados en ${DOC_KEY}.`
+  );
 }
 
 /*
@@ -640,6 +739,11 @@ let squads;
 
 if (!refrescar && fs.existsSync(squadsFile)) {
   squads = JSON.parse(fs.readFileSync(squadsFile, "utf8"));
+
+  /* Una caché de antes de los escudos de club: se completa sola. */
+  if (completaEscudos(squads)) {
+    fs.writeFileSync(squadsFile, JSON.stringify(squads));
+  }
 } else {
   squads = fetchSquads();
 
@@ -663,12 +767,16 @@ const cache = readCache();
 
 if (!soloSubir) scrape(targets, cache);
 
-const doc = buildDoc(targets, cache);
+const doc = buildDoc(targets, cache, squads);
 
 const conFicha = targets.filter((row) => row.id).length;
 
 console.log(
   `documento: ${Object.keys(doc.porId).length} de ${conFicha} jugadores con ficha`
+);
+
+console.log(
+  `escudos de equipo: ${Object.keys(doc.equipos).length} de ${Object.keys(TEAM_SLUGS).length}`
 );
 
 await upload(doc);
