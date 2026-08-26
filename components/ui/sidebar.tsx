@@ -267,6 +267,12 @@ const disabledLink = (
     )}
 
     {navLink(
+      "/abp-microciclo",
+      "Microciclo ABP",
+      <Goal size={18} />
+    )}
+
+    {navLink(
   "/calendar",
   "Calendario Seguimiento",
   <ClipboardList size={18} />
