@@ -61,9 +61,23 @@ export const COLORES = {
   rosaHondo: "#D89AA6",
   /** El azul de las chapas de puesto del pptx de ABP. */
   chapa: "#00304E",
-  /** El naranja del degradado de la cabecera. */
+  /** El naranja del degradado de la cabecera de la plantilla original. */
   ambar: "#FF9E12",
+  /** El oro de la casa: el mismo acento que usa toda la plataforma. */
+  oro: "#C8A96B",
+  oroClaro: "#E4CE9B",
+  /** Azul casi negro, el fondo de la cabecera y de los paneles. */
+  tinta: "#04121F",
 };
+
+/**
+ * Cómo se firma la diapositiva.
+ *
+ * Va sobre el título de la acción, en la cabecera. La diapositiva se proyecta
+ * en la sala y se imprime para el vestuario, y fuera de casa acaba en manos de
+ * gente que no tiene por qué reconocer el escudo: se escribe el nombre entero.
+ */
+export const CLUB = "REAL MADRID CF - CASTILLA";
 
 /* ------------------------------------------------------------------ */
 /*  EJES                                                               */

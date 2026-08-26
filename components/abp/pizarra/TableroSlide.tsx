@@ -13,6 +13,13 @@
  * `getBoundingClientRect()`, que bajo una escala deja los destinos donde no
  * están (ver la nota de la cámara 3D de las pizarras). Con punteros la cuenta
  * es una división por la escala y funciona igual con dedo que con ratón.
+ *
+ * El acabado —cabecera en tinta con filo de oro, paneles de cristal oscuro y
+ * la caja de consignas en papel— es el de la plataforma, no el del pptx de
+ * origen: la diapositiva se proyecta en la sala y se imprime, y tenía que
+ * aguantar las dos cosas. Todo el color va en estilos en línea con `rgba`
+ * porque la captura (`html-to-image`) serializa el estilo calculado: ni
+ * `backdrop-filter` ni los colores `oklch` de Tailwind sobreviven al PNG.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,6 +28,7 @@ import { X } from "lucide-react";
 import type { Player } from "@/types/player";
 import {
   CABECERA_H,
+  CLUB,
   COLORES,
   NOTAS,
   PANEL,
@@ -72,34 +80,54 @@ function Ficha({
       }}
       onPointerDown={onPointerDown}
     >
+      {/*
+      | Sombra de suelo. Sin ella las caras flotan sobre el césped y el campo
+      | en perspectiva pierde el poco relieve que tiene.
+      */}
+      <div
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[50%]"
+        style={{
+          top: FOTO_H - 14,
+          width: 76,
+          height: 18,
+          background:
+            "radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 72%)",
+        }}
+      />
+
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={player?.foto ?? "/players/placeholder.png"}
         alt={player?.apodo ?? ""}
         draggable={false}
-        className="block h-[120px] w-[96px] object-contain object-bottom"
+        className="relative block h-[120px] w-[96px] object-contain object-bottom"
         style={{
           filter: seleccionada
-            ? `drop-shadow(0 0 0 2px ${COLORES.ambar}) drop-shadow(0 6px 10px rgba(0,0,0,.55))`
-            : "drop-shadow(0 6px 10px rgba(0,0,0,.45))",
+            ? `drop-shadow(0 0 6px ${COLORES.oro}) drop-shadow(0 8px 12px rgba(0,0,0,.6))`
+            : "drop-shadow(0 8px 12px rgba(0,0,0,.5))",
         }}
       />
 
       {/* Chapa: el código del puesto y, debajo, el nombre. */}
       <div
-        className="mx-auto -mt-2 flex flex-col items-center rounded-md px-1.5 py-0.5 text-center"
+        className="relative mx-auto -mt-2 flex flex-col items-center rounded-md px-1.5 py-0.5 text-center"
         style={{
-          backgroundColor: COLORES.chapa,
-          boxShadow: `0 0 0 2px ${seleccionada ? COLORES.ambar : "rgba(0,0,0,.55)"}`,
+          backgroundImage: `linear-gradient(180deg, #0B2E4B 0%, ${COLORES.chapa} 100%)`,
+          boxShadow: seleccionada
+            ? `0 0 0 2px ${COLORES.oro}, 0 6px 14px rgba(0,0,0,.55)`
+            : "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
           minWidth: 54,
           height: CHAPA_H,
         }}
       >
-        <span className="text-[15px] font-bold leading-[15px] text-white">
+        <span className="text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white">
           {code}
         </span>
 
-        <span className="max-w-[86px] truncate text-[10px] font-semibold uppercase leading-[12px] tracking-wide text-white/70">
+        <span
+          className="max-w-[86px] truncate text-[10px] font-semibold uppercase leading-[12px] tracking-wide"
+          style={{ color: "rgba(228,206,155,.78)" }}
+        >
           {player?.apodo ?? player?.nombre ?? "—"}
         </span>
       </div>
@@ -139,18 +167,22 @@ function Hueco({
       type="button"
       onClick={onClick}
       title={`${code} · ${label} — pulsa para asignar`}
-      className="absolute flex flex-col items-center justify-center rounded-md border-2 border-dashed transition hover:border-solid"
+      className="absolute flex flex-col items-center justify-center rounded-md border border-dashed transition hover:border-solid"
       style={{
         left: x - 27,
         top: y - CHAPA_H,
         width: 54,
         height: CHAPA_H,
-        borderColor: "rgba(255,255,255,.45)",
-        backgroundColor: "rgba(0,48,78,.45)",
+        borderColor: "rgba(200,169,107,.65)",
+        backgroundColor: "rgba(4,18,32,.62)",
+        boxShadow: "0 4px 10px rgba(0,0,0,.35)",
         zIndex: Math.round(y),
       }}
     >
-      <span className="text-[14px] font-bold leading-none text-white/80">
+      <span
+        className="text-[14px] font-bold leading-none tracking-[0.04em]"
+        style={{ color: "rgba(228,206,155,.9)" }}
+      >
         {code}
       </span>
     </button>
@@ -281,6 +313,8 @@ export function TableroSlide({
     slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[],
   );
 
+  const cubiertos = puestos.filter((puesto) => ocupados.has(puesto.key)).length;
+
   const codeDe = (ficha: FichaPizarra) =>
     puestoDe(slide, ficha.puesto)?.code ??
     (players.get(ficha.playerId)?.dorsal
@@ -297,12 +331,12 @@ export function TableroSlide({
           height: TABLERO_H,
           transform: `scale(${escala})`,
           transformOrigin: "top left",
-          backgroundColor: COLORES.papel,
+          backgroundColor: COLORES.tinta,
         }}
       >
         {/* ------------------------- CAMPO ------------------------- */}
 
-{/* Una capa por foto, en su rectángulo del pptx. */}
+        {/* Una capa por foto, en su rectángulo del pptx. */}
         {VISTAS[slide.vista].capas.map((capa) => (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -315,61 +349,141 @@ export function TableroSlide({
           />
         ))}
 
-        {/* Velo: sobre el césped a pelo, las chapas blancas no se leen. */}
+        {/*
+        | Dos velos sobre el césped. El vertical es el de siempre: sin él las
+        | chapas claras no se leen. El viñeteado es lo que hace que la mirada
+        | caiga en el área en lugar de en las esquinas, que es de lo que va la
+        | diapositiva.
+        */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "linear-gradient(180deg, rgba(15,30,61,.42) 0%, rgba(15,30,61,.08) 38%, rgba(15,30,61,.34) 100%)",
+              "linear-gradient(180deg, rgba(4,18,32,.46) 0%, rgba(4,18,32,.06) 36%, rgba(4,18,32,.34) 100%)",
+          }}
+        />
+
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(118% 84% at 42% 36%, rgba(0,0,0,0) 40%, rgba(3,12,22,.30) 76%, rgba(3,12,22,.60) 100%)",
           }}
         />
 
         {/* ----------------------- CABECERA ------------------------ */}
 
         <div
-          className="absolute left-0 top-0 flex items-center gap-6 pl-6 pr-10"
+          className="absolute left-0 top-0 overflow-hidden"
           style={{
             width: TABLERO_W,
             height: CABECERA_H,
-            background: `linear-gradient(90deg, #000000 0%, #05192B 46%, ${COLORES.ambar} 100%)`,
+            backgroundImage:
+              "linear-gradient(96deg, #000000 0%, #04121F 28%, #0A2138 54%, #05182A 76%, #000000 100%)",
+            boxShadow: "0 16px 36px rgba(0,0,0,.45)",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" className="h-[86px] w-auto" draggable={false} />
-
-          <div className="min-w-0 flex-1">
-            <p
-              className="truncate text-[46px] font-bold uppercase leading-none tracking-[0.02em] text-white"
-              style={{ fontFamily: "var(--fuente-pizarra, inherit)" }}
-            >
-              {slide.titulo}
-            </p>
-          </div>
-
-{/*
-          | El rival y la temporada, sobre el extremo naranja del degradado. En
-          | tinta oscura y no en blanco: sobre el ámbar el blanco se apaga y a
-          | tamaño de chapa deja de leerse desde el fondo de la sala.
+          {/*
+          | El resto de oro. Hereda del degradado naranja de la plantilla de
+          | ABP —la cabecera se aclaraba hacia la derecha—, pero en el oro de
+          | la casa y a la mitad de fuerza: el bloque del rival tiene que
+          | destacar sobre él, no pelearse.
           */}
-          <div className="max-w-[430px] shrink-0 text-right">
-            <p className="truncate text-[22px] font-bold uppercase leading-tight tracking-[0.14em] text-[#1a1205]">
-              {rival || "Balón parado"}
-            </p>
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0"
+            style={{
+              width: 720,
+              backgroundImage:
+                "linear-gradient(100deg, rgba(200,169,107,0) 0%, rgba(200,169,107,.10) 48%, rgba(200,169,107,.24) 100%)",
+            }}
+          />
 
-            <p className="text-[13px] font-semibold uppercase tracking-[0.26em] text-[#1a1205]/65">
-              Temporada {temporada}
-            </p>
+          <div className="relative flex h-full items-center gap-6 pl-7 pr-8">
+            <div
+              className="flex shrink-0 items-center justify-center rounded-full"
+              style={{
+                width: 92,
+                height: 92,
+                border: "1px solid rgba(200,169,107,.38)",
+                backgroundColor: "rgba(255,255,255,.04)",
+                boxShadow: "inset 0 0 26px rgba(200,169,107,.14)",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt=""
+                className="h-[64px] w-auto"
+                draggable={false}
+              />
+            </div>
+
+            <div
+              className="h-[66px] w-px shrink-0"
+              style={{
+                backgroundImage:
+                  "linear-gradient(180deg, rgba(200,169,107,0) 0%, rgba(200,169,107,.6) 50%, rgba(200,169,107,0) 100%)",
+              }}
+            />
+
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[13px] font-semibold uppercase leading-none tracking-[0.34em]"
+                style={{ color: COLORES.oro }}
+              >
+                {CLUB}
+              </p>
+
+              <p
+                className="mt-2.5 truncate text-[42px] font-bold uppercase leading-none tracking-[0.015em] text-white"
+                style={{
+                  fontFamily: "var(--fuente-pizarra, inherit)",
+                  textShadow: "0 2px 12px rgba(0,0,0,.55)",
+                }}
+              >
+                {slide.titulo}
+              </p>
+            </div>
+
+            {/*
+            | El rival y la temporada, en una placa de cristal. Antes iban en
+            | tinta oscura sobre el naranja del degradado, que a tamaño de
+            | proyección se comía las letras; sobre la tinta con filo de oro se
+            | leen desde el fondo de la sala.
+            */}
+            <div
+              className="max-w-[440px] shrink-0 rounded-xl px-5 py-2.5 text-right"
+              style={{
+                backgroundColor: "rgba(255,255,255,.05)",
+                border: "1px solid rgba(200,169,107,.32)",
+              }}
+            >
+              <p
+                className="text-[10px] font-semibold uppercase leading-none tracking-[0.3em]"
+                style={{ color: "rgba(200,169,107,.85)" }}
+              >
+                Rival
+              </p>
+
+              <p className="mt-2 truncate text-[24px] font-bold uppercase leading-none tracking-[0.05em] text-white">
+                {rival || "Balón parado"}
+              </p>
+
+              <p className="mt-2 text-[10px] font-semibold uppercase leading-none tracking-[0.26em] text-white/45">
+                Temporada {temporada}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Filo rosa de la plantilla INDIVIDUAL, bajo la cabecera. */}
+        {/* Filo bajo la cabecera: el oro de la casa y el rosa de INDIVIDUAL. */}
         <div
           className="absolute left-0"
           style={{
             top: CABECERA_H,
             width: TABLERO_W,
-            height: 6,
-            backgroundColor: COLORES.rosa,
+            height: 5,
+            backgroundImage: `linear-gradient(90deg, ${COLORES.oro} 0%, ${COLORES.oroClaro} 26%, ${COLORES.rosa} 62%, rgba(200,169,107,.25) 100%)`,
           }}
         />
 
@@ -404,16 +518,33 @@ export function TableroSlide({
 
         {grupos.length > 0 && (
           <div
-            className="absolute rounded-2xl px-5 py-4"
+            className="absolute rounded-2xl px-5 pb-4 pt-3.5"
             style={{
               left: PANEL.x,
               top: PANEL.y,
               width: PANEL.w,
               maxHeight: PANEL.h,
-              backgroundColor: "rgba(0,48,78,.88)",
-              boxShadow: "0 10px 30px rgba(0,0,0,.45)",
+              backgroundColor: "rgba(4,18,32,.9)",
+              border: "1px solid rgba(200,169,107,.3)",
+              boxShadow: "0 18px 44px rgba(0,0,0,.55)",
             }}
           >
+            <div
+              className="mb-3 flex items-baseline justify-between border-b pb-2"
+              style={{ borderColor: "rgba(200,169,107,.25)" }}
+            >
+              <p
+                className="text-[12px] font-semibold uppercase leading-none tracking-[0.3em]"
+                style={{ color: COLORES.oro }}
+              >
+                Asignaciones
+              </p>
+
+              <p className="text-[12px] font-semibold tabular-nums leading-none text-white/40">
+                {cubiertos}/{puestos.length}
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-x-5 gap-y-3">
               {grupos.map((grupo) => {
                 const delGrupo = puestos.filter(
@@ -423,8 +554,11 @@ export function TableroSlide({
                 return (
                   <div key={grupo.key} className="min-w-0">
                     <p
-                      className="rounded-md px-2 py-1 text-center text-[15px] font-bold uppercase tracking-[0.1em] text-white"
-                      style={{ backgroundColor: "rgba(255,255,255,.14)" }}
+                      className="border-b pb-1 text-[13px] font-bold uppercase tracking-[0.16em]"
+                      style={{
+                        color: COLORES.oroClaro,
+                        borderColor: "rgba(200,169,107,.22)",
+                      }}
                     >
                       {grupo.label}
                     </p>
@@ -451,15 +585,19 @@ export function TableroSlide({
                             className="flex w-full min-w-0 items-center gap-2 rounded px-1.5 py-0.5 text-left transition hover:bg-white/10"
                           >
                             <span
-                              className="shrink-0 rounded px-1.5 text-[13px] font-bold text-white"
-                              style={{ backgroundColor: "rgba(255,255,255,.18)" }}
+                              className="shrink-0 rounded px-1.5 text-[13px] font-bold tabular-nums"
+                              style={{
+                                backgroundColor: "rgba(200,169,107,.16)",
+                                color: COLORES.oroClaro,
+                                boxShadow: "inset 0 0 0 1px rgba(200,169,107,.3)",
+                              }}
                             >
                               {puesto.code}
                             </span>
 
                             <span
-                              className={`min-w-0 flex-1 truncate text-[15px] font-semibold uppercase ${
-                                player ? "text-white" : "text-white/35"
+                              className={`min-w-0 flex-1 truncate text-[15px] font-semibold uppercase tracking-[0.02em] ${
+                                player ? "text-white" : "text-white/30"
                               }`}
                             >
                               {player?.apodo ?? player?.nombre ?? "—"}
@@ -485,27 +623,50 @@ export function TableroSlide({
 
         {slide.notas.length > 0 && (
           <div
-            className="absolute rounded-2xl px-6 py-4"
+            className="absolute overflow-hidden rounded-2xl"
             style={{
               left: NOTAS.x,
               top: NOTAS.y,
               width: NOTAS.w,
               maxHeight: NOTAS.h,
               backgroundColor: COLORES.papel,
-              boxShadow: `0 0 0 3px ${COLORES.chapa}, 0 10px 30px rgba(0,0,0,.35)`,
+              borderLeft: `6px solid ${COLORES.oro}`,
+              boxShadow:
+                "0 0 0 1px rgba(200,169,107,.45), 0 18px 44px rgba(0,0,0,.45)",
             }}
           >
-            <ul className="space-y-1.5">
-              {slide.notas.map((nota, indice) => (
-                <li
-                  key={`${indice}-${nota}`}
-                  className="text-[19px] font-semibold uppercase leading-tight"
-                  style={{ color: COLORES.navy }}
-                >
-                  {nota}
-                </li>
-              ))}
-            </ul>
+            <div className="px-6 pb-4 pt-3.5">
+              <p
+                className="mb-2.5 border-b pb-1.5 text-[12px] font-bold uppercase leading-none tracking-[0.3em]"
+                style={{
+                  color: COLORES.oro,
+                  borderColor: "rgba(15,30,61,.12)",
+                }}
+              >
+                Consignas
+              </p>
+
+              <ul className="space-y-1.5">
+                {slide.notas.map((nota, indice) => (
+                  <li
+                    key={`${indice}-${nota}`}
+                    className="flex items-start gap-2.5 text-[19px] font-semibold uppercase leading-tight"
+                    style={{ color: COLORES.navy }}
+                  >
+                    <span
+                      className="mt-[7px] shrink-0 rounded-[1px]"
+                      style={{
+                        width: 7,
+                        height: 7,
+                        backgroundColor: COLORES.oro,
+                      }}
+                    />
+
+                    <span className="min-w-0">{nota}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
       </div>
