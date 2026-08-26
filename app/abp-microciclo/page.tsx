@@ -36,6 +36,8 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import {
@@ -69,6 +71,8 @@ import {
   claveAspecto,
   claveMicro,
   diasCompletos,
+  duplicaTrabajo,
+  etiquetaTrabajo,
   fmtMin,
   minutosPorAspecto,
   nuevoTrabajo,
@@ -375,6 +379,107 @@ export default function AbpMicrocicloPage() {
     [mutaPlan],
   );
 
+  /**
+   * Mueve un bloque de sitio: de un día a otro o dentro del mismo.
+   *
+   * `antesDe` es el bloque delante del cual cae; `null` lo pone al final del
+   * día. Se quita primero y se calcula el índice después, para que reordenar
+   * dentro de un día no se descuadre por el hueco que deja el propio bloque.
+   */
+  const mueveTrabajo = useCallback(
+    (origen: DiaKey, id: string, destino: DiaKey, antesDe: string | null) =>
+      mutaPlan((actual) => {
+        const trabajo = actual.dias[origen].trabajos.find(
+          (item) => item.id === id,
+        );
+
+        if (!trabajo) return actual;
+
+        const dias = { ...actual.dias };
+
+        dias[origen] = {
+          ...dias[origen],
+          trabajos: dias[origen].trabajos.filter((item) => item.id !== id),
+        };
+
+        const lista = [...dias[destino].trabajos];
+
+        const indice = antesDe
+          ? lista.findIndex((item) => item.id === antesDe)
+          : -1;
+
+        if (indice < 0) lista.push(trabajo);
+        else lista.splice(indice, 0, trabajo);
+
+        dias[destino] = { ...dias[destino], trabajos: lista };
+
+        return { ...actual, dias };
+      }),
+    [mutaPlan],
+  );
+
+  /** Copia el bloque justo detrás del original, en el mismo día. */
+  const duplicaEnDia = useCallback(
+    (dia: DiaKey, trabajo: Trabajo) =>
+      mutaPlan((actual) => {
+        const lista = [...actual.dias[dia].trabajos];
+        const indice = lista.findIndex((item) => item.id === trabajo.id);
+
+        const copia = duplicaTrabajo(trabajo);
+
+        if (indice < 0) lista.push(copia);
+        else lista.splice(indice + 1, 0, copia);
+
+        return {
+          ...actual,
+          dias: { ...actual.dias, [dia]: { ...actual.dias[dia], trabajos: lista } },
+        };
+      }),
+    [mutaPlan],
+  );
+
+  /**
+   * Quita un bloque desde la propia ficha, con deshacer.
+   *
+   * Quitar es un solo toque en una columna estrecha, así que se falla; y el
+   * plan se autoguarda, de modo que no hay «cancelar» al que volver. El
+   * deshacer lo devuelve a su sitio exacto, no al final del día.
+   */
+  const quitaDesdeLaSemana = useCallback(
+    (dia: DiaKey, trabajo: Trabajo) => {
+      const posicion = (
+        plan.dias[dia]?.trabajos ?? []
+      ).findIndex((item) => item.id === trabajo.id);
+
+      borraTrabajo(dia, trabajo.id);
+
+      toast(`Quitado: ${etiquetaTrabajo(trabajo, true)}`, {
+        action: {
+          label: "Deshacer",
+          onClick: () =>
+            mutaPlan((actual) => {
+              const lista = [...actual.dias[dia].trabajos];
+
+              lista.splice(
+                posicion < 0 ? lista.length : Math.min(posicion, lista.length),
+                0,
+                trabajo,
+              );
+
+              return {
+                ...actual,
+                dias: {
+                  ...actual.dias,
+                  [dia]: { ...actual.dias[dia], trabajos: lista },
+                },
+              };
+            }),
+        },
+      });
+    },
+    [borraTrabajo, mutaPlan, plan],
+  );
+
   /* ------------------------------ DIÁLOGOS ----------------------------- */
 
   const [editor, setEditor] = useState<{
@@ -419,7 +524,7 @@ export default function AbpMicrocicloPage() {
 
           const trabajo = nuevoTrabajo({
             lado,
-            aspecto,
+            aspectos: [aspecto],
             /* La hoja no anota el momento de la sesión; intra es lo habitual
                y se corrige de un toque. */
             momento: "intra",
@@ -465,9 +570,16 @@ export default function AbpMicrocicloPage() {
 
     Object.values(store.micros ?? {}).forEach((otro) => {
       trabajosDelPlan(otro).forEach(({ trabajo }) => {
-        const clave = claveAspecto(trabajo.aspecto, trabajo.lado);
+        /* Los minutos se reparten entre los aspectos de la tarea, igual que
+           en el microciclo activo. */
+        const aspectos = trabajo.aspectos;
+        const parte = (trabajo.minutos || 0) / aspectos.length;
 
-        mapa.set(clave, (mapa.get(clave) ?? 0) + (trabajo.minutos || 0));
+        aspectos.forEach((aspecto) => {
+          const clave = claveAspecto(aspecto, trabajo.lado);
+
+          mapa.set(clave, (mapa.get(clave) ?? 0) + parte);
+        });
       });
     });
 
@@ -750,7 +862,7 @@ export default function AbpMicrocicloPage() {
               <div className="mt-6">
                 <Panel
                   title="La semana"
-                  subtitle="Pulsa un trabajo para editarlo; el día se cambia desde dentro"
+                  subtitle="Pulsa un bloque para editarlo y arrástralo para cambiarlo de día; cada uno se puede duplicar o quitar"
                   icon={CalendarDays}
                 >
                   <SemanaGrid
@@ -763,6 +875,9 @@ export default function AbpMicrocicloPage() {
                     onAnadir={(dia) =>
                       setEditor({ trabajo: nuevoTrabajo(), dia, origen: null })
                     }
+                    onMover={mueveTrabajo}
+                    onDuplicar={duplicaEnDia}
+                    onBorrar={quitaDesdeLaSemana}
                   />
                 </Panel>
               </div>
@@ -828,7 +943,7 @@ export default function AbpMicrocicloPage() {
                             onClick={() =>
                               setEditor({
                                 trabajo: nuevoTrabajo({
-                                  aspecto: fila.aspecto.key,
+                                  aspectos: [fila.aspecto.key],
                                   lado: fila.lado,
                                 }),
                                 dia: "L",

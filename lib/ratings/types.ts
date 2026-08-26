@@ -26,8 +26,18 @@ export type RatingAreas = Partial<Record<AreaKey, number>>;
 
 export type PlayerRating = {
   playerId: string;
-  /** Nota global 0-10 en pasos de 0,5. */
+  /** Nota global 0-10 en pasos de 0,5. 0 es «todavía sin nota». */
   rating: number;
+  /**
+   * Marcado a mano como **sin valorar**: entró tres minutos, o el partido no
+   * da para juzgarle.
+   *
+   * No es lo mismo que `rating === 0`. Los dos quedan fuera de las medias,
+   * pero el 0 significa «esto está por hacer» y sigue apareciendo como
+   * pendiente, mientras que esto es una decisión tomada: el jugador ya está
+   * resuelto y no vuelve a salir en la lista de lo que falta.
+   */
+  unrated?: boolean;
   minutes: number;
   starter: boolean;
   goals: number;
@@ -93,10 +103,22 @@ export function emptyRating(playerId: string): PlayerRating {
   };
 }
 
+/**
+ * ¿Este jugador está ya resuelto para el partido?
+ *
+ * O tiene nota, o se ha decidido que no se le valora. Es lo que mira el avance
+ * de la pantalla: si «sin valorar» contase como pendiente, un partido con
+ * cinco revulsivos de tres minutos no llegaría nunca al 100 %.
+ */
+export function isResolved(entry: PlayerRating | undefined) {
+  return Boolean(entry && (entry.rating > 0 || entry.unrated));
+}
+
 /** Un registro cuenta si tiene nota, minutos o cualquier dato del partido. */
 export function hasContent(entry: PlayerRating) {
   return (
     entry.rating > 0 ||
+    Boolean(entry.unrated) ||
     entry.minutes > 0 ||
     entry.goals > 0 ||
     entry.assists > 0 ||

@@ -26,6 +26,7 @@ import {
   clampRating,
   emptyRating,
   hasContent,
+  isResolved,
 } from "@/lib/ratings/types";
 import { Player } from "@/types/player";
 
@@ -173,6 +174,20 @@ export function RateMatchPanel({
     });
   };
 
+  /*
+  | «Sin valorar» y la nota son excluyentes: marcarlo borra la nota que hubiera
+  | y poner una nota lo desmarca. Si no, quedaría un registro que dice a la vez
+  | «vale 7» y «no se le valora», y cada pantalla elegiría una de las dos.
+  */
+  const setUnrated = (playerId: string, unrated: boolean) =>
+    update(
+      playerId,
+      unrated ? { unrated: true, rating: 0 } : { unrated: false },
+    );
+
+  const setRating = (playerId: string, rating: number) =>
+    update(playerId, rating > 0 ? { rating, unrated: false } : { rating });
+
   const updateArea = (playerId: string, key: AreaKey, value: number) => {
     patchDraft((previous) => {
       const base = previous[playerId] ?? emptyRating(playerId);
@@ -266,7 +281,9 @@ export function RateMatchPanel({
       ids: new Set(
         players
           .filter((player) => {
-            const done = (draft[player.id]?.rating ?? 0) > 0;
+            /* «Sin valorar» cuenta como hecho: es una decisión tomada, no algo
+               que quede pendiente de rellenar. */
+            const done = isResolved(draft[player.id]);
 
             return status === "hechos" ? done : !done;
           })
@@ -302,8 +319,7 @@ export function RateMatchPanel({
       return {
         ...group,
         players: list,
-        rated: list.filter((player) => (draft[player.id]?.rating ?? 0) > 0)
-          .length,
+        rated: list.filter((player) => isResolved(draft[player.id])).length,
       };
     }).filter((group) => group.players.length > 0);
   }, [visible, draft]);
@@ -326,7 +342,22 @@ export function RateMatchPanel({
     [draft]
   );
 
-  const progress = called ? Math.round((filled.length / called) * 100) : 0;
+  /*
+  | Resueltos = con nota + marcados «sin valorar». Es lo que mide el avance:
+  | contando sólo las notas, un partido con cinco revulsivos de tres minutos no
+  | llegaría nunca al 100 % y la barra dejaría de servir para nada.
+  */
+  const resolved = useMemo(
+    () => Object.values(draft).filter(isResolved).length,
+    [draft]
+  );
+
+  const unratedCount = useMemo(
+    () => Object.values(draft).filter((entry) => entry.unrated).length,
+    [draft]
+  );
+
+  const progress = called ? Math.round((resolved / called) * 100) : 0;
 
   const handleSave = async () => {
     if (!selected) return;
@@ -424,6 +455,7 @@ export function RateMatchPanel({
 
               <span className="text-[11px] text-white/35">
                 {filled.length} jug.
+                {unratedCount > 0 && ` · ${unratedCount} S/V`}
               </span>
             </div>
           )}
@@ -484,8 +516,11 @@ export function RateMatchPanel({
             <SegmentedControl
               options={[
                 { key: "todos" as const, label: "Todos" },
-                { key: "pendientes" as const, label: "Sin nota" },
-                { key: "hechos" as const, label: `Con nota (${filled.length})` },
+                { key: "pendientes" as const, label: "Sin resolver" },
+                {
+                  key: "hechos" as const,
+                  label: `Resueltos (${resolved})`,
+                },
               ]}
               value={status}
               onChange={pickStatus}
@@ -505,19 +540,24 @@ export function RateMatchPanel({
             <Panel
               key={group.key}
               title={group.label}
-              subtitle={`${group.rated} de ${group.players.length} con nota`}
+              subtitle={`${group.rated} de ${group.players.length} resueltos`}
               bodyClassName="divide-y divide-white/5"
             >
               {group.players.map((player) => {
                 const entry = draft[player.id] ?? emptyRating(player.id);
                 const open = expanded === player.id;
                 const rated = entry.rating > 0;
+                const unrated = Boolean(entry.unrated);
 
                 return (
                   <div
                     key={player.id}
                     className={`min-w-0 border-l-2 px-4 py-3 transition-colors sm:px-5 ${
-                      rated ? "bg-white/[0.02]" : "border-l-transparent"
+                      rated
+                        ? "bg-white/[0.02]"
+                        : unrated
+                          ? "border-l-white/20 bg-white/[0.01]"
+                          : "border-l-transparent"
                     }`}
                     style={
                       rated
@@ -553,6 +593,15 @@ export function RateMatchPanel({
                                 style={{ color: ratingColor(entry.rating) }}
                               />
                             )}
+
+                            {unrated && (
+                              <span
+                                className="shrink-0 rounded bg-[#C8A96B]/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B]"
+                                title="Sin valorar: no entra en ninguna media"
+                              >
+                                S/V
+                              </span>
+                            )}
                           </p>
 
                           <p className="truncate text-[10px] uppercase tracking-[0.16em] text-white/30">
@@ -567,9 +616,9 @@ export function RateMatchPanel({
                       <div className="w-full min-w-0 sm:w-[240px]">
                         <RatingSlider
                           value={entry.rating}
-                          onChange={(value) =>
-                            update(player.id, { rating: value })
-                          }
+                          onChange={(value) => setRating(player.id, value)}
+                          unrated={unrated}
+                          onUnrated={(next) => setUnrated(player.id, next)}
                         />
                       </div>
 

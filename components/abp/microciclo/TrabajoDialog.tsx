@@ -9,22 +9,23 @@
  * desplegable por campo obligaría a tres toques por decisión.
  */
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { Button, Dialog, TextArea } from "@/components/abp/ui";
 import { chipInk } from "@/lib/theme";
 import {
   ASPECTOS_POR_GRUPO,
-  ASPECTO_BY_KEY,
   DIAS,
   LADOS,
   LADO_COLOR,
   MEDIOS,
   MOMENTOS,
   ROLES,
+  aspectosDe,
   cargaCognitiva,
   cargaCondicional,
+  etiquetaTrabajo,
   type AbpLado,
   type AbpMedio,
   type AbpMomento,
@@ -160,43 +161,85 @@ function Escala({
   );
 }
 
-/** Selector de aspecto agrupado. El catálogo es largo y plano no se lee. */
-function AspectoSelect({
+/**
+ * Selector de aspectos: se pueden marcar varios.
+ *
+ * Era un desplegable de uno. Una misma rutina trabaja a menudo dos cosas a la
+ * vez —el córner directo y el indirecto, la falta lateral y el libre dentro
+ * del área— y partirla en dos fichas duplicaba los minutos de la sesión. Con
+ * botonera se ve de un vistazo qué está marcado, que en un `<select multiple>`
+ * no se ve, y se marca de un toque, que es como se rellena esto en tablet.
+ */
+function AspectoPicker({
   value,
   onChange,
 }: {
-  value: AspectoKey;
-  onChange: (value: AspectoKey) => void;
+  value: AspectoKey[];
+  onChange: (value: AspectoKey[]) => void;
 }) {
-  const id = useId();
+  const alterna = (clave: AspectoKey) => {
+    if (value.includes(clave)) {
+      /* Nunca se queda sin ninguno: sin aspecto, la tarea no se puede cruzar
+         con competición ni tiene nombre que pintar. */
+      if (value.length === 1) return;
+
+      onChange(value.filter((item) => item !== clave));
+
+      return;
+    }
+
+    onChange([...value, clave]);
+  };
 
   return (
-    <label htmlFor={id} className="block min-w-0">
-      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
-        Aspecto
-      </span>
+    <div className="min-w-0">
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+          Aspectos que trabaja
+        </p>
 
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value as AspectoKey)}
-        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
-      >
+        <p className="text-[11px] tabular-nums text-white/45">
+          {value.length === 1 ? "1 aspecto" : `${value.length} aspectos`}
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
         {ASPECTOS_POR_GRUPO.map((grupo) => (
-          <optgroup key={grupo.grupo} label={grupo.label}>
-            {grupo.aspectos.map((aspecto) => (
-              <option
-                key={aspecto.key}
-                value={aspecto.key}
-                className="bg-[#11161C]"
-              >
-                {aspecto.label}
-              </option>
-            ))}
-          </optgroup>
+          <div key={grupo.grupo} className="min-w-0">
+            <p className="mb-1 text-[9px] uppercase tracking-[0.18em] text-white/25">
+              {grupo.label}
+            </p>
+
+            <div className="flex flex-wrap gap-1.5">
+              {grupo.aspectos.map((aspecto) => {
+                const activo = value.includes(aspecto.key);
+
+                return (
+                  <button
+                    key={aspecto.key}
+                    type="button"
+                    onClick={() => alterna(aspecto.key)}
+                    aria-pressed={activo}
+                    title={
+                      activo && value.length === 1
+                        ? "Una tarea necesita al menos un aspecto"
+                        : aspecto.label
+                    }
+                    className={`rounded-xl border px-2.5 py-1.5 text-[11.5px] font-medium transition ${
+                      activo
+                        ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+                        : "border-white/12 text-white/50 hover:border-white/25 hover:text-white"
+                    }`}
+                  >
+                    {aspecto.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ))}
-      </select>
-    </label>
+      </div>
+    </div>
   );
 }
 
@@ -235,7 +278,10 @@ export function TrabajoDialog({
         : [...actual.roles, rol],
     }));
 
-  const aspecto = ASPECTO_BY_KEY.get(borrador.aspecto);
+  const aspectos = aspectosDe(borrador);
+
+  /* Los que no tienen dónde mirarse en competición: se avisa de todos. */
+  const sinDato = aspectos.filter((item) => item.sinDato);
 
   const importado = borrador.origen === "registro";
 
@@ -244,7 +290,7 @@ export function TrabajoDialog({
 
   return (
     <Dialog
-      title={nuevo ? "Nuevo trabajo de ABP" : aspecto?.label ?? "Trabajo de ABP"}
+      title={nuevo ? "Nuevo trabajo de ABP" : etiquetaTrabajo(borrador)}
       subtitle={DIAS.find((item) => item.key === diaBorrador)?.label}
       onClose={onCerrar}
       footer={
@@ -260,7 +306,7 @@ export function TrabajoDialog({
           <Button
             tone="primary"
             onClick={() => onGuardar(borrador, diaBorrador)}
-            disabled={borrador.minutos <= 0}
+            disabled={borrador.minutos <= 0 || borrador.aspectos.length === 0}
           >
             {nuevo ? "Añadir" : "Guardar"}
           </Button>
@@ -283,15 +329,31 @@ export function TrabajoDialog({
           colorOf={(key) => LADO_COLOR[key as AbpLado]}
         />
 
-        <AspectoSelect
-          value={borrador.aspecto}
-          onChange={(key) => set("aspecto", key)}
+        <AspectoPicker
+          value={borrador.aspectos}
+          onChange={(claves) => set("aspectos", claves)}
         />
 
-        {aspecto?.sinDato && (
-          <p className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
-            {aspecto.sinDato} Se puede planificar igual, pero el cruce con
+        {sinDato.map((item) => (
+          <p
+            key={item.key}
+            className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3 py-2 text-[11px] leading-relaxed text-amber-200/80"
+          >
+            {item.sinDato} Se puede planificar igual, pero el cruce con
             competición no podrá decir nada de este aspecto.
+          </p>
+        ))}
+
+        {borrador.aspectos.length > 1 && (
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] leading-relaxed text-white/40">
+            Con varios aspectos, los {borrador.minutos || 0}′ de la tarea se
+            reparten entre ellos en el cruce con competición
+            {borrador.minutos
+              ? ` (${Math.round(
+                  (borrador.minutos / borrador.aspectos.length) * 10,
+                ) / 10}′ cada uno)`
+              : ""}
+            . La carga, en cambio, es de la tarea entera y se cuenta una vez.
           </p>
         )}
 

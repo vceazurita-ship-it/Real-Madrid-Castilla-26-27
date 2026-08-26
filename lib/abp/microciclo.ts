@@ -295,7 +295,15 @@ export type OrigenTrabajo = "manual" | "registro";
 export type Trabajo = {
   id: string;
   lado: AbpLado;
-  aspecto: AspectoKey;
+  /**
+   * Los aspectos que toca la tarea. Casi siempre uno, pero una misma rutina
+   * de 20' puede entrenar el córner directo y el indirecto a la vez, y
+   * partirla en dos fichas mentía sobre lo que se hizo en el campo.
+   *
+   * Nunca está vacío: lo garantiza `normalizaTrabajo`, por donde pasa todo
+   * lo que se lee del documento.
+   */
+  aspectos: AspectoKey[];
   momento: AbpMomento;
   medio: AbpMedio;
   roles: AbpRol[];
@@ -351,6 +359,82 @@ export function planVacio(
 }
 
 /**
+ * Un trabajo con la forma que espera la pantalla.
+ *
+ * Los documentos guardados antes de que una tarea pudiera trabajar varios
+ * aspectos traen `aspecto` en singular. En vez de migrar el documento —que
+ * obligaría a reescribir toda la temporada la primera vez que alguien abre la
+ * página— se traduce al leer, que es por donde pasa todo.
+ */
+export function normalizaTrabajo(bruto: Trabajo): Trabajo {
+  const viejo = (bruto as Trabajo & { aspecto?: AspectoKey }).aspecto;
+
+  const aspectos = Array.isArray(bruto.aspectos)
+    ? bruto.aspectos.filter((clave) => ASPECTO_BY_KEY.has(clave))
+    : [];
+
+  if (aspectos.length) {
+    return aspectos.length === bruto.aspectos.length
+      ? bruto
+      : { ...bruto, aspectos };
+  }
+
+  /* Sin aspectos válidos: el de siempre, o el primero del catálogo. Un
+     trabajo sin aspecto no se puede pintar ni cruzar con competición. */
+  return {
+    ...bruto,
+    aspectos: [viejo && ASPECTO_BY_KEY.has(viejo) ? viejo : ASPECTOS[0].key],
+  };
+}
+
+/** Los aspectos de un trabajo, ya resueltos contra el catálogo. */
+export function aspectosDe(trabajo: Trabajo): Aspecto[] {
+  return normalizaTrabajo(trabajo)
+    .aspectos.map((clave) => ASPECTO_BY_KEY.get(clave))
+    .filter((aspecto): aspecto is Aspecto => Boolean(aspecto));
+}
+
+/** Cómo se llama la tarea cuando toca más de un aspecto. */
+export function etiquetaTrabajo(trabajo: Trabajo, corto = false) {
+  const aspectos = aspectosDe(trabajo);
+
+  if (aspectos.length === 0) return "Sin aspecto";
+  if (aspectos.length === 1) return corto ? aspectos[0].short : aspectos[0].label;
+
+  /* En las fichas de la semana no cabe la lista entera: el primero y cuántos
+     más. En el diálogo, donde hay ancho, van todos. */
+  return corto
+    ? `${aspectos[0].short} +${aspectos.length - 1}`
+    : aspectos.map((aspecto) => aspecto.label).join(" · ");
+}
+
+/**
+ * Copia de un trabajo, lista para soltar en otro día.
+ *
+ * La copia **no** conserva el vínculo con la hoja de registro: la hoja tiene
+ * una fila, no dos, así que la copia deja de ser un dato medido y pasa a ser
+ * planificación. Los minutos y las escalas sí se conservan, que es lo que se
+ * quiere al duplicar.
+ */
+export function duplicaTrabajo(trabajo: Trabajo): Trabajo {
+  const base = normalizaTrabajo(trabajo);
+
+  const copia: Trabajo = {
+    ...base,
+    id: nuevoId(),
+    aspectos: [...base.aspectos],
+    roles: [...base.roles],
+    origen: "manual",
+  };
+
+  delete copia.cargaRegistrada;
+  delete copia.cargaCogRegistrada;
+  delete copia.tareaId;
+
+  return copia;
+}
+
+/**
  * Devuelve el día con su forma completa.
  *
  * Los documentos guardados por versiones anteriores pueden no tener todos los
@@ -362,7 +446,9 @@ export function diaDe(plan: MicroPlan | undefined, dia: DiaKey): PlanDia {
   return {
     tipo: guardado?.tipo ?? "entreno",
     md: guardado?.md ?? "",
-    trabajos: Array.isArray(guardado?.trabajos) ? guardado.trabajos : [],
+    trabajos: Array.isArray(guardado?.trabajos)
+      ? guardado.trabajos.map(normalizaTrabajo)
+      : [],
   };
 }
 
@@ -397,12 +483,16 @@ export function trabajosDelPlan(plan: MicroPlan | undefined): {
   );
 }
 
+/* `crypto.randomUUID` no está en todos los navegadores de la caseta. */
+function nuevoId() {
+  return `T-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function nuevoTrabajo(overrides: Partial<Trabajo> = {}): Trabajo {
   return {
-    /* `crypto.randomUUID` no está en todos los navegadores de la caseta. */
-    id: `T-${Math.random().toString(36).slice(2, 10)}`,
+    id: nuevoId(),
     lado: "ofensivo",
-    aspecto: "corner-directo",
+    aspectos: ["corner-directo"],
     momento: "intra",
     medio: "campo",
     roles: [],
@@ -501,16 +591,28 @@ export function totalesDe(entradas: { dia: DiaKey; trabajo: Trabajo }[]): Totale
   return totales;
 }
 
-/** Minutos por aspecto y lado. La clave es `${aspecto}|${lado}`. */
+/**
+ * Minutos por aspecto y lado. La clave es `${aspecto}|${lado}`.
+ *
+ * Una tarea que toca varios aspectos **reparte** sus minutos entre ellos en
+ * vez de contarlos enteros en cada uno. Contarlos enteros inflaría el total
+ * de la semana —20' de córner directo + indirecto pasarían a ser 40'— y con
+ * él la urgencia y la transferencia, que se leen contra ese total.
+ */
 export function minutosPorAspecto(
   entradas: { trabajo: Trabajo }[],
 ): Map<string, number> {
   const mapa = new Map<string, number>();
 
   entradas.forEach(({ trabajo }) => {
-    const clave = `${trabajo.aspecto}|${trabajo.lado}`;
+    const aspectos = normalizaTrabajo(trabajo).aspectos;
+    const parte = (trabajo.minutos || 0) / aspectos.length;
 
-    mapa.set(clave, (mapa.get(clave) ?? 0) + (trabajo.minutos || 0));
+    aspectos.forEach((aspecto) => {
+      const clave = `${aspecto}|${trabajo.lado}`;
+
+      mapa.set(clave, (mapa.get(clave) ?? 0) + parte);
+    });
   });
 
   return mapa;
