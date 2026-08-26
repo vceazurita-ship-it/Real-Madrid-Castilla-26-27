@@ -88,6 +88,7 @@ import {
   type Desplazamiento,
   type ViajeStore,
 } from "@/lib/viaje/modelo";
+import { conSemilla, tieneSemilla } from "@/lib/viaje/semilla";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 
 /** "J07 · 18 oct 2026 · @ Teruel", como se llama a la semana en la caseta. */
@@ -307,12 +308,15 @@ export default function DesplazamientoPage() {
 
     /* La hoja RIVALES trae las dimensiones del campo del rival: es el único
        dato del dossier que ya está escrito en algún sitio. */
-    return jornada?.fila?.DIMENSIONES
+    const conDimensiones = jornada?.fila?.DIMENSIONES
       ? {
           ...base,
           estadio: { ...base.estadio, dimensiones: jornada.fila.DIMENSIONES },
         }
       : base;
+
+    /* Y la jornada 1 viene montada entera desde los documentos originales. */
+    return conSemilla(conDimensiones);
   }, [partido, store.viajes, jornada]);
 
   const guardado = Boolean(partido && store.viajes?.[partido.id]);
@@ -484,10 +488,20 @@ export default function DesplazamientoPage() {
                 <>
                   {!guardado && (
                     <div className="mt-4">
-                      <Notice title="Todavía sin montar">
-                        Lo que se ve son los datos que trae el calendario. En
-                        cuanto escribas algo, el desplazamiento se guarda solo.
-                      </Notice>
+                      {tieneSemilla(viaje) ? (
+                        <Notice title="Viene relleno de fábrica">
+                          Este desplazamiento sale montado con los textos, los
+                          planos y el horario de los documentos originales
+                          (AWAY_TERUEL.pptx y HORARIO_CD_TERUEL.pdf). Cámbialo a
+                          gusto: en cuanto escribas algo se guarda solo y manda
+                          lo escrito.
+                        </Notice>
+                      ) : (
+                        <Notice title="Todavía sin montar">
+                          Lo que se ve son los datos que trae el calendario. En
+                          cuanto escribas algo, el desplazamiento se guarda solo.
+                        </Notice>
+                      )}
                     </div>
                   )}
 
