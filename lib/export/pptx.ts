@@ -13,7 +13,7 @@
  * exportar. Rehacer las chapas como formas de Office daría un fichero que se
  * puede tocar por fuera y que dejaría de parecerse a lo que se enseñó.
  *
- * El paquete se arma con `lib/abp/zip.ts`: un `.pptx` es un ZIP con las partes
+ * El paquete se arma con `lib/export/zip.ts`: un `.pptx` es un ZIP con las partes
  * OOXML mínimas —tipos de contenido, presentación, patrón, diseño, tema y una
  * hoja por diapositiva—, y aquí están todas escritas a mano.
  */

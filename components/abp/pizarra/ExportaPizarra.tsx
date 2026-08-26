@@ -12,17 +12,11 @@
  * Lo que se enseña en la sala es la charla entera; exportar de una en una era
  * justo el trabajo manual del que se venía huyendo.
  *
- * Cómo se capturan: las diapositivas que no están en pantalla no existen en el
- * DOM —la página monta sólo la activa—, así que al exportar se monta el
- * tablero entero **fuera de la pantalla**, a tamaño de plantilla y sin escalar
- * (1920×1080, escala 1), y se fotografía una por una con `html-to-image`. No
- * vale con esconderlo con `display:none` ni con `visibility`: un nodo sin caja
- * se captura en blanco. Se aparta con posición, que sí conserva el dibujo.
- *
- * Se captura **una sola vez** para los dos formatos, a 1,5× —2880×1620—: es lo
- * que hace falta para que el papel salga a unos 260 ppp en A4 apaisado, y a
- * PowerPoint le sobra (proyecta a 1920). Repetir la captura por formato
- * duplicaría la espera sin que se note en pantalla.
+ * Como la página monta sólo la diapositiva activa, al exportar se levanta el
+ * tablero entero fuera de la pantalla, a tamaño de plantilla y sin escalar, y
+ * se fotografía diapositiva a diapositiva. La maquinaria —esperas, captura y
+ * PDF— es la de `lib/export/lienzos.ts`, compartida con el dossier de
+ * desplazamiento.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -38,217 +32,18 @@ import {
   TABLERO_W,
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
-import { creaPptx } from "@/lib/abp/pptx";
+import { creaPptx } from "@/lib/export/pptx";
+import {
+  apodo,
+  capturaLienzos,
+  descarga,
+  esperaFotos,
+  pdfDeLienzos,
+  pintado,
+} from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
-/** Cuántos píxeles reales por píxel de lienzo. Ver la cabecera del fichero. */
-const NITIDEZ = 1.5;
-
-/** Un píxel transparente: lo que se pone donde una foto no se ha podido leer. */
-const PIXEL_VACIO =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
 type Formato = "pptx" | "pdf";
-
-/* ------------------------------------------------------------------ */
-/*  NOMBRE DEL FICHERO                                                 */
-/* ------------------------------------------------------------------ */
-
-/** "CD Teruel" → "cd-teruel": lo que aguanta cualquier carpeta compartida. */
-function apodo(valor: string) {
-  return (
-    valor
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "pizarra"
-  );
-}
-
-function descarga(blob: Blob, nombre: string) {
-  const url = URL.createObjectURL(blob);
-
-  const enlace = document.createElement("a");
-
-  enlace.href = url;
-  enlace.download = nombre;
-
-  document.body.appendChild(enlace);
-  enlace.click();
-  enlace.remove();
-
-  /* El navegador todavía está leyendo el blob cuando vuelve el click. */
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-/* ------------------------------------------------------------------ */
-/*  CAPTURA                                                            */
-/* ------------------------------------------------------------------ */
-
-/** Espera a que el navegador haya pintado lo que se acaba de montar. */
-function pintado() {
-  return new Promise<void>((listo) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => listo()));
-  });
-}
-
-/**
- * Espera a que las fotos del tablero estén cargadas.
- *
- * Las caras de la plantilla vienen de Supabase y el campo de `/public`: si se
- * captura antes de tiempo salen huecos donde van los jugadores. Se espera a
- * cada `<img>` con un tope, porque una foto rota no puede dejar colgada la
- * exportación entera.
- */
-async function esperaFotos(raiz: HTMLElement) {
-  const fotos = Array.from(raiz.querySelectorAll("img"));
-
-  await Promise.all(
-    fotos.map(
-      (foto) =>
-        new Promise<void>((listo) => {
-          if (foto.complete) return listo();
-
-          const acaba = () => listo();
-
-          foto.addEventListener("load", acaba, { once: true });
-          foto.addEventListener("error", acaba, { once: true });
-
-          setTimeout(acaba, 6_000);
-        }),
-    ),
-  );
-}
-
-async function capturaTableros(
-  raiz: HTMLElement,
-  alPaso: (hechas: number) => void,
-) {
-  const nodos = Array.from(
-    raiz.querySelectorAll<HTMLElement>("[data-abp-tablero]"),
-  );
-
-  const htmlToImage = await import("html-to-image");
-
-  const opciones = {
-    width: TABLERO_W,
-    height: TABLERO_H,
-    backgroundColor: COLORES.tinta,
-    imagePlaceholder: PIXEL_VACIO,
-    quality: 0.92,
-    style: {
-      margin: "0",
-      transform: "none",
-      transformOrigin: "top left",
-    },
-    filter: (nodo: HTMLElement) => {
-      if (!(nodo instanceof HTMLElement)) return true;
-
-      /* Los huecos de puesto vacío y las aspas son cromo de edición. */
-      return !nodo.hasAttribute("data-export-hide");
-    },
-  };
-
-  /*
-  | Pasada de calentamiento sobre el tablero entero. `html-to-image` se
-  | descarga él mismo las imágenes de otro dominio y las guarda en su caché
-  | interna; sin esta primera pasada —a resolución ridícula, que es rápida— la
-  | captura buena de cada diapositiva sale a veces sin las caras.
-  */
-  await htmlToImage
-    .toJpeg(raiz, { ...opciones, width: undefined, height: undefined, pixelRatio: 0.04 })
-    .catch(() => undefined);
-
-  const imagenes: string[] = [];
-
-  for (const nodo of nodos) {
-    /* En serie y no en paralelo: siete lienzos de 2880×1620 a la vez tumban
-       la pestaña en un portátil del cuerpo técnico. */
-    const imagen = await htmlToImage.toJpeg(nodo, {
-      ...opciones,
-      pixelRatio: NITIDEZ,
-    });
-
-    imagenes.push(imagen);
-
-    alPaso(imagenes.length);
-  }
-
-  return imagenes;
-}
-
-/* ------------------------------------------------------------------ */
-/*  EL PDF DE IMPRENTA                                                 */
-/* ------------------------------------------------------------------ */
-
-/**
- * Una diapositiva por hoja, A4 apaisado.
- *
- * A4 apaisado es más cuadrado que un 16:9, así que la diapositiva la limita el
- * ancho y sobra alto: se centra y el pie de página se queda debajo, fuera de
- * la imagen, para que se lea igual con la hoja en blanco y negro.
- */
-async function creaPdf(
-  imagenes: string[],
-  datos: { titulos: string[]; rival: string; jornada?: string; fecha: string },
-) {
-  const { jsPDF } = await import("jspdf");
-
-  const doc = new jsPDF({
-    orientation: "landscape",
-    unit: "pt",
-    format: "a4",
-    compress: true,
-  });
-
-  const anchoHoja = doc.internal.pageSize.getWidth();
-  const altoHoja = doc.internal.pageSize.getHeight();
-
-  const margen = 26;
-  const pie = 26;
-
-  const ancho = anchoHoja - margen * 2;
-  const escala = Math.min(ancho / TABLERO_W, (altoHoja - margen * 2 - pie) / TABLERO_H);
-
-  const w = TABLERO_W * escala;
-  const h = TABLERO_H * escala;
-
-  const x = (anchoHoja - w) / 2;
-  const y = (altoHoja - pie - h) / 2;
-
-  const cabecera = [datos.rival, datos.jornada, datos.fecha]
-    .filter(Boolean)
-    .join(" · ");
-
-  imagenes.forEach((imagen, indice) => {
-    if (indice > 0) doc.addPage();
-
-    doc.addImage(imagen, "JPEG", x, y, w, h, `slide${indice}`, "FAST");
-
-    doc.setFontSize(8);
-    doc.setTextColor(120);
-
-    doc.text(
-      `${indice + 1}. ${datos.titulos[indice] ?? ""}`.toUpperCase(),
-      margen,
-      altoHoja - 14,
-    );
-
-    doc.text(cabecera, anchoHoja / 2, altoHoja - 14, { align: "center" });
-
-    doc.text(`${indice + 1} / ${imagenes.length}`, anchoHoja - margen, altoHoja - 14, {
-      align: "right",
-    });
-  });
-
-  return doc;
-}
-
-/* ------------------------------------------------------------------ */
-/*  EL PANEL                                                           */
-/* ------------------------------------------------------------------ */
 
 export function ExportaPizarra({
   slides,
@@ -301,13 +96,20 @@ export function ExportaPizarra({
       await esperaFuentePortada();
       await esperaFotos(raiz);
 
-      const imagenes = await capturaTableros(raiz, setHechas);
+      const imagenes = await capturaLienzos(raiz, "[data-abp-tablero]", {
+        ancho: TABLERO_W,
+        alto: TABLERO_H,
+        fondo: COLORES.tinta,
+        alPaso: setHechas,
+      });
 
       if (imagenes.length === 0) throw new Error("No hay diapositivas");
 
       const titulos = slides.map((slide) => slide.titulo);
 
-      const nombre = `pizarra-abp-${apodo(rival)}${jornada ? `-${apodo(jornada)}` : ""}`;
+      const nombre = `pizarra-abp-${apodo(rival, "pizarra")}${
+        jornada ? `-${apodo(jornada)}` : ""
+      }`;
 
       if (formato === "pptx") {
         const blob = creaPptx(
@@ -328,11 +130,19 @@ export function ExportaPizarra({
           { id: aviso },
         );
       } else {
-        const doc = await creaPdf(imagenes, {
-          titulos,
-          rival: rival || "RMCF Castilla",
-          jornada,
-          fecha: new Date().toLocaleDateString("es-ES"),
+        const cabecera = [rival || "RMCF Castilla", jornada, new Date().toLocaleDateString("es-ES")]
+          .filter(Boolean)
+          .join(" · ");
+
+        const doc = await pdfDeLienzos(imagenes, {
+          ancho: TABLERO_W,
+          alto: TABLERO_H,
+          orientacion: "landscape",
+          pie: (indice, total) => ({
+            izquierda: `${indice + 1}. ${titulos[indice] ?? ""}`.toUpperCase(),
+            centro: cabecera,
+            derecha: `${indice + 1} / ${total}`,
+          }),
         });
 
         doc.save(`${nombre}.pdf`);

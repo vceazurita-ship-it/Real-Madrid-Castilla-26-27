@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bus,
   BarChart3,
   Binoculars,
   BookOpen,
@@ -352,6 +353,15 @@ export const MODULES: AppModule[] = [
     desc: "Reuniones, viajes y logística del staff",
     icon: CalendarDays,
     rank: 60,
+  },
+  {
+    href: "/desplazamiento",
+    area: "OPERATIVA",
+    title: "Desplazamiento de Partido",
+    desc: "Dossier del viaje y horario del día, en PPT y en PDF",
+    icon: Bus,
+    rank: 59,
+    alias: ["viaje", "away", "hotel", "horario", "autobus", "bus"],
   },
   {
     href: "/general",

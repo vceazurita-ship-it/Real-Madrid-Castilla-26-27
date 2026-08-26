@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useState } from "react"
 import {
   Home,
+  Bus,
   Users,
   User,
   Menu,
@@ -487,6 +488,12 @@ const disabledLink = (
       "/calendar_general",
       "Calendario Operativa",
       <CalendarDays size={18} />
+    )}
+
+    {navLink(
+      "/desplazamiento",
+      "Desplazamiento",
+      <Bus size={18} />
     )}
 
     {navLink(

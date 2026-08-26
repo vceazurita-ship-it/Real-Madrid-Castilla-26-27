@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import {
+  Bus,
   CalendarCheck,
   CalendarRange,
   FileText,
@@ -80,6 +82,22 @@ export default function SeasonHeader({
               <CalendarCheck size={17} />
               Semana actual · {currentWeek.week}
             </button>
+          )}
+
+          {/*
+            El repositorio guarda los documentos que el cuerpo técnico monta
+            por su cuenta; el desplazamiento de partido los monta la app. Se
+            entra desde aquí porque es donde se venía a buscar el dossier del
+            viaje y el horario de la jornada.
+          */}
+          {area === "general" && (
+            <Link
+              href="/desplazamiento"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:border-white/25 hover:text-white"
+            >
+              <Bus size={17} />
+              Montar desplazamiento
+            </Link>
           )}
 
           <button
