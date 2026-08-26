@@ -13,6 +13,7 @@ import { useId, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { Button, Dialog, TextArea } from "@/components/abp/ui";
+import { chipInk } from "@/lib/theme";
 import {
   ASPECTOS_POR_GRUPO,
   ASPECTO_BY_KEY,
@@ -68,18 +69,20 @@ function Conmutador<T extends string>({
               type="button"
               onClick={() => onChange(option.key)}
               aria-pressed={activo}
-              className="truncate rounded-xl border px-2 py-2 text-xs font-medium transition"
+              /* El apagado va por clase, no por `style`: así la tabla de
+                 equivalencias del modo día lo puede traducir. En blanco fijo
+                 desaparecía sobre el panel claro. */
+              className={`truncate rounded-xl border px-2 py-2 text-xs font-medium transition ${
+                activo ? "" : "text-white/55"
+              }`}
               style={
                 activo
                   ? {
-                      borderColor: color,
+                      borderColor: chipInk(color),
                       backgroundColor: `${color}22`,
-                      color,
+                      color: chipInk(color),
                     }
-                  : {
-                      borderColor: "rgba(255,255,255,0.12)",
-                      color: "rgba(255,255,255,0.55)",
-                    }
+                  : undefined
               }
             >
               {option.label}
@@ -133,14 +136,17 @@ function Escala({
               onClick={() => onChange(value === n ? 0 : n)}
               aria-label={`${label} ${n}`}
               aria-pressed={value === n}
-              className="h-8 rounded-lg border text-[11px] font-medium tabular-nums transition"
+              className={`h-8 rounded-lg border text-[11px] font-medium tabular-nums transition ${
+                activo ? "" : "text-white/40"
+              }`}
               style={
                 activo
-                  ? { borderColor: color, backgroundColor: `${color}26`, color }
-                  : {
-                      borderColor: "rgba(255,255,255,0.10)",
-                      color: "rgba(255,255,255,0.35)",
+                  ? {
+                      borderColor: chipInk(color),
+                      backgroundColor: `${color}26`,
+                      color: chipInk(color),
                     }
+                  : undefined
               }
             >
               {n}

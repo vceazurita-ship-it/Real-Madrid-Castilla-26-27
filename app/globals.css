@@ -845,6 +845,7 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-emerald-100"],
 :root[data-theme="light"] [class~="text-emerald-200"],
 :root[data-theme="light"] [class~="text-emerald-300"],
+:root[data-theme="light"] [class~="text-emerald-300/80"],
 :root[data-theme="light"] [class~="text-emerald-400"] {
   color: #047857;
 }
@@ -855,8 +856,15 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-amber-200"],
 :root[data-theme="light"] [class~="text-amber-200/80"],
 :root[data-theme="light"] [class~="text-amber-300"],
+:root[data-theme="light"] [class~="text-amber-300/80"],
 :root[data-theme="light"] [class~="text-amber-400"] {
   color: #B45309;
+}
+/* El ámbar apagado se usa para avisos de segunda fila: sobre blanco no puede
+   quedarse en el 60 % o desaparece, pero sí baja un peldaño de tinta para no
+   gritar más que el texto que lo rodea. */
+:root[data-theme="light"] [class~="text-amber-300/60"] {
+  color: rgb(180 83 9 / .85);
 }
 :root[data-theme="light"] [class~="text-yellow-300"],
 :root[data-theme="light"] [class~="text-yellow-400"] {

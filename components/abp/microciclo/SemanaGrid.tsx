@@ -11,6 +11,8 @@
 
 import { Monitor, Plus } from "lucide-react";
 
+import { chipInk } from "@/lib/theme";
+
 import {
   ASPECTO_BY_KEY,
   DIAS,
@@ -61,7 +63,7 @@ function TrabajoCard({
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
         <span
           className="rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide"
-          style={{ backgroundColor: `${color}22`, color }}
+          style={{ backgroundColor: `${color}22`, color: chipInk(color) }}
         >
           {MOMENTO_SHORT[trabajo.momento]}
         </span>
@@ -203,7 +205,7 @@ function DiaColumna({
         ))}
 
         {!plan.trabajos.length && (
-          <p className="px-1 py-3 text-center text-[10px] leading-relaxed text-white/20">
+          <p className="px-1 py-3 text-center text-[10px] leading-relaxed text-white/35">
             {descansa ? "Descanso" : "Sin ABP"}
           </p>
         )}

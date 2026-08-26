@@ -58,6 +58,7 @@ import {
 } from "@/components/abp/microciclo/ImportarRegistro";
 import { CruceTabla } from "@/components/abp/microciclo/CruceTabla";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { chipInk } from "@/lib/theme";
 import {
   EMPTY_MICRO_STORE,
   LADOS,
@@ -149,7 +150,7 @@ function Reparto({
           <span className="w-[74px] shrink-0 text-right text-[11px] tabular-nums text-white/60">
             {fila.valor ? fmtMin(fila.valor) : "—"}
             {total > 0 && fila.valor > 0 && (
-              <span className="ml-1 text-white/25">
+              <span className="ml-1 text-white/40">
                 {Math.round((fila.valor / total) * 100)}%
               </span>
             )}
@@ -705,7 +706,7 @@ export default function AbpMicrocicloPage() {
                     label="Minutos de ABP"
                     value={fmtMin(totales.minutos)}
                     hint={`${totales.trabajos} trabajo${totales.trabajos === 1 ? "" : "s"} · ${totales.diasConAbp} día${totales.diasConAbp === 1 ? "" : "s"}`}
-                    accent="#C8A96B"
+                    accent="var(--rmcf-gold-ink)"
                   />
 
                   <StatCard
@@ -722,14 +723,14 @@ export default function AbpMicrocicloPage() {
                     label="Carga condicional"
                     value={Math.round(totales.carga) || "—"}
                     hint="tiempo × intensidad"
-                    accent="#FBBF24"
+                    accent={chipInk("#FBBF24")}
                   />
 
                   <StatCard
                     label="Carga cognitiva"
                     value={Math.round(totales.cargaCog) || "—"}
                     hint="tiempo × exigencia"
-                    accent="#8B5CF6"
+                    accent={chipInk("#8B5CF6")}
                   />
 
                   <StatCard
@@ -841,7 +842,7 @@ export default function AbpMicrocicloPage() {
                                 className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
                                 style={{
                                   backgroundColor: `${LADO_COLOR[fila.lado]}1F`,
-                                  color: LADO_COLOR[fila.lado],
+                                  color: chipInk(LADO_COLOR[fila.lado]),
                                 }}
                               >
                                 {LADO_LABEL[fila.lado]}
@@ -849,7 +850,7 @@ export default function AbpMicrocicloPage() {
 
                               <span
                                 className="text-sm font-semibold tabular-nums"
-                                style={{ color }}
+                                style={{ color: chipInk(color) }}
                               >
                                 {Math.round(fila.urgencia ?? 0)}
                               </span>
@@ -867,7 +868,7 @@ export default function AbpMicrocicloPage() {
                                 : "sin trabajar"}
                             </p>
 
-                            <p className="mt-1.5 text-[10px] uppercase tracking-wide text-white/25">
+                            <p className="mt-1.5 text-[10px] uppercase tracking-wide text-white/40">
                               Urgencia {etiquetaUrgencia(fila.urgencia ?? 0)} ·
                               planificar
                             </p>
