@@ -434,11 +434,69 @@ export type SlidePizarra = {
   notas: string[];
 };
 
+/**
+ * Por qué se guardó una versión.
+ *
+ * Se anota para que el histórico se lea sin adivinar: no es lo mismo la foto
+ * que la app hace sola cuando el entrenador deja de tocar que la que él guarda
+ * a propósito antes de enseñarla en la sala.
+ */
+export type MotivoVersion = "auto" | "mano" | "copia" | "previa";
+
+export const MOTIVO_LABEL: Record<MotivoVersion, string> = {
+  auto: "Automática",
+  mano: "Guardada a mano",
+  copia: "Traída de otra jornada",
+  previa: "Antes de restaurar",
+};
+
+/**
+ * Una jornada entera congelada.
+ *
+ * Guarda las diapositivas **y el nombre del rival**, porque el nombre se puede
+ * escribir a mano y una versión tiene que poder decir contra quién se montó
+ * aunque después se haya reescrito.
+ */
+export type VersionPizarra = {
+  id: string;
+  /** ISO de cuándo se guardó. */
+  creada: string;
+  /** Lo que se lee en la lista del histórico. */
+  etiqueta: string;
+  rival: string;
+  motivo: MotivoVersion;
+  /** Marcada a mano: no se cae nunca del histórico. */
+  fijada?: boolean;
+  slides: SlidePizarra[];
+};
+
 export type TableroPizarra = {
   /** `matchId` de `lib/ratings/matches`. */
   partidoId: string;
+  /**
+   * Contra quién se juega, **tal y como se quiere leer en la diapositiva**.
+   *
+   * Arranca con el nombre del calendario, pero se puede escribir a mano: la
+   * hoja llama «CD Teruel» a quien en la sala se llama «Teruel», y la
+   * diapositiva se proyecta, así que manda lo que escribe el cuerpo técnico.
+   */
   rival: string;
+  /** Jornada de la hoja RIVALES, cuando el tablero se ata a una fila. */
+  jornada?: string;
+  /**
+   * `ID` de la fila de la hoja RIVALES.
+   *
+   * Es la misma llave con la que se abren el plan de partido
+   * (`/match-preparation?rival=<ID>`) y el informe del rival
+   * (`/scout-rival-collective?rival=<ID>`): con esto la pizarra deja de ser
+   * una isla.
+   */
+  rivalId?: string;
   slides: SlidePizarra[];
+  /** ISO del último cambio. */
+  actualizado?: string;
+  /** El histórico de la jornada, de lo más reciente a lo más antiguo. */
+  versiones?: VersionPizarra[];
 };
 
 /**
@@ -492,30 +550,214 @@ export function tableroVacio(partidoId: string, rival: string): TableroPizarra {
     partidoId,
     rival,
     slides: ORDEN_POR_DEFECTO.map(slideDePlantilla),
+    versiones: [],
   };
 }
 
 /**
- * Copia de un tablero para otro partido.
+ * Trae las diapositivas de otra jornada a este tablero.
  *
  * Se conservan las fichas —quién está en cada puesto y dónde— y las notas, que
- * es justo lo que no se quiere volver a montar. Los identificadores se
- * renuevan para que las dos semanas no compartan objeto.
+ * es justo lo que no se quiere volver a montar. Los identificadores se renuevan
+ * para que las dos semanas no compartan objeto.
+ *
+ * **Lo del destino que no son diapositivas no se toca**: el nombre del rival,
+ * la jornada a la que está atado y, sobre todo, su histórico. Copiar la semana
+ * pasada es empezar la de esta, no borrar lo que ya se había guardado aquí.
  */
 export function copiaTablero(
   origen: TableroPizarra,
-  partidoId: string,
-  rival: string,
+  destino: TableroPizarra,
+  cuando: string,
 ): TableroPizarra {
   return {
-    partidoId,
-    rival,
+    ...destino,
+    actualizado: cuando,
     slides: origen.slides.map((slide) => ({
       ...slide,
       id: nuevoId("SL"),
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
     })),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  HISTÓRICO DE LA JORNADA                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Cuántas versiones automáticas se guardan por jornada.
+ *
+ * El histórico vive dentro del mismo documento que la pizarra, así que no
+ * puede crecer sin freno: cada versión son las siete diapositivas enteras. Las
+ * **fijadas no cuentan** —esas las ha marcado alguien a propósito— y las
+ * automáticas viejas se van cayendo por abajo.
+ */
+export const MAX_VERSIONES = 20;
+
+/**
+ * La huella de un tablero: rival y diapositivas, sin identificadores.
+ *
+ * Sirve para no guardar dos versiones iguales. Los `id` se dejan fuera a
+ * propósito: al traer la jornada anterior se renuevan todos y la pizarra sería
+ * «distinta» sin que haya cambiado ni un nombre.
+ */
+export function huellaTablero(rival: string, slides: SlidePizarra[]) {
+  return JSON.stringify([
+    rival.trim(),
+    slides.map((slide) => [
+      slide.plantilla,
+      slide.titulo,
+      slide.vista,
+      slide.notas,
+      [...slide.fichas]
+        .map((ficha) => [ficha.playerId, ficha.puesto, Math.round(ficha.x), Math.round(ficha.y)])
+        .sort((a, b) => String(a).localeCompare(String(b))),
+    ]),
+  ]);
+}
+
+export function huellaVersion(version: VersionPizarra) {
+  return huellaTablero(version.rival, version.slides);
+}
+
+/** Si no hay una sola cara puesta, no hay pizarra que guardar. */
+export function tieneFichas(slides: SlidePizarra[]) {
+  return slides.some((slide) => slide.fichas.length > 0);
+}
+
+const fechaVersion = new Intl.DateTimeFormat("es-ES", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** "26 ago, 16:03", que es como se busca una versión: por cuándo fue. */
+export function etiquetaVersion(cuando: string) {
+  const fecha = new Date(cuando);
+
+  return Number.isNaN(fecha.getTime()) ? cuando : fechaVersion.format(fecha);
+}
+
+/**
+ * Congela el tablero tal y como está ahora y lo mete en su histórico.
+ *
+ * Si lo que hay ya es idéntico a la última versión guardada no se apunta nada:
+ * el histórico de una jornada tiene que poder leerse, y veinte fotos iguales no
+ * cuentan nada de cómo se llegó a la pizarra final.
+ */
+export function registraVersion(
+  tablero: TableroPizarra,
+  opciones: {
+    cuando: string;
+    motivo: MotivoVersion;
+    etiqueta?: string;
+    fijada?: boolean;
+    /** Guardar aunque no haya cambiado nada: lo pide alguien a mano. */
+    forzar?: boolean;
+  },
+): TableroPizarra {
+  const versiones = tablero.versiones ?? [];
+
+  const huella = huellaTablero(tablero.rival, tablero.slides);
+
+  if (!opciones.forzar && versiones[0] && huellaVersion(versiones[0]) === huella) {
+    return tablero;
+  }
+
+  const version: VersionPizarra = {
+    id: nuevoId("VE"),
+    creada: opciones.cuando,
+    etiqueta: opciones.etiqueta?.trim() || etiquetaVersion(opciones.cuando),
+    rival: tablero.rival,
+    motivo: opciones.motivo,
+    ...(opciones.fijada ? { fijada: true } : {}),
+    slides: tablero.slides.map((slide) => ({
+      ...slide,
+      notas: [...slide.notas],
+      fichas: slide.fichas.map((ficha) => ({ ...ficha })),
+    })),
+  };
+
+  return { ...tablero, versiones: podaVersiones([version, ...versiones]) };
+}
+
+/** Deja las fijadas y las `MAX_VERSIONES` automáticas más recientes. */
+export function podaVersiones(versiones: VersionPizarra[]) {
+  let sueltas = 0;
+
+  return versiones.filter((version) => {
+    if (version.fijada) return true;
+
+    sueltas += 1;
+
+    return sueltas <= MAX_VERSIONES;
+  });
+}
+
+/**
+ * Vuelve a una versión del histórico.
+ *
+ * Las diapositivas se copian con identificadores nuevos —para que editar la
+ * pizarra no reescriba la versión guardada— y el nombre del rival vuelve al
+ * que tenía entonces, que es parte de lo que se está restaurando.
+ */
+export function aplicaVersion(
+  tablero: TableroPizarra,
+  versionId: string,
+  cuando: string,
+): TableroPizarra {
+  const version = (tablero.versiones ?? []).find((item) => item.id === versionId);
+
+  if (!version) return tablero;
+
+  return {
+    ...tablero,
+    rival: version.rival,
+    actualizado: cuando,
+    slides: version.slides.map((slide) => ({
+      ...slide,
+      id: nuevoId("SL"),
+      notas: [...slide.notas],
+      fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
+    })),
+  };
+}
+
+export function fijaVersion(
+  tablero: TableroPizarra,
+  versionId: string,
+  fijada: boolean,
+): TableroPizarra {
+  return {
+    ...tablero,
+    versiones: (tablero.versiones ?? []).map((version) =>
+      version.id === versionId ? { ...version, fijada } : version,
+    ),
+  };
+}
+
+export function renombraVersion(
+  tablero: TableroPizarra,
+  versionId: string,
+  etiqueta: string,
+): TableroPizarra {
+  return {
+    ...tablero,
+    versiones: (tablero.versiones ?? []).map((version) =>
+      version.id === versionId
+        ? { ...version, etiqueta: etiqueta.trim() || etiquetaVersion(version.creada) }
+        : version,
+    ),
+  };
+}
+
+export function quitaVersion(tablero: TableroPizarra, versionId: string): TableroPizarra {
+  return {
+    ...tablero,
+    versiones: (tablero.versiones ?? []).filter((version) => version.id !== versionId),
   };
 }
 

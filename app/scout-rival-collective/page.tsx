@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Flame,
   Loader2,
   MapPin,
   Pencil,
@@ -358,6 +359,18 @@ function enlacePlanDePartido(rival: Rival | null) {
     : "/match-preparation";
 }
 
+/**
+ * La pizarra de balón parado de este mismo partido.
+ *
+ * La pizarra se monta sobre el calendario, no sobre esta hoja: traduce el
+ * `ID` a un partido al llegar —por tablero ya atado, por fecha o por nombre—.
+ */
+function enlacePizarraAbp(rival: Rival | null) {
+  const id = String(rival?.ID ?? "").trim();
+
+  return id ? `/abp-pizarra?rival=${encodeURIComponent(id)}` : "/abp-pizarra";
+}
+
 export default function ScoutRivalCollective() {
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
@@ -618,6 +631,15 @@ export default function ScoutRivalCollective() {
               >
                 <ClipboardList size={16} />
                 Plan de partido
+              </Link>
+
+              <Link
+                href={enlacePizarraAbp(rivalActivo)}
+                title="Abrir la pizarra de balón parado de este partido"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/12 px-5 py-3 text-sm font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+              >
+                <Flame size={16} />
+                Pizarra ABP
               </Link>
 
               {modoEdicion ? (

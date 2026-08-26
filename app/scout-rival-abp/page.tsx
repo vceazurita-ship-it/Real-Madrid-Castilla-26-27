@@ -150,6 +150,17 @@ export default function ScoutRivalAbpPage() {
 
   const { setValue: setScout } = scout;
 
+  /** Elegir rival a mano; se recuerda para volver al de la semana. */
+  const pickTeam = useCallback((nombre: string) => {
+    setEquipoElegido(nombre);
+
+    try {
+      window.localStorage.setItem(LAST_TEAM_KEY, nombre);
+    } catch {
+      /* modo privado o cuota llena: la selección sólo dura la sesión */
+    }
+  }, []);
+
   /* ----------------------------- carga ----------------------------- */
 
   useEffect(() => {
@@ -169,6 +180,49 @@ export default function ScoutRivalAbpPage() {
         setDerived(dataset.events);
         setEquiposHoja(dataset.equipos);
         setSquad(squadResponse);
+
+        /*
+        | Enlace directo desde otra página:
+        | /scout-rival-abp?equipo=<NOMBRE>.
+        |
+        | Lo usa la pizarra de balón parado para abrir el ABP del rival de la
+        | semana sin obligar a buscarlo. Se resuelve aquí, con las dos listas
+        | recién llegadas, porque el nombre puede venir escrito como lo escribe
+        | la hoja de rivales o como lo escribe la de plantillas. Si el equipo es
+        | de pretemporada hay que cambiar de grupo: si no, la selección
+        | derivada lo descarta y se queda en el primero de liga.
+        */
+        const pedido = new URLSearchParams(window.location.search).get(
+          "equipo",
+        );
+
+        if (!pedido) return;
+
+        const deLiga = Array.isArray(squadResponse)
+          ? squadResponse
+              .map((row) =>
+                row && typeof row === "object"
+                  ? String(
+                      (row as Record<string, unknown>).NOMBRE_EQUIPO ?? "",
+                    ).trim()
+                  : "",
+              )
+              .filter(Boolean)
+          : [];
+
+        const encontrado =
+          deLiga.find((nombre) => teamKey(nombre) === teamKey(pedido)) ??
+          dataset.equipos.find((nombre) => teamKey(nombre) === teamKey(pedido));
+
+        if (encontrado) {
+          if (!deLiga.some((nombre) => teamKey(nombre) === teamKey(encontrado))) {
+            setGrupo("pretemporada");
+          }
+
+          pickTeam(encontrado);
+        }
+
+        window.history.replaceState({}, "", "/scout-rival-abp");
       } catch (caught) {
         if (cancelled) return;
 
@@ -184,7 +238,7 @@ export default function ScoutRivalAbpPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pickTeam]);
 
   /* ---------------------------- equipos ---------------------------- */
 
@@ -247,16 +301,6 @@ export default function ScoutRivalAbpPage() {
 
     return equiposVisibles[0] ?? "";
   }, [equipoElegido, equiposVisibles]);
-
-  const pickTeam = useCallback((nombre: string) => {
-    setEquipoElegido(nombre);
-
-    try {
-      window.localStorage.setItem(LAST_TEAM_KEY, nombre);
-    } catch {
-      /* modo privado o cuota llena: la selección sólo dura la sesión */
-    }
-  }, []);
 
   /* Al cambiar de grupo no hace falta reelegir equipo: como `equipo` es
      derivado, cae solo en el primero del grupo nuevo y recupera el anterior

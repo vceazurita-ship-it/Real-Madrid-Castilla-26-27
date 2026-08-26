@@ -289,6 +289,21 @@ function enlaceAnalisisRival(rival: Rival | null) {
     : "/scout-rival-collective";
 }
 
+/**
+ * La pizarra de balón parado de este mismo partido.
+ *
+ * La pizarra se monta sobre el calendario y no sobre esta hoja, así que el
+ * `ID` no le sirve de llave directa: lo traduce ella —por tablero ya atado,
+ * por fecha o por nombre— al llegar. Lo que aquí importa es que el ABP que se
+ * está escribiendo y las diapositivas que se van a proyectar dejen de estar en
+ * dos sitios sin puente.
+ */
+function enlacePizarraAbp(rival: Rival | null) {
+  const id = String(rival?.ID ?? "").trim();
+
+  return id ? `/abp-pizarra?rival=${encodeURIComponent(id)}` : "/abp-pizarra";
+}
+
 /*
 |--------------------------------------------------------------------------
 | TEXTAREA QUE CRECE CON EL CONTENIDO
@@ -1276,6 +1291,22 @@ export default function MatchPreparation() {
                   </Link>
                 )}
 
+                {rivalActivo && (
+                  <Link
+                    href={enlacePizarraAbp(rivalActivo)}
+                    title="Abrir la pizarra de balón parado de este partido"
+                    className="
+                      flex items-center gap-2 rounded-xl border border-white/10
+                      bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70 transition
+                      hover:border-white/25 hover:text-white
+                    "
+                  >
+                    <Flame size={15} />
+
+                    <span className="hidden md:inline">Pizarra ABP</span>
+                  </Link>
+                )}
+
                 {!editando && (
                   <button
                     type="button"
@@ -1664,6 +1695,21 @@ export default function MatchPreparation() {
                       placeholder="Marcajes, zonas, rechaces..."
                       minHeight={150}
                     />
+
+                    {!editando && (
+                      <Link
+                        href={enlacePizarraAbp(rivalActivo)}
+                        className="
+                          mp-no-print flex items-center justify-center gap-2 rounded-xl
+                          border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3.5 py-2.5
+                          text-xs font-semibold text-[#E4C977] transition
+                          hover:border-[#C8A96B] hover:bg-[#C8A96B]/20
+                        "
+                      >
+                        <Flame size={14} />
+                        Montar las diapositivas de balón parado
+                      </Link>
+                    )}
                   </div>
                 </div>
               </section>
