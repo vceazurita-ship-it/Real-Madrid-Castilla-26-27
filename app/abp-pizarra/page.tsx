@@ -83,6 +83,7 @@ import {
   MOTIVO_LABEL,
   PLANTILLAS,
   PLANTILLA_BY_KEY,
+  admiteRepetidos,
   aplicaVersion,
   aprende,
   colocaAutomatico,
@@ -505,6 +506,11 @@ export default function PizarraAbpPage() {
 
   const puestoEditado = slide ? puestoDe(slide, editando) : null;
 
+  /*
+  | Donde se admiten repetidos, un jugador puede salir en varios sitios, así
+  | que la chapa gris del selector los enseña todos: «I1·P2» se lee de un
+  | vistazo y guardar la última visita escondería media verdad.
+  */
   const ocupadoPor = useMemo(() => {
     const mapa = new Map<string, string>();
 
@@ -513,7 +519,11 @@ export default function PizarraAbpPage() {
     slide.fichas.forEach((ficha) => {
       const code = puestoDe(slide, ficha.puesto)?.code;
 
-      if (code) mapa.set(ficha.playerId, code);
+      if (!code) return;
+
+      const previo = mapa.get(ficha.playerId);
+
+      mapa.set(ficha.playerId, previo ? `${previo}·${code}` : code);
     });
 
     return mapa;
@@ -525,6 +535,11 @@ export default function PizarraAbpPage() {
    * Si el jugador ya estaba en otro puesto de la misma diapositiva se le mueve:
    * duplicarlo dejaría a la misma cara en dos sitios del campo, que es un error
    * de pizarra, no una decisión.
+   *
+   * En las diapositivas de opciones —las directas— sí es una decisión, y sólo
+   * se le mueve si el otro puesto era del mismo sitio: el mismo tirador puede
+   * estar en la izquierda y en el penalti, pero no ser el primero y el segundo
+   * de la izquierda.
    */
   const asigna = useCallback(
     (puestoKey: string, playerId: string) => {
@@ -532,12 +547,20 @@ export default function PizarraAbpPage() {
 
       const puesto = puestoDe(slide, puestoKey);
 
+      const repite = admiteRepetidos(slide);
+
       const cuando = new Date().toISOString();
 
       mutaSlide((actual) => {
-        const limpio = actual.fichas.filter(
-          (ficha) => ficha.puesto !== puestoKey && ficha.playerId !== playerId,
-        );
+        const limpio = actual.fichas.filter((ficha) => {
+          if (ficha.puesto === puestoKey) return false;
+
+          if (ficha.playerId !== playerId) return true;
+
+          if (!repite) return false;
+
+          return puestoDe(actual, ficha.puesto)?.grupo !== puesto?.grupo;
+        });
 
         return { ...actual, fichas: [...limpio, fichaNueva(playerId, puesto)] };
       });
@@ -1613,7 +1636,8 @@ export default function PizarraAbpPage() {
                         anotado. Cuando haya historial, «Colocar todo» rellena
                         las diapositivas por prioridad: el que más veces ha
                         ocupado el puesto va primero y nadie se repite dentro de
-                        una misma diapositiva.
+                        una misma diapositiva —en las directas, dentro de un
+                        mismo sitio: el mismo tirador puede estar en los tres—.
                       </p>
                     ) : (
                       <MemoriaResumen store={store} porId={porId} />

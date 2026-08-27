@@ -269,6 +269,18 @@ export type PlantillaSlide = {
    */
   elegirEnGrupo?: string[];
   /**
+   * Si la misma cara puede salir en varios sitios de la diapositiva.
+   *
+   * La regla normal es que no: en un córner nadie puede ser a la vez el
+   * rematador 1 y el que cierra, y ponerle en el segundo sitio le quita del
+   * primero. En «directas a portería» esa regla estorba, porque lo que hay ahí
+   * no son puestos de una misma jugada sino **opciones distintas** —lado
+   * izquierdo, lado derecho, penalti— y el mismo tirador puede estar en las
+   * tres. Dentro de un mismo sitio sigue sin poder repetirse: nadie lanza a la
+   * vez de primero y de segundo desde la izquierda.
+   */
+  repite?: boolean;
+  /**
    * Grupos cuyos puestos llevan una casilla vacía para el dorsal del rival.
    *
    * En el córner defensivo cada marca es un rival concreto, y el dorsal no se
@@ -391,6 +403,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | 1153 y se pinta por encima.
     */
     elegirEnGrupo: ["lado-i", "lado-d", "penaltis"],
+    repite: true,
     puestos: puestos("directas", [
       { code: "I1", label: "Lado izquierdo · 1", grupo: "lado-i", x: 415, y: 585 },
       { code: "I2", label: "Lado izquierdo · 2", grupo: "lado-i", x: 415, y: 745 },
@@ -1011,6 +1024,17 @@ export function eligeEnGrupo(slide: SlidePizarra, grupoKey: string) {
   );
 }
 
+/**
+ * Si en esta diapositiva la misma cara puede salir en varios sitios.
+ *
+ * Sólo lo dicen las plantillas donde los grupos son opciones y no puestos de
+ * una misma jugada —las directas—. En el resto, poner a alguien en un puesto
+ * le saca del anterior.
+ */
+export function admiteRepetidos(slide: SlidePizarra) {
+  return PLANTILLA_BY_KEY.get(slide.plantilla)?.repite === true;
+}
+
 /** Los puestos de un grupo, en el orden en que los escribe la plantilla. */
 export function puestosDeGrupo(slide: SlidePizarra, grupoKey: string) {
   return puestosDe(slide).filter((puesto) => puesto.grupo === grupoKey);
@@ -1065,6 +1089,11 @@ export function memoriaDeGrupo(memoria: MemoriaPizarra, puestos: PuestoAbp[]) {
  * no se replanta y se queda donde el entrenador la hubiera arrastrado. Los
  * elegidos que estuvieran en otro puesto de la diapositiva se mueven aquí, que
  * es la misma regla que al asignar de uno en uno: nadie sale dos veces.
+ *
+ * Salvo donde la plantilla dice lo contrario (`repite`). En las directas los
+ * grupos son opciones —izquierda, derecha, penalti— y no puestos de una misma
+ * jugada: elegir al mismo tirador en dos de ellas es la decisión, no un
+ * despiste, y no se le quita del otro sitio.
  */
 export function conElegidosDelGrupo(
   slide: SlidePizarra,
@@ -1075,6 +1104,8 @@ export function conElegidosDelGrupo(
 
   const elegidos = playerIds.slice(0, puestos.length);
 
+  const repite = admiteRepetidos(slide);
+
   const previas = new Map(
     slide.fichas
       .filter((ficha) => ficha.puesto && claves.has(ficha.puesto))
@@ -1084,7 +1115,7 @@ export function conElegidosDelGrupo(
   const limpio = slide.fichas.filter(
     (ficha) =>
       !(ficha.puesto && claves.has(ficha.puesto)) &&
-      !elegidos.includes(ficha.playerId),
+      (repite || !elegidos.includes(ficha.playerId)),
   );
 
   const nuevas = elegidos.map((playerId, indice) => {
@@ -1191,6 +1222,10 @@ export function prioridadDe(memoria: MemoriaPizarra, puesto: string) {
  * puesto**: si el entrenador ha colocado a alguien a mano, colocar
  * automáticamente rellena lo que falta, no rehace su trabajo.
  *
+ * En las diapositivas de opciones (`repite`) la primera regla se estrecha a
+ * cada grupo: el mismo tirador puede salir en la izquierda, en la derecha y en
+ * el penalti —que es lo normal— pero no dos veces en el mismo lado.
+ *
  * Devuelve las fichas nuevas; los puestos sin candidato se quedan vacíos, que
  * es más honesto que poner al primero de la plantilla.
  */
@@ -1203,12 +1238,59 @@ export function colocaAutomatico(
     slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[],
   );
 
-  const usados = new Set(slide.fichas.map((ficha) => ficha.playerId));
+  const repite = admiteRepetidos(slide);
+
+  const puestos = puestosDe(slide);
+
+  const puestoPorClave = new Map(
+    puestos.map((puesto) => [puesto.key, puesto]),
+  );
+
+  /*
+  | Con `repite`, un cubo por grupo; sin él, uno para toda la diapositiva. Se
+  | crean todos de antemano: una ficha suelta tiene que caer en los cubos de
+  | los grupos que todavía no ha visitado nadie.
+  */
+  const cubos = new Map<string, Set<string>>(
+    (repite ? [...new Set(puestos.map((puesto) => puesto.grupo))] : ["*"]).map(
+      (clave) => [clave, new Set<string>()],
+    ),
+  );
+
+  const cuboDe = (grupo: string) => {
+    const clave = repite ? grupo : "*";
+
+    let cubo = cubos.get(clave);
+
+    if (!cubo) {
+      cubo = new Set<string>();
+      cubos.set(clave, cubo);
+    }
+
+    return cubo;
+  };
+
+  slide.fichas.forEach((ficha) => {
+    const grupo = ficha.puesto
+      ? puestoPorClave.get(ficha.puesto)?.grupo
+      : undefined;
+
+    /* Una ficha suelta —sin puesto— no es de nadie: ocupa en toda la hoja. */
+    if (repite && !grupo) {
+      cubos.forEach((cubo) => cubo.add(ficha.playerId));
+
+      return;
+    }
+
+    cuboDe(grupo ?? "*").add(ficha.playerId);
+  });
 
   const nuevas: FichaPizarra[] = [];
 
-  puestosDe(slide).forEach((puesto) => {
+  puestos.forEach((puesto) => {
     if (ocupados.has(puesto.key)) return;
+
+    const usados = cuboDe(puesto.grupo);
 
     const elegido = prioridadDe(memoria, puesto.key).find(
       (playerId) => disponibles.has(playerId) && !usados.has(playerId),
