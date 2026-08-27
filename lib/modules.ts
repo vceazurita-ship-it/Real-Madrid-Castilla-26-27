@@ -1,4 +1,5 @@
 import {
+  AlarmClock,
   Bus,
   BarChart3,
   Binoculars,
@@ -350,6 +351,26 @@ export const MODULES: AppModule[] = [
     desc: "Reuniones, viajes y logística del staff",
     icon: CalendarDays,
     rank: 60,
+  },
+  {
+    href: "/alertas",
+    area: "OPERATIVA",
+    title: "Tareas y Alertas",
+    desc: "Avisos por correo que se repiten y se envían solos",
+    icon: AlarmClock,
+    rank: 61,
+    alias: [
+      "recordatorio",
+      "recordatorios",
+      "aviso",
+      "avisos",
+      "alarma",
+      "alarmas",
+      "correo",
+      "email",
+      "tarea",
+      "tareas",
+    ],
   },
   {
     href: "/desplazamiento",
