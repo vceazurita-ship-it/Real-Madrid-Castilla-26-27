@@ -239,13 +239,6 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
       "https://assets.realmadrid.com/is/image/realmadrid/MELVIN_DB10242_380x501%20%E2%80%93%201?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-03",
-    name: "Valdepeñas",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/VICTOR_VALDEPEÑAS_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
     idJugador: "JUG-04",
     name: "Diego Aguado",
     position: "Defensa",
@@ -258,13 +251,6 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
     position: "Defensa",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/ALVARO%20LEZCANO_JT11325_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-05",
-    name: "Manu Serrano",
-    position: "Defensa",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/MANU_SERRANO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-07",
@@ -376,13 +362,6 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
       "https://assets.realmadrid.com/is/image/realmadrid/RACHAD_FETTAL_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
-    idJugador: "JUG-21",
-    name: "Jacobo",
-    position: "Delantero",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/JACOBO_ORTEGA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
     idJugador: "JUG-26",
     name: "Carvajal",
     position: "Delantero",
@@ -439,14 +418,6 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   position: "Defensa",
   externo: true,
   photo: "/players/AIMAR_GARCIA.jpg",
-},
-{
-  idJugador: "JUG-42",
-  name: "Seco",
-  position: "Defensa",
-  externo: true,
-  photo:
-    "https://assets.realmadrid.com/is/image/realmadrid/FERRAN%20SECO_JT11296_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
 },
 {
   idJugador: "JUG-45",

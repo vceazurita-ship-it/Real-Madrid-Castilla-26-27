@@ -50,7 +50,6 @@ export const PLAYER_IMAGE_SLUGS = [
   "eduardo-del-amo",
   "elena-isla",
   "ferran-quetglas",
-  "ferran-seco",
   "fran-gonzalez",
   "gabriel-castrelo",
   "gabriel-valero",
@@ -60,7 +59,6 @@ export const PLAYER_IMAGE_SLUGS = [
   "ignacio-marco",
   "illia-voloshyn",
   "izan-regueira",
-  "jacobo-ortega",
   "jaime-barroso",
   "jaime-fraile",
   "javi-navarro",
@@ -74,7 +72,6 @@ export const PLAYER_IMAGE_SLUGS = [
   "leo-lemaitre",
   "liberto-navascues",
   "manex-rezola",
-  "manu-serrano",
   "manuel-angel",
   "marcos-chena",
   "mario-rivas",
@@ -89,7 +86,6 @@ export const PLAYER_IMAGE_SLUGS = [
   "sergio-mestre",
   "tirso-lorente",
   "victor-cea",
-  "victor-valdepenas",
 ] as const;
 
 export type PlayerImageSlug = (typeof PLAYER_IMAGE_SLUGS)[number];
@@ -101,7 +97,7 @@ export const PLAYER_PHOTO_FALLBACK = `${PHOTO_BASE}/placeholder.webp`;
 
 /**
  * ID de la hoja -> slug. Es la red de seguridad para los nombres que el
- * resolver no sabe leer solo, como "Valdepeñas" (la ñ no está en el slug).
+ * resolver no sabe leer solo, como "Ncoghe" (la hoja y el archivo no coinciden).
  *
  * OJO: la hoja ha renumerado los IDs al menos una vez. En agosto de 2026 los
  * porteros pasaron de JUG-24/25/26 a JUG-23/24/25 y todo el bloque JUG-14..27
@@ -111,9 +107,7 @@ export const PLAYER_PHOTO_FALLBACK = `${PHOTO_BASE}/placeholder.webp`;
 const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-01": "jesus-fortea",
   "JUG-02": "melvin-ukpeigbe",
-  "JUG-03": "victor-valdepenas",
   "JUG-04": "diego-aguado",
-  "JUG-05": "manu-serrano",
   "JUG-06": "alvaro-lezcano",
   "JUG-07": "joan-martinez",
   "JUG-08": "mario-rivas",
@@ -129,7 +123,6 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-18": "daniel-yanez",
   "JUG-19": "alexis-ciria",
   "JUG-20": "alvaro-leiva",
-  "JUG-21": "jacobo-ortega",
   "JUG-22": "rachad-fettal",
   "JUG-23": "sergio-mestre",
   "JUG-24": "javi-navarro",
@@ -145,7 +138,6 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-38": "david-jimenez",
   "JUG-39": "liberto-navascues",
   "JUG-40": "aimar-garcia",
-  "JUG-42": "ferran-seco",
   "JUG-43": "illia-voloshyn",
   "JUG-44": "alvaro-gonzalez",
   "JUG-45": "alfredo-sotres",
@@ -169,7 +161,6 @@ const NAME_ALIASES: Record<string, PlayerImageSlug> = {
   "gabri valero": "gabriel-valero",
 
   // Apodos de la columna APODO (algunas pantallas sólo manejan el apodo).
-  valde: "victor-valdepenas",
   lezca: "alvaro-lezcano",
   laco: "diego-lacosta",
   meso: "daniel-mesonero",

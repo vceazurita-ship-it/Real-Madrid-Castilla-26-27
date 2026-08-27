@@ -1,19 +1,42 @@
 /**
  * Jugadores que no deben pintarse en ninguna parte de la app.
  *
- * Las hojas siguen mandándolos —Thiago aparece en la hoja de sesión, en las
+ * Las hojas siguen mandándolos —aparecen en la hoja de sesión, en las
  * alineaciones guardadas y en el radar emocional—, así que el filtro vive aquí
  * y se aplica en cada punto de entrada de datos, no en cada tarjeta.
  *
  * La comparación es sobre el nombre completo normalizado, nunca por `contiene`:
  * así "Santiago" no cae por parecerse a "Thiago", y tampoco dependemos del
  * ID_JUGADOR, que en la hoja de sesión choca con el de otro jugador.
+ *
+ * Por eso hay que listar TODAS las grafías con las que cada hoja escribe a la
+ * persona: nombre completo, apellido suelto y apodo de la columna APODO.
  */
 
 const HIDDEN_NAMES = new Set([
+  // Thiago Pitarch
   "thiago pitarch",
   "thiago",
   "tiago",
+
+  // Manu Serrano
+  "manu serrano",
+  "manuel serrano",
+  "serrano",
+
+  // Jacobo Ortega
+  "jacobo ortega",
+  "jacobo",
+  "ortega",
+
+  // Víctor Valdepeñas
+  "victor valdepenas",
+  "valdepenas",
+  "valde",
+
+  // Ferran Seco
+  "ferran seco",
+  "seco",
 ]);
 
 function normalize(value: unknown) {
