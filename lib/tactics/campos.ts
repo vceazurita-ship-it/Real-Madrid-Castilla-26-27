@@ -10,12 +10,44 @@
  * que para una foto que se comparte manda el verde de siempre.
  *
  * Y el **entorno**: con el campo inclinado, alrededor no había nada. Ahora se
- * levantan las vallas de publicidad y el graderío en el mismo espacio 3D que
- * la cámara, y se pueden apagar de un clic —lo que se enseña sigue siendo la
- * jugada, no el estadio—.
+ * levantan el foso, los dos anillos LED, la grada y el techo en el mismo
+ * espacio 3D que la cámara, y se pueden apagar de un clic —lo que se enseña
+ * sigue siendo la jugada, no el estadio—.
  */
 
-export type CampoId = "cesped" | "estadio" | "nocturno" | "pizarra";
+export type CampoId = "cesped" | "estadio" | "nocturno" | "pizarra" | "bernabeu";
+
+/**
+ * La paleta de todo lo que rodea al césped.
+ *
+ * Un campo vacío en cada color quiere decir «esa pieza no se dibuja»: el
+ * diseño de imprimir no enciende focos y el apagado no levanta techo. Así se
+ * elige el estadio desde aquí y `EntornoEstadio` no decide nada.
+ */
+export interface EntornoCampo {
+  /** La hierba que hay entre la línea de cal y el foso. */
+  banda: string;
+  /** El pasillo de tartán entre la hierba y el primer anillo. */
+  foso: string;
+  /** Fondo de los dos anillos LED. */
+  led: string;
+  /** El barrido de luz que recorre el LED. Vacío = anillo apagado. */
+  ledBrillo: string;
+  /** El rótulo del club sobre el LED. */
+  vallaTexto: string;
+  /** Grada baja (la de abajo del anillo alto). */
+  grada: string;
+  /** Grada alta, más clara porque le da la luz de arriba. */
+  gradaAlta: string;
+  /** El moteado del público sentado. Vacío = grada vacía. */
+  publico: string;
+  /** Cubierta y cerchas. Vacío = estadio sin techo. */
+  techo: string;
+  /** La luz de los focos sobre el césped. Vacío = sin focos. */
+  foco: string;
+  /** El halo del suelo alrededor del campo. */
+  halo: string;
+}
 
 export interface DisenoCampo {
   id: CampoId;
@@ -32,17 +64,8 @@ export interface DisenoCampo {
   linea: string;
   /** Grosor de las líneas, en unidades de campo. */
   grosor: number;
-  /** Colores del entorno: banda de hierba, valla de publicidad y graderío. */
-  entorno: {
-    /** La hierba que hay entre la línea de cal y la valla. */
-    banda: string;
-    valla: string;
-    vallaTexto: string;
-    grada: string;
-    gradaAlta: string;
-    /** El halo del suelo alrededor del campo. */
-    halo: string;
-  };
+  /** Colores del entorno. */
+  entorno: EntornoCampo;
 }
 
 export const CAMPOS: DisenoCampo[] = [
@@ -57,10 +80,15 @@ export const CAMPOS: DisenoCampo[] = [
     grosor: 0.35,
     entorno: {
       banda: "#0B2015",
-      valla: "#0B2233",
+      foso: "#08161F",
+      led: "#0B2233",
+      ledBrillo: "rgba(228,206,155,.30)",
       vallaTexto: "rgba(228,206,155,.75)",
       grada: "#12293D",
       gradaAlta: "#22496B",
+      publico: "rgba(255,255,255,.20)",
+      techo: "",
+      foco: "",
       halo: "rgba(200,169,107,.10)",
     },
   },
@@ -75,11 +103,45 @@ export const CAMPOS: DisenoCampo[] = [
     grosor: 0.4,
     entorno: {
       banda: "#146134",
-      valla: "#0F2C4A",
+      foso: "#0B2036",
+      led: "#0F2C4A",
+      ledBrillo: "rgba(255,255,255,.45)",
       vallaTexto: "rgba(255,255,255,.88)",
       grada: "#1A4E78",
       gradaAlta: "#2E74AC",
+      publico: "rgba(255,255,255,.28)",
+      techo: "",
+      foco: "rgba(255,255,255,.09)",
       halo: "rgba(120,190,140,.16)",
+    },
+  },
+  {
+    /*
+    | El estadio encendido. Nace de los vídeos de la noche del estreno del
+    | segundo anillo LED: dos cintas de luz dando la vuelta al campo, la grada
+    | llena, los focos del techo y el videomarcador cantando la alineación.
+    | Es el diseño de «esto se manda al grupo», no el de trabajar la charla.
+    */
+    id: "bernabeu",
+    label: "Bernabéu",
+    nota: "Noche de estadio: doble anillo LED, focos y grada llena",
+    cesped: "#1A7C46",
+    franja: "rgba(255,255,255,.07)",
+    franjas: 16,
+    linea: "rgba(255,255,255,.94)",
+    grosor: 0.42,
+    entorno: {
+      banda: "#115932",
+      foso: "#0A1524",
+      led: "#0B2E7A",
+      ledBrillo: "rgba(190,220,255,.85)",
+      vallaTexto: "rgba(255,255,255,.95)",
+      grada: "#0C1A2C",
+      gradaAlta: "#1B3A5E",
+      publico: "rgba(226,234,247,.46)",
+      techo: "#0A1119",
+      foco: "rgba(198,224,255,.20)",
+      halo: "rgba(150,200,255,.18)",
     },
   },
   {
@@ -93,10 +155,15 @@ export const CAMPOS: DisenoCampo[] = [
     grosor: 0.32,
     entorno: {
       banda: "#050B11",
-      valla: "#050C14",
+      foso: "#03080D",
+      led: "#050C14",
+      ledBrillo: "rgba(120,200,255,.40)",
       vallaTexto: "rgba(120,200,255,.7)",
       grada: "#0A1826",
       gradaAlta: "#16334C",
+      publico: "rgba(150,205,255,.20)",
+      techo: "",
+      foco: "rgba(90,170,255,.12)",
       halo: "rgba(80,150,220,.12)",
     },
   },
@@ -111,10 +178,15 @@ export const CAMPOS: DisenoCampo[] = [
     grosor: 0.34,
     entorno: {
       banda: "#030D17",
-      valla: "#04121F",
+      foso: "#03101B",
+      led: "#04121F",
+      ledBrillo: "",
       vallaTexto: "rgba(200,169,107,.8)",
       grada: "#0A1A2A",
       gradaAlta: "#183B58",
+      publico: "",
+      techo: "",
+      foco: "",
       halo: "rgba(200,169,107,.14)",
     },
   },
@@ -129,7 +201,7 @@ export function disenoDe(id: CampoId | undefined): DisenoCampo {
 }
 
 /**
- * Lo que se lee en las vallas de publicidad.
+ * Lo que se lee en los anillos LED.
  *
  * No es decorativo: la pizarra se exporta y se manda, y una imagen que sale
  * del club tiene que decir de quién es sin depender del pie de foto.

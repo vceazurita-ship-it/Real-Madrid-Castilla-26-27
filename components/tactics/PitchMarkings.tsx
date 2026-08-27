@@ -42,6 +42,64 @@ export default function PitchMarkings({ campo }: { campo?: CampoId }) {
           />
         ))}
 
+      {/*
+        La luz de los focos.
+
+        Un campo iluminado no es un verde plano: la cubierta cuelga cuatro
+        baterías de focos y cada una deja su charco de luz sobre la hierba,
+        con el centro del campo más quemado que las esquinas. Va **encima de
+        la siega y debajo de las líneas**, para que la cal siga siendo lo más
+        claro del dibujo y las flechas no compitan con nada.
+      */}
+      {diseno.entorno.foco && (
+        <>
+          <defs>
+            {/*
+              El desvanecido lleva un punto intermedio a propósito. Con dos
+              paradas la caída es lineal y el borde del charco se ve como una
+              raya, sobre todo desde la cámara de portería, donde dos charcos
+              se cruzan a lo ancho del campo y dibujan una banda con canto.
+            */}
+            <radialGradient id={`foco-${diseno.id}`}>
+              <stop offset="0%" stopColor={diseno.entorno.foco} />
+              <stop
+                offset="55%"
+                stopColor={diseno.entorno.foco}
+                stopOpacity={0.42}
+              />
+              <stop offset="100%" stopColor={diseno.entorno.foco} stopOpacity={0} />
+            </radialGradient>
+          </defs>
+
+          <ellipse
+            cx={50}
+            cy={34}
+            rx={60}
+            ry={44}
+            fill={`url(#foco-${diseno.id})`}
+            stroke="none"
+          />
+
+          {/* Cuatro charcos en las esquinas, sin tocarse por el centro. */}
+          {[
+            [22, 12],
+            [78, 12],
+            [22, 56],
+            [78, 56],
+          ].map(([cx, cy]) => (
+            <ellipse
+              key={`${cx}-${cy}`}
+              cx={cx}
+              cy={cy}
+              rx={26}
+              ry={18}
+              fill={`url(#foco-${diseno.id})`}
+              stroke="none"
+            />
+          ))}
+        </>
+      )}
+
       {/* Perímetro */}
       <rect x={1.5} y={1.5} width={97} height={65} />
 

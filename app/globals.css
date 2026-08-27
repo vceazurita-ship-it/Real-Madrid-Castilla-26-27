@@ -394,7 +394,9 @@ scrollbar-width:none;
   .particles::before,
   .animate-pulse-glow,
   .scan-line,
-  .light-sweep::after {
+  .light-sweep::after,
+  .pizarra-led-barrido,
+  .pizarra-grada-destellos {
     animation: none;
   }
 
@@ -1348,4 +1350,68 @@ scrollbar-width:none;
 
 :root[data-theme="light"] .theme-when-dark {
   display: none;
+}
+
+/* ===========================
+   ESTADIO DE LA PIZARRA TÁCTICA
+   Las dos cosas que hacen que el estadio esté vivo y no sea un decorado: la
+   cinta de luz que recorre los anillos LED y los flashes de la grada. Van en
+   CSS y no en React porque el tablero se re-renderiza en cada trazo, y una
+   animación en estado se reiniciaría en cada punto de una flecha.
+=========================== */
+
+.pizarra-led-barrido {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  animation: pizarraLedBarrido 7s linear infinite;
+}
+
+@keyframes pizarraLedBarrido {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+/* Los destellos: el patrón de puntos se desplaza a saltos, así que en cada
+   salto se encienden unos cuantos y se apagan otros. Un móvil buscando la
+   foto, no una guirnalda. */
+.pizarra-grada-destellos {
+  opacity: .55;
+  animation: pizarraDestellos 4.5s steps(1, end) infinite;
+}
+
+@keyframes pizarraDestellos {
+  0% {
+    background-position: 0 0;
+    opacity: .5;
+  }
+
+  25% {
+    background-position: 37% 61%;
+    opacity: .28;
+  }
+
+  50% {
+    background-position: 71% 23%;
+    opacity: .6;
+  }
+
+  75% {
+    background-position: 14% 82%;
+    opacity: .34;
+  }
+
+  100% {
+    background-position: 0 0;
+    opacity: .5;
+  }
 }

@@ -93,12 +93,20 @@ export const CAMERA_MODES: {
 ];
 
 const PRESETS: Record<PitchCameraMode, CameraPose> = {
+  /*
+   * El encuadre de televisión no enseña sólo el campo: enseña el campo **con
+   * el estadio detrás**. Antes el zoom era 1.16 y de todo lo que se levanta
+   * alrededor (los dos anillos LED, la grada, la cubierta) sólo asomaba una
+   * franja azul de tres píxeles pegada al borde de arriba. Abrir el plano
+   * hasta 0.82 mete el fondo entero en cuadro y el campo sigue llenando el
+   * ancho: es el plano general con el que arranca cualquier retransmisión.
+   */
   broadcast: {
     tilt: 44,
     yaw: 0,
-    zoom: 1.16,
+    zoom: 0.82,
     panX: 0,
-    panY: -18,
+    panY: 8,
     focusX: 0.5,
     focusY: 0.5,
   },
@@ -111,9 +119,9 @@ const PRESETS: Record<PitchCameraMode, CameraPose> = {
   goal: {
     tilt: 66,
     yaw: 90,
-    zoom: 1.9,
+    zoom: 1.15,
     panX: 0,
-    panY: -46,
+    panY: 26,
     focusX: 0.74,
     focusY: 0.5,
   },

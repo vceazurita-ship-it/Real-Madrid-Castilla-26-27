@@ -929,7 +929,12 @@ export default function TacticsBoard({
         onGestureStart={cancelEditGesture}
         entorno={
           entornoVisible && camera.render === "3d" ? (
-            <EntornoEstadio campo={campoActivo} />
+            <EntornoEstadio
+              campo={campoActivo}
+              titulo={doc.titulo}
+              escena={scene.nombre}
+              yaw={camera.pose.yaw}
+            />
           ) : undefined
         }
         cameraBar={
