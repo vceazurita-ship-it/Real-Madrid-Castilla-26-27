@@ -1,12 +1,10 @@
 import {
-  Activity,
   Bus,
   BarChart3,
   Binoculars,
   BookOpen,
   Brain,
   CalendarDays,
-  Clipboard,
   ClipboardCheck,
   ClipboardList,
   ClipboardPen,
@@ -165,14 +163,12 @@ export const MODULES: AppModule[] = [
     rank: 96,
     alias: ["disponibilidad"],
   },
-  {
-    href: "/pizarra_sesion",
-    area: "METODOLOGÍA",
-    title: "Pizarra Sesión",
-    desc: "Organización visual de tareas y grupos",
-    icon: Clipboard,
-    rank: 94,
-  },
+  /*
+    «Pizarra Sesión» y «Pizarra Competición» están en obras: fuera del menú y
+    fuera de aquí, que es lo que las quitaba de la portada, del buscador y de
+    los accesos recientes. Las páginas siguen en pie —se llega por URL— y
+    vuelven a esta lista el día que se retomen.
+  */
   {
     href: "/abp-microciclo",
     area: "METODOLOGÍA",
@@ -190,14 +186,6 @@ export const MODULES: AppModule[] = [
     icon: ClipboardList,
     rank: 91,
     alias: ["balon parado", "abp", "pizarra abp", "powerpoint de abp"],
-  },
-  {
-    href: "/pizarra",
-    area: "METODOLOGÍA",
-    title: "Pizarra Competición",
-    desc: "Alineación y estructura para el partido",
-    icon: Activity,
-    rank: 88,
   },
   {
     href: "/pizarra-tactica",
