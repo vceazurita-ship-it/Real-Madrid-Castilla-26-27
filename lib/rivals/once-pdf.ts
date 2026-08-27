@@ -47,6 +47,12 @@ import {
 
 import type { OncePos } from "@/lib/rivals/once";
 
+import {
+  FAMILIA_BARLOW,
+  FAMILIA_RESPALDO,
+  registraBarlow,
+} from "@/lib/rivals/pdf-fuente";
+
 /*
 | Quién va dónde en el campo no se decide aquí: lo reparte `once-campo`, que
 | es el mismo motor que mueve el pop-up de antes de exportar. Lo que se ve al
@@ -198,10 +204,29 @@ export type OncePaleta = {
   tinta: string;
   tintaMedia: string;
   tintaTenue: string;
+  /**
+   * El color con el que firma la casa: filo de la cabecera, rótulos de
+   * sección y chapa del dorsal.
+   *
+   * Se sigue llamando `oro` porque es el papel que hacía antes, pero en la
+   * plantilla del club ese sitio lo ocupa el rosa.
+   */
   oro: string;
+  /** El rosa de los filos, en su tono pleno: se pinta, no se lee. */
+  rosa: string;
+  /** El crema de la tinta de las chapas y del papel de los paneles. */
+  crema: string;
   verde: string;
   ambar: string;
   rojo: string;
+  /**
+   * Un color por línea del equipo, en la familia de la plantilla.
+   *
+   * La app pinta las líneas con la paleta de pantalla —ámbar, celeste, menta,
+   * salmón—, que sobre el papel crema de este documento suena a otra casa. El
+   * documento las traduce a sus cuatro colores.
+   */
+  linea: Record<OncePdfLinea, string>;
   cesped: string;
   /** Franjas de siega: el césped un punto por encima o por debajo. */
   siega: string;
@@ -209,49 +234,75 @@ export type OncePaleta = {
   realce: 1 | -1;
 };
 
+/*
+| La de noche es la misma plantilla con la luz apagada: el papel se va al
+| fondo del azul y el crema pasa de ser el color de los paneles a ser el de la
+| tinta. Los tres colores de la casa siguen siendo los mismos, sólo que
+| aclarados lo justo para separarse del azul.
+*/
 const PALETA_NOCHE: OncePaleta = {
-  fondo: "#0B0F14",
-  panel: "#131A22",
-  panelHondo: "#0E141B",
-  borde: "#222C37",
-  bordeSuave: "#1A222B",
-  tinta: "#F2F5F8",
-  tintaMedia: "#9AA5B1",
-  tintaTenue: "#66727F",
-  oro: "#C8A96B",
-  verde: "#34D399",
-  ambar: "#FBBF24",
-  rojo: "#F87171",
-  cesped: "#0E1A14",
-  siega: "#14201A",
-  lineaCampo: "#33463C",
+  fondo: "#0B1730",
+  panel: "#132444",
+  panelHondo: "#0E1C38",
+  borde: "#27395C",
+  bordeSuave: "#1B2C4C",
+  tinta: "#F7F4EC",
+  tintaMedia: "#A3B0C8",
+  tintaTenue: "#6E7E9B",
+  oro: "#F6AFB6",
+  rosa: "#F6AFB6",
+  crema: "#F7F4EC",
+  verde: "#5FCB9B",
+  ambar: "#E7B87A",
+  rojo: "#EF9AA6",
+  linea: {
+    portero: "#E7B87A",
+    defensa: "#8FB6E8",
+    medio: "#5FCB9B",
+    ataque: "#F6AFB6",
+  },
+  cesped: "#0F2A20",
+  siega: "#143327",
+  lineaCampo: "#3B6353",
   realce: 1,
 };
 
 /*
-| El modo día no es el nocturno invertido: los pastel de la familia 300-400 no
-| llegan a 2:1 sobre blanco, así que verde, ámbar, rojo y oro bajan a la
-| familia 600-700 —los mismos valores que usa `globals.css` para el tema
-| claro—. El papel es blanco puro y no el gris de la página: una hoja se lee y
-| se imprime mejor así, y las tarjetas necesitan un gris propio para
-| distinguirse del fondo.
+| El modo día **es la plantilla**: papel blanco, verde 1B3A2E, azul 0F1E3D,
+| crema F7F4EC en los paneles y el filo rosa de la cabecera. Es el mismo
+| lenguaje de `public/INDIVIDUAL.pptx`, para que el once probable y el
+| análisis individual de un jugador se vean como dos hojas del mismo informe
+| y no como dos documentos de dos sitios.
+|
+| El papel es blanco puro y no el crema: el crema es el color de los paneles,
+| y si el fondo también lo fuera las tarjetas dejarían de verse. Y la tinta
+| es el azul y no el verde —una hoja entera de texto verde cansa—; el verde
+| se guarda para lo que manda: titulares, fortalezas y el rótulo de la casa.
 */
 const PALETA_DIA: OncePaleta = {
   fondo: "#FFFFFF",
-  panel: "#F4F6FA",
-  panelHondo: "#EBEEF3",
-  borde: "#C4CDD8",
-  bordeSuave: "#DDE3EA",
-  tinta: "#0B0F14",
-  tintaMedia: "#4B5663",
-  tintaTenue: "#78838F",
-  oro: "#8A6A2C",
-  verde: "#15803D",
-  ambar: "#B45309",
-  rojo: "#DC2626",
-  cesped: "#E3EFE6",
-  siega: "#D6E5DA",
-  lineaCampo: "#93B49E",
+  panel: "#F7F4EC",
+  panelHondo: "#EFEADD",
+  borde: "#D9D2C2",
+  bordeSuave: "#E8E2D5",
+  tinta: "#0F1E3D",
+  tintaMedia: "#4C5B78",
+  tintaTenue: "#8492AB",
+  oro: "#A85B6C",
+  rosa: "#F6AFB6",
+  crema: "#F7F4EC",
+  verde: "#1B3A2E",
+  ambar: "#8A6A2C",
+  rojo: "#9B2C3B",
+  linea: {
+    portero: "#8A6A2C",
+    defensa: "#22456F",
+    medio: "#1B3A2E",
+    ataque: "#A85B6C",
+  },
+  cesped: "#E8EEE6",
+  siega: "#DBE4D9",
+  lineaCampo: "#8FA697",
   realce: -1,
 };
 
@@ -276,6 +327,18 @@ export function paletaOnce(tema?: Theme): OncePaleta {
 
 function estadoColor(estado: OncePdfEstado) {
   return estado === "titular" ? C.verde : C.ambar;
+}
+
+/**
+ * El color con el que se pinta a un jugador: el de su línea, en la familia
+ * del documento.
+ *
+ * `OncePdfPlayer.color` sigue llegando de la página —es el de la pantalla— y
+ * se usa de red de seguridad para quien no tiene línea reconocible, que en el
+ * campo tampoco tiene sitio.
+ */
+function colorLinea(jugador: OncePdfPlayer) {
+  return jugador.linea ? C.linea[jugador.linea] : jugador.color;
 }
 
 const ESTADO_LABEL: Record<OncePdfEstado, string> = {
@@ -417,7 +480,45 @@ function realza(color: string, cantidad: number): RGB {
 
 type Doc = import("jspdf").jsPDF;
 
-type Estilo = "normal" | "bold" | "italic";
+type Estilo = "normal" | "semibold" | "bold" | "italic";
+
+/*
+|--------------------------------------------------------------------------
+| TIPOGRAFÍA
+|--------------------------------------------------------------------------
+| La familia viva del documento, igual que `C` con los colores. La fija
+| `buildOncePdf` cuando ya sabe si ha podido incrustar Barlow Condensed
+| (`lib/rivals/pdf-fuente.ts`); si no ha podido, se queda Helvetica y el
+| documento sale igual, sólo que con otra letra.
+*/
+let FAMILIA: string = FAMILIA_RESPALDO;
+
+/*
+| Cuánto hay que subir el cuerpo al cambiar de letra.
+|
+| Barlow Condensed es estrecha **y** de ojo pequeño: los mismos 7 pt que en
+| Helvetica se leen un escalón por debajo, y este documento se abre en un
+| móvil de camino al campo. Se corrige aquí y no en las cincuenta y ocho
+| llamadas a `fuente()`, que además tendrían que volver atrás si algún día no
+| hay fuente que incrustar.
+*/
+let ESCALA_LETRA = 1;
+
+/**
+ * Estilo que existe de verdad en la familia puesta.
+ *
+ * De Barlow Condensed se incrustan tres pesos y ninguno cursivo: en la
+ * plantilla del club no hay cursivas, y las dos que usa este documento —los
+ * pies del mapa de zona— pasan a la redonda sin perder nada. Helvetica, al
+ * revés, no tiene *semibold*.
+ */
+function estiloReal(estilo: Estilo): string {
+  if (FAMILIA === FAMILIA_RESPALDO) {
+    return estilo === "semibold" ? "bold" : estilo;
+  }
+
+  return estilo === "italic" ? "normal" : estilo;
+}
 
 function fill(doc: Doc, color: string | RGB) {
   const [r, g, b] = typeof color === "string" ? hexToRgb(color) : color;
@@ -439,8 +540,8 @@ function ink(doc: Doc, color: string | RGB) {
 }
 
 function fuente(doc: Doc, tamano: number, estilo: Estilo = "normal") {
-  doc.setFont("helvetica", estilo);
-  doc.setFontSize(tamano);
+  doc.setFont(FAMILIA, estiloReal(estilo));
+  doc.setFontSize(tamano * ESCALA_LETRA);
 }
 
 /** Ancho real del texto con la fuente que esté puesta ahora mismo. */
@@ -484,7 +585,18 @@ function anchoRotulo(doc: Doc, texto: string, espaciado = 1.1) {
   );
 }
 
-/** Chapa redondeada con texto dentro. Devuelve lo que ha ocupado de ancho. */
+/**
+ * Chapa redondeada con texto dentro. Devuelve lo que ha ocupado de ancho.
+ *
+ * La chapa de la plantilla es **maciza**: el color entero de fondo y el texto
+ * en crema. Es lo que se ve desde el fondo de la sala, y lo que hace que una
+ * hoja del club se reconozca de un vistazo.
+ *
+ * Con `suave` se pinta la versión teñida de antes —color al 16 % sobre el
+ * papel, filo y texto del propio color—. Es para las tiras largas: una fila
+ * de ocho etiquetas macizas deja de ser información y pasa a ser un muro de
+ * color.
+ */
 function chapa(
   doc: Doc,
   texto: string,
@@ -496,6 +608,7 @@ function chapa(
     tamano?: number;
     alto?: number;
     padding?: number;
+    suave?: boolean;
   },
 ) {
   const {
@@ -504,17 +617,28 @@ function chapa(
     tamano = 6.5,
     alto = 11,
     padding = 5,
+    suave = false,
   } = opciones;
 
-  fuente(doc, tamano, "bold");
+  fuente(doc, tamano, "semibold");
 
   const w = ancho(doc, texto) + padding * 2;
 
-  fill(doc, mezcla(color, fondo, 0.16));
-  stroke(doc, mezcla(color, fondo, 0.45), 0.5);
-  doc.roundedRect(x, y, w, alto, alto / 2, alto / 2, "FD");
+  if (suave) {
+    fill(doc, mezcla(color, fondo, 0.16));
+    stroke(doc, mezcla(color, fondo, 0.45), 0.5);
+    doc.roundedRect(x, y, w, alto, alto / 2, alto / 2, "FD");
 
-  ink(doc, realza(color, 0.25));
+    ink(doc, realza(color, 0.25));
+  } else {
+    fill(doc, color);
+    doc.roundedRect(x, y, w, alto, alto / 2, alto / 2, "F");
+
+    /* La tinta de la chapa es el crema de la plantilla; de noche, el azul del
+       papel, que es lo que hace de tinta cuando el color es claro. */
+    ink(doc, C.realce === 1 ? C.fondo : C.crema);
+  }
+
   doc.text(texto, x + padding, y + alto / 2 + tamano * 0.36);
 
   return w;
@@ -881,7 +1005,7 @@ function pintaJugadorEnCampo(
 
   /* Fondo del recorte: se ve por las esquinas de un retrato que no llene el
      círculo, y es lo que queda entero cuando no hay foto. */
-  fill(doc, mezcla(jugador.color, C.cesped, 0.32));
+  fill(doc, mezcla(colorLinea(jugador), C.cesped, 0.32));
   doc.circle(cx, cy, radio, "F");
 
   /*
@@ -967,7 +1091,7 @@ function pintaJugadorEnCampo(
   const altoChapaNombre = 21;
 
   fill(doc, mezcla(C.fondo, C.cesped, 0.62));
-  stroke(doc, mezcla(jugador.color, C.cesped, 0.45), 0.5);
+  stroke(doc, mezcla(colorLinea(jugador), C.cesped, 0.45), 0.5);
   doc.roundedRect(
     chapaNombreX,
     chapaNombreY,
@@ -983,7 +1107,7 @@ function pintaJugadorEnCampo(
   doc.text(nombre, cx - ancho(doc, nombre) / 2, chapaNombreY + 9);
 
   fuente(doc, 5.5, "normal");
-  ink(doc, realza(jugador.color, 0.25));
+  ink(doc, realza(colorLinea(jugador), 0.25));
   doc.text(pos, cx - ancho(doc, pos) / 2, chapaNombreY + 17);
 
   /*
@@ -1047,9 +1171,16 @@ function fondoPagina(doc: Doc) {
   fill(doc, C.fondo);
   doc.rect(0, 0, PAGE_W, PAGE_H, "F");
 
-  /* Filo dorado del borde superior: la firma de la casa. */
-  fill(doc, C.oro);
-  doc.rect(0, 0, PAGE_W, 3, "F");
+  /*
+  | El filo de arriba, como en la plantilla: la banda verde de la casa y,
+  | debajo, la línea rosa. Son los dos trazos que hacen que una hoja se
+  | reconozca como del club antes de leer nada.
+  */
+  fill(doc, C.verde);
+  doc.rect(0, 0, PAGE_W, 4, "F");
+
+  fill(doc, C.rosa);
+  doc.rect(0, 4, PAGE_W, 1.6, "F");
 }
 
 function cabecera(
@@ -1084,8 +1215,8 @@ function cabecera(
   /* Donde empieza el bloque de texto: tras el escudo, si lo hay. */
   const titulo = escudo ? MARGEN + ESCUDO_CABECERA + 14 : MARGEN;
 
-  fuente(doc, 6.5, "bold");
-  ink(doc, C.oro);
+  fuente(doc, 6.5, "semibold");
+  ink(doc, C.verde);
   rotulo(doc, "RMCF CASTILLA · SCOUTING RIVAL", titulo, y + 8, 1.6);
 
   fuente(doc, 23, "bold");
@@ -1119,7 +1250,7 @@ function cabecera(
   }
 
   contadores.reverse().forEach(({ texto, color }) => {
-    fuente(doc, 7, "bold");
+    fuente(doc, 7, "semibold");
 
     const w = ancho(doc, texto) + 16;
 
@@ -1134,7 +1265,8 @@ function cabecera(
     x -= w + 6;
   });
 
-  stroke(doc, C.borde, 0.7);
+  /* El filo rosa bajo la cabecera, calcado de la plantilla. */
+  stroke(doc, C.rosa, 1.4);
   doc.line(MARGEN, y + 60, PAGE_W - MARGEN, y + 60);
 
   return y + 60;
@@ -1243,7 +1375,7 @@ function columnaResumen(
 
     grupo.jugadores.forEach((jugador) => {
       /* Punto del color de la línea: ata la fila con su sitio en el campo. */
-      fill(doc, realza(jugador.color, 0.1));
+      fill(doc, realza(colorLinea(jugador), 0.1));
       doc.circle(x + 14, fy - 2.6, 2.1, "F");
 
       filaResumen(doc, jugador, x, fy, w, {
@@ -1282,7 +1414,7 @@ function columnaResumen(
          ellas hay que buscar ahí arriba. Las demás dejan el hueco vacío para
          que las dos listas sigan alineadas. */
       if (jugador.enCampo) {
-        fill(doc, realza(jugador.color, 0.1));
+        fill(doc, realza(colorLinea(jugador), 0.1));
         doc.circle(x + 14, dy - 2.6, 2.1, "F");
       }
 
@@ -2034,7 +2166,7 @@ function pintaFicha(
 
   /* La chapa de estado va antes que el resto porque marca hasta dónde puede
      crecer la línea de la posición sin chocar con ella. */
-  fuente(doc, 6.5, "bold");
+  fuente(doc, 6.5, "semibold");
 
   const anchoEstado = ancho(doc, ESTADO_LABEL[jugador.estado]) + 12;
   const topeCabecera = x + w - PAD - anchoEstado - 8;
@@ -2049,7 +2181,7 @@ function pintaFicha(
 
   if (jugador.posCode) {
     cx += chapa(doc, jugador.posCode, cx, y + 16, {
-      color: jugador.color,
+      color: colorLinea(jugador),
       tamano: 6.5,
       padding: 6,
     }) + 6;
@@ -2069,7 +2201,7 @@ function pintaFicha(
   cx += ancho(doc, posicion) + 8;
 
   if (jugador.segunda) {
-    fuente(doc, 6, "bold");
+    fuente(doc, 6, "semibold");
 
     if (cx + ancho(doc, jugador.segunda) + 12 <= topeCabecera) {
       cx += chapa(doc, jugador.segunda, cx, y + 16, {
@@ -2082,7 +2214,7 @@ function pintaFicha(
   }
 
   if (jugador.rol) {
-    fuente(doc, 6.5, "bold");
+    fuente(doc, 6.5, "semibold");
 
     if (cx + ancho(doc, jugador.rol) + 12 <= topeCabecera) {
       chapa(doc, jugador.rol, cx, y + 15.5, {
@@ -2236,7 +2368,7 @@ function pintaFicha(
     let tx = x + PAD + 5;
 
     jugador.tags.forEach((tag) => {
-      fuente(doc, 6, "bold");
+      fuente(doc, 6, "semibold");
 
       const anchoChapa = ancho(doc, tag.label) + 10;
 
@@ -2249,6 +2381,7 @@ function pintaFicha(
         tamano: 6,
         alto: 11,
         padding: 5,
+        suave: true,
       });
 
       tx += anchoChapa + 4;
@@ -2388,6 +2521,15 @@ export async function buildOncePdf(data: OncePdfData) {
     format: "a4",
     compress: true,
   });
+
+  /*
+  | La letra de la casa, antes del primer trazo: los anchos con los que se
+  | reparten las columnas y se recortan los nombres son los de la fuente que
+  | esté puesta, así que medir con Helvetica y pintar con Barlow descuadraría
+  | la hoja entera.
+  */
+  FAMILIA = await registraBarlow(doc);
+  ESCALA_LETRA = FAMILIA === FAMILIA_BARLOW ? 1.14 : 1;
 
   doc.setProperties({
     title: `Once probable · ${data.equipo}`,
