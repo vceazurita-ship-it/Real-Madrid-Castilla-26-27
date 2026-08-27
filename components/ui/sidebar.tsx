@@ -244,37 +244,11 @@ const seccion = (titulo: string, hijos: ReactNode) => (
           )}
 
           {/*
-            Competición es todo lo que rodea al partido, y antes tenía una sola
-            entrada mientras la pizarra de competición, el vídeo y el histórico
-            vivían repartidos por Metodología y Colectivo. Ahora la semana de
-            partido se lee de arriba abajo en un solo bloque.
+            El orden es el de la semana tal y como se trabaja: primero lo que
+            se prepara —la metodología, el rival y el jugador— y después el
+            partido. Competición estaba arriba del todo y obligaba a bajar el
+            menú entero para lo que más se abre entre semana.
           */}
-          {seccion(
-            "Competición",
-            <>
-              {navLink(
-                "/match-preparation",
-                "Preparación de Partido",
-                <ClipboardCheck size={18} />,
-              )}
-
-              {navLink("/pizarra", "Pizarra Competición", <Presentation size={18} />)}
-
-              {navLink("/pizarra-tactica", "Pizarra Táctica", <PenTool size={18} />)}
-
-              {navLink(
-                "/match-plans",
-                "Vídeo Análisis Partidos",
-                <Clapperboard size={18} />,
-              )}
-
-              {navLink(
-                "/collective_history",
-                "Histórico Competición",
-                <History size={18} />,
-              )}
-            </>,
-          )}
 
           {/* Metodología: la semana de entrenamiento, y sólo eso. */}
           {seccion(
@@ -292,10 +266,79 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 <BarChart3 size={18} />,
               )}
 
-              {navLink("/pizarra_sesion", "Pizarra Sesión", <PencilRuler size={18} />)}
+              {/* En obras: bajan al final de Metodología hasta que se retomen. */}
+              {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}
 
-              {/* En obras: baja al final de Metodología hasta que se retome. */}
               {disabledLink("Jugadores Sesión", <UserCheck size={18} />)}
+            </>,
+          )}
+
+          {seccion(
+            "Rival",
+            <>
+              {navLink("/rivals", "Plantillas", <Users size={18} />)}
+
+              {navLink(
+                "/scout-rival-individual",
+                "Individual",
+                <UserSearch size={18} />,
+              )}
+
+              {navLink(
+                "/scout-rival-collective",
+                "Colectivo",
+                <Binoculars size={18} />,
+              )}
+
+              {navLink("/scout-rival-abp", "ABP del Rival", <Target size={18} />)}
+            </>,
+          )}
+
+          {seccion(
+            "Individual",
+            <>
+              {navLink("/individual", "Plantilla", <User size={18} />)}
+
+              {navLink("/ratings", "Valoraciones", <Star size={18} />)}
+
+              {navLink("/comparative_ind", "Comparativo U-21", <Scale size={18} />)}
+
+              {/* En obras: baja al final de Individual hasta que se retome. */}
+              {disabledLink("Dashboard", <Gauge size={18} />)}
+            </>,
+          )}
+
+          {/*
+            Competición es todo lo que rodea al partido, y antes tenía una sola
+            entrada mientras la pizarra de competición, el vídeo y el histórico
+            vivían repartidos por Metodología y Colectivo. Ahora la semana de
+            partido se lee de arriba abajo en un solo bloque.
+          */}
+          {seccion(
+            "Competición",
+            <>
+              {navLink(
+                "/match-preparation",
+                "Preparación de Partido",
+                <ClipboardCheck size={18} />,
+              )}
+
+              {navLink("/pizarra-tactica", "Pizarra Táctica", <PenTool size={18} />)}
+
+              {navLink(
+                "/match-plans",
+                "Vídeo Análisis Partidos",
+                <Clapperboard size={18} />,
+              )}
+
+              {navLink(
+                "/collective_history",
+                "Histórico Competición",
+                <History size={18} />,
+              )}
+
+              {/* En obras: baja al final de Competición hasta que se retome. */}
+              {disabledLink("Pizarra Competición", <Presentation size={18} />)}
             </>,
           )}
 
@@ -328,43 +371,8 @@ const seccion = (titulo: string, hijos: ReactNode) => (
           )}
 
           {seccion(
-            "Individual",
-            <>
-              {navLink("/individual", "Plantilla", <User size={18} />)}
-
-              {navLink("/ratings", "Valoraciones", <Star size={18} />)}
-
-              {navLink("/comparative_ind", "Comparativo U-21", <Scale size={18} />)}
-
-              {/* En obras: baja al final de Individual hasta que se retome. */}
-              {disabledLink("Dashboard", <Gauge size={18} />)}
-            </>,
-          )}
-
-          {seccion(
             "Relacional",
             <>{navLink("/emotion", "Emocional", <HeartHandshake size={18} />)}</>,
-          )}
-
-          {seccion(
-            "Rival",
-            <>
-              {navLink("/rivals", "Plantillas", <Users size={18} />)}
-
-              {navLink(
-                "/scout-rival-individual",
-                "Individual",
-                <UserSearch size={18} />,
-              )}
-
-              {navLink(
-                "/scout-rival-collective",
-                "Colectivo",
-                <Binoculars size={18} />,
-              )}
-
-              {navLink("/scout-rival-abp", "ABP del Rival", <Target size={18} />)}
-            </>,
           )}
 
           {seccion(
