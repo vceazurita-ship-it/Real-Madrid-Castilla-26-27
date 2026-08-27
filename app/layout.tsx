@@ -23,8 +23,10 @@ export const metadata: Metadata = {
   title: "Real Madrid CF Castilla",
   description: "Plataforma Real Madrid CF Castilla",
   manifest: "/manifest.json",
+  /* Los pinta `scripts/app-icons.mjs` desde el escudo de la barra superior.
+     El de la pestaña sigue siendo `app/favicon.ico`, que Next enlaza solo. */
   icons: {
-    apple: "/icon-192.png",
+    apple: "/apple-icon.png",
   },
 };
 
