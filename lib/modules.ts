@@ -154,20 +154,11 @@ export const MODULES: AppModule[] = [
     icon: CalendarDays,
     rank: 95,
   },
-  {
-    href: "/training",
-    area: "METODOLOGÍA",
-    title: "Jugadores Próxima Sesión",
-    desc: "Importación y disponibilidad para la sesión",
-    icon: Users,
-    rank: 96,
-    alias: ["disponibilidad"],
-  },
   /*
-    «Pizarra Sesión» y «Pizarra Competición» están en obras: fuera del menú y
-    fuera de aquí, que es lo que las quitaba de la portada, del buscador y de
-    los accesos recientes. Las páginas siguen en pie —se llega por URL— y
-    vuelven a esta lista el día que se retomen.
+    «Jugadores Próxima Sesión», «Pizarra Sesión» y «Pizarra Competición» están
+    en obras: fuera del menú y fuera de aquí, que es lo que las quita de la
+    portada, del buscador y de los accesos recientes. Las páginas siguen en
+    pie —se llega por URL— y vuelven a esta lista el día que se retomen.
   */
   {
     href: "/abp-microciclo",
