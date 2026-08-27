@@ -259,6 +259,16 @@ export type PlantillaSlide = {
   /** Lo que la diapositiva dibuja en el campo además de las caras. */
   adornos?: AdornoAbp[];
   /**
+   * Grupos que se eligen de una vez, y no puesto a puesto.
+   *
+   * En «directas a portería» lo que se decide no es quién es el lanzador 2 del
+   * lado izquierdo: es **quién tira desde ese lado**, y en qué orden. Pulsar
+   * cualquiera de sus puestos abre la lista entera del grupo y se marcan
+   * varios de golpe; los marcados caen en los puestos del grupo por orden y se
+   * pintan todos en el campo, uno detrás de otro.
+   */
+  elegirEnGrupo?: string[];
+  /**
    * Grupos cuyos puestos llevan una casilla vacía para el dorsal del rival.
    *
    * En el córner defensivo cada marca es un rival concreto, y el dorsal no se
@@ -355,7 +365,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "directas",
-    rev: 2,
+    rev: 3,
     titulo: "DIRECTAS A PORTERÍA",
     vista: "porteria",
     lado: "ofensivo",
@@ -366,28 +376,36 @@ export const PLANTILLAS: PlantillaSlide[] = [
     ],
     /*
     | Esta diapositiva era sólo una lista: nueve nombres en el panel y el campo
-    | entero vacío. Ahora dice también DESDE DÓNDE se lanza.
+    | entero vacío. Ahora dice DESDE DÓNDE se lanza y **quiénes** lanzan.
     |
-    | El primero de cada lado y el primer penalti se plantan en su sitio; el
-    | segundo y el tercero se quedan en el panel, porque son el orden si el
-    | primero no está, no otra posición del campo. Los tres sitios quedan
-    | marcados en el césped aunque no haya nadie puesto (ver `adornos`).
+    | Los tres de cada sitio van al campo, en columna detrás de su marca: el
+    | primero de pie sobre el balón y los otros dos por detrás, en la fila de
+    | espera. Antes sólo se plantaba el primero y el segundo y el tercero
+    | vivían en el panel; el orden se leía, pero las caras no se veían, que es
+    | justo lo que la sala mira. Se eligen los tres de una vez (`elegirEnGrupo`).
+    |
+    | Las columnas van a 160 px de separación —la ficha mide 120 de alta y su
+    | chapa 30— para que ninguna cara tape la chapa de la de delante. La del
+    | lado derecho se ha traído de 1135 a 1100, marca incluida: a 1135 la ficha
+    | llegaba a 1183 y se metía debajo de la caja de consignas, que empieza en
+    | 1153 y se pinta por encima.
     */
+    elegirEnGrupo: ["lado-i", "lado-d", "penaltis"],
     puestos: puestos("directas", [
       { code: "I1", label: "Lado izquierdo · 1", grupo: "lado-i", x: 415, y: 585 },
-      { code: "I2", label: "Lado izquierdo · 2", grupo: "lado-i" },
-      { code: "I3", label: "Lado izquierdo · 3", grupo: "lado-i" },
-      { code: "D1", label: "Lado derecho · 1", grupo: "lado-d", x: 1135, y: 585 },
-      { code: "D2", label: "Lado derecho · 2", grupo: "lado-d" },
-      { code: "D3", label: "Lado derecho · 3", grupo: "lado-d" },
+      { code: "I2", label: "Lado izquierdo · 2", grupo: "lado-i", x: 415, y: 745 },
+      { code: "I3", label: "Lado izquierdo · 3", grupo: "lado-i", x: 415, y: 905 },
+      { code: "D1", label: "Lado derecho · 1", grupo: "lado-d", x: 1100, y: 585 },
+      { code: "D2", label: "Lado derecho · 2", grupo: "lado-d", x: 1100, y: 745 },
+      { code: "D3", label: "Lado derecho · 3", grupo: "lado-d", x: 1100, y: 905 },
       { code: "P1", label: "Penalti · 1", grupo: "penaltis", x: 768, y: 430 },
-      { code: "P2", label: "Penalti · 2", grupo: "penaltis" },
-      { code: "P3", label: "Penalti · 3", grupo: "penaltis" },
+      { code: "P2", label: "Penalti · 2", grupo: "penaltis", x: 768, y: 590 },
+      { code: "P3", label: "Penalti · 3", grupo: "penaltis", x: 768, y: 750 },
     ]),
     adornos: [
       { tipo: "zona", x: 415, y: 585, label: "Lado I" },
       { tipo: "zona", x: 768, y: 430, label: "Penalti" },
-      { tipo: "zona", x: 1135, y: 585, label: "Lado D" },
+      { tipo: "zona", x: 1100, y: 585, label: "Lado D" },
     ],
     notas: ["Orden de lanzamiento cerrado antes del partido."],
   },
@@ -419,7 +437,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
        hasta que salen al campo: la casilla va en blanco y se rellena a boli. */
     dorsal: ["marcas"],
     adornos: [
-      { tipo: "transicion", label: "Defendemos el córner", remate: "Salimos a la contra" },
+      { tipo: "transicion", label: "Defendemos el córner", remate: "Volamos todos para hacer gol" },
     ],
     notas: [
       "Marcas: área pequeña «por delante».",
@@ -453,7 +471,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "RL", label: "Rechace largo", grupo: "zona", x: 1056, y: 560 },
     ]),
     adornos: [
-      { tipo: "transicion", label: "Defendemos la falta", remate: "Salimos a la contra" },
+      { tipo: "transicion", label: "Defendemos la falta", remate: "Volamos todos para hacer gol" },
     ],
     notas: [
       "Voz de mando.",
@@ -496,7 +514,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "2B", label: "2ª jugada", grupo: "segunda", x: 1120, y: 467 },
     ]),
     adornos: [
-      { tipo: "transicion", label: "Aguanta la barrera", remate: "Salimos a la contra" },
+      { tipo: "transicion", label: "Aguanta la barrera", remate: "Volamos todos para hacer gol" },
     ],
     notas: [
       "En barreras de menor número se mantienen laterales y, si es necesario, punta.",
@@ -527,7 +545,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "RL", label: "Rechace largo", grupo: "area", x: 936, y: 523 },
     ]),
     adornos: [
-      { tipo: "transicion", label: "Ganamos el duelo", remate: "Salimos a la contra" },
+      { tipo: "transicion", label: "Ganamos el duelo", remate: "Volamos todos para hacer gol" },
     ],
     notas: [
       "Atención a la segunda acción tras el duelo.",
@@ -984,6 +1002,100 @@ export function pideDorsal(slide: SlidePizarra, puesto: PuestoAbp) {
   return (PLANTILLA_BY_KEY.get(slide.plantilla)?.dorsal ?? []).includes(
     puesto.grupo,
   );
+}
+
+/** Si el grupo se elige entero de una vez y no puesto a puesto. */
+export function eligeEnGrupo(slide: SlidePizarra, grupoKey: string) {
+  return (PLANTILLA_BY_KEY.get(slide.plantilla)?.elegirEnGrupo ?? []).includes(
+    grupoKey,
+  );
+}
+
+/** Los puestos de un grupo, en el orden en que los escribe la plantilla. */
+export function puestosDeGrupo(slide: SlidePizarra, grupoKey: string) {
+  return puestosDe(slide).filter((puesto) => puesto.grupo === grupoKey);
+}
+
+/** Quién ocupa un grupo, por orden de puesto y sin los huecos. */
+export function ocupantesDeGrupo(slide: SlidePizarra, grupoKey: string) {
+  return puestosDeGrupo(slide, grupoKey)
+    .map(
+      (puesto) =>
+        slide.fichas.find((ficha) => ficha.puesto === puesto.key)?.playerId,
+    )
+    .filter(Boolean) as string[];
+}
+
+/**
+ * Lo aprendido en todos los puestos de un grupo, sumado y por prioridad.
+ *
+ * Eligiendo por grupo, «los habituales» no pueden ser los del puesto pulsado:
+ * quien lanzó el año pasado desde la izquierda es el habitual del lado, no del
+ * hueco número dos. Se suman las veces de los tres puestos y se ordena igual
+ * que la memoria de uno solo.
+ */
+export function memoriaDeGrupo(memoria: MemoriaPizarra, puestos: PuestoAbp[]) {
+  const suma = new Map<string, MemoriaPuesto>();
+
+  puestos.forEach((puesto) => {
+    (memoria[puesto.key] ?? []).forEach((item) => {
+      const previo = suma.get(item.playerId);
+
+      suma.set(
+        item.playerId,
+        previo
+          ? {
+              playerId: item.playerId,
+              veces: previo.veces + item.veces,
+              ultima: previo.ultima > item.ultima ? previo.ultima : item.ultima,
+            }
+          : { ...item },
+      );
+    });
+  });
+
+  return ordenaMemoria([...suma.values()]);
+}
+
+/**
+ * Deja en un grupo justo a los elegidos, por orden.
+ *
+ * Los que repiten puesto **conservan su ficha**: si alguien ya estaba de
+ * primero del lado izquierdo y sólo se añade un tercero, la cara del primero
+ * no se replanta y se queda donde el entrenador la hubiera arrastrado. Los
+ * elegidos que estuvieran en otro puesto de la diapositiva se mueven aquí, que
+ * es la misma regla que al asignar de uno en uno: nadie sale dos veces.
+ */
+export function conElegidosDelGrupo(
+  slide: SlidePizarra,
+  puestos: PuestoAbp[],
+  playerIds: string[],
+): SlidePizarra {
+  const claves = new Set(puestos.map((puesto) => puesto.key));
+
+  const elegidos = playerIds.slice(0, puestos.length);
+
+  const previas = new Map(
+    slide.fichas
+      .filter((ficha) => ficha.puesto && claves.has(ficha.puesto))
+      .map((ficha) => [ficha.puesto as string, ficha]),
+  );
+
+  const limpio = slide.fichas.filter(
+    (ficha) =>
+      !(ficha.puesto && claves.has(ficha.puesto)) &&
+      !elegidos.includes(ficha.playerId),
+  );
+
+  const nuevas = elegidos.map((playerId, indice) => {
+    const previa = previas.get(puestos[indice].key);
+
+    return previa && previa.playerId === playerId
+      ? previa
+      : fichaNueva(playerId, puestos[indice]);
+  });
+
+  return { ...slide, fichas: [...limpio, ...nuevas] };
 }
 
 export function puestoDe(slide: SlidePizarra, key: string | null) {

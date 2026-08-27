@@ -57,6 +57,8 @@ export type PortadaData = {
   nombreCompleto?: string;
   /** Posición escrita entera ("MEDIAPUNTA"). */
   posicion: string;
+  /** "Diestro", "Zurdo" o "Ambidiestro", tal y como lo escribe la hoja. */
+  pieDominante?: string;
   dorsal: string;
   /** Retrato del jugador. Sin él queda la silueta. */
   foto?: string;
@@ -238,6 +240,8 @@ function chapa(
     anchoMax?: number;
     /** `x` es el borde derecho, no el izquierdo. */
     desdeDerecha?: boolean;
+    /** Devuelve lo que mediría sin pintar nada. */
+    soloMide?: boolean;
   },
 ) {
   const {
@@ -252,6 +256,7 @@ function chapa(
     anchoMin = 0,
     anchoMax,
     desdeDerecha = false,
+    soloMide = false,
   } = opciones;
 
   let cuerpo = tamano;
@@ -271,6 +276,9 @@ function chapa(
   }
 
   const ancho = Math.max(anchoMin, anchoTexto + padding * 2);
+
+  if (soloMide) return ancho;
+
   const izquierda = desdeDerecha ? x - ancho : x;
 
   ctx.fillStyle = fondo;
@@ -493,19 +501,91 @@ function silueta(ctx: Ctx, cx: number, cy: number, r: number) {
   ctx.restore();
 }
 
-/** Las dos chapas del pie: quién es y qué juega. Se alinean por la derecha. */
+/**
+ * Cómo se lee el pie dominante en la chapa.
+ *
+ * La hoja lo escribe a mano y no siempre igual —«Zurdo», «zurda»,
+ * «Izquierdo»—, y la portada se proyecta: se normaliza a las tres palabras que
+ * el cuerpo técnico usa. Lo que no encaje se pinta tal cual en versales, que
+ * es mejor que tragarse un dato que alguien se ha molestado en escribir.
+ */
+function pieDominante(valor: string | undefined) {
+  const texto = (valor ?? "").trim();
+
+  if (!texto || texto === ".") return "";
+
+  const limpio = texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  /* La hoja de rivales escribe "DCHO", "IZDO" y "AMBOS" —así viene de
+     BeSoccer—, pero a mano se ha escrito de todo: se aceptan las dos formas y
+     se pinta siempre la palabra entera, que es la que se lee proyectada. */
+  if (limpio.includes("ambi") || limpio.includes("ambos")) return "AMBIDIESTRO";
+
+  if (
+    limpio.includes("zurd") ||
+    limpio.includes("izq") ||
+    limpio.includes("izd")
+  ) {
+    return "ZURDO";
+  }
+
+  if (
+    limpio.includes("diestr") ||
+    limpio.includes("derech") ||
+    limpio.includes("dch") ||
+    limpio.includes("der")
+  ) {
+    return "DIESTRO";
+  }
+
+  return texto.toUpperCase();
+}
+
+/**
+ * Las chapas del pie: qué pierna, quién es y qué juega. Van por la derecha.
+ *
+ * La del pie es la nueva y va la primera por la izquierda, en rosa sobre azul:
+ * no es del mismo orden que el nombre ni que la posición —es lo primero que se
+ * mira de un rival al que hay que defender una banda o una falta—, y con el
+ * color de las otras dos se leía como una tercera etiqueta de identidad.
+ */
 function chapasDelJugador(ctx: Ctx, data: PortadaData) {
   const Y = 872;
   const ALTO = 60;
 
   /*
   | Lo que hay entre el final de la franja de números y el margen derecho. Las
-  | dos chapas se reparten ese hueco: la de la posición puede llevar
+  | chapas se reparten ese hueco: la de la posición puede llevar
   | "MEDIO CENTRO DEFENSIVO · Nº14" y la del nombre, "PANAGIOTIS MORAITIS", y
   | juntas se comían la franja.
   */
   const HUECO = W - MARGEN - (FRANJA_X + FRANJA_W + 40);
   const SEPARACION = 20;
+
+  const pie = pieDominante(data.pieDominante);
+
+  const opcionesPie = {
+    y: Y,
+    alto: ALTO,
+    fondo: C.rosaHondo,
+    tinta: C.navy,
+    tamano: 22,
+    espaciado: 3.5,
+    padding: 24,
+    anchoMax: 210,
+    desdeDerecha: true,
+  };
+
+  /* Se mide antes de pintar nada: lo que ocupe es lo que las otras dos dejan
+     de tener, y la del nombre necesita saberlo para no salirse del hueco. */
+  const anchoPie = pie
+    ? chapa(ctx, pie, { ...opcionesPie, x: 0, soloMide: true })
+    : 0;
+
+  const reservado = anchoPie ? anchoPie + SEPARACION : 0;
 
   const posicion = [
     (data.posicion || "").toUpperCase(),
@@ -524,13 +604,13 @@ function chapasDelJugador(ctx: Ctx, data: PortadaData) {
         tamano: 25,
         espaciado: 3.5,
         padding: 30,
-        anchoMin: 280,
-        anchoMax: HUECO * 0.62,
+        anchoMin: 260,
+        anchoMax: (HUECO - reservado) * 0.62,
         desdeDerecha: true,
       })
     : 0;
 
-  chapa(ctx, (data.nombre || "").toUpperCase(), {
+  const anchoNombre = chapa(ctx, (data.nombre || "").toUpperCase(), {
     x: W - MARGEN - anchoPos - (anchoPos ? SEPARACION : 0),
     y: Y,
     alto: ALTO,
@@ -539,10 +619,23 @@ function chapasDelJugador(ctx: Ctx, data: PortadaData) {
     tamano: 25,
     espaciado: 3.5,
     padding: 30,
-    anchoMin: 280,
-    anchoMax: HUECO - anchoPos - (anchoPos ? SEPARACION : 0),
+    anchoMin: 240,
+    anchoMax: HUECO - reservado - anchoPos - (anchoPos ? SEPARACION : 0),
     desdeDerecha: true,
   });
+
+  if (pie) {
+    chapa(ctx, pie, {
+      ...opcionesPie,
+      x:
+        W -
+        MARGEN -
+        anchoPos -
+        (anchoPos ? SEPARACION : 0) -
+        anchoNombre -
+        SEPARACION,
+    });
+  }
 
   /* El nombre completo, debajo y pequeño: en el campo se le llama por el
      deportivo, pero en un acta o en BeSoccer aparece el otro. */

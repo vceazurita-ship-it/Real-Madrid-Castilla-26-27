@@ -326,74 +326,129 @@ function MarcaZona({ x, y, label }: { x: number; y: number; label: string }) {
 }
 
 /**
- * La flecha de salida de las diapositivas defensivas.
+ * La salida de las diapositivas defensivas.
  *
  * Una acción defendida bien no acaba en el despeje: acaba en la carrera de
- * enfrente. La flecha lo dice sin una línea de texto más —arranca fina y apagada
- * en nuestra área y llega gruesa y encendida al otro lado— y va en la franja de
- * abajo del lienzo, que en las cuatro diapositivas defensivas está vacía: nunca
- * se cruza con las caras ni con la caja de consignas.
+ * enfrente. Y no la corre uno: **son tres pasillos a la vez**, que es la única
+ * forma de que una contra llegue con gente. De ahí las tres flechas —izquierda,
+ * centro y derecha— abriéndose campo abajo desde nuestra área, y no la única
+ * flecha horizontal que había antes: cruzada de lado a lado decía «el balón va
+ * allí», no «vamos todos».
+ *
+ * Van en la franja de abajo del lienzo, que en las cuatro diapositivas
+ * defensivas está vacía: nunca se cruzan con las caras ni con la caja de
+ * consignas. Cada flecha se dibuja recta hacia abajo en su propio sistema de
+ * coordenadas y se gira entera con `rotate`, así que abrir o cerrar el abanico
+ * es cambiar un ángulo y nada más.
  *
  * Todo va en SVG con degradados propios: la captura del `.pptx` serializa el
  * estilo calculado y ni `filter: blur` de CSS ni `backdrop-filter` sobreviven,
- * pero un `<linearGradient>` sí.
+ * pero un `<linearGradient>` sí. Y el degradado se declara en
+ * `userSpaceOnUse`: dentro del giro, el espacio de usuario gira con la flecha,
+ * y así todas arrancan apagadas y llegan encendidas a la punta.
  */
+
+/** Largo de la flecha, y cuánto de eso es la cabeza. */
+const FLECHA_ALTO = 232;
+const FLECHA_CABEZA = 62;
+
+/** Los tres pasillos: dónde arranca cada uno y cuánto se abre. */
+const PASILLOS = [
+  { x: 250, giro: -15 },
+  { x: 520, giro: 0 },
+  { x: 790, giro: 15 },
+];
+
+const FLECHA = [
+  `M -9 0`,
+  `L 9 0`,
+  `L 17 ${FLECHA_ALTO - FLECHA_CABEZA}`,
+  `L 36 ${FLECHA_ALTO - FLECHA_CABEZA}`,
+  `L 0 ${FLECHA_ALTO}`,
+  `L -36 ${FLECHA_ALTO - FLECHA_CABEZA}`,
+  `L -17 ${FLECHA_ALTO - FLECHA_CABEZA}`,
+  "Z",
+].join(" ");
+
 function FlechaTransicion({ label, remate }: { label: string; remate: string }) {
   return (
     <div
       className="pointer-events-none absolute"
-      style={{ left: 96, top: 762, width: 1040, height: 262, zIndex: 4 }}
+      style={{ left: 96, top: 700, width: 1040, height: 380 }}
     >
-      <svg width={1040} height={262} viewBox="0 0 1040 262" fill="none">
+      <svg width={1040} height={330} viewBox="0 0 1040 330" fill="none">
         <defs>
-          <linearGradient id="abp-flecha" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#C8A96B" stopOpacity="0.05" />
-            <stop offset="34%" stopColor="#C8A96B" stopOpacity="0.38" />
-            <stop offset="72%" stopColor="#E4CE9B" stopOpacity="0.9" />
+          <linearGradient
+            id="abp-flecha-v"
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2={FLECHA_ALTO}
+          >
+            <stop offset="0%" stopColor="#C8A96B" stopOpacity="0.06" />
+            <stop offset="34%" stopColor="#C8A96B" stopOpacity="0.4" />
+            <stop offset="74%" stopColor="#E4CE9B" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#FFF3D6" stopOpacity="1" />
           </linearGradient>
 
-          <linearGradient id="abp-flecha-filo" x1="0" y1="0" x2="1" y2="0">
+          <linearGradient
+            id="abp-flecha-v-filo"
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2={FLECHA_ALTO}
+          >
             <stop offset="0%" stopColor="#E4CE9B" stopOpacity="0" />
             <stop offset="60%" stopColor="#E4CE9B" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.9" />
           </linearGradient>
         </defs>
 
-        {/*
-        | La sombra va debajo y desplazada: sin ella la flecha se pega al
-        | césped y pierde el relieve que tiene el resto de la diapositiva.
-        */}
+        {/* La raya de la que salen las tres: de dónde arranca la contra. */}
         <path
-          d="M8 138 C 300 128, 560 112, 796 92 L 796 62 L 928 116 L 796 170 L 796 140 C 560 156, 300 166, 8 160 Z"
-          fill="rgba(3,12,22,.5)"
-          transform="translate(0 9)"
-        />
-
-        <path
-          d="M8 138 C 300 128, 560 112, 796 92 L 796 62 L 928 116 L 796 170 L 796 140 C 560 156, 300 166, 8 160 Z"
-          fill="url(#abp-flecha)"
-        />
-
-        {/* Un filo claro por el lomo: le da el brillo metálico del oro. */}
-        <path
-          d="M10 133 C 300 123, 560 107, 800 87"
-          stroke="url(#abp-flecha-filo)"
-          strokeWidth="2.5"
+          d="M 150 46 L 890 46"
+          stroke="rgba(200,169,107,.22)"
+          strokeWidth="2"
+          strokeDasharray="10 9"
           strokeLinecap="round"
-          fill="none"
         />
 
-        {/* Las tres estelas: velocidad sin dibujar líneas de cómic. */}
-        {[0, 1, 2].map((i) => (
-          <path
-            key={i}
-            d={`M${30 + i * 34} ${196 + i * 15} C ${230 + i * 34} ${190 + i * 15}, ${420 + i * 34} ${182 + i * 15}, ${610 + i * 30} ${172 + i * 14}`}
-            stroke="rgba(200,169,107,.3)"
-            strokeWidth={2 - i * 0.4}
-            strokeLinecap="round"
-            fill="none"
-          />
+        {PASILLOS.map((pasillo) => (
+          <g
+            key={pasillo.x}
+            transform={`translate(${pasillo.x} 52) rotate(${pasillo.giro})`}
+          >
+            {/*
+            | La sombra va debajo y desplazada: sin ella la flecha se pega al
+            | césped y pierde el relieve que tiene el resto de la diapositiva.
+            */}
+            <path d={FLECHA} fill="rgba(3,12,22,.5)" transform="translate(4 10)" />
+
+            <path d={FLECHA} fill="url(#abp-flecha-v)" />
+
+            {/* Un filo claro por el lomo: le da el brillo metálico del oro. */}
+            <path
+              d={`M 0 8 L 0 ${FLECHA_ALTO - FLECHA_CABEZA - 6}`}
+              stroke="url(#abp-flecha-v-filo)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              fill="none"
+            />
+
+            {/* Las dos estelas: velocidad sin dibujar líneas de cómic. */}
+            {[-1, 1].map((lado) => (
+              <path
+                key={lado}
+                d={`M ${lado * 30} 26 C ${lado * 36} 90, ${lado * 40} 130, ${lado * 44} ${FLECHA_ALTO - 70}`}
+                stroke="rgba(200,169,107,.28)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                fill="none"
+              />
+            ))}
+          </g>
         ))}
       </svg>
 
@@ -402,7 +457,7 @@ function FlechaTransicion({ label, remate }: { label: string; remate: string }) 
         className="absolute text-[17px] font-bold uppercase leading-none tracking-[0.3em]"
         style={{
           left: 12,
-          top: 78,
+          top: 6,
           color: "rgba(228,206,155,.82)",
           textShadow: "0 2px 10px rgba(0,0,0,.9)",
         }}
@@ -411,10 +466,11 @@ function FlechaTransicion({ label, remate }: { label: string; remate: string }) 
       </p>
 
       <p
-        className="absolute text-[30px] font-bold uppercase leading-none tracking-[0.06em] text-white"
+        className="absolute text-center text-[34px] font-bold uppercase leading-none tracking-[0.06em] text-white"
         style={{
-          left: 470,
-          top: 176,
+          left: 0,
+          top: 316,
+          width: 1040,
           textShadow: "0 3px 14px rgba(0,0,0,.9)",
         }}
       >

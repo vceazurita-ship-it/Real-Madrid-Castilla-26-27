@@ -86,14 +86,20 @@ import {
   aplicaVersion,
   aprende,
   colocaAutomatico,
+  conElegidosDelGrupo,
   copiaTablero,
   cuentaPuestos,
+  eligeEnGrupo,
   etiquetaVersion,
   fichaNueva,
   fijaVersion,
+  gruposDe,
   huellaTablero,
   huellaVersion,
+  memoriaDeGrupo,
+  ocupantesDeGrupo,
   puestoDe,
+  puestosDeGrupo,
   quitaVersion,
   registraVersion,
   renombraVersion,
@@ -102,6 +108,7 @@ import {
   tableroVacio,
   tieneFichas,
   type PizarraStore,
+  type PuestoAbp,
   type SlidePizarra,
   type TableroPizarra,
   type VersionPizarra,
@@ -539,6 +546,74 @@ export default function PizarraAbpPage() {
         ...actual,
         memoria: aprende(actual.memoria ?? {}, puestoKey, playerId, cuando),
       }));
+
+      setEditando(null);
+    },
+    [slide, mutaSlide, setStore],
+  );
+
+  /**
+   * La posición entera, cuando la plantilla dice que se elige de una vez.
+   *
+   * Pulsar cualquiera de sus huecos —o cualquiera de sus filas del panel— abre
+   * el grupo completo: en «directas a portería» se decide quién lanza desde la
+   * izquierda, no quién es el segundo de la lista.
+   */
+  const grupoEditado = useMemo(() => {
+    if (!slide || !puestoEditado || !eligeEnGrupo(slide, puestoEditado.grupo)) {
+      return null;
+    }
+
+    const grupo = gruposDe(slide).find(
+      (item) => item.key === puestoEditado.grupo,
+    );
+
+    if (!grupo) return null;
+
+    return {
+      key: grupo.key,
+      label: grupo.label,
+      puestos: puestosDeGrupo(slide, grupo.key),
+    };
+  }, [slide, puestoEditado]);
+
+  /**
+   * Guarda los elegidos de una posición, por orden.
+   *
+   * Se aprende puesto a puesto igual que al asignar de uno en uno, pero **sólo
+   * de lo que cambia**: guardar dos veces la misma lista no puede subir el
+   * contador de veces de nadie, o «los habituales» acabarían diciendo quién se
+   * ha guardado más, no quién ha lanzado más.
+   */
+  const asignaGrupo = useCallback(
+    (puestos: PuestoAbp[], playerIds: string[]) => {
+      if (!slide) return;
+
+      const cuando = new Date().toISOString();
+
+      const previos = new Map(
+        slide.fichas
+          .filter((ficha) => ficha.puesto)
+          .map((ficha) => [ficha.puesto as string, ficha.playerId]),
+      );
+
+      const nuevos = playerIds
+        .slice(0, puestos.length)
+        .map((playerId, indice) => ({ puesto: puestos[indice], playerId }))
+        .filter(({ puesto, playerId }) => previos.get(puesto.key) !== playerId);
+
+      mutaSlide((actual) => conElegidosDelGrupo(actual, puestos, playerIds));
+
+      if (nuevos.length > 0) {
+        setStore((actual) => ({
+          ...actual,
+          memoria: nuevos.reduce(
+            (memoria, { puesto, playerId }) =>
+              aprende(memoria, puesto.key, playerId, cuando),
+            actual.memoria ?? {},
+          ),
+        }));
+      }
 
       setEditando(null);
     },
@@ -1553,15 +1628,28 @@ export default function PizarraAbpPage() {
 
       {slide && puestoEditado && (
         <SelectorJugador
+          /* Cambiar de posición reinicia lo marcado: es otra decisión. */
+          key={grupoEditado?.key ?? puestoEditado.key}
           puesto={puestoEditado}
+          grupo={grupoEditado ?? undefined}
           players={players}
-          memoria={store.memoria?.[puestoEditado.key] ?? []}
+          memoria={
+            grupoEditado
+              ? memoriaDeGrupo(store.memoria ?? {}, grupoEditado.puestos)
+              : (store.memoria?.[puestoEditado.key] ?? [])
+          }
           ocupadoPor={ocupadoPor}
           actual={
             slide.fichas.find((ficha) => ficha.puesto === puestoEditado.key)
               ?.playerId ?? null
           }
+          elegidos={
+            grupoEditado ? ocupantesDeGrupo(slide, grupoEditado.key) : undefined
+          }
           onElegir={(playerId) => asigna(puestoEditado.key, playerId)}
+          onGuardarGrupo={(playerIds) =>
+            grupoEditado && asignaGrupo(grupoEditado.puestos, playerIds)
+          }
           onQuitar={() => vacia(puestoEditado.key)}
           onCerrar={() => setEditando(null)}
         />

@@ -1068,6 +1068,7 @@ export default function RivalPlayersPage() {
         editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || "Sin nombre",
       nombreCompleto: textoUtil(editForm.JUGADOR),
       posicion: textoUtil(editForm["POSICIÓN"]),
+      pieDominante: textoUtil(editForm["PIE DOMINANTE"]),
       dorsal: textoUtil(editForm.DORSAL),
       foto: fotoGrande(textoUtil(editForm.FOTO)),
       contexto: season
