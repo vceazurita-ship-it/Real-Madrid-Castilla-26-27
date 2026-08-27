@@ -2,6 +2,8 @@
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
@@ -127,6 +129,9 @@ export default function ScoutRivalIndividual() {
   const [sort, setSort] = useState<SortKey>("recientes");
   const [view, setView] = useState<"clips" | "jugadores">("clips");
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  /* El escudo del club de cada jugador: ver `hooks/useEscudos`. */
+  const escudoDe = useEscudos();
 
   useEffect(() => {
     Papa.parse<Record<string, string>>(CSV_URL, {
@@ -473,7 +478,11 @@ export default function ScoutRivalIndividual() {
           {!loading && !error && filtered.length > 0 && view === "clips" && (
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((clip) => (
-                <ClipCard key={clip.id} clip={clip} />
+                <ClipCard
+                  key={clip.id}
+                  clip={clip}
+                  escudo={escudoDe(clip.equipo)}
+                />
               ))}
             </div>
           )}
@@ -496,6 +505,14 @@ export default function ScoutRivalIndividual() {
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/25 bg-[#C8A96B]/10 text-sm font-semibold text-[#C8A96B]">
                         {player.clips.length}
                       </span>
+
+                      {player.equipo && (
+                        <EscudoEquipo
+                          nombre={player.equipo}
+                          escudo={escudoDe(player.equipo)}
+                          lado={28}
+                        />
+                      )}
 
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">
@@ -520,7 +537,12 @@ export default function ScoutRivalIndividual() {
                       <div className="border-t border-white/10 p-3 sm:p-4">
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                           {player.clips.map((clip) => (
-                            <ClipCard key={clip.id} clip={clip} compact />
+                            <ClipCard
+                              key={clip.id}
+                              clip={clip}
+                              compact
+                              escudo={escudoDe(clip.equipo)}
+                            />
                           ))}
                         </div>
                       </div>
@@ -608,7 +630,16 @@ function Chip({
   );
 }
 
-function ClipCard({ clip, compact }: { clip: Clip; compact?: boolean }) {
+function ClipCard({
+  clip,
+  compact,
+  escudo,
+}: {
+  clip: Clip;
+  compact?: boolean;
+  /** El de su club, si se conoce. Ver `hooks/useEscudos`. */
+  escudo?: string;
+}) {
   const open = () => {
     if (clip.url) window.open(clip.url, "_blank", "noopener,noreferrer");
   };
@@ -621,8 +652,12 @@ function ClipCard({ clip, compact }: { clip: Clip; compact?: boolean }) {
             {clip.jugador}
           </h3>
 
-          <p className="truncate text-sm text-[#C8A96B]">
-            {clip.equipo || "—"}
+          <p className="flex min-w-0 items-center gap-1.5 text-sm text-[#C8A96B]">
+            {clip.equipo && (
+              <EscudoEquipo nombre={clip.equipo} escudo={escudo} lado={16} />
+            )}
+
+            <span className="truncate">{clip.equipo || "—"}</span>
           </p>
 
           {clip.posicion && (

@@ -43,6 +43,8 @@ import {
 import { RivalPatterns } from "@/components/abp/RivalPatterns";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
 import { RIVAL_SCOUT_COLUMNS } from "@/lib/abp/sheets";
@@ -139,6 +141,9 @@ export default function ScoutRivalAbpPage() {
       return null;
     }
   });
+
+  /* Los escudos de los clubes, para el selector y para la cabecera. */
+  const escudoDe = useEscudos();
 
   /* --------------------------- scouting ---------------------------- */
 
@@ -545,6 +550,15 @@ export default function ScoutRivalAbpPage() {
           <AbpHeader
             area="RMCF Castilla · Rival"
             title={equipo ? `ABP · ${equipo}` : "ABP del Rival"}
+            crest={
+              equipo ? (
+                <EscudoEquipo
+                  nombre={equipo}
+                  escudo={escudoDe(equipo)}
+                  lado={40}
+                />
+              ) : undefined
+            }
             lead="Cómo ataca y cómo defiende el rival a balón parado: córners, faltas, penaltis y saques de banda por zona, con sus lanzadores, sus rematadores y la estatura que meten al área."
             aside={
               equipo ? (
@@ -602,6 +616,7 @@ export default function ScoutRivalAbpPage() {
                     value={equipo}
                     onChange={pickTeam}
                     countOf={(nombre) => registradas.get(scoutKey(nombre)) ?? 0}
+                    escudoDe={escudoDe}
                   />
                 )}
 

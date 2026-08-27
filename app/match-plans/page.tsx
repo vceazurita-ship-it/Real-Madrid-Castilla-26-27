@@ -11,6 +11,8 @@ import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import { cn } from "@/lib/utils";
 
 import {
@@ -246,6 +248,9 @@ export default function Page() {
 
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  /* Los escudos de los rivales, para el marcador de cada tarjeta. */
+  const escudoDe = useEscudos();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -631,6 +636,7 @@ export default function Page() {
                     <MatchCard
                       key={match.id}
                       match={match}
+                      escudoDe={escudoDe}
                       onOpen={() => setOpenIndex(index)}
                     />
                   ))}
@@ -853,7 +859,15 @@ function Stat({
 /* Tarjeta de partido                                                  */
 /* ------------------------------------------------------------------ */
 
-function MatchCard({ match, onOpen }: { match: Match; onOpen: () => void }) {
+function MatchCard({
+  match,
+  escudoDe,
+  onOpen,
+}: {
+  match: Match;
+  escudoDe: (team: string) => string | undefined;
+  onOpen: () => void;
+}) {
   const token = match.outcome ? OUTCOME[match.outcome] : null;
   const hasVideo = Boolean(match.link);
 
@@ -913,6 +927,7 @@ function MatchCard({ match, onOpen }: { match: Match; onOpen: () => void }) {
             goals={match.homeGoals}
             isRM={match.isHome}
             isWinner={homeWins}
+            escudo={escudoDe(match.home)}
           />
 
           <TeamRow
@@ -920,6 +935,7 @@ function MatchCard({ match, onOpen }: { match: Match; onOpen: () => void }) {
             goals={match.awayGoals}
             isRM={!match.isHome}
             isWinner={awayWins}
+            escudo={escudoDe(match.away)}
           />
         </span>
 
@@ -962,20 +978,24 @@ function TeamRow({
   goals,
   isRM,
   isWinner,
+  escudo,
 }: {
   name: string;
   goals: number | null;
   isRM: boolean;
   isWinner: boolean;
+  /** El del rival, cuando se conoce; el nuestro es el del propio menú. */
+  escudo?: string;
 }) {
   return (
     <span className="flex items-center gap-2.5">
-      <span
-        aria-hidden
-        className={cn(
-          "h-1.5 w-1.5 shrink-0 rounded-full",
-          isRM ? "bg-[#C8A96B]" : "bg-white/15"
-        )}
+      {/* El escudo hace de marca de quién es quién: antes era un punto dorado
+          en nuestra línea, y con dos nombres largos costaba leer el marcador. */}
+      <EscudoEquipo
+        nombre={name}
+        escudo={isRM ? "/logo.png" : escudo}
+        lado={22}
+        className={isRM ? "border-[#C8A96B]/35" : ""}
       />
 
       <span

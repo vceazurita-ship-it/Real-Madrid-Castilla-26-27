@@ -69,6 +69,8 @@ import {
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
 import {
@@ -176,6 +178,9 @@ function temporadaCorta(season: string) {
 
 export default function PizarraAbpPage() {
   const { players } = usePlayers();
+
+  /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
+  const escudoDe = useEscudos();
 
   const {
     value: store,
@@ -1133,6 +1138,22 @@ export default function PizarraAbpPage() {
                   title="De quién es esta pizarra"
                   subtitle="El nombre que se lee en la diapositiva y la jornada con la que se cruza el resto de la semana"
                   icon={Shield}
+                  action={
+                    /* El desplegable de partido es un <select> nativo y no
+                       puede llevar el escudo: se reconoce aquí a quién se le
+                       está montando la pizarra. */
+                    <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white/70">
+                      <EscudoEquipo
+                        nombre={tablero?.rival || partido.opponent}
+                        escudo={escudoDe(tablero?.rival || partido.opponent)}
+                        lado={26}
+                      />
+
+                      <span className="truncate">
+                        {tablero?.rival || partido.opponent}
+                      </span>
+                    </span>
+                  }
                 >
                   <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <div className="min-w-0">

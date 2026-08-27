@@ -140,11 +140,55 @@ export function findStats(
 }
 
 /**
+ * Palabras que sólo dicen qué tipo de club es y no cuál.
+ *
+ * Cada hoja escribe el mismo equipo a su manera —la de rivales dice
+ * «Hércules» y la videoteca «HERCULES CF»—, así que para comparar dos nombres
+ * estas sobran.
+ */
+const CLUB_WORDS = new Set([
+  "ac",
+  "ad",
+  "ca",
+  "cd",
+  "ce",
+  "cf",
+  "cp",
+  "club",
+  "deportiva",
+  "deportivo",
+  "fc",
+  "futbol",
+  "sad",
+  "sd",
+  "ud",
+]);
+
+/** El nombre reducido a lo que de verdad identifica al club. */
+function teamWords(value: unknown) {
+  return normalizeKey(value)
+    .split(" ")
+    .filter((word) => word && !CLUB_WORDS.has(word));
+}
+
+/**
  * El club rival dentro del documento, con su escudo.
  *
  * Se busca por `ID_EQUIPO`, que es la clave con la que se guardó, y si la
- * fila no lo trae —o el documento es anterior— se cae al nombre normalizado,
- * que es lo único que tienen a mano el campograma y el pop-up del once.
+ * fila no lo trae —o el documento es anterior— se cae al nombre, que es lo
+ * único que tienen a mano el campograma, el pop-up del once y las páginas que
+ * leen de otras hojas.
+ *
+ * El nombre se compara en tres pasadas cada vez más tolerante, porque no hay
+ * una sola forma de escribirlo en toda la casa:
+ *
+ * 1. Tal cual, normalizado: es lo que ocurre entre la hoja de plantillas y la
+ *    de rivales, que escriben igual.
+ * 2. Sin las siglas del tipo de club: «HERCULES CF» y «Hércules».
+ * 3. Cuando uno de los dos nombres es parte del otro: «JAEN CF» y «Real Jaén».
+ *    Aquí se exige que sólo encaje un club: si hay dos —«Real» a secas
+ *    valdría para Murcia, Jaén y Zaragoza— no se adivina y se devuelve nada,
+ *    que es lo que hace pintar la inicial en vez de un escudo equivocado.
  */
 export function findTeam(
   doc: RivalStatsDoc | null,
@@ -156,17 +200,44 @@ export function findTeam(
 
   if (id && doc.equipos[id]) return doc.equipos[id];
 
-  const nombre = normalizeKey(
-    typeof equipo === "string" ? equipo : equipo.NOMBRE_EQUIPO,
-  );
+  const crudo = typeof equipo === "string" ? equipo : equipo.NOMBRE_EQUIPO;
+  const nombre = normalizeKey(crudo);
 
   if (!nombre) return null;
 
-  return (
-    Object.values(doc.equipos).find(
-      (club) => normalizeKey(club.nombre) === nombre,
-    ) ?? null
+  const clubes = Object.values(doc.equipos);
+
+  const exacto = clubes.find((club) => normalizeKey(club.nombre) === nombre);
+
+  if (exacto) return exacto;
+
+  const palabras = teamWords(crudo);
+
+  if (!palabras.length) return null;
+
+  const clave = palabras.join(" ");
+
+  const sinSiglas = clubes.filter(
+    (club) => teamWords(club.nombre).join(" ") === clave,
   );
+
+  if (sinSiglas.length === 1) return sinSiglas[0];
+
+  const parciales = clubes.filter((club) => {
+    const suyas = teamWords(club.nombre);
+
+    const contenido =
+      palabras.every((word) => suyas.includes(word)) ||
+      suyas.every((word) => palabras.includes(word));
+
+    /* Una inicial suelta no basta: lo compartido tiene que ser un nombre. */
+    return (
+      contenido &&
+      palabras.some((word) => word.length >= 4 && suyas.includes(word))
+    );
+  });
+
+  return parciales.length === 1 ? parciales[0] : null;
 }
 
 /**

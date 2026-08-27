@@ -10,6 +10,8 @@ import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -380,6 +382,8 @@ export default function ScoutRivalCollective() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
 
+  const escudoDe = useEscudos();
+
   /* El informe y el plan de partido comparten fila: si la hoja no tiene la
      columna, el valor se descarta en silencio. Se verifica tras guardar. */
   const {
@@ -609,8 +613,21 @@ export default function ScoutRivalCollective() {
                 Scouting colectivo
               </p>
 
-              <h1 className="mt-2 truncate text-4xl font-black tracking-tight sm:text-5xl">
-                {cargando ? "Cargando…" : rivalActivo?.EQUIPO || "Sin rival"}
+              {/* El escudo firma el informe: el desplegable de abajo es un
+                  <select> nativo y no puede llevarlo, así que el club se
+                  reconoce aquí. */}
+              <h1 className="mt-2 flex min-w-0 items-center gap-3 text-4xl font-black tracking-tight sm:text-5xl">
+                {rivalActivo?.EQUIPO && (
+                  <EscudoEquipo
+                    nombre={rivalActivo.EQUIPO}
+                    escudo={escudoDe(rivalActivo.EQUIPO)}
+                    lado={48}
+                  />
+                )}
+
+                <span className="min-w-0 truncate">
+                  {cargando ? "Cargando…" : rivalActivo?.EQUIPO || "Sin rival"}
+                </span>
               </h1>
 
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/45">

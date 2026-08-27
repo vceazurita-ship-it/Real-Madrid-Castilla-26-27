@@ -59,6 +59,8 @@ import {
   type Importacion,
 } from "@/components/abp/microciclo/ImportarRegistro";
 import { CruceTabla } from "@/components/abp/microciclo/CruceTabla";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { chipInk } from "@/lib/theme";
 import {
@@ -170,6 +172,9 @@ function Reparto({
 /* ------------------------------------------------------------------ */
 
 export default function AbpMicrocicloPage() {
+  /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
+  const escudoDe = useEscudos();
+
   const {
     value: store,
     setValue: setStore,
@@ -751,12 +756,25 @@ export default function AbpMicrocicloPage() {
                 Rival de la semana
               </span>
 
-              <input
-                value={plan.rival}
-                onChange={(event) => cambiaRival(event.target.value)}
-                placeholder="Contra quién se juega"
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-              />
+              {/* El escudo delante del nombre: es lo que dice de un vistazo
+                  con qué rival se ha cruzado la semana, porque el desplegable
+                  de al lado es un <select> nativo y no puede llevarlo. */}
+              <span className="flex min-w-0 items-center gap-2">
+                {plan.rival.trim() && (
+                  <EscudoEquipo
+                    nombre={plan.rival}
+                    escudo={escudoDe(plan.rival)}
+                    lado={26}
+                  />
+                )}
+
+                <input
+                  value={plan.rival}
+                  onChange={(event) => cambiaRival(event.target.value)}
+                  placeholder="Contra quién se juega"
+                  className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+                />
+              </span>
             </label>
 
             <Button

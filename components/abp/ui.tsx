@@ -21,6 +21,8 @@ import {
 import type { ComponentType, ReactNode } from "react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+
 /* ------------------------------------------------------------------ */
 /*  CABECERA                                                           */
 /* ------------------------------------------------------------------ */
@@ -28,11 +30,14 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 export function AbpHeader({
   area,
   title,
+  crest,
   lead,
   aside,
 }: {
   area: string;
   title: string;
+  /** Escudo del club del que va la página, delante del título. */
+  crest?: ReactNode;
   lead?: ReactNode;
   aside?: ReactNode;
 }) {
@@ -44,8 +49,9 @@ export function AbpHeader({
             {area}
           </p>
 
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            {title}
+          <h1 className="mt-2 flex min-w-0 items-center gap-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            {crest}
+            <span className="min-w-0">{title}</span>
           </h1>
         </div>
 
@@ -448,12 +454,19 @@ export function TeamPicker({
   value,
   onChange,
   countOf,
+  escudoDe,
 }: {
   teams: string[];
   value: string;
   onChange: (team: string) => void;
   /** Acciones ya registradas del equipo: marca en el chip los que tienen datos. */
   countOf?: (team: string) => number;
+  /**
+   * Escudo del club, si se conoce. Con diecinueve chips de texto en tres
+   * líneas se acaba leyendo nombre por nombre; con el escudo delante el rival
+   * de la semana se encuentra de un vistazo. Ver `hooks/useEscudos`.
+   */
+  escudoDe?: (team: string) => string | undefined;
 }) {
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -578,6 +591,10 @@ export function TeamPicker({
                   : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
               }`}
             >
+              {escudoDe && (
+                <EscudoEquipo nombre={team} escudo={escudoDe(team)} lado={18} />
+              )}
+
               {team}
 
               {registradas > 0 && (

@@ -61,6 +61,8 @@ import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
 import { EditorHorario } from "@/components/viaje/EditorHorario";
 import { ExportaViaje } from "@/components/viaje/ExportaViaje";
 import { HojaHorario } from "@/components/viaje/HojaHorario";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
   compareMatches,
@@ -160,6 +162,9 @@ function Escalado({
 /* ------------------------------------------------------------------ */
 
 export default function DesplazamientoPage() {
+  /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
+  const escudoDe = useEscudos();
+
   const {
     value: store,
     setValue: setStore,
@@ -512,6 +517,21 @@ export default function DesplazamientoPage() {
                       title="El partido"
                       subtitle="La cabecera que llevan las tres diapositivas y la hoja del horario"
                       icon={Shield}
+                      action={
+                        /* A quién se viaja, con su escudo: el desplegable de
+                           arriba es un <select> nativo y no puede llevarlo. */
+                        <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white/70">
+                          <EscudoEquipo
+                            nombre={viaje.rival || partido.opponent}
+                            escudo={escudoDe(viaje.rival || partido.opponent)}
+                            lado={26}
+                          />
+
+                          <span className="truncate">
+                            {viaje.rival || partido.opponent}
+                          </span>
+                        </span>
+                      }
                     >
                       <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Field

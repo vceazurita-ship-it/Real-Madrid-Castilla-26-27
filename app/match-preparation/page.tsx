@@ -20,6 +20,8 @@ import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
+import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useEscudos } from "@/hooks/useEscudos";
 
 import {
   Activity,
@@ -527,6 +529,8 @@ function RivalPicker({
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
 
+  const escudoDe = useEscudos();
+
   const contenedor = useRef<HTMLDivElement | null>(null);
   const inputBusqueda = useRef<HTMLInputElement | null>(null);
 
@@ -594,6 +598,14 @@ function RivalPicker({
         <span className="shrink-0 rounded-lg bg-[#C8A96B]/15 px-2 py-1 text-[11px] font-bold tracking-wider text-[#C8A96B]">
           J{String(activo?.JORNADA ?? "--").padStart(2, "0")}
         </span>
+
+        {activo?.EQUIPO && (
+          <EscudoEquipo
+            nombre={activo.EQUIPO}
+            escudo={escudoDe(activo.EQUIPO)}
+            lado={26}
+          />
+        )}
 
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-white">
@@ -671,6 +683,12 @@ function RivalPicker({
                   >
                     {String(r.JORNADA ?? "--").padStart(2, "0")}
                   </span>
+
+                  <EscudoEquipo
+                    nombre={r.EQUIPO ?? ""}
+                    escudo={escudoDe(r.EQUIPO ?? "")}
+                    lado={22}
+                  />
 
                   <span className="min-w-0 flex-1 truncate text-sm text-white">
                     {r.EQUIPO}
@@ -801,6 +819,9 @@ export default function MatchPreparation() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [seccionActiva, setSeccionActiva] = useState("contexto");
+
+  /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
+  const escudoDeRival = useEscudos();
 
   /* La hoja de destino descarta en silencio los campos sin columna propia,
      así que el guardado se comprueba releyendo antes de cerrar la edición. */
@@ -1513,8 +1534,18 @@ export default function MatchPreparation() {
                           "
                         />
                       ) : (
-                        <h2 className="mt-1.5 break-words text-3xl font-bold tracking-tight md:text-4xl">
-                          {rivalActivo.EQUIPO || "Rival sin definir"}
+                        <h2 className="mt-1.5 flex min-w-0 items-center gap-3 break-words text-3xl font-bold tracking-tight md:text-4xl">
+                          {rivalActivo.EQUIPO && (
+                            <EscudoEquipo
+                              nombre={rivalActivo.EQUIPO}
+                              escudo={escudoDeRival(rivalActivo.EQUIPO)}
+                              lado={44}
+                            />
+                          )}
+
+                          <span className="min-w-0">
+                            {rivalActivo.EQUIPO || "Rival sin definir"}
+                          </span>
                         </h2>
                       )}
                     </div>
