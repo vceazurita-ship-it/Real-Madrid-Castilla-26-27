@@ -60,6 +60,13 @@ interface Props {
   onGestureStart?: () => void;
   /** El campo. */
   children: ReactNode;
+  /**
+   * Vallas y graderío alrededor del campo.
+   *
+   * Va DENTRO del plano de la cámara, no detrás: así orbita con el campo en
+   * lugar de quedarse pegado al fondo de la pantalla.
+   */
+  entorno?: ReactNode;
   /** Barra de modos de cámara flotante (arriba a la derecha). */
   cameraBar?: ReactNode;
   /** Paleta de herramientas flotante (a la izquierda). */
@@ -91,6 +98,7 @@ export default function PitchStage({
   frameRef,
   onGestureStart,
   children,
+  entorno,
   cameraBar,
   toolbar,
   styleBar,
@@ -333,6 +341,7 @@ export default function PitchStage({
               style={planeStyle}
               className="absolute inset-0"
             >
+              {entorno}
               {children}
             </div>
           </div>

@@ -37,7 +37,12 @@ import {
 // Tipos
 // ---------------------------------------------------------------
 
-export type PitchCameraMode = "broadcast" | "top" | "goal" | "follow";
+export type PitchCameraMode =
+  | "broadcast"
+  | "top"
+  | "goal"
+  | "follow"
+  | "jugador";
 
 /** `2d` apaga la perspectiva y aplana el campo; `3d` la enciende. */
 export type PitchRender = "2d" | "3d";
@@ -84,6 +89,7 @@ export const CAMERA_MODES: {
   { id: "top", label: "Cenital · campo plano", short: "Top" },
   { id: "goal", label: "Desde portería", short: "Portería" },
   { id: "follow", label: "Seguir la jugada", short: "Seguir" },
+  { id: "jugador", label: "Vista de jugador", short: "Jugador" },
 ];
 
 const PRESETS: Record<PitchCameraMode, CameraPose> = {
@@ -103,11 +109,11 @@ const PRESETS: Record<PitchCameraMode, CameraPose> = {
    * desde el centro del campo hacia la portería, que no es lo mismo.
    */
   goal: {
-    tilt: 62,
+    tilt: 66,
     yaw: 90,
-    zoom: 1.5,
+    zoom: 1.9,
     panX: 0,
-    panY: -10,
+    panY: -46,
     focusX: 0.74,
     focusY: 0.5,
   },
@@ -120,13 +126,29 @@ const PRESETS: Record<PitchCameraMode, CameraPose> = {
     focusX: 0.5,
     focusY: 0.5,
   },
+  /*
+   * Vista de jugador: la cámara baja casi al césped y mira lo que ve alguien
+   * que está dentro de la jugada. Es la que explica por qué un pase no existe
+   * —un cuerpo tapa la línea— cuando desde arriba parecía obvio. El giro es
+   * ligero, no cenital: mirar completamente de canto aplasta el campo hasta
+   * dejarlo en una raya.
+   */
+  jugador: {
+    tilt: 77,
+    yaw: -8,
+    zoom: 2.5,
+    panX: 0,
+    panY: 128,
+    focusX: 0.5,
+    focusY: 0.56,
+  },
 };
 
 /** Modo que se recupera al volver a encender la perspectiva. */
 const DEFAULT_3D_MODE: PitchCameraMode = "broadcast";
 
 export const TILT_MIN = 0;
-export const TILT_MAX = 74;
+export const TILT_MAX = 86;
 export const ZOOM_MIN = 0.55;
 export const ZOOM_MAX = 3.4;
 

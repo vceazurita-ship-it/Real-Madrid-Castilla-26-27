@@ -26,6 +26,7 @@ import {
   Minus,
   Plus,
   RotateCcw,
+  User,
   Video,
 } from "lucide-react";
 
@@ -58,6 +59,7 @@ const MODE_ICON: Record<PitchCameraMode, React.ReactNode> = {
   top: <Maximize2 size={13} />,
   goal: <Compass size={13} />,
   follow: <Crosshair size={13} />,
+  jugador: <User size={13} />,
 };
 
 /** Paso del giro con los botones, en grados. */

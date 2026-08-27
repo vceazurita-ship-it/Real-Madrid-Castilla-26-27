@@ -6,6 +6,8 @@
  * es solo un cambio de encuadre y no obliga a recalcular nada.
  */
 
+import type { CampoId } from "./campos";
+
 export type ToolId =
   | "select"
   | "camera"
@@ -65,6 +67,16 @@ export interface TacticsDoc {
   titulo: string;
   crop: PitchCrop;
   scenes: TacticScene[];
+  /** Diseño del campo. Si falta, el de siempre (ver `lib/tactics/campos.ts`). */
+  campo?: CampoId;
+  /**
+   * Si se levantan las vallas y el graderío alrededor del campo.
+   *
+   * Se guarda con la pizarra y no con la sesión: una jugada montada para
+   * enseñar en la sala y la misma preparada para mandar por el grupo no se ven
+   * igual, y esa decisión es parte del documento.
+   */
+  entorno?: boolean;
 }
 
 export const PITCH_WIDTH = 100;

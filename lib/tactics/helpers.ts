@@ -49,11 +49,19 @@ export function normalizeDoc(raw: unknown, titulo?: string): TacticsDoc {
         }))
     : [];
 
+  /*
+  | Ojo al tocar esto: lo que no se copie aquí **se pierde en cada render**.
+  | El documento guardado pasa siempre por esta función antes de llegar al
+  | tablero, así que un campo nuevo que no se copie se escribe, vuelve, y
+  | desaparece sin dar error: el botón se pulsa y no pasa nada.
+  */
   return {
     version: 1,
     titulo: value.titulo ?? base.titulo,
     crop: value.crop ?? "full",
     scenes: scenes.length ? scenes : base.scenes,
+    campo: value.campo,
+    entorno: value.entorno,
   };
 }
 

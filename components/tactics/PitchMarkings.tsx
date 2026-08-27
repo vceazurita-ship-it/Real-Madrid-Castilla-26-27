@@ -3,27 +3,44 @@
  *
  * Se dibuja el campo completo siempre: los recortes (campo propio, último
  * tercio) se consiguen cambiando el `viewBox`, no el contenido.
+ *
+ * El color no está aquí: lo trae el diseño elegido (`lib/tactics/campos.ts`),
+ * porque el mismo campo se enseña en un proyector a oscuras, se imprime y se
+ * manda por el grupo, y las tres cosas no piden el mismo verde.
  */
-export default function PitchMarkings() {
-  const line = "rgba(255,255,255,.34)";
+
+import { disenoDe, type CampoId } from "@/lib/tactics/campos";
+
+export default function PitchMarkings({ campo }: { campo?: CampoId }) {
+  const diseno = disenoDe(campo);
+
+  const line = diseno.linea;
 
   return (
-    <g fill="none" stroke={line} strokeWidth={0.35}>
+    <g fill="none" stroke={line} strokeWidth={diseno.grosor}>
       {/* Césped */}
-      <rect x={0} y={0} width={100} height={68} fill="#0F2A1D" stroke="none" />
+      <rect
+        x={0}
+        y={0}
+        width={100}
+        height={68}
+        fill={diseno.cesped}
+        stroke="none"
+      />
 
       {/* Franjas de siega */}
-      {Array.from({ length: 10 }).map((_, index) => (
-        <rect
-          key={index}
-          x={index * 10}
-          y={0}
-          width={10}
-          height={68}
-          fill={index % 2 === 0 ? "rgba(255,255,255,.022)" : "transparent"}
-          stroke="none"
-        />
-      ))}
+      {diseno.franjas > 0 &&
+        Array.from({ length: diseno.franjas }).map((_, index) => (
+          <rect
+            key={index}
+            x={(index * 100) / diseno.franjas}
+            y={0}
+            width={100 / diseno.franjas}
+            height={68}
+            fill={index % 2 === 0 ? diseno.franja : "transparent"}
+            stroke="none"
+          />
+        ))}
 
       {/* Perímetro */}
       <rect x={1.5} y={1.5} width={97} height={65} />

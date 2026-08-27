@@ -22,6 +22,7 @@ import {
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import {
+  Building2,
   Circle,
   Cone,
   Copy,
@@ -32,6 +33,7 @@ import {
 
 import type { Player } from "@/types/player";
 import TacticsVoicePanel from "@/components/voice/TacticsVoicePanel";
+import EntornoEstadio from "./EntornoEstadio";
 import PitchMarkings from "./PitchMarkings";
 import RivalPicker from "./RivalPicker";
 import PitchStage from "./PitchStage";
@@ -73,6 +75,7 @@ import {
   TokenKind,
   ToolId,
 } from "@/lib/tactics/types";
+import { CAMPOS, CAMPO_POR_DEFECTO } from "@/lib/tactics/campos";
 import { cn } from "@/lib/utils";
 
 const TOKEN_STYLE: Record<
@@ -141,6 +144,19 @@ export default function TacticsBoard({
   const scenes = doc.scenes;
   const safeIndex = Math.min(sceneIndex, scenes.length - 1);
   const scene = scenes[safeIndex] ?? emptyScene();
+
+  // ---------------------------------------------------------------
+  // Cómo se ve el campo
+  // ---------------------------------------------------------------
+
+  const campoActivo = doc.campo ?? CAMPO_POR_DEFECTO;
+
+  /*
+  | El estadio viene encendido en las pizarras nuevas y sólo se dibuja con la
+  | perspectiva puesta: con el campo plano no hay nada que levantar —las vallas
+  | se verían de canto, como cuatro rayas— y estorbaría al dibujo.
+  */
+  const entornoVisible = doc.entorno ?? true;
 
   // ---------------------------------------------------------------
   // Encuadre
@@ -266,6 +282,16 @@ export default function TacticsBoard({
 
     return Math.min(1 / Math.cos((camera.pose.tilt * Math.PI) / 180), 2.4);
   }, [camera.render, camera.pose.tilt, exporting]);
+
+  /**
+   * Cuánto hay que desgirar la ficha para que el dorsal se lea de pie.
+   *
+   * El giro de la cámara arrastra al dibujo entero, dorsales incluidos: desde
+   * la portería —que gira el campo un cuarto de vuelta— los números salían
+   * tumbados y había que ladear la cabeza para leer la pizarra. La ficha se
+   * gira al revés que la cámara, así que el campo rota y los nombres no.
+   */
+  const tokenSpin = camera.render === "3d" && !exporting ? -camera.pose.yaw : 0;
 
   /**
    * Fichas ordenadas de lejos a cerca.
@@ -816,9 +842,12 @@ export default function TacticsBoard({
         />
       )}
 
-      {/* RECORTE DEL CAMPO */}
+      {/* RECORTE, DISEÑO DEL CAMPO Y ENTORNO */}
 
-      <div data-export-hide className="flex flex-wrap items-center gap-1.5">
+      <div
+        data-export-hide
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-2"
+      >
         {(Object.keys(CROP_VIEWBOX) as PitchCrop[]).map((crop) => (
           <button
             key={crop}
@@ -834,6 +863,60 @@ export default function TacticsBoard({
             {CROP_LABEL[crop]}
           </button>
         ))}
+
+        <span className="mx-1 h-4 w-px bg-white/10" />
+
+        {/*
+          El campo se elige, no viene dado: la charla a oscuras pide un césped
+          apagado que deje ver las flechas, y la imagen que se manda por el
+          grupo pide el verde de retransmisión.
+        */}
+        {CAMPOS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => commit({ ...doc, campo: item.id })}
+            title={item.nota}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+              campoActivo === item.id
+                ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
+                : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+            )}
+          >
+            <span
+              aria-hidden
+              className="h-3 w-3 shrink-0 rounded-[3px]"
+              style={{
+                background: item.cesped,
+                boxShadow: `inset 0 0 0 1px ${item.linea}`,
+              }}
+            />
+            {item.label}
+          </button>
+        ))}
+
+        <span className="mx-1 h-4 w-px bg-white/10" />
+
+        <button
+          type="button"
+          onClick={() => commit({ ...doc, entorno: !entornoVisible })}
+          title={
+            entornoVisible
+              ? "Quitar las vallas y el graderío: sólo el campo"
+              : "Levantar las vallas y el graderío alrededor del campo"
+          }
+          aria-pressed={entornoVisible}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition",
+            entornoVisible
+              ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
+              : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+          )}
+        >
+          <Building2 size={12} />
+          Graderío
+        </button>
       </div>
 
       {/* CAMPO */}
@@ -844,6 +927,11 @@ export default function TacticsBoard({
         navigable={tool === "camera"}
         frameRef={frameRef}
         onGestureStart={cancelEditGesture}
+        entorno={
+          entornoVisible && camera.render === "3d" ? (
+            <EntornoEstadio campo={campoActivo} />
+          ) : undefined
+        }
         cameraBar={
           <PitchCameraBar
             camera={camera}
@@ -952,7 +1040,7 @@ export default function TacticsBoard({
             </marker>
           </defs>
 
-          <PitchMarkings />
+          <PitchMarkings campo={campoActivo} />
 
           {/* Formas */}
           <g>
@@ -1051,7 +1139,7 @@ export default function TacticsBoard({
                     ficha parece de pie sobre el césped en vez de tumbada.
                   */}
                   <g
-                    transform={`translate(0 ${style.radius * 0.55}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-style.radius * 0.55})`}
+                    transform={`rotate(${tokenSpin.toFixed(2)}) translate(0 ${style.radius * 0.55}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-style.radius * 0.55})`}
                     style={{ transition: "transform 190ms ease-out" }}
                   >
                   {/*
