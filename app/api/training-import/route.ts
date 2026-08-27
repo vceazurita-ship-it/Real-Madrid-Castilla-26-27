@@ -460,8 +460,12 @@ const sessionPlayers = [
   console.error(error?.stack);
   console.error(error?.cause);
 
-  console.log("APPS_SCRIPT_URL =", process.env.APPS_SCRIPT_URL);
-  console.log("GEMINI =", !!process.env.GEMINI_API_KEY);
+  /* Se dice SI están configuradas, nunca su valor: la URL del Apps Script es
+     la llave para escribir en la hoja y acababa entera en el registro. */
+  console.error("configurado:", {
+    hoja: !!process.env.APPS_SCRIPT_URL,
+    gemini: !!process.env.GEMINI_API_KEY,
+  });
 
   // Gemini sin cuota
   if (error?.status === 429) {

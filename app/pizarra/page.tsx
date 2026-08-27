@@ -271,8 +271,17 @@ function PizarraContent() {
                         </div>
                       </aside>
 
-                      {/* CAMPO */}
-                      <section className="order-2 flex-1 lg:order-none">
+                      {/*
+                        CAMPO
+
+                        `min-w-0` no es decorativo: un hijo de flex mide por
+                        defecto `min-width: auto`, así que el campo —que pide
+                        16:9 sobre una altura fija— empujaba la columna hasta
+                        139 px fuera de la pantalla y la página entera se
+                        arrastraba en horizontal. Con esto el campo se encoge
+                        con la columna y comparte alto con la plantilla.
+                      */}
+                      <section className="order-2 min-w-0 flex-1 lg:order-none">
                         {loadedLineupName && (
                           <div className="mb-3 text-center">
                             <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]/70">

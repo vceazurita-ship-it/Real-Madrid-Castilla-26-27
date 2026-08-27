@@ -895,13 +895,22 @@ export function colocaAutomatico(
   return nuevas;
 }
 
-/** Cuántos puestos de la diapositiva tienen a alguien. */
+/**
+ * Cuántos puestos de la diapositiva tienen a alguien.
+ *
+ * Se cuentan cruzando con la plantilla y no contando las fichas: una pizarra
+ * guardada hace semanas puede llevar fichas de un puesto que la plantilla ya
+ * no tiene, y contándolas a secas salía «11/10 puestos».
+ */
 export function cuentaPuestos(slide: SlidePizarra) {
-  const total = puestosDe(slide).length;
+  const puestos = puestosDe(slide);
 
-  const cubiertos = new Set(
-    slide.fichas.map((ficha) => ficha.puesto).filter(Boolean),
-  ).size;
+  const ocupados = new Set(
+    slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[],
+  );
 
-  return { total, cubiertos };
+  return {
+    total: puestos.length,
+    cubiertos: puestos.filter((puesto) => ocupados.has(puesto.key)).length,
+  };
 }

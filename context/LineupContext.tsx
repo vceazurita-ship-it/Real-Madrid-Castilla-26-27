@@ -100,13 +100,9 @@ export function LineupProvider({
 }: {
   children: ReactNode;
 }) {
-  const [selectedPlayer, _setSelectedPlayer] =
+  const [selectedPlayer, setSelectedPlayer] =
   useState<Player | null>(null);
 const { players } = usePlayers();
-const setSelectedPlayer = (player: Player | null) => {
-  console.log("SET SELECTED:", player);
-  _setSelectedPlayer(player);
-};
   const [formation, setFormation] = useState(() => {
   if (typeof window === "undefined")
     return "4-4-2";
@@ -196,14 +192,34 @@ const [lineup, setLineup] =
      CAMBIO DE FORMACIÓN
   ======================================= */
 
-  useEffect(() => {
-  setLineup((current) =>
-    remapFormation(
-      current,
-      createLineup(formation)
-    )
+  /*
+  | Cambiar de sistema recoloca a los que ya están en el campo.
+  |
+  | Antes esto vivía en un efecto que escuchaba a `formation`, y ahí tenía dos
+  | problemas. El gordo: `loadLineup` cambia el sistema Y la alineación a la
+  | vez, así que al abrir una alineación guardada el efecto saltaba después y
+  | volvía a pasar por `remapFormation` la alineación recién cargada —y ese
+  | remapeo **descarta** a quien no tiene hueco equivalente, así que abrir una
+  | jornada vieja podía dejarse jugadores por el camino sin decir nada—. El
+  | otro: llamar a `setState` dentro de un efecto encadena un render de más en
+  | cada cambio de sistema.
+  |
+  | Ahora el recolocado va donde tiene que ir: en el propio cambio de sistema,
+  | que es lo único que lo pide. Cargar una alineación guardada la respeta tal
+  | y como se guardó.
+  */
+  const cambiaFormacion = useCallback(
+    (siguiente: string) => {
+      if (siguiente === formation) return;
+
+      setFormation(siguiente);
+
+      setLineup((current) =>
+        remapFormation(current, createLineup(siguiente)),
+      );
+    },
+    [formation],
   );
-}, [formation]);
   /* =======================================
      GUARDADO AUTOMÁTICO
   ======================================= */
@@ -419,7 +435,8 @@ const value = useMemo(
     selectedPlayer,
     setSelectedPlayer,
 
-    setFormation,
+    /* Lo que ve la pizarra es el cambio de sistema completo, con recolocado. */
+    setFormation: cambiaFormacion,
     assignPlayer,
     removePlayer,
     clearLineup,
@@ -438,6 +455,7 @@ const value = useMemo(
     loadedLineupId,
     loadedLineupName,
     selectedPlayer,
+    cambiaFormacion,
     removePlayer,
     removeFromBench,
   ]

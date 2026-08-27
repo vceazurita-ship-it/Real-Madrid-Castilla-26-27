@@ -36,10 +36,16 @@ export default function ImageGrid({
           className="group overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14] transition hover:border-[#C8A96B]/40"
         >
           <div className="relative aspect-[4/3] w-full bg-black">
+            {/*
+              `relative` en el botón: la foto va con `fill` y Next la coloca
+              contra su ancestro posicionado. Sin esto se colgaba del abuelo y
+              el aviso de "parent element with invalid position" salía en cada
+              carga de /performance y /general.
+            */}
             <button
               type="button"
               onClick={() => onOpen(index)}
-              className="block h-full w-full cursor-zoom-in"
+              className="relative block h-full w-full cursor-zoom-in"
               aria-label={`Ampliar ${item.caption ?? "imagen"}`}
             >
               <Image
