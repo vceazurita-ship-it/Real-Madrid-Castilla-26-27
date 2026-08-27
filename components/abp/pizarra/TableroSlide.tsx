@@ -35,10 +35,14 @@ import {
   TABLERO_H,
   TABLERO_W,
   VISTAS,
+  adornosDe,
   enElCampo,
   gruposDe,
+  pideDorsal,
   puestoDe,
   puestosDe,
+  siglaDe,
+  type AdornoAbp,
   type FichaPizarra,
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
@@ -48,14 +52,65 @@ const FOTO_W = 96;
 const FOTO_H = 120;
 const CHAPA_H = 30;
 
+/**
+ * Quién tapa a quién.
+ *
+ * Manda la profundidad —cuanto más abajo está alguien, más cerca de la cámara,
+ * y por tanto por delante—, que es lo que hace que el campo en perspectiva se
+ * lea. Lo nuevo es el desempate **dentro de una misma fila**: gana el de la
+ * izquierda.
+ *
+ * Sin ese desempate el orden lo decidía el DOM, y como se pintan de izquierda a
+ * derecha, la cara de cada uno caía sobre la chapa del de su izquierda: en una
+ * barrera o en una línea de marcas —donde se está hombro con hombro— la mitad
+ * de los nombres desaparecían. Pintando al revés, lo único que se solapa es el
+ * borde transparente de la foto de al lado.
+ */
+function profundidad(x: number, y: number) {
+  return Math.round(y) * 2000 - Math.round(x);
+}
+
 /* ------------------------------------------------------------------ */
 /*  UNA FICHA                                                          */
 /* ------------------------------------------------------------------ */
+
+/**
+ * La casilla en blanco del dorsal del rival.
+ *
+ * Va encima de la cabeza, no en la chapa: la chapa dice quién es el nuestro y
+ * esto dice a quién marca, y en la sala son dos lecturas distintas. Se imprime
+ * vacía a propósito —el dorsal no se sabe hasta que el rival salta al campo— y
+ * el papel crema con filo de oro es el mismo de la caja de consignas, así que
+ * se ve que es un hueco para escribir y no un dato que falta.
+ */
+function CasillaDorsal() {
+  return (
+    <div
+      className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center justify-center rounded-[5px]"
+      style={{
+        top: -34,
+        width: 46,
+        height: 34,
+        backgroundColor: "rgba(247,244,236,.94)",
+        boxShadow:
+          "0 0 0 1.5px rgba(200,169,107,.9), 0 4px 10px rgba(0,0,0,.45)",
+      }}
+    >
+      <span
+        className="text-[9px] font-bold uppercase leading-none tracking-[0.18em]"
+        style={{ color: "rgba(15,30,61,.42)" }}
+      >
+        Nº
+      </span>
+    </div>
+  );
+}
 
 function Ficha({
   ficha,
   player,
   code,
+  dorsal,
   seleccionada,
   onPointerDown,
   onQuitar,
@@ -63,6 +118,8 @@ function Ficha({
   ficha: FichaPizarra;
   player: Player | undefined;
   code: string;
+  /** La diapositiva pide escribir a mano el dorsal del rival al que marca. */
+  dorsal: boolean;
   seleccionada: boolean;
   onPointerDown: (event: React.PointerEvent) => void;
   onQuitar: () => void;
@@ -76,10 +133,12 @@ function Ficha({
         width: FOTO_W,
         touchAction: "none",
         cursor: "grab",
-        zIndex: Math.round(ficha.y),
+        zIndex: profundidad(ficha.x, ficha.y),
       }}
       onPointerDown={onPointerDown}
     >
+      {dorsal && <CasillaDorsal />}
+
       {/*
       | Sombra de suelo. Sin ella las caras flotan sobre el césped y el campo
       | en perspectiva pierde el poco relieve que tiene.
@@ -183,7 +242,7 @@ function Hueco({
         borderColor: "rgba(200,169,107,.65)",
         backgroundColor: "rgba(4,18,32,.62)",
         boxShadow: "0 4px 10px rgba(0,0,0,.35)",
-        zIndex: Math.round(y),
+        zIndex: profundidad(x, y),
       }}
     >
       <span
@@ -194,6 +253,183 @@ function Hueco({
       </span>
     </button>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/*  ADORNOS DEL CAMPO                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El sitio desde el que se lanza.
+ *
+ * Una elipse en escorzo sobre el césped —el campo está en perspectiva, un
+ * círculo se vería de canto— con el balón en el centro y el nombre del carril
+ * debajo. Es lo que le faltaba a «directas a portería», que era la única
+ * diapositiva sin nada dibujado: nueve nombres en el panel y el campo vacío.
+ *
+ * Se pinta por debajo de las fichas, así que si hay alguien colocado se le ve
+ * de pie justo encima de su marca.
+ */
+function MarcaZona({ x, y, label }: { x: number; y: number; label: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{ left: x - 105, top: y - 38, width: 210, zIndex: profundidad(x, y) - 1 }}
+    >
+      <svg width={210} height={76} viewBox="0 0 210 76" fill="none">
+        <defs>
+          <radialGradient id={`zona-${label}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#E4CE9B" stopOpacity="0.42" />
+            <stop offset="70%" stopColor="#C8A96B" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#C8A96B" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* El halo del suelo. */}
+        <ellipse cx="105" cy="38" rx="88" ry="29" fill={`url(#zona-${label})`} />
+
+        {/* El aro, en escorzo y con un filo más vivo por delante. */}
+        <ellipse
+          cx="105"
+          cy="38"
+          rx="68"
+          ry="22"
+          stroke="rgba(228,206,155,.85)"
+          strokeWidth="2.6"
+          strokeDasharray="8 7"
+        />
+
+        <ellipse
+          cx="105"
+          cy="38"
+          rx="68"
+          ry="22"
+          stroke="rgba(4,18,32,.35)"
+          strokeWidth="4.5"
+          strokeDasharray="8 7"
+          transform="translate(0 3)"
+          opacity="0.5"
+        />
+      </svg>
+
+      <p
+        className="mt-1 text-center text-[17px] font-bold uppercase leading-none tracking-[0.26em]"
+        style={{
+          color: COLORES.oroClaro,
+          textShadow: "0 2px 8px rgba(0,0,0,.85)",
+        }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * La flecha de salida de las diapositivas defensivas.
+ *
+ * Una acción defendida bien no acaba en el despeje: acaba en la carrera de
+ * enfrente. La flecha lo dice sin una línea de texto más —arranca fina y apagada
+ * en nuestra área y llega gruesa y encendida al otro lado— y va en la franja de
+ * abajo del lienzo, que en las cuatro diapositivas defensivas está vacía: nunca
+ * se cruza con las caras ni con la caja de consignas.
+ *
+ * Todo va en SVG con degradados propios: la captura del `.pptx` serializa el
+ * estilo calculado y ni `filter: blur` de CSS ni `backdrop-filter` sobreviven,
+ * pero un `<linearGradient>` sí.
+ */
+function FlechaTransicion({ label, remate }: { label: string; remate: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{ left: 96, top: 762, width: 1040, height: 262, zIndex: 4 }}
+    >
+      <svg width={1040} height={262} viewBox="0 0 1040 262" fill="none">
+        <defs>
+          <linearGradient id="abp-flecha" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#C8A96B" stopOpacity="0.05" />
+            <stop offset="34%" stopColor="#C8A96B" stopOpacity="0.38" />
+            <stop offset="72%" stopColor="#E4CE9B" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#FFF3D6" stopOpacity="1" />
+          </linearGradient>
+
+          <linearGradient id="abp-flecha-filo" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#E4CE9B" stopOpacity="0" />
+            <stop offset="60%" stopColor="#E4CE9B" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.9" />
+          </linearGradient>
+        </defs>
+
+        {/*
+        | La sombra va debajo y desplazada: sin ella la flecha se pega al
+        | césped y pierde el relieve que tiene el resto de la diapositiva.
+        */}
+        <path
+          d="M8 138 C 300 128, 560 112, 796 92 L 796 62 L 928 116 L 796 170 L 796 140 C 560 156, 300 166, 8 160 Z"
+          fill="rgba(3,12,22,.5)"
+          transform="translate(0 9)"
+        />
+
+        <path
+          d="M8 138 C 300 128, 560 112, 796 92 L 796 62 L 928 116 L 796 170 L 796 140 C 560 156, 300 166, 8 160 Z"
+          fill="url(#abp-flecha)"
+        />
+
+        {/* Un filo claro por el lomo: le da el brillo metálico del oro. */}
+        <path
+          d="M10 133 C 300 123, 560 107, 800 87"
+          stroke="url(#abp-flecha-filo)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+
+        {/* Las tres estelas: velocidad sin dibujar líneas de cómic. */}
+        {[0, 1, 2].map((i) => (
+          <path
+            key={i}
+            d={`M${30 + i * 34} ${196 + i * 15} C ${230 + i * 34} ${190 + i * 15}, ${420 + i * 34} ${182 + i * 15}, ${610 + i * 30} ${172 + i * 14}`}
+            stroke="rgba(200,169,107,.3)"
+            strokeWidth={2 - i * 0.4}
+            strokeLinecap="round"
+            fill="none"
+          />
+        ))}
+      </svg>
+
+      {/* El texto va fuera del SVG: la tipografía de la casa es la del HTML. */}
+      <p
+        className="absolute text-[17px] font-bold uppercase leading-none tracking-[0.3em]"
+        style={{
+          left: 12,
+          top: 78,
+          color: "rgba(228,206,155,.82)",
+          textShadow: "0 2px 10px rgba(0,0,0,.9)",
+        }}
+      >
+        {label}
+      </p>
+
+      <p
+        className="absolute text-[30px] font-bold uppercase leading-none tracking-[0.06em] text-white"
+        style={{
+          left: 470,
+          top: 176,
+          textShadow: "0 3px 14px rgba(0,0,0,.9)",
+        }}
+      >
+        {remate}
+      </p>
+    </div>
+  );
+}
+
+function Adorno({ adorno }: { adorno: AdornoAbp }) {
+  if (adorno.tipo === "zona") {
+    return <MarcaZona x={adorno.x} y={adorno.y} label={adorno.label} />;
+  }
+
+  return <FlechaTransicion label={adorno.label} remate={adorno.remate} />;
 }
 
 /* ------------------------------------------------------------------ */
@@ -322,11 +558,24 @@ export function TableroSlide({
 
   const cubiertos = puestos.filter((puesto) => ocupados.has(puesto.key)).length;
 
-  const codeDe = (ficha: FichaPizarra) =>
-    puestoDe(slide, ficha.puesto)?.code ??
-    (players.get(ficha.playerId)?.dorsal
+  const adornos = adornosDe(slide);
+
+  const codeDe = (ficha: FichaPizarra) => {
+    const puesto = puestoDe(slide, ficha.puesto);
+
+    if (puesto) return siglaDe(puesto);
+
+    return players.get(ficha.playerId)?.dorsal
       ? String(players.get(ficha.playerId)?.dorsal)
-      : "·");
+      : "·";
+  };
+
+  /* La casilla del dorsal del rival la pide la plantilla, por grupos. */
+  const dorsalDe = (ficha: FichaPizarra) => {
+    const puesto = puestoDe(slide, ficha.puesto);
+
+    return puesto ? pideDorsal(slide, puesto) : false;
+  };
 
   return (
     <div ref={marcoRef} className="w-full" style={{ height: TABLERO_H * escala }}>
@@ -344,17 +593,39 @@ export function TableroSlide({
         {/* ------------------------- CAMPO ------------------------- */}
 
         {/* Una capa por foto, en su rectángulo del pptx. */}
-        {VISTAS[slide.vista].capas.map((capa) => (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            key={capa.src}
-            src={capa.src}
-            alt=""
-            draggable={false}
-            className="absolute object-fill"
-            style={{ left: capa.x, top: capa.y, width: capa.w, height: capa.h }}
+        {VISTAS[slide.vista].capas.map((capa) => {
+          /* El difuminado del borde derecho, si la capa lo pide. */
+          const mascara = capa.fundido
+            ? `linear-gradient(90deg, #000 0, #000 ${capa.w - capa.fundido}px, transparent ${capa.w}px)`
+            : undefined;
+
+          return (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              key={capa.src}
+              src={capa.src}
+              alt=""
+              draggable={false}
+              className="absolute object-fill"
+              style={{
+                left: capa.x,
+                top: capa.y,
+                width: capa.w,
+                height: capa.h,
+                maskImage: mascara,
+                WebkitMaskImage: mascara,
+              }}
+            />
+          );
+        })}
+
+        {/* El velo de la vista: apaga la banda que no es campo. */}
+        {VISTAS[slide.vista].velo && (
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: VISTAS[slide.vista].velo }}
           />
-        ))}
+        )}
 
         {/*
         | Dos velos sobre el césped. El vertical es el de siempre: sin él las
@@ -494,6 +765,12 @@ export function TableroSlide({
           }}
         />
 
+        {/* --------------- LO QUE DIBUJA LA PLANTILLA --------------- */}
+
+        {adornos.map((adorno, indice) => (
+          <Adorno key={`${adorno.tipo}-${indice}`} adorno={adorno} />
+        ))}
+
         {/* ------------------ HUECOS Y FICHAS ---------------------- */}
 
         {puestos
@@ -503,7 +780,7 @@ export function TableroSlide({
               key={puesto.key}
               x={puesto.x as number}
               y={puesto.y as number}
-              code={puesto.code}
+              code={siglaDe(puesto)}
               label={puesto.label}
               onClick={() => onPulsarPuesto(puesto.key)}
             />
@@ -515,6 +792,7 @@ export function TableroSlide({
             ficha={ficha}
             player={players.get(ficha.playerId)}
             code={codeDe(ficha)}
+            dorsal={dorsalDe(ficha)}
             seleccionada={seleccion === ficha.id}
             onPointerDown={(event) => empieza(event, ficha)}
             onQuitar={() => onQuitar(ficha.id)}
@@ -599,7 +877,7 @@ export function TableroSlide({
                                 boxShadow: "inset 0 0 0 1px rgba(200,169,107,.3)",
                               }}
                             >
-                              {puesto.code}
+                              {siglaDe(puesto)}
                             </span>
 
                             <span
@@ -609,6 +887,25 @@ export function TableroSlide({
                             >
                               {player?.apodo ?? player?.nombre ?? "—"}
                             </span>
+
+                            {/*
+                            | La misma casilla que la ficha del campo, aquí en
+                            | fila: el panel se lee de un vistazo antes de
+                            | salir y es donde el cuerpo técnico apunta los
+                            | dorsales del rival con la hoja ya impresa.
+                            */}
+                            {pideDorsal(slide, puesto) && (
+                              <span
+                                className="shrink-0 rounded-[4px]"
+                                style={{
+                                  width: 40,
+                                  height: 21,
+                                  backgroundColor: "rgba(247,244,236,.92)",
+                                  boxShadow:
+                                    "inset 0 0 0 1.5px rgba(200,169,107,.85)",
+                                }}
+                              />
+                            )}
                           </button>
                         );
                       })}

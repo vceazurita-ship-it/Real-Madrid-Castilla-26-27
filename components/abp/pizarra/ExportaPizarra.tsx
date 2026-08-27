@@ -45,18 +45,30 @@ import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 type Formato = "pptx" | "pdf";
 
+/**
+ * Dónde se está enseñando.
+ *
+ * `panel` es la caja de siempre, al final de la página, con la explicación de
+ * qué sale en cada formato. `barra` son los dos botones a secas, arriba con el
+ * resto de acciones: llevarse el PowerPoint es lo último que se hace antes de
+ * la charla y estaba a un scroll de distancia, debajo del histórico.
+ */
+type Variante = "panel" | "barra";
+
 export function ExportaPizarra({
   slides,
   players,
   temporada,
   rival,
   jornada,
+  variante = "panel",
 }: {
   slides: SlidePizarra[];
   players: Map<string, Player>;
   temporada: string;
   rival: string;
   jornada?: string;
+  variante?: Variante;
 }) {
   const deckRef = useRef<HTMLDivElement>(null);
 
@@ -184,80 +196,100 @@ export function ExportaPizarra({
 
   const total = slides.length;
 
+  const botones = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        tone="primary"
+        icon={MonitorPlay}
+        onClick={() => setFormato("pptx")}
+        disabled={ocupado || total === 0}
+        title="Un .pptx con una diapositiva por acción, a 1920×1080"
+      >
+        {formato === "pptx"
+          ? `Montando… ${hechas}/${total}`
+          : variante === "barra"
+            ? "Imprimir en PPT"
+            : "Exportar a PowerPoint"}
+      </Button>
+
+      <Button
+        icon={Printer}
+        onClick={() => setFormato("pdf")}
+        disabled={ocupado || total === 0}
+        title="Un PDF A4 apaisado, una diapositiva por hoja"
+      >
+        {formato === "pdf"
+          ? `Montando… ${hechas}/${total}`
+          : variante === "barra"
+            ? "Imprimir en PDF"
+            : "PDF para imprimir"}
+      </Button>
+    </div>
+  );
+
+  /*
+  | El tablero de repuesto es el mismo en las dos variantes, así que va en una
+  | constante: sin él no hay nada que fotografiar.
+  */
+  const deck = ocupado && (
+    <div
+      ref={deckRef}
+      aria-hidden
+      data-export-hide
+      className="pointer-events-none"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: -(TABLERO_W + 200),
+        width: TABLERO_W,
+        zIndex: -1,
+      }}
+    >
+      {slides.map((slide) => (
+        <div key={slide.id} style={{ width: TABLERO_W }}>
+          <TableroSlide
+            slide={slide}
+            players={players}
+            temporada={temporada}
+            rival={rival}
+            seleccion={null}
+            onMover={() => undefined}
+            onQuitar={() => undefined}
+            onPulsarPuesto={() => undefined}
+            onSeleccionar={() => undefined}
+          />
+        </div>
+      ))}
+    </div>
+  );
+
+  if (variante === "barra") {
+    return (
+      <>
+        {botones}
+        {deck}
+      </>
+    );
+  }
+
   return (
     <Panel
       title="Llevárselo a la sala"
       subtitle={`Las ${total} ${total === 1 ? "diapositiva" : "diapositivas"} del tablero, tal y como están: el PowerPoint para proyectar y el PDF para imprimir`}
       icon={FileDown}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          tone="primary"
-          icon={MonitorPlay}
-          onClick={() => setFormato("pptx")}
-          disabled={ocupado || total === 0}
-          title="Un .pptx con una diapositiva por acción, a 1920×1080"
-        >
-          {formato === "pptx"
-            ? `Montando… ${hechas}/${total}`
-            : "Exportar a PowerPoint"}
-        </Button>
-
-        <Button
-          icon={Printer}
-          onClick={() => setFormato("pdf")}
-          disabled={ocupado || total === 0}
-          title="Un PDF A4 apaisado, una diapositiva por hoja"
-        >
-          {formato === "pdf" ? `Montando… ${hechas}/${total}` : "PDF para imprimir"}
-        </Button>
-      </div>
+      {botones}
 
       <p className="mt-3 text-xs leading-relaxed text-white/40">
         Salen las diapositivas enteras —campo, chapas, panel de puestos y
-        consignas—, no sólo la que estás viendo. El PowerPoint lleva cada acción
-        como una imagen a tamaño de proyección: se abre en cualquier portátil
-        sin la app. El PDF va a una hoja por acción, con el rival y el número de
-        diapositiva al pie, para colgarlo en el vestuario.
+        consignas—, no sólo la que estás viendo, y en el orden en que
+        están en la tira. El PowerPoint lleva cada acción como una imagen a tamaño de
+        proyección: se abre en cualquier portátil sin la app. El PDF va a una
+        hoja por acción, con el rival y el número de diapositiva al pie, para
+        colgarlo en el vestuario.
       </p>
 
-      {/*
-      | El tablero de repuesto: las siete diapositivas montadas a la vez, a
-      | tamaño de plantilla y apartadas de la pantalla. Sólo existe mientras
-      | dura la exportación. Va marcado para que el botón de exportar de la
-      | plataforma no lo recoja si alguien lo pulsa a la vez.
-      */}
-      {ocupado && (
-        <div
-          ref={deckRef}
-          aria-hidden
-          data-export-hide
-          className="pointer-events-none"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: -(TABLERO_W + 200),
-            width: TABLERO_W,
-            zIndex: -1,
-          }}
-        >
-          {slides.map((slide) => (
-            <div key={slide.id} style={{ width: TABLERO_W }}>
-              <TableroSlide
-                slide={slide}
-                players={players}
-                temporada={temporada}
-                rival={rival}
-                seleccion={null}
-                onMover={() => undefined}
-                onQuitar={() => undefined}
-                onPulsarPuesto={() => undefined}
-                onSeleccionar={() => undefined}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {deck}
     </Panel>
   );
 }

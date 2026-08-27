@@ -93,6 +93,16 @@ export type CapaCampo = {
   y: number;
   w: number;
   h: number;
+  /**
+   * Cuántos píxeles tarda el borde derecho en desaparecer.
+   *
+   * El plano de portería es más estrecho que el lienzo, así que su borde
+   * cortaba en seco sobre el campo ancho de debajo —dos fotos del mismo
+   * estadio a escalas distintas, una junto a otra— y en la diapositiva se veía
+   * una línea vertical con el graderío duplicado a la derecha. Difuminando ese
+   * borde las dos capas se funden y no hay costura.
+   */
+  fundido?: number;
 };
 
 /*
@@ -112,17 +122,40 @@ const CAMPO_ANCHO: CapaCampo = {
   h: TABLERO_H,
 };
 
-export const VISTAS: Record<VistaCampo, { label: string; capas: CapaCampo[] }> =
-  {
-    ancho: { label: "Campo ancho", capas: [CAMPO_ANCHO] },
-    porteria: {
-      label: "Plano de portería",
-      capas: [
-        CAMPO_ANCHO,
-        { src: "/abp-campo-porteria.png", x: 5, y: -2, w: 1576, h: TABLERO_H },
-      ],
-    },
-  };
+/**
+ * El velo de una vista: un degradado que se pinta sobre las fotos.
+ *
+ * En el plano de portería la banda derecha del lienzo no es campo, es el
+ * sobrante del campo ancho asomando a otra escala. Ahí es donde van el panel de
+ * puestos y las consignas, así que en lugar de enseñar un trozo de graderío
+ * descuadrado se apaga hacia la tinta de la casa: el panel gana un fondo limpio
+ * y la costura desaparece.
+ */
+export type VistaCampoDef = {
+  label: string;
+  capas: CapaCampo[];
+  velo?: string;
+};
+
+export const VISTAS: Record<VistaCampo, VistaCampoDef> = {
+  ancho: { label: "Campo ancho", capas: [CAMPO_ANCHO] },
+  porteria: {
+    label: "Plano de portería",
+    capas: [
+      CAMPO_ANCHO,
+      {
+        src: "/abp-campo-porteria.png",
+        x: 5,
+        y: -2,
+        w: 1576,
+        h: TABLERO_H,
+        fundido: 190,
+      },
+    ],
+    velo:
+      "linear-gradient(90deg, rgba(4,18,32,0) 0%, rgba(4,18,32,0) 62%, rgba(4,18,32,.55) 76%, rgba(4,18,32,.9) 88%, rgba(4,18,32,.96) 100%)",
+  },
+};
 
 export type LadoPizarra = "ofensivo" | "defensivo";
 
@@ -153,12 +186,46 @@ export type PuestoAbp = {
   key: string;
   /** Lo que se lee en la chapa: "R1", "M3", "RL"… */
   code: string;
+  /**
+   * Lo que se lee en la chapa cuando NO es el `code`.
+   *
+   * La clave de un puesto tiene que ser única dentro de la diapositiva, pero
+   * lo que el cuerpo técnico dice en la sala no: en una barrera hay dos
+   * centrales y los dos son «C», y los dos laterales son «L». Se separan por
+   * dentro y se llaman igual por fuera.
+   */
+  sigla?: string;
   /** Lo que significa, para el panel y las ayudas. */
   label: string;
   grupo: string;
   x?: number;
   y?: number;
 };
+
+/** Lo que se pinta en la chapa de un puesto. */
+export function siglaDe(puesto: Pick<PuestoAbp, "code" | "sigla">) {
+  return puesto.sigla ?? puesto.code;
+}
+
+/* ------------------------------------------------------------------ */
+/*  ADORNOS DEL CAMPO                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Dibujos que trae la propia diapositiva y que no son jugadores.
+ *
+ * Van sobre el césped, por debajo de las fichas, y **se exportan**: forman
+ * parte de lo que se enseña en la sala, no del cromo de edición.
+ *
+ * - `zona` marca desde dónde se lanza —el punto de penalti, cada lado de la
+ *   frontal—, y así la diapositiva de directas dice algo aunque el orden de
+ *   lanzadores viva en el panel.
+ * - `transicion` es la flecha de salida de las diapositivas defensivas: si la
+ *   acción se defiende bien, se sale a la contra.
+ */
+export type AdornoAbp =
+  | { tipo: "zona"; x: number; y: number; label: string }
+  | { tipo: "transicion"; label: string; remate: string };
 
 /* ------------------------------------------------------------------ */
 /*  PLANTILLAS DE DIAPOSITIVA                                          */
@@ -173,6 +240,33 @@ export type PlantillaSlide = {
   puestos: PuestoAbp[];
   /** Las consignas que la plantilla trae escritas. Se pueden cambiar. */
   notas: string[];
+  /**
+   * Versión del dibujo de la plantilla.
+   *
+   * Las pizarras guardadas llevan dentro la posición de cada ficha, no la de la
+   * plantilla: se copian al colocar y luego se pueden arrastrar. Eso está bien
+   * mientras la plantilla no cambie, pero cuando cambia —una barrera que pasa
+   * de cuatro a cinco, una fila que se abre porque las chapas se tapaban— las
+   * jornadas ya montadas se quedaban con el dibujo viejo y había que rehacerlas
+   * a mano.
+   *
+   * Subiendo este número, `normalizaTablero` vuelve a plantar las fichas donde
+   * dice la plantilla la próxima vez que se abre la pizarra. **Súbelo sólo al
+   * mover coordenadas**: recolocar borra los ajustes que alguien haya hecho
+   * arrastrando en esa diapositiva.
+   */
+  rev: number;
+  /** Lo que la diapositiva dibuja en el campo además de las caras. */
+  adornos?: AdornoAbp[];
+  /**
+   * Grupos cuyos puestos llevan una casilla vacía para el dorsal del rival.
+   *
+   * En el córner defensivo cada marca es un rival concreto, y el dorsal no se
+   * sabe hasta que el rival sale al campo: la diapositiva se imprime con la
+   * casilla en blanco y se rellena a boli en el vestuario. Va en la chapa del
+   * campo **y** en la fila del panel, para que valga leerla de las dos formas.
+   */
+  dorsal?: string[];
 };
 
 /* Atajo para no repetir el prefijo de la clave en cada puesto. */
@@ -185,6 +279,7 @@ const puestos = (
 export const PLANTILLAS: PlantillaSlide[] = [
   {
     key: "corner-of",
+    rev: 3,
     titulo: "CÓRNER OFENSIVO",
     vista: "ancho",
     lado: "ofensivo",
@@ -195,18 +290,29 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { key: "rematadores", label: "REMATADORES" },
       { key: "cierra", label: "CIERRA" },
     ],
+    /*
+    | Fuera el puesto de «lanzador»: su chapa caía en 190,120, o sea **debajo
+    | de la cabecera**, y en la diapositiva no se veía más que un filo. Quien
+    | saca el córner es la corta —`C`—, que ya está en el grupo de lanzadores.
+    |
+    | `Z1` y `D1` van cambiados respecto a como estaban: el zaguero es el que
+    | se queda arriba y el defensa el que cierra por delante.
+    |
+    | Los tres rematadores estaban a 40 px unos de otros con una ficha de 96 de
+    | ancha: las chapas de R2 y R3 desaparecían detrás de la cara del de al
+    | lado. Mismo trazado diagonal, con sitio para leerlos.
+    */
     puestos: puestos("corner-of", [
-      { code: "LAN", label: "Lanzador", grupo: "lanzadores", x: 190, y: 120 },
       { code: "C", label: "Corta", grupo: "lanzadores", x: 831, y: 845 },
       { code: "BZ", label: "Bloqueo zona", grupo: "bloqueos", x: 960, y: 317 },
-      { code: "BC", label: "Bloqueo corta", grupo: "bloqueos", x: 898, y: 233 },
+      { code: "BC", label: "Bloqueo corta", grupo: "bloqueos", x: 880, y: 233 },
       { code: "RC", label: "Rechace corto", grupo: "rechace", x: 590, y: 531 },
       { code: "RL", label: "Rechace largo", grupo: "rechace", x: 906, y: 537 },
-      { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 1009, y: 437 },
-      { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 1051, y: 401 },
-      { code: "R3", label: "Rematador 3", grupo: "rematadores", x: 1095, y: 371 },
-      { code: "D1", label: "Defensa 1", grupo: "cierra", x: 290, y: 356 },
-      { code: "Z1", label: "Zaguero 1", grupo: "cierra", x: 154, y: 213 },
+      { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 1000, y: 455 },
+      { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 1076, y: 415 },
+      { code: "R3", label: "Rematador 3", grupo: "rematadores", x: 1152, y: 375 },
+      { code: "D1", label: "Defensa 1", grupo: "cierra", x: 154, y: 258 },
+      { code: "Z1", label: "Zaguero 1", grupo: "cierra", x: 290, y: 356 },
     ]),
     notas: [
       "1. Remate detrás de corta.",
@@ -217,6 +323,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "falta-lat-of",
+    rev: 2,
     titulo: "FALTA LATERAL OFENSIVA",
     vista: "porteria",
     lado: "ofensivo",
@@ -232,10 +339,10 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "C", label: "Corta", grupo: "lanzadores", x: 148, y: 550 },
       { code: "BR", label: "Bloqueo y carrera", grupo: "bloqueo", x: 781, y: 401 },
       { code: "RE", label: "Rechace", grupo: "rechace", x: 711, y: 677 },
-      { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 835, y: 466 },
-      { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 914, y: 466 },
-      { code: "R3", label: "Rematador 3", grupo: "rematadores", x: 990, y: 466 },
-      { code: "R4", label: "Rematador 4", grupo: "rematadores", x: 1062, y: 466 },
+      { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 824, y: 466 },
+      { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 900, y: 466 },
+      { code: "R3", label: "Rematador 3", grupo: "rematadores", x: 976, y: 466 },
+      { code: "R4", label: "Rematador 4", grupo: "rematadores", x: 1052, y: 466 },
       { code: "D1", label: "Equilibra", grupo: "equilibra", x: 250, y: 760 },
       { code: "Z1", label: "Corta atrás", grupo: "equilibra", x: 326, y: 804 },
     ]),
@@ -248,6 +355,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "directas",
+    rev: 2,
     titulo: "DIRECTAS A PORTERÍA",
     vista: "porteria",
     lado: "ofensivo",
@@ -256,22 +364,36 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { key: "lado-d", label: "LANZADORES LADO D" },
       { key: "penaltis", label: "PENALTIS" },
     ],
-    /* Sin coordenadas: esta diapositiva es una lista por orden, no un dibujo. */
+    /*
+    | Esta diapositiva era sólo una lista: nueve nombres en el panel y el campo
+    | entero vacío. Ahora dice también DESDE DÓNDE se lanza.
+    |
+    | El primero de cada lado y el primer penalti se plantan en su sitio; el
+    | segundo y el tercero se quedan en el panel, porque son el orden si el
+    | primero no está, no otra posición del campo. Los tres sitios quedan
+    | marcados en el césped aunque no haya nadie puesto (ver `adornos`).
+    */
     puestos: puestos("directas", [
-      { code: "I1", label: "Lado izquierdo · 1", grupo: "lado-i" },
+      { code: "I1", label: "Lado izquierdo · 1", grupo: "lado-i", x: 415, y: 585 },
       { code: "I2", label: "Lado izquierdo · 2", grupo: "lado-i" },
       { code: "I3", label: "Lado izquierdo · 3", grupo: "lado-i" },
-      { code: "D1", label: "Lado derecho · 1", grupo: "lado-d" },
+      { code: "D1", label: "Lado derecho · 1", grupo: "lado-d", x: 1135, y: 585 },
       { code: "D2", label: "Lado derecho · 2", grupo: "lado-d" },
       { code: "D3", label: "Lado derecho · 3", grupo: "lado-d" },
-      { code: "P1", label: "Penalti · 1", grupo: "penaltis" },
+      { code: "P1", label: "Penalti · 1", grupo: "penaltis", x: 768, y: 430 },
       { code: "P2", label: "Penalti · 2", grupo: "penaltis" },
       { code: "P3", label: "Penalti · 3", grupo: "penaltis" },
     ]),
+    adornos: [
+      { tipo: "zona", x: 415, y: 585, label: "Lado I" },
+      { tipo: "zona", x: 768, y: 430, label: "Penalti" },
+      { tipo: "zona", x: 1135, y: 585, label: "Lado D" },
+    ],
     notas: ["Orden de lanzamiento cerrado antes del partido."],
   },
   {
     key: "corner-def",
+    rev: 3,
     titulo: "CÓRNER DEFENSIVO",
     vista: "ancho",
     lado: "defensivo",
@@ -283,16 +405,22 @@ export const PLANTILLAS: PlantillaSlide[] = [
     ],
     puestos: puestos("corner-def", [
       { code: "C", label: "Corta", grupo: "corta", x: 788, y: 254 },
-      { code: "B", label: "Balón", grupo: "balon", x: 933, y: 273 },
-      { code: "M1", label: "Marca 1", grupo: "marcas", x: 1018, y: 351 },
-      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1079, y: 351 },
-      { code: "M3", label: "Marca 3", grupo: "marcas", x: 1144, y: 351 },
-      { code: "M4", label: "Marca 4", grupo: "marcas", x: 1206, y: 351 },
-      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1267, y: 351 },
+      { code: "B", label: "Balón", grupo: "balon", x: 866, y: 273 },
+      { code: "M1", label: "Marca 1", grupo: "marcas", x: 946, y: 351 },
+      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1020, y: 351 },
+      { code: "M3", label: "Marca 3", grupo: "marcas", x: 1094, y: 351 },
+      { code: "M4", label: "Marca 4", grupo: "marcas", x: 1168, y: 351 },
+      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1242, y: 351 },
       { code: "RC", label: "Rechace corto", grupo: "rechace", x: 374, y: 350 },
       { code: "RL", label: "Rechace largo", grupo: "rechace", x: 933, y: 510 },
       { code: "AR", label: "Área", grupo: "rechace", x: 727, y: 506 },
     ]),
+    /* Cada marca es un rival con nombre y apellidos, pero el dorsal no se sabe
+       hasta que salen al campo: la casilla va en blanco y se rellena a boli. */
+    dorsal: ["marcas"],
+    adornos: [
+      { tipo: "transicion", label: "Defendemos el córner", remate: "Salimos a la contra" },
+    ],
     notas: [
       "Marcas: área pequeña «por delante».",
       "Marcas: hasta punto de penalti «marca pegada».",
@@ -303,6 +431,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "falta-lat-def",
+    rev: 2,
     titulo: "FALTA LATERAL DEFENSIVA",
     vista: "porteria",
     lado: "defensivo",
@@ -313,16 +442,19 @@ export const PLANTILLAS: PlantillaSlide[] = [
     ],
     puestos: puestos("falta-lat-def", [
       { code: "C", label: "Corta", grupo: "corta", x: 680, y: 467 },
-      { code: "M1", label: "Marca 1", grupo: "marcas", x: 803, y: 467 },
-      { code: "M2", label: "Marca 2", grupo: "marcas", x: 866, y: 467 },
-      { code: "M3", label: "Marca 3", grupo: "marcas", x: 930, y: 467 },
-      { code: "M4", label: "Marca 4", grupo: "marcas", x: 993, y: 467 },
-      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1054, y: 467 },
-      { code: "M6", label: "Marca 6", grupo: "marcas", x: 1120, y: 467 },
+      { code: "M1", label: "Marca 1", grupo: "marcas", x: 787, y: 467 },
+      { code: "M2", label: "Marca 2", grupo: "marcas", x: 857, y: 467 },
+      { code: "M3", label: "Marca 3", grupo: "marcas", x: 927, y: 467 },
+      { code: "M4", label: "Marca 4", grupo: "marcas", x: 997, y: 467 },
+      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1067, y: 467 },
+      { code: "M6", label: "Marca 6", grupo: "marcas", x: 1137, y: 467 },
       { code: "AR", label: "Área", grupo: "zona", x: 425, y: 621 },
       { code: "RC", label: "Rechace corto", grupo: "zona", x: 879, y: 561 },
       { code: "RL", label: "Rechace largo", grupo: "zona", x: 1056, y: 560 },
     ]),
+    adornos: [
+      { tipo: "transicion", label: "Defendemos la falta", remate: "Salimos a la contra" },
+    ],
     notas: [
       "Voz de mando.",
       "Amenaza delante de la corta: comunicación · 2º con la corta.",
@@ -331,6 +463,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "falta-dir-def",
+    rev: 2,
     titulo: "FALTA DIRECTA DEFENSIVA",
     vista: "porteria",
     lado: "defensivo",
@@ -339,17 +472,32 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { key: "suelo", label: "SUELO" },
       { key: "segunda", label: "2ª JUGADA" },
     ],
+    /*
+    | La barrera es de cinco: dos laterales en los extremos, dos centrales y la
+    | punta. Los dos laterales se llaman «L» y los dos centrales «C» —así se
+    | dice en el campo—, pero por dentro cada puesto necesita su propia clave
+    | para que la memoria sepa quién va en cada sitio: de ahí `LD` y `C2`, que
+    | se leen «L» y «C».
+    |
+    | Y van a 76 px unos de otros, no a 60: con la ficha de 96 de ancha, la cara
+    | del de la derecha tapaba la chapa del de al lado y en la diapositiva
+    | impresa no se sabía quién era el cuarto de la barrera.
+    */
     puestos: puestos("falta-dir-def", [
-      { code: "L", label: "Barrera · lateral", grupo: "barrera", x: 627, y: 467 },
-      { code: "C", label: "Barrera · central", grupo: "barrera", x: 754, y: 467 },
-      { code: "9", label: "Barrera · punta", grupo: "barrera", x: 817, y: 467 },
-      { code: "LD", label: "Barrera · lateral D", grupo: "barrera", x: 877, y: 467 },
+      { code: "L", label: "Barrera · lateral I", grupo: "barrera", x: 600, y: 467 },
+      { code: "C2", sigla: "C", label: "Barrera · central I", grupo: "barrera", x: 676, y: 467 },
+      { code: "C", label: "Barrera · central D", grupo: "barrera", x: 752, y: 467 },
+      { code: "9", label: "Barrera · punta", grupo: "barrera", x: 828, y: 467 },
+      { code: "LD", sigla: "L", label: "Barrera · lateral D", grupo: "barrera", x: 904, y: 467 },
       { code: "SU", label: "Suelo", grupo: "suelo", x: 742, y: 317 },
       { code: "AR", label: "Área", grupo: "segunda", x: 418, y: 556 },
       { code: "RL", label: "Rechace largo", grupo: "segunda", x: 865, y: 576 },
       { code: "2A", label: "2ª jugada", grupo: "segunda", x: 1005, y: 469 },
       { code: "2B", label: "2ª jugada", grupo: "segunda", x: 1120, y: 467 },
     ]),
+    adornos: [
+      { tipo: "transicion", label: "Aguanta la barrera", remate: "Salimos a la contra" },
+    ],
     notas: [
       "En barreras de menor número se mantienen laterales y, si es necesario, punta.",
       "Centrales a marcar si no es barrera de 5.",
@@ -357,6 +505,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "banda-def",
+    rev: 2,
     titulo: "SAQUE DE BANDA DEFENSIVO",
     vista: "porteria",
     lado: "defensivo",
@@ -377,6 +526,9 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "RC", label: "Rechace corto", grupo: "area", x: 639, y: 561 },
       { code: "RL", label: "Rechace largo", grupo: "area", x: 936, y: 523 },
     ]),
+    adornos: [
+      { tipo: "transicion", label: "Ganamos el duelo", remate: "Salimos a la contra" },
+    ],
     notas: [
       "Atención a la segunda acción tras el duelo.",
       "Despeje expeditivo con la pierna corta.",
@@ -384,6 +536,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "libre",
+    rev: 2,
     titulo: "PIZARRA LIBRE",
     vista: "ancho",
     lado: "ofensivo",
@@ -432,6 +585,8 @@ export type SlidePizarra = {
   vista: VistaCampo;
   fichas: FichaPizarra[];
   notas: string[];
+  /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
+  rev?: number;
 };
 
 /**
@@ -542,7 +697,57 @@ export function slideDePlantilla(key: string): SlidePizarra {
     vista: plantilla.vista,
     fichas: [],
     notas: [...plantilla.notas],
+    rev: plantilla.rev,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  AL DÍA CON LA PLANTILLA                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Replanta las fichas de un tablero cuando su plantilla ha cambiado de dibujo.
+ *
+ * Se hace **al leer**, no al guardar: así una jornada montada hace semanas se
+ * abre ya con la barrera de cinco y las filas separadas, sin pedirle a nadie
+ * que la rehaga, y la corrección viaja también a lo que se exporta. Sólo se
+ * tocan las fichas que ocupan un puesto —las sueltas, las que alguien puso a
+ * mano donde quiso, se quedan donde están—.
+ *
+ * Devuelve **el mismo objeto** si no hay nada que cambiar: la pizarra se lee en
+ * cada render y crear un tablero nuevo cada vez dispararía el autoguardado.
+ */
+export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
+  let tocado = false;
+
+  const slides = tablero.slides.map((slide) => {
+    const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
+
+    if (!plantilla || slide.rev === plantilla.rev) return slide;
+
+    const porClave = new Map(
+      plantilla.puestos.map((puesto) => [puesto.key, puesto]),
+    );
+
+    const fichas = slide.fichas.map((ficha) => {
+      if (!ficha.puesto) return ficha;
+
+      const puesto = porClave.get(ficha.puesto);
+
+      /* El puesto ya no existe en la plantilla: la ficha se queda suelta. */
+      if (!puesto) return { ...ficha, puesto: null };
+
+      const { x, y } = sitioDe(puesto);
+
+      return ficha.x === x && ficha.y === y ? ficha : { ...ficha, x, y };
+    });
+
+    tocado = true;
+
+    return { ...slide, fichas, rev: plantilla.rev };
+  });
+
+  return tocado ? { ...tablero, slides } : tablero;
 }
 
 export function tableroVacio(partidoId: string, rival: string): TableroPizarra {
@@ -768,6 +973,17 @@ export function puestosDe(slide: SlidePizarra): PuestoAbp[] {
 
 export function gruposDe(slide: SlidePizarra): GrupoAbp[] {
   return PLANTILLA_BY_KEY.get(slide.plantilla)?.grupos ?? [];
+}
+
+export function adornosDe(slide: SlidePizarra): AdornoAbp[] {
+  return PLANTILLA_BY_KEY.get(slide.plantilla)?.adornos ?? [];
+}
+
+/** Si el puesto lleva casilla en blanco para el dorsal del rival. */
+export function pideDorsal(slide: SlidePizarra, puesto: PuestoAbp) {
+  return (PLANTILLA_BY_KEY.get(slide.plantilla)?.dorsal ?? []).includes(
+    puesto.grupo,
+  );
 }
 
 export function puestoDe(slide: SlidePizarra, key: string | null) {

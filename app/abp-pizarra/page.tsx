@@ -37,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  GripVertical,
   Copy,
   CopyPlus,
   History,
@@ -97,6 +98,7 @@ import {
   registraVersion,
   renombraVersion,
   slideDePlantilla,
+  normalizaTablero,
   tableroVacio,
   tieneFichas,
   type PizarraStore,
@@ -346,12 +348,20 @@ export default function PizarraAbpPage() {
     [partidos, elegido],
   );
 
+  /*
+  | El tablero se pone al día con la plantilla al leerlo, no al guardarlo: si
+  | el dibujo de una acción ha cambiado —la barrera pasa a cinco, una fila se
+  | abre porque las chapas se tapaban—, la jornada montada hace semanas se abre
+  | ya corregida, y lo mismo sale al exportar. Ver `normalizaTablero`.
+  */
   const tablero: TableroPizarra | null = useMemo(() => {
     if (!partido) return null;
 
-    return (
-      store.tableros?.[partido.id] ?? tableroVacio(partido.id, partido.opponent)
-    );
+    const guardado = store.tableros?.[partido.id];
+
+    return guardado
+      ? normalizaTablero(guardado)
+      : tableroVacio(partido.id, partido.opponent);
   }, [store.tableros, partido]);
 
   /** El último partido anterior a éste que ya tenga tablero montado. */
@@ -838,26 +848,52 @@ export default function PizarraAbpPage() {
     });
   }, [tablero, activa, mutaTablero]);
 
-  const mueveSlide = useCallback(
-    (delta: number) => {
+  /**
+   * Cambia una diapositiva de sitio.
+   *
+   * El orden de la tira **es** el orden del PowerPoint y el del PDF: lo que se
+   * arrastra aquí es la charla. Se saca del sitio y se mete en el nuevo —no se
+   * intercambian las dos—, que es lo que espera quien arrastra: llevar la
+   * séptima al principio no manda la primera al final.
+   */
+  const mueveSlideA = useCallback(
+    (desde: number, hasta: number) => {
       if (!tablero) return;
 
-      const destino = activa + delta;
-
-      if (destino < 0 || destino >= tablero.slides.length) return;
+      if (
+        desde === hasta ||
+        desde < 0 ||
+        hasta < 0 ||
+        desde >= tablero.slides.length ||
+        hasta >= tablero.slides.length
+      ) {
+        return;
+      }
 
       mutaTablero((actual) => {
         const slides = [...actual.slides];
 
-        [slides[activa], slides[destino]] = [slides[destino], slides[activa]];
+        const [movida] = slides.splice(desde, 1);
+
+        slides.splice(hasta, 0, movida);
 
         return { ...actual, slides };
       });
 
-      setPedida(destino);
+      setPedida(hasta);
     },
-    [tablero, activa, mutaTablero],
+    [tablero, mutaTablero],
   );
+
+  const mueveSlide = useCallback(
+    (delta: number) => mueveSlideA(activa, activa + delta),
+    [mueveSlideA, activa],
+  );
+
+  /** Qué diapositiva se está arrastrando en la tira. */
+  const arrastrando = useRef<number | null>(null);
+
+  const [encima, setEncima] = useState<number | null>(null);
 
   /* ---------------------------- RENDER ----------------------------- */
 
@@ -970,6 +1006,26 @@ export default function PizarraAbpPage() {
                 >
                   Colocar todo
                 </Button>
+
+                {/*
+                  Imprimir, arriba. Los mismos dos botones que la caja del final
+                  de la página: llevarse el PowerPoint o el PDF es lo último que
+                  se hace antes de la charla y estaba a un scroll de distancia.
+                */}
+                {tablero && tablero.slides.length > 0 && (
+                  <ExportaPizarra
+                    variante="barra"
+                    slides={tablero.slides}
+                    players={porId}
+                    temporada={temporadaCorta(RATINGS_SEASON)}
+                    rival={tablero.rival || partido?.opponent || ""}
+                    jornada={
+                      tablero.jornada
+                        ? `J${String(tablero.jornada).padStart(2, "0")}`
+                        : undefined
+                    }
+                  />
+                )}
               </div>
             </div>
 
@@ -1137,27 +1193,75 @@ export default function PizarraAbpPage() {
                 <div className="mt-6">
                   <Panel
                     title="Diapositivas"
-                    subtitle={`${totales.cubiertos} de ${totales.total} puestos con jugador`}
+                    subtitle={`${totales.cubiertos} de ${totales.total} puestos con jugador · arrástralas para cambiar el orden del PowerPoint`}
                     icon={LayoutGrid}
                   >
                     <div className="flex min-w-0 flex-wrap gap-1.5">
                       {tablero?.slides.map((item, indice) => {
                         const { total, cubiertos } = cuentaPuestos(item);
                         const activo = indice === activa;
+                        const destino = encima === indice;
 
                         return (
                           <button
                             key={item.id}
                             type="button"
+                            /*
+                              El orden se cambia arrastrando, que es como se
+                              ordena una charla. Los botones de flecha siguen
+                              ahí para el teclado y para quien no arrastre.
+                            */
+                            draggable
+                            onDragStart={(event) => {
+                              arrastrando.current = indice;
+                              event.dataTransfer.effectAllowed = "move";
+                              /* Firefox no arranca el arrastre sin datos. */
+                              event.dataTransfer.setData("text/plain", item.id);
+                            }}
+                            onDragOver={(event) => {
+                              if (arrastrando.current === null) return;
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setEncima(indice);
+                            }}
+                            onDragLeave={() =>
+                              setEncima((actual) =>
+                                actual === indice ? null : actual,
+                              )
+                            }
+                            onDrop={(event) => {
+                              event.preventDefault();
+
+                              if (arrastrando.current !== null) {
+                                mueveSlideA(arrastrando.current, indice);
+                              }
+
+                              arrastrando.current = null;
+                              setEncima(null);
+                            }}
+                            onDragEnd={() => {
+                              arrastrando.current = null;
+                              setEncima(null);
+                            }}
                             onClick={() => setPedida(indice)}
-                            className={`min-w-0 rounded-xl border px-3 py-2 text-left transition ${
-                              activo
-                                ? "border-[#C8A96B] bg-[#C8A96B]/12"
-                                : "border-white/10 text-white/60 hover:border-white/25 hover:text-white"
+                            title={`${item.titulo} — arrastra para moverla de sitio`}
+                            className={`min-w-0 cursor-grab rounded-xl border px-3 py-2 text-left transition active:cursor-grabbing ${
+                              destino
+                                ? "border-[#C8A96B] bg-[#C8A96B]/25 text-white"
+                                : activo
+                                  ? "border-[#C8A96B] bg-[#C8A96B]/12"
+                                  : "border-white/10 text-white/60 hover:border-white/25 hover:text-white"
                             }`}
                           >
-                            <span className="block max-w-[190px] truncate text-[12px] font-semibold uppercase tracking-wide">
-                              {indice + 1}. {item.titulo}
+                            <span className="flex items-center gap-1.5">
+                              <GripVertical
+                                size={12}
+                                className="shrink-0 text-white/25"
+                              />
+
+                              <span className="block max-w-[176px] truncate text-[12px] font-semibold uppercase tracking-wide">
+                                {indice + 1}. {item.titulo}
+                              </span>
                             </span>
 
                             <span className="block text-[10px] tabular-nums text-white/35">
@@ -1201,8 +1305,10 @@ export default function PizarraAbpPage() {
                         icon={ChevronLeft}
                         onClick={() => mueveSlide(-1)}
                         disabled={activa === 0}
-                        title="Mover la diapositiva hacia delante"
-                      />
+                        title="Adelantar esta diapositiva un puesto en el PowerPoint"
+                      >
+                        Antes
+                      </Button>
 
                       <Button
                         icon={ChevronRight}
@@ -1210,8 +1316,10 @@ export default function PizarraAbpPage() {
                         disabled={
                           !tablero || activa >= tablero.slides.length - 1
                         }
-                        title="Mover la diapositiva hacia atrás"
-                      />
+                        title="Retrasar esta diapositiva un puesto en el PowerPoint"
+                      >
+                        Después
+                      </Button>
 
                       <Button
                         icon={Wand2}
