@@ -59,6 +59,12 @@ export type PortadaData = {
   posicion: string;
   /** "Diestro", "Zurdo" o "Ambidiestro", tal y como lo escribe la hoja. */
   pieDominante?: string;
+  /** Estatura, tal y como la escribe la hoja: "1,84" o "184 cm". */
+  altura?: string;
+  /** Años cumplidos, tal y como los escribe la hoja. */
+  edad?: string;
+  /** Kilos, tal y como los escribe la hoja: "78" o "78 kg". */
+  peso?: string;
   dorsal: string;
   /** Retrato del jugador. Sin él queda la silueta. */
   foto?: string;
@@ -545,6 +551,63 @@ function pieDominante(valor: string | undefined) {
 }
 
 /**
+ * La ficha física: estatura, edad y peso, en el orden en que se cantan.
+ *
+ * Se normaliza aquí y no en la página por lo mismo que `pieDominante`: lo que
+ * se proyecta es cosa de la portada. La hoja escribe la altura de las dos
+ * formas que da BeSoccer —«1,84» y «184»— y el peso con unidad y sin ella; lo
+ * que no se entienda se pinta tal cual en versales, que es mejor que tragarse
+ * un dato que alguien se ha molestado en escribir.
+ */
+function fisico(data: PortadaData) {
+  const limpio = (valor: string | undefined) => {
+    const texto = (valor ?? "").trim();
+
+    return !texto || texto === "." || texto === "0" ? "" : texto;
+  };
+
+  const numero = (texto: string) => {
+    const parsed = Number(texto.replace(",", ".").replace(/[^\d.]/g, ""));
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+
+  const partes: string[] = [];
+
+  const altura = limpio(data.altura);
+
+  if (altura) {
+    const valor = numero(altura);
+
+    /* La hoja mezcla "1,84" y "184 cm": por debajo de 3 se asume metros. */
+    const cm =
+      valor === null ? null : Math.round(valor < 3 ? valor * 100 : valor);
+
+    partes.push(
+      cm ? `${(cm / 100).toFixed(2).replace(".", ",")} M` : altura.toUpperCase(),
+    );
+  }
+
+  const edad = limpio(data.edad);
+
+  if (edad) {
+    const valor = numero(edad);
+
+    partes.push(valor ? `${Math.round(valor)} AÑOS` : edad.toUpperCase());
+  }
+
+  const peso = limpio(data.peso);
+
+  if (peso) {
+    const valor = numero(peso);
+
+    partes.push(valor ? `${Math.round(valor)} KG` : peso.toUpperCase());
+  }
+
+  return partes;
+}
+
+/**
  * Las chapas del pie: qué pierna, quién es y qué juega. Van por la derecha.
  *
  * La del pie es la nueva y va la primera por la izquierda, en rosa sobre azul:
@@ -637,19 +700,50 @@ function chapasDelJugador(ctx: Ctx, data: PortadaData) {
     });
   }
 
-  /* El nombre completo, debajo y pequeño: en el campo se le llama por el
-     deportivo, pero en un acta o en BeSoccer aparece el otro. */
+  /*
+  | Lo de debajo de las chapas, por la derecha y en el orden en que se lee:
+  | cómo se llama de verdad y cómo es de grande.
+  |
+  | El nombre completo va porque en el campo se le llama por el deportivo pero
+  | en un acta o en BeSoccer aparece el otro. La ficha física va porque una
+  | portada que no dice la estatura obliga a abrir la hoja para saber si hay
+  | que preocuparse por él en un córner.
+  |
+  | La banda entre las chapas —acaban en 932— y el filo del pie —1006— da para
+  | las dos justas, así que el reparto depende de cuántas haya: con una sola se
+  | queda a la altura de siempre en vez de colgada del borde de arriba.
+  */
   const completo = (data.nombreCompleto || "").trim();
 
+  const lineas: { texto: string; color: string; tamano: number }[] = [];
+
   if (completo && completo.toUpperCase() !== (data.nombre || "").toUpperCase()) {
-    fuente(ctx, 24, 500);
-    ctx.fillStyle = C.verde;
-
-    const texto = completo.toUpperCase();
-    const ancho = anchoEspaciado(ctx, texto, 2.4);
-
-    textoEspaciado(ctx, texto, W - MARGEN - ancho, 962, 2.4);
+    lineas.push({ texto: completo.toUpperCase(), color: C.verde, tamano: 24 });
   }
+
+  const medidas = fisico(data);
+
+  if (medidas.length) {
+    lineas.push({ texto: medidas.join("  ·  "), color: C.navy, tamano: 22 });
+  }
+
+  lineas.forEach((linea, indice) => {
+    /* Se encogen contra el hueco de las chapas: un nombre completo griego
+       entero se metía encima de la franja de números. */
+    ajusta(ctx, linea.texto, HUECO, linea.tamano, 500, 2.4);
+
+    ctx.fillStyle = linea.color;
+
+    const ancho = anchoEspaciado(ctx, linea.texto, 2.4);
+
+    textoEspaciado(
+      ctx,
+      linea.texto,
+      W - MARGEN - ancho,
+      lineas.length === 1 ? 962 : 956 + indice * 34,
+      2.4,
+    );
+  });
 }
 
 /**

@@ -1069,6 +1069,11 @@ export default function RivalPlayersPage() {
       nombreCompleto: textoUtil(editForm.JUGADOR),
       posicion: textoUtil(editForm["POSICIÓN"]),
       pieDominante: textoUtil(editForm["PIE DOMINANTE"]),
+      /* En bruto: las unidades y el «1,84» contra «184» los resuelve la
+         portada, que es la que sabe cómo se lee proyectado. */
+      altura: textoUtil(editForm.ALTURA),
+      edad: textoUtil(editForm.EDAD),
+      peso: textoUtil(editForm.PESO),
       dorsal: textoUtil(editForm.DORSAL),
       foto: fotoGrande(textoUtil(editForm.FOTO)),
       contexto: season
