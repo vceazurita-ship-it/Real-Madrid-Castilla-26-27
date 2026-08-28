@@ -39,6 +39,20 @@ const COLUMNAS_AGENDA = ['EMAIL', 'NOMBRE', 'USOS', 'ULTIMO_USO'];
 /* Remite el aviso desde la propia cuenta que abrió el script. */
 const NOMBRE_REMITENTE = 'RMCF Castilla';
 
+/**
+ * Libro donde viven `ALERTAS` y `AGENDA`.
+ *
+ * El proyecto de Apps Script de la casa es **independiente**: no cuelga de
+ * ninguna hoja, por eso todo `Code.gs` abre los libros con `openById`. En un
+ * proyecto así `getActiveSpreadsheet()` devuelve `null`, y la primera versión
+ * de este archivo moría con «Cannot read properties of null (reading
+ * 'getSheetByName')» en cuanto la app pedía listar alertas.
+ *
+ * Es el mismo identificador que `SPREADSHEET_ID` de `Code.gs`; se repite aquí
+ * a propósito para que este archivo siga valiendo suelto.
+ */
+const LIBRO_ALERTAS_ID = '1FoRyvIy6brqsPVGHh66XaHcjVaOaPKcqRuQXcIHO9B4';
+
 /* ================================================================== */
 /*  ENTRADA DESDE LA APP                                               */
 /* ================================================================== */
@@ -205,6 +219,23 @@ function comprobarAlertas() {
 /* ================================================================== */
 
 /**
+ * El libro de las alertas.
+ *
+ * Se prueba primero el libro activo para que el archivo siga funcionando si
+ * algún día se pega en un proyecto atado a una hoja; si no lo hay —el caso de
+ * la casa—, se abre por identificador. El disparador horario tampoco tiene
+ * libro activo, así que esto hace falta también para que las alarmas suenen
+ * con la app cerrada.
+ */
+function libroDeAlertas_() {
+  const activo = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (activo) return activo;
+
+  return SpreadsheetApp.openById(LIBRO_ALERTAS_ID);
+}
+
+/**
  * Devuelve la pestaña, creándola con sus cabeceras si aún no existe.
  *
  * Las columnas de fecha se dejan en formato TEXTO a propósito: si no, la hoja
@@ -212,7 +243,7 @@ function comprobarAlertas() {
  * aparece corrida.
  */
 function hojaDe_(nombre, columnas) {
-  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const libro = libroDeAlertas_();
 
   let hoja = libro.getSheetByName(nombre);
 

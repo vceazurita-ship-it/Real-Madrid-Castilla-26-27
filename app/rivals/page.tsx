@@ -1628,7 +1628,7 @@ export default function RivalPlayersPage() {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || "No se pudo guardar");
+        throw new Error(explicaErrorScript(result.error) || "No se pudo guardar");
       }
 
       /* La hoja escribe por nombre de columna: lo que no tiene cabecera se
@@ -1685,10 +1685,14 @@ export default function RivalPlayersPage() {
     } catch (error) {
       console.error(error);
 
+      /* El motivo casi nunca está en la app: si la hoja se cae, el mensaje
+         dice qué hay que tocar en ella. Tragárselo dejaba «no se pudo
+         guardar» a secas y parecía un fallo de la pantalla. */
       toast.error(
         isCreating
           ? "No se pudo añadir el jugador"
           : "No se pudo guardar el jugador",
+        { description: error instanceof Error ? error.message : undefined },
       );
     } finally {
       setSaving(false);
@@ -1725,7 +1729,7 @@ export default function RivalPlayersPage() {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || "No se pudo eliminar");
+        throw new Error(explicaErrorScript(result.error) || "No se pudo eliminar");
       }
 
       setPlayers((current) =>
@@ -1740,7 +1744,9 @@ export default function RivalPlayersPage() {
     } catch (error) {
       console.error(error);
 
-      toast.error("No se pudo eliminar el jugador");
+      toast.error("No se pudo eliminar el jugador", {
+        description: error instanceof Error ? error.message : undefined,
+      });
     } finally {
       setSaving(false);
     }
