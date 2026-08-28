@@ -16,17 +16,16 @@ Son cinco minutos y se hace **una sola vez**.
 ## 2. Engancharlo al `doPost`
 
 El proyecto ya tiene un `doPost` que reparte por `action`. Hay que darle una
-primera oportunidad a las alertas, **antes** del resto de acciones:
+primera oportunidad a las alertas, **antes** del resto de acciones. Son dos
+líneas, y **`e` es el parámetro del propio `doPost`**, se llame como se llame
+el resto de variables del archivo:
 
 ```js
 function doPost(e) {
-  const datos = JSON.parse(e.postData.contents);
 
-  //  ↓↓↓  las dos líneas nuevas  ↓↓↓
-  const deAlertas = manejaAlertas(datos.action, datos);
-  if (deAlertas) return ContentService
-    .createTextOutput(JSON.stringify(deAlertas))
-    .setMimeType(ContentService.MimeType.JSON);
+  //  ↓↓↓  las dos líneas nuevas, lo primero de todo  ↓↓↓
+  const deAlertas = manejaAlertas(e);
+  if (deAlertas) return deAlertas;
   //  ↑↑↑
 
   // ...aquí sigue todo lo que ya había, sin tocar nada...
@@ -35,6 +34,17 @@ function doPost(e) {
 
 `manejaAlertas` devuelve `null` cuando la acción no es suya, así que el resto
 de la hoja sigue funcionando exactamente igual.
+
+> Si tu `doPost` recibe el parámetro con otro nombre (`function doPost(peticion)`,
+> por ejemplo), pásale ése: `manejaAlertas(peticion)`.
+
+**¿La hoja no tiene ningún `doPost`?** Entonces crea uno de una línea:
+
+```js
+function doPost(e) {
+  return doPostDeAlertas(e);
+}
+```
 
 ## 3. Instalar el disparador
 
@@ -47,11 +57,58 @@ A partir de ahí, cada 15 minutos el script mira qué toca y lo manda.
 Para comprobar que quedó puesto: **Activadores** (el reloj de la izquierda)
 debe mostrar una entrada `revisarAlertas · Basado en tiempo`.
 
-## 4. Volver a publicar
+## 4. Comprobar sin salir del editor
+
+Elige la función `comprobarAlertas` y pulsa **Ejecutar**. En el registro
+(**Ver ▸ Registro de ejecución**) saldrá una de estas tres:
+
+| Lo que dice | Qué significa |
+| --- | --- |
+| `BIEN: el archivo responde y el disparador está puesto.` | Todo listo; sigue en el paso 5. |
+| `A MEDIAS: … falta ejecutar instalarDisparadorDeAlertas.` | El archivo está bien pegado, pero vuelve al paso 3. |
+| `MAL: …` | El mensaje dice qué ha fallado; casi siempre es un permiso sin aceptar. |
+
+Esto sólo prueba el archivo. Si aquí sale `BIEN` y la app sigue diciendo que el
+motor no responde, el problema está en el enganche del `doPost` (paso 2) o en
+la publicación (paso 5).
+
+## 5. Volver a publicar
 
 **Implementar ▸ Gestionar implementaciones ▸ editar ▸ Nueva versión.** Si te
 saltas este paso la app sigue hablando con la versión antigua del script y las
 alertas no aparecen.
+
+---
+
+## Si algo falla
+
+**«ReferenceError: datos is not defined».** Es el enganche del paso 2 escrito a
+la manera antigua: las primeras instrucciones decían
+`manejaAlertas(datos.action, datos)`, y eso sólo funciona si la variable de tu
+`doPost` se llama justo `datos`. Sustituye esas líneas por las dos de arriba
+—`manejaAlertas(e)`— y vuelve a publicar (paso 5). El archivo sigue admitiendo
+la forma antigua, así que si prefieres dejarla, lo que hay que arreglar es el
+nombre de la variable, no el `alertas.gs`.
+
+**«La hoja no devolvió datos legibles».** Apps Script ha contestado con su
+página HTML de error en vez de con JSON. Suele ser un permiso sin aceptar
+—ejecuta `comprobarAlertas` desde el editor y acepta lo que pida— o un
+despliegue sin actualizar (paso 5).
+
+**«Acción desconocida».** El `doPost` ha llegado al final sin reconocer la
+acción: repasa que las dos líneas del paso 2 estén **antes** del resto.
+
+**La app no dice nada pero no llega el correo.** Mira **Ejecuciones** en el
+editor: si `revisarAlertas` no aparece cada 15 minutos, falta el disparador
+(paso 3). Si aparece y falla, el motivo está en su registro.
+
+**Para probar el archivo sin tocar la hoja**, hay un arnés en el repositorio
+que carga `alertas.gs` en Node con una hoja de mentira y comprueba las cuatro
+formas de llamar al enganche:
+
+```
+node scripts/apps-script/prueba-alertas.cjs
+```
 
 ---
 

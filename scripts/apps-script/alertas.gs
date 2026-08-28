@@ -46,13 +46,86 @@ const NOMBRE_REMITENTE = 'RMCF Castilla';
 /**
  * Engancha las acciones de alertas al `doPost` que ya tiene el proyecto.
  *
- * Devuelve `null` cuando la acción no es de este archivo, para que el `doPost`
- * siga con su cadena de siempre. En el `doPost`, antes del resto:
+ * **Se le pasa el evento entero, no lo que el `doPost` haya parseado.** La
+ * primera versión pedía escribir `manejaAlertas(datos.action, datos)`, y eso
+ * obligaba a que la variable del `doPost` de la hoja se llamase justo `datos`:
+ * cuando no se llamaba así —que es lo corriente— el script moría con
+ * «ReferenceError: datos is not defined» y la app decía que el motor de envío
+ * no responde. Ahora la línea que hay que pegar es una sola y no depende de
+ * cómo esté escrito el resto del proyecto:
  *
- *     const deAlertas = manejaAlertas(datos.action, datos);
- *     if (deAlertas) return responde_(deAlertas);
+ *     const deAlertas = manejaAlertas(e);
+ *     if (deAlertas) return deAlertas;
+ *
+ * Devuelve `null` cuando la acción no es de este archivo, para que el `doPost`
+ * siga con su cadena de siempre, y un `TextOutput` ya listo para devolver
+ * cuando sí lo es.
  */
-function manejaAlertas(accion, datos) {
+function manejaAlertas(evento, datosSueltos) {
+  const datos = entradaDeAlertas_(evento, datosSueltos);
+
+  if (!datos || !datos.action) return null;
+
+  var resultado;
+
+  try {
+    resultado = despachaAlertas_(datos.action, datos);
+  } catch (error) {
+    /*
+    | Sin esto, un fallo aquí dentro sale como la página HTML de error de
+    | Google: la app no puede leerla y sólo sabe decir que la hoja no contesta.
+    | Así llega el motivo escrito hasta la pantalla.
+    */
+    resultado = { ok: false, error: String((error && error.message) || error) };
+  }
+
+  if (resultado === null) return null;
+
+  /*
+  | Quien llame a la manera antigua —`manejaAlertas(datos.action, datos)`—
+  | espera el objeto pelado, porque su `doPost` lo envuelve él mismo. Se le
+  | devuelve tal cual para no romper las hojas que ya lo tengan pegado así.
+  */
+  if (typeof evento === 'string') return resultado;
+
+  return ContentService
+    .createTextOutput(JSON.stringify(resultado))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Saca `{ action, ... }` de lo que sea que le hayan pasado.
+ *
+ * Admite tres formas porque las tres se han visto en hojas de la casa: el
+ * evento del `doPost` —lo normal—, un objeto ya parseado, y la pareja
+ * `(accion, datos)` de la primera versión de estas instrucciones, para que a
+ * quien la tenga pegada le siga funcionando.
+ */
+function entradaDeAlertas_(evento, datosSueltos) {
+  if (!evento) return null;
+
+  if (typeof evento === 'string') {
+    return Object.assign({}, datosSueltos || {}, { action: evento });
+  }
+
+  if (evento.action) return evento;
+
+  if (evento.postData && evento.postData.contents) {
+    try {
+      return JSON.parse(evento.postData.contents);
+    } catch (error) {
+      /* Cae al formulario de abajo: puede venir url-encoded. */
+    }
+  }
+
+  /* `fetch` con `Content-Type: application/x-www-form-urlencoded`. */
+  if (evento.parameter && evento.parameter.action) return evento.parameter;
+
+  return null;
+}
+
+/** El reparto por acción. Devuelve `null` si la acción no es de aquí. */
+function despachaAlertas_(accion, datos) {
   switch (accion) {
     case 'listarAlertas':
       return listarAlertas_();
@@ -65,6 +138,66 @@ function manejaAlertas(accion, datos) {
     default:
       return null;
   }
+}
+
+/**
+ * El `doPost` entero, para las hojas que todavía no tienen ninguno.
+ *
+ * No se llama `doPost` a propósito: si este archivo declarase un `doPost` y el
+ * proyecto ya tuviera el suyo, Apps Script se quedaría con **el último que
+ * lee** y el resto de la hoja dejaría de funcionar sin avisar. Quien no tenga
+ * `doPost` sólo tiene que crear uno de una línea que llame a esto.
+ */
+function doPostDeAlertas(e) {
+  const respuesta = manejaAlertas(e);
+
+  if (respuesta) return respuesta;
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: false, error: 'Acción desconocida' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Comprobación desde el propio editor: dice si el archivo está bien pegado.
+ *
+ * Se ejecuta con el botón **Ejecutar** y escribe el resultado en el registro,
+ * así se sabe si el problema está en el script o en el enganche del `doPost`
+ * sin tener que probar desde la app.
+ */
+function comprobarAlertas() {
+  const respuesta = manejaAlertas({
+    postData: { contents: JSON.stringify({ action: 'listarAlertas' }) },
+  });
+
+  if (!respuesta) {
+    Logger.log('MAL: manejaAlertas no ha reconocido la acción listarAlertas.');
+    return 'MAL';
+  }
+
+  const texto = respuesta.getContent();
+
+  Logger.log('Respuesta de listarAlertas: ' + texto);
+
+  const leido = JSON.parse(texto);
+
+  if (leido.ok === false) {
+    Logger.log('MAL: ' + leido.error);
+    return 'MAL';
+  }
+
+  const disparador = ScriptApp.getProjectTriggers().some(function (uno) {
+    return uno.getHandlerFunction() === 'revisarAlertas';
+  });
+
+  Logger.log(
+    disparador
+      ? 'BIEN: el archivo responde y el disparador está puesto.'
+      : 'A MEDIAS: el archivo responde, pero falta ejecutar ' +
+          'instalarDisparadorDeAlertas.',
+  );
+
+  return disparador ? 'BIEN' : 'A MEDIAS';
 }
 
 /* ================================================================== */
