@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valores Real Madrid Castilla 26/27</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #0f172a; font-family: 'Montserrat', sans-serif; color: #1e293b; padding: 20px 0; }
+        
+        .print-bar {
+            position: fixed; top: 15px; right: 20px; z-index: 9999;
+            background: #ffffff; padding: 10px 20px; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: flex; gap: 10px; align-items: center;
+        }
+        .btn-print {
+            background-color: #0f2d59; color: #fff; border: none; padding: 8px 18px;
+            font-weight: 700; border-radius: 20px; cursor: pointer; font-size: 13px; text-transform: uppercase;
+        }
+        .btn-print:hover { background-color: #c5a880; }
+
+        .slide-container {
+            background-color: #ffffff; width: 1280px; height: 720px; margin: 0 auto 30px auto;
+            position: relative; overflow: hidden; display: flex; flex-direction: column;
+            border-bottom: 8px solid #0f2d59; page-break-after: always;
+        }
+
+        .cover-layout { display: flex; height: 100%; width: 100%; position: relative; }
+        .cover-content { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 50px 70px; }
+        .cover-header-tag { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .crest-small { height: 44px; }
+        .season-title { font-size: 12px; font-weight: 800; color: #0f2d59; letter-spacing: 3px; }
+        .cover-value-number { font-size: 13px; font-weight: 800; color: #c5a880; letter-spacing: 3px; margin-bottom: 6px; }
+        .cover-title { font-size: 42px; font-weight: 900; color: #0f2d59; text-transform: uppercase; margin-bottom: 20px; }
+        .cover-explanation-box { background-color: #f8fafc; border-left: 5px solid #c5a880; padding: 20px 25px; max-width: 780px; }
+        .cover-explanation-box p { font-size: 16px; line-height: 1.5; color: #334155; font-weight: 500; }
+        .cover-explanation-box strong { color: #0f2d59; font-weight: 800; }
+
+        .cover-geometric { width: 340px; position: relative; background-color: #f1f5f9; overflow: hidden; flex-shrink: 0; }
+        .geometric-stripe-blue { position: absolute; top: -20%; right: 90px; width: 130px; height: 150%; background: linear-gradient(180deg, #0f2d59 0%, #1e40af 100%); transform: rotate(20deg); }
+        .geometric-stripe-gold { position: absolute; bottom: -20%; right: 15px; width: 95px; height: 150%; background: linear-gradient(180deg, #c5a880 0%, #b45309 100%); transform: rotate(20deg); box-shadow: -8px 0 25px rgba(0,0,0,0.2); }
+
+        .slide-inner-padding { padding: 40px 60px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+        .slide-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px; }
+        .brand-subtitle { font-size: 11px; font-weight: 800; color: #c5a880; letter-spacing: 2.5px; }
+        .slide-title { font-size: 24px; font-weight: 800; color: #0f2d59; }
+        .tag-badge { background-color: #0f2d59; color: #ffffff; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 3px; }
+        
+        .acts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-grow: 1; margin-bottom: 15px; }
+        .acts-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; }
+        .acts-card.pitch-card { border-top: 4px solid #0f2d59; }
+        .acts-card.offpitch-card { border-top: 4px solid #c5a880; }
+        .acts-card-title { font-size: 14px; font-weight: 800; color: #0f2d59; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+        .acts-card-title i { color: #c5a880; }
+        .act-subblock { margin-bottom: 10px; }
+        .act-subblock-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+        .act-subblock-label span { background-color: #e2e8f0; color: #0f2d59; padding: 2px 5px; border-radius: 3px; }
+        .act-description { font-size: 13px; line-height: 1.4; color: #334155; background-color: #ffffff; padding: 8px 12px; border-radius: 4px; border-left: 3px solid #cbd5e1; }
+        .act-description.prohibited { border-left-color: #ef4444; background-color: #fef2f2; color: #991b1b; }
+        .act-description.prohibited strong { color: #b91c1c; }
+        .pitch-card .act-description:not(.prohibited) { border-left-color: #0f2d59; }
+        .offpitch-card .act-description:not(.prohibited) { border-left-color: #c5a880; }
+
+        .slide-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #94a3b8; font-weight: 600; border-top: 1px solid #f1f5f9; padding-top: 10px; }
+
+        @media print {
+            body { background-color: #ffffff; padding: 0; }
+            .print-bar { display: none; }
+            .slide-container { margin: 0; width: 100vw; height: 100vh; page-break-after: always; box-shadow: none; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="print-bar">
+    <span>Presentación Real Madrid Castilla (Valores y Antivalores)</span>
+    <button class="btn-print" onclick="window.print()"><i class="fa-solid fa-file-pdf"></i> Descargar en PDF</button>
+</div>
+
+<!-- SLIDE 1: HUMILDAD (PORTADA) -->
+<div class="slide-container">
+    <div class="cover-layout">
+        <div class="cover-content">
+            <div class="cover-header-tag">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Real_Madrid_CF.svg" class="crest-small">
+                <span class="season-title">TEMPORADA 26 / 27 · REAL MADRID CASTILLA</span>
+            </div>
+            <div class="cover-value-number">Valor N.º 1 · Votado por 9 jugadores</div>
+            <h1 class="cover-title">HUMILDAD</h1>
+            <div class="cover-explanation-box">
+                <p>Tener humildad <strong>no es sentirse menos que nadie</strong> ni agachar la cabeza[cite: 2]. En el Real Madrid, la humildad es saber que la camiseta que llevas tiene historia gracias al trabajo de muchos antes que tú. Es <strong>escuchar para aprender</strong>, aceptar cuando te corrigen y recordar que <strong>el escudo está por delante de cualquier nombre</strong>. Demuestra cada día por qué mereces quedarte.</p>
+            </div>
+        </div>
+        <div class="cover-geometric"><div class="geometric-stripe-blue"></div><div class="geometric-stripe-gold"></div></div>
+    </div>
+</div>
+
+<!-- SLIDE 2: HUMILDAD VS EGOÍSMO Y ARROGANCIA -->
+<div class="slide-container">
+    <div class="slide-inner-padding">
+        <div class="slide-header">
+            <div><span class="brand-subtitle">CULTURA Y CONDUCTAS OBSERVABLES</span><h2 class="slide-title">Humildad vs. Egoismo (22) y Arrogancia (3)</h2></div>
+            <span class="tag-badge">VALOR 1</span>
+        </div>
+        <div class="acts-grid">
+            <div class="acts-card pitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-futbol"></i> En el Campo (Entrenamiento y Partido)</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Humildad</div>
+                    <div class="act-description">Aceptar las correcciones a la primera sin gestos ni excusas. Celebrar con la misma energía la cobertura del lateral que el gol[cite: 2].</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Egoísmo y Arrogancia</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Poner malas caras tras un cambio, reprochar en público o buscar el lucimiento individual por encima del equipo[cite: 2].</div>
+                </div>
+            </div>
+            <div class="acts-card offpitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-shirt"></i> Fuera del Campo (Vestuario y Residencia)</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Humildad</div>
+                    <div class="act-description">Tratar con máximo respeto a todo el personal de Valdebebas (fisios, utilleros, limpieza)[cite: 2]. Pies en la tierra.</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Egoísmo y Arrogancia</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Divismo, sobreexposición de ego en redes sociales o prensa, y sentirse superior por vestir esta camiseta[cite: 2].</div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>REAL MADRID CASTILLA · PLANIFICACIÓN DE IDENTIDAD</span><span style="color:#c5a880;font-weight:800;">REAL MADRID CF</span></div>
+    </div>
+</div>
+
+<!-- SLIDE 3: COMPROMISO (PORTADA) -->
+<div class="slide-container">
+    <div class="cover-layout">
+        <div class="cover-content">
+            <div class="cover-header-tag">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Real_Madrid_CF.svg" class="crest-small">
+                <span class="season-title">TEMPORADA 26 / 27 · REAL MADRID CASTILLA</span>
+            </div>
+            <div class="cover-value-number">Valor N.º 2 · Votado por 8 jugadores</div>
+            <h1 class="cover-title">COMPROMISO</h1>
+            <div class="cover-explanation-box">
+                <p>El compromiso es <strong>tu palabra dada</strong>. Es dar el 100% incluso los días que estás cansado, cuando te toca ser suplente o cuando las cosas no salen. Compromiso es <strong>hacer lo que toca, cuando toca, aunque nadie te esté mirando</strong>. Aquí no venimos a probar suerte, venimos a cumplir cada día.</p>
+            </div>
+        </div>
+        <div class="cover-geometric"><div class="geometric-stripe-blue"></div><div class="geometric-stripe-gold"></div></div>
+    </div>
+</div>
+
+<!-- SLIDE 4: COMPROMISO VS CONFORMISMO E IRRESPONSABILIDAD -->
+<div class="slide-container">
+    <div class="slide-inner-padding">
+        <div class="slide-header">
+            <div><span class="brand-subtitle">CULTURA Y CONDUCTAS OBSERVABLES</span><h2 class="slide-title">Compromiso vs. Conformismo (10) e Irresponsabilidad (6)</h2></div>
+            <span class="tag-badge">VALOR 2</span>
+        </div>
+        <div class="acts-grid">
+            <div class="acts-card pitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-handshake-angle"></i> En el Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Compromiso</div>
+                    <div class="act-description">Repliegue defensivo a máxima intensidad en el min 88[cite: 2]. Mantener la presión alta hasta el silbato final.</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Conformismo e Irresponsabilidad</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Borrarse del esfuerzo, no bajar a defender tras pérdida o conformarse cuando el resultado es favorable[cite: 2].</div>
+                </div>
+            </div>
+            <div class="acts-card offpitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-clock"></i> Fuera del Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Compromiso</div>
+                    <div class="act-description">Llegar 15 minutos antes a la zona de prevención/gimnasio. Apoyar con fuerza desde el banquillo sin caras largas[cite: 2].</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Conformismo e Irresponsabilidad</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Impuntualidad, excusas por cansancio y desentenderse de la dinámica colectiva si te toca rotar[cite: 2].</div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>REAL MADRID CASTILLA · PLANIFICACIÓN DE IDENTIDAD</span><span style="color:#c5a880;font-weight:800;">REAL MADRID CF</span></div>
+    </div>
+</div>
+
+<!-- SLIDE 5: PROFESIONALIDAD (PORTADA) -->
+<div class="slide-container">
+    <div class="cover-layout">
+        <div class="cover-content">
+            <div class="cover-header-tag">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Real_Madrid_CF.svg" class="crest-small">
+                <span class="season-title">TEMPORADA 26 / 27 · REAL MADRID CASTILLA</span>
+            </div>
+            <div class="cover-value-number">Valor N.º 3 · Votado por 6 jugadores</div>
+            <h1 class="cover-title">PROFESIONALIDAD</h1>
+            <div class="cover-explanation-box">
+                <p>Ser profesional es <strong>un estilo de vida las 24 horas</strong>, no solo las dos horas que pisas el césped. Tu cuerpo es tu herramienta de trabajo. Implica <strong>rigor, entrenamiento invisible, nutrición impecable y puntualidad militar</strong>. Representas al mejor club del mundo dentro y fuera de la residencia.</p>
+            </div>
+        </div>
+        <div class="cover-geometric"><div class="geometric-stripe-blue"></div><div class="geometric-stripe-gold"></div></div>
+    </div>
+</div>
+
+<!-- SLIDE 6: PROFESIONALIDAD VS DESPRECIO Y MEDIOCRIDAD -->
+<div class="slide-container">
+    <div class="slide-inner-padding">
+        <div class="slide-header">
+            <div><span class="brand-subtitle">CULTURA Y CONDUCTAS OBSERVABLES</span><h2 class="slide-title">Profesionalidad vs. Desprecio (6) y Mediocridad (3)</h2></div>
+            <span class="tag-badge">VALOR 3</span>
+        </div>
+        <div class="acts-grid">
+            <div class="acts-card pitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-stopwatch"></i> En el Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Profesionalidad</div>
+                    <div class="act-description">Entrenar cada tarea al máximo de la métrica GPS[cite: 2]. Máxima atención operativa en sesiones de vídeo y ABP[cite: 2].</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Desprecio y Mediocridad</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Reservarse en los entrenamientos, especular con la carga física o mostrar apatía en la preparación táctica[cite: 2].</div>
+                </div>
+            </div>
+            <div class="acts-card offpitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-notes-medical"></i> Fuera del Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Profesionalidad</div>
+                    <div class="act-description">Rigor absoluto en el descanso nocturno, hidratación y nutrición[cite: 2]. Dejar vestuarios e instalaciones impecables.</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Desprecio y Mediocridad</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Malos hábitos fuera de Valdebebas, desorden en las áreas comunes y descuido del material del club[cite: 2].</div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>REAL MADRID CASTILLA · PLANIFICACIÓN DE IDENTIDAD</span><span style="color:#c5a880;font-weight:800;">REAL MADRID CF</span></div>
+    </div>
+</div>
+
+<!-- SLIDE 7: COMPAÑERISMO (PORTADA) -->
+<div class="slide-container">
+    <div class="cover-layout">
+        <div class="cover-content">
+            <div class="cover-header-tag">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Real_Madrid_CF.svg" class="crest-small">
+                <span class="season-title">TEMPORADA 26 / 27 · REAL MADRID CASTILLA</span>
+            </div>
+            <div class="cover-value-number">Valor N.º 4 · Votado por 5 jugadores (+3 Amistad)</div>
+            <h1 class="cover-title">COMPAÑERISMO</h1>
+            <div class="cover-explanation-box">
+                <p>Es la <strong>red de seguridad del vestuario</strong>. Ningún jugador triunfa solo. Compañerismo es no dejar a nadie atrás: si un compañero falla, tú le resuelves la papeleta[cite: 2]; si se cae, tú le levantas. La fuerza de este equipo se mide en <strong>lo unidos que estemos en los momentos duros</strong>.</p>
+            </div>
+        </div>
+        <div class="cover-geometric"><div class="geometric-stripe-blue"></div><div class="geometric-stripe-gold"></div></div>
+    </div>
+</div>
+
+<!-- SLIDE 8: COMPAÑERISMO VS DESLEALTAD -->
+<div class="slide-container">
+    <div class="slide-inner-padding">
+        <div class="slide-header">
+            <div><span class="brand-subtitle">CULTURA Y CONDUCTAS OBSERVABLES</span><h2 class="slide-title">Compañerismo vs. Deslealtad (5)</h2></div>
+            <span class="tag-badge">VALOR 4</span>
+        </div>
+        <div class="acts-grid">
+            <div class="acts-card pitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-people-group"></i> En el Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Compañerismo</div>
+                    <div class="act-description">Chocar la mano y dar ánimo inmediato al compañero tras una pérdida. Hacer piña defensiva ante el rival[cite: 2].</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Deslealtad</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Reprochar fallos en público al compañero, hacer gestos despectivos en el césped o la insolidaridad en el juego[cite: 2].</div>
+                </div>
+            </div>
+            <div class="acts-card offpitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-comments"></i> Fuera del Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Compañerismo</div>
+                    <div class="act-description">Acoger e integrar activamente a los más jóvenes de la cantera[cite: 2]. Hablar las cosas siempre a la cara dentro del vestuario.</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Deslealtad</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Rajadas a las espaldas, crear clanes o grupos cerrados, y filtrar comentarios internos fuera[cite: 2].</div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>REAL MADRID CASTILLA · PLANIFICACIÓN DE IDENTIDAD</span><span style="color:#c5a880;font-weight:800;">REAL MADRID CF</span></div>
+    </div>
+</div>
+
+<!-- SLIDE 9: EXIGENCIA Y COMPETITIVIDAD (PORTADA) -->
+<div class="slide-container">
+    <div class="cover-layout">
+        <div class="cover-content">
+            <div class="cover-header-tag">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Real_Madrid_CF.svg" class="crest-small">
+                <span class="season-title">TEMPORADA 26 / 27 · REAL MADRID CASTILLA</span>
+            </div>
+            <div class="cover-value-number">Valor N.º 5 · Votado por 4 jugadores (+3 Valentía / Pasión)</div>
+            <h1 class="cover-title" style="font-size:36px;">EXIGENCIA Y VALENTÍA</h1>
+            <div class="cover-explanation-box">
+                <p>Ganar en el Real Madrid no es una opción, <strong>es una costumbre que se entrena cada mañana</strong>. Competir con valentía es no regalar un metro, pedir el balón bajo presión y no tener miedo a equivocarte[cite: 2]. Exigirte a ti mismo te hace mejor; <strong>exigir al compañero eleva el nivel de todo el Castilla</strong>.</p>
+            </div>
+        </div>
+        <div class="cover-geometric"><div class="geometric-stripe-blue"></div><div class="geometric-stripe-gold"></div></div>
+    </div>
+</div>
+
+<!-- SLIDE 10: EXIGENCIA VS CONFORMISMO Y APATÍA -->
+<div class="slide-container">
+    <div class="slide-inner-padding">
+        <div class="slide-header">
+            <div><span class="brand-subtitle">CULTURA Y CONDUCTAS OBSERVABLES</span><h2 class="slide-title">Exigencia vs. Conformismo y Apatía</h2></div>
+            <span class="tag-badge">VALOR 5</span>
+        </div>
+        <div class="acts-grid">
+            <div class="acts-card pitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-trophy"></i> En el Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Exigencia y Valentía</div>
+                    <div class="act-description">Disputar cada balón dividido como una final. Pedir el balón en momentos de tensión y mantener el ritmo aunque vayamos ganando[cite: 2].</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Conformismo y Apatía</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Esconderse en los partidos difíciles, jugar con miedo al fallo o dar un partido por perdido antes de tiempo[cite: 2].</div>
+                </div>
+            </div>
+            <div class="acts-card offpitch-card">
+                <div class="acts-card-title"><i class="fa-solid fa-chart-line"></i> Fuera del Campo</div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE SUMA</span> Aprendizaje y Objetivo Común</div>
+                    <div class="act-description">Pedir vídeo al cuerpo técnico para pulir errores[cite: 2]. Trabajar hacia la meta colectiva por encima de contratos o intereses personales[cite: 2].</div>
+                </div>
+                <div class="act-subblock">
+                    <div class="act-subblock-label"><span>LO QUE RESTA</span> Conformismo y Apatía</div>
+                    <div class="act-description prohibited"><strong>INADMISIBLE:</strong> Victimismo, culpar a los árbitros o al entrenador, y poner las metas individuales por delante del grupo[cite: 2].</div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>REAL MADRID CASTILLA · PLANIFICACIÓN DE IDENTIDAD</span><span style="color:#c5a880;font-weight:800;">REAL MADRID CF</span></div>
+    </div>
+</div>
+
+</body>
+</html>
+```eof
+
+He actualizado el archivo visual de las diapositivas a la versión **`Valores_Castilla_26_27_Completo.html`**.
+
+### 📌 Novedades en esta versión final:
+1. **Inclusión Total de Antivalores (-):** Se han incorporado de forma explícita en tarjetas rojas identificadas como **INADMISIBLE** todos los antivalores votados por la plantilla (*Egoísmo/ego [22], Conformismo [10], Desprecio [6], Irresponsabilidad [6], Deslealtad [5], Arrogancia [3] y Mediocridad [3]*)[cite: 2].
+2. **Cohesión de los Valores Secundarios (+):** Se integraron en las explicaciones y conductas los valores empatados a 3 votos (*Amistad, Aprendizaje continuo, Objetivo común, Pasión y Valentía*)[cite: 2].
+3. **Impresión / Exportación a PDF Directa:** Puedes descargar el PDF de 10 diapositivas pulsando el botón azul superior **"DESCARGAR EN PDF"** dentro del visor.

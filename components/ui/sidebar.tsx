@@ -233,6 +233,12 @@ const seccion = (titulo: string, hijos: ReactNode) => (
             <>
               {navLink("/team-values", "Dinámicas y Valores", <Handshake size={18} />)}
 
+              {navLink(
+                "/identidad-cultura",
+                "Identidad y Cultura",
+                <BookOpen size={18} />,
+              )}
+
               {navLink("/game-model", "Identidad de Juego", <Network size={18} />)}
 
               {navLink(

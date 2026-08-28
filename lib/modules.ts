@@ -100,6 +100,15 @@ export const MODULES: AppModule[] = [
     alias: ["cultura", "valores"],
   },
   {
+    href: "/identidad-cultura",
+    area: "IDENTIDAD",
+    title: "Identidad y Cultura",
+    desc: "Los documentos de cultura del vestuario, en PDF y PowerPoint",
+    icon: BookOpen,
+    rank: 95,
+    alias: ["cultura", "valores", "antivalores", "documentos", "repositorio"],
+  },
+  {
     href: "/identidad-posicional",
     area: "IDENTIDAD",
     title: "Identidad Posicional",
