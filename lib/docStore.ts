@@ -85,3 +85,36 @@ export async function writeDoc(
 
   return { data, updatedAt };
 }
+
+/**
+ * Los documentos cuya clave empieza por un prefijo.
+ *
+ * Lo pide el coding: los clips de un jugador están repartidos por todas las
+ * sesiones —una por partido y por rival— y la ficha del jugador tiene que
+ * poder reunirlos sin saber de antemano qué partidos existen. Es la única
+ * lectura del almacén que no va por clave exacta, y por eso lleva tope: una
+ * temporada son decenas de documentos, no miles.
+ */
+export async function listDocs<T = unknown>(
+  prefix: string,
+  limite = 200,
+): Promise<{ key: string; data: T; updatedAt: string | null }[]> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("key, data, updated_at")
+    .like("key", `${prefix}%`)
+    .order("updated_at", { ascending: false })
+    .limit(limite);
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((fila) => ({
+    key: String(fila.key),
+    data: fila.data as T,
+    updatedAt: fila.updated_at ?? null,
+  }));
+}

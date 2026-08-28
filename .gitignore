@@ -51,3 +51,6 @@ next-env.d.ts
 
 # caché de scrapers (scripts/rivals-stats.mjs)
 /.cache/
+
+# Los partidos del coding: son gigas y viven sólo en la máquina del analista.
+/videos

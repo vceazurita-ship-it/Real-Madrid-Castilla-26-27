@@ -34,6 +34,7 @@ import {
   type PortadaData,
 } from "@/lib/rivals/portada";
 import { ofrecePortada } from "@/lib/rivals/portada-slot";
+import { ClipsDelJugador } from "@/components/coding/ClipsDelJugador";
 import {
   ONCE_COLOR,
   ONCE_ETIQUETA,
@@ -48,6 +49,8 @@ import OnceCampoDialog, {
   type OnceCampoCandidato,
   type OnceCampoFicha,
 } from "@/components/rivals/OnceCampoDialog";
+import Link from "next/link";
+
 import { enlaceAbrible } from "@/lib/rivals/media";
 import {
   exportOncePdf,
@@ -2857,6 +2860,59 @@ export default function RivalPlayersPage() {
                     />
                   </AnalisisColumna>
                 </div>
+
+                {/*
+                  Los cortes del coding de este jugador.
+
+                  Salen de codificar un vídeo del rival en /coding: se marcan
+                  allí y aparecen aquí solos, en la ficha desde la que se
+                  prepara el análisis individual. El vídeo unificado se monta
+                  con esta misma portada delante.
+
+                  Va con `data-export-hide`: es cromo de trabajo y no tiene que
+                  salir en el PNG ni en el PDF de la ficha.
+                */}
+                {!isCreating && editForm.ID_JUGADOR && (
+                  <div
+                    data-export-hide
+                    className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4"
+                  >
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-semibold text-white/85">
+                          Cortes del coding
+                        </h4>
+
+                        <p className="text-[11px] text-white/35">
+                          Lo marcado en los vídeos de este rival
+                        </p>
+                      </div>
+
+                      <Link
+                        href={`/coding?ambito=rival&equipo=${encodeURIComponent(
+                          textoUtil(editForm.NOMBRE_EQUIPO),
+                        )}`}
+                        className="rounded-xl border border-white/12 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/25 hover:text-white"
+                      >
+                        Abrir el coding
+                      </Link>
+                    </div>
+
+                    <ClipsDelJugador
+                      jugadorId={textoUtil(editForm.ID_JUGADOR)}
+                      ambito="rival"
+                      caratula={
+                        datosPortada ?? {
+                          equipo: textoUtil(editForm.NOMBRE_EQUIPO),
+                          temporada: "",
+                          nombre: textoUtil(editForm["NOMBRE DEPORTIVO"]),
+                          posicion: textoUtil(editForm["POSICIÓN"]),
+                          dorsal: textoUtil(editForm.DORSAL),
+                        }
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

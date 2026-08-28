@@ -41,6 +41,7 @@ import {
   Presentation,
   Projector,
   Scale,
+  Scissors,
   Shield,
   ShieldHalf,
   Star,
@@ -336,6 +337,8 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Vídeo Análisis Partidos",
                 <Clapperboard size={18} />,
               )}
+
+              {navLink("/coding", "Coding de Partido", <Scissors size={18} />)}
 
               {navLink(
                 "/collective_history",

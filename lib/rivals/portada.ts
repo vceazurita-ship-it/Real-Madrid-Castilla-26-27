@@ -316,8 +316,21 @@ function chapa(
 */
 
 async function cargaImagen(url: string) {
+  /*
+  | Lo que ya es de casa no pasa por el proxy: el escudo del club y las fotos
+  | de nuestros jugadores se sirven desde esta misma app, y el proxy sólo
+  | admite `https` de una lista de dominios, así que una ruta como
+  | `/players/mestre.png` se quedaba sin cargar. Esto lo usa la portada del
+  | jugador propio que abre los vídeos unificados del coding.
+  */
+  const deCasa =
+    url.startsWith("/") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:") ||
+    (typeof window !== "undefined" && url.startsWith(window.location.origin));
+
   const respuesta = await fetch(
-    `/api/rivals/foto?url=${encodeURIComponent(url)}`,
+    deCasa ? url : `/api/rivals/foto?url=${encodeURIComponent(url)}`,
   );
 
   if (!respuesta.ok) return null;
@@ -819,7 +832,15 @@ function pie(ctx: Ctx) {
 |--------------------------------------------------------------------------
 */
 
-async function pintaPortada(data: PortadaData) {
+/**
+ * Pinta la portada y devuelve el lienzo.
+ *
+ * Se exporta para que el coding pueda usar la misma diapositiva como carátula
+ * de los vídeos unificados de un jugador, sin duplicar el dibujo ni pasar por
+ * la descarga: allí el lienzo se convierte en PNG y viaja al servidor, que lo
+ * pega delante de los cortes.
+ */
+export async function pintaPortada(data: PortadaData) {
   /* Fuente e imágenes a la vez: son las dos únicas esperas del montaje. */
   const [, escudo, foto] = await Promise.all([
     esperaFuentePortada(),

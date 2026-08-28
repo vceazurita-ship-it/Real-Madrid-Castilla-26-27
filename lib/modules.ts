@@ -18,6 +18,7 @@ import {
   History,
   PenTool,
   Scale,
+  Scissors,
   Search,
   Shield,
   ShieldHalf,
@@ -119,6 +120,15 @@ export const MODULES: AppModule[] = [
   },
 
   /* -------------------------------------------------------------- COMPETICIÓN */
+  {
+    href: "/coding",
+    area: "COMPETICIÓN",
+    title: "Coding de Partido",
+    desc: "Marcar las acciones del partido y sacar los clips",
+    icon: Scissors,
+    rank: 97,
+    alias: ["clips", "video", "vídeo", "cortes", "sportscode", "análisis de vídeo"],
+  },
   {
     href: "/match-preparation",
     area: "COMPETICIÓN",

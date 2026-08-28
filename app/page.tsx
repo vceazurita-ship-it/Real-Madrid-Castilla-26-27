@@ -580,6 +580,23 @@ export default function Home() {
 
               <ModulesExplorer />
             </div>
+
+            {/*
+              El coding de rival, discreto.
+
+              Es una herramienta de una persona —quien prepara el análisis
+              individual del rival—, no del cuerpo técnico entero, así que no
+              se le da una tarjeta en las áreas de trabajo: vive aquí abajo,
+              donde lo encuentra quien lo busca y no distrae a quien no.
+            */}
+            <div className="flex justify-center pb-2 pt-6">
+              <Link
+                href="/coding?ambito=rival"
+                className="text-[11px] uppercase tracking-[0.24em] text-white/20 transition-colors hover:text-white/50"
+              >
+                Coding de rival
+              </Link>
+            </div>
           </section>
         </div>
       </div>

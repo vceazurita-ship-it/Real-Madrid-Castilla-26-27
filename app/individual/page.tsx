@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 
 import {
   AlertTriangle,
@@ -32,6 +33,7 @@ import {
 
 import { toast } from "sonner";
 
+import { ClipsDelJugador } from "@/components/coding/ClipsDelJugador";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
@@ -2830,6 +2832,51 @@ export default function IndividualPage() {
                             Nuevo vídeo
                           </GoldButton>
                         </div>
+
+                        {/*
+                          Los cortes del coding.
+
+                          No son vídeos que alguien haya pegado aquí a mano:
+                          salen de codificar el partido en /coding y aparecen
+                          solos en la ficha del jugador al que se le asignaron.
+                          Desde aquí se eligen y se bajan pegados en un solo
+                          vídeo con la carátula del club delante.
+                        */}
+                        <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-semibold text-white/85">
+                                Cortes del coding
+                              </h4>
+
+                              <p className="text-[11px] text-white/35">
+                                Los que se han marcado en los partidos
+                                codificados
+                              </p>
+                            </div>
+
+                            <Link
+                              href={`/coding?ambito=partido`}
+                              className="rounded-xl border border-white/12 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/25 hover:text-white"
+                            >
+                              Abrir el coding
+                            </Link>
+                          </div>
+
+                          <ClipsDelJugador
+                            jugadorId={selected.idJugador}
+                            ambito="partido"
+                            caratula={{
+                              equipo: "RMCF Castilla",
+                              escudo: "/logo.png",
+                              temporada: "26 / 27",
+                              nombre: selected.name,
+                              posicion: selected.position,
+                              dorsal: "",
+                              foto: selected.photoFace || selected.photo,
+                            }}
+                          />
+                        </section>
 
                         {videoCategories.length > 1 && (
                           <div className="flex min-w-0 flex-wrap gap-2">
