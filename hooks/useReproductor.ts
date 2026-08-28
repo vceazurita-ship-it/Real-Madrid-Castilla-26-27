@@ -40,6 +40,21 @@ export function useReproductor(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   fps: number,
 ) {
+  /*
+  | El `<video>` vive en un ESTADO, no sólo en la `ref`.
+  |
+  | Una `ref` no avisa de que ha cambiado, así que un efecto que la lea sólo se
+  | ejecuta cuando cambian sus dependencias. Y el `<video>` del coding no está
+  | montado en el primer render: la fuente sale del documento guardado, que
+  | contesta después de pintar, y hasta entonces la pantalla enseña el hueco de
+  | «elige el vídeo». El efecto de seguimiento se ejecutaba con `null`, se iba
+  | de vacío y **no volvía a ejecutarse nunca**: con el partido corriendo, el
+  | reloj se quedaba en 00:00.000, la duración en cero y la línea de tiempo sin
+  | una sola marca. Apuntando el elemento en un estado, el efecto se rearma en
+  | cuanto aparece.
+  */
+  const [elemento, setElemento] = useState<HTMLVideoElement | null>(null);
+
   const [estado, setEstado] = useState<EstadoReproductor>({
     tiempoMs: 0,
     duracionMs: 0,
@@ -64,9 +79,12 @@ export function useReproductor(
   /* ------------------------------------------------------ seguimiento */
 
   useEffect(() => {
-    const video = videoRef.current as VideoConFotogramas | null;
+    const video = elemento as VideoConFotogramas | null;
 
     if (!video) return;
+
+    /* Elemento nuevo: el tiempo del anterior no vale como «ya pintado». */
+    ultimo.current = -1;
 
     let vivo = true;
     let manoFotograma = 0;
@@ -142,7 +160,23 @@ export function useReproductor(
       video.removeEventListener("pause", alParar);
       video.removeEventListener("ratechange", alCambiarVelocidad);
     };
-  }, [apunta, videoRef]);
+  }, [apunta, elemento]);
+
+  /**
+   * La `ref` que hay que ponerle al `<video>`.
+   *
+   * Rellena la `ref` que trae la pantalla —el resto de la página la usa para
+   * hablarle a la etiqueta— y además apunta el elemento en el estado, que es
+   * lo que rearma el seguimiento del tiempo.
+   */
+  const montaVideo = useCallback(
+    (nodo: HTMLVideoElement | null) => {
+      videoRef.current = nodo;
+
+      setElemento(nodo);
+    },
+    [videoRef],
+  );
 
   /* ---------------------------------------------------------- mandos */
 
@@ -260,6 +294,7 @@ export function useReproductor(
 
   return {
     estado,
+    montaVideo,
     play,
     pausa,
     alterna,

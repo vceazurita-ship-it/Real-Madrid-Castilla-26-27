@@ -25,6 +25,17 @@ interface Estado {
   cargando: boolean;
   /** El motor de envío no responde (falta instalar el Apps Script, o falló). */
   motorCaido: string | null;
+  /**
+   * ¿Hay disparador horario en la hoja?
+   *
+   * `false` es el estado traicionero del montaje: la hoja contesta, guarda y
+   * lista sin una queja, y hasta manda un «enviar ahora» —eso lo dispara la
+   * propia petición—, pero **nadie repasa el calendario**, así que ninguna
+   * alarma programada suena nunca. Sin este dato la pantalla no tenía forma de
+   * distinguirlo de todo en orden. `null` es «no se sabe» (una hoja con el
+   * archivo antiguo, o sin permiso para mirar los disparadores).
+   */
+  disparador: boolean | null;
 }
 
 const VACIO: Estado = {
@@ -32,6 +43,7 @@ const VACIO: Estado = {
   agenda: [],
   cargando: true,
   motorCaido: null,
+  disparador: null,
 };
 
 export function useAlertas() {
@@ -53,6 +65,8 @@ export function useAlertas() {
           agenda: Array.isArray(cuerpo.agenda) ? cuerpo.agenda : [],
           cargando: false,
           motorCaido: null,
+          disparador:
+            typeof cuerpo.disparador === "boolean" ? cuerpo.disparador : null,
         });
       })
       .catch((error: unknown) => {
@@ -66,6 +80,7 @@ export function useAlertas() {
           cargando: false,
           motorCaido:
             error instanceof Error ? error.message : "No responde la hoja",
+          disparador: null,
         });
       });
 

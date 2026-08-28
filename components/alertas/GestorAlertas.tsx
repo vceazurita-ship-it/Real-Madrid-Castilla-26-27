@@ -23,6 +23,7 @@ export default function GestorAlertas() {
     agenda,
     cargando,
     motorCaido,
+    disparador,
     guardar,
     borrar,
     enviarAhora,
@@ -85,6 +86,42 @@ export default function GestorAlertas() {
             </p>
 
             <p className="mt-1.5 text-amber-300/60">{motorCaido}</p>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- SIN DISPARADOR -------------------- */}
+
+      {/*
+      | El fallo silencioso del montaje.
+      |
+      | Con la hoja contestando, todo aparenta ir bien: se guarda, se lista y
+      | «enviar ahora» manda el correo, porque eso lo dispara la propia
+      | petición. Lo que no existe es quien repase el calendario, así que
+      | ninguna alarma programada suena — y hasta ahora no había forma de
+      | notarlo desde la pantalla, sólo esperar un aviso que no llegaba.
+      */}
+      {!motorCaido && disparador === false && (
+        <div className="flex items-start gap-3 rounded-3xl bg-amber-500/10 px-4 py-3.5">
+          <TriangleAlert
+            className="mt-0.5 h-4 w-4 shrink-0 text-amber-400"
+            aria-hidden
+          />
+
+          <div className="min-w-0 text-xs leading-relaxed text-amber-200">
+            <p className="font-semibold">
+              Nadie está repasando el calendario.
+            </p>
+
+            <p className="mt-1 text-amber-200/80">
+              La hoja guarda las tareas y «Enviar ahora» funciona, pero{" "}
+              <b>las alarmas programadas no van a sonar</b>: falta el disparador
+              horario. Se pone en un minuto desde el editor de la hoja
+              —Extensiones ▸ Apps Script—, eligiendo la función{" "}
+              <code>instalarDisparadorDeAlertas</code> y pulsando Ejecutar.
+              El paso 3 de <code>scripts/apps-script/README.md</code> lo cuenta
+              entero.
+            </p>
           </div>
         </div>
       )}

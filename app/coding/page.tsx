@@ -299,7 +299,7 @@ function Coding() {
 
   const reproductor = useReproductor(videoRef, sesion.sesion.fps);
 
-  const { estado, salta, tiempoAhoraMs } = reproductor;
+  const { estado, montaVideo, salta, tiempoAhoraMs } = reproductor;
 
   /*
   | De dónde reproduce el vídeo. Se **deriva** de la fuente guardada en la
@@ -877,17 +877,24 @@ function Coding() {
               {/* ------------------------- IZQUIERDA ------------------- */}
 
               <div className="min-w-0 space-y-4">
-                <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black">
-                  {src ? (
-                    <video
-                      ref={videoRef}
-                      src={src}
-                      className="aspect-video w-full bg-black"
-                      preload="metadata"
-                      playsInline
-                    />
-                  ) : (
-                    <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 text-white/25">
+                <div className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black">
+                  {/*
+                  | El <video> se monta SIEMPRE, también antes de elegir el
+                  | partido: si sólo apareciera al haber fuente, el reloj y la
+                  | línea de tiempo se armarían con la etiqueta todavía sin
+                  | crear y se quedarían a cero para siempre. El aviso de
+                  | «elige el vídeo» va encima, no en su lugar.
+                  */}
+                  <video
+                    ref={montaVideo}
+                    src={src || undefined}
+                    className="aspect-video w-full bg-black"
+                    preload="metadata"
+                    playsInline
+                  />
+
+                  {!src && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/25">
                       <Video size={26} />
                       <p className="text-xs">Elige el vídeo del partido</p>
                     </div>

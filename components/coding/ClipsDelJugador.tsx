@@ -47,6 +47,18 @@ type ClipConPartido = ClipCoding & {
   enlace: string;
 };
 
+/**
+ * Cómo se identifica un corte en esta lista.
+ *
+ * El `id` de un clip sólo es único **dentro de su sesión** —se numera desde
+ * uno en cada partido—, y aquí se juntan los cortes de todos los partidos. Sin
+ * la clave del documento delante, marcar el primer corte de un partido marcaba
+ * también el del otro, y el vídeo unificado salía con acciones que nadie había
+ * elegido.
+ */
+const claveDe = (clip: { sesion: string; id: string }) =>
+  `${clip.sesion}-${clip.id}`;
+
 export function ClipsDelJugador({
   jugadorId,
   caratula,
@@ -59,6 +71,7 @@ export function ClipsDelJugador({
   ambito?: "partido" | "rival";
 }) {
   const [clips, setClips] = useState<ClipConPartido[]>([]);
+
   const [cargando, setCargando] = useState(true);
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [trabajando, setTrabajando] = useState(false);
@@ -97,7 +110,7 @@ export function ClipsDelJugador({
   const seleccionados = useMemo(
     () =>
       elegidos.length > 0
-        ? clips.filter((clip) => elegidos.includes(clip.id))
+        ? clips.filter((clip) => elegidos.includes(claveDe(clip)))
         : clips,
     [clips, elegidos],
   );
@@ -227,7 +240,7 @@ export function ClipsDelJugador({
           icon={elegidos.length > 0 ? SquareCheck : SquareDashed}
           onClick={() =>
             setElegidos((actual) =>
-              actual.length > 0 ? [] : clips.map((clip) => clip.id),
+              actual.length > 0 ? [] : clips.map(claveDe),
             )
           }
         >
@@ -241,11 +254,12 @@ export function ClipsDelJugador({
 
       <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
         {clips.map((clip) => {
-          const marcado = elegidos.includes(clip.id);
+          const clave = claveDe(clip);
+          const marcado = elegidos.includes(clave);
 
           return (
             <li
-              key={`${clip.sesion}-${clip.id}`}
+              key={clave}
               className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-1.5 transition ${
                 marcado
                   ? "border-[#C8A96B]/50 bg-[#C8A96B]/[0.07]"
@@ -256,9 +270,9 @@ export function ClipsDelJugador({
                 type="button"
                 onClick={() =>
                   setElegidos((actual) =>
-                    actual.includes(clip.id)
-                      ? actual.filter((uno) => uno !== clip.id)
-                      : [...actual, clip.id],
+                    actual.includes(clave)
+                      ? actual.filter((uno) => uno !== clave)
+                      : [...actual, clave],
                   )
                 }
                 className="shrink-0 text-white/40 transition hover:text-white"

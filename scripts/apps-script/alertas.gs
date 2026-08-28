@@ -200,9 +200,7 @@ function comprobarAlertas() {
     return 'MAL';
   }
 
-  const disparador = ScriptApp.getProjectTriggers().some(function (uno) {
-    return uno.getHandlerFunction() === 'revisarAlertas';
-  });
+  const disparador = hayDisparador_();
 
   Logger.log(
     disparador
@@ -376,7 +374,34 @@ function listarAlertas_() {
     delete alerta._fila;
   });
 
-  return { ok: true, alertas: alertas, agenda: leeAgenda_() };
+  return {
+    ok: true,
+    alertas: alertas,
+    agenda: leeAgenda_(),
+    disparador: hayDisparador_(),
+  };
+}
+
+/**
+ * ¿Está puesto el disparador que despierta al script?
+ *
+ * Es la mitad del montaje que **no se nota que falta**: con el archivo pegado y
+ * el `doPost` enganchado, la pantalla guarda, lista y hasta manda un «enviar
+ * ahora» sin una sola queja, pero sin disparador nadie repasa el calendario y
+ * las alarmas programadas no suenan jamás. Se dice en cada lectura para que la
+ * app pueda avisar en vez de aparentar que todo va bien.
+ *
+ * Devuelve `null` —«no se sabe»— si no hay permiso para mirar los
+ * disparadores: eso no es motivo para tumbar la lista de tareas.
+ */
+function hayDisparador_() {
+  try {
+    return ScriptApp.getProjectTriggers().some(function (uno) {
+      return uno.getHandlerFunction() === 'revisarAlertas';
+    });
+  } catch (error) {
+    return null;
+  }
 }
 
 function guardarAlerta_(alerta) {
@@ -395,6 +420,38 @@ function guardarAlerta_(alerta) {
   const fila = aFila_(alerta);
 
   if (previa) {
+    /*
+    | La hoja manda sobre el historial y sobre lo ya cumplido.
+    |
+    | La pantalla guarda la alerta ENTERA con la copia que leyó al abrirse. Si
+    | entre medias ha pasado el disparador —manda el aviso, suma un envío y
+    | adelanta PROXIMO_ENVIO—, escribir esa copia tal cual borra el envío y
+    | devuelve la fecha al pasado: el repaso siguiente vuelve a mandar el mismo
+    | correo. Silenciar una tarea, o corregirle una coma, no puede hacer que
+    | llegue dos veces.
+    |
+    | ENVIOS y ULTIMO_ENVIO no se editan en ninguna pantalla, así que son
+    | siempre de la hoja. De PROXIMO_ENVIO sólo se rechaza lo que ya está
+    | cumplido —una fecha anterior al último envío—, porque adelantar la
+    | próxima alarma sí es algo que se hace a mano. Para repetir un aviso ya
+    | mandado está el botón de «enviar ahora».
+    */
+    fila[COLUMNAS_ALERTAS.indexOf('ULTIMO_ENVIO')] = previa.ultimoEnvio || '';
+    fila[COLUMNAS_ALERTAS.indexOf('ENVIOS')] = String(previa.envios || 0);
+
+    const entrante = new Date(alerta.proximoEnvio || 0);
+    const ultimo = previa.ultimoEnvio ? new Date(previa.ultimoEnvio) : null;
+
+    const caducada =
+      ultimo &&
+      !isNaN(ultimo.getTime()) &&
+      !isNaN(entrante.getTime()) &&
+      entrante <= ultimo;
+
+    if (caducada) {
+      fila[COLUMNAS_ALERTAS.indexOf('PROXIMO_ENVIO')] = previa.proximoEnvio || '';
+    }
+
     hoja.getRange(previa._fila, 1, 1, COLUMNAS_ALERTAS.length)
       .setValues([fila]);
   } else {
@@ -652,6 +709,28 @@ function siguienteEnvio_(alerta, desde) {
  * mano desde el editor para probar.
  */
 function revisarAlertas() {
+  /*
+  | Un candado antes de mirar nada.
+  |
+  | El disparador de los 15 minutos y una ejecución a mano desde el editor
+  | pueden solaparse, y las dos leerían la misma fila todavía sin marcar: el
+  | mismo aviso saldría dos veces. Si el candado está cogido no se espera ni se
+  | reintenta —lo que quede pendiente lo recoge la pasada siguiente—, porque un
+  | correo repetido molesta más que un aviso quince minutos tarde.
+  */
+  const candado = LockService.getScriptLock();
+
+  if (!candado.tryLock(30 * 1000)) return 0;
+
+  try {
+    return repasaAlertas_();
+  } finally {
+    candado.releaseLock();
+  }
+}
+
+/** El repaso en sí, ya con el candado cogido. */
+function repasaAlertas_() {
   const hoja = hojaDe_(HOJA_ALERTAS, COLUMNAS_ALERTAS);
 
   const alertas = filasDe_(hoja, COLUMNAS_ALERTAS).map(aAlerta_);

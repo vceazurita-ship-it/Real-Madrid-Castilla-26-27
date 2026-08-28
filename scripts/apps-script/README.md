@@ -7,6 +7,10 @@ sale ningún correo.
 
 Son cinco minutos y se hace **una sola vez**.
 
+> **Al actualizar `alertas.gs` en el repositorio hay que repetir el paso 1 y el
+> paso 5.** La hoja no lee este archivo: tiene su propia copia pegada, y hasta
+> que no se sustituye y se vuelve a publicar sigue corriendo la versión vieja.
+
 ## 1. Pegar el archivo
 
 1. Abre la hoja de cálculo → **Extensiones ▸ Apps Script**.
@@ -72,6 +76,12 @@ Esto sólo prueba el archivo. Si aquí sale `BIEN` y la app sigue diciendo que e
 motor no responde, el problema está en el enganche del `doPost` (paso 2) o en
 la publicación (paso 5).
 
+Desde la app también se ve: la pantalla de alertas avisa en ámbar de que
+**«nadie está repasando el calendario»** mientras falte el paso 3. Es el fallo
+que peor se nota, porque sin disparador todo lo demás funciona —se guarda, se
+lista y «Enviar ahora» manda el correo— y lo único que no ocurre es que suenen
+las alarmas programadas.
+
 ## 5. Volver a publicar
 
 **Implementar ▸ Gestionar implementaciones ▸ editar ▸ Nueva versión.** Si te
@@ -97,6 +107,10 @@ despliegue sin actualizar (paso 5).
 
 **«Acción desconocida».** El `doPost` ha llegado al final sin reconocer la
 acción: repasa que las dos líneas del paso 2 estén **antes** del resto.
+
+**«Nadie está repasando el calendario».** Falta el disparador: paso 3. Guardar,
+listar y «Enviar ahora» seguirán funcionando, pero ninguna alarma programada
+va a sonar.
 
 **La app no dice nada pero no llega el correo.** Mira **Ejecuciones** en el
 editor: si `revisarAlertas` no aparece cada 15 minutos, falta el disparador
@@ -127,6 +141,18 @@ confidencial.
 **Si el script estuvo parado.** Al volver, una alerta repetida no manda un
 correo por cada día perdido: adelanta la fecha hasta la próxima que toque y
 manda uno solo.
+
+**Quién manda sobre cada columna.** `ENVIOS` y `ULTIMO_ENVIO` son de la hoja y
+la app no los pisa nunca: la pantalla guarda la alerta entera con la copia que
+leyó al abrirse, y si entre medias ha pasado el disparador, escribir esa copia
+tal cual borraría el envío y devolvería `PROXIMO_ENVIO` al pasado —el mismo
+correo saldría dos veces—. Por eso al guardar también se rechaza una fecha de
+aviso anterior al último envío. Para repetir un aviso ya mandado está el botón
+de «Enviar ahora».
+
+**Dos repasos a la vez no pueden duplicar un correo.** `revisarAlertas` coge un
+candado de `LockService`, así que el disparador y una ejecución a mano desde el
+editor no leen la misma fila sin marcar.
 
 **Dos pestañas nuevas.** El script crea `ALERTAS` (las tareas) y `AGENDA` (los
 correos que la app ha aprendido) la primera vez que las necesita. Se pueden
