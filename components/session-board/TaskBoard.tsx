@@ -194,6 +194,9 @@ export default function TaskBoard({
           alt=""
           fill
           unoptimized
+          /* Sólo hay un campograma de tarea a la vez y ocupa media pantalla:
+             es el elemento grande de la vista, no algo que deba esperar. */
+          priority
           draggable={false}
           className="pointer-events-none select-none object-cover"
         />

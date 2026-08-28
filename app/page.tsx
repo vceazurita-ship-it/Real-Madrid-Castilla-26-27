@@ -327,7 +327,10 @@ export default function Home() {
                 alt=""
                 fill
                 sizes="100vw"
-                fetchPriority="high"
+                /* Es la imagen grande de la portada: `priority` la saca de la
+                   carga perezosa además de subirle la prioridad de red, que es
+                   lo único que hacía `fetchPriority` por su cuenta. */
+                priority
                 className="pointer-events-none object-cover opacity-[0.10]"
               />
 

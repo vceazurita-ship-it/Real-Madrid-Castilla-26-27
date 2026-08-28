@@ -28,6 +28,9 @@ export function tokensFromLineup(
         kind: "home" as const,
         label: player?.dorsal ? String(player.dorsal) : position.nombre,
         nombre: player ? player.apodo || player.nombre : position.nombre,
+        /* Para el modo jugador: la cara sale con la alineación ya puesta. */
+        foto: player?.foto,
+        posicion: player?.posicion,
         x: Number.parseFloat(position.left),
         y: (Number.parseFloat(position.top) / 100) * PITCH_HEIGHT,
       },

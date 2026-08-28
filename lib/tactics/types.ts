@@ -41,6 +41,23 @@ export interface TacticToken extends Point {
   label: string;
   /** Nombre completo, solo para el tooltip. */
   nombre?: string;
+
+  /*
+  | Ficha de la persona, para el modo jugador (ver `lib/tactics/figuras.ts`).
+  |
+  | Son opcionales a propósito: una ficha suelta —un dorsal rival que todavía
+  | no está en la hoja, un comodín para explicar un movimiento— sigue siendo
+  | válida sin nada de esto y se dibuja con la complexión media.
+  */
+
+  /** Retrato del jugador; sale en la cabeza de la figura. */
+  foto?: string;
+  /** Altura en centímetros: estira o encoge la figura. */
+  alturaCm?: number;
+  /** Peso en kilos: junto a la altura decide la corpulencia. */
+  pesoKg?: number;
+  /** Posición del jugador, solo para el tooltip. */
+  posicion?: string;
 }
 
 export interface TacticShape {
@@ -77,6 +94,15 @@ export interface TacticsDoc {
    * igual, y esa decisión es parte del documento.
    */
   entorno?: boolean;
+
+  /**
+   * Modo jugador: las fichas se dibujan como figuras de cuerpo entero.
+   *
+   * Se guarda con la pizarra porque es una decisión del documento y no del
+   * momento: la charla del córner quiere ver quién gana por alto y la del
+   * repliegue quiere círculos limpios que no tapen las flechas.
+   */
+  figuras?: boolean;
 }
 
 export const PITCH_WIDTH = 100;

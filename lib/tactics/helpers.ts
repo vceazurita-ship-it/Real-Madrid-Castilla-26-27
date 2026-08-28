@@ -62,6 +62,7 @@ export function normalizeDoc(raw: unknown, titulo?: string): TacticsDoc {
     scenes: scenes.length ? scenes : base.scenes,
     campo: value.campo,
     entorno: value.entorno,
+    figuras: value.figuras,
   };
 }
 

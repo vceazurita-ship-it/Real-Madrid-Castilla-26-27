@@ -1,11 +1,13 @@
 /**
  * Plantillas rivales dentro de la pizarra táctica.
  *
- * La hoja de scouting es la fuente: de cada jugador solo interesan el dorsal
- * (lo que se pinta dentro de la ficha), el nombre y la posición, que sirve
- * para soltar la ficha en un sitio con sentido en lugar de en fila.
+ * La hoja de scouting es la fuente: de cada jugador interesan el dorsal (lo que
+ * se pinta dentro de la ficha), el nombre y la posición, que sirve para soltar
+ * la ficha en un sitio con sentido en lugar de en fila, y —para el modo
+ * jugador— la foto, la altura y el peso con los que se dibuja su figura.
  */
 
+import { alturaCm, pesoKg } from "./figuras";
 import { PITCH_HEIGHT, Point, TacticToken } from "./types";
 
 export interface RivalPick {
@@ -13,6 +15,12 @@ export interface RivalPick {
   dorsal: string;
   nombre: string;
   posicion?: string;
+  /** Retrato de la hoja, para la cabeza de la figura. */
+  foto?: string;
+  /** Altura en centímetros, ya normalizada desde "1,90" o "190cm". */
+  alturaCm?: number;
+  /** Peso en kilos, ya normalizado. */
+  pesoKg?: number;
 }
 
 export interface RivalSquad {
@@ -68,11 +76,17 @@ export function buildRivalSquads(rows: unknown): RivalSquad[] {
     const nombre =
       clean(row["NOMBRE DEPORTIVO"]) || clean(row.JUGADOR) || "Sin nombre";
 
+    /* El "." de la hoja es su forma de decir «sin dato»: no es una URL. */
+    const foto = clean(row.FOTO);
+
     const player: RivalPick = {
       id: clean(row.ID_JUGADOR) || `${equipo}-${nombre}`,
       dorsal: clean(row.DORSAL),
       nombre,
       posicion: clean(row["POSICIÓN"]) || clean(row["2º POSICIÓN"]),
+      foto: foto && foto !== "." ? foto : undefined,
+      alturaCm: alturaCm(clean(row.ALTURA)),
+      pesoKg: pesoKg(clean(row.PESO)),
     };
 
     const current = squads.get(equipo);

@@ -29,6 +29,7 @@ import {
   Download,
   Mic,
   Plus,
+  PersonStanding,
 } from "lucide-react";
 
 import type { Player } from "@/types/player";
@@ -39,6 +40,7 @@ import RivalPicker from "./RivalPicker";
 import PitchStage from "./PitchStage";
 import PitchCameraBar, { FollowSubject } from "./PitchCameraBar";
 import PitchTimelineBar from "./PitchTimelineBar";
+import PlayerFigure from "./PlayerFigure";
 import BoardToolPalette from "./BoardToolPalette";
 import BoardStyleBar from "./BoardStyleBar";
 import { planeDepth, usePitchCamera } from "@/hooks/usePitchCamera";
@@ -50,6 +52,13 @@ import {
   rivalSpot,
   rivalTokenId,
 } from "@/lib/tactics/rivals";
+import {
+  EQUIPACIONES,
+  FiguraMedidas,
+  fotoFigura,
+  medidasFigura,
+  tieneFigura,
+} from "@/lib/tactics/figuras";
 import {
   duplicateScene,
   emptyScene,
@@ -87,6 +96,66 @@ const TOKEN_STYLE: Record<
   ball: { fill: "#FDE68A", stroke: "#0B0F14", text: "#0B0F14", radius: 1.3 },
   cone: { fill: "#FB923C", stroke: "#0B0F14", text: "#0B0F14", radius: 1.5 },
 };
+
+/** Lo que hace falta saber de una persona para dibujar su figura. */
+interface PerfilFisico {
+  foto?: string;
+  alturaCm?: number;
+  pesoKg?: number;
+  posicion?: string;
+}
+
+/**
+ * Nombre cabido bajo una figura.
+ *
+ * La hoja de scouting guarda el nombre completo ("A. Mayorga Miguel Bañuelos")
+ * y bajo la figura eso son tres jugadores de ancho. Se queda el apellido, que
+ * es como se le llama en la charla.
+ */
+function nombreCorto(nombre: string) {
+  const limpio = nombre.trim();
+
+  if (limpio.length <= 14) return limpio;
+
+  const partes = limpio.split(/\s+/);
+  const ultimo = partes[partes.length - 1];
+
+  return ultimo.length <= 14 ? ultimo : `${limpio.slice(0, 13)}…`;
+}
+
+/** Nombre reducido a lo comparable: sin tildes, sin puntuación, en minúscula. */
+function claveNombre(nombre?: string) {
+  return String(nombre ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Texto del tooltip de una ficha.
+ *
+ * En modo jugador la figura habla de altura y peso sin poner un número: el
+ * tooltip es donde se comprueba el dato exacto que la dibujó.
+ */
+function tituloFicha(
+  token: TacticToken,
+  perfil?: PerfilFisico,
+  medidas?: FiguraMedidas
+) {
+  const base = token.nombre ?? token.label;
+
+  if (!medidas) return base;
+
+  const datos = [
+    perfil?.posicion,
+    medidas.alturaCm ? `${medidas.alturaCm} cm` : undefined,
+    medidas.pesoKg ? `${medidas.pesoKg} kg` : undefined,
+  ].filter(Boolean);
+
+  return datos.length ? `${base} · ${datos.join(" · ")}` : base;
+}
 
 interface Props {
   doc: TacticsDoc;
@@ -157,6 +226,79 @@ export default function TacticsBoard({
   | se verían de canto, como cuatro rayas— y estorbaría al dibujo.
   */
   const entornoVisible = doc.entorno ?? true;
+
+  /*
+  | El modo jugador viene apagado: la pizarra sigue abriéndose con círculos,
+  | que es lo que se quiere para explicar un repliegue sin que once muñecos
+  | tapen las flechas. Se enciende cuando importa quién es quién.
+  */
+  const figurasVisibles = doc.figuras ?? false;
+
+  // ---------------------------------------------------------------
+  // Fichas de las personas (modo jugador)
+  // ---------------------------------------------------------------
+
+  /**
+   * Foto, altura y peso de cada jugador conocido, por ficha y por nombre.
+   *
+   * Las fichas guardan estos datos desde que se crean, pero las pizarras
+   * montadas antes del modo jugador no los tienen, y el identificador de la
+   * hoja se renumera de vez en cuando: por eso hay una segunda entrada por
+   * nombre, que es lo único que no se mueve.
+   */
+  const { porFicha, porNombre } = useMemo(() => {
+    const porFicha = new Map<string, PerfilFisico>();
+    const porNombre = new Map<string, PerfilFisico>();
+
+    const anota = (nombre: string | undefined, perfil: PerfilFisico) => {
+      const clave = claveNombre(nombre);
+
+      /* Gana el primero: la plantilla propia antes que un homónimo rival. */
+      if (clave && !porNombre.has(clave)) porNombre.set(clave, perfil);
+    };
+
+    roster.forEach((player) => {
+      const perfil: PerfilFisico = {
+        foto: player.foto,
+        posicion: player.posicion,
+      };
+
+      anota(player.apodo, perfil);
+      anota(player.nombre, perfil);
+    });
+
+    rivalSquads.forEach((squad) =>
+      squad.players.forEach((player) => {
+        const perfil: PerfilFisico = {
+          foto: player.foto,
+          alturaCm: player.alturaCm,
+          pesoKg: player.pesoKg,
+          posicion: player.posicion,
+        };
+
+        porFicha.set(rivalTokenId(player.id), perfil);
+        anota(player.nombre, perfil);
+      })
+    );
+
+    return { porFicha, porNombre };
+  }, [roster, rivalSquads]);
+
+  /** Lo que la ficha guarda, completado con lo que se sepa del jugador. */
+  const perfilDe = useCallback(
+    (token: TacticToken): PerfilFisico => {
+      const encontrado =
+        porFicha.get(token.id) ?? porNombre.get(claveNombre(token.nombre));
+
+      return {
+        foto: token.foto ?? encontrado?.foto,
+        alturaCm: token.alturaCm ?? encontrado?.alturaCm,
+        pesoKg: token.pesoKg ?? encontrado?.pesoKg,
+        posicion: token.posicion ?? encontrado?.posicion,
+      };
+    },
+    [porFicha, porNombre]
+  );
 
   // ---------------------------------------------------------------
   // Encuadre
@@ -492,6 +634,9 @@ export default function TacticsBoard({
         ? ""
         : String(count + 1),
       nombre: player ? player.apodo || player.nombre : undefined,
+      /* Para el modo jugador; la hoja de la plantilla no trae altura ni peso. */
+      foto: player?.foto,
+      posicion: player?.posicion,
       x: kind === "away" ? 68 : kind === "home" ? 32 : 50,
       y: 10 + (count % 9) * 6,
     };
@@ -552,6 +697,10 @@ export default function TacticsBoard({
       kind: "away",
       label: player.dorsal || player.nombre.slice(0, 2).toUpperCase(),
       nombre: player.nombre,
+      foto: player.foto,
+      alturaCm: player.alturaCm,
+      pesoKg: player.pesoKg,
+      posicion: player.posicion,
       x: spot.x,
       y: spot.y,
     };
@@ -917,6 +1066,31 @@ export default function TacticsBoard({
           <Building2 size={12} />
           Graderío
         </button>
+
+        {/*
+          Modo jugador: la ficha redonda deja paso a la figura del jugador, con
+          su cara y con el cuerpo que le corresponde por altura y peso. En un
+          córner se ve de un vistazo quién gana por alto sin abrir la hoja.
+        */}
+        <button
+          type="button"
+          onClick={() => commit({ ...doc, figuras: !figurasVisibles })}
+          title={
+            figurasVisibles
+              ? "Volver a las fichas redondas con el dorsal"
+              : "Modo jugador: cada ficha se dibuja como el jugador que es (foto, altura y peso)"
+          }
+          aria-pressed={figurasVisibles}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition",
+            figurasVisibles
+              ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
+              : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+          )}
+        >
+          <PersonStanding size={13} />
+          Jugadores
+        </button>
       </div>
 
       {/* CAMPO */}
@@ -1077,6 +1251,31 @@ export default function TacticsBoard({
               const anchored =
                 follow === "player" && followId === token.id;
 
+              /*
+                Modo jugador. El balón y el cono no tienen figura, así que en
+                una pizarra con figuras siguen siendo lo que eran.
+              */
+              const figura = figurasVisibles && tieneFigura(token.kind);
+
+              const perfil = figura ? perfilDe(token) : undefined;
+
+              const medidas = figura
+                ? medidasFigura(perfil?.alturaCm, perfil?.pesoKg)
+                : undefined;
+
+              /* Medio ancho de la figura, para la sombra y el área de agarre. */
+              const medio = medidas
+                ? 0.24 * medidas.alto * medidas.ancho
+                : style.radius;
+
+              /*
+                La figura está de pie sobre el punto del campo, así que su
+                sombra va a sus pies (y = 0) y el estirado de la perspectiva
+                sale de ahí. La ficha redonda, en cambio, flota un poco sobre
+                su sombra y se estira desde ella.
+              */
+              const anclaY = figura ? 0 : style.radius * 0.55;
+
               return (
                 <g
                   key={token.id}
@@ -1113,22 +1312,25 @@ export default function TacticsBoard({
                     tool === "erase" && "cursor-pointer"
                   )}
                 >
-                  <title>{token.nombre ?? token.label}</title>
+                  <title>{tituloFicha(token, perfil, medidas)}</title>
 
                   {/* Sombra: se queda tumbada en el césped, bajo la ficha. */}
                   <ellipse
                     cx={0}
-                    cy={style.radius * 0.55}
-                    rx={style.radius * 0.95}
-                    ry={style.radius * 0.42}
+                    cy={anclaY}
+                    rx={medio * (figura ? 1.15 : 0.95)}
+                    ry={medio * (figura ? 0.5 : 0.42)}
                     fill="rgba(0,0,0,.38)"
                     style={{ pointerEvents: "none" }}
                   />
 
                   {/* Marca del anclaje: también pintada sobre el césped. */}
                   {anchored && (
-                    <circle
-                      r={style.radius + 1.1}
+                    <ellipse
+                      cx={0}
+                      cy={anclaY}
+                      rx={medio + 1.1}
+                      ry={figura ? (medio + 1.1) * 0.45 : medio + 1.1}
                       fill="none"
                       stroke="#C8A96B"
                       strokeWidth={0.35}
@@ -1144,7 +1346,7 @@ export default function TacticsBoard({
                     ficha parece de pie sobre el césped en vez de tumbada.
                   */}
                   <g
-                    transform={`rotate(${tokenSpin.toFixed(2)}) translate(0 ${style.radius * 0.55}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-style.radius * 0.55})`}
+                    transform={`rotate(${tokenSpin.toFixed(2)}) translate(0 ${anclaY}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-anclaY})`}
                     style={{ transition: "transform 190ms ease-out" }}
                   >
                   {/*
@@ -1152,11 +1354,32 @@ export default function TacticsBoard({
 
                     En un teléfono la ficha mide unos dieciséis píxeles: con el
                     dedo se fallaba una de cada dos veces. `transparent` sigue
-                    recibiendo el puntero, `none` no.
+                    recibiendo el puntero, `none` no. Con la figura el agarre
+                    es un rectángulo de su alto: se arrastra por el cuerpo, no
+                    sólo por los pies.
                   */}
-                  <circle r={style.radius + 1.4} fill="transparent" />
+                  {medidas ? (
+                    <rect
+                      x={-(medio + 0.8)}
+                      y={-medidas.alto - 0.6}
+                      width={(medio + 0.8) * 2}
+                      height={medidas.alto + 1.4}
+                      fill="transparent"
+                    />
+                  ) : (
+                    <circle r={style.radius + 1.4} fill="transparent" />
+                  )}
 
-                  {token.kind === "cone" ? (
+                  {medidas && perfil ? (
+                    <PlayerFigure
+                      uid={token.id}
+                      alto={medidas.alto}
+                      ancho={medidas.ancho}
+                      kit={EQUIPACIONES[token.kind === "away" ? "away" : "home"]}
+                      label={token.label}
+                      foto={fotoFigura(perfil.foto)}
+                    />
+                  ) : token.kind === "cone" ? (
                     <polygon
                       points={`0,${-style.radius} ${style.radius},${style.radius} ${-style.radius},${style.radius}`}
                       fill={style.fill}
@@ -1172,7 +1395,8 @@ export default function TacticsBoard({
                     />
                   )}
 
-                  {token.label && token.kind !== "ball" && (
+                  {/* La figura ya lleva el dorsal pintado en la camiseta. */}
+                  {token.label && token.kind !== "ball" && !figura && (
                     <text
                       y={0.85}
                       textAnchor="middle"
@@ -1185,15 +1409,24 @@ export default function TacticsBoard({
                     </text>
                   )}
 
+                  {/*
+                    El nombre. Junto a la figura va más pequeño y con un halo
+                    oscuro: al lado de un círculo de cinco unidades de ancho un
+                    nombre a cuerpo 1,9 se lee bien, pero junto a una figura
+                    —que es alta y estrecha— tapaba a los dos vecinos.
+                  */}
                   {token.nombre && (
                     <text
-                      y={style.radius + 2.4}
+                      y={figura ? 1.5 : style.radius + 2.4}
                       textAnchor="middle"
-                      fontSize={1.9}
-                      fill="rgba(255,255,255,.85)"
+                      fontSize={figura ? 1.3 : 1.9}
+                      fill="rgba(255,255,255,.9)"
+                      stroke={figura ? "rgba(0,0,0,.6)" : undefined}
+                      strokeWidth={figura ? 0.45 : undefined}
+                      paintOrder="stroke"
                       style={{ pointerEvents: "none" }}
                     >
-                      {token.nombre}
+                      {figura ? nombreCorto(token.nombre) : token.nombre}
                     </text>
                   )}
                   </g>

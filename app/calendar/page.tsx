@@ -255,13 +255,19 @@ export default function Calendar() {
           ),
           children: (
             <>
-              {visible.map((session) => {
+              {visible.map((session, index) => {
                 const jugador = playersMap[session.ID_JUGADOR];
                 const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
 
                 return (
                   <div
-                    key={session.ID_REGISTRO}
+                    /*
+                      La hoja repite algún ID_REGISTRO (REG00228 y SEG-A31C0B6E
+                      salen dos veces), y con la clave repetida React avisa por
+                      consola y puede quedarse una tarjeta sin pintar. El orden
+                      dentro del día la desempata.
+                    */
+                    key={`${session.ID_REGISTRO}-${index}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       openPlayer(session.ID_JUGADOR);
@@ -323,13 +329,14 @@ export default function Calendar() {
               </CalendarEmptyState>
             )}
 
-            {selectedSessions.map((session) => {
+            {selectedSessions.map((session, index) => {
               const jugador = playersMap[session.ID_JUGADOR];
               const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
 
               return (
                 <div
-                  key={session.ID_REGISTRO}
+                  /* Ver arriba: la hoja repite identificadores de registro. */
+                  key={`${session.ID_REGISTRO}-${index}`}
                   onClick={() => openPlayer(session.ID_JUGADOR)}
                   className={cn(
                     "cursor-pointer rounded-xl border border-l-4 border-white/10 bg-[#10151C] p-4 transition-all hover:border-[#C8A96B]",
