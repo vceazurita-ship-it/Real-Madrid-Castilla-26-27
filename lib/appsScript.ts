@@ -13,6 +13,8 @@
  * que es algo que la pantalla puede enseñar.
  */
 
+import { explicaErrorScript } from "@/lib/appsScriptErrors";
+
 const ORIGEN = () => process.env.APPS_SCRIPT_URL ?? process.env.NEXT_PUBLIC_API_URL;
 
 export type RespuestaScript = { ok: false; error: string } | Record<string, unknown>;
@@ -57,7 +59,17 @@ export async function llamaScript(
     }
 
     try {
-      return Response.json(JSON.parse(cuerpo));
+      const leido = JSON.parse(cuerpo);
+
+      /*
+      | Un fallo dentro del script llega con `200` y su mensaje de JavaScript;
+      | se traduce aquí para que la pantalla pueda enseñar qué hay que tocar.
+      */
+      if (leido && typeof leido === "object" && leido.error) {
+        leido.error = explicaErrorScript(leido.error);
+      }
+
+      return Response.json(leido);
     } catch {
       /* Casi siempre es la página de "Authorization required" de Google. */
       console.error(`[apps-script] ${accion}: la hoja no devolvió JSON`);

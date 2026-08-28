@@ -34,6 +34,7 @@ import {
   type PortadaData,
 } from "@/lib/rivals/portada";
 import { ofrecePortada } from "@/lib/rivals/portada-slot";
+import { explicaErrorScript } from "@/lib/appsScriptErrors";
 import { ClipsDelJugador } from "@/components/coding/ClipsDelJugador";
 import {
   ONCE_COLOR,
@@ -1518,7 +1519,8 @@ export default function RivalPlayersPage() {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || "No se pudo guardar");
+        /* El error de la hoja, traducido a algo accionable. */
+        throw new Error(explicaErrorScript(result.error));
       }
 
       const verificacion = await verificarGuardado({
