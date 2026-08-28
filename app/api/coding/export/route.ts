@@ -36,8 +36,12 @@ import {
 
 export const runtime = "nodejs";
 
-/* Un partido entero son cientos de cortes: el techo lo pone el despliegue. */
-export const maxDuration = 3600;
+/*
+ * Un partido entero son cientos de cortes, pero el techo lo pone el
+ * despliegue: en Vercel el plan Hobby no acepta más de 300 s por función y el
+ * build se cae si se pide más. Si algún día se sube de plan, se sube aquí.
+ */
+export const maxDuration = 300;
 
 type ClipPedido = {
   /** Ruta dentro del ZIP, o nombre del fichero suelto. */
