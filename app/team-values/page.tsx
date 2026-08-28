@@ -3,8 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  SearchX,
+} from "lucide-react";
 
+import { RepositorioCultura } from "@/components/cultura/RepositorioCultura";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
@@ -71,6 +78,10 @@ export default function TeamValuesPage() {
   const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
 
   const [editing, setEditing] = useState(false);
+
+  /* La estantería de documentos, plegada: el roadmap es lo que se abre a
+     diario y el documento se saca de vez en cuando. */
+  const [documentos, setDocumentos] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -426,6 +437,54 @@ export default function TeamValuesPage() {
               editing && "pb-32 lg:pb-32",
             )}
           >
+            {/*
+              Los documentos de cultura.
+
+              El roadmap de esta pantalla es el trabajo del día a día; los
+              documentos son lo que sale de él y se enseña en la sala, así que
+              se abren desde aquí en vez de obligar a cambiar de pantalla. La
+              estantería es la misma que la de Identidad y Cultura: lo que se
+              sube aquí aparece allí.
+            */}
+            <section className="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:rounded-3xl">
+              <button
+                type="button"
+                onClick={() => setDocumentos((abierto) => !abierto)}
+                aria-expanded={documentos}
+                className={cn(
+                  "flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-white/[0.03]",
+                  focusRing,
+                )}
+              >
+                <BookOpen className="h-4 w-4 shrink-0 text-[#C8A96B]" aria-hidden />
+
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-white">
+                    Documentos de cultura
+                  </span>
+
+                  <span className="mt-0.5 block text-[11px] leading-snug text-white/40">
+                    Sube el bruto de una presentación y sácala en PDF y en
+                    PowerPoint con la plantilla del club
+                  </span>
+                </span>
+
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 shrink-0 text-white/40 transition-transform",
+                    documentos && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+
+              {documentos && (
+                <div className="border-t border-white/10 p-4 lg:p-5">
+                  <RepositorioCultura />
+                </div>
+              )}
+            </section>
+
             {/* Cabecera con stepper */}
             <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 lg:rounded-3xl lg:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
