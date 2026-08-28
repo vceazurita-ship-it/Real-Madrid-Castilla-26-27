@@ -57,6 +57,14 @@ export interface Alerta {
   creada: string;
   ultimoEnvio: string | null;
   envios: number;
+  /**
+   * Campanadas del calendario, en minutos de antelación. `0` es «a la hora».
+   *
+   * Con al menos una, el correo lleva adjunta la cita (`.ics`) y el móvil
+   * suena solo aunque nadie mire la bandeja. Vacío = correo pelado, que es
+   * como se comportaba esto antes de que existiera el campo.
+   */
+  avisos: number[];
 }
 
 /**
@@ -144,6 +152,73 @@ export function pesoLegible(bytes: number) {
   if (mega >= 1) return `${mega.toFixed(1).replace(".", ",")} MB`;
 
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  AVISOS — LO QUE HACE SONAR EL MÓVIL                                */
+/* ------------------------------------------------------------------ */
+
+/*
+| Un correo no despierta a nadie: llega en silencio y se lee cuando se lee. Lo
+| que sí suena es el calendario del teléfono, así que al correo se le adjunta
+| la cita —un `.ics` con la serie entera y una campanada por cada antelación
+| elegida— y el aviso deja de depender de que alguien mire la bandeja.
+|
+| Se guarda en minutos y no en texto porque es lo que entiende el `.ics`
+| (`TRIGGER:-PT30M`) y porque así el desplegable puede crecer sin tocar la hoja.
+*/
+
+export const AVISOS_POSIBLES: { minutos: number; etiqueta: string }[] = [
+  { minutos: 0, etiqueta: "A la hora" },
+  { minutos: 10, etiqueta: "10 min antes" },
+  { minutos: 30, etiqueta: "30 min antes" },
+  { minutos: 60, etiqueta: "1 hora antes" },
+  { minutos: 180, etiqueta: "3 horas antes" },
+  { minutos: 1440, etiqueta: "1 día antes" },
+  { minutos: 2880, etiqueta: "2 días antes" },
+  { minutos: 10080, etiqueta: "1 semana antes" },
+];
+
+/**
+ * Deja una lista de avisos utilizable venga como venga.
+ *
+ * Hace falta de verdad: la hoja puede estar corriendo todavía la versión
+ * anterior de `alertas.gs`, y entonces las alertas llegan **sin** el campo. Un
+ * `alerta.avisos.map(...)` sobre eso tumba la pantalla entera.
+ */
+export function normalizaAvisos(valor: unknown): number[] {
+  if (!Array.isArray(valor)) return [];
+
+  const limpios = valor
+    .map((uno) => Math.round(Number(uno)))
+    .filter((uno) => Number.isFinite(uno) && uno >= 0);
+
+  return [...new Set(limpios)].sort((a, b) => a - b);
+}
+
+export function describeAviso(minutos: number): string {
+  const conocido = AVISOS_POSIBLES.find((uno) => uno.minutos === minutos);
+
+  if (conocido) return conocido.etiqueta;
+
+  if (minutos < 60) return `${minutos} min antes`;
+
+  if (minutos % 1440 === 0) {
+    const dias = minutos / 1440;
+
+    return dias === 1 ? "1 día antes" : `${dias} días antes`;
+  }
+
+  return `${Math.round(minutos / 60)} h antes`;
+}
+
+/** "A la hora · 1 día antes", para la ficha de la lista. */
+export function describeAvisos(alerta: Alerta): string {
+  const avisos = normalizaAvisos(alerta.avisos);
+
+  if (!avisos.length) return "Sin alarma";
+
+  return avisos.map(describeAviso).join(" · ");
 }
 
 /* ------------------------------------------------------------------ */
@@ -271,6 +346,8 @@ export function nuevaAlerta(): Alerta {
     creada: ahora.toISOString(),
     ultimoEnvio: null,
     envios: 0,
+    /* Que suene, que para eso es una alarma. Se puede quitar en el formulario. */
+    avisos: [0],
   };
 }
 

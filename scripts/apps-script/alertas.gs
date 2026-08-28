@@ -8,6 +8,7 @@
  * Qué hace:
  *   - guarda las tareas con alerta en la pestaña `ALERTAS`;
  *   - envía el correo con MailApp, con los adjuntos como enlace;
+ *   - adjunta la cita del calendario (`.ics`) para que el móvil suene;
  *   - aprende los correos usados en la pestaña `AGENDA`;
  *   - un disparador horario (`revisarAlertas`) manda lo que toque cada 15 min,
  *     esté la app abierta o cerrada.
@@ -32,6 +33,16 @@ const COLUMNAS_ALERTAS = [
   'CREADA',
   'ULTIMO_ENVIO',
   'ENVIOS',
+  /*
+  | Minutos de antelación de cada campanada del calendario, separados por
+  | comas: `0,60,1440` es «a la hora, una hora antes y el día antes». Vacío =
+  | correo pelado, sin cita adjunta.
+  |
+  | Va la ÚLTIMA a propósito. Las hojas que ya existen tienen doce columnas y
+  | filas escritas; añadirla al final deja todo lo demás en su sitio y las
+  | alertas viejas se leen como «sin alarma» en vez de descolocarse enteras.
+  */
+  'AVISOS',
 ];
 
 const COLUMNAS_AGENDA = ['EMAIL', 'NOMBRE', 'USOS', 'ULTIMO_USO'];
@@ -306,6 +317,28 @@ function hojaDe_(nombre, columnas) {
     hoja.setFrozenRows(1);
     hoja.getRange(2, 1, hoja.getMaxRows() - 1, columnas.length)
       .setNumberFormat('@');
+
+    return hoja;
+  }
+
+  /*
+  | La pestaña ya existía, y puede tener menos columnas de las que este archivo
+  | conoce: `AVISOS` se añadió cuando ya había hojas en marcha. Los datos no
+  | sufren —`filasDe_` va por posición, no por nombre, y una columna de más se
+  | lee vacía—, pero sin escribir la cabecera quien abra la hoja se encuentra
+  | una columna sin nombre y no sabe qué es ni si puede tocarla.
+  |
+  | Se reescribe la fila entera y no sólo lo que falta: es la misma operación,
+  | y de paso devuelve a su sitio un título que alguien haya cambiado a mano.
+  */
+  const cabecera = hoja.getRange(1, 1, 1, columnas.length).getValues()[0];
+
+  const desajustada = columnas.some(function (titulo, posicion) {
+    return String(cabecera[posicion] || '').trim() !== titulo;
+  });
+
+  if (desajustada) {
+    hoja.getRange(1, 1, 1, columnas.length).setValues([columnas]);
   }
 
   return hoja;
@@ -378,6 +411,39 @@ function aAdjuntos_(valor) {
   }
 }
 
+/**
+ * `0,60,1440` -> `[0, 60, 1440]`, ordenado y sin repetidos.
+ *
+ * La celda puede venir de la app —siempre bien escrita—, de una hoja vieja
+ * —vacía, y entonces la alerta no lleva alarma— o de alguien editando a mano.
+ * Lo que no se entiende se tira: una campanada de menos es un correo normal,
+ * pero un `.ics` con basura dentro no lo abre ningún calendario.
+ */
+function aAvisos_(valor) {
+  const texto = String(valor === 0 ? '0' : valor || '').trim();
+
+  if (!texto) return [];
+
+  const vistos = {};
+  const limpios = [];
+
+  texto.split(/[,;\s]+/).forEach(function (parte) {
+    if (!parte) return;
+
+    const minutos = Math.round(Number(parte));
+
+    if (!isFinite(minutos) || minutos < 0) return;
+    if (vistos[minutos]) return;
+
+    vistos[minutos] = true;
+    limpios.push(minutos);
+  });
+
+  return limpios.sort(function (a, b) {
+    return a - b;
+  });
+}
+
 /** Fila de la hoja -> objeto que entiende la app. */
 function aAlerta_(fila) {
   return {
@@ -393,6 +459,7 @@ function aAlerta_(fila) {
     creada: aIso_(fila.CREADA),
     ultimoEnvio: aIso_(fila.ULTIMO_ENVIO) || null,
     envios: Number(fila.ENVIOS) || 0,
+    avisos: aAvisos_(fila.AVISOS),
     _fila: fila._fila,
   };
 }
@@ -412,6 +479,7 @@ function aFila_(alerta) {
     alerta.creada || new Date().toISOString(),
     alerta.ultimoEnvio || '',
     String(alerta.envios || 0),
+    aAvisos_((alerta.avisos || []).join(',')).join(','),
   ];
 }
 
@@ -690,6 +758,24 @@ function cuerpoHtml_(alerta) {
     });
   }
 
+  /*
+  | La invitación a poner la alarma en el móvil.
+  |
+  | El adjunto solo sirve si alguien lo abre, y un `.ics` suelto al pie de un
+  | correo no dice nada por sí mismo: aquí se cuenta con palabras qué es y qué
+  | va a sonar.
+  */
+  if (aAvisos_((alerta.avisos || []).join(',')).length) {
+    partes.push(
+      '<p style="margin:26px 0 0;border-radius:14px;background:#f7f3ec;' +
+        'padding:14px 16px;font-size:13px;line-height:1.5;color:#5b4a2f">' +
+        '<b>Ponte la alarma:</b> este correo lleva la cita adjunta. ' +
+        'Ábrela y añádela al calendario, y el móvil avisa ' +
+        escapaHtml_(describeAvisos_(alerta)) +
+        '.</p>',
+    );
+  }
+
   partes.push(
     '<p style="margin:28px 0 0;font-size:12px;color:#999">' +
       'Aviso automático de la plataforma del Real Madrid CF Castilla.</p>',
@@ -698,6 +784,231 @@ function cuerpoHtml_(alerta) {
   partes.push('</div>');
 
   return partes.join('');
+}
+
+/* ================================================================== */
+/*  LA CITA DEL CALENDARIO                                             */
+/* ================================================================== */
+
+/*
+| Por qué el correo lleva un `.ics` adjunto.
+|
+| Un correo no despierta a nadie: entra en la bandeja sin hacer ruido y se lee
+| cuando alguien mira. Lo que sí suena en el bolsillo es el calendario del
+| teléfono, así que el aviso viaja además como cita: quien la acepta —un toque
+| en «Añadir al calendario»— tiene la alarma en el móvil, con sus campanadas y
+| con la serie entera si la tarea se repite.
+|
+| No hace falta ningún permiso nuevo: `MailApp.sendEmail` ya admite adjuntos y
+| `Utilities.newBlob` no pide nada. Con el historial de esta hoja —donde cada
+| permiso nuevo es una lista escrita a mano en el manifiesto y una tarde
+| perdida— eso no es un detalle menor, es la razón de haber elegido este camino
+| y no `CalendarApp`.
+|
+| **Un aviso «el día antes» no puede sonar en la primera vez de una tarea de
+| una sola vez**: el correo sale a la hora, y para entonces ese momento ya
+| pasó. En las que se repiten sí vale, porque la cita lleva la serie completa y
+| el calendario avisa de las siguientes. El formulario lo dice en pantalla.
+*/
+
+/** Cuánto dura la cita en el calendario ajeno. Es un recordatorio, no un acto. */
+const DURACION_CITA_MINUTOS = 30;
+
+/** `2026-08-29T07:00:00.000Z` -> `20260829T070000Z`. */
+function fechaIcs_(fecha) {
+  return fecha
+    .toISOString()
+    .replace(/\.\d{3}Z$/, 'Z')
+    .replace(/[-:]/g, '');
+}
+
+/**
+ * Los caracteres que en un `.ics` significan otra cosa.
+ *
+ * La coma y el punto y coma separan valores, y una línea partida a lo bruto
+ * rompe el archivo entero: el calendario no enseña la cita a medias, no la
+ * enseña. Por eso van escapados y no simplemente quitados.
+ */
+function escapaIcs_(texto) {
+  return String(texto || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+/**
+ * Parte las líneas largas como manda el formato (máximo 75, continúa con un
+ * espacio delante).
+ *
+ * Un mensaje de tres líneas se va de largo enseguida, y hay calendarios que
+ * con una línea sin plegar descartan la cita sin decir nada.
+ */
+function plegaIcs_(linea) {
+  const texto = String(linea);
+
+  if (texto.length <= 72) return texto;
+
+  const trozos = [];
+
+  let resto = texto;
+  let primero = true;
+
+  while (resto.length > 72) {
+    let corte = primero ? 72 : 71;
+
+    /* Nunca por la mitad de un emoji: son dos unidades y sueltas no valen. */
+    const anterior = resto.charCodeAt(corte - 1);
+
+    if (anterior >= 0xd800 && anterior <= 0xdbff) corte -= 1;
+
+    trozos.push((primero ? '' : ' ') + resto.slice(0, corte));
+
+    resto = resto.slice(corte);
+    primero = false;
+  }
+
+  trozos.push(' ' + resto);
+
+  return trozos.join('\r\n');
+}
+
+/** Minutos de antelación -> `TRIGGER` del formato: `-PT30M`, `-P1D`, `PT0S`. */
+function anticipacionIcs_(minutos) {
+  if (!minutos) return 'PT0S';
+
+  if (minutos % 1440 === 0) return '-P' + minutos / 1440 + 'D';
+
+  if (minutos % 60 === 0) return '-PT' + minutos / 60 + 'H';
+
+  return '-PT' + minutos + 'M';
+}
+
+/** La repetición de la app -> `RRULE`. Vacío cuando es de una sola vez. */
+function repeticionIcs_(alerta) {
+  switch (alerta.repeticion) {
+    case 'diaria':
+      return 'FREQ=DAILY';
+    case 'semanal':
+      return 'FREQ=WEEKLY';
+    case 'mensual':
+      return 'FREQ=MONTHLY';
+    case 'personalizada':
+      return 'FREQ=DAILY;INTERVAL=' + Math.max(1, alerta.intervaloDias || 1);
+    default:
+      return '';
+  }
+}
+
+/**
+ * La cita entera. Devuelve `''` cuando la alerta no lleva ninguna campanada:
+ * entonces el correo sale pelado, como antes de que existiera este campo.
+ */
+function citaIcs_(alerta) {
+  const avisos = aAvisos_((alerta.avisos || []).join(','));
+
+  if (!avisos.length) return '';
+
+  const inicio = new Date(alerta.proximoEnvio);
+
+  if (isNaN(inicio.getTime())) return '';
+
+  const fin = new Date(inicio.getTime() + DURACION_CITA_MINUTOS * 60000);
+
+  const titulo = alerta.titulo || 'Aviso RMCF Castilla';
+
+  /* El cuerpo del aviso y, debajo, los enlaces: la cita tiene que valerse sola. */
+  const descripcion = [alerta.mensaje || ''];
+
+  (alerta.adjuntos || []).forEach(function (adjunto) {
+    descripcion.push((adjunto.nombre || 'Archivo') + ': ' + adjunto.url);
+  });
+
+  const lineas = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//RMCF Castilla//Alertas//ES',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    /*
+    | El identificador es el de la alerta, siempre el mismo. Así el segundo
+    | correo de una tarea que se repite ACTUALIZA la cita que ya está en el
+    | calendario en vez de dejar otra encima; `SEQUENCE` con el número de
+    | envíos es lo que le dice al calendario cuál de las dos es la buena.
+    */
+    'UID:' + escapaIcs_(alerta.id || 'ALE') + '@rmcf-castilla',
+    'SEQUENCE:' + (Number(alerta.envios) || 0),
+    'DTSTAMP:' + fechaIcs_(new Date()),
+    'DTSTART:' + fechaIcs_(inicio),
+    'DTEND:' + fechaIcs_(fin),
+    'SUMMARY:' + escapaIcs_(titulo),
+    'STATUS:CONFIRMED',
+    /* Un recordatorio no ocupa la agenda: nadie está reunido por esto. */
+    'TRANSP:TRANSPARENT',
+  ];
+
+  const repeticion = repeticionIcs_(alerta);
+
+  if (repeticion) lineas.push('RRULE:' + repeticion);
+
+  const texto = descripcion
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  if (texto) lineas.push('DESCRIPTION:' + escapaIcs_(texto));
+
+  avisos.forEach(function (minutos) {
+    lineas.push('BEGIN:VALARM');
+    lineas.push('ACTION:DISPLAY');
+    lineas.push('TRIGGER:' + anticipacionIcs_(minutos));
+    lineas.push('DESCRIPTION:' + escapaIcs_(titulo));
+    lineas.push('END:VALARM');
+  });
+
+  lineas.push('END:VEVENT');
+  lineas.push('END:VCALENDAR');
+
+  /* El formato exige fin de línea de Windows; con `\n` a secas hay lectores
+     que se atragantan. */
+  return lineas.map(plegaIcs_).join('\r\n') + '\r\n';
+}
+
+/** Misma tabla que `describeAviso` en `lib/alertas/modelo.ts`. */
+function describeAviso_(minutos) {
+  if (!minutos) return 'a la hora';
+
+  if (minutos < 60) return minutos + ' min antes';
+
+  if (minutos % 1440 === 0) {
+    const dias = minutos / 1440;
+
+    return dias === 1 ? 'el día antes' : dias + ' días antes';
+  }
+
+  const horas = Math.round(minutos / 60);
+
+  return horas === 1 ? '1 hora antes' : horas + ' horas antes';
+}
+
+/** "a la hora y el día antes", para contarlo dentro del correo. */
+function describeAvisos_(alerta) {
+  const avisos = aAvisos_((alerta.avisos || []).join(',')).map(describeAviso_);
+
+  if (avisos.length < 2) return avisos.join('');
+
+  return avisos.slice(0, -1).join(', ') + ' y ' + avisos[avisos.length - 1];
+}
+
+/** Nombre del adjunto: el título de la tarea, sin lo que moleste a un fichero. */
+function nombreIcs_(alerta) {
+  const limpio = String(alerta.titulo || '')
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .trim()
+    .slice(0, 60);
+
+  return (limpio || 'aviso') + '.ics';
 }
 
 function enviaCorreo_(alerta) {
@@ -726,13 +1037,33 @@ function enviaCorreo_(alerta) {
     return { ok: false, error: 'Se ha agotado el cupo diario de correos' };
   }
 
+  const mensaje = {
+    to: destinatarios.join(','),
+    subject: alerta.titulo || 'Aviso RMCF Castilla',
+    htmlBody: cuerpoHtml_(alerta),
+    name: NOMBRE_REMITENTE,
+  };
+
+  /*
+  | La cita va como adjunto de verdad y no como enlace: así Gmail enseña el
+  | botón de «Añadir al calendario» dentro del propio correo y en el móvil se
+  | acepta de un toque. `method=PUBLISH` en el tipo de contenido es lo que
+  | hace que lo reconozca como calendario y no como un fichero cualquiera.
+  */
+  const cita = citaIcs_(alerta);
+
+  if (cita) {
+    mensaje.attachments = [
+      Utilities.newBlob(
+        cita,
+        'text/calendar; charset=UTF-8; method=PUBLISH',
+        nombreIcs_(alerta),
+      ),
+    ];
+  }
+
   try {
-    MailApp.sendEmail({
-      to: destinatarios.join(','),
-      subject: alerta.titulo || 'Aviso RMCF Castilla',
-      htmlBody: cuerpoHtml_(alerta),
-      name: NOMBRE_REMITENTE,
-    });
+    MailApp.sendEmail(mensaje);
   } catch (error) {
     const motivo = String((error && error.message) || error);
 

@@ -145,7 +145,15 @@ const contexto = {
     getRemainingDailyQuota: () => 1500,
     sendEmail: (mensaje) => enviados.push(mensaje),
   },
-  Utilities: { formatDate: () => "" },
+  Utilities: {
+    formatDate: () => "",
+    /* Lo justo para poder mirar el `.ics` que se adjunta al correo. */
+    newBlob: (datos, tipo, nombre) => ({
+      getDataAsString: () => datos,
+      getContentType: () => tipo,
+      getName: () => nombre,
+    }),
+  },
   Session: { getScriptTimeZone: () => "Europe/Madrid" },
 };
 
@@ -291,6 +299,7 @@ const alerta = {
   creada: new Date().toISOString(),
   ultimoEnvio: null,
   envios: 0,
+  avisos: [0, 1440],
 };
 
 /* 9. Alta y relectura: lo guardado tiene que volver igual. */
@@ -309,6 +318,16 @@ comprueba(
     listada.destinatarios.length === 2 &&
     listada.repeticion === "diaria",
   listada,
+);
+
+comprueba(
+  "listarAlertas → las campanadas vuelven como números, no como texto",
+  listada &&
+    Array.isArray(listada.avisos) &&
+    listada.avisos.length === 2 &&
+    listada.avisos[0] === 0 &&
+    listada.avisos[1] === 1440,
+  listada && listada.avisos,
 );
 
 comprueba(
@@ -334,6 +353,54 @@ comprueba(
   "revisarAlertas → manda la que ya tocaba",
   mandadas === 1 && enviados.length === 1,
   { mandadas, enviados: enviados.length },
+);
+
+/*
+ * La cita que hace sonar el móvil. Un correo llega en silencio; lo que suena
+ * es el calendario, así que si el `.ics` sale mal formado la alerta parece
+ * enviada y no despierta a nadie — y eso no se nota mirando la bandeja.
+ */
+const adjuntos = (enviados[0] && enviados[0].attachments) || [];
+const ics = adjuntos.length ? adjuntos[0].getDataAsString() : "";
+
+comprueba(
+  "el correo lleva la cita adjunta, declarada como calendario",
+  adjuntos.length === 1 &&
+    /text\/calendar/.test(adjuntos[0].getContentType()) &&
+    /\.ics$/.test(adjuntos[0].getName()),
+  adjuntos.map((uno) => uno.getName()),
+);
+
+comprueba(
+  "la cita se abre y se cierra como manda el formato",
+  /^BEGIN:VCALENDAR\r\n/.test(ics) && /END:VCALENDAR\r\n$/.test(ics),
+  ics.slice(0, 60),
+);
+
+comprueba(
+  "la cita lleva la serie entera, no solo el primer día",
+  /\r\nRRULE:FREQ=DAILY\r\n/.test(ics),
+  ics,
+);
+
+comprueba(
+  "una campanada por cada aviso elegido: a la hora y el día antes",
+  (ics.match(/BEGIN:VALARM/g) || []).length === 2 &&
+    /TRIGGER:PT0S/.test(ics) &&
+    /TRIGGER:-P1D/.test(ics),
+  ics,
+);
+
+comprueba(
+  "el identificador es el de la alerta, para que la cita se ACTUALICE",
+  ics.indexOf("UID:" + alerta.id + "@") !== -1,
+  ics,
+);
+
+comprueba(
+  "ninguna línea de la cita pasa de 75 caracteres (se pliegan)",
+  ics.split("\r\n").every((linea) => linea.length <= 75),
+  ics.split("\r\n").filter((linea) => linea.length > 75),
 );
 
 const trasEnviar = llama("listarAlertas").alertas[0];
@@ -401,6 +468,26 @@ comprueba(
     new Date(llama("listarAlertas").alertas[0].proximoEnvio) - Date.now(),
   ) >
     50 * 60000,
+);
+
+/* 12 bis. Quitar todas las campanadas es una opción, no un error: entonces
+   el correo sale pelado, como antes de que el campo existiera. */
+enviados.length = 0;
+
+llama("guardarAlerta", {
+  alerta: Object.assign({}, trasGuardar, {
+    activa: true,
+    avisos: [],
+    proximoEnvio: enUnRato(60),
+  }),
+});
+
+llama("enviarAlertaAhora", { id: alerta.id });
+
+comprueba(
+  "sin campanadas → el correo va sin cita adjunta",
+  enviados.length === 1 && !enviados[0].attachments,
+  enviados[0] && Object.keys(enviados[0]),
 );
 
 /* 13. Borrar. */

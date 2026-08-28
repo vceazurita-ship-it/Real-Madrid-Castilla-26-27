@@ -21,6 +21,12 @@
  *
  * Lo que cambia entre los dos es de dónde sale la lista de jugadores y qué
  * lleva la carátula de los vídeos; el coding es el mismo.
+ *
+ * **Y en los dos se puede codificar al equipo, no sólo a alguien.** El sujeto
+ * del clip puede ser un jugador (su tecla) o un comportamiento colectivo —la
+ * salida de balón, el repliegue— con `⇧` delante de la suya. Es un sujeto o el
+ * otro, nunca los dos: elegir uno suelta al anterior, porque un clip contesta
+ * a una pregunta sola.
  */
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,6 +64,7 @@ import { LineaDeTiempo } from "@/components/coding/LineaDeTiempo";
 import {
   AyudaTeclado,
   PanelCategorias,
+  PanelColectivos,
   PanelJugadores,
   TablaResumen,
   Tecla,
@@ -81,6 +88,7 @@ import {
   formateaTotal,
   normalizaConfig,
   porCategoria,
+  porColectivo,
   porJugador,
   reparteTeclas,
   totalCodificadoMs,
@@ -89,11 +97,16 @@ import {
   type ConfigCoding,
   type FuenteVideo,
   type JugadorCoding,
+  type SujetoCoding,
 } from "@/lib/coding/modelo";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
 
 const TEMPORADA = "26 / 27";
+
+/* Lo que hay que decir cuando se marca sin haber elegido a nadie ni nada. */
+const SIN_SUJETO =
+  "Elige antes un jugador con su tecla, o un comportamiento colectivo con ⇧.";
 
 /* ================================================================== */
 /*  PLANTILLAS RIVALES                                                 */
@@ -334,7 +347,20 @@ function Coding() {
 
   /* ------------------------------------------------ estado de coding */
 
-  const [jugadorActivo, setJugadorActivo] = useState<string | null>(null);
+  /*
+  | Lo que se está codificando ahora: un jugador o un comportamiento colectivo.
+  |
+  | Es UN estado y no dos a propósito. Con un `jugadorActivo` y un
+  | `colectivoActivo` sueltos se puede llegar a tener los dos encendidos, y
+  | entonces el clip sale del que mire primero el código —no del que el
+  | analista cree tener elegido—. Aquí elegir uno suelta al otro por
+  | construcción: un clip tiene un sujeto.
+  */
+  const [sujetoActivo, setSujetoActivo] = useState<{
+    tipo: "jugador" | "colectivo";
+    id: string;
+  } | null>(null);
+
   const [categoriaActiva, setCategoriaActiva] = useState("");
   const [inicioMs, setInicioMs] = useState<number | null>(null);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
@@ -345,7 +371,7 @@ function Coding() {
   const [avisoSesion, setAvisoSesion] = useState(true);
 
   /* Filtros de la lista y de la exportación. */
-  const [filtroJugador, setFiltroJugador] = useState<string | null>(null);
+  const [filtroSujeto, setFiltroSujeto] = useState<string | null>(null);
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
 
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
@@ -356,16 +382,37 @@ function Coding() {
     () =>
       clips.filter(
         (clip) =>
-          (!filtroJugador || clip.jugadorId === filtroJugador) &&
+          (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
           (!filtroCategoria || clip.categoriaId === filtroCategoria),
       ),
-    [clips, filtroCategoria, filtroJugador],
+    [clips, filtroCategoria, filtroSujeto],
   );
 
+  /*
+  | Las cuentas de cada panel, separadas por tipo de sujeto.
+  |
+  | No basta con contar por `jugadorId`: un jugador y un comportamiento pueden
+  | acabar con el mismo identificador —los dos salen de nombres— y entonces las
+  | dos tarjetas enseñarían el mismo número.
+  */
   const cuentasJugador = useMemo(() => {
     const cuenta: Record<string, number> = {};
 
     for (const clip of clips) {
+      if (clip.sujeto === "colectivo") continue;
+
+      cuenta[clip.jugadorId] = (cuenta[clip.jugadorId] ?? 0) + 1;
+    }
+
+    return cuenta;
+  }, [clips]);
+
+  const cuentasColectivo = useMemo(() => {
+    const cuenta: Record<string, number> = {};
+
+    for (const clip of clips) {
+      if (clip.sujeto !== "colectivo") continue;
+
       cuenta[clip.jugadorId] = (cuenta[clip.jugadorId] ?? 0) + 1;
     }
 
@@ -389,14 +436,46 @@ function Coding() {
     [jugadores],
   );
 
+  /**
+   * El sujeto elegido, ya resuelto contra su lista.
+   *
+   * Se recalcula en vez de guardarse: las plantillas llegan del servidor
+   * después de pintar y los comportamientos se pueden editar en la
+   * configuración, así que un nombre copiado al elegir podría quedarse viejo.
+   */
+  const sujeto: SujetoCoding | null = useMemo(() => {
+    if (!sujetoActivo) return null;
+
+    if (sujetoActivo.tipo === "colectivo") {
+      const uno = config.comportamientos.find(
+        (otro) => otro.id === sujetoActivo.id,
+      );
+
+      return uno
+        ? { tipo: "colectivo", id: uno.id, nombre: uno.nombre }
+        : null;
+    }
+
+    const jugador = jugadores.find((uno) => uno.id === sujetoActivo.id);
+
+    return jugador
+      ? {
+          tipo: "jugador",
+          id: jugador.id,
+          nombre: jugador.nombre,
+          dorsal: jugador.dorsal,
+        }
+      : null;
+  }, [config.comportamientos, jugadores, sujetoActivo]);
+
   const marcaInicio = useCallback(() => {
-    if (!jugadorActivo) {
-      toast.error("Elige antes un jugador con su tecla.");
+    if (!sujetoActivo) {
+      toast.error(SIN_SUJETO);
       return;
     }
 
     setInicioMs(tiempoAhoraMs());
-  }, [jugadorActivo, tiempoAhoraMs]);
+  }, [sujetoActivo, tiempoAhoraMs]);
 
   const marcaFinal = useCallback(() => {
     if (inicioMs === null) {
@@ -404,17 +483,16 @@ function Coding() {
       return;
     }
 
-    const jugador = jugadorDe(jugadorActivo);
-
-    if (!jugador) {
-      toast.error("Elige antes un jugador con su tecla.");
+    if (!sujeto) {
+      toast.error(SIN_SUJETO);
       return;
     }
 
     const problema = sesion.añadeClip({
-      jugadorId: jugador.id,
-      jugadorNombre: jugador.nombre,
-      jugadorDorsal: jugador.dorsal,
+      sujeto: sujeto.tipo,
+      jugadorId: sujeto.id,
+      jugadorNombre: sujeto.nombre,
+      jugadorDorsal: sujeto.dorsal,
       categoriaId: categoriaActiva,
       codingInicioMs: inicioMs,
       codingFinMs: tiempoAhoraMs(),
@@ -433,9 +511,8 @@ function Coding() {
     categoriaActiva,
     estado.duracionMs,
     inicioMs,
-    jugadorActivo,
-    jugadorDe,
     sesion,
+    sujeto,
     tiempoAhoraMs,
   ]);
 
@@ -540,21 +617,44 @@ function Coding() {
 
   const { exporta } = exportador;
 
-  const etiquetaFiltro = filtroJugador
-    ? (jugadorDe(filtroJugador)?.nombre ?? "jugador")
+  /*
+  | El nombre del filtro se resuelve mirando primero las dos listas de sujetos
+  | y sólo después las categorías. Con `jugadores` a secas, filtrar por un
+  | comportamiento colectivo dejaba el vídeo llamándose «jugador».
+  */
+  const comportamientoDe = useCallback(
+    (id: string | null) =>
+      config.comportamientos.find((uno) => uno.id === id) ?? null,
+    [config.comportamientos],
+  );
+
+  const etiquetaFiltro = filtroSujeto
+    ? (jugadorDe(filtroSujeto)?.nombre ??
+      comportamientoDe(filtroSujeto)?.nombre ??
+      "sujeto")
     : filtroCategoria
       ? (config.categorias.find((una) => una.id === filtroCategoria)?.nombre ??
         "categoría")
       : "todo el partido";
 
   const exportaUnificado = useCallback(async () => {
-    const jugador = filtroJugador ? jugadorDe(filtroJugador) : null;
+    const jugador = filtroSujeto ? jugadorDe(filtroSujeto) : null;
+    const comportamiento = jugador ? null : comportamientoDe(filtroSujeto);
 
-    const aviso = jugador
+    /*
+    | El vídeo de un comportamiento colectivo también se abre con la carátula
+    | del club: es la misma diapositiva, con el nombre de la fase donde iría el
+    | del jugador y sin cara ni dorsal, que es lo que hay que enseñar antes de
+    | una sucesión de repliegues. Sin filtro —el partido entero— no lleva
+    | portada: no habría nada que poner en ella.
+    */
+    const protagonista = jugador ?? comportamiento;
+
+    const aviso = protagonista
       ? null
       : toast.loading("Montando el vídeo del partido…");
 
-    const portada = jugador
+    const portada = protagonista
       ? await caratulaDeJugador({
           equipo: ambito === "rival" ? titulo : "RMCF Castilla",
           escudo:
@@ -562,10 +662,11 @@ function Coding() {
               ? escudoDe(plantilla?.equipo ?? "")
               : "/logo.png",
           temporada: TEMPORADA,
-          nombre: jugador.nombre,
-          posicion: jugador.posicion ?? "",
-          dorsal: jugador.dorsal !== undefined ? String(jugador.dorsal) : "",
-          foto: jugador.foto,
+          nombre: protagonista.nombre,
+          posicion: jugador?.posicion ?? (comportamiento ? "COLECTIVO" : ""),
+          dorsal:
+            jugador?.dorsal !== undefined ? String(jugador.dorsal) : "",
+          foto: jugador?.foto,
           contexto: titulo,
         })
       : null;
@@ -581,10 +682,11 @@ function Coding() {
   }, [
     ambito,
     clipsFiltrados,
+    comportamientoDe,
     escudoDe,
     etiquetaFiltro,
     exporta,
-    filtroJugador,
+    filtroSujeto,
     jugadorDe,
     plantilla,
     titulo,
@@ -682,7 +784,7 @@ function Coding() {
           return;
         }
 
-        setJugadorActivo(null);
+        setSujetoActivo(null);
         setCategoriaActiva("");
         return;
       }
@@ -693,17 +795,47 @@ function Coding() {
         return;
       }
 
-      /* ----------------------------------- jugadores y categorías */
+      /* ------------------------------- sujetos y categorías */
 
-      const jugador = jugadores.find((uno) => teclas[uno.id] === tecla);
+      /*
+      | Con ⇧ delante, la letra es de un comportamiento colectivo.
+      |
+      | Se mira antes que jugadores y categorías, y esas dos exigen que NO haya
+      | mayúscula: el manejador compara con `key.toLowerCase()`, así que sin el
+      | filtro un ⇧Q elegiría además la categoría de la `q` y el clip saldría
+      | con la etiqueta equivocada sin que nadie lo hubiera pedido.
+      */
+      if (evento.shiftKey) {
+        const colectivo = config.comportamientos.find(
+          (uno) => uno.tecla && uno.tecla === tecla,
+        );
+
+        if (colectivo) {
+          evento.preventDefault();
+
+          setSujetoActivo((actual) =>
+            actual?.tipo === "colectivo" && actual.id === colectivo.id
+              ? null
+              : { tipo: "colectivo", id: colectivo.id },
+          );
+
+          return;
+        }
+      }
+
+      const jugador = evento.shiftKey
+        ? undefined
+        : jugadores.find((uno) => teclas[uno.id] === tecla);
 
       if (jugador) {
         evento.preventDefault();
-        setJugadorActivo(jugador.id);
+        setSujetoActivo({ tipo: "jugador", id: jugador.id });
         return;
       }
 
-      const categoria = config.categorias.find((una) => una.tecla === tecla);
+      const categoria = evento.shiftKey
+        ? undefined
+        : config.categorias.find((una) => una.tecla === tecla);
 
       if (categoria) {
         evento.preventDefault();
@@ -719,6 +851,7 @@ function Coding() {
     return () => window.removeEventListener("keydown", escucha);
   }, [
     config.categorias,
+    config.comportamientos,
     hayModal,
     inicioMs,
     jugadores,
@@ -731,8 +864,6 @@ function Coding() {
 
   /* ---------------------------------------------------------- vista */
 
-  const jugadorElegido = jugadorDe(jugadorActivo);
-
   const categoriaElegida = config.categorias.find(
     (una) => una.id === categoriaActiva,
   );
@@ -742,6 +873,24 @@ function Coding() {
 
     siguientes.set("ambito", ambito);
     siguientes.set(clave, valor);
+
+    router.replace(`/coding?${siguientes.toString()}`);
+  };
+
+  /*
+  | Cambiar de nuestro partido a un rival sin salir de la pantalla.
+  |
+  | Hasta ahora el ámbito sólo se elegía desde fuera —el enlace de la ficha del
+  | rival o de la portada—, así que quien entraba por el menú lateral se
+  | quedaba encerrado en «partido» y tenía que editar la dirección a mano. La
+  | sesión no se toca: cada ámbito guarda la suya y volver la encuentra igual.
+  */
+  const cambiaAmbito = (nuevo: AmbitoCoding) => {
+    if (nuevo === ambito) return;
+
+    const siguientes = new URLSearchParams(params.toString());
+
+    siguientes.set("ambito", nuevo);
 
     router.replace(`/coding?${siguientes.toString()}`);
   };
@@ -782,7 +931,36 @@ function Coding() {
 
             {/* ===================== QUÉ SE CODIFICA ==================== */}
 
-            <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+              <div>
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Qué se codifica
+                </span>
+
+                <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.04] p-0.5">
+                  {(
+                    [
+                      { valor: "partido", texto: "Nuestro partido" },
+                      { valor: "rival", texto: "Un rival" },
+                    ] as const
+                  ).map((opcion) => (
+                    <button
+                      key={opcion.valor}
+                      type="button"
+                      onClick={() => cambiaAmbito(opcion.valor)}
+                      aria-pressed={ambito === opcion.valor}
+                      className={`rounded-[10px] px-3 py-1.5 text-[12px] transition ${
+                        ambito === opcion.valor
+                          ? "bg-[#C8A96B] font-semibold text-[#0B0F14]"
+                          : "text-white/50 hover:text-white"
+                      }`}
+                    >
+                      {opcion.texto}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {ambito === "partido" ? (
                 <label className="block min-w-0">
                   <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
@@ -974,8 +1152,15 @@ function Coding() {
                     <span className="mx-2 h-4 w-px bg-white/10" />
 
                     <span className="text-[12px] text-white/50">
-                      {jugadorElegido ? (
-                        <b className="text-white">{jugadorElegido.nombre}</b>
+                      {sujeto ? (
+                        <b className="text-white">
+                          {sujeto.tipo === "colectivo" && (
+                            <span className="mr-1.5 text-[10px] uppercase tracking-[0.14em] text-white/35">
+                              Colectivo
+                            </span>
+                          )}
+                          {sujeto.nombre}
+                        </b>
                       ) : (
                         "sin jugador"
                       )}
@@ -1029,10 +1214,10 @@ function Coding() {
                   icon={ListVideo}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
-                      {(filtroJugador || filtroCategoria) && (
+                      {(filtroSujeto || filtroCategoria) && (
                         <Button
                           onClick={() => {
-                            setFiltroJugador(null);
+                            setFiltroSujeto(null);
                             setFiltroCategoria(null);
                           }}
                         >
@@ -1165,17 +1350,52 @@ function Coding() {
                   <PanelJugadores
                     jugadores={jugadores}
                     teclas={teclas}
-                    activo={jugadorActivo}
+                    activo={
+                      sujetoActivo?.tipo === "jugador" ? sujetoActivo.id : null
+                    }
                     cuentas={cuentasJugador}
                     onElegir={(id) =>
-                      setJugadorActivo((actual) => (actual === id ? null : id))
+                      setSujetoActivo((actual) =>
+                        actual?.tipo === "jugador" && actual.id === id
+                          ? null
+                          : { tipo: "jugador", id },
+                      )
+                    }
+                  />
+                </Panel>
+
+                {/*
+                | Lo que hace el equipo. Va debajo de los jugadores y no en otra
+                | pestaña: en un partido se alterna entre las dos cosas —una
+                | acción de un jugador, la salida de balón siguiente— y esconder
+                | una de las dos obligaría a navegar en mitad del coding.
+                */}
+                <Panel
+                  title="Comportamientos colectivos"
+                  subtitle="Del equipo, no de un jugador · se eligen con ⇧"
+                  bodyClassName="p-3 sm:p-3"
+                >
+                  <PanelColectivos
+                    comportamientos={config.comportamientos}
+                    activo={
+                      sujetoActivo?.tipo === "colectivo"
+                        ? sujetoActivo.id
+                        : null
+                    }
+                    cuentas={cuentasColectivo}
+                    onElegir={(id) =>
+                      setSujetoActivo((actual) =>
+                        actual?.tipo === "colectivo" && actual.id === id
+                          ? null
+                          : { tipo: "colectivo", id },
+                      )
                     }
                   />
                 </Panel>
 
                 <Panel
                   title="Categorías"
-                  subtitle="Opcional: se puede codificar sólo con jugador"
+                  subtitle="Opcional: se puede codificar sólo con el sujeto"
                   bodyClassName="p-3 sm:p-3"
                 >
                   <PanelCategorias
@@ -1210,14 +1430,30 @@ function Coding() {
                   <TablaResumen
                     filas={porJugador(clips)}
                     vacio="Sin clips todavía."
-                    activa={filtroJugador}
+                    activa={filtroSujeto}
                     onElegir={(clave) =>
-                      setFiltroJugador((actual) =>
+                      setFiltroSujeto((actual) =>
                         actual === clave ? null : clave,
                       )
                     }
                   />
                 </Panel>
+
+                {/* Sólo cuando hay algo: una tabla vacía más es ruido. */}
+                {porColectivo(clips).length > 0 && (
+                  <Panel title="Por comportamiento" bodyClassName="p-3 sm:p-3">
+                    <TablaResumen
+                      filas={porColectivo(clips)}
+                      vacio="Sin clips todavía."
+                      activa={filtroSujeto}
+                      onElegir={(clave) =>
+                        setFiltroSujeto((actual) =>
+                          actual === clave ? null : clave,
+                        )
+                      }
+                    />
+                  </Panel>
+                )}
 
                 <Panel title="Por categoría" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
@@ -1293,6 +1529,7 @@ function Coding() {
         <FichaClip
           clip={editando}
           jugadores={jugadores}
+          comportamientos={config.comportamientos}
           categorias={config.categorias}
           tiempoActualMs={estado.tiempoMs}
           onCerrar={() => setEditando(null)}

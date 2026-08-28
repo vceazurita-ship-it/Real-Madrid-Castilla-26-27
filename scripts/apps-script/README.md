@@ -178,6 +178,30 @@ rechaza los adjuntos de más de 25 MB y casi cualquier vídeo de entrenamiento
 los pasa. El enlace es público para quien lo tenga, así que no metas ahí nada
 confidencial.
 
+**El correo lleva la alarma dentro.** Un correo llega en silencio y se lee
+cuando alguien mira la bandeja; lo que suena en el bolsillo es el calendario
+del teléfono. Por eso el aviso viaja además como **cita adjunta** (`.ics`): en
+Gmail sale el botón de «Añadir al calendario» y, de un toque, la alarma queda
+puesta en el móvil con las campanadas que se hayan elegido en el formulario
+—a la hora, media hora antes, el día antes…— y con la serie completa si la
+tarea se repite. **No hace falta ningún permiso nuevo:** `MailApp` ya admite
+adjuntos, así que esto no toca el manifiesto ni obliga a volver a aceptar nada.
+
+Una tarea **de una sola vez** no puede avisar por anticipado la primera vez: el
+correo con la cita sale a la hora señalada, y para entonces «el día antes» ya
+pasó. En las que se repiten sí funciona, porque la cita lleva la serie entera.
+El formulario lo avisa en pantalla.
+
+Si no se marca ninguna campanada, el correo sale pelado y sin cita, que es como
+se comportaba esto antes.
+
+**Una columna nueva: `AVISOS`.** Guarda los minutos de antelación separados por
+comas (`0,60,1440`). Va la última de la pestaña a propósito, para que las hojas
+que ya estaban en marcha no se descoloquen: las alertas anteriores se leen como
+«sin alarma» y siguen mandando su correo igual. La cabecera la escribe el
+propio script la primera vez que abre la pestaña, así que no hay que añadirla a
+mano.
+
 **Si el script estuvo parado.** Al volver, una alerta repetida no manda un
 correo por cada día perdido: adelanta la fecha hasta la próxima que toque y
 manda uno solo.

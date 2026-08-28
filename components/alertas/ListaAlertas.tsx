@@ -3,6 +3,7 @@
 import {
   AlarmClock,
   BellOff,
+  BellRing,
   Paperclip,
   Pencil,
   Repeat,
@@ -12,8 +13,10 @@ import {
 } from "lucide-react";
 
 import {
+  describeAvisos,
   describeRepeticion,
   fechaLegible,
+  normalizaAvisos,
   type Alerta,
 } from "@/lib/alertas/modelo";
 
@@ -116,6 +119,16 @@ export default function ListaAlertas({
                 <span className="inline-flex items-center gap-1.5">
                   <Repeat className="h-3 w-3" aria-hidden />
                   {describeRepeticion(alerta)}
+                </span>
+              )}
+
+              {normalizaAvisos(alerta.avisos).length > 0 && (
+                <span
+                  className="inline-flex items-center gap-1.5"
+                  title="Campanadas de la cita que va adjunta al correo"
+                >
+                  <BellRing className="h-3 w-3" aria-hidden />
+                  {describeAvisos(alerta)}
                 </span>
               )}
 

@@ -11,6 +11,10 @@
  * repetida (dos jugadores que responden a la misma) y una tecla que el
  * reproductor ya usa —`I`, `O`, `J`, `K`, `L`, espacio—, que dejaría de marcar
  * el INICIO para seleccionar a alguien.
+ *
+ * Los comportamientos colectivos se salvan de las dos: van con `⇧` delante, en
+ * un teclado propio donde no estorban a nadie, así que sólo pueden chocar
+ * entre ellos.
  */
 
 import { useState } from "react";
@@ -19,11 +23,13 @@ import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button, Dialog, Field, Notice } from "@/components/abp/ui";
 import {
   CATEGORIAS_INICIALES,
+  COMPORTAMIENTOS_INICIALES,
   TECLAS_RESERVADAS,
   apodoCoding,
   reparteTeclas,
   teclasRepetidas,
   type CategoriaCoding,
+  type ComportamientoColectivo,
   type ConfigCoding,
   type JugadorCoding,
 } from "@/lib/coding/modelo";
@@ -53,6 +59,17 @@ export function ConfiguraCoding({
       ...actual,
       categorias: actual.categorias.map((categoria) =>
         categoria.id === id ? { ...categoria, ...cambios } : categoria,
+      ),
+    }));
+
+  const cambiaComportamiento = (
+    id: string,
+    cambios: Partial<ComportamientoColectivo>,
+  ) =>
+    setBorrador((actual) => ({
+      ...actual,
+      comportamientos: actual.comportamientos.map((uno) =>
+        uno.id === id ? { ...uno, ...cambios } : uno,
       ),
     }));
 
@@ -216,6 +233,119 @@ export function ConfiguraCoding({
                     ...actual,
                     categorias: actual.categorias.filter(
                       (una) => una.id !== categoria.id,
+                    ),
+                  }))
+                }
+                className="rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/10 hover:text-red-300"
+              >
+                <Trash2 size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* -------------------- COMPORTAMIENTOS ----------------------- */}
+
+      {/*
+      | Lo que hace el equipo, no un jugador: la salida de balón, el repliegue.
+      | Se seleccionan con ⇧ delante de su letra, así que pueden repetir las
+      | letras de las categorías sin pisarlas —entre jugadores, categorías y las
+      | teclas del reproductor no queda ni una libre—.
+      */}
+      <div className="mt-5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-white/85">
+              Comportamientos colectivos
+            </h3>
+
+            <p className="text-[11px] text-white/35">
+              Se eligen con <b>⇧</b> delante de la letra
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              icon={RotateCcw}
+              onClick={() =>
+                setBorrador((actual) => ({
+                  ...actual,
+                  comportamientos: COMPORTAMIENTOS_INICIALES,
+                }))
+              }
+            >
+              Restaurar
+            </Button>
+
+            <Button
+              icon={Plus}
+              onClick={() =>
+                setBorrador((actual) => ({
+                  ...actual,
+                  comportamientos: [
+                    ...actual.comportamientos,
+                    {
+                      id: `col-${actual.comportamientos.length + 1}-${Date.now().toString(36)}`,
+                      nombre: "Nuevo",
+                      color: "#CBD5E1",
+                      tecla: "",
+                    },
+                  ],
+                }))
+              }
+            >
+              Añadir
+            </Button>
+          </div>
+        </div>
+
+        <ul className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+          {borrador.comportamientos.map((uno) => (
+            <li
+              key={uno.id}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2"
+            >
+              <input
+                type="color"
+                value={uno.color}
+                onChange={(evento) =>
+                  cambiaComportamiento(uno.id, { color: evento.target.value })
+                }
+                className="h-6 w-6 shrink-0 cursor-pointer rounded border border-white/10 bg-transparent"
+                title="Color del comportamiento"
+              />
+
+              <input
+                value={uno.nombre}
+                onChange={(evento) =>
+                  cambiaComportamiento(uno.id, {
+                    nombre: evento.target.value,
+                    id: uno.id.startsWith("col-")
+                      ? apodoCoding(evento.target.value)
+                      : uno.id,
+                  })
+                }
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/50"
+              />
+
+              <span className="shrink-0 font-mono text-[11px] text-white/30">
+                ⇧
+              </span>
+
+              <CampoTecla
+                valor={uno.tecla}
+                onChange={(tecla) => cambiaComportamiento(uno.id, { tecla })}
+              />
+
+              <button
+                type="button"
+                title="Quitar el comportamiento"
+                onClick={() =>
+                  setBorrador((actual) => ({
+                    ...actual,
+                    comportamientos: actual.comportamientos.filter(
+                      (otro) => otro.id !== uno.id,
                     ),
                   }))
                 }

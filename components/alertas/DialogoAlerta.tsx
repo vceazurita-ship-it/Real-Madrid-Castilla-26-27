@@ -14,6 +14,7 @@ import {
   type Repeticion,
 } from "@/lib/alertas/modelo";
 import CampoAdjuntos from "./CampoAdjuntos";
+import CampoAvisos from "./CampoAvisos";
 import CampoDestinatarios from "./CampoDestinatarios";
 
 /**
@@ -116,7 +117,7 @@ export default function DialogoAlerta({
               </h2>
 
               <p className="text-xs text-white/40">
-                Se avisa por correo a quien indiques
+                Aviso por correo y alarma en el móvil
               </p>
             </div>
           </div>
@@ -255,6 +256,12 @@ export default function DialogoAlerta({
               />
             </div>
           )}
+
+          <CampoAvisos
+            valor={borrador.avisos}
+            onChange={(avisos) => cambia("avisos", avisos)}
+            repeticion={borrador.repeticion}
+          />
 
           {problemas.length > 0 && (
             <ul className="space-y-1 rounded-2xl bg-amber-500/10 px-4 py-3">

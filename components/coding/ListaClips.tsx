@@ -23,6 +23,7 @@ import {
   formateaMs,
   type CategoriaCoding,
   type ClipCoding,
+  type ComportamientoColectivo,
   type JugadorCoding,
 } from "@/lib/coding/modelo";
 
@@ -52,8 +53,9 @@ export function ListaClips({
   if (clips.length === 0) {
     return (
       <p className="py-10 text-center text-xs text-white/30">
-        Todavía no hay clips. Elige un jugador, pulsa <b>I</b> cuando empiece la
-        acción y <b>O</b> cuando termine.
+        Todavía no hay clips. Elige un jugador —o un comportamiento colectivo
+        con <b>⇧</b>—, pulsa <b>I</b> cuando empiece la acción y <b>O</b> cuando
+        termine.
       </p>
     );
   }
@@ -64,7 +66,8 @@ export function ListaClips({
         <thead>
           <tr className="text-[10px] uppercase tracking-[0.16em] text-white/30">
             <th className="px-2 py-1.5 font-medium">#</th>
-            <th className="px-2 py-1.5 font-medium">Jugador</th>
+            {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
+            <th className="px-2 py-1.5 font-medium">Quién</th>
             <th className="px-2 py-1.5 font-medium">Categoría</th>
             <th className="px-2 py-1.5 text-right font-medium">In</th>
             <th className="px-2 py-1.5 text-right font-medium">Out</th>
@@ -95,10 +98,21 @@ export function ListaClips({
 
                 <td className="max-w-[190px] px-2 py-1.5">
                   <span className="flex min-w-0 items-center gap-2">
-                    {clip.jugadorDorsal !== undefined && (
-                      <span className="shrink-0 text-[10px] tabular-nums text-white/30">
-                        {clip.jugadorDorsal}
+                    {/*
+                    | Lo colectivo se distingue de un vistazo: en una tabla de
+                    | doscientas filas, «Presión alta» entre nombres propios se
+                    | lee como si fuera un jugador más.
+                    */}
+                    {clip.sujeto === "colectivo" ? (
+                      <span className="shrink-0 rounded bg-white/[0.08] px-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
+                        Col
                       </span>
+                    ) : (
+                      clip.jugadorDorsal !== undefined && (
+                        <span className="shrink-0 text-[10px] tabular-nums text-white/30">
+                          {clip.jugadorDorsal}
+                        </span>
+                      )
                     )}
 
                     <span className="truncate text-[12px] font-medium text-white/80">
@@ -221,9 +235,35 @@ function Icono({
 /*  LA FICHA                                                           */
 /* ------------------------------------------------------------------ */
 
+/*
+| El sujeto viaja por el desplegable como `jugador:ID` o `colectivo:ID`.
+|
+| Los dos guardan su identificador en el mismo campo del clip, así que sin el
+| prefijo no habría forma de saber cuál de las dos listas mirar —y un jugador y
+| un comportamiento podrían llegar a compartir identificador—.
+*/
+function marcaSujeto(tipo: "jugador" | "colectivo", id: string) {
+  return `${tipo}:${id}`;
+}
+
+function leeSujeto(valor: string): {
+  tipo: "jugador" | "colectivo";
+  id: string;
+} {
+  const corte = valor.indexOf(":");
+
+  if (corte < 0) return { tipo: "jugador", id: valor };
+
+  return {
+    tipo: valor.slice(0, corte) === "colectivo" ? "colectivo" : "jugador",
+    id: valor.slice(corte + 1),
+  };
+}
+
 export function FichaClip({
   clip,
   jugadores,
+  comportamientos,
   categorias,
   tiempoActualMs,
   onGuardar,
@@ -231,6 +271,7 @@ export function FichaClip({
 }: {
   clip: ClipCoding;
   jugadores: JugadorCoding[];
+  comportamientos: ComportamientoColectivo[];
   categorias: CategoriaCoding[];
   /** Por dónde va el vídeo: permite traer el IN o el OUT de donde se está. */
   tiempoActualMs: number;
@@ -257,14 +298,28 @@ export function FichaClip({
             tone="primary"
             disabled={invalido}
             onClick={() => {
-              const jugador = jugadores.find(
-                (uno) => uno.id === borrador.jugadorId,
-              );
+              const esColectivo = borrador.sujeto === "colectivo";
+
+              const jugador = esColectivo
+                ? null
+                : jugadores.find((uno) => uno.id === borrador.jugadorId);
+
+              const comportamiento = esColectivo
+                ? comportamientos.find((uno) => uno.id === borrador.jugadorId)
+                : null;
 
               onGuardar({
+                sujeto: esColectivo ? "colectivo" : "jugador",
                 jugadorId: borrador.jugadorId,
-                jugadorNombre: jugador?.nombre ?? borrador.jugadorNombre,
-                jugadorDorsal: jugador?.dorsal ?? borrador.jugadorDorsal,
+                jugadorNombre:
+                  comportamiento?.nombre ??
+                  jugador?.nombre ??
+                  borrador.jugadorNombre,
+                /* Un comportamiento no tiene dorsal, y arrastrar el del jugador
+                   que hubiera antes dejaría un «7» delante de «Presión alta». */
+                jugadorDorsal: esColectivo
+                  ? undefined
+                  : (jugador?.dorsal ?? borrador.jugadorDorsal),
                 categoriaId: borrador.categoriaId,
                 codingInicioMs: borrador.codingInicioMs,
                 codingFinMs: borrador.codingFinMs,
@@ -283,13 +338,26 @@ export function FichaClip({
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <Desplegable
-          label="Jugador"
-          value={borrador.jugadorId}
-          onChange={(valor) => cambia({ jugadorId: valor })}
-          opciones={jugadores.map((jugador) => ({
-            valor: jugador.id,
-            texto: jugador.nombre,
-          }))}
+          label="Quién"
+          value={marcaSujeto(
+            borrador.sujeto === "colectivo" ? "colectivo" : "jugador",
+            borrador.jugadorId,
+          )}
+          onChange={(valor) => {
+            const { tipo, id } = leeSujeto(valor);
+
+            cambia({ sujeto: tipo, jugadorId: id });
+          }}
+          opciones={[
+            ...jugadores.map((jugador) => ({
+              valor: marcaSujeto("jugador", jugador.id),
+              texto: jugador.nombre,
+            })),
+            ...comportamientos.map((uno) => ({
+              valor: marcaSujeto("colectivo", uno.id),
+              texto: `Colectivo · ${uno.nombre}`,
+            })),
+          ]}
         />
 
         <Desplegable

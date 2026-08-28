@@ -21,6 +21,7 @@ import {
   formateaDuracion,
   formateaTotal,
   type CategoriaCoding,
+  type ComportamientoColectivo,
   type JugadorCoding,
   type ResumenCoding,
 } from "@/lib/coding/modelo";
@@ -145,6 +146,85 @@ export function PanelJugadores({
 }
 
 /* ------------------------------------------------------------------ */
+/*  COMPORTAMIENTOS COLECTIVOS                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo que hace el equipo, no un jugador.
+ *
+ * Se enseña con la tecla en mayúscula —`⇧Q`— porque así es como se pulsa, y
+ * porque de un vistazo se distingue de las de los jugadores: minúscula es
+ * alguien, mayúscula es el equipo. Elegir uno **suelta al jugador** que hubiera
+ * elegido, y al revés: un clip tiene un sujeto, no dos.
+ */
+export function PanelColectivos({
+  comportamientos,
+  activo,
+  cuentas,
+  onElegir,
+}: {
+  comportamientos: ComportamientoColectivo[];
+  activo: string | null;
+  cuentas: Record<string, number>;
+  onElegir: (id: string) => void;
+}) {
+  if (comportamientos.length === 0) {
+    return (
+      <p className="px-1 py-6 text-center text-xs text-white/35">
+        No hay comportamientos configurados.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="grid gap-1.5 sm:grid-cols-2">
+      {comportamientos.map((uno) => {
+        const seleccionado = uno.id === activo;
+        const clips = cuentas[uno.id] ?? 0;
+
+        return (
+          <li key={uno.id}>
+            <button
+              type="button"
+              onClick={() => onElegir(uno.id)}
+              className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition ${
+                seleccionado
+                  ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
+                  : "border-white/10 bg-white/[0.02] hover:border-white/25"
+              }`}
+            >
+              <Tecla activa={seleccionado}>
+                {uno.tecla ? `⇧${uno.tecla}` : "—"}
+              </Tecla>
+
+              <span
+                aria-hidden
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: uno.color }}
+              />
+
+              <span
+                className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${
+                  seleccionado ? "text-white" : "text-white/75"
+                }`}
+              >
+                {uno.nombre}
+              </span>
+
+              {clips > 0 && (
+                <span className="shrink-0 rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] tabular-nums text-white/50">
+                  {clips}
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  CATEGORÍAS                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -219,6 +299,7 @@ const ATAJOS: { teclas: string[]; que: string }[] = [
   { teclas: ["⌥ ←", "⌥ →"], que: "Cinco segundos" },
   { teclas: ["1", "9"], que: "Elegir jugador" },
   { teclas: ["Q", "P"], que: "Elegir categoría" },
+  { teclas: ["⇧ Q", "⇧ V"], que: "Elegir comportamiento colectivo" },
   { teclas: ["⌫"], que: "Deshacer el último clip" },
   { teclas: ["Esc"], que: "Cancelar la marca en curso" },
   { teclas: ["?"], que: "Mostrar u ocultar esta ayuda" },

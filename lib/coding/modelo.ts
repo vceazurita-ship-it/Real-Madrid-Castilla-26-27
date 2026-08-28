@@ -21,6 +21,13 @@
  * rival. Un partido codificado son unos cientos de clips: caben de sobra en un
  * documento, se leen de un viaje y se guardan enteros, que es justo lo que
  * quiere un autoguardado que no puede perder nada.
+ *
+ * **Un clip es de alguien o del equipo.** El sujeto puede ser un jugador o un
+ * comportamiento colectivo —la salida de balón, el repliegue—, y los dos se
+ * guardan en los mismos campos porque para las listas, los filtros y las
+ * carpetas del ZIP un sujeto es un sujeto. Vale igual para los nuestros y para
+ * el rival: lo único que cambia entre los dos ámbitos es de dónde sale la
+ * plantilla.
  */
 
 export type AmbitoCoding = "partido" | "rival";
@@ -56,10 +63,61 @@ export type CategoriaCoding = {
   tecla: string;
 };
 
+/**
+ * Un comportamiento colectivo: lo que hace el equipo, no un jugador.
+ *
+ * La salida de balón, la presión tras pérdida o el repliegue no son de nadie
+ * en concreto, y hasta ahora no había forma de codificarlas: el clip exigía un
+ * jugador. Son el **sujeto** del clip igual que lo es un jugador —lo que la
+ * acción trata—, mientras que la categoría sigue siendo el tipo de acción.
+ *
+ * Sirven en los dos ámbitos sin cambiar nada: el mismo repliegue se codifica
+ * del Castilla para corregirlo y del rival para atacarlo.
+ *
+ * **Su tecla se pulsa con mayúscula** (⇧ + la letra). No es un capricho: entre
+ * jugadores, categorías y las teclas del reproductor no queda una sola letra
+ * libre, y el turno de mayúsculas da un teclado entero sin quitarle ninguna a
+ * nadie. Además se lee solo: minúscula = alguien, mayúscula = el equipo.
+ */
+export type ComportamientoColectivo = {
+  id: string;
+  nombre: string;
+  color: string;
+  /** La letra; se selecciona con ⇧ delante. Vacío = sin tecla. */
+  tecla: string;
+};
+
+/**
+ * De qué va el clip: de un jugador o de un comportamiento del equipo.
+ *
+ * Los dos se guardan en los mismos campos (`jugadorId` / `jugadorNombre`),
+ * porque para todo lo que viene después —listas, filtros, resúmenes, carpetas
+ * del ZIP— un sujeto es un sujeto. Lo único que cambia es de dónde sale el
+ * nombre y cómo se agrupa al enseñarlo.
+ */
+export type TipoSujeto = "jugador" | "colectivo";
+
+/** Lo elegido en la pantalla ahora mismo, sea quien sea. */
+export type SujetoCoding = {
+  tipo: TipoSujeto;
+  id: string;
+  nombre: string;
+  dorsal?: number;
+};
+
 export type ClipCoding = {
   id: string;
   /** Orden de creación: es el número con el que se nombra el fichero. */
   numero: number;
+  /**
+   * De quién es el clip: de un jugador o del equipo.
+   *
+   * Falta en los clips guardados antes de que existieran los comportamientos
+   * colectivos, y por eso se lee como `jugador` cuando no está: todo lo que ya
+   * había codificado era de un jugador.
+   */
+  sujeto?: TipoSujeto;
+  /** El jugador, o el comportamiento colectivo cuando `sujeto` es colectivo. */
   jugadorId: string;
   /** Copiado al crear el clip: el nombre tiene que sobrevivir a la hoja. */
   jugadorNombre: string;
@@ -101,6 +159,8 @@ export type SesionCoding = {
 
 export type ConfigCoding = {
   categorias: CategoriaCoding[];
+  /** Los comportamientos de equipo, con su tecla de mayúscula. */
+  comportamientos: ComportamientoColectivo[];
   /** `idJugador` → tecla. Se comparte entre partidos. */
   teclasJugador: Record<string, string>;
   preRollMs: number;
@@ -136,6 +196,40 @@ export const CATEGORIAS_INICIALES: CategoriaCoding[] = [
   { id: "otros", nombre: "Otros", color: "#CBD5E1", tecla: "f" },
 ];
 
+/**
+ * Los comportamientos colectivos con los que se arranca.
+ *
+ * Son las fases del juego tal y como las nombra el cuerpo técnico, en el orden
+ * en que ocurren: con balón, sin balón, las dos transiciones y el balón
+ * parado. Se pueden cambiar enteras desde la configuración.
+ *
+ * Sirven igual para los nuestros y para el rival —la salida de balón se
+ * codifica para corregir la propia o para atacar la suya—, así que la lista es
+ * una sola y no cambia con el ámbito.
+ */
+export const COMPORTAMIENTOS_INICIALES: ComportamientoColectivo[] = [
+  { id: "salida", nombre: "Salida de balón", color: "#34D399", tecla: "q" },
+  { id: "progresion", nombre: "Progresión", color: "#4ADE80", tecla: "w" },
+  { id: "finalizacion", nombre: "Finalización", color: "#C8A96B", tecla: "e" },
+  { id: "presion-alta", nombre: "Presión alta", color: "#F87171", tecla: "a" },
+  { id: "bloque-medio", nombre: "Bloque medio", color: "#60A5FA", tecla: "s" },
+  { id: "repliegue", nombre: "Repliegue", color: "#818CF8", tecla: "d" },
+  {
+    id: "transicion-of",
+    nombre: "Transición ofensiva",
+    color: "#FBBF24",
+    tecla: "z",
+  },
+  {
+    id: "transicion-def",
+    nombre: "Transición defensiva",
+    color: "#FB7185",
+    tecla: "x",
+  },
+  { id: "abp-of-col", nombre: "ABP ofensivo", color: "#F472B6", tecla: "c" },
+  { id: "abp-def-col", nombre: "ABP defensivo", color: "#94A3B8", tecla: "v" },
+];
+
 /** Teclas que se reparten solas entre los jugadores de la convocatoria. */
 export const TECLAS_JUGADOR_POR_DEFECTO = [
   "1",
@@ -159,6 +253,7 @@ export const TECLAS_JUGADOR_POR_DEFECTO = [
 
 export const CONFIG_POR_DEFECTO: ConfigCoding = {
   categorias: CATEGORIAS_INICIALES,
+  comportamientos: COMPORTAMIENTOS_INICIALES,
   teclasJugador: {},
   preRollMs: 2000,
   postRollMs: 2000,
@@ -266,6 +361,8 @@ export function duracionCoding(clip: ClipCoding) {
 /* ------------------------------------------------------------------ */
 
 export type BorradorClip = {
+  /** `jugador` si no se dice otra cosa: es lo que se codifica casi siempre. */
+  sujeto?: TipoSujeto;
   jugadorId: string;
   jugadorNombre: string;
   jugadorDorsal?: number;
@@ -286,7 +383,9 @@ export type BorradorClip = {
  * rojo, no.
  */
 export function problemaDeClip(borrador: BorradorClip): string | null {
-  if (!borrador.jugadorId) return "Elige antes un jugador.";
+  if (!borrador.jugadorId) {
+    return "Elige antes un jugador o un comportamiento colectivo.";
+  }
 
   if (borrador.codingInicioMs < 0 || borrador.codingFinMs < 0) {
     return "El tiempo no puede ser negativo.";
@@ -322,6 +421,7 @@ export function creaClip(
   return {
     id: `clip-${numero}-${Math.round(borrador.codingInicioMs)}`,
     numero,
+    sujeto: borrador.sujeto === "colectivo" ? "colectivo" : "jugador",
     jugadorId: borrador.jugadorId,
     jugadorNombre: borrador.jugadorNombre,
     jugadorDorsal: borrador.jugadorDorsal,
@@ -387,15 +487,30 @@ export function nombreDeClip(clip: ClipCoding, categorias: CategoriaCoding[]) {
   return trozos.join("_");
 }
 
-/** "PARTIDO/SERGIO MESTRE/001_PASE.mp4" — la ruta dentro del ZIP. */
+/**
+ * "PARTIDO/SERGIO MESTRE/001_PASE.mp4" — la ruta dentro del ZIP.
+ *
+ * Lo colectivo va en su propia rama —`COLECTIVO/Presión alta/…`— y no suelto
+ * entre los jugadores: quien abre el ZIP busca una cosa o la otra, no las dos
+ * mezcladas, y un comportamiento con nombre de carpeta al lado de los nombres
+ * de la plantilla se lee como si fuera un futbolista más.
+ */
 export function rutaDeClip(
   clip: ClipCoding,
   categorias: CategoriaCoding[],
   carpeta: string,
 ) {
+  const fichero = `${nombreDeClip(clip, categorias)}.mp4`;
+
+  if (clip.sujeto === "colectivo") {
+    const comportamiento = clip.jugadorNombre.trim() || "sin-comportamiento";
+
+    return `${carpeta}/COLECTIVO/${comportamiento}/${fichero}`;
+  }
+
   const jugador = clip.jugadorNombre.trim() || "sin-jugador";
 
-  return `${carpeta}/${jugador}/${nombreDeClip(clip, categorias)}.mp4`;
+  return `${carpeta}/${jugador}/${fichero}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -441,11 +556,26 @@ function resume(
     .sort((a, b) => b.clips - a.clips);
 }
 
+/** Lo que ha hecho cada jugador. Lo colectivo tiene su propia tabla. */
 export function porJugador(clips: ClipCoding[]) {
-  return resume(clips, (clip) => ({
-    clave: clip.jugadorId,
-    etiqueta: clip.jugadorNombre,
-  }));
+  return resume(
+    clips.filter((clip) => clip.sujeto !== "colectivo"),
+    (clip) => ({ clave: clip.jugadorId, etiqueta: clip.jugadorNombre }),
+  );
+}
+
+/**
+ * Lo mismo para los comportamientos de equipo.
+ *
+ * Van aparte y no mezclados con los jugadores porque son otra pregunta: «cuánto
+ * hemos trabajado a Mestre» y «cuántas salidas de balón llevamos» no se leen en
+ * la misma lista, y sumadas se estorban —el equipo saldría siempre arriba.
+ */
+export function porColectivo(clips: ClipCoding[]) {
+  return resume(
+    clips.filter((clip) => clip.sujeto === "colectivo"),
+    (clip) => ({ clave: clip.jugadorId, etiqueta: clip.jugadorNombre }),
+  );
 }
 
 export function porCategoria(
@@ -506,6 +636,8 @@ export function normalizaSesion(
     clips: clips.map((clip, indice) => ({
       ...clip,
       numero: typeof clip?.numero === "number" ? clip.numero : indice + 1,
+      /* Lo que se codificó antes de que esto existiera era de un jugador. */
+      sujeto: clip?.sujeto === "colectivo" ? "colectivo" : "jugador",
       jugadorNombre: clip?.jugadorNombre ?? "",
       jugadorId: clip?.jugadorId ?? "",
       categoriaId: clip?.categoriaId ?? "",
@@ -531,8 +663,25 @@ export function normalizaConfig(crudo: unknown): ConfigCoding {
       }))
     : CATEGORIAS_INICIALES;
 
+  /*
+  | Ojo con el «tenía algo guardado»: una configuración anterior a los
+  | comportamientos colectivos no trae la lista, y sin este relleno el panel
+  | saldría vacío para siempre —la configuración se guarda entera, así que el
+  | hueco se volvería a escribir en cuanto alguien tocara cualquier otra cosa.
+  */
+  const comportamientos =
+    Array.isArray(dato.comportamientos) && dato.comportamientos.length
+      ? dato.comportamientos.map((uno) => ({
+          id: uno?.id ?? apodoCoding(uno?.nombre),
+          nombre: uno?.nombre ?? "Sin nombre",
+          color: uno?.color ?? "#CBD5E1",
+          tecla: uno?.tecla ?? "",
+        }))
+      : COMPORTAMIENTOS_INICIALES;
+
   return {
     categorias,
+    comportamientos,
     teclasJugador:
       dato.teclasJugador && typeof dato.teclasJugador === "object"
         ? dato.teclasJugador
@@ -590,9 +739,27 @@ export function teclasRepetidas(config: ConfigCoding): string[] {
   Object.values(config.teclasJugador).forEach(suma);
   config.categorias.forEach((categoria) => suma(categoria.tecla));
 
-  return [...cuenta.entries()]
-    .filter(([, veces]) => veces > 1)
-    .map(([tecla]) => tecla);
+  /*
+  | Los comportamientos se cuentan aparte porque viven en otro teclado: se
+  | pulsan con ⇧ delante, así que la `q` de una categoría y la `q` de un
+  | comportamiento no se pisan. Sólo chocan entre ellos.
+  */
+  const conShift = new Map<string, number>();
+
+  config.comportamientos.forEach((uno) => {
+    if (!uno.tecla) return;
+
+    conShift.set(uno.tecla, (conShift.get(uno.tecla) ?? 0) + 1);
+  });
+
+  return [
+    ...[...cuenta.entries()]
+      .filter(([, veces]) => veces > 1)
+      .map(([tecla]) => tecla),
+    ...[...conShift.entries()]
+      .filter(([, veces]) => veces > 1)
+      .map(([tecla]) => `⇧${tecla}`),
+  ];
 }
 
 /**
