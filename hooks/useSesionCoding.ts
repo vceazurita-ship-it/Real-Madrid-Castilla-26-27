@@ -18,6 +18,7 @@ import {
   type FuenteVideo,
   type SesionCoding,
 } from "@/lib/coding/modelo";
+import type { EscenaTel } from "@/lib/coding/telestracion";
 
 /**
  * La sesión de coding: los clips de un partido, guardándose solos.
@@ -185,6 +186,42 @@ export function useSesionCoding(opciones: {
     return true;
   }, [muta]);
 
+  /* --------------------------------------------------- las pizarras */
+
+  /*
+  | Las pizarras se guardan **fuera del deshacer de los clips**.
+  |
+  | El `Backspace` del coding tiene que borrar la última acción marcada, no la
+  | última flecha pintada: son dos trabajos distintos y mezclarlos haría que
+  | deshacer en mitad de un partido diera un resultado imprevisible. La pizarra
+  | tiene su propio deshacer, dentro de la pizarra.
+  */
+  const guardaEscena = useCallback(
+    (escena: EscenaTel) => {
+      muta((actual) => {
+        const existe = actual.escenas.some((una) => una.id === escena.id);
+
+        return {
+          ...actual,
+          escenas: existe
+            ? actual.escenas.map((una) => (una.id === escena.id ? escena : una))
+            : [...actual.escenas, escena].sort((a, b) => a.tMs - b.tMs),
+        };
+      });
+    },
+    [muta],
+  );
+
+  const borraEscena = useCallback(
+    (id: string) => {
+      muta((actual) => ({
+        ...actual,
+        escenas: actual.escenas.filter((una) => una.id !== id),
+      }));
+    },
+    [muta],
+  );
+
   /* ------------------------------------------------------- la sesión */
 
   const ponFuente = useCallback(
@@ -224,6 +261,8 @@ export function useSesionCoding(opciones: {
     borraClip,
     duplicaClip,
     deshacer,
+    guardaEscena,
+    borraEscena,
     ponFuente,
     ponAjustes,
     abre,

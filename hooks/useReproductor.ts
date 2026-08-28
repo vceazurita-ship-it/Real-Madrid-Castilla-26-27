@@ -23,11 +23,61 @@ export type EstadoReproductor = {
   tiempoMs: number;
   duracionMs: number;
   reproduciendo: boolean;
+  /** La velocidad **pedida**, que por encima de ×16 no es la del elemento. */
   velocidad: number;
+  /**
+   * Lo que el navegador no puede dar y hay que poner a mano.
+   *
+   * 0 cuando la etiqueta llega sola a la velocidad pedida. Ver `TOPES_NATIVOS`.
+   */
+  extra: number;
   listo: boolean;
 };
 
-export const VELOCIDADES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+/**
+ * Los escalones de velocidad, hasta ×20.
+ *
+ * De ×0,25 a ×4 se revisa una acción; de ×6 en adelante se atraviesa el
+ * partido buscando la siguiente. El salto grande del final es a propósito: por
+ * encima de ×8 ya no se ve fútbol, se busca un minuto.
+ */
+export const VELOCIDADES = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 20];
+
+/**
+ * Lo que un navegador acepta de verdad en `playbackRate`.
+ *
+ * Chrome corta en ×16 —y por encima **lanza**, no recorta—, y otros se quedan
+ * antes. Se prueba de mayor a menor hasta que uno se queda puesto, y lo que
+ * falte para la velocidad pedida se añade adelantando el vídeo a mano.
+ */
+const TOPES_NATIVOS = [16, 8, 4, 2];
+
+/**
+ * Cada cuánto se adelanta el vídeo cuando la velocidad pasa del tope.
+ *
+ * Un segundo, y está medido: cada adelanto es una búsqueda, y una búsqueda
+ * para el decodificador un instante. Con saltos cada 200 ms, el ×20 medido
+ * salía a **×14** —peor que dejarlo en ×16—; con saltos de un segundo, a ×19.
+ */
+const PASO_TURBO_MS = 1000;
+
+/**
+ * Le pone al elemento la velocidad más alta que acepte sin pasarse de la
+ * pedida, y devuelve cuál se quedó.
+ */
+function aplicaVelocidad(video: HTMLVideoElement, valor: number) {
+  for (const candidato of [valor, ...TOPES_NATIVOS.filter((tope) => tope < valor)]) {
+    try {
+      video.playbackRate = candidato;
+    } catch {
+      continue;
+    }
+
+    if (Math.abs(video.playbackRate - candidato) < 0.01) return candidato;
+  }
+
+  return video.playbackRate;
+}
 
 type VideoConFotogramas = HTMLVideoElement & {
   requestVideoFrameCallback?: (
@@ -60,8 +110,12 @@ export function useReproductor(
     duracionMs: 0,
     reproduciendo: false,
     velocidad: 1,
+    extra: 0,
     listo: false,
   });
+
+  /* La velocidad pedida, para volver a ponerla cuando cambie el vídeo. */
+  const pedida = useRef(1);
 
   /* El último tiempo pintado, para no re-renderizar por décimas iguales. */
   const ultimo = useRef(-1);
@@ -115,7 +169,11 @@ export function useReproductor(
        parado, que no pinta fotogramas nuevos. */
     const alSaltar = () => apunta(video.currentTime);
 
-    const alCargar = () =>
+    const alCargar = () => {
+      /* Un vídeo recién cargado arranca siempre a ×1: se le vuelve a poner la
+         velocidad que el analista tenía elegida. */
+      if (pedida.current !== 1) aplicaVelocidad(video, pedida.current);
+
       setEstado((actual) => ({
         ...actual,
         duracionMs: Number.isFinite(video.duration)
@@ -123,6 +181,7 @@ export function useReproductor(
           : 0,
         listo: true,
       }));
+    };
 
     const alReproducir = () =>
       setEstado((actual) => ({ ...actual, reproduciendo: true }));
@@ -130,8 +189,14 @@ export function useReproductor(
     const alParar = () =>
       setEstado((actual) => ({ ...actual, reproduciendo: false }));
 
+    /*
+    | Con turbo puesto, la etiqueta va a su tope y no a la velocidad pedida:
+    | hacerle caso aquí dejaría el marcador en «16x» con el vídeo yendo a 20.
+    */
     const alCambiarVelocidad = () =>
-      setEstado((actual) => ({ ...actual, velocidad: video.playbackRate }));
+      setEstado((actual) =>
+        actual.extra > 0 ? actual : { ...actual, velocidad: video.playbackRate },
+      );
 
     video.addEventListener("seeked", alSaltar);
     video.addEventListener("timeupdate", alSaltar);
@@ -245,18 +310,64 @@ export function useReproductor(
     [fps, mueve, videoRef],
   );
 
+  /**
+   * Pone la velocidad, saltándose el tope del navegador si hace falta.
+   *
+   * Se intenta primero la pedida; si el navegador se niega —o la recorta sin
+   * decir nada— se va bajando por `TOPES_NATIVOS` hasta que una se queda
+   * puesta, y la diferencia se guarda en `extra` para que el efecto de turbo
+   * la cubra adelantando el vídeo. Así ×20 es ×20 de verdad y no un ×16
+   * disfrazado.
+   */
   const ponVelocidad = useCallback(
     (valor: number) => {
       const video = videoRef.current;
 
       if (!video) return;
 
-      video.playbackRate = valor;
+      pedida.current = valor;
 
-      setEstado((actual) => ({ ...actual, velocidad: valor }));
+      const aplicada = aplicaVelocidad(video, valor);
+
+      setEstado((actual) => ({
+        ...actual,
+        velocidad: valor,
+        extra: Math.max(0, valor - aplicada),
+      }));
     },
     [videoRef],
   );
+
+  /*
+  | El turbo: lo que el navegador no da, se adelanta a mano.
+  |
+  | No se hace fotograma a fotograma. Mover `currentTime` sesenta veces por
+  | segundo obliga al decodificador a buscar sesenta veces y el vídeo se queda
+  | congelado dando tirones; cinco saltos por segundo sobre una reproducción
+  | que ya va al tope se ve como un pase rápido de verdad. Y no se toca nada
+  | mientras el vídeo está parado: adelantar un vídeo en pausa sería moverlo
+  | solo delante del analista.
+  */
+  useEffect(() => {
+    if (estado.extra <= 0 || !estado.reproduciendo) return;
+
+    const reloj = window.setInterval(() => {
+      const video = videoRef.current;
+
+      if (!video || video.paused || video.seeking) return;
+
+      const destino = video.currentTime + (estado.extra * PASO_TURBO_MS) / 1000;
+
+      if (Number.isFinite(video.duration) && destino >= video.duration) {
+        video.pause();
+        return;
+      }
+
+      video.currentTime = destino;
+    }, PASO_TURBO_MS);
+
+    return () => window.clearInterval(reloj);
+  }, [estado.extra, estado.reproduciendo, videoRef]);
 
   /** Sube o baja al siguiente escalón de la lista de velocidades. */
   const cambiaVelocidad = useCallback(
@@ -265,7 +376,9 @@ export function useReproductor(
 
       if (!video) return;
 
-      const actual = video.playbackRate;
+      /* La pedida, no la del elemento: con turbo son distintas y bajar un
+         escalón desde ×20 tiene que llevar a ×16, no a ×12. */
+      const actual = pedida.current;
 
       const indice = VELOCIDADES.reduce(
         (mejor, valor, posicion) =>
@@ -294,6 +407,8 @@ export function useReproductor(
 
   return {
     estado,
+    /** El `<video>` de verdad, para quien necesite el elemento y no el mando. */
+    elemento,
     montaVideo,
     play,
     pausa,

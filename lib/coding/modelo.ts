@@ -30,6 +30,8 @@
  * plantilla.
  */
 
+import { normalizaEscenas, type EscenaTel } from "@/lib/coding/telestracion";
+
 export type AmbitoCoding = "partido" | "rival";
 
 /**
@@ -149,6 +151,15 @@ export type SesionCoding = {
   preRollMs: number;
   postRollMs: number;
   clips: ClipCoding[];
+  /**
+   * Las pizarras pintadas sobre el vídeo (`lib/coding/telestracion`).
+   *
+   * Viven en la sesión y no en el clip porque una pizarra es de un **instante
+   * del partido**, no de un corte: la misma flecha vale para el clip del
+   * lateral y para el del extremo si los dos pasan por ahí, y borrar un clip
+   * no puede llevarse por delante el análisis dibujado encima.
+   */
+  escenas: EscenaTel[];
   /**
    * Una sesión queda `abierta` mientras se codifica y se cierra a mano.
    * Es lo que permite avisar de que se dejó a medias al volver a entrar.
@@ -297,6 +308,7 @@ export function sesionVacia(
     preRollMs: config.preRollMs,
     postRollMs: config.postRollMs,
     clips: [],
+    escenas: [],
     abierta: false,
     actualizadoEn: "",
   };
@@ -632,6 +644,7 @@ export function normalizaSesion(
       typeof dato.preRollMs === "number" ? dato.preRollMs : base.preRollMs,
     postRollMs:
       typeof dato.postRollMs === "number" ? dato.postRollMs : base.postRollMs,
+    escenas: normalizaEscenas(dato.escenas),
     abierta: dato.abierta === true,
     clips: clips.map((clip, indice) => ({
       ...clip,

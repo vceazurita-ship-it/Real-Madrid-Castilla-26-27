@@ -30,18 +30,23 @@ export function LineaDeTiempo({
   inicioPendienteMs,
   clips,
   categorias,
+  escenas,
   seleccionado,
   onSalta,
   onElegirClip,
+  onElegirEscena,
 }: {
   duracionMs: number;
   tiempoMs: number;
   inicioPendienteMs: number | null;
   clips: ClipCoding[];
   categorias: CategoriaCoding[];
+  /** Las pizarras pintadas, como muescas doradas arriba. */
+  escenas?: { id: string; tMs: number; nombre: string; dibujos: unknown[] }[];
   seleccionado: string | null;
   onSalta: (ms: number) => void;
   onElegirClip: (id: string) => void;
+  onElegirEscena?: (id: string) => void;
 }) {
   const barraRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +136,30 @@ export function LineaDeTiempo({
             />
           );
         })}
+
+        {/*
+        | Las pizarras, en el borde de arriba.
+        |
+        | Van fuera de la banda de los clips —que ocupa de `top-2` a
+        | `bottom-2`— porque no son lo mismo: un clip es un trozo de partido y
+        | una pizarra es un instante dibujado encima. Mezcladas, la línea de
+        | tiempo dejaba de leerse de un vistazo.
+        */}
+        {(escenas ?? []).map((escena) => (
+          <button
+            key={escena.id}
+            type="button"
+            title={`Pizarra · ${escena.nombre.trim() || formateaMs(escena.tMs)} (${escena.dibujos.length} dibujos)`}
+            onClick={(evento) => {
+              evento.stopPropagation();
+
+              if (onElegirEscena) onElegirEscena(escena.id);
+              else onSalta(escena.tMs);
+            }}
+            className="absolute top-0 h-2 w-1.5 -translate-x-1/2 rounded-b-sm bg-[#C8A96B] transition hover:h-3"
+            style={{ left: `${porcentaje(escena.tMs)}%` }}
+          />
+        ))}
 
         {/* El tramo que se está marcando ahora mismo. */}
         {inicioPendienteMs !== null && (

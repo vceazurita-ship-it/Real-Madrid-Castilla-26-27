@@ -33,11 +33,15 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   BookOpen,
+  Eye,
+  EyeOff,
   Film,
   Keyboard,
   ListVideo,
   Pause,
+  PenTool,
   Play,
+  Plus,
   Settings2,
   SkipBack,
   SkipForward,
@@ -49,6 +53,8 @@ import { toast } from "sonner";
 import {
   AbpHeader,
   Button,
+  Dialog,
+  Field,
   Notice,
   Panel,
   SaveState,
@@ -69,6 +75,7 @@ import {
   TablaResumen,
   Tecla,
 } from "@/components/coding/piezas";
+import { FilaPizarra, PizarraVideo } from "@/components/coding/PizarraVideo";
 import { SelectorFuente } from "@/components/coding/SelectorFuente";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -99,6 +106,11 @@ import {
   type JugadorCoding,
   type SujetoCoding,
 } from "@/lib/coding/modelo";
+import {
+  escenaEn,
+  escenaVacia,
+  nombreEscena,
+} from "@/lib/coding/telestracion";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
 
@@ -172,6 +184,56 @@ function leePlantillasRivales(filas: unknown): PlantillaRival[] {
     }))
     .sort((a, b) => a.equipo.localeCompare(b.equipo, "es"));
 }
+
+/* ================================================================== */
+/*  A QUIÉN SE PUEDE ANALIZAR                                          */
+/* ================================================================== */
+
+/** El documento donde viven los rivales añadidos a mano (los amistosos). */
+const CLAVE_RIVALES_CODING = "coding:rivales";
+
+/**
+ * Si un nombre es el nuestro.
+ *
+ * La hoja de scouting trae al propio Castilla entre los equipos —está para
+ * otras cosas—, y salía **el primero** en el desplegable de rivales: quien
+ * entraba a analizar a un rival se encontraba codificando contra sí mismo. No
+ * es un caso raro que merezca un aviso: es que no es un rival.
+ */
+function esNuestroEquipo(nombre: string) {
+  const clave = apodoCoding(nombre);
+
+  return (
+    clave === "rmc" ||
+    clave.startsWith("rmc-") ||
+    clave.includes("castilla") ||
+    clave === "real-madrid-c"
+  );
+}
+
+/**
+ * Los dorsales sueltos, para un rival del que no hay plantilla.
+ *
+ * En un amistoso —o en un rival que el scouting todavía no ha cargado— no hay
+ * nombres, pero sí hay camisetas. Codificar «el 9» es exactamente lo que hace
+ * un analista con el partido en marcha, y luego se le pone el nombre al vídeo.
+ */
+const DORSALES_SUELTOS: JugadorCoding[] = Array.from(
+  { length: 20 },
+  (_, indice) => ({
+    id: `dorsal-${indice + 1}`,
+    nombre: `Dorsal ${indice + 1}`,
+    dorsal: indice + 1,
+  }),
+);
+
+type RivalCoding = {
+  /** El apodo, que es lo que va en la URL y en la clave de la sesión. */
+  clave: string;
+  nombre: string;
+  /** De dónde ha salido: del calendario, del scouting o escrito a mano. */
+  origen: "liga" | "scouting" | "propio";
+};
 
 /* ================================================================== */
 /*  LA PÁGINA                                                          */
@@ -248,29 +310,95 @@ function Coding() {
     [partidoId, partidos],
   );
 
+  /* ------------------------------------------------------ rivales */
+
+  /** Los rivales de amistoso que ha escrito el analista. */
+  const rivalesDoc = useRemoteDoc<{ nombres: string[] }>({
+    key: CLAVE_RIVALES_CODING,
+    kind: TIPO_CODING,
+    fallback: { nombres: [] },
+  });
+
+  const rivalesPropios = useMemo(() => {
+    const lista = rivalesDoc.value?.nombres;
+
+    return Array.isArray(lista) ? lista.filter((uno) => typeof uno === "string") : [];
+  }, [rivalesDoc.value]);
+
+  /*
+  | A quién se puede analizar.
+  |
+  | Manda **el calendario**: los rivales de la temporada, en el orden de las
+  | jornadas, que es como los busca el cuerpo técnico. Detrás van los equipos
+  | que el scouting tiene cargados y que no juegan liga con nosotros, y al
+  | final los que se añaden a mano para un amistoso. Se cruzan por el apodo
+  | —«CD Numancia» y «C.D. Numancia» son el mismo equipo— y el propio Castilla
+  | se cae de la lista.
+  */
+  const rivales: RivalCoding[] = useMemo(() => {
+    const vistos = new Map<string, RivalCoding>();
+
+    const añade = (nombre: string, origen: RivalCoding["origen"]) => {
+      const limpio = (nombre ?? "").trim();
+
+      if (!limpio || esNuestroEquipo(limpio)) return;
+
+      const clave = apodoCoding(limpio);
+
+      if (!vistos.has(clave)) vistos.set(clave, { clave, nombre: limpio, origen });
+    };
+
+    partidos.forEach((uno) => añade(uno.opponent, "liga"));
+    plantillas.forEach((una) => añade(una.equipo, "scouting"));
+    rivalesPropios.forEach((uno) => añade(uno, "propio"));
+
+    return [...vistos.values()];
+  }, [partidos, plantillas, rivalesPropios]);
+
+  const rival = useMemo(
+    () =>
+      rivales.find((uno) => uno.clave === apodoCoding(equipoRival)) ??
+      rivales[0] ??
+      null,
+    [equipoRival, rivales],
+  );
+
+  /** La plantilla del scouting de ese rival, si la hay. */
   const plantilla = useMemo(
     () =>
-      plantillas.find((una) => una.equipo === equipoRival) ??
-      plantillas[0] ??
-      null,
-    [equipoRival, plantillas],
+      rival
+        ? (plantillas.find((una) => apodoCoding(una.equipo) === rival.clave) ?? null)
+        : null,
+    [plantillas, rival],
   );
+
+  /* Un rival sin plantilla se puede codificar por dorsales. */
+  const [porDorsales, setPorDorsales] = useState(false);
+
+  const [añadiendoRival, setAñadiendoRival] = useState(false);
+  const [rivalNuevo, setRivalNuevo] = useState("");
 
   const refId =
     ambito === "partido"
       ? (partido?.id ?? "sin-partido")
-      : apodoCoding(plantilla?.equipo ?? "sin-rival");
+      : (rival?.clave ?? "sin-rival");
 
   const titulo =
     ambito === "partido"
       ? partido
         ? matchLabel(partido)
         : "Partido sin elegir"
-      : (plantilla?.equipo ?? "Rival sin elegir");
+      : (rival?.nombre ?? "Rival sin elegir");
 
   /** La lista de jugadores del panel de teclas. */
   const jugadores: JugadorCoding[] = useMemo(() => {
-    if (ambito === "rival") return plantilla?.jugadores ?? [];
+    if (ambito === "rival") {
+      const lista = plantilla?.jugadores ?? [];
+
+      if (lista.length > 0) return lista;
+
+      return porDorsales ? DORSALES_SUELTOS : [];
+    }
 
     return players.map((jugador) => ({
       id: jugador.id,
@@ -279,7 +407,7 @@ function Coding() {
       foto: jugador.foto,
       posicion: jugador.posicion,
     }));
-  }, [ambito, plantilla, players]);
+  }, [ambito, plantilla, players, porDorsales]);
 
   /* --------------------------------------------------- la sesión */
 
@@ -312,7 +440,7 @@ function Coding() {
 
   const reproductor = useReproductor(videoRef, sesion.sesion.fps);
 
-  const { estado, montaVideo, salta, tiempoAhoraMs } = reproductor;
+  const { elemento, estado, montaVideo, salta, tiempoAhoraMs } = reproductor;
 
   /*
   | De dónde reproduce el vídeo. Se **deriva** de la fuente guardada en la
@@ -375,6 +503,18 @@ function Coding() {
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
 
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
+
+  /* ------------------------------------------------- la pizarra */
+
+  /*
+  | La telestración: `null` mientras sólo se mira, y el id de la pizarra que se
+  | está pintando cuando se entra a dibujar. Mientras se pinta, el teclado del
+  | coding se apaga entero (`hayModal`): la `f` es el foco, no un jugador.
+  */
+  const [pizarraEditando, setPizarraEditando] = useState<string | null>(null);
+  const [pizarraVisible, setPizarraVisible] = useState(true);
+
+  const escenas = sesion.sesion.escenas;
 
   const clips = sesion.sesion.clips;
 
@@ -606,6 +746,99 @@ function Coding() {
     [cola, enCola, reproductor, salta],
   );
 
+  /* -------------------------------------------------- la pizarra */
+
+  const { guardaEscena } = sesion;
+
+  /**
+   * Abre la pizarra en el fotograma en el que está el vídeo.
+   *
+   * Si el instante ya cae dentro de una pizarra existente se edita **ésa**: dos
+   * pizarras solapadas se tapan la una a la otra al reproducir, y quien vuelve
+   * a pintar en el mismo sitio quiere corregir lo que hay, no empezar de cero.
+   */
+  const abrePizarra = useCallback(() => {
+    reproductor.pausa();
+
+    const ahora = tiempoAhoraMs();
+
+    const existente = escenaEn(escenas, ahora);
+
+    if (existente) {
+      setPizarraEditando(existente.id);
+      return;
+    }
+
+    const nueva = escenaVacia(
+      ahora,
+      `esc-${Math.round(ahora)}-${Math.random().toString(36).slice(2, 6)}`,
+      new Date().toISOString(),
+    );
+
+    guardaEscena(nueva);
+    setPizarraVisible(true);
+    setPizarraEditando(nueva.id);
+  }, [escenas, guardaEscena, reproductor, tiempoAhoraMs]);
+
+  const abreEscena = useCallback(
+    (id: string, paraPintar: boolean) => {
+      const escena = escenas.find((una) => una.id === id);
+
+      if (!escena) return;
+
+      salta(escena.tMs);
+      setPizarraVisible(true);
+
+      if (paraPintar) {
+        reproductor.pausa();
+        setPizarraEditando(id);
+      }
+    },
+    [escenas, reproductor, salta],
+  );
+
+  /*
+  | Las pizarras congeladas paran el vídeo al llegar.
+  |
+  | Se vigila con el bucle de animación por lo mismo que la lista de clips: el
+  | tiempo de React llega tarde y el vídeo se pasaría de largo. Y se recuerda
+  | cuál se acaba de congelar, porque si no, darle al play dentro de la ventana
+  | de la pizarra volvería a pararlo en el acto y el vídeo no arrancaría nunca.
+  */
+  const congelada = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (pizarraEditando || !pizarraVisible) return;
+
+    if (!elemento || escenas.length === 0) return;
+
+    const video = elemento;
+
+    let mano = 0;
+
+    const vigila = () => {
+      mano = requestAnimationFrame(vigila);
+
+      if (video.paused) return;
+
+      const escena = escenaEn(escenas, video.currentTime * 1000);
+
+      if (!escena) {
+        congelada.current = null;
+        return;
+      }
+
+      if (escena.congelada && congelada.current !== escena.id) {
+        congelada.current = escena.id;
+        video.pause();
+      }
+    };
+
+    mano = requestAnimationFrame(vigila);
+
+    return () => cancelAnimationFrame(mano);
+  }, [elemento, escenas, pizarraEditando, pizarraVisible]);
+
   /* ------------------------------------------------- exportación */
 
   const exportador = useExportador({
@@ -659,7 +892,7 @@ function Coding() {
           equipo: ambito === "rival" ? titulo : "RMCF Castilla",
           escudo:
             ambito === "rival"
-              ? escudoDe(plantilla?.equipo ?? "")
+              ? escudoDe(rival?.nombre ?? "")
               : "/logo.png",
           temporada: TEMPORADA,
           nombre: protagonista.nombre,
@@ -688,13 +921,19 @@ function Coding() {
     exporta,
     filtroSujeto,
     jugadorDe,
-    plantilla,
+    rival,
     titulo,
   ]);
 
   /* -------------------------------------------------- el teclado */
 
-  const hayModal = ajustes || editando !== null;
+  /*
+  | Mientras se pinta, el teclado es de la pizarra.
+  |
+  | Sin esto, elegir el foco con la `f` seleccionaría además al jugador que
+  | tenga esa tecla, y la `o` de «fuera de juego» cerraría un clip a medias.
+  */
+  const hayModal = ajustes || editando !== null || pizarraEditando !== null;
 
   useEffect(() => {
     if (hayModal) return;
@@ -984,31 +1223,46 @@ function Coding() {
                   </select>
                 </label>
               ) : (
-                <label className="block min-w-0">
+                <div className="block min-w-0">
                   <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
                     Rival
                   </span>
 
-                  <select
-                    value={plantilla?.equipo ?? ""}
-                    onChange={(evento) => cambiaUrl("equipo", evento.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
-                  >
-                    {plantillas.length === 0 && (
-                      <option value="">Cargando plantillas…</option>
-                    )}
+                  <div className="flex min-w-0 gap-2">
+                    <select
+                      value={rival?.clave ?? ""}
+                      aria-label="Rival"
+                      onChange={(evento) => cambiaUrl("equipo", evento.target.value)}
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                    >
+                      {rivales.length === 0 && (
+                        <option value="">Cargando el calendario…</option>
+                      )}
 
-                    {plantillas.map((una) => (
-                      <option
-                        key={una.equipo}
-                        value={una.equipo}
-                        className="bg-[#11161C]"
-                      >
-                        {una.equipo}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                      {rivales.map((uno) => (
+                        <option
+                          key={uno.clave}
+                          value={uno.clave}
+                          className="bg-[#11161C]"
+                        >
+                          {uno.nombre}
+                          {uno.origen === "propio" ? " · amistoso" : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    <Button
+                      icon={Plus}
+                      onClick={() => {
+                        setRivalNuevo("");
+                        setAñadiendoRival(true);
+                      }}
+                      title="Añadir un rival que no está en el calendario"
+                    >
+                      Otro
+                    </Button>
+                  </div>
+                </div>
               )}
 
               <div className="flex items-end gap-2">
@@ -1071,6 +1325,25 @@ function Coding() {
                     playsInline
                   />
 
+                  {/*
+                  | La pizarra va **dentro** de este contenedor y no debajo del
+                  | vídeo: se coloca sola sobre el rectángulo de imagen, y es
+                  | este mismo `div` el que se pone a pantalla completa cuando
+                  | se enseña el análisis en la sala.
+                  */}
+                  {src && (
+                    <PizarraVideo
+                      video={elemento}
+                      escenas={escenas}
+                      editando={pizarraEditando}
+                      alEditar={setPizarraEditando}
+                      alCambiar={guardaEscena}
+                      alBorrar={sesion.borraEscena}
+                      alPintar={abrePizarra}
+                      visible={pizarraVisible}
+                    />
+                  )}
+
                   {!src && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/25">
                       <Video size={26} />
@@ -1109,9 +1382,37 @@ function Coding() {
                       {formateaMs(estado.tiempoMs)}
                     </span>
 
-                    <span className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] tabular-nums text-[#C8A96B]">
-                      {estado.velocidad}x
+                    <span
+                      title={
+                        estado.extra > 0
+                          ? "El navegador no pasa de ×16: lo que falta se adelanta a saltos"
+                          : undefined
+                      }
+                      className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] tabular-nums text-[#C8A96B]"
+                    >
+                      {estado.velocidad}x{estado.extra > 0 ? " ·turbo" : ""}
                     </span>
+
+                    <Button
+                      icon={PenTool}
+                      onClick={abrePizarra}
+                      disabled={!src}
+                      title="Pintar sobre el fotograma: focos, flechas, mover jugadores…"
+                    >
+                      Pizarra
+                    </Button>
+
+                    <Button
+                      icon={pizarraVisible ? Eye : EyeOff}
+                      onClick={() => setPizarraVisible((valor) => !valor)}
+                      title={
+                        pizarraVisible
+                          ? "Ocultar lo pintado mientras se reproduce"
+                          : "Volver a enseñar lo pintado"
+                      }
+                    >
+                      {escenas.length}
+                    </Button>
 
                     <span className="ml-auto flex flex-wrap gap-1">
                       {VELOCIDADES.map((velocidad) => (
@@ -1195,6 +1496,7 @@ function Coding() {
                       inicioPendienteMs={inicioMs}
                       clips={clips}
                       categorias={config.categorias}
+                      escenas={escenas}
                       seleccionado={seleccionado}
                       onSalta={salta}
                       onElegirClip={(id) => {
@@ -1202,6 +1504,7 @@ function Coding() {
 
                         if (clip) reproduceClip(clip);
                       }}
+                      onElegirEscena={(id) => abreEscena(id, false)}
                     />
                   </div>
                 </div>
@@ -1333,6 +1636,81 @@ function Coding() {
                     />
                   </Panel>
                 )}
+
+                {/* --------------------------- PIZARRAS ------------------ */}
+
+                <Panel
+                  title="Pizarras"
+                  subtitle={
+                    escenas.length > 0
+                      ? `${escenas.length} sobre el vídeo`
+                      : "Pinta sobre el fotograma y se guarda aquí"
+                  }
+                  icon={PenTool}
+                  action={
+                    <Button icon={PenTool} onClick={abrePizarra} disabled={!src}>
+                      Pintar aquí
+                    </Button>
+                  }
+                  bodyClassName="p-3 sm:p-3"
+                >
+                  {escenas.length === 0 ? (
+                    <p className="text-[11px] text-white/35">
+                      Para el vídeo donde quieras explicar algo y pulsa{" "}
+                      <b className="text-white/60">Pizarra</b>: focos sobre un
+                      jugador, flechas, zonas, mover a alguien a donde tenía que
+                      estar. Lo pintado vuelve a salir solo al pasar por ahí.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {escenas.map((escena, indice) => (
+                        <FilaPizarra
+                          key={escena.id}
+                          escena={{
+                            ...escena,
+                            nombre: nombreEscena(escena, indice),
+                          }}
+                          indice={indice}
+                          activa={escena.id === pizarraEditando}
+                          alAbrir={() => abreEscena(escena.id, false)}
+                          alEditar={() => abreEscena(escena.id, true)}
+                          alBorrar={() => {
+                            sesion.borraEscena(escena.id);
+
+                            if (pizarraEditando === escena.id) {
+                              setPizarraEditando(null);
+                            }
+
+                            toast.success("Pizarra borrada");
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+
+                {/* Un rival sin plantilla cargada todavía se puede codificar. */}
+                {ambito === "rival" &&
+                  jugadores.length === 0 &&
+                  rival !== null && (
+                    <Notice tone="warn" title="Este rival no tiene plantilla">
+                      <p>
+                        El scouting todavía no ha cargado a los jugadores de{" "}
+                        <b>{rival.nombre}</b>. Puedes codificar igualmente los
+                        comportamientos colectivos, o trabajar por dorsales y
+                        ponerle el nombre después.
+                      </p>
+
+                      <div className="mt-2">
+                        <Button
+                          tone="primary"
+                          onClick={() => setPorDorsales(true)}
+                        >
+                          Codificar por dorsales
+                        </Button>
+                      </div>
+                    </Notice>
+                  )}
 
                 <Panel
                   title="Jugadores"
@@ -1523,6 +1901,107 @@ function Coding() {
             toast.success("Configuración guardada");
           }}
         />
+      )}
+
+      {/*
+      | Añadir un rival que no está en el calendario.
+      |
+      | Los amistosos de pretemporada y los partidos de preparación no salen de
+      | la hoja de la liga, y hasta ahora la única forma de codificarlos era
+      | esperar a que el scouting cargara al equipo. Se guardan en su propio
+      | documento —no se toca la hoja de nadie— y salen marcados como tales.
+      */}
+      {añadiendoRival && (
+        <Dialog
+          title="Añadir un rival"
+          subtitle="Para un amistoso o un equipo que no esté en el calendario"
+          onClose={() => setAñadiendoRival(false)}
+          footer={
+            <>
+              <Button onClick={() => setAñadiendoRival(false)}>Cancelar</Button>
+
+              <Button
+                tone="primary"
+                disabled={!rivalNuevo.trim()}
+                onClick={() => {
+                  const nombre = rivalNuevo.trim();
+
+                  if (!nombre) return;
+
+                  if (esNuestroEquipo(nombre)) {
+                    toast.error("Ése somos nosotros: elige el equipo contrario.");
+                    return;
+                  }
+
+                  const clave = apodoCoding(nombre);
+
+                  if (rivales.some((uno) => uno.clave === clave)) {
+                    toast.info("Ese rival ya está en la lista");
+                  } else {
+                    rivalesDoc.setValue((actual) => ({
+                      nombres: [
+                        ...(Array.isArray(actual?.nombres) ? actual.nombres : []),
+                        nombre,
+                      ],
+                    }));
+
+                    toast.success(`${nombre} añadido`);
+                  }
+
+                  setAñadiendoRival(false);
+                  cambiaUrl("equipo", clave);
+                }}
+              >
+                Añadir y analizarlo
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <Field
+              label="Nombre del equipo"
+              value={rivalNuevo}
+              onChange={setRivalNuevo}
+              placeholder="Ej.: Vitória SC"
+              hint="Se queda guardado para todas las sesiones de coding."
+            />
+
+            {rivalesPropios.length > 0 && (
+              <div>
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Añadidos a mano
+                </span>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {rivalesPropios.map((uno) => (
+                    <span
+                      key={uno}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2 py-1 text-[11px] text-white/60"
+                    >
+                      {uno}
+
+                      <button
+                        type="button"
+                        aria-label={`Quitar ${uno}`}
+                        onClick={() =>
+                          rivalesDoc.setValue((actual) => ({
+                            nombres: (Array.isArray(actual?.nombres)
+                              ? actual.nombres
+                              : []
+                            ).filter((otro) => otro !== uno),
+                          }))
+                        }
+                        className="text-white/30 transition hover:text-red-300"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Dialog>
       )}
 
       {editando && (
