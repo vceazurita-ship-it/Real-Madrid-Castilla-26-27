@@ -39,6 +39,29 @@ const COLUMNAS_AGENDA = ['EMAIL', 'NOMBRE', 'USOS', 'ULTIMO_USO'];
 /* Remite el aviso desde la propia cuenta que abrió el script. */
 const NOMBRE_REMITENTE = 'RMCF Castilla';
 
+/*
+| El permiso de enviar correo se acepta aparte del de la hoja, y hasta que
+| alguien lo acepta MailApp contesta siempre lo mismo. El texto se escribe una
+| vez aquí porque sale por tres sitios: el envío a mano, el repaso del
+| disparador y la comprobación del editor.
+|
+| El 28/08/2026 el culpable resultó ser el manifiesto: este proyecto lleva la
+| lista `oauthScopes` escrita a mano en `appsscript.json`, y con esa lista
+| puesta Apps Script pide **sólo** esos permisos en vez de deducirlos del
+| código. Por eso ejecutar la función no enseñaba ninguna pantalla que aceptar
+| —no había nada que pedir— y el error salía dentro. Se nota en el registro:
+| si falla sin haberte preguntado nada, el problema es la lista, no tú.
+*/
+const AVISO_SIN_PERMISO_DE_CORREO =
+  'Nadie ha aceptado todavía el permiso de enviar correo. En el editor de ' +
+  'Apps Script ejecuta autorizarCorreo y acepta lo que pida. Si al ejecutarlo ' +
+  'NO sale ninguna pantalla de permisos y vuelve a fallar, el proyecto los ' +
+  'lleva fijados a mano: en Configuración del proyecto marca «Mostrar el ' +
+  'archivo de manifiesto appsscript.json» y añade a oauthScopes ' +
+  'https://www.googleapis.com/auth/script.send_mail (y .../script.scriptapp, ' +
+  'que es el que necesita el disparador). Después publica una versión nueva y ' +
+  'comprueba que la implementación esté como «Ejecutar como: yo».';
+
 /**
  * Libro donde viven `ALERTAS` y `AGENDA`.
  *
@@ -201,15 +224,46 @@ function comprobarAlertas() {
   }
 
   const disparador = hayDisparador_();
+  const correo = permisoDeCorreo_();
 
+  /*
+  | Antes esto decía BIEN sin mirar el correo, y ése es justo el caso que peor
+  | se nota: listar y guardar no necesitan el permiso de MailApp, así que la
+  | comprobación daba el visto bueno y el fallo no aparecía hasta que alguien
+  | pulsaba «Enviar ahora».
+  */
   Logger.log(
-    disparador
-      ? 'BIEN: el archivo responde y el disparador está puesto.'
-      : 'A MEDIAS: el archivo responde, pero falta ejecutar ' +
-          'instalarDisparadorDeAlertas.',
+    !correo.ok
+      ? 'A MEDIAS: ' + correo.error
+      : !disparador
+        ? 'A MEDIAS: el archivo responde, pero falta ejecutar ' +
+            'instalarDisparadorDeAlertas.'
+        : 'BIEN: el archivo responde, el disparador está puesto y el correo ' +
+            'está autorizado (quedan ' + correo.cupo + ' envíos hoy).',
   );
 
-  return disparador ? 'BIEN' : 'A MEDIAS';
+  return disparador && correo.ok ? 'BIEN' : 'A MEDIAS';
+}
+
+/**
+ * Aceptar el permiso de correo sin mandarle nada a nadie.
+ *
+ * Se ejecuta desde el editor cuando la app dice que faltan permisos: al tocar
+ * MailApp, Google enseña la pantalla de consentimiento, y una vez aceptada
+ * vale para el disparador y para la app. Si sale BIEN y la app sigue quejándose,
+ * lo que falta es publicar una versión nueva de la implementación.
+ */
+function autorizarCorreo() {
+  const correo = permisoDeCorreo_();
+
+  Logger.log(
+    correo.ok
+      ? 'BIEN: el permiso de correo está aceptado. Quedan ' + correo.cupo +
+          ' envíos hoy.'
+      : 'MAL: ' + correo.error,
+  );
+
+  return correo.ok ? 'BIEN' : 'MAL';
 }
 
 /* ================================================================== */
@@ -394,6 +448,28 @@ function listarAlertas_() {
  * Devuelve `null` —«no se sabe»— si no hay permiso para mirar los
  * disparadores: eso no es motivo para tumbar la lista de tareas.
  */
+/**
+ * ¿Está aceptado el permiso de enviar correo?
+ *
+ * La hoja se puede leer y escribir sin él, así que todo aparenta ir bien hasta
+ * que alguien pulsa «Enviar ahora» y Google contesta «You do not have
+ * permission to call MailApp.sendEmail». Preguntar por el cupo revienta igual
+ * que un envío, pero sin mandarle nada a nadie.
+ */
+function permisoDeCorreo_() {
+  try {
+    return { ok: true, cupo: MailApp.getRemainingDailyQuota() };
+  } catch (error) {
+    return {
+      ok: false,
+      cupo: 0,
+      error:
+        AVISO_SIN_PERMISO_DE_CORREO +
+        ' (' + String((error && error.message) || error) + ')',
+    };
+  }
+}
+
 function hayDisparador_() {
   try {
     return ScriptApp.getProjectTriggers().some(function (uno) {
@@ -635,8 +711,18 @@ function enviaCorreo_(alerta) {
   | Gmail gratuito da 100 destinatarios al día y Workspace 1.500. Si no queda
   | cupo hay que decirlo, no fallar en silencio: la alarma se reintentará en la
   | siguiente pasada del disparador.
+  |
+  | La misma pregunta sirve de aviso de permisos: sin el consentimiento de
+  | MailApp, el cupo ya revienta aquí, antes de intentar el envío, y así el
+  | motivo se cuenta con palabras en vez de con el error de Google.
   */
-  if (MailApp.getRemainingDailyQuota() < destinatarios.length) {
+  const correo = permisoDeCorreo_();
+
+  if (!correo.ok) {
+    return { ok: false, error: correo.error };
+  }
+
+  if (correo.cupo < destinatarios.length) {
     return { ok: false, error: 'Se ha agotado el cupo diario de correos' };
   }
 
@@ -648,7 +734,13 @@ function enviaCorreo_(alerta) {
       name: NOMBRE_REMITENTE,
     });
   } catch (error) {
-    return { ok: false, error: 'No se ha podido enviar: ' + error.message };
+    const motivo = String((error && error.message) || error);
+
+    if (/permission|authoriz|autoriza/i.test(motivo)) {
+      return { ok: false, error: AVISO_SIN_PERMISO_DE_CORREO + ' (' + motivo + ')' };
+    }
+
+    return { ok: false, error: 'No se ha podido enviar: ' + motivo };
   }
 
   aprendeCorreos_(destinatarios, 1);

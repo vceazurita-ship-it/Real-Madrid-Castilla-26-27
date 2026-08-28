@@ -410,6 +410,60 @@ comprueba(
     llama("listarAlertas").alertas.length === 0,
 );
 
+/* ---------------------------------------------------------------- */
+/*  SIN PERMISO DE CORREO                                            */
+/* ---------------------------------------------------------------- */
+
+/*
+| El caso del 28/08/2026: la hoja lista y guarda —para eso le basta el permiso
+| del libro—, pero nadie aceptó nunca el de MailApp, así que el primer envío
+| revienta. Lo que se comprueba es que el motivo se cuente con palabras y que
+| comprobarAlertas deje de decir BIEN.
+*/
+const cupoDeVerdad = contexto.MailApp.getRemainingDailyQuota;
+
+contexto.MailApp.getRemainingDailyQuota = () => {
+  throw new Error(
+    "Exception: You do not have permission to call MailApp.sendEmail",
+  );
+};
+
+llama("guardarAlerta", {
+  alerta: Object.assign({}, alerta, {
+    activa: true,
+    envios: 0,
+    ultimoEnvio: "",
+    proximoEnvio: enUnRato(60),
+  }),
+});
+
+const sinPermiso = llama("enviarAlertaAhora", { id: alerta.id });
+
+comprueba(
+  "sin permiso de correo → el error dice qué hay que ejecutar",
+  sinPermiso.ok === false && /autorizarCorreo/.test(sinPermiso.error || ""),
+  sinPermiso,
+);
+
+comprueba(
+  "sin permiso de correo → comprobarAlertas ya no dice BIEN",
+  contexto.comprobarAlertas() === "A MEDIAS",
+);
+
+comprueba(
+  "sin permiso de correo → autorizarCorreo dice MAL",
+  contexto.autorizarCorreo() === "MAL",
+);
+
+contexto.MailApp.getRemainingDailyQuota = cupoDeVerdad;
+
+comprueba(
+  "con el permiso puesto → autorizarCorreo dice BIEN",
+  contexto.autorizarCorreo() === "BIEN",
+);
+
+llama("borrarAlerta", { id: alerta.id });
+
 console.log(fallos === 0 ? "\nTODO BIEN" : `\n${fallos} FALLOS`);
 
 process.exit(fallos === 0 ? 0 : 1);

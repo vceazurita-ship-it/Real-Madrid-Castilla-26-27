@@ -34,11 +34,20 @@ export function explicaErrorScript(bruto: unknown): string {
     return `El Apps Script de la hoja ha fallado: ${mensaje}. Revísalo en el editor de la hoja; la app no puede arreglarlo desde aquí.`;
   }
 
+  /*
+  | El propio script ya explica el permiso de correo con los pasos concretos
+  | (`AVISO_SIN_PERMISO_DE_CORREO` en alertas.gs). Traducirlo otra vez aquí
+  | sería cambiar un mensaje bueno por uno peor.
+  */
+  if (/autorizarCorreo/.test(mensaje)) return mensaje;
+
   if (/authorization|permission|autoriza/i.test(mensaje)) {
     return (
-      "La hoja ha pedido permisos que nadie ha aceptado todavía: abre el " +
-      "editor de Apps Script, ejecuta cualquier función una vez y acepta lo " +
-      "que pida."
+      "La hoja ha pedido permisos que nadie ha aceptado todavía. En el editor " +
+      "de Apps Script ejecuta `autorizarCorreo` y acepta lo que pida; después " +
+      "comprueba que la implementación web esté como «Ejecutar como: yo» y " +
+      "publica una versión nueva (Implementar ▸ Gestionar implementaciones ▸ " +
+      "Nueva versión). Los pasos están en scripts/apps-script/README.md."
     );
   }
 

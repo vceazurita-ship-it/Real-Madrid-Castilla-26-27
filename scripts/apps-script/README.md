@@ -68,8 +68,9 @@ Elige la función `comprobarAlertas` y pulsa **Ejecutar**. En el registro
 
 | Lo que dice | Qué significa |
 | --- | --- |
-| `BIEN: el archivo responde y el disparador está puesto.` | Todo listo; sigue en el paso 5. |
+| `BIEN: … el disparador está puesto y el correo está autorizado.` | Todo listo; sigue en el paso 5. |
 | `A MEDIAS: … falta ejecutar instalarDisparadorDeAlertas.` | El archivo está bien pegado, pero vuelve al paso 3. |
+| `A MEDIAS: Nadie ha aceptado todavía el permiso de enviar correo.` | Ejecuta `autorizarCorreo` y acepta lo que pida. |
 | `MAL: …` | El mensaje dice qué ha fallado; casi siempre es un permiso sin aceptar. |
 
 Esto sólo prueba el archivo. Si aquí sale `BIEN` y la app sigue diciendo que el
@@ -99,6 +100,45 @@ la manera antigua: las primeras instrucciones decían
 —`manejaAlertas(e)`— y vuelve a publicar (paso 5). El archivo sigue admitiendo
 la forma antigua, así que si prefieres dejarla, lo que hay que arreglar es el
 nombre de la variable, no el `alertas.gs`.
+
+**«Nadie ha aceptado todavía el permiso de enviar correo».** Enviar correo es
+un permiso aparte del de la hoja, y no hace falta para listar ni para guardar:
+por eso las alertas se crean y se ven con normalidad y el fallo no aparece
+hasta el primer envío. En el editor, elige `autorizarCorreo`, pulsa
+**Ejecutar** y acepta la pantalla de Google (dirá que la app quiere «enviar
+correo electrónico en tu nombre»). En el registro tiene que salir `BIEN: el
+permiso de correo está aceptado`.
+
+**¿Ejecutas `autorizarCorreo` y NO sale ninguna pantalla de permisos?** Entonces
+no es que no hayas aceptado: es que nadie te lo ha pedido. Este proyecto lleva
+la lista de permisos escrita a mano en el manifiesto, y con esa lista puesta
+Apps Script pide sólo lo que ponga ahí en vez de deducirlo del código —da igual
+cuánto MailApp pegues—. Se arregla añadiendo las dos líneas que faltan:
+
+1. **⚙ Configuración del proyecto** ▸ marca **«Mostrar el archivo de manifiesto
+   appsscript.json en el editor»**.
+2. Abre `appsscript.json` y añade a `oauthScopes`:
+
+   ```json
+   "https://www.googleapis.com/auth/script.send_mail",
+   "https://www.googleapis.com/auth/script.scriptapp"
+   ```
+
+   El primero es el correo; el segundo, el disparador —`ScriptApp.newTrigger`
+   necesita el suyo, así que si falta éste el paso 3 tampoco funciona nunca.
+3. Guarda y vuelve a ejecutar `autorizarCorreo`. Ahora **sí** sale la pantalla
+   de Google: acéptala.
+4. Ejecuta `instalarDisparadorDeAlertas` y `comprobarAlertas`, y publica una
+   versión nueva (paso 5).
+
+Si tu `appsscript.json` no tiene ninguna lista `oauthScopes`, este apartado no
+va contigo: los permisos se deducen solos y basta con ejecutar la función.
+
+Si sale BIEN y la app sigue diciendo lo mismo, el permiso que falta no es
+el tuyo sino el de la implementación: en **Implementar ▸ Gestionar
+implementaciones ▸ editar**, comprueba que **Ejecutar como** sea *yo* —y no
+«el usuario que accede», que en una petición desde la app no es nadie— y
+publica una **versión nueva**.
 
 **«La hoja no devolvió datos legibles».** Apps Script ha contestado con su
 página HTML de error en vez de con JSON. Suele ser un permiso sin aceptar
