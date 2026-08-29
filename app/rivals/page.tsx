@@ -50,6 +50,9 @@ import OnceCampoDialog, {
   type OnceCampoCandidato,
   type OnceCampoFicha,
 } from "@/components/rivals/OnceCampoDialog";
+import PorteroPdfDialog, {
+  type PorteroCandidato,
+} from "@/components/rivals/PorteroPdfDialog";
 import Link from "next/link";
 
 import { enlaceAbrible } from "@/lib/rivals/media";
@@ -58,6 +61,7 @@ import {
   type OncePdfEnlace,
   type OncePdfPlayer,
   type OncePdfEstado,
+  type OncePdfVariante,
 } from "@/lib/rivals/once-pdf";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
 import type { RivalVoiceField } from "@/lib/voice/types";
@@ -85,6 +89,7 @@ import {
   Footprints,
   Frown,
   Ghost,
+  Hand,
   Handshake,
   HeartPulse,
   LayoutGrid,
@@ -450,6 +455,32 @@ function getLine(position: string) {
 function positionRank(position: string) {
   return getSlot(position)?.slotIndex ?? 999;
 }
+
+/*
+| Portería → defensa → medio → ataque, y dentro de cada línea por posición: el
+| mismo orden en el que se lee la lista de la pantalla y en el que salen las
+| fichas de los PDF.
+*/
+function ordenDelOnce(a: RivalPlayer, b: RivalPlayer) {
+  const linea = (player: RivalPlayer) =>
+    LINE_DEFINITIONS.findIndex(
+      (item) => item.key === getLine(player["POSICIÓN"])?.key,
+    );
+
+  const lineaA = linea(a);
+  const lineaB = linea(b);
+
+  if (lineaA !== lineaB) return lineaA - lineaB;
+
+  return positionRank(a["POSICIÓN"]) - positionRank(b["POSICIÓN"]);
+}
+
+/*
+| Los que el portero se lleva estudiados si no se le dice otra cosa: quien le
+| va a tirar. Extremos, delanteros y medias puntas del once —titulares y
+| dudas—; a los demás se les marca a mano en el pop-up.
+*/
+const SLOTS_DEL_PORTERO = new Set(["ed", "ei", "ext", "sd", "dc", "mp"]);
 
 /*
 | La cara de un jugador tal como la pinta el pop-up de antes del PDF. La usan
@@ -899,146 +930,243 @@ export default function RivalPlayersPage() {
       .map(fichaDeCampo);
   }, [players, equipoDelOnce]);
 
+  /*
+  | La ficha de un jugador tal y como la pide el PDF: la banda de datos, los
+  | enlaces vivos, el mapa de zona y el análisis. La comparten los dos
+  | documentos —el del once entero y el del portero—, así que se resuelve aquí
+  | una sola vez: dos copias de esto se separan al primer campo nuevo de la
+  | hoja.
+  */
+  const fichaDePdf = useCallback(
+    (player: RivalPlayer, estado: OncePdfEstado): OncePdfPlayer => {
+      const slotEntry = getSlot(player["POSICIÓN"]);
+      const segundo = getSlot(player["2º POSICIÓN"]);
+
+      const stats = findStats(statsDoc, player);
+
+      const edad = textoUtil(player.EDAD);
+
+      /* La misma banda de datos que se lee en la cabecera de la ficha. */
+      const datos = [
+        { label: "Edad", valor: edad ? `${edad} años` : "" },
+        { label: "Altura", valor: textoUtil(player.ALTURA) },
+        { label: "Peso", valor: textoUtil(player.PESO) },
+        { label: "Pie", valor: textoUtil(player["PIE DOMINANTE"]) },
+        { label: "Estado", valor: textoUtil(player.ESTADO) },
+        { label: "Procedencia", valor: textoUtil(player.PROCEDENCIA) },
+        {
+          label: "Nacimiento",
+          valor: textoUtil(player["LUGAR DE NACIMIENTO"]),
+        },
+        {
+          label: "Incorporación",
+          valor: textoUtil(player["FECHA INCORPORACIÓN"]),
+        },
+      ].filter((dato) => dato.valor);
+
+      /* La ficha y el vídeo viajan aparte del resto de enlaces: el PDF les
+         da sitio propio —un botón cada uno en la tarjeta y su chapa en el
+         campograma—, porque son los dos que se buscan con el dedo. */
+      const video = textoUtil(player.VIDEO);
+      const documento = textoUtil(player.DOC);
+
+      const enlaces: OncePdfEnlace[] = [];
+
+      if (documento) {
+        enlaces.push({ label: "Informe", url: enlaceAbrible(documento) });
+      }
+
+      /* La ficha de BeSoccer trae vídeos y datos de partido a partido: es
+         el segundo sitio al que se va cuando el vídeo propio no basta. */
+      if (stats?.url) {
+        enlaces.push({ label: "BeSoccer", url: enlaceAbrible(stats.url) });
+      }
+
+      return {
+        clave: playerKey(player),
+        dorsal: textoUtil(player.DORSAL),
+        nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
+        nombreCompleto: textoUtil(player.JUGADOR),
+        posCode: slotEntry?.slot.code ?? "",
+        posicion: textoUtil(player["POSICIÓN"]),
+        segunda:
+          segundo && segundo.slot.key !== slotEntry?.slot.key
+            ? `2ª ${segundo.slot.code}`
+            : "",
+        rol: textoUtil(player.ROL),
+        linea: slotEntry?.line.key ?? null,
+        color: slotEntry?.line.color ?? "#8892A0",
+        estado,
+        /* Los titulares siempre; las dudas, sólo las que se hayan metido
+           en el campo desde el pop-up. */
+        enCampo: seDibuja(once.doc, playerKey(player)),
+        foto: textoUtil(player.FOTO),
+        datos,
+        /* El mapa de zona se deduce de la posición, igual que en la ficha
+           de pantalla: el slot dice dónde y el lado hacia qué banda. */
+        slot: slotEntry?.slot.key ?? null,
+        side: detectSide(player["POSICIÓN"] || ""),
+        portero: Boolean(stats?.portero),
+        temporadas: stats?.temporadas ?? [],
+        tags: parseTags(player.IMPACTO).tags.map((tag) => ({
+          label: tag.short,
+          tone: tag.tone,
+        })),
+        caracteristicas: textoUtil(player["CARACTERÍSTICAS"]),
+        fortalezas: textoUtil(player.FORTALEZAS),
+        debilidades: textoUtil(player.DEBILIDADES),
+        observaciones: textoUtil(player.OBSERVACIONES),
+        ficha: new URL(
+          fichaRivalPath(player.NOMBRE_EQUIPO, playerKey(player)),
+          window.location.origin,
+        ).toString(),
+        video: video ? enlaceAbrible(video) : "",
+        enlaces,
+      };
+    },
+    [statsDoc, once.doc],
+  );
+
+  /*
+  | Montar el documento y descargarlo. Es lo mismo para las dos hojas —se
+  | ordenan los jugadores, se resuelven sus fichas y se guarda—; lo único que
+  | cambia es la variante, que es la que pone los rótulos y el nombre del
+  | archivo. Devuelve si ha salido, para que quien lo llame cierre su pop-up.
+  */
+  const exportaPdf = useCallback(
+    async (
+      variante: OncePdfVariante,
+      filas: { player: RivalPlayer; estado: OncePdfEstado }[],
+    ) => {
+      setExportando(true);
+
+      try {
+        const jugadores: OncePdfPlayer[] = [...filas]
+          .sort((a, b) => ordenDelOnce(a.player, b.player))
+          .map(({ player, estado }) => fichaDePdf(player, estado));
+
+        const nombre = await exportOncePdf({
+          equipo: equipoDelOnce,
+          /* El escudo firma el título de la portada: en una carpeta con los
+             diecinueve documentos del grupo es lo que dice de quién es cada
+             hoja de un vistazo. */
+          escudo: escudoDe(equipoDelOnce),
+          fecha: new Date().toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+          jugadores,
+          tema: theme,
+          /* Dónde ha dejado el entrenador a cada uno en el pop-up. */
+          campo: once.doc.campo,
+          variante,
+        });
+
+        toast.success(
+          variante === "portero"
+            ? "PDF para el portero exportado"
+            : "Once probable exportado",
+          { description: nombre },
+        );
+
+        return true;
+      } catch (error) {
+        console.error("Error exportando el PDF del rival:", error);
+
+        toast.error("No se ha podido generar el PDF.");
+
+        return false;
+      } finally {
+        setExportando(false);
+      }
+    },
+    [equipoDelOnce, escudoDe, theme, once.doc, fichaDePdf],
+  );
+
   const exportarOncePdf = useCallback(async () => {
     if (!marcados.length) return;
 
-    setExportando(true);
+    if (await exportaPdf("once", marcados)) setPreparandoPdf(false);
+  }, [marcados, exportaPdf]);
 
-    try {
-      const jugadores: OncePdfPlayer[] = [...marcados]
-        /* Portería → defensa → medio → ataque, y dentro de cada línea por
-           posición: el mismo orden que tiene la lista en pantalla. */
-        .sort((a, b) => {
-          const lineaA = LINE_DEFINITIONS.findIndex(
-            (linea) => linea.key === getLine(a.player["POSICIÓN"])?.key,
-          );
+  /*
+  |--------------------------------------------------------------------------
+  | PDF PARA EL PORTERO
+  |--------------------------------------------------------------------------
+  | El mismo documento que el del once —portada, campo, fichas y saltos
+  | internos—, pero con los jugadores que el portero tiene que llevarse
+  | estudiados en vez de con el equipo entero. Lo dibuja el mismo módulo, con
+  | otra variante (`lib/rivals/once-pdf.ts`).
+  |
+  | Se elige entre los que están marcados en el once, que es de donde sale
+  | todo este flujo: quien no está ni de titular ni de duda no tiene ficha que
+  | llevarse. Vienen marcados de casa los extremos, los delanteros y las
+  | medias puntas, y desde el pop-up se quita o se añade a quien haga falta.
+  */
 
-          const lineaB = LINE_DEFINITIONS.findIndex(
-            (linea) => linea.key === getLine(b.player["POSICIÓN"])?.key,
-          );
+  const [preparandoPortero, setPreparandoPortero] = useState(false);
 
-          if (lineaA !== lineaB) return lineaA - lineaB;
+  /*
+  | Lo elegido a mano, con el equipo al que pertenece: cambiar de rival deja
+  | la elección sin sentido —son otras claves— y guardar de quién era es lo
+  | que la caduca sola, sin un efecto que la vacíe.
+  |
+  | Mientras no se haya tocado nada vale `null` y mandan los de siempre.
+  */
+  const [elegidosPortero, setElegidosPortero] = useState<{
+    equipo: string;
+    claves: string[];
+  } | null>(null);
 
-          return (
-            positionRank(a.player["POSICIÓN"]) -
-            positionRank(b.player["POSICIÓN"])
-          );
-        })
-        .map(({ player, estado }): OncePdfPlayer => {
+  const porteroElegidos =
+    elegidosPortero && elegidosPortero.equipo === equipoDelOnce
+      ? elegidosPortero.claves
+      : null;
+
+  const candidatosPortero = useMemo<PorteroCandidato[]>(
+    () =>
+      [...marcados]
+        .sort((a, b) => ordenDelOnce(a.player, b.player))
+        .map(({ player, estado }) => {
           const slotEntry = getSlot(player["POSICIÓN"]);
-          const segundo = getSlot(player["2º POSICIÓN"]);
-
-          const stats = findStats(statsDoc, player);
-
-          const edad = textoUtil(player.EDAD);
-
-          /* La misma banda de datos que se lee en la cabecera de la ficha. */
-          const datos = [
-            { label: "Edad", valor: edad ? `${edad} años` : "" },
-            { label: "Altura", valor: textoUtil(player.ALTURA) },
-            { label: "Peso", valor: textoUtil(player.PESO) },
-            { label: "Pie", valor: textoUtil(player["PIE DOMINANTE"]) },
-            { label: "Estado", valor: textoUtil(player.ESTADO) },
-            { label: "Procedencia", valor: textoUtil(player.PROCEDENCIA) },
-            {
-              label: "Nacimiento",
-              valor: textoUtil(player["LUGAR DE NACIMIENTO"]),
-            },
-            {
-              label: "Incorporación",
-              valor: textoUtil(player["FECHA INCORPORACIÓN"]),
-            },
-          ].filter((dato) => dato.valor);
-
-          /* La ficha y el vídeo viajan aparte del resto de enlaces: el PDF les
-             da sitio propio —un botón cada uno en la tarjeta y su chapa en el
-             campograma—, porque son los dos que se buscan con el dedo. */
-          const video = textoUtil(player.VIDEO);
-          const documento = textoUtil(player.DOC);
-
-          const enlaces: OncePdfEnlace[] = [];
-
-          if (documento) {
-            enlaces.push({ label: "Informe", url: enlaceAbrible(documento) });
-          }
-
-          /* La ficha de BeSoccer trae vídeos y datos de partido a partido: es
-             el segundo sitio al que se va cuando el vídeo propio no basta. */
-          if (stats?.url) {
-            enlaces.push({ label: "BeSoccer", url: enlaceAbrible(stats.url) });
-          }
 
           return {
-            clave: playerKey(player),
-            dorsal: textoUtil(player.DORSAL),
-            nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
-            nombreCompleto: textoUtil(player.JUGADOR),
-            posCode: slotEntry?.slot.code ?? "",
-            posicion: textoUtil(player["POSICIÓN"]),
-            segunda:
-              segundo && segundo.slot.key !== slotEntry?.slot.key
-                ? `2ª ${segundo.slot.code}`
-                : "",
-            rol: textoUtil(player.ROL),
-            linea: slotEntry?.line.key ?? null,
-            color: slotEntry?.line.color ?? "#8892A0",
+            ...fichaDeCampo(player),
+            grupo: slotEntry?.line.title ?? "SIN POSICIÓN",
             estado,
-            /* Los titulares siempre; las dudas, sólo las que se hayan metido
-               en el campo desde el pop-up. */
-            enCampo: seDibuja(once.doc, playerKey(player)),
-            foto: textoUtil(player.FOTO),
-            datos,
-            /* El mapa de zona se deduce de la posición, igual que en la ficha
-               de pantalla: el slot dice dónde y el lado hacia qué banda. */
-            slot: slotEntry?.slot.key ?? null,
-            side: detectSide(player["POSICIÓN"] || ""),
-            portero: Boolean(stats?.portero),
-            temporadas: stats?.temporadas ?? [],
-            tags: parseTags(player.IMPACTO).tags.map((tag) => ({
-              label: tag.short,
-              tone: tag.tone,
-            })),
-            caracteristicas: textoUtil(player["CARACTERÍSTICAS"]),
-            fortalezas: textoUtil(player.FORTALEZAS),
-            debilidades: textoUtil(player.DEBILIDADES),
-            observaciones: textoUtil(player.OBSERVACIONES),
-            ficha: new URL(
-              fichaRivalPath(player.NOMBRE_EQUIPO, playerKey(player)),
-              window.location.origin,
-            ).toString(),
-            video: video ? enlaceAbrible(video) : "",
-            enlaces,
           };
-        });
-
-      const nombre = await exportOncePdf({
-        equipo: equipoDelOnce,
-        /* El escudo firma el título de la portada: en una carpeta con los
-           diecinueve documentos del grupo es lo que dice de quién es cada
-           hoja de un vistazo. */
-        escudo: escudoDe(equipoDelOnce),
-        fecha: new Date().toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
         }),
-        jugadores,
-        tema: theme,
-        /* Dónde ha dejado el entrenador a cada uno en el pop-up. */
-        campo: once.doc.campo,
-      });
+    [marcados],
+  );
 
-      toast.success("Once probable exportado", { description: nombre });
+  const porteroPorDefecto = useMemo(
+    () =>
+      candidatosPortero
+        .filter((candidato) => {
+          const clave = getSlot(candidato.posicion)?.slot.key;
 
-      setPreparandoPdf(false);
-    } catch (error) {
-      console.error("Error exportando el once probable:", error);
+          return Boolean(clave && SLOTS_DEL_PORTERO.has(clave));
+        })
+        .map((candidato) => candidato.clave),
+    [candidatosPortero],
+  );
 
-      toast.error("No se ha podido generar el PDF del once.");
-    } finally {
-      setExportando(false);
-    }
-  }, [marcados, equipoDelOnce, escudoDe, statsDoc, theme, once.doc]);
+  const exportarPorteroPdf = useCallback(
+    async (claves: string[]) => {
+      const elegidos = new Set(claves);
+
+      const filas = marcados.filter(({ player }) =>
+        elegidos.has(playerKey(player)),
+      );
+
+      if (!filas.length) return;
+
+      if (await exportaPdf("portero", filas)) setPreparandoPortero(false);
+    },
+    [marcados, exportaPdf],
+  );
+
 
   /*
   |--------------------------------------------------------------------------
@@ -2243,6 +2371,28 @@ export default function RivalPlayersPage() {
                             </button>
                           )}
 
+                          {/* Y el que se lleva el portero: los que le tiran. */}
+
+                          {marcados.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              /* Tampoco descarga: abre el pop-up donde se
+                                 elige a quién se lleva estudiado. */
+                              onClick={() => setPreparandoPortero(true)}
+                              disabled={exportando}
+                              title={`Preparar el PDF para el portero — quién tira de ${equipoDelOnce}`}
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Hand size={11} />
+                              )}
+                              PORTERO
+                            </button>
+                          )}
+
                           {(onceResumen.titulares > 0 ||
                             onceResumen.dudas > 0) && (
                             <button
@@ -2309,6 +2459,23 @@ export default function RivalPlayersPage() {
           onRecolocar={once.recolocar}
           onExportar={() => void exportarOncePdf()}
           onCerrar={() => setPreparandoPdf(false)}
+        />
+      )}
+
+      {/* QUIÉN SALE EN EL PDF DEL PORTERO */}
+
+      {preparandoPortero && (
+        <PorteroPdfDialog
+          equipo={equipoDelOnce}
+          candidatos={candidatosPortero}
+          porDefecto={porteroPorDefecto}
+          elegidos={porteroElegidos}
+          exportando={exportando}
+          onCambiar={(claves) =>
+            setElegidosPortero({ equipo: equipoDelOnce, claves })
+          }
+          onExportar={(claves) => void exportarPorteroPdf(claves)}
+          onCerrar={() => setPreparandoPortero(false)}
         />
       )}
 

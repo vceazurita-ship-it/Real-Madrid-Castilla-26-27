@@ -29,9 +29,15 @@
 | busca con el dedo.
 |
 | De la ficha también se vuelve: cada tarjeta lleva su botón «Volver al once»
-| arriba a la derecha de la fila de botones, y el pie de cada hoja repite el
-| mismo salto. En el móvil, que es donde se lee esto, el «atrás» del visor no
-| se encuentra a la primera.
+| en su esquina de arriba a la derecha —lo primero que se ve al aterrizar en
+| ella desde el campo— y el pie de cada hoja repite el mismo salto. En el
+| móvil, que es donde se lee esto, el «atrás» del visor no se encuentra a la
+| primera.
+|
+| El mismo molde monta dos documentos: el once probable de siempre y el
+| **informe para el portero**, con los jugadores que el entrenador elige de
+| ese once. Cambian los rótulos y el nombre del archivo, nada más (ver
+| `VARIANTES`).
 |
 | El módulo **no sabe nada de la hoja ni del estado de la página**: recibe a
 | los jugadores ya resueltos (posición, etiquetas, estadísticas y enlaces) y
@@ -180,6 +186,13 @@ export type OncePdfData = {
    * con su línea.
    */
   campo?: Record<string, OncePos>;
+  /**
+   * Qué hoja se está montando. Sin ella, la de siempre: el once probable.
+   *
+   * Sólo cambia lo que se lee —título, rótulos y nombre del archivo—; el
+   * dibujo es el mismo (ver `VARIANTES`).
+   */
+  variante?: OncePdfVariante;
 };
 
 /*
@@ -354,8 +367,56 @@ const ESTADO_LABEL: Record<OncePdfEstado, string> = {
 /** Lo que se lee en el botón que sale fuera del documento. */
 const BOTON_VIDEO = "Ver vídeo";
 
-/** Y en el que devuelve al campograma: el de la ficha y el del pie. */
-const BOTON_VOLVER = "Volver al once";
+/*
+|--------------------------------------------------------------------------
+| VARIANTES DEL DOCUMENTO
+|--------------------------------------------------------------------------
+| El mismo molde sirve para dos hojas distintas, y sólo cambian los rótulos:
+|
+|   · el **once probable**, que es el documento de siempre —el equipo entero
+|     tal y como se espera que salga—, y
+|   · el **informe para el portero**, con los jugadores que el entrenador
+|     elige de ese once: quién le va a tirar, cómo y por dónde.
+|
+| Lo que se dibuja —portada, campo, fichas— es idéntico a posta: el segundo
+| documento se lee al lado del primero y no puede parecer de otra casa. Aquí
+| sólo se guarda cómo se llama cada cosa en cada uno.
+*/
+
+export type OncePdfVariante = "once" | "portero";
+
+type VarianteConfig = {
+  /** Bajo el nombre del rival, en la portada. */
+  subtitulo: string;
+  /** Rótulo de la hoja donde empiezan las fichas. */
+  fichas: string;
+  /** Rótulo del bloque de la derecha de la portada, el de los titulares. */
+  lista: string;
+  /** Lo que se lee en el botón que devuelve a la portada. */
+  volver: string;
+  /** Con lo que empieza el nombre del archivo. */
+  archivo: string;
+};
+
+const VARIANTES: Record<OncePdfVariante, VarianteConfig> = {
+  once: {
+    subtitulo: "Once probable",
+    fichas: "FICHAS DEL ONCE PROBABLE",
+    lista: "EL ONCE",
+    volver: "Volver al once",
+    archivo: "once-probable",
+  },
+  portero: {
+    subtitulo: "Informe para el portero",
+    fichas: "FICHAS PARA EL PORTERO",
+    lista: "TITULARES",
+    volver: "Volver al resumen",
+    archivo: "informe-portero",
+  },
+};
+
+/** La variante que se está montando. La fija `buildOncePdf`, como la paleta. */
+let V: VarianteConfig = VARIANTES.once;
 
 /*
 |--------------------------------------------------------------------------
@@ -768,7 +829,7 @@ function botonEnlace(
 function anchoBotonVolver(doc: Doc) {
   fuente(doc, 7.5, "bold");
 
-  return ancho(doc, BOTON_VOLVER) + 31;
+  return ancho(doc, V.volver) + 31;
 }
 
 /**
@@ -780,7 +841,8 @@ function anchoBotonVolver(doc: Doc) {
  * escribir mientras se pinta.
  *
  * Va perfilado y en tinta media, no macizo: es el camino de vuelta, no lo que
- * se viene a buscar a la ficha. El que manda en la fila sigue siendo el vídeo.
+ * se viene a buscar a la ficha. El que manda en la ficha sigue siendo el
+ * vídeo, que va abajo con los demás enlaces.
  */
 function botonVolver(doc: Doc, x: number, y: number, alto = 17) {
   const w = anchoBotonVolver(doc);
@@ -795,7 +857,7 @@ function botonVolver(doc: Doc, x: number, y: number, alto = 17) {
   trianguloArriba(doc, x + 10, y + alto / 2 - 3.2, 6.4, tintaBoton);
 
   ink(doc, tintaBoton);
-  doc.text(BOTON_VOLVER, x + 21, y + alto / 2 + 2.6);
+  doc.text(V.volver, x + 21, y + alto / 2 + 2.6);
 
   doc.link(x, y, w, alto, { pageNumber: 1, top: 0 });
 
@@ -1302,7 +1364,7 @@ function cabecera(
 
   fuente(doc, 8.5, "normal");
   ink(doc, C.tintaMedia);
-  doc.text(`Once probable · ${data.fecha}`, titulo, y + 49);
+  doc.text(`${V.subtitulo} · ${data.fecha}`, titulo, y + 49);
 
   /* Contadores a la derecha, alineados con el título. Se colocan de derecha a
      izquierda para que el bloque quede pegado al margen. */
@@ -1425,46 +1487,54 @@ function columnaResumen(
     { titulo: "SIN POSICIÓN", jugadores: sinLinea },
   ].filter((grupo) => grupo.jugadores.length > 0);
 
-  const altoOnce =
-    32 +
-    grupos.reduce((total, grupo) => total + 12 + grupo.jugadores.length * 13.5 + 2, 0);
+  /* Sin titulares no hay panel: en el informe del portero se puede elegir a
+     un par de dudas y a nadie más, y un recuadro con sólo el rótulo dentro se
+     lee como que falta media portada. */
+  if (grupos.length) {
+    const altoOnce =
+      32 +
+      grupos.reduce(
+        (total, grupo) => total + 12 + grupo.jugadores.length * 13.5 + 2,
+        0,
+      );
 
-  fill(doc, C.panel);
-  stroke(doc, C.bordeSuave, 0.6);
-  doc.roundedRect(x, cursor, w, altoOnce, 7, 7, "FD");
+    fill(doc, C.panel);
+    stroke(doc, C.bordeSuave, 0.6);
+    doc.roundedRect(x, cursor, w, altoOnce, 7, 7, "FD");
 
-  fuente(doc, 6.5, "bold");
-  ink(doc, C.oro);
-  rotulo(doc, "EL ONCE", x + 12, cursor + 17, 1.4);
+    fuente(doc, 6.5, "bold");
+    ink(doc, C.oro);
+    rotulo(doc, V.lista, x + 12, cursor + 17, 1.4);
 
-  let fy = cursor + 32;
+    let fy = cursor + 32;
 
-  grupos.forEach((grupo) => {
-    fuente(doc, 5.5, "bold");
-    ink(doc, C.tintaTenue);
-    rotulo(doc, grupo.titulo, x + 12, fy, 0.9);
+    grupos.forEach((grupo) => {
+      fuente(doc, 5.5, "bold");
+      ink(doc, C.tintaTenue);
+      rotulo(doc, grupo.titulo, x + 12, fy, 0.9);
 
-    fy += 12;
+      fy += 12;
 
-    grupo.jugadores.forEach((jugador) => {
-      /* Punto del color de la línea: ata la fila con su sitio en el campo. */
-      fill(doc, realza(colorLinea(jugador), 0.1));
-      doc.circle(x + 14, fy - 2.6, 2.1, "F");
+      grupo.jugadores.forEach((jugador) => {
+        /* Punto del color de la línea: ata la fila con su sitio en el campo. */
+        fill(doc, realza(colorLinea(jugador), 0.1));
+        doc.circle(x + 14, fy - 2.6, 2.1, "F");
 
-      filaResumen(doc, jugador, x, fy, w, {
-        dorsalX: 21,
-        nombreX: 38,
-        colorDorsal: C.tintaMedia,
-        ancla,
+        filaResumen(doc, jugador, x, fy, w, {
+          dorsalX: 21,
+          nombreX: 38,
+          colorDorsal: C.tintaMedia,
+          ancla,
+        });
+
+        fy += 13.5;
       });
 
-      fy += 13.5;
+      fy += 2;
     });
 
-    fy += 2;
-  });
-
-  cursor += altoOnce + 12;
+    cursor += altoOnce + 12;
+  }
 
   /* ---------------- DUDAS ---------------- */
 
@@ -1940,12 +2010,18 @@ function columnasDe(jugador: OncePdfPlayer) {
 const ANALISIS_HUECO = 12;
 const ANALISIS_PAD = 9;
 
-/** Ancho de cada una de las tres columnas de análisis. */
-const COLUMNA_ANALISIS =
-  (CONTENT_W - PAD * 2 - ANALISIS_HUECO * 2) / 3;
-
-/** Ancho útil del texto dentro del panel de una columna. */
-const TEXTO_ANALISIS = COLUMNA_ANALISIS - ANALISIS_PAD * 2;
+/**
+ * Lo que mide cada columna cuando se reparten `n` a lo ancho de la tarjeta.
+ *
+ * Una columna sin nada escrito **no se pinta**: un panel vacío al lado de
+ * «Por dónde se le gana» se lee como que ahí falta algo, y lo que pasa es que
+ * ese jugador no tiene observaciones. Las que quedan se reparten el ancho
+ * entero, así que dos columnas salen a media tarjeta y una, a tarjeta
+ * completa, en vez de dejar el hueco de la que falta.
+ */
+function anchoColumnaAnalisis(columnas: number) {
+  return (CONTENT_W - PAD * 2 - ANALISIS_HUECO * (columnas - 1)) / columnas;
+}
 
 type FilaDatos = { dato: OncePdfDato; w: number }[];
 
@@ -2000,13 +2076,17 @@ type MedidasFicha = {
   alto: number;
   /** Filas de la banda de datos, ya repartidas. */
   filasDatos: FilaDatos[];
+  /** Sólo las que tienen algo escrito; las vacías no llegan hasta aquí. */
   columnas: ColumnaMedida[];
-  /** Alto del panel de las tres columnas: el de la más larga. */
+  /** Lo que mide cada una de las columnas que sí se pintan. */
+  anchoColumna: number;
+  /** Alto del panel de las columnas: el de la más larga. */
   altoAnalisis: number;
   /** Desplazamientos desde el borde superior de la tarjeta. `null` si no hay. */
   yNombreCompleto: number | null;
   yDatos: number | null;
-  yBotones: number;
+  /** `null` cuando el jugador no tiene ni vídeo ni enlaces que abrir. */
+  yBotones: number | null;
   yRendimiento: number;
   altoRendimiento: number;
   yTags: number | null;
@@ -2048,8 +2128,13 @@ function medidasFicha(doc: Doc, jugador: OncePdfPlayer): MedidasFicha {
 
   /* ---------------- BOTONES Y RENDIMIENTO ---------------- */
 
-  const yBotones = finCabecera;
-  const yRendimiento = yBotones + 17 + 12;
+  /* La vuelta al once ya no vive en esta fila —está arriba, en la cabecera—,
+     así que aquí sólo quedan los enlaces que salen fuera. Sin ninguno, la
+     fila no existe y el rendimiento sube a ocupar su sitio. */
+  const hayBotones = Boolean(jugador.video) || jugador.enlaces.length > 0;
+
+  const yBotones = hayBotones ? finCabecera : null;
+  const yRendimiento = hayBotones ? finCabecera + 17 + 12 : finCabecera;
 
   const altoRendimiento = 22 + Math.max(ZONA_H + 12, altoTemporadas(jugador)) + 12;
 
@@ -2068,10 +2153,17 @@ function medidasFicha(doc: Doc, jugador: OncePdfPlayer): MedidasFicha {
 
   fuente(doc, 7.5, "normal");
 
-  const columnas: ColumnaMedida[] = columnasDe(jugador).map((columna) => ({
+  /* Las que no tienen nada escrito se caen aquí, antes de medir el texto: el
+     ancho de las demás depende de cuántas queden. */
+  const conTexto = columnasDe(jugador).filter((columna) => columna.bloques.length);
+
+  const anchoColumna = anchoColumnaAnalisis(Math.max(1, conTexto.length));
+  const anchoTexto = anchoColumna - ANALISIS_PAD * 2;
+
+  const columnas: ColumnaMedida[] = conTexto.map((columna) => ({
     color: columna.color,
     bloques: columna.bloques.map((bloque) => {
-      const lineas: string[] = doc.splitTextToSize(bloque.texto, TEXTO_ANALISIS);
+      const lineas: string[] = doc.splitTextToSize(bloque.texto, anchoTexto);
 
       return {
         titulo: bloque.titulo,
@@ -2086,7 +2178,7 @@ function medidasFicha(doc: Doc, jugador: OncePdfPlayer): MedidasFicha {
     }),
   }));
 
-  if (columnas.some((columna) => columna.bloques.length)) {
+  if (columnas.length) {
     yBloques = cursor + 4;
 
     /* El panel de las tres mide lo que la columna más larga: es lo que las
@@ -2110,6 +2202,7 @@ function medidasFicha(doc: Doc, jugador: OncePdfPlayer): MedidasFicha {
     alto: cursor + 8,
     filasDatos,
     columnas,
+    anchoColumna,
     altoAnalisis,
     yNombreCompleto,
     yDatos,
@@ -2237,14 +2330,28 @@ function pintaFicha(
 
   const px = x + CAB_X;
 
-  /* La chapa de estado va antes que el resto porque marca hasta dónde puede
-     crecer la línea de la posición sin chocar con ella. */
+  /*
+  | La vuelta al campograma, arriba del todo y pegada al filo derecho de la
+  | tarjeta: es lo primero que se ve al aterrizar en la ficha desde el campo,
+  | que es como se llega aquí. Abajo, en la fila de enlaces, había que bajar
+  | la hoja entera para encontrarla —y en las fichas largas ni se veía—.
+  |
+  | La chapa de estado se queda a su izquierda, en la misma línea, y entre las
+  | dos marcan hasta dónde puede crecer la línea de la posición. Por eso se
+  | pintan antes que nada.
+  */
+  const anchoVolver = anchoBotonVolver(doc);
+  const volverX = x + w - PAD - anchoVolver;
+
+  botonVolver(doc, volverX, y + 11);
+
   fuente(doc, 6.5, "semibold");
 
   const anchoEstado = ancho(doc, ESTADO_LABEL[jugador.estado]) + 12;
-  const topeCabecera = x + w - PAD - anchoEstado - 8;
+  const estadoX = volverX - 8 - anchoEstado;
+  const topeCabecera = estadoX - 8;
 
-  chapa(doc, ESTADO_LABEL[jugador.estado], x + w - PAD - anchoEstado, y + 14, {
+  chapa(doc, ESTADO_LABEL[jugador.estado], estadoX, y + 14, {
     color,
     tamano: 6.5,
     padding: 6,
@@ -2347,38 +2454,35 @@ function pintaFicha(
 
   /* ---------------- BOTONES ---------------- */
 
-  const by = y + medidas.yBotones;
+  /* La fila sólo existe si hay algo que abrir: desde que la vuelta al once se
+     subió a la cabecera, una ficha sin vídeo ni informe no tiene botones, y
+     dejarle el hueco reservado abría un palmo de blanco. */
+  if (medidas.yBotones !== null) {
+    const by = y + medidas.yBotones;
+    const topeBotones = x + w - PAD;
 
-  /* La vuelta al once va anclada a la derecha y no al final de la fila: así
-     cae en el mismo sitio en todas las fichas —también en las que no tienen
-     vídeo— y el dedo la encuentra sin buscarla. Los demás botones no pueden
-     pasar de ahí. */
-  const anchoVolver = anchoBotonVolver(doc);
-  const topeBotones = x + w - PAD - anchoVolver - 8;
+    let bx = x + PAD;
 
-  botonVolver(doc, x + w - PAD - anchoVolver, by);
+    if (jugador.video) {
+      bx +=
+        botonEnlace(doc, BOTON_VIDEO, jugador.video, bx, by, {
+          color: C.oro,
+          play: true,
+          solido: true,
+        }) + 7;
+    }
 
-  let bx = x + PAD;
+    jugador.enlaces.forEach((enlace) => {
+      fuente(doc, 7.5, "bold");
 
-  if (jugador.video) {
-    bx +=
-      botonEnlace(doc, BOTON_VIDEO, jugador.video, bx, by, {
-        color: C.oro,
-        play: true,
-        solido: true,
-      }) + 7;
+      if (bx + ancho(doc, enlace.label) + 26 > topeBotones) return;
+
+      bx +=
+        botonEnlace(doc, enlace.label, enlace.url, bx, by, {
+          color: C.tintaMedia,
+        }) + 7;
+    });
   }
-
-  jugador.enlaces.forEach((enlace) => {
-    fuente(doc, 7.5, "bold");
-
-    if (bx + ancho(doc, enlace.label) + 26 > topeBotones) return;
-
-    bx +=
-      botonEnlace(doc, enlace.label, enlace.url, bx, by, {
-        color: C.tintaMedia,
-      }) + 7;
-  });
 
   /* ---------------- RENDIMIENTO ---------------- */
 
@@ -2477,14 +2581,22 @@ function pintaFicha(
   const ay = y + medidas.yBloques;
 
   medidas.columnas.forEach((columna, i) => {
-    const bloqueX = x + PAD + i * (COLUMNA_ANALISIS + ANALISIS_HUECO);
+    const bloqueX = x + PAD + i * (medidas.anchoColumna + ANALISIS_HUECO);
 
     /* Panel tintado del color de la columna: verde lo que hace bien, rojo por
        dónde se le gana. Es lo que se busca de un vistazo con la hoja en la
        mano, y en blanco y negro sigue distinguiéndose por el rótulo. */
     fill(doc, mezcla(columna.color, C.panel, 0.07));
     stroke(doc, mezcla(columna.color, C.panel, 0.3), 0.6);
-    doc.roundedRect(bloqueX, ay, COLUMNA_ANALISIS, medidas.altoAnalisis, 7, 7, "FD");
+    doc.roundedRect(
+      bloqueX,
+      ay,
+      medidas.anchoColumna,
+      medidas.altoAnalisis,
+      7,
+      7,
+      "FD",
+    );
 
     let cursor = ay + ANALISIS_PAD + 4;
 
@@ -2522,7 +2634,7 @@ function pies(doc: Doc, data: OncePdfData) {
     ink(doc, C.tintaTenue);
 
     doc.text(
-      `Real Madrid Castilla · ${data.equipo} · Once probable · ${data.fecha}`,
+      `Real Madrid Castilla · ${data.equipo} · ${V.subtitulo} · ${data.fecha}`,
       MARGEN,
       PAGE_H - MARGEN,
     );
@@ -2540,10 +2652,10 @@ function pies(doc: Doc, data: OncePdfData) {
     fuente(doc, 6.5, "bold");
     ink(doc, realza(C.oro, 0.2));
 
-    const anchoVolver = ancho(doc, BOTON_VOLVER);
+    const anchoVolver = ancho(doc, V.volver);
     const volverX = (PAGE_W - anchoVolver + 10) / 2;
 
-    doc.text(BOTON_VOLVER, volverX, PAGE_H - MARGEN);
+    doc.text(V.volver, volverX, PAGE_H - MARGEN);
 
     trianguloArriba(
       doc,
@@ -2566,7 +2678,7 @@ function pies(doc: Doc, data: OncePdfData) {
 |--------------------------------------------------------------------------
 */
 
-function nombreArchivo(equipo: string) {
+function nombreArchivo(equipo: string, prefijo: string) {
   const limpio = equipo
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -2583,15 +2695,16 @@ function nombreArchivo(equipo: string) {
     String(hoy.getDate()).padStart(2, "0"),
   ].join("-");
 
-  return `once-probable_${limpio || "rival"}_${sello}.pdf`;
+  return `${prefijo}_${limpio || "rival"}_${sello}.pdf`;
 }
 
 export async function buildOncePdf(data: OncePdfData) {
   const { jsPDF } = await import("jspdf");
 
-  /* El tema, lo primero de todo: manda sobre cada trazo del documento y
-     también sobre el fondo con el que se recortan las fotos. */
+  /* El tema y la variante, lo primero de todo: mandan sobre cada trazo del
+     documento y también sobre el fondo con el que se recortan las fotos. */
   C = data.tema === "light" ? PALETA_DIA : PALETA_NOCHE;
+  V = VARIANTES[data.variante ?? "once"];
 
   /* Las fotos después: son lo único del documento que hay que ir a buscar
      fuera, y con jsPDF ya cargado tardan lo mismo. */
@@ -2614,7 +2727,7 @@ export async function buildOncePdf(data: OncePdfData) {
   ESCALA_LETRA = FAMILIA === FAMILIA_BARLOW ? 1.14 : 1;
 
   doc.setProperties({
-    title: `Once probable · ${data.equipo}`,
+    title: `${V.subtitulo} · ${data.equipo}`,
     subject: "Scouting rival · Real Madrid Castilla",
     creator: "RMCF Castilla",
   });
@@ -2714,7 +2827,7 @@ export async function buildOncePdf(data: OncePdfData) {
 
     fuente(doc, 6.5, "bold");
     ink(doc, C.oro);
-    rotulo(doc, "FICHAS DEL ONCE PROBABLE", MARGEN, MARGEN + 8, 1.6);
+    rotulo(doc, V.fichas, MARGEN, MARGEN + 8, 1.6);
 
     fuente(doc, 7, "normal");
     ink(doc, C.tintaTenue);
@@ -2785,7 +2898,7 @@ export async function buildOncePdf(data: OncePdfData) {
 
   pies(doc, data);
 
-  return { doc, nombre: nombreArchivo(data.equipo) };
+  return { doc, nombre: nombreArchivo(data.equipo, V.archivo) };
 }
 
 /** Genera el PDF y lo descarga. Devuelve el nombre del archivo. */

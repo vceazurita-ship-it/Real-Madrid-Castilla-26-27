@@ -6,7 +6,12 @@
  * foto, así que no se toca la red para nada excepto para las tipografías, que
  * se leen de `public/fuentes/` con un `fetch` de pega.
  *
- *   node scripts/once-pdf-harness.cjs <salida.pdf> [light|dark]
+ *   node scripts/once-pdf-harness.cjs <salida.pdf> [light|dark] [once|portero]
+ *
+ * A propósito no todos los jugadores vienen completos: hay uno sin vídeo ni
+ * enlaces —para ver la ficha que se queda sin fila de botones— y otros dos a
+ * los que les faltan textos de análisis, que es lo que decide cuántas
+ * columnas se pintan abajo.
  *
  * Vive dentro del repo a propósito: si estuviera en el scratchpad no
  * resolvería `typescript` ni `jspdf`.
@@ -148,10 +153,12 @@ function jugador(i) {
       { label: "Duelos aéreos", tone: "debilidad" },
       { label: "Repliegue", tone: "debilidad" },
     ],
-    caracteristicas: TEXTO_LARGO,
+    /* Al 2 sólo se le ha escrito lo que hace bien y al 5 le falta la tercera
+       columna: así se ve que las que no tienen texto no dejan caja vacía. */
+    caracteristicas: i === 2 || i === 5 ? "" : TEXTO_LARGO,
     fortalezas: TEXTO_LARGO,
-    debilidades: TEXTO_LARGO,
-    observaciones: TEXTO_LARGO,
+    debilidades: i === 2 ? "" : TEXTO_LARGO,
+    observaciones: i === 2 || i === 5 ? "" : TEXTO_LARGO,
     ficha: "https://example.invalid/ficha",
     video: i % 2 === 0 ? "https://youtu.be/xxxxxxxxxxx" : "",
     enlaces: [],
@@ -159,16 +166,24 @@ function jugador(i) {
 }
 
 (async () => {
-  const [, , salida = "once.pdf", tema = "light"] = process.argv;
+  const [, , salida = "once.pdf", tema = "light", variante = "once"] = process.argv;
 
   const { buildOncePdf } = require(path.join(ROOT, "lib/rivals/once-pdf.ts"));
+
+  const todos = Array.from({ length: 11 }, (_, i) => jugador(i));
+
+  /* El informe del portero sale de un puñado del once, no del once entero:
+     mediapunta, extremos y delantero, que es lo que trae por defecto. */
+  const jugadores =
+    variante === "portero" ? todos.filter((_, i) => i >= 7) : todos;
 
   const { doc } = await buildOncePdf({
     equipo: "CD Teruel",
     escudo: "",
     fecha: "Sábado 6 de septiembre · 18:00",
     tema,
-    jugadores: Array.from({ length: 11 }, (_, i) => jugador(i)),
+    variante,
+    jugadores,
     campo: {},
   });
 
