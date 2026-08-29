@@ -12,15 +12,14 @@
  *   reproduce por trozos y ffmpeg corta sobre el mismo fichero. Es el camino
  *   completo.
  * - **De un enlace** (el bucket de Supabase, un vídeo con dirección directa):
- *   igual de completo, y el único que funciona con la app desplegada fuera.
- * - **Del ordenador**, abriendo el fichero: sirve para codificar ya mismo, sin
- *   mover nada, pero el servidor no ve ese fichero y por tanto no puede
- *   cortarlo todavía. El coding se guarda igual, y la primera exportación
- *   ofrece llevar el vídeo a la carpeta de partidos —una copia en esta misma
- *   máquina— y sigue con el corte en cuanto termina.
+ *   igual de completo, y ffmpeg puede cortarlo desde donde esté la app.
+ * - **Del ordenador**, abriendo el fichero: se codifica y **se monta el vídeo
+ *   aquí mismo**, en el navegador (`lib/coding/navegador.ts`). No se sube
+ *   nada, no hace falta servidor y funciona igual con la app desplegada. Es
+ *   el camino de quien tiene el partido en su portátil, que es lo normal.
  *
  * Por eso el fichero abierto viaja hacia arriba junto con la fuente: la
- * pantalla lo guarda para poder copiarlo después sin volver a pedirlo.
+ * pantalla lo guarda para montar los vídeos después sin volver a pedirlo.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -259,9 +258,11 @@ export function SelectorFuente({
         />
 
         <p className="mt-1.5 text-[10px] leading-relaxed text-white/25">
-          No se sube nada: el navegador lo lee del disco. Se puede codificar ya,
-          y al exportar por primera vez se ofrece llevarlo a la carpeta de
-          partidos —una copia en esta misma máquina— para poder cortarlo.
+          No se sube nada: el navegador lo lee del disco. Se codifica y se
+          montan los vídeos aquí mismo —a tiempo real, con la pantalla delante,
+          y salen en .webm con sonido—, así que funciona igual con la app
+          abierta desde internet. Al recargar hay que volver a abrirlo: el
+          navegador no guarda el permiso.
         </p>
       </div>
     </div>

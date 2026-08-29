@@ -16,11 +16,17 @@
  * El vídeo del partido no se sube ni se copia: el servidor lee de la carpeta
  * de partidos, o de la URL, sólo los segundos de cada clip.
  *
- * La excepción es el fichero abierto del ordenador. Ése el servidor no lo ve
- * —el navegador no dice dónde está—, así que antes de cortar hay que llevarlo
- * a la carpeta de partidos. Lo ofrece la propia exportación, con su barra de
- * progreso, y al terminar sigue con el corte que se había pedido: el analista
- * pulsa exportar una vez, no dos.
+ * **Y el partido que está en el ordenador se monta aquí, en el navegador.**
+ * Ése el servidor no lo ve —el navegador no dice dónde está— y subirlo no es
+ * una opción: son gigas, y con la app desplegada el cuerpo de una petición no
+ * pasa de 4,5 MB. Como el navegador ya lo tiene abierto, hace el montaje él
+ * mismo (`lib/coding/navegador.ts`): mismas tres salidas, mismas pizarras
+ * quemadas, misma carátula, y sin pedirle nada al servidor. Es el único camino
+ * que funciona igual en esta máquina y en Vercel.
+ *
+ * Llevar el vídeo a la carpeta de partidos sigue estando —es lo mejor cuando
+ * la app corre en la misma máquina que el partido: ffmpeg no va a tiempo real—
+ * pero ya no es el único camino ni hace falta para exportar.
  */
 
 import { useCallback, useState } from "react";
@@ -44,6 +50,11 @@ import {
   preparaImagenes,
 } from "@/lib/coding/imagenes";
 import { llevaVideoALaCarpeta, srcDeCarpeta } from "@/lib/coding/importa";
+import {
+  cortaEnElNavegador,
+  CORTE_CANCELADO,
+  puedeCortarAqui,
+} from "@/lib/coding/navegador";
 import {
   duracionClip,
   formateaTotal,
@@ -122,12 +133,105 @@ export function useExportador(opciones: {
    * que volver a abrirlo. Sin él no se puede llevar el vídeo a la carpeta.
    */
   ficheroLocal?: File | null;
+  /** Los fotogramas por segundo de la sesión: el montaje del navegador graba a ellos. */
+  fps?: number;
+  /** El partido, para la pantalla del montaje. */
+  titulo?: string;
   /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
   onAdopta?: (fuente: FuenteVideo, src: string) => void;
 }) {
-  const { fuente, categorias, carpeta, modo, ficheroLocal, onAdopta } = opciones;
+  const {
+    fuente,
+    categorias,
+    carpeta,
+    modo,
+    ficheroLocal,
+    fps,
+    titulo,
+    onAdopta,
+  } = opciones;
 
   const [exportando, setExportando] = useState(false);
+
+  /*
+  | Cómo se llama cada corte. Vive aparte porque lo usan los dos caminos —el
+  | servidor y el navegador— y un nombre distinto en cada uno sería un ZIP con
+  | otras carpetas según dónde se haya cortado.
+  */
+  const nombraClips = useCallback(
+    (peticion: PeticionExport) =>
+      peticion.clips.map((clip) => ({
+        clip,
+        nombre:
+          peticion.formato === "zip"
+            ? rutaDeClip(clip, categorias, carpeta)
+                .replace(/\.mp4$/, "")
+                .replace(`${carpeta}/`, "")
+            : nombreDeClip(clip, categorias),
+      })),
+    [carpeta, categorias],
+  );
+
+  /*
+  | ------------------------------------------- EL MONTAJE EN EL NAVEGADOR
+  |
+  | El partido abierto del ordenador se corta **aquí**, sin servidor.
+  |
+  | Es el único camino que funciona igual en esta máquina y con la app
+  | desplegada: el fichero no sale del disco, así que no hay techo de subida
+  | que valga ni función que se acabe a los 300 s. Lo hace todo
+  | `lib/coding/navegador.ts`, que además pone su propia pantalla con la
+  | cuenta y el botón de cancelar —va a tiempo real, y eso hay que verlo—.
+  */
+  const montaAqui = useCallback(
+    async (peticion: PeticionExport, fichero: File) => {
+      setExportando(true);
+
+      try {
+        const resultado = await cortaEnElNavegador({
+          fichero,
+          titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
+          formato: peticion.formato,
+          portada: peticion.portada ?? null,
+          portadaSegundos: 4,
+          fps,
+          clips: nombraClips(peticion).map(({ clip, nombre }) => ({
+            nombre,
+            inicioMs: clip.inicioMs,
+            finMs: clip.finMs,
+            paradas: peticion.paradas?.get(clip.id),
+          })),
+        });
+
+        const nombre = `${peticion.nombre}.${resultado.extension}`;
+
+        descarga(resultado.blob, nombre);
+
+        toast.success("Vídeo listo", {
+          description: `${nombre} · ${megas(resultado.blob.size)} · ${reloj(
+            resultado.segundos,
+          )}${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === CORTE_CANCELADO) {
+          toast("Montaje cancelado", {
+            description: "El coding y las pizarras se quedan como estaban.",
+          });
+
+          return;
+        }
+
+        console.error("[coding] montaje en el navegador", error);
+
+        toast.error(
+          error instanceof Error ? error.message : "No se ha podido montar el vídeo.",
+        );
+      } finally {
+        setExportando(false);
+      }
+    },
+    [fps, nombraClips, titulo],
+  );
 
   /*
   | El corte de verdad, con el vídeo ya resuelto.
@@ -204,13 +308,8 @@ export function useExportador(opciones: {
           nombre: peticion.nombre,
           portada: imagenes.portada,
           portadaSegundos: 4,
-          clips: peticion.clips.map((clip) => ({
-            nombre:
-              peticion.formato === "zip"
-                ? rutaDeClip(clip, categorias, carpeta)
-                    .replace(/\.mp4$/, "")
-                    .replace(`${carpeta}/`, "")
-                : nombreDeClip(clip, categorias),
+          clips: nombraClips(peticion).map(({ clip, nombre }) => ({
+            nombre,
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             pizarras: imagenes.paradas.get(clip.id),
@@ -271,7 +370,7 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [carpeta, categorias, modo],
+    [modo, nombraClips],
   );
 
   /*
@@ -327,43 +426,61 @@ export function useExportador(opciones: {
     async (peticion: PeticionExport) => {
       if (exportando) return;
 
-      if (!fuente) {
-        toast.error("Elige antes el vídeo del partido.");
-        return;
-      }
-
       if (peticion.clips.length === 0) {
         toast.error("No hay clips que exportar.");
         return;
       }
 
       /*
-      | El fichero del ordenador ya no es un final de trayecto: se ofrece
-      | copiarlo a la carpeta de partidos —que está en esta misma máquina— y la
-      | exportación sigue sola en cuanto termine la copia.
+      | El fichero del ordenador se monta aquí mismo, y manda sobre la sesión.
+      |
+      | Es lo que hay que hacer con la app desplegada —el servidor no lo ve, y
+      | subir un partido de varios gigas no existe— y lo que hace que el coding
+      | entero funcione desde cualquier sitio con el partido en el portátil.
+      |
+      | Se mira **el fichero de la pestaña antes que la fuente guardada**: el
+      | documento de la sesión llega después de pintar y su clave cambia cuando
+      | acaba de cargar el calendario, así que quien abre el vídeo nada más
+      | entrar puede tenerlo reproduciéndose sin que la sesión se haya
+      | enterado. Con el fichero delante hay vídeo que montar, diga lo que diga
+      | el documento.
       */
-      if (fuente.tipo === "local") {
-        if (!ficheroLocal) {
-          toast.error("El servidor no puede leer este vídeo", {
-            description:
-              "Está abierto desde tu ordenador y al recargar la página se " +
-              "pierde el permiso sobre él. Vuelve a abrirlo en «El vídeo» y " +
-              "se podrá llevar a la carpeta de partidos.",
-          });
+      if (ficheroLocal && (!fuente || fuente.tipo === "local")) {
+        if (puedeCortarAqui()) {
+          await montaAqui(peticion, ficheroLocal);
 
           return;
         }
 
-        toast.error("El servidor todavía no tiene este vídeo", {
+        /* Sin grabadora en el navegador queda el camino de siempre. */
+        toast.error("Este navegador no sabe montar el vídeo", {
           description:
-            `Hay que llevar «${fuente.nombre}» (${megas(ficheroLocal.size)}) a la ` +
-            "carpeta de partidos para poder cortarlo. No sale a internet: se " +
-            "copia en esta misma máquina, y la exportación sigue al terminar.",
+            "Ábrelo en Chrome o en Edge y se monta aquí mismo. Si la app corre " +
+            `en esta máquina, la otra vía es llevar «${ficheroLocal.name}» ` +
+            `(${megas(ficheroLocal.size)}) a la carpeta de partidos: no sale a ` +
+            "internet, se copia aquí al lado y la exportación sigue al terminar.",
           duration: 20000,
           action: {
             label: "Llevarlo",
             onClick: () => void llevaYExporta(peticion, ficheroLocal),
           },
+        });
+
+        return;
+      }
+
+      if (!fuente) {
+        toast.error("Elige antes el vídeo del partido.");
+        return;
+      }
+
+      /* Quedó guardado que era un fichero del ordenador, pero ya no está. */
+      if (fuente.tipo === "local") {
+        toast.error("Hay que volver a abrir el vídeo", {
+          description:
+            "Está en tu ordenador y al recargar la página el navegador pierde " +
+            "el permiso sobre él. Ábrelo otra vez en «El vídeo» —el coding y " +
+            "las pizarras siguen donde estaban— y ya se puede montar.",
         });
 
         return;
@@ -376,7 +493,7 @@ export function useExportador(opciones: {
           : { tipo: "archivo", ruta: fuente.ruta },
       );
     },
-    [exportando, ficheroLocal, fuente, lanza, llevaYExporta],
+    [exportando, ficheroLocal, fuente, lanza, llevaYExporta, montaAqui],
   );
 
   return { exporta, exportando };
@@ -403,6 +520,7 @@ export function BarraExportacion({
   pizarras,
   quema,
   onQuema,
+  enNavegador,
 }: {
   clips: ClipCoding[];
   /** Qué se va a exportar: "todos", "Sergio Mestre", "Pase"… */
@@ -424,6 +542,14 @@ export function BarraExportacion({
   pizarras: number;
   quema: boolean;
   onQuema: (quema: boolean) => void;
+  /**
+   * El vídeo está abierto del ordenador: el montaje se hace aquí.
+   *
+   * Cambia lo que se puede elegir, no sólo el texto: `preciso`/`rápido` son
+   * dos formas de llamar a ffmpeg y en el navegador no significan nada —se
+   * graba lo que se reproduce, siempre a tiempo real—.
+   */
+  enNavegador: boolean;
 }) {
   const total = clips.reduce((suma, clip) => suma + duracionClip(clip), 0);
 
@@ -549,6 +675,19 @@ export function BarraExportacion({
         </div>
       )}
 
+      {/* --------------------------- EL CORTE -------------------------- */}
+
+      {enNavegador ? (
+        <p className="rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2 text-[11px] leading-relaxed text-white/55">
+          <span className="text-[#C8A96B]">Se monta aquí, en tu navegador.</span>{" "}
+          El partido no se sube a ningún sitio: sale del fichero que tienes
+          abierto. Va a tiempo real —unos {formateaTotal(total)} de grabación—,
+          se ve mientras se hace y se puede cancelar. Deja la pestaña delante:
+          si te vas a otra, se para y sigue al volver. Sale en{" "}
+          <span className="text-white/75">.webm</span>, con sonido: se abre en
+          Chrome, en Edge, en VLC y en Windows.
+        </p>
+      ) : (
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-[0.16em] text-white/30">
           Corte
@@ -575,6 +714,7 @@ export function BarraExportacion({
           </button>
         ))}
       </div>
+      )}
     </div>
   );
 }

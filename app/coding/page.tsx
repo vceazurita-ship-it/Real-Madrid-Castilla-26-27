@@ -963,10 +963,22 @@ function Coding() {
     carpeta: apodoCoding(titulo),
     modo: modoCorte,
     ficheroLocal,
+    fps: sesion.sesion.fps,
+    titulo,
     onAdopta: eligeFuente,
   });
 
   const { exporta } = exportador;
+
+  /*
+  | El partido está abierto del ordenador: el montaje se hace en el navegador.
+  |
+  | Es el camino normal con la app desplegada —el servidor no ve ese fichero, y
+  | subir varios gigas no existe—, y cambia lo que se puede elegir en la barra
+  | de exportación: ver `lib/coding/navegador.ts`.
+  */
+  const montaEnNavegador =
+    !!ficheroLocal || sesion.sesion.fuente?.tipo === "local";
 
   /*
   | El nombre del filtro se resuelve mirando primero las dos listas de sujetos
@@ -1910,7 +1922,11 @@ function Coding() {
 
                 <Panel
                   title="Sacar los vídeos"
-                  subtitle="Los cortes se generan en el servidor con el vídeo original: no se sube nada"
+                  subtitle={
+                    montaEnNavegador
+                      ? "Se montan aquí, en el navegador, con el fichero que tienes abierto: no se sube nada"
+                      : "Los cortes se generan en el servidor con el vídeo original: no se sube nada"
+                  }
                   icon={Film}
                 >
                   <BarraExportacion
@@ -1928,6 +1944,7 @@ function Coding() {
                     pizarras={pizarrasEnLaExportacion}
                     quema={quemaPizarras}
                     onQuema={setQuemaPizarras}
+                    enNavegador={montaEnNavegador}
                     onZip={() =>
                       void (async () =>
                         exporta({
