@@ -1,5 +1,12 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -92,6 +99,53 @@ export function resuelveRutaDeVideo(relativa: string) {
   }
 
   return absoluta;
+}
+
+/**
+ * Dónde dejar un vídeo que llega del navegador, listo para escribirlo.
+ *
+ * Es la salida del callejón sin salida del fichero abierto del ordenador: el
+ * navegador lo lee del disco y el servidor no, así que se podía codificar
+ * pero no cortar nada. Aquí el fichero **se copia** a la carpeta de partidos
+ * —no sale a internet: el servidor es la misma máquina— y a partir de ahí es
+ * un vídeo de la carpeta como cualquier otro, con sus cortes y su reproducción
+ * por trozos.
+ *
+ * El nombre que manda el cliente no se usa tal cual: se le quita el camino y
+ * todo lo que no sea letra, número o guion. Y no se pisa nada: si ya hay un
+ * partido con ese nombre, el que llega se queda al lado con un número. Un
+ * vídeo de cuatro gigas machacado por error no se recupera.
+ *
+ * Devuelve `null` si el nombre no acaba en extensión de vídeo.
+ */
+export async function destinoDeImportacion(nombre: string) {
+  const base = carpetaDeVideos();
+
+  const limpio = path.basename(String(nombre ?? "").replace(/\\/g, "/"));
+
+  const extension = path.extname(limpio).toLowerCase();
+
+  if (!EXTENSIONES_VIDEO.includes(extension)) return null;
+
+  const cuerpo =
+    limpio
+      .slice(0, -extension.length)
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9 ._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[-. ]+|[-. ]+$/g, "")
+      .slice(0, 80) || "partido";
+
+  await mkdir(base, { recursive: true });
+
+  let relativa = `${cuerpo}${extension}`;
+
+  for (let vuelta = 2; existsSync(path.join(base, relativa)); vuelta += 1) {
+    relativa = `${cuerpo}-${vuelta}${extension}`;
+  }
+
+  return { absoluta: path.join(base, relativa), relativa };
 }
 
 /** Lo que se le pasa a ffmpeg como entrada: una ruta de disco o una URL. */

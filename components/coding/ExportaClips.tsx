@@ -15,6 +15,12 @@
  *
  * El vídeo del partido no se sube ni se copia: el servidor lee de la carpeta
  * de partidos, o de la URL, sólo los segundos de cada clip.
+ *
+ * La excepción es el fichero abierto del ordenador. Ése el servidor no lo ve
+ * —el navegador no dice dónde está—, así que antes de cortar hay que llevarlo
+ * a la carpeta de partidos. Lo ofrece la propia exportación, con su barra de
+ * progreso, y al terminar sigue con el corte que se había pedido: el analista
+ * pulsa exportar una vez, no dos.
  */
 
 import { useCallback, useState } from "react";
@@ -32,6 +38,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import { descarga } from "@/lib/export/lienzos";
+import { llevaVideoALaCarpeta, srcDeCarpeta } from "@/lib/coding/importa";
 import {
   duracionClip,
   formateaTotal,
@@ -43,6 +50,11 @@ import {
 } from "@/lib/coding/modelo";
 
 export type ModoCorteUI = "preciso" | "rapido";
+
+/** El vídeo tal y como lo entiende el servidor: una ruta de la carpeta o una URL. */
+type FuenteServidor =
+  | { tipo: "url"; url: string }
+  | { tipo: "archivo"; ruta: string };
 
 /** Segundos en `m:ss`, para el reloj del aviso. */
 const reloj = (segundos: number) =>
@@ -82,33 +94,31 @@ export function useExportador(opciones: {
   categorias: CategoriaCoding[];
   carpeta: string;
   modo: ModoCorteUI;
+  /**
+   * El fichero que se abrió del ordenador, mientras siga a mano.
+   *
+   * Vive en la pestaña y no en la sesión: un navegador no puede guardar el
+   * permiso sobre un fichero del disco, así que al recargar se pierde y hay
+   * que volver a abrirlo. Sin él no se puede llevar el vídeo a la carpeta.
+   */
+  ficheroLocal?: File | null;
+  /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
+  onAdopta?: (fuente: FuenteVideo, src: string) => void;
 }) {
-  const { fuente, categorias, carpeta, modo } = opciones;
+  const { fuente, categorias, carpeta, modo, ficheroLocal, onAdopta } = opciones;
 
   const [exportando, setExportando] = useState(false);
 
-  const exporta = useCallback(
-    async (peticion: PeticionExport) => {
-      if (exportando) return;
-
-      if (!fuente) {
-        toast.error("Elige antes el vídeo del partido.");
-        return;
-      }
-
-      if (fuente.tipo === "local") {
-        toast.error(
-          "El vídeo está abierto desde tu ordenador y el servidor no puede leerlo. " +
-            "Déjalo en la carpeta de partidos o usa un enlace para poder cortar.",
-        );
-        return;
-      }
-
-      if (peticion.clips.length === 0) {
-        toast.error("No hay clips que exportar.");
-        return;
-      }
-
+  /*
+  | El corte de verdad, con el vídeo ya resuelto.
+  |
+  | Recibe la fuente **por parámetro** y no del estado a propósito: cuando se
+  | acaba de copiar el partido a la carpeta, la sesión todavía no se ha
+  | enterado —ese cambio llega en el siguiente render— y la exportación tiene
+  | que salir ya con la ruta nueva, no con la que se quedó en el cierre.
+  */
+  const lanza = useCallback(
+    async (peticion: PeticionExport, fuenteServidor: FuenteServidor) => {
       setExportando(true);
 
       /*
@@ -151,10 +161,7 @@ export function useExportador(opciones: {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fuente:
-              fuente.tipo === "url"
-                ? { tipo: "url", url: fuente.url }
-                : { tipo: "archivo", ruta: fuente.ruta },
+            fuente: fuenteServidor,
             modo,
             formato: peticion.formato,
             nombre: peticion.nombre,
@@ -204,7 +211,112 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [carpeta, categorias, exportando, fuente, modo],
+    [carpeta, categorias, modo],
+  );
+
+  /*
+  | Llevar el partido a la carpeta y seguir con lo que se había pedido.
+  |
+  | No se hace solo al pulsar exportar: son varios gigas de copia y varios
+  | minutos, así que se pregunta. Lo dispara el botón del aviso.
+  */
+  const llevaYExporta = useCallback(
+    async (peticion: PeticionExport, fichero: File) => {
+      setExportando(true);
+
+      const copiando = (fraccion: number) =>
+        `Llevando «${fichero.name}» a la carpeta… ${Math.round(fraccion * 100)} %`;
+
+      const aviso = toast.loading(copiando(0));
+
+      try {
+        const { ruta, nombre } = await llevaVideoALaCarpeta(
+          fichero,
+          (fraccion) => {
+            toast.loading(copiando(fraccion), { id: aviso });
+          },
+        );
+
+        toast.success("El vídeo ya está en la carpeta de partidos", {
+          id: aviso,
+          description: `${nombre} · el coding y las pizarras se quedan como están.`,
+        });
+
+        onAdopta?.({ tipo: "archivo", ruta, nombre }, srcDeCarpeta(ruta));
+
+        setExportando(false);
+
+        await lanza(peticion, { tipo: "archivo", ruta });
+      } catch (error) {
+        console.error("[coding] llevar el vídeo a la carpeta", error);
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "No se ha podido llevar el vídeo a la carpeta.",
+          { id: aviso },
+        );
+
+        setExportando(false);
+      }
+    },
+    [lanza, onAdopta],
+  );
+
+  const exporta = useCallback(
+    async (peticion: PeticionExport) => {
+      if (exportando) return;
+
+      if (!fuente) {
+        toast.error("Elige antes el vídeo del partido.");
+        return;
+      }
+
+      if (peticion.clips.length === 0) {
+        toast.error("No hay clips que exportar.");
+        return;
+      }
+
+      /*
+      | El fichero del ordenador ya no es un final de trayecto: se ofrece
+      | copiarlo a la carpeta de partidos —que está en esta misma máquina— y la
+      | exportación sigue sola en cuanto termine la copia.
+      */
+      if (fuente.tipo === "local") {
+        if (!ficheroLocal) {
+          toast.error("El servidor no puede leer este vídeo", {
+            description:
+              "Está abierto desde tu ordenador y al recargar la página se " +
+              "pierde el permiso sobre él. Vuelve a abrirlo en «El vídeo» y " +
+              "se podrá llevar a la carpeta de partidos.",
+          });
+
+          return;
+        }
+
+        toast.error("El servidor todavía no tiene este vídeo", {
+          description:
+            `Hay que llevar «${fuente.nombre}» (${megas(ficheroLocal.size)}) a la ` +
+            "carpeta de partidos para poder cortarlo. No sale a internet: se " +
+            "copia en esta misma máquina, y la exportación sigue al terminar.",
+          duration: 20000,
+          action: {
+            label: "Llevarlo",
+            onClick: () => void llevaYExporta(peticion, ficheroLocal),
+          },
+        });
+
+        return;
+      }
+
+      await lanza(
+        peticion,
+        fuente.tipo === "url"
+          ? { tipo: "url", url: fuente.url }
+          : { tipo: "archivo", ruta: fuente.ruta },
+      );
+    },
+    [exportando, ficheroLocal, fuente, lanza, llevaYExporta],
   );
 
   return { exporta, exportando };

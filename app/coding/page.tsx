@@ -493,10 +493,21 @@ function Coding() {
     return "";
   }, [sesion.sesion.fuente, srcElegido]);
 
+  /*
+  | El fichero abierto del ordenador, mientras dure la pestaña.
+  |
+  | No se puede guardar en la sesión —un navegador no conserva el permiso sobre
+  | un fichero del disco—, pero sí hace falta tenerlo a mano: es lo que se
+  | copia a la carpeta de partidos cuando llega el momento de cortar. Al
+  | recargar se pierde y hay que volver a abrirlo, y la exportación lo dice.
+  */
+  const [ficheroLocal, setFicheroLocal] = useState<File | null>(null);
+
   const eligeFuente = useCallback(
-    (fuente: FuenteVideo, nuevo: string) => {
+    (fuente: FuenteVideo, nuevo: string, fichero?: File) => {
       setSrcElegido(nuevo);
       setCambiandoVideo(false);
+      setFicheroLocal(fichero ?? null);
       ponFuente(fuente);
     },
     [ponFuente],
@@ -951,6 +962,8 @@ function Coding() {
     categorias: config.categorias,
     carpeta: apodoCoding(titulo),
     modo: modoCorte,
+    ficheroLocal,
+    onAdopta: eligeFuente,
   });
 
   const { exporta } = exportador;

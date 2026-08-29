@@ -15,8 +15,12 @@
  *   igual de completo, y el único que funciona con la app desplegada fuera.
  * - **Del ordenador**, abriendo el fichero: sirve para codificar ya mismo, sin
  *   mover nada, pero el servidor no ve ese fichero y por tanto no puede
- *   cortarlo. El coding se guarda igual; los cortes salen cuando el vídeo esté
- *   en la carpeta o en un enlace.
+ *   cortarlo todavía. El coding se guarda igual, y la primera exportación
+ *   ofrece llevar el vídeo a la carpeta de partidos —una copia en esta misma
+ *   máquina— y sigue con el corte en cuanto termina.
+ *
+ * Por eso el fichero abierto viaja hacia arriba junto con la fuente: la
+ * pantalla lo guarda para poder copiarlo después sin volver a pedirlo.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -46,8 +50,11 @@ export function SelectorFuente({
   onElegir,
 }: {
   fuente: FuenteVideo | null;
-  /** El segundo argumento es el `src` con el que reproducir. */
-  onElegir: (fuente: FuenteVideo, src: string) => void;
+  /**
+   * El segundo argumento es el `src` con el que reproducir; el tercero, el
+   * fichero abierto del disco, que sólo llega en el camino «del ordenador».
+   */
+  onElegir: (fuente: FuenteVideo, src: string, fichero?: File) => void;
 }) {
   const [carpeta, setCarpeta] = useState<Carpeta | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -244,6 +251,7 @@ export function SelectorFuente({
             onElegir(
               { tipo: "local", nombre: fichero.name },
               URL.createObjectURL(fichero),
+              fichero,
             );
 
             evento.target.value = "";
@@ -251,9 +259,9 @@ export function SelectorFuente({
         />
 
         <p className="mt-1.5 text-[10px] leading-relaxed text-white/25">
-          No se sube nada: el navegador lo lee del disco. El coding se guarda,
-          pero los cortes no se pueden generar hasta que el vídeo esté en la
-          carpeta de partidos o en un enlace.
+          No se sube nada: el navegador lo lee del disco. Se puede codificar ya,
+          y al exportar por primera vez se ofrece llevarlo a la carpeta de
+          partidos —una copia en esta misma máquina— para poder cortarlo.
         </p>
       </div>
     </div>

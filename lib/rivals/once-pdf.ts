@@ -28,6 +28,11 @@
 | jugador. Se repite como chapa en el campograma, porque es lo que más se
 | busca con el dedo.
 |
+| De la ficha también se vuelve: cada tarjeta lleva su botón «Volver al once»
+| arriba a la derecha de la fila de botones, y el pie de cada hoja repite el
+| mismo salto. En el móvil, que es donde se lee esto, el «atrás» del visor no
+| se encuentra a la primera.
+|
 | El módulo **no sabe nada de la hoja ni del estado de la página**: recibe a
 | los jugadores ya resueltos (posición, etiquetas, estadísticas y enlaces) y
 | sólo se ocupa de pintarlos. Quien los prepara es `app/rivals/page.tsx`, que
@@ -346,8 +351,11 @@ const ESTADO_LABEL: Record<OncePdfEstado, string> = {
   duda: "DUDA",
 };
 
-/** Lo que se lee en el único botón vivo de cada jugador. */
+/** Lo que se lee en el botón que sale fuera del documento. */
 const BOTON_VIDEO = "Ver vídeo";
+
+/** Y en el que devuelve al campograma: el de la ficha y el del pie. */
+const BOTON_VOLVER = "Volver al once";
 
 /*
 |--------------------------------------------------------------------------
@@ -672,6 +680,32 @@ function trianguloPlay(
 }
 
 /**
+ * Punta hacia arriba: la del botón de vuelta, en la ficha y en el pie.
+ *
+ * Como la flechita de «se abre fuera», se dibuja: «↑» no existe en la
+ * codificación de las fuentes estándar de PDF y saldría como un cuadro.
+ */
+function trianguloArriba(
+  doc: Doc,
+  x: number,
+  y: number,
+  lado: number,
+  color: string | RGB,
+) {
+  fill(doc, color);
+
+  doc.triangle(
+    x + lado / 2,
+    y,
+    x,
+    y + lado * 0.88,
+    x + lado,
+    y + lado * 0.88,
+    "F",
+  );
+}
+
+/**
  * Botón con enlace de verdad: el que abre el vídeo del jugador.
  *
  * Devuelve lo que ha ocupado de ancho, para poder encadenar los siguientes.
@@ -725,6 +759,45 @@ function botonEnlace(
   flechaExterna(doc, x + w - 14, y + alto / 2 - 2.6, 5, tintaBoton);
 
   doc.link(x, y, w, alto, { url });
+
+  return w;
+}
+
+/** Lo que ocupa el botón de vuelta. Se necesita antes de pintarlo, para
+ *  poder alinearlo a la derecha de la fila. */
+function anchoBotonVolver(doc: Doc) {
+  fuente(doc, 7.5, "bold");
+
+  return ancho(doc, BOTON_VOLVER) + 31;
+}
+
+/**
+ * Botón de vuelta al campograma, el de cada ficha.
+ *
+ * No sale del documento: salta a la portada, que siempre es la página 1. Al
+ * revés que los saltos del campo —que tienen que esperar a saber en qué
+ * página cae cada ficha—, este destino se conoce de antemano y se puede
+ * escribir mientras se pinta.
+ *
+ * Va perfilado y en tinta media, no macizo: es el camino de vuelta, no lo que
+ * se viene a buscar a la ficha. El que manda en la fila sigue siendo el vídeo.
+ */
+function botonVolver(doc: Doc, x: number, y: number, alto = 17) {
+  const w = anchoBotonVolver(doc);
+  const color = C.tintaMedia;
+
+  fill(doc, mezcla(color, C.panel, 0.12));
+  stroke(doc, mezcla(color, C.panel, 0.45), 0.6);
+  doc.roundedRect(x, y, w, alto, alto / 2, alto / 2, "FD");
+
+  const tintaBoton = realza(color, 0.2);
+
+  trianguloArriba(doc, x + 10, y + alto / 2 - 3.2, 6.4, tintaBoton);
+
+  ink(doc, tintaBoton);
+  doc.text(BOTON_VOLVER, x + 21, y + alto / 2 + 2.6);
+
+  doc.link(x, y, w, alto, { pageNumber: 1, top: 0 });
 
   return w;
 }
@@ -2276,6 +2349,15 @@ function pintaFicha(
 
   const by = y + medidas.yBotones;
 
+  /* La vuelta al once va anclada a la derecha y no al final de la fila: así
+     cae en el mismo sitio en todas las fichas —también en las que no tienen
+     vídeo— y el dedo la encuentra sin buscarla. Los demás botones no pueden
+     pasar de ahí. */
+  const anchoVolver = anchoBotonVolver(doc);
+  const topeBotones = x + w - PAD - anchoVolver - 8;
+
+  botonVolver(doc, x + w - PAD - anchoVolver, by);
+
   let bx = x + PAD;
 
   if (jugador.video) {
@@ -2290,7 +2372,7 @@ function pintaFicha(
   jugador.enlaces.forEach((enlace) => {
     fuente(doc, 7.5, "bold");
 
-    if (bx + ancho(doc, enlace.label) + 26 > x + w - PAD) return;
+    if (bx + ancho(doc, enlace.label) + 26 > topeBotones) return;
 
     bx +=
       botonEnlace(doc, enlace.label, enlace.url, bx, by, {
@@ -2449,27 +2531,27 @@ function pies(doc: Doc, data: OncePdfData) {
 
     doc.text(paginacion, PAGE_W - MARGEN - ancho(doc, paginacion), PAGE_H - MARGEN);
 
-    /* Vuelta al campograma. Si desde el campo se salta a una ficha, tiene que
-       haber camino de vuelta: en el móvil no hay botón «atrás» del visor que
-       se encuentre a la primera. En la portada no se pinta, que ya se está. */
+    /* Vuelta al campograma, la misma que lleva cada ficha en su fila de
+       botones: aquí está en todas las hojas y a la misma altura, así que
+       sirve también a media tarjeta. En la portada no se pinta, que ya se
+       está. */
     if (pagina === 1) continue;
 
     fuente(doc, 6.5, "bold");
     ink(doc, realza(C.oro, 0.2));
 
-    const volver = "Volver al once";
-    const anchoVolver = ancho(doc, volver);
+    const anchoVolver = ancho(doc, BOTON_VOLVER);
     const volverX = (PAGE_W - anchoVolver + 10) / 2;
 
-    doc.text(volver, volverX, PAGE_H - MARGEN);
+    doc.text(BOTON_VOLVER, volverX, PAGE_H - MARGEN);
 
-    /* Punta hacia arriba: la flecha no existe en WinAnsi, así que se pinta. */
-    fill(doc, realza(C.oro, 0.2));
-
-    const px = volverX - 10;
-    const py = PAGE_H - MARGEN - 6.4;
-
-    doc.triangle(px + 2.6, py, px, py + 4.6, px + 5.2, py + 4.6, "F");
+    trianguloArriba(
+      doc,
+      volverX - 10,
+      PAGE_H - MARGEN - 6.4,
+      5.2,
+      realza(C.oro, 0.2),
+    );
 
     doc.link(volverX - 16, PAGE_H - MARGEN - 9, anchoVolver + 24, 13, {
       pageNumber: 1,
