@@ -38,6 +38,11 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import { descarga } from "@/lib/export/lienzos";
+import {
+  borraImagenes,
+  pesaDemasiado,
+  preparaImagenes,
+} from "@/lib/coding/imagenes";
 import { llevaVideoALaCarpeta, srcDeCarpeta } from "@/lib/coding/importa";
 import {
   duracionClip,
@@ -55,6 +60,21 @@ export type ModoCorteUI = "preciso" | "rapido";
 type FuenteServidor =
   | { tipo: "url"; url: string }
   | { tipo: "archivo"; ruta: string };
+
+/**
+ * El error del servidor cuando no llega en JSON.
+ *
+ * Un 413 no lo escribe la aplicación: lo pone el despliegue cuando el cuerpo
+ * de la petición pasa de 4,5 MB, y el mensaje que devuelve no es JSON. Sin
+ * esto, lo que veía el analista era «El servidor respondió 413», que no dice
+ * ni qué pasa ni qué hacer.
+ */
+const explica = (estado: number) =>
+  estado === 413
+    ? "La petición pesa demasiado para el servidor: las imágenes de la " +
+      "carátula y las pizarras no han podido subirse por separado. Prueba " +
+      "otra vez, o exporta sin quemar las pizarras."
+    : `El servidor respondió ${estado}`;
 
 /** Segundos en `m:ss`, para el reloj del aviso. */
 const reloj = (segundos: number) =>
@@ -83,7 +103,7 @@ export type PeticionExport = {
   clips: ClipCoding[];
   formato: "clip" | "zip" | "unificado";
   nombre: string;
-  /** Carátula en `data:` URL para el vídeo unificado. */
+  /** Carátula del vídeo unificado, tal y como la pinta el navegador. */
   portada?: string | null;
   /** Las pizarras de cada clip, por id de clip. */
   paradas?: Map<string, ParadaDeClip[]>;
@@ -143,48 +163,85 @@ export function useExportador(opciones: {
 
       const previsto = modo === "rapido" && !conPizarras ? 0 : segundosDeVideo;
 
-      const arranque = Date.now();
-
       const texto = (transcurrido: number) =>
         `${faena}… ${reloj(transcurrido)}${previsto > 20 ? ` de ~${reloj(previsto)}` : ""}`;
 
-      const aviso = toast.loading(texto(0));
+      const aviso = toast.loading("Preparando la exportación…");
 
-      const tic = setInterval(() => {
-        toast.loading(texto(Math.round((Date.now() - arranque) / 1000)), {
-          id: aviso,
-        });
-      }, 1000);
+      /* Lo subido al bucket, para dejarlo limpio pase lo que pase. */
+      let rutas: string[] = [];
+
+      /* El reloj del corte arranca cuando arranca el corte, no antes. */
+      let arranque = Date.now();
+      let tic: ReturnType<typeof setInterval> | undefined;
 
       try {
+        /*
+        | La carátula y las pizarras **no van dentro de la petición**.
+        |
+        | Son fotogramas a la resolución del partido, y metidos en el JSON se
+        | pasan de los 4,5 MB que aguanta el cuerpo de una petición en el
+        | despliegue: eso era el 413 que salía al exportar, antes incluso de
+        | que el servidor mirara nada. Suben sueltas y aquí sólo viaja el
+        | enlace. Ver `lib/coding/imagenes.ts`.
+        */
+        const imagenes = await preparaImagenes({
+          portada: peticion.portada,
+          paradas: peticion.paradas,
+          onProgreso: (hechas, total) => {
+            toast.loading(`Subiendo las imágenes… ${hechas} de ${total}`, {
+              id: aviso,
+            });
+          },
+        });
+
+        rutas = imagenes.rutas;
+
+        const cuerpo = JSON.stringify({
+          fuente: fuenteServidor,
+          modo,
+          formato: peticion.formato,
+          nombre: peticion.nombre,
+          portada: imagenes.portada,
+          portadaSegundos: 4,
+          clips: peticion.clips.map((clip) => ({
+            nombre:
+              peticion.formato === "zip"
+                ? rutaDeClip(clip, categorias, carpeta)
+                    .replace(/\.mp4$/, "")
+                    .replace(`${carpeta}/`, "")
+                : nombreDeClip(clip, categorias),
+            inicioMs: clip.inicioMs,
+            finMs: clip.finMs,
+            pizarras: imagenes.paradas.get(clip.id),
+          })),
+        });
+
+        /* Si alguna imagen no ha podido subir, que se sepa aquí y por qué. */
+        const grande = pesaDemasiado(cuerpo);
+
+        if (grande) throw new Error(grande);
+
+        arranque = Date.now();
+
+        toast.loading(texto(0), { id: aviso });
+
+        tic = setInterval(() => {
+          toast.loading(texto(Math.round((Date.now() - arranque) / 1000)), {
+            id: aviso,
+          });
+        }, 1000);
+
         const respuesta = await fetch("/api/coding/export", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fuente: fuenteServidor,
-            modo,
-            formato: peticion.formato,
-            nombre: peticion.nombre,
-            portada: peticion.portada ?? undefined,
-            portadaSegundos: 4,
-            clips: peticion.clips.map((clip) => ({
-              nombre:
-                peticion.formato === "zip"
-                  ? rutaDeClip(clip, categorias, carpeta)
-                      .replace(/\.mp4$/, "")
-                      .replace(`${carpeta}/`, "")
-                  : nombreDeClip(clip, categorias),
-              inicioMs: clip.inicioMs,
-              finMs: clip.finMs,
-              pizarras: peticion.paradas?.get(clip.id),
-            })),
-          }),
+          body: cuerpo,
         });
 
         if (!respuesta.ok) {
           const error = await respuesta.json().catch(() => null);
 
-          throw new Error(error?.error ?? `El servidor respondió ${respuesta.status}`);
+          throw new Error(error?.error ?? explica(respuesta.status));
         }
 
         const blob = await respuesta.blob();
@@ -207,8 +264,11 @@ export function useExportador(opciones: {
           { id: aviso },
         );
       } finally {
-        clearInterval(tic);
+        if (tic) clearInterval(tic);
         setExportando(false);
+
+        /* Las imágenes eran de usar y tirar: no se quedan en el bucket. */
+        void borraImagenes(rutas);
       }
     },
     [carpeta, categorias, modo],
@@ -357,7 +417,7 @@ export function BarraExportacion({
   opcionesCaratula: { id: string; nombre: string }[];
   onCaratula: (id: string) => void;
   onVerCaratula: () => void;
-  /** El PNG ya pintado, cuando se ha pedido verlo. */
+  /** La carátula ya pintada, cuando se ha pedido verla. */
   vistaCaratula: string | null;
   onCerrarVista: () => void;
   /** Cuántas pizarras caen dentro de lo que se va a exportar. */

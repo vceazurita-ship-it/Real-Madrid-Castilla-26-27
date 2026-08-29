@@ -31,8 +31,26 @@ import { pintaPortada, type PortadaData } from "@/lib/rivals/portada";
  */
 export type DatosCaratula = PortadaData;
 
+/*
+| La carátula viaja a 1920 de ancho y en JPEG, no a pelo desde el lienzo.
+|
+| `pintaPortada` dibuja a 3840×2160 —el doble, para que la descarga suelta se
+| vea bien impresa— y en PNG eso son varios megas. Aquí no hace falta ni uno:
+| ffmpeg la va a escalar a la medida del partido (1920×1080 casi siempre), así
+| que lo que sobra de lienzo se tira antes de salir. Y sobraba de verdad: la
+| carátula ella sola pasaba de los 4,5 MB que aguanta el cuerpo de una
+| petición en el despliegue, y por eso el vídeo unificado daba **413** aunque
+| no hubiera ni una pizarra que quemar.
+*/
+const ANCHO_ENVIO = 1920;
+
+/*
+| Sobre una diapositiva con una foto dentro, 0,92 no se distingue del PNG.
+*/
+const CALIDAD = 0.92;
+
 /**
- * Devuelve la carátula como PNG en `data:` URL, o `null` si no se ha podido.
+ * Devuelve la carátula como JPEG en `data:` URL, o `null` si no se ha podido.
  *
  * Un fallo aquí no puede impedir la exportación: el vídeo unificado sin
  * carátula sigue sirviendo, así que se avisa y se sigue.
@@ -43,7 +61,21 @@ export async function caratulaDeJugador(
   try {
     const lienzo = await pintaPortada(datos);
 
-    return lienzo.toDataURL("image/png");
+    if (lienzo.width <= ANCHO_ENVIO) return lienzo.toDataURL("image/jpeg", CALIDAD);
+
+    const reducido = document.createElement("canvas");
+
+    reducido.width = ANCHO_ENVIO;
+    reducido.height = Math.round((lienzo.height * ANCHO_ENVIO) / lienzo.width);
+
+    const ctx = reducido.getContext("2d");
+
+    if (!ctx) return lienzo.toDataURL("image/jpeg", CALIDAD);
+
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(lienzo, 0, 0, reducido.width, reducido.height);
+
+    return reducido.toDataURL("image/jpeg", CALIDAD);
   } catch (error) {
     console.warn("[coding] no se ha podido pintar la carátula", error);
 

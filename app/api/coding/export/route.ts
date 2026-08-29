@@ -1,18 +1,21 @@
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { creaZip, type EntradaZip } from "@/lib/export/zip";
 import {
+  borraCarpetaTemporal,
   cortaClip,
   cortaClipConParadas,
-  enCarpetaTemporal,
+  creaCarpetaTemporal,
   entradaDeFuente,
-  guardaDataUrl,
+  guardaImagen,
   hayFfmpeg,
   imagenComoVideo,
   leeBytes,
   pegaVideos,
+  respuestaDeFichero,
   segmentoNormalizado,
   sondeaVideo,
   type FuenteServidor,
@@ -64,6 +67,10 @@ type ClipPedido = {
    * Cada una es el fotograma ya compuesto por el navegador —vídeo + dibujo, a
    * la resolución del vídeo— y el vídeo se para ahí el rato que diga. Ver
    * `cortaClipConParadas`.
+   *
+   * `imagen` es un enlace del bucket —lo normal— o una `data:` URL. Van por
+   * separado porque quince fotogramas dentro de esta petición la pasan de los
+   * 4,5 MB que aguanta el despliegue: ver `lib/coding/imagenes.ts`.
    */
   pizarras?: { imagen: string; enMs: number; duracionMs: number }[];
 };
@@ -76,7 +83,12 @@ type Peticion = {
   formato: "clip" | "zip" | "unificado";
   /** Nombre del fichero que se descarga, sin extensión. */
   nombre: string;
-  /** PNG en `data:` URL: la portada que abre el vídeo unificado. */
+  /**
+   * La portada que abre el vídeo unificado.
+   *
+   * Enlace del bucket, o `data:` URL. Lo mismo que las pizarras: pintada a la
+   * resolución del lienzo, ella sola pasaba del techo de la petición.
+   */
   portada?: string;
   portadaSegundos?: number;
 };
@@ -170,239 +182,252 @@ export async function POST(request: NextRequest) {
 
   const base = nombreSeguro(peticion.nombre, "clips");
 
+  /*
+   * La carpeta de trabajo no se borra en un `finally`.
+   *
+   * El resultado sale **por trozos** —un vídeo unificado son decenas de megas,
+   * y una respuesta que no vaya por trozos la corta el despliegue en 4,5 MB—,
+   * así que el fichero tiene que seguir en su sitio mientras se descarga. La
+   * borra `respuestaDeFichero` cuando el flujo se cierra; aquí sólo se limpia
+   * si la cosa se tuerce antes de llegar a devolverlo.
+   */
+  const carpeta = await creaCarpetaTemporal();
+
   try {
-    return await enCarpetaTemporal(async (carpeta) => {
+    /*
+     * El sondeo se guarda: son cientos de cortes y casi siempre del mismo
+     * fichero, y la biblioteca de un jugador junta varios partidos.
+     */
+    const sondeos = new Map<string, Awaited<ReturnType<typeof sondeaVideo>>>();
+
+    const sondeaUnaVez = async (entrada: string) => {
+      const guardado = sondeos.get(entrada);
+
+      if (guardado) return guardado;
+
+      const nuevo = await sondeaVideo(entrada);
+
+      sondeos.set(entrada, nuevo);
+
+      return nuevo;
+    };
+
+    /* Las pizarras del clip, escritas a disco para dárselas a ffmpeg. */
+    const paradasDe = async (clip: ClipPedido, indice: number) => {
+      const pedidas = Array.isArray(clip.pizarras) ? clip.pizarras : [];
+
+      const listas: ParadaPedida[] = [];
+
+      for (const [numero, pizarra] of pedidas.entries()) {
+        if (!pizarra?.imagen) continue;
+
+        listas.push({
+          imagen: await guardaImagen({
+            fuente: pizarra.imagen,
+            carpeta,
+            nombre: `pizarra-${indice}-${numero}`,
+          }),
+          enMs: Math.max(0, Number(pizarra.enMs) || 0),
+          duracionMs: Math.max(500, Number(pizarra.duracionMs) || 2000),
+        });
+      }
+
+      return listas;
+    };
+
+    /* ------------------------------------------------ un solo clip */
+
+    if (peticion.formato === "clip") {
+      const clip = clips[0];
+
+      const destino = path.join(carpeta, "clip.mp4");
+
+      const paradas = await paradasDe(clip, 0);
+
+      if (paradas.length > 0) {
+        const datos = await sondeaUnaVez(entradaDe(clip)!);
+
+        await cortaClipConParadas({
+          entrada: entradaDe(clip)!,
+          inicioMs: clip.inicioMs,
+          finMs: clip.finMs,
+          ancho: datos.ancho,
+          alto: datos.alto,
+          fps: datos.fps,
+          audio: datos.audio,
+          paradas,
+          carpeta,
+          prefijo: "clip",
+          destino,
+        });
+      } else {
+        await cortaClip({
+          entrada: entradaDe(clip)!,
+          inicioMs: clip.inicioMs,
+          finMs: clip.finMs,
+          modo,
+          destino,
+        });
+      }
+
+      return respuestaDeFichero({
+        archivo: destino,
+        carpeta,
+        nombre: `${nombreSeguro(clip.nombre, base)}.mp4`,
+        tipo: "video/mp4",
+      });
+    }
+
+    /* ------------------------------------------------ vídeo unificado */
+
+    if (peticion.formato === "unificado") {
       /*
-       * El sondeo se guarda: son cientos de cortes y casi siempre del mismo
-       * fichero, y la biblioteca de un jugador junta varios partidos.
+       * La medida del vídeo montado la manda el primer corte, pero el sonido
+       * se pregunta por fuente: la biblioteca de un jugador junta cortes de
+       * varios partidos, y basta con que uno venga mudo —lo normal en lo que
+       * sale de una mesa de edición— para que el pegado quede roto.
        */
-      const sondeos = new Map<string, Awaited<ReturnType<typeof sondeaVideo>>>();
+      const datos = await sondeaUnaVez(entradaDe(clips[0])!);
 
-      const sondeaUnaVez = async (entrada: string) => {
-        const guardado = sondeos.get(entrada);
+      const trozos: string[] = [];
 
-        if (guardado) return guardado;
+      if (peticion.portada) {
+        const imagen = await guardaImagen({
+          fuente: peticion.portada,
+          carpeta,
+          nombre: "portada",
+        });
 
-        const nuevo = await sondeaVideo(entrada);
-
-        sondeos.set(entrada, nuevo);
-
-        return nuevo;
-      };
-
-      /* Las pizarras del clip, escritas a disco para dárselas a ffmpeg. */
-      const paradasDe = async (clip: ClipPedido, indice: number) => {
-        const pedidas = Array.isArray(clip.pizarras) ? clip.pizarras : [];
-
-        const listas: ParadaPedida[] = [];
-
-        for (const [numero, pizarra] of pedidas.entries()) {
-          if (!pizarra?.imagen) continue;
-
-          listas.push({
-            imagen: await guardaDataUrl(
-              pizarra.imagen,
-              path.join(
-                carpeta,
-                /* La extensión de verdad: ffmpeg abre la imagen por su nombre. */
-                `pizarra-${indice}-${numero}.${
-                  pizarra.imagen.startsWith("data:image/jpeg") ? "jpg" : "png"
-                }`,
-              ),
+        trozos.push(
+          await imagenComoVideo({
+            imagen,
+            duracionMs: Math.max(
+              1000,
+              Math.round((peticion.portadaSegundos ?? 4) * 1000),
             ),
-            enMs: Math.max(0, Number(pizarra.enMs) || 0),
-            duracionMs: Math.max(500, Number(pizarra.duracionMs) || 2000),
-          });
-        }
-
-        return listas;
-      };
-
-      /* ------------------------------------------------ un solo clip */
-
-      if (peticion.formato === "clip") {
-        const clip = clips[0];
-
-        const destino = path.join(carpeta, "clip.mp4");
-
-        const paradas = await paradasDe(clip, 0);
-
-        if (paradas.length > 0) {
-          const datos = await sondeaUnaVez(entradaDe(clip)!);
-
-          await cortaClipConParadas({
-            entrada: entradaDe(clip)!,
-            inicioMs: clip.inicioMs,
-            finMs: clip.finMs,
             ancho: datos.ancho,
             alto: datos.alto,
             fps: datos.fps,
-            audio: datos.audio,
-            paradas,
-            carpeta,
-            prefijo: "clip",
-            destino,
-          });
-        } else {
-          await cortaClip({
-            entrada: entradaDe(clip)!,
-            inicioMs: clip.inicioMs,
-            finMs: clip.finMs,
-            modo,
-            destino,
-          });
-        }
-
-        const bytes = await leeBytes(destino);
-
-        return new Response(bytes, {
-          headers: {
-            "Content-Type": "video/mp4",
-            "Content-Disposition": `attachment; filename="${nombreSeguro(clip.nombre, base)}.mp4"`,
-          },
-        });
-      }
-
-      /* ------------------------------------------------ vídeo unificado */
-
-      if (peticion.formato === "unificado") {
-        /*
-         * La medida del vídeo montado la manda el primer corte, pero el sonido
-         * se pregunta por fuente: la biblioteca de un jugador junta cortes de
-         * varios partidos, y basta con que uno venga mudo —lo normal en lo que
-         * sale de una mesa de edición— para que el pegado quede roto.
-         */
-        const datos = await sondeaUnaVez(entradaDe(clips[0])!);
-
-        const trozos: string[] = [];
-
-        if (peticion.portada) {
-          const imagen = await guardaDataUrl(
-            peticion.portada,
-            path.join(carpeta, "portada.png"),
-          );
-
-          trozos.push(
-            await imagenComoVideo({
-              imagen,
-              duracionMs: Math.max(
-                1000,
-                Math.round((peticion.portadaSegundos ?? 4) * 1000),
-              ),
-              ancho: datos.ancho,
-              alto: datos.alto,
-              fps: datos.fps,
-              destino: path.join(carpeta, "000-portada.mp4"),
-            }),
-          );
-        }
-
-        for (const [indice, clip] of clips.entries()) {
-          const entradaClip = entradaDe(clip)!;
-
-          const suyo = await sondeaUnaVez(entradaClip);
-
-          const paradas = await paradasDe(clip, indice);
-
-          const destinoTrozo = path.join(
-            carpeta,
-            `${String(indice + 1).padStart(3, "0")}-trozo.mp4`,
-          );
-
-          trozos.push(
-            paradas.length > 0
-              ? await cortaClipConParadas({
-                  entrada: entradaClip,
-                  inicioMs: clip.inicioMs,
-                  finMs: clip.finMs,
-                  ancho: datos.ancho,
-                  alto: datos.alto,
-                  fps: datos.fps,
-                  audio: suyo.audio,
-                  paradas,
-                  carpeta,
-                  prefijo: `u${indice}`,
-                  destino: destinoTrozo,
-                })
-              : await segmentoNormalizado({
-                  entrada: entradaClip,
-                  inicioMs: clip.inicioMs,
-                  finMs: clip.finMs,
-                  ancho: datos.ancho,
-                  alto: datos.alto,
-                  fps: datos.fps,
-                  audio: suyo.audio,
-                  destino: destinoTrozo,
-                }),
-          );
-        }
-
-        const destino = await pegaVideos(
-          trozos,
-          path.join(carpeta, "unificado.mp4"),
+            destino: path.join(carpeta, "000-portada.mp4"),
+          }),
         );
-
-        const bytes = await leeBytes(destino);
-
-        return new Response(bytes, {
-          headers: {
-            "Content-Type": "video/mp4",
-            "Content-Disposition": `attachment; filename="${base}.mp4"`,
-          },
-        });
       }
-
-      /* ------------------------------------------------ paquete ZIP */
-
-      const entradas: EntradaZip[] = [];
 
       for (const [indice, clip] of clips.entries()) {
-        const destino = path.join(carpeta, `${indice}.mp4`);
+        const entradaClip = entradaDe(clip)!;
+
+        const suyo = await sondeaUnaVez(entradaClip);
 
         const paradas = await paradasDe(clip, indice);
 
-        if (paradas.length > 0) {
-          const datos = await sondeaUnaVez(entradaDe(clip)!);
+        const destinoTrozo = path.join(
+          carpeta,
+          `${String(indice + 1).padStart(3, "0")}-trozo.mp4`,
+        );
 
-          await cortaClipConParadas({
-            entrada: entradaDe(clip)!,
-            inicioMs: clip.inicioMs,
-            finMs: clip.finMs,
-            ancho: datos.ancho,
-            alto: datos.alto,
-            fps: datos.fps,
-            audio: datos.audio,
-            paradas,
-            carpeta,
-            prefijo: `z${indice}`,
-            destino,
-          });
-        } else {
-          await cortaClip({
-            entrada: entradaDe(clip)!,
-            inicioMs: clip.inicioMs,
-            finMs: clip.finMs,
-            modo,
-            destino,
-          });
-        }
+        trozos.push(
+          paradas.length > 0
+            ? await cortaClipConParadas({
+                entrada: entradaClip,
+                inicioMs: clip.inicioMs,
+                finMs: clip.finMs,
+                ancho: datos.ancho,
+                alto: datos.alto,
+                fps: datos.fps,
+                audio: suyo.audio,
+                paradas,
+                carpeta,
+                prefijo: `u${indice}`,
+                destino: destinoTrozo,
+              })
+            : await segmentoNormalizado({
+                entrada: entradaClip,
+                inicioMs: clip.inicioMs,
+                finMs: clip.finMs,
+                ancho: datos.ancho,
+                alto: datos.alto,
+                fps: datos.fps,
+                audio: suyo.audio,
+                destino: destinoTrozo,
+              }),
+        );
+      }
 
-        entradas.push({
-          nombre: `${rutaSegura(clip.nombre, `clip-${indice + 1}`)}.mp4`,
-          datos: await leeBytes(destino),
+      const destino = await pegaVideos(
+        trozos,
+        path.join(carpeta, "unificado.mp4"),
+      );
+
+      return respuestaDeFichero({
+        archivo: destino,
+        carpeta,
+        nombre: `${base}.mp4`,
+        tipo: "video/mp4",
+      });
+    }
+
+    /* ------------------------------------------------ paquete ZIP */
+
+    const entradas: EntradaZip[] = [];
+
+    for (const [indice, clip] of clips.entries()) {
+      const destino = path.join(carpeta, `${indice}.mp4`);
+
+      const paradas = await paradasDe(clip, indice);
+
+      if (paradas.length > 0) {
+        const datos = await sondeaUnaVez(entradaDe(clip)!);
+
+        await cortaClipConParadas({
+          entrada: entradaDe(clip)!,
+          inicioMs: clip.inicioMs,
+          finMs: clip.finMs,
+          ancho: datos.ancho,
+          alto: datos.alto,
+          fps: datos.fps,
+          audio: datos.audio,
+          paradas,
+          carpeta,
+          prefijo: `z${indice}`,
+          destino,
+        });
+      } else {
+        await cortaClip({
+          entrada: entradaDe(clip)!,
+          inicioMs: clip.inicioMs,
+          finMs: clip.finMs,
+          modo,
+          destino,
         });
       }
 
-      const zip = creaZip(entradas);
-
-      return new Response(zip, {
-        headers: {
-          "Content-Type": "application/zip",
-          "Content-Disposition": `attachment; filename="${base}.zip"`,
-        },
+      entradas.push({
+        nombre: `${rutaSegura(clip.nombre, `clip-${indice + 1}`)}.mp4`,
+        datos: await leeBytes(destino),
       });
+    }
+
+    /*
+     * El ZIP sale por trozos como el vídeo: se escribe al lado de los cortes
+     * y se sirve desde ahí. Un partido entero en clips sueltos pasa de sobra
+     * de los 4,5 MB que aguanta una respuesta de una sola pieza.
+     */
+    const zip = path.join(carpeta, "paquete.zip");
+
+    await writeFile(
+      zip,
+      Buffer.from(await creaZip(entradas).arrayBuffer()),
+    );
+
+    return respuestaDeFichero({
+      archivo: zip,
+      carpeta,
+      nombre: `${base}.zip`,
+      tipo: "application/zip",
     });
   } catch (error) {
+    await borraCarpetaTemporal(carpeta);
+
     console.error("[coding/export]", error);
 
     return NextResponse.json(

@@ -27,6 +27,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import { descarga } from "@/lib/export/lienzos";
+import { borraImagenes, preparaImagenes } from "@/lib/coding/imagenes";
 import { caratulaDeJugador, type DatosCaratula } from "@/lib/coding/portada";
 import {
   apodoCoding,
@@ -134,9 +135,23 @@ export function ClipsDelJugador({
           : `Cortando ${lista.length} clips…`,
       );
 
+      /* La carátula sube al bucket y se borra al terminar: ver más abajo. */
+      let rutas: string[] = [];
+
       try {
         const portada =
           formato === "unificado" ? await caratulaDeJugador(caratula) : null;
+
+        /*
+        | La carátula no viaja dentro de la petición.
+        |
+        | Es un fotograma a toda página, y en el cuerpo del JSON se pasa ella
+        | sola de los 4,5 MB que aguanta una petición en el despliegue: era el
+        | 413 del vídeo unificado. Ver `lib/coding/imagenes.ts`.
+        */
+        const imagenes = await preparaImagenes({ portada });
+
+        rutas = imagenes.rutas;
 
         const respuesta = await fetch("/api/coding/export", {
           method: "POST",
@@ -145,7 +160,7 @@ export function ClipsDelJugador({
             modo: "preciso",
             formato,
             nombre: `${apodoCoding(caratula.nombre)}-cortes`,
-            portada: portada ?? undefined,
+            portada: imagenes.portada,
             portadaSegundos: 4,
             clips: lista.map((clip) => ({
               nombre: `${apodoCoding(clip.sesionTitulo)}/${String(clip.numero).padStart(3, "0")}`,
@@ -184,6 +199,8 @@ export function ClipsDelJugador({
         );
       } finally {
         setTrabajando(false);
+
+        void borraImagenes(rutas);
       }
     },
     [caratula, seleccionados],

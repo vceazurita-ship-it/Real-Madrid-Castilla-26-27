@@ -7,8 +7,9 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { Readable } from "node:stream";
 import path from "node:path";
 
 import ffmpegRuta from "ffmpeg-static";
@@ -452,9 +453,9 @@ export async function segmentoNormalizado(opciones: {
  * La portada como trozo de vídeo.
  *
  * La imagen la pinta el navegador con la misma plantilla que la portada del
- * jugador rival (`lib/rivals/portada.ts`) y llega aquí como PNG. Se le pega un
- * silencio porque un trozo sin pista de sonido rompe el pegado con los clips,
- * que sí la tienen.
+ * jugador rival (`lib/rivals/portada.ts`) y llega aquí ya escrita a disco por
+ * `guardaImagen`. Se le pega un silencio porque un trozo sin pista de sonido
+ * rompe el pegado con los clips, que sí la tienen.
  */
 export async function imagenComoVideo(opciones: {
   imagen: string;
@@ -492,7 +493,7 @@ export async function imagenComoVideo(opciones: {
 
 /** Una pizarra quemada: el fotograma parado con lo pintado encima. */
 export type ParadaPedida = {
-  /** El PNG ya compuesto (fotograma + dibujo), escrito a disco. */
+  /** La ruta del fotograma ya compuesto (vídeo + dibujo), en disco. */
   imagen: string;
   /** Dónde para, contado desde el principio del clip. */
   enMs: number;
@@ -511,8 +512,9 @@ export type ParadaPedida = {
  * que dure y sigue limpio.
  *
  * El fotograma parado lo compone el navegador (`componeEscena`) a la
- * resolución del vídeo y llega aquí como PNG, así que sale exactamente lo que
- * el analista vio al pintarlo.
+ * resolución del vídeo, así que sale exactamente lo que el analista vio al
+ * pintarlo. Cómo llega —enlace del bucket o `data:` URL— lo resuelve
+ * `guardaImagen`.
  *
  * Con paradas **siempre se recodifica**: los trozos tienen que compartir forma
  * para poder pegarse, así que el modo `rapido` no se aplica.
@@ -641,32 +643,170 @@ export async function pegaVideos(archivos: string[], destino: string) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Una carpeta temporal que se borra sola.
+ * La carpeta donde se montan los cortes intermedios.
  *
- * Los cortes intermedios de un partido entero pueden ser cientos de ficheros;
- * dejarlos por el disco del analista sería llenárselo en una semana.
+ * No hay un `enCarpetaTemporal(trabajo)` que la borre sola al salir: el
+ * resultado se devuelve **por trozos**, así que el fichero tiene que seguir
+ * ahí después de que la ruta haya terminado. La borra `respuestaDeFichero`
+ * cuando el flujo se cierra, y quien llame se encarga de limpiarla si algo
+ * revienta antes de llegar a devolver nada. Un partido entero son cientos de
+ * ficheros: dejarlos por el disco del analista sería llenárselo en una semana.
  */
-export async function enCarpetaTemporal<T>(
-  trabajo: (carpeta: string) => Promise<T>,
-): Promise<T> {
-  const carpeta = await mkdtemp(path.join(tmpdir(), "rmcf-coding-"));
+export async function creaCarpetaTemporal() {
+  return mkdtemp(path.join(tmpdir(), "rmcf-coding-"));
+}
+
+export async function borraCarpetaTemporal(carpeta: string) {
+  await rm(carpeta, { recursive: true, force: true }).catch(() => undefined);
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAS IMÁGENES QUE VIENEN DEL NAVEGADOR                              */
+/* ------------------------------------------------------------------ */
+
+/*
+| ffmpeg abre la imagen **por su nombre**: un JPEG llamado `.png` no lo lee.
+| Por eso la extensión no la elige quien llama, la pone el tipo real.
+*/
+const EXTENSION_DE_IMAGEN: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+};
+
+/** Techo de lo que se descarga: una carátula son cientos de kilobytes. */
+const MAX_IMAGEN = 32 * 1024 * 1024;
+
+/**
+ * La carátula o una pizarra, escrita a disco para dársela a ffmpeg.
+ *
+ * Llega de dos formas, y las dos hacen falta:
+ *
+ * - **`data:` URL**, como siempre: es lo cómodo, y basta cuando el servidor es
+ *   esta misma máquina.
+ * - **Enlace del bucket**, que es lo único que sobrevive a un despliegue con
+ *   funciones: allí el cuerpo de una petición no puede pasar de 4,5 MB, y una
+ *   carátula más quince fotogramas parados se plantan muy por encima —era el
+ *   413 de la exportación—. El navegador las sube sueltas por
+ *   `/api/coding/imagenes` y aquí sólo viaja el enlace. Ver
+ *   `lib/coding/imagenes.ts`.
+ *
+ * Sólo se descarga **del bucket del proyecto**: la URL la manda el cliente, y
+ * un servidor que se trae cualquier dirección que le pidan es una puerta
+ * abierta a la red interna del despliegue.
+ */
+export async function guardaImagen(opciones: {
+  /** `data:` URL, o enlace http(s) del bucket. */
+  fuente: string;
+  carpeta: string;
+  /** Nombre sin extensión: la pone el tipo real de la imagen. */
+  nombre: string;
+}) {
+  const { fuente, carpeta, nombre } = opciones;
+
+  const destino = (tipo: string, respaldo: string) =>
+    path.join(carpeta, `${nombre}${EXTENSION_DE_IMAGEN[tipo] ?? respaldo}`);
+
+  if (fuente.startsWith("data:")) {
+    const coma = fuente.indexOf(",");
+
+    if (coma < 0) throw new Error("La imagen no es válida.");
+
+    const puntoYComa = fuente.indexOf(";");
+
+    const tipo = fuente
+      .slice(5, puntoYComa >= 0 && puntoYComa < coma ? puntoYComa : coma)
+      .trim()
+      .toLowerCase();
+
+    const archivo = destino(tipo, ".png");
+
+    await writeFile(archivo, Buffer.from(fuente.slice(coma + 1), "base64"));
+
+    return archivo;
+  }
+
+  if (!esDelBucket(fuente)) {
+    throw new Error(
+      "La imagen no viene de un sitio que el servidor pueda leer.",
+    );
+  }
+
+  const respuesta = await fetch(fuente);
+
+  if (!respuesta.ok) {
+    throw new Error(`No se ha podido leer la imagen (${respuesta.status}).`);
+  }
+
+  const bytes = Buffer.from(await respuesta.arrayBuffer());
+
+  if (bytes.byteLength > MAX_IMAGEN) throw new Error("La imagen pesa demasiado.");
+
+  const tipo = (respuesta.headers.get("content-type") ?? "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+
+  const archivo = destino(
+    tipo,
+    path.extname(new URL(fuente).pathname).toLowerCase() || ".png",
+  );
+
+  await writeFile(archivo, bytes);
+
+  return archivo;
+}
+
+/** ¿La URL es del bucket del proyecto? Es lo único que el servidor se trae. */
+export function esDelBucket(url: string) {
+  const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!supabase) return false;
 
   try {
-    return await trabajo(carpeta);
-  } finally {
-    await rm(carpeta, { recursive: true, force: true }).catch(() => undefined);
+    return new URL(url).origin === new URL(supabase).origin;
+  } catch {
+    return false;
   }
 }
 
-/** El PNG que manda el navegador, escrito a disco para dárselo a ffmpeg. */
-export async function guardaDataUrl(dataUrl: string, destino: string) {
-  const coma = dataUrl.indexOf(",");
+/* ------------------------------------------------------------------ */
+/*  DEVOLVER EL FICHERO TERMINADO                                      */
+/* ------------------------------------------------------------------ */
 
-  if (coma < 0) throw new Error("La portada no es una imagen válida.");
+/**
+ * El resultado, servido por trozos, y la carpeta borrada al terminar.
+ *
+ * Un vídeo unificado son decenas de megas: leído entero a memoria se lleva por
+ * delante al servidor, y un despliegue con funciones corta en 4,5 MB **toda
+ * respuesta que no vaya por trozos**. Así que se lee con un flujo, y la
+ * carpeta de trabajo se borra cuando el último trozo ha salido —no antes, o el
+ * navegador se descargaría un fichero a medias—.
+ */
+export function respuestaDeFichero(opciones: {
+  archivo: string;
+  /** Se borra al cerrarse el flujo, sea por terminar o por cancelarse. */
+  carpeta: string;
+  /** Nombre con el que se descarga, extensión incluida. */
+  nombre: string;
+  tipo: string;
+}) {
+  const lector = createReadStream(opciones.archivo);
 
-  await writeFile(destino, Buffer.from(dataUrl.slice(coma + 1), "base64"));
+  /* `close` salta tanto al acabar como al cancelar la descarga. */
+  lector.on("close", () => {
+    void borraCarpetaTemporal(opciones.carpeta);
+  });
 
-  return destino;
+  return new Response(Readable.toWeb(lector) as ReadableStream<Uint8Array>, {
+    headers: {
+      "Content-Type": opciones.tipo,
+      "Content-Disposition": `attachment; filename="${opciones.nombre}"`,
+      /* Sin `Content-Length` a propósito: es lo que la mantiene por trozos. */
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 export async function leeBytes(archivo: string) {
