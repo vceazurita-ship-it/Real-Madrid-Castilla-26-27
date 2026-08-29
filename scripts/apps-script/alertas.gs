@@ -832,7 +832,7 @@ function fechaIcs_(fecha) {
 function escapaIcs_(texto) {
   return String(texto || '')
     .replace(/\\/g, '\\\\')
-    .replace(/;/g, '\\;')
+    .replace(/;/g, '\\;') 
     .replace(/,/g, '\\,')
     .replace(/\r?\n/g, '\\n');
 }
