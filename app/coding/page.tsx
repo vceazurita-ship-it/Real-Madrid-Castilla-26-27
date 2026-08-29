@@ -64,6 +64,7 @@ import {
   BarraExportacion,
   useExportador,
   type ModoCorteUI,
+  type ParadaDeClip,
 } from "@/components/coding/ExportaClips";
 import { FichaClip, ListaClips } from "@/components/coding/ListaClips";
 import { LineaDeTiempo } from "@/components/coding/LineaDeTiempo";
@@ -107,10 +108,13 @@ import {
   type SujetoCoding,
 } from "@/lib/coding/modelo";
 import {
+  componeEscena,
   escenaEn,
   escenaVacia,
   nombreEscena,
+  type EscenaTel,
 } from "@/lib/coding/telestracion";
+import { esperaFuentePortada, FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
 
@@ -238,6 +242,31 @@ type RivalCoding = {
 /* ================================================================== */
 /*  LA PÁGINA                                                          */
 /* ================================================================== */
+
+/**
+ * Lleva el vídeo a un instante y espera al fotograma.
+ *
+ * Con plazo, y esto no es cautela de más: un `seeked` que no llega —un fichero
+ * que se movió, un decodificador atascado— dejaría la exportación esperando
+ * para siempre, con su aviso girando y sin decir nada. Devuelve `false` y esa
+ * pizarra no se quema; el vídeo sale igual.
+ */
+function vePorElFotograma(video: HTMLVideoElement, segundos: number) {
+  return new Promise<boolean>((listo) => {
+    const acaba = (valor: boolean) => {
+      clearTimeout(plazo);
+      video.removeEventListener("seeked", llegada);
+      listo(valor);
+    };
+
+    const llegada = () => acaba(true);
+
+    const plazo = setTimeout(() => acaba(false), 5000);
+
+    video.addEventListener("seeked", llegada);
+    video.currentTime = segundos;
+  });
+}
 
 export default function CodingPage() {
   return (
@@ -472,6 +501,59 @@ function Coding() {
     },
     [ponFuente],
   );
+
+  /*
+  | Un vídeo abierto del ordenador que ya está en la carpeta, se adopta solo.
+  |
+  | Es el camino que hace todo el mundo: se codifica con el fichero abierto del
+  | disco —lo único que se puede hacer sin mover gigas— y después se deja el
+  | partido en la carpeta para poder cortar. Antes había que acordarse de
+  | volver a elegirlo a mano, y como la pantalla se ve igual, lo que se
+  | encontraba uno era el error al exportar, media hora después.
+  |
+  | Se empareja por nombre de fichero, que es lo único que el navegador deja
+  | saber de un fichero del disco. Y se busca una sola vez por nombre: si no
+  | está, el aviso de la pantalla lo dice y no se vuelve a preguntar.
+  */
+  const fuenteGuardada = sesion.sesion.fuente;
+
+  const buscadaEnCarpeta = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!fuenteGuardada || fuenteGuardada.tipo !== "local") return;
+
+    if (buscadaEnCarpeta.current === fuenteGuardada.nombre) return;
+
+    buscadaEnCarpeta.current = fuenteGuardada.nombre;
+
+    let vivo = true;
+
+    fetch("/api/coding/videos", { cache: "no-store" })
+      .then((respuesta) => respuesta.json())
+      .then((datos) => {
+        if (!vivo || !datos?.ok) return;
+
+        const igual = (datos.videos ?? []).find(
+          (video: { nombre: string }) => video.nombre === fuenteGuardada.nombre,
+        );
+
+        if (!igual) return;
+
+        eligeFuente(
+          { tipo: "archivo", ruta: igual.ruta, nombre: igual.nombre },
+          `/api/coding/video?ruta=${encodeURIComponent(igual.ruta)}`,
+        );
+
+        toast.success("El vídeo ya está en la carpeta de partidos", {
+          description: "Se corta desde ahí: el coding y las pizarras se quedan como están.",
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, [eligeFuente, fuenteGuardada]);
 
   /* ------------------------------------------------ estado de coding */
 
@@ -816,6 +898,9 @@ function Coding() {
 
     let mano = 0;
 
+    /* La cuenta atrás de una pizarra que se descongela sola. */
+    let despertador: ReturnType<typeof setTimeout> | null = null;
+
     const vigila = () => {
       mano = requestAnimationFrame(vigila);
 
@@ -831,12 +916,32 @@ function Coding() {
       if (escena.congelada && congelada.current !== escena.id) {
         congelada.current = escena.id;
         video.pause();
+
+        /*
+        | Con `pausaMs` la pizarra es una repetición de televisión: para, se ve
+        | el dibujo el rato dicho y el partido sigue sin que nadie toque nada.
+        | Si alguien le da al play antes, el despertador ya no tiene nada que
+        | hacer —el vídeo está andando— y se deja morir.
+        */
+        if (escena.pausaMs > 0) {
+          if (despertador) clearTimeout(despertador);
+
+          despertador = setTimeout(() => {
+            despertador = null;
+
+            if (video.paused) void video.play().catch(() => undefined);
+          }, escena.pausaMs);
+        }
       }
     };
 
     mano = requestAnimationFrame(vigila);
 
-    return () => cancelAnimationFrame(mano);
+    return () => {
+      cancelAnimationFrame(mano);
+
+      if (despertador) clearTimeout(despertador);
+    };
   }, [elemento, escenas, pizarraEditando, pizarraVisible]);
 
   /* ------------------------------------------------- exportación */
@@ -870,58 +975,244 @@ function Coding() {
         "categoría")
       : "todo el partido";
 
-  const exportaUnificado = useCallback(async () => {
-    const jugador = filtroSujeto ? jugadorDe(filtroSujeto) : null;
-    const comportamiento = jugador ? null : comportamientoDe(filtroSujeto);
+  /*
+  | -------------------------------------------- LAS PIZARRAS QUEMADAS
+  |
+  | Meter la telestración dentro del fichero que sale.
+  |
+  | Lo que se manda al servidor no son los dibujos sino **el fotograma ya
+  | compuesto**: el navegador es el único que sabe pintarlos —y el único que
+  | tiene los píxeles que necesitan el difuminado, la lupa y el jugador
+  | recortado—, así que aquí se compone a la resolución del vídeo y allí sólo
+  | hay que enseñarlo. El vídeo se para en ese instante, se ve el dibujo y
+  | sigue limpio, que es lo mismo que hace la pantalla y lo que hace la
+  | televisión.
+  |
+  | Cuánto dura la parada: lo que diga «Sigue a los N s» si la pizarra está
+  | congelada, y si no, lo que dure la pizarra. Nunca menos de medio segundo.
+  */
+  const [quemaPizarras, setQuemaPizarras] = useState(true);
+
+  const escenasDeClip = useCallback(
+    (clip: ClipCoding) =>
+      escenas.filter(
+        (escena) => escena.tMs >= clip.inicioMs && escena.tMs <= clip.finMs,
+      ),
+    [escenas],
+  );
+
+  /* Cuántas pizarras se van a quemar con lo que hay elegido ahora. */
+  const pizarrasEnLaExportacion = useMemo(
+    () =>
+      clipsFiltrados.reduce(
+        (suma, clip) => suma + escenasDeClip(clip).length,
+        0,
+      ),
+    [clipsFiltrados, escenasDeClip],
+  );
+
+  const componePizarras = useCallback(
+    async (lista: ClipCoding[]) => {
+      const vacio = new Map<string, ParadaDeClip[]>();
+
+      if (!quemaPizarras || escenas.length === 0) return vacio;
+
+      const video = videoRef.current;
+
+      if (!video) return vacio;
+
+      const necesarias = new Map<string, EscenaTel>();
+
+      for (const clip of lista) {
+        for (const escena of escenasDeClip(clip)) {
+          if (escena.dibujos.length > 0) necesarias.set(escena.id, escena);
+        }
+      }
+
+      if (necesarias.size === 0) return vacio;
+
+      await esperaFuentePortada();
+
+      const estabaEn = video.currentTime;
+      const estabaParado = video.paused;
+
+      video.pause();
+
+      const pngs = new Map<string, string>();
+
+      for (const escena of necesarias.values()) {
+        const llegado = await vePorElFotograma(video, escena.tMs / 1000);
+
+        if (!llegado) continue;
+
+        const png = componeEscena(video, escena, FAMILIA_PORTADA, "jpeg");
+
+        if (png) pngs.set(escena.id, png);
+      }
+
+      video.currentTime = estabaEn;
+
+      if (!estabaParado) void video.play().catch(() => undefined);
+
+      const porClip = new Map<string, ParadaDeClip[]>();
+
+      for (const clip of lista) {
+        const paradas = escenasDeClip(clip)
+          .filter((escena) => pngs.has(escena.id))
+          .map((escena) => ({
+            imagen: pngs.get(escena.id)!,
+            enMs: Math.max(0, escena.tMs - clip.inicioMs),
+            duracionMs: Math.max(
+              500,
+              escena.congelada && escena.pausaMs > 0
+                ? escena.pausaMs
+                : escena.duracionMs,
+            ),
+          }));
+
+        if (paradas.length > 0) porClip.set(clip.id, paradas);
+      }
+
+      return porClip;
+    },
+    [escenas, escenasDeClip, quemaPizarras],
+  );
+
+  /*
+  | ------------------------------------------------------ LA CARÁTULA
+  |
+  | La diapositiva que abre el vídeo unificado: la misma que ya exporta la
+  | ficha del jugador rival (`lib/rivals/portada.ts`).
+  |
+  | Antes se ponía sola y sólo si había un filtro de sujeto, así que era
+  | invisible: quien exportaba «todo el partido» no tenía forma de pedirla, y
+  | quien filtraba no tenía forma de quitarla. Ahora se elige —de quién es, o
+  | ninguna— y se puede ver antes de montar el vídeo, que para eso es lo
+  | primero que se ve en la sala.
+  |
+  | Los candidatos salen de los clips que se van a exportar y no de la
+  | plantilla: si se codificó por dorsales, el nombre del clip es lo único que
+  | hay, y también sirve para la carátula.
+  */
+  const sujetosDeClips = useMemo(() => {
+    const vistos = new Map<string, { id: string; nombre: string }>();
+
+    for (const clip of clipsFiltrados) {
+      if (!vistos.has(clip.jugadorId)) {
+        vistos.set(clip.jugadorId, {
+          id: clip.jugadorId,
+          nombre: clip.jugadorNombre,
+        });
+      }
+    }
+
+    return [...vistos.values()];
+  }, [clipsFiltrados]);
+
+  /* Lo que se pone sin tocar nada: el del filtro, o el único que haya. */
+  const caratulaPorDefecto =
+    filtroSujeto ?? (sujetosDeClips.length === 1 ? sujetosDeClips[0].id : "");
+
+  const [caratulaPedida, setCaratulaPedida] = useState<string | null>(null);
+
+  /* Lo pedido manda, pero sólo mientras siga estando entre lo exportable: así
+     cambiar de filtro no deja la carátula de un jugador que ya no sale. */
+  const caratulaSujeto =
+    caratulaPedida !== null &&
+    (caratulaPedida === "" ||
+      sujetosDeClips.some((uno) => uno.id === caratulaPedida))
+      ? caratulaPedida
+      : caratulaPorDefecto;
+
+  const construyeCaratula = useCallback(async () => {
+    if (!caratulaSujeto) return null;
+
+    const jugador = jugadorDe(caratulaSujeto);
+    const comportamiento = jugador ? null : comportamientoDe(caratulaSujeto);
 
     /*
     | El vídeo de un comportamiento colectivo también se abre con la carátula
     | del club: es la misma diapositiva, con el nombre de la fase donde iría el
     | del jugador y sin cara ni dorsal, que es lo que hay que enseñar antes de
-    | una sucesión de repliegues. Sin filtro —el partido entero— no lleva
-    | portada: no habría nada que poner en ella.
+    | una sucesión de repliegues.
     */
-    const protagonista = jugador ?? comportamiento;
+    const nombre =
+      jugador?.nombre ??
+      comportamiento?.nombre ??
+      sujetosDeClips.find((uno) => uno.id === caratulaSujeto)?.nombre ??
+      "";
 
-    const aviso = protagonista
-      ? null
-      : toast.loading("Montando el vídeo del partido…");
+    if (!nombre) return null;
 
-    const portada = protagonista
-      ? await caratulaDeJugador({
-          equipo: ambito === "rival" ? titulo : "RMCF Castilla",
-          escudo:
-            ambito === "rival"
-              ? escudoDe(rival?.nombre ?? "")
-              : "/logo.png",
-          temporada: TEMPORADA,
-          nombre: protagonista.nombre,
-          posicion: jugador?.posicion ?? (comportamiento ? "COLECTIVO" : ""),
-          dorsal:
-            jugador?.dorsal !== undefined ? String(jugador.dorsal) : "",
-          foto: jugador?.foto,
-          contexto: titulo,
-        })
+    return caratulaDeJugador({
+      equipo: ambito === "rival" ? titulo : "RMCF Castilla",
+      escudo: ambito === "rival" ? escudoDe(rival?.nombre ?? "") : "/logo.png",
+      temporada: TEMPORADA,
+      nombre,
+      posicion: jugador?.posicion ?? (comportamiento ? "COLECTIVO" : ""),
+      dorsal: jugador?.dorsal !== undefined ? String(jugador.dorsal) : "",
+      foto: jugador?.foto,
+      contexto: titulo,
+    });
+  }, [
+    ambito,
+    caratulaSujeto,
+    comportamientoDe,
+    escudoDe,
+    jugadorDe,
+    rival,
+    sujetosDeClips,
+    titulo,
+  ]);
+
+  /* La vista previa: se pinta al pedirla y se queda hasta que se cierra. */
+  const [caratulaVista, setCaratulaVista] = useState<string | null>(null);
+
+  const verCaratula = useCallback(async () => {
+    const png = await construyeCaratula();
+
+    if (!png) {
+      toast.error("No se ha podido pintar la carátula.");
+      return;
+    }
+
+    setCaratulaVista(png);
+  }, [construyeCaratula]);
+
+  const exportaUnificado = useCallback(async () => {
+    /*
+    | El aviso es para la carátula, que es lo único que se dibuja aquí y tarda
+    | —hay que traerse la foto y el escudo—. Estaba al revés: salía cuando NO
+    | había carátula, y entonces nacía y se cerraba en el mismo tick, que es la
+    | única forma de que se quede colgado en pantalla. Y colgado tapaba el
+    | error de verdad, el que llega justo después desde `exporta`.
+    */
+    const aviso = caratulaSujeto
+      ? toast.loading("Montando la carátula del vídeo…")
       : null;
 
+    const portada = await construyeCaratula();
+
     if (aviso) toast.dismiss(aviso);
+
+    if (caratulaSujeto && !portada) {
+      toast.warning("El vídeo sale sin carátula: no se ha podido pintar.");
+    }
 
     await exporta({
       clips: clipsFiltrados,
       formato: "unificado",
       nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
       portada,
+      paradas: await componePizarras(clipsFiltrados),
     });
   }, [
-    ambito,
+    caratulaSujeto,
     clipsFiltrados,
-    comportamientoDe,
-    escudoDe,
+    componePizarras,
+    construyeCaratula,
     etiquetaFiltro,
     exporta,
-    filtroSujeto,
-    jugadorDe,
-    rival,
     titulo,
   ]);
 
@@ -1590,11 +1881,13 @@ function Coding() {
                       toast.success("Clip eliminado · se puede deshacer");
                     }}
                     onExportar={(clip) =>
-                      void exporta({
-                        clips: [clip],
-                        formato: "clip",
-                        nombre: `${apodoCoding(clip.jugadorNombre)}-${String(clip.numero).padStart(3, "0")}`,
-                      })
+                      void (async () =>
+                        exporta({
+                          clips: [clip],
+                          formato: "clip",
+                          nombre: `${apodoCoding(clip.jugadorNombre)}-${String(clip.numero).padStart(3, "0")}`,
+                          paradas: await componePizarras([clip]),
+                        }))()
                     }
                     exportando={exportador.exportando}
                   />
@@ -1613,12 +1906,23 @@ function Coding() {
                     exportando={exportador.exportando}
                     modo={modoCorte}
                     onModo={setModoCorte}
+                    caratula={caratulaSujeto}
+                    opcionesCaratula={sujetosDeClips}
+                    onCaratula={setCaratulaPedida}
+                    onVerCaratula={() => void verCaratula()}
+                    vistaCaratula={caratulaVista}
+                    onCerrarVista={() => setCaratulaVista(null)}
+                    pizarras={pizarrasEnLaExportacion}
+                    quema={quemaPizarras}
+                    onQuema={setQuemaPizarras}
                     onZip={() =>
-                      void exporta({
-                        clips: clipsFiltrados,
-                        formato: "zip",
-                        nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
-                      })
+                      void (async () =>
+                        exporta({
+                          clips: clipsFiltrados,
+                          formato: "zip",
+                          nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
+                          paradas: await componePizarras(clipsFiltrados),
+                        }))()
                     }
                     onUnificado={() => void exportaUnificado()}
                   />

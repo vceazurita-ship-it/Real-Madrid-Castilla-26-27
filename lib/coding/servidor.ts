@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -164,6 +164,16 @@ export type DatosVideo = {
   ancho: number;
   alto: number;
   fps: number;
+  /**
+   * Si el fichero trae sonido.
+   *
+   * Importa para el vídeo unificado: los trozos se pegan sin recodificar y
+   * eso exige que todos tengan los mismos flujos. Un partido exportado de una
+   * mesa de edición viene a menudo **mudo**, y al pegarlo con la carátula —que
+   * sí lleva silencio— salían un vídeo con la pista rota o un pegado que se
+   * negaba. Cuando falta, se le pone un silencio del mismo largo.
+   */
+  audio: boolean;
 };
 
 /** Lo que hace falta saber del vídeo antes de cortarlo o de montar la portada. */
@@ -171,10 +181,8 @@ export async function sondeaVideo(entrada: string): Promise<DatosVideo> {
   const { salida } = await ejecuta(FFPROBE, [
     "-v",
     "error",
-    "-select_streams",
-    "v:0",
     "-show_entries",
-    "stream=width,height,avg_frame_rate:format=duration",
+    "stream=codec_type,width,height,avg_frame_rate:format=duration",
     "-of",
     "json",
     entrada,
@@ -182,7 +190,17 @@ export async function sondeaVideo(entrada: string): Promise<DatosVideo> {
 
   const leido = JSON.parse(salida || "{}");
 
-  const flujo = leido?.streams?.[0] ?? {};
+  const flujos: { codec_type?: string }[] = Array.isArray(leido?.streams)
+    ? leido.streams
+    : [];
+
+  const flujo =
+    (flujos.find((uno) => uno.codec_type === "video") as Record<
+      string,
+      unknown
+    >) ?? {};
+
+  const audio = flujos.some((uno) => uno.codec_type === "audio");
 
   /* `avg_frame_rate` viene como fracción ("25/1", "30000/1001"). */
   const [arriba, abajo] = String(flujo.avg_frame_rate ?? "25/1").split("/");
@@ -194,6 +212,7 @@ export async function sondeaVideo(entrada: string): Promise<DatosVideo> {
     ancho: Number(flujo.width) || 1280,
     alto: Number(flujo.height) || 720,
     fps: Number.isFinite(fps) && fps > 0 ? fps : 25,
+    audio,
   };
 }
 
@@ -286,12 +305,36 @@ async function normaliza(opciones: {
   alto: number;
   fps: number;
   destino: string;
+  /** Duración del silencio que hay que inventar, en ms. `0` si ya trae sonido. */
+  silencioMs?: number;
 }) {
+  /*
+   * El silencio es una entrada más, y entonces hay que mapear a mano: sin
+   * `-map`, ffmpeg elige el vídeo de una entrada y el audio de la otra sólo
+   * por suerte, y con dos entradas de vídeo se equivoca.
+   */
+  const silencio = opciones.silencioMs && opciones.silencioMs > 0;
+
+  const extra = silencio
+    ? [
+        "-f",
+        "lavfi",
+        "-t",
+        segundos(opciones.silencioMs ?? 0),
+        "-i",
+        "anullsrc=channel_layout=stereo:sample_rate=48000",
+      ]
+    : [];
+
+  const mapas = silencio ? ["-map", "0:v:0", "-map", "1:a:0"] : [];
+
   await ejecuta(FFMPEG, [
     "-hide_banner",
     "-loglevel",
     "error",
     ...opciones.entradaArgs,
+    ...extra,
+    ...mapas,
     "-vf",
     `scale=${opciones.ancho}:${opciones.alto}:force_original_aspect_ratio=decrease,pad=${opciones.ancho}:${opciones.alto}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${opciones.fps.toFixed(3)}`,
     "-c:v",
@@ -327,6 +370,8 @@ export async function segmentoNormalizado(opciones: {
   alto: number;
   fps: number;
   destino: string;
+  /** Si la fuente de ESTE trozo trae sonido. Sin él, se le pone silencio. */
+  audio?: boolean;
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
@@ -345,6 +390,7 @@ export async function segmentoNormalizado(opciones: {
     alto: opciones.alto,
     fps: opciones.fps,
     destino: opciones.destino,
+    silencioMs: opciones.audio === false ? duracion : 0,
   });
 }
 
@@ -356,7 +402,7 @@ export async function segmentoNormalizado(opciones: {
  * silencio porque un trozo sin pista de sonido rompe el pegado con los clips,
  * que sí la tienen.
  */
-export async function portadaComoVideo(opciones: {
+export async function imagenComoVideo(opciones: {
   imagen: string;
   duracionMs: number;
   ancho: number;
@@ -384,6 +430,121 @@ export async function portadaComoVideo(opciones: {
     fps: opciones.fps,
     destino: opciones.destino,
   });
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAS PIZARRAS, DENTRO DEL VÍDEO                                     */
+/* ------------------------------------------------------------------ */
+
+/** Una pizarra quemada: el fotograma parado con lo pintado encima. */
+export type ParadaPedida = {
+  /** El PNG ya compuesto (fotograma + dibujo), escrito a disco. */
+  imagen: string;
+  /** Dónde para, contado desde el principio del clip. */
+  enMs: number;
+  /** Cuánto se queda parado. */
+  duracionMs: number;
+};
+
+/**
+ * Corta un clip parándose en cada pizarra.
+ *
+ * La telestración no se puede «pegar» sobre el vídeo que corre sin recodificar
+ * fotograma a fotograma, y hacerlo así sería lento y frágil —el difuminado, la
+ * lupa y el jugador recortado necesitan los píxeles de debajo—. Aquí se hace
+ * lo que hace la televisión, que además es lo que la pantalla ya enseña: el
+ * vídeo **se detiene** en el instante de la pizarra, se ve el dibujo el rato
+ * que dure y sigue limpio.
+ *
+ * El fotograma parado lo compone el navegador (`componeEscena`) a la
+ * resolución del vídeo y llega aquí como PNG, así que sale exactamente lo que
+ * el analista vio al pintarlo.
+ *
+ * Con paradas **siempre se recodifica**: los trozos tienen que compartir forma
+ * para poder pegarse, así que el modo `rapido` no se aplica.
+ */
+export async function cortaClipConParadas(opciones: {
+  entrada: string;
+  inicioMs: number;
+  finMs: number;
+  ancho: number;
+  alto: number;
+  fps: number;
+  audio: boolean;
+  paradas: ParadaPedida[];
+  /** Carpeta de trabajo y prefijo de los trozos, para no pisarse entre clips. */
+  carpeta: string;
+  prefijo: string;
+  destino: string;
+}) {
+  const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
+
+  if (duracion <= 0) throw new Error("El clip no tiene duración.");
+
+  /* Sólo las que caen dentro, y en orden: una pizarra de otro momento del
+     partido no pinta nada aquí. */
+  const paradas = opciones.paradas
+    .filter((parada) => parada.enMs >= 0 && parada.enMs <= duracion)
+    .sort((a, b) => a.enMs - b.enMs);
+
+  const trozos: string[] = [];
+
+  let desde = 0;
+  let numero = 0;
+
+  const nombra = (que: string) =>
+    path.join(
+      opciones.carpeta,
+      `${opciones.prefijo}-${String(++numero).padStart(3, "0")}-${que}.mp4`,
+    );
+
+  const corta = async (a: number, b: number) => {
+    /* Menos de un fotograma no es un trozo: ffmpeg saca un fichero vacío y el
+       pegado se cae con él. */
+    if (b - a < 1000 / Math.max(1, opciones.fps)) return;
+
+    trozos.push(
+      await segmentoNormalizado({
+        entrada: opciones.entrada,
+        inicioMs: opciones.inicioMs + a,
+        finMs: opciones.inicioMs + b,
+        ancho: opciones.ancho,
+        alto: opciones.alto,
+        fps: opciones.fps,
+        audio: opciones.audio,
+        destino: nombra("video"),
+      }),
+    );
+  };
+
+  for (const parada of paradas) {
+    await corta(desde, parada.enMs);
+
+    trozos.push(
+      await imagenComoVideo({
+        imagen: parada.imagen,
+        duracionMs: Math.max(500, parada.duracionMs),
+        ancho: opciones.ancho,
+        alto: opciones.alto,
+        fps: opciones.fps,
+        destino: nombra("pizarra"),
+      }),
+    );
+
+    desde = parada.enMs;
+  }
+
+  await corta(desde, duracion);
+
+  if (trozos.length === 0) throw new Error("El clip se ha quedado sin vídeo.");
+
+  if (trozos.length === 1) {
+    await copyFile(trozos[0], opciones.destino);
+
+    return opciones.destino;
+  }
+
+  return pegaVideos(trozos, opciones.destino);
 }
 
 /** Pega en uno todos los trozos, que ya vienen con la misma forma. */

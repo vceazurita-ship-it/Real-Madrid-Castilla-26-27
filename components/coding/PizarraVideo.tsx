@@ -1248,6 +1248,29 @@ function EditorPizarra({
               Congela
             </button>
 
+            {/* Congelada y con espera: la pizarra se descongela sola. */}
+            {local.congelada && (
+              <span
+                title={
+                  local.pausaMs > 0
+                    ? "El vídeo se para aquí y sigue solo pasados esos segundos"
+                    : "En 0 el vídeo se queda parado hasta que le des al play"
+                }
+                className="inline-flex items-center"
+              >
+                <Deslizador
+                  etiqueta="Sigue a los"
+                  valor={Math.round(local.pausaMs / 1000)}
+                  min={0}
+                  max={20}
+                  sufijo="s"
+                  onChange={(valor) =>
+                    cambia((una) => ({ ...una, pausaMs: valor * 1000 }))
+                  }
+                />
+              </span>
+            )}
+
             <span className="ml-auto flex items-center gap-1">
               <button
                 type="button"
@@ -1523,7 +1546,11 @@ export function FilaPizarra({
 
         <span className="shrink-0 text-[10px] text-white/35">
           {escena.dibujos.length} · {Math.round(escena.duracionMs / 1000)}s
-          {escena.congelada ? " · ❄" : ""}
+          {escena.congelada
+            ? escena.pausaMs > 0
+              ? ` · ❄ ${Math.round(escena.pausaMs / 1000)}s`
+              : " · ❄"
+            : ""}
         </span>
       </button>
 

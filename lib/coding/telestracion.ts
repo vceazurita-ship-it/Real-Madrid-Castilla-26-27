@@ -114,6 +114,16 @@ export type EscenaTel = {
   /** El clip que acompaña, cuando la pizarra se creó desde uno. */
   clipId?: string;
   congelada: boolean;
+  /**
+   * Lo que el vídeo se queda parado antes de seguir él solo, en ms.
+   *
+   * Cero es lo de siempre: para y espera a que alguien le dé al play. Con un
+   * número, la pizarra se comporta como una repetición de televisión —el
+   * partido se detiene, se enseña el dibujo y sigue— sin tocar el teclado, que
+   * es lo que hace falta cuando la charla ya está montada y no se quiere estar
+   * pendiente del ordenador.
+   */
+  pausaMs: number;
   dibujos: DibujoTel[];
   creadoEn: string;
 };
@@ -293,6 +303,7 @@ export function escenaVacia(tMs: number, id: string, ahora: string): EscenaTel {
     tMs: Math.max(0, Math.round(tMs)),
     duracionMs: DURACION_ESCENA_MS,
     congelada: false,
+    pausaMs: 0,
     dibujos: [],
     creadoEn: ahora,
   };
@@ -378,6 +389,7 @@ export function normalizaEscenas(crudo: unknown): EscenaTel[] {
         duracionMs: Math.max(500, numero(dato.duracionMs, DURACION_ESCENA_MS)),
         clipId: dato.clipId,
         congelada: dato.congelada === true,
+        pausaMs: Math.max(0, numero(dato.pausaMs, 0)),
         dibujos,
         creadoEn: texto(dato.creadoEn),
       };
@@ -1962,6 +1974,15 @@ export function componeEscena(
   video: HTMLVideoElement,
   escena: EscenaTel,
   familia?: string,
+  /**
+   * `png` para guardar y llevar a la charla; `jpeg` para mandarlo al servidor.
+   *
+   * Un fotograma de 1080p en PNG son varios megas, y quemar quince pizarras
+   * en un vídeo serían cincuenta megas de JSON subiendo por una petición.
+   * En JPEG son unos cientos de kilobytes y, sobre un fotograma de vídeo —que
+   * ya viene comprimido—, la diferencia no se ve.
+   */
+  formato: "png" | "jpeg" = "png",
 ): string | null {
   const ancho = video.videoWidth || 1280;
   const alto = video.videoHeight || 720;
@@ -1989,7 +2010,9 @@ export function componeEscena(
       familia,
     });
 
-    return lienzo.toDataURL("image/png");
+    return formato === "jpeg"
+      ? lienzo.toDataURL("image/jpeg", 0.92)
+      : lienzo.toDataURL("image/png");
   } catch (error) {
     console.warn("[telestración] no se ha podido componer el PNG", error);
 
