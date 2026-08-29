@@ -38,11 +38,14 @@ import {
   PenTool,
   SkipForward,
   Snowflake,
+  Upload,
   X,
+  SquarePlay as Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
+import { NOMBRE_PRIVACIDAD } from "@/lib/coding/youtube-cliente";
 import { descarga } from "@/lib/export/lienzos";
 import {
   borraImagenes,
@@ -139,6 +142,16 @@ export function useExportador(opciones: {
   titulo?: string;
   /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
   onAdopta?: (fuente: FuenteVideo, src: string) => void;
+  /**
+   * Qué hacer con el vídeo recién montado, además de descargarlo.
+   *
+   * Es por donde entra la subida a YouTube. Se llama con el fichero ya en el
+   * ordenador del analista y **sólo con vídeos**: el ZIP de cortes sueltos no
+   * es una cosa que se suba a ningún canal. Que falle no puede tumbar la
+   * exportación —el vídeo ya está descargado—, así que quien lo implemente se
+   * come sus propios errores.
+   */
+  alTerminarVideo?: (blob: Blob, nombre: string) => Promise<void> | void;
 }) {
   const {
     fuente,
@@ -149,6 +162,7 @@ export function useExportador(opciones: {
     fps,
     titulo,
     onAdopta,
+    alTerminarVideo,
   } = opciones;
 
   const [exportando, setExportando] = useState(false);
@@ -216,6 +230,10 @@ export function useExportador(opciones: {
               : ""
           }${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
         });
+
+        if (peticion.formato !== "zip") {
+          await alTerminarVideo?.(resultado.blob, nombre);
+        }
       } catch (error) {
         if (error instanceof Error && error.message === CORTE_CANCELADO) {
           toast("Montaje cancelado", {
@@ -234,7 +252,7 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [fps, nombraClips, titulo],
+    [alTerminarVideo, fps, nombraClips, titulo],
   );
 
   /*
@@ -359,6 +377,10 @@ export function useExportador(opciones: {
             Math.round((Date.now() - arranque) / 1000),
           )}`,
         });
+
+        if (peticion.formato !== "zip") {
+          await alTerminarVideo?.(blob, `${peticion.nombre}.${extension}`);
+        }
       } catch (error) {
         console.error("[coding] exportación", error);
 
@@ -374,7 +396,7 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [modo, nombraClips],
+    [alTerminarVideo, modo, nombraClips],
   );
 
   /*
@@ -525,6 +547,7 @@ export function BarraExportacion({
   quema,
   onQuema,
   enNavegador,
+  youtube,
 }: {
   clips: ClipCoding[];
   /** Qué se va a exportar: "todos", "Sergio Mestre", "Pase"… */
@@ -554,6 +577,20 @@ export function BarraExportacion({
    * graba lo que se reproduce, siempre a tiempo real—.
    */
   enNavegador: boolean;
+  /**
+   * La cuenta de YouTube, si es que hay una conectada.
+   *
+   * Se enseña aquí y no sólo en su panel porque es una decisión del momento de
+   * exportar: el vídeo del rival para la charla se sube, y el corte que se
+   * está probando no.
+   */
+  youtube?: {
+    conectado: boolean;
+    subeSiempre: boolean;
+    privacidad: keyof typeof NOMBRE_PRIVACIDAD;
+    listaNombre: string;
+    onSube: (sube: boolean) => void;
+  };
 }) {
   const total = clips.reduce((suma, clip) => suma + duracionClip(clip), 0);
 
@@ -676,6 +713,45 @@ export function BarraExportacion({
               Cerrar
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* --------------------------- YOUTUBE --------------------------- */}
+
+      {/*
+      | Sólo cuando hay cuenta conectada.
+      |
+      | Sin cuenta esto sería una fila muerta en la barra que más se usa de la
+      | pantalla: quien quiera conectarla la tiene en su panel, ahí al lado.
+      */}
+      {youtube?.conectado && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Youtube size={12} className="text-[#C8A96B]" />
+            YouTube
+          </span>
+
+          <button
+            type="button"
+            onClick={() => youtube.onSube(!youtube.subeSiempre)}
+            title="El vídeo se descarga igual: esto es además de la descarga"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+              youtube.subeSiempre
+                ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                : "border-white/10 text-white/40 hover:text-white"
+            }`}
+          >
+            {youtube.subeSiempre ? <Upload size={12} /> : <X size={12} />}
+            {youtube.subeSiempre ? "Se sube al terminar" : "No se sube"}
+          </button>
+
+          <span className="text-[11px] text-white/35">
+            {youtube.subeSiempre
+              ? `En ${NOMBRE_PRIVACIDAD[youtube.privacidad]}${
+                  youtube.listaNombre ? ` · lista «${youtube.listaNombre}»` : " · sin lista"
+                }`
+              : "Sólo se descarga al ordenador"}
+          </span>
         </div>
       )}
 

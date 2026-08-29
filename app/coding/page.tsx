@@ -78,6 +78,11 @@ import {
 } from "@/components/coding/piezas";
 import { FilaPizarra, PizarraVideo } from "@/components/coding/PizarraVideo";
 import { SelectorFuente } from "@/components/coding/SelectorFuente";
+import {
+  AVISOS_YOUTUBE,
+  PanelYoutube,
+  useYoutube,
+} from "@/components/coding/YoutubePanel";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
@@ -114,6 +119,11 @@ import {
   nombreEscena,
   type EscenaTel,
 } from "@/lib/coding/telestracion";
+import {
+  NOMBRE_PRIVACIDAD,
+  subeAYoutube,
+  SUBIDA_CANCELADA,
+} from "@/lib/coding/youtube-cliente";
 import { esperaFuentePortada, FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
@@ -986,19 +996,6 @@ function Coding() {
 
   /* ------------------------------------------------- exportación */
 
-  const exportador = useExportador({
-    fuente: sesion.sesion.fuente,
-    categorias: config.categorias,
-    carpeta: apodoCoding(titulo),
-    modo: modoCorte,
-    ficheroLocal,
-    fps: sesion.sesion.fps,
-    titulo,
-    onAdopta: eligeFuente,
-  });
-
-  const { exporta } = exportador;
-
   /*
   | El partido está abierto del ordenador: el montaje se hace en el navegador.
   |
@@ -1028,6 +1025,133 @@ function Coding() {
       ? (config.categorias.find((una) => una.id === filtroCategoria)?.nombre ??
         "categoría")
       : "todo el partido";
+
+  /*
+  | ------------------------------------------------------ YOUTUBE
+  |
+  | El vídeo montado se descarga siempre, y además puede subirse al canal.
+  |
+  | La subida va **después** de la descarga y nunca antes: el fichero ya está
+  | en el ordenador del analista pase lo que pase con la red, y si YouTube
+  | falla lo único que se pierde es el enlace. Los bytes van del navegador a
+  | Google directamente, sin pasar por el servidor —el vídeo de un partido son
+  | cientos de megas—; ver `lib/coding/youtube-cliente.ts`.
+  */
+  const youtube = useYoutube();
+
+  const estadoYoutube = youtube.estado;
+
+  const subeSiempre = estadoYoutube.conectado && estadoYoutube.subeSiempre;
+
+  /*
+  | La vuelta de Google: se cuenta cómo ha ido y se limpia la URL.
+  |
+  | El callback no puede devolver un JSON —dejaría al analista mirando texto en
+  | crudo—, así que vuelve aquí con `?youtube=…` y se traduce a un aviso. El
+  | `ref` evita el aviso doble: en desarrollo los efectos se montan dos veces, y
+  | dos avisos iguales apilados parecen dos intentos.
+  */
+  const avisoYoutubeDado = useRef<string | null>(null);
+
+  useEffect(() => {
+    const resultado = params.get("youtube");
+
+    if (!resultado || avisoYoutubeDado.current === resultado) return;
+
+    avisoYoutubeDado.current = resultado;
+
+    const aviso = AVISOS_YOUTUBE[resultado] ?? {
+      tono: "mal" as const,
+      texto: "No se ha podido conectar la cuenta",
+    };
+
+    if (aviso.tono === "ok") toast.success(aviso.texto, { description: aviso.detalle });
+    else toast.error(aviso.texto, { description: aviso.detalle, duration: 15000 });
+
+    const limpia = new URLSearchParams(params.toString());
+
+    limpia.delete("youtube");
+
+    router.replace(limpia.size > 0 ? `/coding?${limpia}` : "/coding");
+  }, [params, router]);
+
+  const alTerminarVideo = useCallback(
+    async (blob: Blob, nombre: string) => {
+      if (!subeSiempre) return;
+
+      const aviso = toast.loading("Subiendo a YouTube… 0 %");
+
+      const control = new AbortController();
+
+      try {
+        const resultado = await subeAYoutube({
+          blob,
+          titulo: `${titulo} · ${etiquetaFiltro}`,
+          descripcion:
+            `${titulo}\n${etiquetaFiltro}\n\n` +
+            `Montado con el coding del RMCF Castilla · ${nombre}`,
+          senal: control.signal,
+          onProgreso: (fraccion) => {
+            toast.loading(`Subiendo a YouTube… ${Math.round(fraccion * 100)} %`, {
+              id: aviso,
+              action: { label: "Cancelar", onClick: () => control.abort() },
+            });
+          },
+        });
+
+        toast.success(`Subido en ${NOMBRE_PRIVACIDAD[resultado.privacidad]}`, {
+          id: aviso,
+          duration: 20000,
+          description:
+            resultado.enLista && resultado.listaNombre
+              ? `${resultado.url} · en «${resultado.listaNombre}»`
+              : (resultado.aviso ?? resultado.url),
+          action: {
+            label: "Abrir",
+            onClick: () => window.open(resultado.url, "_blank", "noopener"),
+          },
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === SUBIDA_CANCELADA) {
+          toast("Subida cancelada", {
+            id: aviso,
+            description: "El vídeo se ha descargado igual.",
+          });
+
+          return;
+        }
+
+        console.error("[coding] subida a YouTube", error);
+
+        /*
+        | El vídeo ya está descargado, así que esto es un aviso y no un
+        | desastre: se dice qué ha pasado y se sigue trabajando.
+        */
+        toast.error("No se ha podido subir a YouTube", {
+          id: aviso,
+          duration: 15000,
+          description: `${
+            error instanceof Error ? error.message : "Fallo al subir."
+          } El vídeo está descargado en tu ordenador.`,
+        });
+      }
+    },
+    [etiquetaFiltro, subeSiempre, titulo],
+  );
+
+  const exportador = useExportador({
+    fuente: sesion.sesion.fuente,
+    categorias: config.categorias,
+    carpeta: apodoCoding(titulo),
+    modo: modoCorte,
+    ficheroLocal,
+    fps: sesion.sesion.fps,
+    titulo,
+    onAdopta: eligeFuente,
+    alTerminarVideo,
+  });
+
+  const { exporta } = exportador;
 
   /*
   | -------------------------------------------- LAS PIZARRAS QUEMADAS
@@ -1249,8 +1373,24 @@ function Coding() {
 
     if (aviso) toast.dismiss(aviso);
 
+    /*
+    | Este aviso se queda en pantalla hasta que lo cierren, a propósito.
+    |
+    | Antes duraba lo que dura un aviso normal y el montaje dura minutos: para
+    | cuando el vídeo estaba hecho, nadie se había enterado de que salía sin
+    | carátula, y lo que se veía era «pedí carátula y no la pone». Medido: los
+    | dos motores la meten siempre que les llega; cuando no sale es porque no
+    | se pudo pintar y este aviso fue lo único que lo dijo.
+    */
     if (caratulaSujeto && !portada) {
-      toast.warning("El vídeo sale sin carátula: no se ha podido pintar.");
+      toast.warning("El vídeo va a salir SIN carátula", {
+        duration: Infinity,
+        closeButton: true,
+        description:
+          "No se ha podido pintar (la foto o el escudo no han cargado). El " +
+          "montaje sigue: si la quieres, cancélalo, dale a «Ver» para " +
+          "comprobarla y vuelve a exportar.",
+      });
     }
 
     await exporta({
@@ -1974,6 +2114,13 @@ function Coding() {
                     quema={quemaPizarras}
                     onQuema={setQuemaPizarras}
                     enNavegador={montaEnNavegador}
+                    youtube={{
+                      conectado: estadoYoutube.conectado,
+                      subeSiempre: estadoYoutube.subeSiempre,
+                      privacidad: estadoYoutube.privacidad,
+                      listaNombre: estadoYoutube.listaNombre,
+                      onSube: (sube) => youtube.guarda({ subeSiempre: sube }),
+                    }}
                     onZip={() =>
                       void (async () =>
                         exporta({
@@ -1986,6 +2133,17 @@ function Coding() {
                     onUnificado={() => void exportaUnificado()}
                   />
                 </Panel>
+
+                {/* --------------------------- YOUTUBE ------------------- */}
+
+                <PanelYoutube
+                  estado={estadoYoutube}
+                  cargando={youtube.cargando}
+                  vuelta={youtube.vuelta}
+                  onRecarga={() => void youtube.recarga()}
+                  onGuarda={(cambios) => void youtube.guarda(cambios)}
+                  onDesconecta={() => void youtube.desconecta()}
+                />
               </div>
 
               {/* -------------------------- DERECHA -------------------- */}
