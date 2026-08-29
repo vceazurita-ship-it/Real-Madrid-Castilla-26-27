@@ -1999,7 +1999,26 @@ export function componeEscena(
   try {
     ctx.drawImage(video, 0, 0, ancho, alto);
 
-    pintaEscena(ctx, {
+    /*
+    | El dibujo se pinta aparte y se pega encima, **no sobre el fotograma**.
+    |
+    | `pintaEscena` empieza borrando su lienzo, porque en pantalla es una capa
+    | transparente por encima del `<video>`: pintarla sobre el mismo lienzo
+    | que acaba de recibir el fotograma se lo llevaba por delante, y lo que
+    | salía era el dibujo flotando en negro —negro, y no transparente, porque
+    | esto acaba en JPEG—. Dos lienzos es además exactamente lo que hace la
+    | pantalla, así que lo quemado y lo que ve el analista son lo mismo.
+    */
+    const capa = document.createElement("canvas");
+
+    capa.width = ancho;
+    capa.height = alto;
+
+    const pincel = capa.getContext("2d");
+
+    if (!pincel) return null;
+
+    pintaEscena(pincel, {
       escena,
       medidas: { ancho, alto },
       progreso: 1,
@@ -2009,6 +2028,8 @@ export function componeEscena(
       edicion: false,
       familia,
     });
+
+    ctx.drawImage(capa, 0, 0);
 
     return formato === "jpeg"
       ? lienzo.toDataURL("image/jpeg", 0.92)

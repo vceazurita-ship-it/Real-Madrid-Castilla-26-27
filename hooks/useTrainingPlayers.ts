@@ -48,11 +48,33 @@ export function useTrainingPlayers() {
           (p) => p.ID_JUGADOR && !isHiddenPlayer(p.NOMBRE, p.APODO)
         );
 
-        // Obtener la última fecha
-        const ultimaFecha = filas
-          .map((p) => (p.FECHA ?? "").trim())
-          .sort()
-          .pop();
+        /*
+        | La última sesión de verdad, que no es "la última fecha".
+        |
+        | Dos cosas se torcían aquí. Una: las fechas vienen en dd/mm/aaaa y se
+        | ordenaban como texto, así que "29/07/2026" quedaba por detrás de
+        | "24/08/2026" y la pantalla enseñaba la sesión de julio teniendo la de
+        | agosto. Dos: dar de alta a un jugador escribe **su fila sola** con la
+        | fecha de hoy, y eso no es una sesión —con la fecha suelta ganando, la
+        | plantilla del día se quedaba en una sola persona—. Una sesión es un
+        | día con el grupo dentro, así que los días con cuatro filas o menos no
+        | cuentan.
+        */
+        const enDia = new Map<string, number>();
+
+        for (const p of filas) {
+          const fecha = (p.FECHA ?? "").trim();
+
+          if (fecha) enDia.set(fecha, (enDia.get(fecha) ?? 0) + 1);
+        }
+
+        const alReves = (fecha: string) =>
+          fecha.split("/").reverse().join("-");
+
+        const ultimaFecha = [...enDia.entries()]
+          .filter(([, cuantos]) => cuantos > 4)
+          .sort((una, otra) => alReves(una[0]).localeCompare(alReves(otra[0])))
+          .pop()?.[0];
 
         // Quedarnos únicamente con esa fecha
         const ultimaSesion = filas.filter(

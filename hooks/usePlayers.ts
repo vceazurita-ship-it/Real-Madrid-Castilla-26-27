@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { Player, EstadoJugador } from "@/types/player";
 import { getPlayerImage, getPlayerPhotoSrc } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
+import { conFichajes } from "@/lib/fichajes";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
@@ -59,7 +60,14 @@ apodo: p.APODO || p.NOMBRE,
   hudl: p.HUDL_PERFIL_URL || "",
 }));
 
-        setPlayers(plantilla);
+        /*
+        | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`).
+        |
+        | Se añaden aquí, en el punto de entrada, para que valgan igual en el
+        | once, en la pizarra de ABP y en el coding sin tocar ni una pantalla.
+        | Si la hoja ya los tiene, esto no añade nada.
+        */
+        setPlayers(conFichajes(plantilla));
         setLoading(false);
       },
 

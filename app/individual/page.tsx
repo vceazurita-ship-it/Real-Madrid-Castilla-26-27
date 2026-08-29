@@ -429,6 +429,21 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   photo:
     "https://assets.realmadrid.com/is/image/realmadrid/SOSTRES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
 },
+{
+  /*
+  | Fichaje del Granada, agosto de 2026. Central de origen que juega también
+  | de lateral derecho, así que en la hoja va como LATERAL D. y aquí, donde
+  | sólo hay cuatro líneas, como defensa.
+  |
+  | La foto no es de la sesión del club —todavía no ha pasado por ella—, así
+  | que el respaldo apunta al recorte local en vez de a realmadrid.com; el
+  | mapa de abajo lo sustituye igualmente por el de Supabase.
+  */
+  idJugador: "JUG-52",
+  name: "Óscar Naasei",
+  position: "Defensa",
+  photo: "/players/lejos/oscar-naasei.webp",
+},
 
 // CENTROCAMPISTAS
 {

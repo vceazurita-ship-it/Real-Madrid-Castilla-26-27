@@ -10,9 +10,24 @@
  * portátil del analista y la app en internet no se podían juntar, y ése es
  * justo el caso normal.
  *
- * Aquí no se sube nada y no se le pide nada al servidor. El navegador ya tiene
- * el fichero abierto —lo está reproduciendo para codificar—, así que hace el
- * montaje él mismo:
+ * Aquí no se sube nada y no se le pide nada al servidor.
+ *
+ * ---
+ *
+ * **Hay dos motores, y esta es la puerta de los dos** (`cortaEnElNavegador`,
+ * al final del fichero).
+ *
+ * El bueno es el **rápido**, `lib/coding/rapido.ts`: lee el MP4, saca del
+ * fichero sólo las muestras de cada corte y las pasa por WebCodecs. No
+ * reproduce nada, así que no cuesta lo que dura el vídeo, y sale MP4.
+ *
+ * Lo que queda en este fichero es el **motor de respaldo**, que graba la
+ * pantalla a tiempo real y es lo que se usa cuando el rápido no puede: un
+ * fichero que no es un MP4 legible (un MKV), un códec que este navegador no
+ * descodifica, o un navegador sin WebCodecs. Vale para todo porque no
+ * necesita entender el fichero: le basta con que el navegador lo reproduzca.
+ *
+ * Así es como graba:
  *
  * 1. Se pinta cada fotograma del corte en un `<canvas>`.
  * 2. `canvas.captureStream(0)` convierte ese lienzo en una pista de vídeo —a
@@ -48,11 +63,10 @@
  *
  * ---
  *
- * Dos cosas que hay que saber, y que la pantalla dice:
+ * Dos cosas que hay que saber de este motor, y que la pantalla dice:
  *
  * - **Va a tiempo real.** Se graba lo que se reproduce, así que un montaje de
- *   cuatro minutos tarda cuatro minutos. Tampoco es una pérdida: el corte
- *   `preciso` del servidor iba a ~1× también, porque recodifica.
+ *   cuatro minutos tarda cuatro minutos. Por eso existe el rápido.
  * - **La pestaña tiene que estar delante.** Un navegador congela el pintado de
  *   las pestañas de atrás. Si se cambia de pestaña, esto **para** el vídeo y la
  *   grabación y sigue al volver: el montaje sale entero, sólo tarda más.
@@ -63,6 +77,15 @@
  */
 
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
+import { montaRapido, puedeIrRapido } from "@/lib/coding/rapido";
+import {
+  CORTE_CANCELADO as CANCELADO,
+  montaEscenario,
+  type PantallaMontaje,
+  type ClipNavegador,
+  type PeticionNavegador,
+  type ResultadoNavegador,
+} from "@/lib/coding/pantalla-montaje";
 
 /* ------------------------------------------------------------------ */
 /*  QUÉ SABE GRABAR ESTE NAVEGADOR                                     */
@@ -162,10 +185,18 @@ const UMBRAL_LISTA = 8_000;
 /** Lo que se espera a que arranque antes de bajar a WebM. */
 const PLAZO_LISTA = 9000;
 
-/** Si este navegador puede montar el vídeo sin salir de la máquina. */
+/**
+ * Si este navegador puede montar el vídeo sin salir de la máquina.
+ *
+ * Le vale cualquiera de los dos motores: con WebCodecs se monta aunque no
+ * hubiera grabadora, y con grabadora se monta aunque no haya WebCodecs.
+ */
 export function puedeCortarAqui() {
+  if (typeof window === "undefined") return false;
+
+  if (puedeIrRapido()) return true;
+
   return (
-    typeof window !== "undefined" &&
     typeof HTMLCanvasElement !== "undefined" &&
     typeof HTMLCanvasElement.prototype.captureStream === "function" &&
     formatoDeGrabacion() !== null
@@ -173,59 +204,27 @@ export function puedeCortarAqui() {
 }
 
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
 /*  LO QUE SE LE PIDE                                                  */
 /* ------------------------------------------------------------------ */
 
-/** Una pizarra quemada: el fotograma ya compuesto y lo que dura la parada. */
-export type ParadaNavegador = {
-  /** `data:` URL con el fotograma pintado por `componeEscena`. */
-  imagen: string;
-  /** Desde el principio del clip. */
-  enMs: number;
-  duracionMs: number;
-};
+/*
+| Los tipos y la pantalla viven en `pantalla-montaje`, que es de los dos
+| motores. Se vuelven a exportar aquí porque este módulo sigue siendo la
+| puerta de entrada del montaje para el resto de la aplicación.
+*/
+export type {
+  ClipNavegador,
+  ParadaNavegador,
+  PeticionNavegador,
+  ResultadoNavegador,
+} from "@/lib/coding/pantalla-montaje";
 
-export type ClipNavegador = {
-  /** Nombre del fichero, o ruta dentro del ZIP. **Sin extensión.** */
-  nombre: string;
-  inicioMs: number;
-  finMs: number;
-  paradas?: ParadaNavegador[];
-};
-
-export type PeticionNavegador = {
-  /** El fichero abierto del disco. No se sube: se lee aquí. */
-  fichero: Blob;
-  clips: ClipNavegador[];
-  formato: "clip" | "zip" | "unificado";
-  /** Para la pantalla del montaje: «Castilla - Osasuna Promesas». */
-  titulo?: string;
-  /** La carátula del vídeo unificado, como `data:` URL. */
-  portada?: string | null;
-  portadaSegundos?: number;
-  /** Los fotogramas por segundo de la sesión. */
-  fps?: number;
-};
-
-export type ResultadoNavegador = {
-  blob: Blob;
-  /** `mp4`, `webm` o `zip`. */
-  extension: string;
-  /** Con qué contenedor han salido los vídeos de dentro. */
-  contenedor: "mp4" | "webm";
-  conSonido: boolean;
-  /** Lo que ha durado el montaje. */
-  segundos: number;
-};
-
-/** El mensaje del corte cancelado a mano, para no enseñarlo como un error. */
-export const CORTE_CANCELADO = "coding: montaje cancelado";
+export { CORTE_CANCELADO } from "@/lib/coding/pantalla-montaje";
 
 /* ------------------------------------------------------------------ */
 /*  HERRAMIENTAS                                                       */
 /* ------------------------------------------------------------------ */
-
-const ORO = "#C8A96B";
 
 /** El ancho máximo del montaje: un 4K a tiempo real no lo aguanta nadie. */
 const TOPE_ANCHO = 1920;
@@ -349,180 +348,6 @@ const reloj = (segundos: number) => {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 };
 
-/* ------------------------------------------------------------------ */
-/*  LA PANTALLA DEL MONTAJE                                            */
-/* ------------------------------------------------------------------ */
-
-/*
-| Se monta a mano y no con React a propósito.
-|
-| Tiene que seguir viva durante todo el montaje pase lo que pase con los
-| renders de la página, y sobre todo el `<video>` tiene que estar **en
-| pantalla**: un vídeo que no se ve no se descodifica igual, y lo que se graba
-| es lo que se descodifica. De paso hace de puerta: mientras se monta, las
-| teclas del coding no llegan a la página de detrás.
-*/
-function montaEscenario(titulo: string) {
-  /*
-  | El vídeo de la pantalla de detrás se para.
-  |
-  | Componer las pizarras lo deja como estaba —y eso puede ser reproduciendo—,
-  | y dos partidos sonando a la vez mientras se graba no hay quien lo aguante.
-  */
-  for (const otro of document.querySelectorAll("video")) {
-    if (!otro.paused) otro.pause();
-  }
-
-  const raiz = document.createElement("div");
-
-  raiz.setAttribute("role", "dialog");
-  raiz.setAttribute("aria-label", "Montando el vídeo");
-
-  Object.assign(raiz.style, {
-    position: "fixed",
-    inset: "0",
-    zIndex: "2147483000",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    padding: "24px",
-    background: "rgba(8,11,15,0.97)",
-    color: "#fff",
-    font: "13px/1.5 system-ui, -apple-system, Segoe UI, sans-serif",
-  });
-
-  const encabezado = document.createElement("div");
-
-  encabezado.style.cssText =
-    "text-align:center;letter-spacing:.16em;text-transform:uppercase;" +
-    "font-size:10px;color:rgba(255,255,255,.35)";
-
-  encabezado.textContent = titulo;
-
-  const caja = document.createElement("div");
-
-  caja.style.cssText =
-    "position:relative;width:min(78vw,980px);aspect-ratio:16 / 9;" +
-    "border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1);" +
-    "background:#000";
-
-  const video = document.createElement("video");
-
-  video.preload = "auto";
-  video.playsInline = true;
-  video.controls = false;
-
-  video.style.cssText =
-    "position:absolute;inset:0;width:100%;height:100%;object-fit:contain";
-
-  const lienzo = document.createElement("canvas");
-
-  lienzo.style.cssText =
-    "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000";
-
-  caja.append(video, lienzo);
-
-  const paso = document.createElement("div");
-
-  paso.style.cssText =
-    "text-align:center;font-size:13px;color:rgba(255,255,255,.8)";
-
-  const canal = document.createElement("div");
-
-  canal.style.cssText =
-    "width:min(78vw,980px);height:4px;border-radius:999px;" +
-    "background:rgba(255,255,255,.08);overflow:hidden";
-
-  const barra = document.createElement("div");
-
-  barra.style.cssText = `height:100%;width:0%;background:${ORO};transition:width .25s linear`;
-
-  canal.append(barra);
-
-  const aviso = document.createElement("div");
-
-  aviso.style.cssText =
-    "max-width:640px;text-align:center;font-size:11px;line-height:1.6;" +
-    "color:rgba(255,255,255,.35)";
-
-  aviso.textContent =
-    "Se monta en este ordenador, a tiempo real: el partido no se sube a " +
-    "ningún sitio. Deja esta pestaña delante —si te vas a otra, el montaje se " +
-    "para y sigue al volver— y no cierres la ventana.";
-
-  const cancelar = document.createElement("button");
-
-  cancelar.type = "button";
-  cancelar.textContent = "Cancelar";
-
-  cancelar.style.cssText =
-    "border:1px solid rgba(255,255,255,.15);background:transparent;" +
-    "color:rgba(255,255,255,.7);border-radius:999px;padding:7px 18px;" +
-    "font-size:12px;cursor:pointer";
-
-  let cancelado = false;
-
-  const cancela = () => {
-    cancelado = true;
-
-    cancelar.textContent = "Cancelando…";
-    cancelar.disabled = true;
-  };
-
-  cancelar.addEventListener("click", cancela);
-
-  /*
-  | Mientras se monta, el teclado es de esta pantalla.
-  |
-  | La del coding escucha en `window`: sin esto, una tecla suelta durante los
-  | cuatro minutos del montaje elegiría un jugador o abriría un clip a medias
-  | por detrás.
-  */
-  const teclas = (evento: KeyboardEvent) => {
-    evento.stopPropagation();
-
-    if (evento.key === "Escape") {
-      evento.preventDefault();
-      cancela();
-    }
-  };
-
-  window.addEventListener("keydown", teclas, true);
-
-  raiz.append(encabezado, caja, paso, canal, aviso, cancelar);
-
-  document.body.append(raiz);
-
-  return {
-    video,
-    lienzo,
-
-    cancelado: () => cancelado,
-
-    /** La medida real del vídeo, para que la caja no deforme la vista. */
-    encaja: (ancho: number, alto: number) => {
-      caja.style.aspectRatio = `${ancho} / ${alto}`;
-    },
-
-    dice: (texto: string, fraccion: number) => {
-      paso.textContent = texto;
-
-      barra.style.width = `${Math.min(100, Math.max(0, fraccion * 100)).toFixed(1)}%`;
-    },
-
-    cierra: () => {
-      window.removeEventListener("keydown", teclas, true);
-
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-
-      raiz.remove();
-    },
-  };
-}
 
 /* ------------------------------------------------------------------ */
 /*  EL MONTAJE                                                         */
@@ -535,8 +360,18 @@ type ParadaLista = {
   duracionMs: number;
 };
 
-export async function cortaEnElNavegador(
+/**
+ * El montaje grabando la pantalla, a tiempo real.
+ *
+ * Es el camino de respaldo desde el 29/08/2026: sólo se usa cuando el rápido
+ * (`lib/coding/rapido.ts`) dice que no puede con este fichero o con este
+ * navegador. Sigue entero porque es el único que funciona en cualquier sitio:
+ * no le hace falta saber leer el fichero, le basta con que el navegador sepa
+ * reproducirlo.
+ */
+async function montaATiempoReal(
   peticion: PeticionNavegador,
+  escenario: PantallaMontaje,
 ): Promise<ResultadoNavegador> {
   const elMejor = formatoDeGrabacion();
 
@@ -556,7 +391,13 @@ export async function cortaEnElNavegador(
 
   const arranqueTotal = Date.now();
 
-  const escenario = montaEscenario(peticion.titulo ?? "Montando el vídeo");
+  escenario.enseñaVideo(true);
+
+  escenario.explica(
+    "Se monta en este ordenador, a tiempo real: el partido no se sube a " +
+      "ningún sitio. Deja esta pestaña delante —si te vas a otra, el montaje " +
+      "se para y sigue al volver— y no cierres la ventana.",
+  );
 
   const url = URL.createObjectURL(peticion.fichero);
 
@@ -890,7 +731,7 @@ export async function cortaEnElNavegador(
     };
 
     const paraSiCancelan = () => {
-      if (escenario.cancelado()) throw new Error(CORTE_CANCELADO);
+      if (escenario.cancelado()) throw new Error(CANCELADO);
     };
 
     /* --------------------------------- la grabadora que graba de verdad */
@@ -1284,8 +1125,55 @@ export async function cortaEnElNavegador(
 
     cierraMezcla?.();
 
-    escenario.cierra();
-
     URL.revokeObjectURL(url);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA PUERTA                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Monta el vídeo aquí, con el motor que mejor le venga a este fichero.
+ *
+ * Primero el rápido, que lee el MP4 y trabaja con WebCodecs sin reproducir
+ * nada; si dice que no puede —el fichero no es un MP4 que sepa recorrer, el
+ * códec no le entra, o el navegador no trae WebCodecs—, se graba a tiempo
+ * real, que funciona siempre.
+ *
+ * **Y si el rápido se rompe a mitad, también se cae al de siempre.** Cuesta
+ * unos minutos de más, pero el analista se lleva su vídeo: quedarse sin nada
+ * después de esperar es lo único que no se puede permitir.
+ */
+export async function cortaEnElNavegador(
+  peticion: PeticionNavegador,
+): Promise<ResultadoNavegador> {
+  const clips = peticion.clips.filter((clip) => clip.finMs > clip.inicioMs);
+
+  if (clips.length === 0) throw new Error("No hay clips que exportar.");
+
+  const escenario = montaEscenario(peticion.titulo ?? "Montando el vídeo");
+
+  try {
+    if (puedeIrRapido()) {
+      escenario.dice("Abriendo el partido", 0);
+
+      try {
+        const rapido = await montaRapido(peticion, escenario);
+
+        if (rapido) return rapido;
+      } catch (error) {
+        if (error instanceof Error && error.message === CANCELADO) throw error;
+
+        console.warn(
+          "[coding] el montaje rápido no ha podido; se graba a tiempo real",
+          error,
+        );
+      }
+    }
+
+    return await montaATiempoReal(peticion, escenario);
+  } finally {
+    escenario.cierra();
   }
 }

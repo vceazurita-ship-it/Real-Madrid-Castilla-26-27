@@ -259,12 +259,41 @@ function vePorElFotograma(video: HTMLVideoElement, segundos: number) {
       listo(valor);
     };
 
-    const llegada = () => acaba(true);
+    /*
+    | Que haya llegado la búsqueda no quiere decir que haya imagen.
+    |
+    | `drawImage` de un vídeo sin fotograma **no pinta nada y no falla**: deja
+    | el lienzo como estaba. Componer ahí daba una pizarra con el fotograma de
+    | antes o —recién abierto el vídeo— con nada debajo del dibujo.
+    | `requestVideoFrameCallback` avisa cuando el fotograma es de verdad; con
+    | su propio plazo corto, porque un vídeo parado en el sitio no vuelve a
+    | dar ninguno y eso también vale.
+    */
+    const conFotograma = video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (fn: () => void) => number;
+    };
+
+    const llegada = () => {
+      if (typeof conFotograma.requestVideoFrameCallback !== "function") {
+        acaba(true);
+        return;
+      }
+
+      const corto = setTimeout(() => acaba(true), 400);
+
+      conFotograma.requestVideoFrameCallback(() => {
+        clearTimeout(corto);
+        acaba(true);
+      });
+    };
 
     const plazo = setTimeout(() => acaba(false), 5000);
 
     video.addEventListener("seeked", llegada);
-    video.currentTime = segundos;
+
+    /* Ya está ahí: no habría `seeked` y la espera se comería cinco segundos. */
+    if (Math.abs(video.currentTime - segundos) < 0.001) llegada();
+    else video.currentTime = segundos;
   });
 }
 

@@ -210,7 +210,11 @@ export function useExportador(opciones: {
         toast.success("Vídeo listo", {
           description: `${nombre} · ${megas(resultado.blob.size)} · ${reloj(
             resultado.segundos,
-          )}${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
+          )}${
+            resultado.vecesReal && resultado.vecesReal >= 1.5
+              ? ` · ×${resultado.vecesReal} más rápido que el vídeo`
+              : ""
+          }${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
         });
       } catch (error) {
         if (error instanceof Error && error.message === CORTE_CANCELADO) {
@@ -681,11 +685,12 @@ export function BarraExportacion({
         <p className="rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2 text-[11px] leading-relaxed text-white/55">
           <span className="text-[#C8A96B]">Se monta aquí, en tu navegador.</span>{" "}
           El partido no se sube a ningún sitio: sale del fichero que tienes
-          abierto. Va a tiempo real —unos {formateaTotal(total)} de grabación—,
-          se ve mientras se hace y se puede cancelar. Deja la pestaña delante:
-          si te vas a otra, se para y sigue al volver. Sale en{" "}
-          <span className="text-white/75">.webm</span>, con sonido: se abre en
-          Chrome, en Edge, en VLC y en Windows.
+          abierto. Sale en <span className="text-white/75">.mp4</span> con
+          sonido, a la calidad y a los fotogramas del partido, y tarda bastante
+          menos de lo que dura el vídeo —no hay que reproducirlo—. Se ve
+          mientras se hace y se puede cancelar. Si el fichero no se deja leer
+          así (un .mkv, un códec raro), se graba a tiempo real: {formateaTotal(total)}
+          , y entonces sale en .webm.
         </p>
       ) : (
       <div className="flex flex-wrap items-center gap-2">
