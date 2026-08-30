@@ -54,6 +54,7 @@ import {
   Droplet,
   Eraser,
   Flag,
+  Layers,
   Lightbulb,
   Maximize2,
   Minus,
@@ -90,7 +91,14 @@ import {
   type PuntoTel,
   type TipoDibujo,
 } from "@/lib/coding/telestracion";
-import { formateaMs } from "@/lib/coding/modelo";
+import {
+  duracionClip,
+  formateaDuracion,
+  formateaMs,
+  type CategoriaCoding,
+  type ClipCoding,
+} from "@/lib/coding/modelo";
+import { Button, Dialog } from "@/components/abp/ui";
 import { FAMILIA_PORTADA, esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 /* ================================================================== */
@@ -1512,6 +1520,7 @@ export function FilaPizarra({
   activa,
   alAbrir,
   alEditar,
+  alRepartir,
   alBorrar,
 }: {
   escena: EscenaTel;
@@ -1519,9 +1528,13 @@ export function FilaPizarra({
   activa: boolean;
   alAbrir: () => void;
   alEditar: () => void;
+  /** Abre el reparto de esta pizarra entre varios cortes. */
+  alRepartir?: () => void;
   alBorrar: () => void;
 }) {
   const nombre = escena.nombre.trim() || `Pizarra ${indice + 1}`;
+
+  const reutilizada = escena.clipIds?.length ?? 0;
 
   return (
     <div
@@ -1564,6 +1577,27 @@ export function FilaPizarra({
         <PenTool size={13} />
       </button>
 
+      {alRepartir && (
+        <button
+          type="button"
+          onClick={alRepartir}
+          title={
+            reutilizada > 0
+              ? `Se reutiliza en ${reutilizada} ${reutilizada === 1 ? "corte" : "cortes"} más`
+              : "Usar esta pizarra en otros cortes"
+          }
+          aria-label="Usar esta pizarra en otros cortes"
+          className={`flex items-center gap-0.5 rounded-lg p-1 text-[10px] tabular-nums transition ${
+            reutilizada > 0
+              ? "text-[#C8A96B]"
+              : "text-white/40 hover:text-white"
+          }`}
+        >
+          <Layers size={13} />
+          {reutilizada > 0 && reutilizada}
+        </button>
+      )}
+
       <button
         type="button"
         onClick={alBorrar}
@@ -1574,5 +1608,140 @@ export function FilaPizarra({
         <Trash2 size={13} />
       </button>
     </div>
+  );
+}
+
+/* ================================================================== */
+/*  UNA PIZARRA EN VARIOS CORTES                                       */
+/* ================================================================== */
+
+/**
+ * Elegir en qué cortes se reutiliza una pizarra.
+ *
+ * Una pizarra sale sola en el corte que la contiene en el tiempo, y eso no se
+ * toca: aquí se marcan **los demás**. El caso de verdad es el dibujo que
+ * explica un concepto —cómo había que estar perfilado, dónde estaba el hueco—
+ * y vale para las tres veces que pasó lo mismo; volver a pintarlo en cada
+ * corte era el trabajo que esto se ahorra.
+ *
+ * En un corte reutilizado la pizarra se cuela **al principio**, antes de la
+ * acción: lo que se quema es el fotograma de donde se pintó, y meterlo a
+ * mitad de otra jugada la partiría por donde no toca.
+ */
+export function ReutilizaPizarra({
+  escena,
+  nombre,
+  clips,
+  categorias,
+  onGuardar,
+  onCerrar,
+}: {
+  escena: EscenaTel;
+  nombre: string;
+  /** Todos los cortes de la sesión, en el orden en el que van a salir. */
+  clips: ClipCoding[];
+  categorias: CategoriaCoding[];
+  onGuardar: (clipIds: string[]) => void;
+  onCerrar: () => void;
+}) {
+  const [elegidos, setElegidos] = useState<string[]>(escena.clipIds ?? []);
+
+  /** ¿Este corte ya la enseña por su instante? Entonces no se puede quitar. */
+  const suyo = (clip: ClipCoding) =>
+    escena.tMs >= clip.inicioMs && escena.tMs <= clip.finMs;
+
+  const alterna = (id: string) =>
+    setElegidos((actual) =>
+      actual.includes(id)
+        ? actual.filter((uno) => uno !== id)
+        : [...actual, id],
+    );
+
+  return (
+    <Dialog
+      title={`«${nombre}» en otros cortes`}
+      subtitle="Sale al principio de cada corte que marques, antes de la acción"
+      onClose={onCerrar}
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-white/35">
+            {elegidos.length === 0
+              ? "Sólo donde cae por tiempo"
+              : `${elegidos.length} ${elegidos.length === 1 ? "corte más" : "cortes más"}`}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <Button onClick={onCerrar}>Cancelar</Button>
+
+            <Button tone="primary" onClick={() => onGuardar(elegidos)}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      {clips.length === 0 ? (
+        <p className="py-6 text-center text-xs text-white/30">
+          Todavía no hay cortes donde ponerla.
+        </p>
+      ) : (
+        <div className="max-h-[50vh] min-w-0 space-y-1 overflow-y-auto pr-1">
+          {clips.map((clip) => {
+            const propio = suyo(clip);
+            const marcado = propio || elegidos.includes(clip.id);
+
+            const categoria = categorias.find(
+              (una) => una.id === clip.categoriaId,
+            );
+
+            return (
+              <button
+                key={clip.id}
+                type="button"
+                disabled={propio}
+                onClick={() => alterna(clip.id)}
+                className={`flex w-full min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition ${
+                  marcado
+                    ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
+                    : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                } ${propio ? "cursor-default opacity-70" : ""}`}
+              >
+                <span
+                  aria-hidden
+                  className={`grid h-4 w-4 shrink-0 place-items-center rounded border text-[10px] ${
+                    marcado
+                      ? "border-[#C8A96B] bg-[#C8A96B]/20 text-[#C8A96B]"
+                      : "border-white/20 text-transparent"
+                  }`}
+                >
+                  ✓
+                </span>
+
+                <span className="shrink-0 font-mono text-[11px] tabular-nums text-white/35">
+                  {String(clip.numero).padStart(3, "0")}
+                </span>
+
+                <span className="min-w-0 flex-1 truncate text-[12px] text-white/80">
+                  {clip.jugadorNombre}
+                  {categoria && (
+                    <span className="text-white/35"> · {categoria.nombre}</span>
+                  )}
+                </span>
+
+                <span className="shrink-0 text-[10px] tabular-nums text-white/30">
+                  {formateaMs(clip.inicioMs)} · {formateaDuracion(duracionClip(clip))}
+                </span>
+
+                {propio && (
+                  <span className="shrink-0 rounded-full bg-white/[0.08] px-1.5 text-[9px] uppercase tracking-[0.12em] text-white/40">
+                    Sale sola
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Dialog>
   );
 }

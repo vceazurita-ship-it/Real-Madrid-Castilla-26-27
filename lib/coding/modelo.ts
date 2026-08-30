@@ -485,6 +485,72 @@ export function recalculaClip(
 }
 
 /* ------------------------------------------------------------------ */
+/*  EL ORDEN                                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+| **El orden de la lista es el orden del vídeo.** No hay un campo `orden`.
+|
+| Los clips salen en el vídeo unificado, en el ZIP y en «reproducir todos» en
+| el orden en que están en el array, que hasta ahora era el de creación —o sea,
+| el del partido—. Para montar una charla eso no vale: se quiere empezar por el
+| gol, agrupar los tres pases largos y dejar el error del final para el final.
+|
+| Se mueve el array y ya está, en vez de añadir un número de orden, porque un
+| número hay que mantenerlo al borrar, al duplicar y al filtrar, y porque el
+| array **ya** era el orden: lo único que faltaba era poder tocarlo.
+|
+| `numero` no se toca: es el nombre del fichero que se exporta y tiene que
+| seguir siendo el mismo clip después de reordenar.
+*/
+
+/**
+ * Mueve un clip justo antes o después de otro.
+ *
+ * Va por ids y no por posiciones a propósito: la lista que se ve en pantalla
+ * está filtrada, así que la posición de la fila no es la posición en la
+ * sesión. Con los dos ids, arrastrar sobre un vecino visible hace lo que
+ * parece aunque en medio haya veinte clips escondidos por el filtro.
+ */
+export function mueveClip(
+  clips: ClipCoding[],
+  id: string,
+  destinoId: string,
+  donde: "antes" | "despues",
+): ClipCoding[] {
+  if (id === destinoId) return clips;
+
+  const movido = clips.find((clip) => clip.id === id);
+
+  if (!movido) return clips;
+
+  const resto = clips.filter((clip) => clip.id !== id);
+
+  const posicion = resto.findIndex((clip) => clip.id === destinoId);
+
+  if (posicion < 0) return clips;
+
+  const corte = donde === "antes" ? posicion : posicion + 1;
+
+  return [...resto.slice(0, corte), movido, ...resto.slice(corte)];
+}
+
+/** Devuelve la lista al orden del partido: es la vuelta atrás de reordenar. */
+export function ordenaPorTiempo(clips: ClipCoding[]): ClipCoding[] {
+  return [...clips].sort(
+    (a, b) => a.codingInicioMs - b.codingInicioMs || a.numero - b.numero,
+  );
+}
+
+/** ¿Está la lista en el orden del partido? Sirve para no ofrecer lo ya hecho. */
+export function enOrdenDePartido(clips: ClipCoding[]) {
+  return clips.every(
+    (clip, indice) =>
+      indice === 0 || clips[indice - 1].codingInicioMs <= clip.codingInicioMs,
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  NOMBRES DE FICHERO                                                 */
 /* ------------------------------------------------------------------ */
 

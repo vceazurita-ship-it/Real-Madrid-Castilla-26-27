@@ -7,7 +7,9 @@ import {
   TIPO_CODING,
   claveSesion,
   creaClip,
+  mueveClip,
   normalizaSesion,
+  ordenaPorTiempo,
   problemaDeClip,
   recalculaClip,
   sesionVacia,
@@ -174,6 +176,32 @@ export function useSesionCoding(opciones: {
     [muta, siguienteNumero],
   );
 
+  /* ------------------------------------------------------------ orden */
+
+  /*
+  | Reordenar entra en el deshacer de los clips, como borrar o duplicar.
+  |
+  | Un arrastre que cae donde no era es exactamente el fallo que el
+  | `Backspace` tiene que poder retirar: mover una fila no es «ver» la lista de
+  | otra forma, es cambiar el vídeo que va a salir.
+  */
+  const mueveClipA = useCallback(
+    (id: string, destinoId: string, donde: "antes" | "despues") => {
+      muta(
+        (actual) => ({
+          ...actual,
+          clips: mueveClip(actual.clips, id, destinoId, donde),
+        }),
+        true,
+      );
+    },
+    [muta],
+  );
+
+  const ordenaClipsPorTiempo = useCallback(() => {
+    muta((actual) => ({ ...actual, clips: ordenaPorTiempo(actual.clips) }), true);
+  }, [muta]);
+
   const deshacer = useCallback(() => {
     const anterior = historial.current[historial.current.length - 1];
 
@@ -208,6 +236,27 @@ export function useSesionCoding(opciones: {
             : [...actual.escenas, escena].sort((a, b) => a.tMs - b.tMs),
         };
       });
+    },
+    [muta],
+  );
+
+  /**
+   * En qué cortes se reutiliza una pizarra, además de en el suyo.
+   *
+   * Se guarda en la escena y no en el clip porque la pizarra es lo que se
+   * reparte: borrar un corte no puede llevarse por delante el dibujo, que es
+   * la misma razón por la que las escenas viven en la sesión y no en el clip.
+   */
+  const ponClipsDeEscena = useCallback(
+    (escenaId: string, clipIds: string[]) => {
+      muta((actual) => ({
+        ...actual,
+        escenas: actual.escenas.map((una) =>
+          una.id === escenaId
+            ? { ...una, clipIds: clipIds.length > 0 ? clipIds : undefined }
+            : una,
+        ),
+      }));
     },
     [muta],
   );
@@ -260,8 +309,11 @@ export function useSesionCoding(opciones: {
     actualizaClip,
     borraClip,
     duplicaClip,
+    mueveClipA,
+    ordenaClipsPorTiempo,
     deshacer,
     guardaEscena,
+    ponClipsDeEscena,
     borraEscena,
     ponFuente,
     ponAjustes,

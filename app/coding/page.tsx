@@ -32,6 +32,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowDownWideNarrow,
   BookOpen,
   Eye,
   EyeOff,
@@ -62,6 +63,8 @@ import {
 import { ConfiguraCoding } from "@/components/coding/ConfiguraCoding";
 import {
   BarraExportacion,
+  CARATULA_POR_JUGADOR,
+  SEGUNDOS_CARATULA,
   useExportador,
   type ModoCorteUI,
   type ParadaDeClip,
@@ -76,7 +79,11 @@ import {
   TablaResumen,
   Tecla,
 } from "@/components/coding/piezas";
-import { FilaPizarra, PizarraVideo } from "@/components/coding/PizarraVideo";
+import {
+  FilaPizarra,
+  PizarraVideo,
+  ReutilizaPizarra,
+} from "@/components/coding/PizarraVideo";
 import { SelectorFuente } from "@/components/coding/SelectorFuente";
 import {
   AVISOS_YOUTUBE,
@@ -97,6 +104,7 @@ import {
   TIPO_CODING,
   apodoCoding,
   duracionClip,
+  enOrdenDePartido,
   formateaMs,
   formateaTotal,
   normalizaConfig,
@@ -644,6 +652,9 @@ function Coding() {
   | coding se apaga entero (`hayModal`): la `f` es el foco, no un jugador.
   */
   const [pizarraEditando, setPizarraEditando] = useState<string | null>(null);
+
+  /* La pizarra que se está repartiendo entre cortes, si es que hay alguna. */
+  const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
   const [pizarraVisible, setPizarraVisible] = useState(true);
 
   const escenas = sesion.sesion.escenas;
@@ -659,6 +670,13 @@ function Coding() {
       ),
     [clips, filtroCategoria, filtroSujeto],
   );
+
+  /* ¿Sigue la lista en el orden en el que ocurrió el partido? */
+  const ordenDePartido = useMemo(() => enOrdenDePartido(clips), [clips]);
+
+  /* La pizarra del diálogo de reparto, ya resuelta contra la sesión. */
+  const escenaRepartida =
+    escenas.find((una) => una.id === pizarraRepartida) ?? null;
 
   /*
   | Las cuentas de cada panel, separadas por tipo de sujeto.
@@ -1171,12 +1189,27 @@ function Coding() {
   */
   const [quemaPizarras, setQuemaPizarras] = useState(true);
 
+  /*
+  | Una pizarra sale en su corte **y en los que se le hayan repartido**.
+  |
+  | Lo primero es de siempre: la pizarra cae dentro del corte por el tiempo.
+  | Lo segundo es poder reutilizarla —el dibujo que explica cómo había que
+  | estar perfilado vale para las tres veces que pasó—, y ahí no hay instante
+  | que valga: se cuela al principio del corte, antes de la acción.
+  */
+  const caeDentro = useCallback(
+    (escena: EscenaTel, clip: ClipCoding) =>
+      escena.tMs >= clip.inicioMs && escena.tMs <= clip.finMs,
+    [],
+  );
+
   const escenasDeClip = useCallback(
     (clip: ClipCoding) =>
       escenas.filter(
-        (escena) => escena.tMs >= clip.inicioMs && escena.tMs <= clip.finMs,
+        (escena) =>
+          caeDentro(escena, clip) || escena.clipIds?.includes(clip.id),
       ),
-    [escenas],
+    [caeDentro, escenas],
   );
 
   /* Cuántas pizarras se van a quemar con lo que hay elegido ahora. */
@@ -1239,7 +1272,10 @@ function Coding() {
           .filter((escena) => pngs.has(escena.id))
           .map((escena) => ({
             imagen: pngs.get(escena.id)!,
-            enMs: Math.max(0, escena.tMs - clip.inicioMs),
+            /* La reutilizada no tiene instante aquí: va delante de la acción. */
+            enMs: caeDentro(escena, clip)
+              ? Math.max(0, escena.tMs - clip.inicioMs)
+              : 0,
             duracionMs: Math.max(
               500,
               escena.congelada && escena.pausaMs > 0
@@ -1253,7 +1289,7 @@ function Coding() {
 
       return porClip;
     },
-    [escenas, escenasDeClip, quemaPizarras],
+    [caeDentro, escenas, escenasDeClip, quemaPizarras],
   );
 
   /*
@@ -1293,20 +1329,31 @@ function Coding() {
 
   const [caratulaPedida, setCaratulaPedida] = useState<string | null>(null);
 
+  /*
+  | «Una por jugador» sólo tiene sentido con más de uno dentro.
+  |
+  | Es el caso del vídeo de una charla: los cortes van seguidos y cada bloque
+  | de jugador abre con su diapositiva, igual que el vídeo entero abre con la
+  | del primero. Con un solo sujeto sería la carátula de siempre con otro
+  | nombre, así que ni se ofrece.
+  */
+  const cabePorJugador = sujetosDeClips.length > 1;
+
   /* Lo pedido manda, pero sólo mientras siga estando entre lo exportable: así
      cambiar de filtro no deja la carátula de un jugador que ya no sale. */
   const caratulaSujeto =
     caratulaPedida !== null &&
     (caratulaPedida === "" ||
+      (caratulaPedida === CARATULA_POR_JUGADOR && cabePorJugador) ||
       sujetosDeClips.some((uno) => uno.id === caratulaPedida))
       ? caratulaPedida
       : caratulaPorDefecto;
 
-  const construyeCaratula = useCallback(async () => {
-    if (!caratulaSujeto) return null;
+  const caratulaDe = useCallback(async (sujetoId: string) => {
+    if (!sujetoId) return null;
 
-    const jugador = jugadorDe(caratulaSujeto);
-    const comportamiento = jugador ? null : comportamientoDe(caratulaSujeto);
+    const jugador = jugadorDe(sujetoId);
+    const comportamiento = jugador ? null : comportamientoDe(sujetoId);
 
     /*
     | El vídeo de un comportamiento colectivo también se abre con la carátula
@@ -1317,7 +1364,7 @@ function Coding() {
     const nombre =
       jugador?.nombre ??
       comportamiento?.nombre ??
-      sujetosDeClips.find((uno) => uno.id === caratulaSujeto)?.nombre ??
+      sujetosDeClips.find((uno) => uno.id === sujetoId)?.nombre ??
       "";
 
     if (!nombre) return null;
@@ -1334,7 +1381,6 @@ function Coding() {
     });
   }, [
     ambito,
-    caratulaSujeto,
     comportamientoDe,
     escudoDe,
     jugadorDe,
@@ -1343,11 +1389,65 @@ function Coding() {
     titulo,
   ]);
 
+  /**
+   * Las carátulas de una exportación: la de delante y las de dentro.
+   *
+   * Con un sujeto elegido es la de siempre: una diapositiva y al primer corte.
+   * Con «una por jugador» hay una por cada bloque —los cortes salen agrupados
+   * por quién es—: la del primero abre el vídeo y las demás se cuelan **como
+   * una pizarra más** al principio de su primer corte. No hace falta que los
+   * motores sepan nada nuevo: una parada en el milisegundo cero de un corte ya
+   * es exactamente eso, y funciona igual en los dos del navegador y en ffmpeg.
+   */
+  const construyeCaratulas = useCallback(
+    async (lista: ClipCoding[]) => {
+      if (!caratulaSujeto) return { portada: null as string | null, dentro: [] };
+
+      if (caratulaSujeto !== CARATULA_POR_JUGADOR) {
+        return { portada: await caratulaDe(caratulaSujeto), dentro: [] };
+      }
+
+      /* Cada sujeto, con el primer corte suyo que sale en el vídeo. */
+      const primeros = new Map<string, ClipCoding>();
+
+      for (const clip of lista) {
+        if (!primeros.has(clip.jugadorId)) primeros.set(clip.jugadorId, clip);
+      }
+
+      const dentro: { clipId: string; imagen: string }[] = [];
+
+      let portada: string | null = null;
+      let faltan = 0;
+
+      for (const [sujetoId, clip] of primeros) {
+        const imagen = await caratulaDe(sujetoId);
+
+        if (!imagen) {
+          faltan += 1;
+          continue;
+        }
+
+        if (portada === null && clip === lista[0]) portada = imagen;
+        else dentro.push({ clipId: clip.id, imagen });
+      }
+
+      return { portada, dentro, faltan };
+    },
+    [caratulaDe, caratulaSujeto],
+  );
+
   /* La vista previa: se pinta al pedirla y se queda hasta que se cierra. */
   const [caratulaVista, setCaratulaVista] = useState<string | null>(null);
 
   const verCaratula = useCallback(async () => {
-    const png = await construyeCaratula();
+    /* Con «una por jugador» se enseña la del primero: son todas la misma
+       plantilla, y lo que se comprueba es que la plantilla sale bien. */
+    const cual =
+      caratulaSujeto === CARATULA_POR_JUGADOR
+        ? (sujetosDeClips[0]?.id ?? "")
+        : caratulaSujeto;
+
+    const png = await caratulaDe(cual);
 
     if (!png) {
       toast.error("No se ha podido pintar la carátula.");
@@ -1355,7 +1455,7 @@ function Coding() {
     }
 
     setCaratulaVista(png);
-  }, [construyeCaratula]);
+  }, [caratulaDe, caratulaSujeto, sujetosDeClips]);
 
   const exportaUnificado = useCallback(async () => {
     /*
@@ -1369,7 +1469,7 @@ function Coding() {
       ? toast.loading("Montando la carátula del vídeo…")
       : null;
 
-    const portada = await construyeCaratula();
+    const { portada, dentro, faltan } = await construyeCaratulas(clipsFiltrados);
 
     if (aviso) toast.dismiss(aviso);
 
@@ -1382,7 +1482,7 @@ function Coding() {
     | dos motores la meten siempre que les llega; cuando no sale es porque no
     | se pudo pintar y este aviso fue lo único que lo dijo.
     */
-    if (caratulaSujeto && !portada) {
+    if (caratulaSujeto && !portada && dentro.length === 0) {
       toast.warning("El vídeo va a salir SIN carátula", {
         duration: Infinity,
         closeButton: true,
@@ -1391,6 +1491,34 @@ function Coding() {
           "montaje sigue: si la quieres, cancélalo, dale a «Ver» para " +
           "comprobarla y vuelve a exportar.",
       });
+    } else if (faltan) {
+      toast.warning(
+        `${faltan} ${faltan === 1 ? "jugador se queda" : "jugadores se quedan"} sin carátula`,
+        {
+          duration: Infinity,
+          closeButton: true,
+          description:
+            "El resto sí la lleva. Suele ser una foto que no ha cargado; el " +
+            "montaje sigue igual.",
+        },
+      );
+    }
+
+    /*
+    | Las carátulas de dentro se mezclan con las pizarras **después** de
+    | componerlas, y a propósito por delante de las de su corte: primero se ve
+    | de quién es el bloque y luego el análisis que llevara ese primer corte.
+    |
+    | Y van aunque las pizarras estén en «Fuera»: apagar las pizarras es no
+    | quemar los dibujos, no renunciar a las diapositivas que se han pedido.
+    */
+    const paradas = await componePizarras(clipsFiltrados);
+
+    for (const { clipId, imagen } of dentro) {
+      paradas.set(clipId, [
+        { imagen, enMs: 0, duracionMs: SEGUNDOS_CARATULA * 1000 },
+        ...(paradas.get(clipId) ?? []),
+      ]);
     }
 
     await exporta({
@@ -1398,13 +1526,13 @@ function Coding() {
       formato: "unificado",
       nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
       portada,
-      paradas: await componePizarras(clipsFiltrados),
+      paradas,
     });
   }, [
     caratulaSujeto,
     clipsFiltrados,
     componePizarras,
-    construyeCaratula,
+    construyeCaratulas,
     etiquetaFiltro,
     exporta,
     titulo,
@@ -1418,7 +1546,11 @@ function Coding() {
   | Sin esto, elegir el foco con la `f` seleccionaría además al jugador que
   | tenga esa tecla, y la `o` de «fuera de juego» cerraría un clip a medias.
   */
-  const hayModal = ajustes || editando !== null || pizarraEditando !== null;
+  const hayModal =
+    ajustes ||
+    editando !== null ||
+    pizarraEditando !== null ||
+    pizarraRepartida !== null;
 
   useEffect(() => {
     if (hayModal) return;
@@ -1998,7 +2130,7 @@ function Coding() {
 
                 <Panel
                   title="Clips"
-                  subtitle={`${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro}`}
+                  subtitle={`${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · el orden de la lista es el del vídeo`}
                   icon={ListVideo}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -2010,6 +2142,26 @@ function Coding() {
                           }}
                         >
                           Quitar filtros
+                        </Button>
+                      )}
+
+                      {/*
+                      | La vuelta atrás del reordenar.
+                      |
+                      | Sólo aparece cuando la lista ya no está en el orden del
+                      | partido: en un coding recién hecho sería un botón que no
+                      | hace nada.
+                      */}
+                      {!ordenDePartido && (
+                        <Button
+                          icon={ArrowDownWideNarrow}
+                          onClick={() => {
+                            sesion.ordenaClipsPorTiempo();
+                            toast.success("Clips en el orden del partido");
+                          }}
+                          title="Deshacer el orden a mano y volver al del partido"
+                        >
+                          Ordenar por tiempo
                         </Button>
                       )}
 
@@ -2083,6 +2235,8 @@ function Coding() {
                           paradas: await componePizarras([clip]),
                         }))()
                     }
+                    onMover={sesion.mueveClipA}
+                    pizarrasDe={(clip) => escenasDeClip(clip).length}
                     exportando={exportador.exportando}
                   />
                 </Panel>
@@ -2106,6 +2260,7 @@ function Coding() {
                     onModo={setModoCorte}
                     caratula={caratulaSujeto}
                     opcionesCaratula={sujetosDeClips}
+                    cabePorJugador={cabePorJugador}
                     onCaratula={setCaratulaPedida}
                     onVerCaratula={() => void verCaratula()}
                     vistaCaratula={caratulaVista}
@@ -2180,7 +2335,9 @@ function Coding() {
                       Para el vídeo donde quieras explicar algo y pulsa{" "}
                       <b className="text-white/60">Pizarra</b>: focos sobre un
                       jugador, flechas, zonas, mover a alguien a donde tenía que
-                      estar. Lo pintado vuelve a salir solo al pasar por ahí.
+                      estar. Lo pintado vuelve a salir solo al pasar por ahí, y
+                      con <b className="text-white/60">⧉</b> la misma pizarra se
+                      reparte entre los cortes que quieras.
                     </p>
                   ) : (
                     <div className="space-y-1.5">
@@ -2195,6 +2352,11 @@ function Coding() {
                           activa={escena.id === pizarraEditando}
                           alAbrir={() => abreEscena(escena.id, false)}
                           alEditar={() => abreEscena(escena.id, true)}
+                          alRepartir={
+                            clips.length > 0
+                              ? () => setPizarraRepartida(escena.id)
+                              : undefined
+                          }
                           alBorrar={() => {
                             sesion.borraEscena(escena.id);
 
@@ -2543,6 +2705,34 @@ function Coding() {
             setEditando(null);
 
             toast.success("Clip corregido");
+          }}
+        />
+      )}
+
+      {/* ------------------ UNA PIZARRA EN VARIOS CORTES ---------------- */}
+
+      {escenaRepartida && (
+        <ReutilizaPizarra
+          escena={escenaRepartida}
+          nombre={nombreEscena(
+            escenaRepartida,
+            escenas.indexOf(escenaRepartida),
+          )}
+          clips={clips}
+          categorias={config.categorias}
+          onCerrar={() => setPizarraRepartida(null)}
+          onGuardar={(clipIds) => {
+            sesion.ponClipsDeEscena(escenaRepartida.id, clipIds);
+
+            setPizarraRepartida(null);
+
+            toast.success(
+              clipIds.length === 0
+                ? "La pizarra sólo sale donde cae por tiempo"
+                : `La pizarra se reutiliza en ${clipIds.length} ${
+                    clipIds.length === 1 ? "corte" : "cortes"
+                  }`,
+            );
           }}
         />
       )}

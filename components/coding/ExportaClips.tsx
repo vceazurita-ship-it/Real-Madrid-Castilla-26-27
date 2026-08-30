@@ -70,6 +70,17 @@ import {
 
 export type ModoCorteUI = "preciso" | "rapido";
 
+/** Lo que dura una carátula en pantalla. */
+export const SEGUNDOS_CARATULA = 4;
+
+/**
+ * «Una carátula por jugador», en el desplegable de la carátula.
+ *
+ * Es un valor imposible como identificador de sujeto —lleva asteriscos— para
+ * que no pueda chocar con el id de un jugador ni con el de un comportamiento.
+ */
+export const CARATULA_POR_JUGADOR = "*por-jugador*";
+
 /** El vídeo tal y como lo entiende el servidor: una ruta de la carpeta o una URL. */
 type FuenteServidor =
   | { tipo: "url"; url: string }
@@ -207,7 +218,7 @@ export function useExportador(opciones: {
           titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
           formato: peticion.formato,
           portada: peticion.portada ?? null,
-          portadaSegundos: 4,
+          portadaSegundos: SEGUNDOS_CARATULA,
           fps,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
@@ -329,7 +340,7 @@ export function useExportador(opciones: {
           formato: peticion.formato,
           nombre: peticion.nombre,
           portada: imagenes.portada,
-          portadaSegundos: 4,
+          portadaSegundos: SEGUNDOS_CARATULA,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
@@ -539,6 +550,7 @@ export function BarraExportacion({
   onUnificado,
   caratula,
   opcionesCaratula,
+  cabePorJugador = false,
   onCaratula,
   onVerCaratula,
   vistaCaratula,
@@ -560,6 +572,8 @@ export function BarraExportacion({
   /** Id del sujeto de la carátula; `""` es sin carátula. */
   caratula: string;
   opcionesCaratula: { id: string; nombre: string }[];
+  /** Hay más de un sujeto: se puede pedir una carátula para cada uno. */
+  cabePorJugador?: boolean;
   onCaratula: (id: string) => void;
   onVerCaratula: () => void;
   /** La carátula ya pintada, cuando se ha pedido verla. */
@@ -594,8 +608,11 @@ export function BarraExportacion({
 }) {
   const total = clips.reduce((suma, clip) => suma + duracionClip(clip), 0);
 
-  const nombreCaratula =
-    opcionesCaratula.find((uno) => uno.id === caratula)?.nombre ?? "";
+  const porJugador = caratula === CARATULA_POR_JUGADOR;
+
+  const nombreCaratula = porJugador
+    ? "cada jugador"
+    : (opcionesCaratula.find((uno) => uno.id === caratula)?.nombre ?? "");
 
   return (
     <div className="min-w-0 space-y-3">
@@ -676,6 +693,13 @@ export function BarraExportacion({
         >
           <option value="">Sin carátula</option>
 
+          {/* Con un solo sujeto no se ofrece: sería la de siempre con otro nombre. */}
+          {cabePorJugador && (
+            <option value={CARATULA_POR_JUGADOR}>
+              Una por jugador ({opcionesCaratula.length})
+            </option>
+          )}
+
           {opcionesCaratula.map((uno) => (
             <option key={uno.id} value={uno.id}>
               {uno.nombre}
@@ -693,9 +717,11 @@ export function BarraExportacion({
         </Button>
 
         <span className="text-[11px] text-white/35">
-          {caratula
-            ? "Abre el vídeo unificado, 4 s, con la plantilla del club"
-            : "El vídeo empieza directo en el primer corte"}
+          {porJugador
+            ? `Cada bloque abre con la suya, ${SEGUNDOS_CARATULA} s · «Ver» enseña la del primero`
+            : caratula
+              ? `Abre el vídeo unificado, ${SEGUNDOS_CARATULA} s, con la plantilla del club`
+              : "El vídeo empieza directo en el primer corte"}
         </span>
       </div>
 

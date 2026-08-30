@@ -277,6 +277,13 @@ export async function dameListas(acceso: string) {
  * Google contesta con una `Location` que ya lleva la autorización dentro y
  * caduca sola, así que se le puede dar al navegador sin enseñarle ningún
  * token. A partir de ahí es un `PUT` con el fichero y nada más.
+ *
+ * **`origen` no es un adorno.** La sesión hereda el permiso de origen cruzado
+ * de la petición que la abre, y ésta la abre el servidor, donde no hay ningún
+ * `Origin`. Sin decírselo, Google devuelve una URL que el navegador no puede
+ * usar: el `PUT` se queda sin cabeceras CORS, se cae antes de mandar un byte y
+ * lo único que se ve es un «se ha cortado la conexión» que no se arregla
+ * reintentando.
  */
 export async function abreSubida(opciones: {
   acceso: string;
@@ -285,6 +292,8 @@ export async function abreSubida(opciones: {
   privacidad: PrivacidadYoutube;
   bytes: number;
   tipo: string;
+  /** El origen del navegador que va a mandar los bytes. */
+  origen?: string;
 }) {
   const respuesta = await fetch(
     "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
@@ -295,6 +304,7 @@ export async function abreSubida(opciones: {
         "Content-Type": "application/json; charset=UTF-8",
         "X-Upload-Content-Length": String(opciones.bytes),
         "X-Upload-Content-Type": opciones.tipo,
+        ...(opciones.origen ? { Origin: opciones.origen } : {}),
       },
       body: JSON.stringify({
         snippet: {

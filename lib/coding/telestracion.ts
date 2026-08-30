@@ -113,6 +113,20 @@ export type EscenaTel = {
   duracionMs: number;
   /** El clip que acompaña, cuando la pizarra se creó desde uno. */
   clipId?: string;
+  /**
+   * Los cortes donde esta pizarra sale **además** de en su instante.
+   *
+   * Una pizarra vale para más de un corte: el mismo dibujo que explica cómo
+   * había que estar perfilado sirve para las tres veces que pasó, y hasta
+   * ahora había que volver a pintarlo en cada una porque una pizarra sólo
+   * salía en el corte que la contenía en el tiempo.
+   *
+   * En su propio instante sigue apareciendo sola —eso no se toca—. En los
+   * cortes de esta lista se cuela **al principio**, antes de la acción: lo que
+   * se quema es el fotograma de donde se pintó, así que enseñarlo a mitad de
+   * otra jugada cortaría el corte por donde no toca.
+   */
+  clipIds?: string[];
   congelada: boolean;
   /**
    * Lo que el vídeo se queda parado antes de seguir él solo, en ms.
@@ -388,6 +402,12 @@ export function normalizaEscenas(crudo: unknown): EscenaTel[] {
         tMs: Math.max(0, numero(dato.tMs, 0)),
         duracionMs: Math.max(500, numero(dato.duracionMs, DURACION_ESCENA_MS)),
         clipId: dato.clipId,
+        /* Sin esta línea, reutilizar una pizarra duraría hasta recargar. */
+        clipIds: Array.isArray(dato.clipIds)
+          ? dato.clipIds.filter(
+              (uno): uno is string => typeof uno === "string" && uno.length > 0,
+            )
+          : undefined,
         congelada: dato.congelada === true,
         pausaMs: Math.max(0, numero(dato.pausaMs, 0)),
         dibujos,

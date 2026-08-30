@@ -11,10 +11,25 @@
  *
  * La tabla es densa a propósito: en un partido salen doscientos clips y lo que
  * se necesita es verlos de golpe, no tarjetas grandes con aire.
+ *
+ * **Y se puede reordenar**: el orden de la lista es el orden en el que salen
+ * en el vídeo unificado, así que montar una charla es arrastrar filas. Se
+ * arrastra por el asa de la izquierda y también se sube y se baja con los
+ * botones —en una tabla de doscientas filas, arrastrar treinta posiciones no
+ * hay quien lo haga—. Ver `mueveClip` en `lib/coding/modelo.ts`.
  */
 
 import { useState } from "react";
-import { Copy, Pencil, Play, Scissors, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  GripVertical,
+  Pencil,
+  Play,
+  Scissors,
+  Trash2,
+} from "lucide-react";
 
 import { Button, Dialog, Field, TextArea } from "@/components/abp/ui";
 import {
@@ -37,6 +52,8 @@ export function ListaClips({
   onDuplicar,
   onBorrar,
   onExportar,
+  onMover,
+  pizarrasDe,
   exportando,
 }: {
   clips: ClipCoding[];
@@ -48,8 +65,28 @@ export function ListaClips({
   onDuplicar: (id: string) => void;
   onBorrar: (id: string) => void;
   onExportar: (clip: ClipCoding) => void;
+  /** Coloca un clip justo antes o después de otro: es el reordenar. */
+  onMover: (id: string, destinoId: string, donde: "antes" | "despues") => void;
+  /** Cuántas pizarras se van a quemar en cada clip, por id. */
+  pizarrasDe?: (clip: ClipCoding) => number;
   exportando: boolean;
 }) {
+  /* La fila que se está arrastrando y por dónde va a caer. */
+  const [arrastrado, setArrastrado] = useState<string | null>(null);
+  const [destino, setDestino] = useState<{
+    id: string;
+    donde: "antes" | "despues";
+  } | null>(null);
+
+  const suelta = () => {
+    if (arrastrado && destino && arrastrado !== destino.id) {
+      onMover(arrastrado, destino.id, destino.donde);
+    }
+
+    setArrastrado(null);
+    setDestino(null);
+  };
+
   if (clips.length === 0) {
     return (
       <p className="py-10 text-center text-xs text-white/30">
@@ -65,6 +102,7 @@ export function ListaClips({
       <table className="w-full min-w-[720px] border-collapse text-left">
         <thead>
           <tr className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <th className="w-6 px-1 py-1.5 font-medium" aria-label="Orden" />
             <th className="px-2 py-1.5 font-medium">#</th>
             {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
             <th className="px-2 py-1.5 font-medium">Quién</th>
@@ -77,21 +115,84 @@ export function ListaClips({
         </thead>
 
         <tbody>
-          {clips.map((clip) => {
+          {clips.map((clip, indice) => {
             const categoria = categorias.find(
               (una) => una.id === clip.categoriaId,
             );
 
             const activo = clip.id === seleccionado;
 
+            const anterior = clips[indice - 1];
+            const siguiente = clips[indice + 1];
+
+            const marca =
+              destino && destino.id === clip.id && arrastrado !== clip.id
+                ? destino.donde
+                : null;
+
+            const pizarras = pizarrasDe?.(clip) ?? 0;
+
             return (
               <tr
                 key={clip.id}
                 onClick={() => onSeleccionar(clip.id)}
-                className={`cursor-pointer border-t border-white/[0.06] transition ${
+                onDragOver={(evento) => {
+                  if (!arrastrado) return;
+
+                  /* Sin esto el navegador no deja soltar: es la forma de decir
+                     que aquí sí se puede. */
+                  evento.preventDefault();
+
+                  const caja = evento.currentTarget.getBoundingClientRect();
+
+                  setDestino({
+                    id: clip.id,
+                    donde:
+                      evento.clientY - caja.top < caja.height / 2
+                        ? "antes"
+                        : "despues",
+                  });
+                }}
+                onDrop={(evento) => {
+                  evento.preventDefault();
+                  suelta();
+                }}
+                className={`cursor-pointer border-t transition ${
+                  marca === "antes"
+                    ? "border-t-2 border-t-[#C8A96B]"
+                    : "border-white/[0.06]"
+                } ${
+                  marca === "despues" ? "border-b-2 border-b-[#C8A96B]" : ""
+                } ${arrastrado === clip.id ? "opacity-40" : ""} ${
                   activo ? "bg-[#C8A96B]/[0.08]" : "hover:bg-white/[0.03]"
                 }`}
               >
+                {/*
+                | El asa, y sólo el asa, arrastra.
+                |
+                | Con la fila entera arrastrable no se puede seleccionar texto
+                | de una nota ni pulsar un botón sin que el navegador crea que
+                | empieza un arrastre.
+                */}
+                <td className="w-6 px-1 py-1.5">
+                  <span
+                    draggable
+                    onDragStart={(evento) => {
+                      setArrastrado(clip.id);
+
+                      evento.dataTransfer.effectAllowed = "move";
+                      /* Firefox no arranca el arrastre sin datos dentro. */
+                      evento.dataTransfer.setData("text/plain", clip.id);
+                    }}
+                    onDragEnd={suelta}
+                    onClick={(evento) => evento.stopPropagation()}
+                    title="Arrastra para cambiar el orden del vídeo"
+                    className="flex cursor-grab justify-center text-white/20 transition hover:text-white/60 active:cursor-grabbing"
+                  >
+                    <GripVertical size={13} />
+                  </span>
+                </td>
+
                 <td className="px-2 py-1.5 text-[11px] tabular-nums text-white/35">
                   {String(clip.numero).padStart(3, "0")}
                 </td>
@@ -152,6 +253,16 @@ export function ListaClips({
 
                 <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/40">
                   {formateaDuracion(duracionClip(clip))}
+
+                  {/* Cuántas pizarras se le van a quemar dentro. */}
+                  {pizarras > 0 && (
+                    <span
+                      title={`${pizarras} ${pizarras === 1 ? "pizarra" : "pizarras"} en este corte`}
+                      className="ml-1.5 rounded bg-[#C8A96B]/15 px-1 text-[9px] text-[#C8A96B]"
+                    >
+                      ✎{pizarras}
+                    </span>
+                  )}
                 </td>
 
                 <td className="px-2 py-1.5">
@@ -159,6 +270,26 @@ export function ListaClips({
                     className="flex items-center justify-end gap-0.5"
                     onClick={(evento) => evento.stopPropagation()}
                   >
+                    <Icono
+                      titulo="Subir: sale antes en el vídeo"
+                      desactivado={!anterior}
+                      onClick={() =>
+                        anterior && onMover(clip.id, anterior.id, "antes")
+                      }
+                    >
+                      <ChevronUp size={13} />
+                    </Icono>
+
+                    <Icono
+                      titulo="Bajar: sale después en el vídeo"
+                      desactivado={!siguiente}
+                      onClick={() =>
+                        siguiente && onMover(clip.id, siguiente.id, "despues")
+                      }
+                    >
+                      <ChevronDown size={13} />
+                    </Icono>
+
                     <Icono
                       titulo="Reproducir el clip"
                       onClick={() => onReproducir(clip)}

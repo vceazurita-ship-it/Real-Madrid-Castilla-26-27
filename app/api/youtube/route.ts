@@ -149,6 +149,11 @@ export async function POST(request: NextRequest) {
         privacidad: ajustes.privacidad,
         bytes,
         tipo: String(cuerpo.tipo ?? "video/mp4"),
+        /*
+        | El origen del navegador viaja hasta Google: la sesión de subida sólo
+        | acepta el `PUT` de fuera si se abrió sabiendo desde dónde va a venir.
+        */
+        origen: request.headers.get("origin") ?? new URL(request.url).origin,
       });
 
       return NextResponse.json({
