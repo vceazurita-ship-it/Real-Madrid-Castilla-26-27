@@ -25,6 +25,10 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
+import {
+  exportAlineacionPptx,
+  type AlineacionJugador,
+} from "@/lib/rivals/alineacion-ppt";
 import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
 import {
@@ -96,6 +100,7 @@ import {
   Loader2,
   MoveDown,
   Plus,
+  Presentation,
   RectangleHorizontal,
   RotateCcw,
   Ruler,
@@ -1089,6 +1094,80 @@ export default function RivalPlayersPage() {
 
     if (await exportaPdf("once", marcados)) setPreparandoPdf(false);
   }, [marcados, exportaPdf]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | EL .PPTX DE DÍA DE PARTIDO
+  |--------------------------------------------------------------------------
+  | La plantilla entera colocada en el campo, con **cada jugador como una
+  | imagen suelta de PowerPoint**: cuando se cruzan alineaciones se borra a los
+  | que no salen y lo que queda es el once del rival, ya colocado.
+  |
+  | No pasa por pop-up como el PDF, y es a propósito: aquí no hay nada que
+  | elegir —sale la plantilla entera, que es el punto— y el sitio donde se
+  | decide quién juega es el propio PowerPoint, media hora antes del partido.
+  */
+  const exportarAlineacionPptx = useCallback(async () => {
+    if (!pitchPlayers.length) return;
+
+    setExportando(true);
+
+    try {
+      const jugadores: AlineacionJugador[] = pitchPlayers.map((player) => {
+        const stats = findStats(statsDoc, player);
+
+        /* La misma temporada que resalta la ficha: en agosto la actual está a
+           cero y la que dice algo del jugador es la anterior. */
+        const season = highlightSeason(stats?.temporadas ?? []);
+
+        return {
+          clave: playerKey(player),
+          dorsal: textoUtil(player.DORSAL),
+          nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
+          slot: getSlot(player["POSICIÓN"])?.slot.key ?? "otros",
+          lado: detectSide(normalize(player["POSICIÓN"])) as -1 | 0 | 1,
+          edad: textoUtil(player.EDAD),
+          /* En bruto: el «1,84» contra «184» y el «DCHO» contra «Diestro» los
+             resuelve el documento, que es el que sabe cómo se lee proyectado. */
+          pie: textoUtil(player["PIE DOMINANTE"]),
+          altura: textoUtil(player.ALTURA),
+          peso: textoUtil(player.PESO),
+          foto: fotoGrande(textoUtil(player.FOTO)),
+          estado: textoUtil(player.ESTADO),
+          portero: Boolean(stats?.portero),
+          titular: season ? season.titular : null,
+          goles: season?.goles ?? null,
+          encajados: season?.encajados ?? null,
+        };
+      });
+
+      const nombre = await exportAlineacionPptx({
+        equipo: equipoDelOnce,
+        escudo: escudoDe(equipoDelOnce),
+        temporada: temporadaCorta(statsDoc?.temporada),
+        fecha: new Date().toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+        jugadores,
+      });
+
+      toast.success("Campograma de día de partido exportado", {
+        description: `${nombre} · borra en PowerPoint a los que no salen`,
+      });
+    } catch (error) {
+      console.error("Error exportando el campograma del rival:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se ha podido generar el PowerPoint.",
+      );
+    } finally {
+      setExportando(false);
+    }
+  }, [pitchPlayers, statsDoc, equipoDelOnce, escudoDe]);
 
   /*
   |--------------------------------------------------------------------------
@@ -2390,6 +2469,32 @@ export default function RivalPlayersPage() {
                                 <Hand size={11} />
                               )}
                               PORTERO
+                            </button>
+                          )}
+
+                          {/*
+                            Y la plantilla entera en un PowerPoint, con cada
+                            jugador como imagen suelta: es el documento que se
+                            abre al cruzar alineaciones para borrar a los que
+                            no salen. No depende del once —sale todo el mundo—,
+                            así que está siempre que haya gente en el campo.
+                          */}
+
+                          {pitchPlayers.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => void exportarAlineacionPptx()}
+                              disabled={exportando}
+                              title={`PowerPoint de día de partido de ${equipoDelOnce} — la plantilla entera colocada, para borrar a los que no salgan`}
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Presentation size={11} />
+                              )}
+                              PPT
                             </button>
                           )}
 

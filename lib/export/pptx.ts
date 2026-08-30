@@ -13,6 +13,15 @@
  * exportar. Rehacer las chapas como formas de Office daría un fichero que se
  * puede tocar por fuera y que dejaría de parecerse a lo que se enseñó.
  *
+ * **Una hoja puede llevar capas sueltas.** Es lo contrario de lo anterior y
+ * también es a propósito: el campograma de día de partido
+ * (`lib/rivals/alineacion-ppt.ts`) va al vestuario con la plantilla entera
+ * encima del campo, y allí lo que hace falta es **borrar** a los que no salen
+ * hasta dejar el once. Para eso cada jugador tiene que ser un objeto propio de
+ * PowerPoint, no un píxel de una captura: se pinta cada ficha en su PNG con
+ * fondo transparente y se coloca como una imagen más, con su nombre puesto
+ * para que el panel de selección diga a quién se está borrando.
+ *
  * El paquete se arma con `lib/export/zip.ts`: un `.pptx` es un ZIP con las partes
  * OOXML mínimas —tipos de contenido, presentación, patrón, diseño, tema y una
  * hoja por diapositiva—, y aquí están todas escritas a mano.
@@ -84,27 +93,118 @@ function diseno() {
 }
 
 /**
- * Una hoja: la captura a sangre, de esquina a esquina.
+ * Una imagen de la hoja, ya en EMU.
  *
- * `noChangeAspect` deja la imagen anclada a la proporción de la diapositiva:
- * si alguien la arrastra sin querer en PowerPoint, se mueve, pero no se
- * deforma el campo.
+ * `noChangeAspect` la deja anclada a su proporción: si alguien la arrastra sin
+ * querer en PowerPoint, se mueve, pero no se deforma ni el campo ni una cara.
+ * El `name` es lo que se lee en el panel de selección de PowerPoint, y por eso
+ * cada ficha se llama como su jugador: borrar al que no sale es buscarlo por
+ * su nombre en esa lista, o pincharlo en el campo y darle a suprimir.
  */
-function hoja(titulo: string) {
-  const nombre = escapaXml(titulo);
+function imagen(
+  indice: number,
+  nombre: string,
+  rel: string,
+  caja: { x: number; y: number; cx: number; cy: number },
+) {
+  const limpio = escapaXml(nombre);
 
-  return `${CABECERA_XML}<p:sld ${NS_P}><p:cSld><p:spTree>${GRUPO_RAIZ}<p:pic><p:nvPicPr><p:cNvPr id="2" name="${nombre}" descr="${nombre}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${SLIDE_CX}" cy="${SLIDE_CY}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${indice}" name="${limpio}" descr="${limpio}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${rel}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${Math.round(
+    caja.x,
+  )}" y="${Math.round(caja.y)}"/><a:ext cx="${Math.round(
+    caja.cx,
+  )}" cy="${Math.round(
+    caja.cy,
+  )}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+}
+
+/**
+ * Una hoja: el fondo a sangre y, encima, sus capas.
+ *
+ * Las capas se escriben en el orden en que llegan, que es el orden de pila de
+ * PowerPoint: la última va delante. Quien las manda ya las ordena por altura
+ * en el campo, para que una ficha de más abajo tape a la de más arriba y no al
+ * revés —igual que en el campo de verdad—.
+ */
+function hoja(slide: DiapositivaPptx) {
+  const piezas: string[] = [];
+
+  /* La numeración de formas empieza en 2: la 1 es el grupo raíz del árbol. */
+  let siguiente = 2;
+  let rel = 2;
+
+  if (slide.imagen) {
+    piezas.push(
+      imagen(siguiente, slide.titulo, `rId${rel}`, {
+        x: 0,
+        y: 0,
+        cx: SLIDE_CX,
+        cy: SLIDE_CY,
+      }),
+    );
+
+    siguiente += 1;
+    rel += 1;
+  }
+
+  for (const capa of slide.capas ?? []) {
+    piezas.push(
+      imagen(siguiente, capa.nombre, `rId${rel}`, {
+        x: capa.x * SLIDE_CX,
+        y: capa.y * SLIDE_CY,
+        cx: capa.w * SLIDE_CX,
+        cy: capa.h * SLIDE_CY,
+      }),
+    );
+
+    siguiente += 1;
+    rel += 1;
+  }
+
+  return `${CABECERA_XML}<p:sld ${NS_P}><p:cSld><p:spTree>${GRUPO_RAIZ}${piezas.join(
+    "",
+  )}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+}
+
+/** La extensión que le toca a un `data:` por su tipo. */
+function extensionDe(dataUrl: string) {
+  return /^data:image\/png/i.test(dataUrl) ? "png" : "jpeg";
 }
 
 /* ------------------------------------------------------------------ */
 /*  EL PAQUETE                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Una imagen suelta encima del fondo: una ficha de jugador, un rótulo.
+ *
+ * La caja va en **tanto por uno de la diapositiva**, no en píxeles ni en EMU:
+ * quien la coloca razona sobre un lienzo de 1920×1080 y no tiene por qué saber
+ * cuántos EMU mide una pulgada.
+ */
+export type CapaPptx = {
+  /** Lo que dice el panel de selección de PowerPoint: "Nº9 · ENRIC GALLEGO". */
+  nombre: string;
+  /** `data:image/png;base64,…` — con transparencia si la ficha la lleva. */
+  imagen: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
 export type DiapositivaPptx = {
   /** Lo que se lee en la cabecera: "CÓRNER OFENSIVO". */
   titulo: string;
-  /** La captura, en `data:image/jpeg;base64,…`. */
-  imagen: string;
+  /** El fondo, a sangre, en `data:image/jpeg;base64,…` o PNG. */
+  imagen?: string;
+  /**
+   * Lo que va suelto encima, de atrás hacia delante.
+   *
+   * Cada capa es un objeto propio en PowerPoint: se mueve y **se borra** sin
+   * tocar lo demás, que es lo que pide el campograma de día de partido.
+   */
+  capas?: CapaPptx[];
 };
 
 export type DatosPptx = {
@@ -112,6 +212,8 @@ export type DatosPptx = {
   titulo: string;
   autor?: string;
   cuando?: Date;
+  /** Qué parte de la app lo ha hecho, para las propiedades del fichero. */
+  aplicacion?: string;
 };
 
 /**
@@ -139,7 +241,7 @@ export function creaPptx(
     )
     .join("");
 
-  const tipos = `${CABECERA_XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>${overridesHoja}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`;
+  const tipos = `${CABECERA_XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>${overridesHoja}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`;
 
   /*
   | Las propiedades básicas cuelgan de otro espacio de nombres —no son del
@@ -189,7 +291,9 @@ export function creaPptx(
     .map((slide) => `<vt:lpstr>${escapaXml(slide.titulo)}</vt:lpstr>`)
     .join("");
 
-  const app = `${CABECERA_XML}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>RMCF Castilla · Pizarra de balón parado</Application><Slides>${diapositivas.length}</Slides><TitlesOfParts><vt:vector size="${diapositivas.length}" baseType="lpstr">${titulos}</vt:vector></TitlesOfParts></Properties>`;
+  const app = `${CABECERA_XML}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>${escapaXml(
+    datos.aplicacion ?? "RMCF Castilla · Pizarra de balón parado",
+  )}</Application><Slides>${diapositivas.length}</Slides><TitlesOfParts><vt:vector size="${diapositivas.length}" baseType="lpstr">${titulos}</vt:vector></TitlesOfParts></Properties>`;
 
   const entradas: EntradaZip[] = [
     { nombre: "[Content_Types].xml", datos: texto(tipos) },
@@ -231,10 +335,20 @@ export function creaPptx(
   diapositivas.forEach((slide, indice) => {
     const numero = indice + 1;
 
+    /*
+    | El fondo y las capas comparten numeración de relaciones **en el mismo
+    | orden en que las escribe `hoja()`**: si aquí se ordenaran de otra forma,
+    | cada ficha saldría con la cara de otro jugador.
+    */
+    const imagenes = [
+      ...(slide.imagen ? [{ nombre: slide.titulo, imagen: slide.imagen }] : []),
+      ...(slide.capas ?? []),
+    ];
+
     entradas.push(
       {
         nombre: `ppt/slides/slide${numero}.xml`,
-        datos: texto(hoja(slide.titulo)),
+        datos: texto(hoja(slide)),
       },
       {
         nombre: `ppt/slides/_rels/slide${numero}.xml.rels`,
@@ -245,19 +359,26 @@ export function creaPptx(
               tipo: "slideLayout",
               destino: "../slideLayouts/slideLayout1.xml",
             },
-            {
-              id: "rId2",
+            ...imagenes.map((una, orden) => ({
+              id: `rId${orden + 2}`,
               tipo: "image",
-              destino: `../media/image${numero}.jpeg`,
-            },
+              destino: `../media/image${numero}-${orden + 1}.${extensionDe(
+                una.imagen,
+              )}`,
+            })),
           ]),
         ),
       },
-      {
-        nombre: `ppt/media/image${numero}.jpeg`,
-        datos: bytesDeDataUrl(slide.imagen),
-      },
     );
+
+    imagenes.forEach((una, orden) => {
+      entradas.push({
+        nombre: `ppt/media/image${numero}-${orden + 1}.${extensionDe(
+          una.imagen,
+        )}`,
+        datos: bytesDeDataUrl(una.imagen),
+      });
+    });
   });
 
   return new Blob([creaZip(entradas, cuando)], {
