@@ -1415,3 +1415,78 @@ scrollbar-width:none;
     opacity: .5;
   }
 }
+
+/* ===========================
+   LA PIZARRA DE ABP NO TIENE MODO DÍA
+
+   El tablero de `/abp-pizarra` es una diapositiva de 1920x1080 con fondo de
+   tinta y foto de campo: es papel, no interfaz. Se proyecta en la sala, se
+   exporta a PNG y va al PowerPoint, y en los tres sitios se ve igual de
+   oscuro tanto si el analista tiene la app en modo dia como en modo noche.
+
+   La tabla de equivalencias de arriba no lo sabia y le daba la vuelta a la
+   tinta tambien ahi dentro: en modo dia el titulo de la diapositiva, el
+   nombre del rival, los codigos de las chapas y los nombres del panel de
+   asignaciones salian en azul casi negro sobre paneles azul casi negro. Es
+   decir, se borraban —y se borraban tambien en el PNG y en el .pptx, porque
+   la captura serializa el estilo calculado—.
+
+   Es el mismo caso que los visores de foto: superficie que se queda oscura en
+   los dos temas. Aqui se devuelve la rampa blanca entera dentro del tablero,
+   no solo los peldanos que se usan hoy, para que anadir un rotulo manana no
+   vuelva a abrir el agujero.
+=========================== */
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white"] {
+  color: #fff;
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/90"] {
+  color: rgb(255 255 255 / .9);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/85"] {
+  color: rgb(255 255 255 / .85);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/80"] {
+  color: rgb(255 255 255 / .8);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/75"] {
+  color: rgb(255 255 255 / .75);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/70"] {
+  color: rgb(255 255 255 / .7);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/65"] {
+  color: rgb(255 255 255 / .65);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/60"] {
+  color: rgb(255 255 255 / .6);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/55"] {
+  color: rgb(255 255 255 / .55);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/50"] {
+  color: rgb(255 255 255 / .5);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/45"] {
+  color: rgb(255 255 255 / .45);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/40"] {
+  color: rgb(255 255 255 / .4);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/35"] {
+  color: rgb(255 255 255 / .35);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/30"] {
+  color: rgb(255 255 255 / .3);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/25"] {
+  color: rgb(255 255 255 / .25);
+}
+:root[data-theme="light"] [data-abp-tablero] [class~="text-white/20"] {
+  color: rgb(255 255 255 / .2);
+}
+
+/* Y el mismo cuidado con la variante: `[class~=]` no ve el prefijo, asi que
+   `hover:text-white` necesita su propia regla (la cruz de quitar ficha). */
+:root[data-theme="light"] [data-abp-tablero] [class~="hover:text-white"]:hover {
+  color: #fff;
+}

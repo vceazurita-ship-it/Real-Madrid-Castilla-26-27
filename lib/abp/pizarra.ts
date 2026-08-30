@@ -217,14 +217,29 @@ export function siglaDe(puesto: Pick<PuestoAbp, "code" | "sigla">) {
  * Van sobre el césped, por debajo de las fichas, y **se exportan**: forman
  * parte de lo que se enseña en la sala, no del cromo de edición.
  *
- * - `zona` marca desde dónde se lanza —el punto de penalti, cada lado de la
- *   frontal—, y así la diapositiva de directas dice algo aunque el orden de
+ * - `zona` marca desde dónde se lanza —el punto de penalti, la frontal, cada
+ *   lado—, y así la diapositiva de directas dice algo aunque el orden de
  *   lanzadores viva en el panel.
  * - `transicion` es la flecha de salida de las diapositivas defensivas: si la
  *   acción se defiende bien, se sale a la contra.
  */
 export type AdornoAbp =
-  | { tipo: "zona"; x: number; y: number; label: string }
+  | {
+      tipo: "zona";
+      x: number;
+      y: number;
+      label: string;
+      /**
+       * Dónde empieza el rótulo, si no va pegado al aro.
+       *
+       * El rótulo iba **debajo** del aro, que es justo donde se planta el
+       * segundo de la columna: en las cuatro zonas de «directas» el nombre
+       * quedaba tapado por una cara y la diapositiva no decía desde dónde se
+       * lanzaba ninguna. Con esto el rótulo sube por encima de la cabeza del
+       * primero, en la banda vacía de arriba, y se pinta por delante de todo.
+       */
+      etiquetaY?: number;
+    }
   | { tipo: "transicion"; label: string; remate: string };
 
 /* ------------------------------------------------------------------ */
@@ -377,14 +392,15 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "directas",
-    rev: 3,
+    rev: 4,
     titulo: "DIRECTAS A PORTERÍA",
     vista: "porteria",
     lado: "ofensivo",
     grupos: [
-      { key: "lado-i", label: "LANZADORES LADO I" },
-      { key: "lado-d", label: "LANZADORES LADO D" },
+      { key: "lado-i", label: "FALTA LATERAL I" },
+      { key: "frontal", label: "FALTA FRONTAL" },
       { key: "penaltis", label: "PENALTIS" },
+      { key: "lado-d", label: "FALTA LATERAL D" },
     ],
     /*
     | Esta diapositiva era sólo una lista: nueve nombres en el panel y el campo
@@ -396,29 +412,44 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | vivían en el panel; el orden se leía, pero las caras no se veían, que es
     | justo lo que la sala mira. Se eligen los tres de una vez (`elegirEnGrupo`).
     |
-    | Las columnas van a 160 px de separación —la ficha mide 120 de alta y su
-    | chapa 30— para que ninguna cara tape la chapa de la de delante. La del
-    | lado derecho se ha traído de 1135 a 1100, marca incluida: a 1135 la ficha
-    | llegaba a 1183 y se metía debajo de la caja de consignas, que empieza en
-    | 1153 y se pinta por encima.
+    | **Son cuatro sitios y no tres**: faltaba la falta frontal, que es la que
+    | más se ensaya de las tres directas y no tenía dónde apuntarse.
+    |
+    | Las cuatro columnas van a 260 px unas de otras —el aro de la marca mide
+    | 210 de ancho y el rótulo 230— y a 160 px de separación entre fichas de la
+    | misma columna, que es lo que hace falta para que ninguna cara tape la
+    | chapa de la de delante (la ficha mide 120 de alta y su chapa 30).
+    |
+    | Los dos números que no se pueden subir: la columna de la derecha se queda
+    | en 1100 porque la caja de consignas empieza en x=1153 y se pinta por
+    | encima, y la fila de abajo se queda en 840 porque su chapa termina en 862
+    | y el lienzo mide 1080. Todo el bloque se ha subido respecto a la versión
+    | de tres columnas para dejar arriba la banda donde ahora viven los
+    | rótulos.
     */
-    elegirEnGrupo: ["lado-i", "lado-d", "penaltis"],
+    elegirEnGrupo: ["lado-i", "frontal", "penaltis", "lado-d"],
     repite: true,
     puestos: puestos("directas", [
-      { code: "I1", label: "Lado izquierdo · 1", grupo: "lado-i", x: 415, y: 585 },
-      { code: "I2", label: "Lado izquierdo · 2", grupo: "lado-i", x: 415, y: 745 },
-      { code: "I3", label: "Lado izquierdo · 3", grupo: "lado-i", x: 415, y: 905 },
-      { code: "D1", label: "Lado derecho · 1", grupo: "lado-d", x: 1100, y: 585 },
-      { code: "D2", label: "Lado derecho · 2", grupo: "lado-d", x: 1100, y: 745 },
-      { code: "D3", label: "Lado derecho · 3", grupo: "lado-d", x: 1100, y: 905 },
-      { code: "P1", label: "Penalti · 1", grupo: "penaltis", x: 768, y: 430 },
-      { code: "P2", label: "Penalti · 2", grupo: "penaltis", x: 768, y: 590 },
-      { code: "P3", label: "Penalti · 3", grupo: "penaltis", x: 768, y: 750 },
+      { code: "I1", label: "Falta lateral I · 1", grupo: "lado-i", x: 320, y: 520 },
+      { code: "I2", label: "Falta lateral I · 2", grupo: "lado-i", x: 320, y: 680 },
+      { code: "I3", label: "Falta lateral I · 3", grupo: "lado-i", x: 320, y: 840 },
+      { code: "F1", label: "Falta frontal · 1", grupo: "frontal", x: 580, y: 520 },
+      { code: "F2", label: "Falta frontal · 2", grupo: "frontal", x: 580, y: 680 },
+      { code: "F3", label: "Falta frontal · 3", grupo: "frontal", x: 580, y: 840 },
+      { code: "P1", label: "Penalti · 1", grupo: "penaltis", x: 840, y: 520 },
+      { code: "P2", label: "Penalti · 2", grupo: "penaltis", x: 840, y: 680 },
+      { code: "P3", label: "Penalti · 3", grupo: "penaltis", x: 840, y: 840 },
+      { code: "D1", label: "Falta lateral D · 1", grupo: "lado-d", x: 1100, y: 520 },
+      { code: "D2", label: "Falta lateral D · 2", grupo: "lado-d", x: 1100, y: 680 },
+      { code: "D3", label: "Falta lateral D · 3", grupo: "lado-d", x: 1100, y: 840 },
     ]),
+    /* El rótulo sube a 356: por encima de la cabeza del primero, que empieza
+       en 400 (520 menos los 120 que mide la foto). */
     adornos: [
-      { tipo: "zona", x: 415, y: 585, label: "Lado I" },
-      { tipo: "zona", x: 768, y: 430, label: "Penalti" },
-      { tipo: "zona", x: 1100, y: 585, label: "Lado D" },
+      { tipo: "zona", x: 320, y: 520, label: "Falta lateral I", etiquetaY: 356 },
+      { tipo: "zona", x: 580, y: 520, label: "Falta frontal", etiquetaY: 356 },
+      { tipo: "zona", x: 840, y: 520, label: "Penalti", etiquetaY: 356 },
+      { tipo: "zona", x: 1100, y: 520, label: "Falta lateral D", etiquetaY: 356 },
     ],
     notas: ["Orden de lanzamiento cerrado antes del partido."],
   },

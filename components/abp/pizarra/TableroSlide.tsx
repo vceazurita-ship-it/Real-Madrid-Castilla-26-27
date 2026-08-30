@@ -263,15 +263,35 @@ function Hueco({
  * El sitio desde el que se lanza.
  *
  * Una elipse en escorzo sobre el césped —el campo está en perspectiva, un
- * círculo se vería de canto— con el balón en el centro y el nombre del carril
- * debajo. Es lo que le faltaba a «directas a portería», que era la única
- * diapositiva sin nada dibujado: nueve nombres en el panel y el campo vacío.
+ * círculo se vería de canto— con el balón en el centro, y el nombre del carril
+ * en una placa aparte. Es lo que le faltaba a «directas a portería», que era la
+ * única diapositiva sin nada dibujado: nueve nombres en el panel y el campo
+ * vacío.
  *
- * Se pinta por debajo de las fichas, así que si hay alguien colocado se le ve
- * de pie justo encima de su marca.
+ * El aro se pinta por debajo de las fichas, así que si hay alguien colocado se
+ * le ve de pie justo encima de su marca. **La placa del rótulo, no**: iba
+ * pegada debajo del aro, que es exactamente donde se planta el segundo de la
+ * columna, y las cuatro zonas salían con el nombre tapado por una cara. Ahora
+ * va por encima de la cabeza del primero (`etiquetaY`) y con un z-index alto,
+ * de forma que ninguna ficha pueda comérsela.
+ *
+ * El z-index de la placa se queda muy por debajo de lo que necesitarían el
+ * panel y las consignas para taparla —ninguno de los dos llega a la banda
+ * donde vive—, así que basta con que gane a las fichas.
  */
-function MarcaZona({ x, y, label }: { x: number; y: number; label: string }) {
+function MarcaZona({
+  x,
+  y,
+  label,
+  etiquetaY,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  etiquetaY?: number;
+}) {
   return (
+    <>
     <div
       className="pointer-events-none absolute"
       style={{ left: x - 105, top: y - 38, width: 210, zIndex: profundidad(x, y) - 1 }}
@@ -311,17 +331,41 @@ function MarcaZona({ x, y, label }: { x: number; y: number; label: string }) {
           opacity="0.5"
         />
       </svg>
+    </div>
 
+    {/*
+    | La placa del rótulo.
+    |
+    | No es un texto suelto sobre el césped: a tamaño de proyección, un rótulo
+    | dorado sobre hierba clara se pierde por mucha sombra que lleve. Con la
+    | placa de tinta y filo de oro —la misma que la del rival en la cabecera—
+    | se lee desde el fondo de la sala y encima queda claro que el nombre es
+    | del sitio, no del jugador que tiene debajo.
+    */}
+    <div
+      className="pointer-events-none absolute flex items-center justify-center rounded-lg px-3"
+      style={{
+        left: x - 115,
+        top: etiquetaY ?? y + 44,
+        width: 230,
+        height: 34,
+        zIndex: 3_000_000,
+        backgroundColor: "rgba(4,18,32,.86)",
+        border: "1px solid rgba(200,169,107,.5)",
+        boxShadow: "0 6px 16px rgba(0,0,0,.45)",
+      }}
+    >
       <p
-        className="mt-1 text-center text-[17px] font-bold uppercase leading-none tracking-[0.26em]"
+        className="truncate text-center text-[15px] font-bold uppercase leading-none tracking-[0.16em]"
         style={{
           color: COLORES.oroClaro,
-          textShadow: "0 2px 8px rgba(0,0,0,.85)",
+          textShadow: "0 1px 4px rgba(0,0,0,.7)",
         }}
       >
         {label}
       </p>
     </div>
+    </>
   );
 }
 
@@ -482,7 +526,14 @@ function FlechaTransicion({ label, remate }: { label: string; remate: string }) 
 
 function Adorno({ adorno }: { adorno: AdornoAbp }) {
   if (adorno.tipo === "zona") {
-    return <MarcaZona x={adorno.x} y={adorno.y} label={adorno.label} />;
+    return (
+      <MarcaZona
+        x={adorno.x}
+        y={adorno.y}
+        label={adorno.label}
+        etiquetaY={adorno.etiquetaY}
+      />
+    );
   }
 
   return <FlechaTransicion label={adorno.label} remate={adorno.remate} />;
