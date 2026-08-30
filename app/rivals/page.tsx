@@ -68,6 +68,15 @@ import {
   type OncePdfVariante,
 } from "@/lib/rivals/once-pdf";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
+import {
+  ANCLA_SUELTA,
+  ANCLAS_SLOT,
+  columnasDeBanda,
+  columnasDeBloque,
+  reparteCampograma,
+  SLOTS_DE_BANDA,
+  type BloqueEntrada,
+} from "@/lib/rivals/campograma-motor";
 import type { RivalVoiceField } from "@/lib/voice/types";
 
 import {
@@ -1145,11 +1154,6 @@ export default function RivalPlayersPage() {
         equipo: equipoDelOnce,
         escudo: escudoDe(equipoDelOnce),
         temporada: temporadaCorta(statsDoc?.temporada),
-        fecha: new Date().toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
         jugadores,
       });
 
@@ -4469,113 +4473,18 @@ function TagPicker({
 |--------------------------------------------------------------------------
 | CAMPOGRAMA · MOTOR DE COLOCACIÓN
 |--------------------------------------------------------------------------
-| El campograma ya no reparte a la gente por líneas anchas, sino por
-| POSICIÓN: cada slot (POR, LI, DFC, MCD, EI…) tiene su ancla en el campo y
-| todos los jugadores de ese slot se pintan juntos, en bloque compacto y bajo
-| una misma chapa. Así se ve de un golpe cuántos centrales o extremos hay.
+| El campograma no reparte a la gente por líneas anchas, sino por POSICIÓN:
+| cada slot (POR, LI, DFC, MCD, EI…) tiene su ancla en el campo y todos los
+| jugadores de ese slot se pintan juntos, en bloque compacto y bajo una misma
+| chapa. Así se ve de un golpe cuántos centrales o extremos hay.
 |
-|   1. Cada jugador cae en un slot (el mismo getSlot que usa el listado) y,
-|      si el slot admite lado, se separa en variante izquierda / derecha.
-|   2. Los slots a alturas parecidas comparten "banda" para no gastar alto de
-|      más; dentro de la banda los bloques van uno al lado del otro.
-|   3. El tamaño de ficha se despeja para que quepan todas las bandas a lo
-|      alto y todos los bloques a lo ancho; después se resuelven los solapes
-|      (horizontales dentro de la banda, verticales entre bandas).
-|
-| El mismo motor pinta el campo de pie —atacando hacia arriba, que es lo que
-| pide un móvil— y tumbado —atacando hacia la derecha, que es lo que pide un
-| portátil—. Para eso no razona en X/Y sino en dos ejes: el PROFUNDO, en el que
-| se apilan las bandas, y el LARGO, en el que cada banda reparte sus bloques.
-| De pie profundo = Y y largo = X; tumbado, al revés. Lo que no gira es la
-| ficha, que siempre lleva el nombre bajo la foto: por eso cada bloque mide
-| distinto en cada eje (`alongOf` / `deepOf`) en vez de tener un solo tamaño.
+| La geometría —bandas, tamaño de ficha, reparto sin solapes— ya no vive aquí:
+| está en `lib/rivals/campograma-motor.ts` y la comparte con el `.pptx` de día
+| de partido, para que la plantilla salga colocada igual en la pantalla y en el
+| documento que se lleva a la reunión. Lo que queda en este fichero es lo que
+| sólo sabe la pantalla: quién cae en qué slot, cuánto ocupa una ficha con foto
+| redonda y nombre debajo, y las medidas apretadas del móvil.
 */
-
-/*
-| Ancla de cada slot en fracciones del campo (el ataque, arriba). `xSide` es
-| cuánto se desplaza a los lados cuando la posición trae lado ("interior
-| derecho"); los slots que ya son de un lado (LI, LD, EI, ED) no lo llevan.
-*/
-const SLOT_ANCHORS: Record<string, { x: number; y: number; xSide?: number }> = {
-  dc: { x: 0.5, y: 0.1, xSide: 0.16 },
-  sd: { x: 0.5, y: 0.19, xSide: 0.16 },
-  ei: { x: 0.12, y: 0.28 },
-  ed: { x: 0.88, y: 0.28 },
-  ext: { x: 0.5, y: 0.28, xSide: 0.38 },
-  mp: { x: 0.5, y: 0.35, xSide: 0.16 },
-  int: { x: 0.5, y: 0.47, xSide: 0.26 },
-  mc: { x: 0.5, y: 0.5, xSide: 0.18 },
-  med: { x: 0.5, y: 0.5, xSide: 0.18 },
-  mcd: { x: 0.5, y: 0.63, xSide: 0.18 },
-  car: { x: 0.5, y: 0.7, xSide: 0.4 },
-  li: { x: 0.11, y: 0.79 },
-  ld: { x: 0.89, y: 0.79 },
-  dfc: { x: 0.5, y: 0.81, xSide: 0.15 },
-  def: { x: 0.5, y: 0.81, xSide: 0.3 },
-  por: { x: 0.5, y: 0.93 },
-};
-
-const FALLBACK_ANCHOR = { x: 0.5, y: 0.56 };
-
-/*
-| Reparte una fila de cajas entre `from` y `to`: cada una lo más cerca posible
-| de donde querría estar, sin pisar a la anterior y sin salirse. Devuelve los
-| centros.
-|
-| La clave es que los límites se encadenan desde los dos extremos: el mínimo de
-| una caja sale del sitio que ya ocupan todas las anteriores y su máximo del que
-| necesitan todas las siguientes. Empujar sólo hacia un lado y recortar al final
-| —como se hacía antes— dejaba dos cajas en la misma posición cuando la fila no
-| cabía. Si no cabe, el hueco se encoge (puede quedar negativo) y el apretón se
-| reparte entre todas en vez de amontonarse en un extremo.
-*/
-function packRow(
-  widths: number[],
-  wanted: number[],
-  from: number,
-  to: number,
-  gap: number,
-): number[] {
-  const halves = widths.map((width) => width / 2);
-
-  const total = widths.reduce((sum, width) => sum + width, 0);
-
-  const room = Math.min(
-    gap,
-    (to - from - total) / Math.max(1, widths.length - 1),
-  );
-
-  const low: number[] = [];
-  const high: number[] = [];
-
-  halves.forEach((half, index) => {
-    low[index] =
-      index === 0
-        ? from + half
-        : low[index - 1] + halves[index - 1] + room + half;
-  });
-
-  for (let index = halves.length - 1; index >= 0; index -= 1) {
-    high[index] =
-      index === halves.length - 1
-        ? to - halves[index]
-        : high[index + 1] - halves[index + 1] - room - halves[index];
-  }
-
-  const centers: number[] = [];
-
-  let nextMin = -Infinity;
-
-  halves.forEach((half, index) => {
-    const target = Math.min(Math.max(wanted[index], low[index]), high[index]);
-
-    centers[index] = Math.max(target, nextMin);
-
-    nextMin = centers[index] + half + room + (halves[index + 1] ?? 0);
-  });
-
-  return centers;
-}
 
 /* La hoja mezcla IZQUIERDO / IZQ / IZDO / I y DERECHO / DCHO / DER / D. */
 const LEFT_PATTERN =
@@ -4589,39 +4498,6 @@ function detectSide(position: string) {
   if (RIGHT_PATTERN.test(position)) return 1;
 
   return 0;
-}
-
-/* Forma del bloque: cuadrado antes que fila larga, para que quede apretado. */
-function clusterColumns(count: number) {
-  if (count <= 3) return count;
-  if (count === 4) return 2;
-
-  return 3;
-}
-
-/*
-| Slots de banda: extremos, laterales y carrileros. Su bloque se lee de
-| izquierda a derecha, en una sola fila, en vez de apilarse.
-|
-| El bloque cuadrado de `clusterColumns` va bien en el centro del campo, donde
-| hay ancho de sobra a los dos lados. Pegado a la línea de banda no: los tres
-| laterales izquierdos quedaban uno debajo de otro, una columna larga que se
-| comía el fondo del campo y empujaba a la banda de al lado. En fila ocupan lo
-| que tienen a mano —el ancho hacia dentro del campo— y la banda queda a la
-| altura que le toca.
-*/
-const SLOTS_DE_BANDA = new Set(["ei", "ed", "ext", "li", "ld", "car"]);
-
-/*
-| Tope de la fila. Con cuatro en línea el bloque ya es más ancho que medio
-| campo; a partir de ahí seguir estirando le quita tamaño a la foto de TODA la
-| plantilla, así que el quinto baja a una segunda fila.
-*/
-const COLUMNAS_DE_BANDA = 4;
-
-/* Cuántas columnas quiere un bloque de banda: las suyas, hasta el tope. */
-function bandColumns(count: number) {
-  return Math.min(count, COLUMNAS_DE_BANDA);
 }
 
 type PlacedPlayer = {
@@ -4647,8 +4523,8 @@ type PlacedCluster = {
   /**
    * Caja del bloque: el fondo que agrupa bajo una misma chapa a todos los de
    * una posición. Lleva su propia X porque la chapa puede acabar desplazada
-   * (paso 6) para no pisar a la vecina, y el fondo tiene que quedarse donde
-   * está su gente.
+   * para no pisar a la vecina, y el fondo tiene que quedarse donde está su
+   * gente.
    */
   boxX: number;
   boxTop: number;
@@ -4668,29 +4544,6 @@ const EMPTY_LAYOUT: PitchLayout = {
   clusters: [],
   avatar: 0,
   stepX: 0,
-};
-
-type PitchCluster = {
-  key: string;
-  code: string;
-  color: string;
-  anchorX: number;
-  anchorY: number;
-  players: RivalPlayer[];
-  /** Alguien del bloque lleva chapas de IMPACTO: su ficha es más alta. */
-  tagged: boolean;
-  /** Bloque pegado a una banda: se coloca en fila, no apilado. */
-  banda: boolean;
-  cols: number;
-  rows: number;
-  /** Centro del bloque en el eje que reparte su banda (X de pie, Y tumbado). */
-  along: number;
-  /** Lo que ocupa el bloque en pantalla: la chapa de posición va en el alto. */
-  width: number;
-  height: number;
-  /** Alto de una ficha del bloque y salto entre filas, ya con su etiqueta. */
-  cardHeight: number;
-  stepY: number;
 };
 
 /*
@@ -4722,14 +4575,18 @@ function layoutPitch(
 
   /* 1 · Un bloque por posición (slot + lado). */
 
-  const byKey = new Map<string, PitchCluster>();
+  /* Lo que el motor no necesita saber y el render sí: el código de la chapa y
+     el color de la línea. */
+  const adornos = new Map<string, { code: string; color: string }>();
+
+  const byKey = new Map<string, BloqueEntrada<RivalPlayer>>();
 
   players.forEach((player) => {
     const position = player["POSICIÓN"];
     const entry = getSlot(position);
 
     const slotKey = entry?.slot.key ?? "otros";
-    const anchor = SLOT_ANCHORS[slotKey] ?? FALLBACK_ANCHOR;
+    const anchor = ANCLAS_SLOT[slotKey] ?? ANCLA_SUELTA;
 
     const side = anchor.xSide ? detectSide(normalize(position)) : 0;
     const key = `${slotKey}:${side}`;
@@ -4737,114 +4594,57 @@ function layoutPitch(
     const existing = byKey.get(key);
 
     if (existing) {
-      existing.players.push(player);
+      existing.jugadores.push(player);
       return;
     }
 
-    byKey.set(key, {
-      key,
+    adornos.set(key, {
       code:
         (entry?.slot.code ?? "S/P") + (side < 0 ? " I" : side > 0 ? " D" : ""),
       color: entry?.line.color ?? "#9AA3AD",
+    });
+
+    byKey.set(key, {
+      key,
       anchorX: anchor.x + side * (anchor.xSide ?? 0),
       anchorY: anchor.y,
-      players: [player],
-      tagged: false,
       banda: SLOTS_DE_BANDA.has(slotKey),
-      cols: 0,
-      rows: 0,
-      along: 0,
-      width: 0,
-      height: 0,
-      cardHeight: 0,
-      stepY: 0,
+      etiquetado: false,
+      jugadores: [player],
+      anchoChapa: 0,
     });
   });
 
-  const clusters = [...byKey.values()];
+  const entradas = [...byKey.values()];
 
-  clusters.forEach((cluster) => {
-    cluster.players.sort(
+  entradas.forEach((bloque) => {
+    bloque.jugadores.sort(
       (a, b) => (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999),
     );
 
-    cluster.tagged = cluster.players.some(
+    bloque.etiquetado = bloque.jugadores.some(
       (player) => parseTags(player.IMPACTO).tags.length > 0,
     );
+
+    /*
+    | Ancho de la chapa de posición: px-1.5 y borde a cada lado, el código a
+    | 9 px y el contador al lado. Un bloque de una sola columna es más estrecho
+    | que su chapa, así que las chapas se deslizan aparte; ensanchar el bloque
+    | para que cupiera la chapa le costaba 6 px de foto a toda la plantilla.
+    */
+    bloque.anchoChapa =
+      14 +
+      (adornos.get(bloque.key)?.code.length ?? 3) * 5.6 +
+      4 +
+      String(bloque.jugadores.length).length * 5.4;
   });
 
-  /* 2 · Bandas: slots a alturas parecidas comparten fila del campo. */
-
-  clusters.sort((a, b) => a.anchorY - b.anchorY);
+  /* 2 · Medidas de la ficha de pantalla. */
 
   /*
-  | Cuánto se parecen dos alturas para compartir banda.
-  |
-  | De pie una banda es una FILA y las bandas se apilan a lo alto, que es lo
-  | que escasea: agrupar de más es lo que hace que quepa la plantilla. Tumbado
-  | una banda es una COLUMNA y lo que escasea es el alto DENTRO de ella, así
-  | que partir una banda en dos no cuesta nada —hay ancho de sobra— y además
-  | reparte su gente en dos columnas más cortas.
-  |
-  | Con el margen ancho de siempre, tumbado, la media punta caía en la banda de
-  | los extremos y el carrilero en la del pivote: cuatro cosas distintas
-  | apiladas en la misma columna, sin manera de ver dónde acababa una y
-  | empezaba otra. Con el margen fino cada una se lleva su columna.
-  */
-  const margenBanda = horizontal ? 0.03 : 0.07;
-
-  const bands: { clusters: PitchCluster[]; anchorY: number; rows: number }[] =
-    [];
-
-  clusters.forEach((cluster) => {
-    const last = bands[bands.length - 1];
-
-    if (last && cluster.anchorY - last.anchorY <= margenBanda) {
-      last.clusters.push(cluster);
-      return;
-    }
-
-    bands.push({
-      clusters: [cluster],
-      anchorY: cluster.anchorY,
-      rows: 0,
-    });
-  });
-
-  /*
-  | Tumbado se ataca hacia la derecha: la banda que de pie va arriba —los
-  | delanteros— pasa a ser la de más a la derecha. Se le da la vuelta a la lista
-  | para que el resto del reparto pueda recorrer las bandas en el mismo orden en
-  | que se pintan en pantalla, que es lo que dan por hecho los pasos 5 y 6.
-  */
-  if (horizontal) bands.reverse();
-
-  /* Forma de los bloques con un tope de columnas dado. */
-  const shapeClusters = (maxCols: number) => {
-    clusters.forEach((cluster) => {
-      /* Los de banda van en fila y no entran en la prueba de columnas: si el
-         tope común los apilara, volveríamos a la columna que se quería quitar. */
-      cluster.cols = cluster.banda
-        ? bandColumns(cluster.players.length)
-        : Math.min(clusterColumns(cluster.players.length), maxCols);
-
-      cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
-    });
-
-    bands.forEach((band) => {
-      band.rows = band.clusters.reduce(
-        (max, cluster) => Math.max(max, cluster.rows),
-        0,
-      );
-    });
-  };
-
-  /* 3 · Tamaño de ficha con el que todo cabe. */
-
-  /*
-  | Medidas del reparto. En móvil el campo mide poco más de 300 px de ancho:
-  | con los márgenes y los pasos de escritorio pedía más sitio del que hay, así
-  | que ahí van todos apretados. Los valores de PC son los de siempre.
+  | En móvil el campo mide poco más de 300 px de ancho: con los márgenes y los
+  | pasos de escritorio pedía más sitio del que hay, así que ahí van todos
+  | apretados. Los valores de PC son los de siempre.
   */
   const padX = compact ? 10 : 26;
   const padY = compact ? 10 : 16;
@@ -4853,32 +4653,6 @@ function layoutPitch(
   const bandGap = compact ? 7 : 10;
   const stepFactor = compact ? 1.18 : 1.45;
   const gapFactor = compact ? 0.46 : 0.62;
-  /*
-  | Suelo del tamaño de foto. Es sólo una red por si `fitAvatar` devolviera
-  | algo absurdo: como ya devuelve la foto más grande que CABE, cualquier
-  | mínimo por encima de ella es pedir un solape a cambio de unos píxeles. Con
-  | plantillas reales nunca baja de 22 px; este número sólo entra en juego con
-  | plantillas imposibles (30 y pico jugadores en un campo muy corto), y ahí
-  | preferimos la foto diminuta a dos fichas una encima de otra.
-  */
-  const minAvatar = 6;
-
-  /*
-  | Los dos ejes del reparto. De pie se ataca hacia arriba: las bandas se apilan
-  | en el eje PROFUNDO (la Y) y cada banda coloca sus bloques en el eje LARGO
-  | (la X). Tumbado se ataca hacia la derecha y los dos ejes se cambian el
-  | papel: las bandas se apilan a lo ancho y cada una reparte a lo alto.
-  |
-  | Lo que no gira es la ficha: la foto siempre lleva el nombre debajo, así que
-  | un bloque no mide lo mismo a lo ancho que a lo alto y hay que preguntarle al
-  | eje —no al bloque— cuánto sitio ocupa.
-  */
-  const alongExtent = horizontal ? height : width;
-  const alongPad = horizontal ? padY : padX;
-  const deepExtent = horizontal ? width : height;
-  const deepPad = horizontal ? padX : padY;
-
-  const freeAlong = alongExtent - 2 * alongPad;
 
   /*
   | Paso entre fichas de un mismo bloque. La foto no mide `avatar` sino
@@ -4905,388 +4679,90 @@ function layoutPitch(
     return tagged ? base + 4 + badge : base;
   };
 
-  /*
-  | Lo que ocupa un bloque en pantalla con una foto de este tamaño. La chapa de
-  | posición se pinta encima del bloque, así que cuenta como alto suyo.
-  */
-  const blockWidthFor = (cluster: PitchCluster, size: number) =>
-    cluster.cols * stepFor(size);
-
-  const blockHeightFor = (cluster: PitchCluster, size: number) =>
-    chipHeight +
-    cluster.rows * (size + labelFor(size, cluster.tagged) + rowGap);
-
-  const alongOf = (cluster: PitchCluster, size: number) =>
-    horizontal ? blockHeightFor(cluster, size) : blockWidthFor(cluster, size);
-
-  /*
-  | Hueco entre dos bloques de la misma banda. De pie es aire lateral y se paga
-  | a gusto. Tumbado los bloques van uno debajo de otro y ya vienen separados
-  | por la chapa de posición del de abajo: cobrarles además medio ancho de foto
-  | dejaba la ficha en 19 px en las plantillas con muchos bloques atrás.
-  |
-  | Los píxeles de más son para que se vea el corte entre un bloque y el
-  | siguiente: cada bloque lleva un fondo propio y, pegados, dos fondos seguidos
-  | se leían como una sola mancha —sobre todo entre bloques de la misma línea,
-  | que comparten color: tres bloques de centrales seguidos parecían uno—.
-  | Salen del alto que gana el campo al ensancharse, así que casi no le cuestan
-  | tamaño a la foto.
-  */
-  const gapFor = (size: number) => (horizontal ? rowGap + 12 : size * gapFactor);
-
-  const deepOf = (cluster: PitchCluster, size: number) =>
-    horizontal ? blockWidthFor(cluster, size) : blockHeightFor(cluster, size);
-
-  /* Profundidad total que pide el reparto con una foto de este tamaño. */
-  const deepFor = (size: number) =>
-    2 * deepPad +
-    (bands.length - 1) * bandGap +
-    bands.reduce(
-      (total, band) =>
-        total +
-        band.clusters.reduce(
-          (deepest, cluster) => Math.max(deepest, deepOf(cluster, size)),
-          0,
-        ),
-      0,
-    );
-
-  /*
-  | Ancho de la chapa de posición: px-1.5 y borde a cada lado, el código a 9 px
-  | y el contador al lado. Un bloque de una sola columna es más estrecho que su
-  | chapa, así que las chapas se reparten aparte (paso 6): ensanchar el bloque
-  | para que cupiera la chapa le costaba 6 px de foto a toda la plantilla.
-  */
-  const chipWidth = (cluster: PitchCluster) =>
-    14 +
-    cluster.code.length * 5.6 +
-    4 +
-    String(cluster.players.length).length * 5.4;
-
-  /* Lo que pide, en su eje largo, la banda más apretada. */
-  const alongFor = (size: number) =>
-    bands.reduce((longest, band) => {
-      const total = band.clusters.reduce(
-        (sum, cluster) => sum + alongOf(cluster, size),
-        0,
-      );
-
-      return Math.max(
-        longest,
-        total + (band.clusters.length - 1) * gapFor(size),
-      );
-    }, 0);
-
-  /*
-  | Forma de los bloques tumbado, banda a banda. Aquí no vale un tope común
-  | para todo el campo: el ancho de cada banda se SUMA (son columnas, una al
-  | lado de otra), así que ensanchar un bloque que no lo necesita le quita
-  | ancho a todas las demás. En la banda apretada —cinco bloques de defensas
-  | uno debajo de otro— interesa lo contrario: bloques anchos de una sola fila,
-  | porque cada fila se come el alto, que es lo que ahí escasea.
-  |
-  | Se empieza con todos los bloques en una columna y se va ensanchando el que
-  | más alto ocupa hasta que la banda cabe. Ensanchar es gratis mientras el
-  | bloque no pase del más ancho de su banda: ésos van primero.
-  */
-  const shapeBands = (size: number) => {
-    bands.forEach((band) => {
-      band.clusters.forEach((cluster) => {
-        /* Tumbado se empieza con todo en una columna y se ensancha lo que no
-           quepa; los de banda ya arrancan en fila y el bucle los deja como
-           están mientras no les falte sitio. */
-        cluster.cols = cluster.banda ? bandColumns(cluster.players.length) : 1;
-        cluster.rows = Math.ceil(cluster.players.length / cluster.cols);
-      });
-
-      const bandAlong = () =>
-        band.clusters.reduce((sum, cluster) => sum + alongOf(cluster, size), 0) +
-        (band.clusters.length - 1) * gapFor(size);
-
-      while (bandAlong() > freeAlong) {
-        const anchas = Math.max(...band.clusters.map((item) => item.cols));
-
-        const candidatos = band.clusters.filter(
-          (cluster) => cluster.cols < cluster.players.length,
-        );
-
-        if (candidatos.length === 0) break;
-
-        const gratis = candidatos.filter((cluster) => cluster.cols < anchas);
-
-        const worst = (gratis.length > 0 ? gratis : candidatos).reduce(
-          (tallest, cluster) =>
-            alongOf(cluster, size) > alongOf(tallest, size) ? cluster : tallest,
-        );
-
-        worst.cols += 1;
-        worst.rows = Math.ceil(worst.players.length / worst.cols);
-      }
-
-      band.rows = band.clusters.reduce(
-        (max, cluster) => Math.max(max, cluster.rows),
-        0,
-      );
-    });
-  };
-
-  /*
-  | El alto de la ficha depende del propio tamaño de la foto (la tipografía y
-  | la chapa del dorsal están topadas por arriba y por abajo), así que ya no se
-  | puede despejar de una fórmula: buscamos por bisección la foto más grande
-  | con la que todo cabe de verdad, a lo alto y a lo ancho. Con las medidas de
-  | escritorio esto da el mismo número que la fórmula que había antes.
-  */
-  const fitAvatar = () => {
-    const fits = (size: number) => {
-      /* Tumbado la forma depende del tamaño: se rehace en cada prueba. */
-      if (horizontal) shapeBands(size);
-
-      return deepFor(size) <= deepExtent && alongFor(size) <= freeAlong;
-    };
-
-    let low = 1;
-    let high = 62;
-
-    if (!fits(low)) return low;
-    if (fits(high)) return high;
-
-    for (let step = 0; step < 40; step += 1) {
-      const mid = (low + high) / 2;
-
-      if (fits(mid)) low = mid;
-      else high = mid;
-    }
-
-    return low;
-  };
-
-  /*
-  | En una banda con muchos bloques (laterales + tres bloques de centrales es el
-  | caso típico) el ancho es lo que aprieta y la foto se queda diminuta.
-  | Probamos también bloques de dos y de una columna —apilar en vertical
-  | estrecha la banda— y nos quedamos con el reparto que deja la foto más
-  | grande. Como `fitAvatar` elige el máximo, probar de más nunca empeora.
-  */
-  const columnOptions = [3, 2, 1];
-
-  let bestCols = columnOptions[0];
-  let bestFit = -Infinity;
-
-  if (horizontal) {
-    /* Tumbado la forma la decide `shapeBands` dentro de la propia búsqueda. */
-    bestFit = fitAvatar();
-  } else {
-    columnOptions.forEach((maxCols) => {
-      shapeClusters(maxCols);
-
-      const fit = fitAvatar();
-
-      if (fit > bestFit) {
-        bestFit = fit;
-        bestCols = maxCols;
-      }
-    });
-
-    shapeClusters(bestCols);
-  }
-
-  const avatar = Math.max(minAvatar, bestFit);
-
-  /* La última prueba de la bisección pudo ser con una foto que no cabía. */
-  if (horizontal) shapeBands(avatar);
-
-  const stepX = stepFor(avatar);
-  const clusterGap = gapFor(avatar);
-
-  /* Cada bloque sabe ya lo que mide: los etiquetados llevan la ficha más alta. */
-  clusters.forEach((cluster) => {
-    cluster.cardHeight = avatar + labelFor(avatar, cluster.tagged);
-    cluster.stepY = cluster.cardHeight + rowGap;
-    cluster.width = cluster.cols * stepX;
-    cluster.height = chipHeight + cluster.rows * cluster.stepY;
+  const reparto = reparteCampograma(entradas, {
+    ancho: width,
+    alto: height,
+    horizontal,
+    padAncho: padX,
+    padAlto: padY,
+    chapaAlto: () => chipHeight,
+    huecoFila: () => rowGap,
+    huecoBanda: () => bandGap,
+    /*
+    | Hueco entre dos bloques de la misma banda. De pie es aire lateral y se
+    | paga a gusto. Tumbado los bloques van uno debajo de otro y ya vienen
+    | separados por la chapa de posición del de abajo: cobrarles además medio
+    | ancho de foto dejaba la ficha en 19 px en las plantillas con muchos
+    | bloques atrás. Los píxeles de más son para que se vea el corte entre un
+    | bloque y el siguiente —dos fondos pegados del mismo color se leían como
+    | una sola mancha— y salen del alto que gana el campo al ensancharse.
+    */
+    huecoBloque: (size) => (horizontal ? rowGap + 12 : size * gapFactor),
+    paso: stepFor,
+    altoFicha: (size, tagged) => size + labelFor(size, tagged),
+    /*
+    | De pie una banda es una FILA y las bandas se apilan a lo alto, que es lo
+    | que escasea: agrupar de más es lo que hace que quepa la plantilla.
+    | Tumbado una banda es una COLUMNA y lo que escasea es el alto DENTRO de
+    | ella, así que partirla no cuesta nada y reparte a su gente en dos
+    | columnas más cortas. Con el margen ancho, tumbado, la media punta caía en
+    | la banda de los extremos y el carrilero en la del pivote.
+    */
+    margenBanda: horizontal ? 0.03 : 0.07,
+    busquedaMin: 1,
+    busquedaMax: 62,
+    /*
+    | Suelo del tamaño de foto. Es sólo una red por si la búsqueda devolviera
+    | algo absurdo: como ya devuelve la foto más grande que CABE, cualquier
+    | mínimo por encima de ella es pedir un solape a cambio de unos píxeles.
+    | Con plantillas reales nunca baja de 22 px.
+    */
+    suelo: 6,
+    opcionesColumnas: [3, 2, 1],
+    columnasDeBanda,
+    columnasDeBloque,
+    huecoChapa: 3,
   });
 
-  /*
-  | 4 · Reparto dentro de la banda: cada bloque en su ancla, sin pisarse. De
-  | pie eso es repartir a lo ancho; tumbado, a lo alto.
-  |
-  | Antes se empujaba cada bloque hacia la derecha sin tope y, al final, un
-  | clamp devolvía al campo lo que se hubiera salido. En una banda que no cabe
-  | entera —laterales derechos + tres bloques de centrales es el caso típico—
-  | ese clamp dejaba dos bloques en la misma X, uno encima del otro; y en PC,
-  | donde no había clamp, el último bloque se salía del campo y el recorte se
-  | lo comía. `packRow` no puede hacer ni una cosa ni la otra.
-  */
-
-  bands.forEach((band) => {
-    /* Tumbado el campo gira en el sentido del reloj: la banda izquierda queda
-       arriba, así que el mismo orden de anclas vale para los dos casos. */
-    band.clusters.sort((a, b) => a.anchorX - b.anchorX);
-
-    const centers = packRow(
-      band.clusters.map((cluster) =>
-        horizontal ? cluster.height : cluster.width,
-      ),
-      band.clusters.map((cluster) => cluster.anchorX * alongExtent),
-      alongPad,
-      alongExtent - alongPad,
-      clusterGap,
-    );
-
-    band.clusters.forEach((cluster, index) => {
-      cluster.along = centers[index];
-    });
-  });
-
-  /* 5 · Cada banda a su profundidad, sin pisar a la anterior. */
-
-  /* Lo que ocupa la banda en el eje profundo: su bloque más hondo. */
-  const bandDeeps = bands.map((band) =>
-    band.clusters.reduce(
-      (deepest, cluster) =>
-        Math.max(deepest, horizontal ? cluster.width : cluster.height),
-      0,
-    ),
-  );
-
-  const centers = bands.map(
-    (band) => (horizontal ? 1 - band.anchorY : band.anchorY) * deepExtent,
-  );
-
-  /* Avanzando: nadie pisa a la banda anterior. */
-  let cursor = deepPad;
-
-  bands.forEach((band, index) => {
-    const half = bandDeeps[index] / 2;
-
-    centers[index] = Math.max(centers[index], cursor + half);
-    cursor = centers[index] + half + bandGap;
-  });
-
-  /* Volviendo: lo que se haya salido por el final vuelve a entrar. */
-  let limit = deepExtent - deepPad;
-
-  for (let index = bands.length - 1; index >= 0; index -= 1) {
-    const half = bandDeeps[index] / 2;
-
-    centers[index] = Math.min(centers[index], limit - half);
-    limit = centers[index] - half - bandGap;
-  }
-
-  /*
-  | Red de seguridad: si ni con la ficha al mínimo cabe todo, preferimos
-  | amontonar un poco a que alguien acabe fuera del campo.
-  */
-  cursor = deepPad;
-
-  bands.forEach((band, index) => {
-    const half = bandDeeps[index] / 2;
-
-    centers[index] = Math.min(
-      Math.max(centers[index], cursor + half),
-      Math.max(deepPad + half, deepExtent - deepPad - half),
-    );
-
-    cursor = centers[index] + half + bandGap;
-  });
-
-  /* 6 · Colocar a cada jugador dentro de su bloque. */
+  /* 3 · Del reparto a lo que pinta el JSX. */
 
   const placed: PlacedPlayer[] = [];
-  const placedClusters: PlacedCluster[] = [];
 
-  bands.forEach((band, bandIndex) => {
-    const bandStart = centers[bandIndex] - bandDeeps[bandIndex] / 2;
+  const clusters: PlacedCluster[] = reparto.bloques.map((bloque) => {
+    const adorno = adornos.get(bloque.key);
 
-    const bandChips: PlacedCluster[] = [];
+    const color = adorno?.color ?? "#9AA3AD";
 
-    band.clusters.forEach((cluster) => {
-      const stackHeight = cluster.rows * cluster.stepY;
-
-      /*
-      | De pie, la banda es una franja: el bloque se centra a lo alto de ella y
-      | su sitio a lo ancho es el que le dio el paso 4. Tumbado la banda es una
-      | columna y los papeles se invierten: el bloque se centra a lo ancho de la
-      | columna y es el eje vertical el que le trae repartido su sitio.
-      */
-      const blockX = horizontal
-        ? bandStart + bandDeeps[bandIndex] / 2
-        : cluster.along;
-
-      const blockTop = horizontal
-        ? cluster.along - cluster.height / 2 + chipHeight
-        : bandStart +
-          chipHeight +
-          (bandDeeps[bandIndex] - chipHeight - stackHeight) / 2;
-
-      const chip: PlacedCluster = {
-        key: cluster.key,
-        code: cluster.code,
-        color: cluster.color,
-        count: cluster.players.length,
-        x: blockX,
-        y: blockTop - 3,
-        /*
-        | El bloque ya reserva medio hueco de fila por arriba y por abajo
-        | (`stepY` es ficha + `rowGap`), así que la caja se sube medio hueco y
-        | mide filas enteras: queda el mismo aire por los cuatro lados sin
-        | pedirle sitio de más al reparto.
-        */
-        boxX: blockX,
-        boxTop: blockTop - rowGap / 2,
-        boxWidth: cluster.width,
-        boxHeight: cluster.rows * cluster.stepY,
-      };
-
-      bandChips.push(chip);
-      placedClusters.push(chip);
-
-      cluster.players.forEach((player, index) => {
-        const row = Math.floor(index / cluster.cols);
-        const column = index % cluster.cols;
-
-        const inRow = Math.min(
-          cluster.cols,
-          cluster.players.length - row * cluster.cols,
-        );
-
-        placed.push({
-          player,
-          color: cluster.color,
-          tagRow: cluster.tagged,
-          x: blockX + (column - (inRow - 1) / 2) * stepX,
-          y: blockTop + row * cluster.stepY + cluster.cardHeight / 2,
-        });
+    bloque.fichas.forEach((ficha) => {
+      placed.push({
+        player: ficha.item,
+        color,
+        tagRow: ficha.etiquetado,
+        x: ficha.x,
+        y: ficha.y,
       });
     });
 
-    /*
-    | Las chapas se deslizan lo justo para no pisarse. Van centradas sobre su
-    | bloque, pero una chapa es más ancha que un bloque de una sola columna, así
-    | que en bandas apretadas dos vecinas se tocaban. Que una chapa quede un
-    | poco descentrada sobre los suyos no se nota; que se solape con la de al
-    | lado, sí.
-    |
-    | Tumbado no hace falta: los bloques de una banda van uno debajo de otro y
-    | el hueco de cada chapa ya está reservado en el reparto del paso 4.
-    */
-    if (!horizontal && bandChips.length > 1) {
-      const centersX = packRow(
-        band.clusters.map(chipWidth),
-        bandChips.map((chip) => chip.x),
-        padX,
-        width - padX,
-        3,
-      );
-
-      bandChips.forEach((chip, index) => {
-        chip.x = centersX[index];
-      });
-    }
+    return {
+      key: bloque.key,
+      code: adorno?.code ?? "S/P",
+      color,
+      count: bloque.cuantos,
+      x: bloque.chapaX,
+      y: bloque.arriba - 3,
+      boxX: bloque.cajaX,
+      boxTop: bloque.cajaArriba,
+      boxWidth: bloque.cajaAncho,
+      boxHeight: bloque.cajaAlto,
+    };
   });
 
-  return { placed, clusters: placedClusters, avatar, stepX };
+  return {
+    placed,
+    clusters,
+    avatar: reparto.tamano,
+    stepX: reparto.paso,
+  };
 }
 
 /*

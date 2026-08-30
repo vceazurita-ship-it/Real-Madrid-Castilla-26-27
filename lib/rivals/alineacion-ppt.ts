@@ -30,6 +30,16 @@ import { descarga } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 import {
+  ANCLA_SUELTA,
+  ANCLAS_SLOT,
+  columnasDeBanda,
+  columnasDeBloque,
+  reparteCampograma,
+  SLOTS_DE_BANDA,
+  type BloqueEntrada,
+} from "@/lib/rivals/campograma-motor";
+
+import {
   ajusta,
   anchoEspaciado,
   C,
@@ -81,8 +91,6 @@ export type AlineacionData = {
   escudo?: string;
   /** "26 / 27". */
   temporada: string;
-  /** "30 de agosto de 2026". */
-  fecha: string;
   jugadores: AlineacionJugador[];
 };
 
@@ -121,47 +129,8 @@ const HUECO_BLOQUE = 20;
  */
 const ENCOGIDO_MINIMO = 0.62;
 
-/*
-| Ancla de cada slot en fracciones del campo, atacando **hacia arriba**. Son
-| las mismas del campograma de pantalla: si allí un carrilero está a media
-| altura, aquí tiene que estarlo también, o el documento y la pantalla dejan de
-| contar lo mismo.
-|
-| `xSide` es cuánto se aparta a un lado cuando la posición trae lado
-| ("interior derecho"); los slots que ya son de un lado no lo llevan.
-*/
-const ANCLAS: Record<string, { x: number; y: number; xSide?: number }> = {
-  dc: { x: 0.5, y: 0.1, xSide: 0.16 },
-  sd: { x: 0.5, y: 0.19, xSide: 0.16 },
-  ei: { x: 0.12, y: 0.28 },
-  ed: { x: 0.88, y: 0.28 },
-  ext: { x: 0.5, y: 0.28, xSide: 0.38 },
-  mp: { x: 0.5, y: 0.35, xSide: 0.16 },
-  int: { x: 0.5, y: 0.47, xSide: 0.26 },
-  mc: { x: 0.5, y: 0.5, xSide: 0.18 },
-  med: { x: 0.5, y: 0.5, xSide: 0.18 },
-  mcd: { x: 0.5, y: 0.63, xSide: 0.18 },
-  car: { x: 0.5, y: 0.7, xSide: 0.4 },
-  li: { x: 0.11, y: 0.79 },
-  ld: { x: 0.89, y: 0.79 },
-  dfc: { x: 0.5, y: 0.81, xSide: 0.15 },
-  def: { x: 0.5, y: 0.81, xSide: 0.3 },
-  por: { x: 0.5, y: 0.93 },
-};
-
-/** Quien no cae en ningún slot se queda en tierra de nadie, en el centro. */
-const ANCLA_SUELTA = { x: 0.5, y: 0.56 };
-
-/*
-| Slots pegados a una banda. Su bloque se reparte **en profundidad** —hacia la
-| portería contraria— en vez de hacia dentro del campo: tres laterales
-| izquierdos apilados hacia el centro se comen el sitio del pivote, y en el
-| documento eso es un solape con el bloque vecino.
-*/
-const SLOTS_DE_BANDA = new Set(["ei", "ed", "ext", "li", "ld", "car"]);
-
 /* ------------------------------------------------------------------ */
-/*  EL MOTOR DE COLOCACIÓN                                             */
+/*  DÓNDE VA CADA UNO                                                  */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -178,117 +147,24 @@ export type Colocacion = {
   h: number;
 };
 
-type Bloque = {
-  key: string;
-  jugadores: AlineacionJugador[];
-  /** Rejilla del bloque: columnas en profundidad, filas a lo ancho del campo. */
-  cols: number;
-  filas: number;
-  /** Dónde querría estar, en tanto por uno del campo tumbado. */
-  campoX: number;
-  campoY: number;
-};
-
-type Banda = {
-  bloques: Bloque[];
-  campoX: number;
-};
-
 /**
- * Reparte una fila de cajas entre `desde` y `hasta`: cada una lo más cerca
- * posible de donde querría estar, sin pisar a la anterior y sin salirse.
+ * Coloca a toda la plantilla, con **el mismo motor que el campograma de
+ * pantalla** (`lib/rivals/campograma-motor.ts`).
  *
- * Es el mismo `packRow` del campograma de pantalla, y por el mismo motivo: los
- * límites se encadenan desde los **dos** extremos —el mínimo de una caja sale
- * de lo que ocupan todas las anteriores y su máximo de lo que necesitan todas
- * las siguientes—. Empujar hacia un lado y recortar al final deja dos cajas en
- * la misma posición cuando la fila no cabe. Si no cabe, el hueco se encoge
- * —puede quedar negativo— y el apretón se reparte entre todas.
- */
-function reparteFila(
-  tamanos: number[],
-  querido: number[],
-  desde: number,
-  hasta: number,
-  hueco: number,
-): number[] {
-  const mitades = tamanos.map((valor) => valor / 2);
-
-  const total = tamanos.reduce((suma, valor) => suma + valor, 0);
-
-  const aire = Math.min(
-    hueco,
-    (hasta - desde - total) / Math.max(1, tamanos.length - 1),
-  );
-
-  const minimos: number[] = [];
-  const maximos: number[] = [];
-
-  mitades.forEach((mitad, indice) => {
-    minimos[indice] =
-      indice === 0
-        ? desde + mitad
-        : minimos[indice - 1] + mitades[indice - 1] + aire + mitad;
-  });
-
-  for (let indice = mitades.length - 1; indice >= 0; indice -= 1) {
-    maximos[indice] =
-      indice === mitades.length - 1
-        ? hasta - mitades[indice]
-        : maximos[indice + 1] - mitades[indice + 1] - aire - mitades[indice];
-  }
-
-  const centros: number[] = [];
-
-  let siguienteMinimo = -Infinity;
-
-  mitades.forEach((mitad, indice) => {
-    const objetivo = Math.min(
-      Math.max(querido[indice], minimos[indice]),
-      maximos[indice],
-    );
-
-    centros[indice] = Math.max(objetivo, siguienteMinimo);
-
-    siguienteMinimo = centros[indice] + mitad + aire + (mitades[indice + 1] ?? 0);
-  });
-
-  return centros;
-}
-
-/**
- * Forma de la rejilla de un bloque: cuántas columnas quiere.
+ * Eso es el punto: quien estudia al rival en `/rivals` y luego abre este
+ * documento tiene que encontrarse la plantilla colocada igual —los mismos
+ * bloques, en las mismas bandas y en el mismo orden—, porque el documento
+ * existe para llevarse a la reunión lo que ya se ha mirado en pantalla. Antes
+ * eran dos motores parecidos con números distintos y no coincidían.
  *
- * En banda se reparte a lo largo de la línea de cal —en profundidad—, que es
- * donde hay sitio; en el centro del campo se apila a lo ancho, que es lo que
- * deja la fila del once tal y como se lee.
+ * Lo único que cambia son las medidas de la ficha: la de pantalla es una foto
+ * redonda con el nombre debajo (más ancha que alta) y ésta es un cartón de
+ * 208×272 con retrato, dorsal y cuatro renglones. El motor recibe esas medidas
+ * como funciones del tamaño porque busca por bisección el más grande que cabe.
  *
- * **La columna se corta en tres.** Cuatro centrales en fila vertical estiran
- * su banda hasta el alto entero de la diapositiva, y entonces todo el campo
- * tiene que encogerse por ese bloque: una plantilla de 22 salía más pequeña
- * que una de 25 y con cuatro solapes. A partir del cuarto se abre una segunda
- * columna, que cuesta ancho —del que sobra— en vez de alto.
- */
-function forma(cuantos: number, banda: boolean) {
-  const cols = banda
-    ? Math.min(cuantos, 3)
-    : cuantos <= 3
-      ? 1
-      : cuantos <= 6
-        ? 2
-        : 3;
-
-  return { cols, filas: Math.ceil(cuantos / cols) };
-}
-
-/**
- * Coloca a toda la plantilla.
- *
- * El campo se pinta **tumbado y atacando hacia la derecha**, que es la vista
- * de televisión y la que cabe en un 16:9. Las anclas están escritas de pie, así
- * que se giran: la profundidad del ataque pasa a ser la X (`1 - ancla.y`) y el
- * ancho del campo pasa a ser la Y (`ancla.x`). Con eso, la banda izquierda
- * queda arriba, como en la tele.
+ * El campo se pinta **tumbado y atacando hacia la derecha**, que es la vista de
+ * televisión y la que cabe en un 16:9; es la misma orientación que toma el
+ * campograma de pantalla en un portátil.
  */
 export function reparteAlineacion(jugadores: AlineacionJugador[]): {
   fichas: Colocacion[];
@@ -299,10 +175,10 @@ export function reparteAlineacion(jugadores: AlineacionJugador[]): {
 
   /* 1 · Un bloque por posición (slot + lado). */
 
-  const porClave = new Map<string, Bloque>();
+  const porClave = new Map<string, BloqueEntrada<AlineacionJugador>>();
 
   for (const jugador of jugadores) {
-    const ancla = ANCLAS[jugador.slot] ?? ANCLA_SUELTA;
+    const ancla = ANCLAS_SLOT[jugador.slot] ?? ANCLA_SUELTA;
 
     const lado = ancla.xSide ? jugador.lado : 0;
     const clave = `${jugador.slot}:${lado}`;
@@ -314,150 +190,80 @@ export function reparteAlineacion(jugadores: AlineacionJugador[]): {
       continue;
     }
 
-    const anchoDeCampo = ancla.x + (ancla.xSide ?? 0) * lado;
-
     porClave.set(clave, {
       key: clave,
+      anchorX: ancla.x + (ancla.xSide ?? 0) * lado,
+      anchorY: ancla.y,
+      banda: SLOTS_DE_BANDA.has(jugador.slot),
+      /* Las chapas de IMPACTO son cosa de la pantalla: aquí no hay ficha alta
+         ni ficha baja, todas miden lo mismo. */
+      etiquetado: false,
       jugadores: [jugador],
-      cols: 1,
-      filas: 1,
-      /* El giro: la profundidad manda en X y el ancho del campo, en Y. */
-      campoX: 1 - ancla.y,
-      campoY: Math.min(0.94, Math.max(0.06, anchoDeCampo)),
+      anchoChapa: 0,
     });
   }
 
-  const bloques = [...porClave.values()];
+  const entradas = [...porClave.values()];
 
-  for (const bloque of bloques) {
-    const banda = SLOTS_DE_BANDA.has(bloque.key.split(":")[0]);
-    const rejilla = forma(bloque.jugadores.length, banda);
-
-    bloque.cols = rejilla.cols;
-    bloque.filas = rejilla.filas;
-
-    /* Dentro del bloque manda el dorsal: el 1 antes que el 25. */
+  /* Dentro del bloque manda el dorsal: el 1 antes que el 25. */
+  for (const bloque of entradas) {
     bloque.jugadores.sort(
       (a, b) => (Number(a.dorsal) || 99) - (Number(b.dorsal) || 99),
     );
   }
 
-  /* 2 · Bandas: bloques a profundidad parecida comparten columna. */
-
-  const bandas: Banda[] = [];
-
-  for (const bloque of [...bloques].sort((a, b) => a.campoX - b.campoX)) {
-    const ultima = bandas[bandas.length - 1];
-
-    if (ultima && Math.abs(bloque.campoX - ultima.campoX) <= 0.055) {
-      ultima.bloques.push(bloque);
-
-      /* La banda se queda en la media de los suyos, no en la del primero. */
-      ultima.campoX =
-        ultima.bloques.reduce((suma, uno) => suma + uno.campoX, 0) /
-        ultima.bloques.length;
-
-      continue;
-    }
-
-    bandas.push({ bloques: [bloque], campoX: bloque.campoX });
-  }
-
-  /* 3 · Cuánto hay que encoger la ficha para que quepa todo. */
-
-  const anchoBloque = (bloque: Bloque, k: number) =>
-    bloque.cols * FICHA_W * k + (bloque.cols - 1) * HUECO * k;
-
-  const altoBloque = (bloque: Bloque, k: number) =>
-    bloque.filas * FICHA_H * k + (bloque.filas - 1) * HUECO * k;
-
-  const anchoBanda = (banda: Banda, k: number) =>
-    Math.max(...banda.bloques.map((bloque) => anchoBloque(bloque, k)));
-
-  const altoBanda = (banda: Banda, k: number) =>
-    banda.bloques.reduce((suma, bloque) => suma + altoBloque(bloque, k), 0) +
-    (banda.bloques.length - 1) * HUECO_BLOQUE * k;
-
-  const anchoTotal =
-    bandas.reduce((suma, banda) => suma + anchoBanda(banda, 1), 0) +
-    (bandas.length - 1) * HUECO_BLOQUE;
-
-  const altoMayor = Math.max(...bandas.map((banda) => altoBanda(banda, 1)));
+  /* 2 · El reparto, con la ficha de cartón por medida. */
 
   /*
-  | El ancho y el alto escalan igual de linealmente, así que no hace falta
-  | buscar por bisección: el factor que cabe es el menor de los dos, y nunca
-  | más de 1 —la ficha no se agranda por sobrar sitio, que la dejaría enorme
-  | en una plantilla de trece—.
+  | Todo lo que en pantalla es un número fijo de píxeles aquí se escala con la
+  | ficha: la diapositiva es tres veces más grande que el campo de un portátil,
+  | y un hueco de 14 px entre dos cartones de 208 no se ve si la ficha se
+  | encoge a la mitad y el hueco no.
   */
-  const k = Math.max(
-    ENCOGIDO_MINIMO,
-    Math.min(1, ZONA.w / anchoTotal, ZONA.h / altoMayor),
-  );
+  const escalado = (medida: number) => (tamano: number) =>
+    (medida * tamano) / FICHA_W;
 
-  /* 4 · Las bandas, repartidas a lo largo del campo. */
-
-  const centrosX = reparteFila(
-    bandas.map((banda) => anchoBanda(banda, k)),
-    bandas.map((banda) => ZONA.x + banda.campoX * ZONA.w),
-    ZONA.x,
-    ZONA.x + ZONA.w,
-    HUECO_BLOQUE * k,
-  );
-
-  const fichas: Colocacion[] = [];
-
-  bandas.forEach((banda, indiceBanda) => {
-    const centroX = centrosX[indiceBanda];
-
-    /* 5 · Los bloques de la banda, repartidos a lo ancho del campo. */
-
-    const centrosY = reparteFila(
-      banda.bloques.map((bloque) => altoBloque(bloque, k)),
-      banda.bloques.map((bloque) => ZONA.y + bloque.campoY * ZONA.h),
-      ZONA.y,
-      ZONA.y + ZONA.h,
-      HUECO_BLOQUE * k,
-    );
-
-    banda.bloques.forEach((bloque, indiceBloque) => {
-      const centroY = centrosY[indiceBloque];
-
-      const alto = altoBloque(bloque, k);
-
-      bloque.jugadores.forEach((jugador, indice) => {
-        const columna = indice % bloque.cols;
-        const fila = Math.floor(indice / bloque.cols);
-
-        /*
-        | La última fila puede ir a medias —cinco en una rejilla de dos—, así
-        | que se centra sola en vez de dejar un hueco a la derecha.
-        */
-        const enLaFila = Math.min(
-          bloque.cols,
-          bloque.jugadores.length - fila * bloque.cols,
-        );
-
-        const anchoFila = enLaFila * FICHA_W * k + (enLaFila - 1) * HUECO * k;
-
-        const x =
-          centroX -
-          anchoFila / 2 +
-          columna * (FICHA_W + HUECO) * k;
-
-        const y =
-          centroY - alto / 2 + fila * (FICHA_H + HUECO) * k;
-
-        fichas.push({
-          jugador,
-          x: x / W,
-          y: y / H,
-          w: (FICHA_W * k) / W,
-          h: (FICHA_H * k) / H,
-        });
-      });
-    });
+  const reparto = reparteCampograma(entradas, {
+    ancho: ZONA.w,
+    alto: ZONA.h,
+    horizontal: true,
+    /* La zona ya viene recortada por la cabecera y el pie: aquí no sobra nada. */
+    padAncho: 0,
+    padAlto: 0,
+    /* En pantalla cada bloque lleva encima una chapa con su posición; aquí no,
+       que la posición ya la dice el sitio y la ficha trae el nombre. */
+    chapaAlto: () => 0,
+    huecoFila: escalado(HUECO),
+    huecoBanda: escalado(HUECO_BLOQUE),
+    huecoBloque: escalado(HUECO_BLOQUE),
+    paso: (tamano) => tamano + escalado(HUECO)(tamano),
+    altoFicha: (tamano) => (tamano * FICHA_H) / FICHA_W,
+    /* El mismo margen fino que usa la pantalla tumbada: una banda es una
+       COLUMNA, y partirla reparte a su gente en dos columnas más cortas. */
+    margenBanda: 0.03,
+    busquedaMin: 1,
+    /* La ficha no se agranda por sobrar sitio: quedaría enorme en una
+       plantilla de trece. */
+    busquedaMax: FICHA_W,
+    suelo: FICHA_W * ENCOGIDO_MINIMO,
+    opcionesColumnas: [3, 2, 1],
+    columnasDeBanda,
+    columnasDeBloque,
+    huecoChapa: 0,
   });
+
+  const anchoFicha = reparto.tamano;
+  const altoFicha = reparto.altoFicha;
+
+  const fichas: Colocacion[] = reparto.fichas.map((ficha) => ({
+    jugador: ficha.item,
+    /* El motor reparte dentro de la zona y devuelve centros; la diapositiva
+       quiere la esquina de arriba a la izquierda en tanto por uno. */
+    x: (ZONA.x + ficha.x - anchoFicha / 2) / W,
+    y: (ZONA.y + ficha.y - altoFicha / 2) / H,
+    w: anchoFicha / W,
+    h: altoFicha / H,
+  }));
 
   /*
   | De arriba abajo: en PowerPoint la última capa va delante, así que la ficha
@@ -466,7 +272,7 @@ export function reparteAlineacion(jugadores: AlineacionJugador[]): {
   */
   fichas.sort((a, b) => a.y - b.y);
 
-  return { fichas, k };
+  return { fichas, k: anchoFicha / FICHA_W };
 }
 
 /* ------------------------------------------------------------------ */
@@ -598,9 +404,16 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
     padding: 18,
   });
 
+  /*
+  | La chapa se centra en la cabecera y no lleva fecha debajo. La llevaba —la
+  | del día en que se exportaba— y le ponía caducidad a un documento que se
+  | prepara la víspera y se abre el día del partido: al abrirlo parecía de
+  | ayer. Lo que sitúa al documento en el tiempo es la temporada, que ya está
+  | en la chapa de la izquierda.
+  */
   chapa(ctx, "DÍA DE PARTIDO", {
     x: W - MARGEN,
-    y: 34,
+    y: (CABECERA - 4 - 38) / 2,
     alto: 38,
     fondo: C.crema,
     tinta: C.verde,
@@ -609,12 +422,6 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
     padding: 24,
     desdeDerecha: true,
   });
-
-  fuente(ctx, 21, 500);
-  ctx.fillStyle = "rgba(247,244,236,0.55)";
-  ctx.textAlign = "right";
-  ctx.fillText(data.fecha.toUpperCase(), W - MARGEN, 104);
-  ctx.textAlign = "left";
 
   ctx.fillStyle = C.rosa;
   ctx.fillRect(0, CABECERA - 4, W, 4);
@@ -682,11 +489,23 @@ function lineasDeFicha(jugador: AlineacionJugador) {
  * palabra: proyectada, una X se confunde con el aspa de un dorsal tachado, y
  * «SANCIONADO» y «LESIONADO» no significan lo mismo cuando se decide a quién
  * se estudia.
+ *
+ * **La chapa sólo sale cuando dice algo.** La hoja escribe «ACTIVO» en todo el
+ * que está disponible —es lo que pone el formulario al dar de alta a alguien—,
+ * así que la plantilla entera salía con una chapa encima de la cabeza que no
+ * avisaba de nada y le quitaba el sitio al retrato. Lo normal no se marca: se
+ * marca la excepción.
  */
 function baja(estado: string) {
   const limpio = estado.trim().toUpperCase();
 
-  if (!limpio || limpio === "." || /DISPONIBLE|ALTA|OK/.test(limpio)) return "";
+  if (
+    !limpio ||
+    limpio === "." ||
+    /DISPONIBLE|ACTIVO|ALTA|OK/.test(limpio)
+  ) {
+    return "";
+  }
 
   return limpio.slice(0, 18);
 }

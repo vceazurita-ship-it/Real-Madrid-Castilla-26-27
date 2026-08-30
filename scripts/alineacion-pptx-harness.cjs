@@ -253,7 +253,6 @@ exportAlineacionPptx({
   equipo: "CD Teruel",
   escudo: "",
   temporada: "26 / 27",
-  fecha: "30 de agosto de 2026",
   jugadores,
 })
   .then(() => {

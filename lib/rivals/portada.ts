@@ -510,7 +510,15 @@ function franjaNumeros(ctx: Ctx, data: PortadaData) {
   });
 }
 
-/** Filo y firma del pie, que es lo que ata la portada con el PDF del once. */
+/**
+ * Filo y firma del pie, que es lo que ata la portada con el PDF del once.
+ *
+ * **Sin fecha.** Llevaba la del día en que se exportaba, y eso le ponía
+ * caducidad a un documento que no la tiene: la portada de un jugador se hace
+ * una vez y se reutiliza en la charla de la ida, en la de la vuelta y en el
+ * informe de final de temporada. Con la fecha impresa, la segunda vez parecía
+ * vieja y alguien la volvía a exportar sin necesidad.
+ */
 function pie(ctx: Ctx) {
   ctx.fillStyle = C.rosa;
   ctx.fillRect(MARGEN, 1006, W - MARGEN * 2, 3);
@@ -518,21 +526,6 @@ function pie(ctx: Ctx) {
   fuente(ctx, 22, 600);
   ctx.fillStyle = C.verde;
   textoEspaciado(ctx, "RMCF CASTILLA · SCOUTING RIVAL", MARGEN, 1046, 5);
-
-  const fecha = new Date()
-    .toLocaleDateString("es-ES", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })
-    .toUpperCase();
-
-  fuente(ctx, 22, 500);
-  ctx.fillStyle = C.navy;
-
-  const ancho = anchoEspaciado(ctx, fecha, 3);
-
-  textoEspaciado(ctx, fecha, W - MARGEN - ancho, 1046, 3);
 }
 
 /*
