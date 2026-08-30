@@ -29,6 +29,10 @@
  */
 
 import { readDoc, writeDoc } from "@/lib/docStore";
+import {
+  PLANTILLA_DESCRIPCION,
+  PLANTILLA_TITULO,
+} from "@/lib/coding/youtube-plantillas";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE SE GUARDA                                                   */
@@ -58,6 +62,12 @@ export type AjustesYoutube = {
   listaNombre: string;
   /** Subir al terminar cada montaje sin tener que pedirlo. */
   subeSiempre: boolean;
+  /** Cómo se llama el vídeo en el canal, con los huecos de `youtube-plantillas`. */
+  tituloPlantilla: string;
+  /** Lo que va debajo del vídeo, con esos mismos huecos. */
+  descripcionPlantilla: string;
+  /** Enseñar nombre y descripción antes de subir, para poder retocarlos. */
+  preguntaAntes: boolean;
   /** Cuándo se conectó la cuenta, para poder decirlo en la pantalla. */
   conectadoEn: string;
 };
@@ -72,6 +82,9 @@ export type EstadoYoutube = {
   listaId: string;
   listaNombre: string;
   subeSiempre: boolean;
+  tituloPlantilla: string;
+  descripcionPlantilla: string;
+  preguntaAntes: boolean;
   conectadoEn: string;
   /** Las listas del canal, para poder elegir. Vacío si no se han podido leer. */
   listas: { id: string; nombre: string; cuenta: number }[];
@@ -87,6 +100,9 @@ const POR_DEFECTO: AjustesYoutube = {
   listaId: "",
   listaNombre: "",
   subeSiempre: true,
+  tituloPlantilla: PLANTILLA_TITULO,
+  descripcionPlantilla: PLANTILLA_DESCRIPCION,
+  preguntaAntes: true,
   conectadoEn: "",
 };
 
@@ -104,6 +120,17 @@ export async function leeAjustes(): Promise<AjustesYoutube> {
     listaId: String(data.listaId ?? ""),
     listaNombre: String(data.listaNombre ?? ""),
     subeSiempre: data.subeSiempre !== false,
+    /*
+    | Un documento guardado antes de que esto existiera no trae plantilla, y
+    | una plantilla vacía es un vídeo sin título en el canal. Vale igual para
+    | la que alguien ha borrado entera desde el panel: se vuelve a la de casa.
+    */
+    tituloPlantilla: String(data.tituloPlantilla ?? "").trim() || PLANTILLA_TITULO,
+    descripcionPlantilla:
+      typeof data.descripcionPlantilla === "string"
+        ? data.descripcionPlantilla
+        : PLANTILLA_DESCRIPCION,
+    preguntaAntes: data.preguntaAntes !== false,
     conectadoEn: String(data.conectadoEn ?? ""),
   };
 }

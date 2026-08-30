@@ -45,6 +45,9 @@ export async function GET(request: NextRequest) {
     listaId: ajustes.listaId,
     listaNombre: ajustes.listaNombre,
     subeSiempre: ajustes.subeSiempre,
+    tituloPlantilla: ajustes.tituloPlantilla,
+    descripcionPlantilla: ajustes.descripcionPlantilla,
+    preguntaAntes: ajustes.preguntaAntes,
     conectadoEn: ajustes.conectadoEn,
     listas: [],
   };
@@ -129,6 +132,24 @@ export async function POST(request: NextRequest) {
           typeof cuerpo.subeSiempre === "boolean"
             ? cuerpo.subeSiempre
             : ajustes.subeSiempre,
+        /*
+        | Las plantillas se guardan tal cual se escriben, con sus huecos sin
+        | rellenar: quien las lea luego decide con qué vídeo las cruza. Sólo se
+        | recortan a lo que admite YouTube para no descubrir el límite al
+        | terminar un montaje de veinte minutos.
+        */
+        tituloPlantilla:
+          cuerpo.tituloPlantilla === undefined
+            ? ajustes.tituloPlantilla
+            : String(cuerpo.tituloPlantilla ?? "").slice(0, 100),
+        descripcionPlantilla:
+          cuerpo.descripcionPlantilla === undefined
+            ? ajustes.descripcionPlantilla
+            : String(cuerpo.descripcionPlantilla ?? "").slice(0, 5000),
+        preguntaAntes:
+          typeof cuerpo.preguntaAntes === "boolean"
+            ? cuerpo.preguntaAntes
+            : ajustes.preguntaAntes,
       });
 
       return NextResponse.json({ ok: true });

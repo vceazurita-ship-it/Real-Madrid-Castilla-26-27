@@ -603,6 +603,8 @@ export function BarraExportacion({
     subeSiempre: boolean;
     privacidad: keyof typeof NOMBRE_PRIVACIDAD;
     listaNombre: string;
+    /** Va a parar a preguntar el nombre del vídeo antes de subirlo. */
+    preguntaAntes: boolean;
     onSube: (sube: boolean) => void;
   };
 }) {
@@ -775,7 +777,7 @@ export function BarraExportacion({
             {youtube.subeSiempre
               ? `En ${NOMBRE_PRIVACIDAD[youtube.privacidad]}${
                   youtube.listaNombre ? ` · lista «${youtube.listaNombre}»` : " · sin lista"
-                }`
+                }${youtube.preguntaAntes ? " · pregunta el nombre antes" : ""}`
               : "Sólo se descarga al ordenador"}
           </span>
         </div>

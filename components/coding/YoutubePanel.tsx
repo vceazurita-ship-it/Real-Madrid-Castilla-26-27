@@ -9,9 +9,14 @@
  * enlace se ve, buscando no aparece— y a la lista de reproducción que se elija
  * aquí, para que cada partido quede ordenado sin tener que entrar en YouTube.
  *
+ * Cómo se llama el vídeo también se decide aquí, y en dos tiempos: una
+ * plantilla con huecos —«{partido} · {filtro}»— que vale para todos los
+ * montajes, y el aviso de `DialogoNombreYoutube`, que enseña el nombre ya
+ * rellenado justo antes de subir por si ese vídeo en concreto pide otra cosa.
+ *
  * Todo lo que se decide en este panel se guarda en el servidor, no en la
  * pestaña: el analista que exporta el martes desde otro portátil se encuentra
- * la misma cuenta y la misma lista.
+ * la misma cuenta, la misma lista y las mismas plantillas.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -19,14 +24,30 @@ import {
   Check,
   Link2,
   LogOut,
+  Pencil,
   RefreshCw,
   /* lucide ya no trae marcas: el cuadro con el «play» es el icono de YouTube. */
   SquarePlay as Youtube,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button, Notice, Panel, Segmented, Select } from "@/components/abp/ui";
+import {
+  Button,
+  Dialog,
+  Field,
+  Notice,
+  Panel,
+  Segmented,
+  Select,
+  TextArea,
+} from "@/components/abp/ui";
 import { NOMBRE_PRIVACIDAD } from "@/lib/coding/youtube-cliente";
+import {
+  HUECOS,
+  PLANTILLA_DESCRIPCION,
+  PLANTILLA_TITULO,
+} from "@/lib/coding/youtube-plantillas";
 
 export type PrivacidadYoutube = keyof typeof NOMBRE_PRIVACIDAD;
 
@@ -38,6 +59,9 @@ export type EstadoYoutube = {
   listaId: string;
   listaNombre: string;
   subeSiempre: boolean;
+  tituloPlantilla: string;
+  descripcionPlantilla: string;
+  preguntaAntes: boolean;
   conectadoEn: string;
   listas: { id: string; nombre: string; cuenta: number }[];
   aviso?: string;
@@ -51,6 +75,9 @@ const VACIO: EstadoYoutube = {
   listaId: "",
   listaNombre: "",
   subeSiempre: true,
+  tituloPlantilla: PLANTILLA_TITULO,
+  descripcionPlantilla: PLANTILLA_DESCRIPCION,
+  preguntaAntes: true,
   conectadoEn: "",
   listas: [],
 };
@@ -360,6 +387,19 @@ export function PanelYoutube({
             </p>
           )}
 
+          {/*
+            La `key` es lo que guardó el servidor, y no es un adorno: cuando
+            las plantillas cambian por su cuenta —al recargar el canal, o
+            porque las ha tocado otro analista— los campos tienen que volver a
+            partir de ahí. Sincronizar eso con un efecto es lo que prohíbe
+            `react-hooks/set-state-in-effect`; remontar hace lo mismo y se lee.
+          */}
+          <Plantillas
+            key={`${estado.tituloPlantilla} ${estado.descripcionPlantilla}`}
+            estado={estado}
+            onGuarda={onGuarda}
+          />
+
           <button
             type="button"
             onClick={() => onGuarda({ subeSiempre: !estado.subeSiempre })}
@@ -381,5 +421,213 @@ export function PanelYoutube({
         </>
       )}
     </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  CÓMO SE VA A LLAMAR                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Las plantillas del título y de la descripción.
+ *
+ * Se escriben en local y se guardan **al salir del campo**, no a cada tecla:
+ * el resto del panel guarda de forma optimista porque son clics sueltos, pero
+ * un título de sesenta caracteres serían sesenta escrituras en Supabase y
+ * sesenta oportunidades de que llegue una a destiempo y deje el texto a medias.
+ */
+function Plantillas({
+  estado,
+  onGuarda,
+}: {
+  estado: EstadoYoutube;
+  onGuarda: (cambios: Partial<EstadoYoutube>) => void;
+}) {
+  const [titulo, setTitulo] = useState(estado.tituloPlantilla);
+  const [descripcion, setDescripcion] = useState(estado.descripcionPlantilla);
+
+  return (
+    <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+      <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
+        <Pencil size={11} />
+        Cómo se llama el vídeo
+      </span>
+
+      <Field
+        label="Título"
+        value={titulo}
+        onChange={setTitulo}
+        placeholder={PLANTILLA_TITULO}
+        hint="YouTube corta el título a 100 caracteres."
+      />
+
+      <TextArea
+        label="Descripción"
+        value={descripcion}
+        onChange={setDescripcion}
+        placeholder={PLANTILLA_DESCRIPCION}
+        rows={4}
+      />
+
+      {/*
+        El botón de guardar es explícito porque el `blur` de un campo no llega
+        cuando se cierra el panel con el texto todavía enfocado, y perder lo
+        escrito al plegar un desplegable es de las cosas que no se perdonan.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          tone="primary"
+          icon={Check}
+          disabled={
+            titulo === estado.tituloPlantilla &&
+            descripcion === estado.descripcionPlantilla
+          }
+          onClick={() =>
+            onGuarda({
+              tituloPlantilla: titulo.trim() || PLANTILLA_TITULO,
+              descripcionPlantilla: descripcion,
+            })
+          }
+        >
+          Guardar el nombre
+        </Button>
+
+        <Button
+          disabled={
+            titulo === PLANTILLA_TITULO && descripcion === PLANTILLA_DESCRIPCION
+          }
+          onClick={() => {
+            setTitulo(PLANTILLA_TITULO);
+            setDescripcion(PLANTILLA_DESCRIPCION);
+
+            onGuarda({
+              tituloPlantilla: PLANTILLA_TITULO,
+              descripcionPlantilla: PLANTILLA_DESCRIPCION,
+            });
+          }}
+        >
+          Como estaba
+        </Button>
+      </div>
+
+      <p className="text-[11px] leading-relaxed text-white/35">
+        Se pueden dejar huecos y se rellenan solos al subir:{" "}
+        {HUECOS.map((hueco, indice) => (
+          <span key={hueco.clave}>
+            {indice > 0 && ", "}
+            <code className="rounded bg-black/40 px-1 text-[10px] text-[#C8A96B]">
+              {hueco.clave}
+            </code>{" "}
+            {hueco.explica}
+          </span>
+        ))}
+        .
+      </p>
+
+      <button
+        type="button"
+        onClick={() => onGuarda({ preguntaAntes: !estado.preguntaAntes })}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+          estado.preguntaAntes
+            ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+            : "border-white/10 text-white/40 hover:text-white"
+        }`}
+      >
+        <Pencil size={12} />
+        {estado.preguntaAntes ? "Pregunta antes de subir" : "Sube sin preguntar"}
+      </button>
+
+      <p className="text-[11px] leading-relaxed text-white/35">
+        {estado.preguntaAntes
+          ? "Antes de subir se enseña el nombre ya rellenado y se puede cambiar para ese vídeo."
+          : "Se sube directamente con lo que diga la plantilla, sin parar a preguntar."}
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL AVISO DE ANTES DE SUBIR                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El nombre y la descripción de **este** vídeo, con el fichero ya descargado.
+ *
+ * Sale entre el montaje y la subida, que es el único momento en que se sabe de
+ * qué vídeo se está hablando y todavía se puede cambiar sin entrar en YouTube.
+ * Lo que se escriba aquí vale sólo para esta subida: la plantilla del panel se
+ * queda como estaba.
+ *
+ * Cerrar no sube. El vídeo ya está descargado en el ordenador, así que
+ * arrepentirse no cuesta nada más que el enlace.
+ */
+export function DialogoNombreYoutube({
+  titulo: tituloInicial,
+  descripcion: descripcionInicial,
+  fichero,
+  privacidad,
+  listaNombre,
+  onSube,
+  onCancela,
+}: {
+  titulo: string;
+  descripcion: string;
+  /** Cómo se ha llamado el fichero descargado, para situarse. */
+  fichero: string;
+  privacidad: PrivacidadYoutube;
+  listaNombre: string;
+  onSube: (nombre: { titulo: string; descripcion: string }) => void;
+  onCancela: () => void;
+}) {
+  const [titulo, setTitulo] = useState(tituloInicial);
+  const [descripcion, setDescripcion] = useState(descripcionInicial);
+
+  const largo = titulo.trim().length;
+
+  return (
+    <Dialog
+      title="Subir a YouTube"
+      subtitle={`${fichero} · en ${NOMBRE_PRIVACIDAD[privacidad]}${
+        listaNombre ? ` · lista «${listaNombre}»` : " · sin lista"
+      }`}
+      onClose={onCancela}
+      footer={
+        <>
+          <Button onClick={onCancela}>No subir</Button>
+
+          <Button
+            tone="primary"
+            icon={Upload}
+            disabled={largo === 0}
+            onClick={() => onSube({ titulo: titulo.trim(), descripcion })}
+          >
+            Subir al canal
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field
+          label="Título"
+          value={titulo}
+          onChange={setTitulo}
+          hint={`${largo} de 100 caracteres${
+            largo > 100 ? " · YouTube va a cortarlo" : ""
+          }`}
+        />
+
+        <TextArea
+          label="Descripción"
+          value={descripcion}
+          onChange={setDescripcion}
+          rows={7}
+        />
+
+        <p className="text-[11px] leading-relaxed text-white/35">
+          Esto vale sólo para este vídeo. Para cambiarlo de siempre, la plantilla
+          está en el panel de YouTube.
+        </p>
+      </div>
+    </Dialog>
   );
 }

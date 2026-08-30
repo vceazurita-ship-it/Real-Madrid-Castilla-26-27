@@ -87,6 +87,7 @@ import {
 import { SelectorFuente } from "@/components/coding/SelectorFuente";
 import {
   AVISOS_YOUTUBE,
+  DialogoNombreYoutube,
   PanelYoutube,
   useYoutube,
 } from "@/components/coding/YoutubePanel";
@@ -132,6 +133,7 @@ import {
   subeAYoutube,
   SUBIDA_CANCELADA,
 } from "@/lib/coding/youtube-cliente";
+import { fechaDeHoy, rellenaPlantilla } from "@/lib/coding/youtube-plantillas";
 import { esperaFuentePortada, FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
@@ -1093,9 +1095,49 @@ function Coding() {
     router.replace(limpia.size > 0 ? `/coding?${limpia}` : "/coding");
   }, [params, router]);
 
+  /*
+  | Cómo se va a llamar el vídeo en el canal.
+  |
+  | La plantilla del panel se rellena con este partido y con lo que se estaba
+  | mirando; si el ajuste dice que hay que preguntar, eso mismo sale en un
+  | aviso antes de subir para poder retocarlo. `pideNombre` guarda la promesa
+  | del aviso: la exportación se queda esperando ahí hasta que alguien pulsa.
+  */
+  const [pideNombre, setPideNombre] = useState<{
+    titulo: string;
+    descripcion: string;
+    fichero: string;
+    resuelve: (nombre: { titulo: string; descripcion: string } | null) => void;
+  } | null>(null);
+
   const alTerminarVideo = useCallback(
     async (blob: Blob, nombre: string) => {
       if (!subeSiempre) return;
+
+      const datos = {
+        partido: titulo,
+        filtro: etiquetaFiltro,
+        fichero: nombre,
+        fecha: fechaDeHoy(),
+      };
+
+      const porDefecto = {
+        titulo: rellenaPlantilla(estadoYoutube.tituloPlantilla, datos),
+        descripcion: rellenaPlantilla(estadoYoutube.descripcionPlantilla, datos),
+      };
+
+      /*
+      | Preguntar es esperar: hasta que no se resuelve esto no hay subida, y si
+      | se cierra el aviso no la hay en absoluto. El vídeo ya está descargado,
+      | así que arrepentirse aquí no pierde nada más que el enlace.
+      */
+      const elegido = estadoYoutube.preguntaAntes
+        ? await new Promise<{ titulo: string; descripcion: string } | null>(
+            (resuelve) => setPideNombre({ ...porDefecto, fichero: nombre, resuelve }),
+          )
+        : porDefecto;
+
+      if (!elegido) return;
 
       const aviso = toast.loading("Subiendo a YouTube… 0 %");
 
@@ -1104,10 +1146,8 @@ function Coding() {
       try {
         const resultado = await subeAYoutube({
           blob,
-          titulo: `${titulo} · ${etiquetaFiltro}`,
-          descripcion:
-            `${titulo}\n${etiquetaFiltro}\n\n` +
-            `Montado con el coding del RMCF Castilla · ${nombre}`,
+          titulo: elegido.titulo,
+          descripcion: elegido.descripcion,
           senal: control.signal,
           onProgreso: (fraccion) => {
             toast.loading(`Subiendo a YouTube… ${Math.round(fraccion * 100)} %`, {
@@ -1154,7 +1194,16 @@ function Coding() {
         });
       }
     },
-    [etiquetaFiltro, subeSiempre, titulo],
+    [
+      estadoYoutube.descripcionPlantilla,
+      estadoYoutube.preguntaAntes,
+      estadoYoutube.tituloPlantilla,
+      etiquetaFiltro,
+      /* El compilador lo cuenta como dependencia aunque `useState` lo dé estable. */
+      setPideNombre,
+      subeSiempre,
+      titulo,
+    ],
   );
 
   const exportador = useExportador({
@@ -2274,6 +2323,7 @@ function Coding() {
                       subeSiempre: estadoYoutube.subeSiempre,
                       privacidad: estadoYoutube.privacidad,
                       listaNombre: estadoYoutube.listaNombre,
+                      preguntaAntes: estadoYoutube.preguntaAntes,
                       onSube: (sube) => youtube.guarda({ subeSiempre: sube }),
                     }}
                     onZip={() =>
@@ -2733,6 +2783,32 @@ function Coding() {
                     clipIds.length === 1 ? "corte" : "cortes"
                   }`,
             );
+          }}
+        />
+      )}
+
+      {/* ------------------ EL NOMBRE DEL VÍDEO EN YOUTUBE -------------- */}
+
+      {pideNombre && (
+        <DialogoNombreYoutube
+          titulo={pideNombre.titulo}
+          descripcion={pideNombre.descripcion}
+          fichero={pideNombre.fichero}
+          privacidad={estadoYoutube.privacidad}
+          listaNombre={estadoYoutube.listaNombre}
+          onSube={(nombre) => {
+            pideNombre.resuelve(nombre);
+
+            setPideNombre(null);
+          }}
+          onCancela={() => {
+            pideNombre.resuelve(null);
+
+            setPideNombre(null);
+
+            toast("No se ha subido a YouTube", {
+              description: "El vídeo se ha descargado igual.",
+            });
           }}
         />
       )}
