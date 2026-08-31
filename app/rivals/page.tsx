@@ -1422,9 +1422,35 @@ export default function RivalPlayersPage() {
       ? elegidosPortero.claves
       : null;
 
+  /*
+  | De quién se elige.
+  |
+  | Lo normal es que sean los del once probable, que es de donde sale este
+  | flujo. Pero el botón está para todos los equipos —no sólo para el que se
+  | está preparando—, y en un rival sin once marcado la lista salía vacía y el
+  | pop-up no servía para nada: entonces se ofrece la plantilla entera.
+  */
+  const sinOnceMarcado = marcados.length === 0;
+
+  const fuentePortero = useMemo(() => {
+    if (!sinOnceMarcado) return marcados;
+
+    if (!equipoDelOnce) return [];
+
+    return players
+      .filter(
+        (player) =>
+          player.NOMBRE_EQUIPO === equipoDelOnce &&
+          Boolean(
+            textoUtil(player["NOMBRE DEPORTIVO"]) || textoUtil(player.JUGADOR),
+          ),
+      )
+      .map((player) => ({ player, estado: "titular" as OncePdfEstado }));
+  }, [equipoDelOnce, marcados, players, sinOnceMarcado]);
+
   const candidatosPortero = useMemo<PorteroCandidato[]>(
     () =>
-      [...marcados]
+      [...fuentePortero]
         .sort((a, b) => ordenDelOnce(a.player, b.player))
         .map(({ player, estado }) => {
           const slotEntry = getSlot(player["POSICIÓN"]);
@@ -1435,7 +1461,7 @@ export default function RivalPlayersPage() {
             estado,
           };
         }),
-    [marcados],
+    [fuentePortero],
   );
 
   const porteroPorDefecto = useMemo(
@@ -1454,7 +1480,7 @@ export default function RivalPlayersPage() {
     async (claves: string[]) => {
       const elegidos = new Set(claves);
 
-      const filas = marcados.filter(({ player }) =>
+      const filas = fuentePortero.filter(({ player }) =>
         elegidos.has(playerKey(player)),
       );
 
@@ -1462,7 +1488,7 @@ export default function RivalPlayersPage() {
 
       if (await exportaPdf("portero", filas)) setPreparandoPortero(false);
     },
-    [marcados, exportaPdf],
+    [fuentePortero, exportaPdf],
   );
 
 
@@ -2663,9 +2689,17 @@ export default function RivalPlayersPage() {
                             </span>
                           )}
 
-                          {/* El once, en un PDF que salta a cada ficha. */}
+                          {/*
+                            El once, en un PDF que salta a cada ficha.
 
-                          {marcados.length > 0 && (
+                            Sale para **todos** los equipos, no sólo para los
+                            que ya tienen once marcado: antes el botón aparecía
+                            con el primer jugador marcado, así que en un rival
+                            al que no se había mirado no había ni por dónde
+                            empezar. El once se monta ahora dentro del pop-up.
+                          */}
+
+                          {pitchPlayers.length > 0 && (
                             <button
                               type="button"
                               data-export-hide
@@ -2687,7 +2721,7 @@ export default function RivalPlayersPage() {
 
                           {/* Y el que se lleva el portero: los que le tiran. */}
 
-                          {marcados.length > 0 && (
+                          {pitchPlayers.length > 0 && (
                             <button
                               type="button"
                               data-export-hide
@@ -2823,6 +2857,7 @@ export default function RivalPlayersPage() {
           onMover={once.mover}
           onAlCampo={once.alCampo}
           onQuitar={once.quitar}
+          onAnadir={(clave) => once.marcar(clave, "titular")}
           onSustituir={once.sustituir}
           onRecolocar={once.recolocar}
           onExportar={() => void exportarOncePdf()}
@@ -2850,6 +2885,7 @@ export default function RivalPlayersPage() {
           candidatos={candidatosPortero}
           porDefecto={porteroPorDefecto}
           elegidos={porteroElegidos}
+          sinOnce={sinOnceMarcado}
           exportando={exportando}
           onCambiar={(claves) =>
             setElegidosPortero({ equipo: equipoDelOnce, claves })

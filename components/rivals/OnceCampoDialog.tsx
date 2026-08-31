@@ -99,6 +99,14 @@ interface OnceCampoDialogProps {
   onAlCampo: (clave: string, meter: boolean) => void;
   /** Fuera del once del todo: ni campo, ni lista, ni ficha en el PDF. */
   onQuitar: (clave: string) => void;
+  /**
+   * Meter a alguien de la plantilla en el once, como titular.
+   *
+   * El once se marca en el campograma, pero se **empieza** aquí cuando no hay
+   * nada marcado: sin esto, abrir el pop-up de un equipo sin once daba un campo
+   * vacío y ninguna manera de llenarlo.
+   */
+  onAnadir: (clave: string) => void;
   /** Uno por otro; el que entra hereda el sitio y el estado del que sale. */
   onSustituir: (saliente: string, entrante: string) => void;
   /** Devuelve el campo al reparto automático por líneas. */
@@ -385,6 +393,11 @@ function Retrato({
  * cualquiera de la plantilla. La lista trae a todos —también a los que ya
  * están marcados, avisando de cómo—, porque el cambio más habitual el viernes
  * es «éste no, el que tenía de duda».
+ *
+ * **Sin `jugador` es el menú de añadir**: la misma lista y el mismo buscador,
+ * sin nadie a quien quitar ni sustituir. Hace falta porque el once se empieza a
+ * montar aquí, no sólo en el campograma: hasta ahora, un equipo sin nadie
+ * marcado abría este pop-up con el campo vacío y sin manera de meter a nadie.
  */
 function MenuJugador({
   jugador,
@@ -394,7 +407,7 @@ function MenuJugador({
   onSustituir,
   onCerrar,
 }: {
-  jugador: OnceCampoFicha;
+  jugador: OnceCampoFicha | null;
   plantilla: OnceCampoCandidato[];
   /** clave → cómo está marcado ahora mismo, para avisar en la lista. */
   enElOnce: Map<string, "titular" | "duda">;
@@ -408,7 +421,7 @@ function MenuJugador({
     const query = normaliza(busca.trim());
 
     return plantilla
-      .filter((item) => item.clave !== jugador.clave)
+      .filter((item) => item.clave !== jugador?.clave)
       .filter((item) => {
         if (!query) return true;
 
@@ -419,14 +432,16 @@ function MenuJugador({
           item.dorsal.includes(query)
         );
       });
-  }, [plantilla, jugador.clave, busca]);
+  }, [plantilla, jugador?.clave, busca]);
 
   return (
     <div
       className="modal-veil fixed inset-0 z-[70] flex items-center justify-center p-3 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label={`Cambiar o quitar a ${jugador.nombre}`}
+      aria-label={
+        jugador ? `Cambiar o quitar a ${jugador.nombre}` : "Añadir al once"
+      }
       onClick={(evento) => {
         evento.stopPropagation();
         onCerrar();
@@ -439,26 +454,38 @@ function MenuJugador({
         {/* QUIÉN */}
 
         <div className="flex items-center gap-3 border-b border-white/10 p-4">
-          <Retrato
-            jugador={jugador}
-            tamano={40}
-            borde={jugador.estado === "titular" ? "#34D399" : "#FBBF24"}
-          />
+          {jugador ? (
+            <>
+              <Retrato
+                jugador={jugador}
+                tamano={40}
+                borde={jugador.estado === "titular" ? "#34D399" : "#FBBF24"}
+              />
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{jugador.nombre}</p>
-            <p className="truncate text-[11px] text-white/40">
-              {jugador.dorsal ? `${jugador.dorsal} · ` : ""}
-              {jugador.posCode || jugador.posicion || "Sin posición"} ·{" "}
-              <span
-                style={{
-                  color: jugador.estado === "titular" ? "#34D399" : "#FBBF24",
-                }}
-              >
-                {jugador.estado === "titular" ? "Titular" : "Duda"}
-              </span>
-            </p>
-          </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{jugador.nombre}</p>
+                <p className="truncate text-[11px] text-white/40">
+                  {jugador.dorsal ? `${jugador.dorsal} · ` : ""}
+                  {jugador.posCode || jugador.posicion || "Sin posición"} ·{" "}
+                  <span
+                    style={{
+                      color:
+                        jugador.estado === "titular" ? "#34D399" : "#FBBF24",
+                    }}
+                  >
+                    {jugador.estado === "titular" ? "Titular" : "Duda"}
+                  </span>
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">Añadir al once</p>
+              <p className="truncate text-[11px] text-white/40">
+                Entra como titular; después se coloca en el campo
+              </p>
+            </div>
+          )}
 
           <button
             type="button"
@@ -473,28 +500,34 @@ function MenuJugador({
 
         {/* QUITAR */}
 
-        <div className="border-b border-white/10 p-3">
-          <button
-            type="button"
-            data-export-hide
-            onClick={onQuitar}
-            className="flex w-full items-center gap-2 rounded-lg border border-[#F87171]/30 bg-[#F87171]/10 px-3 py-2 text-xs font-semibold text-[#F87171] transition hover:bg-[#F87171]/20"
-          >
-            <Trash2 size={14} />
-            Quitar del once
-            <span className="ml-auto text-[10px] font-normal text-[#F87171]/60">
-              sale también del PDF
-            </span>
-          </button>
-        </div>
+        {jugador && (
+          <div className="border-b border-white/10 p-3">
+            <button
+              type="button"
+              data-export-hide
+              onClick={onQuitar}
+              className="flex w-full items-center gap-2 rounded-lg border border-[#F87171]/30 bg-[#F87171]/10 px-3 py-2 text-xs font-semibold text-[#F87171] transition hover:bg-[#F87171]/20"
+            >
+              <Trash2 size={14} />
+              Quitar del once
+              <span className="ml-auto text-[10px] font-normal text-[#F87171]/60">
+                sale también del PDF
+              </span>
+            </button>
+          </div>
+        )}
 
-        {/* CAMBIAR POR */}
+        {/* CAMBIAR POR / AÑADIR */}
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center gap-2 px-3 pt-3">
-            <ArrowLeftRight size={13} className="text-white/35" />
+            {jugador ? (
+              <ArrowLeftRight size={13} className="text-white/35" />
+            ) : (
+              <Plus size={13} className="text-white/35" />
+            )}
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
-              CAMBIAR POR
+              {jugador ? "CAMBIAR POR" : "ELIGE DE LA PLANTILLA"}
             </p>
           </div>
 
@@ -581,6 +614,7 @@ export default function OnceCampoDialog({
   onMover,
   onAlCampo,
   onQuitar,
+  onAnadir,
   onSustituir,
   onRecolocar,
   onExportar,
@@ -619,6 +653,9 @@ export default function OnceCampoDialog({
   */
   const [menu, setMenu] = useState<string | null>(null);
 
+  /* El mismo menú, pero para meter a alguien nuevo: sin nadie a quien quitar. */
+  const [anadiendo, setAnadiendo] = useState(false);
+
   useEffect(() => {
     const alPulsar = (evento: KeyboardEvent) => {
       if (evento.key !== "Escape") return;
@@ -626,13 +663,14 @@ export default function OnceCampoDialog({
       /* El escape cierra primero el menú: si se llevara por delante el pop-up
          entero, deshacer un clic costaría volver a colocar el once. */
       if (menu) setMenu(null);
+      else if (anadiendo) setAnadiendo(false);
       else onCerrar();
     };
 
     window.addEventListener("keydown", alPulsar);
 
     return () => window.removeEventListener("keydown", alPulsar);
-  }, [menu, onCerrar]);
+  }, [anadiendo, menu, onCerrar]);
 
   /*
   | Quién se pinta y dónde. El reparto es el del PDF: quien tenga sitio puesto
@@ -948,6 +986,28 @@ export default function OnceCampoDialog({
                 titulares
                 {dudasDentro > 0 && ` + ${dudasDentro} dudas`}
               </p>
+
+              {/*
+                El once se marca en el campograma, pero se puede montar entero
+                desde aquí: con un rival al que todavía no se ha mirado, éste es
+                el primer sitio al que se llega.
+              */}
+              <button
+                type="button"
+                data-export-hide
+                onClick={() => setAnadiendo(true)}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#34D399]/35 bg-[#34D399]/10 px-3 py-2 text-xs font-semibold text-[#34D399] transition hover:bg-[#34D399]/20"
+              >
+                <Plus size={14} />
+                Añadir al once
+              </button>
+
+              {jugadores.length === 0 && (
+                <p className="mt-2 text-[11px] text-white/40">
+                  Este equipo no tiene once marcado todavía. Añade a los
+                  titulares y colócalos en el campo.
+                </p>
+              )}
             </div>
 
             {/* Las dudas: se meten con el + o arrastrándolas al campo. */}
@@ -1144,7 +1204,14 @@ export default function OnceCampoDialog({
               type="button"
               data-export-hide
               onClick={onExportar}
-              disabled={exportando}
+              /* Sin nadie en el once no hay documento que sacar: el botón lo
+                 dice en vez de no hacer nada al pulsarlo. */
+              disabled={exportando || jugadores.length === 0}
+              title={
+                jugadores.length === 0
+                  ? "Añade primero a los titulares"
+                  : "Descargar el PDF del once probable"
+              }
               className="flex items-center gap-2 rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/15 px-4 py-2 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:opacity-50"
             >
               {exportando ? (
@@ -1195,6 +1262,24 @@ export default function OnceCampoDialog({
             setMenu(null);
           }}
           onCerrar={() => setMenu(null)}
+        />
+      )}
+
+      {/* AÑADIR A ALGUIEN AL ONCE */}
+
+      {anadiendo && (
+        <MenuJugador
+          jugador={null}
+          plantilla={plantilla}
+          enElOnce={enElOnce}
+          onQuitar={() => setAnadiendo(false)}
+          onSustituir={(entrante) => {
+            onAnadir(entrante);
+
+            /* Se queda abierto: montar un once son once clics seguidos y
+               cerrar el buscador después de cada uno es once veces abrirlo. */
+          }}
+          onCerrar={() => setAnadiendo(false)}
         />
       )}
     </div>

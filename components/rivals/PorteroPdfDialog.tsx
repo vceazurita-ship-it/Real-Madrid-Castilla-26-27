@@ -49,6 +49,8 @@ interface PorteroPdfDialogProps {
   porDefecto: string[];
   /** Lo elegido la última vez en esta sesión. Sin ello mandan los de arriba. */
   elegidos: string[] | null;
+  /** La lista es la plantilla entera porque no hay once marcado. */
+  sinOnce?: boolean;
   exportando: boolean;
   onCambiar: (claves: string[]) => void;
   onExportar: (claves: string[]) => void;
@@ -65,6 +67,7 @@ export default function PorteroPdfDialog({
   candidatos,
   porDefecto,
   elegidos,
+  sinOnce,
   exportando,
   onCambiar,
   onExportar,
@@ -162,6 +165,17 @@ export default function PorteroPdfDialog({
               quita o añade a quien quieras. Sale el mismo documento que el del
               once, con la ficha entera de cada uno.
             </p>
+
+            {/*
+              Sin once montado la lista es la plantilla entera. Se dice, porque
+              cambia lo que hay debajo: no son «los del once», son todos.
+            */}
+            {sinOnce && (
+              <p className="mt-2 rounded-lg border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-1.5 text-[11px] text-[#C8A96B]">
+                Este equipo no tiene once probable marcado: aquí está la
+                plantilla entera.
+              </p>
+            )}
           </div>
 
           <button
@@ -184,7 +198,9 @@ export default function PorteroPdfDialog({
         >
           {candidatos.length === 0 ? (
             <p className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-white/40">
-              No hay nadie marcado en el once probable de este equipo.
+              {sinOnce
+                ? "Este equipo no tiene jugadores en la hoja."
+                : "No hay nadie marcado en el once probable de este equipo."}
             </p>
           ) : (
             grupos.map(([grupo, jugadores]) => (
