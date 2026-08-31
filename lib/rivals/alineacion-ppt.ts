@@ -393,7 +393,7 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
   ctx.fillStyle = C.crema;
   textoEspaciado(ctx, club, x, 62 + cuerpo * 0.36, 1.6);
 
-  chapa(ctx, `PLANTILLA ${data.temporada}`, {
+  chapa(ctx, `TEMPORADA ${data.temporada}`, {
     x,
     y: 82,
     alto: 34,
@@ -411,7 +411,7 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
   | ayer. Lo que sitúa al documento en el tiempo es la temporada, que ya está
   | en la chapa de la izquierda.
   */
-  chapa(ctx, "DÍA DE PARTIDO", {
+  chapa(ctx, "ALINEACIÓN RIVAL", {
     x: W - MARGEN,
     y: (CABECERA - 4 - 38) / 2,
     alto: 38,
@@ -429,19 +429,13 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
   /* -------------------------------------------------- el pie */
 
   /*
-  | El aviso de la izquierda no es un adorno: quien abre el fichero por primera
-  | vez no tiene por qué saber que cada ficha es un objeto suelto, y ése es
-  | justo el truco del documento. Va pequeño y translúcido —debajo de las
-  | fichas, no compitiendo con ellas— y se borra como todo lo demás.
+  | Sólo la firma. Aquí iba además un aviso explicando que cada ficha es un
+  | objeto suelto que se puede borrar; fuera, porque el documento se proyecta
+  | en la charla y una instrucción de manejo escrita en el césped se lee como
+  | parte del análisis. Quien monta el once ya sabe cómo funciona.
   */
   fuente(ctx, 17, 500);
   ctx.fillStyle = "rgba(247,244,236,0.30)";
-  ctx.fillText(
-    "CADA JUGADOR ES UNA IMAGEN SUELTA · BORRA A LOS QUE NO SALGAN Y QUEDA EL ONCE",
-    MARGEN,
-    H - 18,
-  );
-
   ctx.textAlign = "right";
   ctx.fillText("RMCF CASTILLA", W - MARGEN, H - 18);
   ctx.textAlign = "left";
@@ -451,8 +445,16 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
 /*  LA FICHA DE UN JUGADOR                                             */
 /* ------------------------------------------------------------------ */
 
-/** Las cuatro líneas de números, las mismas del pptx que se copiaba a mano. */
-function lineasDeFicha(jugador: AlineacionJugador) {
+/**
+ * Las cuatro líneas de números, las mismas del pptx que se copiaba a mano.
+ *
+ * Tres cuando la ficha lleva etiqueta de estado al pie: la píldora le quita
+ * treinta píxeles a la franja, y repartir cuatro renglones en lo que queda los
+ * deja a la mitad de cuerpo que los de las fichas de al lado. Una ficha que se
+ * lee peor que sus vecinas canta más que un dato de menos, y el dato que se va
+ * es el último —los goles—, que es el que la etiqueta ya está matizando.
+ */
+function lineasDeFicha(jugador: AlineacionJugador, tope = 4) {
   const lineas: string[] = [];
 
   const pie = pieDominante(jugador.pie);
@@ -479,22 +481,25 @@ function lineasDeFicha(jugador: AlineacionJugador) {
     lineas.push(`GOLES: ${jugador.goles}`);
   }
 
-  return lineas.slice(0, 4);
+  return lineas.slice(0, tope);
 }
 
 /**
- * Lo que se marca de un jugador que hoy no está.
+ * Lo que se marca de un jugador que hoy no está entero.
  *
  * El pptx original le ponía una X roja encima. Aquí es una chapa con la
  * palabra: proyectada, una X se confunde con el aspa de un dorsal tachado, y
- * «SANCIONADO» y «LESIONADO» no significan lo mismo cuando se decide a quién
- * se estudia.
+ * «SANCIONADO» no significa lo mismo que «TOCADO» cuando se decide a quién se
+ * estudia.
+ *
+ * **Lesionado y tocado dicen los dos TOCADO.** Para preparar un partido la
+ * diferencia no existe: los dos son gente que puede no salir o salir a medias,
+ * y son dos palabras distintas para lo mismo en la charla. Una sola etiqueta se
+ * lee de un vistazo en las veinticinco fichas.
  *
  * **La chapa sólo sale cuando dice algo.** La hoja escribe «ACTIVO» en todo el
  * que está disponible —es lo que pone el formulario al dar de alta a alguien—,
- * así que la plantilla entera salía con una chapa encima de la cabeza que no
- * avisaba de nada y le quitaba el sitio al retrato. Lo normal no se marca: se
- * marca la excepción.
+ * así que la plantilla entera salía con una chapa que no avisaba de nada.
  */
 function baja(estado: string) {
   const limpio = estado.trim().toUpperCase();
@@ -506,6 +511,8 @@ function baja(estado: string) {
   ) {
     return "";
   }
+
+  if (/LESION|TOCAD|MOLESTIA|DUDA/.test(limpio)) return "TOCADO";
 
   return limpio.slice(0, 18);
 }
@@ -591,25 +598,6 @@ function pintaFicha(
     ctx.textAlign = "left";
   }
 
-  /* -------------------------------------------------- la baja */
-
-  const marca = baja(jugador.estado);
-
-  if (marca) {
-    chapa(ctx, marca, {
-      x: FICHA_W / 2,
-      y: 12,
-      alto: 24,
-      fondo: C.rosaHondo,
-      tinta: C.navy,
-      tamano: 15,
-      espaciado: 2,
-      padding: 12,
-      anchoMax: FICHA_W - 16,
-      desdeCentro: true,
-    });
-  }
-
   /* -------------------------------------------------- el nombre */
 
   const edad = jugador.edad.trim();
@@ -630,19 +618,51 @@ function pintaFicha(
 
   /* -------------------------------------------------- los números */
 
-  const lineas = lineasDeFicha(jugador);
+  /*
+  | La etiqueta de estado —TOCADO, SANCIONADO— va **al pie de la ficha**, no
+  | encima de la cabeza: ahí tapaba media frente del retrato, que es lo que se
+  | reconoce de un jugador al proyectarlo. Abajo se lee igual de bien y la
+  | ficha se ve entera.
+  |
+  | El hueco se le resta a la franja de números en vez de superponerse: son
+  | cuatro renglones que ya van justos, y una chapa encima del último borra el
+  | dato en el que se apoya media charla.
+  */
+  const marca = baja(jugador.estado);
+
+  const CHAPA_ALTO = 24;
+
+  const ARRIBA = 174;
+  const ABAJO = FICHA_H - 10 - (marca ? CHAPA_ALTO + 6 : 0);
+
+  const lineas = lineasDeFicha(jugador, marca ? 3 : 4);
+
+  if (marca) {
+    chapa(ctx, marca, {
+      x: FICHA_W / 2,
+      y: FICHA_H - 10 - CHAPA_ALTO,
+      alto: CHAPA_ALTO,
+      fondo: C.rosaHondo,
+      tinta: C.navy,
+      tamano: 15,
+      espaciado: 2,
+      padding: 12,
+      anchoMax: FICHA_W - 16,
+      desdeCentro: true,
+    });
+  }
 
   /*
   | Aquí NO vale `ctx.textAlign = "center"`: `textoEspaciado` pinta letra a
   | letra, y centrado cada letra se centraría sobre su propio cursor —salía
   | «D IESTRO» y «PJ T ITULAR»—. Se centra a mano con el ancho medido, que es
   | además el único que cuenta el espaciado entre letras.
+  |
+  | Va después de la chapa a posta: `chapa` deja puesto su propio color y su
+  | propia alineación, y los renglones saldrían del color de la píldora.
   */
   ctx.textAlign = "left";
   ctx.fillStyle = C.navy;
-
-  const ARRIBA = 174;
-  const ABAJO = FICHA_H - 10;
 
   const ESPACIADO = 0.8;
 

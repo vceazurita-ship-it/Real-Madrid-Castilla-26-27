@@ -171,7 +171,7 @@ function Ficha({
       <div
         className="relative mx-auto -mt-2 flex flex-col items-center rounded-md px-1.5 py-0.5 text-center"
         style={{
-          backgroundImage: `linear-gradient(180deg, #0B2E4B 0%, ${COLORES.chapa} 100%)`,
+          backgroundImage: `linear-gradient(180deg, ${COLORES.nocheAlto} 0%, ${COLORES.noche} 100%)`,
           boxShadow: seleccionada
             ? `0 0 0 2px ${COLORES.oro}, 0 6px 14px rgba(0,0,0,.55)`
             : "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
@@ -240,7 +240,7 @@ function Hueco({
         width: 54,
         height: CHAPA_H,
         borderColor: "rgba(200,169,107,.65)",
-        backgroundColor: "rgba(4,18,32,.62)",
+        backgroundColor: "rgba(15,32,54,.66)",
         boxShadow: "0 4px 10px rgba(0,0,0,.35)",
         zIndex: profundidad(x, y),
       }}
@@ -324,7 +324,7 @@ function MarcaZona({
           cy="38"
           rx="68"
           ry="22"
-          stroke="rgba(4,18,32,.35)"
+          stroke="rgba(15,32,54,.35)"
           strokeWidth="4.5"
           strokeDasharray="8 7"
           transform="translate(0 3)"
@@ -350,7 +350,7 @@ function MarcaZona({
         width: 230,
         height: 34,
         zIndex: 3_000_000,
-        backgroundColor: "rgba(4,18,32,.86)",
+        backgroundColor: "rgba(15,32,54,.9)",
         border: "1px solid rgba(200,169,107,.5)",
         boxShadow: "0 6px 16px rgba(0,0,0,.45)",
       }}
@@ -744,7 +744,7 @@ export function TableroSlide({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "linear-gradient(180deg, rgba(4,18,32,.46) 0%, rgba(4,18,32,.06) 36%, rgba(4,18,32,.34) 100%)",
+              "linear-gradient(180deg, rgba(15,32,54,.46) 0%, rgba(15,32,54,.06) 36%, rgba(15,32,54,.34) 100%)",
           }}
         />
 
@@ -752,7 +752,7 @@ export function TableroSlide({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(118% 84% at 42% 36%, rgba(0,0,0,0) 40%, rgba(3,12,22,.30) 76%, rgba(3,12,22,.60) 100%)",
+              "radial-gradient(118% 84% at 42% 36%, rgba(15,32,54,0) 40%, rgba(15,32,54,.32) 76%, rgba(15,32,54,.62) 100%)",
           }}
         />
 
@@ -763,8 +763,11 @@ export function TableroSlide({
           style={{
             width: TABLERO_W,
             height: CABECERA_H,
-            backgroundImage:
-              "linear-gradient(96deg, #000000 0%, #04121F 28%, #0A2138 54%, #05182A 76%, #000000 100%)",
+            /* El mismo azul noche de punta a punta, con un peldaño más claro
+               en el centro para que no sea una banda plana. Antes arrancaba y
+               terminaba en negro puro y la cabecera parecía de otro material
+               que el panel de asignaciones. */
+            backgroundImage: `linear-gradient(96deg, ${COLORES.noche} 0%, ${COLORES.nocheAlto} 52%, ${COLORES.noche} 100%)`,
             boxShadow: "0 16px 36px rgba(0,0,0,.45)",
           }}
         >
@@ -916,7 +919,7 @@ export function TableroSlide({
               top: PANEL.y,
               width: PANEL.w,
               maxHeight: PANEL.h,
-              backgroundColor: "rgba(4,18,32,.9)",
+              backgroundColor: "rgba(15,32,54,.92)",
               border: "1px solid rgba(200,169,107,.3)",
               boxShadow: "0 18px 44px rgba(0,0,0,.55)",
             }}

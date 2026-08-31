@@ -180,7 +180,6 @@ function jugador(i) {
   const { doc } = await buildOncePdf({
     equipo: "CD Teruel",
     escudo: "",
-    fecha: "Sábado 6 de septiembre · 18:00",
     tema,
     variante,
     jugadores,

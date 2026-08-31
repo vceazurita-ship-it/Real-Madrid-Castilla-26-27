@@ -13,6 +13,7 @@ import {
   flattenWeeks,
   seasonStats,
 } from "@/lib/season/utils";
+import AgradecimientoVestuario from "./AgradecimientoVestuario";
 import SeasonFilesViewer from "./SeasonFilesViewer";
 import SeasonHeader from "./SeasonHeader";
 import WeekNavigator from "./WeekNavigator";
@@ -169,6 +170,13 @@ export default function SeasonWorkspace({ area }: Props) {
                   onOpenPdfs={() => setFilesViewer("pdfs")}
                   onReload={() => reloadSeason({ keepSelection: true })}
                 />
+
+                {/*
+                | La nota para el vestuario rival sólo sale en el área general:
+                | no es de una semana ni de un partido, es del club, y aquí es
+                | donde se busca lo que no cuelga del calendario.
+                */}
+                {area === "general" && <AgradecimientoVestuario />}
 
                 {/* SELECTOR EN MÓVIL */}
 

@@ -1065,11 +1065,6 @@ export default function RivalPlayersPage() {
              diecinueve documentos del grupo es lo que dice de quién es cada
              hoja de un vistazo. */
           escudo: escudoDe(equipoDelOnce),
-          fecha: new Date().toLocaleDateString("es-ES", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          }),
           jugadores,
           tema: theme,
           /* Dónde ha dejado el entrenador a cada uno en el pop-up. */

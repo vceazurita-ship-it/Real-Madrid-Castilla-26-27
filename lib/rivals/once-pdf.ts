@@ -171,8 +171,6 @@ export type OncePdfData = {
    * de estadísticas anterior al escudo no puede dejar el PDF a medias.
    */
   escudo?: string;
-  /** "25 de agosto de 2026". */
-  fecha: string;
   jugadores: OncePdfPlayer[];
   /**
    * El tema con el que se está viendo la app. El documento sale igual: en
@@ -1364,7 +1362,7 @@ function cabecera(
 
   fuente(doc, 8.5, "normal");
   ink(doc, C.tintaMedia);
-  doc.text(`${V.subtitulo} · ${data.fecha}`, titulo, y + 49);
+  doc.text(V.subtitulo, titulo, y + 49);
 
   /* Contadores a la derecha, alineados con el título. Se colocan de derecha a
      izquierda para que el bloque quede pegado al margen. */
@@ -2634,7 +2632,7 @@ function pies(doc: Doc, data: OncePdfData) {
     ink(doc, C.tintaTenue);
 
     doc.text(
-      `Real Madrid Castilla · ${data.equipo} · ${V.subtitulo} · ${data.fecha}`,
+      `Real Madrid Castilla · ${data.equipo} · ${V.subtitulo}`,
       MARGEN,
       PAGE_H - MARGEN,
     );

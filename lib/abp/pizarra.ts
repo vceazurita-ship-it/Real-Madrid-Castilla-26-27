@@ -48,9 +48,15 @@ export const NOTAS = { x: 1153, y: 714, w: 746, h: 354 };
  * Paleta.
  *
  * Los tres primeros son los de `INDIVIDUAL.pptx` (ver `lib/rivals/portada.ts`);
- * el azul y el naranja son los que la plantilla de ABP usa para las chapas de
- * puesto y la cabecera, y se conservan porque son los que el cuerpo técnico
- * reconoce de un vistazo.
+ * el oro es el acento de toda la plataforma.
+ *
+ * **Todo lo oscuro del tablero es el mismo azul noche** (31/08/2026). Había
+ * tres: la cabecera arrancaba y terminaba en negro puro, la caja de
+ * asignaciones iba en azul casi negro y la chapa de debajo de cada foto en un
+ * azul más vivo del pptx original. Proyectadas juntas, las tres se leían como
+ * tres materiales distintos pegados sobre la misma foto. Ahora sólo cambia el
+ * PESO —`noche` para los fondos, `nocheAlto` para lo que se levanta— y no el
+ * color.
  */
 export const COLORES = {
   papel: "#FFFFFF",
@@ -59,15 +65,20 @@ export const COLORES = {
   crema: "#F7F4EC",
   rosa: "#F6AFB6",
   rosaHondo: "#D89AA6",
-  /** El azul de las chapas de puesto del pptx de ABP. */
-  chapa: "#00304E",
-  /** El naranja del degradado de la cabecera de la plantilla original. */
-  ambar: "#FF9E12",
+  /** El azul noche de la casa: cabecera, panel y chapas de puesto. */
+  noche: "#0F2036",
+  /** El mismo azul un peldaño más claro, para dar volumen sin cambiar de tono. */
+  nocheAlto: "#17304F",
   /** El oro de la casa: el mismo acento que usa toda la plataforma. */
   oro: "#C8A96B",
   oroClaro: "#E4CE9B",
-  /** Azul casi negro, el fondo de la cabecera y de los paneles. */
-  tinta: "#04121F",
+  /**
+   * El fondo del lienzo, por debajo de las fotos de campo.
+   *
+   * Es más hondo que `noche` a posta: es lo que hay DETRÁS de todo, y si fuera
+   * el mismo azul los paneles dejarían de recortarse contra él.
+   */
+  tinta: "#081524",
 };
 
 /**
@@ -152,8 +163,10 @@ export const VISTAS: Record<VistaCampo, VistaCampoDef> = {
         fundido: 190,
       },
     ],
+    /* El velo apaga la banda derecha hacia el MISMO azul noche del panel que
+       se apoya en ella: con otro tono se veía el corte de la caja. */
     velo:
-      "linear-gradient(90deg, rgba(4,18,32,0) 0%, rgba(4,18,32,0) 62%, rgba(4,18,32,.55) 76%, rgba(4,18,32,.9) 88%, rgba(4,18,32,.96) 100%)",
+      "linear-gradient(90deg, rgba(15,32,54,0) 0%, rgba(15,32,54,0) 62%, rgba(15,32,54,.55) 76%, rgba(15,32,54,.9) 88%, rgba(15,32,54,.96) 100%)",
   },
 };
 
@@ -392,7 +405,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "directas",
-    rev: 4,
+    rev: 5,
     titulo: "DIRECTAS A PORTERÍA",
     vista: "porteria",
     lado: "ofensivo",
@@ -406,50 +419,54 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | Esta diapositiva era sólo una lista: nueve nombres en el panel y el campo
     | entero vacío. Ahora dice DESDE DÓNDE se lanza y **quiénes** lanzan.
     |
-    | Los tres de cada sitio van al campo, en columna detrás de su marca: el
-    | primero de pie sobre el balón y los otros dos por detrás, en la fila de
-    | espera. Antes sólo se plantaba el primero y el segundo y el tercero
-    | vivían en el panel; el orden se leía, pero las caras no se veían, que es
-    | justo lo que la sala mira. Se eligen los tres de una vez (`elegirEnGrupo`).
+    | Los tres de cada sitio van al campo, detrás de su marca: el primero de
+    | pie sobre el balón y los otros dos en la fila de espera. Se eligen los
+    | tres de una vez (`elegirEnGrupo`).
     |
-    | **Son cuatro sitios y no tres**: faltaba la falta frontal, que es la que
-    | más se ensaya de las tres directas y no tenía dónde apuntarse.
+    | **Cada grupo está donde se lanza de verdad** (31/08/2026), no en una
+    | columna de una rejilla. Antes eran cuatro columnas iguales repartidas a
+    | 260 px por el ancho del campo: se leía como una tabla y no como un campo,
+    | y el penalti —que es el único de los cuatro que se lanza desde un punto
+    | exacto y conocido— caía fuera del área, a la derecha de la frontal.
     |
-    | Las cuatro columnas van a 260 px unas de otras —el aro de la marca mide
-    | 210 de ancho y el rótulo 230— y a 160 px de separación entre fichas de la
-    | misma columna, que es lo que hace falta para que ninguna cara tape la
-    | chapa de la de delante (la ficha mide 120 de alta y su chapa 30).
+    |   · El PENALTI va dentro del área: el primero de pie sobre el punto
+    |     (775,360) y los otros dos flanqueándole ya dentro (620 y 930 a 460),
+    |     que es donde esperan los que van detrás en la lista.
+    |   · La FALTA FRONTAL sale en columna hacia fuera desde el centro de la
+    |     frontal del área, en la misma vertical de la portería.
+    |   · Las LATERALES se van a su banda, la I a x=255 y la D a x=1095.
     |
-    | Los dos números que no se pueden subir: la columna de la derecha se queda
-    | en 1100 porque la caja de consignas empieza en x=1153 y se pinta por
-    | encima, y la fila de abajo se queda en 840 porque su chapa termina en 862
-    | y el lienzo mide 1080. Todo el bloque se ha subido respecto a la versión
-    | de tres columnas para dejar arriba la banda donde ahora viven los
-    | rótulos.
+    | Las medidas que no se pueden tocar: 160 px entre fichas de una columna
+    | —la ficha mide 120 de alta y su chapa 34, y con menos la cara tapa la
+    | chapa de la de delante—; la columna derecha no pasa de 1095 porque la
+    | caja de consignas empieza en x=1153; y la fila de abajo no pasa de 980
+    | porque su chapa termina en 1014 y el lienzo mide 1080.
     */
     elegirEnGrupo: ["lado-i", "frontal", "penaltis", "lado-d"],
     repite: true,
     puestos: puestos("directas", [
-      { code: "I1", label: "Falta lateral I · 1", grupo: "lado-i", x: 320, y: 520 },
-      { code: "I2", label: "Falta lateral I · 2", grupo: "lado-i", x: 320, y: 680 },
-      { code: "I3", label: "Falta lateral I · 3", grupo: "lado-i", x: 320, y: 840 },
-      { code: "F1", label: "Falta frontal · 1", grupo: "frontal", x: 580, y: 520 },
-      { code: "F2", label: "Falta frontal · 2", grupo: "frontal", x: 580, y: 680 },
-      { code: "F3", label: "Falta frontal · 3", grupo: "frontal", x: 580, y: 840 },
-      { code: "P1", label: "Penalti · 1", grupo: "penaltis", x: 840, y: 520 },
-      { code: "P2", label: "Penalti · 2", grupo: "penaltis", x: 840, y: 680 },
-      { code: "P3", label: "Penalti · 3", grupo: "penaltis", x: 840, y: 840 },
-      { code: "D1", label: "Falta lateral D · 1", grupo: "lado-d", x: 1100, y: 520 },
-      { code: "D2", label: "Falta lateral D · 2", grupo: "lado-d", x: 1100, y: 680 },
-      { code: "D3", label: "Falta lateral D · 3", grupo: "lado-d", x: 1100, y: 840 },
+      { code: "I1", label: "Falta lateral I · 1", grupo: "lado-i", x: 255, y: 560 },
+      { code: "I2", label: "Falta lateral I · 2", grupo: "lado-i", x: 255, y: 720 },
+      { code: "I3", label: "Falta lateral I · 3", grupo: "lado-i", x: 255, y: 880 },
+      { code: "F1", label: "Falta frontal · 1", grupo: "frontal", x: 775, y: 660 },
+      { code: "F2", label: "Falta frontal · 2", grupo: "frontal", x: 775, y: 820 },
+      { code: "F3", label: "Falta frontal · 3", grupo: "frontal", x: 775, y: 980 },
+      { code: "P1", label: "Penalti · 1", grupo: "penaltis", x: 775, y: 360 },
+      { code: "P2", label: "Penalti · 2", grupo: "penaltis", x: 620, y: 460 },
+      { code: "P3", label: "Penalti · 3", grupo: "penaltis", x: 930, y: 460 },
+      { code: "D1", label: "Falta lateral D · 1", grupo: "lado-d", x: 1095, y: 560 },
+      { code: "D2", label: "Falta lateral D · 2", grupo: "lado-d", x: 1095, y: 720 },
+      { code: "D3", label: "Falta lateral D · 3", grupo: "lado-d", x: 1095, y: 880 },
     ]),
-    /* El rótulo sube a 356: por encima de la cabeza del primero, que empieza
-       en 400 (520 menos los 120 que mide la foto). */
+    /* El rótulo va siempre por encima de la cabeza del primero de su grupo:
+       la foto mide 120 y la placa 34, así que `etiquetaY` = y - 162. El del
+       penalti cae sobre el marco de la portería, que es papel pintado: la
+       placa es de tinta y se lee igual. */
     adornos: [
-      { tipo: "zona", x: 320, y: 520, label: "Falta lateral I", etiquetaY: 356 },
-      { tipo: "zona", x: 580, y: 520, label: "Falta frontal", etiquetaY: 356 },
-      { tipo: "zona", x: 840, y: 520, label: "Penalti", etiquetaY: 356 },
-      { tipo: "zona", x: 1100, y: 520, label: "Falta lateral D", etiquetaY: 356 },
+      { tipo: "zona", x: 255, y: 560, label: "Falta lateral I", etiquetaY: 398 },
+      { tipo: "zona", x: 775, y: 360, label: "Penalti", etiquetaY: 196 },
+      { tipo: "zona", x: 775, y: 660, label: "Falta frontal", etiquetaY: 498 },
+      { tipo: "zona", x: 1095, y: 560, label: "Falta lateral D", etiquetaY: 398 },
     ],
     notas: ["Orden de lanzamiento cerrado antes del partido."],
   },
@@ -638,6 +655,26 @@ export type FichaPizarra = {
   y: number;
 };
 
+/**
+ * Los rótulos que alguien ha reescrito en una diapositiva.
+ *
+ * Todo lo que se lee en el tablero sale de la plantilla, y la plantilla es el
+ * pptx del cuerpo técnico: sirve para la mayoría de las semanas y no para
+ * todas. «MARCAS» puede querer llamarse «MARCAS AL SEGUNDO PALO» contra un
+ * equipo que ataca ahí, y la flecha de transición decir otra cosa. Antes eso
+ * obligaba a tocar el código.
+ *
+ * Se guarda **sólo lo cambiado**: lo que no está aquí lo sigue poniendo la
+ * plantilla, así que arreglar un rótulo en el código llega a todas las
+ * jornadas menos a las que lo hayan reescrito a mano, que es lo que se quiere.
+ */
+export type TextosSlide = {
+  /** Por `key` de grupo: lo que se lee en la caja de asignaciones. */
+  grupos?: Record<string, string>;
+  /** Uno por adorno de la plantilla, en su mismo orden. */
+  adornos?: { label?: string; remate?: string }[];
+};
+
 export type SlidePizarra = {
   id: string;
   /** De qué plantilla salió: manda la vista, los grupos y los puestos. */
@@ -647,6 +684,8 @@ export type SlidePizarra = {
   vista: VistaCampo;
   fichas: FichaPizarra[];
   notas: string[];
+  /** Rótulos reescritos a mano en esta jornada. */
+  textos?: TextosSlide;
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
 };
@@ -733,9 +772,25 @@ export type MemoriaPuesto = {
 
 export type MemoriaPizarra = Record<string, MemoriaPuesto[]>;
 
+/**
+ * Los textos de una plantilla, tal y como deben salir **de aquí en adelante**.
+ *
+ * Cambiar un rótulo en una jornada lo cambia sólo ahí; eso es lo normal, porque
+ * la mitad de los cambios son para el rival de esa semana. Cuando el cambio es
+ * de los que valen siempre —el cuerpo técnico ha dejado de decir «RL / MARCA» y
+ * dice «RECHACE»— se guarda aquí y lo heredan las jornadas que se creen
+ * después. Las ya montadas no se tocan: eso reescribiría pizarras cerradas.
+ */
+export type TextosPlantilla = TextosSlide & {
+  titulo?: string;
+  notas?: string[];
+};
+
 export type PizarraStore = {
   tableros: Record<string, TableroPizarra>;
   memoria: MemoriaPizarra;
+  /** Textos que heredan las jornadas nuevas, por clave de plantilla. */
+  textos?: Record<string, TextosPlantilla>;
 };
 
 export const EMPTY_PIZARRA_STORE: PizarraStore = { tableros: {}, memoria: {} };
@@ -749,17 +804,86 @@ function nuevoId(prefijo: string) {
 /*  CONSTRUCCIÓN                                                       */
 /* ------------------------------------------------------------------ */
 
-export function slideDePlantilla(key: string): SlidePizarra {
+export function slideDePlantilla(
+  key: string,
+  /** Lo que se dejó guardado «para las siguientes» en `store.textos`. */
+  heredado?: TextosPlantilla,
+): SlidePizarra {
   const plantilla = PLANTILLA_BY_KEY.get(key) ?? PLANTILLAS[0];
+
+  const textos = clonaTextos(heredado);
 
   return {
     id: nuevoId("SL"),
     plantilla: plantilla.key,
-    titulo: plantilla.titulo,
+    titulo: heredado?.titulo?.trim() || plantilla.titulo,
     vista: plantilla.vista,
     fichas: [],
-    notas: [...plantilla.notas],
+    notas: heredado?.notas ? [...heredado.notas] : [...plantilla.notas],
+    ...(textos ? { textos } : {}),
     rev: plantilla.rev,
+  };
+}
+
+/** Copia profunda de los rótulos, o nada si no hay ninguno reescrito. */
+function clonaTextos(textos: TextosSlide | undefined): TextosSlide | undefined {
+  if (!textos) return undefined;
+
+  const grupos = textos.grupos ? { ...textos.grupos } : undefined;
+
+  const adornos = textos.adornos?.map((uno) => ({ ...uno }));
+
+  if (!grupos && !adornos) return undefined;
+
+  return { ...(grupos ? { grupos } : {}), ...(adornos ? { adornos } : {}) };
+}
+
+/**
+ * Los textos de una diapositiva, listos para guardarlos como los de siempre.
+ *
+ * Se lleva el título y las consignas además de los rótulos: son las tres cosas
+ * que se escriben en el panel, y quien pulsa «dejarlo para las siguientes»
+ * espera que se quede lo que tiene delante, no una parte.
+ */
+export function textosDeSlide(slide: SlidePizarra): TextosPlantilla {
+  return {
+    titulo: slide.titulo,
+    notas: [...slide.notas],
+    ...(clonaTextos(slide.textos) ?? {}),
+  };
+}
+
+/** Si la diapositiva dice algo distinto de lo que trae su plantilla. */
+export function tieneTextosPropios(slide: SlidePizarra) {
+  const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
+
+  if (!plantilla) return false;
+
+  if (slide.titulo !== plantilla.titulo) return true;
+
+  if (slide.notas.join("\n") !== plantilla.notas.join("\n")) return true;
+
+  const grupos = slide.textos?.grupos ?? {};
+
+  if (plantilla.grupos.some((grupo) => grupos[grupo.key]?.trim())) return true;
+
+  return (slide.textos?.adornos ?? []).some(
+    (uno) => uno?.label?.trim() || uno?.remate?.trim(),
+  );
+}
+
+/** Devuelve la diapositiva a los textos de la plantilla. */
+export function sinTextosPropios(slide: SlidePizarra): SlidePizarra {
+  const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
+
+  if (!plantilla) return slide;
+
+  const { textos: _fuera, ...resto } = slide;
+
+  return {
+    ...resto,
+    titulo: plantilla.titulo,
+    notas: [...plantilla.notas],
   };
 }
 
@@ -812,12 +936,103 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
   return tocado ? { ...tablero, slides } : tablero;
 }
 
-export function tableroVacio(partidoId: string, rival: string): TableroPizarra {
+export function tableroVacio(
+  partidoId: string,
+  rival: string,
+  /** Los textos que se dejaron guardados «para las siguientes». */
+  textos?: Record<string, TextosPlantilla>,
+): TableroPizarra {
   return {
     partidoId,
     rival,
-    slides: ORDEN_POR_DEFECTO.map(slideDePlantilla),
+    slides: ORDEN_POR_DEFECTO.map((key) => slideDePlantilla(key, textos?.[key])),
     versiones: [],
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  CONTROL DE GAZAPOS                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Quién sale y quién no en cada diapositiva de una misma jornada.
+ *
+ * En un partido juegan los mismos once, así que **la misma gente tiene que
+ * aparecer en las siete diapositivas**: el que remata el córner es el que
+ * marca en el córner de ellos. Cuando alguien sale en cinco y falta en dos, o
+ * es que se coló un nombre que hoy no juega, o es que a dos diapositivas les
+ * falta uno. Las dos cosas se descubren el domingo, con la sala llena.
+ *
+ * No se corrige solo a propósito: puede haber una semana en la que de verdad
+ * no coincidan —un lesionado que entra en la lista a última hora—, y quien
+ * decide es el entrenador. Esto sólo lo enseña.
+ */
+export type GazapoPizarra = {
+  playerId: string;
+  /** Diapositivas en las que sale. */
+  sale: string[];
+  /** Diapositivas en las que falta, con su título. */
+  falta: { id: string; titulo: string }[];
+};
+
+export type RevisionPizarra = {
+  /** Cuántas diapositivas tienen a alguien puesto. */
+  slidesConGente: number;
+  /** Todos los que aparecen en alguna. */
+  total: number;
+  /** Los que no están en todas. */
+  gazapos: GazapoPizarra[];
+  /** Cuántos hay en cada diapositiva, para ver de un vistazo la que cojea. */
+  porSlide: { id: string; titulo: string; cuantos: number }[];
+};
+
+export function revisaTablero(tablero: TableroPizarra): RevisionPizarra {
+  /*
+  | Sólo cuentan las diapositivas que ya tienen a alguien. Una recién creada y
+  | todavía vacía haría que TODA la plantilla saliera como gazapo, y el aviso
+  | dejaría de mirarse a los dos minutos.
+  */
+  const conGente = tablero.slides.filter((slide) => slide.fichas.length > 0);
+
+  const porSlide = tablero.slides.map((slide) => ({
+    id: slide.id,
+    titulo: slide.titulo,
+    cuantos: new Set(slide.fichas.map((ficha) => ficha.playerId)).size,
+  }));
+
+  const donde = new Map<string, Set<string>>();
+
+  for (const slide of conGente) {
+    for (const ficha of slide.fichas) {
+      const suyas = donde.get(ficha.playerId) ?? new Set<string>();
+
+      suyas.add(slide.id);
+      donde.set(ficha.playerId, suyas);
+    }
+  }
+
+  const gazapos: GazapoPizarra[] = [];
+
+  for (const [playerId, suyas] of donde) {
+    if (suyas.size === conGente.length) continue;
+
+    gazapos.push({
+      playerId,
+      sale: [...suyas],
+      falta: conGente
+        .filter((slide) => !suyas.has(slide.id))
+        .map((slide) => ({ id: slide.id, titulo: slide.titulo })),
+    });
+  }
+
+  /* Primero el que falta en más sitios: es el que más canta. */
+  gazapos.sort((a, b) => b.falta.length - a.falta.length);
+
+  return {
+    slidesConGente: conGente.length,
+    total: donde.size,
+    gazapos,
+    porSlide,
   };
 }
 
@@ -844,6 +1059,10 @@ export function copiaTablero(
       ...slide,
       id: nuevoId("SL"),
       notas: [...slide.notas],
+      /* Los rótulos reescritos viajan con la diapositiva: si la semana pasada
+         se llamó «MARCAS AL SEGUNDO PALO» es porque se decidió así, y traer la
+         jornada es traerla entera. */
+      ...(clonaTextos(slide.textos) ? { textos: clonaTextos(slide.textos)! } : {}),
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
     })),
   };
@@ -1033,12 +1252,64 @@ export function puestosDe(slide: SlidePizarra): PuestoAbp[] {
   return PLANTILLA_BY_KEY.get(slide.plantilla)?.puestos ?? [];
 }
 
+/*
+| Los grupos y los adornos salen de la plantilla **con los rótulos reescritos
+| ya puestos**. Se aplica aquí y no en el render porque por aquí pasan los dos
+| que dibujan —la pantalla y la exportación a PPT y a PDF—: cambiar un rótulo y
+| que el documento saliera con el viejo sería el gazapo más caro de todos.
+*/
 export function gruposDe(slide: SlidePizarra): GrupoAbp[] {
-  return PLANTILLA_BY_KEY.get(slide.plantilla)?.grupos ?? [];
+  const base = PLANTILLA_BY_KEY.get(slide.plantilla)?.grupos ?? [];
+
+  const cambios = slide.textos?.grupos;
+
+  if (!cambios) return base;
+
+  return base.map((grupo) => {
+    const label = cambios[grupo.key]?.trim();
+
+    return label ? { ...grupo, label } : grupo;
+  });
 }
 
 export function adornosDe(slide: SlidePizarra): AdornoAbp[] {
+  const base = PLANTILLA_BY_KEY.get(slide.plantilla)?.adornos ?? [];
+
+  const cambios = slide.textos?.adornos;
+
+  if (!cambios) return base;
+
+  return base.map((adorno, indice) => {
+    const cambio = cambios[indice];
+
+    if (!cambio) return adorno;
+
+    const label = cambio.label?.trim();
+
+    if (adorno.tipo === "zona") {
+      return label ? { ...adorno, label } : adorno;
+    }
+
+    const remate = cambio.remate?.trim();
+
+    if (!label && !remate) return adorno;
+
+    return {
+      ...adorno,
+      label: label || adorno.label,
+      remate: remate || adorno.remate,
+    };
+  });
+}
+
+/** Los adornos tal y como los escribe la plantilla, sin reescribir. */
+export function adornosDePlantilla(slide: SlidePizarra): AdornoAbp[] {
   return PLANTILLA_BY_KEY.get(slide.plantilla)?.adornos ?? [];
+}
+
+/** Los grupos tal y como los escribe la plantilla, sin reescribir. */
+export function gruposDePlantilla(slide: SlidePizarra): GrupoAbp[] {
+  return PLANTILLA_BY_KEY.get(slide.plantilla)?.grupos ?? [];
 }
 
 /** Si el puesto lleva casilla en blanco para el dorsal del rival. */

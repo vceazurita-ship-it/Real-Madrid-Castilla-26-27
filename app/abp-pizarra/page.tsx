@@ -33,7 +33,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   Binoculars,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -51,6 +53,7 @@ import {
   Save,
   Shield,
   Trash2,
+  Type,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -73,6 +76,7 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
+import type { Player } from "@/types/player";
 import {
   compareMatches,
   fetchMatches,
@@ -96,7 +100,9 @@ import {
   etiquetaVersion,
   fichaNueva,
   fijaVersion,
+  adornosDePlantilla,
   gruposDe,
+  gruposDePlantilla,
   huellaTablero,
   huellaVersion,
   memoriaDeGrupo,
@@ -106,14 +112,19 @@ import {
   quitaVersion,
   registraVersion,
   renombraVersion,
+  revisaTablero,
+  sinTextosPropios,
   slideDePlantilla,
   normalizaTablero,
   tableroVacio,
+  textosDeSlide,
   tieneFichas,
+  tieneTextosPropios,
   type PizarraStore,
   type PuestoAbp,
   type SlidePizarra,
   type TableroPizarra,
+  type TextosSlide,
   type VersionPizarra,
 } from "@/lib/abp/pizarra";
 import {
@@ -374,8 +385,8 @@ export default function PizarraAbpPage() {
 
     return guardado
       ? normalizaTablero(guardado)
-      : tableroVacio(partido.id, partido.opponent);
-  }, [store.tableros, partido]);
+      : tableroVacio(partido.id, partido.opponent, store.textos);
+  }, [store.tableros, store.textos, partido]);
 
   /** El último partido anterior a éste que ya tenga tablero montado. */
   const anterior = useMemo(() => {
@@ -423,7 +434,7 @@ export default function PizarraAbpPage() {
       setStore((actual) => {
         const base =
           actual.tableros?.[partido.id] ??
-          tableroVacio(partido.id, partido.opponent);
+          tableroVacio(partido.id, partido.opponent, actual.textos);
 
         return {
           ...actual,
@@ -490,6 +501,53 @@ export default function PizarraAbpPage() {
         ),
       })),
     [mutaTablero, activa],
+  );
+
+  /* ---------------------- TEXTOS DE LA SLIDE ----------------------- */
+
+  /*
+  | Reescribir un rótulo cambia SÓLO esta jornada. Es lo que se quiere casi
+  | siempre —la mitad de los cambios son para el rival de esta semana—, y por
+  | eso no hay que elegir nada para hacerlo. Lo que sí es una decisión es que el
+  | cambio valga de aquí en adelante: eso es un botón aparte, y lo que hace es
+  | dejar los textos de esta diapositiva como los que heredarán las jornadas
+  | que se creen después. Las ya montadas no se tocan.
+  */
+  const cambiaTexto = useCallback(
+    (fn: (textos: TextosSlide) => TextosSlide) =>
+      mutaSlide((actual) => ({ ...actual, textos: fn(actual.textos ?? {}) })),
+    [mutaSlide],
+  );
+
+  const dejaParaLasSiguientes = useCallback(
+    (slide: SlidePizarra) => {
+      setStore((actual) => ({
+        ...actual,
+        textos: { ...actual.textos, [slide.plantilla]: textosDeSlide(slide) },
+      }));
+
+      toast.success("Guardado para las siguientes jornadas", {
+        description: `«${slide.titulo}» saldrá así en los partidos que montes a partir de ahora.`,
+      });
+    },
+    [setStore],
+  );
+
+  const vuelveALaPlantilla = useCallback(
+    (slide: SlidePizarra) => {
+      mutaSlide(sinTextosPropios);
+
+      setStore((actual) => {
+        if (!actual.textos?.[slide.plantilla]) return actual;
+
+        const { [slide.plantilla]: _fuera, ...resto } = actual.textos;
+
+        return { ...actual, textos: resto };
+      });
+
+      toast("Textos devueltos a los de la plantilla");
+    },
+    [mutaSlide, setStore],
   );
 
   /* -------------------------- JUGADORES ---------------------------- */
@@ -894,12 +952,15 @@ export default function PizarraAbpPage() {
     (plantilla: string) => {
       mutaTablero((actual) => ({
         ...actual,
-        slides: [...actual.slides, slideDePlantilla(plantilla)],
+        slides: [
+          ...actual.slides,
+          slideDePlantilla(plantilla, store.textos?.[plantilla]),
+        ],
       }));
 
       setPedida(tablero ? tablero.slides.length : 0);
     },
-    [mutaTablero, tablero],
+    [mutaTablero, tablero, store.textos],
   );
 
   const duplicaSlide = useCallback(() => {
@@ -1534,29 +1595,35 @@ export default function PizarraAbpPage() {
                   </div>
                 )}
 
-                {/* ====================== NOTAS ======================= */}
+                {/* ====================== TEXTOS ====================== */}
 
                 {slide && (
                   <div className="mt-5">
-                    <Panel
-                      title="Consignas"
-                      subtitle="Lo que se lee en la caja blanca de la diapositiva. Una por línea."
-                    >
-                      <textarea
-                        value={slide.notas.join("\n")}
-                        onChange={(event) =>
-                          mutaSlide((actual) => ({
-                            ...actual,
-                            notas: event.target.value
-                              .split("\n")
-                              .map((linea) => linea.trimStart()),
-                          }))
-                        }
-                        rows={5}
-                        placeholder="Remate detrás de corta…"
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm leading-relaxed text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-                      />
-                    </Panel>
+                    <TextosDeLaSlide
+                      slide={slide}
+                      guardadoParaSiguientes={Boolean(
+                        store.textos?.[slide.plantilla],
+                      )}
+                      onTitulo={(titulo) =>
+                        mutaSlide((actual) => ({ ...actual, titulo }))
+                      }
+                      onNotas={(notas) =>
+                        mutaSlide((actual) => ({ ...actual, notas }))
+                      }
+                      onTexto={cambiaTexto}
+                      onDejarParaLasSiguientes={() =>
+                        dejaParaLasSiguientes(slide)
+                      }
+                      onVolverALaPlantilla={() => vuelveALaPlantilla(slide)}
+                    />
+                  </div>
+                )}
+
+                {/* ================== CONTROL DE GAZAPOS ============== */}
+
+                {tablero && tablero.slides.length > 1 && (
+                  <div className="mt-5">
+                    <ControlDeGazapos tablero={tablero} players={porId} />
                   </div>
                 )}
 
@@ -1925,5 +1992,310 @@ function MemoriaResumen({
         </div>
       ))}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  TEXTOS DE LA DIAPOSITIVA                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Todo lo que se lee en una diapositiva y no es un nombre de jugador.
+ *
+ * El título, las consignas, los rótulos de las cajas del panel y los de los
+ * dibujos del campo salen de la plantilla, que es el pptx que el cuerpo
+ * técnico montaba a mano. Sirve para la mayoría de las semanas y no para
+ * todas: contra un equipo que ataca al segundo palo, «MARCAS» quiere decir
+ * «MARCAS AL SEGUNDO PALO», y hasta ahora eso obligaba a tocar el código.
+ *
+ * **Escribir cambia sólo esta jornada.** Es lo normal y por eso no hay que
+ * elegir nada para hacerlo. Que el cambio valga de aquí en adelante sí es una
+ * decisión, y va en un botón aparte: deja estos textos como los que heredarán
+ * las jornadas que se monten después, sin tocar las ya cerradas.
+ */
+function TextosDeLaSlide({
+  slide,
+  guardadoParaSiguientes,
+  onTitulo,
+  onNotas,
+  onTexto,
+  onDejarParaLasSiguientes,
+  onVolverALaPlantilla,
+}: {
+  slide: SlidePizarra;
+  guardadoParaSiguientes: boolean;
+  onTitulo: (titulo: string) => void;
+  onNotas: (notas: string[]) => void;
+  onTexto: (fn: (textos: TextosSlide) => TextosSlide) => void;
+  onDejarParaLasSiguientes: () => void;
+  onVolverALaPlantilla: () => void;
+}) {
+  /* Los de la plantilla, para enseñarlos de marca de agua en cada casilla. */
+  const grupos = gruposDePlantilla(slide);
+  const adornos = adornosDePlantilla(slide);
+
+  const propios = tieneTextosPropios(slide);
+
+  const campo =
+    "w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50";
+
+  return (
+    <Panel
+      title="Textos de la diapositiva"
+      subtitle="Lo que se lee en el tablero. Se cambia sólo para este partido salvo que lo dejes para las siguientes."
+      icon={Type}
+    >
+      <div className="space-y-4">
+        <div>
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+            Título
+          </p>
+
+          <input
+            value={slide.titulo}
+            onChange={(event) => onTitulo(event.target.value)}
+            placeholder={PLANTILLA_BY_KEY.get(slide.plantilla)?.titulo}
+            className={campo}
+          />
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+            Consignas · una por línea
+          </p>
+
+          <textarea
+            value={slide.notas.join("\n")}
+            onChange={(event) =>
+              onNotas(
+                event.target.value.split("\n").map((linea) => linea.trimStart()),
+              )
+            }
+            rows={5}
+            placeholder="Remate detrás de corta…"
+            className={`${campo} leading-relaxed`}
+          />
+        </div>
+
+        {grupos.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+              Cajas del panel
+            </p>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {grupos.map((grupo) => (
+                <input
+                  key={grupo.key}
+                  value={slide.textos?.grupos?.[grupo.key] ?? ""}
+                  onChange={(event) =>
+                    onTexto((textos) => ({
+                      ...textos,
+                      grupos: {
+                        ...textos.grupos,
+                        [grupo.key]: event.target.value,
+                      },
+                    }))
+                  }
+                  placeholder={grupo.label}
+                  className={campo}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {adornos.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+              Rótulos del campo
+            </p>
+
+            <div className="space-y-2">
+              {adornos.map((adorno, indice) => (
+                <div
+                  key={`${adorno.tipo}-${indice}`}
+                  className={
+                    adorno.tipo === "transicion"
+                      ? "grid gap-2 sm:grid-cols-2"
+                      : ""
+                  }
+                >
+                  <input
+                    value={slide.textos?.adornos?.[indice]?.label ?? ""}
+                    onChange={(event) =>
+                      onTexto((textos) => ({
+                        ...textos,
+                        adornos: conAdorno(textos.adornos, indice, {
+                          label: event.target.value,
+                        }),
+                      }))
+                    }
+                    placeholder={adorno.label}
+                    className={campo}
+                  />
+
+                  {adorno.tipo === "transicion" && (
+                    <input
+                      value={slide.textos?.adornos?.[indice]?.remate ?? ""}
+                      onChange={(event) =>
+                        onTexto((textos) => ({
+                          ...textos,
+                          adornos: conAdorno(textos.adornos, indice, {
+                            remate: event.target.value,
+                          }),
+                        }))
+                      }
+                      placeholder={adorno.remate}
+                      className={campo}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+          <Button
+            tone="ghost"
+            icon={Save}
+            onClick={onDejarParaLasSiguientes}
+            title="Las jornadas que montes a partir de ahora nacerán con estos textos"
+          >
+            Dejarlo para las siguientes
+          </Button>
+
+          {(propios || guardadoParaSiguientes) && (
+            <Button
+              tone="ghost"
+              icon={RotateCcw}
+              onClick={onVolverALaPlantilla}
+              title="Vuelve a los textos de la plantilla, aquí y en las jornadas nuevas"
+            >
+              Volver a la plantilla
+            </Button>
+          )}
+
+          <p className="text-[11px] text-white/35">
+            {guardadoParaSiguientes
+              ? "Estos textos ya son los de siempre para esta diapositiva."
+              : propios
+                ? "Cambiado sólo en este partido."
+                : "Tal y como viene en la plantilla."}
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+/** Cambia un rótulo del campo sin tocar los demás ni perder los huecos. */
+function conAdorno(
+  actuales: TextosSlide["adornos"],
+  indice: number,
+  cambio: { label?: string; remate?: string },
+) {
+  const lista = [...(actuales ?? [])];
+
+  while (lista.length <= indice) lista.push({});
+
+  lista[indice] = { ...lista[indice], ...cambio };
+
+  return lista;
+}
+
+/* ------------------------------------------------------------------ */
+/*  CONTROL DE GAZAPOS                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Avisa cuando no sale la misma gente en todas las diapositivas del partido.
+ *
+ * En un partido juegan los mismos once: el que remata el córner es el que
+ * marca en el córner de ellos. Si alguien está en cinco diapositivas y falta
+ * en dos, o se coló un nombre que hoy no juega, o a dos diapositivas les falta
+ * uno. Las dos cosas se descubrían el domingo, con la sala llena.
+ *
+ * **No corrige nada.** Puede haber una semana en la que de verdad no coincidan
+ * —un lesionado que entra en la lista a última hora—, y quien decide es el
+ * entrenador; esto sólo lo enseña, con el nombre y en qué diapositivas falta.
+ */
+function ControlDeGazapos({
+  tablero,
+  players,
+}: {
+  tablero: TableroPizarra;
+  players: Map<string, Player>;
+}) {
+  const revision = useMemo(() => revisaTablero(tablero), [tablero]);
+
+  const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1;
+
+  return (
+    <Panel
+      title="Control de la convocatoria"
+      subtitle={
+        revision.slidesConGente < 2
+          ? "Hace falta gente en al menos dos diapositivas para poder cotejarlas"
+          : `${revision.total} jugadores repartidos por ${revision.slidesConGente} diapositivas`
+      }
+      icon={limpio ? CheckCircle2 : AlertTriangle}
+    >
+      {revision.slidesConGente < 2 ? (
+        <p className="text-xs leading-relaxed text-white/40">
+          Cuando haya al menos dos diapositivas montadas se comprueba aquí que
+          en todas salga la misma gente.
+        </p>
+      ) : limpio ? (
+        <p className="text-xs leading-relaxed text-emerald-300/80">
+          Cuadra: los mismos {revision.total} jugadores están en las{" "}
+          {revision.slidesConGente} diapositivas montadas.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs leading-relaxed text-amber-300/80">
+            {revision.gazapos.length === 1
+              ? "Hay un jugador que no está en todas las diapositivas."
+              : `Hay ${revision.gazapos.length} jugadores que no están en todas las diapositivas.`}{" "}
+            Revísalo antes de exportar.
+          </p>
+
+          <div className="space-y-1.5">
+            {revision.gazapos.map((gazapo) => {
+              const player = players.get(gazapo.playerId);
+
+              return (
+                <div
+                  key={gazapo.playerId}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2"
+                >
+                  <span className="text-xs font-semibold text-white/85">
+                    {player?.apodo || player?.nombre || gazapo.playerId}
+                  </span>
+
+                  <span className="text-[11px] text-white/40">
+                    falta en {gazapo.falta.length} de {revision.slidesConGente}:
+                  </span>
+
+                  <span className="min-w-0 text-[11px] text-amber-200/70">
+                    {gazapo.falta.map((slide) => slide.titulo).join(" · ")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-white/10 pt-3">
+        {revision.porSlide.map((slide) => (
+          <span key={slide.id} className="text-[11px] text-white/35">
+            {slide.titulo}{" "}
+            <span className="tabular-nums text-white/55">{slide.cuantos}</span>
+          </span>
+        ))}
+      </div>
+    </Panel>
   );
 }
