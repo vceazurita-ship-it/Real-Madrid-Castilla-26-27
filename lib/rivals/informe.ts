@@ -723,7 +723,24 @@ export function alineaEstructura(estructura: string) {
  * cierra—, así que para esa se usan los del propio entrenador, que sí los trae.
  */
 export function carreraDelEntrenador(entrenador: Entrenador | null) {
-  const vacia = { clubes: 0, partidos: 0, ganados: 0, empatados: 0, perdidos: 0, porcentaje: 0 };
+  const vacia = {
+    clubes: 0,
+    partidos: 0,
+    ganados: 0,
+    empatados: 0,
+    perdidos: 0,
+    porcentaje: 0,
+    /**
+     * Los que lleva en el club del informe.
+     *
+     * Sale de la **misma fila de la trayectoria** que se pinta debajo, no de la
+     * ficha del club: los dos números existen y no coinciden —la ficha del club
+     * suma amistosos y copa, la tabla de la carrera no—, y en la misma
+     * diapositiva se leían como una contradicción. Manda la tabla, que es la
+     * que el lector tiene delante; si esa fila viene en blanco, la ficha.
+     */
+    enEsteClub: 0,
+  };
 
   if (!entrenador) return vacia;
 
@@ -738,6 +755,7 @@ export function carreraDelEntrenador(entrenador: Entrenador | null) {
       empatados: entrenador.empatados,
       perdidos: entrenador.perdidos,
       porcentaje: porcentajeDeVictorias(entrenador.partidos, entrenador.ganados),
+      enEsteClub: entrenador.partidos,
     };
   }
 
@@ -766,6 +784,7 @@ export function carreraDelEntrenador(entrenador: Entrenador | null) {
     empatados,
     perdidos,
     porcentaje: porcentajeDeVictorias(partidos, ganados),
+    enEsteClub: etapasConLoDeAhora(entrenador)[0]?.partidos ?? entrenador.partidos,
   };
 }
 

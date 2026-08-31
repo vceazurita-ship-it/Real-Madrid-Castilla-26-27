@@ -2046,9 +2046,9 @@ function pintaClub(
         VERDE_VICTORIA,
       ],
       [
-        String(entrenador.partidos || "—"),
+        String(carrera.enEsteClub || "—"),
         "EN ESTE CLUB",
-        entrenador.partidos > 0 ? C.verde : "#9A9384",
+        carrera.enEsteClub > 0 ? C.verde : "#9A9384",
       ],
     ];
 
