@@ -52,6 +52,11 @@ import {
   type OnceEstado,
 } from "@/lib/rivals/once";
 import { reparteCampo } from "@/lib/rivals/once-campo";
+import {
+  explicaSugerencia,
+  sugiereOnce,
+  type OnceSugerido,
+} from "@/lib/rivals/once-sugerido";
 import OnceCampoDialog, {
   type OnceCampoCandidato,
   type OnceCampoFicha,
@@ -148,6 +153,7 @@ import {
   Trash2,
   UserRound,
   Video,
+  Wand2,
   Wind,
   X,
   Zap,
@@ -1185,9 +1191,31 @@ export default function RivalPlayersPage() {
   | equipo no puede salir de dos maneras distintas en dos documentos de la
   | misma carpeta.
   */
+  /*
+  | Va sobre **la plantilla entera del equipo**, no sobre la lista filtrada.
+  |
+  | Los dos documentos que la usan dicen lo mismo en su botón: «la plantilla
+  | entera colocada, para borrar a los que no salgan». Saliendo de
+  | `pitchPlayers`, una búsqueda a medias —«zurdo», el nombre de uno— dejaba
+  | fuera del PowerPoint a los que no coincidían, sin avisar; es el mismo
+  | motivo por el que `marcados` y `plantillaDelOnce` no miran el filtro.
+  |
+  | Y de aquí sale además el reparto de claves con el que se propone el once,
+  | así que un jugador que no esté aquí no podría proponerse.
+  */
+  const plantillaDelEquipo = useMemo(
+    () =>
+      players.filter(
+        (player) =>
+          player.NOMBRE_EQUIPO === (pitchTeam || selectedTeam) &&
+          player["POSICIÓN"],
+      ),
+    [players, pitchTeam, selectedTeam],
+  );
+
   const jugadoresPlantilla = useMemo<AlineacionJugador[]>(
     () =>
-      pitchPlayers.map((player) => {
+      plantillaDelEquipo.map((player) => {
         const stats = findStats(statsDoc, player);
 
         /* La misma temporada que resalta la ficha: en agosto la actual está a
@@ -1214,7 +1242,7 @@ export default function RivalPlayersPage() {
           encajados: season?.encajados ?? null,
         };
       }),
-    [pitchPlayers, statsDoc],
+    [plantillaDelEquipo, statsDoc],
   );
 
   /*
@@ -1244,6 +1272,75 @@ export default function RivalPlayersPage() {
         : [];
     });
   }, [campoJugadores, once.doc.campo]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | EL ONCE QUE SE PROPONE
+  |--------------------------------------------------------------------------
+  | Hay diecinueve rivales y la semana tiene los días que tiene: al abrir un
+  | equipo al que todavía no se había mirado no hay once marcado, así que la
+  | hoja de «once probable» del informe no salía y el documento llegaba a la
+  | charla sin ella.
+  |
+  | Aquí se propone uno con los onces que el rival viene sacando
+  | (`lib/rivals/once-sugerido.ts`). No decide nada: lo escribe en el documento
+  | del once **como si lo hubiera puesto una persona**, así que después se
+  | cambia con un clic en la lista, se arrastra en el pop-up del PDF o se
+  | sustituye entero. Lo que diga el cuerpo técnico manda.
+  |
+  | El informe no se pide al abrir la pantalla —trae la temporada entera de los
+  | diecinueve equipos—, así que se baja aquí, en el clic.
+  */
+  const [sugiriendo, setSugiriendo] = useState(false);
+
+  const proponeOnce = useCallback(
+    async (informeDoc?: Awaited<ReturnType<typeof pideInforme>>) => {
+      if (!equipoDelOnce) return null;
+
+      const doc = informeDoc ?? (await pideInforme());
+
+      const informe = findInforme(doc, equipoDelOnce);
+
+      if (!informe) return null;
+
+      return sugiereOnce(informe, jugadoresPlantilla);
+    },
+    [equipoDelOnce, jugadoresPlantilla, pideInforme],
+  );
+
+  const sugerirOnce = useCallback(async () => {
+    if (!equipoDelOnce) return;
+
+    setSugiriendo(true);
+
+    try {
+      const sugerido = await proponeOnce();
+
+      if (!sugerido) {
+        toast.error("No hay de dónde sacar el once de este equipo.", {
+          description:
+            "Hacen falta alineaciones bajadas: «node scripts/rivals-informe.mjs».",
+        });
+
+        return;
+      }
+
+      once.proponer(sugerido.titulares, sugerido.campo);
+
+      toast.success(`Once probable propuesto · ${explicaSugerencia(sugerido)}`, {
+        description:
+          sugerido.sinFicha.length > 0
+            ? `Sin ficha en la hoja: ${sugerido.sinFicha.join(", ")}`
+            : "Cámbialo pulsando a cualquiera de la lista.",
+      });
+    } catch (error) {
+      console.error("Error proponiendo el once del rival:", error);
+
+      toast.error("No se ha podido proponer el once.");
+    } finally {
+      setSugiriendo(false);
+    }
+  }, [equipoDelOnce, once, proponeOnce]);
 
   const exportarAlineacionPptx = useCallback(async () => {
     if (!pitchPlayers.length) return;
@@ -1319,6 +1416,29 @@ export default function RivalPlayersPage() {
 
       const partido = enfrentamientoDe(ordenRivales, selectedTeam);
 
+      /*
+      | La hoja de «once probable» tiene que salir **en todos** los informes.
+      | Si el cuerpo técnico no ha marcado a nadie todavía —diecinueve rivales
+      | y una semana— se propone uno con los onces que el rival viene sacando,
+      | y se dice en la propia hoja que es una propuesta. Marcarlo a mano en la
+      | pantalla lo sustituye siempre.
+      */
+      let sugerido: OnceSugerido | null = null;
+
+      if (onceProbableSitios.length === 0) {
+        sugerido = await proponeOnce(doc);
+      }
+
+      const onceProbable = sugerido
+        ? sugerido.titulares.flatMap((clave) => {
+            const pos = sugerido!.campo[clave];
+
+            return pos
+              ? [{ clave, x: pos.x, y: pos.y, estado: "titular" as const }]
+              : [];
+          })
+        : onceProbableSitios;
+
       const data: InformeData = {
         informe,
         jornada: partido?.jornada ?? "",
@@ -1332,7 +1452,11 @@ export default function RivalPlayersPage() {
         /* Las dos hojas de campograma salen de la hoja RIVALES y del once que
            ha colocado el cuerpo técnico, no de BeSoccer. */
         plantilla: jugadoresPlantilla,
-        onceProbable: onceProbableSitios,
+        onceProbable,
+        /* Para que la hoja lo diga: un once propuesto no es el del míster. */
+        onceSugerido: sugerido
+          ? { motivo: explicaSugerencia(sugerido) }
+          : undefined,
       };
 
       const hojas = await construyeHojasInforme(data);
@@ -1354,6 +1478,7 @@ export default function RivalPlayersPage() {
     selectedTeam,
     ordenRivales,
     pideInforme,
+    proponeOnce,
     jugadoresPlantilla,
     onceProbableSitios,
   ]);
@@ -2644,7 +2769,18 @@ export default function RivalPlayersPage() {
                     }`}
                   >
                     <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
-                      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                      {/*
+                        La cabecera se **parte en dos renglones** cuando no
+                        caben los botones.
+
+                        En el móvil iba en una sola fila con `shrink-0`: la
+                        tira medía 627 px dentro de una tarjeta de 390 con
+                        `overflow-hidden`, así que PPT e INFORME quedaban
+                        fuera de la pantalla y no había forma de llegar a
+                        ellos. Con `flex-wrap` bajan solos a su renglón y en
+                        el ordenador se ve igual que antes, porque ahí caben.
+                      */}
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/10 bg-white/[0.025] px-4 py-3">
                         <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
                           CAMPOGRAMA
                           {pitchTeam && teamsInResults.length > 1 && (
@@ -2654,7 +2790,7 @@ export default function RivalPlayersPage() {
                           )}
                         </h2>
 
-                        <div className="flex shrink-0 items-center gap-2 text-xs text-white/30">
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-xs text-white/30 sm:gap-2">
                           {activeTags.length > 0 && (
                             <span className="text-[#C8A96B]">
                               {listPlayers.length} destacados
@@ -2665,7 +2801,7 @@ export default function RivalPlayersPage() {
 
                           <span
                             title="Titulares marcados en el once probable"
-                            className="flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold"
+                            className="flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold sm:px-2 sm:py-0.5"
                             style={{
                               borderColor: `${ONCE_COLOR.titular}55`,
                               background: `${ONCE_COLOR.titular}18`,
@@ -2678,7 +2814,7 @@ export default function RivalPlayersPage() {
                           {onceResumen.dudas > 0 && (
                             <span
                               title="Jugadores en duda para el once"
-                              className="flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold"
+                              className="flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold sm:px-2 sm:py-0.5"
                               style={{
                                 borderColor: `${ONCE_COLOR.duda}55`,
                                 background: `${ONCE_COLOR.duda}18`,
@@ -2687,6 +2823,43 @@ export default function RivalPlayersPage() {
                             >
                               {onceResumen.dudas} ?
                             </span>
+                          )}
+
+                          {/*
+                            El once que se propone con los que el rival viene
+                            sacando. No decide nada: deja el once puesto para
+                            poder cambiarlo —pulsando a cualquiera de la lista,
+                            arrastrando en el pop-up del PDF o sustituyendo—.
+                            Con un once ya marcado avisa antes de pisarlo.
+                          */}
+
+                          {pitchPlayers.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => {
+                                if (
+                                  onceResumen.titulares > 0 &&
+                                  !window.confirm(
+                                    "Ya hay un once marcado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
+                                  )
+                                ) {
+                                  return;
+                                }
+
+                                void sugerirOnce();
+                              }}
+                              disabled={sugiriendo || exportando}
+                              title={`Proponer el once de ${equipoDelOnce} con los últimos onces que ha sacado — después se cambia a mano`}
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
+                            >
+                              {sugiriendo ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Wand2 size={11} />
+                              )}
+                              SUGERIR 11
+                            </button>
                           )}
 
                           {/*
@@ -2708,7 +2881,7 @@ export default function RivalPlayersPage() {
                               onClick={() => setPreparandoPdf(true)}
                               disabled={exportando}
                               title={`Preparar el PDF del once probable de ${equipoDelOnce}`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
                             >
                               {exportando ? (
                                 <Loader2 size={11} className="animate-spin" />
@@ -2730,7 +2903,7 @@ export default function RivalPlayersPage() {
                               onClick={() => setPreparandoPortero(true)}
                               disabled={exportando}
                               title={`Preparar el PDF para el portero — quién tira de ${equipoDelOnce}`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
                             >
                               {exportando ? (
                                 <Loader2 size={11} className="animate-spin" />
@@ -2756,7 +2929,7 @@ export default function RivalPlayersPage() {
                               onClick={() => void exportarAlineacionPptx()}
                               disabled={exportando}
                               title={`PowerPoint de día de partido de ${equipoDelOnce} — la plantilla entera colocada, para borrar a los que no salgan`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
                             >
                               {exportando ? (
                                 <Loader2 size={11} className="animate-spin" />
@@ -2784,7 +2957,7 @@ export default function RivalPlayersPage() {
                               onClick={() => void exportarInforme()}
                               disabled={exportando}
                               title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y los seis últimos onces. Se abre para retocarlo antes de exportar`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
                             >
                               {exportando ? (
                                 <Loader2 size={11} className="animate-spin" />
@@ -2860,6 +3033,8 @@ export default function RivalPlayersPage() {
           onAnadir={(clave) => once.marcar(clave, "titular")}
           onSustituir={once.sustituir}
           onRecolocar={once.recolocar}
+          onSugerir={() => void sugerirOnce()}
+          sugiriendo={sugiriendo}
           onExportar={() => void exportarOncePdf()}
           onCerrar={() => setPreparandoPdf(false)}
         />

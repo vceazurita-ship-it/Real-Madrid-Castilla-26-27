@@ -288,3 +288,44 @@ export const ONCE_ETIQUETA: Record<"titular" | "duda", string> = {
   titular: "Titular",
   duda: "Duda",
 };
+
+/**
+ * Deja puesto un once entero, con su colocación.
+ *
+ * Es lo que escribe el once sugerido (`lib/rivals/once-sugerido.ts`): once
+ * claves y dónde va cada una. Se escribe **encima** de los titulares que
+ * hubiera —proponer es empezar de nuevo— pero no se tocan las dudas que el
+ * cuerpo técnico tenga marcadas, salvo las de quien pasa a ser titular: nadie
+ * puede estar en las dos listas.
+ *
+ * Las dudas que estaban pintadas en el campo conservan su sitio; el resto de
+ * marcas a mano se van con el once viejo, que es lo que se está sustituyendo.
+ */
+export function conOnce(
+  doc: RivalOnceDoc,
+  titulares: string[],
+  campo: Record<string, OncePos>
+): RivalOnceDoc {
+  const nuevos = titulares.filter(
+    (key, indice) => typeof key === "string" && titulares.indexOf(key) === indice
+  );
+
+  const dudas = doc.dudas.filter((key) => !nuevos.includes(key));
+
+  const enCampo = doc.enCampo.filter((key) => dudas.includes(key));
+
+  const sitios: Record<string, OncePos> = {};
+
+  /* La duda que estaba pintada sigue donde estaba: no es lo que se propone. */
+  for (const key of enCampo) {
+    if (doc.campo[key]) sitios[key] = doc.campo[key];
+  }
+
+  for (const key of nuevos) {
+    const pos = campo[key];
+
+    if (pos) sitios[key] = { x: dentro(pos.x), y: dentro(pos.y) };
+  }
+
+  return { titulares: nuevos, dudas, enCampo, campo: sitios };
+}

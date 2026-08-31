@@ -1490,3 +1490,22 @@ scrollbar-width:none;
 :root[data-theme="light"] [data-abp-tablero] [class~="hover:text-white"]:hover {
   color: #fff;
 }
+
+/*
+| Los botones flotantes, fuera de en medio cuando hay un modal abierto.
+|
+| El reloj de tareas y el interruptor de día/noche viven pegados al borde
+| derecho con `z-[60]`, por encima de la mitad de los modales de la app (que
+| van a `z-50`). En un ordenador daba igual —el panel está centrado y sobra
+| sitio a los lados—, pero **en un móvil el modal ocupa el ancho entero** y los
+| dos botones se plantaban encima del pop-up del once: tapaban el campo y no
+| había forma de arrastrar por debajo.
+|
+| Se hace aquí y con `:has()` en vez de en cada componente porque el velo
+| `.modal-veil` lo llevan todos los modales de la plataforma: uno solo apaga
+| los botones para todos. El de exportar **no** entra: cuando hay un modal
+| abierto es justo el que saca el PNG del pop-up (nota "exportar-solo-el-popup").
+*/
+body:has(.modal-veil) [data-flotante] {
+  display: none !important;
+}

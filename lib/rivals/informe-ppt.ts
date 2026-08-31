@@ -75,11 +75,14 @@ import {
 import {
   balance,
   balanceAmistosos,
+  carreraDelEntrenador,
   esLiga,
+  etapasConLoDeAhora,
   estructuraDeDemarcaciones,
   filaPropia,
   jugados,
   onceFinal,
+  reparteOnceInicial,
   rotuloCompeticion,
   tipologiaGoles,
   type FilaClasificacion,
@@ -140,6 +143,16 @@ export type InformeData = {
     y: number;
     estado: "titular" | "duda";
   }[];
+  /**
+   * Presente cuando el once **no** lo ha marcado nadie: lo ha propuesto la app
+   * con los que el rival viene sacando.
+   *
+   * La hoja lo dice al pie —«PROPUESTO CON LOS ÚLTIMOS ONCES · 1-4-2-3-1 · 5
+   * alineaciones»— porque no es lo mismo llevar a la charla lo que ha decidido
+   * el cuerpo técnico que un punto de partida: quien lo mire tiene que saber
+   * cuál de las dos cosas está viendo.
+   */
+  onceSugerido?: { motivo: string };
 };
 
 /* ------------------------------------------------------------------ */
@@ -1678,18 +1691,29 @@ function pintaEstadisticas(
   | los goleadores los da BeSoccer sumados de toda la temporada, amistosos
   | incluidos, y eso hay que decirlo donde se lee la cifra.
   */
-  pie(
-    g,
-    `TRAMOS DE ${paraTramos.length} PARTIDO${
-      paraTramos.length === 1 ? "" : "S"
-    } ${deLiga ? "DE LIGA" : "DE PRETEMPORADA"}${
-      deLiga && conFichaAmistosos.length > 0
-        ? ` · ${conFichaAmistosos.length} AMISTOSO${
-            conFichaAmistosos.length === 1 ? "" : "S"
-          } FUERA DEL GRÁFICO`
-        : ""
-    } · GOLEADORES DE TODA LA TEMPORADA · FUENTE BESOCCER`,
-  );
+  /*
+  | Con la mezcla puesta, el pie decía «7 partidos de liga · 6 amistosos fuera
+  | del gráfico» cuando esos seis amistosos estaban **dentro**: la cuenta y la
+  | frase se leían al revés. Cada uno de los tres casos se dice como es.
+  */
+  const cuantos = (lista: Partido[]) =>
+    `${lista.length} PARTIDO${lista.length === 1 ? "" : "S"}`;
+
+  const deDonde = mezcla
+    ? `TRAMOS DE ${cuantos(conFichaLiga)} DE LIGA Y ${
+        conFichaAmistosos.length
+      } AMISTOSO${conFichaAmistosos.length === 1 ? "" : "S"}`
+    : deLiga
+      ? `TRAMOS DE ${cuantos(conFichaLiga)} DE LIGA${
+          conFichaAmistosos.length > 0
+            ? ` · ${conFichaAmistosos.length} AMISTOSO${
+                conFichaAmistosos.length === 1 ? "" : "S"
+              } FUERA DEL GRÁFICO`
+            : ""
+        }`
+      : `TRAMOS DE ${cuantos(conFichaAmistosos)} DE PRETEMPORADA`;
+
+  pie(g, `${deDonde} · GOLEADORES DE TODA LA TEMPORADA · FUENTE BESOCCER`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -2001,12 +2025,31 @@ function pintaClub(
       );
     }
 
-    /* Su registro al frente del equipo. */
+    /*
+    | Su carrera, no la temporada.
+    |
+    | Aquí iban los partidos, ganados, empatados y perdidos **de este equipo**,
+    | que son exactamente los mismos números que ya están dos hojas antes en la
+    | clasificación y otra vez en la de resultados. De un entrenador al que no
+    | se conoce lo que hace falta saber es de dónde viene: cuánto lleva en
+    | banquillos, por cuántos clubes ha pasado y con qué porcentaje. El detalle
+    | club a club va en la tabla de abajo.
+    */
+    const carrera = carreraDelEntrenador(entrenador);
+
     const registro: [string, string, string][] = [
-      [String(entrenador.partidos), "PARTIDOS", C.navy],
-      [String(entrenador.ganados), "GANADOS", VERDE_VICTORIA],
-      [String(entrenador.empatados), "EMPATADOS", AMARILLO_EMPATE],
-      [String(entrenador.perdidos), "PERDIDOS", ROJO_DERROTA],
+      [String(carrera.clubes || "—"), "CLUBES", C.navy],
+      [String(carrera.partidos || "—"), "PARTIDOS DIRIGIDOS", C.navy],
+      [
+        carrera.partidos > 0 ? `${carrera.porcentaje}%` : "—",
+        "VICTORIAS",
+        VERDE_VICTORIA,
+      ],
+      [
+        String(entrenador.partidos || "—"),
+        "EN ESTE CLUB",
+        entrenador.partidos > 0 ? C.verde : "#9A9384",
+      ],
     ];
 
     const ancho = mitad / 4;
@@ -2198,16 +2241,25 @@ function pintaClub(
 
   const altoEtapas = CUERPO_Y + CUERPO_ALTO - yEtapas;
 
+  /* Caben cinco clubes. Cuando ha pasado por más, se dice: si no, el «6
+     CLUBES» de arriba y las cinco filas de aquí se contradicen a la vista. */
+  const todasSusEtapas = entrenador?.trayectoria?.length ?? 0;
+
   const dentroEtapas = panel(
     g,
     MARGEN,
     yEtapas,
     ANCHO,
     altoEtapas,
-    "TRAYECTORIA DEL ENTRENADOR",
+    todasSusEtapas > 5
+      ? `TRAYECTORIA DEL ENTRENADOR · LOS 5 ÚLTIMOS DE ${todasSusEtapas}`
+      : "TRAYECTORIA DEL ENTRENADOR",
   );
 
-  const etapas = (entrenador?.trayectoria ?? []).slice(0, 5);
+  /* Con los números de ahora en la primera fila: la tabla de BeSoccer deja
+     la etapa en curso en blanco y salía un «0-0-0» que se lee como un balance
+     y no como un hueco. */
+  const etapas = etapasConLoDeAhora(entrenador).slice(0, 5);
 
   if (etapas.length === 0) {
     g.el(
@@ -2438,7 +2490,12 @@ function pintaOnceProbable(
   retratos: Map<string, HTMLImageElement | null>,
 ) {
   fondoCampograma(g);
-  cabecera(g, "ONCE PROBABLE", data, escudo);
+  cabecera(
+    g,
+    data.onceSugerido ? "ONCE PROBABLE (PROPUESTA)" : "ONCE PROBABLE",
+    data,
+    escudo,
+  );
 
   const porClave = new Map(
     (data.plantilla ?? []).map((jugador) => [jugador.clave, jugador]),
@@ -2465,23 +2522,44 @@ function pintaOnceProbable(
   }));
 
   /*
-  | Cuánto encoge la ficha: manda la columna más poblada, porque el campo está
-  | tumbado y una línea de cinco se apila en vertical. Se agrupa por franjas de
-  | un décimo, que es lo que se solapa de verdad.
+  | Cuánto encoge la ficha.
+  |
+  | Se miraba cuántos caían en la misma franja de un décimo y se repartía el
+  | alto entre ellos, pero eso da por hecho que la columna va repartida a
+  | partes iguales, y no lo está: una línea de cuatro se coloca entre el 0,2 y
+  | el 0,8 del campo —huecos de 0,2, no de 0,25— y las fichas se pisaban. Con
+  | el once puesto a mano, además, cada uno está donde le hayan dejado.
+  |
+  | Así que se mira **par a par**: dos fichas se tapan sólo si se solapan a lo
+  | ancho **y** a lo alto, de modo que cada pareja permite como mucho el mayor
+  | de sus dos huecos. El más pequeño de todos manda.
   */
-  const porColumna = new Map<number, number>();
+  const AIRE = 1.06;
 
-  for (const uno of colocados) {
-    const franja = Math.round(uno.x * 10);
+  let tope = 1;
 
-    porColumna.set(franja, (porColumna.get(franja) ?? 0) + 1);
+  for (let i = 0; i < colocados.length; i += 1) {
+    for (let j = i + 1; j < colocados.length; j += 1) {
+      const dx = Math.abs(colocados[i].x - colocados[j].x) * ZONA_CAMPO.w;
+      const dy = Math.abs(colocados[i].y - colocados[j].y) * ZONA_CAMPO.h;
+
+      const cabe = Math.max(dx / FICHA_W, dy / FICHA_H) / AIRE;
+
+      tope = Math.min(tope, cabe);
+    }
   }
 
-  const masLlena = Math.max(1, ...porColumna.values());
+  /* Y que la fila de arriba y la de abajo no se salgan del césped. */
+  const alturas = colocados.map((uno) => uno.y);
 
-  /* El 1,12 es el aire entre fichas de la misma columna: pegadas se leen como
-     un bloque y no como cuatro jugadores. */
-  const k = Math.min(1, ZONA_CAMPO.h / (masLlena * FICHA_H * 1.12));
+  const margen =
+    Math.min(Math.min(...alturas), 1 - Math.max(...alturas)) * ZONA_CAMPO.h;
+
+  /* La ficha va centrada en su sitio, así que de la línea de más arriba (o de
+     más abajo) sólo le cabe media. El suelo de 0,32 es para que un once
+     arrastrado al filo del campo no acabe con once sellos ilegibles: antes
+     que eso, que asome. */
+  const k = Math.max(0.32, Math.min(1, tope, (margen * 2) / FICHA_H));
 
   const ancho = FICHA_W * k;
   const alto = FICHA_H * k;
@@ -2539,9 +2617,11 @@ function pintaOnceProbable(
 
   pieSobreCesped(
     g,
-    `ONCE PROBABLE DEL CUERPO TÉCNICO${
-      dudas > 0 ? ` · ${dudas} DUDA${dudas === 1 ? "" : "S"}` : ""
-    } · NO ES EL ÚLTIMO ONCE PUBLICADO`,
+    `${
+      data.onceSugerido
+        ? `PROPUESTA CON LOS ÚLTIMOS ONCES · ${data.onceSugerido.motivo.toUpperCase()}`
+        : "ONCE PROBABLE DEL CUERPO TÉCNICO"
+    }${dudas > 0 ? ` · ${dudas} DUDA${dudas === 1 ? "" : "S"}` : ""} · NO ES EL ÚLTIMO ONCE PUBLICADO`,
   );
 }
 
@@ -2610,69 +2690,26 @@ function pintaCampo(ctx: Ctx, x: number, y: number, w: number, h: number) {
 /**
  * Dónde cae cada uno del once, en tanto por uno del campo.
  *
- * BeSoccer numera los puestos de atrás hacia adelante —`pos1` es el portero—,
- * así que con la estructura ("1-4-2-3-1") basta para repartirlos: se parte la
- * cadena en líneas, se toma a los jugadores en orden y cada línea se reparte a
- * lo ancho. Es lo mismo que hace `once-campo.ts` con el once probable, sólo
- * que allí la línea la dice la posición de la hoja y aquí la dice el dibujo
- * que ya publica BeSoccer.
- *
- * Sin estructura —los amistosos a veces no la traen— se reparte 4-4-2, que es
- * lo que deja once fichas legibles aunque no sea lo que jugaron.
+ * El reparto lo hace `reparteOnceInicial`, que vive en `informe.ts` porque lo
+ * comparte con el **once probable sugerido**: aquél deduce en qué línea juega
+ * cada uno mirando dónde le dejaron estos mismos sitios, y los dos tienen que
+ * leer el dibujo que publica BeSoccer de la misma manera.
  */
 function reparteOnce(once: OncePartido) {
-  const lineas = (once.estructura || "1-4-4-2")
-    .split("-")
-    .map((parte) => Number(parte.trim()))
-    .filter((numero) => Number.isFinite(numero) && numero > 0);
-
-  /* El primer número es el portero; las demás son las líneas de campo. */
-  const campo = lineas.slice(1);
-
-  const jugadores = [...once.jugadores].sort((a, b) => a.puesto - b.puesto);
-
-  const sitios: { jugador: OncePartido["jugadores"][number]; x: number; y: number }[] =
-    [];
-
-  const portero = jugadores.shift();
-
-  if (portero) sitios.push({ jugador: portero, x: 0.5, y: 0.9 });
-
-  /* De la defensa al ataque, repartidas entre el 0,72 y el 0,14 del campo. */
-  const alto = campo.length > 1 ? (0.72 - 0.14) / (campo.length - 1) : 0;
-
-  campo.forEach((cuantos, indice) => {
-    const y = campo.length > 1 ? 0.72 - alto * indice : 0.43;
-
-    for (let puesto = 0; puesto < cuantos; puesto += 1) {
-      const jugador = jugadores.shift();
-
-      if (!jugador) return;
-
-      sitios.push({ jugador, x: (puesto + 1) / (cuantos + 1), y });
-    }
-  });
-
-  /* Lo que sobre —una estructura que no suma once— se pone en el medio, antes
-     que dejarlo fuera del campo sin que nadie se entere. */
-  jugadores.forEach((jugador, indice) => {
-    sitios.push({
-      jugador,
-      x: (indice + 1) / (jugadores.length + 1),
-      y: 0.5,
-    });
-  });
-
-  return sitios;
+  return reparteOnceInicial(once);
 }
 
 /**
  * Lo que le pasó a un jugador en el partido y se pinta sobre su ficha.
  *
- * Las asistencias están porque el cuerpo técnico las pide, pero **BeSoccer no
- * publica el asistente de cada gol** en Primera Federación: el campo existe,
- * llega siempre a cero y el icono no llega a pintarse. El día que lo publiquen,
- * o si alguien lo codifica a mano, la ficha ya sabe enseñarlo.
+ * Las asistencias **sí** salen: se creía que BeSoccer no publicaba el asistente
+ * en Primera Federación —el campo llegaba siempre a cero— pero lo que pasaba es
+ * que se leían los goles de la lista de todos los eventos, donde no está. En la
+ * pestaña de goles de la ficha va el segundo nombre, en gris.
+ *
+ * Sigue faltando en los partidos bajados antes de septiembre de 2026 y en los
+ * de temporadas pasadas, de los que ya no queda ficha: ahí el icono no llega a
+ * pintarse, que es lo que debe pasar.
  */
 type MarcasFicha = {
   goles: number;
@@ -2787,7 +2824,7 @@ function pintaMarcasFicha(
   }
 
   for (let i = 0; i < marcas.asistencias; i += 1) {
-    iconos.push({ fondo: "#3E7BA6", tinta: C.papel, texto: "A" });
+    iconos.push({ fondo: AZUL_ASISTENCIA, tinta: C.papel, texto: "A" });
   }
 
   for (let i = 0; i < marcas.amarillas; i += 1) {
@@ -2807,13 +2844,18 @@ function pintaMarcasFicha(
     ctx.fillStyle = icono.fondo;
 
     if (icono.balon) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2);
-      ctx.fill();
+      /* Con dos goles o más el número va dentro y el pentágono estorba. */
+      if (icono.texto) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2);
+        ctx.fill();
 
-      ctx.strokeStyle = C.navy;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+        ctx.strokeStyle = C.navy;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        balon(ctx, cx, cy, lado / 2, icono.fondo, C.navy);
+      }
     } else {
       /* Las tarjetas son rectángulos, como en un acta. */
       rectRedondo(ctx, cx - lado * 0.34, cy - lado / 2, lado * 0.68, lado, 2);
@@ -2831,19 +2873,134 @@ function pintaMarcasFicha(
 
   /* El minuto del cambio, debajo del nombre. */
   const cambio = marcas.entra
-    ? { texto: `▲ ${marcas.entra}'`, tinta: "#2E7D52" }
+    ? { minuto: marcas.entra, entra: true, tinta: "#2E7D52" }
     : marcas.sale
-      ? { texto: `▼ ${marcas.sale}'`, tinta: "#B4454F" }
+      ? { minuto: marcas.sale, entra: false, tinta: "#B4454F" }
       : null;
 
   if (!cambio) return;
 
-  escribe(ctx, cambio.texto, x, y + radio * 2.5, {
-    tamano: radio * 0.58,
+  const cuerpo = radio * 0.58;
+
+  const base = y + radio * 2.5;
+
+  /*
+  | El triángulo va **dibujado**, no escrito.
+  |
+  | Aquí se ponía «▲ 46'» y «▼ 46'» con el carácter de la flecha dentro del
+  | texto. Barlow Condensed no tiene esos dos glifos, así que en el `.pptx` (y
+  | en cualquier PowerPoint que no encuentre otra fuente que los tenga) salía
+  | el cuadradito de «no sé pintar esto» delante de cada minuto, en las once
+  | fichas y en toda la convocatoria. Un triángulo son tres líneas.
+  */
+  fuente(ctx, cuerpo, 700);
+
+  const texto = `${cambio.minuto}'`;
+
+  const anchoTexto = ctx.measureText(texto).width;
+
+  const punta = cuerpo * 0.62;
+
+  const total = punta + cuerpo * 0.28 + anchoTexto;
+
+  const izquierda = x - total / 2;
+
+  triangulo(ctx, izquierda + punta / 2, base - cuerpo * 0.34, punta, cambio.entra, cambio.tinta);
+
+  escribe(ctx, texto, izquierda + punta + cuerpo * 0.28, base, {
+    tamano: cuerpo,
     peso: 700,
     tinta: cambio.tinta,
-    alinea: "centro",
   });
+}
+
+/** El azul de la asistencia, el mismo en la ficha y en la convocatoria. */
+const AZUL_ASISTENCIA = "#3E7BA6";
+
+/**
+ * Un balón: el círculo y el pentágono de en medio.
+ *
+ * El pentágono está porque sin él es un punto, y en una hoja donde el gol, la
+ * asistencia y la tarjeta van uno al lado de otro y del tamaño de una letra,
+ * un punto no se distingue de una chapa cualquiera. Con la pieza negra del
+ * centro se lee «balón» de lejos, que es como se mira una diapositiva.
+ */
+function balon(
+  ctx: Ctx,
+  cx: number,
+  cy: number,
+  radio: number,
+  fondo: string,
+  tinta: string,
+) {
+  ctx.save();
+
+  ctx.fillStyle = fondo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radio, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = tinta;
+  ctx.lineWidth = Math.max(1, radio * 0.16);
+  ctx.stroke();
+
+  /* El pentágono, con la punta arriba. */
+  ctx.fillStyle = tinta;
+  ctx.beginPath();
+
+  for (let lado = 0; lado < 5; lado += 1) {
+    const angulo = -Math.PI / 2 + (lado * Math.PI * 2) / 5;
+
+    const px = cx + Math.cos(angulo) * radio * 0.46;
+    const py = cy + Math.sin(angulo) * radio * 0.46;
+
+    if (lado === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/**
+ * El triángulo del cambio: hacia arriba el que entra, hacia abajo el que sale.
+ *
+ * Es lo mismo que dice un acta y lo mismo que decían los caracteres «▲» y «▼»
+ * que había antes, sólo que pintado, que es lo único que se ve igual en
+ * cualquier ordenador que abra el `.pptx`.
+ */
+function triangulo(
+  ctx: Ctx,
+  cx: number,
+  cy: number,
+  lado: number,
+  arriba: boolean,
+  tinta: string,
+) {
+  const media = lado / 2;
+
+  /* Un triángulo equilátero se ve más ancho que alto: se le quita un pelo. */
+  const alto = lado * 0.86;
+
+  ctx.save();
+  ctx.fillStyle = tinta;
+  ctx.beginPath();
+
+  if (arriba) {
+    ctx.moveTo(cx, cy - alto / 2);
+    ctx.lineTo(cx + media, cy + alto / 2);
+    ctx.lineTo(cx - media, cy + alto / 2);
+  } else {
+    ctx.moveTo(cx, cy + alto / 2);
+    ctx.lineTo(cx + media, cy - alto / 2);
+    ctx.lineTo(cx - media, cy - alto / 2);
+  }
+
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 /**
@@ -2882,11 +3039,29 @@ function pintaOnceEnCampo(
 
   const masLlena = Math.max(1, ...porFila.values());
 
-  const cabe = Math.min(radio, caja.w / (masLlena * 2.5));
+  /*
+  | Lo que hay de un jugador al de al lado.
+  |
+  | Una línea de cuatro se coloca en 1/5, 2/5, 3/5 y 4/5 del ancho, así que
+  | entre vecinos hay **un quinto**, no un cuarto: repartiendo el ancho entre
+  | cuatro, la chapa del nombre se pasaba de su sitio y la del vecino la
+  | tapaba —«MARC AZNAR» salía «MARC AZNAF»—. Son N+1 huecos, no N.
+  */
+  const hueco = caja.w / (masLlena + 1);
+
+  const cabe = Math.min(radio, hueco / 2.3);
+
+  /*
+  | Debajo del círculo van la chapa del nombre y, si le cambiaron, el minuto:
+  | tres radios largos. El portero está en el 0,9 del campo y ese minuto le
+  | caía **a caballo del borde del césped**, mitad en verde y mitad en el
+  | papel, ilegible en rojo. Se sube lo justo para que quepa entero dentro.
+  */
+  const abajo = caja.y + caja.h - cabe * 3.1;
 
   for (const sitio of sitios) {
     const cx = caja.x + caja.w * sitio.x;
-    const cy = caja.y + caja.h * sitio.y;
+    const cy = Math.min(caja.y + caja.h * sitio.y, abajo);
 
     g.el(
       `${etiqueta ? `${etiqueta} · ` : ""}Nº${sitio.jugador.dorsal || "·"} ${
@@ -2901,7 +3076,7 @@ function pintaOnceEnCampo(
           cy,
           cabe,
           marcasDe?.(sitio.jugador) ?? SIN_MARCAS,
-          caja.w / masLlena,
+          hueco,
         ),
     );
   }
@@ -2960,6 +3135,9 @@ function marcasDelPartido(once: OncePartido, partido: Partido | null) {
     if (!gol.propio || gol.tipo === "propia") continue;
 
     dame(gol.jugador).goles += 1;
+
+    /* Y quien se la puso, que ya lo publica BeSoccer en la pestaña de goles. */
+    if (gol.asistente) dame(gol.asistente).asistencias += 1;
   }
 
   for (const tarjeta of once.tarjetas ?? []) {
@@ -3105,12 +3283,31 @@ function pintaConvocatoria(
         let x = caja.x + caja.w - 14;
 
         if (minuto) {
-          escribe(ctx, `${entra ? "▲" : "▼"}${minuto}'`, x, yFila + paso * 0.74, {
-            tamano: Math.min(15, paso * 0.5),
+          const cuerpo = Math.min(15, paso * 0.5);
+
+          const tinta = entra ? "#2E7D52" : "#B4454F";
+
+          escribe(ctx, `${minuto}'`, x, yFila + paso * 0.74, {
+            tamano: cuerpo,
             peso: 700,
-            tinta: entra ? "#2E7D52" : "#B4454F",
+            tinta,
             alinea: "dcha",
           });
+
+          /* El triángulo, pintado y no escrito: Barlow Condensed no trae «▲»
+             ni «▼» y en su sitio salía el cuadradito de la fuente que falta. */
+          fuente(ctx, cuerpo, 700);
+
+          const anchoMinuto = ctx.measureText(`${minuto}'`).width;
+
+          triangulo(
+            ctx,
+            x - anchoMinuto - cuerpo * 0.44,
+            yFila + paso * 0.74 - cuerpo * 0.34,
+            cuerpo * 0.62,
+            entra,
+            tinta,
+          );
 
           x -= 46;
         }
@@ -3133,19 +3330,45 @@ function pintaConvocatoria(
           x -= alto;
         }
 
-        if (marca.goles > 0) {
-          ctx.fillStyle = C.verde;
+        /* La asistencia, que ya la publica BeSoccer en la pestaña de goles. */
+        for (let i = 0; i < marca.asistencias; i += 1) {
+          ctx.fillStyle = AZUL_ASISTENCIA;
           ctx.beginPath();
           ctx.arc(x - alto / 2, yFila + paso * 0.32 + alto / 2, alto / 2, 0, Math.PI * 2);
           ctx.fill();
 
+          escribe(ctx, "A", x - alto / 2, yFila + paso * 0.32 + alto * 0.78, {
+            tamano: alto * 0.78,
+            peso: 700,
+            tinta: C.papel,
+            alinea: "centro",
+          });
+
+          x -= alto + 2;
+        }
+
+        if (marca.goles > 0) {
           if (marca.goles > 1) {
+            ctx.fillStyle = C.verde;
+            ctx.beginPath();
+            ctx.arc(x - alto / 2, yFila + paso * 0.32 + alto / 2, alto / 2, 0, Math.PI * 2);
+            ctx.fill();
+
             escribe(
               ctx,
               String(marca.goles),
               x - alto / 2,
               yFila + paso * 0.32 + alto * 0.78,
               { tamano: alto * 0.8, tinta: C.papel, alinea: "centro" },
+            );
+          } else {
+            balon(
+              ctx,
+              x - alto / 2,
+              yFila + paso * 0.32 + alto / 2,
+              alto / 2,
+              C.papel,
+              C.verde,
             );
           }
 

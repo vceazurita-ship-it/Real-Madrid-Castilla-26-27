@@ -23,6 +23,8 @@ export function ThemeToggle() {
     <button
       type="button"
       data-export-hide
+      /* Se aparta cuando hay un modal abierto: ver `.modal-veil` en globals.css. */
+      data-flotante
       onClick={toggleTheme}
       aria-label={label}
       title={label}

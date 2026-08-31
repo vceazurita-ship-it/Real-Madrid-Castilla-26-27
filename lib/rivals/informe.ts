@@ -66,6 +66,15 @@ export type GolPartido = {
   /** "30", "45+2". Sin la comilla: la pone quien lo pinta. */
   minuto: string;
   jugador: string;
+  /**
+   * Quién se la puso, cuando BeSoccer lo publica.
+   *
+   * Se creía que en Primera Federación no lo daba nunca; sí lo da, en la
+   * pestaña de goles de la ficha (el segundo nombre, en gris). Falta en lo
+   * que se bajó antes de septiembre de 2026 y en los partidos de los que ya
+   * no queda ficha.
+   */
+  asistente?: string;
   /** `true` cuando el gol es del equipo del informe. */
   propio: boolean;
   /** "penalti", "propia" o "" para el gol normal. */
@@ -602,4 +611,192 @@ export function rotuloCompeticion(partido: Partido | null | undefined) {
   if (!esLiga(partido)) return "PRETEMPORADA · AMISTOSO";
 
   return (partido.competicion || "COMPETICIÓN OFICIAL").toUpperCase();
+}
+
+/* ------------------------------------------------------------------ */
+/*  DÓNDE CAE CADA UNO DEL ONCE INICIAL                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El sitio de cada titular dentro del campo, en tanto por uno y con el ataque
+ * arriba.
+ *
+ * BeSoccer numera los puestos de atrás hacia adelante —`pos1` es el portero—,
+ * así que con la estructura ("1-4-2-3-1") basta para repartirlos: se parte la
+ * cadena en líneas, se toma a los jugadores en orden y cada línea se reparte a
+ * lo ancho.
+ *
+ * Sin estructura —los amistosos a veces no la traen— se reparte 4-4-2, que es
+ * lo que deja once fichas legibles aunque no sea lo que jugaron.
+ *
+ * Vive aquí y no en quien lo pinta porque lo usan dos: las hojas de partidos
+ * del informe y el **once probable sugerido**, que deduce de estos mismos
+ * sitios en qué línea juega cada uno.
+ */
+export function reparteOnceInicial(once: {
+  estructura: string;
+  jugadores: JugadorOnce[];
+}) {
+  const lineas = alineaEstructura(once.estructura);
+
+  /* El primer número es el portero; las demás son las líneas de campo. */
+  const campo = lineas.slice(1);
+
+  const jugadores = [...once.jugadores].sort((a, b) => a.puesto - b.puesto);
+
+  const sitios: { jugador: JugadorOnce; x: number; y: number }[] = [];
+
+  const portero = jugadores.shift();
+
+  if (portero) sitios.push({ jugador: portero, x: 0.5, y: ALTURA_PORTERO });
+
+  campo.forEach((cuantos, indice) => {
+    const y = alturaDeLinea(indice, campo.length);
+
+    for (let puesto = 0; puesto < cuantos; puesto += 1) {
+      const jugador = jugadores.shift();
+
+      if (!jugador) return;
+
+      sitios.push({ jugador, x: (puesto + 1) / (cuantos + 1), y });
+    }
+  });
+
+  /* Lo que sobre —una estructura que no suma once— se pone en el medio, antes
+     que dejarlo fuera del campo sin que nadie se entere. */
+  jugadores.forEach((jugador, indice) => {
+    sitios.push({
+      jugador,
+      x: (indice + 1) / (jugadores.length + 1),
+      y: 0.5,
+    });
+  });
+
+  return sitios;
+}
+
+/** El portero, pegado a su línea de fondo. */
+export const ALTURA_PORTERO = 0.9;
+
+/* De la defensa al ataque, repartidas entre el 0,72 y el 0,14 del campo. */
+const LINEA_ATRAS = 0.72;
+const LINEA_ADELANTE = 0.14;
+
+/** La altura que le toca a la línea `indice` de una estructura de `cuantas`. */
+export function alturaDeLinea(indice: number, cuantas: number) {
+  if (cuantas <= 1) return 0.43;
+
+  return LINEA_ATRAS - ((LINEA_ATRAS - LINEA_ADELANTE) / (cuantas - 1)) * indice;
+}
+
+/**
+ * Los números de una estructura ("1-4-2-3-1" → [1, 4, 2, 3, 1]).
+ *
+ * Vacía o ilegible se lee como un 1-4-4-2, que es lo que deja once sitios
+ * repartidos sin inventarse un dibujo raro.
+ */
+export function alineaEstructura(estructura: string) {
+  const lineas = String(estructura || "")
+    .split("-")
+    .map((parte) => Number(parte.trim()))
+    .filter((numero) => Number.isFinite(numero) && numero > 0);
+
+  const suma = lineas.reduce((total, uno) => total + uno, 0);
+
+  return lineas.length > 1 && suma === 11 ? lineas : [1, 4, 4, 2];
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA CARRERA DEL ENTRENADOR                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo que ha dirigido un entrenador en toda su carrera, no en este equipo.
+ *
+ * La hoja del club enseñaba los partidos, ganados, empatados y perdidos **del
+ * equipo del informe**, que son los mismos números de la clasificación y de la
+ * hoja de resultados. Lo que no dice ninguna otra hoja es cuánto lleva en
+ * banquillos y con qué balance, y eso sale de sumar su trayectoria.
+ *
+ * La etapa en el club de ahora suele llegar de BeSoccer **sin números** —la
+ * temporada está empezando y la tabla de «Equipos entrenados» todavía no la
+ * cierra—, así que para esa se usan los del propio entrenador, que sí los trae.
+ */
+export function carreraDelEntrenador(entrenador: Entrenador | null) {
+  const vacia = { clubes: 0, partidos: 0, ganados: 0, empatados: 0, perdidos: 0, porcentaje: 0 };
+
+  if (!entrenador) return vacia;
+
+  const etapas = entrenador.trayectoria ?? [];
+
+  /* Sin trayectoria publicada, lo único que hay son sus números en este club. */
+  if (etapas.length === 0) {
+    return {
+      clubes: entrenador.partidos > 0 ? 1 : 0,
+      partidos: entrenador.partidos,
+      ganados: entrenador.ganados,
+      empatados: entrenador.empatados,
+      perdidos: entrenador.perdidos,
+      porcentaje: porcentajeDeVictorias(entrenador.partidos, entrenador.ganados),
+    };
+  }
+
+  let partidos = 0;
+  let ganados = 0;
+  let empatados = 0;
+  let perdidos = 0;
+
+  etapas.forEach((etapa, indice) => {
+    /* La primera es el club de ahora: si viene en blanco, la rellena él. */
+    const suya =
+      indice === 0 && etapa.partidos === 0 && entrenador.partidos > 0
+        ? entrenador
+        : etapa;
+
+    partidos += suya.partidos;
+    ganados += suya.ganados;
+    empatados += suya.empatados;
+    perdidos += suya.perdidos;
+  });
+
+  return {
+    clubes: etapas.length,
+    partidos,
+    ganados,
+    empatados,
+    perdidos,
+    porcentaje: porcentajeDeVictorias(partidos, ganados),
+  };
+}
+
+function porcentajeDeVictorias(partidos: number, ganados: number) {
+  return partidos > 0 ? Math.round((ganados / partidos) * 100) : 0;
+}
+
+/**
+ * La etapa actual con los números del entrenador cuando llega vacía.
+ *
+ * Es el mismo apaño que hace `carreraDelEntrenador`, pero para la fila de la
+ * tabla: la primera línea de la trayectoria salía con «—» partidos y «0-0-0»,
+ * que en una hoja que va a la charla se lee como «no ha ganado ninguno».
+ */
+export function etapasConLoDeAhora(entrenador: Entrenador | null): EtapaEntrenador[] {
+  const etapas = entrenador?.trayectoria ?? [];
+
+  if (!entrenador || etapas.length === 0) return etapas;
+
+  const primera = etapas[0];
+
+  if (primera.partidos > 0 || entrenador.partidos === 0) return etapas;
+
+  return [
+    {
+      ...primera,
+      partidos: entrenador.partidos,
+      ganados: entrenador.ganados,
+      empatados: entrenador.empatados,
+      perdidos: entrenador.perdidos,
+    },
+    ...etapas.slice(1),
+  ];
 }

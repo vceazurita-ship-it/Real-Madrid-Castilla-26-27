@@ -213,87 +213,78 @@ console.log(
 
 /*
 | La plantilla y el once probable **no salen de BeSoccer**: los pone la
-| pantalla de `/rivals` con lo que hay en la hoja RIVALES. Aquí se fabrican con
-| los jugadores del último once bajado —cara de BeSoccer, dorsal y puesto— para
-| poder mirar las dos hojas de campograma sin levantar la app.
+| pantalla de `/rivals` con lo que hay en la hoja RIVALES. Aquí se fabrica una
+| plantilla con todo el que ha aparecido en las alineaciones bajadas —cara de
+| BeSoccer, dorsal y demarcación— para poder mirar las dos hojas de campograma
+| sin levantar la app.
 |
-| Lo que se ve aquí es el dibujo, no los datos: el pie dominante y el peso se
-| inventan, y en la app son los de la hoja.
+| El once probable **no se inventa**: se pide al mismo motor que usa la app
+| (`lib/rivals/once-sugerido.ts`), que es el que rellena la hoja cuando el
+| cuerpo técnico todavía no ha marcado a nadie. Así lo que se mira aquí es lo
+| que va a salir de verdad.
+|
+| Lo que sí se inventa son los datos que sólo tiene la hoja: el pie dominante,
+| la altura y el peso. En la app son los de verdad.
 */
-const { reparteCampo } = require(path.join(ROOT, "lib/rivals/once-campo.ts"));
+const { sugiereOnce } = require(path.join(ROOT, "lib/rivals/once-sugerido.ts"));
 
-const SLOT_POR_PUESTO = [
-  "por",
-  "li",
-  "dfc",
-  "dfc",
-  "ld",
-  "mcd",
-  "mc",
-  "mc",
-  "ei",
-  "dc",
-  "ed",
-];
+/* La demarcación de BeSoccer da la línea; el lado no lo publica. */
+const SLOT_POR_DEMARCACION = { PT: "por", DF: "dfc", MC: "mc", DL: "dc" };
 
-const LADO_POR_SLOT = { li: -1, ei: -1, ld: 1, ed: 1 };
+const vistos = new Map();
 
-const LINEA_POR_SLOT = {
-  por: "portero",
-  li: "defensa",
-  ld: "defensa",
-  dfc: "defensa",
-  mcd: "medio",
-  mc: "medio",
-  ei: "ataque",
-  ed: "ataque",
-  dc: "ataque",
-};
+for (const once of informe.onces) {
+  for (const jugador of [...once.jugadores, ...(once.suplentes ?? [])]) {
+    const id = String(jugador.foto ?? "").match(/players\/[a-z]+\/(\d+)/)?.[1];
 
-const plantilla = (informe.onces[0]?.jugadores ?? []).map((jugador, indice) => {
-  const slot = SLOT_POR_PUESTO[indice % SLOT_POR_PUESTO.length];
+    const clave = id ? `bs:${id}` : `nm:${jugador.nombre.toLowerCase()}`;
 
-  return {
-    clave: `p${indice}`,
-    dorsal: jugador.dorsal,
-    nombre: jugador.nombre,
-    slot,
-    lado: LADO_POR_SLOT[slot] ?? 0,
-    edad: String(20 + (indice % 12)),
-    pie: indice % 3 === 0 ? "Zurdo" : "Diestro",
-    altura: 175 + (indice % 15),
-    peso: 68 + (indice % 12),
-    foto: jugador.foto,
-    estado: indice === 4 ? "LESIONADO" : "",
-    portero: slot === "por",
-    titular: 10 - (indice % 6),
-    goles: indice % 4,
-    encajados: slot === "por" ? 7 : null,
-  };
+    if (vistos.has(clave)) continue;
+
+    const indice = vistos.size;
+
+    const slot = SLOT_POR_DEMARCACION[jugador.demarcacion] ?? "mc";
+
+    vistos.set(clave, {
+      clave,
+      dorsal: jugador.dorsal,
+      nombre: jugador.nombre,
+      slot,
+      lado: 0,
+      edad: String(20 + (indice % 12)),
+      pie: indice % 3 === 0 ? "Zurdo" : "Diestro",
+      altura: 175 + (indice % 15),
+      peso: 68 + (indice % 12),
+      foto: jugador.foto,
+      estado: indice === 4 ? "LESIONADO" : "",
+      portero: slot === "por",
+      titular: 10 - (indice % 6),
+      goles: indice % 4,
+      encajados: slot === "por" ? 7 : null,
+    });
+  }
+}
+
+const plantilla = [...vistos.values()];
+
+const sugerido = sugiereOnce(informe, plantilla);
+
+if (!sugerido) console.warn("  ojo: no hay de dónde sacar el once probable");
+
+const onceProbable = (sugerido?.titulares ?? []).flatMap((clave) => {
+  const pos = sugerido.campo[clave];
+
+  return pos ? [{ clave, x: pos.x, y: pos.y, estado: "titular" }] : [];
 });
 
-const sitios = reparteCampo(
-  plantilla.map((jugador) => ({
-    clave: jugador.clave,
-    posCode: jugador.slot.toUpperCase(),
-    linea: LINEA_POR_SLOT[jugador.slot] ?? "medio",
-  })),
-);
-
-const onceProbable = plantilla.flatMap((jugador, indice) => {
-  const sitio = sitios.get(jugador.clave);
-
-  return sitio
-    ? [
-        {
-          clave: jugador.clave,
-          x: sitio.x,
-          y: sitio.y,
-          estado: indice === 9 ? "duda" : "titular",
-        },
-      ]
-    : [];
-});
+if (sugerido) {
+  console.log(
+    `  once probable propuesto: ${sugerido.estructura} con ${sugerido.alineaciones} alineación(es)` +
+      (sugerido.sinFicha.length > 0
+        ? ` · sin ficha: ${sugerido.sinFicha.join(", ")}`
+        : ""),
+  );
+}
 
 const DATOS = {
   informe,
@@ -304,6 +295,12 @@ const DATOS = {
   competicion: "Primera Federación · Grupo 2",
   plantilla,
   onceProbable,
+  /* El arnés siempre propone: es el caso que había que poder mirar. */
+  onceSugerido: sugerido
+    ? {
+        motivo: `${sugerido.estructura} · ${sugerido.alineaciones} alineaciones`,
+      }
+    : undefined,
 };
 
 /**

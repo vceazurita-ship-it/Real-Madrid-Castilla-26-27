@@ -841,7 +841,15 @@ export default function InformePptEditor({
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          {/*
+            La barra se parte en renglones cuando no cabe.
+
+            En una pantalla de móvil medía 482 px dentro de un panel de 390 y
+            el panel recorta: «Exportar .pptx» y la equis de cerrar quedaban
+            fuera de la pantalla, así que el editor se abría y no se podía ni
+            salir de él ni sacar el documento.
+          */}
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             <BotonBarra
               titulo="Deshacer (Ctrl+Z)"
               onClick={deshacer}
@@ -944,7 +952,36 @@ export default function InformePptEditor({
 
         {/* ---------------- CUERPO ---------------- */}
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          {/* -------- HOJAS, EN EL MÓVIL -------- */}
+
+          {/*
+            La columna de miniaturas de la derecha no cabe en un teléfono, y
+            estaba puesta en `hidden md:block` sin nada que la sustituyera: el
+            editor se abría **en la portada y sin manera de llegar a las otras
+            diez hojas**. Aquí van en una tira que se desliza a lo ancho, con
+            el número y el título de cada una.
+          */}
+          <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 md:hidden">
+            {hojas.map((una, indice) => (
+              <button
+                key={una.id}
+                type="button"
+                onClick={() => {
+                  setActiva(indice);
+                  setSeleccion([]);
+                }}
+                className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                  indice === activa
+                    ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+                    : "border-white/10 text-white/45"
+                }`}
+              >
+                {indice + 1}. {una.titulo}
+              </button>
+            ))}
+          </div>
+
           {/* -------- HOJAS -------- */}
 
           <div className="hidden w-[150px] shrink-0 overflow-y-auto border-r border-white/10 p-2 md:block">

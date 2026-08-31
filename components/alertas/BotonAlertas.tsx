@@ -39,6 +39,8 @@ export function BotonAlertas() {
       <button
         type="button"
         data-export-hide
+        /* Se aparta cuando hay un modal abierto: ver globals.css. */
+        data-flotante
         onClick={() => setAbierto(true)}
         aria-label="Tareas y alertas"
         title="Tareas y alertas"

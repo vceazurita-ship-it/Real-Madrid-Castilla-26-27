@@ -20,6 +20,7 @@ import {
   RIVAL_ONCE_KIND,
   conEnCampo,
   conEstado,
+  conOnce,
   conPosicion,
   conSustitucion,
   estadoDe,
@@ -102,6 +103,18 @@ export function useRivalOnce(equipo: string) {
     [setValue]
   );
 
+  /*
+  | Dejar puesto de una vez el once que se propone a partir de los que ha
+  | sacado el rival. Lo que se escribe aquí se edita después como cualquier
+  | otro once: se cicla a un jugador, se arrastra en el pop-up o se sustituye.
+  */
+  const proponer = useCallback(
+    (titulares: string[], campo: Record<string, OncePos>) => {
+      setValue((actual) => conOnce(normalizarOnce(actual), titulares, campo));
+    },
+    [setValue]
+  );
+
   /* Volver a la colocación automática sin tocar quién está en el once. */
   const recolocar = useCallback(() => {
     setValue((actual) => sinPosiciones(normalizarOnce(actual)));
@@ -118,6 +131,7 @@ export function useRivalOnce(equipo: string) {
     alCampo,
     quitar,
     sustituir,
+    proponer,
     recolocar,
     limpiar,
     status,

@@ -15,14 +15,17 @@
  *   - sus partidos de la temporada, con marcador, competición y fecha;
  *   - la ficha de los últimos partidos jugados: alineación con demarcación y
  *     nota, banquillo con quién entró, estructura, entrenador de aquel día,
- *     goles con su minuto y su autor, tarjetas y sustituciones;
+ *     goles con su minuto, su autor y quién asistió, tarjetas y cambios;
  *   - entrenador y estadio de la página del club, y la trayectoria del
  *     entrenador de su propia ficha.
  *
- * Lo que BeSoccer **no** da y por eso no está: el asistente de cada gol en
- * Primera Federación, y los eventos de partidos viejos —de una temporada
- * pasada ya no queda ni el módulo, así que tarjetas y cambios se bajan cuando
- * el partido es reciente o no se bajan nunca—.
+ * Lo que BeSoccer **no** da y por eso no está: los eventos de partidos viejos
+ * —de una temporada pasada ya no queda ni el módulo, así que tarjetas, cambios
+ * y goleadores se bajan cuando el partido es reciente o no se bajan nunca—.
+ *
+ * El asistente de cada gol sí lo da, al contrario de lo que se creía: no está
+ * en la lista de todos los eventos, que es de donde se leía, sino en la pestaña
+ * de goles de la ficha (`#events-goals`).
  *
  * ¿Por qué Supabase y no la hoja? Lo mismo que `rivals-stats.mjs`: la hoja
  * RIVALES escribe por nombre de columna y no tiene cabeceras para nada de
@@ -648,13 +651,39 @@ export function leeSuplentes(html, visitante) {
 /**
  * Una fila de la lista de eventos: minuto, de qué lado y quién.
  *
- * Las tres listas —goles, tarjetas y sustituciones— comparten forma:
+ * Las listas —goles, tarjetas y sustituciones— comparten forma:
  * `<div class="table-played-match">` con el jugador en un `col-side`, el
  * minuto en medio y una flecha que dice de qué equipo es. La flecha es lo
  * fiable: el lado izquierdo puede venir vacío y maquetado igual.
  */
-function filasDeEventos(html, id, siguienteId) {
-  const bloque = seccion(html, `id="${id}"`, siguienteId ? `id="${siguienteId}"` : "");
+function filasDeEventos(html, id) {
+  const desdeAqui = html.indexOf(`id="${id}"`);
+
+  if (desdeAqui === -1) return [];
+
+  /*
+  | El bloque acaba donde empiece **la pestaña siguiente, sea cual sea**.
+  |
+  | Se cortaba por una marca concreta ("los goles acaban donde empiezan las
+  | tarjetas") y eso se rompe de dos maneras: un partido sin tarjetas no trae
+  | `events-cards` y se leía media página de más, y un partido con VAR mete un
+  | `events-var` en medio que nadie esperaba —los goles anulados que revisó el
+  | árbitro se colaban como goles, y un 2-2 salía con cinco goleadores—.
+  |
+  | Enumerar las pestañas es perder: BeSoccer añade las que quiera. Lo que no
+  | cambia es que todas se llaman `events-…`, así que se corta por la primera
+  | que aparezca por detrás.
+  */
+  const siguiente = html.indexOf('id="events-', desdeAqui + 1);
+
+  const stats = html.indexOf('id="mod_stats"', desdeAqui + 1);
+
+  const cierres = [siguiente, stats].filter((donde) => donde > desdeAqui);
+
+  const bloque = html.slice(
+    desdeAqui,
+    cierres.length > 0 ? Math.min(...cierres) : html.length,
+  );
 
   if (!bloque) return [];
 
@@ -699,7 +728,7 @@ function filasDeEventos(html, id, siguienteId) {
 export function leeTarjetas(html, visitante) {
   const tarjetas = [];
 
-  for (const fila of filasDeEventos(html, "events-cards", "events-changes")) {
+  for (const fila of filasDeEventos(html, "events-cards")) {
     if (fila.visitante !== visitante) continue;
 
     const alt = fila.cabeza.match(/<img alt="(Tarjeta[^"]*|Doble[^"]*)"/)?.[1] ?? "";
@@ -739,7 +768,7 @@ export function leeTarjetas(html, visitante) {
 export function leeCambios(html, visitante) {
   const cambios = [];
 
-  for (const fila of filasDeEventos(html, "events-changes", "events-others")) {
+  for (const fila of filasDeEventos(html, "events-changes")) {
     if (fila.visitante !== visitante) continue;
 
     const enlaces = [
@@ -822,62 +851,149 @@ export function leeEntrenadorPartido(html, visitante) {
 }
 
 /**
- * Los goles del partido, con minuto y autor.
+ * Los goles del partido, con minuto, autor y quién lo asistió.
  *
- * Los eventos vienen en dos columnas —`col-side left` es el local y
- * `col-side right` el visitante— y el tipo va en el `alt` del icono: "Gol",
- * "Gol de penalti", "Gol en propia puerta". Lo que no sea gol (tarjetas,
- * cambios, goles anulados, postes) se descarta aquí.
+ * Se leen de la **pestaña de goles** (`#events-goals`), no de la lista de
+ * todos los eventos. Antes se sacaban de `#orderMin`, que es la lista
+ * completa, y eso costaba dos cosas:
+ *
+ * - Los **goles anulados** llevan el mismo icono de la familia «Gol»
+ *   (`accion14.png`, alt «Gol anulado»), así que se colaban: un 0-0 salía con
+ *   un goleador y un 2-0 con tres goles. En la pestaña de goles no están.
+ * - Los goles del equipo visitante van maquetados con un desplegable dentro,
+ *   y el troceo por marcas de cierre exactas los partía por la mitad: había
+ *   partidos enteros —CE Europa 0-3 Real Jaén— sin un solo goleador leído.
+ *
+ * De propina, la pestaña de goles trae **el asistente** en el desplegable: el
+ * que marca va con el icono `event-1` y quien se la puso con `event-22`, y en
+ * los enlaces visibles el segundo va en gris. Eso sí lo publica BeSoccer en
+ * Primera Federación, al revés de lo que se creía cuando esto se escribió.
  */
 export function leeGoles(html, visitante) {
   const goles = [];
 
-  const bloque = seccion(html, 'id="orderMin"', 'id="mod_stats"') || html;
+  for (const fila of filasDeEventos(html, "events-goals")) {
+    const alt =
+      fila.cabeza.match(/<img alt="(Gol[^"]*)"/)?.[1] ??
+      fila.cabeza.match(/events\/[a-z0-9_]+\.png" alt="(Gol[^"]*)"/)?.[1] ??
+      "";
 
-  for (const evento of trozos(bloque, '<div class="table-played-match', "</div>\n            </div>")) {
-    const minuto = limpia(evento.match(/<div class="min ">([^<]*)<\/div>/)?.[1] ?? "").replace(
-      /['’]/g,
-      ""
+    if (!alt) continue;
+
+    /* Por si algún día los anulados entran en esta pestaña. */
+    if (/anulad/i.test(alt)) continue;
+
+    /*
+    | Los dos nombres visibles de la fila: el que marca y, en gris, el que
+    | asiste. El enlace del retrato no lleva "name" en la clase, así que no
+    | entra aquí.
+    */
+    const nombres = [
+      ...fila.cabeza.matchAll(
+        /<a class="align-middle name ([^"]*)"[^>]*data-cy="event"[^>]*>\s*([^<]*?)\s*<\/a>/g,
+      ),
+    ].map((uno) => ({ gris: /color-grey2/.test(uno[1]), nombre: limpia(uno[2]) }));
+
+    const jugador = nombres.find((uno) => !uno.gris)?.nombre ?? "";
+
+    if (!jugador) continue;
+
+    const asistente = nombres.find((uno) => uno.gris)?.nombre ?? "";
+
+    /*
+    | El lado se lee tal cual, **también en los goles en propia puerta**.
+    |
+    | En la lista de todos los eventos BeSoccer pinta el gol en propia del lado
+    | del que se la mete, y por eso el lector antiguo lo invertía. En la pestaña
+    | de goles no: la flecha señala al equipo que **suma** el tanto. Comprobado
+    | con el Águilas 2-2 Alcorcón, donde invirtiéndolo salía un 1-3.
+    |
+    | El nombre que se guarda sigue siendo el del que la metió, que es lo que
+    | se escribe en la hoja de resultados; el tipo dice que fue en propia y la
+    | diapositiva lo rotula «(PP)».
+    */
+    const enPropia = /propia/i.test(alt);
+
+    goles.push({
+      minuto: fila.minuto,
+      jugador,
+      asistente,
+      propio: fila.visitante === visitante,
+      tipo: enPropia ? "propia" : /penalti/i.test(alt) ? "penalti" : "",
+    });
+  }
+
+  /* De más tarde a más temprano no: la hoja los lee por minuto. */
+  return goles.sort((a, b) => minutoDeEvento(a.minuto) - minutoDeEvento(b.minuto));
+}
+
+/**
+ * Comprueba que los goleadores leídos cuadran con el marcador, y avisa.
+ *
+ * La diapositiva de resultados escribe los goleadores debajo de cada equipo, y
+ * una lista que no cuadra con el resultado se ve a la primera en una charla:
+ * un 2-2 con tres nombres. Se cuenta aquí, en la descarga, para que salte en la
+ * consola de quien la corre y no en el proyector.
+ *
+ * Lo único que se corrige solo es **el lado de un gol en propia puerta**, que
+ * es lo único que se lee por convenio y no por un dato: si invirtiéndolos el
+ * marcador cuadra, se invierten. Lo demás se avisa y se deja como está: una
+ * ficha a la que le falta un gol es un dato que no publica BeSoccer, no algo
+ * que se pueda adivinar aquí.
+ */
+function cuadraConElMarcador(goles, partido) {
+  const propios = (partido.enCasa ? partido.local.goles : partido.visitante.goles) ?? 0;
+  const ajenos = (partido.enCasa ? partido.visitante.goles : partido.local.goles) ?? 0;
+
+  const cuenta = (lista) => [
+    lista.filter((gol) => gol.propio).length,
+    lista.filter((gol) => !gol.propio).length,
+  ];
+
+  const [a, b] = cuenta(goles);
+
+  if (a === propios && b === ajenos) return goles;
+
+  const enPropia = goles.filter((gol) => gol.tipo === "propia");
+
+  /* La flecha de la pestaña de goles señala a quien suma el tanto, también en
+     los goles en propia. Si algún día cambiaran de criterio, esto lo salva. */
+  if (enPropia.length > 0) {
+    const alReves = goles.map((gol) =>
+      gol.tipo === "propia" ? { ...gol, propio: !gol.propio } : gol,
     );
 
-    for (const columna of ["left", "right"]) {
-      const lado = seccion(
-        evento,
-        `<div class="col-side ${columna}">`,
-        columna === "left" ? '<div class="col-mid-rows' : ""
+    const [c, d] = cuenta(alReves);
+
+    if (c === propios && d === ajenos) {
+      console.warn(
+        `    ojo: ${partido.id} cuadra invirtiendo ${enPropia.length} gol(es) en propia puerta`,
       );
 
-      if (!lado) continue;
-
-      const icono = lado.match(/media\/img\/events\/[a-z0-9_]+\.png" alt="([^"]*)"/);
-
-      const alt = icono?.[1] ?? "";
-
-      if (!/^Gol/i.test(alt)) continue;
-
-      const jugador = limpia(lado.match(/data-cy="eventOrd">([^<]*)<\/a>/)?.[1] ?? "");
-
-      if (!jugador) continue;
-
-      /* Un gol en propia puerta lo pinta BeSoccer en la columna de quien lo
-         marca, pero cuenta para el otro: aquí sólo interesa de quién es el
-         tanto, así que se invierte el lado. */
-      const enPropia = /propia/i.test(alt);
-
-      const delLocal = columna === "left";
-
-      const paraLocal = enPropia ? !delLocal : delLocal;
-
-      goles.push({
-        minuto,
-        jugador,
-        propio: paraLocal !== visitante,
-        tipo: enPropia ? "propia" : /penalti/i.test(alt) ? "penalti" : "",
-      });
+      return alReves;
     }
   }
 
+  /* Sin ningún gol leído es que BeSoccer ya no publica la ficha: eso pasa con
+     los partidos viejos y no es un fallo de lectura. */
+  if (goles.length === 0 && propios + ajenos > 0) {
+    console.warn(`    ${partido.id}: sin goleadores publicados (${propios}-${ajenos})`);
+
+    return goles;
+  }
+
+  console.warn(
+    `    ojo: ${partido.id} marcador ${propios}-${ajenos} pero se han leído ${a}-${b} goleadores`,
+  );
+
   return goles;
+}
+
+/** "90+2" es el minuto 92 a efectos de ordenar. */
+function minutoDeEvento(valor) {
+  const partes = String(valor ?? "").split("+");
+
+  return (Number(partes[0]) || 0) + (Number(partes[1]) || 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -997,7 +1113,7 @@ async function bajaEquipo(id, slug, clasificacion) {
     const eventos = await pagina(url);
 
     if (eventos) {
-      const goles = leeGoles(eventos, visitante);
+      const goles = cuadraConElMarcador(leeGoles(eventos, visitante), partido);
 
       partido.goles = goles;
 

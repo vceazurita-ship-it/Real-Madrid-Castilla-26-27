@@ -48,6 +48,7 @@ import {
   Search,
   Trash2,
   UserRound,
+  Wand2,
   X,
 } from "lucide-react";
 
@@ -111,6 +112,17 @@ interface OnceCampoDialogProps {
   onSustituir: (saliente: string, entrante: string) => void;
   /** Devuelve el campo al reparto automático por líneas. */
   onRecolocar: () => void;
+  /**
+   * Propone un once con los que el rival viene sacando y lo deja puesto.
+   *
+   * Está aquí y no sólo en la barra del campograma porque éste es el sitio
+   * donde se monta el once: abrir el pop-up de un rival al que no se ha mirado
+   * y encontrarse el campo vacío obligaba a cerrarlo, marcar a once en la lista
+   * y volver a abrirlo. Lo que propone se edita luego como todo lo demás.
+   */
+  onSugerir: () => void;
+  /** Mientras se baja el informe del que sale la propuesta. */
+  sugiriendo?: boolean;
   onExportar: () => void;
   onCerrar: () => void;
 }
@@ -617,6 +629,8 @@ export default function OnceCampoDialog({
   onAnadir,
   onSustituir,
   onRecolocar,
+  onSugerir,
+  sugiriendo = false,
   onExportar,
   onCerrar,
 }: OnceCampoDialogProps) {
@@ -1179,16 +1193,54 @@ export default function OnceCampoDialog({
         {/* PIE */}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 p-3 sm:p-4">
-          <button
-            type="button"
-            data-export-hide
-            onClick={onRecolocar}
-            title="Volver a colocar a todos por líneas"
-            className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-white/30 hover:text-white"
-          >
-            <RotateCcw size={13} />
-            Colocarlos solos
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-export-hide
+              onClick={onRecolocar}
+              title="Volver a colocar a todos por líneas"
+              className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-white/30 hover:text-white"
+            >
+              <RotateCcw size={13} />
+              Colocarlos solos
+            </button>
+
+            {/*
+              El once que se propone con los últimos que ha sacado el rival.
+              Con el campo vacío es lo primero que hay que pulsar, así que se
+              resalta; con un once ya montado avisa antes de pisarlo.
+            */}
+            <button
+              type="button"
+              data-export-hide
+              onClick={() => {
+                if (
+                  jugadores.length > 0 &&
+                  !window.confirm(
+                    "Ya hay un once montado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
+                  )
+                ) {
+                  return;
+                }
+
+                onSugerir();
+              }}
+              disabled={sugiriendo}
+              title="Proponer el once con los últimos que ha sacado el rival — después se cambia a mano"
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+                jugadores.length === 0
+                  ? "border-[#C8A96B]/40 bg-[#C8A96B]/15 text-[#C8A96B] hover:bg-[#C8A96B]/25"
+                  : "border-white/10 text-white/50 hover:border-white/30 hover:text-white"
+              }`}
+            >
+              {sugiriendo ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Wand2 size={13} />
+              )}
+              Sugerir once
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
