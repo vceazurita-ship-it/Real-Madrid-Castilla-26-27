@@ -250,6 +250,31 @@ export class GuionHoja {
     return pieza;
   }
 
+  /**
+   * Una pieza que ya viene pintada, en `data:image/png`.
+   *
+   * Es para lo que se dibuja fuera —las fichas de plantilla, que las pinta
+   * `alineacion-ppt.ts` con el mismo cartón del campograma de día de partido—:
+   * ni se repinta ni se recorta, porque la caja ya es la suya.
+   */
+  imagen(nombre: string, caja: CajaInforme, dataUrl: string) {
+    this.contador += 1;
+
+    const pieza: ElementoInforme = {
+      id: `${this.prefijo}-${this.contador}`,
+      nombre,
+      x: caja.x,
+      y: caja.y,
+      w: caja.w,
+      h: caja.h,
+      imagen: dataUrl,
+    };
+
+    this.piezas.push(pieza);
+
+    return pieza;
+  }
+
   /** La hoja terminada. El fondo va en JPEG: es papel y pesa un tercio. */
   hoja(): HojaInforme {
     return {

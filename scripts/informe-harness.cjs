@@ -211,6 +211,90 @@ console.log(
     `${informe.goleadores.length} goleadores`,
 );
 
+/*
+| La plantilla y el once probable **no salen de BeSoccer**: los pone la
+| pantalla de `/rivals` con lo que hay en la hoja RIVALES. Aquí se fabrican con
+| los jugadores del último once bajado —cara de BeSoccer, dorsal y puesto— para
+| poder mirar las dos hojas de campograma sin levantar la app.
+|
+| Lo que se ve aquí es el dibujo, no los datos: el pie dominante y el peso se
+| inventan, y en la app son los de la hoja.
+*/
+const { reparteCampo } = require(path.join(ROOT, "lib/rivals/once-campo.ts"));
+
+const SLOT_POR_PUESTO = [
+  "por",
+  "li",
+  "dfc",
+  "dfc",
+  "ld",
+  "mcd",
+  "mc",
+  "mc",
+  "ei",
+  "dc",
+  "ed",
+];
+
+const LADO_POR_SLOT = { li: -1, ei: -1, ld: 1, ed: 1 };
+
+const LINEA_POR_SLOT = {
+  por: "portero",
+  li: "defensa",
+  ld: "defensa",
+  dfc: "defensa",
+  mcd: "medio",
+  mc: "medio",
+  ei: "ataque",
+  ed: "ataque",
+  dc: "ataque",
+};
+
+const plantilla = (informe.onces[0]?.jugadores ?? []).map((jugador, indice) => {
+  const slot = SLOT_POR_PUESTO[indice % SLOT_POR_PUESTO.length];
+
+  return {
+    clave: `p${indice}`,
+    dorsal: jugador.dorsal,
+    nombre: jugador.nombre,
+    slot,
+    lado: LADO_POR_SLOT[slot] ?? 0,
+    edad: String(20 + (indice % 12)),
+    pie: indice % 3 === 0 ? "Zurdo" : "Diestro",
+    altura: 175 + (indice % 15),
+    peso: 68 + (indice % 12),
+    foto: jugador.foto,
+    estado: indice === 4 ? "LESIONADO" : "",
+    portero: slot === "por",
+    titular: 10 - (indice % 6),
+    goles: indice % 4,
+    encajados: slot === "por" ? 7 : null,
+  };
+});
+
+const sitios = reparteCampo(
+  plantilla.map((jugador) => ({
+    clave: jugador.clave,
+    posCode: jugador.slot.toUpperCase(),
+    linea: LINEA_POR_SLOT[jugador.slot] ?? "medio",
+  })),
+);
+
+const onceProbable = plantilla.flatMap((jugador, indice) => {
+  const sitio = sitios.get(jugador.clave);
+
+  return sitio
+    ? [
+        {
+          clave: jugador.clave,
+          x: sitio.x,
+          y: sitio.y,
+          estado: indice === 9 ? "duda" : "titular",
+        },
+      ]
+    : [];
+});
+
 const DATOS = {
   informe,
   jornada: "1",
@@ -218,6 +302,8 @@ const DATOS = {
   enSuCampo: true,
   temporada: "26 / 27",
   competicion: "Primera Federación · Grupo 2",
+  plantilla,
+  onceProbable,
 };
 
 /**
@@ -254,9 +340,6 @@ async function componer(hoja) {
 
 construyeHojasInforme(DATOS)
   .then(async (hojas) => {
-    /* Ya no vale contar lienzos: se hacen decenas por hoja, uno por pieza. */
-    lienzos.length = 0;
-
     for (const [indice, hoja] of hojas.entries()) {
       const numero = String(indice + 1).padStart(2, "0");
 

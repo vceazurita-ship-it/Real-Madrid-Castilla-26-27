@@ -112,8 +112,8 @@ const CABECERA = 132;
 const ZONA = { x: 52, y: 146, w: W - 104, h: H - 146 - 46 };
 
 /** La ficha a tamaño natural. El motor la encoge si la plantilla no cabe. */
-const FICHA_W = 208;
-const FICHA_H = 272;
+export const FICHA_W = 208;
+export const FICHA_H = 272;
 
 /** Aire entre fichas de un mismo bloque y entre bloques. */
 const HUECO = 14;
@@ -306,8 +306,34 @@ function lienzo(ancho: number, alto: number) {
  * no dibujo, y a plena opacidad le quitan protagonismo a las caras.
  */
 function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | null) {
+  cespedTumbado(
+    ctx,
+    { x: 0, y: 0, w: W, h: H },
+    { x: 44, y: CABECERA + 4, w: W - 88, h: H - CABECERA - 48 },
+  );
+
+  /* -------------------------------------------------- la cabecera */
+
+  pintaCabeceraAlineacion(ctx, data, escudo);
+}
+
+/**
+ * El césped tumbado con sus líneas: el fondo de un campograma de plantilla.
+ *
+ * Va aparte de la cabecera desde que el informe del rival
+ * (`lib/rivals/informe-ppt.ts`) trae sus dos hojas de campograma —la plantilla
+ * entera y el once probable—: allí la cabecera es la del informe, la misma de
+ * las otras once hojas, pero el campo tiene que ser **este**, con las mismas
+ * medidas y el mismo verde, o las dos versiones del mismo dibujo no se
+ * parecerían.
+ */
+export function cespedTumbado(
+  ctx: Ctx,
+  fondo: { x: number; y: number; w: number; h: number },
+  campo: { x: number; y: number; w: number; h: number },
+) {
   ctx.fillStyle = C.verde;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(fondo.x, fondo.y, fondo.w, fondo.h);
 
   /* Las franjas de corte del césped: casi no se ven, y sin ellas el verde
      plano parece un error de exportación. */
@@ -316,12 +342,10 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
   const FRANJAS = 12;
 
   for (let i = 0; i < FRANJAS; i += 2) {
-    ctx.fillRect((i * W) / FRANJAS, 0, W / FRANJAS, H);
+    ctx.fillRect(fondo.x + (i * fondo.w) / FRANJAS, fondo.y, fondo.w / FRANJAS, fondo.h);
   }
 
   /* -------------------------------------------------- las líneas */
-
-  const campo = { x: 44, y: CABECERA + 4, w: W - 88, h: H - CABECERA - 48 };
 
   ctx.strokeStyle = "rgba(247,244,236,0.30)";
   ctx.lineWidth = 3;
@@ -374,9 +398,14 @@ function pintaCampo(ctx: Ctx, data: AlineacionData, escudo: HTMLImageElement | n
     ctx.arc(punto, medioY, 5, 0, Math.PI * 2);
     ctx.fill();
   }
+}
 
-  /* -------------------------------------------------- la cabecera */
-
+/** La franja de arriba del campograma de día de partido. */
+function pintaCabeceraAlineacion(
+  ctx: Ctx,
+  data: AlineacionData,
+  escudo: HTMLImageElement | null,
+) {
   ctx.fillStyle = "rgba(4,18,31,0.55)";
   ctx.fillRect(0, 0, W, CABECERA);
 
@@ -517,8 +546,14 @@ function baja(estado: string) {
   return limpio.slice(0, 18);
 }
 
-/** Pinta la ficha en su propio lienzo transparente y la devuelve en PNG. */
-function pintaFicha(
+/**
+ * Pinta la ficha en su propio lienzo transparente y la devuelve en PNG.
+ *
+ * La comparte el informe del rival: sus hojas de plantilla y de once probable
+ * llevan **esta misma ficha** —retrato, dorsal, nombre, pie, altura y peso—,
+ * que es la que el cuerpo técnico ya conoce del campograma de día de partido.
+ */
+export function pintaFichaAlineacion(
   jugador: AlineacionJugador,
   retrato: HTMLImageElement | null,
   ancho: number,
@@ -766,7 +801,7 @@ export async function exportAlineacionPptx(data: AlineacionData) {
     nombre: `${ficha.jugador.dorsal ? `Nº${ficha.jugador.dorsal} · ` : ""}${
       ficha.jugador.nombre
     }`,
-    imagen: pintaFicha(
+    imagen: pintaFichaAlineacion(
       ficha.jugador,
       retratos.get(ficha.jugador.clave) ?? null,
       FICHA_W * k,

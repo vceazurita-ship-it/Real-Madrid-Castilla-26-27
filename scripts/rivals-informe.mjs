@@ -6,15 +6,23 @@
  *   node scripts/rivals-informe.mjs teruel huesca  sólo esos (slug o ID)
  *   node scripts/rivals-informe.mjs --solo-subir   reconstruye de la caché
  *   node scripts/rivals-informe.mjs --refrescar    ignora la caché
+ *   node scripts/rivals-informe.mjs --sin-subir    baja y no toca Supabase
  *
  * Qué se baja de cada equipo:
  *
  *   - la clasificación del grupo, en sus tres pestañas (total, local,
  *     visitante) — una sola vez, que es la misma para los diecinueve;
  *   - sus partidos de la temporada, con marcador, competición y fecha;
- *   - la ficha de los últimos partidos jugados: alineación, estructura,
- *     entrenador de aquel día y los goles con su minuto y su autor;
- *   - entrenador y estadio de la página del club.
+ *   - la ficha de los últimos partidos jugados: alineación con demarcación y
+ *     nota, banquillo con quién entró, estructura, entrenador de aquel día,
+ *     goles con su minuto y su autor, tarjetas y sustituciones;
+ *   - entrenador y estadio de la página del club, y la trayectoria del
+ *     entrenador de su propia ficha.
+ *
+ * Lo que BeSoccer **no** da y por eso no está: el asistente de cada gol en
+ * Primera Federación, y los eventos de partidos viejos —de una temporada
+ * pasada ya no queda ni el módulo, así que tarjetas y cambios se bajan cuando
+ * el partido es reciente o no se bajan nunca—.
  *
  * ¿Por qué Supabase y no la hoja? Lo mismo que `rivals-stats.mjs`: la hoja
  * RIVALES escribe por nombre de columna y no tiene cabeceras para nada de
@@ -113,6 +121,9 @@ const filtro = new Set(args.filter((arg) => !arg.startsWith("--")));
 
 const SOLO_SUBIR = flags.has("--solo-subir");
 const REFRESCAR = flags.has("--refrescar");
+
+/** Baja y deja la caché, pero no toca Supabase. Para ajustar un parser. */
+const SIN_SUBIR = flags.has("--sin-subir");
 
 /* ------------------------------------------------------------------ */
 /*  RED                                                                */
@@ -435,10 +446,16 @@ export function leeEntrenador(html) {
       : "",
     edad: limpia(bloque.match(/<p class="color-grey2 fs13">([^<]*a[ñn]os)<\/p>/)?.[1] ?? "")
       .replace(/\s*años?/i, ""),
+    /* Su ficha, para la trayectoria: es donde está por dónde ha pasado. */
+    ficha: bloque.match(/href="(https:\/\/es\.besoccer\.com\/entrenador\/[^"]+)"/)?.[1] ?? "",
+    nacimiento: limpia(
+      bloque.match(/<p class="color-grey2 fs13 mb5">(\d{2}\/\d{2}\/\d{4})<\/p>/)?.[1] ?? "",
+    ),
     partidos: cifras[0] ?? 0,
     ganados: cifras[1] ?? 0,
     empatados: cifras[2] ?? 0,
     perdidos: cifras[3] ?? 0,
+    trayectoria: [],
   };
 }
 
@@ -529,6 +546,14 @@ export function leeAlineacion(html, visitante) {
       foto: foto?.[1]
         ? `https://cdn.resfu.com/img_data/players/medium/${foto[1]}.jpg`
         : "",
+      /* La demarcación va en el `jobtitle` del JSON-LD que BeSoccer mete en
+         cada ficha. Con ella se calcula la estructura con la que **acaba** el
+         partido, que es lo que cambia cuando entra un delantero por un medio y
+         lo que el `data-tacticName` no dice: ése es siempre el de salida. */
+      demarcacion: demarcacionDe(li.match(/"jobtitle":\s*"([^"]*)"/)?.[1] ?? ""),
+      /* La nota de BeSoccer, que es de lo poco que ordena a los jugadores de
+         un vistazo cuando no se ha visto el partido. */
+      nota: li.match(/<div class="match-points"[^>]*>([\d.]+)<\/div>/)?.[1] ?? "",
     });
   }
 
@@ -540,6 +565,251 @@ export function leeAlineacion(html, visitante) {
     estructura: estructura ? `1-${estructura}` : "",
     jugadores: jugadores.sort((a, b) => a.puesto - b.puesto).slice(0, 11),
   };
+}
+
+/**
+ * Portero, defensa, medio o delantero.
+ *
+ * BeSoccer mezcla el español y el inglés en el mismo campo —"Defensa" y
+ * "midfielder" salen en la misma alineación—, así que se miran las dos formas.
+ * Lo que no se reconozca se queda vacío y no cuenta para la estructura.
+ */
+function demarcacionDe(valor) {
+  const texto = String(valor ?? "").toLowerCase();
+
+  if (/portero|goalkeeper|keeper/.test(texto)) return "PT";
+  if (/defen|back/.test(texto)) return "DF";
+  if (/medio|midfiel|centrocamp/.test(texto)) return "MC";
+  if (/delantero|forward|striker|attack/.test(texto)) return "DL";
+
+  return "";
+}
+
+/** La misma demarcación, pero como la escribe el banquillo: "PT", "DF"… */
+function demarcacionBanquillo(valor) {
+  const texto = String(valor ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+
+  if (texto.startsWith("PT") || texto.startsWith("POR")) return "PT";
+  if (texto.startsWith("DF") || texto.startsWith("DEF")) return "DF";
+  if (texto.startsWith("MED") || texto.startsWith("MC")) return "MC";
+  if (texto.startsWith("DEL") || texto.startsWith("DL")) return "DL";
+
+  return "";
+}
+
+/**
+ * Los suplentes de la convocatoria, y cuáles entraron.
+ *
+ * Van en `#mod_lineupBench`, en `<a class="col-bench local|visitor">`. El que
+ * entró lleva dentro el icono «Entra» con su minuto, así que la convocatoria y
+ * los cambios se leen de la misma tirada.
+ */
+export function leeSuplentes(html, visitante) {
+  const bloque = seccion(html, 'id="mod_lineupBench"', 'id="mod_sticky"') || html;
+
+  const lado = visitante ? "visitor" : "local";
+
+  const suplentes = [];
+
+  for (const trozo of trozos(bloque, '<a href="https://es.besoccer.com/jugador/', "</a>")) {
+    if (!trozo.includes(`class="col-bench ${lado}`)) continue;
+
+    const nombre = limpia(trozo.match(/<p class="name">([^<]*)<\/p>/)?.[1] ?? "");
+
+    if (!nombre) continue;
+
+    const foto = trozo.match(/img_data\/players\/medium\/(\d+)\.jpg/);
+
+    const rol = trozo.match(
+      /<span class="number bold mr3">(\d+)<\/span>\s*([A-Za-zÁÉÍÓÚÑ]*)/,
+    );
+
+    const entra = /alt="Entra"/.test(trozo)
+      ? limpia(trozo.match(/<p class="min">([^<]*)<\/p>/)?.[1] ?? "").replace(/['’]/g, "")
+      : "";
+
+    suplentes.push({
+      dorsal: rol?.[1] ?? "",
+      nombre,
+      foto: foto?.[1]
+        ? `https://cdn.resfu.com/img_data/players/medium/${foto[1]}.jpg`
+        : "",
+      demarcacion: demarcacionBanquillo(rol?.[2] ?? ""),
+      nota: trozo.match(/<div class="match-points"[^>]*>([\d.]+)<\/div>/)?.[1] ?? "",
+      entra,
+    });
+  }
+
+  return suplentes;
+}
+
+/**
+ * Una fila de la lista de eventos: minuto, de qué lado y quién.
+ *
+ * Las tres listas —goles, tarjetas y sustituciones— comparten forma:
+ * `<div class="table-played-match">` con el jugador en un `col-side`, el
+ * minuto en medio y una flecha que dice de qué equipo es. La flecha es lo
+ * fiable: el lado izquierdo puede venir vacío y maquetado igual.
+ */
+function filasDeEventos(html, id, siguienteId) {
+  const bloque = seccion(html, `id="${id}"`, siguienteId ? `id="${siguienteId}"` : "");
+
+  if (!bloque) return [];
+
+  const filas = [];
+
+  const MARCA = '<div class="table-played-match"';
+
+  let desde = bloque.indexOf(MARCA);
+
+  while (desde !== -1) {
+    const siguiente = bloque.indexOf(MARCA, desde + MARCA.length);
+
+    const fila = bloque.slice(desde, siguiente === -1 ? bloque.length : siguiente);
+
+    /*
+    | El minuto y la flecha van en la columna del medio. El jugador va **a un
+    | lado o al otro**: a la izquierda si el evento es del local y a la derecha
+    | si es del visitante, así que los nombres se buscan en la fila entera y no
+    | sólo antes de la columna del medio —hacerlo así dejaba fuera todos los
+    | cambios del equipo visitante—.
+    */
+    const medio = fila.indexOf('<div class="col-mid-rows"');
+
+    const cola = medio === -1 ? "" : fila.slice(medio, medio + 900);
+
+    filas.push({
+      cabeza: fila,
+      minuto: limpia(cola.match(/<div class="min[^"]*">\s*([^<]*?)\s*<\/div>/)?.[1] ?? "")
+        .replace(/['’]/g, ""),
+      /* La flecha es lo fiable: la columna de la izquierda viene maquetada
+         igual esté vacía o no. */
+      visitante: /<span class="arrow right">/.test(cola),
+    });
+
+    desde = siguiente;
+  }
+
+  return filas;
+}
+
+/** Las tarjetas del partido, de un equipo. */
+export function leeTarjetas(html, visitante) {
+  const tarjetas = [];
+
+  for (const fila of filasDeEventos(html, "events-cards", "events-changes")) {
+    if (fila.visitante !== visitante) continue;
+
+    const alt = fila.cabeza.match(/<img alt="(Tarjeta[^"]*|Doble[^"]*)"/)?.[1] ?? "";
+
+    if (!alt) continue;
+
+    const jugador = limpia(
+      fila.cabeza.match(/data-cy="event"[^>]*>([^<]*)<\/a>/)?.[1] ?? "",
+    );
+
+    if (!jugador) continue;
+
+    tarjetas.push({
+      minuto: fila.minuto,
+      jugador,
+      /* "Tarjeta amarilla", "Segunda amarilla" y "Tarjeta roja": lo que hace
+         falta saber es si acabó el partido, así que las dos últimas son roja. */
+      tipo: /amarilla/i.test(alt) && !/doble|segunda/i.test(alt) ? "amarilla" : "roja",
+      motivo: limpia(
+        fila.cabeza.match(/<p class="align-middle name color-grey2">\s*([^<]*)<\/p>/)?.[1] ?? "",
+      ),
+    });
+  }
+
+  return tarjetas;
+}
+
+/**
+ * Las sustituciones, con quién sale y quién entra.
+ *
+ * Quién es quién se saca del `<ul>` del desplegable, donde BeSoccer marca con
+ * `event-19` al que **entra** y con `event-18` al que sale —lo mismo que el
+ * `field_ico_accion19.png` que lleva el suplente que saltó al campo, cuyo
+ * `alt` es «Entra»—. Los dos enlaces visibles van en ese mismo orden: primero
+ * el que entra y en gris el que sale.
+ */
+export function leeCambios(html, visitante) {
+  const cambios = [];
+
+  for (const fila of filasDeEventos(html, "events-changes", "events-others")) {
+    if (fila.visitante !== visitante) continue;
+
+    const enlaces = [
+      ...fila.cabeza.matchAll(/popup_btn"[^>]*data-cy="event"[^>]*>\s*([^<]*?)\s*<\/a>/g),
+    ].map((coincidencia) => limpia(coincidencia[1]));
+
+    const listado = [
+      ...fila.cabeza.matchAll(
+        /<a class="main-text[^"]*"[^>]*>\s*([^<]*?)\s*<\/a>\s*<\/div>\s*<div class="right-content">\s*<div class="img-ico event-(\d+)">/g,
+      ),
+    ];
+
+    const entra = listado.find((uno) => uno[2] === "19")?.[1] ?? enlaces[0] ?? "";
+
+    const sale = listado.find((uno) => uno[2] === "18")?.[1] ?? enlaces[1] ?? "";
+
+    if (!sale && !entra) continue;
+
+    cambios.push({ minuto: fila.minuto, sale: limpia(sale), entra: limpia(entra) });
+  }
+
+  return cambios;
+}
+
+/**
+ * La trayectoria del entrenador: por dónde ha pasado y con qué números.
+ *
+ * Se pide su ficha (`/entrenador/<slug>`), que trae la tabla «Equipos
+ * entrenados» con las tres pestañas montadas en el mismo `<tr>`: duración,
+ * encuentros y rendimiento. Se lee de una pasada y se queda con lo que se
+ * enseña en el informe.
+ */
+export function leeTrayectoria(html) {
+  const bloque = seccion(html, "Equipos entrenados", "Debuts por equipo");
+
+  if (!bloque) return [];
+
+  const etapas = [];
+
+  for (const fila of trozos(bloque, '<tr class="row-body">', "</tr>")) {
+    const equipo = limpia(
+      fila.match(/<a href="https:\/\/es\.besoccer\.com\/equipo\/[^"]*"\s*>([^<]*)<\/a>/)?.[1] ?? "",
+    );
+
+    if (!equipo) continue;
+
+    const celdas = [...fila.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((una) =>
+      limpia(una[1].replace(/<[^>]*>/g, " ")),
+    );
+
+    const escudo = fila.match(/img_data\/escudos\/medium\/(\d+)\.jpg/);
+
+    /* El orden de las columnas es fijo: escudo, equipo, PEnt, desde, hasta,
+       PG, PE, PP y la táctica preferida. */
+    etapas.push({
+      equipo,
+      escudo: escudo?.[1]
+        ? `https://cdn.resfu.com/img_data/escudos/medium/${escudo[1]}.jpg`
+        : "",
+      partidos: numero(celdas[2] ?? ""),
+      desde: celdas[3] ?? "",
+      hasta: celdas[4] ?? "",
+      ganados: numero(celdas[5] ?? ""),
+      empatados: numero(celdas[6] ?? ""),
+      perdidos: numero(celdas[7] ?? ""),
+      tactica: celdas[8] ?? "",
+    });
+  }
+
+  return etapas;
 }
 
 /** El entrenador que firmó aquella alineación. */
@@ -700,16 +970,25 @@ async function bajaEquipo(id, slug, clasificacion) {
 
     const ficha = await pagina(`${url}/alineaciones`);
 
+    let once = null;
+
     if (ficha) {
       const alineacion = leeAlineacion(ficha, visitante);
 
       if (alineacion?.jugadores.length) {
-        onces.push({
+        once = {
           partidoId: partido.id,
           estructura: alineacion.estructura,
           entrenador: leeEntrenadorPartido(ficha, visitante),
           jugadores: alineacion.jugadores,
-        });
+          /* La convocatoria entera: el informe enseña titulares y suplentes en
+             una columna entre los dos campogramas del partido. */
+          suplentes: leeSuplentes(ficha, visitante),
+          cambios: [],
+          tarjetas: [],
+        };
+
+        onces.push(once);
       }
     }
 
@@ -729,7 +1008,37 @@ async function bajaEquipo(id, slug, clasificacion) {
 
         goleadores.set(gol.jugador, previo + 1);
       }
+
+      /*
+      | Tarjetas y cambios sólo los publica BeSoccer mientras el partido es
+      | reciente —de una temporada pasada ya no queda ni el módulo de eventos—,
+      | así que se guardan en cuanto se bajan y no se vuelven a pedir. Lo que
+      | no haya se queda vacío y el informe lo dice en la hoja.
+      */
+      if (once) {
+        once.cambios = leeCambios(eventos, visitante);
+        once.tarjetas = leeTarjetas(eventos, visitante);
+      }
     }
+  }
+
+  /* -------------------------------------------------- el entrenador */
+
+  const entrenador = club ? leeEntrenador(club) : null;
+
+  /*
+  | Su trayectoria, de su propia ficha. Es una petición más por equipo y vale
+  | la pena: la hoja del míster enseñaba otra vez el balance del equipo —que ya
+  | está dos hojas antes— en vez de decir de dónde viene.
+  */
+  if (entrenador?.ficha) {
+    await espera(1200);
+
+    console.log(`  ${slug}: entrenador…`);
+
+    const suya = await pagina(entrenador.ficha);
+
+    if (suya) entrenador.trayectoria = leeTrayectoria(suya);
   }
 
   /* Las estructuras, de la más repetida a la menos. */
@@ -751,7 +1060,7 @@ async function bajaEquipo(id, slug, clasificacion) {
     ),
     slug,
     escudo: escudoFila?.escudo ?? "",
-    entrenador: club ? leeEntrenador(club) : null,
+    entrenador,
     estadio: club ? leeEstadio(club) : null,
     clasificacion,
     partidos,
@@ -871,7 +1180,8 @@ async function upload(doc, env) {
 /* ------------------------------------------------------------------ */
 
 async function main() {
-  const env = readEnv();
+  /* Con `--sin-subir` no hace falta ni el entorno: se baja a la caché. */
+  const env = SIN_SUBIR ? {} : readEnv();
 
   console.log("Clasificación del grupo…");
 
@@ -894,12 +1204,13 @@ async function main() {
 
   console.log(`  ${clasificacion.total.length} equipos en la tabla.`);
 
-  const nombres = await nombresDeLaHoja(env);
+  const nombres = SIN_SUBIR ? {} : await nombresDeLaHoja(env);
 
   const porId = {};
 
   /* Lo ya subido, para poder bajar un equipo suelto sin borrar el resto. */
-  const previo = SOLO_SUBIR || filtro.size > 0 ? await lee(env) : null;
+  const previo =
+    !SIN_SUBIR && (SOLO_SUBIR || filtro.size > 0) ? await lee(env) : null;
 
   if (previo?.porId) Object.assign(porId, previo.porId);
 
@@ -927,6 +1238,12 @@ async function main() {
     competicion: COMPETICION,
     porId,
   };
+
+  if (SIN_SUBIR) {
+    console.log("\n--sin-subir: queda en la caché, Supabase no se toca.");
+
+    return;
+  }
 
   await upload(doc, env);
 }

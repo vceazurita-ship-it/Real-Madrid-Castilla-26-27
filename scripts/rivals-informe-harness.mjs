@@ -18,12 +18,16 @@ import { execFileSync } from "node:child_process";
 
 import {
   leeAlineacion,
+  leeCambios,
   leeClasificacion,
   leeEntrenador,
   leeEntrenadorPartido,
   leeEstadio,
   leeGoles,
   leePartidos,
+  leeSuplentes,
+  leeTarjetas,
+  leeTrayectoria,
 } from "./rivals-informe.mjs";
 
 const UA =
@@ -110,7 +114,33 @@ for (const partido of corta(partidos.filter((p) => p.jugado).slice(-4), 4)) {
 const club = html("equipo", PAGINAS.equipo);
 
 console.log("\n=== ENTRENADOR ===");
-console.log(leeEntrenador(club));
+
+const entrenador = leeEntrenador(club);
+
+console.log(entrenador);
+
+/*
+| La trayectoria vive en la ficha del entrenador, que es una página más. Sin
+| ella la hoja del míster se queda con «SIN TRAYECTORIA PUBLICADA», que es lo
+| que se ve cuando esta expresión regular deja de leer.
+*/
+if (entrenador?.ficha) {
+  console.log("\n=== TRAYECTORIA ===");
+
+  const suya = html("entrenador", entrenador.ficha);
+
+  const etapas = leeTrayectoria(suya);
+
+  console.log(`${etapas.length} etapas`);
+
+  for (const etapa of corta(etapas, 4)) {
+    console.log(
+      `  ${etapa.equipo} · ${etapa.desde} → ${etapa.hasta} · ` +
+        `${etapa.partidos} PJ (${etapa.ganados}-${etapa.empatados}-${etapa.perdidos}) · ` +
+        `${etapa.tactica || "sin dibujo"}`,
+    );
+  }
+}
 
 console.log("\n=== ESTADIO ===");
 console.log(leeEstadio(club));
@@ -134,10 +164,47 @@ if (ultimo) {
   console.log(`estructura: ${alineacion?.estructura}`);
 
   for (const jugador of alineacion?.jugadores ?? []) {
-    console.log(`  pos${jugador.puesto} · ${jugador.dorsal} ${jugador.nombre}`);
+    console.log(
+      `  pos${jugador.puesto} · ${jugador.dorsal} ${jugador.nombre} ` +
+        `[${jugador.demarcacion || "?"}] nota ${jugador.nota || "—"}`,
+    );
   }
+
+  /*
+  | El banquillo, con quién entró. Es lo que llena la columna de convocatoria
+  | de la hoja de partidos, y lo que cruza con los cambios: el que sale de un
+  | cambio tiene que estar en el once y el que entra, aquí.
+  */
+  console.log("\n=== SUPLENTES ===");
+
+  const suplentes = leeSuplentes(ficha, visitante);
+
+  console.log(`${suplentes.length} en el banquillo`);
+
+  for (const suplente of suplentes) {
+    console.log(
+      `  ${suplente.dorsal} ${suplente.nombre} [${suplente.demarcacion || "?"}]` +
+        (suplente.entra ? ` — entra ${suplente.entra}'` : ""),
+    );
+  }
+
+  const eventos = offline ? ficha : baja(url);
 
   console.log("\n=== GOLES ===");
 
-  console.log(leeGoles(offline ? ficha : baja(url), visitante));
+  console.log(leeGoles(eventos, visitante));
+
+  console.log("\n=== TARJETAS ===");
+
+  console.log(leeTarjetas(eventos, visitante));
+
+  /*
+  | Los cambios sólo los publica BeSoccer mientras el partido es reciente: de
+  | una temporada pasada no queda ni el módulo de eventos. Una lista vacía aquí
+  | puede ser eso y no un parser roto — se comprueba mirando si los suplentes
+  | de arriba traen minuto de entrada.
+  */
+  console.log("\n=== CAMBIOS ===");
+
+  console.log(leeCambios(eventos, visitante));
 }

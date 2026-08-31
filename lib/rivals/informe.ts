@@ -98,20 +98,80 @@ export type Partido = {
   goles?: GolPartido[];
 };
 
-/** Una alineación de las que se enseñan en las dos últimas diapositivas. */
+/** Portero, defensa, medio o delantero, tal y como los agrupa BeSoccer. */
+export type Demarcacion = "PT" | "DF" | "MC" | "DL" | "";
+
+/** Uno del once inicial. */
+export type JugadorOnce = {
+  /** 1..11, el `pos<N>` de BeSoccer: 1 es el portero. */
+  puesto: number;
+  dorsal: string;
+  nombre: string;
+  foto: string;
+  /** Para calcular con qué dibujo **acaba** el partido. */
+  demarcacion?: Demarcacion;
+  /** La nota de BeSoccer, "7.1". */
+  nota?: string;
+};
+
+/** Uno del banquillo. */
+export type SuplenteOnce = {
+  dorsal: string;
+  nombre: string;
+  foto: string;
+  demarcacion?: Demarcacion;
+  nota?: string;
+  /** Minuto en el que saltó al campo, o "" si se quedó sentado. */
+  entra?: string;
+};
+
+export type CambioPartido = {
+  /** "46", "90+2". Sin la comilla: la pone quien lo pinta. */
+  minuto: string;
+  sale: string;
+  entra: string;
+};
+
+export type TarjetaPartido = {
+  minuto: string;
+  jugador: string;
+  tipo: "amarilla" | "roja";
+  /** "Falta", "Protestar"… lo que dice BeSoccer. */
+  motivo: string;
+};
+
+/** Una alineación de las que se enseñan en las hojas de partidos. */
 export type OncePartido = {
   /** El del `Partido` al que pertenece. */
   partidoId: string;
   /** "1-4-3-3", ya con el uno delante. */
   estructura: string;
   entrenador: string;
-  jugadores: {
-    /** 1..11, el `pos<N>` de BeSoccer: 1 es el portero. */
-    puesto: number;
-    dorsal: string;
-    nombre: string;
-    foto: string;
-  }[];
+  jugadores: JugadorOnce[];
+  /**
+   * La convocatoria que se quedó en el banquillo, y quién entró.
+   *
+   * Falta en lo que se bajó antes de septiembre de 2026 y en los partidos de
+   * los que BeSoccer ya no publica ficha: quien lo pinta enseña lo que haya.
+   */
+  suplentes?: SuplenteOnce[];
+  cambios?: CambioPartido[];
+  tarjetas?: TarjetaPartido[];
+};
+
+/** Una etapa del entrenador en un club, de su ficha de BeSoccer. */
+export type EtapaEntrenador = {
+  equipo: string;
+  escudo: string;
+  partidos: number;
+  /** "01-07-2026". */
+  desde: string;
+  hasta: string;
+  ganados: number;
+  empatados: number;
+  perdidos: number;
+  /** La que más repitió allí: "4-4-2". */
+  tactica: string;
 };
 
 export type Entrenador = {
@@ -123,6 +183,18 @@ export type Entrenador = {
   ganados: number;
   empatados: number;
   perdidos: number;
+  /** "14/07/1970". */
+  nacimiento?: string;
+  /** Su ficha en BeSoccer, de donde sale la trayectoria. */
+  ficha?: string;
+  /**
+   * Por dónde ha pasado, de lo más reciente a lo más antiguo.
+   *
+   * La hoja del míster enseñaba otra vez el balance del equipo —que ya está
+   * dos hojas antes—; lo que no se sabe de un rival nuevo es de dónde viene su
+   * entrenador y con qué dibujo ha trabajado.
+   */
+  trayectoria?: EtapaEntrenador[];
 };
 
 export type Estadio = {
@@ -353,6 +425,166 @@ function cuenta(informe: InformeEquipo, que: "liga" | "amistosos" | "todo") {
  */
 export function esLiga(partido: Partido) {
   return !/amistos/i.test(partido.competicion);
+}
+
+/* ------------------------------------------------------------------ */
+/*  ONCES: QUIÉN ACABA EL PARTIDO Y CON QUÉ DIBUJO                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La estructura que se deduce de las demarcaciones de once jugadores.
+ *
+ * BeSoccer sólo publica **la de salida** (`data-tacticName`), y lo que el
+ * cuerpo técnico quiere ver es también con qué acabó el partido: si entró un
+ * delantero por un medio, el dibujo cambió. Aquí se cuentan defensas, medios y
+ * delanteros, que es lo único que BeSoccer distingue.
+ *
+ * Es una lectura gruesa —un 1-4-2-3-1 sale como 1-4-5-1— y por eso se rotula
+ * como lo que es: la estructura por demarcaciones. La de salida sigue siendo la
+ * buena y va al lado.
+ */
+export function estructuraDeDemarcaciones(
+  jugadores: { demarcacion?: Demarcacion }[],
+) {
+  const cuenta = { DF: 0, MC: 0, DL: 0 };
+
+  let porteros = 0;
+
+  for (const jugador of jugadores) {
+    if (jugador.demarcacion === "PT") porteros += 1;
+    else if (jugador.demarcacion && jugador.demarcacion in cuenta) {
+      cuenta[jugador.demarcacion as "DF" | "MC" | "DL"] += 1;
+    }
+  }
+
+  /* Sin demarcaciones —lo bajado antes de septiembre de 2026— no hay nada que
+     deducir: mejor vacío que un "1-0-0-0" que parece un dato. */
+  if (cuenta.DF + cuenta.MC + cuenta.DL === 0) return "";
+
+  return `${porteros || 1}-${cuenta.DF}-${cuenta.MC}-${cuenta.DL}`;
+}
+
+/** Uno de los once que terminan el partido. */
+export type JugadorFinal = JugadorOnce & {
+  /** Minuto en el que entró, si no era titular. */
+  entraEn?: string;
+  /** A quién sustituyó. */
+  porQuien?: string;
+};
+
+/**
+ * El once que **acaba** el partido: el inicial con los cambios aplicados.
+ *
+ * El que entra hereda el puesto del que sale, que es lo que deja dibujar el
+ * segundo campograma sin inventarse una posición: si el entrenador movió a la
+ * gente después del cambio, eso no lo publica nadie.
+ *
+ * Los cambios se aplican en orden de minuto —un jugador que entra y luego sale
+ * se sustituye a sí mismo correctamente—, y un cambio cuyo saliente no esté en
+ * el campo se descarta en vez de colar a un duodécimo hombre.
+ */
+export function onceFinal(once: OncePartido): JugadorFinal[] {
+  const enCampo: JugadorFinal[] = once.jugadores.map((jugador) => ({ ...jugador }));
+
+  const suplentes = once.suplentes ?? [];
+
+  const cambios = [...(once.cambios ?? [])].sort(
+    (a, b) => minutoDe(a.minuto) - minutoDe(b.minuto),
+  );
+
+  for (const cambio of cambios) {
+    const indice = enCampo.findIndex(
+      (jugador) => mismoNombre(jugador.nombre, cambio.sale),
+    );
+
+    if (indice === -1) continue;
+
+    const banquillo = suplentes.find((uno) => mismoNombre(uno.nombre, cambio.entra));
+
+    enCampo[indice] = {
+      puesto: enCampo[indice].puesto,
+      dorsal: banquillo?.dorsal ?? "",
+      nombre: cambio.entra,
+      foto: banquillo?.foto ?? "",
+      demarcacion: banquillo?.demarcacion ?? enCampo[indice].demarcacion,
+      nota: banquillo?.nota ?? "",
+      entraEn: cambio.minuto,
+      porQuien: cambio.sale,
+    };
+  }
+
+  return enCampo;
+}
+
+/** "90+2" es el minuto 92 a efectos de ordenar. */
+function minutoDe(valor: string) {
+  const partes = String(valor ?? "").split("+");
+
+  return (Number(partes[0]) || 0) + (Number(partes[1]) || 0);
+}
+
+/**
+ * Si dos nombres son el mismo.
+ *
+ * BeSoccer escribe al jugador igual en la alineación y en el evento, pero no
+ * siempre con los mismos acentos ni con el mismo nombre de pila abreviado, así
+ * que se comparan normalizados y se acepta que uno contenga al otro —"Diego
+ * Gómez" contra "D. Gómez"—.
+ */
+function mismoNombre(uno: string, otro: string) {
+  const a = normalizeKey(uno);
+  const b = normalizeKey(otro);
+
+  if (!a || !b) return false;
+
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+/* ------------------------------------------------------------------ */
+/*  TIPOLOGÍA DE GOLES                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Lo que se puede contar de los goles con lo que publica BeSoccer. */
+export type TipologiaGoles = {
+  total: number;
+  penaltis: number;
+  propia: number;
+  /** Todo lo demás: en la tabla del club esto se reparte a mano. */
+  jugada: number;
+};
+
+/**
+ * Cuenta los goles a favor y en contra por lo que se sabe de cada uno.
+ *
+ * La tabla del `.pptx` original reparte cada gol en AT.ORG, TRANSICIÓN, ABP y
+ * errores individuales; eso lo codifica el analista viendo el partido y no hay
+ * dato que lo dé. Lo que sí se sabe es cuántos fueron de penalti y cuántos en
+ * propia puerta, que son dos casillas de esa misma tabla.
+ */
+export function tipologiaGoles(partidos: Partido[]) {
+  const vacia = (): TipologiaGoles => ({
+    total: 0,
+    penaltis: 0,
+    propia: 0,
+    jugada: 0,
+  });
+
+  const aFavor = vacia();
+  const enContra = vacia();
+
+  for (const partido of partidos) {
+    for (const gol of partido.goles ?? []) {
+      const casilla = gol.propio ? aFavor : enContra;
+
+      casilla.total += 1;
+
+      if (gol.tipo === "penalti") casilla.penaltis += 1;
+      else if (gol.tipo === "propia") casilla.propia += 1;
+      else casilla.jugada += 1;
+    }
+  }
+
+  return { aFavor, enContra };
 }
 
 /**

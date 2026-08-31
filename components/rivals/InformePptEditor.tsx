@@ -142,6 +142,9 @@ export default function InformePptEditor({
 
   const marcoRef = useRef<HTMLDivElement | null>(null);
 
+  /** Numera lo que se crea aquí —copias y notas— sin repetir nunca. */
+  const siguienteId = useRef(1);
+
   const hoja = hojas[activa];
 
   /* ---------------------------------------------------------------- */
@@ -181,10 +184,25 @@ export default function InformePptEditor({
   /*  CAMBIOS E HISTORIAL                                              */
   /* ---------------------------------------------------------------- */
 
-  const empuja = useCallback(() => {
-    setPasado((previo) => [...previo, hojas].slice(-HISTORIAL));
-    setFuturo([]);
+  /*
+  | Lo que hay ahora, en una referencia.
+  |
+  | El arrastre lo lee desde un escuchador de `window` que se suscribe una sola
+  | vez: si dependiera del estado, el efecto se volvería a montar en cada
+  | movimiento del ratón —y con él la marca de «ya he apuntado este arrastre en
+  | el historial», que es lo que dejaba cuarenta pasos de deshacer para un solo
+  | arrastre—.
+  */
+  const hojasRef = useRef(hojas);
+
+  useEffect(() => {
+    hojasRef.current = hojas;
   }, [hojas]);
+
+  const empuja = useCallback(() => {
+    setPasado((previo) => [...previo, hojasRef.current].slice(-HISTORIAL));
+    setFuturo([]);
+  }, []);
 
   /** Cambia las piezas de la hoja abierta. `marca` apunta el paso de deshacer. */
   const cambia = useCallback(
@@ -205,29 +223,23 @@ export default function InformePptEditor({
     [activa, empuja],
   );
 
+  /* Los tres estados se tocan por fuera de los `set…`: cambiarlos dentro del
+     actualizador de otro los duplicaría en modo estricto. */
   const deshacer = useCallback(() => {
-    setPasado((previo) => {
-      if (previo.length === 0) return previo;
+    if (pasado.length === 0) return;
 
-      const ultimo = previo[previo.length - 1];
-
-      setFuturo((siguiente) => [hojas, ...siguiente].slice(0, HISTORIAL));
-      setHojas(ultimo);
-
-      return previo.slice(0, -1);
-    });
-  }, [hojas]);
+    setHojas(pasado[pasado.length - 1]);
+    setPasado((previo) => previo.slice(0, -1));
+    setFuturo((siguiente) => [hojas, ...siguiente].slice(0, HISTORIAL));
+  }, [hojas, pasado]);
 
   const rehacer = useCallback(() => {
-    setFuturo((siguiente) => {
-      if (siguiente.length === 0) return siguiente;
+    if (futuro.length === 0) return;
 
-      setPasado((previo) => [...previo, hojas].slice(-HISTORIAL));
-      setHojas(siguiente[0]);
-
-      return siguiente.slice(1);
-    });
-  }, [hojas]);
+    setHojas(futuro[0]);
+    setFuturo((siguiente) => siguiente.slice(1));
+    setPasado((previo) => [...previo, hojas].slice(-HISTORIAL));
+  }, [futuro, hojas]);
 
   /* ---------------------------------------------------------------- */
   /*  ACCIONES SOBRE LA SELECCIÓN                                      */
@@ -258,9 +270,14 @@ export default function InformePptEditor({
     cambia((elementos) => {
       const copias = elementos
         .filter((uno) => seleccion.includes(uno.id))
-        .map((uno, indice) => {
-          /* Un id que no choque ni con los del guion ni con otras copias. */
-          const id = `${uno.id}-copia${elementos.length + indice}`;
+        .map((uno) => {
+          /*
+          | Un id que no choque ni con los del guion ni con otras copias. El
+          | contador no se reinicia al borrar: numerando por el tamaño de la
+          | hoja, replicar-borrar-replicar repetía el id y React se quedaba con
+          | dos piezas con la misma llave.
+          */
+          const id = `${uno.id}-copia${siguienteId.current++}`;
 
           nuevos.push(id);
 
@@ -331,7 +348,7 @@ export default function InformePptEditor({
 
     try {
       const pieza = await piezaDeTexto("ESCRIBE AQUÍ", {
-        id: `nota-${activa + 1}-${(hoja?.elementos.length ?? 0) + 1}`,
+        id: `nota-${activa + 1}-${siguienteId.current++}`,
         x: 120,
         y: LIENZO_H / 2 - 40,
       });
@@ -342,7 +359,7 @@ export default function InformePptEditor({
     } finally {
       setAnadiendoTexto(false);
     }
-  }, [activa, cambia, hoja]);
+  }, [activa, cambia]);
 
   const reescribe = useCallback(
     async (elemento: ElementoInforme, contenido: string) => {
@@ -467,6 +484,52 @@ export default function InformePptEditor({
   /*  RATÓN                                                            */
   /* ---------------------------------------------------------------- */
 
+  /*
+  | El arrastre se escucha en `window` y **se suscribe una sola vez**. Todo lo
+  | que necesita saber va en referencias.
+  |
+  | Escuchándolo con dependencias, el efecto se desmontaba y se volvía a montar
+  | en cada movimiento del ratón —el estado cambia en cada píxel— y con él se
+  | perdía la marca de «este arrastre ya está apuntado en el historial»: mover
+  | una pieza dejaba cuarenta pasos de deshacer y había que pulsar `Ctrl+Z`
+  | cuarenta veces para volver a donde estaba.
+  */
+  const gestoRef = useRef<Gesto | null>(null);
+
+  const marcadoRef = useRef(false);
+
+  const escalaRef = useRef(escala);
+
+  const activaRef = useRef(activa);
+
+  const unicoRef = useRef<string | null>(null);
+
+  const elementosRef = useRef<ElementoInforme[]>([]);
+
+  useEffect(() => {
+    escalaRef.current = escala;
+  }, [escala]);
+
+  useEffect(() => {
+    activaRef.current = activa;
+  }, [activa]);
+
+  useEffect(() => {
+    unicoRef.current = unico?.id ?? null;
+  }, [unico]);
+
+  useEffect(() => {
+    elementosRef.current = hoja?.elementos ?? [];
+  }, [hoja]);
+
+  /** Arranca un gesto: al estado, para pintarlo, y a la referencia, para leerlo. */
+  const arranca = useCallback((nuevo: Gesto | null) => {
+    gestoRef.current = nuevo;
+    marcadoRef.current = false;
+
+    setGesto(nuevo);
+  }, []);
+
   /** De la pantalla a los píxeles del documento. */
   const enHoja = useCallback(
     (evento: { clientX: number; clientY: number }) => {
@@ -475,11 +538,11 @@ export default function InformePptEditor({
       if (!caja) return { x: 0, y: 0 };
 
       return {
-        x: (evento.clientX - caja.left) / escala,
-        y: (evento.clientY - caja.top) / escala,
+        x: (evento.clientX - caja.left) / escalaRef.current,
+        y: (evento.clientY - caja.top) / escalaRef.current,
       };
     },
-    [escala],
+    [],
   );
 
   const empiezaMover = useCallback(
@@ -528,9 +591,9 @@ export default function InformePptEditor({
         if (ahora.includes(uno.id)) origen.set(uno.id, { x: uno.x, y: uno.y });
       }
 
-      setGesto({ tipo: "mover", x0: punto.x, y0: punto.y, origen });
+      arranca({ tipo: "mover", x0: punto.x, y0: punto.y, origen });
     },
-    [enHoja, hoja, seleccion],
+    [arranca, enHoja, hoja, seleccion],
   );
 
   const empiezaEstirar = useCallback(
@@ -541,7 +604,7 @@ export default function InformePptEditor({
 
       const punto = enHoja(evento);
 
-      setGesto({
+      arranca({
         tipo: "estirar",
         asa,
         x0: punto.x,
@@ -549,7 +612,7 @@ export default function InformePptEditor({
         caja: { x: unico.x, y: unico.y, w: unico.w, h: unico.h },
       });
     },
-    [enHoja, unico],
+    [arranca, enHoja, unico],
   );
 
   const empiezaLazo = useCallback(
@@ -560,24 +623,37 @@ export default function InformePptEditor({
         setSeleccion([]);
       }
 
-      setGesto({ tipo: "lazo", x0: punto.x, y0: punto.y, x1: punto.x, y1: punto.y });
+      arranca({ tipo: "lazo", x0: punto.x, y0: punto.y, x1: punto.x, y1: punto.y });
     },
-    [enHoja],
+    [arranca, enHoja],
   );
 
   useEffect(() => {
-    if (!gesto) return;
-
-    let marcado = false;
-
+    /** El primer movimiento del arrastre apunta el paso de deshacer. Uno solo. */
     const marca = () => {
-      if (marcado) return;
+      if (marcadoRef.current) return;
 
-      marcado = true;
+      marcadoRef.current = true;
       empuja();
     };
 
+    /** Cambia las piezas de la hoja abierta sin pasar por el historial. */
+    const toca = (
+      transforma: (elementos: ElementoInforme[]) => ElementoInforme[],
+    ) =>
+      setHojas((previas) =>
+        previas.map((una, indice) =>
+          indice === activaRef.current
+            ? { ...una, elementos: transforma(una.elementos) }
+            : una,
+        ),
+      );
+
     const enMover = (evento: PointerEvent) => {
+      const gesto = gestoRef.current;
+
+      if (!gesto) return;
+
       const punto = enHoja(evento);
 
       if (gesto.tipo === "mover") {
@@ -585,7 +661,9 @@ export default function InformePptEditor({
         let dy = punto.y - gesto.y0;
 
         /* Por debajo del umbral esto es un clic con pulso, no un arrastre. */
-        if (Math.abs(dx) < UMBRAL && Math.abs(dy) < UMBRAL) return;
+        if (!marcadoRef.current && Math.abs(dx) < UMBRAL && Math.abs(dy) < UMBRAL) {
+          return;
+        }
 
         /* Mayús deja el arrastre en un solo eje, que es como se alinean dos
            fichas sin volverse loco. */
@@ -596,21 +674,12 @@ export default function InformePptEditor({
 
         marca();
 
-        setHojas((previas) =>
-          previas.map((una, indice) =>
-            indice !== activa
-              ? una
-              : {
-                  ...una,
-                  elementos: una.elementos.map((uno) => {
-                    const desde = gesto.origen.get(uno.id);
+        toca((elementos) =>
+          elementos.map((uno) => {
+            const desde = gesto.origen.get(uno.id);
 
-                    return desde
-                      ? { ...uno, x: desde.x + dx, y: desde.y + dy }
-                      : uno;
-                  }),
-                },
-          ),
+            return desde ? { ...uno, x: desde.x + dx, y: desde.y + dy } : uno;
+          }),
         );
 
         return;
@@ -654,34 +723,33 @@ export default function InformePptEditor({
 
         marca();
 
-        setHojas((previas) =>
-          previas.map((una, indice) =>
-            indice !== activa
-              ? una
-              : {
-                  ...una,
-                  elementos: una.elementos.map((uno) =>
-                    uno.id === unico?.id ? { ...uno, ...caja } : uno,
-                  ),
-                },
-          ),
+        const quien = unicoRef.current;
+
+        toca((elementos) =>
+          elementos.map((uno) => (uno.id === quien ? { ...uno, ...caja } : uno)),
         );
 
         return;
       }
 
-      setGesto({ ...gesto, x1: punto.x, y1: punto.y });
+      const estirado = { ...gesto, x1: punto.x, y1: punto.y };
+
+      gestoRef.current = estirado;
+
+      setGesto(estirado);
     };
 
     const enSoltar = () => {
-      if (gesto.tipo === "lazo") {
+      const gesto = gestoRef.current;
+
+      if (gesto?.tipo === "lazo") {
         const x0 = Math.min(gesto.x0, gesto.x1);
         const x1 = Math.max(gesto.x0, gesto.x1);
         const y0 = Math.min(gesto.y0, gesto.y1);
         const y1 = Math.max(gesto.y0, gesto.y1);
 
         if (x1 - x0 > 6 && y1 - y0 > 6) {
-          const dentro = (hoja?.elementos ?? [])
+          const dentro = elementosRef.current
             .filter(
               (uno) =>
                 uno.x + uno.w > x0 &&
@@ -695,7 +763,7 @@ export default function InformePptEditor({
         }
       }
 
-      setGesto(null);
+      if (gesto) arranca(null);
     };
 
     window.addEventListener("pointermove", enMover);
@@ -705,7 +773,8 @@ export default function InformePptEditor({
       window.removeEventListener("pointermove", enMover);
       window.removeEventListener("pointerup", enSoltar);
     };
-  }, [activa, empuja, enHoja, gesto, hoja, unico]);
+  }, [arranca, empuja, enHoja]);
+
 
   /* ---------------------------------------------------------------- */
   /*  CAMPOS DE LA PIEZA                                               */

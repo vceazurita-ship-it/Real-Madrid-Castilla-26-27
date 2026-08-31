@@ -3,8 +3,13 @@
 | EL INFORME DEL RIVAL (.pptx)
 |--------------------------------------------------------------------------
 |
-| Las diez diapositivas de `public/INFORME RIVAL.pptx`, montadas solas con lo
-| que `scripts/rivals-informe.mjs` baja de BeSoccer.
+| Las doce diapositivas de `public/INFORME RIVAL.pptx`, montadas solas con lo
+| que `scripts/rivals-informe.mjs` baja de BeSoccer y con lo que la pantalla de
+| plantillas sabe del rival:
+|
+|   portada · clasificación · resultados · estadísticas · tipología de gol ·
+|   el club · plantilla · once probable · tres hojas de partidos ·
+|   contraportada.
 |
 | El documento existía: lo hacía el cuerpo técnico a mano cada semana, pegando
 | capturas de BeSoccer en un PowerPoint —la clasificación, la lista de
@@ -14,10 +19,15 @@
 | foto de los datos, así que sale a la hora que se pida y con la jornada de
 | hoy.
 |
-| El reparto de las diez hojas es el del original y el lenguaje visual es el de
+| El reparto de las hojas es el del original y el lenguaje visual es el de
 | `INDIVIDUAL.pptx` —papel, verde, azul, crema, rosa y Barlow Condensed—, el
 | mismo de la portada del jugador, del PDF del once y del campograma de día de
 | partido. Todo eso vive en `lienzo-club.ts`.
+|
+| Dos hojas **no salen de BeSoccer**: la plantilla y el once probable, que se
+| pintan con la ficha del campograma de día de partido y con lo que manda la
+| pantalla en `InformeData.plantilla` y `.onceProbable`. Sin eso, el informe se
+| monta sin esas dos hojas.
 |
 | **Cada bloque va como una pieza suelta.** Al principio no: la diapositiva
 | entera salía como una imagen a sangre, porque el informe se lee y no se
@@ -54,12 +64,24 @@ import {
 } from "@/lib/rivals/informe-elementos";
 
 import {
+  cespedTumbado,
+  FICHA_H,
+  FICHA_W,
+  pintaFichaAlineacion,
+  reparteAlineacion,
+  type AlineacionJugador,
+} from "@/lib/rivals/alineacion-ppt";
+
+import {
   balance,
   balanceAmistosos,
   esLiga,
+  estructuraDeDemarcaciones,
   filaPropia,
   jugados,
+  onceFinal,
   rotuloCompeticion,
+  tipologiaGoles,
   type FilaClasificacion,
   type InformeEquipo,
   type OncePartido,
@@ -96,6 +118,28 @@ export type InformeData = {
   temporada: string;
   /** "Primera Federación · Grupo 2". */
   competicion: string;
+  /**
+   * La plantilla del rival, la misma que se lleva al campograma de día de
+   * partido. Sale de la hoja RIVALES, no de BeSoccer: es la que tiene pie
+   * dominante, altura, peso y la foto que se usa en toda la app.
+   *
+   * Sin ella el informe se monta igual, sin las dos hojas de campograma.
+   */
+  plantilla?: AlineacionJugador[];
+  /**
+   * El once probable, tal y como lo dejó puesto el cuerpo técnico en la
+   * pantalla de plantillas.
+   *
+   * `x` e `y` van en tanto por uno del **campo vertical** del pop-up —el mismo
+   * que el PDF del once—; aquí se tumban para que el campograma mire como el
+   * de día de partido.
+   */
+  onceProbable?: {
+    clave: string;
+    x: number;
+    y: number;
+    estado: "titular" | "duda";
+  }[];
 };
 
 /* ------------------------------------------------------------------ */
@@ -1057,19 +1101,30 @@ function pintaResultado(
 
   if (goles.length === 0) return;
 
-  /* Por minuto, que es como se cuenta un partido. BeSoccer los da del último
-     al primero, que es el orden de una retransmisión, no el de un informe. */
+  /*
+  | Por minuto, que es como se cuenta un partido. BeSoccer los da del último al
+  | primero, que es el orden de una retransmisión, no el de un informe.
+  |
+  | El «90+2» se ordenaba como un 90 seco y quedaba delante de los goles del
+  | 90 aunque llegara dos minutos después; se suma el añadido.
+  */
   const enOrden = [...goles].sort(
-    (a, b) => Number(a.minuto.split("+")[0]) - Number(b.minuto.split("+")[0]),
+    (a, b) => minutoOrdenado(a.minuto) - minutoOrdenado(b.minuto),
   );
 
-  const propios = enOrden
-    .filter((gol) => gol.propio)
-    .map((gol) => `${gol.jugador} ${gol.minuto}'`);
+  /*
+  | Cómo se escribe un gol: «EDU GALLARDO 41'», y con la marca de lo que fue si
+  | no fue de jugada. Es lo que distingue un 2-0 de dos penaltis de un 2-0 de
+  | dos jugadas, que es justo lo que se mira aquí.
+  */
+  const comoSeLee = (gol: (typeof enOrden)[number]) =>
+    `${gol.jugador.toUpperCase()} ${gol.minuto}'${
+      gol.tipo === "penalti" ? " (P)" : gol.tipo === "propia" ? " (PP)" : ""
+    }`;
 
-  const ajenos = enOrden
-    .filter((gol) => !gol.propio)
-    .map((gol) => `${gol.jugador} ${gol.minuto}'`);
+  const propios = enOrden.filter((gol) => gol.propio).map(comoSeLee);
+
+  const ajenos = enOrden.filter((gol) => !gol.propio).map(comoSeLee);
 
   /*
   | Cada lista debajo del equipo que la marcó, no del que la sufre: en un
@@ -1083,22 +1138,56 @@ function pintaResultado(
   const tintaIzquierda = partido.enCasa ? C.verde : "#9A6169";
   const tintaDerecha = partido.enCasa ? "#9A6169" : C.verde;
 
-  escribe(ctx, izquierda.join(" · "), caja.x + 24, caja.y + caja.h - 14, {
-    tamano: 17,
-    peso: 500,
-    tinta: tintaIzquierda,
-    espaciado: 0.5,
-    maxAncho: caja.w / 2 - 40,
-  });
+  /*
+  | En dos renglones si hace falta. Antes iban todos en uno con `maxAncho`, que
+  | encoge la letra hasta que quepa: un 4-3 dejaba los goleadores a cuerpo
+  | nueve, ilegibles proyectados. Ahora se parten por la mitad y el segundo
+  | renglón sube desde el borde.
+  */
+  const pintaLista = (
+    lista: string[],
+    x: number,
+    tinta: string,
+    alinea: "izq" | "dcha",
+  ) => {
+    if (lista.length === 0) return;
 
-  escribe(ctx, derecha.join(" · "), caja.x + caja.w - 20, caja.y + caja.h - 14, {
-    tamano: 17,
-    peso: 500,
-    tinta: tintaDerecha,
-    espaciado: 0.5,
-    alinea: "dcha",
-    maxAncho: caja.w / 2 - 40,
-  });
+    const enDos = lista.length > 2;
+
+    const renglones = enDos
+      ? [
+          lista.slice(0, Math.ceil(lista.length / 2)),
+          lista.slice(Math.ceil(lista.length / 2)),
+        ]
+      : [lista];
+
+    renglones.forEach((renglon, indice) => {
+      escribe(
+        ctx,
+        renglon.join(" · "),
+        x,
+        caja.y + caja.h - 14 - (renglones.length - 1 - indice) * 19,
+        {
+          tamano: 17,
+          peso: 500,
+          tinta,
+          espaciado: 0.5,
+          alinea,
+          maxAncho: caja.w / 2 - 40,
+        },
+      );
+    });
+  };
+
+  pintaLista(izquierda, caja.x + 24, tintaIzquierda, "izq");
+  pintaLista(derecha, caja.x + caja.w - 20, tintaDerecha, "dcha");
+}
+
+/** "90+2" cuenta como 92 para ordenar los goles de un partido. */
+function minutoOrdenado(minuto: string) {
+  const partes = String(minuto ?? "").split("+");
+
+  return (Number(partes[0]) || 0) + (Number(partes[1]) || 0);
 }
 
 function pintaResultados(
@@ -1391,7 +1480,24 @@ function pintaEstadisticas(
 
   const deLiga = conFichaLiga.length > 0;
 
-  const paraTramos = deLiga ? conFichaLiga : conFichaAmistosos;
+  const golesEnLiga = conFichaLiga.reduce(
+    (total, partido) => total + (partido.goles?.length ?? 0),
+    0,
+  );
+
+  /*
+  | En la jornada 1 «los tramos de liga» son dos goles y el gráfico sale con
+  | una barra sola de punta a punta, que no dice nada. Con menos de cuatro goles
+  | se suma la pretemporada y se rotula que van juntas; en cuanto hay liga de
+  | verdad, la pretemporada se queda fuera.
+  */
+  const mezcla = deLiga && golesEnLiga < 4 && conFichaAmistosos.length > 0;
+
+  const paraTramos = mezcla
+    ? conFicha
+    : deLiga
+      ? conFichaLiga
+      : conFichaAmistosos;
 
   const dentro = panel(
     g,
@@ -1399,7 +1505,9 @@ function pintaEstadisticas(
     yAbajo,
     anchoTramos,
     altoAbajo,
-    `CUÁNDO MARCA Y CUÁNDO ENCAJA · ${deLiga ? "LIGA" : "PRETEMPORADA"}`,
+    `CUÁNDO MARCA Y CUÁNDO ENCAJA · ${
+      mezcla ? "LIGA Y PRETEMPORADA" : deLiga ? "LIGA" : "PRETEMPORADA"
+    }`,
   );
 
   const reparto = tramos(paraTramos);
@@ -1424,7 +1532,9 @@ function pintaEstadisticas(
         ),
     );
   } else {
-    const maximo = Math.max(1, ...reparto.favor, ...reparto.contra);
+    /* La escala nunca baja de dos: con un gol en un solo tramo, la barra se iba
+       de punta a punta del panel y se leía como un dato enorme. */
+    const maximo = Math.max(2, ...reparto.favor, ...reparto.contra);
 
     const anchoBarra = (anchoTramos - 60) / reparto.cortes.length;
 
@@ -1583,7 +1693,222 @@ function pintaEstadisticas(
 }
 
 /* ------------------------------------------------------------------ */
-/*  5 · ENTRENADOR Y ESTADIO                                           */
+/*  5 · TIPOLOGÍA DE GOL                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+| La tabla que el cuerpo técnico rellena a mano en `INFORME RIVAL.pptx`: cómo
+| se marcan y cómo se encajan los goles, repartidos en ataque organizado,
+| transición, balón parado y errores individuales.
+|
+| **Esto no lo da BeSoccer y no se puede inventar.** Es codificación de vídeo:
+| alguien mira el gol y decide si fue un centro desde el perfil del lateral
+| izquierdo o una contra en campo propio. Lo que sí sabemos de cada gol es el
+| minuto, el autor y si fue de penalti o en propia puerta, que son dos casillas
+| de esta misma tabla.
+|
+| Así que la hoja sale **con la tabla montada y las casillas puestas**: las dos
+| que se saben, escritas; las demás, con su punteado para escribirlas encima en
+| PowerPoint —que ahora se puede, porque cada fila es un objeto suelto—. Antes
+| esta hoja no existía y el analista copiaba la tabla de un informe viejo.
+*/
+
+const FILAS_TIPOLOGIA: { seccion: string; filas: string[] }[] = [
+  {
+    seccion: "AT. ORGANIZADO",
+    filas: [
+      "CENTRO IZQ.",
+      "CENTRO DCH.",
+      "JUEGO DIRECTO",
+      "IND. DENTRO ÁREA",
+      "IND. FUERA ÁREA",
+      "DENTRO",
+    ],
+  },
+  { seccion: "TRANSICIÓN", filas: ["C. PROPIO", "C. CONTRARIO"] },
+  {
+    seccion: "ABP",
+    filas: ["CÓRNER", "FALTA DIRECTA", "FALTA INDIRECTA", "SDB", "PENALTI"],
+  },
+  { seccion: "ERRORES INDIVIDUALES", filas: ["ERROR IND."] },
+];
+
+/** Una columna de la tabla: a favor o en contra. */
+function pintaColumnaTipologia(
+  g: GuionHoja,
+  titulo: string,
+  cuenta: { total: number; penaltis: number; propia: number },
+  caja: { x: number; y: number; w: number; h: number },
+  acento: string,
+) {
+  const dentro = panel(g, caja.x, caja.y, caja.w, caja.h, titulo);
+
+  /* El total, arriba a la derecha de la cinta: es la cifra que cuadra la
+     tabla, y sin ella las casillas vacías no dicen sobre cuántos goles van. */
+  g.el(
+    `${titulo} · total`,
+    { x: caja.x + caja.w - 220, y: dentro + 6, w: 200, h: 76 },
+    (ctx) => {
+      escribe(ctx, String(cuenta.total), caja.x + caja.w - 30, dentro + 66, {
+        tamano: 62,
+        tinta: acento,
+        alinea: "dcha",
+      });
+
+      escribe(ctx, "GOLES", caja.x + caja.w - 30, dentro + 86, {
+        tamano: 17,
+        peso: 500,
+        tinta: "#8A8370",
+        espaciado: 2,
+        alinea: "dcha",
+      });
+    },
+  );
+
+  const filas = FILAS_TIPOLOGIA.reduce(
+    (total, bloque) => total + bloque.filas.length + 1,
+    1,
+  );
+
+  const alto = (caja.h - (dentro - caja.y) - 108) / filas;
+
+  let y = dentro + 96;
+
+  for (const bloque of FILAS_TIPOLOGIA) {
+    const yCinta = y;
+
+    g.el(
+      `${titulo} · ${bloque.seccion}`,
+      { x: caja.x + 16, y: yCinta, w: caja.w - 32, h: alto },
+      (ctx) => {
+        ctx.fillStyle = "rgba(27,58,46,0.10)";
+        rectRedondo(ctx, caja.x + 16, yCinta + 2, caja.w - 32, alto - 4, 6);
+        ctx.fill();
+
+        escribe(ctx, bloque.seccion, caja.x + 32, yCinta + alto * 0.72, {
+          tamano: 21,
+          peso: 700,
+          tinta: C.verde,
+          espaciado: 2.5,
+        });
+
+        /* El porcentaje va vacío por lo mismo que las casillas: sale de la
+           codificación, no del marcador. */
+        escribe(ctx, "%", caja.x + caja.w - 32, yCinta + alto * 0.72, {
+          tamano: 20,
+          peso: 500,
+          tinta: "#9A9384",
+          alinea: "dcha",
+        });
+      },
+    );
+
+    y += alto;
+
+    for (const fila of bloque.filas) {
+      const yFila = y;
+
+      /* La única casilla que se sabe: los penaltis los canta el marcador. */
+      const valor = fila === "PENALTI" ? String(cuenta.penaltis) : "";
+
+      g.el(
+        `${titulo} · ${fila}`,
+        { x: caja.x + 16, y: yFila, w: caja.w - 32, h: alto },
+        (ctx) => {
+          escribe(ctx, fila, caja.x + 44, yFila + alto * 0.7, {
+            tamano: 20,
+            peso: 500,
+            tinta: C.navy,
+            espaciado: 1,
+            maxAncho: caja.w - 220,
+          });
+
+          /* La casilla. Con dato dentro, o punteada para escribirla. */
+          const cajaX = caja.x + caja.w - 130;
+
+          ctx.strokeStyle = "rgba(0,0,0,0.16)";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash(valor ? [] : [4, 4]);
+          rectRedondo(ctx, cajaX, yFila + 5, 92, alto - 12, 5);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          if (valor) {
+            escribe(ctx, valor, cajaX + 46, yFila + alto * 0.72, {
+              tamano: 22,
+              tinta: acento,
+              alinea: "centro",
+            });
+          }
+        },
+      );
+
+      y += alto;
+    }
+  }
+
+  /* Los goles en propia puerta no son una casilla del original —allí se
+     apuntan en errores individuales— pero sí un dato que se tiene. */
+  const yPropia = y;
+
+  g.el(
+    `${titulo} · en propia puerta`,
+    { x: caja.x + 16, y: yPropia, w: caja.w - 32, h: alto },
+    (ctx) =>
+      escribe(
+        ctx,
+        `EN PROPIA PUERTA: ${cuenta.propia}`,
+        caja.x + 44,
+        yPropia + alto * 0.7,
+        {
+          tamano: 19,
+          peso: 500,
+          tinta: "#8A8370",
+          espaciado: 1,
+        },
+      ),
+  );
+}
+
+function pintaTipologia(
+  g: GuionHoja,
+  data: InformeData,
+  escudo: HTMLImageElement | null,
+  partidos: Partido[],
+) {
+  papel(g);
+  cabecera(g, "TIPOLOGÍA DE GOL", data, escudo);
+
+  const cuentas = tipologiaGoles(partidos);
+
+  const mitad = (ANCHO - 24) / 2;
+
+  pintaColumnaTipologia(
+    g,
+    "GOLES A FAVOR",
+    cuentas.aFavor,
+    { x: MARGEN, y: CUERPO_Y, w: mitad, h: CUERPO_ALTO },
+    C.verde,
+  );
+
+  pintaColumnaTipologia(
+    g,
+    "GOLES EN CONTRA",
+    cuentas.enContra,
+    { x: MARGEN + mitad + 24, y: CUERPO_Y, w: mitad, h: CUERPO_ALTO },
+    "#9A6169",
+  );
+
+  pie(
+    g,
+    `${partidos.length} PARTIDO${
+      partidos.length === 1 ? "" : "S"
+    } CON FICHA · PENALTIS Y PROPIAS DE BESOCCER · EL REPARTO LO CODIFICA EL ANALISTA`,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  6 · ENTRENADOR Y ESTADIO                                           */
 /* ------------------------------------------------------------------ */
 
 function pintaClub(
@@ -1601,11 +1926,12 @@ function pintaClub(
   const mitad = (ANCHO - 24) / 2;
 
   /*
-  | Los dos paneles miden lo que necesitan y la tira de resultados se queda con
-  | el resto: ficha de entrenador y ficha de estadio son dos bloques cortos, y
-  | estirados a toda la hoja dejaban medio folio en blanco cada uno.
+  | Los dos paneles miden lo que necesitan y lo que queda abajo se lo lleva la
+  | trayectoria del entrenador: ficha de entrenador y ficha de estadio son dos
+  | bloques cortos, y estirados a toda la hoja dejaban medio folio en blanco
+  | cada uno.
   */
-  const altoFicha = 620;
+  const altoFicha = 566;
 
   /* -------------------------------------------------- entrenador */
 
@@ -1859,43 +2185,364 @@ function pintaClub(
     });
   }
 
-  /* -------------------------------------------------- la racha, abajo */
-
-  const yRacha = CUERPO_Y + altoFicha + 24;
-
-  const altoRacha = CUERPO_Y + CUERPO_ALTO - yRacha;
-
-  const dentroRacha = panel(
-    g,
-    MARGEN,
-    yRacha,
-    ANCHO,
-    altoRacha,
-    "ÚLTIMOS RESULTADOS",
-  );
+  /* -------------------------------------------------- la trayectoria */
 
   /*
-  | En dos columnas: la tira es ancha y seis partidos puestos en fila india
-  | dejarían tres cuartas partes del panel vacías.
+  | Aquí iba la tira de últimos resultados, que es exactamente lo que ya
+  | enseñan la hoja de clasificación y la de resultados. Lo que no dice ninguna
+  | otra hoja —y es lo que se quiere saber de un entrenador que no se conoce—
+  | es de dónde viene: por qué clubes ha pasado, cuánto duró en cada uno y con
+  | qué dibujo trabajó allí.
   */
-  const recientes = jugados(informe).slice(0, 6);
+  const yEtapas = CUERPO_Y + altoFicha + 24;
 
-  const mitadRacha = (ANCHO - 24) / 2;
+  const altoEtapas = CUERPO_Y + CUERPO_ALTO - yEtapas;
 
-  const alturaFilas = altoRacha - (dentroRacha - yRacha) - 16;
+  const dentroEtapas = panel(
+    g,
+    MARGEN,
+    yEtapas,
+    ANCHO,
+    altoEtapas,
+    "TRAYECTORIA DEL ENTRENADOR",
+  );
 
-  [recientes.slice(0, 3), recientes.slice(3, 6)].forEach((columna, indice) => {
-    if (columna.length === 0) return;
+  const etapas = (entrenador?.trayectoria ?? []).slice(0, 5);
 
-    pintaRacha(g, columna, {
-      x: MARGEN + indice * (mitadRacha + 24),
-      y: dentroRacha + 8,
-      w: mitadRacha,
-      h: alturaFilas,
+  if (etapas.length === 0) {
+    g.el(
+      "Trayectoria · sin datos",
+      { x: MARGEN, y: dentroEtapas + 20, w: ANCHO, h: 44 },
+      (ctx) =>
+        escribe(
+          ctx,
+          entrenador
+            ? "SIN TRAYECTORIA PUBLICADA · VUELVE A BAJAR EL INFORME"
+            : "SIN ENTRENADOR EN LA FICHA DEL CLUB",
+          W / 2,
+          dentroEtapas + 54,
+          {
+            tamano: 24,
+            peso: 500,
+            tinta: "#9A9384",
+            espaciado: 2,
+            alinea: "centro",
+          },
+        ),
+    );
+  } else {
+    /* Las columnas, con su ancho: club, fechas, partidos, balance y dibujo. */
+    const COLS = [
+      { titulo: "CLUB", x: 0.0, w: 0.34, alinea: "izq" as const },
+      { titulo: "DESDE · HASTA", x: 0.34, w: 0.24, alinea: "izq" as const },
+      { titulo: "PJ", x: 0.58, w: 0.08, alinea: "centro" as const },
+      { titulo: "G-E-P", x: 0.66, w: 0.16, alinea: "centro" as const },
+      { titulo: "DIBUJO", x: 0.82, w: 0.18, alinea: "centro" as const },
+    ];
+
+    const izquierda = MARGEN + 24;
+    const anchoTabla = ANCHO - 48;
+
+    const alto = Math.min(
+      44,
+      (altoEtapas - (dentroEtapas - yEtapas) - 46) / etapas.length,
+    );
+
+    g.el(
+      "Trayectoria · cabecera",
+      { x: izquierda, y: dentroEtapas + 4, w: anchoTabla, h: 30 },
+      (ctx) => {
+        for (const columna of COLS) {
+          const x =
+            izquierda +
+            anchoTabla * columna.x +
+            (columna.alinea === "centro" ? (anchoTabla * columna.w) / 2 : 0);
+
+          escribe(ctx, columna.titulo, x, dentroEtapas + 26, {
+            tamano: 17,
+            peso: 600,
+            tinta: "#8A8370",
+            espaciado: 2,
+            alinea: columna.alinea,
+          });
+        }
+      },
+    );
+
+    etapas.forEach((etapa, indice) => {
+      const y = dentroEtapas + 36 + alto * indice;
+
+      /* La primera fila es el club de ahora: se marca, que es la que sitúa a
+         las demás en el tiempo. */
+      const actual = indice === 0;
+
+      const celdas = [
+        etapa.equipo.toUpperCase(),
+        `${etapa.desde || "—"} · ${etapa.hasta || "—"}`,
+        String(etapa.partidos || "—"),
+        `${etapa.ganados}-${etapa.empatados}-${etapa.perdidos}`,
+        etapa.tactica || "—",
+      ];
+
+      g.el(
+        `Trayectoria · ${etapa.equipo}`,
+        { x: izquierda - 12, y, w: anchoTabla + 24, h: alto },
+        (ctx) => {
+          if (actual) {
+            ctx.fillStyle = "rgba(246,175,182,0.35)";
+            rectRedondo(ctx, izquierda - 12, y, anchoTabla + 24, alto - 4, 8);
+            ctx.fill();
+          } else if (indice % 2 === 1) {
+            ctx.fillStyle = "rgba(0,0,0,0.028)";
+            ctx.fillRect(izquierda - 12, y, anchoTabla + 24, alto - 4);
+          }
+
+          COLS.forEach((columna, cual) => {
+            const x =
+              izquierda +
+              anchoTabla * columna.x +
+              (columna.alinea === "centro" ? (anchoTabla * columna.w) / 2 : 0);
+
+            escribe(ctx, celdas[cual], x, y + alto * 0.66, {
+              tamano: cual === 0 ? 23 : 21,
+              peso: cual === 0 ? 700 : 500,
+              tinta: cual === 0 ? C.navy : "#4A4438",
+              espaciado: 0.5,
+              alinea: columna.alinea,
+              maxAncho: anchoTabla * columna.w - 12,
+            });
+          });
+        },
+      );
     });
-  });
+  }
 
-  pie(g, "DATOS DEL CLUB · FUENTE BESOCCER");
+  pie(g, "TRAYECTORIA Y DATOS DEL CLUB · FUENTE BESOCCER");
+}
+
+/* ------------------------------------------------------------------ */
+/*  7-8 · PLANTILLA Y ONCE PROBABLE, CON CARAS                         */
+/* ------------------------------------------------------------------ */
+
+/*
+| Las dos hojas de campograma del original: la plantilla entera repartida por
+| puestos y el once que se espera, las dos con la cara de cada uno.
+|
+| No se dibujan aquí: son **la misma ficha y el mismo reparto** del campograma
+| de día de partido (`alineacion-ppt.ts`), que es el documento que el cuerpo
+| técnico se lleva al vestuario. Si el informe colocara a la plantilla por su
+| cuenta, el mismo equipo saldría de dos maneras distintas en dos documentos de
+| la misma carpeta.
+|
+| Los datos de estas dos hojas **no vienen de BeSoccer**: salen de la hoja
+| RIVALES —pie dominante, altura, peso, foto— y del once probable que el cuerpo
+| técnico coloca a mano en la pantalla de plantillas. Por eso son opcionales:
+| sin plantilla cargada, el informe se monta sin ellas.
+*/
+
+/** La zona donde caen las fichas, con la cabecera del informe descontada. */
+const ZONA_CAMPO = {
+  x: 52,
+  y: CABECERA + 24,
+  w: W - 104,
+  h: H - CABECERA - 24 - 52,
+};
+
+/** El césped tumbado de las dos hojas, a sangre. */
+function fondoCampograma(g: GuionHoja) {
+  g.fondo((ctx) =>
+    cespedTumbado(
+      ctx,
+      { x: 0, y: 0, w: W, h: H },
+      { x: 44, y: CABECERA + 8, w: W - 88, h: H - CABECERA - 52 },
+    ),
+  );
+}
+
+/** El pie de una hoja de césped: el crema del papel no se lee sobre verde. */
+function pieSobreCesped(g: GuionHoja, nota: string) {
+  g.el("Firma del pie", { x: MARGEN, y: H - 44, w: 420, h: 28 }, (ctx) =>
+    escribe(ctx, "REAL MADRID CASTILLA", MARGEN, H - 22, {
+      tamano: 18,
+      peso: 600,
+      tinta: "rgba(247,244,236,0.55)",
+      espaciado: 3,
+    }),
+  );
+
+  g.el(
+    "Nota del pie",
+    { x: W - MARGEN - 1100, y: H - 44, w: 1100, h: 28 },
+    (ctx) =>
+      escribe(ctx, nota, W - MARGEN, H - 22, {
+        tamano: 18,
+        peso: 500,
+        tinta: "rgba(247,244,236,0.55)",
+        espaciado: 2,
+        alinea: "dcha",
+      }),
+  );
+}
+
+/** La plantilla entera, colocada por puestos. */
+function pintaPlantilla(
+  g: GuionHoja,
+  data: InformeData,
+  escudo: HTMLImageElement | null,
+  retratos: Map<string, HTMLImageElement | null>,
+) {
+  fondoCampograma(g);
+  cabecera(g, "PLANTILLA", data, escudo);
+
+  const { fichas, k } = reparteAlineacion(data.plantilla ?? []);
+
+  for (const ficha of fichas) {
+    g.imagen(
+      `${ficha.jugador.dorsal ? `Nº${ficha.jugador.dorsal} · ` : ""}${
+        ficha.jugador.nombre
+      }`,
+      {
+        x: ficha.x * W,
+        y: ficha.y * H,
+        w: ficha.w * W,
+        h: ficha.h * H,
+      },
+      pintaFichaAlineacion(
+        ficha.jugador,
+        retratos.get(ficha.jugador.foto) ?? null,
+        FICHA_W * k,
+        FICHA_H * k,
+      ),
+    );
+  }
+
+  pieSobreCesped(
+    g,
+    `${(data.plantilla ?? []).length} JUGADORES · HOJA RIVALES · CADA FICHA ES UN OBJETO SUELTO`,
+  );
+}
+
+/**
+ * El once probable, con las caras y en el sitio en el que se le colocó.
+ *
+ * Sustituye a la hoja de «último once» que había aquí. El último once ya sale
+ * en las hojas de partidos, con su estructura y sus cambios, y puede estar muy
+ * lejos del que se espera: lo que se lleva a la charla es lo que el cuerpo
+ * técnico ha decidido que va a jugar, no lo que jugó el rival hace tres
+ * semanas contra otro.
+ */
+function pintaOnceProbable(
+  g: GuionHoja,
+  data: InformeData,
+  escudo: HTMLImageElement | null,
+  retratos: Map<string, HTMLImageElement | null>,
+) {
+  fondoCampograma(g);
+  cabecera(g, "ONCE PROBABLE", data, escudo);
+
+  const porClave = new Map(
+    (data.plantilla ?? []).map((jugador) => [jugador.clave, jugador]),
+  );
+
+  const puestos = (data.onceProbable ?? [])
+    .map((sitio) => ({ sitio, jugador: porClave.get(sitio.clave) }))
+    .filter(
+      (uno): uno is { sitio: (typeof uno)["sitio"]; jugador: AlineacionJugador } =>
+        Boolean(uno.jugador),
+    );
+
+  /*
+  | El campo va tumbado y atacando a la derecha, como el de día de partido, y
+  | el once viene colocado sobre el campo **vertical** del pop-up: se gira un
+  | cuarto de vuelta. La banda izquierda del ataque queda arriba, que es como
+  | se ve un partido por televisión.
+  */
+  const colocados = puestos.map(({ sitio, jugador }) => ({
+    jugador,
+    estado: sitio.estado,
+    x: 1 - sitio.y,
+    y: sitio.x,
+  }));
+
+  /*
+  | Cuánto encoge la ficha: manda la columna más poblada, porque el campo está
+  | tumbado y una línea de cinco se apila en vertical. Se agrupa por franjas de
+  | un décimo, que es lo que se solapa de verdad.
+  */
+  const porColumna = new Map<number, number>();
+
+  for (const uno of colocados) {
+    const franja = Math.round(uno.x * 10);
+
+    porColumna.set(franja, (porColumna.get(franja) ?? 0) + 1);
+  }
+
+  const masLlena = Math.max(1, ...porColumna.values());
+
+  /* El 1,12 es el aire entre fichas de la misma columna: pegadas se leen como
+     un bloque y no como cuatro jugadores. */
+  const k = Math.min(1, ZONA_CAMPO.h / (masLlena * FICHA_H * 1.12));
+
+  const ancho = FICHA_W * k;
+  const alto = FICHA_H * k;
+
+  /* De arriba abajo, para que en PowerPoint la de abajo tape a la de arriba. */
+  for (const uno of [...colocados].sort((a, b) => a.y - b.y)) {
+    const jugador = uno.jugador;
+
+    const caja = {
+      x: ZONA_CAMPO.x + ZONA_CAMPO.w * uno.x - ancho / 2,
+      y: ZONA_CAMPO.y + ZONA_CAMPO.h * uno.y - alto / 2,
+      w: ancho,
+      h: alto,
+    };
+
+    g.imagen(
+      `${jugador.dorsal ? `Nº${jugador.dorsal} · ` : ""}${jugador.nombre}${
+        uno.estado === "duda" ? " (duda)" : ""
+      }`,
+      caja,
+      pintaFichaAlineacion(
+        jugador,
+        retratos.get(jugador.foto) ?? null,
+        ancho,
+        alto,
+      ),
+    );
+
+    /*
+    | La duda va en su propia chapa encima de la ficha, no por el campo de
+    | estado: ese lo lee `baja()` y convierte cualquier duda en «TOCADO», que es
+    | lo que quiere decir cuando lo escribe la hoja —parte médico— y no lo que
+    | quiere decir aquí, que es que el cuerpo técnico no lo tiene claro.
+    */
+    if (uno.estado !== "duda") continue;
+
+    g.el(
+      `Duda · ${jugador.nombre}`,
+      { x: caja.x + 4, y: caja.y - 6, w: 120, h: 34 },
+      (ctx) =>
+        chapa(ctx, "DUDA", {
+          x: caja.x + 8,
+          y: caja.y - 4,
+          alto: 28,
+          fondo: C.rosa,
+          tinta: C.navy,
+          tamano: 16,
+          espaciado: 2,
+          padding: 12,
+        }),
+    );
+  }
+
+  const dudas = colocados.filter((uno) => uno.estado === "duda").length;
+
+  pieSobreCesped(
+    g,
+    `ONCE PROBABLE DEL CUERPO TÉCNICO${
+      dudas > 0 ? ` · ${dudas} DUDA${dudas === 1 ? "" : "S"}` : ""
+    } · NO ES EL ÚLTIMO ONCE PUBLICADO`,
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -2019,13 +2666,42 @@ function reparteOnce(once: OncePartido) {
   return sitios;
 }
 
+/**
+ * Lo que le pasó a un jugador en el partido y se pinta sobre su ficha.
+ *
+ * Las asistencias están porque el cuerpo técnico las pide, pero **BeSoccer no
+ * publica el asistente de cada gol** en Primera Federación: el campo existe,
+ * llega siempre a cero y el icono no llega a pintarse. El día que lo publiquen,
+ * o si alguien lo codifica a mano, la ficha ya sabe enseñarlo.
+ */
+type MarcasFicha = {
+  goles: number;
+  asistencias: number;
+  amarillas: number;
+  rojas: number;
+  /** "46" si entró en ese minuto. */
+  entra?: string;
+  /** "46" si le cambiaron. */
+  sale?: string;
+};
+
+const SIN_MARCAS: MarcasFicha = {
+  goles: 0,
+  asistencias: 0,
+  amarillas: 0,
+  rojas: 0,
+};
+
 /** Una ficha del once sobre el campo: dorsal en círculo y nombre debajo. */
 function pintaFichaOnce(
   ctx: Ctx,
-  jugador: OncePartido["jugadores"][number],
+  jugador: { dorsal: string; nombre: string },
   x: number,
   y: number,
   radio: number,
+  marcas: MarcasFicha = SIN_MARCAS,
+  /** Lo que puede ocupar el nombre sin pisar al vecino de al lado. */
+  anchoMax = 0,
 ) {
   ctx.fillStyle = C.papel;
   ctx.beginPath();
@@ -2042,10 +2718,30 @@ function pintaFichaOnce(
     alinea: "centro",
   });
 
-  /* El nombre, sobre una tira oscura para que se lea encima del césped. */
-  const nombre = jugador.nombre.toUpperCase();
+  /*
+  | El nombre, sobre una tira oscura para que se lea encima del césped.
+  |
+  | Con cinco fichas en una línea de campo estrecho, «GUILLEM MOLINA» pisaba a
+  | su vecino y las tiras se tapaban unas a otras. Cuando no cabe entero se
+  | prueba con el apellido —que es como se llama a la gente en una charla— y si
+  | tampoco, se encoge la letra.
+  */
+  const cuerpo = radio * 0.62;
 
-  fuente(ctx, radio * 0.62, 600);
+  const tope = anchoMax > 0 ? anchoMax - 14 : Infinity;
+
+  fuente(ctx, cuerpo, 600);
+
+  let nombre = jugador.nombre.toUpperCase();
+
+  if (anchoEspaciado(ctx, nombre, 0.5) > tope) {
+    const palabras = nombre.split(/\s+/).filter(Boolean);
+
+    if (palabras.length > 1) nombre = palabras[palabras.length - 1];
+  }
+
+  const cuerpoFinal =
+    anchoMax > 0 ? ajusta(ctx, nombre, tope, cuerpo, 600, 0.5) : cuerpo;
 
   const ancho = anchoEspaciado(ctx, nombre, 0.5) + 14;
 
@@ -2054,10 +2750,98 @@ function pintaFichaOnce(
   ctx.fill();
 
   escribe(ctx, nombre, x, y + radio + 6 + radio * 0.66, {
-    tamano: radio * 0.62,
+    tamano: cuerpoFinal,
     peso: 600,
     tinta: C.papel,
     espaciado: 0.5,
+    alinea: "centro",
+  });
+
+  pintaMarcasFicha(ctx, x, y, radio, marcas);
+}
+
+/**
+ * Los iconos de la ficha: goles, asistencias, tarjetas y el minuto del cambio.
+ *
+ * Van pegados al círculo del dorsal, en columna a la derecha, que es donde no
+ * tapan ni la cifra ni el nombre. Un solo gol es un balón; dos o más, el balón
+ * con el número dentro, que ocupa lo mismo.
+ */
+function pintaMarcasFicha(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  radio: number,
+  marcas: MarcasFicha,
+) {
+  const iconos: { fondo: string; tinta: string; texto: string; balon?: boolean }[] =
+    [];
+
+  if (marcas.goles > 0) {
+    iconos.push({
+      fondo: C.papel,
+      tinta: C.navy,
+      texto: marcas.goles > 1 ? String(marcas.goles) : "",
+      balon: true,
+    });
+  }
+
+  for (let i = 0; i < marcas.asistencias; i += 1) {
+    iconos.push({ fondo: "#3E7BA6", tinta: C.papel, texto: "A" });
+  }
+
+  for (let i = 0; i < marcas.amarillas; i += 1) {
+    iconos.push({ fondo: "#E7C24B", tinta: "#4A4438", texto: "" });
+  }
+
+  for (let i = 0; i < marcas.rojas; i += 1) {
+    iconos.push({ fondo: "#B4454F", tinta: C.papel, texto: "" });
+  }
+
+  const lado = radio * 0.62;
+
+  iconos.forEach((icono, indice) => {
+    const cx = x + radio * 0.86;
+    const cy = y - radio * 0.7 + indice * (lado + 3);
+
+    ctx.fillStyle = icono.fondo;
+
+    if (icono.balon) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = C.navy;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      /* Las tarjetas son rectángulos, como en un acta. */
+      rectRedondo(ctx, cx - lado * 0.34, cy - lado / 2, lado * 0.68, lado, 2);
+      ctx.fill();
+    }
+
+    if (icono.texto) {
+      escribe(ctx, icono.texto, cx, cy + lado * 0.3, {
+        tamano: lado * 0.8,
+        tinta: icono.tinta,
+        alinea: "centro",
+      });
+    }
+  });
+
+  /* El minuto del cambio, debajo del nombre. */
+  const cambio = marcas.entra
+    ? { texto: `▲ ${marcas.entra}'`, tinta: "#2E7D52" }
+    : marcas.sale
+      ? { texto: `▼ ${marcas.sale}'`, tinta: "#B4454F" }
+      : null;
+
+  if (!cambio) return;
+
+  escribe(ctx, cambio.texto, x, y + radio * 2.5, {
+    tamano: radio * 0.58,
+    peso: 700,
+    tinta: cambio.tinta,
     alinea: "centro",
   });
 }
@@ -2076,6 +2860,7 @@ function pintaOnceEnCampo(
   caja: { x: number; y: number; w: number; h: number },
   radio: number,
   etiqueta: string,
+  marcasDe?: (jugador: { nombre: string }) => MarcasFicha,
 ) {
   g.el(etiqueta ? `Campo · ${etiqueta}` : "Campo", caja, (ctx) =>
     pintaCampo(ctx, caja.x, caja.y, caja.w, caja.h),
@@ -2107,195 +2892,526 @@ function pintaOnceEnCampo(
       `${etiqueta ? `${etiqueta} · ` : ""}Nº${sitio.jugador.dorsal || "·"} ${
         sitio.jugador.nombre
       }`,
-      { x: cx - 210, y: cy - cabe - 4, w: 420, h: cabe * 2 + cabe + 24 },
-      (ctx) => pintaFichaOnce(ctx, sitio.jugador, cx, cy, cabe),
+      { x: cx - 210, y: cy - cabe - 4, w: 420, h: cabe * 3.4 + 24 },
+      (ctx) =>
+        pintaFichaOnce(
+          ctx,
+          sitio.jugador,
+          cx,
+          cy,
+          cabe,
+          marcasDe?.(sitio.jugador) ?? SIN_MARCAS,
+          caja.w / masLlena,
+        ),
     );
   }
 }
 
 /* ------------------------------------------------------------------ */
-/*  6 · POSIBLE ALINEACIÓN                                             */
+/*  9-11 · PARTIDOS: DOS POR HOJA, CUATRO CAMPOGRAMAS                  */
 /* ------------------------------------------------------------------ */
 
+/*
+| Cada hoja lleva dos partidos y cada partido dos campogramas: el once que
+| salió y el que acabó, con la convocatoria en medio.
+|
+| Es la hoja que más se mira de todo el informe y la que peor estaba: enseñaba
+| un campo por partido, con el once inicial y nada más. Un partido no se lee
+| así —lo que dice cómo compite un equipo es qué toca el entrenador cuando va
+| por detrás, quién sale del banquillo y con qué dibujo termina—, y eso estaba
+| entero en la ficha de BeSoccer sin bajarse.
+|
+| Aquí las fichas van con dorsal y nombre, sin cara: son cuarenta y cuatro en
+| una hoja, y con retrato no se lee ninguna. La cara está en la hoja de
+| plantilla y en la del once probable, que es donde sirve.
+*/
+
+/** "Primera Federación. Jornada 1" → "JORNADA 1". Un amistoso lo dice. */
+function jornadaDe(partido: Partido | null) {
+  if (!partido) return "";
+
+  if (!esLiga(partido)) return rotuloCompeticion(partido);
+
+  const numero = partido.competicion.match(/jornada\s*(\d+)/i)?.[1];
+
+  return numero ? `JORNADA ${numero}` : partido.competicion.toUpperCase();
+}
+
+/** Lo que le pasó a cada jugador del equipo en ese partido. */
+function marcasDelPartido(once: OncePartido, partido: Partido | null) {
+  const marcas = new Map<string, MarcasFicha>();
+
+  const dame = (nombre: string) => {
+    const clave = normalizaNombre(nombre);
+
+    const previa = marcas.get(clave);
+
+    if (previa) return previa;
+
+    const nueva: MarcasFicha = { goles: 0, asistencias: 0, amarillas: 0, rojas: 0 };
+
+    marcas.set(clave, nueva);
+
+    return nueva;
+  };
+
+  /* Los goles del equipo del informe: los del rival no se pintan en su campo. */
+  for (const gol of partido?.goles ?? []) {
+    if (!gol.propio || gol.tipo === "propia") continue;
+
+    dame(gol.jugador).goles += 1;
+  }
+
+  for (const tarjeta of once.tarjetas ?? []) {
+    const marca = dame(tarjeta.jugador);
+
+    if (tarjeta.tipo === "roja") marca.rojas += 1;
+    else marca.amarillas += 1;
+  }
+
+  for (const cambio of once.cambios ?? []) {
+    if (cambio.sale) dame(cambio.sale).sale = cambio.minuto;
+    if (cambio.entra) dame(cambio.entra).entra = cambio.minuto;
+  }
+
+  return marcas;
+}
+
 /**
- * El once más reciente, que es la mejor apuesta de por dónde va a salir.
+ * Cómo se busca a un jugador entre nombres que vienen de sitios distintos.
  *
- * No es una predicción: es literalmente el último once publicado, y así se
- * rotula. El once probable de verdad se decide en la pantalla de plantillas,
- * donde el cuerpo técnico lo coloca a mano, y sale en su propio PDF.
+ * El de la alineación y el del evento los escribe BeSoccer, pero no siempre
+ * igual —«Diego Gómez» y «D. Gómez»—, así que se compara sin acentos ni
+ * puntos. Es la misma idea que `informe.ts` usa para cruzar los cambios.
  */
-function pintaPosibleAlineacion(
+function normalizaNombre(valor: string) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Las marcas de un jugador, buscándolo por nombre. */
+function marcasDe(marcas: Map<string, MarcasFicha>, nombre: string) {
+  const clave = normalizaNombre(nombre);
+
+  const directa = marcas.get(clave);
+
+  if (directa) return directa;
+
+  /*
+  | Un apellido contra un nombre completo: se acepta que uno contenga al otro,
+  | que es lo que resuelve las abreviaturas. De cuatro letras para abajo no,
+  | que «Pau» está dentro de «Pau Torres» y de «Paulino» y le colgaría el gol
+  | de otro.
+  */
+  if (clave.length < 4) return SIN_MARCAS;
+
+  for (const [otra, marca] of marcas) {
+    if (otra.length < 4) continue;
+
+    if (otra.includes(clave) || clave.includes(otra)) return marca;
+  }
+
+  return SIN_MARCAS;
+}
+
+/**
+ * La columna del medio: quién estaba convocado.
+ *
+ * Titulares arriba y suplentes debajo, con el minuto al lado del que entró. Es
+ * la lista que el original llevaba escrita a mano bajo cada campo y que no
+ * decía quién se quedó sentado.
+ */
+function pintaConvocatoria(
   g: GuionHoja,
-  data: InformeData,
-  escudo: HTMLImageElement | null,
   once: OncePartido,
-  partido: Partido | null,
+  marcas: Map<string, MarcasFicha>,
+  caja: { x: number; y: number; w: number; h: number },
+  etiqueta: string,
 ) {
-  papel(g);
+  const dentro = panel(g, caja.x, caja.y, caja.w, caja.h, "CONVOCATORIA");
 
-  /* De qué partido es este once: sin esto, un 1-4-4-2 de un amistoso de
-     agosto se leía el viernes como el once de la última jornada. */
-  const oficial = partido ? esLiga(partido) : true;
+  const titulares = [...once.jugadores].sort((a, b) => a.puesto - b.puesto);
 
-  cabecera(
-    g,
-    partido ? `ÚLTIMO ONCE · ${oficial ? "LIGA" : "AMISTOSO"}` : "ÚLTIMO ONCE",
-    data,
-    escudo,
-  );
+  const suplentes = once.suplentes ?? [];
 
-  const anchoCampo = Math.round(CUERPO_ALTO * 0.68);
+  /* Dos rótulos de sección y una fila por jugador; el paso sale de lo que
+     haya, que va de doce a veinticinco líneas según el partido. */
+  const filas = titulares.length + suplentes.length + 2;
 
-  const x = MARGEN + 40;
+  const paso = Math.min(30, (caja.h - (dentro - caja.y) - 18) / Math.max(1, filas));
 
-  pintaOnceEnCampo(
-    g,
-    once,
-    { x, y: CUERPO_Y, w: anchoCampo, h: CUERPO_ALTO },
-    26,
-    "Último once",
-  );
+  let y = dentro + 10;
 
-  /* -------------------------------------------------- la ficha de al lado */
+  const seccion = (titulo: string, cuantos: number) => {
+    const yTitulo = y;
 
-  const xPanel = x + anchoCampo + 36;
-  const wPanel = W - MARGEN - xPanel;
-
-  const dentro = panel(g, xPanel, CUERPO_Y, wPanel, CUERPO_ALTO, "EL ONCE");
-
-  if (once.estructura) {
     g.el(
-      `Estructura · ${once.estructura}`,
-      { x: xPanel + 24, y: dentro + 12, w: wPanel - 48, h: 80 },
-      (ctx) =>
-        escribe(ctx, once.estructura, xPanel + 24, dentro + 76, {
-          tamano: 72,
-          tinta: C.navy,
-          espaciado: 2,
-          maxAncho: wPanel - 48,
-        }),
-    );
-  }
-
-  if (once.entrenador) {
-    g.el(
-      "Entrenador del once",
-      { x: xPanel + 24, y: dentro + 88, w: wPanel - 48, h: 34 },
-      (ctx) =>
-        escribe(ctx, once.entrenador.toUpperCase(), xPanel + 24, dentro + 116, {
-          tamano: 26,
-          peso: 500,
-          tinta: "#8A8370",
-          espaciado: 3,
-          maxAncho: wPanel - 48,
-        }),
-    );
-  }
-
-  if (partido) {
-    g.el(
-      "Marcador del partido",
-      { x: xPanel + 24, y: dentro + 134, w: wPanel - 48, h: 34 },
+      `${etiqueta} · ${titulo}`,
+      { x: caja.x + 10, y: yTitulo, w: caja.w - 20, h: paso },
       (ctx) =>
         escribe(
           ctx,
-          `${partido.local.nombre} ${partido.local.goles ?? 0}-${
-            partido.visitante.goles ?? 0
-          } ${partido.visitante.nombre}`,
-          xPanel + 24,
-          dentro + 162,
+          `${titulo} (${cuantos})`,
+          caja.x + 16,
+          yTitulo + paso * 0.75,
           {
-            tamano: 24,
-            peso: 600,
+            tamano: Math.min(18, paso * 0.62),
+            peso: 700,
             tinta: C.verde,
-            espaciado: 1,
-            maxAncho: wPanel - 48,
+            espaciado: 2.5,
           },
         ),
     );
 
-    g.el(
-      "Fecha del partido",
-      { x: xPanel + 24, y: dentro + 170, w: wPanel - 48, h: 28 },
-      (ctx) =>
-        escribe(ctx, fechaCorta(partido.fecha), xPanel + 24, dentro + 192, {
-          tamano: 20,
-          peso: 500,
-          tinta: "#9A9384",
-          espaciado: 2,
-        }),
-    );
+    y += paso;
+  };
 
-    /* La competición, escrita con todas las letras: "PRIMERA FEDERACIÓN" o
-       "PRETEMPORADA · AMISTOSO". */
-    g.el(
-      `Competición · ${oficial ? "liga" : "amistoso"}`,
-      { x: xPanel + 24, y: dentro + 198, w: wPanel - 48, h: 40 },
-      (ctx) =>
-        chapa(ctx, rotuloCompeticion(partido), {
-          x: xPanel + 24,
-          y: dentro + 200,
-          alto: 34,
-          fondo: oficial ? C.verde : "rgba(200,169,107,0.85)",
-          tinta: oficial ? C.papel : C.navy,
-          tamano: 19,
-          espaciado: 2,
-          padding: 14,
-        }),
-    );
-  }
-
-  /* La lista, por si alguien la quiere leer en vez de mirarla. */
-  const jugadores = [...once.jugadores].sort((a, b) => a.puesto - b.puesto);
-
-  const arriba = dentro + 252;
-
-  const paso = Math.min(
-    46,
-    (CUERPO_Y + CUERPO_ALTO - arriba - 16) / Math.max(1, jugadores.length),
-  );
-
-  jugadores.forEach((jugador, indice) => {
-    const y = arriba + paso * indice;
+  const fila = (
+    dorsal: string,
+    nombre: string,
+    minuto: string,
+    entra: boolean,
+    demarcacion: string,
+  ) => {
+    const yFila = y;
 
     g.el(
-      `Lista · ${jugador.dorsal || "·"} ${jugador.nombre}`,
-      { x: xPanel + 12, y, w: wPanel - 24, h: paso - 4 },
+      `${etiqueta} · ${dorsal} ${nombre}`,
+      { x: caja.x + 10, y: yFila, w: caja.w - 20, h: paso },
       (ctx) => {
-        ctx.fillStyle = indice % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent";
-        ctx.fillRect(xPanel + 12, y, wPanel - 24, paso - 4);
+        const marca = marcasDe(marcas, nombre);
 
-        escribe(ctx, jugador.dorsal || "·", xPanel + 46, y + paso / 2 + 7, {
-          tamano: 24,
+        escribe(ctx, dorsal || "·", caja.x + 34, yFila + paso * 0.74, {
+          tamano: Math.min(19, paso * 0.66),
           tinta: C.verde,
           alinea: "dcha",
         });
 
-        escribe(ctx, jugador.nombre.toUpperCase(), xPanel + 62, y + paso / 2 + 7, {
-          tamano: 24,
+        escribe(ctx, nombre.toUpperCase(), caja.x + 42, yFila + paso * 0.74, {
+          tamano: Math.min(19, paso * 0.66),
           peso: 600,
-          tinta: C.navy,
-          espaciado: 0.5,
-          maxAncho: wPanel - 90,
+          /* En tinta fuerte el que jugó: el titular que aguantó los noventa y
+             el suplente que llegó a entrar. El que se quedó sentado, en gris. */
+          tinta: entra && !minuto ? "#6C6659" : C.navy,
+          espaciado: 0.4,
+          maxAncho: caja.w - 110,
         });
+
+        /* A la derecha, lo que hizo: el minuto del cambio y los iconos. */
+        let x = caja.x + caja.w - 14;
+
+        if (minuto) {
+          escribe(ctx, `${entra ? "▲" : "▼"}${minuto}'`, x, yFila + paso * 0.74, {
+            tamano: Math.min(15, paso * 0.5),
+            peso: 700,
+            tinta: entra ? "#2E7D52" : "#B4454F",
+            alinea: "dcha",
+          });
+
+          x -= 46;
+        }
+
+        const alto = Math.min(14, paso * 0.5);
+
+        for (let i = 0; i < marca.rojas; i += 1) {
+          ctx.fillStyle = "#B4454F";
+          rectRedondo(ctx, x - alto * 0.68, yFila + paso * 0.32, alto * 0.68, alto, 2);
+          ctx.fill();
+
+          x -= alto;
+        }
+
+        for (let i = 0; i < marca.amarillas; i += 1) {
+          ctx.fillStyle = "#E7C24B";
+          rectRedondo(ctx, x - alto * 0.68, yFila + paso * 0.32, alto * 0.68, alto, 2);
+          ctx.fill();
+
+          x -= alto;
+        }
+
+        if (marca.goles > 0) {
+          ctx.fillStyle = C.verde;
+          ctx.beginPath();
+          ctx.arc(x - alto / 2, yFila + paso * 0.32 + alto / 2, alto / 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (marca.goles > 1) {
+            escribe(
+              ctx,
+              String(marca.goles),
+              x - alto / 2,
+              yFila + paso * 0.32 + alto * 0.78,
+              { tamano: alto * 0.8, tinta: C.papel, alinea: "centro" },
+            );
+          }
+
+          x -= alto + 2;
+        }
+
+        if (demarcacion) {
+          escribe(ctx, demarcacion, x - 6, yFila + paso * 0.74, {
+            tamano: Math.min(14, paso * 0.46),
+            peso: 500,
+            tinta: "#9A9384",
+            espaciado: 1,
+            alinea: "dcha",
+          });
+        }
       },
     );
-  });
 
-  pie(
-    g,
-    partido
-      ? `ÚLTIMO ONCE PUBLICADO · ${rotuloCompeticion(partido)} · NO ES UNA PREDICCIÓN`
-      : "EL ÚLTIMO ONCE PUBLICADO · NO ES UNA PREDICCIÓN",
-  );
+    y += paso;
+  };
+
+  seccion("TITULARES", titulares.length);
+
+  for (const jugador of titulares) {
+    const marca = marcasDe(marcas, jugador.nombre);
+
+    fila(
+      jugador.dorsal,
+      jugador.nombre,
+      marca.sale ?? "",
+      false,
+      jugador.demarcacion ?? "",
+    );
+  }
+
+  if (suplentes.length > 0) {
+    seccion("SUPLENTES", suplentes.length);
+
+    for (const suplente of suplentes) {
+      fila(
+        suplente.dorsal,
+        suplente.nombre,
+        suplente.entra ?? "",
+        true,
+        suplente.demarcacion ?? "",
+      );
+    }
+  } else {
+    const yAviso = y;
+
+    g.el(
+      `${etiqueta} · sin banquillo`,
+      { x: caja.x + 10, y: yAviso, w: caja.w - 20, h: paso * 2 },
+      (ctx) =>
+        escribe(
+          ctx,
+          "SIN BANQUILLO PUBLICADO",
+          caja.x + caja.w / 2,
+          yAviso + paso,
+          {
+            tamano: 16,
+            peso: 500,
+            tinta: "#9A9384",
+            espaciado: 1.5,
+            alinea: "centro",
+            maxAncho: caja.w - 30,
+          },
+        ),
+    );
+  }
+
+  /*
+  | Aquí iba el marcador otra vez, al pie de la columna. Fuera: ya está en el
+  | titular del partido, tres centímetros más arriba, y con quince suplentes la
+  | lista llega hasta abajo y se le montaba encima.
+  */
 }
 
-/* ------------------------------------------------------------------ */
-/*  7-8 · ALINEACIONES ANTERIORES                                      */
-/* ------------------------------------------------------------------ */
+/** Un partido: rótulo, once inicial, convocatoria y once final. */
+function pintaBloquePartido(
+  g: GuionHoja,
+  once: OncePartido,
+  partido: Partido | null,
+  caja: { x: number; y: number; w: number; h: number },
+) {
+  const etiqueta = partido
+    ? `${partido.local.nombre}-${partido.visitante.nombre}`
+    : "Partido";
 
-/** Dos partidos por hoja, con su campo y su marcador. */
-function pintaAlineaciones(
+  const marcas = marcasDelPartido(once, partido);
+
+  /* -------------------------------------------------- el rótulo */
+
+  /*
+  | Centrado sobre los dos campos, que es donde lo pidió el cuerpo técnico: el
+  | partido, la jornada, el resultado y con qué dibujo empieza y acaba. Antes
+  | el titular iba pegado a la izquierda y con dos partidos por hoja no se
+  | sabía cuál era de quién.
+  */
+  const titulo = partido
+    ? `${partido.local.nombre.toUpperCase()}  ${partido.local.goles ?? 0} - ${
+        partido.visitante.goles ?? 0
+      }  ${partido.visitante.nombre.toUpperCase()}`
+    : "PARTIDO";
+
+  const centro = caja.x + caja.w / 2;
+
+  g.el(
+    `Partido · ${etiqueta}`,
+    { x: caja.x, y: caja.y, w: caja.w, h: 42 },
+    (ctx) =>
+      escribe(ctx, titulo, centro, caja.y + 32, {
+        tamano: 28,
+        tinta: C.navy,
+        espaciado: 1,
+        alinea: "centro",
+        maxAncho: caja.w - 20,
+      }),
+  );
+
+  const jornada = jornadaDe(partido);
+
+  const fecha = partido ? fechaCorta(partido.fecha) : "";
+
+  g.el(
+    `Jornada · ${etiqueta}`,
+    { x: caja.x, y: caja.y + 42, w: caja.w, h: 30 },
+    (ctx) =>
+      escribe(
+        ctx,
+        [jornada, fecha].filter(Boolean).join(" · "),
+        centro,
+        caja.y + 66,
+        {
+          tamano: 20,
+          peso: 600,
+          tinta: "#8A8370",
+          espaciado: 3,
+          alinea: "centro",
+          maxAncho: caja.w - 20,
+        },
+      ),
+  );
+
+  /*
+  | Con qué dibujo empieza y con cuál acaba.
+  |
+  | La de salida la publica BeSoccer y es la buena. La del final **no la publica
+  | nadie**: se cuenta por las demarcaciones de los once que terminan, que es
+  | una lectura gruesa —un 1-4-2-3-1 se cuenta como 1-4-5-1—, así que sólo se
+  | escribe cuando de verdad cambia respecto de contar igual el once inicial, y
+  | se dice que es por demarcación. Poner las dos sin más las hacía comparables
+  | y no lo son.
+  */
+  const finales = onceFinal(once);
+
+  const inicial = once.estructura || estructuraDeDemarcaciones(once.jugadores);
+
+  const final = estructuraDeDemarcaciones(finales);
+
+  const cambia = Boolean(final) && final !== estructuraDeDemarcaciones(once.jugadores);
+
+  g.el(
+    `Estructuras · ${etiqueta}`,
+    { x: caja.x, y: caja.y + 74, w: caja.w, h: 40 },
+    (ctx) => {
+      const texto = !inicial
+        ? "SIN ESTRUCTURA PUBLICADA"
+        : cambia
+          ? `INICIA ${inicial}   ·   TERMINA ${final} (POR DEMARCACIÓN)`
+          : `INICIA ${inicial}   ·   TERMINA IGUAL`;
+
+      escribe(ctx, texto, centro, caja.y + 104, {
+        tamano: 22,
+        peso: 700,
+        tinta: cambia ? C.verde : C.navy,
+        espaciado: 2,
+        alinea: "centro",
+        maxAncho: caja.w - 20,
+      });
+    },
+  );
+
+  /* -------------------------------------------------- los campos */
+
+  const arriba = caja.y + 120;
+
+  const anchoCampo = 300;
+
+  const altoCampo = Math.min(caja.h - 150, anchoCampo / 0.63);
+
+  const zonaMedio = {
+    x: caja.x + anchoCampo + 12,
+    y: arriba,
+    w: caja.w - anchoCampo * 2 - 24,
+    h: caja.y + caja.h - arriba,
+  };
+
+  pintaOnceEnCampo(
+    g,
+    once,
+    { x: caja.x, y: arriba, w: anchoCampo, h: altoCampo },
+    20,
+    `${etiqueta} inicial`,
+    (jugador) => {
+      const marca = marcasDe(marcas, jugador.nombre);
+
+      /* En el campo de salida, del cambio sólo interesa que se fue. */
+      return { ...marca, entra: undefined };
+    },
+  );
+
+  pintaOnceEnCampo(
+    g,
+    { ...once, jugadores: finales },
+    {
+      x: caja.x + caja.w - anchoCampo,
+      y: arriba,
+      w: anchoCampo,
+      h: altoCampo,
+    },
+    20,
+    `${etiqueta} final`,
+    (jugador) => {
+      const marca = marcasDe(marcas, jugador.nombre);
+
+      /* Y en el de llegada, que entró. */
+      return { ...marca, sale: undefined };
+    },
+  );
+
+  const rotulo = (texto: string, x: number) => {
+    const y = arriba + altoCampo + 6;
+
+    g.el(
+      `${etiqueta} · ${texto}`,
+      { x, y, w: anchoCampo, h: 32 },
+      (ctx) =>
+        chapa(ctx, texto, {
+          x: x + anchoCampo / 2,
+          y: y + 2,
+          alto: 28,
+          fondo: C.navy,
+          tinta: C.crema,
+          tamano: 16,
+          espaciado: 3,
+          padding: 14,
+          desdeCentro: true,
+        }),
+    );
+  };
+
+  rotulo("ONCE INICIAL", caja.x);
+
+  rotulo(
+    (once.cambios ?? []).length > 0 ? "TRAS LOS CAMBIOS" : "SIN CAMBIOS PUBLICADOS",
+    caja.x + caja.w - anchoCampo,
+  );
+
+  /* -------------------------------------------------- la convocatoria */
+
+  pintaConvocatoria(g, once, marcas, zonaMedio, etiqueta);
+}
+
+/** Dos partidos por hoja, cada uno con sus dos campogramas. */
+function pintaPartidos(
   g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
@@ -2303,140 +3419,36 @@ function pintaAlineaciones(
   partidos: Map<string, Partido>,
 ) {
   papel(g);
-  cabecera(g, "ALINEACIONES ANTERIORES", data, escudo);
+  cabecera(g, "PARTIDOS", data, escudo);
 
-  /* Con un solo partido —el resto de la temporada sin alineación publicada—
-     la columna es la hoja entera: media hoja en blanco al lado de un campo
-     estrecho se lee como un error de montaje. */
-  const mitad = onces.length > 1 ? (ANCHO - 28) / 2 : ANCHO;
+  /*
+  | La columna mide siempre media hoja, aunque el partido venga solo: el bloque
+  | es campo-lista-campo y estirado a lo ancho de la diapositiva deja una
+  | columna de convocatoria de un palmo de ancha con los campos en los extremos.
+  | Un partido suelto se centra, que es lo que se hace a mano.
+  */
+  const mitad = (ANCHO - 40) / 2;
+
+  const izquierda =
+    onces.length > 1 ? MARGEN : MARGEN + (ANCHO - mitad) / 2;
 
   onces.forEach((once, indice) => {
-    const x = MARGEN + indice * (mitad + 28);
-
-    const partido = partidos.get(once.partidoId) ?? null;
-
-    const oficial = partido ? esLiga(partido) : true;
-
-    /* -------------------------------------------------- el titular */
-
-    const titulo = partido
-      ? `${partido.local.nombre} ${partido.local.goles ?? 0}-${
-          partido.visitante.goles ?? 0
-        } ${partido.visitante.nombre}`
-      : "PARTIDO";
-
-    g.el(
-      `Partido · ${titulo}`,
-      { x, y: CUERPO_Y - 26, w: mitad - 140, h: 40 },
-      (ctx) =>
-        escribe(ctx, titulo.toUpperCase(), x, CUERPO_Y + 8, {
-          tamano: 30,
-          tinta: C.navy,
-          espaciado: 1,
-          maxAncho: mitad - 140,
-        }),
-    );
-
-    if (partido) {
-      g.el(
-        "Fecha del partido",
-        { x: x + mitad - 300, y: CUERPO_Y - 20, w: 300, h: 32 },
-        (ctx) =>
-          escribe(ctx, fechaCorta(partido.fecha), x + mitad, CUERPO_Y + 8, {
-            tamano: 22,
-            peso: 500,
-            tinta: "#8A8370",
-            espaciado: 2,
-            alinea: "dcha",
-          }),
-      );
-    }
-
-    let anchoEstructura = 0;
-
-    if (once.estructura) {
-      g.el(
-        `Estructura · ${once.estructura}`,
-        { x, y: CUERPO_Y + 24, w: 260, h: 40 },
-        (ctx) => {
-          anchoEstructura = chapa(ctx, once.estructura, {
-            x,
-            y: CUERPO_Y + 24,
-            alto: 40,
-            fondo: C.verde,
-            tinta: C.papel,
-            tamano: 24,
-            espaciado: 3,
-            padding: 18,
-          });
-        },
-      );
-    }
-
-    /*
-    | Y al lado, de qué competición es. Es lo que pidió el cuerpo técnico: la
-    | hoja enseña seis onces seguidos y sin esta chapa no había manera de saber
-    | cuáles eran de liga y cuáles de un amistoso de pretemporada, que se
-    | juegan con otra gente y no dicen lo mismo.
-    */
-    if (partido) {
-      const xChapa = x + (anchoEstructura ? anchoEstructura + 12 : 0);
-
-      g.el(
-        `Competición · ${oficial ? "liga" : "amistoso"}`,
-        { x: xChapa, y: CUERPO_Y + 24, w: 420, h: 40 },
-        (ctx) =>
-          chapa(ctx, rotuloCompeticion(partido), {
-            x: xChapa,
-            y: CUERPO_Y + 26,
-            alto: 36,
-            fondo: oficial ? "rgba(27,58,46,0.12)" : "rgba(200,169,107,0.85)",
-            tinta: oficial ? C.verde : C.navy,
-            tamano: 19,
-            espaciado: 2,
-            padding: 14,
-          }),
-      );
-    }
-
-    if (once.entrenador) {
-      g.el(
-        "Entrenador del once",
-        { x: x + mitad - 320, y: CUERPO_Y + 26, w: 320, h: 32 },
-        (ctx) =>
-          escribe(ctx, once.entrenador.toUpperCase(), x + mitad, CUERPO_Y + 52, {
-            tamano: 22,
-            peso: 500,
-            tinta: "#8A8370",
-            espaciado: 2,
-            alinea: "dcha",
-            maxAncho: mitad - 200,
-          }),
-      );
-    }
-
-    /* -------------------------------------------------- el campo */
-
-    const y = CUERPO_Y + 80;
-
-    const alto = CUERPO_ALTO - 80;
-
-    /* El campo guarda su proporción y se centra en la columna: estirado a lo
-       ancho, un 4-4-2 parece un 4-4-2 aplastado. */
-    const anchoCampo = Math.min(mitad, alto * 0.68);
-
-    pintaOnceEnCampo(
-      g,
-      once,
-      { x: x + (mitad - anchoCampo) / 2, y, w: anchoCampo, h: alto },
-      22,
-      partido
-        ? `${partido.local.nombre}-${partido.visitante.nombre}`
-        : `Once ${indice + 1}`,
-    );
+    pintaBloquePartido(g, once, partidos.get(once.partidoId) ?? null, {
+      x: izquierda + indice * (mitad + 40),
+      y: CUERPO_Y - 24,
+      w: mitad,
+      h: CUERPO_ALTO + 24,
+    });
   });
 
-  pie(g, "ALINEACIONES PUBLICADAS · LIGA Y PRETEMPORADA · FUENTE BESOCCER");
+  const conCambios = onces.filter((once) => (once.cambios ?? []).length > 0);
+
+  pie(
+    g,
+    conCambios.length === onces.length
+      ? "ONCE INICIAL, CAMBIOS Y CONVOCATORIA · FUENTE BESOCCER"
+      : "BESOCCER NO PUBLICA CAMBIOS DE TODOS LOS PARTIDOS · LO QUE FALTE SE VE EN EL CAMPO DE LA IZQUIERDA",
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -2593,6 +3605,16 @@ export async function construyeHojasInforme(
     urls.push(partido.local.escudo, partido.visitante.escudo);
   }
 
+  /* Los retratos de la plantilla, para las dos hojas de campograma. Son los
+     de la hoja RIVALES —Supabase—, no los de BeSoccer. */
+  for (const jugador of data.plantilla ?? []) {
+    if (jugador.foto) urls.push(jugador.foto);
+  }
+
+  for (const etapa of informe.entrenador?.trayectoria ?? []) {
+    if (etapa.escudo) urls.push(etapa.escudo);
+  }
+
   const imagenes = await bajaImagenes(urls);
 
   const escudo = imagenes.get(informe.escudo) ?? null;
@@ -2638,6 +3660,11 @@ export async function construyeHojasInforme(
 
   hoja("Estadísticas", (g) => pintaEstadisticas(g, data, escudo, conFicha));
 
+  /* La tabla de tipología del original. Sin goles no hay nada que repartir. */
+  if (conFicha.length > 0) {
+    hoja("Tipología de gol", (g) => pintaTipologia(g, data, escudo, conFicha));
+  }
+
   if (informe.entrenador || informe.estadio) {
     hoja("El club", (g) =>
       pintaClub(
@@ -2650,21 +3677,25 @@ export async function construyeHojasInforme(
     );
   }
 
-  if (onces.length > 0) {
-    const partido = porId.get(onces[0].partidoId) ?? null;
-
-    /* El título de la diapositiva —lo que se lee en el panel de PowerPoint y
-       en el buscador de Windows— también dice de qué competición es. */
-    hoja(
-      partido
-        ? `Último once · ${esLiga(partido) ? "liga" : "amistoso"}`
-        : "Último once",
-      (g) => pintaPosibleAlineacion(g, data, escudo, onces[0], partido),
-    );
+  /*
+  | Las dos hojas de campograma. Van con la plantilla de la hoja RIVALES, no
+  | con BeSoccer, así que sólo salen cuando la pantalla las manda —el arnés de
+  | consola, por ejemplo, no tiene plantilla y monta el informe sin ellas—.
+  */
+  if ((data.plantilla ?? []).length > 0) {
+    hoja("Plantilla", (g) => pintaPlantilla(g, data, escudo, imagenes));
   }
 
-  /* Los anteriores, de dos en dos, hasta completar los seis. */
-  for (let i = 1; i < Math.min(onces.length, ONCES_EN_INFORME); i += 2) {
+  if ((data.onceProbable ?? []).length > 0) {
+    hoja("Once probable", (g) => pintaOnceProbable(g, data, escudo, imagenes));
+  }
+
+  /*
+  | Y los partidos, de dos en dos hasta los seis. Aquí ya no hay hoja de
+  | «último once»: el once que se espera es el de la hoja anterior, que lo pone
+  | el cuerpo técnico, y el que jugó el rival sale aquí con sus cambios.
+  */
+  for (let i = 0; i < Math.min(onces.length, ONCES_EN_INFORME); i += 2) {
     const pareja = onces.slice(i, i + 2);
 
     const cuales = pareja
@@ -2675,8 +3706,8 @@ export async function construyeHojasInforme(
       })
       .join(" y ");
 
-    hoja(`Alineaciones anteriores · ${cuales}`, (g) =>
-      pintaAlineaciones(g, data, escudo, pareja, porId),
+    hoja(`Partidos · ${cuales}`, (g) =>
+      pintaPartidos(g, data, escudo, pareja, porId),
     );
   }
 

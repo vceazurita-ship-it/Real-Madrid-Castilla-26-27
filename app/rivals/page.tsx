@@ -51,6 +51,7 @@ import {
   seDibuja,
   type OnceEstado,
 } from "@/lib/rivals/once";
+import { reparteCampo } from "@/lib/rivals/once-campo";
 import OnceCampoDialog, {
   type OnceCampoCandidato,
   type OnceCampoFicha,
@@ -1175,13 +1176,18 @@ export default function RivalPlayersPage() {
   | elegir —sale la plantilla entera, que es el punto— y el sitio donde se
   | decide quién juega es el propio PowerPoint, media hora antes del partido.
   */
-  const exportarAlineacionPptx = useCallback(async () => {
-    if (!pitchPlayers.length) return;
-
-    setExportando(true);
-
-    try {
-      const jugadores: AlineacionJugador[] = pitchPlayers.map((player) => {
+  /*
+  | La plantilla del rival con la ficha entera: cara, dorsal, pie, altura, peso
+  | y los números de la temporada que manda.
+  |
+  | La comparten el campograma de día de partido y las dos hojas de campograma
+  | del informe del rival, que llevan **la misma ficha** a propósito: el mismo
+  | equipo no puede salir de dos maneras distintas en dos documentos de la
+  | misma carpeta.
+  */
+  const jugadoresPlantilla = useMemo<AlineacionJugador[]>(
+    () =>
+      pitchPlayers.map((player) => {
         const stats = findStats(statsDoc, player);
 
         /* La misma temporada que resalta la ficha: en agosto la actual está a
@@ -1207,13 +1213,49 @@ export default function RivalPlayersPage() {
           goles: season?.goles ?? null,
           encajados: season?.encajados ?? null,
         };
-      });
+      }),
+    [pitchPlayers, statsDoc],
+  );
 
+  /*
+  | Dónde está puesto cada uno del once probable, en tanto por uno del campo
+  | vertical: lo mismo que ve el pop-up del PDF y lo que se lleva la hoja de
+  | «once probable» del informe. Quien tenga sitio a mano se queda con el suyo.
+  */
+  const onceProbableSitios = useMemo(() => {
+    const enCampo = campoJugadores.filter((jugador) => jugador.enCampo);
+
+    if (enCampo.length === 0) return [];
+
+    const sitios = reparteCampo(enCampo, once.doc.campo);
+
+    return enCampo.flatMap((jugador) => {
+      const sitio = sitios.get(jugador.clave);
+
+      return sitio
+        ? [
+            {
+              clave: jugador.clave,
+              x: sitio.x,
+              y: sitio.y,
+              estado: jugador.estado,
+            },
+          ]
+        : [];
+    });
+  }, [campoJugadores, once.doc.campo]);
+
+  const exportarAlineacionPptx = useCallback(async () => {
+    if (!pitchPlayers.length) return;
+
+    setExportando(true);
+
+    try {
       const nombre = await exportAlineacionPptx({
         equipo: equipoDelOnce,
         escudo: escudoDe(equipoDelOnce),
         temporada: temporadaCorta(statsDoc?.temporada),
-        jugadores,
+        jugadores: jugadoresPlantilla,
       });
 
       toast.success("Campograma de día de partido exportado", {
@@ -1230,7 +1272,7 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [pitchPlayers, statsDoc, equipoDelOnce, escudoDe]);
+  }, [pitchPlayers, jugadoresPlantilla, statsDoc, equipoDelOnce, escudoDe]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1287,6 +1329,10 @@ export default function RivalPlayersPage() {
         enSuCampo: partido ? !partido.local : true,
         temporada: temporadaCorta(doc?.temporada),
         competicion: doc?.competicion ?? "",
+        /* Las dos hojas de campograma salen de la hoja RIVALES y del once que
+           ha colocado el cuerpo técnico, no de BeSoccer. */
+        plantilla: jugadoresPlantilla,
+        onceProbable: onceProbableSitios,
       };
 
       const hojas = await construyeHojasInforme(data);
@@ -1304,7 +1350,13 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [selectedTeam, ordenRivales, pideInforme]);
+  }, [
+    selectedTeam,
+    ordenRivales,
+    pideInforme,
+    jugadoresPlantilla,
+    onceProbableSitios,
+  ]);
 
   /** Lo que sale del editor: las hojas ya retocadas, al `.pptx`. */
   const exportarInformeEditado = useCallback(
