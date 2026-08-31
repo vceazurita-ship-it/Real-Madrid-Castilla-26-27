@@ -295,6 +295,22 @@ export function marcador(partido: Partido) {
  * referencia que hay antes de que empiece.
  */
 export function balance(informe: InformeEquipo, soloLiga: boolean) {
+  return cuenta(informe, soloLiga ? "liga" : "todo");
+}
+
+/**
+ * Lo mismo, pero **sólo la pretemporada**.
+ *
+ * El informe enseña los dos balances uno debajo del otro desde que el cuerpo
+ * técnico pidió que no se mezclaran: cuatro amistosos de agosto contra equipos
+ * de otra categoría no dicen lo mismo que cuatro jornadas de liga, y sumados
+ * en una sola fila de cifras no había manera de saber cuál era cuál.
+ */
+export function balanceAmistosos(informe: InformeEquipo) {
+  return cuenta(informe, "amistosos");
+}
+
+function cuenta(informe: InformeEquipo, que: "liga" | "amistosos" | "todo") {
   let favor = 0;
   let contra = 0;
   let ganados = 0;
@@ -304,7 +320,8 @@ export function balance(informe: InformeEquipo, soloLiga: boolean) {
 
   for (const partido of informe.partidos) {
     if (!partido.jugado) continue;
-    if (soloLiga && !esLiga(partido)) continue;
+    if (que === "liga" && !esLiga(partido)) continue;
+    if (que === "amistosos" && esLiga(partido)) continue;
 
     const propios = partido.enCasa
       ? partido.local.goles
@@ -336,4 +353,21 @@ export function balance(informe: InformeEquipo, soloLiga: boolean) {
  */
 export function esLiga(partido: Partido) {
   return !/amistos/i.test(partido.competicion);
+}
+
+/**
+ * Cómo se rotula la competición de un partido en una diapositiva.
+ *
+ | Un once de pretemporada y un once de liga no se leen igual: el de agosto
+ | lleva a cuatro del filial y a los tres que estaban a prueba. Antes la hoja
+ | de alineaciones sólo decía el marcador, y quien la miraba el viernes no
+ | tenía forma de saber si aquel 1-4-4-2 era de un amistoso en Boadilla o de
+ | la última jornada, así que ahora va escrito al lado del título.
+ */
+export function rotuloCompeticion(partido: Partido | null | undefined) {
+  if (!partido) return "";
+
+  if (!esLiga(partido)) return "PRETEMPORADA · AMISTOSO";
+
+  return (partido.competicion || "COMPETICIÓN OFICIAL").toUpperCase();
 }

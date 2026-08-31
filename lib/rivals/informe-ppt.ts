@@ -19,11 +19,17 @@
 | mismo de la portada del jugador, del PDF del once y del campograma de día de
 | partido. Todo eso vive en `lienzo-club.ts`.
 |
-| **Cada diapositiva va como una imagen.** Es lo contrario del campograma de
-| día de partido, que manda cada ficha suelta para poder borrar a los que no
-| salen (`lib/export/pptx.ts` lo explica de los dos lados). Aquí no hay nada
-| que borrar: el informe se lee, no se manipula, y si un dato cambia se vuelve
-| a exportar, que cuesta un clic.
+| **Cada bloque va como una pieza suelta.** Al principio no: la diapositiva
+| entera salía como una imagen a sangre, porque el informe se lee y no se
+| manipula. Duró poco. El cuerpo técnico remata el documento en Office —quita
+| el equipo que no interesa de la tabla, se lleva un campo a otra hoja, replica
+| una ficha para comparar— y sobre una captura eso no se puede hacer.
+|
+| Así que la hoja es ahora el papel de fondo más un montón de piezas, cada una
+| en su PNG transparente y cada una un objeto propio de PowerPoint. Quien las
+| recoge es `GuionHoja` (`informe-elementos.ts`), y antes de exportar se pasa
+| por el editor de `components/rivals/InformePptEditor.tsx`, donde se arrastran,
+| se estiran, se replican y se borran.
 |
 | Como `once-pdf` y `portada`, esto **no sabe nada de la hoja ni del estado de
 | la página**: recibe el informe ya resuelto y sólo lo coloca y lo pinta.
@@ -34,14 +40,26 @@
 | dentro, que es lo que haría cualquiera a mano.
 */
 
-import { creaPptx, type DiapositivaPptx } from "@/lib/export/pptx";
+import { creaPptx, type CapaPptx, type DiapositivaPptx } from "@/lib/export/pptx";
 import { descarga } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 import {
+  GuionHoja,
+  LIENZO_H,
+  LIENZO_W,
+  lienzoInforme,
+  type ElementoInforme,
+  type HojaInforme,
+} from "@/lib/rivals/informe-elementos";
+
+import {
   balance,
+  balanceAmistosos,
+  esLiga,
   filaPropia,
   jugados,
+  rotuloCompeticion,
   type FilaClasificacion,
   type InformeEquipo,
   type OncePartido,
@@ -85,11 +103,8 @@ export type InformeData = {
 /* ------------------------------------------------------------------ */
 
 /** La diapositiva: 12192000×6858000 EMU a 6350 EMU por píxel. */
-const W = 1920;
-const H = 1080;
-
-/** A cuánto se multiplican los lienzos. Igual que la portada: 2 llega a 4K. */
-const ESCALA = 2;
+const W = LIENZO_W;
+const H = LIENZO_H;
 
 /** La franja de cabecera, con el título y el escudo. */
 const CABECERA = 116;
@@ -112,22 +127,7 @@ const ROJO_DERROTA = "#B4454F";
 /*  LIENZO                                                             */
 /* ------------------------------------------------------------------ */
 
-function lienzo(ancho: number, alto: number) {
-  const canvas = document.createElement("canvas");
-
-  canvas.width = Math.round(ancho * ESCALA);
-  canvas.height = Math.round(alto * ESCALA);
-
-  const ctx = canvas.getContext("2d");
-
-  if (!ctx) throw new Error("El navegador no ha dado lienzo.");
-
-  ctx.scale(ESCALA, ESCALA);
-  ctx.imageSmoothingQuality = "high";
-  ctx.textBaseline = "alphabetic";
-
-  return { canvas, ctx };
-}
+const lienzo = lienzoInforme;
 
 /* ------------------------------------------------------------------ */
 /*  TEXTO                                                              */
@@ -225,9 +225,11 @@ function fechaLarga(iso: string) {
 /* ------------------------------------------------------------------ */
 
 /** El papel: es el fondo de todas las hojas menos la portada y la contra. */
-function papel(ctx: Ctx) {
-  ctx.fillStyle = C.crema;
-  ctx.fillRect(0, 0, W, H);
+function papel(g: GuionHoja) {
+  g.fondo((ctx) => {
+    ctx.fillStyle = C.crema;
+    ctx.fillRect(0, 0, W, H);
+  });
 }
 
 /**
@@ -237,101 +239,150 @@ function papel(ctx: Ctx) {
  * capturas: el mismo alto, la misma tinta y el mismo sitio en todas.
  */
 function cabecera(
-  ctx: Ctx,
+  g: GuionHoja,
   titulo: string,
   data: InformeData,
   escudo: HTMLImageElement | null,
 ) {
-  ctx.fillStyle = C.navy;
-  ctx.fillRect(0, 0, W, CABECERA);
+  /*
+  | La franja, el título y el bloque del rival van por separado a posta: quien
+  | remonta la hoja en Office suele querer el título en otro sitio, o quitar el
+  | escudo porque ya lo lleva la plantilla del club, y con la cabecera en una
+  | sola pieza había que borrarla entera.
+  */
+  g.el("Franja de cabecera", { x: 0, y: 0, w: W, h: CABECERA }, (ctx) => {
+    ctx.fillStyle = C.navy;
+    ctx.fillRect(0, 0, W, CABECERA);
 
-  /* La pincelada verde de abajo, que es la firma de la plantilla. */
-  ctx.fillStyle = C.verde;
-  ctx.fillRect(0, CABECERA - 6, W, 6);
-
-  escribe(ctx, titulo, MARGEN, 74, {
-    tamano: 52,
-    tinta: C.papel,
-    espaciado: 3,
-    maxAncho: W - MARGEN * 2 - 460,
+    /* La pincelada verde de abajo, que es la firma de la plantilla. */
+    ctx.fillStyle = C.verde;
+    ctx.fillRect(0, CABECERA - 6, W, 6);
   });
+
+  g.el(
+    `Título · ${titulo}`,
+    { x: MARGEN, y: 18, w: W - MARGEN * 2 - 460, h: 62 },
+    (ctx) =>
+      escribe(ctx, titulo, MARGEN, 74, {
+        tamano: 52,
+        tinta: C.papel,
+        espaciado: 3,
+        maxAncho: W - MARGEN * 2 - 460,
+      }),
+  );
 
   /* -------------------------------------------------- a la derecha */
 
   const derecha = W - MARGEN;
 
-  if (escudo) encaja(ctx, escudo, derecha - 78, 16, 78, 78);
+  if (escudo) {
+    g.el(
+      "Escudo del rival",
+      { x: derecha - 78, y: 16, w: 78, h: 78 },
+      (ctx) => encaja(ctx, escudo, derecha - 78, 16, 78, 78),
+    );
+  }
 
   const finTexto = escudo ? derecha - 96 : derecha;
 
-  escribe(ctx, data.informe.nombreLargo.toUpperCase(), finTexto, 56, {
-    tamano: 34,
-    tinta: C.papel,
-    espaciado: 2,
-    alinea: "dcha",
-    maxAncho: 380,
-  });
+  g.el(
+    "Nombre del rival",
+    { x: finTexto - 400, y: 20, w: 400, h: 44 },
+    (ctx) =>
+      escribe(ctx, data.informe.nombreLargo.toUpperCase(), finTexto, 56, {
+        tamano: 34,
+        tinta: C.papel,
+        espaciado: 2,
+        alinea: "dcha",
+        maxAncho: 380,
+      }),
+  );
 
-  escribe(ctx, `TEMPORADA ${data.temporada}`, finTexto, 84, {
-    tamano: 20,
-    peso: 500,
-    tinta: "#8FA3B8",
-    espaciado: 3,
-    alinea: "dcha",
-  });
+  g.el("Temporada", { x: finTexto - 400, y: 62, w: 400, h: 30 }, (ctx) =>
+    escribe(ctx, `TEMPORADA ${data.temporada}`, finTexto, 84, {
+      tamano: 20,
+      peso: 500,
+      tinta: "#8FA3B8",
+      espaciado: 3,
+      alinea: "dcha",
+    }),
+  );
 }
 
 /** El pie: quién lo firma y de dónde salen los números. */
-function pie(ctx: Ctx, nota: string) {
-  ctx.fillStyle = "#C3BCA9";
-  ctx.fillRect(MARGEN, H - 52, ANCHO, 1);
-
-  escribe(ctx, "REAL MADRID CASTILLA", MARGEN, H - 26, {
-    tamano: 19,
-    peso: 600,
-    tinta: "#8A8370",
-    espaciado: 3,
+function pie(g: GuionHoja, nota: string) {
+  g.el("Línea del pie", { x: MARGEN, y: H - 54, w: ANCHO, h: 4 }, (ctx) => {
+    ctx.fillStyle = "#C3BCA9";
+    ctx.fillRect(MARGEN, H - 52, ANCHO, 1);
   });
 
-  escribe(ctx, nota, W - MARGEN, H - 26, {
-    tamano: 19,
-    peso: 500,
-    tinta: "#8A8370",
-    espaciado: 2,
-    alinea: "dcha",
-  });
+  g.el("Firma del pie", { x: MARGEN, y: H - 48, w: 420, h: 30 }, (ctx) =>
+    escribe(ctx, "REAL MADRID CASTILLA", MARGEN, H - 26, {
+      tamano: 19,
+      peso: 600,
+      tinta: "#8A8370",
+      espaciado: 3,
+    }),
+  );
+
+  g.el(
+    "Nota del pie",
+    { x: W - MARGEN - 1100, y: H - 48, w: 1100, h: 30 },
+    (ctx) =>
+      escribe(ctx, nota, W - MARGEN, H - 26, {
+        tamano: 19,
+        peso: 500,
+        tinta: "#8A8370",
+        espaciado: 2,
+        alinea: "dcha",
+      }),
+  );
 }
 
-/** Un panel de los que dividen el cuerpo de una hoja. */
+/**
+ * Un panel de los que dividen el cuerpo de una hoja.
+ *
+ * El panel es **una pieza sola** —marco y cinta— y lo que va dentro son otras
+ * tantas: así se puede mover el bloque entero arrastrando su marco, o quitar
+ * el marco y dejar el contenido suelto sobre el papel.
+ *
+ * Devuelve, como siempre, dónde empieza lo de dentro.
+ */
 function panel(
-  ctx: Ctx,
+  g: GuionHoja,
   x: number,
   y: number,
   w: number,
   h: number,
   titulo: string,
 ) {
-  ctx.fillStyle = C.papel;
-  rectRedondo(ctx, x, y, w, h, 18);
-  ctx.fill();
+  g.el(
+    titulo ? `Panel · ${titulo}` : "Panel",
+    { x, y, w, h },
+    (ctx) => {
+      ctx.fillStyle = C.papel;
+      rectRedondo(ctx, x, y, w, h, 18);
+      ctx.fill();
 
-  if (!titulo) return y + 28;
+      if (!titulo) return;
 
-  ctx.fillStyle = C.verde;
-  rectRedondo(ctx, x, y, w, 46, 18);
-  ctx.fill();
+      ctx.fillStyle = C.verde;
+      rectRedondo(ctx, x, y, w, 46, 18);
+      ctx.fill();
 
-  /* Las esquinas de abajo de la cinta, cuadradas: la redondez es del panel. */
-  ctx.fillRect(x, y + 28, w, 18);
+      /* Las esquinas de abajo de la cinta, cuadradas: la redondez es del panel. */
+      ctx.fillRect(x, y + 28, w, 18);
 
-  escribe(ctx, titulo, x + 20, y + 32, {
-    tamano: 24,
-    tinta: C.papel,
-    espaciado: 3,
-    maxAncho: w - 40,
-  });
+      escribe(ctx, titulo, x + 20, y + 32, {
+        tamano: 24,
+        tinta: C.papel,
+        espaciado: 3,
+        maxAncho: w - 40,
+      });
+    },
+  );
 
-  return y + 46;
+  return titulo ? y + 46 : y + 28;
 }
 
 /** La píldora de un resultado: G verde, E ámbar, P roja. */
@@ -354,80 +405,105 @@ function tintaResultado(resultado: string) {
  * clasificación y el club) y por eso está fuera de los dos.
  */
 function pintaRacha(
-  ctx: Ctx,
+  g: GuionHoja,
   partidos: Partido[],
   caja: { x: number; y: number; w: number; h: number },
 ) {
   if (partidos.length === 0) {
-    escribe(ctx, "SIN PARTIDOS JUGADOS", caja.x + caja.w / 2, caja.y + 46, {
-      tamano: 24,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 2,
-      alinea: "centro",
-    });
+    g.el(
+      "Racha · sin partidos",
+      { x: caja.x, y: caja.y + 16, w: caja.w, h: 40 },
+      (ctx) =>
+        escribe(ctx, "SIN PARTIDOS JUGADOS", caja.x + caja.w / 2, caja.y + 46, {
+          tamano: 24,
+          peso: 500,
+          tinta: "#9A9384",
+          espaciado: 2,
+          alinea: "centro",
+        }),
+    );
 
     return;
   }
 
   const paso = Math.min(56, caja.h / partidos.length);
 
+  /* Una pieza por partido, no una tira entera: así se quita el amistoso que
+     ensucia la racha sin repintar nada. */
   partidos.forEach((partido, indice) => {
     const y = caja.y + paso * indice;
 
-    const centro = y + paso / 2;
-
-    /* El disco con la letra: es lo que se lee de un vistazo. */
-    const radio = Math.min(17, paso / 2 - 5);
-
-    ctx.fillStyle = tintaResultado(partido.resultado);
-    ctx.beginPath();
-    ctx.arc(caja.x + 24 + radio, centro, radio, 0, Math.PI * 2);
-    ctx.fill();
-
-    escribe(ctx, partido.resultado || "·", caja.x + 24 + radio, centro + radio * 0.42, {
-      tamano: radio * 1.2,
-      tinta: C.papel,
-      alinea: "centro",
-    });
-
-    /* Contra quién, y en qué campo. */
     const rival = partido.enCasa ? partido.visitante : partido.local;
 
-    escribe(
-      ctx,
-      `${partido.enCasa ? "vs" : "@"} ${rival.nombre.toUpperCase()}`,
-      caja.x + 34 + radio * 2,
-      centro + 8,
-      {
-        tamano: 23,
-        peso: 600,
-        tinta: C.navy,
-        espaciado: 0.5,
-        maxAncho: caja.w - radio * 2 - 190,
+    g.el(
+      `Racha · ${partido.resultado || "·"} ${rival.nombre}`,
+      { x: caja.x, y, w: caja.w, h: paso },
+      (ctx) => {
+        const centro = y + paso / 2;
+
+        /* El disco con la letra: es lo que se lee de un vistazo. */
+        const radio = Math.min(17, paso / 2 - 5);
+
+        ctx.fillStyle = tintaResultado(partido.resultado);
+        ctx.beginPath();
+        ctx.arc(caja.x + 24 + radio, centro, radio, 0, Math.PI * 2);
+        ctx.fill();
+
+        escribe(
+          ctx,
+          partido.resultado || "·",
+          caja.x + 24 + radio,
+          centro + radio * 0.42,
+          {
+            tamano: radio * 1.2,
+            tinta: C.papel,
+            alinea: "centro",
+          },
+        );
+
+        /* Contra quién, y en qué campo. */
+        escribe(
+          ctx,
+          `${partido.enCasa ? "vs" : "@"} ${rival.nombre.toUpperCase()}`,
+          caja.x + 34 + radio * 2,
+          centro + 8,
+          {
+            tamano: 23,
+            peso: 600,
+            tinta: C.navy,
+            espaciado: 0.5,
+            maxAncho: caja.w - radio * 2 - 190,
+          },
+        );
+
+        escribe(
+          ctx,
+          `${partido.local.goles ?? 0}-${partido.visitante.goles ?? 0}`,
+          caja.x + caja.w - 24,
+          centro + 8,
+          {
+            tamano: 26,
+            tinta: tintaResultado(partido.resultado),
+            espaciado: 1,
+            alinea: "dcha",
+          },
+        );
+
+        escribe(
+          ctx,
+          fechaCorta(partido.fecha),
+          caja.x + caja.w - 82,
+          centro + 7,
+          {
+            tamano: 17,
+            peso: 500,
+            tinta: "#9A9384",
+            espaciado: 1,
+            alinea: "dcha",
+          },
+        );
       },
     );
-
-    escribe(
-      ctx,
-      `${partido.local.goles ?? 0}-${partido.visitante.goles ?? 0}`,
-      caja.x + caja.w - 24,
-      centro + 8,
-      {
-        tamano: 26,
-        tinta: tintaResultado(partido.resultado),
-        espaciado: 1,
-        alinea: "dcha",
-      },
-    );
-
-    escribe(ctx, fechaCorta(partido.fecha), caja.x + caja.w - 82, centro + 7, {
-      tamano: 17,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 1,
-      alinea: "dcha",
-    });
   });
 }
 
@@ -444,15 +520,18 @@ function pintaRacha(
  * de que alguien pegara la foto.
  */
 function pintaPortada(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   estadio: HTMLImageElement | null,
 ) {
-  ctx.fillStyle = C.navy;
-  ctx.fillRect(0, 0, W, H);
+  /* La foto y su velo van al fondo: es el papel de esta hoja, no una pieza. */
+  g.fondo((ctx) => {
+    ctx.fillStyle = C.navy;
+    ctx.fillRect(0, 0, W, H);
 
-  if (estadio) {
+    if (!estadio) return;
+
     cubre(ctx, estadio, 0, 0, W, H, 0.4);
 
     /* El velo: sin él la foto se come el texto, y con él el documento tiene el
@@ -464,42 +543,63 @@ function pintaPortada(
 
     ctx.fillStyle = velo;
     ctx.fillRect(0, 0, W, H);
-  }
+  });
 
   /* -------------------------------------------------- el escudo */
 
-  if (escudo) encaja(ctx, escudo, MARGEN + 20, H / 2 - 190, 340, 340);
+  if (escudo) {
+    g.el(
+      "Escudo grande",
+      { x: MARGEN + 20, y: H / 2 - 190, w: 340, h: 340 },
+      (ctx) => encaja(ctx, escudo, MARGEN + 20, H / 2 - 190, 340, 340),
+    );
+  }
 
   /* -------------------------------------------------- el titular */
 
   const x = MARGEN + 420;
 
   if (data.jornada) {
-    chapa(ctx, `JORNADA ${data.jornada}`, {
-      x,
-      y: H / 2 - 214,
-      alto: 52,
-      fondo: C.rosa,
-      tinta: C.navy,
-      tamano: 28,
-      espaciado: 5,
-      padding: 26,
-    });
+    g.el(
+      `Chapa · JORNADA ${data.jornada}`,
+      { x, y: H / 2 - 214, w: 340, h: 52 },
+      (ctx) =>
+        chapa(ctx, `JORNADA ${data.jornada}`, {
+          x,
+          y: H / 2 - 214,
+          alto: 52,
+          fondo: C.rosa,
+          tinta: C.navy,
+          tamano: 28,
+          espaciado: 5,
+          padding: 26,
+        }),
+    );
   }
 
-  escribe(ctx, "INFORME DE RIVAL", x, H / 2 - 116, {
-    tamano: 46,
-    peso: 600,
-    tinta: "#8FA3B8",
-    espaciado: 12,
-  });
+  g.el(
+    "Antetítulo · INFORME DE RIVAL",
+    { x, y: H / 2 - 160, w: W - x - MARGEN, h: 56 },
+    (ctx) =>
+      escribe(ctx, "INFORME DE RIVAL", x, H / 2 - 116, {
+        tamano: 46,
+        peso: 600,
+        tinta: "#8FA3B8",
+        espaciado: 12,
+      }),
+  );
 
-  escribe(ctx, data.informe.nombreLargo.toUpperCase(), x, H / 2 + 10, {
-    tamano: 128,
-    tinta: C.papel,
-    espaciado: 2,
-    maxAncho: W - x - MARGEN,
-  });
+  g.el(
+    "Titular · nombre del rival",
+    { x, y: H / 2 - 124, w: W - x - MARGEN, h: 148 },
+    (ctx) =>
+      escribe(ctx, data.informe.nombreLargo.toUpperCase(), x, H / 2 + 10, {
+        tamano: 128,
+        tinta: C.papel,
+        espaciado: 2,
+        maxAncho: W - x - MARGEN,
+      }),
+  );
 
   /* Dónde y cuándo se juega. */
   const donde = data.enSuCampo
@@ -508,33 +608,51 @@ function pintaPortada(
 
   const cuando = data.fecha ? ` · ${fechaLarga(data.fecha)}` : "";
 
-  escribe(ctx, `${donde}${cuando}`, x, H / 2 + 66, {
-    tamano: 30,
-    peso: 500,
-    tinta: C.rosa,
-    espaciado: 5,
-    maxAncho: W - x - MARGEN,
-  });
+  g.el(
+    "Dónde y cuándo",
+    { x, y: H / 2 + 28, w: W - x - MARGEN, h: 48 },
+    (ctx) =>
+      escribe(ctx, `${donde}${cuando}`, x, H / 2 + 66, {
+        tamano: 30,
+        peso: 500,
+        tinta: C.rosa,
+        espaciado: 5,
+        maxAncho: W - x - MARGEN,
+      }),
+  );
 
   /* -------------------------------------------------- el pie */
 
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
-  ctx.fillRect(MARGEN, H - 108, ANCHO, 1);
+  g.el(
+    "Línea del pie",
+    { x: MARGEN, y: H - 110, w: ANCHO, h: 4 },
+    (ctx) => {
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(MARGEN, H - 108, ANCHO, 1);
+    },
+  );
 
-  escribe(ctx, `REAL MADRID CASTILLA · TEMP ${data.temporada}`, MARGEN, H - 62, {
-    tamano: 28,
-    peso: 600,
-    tinta: C.papel,
-    espaciado: 6,
-  });
+  g.el("Firma del pie", { x: MARGEN, y: H - 96, w: 900, h: 44 }, (ctx) =>
+    escribe(ctx, `REAL MADRID CASTILLA · TEMP ${data.temporada}`, MARGEN, H - 62, {
+      tamano: 28,
+      peso: 600,
+      tinta: C.papel,
+      espaciado: 6,
+    }),
+  );
 
-  escribe(ctx, data.competicion.toUpperCase(), W - MARGEN, H - 62, {
-    tamano: 24,
-    peso: 500,
-    tinta: "#8FA3B8",
-    espaciado: 4,
-    alinea: "dcha",
-  });
+  g.el(
+    "Competición",
+    { x: W - MARGEN - 800, y: H - 92, w: 800, h: 40 },
+    (ctx) =>
+      escribe(ctx, data.competicion.toUpperCase(), W - MARGEN, H - 62, {
+        tamano: 24,
+        peso: 500,
+        tinta: "#8FA3B8",
+        espaciado: 4,
+        alinea: "dcha",
+      }),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -554,7 +672,7 @@ const COLUMNAS: { clave: keyof FilaClasificacion; titulo: string; w: number }[] 
   ];
 
 function pintaTablaClasificacion(
-  ctx: Ctx,
+  g: GuionHoja,
   filas: FilaClasificacion[],
   informe: InformeEquipo,
   escudos: Map<string, HTMLImageElement | null>,
@@ -566,117 +684,156 @@ function pintaTablaClasificacion(
 
   /* -------------------------------------------------- cabecera */
 
-  let x = caja.x + caja.w - 12 - anchoNumeros;
+  g.el(
+    "Tabla · cabecera de columnas",
+    { x: caja.x + caja.w - 12 - anchoNumeros, y: caja.y, w: anchoNumeros, h: 30 },
+    (ctx) => {
+      let x = caja.x + caja.w - 12 - anchoNumeros;
 
-  for (const columna of COLUMNAS) {
-    escribe(ctx, columna.titulo, x + columna.w / 2, caja.y + 22, {
-      tamano: 18,
-      peso: 600,
-      tinta: "#8A8370",
-      espaciado: 1,
-      alinea: "centro",
-    });
+      for (const columna of COLUMNAS) {
+        escribe(ctx, columna.titulo, x + columna.w / 2, caja.y + 22, {
+          tamano: 18,
+          peso: 600,
+          tinta: "#8A8370",
+          espaciado: 1,
+          alinea: "centro",
+        });
 
-    x += columna.w;
-  }
+        x += columna.w;
+      }
+    },
+  );
 
   /* -------------------------------------------------- filas */
 
+  /*
+  | Cada equipo, una pieza. Es la razón de ser de todo esto: la tabla de
+  | diecinueve no cabe en la charla, y en Office se borran de un tirón los ocho
+  | que no pintan nada dejando al rival con los tres de arriba y los tres de
+  | abajo.
+  */
   filas.forEach((fila, indice) => {
     const y = caja.y + 34 + paso * indice;
 
     const mio = fila.slug === informe.slug;
 
-    if (mio) {
-      ctx.fillStyle = "rgba(246,175,182,0.45)";
-      rectRedondo(ctx, caja.x + 4, y, caja.w - 8, paso - 2, 8);
-      ctx.fill();
-    } else if (indice % 2 === 1) {
-      ctx.fillStyle = "rgba(0,0,0,0.028)";
-      ctx.fillRect(caja.x + 4, y, caja.w - 8, paso - 2);
-    }
+    g.el(
+      `Tabla · ${fila.puesto}º ${fila.equipo}`,
+      { x: caja.x, y, w: caja.w, h: paso },
+      (ctx) => {
+        if (mio) {
+          ctx.fillStyle = "rgba(246,175,182,0.45)";
+          rectRedondo(ctx, caja.x + 4, y, caja.w - 8, paso - 2, 8);
+          ctx.fill();
+        } else if (indice % 2 === 1) {
+          ctx.fillStyle = "rgba(0,0,0,0.028)";
+          ctx.fillRect(caja.x + 4, y, caja.w - 8, paso - 2);
+        }
 
-    const centro = y + paso / 2 + 6;
+        const centro = y + paso / 2 + 6;
 
-    escribe(ctx, String(fila.puesto), caja.x + 30, centro, {
-      tamano: 20,
-      peso: mio ? 700 : 500,
-      tinta: mio ? C.navy : "#6C6659",
-      alinea: "dcha",
-    });
+        escribe(ctx, String(fila.puesto), caja.x + 30, centro, {
+          tamano: 20,
+          peso: mio ? 700 : 500,
+          tinta: mio ? C.navy : "#6C6659",
+          alinea: "dcha",
+        });
 
-    const escudo = escudos.get(fila.escudo);
+        const escudo = escudos.get(fila.escudo);
 
-    if (escudo) encaja(ctx, escudo, caja.x + 40, y + 3, paso - 8, paso - 8);
+        if (escudo) encaja(ctx, escudo, caja.x + 40, y + 3, paso - 8, paso - 8);
 
-    escribe(ctx, fila.equipo, caja.x + 44 + paso, centro, {
-      tamano: 22,
-      peso: mio ? 700 : 600,
-      tinta: C.navy,
-      espaciado: 0.5,
-      maxAncho: caja.w - anchoNumeros - paso - 70,
-    });
+        escribe(ctx, fila.equipo, caja.x + 44 + paso, centro, {
+          tamano: 22,
+          peso: mio ? 700 : 600,
+          tinta: C.navy,
+          espaciado: 0.5,
+          maxAncho: caja.w - anchoNumeros - paso - 70,
+        });
 
-    let columnaX = caja.x + caja.w - 12 - anchoNumeros;
+        let columnaX = caja.x + caja.w - 12 - anchoNumeros;
 
-    for (const columna of COLUMNAS) {
-      escribe(
-        ctx,
-        String(fila[columna.clave] ?? ""),
-        columnaX + columna.w / 2,
-        centro,
-        {
-          tamano: 21,
-          peso: columna.clave === "puntos" ? 700 : 500,
-          tinta: columna.clave === "puntos" ? C.verde : "#4A4438",
-          alinea: "centro",
-        },
-      );
+        for (const columna of COLUMNAS) {
+          escribe(
+            ctx,
+            String(fila[columna.clave] ?? ""),
+            columnaX + columna.w / 2,
+            centro,
+            {
+              tamano: 21,
+              peso: columna.clave === "puntos" ? 700 : 500,
+              tinta: columna.clave === "puntos" ? C.verde : "#4A4438",
+              alinea: "centro",
+            },
+          );
 
-      columnaX += columna.w;
-    }
+          columnaX += columna.w;
+        }
+      },
+    );
   });
 }
 
 /** El resumen de una pestaña —local o visitante— en cifras grandes. */
 function pintaResumenTabla(
-  ctx: Ctx,
+  g: GuionHoja,
   titulo: string,
   fila: FilaClasificacion | null,
   caja: { x: number; y: number; w: number; h: number },
   destacado: boolean,
 ) {
-  const dentro = panel(ctx, caja.x, caja.y, caja.w, caja.h, titulo);
+  const dentro = panel(g, caja.x, caja.y, caja.w, caja.h, titulo);
 
   if (!fila) {
-    escribe(ctx, "SIN DATOS TODAVÍA", caja.x + caja.w / 2, dentro + 60, {
-      tamano: 24,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 2,
-      alinea: "centro",
-    });
+    g.el(
+      `${titulo} · sin datos`,
+      { x: caja.x, y: dentro + 30, w: caja.w, h: 40 },
+      (ctx) =>
+        escribe(ctx, "SIN DATOS TODAVÍA", caja.x + caja.w / 2, dentro + 60, {
+          tamano: 24,
+          peso: 500,
+          tinta: "#9A9384",
+          espaciado: 2,
+          alinea: "centro",
+        }),
+    );
 
     return;
   }
 
   if (destacado) {
-    ctx.fillStyle = "rgba(246,175,182,0.35)";
-    ctx.fillRect(caja.x, dentro, caja.w, caja.h - (dentro - caja.y));
+    g.el(
+      `${titulo} · destacado`,
+      { x: caja.x, y: dentro, w: caja.w, h: caja.h - (dentro - caja.y) },
+      (ctx) => {
+        ctx.fillStyle = "rgba(246,175,182,0.35)";
+        ctx.fillRect(caja.x, dentro, caja.w, caja.h - (dentro - caja.y));
+      },
+    );
   }
 
   /* El puesto, que es lo que se lee de lejos. */
-  escribe(ctx, `${fila.puesto}º`, caja.x + 30, dentro + 78, {
-    tamano: 76,
-    tinta: C.navy,
-  });
+  g.el(
+    `${titulo} · puesto`,
+    { x: caja.x + 24, y: dentro + 6, w: 150, h: 84 },
+    (ctx) =>
+      escribe(ctx, `${fila.puesto}º`, caja.x + 30, dentro + 78, {
+        tamano: 76,
+        tinta: C.navy,
+      }),
+  );
 
-  escribe(ctx, `${fila.puntos} PTS`, caja.x + 30, dentro + 112, {
-    tamano: 26,
-    peso: 600,
-    tinta: C.verde,
-    espaciado: 3,
-  });
+  g.el(
+    `${titulo} · puntos`,
+    { x: caja.x + 24, y: dentro + 86, w: 150, h: 34 },
+    (ctx) =>
+      escribe(ctx, `${fila.puntos} PTS`, caja.x + 30, dentro + 112, {
+        tamano: 26,
+        peso: 600,
+        tinta: C.verde,
+        espaciado: 3,
+      }),
+  );
 
   /* Y a la derecha el desglose. */
   const celdas = [
@@ -694,30 +851,36 @@ function pintaResumenTabla(
     const x = caja.x + 176 + ancho * (indice % 3) + ancho / 2;
     const y = dentro + 46 + Math.floor(indice / 3) * 66;
 
-    escribe(ctx, String(celda.valor), x, y, {
-      tamano: 34,
-      tinta: C.navy,
-      alinea: "centro",
-    });
+    g.el(
+      `${titulo} · ${celda.titulo}`,
+      { x: x - ancho / 2, y: y - 38, w: ancho, h: 70 },
+      (ctx) => {
+        escribe(ctx, String(celda.valor), x, y, {
+          tamano: 34,
+          tinta: C.navy,
+          alinea: "centro",
+        });
 
-    escribe(ctx, celda.titulo, x, y + 22, {
-      tamano: 17,
-      peso: 500,
-      tinta: "#8A8370",
-      espaciado: 2,
-      alinea: "centro",
-    });
+        escribe(ctx, celda.titulo, x, y + 22, {
+          tamano: 17,
+          peso: 500,
+          tinta: "#8A8370",
+          espaciado: 2,
+          alinea: "centro",
+        });
+      },
+    );
   });
 }
 
 function pintaClasificacion(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   escudos: Map<string, HTMLImageElement | null>,
 ) {
-  papel(ctx);
-  cabecera(ctx, "CLASIFICACIÓN", data, escudo);
+  papel(g);
+  cabecera(g, "CLASIFICACIÓN", data, escudo);
 
   const informe = data.informe;
 
@@ -725,9 +888,9 @@ function pintaClasificacion(
 
   /* -------------------------------------------------- la tabla entera */
 
-  const dentro = panel(ctx, MARGEN, CUERPO_Y, anchoTabla, CUERPO_ALTO, "TOTAL");
+  const dentro = panel(g, MARGEN, CUERPO_Y, anchoTabla, CUERPO_ALTO, "TOTAL");
 
-  pintaTablaClasificacion(ctx, informe.clasificacion.total, informe, escudos, {
+  pintaTablaClasificacion(g, informe.clasificacion.total, informe, escudos, {
     x: MARGEN,
     y: dentro + 6,
     w: anchoTabla,
@@ -754,7 +917,7 @@ function pintaClasificacion(
   | igual de gordas.
   */
   pintaResumenTabla(
-    ctx,
+    g,
     "COMO LOCAL",
     filaPropia(informe.clasificacion.local, informe),
     { x, y: CUERPO_Y, w, h: alto },
@@ -762,7 +925,7 @@ function pintaClasificacion(
   );
 
   pintaResumenTabla(
-    ctx,
+    g,
     "COMO VISITANTE",
     filaPropia(informe.clasificacion.visitante, informe),
     { x, y: CUERPO_Y + alto + 20, w, h: alto },
@@ -773,9 +936,9 @@ function pintaClasificacion(
 
   const altoRacha = CUERPO_Y + CUERPO_ALTO - yRacha;
 
-  const dentroRacha = panel(ctx, x, yRacha, w, altoRacha, "ÚLTIMOS PARTIDOS");
+  const dentroRacha = panel(g, x, yRacha, w, altoRacha, "ÚLTIMOS PARTIDOS");
 
-  pintaRacha(ctx, jugados(informe).slice(0, 6), {
+  pintaRacha(g, jugados(informe).slice(0, 6), {
     x,
     y: dentroRacha + 8,
     w,
@@ -783,7 +946,7 @@ function pintaClasificacion(
   });
 
   pie(
-    ctx,
+    g,
     data.enSuCampo
       ? "SE JUEGA EN SU CAMPO · MIRA LA TABLA DE LOCAL"
       : "SE JUEGA EN EL DI STÉFANO · MIRA LA TABLA DE VISITANTE",
@@ -939,14 +1102,14 @@ function pintaResultado(
 }
 
 function pintaResultados(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   escudos: Map<string, HTMLImageElement | null>,
   partidos: Partido[],
 ) {
-  papel(ctx);
-  cabecera(ctx, "RESULTADOS DE LA TEMPORADA", data, escudo);
+  papel(g);
+  cabecera(g, "RESULTADOS DE LA TEMPORADA", data, escudo);
 
   /*
   | Hasta catorce partidos, del más reciente al más antiguo: a media temporada
@@ -981,24 +1144,35 @@ function pintaResultados(
     const columna = Math.floor(indice / porColumna);
     const fila = indice % porColumna;
 
-    pintaResultado(ctx, partido, escudos, {
+    const caja = {
       x: MARGEN + columna * (anchoColumna + hueco),
       y: arriba + fila * (alto + hueco),
       w: anchoColumna,
       h: alto,
-    });
+    };
+
+    /* La ficha entera es una pieza: se mueve, se replica y se borra de una,
+       que es como se lee —marcador en el centro y un equipo a cada lado—. */
+    g.el(
+      `Resultado · ${partido.local.nombre} ${partido.local.goles ?? 0}-${
+        partido.visitante.goles ?? 0
+      } ${partido.visitante.nombre}${esLiga(partido) ? "" : " (amistoso)"}`,
+      caja,
+      (ctx) => pintaResultado(ctx, partido, escudos, caja),
+    );
   });
 
-  pie(ctx, "GOLEADORES DE LOS ÚLTIMOS PARTIDOS · FUENTE BESOCCER");
+  pie(g, "GOLEADORES DE LOS ÚLTIMOS PARTIDOS · FUENTE BESOCCER");
 }
 
 /* ------------------------------------------------------------------ */
 /*  4 · ESTADÍSTICAS                                                   */
 /* ------------------------------------------------------------------ */
 
-/** Una cifra grande con su rótulo debajo. */
+/** Una cifra grande con su rótulo debajo, como pieza suelta. */
 function cifra(
-  ctx: Ctx,
+  g: GuionHoja,
+  nombre: string,
   valor: string,
   rotulo: string,
   x: number,
@@ -1006,15 +1180,21 @@ function cifra(
   tinta = C.navy,
   tamano = 62,
 ) {
-  escribe(ctx, valor, x, y, { tamano, tinta, alinea: "centro" });
+  g.el(
+    nombre,
+    { x: x - 130, y: y - tamano - 4, w: 260, h: tamano + 44 },
+    (ctx) => {
+      escribe(ctx, valor, x, y, { tamano, tinta, alinea: "centro" });
 
-  escribe(ctx, rotulo, x, y + 28, {
-    tamano: 18,
-    peso: 500,
-    tinta: "#8A8370",
-    espaciado: 2,
-    alinea: "centro",
-  });
+      escribe(ctx, rotulo, x, y + 28, {
+        tamano: 18,
+        peso: 500,
+        tinta: "#8A8370",
+        espaciado: 2,
+        alinea: "centro",
+      });
+    },
+  );
 }
 
 /**
@@ -1055,33 +1235,59 @@ function tramos(partidos: Partido[]) {
 }
 
 function pintaEstadisticas(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   conFicha: Partido[],
 ) {
-  papel(ctx);
-  cabecera(ctx, "ESTADÍSTICAS", data, escudo);
+  papel(g);
+  cabecera(g, "ESTADÍSTICAS", data, escudo);
 
   const informe = data.informe;
 
-  const liga = balance(informe, true);
-  const todo = balance(informe, false);
-
   /*
-  | Antes de la primera jornada no hay competición oficial y el balance salía
-  | con seis ceros, que es peor que no poner nada: lo que hay son los
-  | amistosos, y es lo que se enseña, dicho con todas las letras en el rótulo
-  | del panel. En cuanto empieza la liga manda la liga.
+  | **Liga y amistosos, por separado.** Antes se enseñaba una sola fila de
+  | cifras: la de liga en cuanto había liga, y la de pretemporada mientras no
+  | la hubiera. En septiembre eso deja fuera media docena de partidos que el
+  | cuerpo técnico sí mira —contra quién se probó, cuánto se encajó—, y en
+  | agosto hacía creer que aquellos cuatro amistosos eran competición.
+  |
+  | Ahora salen los dos balances, cada uno con su rótulo y sólo si tiene
+  | partidos: en octubre la pretemporada ya no ocupa hoja, y en agosto no hay
+  | un panel de ceros haciendo de liga.
   */
-  const oficial = liga.partidos > 0;
+  const liga = balance(informe, true);
+  const amistosos = balanceAmistosos(informe);
 
-  const cuenta = oficial ? liga : todo;
+  type Cuenta = ReturnType<typeof balance>;
 
-  /* Los dos paneles de arriba son una fila de cifras: miden lo que mide esa
-     fila y el resto de la hoja se lo lleva el gráfico, que es lo que gana con
-     el alto. */
-  const alto = 210;
+  const bloques: { titulo: string; cuenta: Cuenta; corto: string }[] = [];
+
+  if (liga.partidos > 0) {
+    bloques.push({ titulo: "BALANCE OFICIAL", cuenta: liga, corto: "LIGA" });
+  }
+
+  if (amistosos.partidos > 0) {
+    bloques.push({
+      titulo: "PRETEMPORADA · AMISTOSOS",
+      cuenta: amistosos,
+      corto: "AMIST.",
+    });
+  }
+
+  if (bloques.length === 0) {
+    bloques.push({ titulo: "BALANCE", cuenta: liga, corto: "" });
+  }
+
+  const dos = bloques.length > 1;
+
+  /* Con los dos balances las cifras encogen: siguen leyéndose de lejos y la
+     hoja no se come el gráfico de abajo, que es lo que más se mira. */
+  const altoBloque = dos ? 146 : 180;
+
+  const tamanoCifra = dos ? 46 : 62;
+
+  const alto = altoBloque * bloques.length + (bloques.length - 1) * 24;
 
   const altoAbajo = CUERPO_ALTO - 24 - alto;
 
@@ -1089,30 +1295,39 @@ function pintaEstadisticas(
 
   const anchoIzq = Math.round(ANCHO * 0.62);
 
-  let dentro = panel(
-    ctx,
-    MARGEN,
-    CUERPO_Y,
-    anchoIzq,
-    alto,
-    oficial ? "BALANCE OFICIAL" : "PRETEMPORADA",
-  );
-
-  const celdas: [string, string, string][] = [
-    [String(cuenta.partidos), "PARTIDOS", C.navy],
-    [String(cuenta.ganados), "GANADOS", VERDE_VICTORIA],
-    [String(cuenta.empatados), "EMPATADOS", AMARILLO_EMPATE],
-    [String(cuenta.perdidos), "PERDIDOS", ROJO_DERROTA],
-    [String(cuenta.favor), "A FAVOR", C.verde],
-    [String(cuenta.contra), "EN CONTRA", "#9A6169"],
-  ];
-
   const ancho = anchoIzq / 6;
 
-  /* En una sola fila: el panel es ancho y bajo, y seis cifras seguidas se leen
-     de corrido como el marcador de un estadio. */
-  celdas.forEach(([valor, rotulo, tinta], indice) => {
-    cifra(ctx, valor, rotulo, MARGEN + ancho * indice + ancho / 2, dentro + 96, tinta);
+  bloques.forEach((bloque) => {
+    const y = CUERPO_Y + bloques.indexOf(bloque) * (altoBloque + 24);
+
+    const dentroBloque = panel(g, MARGEN, y, anchoIzq, altoBloque, bloque.titulo);
+
+    const celdas: [string, string, string][] = [
+      [String(bloque.cuenta.partidos), "PARTIDOS", C.navy],
+      [String(bloque.cuenta.ganados), "GANADOS", VERDE_VICTORIA],
+      [String(bloque.cuenta.empatados), "EMPATADOS", AMARILLO_EMPATE],
+      [String(bloque.cuenta.perdidos), "PERDIDOS", ROJO_DERROTA],
+      [String(bloque.cuenta.favor), "A FAVOR", C.verde],
+      [String(bloque.cuenta.contra), "EN CONTRA", "#9A6169"],
+    ];
+
+    /* En una sola fila: el panel es ancho y bajo, y seis cifras seguidas se
+       leen de corrido como el marcador de un estadio. */
+    const base =
+      dentroBloque + (altoBloque - 46 + tamanoCifra) / 2 - 12;
+
+    celdas.forEach(([valor, rotulo, tinta], indice) => {
+      cifra(
+        g,
+        `${bloque.corto || "BALANCE"} · ${rotulo}`,
+        valor,
+        rotulo,
+        MARGEN + ancho * indice + ancho / 2,
+        base,
+        tinta,
+        tamanoCifra,
+      );
+    });
   });
 
   /* -------------------------------------------------- arriba dcha: medias */
@@ -1120,21 +1335,43 @@ function pintaEstadisticas(
   const xDer = MARGEN + anchoIzq + 24;
   const wDer = ANCHO - anchoIzq - 24;
 
-  dentro = panel(ctx, xDer, CUERPO_Y, wDer, alto, "POR PARTIDO");
+  const dentroMedias = panel(g, xDer, CUERPO_Y, wDer, alto, "POR PARTIDO");
 
-  const media = (valor: number) =>
-    cuenta.partidos > 0 ? (valor / cuenta.partidos).toFixed(2) : "—";
+  const altoMedia = (alto - 46) / bloques.length;
 
-  cifra(ctx, media(cuenta.favor), "GOLES A FAVOR", xDer + wDer / 4, dentro + 96, C.verde);
+  bloques.forEach((bloque, indice) => {
+    const media = (valor: number) =>
+      bloque.cuenta.partidos > 0
+        ? (valor / bloque.cuenta.partidos).toFixed(2)
+        : "—";
 
-  cifra(
-    ctx,
-    media(cuenta.contra),
-    "GOLES EN CONTRA",
-    xDer + (wDer * 3) / 4,
-    dentro + 96,
-    "#9A6169",
-  );
+    const base =
+      dentroMedias + altoMedia * indice + altoMedia / 2 + tamanoCifra / 2 - 14;
+
+    const sufijo = dos ? ` · ${bloque.corto}` : "";
+
+    cifra(
+      g,
+      `MEDIA · A FAVOR${sufijo}`,
+      media(bloque.cuenta.favor),
+      `A FAVOR${sufijo}`,
+      xDer + wDer / 4,
+      base,
+      C.verde,
+      tamanoCifra,
+    );
+
+    cifra(
+      g,
+      `MEDIA · EN CONTRA${sufijo}`,
+      media(bloque.cuenta.contra),
+      `EN CONTRA${sufijo}`,
+      xDer + (wDer * 3) / 4,
+      base,
+      "#9A6169",
+      tamanoCifra,
+    );
+  });
 
   /* -------------------------------------------------- abajo izq: tramos */
 
@@ -1142,25 +1379,50 @@ function pintaEstadisticas(
 
   const anchoTramos = Math.round(ANCHO * 0.62);
 
-  dentro = panel(
-    ctx,
+  /*
+  | El gráfico no mezcla: si hay partidos de liga con ficha bajada, los tramos
+  | son de liga y así lo dice el rótulo; si todavía no los hay, son los de la
+  | pretemporada. Sumar un 3-0 de agosto contra un juvenil a los goles de la
+  | jornada daba un dibujo que no servía para preparar nada.
+  */
+  const conFichaLiga = conFicha.filter((partido) => esLiga(partido));
+
+  const conFichaAmistosos = conFicha.filter((partido) => !esLiga(partido));
+
+  const deLiga = conFichaLiga.length > 0;
+
+  const paraTramos = deLiga ? conFichaLiga : conFichaAmistosos;
+
+  const dentro = panel(
+    g,
     MARGEN,
     yAbajo,
     anchoTramos,
     altoAbajo,
-    "CUÁNDO MARCA Y CUÁNDO ENCAJA",
+    `CUÁNDO MARCA Y CUÁNDO ENCAJA · ${deLiga ? "LIGA" : "PRETEMPORADA"}`,
   );
 
-  const reparto = tramos(conFicha);
+  const reparto = tramos(paraTramos);
 
   if (reparto.total === 0) {
-    escribe(ctx, "SIN GOLES QUE REPARTIR TODAVÍA", MARGEN + anchoTramos / 2, dentro + 90, {
-      tamano: 26,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 2,
-      alinea: "centro",
-    });
+    g.el(
+      "Tramos · sin goles",
+      { x: MARGEN, y: dentro + 60, w: anchoTramos, h: 44 },
+      (ctx) =>
+        escribe(
+          ctx,
+          "SIN GOLES QUE REPARTIR TODAVÍA",
+          MARGEN + anchoTramos / 2,
+          dentro + 90,
+          {
+            tamano: 26,
+            peso: 500,
+            tinta: "#9A9384",
+            espaciado: 2,
+            alinea: "centro",
+          },
+        ),
+    );
   } else {
     const maximo = Math.max(1, ...reparto.favor, ...reparto.contra);
 
@@ -1175,39 +1437,41 @@ function pintaEstadisticas(
 
       const mitad = anchoBarra / 2 - 8;
 
-      /* A favor a la izquierda de la casilla, en contra a la derecha. */
-      const barras: [number, string, number][] = [
-        [reparto.favor[indice], C.verde, x + 6],
-        [reparto.contra[indice], "#B4737B", x + mitad + 14],
-      ];
+      /* Un tramo, una pieza: incluye sus dos barras, sus dos números y la
+         etiqueta de minutos, que es lo que se mueve junto. */
+      g.el(
+        `Tramo · ${corte - 14}'-${corte}'`,
+        { x, y: dentro + 20, w: anchoBarra, h: base + 34 - dentro - 20 },
+        (ctx) => {
+          /* A favor a la izquierda de la casilla, en contra a la derecha. */
+          const barras: [number, string, number][] = [
+            [reparto.favor[indice], C.verde, x + 6],
+            [reparto.contra[indice], "#B4737B", x + mitad + 14],
+          ];
 
-      for (const [valor, tinta, barraX] of barras) {
-        const altura = (valor / maximo) * altoMax;
+          for (const [valor, tinta, barraX] of barras) {
+            const altura = (valor / maximo) * altoMax;
 
-        if (valor > 0) {
-          ctx.fillStyle = tinta;
-          rectRedondo(ctx, barraX, base - altura, mitad, altura, 6);
-          ctx.fill();
+            if (valor > 0) {
+              ctx.fillStyle = tinta;
+              rectRedondo(ctx, barraX, base - altura, mitad, altura, 6);
+              ctx.fill();
 
-          escribe(ctx, String(valor), barraX + mitad / 2, base - altura - 10, {
-            tamano: 20,
-            tinta,
+              escribe(ctx, String(valor), barraX + mitad / 2, base - altura - 10, {
+                tamano: 20,
+                tinta,
+                alinea: "centro",
+              });
+            }
+          }
+
+          escribe(ctx, `${corte - 14}'-${corte}'`, x + anchoBarra / 2, base + 26, {
+            tamano: 17,
+            peso: 500,
+            tinta: "#8A8370",
+            espaciado: 1,
             alinea: "centro",
           });
-        }
-      }
-
-      escribe(
-        ctx,
-        `${corte - 14}'-${corte}'`,
-        x + anchoBarra / 2,
-        base + 26,
-        {
-          tamano: 17,
-          peso: 500,
-          tinta: "#8A8370",
-          espaciado: 1,
-          alinea: "centro",
         },
       );
     });
@@ -1227,51 +1491,94 @@ function pintaEstadisticas(
     46 + 28 + Math.max(1, goleadores.length) * PASO_GOLEADOR,
   );
 
-  dentro = panel(ctx, xDer, yAbajo, wDer, altoGoleadores, "MÁXIMOS GOLEADORES");
+  const dentroGoleadores = panel(
+    g,
+    xDer,
+    yAbajo,
+    wDer,
+    altoGoleadores,
+    "MÁXIMOS GOLEADORES",
+  );
 
   if (goleadores.length === 0) {
-    escribe(ctx, "SIN GOLEADORES REGISTRADOS", xDer + wDer / 2, dentro + 80, {
-      tamano: 24,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 2,
-      alinea: "centro",
-    });
+    g.el(
+      "Goleadores · sin datos",
+      { x: xDer, y: dentroGoleadores + 50, w: wDer, h: 40 },
+      (ctx) =>
+        escribe(
+          ctx,
+          "SIN GOLEADORES REGISTRADOS",
+          xDer + wDer / 2,
+          dentroGoleadores + 80,
+          {
+            tamano: 24,
+            peso: 500,
+            tinta: "#9A9384",
+            espaciado: 2,
+            alinea: "centro",
+          },
+        ),
+    );
   } else {
     const paso = PASO_GOLEADOR;
 
     goleadores.forEach((goleador, indice) => {
-      const y = dentro + 20 + paso * indice;
+      const y = dentroGoleadores + 20 + paso * indice;
 
-      ctx.fillStyle = indice % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent";
-      ctx.fillRect(xDer + 12, y, wDer - 24, paso - 6);
+      g.el(
+        `Goleador · ${goleador.nombre} (${goleador.goles})`,
+        { x: xDer + 12, y, w: wDer - 24, h: paso - 6 },
+        (ctx) => {
+          ctx.fillStyle = indice % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent";
+          ctx.fillRect(xDer + 12, y, wDer - 24, paso - 6);
 
-      escribe(ctx, goleador.nombre.toUpperCase(), xDer + 28, y + paso / 2 + 6, {
-        tamano: 26,
-        peso: 600,
-        tinta: C.navy,
-        espaciado: 1,
-        maxAncho: wDer - 140,
-      });
+          escribe(
+            ctx,
+            goleador.nombre.toUpperCase(),
+            xDer + 28,
+            y + paso / 2 + 6,
+            {
+              tamano: 26,
+              peso: 600,
+              tinta: C.navy,
+              espaciado: 1,
+              maxAncho: wDer - 140,
+            },
+          );
 
-      chapa(ctx, `${goleador.goles}`, {
-        x: xDer + wDer - 28,
-        y: y + paso / 2 - 17,
-        alto: 34,
-        fondo: C.verde,
-        tinta: C.papel,
-        tamano: 22,
-        espaciado: 1,
-        padding: 14,
-        anchoMin: 44,
-        desdeDerecha: true,
-      });
+          chapa(ctx, `${goleador.goles}`, {
+            x: xDer + wDer - 28,
+            y: y + paso / 2 - 17,
+            alto: 34,
+            fondo: C.verde,
+            tinta: C.papel,
+            tamano: 22,
+            espaciado: 1,
+            padding: 14,
+            anchoMin: 44,
+            desdeDerecha: true,
+          });
+        },
+      );
     });
   }
 
+  /*
+  | El pie dice de cuántos partidos salen los minutos y **de qué clase son**:
+  | los goleadores los da BeSoccer sumados de toda la temporada, amistosos
+  | incluidos, y eso hay que decirlo donde se lee la cifra.
+  */
   pie(
-    ctx,
-    `MINUTOS Y GOLEADORES DE LOS ÚLTIMOS ${conFicha.length} PARTIDOS · FUENTE BESOCCER`,
+    g,
+    `TRAMOS DE ${paraTramos.length} PARTIDO${
+      paraTramos.length === 1 ? "" : "S"
+    } ${deLiga ? "DE LIGA" : "DE PRETEMPORADA"}${
+      deLiga && conFichaAmistosos.length > 0
+        ? ` · ${conFichaAmistosos.length} AMISTOSO${
+            conFichaAmistosos.length === 1 ? "" : "S"
+          } FUERA DEL GRÁFICO`
+        : ""
+    } · GOLEADORES DE TODA LA TEMPORADA · FUENTE BESOCCER`,
   );
 }
 
@@ -1280,14 +1587,14 @@ function pintaEstadisticas(
 /* ------------------------------------------------------------------ */
 
 function pintaClub(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   retratoEntrenador: HTMLImageElement | null,
   fotoEstadio: HTMLImageElement | null,
 ) {
-  papel(ctx);
-  cabecera(ctx, "EL CLUB", data, escudo);
+  papel(g);
+  cabecera(g, "EL CLUB", data, escudo);
 
   const informe = data.informe;
 
@@ -1302,49 +1609,70 @@ function pintaClub(
 
   /* -------------------------------------------------- entrenador */
 
-  let dentro = panel(ctx, MARGEN, CUERPO_Y, mitad, altoFicha, "ENTRENADOR");
+  const dentro = panel(g, MARGEN, CUERPO_Y, mitad, altoFicha, "ENTRENADOR");
 
   const entrenador = informe.entrenador;
 
   if (!entrenador) {
-    escribe(ctx, "SIN DATOS", MARGEN + mitad / 2, dentro + 80, {
-      tamano: 28,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 3,
-      alinea: "centro",
-    });
+    g.el(
+      "Entrenador · sin datos",
+      { x: MARGEN, y: dentro + 50, w: mitad, h: 44 },
+      (ctx) =>
+        escribe(ctx, "SIN DATOS", MARGEN + mitad / 2, dentro + 80, {
+          tamano: 28,
+          peso: 500,
+          tinta: "#9A9384",
+          espaciado: 3,
+          alinea: "centro",
+        }),
+    );
   } else {
     if (retratoEntrenador) {
-      /* Redondo, como en la ficha del jugador. */
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(MARGEN + 130, dentro + 140, 100, 0, Math.PI * 2);
-      ctx.clip();
-      cubre(ctx, retratoEntrenador, MARGEN + 30, dentro + 40, 200, 200, 0.2);
-      ctx.restore();
+      g.el(
+        "Retrato del entrenador",
+        { x: MARGEN + 28, y: dentro + 38, w: 204, h: 204 },
+        (ctx) => {
+          /* Redondo, como en la ficha del jugador. */
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(MARGEN + 130, dentro + 140, 100, 0, Math.PI * 2);
+          ctx.clip();
+          cubre(ctx, retratoEntrenador, MARGEN + 30, dentro + 40, 200, 200, 0.2);
+          ctx.restore();
 
-      ctx.strokeStyle = C.verde;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(MARGEN + 130, dentro + 140, 100, 0, Math.PI * 2);
-      ctx.stroke();
+          ctx.strokeStyle = C.verde;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(MARGEN + 130, dentro + 140, 100, 0, Math.PI * 2);
+          ctx.stroke();
+        },
+      );
     }
 
-    escribe(ctx, entrenador.nombre.toUpperCase(), MARGEN + 258, dentro + 110, {
-      tamano: 48,
-      tinta: C.navy,
-      espaciado: 1,
-      maxAncho: mitad - 290,
-    });
+    g.el(
+      `Entrenador · ${entrenador.nombre}`,
+      { x: MARGEN + 258, y: dentro + 56, w: mitad - 290, h: 60 },
+      (ctx) =>
+        escribe(ctx, entrenador.nombre.toUpperCase(), MARGEN + 258, dentro + 110, {
+          tamano: 48,
+          tinta: C.navy,
+          espaciado: 1,
+          maxAncho: mitad - 290,
+        }),
+    );
 
     if (entrenador.edad) {
-      escribe(ctx, `${entrenador.edad} AÑOS`, MARGEN + 258, dentro + 152, {
-        tamano: 26,
-        peso: 500,
-        tinta: "#8A8370",
-        espaciado: 3,
-      });
+      g.el(
+        "Entrenador · edad",
+        { x: MARGEN + 258, y: dentro + 124, w: 300, h: 34 },
+        (ctx) =>
+          escribe(ctx, `${entrenador.edad} AÑOS`, MARGEN + 258, dentro + 152, {
+            tamano: 26,
+            peso: 500,
+            tinta: "#8A8370",
+            espaciado: 3,
+          }),
+      );
     }
 
     /* Su registro al frente del equipo. */
@@ -1359,7 +1687,8 @@ function pintaClub(
 
     registro.forEach(([valor, rotulo, tinta], indice) => {
       cifra(
-        ctx,
+        g,
+        `ENTRENADOR · ${rotulo}`,
         valor,
         rotulo,
         MARGEN + ancho * indice + ancho / 2,
@@ -1371,31 +1700,50 @@ function pintaClub(
 
     /* Y las estructuras que ha sacado, que es lo que se lleva a la pizarra. */
     if (informe.estructuras.length > 0) {
-      escribe(ctx, "ESTRUCTURAS", MARGEN + 30, dentro + 424, {
-        tamano: 22,
-        peso: 600,
-        tinta: "#8A8370",
-        espaciado: 4,
-      });
+      g.el(
+        "Rótulo · ESTRUCTURAS",
+        { x: MARGEN + 30, y: dentro + 398, w: 300, h: 32 },
+        (ctx) =>
+          escribe(ctx, "ESTRUCTURAS", MARGEN + 30, dentro + 424, {
+            tamano: 22,
+            peso: 600,
+            tinta: "#8A8370",
+            espaciado: 4,
+          }),
+      );
 
       let x = MARGEN + 30;
 
       for (const estructura of informe.estructuras.slice(0, 4)) {
         const principal = estructura === informe.estructuras[0];
 
+        const izquierda = x;
+
         /* "1-4-2-3-1 ×3": el aspa dice «tres veces» sin tener que explicarlo.
-           Con un punto en medio parecía parte del dibujo. */
-        x +=
-          chapa(ctx, `${estructura.estructura} ×${estructura.veces}`, {
-            x,
-            y: dentro + 444,
-            alto: 46,
-            fondo: principal ? C.verde : "rgba(27,58,46,0.12)",
-            tinta: principal ? C.papel : C.verde,
-            tamano: 26,
-            espaciado: 2,
-            padding: 20,
-          }) + 12;
+           Con un punto en medio parecía parte del dibujo.
+
+           Cada chapa va suelta: en la pizarra se acaba tirando de una sola
+           estructura, y las otras tres sobran. */
+        let anchoChapa = 0;
+
+        g.el(
+          `Estructura · ${estructura.estructura} ×${estructura.veces}`,
+          { x: izquierda, y: dentro + 444, w: 320, h: 46 },
+          (ctx) => {
+            anchoChapa = chapa(ctx, `${estructura.estructura} ×${estructura.veces}`, {
+              x: izquierda,
+              y: dentro + 444,
+              alto: 46,
+              fondo: principal ? C.verde : "rgba(27,58,46,0.12)",
+              tinta: principal ? C.papel : C.verde,
+              tamano: 26,
+              espaciado: 2,
+              padding: 20,
+            });
+          },
+        );
+
+        x += anchoChapa + 12;
       }
     }
   }
@@ -1404,48 +1752,89 @@ function pintaClub(
 
   const x = MARGEN + mitad + 24;
 
-  dentro = panel(ctx, x, CUERPO_Y, mitad, altoFicha, "ESTADIO");
+  const dentroEstadio = panel(g, x, CUERPO_Y, mitad, altoFicha, "ESTADIO");
 
   const estadio = informe.estadio;
 
   if (!estadio) {
-    escribe(ctx, "SIN DATOS", x + mitad / 2, dentro + 80, {
-      tamano: 28,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 3,
-      alinea: "centro",
-    });
+    g.el(
+      "Estadio · sin datos",
+      { x, y: dentroEstadio + 50, w: mitad, h: 44 },
+      (ctx) =>
+        escribe(ctx, "SIN DATOS", x + mitad / 2, dentroEstadio + 80, {
+          tamano: 28,
+          peso: 500,
+          tinta: "#9A9384",
+          espaciado: 3,
+          alinea: "centro",
+        }),
+    );
   } else {
     const altoFoto = 300;
 
-    if (fotoEstadio) {
-      ctx.save();
-      rectRedondo(ctx, x + 20, dentro + 20, mitad - 40, altoFoto, 12);
-      ctx.clip();
-      cubre(ctx, fotoEstadio, x + 20, dentro + 20, mitad - 40, altoFoto, 0.5);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = "rgba(0,0,0,0.05)";
-      rectRedondo(ctx, x + 20, dentro + 20, mitad - 40, altoFoto, 12);
-      ctx.fill();
-    }
+    g.el(
+      "Foto del estadio",
+      { x: x + 20, y: dentroEstadio + 20, w: mitad - 40, h: altoFoto },
+      (ctx) => {
+        if (fotoEstadio) {
+          ctx.save();
+          rectRedondo(ctx, x + 20, dentroEstadio + 20, mitad - 40, altoFoto, 12);
+          ctx.clip();
+          cubre(
+            ctx,
+            fotoEstadio,
+            x + 20,
+            dentroEstadio + 20,
+            mitad - 40,
+            altoFoto,
+            0.5,
+          );
+          ctx.restore();
+        } else {
+          ctx.fillStyle = "rgba(0,0,0,0.05)";
+          rectRedondo(ctx, x + 20, dentroEstadio + 20, mitad - 40, altoFoto, 12);
+          ctx.fill();
+        }
+      },
+    );
 
-    escribe(ctx, estadio.nombre.toUpperCase(), x + 30, dentro + altoFoto + 84, {
-      tamano: 46,
-      tinta: C.navy,
-      espaciado: 1,
-      maxAncho: mitad - 60,
-    });
+    g.el(
+      `Estadio · ${estadio.nombre}`,
+      { x: x + 30, y: dentroEstadio + altoFoto + 28, w: mitad - 60, h: 60 },
+      (ctx) =>
+        escribe(
+          ctx,
+          estadio.nombre.toUpperCase(),
+          x + 30,
+          dentroEstadio + altoFoto + 84,
+          {
+            tamano: 46,
+            tinta: C.navy,
+            espaciado: 1,
+            maxAncho: mitad - 60,
+          },
+        ),
+    );
 
     if (estadio.ciudad) {
-      escribe(ctx, estadio.ciudad.toUpperCase(), x + 30, dentro + altoFoto + 120, {
-        tamano: 24,
-        peso: 500,
-        tinta: "#8A8370",
-        espaciado: 4,
-        maxAncho: mitad - 60,
-      });
+      g.el(
+        "Estadio · ciudad",
+        { x: x + 30, y: dentroEstadio + altoFoto + 92, w: mitad - 60, h: 34 },
+        (ctx) =>
+          escribe(
+            ctx,
+            estadio.ciudad.toUpperCase(),
+            x + 30,
+            dentroEstadio + altoFoto + 120,
+            {
+              tamano: 24,
+              peso: 500,
+              tinta: "#8A8370",
+              espaciado: 4,
+              maxAncho: mitad - 60,
+            },
+          ),
+      );
     }
 
     const datos: [string, string][] = [
@@ -1458,11 +1847,12 @@ function pintaClub(
 
     datos.forEach(([valor, rotulo], indice) => {
       cifra(
-        ctx,
+        g,
+        `ESTADIO · ${rotulo}`,
         valor,
         rotulo,
         x + ancho * indice + ancho / 2,
-        dentro + altoFoto + 210,
+        dentroEstadio + altoFoto + 210,
         C.navy,
         valor.length > 6 ? 34 : 46,
       );
@@ -1476,7 +1866,7 @@ function pintaClub(
   const altoRacha = CUERPO_Y + CUERPO_ALTO - yRacha;
 
   const dentroRacha = panel(
-    ctx,
+    g,
     MARGEN,
     yRacha,
     ANCHO,
@@ -1497,7 +1887,7 @@ function pintaClub(
   [recientes.slice(0, 3), recientes.slice(3, 6)].forEach((columna, indice) => {
     if (columna.length === 0) return;
 
-    pintaRacha(ctx, columna, {
+    pintaRacha(g, columna, {
       x: MARGEN + indice * (mitadRacha + 24),
       y: dentroRacha + 8,
       w: mitadRacha,
@@ -1505,7 +1895,7 @@ function pintaClub(
     });
   });
 
-  pie(ctx, "DATOS DEL CLUB · FUENTE BESOCCER");
+  pie(g, "DATOS DEL CLUB · FUENTE BESOCCER");
 }
 
 /* ------------------------------------------------------------------ */
@@ -1672,14 +2062,24 @@ function pintaFichaOnce(
   });
 }
 
-/** El campo con su once puesto. */
+/**
+ * El campo con su once puesto.
+ *
+ * El césped es una pieza y **cada jugador es otra**: así se arrastra a un
+ * lateral a donde de verdad se pone, se replica una ficha para enseñar el
+ * cambio de banda y se borra al que se sabe que no juega, todo en Office y sin
+ * volver a la app.
+ */
 function pintaOnceEnCampo(
-  ctx: Ctx,
+  g: GuionHoja,
   once: OncePartido,
   caja: { x: number; y: number; w: number; h: number },
   radio: number,
+  etiqueta: string,
 ) {
-  pintaCampo(ctx, caja.x, caja.y, caja.w, caja.h);
+  g.el(etiqueta ? `Campo · ${etiqueta}` : "Campo", caja, (ctx) =>
+    pintaCampo(ctx, caja.x, caja.y, caja.w, caja.h),
+  );
 
   const sitios = reparteOnce(once);
 
@@ -1700,12 +2100,15 @@ function pintaOnceEnCampo(
   const cabe = Math.min(radio, caja.w / (masLlena * 2.5));
 
   for (const sitio of sitios) {
-    pintaFichaOnce(
-      ctx,
-      sitio.jugador,
-      caja.x + caja.w * sitio.x,
-      caja.y + caja.h * sitio.y,
-      cabe,
+    const cx = caja.x + caja.w * sitio.x;
+    const cy = caja.y + caja.h * sitio.y;
+
+    g.el(
+      `${etiqueta ? `${etiqueta} · ` : ""}Nº${sitio.jugador.dorsal || "·"} ${
+        sitio.jugador.nombre
+      }`,
+      { x: cx - 210, y: cy - cabe - 4, w: 420, h: cabe * 2 + cabe + 24 },
+      (ctx) => pintaFichaOnce(ctx, sitio.jugador, cx, cy, cabe),
     );
   }
 }
@@ -1722,24 +2125,35 @@ function pintaOnceEnCampo(
  * donde el cuerpo técnico lo coloca a mano, y sale en su propio PDF.
  */
 function pintaPosibleAlineacion(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   once: OncePartido,
   partido: Partido | null,
 ) {
-  papel(ctx);
-  cabecera(ctx, "ÚLTIMO ONCE", data, escudo);
+  papel(g);
+
+  /* De qué partido es este once: sin esto, un 1-4-4-2 de un amistoso de
+     agosto se leía el viernes como el once de la última jornada. */
+  const oficial = partido ? esLiga(partido) : true;
+
+  cabecera(
+    g,
+    partido ? `ÚLTIMO ONCE · ${oficial ? "LIGA" : "AMISTOSO"}` : "ÚLTIMO ONCE",
+    data,
+    escudo,
+  );
 
   const anchoCampo = Math.round(CUERPO_ALTO * 0.68);
 
   const x = MARGEN + 40;
 
   pintaOnceEnCampo(
-    ctx,
+    g,
     once,
     { x, y: CUERPO_Y, w: anchoCampo, h: CUERPO_ALTO },
     26,
+    "Último once",
   );
 
   /* -------------------------------------------------- la ficha de al lado */
@@ -1747,56 +2161,94 @@ function pintaPosibleAlineacion(
   const xPanel = x + anchoCampo + 36;
   const wPanel = W - MARGEN - xPanel;
 
-  const dentro = panel(ctx, xPanel, CUERPO_Y, wPanel, CUERPO_ALTO, "EL ONCE");
+  const dentro = panel(g, xPanel, CUERPO_Y, wPanel, CUERPO_ALTO, "EL ONCE");
 
   if (once.estructura) {
-    escribe(ctx, once.estructura, xPanel + 24, dentro + 76, {
-      tamano: 72,
-      tinta: C.navy,
-      espaciado: 2,
-      maxAncho: wPanel - 48,
-    });
+    g.el(
+      `Estructura · ${once.estructura}`,
+      { x: xPanel + 24, y: dentro + 12, w: wPanel - 48, h: 80 },
+      (ctx) =>
+        escribe(ctx, once.estructura, xPanel + 24, dentro + 76, {
+          tamano: 72,
+          tinta: C.navy,
+          espaciado: 2,
+          maxAncho: wPanel - 48,
+        }),
+    );
   }
 
   if (once.entrenador) {
-    escribe(ctx, once.entrenador.toUpperCase(), xPanel + 24, dentro + 116, {
-      tamano: 26,
-      peso: 500,
-      tinta: "#8A8370",
-      espaciado: 3,
-      maxAncho: wPanel - 48,
-    });
+    g.el(
+      "Entrenador del once",
+      { x: xPanel + 24, y: dentro + 88, w: wPanel - 48, h: 34 },
+      (ctx) =>
+        escribe(ctx, once.entrenador.toUpperCase(), xPanel + 24, dentro + 116, {
+          tamano: 26,
+          peso: 500,
+          tinta: "#8A8370",
+          espaciado: 3,
+          maxAncho: wPanel - 48,
+        }),
+    );
   }
 
   if (partido) {
-    escribe(
-      ctx,
-      `${partido.local.nombre} ${partido.local.goles ?? 0}-${
-        partido.visitante.goles ?? 0
-      } ${partido.visitante.nombre}`,
-      xPanel + 24,
-      dentro + 162,
-      {
-        tamano: 24,
-        peso: 600,
-        tinta: C.verde,
-        espaciado: 1,
-        maxAncho: wPanel - 48,
-      },
+    g.el(
+      "Marcador del partido",
+      { x: xPanel + 24, y: dentro + 134, w: wPanel - 48, h: 34 },
+      (ctx) =>
+        escribe(
+          ctx,
+          `${partido.local.nombre} ${partido.local.goles ?? 0}-${
+            partido.visitante.goles ?? 0
+          } ${partido.visitante.nombre}`,
+          xPanel + 24,
+          dentro + 162,
+          {
+            tamano: 24,
+            peso: 600,
+            tinta: C.verde,
+            espaciado: 1,
+            maxAncho: wPanel - 48,
+          },
+        ),
     );
 
-    escribe(ctx, fechaCorta(partido.fecha), xPanel + 24, dentro + 192, {
-      tamano: 20,
-      peso: 500,
-      tinta: "#9A9384",
-      espaciado: 2,
-    });
+    g.el(
+      "Fecha del partido",
+      { x: xPanel + 24, y: dentro + 170, w: wPanel - 48, h: 28 },
+      (ctx) =>
+        escribe(ctx, fechaCorta(partido.fecha), xPanel + 24, dentro + 192, {
+          tamano: 20,
+          peso: 500,
+          tinta: "#9A9384",
+          espaciado: 2,
+        }),
+    );
+
+    /* La competición, escrita con todas las letras: "PRIMERA FEDERACIÓN" o
+       "PRETEMPORADA · AMISTOSO". */
+    g.el(
+      `Competición · ${oficial ? "liga" : "amistoso"}`,
+      { x: xPanel + 24, y: dentro + 198, w: wPanel - 48, h: 40 },
+      (ctx) =>
+        chapa(ctx, rotuloCompeticion(partido), {
+          x: xPanel + 24,
+          y: dentro + 200,
+          alto: 34,
+          fondo: oficial ? C.verde : "rgba(200,169,107,0.85)",
+          tinta: oficial ? C.papel : C.navy,
+          tamano: 19,
+          espaciado: 2,
+          padding: 14,
+        }),
+    );
   }
 
   /* La lista, por si alguien la quiere leer en vez de mirarla. */
   const jugadores = [...once.jugadores].sort((a, b) => a.puesto - b.puesto);
 
-  const arriba = dentro + 226;
+  const arriba = dentro + 252;
 
   const paso = Math.min(
     46,
@@ -1806,25 +2258,36 @@ function pintaPosibleAlineacion(
   jugadores.forEach((jugador, indice) => {
     const y = arriba + paso * indice;
 
-    ctx.fillStyle = indice % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent";
-    ctx.fillRect(xPanel + 12, y, wPanel - 24, paso - 4);
+    g.el(
+      `Lista · ${jugador.dorsal || "·"} ${jugador.nombre}`,
+      { x: xPanel + 12, y, w: wPanel - 24, h: paso - 4 },
+      (ctx) => {
+        ctx.fillStyle = indice % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent";
+        ctx.fillRect(xPanel + 12, y, wPanel - 24, paso - 4);
 
-    escribe(ctx, jugador.dorsal || "·", xPanel + 46, y + paso / 2 + 7, {
-      tamano: 24,
-      tinta: C.verde,
-      alinea: "dcha",
-    });
+        escribe(ctx, jugador.dorsal || "·", xPanel + 46, y + paso / 2 + 7, {
+          tamano: 24,
+          tinta: C.verde,
+          alinea: "dcha",
+        });
 
-    escribe(ctx, jugador.nombre.toUpperCase(), xPanel + 62, y + paso / 2 + 7, {
-      tamano: 24,
-      peso: 600,
-      tinta: C.navy,
-      espaciado: 0.5,
-      maxAncho: wPanel - 90,
-    });
+        escribe(ctx, jugador.nombre.toUpperCase(), xPanel + 62, y + paso / 2 + 7, {
+          tamano: 24,
+          peso: 600,
+          tinta: C.navy,
+          espaciado: 0.5,
+          maxAncho: wPanel - 90,
+        });
+      },
+    );
   });
 
-  pie(ctx, "EL ÚLTIMO ONCE PUBLICADO · NO ES UNA PREDICCIÓN");
+  pie(
+    g,
+    partido
+      ? `ÚLTIMO ONCE PUBLICADO · ${rotuloCompeticion(partido)} · NO ES UNA PREDICCIÓN`
+      : "EL ÚLTIMO ONCE PUBLICADO · NO ES UNA PREDICCIÓN",
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -1833,14 +2296,14 @@ function pintaPosibleAlineacion(
 
 /** Dos partidos por hoja, con su campo y su marcador. */
 function pintaAlineaciones(
-  ctx: Ctx,
+  g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   onces: OncePartido[],
   partidos: Map<string, Partido>,
 ) {
-  papel(ctx);
-  cabecera(ctx, "ALINEACIONES ANTERIORES", data, escudo);
+  papel(g);
+  cabecera(g, "ALINEACIONES ANTERIORES", data, escudo);
 
   /* Con un solo partido —el resto de la temporada sin alineación publicada—
      la columna es la hoja entera: media hoja en blanco al lado de un campo
@@ -1852,6 +2315,8 @@ function pintaAlineaciones(
 
     const partido = partidos.get(once.partidoId) ?? null;
 
+    const oficial = partido ? esLiga(partido) : true;
+
     /* -------------------------------------------------- el titular */
 
     const titulo = partido
@@ -1860,45 +2325,94 @@ function pintaAlineaciones(
         } ${partido.visitante.nombre}`
       : "PARTIDO";
 
-    escribe(ctx, titulo.toUpperCase(), x, CUERPO_Y + 8, {
-      tamano: 30,
-      tinta: C.navy,
-      espaciado: 1,
-      maxAncho: mitad - 140,
-    });
+    g.el(
+      `Partido · ${titulo}`,
+      { x, y: CUERPO_Y - 26, w: mitad - 140, h: 40 },
+      (ctx) =>
+        escribe(ctx, titulo.toUpperCase(), x, CUERPO_Y + 8, {
+          tamano: 30,
+          tinta: C.navy,
+          espaciado: 1,
+          maxAncho: mitad - 140,
+        }),
+    );
 
     if (partido) {
-      escribe(ctx, fechaCorta(partido.fecha), x + mitad, CUERPO_Y + 8, {
-        tamano: 22,
-        peso: 500,
-        tinta: "#8A8370",
-        espaciado: 2,
-        alinea: "dcha",
-      });
+      g.el(
+        "Fecha del partido",
+        { x: x + mitad - 300, y: CUERPO_Y - 20, w: 300, h: 32 },
+        (ctx) =>
+          escribe(ctx, fechaCorta(partido.fecha), x + mitad, CUERPO_Y + 8, {
+            tamano: 22,
+            peso: 500,
+            tinta: "#8A8370",
+            espaciado: 2,
+            alinea: "dcha",
+          }),
+      );
     }
 
+    let anchoEstructura = 0;
+
     if (once.estructura) {
-      chapa(ctx, once.estructura, {
-        x,
-        y: CUERPO_Y + 24,
-        alto: 40,
-        fondo: C.verde,
-        tinta: C.papel,
-        tamano: 24,
-        espaciado: 3,
-        padding: 18,
-      });
+      g.el(
+        `Estructura · ${once.estructura}`,
+        { x, y: CUERPO_Y + 24, w: 260, h: 40 },
+        (ctx) => {
+          anchoEstructura = chapa(ctx, once.estructura, {
+            x,
+            y: CUERPO_Y + 24,
+            alto: 40,
+            fondo: C.verde,
+            tinta: C.papel,
+            tamano: 24,
+            espaciado: 3,
+            padding: 18,
+          });
+        },
+      );
+    }
+
+    /*
+    | Y al lado, de qué competición es. Es lo que pidió el cuerpo técnico: la
+    | hoja enseña seis onces seguidos y sin esta chapa no había manera de saber
+    | cuáles eran de liga y cuáles de un amistoso de pretemporada, que se
+    | juegan con otra gente y no dicen lo mismo.
+    */
+    if (partido) {
+      const xChapa = x + (anchoEstructura ? anchoEstructura + 12 : 0);
+
+      g.el(
+        `Competición · ${oficial ? "liga" : "amistoso"}`,
+        { x: xChapa, y: CUERPO_Y + 24, w: 420, h: 40 },
+        (ctx) =>
+          chapa(ctx, rotuloCompeticion(partido), {
+            x: xChapa,
+            y: CUERPO_Y + 26,
+            alto: 36,
+            fondo: oficial ? "rgba(27,58,46,0.12)" : "rgba(200,169,107,0.85)",
+            tinta: oficial ? C.verde : C.navy,
+            tamano: 19,
+            espaciado: 2,
+            padding: 14,
+          }),
+      );
     }
 
     if (once.entrenador) {
-      escribe(ctx, once.entrenador.toUpperCase(), x + mitad, CUERPO_Y + 52, {
-        tamano: 22,
-        peso: 500,
-        tinta: "#8A8370",
-        espaciado: 2,
-        alinea: "dcha",
-        maxAncho: mitad - 200,
-      });
+      g.el(
+        "Entrenador del once",
+        { x: x + mitad - 320, y: CUERPO_Y + 26, w: 320, h: 32 },
+        (ctx) =>
+          escribe(ctx, once.entrenador.toUpperCase(), x + mitad, CUERPO_Y + 52, {
+            tamano: 22,
+            peso: 500,
+            tinta: "#8A8370",
+            espaciado: 2,
+            alinea: "dcha",
+            maxAncho: mitad - 200,
+          }),
+      );
     }
 
     /* -------------------------------------------------- el campo */
@@ -1912,47 +2426,67 @@ function pintaAlineaciones(
     const anchoCampo = Math.min(mitad, alto * 0.68);
 
     pintaOnceEnCampo(
-      ctx,
+      g,
       once,
       { x: x + (mitad - anchoCampo) / 2, y, w: anchoCampo, h: alto },
       22,
+      partido
+        ? `${partido.local.nombre}-${partido.visitante.nombre}`
+        : `Once ${indice + 1}`,
     );
   });
 
-  pie(ctx, "ALINEACIONES PUBLICADAS · FUENTE BESOCCER");
+  pie(g, "ALINEACIONES PUBLICADAS · LIGA Y PRETEMPORADA · FUENTE BESOCCER");
 }
 
 /* ------------------------------------------------------------------ */
 /*  ÚLTIMA · CONTRAPORTADA                                             */
 /* ------------------------------------------------------------------ */
 
-function pintaContra(ctx: Ctx, data: InformeData, escudo: HTMLImageElement | null) {
-  ctx.fillStyle = C.navy;
-  ctx.fillRect(0, 0, W, H);
+function pintaContra(g: GuionHoja, data: InformeData, escudo: HTMLImageElement | null) {
+  g.fondo((ctx) => {
+    ctx.fillStyle = C.navy;
+    ctx.fillRect(0, 0, W, H);
+  });
 
-  ctx.fillStyle = C.verde;
-  ctx.fillRect(0, H - 12, W, 12);
+  g.el("Filo verde", { x: 0, y: H - 12, w: W, h: 12 }, (ctx) => {
+    ctx.fillStyle = C.verde;
+    ctx.fillRect(0, H - 12, W, 12);
+  });
 
   /* El bloque —escudo, nombre y firma— se centra ópticamente: colgado del
      centro exacto de la hoja se ve alto, porque casi todo su peso está arriba,
      en el escudo. */
-  if (escudo) encaja(ctx, escudo, W / 2 - 120, H / 2 - 250, 240, 240);
+  if (escudo) {
+    g.el(
+      "Escudo del rival",
+      { x: W / 2 - 120, y: H / 2 - 250, w: 240, h: 240 },
+      (ctx) => encaja(ctx, escudo, W / 2 - 120, H / 2 - 250, 240, 240),
+    );
+  }
 
-  escribe(ctx, data.informe.nombreLargo.toUpperCase(), W / 2, H / 2 + 60, {
-    tamano: 72,
-    tinta: C.papel,
-    espaciado: 6,
-    alinea: "centro",
-    maxAncho: ANCHO,
-  });
+  g.el(
+    "Nombre del rival",
+    { x: MARGEN, y: H / 2 - 20, w: ANCHO, h: 90 },
+    (ctx) =>
+      escribe(ctx, data.informe.nombreLargo.toUpperCase(), W / 2, H / 2 + 60, {
+        tamano: 72,
+        tinta: C.papel,
+        espaciado: 6,
+        alinea: "centro",
+        maxAncho: ANCHO,
+      }),
+  );
 
-  escribe(ctx, `REAL MADRID CASTILLA · TEMP ${data.temporada}`, W / 2, H / 2 + 122, {
-    tamano: 28,
-    peso: 500,
-    tinta: "#8FA3B8",
-    espaciado: 8,
-    alinea: "centro",
-  });
+  g.el("Firma", { x: MARGEN, y: H / 2 + 88, w: ANCHO, h: 44 }, (ctx) =>
+    escribe(ctx, `REAL MADRID CASTILLA · TEMP ${data.temporada}`, W / 2, H / 2 + 122, {
+      tamano: 28,
+      peso: 500,
+      tinta: "#8FA3B8",
+      espaciado: 8,
+      alinea: "centro",
+    }),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -1992,7 +2526,7 @@ async function bajaImagenes(urls: Iterable<string>) {
 /* ------------------------------------------------------------------ */
 
 /** Un nombre de fichero que se pueda buscar en una carpeta de diecinueve. */
-function nombreArchivo(data: InformeData) {
+export function nombreArchivoInforme(data: InformeData) {
   const equipo = (data.informe.nombre || data.informe.nombreLargo || "rival")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -2009,9 +2543,25 @@ function nombreArchivo(data: InformeData) {
 const RESULTADOS_EN_HOJA = 14;
 
 /**
- * Monta el `.pptx` del informe y lo descarga. Devuelve cómo se ha llamado.
+ * Cuántos onces se enseñan.
+ *
+ * Eran cinco y el cuerpo técnico pidió seis: con la pretemporada de por medio,
+ * cinco alineaciones se quedaban en tres de liga y dos amistosos, y lo que se
+ * quiere ver son las últimas seis salidas del equipo pase lo que pase. El
+ * documento trae ocho bajadas (`ONCES_POR_EQUIPO` en el script), así que hay de
+ * sobra.
  */
-export async function exportInformePptx(data: InformeData) {
+const ONCES_EN_INFORME = 6;
+
+/**
+ * Monta las hojas del informe: fondo de papel y piezas sueltas.
+ *
+ * Esto es lo que abre el editor. Exportar sin pasar por él es
+ * `exportInformePptx`, que llama aquí y va derecho al `.pptx`.
+ */
+export async function construyeHojasInforme(
+  data: InformeData,
+): Promise<HojaInforme[]> {
   await esperaFuentePortada();
 
   const informe = data.informe;
@@ -2049,30 +2599,27 @@ export async function exportInformePptx(data: InformeData) {
 
   /* -------------------------------------------------- las hojas */
 
-  const diapositivas: DiapositivaPptx[] = [];
+  const hojas: HojaInforme[] = [];
 
   /*
-  | Una hoja se pinta y se añade sólo si hay algo que enseñar. `hoja()`
-  | devuelve el lienzo ya listo para que cada bloque decida por su cuenta.
+  | Una hoja se pinta y se añade sólo si hay algo que enseñar. `hoja()` monta
+  | el guion —fondo a sangre y piezas— y lo cierra.
   |
-  | El JPEG a 0,92 pesa un tercio que el PNG y estas hojas son papel y texto,
-  | no transparencias: la portada con foto de estadio en PNG se iba a varios
-  | megas ella sola.
+  | El fondo va en JPEG a 0,92: pesa un tercio que el PNG y es papel, no
+  | transparencia. Las piezas sí van en PNG, que es lo que les deja el fondo
+  | recortado para poder colocarlas encima de lo que sea.
   */
-  const hoja = (titulo: string, pinta: (ctx: Ctx) => void) => {
-    const { canvas, ctx } = lienzo(W, H);
+  const hoja = (titulo: string, pinta: (g: GuionHoja) => void) => {
+    const g = new GuionHoja(titulo, `h${hojas.length + 1}`);
 
-    pinta(ctx);
+    pinta(g);
 
-    diapositivas.push({
-      titulo,
-      imagen: canvas.toDataURL("image/jpeg", 0.92),
-    });
+    hojas.push(g.hoja());
   };
 
-  hoja("Portada", (ctx) =>
+  hoja("Portada", (g) =>
     pintaPortada(
-      ctx,
+      g,
       data,
       escudo,
       imagenes.get(informe.estadio?.foto ?? "") ?? null,
@@ -2080,23 +2627,21 @@ export async function exportInformePptx(data: InformeData) {
   );
 
   if (informe.clasificacion.total.length > 0) {
-    hoja("Clasificación", (ctx) =>
-      pintaClasificacion(ctx, data, escudo, imagenes),
-    );
+    hoja("Clasificación", (g) => pintaClasificacion(g, data, escudo, imagenes));
   }
 
   if (resultados.length > 0) {
-    hoja("Resultados", (ctx) =>
-      pintaResultados(ctx, data, escudo, imagenes, resultados),
+    hoja("Resultados", (g) =>
+      pintaResultados(g, data, escudo, imagenes, resultados),
     );
   }
 
-  hoja("Estadísticas", (ctx) => pintaEstadisticas(ctx, data, escudo, conFicha));
+  hoja("Estadísticas", (g) => pintaEstadisticas(g, data, escudo, conFicha));
 
   if (informe.entrenador || informe.estadio) {
-    hoja("El club", (ctx) =>
+    hoja("El club", (g) =>
       pintaClub(
-        ctx,
+        g,
         data,
         escudo,
         imagenes.get(informe.entrenador?.foto ?? "") ?? null,
@@ -2106,38 +2651,204 @@ export async function exportInformePptx(data: InformeData) {
   }
 
   if (onces.length > 0) {
-    hoja("Último once", (ctx) =>
-      pintaPosibleAlineacion(
-        ctx,
-        data,
-        escudo,
-        onces[0],
-        porId.get(onces[0].partidoId) ?? null,
-      ),
+    const partido = porId.get(onces[0].partidoId) ?? null;
+
+    /* El título de la diapositiva —lo que se lee en el panel de PowerPoint y
+       en el buscador de Windows— también dice de qué competición es. */
+    hoja(
+      partido
+        ? `Último once · ${esLiga(partido) ? "liga" : "amistoso"}`
+        : "Último once",
+      (g) => pintaPosibleAlineacion(g, data, escudo, onces[0], partido),
     );
   }
 
-  /* Los anteriores, de dos en dos: dos hojas más, como en el original. */
-  for (let i = 1; i < Math.min(onces.length, 5); i += 2) {
+  /* Los anteriores, de dos en dos, hasta completar los seis. */
+  for (let i = 1; i < Math.min(onces.length, ONCES_EN_INFORME); i += 2) {
     const pareja = onces.slice(i, i + 2);
 
-    hoja("Alineaciones anteriores", (ctx) =>
-      pintaAlineaciones(ctx, data, escudo, pareja, porId),
+    const cuales = pareja
+      .map((once) => {
+        const partido = porId.get(once.partidoId);
+
+        return partido ? (esLiga(partido) ? "liga" : "amistoso") : "?";
+      })
+      .join(" y ");
+
+    hoja(`Alineaciones anteriores · ${cuales}`, (g) =>
+      pintaAlineaciones(g, data, escudo, pareja, porId),
     );
   }
 
-  hoja("Contraportada", (ctx) => pintaContra(ctx, data, escudo));
+  hoja("Contraportada", (g) => pintaContra(g, data, escudo));
 
-  /* -------------------------------------------------- el paquete */
+  return hojas;
+}
+
+/* ------------------------------------------------------------------ */
+/*  DE LAS HOJAS AL PAQUETE                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La opacidad se hornea al exportar.
+ *
+ * En PowerPoint la transparencia de una imagen es una propiedad del relleno y
+ * no todas las versiones la respetan igual; con el alfa dentro del PNG, lo que
+ * se ve en el editor es lo que se abre en Office.
+ */
+async function conOpacidad(elemento: ElementoInforme) {
+  const opacidad = elemento.opacidad ?? 1;
+
+  if (opacidad >= 1) return elemento.imagen;
+
+  const imagen = await new Promise<HTMLImageElement | null>((resolve) => {
+    const nueva = new Image();
+
+    nueva.onload = () => resolve(nueva);
+    nueva.onerror = () => resolve(null);
+    nueva.src = elemento.imagen;
+  });
+
+  if (!imagen) return elemento.imagen;
+
+  const { canvas, ctx } = lienzo(elemento.w, elemento.h);
+
+  ctx.globalAlpha = Math.max(0, opacidad);
+  ctx.drawImage(imagen, 0, 0, elemento.w, elemento.h);
+
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * Arma el `.pptx` con las hojas que salgan del editor y lo descarga.
+ *
+ * Cada pieza va como **capa**: un objeto propio de PowerPoint, con su nombre en
+ * el panel de selección, que se mueve y se borra sin tocar lo demás. Es lo que
+ * pedía el cuerpo técnico para rematar el documento en Office.
+ */
+export async function exportaHojasInforme(
+  hojas: HojaInforme[],
+  data: InformeData,
+) {
+  const diapositivas: DiapositivaPptx[] = [];
+
+  for (const hoja of hojas) {
+    const capas: CapaPptx[] = [];
+
+    for (const elemento of hoja.elementos) {
+      capas.push({
+        nombre: elemento.nombre,
+        imagen: await conOpacidad(elemento),
+        x: elemento.x / W,
+        y: elemento.y / H,
+        w: elemento.w / W,
+        h: elemento.h / H,
+      });
+    }
+
+    diapositivas.push({ titulo: hoja.titulo, imagen: hoja.fondo, capas });
+  }
 
   const blob = creaPptx(diapositivas, {
-    titulo: `Informe de rival · ${informe.nombreLargo}`,
+    titulo: `Informe de rival · ${data.informe.nombreLargo}`,
     aplicacion: "RMCF Castilla · Informe del rival",
   });
 
-  const nombre = nombreArchivo(data);
+  const nombre = nombreArchivoInforme(data);
 
   descarga(blob, nombre);
 
   return nombre;
+}
+
+/* ------------------------------------------------------------------ */
+/*  UNA NOTA ESCRITA EN EL EDITOR                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un rótulo suelto, con la letra de la casa.
+ *
+ * Es lo único que el editor **escribe** en vez de mover: una nota encima del
+ * campo, un aviso en la portada. Va con chapa por defecto porque tiene que
+ * leerse igual sobre el papel crema y sobre la foto del estadio.
+ *
+ * Se rehace entera cada vez que se cambia el texto, y por eso la pieza se
+ * lleva puesto en `texto` con qué se pintó.
+ */
+export async function piezaDeTexto(
+  contenido: string,
+  opciones: {
+    id: string;
+    x: number;
+    y: number;
+    tamano?: number;
+    tinta?: string;
+    peso?: 500 | 600 | 700;
+    espaciado?: number;
+    conChapa?: boolean;
+  },
+): Promise<ElementoInforme> {
+  await esperaFuentePortada();
+
+  const {
+    id,
+    x,
+    y,
+    tamano = 44,
+    tinta = C.navy,
+    peso = 700,
+    espaciado = 2,
+    conChapa = true,
+  } = opciones;
+
+  const texto = contenido.trim() || "…";
+
+  const alto = conChapa ? tamano + 26 : tamano + 16;
+
+  /* Un lienzo de un píxel sólo para medir: el ancho manda el de la pieza. */
+  const { ctx: medidor } = lienzo(4, 4);
+
+  fuente(medidor, tamano, peso);
+
+  const ancho = anchoEspaciado(medidor, texto, espaciado) + (conChapa ? 48 : 12);
+
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  if (conChapa) {
+    chapa(ctx, texto, {
+      x: 0,
+      y: 0,
+      alto,
+      fondo: C.rosa,
+      tinta,
+      tamano,
+      espaciado,
+      padding: 24,
+    });
+  } else {
+    escribe(ctx, texto, 6, tamano + 4, { tamano, peso, tinta, espaciado });
+  }
+
+  return {
+    id,
+    nombre: `Nota · ${texto.slice(0, 40)}`,
+    x,
+    y,
+    w: ancho,
+    h: alto,
+    imagen: canvas.toDataURL("image/png"),
+    texto: { contenido: texto, tamano, tinta, peso, espaciado, conChapa },
+  };
+}
+
+/**
+ * El informe entero de un tirón, sin pasar por el editor.
+ *
+ * Lo dejamos por si algún día vuelve a hacer falta el botón directo; la
+ * pantalla de rivales abre el editor.
+ */
+export async function exportInformePptx(data: InformeData) {
+  const hojas = await construyeHojasInforme(data);
+
+  return exportaHojasInforme(hojas, data);
 }

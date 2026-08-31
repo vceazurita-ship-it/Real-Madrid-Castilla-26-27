@@ -92,9 +92,12 @@ require.cache[require.resolve(path.join(ROOT, "lib/rivals/portada-font.ts"))] = 
 
 /* ---- El navegador de pega ---- */
 
-/* Cada lienzo que pide el módulo, en orden: son las diapositivas. */
-const lienzos = [];
-
+/*
+| Ya no se guardan los lienzos que se van pidiendo: desde que el informe va en
+| piezas sueltas se hacen cientos por hoja —dos por pieza, el de pintar y el
+| recortado— y tenerlos todos vivos hasta el final era memoria a cambio de
+| nada. Lo que se mira ahora es la hoja recompuesta, más abajo.
+*/
 globalThis.document = {
   createElement(etiqueta) {
     if (etiqueta !== "canvas") throw new Error(`No sé hacer un <${etiqueta}>`);
@@ -107,8 +110,6 @@ globalThis.document = {
             .toBuffer("image/jpeg", Math.round((calidad ?? 0.92) * 100))
             .toString("base64")}`
         : `data:image/png;base64,${canvas.toBuffer("image/png").toString("base64")}`;
-
-    lienzos.push(canvas);
 
     return canvas;
   },
@@ -180,7 +181,10 @@ require.cache[require.resolve(path.join(ROOT, "lib/export/lienzos.ts"))] = {
   },
 };
 
-const { exportInformePptx } = require(path.join(ROOT, "lib/rivals/informe-ppt.ts"));
+const {
+  construyeHojasInforme,
+  exportaHojasInforme,
+} = require(path.join(ROOT, "lib/rivals/informe-ppt.ts"));
 
 /* ---- Los datos, los de verdad ---- */
 
@@ -207,26 +211,81 @@ console.log(
     `${informe.goleadores.length} goleadores`,
 );
 
-exportInformePptx({
+const DATOS = {
   informe,
   jornada: "1",
   fecha: "2026-08-31",
   enSuCampo: true,
   temporada: "26 / 27",
   competicion: "Primera Federación · Grupo 2",
-})
-  .then(() => {
-    /* Cada lienzo de 3840×2160 es una diapositiva: se guardan en orden para
-       poder mirarlas una a una. */
-    lienzos
-      .filter((canvas) => canvas.width > 1000)
-      .forEach((canvas, indice) => {
-        const destino = path.join(SALIDA, `hoja-${String(indice + 1).padStart(2, "0")}.png`);
+};
 
-        fs.writeFileSync(destino, canvas.toBuffer("image/png"));
+/**
+ * Cada hoja se **recompone** aquí: el papel de fondo y encima cada pieza en su
+ * caja, que es exactamente lo que hace PowerPoint al abrir el `.pptx`.
+ *
+ * Es la comprobación que importa desde que el informe va en piezas sueltas: si
+ * una caja se calculó mal, el PNG lo enseña —una ficha desplazada, un panel
+ * recortado— sin tener que abrir Office.
+ */
+async function componer(hoja) {
+  const canvas = createCanvas(1920 * 2, 1080 * 2);
+  const ctx = canvas.getContext("2d");
 
-        console.log(`  ${destino}`);
-      });
+  ctx.scale(2, 2);
+
+  const desdeDataUrl = (dataUrl) =>
+    loadImage(Buffer.from(dataUrl.split(",")[1], "base64"));
+
+  ctx.drawImage(await desdeDataUrl(hoja.fondo), 0, 0, 1920, 1080);
+
+  for (const pieza of hoja.elementos) {
+    ctx.drawImage(
+      await desdeDataUrl(pieza.imagen),
+      pieza.x,
+      pieza.y,
+      pieza.w,
+      pieza.h,
+    );
+  }
+
+  return canvas;
+}
+
+construyeHojasInforme(DATOS)
+  .then(async (hojas) => {
+    /* Ya no vale contar lienzos: se hacen decenas por hoja, uno por pieza. */
+    lienzos.length = 0;
+
+    for (const [indice, hoja] of hojas.entries()) {
+      const numero = String(indice + 1).padStart(2, "0");
+
+      const canvas = await componer(hoja);
+
+      const destino = path.join(SALIDA, `hoja-${numero}.png`);
+
+      fs.writeFileSync(destino, canvas.toBuffer("image/png"));
+
+      const fuera = hoja.elementos.filter(
+        (pieza) =>
+          pieza.x < -4 ||
+          pieza.y < -4 ||
+          pieza.x + pieza.w > 1924 ||
+          pieza.y + pieza.h > 1084,
+      );
+
+      console.log(
+        `  ${destino} — ${hoja.titulo} · ${hoja.elementos.length} piezas` +
+          (fuera.length > 0
+            ? ` · ¡${fuera.length} fuera de la hoja: ${fuera
+                .map((pieza) => pieza.nombre)
+                .slice(0, 4)
+                .join(", ")}!`
+            : ""),
+      );
+    }
+
+    await exportaHojasInforme(hojas, DATOS);
   })
   .catch((error) => {
     console.error(error);

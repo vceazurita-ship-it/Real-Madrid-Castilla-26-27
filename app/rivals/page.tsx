@@ -79,7 +79,13 @@ import {
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
 import { findInforme } from "@/lib/rivals/informe";
-import { exportInformePptx } from "@/lib/rivals/informe-ppt";
+import {
+  construyeHojasInforme,
+  exportaHojasInforme,
+  type InformeData,
+} from "@/lib/rivals/informe-ppt";
+import type { HojaInforme } from "@/lib/rivals/informe-elementos";
+import InformePptEditor from "@/components/rivals/InformePptEditor";
 import {
   ANCLA_SUELTA,
   ANCLAS_SLOT,
@@ -1240,8 +1246,16 @@ export default function RivalPlayersPage() {
   | de la clasificación se destaca. Sale del calendario de la hoja, el mismo
   | que ordena la fila de equipos.
   |
-  | Como el campograma, no pasa por pop-up: no hay nada que elegir.
+  | **Sí pasa por pop-up**, al revés que el campograma. No para elegir datos
+  | —eso lo decide el calendario—, sino para dar el último repaso al documento:
+  | el informe se monta en piezas sueltas y en `InformePptEditor` se mueven, se
+  | replican y se borran antes de exportar. Lo que salga de ahí es lo que se
+  | escribe en el `.pptx`, con cada pieza como objeto propio de PowerPoint.
   */
+  const [hojasInforme, setHojasInforme] = useState<HojaInforme[] | null>(null);
+
+  const [datosInforme, setDatosInforme] = useState<InformeData | null>(null);
+
   const exportarInforme = useCallback(async () => {
     if (!selectedTeam) return;
 
@@ -1263,7 +1277,7 @@ export default function RivalPlayersPage() {
 
       const partido = enfrentamientoDe(ordenRivales, selectedTeam);
 
-      const nombre = await exportInformePptx({
+      const data: InformeData = {
         informe,
         jornada: partido?.jornada ?? "",
         fecha: partido?.fecha ?? "",
@@ -1273,13 +1287,14 @@ export default function RivalPlayersPage() {
         enSuCampo: partido ? !partido.local : true,
         temporada: temporadaCorta(doc?.temporada),
         competicion: doc?.competicion ?? "",
-      });
+      };
 
-      toast.success("Informe del rival exportado", {
-        description: `${nombre} · datos de BeSoccer`,
-      });
+      const hojas = await construyeHojasInforme(data);
+
+      setDatosInforme(data);
+      setHojasInforme(hojas);
     } catch (error) {
-      console.error("Error exportando el informe del rival:", error);
+      console.error("Error montando el informe del rival:", error);
 
       toast.error(
         error instanceof Error
@@ -1290,6 +1305,36 @@ export default function RivalPlayersPage() {
       setExportando(false);
     }
   }, [selectedTeam, ordenRivales, pideInforme]);
+
+  /** Lo que sale del editor: las hojas ya retocadas, al `.pptx`. */
+  const exportarInformeEditado = useCallback(
+    async (hojas: HojaInforme[]) => {
+      if (!datosInforme) return;
+
+      setExportando(true);
+
+      try {
+        const nombre = await exportaHojasInforme(hojas, datosInforme);
+
+        toast.success("Informe del rival exportado", {
+          description: `${nombre} · cada elemento va suelto y se edita en PowerPoint`,
+        });
+
+        setHojasInforme(null);
+      } catch (error) {
+        console.error("Error exportando el informe del rival:", error);
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "No se ha podido generar el informe.",
+        );
+      } finally {
+        setExportando(false);
+      }
+    },
+    [datosInforme],
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -2652,7 +2697,7 @@ export default function RivalPlayersPage() {
                               data-export-hide
                               onClick={() => void exportarInforme()}
                               disabled={exportando}
-                              title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y alineaciones`}
+                              title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y los seis últimos onces. Se abre para retocarlo antes de exportar`}
                               className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
                             >
                               {exportando ? (
@@ -2730,6 +2775,18 @@ export default function RivalPlayersPage() {
           onRecolocar={once.recolocar}
           onExportar={() => void exportarOncePdf()}
           onCerrar={() => setPreparandoPdf(false)}
+        />
+      )}
+
+      {/* EL INFORME DEL RIVAL, ANTES DE EXPORTARLO */}
+
+      {hojasInforme && (
+        <InformePptEditor
+          equipo={equipoDelOnce}
+          hojas={hojasInforme}
+          exportando={exportando}
+          onExportar={(hojas) => void exportarInformeEditado(hojas)}
+          onCerrar={() => setHojasInforme(null)}
         />
       )}
 
