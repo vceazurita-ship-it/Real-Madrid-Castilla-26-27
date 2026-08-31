@@ -69,6 +69,12 @@ import {
 } from "@/lib/rivals/once-pdf";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
 import {
+  cargaOrdenRivales,
+  comparaPorCalendario,
+  SIN_ORDEN,
+  type OrdenRivales,
+} from "@/lib/rivals/orden-calendario";
+import {
   ANCLA_SUELTA,
   ANCLAS_SLOT,
   columnasDeBanda,
@@ -560,6 +566,13 @@ export default function RivalPlayersPage() {
     () => enlaceDirecto?.equipo ?? "",
   );
 
+  /*
+  | En qué orden salen los equipos: por el calendario de la ida, empezando por
+  | el rival de esta semana. Se lee de la hoja RIVALES junto con las plantillas
+  | —ver la carga de más abajo— y hasta que llega manda el orden alfabético.
+  */
+  const [ordenRivales, setOrdenRivales] = useState<OrdenRivales>(SIN_ORDEN);
+
   const [search, setSearch] = useState("");
   const [positionSearch, setPositionSearch] = useState("");
 
@@ -622,13 +635,22 @@ export default function RivalPlayersPage() {
         setLoading(true);
         setLoadError(null);
 
-        const response = await fetch(
-          `${RIVALS_API_URL}?action=rivalesPlantillas`,
-        );
+        /*
+        | Las plantillas y el calendario se piden a la vez: son dos hojas del
+        | mismo libro y esperar una detrás de otra sólo retrasa la pantalla.
+        | `cargaOrdenRivales` no lanza nunca, así que un calendario caído deja
+        | las plantillas en orden alfabético en vez de tumbar la página.
+        */
+        const [response, orden] = await Promise.all([
+          fetch(`${RIVALS_API_URL}?action=rivalesPlantillas`),
+          cargaOrdenRivales(),
+        ]);
 
         const data = await response.json();
 
         if (cancelled) return;
+
+        setOrdenRivales(orden);
 
         if (Array.isArray(data)) {
           setPlayers(data);
@@ -638,7 +660,17 @@ export default function RivalPlayersPage() {
               return current;
             }
 
-            return data[0]?.NOMBRE_EQUIPO ?? "";
+            /* Al entrar, el rival de esta semana: es el primero de la fila y
+               es la plantilla que se viene a mirar. */
+            const equipos = [
+              ...new Set(
+                data
+                  .map((p) => String(p.NOMBRE_EQUIPO || ""))
+                  .filter(Boolean),
+              ),
+            ].sort(comparaPorCalendario(orden));
+
+            return equipos[0] ?? data[0]?.NOMBRE_EQUIPO ?? "";
           });
         } else {
           console.error(data);
@@ -670,6 +702,16 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   */
 
+  /*
+  | Los equipos salen **en el orden en que toca jugar contra ellos**,
+  | arrancando por el rival de esta semana: es la plantilla que se abre cada
+  | lunes. Al día siguiente del partido ese equipo se va al final solo, porque
+  | su siguiente partido pasa a ser el de la vuelta.
+  |
+  | Mientras el calendario no ha llegado —o si la hoja no contesta—
+  | `comparaPorCalendario` deja a todos empatados y manda el nombre, que es el
+  | orden alfabético de siempre.
+  */
   const teams = useMemo(() => {
     const counts = new Map<string, number>();
 
@@ -680,10 +722,12 @@ export default function RivalPlayersPage() {
       counts.set(team, (counts.get(team) ?? 0) + 1);
     });
 
+    const compara = comparaPorCalendario(ordenRivales);
+
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [players]);
+      .sort((a, b) => compara(a.name, b.name));
+  }, [players, ordenRivales]);
 
   /*
   | El escudo de un club rival.
@@ -2071,6 +2115,11 @@ export default function RivalPlayersPage() {
                 {teams.map((team) => (
                   <button
                     key={team.name}
+                    title={
+                      team.name === ordenRivales.actual && ordenRivales.jornada
+                        ? `Jornada ${ordenRivales.jornada} · ${ordenRivales.fecha}`
+                        : undefined
+                    }
                     onClick={() => {
                       setSelectedTeam(team.name);
                       setPositionSearch("");
@@ -2090,6 +2139,17 @@ export default function RivalPlayersPage() {
                     />
 
                     {team.name}
+
+                    {/*
+                    | Contra quién se juega ya. La fila se reordena sola cada
+                    | jornada, así que conviene que se vea por qué éste está
+                    | el primero y no es una casualidad del alfabeto.
+                    */}
+                    {team.name === ordenRivales.actual && (
+                      <span className="rounded-full bg-[#C8A96B] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
+                        Próximo
+                      </span>
+                    )}
 
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] ${

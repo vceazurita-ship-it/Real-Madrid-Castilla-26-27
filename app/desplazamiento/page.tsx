@@ -61,6 +61,7 @@ import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
 import { EditorHorario } from "@/components/viaje/EditorHorario";
 import { ExportaViaje } from "@/components/viaje/ExportaViaje";
 import { HojaHorario } from "@/components/viaje/HojaHorario";
+import { NotasVestuario } from "@/components/viaje/NotasVestuario";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -910,6 +911,21 @@ export default function DesplazamientoPage() {
                 </>
               )
             )}
+
+            {/*
+            | La nota para el vestuario del otro equipo. Va **fuera** del
+            | desplazamiento elegido: no lleva rival ni fecha y es la misma
+            | todo el año, así que tiene que poder bajarse aunque no haya
+            | ningún partido montado. Lo único que mira del partido es si se
+            | juega en casa o fuera, para abrir de entrada la que toca.
+            */}
+            <div className="mt-8 border-t border-white/10 pt-8">
+              <NotasVestuario
+                condicion={
+                  partido ? (partido.isHome ? "local" : "visitante") : undefined
+                }
+              />
+            </div>
           </div>
         </section>
       </div>

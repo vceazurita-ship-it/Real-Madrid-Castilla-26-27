@@ -1,8 +1,8 @@
 /*
- * Pinta la nota de agradecimiento del vestuario rival sin navegador y la deja
- * en dos PNG: el de la diapositiva 16:9 y el del A4 vertical.
+ * Pinta las dos notas de vestuario sin navegador y las deja en cuatro PNG: la
+ * diapositiva 16:9 y el A4 vertical de cada una.
  *
- *   node scripts/agradecimiento-harness.cjs <carpeta-o-prefijo>
+ *   node scripts/notas-vestuario-harness.cjs <carpeta-o-prefijo>
  *
  * El módulo dibuja en `<canvas>` y descarga un `Blob`, dos cosas que en Node
  * no existen: aquí se le da `@napi-rs/canvas` con Barlow Condensed registrada
@@ -102,19 +102,35 @@ require.cache[require.resolve(path.join(ROOT, "lib/export/lienzos.ts"))] = {
   },
 };
 
-const nota = require(path.join(ROOT, "lib/general/agradecimiento.ts"));
+const notas = require(path.join(ROOT, "lib/general/notas-vestuario.ts"));
 
-const PREFIJO = process.argv[2] ?? "agradecimiento";
+const PREFIJO = process.argv[2] ?? "nota";
 
+/*
+ * Se pintan las dos con su texto de fábrica. Lo que alguien haya reescrito
+ * desde la pantalla vive en el almacén de documentos y aquí no llega: lo que
+ * se mira es el dibujo, no el contenido de una temporada.
+ */
 (async () => {
-  await nota.exportAgradecimientoPptx();
-  await nota.exportAgradecimientoPdf();
+  for (const clave of ["visitante", "local"]) {
+    lienzos.length = 0;
 
-  const [diapositiva, folio] = lienzos;
+    const nota = notas.NOTAS_ORIGINALES[clave];
 
-  fs.writeFileSync(`${PREFIJO}-16-9.png`, diapositiva.toBuffer("image/png"));
-  fs.writeFileSync(`${PREFIJO}-a4.png`, folio.toBuffer("image/png"));
+    await notas.exportNotaPptx(clave, nota);
+    await notas.exportNotaPdf(clave, nota);
 
-  console.log(`${PREFIJO}-16-9.png — ${diapositiva.width}×${diapositiva.height}`);
-  console.log(`${PREFIJO}-a4.png — ${folio.width}×${folio.height}`);
+    const [diapositiva, folio] = lienzos;
+
+    for (const [sufijo, canvas] of [
+      ["16-9", diapositiva],
+      ["a4", folio],
+    ]) {
+      const archivo = `${PREFIJO}-${clave}-${sufijo}.png`;
+
+      fs.writeFileSync(archivo, canvas.toBuffer("image/png"));
+
+      console.log(`${archivo} — ${canvas.width}×${canvas.height}`);
+    }
+  }
 })();
