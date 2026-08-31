@@ -25,6 +25,7 @@
 
 import {
   cargaJornadas,
+  mismoEquipo,
   normaliza,
   type JornadaRival,
 } from "@/lib/abp/jornada";
@@ -63,13 +64,24 @@ export function claveDeHoy(momento: Date = new Date()) {
   return local.toISOString().slice(0, 10);
 }
 
+/**
+ * En qué situación está un rival respecto del calendario.
+ *
+ * Los tres casos van en este orden y no es lo mismo el segundo que el tercero:
+ * una fila **sin fecha** no es un partido jugado, es un partido del que la hoja
+ * no dice cuándo es. Metiéndolo con los jugados, una hoja a medio rellenar
+ * manda a la cola a un rival que igual es el de la semana que viene.
+ */
+export const POR_VENIR = 0;
+export const SIN_FECHA = 1;
+export const JUGADO = 2;
+
 /** Cuándo toca el siguiente partido contra un equipo. */
 export type Enfrentamiento = {
   equipo: string;
   jornada: string;
   fecha: string;
-  /** Está por jugarse. Si no, es el último que se le jugó. */
-  porVenir: boolean;
+  grupo: typeof POR_VENIR | typeof SIN_FECHA | typeof JUGADO;
 };
 
 /**
@@ -80,9 +92,10 @@ export type Enfrentamiento = {
  * no cuenta, el siguiente contra ese equipo es el de la vuelta, y por eso se
  * va al final de la fila.
  *
- * Los que ya no tienen partido por delante —final de temporada, o una hoja sin
- * fechas— van detrás de todos y ordenados por la fecha en que se les jugó, de
- * modo que el último rival de la temporada queda el último de la lista.
+ * Detrás de los que quedan por jugar van los que la hoja no fecha —en el orden
+ * del calendario, que es lo único que se sabe de ellos— y al final los ya
+ * jugados, por la fecha en que se les jugó, de modo que el último rival de la
+ * temporada queda el último de la lista.
  */
 export function proximosEnfrentamientos(
   jornadas: JornadaRival[],
@@ -99,27 +112,44 @@ export function proximosEnfrentamientos(
     porEquipo.set(clave, [...(porEquipo.get(clave) ?? []), jornada]);
   }
 
-  const enfrentamientos = [...porEquipo.values()].map((partidos) => {
-    const ordenados = [...partidos].sort(
-      (a, b) => Number(a.jornada || 0) - Number(b.jornada || 0),
-    );
+  const enfrentamientos = [...porEquipo.values()].map(
+    (partidos): Enfrentamiento => {
+      const ordenados = [...partidos].sort(
+        (a, b) => Number(a.jornada || 0) - Number(b.jornada || 0),
+      );
 
-    const porVenir = ordenados.find(
-      (partido) => partido.fecha && partido.fecha >= hoy,
-    );
+      const como = (partido: JornadaRival, grupo: Enfrentamiento["grupo"]) => ({
+        equipo: partido.equipo,
+        jornada: partido.jornada,
+        fecha: partido.fecha,
+        grupo,
+      });
 
-    const elegido = porVenir ?? ordenados[ordenados.length - 1];
+      const porVenir = ordenados.find(
+        (partido) => partido.fecha && partido.fecha >= hoy,
+      );
 
-    return {
-      equipo: elegido.equipo,
-      jornada: elegido.jornada,
-      fecha: elegido.fecha,
-      porVenir: Boolean(porVenir),
-    };
-  });
+      if (porVenir) return como(porVenir, POR_VENIR);
+
+      /* El último que se le jugó: por fecha, no por número de jornada, que en
+         una hoja retocada a mano pueden no ir de la mano. */
+      const jugados = ordenados.filter((partido) => partido.fecha);
+
+      if (jugados.length) {
+        return como(
+          jugados.reduce((ultimo, partido) =>
+            partido.fecha > ultimo.fecha ? partido : ultimo,
+          ),
+          JUGADO,
+        );
+      }
+
+      return como(ordenados[0], SIN_FECHA);
+    },
+  );
 
   return enfrentamientos.sort((a, b) => {
-    if (a.porVenir !== b.porVenir) return a.porVenir ? -1 : 1;
+    if (a.grupo !== b.grupo) return a.grupo - b.grupo;
 
     /* Sin fecha que comparar —una fila a medio rellenar— manda la jornada. */
     const fecha = (a.fecha || "").localeCompare(b.fecha || "");
@@ -139,32 +169,70 @@ export function ordenaPorCalendario(
 
   if (!primero) return SIN_ORDEN;
 
+  /* La chapa de «PRÓXIMO» sólo se pone con una fecha delante: si la hoja no
+     dice cuándo se juega, el primero de la fila es una suposición. */
+  const anunciable = primero.grupo === POR_VENIR;
+
   return {
     equipos: enfrentamientos.map((enfrentamiento) => enfrentamiento.equipo),
-    actual: primero.porVenir ? primero.equipo : "",
-    jornada: primero.porVenir ? primero.jornada : "",
-    fecha: primero.porVenir ? primero.fecha : "",
+    actual: anunciable ? primero.equipo : "",
+    jornada: anunciable ? primero.jornada : "",
+    fecha: anunciable ? primero.fecha : "",
   };
 }
 
 /**
  * Qué puesto le toca a un equipo.
  *
- * La hoja RIVALES y la de plantillas escriben los nombres igual —«Águilas FC»
- * en las dos—, pero se comparan normalizados por si alguna vez se separan por
- * un acento o por las siglas del club. Lo que no aparezca en el calendario se
- * va al final en vez de colarse delante del rival de la semana.
+ * Hoy la hoja RIVALES y la de plantillas escriben los nombres igual —«Águilas
+ * FC» en las dos—, pero son **dos hojas distintas** que se mantienen a mano, y
+ * ya se ha visto que una fuente diga «CD Teruel» donde la otra dice «Teruel».
+ * Por eso se prueba primero el nombre normalizado y sólo si no aparece se cae
+ * en `mismoEquipo`, que quita las siglas del club: sin ese respaldo, un equipo
+ * renombrado se iría al final de la fila sin que nadie entendiera por qué.
+ *
+ * Lo que de verdad no esté en el calendario sí se va al final, en vez de
+ * colarse delante del rival de la semana.
  */
 export function puestoEnOrden(orden: OrdenRivales, equipo: string) {
   const buscado = normaliza(equipo);
 
   if (!buscado) return Number.MAX_SAFE_INTEGER;
 
-  const puesto = orden.equipos.findIndex(
+  const exacto = orden.equipos.findIndex(
     (nombre) => normaliza(nombre) === buscado,
   );
 
-  return puesto < 0 ? Number.MAX_SAFE_INTEGER : puesto;
+  if (exacto >= 0) return exacto;
+
+  const parecido = orden.equipos.findIndex((nombre) =>
+    mismoEquipo(nombre, equipo),
+  );
+
+  return parecido < 0 ? Number.MAX_SAFE_INTEGER : parecido;
+}
+
+/**
+ * ¿Es éste el rival del próximo partido?
+ *
+ * Se pregunta por el puesto y no por el nombre: así la chapa de «PRÓXIMO» usa
+ * exactamente el mismo criterio que el orden de la fila y no puede pasar que
+ * un equipo salga el primero sin la chapa porque su nombre se escriba distinto
+ * en las dos hojas.
+ */
+export function esElProximo(orden: OrdenRivales, equipo: string) {
+  return Boolean(orden.actual) && puestoEnOrden(orden, equipo) === 0;
+}
+
+/** "Jornada 1 · 31/08/2026", para el título del botón del equipo. */
+export function etiquetaDelProximo(orden: OrdenRivales) {
+  if (!orden.actual) return undefined;
+
+  const jornada = orden.jornada ? `Jornada ${orden.jornada}` : "Próximo partido";
+
+  const dia = orden.fecha.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  return dia ? `${jornada} · ${dia[3]}/${dia[2]}/${dia[1]}` : jornada;
 }
 
 /**

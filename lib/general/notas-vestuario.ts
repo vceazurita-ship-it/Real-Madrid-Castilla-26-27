@@ -252,19 +252,50 @@ function pinta(ctx: Ctx, W: number, H: number, nota: NotaVestuario) {
   const arriba = yTitulo + base * 0.14;
   const abajo = H - pie - base * 0.06;
 
-  const cuerpoCierre = Math.round(base * 0.052);
   const separacion = Math.round(base * 0.075);
 
+  const cierre = nota.cierre.trim();
+
   /*
-  | El cuerpo de letra se busca, no se fija: la nota es editable y nadie tiene
-  | por qué contar renglones. Se empieza por el tamaño de siempre y se baja
-  | hasta que el bloque cabe entre la chapa y el pie. Si alguien escribe media
-  | página, saldrá pequeña, pero saldrá entera.
+  | El cierre va en mayúsculas y con las letras separadas, así que a tamaño
+  | fijo un «MUCHÍSIMAS GRACIAS POR TODO LO DE HOY» se salía del folio por los
+  | dos lados. Se le busca el tamaño antes que al cuerpo porque no depende de
+  | él, sólo de lo largo que sea.
   */
-  const cuerpoMaximo = Math.round(base * 0.036);
+  const anchoDelCierre = (px: number) => {
+    if (!cierre) return 0;
+
+    fuente(ctx, px, 700);
+
+    const espaciado = px * 0.1;
+
+    let suma = 0;
+
+    for (const letra of cierre) suma += ctx.measureText(letra).width + espaciado;
+
+    return suma - espaciado;
+  };
+
+  const menorCierre = Math.round(base * 0.02);
+
+  let cuerpoCierre = Math.round(base * 0.052);
+
+  while (cuerpoCierre > menorCierre && anchoDelCierre(cuerpoCierre) > cajaW) {
+    cuerpoCierre -= 1;
+  }
+
+  /*
+  | El cuerpo de letra se busca igual, no se fija: la nota es editable y nadie
+  | tiene por qué contar renglones. Se empieza por el tamaño de siempre y se
+  | baja hasta que el bloque cabe entre la chapa y el pie **y** ningún renglón
+  | se sale de la caja. Lo segundo hace falta porque una palabra sola muy larga
+  | no se puede partir por ningún lado: la única manera de meterla es achicarla.
+  |
+  | Si alguien escribe media página, saldrá pequeña, pero saldrá entera.
+  */
   const cuerpoMinimo = Math.round(base * 0.02);
 
-  let cuerpo = cuerpoMaximo;
+  let cuerpo = Math.round(base * 0.036);
   let renglones: string[] = [];
   let paso = 0;
 
@@ -276,7 +307,14 @@ function pinta(ctx: Ctx, W: number, H: number, nota: NotaVestuario) {
 
     const alto = paso * renglones.length + separacion + cuerpoCierre;
 
-    if (alto <= abajo - arriba || cuerpo <= cuerpoMinimo) break;
+    const ancho = renglones.reduce(
+      (mayor, linea) => Math.max(mayor, ctx.measureText(linea).width),
+      0,
+    );
+
+    const cabe = alto <= abajo - arriba && ancho <= cajaW;
+
+    if (cabe || cuerpo <= cuerpoMinimo) break;
 
     cuerpo -= 1;
   }
@@ -307,32 +345,18 @@ function pinta(ctx: Ctx, W: number, H: number, nota: NotaVestuario) {
 
   /* -------------------------------------------------- el cierre */
 
-  const cierre = nota.cierre.trim();
-
   const yCierre = techo + paso * renglones.length + separacion + cuerpoCierre;
 
-  if (cierre) {
-    fuente(ctx, cuerpoCierre, 700);
-    ctx.fillStyle = C.verde;
+  /* Si alguien borra el cierre no se pinta nada: la raya de abajo va **con**
+     él, y sola en mitad del folio parece un error de impresión. */
+  if (!cierre) return;
 
-    const espaciadoCierre = cuerpoCierre * 0.1;
+  /* Deja además la fuente puesta al tamaño que se acaba de decidir. */
+  const anchoCierre = anchoDelCierre(cuerpoCierre);
 
-    let anchoCierre = 0;
+  ctx.fillStyle = C.verde;
 
-    for (const letra of cierre) {
-      anchoCierre += ctx.measureText(letra).width + espaciadoCierre;
-    }
-
-    anchoCierre -= espaciadoCierre;
-
-    textoEspaciado(
-      ctx,
-      cierre,
-      (W - anchoCierre) / 2,
-      yCierre,
-      espaciadoCierre,
-    );
-  }
+  textoEspaciado(ctx, cierre, (W - anchoCierre) / 2, yCierre, cuerpoCierre * 0.1);
 
   /* Un subrayado corto bajo el cierre, del rosa de la casa. */
   const raya = Math.round(base * 0.13);

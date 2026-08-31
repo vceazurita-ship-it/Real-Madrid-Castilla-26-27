@@ -71,6 +71,8 @@ import { buildRivalSquads } from "@/lib/tactics/rivals";
 import {
   cargaOrdenRivales,
   comparaPorCalendario,
+  esElProximo,
+  etiquetaDelProximo,
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
@@ -2116,8 +2118,8 @@ export default function RivalPlayersPage() {
                   <button
                     key={team.name}
                     title={
-                      team.name === ordenRivales.actual && ordenRivales.jornada
-                        ? `Jornada ${ordenRivales.jornada} · ${ordenRivales.fecha}`
+                      esElProximo(ordenRivales, team.name)
+                        ? etiquetaDelProximo(ordenRivales)
                         : undefined
                     }
                     onClick={() => {
@@ -2145,7 +2147,7 @@ export default function RivalPlayersPage() {
                     | jornada, así que conviene que se vea por qué éste está
                     | el primero y no es una casualidad del alfabeto.
                     */}
-                    {team.name === ordenRivales.actual && (
+                    {esElProximo(ordenRivales, team.name) && (
                       <span className="rounded-full bg-[#C8A96B] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
                         Próximo
                       </span>

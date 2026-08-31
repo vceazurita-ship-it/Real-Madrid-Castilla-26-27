@@ -26,7 +26,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FileText, Handshake, Presentation, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button, Field, Panel, TextArea } from "@/components/abp/ui";
+import { Button, Field, Panel, SaveState, TextArea } from "@/components/abp/ui";
 import {
   ARCHIVO,
   NOTAS_ORIGINALES,
@@ -64,11 +64,12 @@ export function NotasVestuario({
   /** Cómo se juega el partido elegido arriba, para abrir la nota que toca. */
   condicion?: "local" | "visitante";
 }) {
-  const { value, setValue } = useRemoteDoc<NotasGuardadas>({
-    key: "notas-vestuario",
-    kind: "general",
-    fallback: VACIO,
-  });
+  const { value, setValue, status, localOnly, lastSavedAt } =
+    useRemoteDoc<NotasGuardadas>({
+      key: "notas-vestuario",
+      kind: "general",
+      fallback: VACIO,
+    });
 
   const [abierta, setAbierta] = useState<ClaveNota | null>(null);
 
@@ -109,10 +110,16 @@ export function NotasVestuario({
 
   const [vista, setVista] = useState("");
 
+  /*
+  | La hoja se redibuja **con un respiro**, no en cada tecla: cada pasada monta
+  | un lienzo de 840×1188 y lo pasa a PNG, y encadenar eso letra a letra se
+  | nota al escribir. Un cuarto de segundo después de parar es inmediato para
+  | quien mira y una sola pasada para el navegador.
+  */
   useEffect(() => {
     let cancelado = false;
 
-    const pinta = async () => {
+    const plazo = setTimeout(async () => {
       try {
         /* La misma hoja a escala: es el A4 con el lado corto en 420 px. */
         const canvas = await dibujaNota(nota, 420, 594);
@@ -121,12 +128,11 @@ export function NotasVestuario({
       } catch (error) {
         console.error("[NotasVestuario] vista previa", error);
       }
-    };
-
-    void pinta();
+    }, 250);
 
     return () => {
       cancelado = true;
+      clearTimeout(plazo);
     };
   }, [nota]);
 
@@ -162,6 +168,12 @@ export function NotasVestuario({
       title="Nota para el vestuario del rival"
       subtitle="La hoja que se deja sobre un banco. No lleva rival ni fecha: se imprime y se deja"
       icon={Handshake}
+      /* El texto es editable, así que hay que ver si lo escrito ha llegado al
+         servidor. Es el mismo indicador que la cabecera del desplazamiento,
+         pero de este documento, que se guarda por su cuenta. */
+      action={
+        <SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} />
+      }
     >
       {/* ===================== QUÉ NOTA ===================== */}
 
