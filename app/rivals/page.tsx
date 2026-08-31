@@ -21,6 +21,7 @@ import RivalBoardPanel from "@/components/tactics/RivalBoardPanel";
 import RivalVoicePanel from "@/components/voice/RivalVoicePanel";
 import PlayerStatsCard from "@/components/rivals/PlayerStatsCard";
 import { useRivalStats } from "@/hooks/useRivalStats";
+import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
@@ -71,11 +72,14 @@ import { buildRivalSquads } from "@/lib/tactics/rivals";
 import {
   cargaOrdenRivales,
   comparaPorCalendario,
+  enfrentamientoDe,
   esElProximo,
   etiquetaDelProximo,
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
+import { findInforme } from "@/lib/rivals/informe";
+import { exportInformePptx } from "@/lib/rivals/informe-ppt";
 import {
   ANCLA_SUELTA,
   ANCLAS_SLOT,
@@ -603,6 +607,14 @@ export default function RivalPlayersPage() {
     loading: statsLoading,
     missing: statsMissing,
   } = useRivalStats();
+
+  /*
+  | El informe del rival (clasificación, resultados, entrenador, estadio y
+  | alineaciones). No se pide al abrir la pantalla como las estadísticas: trae
+  | la temporada entera de los diecinueve equipos y sólo hace falta cuando se
+  | pulsa el botón de descargarlo, así que se baja entonces.
+  */
+  const { pide: pideInforme } = useRivalInforme();
 
   const [showPitch, setShowPitch] = useState(true);
 
@@ -1213,6 +1225,71 @@ export default function RivalPlayersPage() {
       setExportando(false);
     }
   }, [pitchPlayers, statsDoc, equipoDelOnce, escudoDe]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | EL INFORME DEL RIVAL (.pptx)
+  |--------------------------------------------------------------------------
+  | Las diez diapositivas de `public/INFORME RIVAL.pptx` —clasificación,
+  | resultados con sus goleadores, estadísticas, entrenador, estadio y las
+  | últimas alineaciones— montadas con lo que `scripts/rivals-informe.mjs` baja
+  | de BeSoccer. Lo dibuja `lib/rivals/informe-ppt.ts`.
+  |
+  | Aquí sólo se resuelve **de qué partido se habla**: la jornada en la que
+  | toca este rival y si se juega en su campo, que es lo que decide qué tabla
+  | de la clasificación se destaca. Sale del calendario de la hoja, el mismo
+  | que ordena la fila de equipos.
+  |
+  | Como el campograma, no pasa por pop-up: no hay nada que elegir.
+  */
+  const exportarInforme = useCallback(async () => {
+    if (!selectedTeam) return;
+
+    setExportando(true);
+
+    try {
+      const doc = await pideInforme();
+
+      const informe = findInforme(doc, selectedTeam);
+
+      if (!informe) {
+        toast.error("Todavía no hay informe de este equipo.", {
+          description:
+            "Se descarga con «node scripts/rivals-informe.mjs» y se guarda en Supabase.",
+        });
+
+        return;
+      }
+
+      const partido = enfrentamientoDe(ordenRivales, selectedTeam);
+
+      const nombre = await exportInformePptx({
+        informe,
+        jornada: partido?.jornada ?? "",
+        fecha: partido?.fecha ?? "",
+        /* `local` de la hoja es **nuestro** campo: en su campo es lo contrario.
+           Sin calendario se asume fuera, que es cuando el informe se mira con
+           más detalle. */
+        enSuCampo: partido ? !partido.local : true,
+        temporada: temporadaCorta(doc?.temporada),
+        competicion: doc?.competicion ?? "",
+      });
+
+      toast.success("Informe del rival exportado", {
+        description: `${nombre} · datos de BeSoccer`,
+      });
+    } catch (error) {
+      console.error("Error exportando el informe del rival:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se ha podido generar el informe.",
+      );
+    } finally {
+      setExportando(false);
+    }
+  }, [selectedTeam, ordenRivales, pideInforme]);
 
   /*
   |--------------------------------------------------------------------------
@@ -2556,6 +2633,34 @@ export default function RivalPlayersPage() {
                                 <Presentation size={11} />
                               )}
                               PPT
+                            </button>
+                          )}
+
+                          {/*
+                            Y el informe del rival: las diez diapositivas de
+                            siempre —clasificación, resultados, entrenador,
+                            estadio y las últimas alineaciones— con los datos
+                            de BeSoccer en vez de con capturas pegadas a mano.
+
+                            No depende de la plantilla ni del once: habla del
+                            club, así que está siempre que haya equipo elegido.
+                          */}
+
+                          {selectedTeam && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => void exportarInforme()}
+                              disabled={exportando}
+                              title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y alineaciones`}
+                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <FileText size={11} />
+                              )}
+                              INFORME
                             </button>
                           )}
 

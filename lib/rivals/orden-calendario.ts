@@ -38,6 +38,15 @@ export type OrdenRivales = {
   /** Su jornada ("1", "2"…) y su fecha, para poder etiquetarlo en pantalla. */
   jornada: string;
   fecha: string;
+  /**
+   * El próximo partido contra **cada** rival, en el mismo orden que `equipos`.
+   *
+   * `equipos` es lo que ordena la fila y con eso basta para la pantalla, pero
+   * la portada del informe del rival tiene que poner «JORNADA 7» y decir si se
+   * juega en su campo o en el nuestro, y eso es de cada equipo, no sólo del
+   * primero. Se guarda entero para no volver a leer la hoja.
+   */
+  partidos: Enfrentamiento[];
 };
 
 /** Lo que se enseña mientras la hoja no ha contestado: el orden de siempre. */
@@ -46,6 +55,7 @@ export const SIN_ORDEN: OrdenRivales = {
   actual: "",
   jornada: "",
   fecha: "",
+  partidos: [],
 };
 
 /**
@@ -81,6 +91,8 @@ export type Enfrentamiento = {
   equipo: string;
   jornada: string;
   fecha: string;
+  /** Se juega **en casa**. Lo escribe la hoja en `LOCAL_VISITANTE`. */
+  local: boolean;
   grupo: typeof POR_VENIR | typeof SIN_FECHA | typeof JUGADO;
 };
 
@@ -122,6 +134,7 @@ export function proximosEnfrentamientos(
         equipo: partido.equipo,
         jornada: partido.jornada,
         fecha: partido.fecha,
+        local: partido.local,
         grupo,
       });
 
@@ -178,7 +191,23 @@ export function ordenaPorCalendario(
     actual: anunciable ? primero.equipo : "",
     jornada: anunciable ? primero.jornada : "",
     fecha: anunciable ? primero.fecha : "",
+    partidos: enfrentamientos,
   };
+}
+
+/**
+ * El próximo partido contra un equipo concreto.
+ *
+ * Busca igual que `puestoEnOrden` —nombre normalizado y, si no, `mismoEquipo`,
+ * que quita las siglas del club— porque la hoja de plantillas y la de
+ * calendario se mantienen a mano y no siempre escriben el nombre igual.
+ */
+export function enfrentamientoDe(orden: OrdenRivales, equipo: string) {
+  const puesto = puestoEnOrden(orden, equipo);
+
+  return puesto === Number.MAX_SAFE_INTEGER
+    ? null
+    : (orden.partidos[puesto] ?? null);
 }
 
 /**
