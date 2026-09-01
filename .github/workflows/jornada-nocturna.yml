@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       refrescar:
-        description: "Volver a bajarlo todo, ignorando la caché"
+        description: "Volver a bajarlo todo, ignorando la caché (desmárcalo para bajar sólo lo que falte)"
         type: boolean
         default: true
 
@@ -101,7 +101,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         # `--refrescar` porque lo que cambia con una jornada es justo lo que ya
         # está en la caché: el calendario del equipo y las fichas de partido.
-        run: node scripts/rivals-informe.mjs --refrescar
+        run: node scripts/rivals-informe.mjs ${{ (github.event_name != 'workflow_dispatch' || inputs.refrescar) && '--refrescar' || '' }}
 
       - name: Estadísticas de los jugadores rivales
         if: steps.hora.outputs.seguir == 'si'
@@ -111,7 +111,7 @@ jobs:
         # Sin `--refrescar`: aquí sólo se baja la ficha del que falte. Los
         # minutos y goles de la temporada los recalcula BeSoccer sobre la misma
         # página, así que basta con volver a pedirla los lunes.
-        run: node scripts/rivals-stats.mjs --refrescar
+        run: node scripts/rivals-stats.mjs ${{ (github.event_name != 'workflow_dispatch' || inputs.refrescar) && '--refrescar' || '' }}
 
       - name: Nuestra plantilla en BeSoccer
         if: steps.hora.outputs.seguir == 'si'
@@ -122,7 +122,7 @@ jobs:
         # su historial por temporadas, que es lo que enseña el perfil del
         # jugador en /individual. Con `--refrescar` porque lo que cambia con la
         # jornada son justo los partidos y los minutos.
-        run: node scripts/castilla-besoccer.mjs --refrescar
+        run: node scripts/castilla-besoccer.mjs ${{ (github.event_name != 'workflow_dispatch' || inputs.refrescar) && '--refrescar' || '' }}
 
       - name: Qué ha quedado
         if: steps.hora.outputs.seguir == 'si'
