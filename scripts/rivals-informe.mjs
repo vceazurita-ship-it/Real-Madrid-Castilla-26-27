@@ -134,8 +134,19 @@ const SIN_SUBIR = flags.has("--sin-subir");
 
 const espera = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function curl(url) {
-  return execFileSync(
+/**
+ * Una página de BeSoccer, con el código HTTP a la vista.
+ *
+ * El `-w` del final hace que curl escriba el estado detrás del cuerpo, y aquí
+ * se separa. Sin eso, una respuesta rechazada llegaba como cadena vacía y el
+ * script decía «vuelve a intentarlo» sin más: el 01/09/2026 la tarea nocturna
+ * falló en nueve segundos y hubo que deducir por el reloj que BeSoccer estaba
+ * cerrando la puerta al runner de GitHub, en vez de leerlo.
+ */
+function curlConEstado(url) {
+  const MARCA = "\n@@ESTADO@@";
+
+  const salida = execFileSync(
     "curl",
     [
       "-s",
@@ -148,10 +159,25 @@ function curl(url) {
       "Accept: text/html,application/xhtml+xml",
       "-H",
       "Accept-Language: es-ES,es;q=0.9",
+      "-w",
+      `${MARCA}%{http_code}`,
       url,
     ],
-    { maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }
+    { maxBuffer: 64 * 1024 * 1024, encoding: "utf8" },
   );
+
+  const corte = salida.lastIndexOf(MARCA);
+
+  if (corte === -1) return { cuerpo: salida, estado: 0 };
+
+  return {
+    cuerpo: salida.slice(0, corte),
+    estado: Number(salida.slice(corte + MARCA.length).trim()) || 0,
+  };
+}
+
+function curl(url) {
+  return curlConEstado(url).cuerpo;
 }
 
 /**
@@ -162,12 +188,22 @@ function curl(url) {
  * página perdida aquí es una alineación que falta en el informe. Se distingue
  * por el `<title>`, que es lo único que trae esa respuesta.
  */
+
+/* El último código HTTP que contestó BeSoccer. Se guarda para poder explicar
+   por qué una descarga se ha quedado sin nada: un 403 desde un servidor es
+   bloqueo por IP y no un fallo pasajero que se arregle reintentando. */
+let ultimoEstado = 0;
+
 async function pagina(url, intentos = 3) {
   for (let intento = 1; intento <= intentos; intento += 1) {
     try {
-      const html = curl(url);
+      const { cuerpo: html, estado } = curlConEstado(url);
 
-      if (html && !/<title>Besoccer-50\d/.test(html)) return html;
+      ultimoEstado = estado;
+
+      if (html && estado === 200 && !/<title>Besoccer-50[0-9]/.test(html)) {
+        return html;
+      }
     } catch (error) {
       if (intento === intentos) throw error;
     }
@@ -1339,7 +1375,11 @@ async function main() {
   }
 
   if (!clasificacion) {
-    throw new Error("Sin clasificación no hay informe: vuelve a intentarlo.");
+    throw new Error(
+      `Sin clasificación no hay informe. BeSoccer ha contestado ${ultimoEstado || "nada"} ` +
+        `a ${CLASIFICACION_URL}. Un 403 o un 429 desde un servidor suele ser ` +
+        `bloqueo por IP: esta descarga sólo funciona desde una conexión normal.`,
+    );
   }
 
   console.log(`  ${clasificacion.total.length} equipos en la tabla.`);

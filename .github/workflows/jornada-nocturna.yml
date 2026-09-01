@@ -94,6 +94,30 @@ jobs:
           key: besoccer-${{ github.run_id }}
           restore-keys: besoccer-
 
+      # Antes de media hora de descarga, treinta segundos de comprobación.
+      #
+      # BeSoccer bloquea por IP y los runners de GitHub están en rangos de
+      # centro de datos: el 01/09/2026 el primer intento murió en nueve
+      # segundos sin decir por qué. Si nos cierra la puerta, mejor saberlo aquí
+      # y con el código delante que deducirlo por el reloj.
+      - name: ¿Nos deja pasar BeSoccer?
+        if: steps.hora.outputs.seguir == 'si'
+        run: |
+          URL="https://es.besoccer.com/competicion/clasificacion/primera_division_rfef/2027/grupo2"
+
+          ESTADO=$(curl -s -o /tmp/besoccer.html -w "%{http_code}"             --compressed --max-time 45             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"             -H "Accept: text/html,application/xhtml+xml"             -H "Accept-Language: es-ES,es;q=0.9"             "$URL" || echo "000")
+
+          BYTES=$(wc -c < /tmp/besoccer.html)
+
+          echo "BeSoccer ha contestado $ESTADO con $BYTES bytes."
+
+          if [ "$ESTADO" != "200" ] || [ "$BYTES" -lt 20000 ]; then
+            echo "::error::BeSoccer no atiende a este runner (HTTP $ESTADO, $BYTES bytes)."
+            echo "Suele ser bloqueo por IP de centro de datos. La descarga hay que"
+            echo "correrla desde una conexión normal: ver el README del workflow."
+            exit 1
+          fi
+
       - name: Resultados, goleadores y alineaciones
         if: steps.hora.outputs.seguir == 'si'
         env:
