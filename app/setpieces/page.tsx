@@ -2911,11 +2911,19 @@ margin={{
         vertical={false}
       />
 
+      {/*
+        `interval={0}` obliga a pintar los seis tramos.
+
+        Sin él, en un móvil recharts se comía una etiqueta de cada dos y la
+        gráfica quedaba con el primer pico sin nombre: se veía que había un
+        pico, pero no en qué cuarto de hora.
+      */}
       <XAxis
         dataKey="tramo"
-        domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
+        interval={0}
         tick={{
           fill: "#94A3B8",
+          fontSize: 11,
         }}
         axisLine={false}
         tickLine={false}
@@ -2988,7 +2996,38 @@ margin={{
       Todavía no hay ninguna acción con rutina anotada en la hoja.
     </p>
   ) : (
-    <div className="overflow-x-auto">
+    <>
+      {/*
+        En un móvil la tabla no cabe y las cuatro columnas de números se
+        quedaban a la derecha, fuera de la pantalla: se veían los nombres de
+        las rutinas y había que arrastrar para saber si alguna había producido
+        algo. Por debajo de `sm` va en fichas, con las cifras debajo del
+        nombre.
+      */}
+      <ul className="space-y-2 sm:hidden">
+        {porRutina.map((fila) => (
+          <li
+            key={fila.nombre}
+            className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
+          >
+            <p className="text-sm text-zinc-200">{fila.nombre}</p>
+
+            <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums text-zinc-400">
+              <span>{fila.total} ABP</span>
+              <span>
+                {fila.remates} remate{fila.remates === 1 ? "" : "s"} ·{" "}
+                {fila.rematePct.toFixed(0)}%
+              </span>
+              <span style={{ color: fila.goles > 0 ? COLORS.green : undefined }}>
+                {fila.goles} gol{fila.goles === 1 ? "" : "es"}
+              </span>
+              <span className="text-[#C8A96B]">xG {fila.xg.toFixed(2)}</span>
+            </p>
+          </li>
+        ))}
+      </ul>
+
+    <div className="hidden overflow-x-auto sm:block">
       <table className="w-full min-w-[520px] text-left text-sm">
         <thead className="text-[11px] uppercase tracking-wide text-zinc-500">
           <tr>
@@ -3007,7 +3046,7 @@ margin={{
               <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
                 {fila.total}
               </td>
-              <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
+              <td className="whitespace-nowrap py-2.5 px-3 text-right tabular-nums text-zinc-300">
                 {fila.remates} · {fila.rematePct.toFixed(0)}%
               </td>
               <td
@@ -3024,6 +3063,7 @@ margin={{
         </tbody>
       </table>
     </div>
+    </>
   )}
 </Panel>
 
@@ -3050,9 +3090,12 @@ margin={{
     >
       <CartesianGrid stroke="#1E232A" vertical={false} />
 
+      {/* Igual aquí: en el móvil desaparecía «Empatando», que es justo la
+          barra más alta. */}
       <XAxis
         dataKey="estado"
-        tick={{ fill: "#94A3B8" }}
+        interval={0}
+        tick={{ fill: "#94A3B8", fontSize: 11 }}
         axisLine={false}
         tickLine={false}
       />

@@ -2578,9 +2578,11 @@ margin={{
     vertical={false}
   />
 
+  {/* `interval={0}`: en el móvil se perdía una etiqueta de cada dos. */}
   <XAxis
     dataKey="tramo"
-    domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
+    interval={0}
+    tick={{ fontSize: 11 }}
     axisLine={false}
     tickLine={false}
   />
@@ -2635,7 +2637,13 @@ margin={{
     <BarChart data={porMarcador}>
       <CartesianGrid stroke="#1E232A" vertical={false} />
 
-      <XAxis dataKey="estado" axisLine={false} tickLine={false} />
+      <XAxis
+        dataKey="estado"
+        interval={0}
+        tick={{ fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+      />
 
       <YAxis axisLine={false} tickLine={false} />
 
