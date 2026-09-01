@@ -217,6 +217,15 @@ function leePlantillasRivales(filas: unknown): PlantillaRival[] {
 const CLAVE_RIVALES_CODING = "coding:rivales";
 
 /**
+ * Lo que marca un partido nuestro que no sale del calendario.
+ *
+ * `?partido=propio:<apodo del rival>` es un vídeo propio —un amistoso, un
+ * partido que la hoja de la liga todavía no tiene— con su propia sesión de
+ * coding, separada de la del partido de liga que se le pareciera.
+ */
+const PREFIJO_PROPIO = "propio:";
+
+/**
  * Si un nombre es el nuestro.
  *
  * La hoja de scouting trae al propio Castilla entre los equipos —está para
@@ -383,9 +392,28 @@ function Coding() {
   const partidoId = params.get("partido") ?? "";
   const equipoRival = params.get("equipo") ?? "";
 
+  /*
+  | Un partido nuestro que no está en el calendario.
+  |
+  | El vídeo que se codifica no siempre es un partido de liga: un amistoso, un
+  | entrenamiento contra otro equipo o un partido que la hoja todavía no tiene
+  | se abren igual desde el ordenador, y hasta ahora el desplegable sólo
+  | ofrecía el calendario, así que **no había manera de decir contra quién se
+  | jugaba**: la sesión se guardaba bajo el partido de liga que tocara salir el
+  | primero. Con el prefijo `propio:` el partido es «RMCF Castilla · <rival>»,
+  | tiene sesión propia y el rival se elige —o se añade— igual que en el otro
+  | ámbito.
+  */
+  const claveRivalPropio = partidoId.startsWith(PREFIJO_PROPIO)
+    ? partidoId.slice(PREFIJO_PROPIO.length)
+    : "";
+
   const partido = useMemo(
-    () => partidos.find((uno) => uno.id === partidoId) ?? partidos[0] ?? null,
-    [partidoId, partidos],
+    () =>
+      claveRivalPropio
+        ? null
+        : (partidos.find((uno) => uno.id === partidoId) ?? partidos[0] ?? null),
+    [claveRivalPropio, partidoId, partidos],
   );
 
   /* ------------------------------------------------------ rivales */
@@ -456,16 +484,33 @@ function Coding() {
   const [añadiendoRival, setAñadiendoRival] = useState(false);
   const [rivalNuevo, setRivalNuevo] = useState("");
 
+  /** El rival del partido propio, ya resuelto contra la lista de rivales. */
+  const rivalPropio = useMemo(
+    () =>
+      claveRivalPropio
+        ? (rivales.find((uno) => uno.clave === claveRivalPropio) ?? {
+            clave: claveRivalPropio,
+            nombre: claveRivalPropio,
+            origen: "propio" as const,
+          })
+        : null,
+    [claveRivalPropio, rivales],
+  );
+
   const refId =
     ambito === "partido"
-      ? (partido?.id ?? "sin-partido")
+      ? rivalPropio
+        ? `${PREFIJO_PROPIO}${rivalPropio.clave}`
+        : (partido?.id ?? "sin-partido")
       : (rival?.clave ?? "sin-rival");
 
   const titulo =
     ambito === "partido"
-      ? partido
-        ? matchLabel(partido)
-        : "Partido sin elegir"
+      ? rivalPropio
+        ? `RMCF Castilla · ${rivalPropio.nombre}`
+        : partido
+          ? matchLabel(partido)
+          : "Partido sin elegir"
       : (rival?.nombre ?? "Rival sin elegir");
 
   /** La lista de jugadores del panel de teclas. */
@@ -1867,27 +1912,77 @@ function Coding() {
               </div>
 
               {ambito === "partido" ? (
-                <label className="block min-w-0">
+                <div className="block min-w-0">
                   <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
                     Partido
                   </span>
 
-                  <select
-                    value={partido?.id ?? ""}
-                    onChange={(evento) => cambiaUrl("partido", evento.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
-                  >
-                    {partidos.length === 0 && (
-                      <option value="">Cargando calendario…</option>
-                    )}
+                  {/*
+                  | El calendario primero y, debajo, cualquier rival.
+                  |
+                  | Un vídeo propio —un amistoso, un partido que la hoja aún no
+                  | tiene— no está en el calendario, y antes no había forma de
+                  | decir contra quién era: se codificaba bajo el primer partido
+                  | de la lista. Con el segundo grupo se elige el rival igual
+                  | que en «Un rival», y «Otro» añade el que falte.
+                  */}
+                  <div className="flex min-w-0 gap-2">
+                    <select
+                      value={
+                        rivalPropio
+                          ? `${PREFIJO_PROPIO}${rivalPropio.clave}`
+                          : (partido?.id ?? "")
+                      }
+                      aria-label="Partido"
+                      onChange={(evento) => cambiaUrl("partido", evento.target.value)}
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                    >
+                      {partidos.length === 0 && rivales.length === 0 && (
+                        <option value="">Cargando calendario…</option>
+                      )}
 
-                    {partidos.map((uno) => (
-                      <option key={uno.id} value={uno.id} className="bg-[#11161C]">
-                        {matchLabel(uno)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                      {partidos.length > 0 && (
+                        <optgroup label="Del calendario">
+                          {partidos.map((uno) => (
+                            <option
+                              key={uno.id}
+                              value={uno.id}
+                              className="bg-[#11161C]"
+                            >
+                              {matchLabel(uno)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      {rivales.length > 0 && (
+                        <optgroup label="Otro rival (vídeo propio)">
+                          {rivales.map((uno) => (
+                            <option
+                              key={uno.clave}
+                              value={`${PREFIJO_PROPIO}${uno.clave}`}
+                              className="bg-[#11161C]"
+                            >
+                              RMCF Castilla · {uno.nombre}
+                              {uno.origen === "propio" ? " · amistoso" : ""}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+
+                    <Button
+                      icon={Plus}
+                      onClick={() => {
+                        setRivalNuevo("");
+                        setAñadiendoRival(true);
+                      }}
+                      title="Codificar contra un equipo que no está en el calendario"
+                    >
+                      Otro
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div className="block min-w-0">
                   <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
@@ -2682,10 +2777,17 @@ function Coding() {
                   }
 
                   setAñadiendoRival(false);
-                  cambiaUrl("equipo", clave);
+
+                  /* En «nuestro partido» el equipo añadido es el rival de un
+                     vídeo propio; en «un rival», el equipo que se analiza. */
+                  if (ambito === "partido") {
+                    cambiaUrl("partido", `${PREFIJO_PROPIO}${clave}`);
+                  } else {
+                    cambiaUrl("equipo", clave);
+                  }
                 }}
               >
-                Añadir y analizarlo
+                {ambito === "partido" ? "Añadir y codificarlo" : "Añadir y analizarlo"}
               </Button>
             </>
           }
