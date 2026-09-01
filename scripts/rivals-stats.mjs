@@ -661,17 +661,41 @@ function buildDoc(targets, cache, squads) {
   };
 }
 
+/**
+ * Las claves de Supabase.
+ *
+ * En un portátil salen de `.env.local`; en la tarea nocturna, que corre en un
+ * runner de GitHub, no hay tal fichero y vienen del entorno. Se admiten las
+ * dos formas para que el mismo script valga en los dos sitios sin tocar nada,
+ * y se avisa claro cuando no hay ninguna: sin claves el script subía `null` y
+ * el fallo aparecía media hora después, al terminar la descarga.
+ */
 function readEnv() {
-  /* El fichero viene con saltos de Windows y en JS el `.` de una expresión
-     regular no cruza un `\r`: sin quitarlos, ninguna línea encaja. */
-  const raw = fs.readFileSync(".env.local", "utf8").replace(/\r/g, "");
-
   const env = {};
 
-  for (const line of raw.split("\n")) {
-    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+  if (fs.existsSync(".env.local")) {
+    /* El fichero viene con saltos de Windows y en JS el `.` de una expresión
+       regular no cruza un retorno de carro: sin quitarlos, ninguna línea
+       encaja. */
+    const raw = fs.readFileSync(".env.local", "utf8").split("\r").join("");
 
-    if (match) env[match[1]] = match[2].trim();
+    for (const line of raw.split("\n")) {
+      const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+
+      if (match) env[match[1]] = match[2].trim();
+    }
+  }
+
+  /* Lo que venga por el entorno manda: es lo que pone la tarea nocturna. */
+  for (const clave of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
+    if (process.env[clave]) env[clave] = process.env[clave];
+  }
+
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "Faltan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY: " +
+        "ponlas en .env.local o en el entorno antes de subir nada.",
+    );
   }
 
   return env;

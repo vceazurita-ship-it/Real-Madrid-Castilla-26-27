@@ -1,0 +1,131 @@
+# Actualización nocturna de la jornada
+#
+# Cada noche a las 00:00 de Madrid se vuelve a bajar de BeSoccer todo lo que
+# cambia con una jornada: resultados, goleadores con su asistente, alineaciones
+# con cambios y tarjetas, clasificación y la ficha de cada entrenador. Lo sube a
+# Supabase (`app_documents`, claves `rivals:informe` y `rivals:stats`), que es de
+# donde leen el informe del rival, el once probable sugerido y las fichas de
+# jugador.
+#
+# Hasta ahora esto se corría a mano —y había que acordarse—: el lunes siguiente
+# a la jornada el informe salía con los datos del sábado anterior y nadie lo
+# notaba hasta abrirlo.
+#
+# **La hora.** GitHub sólo entiende UTC y Madrid cambia dos veces al año, así
+# que se dispara a las 22:00 y a las 23:00 UTC y el propio trabajo comprueba qué
+# hora es en Madrid: sólo sigue si son las 00. En verano entra el de las 22:00 y
+# en invierno el de las 23:00, sin tocar nada al cambiar la hora.
+#
+# Hacen falta dos secretos en el repositorio (Settings → Secrets → Actions):
+#   NEXT_PUBLIC_SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+
+name: Jornada nocturna
+
+on:
+  schedule:
+    # 00:00 en Madrid: 22:00 UTC en horario de verano, 23:00 en invierno.
+    - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
+
+  # Y a mano, para no tener que esperar a medianoche cuando se acaba de jugar.
+  workflow_dispatch:
+    inputs:
+      refrescar:
+        description: "Volver a bajarlo todo, ignorando la caché"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  # Dos descargas a la vez se pisarían al subir a Supabase.
+  group: jornada-nocturna
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+
+    # Son ~190 páginas de BeSoccer con pausa de 1,2 s entre ellas, más las
+    # fichas de jugador. Con una hora sobra; sin plazo, un cuelgue de BeSoccer
+    # dejaría el trabajo corriendo seis horas.
+    timeout-minutes: 90
+
+    steps:
+      - name: ¿Son las 00:00 en Madrid?
+        id: hora
+        run: |
+          HORA=$(TZ=Europe/Madrid date +%H)
+          echo "En Madrid son las $HORA."
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "seguir=si" >> "$GITHUB_OUTPUT"
+            echo "Lanzado a mano: se sigue."
+          elif [ "$HORA" = "00" ]; then
+            echo "seguir=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "seguir=no" >> "$GITHUB_OUTPUT"
+            echo "No son las 00 en Madrid: este disparo es el del otro huso."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.hora.outputs.seguir == 'si'
+
+      - uses: actions/setup-node@v4
+        if: steps.hora.outputs.seguir == 'si'
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Instalar dependencias
+        if: steps.hora.outputs.seguir == 'si'
+        run: npm ci --ignore-scripts
+
+      # La caché entre ejecuciones evita volver a pedir lo que no cambia: las
+      # fichas de jugador de BeSoccer son las mismas todos los días salvo que
+      # se haya jugado.
+      - name: Recuperar la caché de descargas
+        if: steps.hora.outputs.seguir == 'si'
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: besoccer-${{ github.run_id }}
+          restore-keys: besoccer-
+
+      - name: Resultados, goleadores y alineaciones
+        if: steps.hora.outputs.seguir == 'si'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # `--refrescar` porque lo que cambia con una jornada es justo lo que ya
+        # está en la caché: el calendario del equipo y las fichas de partido.
+        run: node scripts/rivals-informe.mjs --refrescar
+
+      - name: Estadísticas de los jugadores rivales
+        if: steps.hora.outputs.seguir == 'si'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # Sin `--refrescar`: aquí sólo se baja la ficha del que falte. Los
+        # minutos y goles de la temporada los recalcula BeSoccer sobre la misma
+        # página, así que basta con volver a pedirla los lunes.
+        run: node scripts/rivals-stats.mjs --refrescar
+
+      - name: Nuestra plantilla en BeSoccer
+        if: steps.hora.outputs.seguir == 'si'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # Los datos propios: el enlace a la ficha de cada uno de los nuestros y
+        # su historial por temporadas, que es lo que enseña el perfil del
+        # jugador en /individual. Con `--refrescar` porque lo que cambia con la
+        # jornada son justo los partidos y los minutos.
+        run: node scripts/castilla-besoccer.mjs --refrescar
+
+      - name: Qué ha quedado
+        if: steps.hora.outputs.seguir == 'si'
+        run: |
+          echo "Equipos en la caché del informe:"
+          ls -1 .cache/rivals-informe/*.json 2>/dev/null | wc -l

@@ -5,6 +5,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 
+import { useCastillaBesoccer } from "@/hooks/useCastillaBesoccer";
+import {
+  buscaBesoccer,
+  minutosPorPartido,
+  temporadaDestacada,
+  type JugadorBesoccer,
+} from "@/lib/castilla/besoccer";
+
 import {
   AlertTriangle,
   Brain,
@@ -792,6 +800,162 @@ function ScoreRing({ value, size = 56 }: { value: number; size?: number }) {
   );
 }
 
+/*
+|--------------------------------------------------------------------------
+| LO QUE SABE BESOCCER DE UN JUGADOR NUESTRO
+|--------------------------------------------------------------------------
+| El enlace a su ficha y su historial por temporadas. Sale de
+| `castilla:besoccer`, que escribe `scripts/castilla-besoccer.mjs` cruzando
+| nuestra hoja con la plantilla del Castilla en BeSoccer.
+|
+| Es un bloque **discreto a propósito**: lo que manda en esta pantalla es el
+| análisis del cuerpo técnico, y esto es contexto. Por eso va al final, sin
+| color y con la letra pequeña, y desaparece del todo cuando el jugador no
+| está en BeSoccer —un juvenil que sube a entrenar— en vez de dejar un panel
+| vacío diciendo que no hay nada.
+*/
+function BesoccerPanel({ jugador }: { jugador: JugadorBesoccer | null }) {
+  if (!jugador) return null;
+
+  const destacada = temporadaDestacada(jugador.temporadas);
+
+  return (
+    <Panel title="BeSoccer" icon={ExternalLink}>
+      <div className="min-w-0 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm text-white/70">{jugador.nombre}</p>
+
+            <p className="text-[11px] text-white/30">
+              {jugador.puesto}
+              {destacada ? ` · ${destacada.temporada}` : ""}
+            </p>
+          </div>
+
+          <a
+            href={jugador.ficha}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 transition hover:border-[#C8A96B]/40 hover:text-[#C8A96B]"
+          >
+            Ver ficha
+            <ExternalLink size={12} />
+          </a>
+        </div>
+
+        {destacada && (
+          <>
+            {/*
+              Los números de la temporada que dice algo: en agosto la actual
+              está a cero y lo que cuenta de alguien es la anterior.
+            */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { rotulo: "Partidos", valor: destacada.partidos },
+                { rotulo: "Titular", valor: destacada.titular },
+                { rotulo: "Minutos", valor: destacada.minutos },
+                jugador.portero
+                  ? { rotulo: "Encajados", valor: destacada.encajados ?? 0 }
+                  : { rotulo: "Goles", valor: destacada.goles ?? 0 },
+              ].map((dato) => (
+                <div
+                  key={dato.rotulo}
+                  className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
+                >
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+                    {dato.rotulo}
+                  </p>
+
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-white/80">
+                    {dato.valor}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {destacada.partidos > 0 && (
+              <p className="text-[11px] text-white/30">
+                {minutosPorPartido(destacada).toFixed(0)} minutos por partido
+                {jugador.portero
+                  ? destacada.penaltisParados
+                    ? ` · ${destacada.penaltisParados} penalti${destacada.penaltisParados === 1 ? "" : "s"} parado${destacada.penaltisParados === 1 ? "" : "s"}`
+                    : ""
+                  : destacada.asistencias
+                    ? ` · ${destacada.asistencias} asistencia${destacada.asistencias === 1 ? "" : "s"}`
+                    : ""}
+                {destacada.amarillas || destacada.rojas
+                  ? ` · ${destacada.amarillas} amarilla${destacada.amarillas === 1 ? "" : "s"}${destacada.rojas ? ` y ${destacada.rojas} roja${destacada.rojas === 1 ? "" : "s"}` : ""}`
+                  : ""}
+              </p>
+            )}
+          </>
+        )}
+
+        {jugador.temporadas.length > 1 && (
+          <details className="group">
+            <summary className="cursor-pointer list-none text-[11px] text-white/30 transition hover:text-white/60">
+              Trayectoria · {jugador.temporadas.length} temporadas
+            </summary>
+
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full min-w-[420px] text-left text-[11px]">
+                <thead className="text-[10px] uppercase tracking-wide text-white/25">
+                  <tr>
+                    <th className="py-1.5 pr-3 font-medium">Temporada</th>
+                    <th className="py-1.5 pr-3 font-medium">Club</th>
+                    <th className="py-1.5 px-2 text-right font-medium">PJ</th>
+                    <th className="py-1.5 px-2 text-right font-medium">Min.</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">
+                      {jugador.portero ? "Enc." : "Goles"}
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-white/5">
+                  {jugador.temporadas.map((una) => (
+                    <tr key={una.temporada} className="text-white/55">
+                      <td className="py-1.5 pr-3 tabular-nums">{una.temporada}</td>
+
+                      <td className="py-1.5 pr-3">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {una.escudos[0] ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={una.escudos[0]}
+                              alt=""
+                              className="h-3.5 w-3.5 shrink-0 rounded-sm object-contain"
+                            />
+                          ) : null}
+
+                          <span className="truncate">
+                            {una.equipos.join(" · ") || "—"}
+                          </span>
+                        </span>
+                      </td>
+
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        {una.partidos}
+                      </td>
+
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        {una.minutos}
+                      </td>
+
+                      <td className="py-1.5 pl-2 text-right tabular-nums">
+                        {jugador.portero ? (una.encajados ?? 0) : (una.goles ?? 0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 function Panel({
   title,
   icon: Icon,
@@ -1371,6 +1535,19 @@ export default function IndividualPage() {
   const selected = useMemo(
     () => mergedPlayers.find((p) => p.idJugador === selectedId) ?? null,
     [mergedPlayers, selectedId],
+  );
+
+  /*
+  | Lo que BeSoccer sabe de nuestra plantilla.
+  |
+  | Se pide una vez por pestaña y se comparte; si no está el documento, el
+  | bloque de la ficha no se pinta y ya está.
+  */
+  const { doc: besoccerDoc } = useCastillaBesoccer();
+
+  const besoccerDelJugador = useMemo(
+    () => buscaBesoccer(besoccerDoc, selected?.idJugador),
+    [besoccerDoc, selected?.idJugador],
   );
 
   useBodyScrollLock(Boolean(selected));
@@ -2663,6 +2840,16 @@ export default function IndividualPage() {
                             </a>
                           </Panel>
                         )}
+
+                        {/*
+                          Lo que BeSoccer sabe de él: el enlace a su ficha y el
+                          historial por temporadas, que la hoja no tiene.
+
+                          Va discreto y **sólo si está atado**: un juvenil que
+                          sube a entrenar no aparece en la plantilla de
+                          BeSoccer, y en su ficha esto sencillamente no sale.
+                        */}
+                        <BesoccerPanel jugador={besoccerDelJugador} />
 
                         <div className="md:hidden">{competencePanel}</div>
                       </div>
