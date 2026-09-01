@@ -23,6 +23,18 @@ import {
   resultInk,
   resumenDe,
 } from "@/components/throw-ins/throwInModel";
+import {
+  COMPETICION_LABEL,
+  ESTADOS,
+  ESTADO_COLOR,
+  ESTADO_LABEL,
+  TRAMOS,
+  TRAMO_LABEL,
+  comparaJornadas,
+  parseJornada,
+  parseMarcador,
+  parseMinuto,
+} from "@/lib/abp/partido";
 
 type ThrowInsDashboardProps = {
   csvUrl: string;
@@ -37,6 +49,19 @@ const COLORS = ["#C8A96B", "#3B82F6", "#8B5CF6", "#10B981", "#F97316", "#EC4899"
  * mismo accesor: si el gráfico agrupa "Área" y el filtro busca "Area", elegir
  * esa opción devolvía cero filas.
  */
+/*
+| Las tres claves que empiezan por «__» no son columnas de la hoja: se deducen
+| de las que sí lo son.
+|
+|   __competicion  del prefijo de JORNADA ("PRETEMPORADA 03" · "LIGA 01")
+|   __marcador     de "Resultado RMC" y "Resultado RIVAL", los goles de cada
+|                  uno en ese momento del partido
+|   __tramo        del minuto, en cuartos de hora
+|
+| Se enchufan como accesores porque el filtro, el gráfico y el recuento ya
+| pasan todos por `valorDe`: así las tres lecturas nuevas se filtran y se
+| grafican igual que cualquier columna, sin tocar nada más.
+*/
 const ACCESSORS: Record<string, (row: RecordRow) => string> = {
   Perfil: (row) => {
     const banda = parseBanda(row);
@@ -44,6 +69,44 @@ const ACCESSORS: Record<string, (row: RecordRow) => string> = {
   },
   Zona_Caida: (row) => direccionDe(row).label,
   Resultado_Final: (row) => parseResultado(read(row, "Resultado_Final")).label,
+
+  /* La jornada, escrita como se lee: "Jornada 1" y "Pretemporada 3". */
+  JORNADA: (row) => parseJornada(read(row, "JORNADA")).etiqueta,
+
+  __competicion: (row) =>
+    COMPETICION_LABEL[parseJornada(read(row, "JORNADA")).competicion],
+
+  __marcador: (row) => {
+    const estado = parseMarcador(row).estado;
+
+    return estado ? ESTADO_LABEL[estado] : "Sin dato";
+  },
+
+  __tramo: (row) => {
+    const tramo = parseMinuto(row).tramo;
+
+    return tramo ? TRAMO_LABEL[tramo] : "Sin dato";
+  },
+
+  /*
+  | La parte, leída del número y no del texto.
+  |
+  | La columna «Tiempo» mezcla «1T», «2T», «T1» y «T2» en la misma hoja, así
+  | que el desplegable ofrecía cuatro opciones para dos partes y elegir una
+  | dejaba fuera la mitad de los saques.
+  */
+  __parte: (row) => {
+    const parte = parseMinuto(row).parte;
+
+    return parte ? `${parte}ª parte` : "Sin dato";
+  },
+};
+
+/* El orden en el que se leen los valores de los ejes que no van por volumen. */
+const ORDEN_FIJO: Record<string, string[]> = {
+  __tramo: TRAMOS.map((tramo) => tramo.label),
+  __marcador: ESTADOS.map((estado) => estado.label),
+  __parte: ["1ª parte", "2ª parte"],
 };
 
 function valorDe(row: RecordRow, key: string) {
@@ -58,9 +121,14 @@ function valorDe(row: RecordRow, key: string) {
  */
 function filtersFor(mode: Mode): { key: string; label: string }[] {
   const common = [
+    /* La competición manda sobre todo lo demás: un saque de banda de un
+       amistoso de julio y uno de la jornada 1 no son la misma muestra. */
+    { key: "__competicion", label: "Competición" },
     { key: "JORNADA", label: "Jornada" },
     { key: "Rival", label: "Rival" },
-    { key: "Tiempo", label: "Tiempo" },
+    { key: "__parte", label: "Parte" },
+    { key: "__tramo", label: "Tramo de 15'" },
+    { key: "__marcador", label: "Marcador" },
     { key: "Perfil", label: "Banda" },
     { key: "Zona_Saque", label: "Zona de saque" },
     { key: "Tipo_Envio", label: "Tipo de envío" },
@@ -91,6 +159,8 @@ function filtersFor(mode: Mode): { key: string; label: string }[] {
 
 function chartsFor(mode: Mode): { key: string; title: string }[] {
   const common = [
+    { key: "__tramo", title: "Momento del partido" },
+    { key: "__marcador", title: "Según el marcador" },
     { key: "Zona_Saque", title: mode === "offensive" ? "Zona de saque" : "Zona de saque del rival" },
     { key: "Perfil", title: "Banda" },
     { key: "Tipo_Envio", title: "Tipo de envío" },
@@ -118,14 +188,30 @@ function chartsFor(mode: Mode): { key: string; title: string }[] {
   return [...common, ...propios, { key: "Resultado_Final", title: "Resultado final" }];
 }
 
+/**
+ * Reparte las filas por el valor de una columna.
+ *
+ * Casi todo se ordena por volumen, que es como se lee un ranking. El tramo del
+ * partido y el marcador **no**: ahí el orden es el suyo —de la primera parte a
+ * la última, y de ganando a perdiendo—, porque una gráfica de minutos
+ * desordenada no se puede leer.
+ */
 function groupBy(rows: RecordRow[], key: string) {
-  return Object.entries(
-    rows.reduce<Record<string, number>>((acc, row) => {
-      const value = valorDe(row, key);
-      acc[value] = (acc[value] ?? 0) + 1;
-      return acc;
-    }, {})
-  )
+  const cuenta = rows.reduce<Record<string, number>>((acc, row) => {
+    const value = valorDe(row, key);
+    acc[value] = (acc[value] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const orden = ORDEN_FIJO[key];
+
+  if (orden) {
+    return orden
+      .filter((name) => cuenta[name])
+      .map((name) => ({ name, total: cuenta[name] }));
+  }
+
+  return Object.entries(cuenta)
     .map(([name, total]) => ({ name, total }))
     .sort((a, b) => b.total - a.total);
 }
@@ -212,7 +298,7 @@ function DistributionChart({
                 cursor={{ fill: "rgba(255,255,255,0.04)" }}
                 contentStyle={{ background: "#0B1728", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}
               />
-              <Bar dataKey="total" radius={[7, 7, 0, 0]}>
+              <Bar dataKey="total" radius={[7, 7, 0, 0]} maxBarSize={72}>
                 {data.map((item, index) => (
                   <Cell
                     key={item.name}
@@ -234,6 +320,18 @@ const MAX_TABLA = 100;
 
 export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProps) {
   const [rows, setRows] = useState<RecordRow[]>([]);
+
+  /*
+  | Saques anotados pero todavía sin codificar.
+  |
+  | La hoja se rellena en dos pasadas: primero se apuntan el minuto y el
+  | marcador de cada saque —que es lo que se saca del vídeo y de BeSoccer en
+  | una tarde— y después se codifica la acción. Esas filas a medias no pueden
+  | entrar en los gráficos, porque «Sin dato» se comería todos los repartos,
+  | pero **tampoco pueden desaparecer sin decirlo**: hasta ahora se filtraban
+  | en silencio y la jornada 1 entera no existía para esta pantalla.
+  */
+  const [pendientes, setPendientes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -255,8 +353,23 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       })
       .then((csv) => {
         const parsed = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
-        // Las filas de marcador sin saque registrado ensucian todos los conteos.
-        if (active) setRows(parsed.data.filter((row) => read(row, "Zona_Saque")));
+
+        /* Codificado es lo que trae zona de saque; lo que sólo tiene minuto o
+           marcador está anotado a medias y se cuenta aparte. */
+        const conZona = parsed.data.filter((row) => read(row, "Zona_Saque"));
+
+        const aMedias = parsed.data.filter(
+          (row) =>
+            !read(row, "Zona_Saque") &&
+            (read(row, "Minuto") ||
+              read(row, "Resultado RMC") ||
+              read(row, "Resultado RIVAL")),
+        );
+
+        if (active) {
+          setRows(conZona);
+          setPendientes(aMedias.length);
+        }
       })
       .catch((cause: unknown) => {
         if (active) setError(cause instanceof Error ? cause.message : "Error cargando los datos.");
@@ -280,7 +393,18 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         (value) => value && value !== "Sin dato"
       );
 
-      map[key] = key === "JORNADA" ? values : values.sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+      if (key === "JORNADA") {
+        /* De liga a pretemporada y por número: "Jornada 10" después de la 9. */
+        map[key] = [...new Set(rows.map((row) => read(row, "JORNADA")))]
+          .filter(Boolean)
+          .map(parseJornada)
+          .sort(comparaJornadas)
+          .map((una) => una.etiqueta);
+      } else if (ORDEN_FIJO[key]) {
+        map[key] = ORDEN_FIJO[key].filter((valor) => values.includes(valor));
+      } else {
+        map[key] = values.sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+      }
     });
 
     return map;
@@ -332,11 +456,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
   const tableRows = filtered.slice(0, MAX_TABLA);
 
+  /* El minuto y el marcador van juntos y delante: sitúan la acción antes de
+     leer nada más, que es para lo que se registran. */
   const tableColumns = isOffensive
     ? [
         "Jornada",
         "Rival",
-        "Tiempo",
+        "Min.",
+        "Marcador",
         "Sacador",
         "Banda",
         "Zona saque",
@@ -350,7 +477,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     : [
         "Jornada",
         "Rival",
-        "Tiempo",
+        "Min.",
+        "Marcador",
         "Banda",
         "Zona saque",
         "Envío",
@@ -417,6 +545,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                 ))}
               </FilterDrawer>
+
+              {pendientes > 0 ? (
+                <p className="rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3 text-xs leading-relaxed text-[#E7D2A0]">
+                  Hay {pendientes} {pendientes === 1 ? "saque anotado" : "saques anotados"} con
+                  minuto y marcador que todavía no {pendientes === 1 ? "está" : "están"} codificad
+                  {pendientes === 1 ? "o" : "os"}: sin zona de saque no entran en los gráficos.
+                </p>
+              ) : null}
 
               <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-white/40">
                 <span>
@@ -518,7 +654,17 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                       key={key}
                       title={chartTitle}
                       data={groupBy(filtered, key)}
-                      colorFor={key === "Resultado_Final" ? (name) => resultColor(name) : undefined}
+                      colorFor={
+                        key === "Resultado_Final"
+                          ? (name) => resultColor(name)
+                          : key === "__marcador"
+                            ? (name) =>
+                                ESTADO_COLOR[
+                                  (ESTADOS.find((uno) => uno.label === name)
+                                    ?.key ?? "empatando")
+                                ]
+                            : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -549,9 +695,39 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
                           return (
                             <tr key={`${read(row, "JORNADA")}-${index}`} className="text-slate-200">
-                              <td className="px-4 py-3">{read(row, "JORNADA") || "-"}</td>
+                              <td className="px-4 py-3">
+                                {parseJornada(read(row, "JORNADA")).corto}
+                              </td>
                               <td className="px-4 py-3">{read(row, "Rival") || "-"}</td>
-                              <td className="px-4 py-3">{read(row, "Tiempo") || "-"}</td>
+                              <td className="px-4 py-3 tabular-nums">
+                                {(() => {
+                                  const minuto = parseMinuto(row);
+
+                                  if (minuto.minuto != null) return `${minuto.minuto}'`;
+
+                                  /* Sin minuto, al menos la parte. */
+                                  return minuto.parte ? `${minuto.parte}ª` : "-";
+                                })()}
+                              </td>
+                              <td className="px-4 py-3 tabular-nums">
+                                {(() => {
+                                  const marcador = parseMarcador(row);
+
+                                  if (!marcador.texto) return "-";
+
+                                  return (
+                                    <span
+                                      style={{
+                                        color: marcador.estado
+                                          ? ESTADO_COLOR[marcador.estado]
+                                          : undefined,
+                                      }}
+                                    >
+                                      {marcador.texto}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
                               {isOffensive ? <td className="px-4 py-3">{read(row, "Sacador") || "-"}</td> : null}
                               <td className="px-4 py-3">{valorDe(row, "Perfil")}</td>
                               <td className="px-4 py-3">{read(row, "Zona_Saque") || "-"}</td>

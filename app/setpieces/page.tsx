@@ -10,6 +10,19 @@ import ABPFlowField from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
 import ABPObjectiveFlow from "@/components/abp/ABPObjectiveFlow";
 import ABPZoneMap from "@/components/abp/ABPZoneMap";
+import {
+  lee,
+  numero,
+  COMPETICIONES,
+  COMPETICION_LABEL,
+  ESTADOS,
+  ESTADO_COLOR,
+  TRAMOS,
+  comparaJornadas,
+  competicionesPresentes,
+  contextoDeFila,
+  type ContextoAccion,
+} from "@/lib/abp/partido";
 
 import {
   useEffect,
@@ -24,7 +37,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  LineChart,
   Line,
   Label,
   CartesianGrid,
@@ -86,7 +98,13 @@ function esSuperioridad(v?: string) {
 }
 
 type Row = {
-  jornada: number;
+  /**
+   * Dónde y cuándo pasó: competición, jornada, minuto y marcador.
+   *
+   * Va entero en la fila porque de aquí salen a la vez los tres filtros
+   * nuevos, el reparto por tramos y el rótulo que acompaña a la acción.
+   */
+  contexto: ContextoAccion;
   rival: string;
   tiempo: number;
   minuto: number;
@@ -122,73 +140,76 @@ type Row = {
   remate: string;
 };
 
-function num(v?: string) {
-  if (!v) return 0;
-
-  return (
-    Number(
-      String(v)
-        .replace(",", ".")
-        .replace(/[^\d.-]/g, "")
-    ) || 0
-  );
-}
-
+/**
+ * Lee la hoja **por el nombre de la columna**, no por su posición.
+ *
+ * Antes iba por índice (`r[27]` era el xG) y eso convertía cualquier columna
+ * nueva en un desastre silencioso: meter «Marcador» delante del xG corría todo
+ * el análisis una casilla y la página seguía pintando, con los datos de al
+ * lado. Con la cabecera por delante, añadir columnas no rompe nada y quitar
+ * una sólo vacía lo suyo.
+ */
 function parseCSV(text: string): Row[] {
-  const parsed = Papa.parse<string[]>(text, {
-    header: false,
+  const parsed = Papa.parse<Record<string, string>>(text, {
+    header: true,
     skipEmptyLines: true,
+    transformHeader: (header) => header.trim(),
   });
 
   return parsed.data
-    .slice(1)
-    .map((r) => ({
-      jornada: num(r[0]),
-      rival: r[1] || "",
-      tiempo: num(r[2]),
-      minuto: num(r[3]),
+    .filter((fila) =>
+      Object.values(fila).some((valor) => String(valor ?? "").trim()),
+    )
+    .map((fila) => {
+      const contexto = contextoDeFila(fila);
 
-      sacador: r[6] || "",
-perfil: r[7] || "",
-      tipoAccion: r[8] || "",
-      perfilGolpeo: r[9] || "",
-      tipoEnvio: r[10] || "",
-      zonaCaida: r[11] || "",
-intencion: r[13] || "",
-      tipoCarrera: r[16] || "",
+      return {
+        contexto,
+        rival: lee(fila, "Rival"),
+        tiempo: contexto.minuto.parte ?? 0,
+        minuto: contexto.minuto.minuto ?? 0,
 
-      defensaRival: r[21] || "",
-      debilidadRival: r[22] || "",
+        sacador: lee(fila, "Sacador"),
+        perfil: lee(fila, "Perfil"),
+        tipoAccion: lee(fila, "Tipo_Accion", "TipoAccion"),
+        perfilGolpeo: lee(fila, "Perfil_Golpeo"),
+        tipoEnvio: lee(fila, "Tipo_Envio"),
+        zonaCaida: lee(fila, "Zona_Caida"),
+        intencion: lee(fila, "Intencion"),
+        tipoCarrera: lee(fila, "Tipo_Carrera"),
 
-      rematador: r[24] || "",
-      tipoRemate: r[25] || "",
-      zonaRemate: r[26] || "",
+        defensaRival: lee(fila, "Defensa_Rival"),
+        debilidadRival: lee(fila, "Debilidad_Rival"),
 
-      xg: num(r[27]),
+        rematador: lee(fila, "Rematador"),
+        tipoRemate: lee(fila, "Tipo_Remate"),
+        zonaRemate: lee(fila, "Zona_Remate"),
 
-      segundoBalon: r[28] || "",
-      resultadoFinal: r[29] || "",
-      rutina: r[30] || "",
-      repetir: r[31] || "",
+        xg: numero(lee(fila, "xG")) ?? 0,
 
-      golesRMC: num(r[4]),
-      golesRival: num(r[5]),
-      calidadEnvio: num(r[12]),
-      nAtacantes: num(r[14]),
-      nBloqueadores: num(r[15]),
-      oc1P: num(r[17]),
-      ocCentral: num(r[18]),
-      oc2P: num(r[19]),
-      ocFrontal: num(r[20]),
-      remate: r[23] || "",
-    }))
+        segundoBalon: lee(fila, "Segundo_Balon"),
+        resultadoFinal: lee(fila, "Resultado_Final"),
+        rutina: lee(fila, "Rutina"),
+        repetir: lee(fila, "Repetir"),
+
+        golesRMC: contexto.marcador.rmcf ?? 0,
+        golesRival: contexto.marcador.rival ?? 0,
+        calidadEnvio: numero(lee(fila, "Calidad_Envio")) ?? 0,
+        nAtacantes: numero(lee(fila, "N_Atacantes")) ?? 0,
+        nBloqueadores: numero(lee(fila, "N_Bloqueadores")) ?? 0,
+        oc1P: numero(lee(fila, "Oc_1P")) ?? 0,
+        ocCentral: numero(lee(fila, "Oc_Central")) ?? 0,
+        oc2P: numero(lee(fila, "Oc_2P")) ?? 0,
+        ocFrontal: numero(lee(fila, "Oc_Frontal")) ?? 0,
+        remate: lee(fila, "Remate"),
+      };
+    })
     .filter(
-  (r) =>
-    r.jornada > 0 &&
-    !r.tipoAccion
-      .toLowerCase()
-      .includes("penal")
-);
+      (r) =>
+        /* Sin jornada no hay partido al que atribuir la acción. */
+        Boolean(r.contexto.jornada.clave) &&
+        !r.tipoAccion.toLowerCase().includes("penal"),
+    );
 }
 
 function countBy(rows: Row[], key: keyof Row) {
@@ -254,8 +275,6 @@ const [sacador, setSacador] =
 
 const [tipoAccionFilter, setTipoAccionFilter] =
   useState("ALL");
-  const [tiempo, setTiempo] =
-  useState("ALL");
   const [zonaCaidaFilter, setZonaCaidaFilter] =
   useState("ALL");
   const [zonaRemateFilter, setZonaRemateFilter] =
@@ -278,6 +297,19 @@ const [resultadoFilter, setResultadoFilter] =
 
 const [tipoAccionChartFilter, setTipoAccionChartFilter] =
   useState("ALL");
+
+/*
+| Los tres filtros de contexto, los mismos en las cinco páginas de ABP.
+|
+| «Competición» es el que pedía el cuerpo técnico: hasta ahora liga y
+| pretemporada se sumaban en el mismo saco, y además con la jornada mal —
+| «PRETEMPORADA 01» y «LIGA 01» daban los dos el número 1—. «Marcador» y
+| «tramo» salen de columnas que la hoja ya trae y que aquí no se miraban.
+*/
+const [competicionFilter, setCompeticionFilter] = useState("ALL");
+const [estadoFilter, setEstadoFilter] = useState("ALL");
+const [tramoFilter, setTramoFilter] = useState("ALL");
+const [rutinaFilter, setRutinaFilter] = useState("ALL");
   useEffect(() => {
     fetch(CSV_URL)
       .then((r) => r.text())
@@ -286,13 +318,35 @@ const [tipoAccionChartFilter, setTipoAccionChartFilter] =
       );
   }, []);
 
-  const jornadas = useMemo(
+  /*
+  | Las jornadas que hay, cada una con su competición.
+  |
+  | Se indexan por `clave` («liga:1», «amistoso:1») y no por el número: son dos
+  | partidos distintos y antes compartían casilla.
+  */
+  const jornadas = useMemo(() => {
+    const porClave = new Map<string, Row["contexto"]["jornada"]>();
+
+    rows.forEach((r) => {
+      if (r.contexto.jornada.clave) {
+        porClave.set(r.contexto.jornada.clave, r.contexto.jornada);
+      }
+    });
+
+    return [...porClave.values()].sort(comparaJornadas);
+  }, [rows]);
+
+  const competiciones = useMemo(
+    () => competicionesPresentes(jornadas),
+    [jornadas],
+  );
+
+  /* Las rutinas registradas, que es lo que se lleva a la pizarra. */
+  const rutinas = useMemo(
     () =>
-      [
-        ...new Set(
-          rows.map((r) => r.jornada)
-        ),
-      ].sort((a, b) => a - b),
+      [...new Set(rows.map((r) => r.rutina).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "es"),
+      ),
     [rows]
   );
   const rivales = [
@@ -310,7 +364,22 @@ const tiposAccion = [
 const filtered = rows.filter((r) => {
   const jornadaOk =
     jornada === "ALL" ||
-    String(r.jornada) === jornada;
+    r.contexto.jornada.clave === jornada;
+
+  const competicionOk =
+    competicionFilter === "ALL" ||
+    r.contexto.jornada.competicion === competicionFilter;
+
+  /* Una acción sin marcador anotado no responde a «¿qué pasa yendo por
+     delante?», así que no entra en esa muestra. */
+  const estadoOk =
+    estadoFilter === "ALL" ||
+    r.contexto.marcador.estado === estadoFilter;
+
+  const tramoOk =
+    tramoFilter === "ALL" || r.contexto.minuto.tramo === tramoFilter;
+
+  const rutinaOk = rutinaFilter === "ALL" || r.rutina === rutinaFilter;
 
   const rivalOk =
     rival === "ALL" ||
@@ -325,15 +394,6 @@ const filtered = rows.filter((r) => {
     r.tipoAccion ===
       tipoAccionFilter;
 
-  const tiempoOk =
-    tiempo === "ALL" ||
-    (tiempo === "0-30" &&
-      r.minuto < 30) ||
-    (tiempo === "30-60" &&
-      r.minuto >= 30 &&
-      r.minuto < 60) ||
-    (tiempo === "60-90" &&
-      r.minuto >= 60);
 const zonaCaidaOk =
   zonaCaidaFilter === "ALL" ||
   r.zonaCaida === zonaCaidaFilter;
@@ -368,10 +428,13 @@ const resultadoOk =
 
   return (
     jornadaOk &&
+    competicionOk &&
+    estadoOk &&
+    tramoOk &&
+    rutinaOk &&
     rivalOk &&
     sacadorOk &&
     accionOk &&
-    tiempoOk &&
     zonaCaidaOk &&
     zonaRemateOk &&
     segundoBalonOk &&
@@ -407,8 +470,42 @@ const totalXg = filtered.reduce(
 const activeFilters = [
   {
     label: "Jornada",
-    value: jornada,
+    value:
+      jornada === "ALL"
+        ? "ALL"
+        : (jornadas.find((una) => una.clave === jornada)?.etiqueta ?? jornada),
     clear: () => setJornada("ALL"),
+  },
+  {
+    label: "Competición",
+    value:
+      competicionFilter === "ALL"
+        ? "ALL"
+        : COMPETICION_LABEL[
+            competicionFilter as keyof typeof COMPETICION_LABEL
+          ],
+    clear: () => setCompeticionFilter("ALL"),
+  },
+  {
+    label: "Marcador",
+    value:
+      estadoFilter === "ALL"
+        ? "ALL"
+        : (ESTADOS.find((uno) => uno.key === estadoFilter)?.label ?? estadoFilter),
+    clear: () => setEstadoFilter("ALL"),
+  },
+  {
+    label: "Tramo",
+    value:
+      tramoFilter === "ALL"
+        ? "ALL"
+        : (TRAMOS.find((uno) => uno.key === tramoFilter)?.label ?? tramoFilter),
+    clear: () => setTramoFilter("ALL"),
+  },
+  {
+    label: "Rutina",
+    value: rutinaFilter,
+    clear: () => setRutinaFilter("ALL"),
   },
   {
     label: "Rival",
@@ -424,11 +521,6 @@ const activeFilters = [
     label: "Tipo acción",
     value: tipoAccionFilter,
     clear: () => setTipoAccionFilter("ALL"),
-  },
-  {
-    label: "Tiempo",
-    value: tiempo,
-    clear: () => setTiempo("ALL"),
   },
   {
     label: "Zona caída",
@@ -930,38 +1022,118 @@ const totalTipoCarrera =
     (acc, item) => acc + item.total,
     0
   );
-  // Las acciones sin minuto registrado (minuto = 0) se excluyen para no
-  // generar un pico artificial en el primer tramo.
+  /*
+  | Lo que pasa en cada cuarto de hora.
+  |
+  | Las acciones sin minuto anotado se dejan fuera —si no, todas caerían en el
+  | primer tramo y parecería que el equipo saca veinte córners en el minuto 0—
+  | y se dice cuántas son, que es lo honesto: el minutaje se está empezando a
+  | registrar ahora y media hoja todavía no lo trae.
+  |
+  | Además del recuento va el **peligro**: un tramo con muchos córners y ningún
+  | remate no dice lo mismo que uno con tres y dos ocasiones, y era justo lo
+  | que no se podía ver.
+  */
   const conMinuto = filtered.filter(
-    (r) => r.minuto > 0
+    (r) => r.contexto.minuto.tramo !== null
   );
 
   const sinMinuto =
     filtered.length - conMinuto.length;
 
-  const timeline =
-    Array.from(
-      { length: 6 },
-      (_, i) => {
-        const start =
-          i * 15;
+  const esGol = (r: Row) =>
+    r.resultadoFinal.toLowerCase().includes("gol");
 
-        const esUltimo = i === 5;
+  const esRemate = (r: Row) =>
+    Boolean(r.tipoRemate) &&
+    !["", "No Remate", "No aplica"].includes(r.tipoRemate);
+
+  const timeline = TRAMOS.map((tramo) => {
+    const dentro = conMinuto.filter(
+      (r) => r.contexto.minuto.tramo === tramo.key
+    );
+
+    return {
+      tramo: tramo.label,
+      total: dentro.length,
+      remates: dentro.filter(esRemate).length,
+      goles: dentro.filter(esGol).length,
+      xg: Number(
+        dentro.reduce((suma, r) => suma + r.xg, 0).toFixed(2)
+      ),
+    };
+  });
+
+  /*
+  | Qué da de sí cada rutina ensayada.
+  |
+  | La columna «Rutina» de la hoja es el nombre con el que el cuerpo técnico
+  | llama a la jugada que se entrena («CORTO PARA GOLPEO DESDE FRONTAL»), y no
+  | se miraba en ninguna parte: estaba escrita y no se leía. Aquí se ordenan
+  | por peligro, que es lo que decide cuál se repite el jueves.
+  */
+  const porRutina = useMemo(() => {
+    const grupos = new Map<string, Row[]>();
+
+    filtered.forEach((r) => {
+      if (!r.rutina) return;
+
+      grupos.set(r.rutina, [...(grupos.get(r.rutina) ?? []), r]);
+    });
+
+    return [...grupos.entries()]
+      .map(([nombre, dentro]) => {
+        const remates = dentro.filter(
+          (r) =>
+            Boolean(r.tipoRemate) &&
+            !["", "No Remate", "No aplica"].includes(r.tipoRemate)
+        ).length;
 
         return {
-          tramo: `${start}-${start + 15}`,
-          total:
-            conMinuto.filter(
-              (r) =>
-                r.minuto > start &&
-                (esUltimo
-                  ? true
-                  : r.minuto <=
-                    start + 15)
-            ).length,
+          nombre,
+          total: dentro.length,
+          remates,
+          goles: dentro.filter((r) =>
+            r.resultadoFinal.toLowerCase().includes("gol")
+          ).length,
+          xg: Number(dentro.reduce((suma, r) => suma + r.xg, 0).toFixed(2)),
+          rematePct: dentro.length ? (remates / dentro.length) * 100 : 0,
         };
-      }
+      })
+      .sort((a, b) => b.xg - a.xg || b.total - a.total);
+  }, [filtered]);
+
+  const sinRutina = filtered.filter((r) => !r.rutina).length;
+
+  /*
+  | Y lo mismo según cómo iba el partido.
+  |
+  | Es la lectura que abre el marcador: un equipo saca más córners cuando va
+  | perdiendo, pero lo que interesa es si además le rinden. Las acciones sin
+  | marcador anotado quedan fuera y se cuentan aparte, igual que arriba.
+  */
+  const conMarcador = filtered.filter(
+    (r) => r.contexto.marcador.estado !== null
+  );
+
+  const sinMarcador = filtered.length - conMarcador.length;
+
+  const porMarcador = ESTADOS.map((estado) => {
+    const dentro = conMarcador.filter(
+      (r) => r.contexto.marcador.estado === estado.key
     );
+
+    return {
+      estado: estado.label,
+      key: estado.key,
+      total: dentro.length,
+      remates: dentro.filter(esRemate).length,
+      goles: dentro.filter(esGol).length,
+      xg: Number(
+        dentro.reduce((suma, r) => suma + r.xg, 0).toFixed(2)
+      ),
+    };
+  });
    const pieLegendProps: Partial<LegendProps> = {
   layout: isMobile
     ? "horizontal"
@@ -1778,21 +1950,83 @@ originalStyles.forEach(
         filtraba cada uno abriéndolo. Ahora van plegados y rotulados. */}
     <FilterDrawer
       activeCount={
-        [jornada, rival, sacador, tipoAccionFilter, tiempo].filter(
-          (value) => value !== "ALL"
-        ).length
+        [
+          jornada,
+          competicionFilter,
+          estadoFilter,
+          tramoFilter,
+          rutinaFilter,
+          rival,
+          sacador,
+          tipoAccionFilter,
+        ].filter((value) => value !== "ALL").length
       }
-      summary="5 filtros disponibles"
+      summary="8 filtros disponibles"
     >
+      {/*
+        La competición va la primera porque es la que cambia de qué se está
+        hablando: un córner de un amistoso de julio contra un juvenil y uno de
+        la jornada 1 no son la misma muestra, y hasta ahora se sumaban.
+      */}
+      {competiciones.length > 1 && (
+        <Select
+          label="Competición"
+          value={competicionFilter}
+          onChange={setCompeticionFilter}
+          options={[
+            { value: "ALL", label: "Liga y pretemporada" },
+            ...COMPETICIONES.filter((una) =>
+              competiciones.includes(una.key),
+            ).map((una) => ({ value: una.key, label: una.label })),
+          ]}
+        />
+      )}
+
       <Select
         label="Jornada"
         value={jornada}
         onChange={setJornada}
         options={[
           { value: "ALL", label: "Todas" },
-          ...jornadas.map((m) => ({ value: String(m), label: `Jornada ${m}` })),
+          ...jornadas.map((una) => ({
+            value: una.clave,
+            label: una.etiqueta,
+          })),
         ]}
       />
+
+      {/* Cómo iba el partido: sale de «Resultado RMC» y «Resultado RIVAL». */}
+      <Select
+        label="Marcador"
+        value={estadoFilter}
+        onChange={setEstadoFilter}
+        options={[
+          { value: "ALL", label: "Cualquier marcador" },
+          ...ESTADOS.map((uno) => ({ value: uno.key, label: uno.label })),
+        ]}
+      />
+
+      <Select
+        label="Tramo de 15'"
+        value={tramoFilter}
+        onChange={setTramoFilter}
+        options={[
+          { value: "ALL", label: "Todo el partido" },
+          ...TRAMOS.map((uno) => ({ value: uno.key, label: uno.label })),
+        ]}
+      />
+
+      {rutinas.length > 0 && (
+        <Select
+          label="Rutina"
+          value={rutinaFilter}
+          onChange={setRutinaFilter}
+          options={[
+            { value: "ALL", label: "Todas las rutinas" },
+            ...rutinas.map((una) => ({ value: una, label: una })),
+          ]}
+        />
+      )}
 
       <Select
         label="Rival"
@@ -1815,17 +2049,6 @@ originalStyles.forEach(
         options={[{ value: "ALL", label: "Todas las acciones" }, ...tiposAccion]}
       />
 
-      <Select
-        label="Tramo del partido"
-        value={tiempo}
-        onChange={setTiempo}
-        options={[
-          { value: "ALL", label: "Todo el partido" },
-          { value: "0-30", label: "0 - 30'" },
-          { value: "30-60", label: "30' - 60'" },
-          { value: "60-90", label: "60' - 90'" },
-        ]}
-      />
     </FilterDrawer>
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
@@ -1974,7 +2197,7 @@ originalStyles.forEach(
   <div id="grafico-abp-flow">
     <ABPFlowField
   rows={filtered.map((r) => ({
-    jornada: String(r.jornada),
+    jornada: r.contexto.jornada.corto,
     rival: r.rival,
     minuto: r.minuto,
     tipoAccion: r.tipoAccion,
@@ -1998,7 +2221,7 @@ originalStyles.forEach(
    <ABPObjectiveFlow
   mode="offensive"
   rows={filtered.map((r) => ({
-    jornada: String(r.jornada),
+    jornada: r.contexto.jornada.corto,
     rival: r.rival,
     minuto: r.minuto,
     tipoAccion: r.tipoAccion,
@@ -2664,9 +2887,9 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Timeline">
+<Panel title="Momento del partido">
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
-    Distribución por tramos de 15&apos;.
+    Acciones y remates por tramos de 15&apos;.
     {sinMinuto > 0 &&
       ` ${sinMinuto} acciones quedan fuera por no tener minuto registrado.`}
   </p>
@@ -2674,7 +2897,7 @@ margin={{
   <div id="grafico-timeline">
 
   <Chart>
-    <LineChart
+    <ComposedChart
       data={timeline}
 margin={{
   top: 10,
@@ -2708,7 +2931,20 @@ margin={{
 
       <Tooltip />
 
+      <Legend />
+
+      {/* Las barras son los remates: es lo que separa un tramo con muchos
+          córners de uno que además hizo daño. */}
+      <Bar
+        name="Remates"
+        dataKey="remates"
+        fill={COLORS.gold}
+        radius={[6, 6, 0, 0]}
+        maxBarSize={38}
+      />
+
       <Line
+        name="Acciones"
         dataKey="total"
         stroke={COLORS.green}
         strokeWidth={3}
@@ -2729,8 +2965,159 @@ margin={{
           }}
         />
       </Line>
-    </LineChart>
+    </ComposedChart>
   </Chart></div>
+</Panel>
+
+{/*
+  Lo que rinde cada rutina ensayada, ordenadas por xG.
+
+  Va en tabla y no en barras porque el nombre de una rutina es una frase
+  entera («AMPLIAR ESPACIO DE Z2 Y BLOQUE PARA LIBERAR REMATADOR»): en un eje
+  no se lee ninguna.
+*/}
+<Panel title="Rutinas">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Lo que produce cada jugada ensayada, de más a menos xG.
+    {sinRutina > 0 &&
+      ` ${sinRutina} acciones no llevan rutina anotada.`}
+  </p>
+
+  {porRutina.length === 0 ? (
+    <p className="py-10 text-center text-sm text-zinc-500">
+      Todavía no hay ninguna acción con rutina anotada en la hoja.
+    </p>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[520px] text-left text-sm">
+        <thead className="text-[11px] uppercase tracking-wide text-zinc-500">
+          <tr>
+            <th className="py-2 pr-3 font-medium">Rutina</th>
+            <th className="py-2 px-3 text-right font-medium">ABP</th>
+            <th className="py-2 px-3 text-right font-medium">Remate</th>
+            <th className="py-2 px-3 text-right font-medium">Goles</th>
+            <th className="py-2 pl-3 text-right font-medium">xG</th>
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-white/5">
+          {porRutina.map((fila) => (
+            <tr key={fila.nombre}>
+              <td className="py-2.5 pr-3 text-zinc-200">{fila.nombre}</td>
+              <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
+                {fila.total}
+              </td>
+              <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
+                {fila.remates} · {fila.rematePct.toFixed(0)}%
+              </td>
+              <td
+                className="py-2.5 px-3 text-right tabular-nums"
+                style={{ color: fila.goles > 0 ? COLORS.green : undefined }}
+              >
+                {fila.goles}
+              </td>
+              <td className="py-2.5 pl-3 text-right tabular-nums text-[#C8A96B]">
+                {fila.xg.toFixed(2)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</Panel>
+
+{/*
+  Cómo se comporta el equipo a balón parado según cómo vaya el marcador.
+
+  Sale de «Resultado RMC» y «Resultado RIVAL», que la hoja escribe en cada
+  acción: son los goles de cada uno **en ese momento**, así que se puede
+  separar lo que se lanza yendo por delante de lo que se lanza remando.
+*/}
+<Panel title="Según el marcador">
+  <p className="-mt-3 mb-4 text-xs text-zinc-500">
+    Acciones, remates y goles según cómo iba el partido.
+    {sinMarcador > 0 &&
+      ` ${sinMarcador} acciones quedan fuera por no tener marcador anotado.`}
+  </p>
+
+  <div id="grafico-abp-marcador">
+
+  <Chart>
+    <ComposedChart
+      data={porMarcador}
+      margin={{ top: 10, right: 24, left: 10, bottom: 10 }}
+    >
+      <CartesianGrid stroke="#1E232A" vertical={false} />
+
+      <XAxis
+        dataKey="estado"
+        tick={{ fill: "#94A3B8" }}
+        axisLine={false}
+        tickLine={false}
+      />
+
+      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8" }} />
+
+      <Tooltip />
+
+      <Legend />
+
+      {/* El `fill` no se ve —cada barra lleva su `Cell`— pero es el color que
+          la leyenda usa para su cuadradito: sin él salía negro. */}
+      <Bar
+        name="Acciones"
+        dataKey="total"
+        fill="#8A8370"
+        radius={[6, 6, 0, 0]}
+        maxBarSize={54}
+      >
+        {porMarcador.map((fila) => (
+          <Cell key={fila.key} fill={ESTADO_COLOR[fila.key]} />
+        ))}
+
+        <LabelList
+          dataKey="total"
+          position="top"
+          style={{ fill: "#fff", fontSize: 11 }}
+        />
+      </Bar>
+
+      <Line
+        name="Remates"
+        dataKey="remates"
+        stroke={COLORS.gold}
+        strokeWidth={3}
+        dot={{ r: 5, fill: COLORS.gold }}
+      />
+    </ComposedChart>
+  </Chart></div>
+
+  <div className="mt-4 grid grid-cols-3 gap-2">
+    {porMarcador.map((fila) => (
+      <div
+        key={fila.key}
+        className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center"
+      >
+        <p
+          className="text-[10px] uppercase tracking-[0.16em]"
+          style={{ color: ESTADO_COLOR[fila.key] }}
+        >
+          {fila.estado}
+        </p>
+
+        <p className="mt-1 text-lg font-semibold text-white">
+          {fila.goles} gol{fila.goles === 1 ? "" : "es"}
+        </p>
+
+        <p className="text-[11px] text-zinc-500">
+          {fila.total
+            ? `${Math.round((fila.remates / fila.total) * 100)}% remate · xG ${fila.xg.toFixed(2)}`
+            : "Sin acciones"}
+        </p>
+      </div>
+    ))}
+  </div>
 </Panel>
 <Panel title="xG por tipo de acción">
   <div id="grafico-xg-tipo-accion">

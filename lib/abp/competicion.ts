@@ -27,6 +27,11 @@ import {
   teamKey,
 } from "./model";
 import { ABP_GIDS, SheetRow, loadSheet } from "./sheets";
+import {
+  contextoDeFila,
+  type Competicion,
+  type ContextoAccion,
+} from "./partido";
 import type { AbpLado, Aspecto } from "./microciclo";
 
 /* ------------------------------------------------------------------ */
@@ -37,6 +42,15 @@ export type Envio = "corto" | "largo";
 
 export type CompeticionEvent = {
   jornada: string;
+  /**
+   * De qué competición es, en qué minuto pasó y cómo iba el marcador.
+   *
+   * Lo lee `lib/abp/partido.ts` de las mismas columnas que ya trae la hoja.
+   * Va aquí porque lo que se planifica en un microciclo se mide contra los
+   * partidos **de liga**: sumar los amistosos de julio a la jornada que viene
+   * es lo que hacía que el número no dijera nada.
+   */
+  contexto: ContextoAccion;
   rival: string;
   /** Nombre normalizado, para cruzar con la hoja de registro de tareas. */
   rivalKey: string;
@@ -56,6 +70,7 @@ export type CompeticionPartido = {
   jornada: string;
   rival: string;
   rivalKey: string;
+  competicion: Competicion;
 };
 
 export type CompeticionDataset = {
@@ -135,6 +150,7 @@ function toEvent(
 
   return {
     jornada: pick(row, "JORNADA", "Jornada"),
+    contexto: contextoDeFila(row),
     rival,
     rivalKey: teamKey(rival),
     lado: options.lado,
@@ -208,16 +224,23 @@ export async function loadCompeticion(): Promise<CompeticionDataset> {
   });
 
   /* Un partido por jornada; el nombre del rival se toma del primero que lo
-     traiga, que en estas hojas es siempre el mismo. */
+     traiga, que en estas hojas es siempre el mismo.
+
+     La clave lleva la competición dentro: «PRETEMPORADA 01» y «LIGA 01» son
+     dos partidos, y agrupándolos por el texto de la celda ya lo eran, pero
+     cualquiera que contara jornadas por su número los juntaba. */
   const porJornada = new Map<string, CompeticionPartido>();
 
   events.forEach((event) => {
-    if (!event.jornada || porJornada.has(event.jornada)) return;
+    const clave = event.contexto.jornada.clave || event.jornada;
 
-    porJornada.set(event.jornada, {
+    if (!clave || porJornada.has(clave)) return;
+
+    porJornada.set(clave, {
       jornada: event.jornada,
       rival: event.rival,
       rivalKey: event.rivalKey,
+      competicion: event.contexto.jornada.competicion,
     });
   });
 

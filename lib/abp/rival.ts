@@ -26,6 +26,7 @@ import {
   teamKey,
 } from "./model";
 import { ABP_GIDS, RIVAL_SCOUT_GID, SheetRow, loadSheet } from "./sheets";
+import { contextoDeFila, type ContextoAccion } from "./partido";
 
 export type AbpSource = "scout" | "derivado";
 
@@ -37,6 +38,15 @@ export interface AbpEvent {
   equipo: string;
   side: AbpSide;
   jornada: string;
+  /**
+   * Competición, minuto y marcador de la acción.
+   *
+   * Con esto la pantalla puede separar lo que un rival hace **en liga** de lo
+   * que hizo en un amistoso de julio: hasta ahora se sumaba todo, y un
+   * córner de pretemporada contra un juvenil pesaba lo mismo que uno de la
+   * jornada 1.
+   */
+  contexto: ContextoAccion;
   family: AbpFamily;
   /** Zona de la falta (Z1-Z6) cuando el tipo de acción la lleva. */
   zona: number | null;
@@ -140,6 +150,7 @@ function toEvent(
     equipo: options.equipo,
     side: options.side,
     jornada: pick(row, "JORNADA", "Jornada"),
+    contexto: contextoDeFila(row),
     family,
     zona: abpZone(tipoAccion),
     perfil: abpProfile(tipoAccion),

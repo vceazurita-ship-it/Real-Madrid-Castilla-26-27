@@ -47,6 +47,11 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
+import {
+  COMPETICION_LABEL,
+  competicionesPresentes,
+  parseJornada,
+} from "@/lib/abp/partido";
 import { RIVAL_SCOUT_COLUMNS } from "@/lib/abp/sheets";
 import {
   AbpEvent,
@@ -124,6 +129,17 @@ export default function ScoutRivalAbpPage() {
   const [side, setSide] = useState<AbpSide>("ofensivo");
   const [origen, setOrigen] = useState<Origen>("todo");
   const [jornada, setJornada] = useState(TODOS);
+
+  /*
+   * Liga o pretemporada, leído de la propia celda JORNADA.
+   *
+   * El conmutador de arriba decide **qué equipos se ofrecen** —y para eso mira
+   * la plantilla de la liga, porque hace falta poder elegir a un rival al que
+   * todavía no hemos jugado—. Éste decide **qué acciones se cuentan**, que es
+   * otra cosa: contra el Ferrol se puede haber jugado un amistoso en julio y
+   * la vuelta en abril, y sumarlas no dice nada de cómo saca ahora.
+   */
+  const [competicion, setCompeticion] = useState<string>(TODOS);
   const [familia, setFamilia] = useState(TODOS);
 
   /*
@@ -369,6 +385,21 @@ export default function ScoutRivalAbpPage() {
     [delEquipo],
   );
 
+  /* Sólo se ofrece lo que hay: un filtro que deja la pantalla vacía sobra. */
+  const competiciones = useMemo(
+    () => [
+      TODOS,
+      ...competicionesPresentes(
+        delEquipo.map((event) => event.contexto.jornada),
+      ).map((key) => COMPETICION_LABEL[key]),
+    ],
+    [delEquipo],
+  );
+
+  const competicionActiva = competiciones.includes(competicion)
+    ? competicion
+    : TODOS;
+
   const familiasPresentes = useMemo(
     () => [
       TODOS,
@@ -390,6 +421,13 @@ export default function ScoutRivalAbpPage() {
     () =>
       delEquipo.filter((event) => {
         if (event.side !== side) return false;
+        if (
+          competicionActiva !== TODOS &&
+          COMPETICION_LABEL[event.contexto.jornada.competicion] !==
+            competicionActiva
+        ) {
+          return false;
+        }
         if (jornadaActiva !== TODOS && event.jornada !== jornadaActiva) {
           return false;
         }
@@ -401,11 +439,13 @@ export default function ScoutRivalAbpPage() {
         }
         return true;
       }),
-    [delEquipo, side, jornadaActiva, familiaActiva],
+    [delEquipo, side, competicionActiva, jornadaActiva, familiaActiva],
   );
 
   const activeFilters =
-    (jornadaActiva !== TODOS ? 1 : 0) + (familiaActiva !== TODOS ? 1 : 0);
+    (competicionActiva !== TODOS ? 1 : 0) +
+    (jornadaActiva !== TODOS ? 1 : 0) +
+    (familiaActiva !== TODOS ? 1 : 0);
 
   /* --------------------------- agregados --------------------------- */
 
@@ -417,6 +457,13 @@ export default function ScoutRivalAbpPage() {
     () =>
       acciones.filter((action) => {
         if (action.condicion !== side) return false;
+        if (
+          competicionActiva !== TODOS &&
+          COMPETICION_LABEL[parseJornada(action.jornada).competicion] !==
+            competicionActiva
+        ) {
+          return false;
+        }
         if (jornadaActiva !== TODOS && action.jornada !== jornadaActiva) {
           return false;
         }
@@ -428,7 +475,7 @@ export default function ScoutRivalAbpPage() {
         }
         return true;
       }),
-    [acciones, side, jornadaActiva, familiaActiva],
+    [acciones, side, competicionActiva, jornadaActiva, familiaActiva],
   );
 
   const patrones = useMemo(
@@ -651,6 +698,15 @@ export default function ScoutRivalAbpPage() {
                   activeCount={activeFilters}
                   summary={`${jornadas.length - 1} ${jornadas.length === 2 ? "jornada" : "jornadas"} con datos`}
                 >
+                  {competiciones.length > 2 && (
+                    <Select
+                      label="Competición"
+                      value={competicionActiva}
+                      options={competiciones}
+                      onChange={setCompeticion}
+                    />
+                  )}
+
                   <Select
                     label="Jornada"
                     value={jornadaActiva}
