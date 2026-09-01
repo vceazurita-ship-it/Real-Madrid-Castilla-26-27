@@ -8,6 +8,11 @@ import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import ABPFlowField from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
+import {
+  AnalisisSeccion,
+  type LectorAnalisis,
+} from "@/components/abp/AnalisisSeccion";
+import type { ClaveMetrica } from "@/lib/abp/analisis";
 import ABPObjectiveFlow from "@/components/abp/ABPObjectiveFlow";
 import ABPZoneMap from "@/components/abp/ABPZoneMap";
 import {
@@ -213,6 +218,24 @@ function countBy(rows: Row[], key: keyof Row) {
     })
   );
 }
+
+/**
+ * Cómo lee el análisis una fila de esta hoja.
+ *
+ * Aquí el sujeto de la acción es **el rival**: «Ocasión» es ocasión suya y el
+ * peligro se cuenta como peligro concedido, no como producción nuestra. Lo
+ * nuestro va marcado a mano («Gol RMCF», «Transición Ofensiva») y por eso no
+ * entra. Leído como en la hoja ofensiva, todo el peligro del rival se contaría
+ * a nuestro favor y el panel saldría a cero sin fallar nada.
+ */
+const LECTOR: LectorAnalisis<Row> = {
+  jornada: (r) => r.contexto.jornada,
+  peligro: (r) =>
+    ["Gol Rival", "Ocasión"].includes(normalizaResultado(r.resultadoFinal)),
+  gol: (r) => normalizaResultado(r.resultadoFinal) === "Gol Rival",
+  remate: (r) => ["si", "sí"].includes((r.remate || "").trim().toLowerCase()),
+  xg: (r) => r.xg,
+};
 
 export default function Page() {
   const [isMobile, setIsMobile] =
@@ -1672,6 +1695,31 @@ originalStyles.forEach(
       .slice(0, 10)}.pdf`
   );
 };
+/*
+| El pie de lectura de cada sección.
+|
+| Se llama como función y no se usa como componente: así el bloque se pinta con
+| lo que ya hay calculado arriba —`filtered` contra `rows`— sin que ningún panel
+| tenga que volver a filtrar por su cuenta.
+*/
+const pie = (
+  opciones: {
+    metrica?: ClaveMetrica;
+    dimension?: string;
+    categoria?: (fila: Row) => string;
+    destacado?: boolean;
+  } = {},
+) => (
+  <AnalisisSeccion
+    filas={filtered}
+    todas={rows}
+    lector={LECTOR}
+    sentido="defensivo"
+    unidad="acciones"
+    {...opciones}
+  />
+);
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -1962,9 +2010,15 @@ Mayor xG concedido  </p>
   </div>
   
 
+            {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
+                al lado del global y de las jornadas anteriores. */}
+            <div className="mt-6">
+              {pie({ destacado: true, dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
 <div className="md:col-span-2">
-<Panel title="Mapa de zonas del área">
+<Panel title="Mapa de zonas del área" analisis={pie({ dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
   <div id="grafico-zone-map">
     <ABPZoneMap
       mode="defensive"
@@ -1985,7 +2039,7 @@ Mayor xG concedido  </p>
 </div>
 
 <div className="md:col-span-2">
-<Panel title="Situación Global">
+<Panel title="Situación Global" analisis={pie({})}>
   <div id="grafico-abp-flow">
 <ABPFlowField
   rows={filtered.map((r) => ({
@@ -2023,7 +2077,7 @@ Mayor xG concedido  </p>
 </div>
 
 <div className="md:col-span-2">
-<Panel title="Flujo defensivo">
+<Panel title="Flujo defensivo" analisis={pie({ dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
   <div id="grafico-abp-objective-flow">
    <ABPObjectiveFlow
   mode="defensive"
@@ -2045,7 +2099,7 @@ Mayor xG concedido  </p>
 </Panel>
 </div>
 
-              <Panel title="Tipo de acción">
+              <Panel title="Tipo de acción" analisis={pie({ dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
                 <div id="grafico-tipo-accion">
   <Chart>
     <BarChart
@@ -2113,7 +2167,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Zona caída">
+<Panel title="Zona caída" analisis={pie({ dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
   <div id="grafico-zona-caida">
   <Chart>
     <PieChart>
@@ -2173,7 +2227,7 @@ outerRadius={isMobile ? 90 : 120}
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel title="Impacto sacador">
+<Panel title="Impacto sacador" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
   <div id="grafico-impacto-sacador">
   <Chart>
     <BarChart
@@ -2249,7 +2303,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Impacto rematadores"><div id="grafico-impacto-rematadores">
+<Panel title="Impacto rematadores" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
   <Chart>
     <BarChart
       data={rematadoresData}
@@ -2314,7 +2368,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="xG por tipo envío"><div id="grafico-tipo-envio">
+<Panel title="xG por tipo envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}><div id="grafico-tipo-envio">
   <Chart>
     <BarChart
       data={tipoEnvioData}
@@ -2379,7 +2433,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Zona remate"><div id="grafico-zona-remate">
+<Panel title="Zona remate" analisis={pie({ metrica: "xg", dimension: "zona de remate", categoria: (r) => r.zonaRemate })}><div id="grafico-zona-remate">
   <Chart>
     <PieChart>
       <Pie
@@ -2442,7 +2496,7 @@ margin={{
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel title="Segundo balón"><div id="grafico-segundo-balon">
+<Panel title="Segundo balón" analisis={pie({ dimension: "segundo balón", categoria: (r) => r.segundoBalon })}><div id="grafico-segundo-balon">
   <Chart>
     <PieChart>
       <Pie
@@ -2506,7 +2560,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel title="Tipo carrera"><div id="grafico-tipo-carrera">
+<Panel title="Tipo carrera" analisis={pie({ dimension: "tipo de carrera", categoria: (r) => r.tipoCarrera })}><div id="grafico-tipo-carrera">
   <Chart>
     <PieChart>
       <Pie
@@ -2564,7 +2618,7 @@ margin={{
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel title="Momento del partido"><div id="grafico-distribucion-periodo">
+<Panel title="Momento del partido" analisis={pie({ metrica: "volumen", dimension: "tramo", categoria: (r) => TRAMOS.find((uno) => uno.key === r.contexto.minuto.tramo)?.label ?? "" })}><div id="grafico-distribucion-periodo">
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Lo que nos lanzan por tramos de 15&apos;, con los remates que sacan.
     {sinMinuto > 0 &&
@@ -2626,7 +2680,7 @@ margin={{
   acción. Es la lectura que dice si el equipo se desordena a balón parado
   cuando se pone por delante, que es donde se pierden los partidos.
 */}
-<Panel title="Según el marcador"><div id="grafico-abp-marcador">
+<Panel title="Según el marcador" analisis={pie({ dimension: "marcador", categoria: (r) => ESTADOS.find((uno) => uno.key === r.contexto.marcador.estado)?.label ?? "" })}><div id="grafico-abp-marcador">
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Acciones y remates del rival según cómo iba el partido.
     {sinMarcador > 0 &&
@@ -2686,7 +2740,7 @@ margin={{
     ))}
   </div>
 </Panel>
-<Panel title="xG por tipo de acción"><div id="grafico-xg-tipo-accion">
+<Panel title="xG por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}><div id="grafico-xg-tipo-accion">
   <Chart>
     <BarChart
       data={xgByTipoAccion}
@@ -2754,7 +2808,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel title="Top rivales por xG concedido"><div id="grafico-rivales-xg-concedido">
+<Panel title="Top rivales por xG concedido" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
   <Chart>
     <BarChart
       data={rivalesData}
@@ -2799,7 +2853,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="xG por zona caida"><div id="grafico-xg-zona-caida">
+<Panel title="xG por zona caida" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
   <Chart>
     <BarChart
   data={xgZonaCaida}
@@ -2894,7 +2948,7 @@ const words =
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Resultado final">
+<Panel title="Resultado final" analisis={pie({ dimension: "resultado", categoria: (r) => normalizaResultado(r.resultadoFinal) })}>
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     {accionesPeligrosas} de {metrics.total} acciones acaban en gol u
     ocasión del rival ({tasaPeligro.toFixed(1)}%). Pulsa un sector para
@@ -2950,7 +3004,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
-<Panel title="Calidad del envío rival">
+<Panel title="Calidad del envío rival" analisis={pie({ metrica: "xg", dimension: "calidad de envío", categoria: (r) => (r.calidadEnvio ? "Calidad " + r.calidadEnvio : "") })}>
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Escala 1-4 valorada por el cuerpo técnico: volumen de envíos del
     rival y porcentaje que termina en remate.
@@ -3023,7 +3077,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
-<Panel title="Superioridad en corto">
+<Panel title="Superioridad en corto" analisis={pie({ dimension: "superioridad", categoria: (r) => (esSuperioridad(r.zonaCaida) ? r.zonaCaida : "") })}>
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Ventajas numéricas que el rival crea antes del envío al área. Estos
     valores no son zonas de caída, por eso se analizan aparte.
@@ -3085,7 +3139,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
-<Panel title="Estructura de la jugada">
+<Panel title="Estructura de la jugada" analisis={pie({ dimension: "atacantes en el área", categoria: (r) => (r.nAtacantes ? r.nAtacantes + " atacantes" : "") })}>
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Número de atacantes rivales implicados frente al xG medio concedido y
     a la ocupación media que desplegamos en el área.

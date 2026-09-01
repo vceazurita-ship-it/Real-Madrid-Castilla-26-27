@@ -40,6 +40,10 @@ import {
   StatRow,
   TeamPicker,
 } from "@/components/abp/ui";
+import {
+  AnalisisSeccion,
+  type LectorAnalisis,
+} from "@/components/abp/AnalisisSeccion";
 import { RivalPatterns } from "@/components/abp/RivalPatterns";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
@@ -52,6 +56,7 @@ import {
   competicionesPresentes,
   parseJornada,
 } from "@/lib/abp/partido";
+import type { ClaveMetrica } from "@/lib/abp/analisis";
 import { RIVAL_SCOUT_COLUMNS } from "@/lib/abp/sheets";
 import {
   AbpEvent,
@@ -578,6 +583,61 @@ export default function ScoutRivalAbpPage() {
     [aereos],
   );
 
+  /* --------------------------- lectura ----------------------------- */
+
+  /*
+  | El global contra el que se compara cada sección.
+  |
+  | Es todo lo del equipo **de este mismo lado**, no todo lo del equipo: cruzar
+  | lo que ataca con lo que defiende daría una diferencia que no significa
+  | nada. Lo que sí queda dentro son las jornadas y los tipos de acción que el
+  | filtro deja fuera, que es justo lo que se quiere comparar.
+  */
+  const delLado = useMemo(
+    () => delEquipo.filter((event) => event.side === side),
+    [delEquipo, side],
+  );
+
+  const lector = useMemo<LectorAnalisis<AbpEvent>>(
+    () => ({
+      jornada: (event) => event.contexto.jornada,
+      peligro: (event) => event.peligro,
+      /* El mismo gol que cuentan los totales de arriba: suyo y de rango 5. */
+      gol: (event) => event.peligro && event.result.rank === 5,
+      remate: (event) => event.remate,
+      xg: (event) => event.xg,
+    }),
+    [],
+  );
+
+  /*
+  | Desde dónde se juzga lo que sale.
+  |
+  | Cuando se mira su ataque, más peligro es peor noticia —para nosotros— y por
+  | eso va en rojo; cuando se mira su defensa, el peligro es el que se les
+  | genera y sube en verde. El sujeto de la página es el rival, pero quien lee
+  | es el Castilla.
+  */
+  const sentidoAnalisis = side === "ofensivo" ? "defensivo" : "ofensivo";
+
+  const pie = (
+    opciones: {
+      metrica?: ClaveMetrica;
+      dimension?: string;
+      categoria?: (fila: AbpEvent) => string;
+      destacado?: boolean;
+    } = {},
+  ) => (
+    <AnalisisSeccion
+      filas={filtered}
+      todas={delLado}
+      lector={lector}
+      sentido={sentidoAnalisis}
+      unidad="acciones"
+      {...opciones}
+    />
+  );
+
   /* ----------------------------- render ---------------------------- */
 
   const sinEquipos =
@@ -783,6 +843,14 @@ export default function ScoutRivalAbpPage() {
                     />
                   </StatRow>
 
+                  <div className="mt-5">
+                    {pie({
+                      destacado: true,
+                      dimension: "tipo de acción",
+                      categoria: (event) => FAMILY_LABEL[event.family],
+                    })}
+                  </div>
+
                   {/* --------------------- patrones -------------------- */}
 
                   {origenActivo !== "derivado" && (
@@ -801,6 +869,10 @@ export default function ScoutRivalAbpPage() {
                     subtitle="Volumen, remate y cuántas acaban en gol u ocasión"
                     icon={Target}
                     bodyClassName="p-0"
+                    analisis={pie({
+                      dimension: "tipo de acción",
+                      categoria: (event) => FAMILY_LABEL[event.family],
+                    })}
                   >
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[640px] border-collapse text-sm">
@@ -892,6 +964,11 @@ export default function ScoutRivalAbpPage() {
                     title="Saque de banda por zona"
                     subtitle="Zona 1 tercio propio · Zona 2 medio · Zona 3 último tercio"
                     icon={CornerDownRight}
+                    analisis={pie({
+                      dimension: "zona de saque",
+                      categoria: (event) =>
+                        event.zonaSaque ? `Zona ${event.zonaSaque}` : "",
+                    })}
                   >
                     {zonas.every((zone) => zone.acciones === 0) ? (
                       <EmptyState title="Sin saques de banda registrados para esta selección" />
@@ -937,6 +1014,11 @@ export default function ScoutRivalAbpPage() {
                       title="Lanzadores"
                       subtitle="Quién ejecuta el balón parado"
                       icon={Flag}
+                      analisis={pie({
+                        metrica: "xg",
+                        dimension: "lanzador",
+                        categoria: (event) => event.sacador,
+                      })}
                     >
                       {sacadores.length > 0 ? (
                         <PeopleList people={sacadores} />
@@ -957,6 +1039,10 @@ export default function ScoutRivalAbpPage() {
                       title="Rematadores"
                       subtitle="Quién ataca el balón"
                       icon={Users}
+                      analisis={pie({
+                        dimension: "rematador",
+                        categoria: (event) => event.rematador,
+                      })}
                     >
                       {rematadores.length > 0 ? (
                         <PeopleList people={rematadores} />

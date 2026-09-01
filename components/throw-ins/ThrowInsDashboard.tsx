@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileDown } from "lucide-react";
@@ -8,12 +9,20 @@ import * as htmlToImage from "html-to-image";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, FilterDrawer } from "@/components/abp/ui";
+import {
+  AnalisisSeccion,
+  type LectorAnalisis,
+} from "@/components/abp/AnalisisSeccion";
+import type { ClaveMetrica, Etiquetas } from "@/lib/abp/analisis";
 import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 import ThrowInZoneMap from "@/components/throw-ins/ThrowInZoneMap";
 import ThrowInFlow from "@/components/throw-ins/ThrowInFlow";
 import {
   BANDA_LABEL,
   direccionDe,
+  esFavorable,
+  esProduccion,
+  esProgresion,
   type Mode,
   parseBanda,
   parseResultado,
@@ -270,10 +279,13 @@ function DistributionChart({
   title,
   data,
   colorFor,
+  analisis,
 }: {
   title: string;
   data: { name: string; total: number }[];
   colorFor?: (name: string, index: number) => string;
+  /** La lectura del gráfico: qué dice lo filtrado frente al global. */
+  analisis?: ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
@@ -312,6 +324,10 @@ function DistributionChart({
       ) : (
         <p className="py-20 text-center text-sm text-slate-500">Aún no hay registros para esta visualización.</p>
       )}
+
+      {analisis ? (
+        <div className="-mx-5 -mb-5 mt-5 md:-mx-6 md:-mb-6">{analisis}</div>
+      ) : null}
     </section>
   );
 }
@@ -424,6 +440,82 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const activos = FILTERS.filter(({ key }) => (filters[key] ?? "ALL") !== "ALL");
 
   const totals = useMemo(() => resumenDe(filtered, mode), [filtered, mode]);
+
+  /*
+  | Cómo lee el análisis una fila de esta hoja.
+  |
+  | El saque de banda no tiene xG ni remate: lo que mide una jugada es si el
+  | envío progresa, si el balón se queda en casa y si acaba en producción
+  | —conquista de último tercio, ocasión o gol—. Por eso el pie de cada sección
+  | enseña esas tres y no las del córner.
+  |
+  | «Producción» se lee desde el sujeto de la hoja: en la ofensiva es lo que
+  | generamos y en la defensiva lo que nos generan. La retención, en cambio, es
+  | siempre nuestra —recuperar un saque del rival es buena noticia también en la
+  | página defensiva—, y el análisis la juzga aparte.
+  */
+  const lector = useMemo<LectorAnalisis<RecordRow>>(
+    () => ({
+      jornada: (row) => parseJornada(read(row, "JORNADA")),
+      peligro: (row) => esProduccion(parseResultado(read(row, "Resultado_Final")), mode),
+      gol: (row) => {
+        const resultado = parseResultado(read(row, "Resultado_Final"));
+
+        return (
+          resultado.rank === 5 &&
+          resultado.owner === (mode === "offensive" ? "rmcf" : "rival")
+        );
+      },
+      /* Las dos que la hoja no registra: en falso, no en un cero que engañe. */
+      remate: () => false,
+      xg: () => 0,
+      progresion: (row) => esProgresion(row),
+      retencion: (row) => esFavorable(parseResultado(read(row, "Resultado_Final"))),
+    }),
+    [mode],
+  );
+
+  const etiquetas = useMemo<Etiquetas>(
+    () => ({
+      peligro: isOffensive ? "Producción" : "Peligro concedido",
+      retencion: isOffensive ? "Retención" : "Recuperación",
+      progresion: isOffensive ? "Progresión" : "Progresión rival",
+      volumen: "Saques por jornada",
+    }),
+    [isOffensive],
+  );
+
+  const acompanan = useMemo<ClaveMetrica[]>(
+    () => ["progresion", "retencion", "volumen"],
+    [],
+  );
+
+  /*
+  | El pie de lectura de cada sección.
+  |
+  | Va como función y no como componente para que todas las secciones comparen
+  | contra lo mismo —`filtered` frente a `rows`— sin que ninguna vuelva a
+  | filtrar por su cuenta.
+  */
+  const pie = (
+    opciones: {
+      metrica?: ClaveMetrica;
+      dimension?: string;
+      categoria?: (fila: RecordRow) => string;
+      destacado?: boolean;
+    } = {},
+  ) => (
+    <AnalisisSeccion
+      filas={filtered}
+      todas={rows}
+      lector={lector}
+      sentido={isOffensive ? "ofensivo" : "defensivo"}
+      unidad="saques"
+      etiquetas={etiquetas}
+      acompanan={acompanan}
+      {...opciones}
+    />
+  );
 
   const exportPng = useCallback(async () => {
     if (!contentRef.current) return;
@@ -633,9 +725,34 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                 </div>
 
+                {/* La lectura de cabecera, justo debajo de los KPI: qué dicen
+                    esos números frente al global y frente a las jornadas
+                    anteriores. */}
+                <div className="mb-7">
+                  {pie({
+                    destacado: true,
+                    dimension: "resultado",
+                    categoria: (row) => valorDe(row, "Resultado_Final"),
+                  })}
+                </div>
+
                 <ThrowInField rows={filtered} mode={mode} />
 
+                <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                  {pie({
+                    dimension: "zona de saque",
+                    categoria: (row) => valorDe(row, "Zona_Saque"),
+                  })}
+                </div>
+
                 <ThrowInZoneMap rows={filtered} mode={mode} />
+
+                <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                  {pie({
+                    dimension: "dirección del envío",
+                    categoria: (row) => valorDe(row, "Zona_Caida"),
+                  })}
+                </div>
 
                 <section className="mb-7 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-xl md:p-7">
                   <div className="mb-5">
@@ -646,6 +763,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </div>
 
                   <ThrowInFlow rows={filtered} mode={mode} />
+
+                  <div className="-mx-4 -mb-4 mt-5 overflow-hidden rounded-b-3xl md:-mx-7 md:-mb-7">
+                    {pie({
+                      dimension: "tipo de envío",
+                      categoria: (row) => valorDe(row, "Tipo_Envio"),
+                    })}
+                  </div>
                 </section>
 
                 <div className="grid gap-5 xl:grid-cols-2">
@@ -665,12 +789,25 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                 ]
                             : undefined
                       }
+                      analisis={pie({
+                        /* El tramo del partido se lee por volumen: de un cuarto
+                           de hora importa cuántos saques trae, no qué
+                           porcentaje de ellos acaba en producción. */
+                        metrica: key === "__tramo" ? "volumen" : "peligro",
+                        dimension: chartTitle.toLowerCase(),
+                        categoria: (row) => valorDe(row, key),
+                      })}
                     />
                   ))}
                 </div>
 
                 <section className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-                  <div className="border-b border-white/10 px-5 py-4 md:px-6">
+                  {pie({
+                    dimension: "rival",
+                    categoria: (row) => valorDe(row, "Rival"),
+                  })}
+
+                  <div className="border-y border-white/10 px-5 py-4 md:px-6">
                     <h2 className="text-lg font-semibold">Registro de acciones</h2>
                     <p className="mt-1 text-sm text-slate-400">
                       {filtered.length > MAX_TABLA

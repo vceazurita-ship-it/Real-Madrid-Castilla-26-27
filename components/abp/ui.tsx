@@ -79,6 +79,7 @@ export function Panel({
   icon: Icon,
   action,
   children,
+  analisis,
   className = "",
   bodyClassName = "p-4 sm:p-5",
 }: {
@@ -87,6 +88,14 @@ export function Panel({
   icon?: ComponentType<{ size?: number; className?: string }>;
   action?: ReactNode;
   children: ReactNode;
+  /**
+   * La lectura del panel: qué dice lo filtrado frente al global y hacia dónde
+   * va. Va **fuera** del cuerpo a propósito, para que un panel con
+   * `bodyClassName="p-0"` —una tabla a sangre— no se lleve el pie pegado al
+   * borde. Se pasa como prop y no como último hijo porque así ningún panel se
+   * queda sin él por descuido al reordenar su contenido.
+   */
+  analisis?: ReactNode;
   className?: string;
   bodyClassName?: string;
 }) {
@@ -117,6 +126,8 @@ export function Panel({
       )}
 
       <div className={bodyClassName}>{children}</div>
+
+      {analisis}
     </section>
   );
 }
