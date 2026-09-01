@@ -241,23 +241,85 @@ export function findTeam(
 }
 
 /**
- * Temporada que conviene enseñar de entrada.
+ * Temporada que se enseña de un jugador rival.
  *
- * En agosto la temporada en curso está a cero o casi, y una ficha con todo a
- * cero no dice nada del rival: si aún no ha jugado, manda la última con
- * minutos. En cuanto suma partidos, la actual pasa a mandar ella.
+ * **Manda la temporada en curso**, aunque lleve pocos partidos. En un informe
+ * de la jornada que viene, los veinticinco partidos del año pasado de alguien
+ * que este año no ha jugado un minuto no dicen lo que parece que dicen: en las
+ * fichas del PowerPoint y del PDF sólo se pinta una temporada y **sin
+ * etiqueta**, así que quien la mira da por hecho que es la de ahora.
+ *
+ * Mientras no había competición esto no se podía hacer —todo a cero no dice
+ * nada— y se enseñaba la última con minutos. Desde la primera jornada ya hay
+ * de qué hablar, y cada semana habrá más.
+ *
+ * Sin `temporadaActual` se conserva el comportamiento de antes, que es lo que
+ * quiere quien sólo tiene a mano la lista.
  */
-export function defaultSeason(stats: RivalPlayerStats | null) {
-  return highlightSeason(stats?.temporadas ?? []);
+export function defaultSeason(
+  stats: RivalPlayerStats | null,
+  temporadaActual?: string,
+) {
+  return highlightSeason(stats?.temporadas ?? [], temporadaActual);
 }
 
 /** Lo mismo, cuando lo que se tiene a mano es la lista y no la ficha entera. */
-export function highlightSeason(temporadas: RivalSeasonStats[]) {
+export function highlightSeason(
+  temporadas: RivalSeasonStats[],
+  temporadaActual?: string,
+): RivalSeasonStats | null {
+  if (temporadaActual) {
+    const actual = temporadas.find(
+      (season) => season.temporada === temporadaActual,
+    );
+
+    if (actual) return actual;
+
+    /*
+    | BeSoccer no crea la fila de la temporada hasta que el jugador debuta, así
+    | que al que no ha jugado un minuto le falta. Se devuelve una **en blanco**
+    | con el nombre de la temporada: cero partidos es un dato, y es el que
+    | corresponde. Antes se caía a la temporada anterior y la ficha del rival
+    | daba a un suplente los números de titular del año pasado.
+    */
+    return temporadaEnBlanco(temporadas, temporadaActual);
+  }
+
   if (!temporadas.length) return null;
 
   const played = temporadas.find((season) => season.partidos > 0);
 
   return played ?? temporadas[0];
+}
+
+/**
+ * Una temporada a cero, con la forma que le toca al jugador.
+ *
+ * Si su historial trae goles encajados es un portero y la fila lleva
+ * `encajados`; si trae goles, lleva `goles`. Se mira el historial y no la
+ * posición de la hoja porque es lo mismo que decide BeSoccer al montar la
+ * tabla, y así el cero sale en la casilla correcta.
+ */
+function temporadaEnBlanco(
+  temporadas: RivalSeasonStats[],
+  temporada: string,
+): RivalSeasonStats {
+  const portero = temporadas.some((season) => season.encajados !== undefined);
+
+  return {
+    temporada,
+    equipos: [],
+    escudos: [],
+    partidos: 0,
+    titular: 0,
+    suplente: 0,
+    minutos: 0,
+    amarillas: 0,
+    rojas: 0,
+    ...(portero
+      ? { encajados: 0, penaltisParados: 0 }
+      : { goles: 0, asistencias: 0 }),
+  };
 }
 
 /** Minutos por partido, para leer de un vistazo cuánto pesa en el equipo. */

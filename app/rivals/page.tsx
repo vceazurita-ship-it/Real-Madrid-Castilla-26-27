@@ -1093,6 +1093,7 @@ export default function RivalPlayersPage() {
         side: detectSide(player["POSICIÓN"] || ""),
         portero: Boolean(stats?.portero),
         temporadas: stats?.temporadas ?? [],
+        temporadaActual: statsDoc?.temporada,
         tags: parseTags(player.IMPACTO).tags.map((tag) => ({
           label: tag.short,
           tone: tag.tone,
@@ -1218,9 +1219,15 @@ export default function RivalPlayersPage() {
       plantillaDelEquipo.map((player) => {
         const stats = findStats(statsDoc, player);
 
-        /* La misma temporada que resalta la ficha: en agosto la actual está a
-           cero y la que dice algo del jugador es la anterior. */
-        const season = highlightSeason(stats?.temporadas ?? []);
+        /* La temporada en curso, la misma que resalta la ficha. Estas cifras
+           van a las hojas de plantilla y de once probable del informe y al
+           campograma de día de partido, donde se pinta **una sola temporada y
+           sin etiqueta**: si fuera la del año pasado, quien mire el documento
+           daría por hecho que es la de ahora. */
+        const season = highlightSeason(
+          stats?.temporadas ?? [],
+          statsDoc?.temporada,
+        );
 
         return {
           clave: playerKey(player),
@@ -1637,9 +1644,12 @@ export default function RivalPlayersPage() {
 
     const stats = findStats(statsDoc, editForm);
 
-    /* La misma temporada que se resalta en la ficha: en agosto la actual
-       está a cero y la que dice algo es la anterior. */
-    const season = highlightSeason(stats?.temporadas ?? []);
+    /* La temporada en curso, la misma que resalta la ficha y la que rotula
+       la portada. */
+    const season = highlightSeason(
+      stats?.temporadas ?? [],
+      statsDoc?.temporada,
+    );
 
     return {
       equipo: textoUtil(editForm.NOMBRE_EQUIPO),
@@ -3541,6 +3551,7 @@ export default function RivalPlayersPage() {
                   slot={slotDelJugador?.slot.key ?? null}
                   side={detectSide(editForm["POSICIÓN"])}
                   positionCode={slotDelJugador?.slot.code}
+                  temporadaActual={statsDoc?.temporada}
                 />
 
                 {/* El dictado es una herramienta de edición: fuera del PDF. */}

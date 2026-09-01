@@ -90,6 +90,7 @@ export function PlayerStatsCard({
   positionCode,
   loading = false,
   missing = false,
+  temporadaActual,
 }: {
   stats: RivalPlayerStats | null;
   /** Clave de slot para el mapa de calor (`ld`, `dfc`, `mc`…). */
@@ -99,6 +100,15 @@ export function PlayerStatsCard({
   loading?: boolean;
   /** No hay documento de estadísticas: falta correr el script de descarga. */
   missing?: boolean;
+  /**
+   * La temporada en curso ("2026/27"), la que trae el documento.
+   *
+   * Sin ella se resalta la última con minutos, que es lo que hacía falta antes
+   * de que empezara la competición. Con ella manda la de ahora, que es la que
+   * se lleva a los exportables: si aquí se resaltara una y allí saliera otra,
+   * el mismo jugador diría dos cosas distintas.
+   */
+  temporadaActual?: string;
 }) {
   const temporadas = useMemo(
     () => (stats?.temporadas ?? []).slice(0, TEMPORADAS_VISIBLES),
@@ -109,8 +119,9 @@ export function PlayerStatsCard({
 
   const cols = useMemo(() => columnasTemporada(portero), [portero]);
 
-  /* La que manda: la que se resalta y la que se lee de un vistazo. */
-  const destacada = defaultSeason(stats)?.temporada ?? null;
+  /* La que manda: la que se resalta y la que se lee de un vistazo. Es la
+     temporada en curso, la misma que se lleva a los exportables. */
+  const destacada = defaultSeason(stats, temporadaActual)?.temporada ?? null;
 
   return (
     <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">

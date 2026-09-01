@@ -134,6 +134,15 @@ export type OncePdfPlayer = {
   portero: boolean;
   /** De la más reciente a la más antigua, como en la ficha de pantalla. */
   temporadas: RivalSeasonStats[];
+  /**
+   * La temporada en curso ("2026/27"), la que trae el documento.
+   *
+   * Decide **qué fila se resalta** en la tabla de temporadas. Va aquí, en el
+   * jugador, y no en el documento, porque el objeto del jugador es el que
+   * viaja hasta el fondo del dibujo: así no hay que pasarla de mano en mano
+   * por media docena de funciones.
+   */
+  temporadaActual?: string;
   tags: OncePdfTag[];
   caracteristicas: string;
   fortalezas: string;
@@ -1865,7 +1874,9 @@ function dibujaTemporadas(
   }
 
   const cols = columnasTemporada(jugador.portero);
-  const destacada = highlightSeason(temporadas)?.temporada ?? null;
+  /* La misma que resalta la ficha de pantalla: la temporada en curso. */
+  const destacada =
+    highlightSeason(temporadas, jugador.temporadaActual)?.temporada ?? null;
 
   const wTemporada = Math.min(126, w * 0.34);
   const paso = (w - wTemporada) / cols.length;
