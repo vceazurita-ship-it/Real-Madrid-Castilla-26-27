@@ -5,6 +5,8 @@ import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { guardaEnLaHoja, HOJA_RIVALES_URL, leeRivales } from "@/lib/hojaRivales";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
@@ -26,10 +28,17 @@ import {
   Pencil,
 } from "lucide-react";
 
-const ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+const ENDPOINT = HOJA_RIVALES_URL;
+
+/* Los campos que la hoja RIVALES no tiene viven aquí, en Supabase, con el
+   `ID` del rival por clave. Ver `CAMPOS_REMOTOS`, más abajo. */
+const EXTRA_DOC_KEY = "scout-rival-colectivo-extra";
+const EXTRA_DOC_KIND = "scout-rival";
 
 type Rival = Record<string, string>;
+
+/** Lo que la hoja no guarda: `{ "RIV-01": { CAMPO: "texto" } }`. */
+type Extras = Record<string, Record<string, string>>;
 
 type FieldDef = {
   titulo: string;
@@ -37,6 +46,15 @@ type FieldDef = {
   ayuda?: string;
   ancho?: boolean;
   rows?: number;
+  /**
+   * El campo **no tiene columna** en la hoja RIVALES y se guarda en Supabase.
+   *
+   * La hoja escribe por nombre de columna y descarta en silencio lo que no
+   * tenga cabecera: mandar ahí un campo nuevo es perderlo. Las columnas sólo
+   * las puede añadir quien es dueño de la hoja, así que mientras tanto el
+   * bloque se guarda aparte y en la pantalla no se nota.
+   */
+  remoto?: boolean;
 };
 
 type BlockDef = {
@@ -305,6 +323,54 @@ const SECTIONS: SectionDef[] = [
           },
         ],
       },
+      /*
+      | La transición ofensiva del rival: lo que hace **cuando roba**.
+      |
+      | Faltaba. El informe cerraba la fase ofensiva con la transición
+      | defensiva —lo que hace al perderla— y la defensiva se quedaba en la
+      | defensa del área, así que del momento en el que más daño hace un
+      | equipo de esta categoría no había dónde escribir. Va aquí, al final de
+      | la fase defensiva, porque es lo que pasa justo después de ella.
+      |
+      | Los cinco campos son `remoto`: la hoja RIVALES no tiene estas columnas
+      | y hasta que alguien las añada se guardan en Supabase.
+      */
+      {
+        titulo: "Transición ofensiva",
+        campos: [
+          {
+            titulo: "Zonas donde roba",
+            campo: "TRANSICION_OF_ZONAS_ROBO",
+            ayuda: "Zonas donde roba",
+            remoto: true,
+          },
+          {
+            titulo: "Primera intención tras robo",
+            campo: "TRANSICION_OF_PRIMERA_INTENCION",
+            ayuda: "Primera intención tras robo",
+            remoto: true,
+          },
+          {
+            titulo: "Jugadores de referencia",
+            campo: "TRANSICION_OF_JUGADORES_REFERENCIA",
+            ayuda: "Jugadores de referencia",
+            remoto: true,
+          },
+          {
+            titulo: "Espacios que ataca",
+            campo: "TRANSICION_OF_ESPACIOS",
+            ayuda: "Espacios que ataca",
+            remoto: true,
+          },
+          {
+            titulo: "Velocidad y acompañamientos",
+            campo: "TRANSICION_OF_ACOMPANAMIENTOS",
+            ayuda: "Velocidad y acompañamientos",
+            ancho: true,
+            remoto: true,
+          },
+        ],
+      },
     ],
   },
 ];
@@ -325,6 +391,11 @@ const ALL_FIELDS = [
   ...SECTIONS.flatMap((s) => s.bloques.flatMap((b) => b.campos)),
   ...CONCLUSIONES,
 ];
+
+/** Los que no van a la hoja. Se resuelve una vez, no en cada tecla. */
+const CAMPOS_REMOTOS = new Set(
+  ALL_FIELDS.filter((f) => f.remoto).map((f) => f.campo),
+);
 
 const NAV = [
   { id: "datos", label: "Datos y recursos" },
@@ -445,13 +516,38 @@ export default function ScoutRivalCollective() {
     [rivales, rivalActivo]
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | LO QUE LA HOJA NO GUARDA
+  |--------------------------------------------------------------------------
+  |
+  | El bloque de transición ofensiva no tiene columnas en la hoja RIVALES, así
+  | que vive en Supabase con el `ID` del rival por clave. Se guarda solo, con
+  | su propio retardo, y en la pantalla no se distingue de los demás campos:
+  | `valorDe` y `setCampo` mandan cada campo a donde le toque.
+  */
+  const { value: extras, setValue: setExtras } = useRemoteDoc<Extras>({
+    key: EXTRA_DOC_KEY,
+    kind: EXTRA_DOC_KIND,
+    fallback: {},
+  });
+
+  const idRival = String(rivalActivo?.ID ?? "");
+
+  const valorDe = useCallback(
+    (campo: string) =>
+      CAMPOS_REMOTOS.has(campo)
+        ? String(extras[idRival]?.[campo] ?? "")
+        : String(rivalActivo?.[campo] ?? ""),
+    [extras, idRival, rivalActivo]
+  );
+
   /* Cuántos campos del informe están rellenos: da sensación de progreso. */
   const completados = useMemo(() => {
     if (!rivalActivo) return 0;
 
-    return ALL_FIELDS.filter((f) => String(rivalActivo[f.campo] ?? "").trim())
-      .length;
-  }, [rivalActivo]);
+    return ALL_FIELDS.filter((f) => valorDe(f.campo).trim()).length;
+  }, [rivalActivo, valorDe]);
 
   const cambiarRival = useCallback(
     (rival: Rival | undefined) => {
@@ -464,9 +560,24 @@ export default function ScoutRivalCollective() {
     []
   );
 
-  const setCampo = useCallback((campo: string, valor: string) => {
-    setRivalActivo((prev) => (prev ? { ...prev, [campo]: valor } : prev));
-  }, []);
+  const setCampo = useCallback(
+    (campo: string, valor: string) => {
+      if (CAMPOS_REMOTOS.has(campo)) {
+        /* Sin rival elegido no hay dónde colgarlo; tampoco hay formulario. */
+        if (!idRival) return;
+
+        setExtras((actual) => ({
+          ...actual,
+          [idRival]: { ...(actual[idRival] ?? {}), [campo]: valor },
+        }));
+
+        return;
+      }
+
+      setRivalActivo((prev) => (prev ? { ...prev, [campo]: valor } : prev));
+    },
+    [idRival, setExtras]
+  );
 
   const empezarEdicion = () => {
     setModoEdicion(true);
@@ -491,23 +602,10 @@ export default function ScoutRivalCollective() {
     async (rival: Rival | null) => {
       if (!rival) return true;
 
-      const body = new URLSearchParams();
-
-      body.append("action", "guardarRival");
-
-      Object.entries(rival).forEach(([key, value]) => {
-        body.append(key, String(value ?? ""));
-      });
-
-      const res = await fetch(ENDPOINT, { method: "POST", body });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-
-      if (data?.success === false) {
-        throw new Error(data?.error || "El servidor rechazó el guardado");
-      }
+      /* En JSON, no como formulario: el `doPost` de la hoja pasa el cuerpo por
+         `JSON.parse` y un formulario se estrella antes de guardar nada
+         (`lib/hojaRivales.ts`). */
+      await guardaEnLaHoja("guardarRival", rival);
 
       const verificacion = await verificarGuardado({
         titulo: `Informe de scouting · ${rival.EQUIPO ?? ""}`,
@@ -515,15 +613,15 @@ export default function ScoutRivalCollective() {
         ignorar: ["FECHA"],
         modoAuto: true,
         releer: async () => {
-          const respuesta = await fetch(`${ENDPOINT}?action=rivales`, {
-            cache: "no-store",
-          });
+          try {
+            const filas = await leeRivales();
 
-          if (!respuesta.ok) return null;
-
-          const filas: Rival[] = await respuesta.json();
-
-          return filas.find((r) => String(r.ID) === String(rival.ID)) ?? null;
+            return filas.find((r) => String(r.ID) === String(rival.ID)) ?? null;
+          } catch {
+            /* Con autoguardado una relectura fallida no avisa: pasa en
+               cualquier corte de red y el siguiente intento lo resuelve. */
+            return null;
+          }
         },
       });
 
@@ -876,7 +974,7 @@ export default function ScoutRivalCollective() {
                         <Campo
                           key={field.campo}
                           field={field}
-                          valor={rivalActivo?.[field.campo]}
+                          valor={valorDe(field.campo)}
                           editando={modoEdicion}
                           accent={section.accent}
                           onChange={(v) => setCampo(field.campo, v)}
@@ -912,7 +1010,7 @@ export default function ScoutRivalCollective() {
                 <Campo
                   key={field.campo}
                   field={field}
-                  valor={rivalActivo?.[field.campo]}
+                  valor={valorDe(field.campo)}
                   editando={modoEdicion}
                   accent="#C8A96B"
                   destacado

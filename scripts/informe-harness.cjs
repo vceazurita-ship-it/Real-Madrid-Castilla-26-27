@@ -267,6 +267,25 @@ for (const once of informe.onces) {
 
 const plantilla = [...vistos.values()];
 
+/*
+| Qué partidos van a las hojas de partidos, por su sitio en la lista de onces
+| empezando en 1: «1,3,4». Sin el argumento, `undefined`, que es lo que hace
+| que el informe se monte con los últimos hasta seis, como antes del pop-up.
+*/
+const PARTIDOS_ELEGIDOS = process.argv[4]
+  ? process.argv[4]
+      .split(",")
+      .flatMap((trozo) => {
+        const once = informe.onces[Number(trozo.trim()) - 1];
+
+        return once ? [once.partidoId] : [];
+      })
+  : undefined;
+
+if (PARTIDOS_ELEGIDOS) {
+  console.log(`  partidos elegidos: ${PARTIDOS_ELEGIDOS.length}`);
+}
+
 const sugerido = sugiereOnce(informe, plantilla);
 
 if (!sugerido) console.warn("  ojo: no hay de dónde sacar el once probable");
@@ -301,6 +320,13 @@ const DATOS = {
         motivo: `${sugerido.estructura} · ${sugerido.alineaciones} alineaciones`,
       }
     : undefined,
+  /*
+  | Qué partidos se llevan las hojas de partidos. En la pantalla los marca el
+  | cuerpo técnico en un pop-up; aquí se pasan con un cuarto argumento
+  | —`node scripts/informe-harness.cjs teruel .cache/x 1,3,4`, por orden de la
+  | lista de onces— y sin él se hace lo de siempre: los últimos hasta seis.
+  */
+  partidosElegidos: PARTIDOS_ELEGIDOS,
 };
 
 /**

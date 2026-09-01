@@ -84,7 +84,7 @@ import {
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
-import { findInforme } from "@/lib/rivals/informe";
+import { esLiga, findInforme, type InformeEquipo } from "@/lib/rivals/informe";
 import {
   construyeHojasInforme,
   exportaHojasInforme,
@@ -92,6 +92,9 @@ import {
 } from "@/lib/rivals/informe-ppt";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import InformePptEditor from "@/components/rivals/InformePptEditor";
+import InformePartidosDialog, {
+  type PartidoElegible,
+} from "@/components/rivals/InformePartidosDialog";
 import {
   ANCLA_SUELTA,
   ANCLAS_SLOT,
@@ -162,6 +165,30 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 const RIVALS_API_URL = "/api/rivals";
+
+/**
+ * Cuántos partidos vienen marcados en el pop-up del informe.
+ *
+ * Cuatro, que son dos diapositivas —la 9 y la 10—. Se puede subir a seis en el
+ * pop-up, que es lo que había antes de que se pudieran elegir.
+ */
+const PARTIDOS_INFORME_POR_DEFECTO = 4;
+
+/** Tope del pop-up: seis partidos son tres hojas, y ahí se corta. */
+const PARTIDOS_INFORME_MAXIMO = 6;
+
+/** "2026-09-06T18:00:00+02:00" -> "6 sep 2026". */
+function fechaDePartido(iso: string) {
+  const fecha = new Date(String(iso ?? ""));
+
+  return Number.isNaN(fecha.getTime())
+    ? String(iso ?? "")
+    : fecha.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+}
 
 /* Los tres estados del once en la ficha, en el orden en que se piensan. */
 const ESTADOS_ONCE: { label: string; valor: OnceEstado }[] = [
@@ -1402,7 +1429,30 @@ export default function RivalPlayersPage() {
 
   const [datosInforme, setDatosInforme] = useState<InformeData | null>(null);
 
-  const exportarInforme = useCallback(async () => {
+  /*
+  |--------------------------------------------------------------------------
+  | QUÉ PARTIDOS SE LLEVAN LAS HOJAS DE PARTIDOS (LAS 9 Y 10)
+  |--------------------------------------------------------------------------
+  |
+  | Antes iban siempre los seis últimos onces bajados y salían tres hojas. En
+  | agosto eso son dos hojas de amistosos y el partido que de verdad se estudia
+  | queda en la tercera, así que ahora se eligen: un pop-up con los partidos
+  | que tienen alineación bajada, cuatro marcados de casa —los últimos de
+  | liga— y dos por diapositiva.
+  |
+  | Se guarda el documento entero de BeSoccer al abrir el pop-up para no
+  | volver a bajarlo al aceptar: son los diecinueve equipos de la temporada.
+  */
+  const [eleccionInforme, setEleccionInforme] = useState<{
+    doc: Awaited<ReturnType<typeof pideInforme>>;
+    informe: InformeEquipo;
+    partidos: PartidoElegible[];
+    porDefecto: string[];
+  } | null>(null);
+
+  const [partidosInforme, setPartidosInforme] = useState<string[]>([]);
+
+  const abrirInforme = useCallback(async () => {
     if (!selectedTeam) return;
 
     setExportando(true);
@@ -1421,74 +1471,150 @@ export default function RivalPlayersPage() {
         return;
       }
 
-      const partido = enfrentamientoDe(ordenRivales, selectedTeam);
+      /* Elegibles son los que tienen alineación: sin ella no hay campograma
+         que dibujar y la hoja saldría vacía. */
+      const porId = new Map(informe.partidos.map((uno) => [uno.id, uno]));
+
+      const partidos: PartidoElegible[] = informe.onces.flatMap((once) => {
+        const partido = porId.get(once.partidoId);
+
+        if (!partido) return [];
+
+        const contra = partido.enCasa ? partido.visitante : partido.local;
+
+        return [
+          {
+            id: partido.id,
+            fecha: fechaDePartido(partido.fecha),
+            competicion: partido.competicion,
+            deLiga: esLiga(partido),
+            rival: contra.nombre,
+            enCasa: partido.enCasa,
+            marcador: partido.jugado
+              ? `${partido.local.goles ?? 0}-${partido.visitante.goles ?? 0}`
+              : "—",
+            resultado: partido.resultado,
+          },
+        ];
+      });
 
       /*
-      | La hoja de «once probable» tiene que salir **en todos** los informes.
-      | Si el cuerpo técnico no ha marcado a nadie todavía —diecinueve rivales
-      | y una semana— se propone uno con los onces que el rival viene sacando,
-      | y se dice en la propia hoja que es una propuesta. Marcarlo a mano en la
-      | pantalla lo sustituye siempre.
+      | Los cuatro últimos de liga. Si no llegan a cuatro —agosto, cuando la
+      | mitad de lo bajado es pretemporada— se completan con lo que haya, que
+      | es mejor que dejar media hoja en blanco.
       */
-      let sugerido: OnceSugerido | null = null;
+      const porDefecto = new Set(
+        [
+          ...partidos.filter((uno) => uno.deLiga),
+          ...partidos.filter((uno) => !uno.deLiga),
+        ]
+          .slice(0, PARTIDOS_INFORME_POR_DEFECTO)
+          .map((uno) => uno.id),
+      );
 
-      if (onceProbableSitios.length === 0) {
-        sugerido = await proponeOnce(doc);
-      }
+      /* Siempre en el orden de la lista —del más reciente al más antiguo—,
+         que es el orden en el que van a salir las hojas. */
+      const marcados = partidos
+        .map((uno) => uno.id)
+        .filter((id) => porDefecto.has(id));
 
-      const onceProbable = sugerido
-        ? sugerido.titulares.flatMap((clave) => {
-            const pos = sugerido!.campo[clave];
-
-            return pos
-              ? [{ clave, x: pos.x, y: pos.y, estado: "titular" as const }]
-              : [];
-          })
-        : onceProbableSitios;
-
-      const data: InformeData = {
-        informe,
-        jornada: partido?.jornada ?? "",
-        fecha: partido?.fecha ?? "",
-        /* `local` de la hoja es **nuestro** campo: en su campo es lo contrario.
-           Sin calendario se asume fuera, que es cuando el informe se mira con
-           más detalle. */
-        enSuCampo: partido ? !partido.local : true,
-        temporada: temporadaCorta(doc?.temporada),
-        competicion: doc?.competicion ?? "",
-        /* Las dos hojas de campograma salen de la hoja RIVALES y del once que
-           ha colocado el cuerpo técnico, no de BeSoccer. */
-        plantilla: jugadoresPlantilla,
-        onceProbable,
-        /* Para que la hoja lo diga: un once propuesto no es el del míster. */
-        onceSugerido: sugerido
-          ? { motivo: explicaSugerencia(sugerido) }
-          : undefined,
-      };
-
-      const hojas = await construyeHojasInforme(data);
-
-      setDatosInforme(data);
-      setHojasInforme(hojas);
+      setEleccionInforme({ doc, informe, partidos, porDefecto: marcados });
+      setPartidosInforme(marcados);
     } catch (error) {
-      console.error("Error montando el informe del rival:", error);
+      console.error("Error pidiendo el informe del rival:", error);
 
       toast.error(
         error instanceof Error
           ? error.message
-          : "No se ha podido generar el informe.",
+          : "No se ha podido cargar el informe.",
       );
     } finally {
       setExportando(false);
     }
-  }, [
-    selectedTeam,
-    ordenRivales,
-    pideInforme,
-    proponeOnce,
-    jugadoresPlantilla,
-    onceProbableSitios,
-  ]);
+  }, [selectedTeam, pideInforme]);
+
+  const montarInforme = useCallback(
+    async (elegidos: string[]) => {
+      if (!eleccionInforme || !selectedTeam) return;
+
+      const { doc, informe } = eleccionInforme;
+
+      setExportando(true);
+
+      try {
+        const partido = enfrentamientoDe(ordenRivales, selectedTeam);
+
+        /*
+        | La hoja de «once probable» tiene que salir **en todos** los informes.
+        | Si el cuerpo técnico no ha marcado a nadie todavía —diecinueve
+        | rivales y una semana— se propone uno con los onces que el rival viene
+        | sacando, y se dice en la propia hoja que es una propuesta. Marcarlo a
+        | mano en la pantalla lo sustituye siempre.
+        */
+        let sugerido: OnceSugerido | null = null;
+
+        if (onceProbableSitios.length === 0) {
+          sugerido = await proponeOnce(doc);
+        }
+
+        const onceProbable = sugerido
+          ? sugerido.titulares.flatMap((clave) => {
+              const pos = sugerido!.campo[clave];
+
+              return pos
+                ? [{ clave, x: pos.x, y: pos.y, estado: "titular" as const }]
+                : [];
+            })
+          : onceProbableSitios;
+
+        const data: InformeData = {
+          informe,
+          jornada: partido?.jornada ?? "",
+          fecha: partido?.fecha ?? "",
+          /* `local` de la hoja es **nuestro** campo: en su campo es lo
+             contrario. Sin calendario se asume fuera, que es cuando el informe
+             se mira con más detalle. */
+          enSuCampo: partido ? !partido.local : true,
+          temporada: temporadaCorta(doc?.temporada),
+          competicion: doc?.competicion ?? "",
+          /* Las dos hojas de campograma salen de la hoja RIVALES y del once
+             que ha colocado el cuerpo técnico, no de BeSoccer. */
+          plantilla: jugadoresPlantilla,
+          onceProbable,
+          /* Para que la hoja lo diga: un once propuesto no es el del míster. */
+          onceSugerido: sugerido
+            ? { motivo: explicaSugerencia(sugerido) }
+            : undefined,
+          /* Y los partidos que se han marcado en el pop-up: dos por hoja. */
+          partidosElegidos: elegidos,
+        };
+
+        const hojas = await construyeHojasInforme(data);
+
+        setDatosInforme(data);
+        setHojasInforme(hojas);
+        setEleccionInforme(null);
+      } catch (error) {
+        console.error("Error montando el informe del rival:", error);
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "No se ha podido generar el informe.",
+        );
+      } finally {
+        setExportando(false);
+      }
+    },
+    [
+      eleccionInforme,
+      selectedTeam,
+      ordenRivales,
+      proponeOnce,
+      jugadoresPlantilla,
+      onceProbableSitios,
+    ],
+  );
 
   /** Lo que sale del editor: las hojas ya retocadas, al `.pptx`. */
   const exportarInformeEditado = useCallback(
@@ -2964,9 +3090,9 @@ export default function RivalPlayersPage() {
                             <button
                               type="button"
                               data-export-hide
-                              onClick={() => void exportarInforme()}
+                              onClick={() => void abrirInforme()}
                               disabled={exportando}
-                              title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y los seis últimos onces. Se abre para retocarlo antes de exportar`}
+                              title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y los partidos que se marquen. Se eligen antes, y el documento se retoca antes de exportar`}
                               className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
                             >
                               {exportando ? (
@@ -3047,6 +3173,22 @@ export default function RivalPlayersPage() {
           sugiriendo={sugiriendo}
           onExportar={() => void exportarOncePdf()}
           onCerrar={() => setPreparandoPdf(false)}
+        />
+      )}
+
+      {/* QUÉ PARTIDOS SE LLEVAN LAS HOJAS 9 Y 10 */}
+
+      {eleccionInforme && !hojasInforme && (
+        <InformePartidosDialog
+          equipo={equipoDelOnce}
+          partidos={eleccionInforme.partidos}
+          elegidos={partidosInforme}
+          porDefecto={eleccionInforme.porDefecto}
+          maximo={PARTIDOS_INFORME_MAXIMO}
+          montando={exportando}
+          onCambiar={setPartidosInforme}
+          onMontar={(ids) => void montarInforme(ids)}
+          onCerrar={() => setEleccionInforme(null)}
         />
       )}
 

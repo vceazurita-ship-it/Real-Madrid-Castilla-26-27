@@ -153,6 +153,18 @@ export type InformeData = {
    * cuál de las dos cosas está viendo.
    */
   onceSugerido?: { motivo: string };
+  /**
+   * Qué partidos van a las hojas de partidos (las 9 y 10), por `partidoId` y
+   * en el orden en el que se quieren ver.
+   *
+   * Los elige el cuerpo técnico en el pop-up que sale antes de montar el
+   * informe. Antes iban siempre los seis últimos que hubiera bajados y salían
+   * tres hojas: con la pretemporada de por medio, dos de esas hojas eran
+   * amistosos que a nadie le interesaban y la que importaba —el último partido
+   * de liga en casa— quedaba enterrada. Sin esto se sigue haciendo lo de
+   * siempre, que es lo que hace el arnés de consola.
+   */
+  partidosElegidos?: string[];
 };
 
 /* ------------------------------------------------------------------ */
@@ -454,12 +466,37 @@ function tintaResultado(resultado: string) {
 }
 
 /**
+ * Cómo se rotula la competición de un partido en la tira de últimos partidos.
+ *
+ * En la línea caben dos o tres palabras: la liga se dice «LIGA» —que es lo
+ * único que hace falta saber de ella— y lo demás se escribe con su nombre,
+ * porque es justo lo que hay que distinguir. BeSoccer llama «Partidos
+ * Amistosos» a la pretemporada; en la hoja cabe «AMISTOSO».
+ */
+function etiquetaCompeticion(partido: Partido) {
+  if (esLiga(partido)) return "LIGA";
+
+  const nombre = String(partido.competicion ?? "").trim();
+
+  if (!nombre) return "OTRO TORNEO";
+
+  return /amistos/i.test(nombre) ? "AMISTOSO" : nombre.toUpperCase();
+}
+
+/**
  * La racha: los últimos partidos en una línea por partido.
  *
  * Es lo que en el original iba suelto en la hoja de estructuras —una tira de
  * resultados— y aquí sirve además para llenar el hueco que dejan las tablas en
  * agosto, cuando media clasificación está a cero. Se pinta en dos sitios (la
  * clasificación y el club) y por eso está fuera de los dos.
+ *
+ * **Lo que no es liga se pinta como lo que es.** Antes las seis líneas iban
+ * todas iguales y un amistoso de pretemporada se leía como una derrota de
+ * liga: en agosto, que es cuando esta tira es lo único que dice algo, eso
+ * cambia la lectura del rival entera. Ahora el partido que no es de liga
+ * lleva banda gris, filo a trazos, disco hueco y tinta apagada, y **cada
+ * línea dice de qué torneo habla**.
  */
 function pintaRacha(
   g: GuionHoja,
@@ -492,46 +529,99 @@ function pintaRacha(
 
     const rival = partido.enCasa ? partido.visitante : partido.local;
 
+    const deLiga = esLiga(partido);
+
     g.el(
-      `Racha · ${partido.resultado || "·"} ${rival.nombre}`,
+      `Racha · ${partido.resultado || "·"} ${rival.nombre} · ${
+        deLiga ? "liga" : "no liga"
+      }`,
       { x: caja.x, y, w: caja.w, h: paso },
       (ctx) => {
         const centro = y + paso / 2;
 
-        /* El disco con la letra: es lo que se lee de un vistazo. */
+        const tinta = tintaResultado(partido.resultado);
+
+        /* La banda gris de lo que no es liga: agrupa de un vistazo, sin tener
+           que leer nada. */
+        if (!deLiga) {
+          ctx.fillStyle = "#ECE5D5";
+          rectRedondo(ctx, caja.x + 4, y + 2, caja.w - 8, paso - 4, 10);
+          ctx.fill();
+        }
+
+        /* El filo de la izquierda: macizo en liga, a trazos en lo demás. */
+        ctx.strokeStyle = deLiga ? C.verde : "#B9B2A0";
+        ctx.lineWidth = 4;
+        ctx.setLineDash(deLiga ? [] : [5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(caja.x + 10, y + 5);
+        ctx.lineTo(caja.x + 10, y + paso - 5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        /* El disco con la letra: es lo que se lee de un vistazo. Macizo si el
+           partido cuenta para la tabla, hueco si no. */
         const radio = Math.min(17, paso / 2 - 5);
 
-        ctx.fillStyle = tintaResultado(partido.resultado);
-        ctx.beginPath();
-        ctx.arc(caja.x + 24 + radio, centro, radio, 0, Math.PI * 2);
-        ctx.fill();
+        const centroDisco = caja.x + 28 + radio;
+
+        if (deLiga) {
+          ctx.fillStyle = tinta;
+          ctx.beginPath();
+          ctx.arc(centroDisco, centro, radio, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = tinta;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(centroDisco, centro, radio - 1.5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         escribe(
           ctx,
           partido.resultado || "·",
-          caja.x + 24 + radio,
+          centroDisco,
           centro + radio * 0.42,
           {
             tamano: radio * 1.2,
-            tinta: C.papel,
+            tinta: deLiga ? C.papel : tinta,
             alinea: "centro",
           },
         );
+
+        /* Con sitio, el nombre sube y debajo cabe de qué torneo se habla. Sin
+           él —muchos partidos en poco alto— manda el nombre. */
+        const conEtiqueta = paso >= 34;
+
+        const xTexto = caja.x + 40 + radio * 2;
+
+        const anchoTexto = caja.x + caja.w - 94 - xTexto;
 
         /* Contra quién, y en qué campo. */
         escribe(
           ctx,
           `${partido.enCasa ? "vs" : "@"} ${rival.nombre.toUpperCase()}`,
-          caja.x + 34 + radio * 2,
-          centro + 8,
+          xTexto,
+          centro + (conEtiqueta ? 1 : 8),
           {
-            tamano: 23,
+            tamano: conEtiqueta ? 22 : 23,
             peso: 600,
-            tinta: C.navy,
+            tinta: deLiga ? C.navy : "#6E6858",
             espaciado: 0.5,
-            maxAncho: caja.w - radio * 2 - 190,
+            maxAncho: anchoTexto,
           },
         );
+
+        if (conEtiqueta) {
+          escribe(ctx, etiquetaCompeticion(partido), xTexto, centro + 18, {
+            tamano: 15,
+            peso: 700,
+            tinta: deLiga ? "#2F6B52" : "#A86A38",
+            espaciado: 2,
+            maxAncho: anchoTexto,
+          });
+        }
 
         escribe(
           ctx,
@@ -540,7 +630,7 @@ function pintaRacha(
           centro + 8,
           {
             tamano: 26,
-            tinta: tintaResultado(partido.resultado),
+            tinta,
             espaciado: 1,
             alinea: "dcha",
           },
@@ -3813,7 +3903,20 @@ export async function construyeHojasInforme(
 
   const porId = new Map(informe.partidos.map((partido) => [partido.id, partido]));
 
-  const onces = informe.onces;
+  /*
+  | Qué partidos se llevan las hojas de partidos.
+  |
+  | Lo que elija la pantalla, en su orden; y si no elige nada —el arnés de
+  | consola—, los últimos que haya bajados hasta seis, que es lo que se hacía
+  | antes de que hubiera pop-up.
+  */
+  const onces = (data.partidosElegidos ?? []).length
+    ? data.partidosElegidos!.flatMap((id) => {
+        const once = informe.onces.find((uno) => uno.partidoId === id);
+
+        return once ? [once] : [];
+      })
+    : informe.onces.slice(0, ONCES_EN_INFORME);
 
   /* -------------------------------------------------- las imágenes */
 
@@ -3917,8 +4020,11 @@ export async function construyeHojasInforme(
   | Y los partidos, de dos en dos hasta los seis. Aquí ya no hay hoja de
   | «último once»: el once que se espera es el de la hoja anterior, que lo pone
   | el cuerpo técnico, y el que jugó el rival sale aquí con sus cambios.
+  |
+  | Cuántos son ya está decidido arriba: cuatro partidos son dos hojas —la 9 y
+  | la 10—, que es lo que se pide casi siempre.
   */
-  for (let i = 0; i < Math.min(onces.length, ONCES_EN_INFORME); i += 2) {
+  for (let i = 0; i < onces.length; i += 2) {
     const pareja = onces.slice(i, i + 2);
 
     const cuales = pareja

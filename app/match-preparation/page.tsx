@@ -15,6 +15,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { guardaEnLaHoja, HOJA_RIVALES_URL, leeRivales } from "@/lib/hojaRivales";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
@@ -69,8 +70,7 @@ import type { LucideIcon } from "lucide-react";
 | versión con la que se abrió la edición: es a la que vuelve «Deshacer».
 */
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+const APPS_SCRIPT_URL = HOJA_RIVALES_URL;
 
 type Rival = Record<string, string>;
 
@@ -1030,23 +1030,10 @@ export default function MatchPreparation() {
     async (rival: Rival | null) => {
       if (!rival) return true;
 
-      const body = new URLSearchParams();
-
-      body.append("action", "guardarRival");
-
-      Object.entries(rival).forEach(([clave, valor]) => {
-        body.append(clave, String(valor ?? ""));
-      });
-
-      const res = await fetch(APPS_SCRIPT_URL, { method: "POST", body });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const json = await res.json();
-
-      if (json?.success === false) {
-        throw new Error(json?.error || "El servidor rechazó los cambios");
-      }
+      /* En JSON, no como formulario: el `doPost` de la hoja pasa el cuerpo por
+         `JSON.parse` y un formulario se estrella antes de guardar nada
+         (`lib/hojaRivales.ts`). */
+      await guardaEnLaHoja("guardarRival", rival);
 
       const verificacion = await verificarGuardado({
         titulo: `Plan de partido · ${rival.EQUIPO ?? ""} · Jornada ${
@@ -1056,15 +1043,15 @@ export default function MatchPreparation() {
         ignorar: ["FECHA"],
         modoAuto: true,
         releer: async () => {
-          const respuesta = await fetch(`${APPS_SCRIPT_URL}?action=rivales`, {
-            cache: "no-store",
-          });
+          try {
+            const filas = await leeRivales();
 
-          if (!respuesta.ok) return null;
-
-          const filas: Rival[] = await respuesta.json();
-
-          return filas.find((r) => String(r.ID) === String(rival.ID)) ?? null;
+            return filas.find((r) => String(r.ID) === String(rival.ID)) ?? null;
+          } catch {
+            /* Con autoguardado una relectura fallida no avisa: pasa en
+               cualquier corte de red y el siguiente intento lo resuelve. */
+            return null;
+          }
         },
       });
 
