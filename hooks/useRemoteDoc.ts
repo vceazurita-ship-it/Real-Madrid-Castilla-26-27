@@ -420,6 +420,11 @@ export function useRemoteDoc<T>({
 
             if (masNueva) {
               pendiente.current = { ...cola, kind };
+
+              /* Se apunta como «lo que hay puesto» para que el efecto del
+                 valor no vuelva a encolarlo: de mandarlo se encarga la
+                 llamada de aquí abajo, que no espera al retardo. */
+              delServidor.current = cola.data;
               setInternal(cola.data);
               escribeLocal(claveCache(key), cola.data);
               setSinGuardar(true);
@@ -442,7 +447,8 @@ export function useRemoteDoc<T>({
                   setStatus("saved");
                 })
                 .catch(() => {
-                  setStatus("error");
+                  /* Sigue en la cola; que lo coja el reintento de siempre. */
+                  void flushRef.current?.();
                 });
             } else {
               /*
