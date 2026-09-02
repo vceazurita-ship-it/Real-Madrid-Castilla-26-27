@@ -30,6 +30,7 @@ import fs from "node:fs";
 
 import {
   TEAM_SLUGS,
+  cargaHoja,
   empareja,
   pagina,
   plantillaDe,
@@ -260,18 +261,6 @@ function llegadaA(html, slug) {
 |--------------------------------------------------------------------------
 */
 
-async function cargaHoja() {
-  const response = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`, {
-    cache: "no-store",
-  });
-
-  const data = await response.json();
-
-  if (!Array.isArray(data)) throw new Error("La hoja no ha devuelto una lista.");
-
-  return data;
-}
-
 const mayus = (texto) => String(texto ?? "").trim().toUpperCase();
 
 async function preparar(salida, salvo) {
@@ -409,7 +398,64 @@ async function preparar(salida, salvo) {
 |--------------------------------------------------------------------------
 */
 
-async function escribeFila(fila, crear) {
+/*
+| Escribe una fila, reintentando.
+|
+| Apps Script contesta de vez en cuando `{"success":false,"error":"Acción no
+| válida"}` a una petición idéntica a las cuatro anteriores, que sí fueron
+| bien: el cuerpo llega a medias y el script no encuentra el `action`. Pasó el
+| 02/09/2026 en la quinta fila de treinta y cinco. Con reintento no hay que
+| relanzar el script a mano a mitad de tanda.
+|
+| **Pero un alta no se repite a ciegas.** Ese error puede llegar con la fila ya
+| escrita, y repetirla crea un jugador duplicado —pasó el mismo día con Issiaka
+| Kamate y Jérémy Blasco—. Antes de insistir con un alta se mira la hoja: si el
+| id de su foto ya está en el equipo, el alta salió y no hay nada que repetir.
+| Un `guardarRivalJugador` sí se puede repetir cuantas veces haga falta: pisa
+| la misma fila con el mismo contenido.
+*/
+async function escribeFila(fila, crear, intentos = 3) {
+  let ultimo = null;
+
+  for (let intento = 0; intento < intentos; intento += 1) {
+    if (intento) sleep(2000 * intento);
+
+    try {
+      return await intentaEscribir(fila, crear);
+    } catch (error) {
+      ultimo = error;
+
+      /* Un `doPost` roto no se arregla insistiendo. */
+      if (/doPost/.test(String(error.message))) throw error;
+
+      if (crear && (await yaEstaEnLaHoja(fila))) return;
+    }
+  }
+
+  throw ultimo;
+}
+
+/** ¿La fila del alta ya existe en su equipo? Se mira por el id de la foto. */
+async function yaEstaEnLaHoja(fila) {
+  const id = resfuId(fila.FOTO);
+
+  if (!id) return false;
+
+  try {
+    const hoja = await cargaHoja();
+
+    return hoja.some(
+      (una) =>
+        una.ID_EQUIPO === fila.ID_EQUIPO &&
+        resfuId(una.FOTO) === id &&
+        String(una.JUGADOR ?? "").trim(),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function intentaEscribir(fila, crear) {
   const response = await fetch(APPS_SCRIPT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

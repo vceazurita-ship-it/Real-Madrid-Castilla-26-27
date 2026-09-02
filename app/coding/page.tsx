@@ -1870,6 +1870,12 @@ function Coding() {
                     status={sesion.status}
                     localOnly={sesion.localOnly}
                     savedAt={sesion.lastSavedAt}
+                    sinGuardar={sesion.sinGuardar}
+                    onGuardar={() => {
+                      void sesion.guardaYa().then((bien) => {
+                        if (bien) toast.success("Clips guardados");
+                      });
+                    }}
                   />
 
                   <Button icon={Settings2} onClick={() => setAjustes(true)}>

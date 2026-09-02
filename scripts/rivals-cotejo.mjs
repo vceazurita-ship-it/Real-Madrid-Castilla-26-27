@@ -162,9 +162,23 @@ export const resfuId = (foto) => {
 export function plantillaDe(html) {
   const jugadores = [];
 
-  for (const bloque of html.matchAll(
-    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
-  )) {
+  /*
+  | Se recorre **fila a fila** (`<tr class="row-body">`) y no de golpe todos los
+  | `ld+json` de la página, porque el dorsal no está en el JSON: vive en la
+  | celda `number-box` de la misma fila. Sale igual de jugadores que barriendo
+  | la página entera —comprobado equipo por equipo—, y así el número viaja con
+  | su jugador.
+  |
+  | Puede venir vacío: BeSoccer deja la celda en blanco mientras el club no ha
+  | publicado el dorsal. Vacío es `null`, que no es lo mismo que un cero.
+  */
+  for (const fila of html.split('<tr class="row-body"').slice(1)) {
+    const bloque = fila.match(
+      /<script type="application\/ld\+json">([\s\S]*?)<\/script>/,
+    );
+
+    if (!bloque) continue;
+
     let json;
 
     try {
@@ -180,11 +194,18 @@ export function plantillaDe(html) {
 
     if (!id) continue;
 
+    const celda = fila.match(
+      /class="number-box"[^>]*>\s*<div[^>]*>\s*(\d*)\s*<\/div>/,
+    );
+
+    const dorsal = celda && celda[1] ? Number(celda[1]) : null;
+
     jugadores.push({
       id,
       nombre: String(json.name || "").trim(),
       puesto: String(json.jobTitle || "").trim(),
       url: String(json.url || ""),
+      dorsal,
       foto: `https://cdn.resfu.com/img_data/players/medium/${id}.jpg`,
     });
   }
@@ -192,16 +213,48 @@ export function plantillaDe(html) {
   return jugadores;
 }
 
-async function cargaHoja() {
-  const response = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`, {
-    cache: "no-store",
-  });
+/*
+| La hoja, con reintentos.
+|
+| Google contesta de vez en cuando con una página HTML en vez del JSON —una
+| pantalla interstitial suya, no un error— y entonces el `JSON.parse` revienta
+| con «Unexpected token '<'» y el script muere sin haber tocado nada. Pasó dos
+| veces seguidas el 02/09/2026. No es un fallo del script ni de la hoja: se
+| reintenta y a la segunda contesta bien.
+*/
+export async function cargaHoja(intentos = 4) {
+  let ultimo = null;
 
-  const data = await response.json();
+  for (let intento = 0; intento < intentos; intento += 1) {
+    if (intento) sleep(2500 * intento);
 
-  if (!Array.isArray(data)) throw new Error("La hoja no ha devuelto una lista.");
+    try {
+      const response = await fetch(
+        `${APPS_SCRIPT_URL}?action=rivalesPlantillas`,
+        { cache: "no-store" },
+      );
 
-  return data;
+      const texto = await response.text();
+
+      if (texto.trimStart().startsWith("<")) {
+        ultimo = new Error("Google ha devuelto HTML en vez del JSON.");
+        continue;
+      }
+
+      const data = JSON.parse(texto);
+
+      if (!Array.isArray(data)) {
+        ultimo = new Error("La hoja no ha devuelto una lista.");
+        continue;
+      }
+
+      return data;
+    } catch (error) {
+      ultimo = error;
+    }
+  }
+
+  throw ultimo ?? new Error("No se ha podido leer la hoja.");
 }
 
 /*

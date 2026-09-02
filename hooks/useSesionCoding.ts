@@ -305,6 +305,10 @@ export function useSesionCoding(opciones: {
     status: doc.status,
     localOnly: doc.localOnly,
     lastSavedAt: doc.lastSavedAt,
+    /** Hay clips marcados que todavía no están en el servidor. */
+    sinGuardar: doc.sinGuardar,
+    /** Manda ya lo pendiente (el botón «Guardar ahora» de la cabecera). */
+    guardaYa: doc.guardaYa,
     añadeClip,
     actualizaClip,
     borraClip,

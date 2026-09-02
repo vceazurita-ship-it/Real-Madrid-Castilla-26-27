@@ -6,6 +6,7 @@ import { Player, EstadoJugador } from "@/types/player";
 import { getPlayerImage, getPlayerPhotoSrc } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { conFichajes } from "@/lib/fichajes";
+import { conDorsales } from "@/lib/dorsales";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
@@ -67,7 +68,14 @@ apodo: p.APODO || p.NOMBRE,
         | once, en la pizarra de ABP y en el coding sin tocar ni una pantalla.
         | Si la hoja ya los tiene, esto no añade nada.
         */
-        setPlayers(conFichajes(plantilla));
+        /*
+        | Y el dorsal de los que la hoja todavía no numera (`lib/dorsales.ts`).
+        |
+        | También aquí, en el punto de entrada, para que el número salga igual
+        | en el coding, en las pizarras, en el once y en las valoraciones. Lo
+        | que la hoja traiga escrito manda siempre.
+        */
+        setPlayers(conDorsales(conFichajes(plantilla)));
         setLoading(false);
       },
 

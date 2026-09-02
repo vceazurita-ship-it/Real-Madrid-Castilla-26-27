@@ -854,16 +854,44 @@ export function Dialog({
 /*  ESTADO DE GUARDADO                                                 */
 /* ------------------------------------------------------------------ */
 
-/** Qué está pasando con el documento remoto, en una línea discreta. */
+/**
+ * Qué está pasando con el documento remoto, en una línea discreta.
+ *
+ * Cuando algo va mal —o hay trabajo esperando a guardarse— deja de ser un
+ * rótulo y pasa a ser un **botón**: reintentar tiene que estar donde se lee el
+ * problema, no en un menú. Ver `hooks/useRemoteDoc`.
+ */
 export function SaveState({
   status,
   localOnly,
   savedAt,
+  sinGuardar = false,
+  onGuardar,
 }: {
   status: "loading" | "saved" | "saving" | "offline" | "error";
   localOnly?: boolean;
   savedAt?: string | null;
+  /** Hay cambios que aún no están en el servidor. */
+  sinGuardar?: boolean;
+  /** Fuerza el guardado sin esperar al retardo. */
+  onGuardar?: () => void;
 }) {
+  const pulsable = (contenido: ReactNode, titulo: string, clase: string) =>
+    onGuardar ? (
+      <button
+        type="button"
+        onClick={onGuardar}
+        title={titulo}
+        className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] transition hover:bg-white/10 ${clase}`}
+      >
+        {contenido}
+      </button>
+    ) : (
+      <span className={`inline-flex items-center gap-1.5 text-[11px] ${clase}`}>
+        {contenido}
+      </span>
+    );
+
   if (status === "saving") {
     return (
       <span className="inline-flex items-center gap-1.5 text-[11px] text-white/45">
@@ -874,25 +902,44 @@ export function SaveState({
   }
 
   if (status === "error") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] text-red-300">
+    return pulsable(
+      <>
         <CloudOff size={12} />
-        No se pudo guardar
-      </span>
+        No se pudo guardar · reintentando
+      </>,
+      "Reintentar ahora",
+      "text-red-300",
     );
   }
 
   if (status === "offline" || localOnly) {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-300">
+    return pulsable(
+      <>
         <CloudOff size={12} />
         Sólo en este navegador
-      </span>
+      </>,
+      "Reintentar ahora",
+      "text-amber-300",
     );
   }
 
   if (status === "loading") {
     return <span className="text-[11px] text-white/35">Cargando…</span>;
+  }
+
+  /*
+  | «Guardado» con cambios encima es mentira, y es la mentira que hace que se
+  | cierre el portátil tan tranquilo. Mientras quede algo por mandar se dice.
+  */
+  if (sinGuardar) {
+    return pulsable(
+      <>
+        <Loader2 size={12} className="animate-spin" />
+        Sin guardar
+      </>,
+      "Guardar ahora",
+      "text-[#C8A96B]",
+    );
   }
 
   const hora = savedAt
