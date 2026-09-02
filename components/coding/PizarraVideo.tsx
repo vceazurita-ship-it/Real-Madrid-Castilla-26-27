@@ -40,6 +40,7 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type MouseEvent as EventoRaton,
   type PointerEvent as EventoPuntero,
 } from "react";
 import {
@@ -532,7 +533,7 @@ function EditorPizarra({
 
   /* ------------------------------------------------------ el ratón */
 
-  const puntoDe = useCallback((evento: EventoPuntero<HTMLCanvasElement>) => {
+  const puntoDe = useCallback((evento: EventoRaton<HTMLCanvasElement>) => {
     const caja = evento.currentTarget.getBoundingClientRect();
 
     return {
@@ -599,6 +600,30 @@ function EditorPizarra({
     /* -------------------------------------------------- el texto */
 
     if (herramienta === "texto") {
+      /*
+      | Sin esto no se puede escribir.
+      |
+      | El lienzo no es enfocable, así que al pulsar encima el navegador se
+      | lleva el foco al `body` —lo hace **después** de este manejador, con el
+      | `mousedown` de compatibilidad—, el cuadro de escribir se queda sin
+      | foco, salta su `blur` y se cierra en el acto: el rótulo se quedaba
+      | siempre con el «Escribe aquí» de muestra. Quitarle el efecto por
+      | omisión al `pointerdown` cancela ese `mousedown` y el foco se queda
+      | donde lo acaba de poner el cuadro.
+      */
+      evento.preventDefault();
+
+      /* Pinchando encima de uno que ya está, se reescribe ese: apilar dos
+         chapas en el mismo sitio no lo quiere nadie. */
+      const yaHay = dibujoEn(localRef.current, punto, medidasAhora());
+
+      if (yaHay?.tipo === "texto") {
+        setSeleccion(yaHay.id);
+        setEscribiendo(yaHay.id);
+
+        return;
+      }
+
       const dibujo = creaDibujo("texto", [punto], ajustes, nuevoId());
 
       cambia((una) => ({ ...una, dibujos: [...una.dibujos, dibujo] }), {
@@ -769,6 +794,27 @@ function EditorPizarra({
 
     setSeleccion(listo.id);
   }, [cambia]);
+
+  /**
+   * El doble clic: cierra el polígono a medias o reabre un rótulo.
+   *
+   * Un texto ya puesto no se podía corregir de ninguna manera —la barra sólo
+   * enseña el campo del rótulo para la cota, el fuera de juego y las zonas—,
+   * así que se reescribe donde se escribió: encima.
+   */
+  const alDobleClic = (evento: EventoRaton<HTMLCanvasElement>) => {
+    if (borrador.current) {
+      cierraPoligono();
+      return;
+    }
+
+    const debajo = dibujoEn(localRef.current, puntoDe(evento), medidasAhora());
+
+    if (debajo?.tipo !== "texto") return;
+
+    setSeleccion(debajo.id);
+    setEscribiendo(debajo.id);
+  };
 
   /* --------------------------------------------------- propiedades */
 
@@ -958,7 +1004,7 @@ function EditorPizarra({
         onPointerMove={alMover}
         onPointerUp={alSoltar}
         onPointerCancel={alSoltar}
-        onDoubleClick={cierraPoligono}
+        onDoubleClick={alDobleClic}
         style={{ width: encaje.ancho, height: encaje.alto }}
         className={`pointer-events-auto absolute left-0 top-0 touch-none ${
           herramienta === "mano" ? "cursor-pointer" : "cursor-crosshair"
@@ -1218,11 +1264,18 @@ function EditorPizarra({
             {(tipoActivo === "medida" ||
               tipoActivo === "fuera-juego" ||
               tipoActivo === "zona" ||
+              tipoActivo === "texto" ||
               tipoActivo === "seleccion") && (
               <input
                 value={elegido?.texto ?? ""}
                 onChange={(evento) => ponAjuste({ texto: evento.target.value })}
-                placeholder={tipoActivo === "medida" ? "12 m" : "Rótulo"}
+                placeholder={
+                  tipoActivo === "medida"
+                    ? "12 m"
+                    : tipoActivo === "texto"
+                      ? "El texto"
+                      : "Rótulo"
+                }
                 aria-label="Rótulo"
                 disabled={!elegido}
                 className="w-24 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40"
@@ -1347,7 +1400,19 @@ function EditorPizarra({
               )
             }
             onBlur={() => {
-              alCambiar(localRef.current);
+              /* Un rótulo sin una letra no se queda: en el lienzo saldría con
+                 el «Escribe aquí» de muestra, que no lo ha escrito nadie. */
+              if (!enTexto.texto.trim()) {
+                cambia((una) => ({
+                  ...una,
+                  dibujos: una.dibujos.filter((dibujo) => dibujo.id !== enTexto.id),
+                }));
+
+                setSeleccion((actual) => (actual === enTexto.id ? null : actual));
+              } else {
+                alCambiar(localRef.current);
+              }
+
               setEscribiendo(null);
             }}
             onKeyDown={(evento) => {

@@ -300,10 +300,23 @@ export function creaDibujo(
   ajustes: Partial<DibujoTel>,
   id: string,
 ): DibujoTel {
+  /*
+  | El rótulo y el dorsal no se heredan.
+  |
+  | Los ajustes son el estilo con el que se pinta lo siguiente —color, grosor,
+  | tamaño de letra—, y ahí se cuela lo que se escribió en el dibujo anterior
+  | porque el campo de la barra los guarda juntos. Sin esta poda, cada texto
+  | nuevo nacía con las palabras del de antes.
+  */
+  const estilo: Partial<DibujoTel> = { ...ajustes };
+
+  delete estilo.texto;
+  delete estilo.etiqueta;
+
   return {
     ...BASE_DIBUJO,
     ...porDefectoDe(tipo),
-    ...ajustes,
+    ...estilo,
     id,
     tipo,
     puntos,
