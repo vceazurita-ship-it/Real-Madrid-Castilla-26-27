@@ -390,9 +390,22 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
       <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
         {FILAS_TIPOLOGIA.map((bloque) => (
           <div key={bloque.seccion} className="min-w-0">
-            <p className="mb-1 mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
-              {bloque.seccion}
-            </p>
+            {/* La sección, y encima de las casillas cuál es cuál: dos huecos
+                iguales seguidos no dicen por sí solos quién es a favor. */}
+            <div className="mb-1 mt-3 flex items-end justify-between gap-2">
+              <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
+                {bloque.seccion}
+              </p>
+
+              <span className="flex shrink-0 gap-1.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-white/35">
+                <span className="w-14 text-center text-emerald-300/70">
+                  A favor
+                </span>
+                <span className="w-14 text-center text-rose-300/70">
+                  En contra
+                </span>
+              </span>
+            </div>
 
             {bloque.filas.map((fila) => (
               <div
@@ -413,9 +426,20 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
         {/* Las propias puertas no son una fila de la tabla —van al pie de
             cada columna—, pero se escriben igual. */}
         <div className="min-w-0">
-          <p className="mb-1 mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
-            PROPIA PUERTA
-          </p>
+          <div className="mb-1 mt-3 flex items-end justify-between gap-2">
+            <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
+              PROPIA PUERTA
+            </p>
+
+            <span className="flex shrink-0 gap-1.5 text-[9px] font-semibold uppercase tracking-[0.08em]">
+              <span className="w-14 text-center text-emerald-300/70">
+                A favor
+              </span>
+              <span className="w-14 text-center text-rose-300/70">
+                En contra
+              </span>
+            </span>
+          </div>
 
           <div className="flex items-center justify-between gap-2 py-0.5">
             <span className="truncate text-xs text-white/60">

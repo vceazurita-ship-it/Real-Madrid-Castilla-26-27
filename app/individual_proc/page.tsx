@@ -6,6 +6,7 @@ import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
+import { alineaSeguimiento } from "@/lib/seguimiento";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 
 import {
@@ -195,7 +196,16 @@ type Filters = typeof emptyFilters;
 export default function DashboardSeguimiento() {
   const { players } = usePlayers();
 
-  const [tracking, setTracking] = useState<TrackingRecord[]>([]);
+  const [crudoTracking, setTracking] = useState<TrackingRecord[]>([]);
+
+  /*
+  | El nombre manda sobre el ID: la hoja JUGADORES ha renumerado los JUG-XX y
+  | un seguimiento viejo apunta hoy a otra persona (ver ).
+  */
+  const tracking = useMemo(
+    () => alineaSeguimiento(crudoTracking, players),
+    [crudoTracking, players],
+  );
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");

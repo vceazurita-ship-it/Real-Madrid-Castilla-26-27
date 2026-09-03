@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Users } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
+import { alineaSeguimiento } from "@/lib/seguimiento";
 import {
   CalendarShell,
   CalendarStat,
@@ -28,6 +29,8 @@ const APPS_SCRIPT_URL =
 type TrackingRecord = {
   ID_REGISTRO: string;
   ID_JUGADOR: string;
+  /** El nombre que escribió la hoja. Manda sobre el ID, que se renumera. */
+  NOMBRE?: string;
   FECHA: string;
   OBJETIVO_OFENSIVO: string;
   OBJETIVO_DEFENSIVO: string;
@@ -77,7 +80,16 @@ export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(() =>
     currentMonthIndex(months)
   );
-  const [trackingData, setTrackingData] = useState<TrackingRecord[]>([]);
+  const [crudoTrackingData, setTrackingData] = useState<TrackingRecord[]>([]);
+
+  /*
+  | El nombre manda sobre el ID: la hoja JUGADORES ha renumerado los JUG-XX y
+  | un seguimiento viejo apunta hoy a otra persona (ver ).
+  */
+  const trackingData = useMemo(
+    () => alineaSeguimiento(crudoTrackingData, players),
+    [crudoTrackingData, players],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playerFilter, setPlayerFilter] = useState("");
@@ -278,7 +290,7 @@ export default function Calendar() {
                     )}
                   >
                     <p className="truncate text-[9px] font-semibold md:text-[11px]">
-                      {jugador?.nombre ?? session.ID_JUGADOR}
+                      {jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR}
                     </p>
 
                     <p className="text-[8px] text-white/60 md:text-[9px]">
@@ -346,7 +358,7 @@ export default function Calendar() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-lg font-semibold">
-                        {jugador?.nombre ?? session.ID_JUGADOR}
+                        {jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR}
                       </p>
 
                       <p className="mt-1 text-sm text-[#C8A96B]">
