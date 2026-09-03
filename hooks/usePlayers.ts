@@ -24,11 +24,31 @@ interface CsvPlayer {
   APODO: string;
 }
 
-export function usePlayers() {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [loading, setLoading] = useState(true);
+/*
+|--------------------------------------------------------------------------
+| UNA SOLA DESCARGA PARA TODA LA PANTALLA
+|--------------------------------------------------------------------------
+|
+| Este hook lo llaman muchos componentes a la vez —en `/pizarra` hay ocho: la
+| página, el contexto del once, la barra de formación, el campo, el banquillo,
+| las estadísticas, el lateral de jugadores y el tablero de fase—, y cada uno
+| se bajaba **su propia copia** del CSV de la plantilla, un cuarto de mega, y
+| lo parseaba entero por su cuenta.
+|
+| Ocho descargas simultáneas del mismo archivo publicado de Google es lo que
+| hacía que la pantalla tardara o se quedara a medias: el navegador limita las
+| peticiones al mismo servidor y Google responde despacio cuando le llegan
+| todas de golpe. Ahora la descarga es una, la comparten todos y queda en
+| memoria mientras dure la pestaña.
+*/
 
-  useEffect(() => {
+let plantillaEnMemoria: Player[] | null = null;
+let descargaEnVuelo: Promise<Player[]> | null = null;
+
+function cargaPlantilla(): Promise<Player[]> {
+  if (plantillaEnMemoria) return Promise.resolve(plantillaEnMemoria);
+
+  descargaEnVuelo ??= new Promise<Player[]>((resolve) => {
     Papa.parse<CsvPlayer>(CSV_URL, {
       download: true,
       header: true,
@@ -38,52 +58,78 @@ export function usePlayers() {
           .filter((p) => p.ACTIVO === "TRUE")
           .filter((p) => !isHiddenPlayer(p.NOMBRE, p.APODO))
           .map((p) => ({
-  id: p.ID_JUGADOR,
-  nombre: p.NOMBRE,
-apodo: p.APODO || p.NOMBRE,
-  posicion: p.POSICION,
-  dorsal: Number(p.DORSAL) || undefined,
-  foto: getPlayerPhotoSrc(p.NOMBRE, {
-    id: p.ID_JUGADOR,
-    variant: "cerca",
-    fallbackUrl: p.FOTO_URL,
-  }),
+            id: p.ID_JUGADOR,
+            nombre: p.NOMBRE,
+            apodo: p.APODO || p.NOMBRE,
+            posicion: p.POSICION,
+            dorsal: Number(p.DORSAL) || undefined,
+            foto: getPlayerPhotoSrc(p.NOMBRE, {
+              id: p.ID_JUGADOR,
+              variant: "cerca",
+              fallbackUrl: p.FOTO_URL,
+            }),
 
-  fotoLejos: getPlayerImage(p.NOMBRE, "lejos", p.ID_JUGADOR) ?? undefined,
+            fotoLejos: getPlayerImage(p.NOMBRE, "lejos", p.ID_JUGADOR) ?? undefined,
 
-  licencia: p.LICENCIA || "RMCF Castilla",
+            licencia: p.LICENCIA || "RMCF Castilla",
 
-  esCastilla:
-    (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
+            esCastilla: (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
 
-  estado: p.ESTADO || "DISPONIBLE",
-  activo: true,
-  hudl: p.HUDL_PERFIL_URL || "",
-}));
+            estado: p.ESTADO || "DISPONIBLE",
+            activo: true,
+            hudl: p.HUDL_PERFIL_URL || "",
+          }));
 
         /*
-        | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`).
+        | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`) y el
+        | dorsal de los que todavía no numera (`lib/dorsales.ts`).
         |
-        | Se añaden aquí, en el punto de entrada, para que valgan igual en el
-        | once, en la pizarra de ABP y en el coding sin tocar ni una pantalla.
-        | Si la hoja ya los tiene, esto no añade nada.
+        | Aquí, en el punto de entrada, para que valgan igual en el once, en la
+        | pizarra de ABP, en el coding y en las valoraciones sin tocar ni una
+        | pantalla. Lo que la hoja traiga escrito manda siempre.
         */
-        /*
-        | Y el dorsal de los que la hoja todavía no numera (`lib/dorsales.ts`).
-        |
-        | También aquí, en el punto de entrada, para que el número salga igual
-        | en el coding, en las pizarras, en el once y en las valoraciones. Lo
-        | que la hoja traiga escrito manda siempre.
-        */
-        setPlayers(conDorsales(conFichajes(plantilla)));
-        setLoading(false);
+        plantillaEnMemoria = conDorsales(conFichajes(plantilla));
+
+        resolve(plantillaEnMemoria);
       },
 
       error: (error) => {
         console.error("Error cargando jugadores:", error);
-        setLoading(false);
+
+        /* Un fallo no se guarda: el siguiente montaje vuelve a intentarlo. */
+        descargaEnVuelo = null;
+
+        resolve([]);
       },
     });
+  });
+
+  return descargaEnVuelo;
+}
+
+export function usePlayers() {
+  /* Si otra parte de la pantalla ya la bajó, se pinta sin esperar a nada. */
+  const [players, setPlayers] = useState<Player[]>(
+    () => plantillaEnMemoria ?? [],
+  );
+
+  const [loading, setLoading] = useState(plantillaEnMemoria === null);
+
+  useEffect(() => {
+    if (plantillaEnMemoria) return;
+
+    let vivo = true;
+
+    void cargaPlantilla().then((plantilla) => {
+      if (!vivo) return;
+
+      setPlayers(plantilla);
+      setLoading(false);
+    });
+
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   const disponibles = useMemo(
