@@ -92,6 +92,14 @@ import {
 } from "@/lib/rivals/informe";
 
 import {
+  FILAS_TIPOLOGIA,
+  TIPOLOGIA_VACIA,
+  sumaColumna,
+  type ColumnaTipologia,
+  type TipologiaManual,
+} from "@/lib/rivals/tipologia";
+
+import {
   ajusta,
   anchoEspaciado,
   C,
@@ -121,6 +129,14 @@ export type InformeData = {
   temporada: string;
   /** "Primera Federación · Grupo 2". */
   competicion: string;
+  /**
+   * El reparto de goles de la hoja «TIPOLOGÍA DE GOL», escrito a mano.
+   *
+   * Ese reparto no sale de ningún dato —lo codifica el analista viendo el
+   * partido—, así que se escribe en el pop-up de antes del informe y se guarda
+   * por rival. Sin él, las casillas salen punteadas como siempre.
+   */
+  tipologia?: TipologiaManual;
   /**
    * La plantilla del rival, la misma que se lleva al campograma de día de
    * partido. Sale de la hoja RIVALES, no de BeSoccer: es la que tiene pie
@@ -1827,26 +1843,6 @@ function pintaEstadisticas(
 | esta hoja no existía y el analista copiaba la tabla de un informe viejo.
 */
 
-const FILAS_TIPOLOGIA: { seccion: string; filas: string[] }[] = [
-  {
-    seccion: "AT. ORGANIZADO",
-    filas: [
-      "CENTRO IZQ.",
-      "CENTRO DCH.",
-      "JUEGO DIRECTO",
-      "IND. DENTRO ÁREA",
-      "IND. FUERA ÁREA",
-      "DENTRO",
-    ],
-  },
-  { seccion: "TRANSICIÓN", filas: ["C. PROPIO", "C. CONTRARIO"] },
-  {
-    seccion: "ABP",
-    filas: ["CÓRNER", "FALTA DIRECTA", "FALTA INDIRECTA", "SDB", "PENALTI"],
-  },
-  { seccion: "ERRORES INDIVIDUALES", filas: ["ERROR IND."] },
-];
-
 /** Una columna de la tabla: a favor o en contra. */
 function pintaColumnaTipologia(
   g: GuionHoja,
@@ -1854,6 +1850,8 @@ function pintaColumnaTipologia(
   cuenta: { total: number; penaltis: number; propia: number },
   caja: { x: number; y: number; w: number; h: number },
   acento: string,
+  /* Lo que ha escrito el analista para esta columna. */
+  manual: ColumnaTipologia,
 ) {
   const dentro = panel(g, caja.x, caja.y, caja.w, caja.h, titulo);
 
@@ -1906,9 +1904,21 @@ function pintaColumnaTipologia(
           espaciado: 2.5,
         });
 
-        /* El porcentaje va vacío por lo mismo que las casillas: sale de la
-           codificación, no del marcador. */
-        escribe(ctx, "%", caja.x + caja.w - 32, yCinta + alto * 0.72, {
+        /* El porcentaje se saca solo de lo escrito: es una suma, y hacerla a
+           mano en la reunión es la forma más tonta de equivocarse. */
+        const enLaSeccion = bloque.filas.reduce(
+          (suma, una) => suma + (manual[una] ?? 0),
+          0,
+        );
+
+        const base = sumaColumna(manual) || cuenta.total;
+
+        const rotulo =
+          enLaSeccion > 0 && base > 0
+            ? `${Math.round((enLaSeccion / base) * 100)}%`
+            : "%";
+
+        escribe(ctx, rotulo, caja.x + caja.w - 32, yCinta + alto * 0.72, {
           tamano: 20,
           peso: 500,
           tinta: "#9A9384",
@@ -1922,8 +1932,19 @@ function pintaColumnaTipologia(
     for (const fila of bloque.filas) {
       const yFila = y;
 
-      /* La única casilla que se sabe: los penaltis los canta el marcador. */
-      const valor = fila === "PENALTI" ? String(cuenta.penaltis) : "";
+      /*
+      | Manda lo que haya escrito el analista. Si no ha escrito nada, se pinta
+      | lo único que se sabe solo —los penaltis los canta el marcador— y el
+      | resto se queda punteado, para rellenarlo a boli si hace falta.
+      */
+      const escrito = manual[fila];
+
+      const valor =
+        escrito !== undefined
+          ? String(escrito)
+          : fila === "PENALTI"
+            ? String(cuenta.penaltis)
+            : "";
 
       g.el(
         `${titulo} · ${fila}`,
@@ -1995,6 +2016,8 @@ function pintaTipologia(
 
   const cuentas = tipologiaGoles(partidos);
 
+  const tipologia = data.tipologia ?? TIPOLOGIA_VACIA;
+
   const mitad = (ANCHO - 24) / 2;
 
   pintaColumnaTipologia(
@@ -2003,6 +2026,7 @@ function pintaTipologia(
     cuentas.aFavor,
     { x: MARGEN, y: CUERPO_Y, w: mitad, h: CUERPO_ALTO },
     C.verde,
+    tipologia.aFavor,
   );
 
   pintaColumnaTipologia(
@@ -2011,6 +2035,7 @@ function pintaTipologia(
     cuentas.enContra,
     { x: MARGEN + mitad + 24, y: CUERPO_Y, w: mitad, h: CUERPO_ALTO },
     "#9A6169",
+    tipologia.enContra,
   );
 
   pie(

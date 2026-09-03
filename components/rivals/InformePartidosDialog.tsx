@@ -26,6 +26,16 @@ import { useEffect, useMemo, useRef } from "react";
 import { Check, FileDown, Loader2, RotateCcw, X } from "lucide-react";
 
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+
+import {
+  FILAS_TIPOLOGIA,
+  TIPOLOGIA_VACIA,
+  claveTipologia,
+  normalizaTipologia,
+  sumaColumna,
+  type TipologiaManual,
+} from "@/lib/rivals/tipologia";
 
 /** Un partido de los que tienen alineación bajada, que son los elegibles. */
 export type PartidoElegible = {
@@ -260,6 +270,8 @@ export default function InformePartidosDialog({
               })}
             </ul>
           )}
+
+          <TipologiaEditor equipo={equipo} />
         </div>
 
         {/* PIE */}
@@ -304,6 +316,101 @@ export default function InformePartidosDialog({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  TIPOLOGÍA DE GOL                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Las casillas de la hoja «TIPOLOGÍA DE GOL», para escribirlas antes de montar.
+ *
+ * Ese reparto —cuántos goles de ataque organizado, de transición, de balón
+ * parado— no lo da ningún dato: lo codifica el analista viendo el partido. Se
+ * escribe aquí, se guarda solo por rival (`lib/rivals/tipologia.ts`) y sigue
+ * puesto en el informe de la semana siguiente.
+ *
+ * En blanco se comporta como antes: la casilla sale punteada en el documento.
+ */
+function TipologiaEditor({ equipo }: { equipo: string }) {
+  const doc = useRemoteDoc<TipologiaManual>({
+    key: claveTipologia(equipo),
+    kind: "rival-tipologia",
+    fallback: TIPOLOGIA_VACIA,
+    debounce: 600,
+  });
+
+  const valores = useMemo(() => normalizaTipologia(doc.value), [doc.value]);
+
+  const pon = (lado: "aFavor" | "enContra", fila: string, texto: string) => {
+    const n = Number(texto);
+
+    doc.setValue((actual) => {
+      const base = normalizaTipologia(actual);
+      const columna = { ...base[lado] };
+
+      if (!texto.trim() || !Number.isFinite(n) || n <= 0) delete columna[fila];
+      else columna[fila] = Math.round(n);
+
+      return { ...base, [lado]: columna };
+    });
+  };
+
+  const casilla = (lado: "aFavor" | "enContra", fila: string) => (
+    <input
+      type="number"
+      min={0}
+      inputMode="numeric"
+      value={valores[lado][fila] ?? ""}
+      onChange={(evento) => pon(lado, fila, evento.target.value)}
+      className="h-7 w-14 rounded-md border border-white/15 bg-white/[0.04] text-center text-xs font-semibold tabular-nums text-white outline-none focus:border-[#C8A96B]"
+    />
+  );
+
+  return (
+    <div className="mt-5 border-t border-white/10 pt-4">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+          Tipología de gol
+        </h3>
+
+        <span className="text-[11px] text-white/35">
+          {doc.sinGuardar ? "Guardando…" : "Se guarda solo"} ·{" "}
+          {sumaColumna(valores.aFavor)} a favor ·{" "}
+          {sumaColumna(valores.enContra)} en contra
+        </span>
+      </div>
+
+      <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+        {FILAS_TIPOLOGIA.map((bloque) => (
+          <div key={bloque.seccion} className="min-w-0">
+            <p className="mb-1 mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
+              {bloque.seccion}
+            </p>
+
+            {bloque.filas.map((fila) => (
+              <div
+                key={fila}
+                className="flex items-center justify-between gap-2 py-0.5"
+              >
+                <span className="truncate text-xs text-white/60">{fila}</span>
+
+                <span className="flex shrink-0 gap-1.5">
+                  {casilla("aFavor", fila)}
+                  {casilla("enContra", fila)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-2 text-[11px] text-white/30">
+        Primera casilla, goles a favor; segunda, en contra. Lo que se deje en
+        blanco sale punteado en el documento, como hasta ahora.
+      </p>
     </div>
   );
 }

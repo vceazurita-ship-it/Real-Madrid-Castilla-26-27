@@ -22,6 +22,7 @@ import RivalVoicePanel from "@/components/voice/RivalVoicePanel";
 import PlayerStatsCard from "@/components/rivals/PlayerStatsCard";
 import { useRivalStats } from "@/hooks/useRivalStats";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
+import { leeTipologia } from "@/lib/rivals/tipologia";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
@@ -1587,6 +1588,9 @@ export default function RivalPlayersPage() {
             : undefined,
           /* Y los partidos que se han marcado en el pop-up: dos por hoja. */
           partidosElegidos: elegidos,
+          /* El reparto de goles que ha escrito el analista en ese mismo
+             pop-up; sin nada escrito, las casillas salen punteadas. */
+          tipologia: await leeTipologia(equipoDelOnce),
         };
 
         const hojas = await construyeHojasInforme(data);
