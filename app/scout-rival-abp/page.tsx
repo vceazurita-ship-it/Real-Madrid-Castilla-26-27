@@ -1,4 +1,5 @@
 "use client";
+import { traeJson } from "@/lib/hojaCsv";
 
 /**
  * ABP del rival: qué hace y qué concede a balón parado.
@@ -196,9 +197,7 @@ export default function ScoutRivalAbpPage() {
       try {
         const [dataset, squadResponse] = await Promise.all([
           loadRivalAbp(),
-          fetch("/api/rivals?action=rivalesPlantillas", { cache: "no-store" })
-            .then((response) => response.json())
-            .catch(() => []),
+          traeJson("/api/rivals?action=rivalesPlantillas").catch(() => []),
         ]);
 
         if (cancelled) return;

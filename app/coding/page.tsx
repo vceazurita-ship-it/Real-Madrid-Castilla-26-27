@@ -1,4 +1,5 @@
 "use client";
+import { traeJson } from "@/lib/hojaCsv";
 
 /**
  * CODING DE PARTIDO.
@@ -377,8 +378,7 @@ function Coding() {
       })
       .catch(() => undefined);
 
-    void fetch("/api/rivals?action=rivalesPlantillas", { cache: "no-store" })
-      .then((respuesta) => respuesta.json())
+    void traeJson("/api/rivals?action=rivalesPlantillas")
       .then((datos) => {
         if (vivo) setPlantillas(leePlantillasRivales(datos));
       })

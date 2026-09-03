@@ -4,7 +4,7 @@ import { traeCsv } from "@/lib/hojaCsv";
 import { Sidebar } from "@/components/ui/sidebar";
 import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import {
   Activity,
@@ -584,8 +584,15 @@ export default function Page() {
 
   /* ---------------- filtering ---------------- */
 
+  /*
+  | Lo que se teclea entra al momento en la caja; la lista se rehace
+  | después, y sin bloquear. Son cientos de fichas filtrándose con cada
+  | tecla, y hasta ahora el cursor se quedaba atrás al escribir deprisa.
+  */
+  const searchDiferido = useDeferredValue(search);
+
   const filtered = useMemo(() => {
-    const q = norm(search);
+    const q = norm(searchDiferido);
 
     return rows.filter((r) => {
       if (micro !== "ALL" && String(r.micro) !== micro) return false;
@@ -623,7 +630,7 @@ export default function Page() {
     evaluacionFilter,
     faseFilter,
     mdFilter,
-    search,
+    searchDiferido,
   ]);
 
   /** Working set for methodology analytics (competition optionally excluded) */

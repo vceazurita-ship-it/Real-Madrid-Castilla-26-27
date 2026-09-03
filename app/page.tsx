@@ -23,7 +23,7 @@ import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
 import { isHiddenPlayer } from "@/lib/hiddenPlayers"
-import { traeCsv } from "@/lib/hojaCsv"
+import { traeCsv, traeJson } from "@/lib/hojaCsv"
 
 type Principio = {
   FASE: string
@@ -222,8 +222,7 @@ export default function Home() {
   const [loadingSeguimiento, setLoadingSeguimiento] = useState(true)
 
   useEffect(() => {
-    fetch(ENDPOINT_JUGADORES)
-      .then((r) => r.json())
+    traeJson<unknown>(ENDPOINT_JUGADORES)
       .then((rows) => {
         const jugadores: { NOMBRE?: string; APODO?: string }[] =
           Array.isArray(rows) ? rows : []
@@ -280,8 +279,7 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    fetch(ENDPOINT_SEGUIMIENTO)
-      .then((r) => r.json())
+    traeJson<unknown>(ENDPOINT_SEGUIMIENTO)
       .then((data) => {
         const rows: Seguimiento[] = Array.isArray(data) ? data : []
 

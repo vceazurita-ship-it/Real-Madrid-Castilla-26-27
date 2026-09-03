@@ -1,8 +1,14 @@
 "use client";
-import { traeCsv } from "@/lib/hojaCsv";
+import { traeCsv, traeJson } from "@/lib/hojaCsv";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 
@@ -1431,8 +1437,14 @@ export default function IndividualPage() {
       setLoadError("");
 
       const results = await Promise.allSettled([
-        fetch(`${APPS_SCRIPT_URL}?action=jugadores`).then((r) => r.json()),
-        fetch(`${APPS_SCRIPT_URL}?action=seguimiento`).then((r) => r.json()),
+        traeJson<
+          Record<string, string>[] | { data?: Record<string, string>[] }
+        >(`${APPS_SCRIPT_URL}?action=jugadores`, {
+          forzar: reloadKey > 0,
+        }),
+        traeJson(`${APPS_SCRIPT_URL}?action=seguimiento`, {
+          forzar: reloadKey > 0,
+        }),
         traeCsv(SHEET_VIDEOS, { forzar: reloadKey > 0 }),
         traeCsv(SHEET_INFORMES, { forzar: reloadKey > 0 }),
       ]);
@@ -1581,9 +1593,16 @@ export default function IndividualPage() {
     };
   }, [mergedPlayers, trackingData, videoData, reportData]);
 
+  /*
+  | Lo que se teclea entra al momento en la caja; la lista se rehace
+  | después, y sin bloquear. Son cientos de fichas filtrándose con cada
+  | tecla, y hasta ahora el cursor se quedaba atrás al escribir deprisa.
+  */
+  const searchDiferido = useDeferredValue(search);
+
   /* Lista tras buscador y filtro de equipo: alimenta también los contadores. */
   const baseList = useMemo(() => {
-    const query = normalize(search);
+    const query = normalize(searchDiferido);
 
     return mergedPlayers.filter((p) => {
       if (
@@ -1599,7 +1618,7 @@ export default function IndividualPage() {
 
       return true;
     });
-  }, [mergedPlayers, search, teamFilter]);
+  }, [mergedPlayers, searchDiferido, teamFilter]);
 
   const filtered = useMemo(() => {
     const list = baseList.filter(

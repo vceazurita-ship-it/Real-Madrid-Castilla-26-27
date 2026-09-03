@@ -8,29 +8,39 @@ const APPS_SCRIPT_URL =
 | UNA LECTURA POR TANDA, NO UNA POR PANTALLA
 |--------------------------------------------------------------------------
 |
-| Apps Script tarda entre dos y ocho segundos en contestar, y una pantalla
-| como `/rivals` pide lo mismo varias veces seguidas: las plantillas, el
-| calendario para ordenarlas, y otra vez las plantillas al abrir el informe.
-| Cada una era un viaje entero a Google.
+| Medido el 03/09/2026 contra el script de la hoja: `rivalesPlantillas` son
+| 290 KB y **la primera lectura después de un rato parada tarda entre 30 y
+| 70 segundos** —Apps Script tiene que abrir el libro entero—; las de detrás,
+| tres o seis. Ésa es, con diferencia, la espera más larga de la app: la
+| pantalla de rivales, la pizarra táctica, el coding y el ABP del rival
+| piden todas lo mismo.
 |
-| Se guarda la respuesta unos segundos: lo justo para que las peticiones de un
-| mismo momento compartan una sola lectura, y lo bastante poco para que un
-| guardado se vea al recargar. Las peticiones que llegan **mientras** hay una
-| en vuelo esperan a ésa en vez de abrir otra —que es lo que de verdad
-| atascaba—, y un fallo no se guarda nunca.
+| Así que la respuesta se guarda en dos tramos:
+|
+|   - **Fresca** el primer minuto: se sirve tal cual.
+|   - **Rancia** hasta diez: se sirve igual de rápido y **se pide la nueva
+|     por detrás**, para que la siguiente visita ya la tenga. Nadie se come
+|     el arranque en frío salvo el primero del día.
+|
+| Pasado ese plazo se espera a Google, como antes. Las peticiones que llegan
+| mientras hay una en vuelo se enganchan a ésa en vez de abrir otra, y un
+| fallo no se guarda nunca.
+|
+| **Quien necesite la verdad de la hoja pide `?fresco=1`** y se salta todo
+| esto. Lo usa la relectura que comprueba un guardado (`lib/save-guard`):
+| ahí una copia de hace dos minutos diría que no se ha guardado algo que sí
+| está escrito, que es el peor error posible.
 */
-const VIDA_CACHE = 20_000;
+const VIDA_FRESCA = 60_000;
+const VIDA_RANCIA = 10 * 60_000;
 
-type Guardado = { data: unknown; hasta: number };
+type Guardado = { data: unknown; hecha: number };
 
 const cache = new Map<string, Guardado>();
 const enVuelo = new Map<string, Promise<unknown>>();
 
-async function lee(action: string) {
-  const vivo = cache.get(action);
-
-  if (vivo && vivo.hasta > Date.now()) return vivo.data;
-
+/** Pide a la hoja, guarda lo que llegue y deja de estar en vuelo. */
+function pide(action: string) {
   const yaVa = enVuelo.get(action);
 
   if (yaVa) return yaVa;
@@ -43,7 +53,7 @@ async function lee(action: string) {
 
       const data = await response.json();
 
-      cache.set(action, { data, hasta: Date.now() + VIDA_CACHE });
+      cache.set(action, { data, hecha: Date.now() });
 
       return data;
     } finally {
@@ -54,6 +64,32 @@ async function lee(action: string) {
   enVuelo.set(action, peticion);
 
   return peticion;
+}
+
+async function lee(action: string, fresco: boolean) {
+  if (fresco) {
+    cache.delete(action);
+
+    return pide(action);
+  }
+
+  const guardado = cache.get(action);
+
+  if (guardado) {
+    const edad = Date.now() - guardado.hecha;
+
+    if (edad < VIDA_FRESCA) return guardado.data;
+
+    if (edad < VIDA_RANCIA) {
+      /* Se contesta con lo que hay y se renueva por detrás. Un fallo del
+         refresco no puede tumbar esta petición, que ya está contestada. */
+      void pide(action).catch(() => undefined);
+
+      return guardado.data;
+    }
+  }
+
+  return pide(action);
 }
 
 /** Lo que se acaba de escribir tiene que verse ya: el POST tira la copia. */
@@ -69,7 +105,7 @@ export async function GET(request: NextRequest) {
       searchParams.get("action") ||
       "rivalesPlantillas";
 
-    const data = await lee(action);
+    const data = await lee(action, searchParams.get("fresco") === "1");
 
     return NextResponse.json(data);
   } catch (error) {

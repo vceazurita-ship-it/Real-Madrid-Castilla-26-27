@@ -1,8 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { traeJson } from "@/lib/hojaCsv";
+
 import {
   useCallback,
   useEffect,
+  useDeferredValue,
   useMemo,
   useRef,
   useState,
@@ -27,10 +31,7 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
-import {
-  exportAlineacionPptx,
-  type AlineacionJugador,
-} from "@/lib/rivals/alineacion-ppt";
+import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
 import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
 import {
@@ -58,22 +59,19 @@ import {
   sugiereOnce,
   type OnceSugerido,
 } from "@/lib/rivals/once-sugerido";
-import OnceCampoDialog, {
-  type OnceCampoCandidato,
-  type OnceCampoFicha,
+import type {
+  OnceCampoCandidato,
+  OnceCampoFicha,
 } from "@/components/rivals/OnceCampoDialog";
-import PorteroPdfDialog, {
-  type PorteroCandidato,
-} from "@/components/rivals/PorteroPdfDialog";
+import type { PorteroCandidato } from "@/components/rivals/PorteroPdfDialog";
 import Link from "next/link";
 
 import { enlaceAbrible } from "@/lib/rivals/media";
-import {
-  exportOncePdf,
-  type OncePdfEnlace,
-  type OncePdfPlayer,
-  type OncePdfEstado,
-  type OncePdfVariante,
+import type {
+  OncePdfEnlace,
+  OncePdfPlayer,
+  OncePdfEstado,
+  OncePdfVariante,
 } from "@/lib/rivals/once-pdf";
 import { buildRivalSquads } from "@/lib/tactics/rivals";
 import {
@@ -86,16 +84,9 @@ import {
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
 import { esLiga, findInforme, type InformeEquipo } from "@/lib/rivals/informe";
-import {
-  construyeHojasInforme,
-  exportaHojasInforme,
-  type InformeData,
-} from "@/lib/rivals/informe-ppt";
+import type { InformeData } from "@/lib/rivals/informe-ppt";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
-import InformePptEditor from "@/components/rivals/InformePptEditor";
-import InformePartidosDialog, {
-  type PartidoElegible,
-} from "@/components/rivals/InformePartidosDialog";
+import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
 import {
   ANCLA_SUELTA,
   ANCLAS_SLOT,
@@ -165,6 +156,42 @@ import {
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
+
+/*
+|--------------------------------------------------------------------------
+| LO QUE NO HACE FALTA PARA PINTAR LA PANTALLA
+|--------------------------------------------------------------------------
+|
+| Ésta es la pantalla más grande de la app, y buena parte de lo que cargaba
+| al abrirla no se usa hasta que alguien pulsa un botón: los cuatro pop-ups
+| —el campo del once, la elección de partidos, el editor del informe y el
+| del portero— y los tres motores de dibujo —el PDF del once, el .pptx del
+| informe y el campograma de día de partido—, que entre todos son más de
+| diez mil líneas de código de exportación.
+|
+| Ahora llegan cuando se piden. Los pop-ups con `next/dynamic`, porque sólo
+| se montan si están abiertos; los motores con un `import()` dentro del
+| propio manejador, que además ya cargaban así su `jspdf`.
+|
+| Los tipos siguen arriba con `import type`: no viajan al navegador.
+*/
+
+const OnceCampoDialog = dynamic(
+  () => import("@/components/rivals/OnceCampoDialog"),
+);
+
+const PorteroPdfDialog = dynamic(
+  () => import("@/components/rivals/PorteroPdfDialog"),
+);
+
+const InformePptEditor = dynamic(
+  () => import("@/components/rivals/InformePptEditor"),
+);
+
+const InformePartidosDialog = dynamic(
+  () => import("@/components/rivals/InformePartidosDialog"),
+);
+
 
 const RIVALS_API_URL = "/api/rivals";
 
@@ -708,12 +735,13 @@ export default function RivalPlayersPage() {
         | `cargaOrdenRivales` no lanza nunca, así que un calendario caído deja
         | las plantillas en orden alfabético en vez de tumbar la página.
         */
-        const [response, orden] = await Promise.all([
-          fetch(`${RIVALS_API_URL}?action=rivalesPlantillas`),
+        const [data, orden] = await Promise.all([
+          traeJson<RivalPlayer[]>(`${RIVALS_API_URL}?action=rivalesPlantillas`, {
+            /* El botón de recargar sí vuelve a preguntar. */
+            forzar: reloadKey > 0,
+          }),
           cargaOrdenRivales(),
         ]);
-
-        const data = await response.json();
 
         if (cancelled) return;
 
@@ -826,9 +854,17 @@ export default function RivalPlayersPage() {
   |--------------------------------------------------------------------------
   */
 
+  /*
+  | Lo que se teclea entra al momento en la caja; la lista se rehace
+  | después, y sin bloquear. Son cientos de fichas filtrándose con cada
+  | tecla, y hasta ahora el cursor se quedaba atrás al escribir deprisa.
+  */
+  const searchDiferido = useDeferredValue(search);
+  const posicionDiferida = useDeferredValue(positionSearch);
+
   const filteredPlayers = useMemo(() => {
-    const searchValue = normalize(search);
-    const positionSearchValue = normalize(positionSearch);
+    const searchValue = normalize(searchDiferido);
+    const positionSearchValue = normalize(posicionDiferida);
 
     return players.filter((player) => {
       const matchesPosition =
@@ -862,7 +898,7 @@ export default function RivalPlayersPage() {
         normalize(player.IMPACTO).includes(searchValue)
       );
     });
-  }, [players, selectedTeam, search, positionSearch]);
+  }, [players, selectedTeam, searchDiferido, posicionDiferida]);
 
   /*
   | El filtro por etiquetas sólo recorta el listado: en el campograma se sigue
@@ -1171,6 +1207,8 @@ export default function RivalPlayersPage() {
           .sort((a, b) => ordenDelOnce(a.player, b.player))
           .map(({ player, estado }) => fichaDePdf(player, estado));
 
+        const { exportOncePdf } = await import("@/lib/rivals/once-pdf");
+
         const nombre = await exportOncePdf({
           equipo: equipoDelOnce,
           /* El escudo firma el título de la portada: en una carpeta con los
@@ -1395,6 +1433,10 @@ export default function RivalPlayersPage() {
     setExportando(true);
 
     try {
+      const { exportAlineacionPptx } = await import(
+        "@/lib/rivals/alineacion-ppt"
+      );
+
       const nombre = await exportAlineacionPptx({
         equipo: equipoDelOnce,
         escudo: escudoDe(equipoDelOnce),
@@ -1605,6 +1647,10 @@ export default function RivalPlayersPage() {
           tipologia: await leeTipologia(equipoDelOnce),
         };
 
+        const { construyeHojasInforme } = await import(
+          "@/lib/rivals/informe-ppt"
+        );
+
         const hojas = await construyeHojasInforme(data);
 
         setDatosInforme(data);
@@ -1643,6 +1689,10 @@ export default function RivalPlayersPage() {
       setExportando(true);
 
       try {
+        const { exportaHojasInforme } = await import(
+          "@/lib/rivals/informe-ppt"
+        );
+
         const nombre = await exportaHojasInforme(hojas, datosInforme);
 
         toast.success("Informe del rival exportado", {
@@ -2262,8 +2312,10 @@ export default function RivalPlayersPage() {
         enviado: form as unknown as Record<string, unknown>,
         modoAuto: true,
         releer: async () => {
+          /* `fresco=1`: la copia del servidor no vale para comprobar un
+             guardado, por reciente que sea. Ver `app/api/rivals/route.ts`. */
           const relectura = await fetch(
-            `${RIVALS_API_URL}?action=rivalesPlantillas`,
+            `${RIVALS_API_URL}?action=rivalesPlantillas&fresco=1`,
             { cache: "no-store" },
           );
 
@@ -2372,8 +2424,10 @@ export default function RivalPlayersPage() {
         }`,
         enviado: playerToSave as unknown as Record<string, unknown>,
         releer: async () => {
+          /* `fresco=1`: la copia del servidor no vale para comprobar un
+             guardado, por reciente que sea. Ver `app/api/rivals/route.ts`. */
           const relectura = await fetch(
-            `${RIVALS_API_URL}?action=rivalesPlantillas`,
+            `${RIVALS_API_URL}?action=rivalesPlantillas&fresco=1`,
             { cache: "no-store" },
           );
 

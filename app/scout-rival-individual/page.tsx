@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import {
@@ -171,7 +171,12 @@ export default function ScoutRivalIndividual() {
 
   /* ---------------- filtrado ---------------- */
 
-  const term = search.trim().toLowerCase();
+  /*
+  | Lo que se teclea entra al momento en la caja; la lista se rehace
+  | después, y sin bloquear. Son cientos de fichas filtrándose con cada
+  | tecla, y hasta ahora el cursor se quedaba atrás al escribir deprisa.
+  */
+  const term = useDeferredValue(search).trim().toLowerCase();
 
   /**
    * Un clip pasa el filtro si cumple todas las facetas activas. `skip`

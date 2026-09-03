@@ -1,4 +1,5 @@
 "use client";
+import { traeJson } from "@/lib/hojaCsv";
 
 import { useEffect, useState } from "react";
 
@@ -19,11 +20,8 @@ export function useRivalSquads() {
 
     async function load() {
       try {
-        const response = await fetch("/api/rivals?action=rivalesPlantillas", {
-          cache: "no-store",
-        });
-
-        const data = await response.json();
+        /* Compartida con el resto de pantallas que piden lo mismo. */
+        const data = await traeJson("/api/rivals?action=rivalesPlantillas");
 
         if (cancelled) return;
 

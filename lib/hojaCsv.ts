@@ -53,6 +53,23 @@ export function traeCsv(
   return descarga;
 }
 
+/**
+ * Lo mismo para lo que llega en JSON: las plantillas rivales, los jugadores y
+ * el seguimiento, que salen del Apps Script en vez de una hoja publicada.
+ *
+ * Aquí importa todavía más. Medido el 03/09/2026 contra el script de la hoja:
+ * la primera llamada después de un rato parada tarda **entre 30 y 70 segundos**
+ * —Apps Script tiene que abrir el libro— y las siguientes, tres o seis. La
+ * pantalla de rivales pide las plantillas al abrirse, y también la pizarra
+ * táctica, el coding y el ABP del rival: cada visita era otra vez esa cuenta.
+ */
+export function traeJson<T = unknown>(
+  url: string,
+  opciones: { forzar?: boolean } = {},
+): Promise<T> {
+  return traeCsv(url, opciones).then((texto) => JSON.parse(texto) as T);
+}
+
 /** Olvida lo bajado de una hoja (o de todas) para que se vuelva a pedir. */
 export function olvidaCsv(url?: string) {
   if (url) enMemoria.delete(url);

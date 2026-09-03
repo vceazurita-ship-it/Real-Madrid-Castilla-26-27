@@ -56,6 +56,24 @@ const themeInitScript = `
 })();
 `;
 
+/*
+| Los tres sitios de fuera a los que la app llama nada más abrir cualquier
+| pantalla: las hojas publicadas, el Apps Script que las escribe y el
+| almacén de fotos. Abrir la conexión aquí —DNS, TCP y TLS— adelanta entre
+| una y tres décimas por cada uno, que hasta ahora se pagaban dentro de la
+| primera petición, con la pantalla ya en blanco esperando sus datos.
+|
+| `crossOrigin` no es adorno: una conexión abierta sin él no le sirve a un
+| `fetch()`, que sí va con CORS, y el navegador tendría que abrir otra.
+*/
+const PRECONECTAR: { url: string; cors?: boolean }[] = [
+  { url: "https://docs.google.com", cors: true },
+  { url: "https://script.google.com", cors: true },
+  ...(process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? [{ url: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin }]
+    : []),
+];
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,6 +85,17 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {PRECONECTAR.map(({ url, cors }) => (
+          <link
+            key={url}
+            rel="preconnect"
+            href={url}
+            crossOrigin={cors ? "anonymous" : undefined}
+          />
+        ))}
+      </head>
+
       <body className="min-h-screen flex flex-col overflow-x-hidden">
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
 
