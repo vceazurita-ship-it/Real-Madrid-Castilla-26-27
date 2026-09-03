@@ -79,7 +79,6 @@ import {
   esLiga,
   etapasConLoDeAhora,
   estructuraDeDemarcaciones,
-  filaPropia,
   jugados,
   onceFinal,
   reparteOnceInicial,
