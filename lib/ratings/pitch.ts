@@ -455,8 +455,57 @@ export function layoutPitch<T extends PitchItem>(
 
     const start = acrossCenter - bandSpan / 2;
 
-    row.items.forEach((item, index) => {
+    /*
+    |--------------------------------------------------------------------------
+    | CADA UNO EN SU BANDA, NO REPARTIDOS A PARTES IGUALES
+    |--------------------------------------------------------------------------
+    |
+    | Repartir la línea en huecos iguales coloca bien a un 1-4-3-3 y mal a casi
+    | todo lo demás: con cuatro extremos —dos por cada lado, que es lo normal
+    | en una plantilla— dos de ellos acababan en el centro del campo, y el
+    | campograma dejaba de leerse como un equipo.
+    |
+    | Así que la línea se parte en tres: los que se abren a su izquierda pegados
+    | a esa banda, los de su derecha pegados a la suya y los de dentro
+    | centrados. Cada uno conserva su hueco (`slot`), y los tres grupos suman
+    | exactamente la anchura de la línea, así que nadie se pisa —que es la
+    | primera regla de este motor—.
+    */
+    const izquierda = row.items.filter(
+      (item) => horizontalPreference(item.position) < 0,
+    );
+
+    const derecha = row.items.filter(
+      (item) => horizontalPreference(item.position) > 0,
+    );
+
+    const centro = row.items.filter(
+      (item) => horizontalPreference(item.position) === 0,
+    );
+
+    /* Sin nadie abriéndose no hay nada que agrupar: reparto de siempre. */
+    if (izquierda.length === 0 && derecha.length === 0) {
+      row.items.forEach((item, index) => {
+        put(item, start + slot * (index + 0.5), slot);
+      });
+
+      return;
+    }
+
+    izquierda.forEach((item, index) => {
       put(item, start + slot * (index + 0.5), slot);
+    });
+
+    derecha.forEach((item, index) => {
+      const desde = derecha.length - index - 0.5;
+
+      put(item, start + bandSpan - slot * desde, slot);
+    });
+
+    const centroInicio = acrossCenter - (slot * centro.length) / 2;
+
+    centro.forEach((item, index) => {
+      put(item, centroInicio + slot * (index + 0.5), slot);
     });
   });
 
