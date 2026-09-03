@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import {
   useCallback,
@@ -253,14 +254,12 @@ export default function Page() {
   const escudoDe = useEscudos();
 
   useEffect(() => {
-    const controller = new AbortController();
+    let cancelado = false;
 
-    fetch(CSV_URL, { signal: controller.signal })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
+    traeCsv(CSV_URL, { forzar: reloadKey > 0 })
       .then((csv) => {
+        if (cancelado) return;
+
         const parsed = Papa.parse<MatchRow>(csv, {
           header: true,
           skipEmptyLines: true,
@@ -275,13 +274,15 @@ export default function Page() {
         setStatus("ready");
       })
       .catch((error) => {
-        if (controller.signal.aborted) return;
+        if (cancelado) return;
 
         console.error(error);
         setStatus("error");
       });
 
-    return () => controller.abort();
+    return () => {
+      cancelado = true;
+    };
   }, [reloadKey]);
 
   const retry = () => {

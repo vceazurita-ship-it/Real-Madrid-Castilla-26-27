@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -1432,8 +1433,8 @@ export default function IndividualPage() {
       const results = await Promise.allSettled([
         fetch(`${APPS_SCRIPT_URL}?action=jugadores`).then((r) => r.json()),
         fetch(`${APPS_SCRIPT_URL}?action=seguimiento`).then((r) => r.json()),
-        fetch(SHEET_VIDEOS).then((r) => r.text()),
-        fetch(SHEET_INFORMES).then((r) => r.text()),
+        traeCsv(SHEET_VIDEOS, { forzar: reloadKey > 0 }),
+        traeCsv(SHEET_INFORMES, { forzar: reloadKey > 0 }),
       ]);
 
       if (cancelled) return;

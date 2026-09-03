@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -172,11 +173,7 @@ export default function EmotionPage() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(CSV_URL)
-      .then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.text();
-      })
+    traeCsv(CSV_URL, { forzar: reloadKey > 0 })
       .then((t) => {
         if (cancelled) return;
 
@@ -434,7 +431,7 @@ export default function EmotionPage() {
               className="rounded-[34px] p-4 sm:p-5 lg:p-6"
               style={{
                 backgroundImage:
-                  "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.png')",
+                  "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.webp')",
                 backgroundSize: "100% 100%",
                 backgroundPosition: "center",
                 backgroundRepeat: "no-repeat",

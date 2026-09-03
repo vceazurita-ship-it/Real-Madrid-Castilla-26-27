@@ -61,7 +61,7 @@ useEffect(() => {
 <div className="absolute inset-0 overflow-hidden">
 
   <Image
-    src="/emotional-field-bg.png"
+    src="/emotional-field-bg.webp"
     alt="Campo"
     fill
     priority

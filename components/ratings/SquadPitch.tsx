@@ -130,7 +130,7 @@ export function SquadPitch({
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/emotional-field-bg.png"
+          src="/emotional-field-bg.webp"
           alt=""
           className={
             horizontal

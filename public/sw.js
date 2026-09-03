@@ -1,100 +1,125 @@
-/**
- * Copyright 2018 Google Inc. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *     http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/*
+|--------------------------------------------------------------------------
+| EL TRABAJADOR DE SEGUNDO PLANO
+|--------------------------------------------------------------------------
+|
+| Antes aquí vivía el que generaba `next-pwa`, y era el peor de los mundos:
+| se quedó con la variante de desarrollo —la que enruta todo a `NetworkOnly`—,
+| que **no guarda nada** y a cambio hace pasar por el trabajador *todas* las
+| peticiones de la página. Con Turbopack ya ni se regeneraba al construir, así
+| que el fichero llevaba desde mayo sin cambiar mientras los navegadores que lo
+| tenían instalado seguían pagando el peaje en cada visita.
+|
+| Este está escrito a mano y solo hace dos cosas, las dos seguras:
+|
+| 1. `/_next/static/…` y las fuentes se sirven **de la caché primero**. Son
+|    ficheros con la huella en el nombre: si el contenido cambia, cambia la
+|    URL, así que no existe la copia rancia. Es lo que hace que la segunda
+|    visita a una pantalla ya no baje su medio mega de JavaScript.
+|
+| 2. Las imágenes de `public/` —los campos, los escudos, los fondos— se sirven
+|    de la caché **y se refrescan por detrás**. Se ven al instante y, si se
+|    cambia el fichero, la visita siguiente ya trae la nueva.
+|
+| Todo lo demás (las páginas, `/api/…`, la hoja, Supabase, los vídeos) no se
+| toca: sale del trabajador sin `respondWith` y viaja como siempre. Nada de lo
+| que se guarda aquí es un dato del club, solo el envoltorio de la app.
+*/
 
-// If the loader is already loaded, just stop.
-if (!self.define) {
-  let registry = {};
+const VERSION = "castilla-v1";
 
-  // Used for `eval` and `importScripts` where we can't get script URL by other means.
-  // In both cases, it's safe to use a global var because those functions are synchronous.
-  let nextDefineUri;
+const CACHE_ESTATICOS = `${VERSION}-estaticos`;
+const CACHE_IMAGENES = `${VERSION}-imagenes`;
 
-  const singleRequire = (uri, parentUri) => {
-    uri = new URL(uri + ".js", parentUri).href;
-    return registry[uri] || (
-      
-        new Promise(resolve => {
-          if ("document" in self) {
-            const script = document.createElement("script");
-            script.src = uri;
-            script.onload = resolve;
-            document.head.appendChild(script);
-          } else {
-            nextDefineUri = uri;
-            importScripts(uri);
-            resolve();
-          }
-        })
-      
-      .then(() => {
-        let promise = registry[uri];
-        if (!promise) {
-          throw new Error(`Module ${uri} didn’t register its module`);
-        }
-        return promise;
-      })
-    );
-  };
+const MIAS = [CACHE_ESTATICOS, CACHE_IMAGENES];
 
-  self.define = (depsNames, factory) => {
-    const uri = nextDefineUri || ("document" in self ? document.currentScript.src : "") || location.href;
-    if (registry[uri]) {
-      // Module is already loading or loaded.
-      return;
-    }
-    let exports = {};
-    const require = depUri => singleRequire(depUri, uri);
-    const specialDeps = {
-      module: { uri },
-      exports,
-      require
-    };
-    registry[uri] = Promise.all(depsNames.map(
-      depName => specialDeps[depName] || require(depName)
-    )).then(deps => {
-      factory(...deps);
-      return exports;
-    });
-  };
-}
-define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
+const ES_IMAGEN = /\.(png|jpe?g|webp|avif|gif|svg|ico)$/i;
 
-  importScripts();
+self.addEventListener("install", () => {
+  /* No hay precarga: se guarda lo que se vaya pidiendo. */
   self.skipWaiting();
-  workbox.clientsClaim();
-  workbox.registerRoute("/", new workbox.NetworkFirst({
-    "cacheName": "start-url",
-    plugins: [{
-      cacheWillUpdate: async ({
-        request,
-        response,
-        event,
-        state
-      }) => {
-        if (response && response.type === 'opaqueredirect') {
-          return new Response(response.body, {
-            status: 200,
-            statusText: 'OK',
-            headers: response.headers
-          });
-        }
-        return response;
-      }
-    }]
-  }), 'GET');
-  workbox.registerRoute(/.*/i, new workbox.NetworkOnly({
-    "cacheName": "dev",
-    plugins: []
-  }), 'GET');
+});
 
-}));
+self.addEventListener("activate", (evento) => {
+  evento.waitUntil(
+    (async () => {
+      /* Al subir de versión se tiran las cachés de la anterior. */
+      const nombres = await caches.keys();
+
+      await Promise.all(
+        nombres.filter((n) => !MIAS.includes(n)).map((n) => caches.delete(n)),
+      );
+
+      await self.clients.claim();
+    })(),
+  );
+});
+
+/** ¿Se puede guardar esta respuesta? Nada de errores ni de opacas. */
+function guardable(respuesta) {
+  return Boolean(respuesta) && respuesta.status === 200 && respuesta.type === "basic";
+}
+
+/** De la caché si está; si no, de la red, y se queda guardada. */
+async function cacheAntes(peticion, cache) {
+  const guardada = await caches.match(peticion);
+
+  if (guardada) return guardada;
+
+  const respuesta = await fetch(peticion);
+
+  if (guardable(respuesta)) {
+    const copia = respuesta.clone();
+
+    void caches.open(cache).then((c) => c.put(peticion, copia));
+  }
+
+  return respuesta;
+}
+
+/** Se pinta lo guardado y se pide la versión nueva para la próxima vez. */
+async function cacheYRefresco(peticion, cache) {
+  const guardada = await caches.match(peticion);
+
+  const red = fetch(peticion)
+    .then((respuesta) => {
+      if (guardable(respuesta)) {
+        const copia = respuesta.clone();
+
+        void caches.open(cache).then((c) => c.put(peticion, copia));
+      }
+
+      return respuesta;
+    })
+    .catch(() => guardada);
+
+  return guardada ?? red;
+}
+
+self.addEventListener("fetch", (evento) => {
+  const peticion = evento.request;
+
+  if (peticion.method !== "GET") return;
+
+  const url = new URL(peticion.url);
+
+  /* Solo lo que sirve esta misma app. Supabase, Google y los vídeos, fuera. */
+  if (url.origin !== self.location.origin) return;
+
+  /* Las rutas de servidor siempre van a la red: escriben y leen la hoja. */
+  if (url.pathname.startsWith("/api/")) return;
+
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/fuentes/")) {
+    evento.respondWith(cacheAntes(peticion, CACHE_ESTATICOS));
+
+    return;
+  }
+
+  /*
+  | `/_next/image` es la foto ya redimensionada por Next: lleva la ruta y el
+  | ancho en la propia URL, así que se guarda como cualquier otra imagen.
+  */
+  if (ES_IMAGEN.test(url.pathname) || url.pathname === "/_next/image") {
+    evento.respondWith(cacheYRefresco(peticion, CACHE_IMAGENES));
+  }
+});

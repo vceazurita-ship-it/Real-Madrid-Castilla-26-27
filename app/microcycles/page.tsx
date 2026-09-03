@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { chipInk } from "@/lib/theme";
@@ -560,8 +561,7 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    fetch(CSV_URL)
-      .then((r) => r.text())
+    traeCsv(CSV_URL)
       .then((t) => {
         setRows(parseCSV(t));
         setLoading(false);

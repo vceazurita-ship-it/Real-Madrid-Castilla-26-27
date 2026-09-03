@@ -23,6 +23,7 @@ import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
 import { isHiddenPlayer } from "@/lib/hiddenPlayers"
+import { traeCsv } from "@/lib/hojaCsv"
 
 type Principio = {
   FASE: string
@@ -236,8 +237,7 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    fetch(CSV_CULTURA)
-      .then((r) => r.text())
+    traeCsv(CSV_CULTURA)
       .then((csv) => {
         const parsed = Papa.parse(csv, {
           header: true,
@@ -251,8 +251,7 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    fetch(CSV_PRINCIPIOS)
-      .then((r) => r.text())
+    traeCsv(CSV_PRINCIPIOS)
       .then((csv) => {
         const parsed = Papa.parse<Principio>(csv, {
           header: true,
@@ -416,7 +415,7 @@ export default function Home() {
                   <div className="particles" aria-hidden />
 
                   <Image
-                    src="/hero-field.png"
+                    src="/hero-field.webp"
                     alt=""
                     fill
                     sizes="(max-width: 1279px) 100vw, 480px"

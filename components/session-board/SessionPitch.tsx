@@ -33,7 +33,7 @@ export default function SessionPitch({ players, excluidos, onToggle }: Props) {
   return (
     <div className="pitch-photo relative w-full overflow-hidden rounded-[26px] border border-[#C8A96B]/20 shadow-[0_25px_80px_rgba(0,0,0,.45)]">
       <Image
-        src="/field2.png"
+        src="/field2.webp"
         alt=""
         fill
         unoptimized

@@ -7,6 +7,7 @@ import { getPlayerImage, getPlayerPhotoSrc } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { conFichajes } from "@/lib/fichajes";
 import { conDorsales } from "@/lib/dorsales";
+import { traeCsv } from "@/lib/hojaCsv";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
@@ -48,61 +49,56 @@ let descargaEnVuelo: Promise<Player[]> | null = null;
 function cargaPlantilla(): Promise<Player[]> {
   if (plantillaEnMemoria) return Promise.resolve(plantillaEnMemoria);
 
-  descargaEnVuelo ??= new Promise<Player[]>((resolve) => {
-    Papa.parse<CsvPlayer>(CSV_URL, {
-      download: true,
-      header: true,
+  descargaEnVuelo ??= traeCsv(CSV_URL)
+    .then((csv) => {
+      const { data } = Papa.parse<CsvPlayer>(csv, { header: true });
 
-      complete: ({ data }) => {
-        const plantilla: Player[] = data
-          .filter((p) => p.ACTIVO === "TRUE")
-          .filter((p) => !isHiddenPlayer(p.NOMBRE, p.APODO))
-          .map((p) => ({
+      const plantilla: Player[] = data
+        .filter((p) => p.ACTIVO === "TRUE")
+        .filter((p) => !isHiddenPlayer(p.NOMBRE, p.APODO))
+        .map((p) => ({
+          id: p.ID_JUGADOR,
+          nombre: p.NOMBRE,
+          apodo: p.APODO || p.NOMBRE,
+          posicion: p.POSICION,
+          dorsal: Number(p.DORSAL) || undefined,
+          foto: getPlayerPhotoSrc(p.NOMBRE, {
             id: p.ID_JUGADOR,
-            nombre: p.NOMBRE,
-            apodo: p.APODO || p.NOMBRE,
-            posicion: p.POSICION,
-            dorsal: Number(p.DORSAL) || undefined,
-            foto: getPlayerPhotoSrc(p.NOMBRE, {
-              id: p.ID_JUGADOR,
-              variant: "cerca",
-              fallbackUrl: p.FOTO_URL,
-            }),
+            variant: "cerca",
+            fallbackUrl: p.FOTO_URL,
+          }),
 
-            fotoLejos: getPlayerImage(p.NOMBRE, "lejos", p.ID_JUGADOR) ?? undefined,
+          fotoLejos: getPlayerImage(p.NOMBRE, "lejos", p.ID_JUGADOR) ?? undefined,
 
-            licencia: p.LICENCIA || "RMCF Castilla",
+          licencia: p.LICENCIA || "RMCF Castilla",
 
-            esCastilla: (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
+          esCastilla: (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
 
-            estado: p.ESTADO || "DISPONIBLE",
-            activo: true,
-            hudl: p.HUDL_PERFIL_URL || "",
-          }));
+          estado: p.ESTADO || "DISPONIBLE",
+          activo: true,
+          hudl: p.HUDL_PERFIL_URL || "",
+        }));
 
-        /*
-        | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`) y el
-        | dorsal de los que todavía no numera (`lib/dorsales.ts`).
-        |
-        | Aquí, en el punto de entrada, para que valgan igual en el once, en la
-        | pizarra de ABP, en el coding y en las valoraciones sin tocar ni una
-        | pantalla. Lo que la hoja traiga escrito manda siempre.
-        */
-        plantillaEnMemoria = conDorsales(conFichajes(plantilla));
+      /*
+      | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`) y el
+      | dorsal de los que todavía no numera (`lib/dorsales.ts`).
+      |
+      | Aquí, en el punto de entrada, para que valgan igual en el once, en la
+      | pizarra de ABP, en el coding y en las valoraciones sin tocar ni una
+      | pantalla. Lo que la hoja traiga escrito manda siempre.
+      */
+      plantillaEnMemoria = conDorsales(conFichajes(plantilla));
 
-        resolve(plantillaEnMemoria);
-      },
+      return plantillaEnMemoria;
+    })
+    .catch((error: unknown) => {
+      console.error("Error cargando jugadores:", error);
 
-      error: (error) => {
-        console.error("Error cargando jugadores:", error);
+      /* Un fallo no se guarda: el siguiente montaje vuelve a intentarlo. */
+      descargaEnVuelo = null;
 
-        /* Un fallo no se guarda: el siguiente montaje vuelve a intentarlo. */
-        descargaEnVuelo = null;
-
-        resolve([]);
-      },
+      return [];
     });
-  });
 
   return descargaEnVuelo;
 }

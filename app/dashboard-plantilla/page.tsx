@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import { useEffect, useMemo, useState } from "react";
 import { chipInk } from "@/lib/theme";
@@ -252,16 +253,13 @@ export default function DashboardPlantilla() {
   useEffect(() => {
     let cancelled = false;
 
+    /* Una sola descarga por hoja en toda la pestaña: ver `lib/hojaCsv`. */
     const parseCsv = <T,>(url: string) =>
-      new Promise<T[]>((resolve, reject) => {
-        Papa.parse<T>(url, {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => resolve(results.data),
-          error: (error: unknown) => reject(error),
-        });
-      });
+      traeCsv(url).then(
+        (csv) =>
+          Papa.parse<T>(csv, { header: true, skipEmptyLines: true })
+            .data,
+      );
 
     Promise.all([
       parseCsv<EstadoCSV>(ESTADOS_CSV),

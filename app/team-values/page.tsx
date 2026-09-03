@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -98,10 +99,7 @@ export default function TeamValuesPage() {
 
     (async () => {
       try {
-        const res = await fetch(CSV_URL);
-        if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
-
-        const csv = await res.text();
+        const csv = await traeCsv(CSV_URL, { forzar: recarga > 0 });
 
         const parsed = Papa.parse<CulturaItem>(csv, {
           header: true,

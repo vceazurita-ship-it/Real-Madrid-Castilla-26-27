@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { Player, EstadoJugador } from "../types/player";
 import { getPlayerImage, getPlayerPhotoSrc } from "../lib/playerImages";
 import { isHiddenPlayer } from "../lib/hiddenPlayers";
+import { traeCsv } from "../lib/hojaCsv";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1978494160&single=true&output=csv";
@@ -30,11 +31,15 @@ export function useTrainingPlayers() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Papa.parse<CsvPlayer>(CSV_URL, {
-      download: true,
-      header: true,
+    let vivo = true;
 
-      complete: ({ data }) => {
+    /* La descarga la comparte con quien ya haya pedido esta hoja. */
+    traeCsv(CSV_URL)
+      .then((csv) => {
+        if (!vivo) return;
+
+        const { data } = Papa.parse<CsvPlayer>(csv, { header: true });
+
         const ESTADOS_VALIDOS: EstadoJugador[] = [
           "ÓPTIMO",
           "SANCIONADO",
@@ -125,13 +130,16 @@ export function useTrainingPlayers() {
         setPlayers(plantilla);
 
         setLoading(false);
-      },
-
-      error: (error) => {
+      })
+      .catch((error: unknown) => {
         console.error("Error cargando jugadores:", error);
-        setLoading(false);
-      },
-    });
+
+        if (vivo) setLoading(false);
+      });
+
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   const disponibles = useMemo(

@@ -1,4 +1,5 @@
 "use client";
+import { traeCsv } from "@/lib/hojaCsv";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -134,13 +135,18 @@ export default function ScoutRivalIndividual() {
   const escudoDe = useEscudos();
 
   useEffect(() => {
-    Papa.parse<Record<string, string>>(CSV_URL, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
+    let vivo = true;
 
-      complete: (results) => {
-        const rows = results.data
+    traeCsv(CSV_URL)
+      .then((csv) => {
+        if (!vivo) return;
+
+        const { data } = Papa.parse<Record<string, string>>(csv, {
+          header: true,
+          skipEmptyLines: true,
+        });
+
+        const rows = data
           .filter(
             (row) =>
               clean(row.Tipo) === "Rival" && clean(row.Nivel) === "Individual"
@@ -150,13 +156,17 @@ export default function ScoutRivalIndividual() {
 
         setClips(rows);
         setLoading(false);
-      },
+      })
+      .catch(() => {
+        if (!vivo) return;
 
-      error: () => {
         setError(true);
         setLoading(false);
-      },
-    });
+      });
+
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   /* ---------------- filtrado ---------------- */

@@ -1,11 +1,9 @@
 "use client";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { traeCsv } from "@/lib/hojaCsv";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
-import * as htmlToImage from "html-to-image";
 import ABPFlowField from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
 import {
@@ -318,8 +316,7 @@ function toggleFilter(
   }));
 }
   useEffect(() => {
-    fetch(CSV_URL)
-      .then((r) => r.text())
+    traeCsv(CSV_URL)
       .then((t) =>
         setRows(parseCSV(t))
       );
@@ -951,6 +948,21 @@ const activeFilters = [
   },
 ];
 const downloadPDF = async () => {
+  /*
+  | El motor de PDF llega al pulsar, no al abrir la pantalla.
+  |
+  | `jspdf` con su `autotable` y `html-to-image` son medio mega de
+  | JavaScript que solo hace falta cuando alguien pide el informe. Importados
+  | arriba viajaban en el paquete de la pantalla, y había que bajarlos y
+  | compilarlos antes de poder pintar la primera tabla.
+  */
+  const [{ default: jsPDF }, { default: autoTable }, htmlToImage] =
+    await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+      import("html-to-image"),
+    ]);
+
   const doc = new jsPDF("l", "mm", "a4");
 
   const PAGE_W = 297;

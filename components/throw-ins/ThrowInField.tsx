@@ -169,7 +169,7 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
         <div
           aria-hidden
           className="absolute inset-0"
-          style={{ backgroundImage: "url(/emotional-field-bg.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+          style={{ backgroundImage: "url(/emotional-field-bg.webp)", backgroundSize: "cover", backgroundPosition: "center" }}
         />
 
         <svg
