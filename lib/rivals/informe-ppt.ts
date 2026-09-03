@@ -4009,13 +4009,15 @@ export async function construyeHojasInforme(
     );
   }
 
-  hoja("Estadísticas", (g) => pintaEstadisticas(g, data, escudo, conFicha));
-
-  /* La tabla de tipología del original. Sin goles no hay nada que repartir. */
-  if (conFicha.length > 0) {
-    hoja("Tipología de gol", (g) => pintaTipologia(g, data, escudo, conFicha));
-  }
-
+  /*
+  | El entrenador va el CUARTO, antes de los números.
+  |
+  | Se lee así en la reunión: quién es el rival (portada), cómo va (tabla y
+  | resultados) y **a quién nos enfrentamos** —el entrenador y su casa— antes
+  | de entrar en estadísticas y tipología. Ojo: la posición es la cuarta
+  | cuando están las hojas de clasificación y resultados; si el rival no las
+  | tiene, sube, porque cada hoja sólo se pinta si hay algo que enseñar.
+  */
   if (informe.entrenador || informe.estadio) {
     hoja("El club", (g) =>
       pintaClub(
@@ -4026,6 +4028,13 @@ export async function construyeHojasInforme(
         imagenes.get(informe.estadio?.foto ?? "") ?? null,
       ),
     );
+  }
+
+  hoja("Estadísticas", (g) => pintaEstadisticas(g, data, escudo, conFicha));
+
+  /* La tabla de tipología del original. Sin goles no hay nada que repartir. */
+  if (conFicha.length > 0) {
+    hoja("Tipología de gol", (g) => pintaTipologia(g, data, escudo, conFicha));
   }
 
   /*
