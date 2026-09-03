@@ -152,6 +152,7 @@ import {
   Star,
   Swords,
   Tags,
+  ChevronDown,
   Target,
   ThumbsDown,
   Trash2,
@@ -622,6 +623,17 @@ export default function RivalPlayersPage() {
 
   const [search, setSearch] = useState("");
   const [positionSearch, setPositionSearch] = useState("");
+
+  /*
+  | Las etiquetas, plegadas.
+  |
+  | Son cuatro grupos de píldoras y ocupaban media pantalla por encima del
+  | listado; casi siempre se entra a esta pantalla a mirar el campograma, no a
+  | filtrar. Se abren desde su propia línea, y las que estén puestas se ven en
+  | esa línea aunque esté cerrada: un filtro activo que no se ve es la forma de
+  | mirar una lista recortada creyendo que está entera.
+  */
+  const [etiquetasAbiertas, setEtiquetasAbiertas] = useState(false);
 
   /* Claves de etiqueta activas: un jugador debe tenerlas TODAS para pasar. */
   const [activeTags, setActiveTags] = useState<string[]>([]);
@@ -1613,6 +1625,9 @@ export default function RivalPlayersPage() {
     [
       eleccionInforme,
       selectedTeam,
+      /* Es de quién lee la tipología escrita a mano: sin esto, el informe del
+         segundo rival de la sesión se montaría con los números del primero. */
+      equipoDelOnce,
       ordenRivales,
       proponeOnce,
       jugadoresPlantilla,
@@ -2661,21 +2676,59 @@ export default function RivalPlayersPage() {
 
               {/* ETIQUETAS */}
 
-              <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
+              <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3">
+                {/* LA LÍNEA: abre y cierra, y enseña lo que hay puesto */}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setEtiquetasAbiertas((abierto) => !abierto)}
+                    aria-expanded={etiquetasAbiertas}
+                    className="flex shrink-0 items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-[#C8A96B] transition hover:text-white"
+                  >
                     <Tags size={14} />
                     Etiquetas
-                  </span>
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform ${
+                        etiquetasAbiertas ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-                  <span className="text-[11px] text-white/30">
+                  {/* Cerrada, las activas se siguen viendo y se quitan de aquí. */}
+                  {!etiquetasAbiertas && activeTags.length > 0 && (
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      {TAG_GROUPS.flatMap((group) => group.tags)
+                        .filter((tag) => activeTags.includes(tag.key))
+                        .map((tag) => (
+                          <TagChip
+                            key={tag.key}
+                            tag={tag}
+                            count={tagCounts.get(tag.key) ?? 0}
+                            active
+                            onClick={() =>
+                              setActiveTags((current) =>
+                                current.filter((key) => key !== tag.key),
+                              )
+                            }
+                          />
+                        ))}
+                    </div>
+                  )}
+
+                  <span className="ml-auto shrink-0 text-[11px] text-white/30">
                     {activeTags.length > 0
                       ? "Se atenúan en el campo los que no las cumplen"
-                      : "Pulsa para filtrar · se editan en la ficha del jugador"}
+                      : etiquetasAbiertas
+                        ? "Pulsa para filtrar · se editan en la ficha del jugador"
+                        : "Sin filtro"}
                   </span>
                 </div>
 
-                <div className="min-w-0 space-y-3">
+                <div
+                  hidden={!etiquetasAbiertas}
+                  className="mt-3 min-w-0 space-y-3"
+                >
                   {TAG_GROUPS.map((group) => (
                     <div key={group.tone} className="min-w-0">
                       <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
