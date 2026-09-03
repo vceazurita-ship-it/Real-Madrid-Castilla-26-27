@@ -840,11 +840,28 @@ function pintaTablaClasificacion(
   filas: FilaClasificacion[],
   informe: InformeEquipo,
   escudos: Map<string, HTMLImageElement | null>,
-  caja: { x: number; y: number; w: number; h: number },
+  caja: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    /* Tres tablas donde antes iba una: mismas filas y mismas columnas, pero
+       las casillas y la letra a la medida del tercio de hoja. */
+    estrecha?: boolean;
+  },
 ) {
-  const anchoNumeros = COLUMNAS.reduce((total, col) => total + col.w, 0);
+  const columnas = caja.estrecha
+    ? COLUMNAS.map((col) => ({ ...col, w: col.clave === "puntos" ? 44 : 34 }))
+    : COLUMNAS;
 
-  const paso = Math.min(38, (caja.h - 34) / Math.max(1, filas.length));
+  const anchoNumeros = columnas.reduce((total, col) => total + col.w, 0);
+
+  const cuerpo = caja.estrecha ? 16 : 21;
+
+  const paso = Math.min(
+    caja.estrecha ? 32 : 38,
+    (caja.h - 34) / Math.max(1, filas.length),
+  );
 
   /* -------------------------------------------------- cabecera */
 
@@ -854,9 +871,9 @@ function pintaTablaClasificacion(
     (ctx) => {
       let x = caja.x + caja.w - 12 - anchoNumeros;
 
-      for (const columna of COLUMNAS) {
+      for (const columna of columnas) {
         escribe(ctx, columna.titulo, x + columna.w / 2, caja.y + 22, {
-          tamano: 18,
+          tamano: caja.estrecha ? 14 : 18,
           peso: 600,
           tinta: "#8A8370",
           espaciado: 1,
@@ -896,8 +913,8 @@ function pintaTablaClasificacion(
 
         const centro = y + paso / 2 + 6;
 
-        escribe(ctx, String(fila.puesto), caja.x + 30, centro, {
-          tamano: 20,
+        escribe(ctx, String(fila.puesto), caja.x + (caja.estrecha ? 26 : 30), centro, {
+          tamano: caja.estrecha ? 16 : 20,
           peso: mio ? 700 : 500,
           tinta: mio ? C.navy : "#6C6659",
           alinea: "dcha",
@@ -907,24 +924,24 @@ function pintaTablaClasificacion(
 
         if (escudo) encaja(ctx, escudo, caja.x + 40, y + 3, paso - 8, paso - 8);
 
-        escribe(ctx, fila.equipo, caja.x + 44 + paso, centro, {
-          tamano: 22,
+        escribe(ctx, fila.equipo, caja.x + (caja.estrecha ? 38 : 44) + paso, centro, {
+          tamano: caja.estrecha ? 17 : 22,
           peso: mio ? 700 : 600,
           tinta: C.navy,
           espaciado: 0.5,
-          maxAncho: caja.w - anchoNumeros - paso - 70,
+          maxAncho: caja.w - anchoNumeros - paso - (caja.estrecha ? 56 : 70),
         });
 
         let columnaX = caja.x + caja.w - 12 - anchoNumeros;
 
-        for (const columna of COLUMNAS) {
+        for (const columna of columnas) {
           escribe(
             ctx,
             String(fila[columna.clave] ?? ""),
             columnaX + columna.w / 2,
             centro,
             {
-              tamano: 21,
+              tamano: cuerpo,
               peso: columna.clave === "puntos" ? 700 : 500,
               tinta: columna.clave === "puntos" ? C.verde : "#4A4438",
               alinea: "centro",
@@ -938,104 +955,6 @@ function pintaTablaClasificacion(
   });
 }
 
-/** El resumen de una pestaña —local o visitante— en cifras grandes. */
-function pintaResumenTabla(
-  g: GuionHoja,
-  titulo: string,
-  fila: FilaClasificacion | null,
-  caja: { x: number; y: number; w: number; h: number },
-  destacado: boolean,
-) {
-  const dentro = panel(g, caja.x, caja.y, caja.w, caja.h, titulo);
-
-  if (!fila) {
-    g.el(
-      `${titulo} · sin datos`,
-      { x: caja.x, y: dentro + 30, w: caja.w, h: 40 },
-      (ctx) =>
-        escribe(ctx, "SIN DATOS TODAVÍA", caja.x + caja.w / 2, dentro + 60, {
-          tamano: 24,
-          peso: 500,
-          tinta: "#9A9384",
-          espaciado: 2,
-          alinea: "centro",
-        }),
-    );
-
-    return;
-  }
-
-  if (destacado) {
-    g.el(
-      `${titulo} · destacado`,
-      { x: caja.x, y: dentro, w: caja.w, h: caja.h - (dentro - caja.y) },
-      (ctx) => {
-        ctx.fillStyle = "rgba(246,175,182,0.35)";
-        ctx.fillRect(caja.x, dentro, caja.w, caja.h - (dentro - caja.y));
-      },
-    );
-  }
-
-  /* El puesto, que es lo que se lee de lejos. */
-  g.el(
-    `${titulo} · puesto`,
-    { x: caja.x + 24, y: dentro + 6, w: 150, h: 84 },
-    (ctx) =>
-      escribe(ctx, `${fila.puesto}º`, caja.x + 30, dentro + 78, {
-        tamano: 76,
-        tinta: C.navy,
-      }),
-  );
-
-  g.el(
-    `${titulo} · puntos`,
-    { x: caja.x + 24, y: dentro + 86, w: 150, h: 34 },
-    (ctx) =>
-      escribe(ctx, `${fila.puntos} PTS`, caja.x + 30, dentro + 112, {
-        tamano: 26,
-        peso: 600,
-        tinta: C.verde,
-        espaciado: 3,
-      }),
-  );
-
-  /* Y a la derecha el desglose. */
-  const celdas = [
-    { titulo: "PJ", valor: fila.jugados },
-    { titulo: "PG", valor: fila.ganados },
-    { titulo: "PE", valor: fila.empatados },
-    { titulo: "PP", valor: fila.perdidos },
-    { titulo: "GF", valor: fila.favor },
-    { titulo: "GC", valor: fila.contra },
-  ];
-
-  const ancho = (caja.w - 190) / 3;
-
-  celdas.forEach((celda, indice) => {
-    const x = caja.x + 176 + ancho * (indice % 3) + ancho / 2;
-    const y = dentro + 46 + Math.floor(indice / 3) * 66;
-
-    g.el(
-      `${titulo} · ${celda.titulo}`,
-      { x: x - ancho / 2, y: y - 38, w: ancho, h: 70 },
-      (ctx) => {
-        escribe(ctx, String(celda.valor), x, y, {
-          tamano: 34,
-          tinta: C.navy,
-          alinea: "centro",
-        });
-
-        escribe(ctx, celda.titulo, x, y + 22, {
-          tamano: 17,
-          peso: 500,
-          tinta: "#8A8370",
-          espaciado: 2,
-          alinea: "centro",
-        });
-      },
-    );
-  });
-}
 
 function pintaClasificacion(
   g: GuionHoja,
@@ -1048,72 +967,80 @@ function pintaClasificacion(
 
   const informe = data.informe;
 
-  const anchoTabla = Math.round(ANCHO * 0.58);
+  /*
+  |--------------------------------------------------------------------------
+  | LAS TRES TABLAS, ENTERAS
+  |--------------------------------------------------------------------------
+  |
+  | Total, local y visitante, una al lado de la otra. Antes sólo iba entera la
+  | general y las otras dos se resumían en una cifra grande: eso dice cómo le
+  | va al rival, pero no **contra quién** le va así, que es lo que se mira
+  | cuando se prepara el partido. Con las tres tablas se ve de un vistazo que
+  | el segundo de la general es decimotercero fuera de casa.
+  |
+  | Como caben tres columnas donde antes había una, las tablas van en formato
+  | estrecho: las mismas filas y las mismas columnas, con la letra y las
+  | casillas ajustadas. Y los últimos partidos pasan a una banda abajo, a lo
+  | ancho, donde siguen cabiendo los seis.
+  */
+  const HUECO = 24;
 
-  /* -------------------------------------------------- la tabla entera */
+  const anchoTabla = Math.floor((ANCHO - HUECO * 2) / 3);
 
-  const dentro = panel(g, MARGEN, CUERPO_Y, anchoTabla, CUERPO_ALTO, "TOTAL");
+  const altoRacha = 248;
 
-  pintaTablaClasificacion(g, informe.clasificacion.total, informe, escudos, {
-    x: MARGEN,
-    y: dentro + 6,
-    w: anchoTabla,
-    h: CUERPO_ALTO - (dentro - CUERPO_Y) - 12,
+  const altoTablas = CUERPO_ALTO - altoRacha - 24;
+
+  const tablas: { titulo: string; filas: FilaClasificacion[] }[] = [
+    { titulo: "TOTAL", filas: informe.clasificacion.total },
+    { titulo: "COMO LOCAL", filas: informe.clasificacion.local },
+    { titulo: "COMO VISITANTE", filas: informe.clasificacion.visitante },
+  ];
+
+  tablas.forEach((tabla, indice) => {
+    const x = MARGEN + (anchoTabla + HUECO) * indice;
+
+    /* La que toca según dónde se juega va marcada, como lo estaba el resumen
+       destacado: es la lectura que hace el cuerpo técnico de esta hoja. */
+    const suya =
+      (indice === 1 && data.enSuCampo) || (indice === 2 && !data.enSuCampo);
+
+    const dentro = panel(
+      g,
+      x,
+      CUERPO_Y,
+      anchoTabla,
+      altoTablas,
+      suya ? `${tabla.titulo} · LA QUE MANDA HOY` : tabla.titulo,
+    );
+
+    pintaTablaClasificacion(g, tabla.filas, informe, escudos, {
+      x,
+      y: dentro + 6,
+      w: anchoTabla,
+      h: altoTablas - (dentro - CUERPO_Y) - 12,
+      estrecha: true,
+    });
   });
 
-  /* -------------------------------------------------- local y visitante */
+  /* -------------------------------------------------- últimos partidos */
 
-  const x = MARGEN + anchoTabla + 28;
-  const w = ANCHO - anchoTabla - 28;
+  const yRacha = CUERPO_Y + altoTablas + 24;
 
-  /*
-  | Los dos resúmenes ocupan lo que necesitan —una cifra grande y seis
-  | casillas— y no la mitad de la hoja cada uno: en agosto están a cero y
-  | dejaban dos cuartillas en blanco. Lo que sobra se lo lleva la racha, que
-  | es lo que de verdad se mira cuando la tabla todavía no dice nada.
-  */
-  const alto = 250;
-
-  /*
-  | El destacado va en la pestaña que toca: si se juega en su campo, lo que
-  | dice algo es cómo va **de local**, y al revés. Es la lectura que el cuerpo
-  | técnico hace de esta hoja y por eso se marca sola en vez de dejar las dos
-  | igual de gordas.
-  */
-  pintaResumenTabla(
-    g,
-    "COMO LOCAL",
-    filaPropia(informe.clasificacion.local, informe),
-    { x, y: CUERPO_Y, w, h: alto },
-    data.enSuCampo,
-  );
-
-  pintaResumenTabla(
-    g,
-    "COMO VISITANTE",
-    filaPropia(informe.clasificacion.visitante, informe),
-    { x, y: CUERPO_Y + alto + 20, w, h: alto },
-    !data.enSuCampo,
-  );
-
-  const yRacha = CUERPO_Y + alto * 2 + 40;
-
-  const altoRacha = CUERPO_Y + CUERPO_ALTO - yRacha;
-
-  const dentroRacha = panel(g, x, yRacha, w, altoRacha, "ÚLTIMOS PARTIDOS");
+  const dentroRacha = panel(g, MARGEN, yRacha, ANCHO, altoRacha, "ÚLTIMOS PARTIDOS");
 
   pintaRacha(g, jugados(informe).slice(0, 6), {
-    x,
+    x: MARGEN,
     y: dentroRacha + 8,
-    w,
+    w: ANCHO,
     h: altoRacha - (dentroRacha - yRacha) - 16,
   });
 
   pie(
     g,
     data.enSuCampo
-      ? "SE JUEGA EN SU CAMPO · MIRA LA TABLA DE LOCAL"
-      : "SE JUEGA EN EL DI STÉFANO · MIRA LA TABLA DE VISITANTE",
+      ? "SE JUEGA EN SU CAMPO · LA TABLA QUE MANDA ES LA DE LOCAL"
+      : "SE JUEGA EN EL DI STÉFANO · LA TABLA QUE MANDA ES LA DE VISITANTE",
   );
 }
 
