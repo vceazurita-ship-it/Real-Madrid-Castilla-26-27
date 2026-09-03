@@ -184,7 +184,20 @@ export function useRemoteDoc<T>({
   const [sinGuardar, setSinGuardar] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
-  /** Evita guardar durante la carga inicial y en el primer render. */
+  /**
+   * Evita guardar durante la carga inicial y en el primer render.
+   *
+   * No es sólo por el primer render: mientras carga un documento nuevo, en
+   * `value` todavía está el **anterior** —el estado no se ha actualizado— y el
+   * efecto de guardado lo encolaría bajo la clave nueva. Es decir: cambiar de
+   * partido escribiría los clips del partido de antes dentro del de ahora.
+   * Se probó a quitarlo (02/09/2026) y es exactamente lo que pasa.
+   *
+   * A cambio queda una ventana mínima: lo que se escriba **mientras** carga
+   * (unos ~200 ms desde que se abre la pantalla) no entra en la cola y lo pisa
+   * la respuesta del servidor. Para llegar a eso hay que teclear antes de que
+   * la página termine de cargar.
+   */
   const ready = useRef(false);
 
   /** Clave a la que pertenece el valor que hay ahora mismo en pantalla. */

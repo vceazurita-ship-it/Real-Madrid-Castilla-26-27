@@ -129,12 +129,16 @@ async function main() {
       continue;
     }
 
-    const { parejas, huerfanas } = empareja(filas, plantilla);
+    const { parejas } = empareja(filas, plantilla);
 
     for (const { fila, besoccer, via } of parejas) {
       /* Sólo el id de la foto vale para colgar un número. */
       if (via !== "foto") {
-        sinEmparejar.push(`${riv} ${fila["NOMBRE DEPORTIVO"] || fila.JUGADOR} (emparejado por nombre)`);
+        sinEmparejar.push(
+          `${riv} ${fila["NOMBRE DEPORTIVO"] || fila.JUGADOR} (${
+            via ? "emparejado por nombre" : "no está en BeSoccer"
+          })`,
+        );
         continue;
       }
 
@@ -157,11 +161,6 @@ async function main() {
       });
     }
 
-    for (const fila of huerfanas ?? []) {
-      sinEmparejar.push(
-        `${riv} ${fila["NOMBRE DEPORTIVO"] || fila.JUGADOR} (no está en BeSoccer)`,
-      );
-    }
   }
 
   /* ------------------------------------------------------------ informe */
