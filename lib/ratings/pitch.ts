@@ -26,21 +26,20 @@
  * último paso traduce esos dos números a píxeles de pantalla.
  */
 
+import {
+  ANCLAS_SLOT,
+  ANCLA_SUELTA,
+  SLOTS_DE_BANDA,
+  columnasDeBanda,
+  columnasDeBloque,
+  reparteCampograma,
+  type BloqueEntrada,
+} from "@/lib/rivals/campograma-motor";
+
 export type PitchRowKey = "del" | "band" | "diez" | "ocho" | "piv" | "def" | "por";
 
 /** Cómo se pinta el campo: atacando hacia arriba o hacia la derecha. */
 export type PitchOrientation = "vertical" | "horizontal";
-
-/** Altura preferida de cada línea, en fracción de la profundidad del campo. */
-const PITCH_ROWS: { key: PitchRowKey; top: number }[] = [
-  { key: "del", top: 0.1 },
-  { key: "band", top: 0.25 },
-  { key: "diez", top: 0.39 },
-  { key: "ocho", top: 0.52 },
-  { key: "piv", top: 0.64 },
-  { key: "def", top: 0.79 },
-  { key: "por", top: 0.94 },
-];
 
 export const ROW_LABELS: Record<PitchRowKey, string> = {
   del: "Delanteros",
@@ -63,9 +62,6 @@ const MAX_PER_SUB_ROW: Record<PitchOrientation, number> = {
   vertical: 5,
   horizontal: 6,
 };
-
-/** Separación entre sub-filas de una misma línea, en fracción de profundidad. */
-const SUB_ROW_SPREAD = 0.085;
 
 const PAD_X = 24;
 const PAD_Y = 16;
@@ -101,24 +97,6 @@ export function detectRow(position: string): PitchRowKey {
   if (p === "6" || p.startsWith("PIVOTE")) return "piv";
 
   return "ocho";
-}
-
-/**
- * Cuánto se abre hacia una banda: −1 su izquierda, +1 su derecha.
- *
- * En vertical (atacando arriba) eso es izquierda y derecha de la pantalla; en
- * horizontal (atacando a la derecha) el campo gira en el sentido del reloj, así
- * que la banda derecha queda abajo. La traducción la hace `layoutPitch`.
- */
-function horizontalPreference(position: string) {
-  const p = normalize(position);
-
-  if (p.startsWith("LATERAL D")) return 0.78;
-  if (p.startsWith("LATERAL I")) return -0.78;
-  if (p === "7") return 0.62;
-  if (p === "11") return -0.62;
-
-  return 0;
 }
 
 export type PitchItem = {
@@ -239,14 +217,49 @@ export function recommendedHeight<T extends PitchItem>(
 }
 
 /** Reparte `total` elementos en `count` grupos que difieren como mucho en uno. */
-function chunkSizes(total: number, count: number) {
-  const base = Math.floor(total / count);
-  const extra = total % count;
 
-  return Array.from({ length: count }, (_, index) =>
-    index < extra ? base + 1 : base
-  );
+/*
+|--------------------------------------------------------------------------
+| EL MISMO MOTOR QUE EL CAMPOGRAMA DE RIVALES
+|--------------------------------------------------------------------------
+|
+| Antes esta pantalla repartía cada línea en huecos iguales a lo ancho, y eso
+| sólo coloca bien un 1-4-3-3 exacto: con la plantilla de verdad —cuatro
+| extremos, cinco defensas, dos dieces— salían jugadores en sitios donde nadie
+| juega y el campo dejaba de leerse como un equipo.
+|
+| El campograma del rival ya tenía resuelto esto con otra idea: **cada
+| posición tiene su sitio en el campo** (`ANCLAS_SLOT`) y la gente de una misma
+| posición forma un bloque que se coloca lo más cerca posible de ese sitio,
+| buscando el tamaño de ficha más grande con el que todo cabe. Es el mismo
+| motor, `lib/rivals/campograma-motor.ts`, así que ahora las dos pantallas
+| colocan igual y lo que se arregle en una vale para la otra.
+|
+| Lo único de aquí es la traducción de nuestro vocabulario —PORTERO, CENTRAL,
+| LATERAL D./I. y los dorsales de rol 6, 8, 10, 7, 11 y 9— a los slots de ese
+| motor, y las medidas de esta ficha, que lleva nombre y pie debajo de la foto.
+*/
+
+/** De nuestra posición al slot del motor de rivales. */
+function slotDePosicion(position: string): string {
+  const p = normalize(position);
+
+  if (p.startsWith("PORTERO") || p === "1") return "por";
+  if (p.startsWith("LATERAL I")) return "li";
+  if (p.startsWith("LATERAL D")) return "ld";
+  if (p.startsWith("CENTRAL") || p.startsWith("DEFENSA")) return "dfc";
+  if (p === "6" || p.startsWith("PIVOTE")) return "mcd";
+  if (p === "10" || p.startsWith("MEDIAPUNTA")) return "mp";
+  if (p === "11" || p.startsWith("EXTREMO I")) return "ei";
+  if (p === "7" || p.startsWith("EXTREMO D")) return "ed";
+  if (p === "9" || p.startsWith("DELANTERO")) return "dc";
+
+  /* El 8 y todo lo que no se reconozca, al interior: es el centro del campo. */
+  return "int";
 }
+
+/** Orden de los slots en el campo, para leer el reparto de atrás adelante. */
+const ORDEN_SLOT = ["por", "li", "dfc", "ld", "mcd", "int", "mp", "ei", "ed", "dc"];
 
 export function layoutPitch<T extends PitchItem>(
   items: T[],
@@ -256,258 +269,100 @@ export function layoutPitch<T extends PitchItem>(
 ): PitchLayout<T> {
   if (items.length === 0 || width < 120 || height < 200) return empty<T>();
 
-  const vertical = orientation === "vertical";
+  const horizontal = orientation === "horizontal";
 
-  /* 1 · Agrupar por línea. */
+  /* 1 · Un bloque por posición, y dentro los mejores primero. */
 
-  const grouped = new Map<PitchRowKey, T[]>();
+  const bloques = new Map<string, BloqueEntrada<T>>();
 
   items.forEach((item) => {
-    const key = detectRow(item.position);
-    const list = grouped.get(key);
+    const key = slotDePosicion(item.position);
+    const ancla = ANCLAS_SLOT[key] ?? ANCLA_SUELTA;
 
-    if (list) list.push(item);
-    else grouped.set(key, [item]);
-  });
+    const existente = bloques.get(key);
 
-  /* 2 · Partir cada línea en sub-filas: las mejores notas, delante. */
+    if (existente) {
+      existente.jugadores.push(item);
 
-  const across = acrossAxis(orientation, width, height);
+      return;
+    }
 
-  const depthExtent = vertical ? height : width;
-  const depthPad = vertical ? PAD_Y : PAD_X;
-
-  const maxPerSubRow = perSubRow(orientation, width, height);
-
-  const subRows: { items: T[]; band: number; depth: number }[] = [];
-
-  PITCH_ROWS.forEach((row) => {
-    const list = grouped.get(row.key);
-
-    if (!list || list.length === 0) return;
-
-    const count = Math.ceil(list.length / maxPerSubRow);
-
-    /* Por nota descendente: la sub-fila 0 —la de delante— se lleva a los mejores. */
-    const byRank = [...list].sort((a, b) => {
-      const diff = (b.rank ?? 0) - (a.rank ?? 0);
-
-      return diff !== 0 ? diff : a.id.localeCompare(b.id);
-    });
-
-    let cursor = 0;
-
-    chunkSizes(byRank.length, count).forEach((size, index) => {
-      const chunk = byRank.slice(cursor, cursor + size);
-
-      cursor += size;
-
-      /* Dentro de la sub-fila mandan las bandas: de su izquierda a su derecha. */
-      chunk.sort((a, b) => {
-        const prefA = horizontalPreference(a.position);
-        const prefB = horizontalPreference(b.position);
-
-        if (prefA !== prefB) return prefA - prefB;
-
-        return a.id.localeCompare(b.id);
-      });
-
-      const maxPreference = chunk.reduce(
-        (max, item) => Math.max(max, Math.abs(horizontalPreference(item.position))),
-        0
-      );
-
-      const band = Math.min(
-        1,
-        Math.max(0.34, maxPreference + 0.2, 0.22 * chunk.length)
-      );
-
-      const fraction = row.top + (index - (count - 1) / 2) * SUB_ROW_SPREAD;
-
-      /* Vertical ataca hacia arriba; horizontal, hacia la derecha. */
-      subRows.push({
-        items: chunk,
-        band,
-        depth: (vertical ? fraction : 1 - fraction) * depthExtent,
-      });
+    bloques.set(key, {
+      key,
+      anchorX: ancla.x,
+      anchorY: ancla.y,
+      banda: SLOTS_DE_BANDA.has(key),
+      etiquetado: false,
+      jugadores: [item],
+      anchoChapa: 0,
     });
   });
 
-  if (subRows.length === 0) return empty<T>();
+  const entradas = [...bloques.values()]
+    .sort((a, b) => ORDEN_SLOT.indexOf(a.key) - ORDEN_SLOT.indexOf(b.key))
+    .map((bloque) => ({
+      ...bloque,
+      /* La mejor nota, delante de su bloque. */
+      jugadores: [...bloque.jugadores].sort((a, b) => {
+        const diff = (b.rank ?? 0) - (a.rank ?? 0);
 
-  subRows.sort((a, b) => a.depth - b.depth);
+        return diff !== 0 ? diff : a.id.localeCompare(b.id);
+      }),
+    }));
 
-  /* 3 · Tamaño de ficha con el que todas las sub-filas caben a la vez. */
+  /* 2 · Las medidas de esta ficha: foto redonda, nombre y pie debajo. */
 
-  const rows = subRows.length;
-
-  const spacePerRow = (depthExtent - 2 * depthPad - ROW_GAP * (rows - 1)) / rows;
-
-  const slotOf = (span: number, row: { band: number; items: T[] }) =>
-    (span * row.band) / row.items.length;
-
-  const rawSlot = subRows.reduce(
-    (min, row) => Math.min(min, slotOf(across.usable, row)),
-    Infinity
-  );
+  const reparte = (etiquetaAlta: boolean) =>
+    reparteCampograma(entradas, {
+      ancho: width,
+      alto: height,
+      horizontal,
+      padAncho: PAD_X,
+      padAlto: PAD_Y,
+      chapaAlto: () => 0,
+      huecoFila: () => ROW_GAP,
+      huecoBanda: () => (horizontal ? 10 : 12),
+      huecoBloque: (tamano) => (horizontal ? ROW_GAP + 10 : tamano * 0.5),
+      paso: (tamano) => Math.max(tamano * 1.45, tamano + 8),
+      altoFicha: (tamano) =>
+        tamano + (etiquetaAlta ? LABEL_FULL : LABEL_COMPACT),
+      margenBanda: horizontal ? 0.03 : 0.07,
+      busquedaMin: 1,
+      busquedaMax: MAX_AVATAR,
+      suelo: 6,
+      opcionesColumnas: [3, 2, 1],
+      columnasDeBanda,
+      columnasDeBloque,
+      huecoChapa: 3,
+    });
 
   /*
-  | El pie de ficha (PJ · minutos) se sacrifica antes que el tamaño de la foto:
-  | sólo se mantiene si con él la foto sigue siendo grande de verdad. Lo que lo
-  | aprieta es el eje vertical, que en horizontal es el que reparte la línea.
+  | Dos pasadas, porque el pie de ficha depende del tamaño y el tamaño del pie.
+  | Se prueba con el pie entero y, si la foto sale tan pequeña que el pie no se
+  | va a pintar, se repite reclamando sólo el alto del nombre: así la foto gana
+  | los píxeles que el pie ya no ocupa.
   */
-  const compact = (vertical ? spacePerRow : rawSlot) - LABEL_FULL < 44;
-  const labelHeight = compact ? LABEL_COMPACT : LABEL_FULL;
+  let reparto = reparte(true);
+  let compact = reparto.tamano < MIN_AVATAR + 10;
 
-  /* El nombre cuelga bajo la foto: en horizontal se come parte de la línea. */
-  const acrossSpan = vertical
-    ? across.usable
-    : Math.max(120, across.usable - labelHeight);
+  if (compact) reparto = reparte(false);
 
-  const narrowestSlot = subRows.reduce(
-    (min, row) => Math.min(min, slotOf(acrossSpan, row)),
-    Infinity
-  );
+  if (reparto.fichas.length === 0) return empty<T>();
 
-  const avatar = Math.max(
-    MIN_AVATAR,
-    Math.min(
-      MAX_AVATAR,
-      /* En vertical el pie roba profundidad; en horizontal, anchura de línea. */
-      vertical ? spacePerRow - labelHeight : spacePerRow,
-      vertical ? narrowestSlot * 0.82 : narrowestSlot - labelHeight
-    )
-  );
+  const avatar = Math.max(MIN_AVATAR, Math.min(MAX_AVATAR, reparto.tamano));
 
-  /* La foto se centra y el nombre cuelga por debajo: en Y no es simétrico. */
-  const depthSpan = vertical ? avatar + labelHeight : avatar;
-  const gap = depthSpan + ROW_GAP;
+  compact = avatar < MIN_AVATAR + 10;
 
-  /* 4 · Relajar la profundidad: hueco mínimo garantizado y todo dentro del campo. */
+  /* 3 · Del reparto a lo que pinta el JSX. */
 
-  const minDepth = depthPad + avatar / 2;
-
-  const maxDepth =
-    depthExtent - depthPad - avatar / 2 - (vertical ? labelHeight : 0);
-
-  const depths = subRows.map((row) => row.depth);
-
-  depths[0] = Math.max(depths[0], minDepth);
-
-  for (let index = 1; index < rows; index += 1) {
-    depths[index] = Math.max(depths[index], depths[index - 1] + gap);
-  }
-
-  /* Si el empujón hacia el final se sale del campo, se recoloca al revés. */
-  if (depths[rows - 1] > maxDepth) {
-    depths[rows - 1] = maxDepth;
-
-    for (let index = rows - 2; index >= 0; index -= 1) {
-      depths[index] = Math.min(depths[index], depths[index + 1] - gap);
-    }
-  }
-
-  /* Última red: si ni así cabe todo, reparto uniforme de principio a fin. */
-  if (depths[0] < minDepth) {
-    const span = Math.max(0, maxDepth - minDepth);
-
-    for (let index = 0; index < rows; index += 1) {
-      depths[index] =
-        rows === 1
-          ? (minDepth + maxDepth) / 2
-          : minDepth + (span * index) / (rows - 1);
-    }
-  }
-
-  /* 5 · Reparto uniforme dentro de la banda de cada sub-fila. */
-
-  /* En horizontal el centro sube media etiqueta: el pie cuelga hacia abajo. */
-  const acrossCenter = vertical
-    ? across.extent / 2
-    : (across.extent - labelHeight) / 2;
-
-  /* En horizontal el nombre dispone del ancho de su columna, no de su hueco. */
-  const labelSlot = (slot: number) => (vertical ? slot : spacePerRow);
-
-  const placed: PlacedItem<T>[] = [];
-
-  subRows.forEach((row, rowIndex) => {
-    const count = row.items.length;
-    const depth = depths[rowIndex];
-    const bandSpan = acrossSpan * row.band;
-    const slot = bandSpan / count;
-
-    const put = (item: T, position: number, itemSlot: number) => {
-      placed.push({
-        item,
-        row: detectRow(item.position),
-        x: vertical ? position : depth,
-        y: vertical ? depth : position,
-        slot: labelSlot(itemSlot),
-      });
-    };
-
-    if (count === 1) {
-      put(row.items[0], acrossCenter, Math.min(across.usable, MIN_SLOT_X * 1.6));
-
-      return;
-    }
-
-    const start = acrossCenter - bandSpan / 2;
-
-    /*
-    |--------------------------------------------------------------------------
-    | CADA UNO EN SU BANDA, NO REPARTIDOS A PARTES IGUALES
-    |--------------------------------------------------------------------------
-    |
-    | Repartir la línea en huecos iguales coloca bien a un 1-4-3-3 y mal a casi
-    | todo lo demás: con cuatro extremos —dos por cada lado, que es lo normal
-    | en una plantilla— dos de ellos acababan en el centro del campo, y el
-    | campograma dejaba de leerse como un equipo.
-    |
-    | Así que la línea se parte en tres: los que se abren a su izquierda pegados
-    | a esa banda, los de su derecha pegados a la suya y los de dentro
-    | centrados. Cada uno conserva su hueco (`slot`), y los tres grupos suman
-    | exactamente la anchura de la línea, así que nadie se pisa —que es la
-    | primera regla de este motor—.
-    */
-    const izquierda = row.items.filter(
-      (item) => horizontalPreference(item.position) < 0,
-    );
-
-    const derecha = row.items.filter(
-      (item) => horizontalPreference(item.position) > 0,
-    );
-
-    const centro = row.items.filter(
-      (item) => horizontalPreference(item.position) === 0,
-    );
-
-    /* Sin nadie abriéndose no hay nada que agrupar: reparto de siempre. */
-    if (izquierda.length === 0 && derecha.length === 0) {
-      row.items.forEach((item, index) => {
-        put(item, start + slot * (index + 0.5), slot);
-      });
-
-      return;
-    }
-
-    izquierda.forEach((item, index) => {
-      put(item, start + slot * (index + 0.5), slot);
-    });
-
-    derecha.forEach((item, index) => {
-      const desde = derecha.length - index - 0.5;
-
-      put(item, start + bandSpan - slot * desde, slot);
-    });
-
-    const centroInicio = acrossCenter - (slot * centro.length) / 2;
-
-    centro.forEach((item, index) => {
-      put(item, centroInicio + slot * (index + 0.5), slot);
-    });
-  });
+  const placed: PlacedItem<T>[] = reparto.fichas.map((ficha) => ({
+    item: ficha.item,
+    row: detectRow(ficha.item.position),
+    x: ficha.x,
+    y: ficha.y,
+    /* El nombre dispone del paso entre fichas: recorta sin invadir al vecino. */
+    slot: Math.max(MIN_SLOT_X * 0.75, reparto.paso),
+  }));
 
   return { placed, avatar, compact };
 }
