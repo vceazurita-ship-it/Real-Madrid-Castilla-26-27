@@ -220,11 +220,25 @@ export default function DashboardSeguimiento() {
 
   /*
   | El nombre manda sobre el ID: la hoja JUGADORES ha renumerado los JUG-XX y
-  | un seguimiento viejo apunta hoy a otra persona (ver ).
+  | un seguimiento viejo apunta hoy a otra persona (ver `lib/seguimiento.ts`).
+  |
+  | Y **fuera lo que no tiene fecha usable**. Todo este panel se ordena por
+  | fecha: la semana de temporada, el mes, la media semanal, el mapa de calor
+  | y el «último registro». Un `FECHA` vacío —la hoja tiene dos, los dos con
+  | el mismo ID_REGISTRO— sale como semana `NaN`, cuenta como una semana
+  | activa más y puede colarse como el registro más reciente. Se dice cuántos
+  | son al lado del total, para que no desaparezcan en silencio.
   */
+  const conFecha = useMemo(
+    () => crudoTracking.filter((s) => fechaValida(s.FECHA)),
+    [crudoTracking],
+  );
+
+  const sinFecha = crudoTracking.length - conFecha.length;
+
   const tracking = useMemo(
-    () => alineaSeguimiento(crudoTracking, players),
-    [crudoTracking, players],
+    () => alineaSeguimiento(conFecha, players),
+    [conFecha, players],
   );
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
@@ -829,6 +843,15 @@ export default function DashboardSeguimiento() {
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60">
                 {totalSessions} registros
               </span>
+
+              {sinFecha > 0 && (
+                <span
+                  title="La hoja los tiene sin fecha, así que no entran en las semanas, los meses ni el último registro."
+                  className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300"
+                >
+                  {sinFecha} sin fecha
+                </span>
+              )}
 
               {sinceLast !== null && (
                 <span className="inline-flex items-center gap-1.5 text-xs text-white/45">
