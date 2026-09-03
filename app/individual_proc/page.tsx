@@ -148,10 +148,30 @@ function fmtFecha(v: string) {
   });
 }
 
-function daysAgo(v: string) {
-  const d = new Date(v);
+/**
+ * La fecha de un registro, sólo si tiene sentido.
+ *
+ * La hoja trae fechas imposibles —un año mal escrito basta— y con ellas el
+ * panel decía «último registro hace -29219184 días»: una fecha del año 82000
+ * ordenaba primero y salía como lo más reciente. Se descarta lo que no caiga
+ * entre 2000 y mañana; y lo que no es fecha, tampoco.
+ */
+const HOY_MAS_UNO = () => Date.now() + 86400000;
 
-  if (isNaN(d.getTime())) return null;
+function fechaValida(v: string): Date | null {
+  const d = new Date(v);
+  const t = d.getTime();
+
+  if (isNaN(t)) return null;
+  if (t < Date.UTC(2000, 0, 1) || t > HOY_MAS_UNO()) return null;
+
+  return d;
+}
+
+function daysAgo(v: string) {
+  const d = fechaValida(v);
+
+  if (!d) return null;
 
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
@@ -295,15 +315,44 @@ export default function DashboardSeguimiento() {
     ? +(totalSessions / totalWeeks).toFixed(1)
     : 0;
 
-  const squadSize = players.length;
+  /*
+  | La cobertura es **de la plantilla de ahora**, no de todo el que aparezca
+  | en la hoja.
+  |
+  | `totalPlayers` cuenta a cualquiera con registros, y ahí hay gente que se
+  | fue: por eso salía «39 de 40 · 97,5%» a la vez que «5 sin registro», que no
+  | puede ser. Se cuenta a los de la plantilla que sí tienen seguimiento, y
+  | sobre el mismo grupo que la lista de los que no lo tienen —si hay filtro de
+  | posición, los de esa posición—.
+  */
+  const plantillaEnFoco = useMemo(
+    () =>
+      players.filter(
+        (p) => !filters.position || p.posicion === filters.position,
+      ),
+    [players, filters.position],
+  );
 
-  const coverage = pct(totalPlayers, squadSize);
+  const squadSize = plantillaEnFoco.length;
+
+  const cubiertos = useMemo(
+    () => plantillaEnFoco.filter((p) => trackedIds.has(p.id)).length,
+    [plantillaEnFoco, trackedIds],
+  );
+
+  const coverage = pct(cubiertos, squadSize);
 
   const lastRecord = useMemo(() => {
-    if (!filteredTracking.length) return null;
+    /* Sólo entre los que tienen fecha de verdad: una fecha imposible ordenaba
+       primero y se anunciaba como el último seguimiento hecho. */
+    const conFecha = filteredTracking.filter((s) => fechaValida(s.FECHA));
 
-    return [...filteredTracking].sort(
-      (a, b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()
+    if (!conFecha.length) return null;
+
+    return [...conFecha].sort(
+      (a, b) =>
+        (fechaValida(b.FECHA)?.getTime() ?? 0) -
+        (fechaValida(a.FECHA)?.getTime() ?? 0)
     )[0];
   }, [filteredTracking]);
 
@@ -369,10 +418,8 @@ export default function DashboardSeguimiento() {
 
   /** Players in the squad with zero records under the current filters */
   const untrackedPlayers = useMemo(() => {
-    return players
-      .filter((p) => !trackedIds.has(p.id))
-      .filter((p) => !filters.position || p.posicion === filters.position);
-  }, [players, trackedIds, filters.position]);
+    return plantillaEnFoco.filter((p) => !trackedIds.has(p.id));
+  }, [plantillaEnFoco, trackedIds]);
 
   /** Players whose last contact is the oldest — actionable list */
   const staleContacts = useMemo(() => {
@@ -612,7 +659,7 @@ export default function DashboardSeguimiento() {
     out.push({
       icon: UserCheck,
       tone: "text-emerald-400",
-      text: `${totalPlayers} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${coverage}% de cobertura).`,
+      text: `${cubiertos} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${coverage}% de cobertura).`,
     });
 
     if (untrackedPlayers.length) {
