@@ -30,6 +30,7 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 
 import {
   FILAS_TIPOLOGIA,
+  FILA_PROPIA,
   TIPOLOGIA_VACIA,
   claveTipologia,
   normalizaTipologia,
@@ -351,7 +352,10 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
       const base = normalizaTipologia(actual);
       const columna = { ...base[lado] };
 
-      if (!texto.trim() || !Number.isFinite(n) || n <= 0) delete columna[fila];
+      /* Un cero escrito **se guarda**: es la forma de decir «aquí no hubo
+         ninguno» y de tapar lo que cuenta BeSoccer. Vacío es «no lo he
+         codificado» y deja la casilla punteada. */
+      if (!texto.trim() || !Number.isFinite(n) || n < 0) delete columna[fila];
       else columna[fila] = Math.round(n);
 
       return { ...base, [lado]: columna };
@@ -405,11 +409,31 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
             ))}
           </div>
         ))}
+
+        {/* Las propias puertas no son una fila de la tabla —van al pie de
+            cada columna—, pero se escriben igual. */}
+        <div className="min-w-0">
+          <p className="mb-1 mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
+            PROPIA PUERTA
+          </p>
+
+          <div className="flex items-center justify-between gap-2 py-0.5">
+            <span className="truncate text-xs text-white/60">
+              {FILA_PROPIA}
+            </span>
+
+            <span className="flex shrink-0 gap-1.5">
+              {casilla("aFavor", FILA_PROPIA)}
+              {casilla("enContra", FILA_PROPIA)}
+            </span>
+          </div>
+        </div>
       </div>
 
       <p className="mt-2 text-[11px] text-white/30">
         Primera casilla, goles a favor; segunda, en contra. Lo que se deje en
-        blanco sale punteado en el documento, como hasta ahora.
+        blanco sale punteado en el documento, como hasta ahora; las propias
+        puertas, en blanco, traen las que canta el marcador.
       </p>
     </div>
   );

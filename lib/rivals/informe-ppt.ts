@@ -93,6 +93,7 @@ import {
 
 import {
   FILAS_TIPOLOGIA,
+  FILA_PROPIA,
   TIPOLOGIA_VACIA,
   sumaColumna,
   type ColumnaTipologia,
@@ -1992,7 +1993,7 @@ function pintaColumnaTipologia(
     (ctx) =>
       escribe(
         ctx,
-        `EN PROPIA PUERTA: ${cuenta.propia}`,
+        `EN PROPIA PUERTA: ${manual[FILA_PROPIA] ?? cuenta.propia}`,
         caja.x + 44,
         yPropia + alto * 0.7,
         {

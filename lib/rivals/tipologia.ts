@@ -35,6 +35,16 @@ export const FILAS_TIPOLOGIA: { seccion: string; filas: string[] }[] = [
   { seccion: "ERRORES INDIVIDUALES", filas: ["ERROR IND."] },
 ];
 
+/**
+ * Los goles en propia puerta.
+ *
+ * No es una fila de la tabla —van al pie de cada columna, y en el reparto por
+ * secciones el original los apunta como error individual—, pero se escribe
+ * igual que las demás: lo que canta el marcador no siempre es lo que el
+ * analista quiere que salga.
+ */
+export const FILA_PROPIA = "EN PROPIA PUERTA";
+
 /** Todas las filas seguidas, que es como se recorren para pintar y para editar. */
 export const TODAS_LAS_FILAS = FILAS_TIPOLOGIA.flatMap(
   (bloque) => bloque.filas,
@@ -63,7 +73,9 @@ export function normalizaTipologia(crudo: unknown): TipologiaManual {
     for (const [fila, cuenta] of Object.entries(valor as object)) {
       const n = Number(cuenta);
 
-      if (TODAS_LAS_FILAS.includes(fila) && Number.isFinite(n) && n > 0) {
+      const valida = TODAS_LAS_FILAS.includes(fila) || fila === FILA_PROPIA;
+
+      if (valida && Number.isFinite(n) && n >= 0) {
         salida[fila] = Math.round(n);
       }
     }
@@ -94,7 +106,15 @@ export async function leeTipologia(equipo: string): Promise<TipologiaManual> {
   }
 }
 
-/** Cuántos goles suman las casillas escritas de una columna. */
+/**
+ * Cuántos goles suman las casillas escritas de una columna.
+ *
+ * Sólo las filas de la tabla: las propias puertas van al pie, y meterlas aquí
+ * bajaría el porcentaje de todas las secciones.
+ */
 export function sumaColumna(columna: ColumnaTipologia): number {
-  return Object.values(columna).reduce((total, n) => total + n, 0);
+  return TODAS_LAS_FILAS.reduce(
+    (total, fila) => total + (columna[fila] ?? 0),
+    0,
+  );
 }
