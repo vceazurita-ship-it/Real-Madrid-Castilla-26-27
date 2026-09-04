@@ -48,16 +48,15 @@ const FICHAS: Ficha[] = [
   },
   {
     /*
-    | Alta del 4 de septiembre de 2026. El puesto está **sin confirmar**: la
-    | hoja todavía no le tiene fila y el cuerpo técnico no lo ha dicho, así que
-    | va vacío a propósito. Con el puesto en blanco sale en las listas y en la
-    | ficha, pero el campograma no lo coloca en ninguna banda: en cuanto se
-    | sepa, se escribe aquí (o llega la fila de la hoja, que manda).
+    | Alta del 4 de septiembre de 2026. Mediocentro: en la hoja el puesto se
+    | escribe con el número, y `positionGroups` mete en el centro del campo al
+    | 6, al 8 y al 10. Va el **6** —el mediocentro posicional—; si resulta ser
+    | interior, aquí se cambia por "8" y no hay nada más que tocar.
     */
     id: "JUG-53",
     nombre: "Sergio Martínez",
     apodo: "Sergio",
-    posicion: "",
+    posicion: "6",
     licencia: "RMCF Castilla",
   },
 ];

@@ -536,10 +536,10 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
 },
 
 {
-  /* Alta del 4/9/2026. El puesto está sin confirmar: ver lib/fichajes.ts. */
+  /* Alta del 4/9/2026. Mediocentro; ver lib/fichajes.ts. */
   idJugador: "JUG-53",
   name: "Sergio Martínez",
-  position: "",
+  position: "Centrocampista",
   /* Vacío a propósito: el recorte del club lo pone el `map` de abajo. */
   photo: "",
 },
