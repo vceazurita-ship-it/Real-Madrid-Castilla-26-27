@@ -30,12 +30,12 @@ import { descarga } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 import {
-  ANCLA_SUELTA,
   ANCLAS_SLOT,
   columnasDeBanda,
   columnasDeBloque,
   reparteCampograma,
-  SLOTS_DE_BANDA,
+  ONCE_1_4_2_3_1,
+  reparteEnOnce,
   type BloqueEntrada,
 } from "@/lib/rivals/campograma-motor";
 
@@ -173,37 +173,37 @@ export function reparteAlineacion(jugadores: AlineacionJugador[]): {
 } {
   if (jugadores.length === 0) return { fichas: [], k: 1 };
 
-  /* 1 · Un bloque por posición (slot + lado). */
+  /*
+  | 1 · Los once bloques del 1-4-2-3-1, los mismos que la pantalla.
+  |
+  | Este documento existe para llevarse a la reunión lo que ya se ha mirado en
+  | `app/rivals`: si aquí se agrupara de otra forma, sería otra plantilla.
+  */
 
-  const porClave = new Map<string, BloqueEntrada<AlineacionJugador>>();
+  const porBloque = reparteEnOnce(jugadores, (jugador) => ({
+    slot: jugador.slot,
+    lado: ANCLAS_SLOT[jugador.slot]?.xSide ? jugador.lado : 0,
+  }));
 
-  for (const jugador of jugadores) {
-    const ancla = ANCLAS_SLOT[jugador.slot] ?? ANCLA_SUELTA;
+  const entradas: BloqueEntrada<AlineacionJugador>[] = [];
 
-    const lado = ancla.xSide ? jugador.lado : 0;
-    const clave = `${jugador.slot}:${lado}`;
+  for (const bloque of ONCE_1_4_2_3_1) {
+    const gente = porBloque.get(bloque.key);
 
-    const existente = porClave.get(clave);
+    if (!gente || gente.length === 0) continue;
 
-    if (existente) {
-      existente.jugadores.push(jugador);
-      continue;
-    }
-
-    porClave.set(clave, {
-      key: clave,
-      anchorX: ancla.x + (ancla.xSide ?? 0) * lado,
-      anchorY: ancla.y,
-      banda: SLOTS_DE_BANDA.has(jugador.slot),
+    entradas.push({
+      key: bloque.key,
+      anchorX: bloque.anchorX,
+      anchorY: bloque.anchorY,
+      banda: bloque.banda,
       /* Las chapas de IMPACTO son cosa de la pantalla: aquí no hay ficha alta
          ni ficha baja, todas miden lo mismo. */
       etiquetado: false,
-      jugadores: [jugador],
+      jugadores: gente,
       anchoChapa: 0,
     });
   }
-
-  const entradas = [...porClave.values()];
 
   /* Dentro del bloque manda el dorsal: el 1 antes que el 25. */
   for (const bloque of entradas) {

@@ -84,6 +84,162 @@ export const ANCLA_SUELTA: AnclaSlot = { x: 0.5, y: 0.56 };
 */
 export const SLOTS_DE_BANDA = new Set(["ei", "ed", "ext", "li", "ld", "car"]);
 
+/* ------------------------------------------------------------------ */
+/*  EL ONCE: ONCE BLOQUES EN 1-4-2-3-1                                 */
+/* ------------------------------------------------------------------ */
+
+/*
+| Antes había un bloque por cada posición que trajera la hoja, así que el
+| campograma cambiaba de forma con cada rival: uno con seis centrales y sin
+| mediapunta salía con cinco bloques amontonados atrás y un hueco delante, y
+| dos plantillas seguidas no se podían comparar de un vistazo.
+|
+| Ahora el esqueleto es SIEMPRE el mismo —once bloques colocados como un
+| 1-4-2-3-1— y lo que cambia es cuánta gente cae en cada uno. La plantilla se
+| lee como un equipo, no como un listado repartido por el césped.
+|
+| El dibujo, con el ataque arriba:
+|
+|                        DC
+|              MI        MP        MD
+|                  MC-I      MC-D
+|         LI     DFC-I     DFC-D     LD
+|                       POR
+*/
+
+export type BloqueOnce = {
+  /** Clave del bloque; es la que llevan las fichas colocadas. */
+  key: string;
+  /** Lo que se pinta en la chapa. */
+  code: string;
+  anchorX: number;
+  anchorY: number;
+  /** Los de fuera se leen en fila; los de dentro, apilados. */
+  banda: boolean;
+};
+
+export const ONCE_1_4_2_3_1: BloqueOnce[] = [
+  { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false },
+
+  { key: "mi", code: "MI", anchorX: 0.13, anchorY: 0.3, banda: true },
+  { key: "mp", code: "MP", anchorX: 0.5, anchorY: 0.33, banda: false },
+  { key: "md", code: "MD", anchorX: 0.87, anchorY: 0.3, banda: true },
+
+  { key: "mci", code: "MC", anchorX: 0.38, anchorY: 0.55, banda: false },
+  { key: "mcd", code: "MC", anchorX: 0.62, anchorY: 0.55, banda: false },
+
+  { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.74, banda: true },
+  { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.78, banda: false },
+  { key: "dfcd", code: "DFC", anchorX: 0.63, anchorY: 0.78, banda: false },
+  { key: "ld", code: "LD", anchorX: 0.9, anchorY: 0.74, banda: true },
+
+  { key: "por", code: "POR", anchorX: 0.5, anchorY: 0.93, banda: false },
+];
+
+/**
+ * A qué bloque va un jugador según su posición y su lado.
+ *
+ * Devuelve una clave cuando no hay duda, y una **pareja** cuando el puesto es
+ * de los que van de dos en dos y la hoja no dice el lado: un «central» a secas
+ * puede ir a cualquiera de los dos, y se decide después repartiendo para que
+ * los dos bloques queden parejos.
+ */
+function destinoDelSlot(slot: string, lado: number): string | [string, string] {
+  switch (slot) {
+    case "por":
+      return "por";
+
+    case "li":
+      return "li";
+    case "ld":
+      return "ld";
+
+    /* Carrilero: es un lateral con otro nombre. */
+    case "car":
+      return lado < 0 ? "li" : lado > 0 ? "ld" : ["li", "ld"];
+
+    case "dfc":
+    case "def":
+      return lado < 0 ? "dfci" : lado > 0 ? "dfcd" : ["dfci", "dfcd"];
+
+    case "mcd":
+    case "mc":
+    case "med":
+      return lado < 0 ? "mci" : lado > 0 ? "mcd" : ["mci", "mcd"];
+
+    /* El interior con lado se abre a la banda; sin lado se queda por dentro. */
+    case "int":
+      return lado < 0 ? "mi" : lado > 0 ? "md" : "mp";
+
+    case "mp":
+    case "sd":
+      return "mp";
+
+    case "ei":
+      return "mi";
+    case "ed":
+      return "md";
+    case "ext":
+      return lado < 0 ? "mi" : lado > 0 ? "md" : ["mi", "md"];
+
+    case "dc":
+      return "dc";
+
+    /*
+    | Puesto que la hoja no escribe o escribe de una forma que no reconocemos.
+    | Va a la mediapunta —el centro del campo— porque es el sitio donde menos
+    | miente: ni lo pone en la portería ni lo manda a una banda.
+    */
+    default:
+      return "mp";
+  }
+}
+
+/**
+ * Reparte una plantilla entre los once bloques.
+ *
+ * Devuelve, por clave de bloque, la lista de jugadores que le tocan. Los
+ * bloques que se quedan vacíos **no salen**: un rival sin mediapunta no pinta
+ * un hueco con una chapa dentro.
+ *
+ * El reparto de los que no traen lado se hace al final y al bloque que menos
+ * gente tenga, para que los dos centrales —o los dos mediocentros— queden
+ * equilibrados en vez de amontonarse todos a la izquierda.
+ */
+export function reparteEnOnce<T>(
+  jugadores: T[],
+  lee: (jugador: T) => { slot: string; lado: number },
+): Map<string, T[]> {
+  const reparto = new Map<string, T[]>();
+
+  const mete = (clave: string, jugador: T) => {
+    const lista = reparto.get(clave);
+
+    if (lista) lista.push(jugador);
+    else reparto.set(clave, [jugador]);
+  };
+
+  const dudosos: { jugador: T; pareja: [string, string] }[] = [];
+
+  for (const jugador of jugadores) {
+    const { slot, lado } = lee(jugador);
+    const destino = destinoDelSlot(slot, lado);
+
+    if (typeof destino === "string") mete(destino, jugador);
+    else dudosos.push({ jugador, pareja: destino });
+  }
+
+  for (const { jugador, pareja } of dudosos) {
+    const [izq, der] = pareja;
+
+    const cuantos = (clave: string) => reparto.get(clave)?.length ?? 0;
+
+    mete(cuantos(izq) <= cuantos(der) ? izq : der, jugador);
+  }
+
+  return reparto;
+}
+
 /*
 | Tope de la fila de un bloque de banda. Con cuatro en línea el bloque ya es
 | más ancho que medio campo; a partir de ahí seguir estirando le quita tamaño a

@@ -88,12 +88,12 @@ import type { InformeData } from "@/lib/rivals/informe-ppt";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
 import {
-  ANCLA_SUELTA,
   ANCLAS_SLOT,
   columnasDeBanda,
   columnasDeBloque,
   reparteCampograma,
-  SLOTS_DE_BANDA,
+  ONCE_1_4_2_3_1,
+  reparteEnOnce,
   type BloqueEntrada,
 } from "@/lib/rivals/campograma-motor";
 import type { RivalVoiceField } from "@/lib/voice/types";
@@ -5319,49 +5319,59 @@ function layoutPitch(
 ): PitchLayout {
   if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
 
-  /* 1 · Un bloque por posición (slot + lado). */
+  /*
+  | 1 · Los once bloques del 1-4-2-3-1.
+  |
+  | El esqueleto es siempre el mismo y lo que cambia es cuánta gente cae en
+  | cada bloque; así dos plantillas seguidas se comparan de un vistazo. Ver
+  | `ONCE_1_4_2_3_1` en el motor.
+  */
 
   /* Lo que el motor no necesita saber y el render sí: el código de la chapa y
      el color de la línea. */
   const adornos = new Map<string, { code: string; color: string }>();
 
-  const byKey = new Map<string, BloqueEntrada<RivalPlayer>>();
-
-  players.forEach((player) => {
+  const porBloque = reparteEnOnce(players, (player) => {
     const position = player["POSICIÓN"];
     const entry = getSlot(position);
 
     const slotKey = entry?.slot.key ?? "otros";
-    const anchor = ANCLAS_SLOT[slotKey] ?? ANCLA_SUELTA;
+    const anchor = ANCLAS_SLOT[slotKey];
 
-    const side = anchor.xSide ? detectSide(normalize(position)) : 0;
-    const key = `${slotKey}:${side}`;
+    return {
+      slot: slotKey,
+      lado: anchor?.xSide ? detectSide(normalize(position)) : 0,
+    };
+  });
 
-    const existing = byKey.get(key);
+  const entradas: BloqueEntrada<RivalPlayer>[] = [];
 
-    if (existing) {
-      existing.jugadores.push(player);
-      return;
-    }
+  ONCE_1_4_2_3_1.forEach((bloque) => {
+    const gente = porBloque.get(bloque.key);
 
-    adornos.set(key, {
-      code:
-        (entry?.slot.code ?? "S/P") + (side < 0 ? " I" : side > 0 ? " D" : ""),
-      color: entry?.line.color ?? "#9AA3AD",
+    /* Un bloque vacío no se pinta: sería una chapa flotando en el césped. */
+    if (!gente || gente.length === 0) return;
+
+    /*
+    | El color de la chapa sale de la línea del PRIMER jugador del bloque y no
+    | del bloque: dentro de "MP" puede haber una media punta y un segundo
+    | punta, y el color dice de qué línea es la mayoría de ahí.
+    */
+    adornos.set(bloque.key, {
+      code: bloque.code,
+      color: getSlot(gente[0]["POSICIÓN"])?.line.color ?? "#9AA3AD",
     });
 
-    byKey.set(key, {
-      key,
-      anchorX: anchor.x + side * (anchor.xSide ?? 0),
-      anchorY: anchor.y,
-      banda: SLOTS_DE_BANDA.has(slotKey),
+    entradas.push({
+      key: bloque.key,
+      anchorX: bloque.anchorX,
+      anchorY: bloque.anchorY,
+      banda: bloque.banda,
       etiquetado: false,
-      jugadores: [player],
+      jugadores: gente,
       anchoChapa: 0,
     });
   });
-
-  const entradas = [...byKey.values()];
 
   entradas.forEach((bloque) => {
     bloque.jugadores.sort(
