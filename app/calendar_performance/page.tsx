@@ -121,8 +121,22 @@ export default function CalendarPerformance() {
     null
   );
 
-  const reloadEvents = useCallback(async () => {
-    const r = await fetch(`${APPS_SCRIPT_URL}?action=condicional`);
+  /*
+  | Los trabajos se leen por `/api/rivals`, que guarda la respuesta del Apps
+  | Script en el servidor: en frío ese script tarda entre treinta y setenta
+  | segundos, y así sólo lo paga el primero del día. Antes se le llamaba
+  | directo desde el navegador y ésa era la espera —y el fallo— de esta
+  | pantalla.
+  |
+  | **Después de escribir hay que pedir `fresco`**: el guardado se verifica
+  | buscando en esta misma lista lo que se acaba de escribir, y una copia de
+  | hace dos minutos diría que no está.
+  */
+  const reloadEvents = useCallback(async (fresco = false) => {
+    const r = await fetch(
+      `/api/rivals?action=condicional${fresco ? "&fresco=1" : ""}`,
+    );
+
     const data = await r.json();
 
     if (!Array.isArray(data)) throw new Error("Respuesta inesperada");
@@ -314,7 +328,7 @@ export default function CalendarPerformance() {
       throw new Error(`El servidor respondió ${respuesta.status}`);
     }
 
-    const frescos = await reloadEvents();
+    const frescos = await reloadEvents(true);
 
     /* Recién creado el ID lo pone la hoja, así que el trabajo se localiza por
        fecha y título, que es justo lo que acabamos de escribir. */
@@ -365,7 +379,8 @@ export default function CalendarPerformance() {
       }),
     });
 
-    await reloadEvents();
+    /* Borrado: la copia del servidor todavía lo tiene, así que se pide fresca. */
+    await reloadEvents(true);
   }
 
   return (

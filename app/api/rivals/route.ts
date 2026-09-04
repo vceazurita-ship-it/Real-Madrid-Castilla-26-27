@@ -51,6 +51,12 @@ function pide(action: string) {
         cache: "no-store",
       });
 
+      /* Google contesta a veces con una página de error y un 5xx. Se corta
+         aquí para no guardar eso como si fuera la hoja. */
+      if (!response.ok) {
+        throw new Error(`Apps Script respondió ${response.status}`);
+      }
+
       const data = await response.json();
 
       cache.set(action, { data, hecha: Date.now() });
@@ -68,9 +74,23 @@ function pide(action: string) {
 
 async function lee(action: string, fresco: boolean) {
   if (fresco) {
+    /*
+    | Quien pide fresco quiere la verdad de la hoja, así que aquí no hay red:
+    | si Google falla, falla. Es lo que comprueba un guardado, y contestar con
+    | una copia diría que no se ha escrito algo que sí está.
+    */
+    const anterior = cache.get(action);
+
     cache.delete(action);
 
-    return pide(action);
+    try {
+      return await pide(action);
+    } catch (error) {
+      /* Se devuelve la copia al sitio: no vale tirarla por un fallo de red. */
+      if (anterior) cache.set(action, anterior);
+
+      throw error;
+    }
   }
 
   const guardado = cache.get(action);
@@ -89,7 +109,22 @@ async function lee(action: string, fresco: boolean) {
     }
   }
 
-  return pide(action);
+  /*
+  | Sin copia utilizable hay que esperar a Google. Y si Google falla teniendo
+  | nosotros algo guardado —aunque sea de hace media hora—, se sirve eso.
+  |
+  | El Apps Script se cae a ratos y devuelve una página de error en vez de
+  | JSON. Antes eso dejaba la pantalla en «no se pudieron cargar los datos»
+  | teniendo una copia perfectamente utilizable a mano; una lista de hace un
+  | rato es infinitamente mejor que un calendario vacío.
+  */
+  try {
+    return await pide(action);
+  } catch (error) {
+    if (guardado) return guardado.data;
+
+    throw error;
+  }
 }
 
 /** Lo que se acaba de escribir tiene que verse ya: el POST tira la copia. */

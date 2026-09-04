@@ -13,6 +13,15 @@ type FileItem = {
   type: "image" | "pdf";
 };
 
+/**
+ * Todo lo que cuelga de una carpeta del bucket, bajando por las subcarpetas.
+ *
+ * Las subcarpetas se piden **a la vez**, no una detrás de otra. Hay una por
+ * semana de temporada, así que en marzo eran más de treinta viajes a Supabase
+ * encadenados —cada uno esperando al anterior— y el calendario tardaba en
+ * pintar los adjuntos o se quedaba sin tiempo. En paralelo es un viaje por
+ * nivel, no uno por carpeta.
+ */
 async function listFolder(path: string): Promise<FileItem[]> {
   const { data, error } = await supabase.storage
     .from("performance")
@@ -23,31 +32,33 @@ async function listFolder(path: string): Promise<FileItem[]> {
 
   if (error || !data) return [];
 
-  let files: FileItem[] = [];
+  const ficheros: FileItem[] = [];
+  const carpetas: string[] = [];
 
   for (const item of data) {
     const fullPath = `${path}/${item.name}`;
 
-    if ((item as any).id) {
-      const { data: publicUrl } = supabase.storage
-        .from("performance")
-        .getPublicUrl(fullPath);
-
-      files.push({
-        url: publicUrl.publicUrl,
-        name: item.name,
-        created_at: (item as any).created_at,
-        type: item.name.toLowerCase().endsWith(".pdf")
-          ? "pdf"
-          : "image",
-      });
-    } else {
-      const nested = await listFolder(fullPath);
-      files.push(...nested);
+    /* Sin `id` no es un fichero: es una carpeta. */
+    if (!(item as { id?: string }).id) {
+      carpetas.push(fullPath);
+      continue;
     }
+
+    const { data: publicUrl } = supabase.storage
+      .from("performance")
+      .getPublicUrl(fullPath);
+
+    ficheros.push({
+      url: publicUrl.publicUrl,
+      name: item.name,
+      created_at: (item as { created_at: string }).created_at,
+      type: item.name.toLowerCase().endsWith(".pdf") ? "pdf" : "image",
+    });
   }
 
-  return files;
+  const anidados = await Promise.all(carpetas.map((carpeta) => listFolder(carpeta)));
+
+  return ficheros.concat(...anidados);
 }
 
 export async function GET() {
