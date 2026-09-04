@@ -1,4 +1,5 @@
 "use client";
+import { traeJson } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,8 +24,6 @@ import {
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
 type TrackingRecord = {
   ID_REGISTRO: string;
@@ -109,8 +108,7 @@ export default function Calendar() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
-      .then((r) => r.json())
+    traeJson<unknown>("/api/rivals?action=seguimiento")
       .then((data) => {
         if (cancelled) return;
 

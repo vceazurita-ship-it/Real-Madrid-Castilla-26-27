@@ -1,4 +1,5 @@
 "use client";
+import { traeJson } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Brain, Clock3, Dumbbell } from "lucide-react";
@@ -21,8 +22,6 @@ import {
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
 type MicrocycleRecord = {
   Temporada: string;
@@ -180,8 +179,7 @@ export default function MicroCalendar() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`${APPS_SCRIPT_URL}?action=microciclo`)
-      .then((r) => r.json())
+    traeJson<unknown>("/api/rivals?action=microciclo")
       .then((data) => {
         if (cancelled) return;
 

@@ -1,4 +1,5 @@
 "use client";
+import dynamic from "next/dynamic";
 import { traeCsv, traeJson } from "@/lib/hojaCsv";
 
 import type { ReactNode } from "react";
@@ -48,7 +49,6 @@ import {
 
 import { toast } from "sonner";
 
-import { ClipsDelJugador } from "@/components/coding/ClipsDelJugador";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
@@ -552,6 +552,21 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
  * nombre es lo único que se mueve con la persona. Si alguien no tiene
  * recorte, se queda con su URL original.
  */
+/*
+| El panel de clips llega cuando se pide.
+|
+| Sólo se pinta dentro de la ficha de un jugador, pero arrastra el dibujo de
+| carátulas y el empaquetado de imágenes, y eso viajaba en la primera carga de
+| la pantalla aunque no se abriera a nadie.
+*/
+const ClipsDelJugador = dynamic(
+  () =>
+    import("@/components/coding/ClipsDelJugador").then(
+      (modulo) => modulo.ClipsDelJugador,
+    ),
+  { ssr: false },
+);
+
 const players: Player[] = PLAYERS_BASE.filter(
   /* Esta lista está escrita a mano y no pasaba por el filtro de ocultos: los
      que se retiran de la plantilla seguían saliendo sólo aquí. */
@@ -1448,13 +1463,24 @@ export default function IndividualPage() {
       setLoading(true);
       setLoadError("");
 
+      /*
+      | Las dos lecturas van por `/api/rivals`, que guarda la respuesta del
+      | Apps Script en el servidor: en frío ese script tarda entre treinta y
+      | setenta segundos, y así sólo lo paga el primero del día.
+      |
+      | Al recargar a mano —y después de guardar— se pide `fresco=1`, que se
+      | salta esa copia: una de hace dos minutos diría que no está escrito algo
+      | que sí lo está.
+      */
+      const fresco = reloadKey > 0 ? "&fresco=1" : "";
+
       const results = await Promise.allSettled([
         traeJson<
           Record<string, string>[] | { data?: Record<string, string>[] }
-        >(`${APPS_SCRIPT_URL}?action=jugadores`, {
+        >(`/api/rivals?action=jugadores${fresco}`, {
           forzar: reloadKey > 0,
         }),
-        traeJson(`${APPS_SCRIPT_URL}?action=seguimiento`, {
+        traeJson(`/api/rivals?action=seguimiento${fresco}`, {
           forzar: reloadKey > 0,
         }),
         traeCsv(SHEET_VIDEOS, { forzar: reloadKey > 0 }),

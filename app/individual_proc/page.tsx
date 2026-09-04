@@ -1,4 +1,5 @@
 "use client";
+import { traeJson } from "@/lib/hojaCsv";
 
 import { useEffect, useMemo, useState } from "react";
 import { chipInk } from "@/lib/theme";
@@ -53,8 +54,6 @@ import {
   ReferenceLine,
 } from "recharts";
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
 type TrackingRecord = {
   ID_REGISTRO: string;
@@ -249,8 +248,7 @@ export default function DashboardSeguimiento() {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
 
   useEffect(() => {
-    fetch(`${APPS_SCRIPT_URL}?action=seguimiento`)
-      .then((r) => r.json())
+    traeJson<unknown>("/api/rivals?action=seguimiento")
       .then((data) => {
         setTracking(Array.isArray(data) ? data : []);
         setLoading(false);

@@ -42,7 +42,6 @@ import {
 } from "@/lib/rivals/portada";
 import { ofrecePortada } from "@/lib/rivals/portada-slot";
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
-import { ClipsDelJugador } from "@/components/coding/ClipsDelJugador";
 import {
   ONCE_COLOR,
   ONCE_ETIQUETA,
@@ -175,6 +174,14 @@ import type { LucideIcon } from "lucide-react";
 |
 | Los tipos siguen arriba con `import type`: no viajan al navegador.
 */
+
+const ClipsDelJugador = dynamic(
+  () =>
+    import("@/components/coding/ClipsDelJugador").then(
+      (modulo) => modulo.ClipsDelJugador,
+    ),
+  { ssr: false },
+);
 
 const OnceCampoDialog = dynamic(
   () => import("@/components/rivals/OnceCampoDialog"),

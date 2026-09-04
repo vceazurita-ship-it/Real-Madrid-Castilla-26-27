@@ -36,11 +36,9 @@ type Seguimiento = {
   FECHA?: string
 }
 
-const ENDPOINT_JUGADORES =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=jugadores"
+const ENDPOINT_JUGADORES = "/api/rivals?action=jugadores"
 
-const ENDPOINT_SEGUIMIENTO =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=seguimiento"
+const ENDPOINT_SEGUIMIENTO = "/api/rivals?action=seguimiento"
 
 const CSV_CULTURA =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv"
