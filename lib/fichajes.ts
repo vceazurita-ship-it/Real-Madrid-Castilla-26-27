@@ -46,6 +46,20 @@ const FICHAS: Ficha[] = [
     posicion: "LATERAL D.",
     licencia: "RMCF Castilla",
   },
+  {
+    /*
+    | Alta del 4 de septiembre de 2026. El puesto está **sin confirmar**: la
+    | hoja todavía no le tiene fila y el cuerpo técnico no lo ha dicho, así que
+    | va vacío a propósito. Con el puesto en blanco sale en las listas y en la
+    | ficha, pero el campograma no lo coloca en ninguna banda: en cuanto se
+    | sepa, se escribe aquí (o llega la fila de la hoja, que manda).
+    */
+    id: "JUG-53",
+    nombre: "Sergio Martínez",
+    apodo: "Sergio",
+    posicion: "",
+    licencia: "RMCF Castilla",
+  },
 ];
 
 /** Los fichajes convertidos en jugadores, con sus recortes. */

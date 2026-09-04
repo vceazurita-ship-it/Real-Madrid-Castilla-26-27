@@ -83,6 +83,7 @@ export const PLAYER_IMAGE_SLUGS = [
   "rachad-fettal",
   "ramon-salas",
   "roberto-martin",
+  "sergio-martinez",
   "sergio-martos",
   "sergio-mestre",
   "tirso-lorente",
@@ -146,6 +147,7 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-47": "cherif-fofana",
   "JUG-48": "gabriel-valero",
   "JUG-52": "oscar-naasei",
+  "JUG-53": "sergio-martinez",
 };
 
 /**

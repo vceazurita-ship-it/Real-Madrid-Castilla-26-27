@@ -535,6 +535,14 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
     "https://assets.realmadrid.com/is/image/realmadrid/ALVARO_GINES_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
 },
 
+{
+  /* Alta del 4/9/2026. El puesto está sin confirmar: ver lib/fichajes.ts. */
+  idJugador: "JUG-53",
+  name: "Sergio Martínez",
+  position: "",
+  /* Vacío a propósito: el recorte del club lo pone el `map` de abajo. */
+  photo: "",
+},
 
 ];
 
@@ -544,7 +552,11 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
  * nombre es lo único que se mueve con la persona. Si alguien no tiene
  * recorte, se queda con su URL original.
  */
-const players: Player[] = PLAYERS_BASE.map((player) => ({
+const players: Player[] = PLAYERS_BASE.filter(
+  /* Esta lista está escrita a mano y no pasaba por el filtro de ocultos: los
+     que se retiran de la plantilla seguían saliendo sólo aquí. */
+  (player) => !isHiddenPlayer(player.name),
+).map((player) => ({
   ...player,
   photo: getPlayerImage(player.name, "lejos") ?? player.photo,
   photoFace:

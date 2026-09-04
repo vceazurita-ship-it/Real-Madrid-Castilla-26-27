@@ -37,6 +37,19 @@ const HIDDEN_NAMES = new Set([
   // Ferran Seco
   "ferran seco",
   "seco",
+
+  /*
+  | David Jiménez, JUG-38 en la hoja. No se lista "david" a secas: en la
+  | plantilla hay un Cristian David y se ocultaría también.
+  */
+  "david jimenez",
+  "jime",
+  "jimenez",
+
+  // Manuel Ángel, JUG-34.
+  "manuel angel",
+  "mami",
+  "angel",
 ]);
 
 function normalize(value: unknown) {
