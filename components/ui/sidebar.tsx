@@ -13,6 +13,7 @@ import { useState } from "react"
 | sección en la que cae.
 */
 import {
+  ArrowLeft,
   BarChart3,
   Binoculars,
   BookOpen,
@@ -55,9 +56,12 @@ import {
 import type { ReactNode } from "react"
 
 import { trackModuleVisit } from "@/lib/module-usage"
+import { useVolver } from "@/hooks/useVolver"
 
 export function Sidebar() {
   const pathname = usePathname()
+
+  const { visible: puedeVolver, volver } = useVolver()
 
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(true)
@@ -171,6 +175,25 @@ const seccion = (titulo: string, hijos: ReactNode) => (
         <Menu size={20} />
       </button>
 
+      {/*
+        VOLVER — MÓVIL
+
+        Al lado de la hamburguesa y no dentro del menú: si hay que abrir el
+        menú para volver, ya no es un atajo. Va más estrecho que ella a
+        propósito, para que la cabecera siga cabiendo en un móvil de 360 px.
+      */}
+      {puedeVolver && (
+        <button
+          data-export-hide
+          onClick={volver}
+          title="Volver a la página anterior"
+          aria-label="Volver a la página anterior"
+          className="fixed left-[52px] top-1 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-2.5 text-white backdrop-blur-md shadow-lg md:hidden"
+        >
+          <ArrowLeft size={18} />
+        </button>
+      )}
+
       {/* OVERLAY MÓVIL */}
       {open && (
         <div
@@ -214,6 +237,33 @@ const seccion = (titulo: string, hijos: ReactNode) => (
             <X size={22} />
           </button>
         </div>
+
+        {/*
+          VOLVER — ESCRITORIO
+
+          Primera fila del menú, por encima del listado y fuera del scroll:
+          el rail plegado mide 78 px y siempre está a la vista, así que el
+          botón está en la misma esquina en las cuarenta y una páginas.
+        */}
+        {puedeVolver && (
+          <button
+            onClick={volver}
+            title="Volver a la página anterior"
+            aria-label="Volver a la página anterior"
+            className={`${normalClass} mb-4 w-full shrink-0`}
+          >
+            {collapsed ? (
+              <div className="w-full flex justify-center">
+                <ArrowLeft size={18} />
+              </div>
+            ) : (
+              <>
+                <ArrowLeft size={18} />
+                <span>Volver</span>
+              </>
+            )}
+          </button>
+        )}
 
         {/*
           El menú es más alto que la pantalla: scrollea aquí dentro, no en la
