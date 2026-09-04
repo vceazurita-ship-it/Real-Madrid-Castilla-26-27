@@ -180,6 +180,23 @@ function marcaDeTablero(tablero?: TableroPizarra) {
   return ` · ${total} ${total === 1 ? "versión" : "versiones"}`;
 }
 
+/**
+ * Cuándo se tocó por última vez un tablero.
+ *
+ * `actualizado` sólo se sella al editar el rival o la jornada, así que un
+ * tablero al que se le han colocado fichas sin tocar la cabecera no lo tiene.
+ * Para ésos vale la versión más reciente, que es lo que de verdad dice cuándo
+ * se trabajó ahí.
+ */
+function tocadoEn(tablero?: TableroPizarra) {
+  if (!tablero) return "";
+
+  return (tablero.versiones ?? []).reduce(
+    (ultima, version) => (version.creada > ultima ? version.creada : ultima),
+    tablero.actualizado ?? "",
+  );
+}
+
 /* "2026-2027" → "26 / 27", que es como lo escribe la plantilla. */
 function temporadaCorta(season: string) {
   const [desde, hasta] = season.split("-");
@@ -351,17 +368,35 @@ export default function PizarraAbpPage() {
   | que se va a preparar, no la primera de la temporada.
   */
   const porDefecto = useMemo(() => {
-    if (partidos.length === 0) return "";
+    /*
+    | Hasta que el calendario no está entero no se elige nada.
+    |
+    | El CSV de jugados llega en un suspiro y la hoja RIVALES puede tardar
+    | medio minuto, así que durante ese rato el único partido que existe es el
+    | amistoso de julio. Eligiéndolo se acababa montando el balón parado de la
+    | jornada que viene encima del tablero del amistoso, y al llegar la hoja el
+    | partido cambiaba solo debajo de las manos.
+    */
+    if (cargando || partidos.length === 0) return "";
 
     const conTablero = partidos.filter((item) => store.tableros?.[item.id]);
 
-    if (conTablero.length) return conTablero[conTablero.length - 1].id;
+    /* El último **tocado**, que es a lo que se vuelve; no el último del
+       calendario, que es otra cosa y era lo que se estaba abriendo. */
+    if (conTablero.length) {
+      return conTablero.reduce((ultimo, item) =>
+        tocadoEn(store.tableros?.[item.id]) >
+        tocadoEn(store.tableros?.[ultimo.id])
+          ? item
+          : ultimo,
+      ).id;
+    }
 
     const hoy = new Date().toISOString().slice(0, 10);
 
     return (partidos.find((item) => item.date && item.date >= hoy) ?? partidos[0])
       .id;
-  }, [partidos, store.tableros]);
+  }, [cargando, partidos, store.tableros]);
 
   const elegido = pedido || porDefecto;
 
@@ -1121,7 +1156,7 @@ export default function PizarraAbpPage() {
                   }}
                   className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                 >
-                  {partidos.length === 0 && (
+                  {(partidos.length === 0 || !elegido) && (
                     <option value="">
                       {cargando ? "Cargando calendario…" : "Sin partidos"}
                     </option>
