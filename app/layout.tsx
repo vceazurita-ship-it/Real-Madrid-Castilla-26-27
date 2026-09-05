@@ -10,6 +10,7 @@ import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
 import { ServiceWorker } from "@/components/service-worker";
+import { SinConexion } from "@/components/sin-conexion";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -108,6 +109,7 @@ export default function RootLayout({
               <PageExportButton />
               <ThemedToaster />
               <ServiceWorker />
+              <SinConexion />
             </DataProvider>
           </AIProvider>
         </ThemeProvider>
