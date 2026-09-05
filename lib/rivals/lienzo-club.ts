@@ -39,48 +39,14 @@ export const C = {
 |--------------------------------------------------------------------------
 */
 
-/**
- * Cómo se lee el pie dominante en una chapa.
- *
- * La hoja lo escribe a mano y no siempre igual —«Zurdo», «zurda»,
- * «Izquierdo»—, y esto se proyecta: se normaliza a las tres palabras que el
- * cuerpo técnico usa. Lo que no encaje se pinta tal cual en versales, que es
- * mejor que tragarse un dato que alguien se ha molestado en escribir.
- */
-export function pieDominante(valor: string | undefined) {
-  const texto = (valor ?? "").trim();
-
-  if (!texto || texto === ".") return "";
-
-  const limpio = texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-  /* La hoja de rivales escribe "DCHO", "IZDO" y "AMBOS" —así viene de
-     BeSoccer—, pero a mano se ha escrito de todo: se aceptan las dos formas y
-     se pinta siempre la palabra entera, que es la que se lee proyectada. */
-  if (limpio.includes("ambi") || limpio.includes("ambos")) return "AMBIDIESTRO";
-
-  if (
-    limpio.includes("zurd") ||
-    limpio.includes("izq") ||
-    limpio.includes("izd")
-  ) {
-    return "ZURDO";
-  }
-
-  if (
-    limpio.includes("diestr") ||
-    limpio.includes("derech") ||
-    limpio.includes("dch") ||
-    limpio.includes("der")
-  ) {
-    return "DIESTRO";
-  }
-
-  return texto.toUpperCase();
-}
+/*
+| El pie dominante se mudó a `lib/rivals/pie.ts` el día que dejó de ser cosa
+| de los lienzos: ahora lo pintan también el PDF del once y el pop-up de
+| antes de exportar, y ninguno de los dos puede importar este módulo, que
+| arrastra la Barlow Condensed de `next/font`. Se reexporta para que quien ya
+| lo pedía de aquí —la portada, el campograma de día de partido— siga igual.
+*/
+export { pieDominante } from "@/lib/rivals/pie";
 
 /**
  * La estatura en centímetros enteros, venga como venga.

@@ -599,6 +599,9 @@ function fichaDeCampo(player: RivalPlayer): OnceCampoCandidato {
     nombre: player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre",
     posCode: slotEntry?.slot.code ?? "",
     posicion: textoUtil(player["POSICIÓN"]),
+    /* Sin normalizar: el pop-up lo lee con la misma regla que el PDF, para
+       que lo que se ve al colocar sea lo que sale en la hoja. */
+    pie: textoUtil(player["PIE DOMINANTE"]),
     linea: slotEntry?.line.key ?? null,
     color: slotEntry?.line.color ?? "#8892A0",
     foto: textoUtil(player.FOTO),
@@ -1162,6 +1165,9 @@ export default function RivalPlayersPage() {
             ? `2ª ${segundo.slot.code}`
             : "",
         rol: textoUtil(player.ROL),
+        /* En bruto: el «DCHO» de BeSoccer y el «zurda» escrito a mano los
+           resuelve el documento, que es el que sabe cuánto sitio tiene. */
+        pie: textoUtil(player["PIE DOMINANTE"]),
         linea: slotEntry?.line.key ?? null,
         color: slotEntry?.line.color ?? "#8892A0",
         estado,

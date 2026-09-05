@@ -54,6 +54,8 @@ import { creaPptx, type CapaPptx, type DiapositivaPptx } from "@/lib/export/pptx
 import { descarga } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
+import { pieInicial } from "@/lib/rivals/pie";
+
 import {
   GuionHoja,
   LIENZO_H,
@@ -2434,12 +2436,20 @@ function pintaClub(
 | sin plantilla cargada, el informe se monta sin ellas.
 */
 
-/** La zona donde caen las fichas, con la cabecera del informe descontada. */
+/**
+ * La zona donde caen las fichas: **el césped entero**, de filo a filo.
+ *
+ * Iba metida ocho píxeles por dentro del verde por todos los lados. Ese
+ * recuadro no lo ve nadie —el césped se dibuja a sangre— y en el eje corto de
+ * la diapositiva, que es por donde se reparten los cuatro o cinco de una
+ * línea, esos treinta y dos píxeles son media ficha: se pagaban encogiendo a
+ * los once para dejar un margen invisible.
+ */
 const ZONA_CAMPO = {
-  x: 52,
-  y: CABECERA + 24,
-  w: W - 104,
-  h: H - CABECERA - 24 - 52,
+  x: 44,
+  y: CABECERA + 8,
+  w: W - 88,
+  h: H - CABECERA - 52,
 };
 
 /** El césped tumbado de las dos hojas, a sangre. */
@@ -2564,44 +2574,109 @@ function pintaOnceProbable(
   }));
 
   /*
-  | Cuánto encoge la ficha.
-  |
-  | Se miraba cuántos caían en la misma franja de un décimo y se repartía el
-  | alto entre ellos, pero eso da por hecho que la columna va repartida a
-  | partes iguales, y no lo está: una línea de cuatro se coloca entre el 0,2 y
-  | el 0,8 del campo —huecos de 0,2, no de 0,25— y las fichas se pisaban. Con
-  | el once puesto a mano, además, cada uno está donde le hayan dejado.
-  |
-  | Así que se mira **par a par**: dos fichas se tapan sólo si se solapan a lo
-  | ancho **y** a lo alto, de modo que cada pareja permite como mucho el mayor
-  | de sus dos huecos. El más pequeño de todos manda.
+  | Aire entre dos fichas que comparten franja. Estaba en 1,06 —un seis por
+  | ciento de hueco— y ese hueco lo pagaban las once fichas encogiendo. A ras
+  | se leen igual y la cara gana lo que el aire soltaba.
   */
-  const AIRE = 1.06;
+  const AIRE = 1.02;
 
-  let tope = 1;
+  /*
+  | La línea se reparte a lo largo del césped, no del tanto por uno.
+  |
+  | El once viene colocado sobre el campo del pop-up, donde una línea de
+  | cuatro cae entre el 0,12 y el 0,81: el 31 % del eje —arriba y abajo— se
+  | quedaba en verde vacío mientras las fichas se encogían para no pisarse
+  | dentro del 69 % restante. Aquí ese eje se estira hasta los filos: el de
+  | más arriba queda a media ficha del borde y el de más abajo también, y el
+  | resto conserva **exactamente** su sitio relativo, que es lo que el cuerpo
+  | técnico colocó.
+  |
+  | Se estira sólo este eje —el corto de la diapositiva—, que es el que
+  | aprieta. El otro es la profundidad, y ahí el sitio significa algo: un
+  | portero estirado hasta el filo dejaría de estar en su línea de fondo.
+  */
+  const anchos = colocados.map((uno) => uno.y);
 
-  for (let i = 0; i < colocados.length; i += 1) {
-    for (let j = i + 1; j < colocados.length; j += 1) {
-      const dx = Math.abs(colocados[i].x - colocados[j].x) * ZONA_CAMPO.w;
-      const dy = Math.abs(colocados[i].y - colocados[j].y) * ZONA_CAMPO.h;
+  const desde = Math.min(...anchos);
+  const recorrido = Math.max(...anchos) - desde;
 
-      const cabe = Math.max(dx / FICHA_W, dy / FICHA_H) / AIRE;
+  const alturaDe = (valor: number, alto: number) =>
+    recorrido > 0.001
+      ? ZONA_CAMPO.y +
+        alto / 2 +
+        ((valor - desde) / recorrido) * Math.max(0, ZONA_CAMPO.h - alto)
+      : ZONA_CAMPO.y + ZONA_CAMPO.h / 2;
 
-      tope = Math.min(tope, cabe);
+  const sitioDe = (uno: (typeof colocados)[number], alto: number) => ({
+    x: ZONA_CAMPO.x + ZONA_CAMPO.w * uno.x,
+    y: alturaDe(uno.y, alto),
+  });
+
+  /*
+  | Si a ese tamaño se pisa alguien.
+  |
+  | Dos fichas se tapan sólo cuando se solapan a lo ancho **y** a lo alto, así
+  | que basta con que a cada pareja le sobre uno de los dos huecos. Se mira
+  | par a par y no por franjas: con el once puesto a mano cada uno está donde
+  | le hayan dejado, y dar por hecho que la línea va a partes iguales es lo
+  | que antes dejaba fichas montadas.
+  */
+  const caben = (prueba: number) => {
+    const w = FICHA_W * prueba;
+    const h = FICHA_H * prueba;
+
+    const sitios = colocados.map((uno) => sitioDe(uno, h));
+
+    for (let i = 0; i < sitios.length; i += 1) {
+      for (let j = i + 1; j < sitios.length; j += 1) {
+        const dx = Math.abs(sitios[i].x - sitios[j].x);
+        const dy = Math.abs(sitios[i].y - sitios[j].y);
+
+        if (Math.max(dx / w, dy / h) < AIRE) return false;
+      }
     }
+
+    return true;
+  };
+
+  /*
+  | El mayor tamaño que cabe, a base de cortar por la mitad.
+  |
+  | No hay fórmula: al crecer la ficha crece lo que necesita **y** mengua el
+  | sitio que le queda al reparto, así que se prueba. Veinte cortes dejan el
+  | tamaño clavado al medio punto porcentual, y son veinte pasadas sobre once
+  | jugadores.
+  |
+  | El techo pasa del tamaño natural a un 25 % por encima: la ficha se dibuja
+  | en un lienzo al doble de resolución, así que un once holgado —una defensa
+  | de tres, un dibujo con las líneas bien separadas— puede permitirse una
+  | cara más grande sin que se vea el pixel.
+  |
+  | El suelo sigue en 0,32 y es a propósito: sólo se llega a él cuando alguien
+  | ha arrastrado a dos jugadores casi encima del otro, y ahí lo único que
+  | evita que una ficha tape a la de al lado es que las dos encojan. Subirlo
+  | haría más grandes justo las que ya se pisan.
+  */
+  const SUELO = 0.32;
+  const TECHO = 1.25;
+
+  let k = SUELO;
+
+  if (caben(TECHO)) {
+    k = TECHO;
+  } else {
+    let cabe = SUELO;
+    let pasa = TECHO;
+
+    for (let vuelta = 0; vuelta < 20; vuelta += 1) {
+      const medio = (cabe + pasa) / 2;
+
+      if (caben(medio)) cabe = medio;
+      else pasa = medio;
+    }
+
+    k = cabe;
   }
-
-  /* Y que la fila de arriba y la de abajo no se salgan del césped. */
-  const alturas = colocados.map((uno) => uno.y);
-
-  const margen =
-    Math.min(Math.min(...alturas), 1 - Math.max(...alturas)) * ZONA_CAMPO.h;
-
-  /* La ficha va centrada en su sitio, así que de la línea de más arriba (o de
-     más abajo) sólo le cabe media. El suelo de 0,32 es para que un once
-     arrastrado al filo del campo no acabe con once sellos ilegibles: antes
-     que eso, que asome. */
-  const k = Math.max(0.32, Math.min(1, tope, (margen * 2) / FICHA_H));
 
   const ancho = FICHA_W * k;
   const alto = FICHA_H * k;
@@ -2610,9 +2685,11 @@ function pintaOnceProbable(
   for (const uno of [...colocados].sort((a, b) => a.y - b.y)) {
     const jugador = uno.jugador;
 
+    const sitio = sitioDe(uno, alto);
+
     const caja = {
-      x: ZONA_CAMPO.x + ZONA_CAMPO.w * uno.x - ancho / 2,
-      y: ZONA_CAMPO.y + ZONA_CAMPO.h * uno.y - alto / 2,
+      x: sitio.x - ancho / 2,
+      y: sitio.y - alto / 2,
       w: ancho,
       h: alto,
     };
@@ -2781,6 +2858,8 @@ function pintaFichaOnce(
   marcas: MarcasFicha = SIN_MARCAS,
   /** Lo que puede ocupar el nombre sin pisar al vecino de al lado. */
   anchoMax = 0,
+  /** "Z", "D" o "A". Vacío cuando la hoja no dice de qué pie es. */
+  pie = "",
 ) {
   ctx.fillStyle = C.papel;
   ctx.beginPath();
@@ -2837,6 +2916,51 @@ function pintaFichaOnce(
   });
 
   pintaMarcasFicha(ctx, x, y, radio, marcas);
+  pintaPieFicha(ctx, x, y, radio, pie);
+}
+
+/**
+ * De qué pie es, en una letra pegada al círculo del dorsal.
+ *
+ * Aquí no cabe la palabra: son cuarenta y cuatro fichas en una diapositiva.
+ * Así que va la inicial y, sobre todo, el color —el zurdo en rosa de la casa
+ * y el diestro en crema—, porque a este tamaño se lee antes el tono que el
+ * trazo: lo que se busca al mirar el once de un rival es por dónde tiene a
+ * los zurdos, y en rosa eso se ve sin llegar a leer.
+ *
+ * Va por la izquierda porque los goles y las tarjetas van por la derecha: son
+ * dos columnas que no se estorban, una del jugador y otra del partido.
+ */
+function pintaPieFicha(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  radio: number,
+  pie: string,
+) {
+  if (!pie) return;
+
+  const lado = radio * 0.62;
+
+  const cx = x - radio * 0.86;
+  const cy = y - radio * 0.7;
+
+  ctx.fillStyle = pie === "D" ? C.crema : C.rosa;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, lado / 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = C.navy;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  escribe(ctx, pie, cx, cy + lado * 0.3, {
+    tamano: lado * 0.8,
+    peso: 700,
+    tinta: C.navy,
+    alinea: "centro",
+  });
 }
 
 /**
@@ -3060,6 +3184,8 @@ function pintaOnceEnCampo(
   radio: number,
   etiqueta: string,
   marcasDe?: (jugador: { nombre: string }) => MarcasFicha,
+  /** De qué pie es cada uno, cruzando el once con la hoja de la plantilla. */
+  pieDe?: (jugador: { dorsal: string; nombre: string }) => string,
 ) {
   g.el(etiqueta ? `Campo · ${etiqueta}` : "Campo", caja, (ctx) =>
     pintaCampo(ctx, caja.x, caja.y, caja.w, caja.h),
@@ -3119,6 +3245,7 @@ function pintaOnceEnCampo(
           cabe,
           marcasDe?.(sitio.jugador) ?? SIN_MARCAS,
           hueco,
+          pieDe?.(sitio.jugador) ?? "",
         ),
     );
   }
@@ -3495,6 +3622,7 @@ function pintaBloquePartido(
   once: OncePartido,
   partido: Partido | null,
   caja: { x: number; y: number; w: number; h: number },
+  pieDe: (jugador: { dorsal: string; nombre: string }) => string,
 ) {
   const etiqueta = partido
     ? `${partido.local.nombre}-${partido.visitante.nombre}`
@@ -3621,6 +3749,7 @@ function pintaBloquePartido(
       /* En el campo de salida, del cambio sólo interesa que se fue. */
       return { ...marca, entra: undefined };
     },
+    pieDe,
   );
 
   pintaOnceEnCampo(
@@ -3640,6 +3769,7 @@ function pintaBloquePartido(
       /* Y en el de llegada, que entró. */
       return { ...marca, sale: undefined };
     },
+    pieDe,
   );
 
   const rotulo = (texto: string, x: number) => {
@@ -3675,6 +3805,52 @@ function pintaBloquePartido(
   pintaConvocatoria(g, once, marcas, zonaMedio, etiqueta);
 }
 
+/**
+ * De qué pie es cada uno de los que salen en un once de BeSoccer.
+ *
+ * El dato lo escribe la hoja RIVALES, que es donde el cuerpo técnico lleva la
+ * plantilla del rival; los onces de partido los publica BeSoccer y no traen
+ * pie. Se cruzan por nombre con la misma regla con la que ya se cruzan los
+ * goles y las tarjetas —«Diego Gómez» contra «D. Gómez»—, y **no por dorsal**:
+ * el número de la hoja se escribe a mano y no siempre coincide con el del
+ * acta, y colgarle el pie de otro a un jugador es peor que no decir nada.
+ */
+function pieDeLaPlantilla(plantilla: AlineacionJugador[] | undefined) {
+  const porNombre = new Map<string, string>();
+
+  for (const uno of plantilla ?? []) {
+    const letra = pieInicial(uno.pie);
+
+    if (!letra) continue;
+
+    const clave = normalizaNombre(uno.nombre);
+
+    if (clave) porNombre.set(clave, letra);
+  }
+
+  return (jugador: { dorsal: string; nombre: string }) => {
+    if (porNombre.size === 0) return "";
+
+    const clave = normalizaNombre(jugador.nombre);
+
+    const directa = porNombre.get(clave);
+
+    if (directa) return directa;
+
+    /* Como en `marcasDe`: de cuatro letras para abajo no se busca dentro de
+       otro nombre, que «Pau» está en «Pau Torres» y en «Paulino». */
+    if (clave.length < 4) return "";
+
+    for (const [otro, letra] of porNombre) {
+      if (otro.length < 4) continue;
+
+      if (otro.includes(clave) || clave.includes(otro)) return letra;
+    }
+
+    return "";
+  };
+}
+
 /** Dos partidos por hoja, cada uno con sus dos campogramas. */
 function pintaPartidos(
   g: GuionHoja,
@@ -3697,22 +3873,45 @@ function pintaPartidos(
   const izquierda =
     onces.length > 1 ? MARGEN : MARGEN + (ANCHO - mitad) / 2;
 
+  /*
+  | De qué pie es cada uno. Lo pone la hoja RIVALES, no BeSoccer, así que hay
+  | que cruzar los dos por nombre: sin plantilla cargada la marca no sale y
+  | los campos quedan como estaban.
+  */
+  const pieDe = pieDeLaPlantilla(data.plantilla);
+
   onces.forEach((once, indice) => {
-    pintaBloquePartido(g, once, partidos.get(once.partidoId) ?? null, {
-      x: izquierda + indice * (mitad + 40),
-      y: CUERPO_Y - 24,
-      w: mitad,
-      h: CUERPO_ALTO + 24,
-    });
+    pintaBloquePartido(
+      g,
+      once,
+      partidos.get(once.partidoId) ?? null,
+      {
+        x: izquierda + indice * (mitad + 40),
+        y: CUERPO_Y - 24,
+        w: mitad,
+        h: CUERPO_ALTO + 24,
+      },
+      pieDe,
+    );
   });
 
   const conCambios = onces.filter((once) => (once.cambios ?? []).length > 0);
 
+  /* La leyenda del pie sólo se escribe si hay marcas que explicar. */
+  const conPie = onces.some((once) =>
+    once.jugadores.some((jugador) => pieDe(jugador)),
+  );
+
   pie(
     g,
-    conCambios.length === onces.length
-      ? "ONCE INICIAL, CAMBIOS Y CONVOCATORIA · FUENTE BESOCCER"
-      : "BESOCCER NO PUBLICA CAMBIOS DE TODOS LOS PARTIDOS · LO QUE FALTE SE VE EN EL CAMPO DE LA IZQUIERDA",
+    [
+      conCambios.length === onces.length
+        ? "ONCE INICIAL, CAMBIOS Y CONVOCATORIA · FUENTE BESOCCER"
+        : "BESOCCER NO PUBLICA CAMBIOS DE TODOS LOS PARTIDOS · LO QUE FALTE SE VE EN EL CAMPO DE LA IZQUIERDA",
+      conPie ? "Z ZURDO · D DIESTRO · A AMBIDIESTRO" : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
   );
 }
 

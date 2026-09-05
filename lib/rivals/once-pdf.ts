@@ -69,6 +69,8 @@ import {
 | es el mismo motor que mueve el pop-up de antes de exportar. Lo que se ve al
 | arrastrar tiene que ser lo que salga en la hoja.
 */
+import { pieChapa } from "@/lib/rivals/pie";
+
 import {
   LINEA_LABEL,
   LINEA_ORDEN,
@@ -113,6 +115,14 @@ export type OncePdfPlayer = {
   segunda: string;
   /** Rol en el equipo, tal cual lo escribe la hoja. */
   rol: string;
+  /**
+   * Pie dominante, tal y como lo escribe la hoja: se normaliza al pintarlo.
+   *
+   * Va suelto y no sólo dentro de `datos`, que es la banda de la ficha,
+   * porque el campograma también lo pinta: por dónde se perfila un extremo o
+   * hacia dónde sale un lateral se mira en el campo, no en la ficha.
+   */
+  pie: string;
   linea: OncePdfLinea | null;
   /** Color de la línea, en hexadecimal. */
   color: string;
@@ -1220,7 +1230,22 @@ function pintaJugadorEnCampo(
 
   fuente(doc, 5.5, "normal");
 
-  const pos = recorta(doc, jugador.posCode || jugador.posicion, hueco - 12);
+  /*
+  | Puesto y pie en el mismo renglón: «LI · ZURDO».
+  |
+  | El pie va en el campo y no sólo en la banda de datos de la ficha porque es
+  | ahí donde se usa: si el lateral izquierdo es diestro se sabe que va a
+  | cerrarse hacia dentro, y eso se lee mirando el dibujo, no leyendo once
+  | fichas. Comparte renglón con el puesto en vez de abrir uno propio para no
+  | crecerle la chapa a la ficha: son once en un campo de 344 pt.
+  */
+  const pos = recorta(
+    doc,
+    [jugador.posCode || jugador.posicion, pieChapa(jugador.pie)]
+      .filter(Boolean)
+      .join(" · "),
+    hueco - 12,
+  );
   const anchoPos = ancho(doc, pos);
 
   const anchoTexto = Math.max(anchoNombre, anchoPos);

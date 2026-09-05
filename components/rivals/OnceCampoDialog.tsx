@@ -55,6 +55,7 @@ import {
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
 import { paletaOnce } from "@/lib/rivals/once-pdf";
+import { pieChapa } from "@/lib/rivals/pie";
 import type { OncePos } from "@/lib/rivals/once";
 import type { Theme } from "@/lib/theme";
 
@@ -70,6 +71,8 @@ export type OnceCampoCandidato = {
   nombre: string;
   posCode: string;
   posicion: string;
+  /** Pie dominante en bruto, tal y como lo escribe la hoja. */
+  pie: string;
   linea: OnceLinea | null;
   /** Color de su línea, el mismo que lleva en el campograma de la pantalla. */
   color: string;
@@ -342,6 +345,9 @@ function Cara({
         >
           {jugador.nombre}
         </p>
+        {/* PUESTO Y PIE — «LI · ZURDO», el mismo renglón que escribe el PDF:
+            por dónde se perfila un extremo o hacia dónde se cierra un lateral
+            se decide mirando el campo, y no leyendo once fichas. */}
         <p
           className="truncate"
           style={{
@@ -350,7 +356,9 @@ function Cara({
             color: mezcla(jugador.color, paleta.cesped, 0.85),
           }}
         >
-          {jugador.posCode || jugador.posicion}
+          {[jugador.posCode || jugador.posicion, pieChapa(jugador.pie)]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
     </div>
