@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { Player, EstadoJugador } from "../types/player";
 import { getPlayerImage, getPlayerPhotoSrc } from "../lib/playerImages";
 import { isHiddenPlayer } from "../lib/hiddenPlayers";
+import { posicionDe } from "../lib/posiciones";
 import { traeCsv } from "../lib/hojaCsv";
 
 const CSV_URL =
@@ -91,7 +92,7 @@ export function useTrainingPlayers() {
           id: p.ID_JUGADOR,
           nombre: p.NOMBRE,
           apodo: p.APODO || p.NOMBRE,
-          posicion: p.POSICION,
+          posicion: posicionDe(p.NOMBRE, p.POSICION),
           dorsal: Number(p.DORSAL) || undefined,
 
           foto: getPlayerPhotoSrc(p.NOMBRE, {

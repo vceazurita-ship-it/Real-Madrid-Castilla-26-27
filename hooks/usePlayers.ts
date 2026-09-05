@@ -7,6 +7,7 @@ import { getPlayerImage, getPlayerPhotoSrc } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { conFichajes } from "@/lib/fichajes";
 import { conDorsales } from "@/lib/dorsales";
+import { conPosiciones } from "@/lib/posiciones";
 import { traeCsv } from "@/lib/hojaCsv";
 
 const CSV_URL =
@@ -80,14 +81,15 @@ function cargaPlantilla(): Promise<Player[]> {
         }));
 
       /*
-      | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`) y el
-      | dorsal de los que todavía no numera (`lib/dorsales.ts`).
+      | Y los fichajes que la hoja todavía no trae (`lib/fichajes.ts`), el
+      | dorsal de los que todavía no numera (`lib/dorsales.ts`) y los puestos
+      | que trae mal (`lib/posiciones.ts`).
       |
       | Aquí, en el punto de entrada, para que valgan igual en el once, en la
       | pizarra de ABP, en el coding y en las valoraciones sin tocar ni una
       | pantalla. Lo que la hoja traiga escrito manda siempre.
       */
-      plantillaEnMemoria = conDorsales(conFichajes(plantilla));
+      plantillaEnMemoria = conPosiciones(conDorsales(conFichajes(plantilla)));
 
       return plantillaEnMemoria;
     })
