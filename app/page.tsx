@@ -7,7 +7,8 @@ import { useEffect, useState } from "react"
 import Papa from "papaparse"
 import {
   Activity,
-  BarChart3,  ChevronRight,
+  BarChart3,
+  ChevronRight,
   Handshake,
   LayoutGrid,
   Shield,
@@ -93,12 +94,20 @@ function Metric({ value, loading }: { value: number; loading: boolean }) {
   return <span className="tabular-nums">{value.toLocaleString("es-ES")}</span>
 }
 
-/** Tarjeta de dato: el número manda y el resto acompaña. */
+/**
+ * Tarjeta de dato: el número manda y el resto acompaña.
+ *
+ * `destino` es el nombre de la pantalla a la que lleva, y no es opcional a
+ * propósito. El rótulo de arriba nombra **la métrica** —«Seguimientos»,
+ * «Promedio»— y eso no dice a dónde se va al pulsar: la tarjeta parecía un
+ * dato y era un enlace. El nombre va al pie, con la flecha, igual en las seis.
+ */
 function StatCard({
   href,
   label,
   value,
   caption,
+  destino,
   loading,
   icon: Icon,
   suffix,
@@ -107,6 +116,7 @@ function StatCard({
   label: string
   value: number
   caption: string
+  destino: string
   loading: boolean
   icon: React.ElementType
   suffix?: string
@@ -141,17 +151,27 @@ function StatCard({
         </p>
 
         <p className="mt-2.5 text-[13px] text-white/50">{caption}</p>
+
+        <p className="mt-4 flex items-center gap-1.5 border-t border-white/[0.07] pt-3 text-[12px] font-medium text-white/45 transition-colors duration-300 group-hover:text-[#D8B45A]">
+          {destino}
+          <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+        </p>
       </div>
     </Link>
   )
 }
 
-/** Tarjeta de fase de juego: aquí el color sí identifica (ataque / defensa / cultura). */
+/**
+ * Tarjeta de fase de juego: aquí el color sí identifica (ataque / defensa /
+ * cultura). Como la de dato, dice al pie a qué pantalla lleva: «Ataque» es la
+ * fase del juego, no el sitio al que se va.
+ */
 function IdentityCard({
   href,
   title,
   value,
   caption,
+  destino,
   loading,
   color,
   icon: Icon,
@@ -160,6 +180,7 @@ function IdentityCard({
   title: string
   value: number
   caption: string
+  destino: string
   loading: boolean
   color: string
   icon: React.ElementType
@@ -185,6 +206,11 @@ function IdentityCard({
         </span>
 
         <span className="mt-1 block text-[12px] text-white/40">{caption}</span>
+
+        <span className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-white/35 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
+          {destino}
+          <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
+        </span>
       </span>
 
       <span className="text-[34px] font-bold leading-none text-[color:var(--accent)]">
@@ -518,6 +544,7 @@ export default function Home() {
                   label="Seguimientos"
                   value={seguimientos}
                   caption="Sesiones registradas"
+                  destino="Calendario Seguimiento"
                   loading={loadingSeguimiento}
                   icon={Activity}
                 />
@@ -527,6 +554,7 @@ export default function Home() {
                   label="Jugadores"
                   value={totalJugadores}
                   caption="Jugadores en plantilla"
+                  destino="Plantilla"
                   loading={loadingJugadores}
                   icon={Users}
                 />
@@ -536,6 +564,7 @@ export default function Home() {
                   label="Promedio"
                   value={promedioSeguimientos}
                   caption="Seguimientos por jugador"
+                  destino="Dashboard Seguimiento"
                   loading={loadingSeguimiento}
                   icon={BarChart3}
                 />
@@ -557,6 +586,7 @@ export default function Home() {
                   title="Ataque"
                   value={ataqueApartados}
                   caption="Apartados ofensivos"
+                  destino="Identidad de Juego"
                   loading={loadingPrincipios}
                   color="#22D3EE"
                   icon={Swords}
@@ -567,6 +597,7 @@ export default function Home() {
                   title="Defensa"
                   value={defensaApartados}
                   caption="Apartados defensivos"
+                  destino="Identidad de Juego"
                   loading={loadingPrincipios}
                   color="#60A5FA"
                   icon={Shield}
@@ -577,6 +608,7 @@ export default function Home() {
                   title="Cultura"
                   value={principiosCultura}
                   caption="Elementos culturales"
+                  destino="Dinámicas y Valores"
                   loading={loadingCultura}
                   color="#34D399"
                   icon={Handshake}
