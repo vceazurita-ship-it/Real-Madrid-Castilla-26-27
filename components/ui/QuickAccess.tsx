@@ -1,58 +1,23 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 
-import { trackModuleVisit, useModuleUsage } from "@/lib/module-usage";
-import { AREA_BY_KEY, MODULES } from "@/lib/modules";
+import { trackModuleVisit, useModulosMasUsados } from "@/lib/module-usage";
+import { AREA_BY_KEY } from "@/lib/modules";
 
 /**
  * Fila de accesos directos.
  *
- * Arranca con los atajos que el staff ya tenía a mano en la portada y, según
- * se va usando la plataforma en ese dispositivo, se reordena sola: lo que más
- * se abre acaba delante sin que nadie tenga que configurar nada.
+ * Se reordena sola: lo que más se abre en este dispositivo acaba delante sin
+ * que nadie configure nada. El orden lo calcula `useModulosMasUsados`, que es
+ * el mismo que colocan los tres enlaces grandes de arriba —la tarjeta de la
+ * foto y los dos botones—, para que la portada entera hable del mismo uso.
  */
 
-const SLOTS = 8;
-
-/* Punto de partida en un dispositivo nuevo, sin historial todavía. */
-const SEED = [
-  "/micro_calendar",
-  "/calendar_performance",
-  "/match-preparation",
-  "/individual",
-  "/setpieces",
-  "/setpieces_def",
-  "/throw-ins",
-  "/throw-ins-def",
-];
-
-const MODULE_BY_HREF = new Map(MODULES.map((module) => [module.href, module]));
+const HUECOS = 8;
 
 export default function QuickAccess() {
-  const usage = useModuleUsage();
-
-  const shortcuts = useMemo(() => {
-    const visited = MODULES.filter((module) => (usage[module.href] ?? 0) > 0).sort(
-      (a, b) => (usage[b.href] ?? 0) - (usage[a.href] ?? 0)
-    );
-
-    const chosen = [...visited];
-
-    /* Los huecos que deje el historial los completan los atajos de siempre. */
-    SEED.forEach((href) => {
-      if (chosen.length >= SLOTS) return;
-
-      const seeded = MODULE_BY_HREF.get(href);
-
-      if (seeded && !chosen.some((item) => item.href === href)) {
-        chosen.push(seeded);
-      }
-    });
-
-    return chosen.slice(0, SLOTS);
-  }, [usage]);
+  const shortcuts = useModulosMasUsados(HUECOS);
 
   return (
     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none">

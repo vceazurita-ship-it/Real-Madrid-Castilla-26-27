@@ -7,10 +7,7 @@ import { useEffect, useState } from "react"
 import Papa from "papaparse"
 import {
   Activity,
-  BarChart3,
-  BookOpen,
-  CalendarDays,
-  ChevronRight,
+  BarChart3,  ChevronRight,
   Handshake,
   LayoutGrid,
   Shield,
@@ -22,6 +19,7 @@ import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
+import { trackModuleVisit, useModulosMasUsados } from "@/lib/module-usage"
 import { isHiddenPlayer } from "@/lib/hiddenPlayers"
 import { traeCsv, traeJson } from "@/lib/hojaCsv"
 
@@ -197,6 +195,16 @@ function IdentityCard({
 }
 
 export default function Home() {
+  /*
+  | Los tres enlaces grandes de arriba llevaban destino fijo —el Área General y
+  | dos calendarios— y no tenían por qué ser lo que se abre a diario. Ahora los
+  | pone el propio uso de este dispositivo: el primero es lo que más se abre.
+  |
+  | Van con su nombre puesto, así que aunque cambien de sitio con el tiempo
+  | nunca sorprenden: la tarjeta dice a dónde lleva.
+  */
+  const [masUsado, segundo, tercero] = useModulosMasUsados(3)
+
   const [ataqueApartados, setAtaqueApartados] = useState(0)
   const [defensaApartados, setDefensaApartados] = useState(0)
   const [principiosCultura, setPrincipiosCultura] = useState(0)
@@ -378,20 +386,22 @@ export default function Home() {
 
                   <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <Link
-                      href="/micro_calendar"
+                      href={segundo.href}
+                      onClick={() => trackModuleVisit(segundo.href)}
                       className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
                     >
-                      <BookOpen className="h-[18px] w-[18px]" />
-                      Calendario de Contenidos
+                      <segundo.icon className="h-[18px] w-[18px]" />
+                      {segundo.title}
                       <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                     </Link>
 
                     <Link
-                      href="/calendar_performance"
+                      href={tercero.href}
+                      onClick={() => trackModuleVisit(tercero.href)}
                       className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-6 py-3.5 text-[15px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-400/45 hover:bg-white/[0.07] hover:text-white"
                     >
-                      <CalendarDays className="h-[18px] w-[18px] text-emerald-400" />
-                      Calendario Condicional
+                      <tercero.icon className="h-[18px] w-[18px] text-emerald-400" />
+                      {tercero.title}
                       <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                     </Link>
                   </div>
@@ -400,7 +410,8 @@ export default function Home() {
                 {/* ---------- DERECHA: visión global ---------- */}
 
                 <Link
-                  href="/general"
+                  href={masUsado.href}
+                  onClick={() => trackModuleVisit(masUsado.href)}
                   className="light-sweep group relative block min-h-[320px] overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[400px]"
                 >
                   <div
@@ -423,11 +434,17 @@ export default function Home() {
                     className="absolute inset-0 bg-gradient-to-t from-[#02060D]/90 via-[#02060D]/25 to-transparent"
                   />
 
-                  <div className="absolute left-5 top-5">
-                    <div className="rounded-full border border-cyan-500/30 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-cyan-400/60">
-                      <p className="text-[11px] font-medium tracking-[0.3em] text-cyan-400">
-                        VISIÓN GLOBAL
+                  {/* La chapa dice a dónde lleva la tarjeta: el destino lo pone
+                      el uso, así que tiene que ir con su nombre puesto. */}
+                  <div className="absolute left-5 top-5 max-w-[calc(100%-40px)]">
+                    <div className="flex items-center gap-2.5 rounded-full border border-cyan-500/30 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-cyan-400/60">
+                      <masUsado.icon className="h-[15px] w-[15px] shrink-0 text-cyan-400" />
+
+                      <p className="truncate text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-400">
+                        {masUsado.title}
                       </p>
+
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-cyan-400/70 transition-transform duration-300 group-hover:translate-x-0.5" />
                     </div>
                   </div>
 

@@ -108,7 +108,22 @@ export function SquadPitch({
     [players, width, height, horizontal]
   );
 
-  const badgeSize = Math.max(18, Math.min(30, Math.round(avatar * 0.46)));
+  /*
+  | Medidas de la ficha.
+  |
+  | La nota dejó de ser una chapita en la esquina de la foto: en una pantalla
+  | de valoraciones es lo único que hay que poder leer de un vistazo, con
+  | veinte jugadores en el campo y sin acercarse. Ahora es una pastilla
+  | centrada bajo la foto, montada sobre su borde, y manda ella.
+  */
+  const notaAlto = Math.max(17, Math.min(28, Math.round(avatar * 0.34)));
+  const notaFuente = Math.max(11, Math.min(17, Math.round(avatar * 0.26)));
+
+  /* El aro crece con la foto: uno de 2 px sobre un avatar de 70 no se ve. */
+  const aro = Math.max(2, Math.min(5, Math.round(avatar * 0.06)));
+
+  const estrellaSize = Math.max(14, Math.min(24, Math.round(avatar * 0.3)));
+
   const nameFont = Math.max(9, Math.min(13, Math.round(avatar * 0.22)));
 
   const hoveredCard = useMemo(
@@ -181,21 +196,30 @@ export function SquadPitch({
             } ${isHovered || active ? "z-40" : ""}`}
             style={{ left: x, top: y }}
           >
-            {/* FOTO + ARO DE COLOR */}
+            {/*
+              FOTO + ARO DE COLOR
 
+              El envoltorio existe para la estrella: la foto recorta lo que se
+              salga de su círculo, y la ficha entera es tan ancha como el
+              nombre, así que colgar la estrella de cualquiera de los dos la
+              dejaba cortada o a un palmo de la cabeza.
+            */}
+
+            <span
+              className="relative shrink-0"
+              style={{ height: avatar, width: avatar }}
+            >
             <div
-              className="relative shrink-0 overflow-hidden rounded-full bg-[#11161D] transition-shadow"
+              className="relative h-full w-full overflow-hidden rounded-full bg-[#11161D] transition-shadow"
               style={{
-                height: avatar,
-                width: avatar,
-                border: `${rated ? 3 : 2}px solid ${
-                  rated ? color : "rgba(255,255,255,0.45)"
+                border: `${aro}px solid ${
+                  rated ? color : "rgba(255,255,255,0.4)"
                 }`,
                 boxShadow: active
-                  ? `0 0 0 3px #C8A96B, 0 0 18px ${color}80, 0 4px 16px rgba(0,0,0,0.65)`
+                  ? `0 0 0 3px #C8A96B, 0 0 20px ${color}80, 0 6px 18px rgba(0,0,0,0.65)`
                   : rated
-                    ? `0 0 14px ${color}45, 0 4px 14px rgba(0,0,0,0.6)`
-                    : "0 4px 14px rgba(0,0,0,0.55)",
+                    ? `0 0 16px ${color}40, 0 5px 16px rgba(0,0,0,0.6)`
+                    : "0 5px 16px rgba(0,0,0,0.55)",
               }}
             >
               {item.photo ? (
@@ -213,41 +237,56 @@ export function SquadPitch({
                 />
               )}
 
-              {/* NOTA */}
-
+              {/* Un velo abajo para que la pastilla no se apoye sobre la cara. */}
               <span
-                className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full font-bold tabular-nums ring-2 ring-black/55"
-                style={{
-                  height: badgeSize,
-                  minWidth: badgeSize,
-                  paddingInline: 3,
-                  fontSize: Math.max(9, Math.round(badgeSize * 0.46)),
-                  backgroundColor: rated ? color : "#1E293B",
-                  color: rated ? "#06121A" : "rgba(255,255,255,0.5)",
-                }}
-              >
-                {formatRating(item.value)}
-              </span>
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent"
+                style={{ height: Math.round(avatar * 0.3) }}
+              />
+            </div>
 
-              {/* MVP */}
+              {/* MVP — fuera de la foto, para no comerse media cara. */}
 
               {item.mvp && !item.dimmed && (
                 <span
-                  className="absolute -left-1 -top-1 flex items-center justify-center rounded-full bg-[#C8A96B] text-black ring-2 ring-black/55"
+                  className="absolute z-10 flex items-center justify-center rounded-full bg-[#C8A96B] text-black shadow-[0_2px_8px_rgba(0,0,0,.6)] ring-2 ring-black/50"
                   style={{
-                    height: Math.round(badgeSize * 0.74),
-                    width: Math.round(badgeSize * 0.74),
+                    height: estrellaSize,
+                    width: estrellaSize,
+                    top: -Math.round(estrellaSize * 0.28),
+                    right: -Math.round(estrellaSize * 0.18),
                   }}
                 >
-                  <Star size={Math.round(badgeSize * 0.4)} fill="currentColor" />
+                  <Star
+                    size={Math.round(estrellaSize * 0.56)}
+                    fill="currentColor"
+                  />
                 </span>
               )}
-            </div>
+            </span>
+
+            {/* LA NOTA — montada sobre el borde de la foto y centrada. */}
+
+            <span
+              className="relative z-10 flex items-center justify-center rounded-full font-bold tabular-nums leading-none"
+              style={{
+                height: notaAlto,
+                minWidth: Math.round(notaAlto * 1.7),
+                marginTop: -Math.round(notaAlto * 0.46),
+                paddingInline: Math.round(notaAlto * 0.3),
+                fontSize: notaFuente,
+                backgroundColor: rated ? color : "#232B37",
+                color: rated ? "#06121A" : "rgba(255,255,255,0.45)",
+                boxShadow: `0 0 0 2px rgba(0,0,0,.5), 0 3px 10px rgba(0,0,0,.55)`,
+              }}
+            >
+              {formatRating(item.value)}
+            </span>
 
             {/* NOMBRE */}
 
             <span
-              className="mt-1.5 truncate rounded-md bg-black/80 px-1.5 py-0.5 font-semibold leading-tight text-white ring-1 ring-white/10"
+              className="mt-1 truncate rounded-md bg-black/55 px-1.5 py-0.5 font-semibold leading-tight text-white backdrop-blur-[2px]"
               style={{ fontSize: nameFont, maxWidth: labelWidth }}
             >
               {item.dorsal ? (
@@ -258,7 +297,7 @@ export function SquadPitch({
 
             {!compact && (
               <span
-                className="mt-0.5 truncate px-1 leading-tight text-white/60"
+                className="mt-0.5 truncate px-1 leading-tight text-white/55"
                 style={{
                   fontSize: Math.max(8, nameFont - 2),
                   maxWidth: labelWidth,
