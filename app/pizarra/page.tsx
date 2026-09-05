@@ -31,9 +31,6 @@ import {
 } from "@/context/AvailabilityContext";
 import { cn } from "@/lib/utils";
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
-
 type Tab = "alineacion" | "defensiva" | "ofensiva";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -118,9 +115,9 @@ function PizarraContent() {
 
   async function handleLoadLineup(id: number) {
     try {
-      const res = await fetch(
-        `${APPS_SCRIPT_URL}?action=getAlineacion&id=${id}`
-      );
+      /* Por `/api/rivals`, que guarda la respuesta del Apps Script en el
+         servidor y ahorra su arranque en frío. Guardar tira esa copia. */
+      const res = await fetch(`/api/rivals?action=getAlineacion&id=${id}`);
 
       const data = await res.json();
 

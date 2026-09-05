@@ -39,15 +39,20 @@ type Guardado = { data: unknown; hecha: number };
 const cache = new Map<string, Guardado>();
 const enVuelo = new Map<string, Promise<unknown>>();
 
-/** Pide a la hoja, guarda lo que llegue y deja de estar en vuelo. */
-function pide(action: string) {
-  const yaVa = enVuelo.get(action);
+/**
+ * Pide a la hoja, guarda lo que llegue y deja de estar en vuelo.
+ *
+ * La clave es **la consulta entera** —`action=getAlineacion&id=12`—, no sólo
+ * la acción: hay lecturas que llevan parámetros y cada una guarda su copia.
+ */
+function pide(consulta: string) {
+  const yaVa = enVuelo.get(consulta);
 
   if (yaVa) return yaVa;
 
   const peticion = (async () => {
     try {
-      const response = await fetch(`${APPS_SCRIPT_URL}?action=${action}`, {
+      const response = await fetch(`${APPS_SCRIPT_URL}?${consulta}`, {
         cache: "no-store",
       });
 
@@ -59,41 +64,41 @@ function pide(action: string) {
 
       const data = await response.json();
 
-      cache.set(action, { data, hecha: Date.now() });
+      cache.set(consulta, { data, hecha: Date.now() });
 
       return data;
     } finally {
-      enVuelo.delete(action);
+      enVuelo.delete(consulta);
     }
   })();
 
-  enVuelo.set(action, peticion);
+  enVuelo.set(consulta, peticion);
 
   return peticion;
 }
 
-async function lee(action: string, fresco: boolean) {
+async function lee(consulta: string, fresco: boolean) {
   if (fresco) {
     /*
     | Quien pide fresco quiere la verdad de la hoja, así que aquí no hay red:
     | si Google falla, falla. Es lo que comprueba un guardado, y contestar con
     | una copia diría que no se ha escrito algo que sí está.
     */
-    const anterior = cache.get(action);
+    const anterior = cache.get(consulta);
 
-    cache.delete(action);
+    cache.delete(consulta);
 
     try {
-      return await pide(action);
+      return await pide(consulta);
     } catch (error) {
       /* Se devuelve la copia al sitio: no vale tirarla por un fallo de red. */
-      if (anterior) cache.set(action, anterior);
+      if (anterior) cache.set(consulta, anterior);
 
       throw error;
     }
   }
 
-  const guardado = cache.get(action);
+  const guardado = cache.get(consulta);
 
   if (guardado) {
     const edad = Date.now() - guardado.hecha;
@@ -103,7 +108,7 @@ async function lee(action: string, fresco: boolean) {
     if (edad < VIDA_RANCIA) {
       /* Se contesta con lo que hay y se renueva por detrás. Un fallo del
          refresco no puede tumbar esta petición, que ya está contestada. */
-      void pide(action).catch(() => undefined);
+      void pide(consulta).catch(() => undefined);
 
       return guardado.data;
     }
@@ -119,7 +124,7 @@ async function lee(action: string, fresco: boolean) {
   | rato es infinitamente mejor que un calendario vacío.
   */
   try {
-    return await pide(action);
+    return await pide(consulta);
   } catch (error) {
     if (guardado) return guardado.data;
 
@@ -132,15 +137,49 @@ function olvida() {
   cache.clear();
 }
 
+/*
+|--------------------------------------------------------------------------
+| LAS ESCRITURAS QUE NO PASAN POR AQUÍ
+|--------------------------------------------------------------------------
+|
+| El `POST` de arriba tira la copia porque la escritura pasa por esta ruta.
+| Pero media app escribe **directamente contra el Apps Script** desde el
+| navegador: `lib/hojaRivales.ts` (informe colectivo, plan de partido,
+| alineaciones guardadas) y los guardados por `GET` de la identidad
+| posicional, los principios y los valores. Ésas no se enteran, y con una
+| copia de hasta diez minutos alguien podía guardar una alineación y no verla
+| en la lista.
+|
+| Así que quien escriba por su cuenta avisa por aquí, y esta caché se vacía
+| igual que con un `POST`. Es una llamada suelta y sin cuerpo: no vale nada
+| dejarla caer si falla —lo peor que pasa es servir la copia un rato más—.
+*/
+export async function DELETE() {
+  olvida();
+
+  return NextResponse.json({ success: true });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
-    const action =
-      searchParams.get("action") ||
-      "rivalesPlantillas";
+    /*
+    | Se reenvía lo que venga —`getAlineacion` necesita su `id`—, quitando
+    | `fresco`, que es una orden para esta caché y no significa nada en la
+    | hoja. Sin parámetros se lee la plantilla de rivales, que es lo que pedía
+    | esta ruta cuando sólo servía para eso.
+    */
+    const parametros = new URLSearchParams(searchParams);
 
-    const data = await lee(action, searchParams.get("fresco") === "1");
+    parametros.delete("fresco");
+
+    if (!parametros.has("action")) parametros.set("action", "rivalesPlantillas");
+
+    const data = await lee(
+      parametros.toString(),
+      searchParams.get("fresco") === "1",
+    );
 
     return NextResponse.json(data);
   } catch (error) {

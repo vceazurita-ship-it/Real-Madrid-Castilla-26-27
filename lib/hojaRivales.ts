@@ -36,6 +36,21 @@ export const HOJA_RIVALES_URL =
 export type FilaHoja = Record<string, string>;
 
 /**
+ * Avisa al servidor de que acaba de escribirse algo.
+ *
+ * `/api/rivals` guarda las lecturas de la hoja hasta diez minutos, y estas
+ * escrituras van directas al Apps Script sin pasar por ahí: sin este aviso,
+ * quien guardara una alineación no la vería en la lista hasta que la copia
+ * caducase. No se espera ni se comprueba —lo peor que puede pasar es servir
+ * la copia un rato más— y en el servidor no existe `window`.
+ */
+export function olvidaLoGuardado() {
+  if (typeof window === "undefined") return;
+
+  void fetch("/api/rivals", { method: "DELETE" }).catch(() => undefined);
+}
+
+/**
  * Manda una acción a la hoja y devuelve lo que conteste.
  *
  * Lanza con un mensaje ya traducido si algo va mal: un HTTP que no sea 200,
@@ -71,6 +86,9 @@ export async function guardaEnLaHoja(
       explicaErrorScript(leido.error) || "El servidor rechazó el guardado",
     );
   }
+
+  /* Escrito en la hoja: la copia del servidor ya no vale. */
+  olvidaLoGuardado();
 
   return leido;
 }

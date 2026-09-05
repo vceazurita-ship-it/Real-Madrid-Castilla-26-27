@@ -25,6 +25,8 @@ import {
   matches,
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
+import { traeJson } from "@/lib/hojaCsv";
+import { olvidaLoGuardado } from "@/lib/hojaRivales";
 import { cn } from "@/lib/utils";
 
 type PosicionItem = {
@@ -75,14 +77,25 @@ export default function IdentidadPosicionalPage() {
 
     (async () => {
       try {
-        const res = await fetch(
-          `${API}?action=getIdentidadPosicional&t=${Date.now()}`,
-          { cache: "no-store" },
+        /*
+        | La lectura va por `/api/rivals`, que guarda la respuesta del Apps
+        | Script en el servidor: en frío ese script tarda entre treinta y
+        | setenta segundos y esta pantalla se los comía enteros, una vez por
+        | visita. Así sólo lo paga el primero del día.
+        |
+        | **Cualquier relectura pide `fresco=1`**, que se salta esa copia:
+        | aquí sólo se vuelve a leer después de crear un contenido o de salir
+        | de edición, y una copia de hace dos minutos diría que no está
+        | escrito algo que sí lo está.
+        */
+        const fresco = recarga > 0;
+
+        const rows = await traeJson<PosicionItem[]>(
+          `/api/rivals?action=getIdentidadPosicional${fresco ? "&fresco=1" : ""}`,
+          { forzar: fresco },
         );
 
-        if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
-
-        const rows: PosicionItem[] = await res.json();
+        if (!Array.isArray(rows)) throw new Error("Respuesta inesperada");
 
         const activos = rows.filter(
           (r) => String(r.ACTIVO).toUpperCase() !== "FALSE",
@@ -254,6 +267,11 @@ export default function IdentidadPosicionalPage() {
         return false;
       }
 
+      /* Estos guardados van por `GET` directos al script, así que la caché
+         del servidor no se entera sola: si no, otro vería lo de antes hasta
+         diez minutos. */
+      olvidaLoGuardado();
+
       /* Lo escrito pasa a ser la nueva base. No se recarga de la hoja: eso
          machacaría lo que el usuario esté tecleando en este momento. */
       setOriginalData(structuredClone(actual));
@@ -324,6 +342,8 @@ export default function IdentidadPosicionalPage() {
       );
 
       if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+
+      olvidaLoGuardado();
 
       setData((prev) => prev.filter((x) => x.ID !== porBorrar.ID));
       setOriginalData((prev) => prev.filter((x) => x.ID !== porBorrar.ID));

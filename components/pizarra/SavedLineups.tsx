@@ -3,15 +3,19 @@
 /**
  * Las alineaciones guardadas de la pizarra de competición.
  *
- * Lee la hoja por Apps Script y enseña sólo las jornadas —"Jornada 7"—, que es
- * como se busca una alineación vieja: por partido, no por la prueba que
- * alguien guardó un martes.
+ * Lee la hoja y enseña sólo las jornadas —"Jornada 7"—, que es como se busca
+ * una alineación vieja: por partido, no por la prueba que alguien guardó un
+ * martes.
+ *
+ * La lectura va por `/api/rivals`, que guarda la respuesta del Apps Script en
+ * el servidor: en frío ese script tarda entre treinta y setenta segundos, y
+ * esta lista se monta al abrir la pizarra. Guardar una alineación tira esa
+ * copia (`lib/hojaRivales.ts`), así que la nueva aparece igual.
  */
 
 import { useCallback, useEffect, useState } from "react";
 
-const ORIGEN =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec?action=alineaciones";
+const ORIGEN = "/api/rivals?action=alineaciones";
 
 type SavedLineup = {
   ID: number;
