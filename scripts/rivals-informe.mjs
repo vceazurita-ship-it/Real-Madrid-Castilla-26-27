@@ -5,7 +5,8 @@
  *   node scripts/rivals-informe.mjs                todo el grupo
  *   node scripts/rivals-informe.mjs teruel huesca  sólo esos (slug o ID)
  *   node scripts/rivals-informe.mjs --solo-subir   reconstruye de la caché
- *   node scripts/rivals-informe.mjs --refrescar    ignora la caché
+ *   node scripts/rivals-informe.mjs --refrescar    vuelve a bajar los equipos
+ *   node scripts/rivals-informe.mjs --refrescar-todo  también los partidos
  *   node scripts/rivals-informe.mjs --sin-subir    baja y no toca Supabase
  *
  * Qué se baja de cada equipo:
@@ -13,11 +14,21 @@
  *   - la clasificación del grupo, en sus tres pestañas (total, local,
  *     visitante) — una sola vez, que es la misma para los diecinueve;
  *   - sus partidos de la temporada, con marcador, competición y fecha;
- *   - la ficha de los últimos partidos jugados: alineación con demarcación y
- *     nota, banquillo con quién entró, estructura, entrenador de aquel día,
- *     goles con su minuto, su autor y quién asistió, tarjetas y cambios;
+ *   - la ficha de cada partido: alineación con demarcación y nota, banquillo
+ *     con quién entró, estructura, entrenador de aquel día, goles con su
+ *     minuto, su autor y quién asistió, tarjetas y cambios. **Todos los de
+ *     competición**, y amistosos sólo para rellenar mientras la temporada
+ *     está empezando (ver `MINIMO_ONCES`);
  *   - entrenador y estadio de la página del club, y la trayectoria del
  *     entrenador de su propia ficha.
+ *
+ * Cada ficha se guarda por su id en `.cache/rivals-informe/partidos` y, una
+ * vez el partido lleva unos días cerrado, no se vuelve a pedir: un partido
+ * terminado no cambia. Por eso `--refrescar` refresca el calendario, la
+ * clasificación y los partidos recientes, pero no reescribe la alineación de
+ * un partido de agosto; para eso está `--refrescar-todo`. Esto es lo que hace
+ * que quepan todas las jornadas sin que la pasada de cada noche crezca: un
+ * equipo entero se rehace en siete segundos si no ha jugado nada nuevo.
  *
  * Lo que BeSoccer **no** da y por eso no está: los eventos de partidos viejos
  * —de una temporada pasada ya no queda ni el módulo, así que tarjetas, cambios
@@ -109,7 +120,32 @@ const TEAM_SLUGS = {
  * el recuento de estructuras sigue diciendo algo. Subirlo mucho más es pedir
  * medio centenar de páginas por equipo para pintar cuatro.
  */
-const ONCES_POR_EQUIPO = 8;
+/*
+| Cuántos partidos se le piden a cada equipo.
+|
+| **Los oficiales van todos.** Antes se cogían los ocho últimos jugados y se
+| acabó viendo lo que eso hacía: en agosto un equipo tenía siete partidos y
+| cuatro se quedaban sin ficha, porque eran amistosos y BeSoccer no publica
+| sus alineaciones. Se gastaban dos peticiones por cada uno para no traer
+| nada, y en cuanto la liga pasara de ocho jornadas las de verdad empezarían
+| a caerse por abajo.
+|
+| Así que ahora entran todas las de competición, sin tope, y los amistosos
+| sólo rellenan hasta este mínimo mientras la temporada está empezando: en
+| pretemporada son lo único que hay, y ahí sí valen.
+*/
+const MINIMO_ONCES = 8;
+
+/*
+| Un partido terminado hace días ya no cambia: la alineación, las notas, los
+| goles y las tarjetas se quedan como están. Volver a bajarlo cada noche era
+| tirar veinte minutos y cientos de peticiones a BeSoccer para reescribir lo
+| mismo. Se guarda cada ficha por su id y no se vuelve a pedir.
+|
+| Los de los últimos tres días sí se repiten: BeSoccer tarda en cerrar las
+| notas y a veces publica los cambios y las tarjetas al día siguiente.
+*/
+const DIAS_QUE_YA_NO_CAMBIAN = 3;
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -123,7 +159,11 @@ const flags = new Set(args.filter((arg) => arg.startsWith("--")));
 const filtro = new Set(args.filter((arg) => !arg.startsWith("--")));
 
 const SOLO_SUBIR = flags.has("--solo-subir");
-const REFRESCAR = flags.has("--refrescar");
+const REFRESCAR = flags.has("--refrescar") || flags.has("--refrescar-todo");
+
+/* Tira también las fichas de partido ya guardadas. Casi nunca hace falta:
+   sólo si cambia el parseo de las alineaciones o de los eventos. */
+const REFRESCAR_TODO = flags.has("--refrescar-todo");
 
 /** Baja y deja la caché, pero no toca Supabase. Para ajustar un parser. */
 const SIN_SUBIR = flags.has("--sin-subir");
@@ -1055,6 +1095,71 @@ function guardaCache(nombre, valor) {
   fs.writeFileSync(rutaCache(nombre), JSON.stringify(valor), "utf8");
 }
 
+/* ---------------------------------------------- la ficha de un partido */
+
+const CACHE_PARTIDOS = path.join(CACHE_DIR, "partidos");
+
+function rutaFicha(id) {
+  return path.join(CACHE_PARTIDOS, String(id) + ".json");
+}
+
+/**
+ * ¿Se puede dar por buena la ficha guardada de este partido?
+ *
+ * Sólo si el partido ya no puede cambiar —terminado y con unos días encima— y
+ * no se ha pedido `--refrescar-todo`. Un `--refrescar` normal **no** la tira:
+ * lo que se quiere refrescar cada noche es el calendario y la clasificación,
+ * no reescribir la alineación de un partido de agosto.
+ */
+function fichaEnCache(partido) {
+  if (REFRESCAR_TODO) return null;
+
+  let guardada;
+
+  try {
+    guardada = JSON.parse(fs.readFileSync(rutaFicha(partido.id), "utf8"));
+  } catch {
+    return null;
+  }
+
+  /*
+  | Lo que importa no es cuántos días tiene el partido, sino **cuántos tenía
+  | cuando se bajó la ficha**. Una bajada el mismo día del partido trae las
+  | notas a medias y muchas veces sin tarjetas ni cambios; darla por buena tres
+  | días después congelaría esa versión incompleta para siempre.
+  */
+  const reposo =
+    (new Date(guardada.bajadaEn).getTime() - new Date(partido.fecha).getTime()) /
+    86400000;
+
+  return reposo >= DIAS_QUE_YA_NO_CAMBIAN ? guardada : null;
+}
+
+function guardaFicha(id, valor) {
+  fs.mkdirSync(CACHE_PARTIDOS, { recursive: true });
+  fs.writeFileSync(rutaFicha(id), JSON.stringify(valor), "utf8");
+}
+
+/**
+ * ¿Es un amistoso?
+ *
+ * BeSoccer los llama «Partidos Amistosos» y de ellos casi nunca publica la
+ * alineación, así que valen menos que un partido de competición y no deben
+ * ocupar su sitio.
+ */
+function esAmistoso(partido) {
+  return /amistoso/i.test(String(partido.competicion ?? ""));
+}
+
+/** Suma al contador de goleadores los goles propios de un partido. */
+function apunta(goleadores, goles) {
+  for (const gol of goles) {
+    if (!gol.propio || gol.tipo === "propia") continue;
+
+    goleadores.set(gol.jugador, (goleadores.get(gol.jugador) ?? 0) + 1);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  UN EQUIPO                                                          */
 /* ------------------------------------------------------------------ */
@@ -1100,11 +1205,24 @@ async function bajaEquipo(id, slug, clasificacion) {
     ...clasificacion.visitante,
   ].find((fila) => fila.slug === slug);
 
-  /* Los últimos jugados, del más reciente al más antiguo: son los que se
-     enseñan y de los que se cuentan las estructuras. */
-  const recientes = partidos
-    .filter((partido) => partido.jugado)
-    .slice(-ONCES_POR_EQUIPO)
+  /*
+  | Qué partidos se piden, del más reciente al más antiguo: son los que se
+  | enseñan y de los que se cuentan las estructuras.
+  |
+  | Todos los de competición, y amistosos sólo para llegar al mínimo mientras
+  | no hay otra cosa. Ver `MINIMO_ONCES`.
+  */
+  const jugados = partidos.filter((partido) => partido.jugado);
+
+  const oficiales = jugados.filter((partido) => !esAmistoso(partido));
+
+  const amistosos = jugados.filter(esAmistoso);
+
+  const recientes = [
+    ...oficiales,
+    ...amistosos.slice(-Math.max(0, MINIMO_ONCES - oficiales.length)),
+  ]
+    .sort((uno, otro) => String(uno.fecha).localeCompare(String(otro.fecha)))
     .reverse();
 
   const onces = [];
@@ -1112,11 +1230,24 @@ async function bajaEquipo(id, slug, clasificacion) {
   const goleadores = new Map();
 
   for (const partido of recientes) {
+    const visitante = !partido.enCasa;
+
+    /* Lo que ya se bajó en su día no se vuelve a pedir. */
+    const guardada = fichaEnCache(partido);
+
+    if (guardada) {
+      if (guardada.once) onces.push(guardada.once);
+
+      partido.goles = guardada.goles ?? [];
+
+      apunta(goleadores, partido.goles);
+
+      continue;
+    }
+
     await espera(1200);
 
     console.log(`  ${slug}: ficha ${partido.id}…`);
-
-    const visitante = !partido.enCasa;
 
     const url = `https://es.besoccer.com/partido/${partido.local.slug}/${partido.visitante.slug}/${partido.id}`;
 
@@ -1153,13 +1284,7 @@ async function bajaEquipo(id, slug, clasificacion) {
 
       partido.goles = goles;
 
-      for (const gol of goles) {
-        if (!gol.propio || gol.tipo === "propia") continue;
-
-        const previo = goleadores.get(gol.jugador) ?? 0;
-
-        goleadores.set(gol.jugador, previo + 1);
-      }
+      apunta(goleadores, goles);
 
       /*
       | Tarjetas y cambios sólo los publica BeSoccer mientras el partido es
@@ -1172,6 +1297,15 @@ async function bajaEquipo(id, slug, clasificacion) {
         once.tarjetas = leeTarjetas(eventos, visitante);
       }
     }
+
+    /* Se guarda incluso lo que ha salido vacío: un amistoso sin alineación
+       tampoco la va a tener mañana, y así deja de pedirse. */
+    guardaFicha(partido.id, {
+      bajadaEn: new Date().toISOString(),
+      fecha: partido.fecha,
+      once,
+      goles: partido.goles ?? [],
+    });
   }
 
   /* -------------------------------------------------- el entrenador */
