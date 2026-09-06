@@ -6,6 +6,8 @@ import {
   CloudOff,
   FolderOpen,
   Loader2,
+  Maximize2,
+  Minimize2,
   Pencil,
   Plus,
   PresentationIcon,
@@ -17,6 +19,7 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import TacticsBoard from "@/components/tactics/TacticsBoard";
+import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -293,10 +296,44 @@ function BoardEditor({
 
   const doc = useMemo(() => normalizeDoc(value, nombre), [value, nombre]);
 
+  /*
+  | A pantalla completa se lleva **el tablero con su título y su estado**, no
+  | sólo el campo: quien dibuja delante del grupo quiere saber que lo que hace
+  | se está guardando, y a media charla no hay ocasión de salir a comprobarlo.
+  */
+  const { marco, enPantallaCompleta, disponible, alterna } =
+    usePantallaCompleta<HTMLDivElement>();
+
   return (
-    <div className="space-y-4">
+    <div
+      ref={marco}
+      className={cn(
+        "space-y-4",
+        /* En grande el elemento es la pantalla entera: sin fondo propio se
+           vería el negro del navegador por los lados. */
+        enPantallaCompleta &&
+          "h-full overflow-auto bg-[#0E131A] p-4 sm:p-8",
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{nombre}</h2>
+
+        <div className="flex flex-wrap items-center gap-2">
+        {disponible && (
+          <button
+            type="button"
+            onClick={() => alterna()}
+            title={
+              enPantallaCompleta
+                ? "Volver al tamaño normal (o pulsa Escape)"
+                : "Ver la pizarra a pantalla completa"
+            }
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+          >
+            {enPantallaCompleta ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            {enPantallaCompleta ? "Salir" : "Pantalla completa"}
+          </button>
+        )}
 
         <span
           className={cn(
@@ -332,6 +369,7 @@ function BoardEditor({
             </>
           )}
         </span>
+        </div>
       </div>
 
       <TacticsBoard

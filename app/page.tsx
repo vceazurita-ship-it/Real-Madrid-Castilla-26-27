@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { chipInk } from "@/lib/theme";
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Papa from "papaparse"
 import {
   Activity,
@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Handshake,
   LayoutGrid,
+  Maximize2,
   Shield,
   Swords,
   Users,
@@ -21,7 +22,9 @@ import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
 import { trackModuleVisit, useModulosMasUsados } from "@/lib/module-usage"
-import { isHiddenPlayer } from "@/lib/hiddenPlayers"
+import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta"
+import { usePlayers } from "@/hooks/usePlayers"
+import { alineaSeguimiento } from "@/lib/seguimiento"
 import { traeCsv, traeJson } from "@/lib/hojaCsv"
 
 type Principio = {
@@ -32,10 +35,10 @@ type Principio = {
 
 type Seguimiento = {
   ID_JUGADOR?: string
+  /* El nombre manda sobre el ID al atar cada registro: ver `lib/seguimiento`. */
+  NOMBRE?: string
   FECHA?: string
 }
-
-const ENDPOINT_JUGADORES = "/api/rivals?action=jugadores"
 
 const ENDPOINT_SEGUIMIENTO = "/api/rivals?action=seguimiento"
 
@@ -235,37 +238,64 @@ export default function Home() {
   const [defensaApartados, setDefensaApartados] = useState(0)
   const [principiosCultura, setPrincipiosCultura] = useState(0)
 
-  const [totalJugadores, setTotalJugadores] = useState(0)
-  const [seguimientos, setSeguimientos] = useState(0)
-  const [promedioSeguimientos, setPromedioSeguimientos] = useState(0)
-  const [jugadoresSeguimiento, setJugadoresSeguimiento] = useState(0)
+  const [filasSeguimiento, setFilasSeguimiento] = useState<Seguimiento[]>([])
+
+  /* La ventana de treinta días se cuenta al llegar los datos y no al pintar:
+     mirar el reloj durante el render es impuro y el linter lo para. */
   const [ultimos30Dias, setUltimos30Dias] = useState(0)
 
-  // Valor derivado: no necesita estado propio ni efecto.
+  /*
+  |------------------------------------------------------------------------
+  | LA COBERTURA NO PUEDE PASAR DEL 100%
+  |------------------------------------------------------------------------
+  |
+  | Y pasaba. Se contaban **todos los ID_JUGADOR distintos que aparecen en la
+  | hoja de seguimiento** y se dividían entre la plantilla de ahora, que son
+  | dos listas distintas: en el numerador entraban los que se fueron en verano
+  | y los identificadores viejos —los JUG-XX se renumeraron en agosto de 2026,
+  | ver `lib/seguimiento.ts`—, así que el número subía por encima del cien
+  | mientras la barrita se quedaba clavada al tope y no lo delataba.
+  |
+  | Lo que se quiere saber es **a cuántos de los que están hoy se les ha hecho
+  | seguimiento**, que es exactamente lo que cuenta la pantalla de
+  | `/individual_proc`. Así los dos sitios dicen lo mismo.
+  */
+  const { players: plantilla, loading: cargandoPlantilla } = usePlayers()
+
+  const totalJugadores = plantilla.length
+
+  const jugadoresSeguimiento = useMemo(() => {
+    if (plantilla.length === 0) return 0
+
+    /* Por nombre, que es lo que manda: un ID viejo apunta hoy a otra persona. */
+    const atados = alineaSeguimiento(
+      filasSeguimiento.flatMap((fila) =>
+        fila.ID_JUGADOR ? [{ ...fila, ID_JUGADOR: fila.ID_JUGADOR }] : [],
+      ),
+      plantilla,
+    )
+
+    const conRegistro = new Set(atados.map((fila) => fila.ID_JUGADOR))
+
+    return plantilla.filter((jugador) => conRegistro.has(jugador.id)).length
+  }, [filasSeguimiento, plantilla])
+
+  const seguimientos = filasSeguimiento.length
+
+  const promedioSeguimientos =
+    jugadoresSeguimiento > 0
+      ? Number((seguimientos / jugadoresSeguimiento).toFixed(1))
+      : 0
+
   const cobertura =
     totalJugadores > 0
       ? Math.round((jugadoresSeguimiento / totalJugadores) * 100)
       : 0
 
   // Estados de carga: evitan el parpadeo de ceros mientras llegan los datos.
-  const [loadingJugadores, setLoadingJugadores] = useState(true)
   const [loadingCultura, setLoadingCultura] = useState(true)
   const [loadingPrincipios, setLoadingPrincipios] = useState(true)
   const [loadingSeguimiento, setLoadingSeguimiento] = useState(true)
-
-  useEffect(() => {
-    traeJson<unknown>(ENDPOINT_JUGADORES)
-      .then((rows) => {
-        const jugadores: { NOMBRE?: string; APODO?: string }[] =
-          Array.isArray(rows) ? rows : []
-
-        setTotalJugadores(
-          jugadores.filter((j) => !isHiddenPlayer(j.NOMBRE, j.APODO)).length
-        )
-      })
-      .catch(() => {})
-      .finally(() => setLoadingJugadores(false))
-  }, [])
 
   useEffect(() => {
     traeCsv(CSV_CULTURA)
@@ -313,26 +343,19 @@ export default function Home() {
   useEffect(() => {
     traeJson<unknown>(ENDPOINT_SEGUIMIENTO)
       .then((data) => {
-        const rows: Seguimiento[] = Array.isArray(data) ? data : []
+        const filas: Seguimiento[] = Array.isArray(data) ? data : []
 
-        setSeguimientos(rows.length)
-
-        const jugadores = new Set(rows.map((r) => r.ID_JUGADOR))
-
-        setJugadoresSeguimiento(jugadores.size)
-
-        const promedio = jugadores.size > 0 ? rows.length / jugadores.size : 0
-
-        setPromedioSeguimientos(Number(promedio.toFixed(1)))
+        setFilasSeguimiento(filas)
 
         const limite = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-        const recientes = rows.filter((r) => {
-          const fecha = new Date(r.FECHA ?? "")
-          return !isNaN(fecha.getTime()) && fecha >= limite
-        })
+        setUltimos30Dias(
+          filas.filter((fila) => {
+            const fecha = new Date(fila.FECHA ?? "")
 
-        setUltimos30Dias(recientes.length)
+            return !isNaN(fecha.getTime()) && fecha >= limite
+          }).length
+        )
       })
       .catch(() => {})
       .finally(() => setLoadingSeguimiento(false))
@@ -430,6 +453,31 @@ export default function Home() {
                       {tercero.title}
                       <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                     </Link>
+
+                    {/*
+                      La pizarra, a pantalla completa desde el primer clic.
+
+                      Es lo que se abre delante del grupo, y llegar con el menú
+                      y la barra de arriba puestos obliga a buscar el botón de
+                      agrandar mientras todos esperan. La pantalla completa se
+                      pide **aquí**, aprovechando este mismo clic: el navegador
+                      sólo la concede con un gesto de la persona y un efecto al
+                      cargar la otra página llegaría tarde. Como Next navega sin
+                      recargar el documento, se llega ya en grande.
+                    */}
+                    <Link
+                      href="/pizarra-tactica"
+                      onClick={() => {
+                        trackModuleVisit("/pizarra-tactica")
+                        pantallaCompletaAlNavegar()
+                      }}
+                      title="Abre la pizarra táctica ocupando toda la pantalla"
+                      className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-6 py-3.5 text-[15px] font-medium text-[#C8A96B] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
+                    >
+                      <Maximize2 className="h-[18px] w-[18px]" />
+                      Pizarra táctica
+                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </Link>
                   </div>
                 </div>
 
@@ -484,7 +532,7 @@ export default function Home() {
                       <p className="mt-2 text-3xl font-bold leading-none text-white">
                         <Metric
                           value={cobertura}
-                          loading={loadingSeguimiento || loadingJugadores}
+                          loading={loadingSeguimiento || cargandoPlantilla}
                         />
                         <span className="ml-0.5 text-lg text-white/50">%</span>
                       </p>
@@ -555,7 +603,7 @@ export default function Home() {
                   value={totalJugadores}
                   caption="Jugadores en plantilla"
                   destino="Plantilla"
-                  loading={loadingJugadores}
+                  loading={cargandoPlantilla}
                   icon={Users}
                 />
 

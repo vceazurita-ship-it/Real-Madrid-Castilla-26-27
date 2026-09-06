@@ -41,6 +41,8 @@ import {
   Keyboard,
   ListVideo,
   Pause,
+  Maximize2,
+  Minimize2,
   PenTool,
   Play,
   Plus,
@@ -98,6 +100,7 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useReproductor, VELOCIDADES } from "@/hooks/useReproductor";
 import { useLanzadera } from "@/hooks/useLanzadera";
+import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import {
   BarraMarcado,
   SelectorDeMarca,
@@ -747,6 +750,27 @@ function Coding() {
   });
 
   const ajustaLanzadera = lanzadera.ajusta;
+
+  /*
+  | LA PIZARRA, A PANTALLA COMPLETA
+  |
+  | Lo que se pone en grande es **el marco del vídeo**, que es donde vive la
+  | pizarra: así las herramientas de dibujo —que van pegadas al borde
+  | izquierdo de la imagen— entran con ella. Si se pusiera en grande la página
+  | entera, la barra de abajo taparía el campo; y si se pusiera sólo el
+  | `<video>`, el navegador enseñaría su propio reproductor y lo pintado se
+  | quedaría detrás, invisible.
+  |
+  | La pizarra se recoloca sola: mide el rectángulo de imagen con un
+  | `ResizeObserver`, así que al pasar a pantalla completa los dibujos siguen
+  | encima de lo que estaban.
+  */
+  const {
+    marco: marcoDeLaPantalla,
+    enPantallaCompleta,
+    disponible: hayPantallaCompleta,
+    alterna: alternaPantalla,
+  } = usePantallaCompleta<HTMLDivElement>();
 
   /* La pizarra que se está repartiendo entre cortes, si es que hay alguna. */
   const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
@@ -2157,8 +2181,13 @@ function Coding() {
                 | para el ratón y el mousepad, que es donde se ha pedido.
                 */}
                 <div
+                  ref={marcoDeLaPantalla}
                   style={{ touchAction: "pan-y" }}
-                  className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black"
+                  className={`relative min-w-0 overflow-hidden border border-white/10 bg-black ${
+                    enPantallaCompleta
+                      ? "flex h-full w-full items-center justify-center rounded-none border-0"
+                      : "rounded-2xl"
+                  }`}
                 >
                   {/*
                   | El <video> se monta SIEMPRE, también antes de elegir el
@@ -2170,7 +2199,11 @@ function Coding() {
                   <video
                     ref={montaVideo}
                     src={src || undefined}
-                    className="aspect-video w-full bg-black"
+                    className={
+                      enPantallaCompleta
+                        ? "h-full max-h-full w-full bg-black object-contain"
+                        : "aspect-video w-full bg-black"
+                    }
                     preload="metadata"
                     playsInline
                   />
@@ -2278,6 +2311,21 @@ function Coding() {
                     >
                       Pizarra
                     </Button>
+
+                    {hayPantallaCompleta && (
+                      <Button
+                        icon={enPantallaCompleta ? Minimize2 : Maximize2}
+                        onClick={() => alternaPantalla()}
+                        disabled={!src}
+                        title={
+                          enPantallaCompleta
+                            ? "Volver al tamaño normal (o pulsa Escape)"
+                            : "La pizarra y el vídeo ocupando toda la pantalla, para enseñarlo en la sala"
+                        }
+                      >
+                        {enPantallaCompleta ? "Salir" : "Completa"}
+                      </Button>
+                    )}
 
                     <Button
                       icon={pizarraVisible ? Eye : EyeOff}
