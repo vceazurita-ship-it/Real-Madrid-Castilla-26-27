@@ -369,6 +369,23 @@ export function useReproductor(
     return () => window.clearInterval(reloj);
   }, [estado.extra, estado.reproduciendo, videoRef]);
 
+  /**
+   * Vuelve a poner la velocidad que estaba pedida.
+   *
+   * La usa la lanzadera al soltar: el gesto toca `playbackRate` directamente
+   * —tiene que responder al dedo sin pasar por el estado de React— y al
+   * terminar hay que devolver el elemento a donde lo dejó la barra. No es un
+   * ×1 a secas: quien estaba revisando a ×0,5 no puede acabar a velocidad
+   * normal por haber adelantado diez segundos con el dedo.
+   */
+  const restauraVelocidad = useCallback(() => {
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    aplicaVelocidad(video, pedida.current);
+  }, [videoRef]);
+
   /** Sube o baja al siguiente escalón de la lista de velocidades. */
   const cambiaVelocidad = useCallback(
     (direccion: 1 | -1) => {
@@ -417,6 +434,7 @@ export function useReproductor(
     mueve,
     fotograma,
     ponVelocidad,
+    restauraVelocidad,
     cambiaVelocidad,
     tiempoAhoraMs,
   };

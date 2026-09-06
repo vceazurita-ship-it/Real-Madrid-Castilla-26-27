@@ -70,6 +70,18 @@ import {
 
 export type ModoCorteUI = "preciso" | "rapido";
 
+/**
+ * Los topes de peso que se ofrecen, en megas.
+ *
+ * Los 50 son los que pidió el cuerpo técnico —es lo que entra en un grupo de
+ * WhatsApp sin que lo recomprima nadie— y salen de partida. Los 16 son para
+ * un correo del club; los 200, para llevarse el unificado sin castigarlo.
+ */
+export const PESOS = [0, 16, 50, 100, 200];
+
+/** El tope de partida: lo que cabe en un grupo de WhatsApp. */
+export const TOPE_MEGAS_POR_DEFECTO = 50;
+
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
 
@@ -140,6 +152,14 @@ export function useExportador(opciones: {
   carpeta: string;
   modo: ModoCorteUI;
   /**
+   * Lo que puede pesar cada fichero que salga, en megas. `0` es sin tope.
+   *
+   * Vale igual en los dos caminos —el navegador y ffmpeg— porque el tope no
+   * se aplica recortando nada: se convierte en caudal y se le da al
+   * codificador. Un corte pesa lo mismo se haya hecho donde se haya hecho.
+   */
+  topeMegas?: number;
+  /**
    * El fichero que se abrió del ordenador, mientras siga a mano.
    *
    * Vive en la pestaña y no en la sesión: un navegador no puede guardar el
@@ -169,6 +189,7 @@ export function useExportador(opciones: {
     categorias,
     carpeta,
     modo,
+    topeMegas = 0,
     ficheroLocal,
     fps,
     titulo,
@@ -220,6 +241,7 @@ export function useExportador(opciones: {
           portada: peticion.portada ?? null,
           portadaSegundos: SEGUNDOS_CARATULA,
           fps,
+          topeMegas,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
@@ -263,7 +285,7 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [alTerminarVideo, fps, nombraClips, titulo],
+    [alTerminarVideo, fps, nombraClips, titulo, topeMegas],
   );
 
   /*
@@ -341,6 +363,7 @@ export function useExportador(opciones: {
           nombre: peticion.nombre,
           portada: imagenes.portada,
           portadaSegundos: SEGUNDOS_CARATULA,
+          topeMegas,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
@@ -407,7 +430,7 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [alTerminarVideo, modo, nombraClips],
+    [alTerminarVideo, modo, nombraClips, topeMegas],
   );
 
   /*
@@ -546,6 +569,8 @@ export function BarraExportacion({
   exportando,
   modo,
   onModo,
+  topeMegas,
+  onTopeMegas,
   onZip,
   onUnificado,
   caratula,
@@ -567,6 +592,9 @@ export function BarraExportacion({
   exportando: boolean;
   modo: ModoCorteUI;
   onModo: (modo: ModoCorteUI) => void;
+  /** Lo que puede pesar cada fichero, en megas. `0` es sin tope. */
+  topeMegas: number;
+  onTopeMegas: (megas: number) => void;
   onZip: () => void;
   onUnificado: () => void;
   /** Id del sujeto de la carátula; `""` es sin carátula. */
@@ -645,6 +673,47 @@ export function BarraExportacion({
         <span className="text-[11px] text-white/35">
           {clips.length} {clips.length === 1 ? "clip" : "clips"} ·{" "}
           {formateaTotal(total)} · {etiqueta}
+        </span>
+      </div>
+
+      {/* ------------------------- EL PESO DE CADA FICHERO ------------- */}
+
+      {/*
+      | Un corte acaba en un grupo de WhatsApp, en un correo o en un pen, y
+      | ahí lo que decide no es el caudal del partido sino si el fichero cabe.
+      | El tope se convierte en caudal y se le da al codificador, así que no
+      | hay recorte ni segunda pasada: sale ya pesando lo que tiene que pesar.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          <Package size={12} className="text-[#C8A96B]" />
+          Peso máximo
+        </span>
+
+        {PESOS.map((peso) => (
+          <button
+            key={peso}
+            type="button"
+            onClick={() => onTopeMegas(peso)}
+            title={
+              peso === 0
+                ? "Sin tope: cada corte pesa lo que pida la imagen"
+                : `Cada fichero cabe en ${peso} MB`
+            }
+            className={`rounded-md border px-2 py-0.5 text-[11px] tabular-nums transition ${
+              topeMegas === peso
+                ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                : "border-white/10 text-white/40 hover:text-white"
+            }`}
+          >
+            {peso === 0 ? "Sin tope" : `${peso} MB`}
+          </button>
+        ))}
+
+        <span className="text-[11px] text-white/30">
+          {topeMegas > 0
+            ? "por fichero, apretando la imagen sólo si hace falta"
+            : "el corte pesa lo que pida el partido"}
         </span>
       </div>
 

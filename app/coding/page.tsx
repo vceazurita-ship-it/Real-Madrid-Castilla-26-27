@@ -68,6 +68,7 @@ import {
   SEGUNDOS_CARATULA,
   useExportador,
   type ModoCorteUI,
+  TOPE_MEGAS_POR_DEFECTO,
   type ParadaDeClip,
 } from "@/components/coding/ExportaClips";
 import { FichaClip, ListaClips } from "@/components/coding/ListaClips";
@@ -98,6 +99,7 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useReproductor, VELOCIDADES } from "@/hooks/useReproductor";
+import { useLanzadera } from "@/hooks/useLanzadera";
 import { useSesionCoding } from "@/hooks/useSesionCoding";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
@@ -691,6 +693,10 @@ function Coding() {
 
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
 
+  /* Lo que puede pesar cada fichero que salga. Vive en la pestaña, como el
+     modo de corte: es una decisión del momento de exportar. */
+  const [topeMegas, setTopeMegas] = useState<number>(TOPE_MEGAS_POR_DEFECTO);
+
   /* ------------------------------------------------- la pizarra */
 
   /*
@@ -699,6 +705,19 @@ function Coding() {
   | coding se apaga entero (`hayModal`): la `f` es el foco, no un jugador.
   */
   const [pizarraEditando, setPizarraEditando] = useState<string | null>(null);
+
+  /*
+  | La lanzadera: acelerar y frenar el partido arrastrando sobre la imagen, o
+  | con dos dedos en el mousepad, como en QuickTime.
+  |
+  | Se apaga con la pizarra en modo edición: ahí el dedo está dibujando una
+  | flecha, no buscando una acción, y las dos cosas ocupan el mismo sitio.
+  */
+  const lanzadera = useLanzadera({
+    video: elemento,
+    activa: pizarraEditando === null,
+    alSoltar: reproductor.restauraVelocidad,
+  });
 
   /* La pizarra que se está repartiendo entre cortes, si es que hay alguna. */
   const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
@@ -1256,6 +1275,7 @@ function Coding() {
     categorias: config.categorias,
     carpeta: apodoCoding(titulo),
     modo: modoCorte,
+    topeMegas,
     ficheroLocal,
     fps: sesion.sesion.fps,
     titulo,
@@ -2117,6 +2137,30 @@ function Coding() {
                       <p className="text-xs">Elige el vídeo del partido</p>
                     </div>
                   )}
+
+                  {/*
+                  | LA LANZADERA — lo que se ve mientras se arrastra.
+                  |
+                  | Va en el centro y grande a propósito: el gesto se hace
+                  | mirando la imagen, así que el número tiene que leerse sin
+                  | apartar la vista. Desaparece al soltar, como el de
+                  | QuickTime.
+                  */}
+                  {lanzadera.activa && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <span className="flex items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-black/70 px-5 py-3 text-2xl font-semibold tabular-nums text-[#C8A96B] backdrop-blur">
+                        {lanzadera.velocidad}x
+
+                        <span className="text-xs font-normal uppercase tracking-[0.2em] text-white/45">
+                          {lanzadera.velocidad < 1
+                            ? "cámara lenta"
+                            : lanzadera.velocidad > 1
+                              ? "rápido"
+                              : "normal"}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Mandos y estado del coding. */}
@@ -2408,6 +2452,8 @@ function Coding() {
                     exportando={exportador.exportando}
                     modo={modoCorte}
                     onModo={setModoCorte}
+                    topeMegas={topeMegas}
+                    onTopeMegas={setTopeMegas}
                     caratula={caratulaSujeto}
                     opcionesCaratula={sujetosDeClips}
                     cabePorJugador={cabePorJugador}

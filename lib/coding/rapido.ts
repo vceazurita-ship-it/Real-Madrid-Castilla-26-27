@@ -692,6 +692,53 @@ export async function montaRapido(
 
   if (topePorPeso < plan.bitrate) plan.bitrate = Math.round(topePorPeso);
 
+  /*
+  | Y el techo que ha pedido quien exporta: que cada fichero quepa en X megas.
+  |
+  | Se mide sobre **el fichero más largo que va a salir**, no sobre el total:
+  | en cortes sueltos cada clip es un fichero y el que manda es el más largo,
+  | y en el unificado el fichero es uno solo y dura todo. Así el tope se
+  | cumple en los dos formatos con una sola cuenta.
+  |
+  | Se le resta el sonido y un 6 % de contenedor: el índice de un MP4 y las
+  | cabeceras de cada muestra no son gratis, y un tope que se pasa por poco es
+  | un tope que no sirve para lo que se pidió.
+  */
+  const topeBytes = Math.max(0, peticion.topeMegas ?? 0) * 1_000_000;
+
+  if (topeBytes > 0) {
+    const mayorUs =
+      peticion.formato === "unificado"
+        ? totalUs
+        : Math.max(
+            1,
+            ...clips.map(
+              (clip) =>
+                (clip.finMs - clip.inicioMs) * 1000 +
+                (paradasDe.get(clip) ?? []).reduce(
+                  (parcial, parada) => parcial + parada.duracionUs,
+                  0,
+                ),
+            ),
+          );
+
+    const segundos = Math.max(0.5, mayorUs / 1e6);
+
+    const paraSonido = pistaSonido ? 192_000 : 0;
+
+    const topeCaudal = Math.round(
+      (topeBytes * 8 * 0.94) / segundos - paraSonido,
+    );
+
+    /*
+    | Por debajo de este caudal el vídeo deja de servir para analizar: se
+    | avisa en la pantalla del montaje y se sale con lo mínimo antes que
+    | entregar una mancha. Medio mega por segundo es un 720p pobre pero
+    | legible.
+    */
+    plan.bitrate = Math.max(400_000, Math.min(plan.bitrate, topeCaudal));
+  }
+
   /** Lo entregado, en microsegundos de vídeo montado. */
   let hechoUs = 0;
 

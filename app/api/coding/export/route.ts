@@ -91,6 +91,15 @@ type Peticion = {
    */
   portada?: string;
   portadaSegundos?: number;
+  /**
+   * Lo que puede pesar cada fichero de salida, en megas. `0` es sin tope.
+   *
+   * Un corte acaba en un grupo de WhatsApp o en un pen: ahí no importa que el
+   * partido viniera a 40 Mb/s, importa que quepa. Es el mismo ajuste que
+   * aplica el montaje del navegador, para que un corte pese lo mismo se haya
+   * hecho donde se haya hecho.
+   */
+  topeMegas?: number;
 };
 
 const MAX_CLIPS = 400;
@@ -180,6 +189,22 @@ export async function POST(request: NextRequest) {
 
   const modo: ModoCorte = peticion.modo === "rapido" ? "rapido" : "preciso";
 
+  /* Sin tope, 0. Y con tope no se puede copiar: hay que recodificar. */
+  const topeMegas = Math.max(0, Number(peticion.topeMegas) || 0);
+
+  /** Lo que dura, en segundos, el fichero que va a salir de esos clips. */
+  const duracionDe = (lista: ClipPedido[]) =>
+    lista.reduce(
+      (suma, clip) =>
+        suma +
+        Math.max(0, clip.finMs - clip.inicioMs) +
+        (clip.pizarras ?? []).reduce(
+          (parcial, pizarra) => parcial + Math.max(500, pizarra.duracionMs),
+          0,
+        ),
+      0,
+    ) / 1000;
+
   const base = nombreSeguro(peticion.nombre, "clips");
 
   /*
@@ -259,6 +284,7 @@ export async function POST(request: NextRequest) {
           carpeta,
           prefijo: "clip",
           destino,
+          topeMegas,
         });
       } else {
         await cortaClip({
@@ -267,6 +293,7 @@ export async function POST(request: NextRequest) {
           finMs: clip.finMs,
           modo,
           destino,
+          topeMegas,
         });
       }
 
@@ -339,6 +366,9 @@ export async function POST(request: NextRequest) {
                 carpeta,
                 prefijo: `u${indice}`,
                 destino: destinoTrozo,
+                /* El fichero final es el montaje entero: el caudal se reparte
+                   entre todo lo que va a durar, no entre este trozo. */
+                topeMegas,
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,
@@ -349,6 +379,8 @@ export async function POST(request: NextRequest) {
                 fps: datos.fps,
                 audio: suyo.audio,
                 destino: destinoTrozo,
+                topeMegas,
+                segundosDelTope: duracionDe(clips),
               }),
         );
       }
@@ -390,6 +422,7 @@ export async function POST(request: NextRequest) {
           carpeta,
           prefijo: `z${indice}`,
           destino,
+          topeMegas,
         });
       } else {
         await cortaClip({
@@ -398,6 +431,7 @@ export async function POST(request: NextRequest) {
           finMs: clip.finMs,
           modo,
           destino,
+          topeMegas,
         });
       }
 

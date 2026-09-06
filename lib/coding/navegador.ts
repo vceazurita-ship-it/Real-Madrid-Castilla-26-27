@@ -625,6 +625,30 @@ async function montaATiempoReal(
         0,
       );
 
+    /*
+    | Lo que dura el fichero más largo que va a salir.
+    |
+    | En el unificado es todo el montaje; en cortes sueltos, el clip más
+    | largo, que es el que decide si el tope de peso se cumple para todos.
+    */
+    const segundosDeSalida =
+      peticion.formato === "unificado"
+        ? totalMs / 1000
+        : Math.max(
+            0.5,
+            ...clips.map(
+              (clip) =>
+                ((clip.finMs - clip.inicioMs) +
+                  (paradasDe.get(clip) ?? []).reduce(
+                    (parcial, parada) => parcial + parada.duracionMs,
+                    0,
+                  )) /
+                1000,
+            ),
+          );
+
+    const topeMegas = Math.max(0, peticion.topeMegas ?? 0);
+
     /* Lo ya montado, en milisegundos de vídeo entregado. */
     let hechoMs = 0;
 
@@ -685,13 +709,35 @@ async function montaATiempoReal(
       conSonido = false;
     }
 
+    /*
+    | El caudal, con el tope de peso que se haya pedido.
+    |
+    | Aquí se graba corte a corte, así que el fichero que hay que hacer caber
+    | es **este** y el tope se reparte entre lo que dure. El suelo de medio
+    | mega es el mismo que en el motor rápido: por debajo la imagen deja de
+    | servir para analizar, y antes que entregar una mancha se pasa del tope.
+    */
+    const caudal = (() => {
+      const bueno = Math.min(
+        16_000_000,
+        Math.max(2_500_000, Math.round(ancho * alto * fps * 0.15)),
+      );
+
+      const topeBytes = Math.max(0, topeMegas) * 1_000_000;
+
+      if (topeBytes <= 0 || segundosDeSalida <= 0) return bueno;
+
+      const cabe = Math.round(
+        (topeBytes * 8 * 0.94) / segundosDeSalida - 128_000,
+      );
+
+      return Math.max(500_000, Math.min(bueno, cabe));
+    })();
+
     const creaGrabadora = () => {
       const nueva = new MediaRecorder(flujo, {
         mimeType: formato.mime,
-        videoBitsPerSecond: Math.min(
-          16_000_000,
-          Math.max(2_500_000, Math.round(ancho * alto * fps * 0.15)),
-        ),
+        videoBitsPerSecond: caudal,
         audioBitsPerSecond: 128_000,
       });
 

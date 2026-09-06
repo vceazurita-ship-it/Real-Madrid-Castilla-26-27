@@ -49,6 +49,16 @@ export type PeticionNavegador = {
   portadaSegundos?: number;
   /** Los fotogramas por segundo de la sesión. */
   fps?: number;
+  /**
+   * Lo que puede pesar cada fichero de salida, en megas. `0` es sin tope.
+   *
+   * Un corte se manda por WhatsApp, se sube a un grupo o se lleva en un pen:
+   * ahí no importa que el partido viniera a 40 Mb/s, importa que el fichero
+   * quepa. El tope se convierte en caudal —lo que quepa entre lo que dura el
+   * corte más largo— y se aplica al codificador, así que no hay que recortar
+   * ni volver a pasar nada.
+   */
+  topeMegas?: number;
 };
 
 export type ResultadoNavegador = {

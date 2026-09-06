@@ -289,12 +289,48 @@ const segundos = (ms: number) => (Math.max(0, ms) / 1000).toFixed(3);
  *   de calidad—, pero sólo puede empezar en un fotograma clave: según cómo
  *   esté comprimido el partido, el corte puede irse hasta un par de segundos.
  */
+/**
+ * Los argumentos que obligan a un fichero a caber en tantos megas.
+ *
+ * Es una **rejilla de caudal** (`-maxrate`/`-bufsize`), no un caudal fijo: el
+ * `-crf 20` sigue mandando en lo que se ve, y esto sólo pone el techo por el
+ * que el fichero no puede pasar. Así un corte tranquilo pesa lo que tenga que
+ * pesar y sólo se aprieta el que se pasaría.
+ *
+ * El `bufsize` es de dos segundos de caudal: con uno, una entrada de área
+ * llena de movimiento se ve a bloques; con más, el pico se come el presupuesto
+ * y el final del corte sale peor que el principio.
+ *
+ * Se le descuentan el sonido (160 kb/s) y un 6 % de contenedor —el índice del
+ * MP4 y las cabeceras de cada muestra no son gratis— porque un tope que se
+ * pasa por poco no sirve para lo que se pidió: que el fichero quepa.
+ */
+function rejillaDeCaudal(topeMegas: number, segundos: number): string[] {
+  const bytes = Math.max(0, topeMegas) * 1_000_000;
+
+  if (bytes <= 0 || segundos <= 0) return [];
+
+  const caudal = Math.max(
+    400_000,
+    Math.round((bytes * 8 * 0.94) / segundos - 160_000),
+  );
+
+  return [
+    "-maxrate",
+    `${Math.round(caudal / 1000)}k`,
+    "-bufsize",
+    `${Math.round((caudal * 2) / 1000)}k`,
+  ];
+}
+
 export async function cortaClip(opciones: {
   entrada: string;
   inicioMs: number;
   finMs: number;
   modo: ModoCorte;
   destino: string;
+  /** Lo que puede pesar el corte, en megas. `0` o ausente es sin tope. */
+  topeMegas?: number;
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
@@ -312,23 +348,30 @@ export async function cortaClip(opciones: {
     segundos(duracion),
   ];
 
-  const codificacion =
-    opciones.modo === "rapido"
-      ? ["-c", "copy", "-avoid_negative_ts", "make_zero"]
-      : [
-          "-c:v",
-          "libx264",
-          "-preset",
-          "veryfast",
-          "-crf",
-          "20",
-          "-pix_fmt",
-          "yuv420p",
-          "-c:a",
-          "aac",
-          "-b:a",
-          "160k",
-        ];
+  /*
+  | Copiando no hay nada que apretar: los bytes son los del partido. Un tope
+  | de peso obliga a recodificar, así que `rapido` con tope pasa a `preciso`
+  | —y eso lo decide quien llama, no aquí: aquí sólo se deja de copiar.
+  */
+  const copia = opciones.modo === "rapido" && !(opciones.topeMegas ?? 0);
+
+  const codificacion = copia
+    ? ["-c", "copy", "-avoid_negative_ts", "make_zero"]
+    : [
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        ...rejillaDeCaudal(opciones.topeMegas ?? 0, duracion / 1000),
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "160k",
+      ];
 
   await ejecuta(FFMPEG, [
     ...comunes,
@@ -362,6 +405,9 @@ async function normaliza(opciones: {
   destino: string;
   /** Duración del silencio que hay que inventar, en ms. `0` si ya trae sonido. */
   silencioMs?: number;
+  /** Techo de peso del fichero final y lo que dura, para la rejilla de caudal. */
+  topeMegas?: number;
+  segundosDelTope?: number;
 }) {
   /*
    * El silencio es una entrada más, y entonces hay que mapear a mano: sin
@@ -398,6 +444,7 @@ async function normaliza(opciones: {
     "veryfast",
     "-crf",
     "20",
+    ...rejillaDeCaudal(opciones.topeMegas ?? 0, opciones.segundosDelTope ?? 0),
     "-pix_fmt",
     "yuv420p",
     "-c:a",
@@ -427,6 +474,10 @@ export async function segmentoNormalizado(opciones: {
   destino: string;
   /** Si la fuente de ESTE trozo trae sonido. Sin él, se le pone silencio. */
   audio?: boolean;
+  /** Lo que puede pesar el fichero final del que este trozo forma parte. */
+  topeMegas?: number;
+  /** Y lo que dura ese fichero final, que es entre lo que se reparte. */
+  segundosDelTope?: number;
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
@@ -446,6 +497,8 @@ export async function segmentoNormalizado(opciones: {
     fps: opciones.fps,
     destino: opciones.destino,
     silencioMs: opciones.audio === false ? duracion : 0,
+    topeMegas: opciones.topeMegas,
+    segundosDelTope: opciones.segundosDelTope,
   });
 }
 
@@ -532,6 +585,8 @@ export async function cortaClipConParadas(opciones: {
   carpeta: string;
   prefijo: string;
   destino: string;
+  /** Lo que puede pesar el corte ya montado, en megas. */
+  topeMegas?: number;
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
@@ -542,6 +597,12 @@ export async function cortaClipConParadas(opciones: {
   const paradas = opciones.paradas
     .filter((parada) => parada.enMs >= 0 && parada.enMs <= duracion)
     .sort((a, b) => a.enMs - b.enMs);
+
+  /* Lo que suman las pizarras: cuentan para el peso del fichero final. */
+  const paradasMs = paradas.reduce(
+    (suma, parada) => suma + Math.max(500, parada.duracionMs),
+    0,
+  );
 
   const trozos: string[] = [];
 
@@ -568,6 +629,10 @@ export async function cortaClipConParadas(opciones: {
         alto: opciones.alto,
         fps: opciones.fps,
         audio: opciones.audio,
+        /* El tope es del fichero entero, y cada trozo es un pedazo de él: se
+           aplica el mismo caudal a todos, que es lo que lo hace cumplir. */
+        topeMegas: opciones.topeMegas,
+        segundosDelTope: (duracion + paradasMs) / 1000,
         destino: nombra("video"),
       }),
     );
