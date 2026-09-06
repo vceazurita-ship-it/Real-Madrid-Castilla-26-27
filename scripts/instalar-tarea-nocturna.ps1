@@ -79,13 +79,58 @@ $opciones = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 90) `
     -MultipleInstances IgnoreNew
 
-Register-ScheduledTask -TaskName $nombre `
-    -Action $accion `
-    -Trigger $disparador `
-    -Settings $opciones `
-    -Description "Baja de BeSoccer los resultados de la jornada, las alineaciones y las fichas de jugador, y los sube a Supabase. Registro en .cache\jornada-nocturna." | Out-Null
+# Fuera de la consola.
+#
+# Por omisión el Programador engancha la tarea a la sesión interactiva y le
+# da la misma consola que tienen los terminales abiertos. Entonces cualquier
+# Ctrl+C que ocurra en cualquier terminal se la lleva por delante: el
+# 06/09/2026 se cayó tres veces seguidas así, siempre con el mismo código
+# (0xC000013A, que es exactamente «salida por Ctrl+C»), una de ellas a los
+# cinco segundos de arrancar.
+#
+# Con `S4U` corre como el mismo usuario pero **sin sesión interactiva y sin
+# consola**, que es lo que hace falta para algo que trabaja cuarenta minutos
+# de madrugada. No necesita contraseña guardada ni escritorio: sólo baja
+# páginas y escribe ficheros.
+#
+# **Pero registrarla así pide permisos de administrador.** Si no los hay se
+# registra como siempre y se avisa en una línea, porque una tarea corriente
+# que funciona es infinitamente mejor que ninguna: esto se intenta, no se
+# exige. El 06/09/2026 se aprendió por las malas —el registro falló y la
+# tarea se quedó sin existir hasta que se volvió a poner a mano—.
+$comunes = @{
+    TaskName    = $nombre
+    Action      = $accion
+    Trigger     = $disparador
+    Settings    = $opciones
+    Description = "Baja de BeSoccer los resultados de la jornada, las alineaciones y las fichas de jugador, y los sube a Supabase. El registro queda en la carpeta .cache del proyecto."
+}
+
+$sinConsola = $false
+
+try {
+    $quien = New-ScheduledTaskPrincipal `
+        -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+        -LogonType S4U `
+        -RunLevel Limited
+
+    Register-ScheduledTask @comunes -Principal $quien -ErrorAction Stop | Out-Null
+
+    $sinConsola = $true
+} catch {
+    Register-ScheduledTask @comunes | Out-Null
+}
 
 Write-Host "Programada: todos los días a las 00:00, y cada 2 h si esa falla." -ForegroundColor Green
+
+if ($sinConsola) {
+    Write-Host "Corre fuera de la consola: ningun Ctrl+C de un terminal la corta." -ForegroundColor Green
+} else {
+    Write-Host "Aviso: corre pegada a la sesion interactiva, asi que un Ctrl+C en un" -ForegroundColor Yellow
+    Write-Host "       terminal puede cortarla a media descarga. Para evitarlo, vuelve" -ForegroundColor Yellow
+    Write-Host "       a ejecutar este script como administrador." -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "Comprobar     : Get-ScheduledTask -TaskName '$nombre'"
 Write-Host "Lanzar ahora  : Start-ScheduledTask -TaskName '$nombre'"
