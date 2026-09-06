@@ -49,7 +49,19 @@ $accion = New-ScheduledTaskAction -Execute "cmd.exe" `
     -Argument "/c `"$lote`"" `
     -WorkingDirectory $raiz
 
+# A las 00:00 y, si esa no sale, cada dos horas hasta completar el día.
+#
+# No es por desconfianza: en la wifi del club hay un portal cautivo que se
+# mete en medio de las conexiones seguras, y con él no se puede bajar nada
+# (el registro del 05/09/2026 acabó en «script.google.com no está en los
+# altnames del certificado: DNS:wlc.realmadrid.es»). Con la repetición, una
+# noche perdida se recupera en cuanto el portátil está en otra red, y el
+# propio .cmd se sale en seco si el día ya está hecho.
 $disparador = New-ScheduledTaskTrigger -Daily -At "00:00"
+
+$disparador.Repetition = (New-ScheduledTaskTrigger -Once -At "00:00" `
+    -RepetitionInterval (New-TimeSpan -Hours 2) `
+    -RepetitionDuration (New-TimeSpan -Hours 22)).Repetition
 
 # `StartWhenAvailable` es lo que hace esto práctico: si a las 00:00 el
 # ordenador está apagado, la descarga se lanza en cuanto se enciende, en vez
@@ -68,7 +80,7 @@ Register-ScheduledTask -TaskName $nombre `
     -Settings $opciones `
     -Description "Baja de BeSoccer los resultados de la jornada, las alineaciones y las fichas de jugador, y los sube a Supabase. Registro en .cache\jornada-nocturna." | Out-Null
 
-Write-Host "Programada: todos los días a las 00:00." -ForegroundColor Green
+Write-Host "Programada: todos los días a las 00:00, y cada 2 h si esa falla." -ForegroundColor Green
 Write-Host ""
 Write-Host "Comprobar     : Get-ScheduledTask -TaskName '$nombre'"
 Write-Host "Lanzar ahora  : Start-ScheduledTask -TaskName '$nombre'"
