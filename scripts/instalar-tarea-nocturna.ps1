@@ -67,11 +67,16 @@ $disparador.Repetition = (New-ScheduledTaskTrigger -Once -At "00:00" `
 # ordenador está apagado, la descarga se lanza en cuanto se enciende, en vez
 # de perderse esa noche. `DontStopIfGoingOnBatteries` para que no la corte al
 # desenchufar el portátil a media descarga —son unos cuarenta minutos—.
+#
+# El plazo es de **hora y media**, no de dos horas: si fuera de dos, una
+# pasada colgada moriría en el mismo instante en que arranca la repetición
+# siguiente, y con `IgnoreNew` esa repetición se perdería. Media hora de
+# holgura basta para que el hueco esté siempre libre.
 $opciones = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
     -DontStopIfGoingOnBatteries `
     -AllowStartIfOnBatteries `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 90) `
     -MultipleInstances IgnoreNew
 
 Register-ScheduledTask -TaskName $nombre `

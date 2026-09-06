@@ -1264,7 +1264,17 @@ async function traeDeLaHoja(url, quePide = "la hoja") {
     }
 
     try {
-      const respuesta = await fetch(url, { cache: "no-store" });
+      /*
+      | Con plazo. La hoja tarda entre treinta y setenta segundos en
+      | despertarse, pero un `fetch` sin `signal` no falla nunca: si Google
+      | se queda a medias, esto espera hasta mañana y la pasada de la noche
+      | se pierde entera sin decir una palabra. Dos minutos por intento son
+      | de sobra para el arranque en frío y cortan el cuelgue.
+      */
+      const respuesta = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(120_000),
+      });
 
       const texto = await respuesta.text();
 
