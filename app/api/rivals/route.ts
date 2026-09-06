@@ -166,13 +166,14 @@ export async function GET(request: NextRequest) {
 
     /*
     | Se reenvía lo que venga —`getAlineacion` necesita su `id`—, quitando
-    | `fresco`, que es una orden para esta caché y no significa nada en la
-    | hoja. Sin parámetros se lee la plantilla de rivales, que es lo que pedía
-    | esta ruta cuando sólo servía para eso.
+    | `fresco` y `jugador`, que son órdenes para esta ruta y no significan
+    | nada en la hoja. Sin parámetros se lee la plantilla de rivales, que es lo
+    | que pedía esta ruta cuando sólo servía para eso.
     */
     const parametros = new URLSearchParams(searchParams);
 
     parametros.delete("fresco");
+    parametros.delete("jugador");
 
     if (!parametros.has("action")) parametros.set("action", "rivalesPlantillas");
 
@@ -180,6 +181,33 @@ export async function GET(request: NextRequest) {
       parametros.toString(),
       searchParams.get("fresco") === "1",
     );
+
+    /*
+    | `?jugador=<ID_JUGADOR>` devuelve **una fila**, no las mil.
+    |
+    | Lo pide la comprobación de un guardado (`lib/save-guard`), que necesita
+    | releer al jugador que se acaba de escribir y para eso se estaba
+    | descargando la plantilla entera: 290 KB por cada pausa al teclear, y
+    | encima sin caché porque una copia no vale para comprobar una escritura.
+    | La lectura contra Google es la misma —el script no sabe devolver una
+    | fila—, pero al navegador le llega un objeto de dos líneas.
+    |
+    | El filtro va aquí y no en la clave de la caché a propósito: si cada
+    | jugador guardara su copia, treinta y dos fichas serían treinta y dos
+    | lecturas de la hoja en vez de una.
+    */
+    const jugador = searchParams.get("jugador");
+
+    if (jugador) {
+      const filas = Array.isArray(data) ? data : [];
+
+      const fila = filas.find(
+        (una) =>
+          String((una as Record<string, unknown>)?.ID_JUGADOR ?? "") === jugador,
+      );
+
+      return NextResponse.json(fila ?? null);
+    }
 
     return NextResponse.json(data);
   } catch (error) {

@@ -28,6 +28,7 @@ import { useRivalStats } from "@/hooks/useRivalStats";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { leeTipologia } from "@/lib/rivals/tipologia";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import type { AutoSaveStatus as AutoSaveStatusValue } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
@@ -618,6 +619,32 @@ function ordenDelOnce(a: RivalPlayer, b: RivalPlayer) {
 | dudas—; a los demás se les marca a mano en el pop-up.
 */
 const SLOTS_DEL_PORTERO = new Set(["ed", "ei", "ext", "sd", "dc", "mp"]);
+
+/**
+ * La **forma** de lo que se manda a la hoja: qué campos llevan contenido y de
+ * qué tamaño, sin el contenido en sí.
+ *
+ * Con ella se decide si hace falta volver a comprobar un guardado. Lo que la
+ * comprobación descubre —una columna que la hoja no tiene, un campo que
+ * vuelve en blanco— depende de qué campos se mandan, no de lo que digan; y lo
+ * único que sí depende del texto es el truncado, que sólo aparece al acercarse
+ * al límite de una celda. Por eso entra el tramo de diez mil caracteres: una
+ * nota que crece de 9.000 a 11.000 vuelve a comprobarse, y las tres frases de
+ * un scouting normal no.
+ */
+function huellaDeForma(form: RivalPlayer): string {
+  return Object.entries(form)
+    .map(([campo, valor]) => {
+      const texto = String(valor ?? "").trim();
+
+      if (!texto) return "";
+
+      return `${campo}:${Math.floor(texto.length / 10000)}`;
+    })
+    .filter(Boolean)
+    .sort()
+    .join("|");
+}
 
 /*
 | La cara de un jugador tal como la pinta el pop-up de antes del PDF. La usan
@@ -2372,6 +2399,34 @@ export default function RivalPlayersPage() {
   | por cada pausa al teclear.
   */
 
+  /*
+  | Releer **una fila**, no la plantilla.
+  |
+  | `?jugador=` lo resuelve el servidor (`app/api/rivals/route.ts`): a Google
+  | le pide lo de siempre, pero al navegador le devuelve el jugador y ya. Eran
+  | 290 KB por comprobación. `fresco=1` sigue siendo obligatorio: una copia,
+  | por reciente que sea, no puede decir si una escritura ha llegado.
+  */
+  const releerJugador = useCallback(async (id: string) => {
+    const relectura = await fetch(
+      `${RIVALS_API_URL}?action=rivalesPlantillas&jugador=${encodeURIComponent(
+        id,
+      )}&fresco=1`,
+      { cache: "no-store" },
+    );
+
+    if (!relectura.ok) return null;
+
+    const fila = await relectura.json();
+
+    if (!fila || typeof fila !== "object" || Array.isArray(fila)) return null;
+
+    return fila as Record<string, unknown>;
+  }, []);
+
+  /* Qué forma tenía lo último que se comprobó bien, por jugador. */
+  const formaComprobada = useRef(new Map<string, string>());
+
   const escribirJugador = useCallback(
     async (form: RivalPlayer | null) => {
       if (!form?.ID_JUGADOR) return true;
@@ -2392,33 +2447,57 @@ export default function RivalPlayersPage() {
         throw new Error(explicaErrorScript(result.error));
       }
 
+      /*
+      | La comprobación sólo cuando puede decir algo nuevo.
+      |
+      | Se hacía en **cada** guardado, y un guardado es cada pausa al
+      | teclear: una lectura de la hoja sin caché por cada frase escrita.
+      | Medido el 06/09/2026, esa lectura tarda unos cinco segundos con el
+      | script caliente y hasta un minuto en frío, así que la ficha pasaba más
+      | tiempo comprobando lo ya comprobado que escribiendo. Y como Apps
+      | Script atiende de uno en uno, esa relectura además retrasaba el
+      | guardado siguiente.
+      |
+      | Lo que la comprobación detecta —una columna que la hoja no tiene, un
+      | campo que vuelve en blanco— es un problema de **la forma** de lo que
+      | se manda, no de un texto concreto: si «FORTALEZAS» llegó hace diez
+      | segundos, va a llegar ahora. Así que se comprueba cuando cambia esa
+      | forma: la primera vez de cada ficha y cada vez que un campo estrena
+      | contenido. El tramo de longitud entra en la huella para no perder los
+      | truncados, que es lo único que sí depende de lo escrito.
+      */
+      const huella = huellaDeForma(form);
+
+      if (formaComprobada.current.get(form.ID_JUGADOR) === huella) {
+        setPlayers((current) =>
+          current.map((player) =>
+            player.ID_JUGADOR === form.ID_JUGADOR ? form : player,
+          ),
+        );
+
+        setPristineForm(JSON.stringify(form));
+
+        return true;
+      }
+
       const verificacion = await verificarGuardado({
         titulo: `Jugador rival · ${
           form["NOMBRE DEPORTIVO"] || form.JUGADOR
         }`,
         enviado: form as unknown as Record<string, unknown>,
         modoAuto: true,
-        releer: async () => {
-          /* `fresco=1`: la copia del servidor no vale para comprobar un
-             guardado, por reciente que sea. Ver `app/api/rivals/route.ts`. */
-          const relectura = await fetch(
-            `${RIVALS_API_URL}?action=rivalesPlantillas&fresco=1`,
-            { cache: "no-store" },
-          );
-
-          if (!relectura.ok) return null;
-
-          const filas = await relectura.json();
-
-          if (!Array.isArray(filas)) return null;
-
-          return (
-            filas.find(
-              (fila) => String(fila?.ID_JUGADOR) === String(form.ID_JUGADOR),
-            ) ?? null
-          );
-        },
+        releer: () => releerJugador(form.ID_JUGADOR),
       });
+
+      /*
+      | La forma sólo se da por comprobada cuando de verdad se ha comparado.
+      | `ok` sin `verificado` es «no he podido releer» —un corte de red, la
+      | hoja caída— y apuntarlo aquí dejaría a esa ficha sin comprobar en toda
+      | la sesión, que es justo lo que este atajo no puede permitirse.
+      */
+      if (verificacion.ok && verificacion.verificado) {
+        formaComprobada.current.set(form.ID_JUGADOR, huella);
+      }
 
       if (verificacion.ok) {
         setPlayers((current) =>
@@ -2432,7 +2511,7 @@ export default function RivalPlayersPage() {
 
       return verificacion.ok;
     },
-    [verificarGuardado],
+    [verificarGuardado, releerJugador],
   );
 
   const autoFicha = useAutoSave<RivalPlayer | null>({
@@ -2441,6 +2520,106 @@ export default function RivalPlayersPage() {
     debounce: 1800,
     save: escribirJugador,
   });
+
+  /*
+  |--------------------------------------------------------------------------
+  | ETIQUETAS SIN ABRIR LA FICHA
+  |--------------------------------------------------------------------------
+  |
+  | Etiquetar es lo que más se repite en esta pantalla: se recorre la
+  | plantilla del rival de arriba abajo poniendo «el rápido» aquí y «lento»
+  | allá. Hacerlo obligaba a abrir la ficha entera, buscar la franja,
+  | desplegar el catálogo, cerrar y volver a la lista, doce veces seguidas.
+  |
+  | Ahora se toca la chapa —o el «+» si no tiene ninguna— y se abre este
+  | pop-up encima de la lista, igual que la marca del once se cambia sin
+  | entrar en la ficha. Escribe en la misma columna IMPACTO y por el mismo
+  | camino que la ficha (`escribirJugador`), así que se guarda solo.
+  */
+  const [etiquetasForm, setEtiquetasForm] = useState<RivalPlayer | null>(null);
+
+  const autoEtiquetas = useAutoSave<RivalPlayer | null>({
+    value: etiquetasForm,
+    enabled: Boolean(etiquetasForm),
+    /* Más corto que en la ficha: aquí se pulsan chapas, no se escribe. */
+    debounce: 900,
+    save: escribirJugador,
+  });
+
+  /* Abrir otro jugador no es una edición: se toma como nueva base. */
+  const idEtiquetas = etiquetasForm?.ID_JUGADOR ?? "";
+  const idEtiquetasAnterior = useRef(idEtiquetas);
+
+  useEffect(() => {
+    if (idEtiquetasAnterior.current === idEtiquetas) return;
+
+    idEtiquetasAnterior.current = idEtiquetas;
+
+    autoEtiquetas.sync();
+  }, [idEtiquetas, autoEtiquetas]);
+
+  /*
+  | Al cerrar se consolida lo pendiente antes de soltar el formulario: el
+  | retardo a medias se llevaría la última chapa pulsada.
+  */
+  const cerrarEtiquetas = useCallback(async () => {
+    await autoEtiquetas.flush();
+
+    setEtiquetasForm(null);
+  }, [autoEtiquetas]);
+
+  /*
+  | La chapa se pinta al momento y el guardado va detrás. Es lo mismo que hace
+  | la marca del once: a cinco segundos por escritura, esperar a la hoja para
+  | pintar una píldora haría el gesto inservible.
+  |
+  | Se toca también la lista, no sólo el formulario del pop-up: detrás del
+  | velo están la fila y el campograma, y la chapa nueva tiene que verse ahí
+  | al cerrar sin esperar a que vuelva la hoja.
+  */
+  const cambiaEtiquetas = useCallback(
+    (tag: PlayerTag) => {
+      if (!etiquetasForm) return;
+
+      const siguiente: RivalPlayer = {
+        ...etiquetasForm,
+        IMPACTO: toggleTagValue(etiquetasForm.IMPACTO, tag),
+      };
+
+      setEtiquetasForm(siguiente);
+
+      setPlayers((current) =>
+        current.map((player) =>
+          player.ID_JUGADOR === siguiente.ID_JUGADOR ? siguiente : player,
+        ),
+      );
+    },
+    [etiquetasForm],
+  );
+
+  /* Escape cierra el pop-up. El de la ficha no vale: aquél sólo escucha con
+     la ficha abierta, y aquí no lo está. */
+  useEffect(() => {
+    if (!etiquetasForm) return;
+
+    const alPulsar = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") void cerrarEtiquetas();
+    };
+
+    window.addEventListener("keydown", alPulsar);
+
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, [etiquetasForm, cerrarEtiquetas]);
+
+  /*
+  | Sólo se puede etiquetar desde la lista a quien tiene fila en la hoja: sin
+  | `ID_JUGADOR` no hay dónde escribir, y ésos se arreglan desde la ficha.
+  */
+  const abrirEtiquetasDe = useCallback(
+    (player: RivalPlayer) =>
+      player.ID_JUGADOR ? () => setEtiquetasForm(player) : undefined,
+    [],
+  );
 
   useEffect(() => {
     flushFicha.current = autoFicha.flush;
@@ -2510,28 +2689,18 @@ export default function RivalPlayersPage() {
           playerToSave["NOMBRE DEPORTIVO"] || playerToSave.JUGADOR
         }`,
         enviado: playerToSave as unknown as Record<string, unknown>,
-        releer: async () => {
-          /* `fresco=1`: la copia del servidor no vale para comprobar un
-             guardado, por reciente que sea. Ver `app/api/rivals/route.ts`. */
-          const relectura = await fetch(
-            `${RIVALS_API_URL}?action=rivalesPlantillas&fresco=1`,
-            { cache: "no-store" },
-          );
-
-          if (!relectura.ok) return null;
-
-          const filas = await relectura.json();
-
-          if (!Array.isArray(filas)) return null;
-
-          return (
-            filas.find(
-              (fila) =>
-                String(fila?.ID_JUGADOR) === String(playerToSave.ID_JUGADOR),
-            ) ?? null
-          );
-        },
+        releer: () => releerJugador(playerToSave.ID_JUGADOR),
       });
+
+      /* Un alta o un guardado a botón sí se comprueban siempre, y con eso
+         queda apuntada la forma que el autoguardado ya no tiene que repetir.
+         Si la relectura no llegó a hacerse, no hay nada que apuntar. */
+      if (verificacion.ok && verificacion.verificado) {
+        formaComprobada.current.set(
+          playerToSave.ID_JUGADOR,
+          huellaDeForma(playerToSave),
+        );
+      }
 
       /* Con campos perdidos la ficha se queda abierta y con el texto puesto,
          que es la única copia que queda. */
@@ -3048,6 +3217,7 @@ export default function RivalPlayersPage() {
                                       showTeam={teamsInResults.length > 1}
                                       onceEstado={onceDe(player)}
                                       onCiclarOnce={ciclarOnceDe(player)}
+                                      onEtiquetas={abrirEtiquetasDe(player)}
                                       onClick={() => openPlayer(player)}
                                     />
                                   ))}
@@ -3079,6 +3249,7 @@ export default function RivalPlayersPage() {
                               showTeam={teamsInResults.length > 1}
                               onceEstado={onceDe(player)}
                               onCiclarOnce={ciclarOnceDe(player)}
+                              onEtiquetas={abrirEtiquetasDe(player)}
                               onClick={() => openPlayer(player)}
                             />
                           ))}
@@ -3333,6 +3504,7 @@ export default function RivalPlayersPage() {
                         activeTags={activeTags}
                         onceEstado={onceDe}
                         onCiclarOnce={ciclarOnceDe}
+                        onEtiquetas={abrirEtiquetasDe}
                         onPlayerClick={openPlayer}
                       />
                     </div>
@@ -4099,8 +4271,211 @@ export default function RivalPlayersPage() {
         </div>
       )}
 
+      {/* ETIQUETAS SIN FICHA — se abre desde la lista y desde el campograma */}
+
+      {etiquetasForm && (
+        <EtiquetasDialog
+          player={etiquetasForm}
+          estado={autoEtiquetas.status}
+          guardadoEn={autoEtiquetas.lastSavedAt}
+          onReintentar={() => void autoEtiquetas.flush()}
+          onToggle={cambiaEtiquetas}
+          onCerrar={() => void cerrarEtiquetas()}
+        />
+      )}
+
       {avisoGuardado}
     </main>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ETIQUETAS DE UN JUGADOR, SIN ABRIR SU FICHA
+|--------------------------------------------------------------------------
+|
+| El catálogo de su puesto encima de la lista. Es la misma mecánica que el
+| `TagPicker` de la ficha —las mismas chapas, el mismo campo IMPACTO— pero sin
+| el modo «Editar» de por medio: aquí se ha entrado a etiquetar, así que el
+| catálogo está abierto desde el primer momento.
+|
+| Lo elegido va arriba y se quita pulsándolo, que es lo que se espera de una
+| chapa marcada. Debajo, el catálogo entero por bloques.
+*/
+function EtiquetasDialog({
+  player,
+  estado,
+  guardadoEn,
+  onReintentar,
+  onToggle,
+  onCerrar,
+}: {
+  player: RivalPlayer;
+  estado: AutoSaveStatusValue;
+  guardadoEn: Date | null;
+  onReintentar: () => void;
+  onToggle: (tag: PlayerTag) => void;
+  onCerrar: () => void;
+}) {
+  const parsed = useMemo(() => parseTags(player.IMPACTO), [player.IMPACTO]);
+
+  const activas = useMemo(
+    () => new Set(parsed.tags.map((tag) => tag.key)),
+    [parsed.tags],
+  );
+
+  const linea = getLine(player["POSICIÓN"])?.key ?? null;
+
+  const catalogo = useMemo(() => gruposDelPuesto(linea), [linea]);
+
+  const slotEntry = getSlot(player["POSICIÓN"]);
+
+  const nombre = player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre";
+
+  /* Las debilidades primero, como en el campograma: es lo que se busca antes
+     de un partido. El color de la chapa ya dice de cuál se trata. */
+  const enFila = [
+    ...parsed.tags.filter((tag) => tag.tone === "debilidad"),
+    ...parsed.tags.filter((tag) => tag.tone === "fortaleza"),
+  ];
+
+  return (
+    <div
+      className="modal-veil fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto p-3 backdrop-blur-sm sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Etiquetas de ${nombre}`}
+      onClick={onCerrar}
+    >
+      <div
+        className="relative flex max-h-[92vh] w-full min-w-0 max-w-[720px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* CABECERA */}
+
+        <div className="flex min-w-0 items-center gap-3 border-b border-white/10 p-4">
+          <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#0B0F14]">
+            {player.FOTO ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={String(player.FOTO)}
+                alt={nombre}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <UserRound
+                size={22}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/25"
+              />
+            )}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold">{nombre}</p>
+
+            <p className="truncate text-[11px] text-white/40">
+              {player.DORSAL ? `${player.DORSAL} · ` : ""}
+              {slotEntry?.slot.label || player["POSICIÓN"] || "Sin posición"}
+            </p>
+          </div>
+
+          <AutoSaveStatus
+            estado={estado}
+            guardadoEn={guardadoEn}
+            onReintentar={onReintentar}
+            className="hidden sm:inline-flex"
+          />
+
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-full p-2 text-white/50 transition hover:bg-white/10 hover:text-white"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* LO ELEGIDO */}
+
+        <div className="min-w-0 overflow-y-auto p-4">
+          <span className="mb-2 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+            Puestas
+          </span>
+
+          {enFila.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {enFila.map((tag) => (
+                <TagChip
+                  key={tag.key}
+                  tag={tag}
+                  active
+                  onClick={() => onToggle(tag)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-white/30">
+              Ninguna todavía. Elígelas del catálogo de abajo.
+            </p>
+          )}
+
+          {parsed.extra.length > 0 && (
+            <p className="mt-2 text-[11px] text-white/40">
+              Texto libre conservado:{" "}
+              <span className="text-white/60">{parsed.extra.join(", ")}</span>
+            </p>
+          )}
+
+          {/* EL CATÁLOGO DE SU PUESTO */}
+
+          <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+            {catalogo.map((group) => (
+              <div key={group.key}>
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
+                  {group.label}
+                </span>
+
+                <div className="flex flex-wrap gap-2">
+                  {group.tags.map((tag) => (
+                    <TagChip
+                      key={tag.key}
+                      tag={tag}
+                      active={activas.has(tag.key)}
+                      onClick={() => onToggle(tag)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* PIE */}
+
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-white/10 p-4">
+          <AutoSaveStatus
+            estado={estado}
+            guardadoEn={guardadoEn}
+            onReintentar={onReintentar}
+            className="sm:hidden"
+          />
+
+          <span className="hidden text-[11px] text-white/30 sm:inline">
+            Se guarda solo en la columna IMPACTO.
+          </span>
+
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="flex items-center gap-2 rounded-xl bg-[#C8A96B] px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[#d8ba7c]"
+          >
+            <Check size={16} />
+            Hecho
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -4151,6 +4526,7 @@ function PlayerRow({
   showTeam,
   onceEstado = null,
   onCiclarOnce,
+  onEtiquetas,
   onClick,
 }: {
   player: RivalPlayer;
@@ -4158,6 +4534,8 @@ function PlayerRow({
   /** Marca en el once probable, si el equipo tiene once montado. */
   onceEstado?: OnceEstado;
   onCiclarOnce?: () => void;
+  /** Abre el pop-up de etiquetas. Sin fila en la hoja no hay dónde escribir. */
+  onEtiquetas?: () => void;
   onClick: () => void;
 }) {
   const { tags } = parseTags(player.IMPACTO);
@@ -4263,9 +4641,9 @@ function PlayerRow({
           </p>
         )}
 
-        {/* ETIQUETAS */}
+        {/* ETIQUETAS — se tocan aquí mismo, sin abrir la ficha */}
 
-        {tags.length > 0 && (
+        {(tags.length > 0 || onEtiquetas) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             {tags.map((tag) => {
               const Icon = tag.icon;
@@ -4285,6 +4663,34 @@ function PlayerRow({
                 </span>
               );
             })}
+
+            {/*
+            | El «+» va al final de las chapas y no en un botón aparte: la fila
+            | ya tiene la marca del once a la derecha y otro botón fijo la
+            | dejaría sin sitio para el nombre en un móvil. Sin ninguna puesta
+            | se lee «Etiquetas», que es lo que hay que adivinar la primera vez.
+            */}
+            {onEtiquetas && (
+              <button
+                type="button"
+                data-export-hide
+                onClick={(event) => {
+                  /* El clic es del botón, no de la fila: si sube, abre la
+                     ficha entera, que es justo lo que se quiere evitar. */
+                  event.stopPropagation();
+                  onEtiquetas();
+                }}
+                title={
+                  tags.length
+                    ? "Añadir o quitar etiquetas"
+                    : "Poner etiquetas a este jugador"
+                }
+                className="flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B]"
+              >
+                <Plus size={9} className="shrink-0" />
+                {tags.length === 0 && "Etiquetas"}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -6108,6 +6514,7 @@ function TacticalPitch({
   activeTags,
   onceEstado,
   onCiclarOnce,
+  onEtiquetas,
   onPlayerClick,
 }: {
   players: RivalPlayer[];
@@ -6116,6 +6523,8 @@ function TacticalPitch({
   /** Marca de cada jugador en el once probable. */
   onceEstado?: (player: RivalPlayer) => OnceEstado;
   onCiclarOnce?: (player: RivalPlayer) => (() => void) | undefined;
+  /** Abre el pop-up de etiquetas de ese jugador, sin pasar por su ficha. */
+  onEtiquetas?: (player: RivalPlayer) => (() => void) | undefined;
   onPlayerClick: (player: RivalPlayer) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -6309,6 +6718,7 @@ function TacticalPitch({
 
         const enElOnce = onceEstado?.(player) ?? null;
         const ciclar = onCiclarOnce?.(player);
+        const etiquetar = onEtiquetas?.(player);
 
         /*
         | El detalle es un cuadro de 192 px centrado en la ficha, y el campo
@@ -6459,6 +6869,41 @@ function TacticalPitch({
                   </span>
                 )
               )}
+
+              {/*
+              | ETIQUETAS — arriba a la derecha, enfrente de la marca del once.
+              |
+              | Va suelto sobre la foto y no en la fila de chapas de abajo
+              | porque esa fila sólo se reserva en los bloques donde alguien va
+              | etiquetado (ver `labelFor`): un botón ahí en un bloque sin
+              | etiquetas se montaría sobre la ficha de al lado. Aquí no ocupa
+              | sitio en el reparto y no hay que tocar el motor.
+              |
+              | Aparece al pasar el ratón, como el «+» del once: en el campo
+              | caben veinticinco caras y un botón fijo en cada una taparía las
+              | fotos, que es lo que se viene a mirar. En el móvil, donde no
+              | hay ratón, se etiqueta desde la lista.
+              */}
+              {etiquetar && (
+                <button
+                  type="button"
+                  data-export-hide
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    etiquetar();
+                  }}
+                  title={`Etiquetas de ${name}`}
+                  aria-label={`Etiquetas de ${name}`}
+                  className="absolute -right-1 -top-1 flex items-center justify-center rounded-full border border-black/40 text-white/70 opacity-0 shadow transition group-hover:opacity-100 focus-visible:opacity-100"
+                  style={{
+                    height: badgeSize,
+                    minWidth: badgeSize,
+                    background: "rgba(8,12,16,0.85)",
+                  }}
+                >
+                  <Tags size={Math.max(8, Math.round(badgeSize * 0.55))} />
+                </button>
+              )}
             </div>
 
             {/* NOMBRE */}
@@ -6476,7 +6921,19 @@ function TacticalPitch({
 
             {tagRow && (
               <span
-                className="mt-1 flex items-center justify-center gap-0.5"
+                /* Pulsar una chapa puesta abre el mismo pop-up: es el gesto
+                   que se espera al ver algo marcado y querer cambiarlo. */
+                onClick={
+                  etiquetar && tags.length > 0
+                    ? (event) => {
+                        event.stopPropagation();
+                        etiquetar();
+                      }
+                    : undefined
+                }
+                className={`mt-1 flex items-center justify-center gap-0.5 ${
+                  etiquetar && tags.length > 0 ? "cursor-pointer" : ""
+                }`}
                 style={{ height: badgeSize }}
               >
                 {visibleTags.map((tag) => {
