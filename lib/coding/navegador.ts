@@ -79,6 +79,7 @@
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 import { montaRapido, puedeIrRapido } from "@/lib/coding/rapido";
 import {
+  CORTE_ATASCADO as ATASCADO,
   CORTE_CANCELADO as CANCELADO,
   montaEscenario,
   type PantallaMontaje,
@@ -322,22 +323,47 @@ async function ve(video: HTMLVideoElement, segundos: number) {
  * arranca unos segundos después del clic —pintar la carátula tarda—. Antes que
  * dejar al analista sin vídeo, sale mudo.
  */
+/**
+ * Arranca el vídeo, con plazo.
+ *
+ * La promesa de `play()` **no vuelve nunca** cuando el navegador no consigue
+ * arrancar la reproducción, y con un partido pesado eso pasa: el montaje se
+ * quedaba en «Preparando el corte» sin decir nada. Diez segundos y se sigue:
+ * si de verdad no ha arrancado, el bucle de reproducción lo va a notar
+ * enseguida y saldrá con un error que se lee.
+ */
 async function arranca(video: HTMLVideoElement) {
+  const plazo = new Promise<void>((listo) => setTimeout(listo, 10_000));
+
   try {
-    await video.play();
+    await Promise.race([video.play(), plazo]);
   } catch {
     video.muted = true;
 
-    await video.play().catch(() => undefined);
+    await Promise.race([
+      video.play().catch(() => undefined),
+      plazo,
+    ]);
   }
 }
 
+/**
+ * Carga una imagen. Con plazo, porque un `src` que no resuelve no dispara ni
+ * `onload` ni `onerror`: se queda esperando, y el montaje con él.
+ */
 function cargaImagen(src: string) {
   return new Promise<HTMLImageElement | null>((listo) => {
     const imagen = new Image();
 
-    imagen.onload = () => listo(imagen);
-    imagen.onerror = () => listo(null);
+    const plazo = setTimeout(() => listo(null), 20_000);
+
+    const acaba = (valor: HTMLImageElement | null) => {
+      clearTimeout(plazo);
+      listo(valor);
+    };
+
+    imagen.onload = () => acaba(imagen);
+    imagen.onerror = () => acaba(null);
     imagen.src = src;
   });
 }
@@ -777,6 +803,7 @@ async function montaATiempoReal(
     };
 
     const paraSiCancelan = () => {
+      if (escenario.atascado()) throw new Error(ATASCADO);
       if (escenario.cancelado()) throw new Error(CANCELADO);
     };
 
@@ -1020,6 +1047,21 @@ async function montaATiempoReal(
 
       await arrancaConImagen(graba);
 
+      /*
+      | Este bucle sólo salía por el final del corte o por `ended`, y con un
+      | partido pesado el vídeo se atasca a veces sin llegar a ninguno de los
+      | dos: el descodificador se queda sin fotogramas, `currentTime` deja de
+      | subir y esto daba vueltas para siempre con la pantalla congelada.
+      |
+      | Ahora se mira si el reloj del **vídeo** avanza. Diez segundos sin
+      | moverse con la reproducción pedida no es un tramo lento: es un cuelgue,
+      | y se sale por las bravas para que lo recoja quien llamó.
+      */
+      const PARADO_MS = 10_000;
+
+      let ultimoT = -1;
+      let desdeCuando = performance.now();
+
       for (;;) {
         paraSiCancelan();
 
@@ -1030,6 +1072,16 @@ async function montaATiempoReal(
         empuja();
 
         const t = (media ?? video.currentTime) * 1000;
+
+        /* Un cuarto de segundo de margen: el reloj del vídeo no es continuo. */
+        if (t > ultimoT + 250) {
+          ultimoT = t;
+          desdeCuando = performance.now();
+        } else if (performance.now() - desdeCuando > PARADO_MS) {
+          throw new Error(
+            `El vídeo se ha quedado parado en ${reloj(t / 1000)} y no avanza.`,
+          );
+        }
 
         const parada = paradas[indice];
 
@@ -1200,12 +1252,25 @@ export async function cortaEnElNavegador(
 
   const escenario = montaEscenario(peticion.titulo ?? "Montando el vídeo");
 
+  /*
+  | El montaje corre contra el vigía de la pantalla.
+  |
+  | Los dos motores comprueban `atascado()` en sus bucles, y eso cubre casi
+  | todo; pero «casi» no vale aquí, porque lo que se queda colgado es
+  | precisamente lo que no tiene bucle. Con esta carrera, esta función
+  | **siempre** termina: o con el vídeo, o con un error que se puede leer. El
+  | motor que se haya quedado dentro se muere con la pestaña o al cerrar la
+  | pantalla; lo que no puede pasar es que se lleve por delante al analista.
+  */
+  const conVigia = <T,>(faena: Promise<T>) =>
+    Promise.race([faena, escenario.rendicion()]);
+
   try {
     if (puedeIrRapido()) {
       escenario.dice("Abriendo el partido", 0);
 
       try {
-        const rapido = await montaRapido(peticion, escenario);
+        const rapido = await conVigia(montaRapido(peticion, escenario));
 
         if (rapido) return rapido;
       } catch (error) {
@@ -1216,9 +1281,18 @@ export async function cortaEnElNavegador(
           error,
         );
       }
+
+      /*
+      | El que se ha atascado es el rápido. El de respaldo trabaja de otra
+      | manera —reproduce y graba— y con un partido que a WebCodecs se le
+      | atraganta puede acabar perfectamente, así que entra con el cronómetro
+      | del vigía a cero. Sin esto, heredaría el atasco del otro y se caería en
+      | la primera vuelta.
+      */
+      escenario.reanuda();
     }
 
-    return await montaATiempoReal(peticion, escenario);
+    return await conVigia(montaATiempoReal(peticion, escenario));
   } finally {
     escenario.cierra();
   }

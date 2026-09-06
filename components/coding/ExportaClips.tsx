@@ -387,11 +387,49 @@ export function useExportador(opciones: {
           });
         }, 1000);
 
-        const respuesta = await fetch("/api/coding/export", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: cuerpo,
-        });
+        /*
+        | Con plazo, y generoso.
+        |
+        | `fetch` no se rinde nunca por su cuenta: si el servidor se cae a
+        | media codificación —o el ffmpeg de la máquina se queda colgado con un
+        | partido pesado— el aviso se queda contando segundos hasta que alguien
+        | recarga la página. Con esto sale un error que se puede leer.
+        |
+        | El plazo se calcula sobre lo que dura el vídeo porque `preciso` va a
+        | ~1× tiempo real: cuatro veces eso más dos minutos de arranque es de
+        | sobra para el peor caso, y sigue siendo un plazo.
+        */
+        const plazoMs = Math.max(
+          5 * 60_000,
+          120_000 + segundosDeVideo * 4 * 1000,
+        );
+
+        const corta = new AbortController();
+
+        const seAcabo = setTimeout(() => corta.abort(), plazoMs);
+
+        let respuesta: Response;
+
+        try {
+          respuesta = await fetch("/api/coding/export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: cuerpo,
+            signal: corta.signal,
+          });
+        } catch (error) {
+          if (corta.signal.aborted) {
+            throw new Error(
+              `El servidor no ha contestado en ${Math.round(plazoMs / 60_000)} ` +
+                `minutos. Prueba con menos cortes, o abre el partido desde el ` +
+                `ordenador para montarlo aquí sin servidor.`,
+            );
+          }
+
+          throw error;
+        } finally {
+          clearTimeout(seAcabo);
+        }
 
         if (!respuesta.ok) {
           const error = await respuesta.json().catch(() => null);

@@ -43,6 +43,7 @@ import {
   type PistaMp4,
 } from "@/lib/coding/mp4";
 import {
+  CORTE_ATASCADO,
   CORTE_CANCELADO,
   type ClipNavegador,
   type PantallaMontaje,
@@ -465,15 +466,29 @@ async function planea(fuente: PistaMp4, fpsSesion?: number): Promise<Plan | null
 /*  LAS IMÁGENES QUEMADAS                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Una carátula o una pizarra, lista para quemar en el vídeo.
+ *
+ * Con plazo: la imagen puede venir de un enlace del bucket, y un `fetch` que
+ * no vuelve dejaría el montaje esperando antes siquiera de empezar. Sin
+ * imagen se sigue —el vídeo sale sin esa parada— porque perder una pizarra es
+ * mejor que perder el montaje entero.
+ */
 async function cargaMapa(src: string) {
+  const corta = new AbortController();
+
+  const plazo = setTimeout(() => corta.abort(), 20_000);
+
   try {
-    const respuesta = await fetch(src);
+    const respuesta = await fetch(src, { signal: corta.signal });
 
     return await createImageBitmap(await respuesta.blob());
   } catch (error) {
     console.warn("[coding] no se ha podido leer una imagen del montaje", error);
 
     return null;
+  } finally {
+    clearTimeout(plazo);
   }
 }
 
@@ -749,6 +764,7 @@ export async function montaRapido(
     );
 
   const paraSiCancelan = () => {
+    if (pantalla.atascado()) throw new Error(CORTE_ATASCADO);
     if (pantalla.cancelado()) throw new Error(CORTE_CANCELADO);
   };
 

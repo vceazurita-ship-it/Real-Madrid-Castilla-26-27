@@ -76,6 +76,15 @@ export type ResultadoNavegador = {
 
 export type PantallaMontaje = ReturnType<typeof montaEscenario>;
 
+/**
+ * Lo que se lanza cuando el montaje deja de avanzar.
+ *
+ * Se distingue del cancelado a propósito: cancelar es una decisión y no se
+ * avisa de nada; atascarse es una avería y hay que decirlo, y en el motor
+ * rápido además vale para caerse al de respaldo, que quizá sí acabe.
+ */
+export const CORTE_ATASCADO = "El montaje se ha quedado atascado.";
+
 export function montaEscenario(titulo: string) {
   /*
   | El vídeo de la pantalla de detrás se para.
@@ -180,6 +189,92 @@ export function montaEscenario(titulo: string) {
     cancelar.disabled = true;
   };
 
+  /*
+  |--------------------------------------------------------------------------
+  | EL VIGÍA: ESTA PANTALLA NO SE QUEDA COLGADA
+  |--------------------------------------------------------------------------
+  |
+  | Un montaje puede atascarse por muchos sitios —un descodificador que se
+  | queda tonto con un partido pesado, una grabadora que no suelta un byte, un
+  | `seeked` que no llega— y todos acaban igual: la barra parada y nadie sabe
+  | si está trabajando o si se ha muerto. En un partido de dos horas eso son
+  | veinte minutos de reloj antes de sospechar.
+  |
+  | Cada motor avisa de lo que va haciendo por `dice()`. Eso es exactamente el
+  | pulso: mientras la cuenta avance, hay vida. Si deja de avanzar, primero se
+  | dice en pantalla —puede ser un tramo lento de verdad— y si sigue parada, se
+  | da por atascado y el montaje se corta con un error que se puede leer.
+  |
+  | Va aquí y no en cada motor a propósito: es una sola red que cubre los
+  | bucles de los dos, los de ahora y los que vengan.
+  */
+
+  /** Sin avanzar más de esto, se avisa en pantalla. */
+  const AVISA_MS = 20_000;
+
+  /** Y pasado esto, se da por atascado y se corta. */
+  const RENDICION_MS = 90_000;
+
+  let ultimoAvance = Date.now();
+  let ultimaFraccion = -1;
+  let atascado = false;
+
+  /*
+  | La rendición, como promesa.
+  |
+  | El aviso por bandera sólo sirve donde alguien lo mire, y un montaje puede
+  | quedarse esperando en un sitio **sin bucle**: un `play()` que no arranca,
+  | una grabadora que no suelta el primer byte, un descodificador dormido. Ahí
+  | no hay vuelta donde comprobar nada, así que el vigía tiene que poder
+  | terminar el montaje él mismo. Quien lo lanza corre esta promesa contra la
+  | del montaje: pase lo que pase, alguna de las dos contesta.
+  */
+  let seRinde: (razon: Error) => void = () => undefined;
+  let rendicion: Promise<never>;
+
+  /*
+  | Se rearma, y hace falta: una promesa rechazada lo está para siempre, así
+  | que si el motor rápido se atasca y se cae al de respaldo, éste se
+  | encontraría la carrera perdida antes de empezar. `reanuda()` pone una
+  | nueva.
+  */
+  const armaRendicion = () => {
+    rendicion = new Promise<never>((_, falla) => {
+      seRinde = falla;
+    });
+
+    /* Nadie la espera hasta que se corre contra el montaje: sin esto, el
+       navegador la contaría como un rechazo sin dueño. */
+    rendicion.catch(() => undefined);
+  };
+
+  armaRendicion();
+
+  const vigia = window.setInterval(() => {
+    if (cancelado || atascado) return;
+
+    const parada = Date.now() - ultimoAvance;
+
+    if (parada >= RENDICION_MS) {
+      atascado = true;
+
+      paso.textContent = "El montaje se ha quedado atascado.";
+
+      seRinde(new Error(CORTE_ATASCADO));
+
+      return;
+    }
+
+    if (parada >= AVISA_MS) {
+      const segundos = Math.round(parada / 1000);
+
+      aviso.textContent =
+        `Sin avanzar desde hace ${segundos} s. Si es un partido muy pesado ` +
+        `puede tardar; si no se mueve, se corta solo en ` +
+        `${Math.round((RENDICION_MS - parada) / 1000)} s.`;
+    }
+  }, 1000);
+
   cancelar.addEventListener("click", cancela);
 
   /*
@@ -210,6 +305,46 @@ export function montaEscenario(titulo: string) {
 
     cancelado: () => cancelado,
 
+    /**
+     * El montaje lleva demasiado tiempo sin avanzar.
+     *
+     * Se mira en los mismos sitios que `cancelado()` —los bucles de los dos
+     * motores lo comprueban en cada vuelta— y hace que el montaje salga por
+     * su propio pie en vez de quedarse dando vueltas para siempre.
+     */
+    atascado: () => atascado,
+
+    /**
+     * Se rechaza cuando el vigía se rinde. Nunca se cumple.
+     *
+     * Va contra la promesa del montaje en un `Promise.race`: es lo que
+     * garantiza que la llamada termina aunque el motor se haya quedado
+     * esperando en un sitio donde no hay bucle que mire la bandera.
+     *
+     * Es una función y no la promesa suelta porque `reanuda()` la cambia: la
+     * carrera tiene que correr contra la de ahora, no contra la que ya
+     * perdió el motor anterior.
+     */
+    rendicion: () => rendicion,
+
+    /**
+     * Borra el atasco y vuelve a contar desde cero.
+     *
+     * Lo llama el reparto de motores antes de caerse al de respaldo: el que se
+     * ha atascado es el rápido, y el otro merece su oportunidad con el
+     * cronómetro a cero. Cancelar no se borra nunca: eso lo ha pedido una
+     * persona.
+     */
+    reanuda: () => {
+      atascado = false;
+      ultimoAvance = Date.now();
+      ultimaFraccion = -1;
+
+      aviso.textContent = "";
+
+      armaRendicion();
+    },
+
     /** La letra pequeña de abajo, distinta según el motor que esté montando. */
     explica: (texto: string) => {
       aviso.textContent = texto;
@@ -226,12 +361,28 @@ export function montaEscenario(titulo: string) {
     },
 
     dice: (texto: string, fraccion: number) => {
+      if (atascado) return;
+
       paso.textContent = texto;
 
       barra.style.width = `${Math.min(100, Math.max(0, fraccion * 100)).toFixed(1)}%`;
+
+      /*
+      | El pulso. Se mira la fracción y no el texto: el texto lleva el reloj
+      | dentro y cambia cada segundo aunque el montaje no se mueva del sitio,
+      | así que serviría de coartada para un atasco.
+      */
+      if (fraccion !== ultimaFraccion) {
+        ultimaFraccion = fraccion;
+        ultimoAvance = Date.now();
+
+        aviso.textContent = "";
+      }
     },
 
     cierra: () => {
+      window.clearInterval(vigia);
+
       window.removeEventListener("keydown", teclas, true);
 
       video.pause();
