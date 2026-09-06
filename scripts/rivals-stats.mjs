@@ -334,12 +334,55 @@ function mergeSeasons(temporadas) {
 |--------------------------------------------------------------------------
 */
 
-async function loadRivals() {
-  const response = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`, {
-    cache: "no-store",
-  });
+/**
+ * Lee una lista de la hoja, con reintentos.
+ *
+ * Apps Script devuelve de vez en cuando **una página de Google** en vez del
+ * JSON —una interstitial con `ppConfig` dentro— y un `.json()` a pelo se
+ * rompe con «Unexpected token '<'». Eso es lo que tumbaba la actualización
+ * nocturna las noches del 2, el 5 y el 6 de septiembre de 2026: no había nada
+ * mal en los datos, era el servidor de Google contestando otra cosa.
+ *
+ * Es un tropiezo pasajero, así que se reintenta. Lo que no se hace es
+ * adivinar: si después de cuatro intentos sigue sin haber JSON, se sale con
+ * un mensaje que dice lo que pasó de verdad.
+ */
+async function traeDeLaHoja(url, quePide = "la hoja") {
+  let ultimo = "";
 
-  const data = await response.json();
+  for (let intento = 1; intento <= 4; intento += 1) {
+    if (intento > 1) {
+      await new Promise((sigue) => setTimeout(sigue, intento * 4000));
+    }
+
+    try {
+      const respuesta = await fetch(url, { cache: "no-store" });
+
+      const texto = await respuesta.text();
+
+      /* Una página de error empieza por '<'. Los datos, por '[' o '{'. */
+      const limpio = texto.trim();
+
+      if (!limpio.startsWith("[") && !limpio.startsWith("{")) {
+        ultimo = `${quePide}: Google ha contestado una página, no datos (HTTP ${respuesta.status})`;
+
+        continue;
+      }
+
+      return JSON.parse(limpio);
+    } catch (error) {
+      ultimo = `${quePide}: ${String(error?.message ?? error).slice(0, 140)}`;
+    }
+  }
+
+  throw new Error(`No se ha podido leer ${ultimo}`);
+}
+
+async function loadRivals() {
+  const data = await traeDeLaHoja(
+    `${APPS_SCRIPT_URL}?action=rivalesPlantillas`,
+    "las plantillas rivales",
+  );
 
   if (!Array.isArray(data)) throw new Error("La hoja no ha devuelto una lista.");
 

@@ -1242,11 +1242,56 @@ async function bajaEquipo(id, slug, clasificacion) {
  * la hoja ("Teruel"), no con el de BeSoccer ("CD Teruel"). Se lee de la propia
  * hoja para no mantener una tercera lista de nombres a mano.
  */
+/**
+ * Lee una lista de la hoja, con reintentos.
+ *
+ * Apps Script devuelve de vez en cuando **una página de Google** en vez del
+ * JSON —una interstitial con `ppConfig` dentro— y un `.json()` a pelo se
+ * rompe con «Unexpected token '<'». Eso es lo que tumbaba la actualización
+ * nocturna las noches del 2, el 5 y el 6 de septiembre de 2026: no había nada
+ * mal en los datos, era el servidor de Google contestando otra cosa.
+ *
+ * Es un tropiezo pasajero, así que se reintenta. Lo que no se hace es
+ * adivinar: si después de cuatro intentos sigue sin haber JSON, se sale con
+ * un mensaje que dice lo que pasó de verdad.
+ */
+async function traeDeLaHoja(url, quePide = "la hoja") {
+  let ultimo = "";
+
+  for (let intento = 1; intento <= 4; intento += 1) {
+    if (intento > 1) {
+      await new Promise((sigue) => setTimeout(sigue, intento * 4000));
+    }
+
+    try {
+      const respuesta = await fetch(url, { cache: "no-store" });
+
+      const texto = await respuesta.text();
+
+      /* Una página de error empieza por '<'. Los datos, por '[' o '{'. */
+      const limpio = texto.trim();
+
+      if (!limpio.startsWith("[") && !limpio.startsWith("{")) {
+        ultimo = `${quePide}: Google ha contestado una página, no datos (HTTP ${respuesta.status})`;
+
+        continue;
+      }
+
+      return JSON.parse(limpio);
+    } catch (error) {
+      ultimo = `${quePide}: ${String(error?.message ?? error).slice(0, 140)}`;
+    }
+  }
+
+  throw new Error(`No se ha podido leer ${ultimo}`);
+}
+
 async function nombresDeLaHoja(env) {
   try {
-    const respuesta = await fetch(`${env.APPS_SCRIPT_URL}?action=rivalesPlantillas`);
-
-    const filas = await respuesta.json();
+    const filas = await traeDeLaHoja(
+      `${env.APPS_SCRIPT_URL}?action=rivalesPlantillas`,
+      "los nombres de la hoja",
+    );
 
     if (!Array.isArray(filas)) return {};
 
