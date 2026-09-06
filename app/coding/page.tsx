@@ -2096,7 +2096,18 @@ function Coding() {
               {/* ------------------------- IZQUIERDA ------------------- */}
 
               <div className="min-w-0 space-y-4">
-                <div className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black">
+                {/*
+                | `touch-action: pan-y` y no `none`: el arrastre horizontal es
+                | de la lanzadera, pero el vertical se le deja al teléfono para
+                | que se pueda bajar la página. El vídeo ocupa media pantalla en
+                | un móvil, y sin esto no habría forma de llegar a la lista de
+                | clips. El rebobinado —que va en vertical— se queda entonces
+                | para el ratón y el mousepad, que es donde se ha pedido.
+                */}
+                <div
+                  style={{ touchAction: "pan-y" }}
+                  className="relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black"
+                >
                   {/*
                   | El <video> se monta SIEMPRE, también antes de elegir el
                   | partido: si sólo apareciera al haber fuente, el reloj y la
@@ -2149,14 +2160,17 @@ function Coding() {
                   {lanzadera.activa && (
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                       <span className="flex items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-black/70 px-5 py-3 text-2xl font-semibold tabular-nums text-[#C8A96B] backdrop-blur">
+                        {lanzadera.atras && "◀"}
                         {lanzadera.velocidad}x
 
                         <span className="text-xs font-normal uppercase tracking-[0.2em] text-white/45">
-                          {lanzadera.velocidad < 1
-                            ? "cámara lenta"
-                            : lanzadera.velocidad > 1
-                              ? "rápido"
-                              : "normal"}
+                          {lanzadera.atras
+                            ? "rebobinando"
+                            : lanzadera.velocidad < 1
+                              ? "cámara lenta"
+                              : lanzadera.velocidad > 1
+                                ? "rápido"
+                                : "normal"}
                         </span>
                       </span>
                     </div>

@@ -2,33 +2,43 @@
 
 /*
 |--------------------------------------------------------------------------
-| LA LANZADERA: ACELERAR Y FRENAR EL PARTIDO CON EL DEDO
+| LA LANZADERA: ACELERAR, FRENAR Y REBOBINAR CON EL DEDO
 |--------------------------------------------------------------------------
 |
 | Lo que en una mesa de edición es la rueda de shuttle y en QuickTime el
-| barrido de dos dedos sobre la imagen: se arrastra a la derecha y el partido
-| corre cada vez más rápido, se arrastra a la izquierda y va cada vez más
-| despacio hasta la cámara lenta, y al soltar vuelve a la velocidad de la barra
-| y a lo que estuviera haciendo.
+| barrido de dos dedos sobre la imagen. Dos gestos, uno por eje:
 |
-| Por qué hace falta, teniendo ya los escalones de velocidad en la barra: para
-| encontrar una acción hay que ir, pasarse, volver, frenar y afinar, y con
-| botones eso son seis clics mirando la barra en vez de la imagen. Con el dedo
-| encima del vídeo la mano no se va de la pantalla y los ojos tampoco.
+|   · **En horizontal, la velocidad.** A la derecha el partido corre cada vez
+|     más rápido (hasta ×8) y a la izquierda cada vez más despacio (hasta
+|     ×0,1). También vale el barrido de dos dedos del mousepad.
+|   · **En vertical, hacia atrás.** Arrastrando arriba o abajo el partido
+|     rebobina, y cuanto más lejos se lleve la mano, más rápido.
 |
-| **Sólo hacia delante, y es una decisión.** Se probó metiendo la marcha atrás
-| en el mismo eje —izquierda hasta ×0,1 y de ahí en adelante hacia atrás— y no
-| hay forma de que se entienda: al arrastrar a la izquierda no se sabe si se
-| está pidiendo cámara lenta o rebobinar, y eran las dos cosas con el mismo
-| movimiento. Para volver están las flechas y el paso a paso de fotograma, que
-| ya estaban y son exactos.
+| Al soltar, los dos vuelven a la velocidad de la barra y a lo que el vídeo
+| estuviera haciendo.
 |
-| Dos cosas más que no son obvias:
+| **Los dos ejes no se mezclan.** Al primer movimiento que sale de la zona
+| muerta se decide cuál manda y ese manda hasta que se suelta. Sin ese cierre,
+| un arrastre en diagonal —que es lo que sale de la mano— pedía acelerar y
+| rebobinar a la vez, y el vídeo daba tumbos. Fue exactamente el motivo por el
+| que la primera versión llevaba el rebobinado en el mismo eje horizontal y
+| hubo que sacarlo: dos cosas distintas no caben en un mismo movimiento.
 |
-| 1. **El mousepad manda `wheel`, no `pointermove`.** Un barrido de dos dedos
+| Tres cosas más que no son obvias:
+|
+| 1. **Hacia atrás no existe en HTML.** `playbackRate` no acepta negativos —el
+|    navegador lanza—, así que el rebobinado se hace a mano: el vídeo se para y
+|    se le va restando tiempo. Y no fotograma a fotograma: mover `currentTime`
+|    sesenta veces por segundo obliga al descodificador a buscar sesenta veces
+|    y la imagen se queda congelada dando tirones (la misma trampa que ya
+|    documenta el turbo de `useReproductor`). Se retrocede a
+|    `PASOS_ATRAS_POR_SEGUNDO`, que se ve como marcha atrás de verdad.
+| 2. **El mousepad manda `wheel`, no `pointermove`.** Un barrido de dos dedos
 |    llega como una ristra de eventos con `deltaX`, sin principio ni final: el
-|    gesto se da por soltado cuando pasan `CALMA_MS` sin recibir ninguno.
-| 2. **Se acumula desplazamiento, no velocidad.** El dedo dice *dónde está la
+|    gesto se da por soltado cuando pasan `CALMA_MS` sin recibir ninguno. Del
+|    `wheel` sólo se coge lo horizontal: lo vertical es el desplazamiento de la
+|    página y quitárselo dejaría la pantalla sin poder bajar.
+| 3. **Se acumula desplazamiento, no velocidad.** El dedo dice *dónde está la
 |    palanca*, no cuánto acelerar; si no, soltar no podría volver solo a su
 |    sitio y cada barrido dejaría el partido más rápido que el anterior.
 |
@@ -40,7 +50,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Los escalones de la palanca, del más lento al más rápido.
+ * Los escalones del eje horizontal, del más lento al más rápido.
  *
  * Empieza en ×0,1 —cámara lenta de verdad, para ver un apoyo o un cuerpeo— y
  * acaba en ×8, que es donde ya no se ve fútbol sino que se busca un minuto.
@@ -51,6 +61,15 @@ export const ESCALONES_LANZADERA = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8]
 
 /** Dónde cae el ×1: es el centro de la palanca. */
 const NEUTRO = ESCALONES_LANZADERA.indexOf(1);
+
+/**
+ * Los del eje vertical, que es el rebobinado.
+ *
+ * No hay centro ni cámara lenta hacia atrás: en cuanto se sale de la zona
+ * muerta ya se está volviendo, y lo único que se elige es a qué ritmo. Empieza
+ * en ×0,5 porque un rebobinado más lento que eso no se distingue de una pausa.
+ */
+export const ESCALONES_REBOBINADO = [0.5, 1, 2, 4, 8];
 
 /**
  * Lo que hay que arrastrar para mover la palanca.
@@ -65,14 +84,22 @@ const PASO_PX = 34;
 /** Sin eventos de rueda durante este rato, el barrido se da por soltado. */
 const CALMA_MS = 320;
 
+/** Cuántas veces por segundo se retrocede el vídeo al rebobinar. */
+const PASOS_ATRAS_POR_SEGUNDO = 12;
+
+/** Qué eje manda en el gesto en curso. */
+type Eje = "horizontal" | "vertical";
+
 export type EstadoLanzadera = {
   /** Se está tocando. Mientras dure, el indicador manda sobre la barra. */
   activa: boolean;
-  /** Lo pedido por el gesto. */
+  /** Lo pedido por el gesto, siempre en positivo. */
   velocidad: number;
+  /** Rebobinando: el eje vertical. */
+  atras: boolean;
 };
 
-const PARADA: EstadoLanzadera = { activa: false, velocidad: 1 };
+const PARADA: EstadoLanzadera = { activa: false, velocidad: 1, atras: false };
 
 /** De píxeles arrastrados a velocidad. Derecha sube, izquierda baja. */
 export function velocidadDeLanzadera(desplazamiento: number): number {
@@ -88,6 +115,26 @@ export function velocidadDeLanzadera(desplazamiento: number): number {
       : Math.max(0, NEUTRO - pasos);
 
   return ESCALONES_LANZADERA[indice];
+}
+
+/**
+ * De píxeles arrastrados en vertical a ritmo de rebobinado.
+ *
+ * Arriba y abajo hacen lo mismo a propósito: lo que se pide con el gesto es
+ * «vuelve», y obligar a acordarse de hacia dónde sería una regla que hay que
+ * aprender para algo que se hace mirando la imagen. Lo que decide el ritmo es
+ * cuánto se aleja la mano, sin más.
+ */
+export function velocidadDeRebobinado(desplazamiento: number): number {
+  const magnitud = Math.abs(desplazamiento);
+
+  if (magnitud <= ZONA_MUERTA) return ESCALONES_REBOBINADO[0];
+
+  const pasos = Math.floor((magnitud - ZONA_MUERTA) / PASO_PX);
+
+  return ESCALONES_REBOBINADO[
+    Math.min(ESCALONES_REBOBINADO.length - 1, pasos)
+  ];
 }
 
 export function useLanzadera(opciones: {
@@ -110,18 +157,22 @@ export function useLanzadera(opciones: {
 
   /* --------------------------------------------------- el gesto vivo */
 
-  /** Dónde está la palanca, en píxeles desde el centro. */
+  /** Dónde está la palanca, en píxeles desde donde se posó el dedo. */
   const palanca = useRef(0);
+  /** Qué eje se quedó con el gesto; `null` hasta el primer movimiento. */
+  const eje = useRef<Eje | null>(null);
   /** El puntero que arrastra; `null` si el gesto viene del mousepad. */
   const puntero = useRef<number | null>(null);
   /** Dónde se posó el dedo. */
-  const origen = useRef(0);
+  const origenX = useRef(0);
+  const origenY = useRef(0);
   /** Si estaba corriendo antes del gesto: al soltar se le devuelve. */
   const corria = useRef(false);
   /** Si hay gesto en curso, sin esperar al render. */
   const enMarcha = useRef(false);
 
   const relojCalma = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const relojAtras = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* Lo que cambia de render a render, leído desde dentro del gesto. */
   const videoRef = useRef(video);
@@ -132,34 +183,88 @@ export function useLanzadera(opciones: {
     soltarRef.current = alSoltar;
   });
 
-  /** Pone el vídeo a lo que diga la palanca. */
-  const aplica = useCallback((pixeles: number) => {
+  const paraElRebobinado = useCallback(() => {
+    if (relojAtras.current) {
+      clearInterval(relojAtras.current);
+      relojAtras.current = null;
+    }
+  }, []);
+
+  /* ------------------------------------------- horizontal: la velocidad */
+
+  const aplicaVelocidad = useCallback(
+    (pixeles: number) => {
+      const elemento = videoRef.current;
+
+      if (!elemento) return;
+
+      paraElRebobinado();
+
+      palanca.current = pixeles;
+
+      const velocidad = velocidadDeLanzadera(pixeles);
+
+      enMarcha.current = true;
+
+      setEstado({ activa: true, velocidad, atras: false });
+
+      /*
+      | El `try` no sobra: la barra puede haber dejado puesto un ×20, y por
+      | encima de ×16 Chrome **lanza** en vez de recortar.
+      */
+      try {
+        elemento.playbackRate = velocidad;
+      } catch {
+        elemento.playbackRate = 1;
+      }
+
+      void elemento.play().catch(() => undefined);
+    },
+    [paraElRebobinado],
+  );
+
+  /* --------------------------------------------- vertical: rebobinar */
+
+  const aplicaRebobinado = useCallback((pixeles: number) => {
     const elemento = videoRef.current;
 
     if (!elemento) return;
 
     palanca.current = pixeles;
 
-    const velocidad = velocidadDeLanzadera(pixeles);
-
     enMarcha.current = true;
 
-    setEstado({ activa: true, velocidad });
+    setEstado({
+      activa: true,
+      velocidad: velocidadDeRebobinado(pixeles),
+      atras: true,
+    });
 
-    /*
-    | El `try` no sobra: la barra puede haber dejado puesto un ×20, y por
-    | encima de ×16 Chrome **lanza** en vez de recortar.
-    */
-    try {
-      elemento.playbackRate = velocidad;
-    } catch {
-      elemento.playbackRate = 1;
-    }
+    /* Hacia atrás el elemento no puede: se para y el tiempo va a mano. */
+    elemento.pause();
 
-    void elemento.play().catch(() => undefined);
+    if (relojAtras.current) return;
+
+    const paso = 1000 / PASOS_ATRAS_POR_SEGUNDO;
+
+    relojAtras.current = setInterval(() => {
+      const actual = videoRef.current;
+
+      if (!actual) return;
+
+      /* Se lee la palanca en cada latido: mover la mano cambia el ritmo sin
+         tener que rehacer el reloj. */
+      const cuanto = velocidadDeRebobinado(palanca.current);
+
+      actual.currentTime = Math.max(0, actual.currentTime - (cuanto * paso) / 1000);
+    }, paso);
   }, []);
 
+  /* ------------------------------------------------------- soltar */
+
   const suelta = useCallback(() => {
+    paraElRebobinado();
+
     if (relojCalma.current) {
       clearTimeout(relojCalma.current);
       relojCalma.current = null;
@@ -167,6 +272,7 @@ export function useLanzadera(opciones: {
 
     puntero.current = null;
     palanca.current = 0;
+    eje.current = null;
 
     if (!enMarcha.current) return;
 
@@ -183,7 +289,7 @@ export function useLanzadera(opciones: {
 
     if (corria.current) void elemento.play().catch(() => undefined);
     else elemento.pause();
-  }, []);
+  }, [paraElRebobinado]);
 
   /* --------------------------------------------------- los oyentes */
 
@@ -211,8 +317,10 @@ export function useLanzadera(opciones: {
       anota();
 
       puntero.current = evento.pointerId;
-      origen.current = evento.clientX;
+      origenX.current = evento.clientX;
+      origenY.current = evento.clientY;
       palanca.current = 0;
+      eje.current = null;
 
       contenedor.setPointerCapture?.(evento.pointerId);
     };
@@ -220,14 +328,25 @@ export function useLanzadera(opciones: {
     const alMover = (evento: PointerEvent) => {
       if (puntero.current !== evento.pointerId) return;
 
-      const delta = evento.clientX - origen.current;
+      const dx = evento.clientX - origenX.current;
+      const dy = evento.clientY - origenY.current;
 
-      /* Hasta salir de la zona muerta esto sigue siendo un clic. */
-      if (!enMarcha.current && Math.abs(delta) <= ZONA_MUERTA) return;
+      /*
+      | El primer movimiento que sale de la zona muerta se queda con el gesto.
+      | Hasta entonces esto sigue siendo un clic, y en cuanto se decide ya no
+      | se cambia: un arrastre de verdad va en diagonal y sin este cierre el
+      | vídeo estaría acelerando y rebobinando a la vez.
+      */
+      if (!eje.current) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) <= ZONA_MUERTA) return;
+
+        eje.current = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
+      }
 
       evento.preventDefault();
 
-      aplica(delta);
+      if (eje.current === "horizontal") aplicaVelocidad(dx);
+      else aplicaRebobinado(dy);
     };
 
     const alLevantar = (evento: PointerEvent) => {
@@ -241,14 +360,21 @@ export function useLanzadera(opciones: {
     /* ---------------------------------------------- con el mousepad */
 
     const alRodar = (evento: WheelEvent) => {
-      /* Un barrido de dos dedos es horizontal; lo vertical es la página. */
+      /*
+      | Sólo el barrido horizontal. Lo vertical es el desplazamiento de la
+      | página: quitárselo dejaría la pantalla de coding sin poder bajar hasta
+      | la lista de clips, que es donde se trabaja. Para rebobinar con el
+      | mousepad se pulsa y se arrastra, que es lo mismo que con el dedo.
+      */
       if (Math.abs(evento.deltaX) <= Math.abs(evento.deltaY)) return;
 
       evento.preventDefault();
 
       if (!enMarcha.current) anota();
 
-      aplica(palanca.current + evento.deltaX);
+      eje.current = "horizontal";
+
+      aplicaVelocidad(palanca.current + evento.deltaX);
 
       if (relojCalma.current) clearTimeout(relojCalma.current);
 
@@ -268,7 +394,7 @@ export function useLanzadera(opciones: {
       contenedor.removeEventListener("pointercancel", alLevantar);
       contenedor.removeEventListener("wheel", alRodar);
     };
-  }, [activa, aplica, suelta, video]);
+  }, [activa, aplicaRebobinado, aplicaVelocidad, suelta, video]);
 
   /* Si se apaga en mitad de un gesto, que no se quede el partido a ×8. */
   useEffect(() => {
@@ -279,6 +405,7 @@ export function useLanzadera(opciones: {
   useEffect(
     () => () => {
       if (relojCalma.current) clearTimeout(relojCalma.current);
+      if (relojAtras.current) clearInterval(relojAtras.current);
     },
     [],
   );
