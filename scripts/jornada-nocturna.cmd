@@ -11,6 +11,10 @@ rem  tarjetas, clasificacion, las fichas de los jugadores rivales y las de
 rem  los nuestros. De ahi comen las plantillas rivales, los informes y las
 rem  fichas individuales y colectivas.
 rem
+rem  Ademas repasa las plantillas rivales: quien ha llegado, quien se ha ido
+rem  y que dorsales han cambiado (eso solo se informa, no se toca la hoja) y
+rem  rellena las caras que falten, que esas si se pueden poner solas.
+rem
 rem  Corre en ESTE ordenador y no en GitHub a proposito: BeSoccer bloquea
 rem  las IP de centro de datos y al runner le contesta 406 con cero bytes,
 rem  comprobado el 01/09/2026. Desde una conexion normal funciona.
@@ -129,6 +133,42 @@ echo --- Nuestra plantilla --- >> "%LOG%"
 call node scripts\castilla-besoccer.mjs --refrescar >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo FALLO en castilla-besoccer ^(codigo !errorlevel!^) >> "%LOG%"
+  set "HUBO_FALLO=1"
+)
+
+rem --- 4. las plantillas rivales: altas, bajas y dorsales ---
+rem
+rem  Los dos SOLO INFORMAN. Escribir las altas y las bajas en la hoja sin que
+rem  nadie lo mire no puede hacerse todas las noches: una baja mal emparejada
+rem  tacha a un jugador que sigue en el equipo, y BeSoccer publica la plantilla
+rem  a medias durante el mercado. El informe sale aqui cada noche y quien lo
+rem  lee decide; para escribirlo esta "rivals-altas-bajas.mjs".
+echo. >> "%LOG%"
+echo --- Altas y bajas de las plantillas rivales --- >> "%LOG%"
+call node scripts\rivals-cotejo.mjs --refrescar >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo FALLO en rivals-cotejo ^(codigo !errorlevel!^) >> "%LOG%"
+  set "HUBO_FALLO=1"
+)
+
+echo. >> "%LOG%"
+echo --- Dorsales de las plantillas rivales --- >> "%LOG%"
+call node scripts\rivals-dorsales.mjs >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo FALLO en rivals-dorsales ^(codigo !errorlevel!^) >> "%LOG%"
+  set "HUBO_FALLO=1"
+)
+
+rem --- 5. las caras que falten ---
+rem
+rem  Esta SI escribe, y puede: solo rellena la columna FOTO donde esta vacia,
+rem  nunca cambia una que ya hay. Una ficha sin cara se lee peor en la pizarra
+rem  y deja la portada del analisis individual con la silueta.
+echo. >> "%LOG%"
+echo --- Fotos que faltan --- >> "%LOG%"
+call node scripts\rivals-fotos.mjs --todos --escribir >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo FALLO en rivals-fotos ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
 
