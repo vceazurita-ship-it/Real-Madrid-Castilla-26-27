@@ -189,7 +189,11 @@ export function conEstado(
 
   if (estado === null) delete campo[key];
 
+  /* Se parte del documento y no de cero: lo que no se toca aquí —el dibujo
+     del campograma, y lo que venga mañana— tiene que sobrevivir a marcar a un
+     titular. */
   return {
+    ...doc,
     titulares,
     dudas,
     /* Un titular no está «metido en el campo»: está y punto. */
@@ -349,5 +353,7 @@ export function conOnce(
     if (pos) sitios[key] = { x: dentro(pos.x), y: dentro(pos.y) };
   }
 
-  return { titulares: nuevos, dudas, enCampo, campo: sitios };
+  /* Igual que en `conEstado`: proponer un once cambia el once, no el resto
+     del documento. */
+  return { ...doc, titulares: nuevos, dudas, enCampo, campo: sitios };
 }

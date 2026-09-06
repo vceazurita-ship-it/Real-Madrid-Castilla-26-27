@@ -292,9 +292,23 @@ export function useLanzadera(opciones: {
       if (eje.current === "horizontal") {
         const paso = PASO_PX * direccion;
 
+        const siguiente = palanca.current + paso;
+
+        /*
+        | En el tope, la tecla no mueve nada. Sin esto, cinco L seguidas a ×8
+        | siguen empujando la palanca aunque la velocidad ya no suba, y luego
+        | hay que arrastrar diecisiete centímetros en balde antes de que el
+        | partido empiece a frenar.
+        */
+        if (
+          velocidadDeLanzadera(siguiente) === velocidadDeLanzadera(palanca.current)
+        ) {
+          return true;
+        }
+
         origenX.current -= paso;
 
-        aplicaVelocidad(palanca.current + paso);
+        aplicaVelocidad(siguiente);
 
         return true;
       }
@@ -311,7 +325,15 @@ export function useLanzadera(opciones: {
 
       const siguiente = palanca.current + paso;
 
+      /* Ni se cruza el cero ni se empuja en el tope: lo mismo que arriba. */
       if (siguiente * sentido < 0) return true;
+
+      if (
+        velocidadDeRebobinado(siguiente) ===
+        velocidadDeRebobinado(palanca.current)
+      ) {
+        return true;
+      }
 
       origenY.current -= paso;
 

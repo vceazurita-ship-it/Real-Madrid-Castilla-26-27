@@ -153,6 +153,24 @@ const FAMILIA_DE_SLOT: Record<string, FamiliaPuesto> = {
 };
 
 /**
+ * Puestos que ya dicen de qué lado son por su propio nombre.
+ *
+ * Un «lateral izquierdo» es de la izquierda aunque la hoja no escriba nada
+ * más, y la página manda `lado: 0` para ellos —el lado se saca del texto sólo
+ * en los puestos que admiten los dos, y éstos no—. Sin esta tabla, el reparto
+ * los tomaba por gente sin lado y los equilibraba por número: el lateral
+ * derecho acababa dibujado en el bloque de la izquierda.
+ */
+/* Con `undefined` a la vista: sin él, TypeScript da por hecho que cualquier
+   slot está en la tabla y el `??` de abajo sobra a sus ojos. */
+const LADO_DE_SLOT: Record<string, -1 | 1 | undefined> = {
+  li: -1,
+  ld: 1,
+  ei: -1,
+  ed: 1,
+};
+
+/**
  * Adónde se va una familia cuando el dibujo elegido no tiene ese puesto.
  *
  * Un 4-4-2 no tiene mediapunta y un 4-1-4-1 no tiene extremos puros: sin esta
@@ -418,15 +436,18 @@ function candidatos(
     ? [familia, ...PARIENTES[familia]]
     : ["mediapunta", "interior", "pivote"];
 
+  /* El del puesto manda sobre el que venga de fuera: «lateral izquierdo» es
+     de la izquierda diga lo que diga el resto de la fila. */
+  const suyo: -1 | 0 | 1 =
+    LADO_DE_SLOT[slot] ?? (lado < 0 ? -1 : lado > 0 ? 1 : 0);
+
   for (const cual of orden) {
     const caben = bloques.filter((bloque) => bloque.admite.includes(cual));
 
     if (caben.length === 0) continue;
 
-    if (lado !== 0) {
-      const suLado = caben.filter(
-        (bloque) => bloque.lado === (lado < 0 ? -1 : 1),
-      );
+    if (suyo !== 0) {
+      const suLado = caben.filter((bloque) => bloque.lado === suyo);
 
       if (suLado.length > 0) return suLado;
     }
@@ -434,8 +455,13 @@ function candidatos(
     return caben;
   }
 
-  /* Un dibujo sin sitio para él: al centro del campo, y que se vea. */
-  return bloques.filter((bloque) => bloque.lado === 0 && bloque.key !== "por");
+  /*
+  | Un dibujo sin sitio para él. No debería pasar —las familias de arriba
+  | cubren los siete dibujos— pero si algún día se añade uno al que le falte un
+  | puesto, esta gente tiene que salir en el campo igual: **cualquier bloque
+  | menos la portería** antes que desaparecer del campograma sin avisar.
+  */
+  return bloques.filter((bloque) => bloque.key !== "por");
 }
 
 /**
