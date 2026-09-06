@@ -101,6 +101,17 @@ export type EstadoLanzadera = {
 
 const PARADA: EstadoLanzadera = { activa: false, velocidad: 1, atras: false };
 
+export type Lanzadera = EstadoLanzadera & {
+  /**
+   * Sube o baja un escalón sin soltar el gesto. Es lo que le da el teclado a
+   * la mano que no está arrastrando.
+   *
+   * Devuelve si ha hecho algo: con la lanzadera parada no hay nada que
+   * ajustar y quien llama tiene que seguir con lo suyo.
+   */
+  ajusta: (direccion: 1 | -1) => boolean;
+};
+
 /** De píxeles arrastrados a velocidad. Derecha sube, izquierda baja. */
 export function velocidadDeLanzadera(desplazamiento: number): number {
   const magnitud = Math.abs(desplazamiento);
@@ -260,6 +271,57 @@ export function useLanzadera(opciones: {
     }, paso);
   }, []);
 
+  /* ------------------------------------------- el teclado, sin soltar */
+
+  /**
+   * Mueve la palanca un escalón, como si la mano hubiera seguido.
+   *
+   * Rebobinando a ×8 la mano está abajo del todo y para bajar a ×4 hay que
+   * subirla justo lo que mide un escalón: se falla, se pasa uno, y mientras
+   * tanto el partido sigue yendo hacia atrás. Con la J y la L eso es un toque,
+   * y la mano que arrastra no se mueve.
+   *
+   * Lo que se mueve es **el origen**, no la palanca: así el siguiente
+   * movimiento del dedo sigue contando desde donde está la mano de verdad y
+   * el ajuste del teclado no se pierde en cuanto se roza el ratón.
+   */
+  const ajusta = useCallback(
+    (direccion: 1 | -1) => {
+      if (!enMarcha.current || !eje.current) return false;
+
+      if (eje.current === "horizontal") {
+        const paso = PASO_PX * direccion;
+
+        origenX.current -= paso;
+
+        aplicaVelocidad(palanca.current + paso);
+
+        return true;
+      }
+
+      /*
+      | En vertical la velocidad va con el **valor absoluto**: arriba y abajo
+      | rebobinan igual. Así que acelerar es alejarse del centro en el sentido
+      | en el que ya se esté, y frenar, acercarse; y no se cruza el cero, que
+      | sería saltar de golpe al otro lado sin que nadie lo haya pedido.
+      */
+      const sentido = palanca.current >= 0 ? 1 : -1;
+
+      const paso = PASO_PX * direccion * sentido;
+
+      const siguiente = palanca.current + paso;
+
+      if (siguiente * sentido < 0) return true;
+
+      origenY.current -= paso;
+
+      aplicaRebobinado(siguiente);
+
+      return true;
+    },
+    [aplicaRebobinado, aplicaVelocidad],
+  );
+
   /* ------------------------------------------------------- soltar */
 
   const suelta = useCallback(() => {
@@ -410,7 +472,9 @@ export function useLanzadera(opciones: {
     [],
   );
 
-  return estado;
+  /* El estado se devuelve con el ajuste dentro: quien lo pinta y quien lo
+     mueve con el teclado son la misma pantalla. */
+  return { ...estado, ajusta };
 }
 
 export default useLanzadera;

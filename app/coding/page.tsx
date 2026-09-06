@@ -713,11 +713,15 @@ function Coding() {
   | Se apaga con la pizarra en modo edición: ahí el dedo está dibujando una
   | flecha, no buscando una acción, y las dos cosas ocupan el mismo sitio.
   */
+  /* La función de ajuste es estable; el estado no. El teclado depende sólo de
+     la primera, para no rearmar el escuchador en cada paso del gesto. */
   const lanzadera = useLanzadera({
     video: elemento,
     activa: pizarraEditando === null,
     alSoltar: reproductor.restauraVelocidad,
   });
+
+  const ajustaLanzadera = lanzadera.ajusta;
 
   /* La pizarra que se está repartiendo entre cortes, si es que hay alguna. */
   const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
@@ -1699,15 +1703,29 @@ function Coding() {
         return;
       }
 
+      /*
+      | La J y la L bajan y suben un escalón. Con la lanzadera en la mano son
+      | las suyas: rebobinando a ×8 la mano está abajo del todo y para pasar a
+      | ×4 hay que subirla justo lo que mide un escalón —se falla, se pasa uno,
+      | y mientras tanto el partido sigue yendo hacia atrás—. Con el teclado es
+      | un toque y la mano que arrastra no se mueve.
+      |
+      | Sin gesto en curso, `ajusta` dice que no ha hecho nada y mandan los
+      | escalones de siempre.
+      */
       if (tecla === "j") {
         evento.preventDefault();
-        reproductor.cambiaVelocidad(-1);
+
+        if (!ajustaLanzadera(-1)) reproductor.cambiaVelocidad(-1);
+
         return;
       }
 
       if (tecla === "l") {
         evento.preventDefault();
-        reproductor.cambiaVelocidad(1);
+
+        if (!ajustaLanzadera(1)) reproductor.cambiaVelocidad(1);
+
         return;
       }
 
@@ -1820,6 +1838,7 @@ function Coding() {
 
     return () => window.removeEventListener("keydown", escucha);
   }, [
+    ajustaLanzadera,
     config.categorias,
     config.comportamientos,
     hayModal,
