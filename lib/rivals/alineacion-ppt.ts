@@ -33,8 +33,8 @@ import {
   ANCLAS_SLOT,
   columnasDeBanda,
   columnasDeBloque,
+  dibujoDeCampo,
   reparteCampograma,
-  ONCE_1_4_2_3_1,
   reparteEnOnce,
   type BloqueEntrada,
 } from "@/lib/rivals/campograma-motor";
@@ -92,6 +92,14 @@ export type AlineacionData = {
   /** "26 / 27". */
   temporada: string;
   jugadores: AlineacionJugador[];
+  /**
+   * Con qué dibujo se reparte la plantilla ("4-2-3-1", "3-5-2"…).
+   *
+   * Viene de la pantalla y no se decide aquí: el documento existe para
+   * llevarse a la reunión lo que ya se ha mirado, y con otro esqueleto sería
+   * otra plantilla.
+   */
+  dibujo?: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +174,11 @@ export type Colocacion = {
  * televisión y la que cabe en un 16:9; es la misma orientación que toma el
  * campograma de pantalla en un portátil.
  */
-export function reparteAlineacion(jugadores: AlineacionJugador[]): {
+export function reparteAlineacion(
+  jugadores: AlineacionJugador[],
+  /** El dibujo elegido para ese rival. Sin él, el de siempre. */
+  dibujo?: string,
+): {
   fichas: Colocacion[];
   /** Cuánto se ha tenido que encoger la ficha para que cupiera todo. */
   k: number;
@@ -174,20 +186,27 @@ export function reparteAlineacion(jugadores: AlineacionJugador[]): {
   if (jugadores.length === 0) return { fichas: [], k: 1 };
 
   /*
-  | 1 · Los once bloques del 1-4-2-3-1, los mismos que la pantalla.
+  | 1 · Los bloques del dibujo elegido, los mismos que la pantalla.
   |
   | Este documento existe para llevarse a la reunión lo que ya se ha mirado en
-  | `app/rivals`: si aquí se agrupara de otra forma, sería otra plantilla.
+  | `app/rivals`: si aquí se agrupara de otra forma, sería otra plantilla. Por
+  | eso el dibujo viaja con los datos y no se decide aquí.
   */
 
-  const porBloque = reparteEnOnce(jugadores, (jugador) => ({
-    slot: jugador.slot,
-    lado: ANCLAS_SLOT[jugador.slot]?.xSide ? jugador.lado : 0,
-  }));
+  const bloques = dibujoDeCampo(dibujo);
+
+  const porBloque = reparteEnOnce(
+    jugadores,
+    (jugador) => ({
+      slot: jugador.slot,
+      lado: ANCLAS_SLOT[jugador.slot]?.xSide ? jugador.lado : 0,
+    }),
+    bloques,
+  );
 
   const entradas: BloqueEntrada<AlineacionJugador>[] = [];
 
-  for (const bloque of ONCE_1_4_2_3_1) {
+  for (const bloque of bloques) {
     const gente = porBloque.get(bloque.key);
 
     if (!gente || gente.length === 0) continue;
@@ -763,7 +782,7 @@ function nombreArchivo(data: AlineacionData) {
 export async function exportAlineacionPptx(data: AlineacionData) {
   await esperaFuentePortada();
 
-  const { fichas, k } = reparteAlineacion(data.jugadores);
+  const { fichas, k } = reparteAlineacion(data.jugadores, data.dibujo);
 
   if (fichas.length === 0) {
     throw new Error("Esta plantilla no tiene jugadores que colocar.");

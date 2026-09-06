@@ -91,10 +91,13 @@ import {
   ANCLAS_SLOT,
   columnasDeBanda,
   columnasDeBloque,
+  dibujoDeCampo,
+  DIBUJOS,
+  DIBUJO_POR_DEFECTO,
   reparteCampograma,
-  ONCE_1_4_2_3_1,
   reparteEnOnce,
   type BloqueEntrada,
+  type BloqueOnce,
 } from "@/lib/rivals/campograma-motor";
 import type { RivalVoiceField } from "@/lib/voice/types";
 
@@ -1080,6 +1083,15 @@ export default function RivalPlayersPage() {
     [once, pitchTeam],
   );
 
+  /*
+  | Con qué dibujo se reparte la plantilla de este rival.
+  |
+  | Vive en el documento del once —es una decisión de análisis sobre ese
+  | equipo, como quién sale de inicio— así que se guarda solo y sigue puesto la
+  | semana que viene. Sin elegir nada, el de siempre.
+  */
+  const dibujoDelEquipo = once.doc.dibujo || DIBUJO_POR_DEFECTO;
+
   const onceResumen = useMemo(() => {
     const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
 
@@ -1538,6 +1550,9 @@ export default function RivalPlayersPage() {
         escudo: escudoDe(equipoDelOnce),
         temporada: temporadaCorta(statsDoc?.temporada),
         jugadores: jugadoresPlantilla,
+        /* El mismo dibujo que se está viendo en la pantalla: el documento se
+           lleva a la reunión lo que ya se ha mirado. */
+        dibujo: dibujoDelEquipo,
       });
 
       toast.success("Campograma de día de partido exportado", {
@@ -1554,7 +1569,14 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [pitchPlayers, jugadoresPlantilla, statsDoc, equipoDelOnce, escudoDe]);
+  }, [
+    pitchPlayers,
+    jugadoresPlantilla,
+    statsDoc,
+    equipoDelOnce,
+    escudoDe,
+    dibujoDelEquipo,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1731,6 +1753,7 @@ export default function RivalPlayersPage() {
           /* Las dos hojas de campograma salen de la hoja RIVALES y del once
              que ha colocado el cuerpo técnico, no de BeSoccer. */
           plantilla: jugadoresPlantilla,
+          dibujo: dibujoDelEquipo,
           onceProbable,
           /* Para que la hoja lo diga: un once propuesto no es el del míster. */
           onceSugerido: sugerido
@@ -1765,6 +1788,7 @@ export default function RivalPlayersPage() {
       }
     },
     [
+      dibujoDelEquipo,
       eleccionInforme,
       selectedTeam,
       /* Es de quién lee la tipología escrita a mano: sin esto, el informe del
@@ -3302,6 +3326,41 @@ export default function RivalPlayersPage() {
                             </span>
                           )}
 
+                          {/*
+                            EL DIBUJO — con qué esqueleto se reparte la
+                            plantilla entera.
+
+                            Va el primero de la barra y no escondido en un
+                            menú: es lo que decide la forma de todo lo que hay
+                            debajo, y quien abre un rival de tres centrales lo
+                            primero que quiere es dejar de verlo como un
+                            4-2-3-1. Se guarda con el once, así que se pone una
+                            vez por rival y ya.
+                          */}
+                          {pitchPlayers.length > 0 && (
+                            <label
+                              data-export-hide
+                              title="Cómo se reparte la plantilla en el campo"
+                              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 sm:px-2 sm:py-0.5"
+                            >
+                              <LayoutGrid size={11} className="text-[#C8A96B]" />
+
+                              <select
+                                value={dibujoDelEquipo}
+                                onChange={(evento) =>
+                                  once.ponDibujo(evento.target.value)
+                                }
+                                className="cursor-pointer bg-transparent text-xs font-semibold text-white/70 outline-none [&>option]:bg-[#11161D]"
+                              >
+                                {DIBUJOS.map((uno) => (
+                                  <option key={uno.id} value={uno.id}>
+                                    {uno.id}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+
                           {/* ONCE PROBABLE — cuántos hay puestos y cuántas dudas */}
 
                           <span
@@ -3506,6 +3565,7 @@ export default function RivalPlayersPage() {
                         onCiclarOnce={ciclarOnceDe}
                         onEtiquetas={abrirEtiquetasDe}
                         onPlayerClick={openPlayer}
+                        dibujo={dibujoDelEquipo}
                       />
                     </div>
                   </div>
@@ -6280,37 +6340,44 @@ function layoutPitch(
   height: number,
   compact = false,
   horizontal = false,
+  dibujo: BloqueOnce[] = dibujoDeCampo(DIBUJO_POR_DEFECTO),
 ): PitchLayout {
   if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
 
   /*
-  | 1 · Los once bloques del 1-4-2-3-1.
+  | 1 · Los once bloques del dibujo elegido.
   |
-  | El esqueleto es siempre el mismo y lo que cambia es cuánta gente cae en
-  | cada bloque; así dos plantillas seguidas se comparan de un vistazo. Ver
-  | `ONCE_1_4_2_3_1` en el motor.
+  | El esqueleto no cambia con cada rival —lo que cambia es cuánta gente cae en
+  | cada bloque, y así dos plantillas seguidas se comparan de un vistazo—, pero
+  | **cuál es ese esqueleto sí se elige**: un equipo de tres centrales leído
+  | sobre un 4-2-3-1 no se parece a lo que se va a ver el domingo. Ver
+  | `DIBUJOS` en el motor.
   */
 
   /* Lo que el motor no necesita saber y el render sí: el código de la chapa y
      el color de la línea. */
   const adornos = new Map<string, { code: string; color: string }>();
 
-  const porBloque = reparteEnOnce(players, (player) => {
-    const position = player["POSICIÓN"];
-    const entry = getSlot(position);
+  const porBloque = reparteEnOnce(
+    players,
+    (player) => {
+      const position = player["POSICIÓN"];
+      const entry = getSlot(position);
 
-    const slotKey = entry?.slot.key ?? "otros";
-    const anchor = ANCLAS_SLOT[slotKey];
+      const slotKey = entry?.slot.key ?? "otros";
+      const anchor = ANCLAS_SLOT[slotKey];
 
-    return {
-      slot: slotKey,
-      lado: anchor?.xSide ? detectSide(normalize(position)) : 0,
-    };
-  });
+      return {
+        slot: slotKey,
+        lado: anchor?.xSide ? detectSide(normalize(position)) : 0,
+      };
+    },
+    dibujo,
+  );
 
   const entradas: BloqueEntrada<RivalPlayer>[] = [];
 
-  ONCE_1_4_2_3_1.forEach((bloque) => {
+  dibujo.forEach((bloque) => {
     const gente = porBloque.get(bloque.key);
 
     /* Un bloque vacío no se pinta: sería una chapa flotando en el césped. */
@@ -6516,10 +6583,13 @@ function TacticalPitch({
   onCiclarOnce,
   onEtiquetas,
   onPlayerClick,
+  dibujo,
 }: {
   players: RivalPlayer[];
   selectedId?: string;
   activeTags: string[];
+  /** El dibujo con el que se reparte la plantilla ("4-2-3-1", "3-5-2"…). */
+  dibujo?: string;
   /** Marca de cada jugador en el once probable. */
   onceEstado?: (player: RivalPlayer) => OnceEstado;
   onCiclarOnce?: (player: RivalPlayer) => (() => void) | undefined;
@@ -6576,9 +6646,12 @@ function TacticalPitch({
   */
   const horizontal = !compact && size.width >= HORIZONTAL_DESDE;
 
+  const bloques = useMemo(() => dibujoDeCampo(dibujo), [dibujo]);
+
   const { placed, clusters, avatar, stepX } = useMemo(
-    () => layoutPitch(players, size.width, size.height, compact, horizontal),
-    [players, size.width, size.height, compact, horizontal],
+    () =>
+      layoutPitch(players, size.width, size.height, compact, horizontal, bloques),
+    [players, size.width, size.height, compact, horizontal, bloques],
   );
 
   /* Las mismas medidas con las que el motor ha reservado el sitio. */

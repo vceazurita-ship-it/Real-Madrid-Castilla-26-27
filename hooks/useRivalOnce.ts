@@ -21,6 +21,7 @@ import {
   conEnCampo,
   conEstado,
   conOnce,
+  conDibujo,
   conPosicion,
   conSustitucion,
   estadoDe,
@@ -120,6 +121,14 @@ export function useRivalOnce(equipo: string) {
     setValue((actual) => sinPosiciones(normalizarOnce(actual)));
   }, [setValue]);
 
+  /* El dibujo con el que se reparte la plantilla en el campograma. */
+  const ponDibujo = useCallback(
+    (dibujo: string) => {
+      setValue((actual) => conDibujo(normalizarOnce(actual), dibujo));
+    },
+    [setValue]
+  );
+
   const limpiar = useCallback(() => setValue(ONCE_VACIO), [setValue]);
 
   return {
@@ -133,6 +142,7 @@ export function useRivalOnce(equipo: string) {
     sustituir,
     proponer,
     recolocar,
+    ponDibujo,
     limpiar,
     status,
     localOnly,

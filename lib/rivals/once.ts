@@ -49,6 +49,16 @@ export interface RivalOnceDoc {
    * esté aquí se coloca solo, por líneas.
    */
   campo: Record<string, OncePos>;
+  /**
+   * El dibujo con el que se reparte **la plantilla entera** en el campograma
+   * ("4-2-3-1", "3-5-2"…). Ver `DIBUJOS` en `campograma-motor`.
+   *
+   * Vive aquí, con el once, porque es lo mismo: una decisión de análisis sobre
+   * ese rival que hay que recordar de una semana para otra y que se lleva a
+   * los documentos. Un equipo que juega con tres centrales leído sobre un
+   * 4-2-3-1 no se parece a lo que se va a ver el domingo.
+   */
+  dibujo?: string;
 }
 
 export const ONCE_VACIO: RivalOnceDoc = {
@@ -135,7 +145,14 @@ export function normalizarOnce(data: unknown): RivalOnceDoc {
     }
   );
 
-  return { titulares, dudas, enCampo, campo };
+  /* Un dibujo que no esté en el catálogo se ignora: ya lo resuelve
+     `dibujoDeCampo`, pero guardarlo tal cual dejaría basura en el documento. */
+  const dibujo =
+    typeof bruto.dibujo === "string" && bruto.dibujo.trim()
+      ? bruto.dibujo.trim()
+      : undefined;
+
+  return { titulares, dudas, enCampo, campo, dibujo };
 }
 
 export function estadoDe(doc: RivalOnceDoc, key: string): OnceEstado {
@@ -262,6 +279,11 @@ export function conSustitucion(
   }
 
   return siguiente;
+}
+
+/** Cambia el dibujo con el que se reparte la plantilla en el campograma. */
+export function conDibujo(doc: RivalOnceDoc, dibujo: string): RivalOnceDoc {
+  return { ...doc, dibujo };
 }
 
 /** Devuelve el campo a la colocación automática, sin tocar quién está. */

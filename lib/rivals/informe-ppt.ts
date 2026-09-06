@@ -155,6 +155,8 @@ export type InformeData = {
    * que el PDF del once—; aquí se tumban para que el campograma mire como el
    * de día de partido.
    */
+  /** El dibujo con el que se reparte la plantilla, el mismo que en pantalla. */
+  dibujo?: string;
   onceProbable?: {
     clave: string;
     x: number;
@@ -2498,7 +2500,7 @@ function pintaPlantilla(
   fondoCampograma(g);
   cabecera(g, "PLANTILLA", data, escudo);
 
-  const { fichas, k } = reparteAlineacion(data.plantilla ?? []);
+  const { fichas, k } = reparteAlineacion(data.plantilla ?? [], data.dibujo);
 
   for (const ficha of fichas) {
     g.imagen(

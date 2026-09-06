@@ -85,7 +85,7 @@ export const ANCLA_SUELTA: AnclaSlot = { x: 0.5, y: 0.56 };
 export const SLOTS_DE_BANDA = new Set(["ei", "ed", "ext", "li", "ld", "car"]);
 
 /* ------------------------------------------------------------------ */
-/*  EL ONCE: ONCE BLOQUES EN 1-4-2-3-1                                 */
+/*  EL ONCE: EL ESQUELETO DEL CAMPOGRAMA                               */
 /* ------------------------------------------------------------------ */
 
 /*
@@ -94,18 +94,82 @@ export const SLOTS_DE_BANDA = new Set(["ei", "ed", "ext", "li", "ld", "car"]);
 | mediapunta salía con cinco bloques amontonados atrás y un hueco delante, y
 | dos plantillas seguidas no se podían comparar de un vistazo.
 |
-| Ahora el esqueleto es SIEMPRE el mismo —once bloques colocados como un
-| 1-4-2-3-1— y lo que cambia es cuánta gente cae en cada uno. La plantilla se
-| lee como un equipo, no como un listado repartido por el césped.
+| Después el esqueleto pasó a ser SIEMPRE el mismo —once bloques colocados como
+| un 1-4-2-3-1— y lo que cambia es cuánta gente cae en cada uno.
 |
-| El dibujo, con el ataque arriba:
+| Y desde ahora ese esqueleto **se elige**. Un rival que juega con tres
+| centrales y dos carrileros, leído sobre un 1-4-2-3-1, no se parece a lo que
+| se va a ver el domingo: los carrileros salen de laterales, el tercer central
+| se amontona con otro y el dibujo miente. Con el suyo puesto, la plantilla se
+| lee como el equipo que es.
 |
-|                        DC
-|              MI        MP        MD
-|                  MC-I      MC-D
-|         LI     DFC-I     DFC-D     LD
-|                       POR
+| El 1-4-2-3-1 sigue siendo el de partida porque es el más repetido en la
+| categoría, y quien no toque nada verá exactamente lo de siempre.
 */
+
+/**
+ * Familias de puesto: lo mínimo con lo que se puede repartir a cualquiera.
+ *
+ * No son los slots de la hoja —que son quince y muy finos— sino los ocho
+ * papeles que un dibujo sabe colocar. Entre los dos hay una tabla, y es ahí
+ * donde se decide que un carrilero es un lateral y un segundo punta una
+ * mediapunta.
+ */
+export type FamiliaPuesto =
+  | "por"
+  | "lateral"
+  | "central"
+  | "pivote"
+  | "interior"
+  | "mediapunta"
+  | "extremo"
+  | "delantero";
+
+const FAMILIA_DE_SLOT: Record<string, FamiliaPuesto> = {
+  por: "por",
+
+  li: "lateral",
+  ld: "lateral",
+  /* Carrilero: es un lateral con otro nombre. */
+  car: "lateral",
+
+  dfc: "central",
+  def: "central",
+
+  mcd: "pivote",
+  mc: "pivote",
+  med: "pivote",
+
+  int: "interior",
+
+  mp: "mediapunta",
+  sd: "mediapunta",
+
+  ei: "extremo",
+  ed: "extremo",
+  ext: "extremo",
+
+  dc: "delantero",
+};
+
+/**
+ * Adónde se va una familia cuando el dibujo elegido no tiene ese puesto.
+ *
+ * Un 4-4-2 no tiene mediapunta y un 4-1-4-1 no tiene extremos puros: sin esta
+ * tabla, esa gente se quedaría fuera del campo. Se prueba en orden y se coge
+ * el primero que exista, así que el orden es la respuesta a «y si no, ¿a qué
+ * se parece más?».
+ */
+const PARIENTES: Record<FamiliaPuesto, FamiliaPuesto[]> = {
+  por: [],
+  lateral: ["central", "interior"],
+  central: ["lateral", "pivote"],
+  pivote: ["interior", "central"],
+  interior: ["pivote", "mediapunta"],
+  mediapunta: ["interior", "delantero", "extremo"],
+  extremo: ["interior", "delantero", "mediapunta"],
+  delantero: ["mediapunta", "extremo", "interior"],
+};
 
 export type BloqueOnce = {
   /** Clave del bloque; es la que llevan las fichas colocadas. */
@@ -116,99 +180,279 @@ export type BloqueOnce = {
   anchorY: number;
   /** Los de fuera se leen en fila; los de dentro, apilados. */
   banda: boolean;
+  /** Qué familias caen aquí. */
+  admite: FamiliaPuesto[];
+  /** -1 izquierda, 0 por dentro, 1 derecha. Decide a quién se le da el lado. */
+  lado: -1 | 0 | 1;
 };
 
+/** Un dibujo: su nombre y sus once bloques. */
+export type DibujoCampo = {
+  /** "4-2-3-1". Es lo que se elige en la pantalla. */
+  id: string;
+  bloques: BloqueOnce[];
+};
+
+/*
+| Los dibujos, con el ataque arriba. Los anclajes van en fracciones del campo y
+| no salen de ninguna plantilla concreta: son los sitios donde el cuerpo
+| técnico dibuja cada puesto en una pizarra.
+*/
+
+const POR: BloqueOnce = {
+  key: "por",
+  code: "POR",
+  anchorX: 0.5,
+  anchorY: 0.93,
+  banda: false,
+  admite: ["por"],
+  lado: 0,
+};
+
+/*
+|                        DC
+|              MI        MP        MD
+|                  MC-I      MC-D
+|         LI     DFC-I     DFC-D     LD
+|                       POR
+*/
 export const ONCE_1_4_2_3_1: BloqueOnce[] = [
-  { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false },
+  { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false, admite: ["delantero"], lado: 0 },
 
-  { key: "mi", code: "MI", anchorX: 0.13, anchorY: 0.3, banda: true },
-  { key: "mp", code: "MP", anchorX: 0.5, anchorY: 0.33, banda: false },
-  { key: "md", code: "MD", anchorX: 0.87, anchorY: 0.3, banda: true },
+  { key: "mi", code: "MI", anchorX: 0.13, anchorY: 0.3, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "mp", code: "MP", anchorX: 0.5, anchorY: 0.33, banda: false, admite: ["mediapunta"], lado: 0 },
+  { key: "md", code: "MD", anchorX: 0.87, anchorY: 0.3, banda: true, admite: ["extremo"], lado: 1 },
 
-  { key: "mci", code: "MC", anchorX: 0.38, anchorY: 0.55, banda: false },
-  { key: "mcd", code: "MC", anchorX: 0.62, anchorY: 0.55, banda: false },
+  { key: "mci", code: "MC", anchorX: 0.38, anchorY: 0.55, banda: false, admite: ["pivote", "interior"], lado: -1 },
+  { key: "mcd", code: "MC", anchorX: 0.62, anchorY: 0.55, banda: false, admite: ["pivote", "interior"], lado: 1 },
 
-  { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.74, banda: true },
-  { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.78, banda: false },
-  { key: "dfcd", code: "DFC", anchorX: 0.63, anchorY: 0.78, banda: false },
-  { key: "ld", code: "LD", anchorX: 0.9, anchorY: 0.74, banda: true },
+  { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.74, banda: true, admite: ["lateral"], lado: -1 },
+  { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.78, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfcd", code: "DFC", anchorX: 0.63, anchorY: 0.78, banda: false, admite: ["central"], lado: 1 },
+  { key: "ld", code: "LD", anchorX: 0.9, anchorY: 0.74, banda: true, admite: ["lateral"], lado: 1 },
 
-  { key: "por", code: "POR", anchorX: 0.5, anchorY: 0.93, banda: false },
+  POR,
 ];
 
-/**
- * A qué bloque va un jugador según su posición y su lado.
- *
- * Devuelve una clave cuando no hay duda, y una **pareja** cuando el puesto es
- * de los que van de dos en dos y la hoja no dice el lado: un «central» a secas
- * puede ir a cualquiera de los dos, y se decide después repartiendo para que
- * los dos bloques queden parejos.
- */
-function destinoDelSlot(slot: string, lado: number): string | [string, string] {
-  switch (slot) {
-    case "por":
-      return "por";
+/*
+|              EI        DC        ED
+|                  INT-I     INT-D
+|                       MCD
+|         LI     DFC-I     DFC-D     LD
+|                       POR
+*/
+const ONCE_1_4_3_3: BloqueOnce[] = [
+  { key: "ei", code: "EI", anchorX: 0.12, anchorY: 0.17, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false, admite: ["delantero"], lado: 0 },
+  { key: "ed", code: "ED", anchorX: 0.88, anchorY: 0.17, banda: true, admite: ["extremo"], lado: 1 },
 
-    case "li":
-      return "li";
-    case "ld":
-      return "ld";
+  { key: "inti", code: "INT", anchorX: 0.33, anchorY: 0.44, banda: false, admite: ["interior", "mediapunta"], lado: -1 },
+  { key: "intd", code: "INT", anchorX: 0.67, anchorY: 0.44, banda: false, admite: ["interior", "mediapunta"], lado: 1 },
+  { key: "mcd", code: "MCD", anchorX: 0.5, anchorY: 0.62, banda: false, admite: ["pivote"], lado: 0 },
 
-    /* Carrilero: es un lateral con otro nombre. */
-    case "car":
-      return lado < 0 ? "li" : lado > 0 ? "ld" : ["li", "ld"];
+  { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.75, banda: true, admite: ["lateral"], lado: -1 },
+  { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.8, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfcd", code: "DFC", anchorX: 0.63, anchorY: 0.8, banda: false, admite: ["central"], lado: 1 },
+  { key: "ld", code: "LD", anchorX: 0.9, anchorY: 0.75, banda: true, admite: ["lateral"], lado: 1 },
 
-    case "dfc":
-    case "def":
-      return lado < 0 ? "dfci" : lado > 0 ? "dfcd" : ["dfci", "dfcd"];
+  POR,
+];
 
-    case "mcd":
-    case "mc":
-    case "med":
-      return lado < 0 ? "mci" : lado > 0 ? "mcd" : ["mci", "mcd"];
+/*
+|                  DC-I      DC-D
+|         MI     MC-I      MC-D     MD
+|         LI     DFC-I     DFC-D     LD
+|                       POR
+*/
+const ONCE_1_4_4_2: BloqueOnce[] = [
+  { key: "dci", code: "DC", anchorX: 0.38, anchorY: 0.13, banda: false, admite: ["delantero"], lado: -1 },
+  { key: "dcd", code: "DC", anchorX: 0.62, anchorY: 0.13, banda: false, admite: ["delantero"], lado: 1 },
 
-    /* El interior con lado se abre a la banda; sin lado se queda por dentro. */
-    case "int":
-      return lado < 0 ? "mi" : lado > 0 ? "md" : "mp";
+  { key: "mi", code: "MI", anchorX: 0.11, anchorY: 0.44, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "mci", code: "MC", anchorX: 0.38, anchorY: 0.5, banda: false, admite: ["pivote", "interior", "mediapunta"], lado: -1 },
+  { key: "mcd", code: "MC", anchorX: 0.62, anchorY: 0.5, banda: false, admite: ["pivote", "interior", "mediapunta"], lado: 1 },
+  { key: "md", code: "MD", anchorX: 0.89, anchorY: 0.44, banda: true, admite: ["extremo"], lado: 1 },
 
-    case "mp":
-    case "sd":
-      return "mp";
+  { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.76, banda: true, admite: ["lateral"], lado: -1 },
+  { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.8, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfcd", code: "DFC", anchorX: 0.63, anchorY: 0.8, banda: false, admite: ["central"], lado: 1 },
+  { key: "ld", code: "LD", anchorX: 0.9, anchorY: 0.76, banda: true, admite: ["lateral"], lado: 1 },
 
-    case "ei":
-      return "mi";
-    case "ed":
-      return "md";
-    case "ext":
-      return lado < 0 ? "mi" : lado > 0 ? "md" : ["mi", "md"];
+  POR,
+];
 
-    case "dc":
-      return "dc";
+/*
+|                        DC
+|         MI     INT-I     INT-D     MD
+|                       MCD
+|         LI     DFC-I     DFC-D     LD
+|                       POR
+*/
+const ONCE_1_4_1_4_1: BloqueOnce[] = [
+  { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false, admite: ["delantero"], lado: 0 },
 
-    /*
-    | Puesto que la hoja no escribe o escribe de una forma que no reconocemos.
-    | Va a la mediapunta —el centro del campo— porque es el sitio donde menos
-    | miente: ni lo pone en la portería ni lo manda a una banda.
-    */
-    default:
-      return "mp";
-  }
+  { key: "mi", code: "MI", anchorX: 0.11, anchorY: 0.34, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "inti", code: "INT", anchorX: 0.38, anchorY: 0.38, banda: false, admite: ["interior", "mediapunta"], lado: -1 },
+  { key: "intd", code: "INT", anchorX: 0.62, anchorY: 0.38, banda: false, admite: ["interior", "mediapunta"], lado: 1 },
+  { key: "md", code: "MD", anchorX: 0.89, anchorY: 0.34, banda: true, admite: ["extremo"], lado: 1 },
+
+  { key: "mcd", code: "MCD", anchorX: 0.5, anchorY: 0.6, banda: false, admite: ["pivote"], lado: 0 },
+
+  { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.76, banda: true, admite: ["lateral"], lado: -1 },
+  { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.8, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfcd", code: "DFC", anchorX: 0.63, anchorY: 0.8, banda: false, admite: ["central"], lado: 1 },
+  { key: "ld", code: "LD", anchorX: 0.9, anchorY: 0.76, banda: true, admite: ["lateral"], lado: 1 },
+
+  POR,
+];
+
+/*
+|                  DC-I      DC-D
+|      CAR-I   INT-I    MCD    INT-D   CAR-D
+|            DFC-I    DFC    DFC-D
+|                       POR
+*/
+const ONCE_1_3_5_2: BloqueOnce[] = [
+  { key: "dci", code: "DC", anchorX: 0.38, anchorY: 0.12, banda: false, admite: ["delantero"], lado: -1 },
+  { key: "dcd", code: "DC", anchorX: 0.62, anchorY: 0.12, banda: false, admite: ["delantero"], lado: 1 },
+
+  { key: "cari", code: "CAR", anchorX: 0.09, anchorY: 0.44, banda: true, admite: ["lateral", "extremo"], lado: -1 },
+  { key: "inti", code: "INT", anchorX: 0.34, anchorY: 0.46, banda: false, admite: ["interior", "mediapunta"], lado: -1 },
+  { key: "mcd", code: "MCD", anchorX: 0.5, anchorY: 0.6, banda: false, admite: ["pivote"], lado: 0 },
+  { key: "intd", code: "INT", anchorX: 0.66, anchorY: 0.46, banda: false, admite: ["interior", "mediapunta"], lado: 1 },
+  { key: "card", code: "CAR", anchorX: 0.91, anchorY: 0.44, banda: true, admite: ["lateral", "extremo"], lado: 1 },
+
+  { key: "dfci", code: "DFC", anchorX: 0.28, anchorY: 0.79, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfc", code: "DFC", anchorX: 0.5, anchorY: 0.83, banda: false, admite: ["central"], lado: 0 },
+  { key: "dfcd", code: "DFC", anchorX: 0.72, anchorY: 0.79, banda: false, admite: ["central"], lado: 1 },
+
+  POR,
+];
+
+/*
+|                  DC-I      DC-D
+|            INT-I    MCD    INT-D
+|      CAR-I   DFC-I   DFC   DFC-D   CAR-D
+|                       POR
+*/
+const ONCE_1_5_3_2: BloqueOnce[] = [
+  { key: "dci", code: "DC", anchorX: 0.38, anchorY: 0.12, banda: false, admite: ["delantero"], lado: -1 },
+  { key: "dcd", code: "DC", anchorX: 0.62, anchorY: 0.12, banda: false, admite: ["delantero"], lado: 1 },
+
+  { key: "inti", code: "INT", anchorX: 0.33, anchorY: 0.42, banda: false, admite: ["interior", "mediapunta", "extremo"], lado: -1 },
+  { key: "mcd", code: "MCD", anchorX: 0.5, anchorY: 0.55, banda: false, admite: ["pivote"], lado: 0 },
+  { key: "intd", code: "INT", anchorX: 0.67, anchorY: 0.42, banda: false, admite: ["interior", "mediapunta", "extremo"], lado: 1 },
+
+  { key: "cari", code: "CAR", anchorX: 0.09, anchorY: 0.72, banda: true, admite: ["lateral"], lado: -1 },
+  { key: "dfci", code: "DFC", anchorX: 0.3, anchorY: 0.8, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfc", code: "DFC", anchorX: 0.5, anchorY: 0.84, banda: false, admite: ["central"], lado: 0 },
+  { key: "dfcd", code: "DFC", anchorX: 0.7, anchorY: 0.8, banda: false, admite: ["central"], lado: 1 },
+  { key: "card", code: "CAR", anchorX: 0.91, anchorY: 0.72, banda: true, admite: ["lateral"], lado: 1 },
+
+  POR,
+];
+
+/*
+|              EI        DC        ED
+|      CAR-I     MC-I      MC-D     CAR-D
+|            DFC-I    DFC    DFC-D
+|                       POR
+*/
+const ONCE_1_3_4_3: BloqueOnce[] = [
+  { key: "ei", code: "EI", anchorX: 0.13, anchorY: 0.15, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.1, banda: false, admite: ["delantero"], lado: 0 },
+  { key: "ed", code: "ED", anchorX: 0.87, anchorY: 0.15, banda: true, admite: ["extremo"], lado: 1 },
+
+  { key: "cari", code: "CAR", anchorX: 0.09, anchorY: 0.45, banda: true, admite: ["lateral"], lado: -1 },
+  { key: "mci", code: "MC", anchorX: 0.37, anchorY: 0.5, banda: false, admite: ["pivote", "interior", "mediapunta"], lado: -1 },
+  { key: "mcd", code: "MC", anchorX: 0.63, anchorY: 0.5, banda: false, admite: ["pivote", "interior", "mediapunta"], lado: 1 },
+  { key: "card", code: "CAR", anchorX: 0.91, anchorY: 0.45, banda: true, admite: ["lateral"], lado: 1 },
+
+  { key: "dfci", code: "DFC", anchorX: 0.28, anchorY: 0.79, banda: false, admite: ["central"], lado: -1 },
+  { key: "dfc", code: "DFC", anchorX: 0.5, anchorY: 0.83, banda: false, admite: ["central"], lado: 0 },
+  { key: "dfcd", code: "DFC", anchorX: 0.72, anchorY: 0.79, banda: false, admite: ["central"], lado: 1 },
+
+  POR,
+];
+
+/** Los dibujos que se ofrecen, en el orden en que se enseñan. */
+export const DIBUJOS: DibujoCampo[] = [
+  { id: "4-2-3-1", bloques: ONCE_1_4_2_3_1 },
+  { id: "4-3-3", bloques: ONCE_1_4_3_3 },
+  { id: "4-4-2", bloques: ONCE_1_4_4_2 },
+  { id: "4-1-4-1", bloques: ONCE_1_4_1_4_1 },
+  { id: "3-5-2", bloques: ONCE_1_3_5_2 },
+  { id: "5-3-2", bloques: ONCE_1_5_3_2 },
+  { id: "3-4-3", bloques: ONCE_1_3_4_3 },
+];
+
+/** El de partida: el más repetido en la categoría. */
+export const DIBUJO_POR_DEFECTO = "4-2-3-1";
+
+/** Los bloques del dibujo pedido; el de siempre si no se reconoce. */
+export function dibujoDeCampo(id: string | undefined | null): BloqueOnce[] {
+  return DIBUJOS.find((uno) => uno.id === id)?.bloques ?? ONCE_1_4_2_3_1;
 }
 
 /**
- * Reparte una plantilla entre los once bloques.
+ * Los bloques donde cabe un jugador, en orden de preferencia.
+ *
+ * Primero los de su familia, y dentro de ellos los de su lado si la hoja lo
+ * dice; si el dibujo no tiene ese puesto, se baja por los parientes. Devolver
+ * varios y no uno es lo que permite equilibrar después: un «central» a secas
+ * puede ir a cualquiera de los dos —o de los tres— y se decide repartiendo.
+ */
+function candidatos(
+  bloques: BloqueOnce[],
+  slot: string,
+  lado: number,
+): BloqueOnce[] {
+  const familia = FAMILIA_DE_SLOT[slot];
+
+  /*
+  | Puesto que la hoja no escribe, o escribe de una forma que no reconocemos.
+  | Va por el centro del campo, que es donde menos miente: ni lo pone en la
+  | portería ni lo manda a una banda.
+  */
+  const orden: FamiliaPuesto[] = familia
+    ? [familia, ...PARIENTES[familia]]
+    : ["mediapunta", "interior", "pivote"];
+
+  for (const cual of orden) {
+    const caben = bloques.filter((bloque) => bloque.admite.includes(cual));
+
+    if (caben.length === 0) continue;
+
+    if (lado !== 0) {
+      const suLado = caben.filter(
+        (bloque) => bloque.lado === (lado < 0 ? -1 : 1),
+      );
+
+      if (suLado.length > 0) return suLado;
+    }
+
+    return caben;
+  }
+
+  /* Un dibujo sin sitio para él: al centro del campo, y que se vea. */
+  return bloques.filter((bloque) => bloque.lado === 0 && bloque.key !== "por");
+}
+
+/**
+ * Reparte una plantilla entre los bloques del dibujo elegido.
  *
  * Devuelve, por clave de bloque, la lista de jugadores que le tocan. Los
  * bloques que se quedan vacíos **no salen**: un rival sin mediapunta no pinta
  * un hueco con una chapa dentro.
  *
- * El reparto de los que no traen lado se hace al final y al bloque que menos
- * gente tenga, para que los dos centrales —o los dos mediocentros— queden
- * equilibrados en vez de amontonarse todos a la izquierda.
+ * Los que sólo caben en un sitio se colocan primero y el resto se reparte
+ * después al bloque que menos gente tenga, para que los dos centrales —o los
+ * tres— queden parejos en vez de amontonarse todos a la izquierda.
  */
 export function reparteEnOnce<T>(
   jugadores: T[],
   lee: (jugador: T) => { slot: string; lado: number },
+  bloques: BloqueOnce[] = ONCE_1_4_2_3_1,
 ): Map<string, T[]> {
   const reparto = new Map<string, T[]>();
 
@@ -219,45 +463,64 @@ export function reparteEnOnce<T>(
     else reparto.set(clave, [jugador]);
   };
 
-  const dudosos: { jugador: T; pareja: [string, string] }[] = [];
+  const dudosos: { jugador: T; donde: BloqueOnce[] }[] = [];
 
   for (const jugador of jugadores) {
     const { slot, lado } = lee(jugador);
-    const destino = destinoDelSlot(slot, lado);
+    const donde = candidatos(bloques, slot, lado);
 
-    if (typeof destino === "string") mete(destino, jugador);
-    else dudosos.push({ jugador, pareja: destino });
+    if (donde.length === 1) mete(donde[0].key, jugador);
+    else if (donde.length > 1) dudosos.push({ jugador, donde });
   }
 
-  for (const { jugador, pareja } of dudosos) {
-    const [izq, der] = pareja;
-
+  for (const { jugador, donde } of dudosos) {
     const cuantos = (clave: string) => reparto.get(clave)?.length ?? 0;
 
-    mete(cuantos(izq) <= cuantos(der) ? izq : der, jugador);
+    const elegido = donde.reduce((mejor, bloque) =>
+      cuantos(bloque.key) < cuantos(mejor.key) ? bloque : mejor,
+    );
+
+    mete(elegido.key, jugador);
   }
 
   return reparto;
 }
 
 /*
-| Tope de la fila de un bloque de banda. Con cuatro en línea el bloque ya es
-| más ancho que medio campo; a partir de ahí seguir estirando le quita tamaño a
-| la foto de TODA la plantilla, así que el quinto baja a una segunda fila.
+| Tope de la fila de un bloque de banda.
+|
+| Eran cuatro, y con cuatro el bloque ya es más ancho que medio campo: una
+| tira larguísima de laterales que además le quita tamaño a la foto de TODA la
+| plantilla, porque el motor busca el tamaño con el que cabe todo. Con tres, un
+| bloque de cinco sale en 3+2 —un grupo— en vez de en una fila de cinco.
 */
-const COLUMNAS_DE_BANDA = 4;
+const COLUMNAS_DE_BANDA = 3;
 
 /** Cuántas columnas quiere un bloque de banda: las suyas, hasta el tope. */
 export function columnasDeBanda(cuantos: number) {
   return Math.min(cuantos, COLUMNAS_DE_BANDA);
 }
 
-/** Forma del bloque de centro: cuadrado antes que fila larga, para que quede apretado. */
+/**
+ * Forma de un bloque de centro: un grupo, no una tira.
+ *
+ * Antes tres jugadores en un bloque salían en **una sola línea de tres**, y
+ * cuatro en dos de dos. Esa línea de tres es la que se veía en el campo como
+ * una fila larguísima de centrales o de mediocentros atravesando el ancho:
+ * con el campo tumbado, además, cae en vertical y se come el alto entero.
+ *
+ * Ahora se busca la caja más cuadrada que quepa —la raíz del número de
+ * jugadores— con un tope de tres columnas: 3 salen 2+1, 4 salen 2+2, 5 y 6 en
+ * 3+2 y 3+3, y de ahí para arriba se apilan filas de tres. Un grupo apretado
+ * se lee como «aquí hay tres centrales» de un vistazo; una fila de tres, no.
+ *
+ * La pareja se queda en dos en línea a propósito: dos centrales uno al lado
+ * del otro es justo como se dibujan en una pizarra.
+ */
 export function columnasDeBloque(cuantos: number) {
-  if (cuantos <= 3) return cuantos;
-  if (cuantos === 4) return 2;
+  if (cuantos <= 2) return cuantos;
 
-  return 3;
+  return Math.min(3, Math.ceil(Math.sqrt(cuantos)));
 }
 
 /* ------------------------------------------------------------------ */
@@ -575,19 +838,23 @@ export function reparteCampograma<T>(
   | para todo el campo: el ancho de cada banda se SUMA (son columnas, una al
   | lado de otra), así que ensanchar un bloque que no lo necesita le quita
   | ancho a todas las demás. En la banda apretada —cinco bloques de defensas
-  | uno debajo de otro— interesa lo contrario: bloques anchos de una sola fila,
+  | uno debajo de otro— interesa lo contrario: bloques anchos de pocas filas,
   | porque cada fila se come el alto, que es lo que ahí escasea.
   |
-  | Se empieza con todos los bloques en una columna y se va ensanchando el que
-  | más largo ocupa hasta que la banda cabe. Ensanchar es gratis mientras el
-  | bloque no pase del más ancho de su banda: ésos van primero.
+  | **Se empieza con la forma de grupo, no con una sola columna.** Empezando en
+  | una, un bloque de tres centrales salía en una tira de tres cabezas que
+  | atravesaba el campo de arriba abajo, y sólo se recogía si a la banda no le
+  | cabía; con la banda holgada —que es lo normal— se quedaba estirado para
+  | siempre. Con la forma de grupo (columnasDeBloque) tres salen 2+1 y cuatro
+  | 2+2, que es como se dibujan tres centrales en una pizarra, y el bucle de
+  | abajo sigue pudiendo ensanchar más si aun así no cabe.
   */
   const formaBandas = (tamano: number) => {
     bandas.forEach((banda) => {
       banda.bloques.forEach((bloque) => {
         bloque.cols = bloque.banda
           ? medidas.columnasDeBanda(bloque.jugadores.length)
-          : 1;
+          : medidas.columnasDeBloque(bloque.jugadores.length);
 
         bloque.filas = Math.ceil(bloque.jugadores.length / bloque.cols);
       });
