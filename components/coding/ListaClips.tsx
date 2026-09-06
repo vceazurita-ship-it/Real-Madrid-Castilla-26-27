@@ -90,9 +90,10 @@ export function ListaClips({
   if (clips.length === 0) {
     return (
       <p className="py-10 text-center text-xs text-white/30">
-        Todavía no hay clips. Elige un jugador —o un comportamiento colectivo
-        con <b>⇧</b>—, pulsa <b>I</b> cuando empiece la acción y <b>O</b> cuando
-        termine.
+        Todavía no hay clips. Elige un jugador y toca <b>Marcar inicio</b>
+        cuando empiece la acción y <b>Cerrar corte</b> cuando termine. Con
+        teclado, la <b>I</b> y la <b>O</b>; el comportamiento colectivo, con{" "}
+        <b>⇧</b>.
       </p>
     );
   }

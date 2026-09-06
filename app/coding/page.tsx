@@ -47,7 +47,6 @@ import {
   Settings2,
   SkipBack,
   SkipForward,
-  Undo2,
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -79,7 +78,6 @@ import {
   PanelColectivos,
   PanelJugadores,
   TablaResumen,
-  Tecla,
 } from "@/components/coding/piezas";
 import {
   FilaPizarra,
@@ -100,6 +98,10 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useReproductor, VELOCIDADES } from "@/hooks/useReproductor";
 import { useLanzadera } from "@/hooks/useLanzadera";
+import {
+  BarraMarcado,
+  SelectorDeMarca,
+} from "@/components/coding/BarraMarcado";
 import { useSesionCoding } from "@/hooks/useSesionCoding";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
@@ -707,6 +709,15 @@ function Coding() {
   const [pizarraEditando, setPizarraEditando] = useState<string | null>(null);
 
   /*
+  | La hoja para elegir jugador y categoría con el dedo.
+  |
+  | Los paneles de la derecha caen debajo del vídeo en un móvil, así que
+  | elegir obligaba a bajar y volver a subir. Desde la barra de marcado se
+  | abren aquí encima y se cierran solas al tocar.
+  */
+  const [eligiendoMarca, setEligiendoMarca] = useState(false);
+
+  /*
   | La lanzadera: acelerar y frenar el partido arrastrando sobre la imagen, o
   | con dos dedos en el mousepad, como en QuickTime.
   |
@@ -828,9 +839,15 @@ function Coding() {
       : null;
   }, [config.comportamientos, jugadores, sujetoActivo]);
 
+  /*
+  | Sin sujeto no hay corte, pero el aviso solo no basta con el dedo: decía
+  | qué falta y no llevaba a ninguna parte. Se abre la hoja de selección, que
+  | es lo que hay que hacer a continuación.
+  */
   const marcaInicio = useCallback(() => {
     if (!sujetoActivo) {
       toast.error(SIN_SUJETO);
+      setEligiendoMarca(true);
       return;
     }
 
@@ -1668,7 +1685,9 @@ function Coding() {
     ajustes ||
     editando !== null ||
     pizarraEditando !== null ||
-    pizarraRepartida !== null;
+    pizarraRepartida !== null ||
+    /* Con la hoja de selección abierta, la I no puede marcar por detrás. */
+    eligiendoMarca;
 
   useEffect(() => {
     if (hayModal) return;
@@ -2258,7 +2277,14 @@ function Coding() {
                       {escenas.length}
                     </Button>
 
-                    <span className="ml-auto flex flex-wrap gap-1">
+                    {/*
+                    | Los trece escalones ocupan dos filas enteras en un
+                    | teléfono y empujan la barra de marcar fuera de la
+                    | pantalla, que es lo que se viene a usar. Con el dedo la
+                    | velocidad se cambia arrastrando sobre la imagen, así que
+                    | ahí no hacen falta; en cuanto hay ancho, vuelven.
+                    */}
+                    <span className="ml-auto hidden flex-wrap gap-1 sm:flex">
                       {VELOCIDADES.map((velocidad) => (
                         <button
                           key={velocidad}
@@ -2276,62 +2302,39 @@ function Coding() {
                     </span>
                   </div>
 
-                  {/* La marca en curso. */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2">
-                    <Tecla tono="oro">I</Tecla>
-
-                    <span className="font-mono text-[13px] tabular-nums text-white/70">
-                      {inicioMs === null ? "—" : formateaMs(inicioMs)}
-                    </span>
-
-                    <span className="text-white/20">→</span>
-
-                    <Tecla tono="oro">O</Tecla>
-
-                    <span className="font-mono text-[13px] tabular-nums text-white/40">
-                      {inicioMs === null
-                        ? "—"
-                        : formateaMs(Math.max(inicioMs, estado.tiempoMs))}
-                    </span>
-
-                    <span className="mx-2 h-4 w-px bg-white/10" />
-
-                    <span className="text-[12px] text-white/50">
-                      {sujeto ? (
-                        <b className="text-white">
-                          {sujeto.tipo === "colectivo" && (
-                            <span className="mr-1.5 text-[10px] uppercase tracking-[0.14em] text-white/35">
-                              Colectivo
-                            </span>
-                          )}
-                          {sujeto.nombre}
-                        </b>
-                      ) : (
-                        "sin jugador"
-                      )}
-
-                      {categoriaElegida && (
-                        <>
-                          {" · "}
-                          <span style={{ color: categoriaElegida.color }}>
-                            {categoriaElegida.nombre}
-                          </span>
-                        </>
-                      )}
-                    </span>
-
-                    <span className="ml-auto flex gap-2">
-                      <Button
-                        icon={Undo2}
-                        onClick={() => {
-                          if (sesion.deshacer()) toast.success("Deshecho");
-                          else toast.info("No hay nada que deshacer");
-                        }}
-                      >
-                        Deshacer
-                      </Button>
-                    </span>
-                  </div>
+{/*
+                  | LA MARCA EN CURSO, PULSABLE.
+                  |
+                  | Era una tira que **contaba** lo que estaba pasando —la I, el
+                  | tiempo, la O— y para hacerlo hacía falta el teclado. Ahora es
+                  | lo mismo pero se puede tocar, que es lo que hace que el
+                  | coding se pueda llevar a una tablet o al banquillo. El
+                  | teclado sigue mandando igual: la barra sólo añade dedo.
+                  */}
+                  <BarraMarcado
+                    inicioMs={inicioMs}
+                    tiempoMs={estado.tiempoMs}
+                    sujeto={
+                      sujeto
+                        ? { tipo: sujeto.tipo, nombre: sujeto.nombre }
+                        : null
+                    }
+                    categoria={categoriaElegida ?? null}
+                    formatea={formateaMs}
+                    listo={Boolean(src)}
+                    onInicio={marcaInicio}
+                    onFinal={marcaFinal}
+                    onCancelar={() => {
+                      setInicioMs(null);
+                      toast.info("Marca cancelada");
+                    }}
+                    onDeshacer={() => {
+                      if (sesion.deshacer()) toast.success("Deshecho");
+                      else toast.info("No hay nada que deshacer");
+                    }}
+                    onElegirSujeto={() => setEligiendoMarca(true)}
+                    onElegirCategoria={() => setEligiendoMarca(true)}
+                  />
 
                   <div className="mt-3">
                     <LineaDeTiempo
@@ -2997,6 +3000,40 @@ function Coding() {
               description: "El vídeo se ha descargado igual.",
             });
           }}
+        />
+      )}
+
+      {/* Elegir jugador y categoría con el dedo, sin bajar a los paneles. */}
+
+      {eligiendoMarca && (
+        <SelectorDeMarca
+          jugadores={jugadores}
+          teclas={teclas}
+          comportamientos={config.comportamientos}
+          categorias={config.categorias}
+          sujetoActivo={sujetoActivo}
+          categoriaActiva={categoriaActiva}
+          cuentasJugador={cuentasJugador}
+          cuentasColectivo={cuentasColectivo}
+          cuentasCategoria={cuentasCategoria}
+          onJugador={(id) =>
+            setSujetoActivo((actual) =>
+              actual?.tipo === "jugador" && actual.id === id
+                ? null
+                : { tipo: "jugador", id },
+            )
+          }
+          onColectivo={(id) =>
+            setSujetoActivo((actual) =>
+              actual?.tipo === "colectivo" && actual.id === id
+                ? null
+                : { tipo: "colectivo", id },
+            )
+          }
+          onCategoria={(id) =>
+            setCategoriaActiva((actual) => (actual === id ? "" : id))
+          }
+          onCerrar={() => setEligiendoMarca(false)}
         />
       )}
     </main>
