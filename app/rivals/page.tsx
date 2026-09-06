@@ -99,46 +99,79 @@ import type { RivalVoiceField } from "@/lib/voice/types";
 
 import {
   AlertTriangle,
+  Anchor,
   ArrowBigUp,
+  ArrowUpFromLine,
   Ban,
   Bandage,
   BarChart3,
   BatteryCharging,
   BatteryLow,
+  Bolt,
   Brain,
+  BrickWall,
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronsUp,
   CircleAlert,
+  CircleDot,
+  CircleSlash,
+  CircleX,
+  Compass,
+  CornerDownRight,
+  Crosshair,
   Crown,
+  DoorOpen,
   Dumbbell,
   ExternalLink,
+  Eye,
+  EyeOff,
+  Feather,
+  Fence,
   FileDown,
   FileText,
   Flag,
   Flame,
   Footprints,
   Frown,
+  Gauge,
   Ghost,
+  GitBranch,
+  Goal,
   Hand,
   Handshake,
   HeartPulse,
+  Hourglass,
   LayoutGrid,
   Loader2,
+  Magnet,
+  Milestone,
   MoveDown,
+  MoveRight,
+  Network,
   Plus,
   Presentation,
+  Radar,
   RectangleHorizontal,
+  Repeat,
+  Rewind,
+  Rocket,
   RotateCcw,
+  Route,
   Ruler,
   Save,
+  Scissors,
   Search,
+  Shield,
   ShieldOff,
   Shirt,
+  Slice,
   Snail,
   SquarePen,
   Shuffle,
   Sparkles,
+  Split,
   Star,
   Swords,
   Tags,
@@ -146,9 +179,11 @@ import {
   Target,
   ThumbsDown,
   Trash2,
+  TrendingUp,
   UserRound,
   Video,
   Wand2,
+  Waypoints,
   Wind,
   X,
   Zap,
@@ -939,6 +974,27 @@ export default function RivalPlayersPage() {
 
     return counts;
   }, [filteredPlayers]);
+
+  /*
+  | Qué píldoras se ofrecen para filtrar.
+  |
+  | Las generales salen siempre, aunque no las tenga nadie: son pocas y verlas
+  | apagadas dice lo que aún no se ha etiquetado. Las de puesto son casi
+  | cuarenta y sólo tienen sentido para un bloque, así que aquí —donde la
+  | lista mezcla porteros con delanteros— salen únicamente cuando alguien las
+  | lleva puestas. Con todas, el panel eran seis filas de chapas apagadas y
+  | encontrar la que se busca costaba más que no tener filtro.
+  */
+  const gruposDeFiltro = useMemo(
+    () =>
+      TAG_GROUPS.map((group) => ({
+        ...group,
+        tags: group.tags.filter(
+          (tag) => !esDePuesto(tag) || (tagCounts.get(tag.key) ?? 0) > 0,
+        ),
+      })).filter((group) => group.tags.length > 0),
+    [tagCounts],
+  );
 
   /* Equipos representados en el resultado actual (relevante al buscar global). */
   const teamsInResults = useMemo(() => {
@@ -2095,11 +2151,29 @@ export default function RivalPlayersPage() {
   | corregir antes de que salga hacia la hoja.
   */
 
-  /* Del catálogo de etiquetas al dictado solo le hace falta cómo se llaman. */
+  /*
+  | En qué bloque juega el que está abierto. De aquí sale el catálogo de
+  | etiquetas que se le ofrece —y el que se le pasa al dictado—, así que va
+  | sobre el formulario y no sobre el jugador guardado: si se le acaba de
+  | corregir la posición, el catálogo cambia en el mismo momento.
+  */
+  const lineaDelEditado = useMemo<LineKey | null>(
+    () => getLine(editForm?.["POSICIÓN"] ?? "")?.key ?? null,
+    [editForm],
+  );
+
+  /*
+  | Del catálogo de etiquetas al dictado sólo le hace falta cómo se llaman, y
+  | únicamente las de su puesto: si se le manda la lista entera, «para
+  | penaltis» acaba puesto en un delantero porque en el audio se ha hablado de
+  | penaltis, y quien dicta no está mirando la ficha para desmentirlo.
+  */
   const voiceTagCatalog = useMemo(
     () =>
-      PLAYER_TAGS.map(({ key, label, aliases }) => ({ key, label, aliases })),
-    [],
+      PLAYER_TAGS.filter((tag) => valeParaLinea(tag, lineaDelEditado)).map(
+        ({ key, label, aliases }) => ({ key, label, aliases }),
+      ),
+    [lineaDelEditado],
   );
 
   const voiceTagKeys = useMemo(
@@ -2796,7 +2870,7 @@ export default function RivalPlayersPage() {
                   hidden={!etiquetasAbiertas}
                   className="mt-3 min-w-0 space-y-3"
                 >
-                  {TAG_GROUPS.map((group) => (
+                  {gruposDeFiltro.map((group) => (
                     <div key={group.tone} className="min-w-0">
                       <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
                         {group.label}
@@ -3853,6 +3927,7 @@ export default function RivalPlayersPage() {
                   <TagPicker
                     value={editForm.IMPACTO}
                     onChange={(value) => updateForm("IMPACTO", value)}
+                    linea={lineaDelEditado}
                     compacto
                   />
                 </div>
@@ -4490,6 +4565,34 @@ type PlayerTag = {
   color: string;
   aliases: string[];
   tone: TagTone;
+  /**
+   * En qué bloques de posición se ofrece. Sin esto, en todos.
+   *
+   * Sirve para las dos cosas a la vez: sacar del catálogo de un portero lo que
+   * no significa nada en su puesto —«el regateador», «lento», «no repliega»— y
+   * ofrecerle a cada bloque lo suyo, que es lo que de verdad describe a un
+   * lateral o a un delantero y no cabía en una lista común a los cuatro.
+   *
+   * **Sólo decide qué se ofrece, nunca qué se lee.** Una etiqueta ya escrita
+   * en IMPACTO se sigue reconociendo y pintando aunque el jugador haya
+   * cambiado de puesto desde entonces: el catálogo filtra el mostrador, no la
+   * hoja.
+   */
+  lineas?: LineKey[];
+};
+
+/* Todo el que no es portero. Es el filtro más repetido: casi ninguna etiqueta
+   de campo —regate, velocidad, duelos, repliegue— dice nada bajo palos. */
+const CAMPO: LineKey[] = ["defensa", "medio", "ataque"];
+
+/* Cómo se nombra el bloque en el titulillo del catálogo: "Fortalezas de
+   portero", "…de centrocampista". El title de la línea va en plural y es de
+   otra pantalla. */
+const PUESTO_EN_SINGULAR: Record<LineKey, string> = {
+  portero: "portero",
+  defensa: "defensa",
+  medio: "centrocampista",
+  ataque: "atacante",
 };
 
 /* El tono —y con él el color— lo pone el bloque, no cada entrada. */
@@ -4516,6 +4619,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Desequilibra",
     icon: Zap,
     aliases: ["desequilibrante", "desequilibra", "desborde"],
+    lineas: CAMPO,
   },
   {
     key: "regateador",
@@ -4523,6 +4627,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Regate",
     icon: Shuffle,
     aliases: ["regateador", "regate", "driblador", "encarador"],
+    lineas: CAMPO,
   },
   {
     key: "rapido",
@@ -4530,6 +4635,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Rápido",
     icon: Wind,
     aliases: ["rapido", "veloz", "velocidad", "explosivo"],
+    lineas: CAMPO,
   },
   {
     key: "fuerte",
@@ -4544,6 +4650,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Duro",
     icon: Swords,
     aliases: ["duro", "agresivo", "intenso", "guerrero"],
+    lineas: CAMPO,
   },
   {
     key: "alto",
@@ -4558,6 +4665,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Gol",
     icon: Target,
     aliases: ["goleador", "gol", "killer", "definidor"],
+    lineas: CAMPO,
   },
   {
     key: "asistente",
@@ -4565,6 +4673,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Asiste",
     icon: Handshake,
     aliases: ["asistente", "asistencias", "ultimo pase", "pasador"],
+    lineas: CAMPO,
   },
   {
     key: "tecnico",
@@ -4579,6 +4688,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Motor",
     icon: BatteryCharging,
     aliases: ["motor", "incansable", "box to box", "recorrido", "pulmon"],
+    lineas: CAMPO,
   },
   {
     key: "presionador",
@@ -4586,6 +4696,7 @@ const FORTALEZAS: TagDef[] = [
     short: "Presiona",
     icon: Flame,
     aliases: ["presionador", "presion", "primer presionador", "robador"],
+    lineas: CAMPO,
   },
   {
     key: "lider",
@@ -4614,6 +4725,7 @@ const FORTALEZAS: TagDef[] = [
       "saca abp",
       "especialista abp",
     ],
+    lineas: CAMPO,
   },
   {
     key: "abp-rematador",
@@ -4627,6 +4739,7 @@ const FORTALEZAS: TagDef[] = [
       "referencia abp",
       "rematador",
     ],
+    lineas: CAMPO,
   },
   {
     key: "peligro",
@@ -4634,6 +4747,202 @@ const FORTALEZAS: TagDef[] = [
     short: "Peligro",
     icon: AlertTriangle,
     aliases: ["peligro", "vigilar", "atencion", "ojo"],
+  },
+
+  /*
+  |------------------------------------------------------------------------
+  | LO QUE SÓLO SE DICE DE UN PUESTO
+  |------------------------------------------------------------------------
+  |
+  | Las de arriba valen para cualquiera y por eso son gruesas: «el rápido»,
+  | «el técnico». Lo que de verdad decide cómo se le juega a un rival es más
+  | fino y no es lo mismo en cada bloque —a un lateral se le mira si sube y
+  | si centra, a un pivote si se gira, a un portero si sale a los centros—,
+  | y en una lista común a los cuatro puestos eso no cabía: habrían salido
+  | cincuenta chapas en la ficha de todo el mundo.
+  |
+  | Van en el mismo campo IMPACTO y con la misma mecánica; lo único que hace
+  | `lineas` es que cada ficha enseñe su mostrador.
+  */
+
+  /* -------------------------------------------------------- PORTEROS */
+  {
+    key: "por-reflejos",
+    label: "Reflejos bajo palos",
+    short: "Reflejos",
+    icon: Radar,
+    aliases: ["reflejos bajo palos", "reflejos", "buen reflejo", "para todo"],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-juego-pies",
+    label: "Juega con los pies",
+    short: "Con los pies",
+    icon: Waypoints,
+    aliases: [
+      "juega con los pies",
+      "bueno con los pies",
+      "portero jugador",
+      "inicia el juego",
+    ],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-salidas",
+    label: "Sale bien a los centros",
+    short: "Sale a centros",
+    icon: ChevronsUp,
+    aliases: [
+      "sale bien a los centros",
+      "sale a los centros",
+      "domina el area",
+      "buenas salidas",
+    ],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-mano-a-mano",
+    label: "Gana el mano a mano",
+    short: "Mano a mano",
+    icon: Shield,
+    aliases: ["gana el mano a mano", "mano a mano", "bueno en el uno contra uno"],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-penaltis",
+    label: "Para penaltis",
+    short: "Penaltis",
+    icon: CircleDot,
+    aliases: ["para penaltis", "penaltis", "especialista en penaltis"],
+    lineas: ["portero"],
+  },
+
+  /* -------------------------------------------------------- DEFENSAS */
+  {
+    key: "def-anticipa",
+    label: "Anticipa",
+    short: "Anticipa",
+    icon: Eye,
+    aliases: ["anticipa", "anticipacion", "roba por delante", "lee el pase"],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-salida-limpia",
+    label: "Saca el balón jugado",
+    short: "Salida limpia",
+    icon: Route,
+    aliases: [
+      "saca el balon jugado",
+      "salida limpia",
+      "saca jugado",
+      "buena salida de balon",
+    ],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-sube-banda",
+    label: "Sube la banda",
+    short: "Sube",
+    icon: TrendingUp,
+    aliases: ["sube la banda", "sube mucho", "lateral ofensivo", "se incorpora"],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-centrador",
+    label: "Buen centrador",
+    short: "Centra",
+    icon: CornerDownRight,
+    aliases: ["buen centrador", "centra bien", "buen centro", "centrador"],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-corrige",
+    label: "Corrige en velocidad",
+    short: "Corrige",
+    icon: Gauge,
+    aliases: ["corrige en velocidad", "corrige", "buena cobertura", "cubre bien"],
+    lineas: ["defensa"],
+  },
+
+  /* -------------------------------------------------- CENTROCAMPISTAS */
+  {
+    key: "med-cambio-juego",
+    label: "Cambia el juego",
+    short: "Cambia juego",
+    icon: GitBranch,
+    aliases: ["cambia el juego", "cambio de orientacion", "cambia de banda"],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-llegada",
+    label: "Llega desde atrás",
+    short: "Llegada",
+    icon: ArrowUpFromLine,
+    aliases: [
+      "llega desde atras",
+      "llegada",
+      "llega al area",
+      "segunda linea",
+    ],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-recuperador",
+    label: "Recuperador",
+    short: "Recupera",
+    icon: Magnet,
+    aliases: ["recuperador", "recupera", "roba balones", "corta el juego"],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-entre-lineas",
+    label: "Juega entre líneas",
+    short: "Entre líneas",
+    icon: Network,
+    aliases: ["juega entre lineas", "entre lineas", "se perfila entre lineas"],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-tiro-lejano",
+    label: "Tira de lejos",
+    short: "Tira de lejos",
+    icon: Crosshair,
+    aliases: ["tira de lejos", "tiro lejano", "disparo lejano", "tira desde fuera"],
+    lineas: ["medio"],
+  },
+
+  /* ------------------------------------------------------- ATACANTES */
+  {
+    key: "atq-ruptura",
+    label: "Desmarque de ruptura",
+    short: "Ruptura",
+    icon: Rocket,
+    aliases: ["desmarque de ruptura", "ruptura", "ataca el espacio", "va a la espalda"],
+    lineas: ["ataque"],
+  },
+  {
+    key: "atq-espaldas",
+    label: "Juega de espaldas",
+    short: "De espaldas",
+    icon: Milestone,
+    aliases: ["juega de espaldas", "de espaldas", "pivotea", "aguanta el balon"],
+    lineas: ["ataque"],
+  },
+  {
+    key: "atq-cae-banda",
+    label: "Cae a banda",
+    short: "Cae a banda",
+    icon: MoveRight,
+    aliases: ["cae a banda", "se abre a banda", "se descuelga", "se va al costado"],
+    lineas: ["ataque"],
+  },
+  {
+    key: "atq-primeras",
+    label: "Remata de primeras",
+    short: "De primeras",
+    icon: Bolt,
+    aliases: ["remata de primeras", "de primeras", "remate rapido", "a la primera"],
+    lineas: ["ataque"],
   },
 ];
 
@@ -4656,6 +4965,7 @@ const DEBILIDADES: TagDef[] = [
       "flojo en el duelo",
       "debil en el duelo",
     ],
+    lineas: CAMPO,
   },
   {
     key: "lento",
@@ -4669,6 +4979,7 @@ const DEBILIDADES: TagDef[] = [
       "falta de ritmo",
       "le ganan la espalda",
     ],
+    lineas: CAMPO,
   },
   {
     key: "errores",
@@ -4768,6 +5079,7 @@ const DEBILIDADES: TagDef[] = [
       "deja la espalda",
       "poco trabajo defensivo",
     ],
+    lineas: CAMPO,
   },
   {
     key: "se-cae",
@@ -4781,6 +5093,7 @@ const DEBILIDADES: TagDef[] = [
       "le falta fondo",
       "poco fondo",
     ],
+    lineas: CAMPO,
   },
   {
     key: "descentrado",
@@ -4794,6 +5107,163 @@ const DEBILIDADES: TagDef[] = [
       "pierde la cabeza",
       "reactivo",
     ],
+  },
+
+  /* Por dónde se le gana **a ese puesto**: el mismo criterio que arriba. */
+
+  /* -------------------------------------------------------- PORTEROS */
+  {
+    key: "por-inseguro-pies",
+    label: "Inseguro con los pies",
+    short: "Inseguro con pies",
+    icon: CircleSlash,
+    aliases: [
+      "inseguro con los pies",
+      "malo con los pies",
+      "no sale jugando",
+      "se le presiona la salida",
+    ],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-no-sale",
+    label: "No sale de la línea",
+    short: "No sale",
+    icon: Anchor,
+    aliases: [
+      "no sale de la linea",
+      "no sale a los centros",
+      "se queda en la linea",
+      "no domina el area",
+    ],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-su-palo",
+    label: "Se le cuela a su palo",
+    short: "Su palo",
+    icon: Goal,
+    aliases: ["se le cuela a su palo", "flojo a su palo", "su palo", "primer palo"],
+    lineas: ["portero"],
+  },
+  {
+    key: "por-rechaces",
+    label: "Suelta rechaces",
+    short: "Rechaces",
+    icon: Repeat,
+    aliases: ["suelta rechaces", "rechaces", "no bloca", "escupe balones"],
+    lineas: ["portero"],
+  },
+
+  /* -------------------------------------------------------- DEFENSAS */
+  {
+    key: "def-deja-centrar",
+    label: "Deja centrar",
+    short: "Deja centrar",
+    icon: DoorOpen,
+    aliases: ["deja centrar", "no tapa el centro", "le centran facil"],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-va-al-suelo",
+    label: "Se tira al suelo",
+    short: "Va al suelo",
+    icon: Scissors,
+    aliases: ["se tira al suelo", "va al suelo", "entra a destiempo", "se precipita"],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-fuera-de-juego",
+    label: "Descoordina el fuera de juego",
+    short: "Descoordina",
+    icon: Split,
+    aliases: [
+      "descoordina el fuera de juego",
+      "mal el fuera de juego",
+      "rompe la linea",
+      "no sube la linea",
+    ],
+    lineas: ["defensa"],
+  },
+  {
+    key: "def-no-salta",
+    label: "No salta al hombre",
+    short: "No salta",
+    icon: BrickWall,
+    aliases: ["no salta al hombre", "no salta", "espera atras", "no aprieta"],
+    lineas: ["defensa"],
+  },
+
+  /* -------------------------------------------------- CENTROCAMPISTAS */
+  {
+    key: "med-tarda",
+    label: "Tarda en soltarla",
+    short: "Tarda",
+    icon: Hourglass,
+    aliases: ["tarda en soltarla", "tarda", "se duerme", "juega lento"],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-no-se-gira",
+    label: "No se gira con el balón",
+    short: "No se gira",
+    icon: Rewind,
+    aliases: ["no se gira con el balon", "no se gira", "siempre juega hacia atras"],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-no-ayuda",
+    label: "No ayuda al pivote",
+    short: "No ayuda",
+    icon: EyeOff,
+    aliases: ["no ayuda al pivote", "no ayuda", "deja solo al pivote"],
+    lineas: ["medio"],
+  },
+  {
+    key: "med-no-cierra",
+    label: "No cierra el pasillo interior",
+    short: "No cierra",
+    icon: Fence,
+    aliases: [
+      "no cierra el pasillo interior",
+      "no cierra por dentro",
+      "deja el pasillo",
+    ],
+    lineas: ["medio"],
+  },
+
+  /* ------------------------------------------------------- ATACANTES */
+  {
+    key: "atq-fuera-de-juego",
+    label: "Cae en fuera de juego",
+    short: "Fuera de juego",
+    icon: Slice,
+    aliases: ["cae en fuera de juego", "se pasa de largo", "muchos fueras de juego"],
+    lineas: ["ataque"],
+  },
+  {
+    key: "atq-no-participa",
+    label: "No participa en el juego",
+    short: "No participa",
+    icon: Feather,
+    aliases: ["no participa en el juego", "no participa", "desaparece", "se pierde"],
+    lineas: ["ataque"],
+  },
+  {
+    key: "atq-falla",
+    label: "Falla ocasiones claras",
+    short: "Falla",
+    icon: CircleX,
+    aliases: ["falla ocasiones claras", "falla mucho", "poco acierto", "mal definidor"],
+    lineas: ["ataque"],
+  },
+  {
+    key: "atq-no-ataca-area",
+    label: "No ataca el área",
+    short: "No ataca área",
+    icon: Compass,
+    aliases: ["no ataca el area", "no pisa area", "se queda fuera del area"],
+    lineas: ["ataque"],
   },
 ];
 
@@ -4815,6 +5285,72 @@ const TAG_GROUPS: { tone: TagTone; label: string; tags: PlayerTag[] }[] = [
 ];
 
 const PLAYER_TAGS: PlayerTag[] = TAG_GROUPS.flatMap((group) => group.tags);
+
+/** Una etiqueta que sólo existe para un bloque: portero, defensa, medio… */
+function esDePuesto(tag: PlayerTag) {
+  return tag.lineas?.length === 1;
+}
+
+/**
+ * Si a un jugador de esa línea se le puede poner esa etiqueta.
+ *
+ * De quien la hoja no dice dónde juega se ofrece todo lo que no es de un
+ * bloque concreto: no se sabe si es portero, pero tampoco que no lo sea, y
+ * quitarle «lento» o «el rápido» a una ficha a medio rellenar sería castigar
+ * al que todavía no ha escrito la posición.
+ */
+function valeParaLinea(tag: PlayerTag, linea: LineKey | null) {
+  if (!tag.lineas) return true;
+
+  if (linea === null) return !esDePuesto(tag);
+
+  return tag.lineas.includes(linea);
+}
+
+/**
+ * El catálogo tal y como se le ofrece a un jugador de ese bloque.
+ *
+ * Salen cuatro bloques en vez de dos: primero lo que se dice **de ese
+ * puesto** —lo que de verdad describe a un portero o a un lateral— y detrás
+ * lo que vale para cualquiera. Al portero no se le ofrece nada de campo: una
+ * lista con «el regateador» y «no repliega» hace perder el tiempo a quien la
+ * lee y acaba en etiquetas puestas por descarte.
+ *
+ * Sin posición reconocible en la hoja quedan las generales y ya está: no hay
+ * bloque del que sacar las suyas.
+ */
+function gruposDelPuesto(linea: LineKey | null) {
+  const grupos: { key: string; label: string; tags: PlayerTag[] }[] = [];
+
+  const puesto = linea ? PUESTO_EN_SINGULAR[linea] : "";
+
+  for (const grupo of TAG_GROUPS) {
+    const suyas = grupo.tags.filter(
+      (tag) => valeParaLinea(tag, linea) && esDePuesto(tag),
+    );
+
+    const generales = grupo.tags.filter(
+      (tag) => valeParaLinea(tag, linea) && !esDePuesto(tag),
+    );
+
+    if (suyas.length > 0) {
+      grupos.push({
+        key: grupo.tone + "-puesto",
+        label:
+          grupo.tone === "fortaleza"
+            ? "Fortalezas de " + puesto
+            : "Por dónde se le gana a un " + puesto,
+        tags: suyas,
+      });
+    }
+
+    if (generales.length > 0) {
+      grupos.push({ key: grupo.tone, label: grupo.label, tags: generales });
+    }
+  }
+
+  return grupos;
+}
 
 /* En el campograma sólo caben unas pocas: que una lesión no se quede fuera. */
 function tagsByPriority(tags: PlayerTag[]) {
@@ -4987,13 +5523,22 @@ function TagChip({
 function TagPicker({
   value,
   onChange,
+  linea = null,
   compacto = false,
 }: {
   value: unknown;
   onChange: (value: string) => void;
+  /**
+   * En qué bloque juega, para ofrecerle lo suyo. Sólo cambia el catálogo que
+   * se abre al pulsar «Editar»: lo que ya estuviera escrito se sigue viendo y
+   * se puede quitar aunque hoy no le corresponda por puesto.
+   */
+  linea?: LineKey | null;
   compacto?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
+
+  const catalogo = useMemo(() => gruposDelPuesto(linea), [linea]);
 
   const parsed = useMemo(() => parseTags(value), [value]);
 
@@ -5068,8 +5613,8 @@ function TagPicker({
             data-export-hide
             className="w-full space-y-3 border-t border-white/10 pt-3"
           >
-            {TAG_GROUPS.map((group) => (
-              <div key={group.tone}>
+            {catalogo.map((group) => (
+              <div key={group.key}>
                 <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
                   {group.label}
                 </span>
@@ -5184,8 +5729,8 @@ function TagPicker({
           data-export-hide
           className="mt-4 space-y-3 border-t border-white/10 pt-4"
         >
-          {TAG_GROUPS.map((group) => (
-            <div key={group.tone}>
+          {catalogo.map((group) => (
+            <div key={group.key}>
               <span className="mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/25">
                 {group.label}
               </span>
