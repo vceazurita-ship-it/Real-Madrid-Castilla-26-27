@@ -314,8 +314,6 @@ export default function DashboardSeguimiento() {
     [filteredTracking]
   );
 
-  const totalPlayers = trackedIds.size;
-
   const weeksSet = useMemo(
     () => new Set(filteredTracking.map((s) => getSeasonWeek(s.FECHA))),
     [filteredTracking]
@@ -331,11 +329,11 @@ export default function DashboardSeguimiento() {
   | La cobertura es **de la plantilla de ahora**, no de todo el que aparezca
   | en la hoja.
   |
-  | `totalPlayers` cuenta a cualquiera con registros, y ahí hay gente que se
-  | fue: por eso salía «39 de 40 · 97,5%» a la vez que «5 sin registro», que no
-  | puede ser. Se cuenta a los de la plantilla que sí tienen seguimiento, y
-  | sobre el mismo grupo que la lista de los que no lo tienen —si hay filtro de
-  | posición, los de esa posición—.
+  | Contar a cualquiera con registros mete a gente que se fue: por eso salía
+  | «39 de 40 · 97,5%» a la vez que «5 sin registro», que no puede ser. Se
+  | cuenta a los de la plantilla que sí tienen seguimiento, y sobre el mismo
+  | grupo que la lista de los que no lo tienen —si hay filtro de posición, los
+  | de esa posición—.
   */
   const plantillaEnFoco = useMemo(
     () =>
@@ -353,6 +351,26 @@ export default function DashboardSeguimiento() {
   );
 
   const coverage = pct(cubiertos, squadSize);
+
+  /*
+  | Las sesiones **de los que siguen aquí**.
+  |
+  | Hay registros de gente que se fue —hoy nueve de 277, todos sin nombre en
+  | la hoja, así que no hay a quién atarlos—. Repartirlos entre la plantilla
+  | de ahora infla el promedio; y dividir entre todos los identificadores que
+  | aparecen, como se hacía, lo hunde: salía 6,9 por jugador aquí mientras la
+  | portada decía 8,1 de lo mismo. Lo correcto es 7,9, y ahora las dos
+  | pantallas lo cuentan igual.
+  */
+  const idsEnFoco = useMemo(
+    () => new Set(plantillaEnFoco.map((jugador) => jugador.id)),
+    [plantillaEnFoco],
+  );
+
+  const sesionesDeLaPlantilla = useMemo(
+    () => filteredTracking.filter((s) => idsEnFoco.has(s.ID_JUGADOR)).length,
+    [filteredTracking, idsEnFoco],
+  );
 
   const lastRecord = useMemo(() => {
     /* Sólo entre los que tienen fecha de verdad: una fecha imposible ordenaba
@@ -424,8 +442,8 @@ export default function DashboardSeguimiento() {
   const leastTrackedPlayer =
     playerChart[playerChart.length - 1] ?? { name: "—", value: 0 };
 
-  const avgPerPlayer = totalPlayers
-    ? +(totalSessions / totalPlayers).toFixed(1)
+  const avgPerPlayer = cubiertos
+    ? +(sesionesDeLaPlantilla / cubiertos).toFixed(1)
     : 0;
 
   /** Players in the squad with zero records under the current filters */
@@ -726,7 +744,6 @@ export default function DashboardSeguimiento() {
     return out;
   }, [
     totalSessions,
-    totalPlayers,
     squadSize,
     coverage,
     untrackedPlayers,
@@ -1027,8 +1044,8 @@ export default function DashboardSeguimiento() {
 
                 <StatCard
                   icon={Users}
-                  title="Jugadores"
-                  value={totalPlayers}
+                  title="Con seguimiento"
+                  value={cubiertos}
                   hint={`${avgPerPlayer} por jugador`}
                   accent="#6E7F99"
                 />

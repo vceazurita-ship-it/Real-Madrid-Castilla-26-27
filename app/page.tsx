@@ -264,8 +264,10 @@ export default function Home() {
 
   const totalJugadores = plantilla.length
 
-  const jugadoresSeguimiento = useMemo(() => {
-    if (plantilla.length === 0) return 0
+  const { jugadoresSeguimiento, sesionesDeLaPlantilla } = useMemo(() => {
+    if (plantilla.length === 0) {
+      return { jugadoresSeguimiento: 0, sesionesDeLaPlantilla: 0 }
+    }
 
     /* Por nombre, que es lo que manda: un ID viejo apunta hoy a otra persona. */
     const atados = alineaSeguimiento(
@@ -275,16 +277,31 @@ export default function Home() {
       plantilla,
     )
 
-    const conRegistro = new Set(atados.map((fila) => fila.ID_JUGADOR))
+    const deLaPlantilla = new Set(plantilla.map((jugador) => jugador.id))
 
-    return plantilla.filter((jugador) => conRegistro.has(jugador.id)).length
+    const conRegistro = new Set<string>()
+
+    let sesiones = 0
+
+    for (const fila of atados) {
+      if (!deLaPlantilla.has(fila.ID_JUGADOR)) continue
+
+      conRegistro.add(fila.ID_JUGADOR)
+
+      sesiones += 1
+    }
+
+    return { jugadoresSeguimiento: conRegistro.size, sesionesDeLaPlantilla: sesiones }
   }, [filasSeguimiento, plantilla])
 
   const seguimientos = filasSeguimiento.length
 
+  /* El promedio, sólo con lo de los que siguen aquí: las sesiones de quien se
+     fue no se reparten entre los que están. Es el mismo cálculo que hace el
+     dashboard de seguimiento, para que las dos pantallas no se contradigan. */
   const promedioSeguimientos =
     jugadoresSeguimiento > 0
-      ? Number((seguimientos / jugadoresSeguimiento).toFixed(1))
+      ? Number((sesionesDeLaPlantilla / jugadoresSeguimiento).toFixed(1))
       : 0
 
   const cobertura =
