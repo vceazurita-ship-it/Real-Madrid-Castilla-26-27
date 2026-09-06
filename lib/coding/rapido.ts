@@ -1178,7 +1178,19 @@ export async function montaRapido(
 
     dice("Cerrando el vídeo");
 
-    return salida.termina();
+    /*
+    | Cerrar es vaciar el codificador, y eso es **una sola llamada** que en un
+    | montaje largo tarda minutos sin dar señales. Sin avisar al vigía, éste lo
+    | tomaría por un atasco y mataría un montaje que va perfectamente. El
+    | `flush` de dentro trae su propio plazo, así que la garantía sigue en pie.
+    */
+    const acaba = pantalla.esperando("Cerrando el vídeo");
+
+    try {
+      return await salida.termina();
+    } finally {
+      acaba();
+    }
   };
 
   /* ------------------------------------------------------- las tres salidas */
@@ -1223,7 +1235,14 @@ export async function montaRapido(
 
     dice("Cerrando el paquete");
 
-    return acabado(creaZip(entradas), "zip");
+    /* Armar el ZIP es memoria y CPU de una tacada, sin nada que contar. */
+    const acabaZip = pantalla.esperando("Cerrando el paquete");
+
+    try {
+      return acabado(creaZip(entradas), "zip");
+    } finally {
+      acabaZip();
+    }
   }
 
   const unificado = peticion.formato === "unificado";

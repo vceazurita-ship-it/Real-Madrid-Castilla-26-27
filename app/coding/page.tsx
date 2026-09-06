@@ -717,6 +717,20 @@ function Coding() {
   */
   const [eligiendoMarca, setEligiendoMarca] = useState(false);
 
+  /* Escape cierra la hoja. El teclado del coding está apagado mientras está
+     abierta (`hayModal`), así que tiene que escuchar ella. */
+  useEffect(() => {
+    if (!eligiendoMarca) return;
+
+    const alPulsar = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setEligiendoMarca(false);
+    };
+
+    window.addEventListener("keydown", alPulsar);
+
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, [eligiendoMarca]);
+
   /*
   | La lanzadera: acelerar y frenar el partido arrastrando sobre la imagen, o
   | con dos dedos en el mousepad, como en QuickTime.

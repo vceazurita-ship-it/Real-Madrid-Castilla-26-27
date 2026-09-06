@@ -215,6 +215,18 @@ export function montaEscenario(titulo: string) {
   /** Y pasado esto, se da por atascado y se corta. */
   const RENDICION_MS = 90_000;
 
+  /**
+   * Lo que se le concede a un paso que **no puede informar**.
+   *
+   * Cerrar el vídeo es una sola llamada al codificador que puede tardar
+   * minutos en un montaje largo y no da señales por el camino: con el plazo
+   * normal, el vigía mataba un montaje que iba perfectamente. Estos pasos se
+   * marcan con `esperando()` y tienen su propio plazo por dentro, así que
+   * aquí sólo hace falta un techo por encima de aquél para que la garantía
+   * siga en pie.
+   */
+  const PACIENCIA_MS = 240_000;
+
   let ultimoAvance = Date.now();
   let ultimaFraccion = -1;
   let atascado = false;
@@ -250,8 +262,44 @@ export function montaEscenario(titulo: string) {
 
   armaRendicion();
 
+  /** Pasos en curso que no pueden informar, con el momento en que empezaron. */
+  const esperas = new Map<number, { quien: string; desde: number }>();
+
+  let numeroDeEspera = 0;
+
   const vigia = window.setInterval(() => {
     if (cancelado || atascado) return;
+
+    /*
+    | Con un paso de los que no informan en marcha, el reloj normal no cuenta:
+    | lo que se mira es que ese paso no se eternice.
+    */
+    const enEspera = [...esperas.values()].sort((a, b) => a.desde - b.desde)[0];
+
+    if (enEspera) {
+      const rato = Date.now() - enEspera.desde;
+
+      if (rato < PACIENCIA_MS) {
+        if (rato >= AVISA_MS) {
+          aviso.textContent =
+            `${enEspera.quien}… ${Math.round(rato / 1000)} s. Es un paso que no ` +
+            "puede ir contando, así que se le deja terminar.";
+        }
+
+        /* Mientras dure, el reloj de lo normal no corre. */
+        ultimoAvance = Date.now();
+
+        return;
+      }
+
+      atascado = true;
+
+      paso.textContent = "El montaje se ha quedado atascado.";
+
+      seRinde(new Error(CORTE_ATASCADO));
+
+      return;
+    }
 
     const parada = Date.now() - ultimoAvance;
 
@@ -328,6 +376,30 @@ export function montaEscenario(titulo: string) {
     rendicion: () => rendicion,
 
     /**
+     * Marca un paso que **no puede informar** de lo que hace.
+     *
+     * Devuelve la función que lo cierra. Mientras haya alguno abierto, el
+     * vigía no cuenta el silencio como atasco —sería matar un montaje que va
+     * bien— pero sí vigila que ese paso no se eternice: lo que se envuelve
+     * aquí tiene que traer su propio plazo por dentro.
+     */
+    esperando: (quien: string) => {
+      numeroDeEspera += 1;
+
+      const mio = numeroDeEspera;
+
+      esperas.set(mio, { quien, desde: Date.now() });
+
+      return () => {
+        esperas.delete(mio);
+
+        ultimoAvance = Date.now();
+
+        aviso.textContent = "";
+      };
+    },
+
+    /**
      * Borra el atasco y vuelve a contar desde cero.
      *
      * Lo llama el reparto de motores antes de caerse al de respaldo: el que se
@@ -339,6 +411,9 @@ export function montaEscenario(titulo: string) {
       atascado = false;
       ultimoAvance = Date.now();
       ultimaFraccion = -1;
+
+      /* Lo que estuviera esperando era del motor que se ha caído. */
+      esperas.clear();
 
       aviso.textContent = "";
 

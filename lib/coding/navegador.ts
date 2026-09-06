@@ -1217,7 +1217,15 @@ async function montaATiempoReal(
 
     dice("Cerrando el paquete");
 
-    return acabado(creaZip(entradas), "zip");
+    /* Armar el ZIP es memoria y CPU de una tacada, sin nada que contar por el
+       camino: se avisa al vigía para que no lo tome por un atasco. */
+    const acabaZip = escenario.esperando("Cerrando el paquete");
+
+    try {
+      return acabado(creaZip(entradas), "zip");
+    } finally {
+      acabaZip();
+    }
   } finally {
     document.removeEventListener("visibilitychange", alCambiarVisibilidad);
 
