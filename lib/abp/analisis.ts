@@ -530,6 +530,20 @@ function analizaReparto(
   etiqueta: string,
   clave: ClaveMetrica,
   sentido: Sentido,
+  /*
+  | La dimensión sale de lo mismo que la métrica.
+  |
+  | Un panel que agrupa por **resultado** y mide **producción** no puede decir
+  | qué categoría produce más: la respuesta es siempre «la conquista de último
+  | tercio, el 100 %», porque conquistar el último tercio *es* producir. Salía
+  | tal cual en el saque de banda y en los dos de córner —«Lo que más produce:
+  | Conquista último tercio, 100 %»— y no dice nada de nada.
+  |
+  | El reparto en sí sigue valiendo: cuánto pesa cada resultado y cuál gana o
+  | pierde sitio respecto al global es justo lo que se quiere leer ahí. Lo que
+  | se calla es la eficacia.
+  */
+  derivada = false,
 ): Reparto | null {
   const utiles = filtradas.filter((uno) => !SIN_VALOR.test(uno.categoria.trim()));
 
@@ -591,7 +605,7 @@ function analizaReparto(
     ? movibles.reduce((peor, una) => (una.deltaPp < peor.deltaPp ? una : peor))
     : null;
 
-  const conMetrica = categorias.filter((una) => una.metrica != null);
+  const conMetrica = derivada ? [] : categorias.filter((una) => una.metrica != null);
 
   const masEficaz = conMetrica.length
     ? conMetrica.reduce((mejor, una) =>
@@ -671,6 +685,7 @@ export function analizaSeccion({
   metrica = "peligro",
   sentido = "ofensivo",
   dimension,
+  dimensionDerivada = false,
   unidad = "acciones",
   etiquetas = {},
   acompanan,
@@ -681,6 +696,12 @@ export function analizaSeccion({
   sentido?: Sentido;
   /** Cómo se llama la dimensión de la sección, si tiene. */
   dimension?: string;
+  /**
+   * La dimensión sale de la misma columna que la métrica —agrupar por
+   * resultado y medir producción—, así que no se dice qué categoría produce
+   * más: ver `analizaReparto`.
+   */
+  dimensionDerivada?: boolean;
   unidad?: string;
   etiquetas?: Etiquetas;
   /** Las métricas de apoyo, cuando la página tiene otras que las de córner. */
@@ -709,7 +730,7 @@ export function analizaSeccion({
   const tendencia = analizaTendencia(filtradas, metrica, sentido);
 
   const reparto = dimension
-    ? analizaReparto(filtradas, globales, dimension, metrica, sentido)
+    ? analizaReparto(filtradas, globales, dimension, metrica, sentido, dimensionDerivada)
     : null;
 
   return {

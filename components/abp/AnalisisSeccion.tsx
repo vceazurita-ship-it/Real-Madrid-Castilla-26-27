@@ -215,6 +215,7 @@ export function AnalisisSeccion<T>({
   metrica = "peligro",
   sentido = "ofensivo",
   dimension,
+  dimensionDerivada = false,
   categoria,
   unidad = "acciones",
   etiquetas,
@@ -230,6 +231,14 @@ export function AnalisisSeccion<T>({
   sentido?: Sentido;
   /** Cómo se llama la dimensión del panel: "tipo de acción", "zona de caída"… */
   dimension?: string;
+  /**
+   * La dimensión es lo mismo que mide la métrica.
+   *
+   * Se pone en los paneles que agrupan **por resultado**: ahí «lo que más
+   * produce» sería siempre la conquista de último tercio con un 100 %, que es
+   * la definición de producir, no una lectura.
+   */
+  dimensionDerivada?: boolean;
   /** De dónde sale el valor de esa dimensión en cada fila. */
   categoria?: (fila: T) => string;
   unidad?: string;
@@ -258,6 +267,7 @@ export function AnalisisSeccion<T>({
       metrica,
       sentido,
       dimension: categoria ? dimension : undefined,
+      dimensionDerivada,
       unidad,
       etiquetas,
       acompanan,
@@ -269,6 +279,7 @@ export function AnalisisSeccion<T>({
     metrica,
     sentido,
     dimension,
+    dimensionDerivada,
     categoria,
     unidad,
     etiquetas,

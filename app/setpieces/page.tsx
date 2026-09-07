@@ -1969,6 +1969,8 @@ const pie = (
   opciones: {
     metrica?: ClaveMetrica;
     dimension?: string;
+    /* Agrupar por resultado y medir producción es circular: ver el pie. */
+    dimensionDerivada?: boolean;
     categoria?: (fila: Row) => string;
     destacado?: boolean;
   } = {},
@@ -3457,7 +3459,7 @@ const words =
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Resultado final" analisis={pie({ dimension: "resultado", categoria: (r) => normalizaResultado(r.resultadoFinal) })}>
+<Panel title="Resultado final" analisis={pie({ dimension: "resultado", dimensionDerivada: true, categoria: (r) => normalizaResultado(r.resultadoFinal) })}>
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     {accionesPeligrosas} de {metrics.total} acciones acaban en gol u
     ocasión ({tasaPeligro.toFixed(1)}%). Pulsa un sector para filtrar.

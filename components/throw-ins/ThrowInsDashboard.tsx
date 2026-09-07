@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
+import { traeCsv } from "@/lib/hojaCsv";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, FilterDrawer } from "@/components/abp/ui";
@@ -362,11 +363,15 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   useEffect(() => {
     let active = true;
 
-    fetch(csvUrl)
-      .then((response) => {
-        if (!response.ok) throw new Error("No se pudo cargar la hoja de datos.");
-        return response.text();
-      })
+    /*
+    | Por `traeCsv` y no con un `fetch` a pelo.
+    |
+    | Es una hoja publicada de Google y se guarda mientras dure la pestaña:
+    | pedirla directamente la volvía a descargar entera cada vez que se entraba
+    | aquí, y se entra y se sale del menú todo el rato. Las dos páginas de
+    | córner ya lo hacían así; ésta se había quedado atrás.
+    */
+    traeCsv(csvUrl)
       .then((csv) => {
         const parsed = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
 
@@ -501,6 +506,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     opciones: {
       metrica?: ClaveMetrica;
       dimension?: string;
+      /* Agrupar por resultado y medir producción es circular: ver el pie. */
+      dimensionDerivada?: boolean;
       categoria?: (fila: RecordRow) => string;
       destacado?: boolean;
     } = {},
@@ -695,7 +702,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   <MetricCard
                     label={isOffensive ? "% Progresión" : "% Progresión concedida"}
                     value={`${Math.round(totals.progresionPct)}%`}
-                    hint="Envíos hacia delante o al área"
+                    hint={
+                      isOffensive
+                        ? "Envíos hacia delante o al área"
+                        : "Envíos del rival hacia delante o al área"
+                    }
                   />
                   <MetricCard
                     label={isOffensive ? "% Retención" : "% Recuperación"}
@@ -732,6 +743,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   {pie({
                     destacado: true,
                     dimension: "resultado",
+                    dimensionDerivada: true,
                     categoria: (row) => valorDe(row, "Resultado_Final"),
                   })}
                 </div>
@@ -795,6 +807,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                            porcentaje de ellos acaba en producción. */
                         metrica: key === "__tramo" ? "volumen" : "peligro",
                         dimension: chartTitle.toLowerCase(),
+                        dimensionDerivada: key === "Resultado_Final",
                         categoria: (row) => valorDe(row, key),
                       })}
                     />
