@@ -22,6 +22,7 @@ export function Panel({
   className = "",
   bodyClassName = "p-4 sm:p-5",
   children,
+  lectura,
 }: {
   title?: string;
   subtitle?: string;
@@ -30,6 +31,12 @@ export function Panel({
   className?: string;
   bodyClassName?: string;
   children: ReactNode;
+  /*
+  | La frase que dice lo que se ve. No la lleva todo panel: donde no hay «quién
+  | manda» ni «hacia dónde va» —una tabla, una nube de puntos— una lectura
+  | forzada sería ruido.
+  */
+  lectura?: ReactNode;
 }) {
   return (
     <section
@@ -56,6 +63,10 @@ export function Panel({
       )}
 
       <div className={bodyClassName}>{children}</div>
+
+      {lectura ? (
+        <div className="border-t border-white/10 px-4 py-3 sm:px-5">{lectura}</div>
+      ) : null}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { useMemo, useState } from "react";
 import {
   Area,
@@ -251,6 +252,16 @@ export function TeamPanel({
       <Panel
         title="Evolución del equipo"
         subtitle="Media de las notas de cada partido"
+        lectura={
+          <LecturaGrafico
+            serie={evolution.map((punto) => ({
+              etiqueta: punto.name,
+              valor: punto.avg,
+            }))}
+            sentido="mas-es-mejor"
+            unidadSerie="de nota"
+          />
+        }
         icon={LineChartIcon}
         bodyClassName="p-3 sm:p-4"
       >
@@ -348,6 +359,15 @@ export function TeamPanel({
         <Panel
           title="Top valoraciones"
           subtitle={`Jugadores con ${minMatches}+ partidos`}
+          lectura={
+            <LecturaGrafico
+              ranking={topChart.map((punto) => ({
+                nombre: punto.name,
+                valor: punto.value,
+              }))}
+              unidadSerie="de nota"
+            />
+          }
           icon={Trophy}
           bodyClassName="p-3 sm:p-4"
         >
@@ -420,6 +440,15 @@ export function TeamPanel({
         <div className="min-w-0 space-y-4">
           <Panel
             title="Media por línea"
+            lectura={
+              <LecturaGrafico
+                ranking={byLine.map((punto) => ({
+                  nombre: punto.name,
+                  valor: punto.value,
+                }))}
+                unidadSerie="de nota"
+              />
+            }
             icon={Award}
             bodyClassName="p-3 sm:p-4"
           >

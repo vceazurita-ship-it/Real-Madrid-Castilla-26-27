@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 
+import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import {
   ResponsiveContainer,
   BarChart,
@@ -1045,6 +1046,9 @@ export default function DashboardPlantilla() {
                     <ChartCard
                       title="Estado de la plantilla"
                       subtitle="Click en un sector para filtrar"
+                      lectura={
+                        <LecturaGrafico reparto={aReparto(estadoChart)} unidad="jugadores" />
+                      }
                     >
                       <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
@@ -1086,6 +1090,9 @@ export default function DashboardPlantilla() {
                     <ChartCard
                       title="Jugadores por posición"
                       subtitle="Click en una barra para filtrar"
+                      lectura={
+                        <LecturaGrafico reparto={aReparto(positionChart)} unidad="jugadores" />
+                      }
                     >
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart
@@ -1323,6 +1330,19 @@ export default function DashboardPlantilla() {
                     <ChartCard
                       title="Evolución de registros"
                       subtitle="Controles de estado registrados por fecha"
+                      lectura={
+                        <LecturaGrafico
+                          serie={evolutionData.map((punto) => ({
+                            etiqueta: punto.label,
+                            valor: punto.value,
+                          }))}
+                          /* Cuántos controles se anotan no es bueno ni malo en
+                             sí: dice si se está registrando o se ha dejado. */
+                          sentido="neutro"
+                          formatea={(valor) => valor.toFixed(1).replace(".", ",")}
+                          unidadSerie="por día"
+                        />
+                      }
                     >
                       <ResponsiveContainer width="100%" height={300}>
                         <LineChart
@@ -1359,6 +1379,9 @@ export default function DashboardPlantilla() {
                     <ChartCard
                       title="Distribución por licencias"
                       subtitle="Click en un sector para filtrar"
+                      lectura={
+                        <LecturaGrafico reparto={aReparto(licenciaChart)} unidad="jugadores" />
+                      }
                     >
                       <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
@@ -1519,14 +1542,26 @@ function SummaryStat({
   );
 }
 
+/** Los gráficos de esta pantalla van en {name, value}; la lectura, en otro. */
+function aReparto(datos: { name: string; value: number }[]) {
+  return datos.map((uno) => ({ nombre: uno.name, valor: uno.value }));
+}
+
 function ChartCard({
   title,
   subtitle,
   children,
+  lectura,
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  /*
+  | La frase que dice lo que se ve. No la lleva todo gráfico: en una nube de
+  | puntos o en un radar de un jugador contra la media no hay «quién manda»
+  | que contar, y una lectura forzada es ruido.
+  */
+  lectura?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:p-5">
@@ -1541,6 +1576,8 @@ function ChartCard({
       </div>
 
       {children}
+
+      {lectura}
     </div>
   );
 }

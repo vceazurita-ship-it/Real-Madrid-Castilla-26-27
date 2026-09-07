@@ -1,5 +1,6 @@
 "use client";
 
+import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -186,6 +187,15 @@ export function ComparePanel({
           <Panel
             title="Evolución comparada"
             subtitle="Nota de cada jugador partido a partido"
+            lectura={
+              <LecturaGrafico
+                ranking={chosen.map((entry) => ({
+                  nombre: entry.player.apodo || entry.player.nombre,
+                  valor: entry.summary.avg,
+                }))}
+                unidadSerie="de media"
+              />
+            }
             bodyClassName="p-3 sm:p-4"
           >
             <div className="h-[300px] w-full min-w-0">
@@ -276,6 +286,15 @@ export function ComparePanel({
             <Panel
               title="Perfil por áreas"
               subtitle="Media de la temporada"
+              lectura={
+                <LecturaGrafico
+                  ranking={chosen.map((entry) => ({
+                    nombre: entry.player.apodo || entry.player.nombre,
+                    valor: entry.summary.avg,
+                  }))}
+                  unidadSerie="de media"
+                />
+              }
               bodyClassName="p-3 sm:p-4"
             >
               {!hasAreas ? (

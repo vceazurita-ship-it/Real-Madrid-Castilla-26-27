@@ -1,5 +1,6 @@
 "use client";
 
+import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { useMemo } from "react";
 import {
   Area,
@@ -148,6 +149,13 @@ export function PlayerRatingsTab({
         <Panel
           title="Evolución"
           subtitle="Nota partido a partido"
+          lectura={
+            <LecturaGrafico
+              serie={series.map((punto) => ({ etiqueta: punto.name, valor: punto.rating }))}
+              sentido="mas-es-mejor"
+              unidadSerie="de nota"
+            />
+          }
           icon={Gauge}
           bodyClassName="p-3 sm:p-4"
         >
@@ -249,6 +257,12 @@ export function PlayerRatingsTab({
           <Panel
             title="Perfil por áreas"
             subtitle="Media de la temporada"
+            lectura={
+              <LecturaGrafico
+                ranking={radar.map((punto) => ({ nombre: punto.area, valor: punto.value }))}
+                unidadSerie="de nota"
+              />
+            }
             icon={Star}
             bodyClassName="p-3 sm:p-4"
           >

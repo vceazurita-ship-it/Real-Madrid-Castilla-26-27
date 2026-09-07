@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DataProvider } from "@/app/contexts/data-context";
-import { AIProvider } from "@/app/contexts/ai-context";
 import { BotonAlertas } from "@/components/alertas/BotonAlertas";
 import { PageExportButton } from "@/components/page-export-button";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -101,17 +100,15 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
 
         <ThemeProvider>
-          <AIProvider>
-            <DataProvider>
-              {children}
-              <BotonAlertas />
-              <ThemeToggle />
-              <PageExportButton />
-              <ThemedToaster />
-              <ServiceWorker />
-              <SinConexion />
-            </DataProvider>
-          </AIProvider>
+          <DataProvider>
+            {children}
+            <BotonAlertas />
+            <ThemeToggle />
+            <PageExportButton />
+            <ThemedToaster />
+            <ServiceWorker />
+            <SinConexion />
+          </DataProvider>
         </ThemeProvider>
       </body>
     </html>
