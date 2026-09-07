@@ -199,6 +199,19 @@ function chartsFor(mode: Mode): { key: string; title: string }[] {
 }
 
 /**
+ * Columnas que ya tienen su lectura en un panel propio más arriba.
+ *
+ * Su gráfico se sigue pintando —la barra se mira de un vistazo— pero sin pie:
+ * repartir otra vez por lo mismo daba la misma frase dos veces en la página.
+ */
+const REPARTIDAS_ARRIBA = new Set([
+  "Zona_Saque",
+  "Zona_Caida",
+  "Tipo_Envio",
+  "Resultado_Final",
+]);
+
+/**
  * Reparte las filas por el valor de una columna.
  *
  * Casi todo se ordena por volumen, que es como se lee un ranking. El tramo del
@@ -801,15 +814,27 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                 ]
                             : undefined
                       }
-                      analisis={pie({
-                        /* El tramo del partido se lee por volumen: de un cuarto
-                           de hora importa cuántos saques trae, no qué
-                           porcentaje de ellos acaba en producción. */
-                        metrica: key === "__tramo" ? "volumen" : "peligro",
-                        dimension: chartTitle.toLowerCase(),
-                        dimensionDerivada: key === "Resultado_Final",
-                        categoria: (row) => valorDe(row, key),
-                      })}
+                      analisis={
+                        /*
+                        | Sin pie cuando ya lo ha dicho un panel de arriba.
+                        |
+                        | La zona de saque la lee el campo, la dirección del
+                        | envío el mapa de zonas, el tipo de envío el flujo y el
+                        | resultado la lectura de cabecera. Estos gráficos
+                        | reparten **por la misma columna**, así que su pie
+                        | salía con la frase palabra por palabra repetida.
+                        */
+                        REPARTIDAS_ARRIBA.has(key) ? undefined : (
+                          pie({
+                            /* El tramo del partido se lee por volumen: de un
+                               cuarto de hora importa cuántos saques trae, no
+                               qué porcentaje acaba en producción. */
+                            metrica: key === "__tramo" ? "volumen" : "peligro",
+                            dimension: chartTitle.toLowerCase(),
+                            categoria: (row) => valorDe(row, key),
+                          })
+                        )
+                      }
                     />
                   ))}
                 </div>

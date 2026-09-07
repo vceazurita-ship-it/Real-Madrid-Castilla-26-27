@@ -286,11 +286,47 @@ export function AnalisisSeccion<T>({
     acompanan,
   ]);
 
-  const { muestra, principal, secundarias, tendencia } = analisis;
+  const { muestra, principal, secundarias, tendencia, reparto } = analisis;
 
   if (muestra.total === 0) return null;
 
   const colorVeredicto = TONO_COLOR[tendencia.tono];
+
+  /*
+  |--------------------------------------------------------------------------
+  | LA LECTURA GLOBAL VA UNA VEZ POR PÁGINA
+  |--------------------------------------------------------------------------
+  |
+  | Todos los paneles de una página miran **las mismas filas**: lo único que
+  | cambia de un pie a otro es por qué dimensión reparte. La muestra, las
+  | métricas comparadas, el veredicto y la gráfica de jornadas salían iguales
+  | en todos, así que en el saque de banda el mismo bloque aparecía seis veces
+  | y en el córner ofensivo veintitrés. Leerlo una vez informa; leerlo veinte
+  | es ruido que tapa lo que cada panel sí tiene de suyo.
+  |
+  | Ahora eso vive **sólo en la lectura de cabecera** —la que va con
+  | `destacado`, una por página— y cada panel se queda con lo suyo: cómo se
+  | reparte esa dimensión. Un panel sin dimensión no dice nada propio y no
+  | pinta pie.
+  */
+  if (!destacado) {
+    if (!reparto) return null;
+
+    return (
+      <section
+        className="min-w-0 border-t border-white/10 bg-white/[0.02] px-4 py-3 sm:px-5"
+        aria-label="Reparto de la sección"
+      >
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
+          Reparto · {reparto.etiqueta}
+          {/* Qué se está midiendo: sin esto, un «0,12» de xG no se sabe de qué es. */}
+          <span className="text-white/25"> · {principal.label.toLowerCase()}</span>
+        </p>
+
+        <p className="mt-2 text-[12px] leading-relaxed text-white/60">{reparto.texto}</p>
+      </section>
+    );
+  }
 
   return (
     <section
