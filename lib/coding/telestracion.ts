@@ -151,8 +151,22 @@ export type MedidasTel = { ancho: number; alto: number };
 
 const REFERENCIA = 1000;
 
-/** Cuánto dura una pizarra en pantalla si nadie dice otra cosa. */
-export const DURACION_ESCENA_MS = 6000;
+/**
+ * Cuánto dura una pizarra en pantalla si nadie dice otra cosa.
+ *
+ * Dos segundos pintando sobre el partido en marcha y dos más con la imagen
+ * parada. Es el ritmo de una repetición de televisión y es lo que se pide en
+ * la sala: se ve la acción con el trazo encima, se congela para que dé tiempo
+ * a leerlo, y sigue. Seis segundos de dibujo sobre el vídeo corriendo —lo de
+ * antes— era el trazo persiguiendo a un jugador que ya no está ahí.
+ *
+ * Cambiar esto no toca ninguna pizarra ya pintada: lo guardado trae su propia
+ * duración y se respeta.
+ */
+export const DURACION_ESCENA_MS = 2000;
+
+/** Y lo que se queda la imagen parada enseñándola. */
+export const PAUSA_ESCENA_MS = 2000;
 
 /**
  * La paleta.
@@ -329,8 +343,10 @@ export function escenaVacia(tMs: number, id: string, ahora: string): EscenaTel {
     nombre: "",
     tMs: Math.max(0, Math.round(tMs)),
     duracionMs: DURACION_ESCENA_MS,
-    congelada: false,
-    pausaMs: 0,
+    /* Congelada y con su pausa: ver `DURACION_ESCENA_MS`. Se puede quitar
+       pizarra a pizarra desde el editor. */
+    congelada: true,
+    pausaMs: PAUSA_ESCENA_MS,
     dibujos: [],
     creadoEn: ahora,
   };

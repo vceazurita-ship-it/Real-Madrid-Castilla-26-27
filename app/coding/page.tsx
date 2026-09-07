@@ -922,6 +922,14 @@ function Coding() {
     }
 
     setInicioMs(null);
+
+    /*
+    | Cerrado el corte, la mesa queda recogida: se sale del modo de dibujo y
+    | el trazo se queda con su corte —ver `escenasEnPantalla`—, así que la
+    | imagen vuelve a estar limpia para buscar la jugada siguiente sin tener
+    | que apagar nada a mano.
+    */
+    setPizarraEditando(null);
   }, [
     categoriaActiva,
     estado.duracionMs,
@@ -947,6 +955,58 @@ function Coding() {
   const [bucle, setBucle] = useState(false);
 
   const clipEnCola = cola?.[enCola] ?? null;
+
+  /*
+  | Una pizarra sale en su corte **y en los que se le hayan repartido**.
+  |
+  | Lo primero es de siempre: la pizarra cae dentro del corte por el tiempo.
+  | Lo segundo es poder reutilizarla —el dibujo que explica cómo había que
+  | estar perfilado vale para las tres veces que pasó—, y ahí no hay instante
+  | que valga: se cuela al principio del corte, antes de la acción.
+  */
+  const caeDentro = useCallback(
+    (escena: EscenaTel, clip: ClipCoding) =>
+      escena.tMs >= clip.inicioMs && escena.tMs <= clip.finMs,
+    [],
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | LO QUE SE VE SOBRE EL VÍDEO
+  |--------------------------------------------------------------------------
+  |
+  | Un dibujo que ya está dentro de un corte cerrado **se va con el corte**: se
+  | queda guardado ahí —sale al reproducirlo y se quema al exportarlo— pero
+  | deja de aparecer sobre el vídeo mientras se busca la jugada siguiente.
+  |
+  | Antes se quedaba puesto en su instante, así que al cerrar un corte y seguir
+  | mirando el partido el trazo volvía a salir cada vez que se pasaba por ahí,
+  | y para marcar lo siguiente había que apagar la pizarra a mano.
+  |
+  | Se vuelve a ver de tres maneras: reproduciendo ese corte, eligiéndolo en la
+  | lista, o abriéndolo para editarlo. Un dibujo que no cae dentro de ningún
+  | corte —una anotación suelta sobre el partido— sale siempre, como antes.
+  */
+  const clipALaVista = useMemo(() => {
+    if (clipEnCola) return clipEnCola;
+
+    return clips.find((clip) => clip.id === seleccionado) ?? null;
+  }, [clipEnCola, clips, seleccionado]);
+
+  const escenasEnPantalla = useMemo(
+    () =>
+      escenas.filter((escena) => {
+        /* La que se está pintando ahora mismo no se esconde nunca. */
+        if (pizarraEditando === escena.id) return true;
+
+        const suCorte = clips.find((clip) => caeDentro(escena, clip));
+
+        if (!suCorte) return true;
+
+        return clipALaVista?.id === suCorte.id;
+      }),
+    [caeDentro, clipALaVista, clips, escenas, pizarraEditando],
+  );
 
   /*
   | Salta al siguiente cuando el actual llega a su final.
@@ -1085,7 +1145,7 @@ function Coding() {
   useEffect(() => {
     if (pizarraEditando || !pizarraVisible) return;
 
-    if (!elemento || escenas.length === 0) return;
+    if (!elemento || escenasEnPantalla.length === 0) return;
 
     const video = elemento;
 
@@ -1099,7 +1159,7 @@ function Coding() {
 
       if (video.paused) return;
 
-      const escena = escenaEn(escenas, video.currentTime * 1000);
+      const escena = escenaEn(escenasEnPantalla, video.currentTime * 1000);
 
       if (!escena) {
         congelada.current = null;
@@ -1135,7 +1195,7 @@ function Coding() {
 
       if (despertador) clearTimeout(despertador);
     };
-  }, [elemento, escenas, pizarraEditando, pizarraVisible]);
+  }, [elemento, escenasEnPantalla, pizarraEditando, pizarraVisible]);
 
   /* ------------------------------------------------- exportación */
 
@@ -1362,19 +1422,6 @@ function Coding() {
   */
   const [quemaPizarras, setQuemaPizarras] = useState(true);
 
-  /*
-  | Una pizarra sale en su corte **y en los que se le hayan repartido**.
-  |
-  | Lo primero es de siempre: la pizarra cae dentro del corte por el tiempo.
-  | Lo segundo es poder reutilizarla —el dibujo que explica cómo había que
-  | estar perfilado vale para las tres veces que pasó—, y ahí no hay instante
-  | que valga: se cuela al principio del corte, antes de la acción.
-  */
-  const caeDentro = useCallback(
-    (escena: EscenaTel, clip: ClipCoding) =>
-      escena.tMs >= clip.inicioMs && escena.tMs <= clip.finMs,
-    [],
-  );
 
   const escenasDeClip = useCallback(
     (clip: ClipCoding) =>
@@ -1384,6 +1431,7 @@ function Coding() {
       ),
     [caeDentro, escenas],
   );
+
 
   /* Cuántas pizarras se van a quemar con lo que hay elegido ahora. */
   const pizarrasEnLaExportacion = useMemo(
@@ -2222,7 +2270,7 @@ function Coding() {
                   {src && (
                     <PizarraVideo
                       video={elemento}
-                      escenas={escenas}
+                      escenas={escenasEnPantalla}
                       editando={pizarraEditando}
                       alEditar={setPizarraEditando}
                       alCambiar={guardaEscena}

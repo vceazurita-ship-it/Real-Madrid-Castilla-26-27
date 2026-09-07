@@ -3389,23 +3389,43 @@ export default function RivalPlayersPage() {
                               data-export-hide
                               title={
                                 once.doc.dibujo
-                                  ? "Elegido a mano. Cómo se reparte la plantilla en el campo."
+                                  ? "El dibujo lo ha puesto una persona. Cambiarlo reparte la plantilla de otra forma."
                                   : lecturaTemporada.estructura
-                                    ? `Lo que más repite el rival esta temporada (${lecturaTemporada.estructura} en ${lecturaTemporada.alineaciones} ${
+                                    ? `El dibujo que más repite el rival esta temporada: ${lecturaTemporada.estructura} en ${lecturaTemporada.alineaciones} ${
                                         lecturaTemporada.alineaciones === 1 ? "alineación" : "alineaciones"
-                                      }${lecturaTemporada.conAmistosos ? ", amistosos incluidos" : ""}). Se puede cambiar.`
+                                      }${lecturaTemporada.conAmistosos ? ", amistosos incluidos" : ""}. Se puede cambiar.`
                                     : "Cómo se reparte la plantilla en el campo"
                               }
-                              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 sm:px-2 sm:py-0.5"
+                              className={
+                                "relative flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 font-semibold transition sm:px-2 sm:py-0.5 " +
+                                /*
+                                | Dorado cuando el dibujo lo pone el propio
+                                | rival con sus partidos, apagado cuando lo ha
+                                | escrito una persona. Es la misma pareja de
+                                | colores que usa toda la barra —dorado, lo que
+                                | viene de los datos— así que no hace falta
+                                | ponerle una palabra al lado: el color lo dice
+                                | y el título lo explica.
+                                */
+                                (once.doc.dibujo
+                                  ? "border-white/12 bg-white/[0.04] text-white/70 hover:text-white"
+                                  : "border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#C8A96B] hover:bg-[#C8A96B]/20")
+                              }
                             >
-                              <LayoutGrid size={11} className="text-[#C8A96B]" />
+                              <LayoutGrid size={11} />
 
+                              {/*
+                                Sin la flecha del navegador: era el doble de
+                                grande que los iconos de al lado y de otro
+                                color, y hacía que este mando pareciera de otra
+                                aplicación. La de dentro es la misma de siempre.
+                              */}
                               <select
                                 value={dibujoDelEquipo}
                                 onChange={(evento) =>
                                   once.ponDibujo(evento.target.value)
                                 }
-                                className="cursor-pointer bg-transparent text-xs font-semibold text-white/70 outline-none [&>option]:bg-[#11161D]"
+                                className="cursor-pointer appearance-none bg-transparent pr-3 text-inherit outline-none [&>option]:bg-[#11161D] [&>option]:text-white"
                               >
                                 {DIBUJOS.map((uno) => (
                                   <option key={uno.id} value={uno.id}>
@@ -3414,13 +3434,11 @@ export default function RivalPlayersPage() {
                                 ))}
                               </select>
 
-                              {/* Que se sepa de un vistazo si lo ha puesto el
-                                  rival con sus partidos o una persona. */}
-                              {!once.doc.dibujo && lecturaTemporada.dibujo && (
-                                <span className="text-[9px] uppercase tracking-[0.14em] text-[#C8A96B]/70">
-                                  suyo
-                                </span>
-                              )}
+                              <ChevronDown
+                                size={11}
+                                aria-hidden
+                                className="pointer-events-none absolute right-2 opacity-70 sm:right-1.5"
+                              />
                             </label>
                           )}
 
