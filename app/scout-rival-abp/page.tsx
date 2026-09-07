@@ -868,10 +868,6 @@ export default function ScoutRivalAbpPage() {
                     subtitle="Volumen, remate y cuántas acaban en gol u ocasión"
                     icon={Target}
                     bodyClassName="p-0"
-                    analisis={pie({
-                      dimension: "tipo de acción",
-                      categoria: (event) => FAMILY_LABEL[event.family],
-                    })}
                   >
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[640px] border-collapse text-sm">

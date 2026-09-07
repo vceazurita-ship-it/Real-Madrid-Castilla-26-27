@@ -2091,7 +2091,7 @@ Mayor xG concedido  </p>
 </div>
 
 <div className="md:col-span-2">
-<Panel title="Flujo defensivo" analisis={pie({ dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
+<Panel title="Flujo defensivo">
   <div id="grafico-abp-objective-flow">
    <ABPObjectiveFlow
   mode="defensive"
@@ -2113,7 +2113,7 @@ Mayor xG concedido  </p>
 </Panel>
 </div>
 
-              <Panel title="Tipo de acción" analisis={pie({ dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
+              <Panel title="Tipo de acción">
                 <div id="grafico-tipo-accion">
   <Chart>
     <BarChart
@@ -2181,7 +2181,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Zona caída" analisis={pie({ dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
+<Panel title="Zona caída">
   <div id="grafico-zona-caida">
   <Chart>
     <PieChart>

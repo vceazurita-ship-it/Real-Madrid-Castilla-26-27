@@ -1606,7 +1606,7 @@ resumen.forEach(
 
 const chartNodes = document.querySelectorAll(
   "#grafico-tipo-accion, \
-   #grafico-zona-saque, \
+   #grafico-zona-caida, \
    #grafico-impacto-sacador, \
    #impacto-rematadores, \
    #grafico-xg-envio, \
@@ -1664,8 +1664,8 @@ chartNodes.forEach((chart) => {
       title: "Tipo acción",
     },
     {
-      id: "grafico-zona-saque",
-      title: "Zona saque",
+      id: "grafico-zona-caida",
+      title: "Zona caída",
     },
     {
       id: "grafico-impacto-sacador",
@@ -2307,7 +2307,7 @@ const pie = (
 </div>
 
 
-              <Panel title="Tipo de acción" analisis={pie({ dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
+              <Panel title="Tipo de acción">
                 <div id="grafico-tipo-accion">
   <Chart>
     <BarChart
@@ -2377,8 +2377,8 @@ margin={{
   </Chart>
   </div>
 </Panel>
-<Panel title="Zona de saque" analisis={pie({ dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
-  <div id="grafico-zona-saque">
+<Panel title="Zona de caída">
+  <div id="grafico-zona-caida">
 
   <Chart>
     <PieChart
