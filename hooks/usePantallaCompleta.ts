@@ -22,6 +22,12 @@
  * la página. Por eso desde la portada se pide la pantalla completa en el
  * propio clic del enlace y se navega después: la navegación de Next no recarga
  * el documento, así que se llega a la pizarra ya en grande.
+ *
+ * Y no vale tampoco cambiar de elemento al llegar. Se probó —estando ya en
+ * pantalla completa, que la pizarra se quedara con ella— y Chrome contesta
+ * «API can only be initiated by a user gesture». Por eso desde la portada la
+ * pantalla completa es la de **la página entera**, y lo que hace la pizarra es
+ * quitarse de encima el menú y la barra de arriba mientras dure.
  */
 
 import { useCallback, useRef, useSyncExternalStore } from "react";
@@ -95,6 +101,10 @@ function seCoge(): boolean {
   return Boolean(doc.fullscreenEnabled ?? doc.webkitFullscreenEnabled);
 }
 
+function hayAlguienEnGrande(): boolean {
+  return Boolean(elQueManda());
+}
+
 const enVentana = () => false;
 
 /** Llama a `pedir` sin que un rechazo del navegador rompa nada. */
@@ -122,7 +132,7 @@ export function usePantallaCompleta<T extends HTMLElement = HTMLDivElement>() {
 
   const enPantallaCompleta = useSyncExternalStore(
     suscribe,
-    () => Boolean(elQueManda()),
+    hayAlguienEnGrande,
     enVentana,
   );
 
@@ -159,6 +169,7 @@ export function usePantallaCompleta<T extends HTMLElement = HTMLDivElement>() {
     },
     [entra, sale],
   );
+
 
   return { marco, enPantallaCompleta, disponible, entra, sale, alterna };
 }

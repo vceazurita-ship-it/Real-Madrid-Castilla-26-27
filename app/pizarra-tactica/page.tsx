@@ -40,18 +40,56 @@ interface BoardIndex {
 const EMPTY_INDEX: BoardIndex = { boards: [] };
 
 export default function PizarraTacticaPage() {
+  /*
+  | Cuando la pantalla completa es la de toda la página —así se llega desde el
+  | enlace de la portada, porque el navegador no deja cambiar de elemento sin
+  | un gesto nuevo— el menú y la barra de arriba siguen ahí ocupando sitio, que
+  | es justo lo que se venía a quitar. Mientras dure, se retiran ellos y el
+  | encabezado, y el tablero se queda con la pantalla.
+  |
+  | Si la pantalla completa es la del propio tablero, todo esto queda fuera del
+  | elemento y no se ve de todas formas: esconderlo no cambia nada y no hay que
+  | distinguir los dos casos.
+  */
+  const { enPantallaCompleta: sinCromo } = usePantallaCompleta();
+
   const { players } = usePlayers();
   const { squads } = useRivalSquads();
 
   const {
     value: index,
     setValue: setIndex,
+    status: estadoIndice,
     localOnly: indexLocalOnly,
   } = useRemoteDoc<BoardIndex>({
     key: "tactics:index",
     kind: "tactics-index",
     fallback: EMPTY_INDEX,
   });
+
+  /*
+  |--------------------------------------------------------------------------
+  | NO SE TOCA LA LISTA HASTA QUE HA LLEGADO
+  |--------------------------------------------------------------------------
+  |
+  | Mientras carga, `index` es el respaldo vacío. Crear una pizarra en ese
+  | momento guardaba una lista con **sólo la nueva** y se llevaba por delante
+  | las que había: pasó de verdad el 06/09/2026 y hubo que reconstruir la
+  | lista a mano contra Supabase —los tableros no se pierden, porque cada uno
+  | es su propio documento, pero desaparecen de la pantalla y nadie sabe por
+  | qué—.
+  |
+  | Basta con no dejar escribir antes de tiempo. Es cuestión de un segundo, y
+  | de un segundo depende no perder el trabajo de una temporada.
+  |
+  | Y tampoco se escribe cuando **no se ha podido preguntar al servidor y la
+  | lista está vacía**: ahí el vacío no significa «no hay pizarras», significa
+  | «no se sabe», y crear una encima borraría las que haya. Con la lista ya
+  | cargada —aunque después se caiga la red— se sigue trabajando con
+  | normalidad, que para eso está el modo local.
+  */
+  const listaCargada =
+    estadoIndice !== "loading" && !(indexLocalOnly && (index?.boards ?? []).length === 0);
 
   const boards = useMemo(() => index?.boards ?? [], [index]);
 
@@ -69,25 +107,38 @@ export default function PizarraTacticaPage() {
   const active = boards.find((board) => board.id === activeId) ?? null;
 
   const createBoard = () => {
+    if (!listaCargada) return;
+
     const board: BoardRef = {
       id: tacticId("board"),
       nombre: `Pizarra ${boards.length + 1}`,
     };
 
-    setIndex({ boards: [...boards, board] });
+    /* Sobre lo que haya en ese momento, no sobre lo que se leyó al pintar. */
+    setIndex((actual) => ({
+      boards: [...(actual?.boards ?? []), board],
+    }));
+
     setActiveId(board.id);
     toast.success("Pizarra creada");
   };
 
-  const renameBoard = (id: string, nombre: string) =>
-    setIndex({
-      boards: boards.map((board) =>
+  const renameBoard = (id: string, nombre: string) => {
+    if (!listaCargada) return;
+
+    setIndex((actual) => ({
+      boards: (actual?.boards ?? []).map((board) =>
         board.id === id ? { ...board, nombre } : board
       ),
-    });
+    }));
+  };
 
   const deleteBoard = (id: string) => {
-    setIndex({ boards: boards.filter((board) => board.id !== id) });
+    if (!listaCargada) return;
+
+    setIndex((actual) => ({
+      boards: (actual?.boards ?? []).filter((board) => board.id !== id),
+    }));
 
     if (id === activeId) setActiveId(null);
 
@@ -97,12 +148,18 @@ export default function PizarraTacticaPage() {
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
-        <Sidebar />
+        {!sinCromo && <Sidebar />}
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <Topbar />
+          {!sinCromo && <Topbar />}
 
-          <div className="space-y-5 px-3 py-5 sm:px-6 sm:py-6 lg:px-10">
+          <div
+            className={cn(
+              "space-y-5",
+              sinCromo ? "p-2" : "px-3 py-5 sm:px-6 sm:py-6 lg:px-10",
+            )}
+          >
+            {!sinCromo && (
             <header>
               <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
                 RMCF Castilla · Metodología
@@ -122,8 +179,9 @@ export default function PizarraTacticaPage() {
                 explicar la idea al grupo.
               </p>
             </header>
+            )}
 
-            {indexLocalOnly && (
+            {!sinCromo && indexLocalOnly && (
               <p className="flex items-start gap-2 rounded-2xl border border-amber-400/25 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200/90">
                 <TriangleAlert size={15} className="mt-0.5 shrink-0" />
                 <span>
@@ -136,9 +194,15 @@ export default function PizarraTacticaPage() {
               </p>
             )}
 
-            <div className="grid items-start gap-5 xl:grid-cols-[260px_1fr]">
+            <div
+              className={cn(
+                "grid items-start gap-5",
+                !sinCromo && "xl:grid-cols-[260px_1fr]",
+              )}
+            >
               {/* BIBLIOTECA */}
 
+              {!sinCromo && (
               <aside
                 data-export-hide
                 className="rounded-3xl border border-white/10 bg-[#11161D] p-3 xl:sticky xl:top-6"
@@ -226,12 +290,15 @@ export default function PizarraTacticaPage() {
                 <button
                   type="button"
                   onClick={createBoard}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
+                  disabled={!listaCargada}
+                  title={listaCargada ? undefined : "Esperando a que cargue la lista…"}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/20 disabled:hover:text-white/60"
                 >
                   <Plus size={14} />
                   Nueva pizarra
                 </button>
               </aside>
+              )}
 
               {/* TABLERO */}
 
@@ -259,10 +326,12 @@ export default function PizarraTacticaPage() {
                     <button
                       type="button"
                       onClick={createBoard}
-                      className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-5 py-2.5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                      disabled={!listaCargada}
+                      title={listaCargada ? undefined : "Esperando a que cargue la lista…"}
+                      className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-5 py-2.5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Plus size={16} />
-                      Nueva pizarra
+                      {listaCargada ? "Nueva pizarra" : "Cargando…"}
                     </button>
                   </div>
                 )}

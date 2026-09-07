@@ -2184,9 +2184,7 @@ function Coding() {
                   ref={marcoDeLaPantalla}
                   style={{ touchAction: "pan-y" }}
                   className={`relative min-w-0 overflow-hidden border border-white/10 bg-black ${
-                    enPantallaCompleta
-                      ? "flex h-full w-full items-center justify-center rounded-none border-0"
-                      : "rounded-2xl"
+                    enPantallaCompleta ? "rounded-none border-0" : "rounded-2xl"
                   }`}
                 >
                   {/*
@@ -2196,14 +2194,21 @@ function Coding() {
                   | crear y se quedarían a cero para siempre. El aviso de
                   | «elige el vídeo» va encima, no en su lugar.
                   */}
+                  {/*
+                  | El vídeo mide **lo mismo que este contenedor**, también a
+                  | pantalla completa, y por eso no lleva `object-contain` ni
+                  | se centra: el lienzo de la pizarra se ancla a la esquina
+                  | del contenedor, así que en cuanto la imagen deja de empezar
+                  | ahí, los dibujos se despegan de lo que señalan. Centrarlo
+                  | en una pantalla de 16:10 los movería medio dedo hacia
+                  | arriba. Con `w-full` y 16:9 la imagen es la mayor que cabe
+                  | por ancho, que en una pantalla de 16:9 es la pantalla
+                  | entera; en una más alta queda una banda negra abajo.
+                  */}
                   <video
                     ref={montaVideo}
                     src={src || undefined}
-                    className={
-                      enPantallaCompleta
-                        ? "h-full max-h-full w-full bg-black object-contain"
-                        : "aspect-video w-full bg-black"
-                    }
+                    className="aspect-video w-full bg-black"
                     preload="metadata"
                     playsInline
                   />
@@ -2232,6 +2237,27 @@ function Coding() {
                       <Video size={26} />
                       <p className="text-xs">Elige el vídeo del partido</p>
                     </div>
+                  )}
+
+                  {/*
+                  | La salida, dentro del marco.
+                  |
+                  | La barra de mandos se queda fuera al agrandar —es hermana
+                  | de este `div`, no hija—, así que el botón con el que se
+                  | entró desaparece de la vista. En un portátil quedaba el
+                  | Escape; en la tablet, que es donde más se usa esto, no hay
+                  | tecla Escape y no habría forma de volver.
+                  */}
+                  {enPantallaCompleta && (
+                    <button
+                      type="button"
+                      onClick={() => alternaPantalla()}
+                      title="Volver al tamaño normal"
+                      className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur transition hover:bg-black/85"
+                    >
+                      <Minimize2 size={14} />
+                      Salir
+                    </button>
                   )}
 
                   {/*

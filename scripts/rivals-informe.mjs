@@ -1218,10 +1218,16 @@ async function bajaEquipo(id, slug, clasificacion) {
 
   const amistosos = jugados.filter(esAmistoso);
 
-  const recientes = [
-    ...oficiales,
-    ...amistosos.slice(-Math.max(0, MINIMO_ONCES - oficiales.length)),
-  ]
+  /*
+  | Ojo con el hueco a cero: `slice(-0)` **devuelve la lista entera**, porque
+  | -0 y 0 son el mismo número para `slice`. Sin este `if`, en cuanto un
+  | equipo llegara a ocho partidos oficiales volverían a bajarse todos sus
+  | amistosos, que es justo lo que se venía a quitar. No se nota en septiembre
+  | —nadie tiene ocho jornadas— y habría aparecido en noviembre.
+  */
+  const hueco = Math.max(0, MINIMO_ONCES - oficiales.length);
+
+  const recientes = [...oficiales, ...(hueco > 0 ? amistosos.slice(-hueco) : [])]
     .sort((uno, otro) => String(uno.fecha).localeCompare(String(otro.fecha)))
     .reverse();
 
@@ -1298,14 +1304,25 @@ async function bajaEquipo(id, slug, clasificacion) {
       }
     }
 
-    /* Se guarda incluso lo que ha salido vacío: un amistoso sin alineación
-       tampoco la va a tener mañana, y así deja de pedirse. */
-    guardaFicha(partido.id, {
-      bajadaEn: new Date().toISOString(),
-      fecha: partido.fecha,
-      once,
-      goles: partido.goles ?? [],
-    });
+    /*
+    | Sólo se guarda lo que se ha llegado a bajar **entero**.
+    |
+    | Un vacío tiene dos causas muy distintas: que BeSoccer no publique la
+    | alineación de ese amistoso —y entonces mañana tampoco la va a publicar,
+    | así que se guarda y deja de pedirse— o que la petición se haya caído.
+    | Guardar la segunda como si fuera la primera congela el partido sin goles,
+    | sin tarjetas y sin cambios para siempre, y antes de la caché eso se
+    | curaba solo a la noche siguiente. Si falta cualquiera de las dos páginas
+    | no se guarda nada y se vuelve a intentar.
+    */
+    if (ficha && eventos) {
+      guardaFicha(partido.id, {
+        bajadaEn: new Date().toISOString(),
+        fecha: partido.fecha,
+        once,
+        goles: partido.goles ?? [],
+      });
+    }
   }
 
   /* -------------------------------------------------- el entrenador */
@@ -1327,10 +1344,18 @@ async function bajaEquipo(id, slug, clasificacion) {
     if (suya) entrenador.trayectoria = leeTrayectoria(suya);
   }
 
-  /* Las estructuras, de la más repetida a la menos. */
+  /*
+  | Las estructuras, de la más repetida a la menos.
+  |
+  | **Sólo las de los últimos partidos**, aunque ahora se guarde la temporada
+  | entera. Lo que se quiere saber es con qué está saliendo el rival, no con
+  | qué salía en agosto: contando las treinta y ocho jornadas, un dibujo que
+  | dejó de usar en octubre seguiría figurando como el principal en el informe
+  | de mayo. `onces` viene del más reciente al más antiguo.
+  */
   const cuenta = new Map();
 
-  for (const once of onces) {
+  for (const once of onces.slice(0, MINIMO_ONCES)) {
     if (!once.estructura) continue;
 
     cuenta.set(once.estructura, (cuenta.get(once.estructura) ?? 0) + 1);
