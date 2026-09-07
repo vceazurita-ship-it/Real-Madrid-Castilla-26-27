@@ -7018,7 +7018,19 @@ function TacticalPitch({
                   className={`absolute -left-1 -top-1 flex items-center justify-center rounded-full border border-black/40 font-bold shadow transition ${
                     enElOnce
                       ? ""
-                      : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      : /*
+                        | Invisible tiene que ser también intocable.
+                        |
+                        | Estos botones sólo aparecen al pasar el ratón, y en un
+                        | teléfono no hay ratón: se quedaban transparentes pero
+                        | seguían recibiendo el toque, con once píxeles de lado
+                        | pegados a la esquina de la cara. Tocar a un jugador en
+                        | el campo lo marcaba en el once sin que se viera por
+                        | qué. Con `pointer-events-none` el toque llega a la
+                        | ficha, que es lo que se buscaba; con el ratón y con el
+                        | tabulador el botón sigue estando.
+                        */
+                        "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:opacity-100"
                   }`}
                   style={{
                     height: badgeSize,
@@ -7073,7 +7085,7 @@ function TacticalPitch({
                   }}
                   title={`Etiquetas de ${name}`}
                   aria-label={`Etiquetas de ${name}`}
-                  className="absolute -right-1 -top-1 flex items-center justify-center rounded-full border border-black/40 text-white/70 opacity-0 shadow transition group-hover:opacity-100 focus-visible:opacity-100"
+                  className="pointer-events-none absolute -right-1 -top-1 flex items-center justify-center rounded-full border border-black/40 text-white/70 opacity-0 shadow transition group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:opacity-100"
                   style={{
                     height: badgeSize,
                     minWidth: badgeSize,

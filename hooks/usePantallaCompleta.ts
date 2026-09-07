@@ -58,8 +58,17 @@ function elQueManda(): Element | null {
 
   const doc = document as DocumentoConPrefijos;
 
+  /*
+  | Con `||` y no con `??`.
+  |
+  | El `??` sólo salta al siguiente cuando lo anterior es `undefined`, y aquí
+  | lo que llega es `null`: en cuanto el navegador conoce la propiedad estándar
+  | —aunque no esté en pantalla completa— la cadena se paraba en ella y nunca
+  | se miraba la de `webkit`. En el Safari del iPad eso era la diferencia entre
+  | funcionar y no hacer nada, que es justo lo que pasaba.
+  */
   return (
-    doc.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.msFullscreenElement ?? null
+    doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement || null
   );
 }
 
@@ -98,7 +107,9 @@ function seSabeAlLlegar(avisa: () => void) {
 function seCoge(): boolean {
   const doc = document as DocumentoConPrefijos;
 
-  return Boolean(doc.fullscreenEnabled ?? doc.webkitFullscreenEnabled);
+  /* Lo mismo aquí: un `false` de la estándar tapaba el `true` de webkit, y
+     el botón de pantalla completa no llegaba a salir en el iPad. */
+  return Boolean(doc.fullscreenEnabled || doc.webkitFullscreenEnabled);
 }
 
 function hayAlguienEnGrande(): boolean {

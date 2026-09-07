@@ -483,12 +483,12 @@ export default function Home() {
                       recargar el documento, se llega ya en grande.
                     */}
                     <Link
-                      href="/pizarra-tactica"
+                      href="/pizarra-tactica?once=1"
                       onClick={() => {
                         trackModuleVisit("/pizarra-tactica")
                         pantallaCompletaAlNavegar()
                       }}
-                      title="Abre la pizarra táctica ocupando toda la pantalla"
+                      title="Abre la pizarra táctica a pantalla completa, con los dos onces puestos en 4-2-3-1"
                       className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-6 py-3.5 text-[15px] font-medium text-[#C8A96B] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
                     >
                       <Maximize2 className="h-[18px] w-[18px]" />

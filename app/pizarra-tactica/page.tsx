@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Check,
   CloudOff,
@@ -23,6 +23,7 @@ import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { dosOnces, DIBUJO_DE_PARTIDA } from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
@@ -39,6 +40,32 @@ interface BoardIndex {
 
 const EMPTY_INDEX: BoardIndex = { boards: [] };
 
+/**
+ * Cómo se llama el tablero al que lleva el enlace de la portada.
+ *
+ * Tiene el suyo propio a propósito. Poblar el tablero que estuviera abierto
+ * —«Teruel CF», con el trabajo de la semana— sería meter veintidós fichas
+ * encima de lo de alguien; y no poblar nada deja el enlace sin hacer lo que
+ * promete. Con un tablero aparte las dos cosas se cumplen: la portada siempre
+ * lleva a un campo con los dos onces puestos, y lo demás no se toca.
+ */
+const TABLERO_DE_ONCES = "Once 4-2-3-1";
+
+/* El parámetro sólo existe en el navegador: en el servidor, no hay. */
+function hayParametroOnce() {
+  return new URLSearchParams(window.location.search).has("once");
+}
+
+function enBlanco() {
+  return false;
+}
+
+function seSabraAlLlegar(avisa: () => void) {
+  const aviso = setTimeout(avisa, 0);
+
+  return () => clearTimeout(aviso);
+}
+
 export default function PizarraTacticaPage() {
   /*
   | Cuando la pantalla completa es la de toda la página —así se llega desde el
@@ -52,6 +79,18 @@ export default function PizarraTacticaPage() {
   | distinguir los dos casos.
   */
   const { enPantallaCompleta: sinCromo } = usePantallaCompleta();
+
+  /*
+  | ¿Se llega desde la portada pidiendo los dos onces?
+  |
+  | Se lee de la barra de direcciones y no con `useSearchParams`: ése obliga a
+  | envolver la página en un `Suspense` para poder prerenderizarla —el build
+  | falla sin él— y aquí no hace falta tanto, porque esto no pinta nada: sólo
+  | decide si un tablero vacío se puebla. Con la instantánea de servidor en
+  | `false` no hay desajuste al hidratar, y el aviso de una vez hace que se
+  | vuelva a mirar ya en el navegador.
+  */
+  const conOnces = useSyncExternalStore(seSabraAlLlegar, hayParametroOnce, enBlanco);
 
   const { players } = usePlayers();
   const { squads } = useRivalSquads();
@@ -105,6 +144,40 @@ export default function PizarraTacticaPage() {
   }, [boards, activeId]);
 
   const active = boards.find((board) => board.id === activeId) ?? null;
+
+  /*
+  | Llegando desde la portada se abre el tablero de los dos onces.
+  |
+  | Si no existe se crea —una sola vez, de ahí el cerrojo— y si ya está, se
+  | selecciona y se deja como se dejó: quien pintó ahí el jueves se lo
+  | encuentra el viernes. Los tableros con nombre propio no se rozan.
+  */
+  const onceAtendido = useRef(false);
+
+  useEffect(() => {
+    if (!conOnces || onceAtendido.current || !listaCargada) return;
+
+    onceAtendido.current = true;
+
+    const suyo = boards.find((board) => board.nombre === TABLERO_DE_ONCES);
+
+    /* Igual que la selección de la primera pizarra de más arriba: esto no es
+       una cascada de renders, es una intención de navegación que se atiende
+       una sola vez y se cierra con el cerrojo. */
+    if (suyo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveId(suyo.id);
+
+      return;
+    }
+
+    const board: BoardRef = { id: tacticId("board"), nombre: TABLERO_DE_ONCES };
+
+    setIndex((actual) => ({ boards: [...(actual?.boards ?? []), board] }));
+
+     
+    setActiveId(board.id);
+  }, [boards, conOnces, listaCargada, setIndex]);
 
   const createBoard = () => {
     if (!listaCargada) return;
@@ -310,6 +383,7 @@ export default function PizarraTacticaPage() {
                     nombre={active.nombre}
                     roster={players}
                     rivalSquads={squads}
+                    conOnces={conOnces && active.nombre === TABLERO_DE_ONCES}
                   />
                 ) : (
                   <div className="flex flex-col items-center px-6 py-24 text-center">
@@ -349,11 +423,14 @@ function BoardEditor({
   nombre,
   roster,
   rivalSquads,
+  conOnces = false,
 }: {
   boardId: string;
   nombre: string;
   roster: ReturnType<typeof usePlayers>["players"];
   rivalSquads: RivalSquad[];
+  /** Se ha llegado desde la portada: si el campo está vacío, se puebla. */
+  conOnces?: boolean;
 }) {
   const fallback = useMemo(() => emptyDoc(nombre), [nombre]);
 
@@ -364,6 +441,48 @@ function BoardEditor({
   });
 
   const doc = useMemo(() => normalizeDoc(value, nombre), [value, nombre]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOS DOS ONCES, YA PUESTOS
+  |--------------------------------------------------------------------------
+  |
+  | Llegando desde la portada —`?once=1`— la pizarra se abre con los
+  | veintidós colocados en 4-2-3-1 en vez de con el campo vacío: colocarlos a
+  | mano delante del grupo son dos minutos de nada.
+  |
+  | **Sólo si la escena está vacía.** Un tablero con trabajo dentro no se toca
+  | ni se le pregunta a nadie: quien entra por ese enlace y ya tenía algo
+  | pintado se encuentra lo suyo, y para empezar de cero está «Nueva pizarra».
+  | Y se hace una sola vez por visita, que si no, borrar una ficha la volvería
+  | a poner en el siguiente render.
+  */
+  const yaSeIntento = useRef(false);
+
+  useEffect(() => {
+    if (!conOnces || yaSeIntento.current) return;
+
+    /* Esperar a que llegue lo guardado: pintar sobre el respaldo vacío
+       machacaría el tablero en cuanto el servidor contestara. */
+    if (status === "loading") return;
+
+    yaSeIntento.current = true;
+
+    const primera = doc.scenes[0];
+
+    if (!primera || primera.tokens.length > 0 || primera.shapes.length > 0) return;
+
+    setValue((actual) => {
+      const base = normalizeDoc(actual, nombre);
+
+      const [escena, ...resto] = base.scenes;
+
+      return {
+        ...base,
+        scenes: [{ ...escena, tokens: dosOnces(DIBUJO_DE_PARTIDA) }, ...resto],
+      };
+    });
+  }, [conOnces, doc, nombre, setValue, status]);
 
   /*
   | A pantalla completa se lleva **el tablero con su título y su estado**, no
