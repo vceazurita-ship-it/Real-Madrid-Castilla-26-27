@@ -73,6 +73,8 @@ export type JugadorDeLaHoja = {
   nombre: string;
   /** Clave del slot del campograma ("por", "dfc", "mcd"…). */
   slot: string;
+  /** De qué lado juega según la hoja: -1 izquierda, 1 derecha, 0 centro. */
+  lado?: -1 | 0 | 1;
 };
 
 export type OnceSugerido = {
@@ -142,7 +144,7 @@ function alineacionesQueCuentan(informe: InformeEquipo) {
  * así que como último recurso se acepta que uno contenga al otro, que resuelve
  * las abreviaturas sin llegar a confundir a dos compañeros.
  */
-function indiceDeLaHoja(plantilla: JugadorDeLaHoja[]) {
+export function indiceDeLaHoja(plantilla: JugadorDeLaHoja[]) {
   const porId = new Map<string, JugadorDeLaHoja>();
   const porNombre = new Map<string, JugadorDeLaHoja>();
 

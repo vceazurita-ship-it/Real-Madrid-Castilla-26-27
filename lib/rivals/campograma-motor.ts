@@ -153,6 +153,17 @@ const FAMILIA_DE_SLOT: Record<string, FamiliaPuesto> = {
 };
 
 /**
+ * A qué familia pertenece un puesto del catálogo.
+ *
+ * Lo pregunta la lectura de la temporada —posiciones-temporada.ts— para saber
+ * si el sitio que escribe la hoja es de la misma línea que la que el jugador
+ * viene ocupando de verdad.
+ */
+export function familiaDeSlot(slot: string): FamiliaPuesto | null {
+  return FAMILIA_DE_SLOT[slot] ?? null;
+}
+
+/**
  * Puestos que ya dicen de qué lado son por su propio nombre.
  *
  * Un «lateral izquierdo» es de la izquierda aunque la hoja no escriba nada

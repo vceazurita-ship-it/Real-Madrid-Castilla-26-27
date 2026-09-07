@@ -84,6 +84,10 @@ import {
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
 import { esLiga, findInforme, type InformeEquipo } from "@/lib/rivals/informe";
+import {
+  leePosicionesDeLaTemporada,
+  LECTURA_VACIA,
+} from "@/lib/rivals/posiciones-temporada";
 import type { InformeData } from "@/lib/rivals/informe-ppt";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
@@ -555,6 +559,10 @@ const LINE_DEFINITIONS: {
   },
 ];
 
+/* Qué línea es cada puesto, para poder pintar del color que toca cuando el
+   sitio no sale de la hoja sino de lo que el jugador lleva jugado. */
+const LINEA_DE_SLOT = new Map<string, { color: string }>();
+
 /* Índice plano línea+slot con los patrones ya normalizados. */
 const SLOT_INDEX = LINE_DEFINITIONS.flatMap((line) =>
   line.slots.map((slot, slotIndex) => ({
@@ -564,6 +572,12 @@ const SLOT_INDEX = LINE_DEFINITIONS.flatMap((line) =>
     patterns: slot.match.map(normalize).filter(Boolean),
   })),
 );
+
+for (const entrada of SLOT_INDEX) {
+  if (!LINEA_DE_SLOT.has(entrada.slot.key)) {
+    LINEA_DE_SLOT.set(entrada.slot.key, entrada.line);
+  }
+}
 
 /*
 | Gana el patrón más largo que encaje, no el primero: así "mediocentro
@@ -765,11 +779,14 @@ export default function RivalPlayersPage() {
 
   /*
   | El informe del rival (clasificación, resultados, entrenador, estadio y
-  | alineaciones). No se pide al abrir la pantalla como las estadísticas: trae
-  | la temporada entera de los diecinueve equipos y sólo hace falta cuando se
-  | pulsa el botón de descargarlo, así que se baja entonces.
+  | alineaciones). Se pide **al abrir la pantalla**: además de armar el informe
+  | en .pptx, de él salen el dibujo con el que se reparte la plantilla y el
+  | sitio de cada jugador, así que sin él el campograma se pinta con la columna
+  | POSICIÓN de la hoja y habría que moverlo todo al llegar.
   */
-  const { pide: pideInforme } = useRivalInforme();
+  const { pide: pideInforme, doc: informeDoc } = useRivalInforme({
+    alEntrar: true,
+  });
 
   const [showPitch, setShowPitch] = useState(true);
 
@@ -1082,15 +1099,6 @@ export default function RivalPlayersPage() {
         : undefined,
     [once, pitchTeam],
   );
-
-  /*
-  | Con qué dibujo se reparte la plantilla de este rival.
-  |
-  | Vive en el documento del once —es una decisión de análisis sobre ese
-  | equipo, como quién sale de inicio— así que se guarda solo y sigue puesto la
-  | semana que viene. Sin elegir nada, el de siempre.
-  */
-  const dibujoDelEquipo = once.doc.dibujo || DIBUJO_POR_DEFECTO;
 
   const onceResumen = useMemo(() => {
     const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
@@ -1437,6 +1445,41 @@ export default function RivalPlayersPage() {
       }),
     [plantillaDelEquipo, statsDoc],
   );
+
+  /*
+  |--------------------------------------------------------------------------
+  | LO QUE EL RIVAL LLEVA HECHO ESTA TEMPORADA
+  |--------------------------------------------------------------------------
+  |
+  | Con qué dibujo sale y en qué sitio juega cada uno, deducido de todas sus
+  | alineaciones oficiales. Se calcula aquí, sobre el documento del informe, y
+  | por eso **se pone al día solo**: en cuanto la pasada de la noche trae una
+  | jornada nueva, el campograma la tiene en cuenta sin tocar nada.
+  |
+  | La cuenta está en `lib/rivals/posiciones-temporada.ts`.
+  */
+  const lecturaTemporada = useMemo(
+    () =>
+      pitchTeam
+        ? leePosicionesDeLaTemporada(
+            findInforme(informeDoc, pitchTeam),
+            jugadoresPlantilla,
+          )
+        : LECTURA_VACIA,
+    [informeDoc, pitchTeam, jugadoresPlantilla],
+  );
+
+  /*
+  | Con qué dibujo se reparte la plantilla de este rival.
+  |
+  | Manda lo que haya elegido una persona: vive en el documento del once —es
+  | una decisión de análisis sobre ese equipo, como quién sale de inicio— y
+  | sigue puesto la semana que viene. Si nadie ha elegido, el que más repite el
+  | rival; y si todavía no hay alineaciones suyas, el de siempre.
+  */
+  const dibujoDelEquipo =
+    once.doc.dibujo || lecturaTemporada.dibujo || DIBUJO_POR_DEFECTO;
+
 
   /*
   | Dónde está puesto cada uno del once probable, en tanto por uno del campo
@@ -3334,13 +3377,25 @@ export default function RivalPlayersPage() {
                             menú: es lo que decide la forma de todo lo que hay
                             debajo, y quien abre un rival de tres centrales lo
                             primero que quiere es dejar de verlo como un
-                            4-2-3-1. Se guarda con el once, así que se pone una
-                            vez por rival y ya.
+                            4-2-3-1.
+
+                            Viene puesto **el que más repite el rival esta
+                            temporada**, sacado de sus alineaciones. Elegir uno
+                            a mano lo fija: se guarda con el once y ya no lo
+                            mueve la lectura de la semana siguiente.
                           */}
                           {pitchPlayers.length > 0 && (
                             <label
                               data-export-hide
-                              title="Cómo se reparte la plantilla en el campo"
+                              title={
+                                once.doc.dibujo
+                                  ? "Elegido a mano. Cómo se reparte la plantilla en el campo."
+                                  : lecturaTemporada.estructura
+                                    ? `Lo que más repite el rival esta temporada (${lecturaTemporada.estructura} en ${lecturaTemporada.alineaciones} ${
+                                        lecturaTemporada.alineaciones === 1 ? "alineación" : "alineaciones"
+                                      }${lecturaTemporada.conAmistosos ? ", amistosos incluidos" : ""}). Se puede cambiar.`
+                                    : "Cómo se reparte la plantilla en el campo"
+                              }
                               className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 sm:px-2 sm:py-0.5"
                             >
                               <LayoutGrid size={11} className="text-[#C8A96B]" />
@@ -3358,6 +3413,14 @@ export default function RivalPlayersPage() {
                                   </option>
                                 ))}
                               </select>
+
+                              {/* Que se sepa de un vistazo si lo ha puesto el
+                                  rival con sus partidos o una persona. */}
+                              {!once.doc.dibujo && lecturaTemporada.dibujo && (
+                                <span className="text-[9px] uppercase tracking-[0.14em] text-[#C8A96B]/70">
+                                  suyo
+                                </span>
+                              )}
                             </label>
                           )}
 
@@ -3566,6 +3629,7 @@ export default function RivalPlayersPage() {
                         onEtiquetas={abrirEtiquetasDe}
                         onPlayerClick={openPlayer}
                         dibujo={dibujoDelEquipo}
+                        sitios={lecturaTemporada.porJugador}
                       />
                     </div>
                   </div>
@@ -6341,6 +6405,14 @@ function layoutPitch(
   compact = false,
   horizontal = false,
   dibujo: BloqueOnce[] = dibujoDeCampo(DIBUJO_POR_DEFECTO),
+  /*
+  | Dónde juega cada uno de verdad, sacado de sus alineaciones de esta
+  | temporada. Manda sobre la columna POSICIÓN de la hoja, que envejece: la
+  | hoja dice «MC» de quien lleva ocho jornadas de pivote. Vacío —todavía no
+  | hay informe, o es un fichaje que aún no ha jugado— se sigue leyendo la
+  | hoja, que es mejor que nada.
+  */
+  sitios: Map<string, { slot: string; lado: -1 | 0 | 1 }> = new Map(),
 ): PitchLayout {
   if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
 
@@ -6358,22 +6430,24 @@ function layoutPitch(
      el color de la línea. */
   const adornos = new Map<string, { code: string; color: string }>();
 
-  const porBloque = reparteEnOnce(
-    players,
-    (player) => {
-      const position = player["POSICIÓN"];
-      const entry = getSlot(position);
+  const sitioDe = (player: RivalPlayer) => {
+    const jugado = sitios.get(playerKey(player));
 
-      const slotKey = entry?.slot.key ?? "otros";
-      const anchor = ANCLAS_SLOT[slotKey];
+    if (jugado) return jugado;
 
-      return {
-        slot: slotKey,
-        lado: anchor?.xSide ? detectSide(normalize(position)) : 0,
-      };
-    },
-    dibujo,
-  );
+    const position = player["POSICIÓN"];
+    const entry = getSlot(position);
+
+    const slotKey = entry?.slot.key ?? "otros";
+    const anchor = ANCLAS_SLOT[slotKey];
+
+    return {
+      slot: slotKey,
+      lado: (anchor?.xSide ? detectSide(normalize(position)) : 0) as -1 | 0 | 1,
+    };
+  };
+
+  const porBloque = reparteEnOnce(players, sitioDe, dibujo);
 
   const entradas: BloqueEntrada<RivalPlayer>[] = [];
 
@@ -6390,7 +6464,10 @@ function layoutPitch(
     */
     adornos.set(bloque.key, {
       code: bloque.code,
-      color: getSlot(gente[0]["POSICIÓN"])?.line.color ?? "#9AA3AD",
+      color:
+        LINEA_DE_SLOT.get(sitioDe(gente[0]).slot)?.color ??
+        getSlot(gente[0]["POSICIÓN"])?.line.color ??
+        "#9AA3AD",
     });
 
     entradas.push({
@@ -6584,12 +6661,15 @@ function TacticalPitch({
   onEtiquetas,
   onPlayerClick,
   dibujo,
+  sitios,
 }: {
   players: RivalPlayer[];
   selectedId?: string;
   activeTags: string[];
   /** El dibujo con el que se reparte la plantilla ("4-2-3-1", "3-5-2"…). */
   dibujo?: string;
+  /** Dónde juega cada uno esta temporada, por clave de jugador. */
+  sitios?: Map<string, { slot: string; lado: -1 | 0 | 1 }>;
   /** Marca de cada jugador en el once probable. */
   onceEstado?: (player: RivalPlayer) => OnceEstado;
   onCiclarOnce?: (player: RivalPlayer) => (() => void) | undefined;
@@ -6650,8 +6730,16 @@ function TacticalPitch({
 
   const { placed, clusters, avatar, stepX } = useMemo(
     () =>
-      layoutPitch(players, size.width, size.height, compact, horizontal, bloques),
-    [players, size.width, size.height, compact, horizontal, bloques],
+      layoutPitch(
+        players,
+        size.width,
+        size.height,
+        compact,
+        horizontal,
+        bloques,
+        sitios,
+      ),
+    [players, size.width, size.height, compact, horizontal, bloques, sitios],
   );
 
   /* Las mismas medidas con las que el motor ha reservado el sitio. */

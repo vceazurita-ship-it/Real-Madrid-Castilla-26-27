@@ -9,11 +9,16 @@ import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
 |
 | Lo escribe `scripts/rivals-informe.mjs`, no la app: aquí nunca se guarda.
 |
-| A diferencia de `useRivalStats`, esto **no se pide al abrir la pantalla**: el
-| documento trae la clasificación del grupo y la temporada entera de los
-| diecinueve equipos, y lo único que lo necesita es el botón de descargar el
-| informe. Se baja cuando se pulsa (`pide()`) y luego se queda en la pestaña,
-| así que un segundo informe sale sin volver a pedir nada.
+| Trae la clasificación del grupo y la temporada entera de los diecinueve
+| equipos, así que no se pide desde cualquier sitio: quien sólo lo necesita al
+| pulsar un botón lo baja entonces con `pide()`, y se queda en la pestaña, de
+| modo que un segundo informe sale sin volver a pedir nada.
+|
+| `{ alEntrar: true }` lo baja al montar. Lo usa la pantalla de plantillas
+| rivales, que desde que el campograma se pinta con lo que el equipo lleva
+| jugado —`lib/rivals/posiciones-temporada.ts`— lo necesita para dibujar, no
+| para exportar: esperar a un clic sería enseñar primero el reparto viejo y
+| moverlo todo después, delante de quien lo está mirando.
 */
 
 type Estado = {
@@ -49,20 +54,27 @@ export function cargaInforme() {
   return enVuelo;
 }
 
-export function useRivalInforme() {
+export function useRivalInforme({ alEntrar = false } = {}) {
   const [estado, setEstado] = useState<Estado>({
     doc: null,
     cargando: false,
     falta: false,
   });
 
-  /* Si otra pantalla ya lo bajó, se enseña sin pedir nada. */
+  /*
+  | Si otra pantalla ya lo bajó, se enseña sin pedir nada; y con `alEntrar` se
+  | empieza a bajar aquí mismo. En los dos casos se espera a la **misma**
+  | promesa: `cargaInforme()` guarda la que está en vuelo, así que dos
+  | pantallas abiertas no se bajan dos copias.
+  */
   useEffect(() => {
-    if (!enVuelo) return;
+    const promesa = alEntrar ? cargaInforme() : enVuelo;
+
+    if (!promesa) return;
 
     let cancelado = false;
 
-    enVuelo.then((doc) => {
+    promesa.then((doc) => {
       if (cancelado) return;
 
       setEstado({ doc, cargando: false, falta: !doc?.porId });
@@ -71,7 +83,7 @@ export function useRivalInforme() {
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [alEntrar]);
 
   /**
    * Pide el documento y devuelve lo que haya.
