@@ -355,6 +355,17 @@ export async function cortaClip(opciones: {
   */
   const copia = opciones.modo === "rapido" && !(opciones.topeMegas ?? 0);
 
+  /*
+  | Cuánta calidad se conserva al recodificar.
+  |
+  | Con tope de peso manda el techo de caudal, así que apretar más el `crf` no
+  | cambiaría nada. Sin tope, en cambio, el `crf` es lo único que decide, y 20
+  | se nota en un plano abierto de un campo de hierba: 18 es prácticamente
+  | indistinguible del original y pesa alrededor de un tercio más, que sin tope
+  | da igual. Un corte no debería verse peor que el partido del que sale.
+  */
+  const crf = (opciones.topeMegas ?? 0) > 0 ? "20" : "18";
+
   const codificacion = copia
     ? ["-c", "copy", "-avoid_negative_ts", "make_zero"]
     : [
@@ -363,7 +374,7 @@ export async function cortaClip(opciones: {
         "-preset",
         "veryfast",
         "-crf",
-        "20",
+        crf,
         ...rejillaDeCaudal(opciones.topeMegas ?? 0, duracion / 1000),
         "-pix_fmt",
         "yuv420p",

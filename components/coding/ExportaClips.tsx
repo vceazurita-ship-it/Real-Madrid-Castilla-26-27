@@ -79,8 +79,21 @@ export type ModoCorteUI = "preciso" | "rapido";
  */
 export const PESOS = [0, 16, 50, 100, 200];
 
-/** El tope de partida: lo que cabe en un grupo de WhatsApp. */
-export const TOPE_MEGAS_POR_DEFECTO = 50;
+/**
+ * El tope de partida: **ninguno**.
+ *
+ * Venía puesto en 50 MB —lo que cabe en un grupo de WhatsApp— y eso hacía que
+ * *todos* los cortes salieran apretados sin que nadie lo pidiera. La cuenta es
+ * implacable: el tope se reparte entre lo que dura el vídeo, así que un corte
+ * de cuarenta segundos aguantaba bien pero uno de tres minutos bajaba a unos
+ * 2 Mb/s y un montaje de diez a menos de uno. Sobre hierba y con la cámara
+ * abierta eso es exactamente donde se ve: el césped se emborrona y el número
+ * de la espalda deja de leerse, que es para lo que se hace el corte.
+ *
+ * Ahora sale con la calidad del partido y quien vaya a mandarlo por WhatsApp
+ * elige el tope en la barra, que sigue ahí con sus 16, 50, 100 y 200 MB.
+ */
+export const TOPE_MEGAS_POR_DEFECTO = 0;
 
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
