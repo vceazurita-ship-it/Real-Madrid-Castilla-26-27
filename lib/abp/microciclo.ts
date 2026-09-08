@@ -40,6 +40,12 @@ export const LADO_COLOR: Record<AbpLado, string> = {
   defensivo: "#F87171",
 };
 
+/** Para las fichas estrechas de la semana. */
+export const LADO_SHORT: Record<AbpLado, string> = {
+  ofensivo: "OF",
+  defensivo: "DEF",
+};
+
 /** Dónde cae el trabajo dentro de la sesión. */
 export type AbpMomento = "pre" | "intra" | "post";
 
@@ -294,7 +300,16 @@ export type OrigenTrabajo = "manual" | "registro";
 
 export type Trabajo = {
   id: string;
-  lado: AbpLado;
+  /**
+   * Los lados que trabaja la tarea. Casi siempre uno, pero una rutina de
+   * córner se monta a menudo con los dos equipos dentro: se ataca y se
+   * defiende la misma jugada a la vez, y partirla en dos fichas duplicaba
+   * los minutos de la sesión.
+   *
+   * Nunca está vacío: lo garantiza `normalizaTrabajo`, por donde pasa todo
+   * lo que se lee del documento.
+   */
+  lados: AbpLado[];
   /**
    * Los aspectos que toca la tarea. Casi siempre uno, pero una misma rutina
    * de 20' puede entrenar el córner directo y el indirecto a la vez, y
@@ -362,29 +377,64 @@ export function planVacio(
  * Un trabajo con la forma que espera la pantalla.
  *
  * Los documentos guardados antes de que una tarea pudiera trabajar varios
- * aspectos traen `aspecto` en singular. En vez de migrar el documento —que
- * obligaría a reescribir toda la temporada la primera vez que alguien abre la
- * página— se traduce al leer, que es por donde pasa todo.
+ * aspectos traen `aspecto` en singular, y los guardados antes de que pudiera
+ * trabajar los dos lados a la vez traen `lado`. En vez de migrar el
+ * documento —que obligaría a reescribir toda la temporada la primera vez que
+ * alguien abre la página— se traducen al leer, que es por donde pasa todo.
+ *
+ * Devuelve el mismo objeto cuando no hay nada que traducir: la semana entera
+ * se recalcula con `useMemo` y una copia nueva en cada lectura la rehacía.
  */
 export function normalizaTrabajo(bruto: Trabajo): Trabajo {
-  const viejo = (bruto as Trabajo & { aspecto?: AspectoKey }).aspecto;
+  const viejoAspecto = (bruto as Trabajo & { aspecto?: AspectoKey }).aspecto;
+  const viejoLado = (bruto as Trabajo & { lado?: AbpLado }).lado;
 
   const aspectos = Array.isArray(bruto.aspectos)
-    ? bruto.aspectos.filter((clave) => ASPECTO_BY_KEY.has(clave))
+    ? [...new Set(bruto.aspectos.filter((clave) => ASPECTO_BY_KEY.has(clave)))]
     : [];
 
-  if (aspectos.length) {
-    return aspectos.length === bruto.aspectos.length
-      ? bruto
-      : { ...bruto, aspectos };
-  }
+  const lados = Array.isArray(bruto.lados)
+    ? [...new Set(bruto.lados.filter(esLado))]
+    : [];
 
-  /* Sin aspectos válidos: el de siempre, o el primero del catálogo. Un
-     trabajo sin aspecto no se puede pintar ni cruzar con competición. */
+  const aspectosBien =
+    aspectos.length > 0 && aspectos.length === bruto.aspectos.length;
+
+  const ladosBien = lados.length > 0 && lados.length === bruto.lados.length;
+
+  if (aspectosBien && ladosBien) return bruto;
+
   return {
     ...bruto,
-    aspectos: [viejo && ASPECTO_BY_KEY.has(viejo) ? viejo : ASPECTOS[0].key],
+    /* Sin aspectos válidos: el de siempre, o el primero del catálogo. Un
+       trabajo sin aspecto no se puede pintar ni cruzar con competición. */
+    aspectos: aspectos.length
+      ? aspectos
+      : [
+          viejoAspecto && ASPECTO_BY_KEY.has(viejoAspecto)
+            ? viejoAspecto
+            : ASPECTOS[0].key,
+        ],
+    lados: lados.length ? lados : [esLado(viejoLado) ? viejoLado : "ofensivo"],
   };
+}
+
+function esLado(valor: unknown): valor is AbpLado {
+  return valor === "ofensivo" || valor === "defensivo";
+}
+
+/** Los lados de un trabajo, ya saneados. Nunca vacío. */
+export function ladosDe(trabajo: Trabajo): AbpLado[] {
+  return normalizaTrabajo(trabajo).lados;
+}
+
+/** «Ofensivo», «Defensivo» u «Ofensivo y defensivo». */
+export function etiquetaLados(trabajo: Trabajo) {
+  const lados = ladosDe(trabajo);
+
+  if (lados.length > 1) return "Ofensivo y defensivo";
+
+  return LADO_LABEL[lados[0]];
 }
 
 /** Los aspectos de un trabajo, ya resueltos contra el catálogo. */
@@ -423,6 +473,7 @@ export function duplicaTrabajo(trabajo: Trabajo): Trabajo {
     ...base,
     id: nuevoId(),
     aspectos: [...base.aspectos],
+    lados: [...base.lados],
     roles: [...base.roles],
     origen: "manual",
   };
@@ -491,7 +542,7 @@ function nuevoId() {
 export function nuevoTrabajo(overrides: Partial<Trabajo> = {}): Trabajo {
   return {
     id: nuevoId(),
-    lado: "ofensivo",
+    lados: ["ofensivo"],
     aspectos: ["corner-directo"],
     momento: "intra",
     medio: "campo",
@@ -577,8 +628,20 @@ export function totalesDe(entradas: { dia: DiaKey; trabajo: Trabajo }[]): Totale
     totales.minutos += minutos;
     totales.carga += cargaCondicional(trabajo);
     totales.cargaCog += cargaCognitiva(trabajo);
-    totales.porLado[trabajo.lado] += minutos;
     totales.porMomento[trabajo.momento] += minutos;
+
+    /*
+    | Una tarea que trabaja los dos lados **reparte** sus minutos entre ellos.
+    | Contarlos enteros en cada uno haría que el reparto por lado sumara más
+    | que la semana, y ese reparto se lee en porcentaje sobre el total: 20' de
+    | córner atacado y defendido saldrían como 40' y el 100 % se pasaría de
+    | largo.
+    */
+    const lados = ladosDe(trabajo);
+
+    lados.forEach((lado) => {
+      totales.porLado[lado] += minutos / lados.length;
+    });
 
     if (trabajo.medio === "video") totales.minutosVideo += minutos;
     else totales.minutosCampo += minutos;
@@ -594,10 +657,11 @@ export function totalesDe(entradas: { dia: DiaKey; trabajo: Trabajo }[]): Totale
 /**
  * Minutos por aspecto y lado. La clave es `${aspecto}|${lado}`.
  *
- * Una tarea que toca varios aspectos **reparte** sus minutos entre ellos en
- * vez de contarlos enteros en cada uno. Contarlos enteros inflaría el total
- * de la semana —20' de córner directo + indirecto pasarían a ser 40'— y con
- * él la urgencia y la transferencia, que se leen contra ese total.
+ * Una tarea que toca varios aspectos —o los dos lados— **reparte** sus
+ * minutos entre las casillas que toca en vez de contarlos enteros en cada
+ * una. Contarlos enteros inflaría el total de la semana —20' de córner
+ * directo + indirecto pasarían a ser 40'— y con él la urgencia y la
+ * transferencia, que se leen contra ese total.
  */
 export function minutosPorAspecto(
   entradas: { trabajo: Trabajo }[],
@@ -605,13 +669,18 @@ export function minutosPorAspecto(
   const mapa = new Map<string, number>();
 
   entradas.forEach(({ trabajo }) => {
-    const aspectos = normalizaTrabajo(trabajo).aspectos;
-    const parte = (trabajo.minutos || 0) / aspectos.length;
+    const limpio = normalizaTrabajo(trabajo);
 
-    aspectos.forEach((aspecto) => {
-      const clave = `${aspecto}|${trabajo.lado}`;
+    const casillas = limpio.aspectos.length * limpio.lados.length;
 
-      mapa.set(clave, (mapa.get(clave) ?? 0) + parte);
+    const parte = (trabajo.minutos || 0) / casillas;
+
+    limpio.aspectos.forEach((aspecto) => {
+      limpio.lados.forEach((lado) => {
+        const clave = claveAspecto(aspecto, lado);
+
+        mapa.set(clave, (mapa.get(clave) ?? 0) + parte);
+      });
     });
   });
 

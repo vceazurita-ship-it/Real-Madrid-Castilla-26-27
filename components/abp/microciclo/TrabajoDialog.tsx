@@ -18,7 +18,7 @@ import {
   ASPECTOS_POR_GRUPO,
   DIAS,
   LADOS,
-  LADO_COLOR,
+  LADO_LABEL,
   MEDIOS,
   MOMENTOS,
   ROLES,
@@ -26,6 +26,7 @@ import {
   cargaCognitiva,
   cargaCondicional,
   etiquetaTrabajo,
+  ladosDe,
   type AbpLado,
   type AbpMedio,
   type AbpMomento,
@@ -243,6 +244,92 @@ function AspectoPicker({
   );
 }
 
+/**
+ * Selector de lado: se pueden marcar los dos.
+ *
+ * Era un conmutador de uno. Una rutina de córner se monta a menudo con los
+ * dos equipos dentro —se ataca y se defiende la misma jugada— y marcar sólo
+ * uno contaba la mitad de lo que se hizo en el campo; montar dos fichas, el
+ * doble de minutos. Los minutos de una tarea con los dos lados se reparten
+ * entre ellos en el reparto y en el cruce con competición.
+ */
+function LadoPicker({
+  value,
+  onChange,
+}: {
+  value: AbpLado[];
+  onChange: (value: AbpLado[]) => void;
+}) {
+  const alterna = (clave: AbpLado) => {
+    if (value.includes(clave)) {
+      /* Nunca se queda sin ninguno: una tarea sin lado no se puede cruzar. */
+      if (value.length === 1) return;
+
+      onChange(value.filter((item) => item !== clave));
+
+      return;
+    }
+
+    /* En el orden del catálogo, para que la ficha se lea siempre igual. */
+    onChange(LADOS.filter((lado) => lado.key === clave || value.includes(lado.key)).map((lado) => lado.key));
+  };
+
+  return (
+    <div className="min-w-0">
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+          Lado
+        </p>
+
+        <p className="text-[11px] text-white/45">
+          {value.length > 1 ? "los dos" : LADO_LABEL[value[0]]}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        {LADOS.map((lado) => {
+          const activo = value.includes(lado.key);
+
+          return (
+            <button
+              key={lado.key}
+              type="button"
+              onClick={() => alterna(lado.key)}
+              aria-pressed={activo}
+              title={
+                activo && value.length === 1
+                  ? "Una tarea necesita al menos un lado"
+                  : `Trabajo ${lado.label.toLowerCase()}`
+              }
+              className={`truncate rounded-xl border px-2 py-2 text-xs font-medium transition ${
+                activo ? "" : "text-white/55"
+              }`}
+              style={
+                activo
+                  ? {
+                      borderColor: chipInk(lado.color),
+                      backgroundColor: `${lado.color}22`,
+                      color: chipInk(lado.color),
+                    }
+                  : undefined
+              }
+            >
+              {lado.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {value.length > 1 && (
+        <p className="mt-1.5 text-[10px] leading-relaxed text-white/30">
+          La tarea se ataca y se defiende a la vez: sus minutos se reparten
+          entre los dos lados en el reparto de la semana y en el cruce.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  DIÁLOGO                                                            */
 /* ------------------------------------------------------------------ */
@@ -279,6 +366,7 @@ export function TrabajoDialog({
     }));
 
   const aspectos = aspectosDe(borrador);
+  const lados = ladosDe(borrador);
 
   /* Los que no tienen dónde mirarse en competición: se avisa de todos. */
   const sinDato = aspectos.filter((item) => item.sinDato);
@@ -306,7 +394,11 @@ export function TrabajoDialog({
           <Button
             tone="primary"
             onClick={() => onGuardar(borrador, diaBorrador)}
-            disabled={borrador.minutos <= 0 || borrador.aspectos.length === 0}
+            disabled={
+              borrador.minutos <= 0 ||
+              borrador.aspectos.length === 0 ||
+              lados.length === 0
+            }
           >
             {nuevo ? "Añadir" : "Guardar"}
           </Button>
@@ -321,12 +413,9 @@ export function TrabajoDialog({
           onChange={(key) => setDiaBorrador(key as DiaKey)}
         />
 
-        <Conmutador
-          label="Lado"
-          options={LADOS.map((lado) => ({ key: lado.key, label: lado.label }))}
-          value={borrador.lado}
-          onChange={(key) => set("lado", key as AbpLado)}
-          colorOf={(key) => LADO_COLOR[key as AbpLado]}
+        <LadoPicker
+          value={lados}
+          onChange={(claves) => set("lados", claves)}
         />
 
         <AspectoPicker

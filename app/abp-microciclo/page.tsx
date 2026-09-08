@@ -528,7 +528,9 @@ export default function AbpMicrocicloPage() {
           const dia = (tarea.dia || "L") as DiaKey;
 
           const trabajo = nuevoTrabajo({
-            lado,
+            /* La hoja anota un lado por tarea; aquí se pueden marcar los dos
+               abriendo el bloque. */
+            lados: [lado],
             aspectos: [aspecto],
             /* La hoja no anota el momento de la sesión; intra es lo habitual
                y se corrige de un toque. */
@@ -575,15 +577,18 @@ export default function AbpMicrocicloPage() {
 
     Object.values(store.micros ?? {}).forEach((otro) => {
       trabajosDelPlan(otro).forEach(({ trabajo }) => {
-        /* Los minutos se reparten entre los aspectos de la tarea, igual que
-           en el microciclo activo. */
-        const aspectos = trabajo.aspectos;
-        const parte = (trabajo.minutos || 0) / aspectos.length;
+        /* Los minutos se reparten entre los aspectos y los lados de la
+           tarea, igual que en el microciclo activo. */
+        const { aspectos, lados } = trabajo;
+
+        const parte = (trabajo.minutos || 0) / (aspectos.length * lados.length);
 
         aspectos.forEach((aspecto) => {
-          const clave = claveAspecto(aspecto, trabajo.lado);
+          lados.forEach((lado) => {
+            const clave = claveAspecto(aspecto, lado);
 
-          mapa.set(clave, (mapa.get(clave) ?? 0) + parte);
+            mapa.set(clave, (mapa.get(clave) ?? 0) + parte);
+          });
         });
       });
     });
@@ -620,6 +625,20 @@ export default function AbpMicrocicloPage() {
   const partidoDelMicro = useMemo(
     () => (plan.rival ? buscaPartido(plan.rival, partidos) : null),
     [plan.rival, partidos],
+  );
+
+  /* ------------------------------ LA SEMANA ---------------------------- */
+
+  /*
+  | Cómo se pintan los bloques.
+  |
+  | «Completa» de salida: la semana se comparte por pantallazo con gente que
+  | no entra en la app, y con la ficha recortada no se podía saber qué se iba
+  | a trabajar. «Compacta» es la de antes, para cuando lo que se está haciendo
+  | es mover bloques de un día a otro y hacen falta más días a la vista.
+  */
+  const [vistaSemana, setVistaSemana] = useState<"completa" | "compacta">(
+    "completa",
   );
 
   /* ------------------------------- CRUCE ------------------------------- */
@@ -880,11 +899,27 @@ export default function AbpMicrocicloPage() {
               <div className="mt-6">
                 <Panel
                   title="La semana"
-                  subtitle="Pulsa un bloque para editarlo y arrástralo para cambiarlo de día; cada uno se puede duplicar o quitar"
+                  subtitle={
+                    vistaSemana === "completa"
+                      ? "Cada bloque enseña todo lo que se trabaja, para que un pantallazo se entienda sin entrar en la app. Pulsa uno para editarlo y arrástralo para cambiarlo de día"
+                      : "Fichas cortas, para mover bloques de día. Pulsa uno para editarlo; cada uno se puede duplicar o quitar"
+                  }
                   icon={CalendarDays}
+                  action={
+                    <Segmented
+                      ariaLabel="Cómo se ven los bloques"
+                      value={vistaSemana}
+                      onChange={setVistaSemana}
+                      options={[
+                        { key: "completa" as const, label: "Ficha completa" },
+                        { key: "compacta" as const, label: "Compacta" },
+                      ]}
+                    />
+                  }
                 >
                   <SemanaGrid
                     dias={plan.dias}
+                    detalle={vistaSemana === "completa"}
                     onCambiaTipo={cambiaTipo}
                     onCambiaMd={cambiaMd}
                     onAbrir={(dia, trabajo) =>
@@ -962,7 +997,7 @@ export default function AbpMicrocicloPage() {
                               setEditor({
                                 trabajo: nuevoTrabajo({
                                   aspectos: [fila.aspecto.key],
-                                  lado: fila.lado,
+                                  lados: [fila.lado],
                                 }),
                                 dia: "L",
                                 origen: null,
