@@ -1100,32 +1100,6 @@ export default function RivalPlayersPage() {
     [once, pitchTeam],
   );
 
-  /*
-  | Arrastrar a alguien a otro puesto del campograma.
-  |
-  | Se guarda con el once —es lo mismo: análisis de este rival que hay que
-  | recordar de una semana para otra— y manda sobre la hoja y sobre lo que se
-  | lee de sus alineaciones. Con `bloque` a `null` se quita la marca, que es
-  | lo que pasa al soltarlo donde ya iba solo.
-  */
-  const mueveDePuesto = useCallback(
-    (player: RivalPlayer, bloque: string | null) => {
-      if (player.NOMBRE_EQUIPO !== pitchTeam) return;
-
-      once.ponPuesto(playerKey(player), bloque);
-    },
-    [once, pitchTeam],
-  );
-
-  /* Cuántos hay puestos a mano, contando sólo a los que siguen en la hoja. */
-  const puestosAMano = useMemo(() => {
-    const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
-
-    return Object.keys(once.doc.puestos ?? {}).filter((clave) =>
-      claves.has(clave),
-    ).length;
-  }, [once.doc.puestos, pitchPlayers]);
-
   const onceResumen = useMemo(() => {
     const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
 
@@ -1505,6 +1479,55 @@ export default function RivalPlayersPage() {
   */
   const dibujoDelEquipo =
     once.doc.dibujo || lecturaTemporada.dibujo || DIBUJO_POR_DEFECTO;
+
+  /*
+  | Arrastrar a alguien a otro puesto del campograma.
+  |
+  | Se guarda con el once —es lo mismo: análisis de este rival que hay que
+  | recordar de una semana para otra— y manda sobre la hoja y sobre lo que se
+  | lee de sus alineaciones. Con `bloque` a `null` se quita la marca, que es
+  | lo que pasa al soltarlo donde ya iba solo.
+  */
+  const mueveDePuesto = useCallback(
+    (player: RivalPlayer, bloque: string | null) => {
+      if (player.NOMBRE_EQUIPO !== pitchTeam) return;
+
+      once.ponPuesto(playerKey(player), bloque);
+
+      /*
+      | Un aviso corto: el bloque de destino puede estar pegado al de salida y
+      | el salto de la ficha se ve poco. Además dice que ha quedado guardado,
+      | que es lo que nadie puede adivinar mirando el campo.
+      */
+      const nombre = player["NOMBRE DEPORTIVO"] || player.JUGADOR || "El jugador";
+
+      const donde = dibujoDeCampo(dibujoDelEquipo).find(
+        (uno) => uno.key === bloque,
+      );
+
+      toast.success(
+        bloque
+          ? `${nombre} pasa a ${donde?.code ?? bloque}`
+          : `${nombre} vuelve a su sitio`,
+        {
+          description: bloque
+            ? "Puesto a mano: se queda así hasta que lo cambies."
+            : "Vuelve a colocarse solo, con la hoja y sus alineaciones.",
+        },
+      );
+    },
+    [dibujoDelEquipo, once, pitchTeam],
+  );
+
+  /* Cuántos hay puestos a mano, contando sólo a los que siguen en la hoja. */
+  const puestosAMano = useMemo(() => {
+    const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
+
+    return Object.keys(once.doc.puestos ?? {}).filter((clave) =>
+      claves.has(clave),
+    ).length;
+  }, [once.doc.puestos, pitchPlayers]);
+
 
 
   /*
@@ -6901,12 +6924,20 @@ function TacticalPitch({
   | motor coloca para que quepan todos. Soltar en «MC» lo mete con los medios y
   | el motor recoloca esa columna sola.
   |
-  | Con el ratón basta con arrastrar; con el dedo hay que mantener pulsado un
-  | momento antes, porque en una tablet el mismo gesto sirve para desplazar la
-  | página y quitarle eso al dedo es peor que ganar el arrastre.
+  | Con el ratón basta con arrastrar. Con el dedo hay que mantener pulsado un
+  | instante antes: la ficha no se puede coger de refilón mientras se recorre
+  | la plantilla con el dedo.
+  |
+  | La ficha lleva `touch-action: none` **siempre**, no sólo mientras se
+  | arrastra. Ponérselo al empezar no sirve: el navegador decide al posar el
+  | dedo si el gesto es suyo —desplazar la página— y ya no cambia de idea, así
+  | que en tablet el arrastre se cancelaba nada más mover. Es lo mismo que hace
+  | la rejilla del microciclo con sus bloques. Se pierde poder desplazar la
+  | página empezando justo encima de una cara; el césped de alrededor, la barra
+  | y el listado siguen desplazando.
   */
   const ARRANQUE_PX = 6;
-  const ESPERA_DEDO_MS = 280;
+  const ESPERA_DEDO_MS = 180;
 
   const [arrastre, setArrastre] = useState<{
     id: string;
@@ -6939,12 +6970,16 @@ function TacticalPitch({
     }
   };
 
-  /* Sobre qué bloque está el puntero: el que lo contiene y, si ninguno, el
-     más cercano dentro de un palmo. Así no hace falta afinar. */
-  const bloqueBajo = (x: number, y: number) => {
+  /* Sobre qué bloque está el puntero: el que lo contiene y, si no, el más
+     cercano. Así no hace falta afinar el sitio donde se suelta. */
+  const bloqueBajo = (
+    x: number,
+    y: number,
+    donde: PlacedCluster[] = clusters,
+  ) => {
     let cerca: { key: string; distancia: number } | null = null;
 
-    for (const cluster of clusters) {
+    for (const cluster of donde) {
       const dentroX = x >= cluster.boxX && x <= cluster.boxX + cluster.boxWidth;
       const dentroY =
         y >= cluster.boxTop && y <= cluster.boxTop + cluster.boxHeight;
@@ -6966,12 +7001,12 @@ function TacticalPitch({
     return cerca ? cerca.key : null;
   };
 
-  const puntoEnElCampo = (evento: React.PointerEvent) => {
+  const puntoEnElCampo = (clientX: number, clientY: number) => {
     const caja = containerRef.current?.getBoundingClientRect();
 
     return {
-      x: evento.clientX - (caja?.left ?? 0),
-      y: evento.clientY - (caja?.top ?? 0),
+      x: clientX - (caja?.left ?? 0),
+      y: clientY - (caja?.top ?? 0),
     };
   };
 
@@ -6984,11 +7019,20 @@ function TacticalPitch({
     /* Sólo el botón principal: el derecho abre el menú del navegador. */
     if (evento.button !== 0) return;
 
-    const punto = puntoEnElCampo(evento);
+    const punto = puntoEnElCampo(evento.clientX, evento.clientY);
 
     seMovio.current = false;
 
-    evento.currentTarget.setPointerCapture?.(evento.pointerId);
+    /*
+    | Capturar el puntero es sólo una ayuda: si falla —y con algunos punteros
+    | sintéticos falla— el arrastre tiene que seguir funcionando, que para eso
+    | se escucha además en la ventana.
+    */
+    try {
+      evento.currentTarget.setPointerCapture?.(evento.pointerId);
+    } catch {
+      /* da igual */
+    }
 
     const dedo = evento.pointerType === "touch";
 
@@ -7016,56 +7060,104 @@ function TacticalPitch({
     }
   };
 
-  const sigueArrastre = (evento: React.PointerEvent) => {
-    if (!arrastre) return;
+  /*
+  | Mover y soltar se escuchan en la VENTANA, no en la ficha.
+  |
+  | Colgarlo de la ficha obliga a que el navegador capture el puntero, y eso
+  | no siempre sale: cuando la captura falla —o cuando se suelta el ratón
+  | fuera del campo, sobre el listado o sobre el menú— la ficha se quedaba
+  | pegada al cursor y el movimiento no se guardaba nunca. Desde la ventana se
+  | sigue el puntero vaya donde vaya y siempre llega el «suelta».
+  |
+  | Lo que necesitan los oyentes vive en un guardado que se pone al día en cada
+  | pintado: si fueran dependencias del efecto, habría que volver a suscribirse
+  | en cada píxel de movimiento.
+  */
+  const vivo = useRef({ arrastre, clusters, placed, naturales, onMover });
 
-    const punto = puntoEnElCampo(evento);
+  useEffect(() => {
+    vivo.current = { arrastre, clusters, placed, naturales, onMover };
+  });
 
-    const lejos =
-      Math.hypot(punto.x - arrastre.x0, punto.y - arrastre.y0) > ARRANQUE_PX;
+  const hayArrastre = arrastre !== null;
 
-    /* Con el dedo, moverse antes de tiempo es desplazar la página: se suelta
-       el agarre y que haga su gesto. */
-    if (!arrastre.activo) {
-      if (lejos) {
-        cancelaEspera();
+  useEffect(() => {
+    if (!hayArrastre) return;
 
-        setArrastre(null);
+    const mueve = (evento: PointerEvent) => {
+      const { arrastre: actual, clusters: bloques } = vivo.current;
+
+      if (!actual) return;
+
+      const punto = puntoEnElCampo(evento.clientX, evento.clientY);
+
+      const lejos =
+        Math.hypot(punto.x - actual.x0, punto.y - actual.y0) > ARRANQUE_PX;
+
+      /* Con el dedo, moverse antes de tiempo es desplazar la página: se
+         suelta el agarre y que haga su gesto. */
+      if (!actual.activo) {
+        if (lejos) {
+          cancelaEspera();
+
+          setArrastre(null);
+        }
+
+        return;
       }
 
-      return;
-    }
+      if (lejos) seMovio.current = true;
 
-    if (lejos) seMovio.current = true;
+      setArrastre({
+        ...actual,
+        x: punto.x,
+        y: punto.y,
+        sobre: seMovio.current ? bloqueBajo(punto.x, punto.y, bloques) : null,
+      });
+    };
 
-    setArrastre({
-      ...arrastre,
-      x: punto.x,
-      y: punto.y,
-      sobre: seMovio.current ? bloqueBajo(punto.x, punto.y) : null,
-    });
-  };
+    const suelta = () => {
+      cancelaEspera();
 
-  const sueltaArrastre = () => {
-    cancelaEspera();
+      const {
+        arrastre: actual,
+        placed: fichas,
+        naturales: suyos,
+        onMover: avisa,
+      } = vivo.current;
 
-    if (arrastre?.activo && seMovio.current && arrastre.sobre) {
-      const ficha = placed.find(
-        (uno) => uno.player.ID_JUGADOR === arrastre.id,
-      );
+      if (actual?.activo && seMovio.current && actual.sobre) {
+        const ficha = fichas.find((uno) => uno.player.ID_JUGADOR === actual.id);
 
-      if (ficha && arrastre.sobre !== arrastre.desde) {
-        const suyo = naturales.get(playerKey(ficha.player));
+        if (ficha && actual.sobre !== actual.desde) {
+          const suyo = suyos.get(playerKey(ficha.player));
 
-        onMover?.(
-          ficha.player,
-          arrastre.sobre === suyo ? null : arrastre.sobre,
-        );
+          avisa?.(ficha.player, actual.sobre === suyo ? null : actual.sobre);
+        }
       }
-    }
 
-    setArrastre(null);
-  };
+      setArrastre(null);
+    };
+
+    const cancela = () => {
+      cancelaEspera();
+
+      setArrastre(null);
+    };
+
+    window.addEventListener("pointermove", mueve);
+    window.addEventListener("pointerup", suelta);
+    window.addEventListener("pointercancel", cancela);
+
+    return () => {
+      window.removeEventListener("pointermove", mueve);
+      window.removeEventListener("pointerup", suelta);
+      window.removeEventListener("pointercancel", cancela);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps -- lo demás se lee
+       de `vivo`, que se pone al día en cada pintado; ponerlo aquí volvería a
+       suscribir los oyentes en cada píxel de movimiento. */
+  }, [hayArrastre]);
 
   useEffect(() => cancelaEspera, []);
 
@@ -7240,12 +7332,8 @@ function TacticalPitch({
             role="button"
             tabIndex={0}
             onPointerDown={(evento) => empiezaArrastre(evento, ficha)}
-            onPointerMove={sigueArrastre}
-            onPointerUp={sueltaArrastre}
-            onPointerCancel={() => {
-              cancelaEspera();
-              setArrastre(null);
-            }}
+            /* Ni la foto ni el nombre arrancan un arrastre del navegador. */
+            onDragStart={(evento) => evento.preventDefault()}
             onClick={() => {
               /* Soltar después de arrastrar no es un clic: abriría la ficha
                  del jugador encima del campo recién ordenado. */
@@ -7268,7 +7356,7 @@ function TacticalPitch({
             }${
               tags.length ? ` · ${tags.map((tag) => tag.label).join(", ")}` : ""
             }${onMover ? " · arrástralo a otro puesto" : ""}`}
-            className={`group absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center hover:z-30 ${
+            className={`group absolute flex -translate-x-1/2 -translate-y-1/2 select-none flex-col items-center hover:z-30 ${
               cogida
                 ? "z-40 scale-110 cursor-grabbing drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
                 : `z-10 transition duration-200 ${onMover ? "cursor-grab" : "cursor-pointer"}`
@@ -7280,9 +7368,9 @@ function TacticalPitch({
             style={{
               left: x,
               top: y,
-              /* Agarrado, el dedo manda sobre el desplazamiento de la página;
-                 el resto del tiempo la tablet desplaza como siempre. */
-              touchAction: arrastre?.id === player.ID_JUGADOR && arrastre.activo ? "none" : undefined,
+              /* Ver el comentario del arrastre: en tablet esto tiene que estar
+                 puesto ANTES de posar el dedo, no al empezar a mover. */
+              touchAction: onMover ? "none" : undefined,
             }}
           >
             {/* FOTO — el borde lleva el color de la línea */}
@@ -7319,6 +7407,9 @@ function TacticalPitch({
                     src={player.FOTO}
                     alt={name}
                     loading="lazy"
+                    /* Ver el comentario del arrastre: sin esto, el navegador
+                       se lleva el gesto para arrastrar la imagen. */
+                    draggable={false}
                     className="h-full w-full object-cover"
                   />
                 ) : (
