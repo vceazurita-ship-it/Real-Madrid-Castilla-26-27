@@ -59,6 +59,20 @@ export interface RivalOnceDoc {
    * 4-2-3-1 no se parece a lo que se va a ver el domingo.
    */
   dibujo?: string;
+  /**
+   * Dónde ha puesto a alguien una persona arrastrándolo por el campograma:
+   * clave del jugador → clave del bloque ("ei", "mcd", "dfci"…).
+   *
+   * La colocación automática acierta casi siempre, pero no lo sabe todo: la
+   * hoja envejece, las alineaciones del rival son pocas en septiembre y hay
+   * gente que juega de dos cosas. Arrastrarlo es más rápido que discutirlo, y
+   * lo que se pone a mano manda sobre todo lo demás y se queda puesto de una
+   * semana para otra, como el dibujo.
+   *
+   * Las claves de bloque son las del dibujo elegido; si se cambia de dibujo y
+   * el bloque no existe allí, ese jugador vuelve a colocarse solo.
+   */
+  puestos?: Record<string, string>;
 }
 
 export const ONCE_VACIO: RivalOnceDoc = {
@@ -66,6 +80,7 @@ export const ONCE_VACIO: RivalOnceDoc = {
   dudas: [],
   enCampo: [],
   campo: {},
+  puestos: {},
 };
 
 export const RIVAL_ONCE_KIND = "rival-once";
@@ -152,7 +167,19 @@ export function normalizarOnce(data: unknown): RivalOnceDoc {
       ? bruto.dibujo.trim()
       : undefined;
 
-  return { titulares, dudas, enCampo, campo, dibujo };
+  /* Sitios puestos a mano: texto contra texto y nada más. Un bloque que no
+     esté en el dibujo elegido ya lo ignora el motor. */
+  const puestos: Record<string, string> = {};
+
+  Object.entries((bruto.puestos ?? {}) as Record<string, unknown>).forEach(
+    ([clave, bloque]) => {
+      if (typeof bloque === "string" && bloque.trim()) {
+        puestos[clave] = bloque.trim();
+      }
+    }
+  );
+
+  return { titulares, dudas, enCampo, campo, dibujo, puestos };
 }
 
 export function estadoDe(doc: RivalOnceDoc, key: string): OnceEstado {
@@ -288,6 +315,30 @@ export function conSustitucion(
 /** Cambia el dibujo con el que se reparte la plantilla en el campograma. */
 export function conDibujo(doc: RivalOnceDoc, dibujo: string): RivalOnceDoc {
   return { ...doc, dibujo };
+}
+
+/**
+ * Pone a alguien en un bloque del campograma, o lo devuelve a su sitio.
+ *
+ * Con `bloque` a `null` se borra la marca y ese jugador vuelve a colocarse
+ * solo, que es lo que hace falta para deshacer un arrastre.
+ */
+export function conPuesto(
+  doc: RivalOnceDoc,
+  clave: string,
+  bloque: string | null,
+): RivalOnceDoc {
+  const puestos = { ...(doc.puestos ?? {}) };
+
+  if (bloque) puestos[clave] = bloque;
+  else delete puestos[clave];
+
+  return { ...doc, puestos };
+}
+
+/** Quita todas las colocaciones a mano: la plantilla se reparte sola. */
+export function sinPuestos(doc: RivalOnceDoc): RivalOnceDoc {
+  return { ...doc, puestos: {} };
 }
 
 /** Devuelve el campo a la colocación automática, sin tocar quién está. */

@@ -23,12 +23,14 @@ import {
   conOnce,
   conDibujo,
   conPosicion,
+  conPuesto,
   conSustitucion,
   estadoDe,
   normalizarOnce,
   rivalOnceKey,
   siguienteEstado,
   sinPosiciones,
+  sinPuestos,
   type OnceEstado,
   type OncePos,
   type RivalOnceDoc,
@@ -129,6 +131,19 @@ export function useRivalOnce(equipo: string) {
     [setValue]
   );
 
+  /* Dónde se ha dejado a alguien arrastrándolo por el campograma. */
+  const ponPuesto = useCallback(
+    (clave: string, bloque: string | null) => {
+      setValue((actual) => conPuesto(normalizarOnce(actual), clave, bloque));
+    },
+    [setValue]
+  );
+
+  /* Todos vuelven a colocarse solos. */
+  const quitaPuestos = useCallback(() => {
+    setValue((actual) => sinPuestos(normalizarOnce(actual)));
+  }, [setValue]);
+
   const limpiar = useCallback(() => setValue(ONCE_VACIO), [setValue]);
 
   return {
@@ -143,6 +158,8 @@ export function useRivalOnce(equipo: string) {
     proponer,
     recolocar,
     ponDibujo,
+    ponPuesto,
+    quitaPuestos,
     limpiar,
     status,
     localOnly,

@@ -485,11 +485,16 @@ function candidatos(
  * Los que sólo caben en un sitio se colocan primero y el resto se reparte
  * después al bloque que menos gente tenga, para que los dos centrales —o los
  * tres— queden parejos en vez de amontonarse todos a la izquierda.
+ *
+ * `fijado` es la última palabra: devuelve la clave del bloque donde alguien
+ * tiene que ir porque lo ha puesto una persona arrastrándolo por el campo. Ni
+ * la hoja ni lo que lleva jugado le ganan a eso; para lo demás, se ignora.
  */
 export function reparteEnOnce<T>(
   jugadores: T[],
   lee: (jugador: T) => { slot: string; lado: number },
   bloques: BloqueOnce[] = ONCE_1_4_2_3_1,
+  fijado?: (jugador: T) => string | null | undefined,
 ): Map<string, T[]> {
   const reparto = new Map<string, T[]>();
 
@@ -503,6 +508,16 @@ export function reparteEnOnce<T>(
   const dudosos: { jugador: T; donde: BloqueOnce[] }[] = [];
 
   for (const jugador of jugadores) {
+    /* Puesto a mano: derecho al bloque que se pidió, si el dibujo lo tiene.
+       Si se cambia de dibujo y ese bloque ya no existe, se coloca solo. */
+    const aMano = fijado?.(jugador);
+
+    if (aMano && bloques.some((bloque) => bloque.key === aMano)) {
+      mete(aMano, jugador);
+
+      continue;
+    }
+
     const { slot, lado } = lee(jugador);
     const donde = candidatos(bloques, slot, lado);
 

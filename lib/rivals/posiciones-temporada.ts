@@ -149,33 +149,62 @@ function papelDelSlot(slot: string): Papel | null {
   return "ataque";
 }
 
-/** ¿El puesto que le pone la hoja es de los que juegan pegados a la banda? */
-function deBanda(slot: string) {
+/**
+ * De qué clase de hombre de banda habla la hoja: ninguno, lateral o extremo.
+ *
+ * Los dos juegan pegados a la línea y **no son lo mismo**, y confundirlos era
+ * un fallo de verdad: un extremo que sale en la línea de medios de un 4-4-2 o
+ * de un 4-5-1 —que es donde salen los extremos en esos dibujos— se leía como
+ * «hombre de banda en el medio», o sea carrilero, y el carrilero es de la
+ * familia del lateral. Resultado: los extremos del rival aparecían dibujados
+ * con los laterales. Visto en el Sant Andreu con A. García y Bermejo, y le
+ * pasaba a todo equipo que saque cuatro o cinco en el medio.
+ */
+function bandaDeLaHoja(slot: string): "lateral" | "extremo" | null {
   const familia = familiaDeSlot(slot);
 
-  return familia === "lateral" || familia === "extremo";
+  if (familia === "lateral") return "lateral";
+  if (familia === "extremo") return "extremo";
+
+  return null;
 }
 
 /**
  * El puesto que le toca a alguien en una línea, respetando lo que ya se sabe.
  *
- * El lado y el ser de banda vienen de la hoja —lo único que dice de qué lado
- * juega—, y la línea, de lo que lleva jugando.
+ * El lado y la clase de hombre de banda vienen de la hoja —lo único que dice
+ * de qué lado juega y si es lateral o extremo—, y la línea, de lo que lleva
+ * jugando.
  */
-function puestoEn(papel: Papel, banda: boolean, lado: -1 | 0 | 1): string {
+function puestoEn(
+  papel: Papel,
+  banda: "lateral" | "extremo" | null,
+  lado: -1 | 0 | 1,
+): string {
+  const porFuera = lado > 0 ? "ed" : "ei";
+
   if (papel === "por") return "por";
 
+  /*
+  | En la línea de atrás, cualquier hombre de banda es un lateral: un extremo
+  | que sale ahí está jugando de carrilero, y eso sí es un cambio de puesto de
+  | verdad. En el 3-5-2 y el 5-3-2 el motor lo dibuja de carrilero.
+  */
   if (papel === "defensa") return banda ? (lado > 0 ? "ld" : "li") : "dfc";
 
-  /* Un hombre de banda en el medio es un carrilero: el motor lo lee como
-     lateral, que es lo que es en un 3-5-2. */
-  if (papel === "pivote") return banda ? "car" : "mcd";
+  /* En el medio, cada uno sigue siendo lo que es: el lateral sube a carrilero
+     y el extremo se queda de extremo, sólo que más atrás. */
+  if (papel === "pivote") {
+    return banda === "lateral" ? "car" : banda === "extremo" ? porFuera : "mcd";
+  }
 
-  if (papel === "interior") return banda ? "car" : "int";
+  if (papel === "interior") {
+    return banda === "lateral" ? "car" : banda === "extremo" ? porFuera : "int";
+  }
 
-  if (papel === "mediapunta") return banda ? (lado > 0 ? "ed" : "ei") : "mp";
+  if (papel === "mediapunta") return banda ? porFuera : "mp";
 
-  return banda ? (lado > 0 ? "ed" : "ei") : "dc";
+  return banda ? porFuera : "dc";
 }
 
 /**
@@ -392,7 +421,7 @@ export function leePosicionesDeLaTemporada(
     }
 
     porJugador.set(clave, {
-      slot: puestoEn(papel, deBanda(slotHoja), ladoHoja),
+      slot: puestoEn(papel, bandaDeLaHoja(slotHoja), ladoHoja),
       lado: ladoHoja,
       partidos: dato.veces,
       cambiado: true,

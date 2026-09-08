@@ -1100,6 +1100,32 @@ export default function RivalPlayersPage() {
     [once, pitchTeam],
   );
 
+  /*
+  | Arrastrar a alguien a otro puesto del campograma.
+  |
+  | Se guarda con el once —es lo mismo: análisis de este rival que hay que
+  | recordar de una semana para otra— y manda sobre la hoja y sobre lo que se
+  | lee de sus alineaciones. Con `bloque` a `null` se quita la marca, que es
+  | lo que pasa al soltarlo donde ya iba solo.
+  */
+  const mueveDePuesto = useCallback(
+    (player: RivalPlayer, bloque: string | null) => {
+      if (player.NOMBRE_EQUIPO !== pitchTeam) return;
+
+      once.ponPuesto(playerKey(player), bloque);
+    },
+    [once, pitchTeam],
+  );
+
+  /* Cuántos hay puestos a mano, contando sólo a los que siguen en la hoja. */
+  const puestosAMano = useMemo(() => {
+    const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
+
+    return Object.keys(once.doc.puestos ?? {}).filter((clave) =>
+      claves.has(clave),
+    ).length;
+  }, [once.doc.puestos, pitchPlayers]);
+
   const onceResumen = useMemo(() => {
     const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
 
@@ -3442,6 +3468,33 @@ export default function RivalPlayersPage() {
                             </label>
                           )}
 
+                          {/*
+                            PUESTOS A MANO — sólo aparece si hay alguno.
+
+                            Que alguien esté colocado a mano no se puede
+                            adivinar mirando el campo: la ficha se ve igual.
+                            Y hay que poder deshacerlo sin acordarse de a
+                            quién se movió, porque la colocación automática se
+                            pone al día sola cada jornada y la mano no.
+                          */}
+                          {puestosAMano > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={once.quitaPuestos}
+                              title={`${puestosAMano} jugador${
+                                puestosAMano === 1 ? "" : "es"
+                              } colocado${
+                                puestosAMano === 1 ? "" : "s"
+                              } a mano. Pulsa para que vuelvan a colocarse solos.`}
+                              className="flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 font-semibold text-white/70 transition hover:border-white/30 hover:text-white sm:px-2 sm:py-0.5"
+                            >
+                              <Hand size={11} />
+                              {puestosAMano}
+                              <RotateCcw size={10} className="opacity-60" />
+                            </button>
+                          )}
+
                           {/* ONCE PROBABLE — cuántos hay puestos y cuántas dudas */}
 
                           <span
@@ -3634,7 +3687,11 @@ export default function RivalPlayersPage() {
                             </button>
                           )}
 
-                          <span>{pitchPlayers.length} jugadores</span>
+                          <span
+                            title="Arrastra a un jugador de un puesto a otro si el campo no lo pone donde juega. Se queda guardado con este rival."
+                          >
+                            {pitchPlayers.length} jugadores
+                          </span>
                         </div>
                       </div>
 
@@ -3648,6 +3705,8 @@ export default function RivalPlayersPage() {
                         onPlayerClick={openPlayer}
                         dibujo={dibujoDelEquipo}
                         sitios={lecturaTemporada.porJugador}
+                        puestos={once.doc.puestos}
+                        onMover={mueveDePuesto}
                       />
                     </div>
                   </div>
@@ -6357,6 +6416,8 @@ type PlacedPlayer = {
   x: number;
   y: number;
   color: string;
+  /** En qué bloque del dibujo ha caído: hace falta para arrastrarlo a otro. */
+  bloque: string;
   /**
    * El bloque reserva fila de chapas. Se pinta aunque este jugador no lleve
    * ninguna: si unas fichas la tienen y otras no, cada una se centra con una
@@ -6385,6 +6446,14 @@ type PlacedCluster = {
 };
 
 type PitchLayout = {
+  /**
+   * En qué bloque caería cada jugador si nadie lo hubiera puesto a mano.
+   *
+   * Sirve para deshacer: soltar a alguien justo donde ya iba solo no deja una
+   * marca guardada para siempre, la quita. Si no, cambiar de dibujo o traer
+   * una jornada nueva no movería nunca a quien alguna vez se arrastró.
+   */
+  naturales: Map<string, string>;
   placed: PlacedPlayer[];
   clusters: PlacedCluster[];
   avatar: number;
@@ -6392,6 +6461,7 @@ type PitchLayout = {
 };
 
 const EMPTY_LAYOUT: PitchLayout = {
+  naturales: new Map(),
   placed: [],
   clusters: [],
   avatar: 0,
@@ -6431,6 +6501,12 @@ function layoutPitch(
   | hoja, que es mejor que nada.
   */
   sitios: Map<string, { slot: string; lado: -1 | 0 | 1 }> = new Map(),
+  /*
+  | Dónde ha dejado a alguien una persona arrastrándolo por el campo: clave del
+  | jugador → clave del bloque. Gana a todo lo demás, que para eso lo ha puesto
+  | alguien mirando el partido.
+  */
+  puestos: Record<string, string> = {},
 ): PitchLayout {
   if (players.length === 0 || width < 120 || height < 200) return EMPTY_LAYOUT;
 
@@ -6465,7 +6541,20 @@ function layoutPitch(
     };
   };
 
-  const porBloque = reparteEnOnce(players, sitioDe, dibujo);
+  const porBloque = reparteEnOnce(
+    players,
+    sitioDe,
+    dibujo,
+    (player) => puestos[playerKey(player)],
+  );
+
+  /* El mismo reparto sin lo puesto a mano: es lo que hace falta para saber si
+     soltar a alguien en un bloque es fijarlo o devolverlo a su sitio. */
+  const naturales = new Map<string, string>();
+
+  reparteEnOnce(players, sitioDe, dibujo).forEach((gente, clave) => {
+    gente.forEach((player) => naturales.set(playerKey(player), clave));
+  });
 
   const entradas: BloqueEntrada<RivalPlayer>[] = [];
 
@@ -6619,6 +6708,7 @@ function layoutPitch(
       placed.push({
         player: ficha.item,
         color,
+        bloque: bloque.key,
         tagRow: ficha.etiquetado,
         x: ficha.x,
         y: ficha.y,
@@ -6640,6 +6730,7 @@ function layoutPitch(
   });
 
   return {
+    naturales,
     placed,
     clusters,
     avatar: reparto.tamano,
@@ -6680,6 +6771,8 @@ function TacticalPitch({
   onPlayerClick,
   dibujo,
   sitios,
+  puestos,
+  onMover,
 }: {
   players: RivalPlayer[];
   selectedId?: string;
@@ -6688,6 +6781,15 @@ function TacticalPitch({
   dibujo?: string;
   /** Dónde juega cada uno esta temporada, por clave de jugador. */
   sitios?: Map<string, { slot: string; lado: -1 | 0 | 1 }>;
+  /** Sitios puestos a mano: clave del jugador → clave del bloque. */
+  puestos?: Record<string, string>;
+  /**
+   * Se ha soltado a alguien en otro puesto. Sin esto no se puede arrastrar.
+   *
+   * `null` significa «devuélvelo a donde iba solo»: es lo que pasa al soltarlo
+   * en el bloque que le tocaba sin tocar nada.
+   */
+  onMover?: (player: RivalPlayer, bloque: string | null) => void;
   /** Marca de cada jugador en el once probable. */
   onceEstado?: (player: RivalPlayer) => OnceEstado;
   onCiclarOnce?: (player: RivalPlayer) => (() => void) | undefined;
@@ -6746,7 +6848,7 @@ function TacticalPitch({
 
   const bloques = useMemo(() => dibujoDeCampo(dibujo), [dibujo]);
 
-  const { placed, clusters, avatar, stepX } = useMemo(
+  const { naturales, placed, clusters, avatar, stepX } = useMemo(
     () =>
       layoutPitch(
         players,
@@ -6756,8 +6858,18 @@ function TacticalPitch({
         horizontal,
         bloques,
         sitios,
+        puestos,
       ),
-    [players, size.width, size.height, compact, horizontal, bloques, sitios],
+    [
+      players,
+      size.width,
+      size.height,
+      compact,
+      horizontal,
+      bloques,
+      sitios,
+      puestos,
+    ],
   );
 
   /* Las mismas medidas con las que el motor ha reservado el sitio. */
@@ -6772,6 +6884,190 @@ function TacticalPitch({
   const nameWidth = stepX - 4;
 
   const maxBadges = avatar < 34 ? 2 : avatar < 48 ? 3 : 4;
+
+  /*
+  |--------------------------------------------------------------------------
+  | ARRASTRAR A OTRO PUESTO
+  |--------------------------------------------------------------------------
+  |
+  | La colocación automática acierta casi siempre, pero no lo sabe todo: la
+  | hoja envejece, en septiembre hay dos alineaciones de las que tirar y hay
+  | gente que juega de dos cosas. Discutirlo era abrir la hoja y cambiar la
+  | columna POSICIÓN —que además se usa en otros sitios—; ahora se coge al
+  | jugador y se suelta en el puesto donde va a jugar el domingo.
+  |
+  | Se suelta sobre un BLOQUE, no en un punto cualquiera del césped: el
+  | campograma no es un dibujo libre, es un reparto por puestos que luego el
+  | motor coloca para que quepan todos. Soltar en «MC» lo mete con los medios y
+  | el motor recoloca esa columna sola.
+  |
+  | Con el ratón basta con arrastrar; con el dedo hay que mantener pulsado un
+  | momento antes, porque en una tablet el mismo gesto sirve para desplazar la
+  | página y quitarle eso al dedo es peor que ganar el arrastre.
+  */
+  const ARRANQUE_PX = 6;
+  const ESPERA_DEDO_MS = 280;
+
+  const [arrastre, setArrastre] = useState<{
+    id: string;
+    /** Dónde está el dedo o el ratón, en píxeles del campo. */
+    x: number;
+    y: number;
+    /** Dónde se posó, para saber si se ha movido de verdad. */
+    x0: number;
+    y0: number;
+    /** Distancia entre el punto agarrado y el centro de la ficha. */
+    dx: number;
+    dy: number;
+    /** Bloque de partida y bloque sobre el que se está soltando. */
+    desde: string;
+    sobre: string | null;
+    /** Ya se mueve de verdad: con el dedo, sólo después de la espera. */
+    activo: boolean;
+  } | null>(null);
+
+  /* Para que soltar no cuente además como un clic en la ficha. */
+  const seMovio = useRef(false);
+
+  const esperaDedo = useRef<number | null>(null);
+
+  const cancelaEspera = () => {
+    if (esperaDedo.current !== null) {
+      window.clearTimeout(esperaDedo.current);
+
+      esperaDedo.current = null;
+    }
+  };
+
+  /* Sobre qué bloque está el puntero: el que lo contiene y, si ninguno, el
+     más cercano dentro de un palmo. Así no hace falta afinar. */
+  const bloqueBajo = (x: number, y: number) => {
+    let cerca: { key: string; distancia: number } | null = null;
+
+    for (const cluster of clusters) {
+      const dentroX = x >= cluster.boxX && x <= cluster.boxX + cluster.boxWidth;
+      const dentroY =
+        y >= cluster.boxTop && y <= cluster.boxTop + cluster.boxHeight;
+
+      if (dentroX && dentroY) return cluster.key;
+
+      const cx = cluster.boxX + cluster.boxWidth / 2;
+      const cy = cluster.boxTop + cluster.boxHeight / 2;
+
+      const distancia = Math.hypot(x - cx, y - cy);
+
+      if (!cerca || distancia < cerca.distancia) cerca = { key: cluster.key, distancia };
+    }
+
+    /* Sin radio máximo a propósito: soltar en un hueco entre dos bloques
+       —o en una esquina vacía del césped— colocaba al jugador en ninguna parte
+       y el arrastre se deshacía sin decir por qué. El bloque más cercano es
+       siempre lo que se está señalando. */
+    return cerca ? cerca.key : null;
+  };
+
+  const puntoEnElCampo = (evento: React.PointerEvent) => {
+    const caja = containerRef.current?.getBoundingClientRect();
+
+    return {
+      x: evento.clientX - (caja?.left ?? 0),
+      y: evento.clientY - (caja?.top ?? 0),
+    };
+  };
+
+  const empiezaArrastre = (
+    evento: React.PointerEvent,
+    ficha: PlacedPlayer,
+  ) => {
+    if (!onMover) return;
+
+    /* Sólo el botón principal: el derecho abre el menú del navegador. */
+    if (evento.button !== 0) return;
+
+    const punto = puntoEnElCampo(evento);
+
+    seMovio.current = false;
+
+    evento.currentTarget.setPointerCapture?.(evento.pointerId);
+
+    const dedo = evento.pointerType === "touch";
+
+    setArrastre({
+      id: ficha.player.ID_JUGADOR,
+      x: punto.x,
+      y: punto.y,
+      x0: punto.x,
+      y0: punto.y,
+      dx: punto.x - ficha.x,
+      dy: punto.y - ficha.y,
+      desde: ficha.bloque,
+      sobre: null,
+      activo: !dedo,
+    });
+
+    if (dedo) {
+      cancelaEspera();
+
+      esperaDedo.current = window.setTimeout(() => {
+        esperaDedo.current = null;
+
+        setArrastre((actual) => (actual ? { ...actual, activo: true } : actual));
+      }, ESPERA_DEDO_MS);
+    }
+  };
+
+  const sigueArrastre = (evento: React.PointerEvent) => {
+    if (!arrastre) return;
+
+    const punto = puntoEnElCampo(evento);
+
+    const lejos =
+      Math.hypot(punto.x - arrastre.x0, punto.y - arrastre.y0) > ARRANQUE_PX;
+
+    /* Con el dedo, moverse antes de tiempo es desplazar la página: se suelta
+       el agarre y que haga su gesto. */
+    if (!arrastre.activo) {
+      if (lejos) {
+        cancelaEspera();
+
+        setArrastre(null);
+      }
+
+      return;
+    }
+
+    if (lejos) seMovio.current = true;
+
+    setArrastre({
+      ...arrastre,
+      x: punto.x,
+      y: punto.y,
+      sobre: seMovio.current ? bloqueBajo(punto.x, punto.y) : null,
+    });
+  };
+
+  const sueltaArrastre = () => {
+    cancelaEspera();
+
+    if (arrastre?.activo && seMovio.current && arrastre.sobre) {
+      const ficha = placed.find(
+        (uno) => uno.player.ID_JUGADOR === arrastre.id,
+      );
+
+      if (ficha && arrastre.sobre !== arrastre.desde) {
+        const suyo = naturales.get(playerKey(ficha.player));
+
+        onMover?.(
+          ficha.player,
+          arrastre.sobre === suyo ? null : arrastre.sobre,
+        );
+      }
+    }
+
+    setArrastre(null);
+  };
+
+  useEffect(() => cancelaEspera, []);
 
   return (
     <div
@@ -6857,6 +7153,24 @@ function TacticalPitch({
 
       {/* CHAPA DE POSICIÓN — una por bloque, encima de su gente */}
 
+      {/*
+      | Dónde va a caer lo que se arrastra. Se pinta la caja entera del bloque
+      | y no una línea: el bloque puede tener tres fichas en dos columnas y hay
+      | que ver que se entra AHÍ, no entre dos.
+      */}
+      {arrastre?.activo && arrastre.sobre && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute z-20 rounded-xl border-2 border-dashed border-[#C8A96B] bg-[#C8A96B]/10"
+          style={{
+            left: (clusters.find((uno) => uno.key === arrastre.sobre)?.boxX ?? 0) - 6,
+            top: (clusters.find((uno) => uno.key === arrastre.sobre)?.boxTop ?? 0) - 6,
+            width: (clusters.find((uno) => uno.key === arrastre.sobre)?.boxWidth ?? 0) + 12,
+            height: (clusters.find((uno) => uno.key === arrastre.sobre)?.boxHeight ?? 0) + 12,
+          }}
+        />
+      )}
+
       {clusters.map((cluster) => (
         <span
           key={cluster.key}
@@ -6881,7 +7195,14 @@ function TacticalPitch({
 
       {/* JUGADORES */}
 
-      {placed.map(({ player, x, y, color, tagRow }) => {
+      {placed.map((ficha) => {
+        const { player, color, tagRow } = ficha;
+
+        /* Mientras se arrastra, la ficha va donde va el puntero. */
+        const cogida = arrastre?.activo && arrastre.id === player.ID_JUGADOR;
+
+        const x = cogida ? arrastre.x - arrastre.dx : ficha.x;
+        const y = cogida ? arrastre.y - arrastre.dy : ficha.y;
         const selected = selectedId === player.ID_JUGADOR;
 
         const { tags } = parseTags(player.IMPACTO);
@@ -6918,7 +7239,24 @@ function TacticalPitch({
             key={player.ID_JUGADOR}
             role="button"
             tabIndex={0}
-            onClick={() => onPlayerClick(player)}
+            onPointerDown={(evento) => empiezaArrastre(evento, ficha)}
+            onPointerMove={sigueArrastre}
+            onPointerUp={sueltaArrastre}
+            onPointerCancel={() => {
+              cancelaEspera();
+              setArrastre(null);
+            }}
+            onClick={() => {
+              /* Soltar después de arrastrar no es un clic: abriría la ficha
+                 del jugador encima del campo recién ordenado. */
+              if (seMovio.current) {
+                seMovio.current = false;
+
+                return;
+              }
+
+              onPlayerClick(player);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -6929,13 +7267,23 @@ function TacticalPitch({
               enElOnce ? ` · ${ONCE_ETIQUETA[enElOnce]}` : ""
             }${
               tags.length ? ` · ${tags.map((tag) => tag.label).join(", ")}` : ""
-            }`}
-            className={`group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center transition duration-200 hover:z-30 ${
+            }${onMover ? " · arrástralo a otro puesto" : ""}`}
+            className={`group absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center hover:z-30 ${
+              cogida
+                ? "z-40 scale-110 cursor-grabbing drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
+                : `z-10 transition duration-200 ${onMover ? "cursor-grab" : "cursor-pointer"}`
+            } ${
               matchesFilter
-                ? "opacity-100 hover:scale-110"
+                ? `opacity-100 ${cogida ? "" : "hover:scale-110"}`
                 : "opacity-20 grayscale hover:opacity-70"
             }`}
-            style={{ left: x, top: y }}
+            style={{
+              left: x,
+              top: y,
+              /* Agarrado, el dedo manda sobre el desplazamiento de la página;
+                 el resto del tiempo la tablet desplaza como siempre. */
+              touchAction: arrastre?.id === player.ID_JUGADOR && arrastre.activo ? "none" : undefined,
+            }}
           >
             {/* FOTO — el borde lleva el color de la línea */}
 
@@ -7170,8 +7518,10 @@ function TacticalPitch({
             <span
               className={`pointer-events-none absolute left-1/2 z-40 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl backdrop-blur transition group-hover:opacity-100 ${
                 /* En móvil no hay ratón: el detalle sólo aparecía recortado
-                   por el borde del campo al tocar la ficha. */
-                compact ? "hidden" : ""
+                   por el borde del campo al tocar la ficha. Y con la ficha en
+                   la mano tampoco: el cuadro seguía al puntero tapando medio
+                   campo justo cuando hay que ver dónde se suelta. */
+                compact || arrastre?.activo ? "hidden" : ""
               } ${
                 y > size.height / 2 ? "bottom-full mb-2" : "top-full mt-2"
               }`}
