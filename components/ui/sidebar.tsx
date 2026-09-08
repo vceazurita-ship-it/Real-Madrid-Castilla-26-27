@@ -104,9 +104,9 @@ const navLink = (
  * Entrada apagada: el módulo sigue existiendo pero todavía está en obras.
  *
  * Se deja a la vista para que no parezca que ha desaparecido, pero no es un
- * enlace: ni se puede pinchar ni se tabula hasta él. Con el menú desplegado
- * lleva la etiqueta «En obras» y, plegado, sólo el icono en gris; el `title`
- * cuenta el motivo en los dos casos.
+ * enlace: ni se puede pinchar ni se tabula hasta él. Todas viven en el bloque
+ * «En obras» del final del menú, así que la fila no repite el rótulo: le basta
+ * con el gris y el tachado. El `title` cuenta el motivo, también plegado.
  */
 const disabledClass =
   "flex cursor-not-allowed select-none items-center gap-3 rounded-2xl px-4 py-3 text-gray-500 opacity-60"
@@ -129,14 +129,8 @@ const disabledLink = (
       <>
         {icon}
 
-        <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <span className="truncate line-through decoration-gray-600">
-            {label}
-          </span>
-
-          <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-500">
-            En obras
-          </span>
+        <span className="min-w-0 flex-1 truncate line-through decoration-gray-600">
+          {label}
         </span>
       </>
     )}
@@ -322,11 +316,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Dashboard Seguimiento",
                 <BarChart3 size={18} />,
               )}
-
-              {/* En obras: bajan al final de Metodología hasta que se retomen. */}
-              {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}
-
-              {disabledLink("Jugadores Sesión", <UserCheck size={18} />)}
             </>,
           )}
 
@@ -359,9 +348,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/ratings", "Valoraciones", <Star size={18} />)}
 
               {navLink("/comparative_ind", "Comparativo U-21", <Scale size={18} />)}
-
-              {/* En obras: baja al final de Individual hasta que se retome. */}
-              {disabledLink("Dashboard", <Gauge size={18} />)}
             </>,
           )}
 
@@ -395,9 +381,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Histórico Competición",
                 <History size={18} />,
               )}
-
-              {/* En obras: baja al final de Competición hasta que se retome. */}
-              {disabledLink("Pizarra Competición", <Presentation size={18} />)}
             </>,
           )}
 
@@ -459,6 +442,28 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/desplazamiento", "Desplazamiento", <Bus size={18} />)}
 
               {navLink("/general", "Repositorio", <Database size={18} />)}
+            </>,
+          )}
+
+          {/*
+            EN OBRAS
+
+            Las cuatro secciones a medias estaban repartidas por el menú, cada
+            una al final de su bloque, y en el camino hacia lo que sí funciona
+            había que pasar por encima de ellas. Juntas y al final se siguen
+            viendo —no han desaparecido, y el día que se retomen vuelven a su
+            sitio— pero ya no se cruzan con el trabajo de la semana.
+          */}
+          {seccion(
+            "En obras",
+            <>
+              {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}
+
+              {disabledLink("Jugadores Sesión", <UserCheck size={18} />)}
+
+              {disabledLink("Pizarra Competición", <Presentation size={18} />)}
+
+              {disabledLink("Dashboard Individual", <Gauge size={18} />)}
             </>,
           )}
         </nav>
