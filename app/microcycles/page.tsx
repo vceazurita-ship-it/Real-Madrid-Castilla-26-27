@@ -205,9 +205,17 @@ const TICK_CHAR_WIDTH = 6.15;
 const TICK_LINE_HEIGHT = 13;
 
 function wrapLabel(label: string, maxChars: number, maxLines: number) {
+  /*
+  | Se parte por los espacios: `\s`, con su barra.
+  |
+  | Sin ella la expresión partía por la letra «s» y se la comía, así que en
+  | todos los gráficos de esta pantalla se leía «Tran ición ofen iva» en vez de
+  | «Transición ofensiva». Es una barra invertida que se perdió al escribir el
+  | fichero desde la consola.
+  */
   const words = String(label ?? "")
     .trim()
-    .split(/s+/)
+    .split(/\s+/)
     .filter(Boolean);
 
   if (!words.length) return [""];
@@ -229,11 +237,22 @@ function wrapLabel(label: string, maxChars: number, maxLines: number) {
 
   lines.push(current);
 
-  /* Una palabra suelta más larga que la línea se parte por la fuerza. */
+  /*
+  | Una palabra suelta más larga que la línea se parte por la fuerza.
+  |
+  | Con un par de caracteres de más se deja entera: partir «Finalización» en
+  | «Finalizació» y una «n» sola debajo se lee mucho peor que dejarla asomar
+  | dos píxeles, y los nombres de contenido de la hoja rondan justo esa
+  | medida. El sobrante cabe: el ancho del eje se calcula con
+  | `TICK_CHAR_WIDTH`, que es el ancho MEDIO de un carácter, y una palabra
+  | larga suele traer letras estrechas.
+  */
+  const HOLGURA = 2;
+
   const split: string[] = [];
 
   for (const line of lines) {
-    if (line.length <= maxChars) {
+    if (line.length <= maxChars + HOLGURA) {
       split.push(line);
       continue;
     }
