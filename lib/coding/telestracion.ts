@@ -109,6 +109,15 @@ export type DibujoTel = {
 export type EscenaTel = {
   id: string;
   nombre: string;
+  /**
+   * Sobre qué vídeo de la sesión se pintó, por su nombre.
+   *
+   * Lo mismo que en un clip: `tMs` es un instante DENTRO de un vídeo, así que
+   * con dos partes abiertas una pizarra del minuto 12 de la primera aparecía
+   * también en el minuto 12 de la segunda. Las pintadas antes de que una
+   * sesión pudiera tener varios vídeos no lo llevan: son del primero.
+   */
+  video?: string;
   tMs: number;
   duracionMs: number;
   /** El clip que acompaña, cuando la pizarra se creó desde uno. */
@@ -428,6 +437,7 @@ export function normalizaEscenas(crudo: unknown): EscenaTel[] {
       return {
         id: texto(dato.id) || `esc-${indice}`,
         nombre: texto(dato.nombre),
+        video: texto(dato.video) || undefined,
         tMs: Math.max(0, numero(dato.tMs, 0)),
         duracionMs: Math.max(500, numero(dato.duracionMs, DURACION_ESCENA_MS)),
         clipId: dato.clipId,

@@ -138,6 +138,18 @@ export type ClipCoding = {
   /** `revisar` lo marca el analista cuando quiere volver sobre el clip. */
   estado: "ok" | "revisar";
   creadoEn: string;
+  /**
+   * Sobre qué vídeo de la sesión se marcó, por su nombre.
+   *
+   * Un partido llega muchas veces partido en dos o tres ficheros —cada parte
+   * por su lado, o la cámara táctica aparte—, y los minutos de un clip sólo
+   * significan algo dentro de SU vídeo. Sin esto, cambiar de fichero mezclaba
+   * cortes de dos vídeos en la misma línea de tiempo.
+   *
+   * Los clips guardados antes de que esto existiera no lo llevan: son del
+   * primer vídeo de la sesión, que era el único que había.
+   */
+  video?: string;
 };
 
 export type SesionCoding = {
@@ -145,7 +157,20 @@ export type SesionCoding = {
   /** Identificador del partido, o del rival cuando se analiza a un rival. */
   refId: string;
   titulo: string;
+  /** El vídeo que se está mirando ahora mismo. Es uno de `videos`. */
   fuente: FuenteVideo | null;
+  /**
+   * Todos los vídeos cargados en la sesión.
+   *
+   * Se pueden abrir varios de una vez —las dos partes de un partido, la
+   * cámara táctica y la de banda— y se pasa de uno a otro sin perder lo
+   * codificado en los demás: cada clip se queda con el suyo (`ClipCoding.video`).
+   *
+   * Las sesiones de antes no lo traen: se rellena al leer con la fuente que
+   * tuvieran, así que un partido de una sola cámara se comporta igual que
+   * siempre.
+   */
+  videos: FuenteVideo[];
   /** Fotogramas por segundo, para que las flechas avancen un fotograma justo. */
   fps: number;
   preRollMs: number;
@@ -304,6 +329,7 @@ export function sesionVacia(
     refId,
     titulo,
     fuente: null,
+    videos: [],
     fps: config.fps,
     preRollMs: config.preRollMs,
     postRollMs: config.postRollMs,
@@ -698,6 +724,15 @@ export function normalizaSesion(
 
   const clips = Array.isArray(dato.clips) ? dato.clips : [];
 
+  /*
+  | Los vídeos de la sesión, saneados.
+  |
+  | Una sesión de antes sólo trae `fuente`: ésa es su lista. Y la fuente
+  | activa entra siempre en la lista aunque el documento venga a medias, que
+  | es lo que garantiza que lo que se está viendo se pueda elegir.
+  */
+  const videos = normalizaVideos(dato.videos, dato.fuente ?? null);
+
   return {
     ...base,
     ...dato,
@@ -705,6 +740,7 @@ export function normalizaSesion(
     refId,
     titulo: dato.titulo || titulo,
     fuente: dato.fuente ?? null,
+    videos,
     fps: typeof dato.fps === "number" && dato.fps > 0 ? dato.fps : base.fps,
     preRollMs:
       typeof dato.preRollMs === "number" ? dato.preRollMs : base.preRollMs,
@@ -723,8 +759,120 @@ export function normalizaSesion(
       nota: clip?.nota ?? "",
       estado: clip?.estado === "revisar" ? "revisar" : "ok",
       tags: Array.isArray(clip?.tags) ? clip.tags : [],
+      video: typeof clip?.video === "string" && clip.video ? clip.video : undefined,
     })),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS VÍDEOS DE UNA SESIÓN                                           */
+/* ------------------------------------------------------------------ */
+
+/** El nombre con el que se conoce a un vídeo dentro de la sesión. */
+export function nombreDeFuente(fuente: FuenteVideo | null | undefined) {
+  return fuente?.nombre ?? "";
+}
+
+/** ¿Son el mismo vídeo? Se comparan por nombre, que es lo único estable. */
+export function mismaFuente(
+  una: FuenteVideo | null | undefined,
+  otra: FuenteVideo | null | undefined,
+) {
+  return Boolean(una && otra && nombreDeFuente(una) === nombreDeFuente(otra));
+}
+
+function esFuente(valor: unknown): valor is FuenteVideo {
+  if (!valor || typeof valor !== "object") return false;
+
+  const fuente = valor as Partial<FuenteVideo> & { tipo?: string };
+
+  if (typeof fuente.nombre !== "string" || !fuente.nombre) return false;
+
+  return (
+    fuente.tipo === "local" ||
+    (fuente.tipo === "url" && typeof (fuente as { url?: string }).url === "string") ||
+    (fuente.tipo === "archivo" && typeof (fuente as { ruta?: string }).ruta === "string")
+  );
+}
+
+/**
+ * La lista de vídeos de una sesión, sin repetidos y con la fuente activa dentro.
+ *
+ * Se compara por nombre: el mismo partido puede estar hoy abierto del disco y
+ * mañana en la carpeta, y **es el mismo vídeo**. Si se colara dos veces, sus
+ * clips se partirían en dos pestañas.
+ */
+export function normalizaVideos(
+  crudo: unknown,
+  activa: FuenteVideo | null,
+): FuenteVideo[] {
+  const lista = Array.isArray(crudo) ? crudo.filter(esFuente) : [];
+
+  const salida: FuenteVideo[] = [];
+
+  const vistos = new Set<string>();
+
+  for (const fuente of [...lista, ...(activa ? [activa] : [])]) {
+    const nombre = nombreDeFuente(fuente);
+
+    if (vistos.has(nombre)) {
+      /* El mismo vídeo por otro camino: manda el último, que es el que se
+         puede reproducir ahora (la carpeta gana al fichero del disco). */
+      const donde = salida.findIndex((una) => nombreDeFuente(una) === nombre);
+
+      if (donde >= 0 && fuente.tipo !== "local") salida[donde] = fuente;
+
+      continue;
+    }
+
+    vistos.add(nombre);
+
+    salida.push(fuente);
+  }
+
+  return salida;
+}
+
+/**
+ * Los clips de un vídeo.
+ *
+ * Un clip sin `video` es de antes de que una sesión pudiera tener varios: es
+ * del primero de la lista, que era el único que había.
+ */
+export function clipsDeVideo(
+  clips: ClipCoding[],
+  videos: FuenteVideo[],
+  fuente: FuenteVideo | null,
+): ClipCoding[] {
+  if (!fuente || videos.length <= 1) return clips;
+
+  const nombre = nombreDeFuente(fuente);
+
+  const esElPrimero = nombreDeFuente(videos[0]) === nombre;
+
+  return clips.filter((clip) =>
+    clip.video ? clip.video === nombre : esElPrimero,
+  );
+}
+
+/** Cuántos clips lleva cada vídeo, por nombre. */
+export function clipsPorVideo(
+  clips: ClipCoding[],
+  videos: FuenteVideo[],
+): Map<string, number> {
+  const cuenta = new Map<string, number>();
+
+  for (const video of videos) cuenta.set(nombreDeFuente(video), 0);
+
+  const primero = nombreDeFuente(videos[0]);
+
+  for (const clip of clips) {
+    const nombre = clip.video ?? primero;
+
+    cuenta.set(nombre, (cuenta.get(nombre) ?? 0) + 1);
+  }
+
+  return cuenta;
 }
 
 /** Lo mismo para la configuración: una categoría nueva no puede tumbar nada. */

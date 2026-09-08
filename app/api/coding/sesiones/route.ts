@@ -81,9 +81,24 @@ export async function GET(request: NextRequest) {
         if (sesion.ambito === "rival") parametros.set("equipo", sesion.titulo);
         else parametros.set("partido", sesion.refId);
 
+        /*
+        | El vídeo DEL CLIP, no el de la sesión.
+        |
+        | Una sesión puede tener varias cámaras o las dos partes en ficheros
+        | distintos, y los minutos de un corte sólo significan algo dentro del
+        | suyo: con la fuente de la sesión, la biblioteca del jugador cortaba
+        | el minuto 12 de la segunda parte sobre la primera.
+        */
+        const suyo =
+          (clip.video
+            ? (sesion.videos ?? []).find((video) => video.nombre === clip.video)
+            : (sesion.videos ?? [])[0]) ??
+          sesion.fuente ??
+          null;
+
         clips.push({
           ...clip,
-          fuente: sesion.fuente ?? null,
+          fuente: suyo,
           sesion: documento.key,
           sesionTitulo: sesion.titulo,
           ambito: sesion.ambito,

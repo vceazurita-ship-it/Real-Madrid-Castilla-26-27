@@ -20,10 +20,20 @@
  *
  * Por eso el fichero abierto viaja hacia arriba junto con la fuente: la
  * pantalla lo guarda para montar los vídeos después sin volver a pedirlo.
+ *
+ * ---
+ *
+ * **Se pueden abrir varios de una vez.** Un partido llega casi siempre partido
+ * —cada parte en un fichero, y a veces la cámara táctica aparte—, y hasta
+ * ahora había que elegir uno, codificarlo, y elegir el otro encima: la línea
+ * de tiempo se quedaba con los cortes del primero mezclados con los minutos
+ * del segundo. Ahora la sesión guarda una LISTA de vídeos, cada clip se queda
+ * con el suyo y se pasa de uno a otro con un toque. Por eso lo que sale de
+ * aquí es siempre una lista, aunque traiga un elemento.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FolderOpen, Link2, RefreshCw, Upload } from "lucide-react";
+import { Check, FolderOpen, Layers, Link2, RefreshCw, Upload } from "lucide-react";
 
 import { Button } from "@/components/abp/ui";
 import type { FuenteVideo } from "@/lib/coding/modelo";
@@ -44,25 +54,43 @@ type Carpeta = {
 
 const gigas = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 
+/** Un vídeo listo para abrir: qué es, con qué se reproduce y de dónde salió. */
+export type VideoElegido = {
+  fuente: FuenteVideo;
+  /** Con qué `src` se reproduce. */
+  src: string;
+  /** El fichero del disco, sólo en el camino «del ordenador». */
+  fichero?: File;
+};
+
 export function SelectorFuente({
   fuente,
+  videos,
   onElegir,
 }: {
   fuente: FuenteVideo | null;
-  /**
-   * El segundo argumento es el `src` con el que reproducir; el tercero, el
-   * fichero abierto del disco, que sólo llega en el camino «del ordenador».
-   */
-  onElegir: (fuente: FuenteVideo, src: string, fichero?: File) => void;
+  /** Los que ya están en la sesión, para no ofrecerlos como novedad. */
+  videos?: FuenteVideo[];
+  /** Los vídeos elegidos. El primero es el que se pone delante. */
+  onElegir: (elegidos: VideoElegido[]) => void;
 }) {
   const [carpeta, setCarpeta] = useState<Carpeta | null>(null);
   const [cargando, setCargando] = useState(true);
   const [enlace, setEnlace] = useState("");
 
+  /* Se admiten varias direcciones pegadas de golpe, una por línea. */
+  const enlaces = enlace
+    .split(/[\s\n]+/)
+    .map((trozo) => trozo.trim())
+    .filter((trozo) => /^https?:\/\//i.test(trozo));
+
   /* Se sube uno para releer la carpeta: el botón no llama al efecto, lo pide. */
   const [relectura, setRelectura] = useState(0);
 
   const entrada = useRef<HTMLInputElement>(null);
+
+  /* Los que ya están abiertos, para marcarlos en la lista de la carpeta. */
+  const yaEstan = new Set((videos ?? []).map((video) => video.nombre));
 
   useEffect(() => {
     let vivo = true;
@@ -113,9 +141,32 @@ export function SelectorFuente({
             Carpeta de partidos
           </p>
 
-          <Button icon={RefreshCw} onClick={lee} disabled={cargando}>
-            {cargando ? "Leyendo…" : "Actualizar"}
-          </Button>
+          <span className="flex flex-wrap items-center gap-2">
+            {(carpeta?.videos.length ?? 0) > 1 && (
+              <Button
+                icon={Layers}
+                onClick={() =>
+                  onElegir(
+                    (carpeta?.videos ?? []).map((video) => ({
+                      fuente: {
+                        tipo: "archivo" as const,
+                        ruta: video.ruta,
+                        nombre: video.nombre,
+                      },
+                      src: `/api/coding/video?ruta=${encodeURIComponent(video.ruta)}`,
+                    })),
+                  )
+                }
+                title="Abrir todos los vídeos de la carpeta en esta sesión"
+              >
+                Abrir los {carpeta?.videos.length}
+              </Button>
+            )}
+
+            <Button icon={RefreshCw} onClick={lee} disabled={cargando}>
+              {cargando ? "Leyendo…" : "Actualizar"}
+            </Button>
+          </span>
         </div>
 
         {carpeta && (
@@ -136,10 +187,16 @@ export function SelectorFuente({
                   <button
                     type="button"
                     onClick={() =>
-                      onElegir(
-                        { tipo: "archivo", ruta: video.ruta, nombre: video.nombre },
-                        `/api/coding/video?ruta=${encodeURIComponent(video.ruta)}`,
-                      )
+                      onElegir([
+                        {
+                          fuente: {
+                            tipo: "archivo",
+                            ruta: video.ruta,
+                            nombre: video.nombre,
+                          },
+                          src: `/api/coding/video?ruta=${encodeURIComponent(video.ruta)}`,
+                        },
+                      ])
                     }
                     className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
                       activo
@@ -156,6 +213,15 @@ export function SelectorFuente({
                         {video.ruta}
                       </span>
                     </span>
+
+                    {yaEstan.has(video.nombre) && !activo && (
+                      <span
+                        className="shrink-0 text-[#C8A96B]"
+                        title="Ya está abierto en esta sesión"
+                      >
+                        <Check size={12} />
+                      </span>
+                    )}
 
                     <span className="shrink-0 text-[10px] tabular-nums text-white/30">
                       {gigas(video.tamano)}
@@ -201,27 +267,30 @@ export function SelectorFuente({
 
           <Button
             tone="primary"
-            disabled={!/^https?:\/\//i.test(enlace.trim())}
+            disabled={enlaces.length === 0}
             onClick={() => {
-              const url = enlace.trim();
-
               onElegir(
-                {
-                  tipo: "url",
-                  url,
-                  nombre: decodeURIComponent(url.split("/").pop() ?? "partido"),
-                },
-                url,
+                enlaces.map((url) => ({
+                  fuente: {
+                    tipo: "url" as const,
+                    url,
+                    nombre: decodeURIComponent(url.split("/").pop() ?? "partido"),
+                  },
+                  src: url,
+                })),
               );
+
+              setEnlace("");
             }}
           >
-            Usar el enlace
+            {enlaces.length > 1 ? `Usar los ${enlaces.length}` : "Usar el enlace"}
           </Button>
         </div>
 
         <p className="mt-1.5 text-[10px] leading-relaxed text-white/25">
           Tiene que ser el vídeo en sí, no la página que lo enseña: una URL de
-          YouTube o de HUDL no se puede reproducir ni cortar desde aquí.
+          YouTube o de HUDL no se puede reproducir ni cortar desde aquí. Se
+          pueden pegar varias de una vez, una por línea.
         </p>
       </div>
 
@@ -234,23 +303,27 @@ export function SelectorFuente({
         </p>
 
         <Button icon={Upload} onClick={() => entrada.current?.click()}>
-          Abrir un fichero
+          Abrir ficheros
         </Button>
 
         <input
           ref={entrada}
           type="file"
           accept="video/*"
+          /* Varios de una vez: las dos partes de un partido se abren juntas. */
+          multiple
           className="hidden"
           onChange={(evento) => {
-            const fichero = evento.target.files?.[0];
+            const ficheros = [...(evento.target.files ?? [])];
 
-            if (!fichero) return;
+            if (ficheros.length === 0) return;
 
             onElegir(
-              { tipo: "local", nombre: fichero.name },
-              URL.createObjectURL(fichero),
-              fichero,
+              ficheros.map((fichero) => ({
+                fuente: { tipo: "local" as const, nombre: fichero.name },
+                src: URL.createObjectURL(fichero),
+                fichero,
+              })),
             );
 
             evento.target.value = "";
@@ -258,11 +331,13 @@ export function SelectorFuente({
         />
 
         <p className="mt-1.5 text-[10px] leading-relaxed text-white/25">
-          No se sube nada: el navegador lo lee del disco. Se codifica y se
-          montan los vídeos aquí mismo —a tiempo real, con la pantalla delante,
-          y salen en .webm con sonido—, así que funciona igual con la app
-          abierta desde internet. Al recargar hay que volver a abrirlo: el
-          navegador no guarda el permiso.
+          Se pueden abrir varios a la vez —las dos partes, la cámara táctica—:
+          quedan todos en la sesión y se pasa de uno a otro con un toque, cada
+          uno con sus cortes. No se sube nada: el navegador los lee del disco.
+          Se codifica y se montan los vídeos aquí mismo —a tiempo real, con la
+          pantalla delante, y salen en .webm con sonido—, así que funciona
+          igual con la app abierta desde internet. Al recargar hay que volver a
+          abrirlos: el navegador no guarda el permiso.
         </p>
       </div>
     </div>

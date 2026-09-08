@@ -7,8 +7,11 @@ import {
   TIPO_CODING,
   claveSesion,
   creaClip,
+  mismaFuente,
   mueveClip,
+  nombreDeFuente,
   normalizaSesion,
+  normalizaVideos,
   ordenaPorTiempo,
   problemaDeClip,
   recalculaClip,
@@ -112,7 +115,15 @@ export function useSesionCoding(opciones: {
           new Date().toISOString(),
         );
 
-        return { ...actual, clips: [...actual.clips, clip], abierta: true };
+        /* De qué vídeo es. Con uno solo da igual, pero con dos partes
+           abiertas es lo único que separa el minuto 3 de cada una. */
+        const video = nombreDeFuente(actual.fuente);
+
+        return {
+          ...actual,
+          clips: [...actual.clips, video ? { ...clip, video } : clip],
+          abierta: true,
+        };
       }, true);
 
       return null;
@@ -229,11 +240,17 @@ export function useSesionCoding(opciones: {
       muta((actual) => {
         const existe = actual.escenas.some((una) => una.id === escena.id);
 
+        /* De qué vídeo es, igual que un clip: `tMs` es un instante dentro de
+           uno concreto. Lo que ya tuviera vídeo no se toca. */
+        const suya: EscenaTel = escena.video
+          ? escena
+          : { ...escena, video: nombreDeFuente(actual.fuente) || undefined };
+
         return {
           ...actual,
           escenas: existe
-            ? actual.escenas.map((una) => (una.id === escena.id ? escena : una))
-            : [...actual.escenas, escena].sort((a, b) => a.tMs - b.tMs),
+            ? actual.escenas.map((una) => (una.id === suya.id ? suya : una))
+            : [...actual.escenas, suya].sort((a, b) => a.tMs - b.tMs),
         };
       });
     },
@@ -273,13 +290,88 @@ export function useSesionCoding(opciones: {
 
   /* ------------------------------------------------------- la sesión */
 
+  /**
+   * Pone un vídeo delante. Si no estaba en la sesión, entra en la lista.
+   *
+   * Es el camino de siempre —elegir un vídeo— y ahora además no se pierde el
+   * anterior: los dos quedan a un toque y cada uno con sus clips.
+   */
   const ponFuente = useCallback(
     (fuente: FuenteVideo | null, fps?: number) => {
       muta((actual) => ({
         ...actual,
         fuente,
+        videos: normalizaVideos(actual.videos, fuente),
         fps: fps && fps > 0 ? fps : actual.fps,
       }));
+    },
+    [muta],
+  );
+
+  /**
+   * Añade varios vídeos de una vez y deja delante el primero de los nuevos.
+   *
+   * Abrir las dos partes de un partido es un solo gesto: se eligen los dos
+   * ficheros y la sesión se queda con los dos. Los que ya estaban no se
+   * duplican —se comparan por nombre— y si el mismo vídeo llega ahora por la
+   * carpeta cuando antes era del disco, gana el de la carpeta, que es el que
+   * el servidor puede cortar.
+   */
+  const añadeVideos = useCallback(
+    (fuentes: FuenteVideo[]) => {
+      if (fuentes.length === 0) return;
+
+      muta((actual) => {
+        const videos = normalizaVideos([...actual.videos, ...fuentes], actual.fuente);
+
+        /* Se pone delante el primero de los que se acaban de abrir. */
+        const nuevo =
+          videos.find((video) => mismaFuente(video, fuentes[0])) ?? actual.fuente;
+
+        return { ...actual, videos, fuente: nuevo };
+      });
+    },
+    [muta],
+  );
+
+  /**
+   * Saca un vídeo de la sesión.
+   *
+   * **No se lleva sus clips por delante**: si tiene alguno, no se quita y la
+   * pantalla lo dice. Quitar un vídeo con veinte cortes dentro sería perder
+   * media tarde de trabajo con un toque.
+   */
+  const quitaVideo = useCallback(
+    (fuente: FuenteVideo) => {
+      let quitado = false;
+
+      muta((actual) => {
+        const nombre = nombreDeFuente(fuente);
+
+        const primero = nombreDeFuente(actual.videos[0]);
+
+        const tieneClips = actual.clips.some(
+          (clip) => (clip.video ?? primero) === nombre,
+        );
+
+        if (tieneClips) return actual;
+
+        const videos = actual.videos.filter(
+          (video) => nombreDeFuente(video) !== nombre,
+        );
+
+        quitado = true;
+
+        return {
+          ...actual,
+          videos,
+          fuente: mismaFuente(actual.fuente, fuente)
+            ? (videos[0] ?? null)
+            : actual.fuente,
+        };
+      });
+
+      return quitado;
     },
     [muta],
   );
@@ -320,6 +412,8 @@ export function useSesionCoding(opciones: {
     ponClipsDeEscena,
     borraEscena,
     ponFuente,
+    añadeVideos,
+    quitaVideo,
     ponAjustes,
     abre,
     cierra,

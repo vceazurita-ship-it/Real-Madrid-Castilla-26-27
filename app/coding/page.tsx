@@ -50,6 +50,7 @@ import {
   SkipBack,
   SkipForward,
   Video,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -86,7 +87,10 @@ import {
   PizarraVideo,
   ReutilizaPizarra,
 } from "@/components/coding/PizarraVideo";
-import { SelectorFuente } from "@/components/coding/SelectorFuente";
+import {
+  SelectorFuente,
+  type VideoElegido,
+} from "@/components/coding/SelectorFuente";
 import {
   AVISOS_YOUTUBE,
   DialogoNombreYoutube,
@@ -112,10 +116,13 @@ import {
   CONFIG_POR_DEFECTO,
   TIPO_CODING,
   apodoCoding,
+  clipsDeVideo,
+  clipsPorVideo,
   duracionClip,
   enOrdenDePartido,
   formateaMs,
   formateaTotal,
+  mismaFuente,
   normalizaConfig,
   porCategoria,
   porColectivo,
@@ -543,7 +550,7 @@ function Coding() {
 
   const sesion = useSesionCoding({ ambito, refId, titulo, config });
 
-  const { ponFuente } = sesion;
+  const { ponFuente, añadeVideos, quitaVideo } = sesion;
 
   /* Las teclas de quien todavía no tenga: se reparten con la lista delante. */
   const teclas = useMemo(
@@ -564,7 +571,16 @@ function Coding() {
   | de montar la pantalla, así que sin esto un elegir-vídeo rápido se perdía en
   | cuanto contestaba el servidor.
   */
-  const [srcElegido, setSrcElegido] = useState("");
+  /*
+  | Con qué se reproduce cada vídeo abierto, por nombre.
+  |
+  | Es un mapa y no un solo `src` porque una sesión puede tener varios vídeos
+  | delante —las dos partes de un partido— y pasar de uno a otro no puede
+  | costar volver a abrir el fichero. Los de la carpeta y los de un enlace se
+  | podrían recalcular, pero el del disco NO: su `blob:` sólo existe mientras
+  | dure la pestaña.
+  */
+  const [srcPorVideo, setSrcPorVideo] = useState<Record<string, string>>({});
 
   const [cambiandoVideo, setCambiandoVideo] = useState(false);
 
@@ -578,11 +594,13 @@ function Coding() {
   | partido, el vídeo ya está puesto sin que nadie tenga que sincronizar nada.
   */
   const src = useMemo(() => {
-    if (srcElegido) return srcElegido;
-
     const fuente = sesion.sesion.fuente;
 
     if (!fuente) return "";
+
+    const abierto = srcPorVideo[fuente.nombre];
+
+    if (abierto) return abierto;
 
     if (fuente.tipo === "archivo") {
       return `/api/coding/video?ruta=${encodeURIComponent(fuente.ruta)}`;
@@ -592,7 +610,7 @@ function Coding() {
 
     /* Era un fichero del ordenador: hay que volver a elegirlo. */
     return "";
-  }, [sesion.sesion.fuente, srcElegido]);
+  }, [sesion.sesion.fuente, srcPorVideo]);
 
   /*
   | El fichero abierto del ordenador, mientras dure la pestaña.
@@ -602,13 +620,57 @@ function Coding() {
   | copia a la carpeta de partidos cuando llega el momento de cortar. Al
   | recargar se pierde y hay que volver a abrirlo, y la exportación lo dice.
   */
-  const [ficheroLocal, setFicheroLocal] = useState<File | null>(null);
+  const [ficherosLocales, setFicherosLocales] = useState<Record<string, File>>(
+    {},
+  );
 
-  const eligeFuente = useCallback(
-    (fuente: FuenteVideo, nuevo: string, fichero?: File) => {
-      setSrcElegido(nuevo);
+  /** El fichero del disco del vídeo que se está mirando, si lo hay. */
+  const ficheroLocal = sesion.sesion.fuente
+    ? (ficherosLocales[sesion.sesion.fuente.nombre] ?? null)
+    : null;
+
+  /**
+   * Abre uno o varios vídeos en la sesión.
+   *
+   * El primero se pone delante; los demás quedan a un toque en la fila de
+   * vídeos. Lo que hace falta guardar aquí y no en el documento es con qué se
+   * reproduce cada uno y el fichero del disco: ninguna de las dos cosas
+   * sobrevive a una recarga.
+   */
+  const abreVideos = useCallback(
+    (elegidos: VideoElegido[]) => {
+      if (elegidos.length === 0) return;
+
+      setSrcPorVideo((actual) => {
+        const siguiente = { ...actual };
+
+        for (const uno of elegidos) siguiente[uno.fuente.nombre] = uno.src;
+
+        return siguiente;
+      });
+
+      setFicherosLocales((actual) => {
+        const siguiente = { ...actual };
+
+        for (const uno of elegidos) {
+          if (uno.fichero) siguiente[uno.fuente.nombre] = uno.fichero;
+        }
+
+        return siguiente;
+      });
+
       setCambiandoVideo(false);
-      setFicheroLocal(fichero ?? null);
+
+      añadeVideos(elegidos.map((uno) => uno.fuente));
+    },
+    [añadeVideos],
+  );
+
+  /** Pone delante uno de los vídeos que ya están en la sesión. */
+  const miraVideo = useCallback(
+    (fuente: FuenteVideo) => {
+      setCambiandoVideo(false);
+
       ponFuente(fuente);
     },
     [ponFuente],
@@ -651,10 +713,12 @@ function Coding() {
 
         if (!igual) return;
 
-        eligeFuente(
-          { tipo: "archivo", ruta: igual.ruta, nombre: igual.nombre },
-          `/api/coding/video?ruta=${encodeURIComponent(igual.ruta)}`,
-        );
+        abreVideos([
+          {
+            fuente: { tipo: "archivo", ruta: igual.ruta, nombre: igual.nombre },
+            src: `/api/coding/video?ruta=${encodeURIComponent(igual.ruta)}`,
+          },
+        ]);
 
         toast.success("El vídeo ya está en la carpeta de partidos", {
           description: "Se corta desde ahí: el coding y las pizarras se quedan como están.",
@@ -665,7 +729,7 @@ function Coding() {
     return () => {
       vivo = false;
     };
-  }, [eligeFuente, fuenteGuardada]);
+  }, [abreVideos, fuenteGuardada]);
 
   /* ------------------------------------------------ estado de coding */
 
@@ -776,9 +840,55 @@ function Coding() {
   const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
   const [pizarraVisible, setPizarraVisible] = useState(true);
 
-  const escenas = sesion.sesion.escenas;
+  /* Los vídeos abiertos en esta sesión: uno normalmente, dos o tres cuando
+     el partido viene partido en ficheros. */
+  const videosSesion = sesion.sesion.videos;
 
-  const clips = sesion.sesion.clips;
+  /*
+  | Las pizarras del vídeo que se está mirando.
+  |
+  | Por lo mismo que los clips: `tMs` es un instante DENTRO de un vídeo, así
+  | que una pizarra de la primera parte no puede asomar en el mismo minuto de
+  | la segunda. Las pintadas antes de que esto existiera no llevan vídeo: son
+  | del primero de la lista.
+  */
+  const escenas = useMemo(() => {
+    const todas = sesion.sesion.escenas;
+
+    if (videosSesion.length <= 1 || !sesion.sesion.fuente) return todas;
+
+    const nombre = sesion.sesion.fuente.nombre;
+
+    const esElPrimero = videosSesion[0]?.nombre === nombre;
+
+    return todas.filter((escena) =>
+      escena.video ? escena.video === nombre : esElPrimero,
+    );
+  }, [sesion.sesion.escenas, sesion.sesion.fuente, videosSesion]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOS CLIPS DEL VÍDEO QUE SE ESTÁ MIRANDO
+  |--------------------------------------------------------------------------
+  |
+  | La sesión guarda los cortes de TODOS sus vídeos, pero la pantalla es la de
+  | uno: la línea de tiempo, la lista, el montaje y lo que se exporta son de la
+  | primera parte o de la segunda, nunca de las dos mezcladas —los minutos de
+  | cada vídeo empiezan otra vez en cero—.
+  |
+  | Con un solo vídeo, que es lo normal, esto no filtra nada y todo se comporta
+  | igual que siempre.
+  */
+  const clips = useMemo(
+    () =>
+      clipsDeVideo(sesion.sesion.clips, videosSesion, sesion.sesion.fuente),
+    [sesion.sesion.clips, sesion.sesion.fuente, videosSesion],
+  );
+
+  const clipsPorFuente = useMemo(
+    () => clipsPorVideo(sesion.sesion.clips, videosSesion),
+    [sesion.sesion.clips, videosSesion],
+  );
 
   const clipsFiltrados = useMemo(
     () =>
@@ -1398,7 +1508,8 @@ function Coding() {
     ficheroLocal,
     fps: sesion.sesion.fps,
     titulo,
-    onAdopta: eligeFuente,
+    /* El vídeo copiado a la carpeta entra en la sesión y se pone delante. */
+    onAdopta: (fuente, src) => abreVideos([{ fuente, src }]),
     alTerminarVideo,
   });
 
@@ -2336,6 +2447,122 @@ function Coding() {
                   )}
                 </div>
 
+                {/*
+                | LOS VÍDEOS DE LA SESIÓN
+                |
+                | Sólo aparece cuando hay más de uno: con un partido de una
+                | sola cámara sería una fila vacía de sitio. Cada uno dice
+                | cuántos cortes lleva, porque es lo que distingue «la parte
+                | que ya está codificada» de la que falta.
+                |
+                | Un vídeo abierto del disco no sobrevive a una recarga —el
+                | navegador no guarda el permiso—, así que ahí se avisa y el
+                | toque lleva a volver a abrirlo en vez de dejar la pantalla en
+                | negro sin explicar por qué.
+                */}
+                {videosSesion.length > 1 && (
+                  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="px-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                        Vídeos
+                      </span>
+
+                      {videosSesion.map((video) => {
+                        const activo = mismaFuente(video, sesion.sesion.fuente);
+
+                        const cuantos = clipsPorFuente.get(video.nombre) ?? 0;
+
+                        const listo =
+                          video.tipo !== "local" ||
+                          Boolean(srcPorVideo[video.nombre]);
+
+                        return (
+                          <span
+                            key={video.nombre}
+                            className={`flex min-w-0 items-center rounded-full border transition ${
+                              activo
+                                ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.12]"
+                                : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!listo) {
+                                  setCambiandoVideo(true);
+
+                                  toast("Vuelve a abrir ese vídeo", {
+                                    description:
+                                      "Es un fichero del ordenador y el navegador no guarda el permiso al recargar. Sus cortes siguen aquí.",
+                                  });
+
+                                  return;
+                                }
+
+                                miraVideo(video);
+                              }}
+                              data-video={video.nombre}
+                              title={`${video.nombre} · ${cuantos} corte${
+                                cuantos === 1 ? "" : "s"
+                              }${listo ? "" : " · hay que volver a abrirlo"}`}
+                              className="flex min-w-0 items-center gap-1.5 py-1 pl-2.5 pr-1.5"
+                            >
+                              <Video
+                                size={11}
+                                className={
+                                  activo ? "text-[#C8A96B]" : "text-white/35"
+                                }
+                              />
+
+                              <span
+                                className={`max-w-[168px] truncate text-[11.5px] ${
+                                  activo ? "text-white" : "text-white/70"
+                                } ${listo ? "" : "line-through decoration-white/30"}`}
+                              >
+                                {video.nombre}
+                              </span>
+
+                              <span className="shrink-0 text-[10px] tabular-nums text-white/40">
+                                {cuantos}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (cuantos > 0) {
+                                  toast.error("Ese vídeo tiene cortes dentro", {
+                                    description: `${cuantos} corte${
+                                      cuantos === 1 ? "" : "s"
+                                    } se perderían. Bórralos primero si de verdad lo quieres fuera.`,
+                                  });
+
+                                  return;
+                                }
+
+                                quitaVideo(video);
+                              }}
+                              title="Quitar este vídeo de la sesión"
+                              aria-label={`Quitar ${video.nombre}`}
+                              className="rounded-full px-1.5 py-1 text-white/25 transition hover:text-white"
+                            >
+                              <X size={11} />
+                            </button>
+                          </span>
+                        );
+                      })}
+
+                      <Button
+                        icon={Plus}
+                        onClick={() => setCambiandoVideo(true)}
+                        title="Abrir más vídeos en esta sesión"
+                      >
+                        Añadir
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Mandos y estado del coding. */}
                 <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -2677,7 +2904,8 @@ function Coding() {
                   <Panel title="El vídeo" icon={Video}>
                     <SelectorFuente
                       fuente={sesion.sesion.fuente}
-                      onElegir={eligeFuente}
+                      videos={videosSesion}
+                      onElegir={abreVideos}
                     />
                   </Panel>
                 )}
