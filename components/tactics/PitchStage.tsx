@@ -84,6 +84,20 @@ interface Props {
   dockPanel?: ReactNode;
   /** Reproductor y línea de tiempo (bajo el campo). */
   timeline?: ReactNode;
+  /**
+   * Empezar con el campo ocupando la pantalla entera.
+   *
+   * Es lo que hace grande la pizarra **donde el navegador no da la pantalla
+   * completa de verdad**: el Safari del iPhone sólo se la concede a los
+   * vídeos, así que llegando desde la portada el campo se abría del tamaño de
+   * una postal, con el menú y la barra de arriba comiéndose el resto. Esto no
+   * pide permiso a nadie —es un `fixed inset-0`, CSS y nada más—, así que
+   * funciona igual en el teléfono, en la tablet y en el ordenador.
+   *
+   * Sólo empuja al pasar a `true`: quien cierre el campo se queda fuera, no
+   * se le vuelve a abrir en el siguiente render.
+   */
+  aPantallaCompleta?: boolean;
   className?: string;
 }
 
@@ -105,12 +119,28 @@ export default function PitchStage({
   dockToolbar,
   dockPanel,
   timeline,
+  aPantallaCompleta = false,
   className,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
 
   /** Pizarra a pantalla completa: en el móvil es lo que la hace grande. */
   const [expanded, setExpanded] = useState(false);
+
+  /*
+  | Se abre grande al llegar pidiéndolo, y una sola vez.
+  |
+  | Va en un efecto y no en el valor inicial del estado porque quien lo pide
+  | —la pizarra, mirando si el navegador da pantalla completa de verdad— no lo
+  | sabe hasta estar montada: en el servidor no hay `document`, y un valor
+  | inicial distinto entre servidor y navegador rompe la hidratación.
+  */
+  useEffect(() => {
+    if (!aPantallaCompleta) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpanded(true);
+  }, [aPantallaCompleta]);
 
   const {
     attachContainer,

@@ -170,6 +170,8 @@ interface Props {
   singleScene?: boolean;
   /** Texto de ayuda bajo el tablero. */
   hint?: string;
+  /** Abrir el campo ocupando la pantalla entera. Ver `PitchStage`. */
+  aPantallaCompleta?: boolean;
 }
 
 export default function TacticsBoard({
@@ -180,6 +182,7 @@ export default function TacticsBoard({
   lockedRivalTeam,
   singleScene = false,
   hint,
+  aPantallaCompleta = false,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -1097,6 +1100,7 @@ export default function TacticsBoard({
 
       <PitchStage
         camera={camera}
+        aPantallaCompleta={aPantallaCompleta}
         aspect={`${viewBox.width} / ${viewBox.height}`}
         navigable={tool === "camera"}
         frameRef={frameRef}

@@ -23,7 +23,11 @@ import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
-import { dosOnces, DIBUJO_DE_PARTIDA } from "@/lib/tactics/dosOnces";
+import {
+  dosOnces,
+  numerosDelOnce,
+  DIBUJO_DE_PARTIDA,
+} from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
@@ -91,6 +95,45 @@ export default function PizarraTacticaPage() {
   | vuelva a mirar ya en el navegador.
   */
   const conOnces = useSyncExternalStore(seSabraAlLlegar, hayParametroOnce, enBlanco);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Y SI EL NAVEGADOR NO DA LA PANTALLA COMPLETA, SE LA DAMOS NOSOTROS
+  |--------------------------------------------------------------------------
+  |
+  | El enlace de la portada la pide en el propio clic, que es la única forma de
+  | que un navegador la conceda. En el ordenador y en Android la da; **el
+  | Safari del iPhone no la da nunca** —sólo se la concede a los vídeos— y en
+  | algunas tablets tampoco, así que se llegaba aquí con el menú, la barra de
+  | arriba y el marco del navegador puestos y el campo del tamaño de una
+  | postal: justo lo que el botón promete evitar.
+  |
+  | Si medio segundo después de llegar seguimos en ventana, el campo se abre
+  | ocupando la pantalla entera por CSS (`PitchStage`, `fixed inset-0`), que no
+  | necesita permiso de nadie. Se decide **una sola vez**: salir de la pantalla
+  | completa de verdad más tarde no puede volver a abrir el campo encima.
+  */
+  const [pantallaNuestra, setPantallaNuestra] = useState(false);
+
+  const decidido = useRef(false);
+
+  useEffect(() => {
+    if (!conOnces || decidido.current) return;
+
+    if (sinCromo) {
+      decidido.current = true;
+
+      return;
+    }
+
+    const reloj = setTimeout(() => {
+      decidido.current = true;
+
+      setPantallaNuestra(true);
+    }, 600);
+
+    return () => clearTimeout(reloj);
+  }, [conOnces, sinCromo]);
 
   const { players } = usePlayers();
   const { squads } = useRivalSquads();
@@ -384,6 +427,9 @@ export default function PizarraTacticaPage() {
                     roster={players}
                     rivalSquads={squads}
                     conOnces={conOnces && active.nombre === TABLERO_DE_ONCES}
+                    aPantallaCompleta={
+                      pantallaNuestra && active.nombre === TABLERO_DE_ONCES
+                    }
                   />
                 ) : (
                   <div className="flex flex-col items-center px-6 py-24 text-center">
@@ -424,6 +470,7 @@ function BoardEditor({
   roster,
   rivalSquads,
   conOnces = false,
+  aPantallaCompleta = false,
 }: {
   boardId: string;
   nombre: string;
@@ -431,6 +478,8 @@ function BoardEditor({
   rivalSquads: RivalSquad[];
   /** Se ha llegado desde la portada: si el campo está vacío, se puebla. */
   conOnces?: boolean;
+  /** El campo se abre ocupando la pantalla. Ver `PitchStage`. */
+  aPantallaCompleta?: boolean;
 }) {
   const fallback = useMemo(() => emptyDoc(nombre), [nombre]);
 
@@ -470,16 +519,53 @@ function BoardEditor({
 
     const primera = doc.scenes[0];
 
-    if (!primera || primera.tokens.length > 0 || primera.shapes.length > 0) return;
+    if (!primera) return;
+
+    if (primera.tokens.length === 0 && primera.shapes.length === 0) {
+      setValue((actual) => {
+        const base = normalizeDoc(actual, nombre);
+
+        const [escena, ...resto] = base.scenes;
+
+        return {
+          ...base,
+          scenes: [{ ...escena, tokens: dosOnces(DIBUJO_DE_PARTIDA) }, ...resto],
+        };
+      });
+
+      return;
+    }
+
+    /*
+    | El tablero ya estaba pintado: se le ponen los números.
+    |
+    | Los primeros onces se colocaron con el puesto dentro de la ficha —«MCD»,
+    | «DFC»—, que ni se lee de lejos ni distingue a los dos que lo comparten.
+    | Aquí se cambia **sólo el rótulo** de las fichas que puso la propia
+    | plataforma (`once-home-…`, `once-away-…`), en todas las escenas: lo que
+    | alguien haya movido, dibujado o añadido se queda como está.
+    */
+    const numeros = numerosDelOnce(DIBUJO_DE_PARTIDA);
+
+    const leToca = (token: { id: string; label: string; nombre?: string }) =>
+      numeros[token.id] !== undefined &&
+      (numeros[token.id] !== token.label || Boolean(token.nombre));
+
+    if (!doc.scenes.some((escena) => escena.tokens.some(leToca))) return;
 
     setValue((actual) => {
       const base = normalizeDoc(actual, nombre);
 
-      const [escena, ...resto] = base.scenes;
-
       return {
         ...base,
-        scenes: [{ ...escena, tokens: dosOnces(DIBUJO_DE_PARTIDA) }, ...resto],
+        scenes: base.scenes.map((escena) => ({
+          ...escena,
+          tokens: escena.tokens.map((token) =>
+            leToca(token)
+              ? { ...token, label: numeros[token.id], nombre: undefined }
+              : token,
+          ),
+        })),
       };
     });
   }, [conOnces, doc, nombre, setValue, status]);
@@ -563,6 +649,7 @@ function BoardEditor({
       <TacticsBoard
         doc={doc}
         onChange={setValue}
+        aPantallaCompleta={aPantallaCompleta}
         roster={roster}
         rivalSquads={rivalSquads}
         hint="Elige el equipo rival y pulsa sus dorsales para pintarlos. Dibuja con las herramientas de la barra, duplica la escena, mueve las fichas y pulsa Animar para ver la transición."
