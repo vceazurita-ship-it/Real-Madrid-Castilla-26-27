@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { listDocs, readDoc, writeDoc } from "@/lib/docStore";
+
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
@@ -39,6 +41,112 @@ type Guardado = { data: unknown; hecha: number };
 const cache = new Map<string, Guardado>();
 const enVuelo = new Map<string, Promise<unknown>>();
 
+/*
+|--------------------------------------------------------------------------
+| Y UNA COPIA QUE SOBREVIVE AL SERVIDOR
+|--------------------------------------------------------------------------
+|
+| Lo de arriba vive en la memoria del proceso, y en el despliegue eso dura lo
+| que dure la función: **el primero que entra por la mañana —o después de un
+| rato sin nadie— se come los treinta a setenta segundos del arranque en frío
+| de Apps Script**, y con él todas las pantallas que piden la plantilla de
+| rivales. Es la espera que hace que la app no parezca funcional.
+|
+| Así que lo que llega bueno se guarda además en Supabase, en la misma tabla
+| de documentos que usa el resto de la app. Un servidor recién levantado
+| encuentra ahí la última copia buena —una lectura de décimas—, contesta con
+| ella y pide la nueva por detrás. Nadie vuelve a esperar a Google salvo que
+| no haya copia de ninguna clase.
+|
+| Se guardan **sólo las lecturas gordas y compartidas**: son las que cuestan y
+| las que piden todas las pantallas. Una consulta con parámetros —la
+| alineación de un partido— no entra: son muchas, pequeñas y cada una la mira
+| una persona.
+|
+| La copia se sirve hasta doce horas. Más allá se espera a la hoja: preferimos
+| que el primero del día pague la espera a enseñar la plantilla de anteayer sin
+| avisar.
+*/
+const VIDA_GUARDADA = 12 * 60 * 60_000;
+
+const PREFIJO_GUARDADO = "cache:apps-script:";
+
+const TIPO_GUARDADO = "cache-apps-script";
+
+/** Las lecturas que merece la pena guardar fuera. */
+const SE_GUARDAN = new Set([
+  "rivalesPlantillas",
+  "rivales",
+  "jugadores",
+  "seguimiento",
+  "microciclo",
+  "condicional",
+  "alineaciones",
+]);
+
+function seGuarda(consulta: string) {
+  const accion = new URLSearchParams(consulta).get("action") ?? "";
+
+  /* Sólo la consulta pelada: `action=X` y nada más. Con parámetros es la
+     lectura de una cosa concreta y no la comparte nadie. */
+  return SE_GUARDAN.has(accion) && consulta === `action=${accion}`;
+}
+
+function claveGuardada(consulta: string) {
+  return `${PREFIJO_GUARDADO}${new URLSearchParams(consulta).get("action")}`;
+}
+
+/** Deja la copia en Supabase. Nunca tumba la petición que la provocó. */
+function guardaFuera(consulta: string, data: unknown) {
+  if (!seGuarda(consulta)) return;
+
+  void writeDoc(claveGuardada(consulta), TIPO_GUARDADO, {
+    data,
+    hecha: Date.now(),
+  }).catch(() => undefined);
+}
+
+/** La copia de Supabase, si la hay y todavía vale. */
+async function buscaFuera(consulta: string): Promise<Guardado | null> {
+  if (!seGuarda(consulta)) return null;
+
+  try {
+    const { data } = await readDoc<Guardado>(claveGuardada(consulta));
+
+    if (!data || data.data == null || typeof data.hecha !== "number") return null;
+
+    if (Date.now() - data.hecha > VIDA_GUARDADA) return null;
+
+    return data;
+  } catch {
+    /* Sin Supabase se sigue como siempre: a la hoja. */
+    return null;
+  }
+}
+
+/**
+ * Tira también las copias de fuera.
+ *
+ * Después de escribir en la hoja, una copia de hace un rato diría que no se ha
+ * guardado algo que sí está. No se pueden borrar filas desde aquí, así que se
+ * vacían: una copia sin datos no la usa nadie.
+ */
+function olvidaFuera() {
+  void (async () => {
+    try {
+      const guardados = await listDocs(PREFIJO_GUARDADO);
+
+      await Promise.all(
+        guardados.map((uno) =>
+          writeDoc(uno.key, TIPO_GUARDADO, { data: null, hecha: 0 }),
+        ),
+      );
+    } catch {
+      /* Lo peor que pasa es servir la copia un rato más. */
+    }
+  })();
+}
+
 /**
  * Pide a la hoja, guarda lo que llegue y deja de estar en vuelo.
  *
@@ -65,6 +173,8 @@ function pide(consulta: string) {
       const data = await response.json();
 
       cache.set(consulta, { data, hecha: Date.now() });
+
+      guardaFuera(consulta, data);
 
       return data;
     } finally {
@@ -115,8 +225,24 @@ async function lee(consulta: string, fresco: boolean) {
   }
 
   /*
-  | Sin copia utilizable hay que esperar a Google. Y si Google falla teniendo
-  | nosotros algo guardado —aunque sea de hace media hora—, se sirve eso.
+  | Sin copia en memoria, antes de esperar a Google se mira la de Supabase:
+  | es la que salva al primero que entra después de un rato —y a cualquier
+  | servidor recién levantado— de los treinta a setenta segundos del arranque
+  | en frío. Se contesta con ella y se pide la nueva por detrás.
+  */
+  const deFuera = await buscaFuera(consulta);
+
+  if (deFuera) {
+    cache.set(consulta, deFuera);
+
+    void pide(consulta).catch(() => undefined);
+
+    return deFuera.data;
+  }
+
+  /*
+  | Ahora sí hay que esperar a Google. Y si Google falla teniendo nosotros
+  | algo guardado —aunque sea de hace media hora—, se sirve eso.
   |
   | El Apps Script se cae a ratos y devuelve una página de error en vez de
   | JSON. Antes eso dejaba la pantalla en «no se pudieron cargar los datos»
@@ -135,6 +261,8 @@ async function lee(consulta: string, fresco: boolean) {
 /** Lo que se acaba de escribir tiene que verse ya: el POST tira la copia. */
 function olvida() {
   cache.clear();
+
+  olvidaFuera();
 }
 
 /*

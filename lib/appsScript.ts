@@ -14,6 +14,7 @@
  */
 
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
+import { readDoc, writeDoc } from "@/lib/docStore";
 
 const ORIGEN = () => process.env.APPS_SCRIPT_URL ?? process.env.NEXT_PUBLIC_API_URL;
 
@@ -87,6 +88,127 @@ export async function llamaScript(
       { status: 502 },
     );
   }
+}
+
+/*
+|--------------------------------------------------------------------------
+| LECTURAS QUE NO SE ESPERAN DOS VECES
+|--------------------------------------------------------------------------
+|
+| Apps Script tarda **entre treinta y setenta segundos** en la primera llamada
+| después de un rato parado: tiene que abrir el libro. Una pantalla que sólo
+| lee —la lista de tareas con alerta— se quedaba ese minuto en blanco cada vez
+| que alguien entraba por la mañana, y eso no es una pantalla, es una espera.
+|
+| Así que una lectura se contesta con lo último bueno que se sabe y la hoja se
+| pregunta por detrás:
+|
+|   · **En memoria** mientras viva el proceso, con un minuto de frescura.
+|   · **En Supabase**, para el servidor recién levantado —que en el despliegue
+|     es casi siempre—. De ahí se sirve hasta doce horas.
+|
+| Escribir tira las dos copias (`olvidaLectura`), que para eso lo que se acaba
+| de guardar tiene que verse. Y `fresco` se salta todo, como en
+| `app/api/rivals`, que hace esto mismo para las lecturas grandes de la hoja.
+*/
+
+const VIDA_FRESCA = 60_000;
+
+const VIDA_GUARDADA = 12 * 60 * 60_000;
+
+const PREFIJO = "cache:apps-script:";
+
+const TIPO = "cache-apps-script";
+
+type Copia = { data: unknown; hecha: number };
+
+const enMemoria = new Map<string, Copia>();
+
+const enVuelo = new Map<string, Promise<unknown>>();
+
+/** Pregunta a la hoja de verdad y guarda lo que llegue. */
+function pregunta(accion: string, datos: Record<string, unknown>) {
+  const yaVa = enVuelo.get(accion);
+
+  if (yaVa) return yaVa;
+
+  const peticion = (async () => {
+    try {
+      const respuesta = await llamaScript(accion, datos);
+
+      const leido = await respuesta.json();
+
+      /* Un fallo no se guarda: sería enseñar el error durante doce horas. */
+      if (!respuesta.ok || (leido && leido.ok === false)) return leido;
+
+      const copia: Copia = { data: leido, hecha: Date.now() };
+
+      enMemoria.set(accion, copia);
+
+      void writeDoc(`${PREFIJO}${accion}`, TIPO, copia).catch(() => undefined);
+
+      return leido;
+    } finally {
+      enVuelo.delete(accion);
+    }
+  })();
+
+  enVuelo.set(accion, peticion);
+
+  return peticion;
+}
+
+/**
+ * Una lectura de la hoja, ya como `Response` de la ruta.
+ *
+ * `fresco` es para quien necesita la verdad —después de escribir— y se salta
+ * las dos copias.
+ */
+export async function leeDeLaHoja(
+  accion: string,
+  opciones: { fresco?: boolean; datos?: Record<string, unknown> } = {},
+) {
+  const datos = opciones.datos ?? {};
+
+  if (opciones.fresco) return Response.json(await pregunta(accion, datos));
+
+  const guardada = enMemoria.get(accion);
+
+  if (guardada && Date.now() - guardada.hecha < VIDA_FRESCA) {
+    return Response.json(guardada.data);
+  }
+
+  if (guardada) {
+    void pregunta(accion, datos).catch(() => undefined);
+
+    return Response.json(guardada.data);
+  }
+
+  /* Nada en memoria: la copia de Supabase salva el arranque en frío. */
+  try {
+    const { data } = await readDoc<Copia>(`${PREFIJO}${accion}`);
+
+    if (data && data.data != null && Date.now() - data.hecha < VIDA_GUARDADA) {
+      enMemoria.set(accion, data);
+
+      void pregunta(accion, datos).catch(() => undefined);
+
+      return Response.json(data.data);
+    }
+  } catch {
+    /* Sin Supabase se sigue como siempre: a la hoja. */
+  }
+
+  return Response.json(await pregunta(accion, datos));
+}
+
+/** Después de escribir, la copia miente: se tira. */
+export function olvidaLectura(accion: string) {
+  enMemoria.delete(accion);
+
+  void writeDoc(`${PREFIJO}${accion}`, TIPO, { data: null, hecha: 0 }).catch(
+    () => undefined,
+  );
 }
 
 /** El cuerpo de la petición, sin que un JSON roto tumbe la ruta. */

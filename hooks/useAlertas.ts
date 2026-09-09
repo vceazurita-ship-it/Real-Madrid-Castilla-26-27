@@ -53,7 +53,15 @@ export function useAlertas() {
   useEffect(() => {
     let cancelado = false;
 
-    fetch("/api/alertas", { cache: "no-store" })
+    /*
+    | La primera vez vale la copia del servidor —así la pantalla se abre al
+    | instante en vez de esperar a que Apps Script despierte—; después de
+    | guardar o borrar se pide fresco, que ahí lo que importa es ver lo que se
+    | acaba de escribir.
+    */
+    fetch(testigo > 0 ? "/api/alertas?fresco=1" : "/api/alertas", {
+      cache: "no-store",
+    })
       .then((respuesta) => respuesta.json())
       .then((cuerpo) => {
         if (cancelado) return;

@@ -1,4 +1,9 @@
-import { cuerpoJson, llamaScript } from "@/lib/appsScript";
+import {
+  cuerpoJson,
+  leeDeLaHoja,
+  llamaScript,
+  olvidaLectura,
+} from "@/lib/appsScript";
 
 /**
  * Tareas con alerta: listar, guardar y borrar.
@@ -11,8 +16,18 @@ import { cuerpoJson, llamaScript } from "@/lib/appsScript";
  * hoja falla o no está configurada, así que aquí no hace falta envolver nada.
  */
 
-export async function GET() {
-  return llamaScript("listarAlertas");
+/*
+| La lista se sirve de la copia y la hoja se pregunta por detrás.
+|
+| Es una pantalla de lectura y el arranque en frío de Apps Script son treinta a
+| setenta segundos: entrar por la mañana costaba un minuto de pantalla vacía.
+| `?fresco=1` se salta la copia; lo usa la propia pantalla después de guardar.
+*/
+export async function GET(request: Request) {
+  const fresco =
+    new URL(request.url).searchParams.get("fresco") === "1";
+
+  return leeDeLaHoja("listarAlertas", { fresco });
 }
 
 export async function POST(request: Request) {
@@ -27,6 +42,8 @@ export async function POST(request: Request) {
     );
   }
 
+  olvidaLectura("listarAlertas");
+
   return llamaScript("guardarAlerta", { alerta });
 }
 
@@ -39,6 +56,8 @@ export async function DELETE(request: Request) {
       { status: 400 },
     );
   }
+
+  olvidaLectura("listarAlertas");
 
   return llamaScript("borrarAlerta", { id });
 }
