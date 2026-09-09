@@ -850,7 +850,7 @@ export function EditorHorario({
       title="El horario del viaje"
       subtitle={
         minutoPartido === null
-          ? "Escribe la hora del partido y el día se monta solo"
+          ? "Escribe la hora del partido y los días se montan solos"
           : `${dias.length} ${dias.length === 1 ? "día" : "días"} · ${total} ${
               total === 1 ? "cita" : "citas"
             } · una hoja A4 por día, todo contado desde el partido de las ${aHora(minutoPartido)}`
@@ -1040,6 +1040,28 @@ export function EditorHorario({
           ))}
 
           <HuecoDia indice={dias.length} activo={arrastre?.tipo === "dia"} />
+
+          {/*
+          | Añadir un día también aquí abajo, y no sólo en la barra de arriba:
+          | cuando se acaba de repasar el último día, el sitio donde se busca
+          | «uno más» es el final de la lista, no una barra que ha quedado tres
+          | pantallas atrás. Dice la fecha que va a crear para no tener que
+          | comprobarla después.
+          */}
+          <button
+            type="button"
+            onClick={() => anadeDia("despues")}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 px-3 py-3 text-xs font-medium text-white/45 transition hover:border-[#C8A96B]/50 hover:text-white/80"
+          >
+            <CalendarPlus size={14} />
+
+            {dias.length === 0
+              ? "Añadir el primer día"
+              : `Añadir un día más · ${
+                  diaCorto(sumaDias(dias[dias.length - 1].fecha, 1)).toLowerCase() ||
+                  "al final"
+                }`}
+          </button>
         </div>
 
         <DragOverlay dropAnimation={null}>

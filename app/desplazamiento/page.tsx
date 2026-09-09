@@ -515,8 +515,13 @@ export default function DesplazamientoPage() {
                         </Notice>
                       ) : (
                         <Notice title="Todavía sin montar">
-                          Lo que se ve son los datos que trae el calendario. En
-                          cuanto escribas algo, el desplazamiento se guarda solo.
+                          Lo que se ve son los datos que trae el calendario y un
+                          viaje propuesto:{" "}
+                          {viaje.condicion === "visitante"
+                            ? "dos días —la víspera y el partido—, que es lo que se hace casi todas las jornadas fuera de casa"
+                            : "un día, el del partido"}
+                          . Cámbialo a gusto —se añaden y se quitan días— y en
+                          cuanto escribas algo se guarda solo.
                         </Notice>
                       )}
                     </div>

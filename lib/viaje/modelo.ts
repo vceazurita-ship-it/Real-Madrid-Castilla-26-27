@@ -1063,6 +1063,15 @@ function repartePorDuracion(
 /*  CONSTRUCCIÓN                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * El desplazamiento que se ve al abrir un partido que todavía no se ha tocado.
+ *
+ * No se guarda: se deriva del calendario cada vez, y sólo pasa a existir de
+ * verdad en cuanto alguien escribe algo. Por eso puede permitirse traer ya el
+ * viaje montado —dos días fuera de casa, uno en casa— en lugar de dejar la
+ * pantalla en blanco: lo que se ve es una propuesta, no trabajo que haya que
+ * deshacer.
+ */
 export function viajeVacio(
   partidoId: string,
   datos: {
@@ -1075,24 +1084,7 @@ export function viajeVacio(
     competicion?: string;
   },
 ): Desplazamiento {
-  const minuto = aMinutos(datos.hora) ?? 20 * 60;
-
-  const plantilla =
-    datos.condicion === "local"
-      ? PLANTILLA_HORARIO_BY_KEY.get("local")!
-      : PLANTILLA_HORARIO_BY_KEY.get("visitante-largo")!;
-
-  /*
-  | Un solo día de entrada, aunque lo normal fuera de casa sean dos: el que se
-  | sabe seguro es el del partido, y añadir la víspera es un botón. Rellenar de
-  | oficio un día que a lo mejor no existe obligaría a borrarlo cada semana.
-  */
-  const dia = conCitas(
-    diaVacio(datos.fecha, ""),
-    horarioDePlantilla(plantilla, minuto).citas,
-  );
-
-  return {
+  const base: Desplazamiento = {
     partidoId,
     rival: datos.rival,
     jornada: datos.jornada ?? "",
@@ -1122,9 +1114,23 @@ export function viajeVacio(
       tiempo: "",
       entrada: "",
     },
-    dias: [dia],
+    dias: [],
     avisos: [],
   };
+
+  /*
+  | Fuera de casa el viaje **abre ya con dos días**: la víspera y el partido.
+  | Es lo que pasa de verdad casi todas las jornadas —se sale por la tarde, se
+  | duerme en el hotel y se juega al día siguiente—, y abrir con un solo día
+  | obligaba a acordarse de añadir el otro cada semana. En casa se abre con
+  | uno, que es lo que hay. Si un viaje se hace en la jornada, la plantilla
+  | «Ida y vuelta en el día» lo deja en uno de un clic.
+  */
+  const plantilla = PLANTILLAS_VIAJE.find((item) =>
+    datos.condicion === "local" ? item.key === "casa" : item.key === "dos-dias",
+  );
+
+  return { ...base, dias: plantilla ? diasDePlantillaViaje(plantilla, base) : [] };
 }
 
 /**
