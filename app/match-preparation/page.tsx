@@ -1072,11 +1072,79 @@ export default function MatchPreparation() {
     enabled: modoEdicion,
     debounce: 1800,
     save: guardarEnLaHoja,
+    /* Una copia por partido: lo pendiente del Águilas no puede salir al abrir
+       el Teruel. Sin `ID` no hay respaldo, que es lo correcto: no se sabría a
+       qué fila devolverlo. */
+    respaldo: rivalActivo?.ID ? `match-prep:${rivalActivo.ID}` : undefined,
   });
 
   useEffect(() => {
     flushPendiente.current = auto.flush;
   }, [auto.flush]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | RECUPERAR LO QUE NO LLEGÓ A LA HOJA
+  |--------------------------------------------------------------------------
+  |
+  | El respaldo de `useAutoSave` se compara con la fila que sirve la hoja: sólo
+  | se ofrece si de verdad dice algo distinto. Un respaldo que ya se guardó
+  | —se cerró la pestaña justo después de que el servidor contestara— no tiene
+  | por qué molestar a nadie.
+  */
+  const camposRecuperados = useMemo(() => {
+    const copia = auto.recuperado?.valor;
+
+    if (!copia || !rivalActivo) return 0;
+
+    if (String(copia.ID ?? "") !== String(rivalActivo.ID ?? "")) return 0;
+
+    return Object.keys({ ...rivalActivo, ...copia }).filter(
+      (campo) =>
+        campo !== "FECHA" &&
+        String(copia[campo] ?? "") !== String(rivalActivo[campo] ?? ""),
+    ).length;
+  }, [auto.recuperado, rivalActivo]);
+
+  const hayQueRecuperar = camposRecuperados > 0 && !modoEdicion;
+
+  const fechaRecuperado = useMemo(() => {
+    const cuando = auto.recuperado?.fecha;
+
+    if (!cuando) return "en otro momento";
+
+    const fecha = new Date(cuando);
+
+    return Number.isNaN(fecha.getTime())
+      ? "en otro momento"
+      : `el ${fecha.toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "long",
+        })} a las ${fecha.toLocaleTimeString("es-ES", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+  }, [auto.recuperado]);
+
+  /*
+  | Recuperar es poner el texto en pantalla y **abrir la edición**: así el
+  | autoguardado lo manda a la hoja como cualquier otro cambio —con su
+  | verificación releyendo— y de paso queda a la vista antes de escribirse. El
+  | respaldo se tira ya: a partir de aquí el que manda es el autoguardado.
+  */
+  const recuperarPendiente = useCallback(() => {
+    const copia = auto.recuperado?.valor;
+
+    if (!copia) return;
+
+    setRivalActivo(copia);
+    setAlEntrar(rivalActivo);
+    setModoEdicion(true);
+
+    auto.descartaRecuperado();
+
+    toast.success("Recuperado lo que no se había guardado. Revísalo: se está escribiendo en la hoja.");
+  }, [auto, rivalActivo]);
 
   /* Cambiar de partido no es una edición del usuario: nueva base y a otra cosa. */
   const idRivalActivo = String(rivalActivo?.ID ?? "");
@@ -1432,6 +1500,48 @@ export default function MatchPreparation() {
           </div>
 
           <ColumnasPerdidas columnas={columnasPerdidas} />
+
+          {/*
+          | Trabajo que se quedó a medio camino de la hoja en una visita
+          | anterior. **No se aplica solo**: entre medias puede haber escrito
+          | otro, y pisar la fila sin preguntar cambiaría una pérdida
+          | silenciosa por otra. Se enseña y se decide.
+          */}
+          {hayQueRecuperar && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
+              <TriangleAlert size={16} className="shrink-0 text-amber-300" />
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-white/85">
+                  Hay cambios de este plan que no llegaron a guardarse
+                </p>
+
+                <p className="mt-0.5 text-[12px] leading-relaxed text-white/55">
+                  Se escribieron {fechaRecuperado} y quedaron en este navegador
+                  —{camposRecuperados}
+                  {camposRecuperados === 1 ? " campo distinto" : " campos distintos"}{" "}
+                  de lo que hay en la hoja—. Recupéralos para revisarlos antes de
+                  que se escriban.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={recuperarPendiente}
+                className="rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#d9bd82]"
+              >
+                Recuperar
+              </button>
+
+              <button
+                type="button"
+                onClick={auto.descartaRecuperado}
+                className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
+              >
+                Descartar
+              </button>
+            </div>
+          )}
 
           {/* ESTADOS */}
           {cargando && <Esqueleto />}

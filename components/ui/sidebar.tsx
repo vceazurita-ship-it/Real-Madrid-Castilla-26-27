@@ -28,6 +28,7 @@ import {
   Database,
   Dumbbell,
   Flag,
+  FlaskConical,
   Gauge,
   Goal,
   Handshake,
@@ -442,6 +443,9 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/desplazamiento", "Desplazamiento", <Bus size={18} />)}
 
               {navLink("/general", "Repositorio", <Database size={18} />)}
+
+              {/* En pruebas: funciona con datos de verdad pero no escribe. */}
+              {navLink("/laboratorio", "Laboratorio", <FlaskConical size={18} />)}
             </>,
           )}
 
