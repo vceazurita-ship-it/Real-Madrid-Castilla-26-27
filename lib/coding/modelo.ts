@@ -171,6 +171,17 @@ export type SesionCoding = {
    * siempre.
    */
   videos: FuenteVideo[];
+  /**
+   * Los vídeos a los que ya se les puso el corte de inicio a fin.
+   *
+   * Al abrir un vídeo entra solo un corte que lo cubre entero
+   * (`SUJETO_VIDEO_COMPLETO`): lo normal es querer el vídeo tal cual, y
+   * exigir un I y un O para eso era pedir dos teclas por nada. Se apunta aquí
+   * el nombre del vídeo —y no se mira si tiene clips— porque quien borra ese
+   * corte lo está borrando a propósito: sin esta lista volvería a aparecer en
+   * cuanto se recargara la pantalla.
+   */
+  videosConCorte: string[];
   /** Fotogramas por segundo, para que las flechas avancen un fotograma justo. */
   fps: number;
   preRollMs: number;
@@ -330,6 +341,7 @@ export function sesionVacia(
     titulo,
     fuente: null,
     videos: [],
+    videosConCorte: [],
     fps: config.fps,
     preRollMs: config.preRollMs,
     postRollMs: config.postRollMs,
@@ -434,6 +446,41 @@ export function problemaDeClip(borrador: BorradorClip): string | null {
   }
 
   return null;
+}
+
+/**
+ * El sujeto del corte que cubre el vídeo entero.
+ *
+ * Es un comportamiento colectivo y no un jugador porque un vídeo entero no es
+ * de nadie: se codifica después, cambiando el «Quién» del corte, y hasta
+ * entonces se lee por lo que es. No está en la lista de comportamientos
+ * configurables a propósito —no es una fase del juego—, así que la ficha del
+ * clip lo ofrece por su nombre guardado.
+ */
+export const SUJETO_VIDEO_COMPLETO: SujetoCoding = {
+  tipo: "colectivo",
+  id: "video-completo",
+  nombre: "Vídeo completo",
+};
+
+/**
+ * El corte de inicio a fin de un vídeo, listo para `añadeClip`.
+ *
+ * Sin márgenes: el corte ya son los dos extremos del vídeo y un margen ahí no
+ * añade nada —lo recortarían igual `creaClip` y `recalculaClip`—.
+ */
+export function borradorVideoCompleto(duracionMs: number): BorradorClip {
+  return {
+    sujeto: SUJETO_VIDEO_COMPLETO.tipo,
+    jugadorId: SUJETO_VIDEO_COMPLETO.id,
+    jugadorNombre: SUJETO_VIDEO_COMPLETO.nombre,
+    categoriaId: "",
+    codingInicioMs: 0,
+    codingFinMs: Math.round(duracionMs),
+    preRollMs: 0,
+    postRollMs: 0,
+    duracionVideoMs: Math.round(duracionMs),
+  };
 }
 
 /**
@@ -741,6 +788,11 @@ export function normalizaSesion(
     titulo: dato.titulo || titulo,
     fuente: dato.fuente ?? null,
     videos,
+    videosConCorte: Array.isArray(dato.videosConCorte)
+      ? dato.videosConCorte.filter(
+          (nombre): nombre is string => typeof nombre === "string" && !!nombre,
+        )
+      : base.videosConCorte,
     fps: typeof dato.fps === "number" && dato.fps > 0 ? dato.fps : base.fps,
     preRollMs:
       typeof dato.preRollMs === "number" ? dato.preRollMs : base.preRollMs,

@@ -110,6 +110,7 @@ import {
   SelectorDeMarca,
 } from "@/components/coding/BarraMarcado";
 import { useSesionCoding } from "@/hooks/useSesionCoding";
+import { duracionDeVideoMs } from "@/lib/coding/duracion";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
   CLAVE_CONFIG_CODING,
@@ -606,7 +607,7 @@ function Coding() {
 
   const sesion = useSesionCoding({ ambito, refId, titulo, config });
 
-  const { ponFuente, añadeVideos, quitaVideo } = sesion;
+  const { ponFuente, añadeVideos, ponCorteCompleto, quitaVideo } = sesion;
 
   /* Las teclas de quien todavía no tenga: se reparten con la lista delante. */
   const teclas = useMemo(
@@ -692,6 +693,12 @@ function Coding() {
    * vídeos. Lo que hace falta guardar aquí y no en el documento es con qué se
    * reproduce cada uno y el fichero del disco: ninguna de las dos cosas
    * sobrevive a una recarga.
+   *
+   * **Cada vídeo entra con su corte de inicio a fin ya hecho.** Un vídeo que
+   * se abre aquí es casi siempre un vídeo que se quiere entero —una jugada ya
+   * recortada, la charla de un rival—, y marcarle el I y el O a lo que empieza
+   * en 0 y acaba al final no informaba de nada. Quien quiera menos, lo marca
+   * encima: el corte completo es uno más de la lista y se borra como los otros.
    */
   const abreVideos = useCallback(
     (elegidos: VideoElegido[]) => {
@@ -718,8 +725,21 @@ function Coding() {
       setCambiandoVideo(false);
 
       añadeVideos(elegidos.map((uno) => uno.fuente));
+
+      /*
+      | La duración se mide vídeo a vídeo, no se le pregunta al reproductor.
+      |
+      | Al abrir las dos partes de un partido sólo una se pone delante, así que
+      | el reproductor no sabe nada de la otra —y de la que sí, tarda en
+      | saberlo—. Cada medida es la cabecera del fichero y nada más.
+      */
+      for (const uno of elegidos) {
+        void duracionDeVideoMs(uno.src).then((duracionMs) => {
+          ponCorteCompleto(uno.fuente, duracionMs);
+        });
+      }
     },
-    [añadeVideos],
+    [añadeVideos, ponCorteCompleto],
   );
 
   /** Pone delante uno de los vídeos que ya están en la sesión. */

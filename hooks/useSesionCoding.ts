@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
   TIPO_CODING,
+  borradorVideoCompleto,
   claveSesion,
   creaClip,
   mismaFuente,
@@ -127,6 +128,62 @@ export function useSesionCoding(opciones: {
       }, true);
 
       return null;
+    },
+    [muta, siguienteNumero],
+  );
+
+  /**
+   * Le pone a un vídeo el corte de inicio a fin, si no lo tiene ya.
+   *
+   * Es lo que hace que abrir un vídeo baste: el corte que casi siempre se
+   * quiere —el vídeo entero— ya está hecho, y quien necesite uno más corto lo
+   * marca encima con el I y el O de siempre.
+   *
+   * Se hace una sola vez por vídeo (`videosConCorte`) y sólo si el vídeo no
+   * trae cortes: al volver a un partido codificado no aparece nada nuevo, y
+   * borrar el corte completo es definitivo.
+   */
+  const ponCorteCompleto = useCallback(
+    (fuente: FuenteVideo, duracionMs: number) => {
+      if (!(duracionMs > 0)) return;
+
+      muta((actual) => {
+        const nombre = nombreDeFuente(fuente);
+
+        if (!nombre) return actual;
+
+        if (actual.videosConCorte.includes(nombre)) return actual;
+
+        const marcados = [...actual.videosConCorte, nombre];
+
+        /* Los clips de antes de que existiera `video` son del primero. */
+        const primero = nombreDeFuente(actual.videos[0]);
+
+        const tieneClips = actual.clips.some(
+          (clip) => (clip.video ?? primero) === nombre,
+        );
+
+        if (tieneClips) return { ...actual, videosConCorte: marcados };
+
+        const clip = creaClip(
+          borradorVideoCompleto(duracionMs),
+          siguienteNumero(actual.clips),
+          new Date().toISOString(),
+        );
+
+        /*
+        | La sesión NO se da por abierta por esto.
+        |
+        | «Abierta» es lo que hace saltar el aviso de «quedó a medias» al
+        | volver, y quien abre un vídeo para verlo no ha empezado a codificar
+        | nada: el aviso lo enciende el primer corte marcado a mano.
+        */
+        return {
+          ...actual,
+          clips: [...actual.clips, { ...clip, video: nombre }],
+          videosConCorte: marcados,
+        };
+      }, true);
     },
     [muta, siguienteNumero],
   );
@@ -402,6 +459,7 @@ export function useSesionCoding(opciones: {
     /** Manda ya lo pendiente (el botón «Guardar ahora» de la cabecera). */
     guardaYa: doc.guardaYa,
     añadeClip,
+    ponCorteCompleto,
     actualizaClip,
     borraClip,
     duplicaClip,

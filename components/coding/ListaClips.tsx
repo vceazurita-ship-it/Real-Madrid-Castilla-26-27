@@ -417,6 +417,20 @@ export function FichaClip({
 
   const invalido = borrador.codingFinMs <= borrador.codingInicioMs;
 
+  /*
+  | ¿Está el sujeto del clip en su lista?
+  |
+  | El corte de inicio a fin llega con «Vídeo completo», que no es una fase del
+  | juego y por eso no está entre los comportamientos configurables. Sin
+  | ofrecerlo, el desplegable enseñaba el primer jugador de la plantilla —el
+  | valor no cuadraba con ninguna opción— y guardar le cambiaba el sujeto al
+  | corte sin que nadie lo hubiera pedido.
+  */
+  const sujetoEnLista =
+    borrador.sujeto === "colectivo"
+      ? comportamientos.some((uno) => uno.id === borrador.jugadorId)
+      : jugadores.some((uno) => uno.id === borrador.jugadorId);
+
   return (
     <Dialog
       title={`Clip ${String(clip.numero).padStart(3, "0")}`}
@@ -481,6 +495,17 @@ export function FichaClip({
             cambia({ sujeto: tipo, jugadorId: id });
           }}
           opciones={[
+            ...(sujetoEnLista
+              ? []
+              : [
+                  {
+                    valor: marcaSujeto(
+                      borrador.sujeto === "colectivo" ? "colectivo" : "jugador",
+                      borrador.jugadorId,
+                    ),
+                    texto: borrador.jugadorNombre || "Sin sujeto",
+                  },
+                ]),
             ...jugadores.map((jugador) => ({
               valor: marcaSujeto("jugador", jugador.id),
               texto: jugador.nombre,
