@@ -151,6 +151,12 @@ import {
 import { fechaDeHoy, rellenaPlantilla } from "@/lib/coding/youtube-plantillas";
 import { esperaFuentePortada, FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
+import {
+  SIN_ORDEN,
+  cargaOrdenRivales,
+  comparaPorCalendario,
+  type OrdenRivales,
+} from "@/lib/rivals/orden-calendario";
 import type { MatchMeta } from "@/lib/ratings/types";
 
 const TEMPORADA = "26 / 27";
@@ -359,8 +365,17 @@ function Coding() {
   const router = useRouter();
   const params = useSearchParams();
 
+  /*
+  | De partida se codifica **a un rival**.
+  |
+  | Es para lo que se usa esto casi siempre: los cortes que se llevan a la
+  | charla son del equipo al que se juega, no de nosotros. Nuestro partido
+  | sigue a un toque en el conmutador de al lado, y quien llegue desde un
+  | enlace con `?ambito=partido` —la biblioteca de un jugador, un enlace
+  | guardado— cae donde dice el enlace.
+  */
   const ambito: AmbitoCoding =
-    params.get("ambito") === "rival" ? "rival" : "partido";
+    params.get("ambito") === "partido" ? "partido" : "rival";
 
   /* ------------------------------------------------- configuración */
 
@@ -405,6 +420,31 @@ function Coding() {
 
   const partidoId = params.get("partido") ?? "";
   const equipoRival = params.get("equipo") ?? "";
+
+  /*
+  | Contra quién toca esta jornada.
+  |
+  | Sale de la hoja RIVALES, que trae la liga entera, y es exactamente la
+  | misma regla con la que se ordenan las plantillas en `/rivals`: el próximo
+  | partido de cada equipo. Así, al abrir el coding sin decir nada, delante
+  | está el rival de la semana —que es al que se le van a hacer los cortes— y
+  | no el primero del calendario, que en marzo era un equipo de agosto.
+  |
+  | `cargaOrdenRivales` no lanza nunca: sin calendario se sigue como antes.
+  */
+  const [ordenRivales, setOrdenRivales] = useState<OrdenRivales>(SIN_ORDEN);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void cargaOrdenRivales().then((orden) => {
+      if (vivo) setOrdenRivales(orden);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /*
   | Un partido nuestro que no está en el calendario.
@@ -472,16 +512,32 @@ function Coding() {
     plantillas.forEach((una) => añade(una.equipo, "scouting"));
     rivalesPropios.forEach((uno) => añade(uno, "propio"));
 
-    return [...vistos.values()];
-  }, [partidos, plantillas, rivalesPropios]);
+    /*
+    | Y en el orden en que tocan, no en el del calendario corrido: el rival de
+    | esta semana el primero. Es lo mismo que hace la fila de `/rivals`, para
+    | que el desplegable de aquí y aquella fila digan lo mismo. Los que no
+    | están en el calendario —scouting, amistosos— se quedan al final.
+    */
+    const porJornada = comparaPorCalendario(ordenRivales);
 
-  const rival = useMemo(
-    () =>
-      rivales.find((uno) => uno.clave === apodoCoding(equipoRival)) ??
-      rivales[0] ??
-      null,
-    [equipoRival, rivales],
-  );
+    return [...vistos.values()].sort((uno, otro) =>
+      porJornada(uno.nombre, otro.nombre),
+    );
+  }, [ordenRivales, partidos, plantillas, rivalesPropios]);
+
+  const rival = useMemo(() => {
+    /* Lo que diga el enlace manda. */
+    const pedido = rivales.find((uno) => uno.clave === apodoCoding(equipoRival));
+
+    if (pedido) return pedido;
+
+    /* Y si no dice nada, el de la jornada en la que estamos. */
+    const deLaJornada = ordenRivales.actual
+      ? rivales.find((uno) => uno.clave === apodoCoding(ordenRivales.actual))
+      : undefined;
+
+    return deLaJornada ?? rivales[0] ?? null;
+  }, [equipoRival, ordenRivales.actual, rivales]);
 
   /** La plantilla del scouting de ese rival, si la hay. */
   const plantilla = useMemo(
