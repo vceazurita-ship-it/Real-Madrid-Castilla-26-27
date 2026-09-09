@@ -36,7 +36,8 @@
 
 import {
   aMinutos,
-  margenesDe,
+  conCitas,
+  diaVacio,
   nuevoId,
   type CitaHorario,
   type Desplazamiento,
@@ -150,7 +151,8 @@ const TERUEL: Semilla = {
         },
       },
 
-      horario: { citas, ...margenesDe(citas) },
+      /* Los originales contaban un solo día, así que la semilla trae uno. */
+      dias: [conCitas(diaVacio("2026-08-31", "Día de partido"), citas)],
 
       avisos: [],
     };

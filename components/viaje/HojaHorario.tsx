@@ -20,6 +20,12 @@
  *   que era del día siguiente; ahora lo lleva escrito.
  * - **Las citas que se pisan bajan lo justo** en vez de solaparse, con una
  *   guía hasta su renglón para no perder la referencia.
+ * - **Una hoja por día.** El original contaba un solo día porque el viaje a
+ *   Teruel se hacía en la jornada; en cuanto se sale la víspera hacen falta
+ *   dos, y meter día y medio en una columna de medias horas no se lee. Cada
+ *   hoja lleva escrito qué día es y cuál de los del viaje, y en las que no son
+ *   la del partido el recuadro central recuerda cuándo se juega, que es lo que
+ *   se busca en la hoja de la víspera.
  *
  * Se dibuja en 1240×1754 —A4 vertical a 150 ppp— y el PDF la lleva a sangre.
  * Todo el color va en estilos en línea: la captura serializa el estilo
@@ -39,7 +45,9 @@ import {
   diaSiguienteCorto,
   ejeHorario,
   esDiaSiguiente,
+  rotuloDia,
   type Desplazamiento,
+  type DiaViaje,
 } from "@/lib/viaje/modelo";
 
 /** Dónde arranca y acaba la columna de horas dentro de la hoja. */
@@ -52,18 +60,57 @@ const HORAS_W = 132;
 /** Alto de una etiqueta de cita. Manda en el reparto anti-solape. */
 const CITA_ALTO = 62;
 
-export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
-  const { desde, hasta, citas } = viaje.horario;
+/**
+ * Todas las hojas del viaje, una por día y en su orden.
+ *
+ * Es lo que se pinta en la vista previa y lo que se captura al exportar: la
+ * exportación recoge todos los `[data-viaje-hoja]` que encuentra, así que
+ * añadir un día añade una página del PDF sin tocar nada más.
+ */
+export function HojasHorario({ viaje }: { viaje: Desplazamiento }) {
+  return (
+    <>
+      {viaje.dias.map((dia, indice) => (
+        <HojaHorario
+          key={dia.id}
+          viaje={viaje}
+          dia={dia}
+          indice={indice}
+          total={viaje.dias.length}
+        />
+      ))}
+    </>
+  );
+}
+
+export function HojaHorario({
+  viaje,
+  dia,
+  indice,
+  total,
+}: {
+  viaje: Desplazamiento;
+  dia: DiaViaje;
+  indice: number;
+  total: number;
+}) {
+  const { desde, hasta, citas } = dia;
+
+  const esDelPartido = dia.fecha === viaje.fecha;
+
+  const avisos = viaje.avisos.filter((aviso) => aviso.trim());
+
+  /* El recuadro de avisos cuelga del final de la columna, así que cuando lo
+     hay la columna cede lo que ocupa: si no, se come el pie de la hoja. */
+  const columnaAlto = avisos.length ? COLUMNA_ALTO - 130 : COLUMNA_ALTO;
 
   const { citas: colocadas, marcas } = ejeHorario(citas, {
     desde,
     hasta,
-    alto: COLUMNA_ALTO,
+    alto: columnaAlto,
     separacion: CITA_ALTO + 10,
     separacionMarcas: 26,
   });
-
-  const avisos = viaje.avisos.filter((aviso) => aviso.trim());
 
   return (
     <div
@@ -149,7 +196,9 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
               textTransform: "uppercase",
             }}
           >
-            Horario de partido
+            {total > 1
+              ? `Horario · día ${indice + 1} de ${total}`
+              : "Horario de partido"}
           </p>
         </div>
       </div>
@@ -203,14 +252,26 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
             textTransform: "uppercase",
           }}
         >
-          {diaLargo(viaje.fecha) || viaje.fecha}
+          {diaLargo(dia.fecha) || dia.fecha}
+          {total > 1 ? ` · ${rotuloDia(dia, viaje, indice)}` : ""}
         </p>
 
-        {/* Los tres datos que se comprueban al coger la hoja. */}
+        {/*
+        | Los tres datos que se comprueban al coger la hoja. En un día que no
+        | es el del partido, la hora suelta no dice nada —¿la de qué?—, así que
+        | el recuadro central pasa a decir cuándo se juega.
+        */}
         <div style={{ display: "flex", gap: 14, marginTop: 22 }}>
           {[
             { rotulo: "Jornada", dato: viaje.jornada || "—" },
-            { rotulo: "Hora", dato: viaje.hora || "—" },
+            esDelPartido
+              ? { rotulo: "Hora", dato: viaje.hora || "—" }
+              : {
+                  rotulo: "Se juega",
+                  dato: [diaCorto(viaje.fecha), viaje.hora]
+                    .filter(Boolean)
+                    .join(" · ") || "—",
+                },
             {
               rotulo: viaje.condicion === "local" ? "En casa" : "Fuera",
               dato: viaje.estadio.nombre || "—",
@@ -269,7 +330,7 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
           left: MARGEN,
           top: COLUMNA_Y,
           width: HOJA_W - MARGEN * 2,
-          height: COLUMNA_ALTO,
+          height: columnaAlto,
         }}
       >
         {/* Las horas: raya fina de lado a lado con su rótulo al margen. */}
@@ -423,7 +484,7 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
                       textTransform: "uppercase",
                     }}
                   >
-                    {diaSiguienteCorto(viaje.fecha)}
+                    {diaSiguienteCorto(dia.fecha)}
                   </p>
                 )}
               </div>
@@ -439,7 +500,7 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
           style={{
             position: "absolute",
             left: MARGEN,
-            top: COLUMNA_Y + COLUMNA_ALTO + 34,
+            top: COLUMNA_Y + columnaAlto + 34,
             width: HOJA_W - MARGEN * 2,
             backgroundColor: C.crema,
             borderLeft: `6px solid ${C.rosaHondo}`,
@@ -510,6 +571,7 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
           }}
         >
           RMCF Castilla · Horario de partido
+          {total > 1 ? ` · ${indice + 1} de ${total}` : ""}
         </p>
 
         <p
@@ -522,7 +584,7 @@ export function HojaHorario({ viaje }: { viaje: Desplazamiento }) {
             textTransform: "uppercase",
           }}
         >
-          {diaCorto(viaje.fecha)}
+          {diaCorto(dia.fecha)}
         </p>
       </div>
     </div>

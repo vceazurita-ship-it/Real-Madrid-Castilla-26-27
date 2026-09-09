@@ -16,8 +16,10 @@
  *    y dimensiones del campo salen del calendario y de la hoja RIVALES —la
  *    misma que leen el plan de partido y el informe del rival—, así que lo
  *    único que hay que teclear de verdad es la hora.
- * 2. **El horario se calcula desde esa hora.** Tres plantillas montan el día
- *    entero por desfases respecto al saque inicial; ver `EditorHorario`.
+ * 2. **El horario se calcula desde esa hora.** Las plantillas montan el viaje
+ *    entero —uno, dos o tres días— por desfases respecto al saque inicial; ver
+ *    `EditorHorario`. Los días se añaden, se replican, se arrastran y se
+ *    borran, y cada uno sale como una hoja A4 del horario.
  * 3. **Los planos se pegan.** Las capturas de Google Maps viven en el
  *    portapapeles, no en un fichero: `CampoImagen` acepta Ctrl+V.
  * 4. **Se ve mientras se escribe.** La vista previa es el documento de verdad,
@@ -60,7 +62,7 @@ import { CampoImagen } from "@/components/viaje/CampoImagen";
 import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
 import { EditorHorario } from "@/components/viaje/EditorHorario";
 import { ExportaViaje } from "@/components/viaje/ExportaViaje";
-import { HojaHorario } from "@/components/viaje/HojaHorario";
+import { HojasHorario } from "@/components/viaje/HojaHorario";
 import { NotasVestuario } from "@/components/viaje/NotasVestuario";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
@@ -87,6 +89,7 @@ import {
   HOJA_H,
   HOJA_W,
   copiaViaje,
+  normalizaViaje,
   viajeVacio,
   type Desplazamiento,
   type ViajeStore,
@@ -300,7 +303,9 @@ export default function DesplazamientoPage() {
 
     const guardado = store.viajes?.[partido.id];
 
-    if (guardado) return guardado;
+    /* Los desplazamientos guardados cuando el viaje era un solo día llevan
+       `horario` y no `dias`: se convierten al leerlos. */
+    if (guardado) return normalizaViaje(guardado);
 
     const base = viajeVacio(partido.id, {
       rival: partido.opponent,
@@ -336,7 +341,13 @@ export default function DesplazamientoPage() {
         viajes: {
           ...actual.viajes,
           [partido.id]: {
-            ...fn(actual.viajes?.[partido.id] ?? viaje),
+            /* Se normaliza antes de tocarlo: así el primer cambio sobre un
+               documento viejo lo deja ya convertido a días. */
+            ...fn(
+              actual.viajes?.[partido.id]
+                ? normalizaViaje(actual.viajes[partido.id])
+                : viaje,
+            ),
             actualizado: new Date().toISOString(),
           },
         },
@@ -415,7 +426,7 @@ export default function DesplazamientoPage() {
             <AbpHeader
               area="RMCF Castilla · Operativa"
               title="Desplazamiento de Partido"
-              lead="El dossier del viaje —campo, ruta y hotel— y el horario del día, rellenados de una vez y sacados en PowerPoint o en PDF para imprimir. El horario se monta solo desde la hora del partido."
+              lead="El dossier del viaje —campo, ruta y hotel— y el horario de cada día, rellenados de una vez y sacados en PowerPoint o en PDF para imprimir. El viaje puede durar uno, dos o más días: el horario se monta solo desde la hora del partido y sale una hoja por día."
               aside={
                 <SaveState
                   status={status}
@@ -816,7 +827,7 @@ export default function DesplazamientoPage() {
                   <div className="mt-5">
                     <EditorHorario
                       viaje={viaje}
-                      onCambio={(horario) => campo("horario", horario)}
+                      onCambio={(dias) => campo("dias", dias)}
                     />
                   </div>
 
@@ -863,7 +874,8 @@ export default function DesplazamientoPage() {
                           tone={vista === "horario" ? "primary" : "ghost"}
                           onClick={() => setVista("horario")}
                         >
-                          Horario · 1 hoja A4
+                          Horario · {viaje.dias.length}{" "}
+                          {viaje.dias.length === 1 ? "hoja A4" : "hojas A4"}
                         </Button>
                       </div>
 
@@ -879,8 +891,13 @@ export default function DesplazamientoPage() {
                           </Escalado>
                         ) : (
                           <div className="mx-auto max-w-[720px]">
-                            <Escalado ancho={HOJA_W} alto={HOJA_H + 26}>
-                              <HojaHorario viaje={viaje} />
+                            <Escalado
+                              ancho={HOJA_W}
+                              alto={
+                                (HOJA_H + 26) * Math.max(1, viaje.dias.length)
+                              }
+                            >
+                              <HojasHorario viaje={viaje} />
                             </Escalado>
                           </div>
                         )}

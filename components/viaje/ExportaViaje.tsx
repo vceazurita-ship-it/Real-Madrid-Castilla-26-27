@@ -25,7 +25,7 @@ import { toast } from "sonner";
 
 import { Button, Panel } from "@/components/abp/ui";
 import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
-import { HojaHorario } from "@/components/viaje/HojaHorario";
+import { HojasHorario } from "@/components/viaje/HojaHorario";
 import { creaPptx } from "@/lib/export/pptx";
 import {
   apodo,
@@ -110,7 +110,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
             ancho: HOJA_W,
             alto: HOJA_H,
             fondo: C.papel,
-            alPaso: () => setPaso("horario"),
+            alPaso: (hechas, total) => setPaso(`horario ${hechas}/${total}`),
           })
         : [];
 
@@ -213,7 +213,9 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
   return (
     <Panel
       title="Sacar los documentos"
-      subtitle={`${titulosDossier(viaje).length} diapositivas de dossier y la hoja del horario, tal y como se ven aquí`}
+      subtitle={`${titulosDossier(viaje).length} diapositivas de dossier y ${
+        viaje.dias.length
+      } ${viaje.dias.length === 1 ? "hoja" : "hojas"} de horario, tal y como se ven aquí`}
       icon={FileDown}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -249,15 +251,18 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
           icon={Printer}
           onClick={() => setFormato("horario")}
           disabled={ocupado}
-          title="La hoja del horario en A4 vertical, lista para imprimir"
+          title={`${viaje.dias.length} ${
+            viaje.dias.length === 1 ? "hoja" : "hojas"
+          } de horario en A4 vertical, una por día del viaje, listas para imprimir`}
         >
           {rotulo("horario", "Horario para imprimir")}
         </Button>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-white/40">
-        El horario sale a sangre en A4 vertical —la hoja ya trae sus márgenes—,
-        y el dossier a una diapositiva por hoja apaisada. El PowerPoint lleva
+        El horario sale a sangre en A4 vertical —la hoja ya trae sus márgenes—
+        y con una hoja por cada día del viaje, en su orden; el dossier, a una
+        diapositiva por hoja apaisada. El PowerPoint lleva
         cada diapositiva como imagen a tamaño de proyección, así que se abre en
         cualquier portátil aunque no tenga la app ni las tipografías.
       </p>
@@ -281,7 +286,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
           }}
         >
           <DossierViaje viaje={viaje} />
-          <HojaHorario viaje={viaje} />
+          <HojasHorario viaje={viaje} />
         </div>
       )}
     </Panel>

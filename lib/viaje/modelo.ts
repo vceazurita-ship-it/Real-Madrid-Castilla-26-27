@@ -23,6 +23,15 @@
  * no al del domingo: se guarda como 1635 y se pinta como "03:15" con su marca
  * de día siguiente.
  *
+ * **Un desplazamiento son varios días.** Lo normal es salir la víspera, dormir
+ * en el hotel y jugar al día siguiente; a veces se va y se vuelve en el día, y
+ * a veces —un torneo, una eliminatoria— son tres o cuatro. Por eso el
+ * documento guarda una **lista de días** (`dias`) y cada uno lleva su fecha,
+ * su rótulo y sus citas, con sus minutos contados desde **su propia**
+ * medianoche. Sale una hoja A4 por día. El día del partido es el que coincide
+ * con `fecha`: es el único anclado a la hora del saque inicial, y por eso las
+ * plantillas relativas sólo tienen sentido en él.
+ *
  * El acabado es el de `public/INDIVIDUAL.pptx` —papel, Barlow Condensed, verde
  * 1B3A2E, azul 0F1E3D y el filo rosa—, el mismo que ya usan la portada del
  * jugador rival (`lib/rivals/portada.ts`) y la pizarra de balón parado.
@@ -98,12 +107,22 @@ export function esDiaSiguiente(minutos: number) {
   return minutos >= 1440;
 }
 
-/** "+1 h 45" para un desfase; sirve para explicar una plantilla. */
+/**
+ * "+1 h 45" para un desfase; sirve para explicar una plantilla.
+ *
+ * En un viaje de varios días el desfase pasa de la jornada —la salida de la
+ * víspera está a veinte horas del saque inicial— y "−20 h 45" no se lee: se
+ * dice en días, que es como se habla de un desplazamiento.
+ */
 export function comoDesfase(minutos: number) {
   const signo = minutos < 0 ? "−" : "+";
   const total = Math.abs(minutos);
-  const h = Math.floor(total / 60);
+
+  const d = Math.floor(total / 1440);
+  const h = Math.floor((total % 1440) / 60);
   const m = total % 60;
+
+  if (d) return h ? `${signo}${d} d ${h} h` : `${signo}${d} d`;
 
   if (!h) return `${signo}${m} min`;
 
@@ -149,6 +168,26 @@ export type CitaHorario = {
   tipo: TipoCita;
   /** Segunda línea en pequeño: "Lavandería", "Picnic · ENTREGA". */
   nota?: string;
+};
+
+/**
+ * Un día del desplazamiento: una hoja del horario.
+ *
+ * Los minutos de sus citas se cuentan desde **su** medianoche, no desde la del
+ * partido, y pueden pasar de 1440 igual que antes: la vuelta que llega a las
+ * 3:15 pertenece a la hoja del día que se jugó, no a la del día siguiente.
+ * Por eso el día es la unidad y no una fecha suelta por cita.
+ */
+export type DiaViaje = {
+  id: string;
+  /** ISO `yyyy-mm-dd`. Es lo que ata el día al calendario del viaje. */
+  fecha: string;
+  /** Rótulo propio: "Víspera · viaje de ida". Vacío, se deduce de la fecha. */
+  titulo: string;
+  citas: CitaHorario[];
+  /** Primera y última media hora de la columna, en minutos. */
+  desde: number;
+  hasta: number;
 };
 
 /** Una foto o un plano del dossier. Vive en Supabase; aquí sólo su dirección. */
@@ -203,8 +242,14 @@ export type Desplazamiento = {
   hotel: DatosHotel;
   /** Sin hotel el dossier se queda en dos diapositivas. */
   conHotel: boolean;
-  horario: {
-    /** Primera y última media hora de la columna, en minutos. */
+  /** Los días del viaje, en el orden en que se leen. Uno por hoja A4. */
+  dias: DiaViaje[];
+  /**
+   * El horario de un solo día, como se guardaba antes de que el viaje pudiera
+   * durar más de uno. Se lee al abrir un documento viejo y se convierte en el
+   * primer día; `normalizaViaje` lo quita en cuanto alguien toca algo.
+   */
+  horario?: {
     desde: number;
     hasta: number;
     citas: CitaHorario[];
@@ -318,6 +363,213 @@ export const PLANTILLA_HORARIO_BY_KEY = new Map(
 );
 
 /**
+ * Un paso a hora fija, para los días que no son el del partido.
+ *
+ * La víspera no se mueve cuando la federación cambia la hora del saque
+ * inicial: el autobús sale a las cuatro y se cena a las nueve tanto si al día
+ * siguiente se juega a las doce como si se juega a las nueve de la noche. Por
+ * eso esos días se escriben con la hora puesta y no con un desfase, que es
+ * justo al revés que el día del partido.
+ */
+export type PasoDia = {
+  hora: string;
+  texto: string;
+  tipo: TipoCita;
+  nota?: string;
+  /** La cita cae ya en la madrugada del día de después. */
+  dia2?: boolean;
+};
+
+export type PlantillaDia = {
+  key: string;
+  label: string;
+  pista: string;
+  horas: PasoDia[];
+};
+
+/** Plantillas para rellenar **un** día suelto que no es el del partido. */
+export const PLANTILLAS_DIA: PlantillaDia[] = [
+  {
+    key: "vispera-viaje",
+    label: "Víspera · viaje y hotel",
+    pista: "Se sale por la tarde, se cena en el hotel y se duerme allí",
+    horas: [
+      { hora: "16:00", texto: "Salida bus", tipo: "viaje", nota: "Lavandería" },
+      { hora: "19:30", texto: "Llegada hotel", tipo: "viaje" },
+      { hora: "20:00", texto: "Activación", tipo: "trabajo" },
+      { hora: "21:00", texto: "Cena", tipo: "comida" },
+      { hora: "22:30", texto: "Charla de partido", tipo: "trabajo" },
+      { hora: "23:15", texto: "Descanso habitaciones", tipo: "descanso" },
+    ],
+  },
+  {
+    key: "vispera-casa",
+    label: "Víspera · en Valdebebas",
+    pista: "No se viaja: entrenamiento de activación y a casa",
+    horas: [
+      { hora: "10:30", texto: "Activación", tipo: "trabajo" },
+      { hora: "12:00", texto: "Charla de partido", tipo: "trabajo" },
+      { hora: "13:30", texto: "Comida", tipo: "comida" },
+      { hora: "15:00", texto: "Salida a casa", tipo: "descanso" },
+    ],
+  },
+  {
+    key: "regreso",
+    label: "Regreso a Valdebebas",
+    pista: "Se duerme fuera y se vuelve al día siguiente",
+    horas: [
+      { hora: "09:30", texto: "Desayuno", tipo: "comida" },
+      { hora: "10:30", texto: "Recuperación", tipo: "trabajo" },
+      { hora: "11:30", texto: "Salida bus", tipo: "viaje" },
+      { hora: "15:00", texto: "Llegada Valdebebas", tipo: "viaje" },
+    ],
+  },
+  {
+    key: "libre",
+    label: "Día en blanco",
+    pista: "Sin citas: se escribe a mano",
+    horas: [],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  PLANTILLAS DE VIAJE (VARIOS DÍAS)                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un día dentro de una plantilla de viaje.
+ *
+ * Puede llevar las dos cosas a la vez y es lo normal en el día del partido: la
+ * mañana va por reloj —el desayuno es a las nueve y media pase lo que pase— y
+ * la tarde por desfase respecto al saque inicial, que es lo que de verdad se
+ * mueve cuando cambian la hora.
+ */
+export type DiaPlantilla = {
+  /** Días respecto al del partido: −1 es la víspera, +1 el de después. */
+  desplazamiento: number;
+  titulo: string;
+  /** Pasos anclados al saque inicial. Sólo tienen sentido el día del partido. */
+  pasos?: PasoPlantilla[];
+  /** Pasos a hora fija. */
+  horas?: PasoDia[];
+};
+
+export type PlantillaViaje = {
+  key: string;
+  label: string;
+  pista: string;
+  condicion: "local" | "visitante";
+  dias: DiaPlantilla[];
+};
+
+/**
+ * Los viajes tipo, de una tacada.
+ *
+ * Rehacen el calendario entero del desplazamiento —cuántos días y qué pasa en
+ * cada uno—, que es el trabajo que se repetía a mano cada semana. Lo de
+ * después es afinar horas, y para eso están las herramientas del editor.
+ */
+export const PLANTILLAS_VIAJE: PlantillaViaje[] = [
+  {
+    key: "un-dia",
+    label: "Ida y vuelta en el día",
+    pista: "Un solo día: se sale por la mañana y se vuelve tras el partido",
+    condicion: "visitante",
+    dias: [
+      {
+        desplazamiento: 0,
+        titulo: "Día de partido",
+        pasos: PLANTILLAS_HORARIO[0].pasos,
+      },
+    ],
+  },
+  {
+    key: "dos-dias",
+    label: "Dos días · se duerme la víspera",
+    pista: "Lo habitual fuera de casa: se viaja la tarde antes y se vuelve tras el partido",
+    condicion: "visitante",
+    dias: [
+      {
+        desplazamiento: -1,
+        titulo: "Víspera · viaje de ida",
+        horas: PLANTILLAS_DIA[0].horas,
+      },
+      {
+        desplazamiento: 0,
+        titulo: "Día de partido",
+        horas: [
+          { hora: "09:30", texto: "Desayuno", tipo: "comida" },
+          { hora: "11:00", texto: "Paseo y activación", tipo: "trabajo" },
+        ],
+        pasos: [
+          { desfase: -300, texto: "Comida", tipo: "comida" },
+          { desfase: -240, texto: "Descanso habitaciones", tipo: "descanso" },
+          { desfase: -165, texto: "Merienda", tipo: "comida" },
+          { desfase: -135, texto: "Charla de partido", tipo: "trabajo" },
+          { desfase: -105, texto: "Salida hacia el estadio", tipo: "viaje" },
+          { desfase: -90, texto: "Llegada estadio", tipo: "viaje" },
+          { desfase: -30, texto: "Calentamiento", tipo: "trabajo" },
+          { desfase: 0, texto: "Partido", tipo: "partido" },
+          { desfase: 135, texto: "Cena picnic", tipo: "comida", nota: "ENTREGA" },
+          { desfase: 360, texto: "Llegada Valdebebas", tipo: "viaje" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "tres-dias",
+    label: "Tres días · se duerme también la vuelta",
+    pista: "Viajes muy largos: se sale la víspera y se regresa al día siguiente",
+    condicion: "visitante",
+    dias: [
+      {
+        desplazamiento: -1,
+        titulo: "Víspera · viaje de ida",
+        horas: PLANTILLAS_DIA[0].horas,
+      },
+      {
+        desplazamiento: 0,
+        titulo: "Día de partido",
+        horas: [
+          { hora: "09:30", texto: "Desayuno", tipo: "comida" },
+          { hora: "11:00", texto: "Paseo y activación", tipo: "trabajo" },
+        ],
+        pasos: [
+          { desfase: -300, texto: "Comida", tipo: "comida" },
+          { desfase: -240, texto: "Descanso habitaciones", tipo: "descanso" },
+          { desfase: -165, texto: "Merienda", tipo: "comida" },
+          { desfase: -135, texto: "Charla de partido", tipo: "trabajo" },
+          { desfase: -105, texto: "Salida hacia el estadio", tipo: "viaje" },
+          { desfase: -90, texto: "Llegada estadio", tipo: "viaje" },
+          { desfase: -30, texto: "Calentamiento", tipo: "trabajo" },
+          { desfase: 0, texto: "Partido", tipo: "partido" },
+          { desfase: 120, texto: "Cena", tipo: "comida" },
+          { desfase: 210, texto: "Vuelta al hotel", tipo: "viaje" },
+        ],
+      },
+      {
+        desplazamiento: 1,
+        titulo: "Regreso",
+        horas: PLANTILLAS_DIA[2].horas,
+      },
+    ],
+  },
+  {
+    key: "casa",
+    label: "Partido en casa",
+    pista: "Sin viaje: un solo día, comida, charla y estadio",
+    condicion: "local",
+    dias: [
+      {
+        desplazamiento: 0,
+        titulo: "Día de partido",
+        pasos: PLANTILLAS_HORARIO[2].pasos,
+      },
+    ],
+  },
+];
+
+/**
  * Monta el día entero desde la hora del partido.
  *
  * Redondea la columna a la media hora de arriba y de abajo para que la primera
@@ -362,6 +614,255 @@ export function renglones(desde: number, hasta: number) {
 /** Ordenadas por hora: es como se leen y como se pintan. */
 export function ordenaCitas(citas: CitaHorario[]) {
   return [...citas].sort((a, b) => a.minuto - b.minuto);
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS DÍAS                                                           */
+/* ------------------------------------------------------------------ */
+
+/** "10:30" → la cita del modelo. `dia2` la manda a la madrugada siguiente. */
+export function citaDeHora(paso: PasoDia): CitaHorario {
+  return {
+    id: nuevoId("CI"),
+    minuto: (aMinutos(paso.hora) ?? 0) + (paso.dia2 ? 1440 : 0),
+    texto: paso.texto,
+    tipo: paso.tipo,
+    ...(paso.nota ? { nota: paso.nota } : {}),
+  };
+}
+
+/**
+ * Deja el día con esas citas: ordenadas y con la columna recalculada.
+ *
+ * Es el único sitio donde se tocan `desde` y `hasta`, que son datos derivados:
+ * quien cambia una hora no tiene por qué acordarse de mover la columna.
+ */
+export function conCitas(dia: DiaViaje, citas: CitaHorario[]): DiaViaje {
+  return { ...dia, citas: ordenaCitas(citas), ...margenesDe(citas) };
+}
+
+/** Copias con identidad nueva, opcionalmente movidas de hora. */
+export function clonaCitas(citas: CitaHorario[], salto = 0): CitaHorario[] {
+  return citas.map((cita) => ({
+    ...cita,
+    id: nuevoId("CI"),
+    minuto: Math.max(0, cita.minuto + salto),
+  }));
+}
+
+export function diaVacio(fecha: string, titulo = ""): DiaViaje {
+  return conCitas(
+    { id: nuevoId("DIA"), fecha, titulo, citas: [], desde: 0, hasta: 0 },
+    [],
+  );
+}
+
+export function diaDePlantilla(plantilla: PlantillaDia, fecha: string): DiaViaje {
+  return conCitas(
+    diaVacio(fecha, plantilla.label),
+    plantilla.horas.map(citaDeHora),
+  );
+}
+
+/**
+ * Replica un día.
+ *
+ * Cae **al día siguiente** y con las mismas horas, que es lo que significa
+ * replicar en un viaje: la concentración de tres días repite desayuno,
+ * entrenamiento y comida. Las citas llevan identidad nueva para que editar la
+ * copia no toque el original.
+ */
+export function duplicaDia(dia: DiaViaje): DiaViaje {
+  return conCitas(
+    {
+      ...dia,
+      id: nuevoId("DIA"),
+      fecha: sumaDias(dia.fecha, 1),
+      citas: [],
+    },
+    clonaCitas(dia.citas),
+  );
+}
+
+/** Por fecha, que es como se viaja. */
+export function ordenaDias(dias: DiaViaje[]) {
+  return [...dias].sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+/** Saca el elemento de `desde` y lo mete en `hasta`. */
+export function mueveEnLista<T>(lista: T[], desde: number, hasta: number): T[] {
+  if (desde === hasta || desde < 0 || desde >= lista.length) return lista;
+
+  const copia = [...lista];
+
+  const [pieza] = copia.splice(desde, 1);
+
+  copia.splice(Math.max(0, Math.min(copia.length, hasta)), 0, pieza);
+
+  return copia;
+}
+
+/**
+ * Pone fechas seguidas, respetando el orden de la lista.
+ *
+ * Después de mover un día de sitio las fechas quedan desordenadas —cada día se
+ * lleva la suya—, y encadenarlas es lo que devuelve el viaje a días
+ * consecutivos sin reescribir tres calendarios a mano.
+ */
+export function encadenaFechas(dias: DiaViaje[], desde?: string): DiaViaje[] {
+  const arranque = desde ?? dias[0]?.fecha;
+
+  if (!arranque) return dias;
+
+  return dias.map((dia, indice) => ({
+    ...dia,
+    fecha: sumaDias(arranque, indice),
+  }));
+}
+
+/** Cuál de los días es el del partido, o −1 si ninguno cae en esa fecha. */
+export function indiceDiaPartido(viaje: Desplazamiento) {
+  return viaje.dias.findIndex((dia) => dia.fecha === viaje.fecha);
+}
+
+/** Cómo se llama el día en pantalla y en la hoja, si no lleva rótulo propio. */
+export function rotuloDia(dia: DiaViaje, viaje: Desplazamiento, indice: number) {
+  if (dia.titulo.trim()) return dia.titulo.trim();
+
+  const salto = diasEntre(dia.fecha, viaje.fecha);
+
+  if (salto === 0) return "Día de partido";
+  if (salto === 1) return "Víspera";
+  if (salto === 2) return "Dos días antes";
+  if (salto === -1) return "Día siguiente";
+  if (salto < -1) return `${-salto} días después`;
+  if (salto > 2) return `${salto} días antes`;
+
+  return `Día ${indice + 1}`;
+}
+
+/**
+ * Los minutos que faltan para el saque inicial, contando los días de por medio.
+ *
+ * Es la cifra con la que piensa el cuerpo técnico —"la charla, hora y media
+ * antes"— y en un viaje de dos días sigue valiendo: la salida del autobús de
+ * la víspera es "−1 d 5 h", no una hora suelta sin referencia.
+ */
+export function desfaseCita(
+  cita: CitaHorario,
+  dia: DiaViaje,
+  viaje: Desplazamiento,
+) {
+  const minutoPartido = aMinutos(viaje.hora);
+
+  if (minutoPartido === null) return null;
+
+  return cita.minuto - diasEntre(dia.fecha, viaje.fecha) * 1440 - minutoPartido;
+}
+
+/**
+ * Encaja las citas de reloj delante de las que cuelgan del saque inicial.
+ *
+ * El día del partido mezcla las dos cosas: el desayuno es a las nueve y media
+ * pase lo que pase, y la comida es cinco horas antes del partido. Con un
+ * partido de tarde eso encaja solo, pero con uno de mediodía la comida cae a
+ * las ocho y la hoja acaba diciendo «08:00 comida · 09:30 desayuno», que no es
+ * un horario, es una errata. Cuando pasa, la mañana entera se adelanta lo justo
+ * para quedar una hora por delante de la primera cita del reloj del partido,
+ * conservando la separación entre sus citas; lo que se iría antes de las seis
+ * de la mañana se cae, porque a esa hora ya no se desayuna, se madruga.
+ */
+function encajaLaManana(
+  fijas: CitaHorario[],
+  relativas: CitaHorario[],
+): CitaHorario[] {
+  if (fijas.length === 0 || relativas.length === 0) return fijas;
+
+  const primeraRelativa = Math.min(...relativas.map((cita) => cita.minuto));
+  const ultimaFija = Math.max(...fijas.map((cita) => cita.minuto));
+
+  const holgura = primeraRelativa - 60 - ultimaFija;
+
+  if (holgura >= 0) return fijas;
+
+  return fijas
+    .map((cita) => ({ ...cita, minuto: cita.minuto + holgura }))
+    .filter((cita) => cita.minuto >= 6 * 60);
+}
+
+/** Monta el viaje entero desde una plantilla de varios días. */
+export function diasDePlantillaViaje(
+  plantilla: PlantillaViaje,
+  viaje: Desplazamiento,
+): DiaViaje[] {
+  const minutoPartido = aMinutos(viaje.hora) ?? 20 * 60;
+
+  return plantilla.dias.map((molde) => {
+    const relativas = (molde.pasos ?? []).map((paso) => ({
+      id: nuevoId("CI"),
+      minuto: minutoPartido + paso.desfase,
+      texto: paso.texto,
+      tipo: paso.tipo,
+      ...(paso.nota ? { nota: paso.nota } : {}),
+    }));
+
+    const fijas = (molde.horas ?? []).map(citaDeHora);
+
+    return conCitas(
+      diaVacio(sumaDias(viaje.fecha, molde.desplazamiento), molde.titulo),
+      [...encajaLaManana(fijas, relativas), ...relativas],
+    );
+  });
+}
+
+/**
+ * Pone al día un documento guardado.
+ *
+ * Los desplazamientos que se montaron cuando un viaje era un solo día llevan
+ * `horario` y no `dias`. Se convierten al abrirlos —el horario de entonces es
+ * el día del partido— y se quedan convertidos en cuanto alguien escribe algo.
+ * Aprovecha para rehacer `desde` y `hasta`, que son datos derivados, y para
+ * darle identidad a cualquier día que llegue sin ella.
+ */
+export function normalizaViaje(viaje: Desplazamiento): Desplazamiento {
+  const { horario, ...resto } = viaje;
+
+  const crudos: DiaViaje[] =
+    Array.isArray(viaje.dias) && viaje.dias.length
+      ? viaje.dias
+      : [
+          {
+            id: nuevoId("DIA"),
+            fecha: viaje.fecha,
+            titulo: "",
+            citas: horario?.citas ?? [],
+            desde: 0,
+            hasta: 0,
+          },
+        ];
+
+  const dias = crudos.map((dia) =>
+    conCitas(
+      {
+        id: dia.id || nuevoId("DIA"),
+        fecha: dia.fecha || viaje.fecha,
+        titulo: dia.titulo ?? "",
+        citas: [],
+        desde: 0,
+        hasta: 0,
+      },
+      Array.isArray(dia.citas) ? dia.citas : [],
+    ),
+  );
+
+  return { ...resto, dias };
+}
+
+/** Todas las citas del viaje, con el día al que pertenecen. */
+export function citasDelViaje(viaje: Desplazamiento) {
+  return viaje.dias.flatMap((dia) =>
+    dia.citas.map((cita) => ({ dia, cita })),
+  );
 }
 
 export type CitaColocada = CitaHorario & {
@@ -581,7 +1082,15 @@ export function viajeVacio(
       ? PLANTILLA_HORARIO_BY_KEY.get("local")!
       : PLANTILLA_HORARIO_BY_KEY.get("visitante-largo")!;
 
-  const horario = horarioDePlantilla(plantilla, minuto);
+  /*
+  | Un solo día de entrada, aunque lo normal fuera de casa sean dos: el que se
+  | sabe seguro es el del partido, y añadir la víspera es un botón. Rellenar de
+  | oficio un día que a lo mejor no existe obligaría a borrarlo cada semana.
+  */
+  const dia = conCitas(
+    diaVacio(datos.fecha, ""),
+    horarioDePlantilla(plantilla, minuto).citas,
+  );
 
   return {
     partidoId,
@@ -613,7 +1122,7 @@ export function viajeVacio(
       tiempo: "",
       entrada: "",
     },
-    horario,
+    dias: [dia],
     avisos: [],
   };
 }
@@ -628,6 +1137,12 @@ export function viajeVacio(
  * trae **reanclado a la nueva hora del partido**: si el anterior era a las
  * 21:15 y éste a las 18:00, el día entero se adelanta tres horas y cuarto y
  * los desfases se conservan, que es lo que de verdad se estaba copiando.
+ *
+ * Con el viaje repartido en varios días se copian **todos**, cada uno a su
+ * sitio del nuevo calendario: si el anterior salía la víspera, éste también.
+ * Y sólo se reancla el día del partido: la víspera va por reloj —el autobús
+ * sale a las cuatro y se cena a las nueve— y adelantarla tres horas porque el
+ * saque inicial se ha movido sacaría al equipo del hotel de madrugada.
  */
 export function copiaViaje(
   origen: Desplazamiento,
@@ -638,17 +1153,25 @@ export function copiaViaje(
 
   const salto = antes !== null && ahora !== null ? ahora - antes : 0;
 
-  const citas = origen.horario.citas.map((cita) => ({
-    ...cita,
-    id: nuevoId("CI"),
-    minuto: Math.max(0, cita.minuto + salto),
-  }));
+  const saltoDias = diasEntre(origen.fecha, destino.fecha);
+
+  const dias = origen.dias.map((dia) =>
+    conCitas(
+      {
+        ...dia,
+        id: nuevoId("DIA"),
+        fecha: sumaDias(dia.fecha, saltoDias),
+        citas: [],
+      },
+      clonaCitas(dia.citas, dia.fecha === origen.fecha ? salto : 0),
+    ),
+  );
 
   return {
     ...destino,
     origen: origen.origen,
     avisos: [...origen.avisos],
-    horario: { citas: ordenaCitas(citas), ...margenesDe(citas) },
+    dias: dias.length ? dias : destino.dias,
   };
 }
 
@@ -700,6 +1223,45 @@ export function leeFecha(iso: string) {
   );
 
   return Number.isNaN(fecha.getTime()) ? null : fecha;
+}
+
+/** Escribe una fecha como la guarda el documento: `yyyy-mm-dd`. */
+export function comoIso(fecha: Date) {
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+/**
+ * La fecha de `n` días después. Admite negativos: `-1` es la víspera.
+ *
+ * Va por `setDate`, que es lo único que respeta los cambios de hora: sumarle
+ * 86 400 000 milisegundos al último domingo de octubre devuelve el mismo día.
+ */
+export function sumaDias(iso: string, n: number) {
+  const fecha = leeFecha(iso);
+
+  if (!fecha) return iso;
+
+  fecha.setDate(fecha.getDate() + n);
+
+  return comoIso(fecha);
+}
+
+/** Cuántos días hay de `iso` a `hasta`. La víspera del partido devuelve 1. */
+export function diasEntre(iso: string, hasta: string) {
+  const a = leeFecha(iso);
+  const b = leeFecha(hasta);
+
+  if (!a || !b) return 0;
+
+  /* Al mediodía: así ningún cambio de hora deja la resta en 23 h y se pierde
+     un día por el redondeo. */
+  a.setHours(12, 0, 0, 0);
+  b.setHours(12, 0, 0, 0);
+
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
 /** "LUNES 31", el rótulo del día que llevaba el horario original. */
