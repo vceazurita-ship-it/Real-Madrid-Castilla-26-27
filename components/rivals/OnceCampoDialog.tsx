@@ -40,6 +40,7 @@ import {
 
 import {
   ArrowLeftRight,
+  Eye,
   FileDown,
   Loader2,
   Minus,
@@ -127,6 +128,8 @@ interface OnceCampoDialogProps {
   /** Mientras se baja el informe del que sale la propuesta. */
   sugiriendo?: boolean;
   onExportar: () => void;
+  /** Ver el documento sin bajarlo. Si no se pasa, no sale el botón. */
+  onPrevisualizar?: () => void;
   onCerrar: () => void;
 }
 
@@ -640,6 +643,7 @@ export default function OnceCampoDialog({
   onSugerir,
   sugiriendo = false,
   onExportar,
+  onPrevisualizar,
   onCerrar,
 }: OnceCampoDialogProps) {
   const paleta = useMemo(() => paletaOnce(tema), [tema]);
@@ -1259,6 +1263,32 @@ export default function OnceCampoDialog({
             >
               Cerrar
             </button>
+
+            {/*
+              Verlo antes de bajarlo. No cierra el pop-up: se mira, se cierra
+              el visor y se sigue colocando el once.
+            */}
+            {onPrevisualizar && (
+              <button
+                type="button"
+                data-export-hide
+                onClick={onPrevisualizar}
+                disabled={exportando || jugadores.length === 0}
+                title={
+                  jugadores.length === 0
+                    ? "Añade primero a los titulares"
+                    : "Ver el PDF antes de descargarlo"
+                }
+                className="flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white/70 transition hover:border-white/30 hover:text-white disabled:opacity-50"
+              >
+                {exportando ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Eye size={14} />
+                )}
+                Previsualizar
+              </button>
+            )}
 
             <button
               type="button"

@@ -22,7 +22,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import { Check, FileDown, Loader2, RotateCcw, UserRound, X } from "lucide-react";
+import { Check, Eye, FileDown, Loader2, RotateCcw, UserRound, X } from "lucide-react";
 
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 
@@ -54,6 +54,8 @@ interface PorteroPdfDialogProps {
   exportando: boolean;
   onCambiar: (claves: string[]) => void;
   onExportar: (claves: string[]) => void;
+  /** Ver el documento sin bajarlo. Si no se pasa, no sale el botón. */
+  onPrevisualizar?: (claves: string[]) => void;
   onCerrar: () => void;
 }
 
@@ -71,6 +73,7 @@ export default function PorteroPdfDialog({
   exportando,
   onCambiar,
   onExportar,
+  onPrevisualizar,
   onCerrar,
 }: PorteroPdfDialogProps) {
   useBodyScrollLock(true);
@@ -325,6 +328,29 @@ export default function PorteroPdfDialog({
             <span className="text-xs text-white/35">
               {total} {total === 1 ? "jugador" : "jugadores"}
             </span>
+
+            {/* Verlo antes de bajarlo, sin cerrar la elección. */}
+            {onPrevisualizar && (
+              <button
+                type="button"
+                data-export-hide
+                onClick={() => onPrevisualizar([...marcados])}
+                disabled={exportando || total === 0}
+                title={
+                  total === 0
+                    ? "Marca al menos a un jugador"
+                    : "Ver el PDF antes de descargarlo"
+                }
+                className="flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white/70 transition hover:border-white/30 hover:text-white disabled:opacity-50"
+              >
+                {exportando ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Eye size={14} />
+                )}
+                Previsualizar
+              </button>
+            )}
 
             <button
               type="button"

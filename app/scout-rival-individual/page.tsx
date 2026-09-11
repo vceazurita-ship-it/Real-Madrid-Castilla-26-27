@@ -4,7 +4,9 @@ import { traeCsv } from "@/lib/hojaCsv";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
@@ -19,6 +21,8 @@ import {
   RotateCcw,
   Search,
   Shield,
+  /* `lucide-react` ya no trae iconos de marca: no existe `Youtube`. */
+  SquarePlay as Youtube,
   Swords,
   Users,
 } from "lucide-react";
@@ -128,8 +132,43 @@ export default function ScoutRivalIndividual() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<SortKey>("recientes");
-  const [view, setView] = useState<"clips" | "jugadores">("clips");
+  const [view, setView] = useState<"clips" | "jugadores" | "canal">("clips");
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  /*
+  | LOS VÍDEOS DE NUESTRO CANAL
+  |
+  | La videoteca de arriba son los clips de Hudl que se apuntan en la hoja. Lo
+  | que se monta en el coding, en cambio, acaba en YouTube: una lista por rival,
+  | y hasta ahora había que ir a buscarlo allí a mano. Es el mismo trabajo —mirar
+  | al rival jugador a jugador— así que entra aquí como una vista más.
+  |
+  | La plantilla del rival hace falta para saber de quién habla cada vídeo, y ya
+  | la pide la pizarra táctica de la misma hoja: se reaprovecha el hook.
+  */
+  const { squads } = useRivalSquads();
+
+  const [equipoCanal, setEquipoCanal] = useState("");
+
+  const equiposCanal = useMemo(
+    () =>
+      [...squads]
+        .map((squad) => squad.equipo)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "es")),
+    [squads],
+  );
+
+  /* Al entrar se abre por el primer equipo, para no ver una pantalla vacía. */
+  const equipoElegido = equipoCanal || equiposCanal[0] || "";
+
+  const plantillaCanal = useMemo(
+    () =>
+      (squads.find((squad) => squad.equipo === equipoElegido)?.players ?? []).map(
+        (jugador) => ({ nombre: jugador.nombre, dorsal: jugador.dorsal }),
+      ),
+    [squads, equipoElegido],
+  );
 
   /* El escudo del club de cada jugador: ver `hooks/useEscudos`. */
   const escudoDe = useEscudos();
@@ -358,31 +397,63 @@ export default function ScoutRivalIndividual() {
 
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              {/*
+                La búsqueda, el orden y las facetas son de la videoteca de Hudl:
+                describen columnas de la hoja que los vídeos del canal no
+                tienen. En esa vista se quitan y manda su propio buscador, que
+                busca en los títulos.
+              */}
+              {view === "canal" ? (
+                <label className="relative min-w-0 flex-1">
+                  <span className="sr-only">Equipo</span>
 
-                <input
-                  type="search"
-                  placeholder="Buscar jugador o equipo…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-3 pl-11 pr-4 text-white outline-none transition focus:border-[#C8A96B]/50"
-                />
-              </div>
+                  <Shield className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+
+                  <select
+                    value={equipoElegido}
+                    onChange={(e) => setEquipoCanal(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-[#111827] py-3 pl-11 pr-4 text-white outline-none transition focus:border-[#C8A96B]/50"
+                  >
+                    {equiposCanal.length === 0 && (
+                      <option value="">Cargando las plantillas…</option>
+                    )}
+
+                    {equiposCanal.map((equipo) => (
+                      <option key={equipo} value={equipo}>
+                        {equipo}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+
+                  <input
+                    type="search"
+                    placeholder="Buscar jugador o equipo…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-3 pl-11 pr-4 text-white outline-none transition focus:border-[#C8A96B]/50"
+                  />
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  aria-label="Ordenar"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortKey)}
-                  className="rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-sm"
-                >
-                  {SORTS.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                {view !== "canal" && (
+                  <select
+                    aria-label="Ordenar"
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as SortKey)}
+                    className="rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-sm"
+                  >
+                    {SORTS.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 <div className="flex rounded-xl border border-white/10 bg-[#111827] p-1">
                   <ViewTab
@@ -398,21 +469,35 @@ export default function ScoutRivalIndividual() {
                     label="Jugadores"
                     onClick={() => setView("jugadores")}
                   />
+
+                  {/* Lo que hemos montado nosotros, que vive en YouTube. */}
+                  <ViewTab
+                    active={view === "canal"}
+                    icon={Youtube}
+                    label="Nuestro canal"
+                    onClick={() => setView("canal")}
+                  />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={copyLinks}
-                  title="Copiar los enlaces de los clips filtrados"
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111827] px-3.5 py-3 text-sm text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
-                >
-                  <Copy className="h-4 w-4" />
-                  <span className="hidden sm:inline">Copiar enlaces</span>
-                </button>
+                {view !== "canal" && (
+                  <button
+                    type="button"
+                    onClick={copyLinks}
+                    title="Copiar los enlaces de los clips filtrados"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111827] px-3.5 py-3 text-sm text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span className="hidden sm:inline">Copiar enlaces</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              className={`mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${
+                view === "canal" ? "hidden" : ""
+              }`}
+            >
               {FACETS.map(({ key, label }) => (
                 <select
                   key={key}
@@ -436,7 +521,7 @@ export default function ScoutRivalIndividual() {
               ))}
             </div>
 
-            {hasFilters && (
+            {hasFilters && view !== "canal" && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {activeFilters.map(({ key }) => (
                   <button
@@ -464,7 +549,27 @@ export default function ScoutRivalIndividual() {
 
           {/* ---------------- contenido ---------------- */}
 
-          {loading && (
+          {view === "canal" && (
+            <div className="mt-6">
+              {equipoElegido ? (
+                <VideosDelCanal
+                  /* Se remonta al cambiar de equipo: la lista, los vídeos y el
+                     buscador son otros, y arrastrar el estado del anterior
+                     enseñaría un instante los cortes de quien no es. */
+                  key={equipoElegido}
+                  equipo={equipoElegido}
+                  plantilla={plantillaCanal}
+                />
+              ) : (
+                <EmptyState
+                  title="Todavía no hay plantillas rivales"
+                  text="Los vídeos del canal se reparten por jugador usando la plantilla de la hoja, así que primero tiene que cargar."
+                />
+              )}
+            </div>
+          )}
+
+          {view !== "canal" && loading && (
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
@@ -475,14 +580,14 @@ export default function ScoutRivalIndividual() {
             </div>
           )}
 
-          {!loading && error && (
+          {view !== "canal" && !loading && error && (
             <EmptyState
               title="No se han podido cargar los clips"
               text="Revisa la conexión o que la hoja de cálculo siga publicada."
             />
           )}
 
-          {!loading && !error && !filtered.length && (
+          {view !== "canal" && !loading && !error && !filtered.length && (
             <EmptyState
               title="Ningún clip coincide con el filtro"
               text="Prueba a quitar alguna condición para ampliar la búsqueda."

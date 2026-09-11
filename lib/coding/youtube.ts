@@ -298,6 +298,99 @@ export async function dameListas(acceso: string) {
   }));
 }
 
+/** Un vídeo dentro de una lista de reproducción del canal. */
+export type VideoDeLista = {
+  /** El id del vídeo, no el de su fila en la lista. */
+  id: string;
+  titulo: string;
+  descripcion: string;
+  miniatura: string;
+  /** ISO. Es cuando se subió, no cuando se jugó el partido. */
+  publicado: string;
+  /** Su sitio en la lista, por si alguien la ha ordenado a mano. */
+  posicion: number;
+};
+
+/**
+ * Los vídeos de una lista, de la primera página a la última.
+ *
+ * La API devuelve de cincuenta en cincuenta y una lista de rival de media
+ * temporada pasa de eso de largo, así que se encadena por `pageToken`. El tope
+ * está para que una lista mal montada —el canal entero dentro— no deje la
+ * pantalla pidiendo páginas un minuto.
+ *
+ * Se piden **las dos partes**: `snippet` trae título, miniatura y descripción,
+ * y `contentDetails` el `videoId` de verdad. El `id` que viene suelto es el de
+ * la *fila* de la lista, no el del vídeo, y montar un enlace con él lleva a un
+ * 404 silencioso.
+ */
+export async function dameVideosDeLista(
+  acceso: string,
+  listaId: string,
+  tope = 200,
+): Promise<VideoDeLista[]> {
+  const videos: VideoDeLista[] = [];
+
+  let pagina: string | undefined;
+
+  do {
+    const datos = await llamaApi<{
+      nextPageToken?: string;
+      items?: {
+        snippet?: {
+          title?: string;
+          description?: string;
+          position?: number;
+          publishedAt?: string;
+          thumbnails?: Record<string, { url?: string }>;
+        };
+        contentDetails?: { videoId?: string; videoPublishedAt?: string };
+      }[];
+    }>(
+      acceso,
+      `playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${encodeURIComponent(
+        listaId,
+      )}${pagina ? `&pageToken=${pagina}` : ""}`,
+    );
+
+    for (const item of datos.items ?? []) {
+      const id = item.contentDetails?.videoId;
+
+      if (!id) continue;
+
+      const miniaturas = item.snippet?.thumbnails ?? {};
+
+      videos.push({
+        id,
+        titulo: item.snippet?.title ?? "Sin título",
+        descripcion: item.snippet?.description ?? "",
+        miniatura:
+          miniaturas.medium?.url ??
+          miniaturas.high?.url ??
+          miniaturas.default?.url ??
+          "",
+        publicado:
+          item.contentDetails?.videoPublishedAt ??
+          item.snippet?.publishedAt ??
+          "",
+        posicion: item.snippet?.position ?? videos.length,
+      });
+    }
+
+    pagina = datos.nextPageToken;
+  } while (pagina && videos.length < tope);
+
+  /*
+  | Los vídeos borrados o puestos en privado siguen en la lista con el título
+  | «Deleted video» o «Private video» y sin miniatura: no se pueden ver y sólo
+  | ensucian la cuenta de la pantalla.
+  */
+  return videos.filter(
+    (video) =>
+      !/^(deleted|private) video$/i.test(video.titulo.trim()) && video.miniatura,
+  );
+}
+
 /**
  * Abre la subida y devuelve la URL a la que el navegador manda los bytes.
  *

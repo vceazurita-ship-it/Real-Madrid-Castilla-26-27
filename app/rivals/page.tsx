@@ -230,6 +230,12 @@ const OnceCampoDialog = dynamic(
   () => import("@/components/rivals/OnceCampoDialog"),
 );
 
+/* El visor del PDF: sólo se carga cuando alguien pulsa «Previsualizar». */
+const VistaPreviaPdf = dynamic(
+  () =>
+    import("@/components/rivals/VistaPreviaPdf").then((m) => m.VistaPreviaPdf),
+);
+
 const PorteroPdfDialog = dynamic(
   () => import("@/components/rivals/PorteroPdfDialog"),
 );
@@ -1311,10 +1317,25 @@ export default function RivalPlayersPage() {
   | cambia es la variante, que es la que pone los rótulos y el nombre del
   | archivo. Devuelve si ha salido, para que quien lo llame cierre su pop-up.
   */
+  /*
+  | El documento que se está mirando antes de bajarlo.
+  |
+  | Los PDF del rival salían a ciegas: se pulsaba y se descargaba, y si una
+  | ficha había salido mal había que abrir la carpeta para enterarse —con el
+  | documento ya repartido—. Ahora el mismo montaje puede acabar en la pantalla
+  | en vez de en Descargas, y desde ahí se baja si convence.
+  */
+  const [vistaPdf, setVistaPdf] = useState<{
+    blob: Blob;
+    nombre: string;
+    titulo: string;
+  } | null>(null);
+
   const exportaPdf = useCallback(
     async (
       variante: OncePdfVariante,
       filas: { player: RivalPlayer; estado: OncePdfEstado }[],
+      modo: "descargar" | "ver" = "descargar",
     ) => {
       setExportando(true);
 
@@ -1323,9 +1344,7 @@ export default function RivalPlayersPage() {
           .sort((a, b) => ordenDelOnce(a.player, b.player))
           .map(({ player, estado }) => fichaDePdf(player, estado));
 
-        const { exportOncePdf } = await import("@/lib/rivals/once-pdf");
-
-        const nombre = await exportOncePdf({
+        const datos = {
           equipo: equipoDelOnce,
           /* El escudo firma el título de la portada: en una carpeta con los
              diecinueve documentos del grupo es lo que dice de quién es cada
@@ -1336,7 +1355,28 @@ export default function RivalPlayersPage() {
           /* Dónde ha dejado el entrenador a cada uno en el pop-up. */
           campo: once.doc.campo,
           variante,
-        });
+        };
+
+        const rotulo =
+          variante === "portero"
+            ? `Para el portero · ${equipoDelOnce}`
+            : `Once probable · ${equipoDelOnce}`;
+
+        if (modo === "ver") {
+          /* El mismo motor, pero el documento se queda en memoria: `blob` es
+             lo que el visor del navegador sabe abrir sin ninguna librería. */
+          const { buildOncePdf } = await import("@/lib/rivals/once-pdf");
+
+          const { doc, nombre } = await buildOncePdf(datos);
+
+          setVistaPdf({ blob: doc.output("blob"), nombre, titulo: rotulo });
+
+          return true;
+        }
+
+        const { exportOncePdf } = await import("@/lib/rivals/once-pdf");
+
+        const nombre = await exportOncePdf(datos);
 
         toast.success(
           variante === "portero"
@@ -1363,6 +1403,17 @@ export default function RivalPlayersPage() {
     if (!marcados.length) return;
 
     if (await exportaPdf("once", marcados)) setPreparandoPdf(false);
+  }, [marcados, exportaPdf]);
+
+  /*
+  | Previsualizar **no cierra el pop-up**: se mira el documento, se cierra el
+  | visor y se sigue colocando el once. Cerrarlo obligaría a recolocar a los
+  | once para cambiar una duda.
+  */
+  const verOncePdf = useCallback(async () => {
+    if (!marcados.length) return;
+
+    await exportaPdf("once", marcados, "ver");
   }, [marcados, exportaPdf]);
 
   /*
@@ -2026,6 +2077,21 @@ export default function RivalPlayersPage() {
       if (!filas.length) return;
 
       if (await exportaPdf("portero", filas)) setPreparandoPortero(false);
+    },
+    [fuentePortero, exportaPdf],
+  );
+
+  const verPorteroPdf = useCallback(
+    async (claves: string[]) => {
+      const elegidos = new Set(claves);
+
+      const filas = fuentePortero.filter(({ player }) =>
+        elegidos.has(playerKey(player)),
+      );
+
+      if (!filas.length) return;
+
+      await exportaPdf("portero", filas, "ver");
     },
     [fuentePortero, exportaPdf],
   );
@@ -3766,7 +3832,34 @@ export default function RivalPlayersPage() {
           onSugerir={() => void sugerirOnce()}
           sugiriendo={sugiriendo}
           onExportar={() => void exportarOncePdf()}
+          onPrevisualizar={() => void verOncePdf()}
           onCerrar={() => setPreparandoPdf(false)}
+        />
+      )}
+
+      {/* EL DOCUMENTO, ANTES DE BAJARLO */}
+
+      {vistaPdf && (
+        <VistaPreviaPdf
+          titulo={vistaPdf.titulo}
+          subtitulo={vistaPdf.nombre}
+          blob={vistaPdf.blob}
+          nombre={vistaPdf.nombre}
+          onDescargar={() => {
+            /* Se baja **el mismo** documento que se está viendo, no uno nuevo:
+               volver a montarlo podría dar otro si algo ha cambiado por debajo
+               mientras se miraba. */
+            const enlace = document.createElement("a");
+
+            enlace.href = URL.createObjectURL(vistaPdf.blob);
+            enlace.download = vistaPdf.nombre;
+            enlace.click();
+
+            URL.revokeObjectURL(enlace.href);
+
+            toast.success("Descargado", { description: vistaPdf.nombre });
+          }}
+          onCerrar={() => setVistaPdf(null)}
         />
       )}
 
@@ -3812,6 +3905,7 @@ export default function RivalPlayersPage() {
             setElegidosPortero({ equipo: equipoDelOnce, claves })
           }
           onExportar={(claves) => void exportarPorteroPdf(claves)}
+          onPrevisualizar={(claves) => void verPorteroPdf(claves)}
           onCerrar={() => setPreparandoPortero(false)}
         />
       )}

@@ -443,9 +443,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/desplazamiento", "Desplazamiento", <Bus size={18} />)}
 
               {navLink("/general", "Repositorio", <Database size={18} />)}
-
-              {/* En pruebas: funciona con datos de verdad pero no escribe. */}
-              {navLink("/laboratorio", "Laboratorio", <FlaskConical size={18} />)}
             </>,
           )}
 
@@ -468,6 +465,12 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {disabledLink("Pizarra Competición", <Presentation size={18} />)}
 
               {disabledLink("Dashboard Individual", <Gauge size={18} />)}
+
+              {disabledLink(
+                "Laboratorio",
+                <FlaskConical size={18} />,
+                "La prueba del borrador del plan sigue en /laboratorio, pero no se entra desde aquí hasta que se decida si pasa a producción",
+              )}
             </>,
           )}
         </nav>
