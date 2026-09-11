@@ -62,7 +62,7 @@ export function VistaPreviaPdf({
 
   return (
     <div
-      className="modal-veil fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-3 sm:p-6"
+      className="modal-veil fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6"
       onClick={onCerrar}
     >
       <div

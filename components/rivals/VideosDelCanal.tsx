@@ -24,6 +24,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Link2,
   ListVideo,
@@ -41,6 +44,7 @@ import {
   CLAVE_LISTAS,
   LISTAS_VACIAS,
   buscaLista,
+  parecido,
   desnuda,
   enlaceIncrustado,
   enlaceLista,
@@ -175,6 +179,30 @@ export function VideosDelCanal({
     return puesta ?? buscaLista(listas, equipo);
   }, [clave, elegidas.porEquipo, equipo, estado]);
 
+  /*
+  | ¿Y si la lista puesta a mano no es la de este equipo?
+  |
+  | Un emparejado equivocado —un clic mal dado, una lista renombrada— no da
+  | ningún error: enseña los cortes de otro rival con toda naturalidad, y esos
+  | vídeos acaban en una charla. Como la elección a mano manda sobre el nombre a
+  | propósito, la única defensa es decirlo: si el nombre de la lista no se
+  | parece al del equipo, se avisa y se quita de un clic.
+  */
+  const puestaAMano = Boolean(
+    lista && elegidas.porEquipo?.[clave] === lista.id,
+  );
+
+  const sospechosa = puestaAMano && lista ? parecido(lista.nombre, equipo) < 0.6 : false;
+
+  const olvidaLaLista = () =>
+    setElegidas((actual) => {
+      const resto = { ...actual.porEquipo };
+
+      delete resto[clave];
+
+      return { ...actual, porEquipo: resto };
+    });
+
   /* -------------------------- LOS VÍDEOS ------------------------- */
 
   const listaId = lista?.id ?? "";
@@ -265,6 +293,32 @@ export function VideosDelCanal({
     };
   }, [plantilla, termino, videos]);
 
+  /*
+  | Ver sólo a uno.
+  |
+  | Con quince jugadores y ochenta cortes, la lista entera obliga a desplazarse
+  | buscando un nombre. Los chips de arriba son el índice **y** el filtro: dicen
+  | de un vistazo quién tiene material y cuánto, y al pulsar dejan sólo lo suyo.
+  */
+  const [soloDe, setSoloDe] = useState<string>("");
+
+  const SUELTOS = "__equipo";
+
+  const mostrados = useMemo(() => {
+    if (soloDe === SUELTOS) return grupos.sueltos;
+
+    if (soloDe) {
+      return (
+        grupos.jugadores.find((grupo) => grupo.jugador === soloDe)?.videos ?? []
+      );
+    }
+
+    return [
+      ...grupos.jugadores.flatMap((grupo) => grupo.videos),
+      ...grupos.sueltos,
+    ];
+  }, [grupos, soloDe]);
+
   const copiaEnlace = async (video: Video) => {
     try {
       await navigator.clipboard.writeText(enlaceVideo(video.id));
@@ -274,6 +328,67 @@ export function VideosDelCanal({
       toast.error("El navegador no ha permitido copiar");
     }
   };
+
+  const copiaTodos = async () => {
+    if (mostrados.length === 0) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        mostrados.map(({ video }) => enlaceVideo(video.id)).join("\n"),
+      );
+
+      toast.success(
+        `${mostrados.length} ${mostrados.length === 1 ? "enlace copiado" : "enlaces copiados"}`,
+      );
+    } catch {
+      toast.error("El navegador no ha permitido copiar");
+    }
+  };
+
+  /*
+  | Pasar de un corte al siguiente sin cerrar el reproductor.
+  |
+  | Repasar a un jugador es ver sus seis cortes seguidos, y cerrar el pop-up,
+  | buscar la ficha siguiente y volver a abrir rompe el repaso. Con las flechas
+  | del teclado, además, se hace sin soltar el cuaderno.
+  */
+  const indiceAbierto = abierto
+    ? mostrados.findIndex(({ video }) => video.id === abierto.id)
+    : -1;
+
+  const saltaA = (paso: number) => {
+    if (indiceAbierto < 0) return;
+
+    const destino = mostrados[indiceAbierto + paso];
+
+    if (destino) setAbierto(destino.video);
+  };
+
+  useEffect(() => {
+    if (!abierto) return;
+
+    const tecla = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setAbierto(null);
+
+      if (evento.key === "ArrowRight" || evento.key === "ArrowLeft") {
+        const paso = evento.key === "ArrowRight" ? 1 : -1;
+
+        setAbierto((actual) => {
+          if (!actual) return actual;
+
+          const donde = mostrados.findIndex(
+            ({ video }) => video.id === actual.id,
+          );
+
+          return mostrados[donde + paso]?.video ?? actual;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", tecla);
+
+    return () => window.removeEventListener("keydown", tecla);
+  }, [abierto, mostrados]);
 
   /* --------------------------- PINTADO --------------------------- */
 
@@ -372,6 +487,26 @@ export function VideosDelCanal({
         </p>
       )}
 
+      {sospechosa && lista && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
+          <AlertTriangle size={15} className="shrink-0 text-amber-300" />
+
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-white/70">
+            «{lista.nombre}» no parece la lista de <strong>{equipo}</strong>, y
+            está puesta a mano. Si es un despiste, lo que se ve abajo son los
+            cortes de otro rival.
+          </p>
+
+          <button
+            type="button"
+            onClick={olvidaLaLista}
+            className="shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+          >
+            Quitar el emparejado
+          </button>
+        </div>
+      )}
+
       {/* -------------------------- BUSCADOR -------------------------- */}
 
       {lista && (
@@ -390,11 +525,60 @@ export function VideosDelCanal({
             />
           </div>
 
-          <span className="text-[11px] tabular-nums text-white/35">
+          <span className="shrink-0 text-[11px] tabular-nums text-white/35">
             {cargandoVideos
               ? "cargando…"
-              : `${grupos.jugadores.reduce((suma, g) => suma + g.videos.length, 0) + grupos.sueltos.length} vídeos · ${grupos.jugadores.length} jugadores`}
+              : `${mostrados.length} ${mostrados.length === 1 ? "vídeo" : "vídeos"}`}
           </span>
+
+          <button
+            type="button"
+            onClick={() => void copiaTodos()}
+            disabled={mostrados.length === 0}
+            title="Copiar los enlaces de lo que se está viendo"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/12 px-3 py-2 text-xs text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-40"
+          >
+            <Link2 size={13} />
+            <span className="hidden sm:inline">Copiar enlaces</span>
+          </button>
+        </div>
+      )}
+
+      {/* ---------------------- QUIÉN TIENE VÍDEO ---------------------- */}
+
+      {lista && !cargandoVideos && videos.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <Chip
+            activo={!soloDe}
+            onClick={() => setSoloDe("")}
+            texto="Todos"
+            cuenta={
+              grupos.jugadores.reduce((suma, g) => suma + g.videos.length, 0) +
+              grupos.sueltos.length
+            }
+          />
+
+          {grupos.jugadores.map((grupo) => (
+            <Chip
+              key={grupo.jugador}
+              activo={soloDe === grupo.jugador}
+              onClick={() =>
+                setSoloDe(soloDe === grupo.jugador ? "" : grupo.jugador)
+              }
+              texto={grupo.jugador}
+              dorsal={grupo.dorsal}
+              cuenta={grupo.videos.length}
+            />
+          ))}
+
+          {grupos.sueltos.length > 0 && (
+            <Chip
+              activo={soloDe === SUELTOS}
+              onClick={() => setSoloDe(soloDe === SUELTOS ? "" : SUELTOS)}
+              texto="Del equipo"
+              cuenta={grupos.sueltos.length}
+            />
+          )}
         </div>
       )}
 
@@ -413,9 +597,17 @@ export function VideosDelCanal({
         </p>
       )}
 
+      {!cargandoVideos && lista && videos.length > 0 && mostrados.length === 0 && (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/40">
+          Nada coincide con lo que buscas.
+        </p>
+      )}
+
       {!cargandoVideos && (
         <div className="mt-4 space-y-5">
-          {grupos.jugadores.map((grupo) => (
+          {grupos.jugadores
+            .filter((grupo) => !soloDe || soloDe === grupo.jugador)
+            .map((grupo) => (
             <section key={grupo.jugador} className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {grupo.dorsal && (
@@ -442,7 +634,7 @@ export function VideosDelCanal({
             </section>
           ))}
 
-          {grupos.sueltos.length > 0 && (
+          {grupos.sueltos.length > 0 && (!soloDe || soloDe === SUELTOS) && (
             <section className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-semibold text-white/70">
@@ -470,17 +662,52 @@ export function VideosDelCanal({
 
       {abierto && (
         <div
-          className="modal-veil fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+          className="modal-veil fixed inset-0 z-[70] flex items-center justify-center p-4"
           onClick={() => setAbierto(null)}
         >
           <div
             className="w-full max-w-4xl overflow-hidden rounded-2xl border border-white/12 bg-[#11161C]"
             onClick={(evento) => evento.stopPropagation()}
           >
-            <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-white">
-                {abierto.titulo}
-              </p>
+            <header className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">
+                  {abierto.titulo}
+                </p>
+
+                {indiceAbierto >= 0 && mostrados.length > 1 && (
+                  <p className="mt-0.5 text-[11px] tabular-nums text-white/35">
+                    {indiceAbierto + 1} de {mostrados.length} · con ← y → se
+                    pasa de uno a otro
+                  </p>
+                )}
+              </div>
+
+              {mostrados.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => saltaA(-1)}
+                    disabled={indiceAbierto <= 0}
+                    title="Corte anterior (←)"
+                    className="rounded-lg border border-white/12 p-1.5 text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-30"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => saltaA(1)}
+                    disabled={
+                      indiceAbierto < 0 || indiceAbierto >= mostrados.length - 1
+                    }
+                    title="Corte siguiente (→)"
+                    className="rounded-lg border border-white/12 p-1.5 text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-30"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </>
+              )}
 
               <button
                 type="button"
@@ -531,6 +758,46 @@ export function VideosDelCanal({
         </div>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL ÍNDICE DE JUGADORES                                             */
+/* ------------------------------------------------------------------ */
+
+/** Un jugador de la tira de arriba: es a la vez índice y filtro. */
+function Chip({
+  activo,
+  onClick,
+  texto,
+  dorsal,
+  cuenta,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  texto: string;
+  dorsal?: string;
+  cuenta: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+        activo
+          ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#C8A96B]"
+          : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/25 hover:text-white"
+      }`}
+    >
+      {dorsal && (
+        <span className="tabular-nums opacity-70">{dorsal}</span>
+      )}
+
+      <span className="max-w-[14rem] truncate">{texto}</span>
+
+      <span className="tabular-nums opacity-50">{cuenta}</span>
+    </button>
   );
 }
 

@@ -1067,7 +1067,7 @@ export function EditorHorario({
         <DragOverlay dropAnimation={null}>
           {citaArrastrada && (
             <div
-              className="flex items-center gap-2 rounded-xl border border-white/25 bg-[#141A21] px-3 py-2 shadow-2xl"
+              className="flex items-center gap-2 rounded-xl border border-white/25 bg-[#11161C] px-3 py-2 shadow-2xl"
               style={{
                 borderLeft: `4px solid ${
                   (TIPO_CITA[citaArrastrada.tipo] ?? TIPO_CITA.otro).color
@@ -1085,7 +1085,7 @@ export function EditorHorario({
           )}
 
           {diaArrastrado && (
-            <div className="rounded-xl border border-white/25 bg-[#141A21] px-3 py-2 shadow-2xl">
+            <div className="rounded-xl border border-white/25 bg-[#11161C] px-3 py-2 shadow-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white">
                 {diaCorto(diaArrastrado.fecha).toLowerCase()}
               </p>
