@@ -22,20 +22,32 @@
  * cuándo y tras cuánto tiempo** —el log de Opta va acción por acción, con su
  * jugador y su reloj—.
  *
- * Lo que no está se dice (`NO_DISPONIBLE`): un hueco explicado es un dato; un
- * hueco tapado con un primo lejano es una decisión mal tomada.
+ * Dentro de «Contra la liga» todo se reparte además por **fase de juego** —con
+ * balón, sin balón y balón parado—, que es como se habla en la caseta y como se
+ * reparte el entrenamiento. Cincuenta y siete barras seguidas no se leen.
+ *
+ * **Cada gráfico escribe lo que muestra** (`lib/data-analisis/lectura.ts'). Un
+ * dibujo enseña una forma pero no dice qué hacer con ella, y un gráfico sin
+ * frase debajo se lee de ocho maneras distintas en un cuerpo técnico de ocho.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Clock,
+  Compass,
   Database,
+  Flag,
   History,
   Loader2,
+  Percent,
   RefreshCw,
   Scale,
+  ShieldCheck,
+  Swords,
+  Target,
   Timer,
   Users,
 } from "lucide-react";
@@ -53,16 +65,36 @@ import {
   type FilaPercentil,
 } from "@/components/data/graficas";
 import {
+  Composicion,
+  Distribucion,
+  Enfrentado,
+  Lectura,
+  type ParEnfrentado,
+  type Trozo,
+} from "@/components/data/formas";
+import {
+  avisoDeMuestra,
+  lecturaDeComposicion,
+  lecturaDeDispersion,
+  lecturaDeDistribucion,
+  lecturaDeEnfrentado,
+  lecturaDeEvolucion,
+  lecturaDeGrupo,
+  lecturaDeLiga,
+} from "@/lib/data-analisis/lectura";
+import {
+  FASES,
   GRUPOS,
   METRICAS,
   METRICA_POR_KEY,
-  NO_DISPONIBLE,
+  aFavorYEnContra,
   formatea,
   mediana,
   percentil,
   temporadaDe,
   valorEnGrupo,
   valorEnPartido,
+  type Fase,
 } from "@/lib/data-analisis/metricas";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import {
@@ -127,6 +159,9 @@ export default function DataAnalisisPage() {
   const [intento, setIntento] = useState(0);
 
   const [area, setArea] = useState<Area>("liga");
+
+  /* La fase que se está mirando dentro de «Contra la liga». */
+  const [fase, setFase] = useState<Fase>("con");
 
   useEffect(() => {
     const control = new AbortController();
@@ -229,6 +264,11 @@ export default function DataAnalisisPage() {
       };
     });
   }, [deLaLiga, equiposLiga, nuestros]);
+
+  const avisoMuestra = useMemo(
+    () => avisoDeMuestra(nuestros.length),
+    [nuestros.length],
+  );
 
   /* -------------------- MÉTRICA ELEGIDA (áreas 3) ------------------ */
 
@@ -606,12 +646,23 @@ export default function DataAnalisisPage() {
                         />
 
                         {metHist && (
-                          <p className="mt-2 text-[12px] leading-relaxed text-white/50">
-                            <strong className="text-white/70">
-                              {metHist.nombre}:
-                            </strong>{" "}
-                            {metHist.comoLeer}
-                          </p>
+                          <>
+                            <Lectura>
+                              {lecturaDeEvolucion(
+                                serieHistorica,
+                                metHist.unidad,
+                                metHist.nombre,
+                                metHist.mejorAlto,
+                              ) ?? metHist.comoLeer}
+                            </Lectura>
+
+                            <p className="mt-2 text-[12px] leading-relaxed text-white/45">
+                              <strong className="text-white/65">
+                                {metHist.nombre}:
+                              </strong>{" "}
+                              {metHist.comoLeer}
+                            </p>
+                          </>
                         )}
 
                         {casaFuera && (
@@ -656,35 +707,85 @@ export default function DataAnalisisPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="mt-5">
-                          <Notice title={`${nuestros.length} partidos del Castilla en ${laQueMando}, contra ${equiposLiga.length} equipos`}>
-                            La barra va siempre en el mismo sentido:{" "}
-                            <strong className="text-white/75">
-                              a la derecha, mejor
-                            </strong>
-                            . En PPDA, pérdidas o goles recibidos eso significa un
-                            número bajo. La raya del centro es la mediana de la
-                            liga y «p60» quiere decir que se está por encima del
-                            60 % de los equipos. Las métricas de estilo —posesión,
-                            distancia de pase— van en gris: no hay un «bien».
-                            Pulsa el nombre de cualquiera para ver cómo se lee.
-                          </Notice>
+                        {/*
+                          LAS FASES DEL JUEGO
+
+                          Cincuenta y siete barras seguidas no se leen: hay que
+                          bajar tres pantallas para ver si se presiona bien. Con
+                          balón, sin balón y balón parado es como se habla en la
+                          caseta y como se reparte el entrenamiento, así que es
+                          como se reparte la pantalla.
+                        */}
+                        <div className="mt-5 flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                            {FASES.map((f) => (
+                              <button
+                                key={f.key}
+                                type="button"
+                                onClick={() => setFase(f.key)}
+                                aria-pressed={fase === f.key}
+                                title={f.pregunta}
+                                className={`rounded-lg px-3 py-2 text-xs transition ${
+                                  fase === f.key
+                                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                                    : "text-white/50 hover:text-white"
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          <span className="text-[11px] text-white/35">
+                            {FASES.find((f) => f.key === fase)?.pregunta}
+                          </span>
                         </div>
 
+                        {avisoMuestra && (
+                          <div className="mt-3">
+                            <Notice tone="warn" title="Ojo con la muestra">
+                              {avisoMuestra}
+                            </Notice>
+                          </div>
+                        )}
+
+                        {/* Los gráficos propios de cada fase. */}
+                        <PanelesDeFase
+                          fase={fase}
+                          nuestros={nuestros}
+                          deLaLiga={deLaLiga}
+                          equiposLiga={equiposLiga}
+                        />
+
+                        {/* Y el detalle métrica a métrica. */}
                         {GRUPOS.map((grupo) => {
-                          const filas = percentiles.filter(
-                            (f) =>
-                              METRICA_POR_KEY.get(f.key)?.grupo === grupo,
-                          );
+                          const filas = percentiles.filter((f) => {
+                            const met = METRICA_POR_KEY.get(f.key);
+
+                            return met?.grupo === grupo && met?.fase === fase;
+                          });
 
                           if (filas.length === 0) return null;
 
+                          const lectura = lecturaDeGrupo(filas);
+
                           return (
                             <div key={grupo} className="mt-5">
-                              <Panel title={grupo} icon={Scale}>
+                              <Panel
+                                title={grupo}
+                                subtitle="A la derecha, mejor. La raya del centro es la mediana de la liga; pulsa un nombre para ver cómo se lee."
+                                icon={Scale}
+                              >
                                 {filas.map((fila) => (
                                   <BarraPercentil key={fila.key} fila={fila} />
                                 ))}
+
+                                {lectura && (
+                                  <Lectura>
+                                    {lectura.resumen}{" "}
+                                    {lectura.fuerte} {lectura.debil}
+                                  </Lectura>
+                                )}
                               </Panel>
                             </div>
                           );
@@ -718,18 +819,24 @@ export default function DataAnalisisPage() {
                         />
 
                         {metTabla && (
-                          <p className="mt-3 text-[12px] leading-relaxed text-white/50">
-                            <strong className="text-white/70">
-                              {metTabla.nombre}:
-                            </strong>{" "}
-                            {metTabla.comoLeer}
-                            {metTabla.mejorAlto === false && (
-                              <span className="text-white/35">
-                                {" "}
-                                Aquí el primero es el que menos tiene.
-                              </span>
-                            )}
-                          </p>
+                          <>
+                            <Lectura>
+                              {lecturaDeLiga(filasEquipos, NOSOTROS, metTabla)}
+                            </Lectura>
+
+                            <p className="mt-2 text-[12px] leading-relaxed text-white/45">
+                              <strong className="text-white/65">
+                                {metTabla.nombre}:
+                              </strong>{" "}
+                              {metTabla.comoLeer}
+                              {metTabla.mejorAlto === false && (
+                                <span className="text-white/35">
+                                  {" "}
+                                  Aquí el primero es el que menos tiene.
+                                </span>
+                              )}
+                            </p>
+                          </>
                         )}
                       </Panel>
                     </div>
@@ -763,6 +870,12 @@ export default function DataAnalisisPage() {
                           unidadY={metY?.unidad ?? "decimal"}
                           destacado={NOSOTROS}
                         />
+
+                        {metX && metY && (
+                          <Lectura>
+                            {lecturaDeDispersion(puntos, NOSOTROS, metX, metY)}
+                          </Lectura>
+                        )}
                       </Panel>
                     </div>
                   </>
@@ -787,105 +900,396 @@ export default function DataAnalisisPage() {
                   </>
                 )}
 
-                {/* ================ LO QUE NO ESTÁ ================ */}
+                {/*
+                  EL PIE
 
-                <div className="mt-6">
-                  <Panel
-                    title="Lo que se ha pedido y no está en los informes"
-                    subtitle="Dicho a propósito: un hueco explicado es un dato"
-                    icon={AlertTriangle}
-                  >
-                    <div className="space-y-2.5">
-                      {NO_DISPONIBLE.map((hueco) => (
-                        <div key={hueco.concepto} className="min-w-0">
-                          <p className="text-[13px] font-medium text-white/80">
-                            {hueco.concepto}
-                          </p>
-
-                          <p className="mt-0.5 text-[12px] leading-relaxed text-white/45">
-                            {hueco.porque}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </Panel>
-                </div>
-
-                {/* =================== FUENTES ==================== */}
-
-                <div className="mt-5">
-                  <Panel
-                    title="De dónde sale esto"
-                    subtitle="La carpeta public/data, tal y como está ahora mismo"
-                    icon={Database}
-                  >
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      {[
-                        {
-                          rotulo: "Informes de Wyscout",
-                          dato: `${datos.fuentes?.wyscout.length ?? 0} ficheros`,
-                        },
-                        {
-                          rotulo: "Descargas de Opta",
-                          dato: `${datos.fuentes?.opta.length ?? 0} ficheros`,
-                        },
-                        {
-                          rotulo: "Saltados",
-                          dato: `${datos.fuentes?.ignorados.length ?? 0} (PDF y descargas a medias)`,
-                        },
-                      ].map((f) => (
-                        <div
-                          key={f.rotulo}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
-                        >
-                          <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-                            {f.rotulo}
-                          </p>
-
-                          <p className="mt-1 text-sm text-white/80">{f.dato}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/*
-                      De dónde han salido: la carpeta de verdad o el índice que
-                      se monta al compilar. Desplegado sólo existe el segundo —la
-                      función no tiene `public/` en su disco— y saberlo explica
-                      por qué un fichero recién dejado todavía no aparece ahí.
-                    */}
-                    <p className="mt-3 text-[11px] leading-relaxed text-white/45">
-                      {datos.origen === "indice" ? (
-                        <>
-                          Leído del <strong className="text-white/70">índice
-                          que se monta al compilar</strong>: esta copia de la app
-                          no puede abrir la carpeta por su cuenta. Los ficheros
-                          que dejes ahora se verán al volver a desplegar —o al
-                          momento si abres la plataforma en el ordenador donde
-                          está la carpeta.
-                        </>
-                      ) : (
-                        <>
-                          Leído de la{" "}
-                          <strong className="text-white/70">carpeta de verdad</strong>
-                          : lo que dejes ahí se ve al pulsar «Releer la carpeta».
-                        </>
-                      )}
-                    </p>
-
-                    <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-                      Deja ficheros nuevos en <code>public/data/wys</code> o{" "}
-                      <code>public/data/opta</code> y pulsa «Releer la carpeta».
-                      Los nombres repetidos —«(1)», «(2)»— no molestan: se queda
-                      la versión más completa de cada partido.
-                    </p>
-                  </Panel>
-                </div>
+                  Antes esto eran dos paneles enteros —lo que falta en los
+                  informes y el inventario de la carpeta— y ocupaban más que
+                  algunos gráficos. Lo único que hay que saber al pie es de
+                  dónde ha salido el dato que se está mirando: desplegado sólo
+                  existe el índice, y eso explica por qué un fichero recién
+                  dejado todavía no aparece.
+                */}
+                <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
+                  {datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y{" "}
+                  {datos.fuentes?.opta.length ?? 0} descargas de Opta.{" "}
+                  {datos.origen === "indice"
+                    ? "Leído del índice que se monta al compilar: esta copia no abre la carpeta por su cuenta, así que lo que dejes ahora se verá al volver a desplegar."
+                    : "Leído de la carpeta: lo que dejes en public/data se ve al pulsar «Releer la carpeta»."}
+                </p>
               </>
             )}
           </div>
         </section>
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS GRÁFICOS PROPIOS DE CADA FASE                                  */
+/* ------------------------------------------------------------------ */
+
+/** Suma una columna en un grupo de partidos. `null` si no hay ninguna. */
+function suma(filas: FilaPartido[], columna: string) {
+  let total = 0;
+  let hay = false;
+
+  for (const fila of filas) {
+    const v = fila.datos[columna];
+
+    if (v === undefined) continue;
+
+    total += v;
+    hay = true;
+  }
+
+  return hay ? total : null;
+}
+
+/** Lo mismo, por partido: es lo que se compara entre equipos. */
+const porPartido = (filas: FilaPartido[], columna: string) => {
+  const total = suma(filas, columna);
+
+  return total === null || filas.length === 0 ? 0 : total / filas.length;
+};
+
+/**
+ * Lo que cada fase pide y el percentil no da.
+ *
+ * Con balón interesa **de dónde salen los remates** y **cómo se reparte el
+ * pase**: son composiciones, y una barra apilada las cuenta de un vistazo. Sin
+ * balón interesa **dónde se roba y dónde se pierde**, que es la misma forma. Y
+ * el balón parado es, por naturaleza, **a favor contra en contra**: sacamos
+ * nueve córners y concedemos cinco.
+ *
+ * La distribución partido a partido va en las tres: una media de nueve córners
+ * puede ser nueve todas las semanas o veinte un día y cuatro el resto, y son
+ * dos equipos distintos.
+ */
+function PanelesDeFase({
+  fase,
+  nuestros,
+  deLaLiga,
+  equiposLiga,
+}: {
+  fase: Fase;
+  nuestros: FilaPartido[];
+  deLaLiga: FilaPartido[];
+  equiposLiga: string[];
+}) {
+  /** El mismo reparto, promediado sobre todos los equipos de la liga. */
+  const enLaLiga = (columna: string) => {
+    const valores = equiposLiga
+      .map((e) => porPartido(deLaLiga.filter((p) => p.equipo === e), columna))
+      .filter((v) => Number.isFinite(v));
+
+    return mediana(valores) ?? 0;
+  };
+
+  const composicion = (
+    partes: { etiqueta: string; columna: string }[],
+  ): { nuestra: Trozo[]; liga: Trozo[] } => ({
+    nuestra: partes.map((p) => ({
+      etiqueta: p.etiqueta,
+      valor: porPartido(nuestros, p.columna),
+    })),
+    liga: partes.map((p) => ({
+      etiqueta: p.etiqueta,
+      valor: enLaLiga(p.columna),
+    })),
+  });
+
+  /* ------------------------------ CON BALÓN ----------------------- */
+
+  if (fase === "con") {
+    const origen = composicion([
+      { etiqueta: "Ataque posicional", columna: "Ataques posicionales · con remate" },
+      { etiqueta: "Balón parado", columna: "Jugadas a balón parado · con remate" },
+      { etiqueta: "Contraataque", columna: "Contraataques · con remate" },
+    ]);
+
+    const pase = composicion([
+      { etiqueta: "Adelante", columna: "Pases hacia adelante" },
+      { etiqueta: "En horizontal", columna: "Pases laterales" },
+      { etiqueta: "Atrás", columna: "Pases hacia atrás" },
+    ]);
+
+    return (
+      <>
+        <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+          <Panel
+            title="De dónde salen los remates"
+            subtitle="El mismo volumen puede venir de tres sitios muy distintos"
+            icon={Target}
+          >
+            <Composicion
+              trozos={origen.nuestra}
+              trozosLiga={origen.liga}
+              lectura={lecturaDeComposicion(origen.nuestra, origen.liga, {
+                sustantivo: "remates",
+                verbo: "nacen de",
+                trozo: "vía",
+              })}
+            />
+          </Panel>
+
+          <Panel
+            title="Hacia dónde va el pase"
+            subtitle="Adelante, de lado o atrás: el reparto dibuja la intención"
+            icon={Compass}
+          >
+            <Composicion
+              trozos={pase.nuestra}
+              trozosLiga={pase.liga}
+              lectura={lecturaDeComposicion(pase.nuestra, pase.liga, {
+                sustantivo: "pases",
+                verbo: "van",
+                trozo: "dirección",
+              })}
+            />
+          </Panel>
+        </div>
+
+        <div className="mt-5">
+          <DistribucionDeMetrica
+            key={fase}
+            claveInicial="xg"
+            fase="con"
+            nuestros={nuestros}
+            deLaLiga={deLaLiga}
+            equiposLiga={equiposLiga}
+          />
+        </div>
+      </>
+    );
+  }
+
+  /* ------------------------------ SIN BALÓN ----------------------- */
+
+  if (fase === "sin") {
+    const robos = composicion([
+      { etiqueta: "Campo rival", columna: "Balones recuperados · altos" },
+      { etiqueta: "Zona media", columna: "Balones recuperados · medios" },
+      { etiqueta: "Campo propio", columna: "Balones recuperados · bajos" },
+    ]);
+
+    const perdidas = composicion([
+      { etiqueta: "Campo rival", columna: "Balones perdidos · altos" },
+      { etiqueta: "Zona media", columna: "Balones perdidos · medios" },
+      { etiqueta: "Campo propio", columna: "Balones perdidos · bajos" },
+    ]);
+
+    return (
+      <>
+        <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+          <Panel
+            title="Dónde se roba"
+            subtitle="El volumen de robos no dice nada sin la altura"
+            icon={ShieldCheck}
+          >
+            <Composicion
+              trozos={robos.nuestra}
+              trozosLiga={robos.liga}
+              lectura={lecturaDeComposicion(robos.nuestra, robos.liga, {
+                sustantivo: "recuperaciones",
+                verbo: "se producen en",
+                trozo: "zona",
+              })}
+            />
+          </Panel>
+
+          <Panel
+            title="Dónde se pierde"
+            subtitle="Las pérdidas en campo propio son las caras: cada una es una transición del rival"
+            icon={AlertTriangle}
+          >
+            <Composicion
+              trozos={perdidas.nuestra}
+              trozosLiga={perdidas.liga}
+              lectura={lecturaDeComposicion(perdidas.nuestra, perdidas.liga, {
+                sustantivo: "pérdidas",
+                verbo: "se producen en",
+                trozo: "zona",
+              })}
+            />
+          </Panel>
+        </div>
+
+        <div className="mt-5">
+          <DistribucionDeMetrica
+            key={fase}
+            claveInicial="ppda"
+            fase="sin"
+            nuestros={nuestros}
+            deLaLiga={deLaLiga}
+            equiposLiga={equiposLiga}
+          />
+        </div>
+      </>
+    );
+  }
+
+  /* ---------------------------- BALÓN PARADO ---------------------- */
+
+  if (fase === "abp") {
+    const claves = [
+      { key: "abp", masEsMejor: true },
+      { key: "corners", masEsMejor: true },
+      { key: "cornersRemate", masEsMejor: true },
+      { key: "faltasTiro", masEsMejor: true },
+      { key: "abpRemate", masEsMejor: true },
+      { key: "duelosAereos", masEsMejor: true },
+    ];
+
+    const pares: ParEnfrentado[] = claves
+      .map(({ key, masEsMejor }) => {
+        const met = METRICA_POR_KEY.get(key);
+
+        if (!met) return null;
+
+        const { aFavor, enContra } = aFavorYEnContra(met, nuestros, deLaLiga);
+
+        return {
+          etiqueta: met.nombre,
+          aFavor,
+          enContra,
+          unidad: met.unidad,
+          masEsMejor,
+        };
+      })
+      .filter((p): p is ParEnfrentado => p !== null);
+
+    const reparto = composicion([
+      { etiqueta: "Córners", columna: "Córneres" },
+      { etiqueta: "Faltas", columna: "Tiros libres" },
+      { etiqueta: "Penaltis", columna: "Penaltis" },
+    ]);
+
+    return (
+      <>
+        <div className="mt-5">
+          <Panel
+            title="Lo nuestro contra lo suyo"
+            subtitle="El balón parado es la única fase que se puede comparar de tú a tú: el informe trae también las filas del rival de cada partido"
+            icon={Swords}
+          >
+            <Enfrentado pares={pares} lectura={lecturaDeEnfrentado(pares)} />
+          </Panel>
+        </div>
+
+        <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+          <Panel
+            title="De qué son las jugadas"
+            subtitle="Córners, faltas y penaltis no se entrenan igual ni valen lo mismo"
+            icon={Flag}
+          >
+            <Composicion
+              trozos={reparto.nuestra}
+              trozosLiga={reparto.liga}
+              lectura={lecturaDeComposicion(reparto.nuestra, reparto.liga, {
+                sustantivo: "jugadas a balón parado",
+                verbo: "son",
+                trozo: "vía",
+              })}
+            />
+          </Panel>
+
+          <Panel
+            title="Cuánto pesa la estrategia"
+            subtitle="Qué parte de todo lo que se remata nace de una jugada parada"
+            icon={Percent}
+          >
+            <DistribucionDeMetrica
+              key={fase}
+              claveInicial="cuotaRematesAbp"
+              fase="abp"
+              nuestros={nuestros}
+              deLaLiga={deLaLiga}
+              equiposLiga={equiposLiga}
+              sinPanel
+            />
+          </Panel>
+        </div>
+      </>
+    );
+  }
+
+  return null;
+}
+
+/**
+ * La misma métrica, partido a partido.
+ *
+ * Va aparte porque es la pregunta que sigue siempre a un percentil: «vale, la
+ * media está bien, pero ¿lo hacemos todas las semanas?».
+ */
+function DistribucionDeMetrica({
+  claveInicial,
+  fase,
+  nuestros,
+  deLaLiga,
+  equiposLiga,
+  sinPanel,
+}: {
+  claveInicial: string;
+  fase: Fase;
+  nuestros: FilaPartido[];
+  deLaLiga: FilaPartido[];
+  equiposLiga: string[];
+  sinPanel?: boolean;
+}) {
+  const [clave, setClave] = useState(claveInicial);
+
+  const met = METRICA_POR_KEY.get(clave) ?? METRICA_POR_KEY.get(claveInicial)!;
+
+  const puntos = [...nuestros]
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    .map((fila) => ({
+      etiqueta: `${fila.fecha.slice(5)} ${fila.rival}`,
+      valor: valorEnPartido(met, fila),
+      nota: `${fila.golesFavor}-${fila.golesContra}`,
+    }))
+    .filter((p): p is { etiqueta: string; valor: number; nota: string } =>
+      p.valor !== null,
+    );
+
+  const referencia = mediana(
+    equiposLiga
+      .map((e) => valorEnGrupo(met, deLaLiga.filter((p) => p.equipo === e)))
+      .filter((v): v is number => v !== null),
+  );
+
+  const cuerpo = (
+    <Distribucion
+      puntos={puntos}
+      unidad={met.unidad}
+      referencia={referencia}
+      lectura={lecturaDeDistribucion(puntos, met.unidad, met.nombre, met.mejorAlto)}
+    />
+  );
+
+  if (sinPanel) {
+    return (
+      <>
+        <div className="mb-2">
+          <SelectorMetrica valor={clave} onCambio={setClave} soloFase={fase} />
+        </div>
+
+        {cuerpo}
+      </>
+    );
+  }
+
+  return (
+    <Panel
+      title="Partido a partido"
+      subtitle="Una media puede ser «siempre lo mismo» o «un día muy bueno y el resto no»"
+      icon={Activity}
+      action={<SelectorMetrica valor={clave} onCambio={setClave} soloFase={fase} />}
+    >
+      {cuerpo}
+    </Panel>
   );
 }
 
@@ -897,10 +1301,14 @@ function SelectorMetrica({
   valor,
   onCambio,
   rotulo,
+  soloFase,
 }: {
   valor: string;
   onCambio: (key: string) => void;
   rotulo?: string;
+  /** Deja sólo las métricas de esa fase: dentro de «Sin balón» no pinta nada
+      poder elegir los centros laterales. */
+  soloFase?: Fase;
 }) {
   return (
     <label className="flex items-center gap-1.5">
@@ -917,7 +1325,9 @@ function SelectorMetrica({
       >
         {GRUPOS.map((grupo) => (
           <optgroup key={grupo} label={grupo}>
-            {METRICAS.filter((m) => m.grupo === grupo).map((m) => (
+            {METRICAS.filter(
+              (m) => m.grupo === grupo && (!soloFase || m.fase === soloFase),
+            ).map((m) => (
               <option key={m.key} value={m.key} className="bg-[#11161C]">
                 {m.nombre}
               </option>

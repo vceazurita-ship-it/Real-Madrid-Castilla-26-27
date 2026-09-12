@@ -28,10 +28,44 @@ import type { FilaPartido } from "./leer";
 
 export type Unidad = "entero" | "decimal" | "porcentaje" | "minutos";
 
+/**
+ * En qué fase del juego se mide.
+ *
+ * Es la división con la que se habla en la caseta —«con balón hacemos esto, sin
+ * balón lo otro»— y no coincide con los grupos temáticos: los duelos ofensivos
+ * son con balón y los defensivos sin él, aunque las dos vivan en «Duelos».
+ * `general` es lo que no es de una fase: el resultado y la posesión.
+ */
+export type Fase = "con" | "sin" | "abp" | "general";
+
+export const FASES: { key: Fase; label: string; pregunta: string }[] = [
+  {
+    key: "con",
+    label: "Con balón",
+    pregunta: "Qué hacemos cuando lo tenemos: crear, progresar, ocupar el área",
+  },
+  {
+    key: "sin",
+    label: "Sin balón",
+    pregunta: "Qué hacemos cuando no lo tenemos: presionar, robar, defender",
+  },
+  {
+    key: "abp",
+    label: "Balón parado",
+    pregunta: "Córners, faltas y penaltis: a favor y en contra",
+  },
+  {
+    key: "general",
+    label: "Resultado",
+    pregunta: "Lo que queda al final, y el plan de partido",
+  },
+];
+
 export type Metrica = {
   key: string;
   nombre: string;
   grupo: string;
+  fase: Fase;
   unidad: Unidad;
   /** Si un valor alto es bueno. `null` cuando no hay «bueno»: es un estilo. */
   mejorAlto: boolean | null;
@@ -55,6 +89,7 @@ export const GRUPOS = [
   "Valor gol",
   "Creación",
   "Ocupación del área",
+  "Balón parado",
   "Circulación",
   "Progresión",
   "Duelos",
@@ -69,6 +104,7 @@ export const METRICAS: Metrica[] = [
     key: "goles",
     nombre: "Goles",
     grupo: "Resultado",
+    fase: "general",
     unidad: "decimal",
     mejorAlto: true,
     comoLeer: "Lo único que cuenta al final. Se compara con el xG para saber si el resultado se sostiene.",
@@ -78,6 +114,7 @@ export const METRICAS: Metrica[] = [
     key: "golesContra",
     nombre: "Goles recibidos",
     grupo: "Resultado",
+    fase: "general",
     unidad: "decimal",
     mejorAlto: false,
     comoLeer: "Igual que los goles, por el otro lado. Mírese junto a los tiros en contra: encajar poco recibiendo mucho es suerte, no solidez.",
@@ -87,6 +124,7 @@ export const METRICAS: Metrica[] = [
     key: "posesion",
     nombre: "Posesión",
     grupo: "Resultado",
+    fase: "general",
     unidad: "porcentaje",
     mejorAlto: null,
     comoLeer: "Cuánto tiempo se tiene el balón. No es buena ni mala por sí misma: dice el plan, no el rendimiento.",
@@ -98,6 +136,7 @@ export const METRICAS: Metrica[] = [
     key: "xg",
     nombre: "xG a favor",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     comoLeer: "Los goles que valían las ocasiones creadas. Es la medida honesta de cuánto se generó, al margen de si entró.",
@@ -107,6 +146,7 @@ export const METRICAS: Metrica[] = [
     key: "golesMenosXg",
     nombre: "Goles − xG",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     comoLeer: "Lo que se marcó por encima de lo que valían las ocasiones. Positivo sostenido es un delantero fino; positivo puntual, una racha que se corregirá sola.",
@@ -117,6 +157,7 @@ export const METRICAS: Metrica[] = [
     key: "xgPorTiro",
     nombre: "xG por remate",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     comoLeer: "La calidad media de cada remate. Sube ocupando el área y llegando limpio; baja disparando de lejos por no encontrar otra cosa.",
@@ -127,6 +168,7 @@ export const METRICAS: Metrica[] = [
     key: "tiros",
     nombre: "Remates",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     comoLeer: "Cuántas veces se termina la jugada. Mucho volumen con poco xG por remate es ruido.",
@@ -136,6 +178,7 @@ export const METRICAS: Metrica[] = [
     key: "tirosPuerta",
     nombre: "Remates a portería %",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Tiros · a la portería",
@@ -147,6 +190,7 @@ export const METRICAS: Metrica[] = [
     key: "distanciaTiro",
     nombre: "Distancia media de remate",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: false,
     comoLeer: "Metros a los que se dispara de media. Cuanto más lejos, peor ocasión: es la traducción física del xG por remate.",
@@ -156,6 +200,7 @@ export const METRICAS: Metrica[] = [
     key: "tirosFuera",
     nombre: "Remates desde fuera del área %",
     grupo: "Valor gol",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: false,
     numerador: "Tiros de fuera del área",
@@ -169,6 +214,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesPorOcasion",
     nombre: "Pases por ocasión",
     grupo: "Creación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: false,
     numerador: "Pases",
@@ -179,6 +225,7 @@ export const METRICAS: Metrica[] = [
     key: "minutosPorOcasion",
     nombre: "Minutos con balón por ocasión",
     grupo: "Creación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: false,
     numerador: "@minutos-balon",
@@ -189,6 +236,7 @@ export const METRICAS: Metrica[] = [
     key: "xgPorAtaque",
     nombre: "xG por ataque",
     grupo: "Creación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     numerador: "xG",
@@ -199,6 +247,7 @@ export const METRICAS: Metrica[] = [
     key: "ataquesPos",
     nombre: "Ataques posicionales",
     grupo: "Creación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Ataques posicionales",
@@ -208,6 +257,7 @@ export const METRICAS: Metrica[] = [
     key: "ataquesPosRemate",
     nombre: "Ataques posicionales con remate %",
     grupo: "Creación",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Ataques posicionales · con remate",
@@ -219,6 +269,7 @@ export const METRICAS: Metrica[] = [
     key: "contras",
     nombre: "Contraataques",
     grupo: "Creación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Contraataques",
@@ -228,6 +279,7 @@ export const METRICAS: Metrica[] = [
     key: "contrasRemate",
     nombre: "Contraataques con remate %",
     grupo: "Creación",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Contraataques · con remate",
@@ -238,7 +290,8 @@ export const METRICAS: Metrica[] = [
   {
     key: "abp",
     nombre: "Jugadas a balón parado",
-    grupo: "Creación",
+    grupo: "Balón parado",
+    fase: "abp",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Jugadas a balón parado",
@@ -247,7 +300,8 @@ export const METRICAS: Metrica[] = [
   {
     key: "abpRemate",
     nombre: "ABP con remate %",
-    grupo: "Creación",
+    grupo: "Balón parado",
+    fase: "abp",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Jugadas a balón parado · con remate",
@@ -256,9 +310,76 @@ export const METRICAS: Metrica[] = [
     comoLeer: "Qué parte de la estrategia acaba en remate. Es lo que justifica el tiempo de entrenamiento que se le dedica.",
   },
   {
+    key: "corners",
+    nombre: "Córners",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "decimal",
+    mejorAlto: true,
+    columna: "Córneres",
+    comoLeer: "Cuántos se saca por partido. Sin volumen no hay estrategia que rente, por bien entrenada que esté.",
+  },
+  {
+    key: "cornersRemate",
+    nombre: "Córners con remate %",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    numerador: "Córneres · con remate",
+    denominador: "Córneres",
+    factor: 100,
+    comoLeer: "De cada diez córners, cuántos acaban en remate. Es la nota del ensayo: el volumen lo pone el partido, esto lo pone el entrenamiento.",
+  },
+  {
+    key: "faltasTiro",
+    nombre: "Faltas lanzadas",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "decimal",
+    mejorAlto: null,
+    columna: "Tiros libres",
+    comoLeer: "Faltas a favor que se lanzan. Depende tanto de cómo defiende el rival como de lo que se provoque.",
+  },
+  {
+    key: "faltasRemate",
+    nombre: "Faltas con remate %",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    numerador: "Tiros libres · con remate",
+    denominador: "Tiros libres",
+    factor: 100,
+    comoLeer: "Cuántas faltas acaban en remate. Incluye las que se ponen al área, no sólo las que se tiran a puerta.",
+  },
+  {
+    key: "penaltis",
+    nombre: "Penaltis",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "decimal",
+    mejorAlto: true,
+    columna: "Penaltis",
+    comoLeer: "Los que se consiguen. En muestras cortas es ruido: dos penaltis cambian una temporada de un delantero.",
+  },
+  {
+    key: "cuotaRematesAbp",
+    nombre: "Remates que nacen de ABP %",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "porcentaje",
+    mejorAlto: null,
+    numerador: "Jugadas a balón parado · con remate",
+    denominador: "Tiros",
+    factor: 100,
+    comoLeer: "De todo lo que se remata, qué parte sale de una jugada parada. Alto puede ser una virtud —se ensaya y renta— o un aviso: que en juego no se llega.",
+  },
+  {
     key: "centros",
     nombre: "Centros laterales",
     grupo: "Creación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Centros",
@@ -268,6 +389,7 @@ export const METRICAS: Metrica[] = [
     key: "centrosPrecisos",
     nombre: "Centros precisos %",
     grupo: "Creación",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Centros · precisos",
@@ -281,6 +403,7 @@ export const METRICAS: Metrica[] = [
     key: "toquesArea",
     nombre: "Toques en el área",
     grupo: "Ocupación del área",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Toques en el área de penalti",
@@ -290,6 +413,7 @@ export const METRICAS: Metrica[] = [
     key: "entradasArea",
     nombre: "Entradas al área (conducción)",
     grupo: "Ocupación del área",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Entradas al área de penalti · carreras",
@@ -299,6 +423,7 @@ export const METRICAS: Metrica[] = [
     key: "entradasAreaPase",
     nombre: "Entradas al área (pase)",
     grupo: "Ocupación del área",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Entradas al área de penalti · pases cruzados",
@@ -308,6 +433,7 @@ export const METRICAS: Metrica[] = [
     key: "toquesPorEntrada",
     nombre: "Toques por entrada al área",
     grupo: "Ocupación del área",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     numerador: "Toques en el área de penalti",
@@ -318,6 +444,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesUltimoTercio",
     nombre: "Pases en el último tercio",
     grupo: "Ocupación del área",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Pases en el último tercio",
@@ -327,6 +454,7 @@ export const METRICAS: Metrica[] = [
     key: "cuotaUltimoTercio",
     nombre: "Juego en el último tercio %",
     grupo: "Ocupación del área",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Pases en el último tercio",
@@ -340,6 +468,7 @@ export const METRICAS: Metrica[] = [
     key: "pases",
     nombre: "Pases",
     grupo: "Circulación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Pases",
@@ -349,6 +478,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesPrecisos",
     nombre: "Precisión de pase %",
     grupo: "Circulación",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Pases · logrados",
@@ -360,6 +490,7 @@ export const METRICAS: Metrica[] = [
     key: "longitudPase",
     nombre: "Distancia media de pase",
     grupo: "Circulación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Longitud media pases",
@@ -369,6 +500,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesPorPosesion",
     nombre: "Pases por posesión",
     grupo: "Circulación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Promedio pases por posesión del balón",
@@ -378,6 +510,7 @@ export const METRICAS: Metrica[] = [
     key: "intensidadPase",
     nombre: "Intensidad de pase",
     grupo: "Circulación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Intensidad de paso",
@@ -387,6 +520,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesLaterales",
     nombre: "Pases horizontales",
     grupo: "Circulación",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Pases laterales",
@@ -396,6 +530,7 @@ export const METRICAS: Metrica[] = [
     key: "cuotaLaterales",
     nombre: "Juego horizontal %",
     grupo: "Circulación",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: false,
     numerador: "Pases laterales",
@@ -407,6 +542,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesLargos",
     nombre: "Juego largo %",
     grupo: "Circulación",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: null,
     columna: "Lanzamiento largo %",
@@ -418,6 +554,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesProgresivos",
     nombre: "Pases progresivos",
     grupo: "Progresión",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Pases progresivos",
@@ -427,6 +564,7 @@ export const METRICAS: Metrica[] = [
     key: "cuotaProgresivos",
     nombre: "Pases progresivos %",
     grupo: "Progresión",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Pases progresivos",
@@ -438,6 +576,7 @@ export const METRICAS: Metrica[] = [
     key: "progresivosPrecisos",
     nombre: "Progresivos acertados %",
     grupo: "Progresión",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Pases progresivos · precisos",
@@ -449,6 +588,7 @@ export const METRICAS: Metrica[] = [
     key: "pasesProfundidad",
     nombre: "Pases en profundidad",
     grupo: "Progresión",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Pases en profundidad completados",
@@ -458,6 +598,7 @@ export const METRICAS: Metrica[] = [
     key: "desmarques",
     nombre: "Desmarques",
     grupo: "Progresión",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Desmarques",
@@ -469,6 +610,7 @@ export const METRICAS: Metrica[] = [
     key: "duelos",
     nombre: "Duelos",
     grupo: "Duelos",
+    fase: "general",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Duelos",
@@ -478,6 +620,7 @@ export const METRICAS: Metrica[] = [
     key: "duelosGanados",
     nombre: "Duelos ganados %",
     grupo: "Duelos",
+    fase: "general",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Duelos · ganados",
@@ -489,6 +632,7 @@ export const METRICAS: Metrica[] = [
     key: "duelosOfensivos",
     nombre: "Duelos ofensivos ganados %",
     grupo: "Duelos",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Duelos ofensivos · ganados",
@@ -500,6 +644,7 @@ export const METRICAS: Metrica[] = [
     key: "duelosDefensivos",
     nombre: "Duelos defensivos ganados %",
     grupo: "Duelos",
+    fase: "sin",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Duelos defensivos · ganados",
@@ -510,7 +655,8 @@ export const METRICAS: Metrica[] = [
   {
     key: "duelosAereos",
     nombre: "Duelos aéreos ganados %",
-    grupo: "Duelos",
+    grupo: "Balón parado",
+    fase: "abp",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Duelos aéreos · ganados",
@@ -524,6 +670,7 @@ export const METRICAS: Metrica[] = [
     key: "ppda",
     nombre: "PPDA",
     grupo: "Presión y transición",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: false,
     columna: "PPDA",
@@ -533,6 +680,7 @@ export const METRICAS: Metrica[] = [
     key: "recuperaciones",
     nombre: "Recuperaciones",
     grupo: "Presión y transición",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Balones recuperados",
@@ -542,6 +690,7 @@ export const METRICAS: Metrica[] = [
     key: "recuperacionesAltas",
     nombre: "Recuperaciones altas %",
     grupo: "Presión y transición",
+    fase: "sin",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Balones recuperados · altos",
@@ -553,6 +702,7 @@ export const METRICAS: Metrica[] = [
     key: "perdidas",
     nombre: "Pérdidas",
     grupo: "Presión y transición",
+    fase: "con",
     unidad: "decimal",
     mejorAlto: false,
     columna: "Balones perdidos",
@@ -562,6 +712,7 @@ export const METRICAS: Metrica[] = [
     key: "perdidasBajas",
     nombre: "Pérdidas en campo propio %",
     grupo: "Presión y transición",
+    fase: "con",
     unidad: "porcentaje",
     mejorAlto: false,
     numerador: "Balones perdidos · bajos",
@@ -575,6 +726,7 @@ export const METRICAS: Metrica[] = [
     key: "tirosContra",
     nombre: "Remates en contra",
     grupo: "Defensa",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: false,
     columna: "Tiros en contra",
@@ -584,6 +736,7 @@ export const METRICAS: Metrica[] = [
     key: "tirosContraPuerta",
     nombre: "Remates en contra a portería %",
     grupo: "Defensa",
+    fase: "sin",
     unidad: "porcentaje",
     mejorAlto: false,
     numerador: "Tiros en contra · a la portería",
@@ -595,6 +748,7 @@ export const METRICAS: Metrica[] = [
     key: "interceptaciones",
     nombre: "Interceptaciones",
     grupo: "Defensa",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: true,
     columna: "Interceptaciones",
@@ -604,6 +758,7 @@ export const METRICAS: Metrica[] = [
     key: "despejes",
     nombre: "Despejes",
     grupo: "Defensa",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Despejes",
@@ -613,6 +768,7 @@ export const METRICAS: Metrica[] = [
     key: "entradas",
     nombre: "Entradas logradas %",
     grupo: "Defensa",
+    fase: "sin",
     unidad: "porcentaje",
     mejorAlto: true,
     numerador: "Entradas a ras de suelo · logradas",
@@ -626,6 +782,7 @@ export const METRICAS: Metrica[] = [
     key: "faltas",
     nombre: "Faltas",
     grupo: "Disciplina",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: null,
     columna: "Faltas",
@@ -635,6 +792,7 @@ export const METRICAS: Metrica[] = [
     key: "amarillas",
     nombre: "Tarjetas amarillas",
     grupo: "Disciplina",
+    fase: "sin",
     unidad: "decimal",
     mejorAlto: false,
     columna: "Tarjetas amarillas",
@@ -644,29 +802,6 @@ export const METRICAS: Metrica[] = [
 
 export const METRICA_POR_KEY = new Map(METRICAS.map((m) => [m.key, m]));
 
-/**
- * Lo que el informe **no** trae, y que se ha pedido.
- *
- * Está escrito aquí y se enseña en pantalla a propósito: un hueco explicado es
- * un dato; un hueco tapado con un primo lejano es una decisión mal tomada.
- */
-export const NO_DISPONIBLE = [
-  {
-    concepto: "Faltas en campo propio y en campo contrario",
-    porque:
-      "Wyscout da las faltas totales, sin la zona. Haría falta el log de eventos con coordenadas, que Opta sí trae pero sólo del partido que se descargue.",
-  },
-  {
-    concepto: "Segundas jugadas",
-    porque:
-      "No es una categoría del informe. Lo más cercano es el duelo aéreo ganado, que está en Duelos: quien gana arriba suele quedarse el rechace.",
-  },
-  {
-    concepto: "Cuánta gente ocupa el área",
-    porque:
-      "El recuento de jugadores dentro del área sólo sale del dato posicional. El sustituto honesto son los toques en el área y las entradas, que están en Ocupación del área.",
-  },
-];
 
 /* ------------------------------------------------------------------ */
 /*  CÁLCULO                                                            */
@@ -830,6 +965,50 @@ export function percentil(
   const bruto = ((pordebajo + iguales / 2) / validos.length) * 100;
 
   return mejorAlto === false ? 100 - bruto : bruto;
+}
+
+/* ------------------------------------------------------------------ */
+/*  A FAVOR Y EN CONTRA                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo mismo, pero de lo que hizo el rival en esos mismos partidos.
+ *
+ * El informe de cada equipo trae **las dos filas de cada partido**: la suya y
+ * la de su rival. Eso permite contestar a lo que ninguna columna contesta —
+ * «¿cuántos córners concedemos?», «¿cuántos remates de ABP nos hacen?»— sin
+ * pedir nada más: se buscan las filas del rival de nuestros partidos y se
+ * calcula la misma métrica sobre ellas.
+ *
+ * Si de algún partido no está la fila del rival, ese partido no cuenta: mejor
+ * comparar cinco contra cinco que cinco contra tres.
+ */
+export function aFavorYEnContra(
+  metrica: Metrica,
+  nuestras: FilaPartido[],
+  todas: FilaPartido[],
+) {
+  const porLlave = new Map(
+    todas.map((fila) => [`${fila.fecha}|${fila.equipo}`, fila] as const),
+  );
+
+  const mias: FilaPartido[] = [];
+  const suyas: FilaPartido[] = [];
+
+  for (const fila of nuestras) {
+    const suya = porLlave.get(`${fila.fecha}|${fila.rival}`);
+
+    if (!suya) continue;
+
+    mias.push(fila);
+    suyas.push(suya);
+  }
+
+  return {
+    partidos: mias.length,
+    aFavor: valorEnGrupo(metrica, mias),
+    enContra: valorEnGrupo(metrica, suyas),
+  };
 }
 
 /** La mediana, que es con lo que se compara en la pantalla. */
