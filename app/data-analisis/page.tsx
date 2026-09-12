@@ -82,6 +82,7 @@ type Respuesta = {
   partidos?: FilaPartido[];
   equipos?: string[];
   eventos?: PartidoEventos[];
+  origen?: "carpeta" | "indice";
   fuentes?: {
     wyscout: string[];
     opta: string[];
@@ -405,10 +406,32 @@ export default function DataAnalisisPage() {
 
             {!cargando && datos?.ok && partidos.length === 0 && (
               <div className="mt-6">
-                <Notice tone="warn" title="La carpeta está vacía">
-                  No hay ningún informe de Wyscout legible en{" "}
-                  <code>public/data/wys</code>. Deja ahí los «Team Stats» de cada
-                  equipo y vuelve a leer.
+                <Notice tone="warn" title="No ha llegado ningún informe">
+                  <p>
+                    Ni por la carpeta ni por el índice. Son dos cosas distintas y
+                    conviene saber cuál falla:
+                  </p>
+
+                  <ul className="mt-2 space-y-1.5">
+                    <li>
+                      <strong className="text-white/70">
+                        En el ordenador donde está la carpeta:
+                      </strong>{" "}
+                      comprueba que en <code>public/data/wys</code> hay «Team
+                      Stats» en <code>.xlsx</code> y pulsa «Releer la carpeta».
+                    </li>
+
+                    <li>
+                      <strong className="text-white/70">
+                        En la plataforma desplegada:
+                      </strong>{" "}
+                      esta copia no puede abrir la carpeta —sube al alojamiento
+                      pero la función no la tiene en su disco—, así que lee el
+                      índice que se monta al compilar. Si sale vacío, es que se
+                      desplegó sin informes: vuelve a desplegar con los ficheros
+                      dentro.
+                    </li>
+                  </ul>
                 </Notice>
               </div>
             )}
@@ -823,6 +846,31 @@ export default function DataAnalisisPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/*
+                      De dónde han salido: la carpeta de verdad o el índice que
+                      se monta al compilar. Desplegado sólo existe el segundo —la
+                      función no tiene `public/` en su disco— y saberlo explica
+                      por qué un fichero recién dejado todavía no aparece ahí.
+                    */}
+                    <p className="mt-3 text-[11px] leading-relaxed text-white/45">
+                      {datos.origen === "indice" ? (
+                        <>
+                          Leído del <strong className="text-white/70">índice
+                          que se monta al compilar</strong>: esta copia de la app
+                          no puede abrir la carpeta por su cuenta. Los ficheros
+                          que dejes ahora se verán al volver a desplegar —o al
+                          momento si abres la plataforma en el ordenador donde
+                          está la carpeta.
+                        </>
+                      ) : (
+                        <>
+                          Leído de la{" "}
+                          <strong className="text-white/70">carpeta de verdad</strong>
+                          : lo que dejes ahí se ve al pulsar «Releer la carpeta».
+                        </>
+                      )}
+                    </p>
 
                     <p className="mt-3 text-[11px] leading-relaxed text-white/40">
                       Deja ficheros nuevos en <code>public/data/wys</code> o{" "}
