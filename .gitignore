@@ -54,3 +54,12 @@ next-env.d.ts
 
 # Los partidos del coding: son gigas y viven sólo en la máquina del analista.
 /videos
+
+# DATA ANÁLISIS · los informes en PDF de la liga
+#
+# `public/data` la llena el cuerpo técnico cada semana con lo que baja de
+# Wyscout y Opta, y esos ficheros **sí** van al repo: son los que lee
+# /data-analisis. Los PDF de liga no: son diez megas que ninguna pantalla abre
+# y, como Next se lleva `public/` entero al trazar cada función, engordarían
+# todos los despliegues para nada. Se quedan en la carpeta de quien los baja.
+public/data/**/*.pdf

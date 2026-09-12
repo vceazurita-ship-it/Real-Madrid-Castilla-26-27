@@ -46,6 +46,7 @@ import {
   Scissors,
   Shield,
   ShieldHalf,
+  Sigma,
   Star,
   Target,
   User,
@@ -443,6 +444,21 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/desplazamiento", "Desplazamiento", <Bus size={18} />)}
 
               {navLink("/general", "Repositorio", <Database size={18} />)}
+            </>,
+          )}
+
+          {/*
+            DATA ANÁLISIS
+
+            Va la última de las secciones que funcionan, justo antes de «En
+            obras»: no es trabajo de la semana sino la lectura de lo que baja
+            de Opta y Wyscout, y el camino hacia lo que se usa a diario no
+            tiene que pasar por encima.
+          */}
+          {seccion(
+            "Data análisis",
+            <>
+              {navLink("/data-analisis", "Data Análisis", <Sigma size={18} />)}
             </>,
           )}
 
