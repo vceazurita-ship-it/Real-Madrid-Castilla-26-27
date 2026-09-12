@@ -35,6 +35,7 @@ import {
   RefreshCw,
   Search,
   SquarePlay as Youtube,
+  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -65,10 +66,59 @@ type Video = {
   posicion: number;
 };
 
+/** Un vídeo ya colocado: de quién es y de qué va, además del vídeo. */
+type Pieza = {
+  video: Video;
+  /** El título sin el nombre del jugador: lo que describe el corte. */
+  tema: string;
+  /** Vacío cuando el título no dice de quién es. */
+  jugador: string;
+  dorsal: string;
+};
+
 type Estado =
   | { fase: "cargando" }
   | { fase: "sin-conectar"; aviso: string }
   | { fase: "listo"; canal: string; listas: ListaCanal[] };
+
+/* ------------------------------------------------------------------ */
+/*  CUÁNTAS FICHAS POR FILA                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El tamaño de las fichas, a elegir.
+ *
+ * Repasar a un jugador con seis cortes y barrer los ochenta de un equipo son
+ * dos trabajos distintos: el primero quiere la miniatura grande y el segundo
+ * quiere verlos todos de una pantallada. Las clases se escriben **enteras**
+ * porque Tailwind las busca en el texto del archivo: `grid-cols-${n}` no
+ * compila.
+ */
+const TAMANOS = [
+  {
+    key: "grande",
+    label: "Grande",
+    columnas: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+  },
+  {
+    key: "medio",
+    label: "Medio",
+    columnas: "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4",
+  },
+  {
+    key: "pequeno",
+    label: "Pequeño",
+    columnas: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
+  },
+] as const;
+
+type TamanoKey = (typeof TAMANOS)[number]["key"];
+
+const CLAVE_TAMANO = "rmcf-videos-tamano";
+const CLAVE_AGRUPADO = "rmcf-videos-agrupado";
+
+const esTamano = (valor: unknown): valor is TamanoKey =>
+  TAMANOS.some((item) => item.key === valor);
 
 const fecha = (iso: string) => {
   if (!iso) return "";
@@ -94,6 +144,69 @@ export function VideosDelCanal({
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [busca, setBusca] = useState("");
   const [abierto, setAbierto] = useState<Video | null>(null);
+
+  /*
+  | El tamaño de las fichas y si se agrupan por jugador.
+  |
+  | Son preferencias de quien mira, no del rival, así que viven en este
+  | navegador y se recuerdan: quien trabaja con la lista en pequeño no quiere
+  | volver a elegirlo cada vez que cambia de equipo. Se leen con el inicializador
+  | perezoso de `useState` —no con un efecto— para que no haya un primer pintado
+  | con el tamaño que no es.
+  */
+  const [tamano, setTamano] = useState<TamanoKey>(() => {
+    if (typeof window === "undefined") return "medio";
+
+    try {
+      const guardado = window.localStorage.getItem(CLAVE_TAMANO);
+
+      return esTamano(guardado) ? guardado : "medio";
+    } catch {
+      return "medio";
+    }
+  });
+
+  const eligeTamano = (key: TamanoKey) => {
+    setTamano(key);
+
+    try {
+      window.localStorage.setItem(CLAVE_TAMANO, key);
+    } catch {
+      /* modo privado: se queda en esta sesión */
+    }
+  };
+
+  const columnas =
+    TAMANOS.find((item) => item.key === tamano)?.columnas ?? TAMANOS[1].columnas;
+
+  /*
+  | Agrupado por jugador, o todo seguido.
+  |
+  | Agrupar es lo que se quiere al preparar a un jugador, pero parte la rejilla:
+  | un jugador con tres cortes deja la fila a medias y la página baja a saltos,
+  | con tres fichas arriba y una al final. «Todo seguido» es una sola rejilla
+  | que llena el ancho de punta a punta —cada ficha dice de quién es— y sirve
+  | para barrer el material del rival entero de una pasada.
+  */
+  const [agrupado, setAgrupado] = useState(() => {
+    if (typeof window === "undefined") return true;
+
+    try {
+      return window.localStorage.getItem(CLAVE_AGRUPADO) !== "no";
+    } catch {
+      return true;
+    }
+  });
+
+  const cambiaAgrupado = (valor: boolean) => {
+    setAgrupado(valor);
+
+    try {
+      window.localStorage.setItem(CLAVE_AGRUPADO, valor ? "si" : "no");
+    } catch {
+      /* modo privado: se queda en esta sesión */
+    }
+  };
 
   /* Sube uno cada vez que se pulsa «volver a probar». */
   const [intento, setIntento] = useState(0);
@@ -248,12 +361,9 @@ export function VideosDelCanal({
   const termino = busca.trim().toLowerCase();
 
   const grupos = useMemo(() => {
-    const porJugador = new Map<
-      string,
-      { jugador: string; dorsal: string; videos: { video: Video; tema: string }[] }
-    >();
+    const porJugador = new Map<string, { jugador: string; dorsal: string; videos: Pieza[] }>();
 
-    const sueltos: { video: Video; tema: string }[] = [];
+    const sueltos: Pieza[] = [];
 
     for (const video of videos) {
       if (
@@ -265,7 +375,14 @@ export function VideosDelCanal({
 
       const jugador = jugadorDelTitulo(video.titulo, plantilla);
 
-      const pieza = { video, tema: temaDelTitulo(video.titulo, jugador) };
+      /* El nombre viaja con la ficha: en la vista seguida no hay cabecera de
+         jugador encima que lo diga. */
+      const pieza: Pieza = {
+        video,
+        tema: temaDelTitulo(video.titulo, jugador),
+        jugador: jugador?.nombre ?? "",
+        dorsal: jugador?.dorsal ?? "",
+      };
 
       if (!jugador) {
         sueltos.push(pieza);
@@ -303,6 +420,11 @@ export function VideosDelCanal({
   const [soloDe, setSoloDe] = useState<string>("");
 
   const SUELTOS = "__equipo";
+
+  const jugadoresVisibles = useMemo(
+    () => grupos.jugadores.filter((grupo) => !soloDe || soloDe === grupo.jugador),
+    [grupos.jugadores, soloDe],
+  );
 
   const mostrados = useMemo(() => {
     if (soloDe === SUELTOS) return grupos.sueltos;
@@ -531,6 +653,52 @@ export function VideosDelCanal({
               : `${mostrados.length} ${mostrados.length === 1 ? "vídeo" : "vídeos"}`}
           </span>
 
+          {/* Agrupado por jugador, o todos seguidos llenando el ancho. */}
+          <div className="flex shrink-0 items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+            {[
+              { valor: true, label: "Por jugador" },
+              { valor: false, label: "Todos seguidos" },
+            ].map((modo) => (
+              <button
+                key={modo.label}
+                type="button"
+                onClick={() => cambiaAgrupado(modo.valor)}
+                aria-pressed={agrupado === modo.valor}
+                className={`rounded-lg px-2.5 py-1.5 text-[11px] transition ${
+                  agrupado === modo.valor
+                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                    : "text-white/50 hover:text-white"
+                }`}
+              >
+                {modo.label}
+              </button>
+            ))}
+          </div>
+
+          {/*
+            Cuántas fichas por fila. Antes la rejilla era fija y con las
+            secciones por jugador el listado salía a trompicones: tres columnas
+            arriba y una al final, con media pantalla en blanco.
+          */}
+          <div className="flex shrink-0 items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+            {TAMANOS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => eligeTamano(item.key)}
+                aria-pressed={tamano === item.key}
+                title={`Fichas de tamaño ${item.label.toLowerCase()}`}
+                className={`rounded-lg px-2.5 py-1.5 text-[11px] transition ${
+                  tamano === item.key
+                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                    : "text-white/50 hover:text-white"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           <button
             type="button"
             onClick={() => void copiaTodos()}
@@ -603,60 +771,115 @@ export function VideosDelCanal({
         </p>
       )}
 
-      {!cargandoVideos && (
-        <div className="mt-4 space-y-5">
-          {grupos.jugadores
-            .filter((grupo) => !soloDe || soloDe === grupo.jugador)
-            .map((grupo) => (
-            <section key={grupo.jugador} className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                {grupo.dorsal && (
-                  <span className="rounded-md bg-[#C8A96B]/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#C8A96B]">
-                    {grupo.dorsal}
-                  </span>
-                )}
+      {/*
+      | DOS ÁREAS, NO UNA LISTA LARGA
+      |
+      | Lo individual y lo colectivo son dos trabajos distintos: repasar a un
+      | jugador es ver sus cortes seguidos, y mirar el equipo es partidos
+      | enteros, balón parado y análisis de bloque. Mezclados en una tira de
+      | secciones, lo segundo quedaba de apéndice al final de lo primero. Cada
+      | área tiene ahora su cabecera y su marco.
+      */}
+      {/* TODOS SEGUIDOS · una sola rejilla, sin huecos entre grupos. */}
+      {!cargandoVideos && !agrupado && mostrados.length > 0 && (
+        <section className="mt-5 min-w-0">
+          <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+              Todos los vídeos
+            </h2>
 
-                <h3 className="truncate text-sm font-semibold text-white">
-                  {grupo.jugador}
-                </h3>
+            <span className="text-[11px] text-white/35">
+              {mostrados.length} en orden de la lista del canal
+            </span>
+          </header>
 
-                <span className="text-[11px] text-white/35">
-                  {grupo.videos.length}{" "}
-                  {grupo.videos.length === 1 ? "vídeo" : "vídeos"}
-                </span>
-              </div>
-
-              <Rejilla
-                piezas={grupo.videos}
-                onAbrir={setAbierto}
-                onCopiar={copiaEnlace}
-              />
-            </section>
-          ))}
-
-          {grupos.sueltos.length > 0 && (!soloDe || soloDe === SUELTOS) && (
-            <section className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold text-white/70">
-                  Del equipo
-                </h3>
-
-                <span className="text-[11px] text-white/35">
-                  {grupos.sueltos.length}{" "}
-                  {grupos.sueltos.length === 1 ? "vídeo" : "vídeos"} · el título
-                  no dice de qué jugador es
-                </span>
-              </div>
-
-              <Rejilla
-                piezas={grupos.sueltos}
-                onAbrir={setAbierto}
-                onCopiar={copiaEnlace}
-              />
-            </section>
-          )}
-        </div>
+          <Rejilla
+            piezas={mostrados}
+            columnas={columnas}
+            conJugador
+            onAbrir={setAbierto}
+            onCopiar={copiaEnlace}
+          />
+        </section>
       )}
+
+      {!cargandoVideos && agrupado && jugadoresVisibles.length > 0 && (
+        <section className="mt-5 min-w-0">
+          <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+              Por jugador
+            </h2>
+
+            <span className="text-[11px] text-white/35">
+              {jugadoresVisibles.length}{" "}
+              {jugadoresVisibles.length === 1 ? "jugador" : "jugadores"} con
+              vídeo
+            </span>
+          </header>
+
+          <div className="space-y-5">
+            {jugadoresVisibles.map((grupo) => (
+              <div key={grupo.jugador} className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {grupo.dorsal && (
+                    <span className="rounded-md bg-[#C8A96B]/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#C8A96B]">
+                      {grupo.dorsal}
+                    </span>
+                  )}
+
+                  <h3 className="truncate text-sm font-semibold text-white">
+                    {grupo.jugador}
+                  </h3>
+
+                  <span className="text-[11px] text-white/35">
+                    {grupo.videos.length}{" "}
+                    {grupo.videos.length === 1 ? "vídeo" : "vídeos"}
+                  </span>
+                </div>
+
+                <Rejilla
+                  piezas={grupo.videos}
+                  columnas={columnas}
+                  onAbrir={setAbierto}
+                  onCopiar={copiaEnlace}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!cargandoVideos &&
+        agrupado &&
+        grupos.sueltos.length > 0 &&
+        (!soloDe || soloDe === SUELTOS) && (
+          <section className="mt-6 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <header className="mb-3 flex flex-wrap items-baseline gap-2">
+              <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                <Users size={13} />
+                Del equipo
+              </h2>
+
+              <span className="text-[11px] text-white/35">
+                {grupos.sueltos.length}{" "}
+                {grupos.sueltos.length === 1 ? "vídeo" : "vídeos"}
+              </span>
+
+              <span className="w-full text-[11px] leading-relaxed text-white/30 sm:w-auto">
+                Partidos enteros, balón parado, análisis de bloque: lo que no
+                habla de un jugador concreto. Si alguno sí es de uno, basta con
+                poner su nombre en el título del vídeo en YouTube.
+              </span>
+            </header>
+
+            <Rejilla
+              piezas={grupos.sueltos}
+              columnas={columnas}
+              onAbrir={setAbierto}
+              onCopiar={copiaEnlace}
+            />
+          </section>
+        )}
 
       {/* ------------------------ EL REPRODUCTOR ----------------------- */}
 
@@ -807,16 +1030,23 @@ function Chip({
 
 function Rejilla({
   piezas,
+  columnas,
+  conJugador,
   onAbrir,
   onCopiar,
 }: {
-  piezas: { video: Video; tema: string }[];
+  piezas: Pieza[];
+  /** Las clases de columnas, ya resueltas: ver `TAMANOS`. */
+  columnas: string;
+  /** Pone el nombre del jugador en la ficha: en la vista seguida no hay
+      cabecera encima que lo diga. */
+  conJugador?: boolean;
   onAbrir: (video: Video) => void;
   onCopiar: (video: Video) => void;
 }) {
   return (
-    <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {piezas.map(({ video, tema }) => (
+    <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
+      {piezas.map(({ video, tema, jugador, dorsal }) => (
         <div
           key={video.id}
           className="group min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
@@ -840,6 +1070,18 @@ function Rejilla({
           </button>
 
           <div className="p-2.5">
+            {conJugador && (
+              <p className="mb-1 flex items-center gap-1.5 truncate text-[10px] font-semibold uppercase tracking-wide">
+                {dorsal && (
+                  <span className="tabular-nums text-[#C8A96B]">{dorsal}</span>
+                )}
+
+                <span className={jugador ? "text-[#C8A96B]" : "text-white/35"}>
+                  {jugador || "Del equipo"}
+                </span>
+              </p>
+            )}
+
             <p className="line-clamp-2 text-[13px] leading-snug text-white/85">
               {tema}
             </p>

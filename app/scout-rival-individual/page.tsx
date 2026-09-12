@@ -16,7 +16,7 @@
  * debajo están sus vídeos repartidos por jugador (`VideosDelCanal`).
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Users } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -25,6 +25,14 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
+import {
+  SIN_ORDEN,
+  cargaOrdenRivales,
+  comparaPorCalendario,
+  esElProximo,
+  etiquetaDelProximo,
+  type OrdenRivales,
+} from "@/lib/rivals/orden-calendario";
 
 export default function ScoutRivalIndividual() {
   const escudoDe = useEscudos();
@@ -34,13 +42,36 @@ export default function ScoutRivalIndividual() {
   const [equipoPedido, setEquipoPedido] = useState("");
   const [buscaEquipo, setBuscaEquipo] = useState("");
 
+  /*
+  | El orden de la fila es el del calendario, no el alfabeto.
+  |
+  | Es la misma regla que `/rivals` —a cada equipo, la fecha de su siguiente
+  | partido— y por el mismo motivo: al preparar la semana se busca al rival que
+  | toca, y en una fila alfabética está donde caiga. `cargaOrdenRivales` nunca
+  | lanza: sin calendario, todos quedan empatados y vuelve el alfabeto.
+  |
+  | `claveDeHoy()` mira el reloj, así que va dentro del efecto y no en el cuerpo
+  | del componente (ver la regla de pureza de React).
+  */
+  const [orden, setOrden] = useState<OrdenRivales>(SIN_ORDEN);
+
+  useEffect(() => {
+    const control = new AbortController();
+
+    void cargaOrdenRivales(control.signal).then((leido) => {
+      if (!control.signal.aborted) setOrden(leido);
+    });
+
+    return () => control.abort();
+  }, []);
+
   const equipos = useMemo(
     () =>
       squads
         .map((squad) => squad.equipo)
         .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, "es")),
-    [squads],
+        .sort(comparaPorCalendario(orden)),
+    [squads, orden],
   );
 
   const equipo = equipoPedido || equipos[0] || "";
@@ -140,19 +171,33 @@ export default function ScoutRivalIndividual() {
               {visibles.map((nombre) => {
                 const activo = nombre === equipo;
 
+                /* El primero de la fila lleva chapa, y sólo con fecha delante:
+                   sin ella, ser el primero es una suposición. */
+                const proximo = esElProximo(orden, nombre);
+
                 return (
                   <button
                     key={nombre}
                     type="button"
                     onClick={() => setEquipoPedido(nombre)}
-                    title={nombre}
+                    title={
+                      proximo
+                        ? `${nombre} — ${etiquetaDelProximo(orden) ?? "próximo partido"}`
+                        : nombre
+                    }
                     aria-current={activo ? "true" : undefined}
-                    className={`flex w-[104px] shrink-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 transition ${
+                    className={`relative flex w-[104px] shrink-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 transition ${
                       activo
                         ? "border-[#C8A96B]/60 bg-[#C8A96B]/10"
                         : "border-white/10 bg-white/[0.02] hover:border-white/25"
                     }`}
                   >
+                    {proximo && (
+                      <span className="absolute -top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-px text-[8px] font-bold uppercase tracking-wider text-black">
+                        Próximo
+                      </span>
+                    )}
+
                     <EscudoEquipo nombre={nombre} escudo={escudoDe(nombre)} lado={26} />
 
                     <span
