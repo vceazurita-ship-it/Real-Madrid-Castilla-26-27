@@ -124,20 +124,13 @@ export function PanelAbpPropio() {
         <Notice title="Análisis interno del cuerpo técnico">
           <p>
             Estos números <strong className="text-white/75">no salen de
-            Wyscout ni de Opta</strong>: son las acciones de balón parado que el
-            cuerpo técnico registra a mano, partido a partido, en las hojas de{" "}
-            <strong className="text-white/75">ABP ofensivo, ABP defensivo y
-            saque de banda</strong>. Por eso tienen lo que ningún informe trae
-            —la rutina ensayada, el sacador, la calidad del envío, cuánta gente
-            va al área, quién gana el rechace— y les falta lo que ningún informe
-            propio puede tener:
+            Wyscout ni de Opta</strong>: son las acciones de balón parado
+            analizadas manualmente por nosotros, partido a partido.
           </p>
 
           <ul className="mt-2 space-y-1.5">
             <li>
-              <strong className="text-white/70">Sólo hay partidos nuestros.</strong>{" "}
-              No hay media de la categoría con la que compararse, porque nadie
-              ha registrado los ABP de los otros equipos.
+              <strong className="text-white/70">Sólo hay partidos nuestros.</strong>
             </li>
 
             <li>

@@ -36,11 +36,13 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
+  Brain,
   Clock,
   Compass,
   Database,
   Flag,
   History,
+  LayoutGrid,
   Loader2,
   Percent,
   RefreshCw,
@@ -49,6 +51,7 @@ import {
   Swords,
   Target,
   Timer,
+  User,
   Users,
 } from "lucide-react";
 
@@ -100,6 +103,9 @@ import {
 } from "@/lib/data-analisis/metricas";
 import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
+import { PanelCampograma } from "@/components/data/PanelCampograma";
+import { PanelIndividual } from "@/components/data/PanelIndividual";
+import { PanelTransferencia } from "@/components/data/PanelTransferencia";
 import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
 import {
   DURACION_POSESION,
@@ -116,7 +122,11 @@ import {
   type AmbitoOpta,
   type MetricaOpta,
 } from "@/lib/data-analisis/opta";
-import type { FilaPartido, HistoricoOpta } from "@/lib/data-analisis/leer";
+import type {
+  FilaJugador,
+  FilaPartido,
+  HistoricoOpta,
+} from "@/lib/data-analisis/leer";
 import {
   familiaDe,
   porFamilia,
@@ -133,6 +143,8 @@ type Respuesta = {
   ok: boolean;
   partidos?: FilaPartido[];
   equipos?: string[];
+  /** El «Search results» de Wyscout: una fila por jugador. */
+  jugadores?: FilaJugador[];
   /** El agregado histórico que baja Opta: cien partidos, casa y fuera. */
   historico?: HistoricoOpta[];
   eventos?: PartidoEventos[];
@@ -146,9 +158,28 @@ type Respuesta = {
   error?: string;
 };
 
-type Area = "historia" | "liga" | "todos" | "eventos" | "abp";
+type Area =
+  | "campo"
+  | "historia"
+  | "liga"
+  | "todos"
+  | "eventos"
+  | "individual"
+  | "abp"
+  | "transferencia";
 
 const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string }[] = [
+  /*
+    El campograma abre la pantalla a propósito: es la forma en la que se mira
+    un partido el lunes por la mañana —por momentos y sobre el campo— y no
+    hace falta saber nada de métricas para leerlo. Las tablas vienen después.
+  */
+  {
+    key: "campo",
+    label: "Partido en el campo",
+    icono: LayoutGrid,
+    pregunta: "¿Qué pasó en cada momento, y es lo que solemos hacer?",
+  },
   {
     key: "historia",
     label: "Nuestra historia",
@@ -173,17 +204,29 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     icono: Timer,
     pregunta: "¿Quién, cuándo y tras cuánto tiempo?",
   },
+  {
+    key: "individual",
+    label: "Jugador a jugador",
+    icono: User,
+    pregunta: "¿Cómo va cada uno, dentro de la plantilla?",
+  },
   /*
-    La quinta no viene de fuera: es lo que registra el propio cuerpo técnico
-    acción por acción en las hojas de balón parado. Va la última porque es de
-    otra naturaleza —no hay liga con la que compararla— y la pantalla lo avisa
-    en cuanto se entra.
+    Las dos últimas no vienen de la carpeta de datos: una la registra el
+    cuerpo técnico acción por acción en las hojas de balón parado y la otra
+    cruza los microciclos con los informes. Van al final porque son de otra
+    naturaleza, y las dos lo avisan en cuanto se entra.
   */
   {
     key: "abp",
     label: "Nuestro balón parado",
     icono: Flag,
     pregunta: "¿Qué sacamos de lo que ensayamos? (registro propio)",
+  },
+  {
+    key: "transferencia",
+    label: "Entrenamiento y partido",
+    icono: Brain,
+    pregunta: "¿Lo que se entrena se ve el domingo?",
   },
 ];
 
@@ -263,6 +306,12 @@ export default function DataAnalisisPage() {
 
   const nuestros = useMemo(
     () => deLaLiga.filter((p) => p.equipo === NOSOTROS),
+    [deLaLiga],
+  );
+
+  /* Las filas de quien nos jugó: hacen falta para las cifras «en contra». */
+  const contraNosotrosLiga = useMemo(
+    () => deLaLiga.filter((p) => p.rival === NOSOTROS),
     [deLaLiga],
   );
 
@@ -675,7 +724,7 @@ export default function DataAnalisisPage() {
                     ))}
                   </div>
 
-                  {area !== "eventos" && area !== "abp" && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Temporada
@@ -698,15 +747,29 @@ export default function DataAnalisisPage() {
                   <span className="text-[11px] text-white/30">
                     {area === "abp"
                       ? "Registro propio del cuerpo técnico, no de Wyscout ni de Opta"
-                      : area === "eventos"
-                        ? `${logs.length} ${logs.length === 1 ? "partido" : "partidos"} con log de eventos`
-                        : `${equiposLiga.length} equipos · ${deLaLiga.length} informes de partido`}
+                      : area === "transferencia"
+                        ? "Los microciclos cruzados con los informes de partido"
+                        : area === "individual"
+                          ? `${datos.jugadores?.length ?? 0} jugadores con minutos esta temporada`
+                          : area === "eventos"
+                            ? `${logs.length} ${logs.length === 1 ? "partido" : "partidos"} con log de eventos`
+                            : `${equiposLiga.length} equipos · ${deLaLiga.length} informes de partido`}
                   </span>
                 </div>
 
                 <p className="mt-2 text-[12px] text-white/40">
                   {AREAS.find((a) => a.key === area)?.pregunta}
                 </p>
+
+                {/* =============== 0 · EL CAMPOGRAMA =============== */}
+
+                {area === "campo" && (
+                  <PanelCampograma
+                    nuestros={nuestros}
+                    contrarios={contraNosotrosLiga}
+                    temporada={laQueMando}
+                  />
+                )}
 
                 {/* ================== 1 · HISTORIA ================= */}
 
@@ -1191,9 +1254,31 @@ export default function DataAnalisisPage() {
                   </>
                 )}
 
-                {/* ============ 5 · NUESTRO BALÓN PARADO ========== */}
+                {/* ============= 5 · JUGADOR A JUGADOR ============ */}
+
+                {area === "individual" && (
+                  <PanelIndividual jugadores={datos.jugadores ?? []} />
+                )}
+
+                {/* ============ 6 · NUESTRO BALÓN PARADO ========== */}
 
                 {area === "abp" && <PanelAbpPropio />}
+
+                {/* ========= 7 · ENTRENAMIENTO Y PARTIDO ========== */}
+
+                {area === "transferencia" && (
+                  <PanelTransferencia
+                    nuestros={nuestros}
+                    liga={deLaLiga}
+                    equipos={equiposLiga}
+                    temporada={laQueMando}
+                    jugadores={(datos.jugadores ?? []).map((j) => ({
+                      jugador: j.jugador,
+                      minutos: j.minutos,
+                      partidos: j.partidos,
+                    }))}
+                  />
+                )}
 
                 {/*
                   EL PIE
@@ -1207,7 +1292,9 @@ export default function DataAnalisisPage() {
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
                   {area === "abp"
                     ? "Las cuatro hojas de balón parado del cuerpo técnico"
-                    : `${datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y ${datos.fuentes?.opta.length ?? 0} descargas de Opta`}
+                    : area === "transferencia"
+                      ? "La hoja de microciclos y los informes de Wyscout"
+                      : `${datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y ${datos.fuentes?.opta.length ?? 0} descargas de Opta`}
                 </p>
               </>
             )}

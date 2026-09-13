@@ -197,6 +197,30 @@ export type FilaPartido = {
   datos: Record<string, number>;
 };
 
+/**
+ * Una fila del «Search results» de Wyscout: **un jugador**, no un partido.
+ *
+ * Es otra descarga distinta —la de búsqueda de jugadores— y trae ciento quince
+ * columnas por cabeza, con todo ya por noventa minutos. Los rótulos vienen
+ * planos, uno por columna, sin el juego de columnas mudas de los «Team Stats»:
+ * aquí no hace falta arrastrar nada.
+ */
+export type FilaJugador = {
+  jugador: string;
+  equipo: string;
+  /** "LAMF, RAMF": Wyscout puede dar varias, la primera es la principal. */
+  posicion: string;
+  edad: number;
+  partidos: number;
+  minutos: number;
+  pie: string;
+  altura: number;
+  peso: number;
+  contrato: string;
+  /** Todas las columnas numéricas, por su rótulo. */
+  datos: Record<string, number>;
+};
+
 export type HistoricoOpta = {
   /** "TOTAL", "Home", "Away", o el nombre de la temporada. */
   ambito: string;
@@ -217,6 +241,8 @@ export type HistoricoOpta = {
 export type Dataset = {
   partidos: FilaPartido[];
   equipos: string[];
+  /** Los jugadores del «Search results» de Wyscout, uno por fila. */
+  jugadores: FilaJugador[];
   /** El agregado histórico del Castilla que baja Opta. */
   historico: HistoricoOpta[];
   /** Los partidos de los que hay log evento a evento. */
@@ -340,6 +366,71 @@ function partidosDeXlsx(bytes: Buffer): FilaPartido[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  EL «SEARCH RESULTS»: UN JUGADOR POR FILA                           */
+/* ------------------------------------------------------------------ */
+
+/** Las columnas que no son una métrica sino la ficha del jugador. */
+const FICHA = new Set(["A", "B", "C", "D", "E", "F", "G", "P", "Q", "R", "S", "T", "U"]);
+
+/**
+ * Lee la descarga de búsqueda de jugadores de Wyscout.
+ *
+ * Es **otra descarga distinta** de los «Team Stats»: allí cada fila es un
+ * equipo en un partido y aquí cada fila es un jugador con su temporada entera.
+ * Y se lee más fácil, porque los rótulos vienen uno por columna y planos —sin
+ * el juego de columnas mudas que obliga a arrastrar el rótulo en los otros—.
+ *
+ * Se distingue del resto por la cabecera: si la primera celda dice «Jugador»,
+ * es esto. Cualquier otro `.xlsx` de la carpeta sigue su camino de siempre.
+ */
+function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
+  const filas = hojaDeXlsx(bytes);
+
+  if (filas.length < 2) return [];
+
+  const cabecera = filas[0];
+
+  if (!/^jugador$/i.test((cabecera.A ?? "").trim())) return [];
+
+  const columnas = [...new Set(filas.flatMap((fila) => Object.keys(fila)))].sort(
+    (a, b) => a.length - b.length || a.localeCompare(b),
+  );
+
+  return filas
+    .slice(1)
+    .map((fila) => {
+      const datos: Record<string, number> = {};
+
+      for (const col of columnas) {
+        if (FICHA.has(col)) continue;
+
+        const nombre = (cabecera[col] ?? "").trim();
+
+        if (!nombre) continue;
+
+        const n = aNumero(fila[col]);
+
+        if (n !== null) datos[nombre] = n;
+      }
+
+      return {
+        jugador: (fila.A ?? "").trim(),
+        equipo: (fila.C ?? fila.B ?? "").trim(),
+        posicion: (fila.D ?? "").trim(),
+        edad: aNumero(fila.E) ?? 0,
+        partidos: aNumero(fila.H) ?? 0,
+        minutos: aNumero(fila.I) ?? 0,
+        pie: (fila.R ?? "").trim(),
+        altura: aNumero(fila.S) ?? 0,
+        peso: aNumero(fila.T) ?? 0,
+        contrato: (fila.G ?? "").trim(),
+        datos,
+      };
+    })
+    .filter((fila) => fila.jugador);
+}
+
+/* ------------------------------------------------------------------ */
 /*  OPTA                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -446,6 +537,8 @@ export async function leeDatos(): Promise<Dataset> {
 
   const porLlave = new Map<string, FilaPartido>();
 
+  const porJugador = new Map<string, FilaJugador>();
+
   try {
     const ficheros = await readdir(path.join(CARPETA, "wys"));
 
@@ -458,6 +551,28 @@ export async function leeDatos(): Promise<Dataset> {
 
       try {
         const bytes = await readFile(path.join(CARPETA, "wys", nombre));
+
+        /* El «Search results» va por jugadores, no por partidos. */
+        const deJugadores = jugadoresDeXlsx(bytes);
+
+        if (deJugadores.length > 0) {
+          for (const jugador of deJugadores) {
+            const llave = `${jugador.jugador.toLowerCase()}|${jugador.equipo.toLowerCase()}`;
+
+            const previo = porJugador.get(llave);
+
+            if (
+              !previo ||
+              Object.keys(jugador.datos).length > Object.keys(previo.datos).length
+            ) {
+              porJugador.set(llave, jugador);
+            }
+          }
+
+          fuentes.wyscout.push(nombre);
+
+          continue;
+        }
 
         const filas = partidosDeXlsx(bytes);
 
@@ -623,5 +738,9 @@ export async function leeDatos(): Promise<Dataset> {
   /* Del más reciente al más viejo: la pantalla abre por el último partido. */
   eventos.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-  return { partidos, equipos, historico, eventos, fuentes };
+  const jugadores = [...porJugador.values()].sort(
+    (a, b) => b.minutos - a.minutos || a.jugador.localeCompare(b.jugador, "es"),
+  );
+
+  return { partidos, equipos, jugadores, historico, eventos, fuentes };
 }
