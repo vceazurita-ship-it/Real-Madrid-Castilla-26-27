@@ -22,6 +22,7 @@ import {
   Search,
   Shield,
   ShieldHalf,
+  Sigma,
   Star,
   User,
   Users,
@@ -154,6 +155,31 @@ export const MODULES: AppModule[] = [
     icon: Star,
     rank: 84,
     alias: ["notas", "puntuaciones"],
+  },
+  /*
+    Data Análisis cierra la semana de competición: es la lectura de lo que
+    dejó el partido. Los alias son largos a propósito —aquí se busca por el
+    nombre de la plataforma («opta», «wyscout») tanto como por el del módulo—.
+  */
+  {
+    href: "/data-analisis",
+    area: "COMPETICIÓN",
+    title: "Data Análisis",
+    desc: "Los informes de Opta y Wyscout, y nuestro balón parado",
+    icon: Sigma,
+    rank: 88,
+    alias: [
+      "datos",
+      "estadisticas",
+      "estadísticas",
+      "opta",
+      "wyscout",
+      "xg",
+      "metricas",
+      "métricas",
+      "percentiles",
+      "abp propio",
+    ],
   },
 
   /* ------------------------------------------------------------- METODOLOGÍA */

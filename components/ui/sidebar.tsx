@@ -357,7 +357,10 @@ const seccion = (titulo: string, hijos: ReactNode) => (
             Competición es todo lo que rodea al partido, y antes tenía una sola
             entrada mientras la pizarra de competición, el vídeo y el histórico
             vivían repartidos por Metodología y Colectivo. Ahora la semana de
-            partido se lee de arriba abajo en un solo bloque.
+            partido se lee de arriba abajo en un solo bloque: se prepara, se
+            dibuja, se juega, se corta el vídeo y se lee lo que dejó el partido.
+            Data Análisis cierra esa lista —tenía sección propia al final del
+            menú y era un sitio raro para la lectura del partido—.
           */}
           {seccion(
             "Competición",
@@ -383,6 +386,8 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Histórico Competición",
                 <History size={18} />,
               )}
+
+              {navLink("/data-analisis", "Data Análisis", <Sigma size={18} />)}
             </>,
           )}
 
@@ -444,21 +449,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/desplazamiento", "Desplazamiento", <Bus size={18} />)}
 
               {navLink("/general", "Repositorio", <Database size={18} />)}
-            </>,
-          )}
-
-          {/*
-            DATA ANÁLISIS
-
-            Va la última de las secciones que funcionan, justo antes de «En
-            obras»: no es trabajo de la semana sino la lectura de lo que baja
-            de Opta y Wyscout, y el camino hacia lo que se usa a diario no
-            tiene que pasar por encima.
-          */}
-          {seccion(
-            "Data análisis",
-            <>
-              {navLink("/data-analisis", "Data Análisis", <Sigma size={18} />)}
             </>,
           )}
 
