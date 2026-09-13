@@ -365,6 +365,26 @@ function partidosDeXlsx(bytes: Buffer): FilaPartido[] {
     .filter((fila) => fila.equipo && fila.fecha);
 }
 
+/**
+ * Los amistosos no son la liga, y se cuelan.
+ *
+ * Wyscout devuelve todo lo que jugó un equipo, no sólo la competición que se
+ * estaba buscando, y en la descarga del Zaragoza venía un `Real Zaragoza -
+ * Athletic Club 3:1` de agosto marcado como **World. Club Friendlies**. Esa
+ * sola fila metía al **Athletic Club como vigésimo primer equipo del grupo**
+ —cuando no está en el grupo— y además contaba un amistoso dentro de la media
+ * de liga del Zaragoza.
+ *
+ * Se corta aquí, al leer, y no en cada pantalla: si se filtrara al pintar,
+ * cada gráfico nuevo tendría que acordarse de hacerlo.
+ *
+ * Ojo con no pasarse: el **Athletic Bilbao** de 2025/26 sí es un rival de
+ * verdad —es el filial, y jugó en Primera Federación—. Lo que se quita es la
+ * competición, no el nombre.
+ */
+const esAmistoso = (competicion: string) =>
+  /friendl|amistos/i.test(competicion);
+
 /* ------------------------------------------------------------------ */
 /*  EL «SEARCH RESULTS»: UN JUGADOR POR FILA                           */
 /* ------------------------------------------------------------------ */
@@ -539,6 +559,9 @@ export async function leeDatos(): Promise<Dataset> {
 
   const porJugador = new Map<string, FilaJugador>();
 
+  /* Los partidos que se han dejado fuera por no ser de competición. */
+  const amistosos = new Set<string>();
+
   try {
     const ficheros = await readdir(path.join(CARPETA, "wys"));
 
@@ -585,6 +608,13 @@ export async function leeDatos(): Promise<Dataset> {
         fuentes.wyscout.push(nombre);
 
         for (const fila of filas) {
+          /* Un amistoso no es la liga: ni entra en la tabla ni suma equipos. */
+          if (esAmistoso(fila.competicion)) {
+            amistosos.add(`${fila.fecha} ${fila.partido} (${fila.competicion})`);
+
+            continue;
+          }
+
           const llave = llaveDe(fila);
 
           const previa = porLlave.get(llave);
@@ -606,6 +636,10 @@ export async function leeDatos(): Promise<Dataset> {
     }
   } catch {
     /* Sin carpeta no hay datos, pero la pantalla lo explica. */
+  }
+
+  for (const suelto of amistosos) {
+    fuentes.ignorados.push(`amistoso fuera de la liga: ${suelto}`);
   }
 
   const partidos = [...porLlave.values()].sort(

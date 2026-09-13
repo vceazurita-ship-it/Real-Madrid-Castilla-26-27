@@ -45,15 +45,27 @@ export const PUESTOS: { key: Puesto; label: string; corto: string }[] = [
 export function puestoDe(posicion: string): Puesto {
   const primera = posicion.split(",")[0].trim().toUpperCase();
 
+  /*
+  | Se resuelve por la **cola** de la sigla, no quitando el lado.
+  |
+  | Quitar el prefijo de lado parecía más elegante y dejaba fuera a los
+  | extremos: «LW» es una L y una sola letra más, así que la regla de «quita la
+  | inicial si vienen dos mayúsculas detrás» no la tocaba y `LW` acababa de
+  | medio centro. Mirando el final de la sigla no hay ese agujero, y el orden
+  | de las comprobaciones resuelve los solapamientos —`RWB` acaba en `B` pero
+  | es carrilero, así que va antes que los centrales—.
+  */
   if (primera === "GK") return "POR";
 
-  const sinLado = primera.replace(/^[LRC](?=[A-Z]{2})/, "");
+  if (/^(LWB|RWB|LB|RB|WB)$/.test(primera)) return "LAT";
 
-  if (/^(CB|B)$/.test(sinLado) || /CB$/.test(primera)) return "CEN";
-  if (/^(LB|RB|WB|LWB|RWB)$/.test(primera)) return "LAT";
-  if (/^(DMF|CMF|MF)$/.test(sinLado)) return "MED";
-  if (/^(AMF|WF|W)$/.test(sinLado) || /AMF$/.test(primera)) return "BAN";
-  if (/^CF$/.test(primera)) return "DEL";
+  if (/CB$/.test(primera) || primera === "CB") return "CEN";
+
+  if (/(W|WF)$/.test(primera) || /AMF$/.test(primera)) return "BAN";
+
+  if (/(DMF|CMF|MF)$/.test(primera)) return "MED";
+
+  if (/(CF|SS|FW)$/.test(primera)) return "DEL";
 
   return "MED";
 }
@@ -680,9 +692,16 @@ export function fuertesYFlojos(
 
   const orden = [...filas].sort((a, b) => b.percentil - a.percentil);
 
+  /*
+  | Con pocas métricas, «las cuatro mejores» y «las cuatro peores» son las
+  | mismas cuatro puestas del revés, y la ficha enseñaría el mismo dato en las
+  | dos columnas. Se parte por la mitad cuando no llegan a ocho.
+  */
+  const cuantas = Math.min(4, Math.floor(orden.length / 2));
+
   return {
-    fuertes: orden.slice(0, 4),
-    flojos: orden.slice(-4).reverse(),
+    fuertes: orden.slice(0, cuantas),
+    flojos: cuantas === 0 ? [] : orden.slice(-cuantas).reverse(),
     todas: filas,
   };
 }
