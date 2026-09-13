@@ -60,12 +60,24 @@ export function Composicion({
   trozos,
   trozosLiga,
   lectura,
+  rotulo = "Nosotros",
+  rotuloLiga = "Mediana de la liga",
 }: {
   titulo?: string;
   trozos: Trozo[];
   /** El mismo reparto en la liga, para comparar. */
   trozosLiga?: Trozo[];
   lectura?: React.ReactNode;
+  /**
+   * Cómo se llama a cada barra.
+   *
+   * Por defecto la de arriba somos nosotros, que es el caso normal. Pero la
+   * misma forma sirve para repartos que no son nuestros —de dónde salen los
+   * goles de estrategia **en la categoría**, por ejemplo—, y ahí poner
+   * «Nosotros» al lado sería mentir.
+   */
+  rotulo?: string;
+  rotuloLiga?: string;
 }) {
   const id = useId();
 
@@ -136,8 +148,8 @@ export function Composicion({
       )}
 
       <div className="space-y-2.5">
-        {dibuja(trozos, "Nosotros", false)}
-        {trozosLiga && dibuja(trozosLiga, "Mediana de la liga", true)}
+        {dibuja(trozos, rotulo, false)}
+        {trozosLiga && dibuja(trozosLiga, rotuloLiga, true)}
       </div>
 
       {/* La leyenda va siempre: el color solo no puede llevar la identidad. */}

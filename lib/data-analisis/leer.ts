@@ -198,8 +198,19 @@ export type FilaPartido = {
 };
 
 export type HistoricoOpta = {
-  /** "TOTAL", "Home", "Away". */
+  /** "TOTAL", "Home", "Away", o el nombre de la temporada. */
   ambito: string;
+  /**
+   * De quién es la fila.
+   *
+   * Esto costó entender la carpeta entera. Las descargas de Opta traen dos
+   * cosas con la misma pinta: el agregado del **Castilla** —tres partidos, con
+   * su `teamId`— y el agregado de **toda la categoría** —cien partidos, con
+   * reparto de casa y fuera—. Se distinguen porque en el de la liga los
+   * duelos dan exactamente 50,0 % y los goles a favor igualan a los goles en
+   * contra: es la aritmética de sumar a los dos equipos de cada partido.
+   */
+  fuente: "liga" | "nuestro";
   datos: Record<string, number | string>;
 };
 
@@ -376,10 +387,41 @@ function historicoDeCsv(texto: string): HistoricoOpta[] {
 
     const ambito = String(valores[2] || valores[0] || "TOTAL").trim();
 
-    salida.push({ ambito: ambito === "TRUE" ? "TOTAL" : ambito, datos });
+    salida.push({
+      ambito: ambito === "TRUE" ? "TOTAL" : ambito,
+      /* Lo pone quien llama, que es quien ha visto el fichero entero. */
+      fuente: "liga",
+      datos,
+    });
   }
 
   return salida;
+}
+
+/**
+ * ¿De quién es este agregado, del Castilla o de la categoría entera?
+ *
+ * La señal es doble y no falla: el de la liga trae **reparto de casa y fuera**
+ * y, al sumar a los dos equipos de cada partido, deja los duelos en un 50,0 %
+ * clavado y los goles a favor iguales a los goles en contra. El del Castilla
+ * viene partido por temporada y con su `teamId`.
+ */
+function deQuienEs(filas: HistoricoOpta[]): "liga" | "nuestro" {
+  const hayCasaFuera =
+    filas.some((f) => f.ambito === "Home") && filas.some((f) => f.ambito === "Away");
+
+  if (hayCasaFuera) return "liga";
+
+  const total = filas.find((f) => f.ambito === "TOTAL") ?? filas[0];
+
+  const gf = total?.datos["GF"] ?? total?.datos["Goal"];
+  const ga = total?.datos["GA"] ?? total?.datos["Goles Contra"];
+
+  if (typeof gf === "number" && typeof ga === "number" && gf === ga && gf > 0) {
+    return "liga";
+  }
+
+  return "nuestro";
 }
 
 /* ------------------------------------------------------------------ */
@@ -478,59 +520,97 @@ export async function leeDatos(): Promise<Dataset> {
 
         if (crudo.trim().length < 10) continue;
 
-        const partido = leeEventosOpta(JSON.parse(crudo));
+        const delFichero = leeEventosOpta(JSON.parse(crudo));
 
-        if (!partido) continue;
+        if (delFichero.length === 0) continue;
 
-        const llave = `${partido.fecha}|${partido.equipo}|${partido.rival}`;
+        let aportados = 0;
 
-        if (vistos.has(llave)) continue;
+        for (const partido of delFichero) {
+          const llave = `${partido.fecha}|${partido.equipo}|${partido.rival}`;
 
-        vistos.add(llave);
+          if (vistos.has(llave)) continue;
 
-        eventos.push(partido);
+          vistos.add(llave);
 
-        fuentes.opta.push(nombre);
+          eventos.push(partido);
+
+          aportados += 1;
+        }
+
+        /* Si todos sus partidos ya estaban, el fichero es un duplicado. */
+        if (aportados > 0) fuentes.opta.push(nombre);
       } catch {
         fuentes.ignorados.push(`opta/${nombre} (no es un log legible)`);
       }
     }
 
     /*
-    | Del histórico interesa el fichero **más completo**: son descargas
-    | repetidas del mismo informe y la que más columnas trae es la buena.
+    | LOS AGREGADOS
+    |
+    | Antes aquí sólo se miraban los `Summary*.csv` y se quedaba el que más
+    | columnas traía. Eso dejaba fuera la mitad de la carpeta y, peor, tomaba
+    | por nuestro lo que era de toda la categoría: los `Summary` de cien
+    | partidos son **la liga entera**, no el Castilla —los duelos dan 50,0 %
+    | clavado y los goles a favor igualan a los de contra—. El agregado del
+    | Castilla está en otro fichero, con sus tres partidos y sus mismas ciento
+    | veinticinco columnas.
+    |
+    | Así que se abren todos los CSV, se clasifica cada uno y de cada lado se
+    | guarda el más completo. Con los dos se puede hacer lo que antes no:
+    | comparar al Castilla con la media de la categoría en las columnas que
+    | Wyscout no tiene.
     */
-    let mejor: { nombre: string; filas: HistoricoOpta[] } | null = null;
+    const mejor: Partial<
+      Record<"liga" | "nuestro", { nombre: string; filas: HistoricoOpta[] }>
+    > = {};
 
     for (const nombre of ficheros) {
-      if (!/^summary.*\.csv$/i.test(nombre)) {
-        if (!/\.(csv|json)$/i.test(nombre)) fuentes.ignorados.push(`opta/${nombre}`);
+      if (!/\.csv$/i.test(nombre)) {
+        if (!/\.json$/i.test(nombre)) fuentes.ignorados.push(`opta/${nombre}`);
 
         continue;
       }
+
+      /* Los logs evento a evento ya se han leído arriba. El que acaba en «_»
+         no es un log: es el agregado defensivo del Castilla, con el mismo
+         juego de columnas que el de la liga. */
+      if (/event log/i.test(nombre) && !/_\.csv$/i.test(nombre)) continue;
 
       try {
         const filas = historicoDeCsv(
           await readFile(path.join(CARPETA, "opta", nombre), "utf8"),
         );
 
+        if (filas.length === 0) continue;
+
+        const dueno = deQuienEs(filas);
+
+        for (const fila of filas) fila.fuente = dueno;
+
         const columnas = Object.keys(filas[0]?.datos ?? {}).length;
 
+        const anterior = mejor[dueno];
+
         if (
-          filas.length > 0 &&
-          (!mejor || columnas > Object.keys(mejor.filas[0]?.datos ?? {}).length)
+          !anterior ||
+          columnas > Object.keys(anterior.filas[0]?.datos ?? {}).length
         ) {
-          mejor = { nombre, filas };
+          mejor[dueno] = { nombre, filas };
         }
       } catch (error) {
         console.error("[data-analisis] opta", nombre, error);
       }
     }
 
-    if (mejor) {
-      fuentes.opta.push(mejor.nombre);
+    for (const lado of ["liga", "nuestro"] as const) {
+      const elegido = mejor[lado];
 
-      historico.push(...mejor.filas);
+      if (!elegido) continue;
+
+      fuentes.opta.push(elegido.nombre);
+
+      historico.push(...elegido.filas);
     }
   } catch {
     /* sin carpeta de Opta */
@@ -539,6 +619,9 @@ export async function leeDatos(): Promise<Dataset> {
   const equipos = [...new Set(partidos.map((fila) => fila.equipo))].sort((a, b) =>
     a.localeCompare(b, "es"),
   );
+
+  /* Del más reciente al más viejo: la pantalla abre por el último partido. */
+  eventos.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   return { partidos, equipos, historico, eventos, fuentes };
 }

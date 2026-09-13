@@ -31,7 +31,7 @@
  * frase debajo se lee de ocho maneras distintas en un cuerpo técnico de ocho.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -60,7 +60,9 @@ import {
   BarrasEquipos,
   Dispersion,
   Evolucion,
+  MEJOR,
   ORO,
+  PEOR,
   tinta,
   type FilaPercentil,
 } from "@/components/data/graficas";
@@ -96,7 +98,24 @@ import {
   valorEnPartido,
   type Fase,
 } from "@/lib/data-analisis/metricas";
-import type { FilaPartido } from "@/lib/data-analisis/leer";
+import { BateriaDePreguntas } from "@/components/data/preguntas";
+import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
+import {
+  DURACION_POSESION,
+  METRICAS_OPTA,
+  OPTA_POR_COLUMNA,
+  ORIGEN_ESTRATEGIA,
+  POSESION_POR_TRAMO,
+  SOLO_LIGA,
+  contraLaMedia,
+  filasDe,
+  porPartidoOpta,
+  resumenOpta,
+  valorOpta,
+  type AmbitoOpta,
+  type MetricaOpta,
+} from "@/lib/data-analisis/opta";
+import type { FilaPartido, HistoricoOpta } from "@/lib/data-analisis/leer";
 import {
   familiaDe,
   porFamilia,
@@ -113,6 +132,8 @@ type Respuesta = {
   ok: boolean;
   partidos?: FilaPartido[];
   equipos?: string[];
+  /** El agregado histórico que baja Opta: cien partidos, casa y fuera. */
+  historico?: HistoricoOpta[];
   eventos?: PartidoEventos[];
   origen?: "carpeta" | "indice";
   fuentes?: {
@@ -162,6 +183,9 @@ export default function DataAnalisisPage() {
 
   /* La fase que se está mirando dentro de «Contra la liga». */
   const [fase, setFase] = useState<Fase>("con");
+
+  /* El partido del log de eventos: «fecha|rival», o todos juntos. */
+  const [elLog, setElLog] = useState<string>("todos");
 
   useEffect(() => {
     const control = new AbortController();
@@ -276,6 +300,41 @@ export default function DataAnalisisPage() {
   const [metricaY, setMetricaY] = useState("xg");
   const [metricaTabla, setMetricaTabla] = useState("xg");
 
+  /*
+  | LA PREGUNTA Y LOS DOS EJES
+  |
+  | El par de métricas es **uno solo**, y se llega a él por dos caminos: la
+  | batería de preguntas de la izquierda o los dos selectores de la derecha.
+  | Por eso el estado vive aquí arriba y no dentro de ninguno de los dos
+  | bloques. `contra` marca el eje cuyo valor es el del rival —«¿cuántos
+  | córners concedemos?» no es una columna, es la fila del contrario—, y tocar
+  | un selector a mano apaga la pregunta: lo que se está viendo ya no es lo que
+  | ella preguntaba.
+  */
+  const [contraX, setContraX] = useState(false);
+  const [contraY, setContraY] = useState(false);
+  const [pregunta, setPregunta] = useState<string | null>(null);
+
+  const eligePregunta = useCallback((p: Pregunta) => {
+    setMetricaX(p.x);
+    setMetricaY(p.y);
+    setContraX(Boolean(p.contraX));
+    setContraY(Boolean(p.contraY));
+    setPregunta(p.key);
+  }, []);
+
+  const cambiaX = useCallback((key: string) => {
+    setMetricaX(key);
+    setContraX(false);
+    setPregunta(null);
+  }, []);
+
+  const cambiaY = useCallback((key: string) => {
+    setMetricaY(key);
+    setContraY(false);
+    setPregunta(null);
+  }, []);
+
   const filasEquipos = useMemo(() => {
     const met = METRICA_POR_KEY.get(metricaTabla);
 
@@ -295,15 +354,18 @@ export default function DataAnalisisPage() {
 
     return equiposLiga
       .map((equipo) => {
+        /* Las suyas y, para las preguntas de «en contra», las de quien le
+           jugó: el informe trae las dos filas de cada partido. */
         const suyos = deLaLiga.filter((p) => p.equipo === equipo);
+        const rivales = deLaLiga.filter((p) => p.rival === equipo);
 
-        const x = valorEnGrupo(mx, suyos);
-        const y = valorEnGrupo(my, suyos);
+        const x = valorEnGrupo(mx, contraX ? rivales : suyos);
+        const y = valorEnGrupo(my, contraY ? rivales : suyos);
 
         return x === null || y === null ? null : { equipo, x, y };
       })
       .filter((p): p is { equipo: string; x: number; y: number } => p !== null);
-  }, [deLaLiga, equiposLiga, metricaX, metricaY]);
+  }, [contraX, contraY, deLaLiga, equiposLiga, metricaX, metricaY]);
 
   /* --------------------------- HISTORIA ---------------------------- */
 
@@ -313,6 +375,52 @@ export default function DataAnalisisPage() {
   const nuestraHistoria = useMemo(
     () => partidos.filter((p) => p.equipo === NOSOTROS),
     [partidos],
+  );
+
+  /* Lo que los rivales hicieron contra nosotros, para las preguntas de «en
+     contra»: el informe de cada partido trae también la fila del contrario. */
+  const contraNosotros = useMemo(
+    () => partidos.filter((p) => p.rival === NOSOTROS),
+    [partidos],
+  );
+
+  /*
+  | A ESTAS ALTURAS
+  |
+  | Comparar la temporada en curso con las cerradas es comparar tres partidos
+  | con treinta y ocho, y siempre gana la pequeña o la grande según la métrica.
+  | Lo que se quiere saber es otra cosa: **cómo íbamos el año pasado por esta
+  | misma jornada**. Así que cada temporada se recorta a los mismos partidos
+  | que lleva la actual, en orden de calendario.
+  */
+  const jugadosAhora = useMemo(
+    () => nuestraHistoria.filter((p) => temporadaDe(p.fecha) === actual).length,
+    [actual, nuestraHistoria],
+  );
+
+  const [aEstasAlturas, setAEstasAlturas] = useState(false);
+
+  const recorta = useCallback(
+    (filas: FilaPartido[]) => {
+      const ordenadas = [...filas].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+      return aEstasAlturas && jugadosAhora > 0
+        ? ordenadas.slice(0, jugadosAhora)
+        : ordenadas;
+    },
+    [aEstasAlturas, jugadosAhora],
+  );
+
+  const deTemporada = useCallback(
+    (t: string) =>
+      recorta(nuestraHistoria.filter((p) => temporadaDe(p.fecha) === t)),
+    [nuestraHistoria, recorta],
+  );
+
+  const deTemporadaContra = useCallback(
+    (t: string) =>
+      recorta(contraNosotros.filter((p) => temporadaDe(p.fecha) === t)),
+    [contraNosotros, recorta],
   );
 
   const serieHistorica = useMemo(() => {
@@ -334,7 +442,7 @@ export default function DataAnalisisPage() {
     return [...temporadas]
       .sort()
       .map((t) => {
-        const filas = nuestraHistoria.filter((p) => temporadaDe(p.fecha) === t);
+        const filas = deTemporada(t);
 
         return {
           etiqueta: t,
@@ -343,12 +451,12 @@ export default function DataAnalisisPage() {
         };
       })
       .filter((p) => p.valor !== null);
-  }, [laQueMando, metricaHist, nuestraHistoria, porPartido, temporadas]);
+  }, [deTemporada, laQueMando, metricaHist, nuestraHistoria, porPartido, temporadas]);
 
   const resumenTemporadas = useMemo(
     () =>
       [...temporadas].map((t) => {
-        const filas = nuestraHistoria.filter((p) => temporadaDe(p.fecha) === t);
+        const filas = deTemporada(t);
 
         const ganados = filas.filter((p) => p.golesFavor > p.golesContra).length;
         const empates = filas.filter((p) => p.golesFavor === p.golesContra).length;
@@ -365,7 +473,7 @@ export default function DataAnalisisPage() {
           filas,
         };
       }),
-    [nuestraHistoria, temporadas],
+    [deTemporada, temporadas],
   );
 
   /* ----------------------- LOCAL Y VISITANTE ----------------------- */
@@ -375,9 +483,7 @@ export default function DataAnalisisPage() {
 
     if (!met) return null;
 
-    const deLaTemporada = nuestraHistoria.filter(
-      (p) => temporadaDe(p.fecha) === laQueMando,
-    );
+    const deLaTemporada = deTemporada(laQueMando);
 
     /* El rótulo del partido dice quién es local: «Local - Visitante 2:0». */
     const enCasa = deLaTemporada.filter((p) =>
@@ -390,16 +496,71 @@ export default function DataAnalisisPage() {
       casa: { n: enCasa.length, valor: valorEnGrupo(met, enCasa) },
       fuera: { n: fuera.length, valor: valorEnGrupo(met, fuera) },
     };
-  }, [laQueMando, metricaHist, nuestraHistoria]);
+  }, [deTemporada, laQueMando, metricaHist]);
+
+  /* ------------------- DOS MÉTRICAS, PERO NUESTRAS ----------------- */
+
+  /*
+  | El mismo cruce de la sección de la liga, con los puntos cambiados: aquí
+  | cada punto es **una temporada del Castilla**, no un equipo. Contesta a la
+  | otra mitad de la pregunta: no «quién lo hace mejor», sino «¿esto es nuevo o
+  | llevamos años así?». Con «a estas alturas» puesto, además, cada curso entra
+  | con los mismos partidos que lleva el actual.
+  */
+  const puntosHistoria = useMemo(() => {
+    const mx = METRICA_POR_KEY.get(metricaX);
+    const my = METRICA_POR_KEY.get(metricaY);
+
+    if (!mx || !my) return [];
+
+    return temporadas
+      .map((t) => {
+        const x = valorEnGrupo(mx, contraX ? deTemporadaContra(t) : deTemporada(t));
+        const y = valorEnGrupo(my, contraY ? deTemporadaContra(t) : deTemporada(t));
+
+        return x === null || y === null ? null : { equipo: t, x, y };
+      })
+      .filter((p): p is { equipo: string; x: number; y: number } => p !== null);
+  }, [contraX, contraY, deTemporada, deTemporadaContra, metricaX, metricaY, temporadas]);
 
   /* ---------------------------- PINTADO ---------------------------- */
 
   const metHist = METRICA_POR_KEY.get(metricaHist);
   const metTabla = METRICA_POR_KEY.get(metricaTabla);
-  const metX = METRICA_POR_KEY.get(metricaX);
-  const metY = METRICA_POR_KEY.get(metricaY);
 
-  const evento = datos?.eventos?.[0] ?? null;
+  /*
+  | La descarga de Opta trae los partidos seguidos, así que aquí se elige cuál
+  | se mira. «Los tres juntos» no es un partido: es la suma, y sirve para el
+  | reparto por jugador y por tramo, donde un solo partido es poca cosa.
+  */
+  const logs = useMemo(() => datos?.eventos ?? [], [datos]);
+
+  const evento = useMemo(() => {
+    if (logs.length === 0) return null;
+
+    if (elLog !== "todos") {
+      return logs.find((l) => `${l.fecha}|${l.rival}` === elLog) ?? logs[0];
+    }
+
+    return {
+      fecha: logs[logs.length - 1].fecha,
+      equipo: logs[0].equipo,
+      rival: logs.map((l) => l.rival).join(", "),
+      resultado: logs.map((l) => l.resultado).join(" · "),
+      eventos: logs.flatMap((l) => l.eventos),
+    };
+  }, [elLog, logs]);
+
+  const tituloEvento = useMemo(() => {
+    if (!evento) return "";
+
+    const acciones = `${evento.eventos.length} acciones`;
+
+    if (elLog !== "todos")
+      return `${evento.fecha} · ${evento.equipo} contra ${evento.rival} (${evento.resultado}) · ${acciones}`;
+
+    return `Los ${logs.length} partidos del curso · ${evento.rival} · ${acciones}`;
+  }, [elLog, evento, logs.length]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -523,7 +684,7 @@ export default function DataAnalisisPage() {
 
                   <span className="text-[11px] text-white/30">
                     {area === "eventos"
-                      ? `${datos.eventos?.length ?? 0} partido con log de eventos`
+                      ? `${logs.length} ${logs.length === 1 ? "partido" : "partidos"} con log de eventos`
                       : `${equiposLiga.length} equipos · ${deLaLiga.length} informes de partido`}
                   </span>
                 </div>
@@ -536,10 +697,56 @@ export default function DataAnalisisPage() {
 
                 {area === "historia" && (
                   <>
+                    {/*
+                      A ESTAS ALTURAS
+
+                      Comparar tres partidos de este curso con treinta y ocho
+                      del anterior no compara nada. Este interruptor recorta
+                      todas las temporadas a los mismos partidos que lleva la
+                      actual, en orden de calendario, y entonces la tabla sí
+                      contesta a «¿cómo íbamos el año pasado por esta jornada?».
+                    */}
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                        {[
+                          { valor: false, rotulo: "La temporada entera" },
+                          {
+                            valor: true,
+                            rotulo: `A estas alturas (${jugadosAhora} partidos)`,
+                          },
+                        ].map((opcion) => (
+                          <button
+                            key={opcion.rotulo}
+                            type="button"
+                            onClick={() => setAEstasAlturas(opcion.valor)}
+                            aria-pressed={aEstasAlturas === opcion.valor}
+                            disabled={jugadosAhora === 0}
+                            className={`rounded-lg px-3 py-2 text-xs transition ${
+                              aEstasAlturas === opcion.valor
+                                ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                                : "text-white/50 hover:text-white"
+                            }`}
+                          >
+                            {opcion.rotulo}
+                          </button>
+                        ))}
+                      </div>
+
+                      <span className="text-[11px] text-white/35">
+                        {aEstasAlturas
+                          ? `Cada temporada, recortada a sus ${jugadosAhora} primeros partidos: es el mismo punto del curso en el que estamos en ${actual}.`
+                          : "Cada temporada, con todos los partidos que se jugaron."}
+                      </span>
+                    </div>
+
                     <div className="mt-5">
                       <Panel
                         title="Temporada a temporada"
-                        subtitle="Lo que ha hecho el Castilla en cada curso del que hay informes"
+                        subtitle={
+                          aEstasAlturas
+                            ? `Cómo iba el Castilla en cada curso tras ${jugadosAhora} partidos`
+                            : "Lo que ha hecho el Castilla en cada curso del que hay informes"
+                        }
                         icon={History}
                       >
                         <div className="overflow-x-auto">
@@ -565,9 +772,21 @@ export default function DataAnalisisPage() {
                                 return (
                                   <tr
                                     key={t.temporada}
-                                    className="border-t border-white/[0.06]"
+                                    className={`border-t border-white/[0.06] ${
+                                      t.temporada === actual
+                                        ? "bg-[#C8A96B]/[0.07]"
+                                        : ""
+                                    }`}
                                   >
-                                    <td className="py-2 pr-3 font-semibold text-white">
+                                    <td
+                                      className="py-2 pr-3 font-semibold"
+                                      style={{
+                                        color:
+                                          t.temporada === actual
+                                            ? ORO
+                                            : undefined,
+                                      }}
+                                    >
                                       {t.temporada}
                                     </td>
                                     <td className="py-2 pr-3 text-right tabular-nums text-white/70">
@@ -691,6 +910,38 @@ export default function DataAnalisisPage() {
                         )}
                       </Panel>
                     </div>
+
+                    {/*
+                      EL MISMO CRUCE, CON NUESTRAS TEMPORADAS
+
+                      Los mismos mandos que en «Todos contra todos» —la
+                      pregunta a la izquierda, los dos ejes a la derecha— pero
+                      cambiando los puntos: aquí cada punto es un curso del
+                      Castilla. La pregunta deja de ser «¿quién lo hace mejor?»
+                      y pasa a ser «¿esto es de este año o llevamos años así?».
+                    */}
+                    <ParDeMetricas
+                      titulo="Dos métricas a la vez, curso a curso"
+                      subtitulo="Un punto por temporada del Castilla. Las rayas son las medianas de nuestra propia historia."
+                      puntos={puntosHistoria}
+                      destacado={actual}
+                      metricaX={metricaX}
+                      metricaY={metricaY}
+                      contraX={contraX}
+                      contraY={contraY}
+                      pregunta={pregunta}
+                      onPregunta={eligePregunta}
+                      onCambiaX={cambiaX}
+                      onCambiaY={cambiaY}
+                      nota={
+                        aEstasAlturas
+                          ? `Cada temporada entra con sus ${jugadosAhora} primeros partidos, así que ${actual} se compara con las demás en igualdad. En oro, el curso en marcha.`
+                          : `En oro, ${actual}. Ojo: entra con los partidos que lleva, y las demás con todos; pon «a estas alturas» arriba para comparar en igualdad.`
+                      }
+                    />
+
+                    {/* Y lo que sólo tiene Opta: cien partidos, casa y fuera. */}
+                    <PanelOpta historico={datos.historico ?? []} />
                   </>
                 )}
 
@@ -841,43 +1092,21 @@ export default function DataAnalisisPage() {
                       </Panel>
                     </div>
 
-                    <div className="mt-5">
-                      <Panel
-                        title="Dos métricas a la vez"
-                        subtitle="Un punto por equipo. Las rayas son las medianas: los cuatro cuadrantes son la lectura."
-                        icon={Users}
-                        action={
-                          <div className="flex flex-wrap items-center gap-2">
-                            <SelectorMetrica
-                              valor={metricaX}
-                              onCambio={setMetricaX}
-                              rotulo="Eje X"
-                            />
-
-                            <SelectorMetrica
-                              valor={metricaY}
-                              onCambio={setMetricaY}
-                              rotulo="Eje Y"
-                            />
-                          </div>
-                        }
-                      >
-                        <Dispersion
-                          puntos={puntos}
-                          etiquetaX={metX?.nombre ?? ""}
-                          etiquetaY={metY?.nombre ?? ""}
-                          unidadX={metX?.unidad ?? "decimal"}
-                          unidadY={metY?.unidad ?? "decimal"}
-                          destacado={NOSOTROS}
-                        />
-
-                        {metX && metY && (
-                          <Lectura>
-                            {lecturaDeDispersion(puntos, NOSOTROS, metX, metY)}
-                          </Lectura>
-                        )}
-                      </Panel>
-                    </div>
+                    <ParDeMetricas
+                      titulo="Dos métricas a la vez"
+                      subtitulo="Un punto por equipo. Las rayas son las medianas: los cuatro cuadrantes son la lectura."
+                      puntos={puntos}
+                      destacado={NOSOTROS}
+                      metricaX={metricaX}
+                      metricaY={metricaY}
+                      contraX={contraX}
+                      contraY={contraY}
+                      pregunta={pregunta}
+                      onPregunta={eligePregunta}
+                      onCambiaX={cambiaX}
+                      onCambiaY={cambiaY}
+                      nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro.`}
+                    />
                   </>
                 )}
 
@@ -895,7 +1124,54 @@ export default function DataAnalisisPage() {
                         </Notice>
                       </div>
                     ) : (
-                      <PanelEventos partido={evento} />
+                      <>
+                        {logs.length > 1 && (
+                          <div className="mt-5 flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => setElLog("todos")}
+                                aria-pressed={elLog === "todos"}
+                                className={`rounded-lg px-3 py-2 text-xs transition ${
+                                  elLog === "todos"
+                                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                                    : "text-white/50 hover:text-white"
+                                }`}
+                              >
+                                Los {logs.length} juntos
+                              </button>
+
+                              {logs.map((l) => {
+                                const clave = `${l.fecha}|${l.rival}`;
+
+                                return (
+                                  <button
+                                    key={clave}
+                                    type="button"
+                                    onClick={() => setElLog(clave)}
+                                    aria-pressed={elLog === clave}
+                                    className={`rounded-lg px-3 py-2 text-xs transition ${
+                                      elLog === clave
+                                        ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                                        : "text-white/50 hover:text-white"
+                                    }`}
+                                  >
+                                    {l.rival} · {l.resultado}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <span className="text-[11px] text-white/35">
+                              {elLog === "todos"
+                                ? "Todo el log sumado: es como se ve quién carga con el trabajo defensivo del curso."
+                                : "Un solo partido: los tramos y el tiempo hasta el robo se leen partido a partido."}
+                            </span>
+                          </div>
+                        )}
+
+                        <PanelEventos partido={evento} titulo={tituloEvento} />
+                      </>
                     )}
                   </>
                 )}
@@ -905,17 +1181,13 @@ export default function DataAnalisisPage() {
 
                   Antes esto eran dos paneles enteros —lo que falta en los
                   informes y el inventario de la carpeta— y ocupaban más que
-                  algunos gráficos. Lo único que hay que saber al pie es de
-                  dónde ha salido el dato que se está mirando: desplegado sólo
-                  existe el índice, y eso explica por qué un fichero recién
-                  dejado todavía no aparece.
+                  algunos gráficos. Ahora es el inventario y nada más: de dónde
+                  sale el dato se explica ya donde hace falta, en el aviso de
+                  carpeta vacía.
                 */}
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
                   {datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y{" "}
-                  {datos.fuentes?.opta.length ?? 0} descargas de Opta.{" "}
-                  {datos.origen === "indice"
-                    ? "Leído del índice que se monta al compilar: esta copia no abre la carpeta por su cuenta, así que lo que dejes ahora se verá al volver a desplegar."
-                    : "Leído de la carpeta: lo que dejes en public/data se ve al pulsar «Releer la carpeta»."}
+                  {datos.fuentes?.opta.length ?? 0} descargas de Opta
                 </p>
               </>
             )}
@@ -929,6 +1201,644 @@ export default function DataAnalisisPage() {
 /* ------------------------------------------------------------------ */
 /*  LOS GRÁFICOS PROPIOS DE CADA FASE                                  */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/*  LOS AGREGADOS DE OPTA                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El Castilla contra la media de la categoría, con las columnas de Opta.
+ *
+ * La carpeta trae dos agregados que parecen el mismo y no lo son: uno de cien
+ * partidos con reparto de casa y fuera —que es **toda la categoría**: los
+ * duelos dan 50,0 % clavado y los goles a favor igualan a los de contra— y
+ * otro del **Castilla**, con sus tres partidos y las mismas columnas.
+ *
+ * Que compartan columnas es lo que hace valioso el panel: pone al Castilla al
+ * lado de la media de la liga en cosas que Wyscout no mide —conducciones
+ * progresivas, uno contra uno, duración de la posesión, acierto de pase
+ * saliendo desde atrás—. Todo por partido, que es la única manera de comparar
+ * tres con cien.
+ */
+function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
+  const [faseOpta, setFaseOpta] = useState<"con" | "sin" | "abp">("con");
+
+  const liga = filasDe(historico, "liga");
+  const nuestro = filasDe(historico, "nuestro");
+
+  if (liga.length === 0 && nuestro.length === 0) {
+    return (
+      <div className="mt-5">
+        <Notice tone="warn" title="Sin los agregados de Opta">
+          En <code>public/data/opta</code> no hay ningún <code>Summary</code> ni{" "}
+          <code>Defense</code> con acumulados. Son las descargas que traen la
+          media de la categoría y el acumulado del Castilla.
+        </Notice>
+      </div>
+    );
+  }
+
+  const rLiga = resumenOpta(liga, "TOTAL");
+  const rNuestro = resumenOpta(nuestro, "TOTAL");
+
+  const hayComparacion = liga.length > 0 && nuestro.length > 0;
+
+  const suyas = METRICAS_OPTA.filter((m) => m.fase === faseOpta);
+  const soloLiga = SOLO_LIGA.filter((m) => m.fase === faseOpta);
+
+  const grupos = [...new Set(suyas.map((m) => m.grupo))];
+
+  /* Cuántas posesiones duran cada cosa: el reparto, no el total. */
+  const duracionNuestra: Trozo[] = DURACION_POSESION.map((t) => ({
+    etiqueta: t.etiqueta,
+    valor: valorOpta(nuestro, "TOTAL", t.columna) ?? 0,
+  }));
+
+  const duracionLiga: Trozo[] = DURACION_POSESION.map((t) => ({
+    etiqueta: t.etiqueta,
+    valor: valorOpta(liga, "TOTAL", t.columna) ?? 0,
+  }));
+
+  const origen: Trozo[] = ORIGEN_ESTRATEGIA.map((o) => ({
+    etiqueta: o.nombre,
+    valor: valorOpta(liga, "TOTAL", o.columna) ?? 0,
+  }));
+
+  const tramos = POSESION_POR_TRAMO.map((t) => ({
+    etiqueta: t.etiqueta,
+    valor: valorOpta(nuestro, "TOTAL", t.columna),
+  }));
+
+  return (
+    <>
+      {/* Quiénes son los dos que se comparan. */}
+      <div className="mt-5">
+        <Panel
+          title="Los agregados de Opta"
+          subtitle="El Castilla de esta temporada contra la media de la categoría, con columnas que Wyscout no tiene"
+          icon={Database}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                rotulo: "El Castilla",
+                r: rNuestro,
+                oro: true,
+                pie: "Lo que llevamos de temporada",
+              },
+              {
+                rotulo: "La categoría",
+                r: rLiga,
+                oro: false,
+                pie: "Todos los equipos, sumados partido a partido",
+              },
+            ].map((lado) => (
+              <div
+                key={lado.rotulo}
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
+                style={
+                  lado.oro
+                    ? { borderColor: "rgb(var(--rmcf-gold-rgb, 200 169 107) / .35)" }
+                    : undefined
+                }
+              >
+                <p
+                  className="text-[10px] uppercase tracking-[0.16em]"
+                  style={{ color: lado.oro ? ORO : tinta(0.4) }}
+                >
+                  {lado.rotulo} · {lado.r.partidos} partidos
+                </p>
+
+                <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+                  {lado.r.ganados}-{lado.r.empates}-{lado.r.perdidos}
+                </p>
+
+                <p className="mt-0.5 text-[11px] tabular-nums text-white/45">
+                  {lado.r.golesFavor}-{lado.r.golesContra} en goles ·{" "}
+                  {formatea(lado.r.xg, "decimal")} de xG
+                </p>
+
+                <p className="mt-1 text-[11px] text-white/35">{lado.pie}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            El agregado de cien partidos <strong className="text-white/60">no
+            es el Castilla</strong>: es la categoría entera. Se reconoce porque
+            los duelos dan un 50,0 % clavado y los goles a favor igualan a los
+            goles en contra —la aritmética de sumar a los dos equipos de cada
+            partido—. Sirve de listón, que es justo lo que faltaba para leer
+            estas columnas.
+          </p>
+        </Panel>
+      </div>
+
+      {/* La comparación métrica a métrica. */}
+      <div className="mt-5">
+        <Panel
+          title="Contra la media de la categoría"
+          subtitle="Todo por partido: tres partidos contra cien no se comparan en totales"
+          icon={Compass}
+          action={
+            <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+              {[
+                { key: "con" as const, label: "Con balón" },
+                { key: "sin" as const, label: "Sin balón" },
+                { key: "abp" as const, label: "Balón parado" },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFaseOpta(f.key)}
+                  aria-pressed={faseOpta === f.key}
+                  className={`rounded-lg px-2.5 py-1.5 text-[11px] transition ${
+                    faseOpta === f.key
+                      ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          {!hayComparacion ? (
+            <p className="text-[12px] leading-relaxed text-white/45">
+              Falta uno de los dos agregados, así que no hay con qué comparar.
+            </p>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center gap-4 text-[10px] uppercase tracking-[0.16em]">
+                <span className="flex items-center gap-1.5" style={{ color: ORO }}>
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-[2px]"
+                    style={{ background: ORO }}
+                  />
+                  El Castilla
+                </span>
+
+                <span className="flex items-center gap-1.5 text-white/40">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-[2px]"
+                    style={{ background: tinta(0.28) }}
+                  />
+                  La categoría
+                </span>
+              </div>
+
+              <div className="space-y-5">
+                {grupos.map((grupo) => (
+                  <div key={grupo} className="min-w-0">
+                    <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      {grupo}
+                    </p>
+
+                    <div className="space-y-2.5">
+                      {suyas
+                        .filter((m) => m.grupo === grupo)
+                        .map((m) => (
+                          <FilaContraLaLiga
+                            key={m.columna}
+                            metrica={m}
+                            nuestro={porPartidoOpta(nuestro, "TOTAL", m)}
+                            liga={porPartidoOpta(liga, "TOTAL", m)}
+                            casa={porPartidoOpta(liga, "Home", m)}
+                            fuera={porPartidoOpta(liga, "Away", m)}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Lectura>{lecturaDeOpta(suyas, nuestro, liga)}</Lectura>
+            </>
+          )}
+
+          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            Pulsa una métrica para ver cómo se lee y cuánto cambia en la
+            categoría entre jugar en casa y jugar fuera. Con{" "}
+            {rNuestro.partidos} partidos nuestros, esto son indicios: sirve para
+            decidir qué mirar en el vídeo, no para cerrar una conclusión.
+          </p>
+        </Panel>
+      </div>
+
+      {/* Lo que sólo se sabe de la categoría. */}
+      {soloLiga.length > 0 && (
+        <div className="mt-5">
+          <Panel
+            title="Cómo es la categoría"
+            subtitle="Columnas que sólo trae el agregado de la liga: no hay con qué compararnos, pero dan el listón"
+            icon={Scale}
+          >
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {soloLiga.map((m) => (
+                <div
+                  key={m.columna}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
+                >
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                    {m.nombre}
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-white">
+                    {formatea(porPartidoOpta(liga, "TOTAL", m), m.unidad)}
+                  </p>
+
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/35">
+                    {m.comoLeer}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+              Los valores que no son porcentaje van por partido. Es lo normal en
+              esta categoría: un número nuestro sólo significa algo al lado de
+              esto.
+            </p>
+          </Panel>
+        </div>
+      )}
+
+      {/* La duración de las posesiones y el balón parado. */}
+      <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+        <Panel
+          title="Cuánto dura cada posesión"
+          subtitle="Lo más cerca que llega el informe a «cuánto tiempo con balón hace falta para llegar»"
+          icon={Clock}
+        >
+          {duracionNuestra.some((t) => t.valor > 0) ? (
+            <Composicion
+              trozos={duracionNuestra}
+              trozosLiga={
+                duracionLiga.some((t) => t.valor > 0) ? duracionLiga : undefined
+              }
+              rotulo="El Castilla"
+              rotuloLiga="La categoría"
+              lectura={lecturaDeComposicion(duracionNuestra, duracionLiga, {
+                sustantivo: "posesiones",
+                verbo: "duran",
+                trozo: "duración",
+              })}
+            />
+          ) : (
+            <p className="py-8 text-center text-[12px] text-white/35">
+              Esta descarga no trae el reparto por duración.
+            </p>
+          )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {tramos.map((t) => (
+              <div
+                key={t.etiqueta}
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
+              >
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Posesión {t.etiqueta}
+                </p>
+
+                <p className="mt-1 text-lg font-semibold tabular-nums text-white">
+                  {formatea(t.valor, "porcentaje")}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            La posesión por tramos es sólo nuestra: en el agregado de la
+            categoría da 50 % en los tres, porque suma a los dos equipos de cada
+            partido y la posesión de uno es la del otro al revés.
+          </p>
+        </Panel>
+
+        <Panel
+          title="De dónde salen los goles de estrategia"
+          subtitle="El reparto en la categoría: el listón de cuánto renta cada ensayo"
+          icon={Flag}
+        >
+          <Composicion
+            trozos={origen}
+            rotulo="La categoría"
+            lectura={lecturaDeComposicion(origen, undefined, {
+              sustantivo: "goles de balón parado",
+              verbo: "llegan de",
+              trozo: "vía",
+            })}
+          />
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              { rotulo: "Córners por partido", columna: "Corners" },
+              { rotulo: "xG de córner por partido", columna: "xGCrnrs" },
+            ]
+              .map((c) => {
+                const met = OPTA_POR_COLUMNA.get(c.columna);
+
+                return met
+                  ? {
+                      rotulo: c.rotulo,
+                      nuestro: porPartidoOpta(nuestro, "TOTAL", met),
+                      liga: porPartidoOpta(liga, "TOTAL", met),
+                    }
+                  : null;
+              })
+              .filter((c): c is NonNullable<typeof c> => c !== null)
+              .map((c) => (
+              <div
+                key={c.rotulo}
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
+              >
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  {c.rotulo}
+                </p>
+
+                <p
+                  className="mt-1 text-xl font-semibold tabular-nums"
+                  style={{ color: ORO }}
+                >
+                  {formatea(c.nuestro, "decimal")}
+                </p>
+
+                <p className="mt-0.5 text-[11px] tabular-nums text-white/35">
+                  la categoría, {formatea(c.liga, "decimal")}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            Sacar muchos córners y no sacarles xG es un problema de ensayo, no
+            de volumen: la primera cifra la da el ataque y la segunda, el
+            entrenamiento.
+          </p>
+        </Panel>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Una métrica del Castilla al lado de la media de la categoría.
+ *
+ * Dos barras en la misma escala —la nuestra en oro, la de la liga apagada— y
+ * la diferencia en tanto por ciento **con el sentido de la métrica puesto**:
+ * en regates sufridos o en amarillas, tener menos sale en verde.
+ */
+function FilaContraLaLiga({
+  metrica,
+  nuestro,
+  liga,
+  casa,
+  fuera,
+}: {
+  metrica: MetricaOpta;
+  nuestro: number | null;
+  liga: number | null;
+  casa: number | null;
+  fuera: number | null;
+}) {
+  const [abierto, setAbierto] = useState(false);
+
+  const tope = Math.max(nuestro ?? 0, liga ?? 0, 0.0001);
+
+  const dif = contraLaMedia(nuestro, liga, metrica.mejorAlto);
+
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setAbierto(!abierto)}
+        aria-expanded={abierto}
+        className="flex w-full items-baseline justify-between gap-3 text-left"
+      >
+        <span className="min-w-0 truncate text-[12.5px] text-white/70">
+          {metrica.nombre}
+        </span>
+
+        <span className="shrink-0 text-[11px] tabular-nums">
+          {dif === null ? (
+            <span className="text-white/30">—</span>
+          ) : (
+            <span
+              style={{
+                color:
+                  metrica.mejorAlto === null
+                    ? tinta(0.45)
+                    : dif >= 0
+                      ? MEJOR
+                      : PEOR,
+              }}
+            >
+              {dif >= 0 ? "+" : ""}
+              {dif.toFixed(0)} % {metrica.mejorAlto === null ? "" : "sobre la media"}
+            </span>
+          )}
+        </span>
+      </button>
+
+      <div className="mt-1.5 space-y-1">
+        {[
+          { rotulo: "Nosotros", valor: nuestro, oro: true },
+          { rotulo: "Liga", valor: liga, oro: false },
+        ].map((lado) => (
+          <div key={lado.rotulo} className="flex items-center gap-2">
+            <span className="w-16 shrink-0 text-[10px] uppercase tracking-[0.12em] text-white/35">
+              {lado.rotulo}
+            </span>
+
+            <span className="h-2.5 min-w-0 flex-1">
+              <span
+                className="block h-2.5 rounded-[3px]"
+                style={{
+                  width: `${((lado.valor ?? 0) / tope) * 100}%`,
+                  background: lado.oro ? ORO : tinta(0.28),
+                }}
+              />
+            </span>
+
+            <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-white/60">
+              {formatea(lado.valor, metrica.unidad)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {abierto && (
+        <div className="mt-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-2.5 py-2">
+          <p className="text-[11px] leading-relaxed text-white/50">
+            {metrica.comoLeer}
+          </p>
+
+          {casa !== null && fuera !== null && (
+            <p className="mt-1.5 text-[11px] tabular-nums text-white/35">
+              En la categoría: {formatea(casa, metrica.unidad)} en casa contra{" "}
+              {formatea(fuera, metrica.unidad)} fuera.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Lo que dice el conjunto de una fase.
+ *
+ * Se calcula con los mismos números del dibujo: dónde estamos más por encima
+ * de la categoría y dónde más por debajo, con el sentido de cada métrica ya
+ * puesto.
+ */
+function lecturaDeOpta(
+  metricas: MetricaOpta[],
+  nuestro: AmbitoOpta[],
+  liga: AmbitoOpta[],
+) {
+  const con = metricas
+    .map((m) => ({
+      metrica: m,
+      dif: contraLaMedia(
+        porPartidoOpta(nuestro, "TOTAL", m),
+        porPartidoOpta(liga, "TOTAL", m),
+        m.mejorAlto,
+      ),
+    }))
+    .filter(
+      (x): x is { metrica: MetricaOpta; dif: number } =>
+        x.dif !== null && x.metrica.mejorAlto !== null,
+    );
+
+  if (con.length === 0) return "No hay bastantes columnas comunes para comparar.";
+
+  const orden = [...con].sort((a, b) => b.dif - a.dif);
+
+  const mejor = orden[0];
+  const peor = orden[orden.length - 1];
+
+  const porEncima = con.filter((x) => x.dif > 0).length;
+
+  return `De ${con.length} métricas con un sentido claro, el Castilla está por encima de la categoría en ${porEncima}. Lo más destacado, ${mejor.metrica.nombre.toLowerCase()} (${mejor.dif >= 0 ? "+" : ""}${mejor.dif.toFixed(0)} %); lo más flojo, ${peor.metrica.nombre.toLowerCase()} (${peor.dif >= 0 ? "+" : ""}${peor.dif.toFixed(0)} %).`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA PAREJA: LA PREGUNTA Y EL CRUCE                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Dos bloques en paralelo que miran el mismo par de métricas.
+ *
+ * A la izquierda se llega por la pregunta —«¿entramos al área o nos quedamos
+ * en la frontal?»— y a la derecha por los dos selectores. **No son dos vistas
+ * distintas del dato: son dos puertas a la misma.** El par vive fuera de los
+ * dos, así que elegir una pregunta mueve los selectores y tocar un selector
+ * apaga la pregunta.
+ *
+ * Se usa dos veces con los mismos mandos y puntos distintos: en la liga cada
+ * punto es un equipo; en nuestra historia, una temporada del Castilla.
+ */
+function ParDeMetricas({
+  titulo,
+  subtitulo,
+  puntos,
+  destacado,
+  metricaX,
+  metricaY,
+  contraX,
+  contraY,
+  pregunta,
+  onPregunta,
+  onCambiaX,
+  onCambiaY,
+  nota,
+}: {
+  titulo: string;
+  subtitulo: string;
+  puntos: { equipo: string; x: number; y: number }[];
+  destacado: string;
+  metricaX: string;
+  metricaY: string;
+  contraX: boolean;
+  contraY: boolean;
+  pregunta: string | null;
+  onPregunta: (p: Pregunta) => void;
+  onCambiaX: (key: string) => void;
+  onCambiaY: (key: string) => void;
+  /** Lo que hay que saber de estos puntos en concreto. */
+  nota?: string;
+}) {
+  const metX = METRICA_POR_KEY.get(metricaX);
+  const metY = METRICA_POR_KEY.get(metricaY);
+
+  return (
+    <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <Panel
+        title="Pregúntaselo"
+        subtitle="Por momento del juego. Al elegir una, se rellenan los dos ejes de al lado."
+        icon={Compass}
+      >
+        <BateriaDePreguntas
+          activa={pregunta}
+          onElegir={onPregunta}
+          metricaX={metricaX}
+          metricaY={metricaY}
+          contraX={contraX}
+          contraY={contraY}
+        />
+      </Panel>
+
+      <Panel
+        title={titulo}
+        subtitle={subtitulo}
+        icon={Users}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <SelectorMetrica valor={metricaX} onCambio={onCambiaX} rotulo="Eje X" />
+
+            <SelectorMetrica valor={metricaY} onCambio={onCambiaY} rotulo="Eje Y" />
+          </div>
+        }
+      >
+        {puntos.length < 3 ? (
+          <p className="py-10 text-center text-[12px] text-white/35">
+            Con menos de tres puntos no hay dibujo que leer.
+          </p>
+        ) : (
+          <>
+            <Dispersion
+              puntos={puntos}
+              etiquetaX={rotuloDeEje(metX?.nombre ?? "", contraX)}
+              etiquetaY={rotuloDeEje(metY?.nombre ?? "", contraY)}
+              unidadX={metX?.unidad ?? "decimal"}
+              unidadY={metY?.unidad ?? "decimal"}
+              destacado={destacado}
+            />
+
+            {metX && metY && (
+              <Lectura>
+                {lecturaDeDispersion(puntos, destacado, metX, metY)}
+              </Lectura>
+            )}
+          </>
+        )}
+
+        {(contraX || contraY) && (
+          <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+            Los ejes marcados «del rival» no son columnas del informe: salen de
+            la fila del contrario de cada partido, que el informe también trae.
+            Es la única manera de contestar a «cuánto concedemos».
+          </p>
+        )}
+
+        {nota && (
+          <p className="mt-2 text-[11px] leading-relaxed text-white/40">{nota}</p>
+        )}
+      </Panel>
+    </div>
+  );
+}
 
 /** Suma una columna en un grupo de partidos. `null` si no hay ninguna. */
 function suma(filas: FilaPartido[], columna: string) {
@@ -1340,7 +2250,13 @@ function SelectorMetrica({
 }
 
 /** Lo que sólo puede contestar el dato de evento. */
-function PanelEventos({ partido }: { partido: PartidoEventos }) {
+function PanelEventos({
+  partido,
+  titulo,
+}: {
+  partido: PartidoEventos;
+  titulo: string;
+}) {
   const familias = porFamilia(partido.eventos);
   const tramos = porTramo(partido.eventos);
   const jugadores = porJugador(partido.eventos);
@@ -1352,14 +2268,15 @@ function PanelEventos({ partido }: { partido: PartidoEventos }) {
   return (
     <>
       <div className="mt-5">
-        <Notice
-          title={`${partido.fecha} · ${partido.equipo} contra ${partido.rival} (${partido.resultado}) · ${partido.eventos.length} acciones`}
-        >
+        <Notice title={titulo}>
           Esta descarga de Opta son las{" "}
-          <strong className="text-white/75">acciones defensivas</strong> del
-          partido, una por una, con su jugador y su minuto. Wyscout da el total
-          —«74 recuperaciones»— pero no quién, ni cuándo, ni después de cuánto
-          tiempo con el balón el rival. Eso es lo que hay aquí.
+          <strong className="text-white/75">acciones defensivas</strong>, una
+          por una, con su jugador y su minuto. Wyscout da el total —«74
+          recuperaciones»— pero no quién, ni cuándo, ni después de cuánto tiempo
+          con el balón el rival. Eso es lo que hay aquí.{" "}
+          <strong className="text-white/75">Del momento con balón no hay
+          nada</strong>: ni un pase, ni un remate, ni una conducción. Es otra
+          descarga distinta en Opta y hay que pedirla aparte.
         </Notice>
       </div>
 

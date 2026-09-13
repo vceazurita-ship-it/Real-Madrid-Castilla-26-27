@@ -87,13 +87,13 @@ export const familiaDe = (tipo: string) => FAMILIA_DE.get(tipo) ?? "Otras";
  * repetidos** (`team`, `teamId` salen dos veces); se usa el primero, que es el
  * del bloque del evento.
  */
-export function leeEventosOpta(crudo: unknown): PartidoEventos | null {
+export function leeEventosOpta(crudo: unknown): PartidoEventos[] {
   const doc = crudo as {
     header?: { columnId?: string }[];
     rows?: unknown[][];
   };
 
-  if (!Array.isArray(doc?.header) || !Array.isArray(doc?.rows)) return null;
+  if (!Array.isArray(doc?.header) || !Array.isArray(doc?.rows)) return [];
 
   const indice = new Map<string, number>();
 
@@ -138,15 +138,39 @@ export function leeEventosOpta(crudo: unknown): PartidoEventos | null {
     });
   }
 
-  if (eventos.length === 0) return null;
+  /*
+  | UNA DESCARGA SON VARIOS PARTIDOS
+  |
+  | Esto costó un fallo de los que no se ven: la descarga trae **todos los
+  | partidos de la temporada seguidos** —tres, a día de hoy— y se estaban
+  | metiendo en un solo `PartidoEventos` con la fecha y el rival de la primera
+  | fila. La pantalla decía «Águilas 0-1 · 350 acciones» y estaba sumando
+  | además el Teruel y el Júpiter: los minutos, los jugadores y el tiempo hasta
+  | el robo salían de tres partidos mezclados.
+  |
+  | Se parte por fecha y rival, y quien llame decide si los quiere sueltos o
+  | juntos.
+  */
+  const porPartido = new Map<string, PartidoEventos>();
 
-  return {
-    fecha: eventos[0].fecha,
-    equipo: eventos[0].equipo,
-    rival: eventos[0].rival,
-    resultado: eventos[0].resultado,
-    eventos,
-  };
+  for (const evento of eventos) {
+    const llave = `${evento.fecha}|${evento.rival}`;
+
+    const partido = porPartido.get(llave) ?? {
+      fecha: evento.fecha,
+      equipo: evento.equipo,
+      rival: evento.rival,
+      resultado: evento.resultado,
+      eventos: [],
+    };
+
+    partido.eventos.push(evento);
+
+    porPartido.set(llave, partido);
+  }
+
+  /* Del más reciente al más viejo: lo que se mira es el último partido. */
+  return [...porPartido.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
 
 /* ------------------------------------------------------------------ */
