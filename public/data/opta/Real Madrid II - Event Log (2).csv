@@ -1,0 +1,351 @@
+﻿date,opponent,result,period,playType,toucher,scoreAtTime,xG,xA,ShotDist
+2026-09-12,AGU,L 0-1,1,Challenge,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Interception,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Joan Martínez,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Challenge,,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Interception,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Jesús Fortea,0-0,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Sweeper,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Javi Navarro,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Challenge,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Save,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Save,Cestero,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,OffsideProvoked,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Challenge,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Pol Fortuny,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Challenge,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Diego Aguado,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Roberto Martín,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BlockedPass,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Jesús Fortea,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Sergio Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Cestero,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Pol Fortuny,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Save,R. Fettal,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Save,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Clearance,Diego Aguado,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BlockedPass,Pol Fortuny,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BlockedPass,Pol Fortuny,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Ávaro Leiva,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Ávaro Leiva,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Diego Aguado,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Ávaro Leiva,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Save,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Tackle,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,1,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Cestero,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Challenge,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Tackle,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Interception,Cestero,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Tackle,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Tackle,Cestero,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Save,Mario Rivas,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Save,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Challenge,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,OffsideProvoked,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Tackle,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Joan Martínez,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BlockedPass,Alexis Ciria,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Roberto Martín,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,Diego Aguado,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Clearance,O. Naasei,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,OffsideProvoked,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,Aerial,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-12,AGU,L 0-1,2,BallRecovery,,0-1,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Roberto Martín,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Joan Martínez,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Joan Martínez,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,Joan Martínez,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Ávaro Leiva,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Roberto Martín,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Challenge,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Save,Sergio Mestre,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,OffsideProvoked,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BlockedPass,R. Fettal,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Ávaro Leiva,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,Joan Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Joan Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,Joan Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,R. Fettal,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,Ávaro Leiva,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Challenge,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,Joan Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Roberto Martín,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Pol Fortuny,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,Roberto Martín,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Clearance,Mario Rivas,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Tackle,R. Fettal,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,1,Interception,R. Fettal,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Tackle,Joan Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Interception,Roberto Martín,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Mario Rivas,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,O. Naasei,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BlockedPass,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Mario Rivas,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Roberto Martín,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Challenge,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Shield,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BlockedPass,O. Naasei,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Álvaro Lezcano,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Challenge,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Sweeper,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Sergio Mestre,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Mario Rivas,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Interception,Sergio Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Interception,Mario Rivas,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Mario Rivas,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Joan Martínez,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Tackle,Dani Meso,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,1-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Tackle,Álvaro Lezcano,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Mario Rivas,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Tackle,Alexis Ciria,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BlockedPass,Manex Rezola,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Joan Martínez,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BlockedPass,Alexis Ciria,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Aerial,,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Joan Martínez,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BlockedPass,Alexis Ciria,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Tackle,Alexis Ciria,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,Clearance,Mario Rivas,2-0,0.00,0.0000,0.0
+2026-09-05,JVT,W 2-0,2,BallRecovery,,2-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Save,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BlockedPass,Jesús Fortea,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Cestero,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Save,Cestero,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Save,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Interception,Jesús Fortea,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Manex Rezola,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Manex Rezola,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Alexis Ciria,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Challenge,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Save,Sergio Mestre,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BlockedPass,R. Fettal,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Cestero,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,R. Fettal,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Sergio Mestre,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Save,Sergio Mestre,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Manex Rezola,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BlockedPass,R. Fettal,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Challenge,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,1,Clearance,Ávaro Leiva,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Tackle,Alexis Ciria,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Interception,Diego Aguado,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Challenge,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Jesús Fortea,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Alexis Ciria,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Interception,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BlockedPass,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Interception,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Cestero,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Tackle,Cestero,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Tackle,Pol Fortuny,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,O. Naasei,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Tackle,Jesús Fortea,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Jesús Fortea,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Álvaro Lezcano,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Mario Rivas,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Clearance,Cestero,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,Aerial,,0-0,0.00,0.0000,0.0
+2026-08-31,TER,T 0-0,2,BallRecovery,,0-0,0.00,0.0000,0.0

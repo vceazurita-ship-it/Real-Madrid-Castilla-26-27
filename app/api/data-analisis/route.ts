@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { leeDatos, type Dataset } from "@/lib/data-analisis/leer";
+import {
+  METRICA_POR_KEY,
+  temporadaDe,
+  valorEnGrupo,
+} from "@/lib/data-analisis/metricas";
 
 /**
  * La carpeta `public/data`, servida ya en limpio.
@@ -59,13 +64,70 @@ async function leeElIndice(desde: string): Promise<Dataset | null> {
   }
 }
 
+/** Cómo se llama el Castilla en los informes de Wyscout. */
+const NOSOTROS = "Real Madrid Castilla";
+
+/**
+ * Cuatro números para la portada.
+ *
+ * La portada no puede pedir el dataset entero: es un mega y medio de JSON para
+ * enseñar dos cifras. Esto devuelve sólo lo que cabe en la tarjeta —el xG por
+ * partido, el puesto en la categoría y lo que se marca por encima de lo que
+ * valen las ocasiones— calculado con las **mismas funciones** que la pantalla
+ * de Data Análisis, para que no puedan discrepar.
+ */
+function resumenDePortada(datos: Dataset) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
+    .filter(Boolean)
+    .sort();
+
+  const actual = temporadas[temporadas.length - 1] ?? "";
+
+  const deLaLiga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+
+  const equipos = [...new Set(deLaLiga.map((p) => p.equipo))];
+
+  const nuestros = deLaLiga.filter((p) => p.equipo === NOSOTROS);
+
+  const metXg = METRICA_POR_KEY.get("xg");
+  const metDif = METRICA_POR_KEY.get("golesMenosXg");
+
+  const xg = metXg ? valorEnGrupo(metXg, nuestros) : null;
+
+  const todos = metXg
+    ? equipos
+        .map((e) => valorEnGrupo(metXg, deLaLiga.filter((p) => p.equipo === e)))
+        .filter((v): v is number => v !== null)
+        .sort((a, b) => b - a)
+    : [];
+
+  return {
+    temporada: actual,
+    partidos: nuestros.length,
+    equipos: equipos.length,
+    informes: datos.fuentes.wyscout.length,
+    /* xG por partido y dónde queda eso en la categoría. */
+    xg,
+    puesto: xg === null ? null : todos.indexOf(xg) + 1 || null,
+    deCuantos: todos.length,
+    tope: todos[0] ?? null,
+    golesMenosXg: metDif ? valorEnGrupo(metDif, nuestros) : null,
+  };
+}
+
 export async function GET(peticion: Request) {
-  const fresco = new URL(peticion.url).searchParams.has("refrescar");
+  const parametros = new URL(peticion.url).searchParams;
+
+  const fresco = parametros.has("refrescar");
+
+  const soloResumen = parametros.has("resumen");
 
   const ahora = Date.now();
 
   if (!fresco && guardado && ahora - guardado.en < VIDA) {
-    return NextResponse.json({ ok: true, ...guardado.datos, deCache: true });
+    return soloResumen
+      ? NextResponse.json({ ok: true, resumen: resumenDePortada(guardado.datos) })
+      : NextResponse.json({ ok: true, ...guardado.datos, deCache: true });
   }
 
   try {
@@ -89,7 +151,9 @@ export async function GET(peticion: Request) {
 
     guardado = { datos, en: ahora };
 
-    return NextResponse.json({ ok: true, ...datos, deCache: false, origen });
+    return soloResumen
+      ? NextResponse.json({ ok: true, resumen: resumenDePortada(datos), origen })
+      : NextResponse.json({ ok: true, ...datos, deCache: false, origen });
   } catch (error) {
     console.error("[data-analisis]", error);
 

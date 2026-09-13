@@ -99,6 +99,7 @@ import {
   type Fase,
 } from "@/lib/data-analisis/metricas";
 import { BateriaDePreguntas } from "@/components/data/preguntas";
+import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
 import {
   DURACION_POSESION,
@@ -145,7 +146,7 @@ type Respuesta = {
   error?: string;
 };
 
-type Area = "historia" | "liga" | "todos" | "eventos";
+type Area = "historia" | "liga" | "todos" | "eventos" | "abp";
 
 const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string }[] = [
   {
@@ -171,6 +172,18 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     label: "Acción por acción",
     icono: Timer,
     pregunta: "¿Quién, cuándo y tras cuánto tiempo?",
+  },
+  /*
+    La quinta no viene de fuera: es lo que registra el propio cuerpo técnico
+    acción por acción en las hojas de balón parado. Va la última porque es de
+    otra naturaleza —no hay liga con la que compararla— y la pantalla lo avisa
+    en cuanto se entra.
+  */
+  {
+    key: "abp",
+    label: "Nuestro balón parado",
+    icono: Flag,
+    pregunta: "¿Qué sacamos de lo que ensayamos? (registro propio)",
   },
 ];
 
@@ -662,7 +675,7 @@ export default function DataAnalisisPage() {
                     ))}
                   </div>
 
-                  {area !== "eventos" && (
+                  {area !== "eventos" && area !== "abp" && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Temporada
@@ -683,9 +696,11 @@ export default function DataAnalisisPage() {
                   )}
 
                   <span className="text-[11px] text-white/30">
-                    {area === "eventos"
-                      ? `${logs.length} ${logs.length === 1 ? "partido" : "partidos"} con log de eventos`
-                      : `${equiposLiga.length} equipos · ${deLaLiga.length} informes de partido`}
+                    {area === "abp"
+                      ? "Registro propio del cuerpo técnico, no de Wyscout ni de Opta"
+                      : area === "eventos"
+                        ? `${logs.length} ${logs.length === 1 ? "partido" : "partidos"} con log de eventos`
+                        : `${equiposLiga.length} equipos · ${deLaLiga.length} informes de partido`}
                   </span>
                 </div>
 
@@ -1176,6 +1191,10 @@ export default function DataAnalisisPage() {
                   </>
                 )}
 
+                {/* ============ 5 · NUESTRO BALÓN PARADO ========== */}
+
+                {area === "abp" && <PanelAbpPropio />}
+
                 {/*
                   EL PIE
 
@@ -1186,8 +1205,9 @@ export default function DataAnalisisPage() {
                   carpeta vacía.
                 */}
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
-                  {datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y{" "}
-                  {datos.fuentes?.opta.length ?? 0} descargas de Opta
+                  {area === "abp"
+                    ? "Las cuatro hojas de balón parado del cuerpo técnico"
+                    : `${datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y ${datos.fuentes?.opta.length ?? 0} descargas de Opta`}
                 </p>
               </>
             )}

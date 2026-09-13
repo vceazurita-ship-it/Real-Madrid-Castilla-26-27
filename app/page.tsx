@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   Maximize2,
   Shield,
+  Sigma,
   Swords,
   Users,
 } from "lucide-react"
@@ -232,7 +233,35 @@ export default function Home() {
   | Van con su nombre puesto, así que aunque cambien de sitio con el tiempo
   | nunca sorprenden: la tarjeta dice a dónde lleva.
   */
-  const [masUsado, segundo, tercero] = useModulosMasUsados(3)
+  const [segundo, tercero] = useModulosMasUsados(2)
+
+  /*
+  |------------------------------------------------------------------------
+  | DATA ANÁLISIS EN LA PORTADA
+  |------------------------------------------------------------------------
+  |
+  | La tarjeta grande de la derecha llevaba al módulo más abierto, que es una
+  | información que ya da el acceso rápido de más abajo. Ahora lleva a Data
+  | Análisis y **enseña dos cifras suyas**: sin ellas sería un enlace más, y
+  | con ellas la portada dice de un vistazo cómo va el equipo.
+  |
+  | Se pide `?resumen=1` a propósito: el dataset entero es un mega y medio de
+  | JSON y aquí sólo caben dos números. Los calcula el servidor con las mismas
+  | funciones que la pantalla, así que no pueden discrepar.
+  */
+  type ResumenData = {
+    temporada: string
+    partidos: number
+    equipos: number
+    xg: number | null
+    puesto: number | null
+    deCuantos: number
+    tope: number | null
+    golesMenosXg: number | null
+  }
+
+  const [resumenData, setResumenData] = useState<ResumenData | null>(null)
+  const [cargandoData, setCargandoData] = useState(true)
 
   const [ataqueApartados, setAtaqueApartados] = useState(0)
   const [defensaApartados, setDefensaApartados] = useState(0)
@@ -378,6 +407,25 @@ export default function Home() {
       .finally(() => setLoadingSeguimiento(false))
   }, [])
 
+  useEffect(() => {
+    const control = new AbortController()
+
+    fetch("/api/data-analisis?resumen=1", { signal: control.signal })
+      .then((r) => r.json())
+      .then((r) => {
+        if (control.signal.aborted) return
+
+        if (r?.ok && r.resumen) setResumenData(r.resumen as ResumenData)
+
+        setCargandoData(false)
+      })
+      .catch(() => {
+        if (!control.signal.aborted) setCargandoData(false)
+      })
+
+    return () => control.abort()
+  }, [])
+
   return (
     <main className="min-h-screen bg-[#02060D] text-white">
       <div className="flex">
@@ -501,8 +549,9 @@ export default function Home() {
                 {/* ---------- DERECHA: visión global ---------- */}
 
                 <Link
-                  href={masUsado.href}
-                  onClick={() => trackModuleVisit(masUsado.href)}
+                  href="/data-analisis"
+                  onClick={() => trackModuleVisit("/data-analisis")}
+                  title="Lo que dicen los informes de Opta y Wyscout: el Castilla contra su historia, contra la liga y la categoría entera"
                   className="light-sweep group relative block min-h-[320px] overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[400px]"
                 >
                   <div
@@ -525,53 +574,108 @@ export default function Home() {
                     className="absolute inset-0 bg-gradient-to-t from-[#02060D]/90 via-[#02060D]/25 to-transparent"
                   />
 
-                  {/* La chapa dice a dónde lleva la tarjeta: el destino lo pone
-                      el uso, así que tiene que ir con su nombre puesto. */}
+                  {/* La chapa dice a dónde lleva la tarjeta. Va en el dorado de
+                      la casa, que es el color con el que Data Análisis pinta lo
+                      nuestro en todos sus gráficos. */}
                   <div className="absolute left-5 top-5 max-w-[calc(100%-40px)]">
-                    <div className="flex items-center gap-2.5 rounded-full border border-cyan-500/30 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-cyan-400/60">
-                      <masUsado.icon className="h-[15px] w-[15px] shrink-0 text-cyan-400" />
+                    <div className="flex items-center gap-2.5 rounded-full border border-[#D8B45A]/35 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-[#D8B45A]/70">
+                      <Sigma className="h-[15px] w-[15px] shrink-0 text-[#F7D98B]" />
 
-                      <p className="truncate text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-400">
-                        {masUsado.title}
+                      <p className="truncate text-[11px] font-medium uppercase tracking-[0.22em] text-[#F7D98B]">
+                        Data Análisis
                       </p>
 
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-cyan-400/70 transition-transform duration-300 group-hover:translate-x-0.5" />
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[#F7D98B]/70 transition-transform duration-300 group-hover:translate-x-0.5" />
                     </div>
                   </div>
 
-                  {/* Pie del panel: cobertura de seguimiento */}
+                  {/* Y debajo, de qué se está hablando: sin esto la cifra de
+                      abajo podría ser de cualquier cosa. */}
+                  {/* El césped de la foto es claro: sin fondo propio esta línea
+                      se pierde. Va con el mismo cristal que la chapa. */}
+                  <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
+                    <p className="inline-block rounded-full border border-white/10 bg-black/60 px-3.5 py-1.5 text-[11px] leading-relaxed text-white/70 backdrop-blur-xl">
+                      {resumenData
+                        ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, contra los ${resumenData.equipos} de la categoría`
+                        : "Opta y Wyscout, leídos de la carpeta de datos"}
+                    </p>
+                  </div>
+
+                  {/*
+                    Pie del panel: dos cifras de Data Análisis.
+
+                    El xG por partido con su puesto en la categoría —que es lo
+                    que contesta «¿generamos?»— y lo que se marca por encima de
+                    lo que valían las ocasiones, que es la otra mitad. La barra
+                    mide contra el mejor de la liga, no contra cien: así el
+                    trozo lleno significa algo.
+                  */}
                   <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4 rounded-[22px] border border-white/10 bg-black/50 px-5 py-4 backdrop-blur-xl">
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-white/50">
-                        Cobertura de seguimiento
+                        xG por partido
                       </p>
 
                       <p className="mt-2 text-3xl font-bold leading-none text-white">
-                        <Metric
-                          value={cobertura}
-                          loading={loadingSeguimiento || cargandoPlantilla}
-                        />
-                        <span className="ml-0.5 text-lg text-white/50">%</span>
+                        {cargandoData ? (
+                          <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
+                        ) : (
+                          (resumenData?.xg ?? 0).toFixed(2)
+                        )}
                       </p>
 
                       <div className="mt-3 h-1 w-36 max-w-full overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-[width] duration-1000 ease-out"
-                          style={{ width: `${Math.min(cobertura, 100)}%` }}
+                          className="h-full rounded-full bg-gradient-to-r from-[#D8B45A] to-[#F7D98B] transition-[width] duration-1000 ease-out"
+                          style={{
+                            width: `${
+                              resumenData?.xg && resumenData.tope
+                                ? Math.min((resumenData.xg / resumenData.tope) * 100, 100)
+                                : 0
+                            }%`,
+                          }}
                         />
                       </div>
+
+                      <p className="mt-2 truncate text-[11px] text-white/45">
+                        {resumenData?.puesto
+                          ? `${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría`
+                          : "sin informes de esta temporada"}
+                      </p>
                     </div>
 
                     <div className="shrink-0 text-right">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-white/50">
-                        Últimos 30 días
+                        Goles − xG
                       </p>
 
-                      <p className="mt-2 text-3xl font-bold leading-none text-cyan-400">
-                        <Metric value={ultimos30Dias} loading={loadingSeguimiento} />
+                      <p
+                        className="mt-2 text-3xl font-bold leading-none"
+                        style={{
+                          color:
+                            resumenData?.golesMenosXg == null
+                              ? "rgb(255 255 255 / .4)"
+                              : resumenData.golesMenosXg >= 0
+                                ? "#1B9E77"
+                                : "#D95F02",
+                        }}
+                      >
+                        {cargandoData ? (
+                          <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
+                        ) : resumenData?.golesMenosXg == null ? (
+                          "—"
+                        ) : (
+                          `${resumenData.golesMenosXg >= 0 ? "+" : ""}${resumenData.golesMenosXg.toFixed(2)}`
+                        )}
                       </p>
 
-                      <p className="mt-1 text-[11px] text-white/45">registros</p>
+                      <p className="mt-1 text-[11px] text-white/45">
+                        {resumenData?.golesMenosXg == null
+                          ? "por partido"
+                          : resumenData.golesMenosXg >= 0
+                            ? "se marca de más"
+                            : "se falla de más"}
+                      </p>
                     </div>
                   </div>
 
@@ -608,7 +712,7 @@ export default function Home() {
                   href="/calendar"
                   label="Seguimientos"
                   value={seguimientos}
-                  caption="Sesiones registradas"
+                  caption={`Sesiones registradas · ${ultimos30Dias} en los últimos 30 días`}
                   destino="Calendario Seguimiento"
                   loading={loadingSeguimiento}
                   icon={Activity}
@@ -618,7 +722,7 @@ export default function Home() {
                   href="/individual"
                   label="Jugadores"
                   value={totalJugadores}
-                  caption="Jugadores en plantilla"
+                  caption={`Jugadores en plantilla · ${cobertura} % con seguimiento`}
                   destino="Plantilla"
                   loading={cargandoPlantilla}
                   icon={Users}
