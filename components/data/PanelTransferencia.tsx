@@ -23,7 +23,9 @@ import {
   type SemanaCruzada,
   type TareaEntrenamiento,
 } from "@/lib/data-analisis/transferencia";
-import type { FilaPartido } from "@/lib/data-analisis/leer";
+import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
+import { esNuestro, evolucionDe } from "@/lib/data-analisis/individual";
+import { traeJson } from "@/lib/hojaCsv";
 
 /**
  * ENTRENAMIENTO Y COMPETICIÓN, EN LA MISMA PANTALLA.
@@ -47,8 +49,8 @@ export function PanelTransferencia({
   liga: FilaPartido[];
   equipos: string[];
   temporada: string;
-  /** Minutos por jugador, para cruzarlos con los seguimientos. */
-  jugadores: { jugador: string; minutos: number; partidos: number }[];
+  /** La plantilla con sus métricas, para cruzarla con los seguimientos. */
+  jugadores: FilaJugador[];
 }) {
   const [tareas, setTareas] = useState<TareaEntrenamiento[] | null>(null);
   const [error, setError] = useState(false);
@@ -281,8 +283,8 @@ export function PanelTransferencia({
         </Panel>
       </div>
 
-      {/* Los jugadores: minutos contra seguimiento. */}
-      <SeguimientoContraMinutos jugadores={jugadores} />
+      {/* El trabajo individual: seguimientos, minutos y evolución. */}
+      <TrabajoIndividual jugadores={jugadores} />
     </>
   );
 }
@@ -403,78 +405,6 @@ function CargasPorFase({ semanas }: { semanas: SemanaCruzada[] }) {
   );
 }
 
-/**
- * Los jugadores: minutos de competición contra seguimiento individual.
- *
- * Es la otra mitad de la misma pregunta. Un jugador con muchos minutos y ningún
- * seguimiento es un hueco de proceso; uno con muchos seguimientos y ningún
- * minuto también dice algo, aunque diga otra cosa.
- */
-function SeguimientoContraMinutos({
-  jugadores,
-}: {
-  jugadores: { jugador: string; minutos: number; partidos: number }[];
-}) {
-  if (jugadores.length === 0) return null;
-
-  const tope = Math.max(...jugadores.map((j) => j.minutos), 1);
-
-  const ordenados = [...jugadores].sort((a, b) => b.minutos - a.minutos);
-
-  const jugados = Math.max(...jugadores.map((j) => j.partidos), 1);
-
-  return (
-    <div className="mt-5">
-      <Panel
-        title="Quién está jugando"
-        subtitle="Minutos de competición por jugador: el reparto real de la temporada"
-        icon={Users}
-      >
-        <div className="space-y-1.5">
-          {ordenados.map((j) => {
-            /* Menos de un tercio de los minutos posibles: está fuera del once. */
-            const posibles = jugados * 90;
-            const cuota = posibles > 0 ? (j.minutos / posibles) * 100 : 0;
-
-            return (
-              <div key={j.jugador} className="flex items-center gap-2">
-                <span className="w-36 shrink-0 truncate text-[12px] text-white/70">
-                  {j.jugador}
-                </span>
-
-                <span className="h-3 min-w-0 flex-1">
-                  <span
-                    className="block h-3 rounded-[3px]"
-                    style={{
-                      width: `${(j.minutos / tope) * 100}%`,
-                      background: cuota >= 60 ? ORO : tinta(0.28),
-                    }}
-                  />
-                </span>
-
-                <span className="w-28 shrink-0 text-right text-[11px] tabular-nums text-white/50">
-                  {j.minutos}′{" "}
-                  <span className="text-white/30">
-                    · {j.partidos} {j.partidos === 1 ? "partido" : "partidos"}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        <Lectura>{lecturaDeMinutos(ordenados, jugados)}</Lectura>
-
-        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-          En oro, quien pasa del 60 % de los minutos posibles. El seguimiento
-          individual de cada uno vive en su ficha; aquí se ve el reparto para
-          saber de quién hay datos de competición bastantes para juzgarle.
-        </p>
-      </Panel>
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /*  LAS FRASES                                                         */
 /* ------------------------------------------------------------------ */
@@ -503,20 +433,267 @@ function lecturaDelReparto(
   return `${parte.toFixed(0)} de cada 100 minutos de tarea van a ${mayor.etiqueta.toLowerCase()}.${cola}`;
 }
 
-function lecturaDeMinutos(
-  jugadores: { jugador: string; minutos: number; partidos: number }[],
-  jugados: number,
+/* ------------------------------------------------------------------ */
+/*  EL TRABAJO INDIVIDUAL                                              */
+/* ------------------------------------------------------------------ */
+
+type FilaSeguimiento = { NOMBRE?: string; ID_JUGADOR?: string; FECHA?: string };
+
+/** El nombre, sin acentos ni dobles espacios: la hoja los escribe a mano. */
+const desnuda = (texto: string) =>
+  texto
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * ¿Se parecen estos dos nombres?
+ *
+ * Wyscout escribe «M. Rezola» y la hoja de seguimiento «Mikel Rezola». El
+ * apellido es lo que manda: basta con que compartan una palabra de cinco
+ * letras o más, que es lo que distingue a una persona de otra.
+ */
+function mismoJugador(deWyscout: string, deLaHoja: string) {
+  const a = desnuda(deWyscout).split(" ").filter(Boolean);
+  const b = desnuda(deLaHoja).split(" ").filter(Boolean);
+
+  if (a.length === 0 || b.length === 0) return false;
+
+  const largasA = a.filter((p) => p.length >= 5);
+  const largasB = b.filter((p) => p.length >= 5);
+
+  return largasA.some((p) => largasB.includes(p));
+}
+
+/**
+ * LOS SEGUIMIENTOS CONTRA LO QUE PASA EN EL CAMPO.
+ *
+ * La otra mitad de la misma pregunta. De una fase de juego se puede decir «se
+ * entrena mucho y no se ve»; de un jugador, «se le escriben ocho seguimientos
+ * y no mejora», o al revés, «lleva mil minutos y nadie le ha anotado una
+ * línea».
+ *
+ * La evolución se mide como en la ficha individual: **percentil contra su
+ * categoría de cada año**, no el número suelto. Un jugador puede hacer menos
+ * pases que el año pasado porque el equipo juega distinto; lo que no engaña es
+ * si hace más o menos que sus iguales.
+ */
+function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
+  const [seguimientos, setSeguimientos] = useState<FilaSeguimiento[] | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    traeJson<unknown>("/api/rivals?action=seguimiento")
+      .then((datos) => {
+        if (vivo) {
+          setSeguimientos(Array.isArray(datos) ? (datos as FilaSeguimiento[]) : []);
+        }
+      })
+      .catch(() => {
+        if (vivo) setSeguimientos([]);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const filas = useMemo(() => {
+    const nuestros = jugadores.filter(
+      (j) => j.temporada === "actual" && esNuestro(j),
+    );
+
+    return nuestros
+      .map((j) => {
+        const suyos = (seguimientos ?? []).filter((s) =>
+          mismoJugador(j.jugador, String(s.NOMBRE ?? "")),
+        );
+
+        const { antes, filas: evolucion, fiable } = evolucionDe(j, jugadores);
+
+        /* El salto medio de percentil: si sube, ha mejorado respecto a sus
+           iguales; si baja, ha perdido terreno aunque haga lo mismo. */
+        const salto =
+          fiable && evolucion.length
+            ? evolucion.reduce((s, e) => s + e.salto, 0) / evolucion.length
+            : null;
+
+        return {
+          jugador: j,
+          seguimientos: suyos.length,
+          tieneAnterior: Boolean(antes),
+          fiable,
+          salto,
+        };
+      })
+      .sort((a, b) => b.jugador.minutos - a.jugador.minutos);
+  }, [jugadores, seguimientos]);
+
+  if (!seguimientos) {
+    return (
+      <div className="mt-5">
+        <Panel
+          title="El trabajo individual"
+          subtitle="Seguimientos, minutos y evolución de cada jugador"
+          icon={Users}
+        >
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/40">
+            <Loader2 size={16} className="animate-spin" />
+            Leyendo la hoja de seguimiento…
+          </div>
+        </Panel>
+      </div>
+    );
+  }
+
+  if (filas.length === 0) return null;
+
+  const tope = Math.max(...filas.map((f) => f.jugador.minutos), 1);
+
+  const partidos = Math.max(...filas.map((f) => f.jugador.partidos), 1);
+
+  /* Los tres casos que interesa que salten a la vista. */
+  const sinSeguimiento = filas.filter(
+    (f) => f.seguimientos === 0 && f.jugador.minutos >= partidos * 90 * 0.5,
+  );
+
+  const sinSubir = filas.filter(
+    (f) => f.seguimientos >= 3 && f.salto !== null && f.salto < -3,
+  );
+
+  const subiendo = filas.filter(
+    (f) => f.seguimientos >= 3 && f.salto !== null && f.salto > 3,
+  );
+
+  return (
+    <div className="mt-5">
+      <Panel
+        title="El trabajo individual"
+        subtitle="Seguimientos escritos, minutos jugados y evolución contra la categoría"
+        icon={Users}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[660px] text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+                <th className="pb-2 pr-3 font-medium">Jugador</th>
+                <th className="pb-2 pr-3 font-medium">Minutos</th>
+                <th className="pb-2 pr-3 text-right font-medium">Seguimientos</th>
+                <th className="pb-2 text-right font-medium">Evolución</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filas.map((f) => (
+                <tr key={f.jugador.jugador} className="border-t border-white/[0.06]">
+                  <td className="py-2 pr-3 text-white/80">{f.jugador.jugador}</td>
+
+                  <td className="py-2 pr-3">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2.5 w-28 shrink-0 overflow-hidden rounded-[3px] bg-white/[0.06]">
+                        <span
+                          className="block h-2.5 rounded-[3px]"
+                          style={{
+                            width: `${(f.jugador.minutos / tope) * 100}%`,
+                            background: ORO,
+                          }}
+                        />
+                      </span>
+
+                      <span className="text-[11px] tabular-nums text-white/50">
+                        {f.jugador.minutos}
+                      </span>
+                    </span>
+                  </td>
+
+                  <td
+                    className="py-2 pr-3 text-right tabular-nums"
+                    style={{ color: f.seguimientos === 0 ? PEOR : tinta(0.6) }}
+                  >
+                    {f.seguimientos}
+                  </td>
+
+                  <td className="py-2 text-right tabular-nums">
+                    {f.salto === null ? (
+                      <span className="text-white/25">
+                        {f.tieneAnterior
+                          ? "muestra corta el año pasado"
+                          : "sin año anterior"}
+                      </span>
+                    ) : (
+                      <span style={{ color: f.salto >= 0 ? MEJOR : PEOR }}>
+                        {f.salto >= 0 ? "+" : ""}
+                        {f.salto.toFixed(0)} de percentil
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <Lectura>
+          {lecturaDelTrabajo(
+            filas.length,
+            sinSeguimiento.map((f) => f.jugador.jugador),
+            sinSubir.map((f) => f.jugador.jugador),
+            subiendo.map((f) => f.jugador.jugador),
+          )}
+        </Lectura>
+
+        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          La evolución es el salto medio de percentil contra su puesto en la
+          categoría, del año pasado a éste: no mide que haga más cosas, mide que
+          haga más que sus iguales. Los seguimientos se atan por apellido,
+          porque Wyscout abrevia el nombre de pila y la hoja no.
+        </p>
+      </Panel>
+    </div>
+  );
+}
+
+function lecturaDelTrabajo(
+  cuantos: number,
+  sinSeguimiento: string[],
+  sinSubir: string[],
+  subiendo: string[],
 ) {
-  if (jugadores.length === 0) return "Sin datos de minutos.";
+  const trozos: string[] = [];
 
-  const posibles = jugados * 90;
+  const lista = (nombres: string[]) => nombres.join(", ");
 
-  const fijos = jugadores.filter((j) => j.minutos >= posibles * 0.6);
+  if (sinSeguimiento.length) {
+    trozos.push(
+      sinSeguimiento.length === 1
+        ? `${lista(sinSeguimiento)} está jugando y no tiene ningún seguimiento escrito: es un hueco de proceso, no de rendimiento.`
+        : `${lista(sinSeguimiento)} están jugando y no tienen ningún seguimiento escrito: es un hueco de proceso, no de rendimiento.`,
+    );
+  }
 
-  const sueltos = jugadores.filter((j) => j.minutos < posibles * 0.25);
+  if (subiendo.length) {
+    trozos.push(
+      subiendo.length === 1
+        ? `${lista(subiendo)} lleva tres o más seguimientos y ha subido de percentil respecto al año pasado: ahí el trabajo se está viendo.`
+        : `${lista(subiendo)} llevan tres o más seguimientos y han subido de percentil respecto al año pasado: ahí el trabajo se está viendo.`,
+    );
+  }
 
-  return `De ${jugadores.length} jugadores con minutos, ${fijos.length} pasan del 60 % de los posibles y ${sueltos.length} no llegan al 25 %. De estos últimos —${sueltos
-    .slice(0, 3)
-    .map((j) => j.jugador)
-    .join(", ")}${sueltos.length > 3 ? "…" : ""}— cualquier cifra «por 90 minutos» es una extrapolación, no una medida.`;
+  if (sinSubir.length) {
+    trozos.push(
+      sinSubir.length === 1
+        ? `${lista(sinSubir)} se trabaja y aun así ha bajado respecto a sus iguales: conviene mirar si el contenido del seguimiento es el que toca.`
+        : `${lista(sinSubir)} se trabajan y aun así han bajado respecto a sus iguales: conviene mirar si el contenido del seguimiento es el que toca.`,
+    );
+  }
+
+  if (trozos.length === 0) {
+    return `De ${cuantos} jugadores con minutos no salta ningún aviso: ni hay quien juegue sin seguimiento ni quien se trabaje y retroceda.`;
+  }
+
+  return trozos.join(" ");
 }

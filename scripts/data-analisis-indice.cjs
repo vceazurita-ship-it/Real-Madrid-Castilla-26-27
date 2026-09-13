@@ -60,13 +60,16 @@ Module._resolveFilename = function (pedido, ...resto) {
 /* --------------------------- EL TRABAJO --------------------------- */
 
 (async () => {
-  const { leeDatos } = require(path.join(RAIZ, "lib", "data-analisis", "leer.ts"));
+  const { leeDatos, compactaIndice } = require(
+    path.join(RAIZ, "lib", "data-analisis", "leer.ts"),
+  );
 
   const datos = await leeDatos();
 
   fs.mkdirSync(path.dirname(SALIDA), { recursive: true });
 
-  fs.writeFileSync(SALIDA, JSON.stringify(datos), "utf8");
+  /* Los rótulos de las métricas de jugador, una sola vez: ver compactaIndice. */
+  fs.writeFileSync(SALIDA, JSON.stringify(compactaIndice(datos)), "utf8");
 
   const megas = (fs.statSync(SALIDA).size / 1024 / 1024).toFixed(2);
 

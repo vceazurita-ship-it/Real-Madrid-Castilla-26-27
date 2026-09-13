@@ -1272,11 +1272,7 @@ export default function DataAnalisisPage() {
                     liga={deLaLiga}
                     equipos={equiposLiga}
                     temporada={laQueMando}
-                    jugadores={(datos.jugadores ?? []).map((j) => ({
-                      jugador: j.jugador,
-                      minutos: j.minutos,
-                      partidos: j.partidos,
-                    }))}
+                    jugadores={datos.jugadores ?? []}
                   />
                 )}
 

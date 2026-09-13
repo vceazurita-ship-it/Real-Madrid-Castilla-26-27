@@ -584,6 +584,60 @@ export const GRUPOS_JUGADOR = [
  */
 export const MINUTOS_MINIMOS = 90;
 
+/**
+ * Y en una temporada cerrada hace falta más.
+ *
+ * Noventa minutos en septiembre son un partido de tres; noventa minutos en una
+ * temporada de treinta y ocho jornadas son un jugador que no jugó. Para
+ * comparar contra el año pasado el listón sube a cinco partidos.
+ */
+export const MINUTOS_MINIMOS_ANTERIOR = 450;
+
+/* ------------------------------------------------------------------ */
+/*  CONTRA QUIÉN SE COMPARA                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Los tres universos de comparación.
+ *
+ * Hasta ahora sólo se podía comparar a un jugador **con sus compañeros**, que
+ * es útil para repartir minutos y no sirve para nada más: quince jugadores no
+ * son una referencia de categoría. Con las descargas de toda la liga —esta
+ * temporada y la cerrada— se puede contestar a las dos preguntas que de verdad
+ * se hacen de un canterano: **¿está al nivel de la categoría?** y **¿ha
+ * mejorado respecto al año pasado?**
+ */
+export type Ambito = "plantilla" | "liga" | "ligaAnterior";
+
+export const AMBITOS: {
+  key: Ambito;
+  label: string;
+  corto: string;
+  explica: string;
+}[] = [
+  {
+    key: "plantilla",
+    label: "Nuestra plantilla",
+    corto: "Plantilla",
+    explica:
+      "Contra sus compañeros de puesto. Sirve para repartir minutos, no para saber si está al nivel de la categoría.",
+  },
+  {
+    key: "liga",
+    label: "La categoría, esta temporada",
+    corto: "La liga ahora",
+    explica:
+      "Contra todos los jugadores de su puesto de la categoría. Es la referencia de verdad, y la que dice si un canterano está para jugar aquí.",
+  },
+  {
+    key: "ligaAnterior",
+    label: "La categoría, la temporada pasada",
+    corto: "La liga el año pasado",
+    explica:
+      "El mismo listón pero con la temporada cerrada: muchos más minutos por jugador y por tanto una referencia más firme, aunque sea de otro año.",
+  },
+];
+
 export const valorDe = (jugador: FilaJugador, columna: string) =>
   jugador.datos[columna] ?? null;
 
@@ -631,26 +685,52 @@ export function percentilEnPlantilla(
  */
 export type Comparacion = {
   lista: FilaJugador[];
-  ambito: "puesto" | "plantilla" | "solo";
+  /** Con quién se ha podido comparar de verdad. */
+  contra: "puesto" | "campo" | "solo";
+  ambito: Ambito;
 };
+
+/** Sólo los nuestros, que es la plantilla de esta temporada. */
+export const NUESTRO_EQUIPO = "Real Madrid Castilla";
+
+export const esNuestro = (jugador: FilaJugador) =>
+  jugador.equipo.toLowerCase().includes("madrid castilla");
+
+/** El universo de un ámbito, ya filtrado por minutos. */
+export function universoDe(jugadores: FilaJugador[], ambito: Ambito) {
+  if (ambito === "ligaAnterior") {
+    return jugadores.filter(
+      (j) => j.temporada === "anterior" && j.minutos >= MINUTOS_MINIMOS_ANTERIOR,
+    );
+  }
+
+  const deAhora = jugadores.filter(
+    (j) => j.temporada === "actual" && j.minutos >= MINUTOS_MINIMOS,
+  );
+
+  return ambito === "plantilla" ? deAhora.filter(esNuestro) : deAhora;
+}
 
 export function comparablesDe(
   jugadores: FilaJugador[],
   puesto: Puesto,
+  ambito: Ambito = "plantilla",
 ): Comparacion {
-  const conMinutos = jugadores.filter((j) => j.minutos >= MINUTOS_MINIMOS);
+  const universo = universoDe(jugadores, ambito);
 
-  const delPuesto = conMinutos.filter((j) => puestoDe(j.posicion) === puesto);
+  const delPuesto = universo.filter((j) => puestoDe(j.posicion) === puesto);
 
-  if (delPuesto.length >= 3) return { lista: delPuesto, ambito: "puesto" };
+  if (delPuesto.length >= 3) {
+    return { lista: delPuesto, contra: "puesto", ambito };
+  }
 
-  if (puesto === "POR") return { lista: delPuesto, ambito: "solo" };
+  if (puesto === "POR") return { lista: delPuesto, contra: "solo", ambito };
 
-  const deCampo = conMinutos.filter((j) => puestoDe(j.posicion) !== "POR");
+  const deCampo = universo.filter((j) => puestoDe(j.posicion) !== "POR");
 
   return deCampo.length >= 3
-    ? { lista: deCampo, ambito: "plantilla" }
-    : { lista: deCampo, ambito: "solo" };
+    ? { lista: deCampo, contra: "campo", ambito }
+    : { lista: deCampo, contra: "solo", ambito };
 }
 
 /** Las métricas que le dicen algo a un puesto. */
@@ -704,4 +784,115 @@ export function fuertesYFlojos(
     flojos: cuantas === 0 ? [] : orden.slice(-cuantas).reverse(),
     todas: filas,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  ¿HA MEJORADO?                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El mismo jugador, un año después.
+ *
+ * Es la comparación más difícil de hacer a ojo y la más fácil de hacer mal:
+ * mirar el número de este año contra el del año pasado no dice nada, porque
+ * puede haber cambiado la liga, el equipo o el rol. Lo que sí compara es **el
+ * percentil contra su categoría de cada año**: si el año pasado estaba en el
+ * 40 de los medios de la liga y hoy está en el 70, ha mejorado respecto a sus
+ * iguales, no respecto a sí mismo.
+ *
+ * Dieciséis de los diecinueve que han jugado esta temporada jugaron la pasada
+ * en el Castilla, así que la comparación es del mismo jugador, no de un
+ * parecido.
+ */
+export type Evolucion = {
+  metrica: MetricaJugador;
+  antes: number;
+  ahora: number;
+  percentilAntes: number;
+  percentilAhora: number;
+  /** Puntos de percentil ganados o perdidos. */
+  salto: number;
+};
+
+/** Busca al mismo jugador en la temporada cerrada. */
+export function elMismoElAnoPasado(
+  jugador: FilaJugador,
+  jugadores: FilaJugador[],
+) {
+  const suyo = jugador.jugador.trim().toLowerCase();
+
+  return (
+    jugadores.find(
+      (j) => j.temporada === "anterior" && j.jugador.trim().toLowerCase() === suyo,
+    ) ?? null
+  );
+}
+
+export function evolucionDe(
+  jugador: FilaJugador,
+  jugadores: FilaJugador[],
+): { antes: FilaJugador | null; filas: Evolucion[]; fiable: boolean } {
+  const antes = elMismoElAnoPasado(jugador, jugadores);
+
+  if (!antes) return { antes: null, filas: [], fiable: false };
+
+  /*
+  | Que exista el año pasado no basta.
+  |
+  | Lezcano jugó sesenta y seis minutos y Rezola setenta y seis: su percentil
+  | de entonces sale de una muestra de un partido, así que el «salto» contra
+  | este año es ruido con pinta de progreso. Se calcula igual —sirve para
+  | mirarlo— pero se marca, y los avisos automáticos no lo usan.
+  */
+  const fiable = antes.minutos >= MINUTOS_MINIMOS_ANTERIOR;
+
+  const puesto = puestoDe(jugador.posicion);
+
+  /* Cada año contra su propia categoría: es lo único comparable. */
+  const ahoraContra = comparablesDe(jugadores, puesto, "liga");
+  const antesContra = comparablesDe(jugadores, puesto, "ligaAnterior");
+
+  if (ahoraContra.contra === "solo" || antesContra.contra === "solo") {
+    return { antes, filas: [], fiable };
+  }
+
+  const filas: Evolucion[] = [];
+
+  for (const metrica of metricasDe(puesto)) {
+    if (metrica.mejorAlto === null) continue;
+
+    const valorAhora = valorDe(jugador, metrica.columna);
+    const valorAntes = valorDe(antes, metrica.columna);
+
+    if (valorAhora === null || valorAntes === null) continue;
+
+    const percentilAhora = percentilEnPlantilla(
+      valorAhora,
+      ahoraContra.lista
+        .map((c) => valorDe(c, metrica.columna))
+        .filter((v): v is number => v !== null),
+      metrica.mejorAlto,
+    );
+
+    const percentilAntes = percentilEnPlantilla(
+      valorAntes,
+      antesContra.lista
+        .map((c) => valorDe(c, metrica.columna))
+        .filter((v): v is number => v !== null),
+      metrica.mejorAlto,
+    );
+
+    if (percentilAhora === null || percentilAntes === null) continue;
+
+    filas.push({
+      metrica,
+      antes: valorAntes,
+      ahora: valorAhora,
+      percentilAntes,
+      percentilAhora,
+      salto: percentilAhora - percentilAntes,
+    });
+  }
+
+  return { antes, fiable, filas: filas.sort((a, b) => b.salto - a.salto) };
 }

@@ -48,6 +48,30 @@ const FALLBACK_BG = "#0B0F14";
 const MAX_CANVAS_SIDE = 14000;
 const MAX_CANVAS_AREA = 55_000_000;
 
+/**
+ * EL DOCUMENTO NO PUEDE DEPENDER DEL APARATO.
+ *
+ * Un PDF exportado desde el móvil salía siendo **una foto del diseño de
+ * teléfono**: 390 píxeles de ancho por 5.400 de alto, una tira de proporción
+ * 14 a 1 que en A4 son diez hojas de una sola columna con las barras pegadas a
+ * los rótulos. El mismo informe desde el portátil salía de proporción 3,2 y
+ * desde el sobremesa de 2,3. Tres documentos distintos de la misma pantalla.
+ *
+ * La causa no es la captura sino el **viewport**: las clases responsive de
+ * Tailwind son media queries, y una media query se evalúa contra el ancho de
+ * la ventana, no contra el del elemento. Ensanchar el contenedor no sirve de
+ * nada: hay que cambiar el viewport, y eso en el navegador sólo se puede hacer
+ * por la etiqueta `meta[name=viewport]`.
+ *
+ * Así que antes de capturar se pone `width=1440` y el teléfono vuelve a
+ * maquetar como un portátil —con sus dos columnas, sus tablas enteras y lo que
+ * el móvil esconde—. Al terminar se devuelve la etiqueta a su sitio.
+ *
+ * En un ordenador esto no hace nada, porque los navegadores de escritorio
+ * ignoran la etiqueta. No pasa nada: ahí el ancho ya es de sobra.
+ */
+const ANCHO_DE_REFERENCIA = 1440;
+
 /* A4 en puntos. */
 const PDF_MARGIN = 18;
 const PDF_FOOTER = 24;
@@ -194,11 +218,47 @@ function findOpenDialog(): HTMLElement | null {
  * velo `position: fixed`— se llevaba por delante justamente lo que se quería
  * capturar.
  */
-function enterExportMode(keep?: HTMLElement | null): Cleanup {
+async function enterExportMode(keep?: HTMLElement | null): Promise<Cleanup> {
   const undo: Cleanup[] = [];
 
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
+
+  /*
+  | Lo primero de todo: maquetar como un portátil.
+  |
+  | Va antes que nada porque **todo lo de abajo mide**, y medir con el diseño
+  | de teléfono para luego cambiarlo dejaría los `position: fixed` mal
+  | detectados y los contenedores con scroll medidos al ancho que ya no es.
+  */
+  const viewport = document.querySelector<HTMLMetaElement>(
+    'meta[name="viewport"]',
+  );
+
+  if (viewport && window.innerWidth < ANCHO_DE_REFERENCIA) {
+    const anterior = viewport.getAttribute("content");
+
+    viewport.setAttribute("content", `width=${ANCHO_DE_REFERENCIA}`);
+
+    undo.push(() => {
+      if (anterior === null) viewport.removeAttribute("content");
+      else viewport.setAttribute("content", anterior);
+    });
+
+    /*
+    | Hay que dejarle tiempo, y no sólo un fotograma.
+    |
+    | El navegador rehace el diseño enseguida, pero varias pantallas deciden
+    | en React qué pintar según el ancho —las de balón parado cambian de
+    | tablas a tarjetas por debajo de 1200 px— y esas se enteran por el evento
+    | `resize`, que llega después y todavía tiene que volver a pintar. Sin esta
+    | espera se capturaba el diseño de móvil estirado a 1440, que es peor que
+    | no haber tocado nada.
+    */
+    await nextFrame();
+    await new Promise<void>((listo) => setTimeout(listo, 180));
+    await nextFrame();
+  }
 
   const patch = (el: HTMLElement, styles: Record<string, string>) => {
     const previous = el.getAttribute("style");
@@ -310,6 +370,41 @@ function enterExportMode(keep?: HTMLElement | null): Cleanup {
     patch(el, styles);
   }
 
+  /*
+  | LA FRANJA NEGRA DE LA DERECHA
+  |
+  | Basta con que una sola tira se pueda desplazar a lo ancho —los once
+  | microciclos en fila— para que al desplegarla el documento pase a medir
+  | 2.400 píxeles. El resto de la página sigue midiendo los 1.440 de la
+  | ventana, así que el PNG salía con un tercio de ancho en negro y el PDF con
+  | todo apelotonado a la izquierda. Pasaba igual en portátil y en sobremesa:
+  | no era cosa del móvil.
+  |
+  | Si el documento ha crecido, se estira también lo que cuelga del cuerpo,
+  | que es lo que hace que las tarjetas `w-full` ocupen el ancho nuevo en vez
+  | de dejar el hueco.
+  */
+  const anchoFinal = Math.max(
+    document.documentElement.scrollWidth,
+    document.body.scrollWidth,
+  );
+
+  if (anchoFinal > window.innerWidth + 1) {
+    patch(document.body, { "min-width": `${anchoFinal}px` });
+
+    for (const hijo of Array.from(document.body.children)) {
+      if (!(hijo instanceof HTMLElement)) continue;
+
+      if (hijo.hasAttribute("data-export-hide")) continue;
+
+      if (getComputedStyle(hijo).display === "none") continue;
+
+      patch(hijo, { "min-width": `${anchoFinal}px` });
+    }
+
+    await nextFrame();
+  }
+
   return () => {
     while (undo.length) undo.pop()?.();
   };
@@ -353,6 +448,62 @@ async function waitForAssets(root: HTMLElement) {
  * Recoge las cajas (texto, imágenes, tarjetas) que el PDF no debería partir
  * entre dos páginas. Se miden con el documento ya en modo exportación.
  */
+/**
+ * ¿Pinta algo este elemento, o es sólo una caja que envuelve?
+ *
+ * Un `div` que agrupa no se ve; lo que se ve es una imagen, un texto o una
+ * tarjeta con su esquina redondeada. Sirve para dos cosas: para no cortar una
+ * tarjeta entre dos páginas del PDF y para saber dónde termina de verdad el
+ * documento.
+ */
+function pinta(el: HTMLElement, cs: CSSStyleDeclaration) {
+  const tag = el.tagName.toUpperCase();
+
+  const esMedio =
+    tag === "IMG" || tag === "SVG" || tag === "CANVAS" || tag === "VIDEO";
+
+  const tieneTextoPropio = Array.from(el.childNodes).some(
+    (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+  );
+
+  const esTarjeta = parseFloat(cs.borderTopLeftRadius) >= 8;
+
+  return esMedio || tieneTextoPropio || esTarjeta;
+}
+
+/**
+ * Dónde termina lo que se ve, que no es lo mismo que dónde termina la caja.
+ *
+ * Al ensanchar el viewport para exportar, un teléfono de 390×844 pasa a
+ * 1440×3116: se mantiene la proporción de la pantalla. Y cualquier
+ * `min-h-screen` —que lo llevan casi todas las páginas— pasa a medir esos
+ * 3.116 píxeles aunque el contenido ocupe la mitad. El resultado era un PNG
+ * con un 40 % de negro al final y un PDF con dos hojas vacías.
+ *
+ * Así que el alto no se pregunta: se mide hasta el último elemento que pinta.
+ */
+function fondoDelContenido(root: HTMLElement) {
+  const arriba = root.getBoundingClientRect().top;
+
+  let fondo = 0;
+
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    const cs = getComputedStyle(el);
+
+    if (cs.display === "none" || cs.visibility === "hidden") continue;
+
+    const rect = el.getBoundingClientRect();
+
+    if (rect.height <= 2) continue;
+
+    if (!pinta(el, cs)) continue;
+
+    fondo = Math.max(fondo, rect.bottom - arriba);
+  }
+
+  return fondo;
+}
+
 function collectBoxes(root: HTMLElement, height: number): Box[] {
   const boxes: Box[] = [];
 
@@ -369,18 +520,7 @@ function collectBoxes(root: HTMLElement, height: number): Box[] {
 
     if (rect.height <= 2) continue;
 
-    const tag = el.tagName.toUpperCase();
-
-    const isMedia =
-      tag === "IMG" || tag === "SVG" || tag === "CANVAS" || tag === "VIDEO";
-
-    const hasOwnText = Array.from(el.childNodes).some(
-      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
-    );
-
-    const isCard = parseFloat(cs.borderTopLeftRadius) >= 8;
-
-    if (!isMedia && !hasOwnText && !isCard) continue;
+    if (!pinta(el, cs)) continue;
 
     boxes.push({
       top: Math.max(0, Math.round(rect.top - rootTop)),
@@ -419,10 +559,24 @@ async function capturePage(): Promise<Capture> {
     (document.querySelector("[data-export-root]") as HTMLElement | null) ??
     document.body;
 
-  const restore = enterExportMode(dialog);
+  const restore = await enterExportMode(dialog);
 
   try {
     await waitForAssets(root);
+
+    /*
+    | Medir lo último, y después de que todo se haya asentado.
+    |
+    | Entrar en modo exportación mueve el diseño tres veces —cambia el
+    | viewport, quita lo flotante y despliega lo que tenía scroll— y las
+    | gráficas que se miden solas tardan un fotograma más en rehacerse. Al
+    | medir de seguido salía el alto **de antes**: el PNG de microciclos
+    | llevaba un 40 % de negro al final, que era el alto que sobraba del
+    | diseño de móvil.
+    */
+    await nextFrame();
+    await new Promise<void>((listo) => setTimeout(listo, 160));
+    await nextFrame();
 
     const rect = root.getBoundingClientRect();
 
@@ -440,14 +594,25 @@ async function capturePage(): Promise<Capture> {
       )
     );
 
+    const medido = Math.max(
+      root.scrollHeight,
+      root.clientHeight,
+      rect.height,
+      isDocument ? document.documentElement.scrollHeight : 0,
+      1
+    );
+
+    /*
+    | El alto lo manda el contenido, no la caja.
+    |
+    | Se recorta hasta donde termina lo último que pinta, con un dedo de aire.
+    | Sólo cuando sobra de verdad —más de cuarenta píxeles— para no comerse el
+    | relleno de una página que sí llega abajo.
+    */
+    const fondo = fondoDelContenido(root);
+
     const height = Math.ceil(
-      Math.max(
-        root.scrollHeight,
-        root.clientHeight,
-        rect.height,
-        isDocument ? document.documentElement.scrollHeight : 0,
-        1
-      )
+      fondo > 200 && medido > fondo + 40 ? fondo + 24 : medido
     );
 
     const pixelRatio = Math.max(

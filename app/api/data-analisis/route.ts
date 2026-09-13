@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { leeDatos, type Dataset } from "@/lib/data-analisis/leer";
+import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer";
 import {
   METRICA_POR_KEY,
   temporadaDe,
@@ -54,9 +54,12 @@ async function leeElIndice(desde: string): Promise<Dataset | null> {
 
     if (!respuesta.ok) return null;
 
-    const datos = (await respuesta.json()) as Dataset;
+    const crudo = await respuesta.json();
 
-    return Array.isArray(datos?.partidos) ? datos : null;
+    if (!Array.isArray(crudo?.partidos)) return null;
+
+    /* El índice va compactado para pesar menos por la red. */
+    return expandeIndice(crudo);
   } catch (error) {
     console.error("[data-analisis] índice", error);
 

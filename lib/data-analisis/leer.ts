@@ -4,6 +4,7 @@ import path from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
 
 import { leeEventosOpta, type PartidoEventos } from "./eventos";
+import { METRICAS_JUGADOR } from "./individual";
 
 /**
  * Leer la carpeta `public/data`: lo que sueltan Wyscout y Opta cada semana.
@@ -208,6 +209,15 @@ export type FilaPartido = {
 export type FilaJugador = {
   jugador: string;
   equipo: string;
+  /**
+   * De qué temporada es la fila.
+   *
+   * Wyscout no la escribe en ninguna columna, así que se deduce de los
+   * partidos jugados: en septiembre nadie lleva más de tres, y de la temporada
+   * cerrada los que más juegan andan por los treinta y ocho. Ocho es un corte
+   * que no se puede rozar por ninguno de los dos lados.
+   */
+  temporada: "actual" | "anterior";
   /** "LAMF, RAMF": Wyscout puede dar varias, la primera es la principal. */
   posicion: string;
   edad: number;
@@ -393,6 +403,30 @@ const esAmistoso = (competicion: string) =>
 const FICHA = new Set(["A", "B", "C", "D", "E", "F", "G", "P", "Q", "R", "S", "T", "U"]);
 
 /**
+ * De las ciento quince columnas sólo se guardan las que la pantalla usa.
+ *
+ * Con la plantilla sola daba igual; con los mil ochocientos jugadores de las
+ * dos temporadas, guardarlas todas engordaba el índice que se sube al
+ * alojamiento de 1,5 a 6,3 MB, y eso se descarga entero en el móvil de la
+ * banda antes de pintar nada.
+ *
+ * La lista sale del catálogo de métricas —`METRICAS_JUGADOR`— más las cuatro
+ * que enseña la ficha de arriba. Si mañana se añade una métrica al catálogo,
+ * entra sola.
+ */
+const COLUMNAS_UTILES = new Set<string>([
+  ...METRICAS_JUGADOR.map((m) => m.columna),
+  "Partidos jugados",
+  "Minutos jugados",
+  "Goles",
+  "xG",
+  "Asistencias",
+  "xA",
+  "Duelos/90",
+  "Duelos ganados, %",
+]);
+
+/**
  * Lee la descarga de búsqueda de jugadores de Wyscout.
  *
  * Es **otra descarga distinta** de los «Team Stats»: allí cada fila es un
@@ -416,6 +450,21 @@ function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
     (a, b) => a.length - b.length || a.localeCompare(b),
   );
 
+  /*
+  | De qué temporada es este fichero.
+  |
+  | Se mira **el fichero entero**, no fila a fila: dentro de una descarga
+  | todos los jugadores son del mismo periodo, y el que más ha jugado lo dice
+  | sin ambigüedad. Fila a fila fallaría con el suplente que sólo ha jugado
+  | dos partidos en una temporada cerrada.
+  */
+  const partidosMaximos = filas
+    .slice(1)
+    .reduce((tope, fila) => Math.max(tope, aNumero(fila.H) ?? 0), 0);
+
+  const temporada: "actual" | "anterior" =
+    partidosMaximos <= 8 ? "actual" : "anterior";
+
   return filas
     .slice(1)
     .map((fila) => {
@@ -426,7 +475,7 @@ function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
 
         const nombre = (cabecera[col] ?? "").trim();
 
-        if (!nombre) continue;
+        if (!nombre || !COLUMNAS_UTILES.has(nombre)) continue;
 
         const n = aNumero(fila[col]);
 
@@ -434,6 +483,7 @@ function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
       }
 
       return {
+        temporada,
         jugador: (fila.A ?? "").trim(),
         equipo: (fila.C ?? fila.B ?? "").trim(),
         posicion: (fila.D ?? "").trim(),
@@ -580,16 +630,27 @@ export async function leeDatos(): Promise<Dataset> {
 
         if (deJugadores.length > 0) {
           for (const jugador of deJugadores) {
-            const llave = `${jugador.jugador.toLowerCase()}|${jugador.equipo.toLowerCase()}`;
+            const llave = `${jugador.temporada}|${jugador.jugador.toLowerCase()}|${jugador.equipo.toLowerCase()}`;
 
             const previo = porJugador.get(llave);
 
-            if (
+            /*
+            | Con el mismo jugador en dos descargas manda **la más reciente**,
+            | y lo más reciente se reconoce por los minutos: nadie juega menos
+            | según pasa la temporada. `Search results.xlsx` traía a Rivas con
+            | 202 minutos y `Search results (2).xlsx` con 287, y quedarse con
+            | el primero que apareciera en la carpeta dejaba la ficha atrasada
+            | una jornada entera. A igualdad de minutos gana el que traiga más
+            | columnas, que es la descarga más completa.
+            */
+            const mejor =
               !previo ||
-              Object.keys(jugador.datos).length > Object.keys(previo.datos).length
-            ) {
-              porJugador.set(llave, jugador);
-            }
+              jugador.minutos > previo.minutos ||
+              (jugador.minutos === previo.minutos &&
+                Object.keys(jugador.datos).length >
+                  Object.keys(previo.datos).length);
+
+            if (mejor) porJugador.set(llave, jugador);
           }
 
           fuentes.wyscout.push(nombre);
@@ -773,8 +834,72 @@ export async function leeDatos(): Promise<Dataset> {
   eventos.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   const jugadores = [...porJugador.values()].sort(
-    (a, b) => b.minutos - a.minutos || a.jugador.localeCompare(b.jugador, "es"),
+    (a, b) =>
+      a.temporada.localeCompare(b.temporada) ||
+      b.minutos - a.minutos ||
+      a.jugador.localeCompare(b.jugador, "es"),
   );
 
   return { partidos, equipos, jugadores, historico, eventos, fuentes };
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL ÍNDICE, MÁS LIGERO                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El índice pesaba cuatro megas, y tres eran nombres de columna repetidos.
+ *
+ * Cada uno de los mil ochocientos jugadores llevaba dentro su propio
+ * `{"Acciones defensivas realizadas/90": 8.1, …}` con los cincuenta rótulos
+ * escritos enteros. En JSON eso son tres megas de texto que dicen lo mismo mil
+ * ochocientas veces, y que se descargan en el móvil de la banda antes de
+ * pintar nada.
+ *
+ * Así que al escribir el índice los rótulos se guardan **una sola vez** y cada
+ * jugador lleva sólo sus números en el mismo orden. Al leerlo se deshace. La
+ * pantalla no se entera: recibe el mismo `datos` de siempre.
+ */
+type JugadorCompacto = Omit<FilaJugador, "datos"> & { v: (number | null)[] };
+
+export type DatasetCompacto = Omit<Dataset, "jugadores"> & {
+  columnasJugador: string[];
+  jugadores: JugadorCompacto[];
+};
+
+export function compactaIndice(datos: Dataset): DatasetCompacto {
+  const columnas = [
+    ...new Set(datos.jugadores.flatMap((j) => Object.keys(j.datos))),
+  ].sort();
+
+  return {
+    ...datos,
+    columnasJugador: columnas,
+    jugadores: datos.jugadores.map(({ datos: suyos, ...resto }) => ({
+      ...resto,
+      v: columnas.map((c) => (c in suyos ? suyos[c] : null)),
+    })),
+  };
+}
+
+export function expandeIndice(crudo: DatasetCompacto | Dataset): Dataset {
+  const columnas = (crudo as DatasetCompacto).columnasJugador;
+
+  /* Un índice viejo, escrito antes de esto, se devuelve tal cual. */
+  if (!Array.isArray(columnas)) return crudo as Dataset;
+
+  return {
+    ...(crudo as DatasetCompacto),
+    jugadores: (crudo as DatasetCompacto).jugadores.map(({ v, ...resto }) => {
+      const datos: Record<string, number> = {};
+
+      columnas.forEach((nombre, i) => {
+        const valor = v[i];
+
+        if (valor !== null && valor !== undefined) datos[nombre] = valor;
+      });
+
+      return { ...resto, datos };
+    }),
+  };
 }
