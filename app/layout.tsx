@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DataProvider } from "@/app/contexts/data-context";
 import { BotonAlertas } from "@/components/alertas/BotonAlertas";
+import { BotonAyuda } from "@/components/ayuda/BotonAyuda";
 import { PageExportButton } from "@/components/page-export-button";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
@@ -102,6 +103,7 @@ export default function RootLayout({
         <ThemeProvider>
           <DataProvider>
             {children}
+            <BotonAyuda />
             <BotonAlertas />
             <ThemeToggle />
             <PageExportButton />
