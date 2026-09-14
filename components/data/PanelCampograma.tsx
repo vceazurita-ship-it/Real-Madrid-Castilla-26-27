@@ -9,9 +9,11 @@ import { Campograma } from "@/components/data/Campograma";
 import { MEJOR, PEOR } from "@/components/data/graficas";
 import {
   MOMENTOS_CAMPO,
+  REFERENCIAS_CAMPO,
   fichasDe,
   lecturaDeMomento,
   type MomentoJuego,
+  type ReferenciaCampo,
 } from "@/lib/data-analisis/campograma";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -27,15 +29,30 @@ import { formatea } from "@/lib/data-analisis/metricas";
 export function PanelCampograma({
   nuestros,
   contrarios,
+  liga,
+  equipos,
   temporada,
 }: {
   /** Nuestras filas de la temporada elegida. */
   nuestros: FilaPartido[];
   /** Las filas de quien nos jugó, para las cifras «en contra». */
   contrarios: FilaPartido[];
+  /** Todas las filas de la temporada, para la media de la categoría. */
+  liga: FilaPartido[];
+  /** Cuántos equipos hay detrás de esa media. */
+  equipos: number;
   temporada: string;
 }) {
   const [momento, setMomento] = useState<MomentoJuego>("con");
+
+  /*
+  | Contra qué se compara el segundo campo.
+  |
+  | Se empieza por lo nuestro, que es la pregunta del lunes —¿fue este partido
+  | o es lo que somos?—; la categoría contesta la de después, que es si lo que
+  | somos es mucho o poco, y además no se mueve con un partido.
+  */
+  const [referencia, setReferencia] = useState<ReferenciaCampo>("nuestra");
 
   const jugados = useMemo(
     () => [...nuestros].sort((a, b) => b.fecha.localeCompare(a.fecha)),
@@ -58,8 +75,17 @@ export function PanelCampograma({
   }, [contrarios, partido]);
 
   const fichas = useMemo(
-    () => fichasDe(momento, partido, contraDelPartido, nuestros, contrarios),
-    [contraDelPartido, contrarios, momento, nuestros, partido],
+    () =>
+      fichasDe(
+        momento,
+        partido,
+        contraDelPartido,
+        nuestros,
+        contrarios,
+        referencia,
+        liga,
+      ),
+    [contraDelPartido, contrarios, liga, momento, nuestros, partido, referencia],
   );
 
   if (jugados.length === 0) {
@@ -74,6 +100,12 @@ export function PanelCampograma({
   }
 
   const meta = MOMENTOS_CAMPO.find((m) => m.key === momento)!;
+
+  /* Sin filas de la categoría el conmutador está apagado y manda lo nuestro. */
+  const contraLaLiga = referencia === "liga" && liga.length > 0;
+
+  /* Cuántos informes hay detrás de la referencia, para poder decirlo. */
+  const cuantos = contraLaLiga ? liga.length : nuestros.length;
 
   return (
     <>
@@ -116,13 +148,38 @@ export function PanelCampograma({
           </select>
         </label>
 
+        {/* Y contra qué se compara: nosotros o la categoría entera. */}
+        <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+          {REFERENCIAS_CAMPO.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => setReferencia(r.key)}
+              aria-pressed={referencia === r.key}
+              title={r.explica}
+              disabled={r.key === "liga" && liga.length === 0}
+              className={`rounded-lg px-3 py-2 text-xs transition disabled:opacity-40 ${
+                referencia === r.key
+                  ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                  : "text-white/50 hover:text-white"
+              }`}
+            >
+              {r.corto}
+            </button>
+          ))}
+        </div>
+
         <span className="text-[11px] text-white/35">{meta.pregunta}</span>
       </div>
 
       <div className="mt-5">
         <Panel
           title={meta.label}
-          subtitle="El partido a la izquierda y lo que llevamos de temporada a la derecha, con las mismas cifras en el mismo sitio"
+          subtitle={
+            contraLaLiga
+              ? `El partido a la izquierda y lo que hace un equipo medio de la categoría a la derecha, con las mismas cifras en el mismo sitio`
+              : "El partido a la izquierda y lo que llevamos de temporada a la derecha, con las mismas cifras en el mismo sitio"
+          }
           icon={LayoutGrid}
         >
           {/* La leyenda del color, una vez y arriba. */}
@@ -132,7 +189,7 @@ export function PanelCampograma({
                 className="inline-block h-2.5 w-2.5 rounded-[2px]"
                 style={{ background: MEJOR }}
               />
-              Por encima de nuestra media
+              {contraLaLiga ? "Por encima de la categoría" : "Por encima de nuestra media"}
             </span>
 
             <span className="flex items-center gap-1.5" style={{ color: PEOR }}>
@@ -159,20 +216,38 @@ export function PanelCampograma({
             <Campograma
               fichas={fichas}
               lado="media"
-              titulo="Nuestra media"
-              subtitulo={`${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} de ${temporada}`}
+              titulo={contraLaLiga ? "La media de la liga" : "Nuestra media"}
+              subtitulo={
+                contraLaLiga
+                  ? `${equipos} equipos · ${liga.length} informes de ${temporada}`
+                  : `${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} de ${temporada}`
+              }
             />
           </div>
 
-          <Lectura>{lecturaDeMomento(fichas, partido?.rival ?? "")}</Lectura>
+          <Lectura>
+            {lecturaDeMomento(fichas, partido?.rival ?? "", referencia)}
+          </Lectura>
 
           <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-            El tanto por ciento de encima de cada cifra es lo que se separó de
-            nuestra media, <strong className="text-white/60">con el sentido de
-            la métrica puesto</strong>: en PPDA, pérdidas o remates en contra,
-            bajar sale en verde. Con {nuestros.length}{" "}
-            {nuestros.length === 1 ? "partido" : "partidos"} jugados la media es
-            corta, y un partido la mueve entera.
+            El tanto por ciento de encima de cada cifra es lo que se separó de{" "}
+            {contraLaLiga ? "la media de la categoría" : "nuestra media"},{" "}
+            <strong className="text-white/60">con el sentido de la métrica
+            puesto</strong>: en PPDA, pérdidas o remates en contra, bajar sale
+            en verde.{" "}
+            {contraLaLiga ? (
+              <>
+                Detrás de esa media hay {cuantos} informes de {equipos} equipos,
+                así que no la mueve un partido: lo que se ve es cómo se juega en
+                la categoría, no cómo jugamos nosotros.
+              </>
+            ) : (
+              <>
+                Con {nuestros.length}{" "}
+                {nuestros.length === 1 ? "partido" : "partidos"} jugados la media
+                es corta, y un partido la mueve entera.
+              </>
+            )}
           </p>
         </Panel>
       </div>
@@ -181,7 +256,9 @@ export function PanelCampograma({
       <div className="mt-5">
         <Panel
           title="Las cifras del momento"
-          subtitle="Lo mismo del campo, en columna, por si hace falta el número exacto"
+          subtitle={`Lo mismo del campo, en columna, por si hace falta el número exacto. La referencia es ${
+            contraLaLiga ? "la media de la categoría" : "nuestra media de la temporada"
+          }.`}
           icon={Scale}
         >
           <div className="overflow-x-auto">
@@ -192,7 +269,9 @@ export function PanelCampograma({
                   <th className="pb-2 pr-3 text-right font-medium">
                     {partido?.rival ?? "Partido"}
                   </th>
-                  <th className="pb-2 pr-3 text-right font-medium">Media</th>
+                  <th className="pb-2 pr-3 text-right font-medium">
+                    {contraLaLiga ? "Media liga" : "Nuestra media"}
+                  </th>
                   <th className="pb-2 text-right font-medium">Diferencia</th>
                 </tr>
               </thead>

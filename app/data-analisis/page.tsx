@@ -781,6 +781,8 @@ export default function DataAnalisisPage() {
                   <PanelCampograma
                     nuestros={nuestros}
                     contrarios={contraNosotrosLiga}
+                    liga={deLaLiga}
+                    equipos={equiposLiga.length}
                     temporada={laQueMando}
                   />
                 )}

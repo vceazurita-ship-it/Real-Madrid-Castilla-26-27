@@ -330,18 +330,61 @@ export type ValorFicha = {
   mejorAlto: boolean | null;
   /** Lo del partido elegido. */
   partido: number | null;
-  /** Lo que llevamos de temporada. */
+  /** La referencia: nuestra media de la temporada o la de la categoría. */
   media: number | null;
   /** Diferencia en tanto por ciento, con el sentido de la métrica puesto. */
   diferencia: number | null;
 };
 
 /**
- * Las cifras de un momento, para un partido y para la media.
+ * CONTRA QUÉ SE COMPARA EL SEGUNDO CAMPO.
+ *
+ * Son dos preguntas distintas y las dos se hacen el lunes:
+ *
+ * - **`nuestra`** · ¿esto fue cosa de este partido o es lo que somos? La
+ *   referencia es nuestra propia media de la temporada.
+ * - **`liga`** · ¿y lo que somos, es mucho o poco? La referencia es lo que
+ *   hace un equipo medio de la categoría, con todas las filas de todos los
+ *   equipos juntas.
+ *
+ * Con tres jornadas la primera se mueve entera con un partido y la segunda no:
+ * sesenta informes no los cambia nadie. Por eso conviene mirar las dos.
+ */
+export type ReferenciaCampo = "nuestra" | "liga";
+
+export const REFERENCIAS_CAMPO: {
+  key: ReferenciaCampo;
+  label: string;
+  corto: string;
+  explica: string;
+}[] = [
+  {
+    key: "nuestra",
+    label: "Nuestra media",
+    corto: "Nuestra media",
+    explica: "Lo que llevamos de temporada: ¿fue cosa de este partido o es lo que somos?",
+  },
+  {
+    key: "liga",
+    label: "La media de la liga",
+    corto: "Media de la liga",
+    explica: "Lo que hace un equipo medio de la categoría: ¿y lo que somos, es mucho o poco?",
+  },
+];
+
+/**
+ * Las cifras de un momento, para un partido y para la referencia.
  *
  * `nuestros` son nuestras filas de la temporada y `contrarios` las de quien nos
  * jugó, que hacen falta para las fichas marcadas «en contra» —los córners que
  * concedemos no son una columna: son los que sacó el rival—.
+ *
+ * Con `referencia: "liga"` el segundo campo deja de ser el nuestro y pasa a ser
+ * el de un equipo medio de la categoría: `liga` son **todas** las filas de la
+ * temporada, de todos los equipos. Ahí la distinción entre lo propio y lo del
+ * rival se cae sola —cada partido está dos veces, una por equipo—, así que las
+ * fichas «en contra» usan el mismo grupo: lo que saca un equipo medio es lo que
+ * concede un equipo medio.
  */
 export function fichasDe(
   momento: MomentoJuego,
@@ -349,7 +392,12 @@ export function fichasDe(
   contraDelPartido: FilaPartido | null,
   nuestros: FilaPartido[],
   contrarios: FilaPartido[],
+  referencia: ReferenciaCampo = "nuestra",
+  liga: FilaPartido[] = [],
 ): ValorFicha[] {
+  /* Sin filas de la categoría no hay media de la categoría: manda la nuestra. */
+  const contraLaLiga = referencia === "liga" && liga.length > 0;
+
   return FICHAS[momento]
     .map((ficha) => {
       const met = METRICA_POR_KEY.get(ficha.metrica);
@@ -357,7 +405,8 @@ export function fichasDe(
       if (!met) return null;
 
       const fila = ficha.contra ? contraDelPartido : delPartido;
-      const grupo = ficha.contra ? contrarios : nuestros;
+
+      const grupo = contraLaLiga ? liga : ficha.contra ? contrarios : nuestros;
 
       const partido = fila ? valorEnPartido(met, fila) : null;
       const media = valorEnGrupo(met, grupo);
@@ -403,10 +452,19 @@ export const partidosDe = (nuestros: FilaPartido[]) =>
 /**
  * La frase que resume un momento en un partido.
  *
- * Sale de las mismas fichas del dibujo: lo que más se separó de nuestra media
- * por arriba y por abajo, con el sentido de cada métrica ya puesto.
+ * Sale de las mismas fichas del dibujo: lo que más se separó de la referencia
+ * por arriba y por abajo, con el sentido de cada métrica ya puesto. Y dice
+ * **contra qué** se ha comparado, que es la mitad de la frase: «por encima de
+ * nuestra media» y «por encima de la categoría» no significan lo mismo.
  */
-export function lecturaDeMomento(fichas: ValorFicha[], rival: string) {
+export function lecturaDeMomento(
+  fichas: ValorFicha[],
+  rival: string,
+  referencia: ReferenciaCampo = "nuestra",
+) {
+  const contra =
+    referencia === "liga" ? "la media de la categoría" : "nuestra media";
+
   const utiles = fichas.filter(
     (f): f is ValorFicha & { diferencia: number } =>
       f.diferencia !== null && f.mejorAlto !== null,
@@ -423,5 +481,5 @@ export function lecturaDeMomento(fichas: ValorFicha[], rival: string) {
 
   const porEncima = utiles.filter((f) => f.diferencia > 0).length;
 
-  return `Contra ${rival}, de ${utiles.length} cifras con un sentido claro se quedaron ${porEncima} por encima de nuestra media. Lo más destacado fue ${mejor.ficha.rotulo.toLowerCase()} (${mejor.diferencia >= 0 ? "+" : ""}${mejor.diferencia.toFixed(0)} %); lo que más se cayó, ${peor.ficha.rotulo.toLowerCase()} (${peor.diferencia >= 0 ? "+" : ""}${peor.diferencia.toFixed(0)} %).`;
+  return `Contra ${rival}, de ${utiles.length} cifras con un sentido claro se quedaron ${porEncima} por encima de ${contra}. Lo más destacado fue ${mejor.ficha.rotulo.toLowerCase()} (${mejor.diferencia >= 0 ? "+" : ""}${mejor.diferencia.toFixed(0)} %); lo que más se cayó, ${peor.ficha.rotulo.toLowerCase()} (${peor.diferencia >= 0 ? "+" : ""}${peor.diferencia.toFixed(0)} %).`;
 }
