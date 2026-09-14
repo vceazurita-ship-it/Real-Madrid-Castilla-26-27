@@ -332,6 +332,39 @@ async function enterExportMode(keep?: HTMLElement | null): Promise<Cleanup> {
     }
   }
 
+  /*
+  | LOS DESPLEGABLES ESCRIBEN LA PRIMERA OPCIÓN, NO LA ELEGIDA
+  |
+  | `html-to-image` clona el DOM, y en un `<select>` clonado el navegador
+  | vuelve a marcar la **primera** opción: la propiedad `selected` es estado
+  | vivo, no un atributo del HTML. Así, un gráfico cruzando «pases progresivos»
+  | con «xG» salía en el PNG con los dos selectores diciendo «Goles», que es la
+  | primera métrica de la lista. El documento se contradecía a sí mismo.
+  |
+  | La cura es escribir la elección en el HTML —`setAttribute("selected")` en
+  | la opción que toca— antes de clonar, y quitarla al salir. El desplegable se
+  | ve igual en pantalla y en el documento sale lo que hay elegido.
+  */
+  for (const select of Array.from(document.querySelectorAll("select"))) {
+    if (select.closest("[data-export-hide]")) continue;
+
+    Array.from(select.options).forEach((opcion, indice) => {
+      const tenia = opcion.hasAttribute("selected");
+
+      const debe = indice === select.selectedIndex;
+
+      if (tenia === debe) return;
+
+      if (debe) opcion.setAttribute("selected", "selected");
+      else opcion.removeAttribute("selected");
+
+      undo.push(() => {
+        if (tenia) opcion.setAttribute("selected", "selected");
+        else opcion.removeAttribute("selected");
+      });
+    });
+  }
+
   /* Los contenedores con scroll se despliegan de dentro hacia fuera: si
      empezáramos por el padre, todavía no habría crecido y su recorte se
      quedaría puesto (era lo que cortaba las tablas anchas). `html` y

@@ -23,9 +23,46 @@
  * ser fondo. La identidad la lleva el rótulo de cada barra, no el color.
  */
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { formatea, type Unidad } from "@/lib/data-analisis/metricas";
+import {
+  buscadorDeEscudos,
+  traeEscudos,
+  type Escudos,
+} from "@/lib/data-analisis/escudos";
+
+/* ------------------------------------------------------------------ */
+/*  ESCUDOS                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El escudo de cada equipo, para quien lo quiera pintar.
+ *
+ * Lo piden los gráficos por su cuenta y no por una prop que atraviese media
+ * pantalla: la lista se pide **una vez por pestaña** —`traeEscudos` guarda la
+ * promesa— así que da igual cuántos gráficos la usen.
+ *
+ * Mientras no llega, y si no llega nunca, devuelve `null` para todos y los
+ * gráficos pintan discos, que es como estaban antes.
+ */
+export function useEscudos() {
+  const [lista, setLista] = useState<Escudos>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void traeEscudos().then((escudos) => {
+      if (vivo) setLista(escudos);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  return useMemo(() => buscadorDeEscudos(lista), [lista]);
+}
 
 /* ------------------------------------------------------------------ */
 /*  COLOR                                                              */
@@ -179,6 +216,8 @@ export function BarrasEquipos({
   destacado: string;
   alPulsar?: (equipo: string) => void;
 }) {
+  const escudoDe = useEscudos();
+
   const orden = useMemo(() => {
     const conValor = filas.filter((f) => f.valor !== null) as {
       equipo: string;
@@ -208,12 +247,29 @@ export function BarrasEquipos({
               {indice + 1}
             </span>
 
-            <span
-              className={`w-40 shrink-0 truncate text-[12px] ${
-                esNuestro ? "font-semibold text-white" : "text-white/60"
-              }`}
-            >
-              {fila.equipo}
+            {/* El escudo delante del nombre: se busca la fila por el escudo
+                mucho antes que leyendo veinte rótulos. */}
+            <span className="flex w-40 shrink-0 items-center gap-1.5">
+              {escudoDe(fila.equipo) ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={escudoDe(fila.equipo)!}
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="h-4 w-4 shrink-0 object-contain"
+                />
+              ) : (
+                <span className="h-4 w-4 shrink-0" aria-hidden />
+              )}
+
+              <span
+                className={`min-w-0 truncate text-[12px] ${
+                  esNuestro ? "font-semibold text-white" : "text-white/60"
+                }`}
+              >
+                {fila.equipo}
+              </span>
             </span>
 
             <span className="h-3 min-w-0 flex-1">
@@ -261,6 +317,7 @@ export function Dispersion({
   unidadY,
   destacado,
   alPulsar,
+  rotulaTodos = false,
 }: {
   puntos: Punto[];
   etiquetaX: string;
@@ -269,10 +326,21 @@ export function Dispersion({
   unidadY: Unidad;
   destacado: string;
   alPulsar?: (equipo: string) => void;
+  /**
+   * Escribe el rótulo de **todos** los puntos, no sólo el del destacado.
+   *
+   * Es lo que pide la nube de nuestra historia: ahí cada punto es una
+   * temporada y sin el año no dice nada —«¿cuál de estos cinco es el 23/24?»—,
+   * y son seis puntos, así que caben los seis rótulos. En la liga son veinte
+   * equipos y ahí el nombre lo lleva el escudo.
+   */
+  rotulaTodos?: boolean;
 }) {
   const id = useId();
 
   const [encima, setEncima] = useState<Punto | null>(null);
+
+  const escudoDe = useEscudos();
 
   const W = 720;
   const H = 420;
@@ -404,31 +472,75 @@ export function Dispersion({
           {puntos.map((punto) => {
             const esNuestro = punto.equipo === destacado;
 
+            const escudo = escudoDe(punto.equipo);
+
+            const lado = esNuestro ? 30 : 22;
+
+            const cx = px(punto.x);
+            const cy = py(punto.y);
+
             return (
               <g key={punto.equipo}>
+                {escudo ? (
+                  <>
+                    {/*
+                      El escudo dice quién es sin tener que pasar el ratón. El
+                      disco de debajo es el fondo de la pantalla: separa dos
+                      escudos que se pisan y deja leer los que traen el fondo
+                      transparente.
+                    */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={lado / 2 + 2}
+                      fill="var(--rmcf-surface, #11161C)"
+                      stroke={esNuestro ? ORO : tinta(0.18)}
+                      strokeWidth={esNuestro ? 2 : 1}
+                    />
+
+                    <image
+                      href={escudo}
+                      x={cx - lado / 2}
+                      y={cy - lado / 2}
+                      width={lado}
+                      height={lado}
+                      preserveAspectRatio="xMidYMid meet"
+                    />
+                  </>
+                ) : (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={esNuestro ? 7 : 5}
+                    fill={esNuestro ? ORO : tinta(0.3)}
+                    /* El anillo del color del fondo separa los puntos que se
+                       pisan sin inventar otro color. */
+                    stroke="var(--rmcf-surface, #11161C)"
+                    strokeWidth={2}
+                  />
+                )}
+
+                {/* El blanco del ratón, siempre encima y siempre del mismo
+                    tamaño: con el escudo, el <image> se comería el hover. */}
                 <circle
-                  cx={px(punto.x)}
-                  cy={py(punto.y)}
-                  r={esNuestro ? 7 : 5}
-                  fill={esNuestro ? ORO : tinta(0.3)}
-                  /* El anillo del color del fondo separa los puntos que se
-                     pisan sin inventar otro color. */
-                  stroke="var(--rmcf-surface, #11161C)"
-                  strokeWidth={2}
+                  cx={cx}
+                  cy={cy}
+                  r={lado / 2 + 3}
+                  fill="transparent"
                   onMouseEnter={() => setEncima(punto)}
                   onMouseLeave={() => setEncima(null)}
                   onClick={() => alPulsar?.(punto.equipo)}
                   style={{ cursor: alPulsar ? "pointer" : "default" }}
                 />
 
-                {esNuestro && (
+                {(esNuestro || rotulaTodos) && (
                   <text
-                    x={px(punto.x)}
-                    y={py(punto.y) - 12}
+                    x={cx}
+                    y={cy - lado / 2 - 5}
                     textAnchor="middle"
                     fontSize={11}
-                    fontWeight={700}
-                    fill={tinta(0.9)}
+                    fontWeight={esNuestro ? 700 : 500}
+                    fill={esNuestro ? tinta(0.9) : tinta(0.55)}
                   >
                     {punto.equipo}
                   </text>

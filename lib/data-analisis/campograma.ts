@@ -420,6 +420,16 @@ export function fichasDe(
   /* Sin filas de la categoría no hay media de la categoría: manda la nuestra. */
   const contraLaLiga = referencia === "liga" && liga.length > 0;
 
+  /*
+  | Sin partido elegido, a la izquierda va **nuestra temporada entera**.
+  |
+  | Es la tercera pregunta del área: no «cómo fue este partido» sino «cómo
+  | somos nosotros comparados con la categoría». El dibujo es el mismo y la
+  | cuenta también; lo único que cambia es que el lado izquierdo deja de ser un
+  | partido y pasa a ser la media de todos los nuestros.
+  */
+  const nosotrosEnteros = delPartido === null;
+
   return FICHAS[momento]
     .map((ficha) => {
       const met = METRICA_POR_KEY.get(ficha.metrica);
@@ -430,7 +440,12 @@ export function fichasDe(
 
       const grupo = contraLaLiga ? liga : ficha.contra ? contrarios : nuestros;
 
-      const partido = fila ? valorEnPartido(met, fila) : null;
+      const partido = nosotrosEnteros
+        ? valorEnGrupo(met, ficha.contra ? contrarios : nuestros)
+        : fila
+          ? valorEnPartido(met, fila)
+          : null;
+
       const media = valorEnGrupo(met, grupo);
 
       /*
@@ -522,5 +537,8 @@ export function lecturaDeMomento(
     return `${f.ficha.rotulo.toLowerCase()} (${formatea(f.partido, f.unidad)} frente a ${formatea(f.media, f.unidad)}${cuanto})`;
   };
 
-  return `Contra ${rival}, de ${utiles.length} cifras con un sentido claro quedaron ${porEncima} mejor que ${contra}. Lo mejor, ${cuenta(mejor)}; lo peor, ${cuenta(peor)}.`;
+  /* Sin rival no se está mirando un partido: somos nosotros de cuerpo entero. */
+  const quien = rival ? `Contra ${rival}` : "Lo que llevamos de temporada";
+
+  return `${quien}, de ${utiles.length} cifras con un sentido claro quedaron ${porEncima} mejor que ${contra}. Lo mejor, ${cuenta(mejor)}; lo peor, ${cuenta(peor)}.`;
 }

@@ -6,6 +6,8 @@ import {
   temporadaDe,
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
+import { readDoc } from "@/lib/docStore";
+import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
 import {
   ASPECTOS,
   ASPECTO_POR_KEY,
@@ -78,6 +80,57 @@ async function leeElIndice(desde: string): Promise<Dataset | null> {
 
 /** Cómo se llama el Castilla en los informes de Wyscout. */
 const NOSOTROS = "Real Madrid Castilla";
+
+/* ------------------------------------------------------------------ */
+/*  LOS ESCUDOS                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El escudo de cada equipo, para los gráficos.
+ *
+ * En una nube de veinte puntos grises no se reconoce a nadie: el escudo es lo
+ * que convierte un punto en un equipo sin tener que pasar el ratón por encima.
+ *
+ * Los escudos viven en el documento `rivals:informe` de Supabase —los baja
+ * `scripts/rivals-informe.mjs` de BeSoccer—, que **pesa lo suyo**: diecinueve
+ * clasificaciones y cientos de partidos. Por eso no se pide entero desde el
+ * navegador: aquí se abre en el servidor y sólo salen los pares nombre-escudo,
+ * que son cuatro kilobytes.
+ */
+let escudosGuardados: { lista: { equipo: string; escudo: string }[]; en: number } | null =
+  null;
+
+async function leeEscudos() {
+  const ahora = Date.now();
+
+  if (escudosGuardados && ahora - escudosGuardados.en < VIDA) {
+    return escudosGuardados.lista;
+  }
+
+  const doc = (await readDoc(INFORME_KEY)).data as InformeDoc | null;
+
+  const porNombre = new Map<string, string>();
+
+  for (const informe of Object.values(doc?.porId ?? {})) {
+    /* El del propio equipo y los de su clasificación: entre todos salen los
+       veinte del grupo aunque falte el informe de alguno. */
+    if (informe.nombre && informe.escudo) {
+      porNombre.set(informe.nombre, informe.escudo);
+    }
+
+    for (const fila of informe.clasificacion?.total ?? []) {
+      if (fila.equipo && fila.escudo && !porNombre.has(fila.equipo)) {
+        porNombre.set(fila.equipo, fila.escudo);
+      }
+    }
+  }
+
+  const lista = [...porNombre].map(([equipo, escudo]) => ({ equipo, escudo }));
+
+  escudosGuardados = { lista, en: ahora };
+
+  return lista;
+}
 
 /**
  * Cuatro números para la portada.
@@ -232,6 +285,21 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
 
 export async function GET(peticion: Request) {
   const parametros = new URL(peticion.url).searchParams;
+
+  /*
+  | Los escudos son otra pregunta y salen de otro sitio —Supabase, no la
+  | carpeta—, así que se contestan antes de tocar nada de los informes.
+  */
+  if (parametros.has("escudos")) {
+    try {
+      return NextResponse.json({ ok: true, escudos: await leeEscudos() });
+    } catch (error) {
+      console.error("[data-analisis] escudos", error);
+
+      /* Sin escudos los gráficos pintan discos: no es motivo para un error. */
+      return NextResponse.json({ ok: true, escudos: [] });
+    }
+  }
 
   const fresco = parametros.has("refrescar");
 

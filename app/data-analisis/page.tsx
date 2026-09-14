@@ -1016,9 +1016,12 @@ export default function DataAnalisisPage() {
                     */}
                     <ParDeMetricas
                       titulo="Dos métricas a la vez, curso a curso"
-                      subtitulo="Un punto por temporada del Castilla. Las rayas son las medianas de nuestra propia historia."
+                      subtitulo="Un punto por temporada del Castilla, con su año escrito. Las rayas son las medianas de nuestra propia historia."
                       puntos={puntosHistoria}
                       destacado={actual}
+                      /* Aquí cada punto es un curso: sin el año no se sabe
+                         cuál es cuál, y son seis, así que caben los seis. */
+                      rotulaTodos
                       metricaX={metricaX}
                       metricaY={metricaY}
                       contraX={contraX}
@@ -1881,6 +1884,7 @@ function ParDeMetricas({
   onCambiaX,
   onCambiaY,
   nota,
+  rotulaTodos = false,
 }: {
   titulo: string;
   subtitulo: string;
@@ -1896,6 +1900,8 @@ function ParDeMetricas({
   onCambiaY: (key: string) => void;
   /** Lo que hay que saber de estos puntos en concreto. */
   nota?: string;
+  /** Escribe el rótulo de todos los puntos: en nuestra historia, el año. */
+  rotulaTodos?: boolean;
 }) {
   const metX = METRICA_POR_KEY.get(metricaX);
   const metY = METRICA_POR_KEY.get(metricaY);
@@ -1942,6 +1948,7 @@ function ParDeMetricas({
               unidadX={metX?.unidad ?? "decimal"}
               unidadY={metY?.unidad ?? "decimal"}
               destacado={destacado}
+              rotulaTodos={rotulaTodos}
             />
 
             {metX && metY && (
