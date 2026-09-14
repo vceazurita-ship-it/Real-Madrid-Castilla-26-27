@@ -35,6 +35,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  Award,
   BarChart3,
   Brain,
   Clock,
@@ -104,6 +105,7 @@ import {
 import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
+import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelTransferencia } from "@/components/data/PanelTransferencia";
 import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
@@ -163,6 +165,7 @@ type Area =
   | "historia"
   | "liga"
   | "todos"
+  | "destacados"
   | "eventos"
   | "individual"
   | "abp"
@@ -197,6 +200,17 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     label: "Todos contra todos",
     icono: BarChart3,
     pregunta: "¿Cómo es cada equipo de la categoría?",
+  },
+  /*
+    Ésta no añade dato: ordena el que ya hay. Va detrás de «todos contra
+    todos» porque es la misma tabla leída al revés —en vez de elegir una
+    métrica y ver quién manda, se pregunta quién se sale y en qué—.
+  */
+  {
+    key: "destacados",
+    label: "Los más destacados",
+    icono: Award,
+    pregunta: "¿Quién se sale de la categoría, y en qué?",
   },
   {
     key: "eventos",
@@ -1186,6 +1200,15 @@ export default function DataAnalisisPage() {
                       nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro.`}
                     />
                   </>
+                )}
+
+                {/* ========== 3 bis · LOS MÁS DESTACADOS ========== */}
+
+                {area === "destacados" && (
+                  <PanelDestacados
+                    partidos={datos.partidos ?? []}
+                    jugadores={datos.jugadores ?? []}
+                  />
                 )}
 
                 {/* ============= 4 · ACCIÓN POR ACCIÓN ============= */}

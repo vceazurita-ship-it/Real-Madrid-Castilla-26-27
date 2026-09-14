@@ -89,6 +89,7 @@ import {
   LECTURA_VACIA,
 } from "@/lib/rivals/posiciones-temporada";
 import type { InformeData } from "@/lib/rivals/informe-ppt";
+import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
 import {
@@ -1907,6 +1908,12 @@ export default function RivalPlayersPage() {
           /* El reparto de goles que ha escrito el analista en ese mismo
              pop-up; sin nada escrito, las casillas salen punteadas. */
           tipologia: await leeTipologia(equipoDelOnce),
+          /* Y lo que le hace distinto contra la categoría entera, que sale de
+             los informes de Wyscout y lo calcula el servidor. Si no hay dato
+             —o el endpoint falla—, el informe se monta sin esas dos hojas. */
+          destacados: await traeDestacadosRival(
+            informe.nombreLargo || informe.nombre,
+          ),
         };
 
         const { construyeHojasInforme } = await import(

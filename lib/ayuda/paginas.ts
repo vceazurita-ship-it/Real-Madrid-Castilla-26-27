@@ -70,12 +70,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas. El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
-        titulo: "Las ocho áreas",
+        titulo: "Las nueve áreas",
         filas: [
           { que: "Partido en el campo", es: "Cada cifra puesta donde ocurre, el partido contra nuestra media" },
           { que: "Nuestra historia", es: "El Castilla contra sus seis temporadas" },
           { que: "Contra la liga", es: "Percentiles contra los 20 equipos, por fase de juego" },
           { que: "Todos contra todos", es: "La liga ordenada y el cruce de dos métricas" },
+          { que: "Los más destacados", es: "Quién se sale de la categoría y en qué, equipos y jugadores" },
           { que: "Acción por acción", es: "El log de Opta: quién, cuándo y tras cuánto tiempo" },
           { que: "Jugador a jugador", es: "Cada uno contra la categoría, y su evolución de un año a otro" },
           { que: "Nuestro balón parado", es: "Las 500 acciones que registramos a mano" },
@@ -116,6 +117,21 @@ export const AYUDAS: AyudaDePagina[] = [
             que: "Evolución de un jugador",
             es: "Si ha mejorado respecto a sus iguales, no respecto a sí mismo",
             cuenta: "Percentil de este año − percentil del año pasado, cada uno contra su categoría",
+          },
+          {
+            que: "Aspecto (Los más destacados)",
+            es: "Dos o tres métricas que dicen lo mismo; una sola se dispara con el rival de turno",
+            cuenta: "Media de los percentiles de sus métricas · desviación = percentil − 50",
+          },
+          {
+            que: "Se sale de la categoría",
+            es: "Cuándo un aspecto deja de ser vaivén y es una manera de jugar",
+            cuenta: "±20 puntos de percentil: por delante del 70 % o por detrás del 70 %",
+          },
+          {
+            que: "Jugador destacado",
+            es: "Con minutos bastantes y algo muy por encima de los de su puesto",
+            cuenta: "≥ 60 % de los minutos posibles y percentil ≥ 80 entre los de su puesto de la liga",
           },
         ],
       },
@@ -431,6 +447,25 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Once probable", es: "Se propone con los últimos onces del rival" },
           { que: "Etiquetas", es: "Las pone el analista; no salen de ningún dato" },
+        ],
+      },
+      {
+        titulo: "Las dos hojas del informe que no salen de BeSoccer",
+        filas: [
+          {
+            que: "«Lo que le hace distinto»",
+            es: "Hasta cuatro aspectos —dos o tres métricas cada uno— en los que se sale de la categoría",
+            cuenta: "Percentil medio del aspecto entre los 20 equipos; sólo si se separa ±20 puntos",
+          },
+          {
+            que: "«Sus jugadores destacados»",
+            es: "Los suyos con minutos que se salen de los de su puesto en toda la liga",
+            cuenta: "≥ 60 % de los minutos posibles y percentil ≥ 80; hasta seis",
+          },
+          {
+            que: "Si no salen",
+            es: "No hay informes bastantes de ese rival en public/data/wys",
+          },
         ],
       },
     ],

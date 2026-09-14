@@ -6,6 +6,14 @@ import {
   temporadaDe,
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
+import {
+  ASPECTOS,
+  ASPECTO_POR_KEY,
+  MAXIMO_DESTACADOS,
+  UMBRAL_EQUIPO,
+  destacadosDeEquipo,
+  destacadosDeJugadores,
+} from "@/lib/data-analisis/destacados";
 
 /**
  * La carpeta `public/data`, servida ya en limpio.
@@ -118,6 +126,79 @@ function resumenDePortada(datos: Dataset) {
   };
 }
 
+/**
+ * Lo que destaca de un equipo, ya calculado.
+ *
+ * Lo pide el informe del rival, que se monta en el navegador: bajarse los dos
+ * megas del dataset entero para sacar cuatro frases y cinco jugadores sería
+ * absurdo, y encima se hace desde el móvil de la banda. Se calcula aquí con la
+ * **misma librería** que usa la pantalla de Data Análisis, así que la
+ * diapositiva y la pantalla no pueden discrepar.
+ */
+function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
+    .filter(Boolean)
+    .sort();
+
+  const actual = temporadas[temporadas.length - 1] ?? "";
+
+  const liga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+
+  const equipos = [...new Set(liga.map((p) => p.equipo))];
+
+  const elegidos = aspectos.length
+    ? aspectos.flatMap((k) => {
+        const uno = ASPECTO_POR_KEY.get(k);
+
+        return uno ? [uno] : [];
+      })
+    : ASPECTOS;
+
+  const deEquipo = destacadosDeEquipo(equipo, liga, equipos, elegidos);
+
+  const deJugadores = destacadosDeJugadores(
+    datos.jugadores,
+    equipo,
+    datos.jugadores,
+  );
+
+  return {
+    temporada: actual,
+    equipos: equipos.length,
+    /* Sólo lo que cabe en una diapositiva, ya ordenado y sin el ruido. */
+    equipo: deEquipo
+      .filter((d) => Math.abs(d.desviacion) >= UMBRAL_EQUIPO)
+      .slice(0, MAXIMO_DESTACADOS)
+      .map((d) => ({
+        aspecto: d.aspecto.label,
+        explica: d.aspecto.explica,
+        percentil: Math.round(d.percentil),
+        desviacion: Math.round(d.desviacion),
+        filas: d.filas.map((f) => ({
+          nombre: f.metrica.nombre,
+          valor: f.valor,
+          mediana: f.mediana,
+          unidad: f.metrica.unidad,
+          percentil: f.percentil,
+        })),
+      })),
+    jugadores: deJugadores.slice(0, 6).map((j) => ({
+      jugador: j.jugador.jugador,
+      posicion: j.jugador.posicion,
+      puesto: j.puesto,
+      minutos: j.jugador.minutos,
+      partidos: j.jugador.partidos,
+      cuotaMinutos: Math.round(j.cuotaMinutos * 100),
+      fuertes: j.fuertes.map((f) => ({
+        nombre: f.metrica.nombre,
+        valor: f.valor,
+        unidad: f.metrica.unidad,
+        percentil: f.percentil,
+      })),
+    })),
+  };
+}
+
 export async function GET(peticion: Request) {
   const parametros = new URL(peticion.url).searchParams;
 
@@ -125,9 +206,23 @@ export async function GET(peticion: Request) {
 
   const soloResumen = parametros.has("resumen");
 
+  const equipoDestacado = parametros.get("destacados");
+
+  const aspectosPedidos = (parametros.get("aspectos") ?? "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+
   const ahora = Date.now();
 
   if (!fresco && guardado && ahora - guardado.en < VIDA) {
+    if (equipoDestacado) {
+      return NextResponse.json({
+        ok: true,
+        destacados: destacadosDe(guardado.datos, equipoDestacado, aspectosPedidos),
+      });
+    }
+
     return soloResumen
       ? NextResponse.json({ ok: true, resumen: resumenDePortada(guardado.datos) })
       : NextResponse.json({ ok: true, ...guardado.datos, deCache: true });
@@ -153,6 +248,14 @@ export async function GET(peticion: Request) {
     }
 
     guardado = { datos, en: ahora };
+
+    if (equipoDestacado) {
+      return NextResponse.json({
+        ok: true,
+        origen,
+        destacados: destacadosDe(datos, equipoDestacado, aspectosPedidos),
+      });
+    }
 
     return soloResumen
       ? NextResponse.json({ ok: true, resumen: resumenDePortada(datos), origen })

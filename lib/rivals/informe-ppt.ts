@@ -92,6 +92,14 @@ import {
   type Partido,
 } from "@/lib/rivals/informe";
 
+import { formatea } from "@/lib/data-analisis/metricas";
+
+import type {
+  AspectoDestacado,
+  DestacadosRival,
+  JugadorDestacado,
+} from "@/lib/rivals/destacados-rival";
+
 import {
   FILAS_TIPOLOGIA,
   FILA_PROPIA,
@@ -185,6 +193,16 @@ export type InformeData = {
    * siempre, que es lo que hace el arnés de consola.
    */
   partidosElegidos?: string[];
+  /**
+   * Lo que le hace distinto al rival y quién de los suyos se sale, ya
+   * calculado contra la categoría entera.
+   *
+   * No sale de BeSoccer sino de los informes de Wyscout de `public/data`, y la
+   * cuenta la hace el servidor —`/api/data-analisis?destacados=`— porque el
+   * dataset son dos megas y el informe se monta en el navegador. Sin esto el
+   * informe se monta sin las dos hojas, como sin clasificación en agosto.
+   */
+  destacados?: DestacadosRival | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -1974,6 +1992,368 @@ function pintaTipologia(
     `${partidos.length} PARTIDO${
       partidos.length === 1 ? "" : "S"
     } CON FICHA · PENALTIS Y PROPIAS DE BESOCCER · EL REPARTO LO CODIFICA EL ANALISTA`,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  5 bis · LO QUE LE HACE DISTINTO, Y QUIÉN DE LOS SUYOS              */
+/* ------------------------------------------------------------------ */
+
+/*
+| Dos hojas que no salen de BeSoccer sino de los informes de Wyscout de toda
+| la categoría, resueltas en `/api/data-analisis?destacados=`.
+|
+| Lo que contestan no lo contesta ninguna otra hoja del informe: la tabla de
+| estadísticas dice **cuánto** hace el rival de cada cosa, y estas dos dicen
+| **en qué se sale del resto**, que es lo que cambia un plan de partido. Con
+| veinte equipos, la única manera de saber si 12,01 de PPDA es presionar mucho
+| o poco es mirar a los otros diecinueve.
+|
+| Tres reglas, las mismas que en la pantalla de Data Análisis:
+|
+| - **Por aspectos**, no por métricas sueltas: dos o tres métricas que dicen
+|   lo mismo. Una sola se dispara con el rival de turno; dos a la vez ya es
+|   una manera de jugar.
+| - **En percentiles** contra la categoría, con el sentido ya puesto: en PPDA
+|   o en remates en contra, menos es más, y una desviación positiva siempre se
+|   lee igual.
+| - **Sólo lo que se sale de verdad.** Los aspectos por debajo del umbral no
+|   llegan a la hoja: llenarla de cuatro paneles que dicen «va como todos» es
+|   peor que dejarla fuera.
+*/
+
+/** Verde si se sale por arriba, rosa hondo si por abajo. */
+function tintaDesviacion(desviacion: number) {
+  return desviacion >= 0 ? C.verde : "#9A6169";
+}
+
+/**
+ * La pista de un percentil: el carril, la marca de la mediana y la barra.
+ *
+ * La barra sale **del centro**, no del borde: lo que se mira es cuánto se
+ * separa de la categoría y hacia qué lado.
+ */
+function pistaPercentil(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  percentil: number,
+  tinta: string,
+) {
+  ctx.fillStyle = "#E7E2D6";
+  rectRedondo(ctx, x, y, w, h, h / 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#BFB9A8";
+  ctx.fillRect(x + w / 2 - 1, y - 4, 2, h + 8);
+
+  const acotado = Math.max(0, Math.min(100, percentil));
+
+  const desde = Math.min(50, acotado) / 100;
+
+  const ancho = Math.max(3, (Math.abs(acotado - 50) / 100) * w);
+
+  ctx.fillStyle = tinta;
+  rectRedondo(ctx, x + desde * w, y, ancho, h, h / 2);
+  ctx.fill();
+}
+
+/** Un aspecto: el titular, la pista y las métricas que lo componen. */
+function pintaAspecto(
+  g: GuionHoja,
+  aspecto: AspectoDestacado,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const dentro = panel(g, x, y, w, h, aspecto.aspecto.toUpperCase());
+
+  const tinta = tintaDesviacion(aspecto.desviacion);
+
+  const signo = aspecto.desviacion >= 0 ? "+" : "−";
+
+  const puntos = Math.abs(Math.round(aspecto.desviacion));
+
+  g.el(
+    `Aspecto · ${aspecto.aspecto}`,
+    { x, y: dentro, w, h: h - (dentro - y) },
+    (ctx) => {
+      /* La cifra, a la derecha y grande: es el titular de la hoja. */
+      escribe(ctx, `${signo}${puntos}`, x + w - 28, dentro + 62, {
+        tamano: 62,
+        tinta,
+        alinea: "dcha",
+      });
+
+      escribe(ctx, "PTS SOBRE LA MEDIA", x + w - 28, dentro + 88, {
+        tamano: 16,
+        peso: 500,
+        tinta: "#8A8370",
+        espaciado: 2,
+        alinea: "dcha",
+      });
+
+      /* Y a la izquierda, qué quiere decir eso en una línea. */
+      escribe(ctx, aspecto.explica.toUpperCase(), x + 24, dentro + 44, {
+        tamano: 22,
+        peso: 500,
+        tinta: "#5A6B80",
+        espaciado: 1,
+        maxAncho: w - 260,
+      });
+
+      escribe(
+        ctx,
+        `PERCENTIL ${Math.round(aspecto.percentil)} DE LA CATEGORÍA`,
+        x + 24,
+        dentro + 76,
+        {
+          tamano: 18,
+          peso: 500,
+          tinta: "#8A8370",
+          espaciado: 2,
+          maxAncho: w - 260,
+        },
+      );
+
+      pistaPercentil(ctx, x + 24, dentro + 104, w - 52, 14, aspecto.percentil, tinta);
+
+      /* Las métricas, una por línea: valor, mediana de la liga y percentil. */
+      aspecto.filas.slice(0, 3).forEach((fila, indice) => {
+        const linea = dentro + 156 + indice * 46;
+
+        escribe(ctx, fila.nombre.toUpperCase(), x + 24, linea, {
+          tamano: 22,
+          peso: 500,
+          tinta: C.navy,
+          espaciado: 1,
+          maxAncho: w - 420,
+        });
+
+        escribe(ctx, formatea(fila.valor, fila.unidad), x + w - 150, linea, {
+          tamano: 24,
+          tinta: C.navy,
+          alinea: "dcha",
+        });
+
+        escribe(
+          ctx,
+          `LIGA ${formatea(fila.mediana, fila.unidad)}`,
+          x + w - 28,
+          linea - 14,
+          {
+            tamano: 15,
+            peso: 500,
+            tinta: "#8A8370",
+            espaciado: 1,
+            alinea: "dcha",
+          },
+        );
+
+        escribe(ctx, `P${fila.percentil}`, x + w - 28, linea + 6, {
+          tamano: 17,
+          peso: 600,
+          tinta: fila.percentil >= 50 ? C.verde : "#9A6169",
+          espaciado: 1,
+          alinea: "dcha",
+        });
+
+        /* El filo de la línea, para separarlas sin cargar la hoja. */
+        ctx.fillStyle = "#EDE8DC";
+        ctx.fillRect(x + 24, linea + 16, w - 52, 1);
+      });
+    },
+  );
+}
+
+function pintaDestacadosEquipo(
+  g: GuionHoja,
+  data: InformeData,
+  escudo: HTMLImageElement | null,
+  destacados: DestacadosRival,
+) {
+  papel(g);
+  cabecera(g, "LO QUE LE HACE DISTINTO", data, escudo);
+
+  const aspectos = destacados.equipo.slice(0, 4);
+
+  g.el("Nota de la hoja", { x: MARGEN, y: CUERPO_Y - 34, w: ANCHO, h: 30 }, (ctx) =>
+    escribe(
+      ctx,
+      `LO QUE MÁS LE SEPARA DE LOS ${destacados.equipos} EQUIPOS DE LA CATEGORÍA`,
+      MARGEN,
+      CUERPO_Y - 12,
+      {
+        tamano: 20,
+        peso: 500,
+        tinta: "#8A8370",
+        espaciado: 3,
+        maxAncho: ANCHO,
+      },
+    ),
+  );
+
+  /*
+  | Uno o dos aspectos ocupan la hoja entera a lo ancho; tres o cuatro van en
+  | dos columnas. Así una hoja con un solo aspecto no sale con un panel
+  | pequeño arriba a la izquierda y tres cuartos de papel en blanco.
+  */
+  const enColumnas = aspectos.length > 2;
+
+  const anchoPanel = enColumnas ? (ANCHO - 24) / 2 : ANCHO;
+
+  const filas = enColumnas ? Math.ceil(aspectos.length / 2) : aspectos.length;
+
+  const altoPanel = (CUERPO_ALTO - 24 * (filas - 1)) / filas;
+
+  aspectos.forEach((aspecto, indice) => {
+    const columna = enColumnas ? indice % 2 : 0;
+    const fila = enColumnas ? Math.floor(indice / 2) : indice;
+
+    pintaAspecto(
+      g,
+      aspecto,
+      MARGEN + columna * (anchoPanel + 24),
+      CUERPO_Y + fila * (altoPanel + 24),
+      anchoPanel,
+      altoPanel,
+    );
+  });
+
+  pie(
+    g,
+    `WYSCOUT · ${destacados.equipos} EQUIPOS DE ${destacados.temporada} · PERCENTILES, CON EL SENTIDO DE CADA MÉTRICA YA PUESTO`,
+  );
+}
+
+/** Una ficha de jugador destacado: quién es y en qué se sale. */
+function pintaFichaDestacado(
+  g: GuionHoja,
+  jugador: JugadorDestacado,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const dentro = panel(g, x, y, w, h, jugador.jugador.toUpperCase());
+
+  g.el(
+    `Destacado · ${jugador.jugador}`,
+    { x, y: dentro, w, h: h - (dentro - y) },
+    (ctx) => {
+      escribe(
+        ctx,
+        `${jugador.posicion.toUpperCase()} · ${jugador.cuotaMinutos}% DE LOS MINUTOS`,
+        x + 24,
+        dentro + 40,
+        {
+          tamano: 19,
+          peso: 500,
+          tinta: "#5A6B80",
+          espaciado: 2,
+          maxAncho: w - 48,
+        },
+      );
+
+      escribe(
+        ctx,
+        `${jugador.minutos}′ EN ${jugador.partidos} PARTIDO${
+          jugador.partidos === 1 ? "" : "S"
+        }`,
+        x + 24,
+        dentro + 68,
+        {
+          tamano: 17,
+          peso: 500,
+          tinta: "#8A8370",
+          espaciado: 2,
+          maxAncho: w - 48,
+        },
+      );
+
+      jugador.fuertes.slice(0, 3).forEach((fuerte, indice) => {
+        const linea = dentro + 118 + indice * 74;
+
+        escribe(ctx, fuerte.nombre.toUpperCase(), x + 24, linea, {
+          tamano: 21,
+          peso: 500,
+          tinta: C.navy,
+          espaciado: 1,
+          maxAncho: w - 170,
+        });
+
+        escribe(ctx, formatea(fuerte.valor, fuerte.unidad), x + w - 28, linea, {
+          tamano: 24,
+          tinta: C.navy,
+          alinea: "dcha",
+        });
+
+        pistaPercentil(ctx, x + 24, linea + 14, w - 52, 12, fuerte.percentil, C.verde);
+
+        escribe(ctx, `PERCENTIL ${fuerte.percentil}`, x + 24, linea + 46, {
+          tamano: 16,
+          peso: 500,
+          tinta: "#8A8370",
+          espaciado: 2,
+        });
+      });
+    },
+  );
+}
+
+function pintaDestacadosJugadores(
+  g: GuionHoja,
+  data: InformeData,
+  escudo: HTMLImageElement | null,
+  destacados: DestacadosRival,
+) {
+  papel(g);
+  cabecera(g, "SUS JUGADORES DESTACADOS", data, escudo);
+
+  const jugadores = destacados.jugadores.slice(0, 6);
+
+  g.el("Nota de la hoja", { x: MARGEN, y: CUERPO_Y - 34, w: ANCHO, h: 30 }, (ctx) =>
+    escribe(
+      ctx,
+      "CON AL MENOS EL 60 % DE LOS MINUTOS · PERCENTIL CONTRA LOS DE SU PUESTO EN TODA LA CATEGORÍA",
+      MARGEN,
+      CUERPO_Y - 12,
+      {
+        tamano: 20,
+        peso: 500,
+        tinta: "#8A8370",
+        espaciado: 3,
+        maxAncho: ANCHO,
+      },
+    ),
+  );
+
+  /* Hasta tres por fila: con seis salen dos filas, con cuatro salen dos de dos. */
+  const porFila = jugadores.length <= 2 ? jugadores.length : jugadores.length <= 4 ? 2 : 3;
+
+  const filas = Math.ceil(jugadores.length / porFila);
+
+  const anchoFicha = (ANCHO - 24 * (porFila - 1)) / porFila;
+
+  const altoFicha = (CUERPO_ALTO - 24 * (filas - 1)) / filas;
+
+  jugadores.forEach((jugador, indice) => {
+    pintaFichaDestacado(
+      g,
+      jugador,
+      MARGEN + (indice % porFila) * (anchoFicha + 24),
+      CUERPO_Y + Math.floor(indice / porFila) * (altoFicha + 24),
+      anchoFicha,
+      altoFicha,
+    );
+  });
+
+  pie(
+    g,
+    `WYSCOUT · TODO POR NOVENTA MINUTOS · ${destacados.temporada} · SÓLO LO QUE PASA DEL PERCENTIL 80`,
   );
 }
 
@@ -4163,6 +4543,27 @@ export async function construyeHojasInforme(
   /* La tabla de tipología del original. Sin goles no hay nada que repartir. */
   if (conFicha.length > 0) {
     hoja("Tipología de gol", (g) => pintaTipologia(g, data, escudo, conFicha));
+  }
+
+  /*
+  | Y las dos de la categoría, que no salen de BeSoccer sino de los informes
+  | de Wyscout. Van aquí, justo detrás de los números del rival: primero
+  | cuánto hace de cada cosa y luego en qué se sale del resto.
+  |
+  | Cada una se pinta sólo si tiene algo que enseñar. Un rival del que nadie
+  | ha bajado informe no tiene percentiles, y en agosto puede haber aspectos
+  | de equipo sin que ningún jugador llegue al 60 % de los minutos.
+  */
+  if ((data.destacados?.equipo ?? []).length > 0) {
+    hoja("Lo que le hace distinto", (g) =>
+      pintaDestacadosEquipo(g, data, escudo, data.destacados!),
+    );
+  }
+
+  if ((data.destacados?.jugadores ?? []).length > 0) {
+    hoja("Jugadores destacados", (g) =>
+      pintaDestacadosJugadores(g, data, escudo, data.destacados!),
+    );
   }
 
   /*
