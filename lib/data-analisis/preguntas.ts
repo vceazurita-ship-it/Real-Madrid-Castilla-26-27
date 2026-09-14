@@ -193,6 +193,36 @@ export const PREGUNTAS: Pregunta[] = [
     comoSeLee:
       "Abajo a la izquierda se defiende sin infringir. Arriba a la derecha se corta con falta, y eso son ocasiones de estrategia para el rival.",
   },
+  {
+    key: "cuesta-cada-amarilla",
+    momento: "sin",
+    texto: "¿Cuántas faltas cuesta cada amarilla?",
+    x: "faltasPorAmarilla",
+    y: "faltas",
+    comoSeLee:
+      "Arriba a la derecha se hacen muchas faltas y aun así salen baratas: se infringe donde el árbitro no saca. Abajo a la izquierda cada falta se paga, que es de donde salen las sanciones.",
+  },
+  {
+    key: "tarjetas-de-llegar-tarde",
+    momento: "sin",
+    texto: "¿Las tarjetas vienen de llegar tarde a la entrada?",
+    x: "entradas",
+    y: "amarillas",
+    comoSeLee:
+      "Arriba a la izquierda es lo caro: se falla la entrada y encima se ve la tarjeta. Abajo a la derecha se entra bien y no hace falta infringir.",
+  },
+
+  /* ===================== LA FALTA, TAMBIÉN A FAVOR ================ */
+  {
+    key: "nos-frenan-con-falta",
+    momento: "con",
+    texto: "¿Nos frenan con falta cuando llegamos?",
+    x: "faltas",
+    contraX: true,
+    y: "entradasArea",
+    comoSeLee:
+      "Arriba a la derecha se entra al área y el rival sólo puede pararlo infringiendo: son faltas en zona de estrategia. Abajo a la izquierda ni se llega ni hace falta que nos frenen.",
+  },
 
   /* ===================== TRANSICIÓN OFENSIVA ====================== */
   {
@@ -277,6 +307,16 @@ export const PREGUNTAS: Pregunta[] = [
     y: "faltas",
     comoSeLee:
       "Arriba a la derecha se pierde y se frena con falta táctica. Frena la contra, pero le regala al rival la jugada ensayada.",
+  },
+  {
+    key: "nos-cortan-la-contra",
+    momento: "trOf",
+    texto: "Al robar, ¿nos cortan la contra con falta?",
+    x: "faltas",
+    contraX: true,
+    y: "contras",
+    comoSeLee:
+      "Arriba a la derecha se sale corriendo al robar y al rival no le queda otra que hacer falta. Abajo a la derecha nos hacen faltas sin que salgamos: son de otra cosa, no de la transición.",
   },
 
   /* ===================== BALÓN PARADO A FAVOR ===================== */

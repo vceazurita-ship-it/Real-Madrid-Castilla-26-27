@@ -134,6 +134,15 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "±20 puntos de percentil: por delante del 70 % o por detrás del 70 %",
           },
           {
+            que: "Faltas por amarilla",
+            es: "Lo que cuesta cada amonestación: la medida del «uso» de la falta",
+            cuenta: "Σ faltas ÷ Σ tarjetas amarillas · alto es infringir barato",
+          },
+          {
+            que: "Faltas recibidas / en contra",
+            es: "No son columna del informe: salen de la fila del rival de cada partido",
+          },
+          {
             que: "Jugador destacado",
             es: "Con minutos bastantes y algo muy por encima de los de su puesto",
             cuenta: "≥ 60 % de los minutos posibles y percentil ≥ 80 entre los de su puesto de la liga",

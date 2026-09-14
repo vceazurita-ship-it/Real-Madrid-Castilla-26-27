@@ -25,13 +25,15 @@ import {
  * reorientarse en cada pestaña y es justo lo que se quería evitar.
  */
 
-export type MomentoJuego = "con" | "sin" | "trOf" | "trDef" | "abp";
+export type MomentoJuego = "con" | "sin" | "trOf" | "trDef" | "abp" | "faltas";
 
 export const MOMENTOS_CAMPO: {
   key: MomentoJuego;
   label: string;
   corto: string;
   pregunta: string;
+  /** Lo que hay que advertir de ese momento antes de leer el dibujo. */
+  aviso?: string;
 }[] = [
   {
     key: "con",
@@ -62,6 +64,14 @@ export const MOMENTOS_CAMPO: {
     label: "Balón parado",
     corto: "Balón parado",
     pregunta: "¿Qué dio la estrategia, a favor y en contra?",
+  },
+  {
+    key: "faltas",
+    label: "Faltas y tarjetas",
+    corto: "Faltas",
+    pregunta: "¿Cómo usamos la falta, y cuánto nos cuesta?",
+    aviso:
+      "El informe dice cuántas faltas hay, no en qué zona se hacen. Aquí van colocadas por sentido —lo que hacemos, en nuestro campo; lo que nos hacen, en el suyo—, no por dónde ocurrieron. Para saber dónde, «Nuestro balón parado» guarda el tipo de cada falta en contra, que sí lo registra el cuerpo técnico.",
   },
 ];
 
@@ -320,6 +330,82 @@ export const FICHAS: Record<MomentoJuego, FichaCampo[]> = {
       y: 88,
       contra: true,
       nota: "De los córners que se conceden, cuántos acaban en remate suyo.",
+    },
+  ],
+
+  /* --------------------------- LA FALTA ---------------------------- */
+  /*
+  | Aquí el campo es un reparto, no un mapa.
+  |
+  | Wyscout cuenta las faltas pero no dice en qué zona se hacen, así que lo
+  | que se coloca es **de quién es cada cifra**: lo que hacemos, de mitad para
+  | atrás; lo que nos hacen, de mitad para adelante; y los penaltis, cada uno
+  | en su área. El aviso del momento lo dice con todas las letras: pintar esto
+  | como si fueran zonas sería inventarse el dato.
+  |
+  | La falta es de las pocas acciones que se usan **a propósito** —cortar una
+  | contra, parar el juego, romper un ritmo—, y por eso interesa el precio:
+  | cuántas caben en cada amarilla y cuántas acaban siendo estrategia rival.
+  */
+  faltas: [
+    {
+      metrica: "faltas",
+      rotulo: "Faltas cometidas",
+      x: 38,
+      y: 50,
+      nota: "Las que hacemos. Solas no dicen nada: muchas con PPDA baja son la factura de presionar; muchas con PPDA alta es llegar tarde.",
+    },
+    {
+      metrica: "faltas",
+      rotulo: "Faltas recibidas",
+      x: 66,
+      y: 50,
+      contra: true,
+      nota: "Las que nos hacen, que salen de la fila del rival. Cuando se llega mucho, al contrario no le queda otra que infringir.",
+    },
+    {
+      metrica: "faltasPorAmarilla",
+      rotulo: "Faltas por amarilla",
+      x: 50,
+      y: 20,
+      nota: "Cuántas faltas cuesta cada amonestación. Alto es infringir barato; bajo es que cada falta se paga y llegan las sanciones.",
+    },
+    {
+      metrica: "amarillas",
+      rotulo: "Tarjetas amarillas",
+      x: 30,
+      y: 24,
+      nota: "Amonestaciones por partido. Con el calendario al lado avisa de los ciclos de sanción antes de que lleguen.",
+    },
+    {
+      metrica: "rojas",
+      rotulo: "Tarjetas rojas",
+      x: 30,
+      y: 78,
+      nota: "Expulsiones por partido. Con pocos partidos una sola lo tiñe todo: se mira el número, no el promedio.",
+    },
+    {
+      metrica: "faltasTiro",
+      rotulo: "Faltas que nos lanzan",
+      x: 14,
+      y: 34,
+      contra: true,
+      nota: "De todo lo que se infringe, lo que acaba siendo un lanzamiento del rival: es la parte cara de la falta.",
+    },
+    {
+      metrica: "penaltis",
+      rotulo: "Penaltis en contra",
+      x: 9,
+      y: 60,
+      contra: true,
+      nota: "Los que concede el equipo. En una muestra corta es ruido, pero es la falta más cara que existe.",
+    },
+    {
+      metrica: "penaltis",
+      rotulo: "Penaltis a favor",
+      x: 91,
+      y: 50,
+      nota: "Los que se consiguen. Van casi siempre con entrar mucho al área, no con el acierto en el área.",
     },
   ],
 };

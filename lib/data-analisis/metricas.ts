@@ -798,6 +798,33 @@ export const METRICAS: Metrica[] = [
     columna: "Tarjetas amarillas",
     comoLeer: "Amonestaciones por partido. Con el calendario al lado avisa de las sanciones antes de que lleguen.",
   },
+  {
+    key: "rojas",
+    nombre: "Tarjetas rojas",
+    grupo: "Disciplina",
+    fase: "sin",
+    unidad: "decimal",
+    mejorAlto: false,
+    columna: "Tarjetas rojas",
+    comoLeer: "Expulsiones por partido. Con tres jornadas una sola lo tiñe todo: se mira el número, no el promedio.",
+  },
+  {
+    key: "faltasPorAmarilla",
+    nombre: "Faltas por amarilla",
+    grupo: "Disciplina",
+    fase: "sin",
+    unidad: "decimal",
+    /*
+    | Cuantas más faltas caben en cada amarilla, más barata sale la falta: o se
+    | hacen en sitios que el árbitro no castiga, o se reparten entre muchos. Es
+    | la medida del «uso» de la falta, que no es lo mismo que hacer pocas.
+    */
+    mejorAlto: true,
+    numerador: "Faltas",
+    denominador: "Tarjetas amarillas",
+    factor: 1,
+    comoLeer: "Cuántas faltas cuesta cada amonestación. Alto es infringir sin acumular tarjetas; bajo es que cada falta se paga.",
+  },
 ];
 
 export const METRICA_POR_KEY = new Map(METRICAS.map((m) => [m.key, m]));

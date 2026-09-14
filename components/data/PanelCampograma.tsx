@@ -238,6 +238,15 @@ export function PanelCampograma({
             </span>
           </div>
 
+          {/* Lo que hay que saber de este momento antes de leer el dibujo. */}
+          {meta.aviso && (
+            <div className="mb-3">
+              <Notice tone="warn" title="El campo, aquí, es un reparto">
+                {meta.aviso}
+              </Notice>
+            </div>
+          )}
+
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             <Campograma
               fichas={fichas}
