@@ -189,7 +189,7 @@ export function PanelCampograma({
                 className="inline-block h-2.5 w-2.5 rounded-[2px]"
                 style={{ background: MEJOR }}
               />
-              {contraLaLiga ? "Por encima de la categoría" : "Por encima de nuestra media"}
+              {contraLaLiga ? "Mejor que la categoría" : "Mejor que nuestra media"}
             </span>
 
             <span className="flex items-center gap-1.5" style={{ color: PEOR }}>
@@ -197,7 +197,7 @@ export function PanelCampograma({
                 className="inline-block h-2.5 w-2.5 rounded-[2px]"
                 style={{ background: PEOR }}
               />
-              Por debajo
+              Peor
             </span>
 
             <span className="text-white/35">
@@ -230,11 +230,14 @@ export function PanelCampograma({
           </Lectura>
 
           <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-            El tanto por ciento de encima de cada cifra es lo que se separó de{" "}
-            {contraLaLiga ? "la media de la categoría" : "nuestra media"},{" "}
-            <strong className="text-white/60">con el sentido de la métrica
-            puesto</strong>: en PPDA, pérdidas o remates en contra, bajar sale
-            en verde.{" "}
+            El tanto por ciento de encima de cada cifra es{" "}
+            <strong className="text-white/60">cuánto cambia respecto a{" "}
+            {contraLaLiga ? "la media de la categoría" : "nuestra media"}, tal
+            cual</strong>: 13 remates en contra sobre una media de 8,33 son un
+            +56 %. Lo que dice si eso es bueno o malo es{" "}
+            <strong className="text-white/60">el color</strong>, que sí lleva el
+            sentido de la métrica puesto: en PPDA, pérdidas o remates en contra,
+            subir sale en naranja.{" "}
             {contraLaLiga ? (
               <>
                 Detrás de esa media hay {cuantos} informes de {equipos} equipos,
@@ -272,7 +275,9 @@ export function PanelCampograma({
                   <th className="pb-2 pr-3 text-right font-medium">
                     {contraLaLiga ? "Media liga" : "Nuestra media"}
                   </th>
-                  <th className="pb-2 text-right font-medium">Diferencia</th>
+                  <th className="pb-2 text-right font-medium" title="Cuánto cambia la cifra respecto a la referencia. El color dice si ese cambio es bueno o malo.">
+                    Cambio
+                  </th>
                 </tr>
               </thead>
 
@@ -311,9 +316,9 @@ export function PanelCampograma({
                               : PEOR,
                       }}
                     >
-                      {f.diferencia === null
+                      {f.cambio === null
                         ? "—"
-                        : `${f.diferencia >= 0 ? "+" : ""}${f.diferencia.toFixed(0)} %`}
+                        : `${f.cambio >= 0 ? "+" : ""}${f.cambio.toFixed(0)} %`}
                     </td>
                   </tr>
                 ))}

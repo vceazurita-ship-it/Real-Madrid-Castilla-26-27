@@ -13,6 +13,7 @@ import {
   UMBRAL_EQUIPO,
   destacadosDeEquipo,
   destacadosDeJugadores,
+  nubeDeAspecto,
 } from "@/lib/data-analisis/destacados";
 
 /**
@@ -169,19 +170,49 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
     equipo: deEquipo
       .filter((d) => Math.abs(d.desviacion) >= UMBRAL_EQUIPO)
       .slice(0, MAXIMO_DESTACADOS)
-      .map((d) => ({
-        aspecto: d.aspecto.label,
-        explica: d.aspecto.explica,
-        percentil: Math.round(d.percentil),
-        desviacion: Math.round(d.desviacion),
-        filas: d.filas.map((f) => ({
-          nombre: f.metrica.nombre,
-          valor: f.valor,
-          mediana: f.mediana,
-          unidad: f.metrica.unidad,
-          percentil: f.percentil,
-        })),
-      })),
+      .map((d) => {
+        /*
+        | Y la categoría entera en las dos métricas del aspecto.
+        |
+        | Va en la respuesta y no se calcula en el navegador por lo mismo que
+        | todo lo demás: son veinte equipos por dos métricas sobre cuarenta
+        | informes, y el informe se monta a veces desde el móvil.
+        */
+        const nube = nubeDeAspecto(d, liga, equipos);
+
+        return {
+          aspecto: d.aspecto.label,
+          explica: d.aspecto.explica,
+          percentil: Math.round(d.percentil),
+          desviacion: Math.round(d.desviacion),
+          filas: d.filas.map((f) => ({
+            nombre: f.metrica.nombre,
+            valor: f.valor,
+            mediana: f.mediana,
+            unidad: f.metrica.unidad,
+            percentil: f.percentil,
+          })),
+          nube: nube
+            ? {
+                x: {
+                  nombre: nube.x.nombre,
+                  unidad: nube.x.unidad,
+                  mejorAlto: nube.x.mejorAlto,
+                },
+                y: nube.y
+                  ? {
+                      nombre: nube.y.nombre,
+                      unidad: nube.y.unidad,
+                      mejorAlto: nube.y.mejorAlto,
+                    }
+                  : null,
+                medianaX: nube.medianaX,
+                medianaY: nube.medianaY,
+                puntos: nube.puntos,
+              }
+            : null,
+        };
+      }),
     jugadores: deJugadores.slice(0, 6).map((j) => ({
       jugador: j.jugador.jugador,
       posicion: j.jugador.posicion,

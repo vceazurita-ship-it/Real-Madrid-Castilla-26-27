@@ -317,6 +317,86 @@ export function destacadosDeEquipo(
     .sort((a, b) => Math.abs(b.desviacion) - Math.abs(a.desviacion));
 }
 
+/* ------------------------------------------------------------------ */
+/*  LA NUBE DE LA CATEGORÍA                                            */
+/* ------------------------------------------------------------------ */
+
+export type PuntoNube = {
+  equipo: string;
+  x: number;
+  /** `null` cuando el aspecto sólo tiene una métrica con datos. */
+  y: number | null;
+};
+
+export type NubeAspecto = {
+  x: Metrica;
+  y: Metrica | null;
+  medianaX: number;
+  medianaY: number | null;
+  puntos: PuntoNube[];
+};
+
+const medianaDe = (valores: number[]) =>
+  [...valores].sort((a, b) => a - b)[Math.floor(valores.length / 2)];
+
+/**
+ * Los veinte equipos en las dos métricas de un aspecto.
+ *
+ * Es lo que convierte «va +33 en dominio con balón» en una imagen: cada equipo
+ * un punto, las dos medianas cruzando el dibujo y el que interesa marcado. Una
+ * barra dice cuánto; la nube dice **con quién se parece y de quién se separa**,
+ * que es lo que se pregunta al preparar un partido.
+ *
+ * Se queda con las dos primeras métricas del aspecto que tengan dato. Con una
+ * sola no hay dispersión que pintar y se devuelve `y: null`: quien lo dibuje
+ * decide qué hacer con eso.
+ */
+export function nubeDeAspecto(
+  destacado: DestacadoEquipo,
+  liga: FilaPartido[],
+  equipos: string[],
+): NubeAspecto | null {
+  const metX = destacado.filas[0]?.metrica;
+
+  if (!metX) return null;
+
+  const metY = destacado.filas[1]?.metrica ?? null;
+
+  /* En «balón parado en contra» las cifras de cada equipo son las de sus
+     rivales, igual que en el cálculo de arriba. */
+  const enContra = destacado.aspecto.key === "abpDef";
+
+  const puntos: PuntoNube[] = [];
+
+  for (const equipo of equipos) {
+    const suyas = enContra
+      ? liga.filter((p) => mismoEquipo(p.rival, equipo))
+      : liga.filter((p) => mismoEquipo(p.equipo, equipo));
+
+    if (suyas.length === 0) continue;
+
+    const x = valorEnGrupo(metX, suyas);
+
+    if (x === null) continue;
+
+    puntos.push({ equipo, x, y: metY ? valorEnGrupo(metY, suyas) : null });
+  }
+
+  if (puntos.length < 3) return null;
+
+  const enY = puntos
+    .map((p) => p.y)
+    .filter((v): v is number => v !== null);
+
+  return {
+    x: metX,
+    y: metY && enY.length >= 3 ? metY : null,
+    medianaX: medianaDe(puntos.map((p) => p.x)),
+    medianaY: enY.length >= 3 ? medianaDe(enY) : null,
+    puntos,
+  };
+}
+
 /**
  * A partir de aquí deja de ser ruido.
  *

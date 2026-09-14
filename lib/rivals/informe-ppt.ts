@@ -93,6 +93,7 @@ import {
 } from "@/lib/rivals/informe";
 
 import { formatea } from "@/lib/data-analisis/metricas";
+import { mismoEquipo } from "@/lib/data-analisis/nombres";
 
 import type {
   AspectoDestacado,
@@ -2060,7 +2061,263 @@ function pistaPercentil(
   ctx.fill();
 }
 
-/** Un aspecto: el titular, la pista y las métricas que lo componen. */
+/**
+ * La categoría entera en las dos métricas del aspecto, con escudos.
+ *
+ * Una barra dice **cuánto** se sale el rival; esta nube dice **de quién** se
+ * separa y a quién se parece, que es lo que se mira al preparar el partido: no
+ * es lo mismo ser el único que presiona así que ser uno de seis.
+ *
+ * Cada equipo va con su escudo —el mismo de la clasificación, ya bajado— y el
+ * del informe va más grande y con un aro dorado. Las dos líneas a trazos son
+ * las medianas de la categoría: parten el dibujo en cuatro y el cuadrante en
+ * el que cae cada uno ya cuenta la historia.
+ */
+function pintaNube(
+  ctx: Ctx,
+  nube: NonNullable<AspectoDestacado["nube"]>,
+  escudos: Map<string, HTMLImageElement>,
+  rival: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  /* El papel del dibujo, para que se lea como una pieza aparte. */
+  ctx.fillStyle = "#FBF9F3";
+  rectRedondo(ctx, x, y, w, h, 12);
+  ctx.fill();
+
+  ctx.strokeStyle = "#E7E2D6";
+  ctx.lineWidth = 1;
+  rectRedondo(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 12);
+  ctx.stroke();
+
+  /* El área de dibujo, con sitio para los rótulos de los dos ejes. */
+  const px = x + 58;
+  const py = y + 16;
+  const pw = w - 58 - 24;
+  const ph = h - 16 - 52;
+
+  const hayY = nube.y !== null && nube.medianaY !== null;
+
+  const enX = nube.puntos.map((p) => p.x);
+  const enY = nube.puntos.map((p) => p.y).filter((v): v is number => v !== null);
+
+  /* Un margen del 10 % a cada lado: así ningún escudo queda pegado al filo. */
+  const rango = (valores: number[]) => {
+    const min = Math.min(...valores);
+    const max = Math.max(...valores);
+    const hueco = (max - min) || Math.abs(max) || 1;
+
+    return { min: min - hueco * 0.12, max: max + hueco * 0.12 };
+  };
+
+  const rx = rango(enX);
+  const ry = hayY ? rango(enY) : { min: 0, max: 1 };
+
+  const aX = (v: number) => px + ((v - rx.min) / (rx.max - rx.min)) * pw;
+  const aY = (v: number) =>
+    hayY ? py + ph - ((v - ry.min) / (ry.max - ry.min)) * ph : py + ph / 2;
+
+  /* Las medianas, a trazos. */
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = "#CFC8B6";
+  ctx.lineWidth = 1;
+
+  ctx.beginPath();
+  ctx.moveTo(aX(nube.medianaX), py);
+  ctx.lineTo(aX(nube.medianaX), py + ph);
+  ctx.stroke();
+
+  if (hayY && nube.medianaY !== null) {
+    ctx.beginPath();
+    ctx.moveTo(px, aY(nube.medianaY));
+    ctx.lineTo(px + pw, aY(nube.medianaY));
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  /*
+  | Dónde va cada escudo, sin que se pisen.
+  |
+  | Veinte equipos en cuarenta informes se amontonan: con tres jornadas hay
+  | métricas en las que media liga vale casi lo mismo. Se colocan de uno en uno
+  | y, si uno cae encima de otro ya puesto, se aparta lo justo —en espiral—
+  | hasta que deja de solaparse. Se mueve el dibujo, no el dato: el sitio
+  | exacto se lee en la tabla de la izquierda.
+  */
+  const puestos: { cx: number; cy: number; r: number }[] = [];
+
+  const coloca = (cx: number, cy: number, r: number) => {
+    let mejorX = cx;
+    let mejorY = cy;
+
+    for (let paso = 0; paso < 40; paso++) {
+      const choca = puestos.some((p) => {
+        const dx = p.cx - mejorX;
+        const dy = p.cy - mejorY;
+
+        return Math.hypot(dx, dy) < (p.r + r) * 0.86;
+      });
+
+      if (!choca) break;
+
+      const angulo = paso * 2.4;
+      const radio = 6 + paso * 1.6;
+
+      mejorX = cx + Math.cos(angulo) * radio;
+      mejorY = cy + Math.sin(angulo) * radio * (hayY ? 1 : 1.2);
+    }
+
+    /* Que no se salga del papel, aunque se pise un poco. */
+    mejorX = Math.max(px - 6, Math.min(px + pw + 6, mejorX));
+    mejorY = Math.max(py - 4, Math.min(py + ph + 4, mejorY));
+
+    puestos.push({ cx: mejorX, cy: mejorY, r });
+
+    return { cx: mejorX, cy: mejorY };
+  };
+
+  /*
+  | Con una sola métrica no hay nube: hay una fila.
+  |
+  | Y en una fila los veinte se pisan, así que se apilan en columnas —los que
+  | caen en la misma franja de treinta píxeles van uno encima de otro,
+  | repartidos arriba y abajo de la línea—. Es el enjambre de toda la vida, y
+  | deja ver de un golpe cuántos equipos comparten cifra.
+  */
+  const enjambre = new Map<number, number>();
+
+  const enLaFila = (cx: number) => {
+    const franja = Math.round(cx / 30);
+
+    const cuantos = enjambre.get(franja) ?? 0;
+
+    enjambre.set(franja, cuantos + 1);
+
+    const salto = Math.ceil(cuantos / 2) * 30;
+
+    return py + ph / 2 + (cuantos % 2 === 0 ? salto : -salto);
+  };
+
+  /*
+  | Primero se coloca y después se pinta, y el rival va al revés en cada cosa:
+  | **se coloca el primero** —así cae en su sitio exacto y no apartado por los
+  | demás— y **se pinta el último**, para que quede encima de todos.
+  */
+  const sitios = new Map<string, { cx: number; cy: number }>();
+
+  const esDelRival = (equipo: string) => (mismoEquipo(equipo, rival) ? 0 : 1);
+
+  for (const punto of [...nube.puntos].sort(
+    (a, b) => esDelRival(a.equipo) - esDelRival(b.equipo) || a.x - b.x,
+  )) {
+    const lado = esDelRival(punto.equipo) === 0 ? 40 : 26;
+
+    const puntoX = aX(punto.x);
+
+    sitios.set(
+      punto.equipo,
+      hayY
+        ? coloca(puntoX, punto.y !== null ? aY(punto.y) : py + ph / 2, lado / 2)
+        : { cx: puntoX, cy: enLaFila(puntoX) },
+    );
+  }
+
+  for (const punto of [...nube.puntos].sort(
+    (a, b) => esDelRival(b.equipo) - esDelRival(a.equipo),
+  )) {
+    const suyo = esDelRival(punto.equipo) === 0;
+
+    const lado = suyo ? 40 : 26;
+
+    const { cx, cy } = sitios.get(punto.equipo) ?? {
+      cx: aX(punto.x),
+      cy: py + ph / 2,
+    };
+
+    const imagen = [...escudos.entries()].find(([nombre]) =>
+      mismoEquipo(nombre, punto.equipo),
+    )?.[1];
+
+    if (suyo) {
+      /* El aro dorado: identifica sin depender de que se distinga el escudo. */
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.arc(cx, cy, lado / 2 + 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#C8A96B";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, lado / 2 + 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (imagen) {
+      encaja(ctx, imagen, cx - lado / 2, cy - lado / 2, lado, lado);
+    } else {
+      /* Sin escudo bajado, un disco: mejor eso que un hueco. */
+      ctx.fillStyle = suyo ? "#C8A96B" : "#B9B2A0";
+      ctx.beginPath();
+      ctx.arc(cx, cy, suyo ? 10 : 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* Los rótulos de los ejes, con el sentido escrito. */
+  const flecha = (eje: { nombre: string; mejorAlto: boolean | null }) =>
+    eje.mejorAlto === null
+      ? eje.nombre.toUpperCase()
+      : `${eje.nombre.toUpperCase()} →${eje.mejorAlto ? " MÁS" : " MENOS"} ES MEJOR`;
+
+  escribe(ctx, flecha(nube.x), x + w / 2, y + h - 26, {
+    tamano: 16,
+    peso: 500,
+    tinta: "#8A8370",
+    espaciado: 2,
+    alinea: "centro",
+    maxAncho: w - 60,
+  });
+
+  if (hayY && nube.y) {
+    ctx.save();
+    ctx.translate(x + 26, y + 16 + ph / 2);
+    ctx.rotate(-Math.PI / 2);
+
+    escribe(ctx, flecha(nube.y), 0, 0, {
+      tamano: 16,
+      peso: 500,
+      tinta: "#8A8370",
+      espaciado: 2,
+      alinea: "centro",
+      maxAncho: ph - 20,
+    });
+
+    ctx.restore();
+  }
+
+  escribe(
+    ctx,
+    hayY
+      ? "CADA ESCUDO, UN EQUIPO · LAS LÍNEAS SON LAS MEDIANAS DE LA CATEGORÍA"
+      : "CADA ESCUDO, UN EQUIPO · LA LÍNEA ES LA MEDIANA DE LA CATEGORÍA",
+    x + w / 2,
+    y + h - 8,
+    {
+      tamano: 13,
+      peso: 500,
+      tinta: "#A9A190",
+      espaciado: 2,
+      alinea: "centro",
+      maxAncho: w - 40,
+    },
+  );
+}
+
+/** Un aspecto: el titular, la pista, sus métricas y la nube de la categoría. */
 function pintaAspecto(
   g: GuionHoja,
   aspecto: AspectoDestacado,
@@ -2068,8 +2325,21 @@ function pintaAspecto(
   y: number,
   w: number,
   h: number,
+  escudos: Map<string, HTMLImageElement>,
+  rival: string,
 ) {
   const dentro = panel(g, x, y, w, h, aspecto.aspecto.toUpperCase());
+
+  /*
+  | Dos columnas: las cifras a la izquierda y la categoría a la derecha.
+  |
+  | Van en **dos piezas distintas** —como todo en este documento— para que en
+  | Office se pueda llevar la nube a otra hoja, o quitarla y dejar sólo los
+  | números, sin tocar lo demás.
+  */
+  const conNube = aspecto.nube !== null;
+
+  const anchoTexto = conNube ? Math.round(w * 0.5) : w;
 
   const tinta = tintaDesviacion(aspecto.desviacion);
 
@@ -2079,16 +2349,16 @@ function pintaAspecto(
 
   g.el(
     `Aspecto · ${aspecto.aspecto}`,
-    { x, y: dentro, w, h: h - (dentro - y) },
+    { x, y: dentro, w: anchoTexto, h: h - (dentro - y) },
     (ctx) => {
       /* La cifra, a la derecha y grande: es el titular de la hoja. */
-      escribe(ctx, `${signo}${puntos}`, x + w - 28, dentro + 62, {
+      escribe(ctx, `${signo}${puntos}`, x + anchoTexto - 28, dentro + 62, {
         tamano: 62,
         tinta,
         alinea: "dcha",
       });
 
-      escribe(ctx, "PTS SOBRE LA MEDIA", x + w - 28, dentro + 88, {
+      escribe(ctx, "PTS SOBRE LA MEDIA", x + anchoTexto - 28, dentro + 88, {
         tamano: 16,
         peso: 500,
         tinta: "#8A8370",
@@ -2102,7 +2372,7 @@ function pintaAspecto(
         peso: 500,
         tinta: "#5A6B80",
         espaciado: 1,
-        maxAncho: w - 260,
+        maxAncho: anchoTexto - 260,
       });
 
       escribe(
@@ -2115,11 +2385,19 @@ function pintaAspecto(
           peso: 500,
           tinta: "#8A8370",
           espaciado: 2,
-          maxAncho: w - 260,
+          maxAncho: anchoTexto - 260,
         },
       );
 
-      pistaPercentil(ctx, x + 24, dentro + 104, w - 52, 14, aspecto.percentil, tinta);
+      pistaPercentil(
+        ctx,
+        x + 24,
+        dentro + 104,
+        anchoTexto - 52,
+        14,
+        aspecto.percentil,
+        tinta,
+      );
 
       /* Las métricas, una por línea: valor, mediana de la liga y percentil. */
       aspecto.filas.slice(0, 3).forEach((fila, indice) => {
@@ -2130,19 +2408,21 @@ function pintaAspecto(
           peso: 500,
           tinta: C.navy,
           espaciado: 1,
-          maxAncho: w - 420,
-        });
-
-        escribe(ctx, formatea(fila.valor, fila.unidad), x + w - 150, linea, {
-          tamano: 24,
-          tinta: C.navy,
-          alinea: "dcha",
+          maxAncho: anchoTexto - 420,
         });
 
         escribe(
           ctx,
+          formatea(fila.valor, fila.unidad),
+          x + anchoTexto - 150,
+          linea,
+          { tamano: 24, tinta: C.navy, alinea: "dcha" },
+        );
+
+        escribe(
+          ctx,
           `LIGA ${formatea(fila.mediana, fila.unidad)}`,
-          x + w - 28,
+          x + anchoTexto - 28,
           linea - 14,
           {
             tamano: 15,
@@ -2153,7 +2433,7 @@ function pintaAspecto(
           },
         );
 
-        escribe(ctx, `P${fila.percentil}`, x + w - 28, linea + 6, {
+        escribe(ctx, `P${fila.percentil}`, x + anchoTexto - 28, linea + 6, {
           tamano: 17,
           peso: 600,
           tinta: fila.percentil >= 50 ? C.verde : "#9A6169",
@@ -2163,27 +2443,63 @@ function pintaAspecto(
 
         /* El filo de la línea, para separarlas sin cargar la hoja. */
         ctx.fillStyle = "#EDE8DC";
-        ctx.fillRect(x + 24, linea + 16, w - 52, 1);
+        ctx.fillRect(x + 24, linea + 16, anchoTexto - 52, 1);
       });
     },
   );
+
+  if (!conNube || !aspecto.nube) return;
+
+  const nx = x + anchoTexto + 8;
+  const ny = dentro + 12;
+  const nw = w - anchoTexto - 32;
+  const nh = h - (dentro - y) - 28;
+
+  g.el(
+    `Nube · ${aspecto.aspecto}`,
+    { x: nx, y: ny, w: nw, h: nh },
+    (ctx) => pintaNube(ctx, aspecto.nube!, escudos, rival, nx, ny, nw, nh),
+  );
 }
 
+/** Cuántos aspectos caben en una hoja con su nube al lado. */
+const ASPECTOS_POR_HOJA = 2;
+
+/**
+ * Una hoja de «lo que le hace distinto», con dos aspectos como mucho.
+ *
+ * Eran cuatro en una sola hoja, en dos columnas, y las cifras se leían pero no
+ * cabía nada más. Con dos por hoja cada aspecto ocupa una banda entera: las
+ * cifras a la izquierda y **la categoría dibujada a la derecha**, con un
+ * escudo por equipo. Cuatro aspectos salen en dos hojas, y la segunda lo dice
+ * en el título.
+ */
 function pintaDestacadosEquipo(
   g: GuionHoja,
   data: InformeData,
   escudo: HTMLImageElement | null,
   destacados: DestacadosRival,
+  aspectos: AspectoDestacado[],
+  escudosLiga: Map<string, HTMLImageElement>,
+  hoja: number,
+  hojas: number,
 ) {
   papel(g);
-  cabecera(g, "LO QUE LE HACE DISTINTO", data, escudo);
+  cabecera(
+    g,
+    hojas > 1
+      ? `LO QUE LE HACE DISTINTO · ${hoja}/${hojas}`
+      : "LO QUE LE HACE DISTINTO",
+    data,
+    escudo,
+  );
 
-  const aspectos = destacados.equipo.slice(0, 4);
+  const rival = data.informe.nombreLargo || data.informe.nombre;
 
   g.el("Nota de la hoja", { x: MARGEN, y: CUERPO_Y - 34, w: ANCHO, h: 30 }, (ctx) =>
     escribe(
       ctx,
-      `LO QUE MÁS LE SEPARA DE LOS ${destacados.equipos} EQUIPOS DE LA CATEGORÍA`,
+      `LO QUE MÁS LE SEPARA DE LOS ${destacados.equipos} EQUIPOS DE LA CATEGORÍA · A LA DERECHA, DÓNDE QUEDA CADA UNO`,
       MARGEN,
       CUERPO_Y - 12,
       {
@@ -2196,30 +2512,18 @@ function pintaDestacadosEquipo(
     ),
   );
 
-  /*
-  | Uno o dos aspectos ocupan la hoja entera a lo ancho; tres o cuatro van en
-  | dos columnas. Así una hoja con un solo aspecto no sale con un panel
-  | pequeño arriba a la izquierda y tres cuartos de papel en blanco.
-  */
-  const enColumnas = aspectos.length > 2;
-
-  const anchoPanel = enColumnas ? (ANCHO - 24) / 2 : ANCHO;
-
-  const filas = enColumnas ? Math.ceil(aspectos.length / 2) : aspectos.length;
-
-  const altoPanel = (CUERPO_ALTO - 24 * (filas - 1)) / filas;
+  const altoPanel = (CUERPO_ALTO - 24 * (aspectos.length - 1)) / aspectos.length;
 
   aspectos.forEach((aspecto, indice) => {
-    const columna = enColumnas ? indice % 2 : 0;
-    const fila = enColumnas ? Math.floor(indice / 2) : indice;
-
     pintaAspecto(
       g,
       aspecto,
-      MARGEN + columna * (anchoPanel + 24),
-      CUERPO_Y + fila * (altoPanel + 24),
-      anchoPanel,
+      MARGEN,
+      CUERPO_Y + indice * (altoPanel + 24),
+      ANCHO,
       altoPanel,
+      escudosLiga,
+      rival,
     );
   });
 
@@ -4554,10 +4858,47 @@ export async function construyeHojasInforme(
   | ha bajado informe no tiene percentiles, y en agosto puede haber aspectos
   | de equipo sin que ningún jugador llegue al 60 % de los minutos.
   */
-  if ((data.destacados?.equipo ?? []).length > 0) {
-    hoja("Lo que le hace distinto", (g) =>
-      pintaDestacadosEquipo(g, data, escudo, data.destacados!),
-    );
+  const deEquipo = data.destacados?.equipo ?? [];
+
+  if (deEquipo.length > 0) {
+    /*
+    | Los escudos de la categoría para la nube: son los mismos de la tabla de
+    | clasificación, que ya están bajados. Se cruzan por nombre —BeSoccer
+    | escribe «C.D. Teruel» y Wyscout «Teruel»— dentro de `pintaNube`.
+    */
+    const escudosLiga = new Map<string, HTMLImageElement>();
+
+    for (const fila of informe.clasificacion.total) {
+      const imagen = imagenes.get(fila.escudo);
+
+      if (imagen) escudosLiga.set(fila.equipo, imagen);
+    }
+
+    const paginas = Math.ceil(deEquipo.length / ASPECTOS_POR_HOJA);
+
+    for (let i = 0; i < paginas; i++) {
+      const trozo = deEquipo.slice(
+        i * ASPECTOS_POR_HOJA,
+        (i + 1) * ASPECTOS_POR_HOJA,
+      );
+
+      hoja(
+        paginas > 1
+          ? `Lo que le hace distinto · ${i + 1}`
+          : "Lo que le hace distinto",
+        (g) =>
+          pintaDestacadosEquipo(
+            g,
+            data,
+            escudo,
+            data.destacados!,
+            trozo,
+            escudosLiga,
+            i + 1,
+            paginas,
+          ),
+      );
+    }
   }
 
   if ((data.destacados?.jugadores ?? []).length > 0) {

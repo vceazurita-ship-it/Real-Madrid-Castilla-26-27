@@ -27,6 +27,28 @@ export type FilaDestacada = {
   percentil: number;
 };
 
+export type EjeNube = {
+  nombre: string;
+  unidad: Unidad;
+  /** `null` en las métricas de estilo: ni más es mejor ni menos. */
+  mejorAlto: boolean | null;
+};
+
+/**
+ * La categoría entera en las dos métricas del aspecto.
+ *
+ * Es lo que convierte «va +33 en dominio con balón» en una imagen: un escudo
+ * por equipo, las dos medianas cruzando el dibujo y el rival marcado. Con una
+ * sola métrica con datos, `y` viene a `null` y se pinta en una línea.
+ */
+export type NubeDestacada = {
+  x: EjeNube;
+  y: EjeNube | null;
+  medianaX: number;
+  medianaY: number | null;
+  puntos: { equipo: string; x: number; y: number | null }[];
+};
+
 export type AspectoDestacado = {
   /** «Presión alta». */
   aspecto: string;
@@ -36,6 +58,7 @@ export type AspectoDestacado = {
   /** −50 … +50: lo mismo contado desde la media de la categoría. */
   desviacion: number;
   filas: FilaDestacada[];
+  nube: NubeDestacada | null;
 };
 
 export type JugadorDestacado = {

@@ -231,8 +231,15 @@ export function Campograma({
                 {f.ficha.rotulo}
               </text>
 
-              {/* En el lado del partido, cuánto se separó de la media. */}
-              {lado === "partido" && f.diferencia !== null && (
+              {/*
+                En el lado del partido, cuánto cambia respecto a la referencia.
+
+                El número va **tal cual** —13 remates en contra sobre 8,33 son
+                un +56 %— y el color dice si eso es bueno o malo. Antes iba con
+                el sentido de la métrica puesto y ese mismo caso salía «−56 %»
+                justo al lado de las dos cifras que lo desmentían.
+              */}
+              {lado === "partido" && f.cambio !== null && (
                 <text
                   x={x}
                   y={y - 21}
@@ -242,8 +249,8 @@ export function Campograma({
                   fill={color}
                   style={{ fontVariantNumeric: "tabular-nums" }}
                 >
-                  {f.diferencia >= 0 ? "+" : ""}
-                  {f.diferencia.toFixed(0)} %
+                  {f.cambio >= 0 ? "+" : ""}
+                  {f.cambio.toFixed(0)} %
                 </text>
               )}
             </g>

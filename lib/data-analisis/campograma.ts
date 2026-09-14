@@ -1,5 +1,10 @@
 import type { FilaPartido } from "./leer";
-import { METRICA_POR_KEY, valorEnGrupo, valorEnPartido } from "./metricas";
+import {
+  METRICA_POR_KEY,
+  formatea,
+  valorEnGrupo,
+  valorEnPartido,
+} from "./metricas";
 
 /**
  * EL PARTIDO, PINTADO EN UN CAMPO.
@@ -332,7 +337,24 @@ export type ValorFicha = {
   partido: number | null;
   /** La referencia: nuestra media de la temporada o la de la categoría. */
   media: number | null;
-  /** Diferencia en tanto por ciento, con el sentido de la métrica puesto. */
+  /**
+   * Lo que cambia la cifra, en tanto por ciento y **tal cual**: 13 remates en
+   * contra sobre una media de 8,33 son un +56 %, se mire como se mire.
+   *
+   * Es lo que se enseña. Antes se enseñaba `diferencia` —el mismo número con
+   * el sentido de la métrica puesto— y ese +56 % salía en pantalla como
+   * «−56 %» al lado de las dos cifras que lo desmentían: quien lo leía hacía
+   * la división de cabeza y no le cuadraba. El juicio lo da el color, que para
+   * eso está.
+   */
+  cambio: number | null;
+  /**
+   * El mismo cambio con el sentido de la métrica puesto: positivo es siempre
+   * «mejor», también en PPDA o en remates en contra.
+   *
+   * **No se enseña como número**: se usa para el color, para ordenar y para
+   * escribir la lectura de debajo.
+   */
   diferencia: number | null;
 };
 
@@ -438,6 +460,7 @@ export function fichasDe(
         mejorAlto,
         partido,
         media,
+        cambio: bruta,
         diferencia:
           bruta === null ? null : mejorAlto === false ? -bruta : bruta,
       };
@@ -481,5 +504,23 @@ export function lecturaDeMomento(
 
   const porEncima = utiles.filter((f) => f.diferencia > 0).length;
 
-  return `Contra ${rival}, de ${utiles.length} cifras con un sentido claro se quedaron ${porEncima} por encima de ${contra}. Lo más destacado fue ${mejor.ficha.rotulo.toLowerCase()} (${mejor.diferencia >= 0 ? "+" : ""}${mejor.diferencia.toFixed(0)} %); lo que más se cayó, ${peor.ficha.rotulo.toLowerCase()} (${peor.diferencia >= 0 ? "+" : ""}${peor.diferencia.toFixed(0)} %).`;
+  /*
+  | Las dos cifras y el «más» o «menos», nunca un porcentaje con signo.
+  |
+  | «Remates en contra (−56 %)» era verdad y no se entendía: son 13 contra una
+  | media de 8,33, o sea un 56 % **más**. Diciendo las dos cifras no hay manera
+  | de leerlo al revés.
+  */
+  const cuenta = (f: ValorFicha) => {
+    const cambio = f.cambio;
+
+    const cuanto =
+      cambio === null
+        ? ""
+        : `, un ${Math.abs(cambio).toFixed(0)} % ${cambio >= 0 ? "más" : "menos"}`;
+
+    return `${f.ficha.rotulo.toLowerCase()} (${formatea(f.partido, f.unidad)} frente a ${formatea(f.media, f.unidad)}${cuanto})`;
+  };
+
+  return `Contra ${rival}, de ${utiles.length} cifras con un sentido claro quedaron ${porEncima} mejor que ${contra}. Lo mejor, ${cuenta(mejor)}; lo peor, ${cuenta(peor)}.`;
 }

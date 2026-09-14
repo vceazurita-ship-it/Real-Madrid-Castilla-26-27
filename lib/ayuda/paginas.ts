@@ -99,9 +99,14 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "Menos es presionar más",
           },
           {
-            que: "Diferencia contra la media",
-            es: "Cuánto se separó una cifra de la referencia",
-            cuenta: "(valor − referencia) ÷ referencia × 100, con el sentido de la métrica puesto",
+            que: "Cambio contra la referencia (campogramas)",
+            es: "Cuánto se separó una cifra, tal cual; el sentido lo lleva el color, no el signo",
+            cuenta: "(valor − referencia) ÷ referencia × 100 · verde = mejor, naranja = peor",
+          },
+          {
+            que: "La referencia del segundo campo",
+            es: "Se elige: nuestra media de la temporada o la de un equipo medio de la liga",
+            cuenta: "La de la liga son todas las filas de todos los equipos juntas",
           },
           {
             que: "«Del rival»",
