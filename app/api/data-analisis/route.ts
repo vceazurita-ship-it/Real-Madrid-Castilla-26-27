@@ -6,6 +6,7 @@ import {
   temporadaDe,
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
+import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
 import { readDoc } from "@/lib/docStore";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
 import {
@@ -283,6 +284,17 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
   };
 }
 
+/**
+ * Las alertas de la portada.
+ *
+ * Se calculan aquí por lo mismo que el resumen: la portada no puede bajarse el
+ * dataset entero para decir tres frases, y encima es la pantalla que más se
+ * abre. Al servidor le sale de lo que ya tiene en memoria.
+ */
+function alertasDe(datos: Dataset) {
+  return seleccionaAlertas(alertasDeData(datos.partidos, datos.jugadores));
+}
+
 export async function GET(peticion: Request) {
   const parametros = new URL(peticion.url).searchParams;
 
@@ -305,6 +317,8 @@ export async function GET(peticion: Request) {
 
   const soloResumen = parametros.has("resumen");
 
+  const soloAlertas = parametros.has("alertas");
+
   const equipoDestacado = parametros.get("destacados");
 
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
@@ -320,6 +334,10 @@ export async function GET(peticion: Request) {
         ok: true,
         destacados: destacadosDe(guardado.datos, equipoDestacado, aspectosPedidos),
       });
+    }
+
+    if (soloAlertas) {
+      return NextResponse.json({ ok: true, alertas: alertasDe(guardado.datos) });
     }
 
     return soloResumen
@@ -354,6 +372,10 @@ export async function GET(peticion: Request) {
         origen,
         destacados: destacadosDe(datos, equipoDestacado, aspectosPedidos),
       });
+    }
+
+    if (soloAlertas) {
+      return NextResponse.json({ ok: true, origen, alertas: alertasDe(datos) });
     }
 
     return soloResumen

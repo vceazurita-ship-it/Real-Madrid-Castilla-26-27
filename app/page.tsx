@@ -22,6 +22,7 @@ import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
+import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { trackModuleVisit, useModulosMasUsados } from "@/lib/module-usage"
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta"
 import { usePlayers } from "@/hooks/usePlayers"
@@ -683,6 +684,17 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
+            {/* =========================== ALERTAS ============================ */}
+
+            {/*
+              Va justo debajo de la portada y antes de los accesos a propósito:
+              es lo único de esta pantalla que **no se sabe de antes**. Los
+              accesos y los módulos están siempre ahí; esto cambia cada semana y
+              es lo que hace que abrir la aplicación sirva para algo aunque no
+              se venga a nada concreto. Si no hay nada que avisar, no se pinta.
+            */}
+            <AlertasPortada plantilla={plantilla} seguimiento={filasSeguimiento} />
 
             {/* ========================= ACCESO RÁPIDO ========================= */}
 

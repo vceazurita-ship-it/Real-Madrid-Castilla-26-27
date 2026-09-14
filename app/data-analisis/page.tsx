@@ -249,7 +249,25 @@ export default function DataAnalisisPage() {
   const [cargando, setCargando] = useState(true);
   const [intento, setIntento] = useState(0);
 
-  const [area, setArea] = useState<Area>("liga");
+  /*
+  | Con qué área se abre.
+  |
+  | Normalmente «Contra la liga», que es la pregunta más frecuente. Pero las
+  | alertas de la portada enlazan aquí con `?area=` —«mira esto en jugador a
+  | jugador»— y llegar a otra pantalla distinta de la que te han prometido es
+  | la manera más rápida de que nadie vuelva a pulsar una alerta.
+  |
+  | Se lee **una sola vez, al montar** (`useState` con función), no en un
+  | efecto: cambiar de área después con un efecto sería pisarle la elección al
+  | que ya está navegando, y es lo que prohíbe `react-hooks/set-state-in-effect`.
+  */
+  const [area, setArea] = useState<Area>(() => {
+    if (typeof window === "undefined") return "liga";
+
+    const pedida = new URLSearchParams(window.location.search).get("area");
+
+    return AREAS.some((a) => a.key === pedida) ? (pedida as Area) : "liga";
+  });
 
   /* La fase que se está mirando dentro de «Contra la liga». */
   const [fase, setFase] = useState<Fase>("con");

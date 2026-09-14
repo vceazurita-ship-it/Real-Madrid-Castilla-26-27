@@ -566,6 +566,58 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
   },
+
+  /* ==================== LA PORTADA ==================== */
+  {
+    ruta: "/",
+    titulo: "Portada",
+    resumen: "El estado del equipo de un vistazo y la puerta a las 36 áreas.",
+    origen:
+      "Los informes de la categoría (Data Análisis) y las hojas de seguimiento, identidad y cultura. Ninguna cifra se escribe aquí.",
+    bloques: [
+      {
+        titulo: "Las alertas",
+        filas: [
+          {
+            que: "Qué sale",
+            es: "Sólo lo que se separa de lo normal, a favor y en contra. Si un día no hay nada, no se pinta la tira",
+          },
+          {
+            que: "A favor / a vigilar",
+            es: "Las dos caras cuentan: lo que el equipo hace mejor que nadie también se trabaja",
+          },
+          {
+            que: "Un aspecto de equipo",
+            es: "Dos o tres métricas que dicen lo mismo, contra los 20 de la categoría",
+            cuenta: "Aparece a partir de ±20 puntos de percentil",
+          },
+          {
+            que: "Una métrica suelta",
+            es: "El Castilla entre los mejores o los peores de la liga en algo con un sentido claro",
+            cuenta: "Percentil ≥ 85 o ≤ 15; las de estilo no se juzgan",
+          },
+          {
+            que: "Un jugador",
+            es: "Con al menos el 60 % de los minutos, contra los de su puesto en toda la categoría",
+            cuenta: "Percentil ≥ 95 para bien; tres métricas en el percentil 10 o menos para mal",
+          },
+          {
+            que: "Seguimiento",
+            es: "Jugadores sin registro reciente y cobertura de la plantilla",
+            cuenta: "Avisa a partir de 45 días sin seguimiento",
+          },
+          {
+            que: "«Al abrir»",
+            es: "Qué mirar en la pantalla a la que lleva cada alerta",
+          },
+        ],
+      },
+    ],
+    ojo: [
+      "Con dos o tres jornadas, una alerta es un indicio: dice dónde mirar, no qué hacer.",
+      "El orden es por cuánto se sale de lo normal, no por importancia: eso lo pone el cuerpo técnico.",
+    ],
+  },
 ];
 
 const limpia = (ruta: string) => ruta.replace(/\/+$/, "") || "/";
