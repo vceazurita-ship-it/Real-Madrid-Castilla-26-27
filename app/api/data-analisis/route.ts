@@ -7,6 +7,7 @@ import {
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
 import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
+import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { readDoc } from "@/lib/docStore";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
 import {
@@ -291,6 +292,39 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
  * dataset entero para decir tres frases, y encima es la pantalla que más se
  * abre. Al servidor le sale de lo que ya tiene en memoria.
  */
+/**
+ * El reparto de goles propuesto para un equipo.
+ *
+ * Lo pide el pop-up de antes del informe y el propio informe, y los dos se
+ * montan en el navegador: el dataset entero son dos megas para sacar diez
+ * casillas. Se calcula aquí con la temporada en curso, que es la que describe
+ * a un rival al que se le juega esta semana.
+ */
+function tipologiaDe(datos: Dataset, equipo: string, goles: string) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
+    .filter(Boolean)
+    .sort();
+
+  const actual = temporadas[temporadas.length - 1] ?? "";
+
+  const liga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+
+  /*
+  | «goles=7,4» son los goles de jugada que cuenta BeSoccer a favor y en
+  | contra: lo que la diapositiva enseña arriba. Se reparten ésos para que la
+  | tabla sume lo que dice la cabecera; sin el parámetro se reparten los de los
+  | informes de Wyscout, que son menos partidos.
+  */
+  const [aFavor, enContra] = goles.split(",").map((n) => Number(n));
+
+  const objetivo =
+    Number.isFinite(aFavor) && Number.isFinite(enContra)
+      ? { aFavor: Math.max(0, aFavor), enContra: Math.max(0, enContra) }
+      : undefined;
+
+  return { temporada: actual, ...proponeTipologia(equipo, liga, objetivo) };
+}
+
 function alertasDe(datos: Dataset) {
   return seleccionaAlertas(alertasDeData(datos.partidos, datos.jugadores));
 }
@@ -319,6 +353,8 @@ export async function GET(peticion: Request) {
 
   const soloAlertas = parametros.has("alertas");
 
+  const equipoTipologia = parametros.get("tipologia");
+
   const equipoDestacado = parametros.get("destacados");
 
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
@@ -338,6 +374,13 @@ export async function GET(peticion: Request) {
 
     if (soloAlertas) {
       return NextResponse.json({ ok: true, alertas: alertasDe(guardado.datos) });
+    }
+
+    if (equipoTipologia) {
+      return NextResponse.json({
+        ok: true,
+        ...tipologiaDe(guardado.datos, equipoTipologia, parametros.get("goles") ?? ""),
+      });
     }
 
     return soloResumen
@@ -376,6 +419,14 @@ export async function GET(peticion: Request) {
 
     if (soloAlertas) {
       return NextResponse.json({ ok: true, origen, alertas: alertasDe(datos) });
+    }
+
+    if (equipoTipologia) {
+      return NextResponse.json({
+        ok: true,
+        origen,
+        ...tipologiaDe(datos, equipoTipologia, parametros.get("goles") ?? ""),
+      });
     }
 
     return soloResumen

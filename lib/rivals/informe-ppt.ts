@@ -1992,7 +1992,7 @@ function pintaTipologia(
     g,
     `${partidos.length} PARTIDO${
       partidos.length === 1 ? "" : "S"
-    } CON FICHA · PENALTIS Y PROPIAS DE BESOCCER · EL REPARTO LO CODIFICA EL ANALISTA`,
+    } CON FICHA · PENALTIS Y PROPIAS DE BESOCCER · EL REPARTO SE PROPONE CON WYSCOUT Y LO CORRIGE EL ANALISTA`,
   );
 }
 

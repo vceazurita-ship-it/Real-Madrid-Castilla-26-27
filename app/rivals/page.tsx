@@ -27,6 +27,10 @@ import PlayerStatsCard from "@/components/rivals/PlayerStatsCard";
 import { useRivalStats } from "@/hooks/useRivalStats";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { leeTipologia } from "@/lib/rivals/tipologia";
+import {
+  mezclaTipologia,
+  traePropuestaTipologia,
+} from "@/lib/rivals/tipologia-wyscout";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import type { AutoSaveStatus as AutoSaveStatusValue } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
@@ -83,7 +87,13 @@ import {
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
-import { esLiga, findInforme, type InformeEquipo } from "@/lib/rivals/informe";
+import {
+  esLiga,
+  findInforme,
+  jugados,
+  tipologiaGoles,
+  type InformeEquipo,
+} from "@/lib/rivals/informe";
 import {
   leePosicionesDeLaTemporada,
   LECTURA_VACIA,
@@ -262,6 +272,23 @@ const PARTIDOS_INFORME_POR_DEFECTO = 4;
 
 /** Tope del pop-up: seis partidos son tres hojas, y ahí se corta. */
 const PARTIDOS_INFORME_MAXIMO = 6;
+
+/**
+ * Los goles de jugada de un rival, que son los que hay que repartir.
+ *
+ * La hoja de tipología cuenta arriba **todos** los goles de los partidos con
+ * ficha, y pinta sola los penaltis y las propias puertas. Lo que queda por
+ * repartir entre las casillas —y lo que propone Wyscout— son los demás: si se
+ * repartieran todos, los penaltis saldrían dos veces.
+ */
+function golesDeJugada(informe: InformeEquipo) {
+  const cuentas = tipologiaGoles(jugados(informe).filter((p) => p.goles));
+
+  return {
+    aFavor: cuentas.aFavor.jugada,
+    enContra: cuentas.enContra.jugada,
+  };
+}
 
 /** "2026-09-06T18:00:00+02:00" -> "6 sep 2026". */
 function fechaDePartido(iso: string) {
@@ -1905,9 +1932,24 @@ export default function RivalPlayersPage() {
             : undefined,
           /* Y los partidos que se han marcado en el pop-up: dos por hoja. */
           partidosElegidos: elegidos,
-          /* El reparto de goles que ha escrito el analista en ese mismo
-             pop-up; sin nada escrito, las casillas salen punteadas. */
-          tipologia: await leeTipologia(equipoDelOnce),
+          /*
+          | El reparto de goles: lo que ha escrito el analista **encima** de lo
+          | que propone Wyscout.
+          |
+          | La propuesta rellena los huecos y lo escrito gana siempre, casilla a
+          | casilla, así que la hoja sale con números desde el primer día y el
+          | analista sólo corrige lo que no cuadre. Es la misma mezcla que se ve
+          | en el pop-up, para que el documento no diga otra cosa.
+          */
+          tipologia: mezclaTipologia(
+            (
+              await traePropuestaTipologia(
+                equipoDelOnce,
+                golesDeJugada(informe),
+              )
+            ).tipologia,
+            await leeTipologia(equipoDelOnce),
+          ),
           /* Y lo que le hace distinto contra la categoría entera, que sale de
              los informes de Wyscout y lo calcula el servidor. Si no hay dato
              —o el endpoint falla—, el informe se monta sin esas dos hojas. */
@@ -3875,6 +3917,10 @@ export default function RivalPlayersPage() {
       {eleccionInforme && !hojasInforme && (
         <InformePartidosDialog
           equipo={equipoDelOnce}
+          /* Los goles de jugada que cuenta BeSoccer: es lo que reparte la
+             propuesta de Wyscout, para que el pop-up y la hoja digan lo
+             mismo. */
+          golesDeJugada={golesDeJugada(eleccionInforme.informe)}
           partidos={eleccionInforme.partidos}
           elegidos={partidosInforme}
           porDefecto={eleccionInforme.porDefecto}

@@ -21,7 +21,7 @@
 | que es como se lee el documento.
 */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Check, FileDown, Loader2, RotateCcw, X } from "lucide-react";
 
@@ -37,6 +37,12 @@ import {
   sumaColumna,
   type TipologiaManual,
 } from "@/lib/rivals/tipologia";
+import {
+  PROPUESTA_VACIA,
+  mezclaTipologia,
+  traePropuestaTipologia,
+  type PropuestaTipologia,
+} from "@/lib/rivals/tipologia-wyscout";
 
 /** Un partido de los que tienen alineación bajada, que son los elegibles. */
 export type PartidoElegible = {
@@ -58,6 +64,15 @@ export type PartidoElegible = {
 
 interface InformePartidosDialogProps {
   equipo: string;
+  /**
+   * Los goles de jugada que cuenta BeSoccer, a favor y en contra.
+   *
+   * Es lo que reparte la propuesta de Wyscout: los penaltis y las propias
+   * puertas los pinta sola la diapositiva, y repartirlos otra vez los
+   * duplicaría. Sin esto, la propuesta reparte los goles de los informes de
+   * Wyscout, que son menos partidos.
+   */
+  golesDeJugada?: { aFavor: number; enContra: number };
   /** Del más reciente al más antiguo, ya cruzados con sus alineaciones. */
   partidos: PartidoElegible[];
   /** Los `id` marcados ahora mismo. */
@@ -80,6 +95,7 @@ const TINTA_RESULTADO: Record<string, string> = {
 
 export default function InformePartidosDialog({
   equipo,
+  golesDeJugada,
   partidos,
   elegidos,
   porDefecto,
@@ -272,7 +288,7 @@ export default function InformePartidosDialog({
             </ul>
           )}
 
-          <TipologiaEditor equipo={equipo} />
+          <TipologiaEditor equipo={equipo} golesDeJugada={golesDeJugada} />
         </div>
 
         {/* PIE */}
@@ -335,7 +351,13 @@ export default function InformePartidosDialog({
  *
  * En blanco se comporta como antes: la casilla sale punteada en el documento.
  */
-function TipologiaEditor({ equipo }: { equipo: string }) {
+function TipologiaEditor({
+  equipo,
+  golesDeJugada,
+}: {
+  equipo: string;
+  golesDeJugada?: { aFavor: number; enContra: number };
+}) {
   const doc = useRemoteDoc<TipologiaManual>({
     key: claveTipologia(equipo),
     kind: "rival-tipologia",
@@ -343,7 +365,52 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
     debounce: 600,
   });
 
-  const valores = useMemo(() => normalizaTipologia(doc.value), [doc.value]);
+  /*
+  | La propuesta de Wyscout.
+  |
+  | No se guarda: vive aquí y en el informe, y **rellena sólo los huecos**. Lo
+  | escrito sigue siendo lo único que se guarda, así que un rival que nunca se
+  | ha tocado no ocupa un documento y el día que cambien los informes la
+  | propuesta cambia con ellos.
+  */
+  const [propuesta, setPropuesta] = useState<PropuestaTipologia>(PROPUESTA_VACIA);
+
+  /*
+  | Las dos cifras sueltas y no el objeto: quien llama lo construye al vuelo en
+  | cada render y, dependiendo del objeto, el efecto volvería a pedir la
+  | propuesta cada vez que se pinta el pop-up.
+  */
+  const golesFavor = golesDeJugada?.aFavor;
+  const golesContra = golesDeJugada?.enContra;
+
+  useEffect(() => {
+    let vivo = true;
+
+    const objetivo =
+      golesFavor === undefined || golesContra === undefined
+        ? undefined
+        : { aFavor: golesFavor, enContra: golesContra };
+
+    void traePropuestaTipologia(equipo, objetivo).then((la) => {
+      if (vivo) setPropuesta(la);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, [equipo, golesFavor, golesContra]);
+
+  const escritos = useMemo(() => normalizaTipologia(doc.value), [doc.value]);
+
+  const valores = useMemo(
+    () => mezclaTipologia(propuesta.tipologia, escritos),
+    [escritos, propuesta],
+  );
+
+  /** Si una casilla viene de la propuesta y no de la mano, se dice. */
+  const esPropuesta = (lado: "aFavor" | "enContra", fila: string) =>
+    escritos[lado][fila] === undefined &&
+    propuesta.tipologia[lado][fila] !== undefined;
 
   const pon = (lado: "aFavor" | "enContra", fila: string, texto: string) => {
     const n = Number(texto);
@@ -362,16 +429,31 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
     });
   };
 
-  const casilla = (lado: "aFavor" | "enContra", fila: string) => (
-    <input
-      type="number"
-      min={0}
-      inputMode="numeric"
-      value={valores[lado][fila] ?? ""}
-      onChange={(evento) => pon(lado, fila, evento.target.value)}
-      className="h-7 w-14 rounded-md border border-white/15 bg-white/[0.04] text-center text-xs font-semibold tabular-nums text-white outline-none focus:border-[#C8A96B]"
-    />
-  );
+  const casilla = (lado: "aFavor" | "enContra", fila: string) => {
+    const propuesto = esPropuesta(lado, fila);
+
+    return (
+      <input
+        type="number"
+        min={0}
+        inputMode="numeric"
+        value={valores[lado][fila] ?? ""}
+        onChange={(evento) => pon(lado, fila, evento.target.value)}
+        title={
+          propuesto
+            ? "Propuesto con los informes de Wyscout. Escribe encima para corregirlo."
+            : undefined
+        }
+        /* La propuesta va en dorado y a medio tono: se ve de un vistazo qué
+           ha puesto el analista y qué ha puesto el dato. */
+        className={`h-7 w-14 rounded-md border text-center text-xs font-semibold tabular-nums outline-none focus:border-[#C8A96B] ${
+          propuesto
+            ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] text-[#C8A96B]"
+            : "border-white/15 bg-white/[0.04] text-white"
+        }`}
+      />
+    );
+  };
 
   return (
     <div className="mt-5 border-t border-white/10 pt-4">
@@ -454,11 +536,33 @@ function TipologiaEditor({ equipo }: { equipo: string }) {
         </div>
       </div>
 
-      <p className="mt-2 text-[11px] text-white/30">
+      <p className="mt-2 text-[11px] leading-relaxed text-white/30">
         Primera casilla, goles a favor; segunda, en contra. Lo que se deje en
-        blanco sale punteado en el documento, como hasta ahora; las propias
-        puertas, en blanco, traen las que canta el marcador.
+        blanco sale punteado en el documento; las propias puertas, en blanco,
+        traen las que canta el marcador.
       </p>
+
+      {/*
+        De dónde sale lo que ya viene puesto. Va escrito con todas las letras
+        porque la diapositiva no distingue un dato de una estimación: los
+        penaltis son dato y el resto es un reparto, y quien firma el informe
+        tiene que saber cuál es cuál.
+      */}
+      {propuesta.base.partidos > 0 && (
+        <p className="mt-2 text-[11px] leading-relaxed text-[#C8A96B]/70">
+          Las casillas en dorado son una{" "}
+          <strong className="font-semibold">propuesta</strong>: reparten los{" "}
+          {propuesta.base.golesFavor} goles de jugada a favor y los{" "}
+          {propuesta.base.golesContra} en contra según{" "}
+          <strong className="font-semibold">de dónde nacen los remates</strong>{" "}
+          de este equipo —jugada, contra o balón parado— en sus{" "}
+          {propuesta.base.partidos}{" "}
+          {propuesta.base.partidos === 1 ? "informe" : "informes"} de Wyscout,
+          que es lo más cerca que llega el dato: Wyscout no clasifica los goles.
+          Los penaltis y las propias puertas no se tocan, que ésos los cuenta el
+          marcador. Escribe encima y manda lo tuyo.
+        </p>
+      )}
     </div>
   );
 }
