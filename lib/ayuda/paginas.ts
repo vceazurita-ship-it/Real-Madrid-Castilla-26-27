@@ -150,6 +150,36 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
       {
+        titulo: "Cómo se actualiza (una vez por semana)",
+        filas: [
+          {
+            que: "scripts/actualizar-wys.cmd",
+            es: "Doble clic y ya: baja los equipos, baja los jugadores, relee la carpeta y pregunta si se publica",
+            cuenta: "Tarda entre cinco y diez minutos; abre un Chrome aparte que se mueve solo",
+          },
+          {
+            que: "La contraseña de Wyscout",
+            es: "La escribes tú en esa ventana la primera vez; el proceso no la pide ni la guarda",
+            cuenta: "La sesión se queda en un perfil aparte y a la semana siguiente arranca ya dentro",
+          },
+          {
+            que: "Los informes de equipo",
+            es: "Un .xlsx por equipo del grupo, con MOSTRAR = ALL",
+            cuenta: "Se guardan como «Team Stats <equipo>.xlsx»",
+          },
+          {
+            que: "Los jugadores de la categoría",
+            es: "Salen de «Advanced Search», no de la ficha del equipo, y bajan por lotes",
+            cuenta: "Wyscout corta cada exportación en 500 filas: por eso siete equipos por fichero",
+          },
+          {
+            que: "Publicar",
+            es: "Es lo que hace que la plataforma lo vea: sin eso se queda en este ordenador",
+            cuenta: "El .cmd lo pregunta al final; Vercel tarda un par de minutos",
+          },
+        ],
+      },
+      {
         titulo: "Opta, que no es lo mismo",
         filas: [
           {
@@ -166,6 +196,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con 2 o 3 jornadas todo son indicios, no tendencias.",
       "El balón parado propio lo registramos nosotros: no sale de Wyscout ni de Opta, y no hay liga con la que compararlo.",
       "En el percentil del jugador no entran los que no llegan a 90 minutos.",
+      "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
     ],
   },
 

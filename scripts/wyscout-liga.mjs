@@ -1,15 +1,29 @@
 #!/usr/bin/env node
 /*
 |--------------------------------------------------------------------------
-| LOS INFORMES DE LA LIGA, BAJADOS SOLOS
+| LOS DATOS DE LA LIGA, BAJADOS SOLOS
 |--------------------------------------------------------------------------
 |
 | Cada semana había que entrar en Wyscout, abrir los veinte equipos del grupo
 | uno a uno, poner el desplegable en ALL y pulsar «Exportar en Excel» veinte
-| veces. Media hora de ratón para que `public/data/wys` tenga lo que
-| `lib/data-analisis/leer.ts` espera. Esto lo hace solo:
+| veces, y después repetir la faena en el buscador de jugadores. Media hora de
+| ratón para que `public/data/wys` tenga lo que `lib/data-analisis/leer.ts`
+| espera. Esto lo hace solo:
 |
 |     node scripts/wyscout-liga.mjs
+|
+| o, sin abrir una consola, doble clic en `scripts/actualizar-wys.cmd`, que
+| además relee la carpeta y pregunta si se publica.
+|
+| SON DOS RECADOS, NO UNO
+|
+|   1. **Los equipos.** La ficha de cada uno del grupo, con MOSTRAR = ALL, a
+|      `Team Stats <equipo>.xlsx`.
+|   2. **Los jugadores.** Los de toda la categoría, que están en otra
+|      aplicación —«Advanced Search»— y bajan por lotes de equipos porque
+|      Wyscout corta cada exportación en 500 filas, a `Player Stats N.xlsx`.
+|
+| Se puede pedir sólo uno: `--sin-jugadores` o `--solo-jugadores`.
 |
 | CÓMO ENTRA EN WYSCOUT, QUE ES LA PARTE DELICADA
 |
@@ -31,13 +45,26 @@
 |
 | LO QUE NO SE PUEDE, Y NO ES POR PEREZA
 |
-| Los **clips de vídeo** de la tabla no tienen enlace: el icono de ▶ no es un
-| `<a>`, abre un reproductor dentro de la propia aplicación, y la aplicación no
-| tiene direcciones —navegar por ella nunca cambia la URL, siempre es
-| `/app/`—. Se probaron `?/team/<id>`, `#/team/<id>` y `/app/team/<id>`: las
-| tres aterrizan en la lista de países o en un 404. Se puede compartir un clip
-| suelto a mano desde el reproductor, pero no hay forma de recoger los enlaces
-| de cientos de celdas ni de enlazar a un equipo desde fuera.
+| Los **clips de vídeo** de la tabla no tienen enlace. No es que no se haya
+| encontrado: es que no existe, y se ha comprobado por los tres caminos.
+|
+|   - **El ▶ no es un `<a>`.** Al pulsarlo hace un `POST` a
+|     `rest.wyscout.com/v1/clips/clipsfromjson.json` con el clip **descrito en
+|     el cuerpo** —`{matchId, start, end, label, teamId, playerId}`—. El clip
+|     no es un recurso con dirección: se fabrica al vuelo con la sesión puesta.
+|   - **La aplicación no tiene direcciones.** Navegar por ella nunca cambia la
+|     URL, siempre `/app/`. Se probaron `?/team/<id>`, `#/team/<id>` y
+|     `/app/team/<id>`: las tres aterrizan en la lista de países o en un 404.
+|   - **Las aplicaciones sueltas tampoco.** Abrir a mano
+|     `wyscout-apps.hudl.com/advanced-search/`, con la sesión iniciada en ese
+|     mismo Chrome, contesta «Your session data is invalid»: sin el token que
+|     les pasa la cáscara no arrancan.
+|
+| Lo que sí está al alcance es **el minutaje**: la misma tabla se lo pide a
+| `searchapi.wyscout.com/api/v1/events/team/<id>/goals.json?match=<id>` y ahí
+| viene cada acción con su segundo de inicio y de fin. Con eso la plataforma
+| puede saltar al minuto en **nuestro** vídeo del partido, que para preparar
+| una sesión vale más que abrir una ventana de Wyscout.
 */
 
 import { spawn } from "node:child_process";
@@ -421,6 +448,15 @@ async function vaAlGrupo(nav, intentos = 3) {
 async function vaAlGrupoUnaVez(nav) {
   await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" });
 
+  /*
+  | `/app/` no siempre abre la lista de países: **abre la última aplicación
+  | que se usó**. Si se quedó en el buscador de jugadores hay que volver a
+  | «Platform» por el lanzador, o los tres clics siguientes caen en el vacío.
+  */
+  if (!(await nav.esperaA("Albania", 15))) {
+    await abreAplicacion(nav, "Platform");
+  }
+
   if (!(await nav.esperaA("Albania"))) {
     throw new Error("No carga la lista de países.");
   }
@@ -591,7 +627,9 @@ async function bajaEquipo(nav, equipo) {
   */
   if (bandera("parar")) return { equipo, estado: "parado en la tabla" };
 
-  const antes = new Set(fs.readdirSync(DESCARGAS));
+  /* Por la hora y no por el nombre: un fichero a medias de una pasada
+     anterior se queda en la carpeta y ya no parece nuevo nunca. */
+  const desde = Date.now();
 
   if (!(await nav.clic("Exportar en Excel", { luego: 2000 }))) {
     return { equipo, estado: "no encuentro el botón de exportar" };
@@ -605,7 +643,8 @@ async function bajaEquipo(nav, equipo) {
 
     fichero = fs
       .readdirSync(DESCARGAS)
-      .find((f) => !antes.has(f) && f.endsWith(".xlsx"));
+      .filter((f) => f.endsWith(".xlsx"))
+      .find((f) => fs.statSync(path.join(DESCARGAS, f)).mtimeMs >= desde);
   }
 
   if (!fichero) return { equipo, estado: "no ha bajado el fichero" };
@@ -644,6 +683,752 @@ async function bajaEquipo(nav, equipo) {
   };
 }
 
+/**
+ * Cambia de aplicación por el menú del lanzador.
+ *
+ * Wyscout no es una aplicación sino varias metidas en la misma pestaña, y se
+ * salta entre ellas por un botón **sin texto ni identificador**: el grande que
+ * hay justo detrás del de la casita, arriba en el centro. Se localiza por ahí,
+ * que es lo único estable que tiene, y se pulsa con ratón de verdad porque la
+ * barra de arriba no está hecha de DOM corriente.
+ */
+async function abreAplicacion(nav, nombre) {
+  /* La barra de arriba se pinta después que la aplicación: hay que esperarla. */
+  await nav.esperaValor(
+    `return document.querySelector("span.ae-home-1") ? 1 : 0;`,
+    (hay) => hay === 1,
+    40,
+  );
+
+  const sitio = await nav.js(`
+    const casa = document.querySelector("span.ae-home-1");
+
+    const lanzador = casa?.closest(".gears-button")?.nextElementSibling;
+
+    if (!lanzador) return null;
+
+    const r = lanzador.getBoundingClientRect();
+
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  `);
+
+  if (!sitio) throw new Error("No encuentro el lanzador de aplicaciones.");
+
+  await nav.manda("Input.dispatchMouseEvent", {
+    type: "mouseMoved", x: sitio.x, y: sitio.y, button: "none",
+  });
+
+  await espera(220);
+
+  await nav.manda("Input.dispatchMouseEvent", {
+    type: "mousePressed", x: sitio.x, y: sitio.y, button: "left", clickCount: 1, buttons: 1,
+  });
+
+  await espera(90);
+
+  await nav.manda("Input.dispatchMouseEvent", {
+    type: "mouseReleased", x: sitio.x, y: sitio.y, button: "left", clickCount: 1, buttons: 0,
+  });
+
+  await espera(1500);
+
+  if (!(await nav.clic(nombre, { luego: 6000 }))) {
+    throw new Error(`No sale «${nombre}» en el menú de aplicaciones.`);
+  }
+
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL BUSCADOR DE JUGADORES (ES OTRA APLICACIÓN)                      */
+/* ------------------------------------------------------------------ */
+
+/*
+| Los jugadores no salen de la ficha del equipo: están en «Advanced Search»,
+| que **es otra aplicación** —vive en un `<iframe>` de `wyscout-apps.hudl.com`
+| colgado de la misma pestaña— y se abre por el lanzador del centro de la barra
+| de arriba. Dentro se eligen competición, temporada y MOSTRAR = ALL, y se
+| exporta a Excel igual que en los equipos.
+|
+| TRES COSAS QUE OBLIGAN A HACERLO ASÍ
+|
+| 1. **Wyscout corta la exportación en 500 filas.** Sale un aviso —«sólo se
+|    exportarán los primeros 500 registros»— y el resto se pierde sin más. Por
+|    eso no se piden los veinte equipos de una vez: se piden por lotes, con el
+|    filtro «Equipo actual», y cada lote baja su fichero. `leer.ts` los junta
+|    solo, que ya sabe fundir varias descargas del mismo jugador.
+|
+| 2. **Los desplegables sólo se abren con ratón de verdad.** Los eventos
+|    fabricados a mano no los mueven: el de competiciones se queda cerrado
+|    aunque le llegue el `mousedown`. Así que abrir es un clic de CDP sobre su
+|    sitio en pantalla, sumándole lo que baja el marco respecto a la ventana.
+|
+| 3. **Elegir la opción, al revés: a mano y sin coordenadas.** Las listas se
+|    pintan recortadas —la opción existe en el DOM pero cae fuera del trozo
+|    visible— y el clic por coordenadas aterriza en el vacío. Sobre la opción
+|    sí valen los eventos fabricados, y así la posición deja de importar.
+*/
+
+/** De hoy a «2026/2027»: la temporada arranca en julio. */
+function temporadaDeHoy(hoy = new Date()) {
+  const arranque =
+    hoy.getMonth() >= 6 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+
+  return `${arranque}/${arranque + 1}`;
+}
+
+const TEMPORADA = argumento("temporada") ?? temporadaDeHoy();
+
+/** Cuántos equipos por descarga. Siete deja mucho aire bajo las 500 filas. */
+const LOTE = Number(argumento("lote") ?? 7);
+
+/* Lo que se inyecta en cada evaluación dentro del marco. */
+const HERRAMIENTAS = `
+  const norma = (t) => (t || "").toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "");
+
+  const pulsa = (e) => {
+    if (!e) return false;
+
+    for (const tipo of ["mouseover", "mousedown", "mouseup", "click"]) {
+      e.dispatchEvent(new MouseEvent(tipo, { bubbles: true, cancelable: true, view: window, button: 0 }));
+    }
+
+    return true;
+  };
+
+  const filtro = (rotulo) =>
+    [...document.querySelectorAll(".chosen-filter--2Jv8u")]
+      .find((x) => norma(x.textContent).startsWith(norma(rotulo))) || null;
+
+  /*
+  | Por dónde se abre un desplegable: por la flecha.
+  |
+  | En el de equipos el centro del mando no está vacío —lo ocupan las fichas
+  | de los que ya están puestos— y el clic caía sobre la «×» de uno de ellos:
+  | el segundo equipo del lote nunca llegaba a entrar. La flecha de la derecha
+  | siempre está y nunca es otra cosa.
+  */
+  const mandoDe = (rotulo) => {
+    const f = filtro(rotulo);
+
+    if (!f) return null;
+
+    return f.querySelector(".Select-arrow-zone") || f.querySelector(".Select-control");
+  };
+
+  const opcion = (rotulo, texto) => {
+    const dentro = rotulo ? filtro(rotulo) : document;
+
+    if (!dentro) return null;
+
+    const lista = [...dentro.querySelectorAll(".Select-option")];
+
+    const q = norma(texto);
+
+    return lista.find((x) => norma(x.textContent) === q) ||
+      lista.filter((x) => norma(x.textContent).includes(q))
+        .sort((a, b) => a.textContent.length - b.textContent.length)[0] || null;
+  };
+
+  const cuenta = () => (document.querySelector(".count--2cwld") || {}).innerText || "?";
+`;
+
+/**
+ * Abre «Advanced Search» y devuelve un mando atado a su marco.
+ */
+async function abreBuscador(nav) {
+  const marcoDelBuscador = async () => {
+    const { frameTree } = await nav.manda("Page.getFrameTree");
+
+    return (frameTree.childFrames ?? []).find((c) =>
+      /advanced-search/.test(c.frame.url),
+    );
+  };
+
+  /*
+  | Y que esté **a la vista**, no sólo que exista.
+  |
+  | Al cambiar de aplicación Wyscout no se lleva el marco de la anterior: lo
+  | deja escondido. Así que encontrarlo no quiere decir que estemos dentro, y
+  | el proceso se ponía a pulsar filtros de un marco de cero por cero píxeles.
+  */
+  const marcoVisible = async () => {
+    const aLaVista = await nav.js(`
+      const f = [...document.querySelectorAll("iframe")].find((i) => /advanced-search/.test(i.src || ""));
+
+      if (!f) return false;
+
+      const r = f.getBoundingClientRect();
+
+      return r.width > 200 && r.height > 200;
+    `);
+
+    return aLaVista ? marcoDelBuscador() : null;
+  };
+
+  if (!(await marcoVisible())) {
+    await abreAplicacion(nav, "Advanced Search");
+  }
+
+  let marco = null;
+
+  for (let i = 0; i < 40 && !marco; i++) {
+    marco = await marcoVisible();
+
+    if (!marco) await espera(1000);
+  }
+
+  if (!marco) throw new Error("El buscador no ha llegado a abrirse.");
+
+  /* Un mundo aislado: comparte el DOM del marco y no pisa nada de la página. */
+  const { executionContextId } = await nav.manda("Page.createIsolatedWorld", {
+    frameId: marco.frame.id,
+    worldName: "rmcf-buscador",
+  });
+
+  const js = async (codigo) => {
+    const r = await nav.manda("Runtime.evaluate", {
+      expression: `(async () => { ${HERRAMIENTAS} ${codigo} })()`,
+      returnByValue: true,
+      awaitPromise: true,
+      contextId: executionContextId,
+    });
+
+    if (r.exceptionDetails) {
+      throw new Error(r.exceptionDetails.exception?.description ?? "js");
+    }
+
+    return r.result.value;
+  };
+
+  /**
+   * Un clic de ratón de verdad sobre un elemento del marco.
+   *
+   * `expresion` es un trozo de JavaScript que devuelve el elemento —o `null`—
+   * y aquí se traduce a coordenadas de la ventana: lo que mide el marco desde
+   * arriba hay que sumárselo, porque las órdenes de ratón son del navegador
+   * entero y no saben de marcos.
+   */
+  const clicReal = async (expresion) => {
+    const sitio = await js(`
+      const e = ${expresion};
+
+      if (!e) return null;
+
+      /*
+      | El sitio no es «el centro del rectángulo»: es un punto que de verdad
+      | dé con el elemento.
+      |
+      | La columna de filtros es una lista con su propio desplazamiento, y
+      | conforme se le meten fichas de equipo los mandos se salen por abajo:
+      | el rectángulo sigue diciendo dónde estaría, pero ahí ya no hay nada
+      | —\`elementFromPoint\` devuelve el contenedor— y el clic se perdía. De
+      | los siete equipos de un lote entraban cinco y el resto, al vacío.
+      |
+      | Se prueban el centro y las esquinas, y si ninguno da, se acerca la
+      | lista y se vuelve a mirar.
+      */
+      const punto = () => {
+        const r = e.getBoundingClientRect();
+
+        if (r.width < 2 || r.height < 2) return null;
+
+        for (const y of [r.top + r.height / 2, r.top + 3, r.bottom - 3]) {
+          for (const x of [r.left + r.width / 2, r.right - 3, r.left + 3]) {
+            const cx = Math.round(x);
+            const cy = Math.round(y);
+
+            if (cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight) continue;
+
+            const encima = document.elementFromPoint(cx, cy);
+
+            if (encima && (encima === e || e.contains(encima))) return { x: cx, y: cy };
+          }
+        }
+
+        return null;
+      };
+
+      const primero = punto();
+
+      if (primero) return primero;
+
+      e.scrollIntoView({ block: "center" });
+
+      await new Promise((listo) => setTimeout(listo, 600));
+
+      return punto();
+    `);
+
+    if (!sitio) return false;
+
+    const fuera = await nav.js(`
+      const f = [...document.querySelectorAll("iframe")].find((i) => /advanced-search/.test(i.src || ""));
+
+      if (!f) return { x: 0, y: 0 };
+
+      const r = f.getBoundingClientRect();
+
+      return { x: Math.round(r.left), y: Math.round(r.top) };
+    `);
+
+    const x = sitio.x + fuera.x;
+    const y = sitio.y + fuera.y;
+
+    await nav.manda("Input.dispatchMouseEvent", {
+      type: "mouseMoved", x, y, button: "none",
+    });
+
+    await espera(220);
+
+    await nav.manda("Input.dispatchMouseEvent", {
+      type: "mousePressed", x, y, button: "left", clickCount: 1, buttons: 1,
+    });
+
+    await espera(90);
+
+    await nav.manda("Input.dispatchMouseEvent", {
+      type: "mouseReleased", x, y, button: "left", clickCount: 1, buttons: 0,
+    });
+
+    return true;
+  };
+
+  /**
+   * Abrir un desplegable, y sólo si estaba cerrado.
+   *
+   * En el de equipos, elegir uno **deja la lista abierta**: si se vuelve a
+   * pulsar la flecha para meter el siguiente, lo que se hace es cerrarla, y
+   * entonces no hay opciones que elegir. Del segundo equipo de cada lote en
+   * adelante no entraba ninguno.
+   */
+  const abreDesplegable = async (rotulo) => {
+    const abierto = () =>
+      js(`
+        const f = filtro(${JSON.stringify(rotulo)});
+
+        return !!(f && f.querySelector(".Select-menu-outer"));
+      `);
+
+    for (let i = 0; i < 3; i++) {
+      if (await abierto()) return true;
+
+      if (!(await clicReal(`mandoDe(${JSON.stringify(rotulo)})`))) return false;
+
+      await espera(1400);
+    }
+
+    return abierto();
+  };
+
+  /** Abrir un desplegable, escribir dentro si tiene buscador y elegir. */
+  const eligeEn = async (rotulo, texto, busca = texto) => {
+    if (!(await abreDesplegable(rotulo))) {
+      throw new Error(`No encuentro el desplegable «${rotulo}».`);
+    }
+
+    /*
+    | Escribir sólo donde hay dónde.
+    |
+    | El de temporada no tiene buscador, y meterle texto por CDP no llega a
+    | ningún sitio: se abre la lista entera y se elige por el nombre. El de
+    | competiciones y el de equipos sí lo tienen, y ahí hace falta, porque la
+    | lista sin filtrar trae media Europa.
+    */
+    const escribible = await js(`
+      const f = filtro(${JSON.stringify(rotulo)});
+
+      const i = f ? f.querySelector("input") : null;
+
+      /*
+      | Sin mirar si se ve: **el buscador mide cero por cero**.
+      |
+      | react-select le da al campo el ancho de lo que lleva escrito, y vacío
+      | eso son cero píxeles. Descartarlo por invisible dejaba sin escribir
+      | todos los equipos menos el primero de cada lote.
+      */
+      if (!i) return false;
+
+      i.focus();
+
+      return true;
+    `);
+
+    if (texto && escribible) {
+      /*
+      | Un «seleccionar todo» antes de escribir.
+      |
+      | En el de equipos el campo no siempre se vacía al elegir uno, y lo que
+      | se escribía encima quedaba pegado a lo anterior —«AlcorcónAlgeciras»—
+      | y no encontraba nada. Con el texto seleccionado, lo que se escribe lo
+      | sustituye.
+      */
+      for (const type of ["rawKeyDown", "keyUp"]) {
+        await nav.manda("Input.dispatchKeyEvent", {
+          type,
+          windowsVirtualKeyCode: 65,
+          key: "a",
+          code: "KeyA",
+          modifiers: 2,
+        });
+      }
+
+      await espera(200);
+
+      await nav.manda("Input.insertText", { text: texto });
+
+      await espera(1800);
+    }
+
+    return js(`
+      const e = opcion(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)});
+
+      if (!e) return null;
+
+      const puesto = e.textContent.trim();
+
+      pulsa(e);
+
+      return puesto;
+    `);
+  };
+
+  /*
+  | Y esperar a que el buscador esté pintado, no a que exista el marco.
+  |
+  | El `<iframe>` aparece en cuanto se pulsa la aplicación, pero dentro no hay
+  | todavía ni un filtro: el primer clic caía en el vacío y el proceso se
+  | rendía diciendo que no encontraba el desplegable de competiciones.
+  */
+  let pintado = false;
+
+  for (let i = 0; i < 60 && !pintado; i++) {
+    pintado = await js(`
+      const m = mandoDe("Competiciones");
+
+      return !!m && m.getBoundingClientRect().width > 2 && !!filtro("Periodo");
+    `);
+
+    if (!pintado) await espera(1000);
+  }
+
+  if (!pintado) throw new Error("El buscador se ha abierto pero no pinta los filtros.");
+
+  return { js, clicReal, eligeEn };
+}
+
+/**
+ * Deja el buscador con competición, temporada, MOSTRAR = ALL y el filtro de
+ * equipo puestos. Se hace entero en cada pasada: la aplicación no guarda nada
+ * de esto de una sesión a otra.
+ */
+async function preparaBuscador(buscador) {
+  const puesto = await buscador.js(`
+    return {
+      competicion: (filtro("Competiciones") || {}).innerText || "",
+      periodo: (filtro("Periodo") || {}).innerText || "",
+      mostrar: (document.querySelector(".selectPair---XRga .Select-value") || {}).innerText || "",
+      equipo: !!filtro("Equipo actual"),
+    };
+  `);
+
+  if (!puesto.competicion.includes(COMPETICION)) {
+    if (!(await buscador.eligeEn("Competiciones", COMPETICION))) {
+      throw new Error(`No sale «${COMPETICION}» en las competiciones.`);
+    }
+
+    await espera(3500);
+  }
+
+  if (!puesto.periodo.includes(TEMPORADA)) {
+    if (!(await buscador.eligeEn("Periodo", "", TEMPORADA))) {
+      throw new Error(`No sale la temporada ${TEMPORADA}.`);
+    }
+
+    await espera(3500);
+  }
+
+  /*
+  | MOSTRAR = ALL no es una opción más del desplegable: es un layout guardado
+  | de la cuenta y vive en la columna de «Personalizado», que se pinta aparte
+  | y no responde a la búsqueda. Sin esto bajan doce columnas en vez de 115.
+  */
+  if (!/ALL/i.test(puesto.mostrar)) {
+    await buscador.clicReal(`document.querySelector(".selectPair---XRga .Select-control")`);
+
+    await espera(1500);
+
+    const all = await buscador.js(`
+      const e = [...document.querySelectorAll(".level-option--2Zwuo")]
+        .find((x) => norma(x.textContent) === "all");
+
+      return pulsa(e);
+    `);
+
+    if (!all) throw new Error("No encuentro el layout ALL en MOSTRAR.");
+
+    await espera(6000);
+  }
+
+  if (!puesto.equipo) {
+    /* Éste sí es un botón normal y atiende a un `click` de los de mentira. */
+    await buscador.js(`
+      const b = document.querySelector("button.set-filters--DwwaD");
+
+      if (b) b.click();
+
+      return !!b;
+    `);
+
+    await espera(2000);
+
+    const marcado = await buscador.js(`
+      const s = [...document.querySelectorAll(".checkbox--EAGK- span")]
+        .find((x) => norma(x.textContent) === norma("Equipo actual"));
+
+      const i = s && s.closest("label") ? s.closest("label").querySelector("input") : null;
+
+      if (!i) return false;
+
+      if (!i.checked) i.click();
+
+      const c = document.querySelector("button.confirm--2nggi");
+
+      if (c) c.click();
+
+      return true;
+    `);
+
+    if (!marcado) throw new Error("No encuentro el filtro «Equipo actual».");
+
+    await espera(4000);
+  }
+
+  return buscador.js(`
+    return {
+      competicion: ((filtro("Competiciones") || {}).innerText || "").trim(),
+      periodo: ((filtro("Periodo") || {}).innerText || "").trim(),
+      mostrar: (document.querySelector(".selectPair---XRga .Select-value") || {}).innerText || "",
+      resultados: cuenta(),
+    };
+  `);
+}
+
+/** Un lote de equipos: se ponen en el filtro, se exporta y se guarda. */
+async function bajaLote(nav, buscador, equipos, numero) {
+  /* Fuera los del lote anterior. */
+  await buscador.clicReal(`
+    (() => {
+      const f = filtro("Equipo actual");
+
+      if (!f) return null;
+
+      return f.querySelector(".Select-clear-zone") || f.querySelector(".Select-clear");
+    })()
+  `);
+
+  await espera(2500);
+
+  const puestos = [];
+
+  /* Los que no han llegado a entrar: salen en el resumen, no se callan. */
+  const faltan = [];
+
+  for (const equipo of equipos) {
+    /*
+    | Se escribe el nombre entero y manda la coincidencia exacta.
+    |
+    | Wyscout tiene «Alcorcón» y «Alcorcón II» —el filial, que no es de esta
+    | liga—, así que sólo si no hay coincidencia exacta se coge la más corta de
+    | las que contienen el nombre.
+    */
+    /*
+    | Y con un segundo intento, porque un equipo que no entra son sus
+    | veinticinco jugadores fuera de la pantalla, sin que nadie se entere.
+    */
+    let elegido = null;
+
+    for (let i = 0; i < 2 && !elegido; i++) {
+      try {
+        elegido = await buscador.eligeEn("Equipo actual", equipo);
+      } catch {
+        /* se reintenta */
+      }
+
+      if (!elegido) await espera(1500);
+    }
+
+    if (elegido) puestos.push(elegido);
+    else faltan.push(equipo);
+
+    await espera(1500);
+  }
+
+  if (puestos.length === 0) {
+    return { numero, estado: "ningún equipo del lote está en el buscador" };
+  }
+
+  const jugadores = await buscador.js(`return cuenta();`);
+
+  if (bandera("parar")) {
+    return {
+      numero,
+      estado: `parado con ${puestos.length} equipos y ${jugadores} jugadores`,
+    };
+  }
+
+  /*
+  | Aquí el fichero **no se reconoce por el nombre** sino por la hora.
+  |
+  | Todos los lotes bajan como «Search results.xlsx», y si de una pasada
+  | anterior quedó uno con ese nombre, el nuevo llega como «Search results
+  | (1).xlsx» —o no llega, si el anterior sigue ahí—. Mirar cuál es nuevo por
+  | el nombre dejaba el lote esperando un minuto a un fichero que ya estaba en
+  | la carpeta. Se apunta la hora y se coge el .xlsx recién escrito.
+  */
+  const desde = Date.now();
+
+  /*
+  | El botón de exportar **cambia de etiqueta** según lo que haya en la tabla.
+  |
+  | Con menos de quinientas filas es un `<a>` que se baja el fichero de una;
+  | por encima es un `<button>` que primero saca el aviso del recorte. Buscar
+  | sólo el `<button>` dejaba el lote sin exportar justo cuando todo iba bien.
+  */
+  const pulsado = await buscador.js(`
+    const b = document.querySelector(".export--O6aG-") ||
+      [...document.querySelectorAll("a,button")]
+        .find((e) => norma(e.textContent).includes(norma("Exportar en Excel")));
+
+    if (b) b.click();
+
+    return !!b;
+  `);
+
+  if (!pulsado) return { numero, estado: "no encuentro el botón de exportar" };
+
+  await espera(3000);
+
+  /*
+  | Si se han colado más de 500 filas Wyscout avisa y **recorta** sin más. Se
+  | acepta —mejor eso que nada— pero se devuelve el aviso, que es lo que dice
+  | que hay que bajar el tamaño del lote.
+  */
+  const recortado = await buscador.js(`
+    const p = document.querySelector(".popup--385sw");
+
+    if (!p || !/500/.test(p.innerText || "")) return false;
+
+    return pulsa(p.querySelector(".download--3Glx1"));
+  `);
+
+  let fichero = null;
+
+  for (let i = 0; i < 60 && !fichero; i++) {
+    await espera(1000);
+
+    fichero = fs
+      .readdirSync(DESCARGAS)
+      .filter((f) => f.endsWith(".xlsx"))
+      .find((f) => fs.statSync(path.join(DESCARGAS, f)).mtimeMs >= desde);
+  }
+
+  if (!fichero) return { numero, estado: "no ha bajado el fichero" };
+
+  const origen = path.join(DESCARGAS, fichero);
+
+  const kb = Math.round(fs.statSync(origen).size / 1024);
+
+  const destino = path.join(DESTINO, `Player Stats ${numero}.xlsx`);
+
+  fs.copyFileSync(origen, destino);
+  fs.unlinkSync(origen);
+
+  return {
+    numero,
+    estado: "ok",
+    fichero: path.basename(destino),
+    kb,
+    jugadores,
+    equipos: puestos,
+    faltan,
+    recortado,
+  };
+}
+
+/** Todos los jugadores de la categoría, por lotes de equipos. */
+async function bajaJugadores(nav, equipos) {
+  console.log(`\n  JUGADORES · ${COMPETICION} · ${TEMPORADA}\n`);
+
+  const buscador = await abreBuscador(nav);
+
+  const puesto = await preparaBuscador(buscador);
+
+  const enUnaLinea = (t) => (t || "").replace(/\s+/g, " ").trim();
+
+  console.log(
+    `  ${enUnaLinea(puesto.competicion)} · ${enUnaLinea(puesto.periodo)} · MOSTRAR ${enUnaLinea(puesto.mostrar)}`,
+  );
+
+  console.log(`  ${puesto.resultados} jugadores en la categoría\n`);
+
+  /*
+  | Los ficheros de la semana pasada, fuera.
+  |
+  | El lector se queda con la descarga que más minutos trae, así que un dato
+  | viejo no gana nunca... salvo que esta semana falle justo ese lote, y
+  | entonces la pantalla enseñaría una jornada atrasada sin avisar. Se borran
+  | los `Player Stats N` y se vuelven a escribir enteros.
+  */
+  for (const viejo of fs.readdirSync(DESTINO)) {
+    if (/^Player Stats \d+\.xlsx$/i.test(viejo)) {
+      fs.unlinkSync(path.join(DESTINO, viejo));
+    }
+  }
+
+  const lotes = [];
+
+  for (let i = 0; i < equipos.length; i += LOTE) {
+    lotes.push(equipos.slice(i, i + LOTE));
+  }
+
+  const resultados = [];
+
+  for (const [i, lote] of lotes.entries()) {
+    process.stdout.write(
+      `  lote ${i + 1}/${lotes.length}  ${lote.join(", ").slice(0, 44).padEnd(46)}`,
+    );
+
+    let resultado = null;
+
+    for (let intento = 0; intento < 2 && !resultado?.fichero; intento++) {
+      try {
+        resultado = await bajaLote(nav, buscador, lote, i + 1);
+      } catch (error) {
+        resultado = { numero: i + 1, estado: error.message };
+      }
+
+      if (bandera("parar")) break;
+    }
+
+    resultados.push(resultado);
+
+    const perdidos = resultado.faltan?.length ? ` · SIN ${resultado.faltan.join(", ")}` : "";
+
+    console.log(
+      resultado.estado !== "ok"
+        ? `✗ ${resultado.estado}`
+        : `${resultado.recortado || perdidos ? "⚠" : "✓"} ${resultado.fichero} · ${resultado.jugadores} jugadores · ${resultado.kb} KB` +
+            (resultado.recortado ? " · RECORTADO a 500: baja --lote=" : "") +
+            perdidos,
+    );
+
+    if (bandera("parar")) break;
+  }
+
+  return resultados;
+}
+
 /* ------------------------------------------------------------------ */
 /*  EL PROGRAMA                                                        */
 /* ------------------------------------------------------------------ */
@@ -667,7 +1452,24 @@ async function principal() {
       return;
     }
 
-    const equipos = await vaAlGrupo(nav);
+    /*
+    | Con `--solo-jugadores` la lista sale de la carpeta, no de la aplicación.
+    |
+    | Los nombres que hacen falta son los mismos que ya están escritos en los
+    | «Team Stats <equipo>.xlsx» de la semana pasada, y recorrer país,
+    | competición y grupo para volver a leerlos son tres minutos de clics y
+    | tres sitios más donde fallar.
+    */
+    const deLaCarpeta = fs
+      .readdirSync(DESTINO)
+      .map((f) => /^Team Stats (.+)\.xlsx$/i.exec(f)?.[1])
+      /* «Teruel (1)» es una descarga repetida, no un equipo más. */
+      .filter((e) => e && !/ \(\d+\)$/.test(e));
+
+    const equipos =
+      bandera("solo-jugadores") && deLaCarpeta.length >= 10
+        ? [...new Set(deLaCarpeta)].sort()
+        : await vaAlGrupo(nav);
 
     console.log(`  ${equipos.length} equipos en ${GRUPO}:`);
     console.log(`  ${equipos.join(" · ")}\n`);
@@ -699,7 +1501,7 @@ async function principal() {
 
     const resultados = [];
 
-    for (const equipo of lista) {
+    for (const equipo of bandera("solo-jugadores") ? [] : lista) {
       process.stdout.write(`  ${equipo.padEnd(26)}`);
 
       /*
@@ -752,17 +1554,51 @@ async function principal() {
       if (!(await volverAlGrupo(nav))) await vaAlGrupo(nav);
     }
 
-    const bien = resultados.filter((r) => r.estado === "ok").length;
+    if (!bandera("solo-jugadores")) {
+      const bien = resultados.filter((r) => r.estado === "ok").length;
 
-    console.log(`\n  ${bien} de ${lista.length} bajados a public/data/wys\n`);
+      console.log(`\n  ${bien} de ${lista.length} bajados a public/data/wys\n`);
 
-    if (bien < lista.length) {
-      console.log("  Los que fallan casi siempre son un cambio de diseño de");
-      console.log("  Wyscout: abre la ventana, mira dónde está el botón y");
-      console.log("  ajusta el texto que busca este script.\n");
+      if (bien < lista.length) {
+        console.log("  Los que fallan casi siempre son un cambio de diseño de");
+        console.log("  Wyscout: abre la ventana, mira dónde está el botón y");
+        console.log("  ajusta el texto que busca este script.\n");
+      }
+    }
+
+    /*
+    | Y la segunda mitad del recado: los jugadores de la categoría.
+    |
+    | Va después a propósito. La ficha de cada equipo y el buscador son dos
+    | aplicaciones distintas dentro de la misma pestaña, y saltar de una a
+    | otra cuesta clics: primero se recorren los veinte equipos y al final se
+    | entra en el buscador una sola vez.
+    */
+    if (!bandera("sin-jugadores")) {
+      try {
+        await bajaJugadores(nav, lista);
+      } catch (error) {
+        console.log(`\n  ✗ jugadores: ${error.message}\n`);
+      }
     }
   } finally {
-    if (!bandera("ver")) {
+    if (!bandera("ver") && !bandera("parar")) {
+      /*
+      | Cerrar Chrome por las buenas, no a golpes.
+      |
+      | Con `chrome.kill()` el navegador se va sin escribir las cookies al
+      | disco, y la sesión de Wyscout se perdía entre una semana y la
+      | siguiente: aparecía la pantalla de entrada como si nunca se hubiera
+      | entrado. `Browser.close` le deja guardar antes de irse.
+      */
+      try {
+        await nav.manda("Browser.close");
+
+        await espera(2500);
+      } catch {
+        /* si ya se ha ido, mejor */
+      }
+
       nav.cierra();
 
       chrome.kill();
