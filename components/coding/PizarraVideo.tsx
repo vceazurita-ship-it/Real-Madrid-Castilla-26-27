@@ -337,6 +337,22 @@ function CapaVista({
 
     let mano = 0;
 
+    /*
+    | Lo que lleva dibujado la pizarra que está en pantalla.
+    |
+    | Las flechas que se trazan solas y el jugador que viaja avanzaban SÓLO con
+    | el reloj del vídeo. En una pizarra congelada el vídeo se para justo al
+    | empezar la escena, así que se quedaban a medio pintar para siempre; y si
+    | la congelada seguía sola a los N segundos, la animación volvía a empezar
+    | desde cero, que parecía un bucle. Ahora, con el vídeo parado, el dibujo
+    | termina con el reloj de la pared, y lo dibujado no retrocede mientras la
+    | pizarra siga en pantalla.
+    */
+    let enPantalla: string | null = null;
+    let dibujado = 0;
+    let paradoDesde: number | null = null;
+    let dibujadoAlParar = 0;
+
     const pinta = () => {
       mano = requestAnimationFrame(pinta);
 
@@ -353,14 +369,44 @@ function CapaVista({
         : null;
 
       if (!escena) {
+        enPantalla = null;
+        dibujado = 0;
+        paradoDesde = null;
+
         ctx.clearRect(0, 0, medidas.ancho, medidas.alto);
         return;
       }
 
+      if (escena.id !== enPantalla) {
+        enPantalla = escena.id;
+        dibujado = 0;
+        paradoDesde = null;
+      }
+
+      const porVideo = progresoEscena(escena, elemento.currentTime * 1000);
+
+      let porReloj = 0;
+
+      if (elemento.paused) {
+        if (paradoDesde === null) {
+          paradoDesde = performance.now();
+          dibujadoAlParar = dibujado;
+        }
+
+        /* Entre medio segundo y segundo y medio, según lo que dure la escena. */
+        const tarda = Math.max(400, Math.min(1500, escena.duracionMs));
+
+        porReloj = dibujadoAlParar + (performance.now() - paradoDesde) / tarda;
+      } else {
+        paradoDesde = null;
+      }
+
+      dibujado = Math.min(1, Math.max(dibujado, porVideo, porReloj));
+
       pintaEscena(ctx, {
         escena,
         medidas,
-        progreso: progresoEscena(escena, elemento.currentTime * 1000),
+        progreso: dibujado,
         imagen: elemento.readyState >= 2 ? elemento : null,
         imagenAncho: elemento.videoWidth,
         imagenAlto: elemento.videoHeight,

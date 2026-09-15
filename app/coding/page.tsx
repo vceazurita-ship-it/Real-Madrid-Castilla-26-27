@@ -352,6 +352,66 @@ function vePorElFotograma(video: HTMLVideoElement, segundos: number) {
   });
 }
 
+/**
+ * Abre un vídeo de la sesión en un reproductor que no se ve.
+ *
+ * Es para quemar las pizarras de un vídeo que no está en el reproductor: una
+ * pizarra se compone con el fotograma de su propio vídeo. Va dentro de la
+ * página —fuera de la vista— porque hay navegadores que no descodifican un
+ * `<video>` suelto. `null` si no se abre en quince segundos.
+ */
+async function abreVideoOculto(src: string): Promise<HTMLVideoElement | null> {
+  if (!src) return null;
+
+  const video = document.createElement("video");
+
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.style.cssText =
+    "position:fixed;left:-10000px;top:0;width:4px;height:4px;opacity:0;pointer-events:none";
+
+  document.body.appendChild(video);
+
+  const abierto = await new Promise<boolean>((listo) => {
+    const plazo = setTimeout(() => listo(false), 15_000);
+
+    video.addEventListener(
+      "loadeddata",
+      () => {
+        clearTimeout(plazo);
+        listo(true);
+      },
+      { once: true },
+    );
+
+    video.addEventListener(
+      "error",
+      () => {
+        clearTimeout(plazo);
+        listo(false);
+      },
+      { once: true },
+    );
+
+    video.src = src;
+  });
+
+  if (!abierto) {
+    cierraVideoOculto(video);
+
+    return null;
+  }
+
+  return video;
+}
+
+function cierraVideoOculto(video: HTMLVideoElement) {
+  video.removeAttribute("src");
+  video.load();
+  video.remove();
+}
+
 export default function CodingPage() {
   return (
     <Suspense
@@ -1076,8 +1136,6 @@ function Coding() {
     [filtroCategoria, filtroSujeto, sesion.sesion.clips, videosFuera, videosSesion],
   );
 
-  /* Los del vídeo que está en el reproductor: de ésos se pueden quemar las pizarras. */
-  const idsDelVideo = useMemo(() => new Set(clips.map((clip) => clip.id)), [clips]);
 
   /*
   | La LISTA, con los cortes de todos los vídeos.
@@ -1426,7 +1484,16 @@ function Coding() {
         /* La que se está pintando ahora mismo no se esconde nunca. */
         if (pizarraEditando === escena.id) return true;
 
-        const suCorte = clips.find((clip) => caeDentro(escena, clip));
+        /*
+        | El corte «Vídeo completo» no cuenta: cubre el vídeo de principio a
+        | fin, así que con él TODAS las pizarras caían «dentro de un corte» y
+        | desaparecían de la pantalla —y, como el vigilante de las congeladas
+        | mira esta misma lista, tampoco se paraba el vídeo en ninguna—.
+        */
+        const suCorte = clips.find(
+          (clip) =>
+            clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id && caeDentro(escena, clip),
+        );
 
         if (!suCorte) return true;
 
@@ -1854,102 +1921,188 @@ function Coding() {
   const [quemaPizarras, setQuemaPizarras] = useState(true);
 
 
-  const escenasDeClip = useCallback(
-    (clip: ClipCoding) =>
-      escenas.filter(
-        (escena) =>
-          caeDentro(escena, clip) || escena.clipIds?.includes(clip.id),
-      ),
-    [caeDentro, escenas],
+
+
+  /* De qué vídeo es cada pizarra. Las de antes de haber varios, del primero. */
+  const videoDeEscena = useCallback(
+    (escena: EscenaTel) => escena.video ?? videosSesion[0]?.nombre ?? "",
+    [videosSesion],
   );
 
+  /*
+  | Las pizarras de un clip, sea del vídeo que sea: las que caen dentro de su
+  | tramo EN SU MISMO VÍDEO —el minuto 1 de la primera parte no es el de la
+  | segunda— y las que se le hayan repartido a mano.
+  */
+  const pizarrasDeClip = useCallback(
+    (clip: ClipCoding) =>
+      sesion.sesion.escenas.filter(
+        (escena) =>
+          (videoDeEscena(escena) === videoDeClip(clip) && caeDentro(escena, clip)) ||
+          Boolean(escena.clipIds?.includes(clip.id)),
+      ),
+    [caeDentro, sesion.sesion.escenas, videoDeClip, videoDeEscena],
+  );
 
   /* Cuántas pizarras se van a quemar con lo que hay elegido ahora. */
   const pizarrasEnLaExportacion = useMemo(
     () =>
-      clipsExportables
-        .filter((clip) => idsDelVideo.has(clip.id))
-        .reduce((suma, clip) => suma + escenasDeClip(clip).length, 0),
-    [clipsExportables, escenasDeClip, idsDelVideo],
+      clipsExportables.reduce((suma, clip) => suma + pizarrasDeClip(clip).length, 0),
+    [clipsExportables, pizarrasDeClip],
   );
 
+  /* De dónde se lee cada vídeo cuando no es el del reproductor. */
+  const origenDeVideo = useCallback(
+    (nombre: string) => {
+      if (srcPorVideo[nombre]) return srcPorVideo[nombre];
+
+      const fuente = videosSesion.find((uno) => uno.nombre === nombre);
+
+      if (fuente?.tipo === "archivo") {
+        return `/api/coding/video?ruta=${encodeURIComponent(fuente.ruta)}`;
+      }
+
+      if (fuente?.tipo === "url") return fuente.url;
+
+      return "";
+    },
+    [srcPorVideo, videosSesion],
+  );
+
+  /*
+  | Las pizarras quemadas de una exportación, cada una en SU clip.
+  |
+  | Una pizarra se quema componiendo el fotograma de su vídeo en su instante.
+  | Hasta ahora sólo se podía con el vídeo del reproductor, así que las de los
+  | demás vídeos salían limpias. Ahora cada vídeo que tenga pizarras se abre
+  | en un reproductor oculto —el de delante se usa tal cual— y cada pizarra va
+  | a los clips de su vídeo: las del vídeo uno en el clip uno, las del dos en
+  | el dos.
+  */
   const componePizarras = useCallback(
-    async (todos: ClipCoding[]) => {
-      const vacio = new Map<string, ParadaDeClip[]>();
+    async (lista: ClipCoding[]) => {
+      const porClip = new Map<string, ParadaDeClip[]>();
 
-      /*
-      | Sólo las del vídeo que está en el reproductor.
-      |
-      | Una pizarra se quema componiendo el fotograma de ESTE `<video>`, y las
-      | escenas son las de este vídeo: con los cortes de otro, el mismo minuto
-      | casaría con una pizarra que no es suya. Los demás salen limpios.
-      */
-      const lista = todos.filter((clip) => idsDelVideo.has(clip.id));
+      if (!quemaPizarras) return porClip;
 
-      if (!quemaPizarras || escenas.length === 0) return vacio;
-
-      const video = videoRef.current;
-
-      if (!video) return vacio;
-
-      const necesarias = new Map<string, EscenaTel>();
+      /* Las que hacen falta, agrupadas por el vídeo del que salen. */
+      const porVideo = new Map<string, Map<string, EscenaTel>>();
 
       for (const clip of lista) {
-        for (const escena of escenasDeClip(clip)) {
-          if (escena.dibujos.length > 0) necesarias.set(escena.id, escena);
+        for (const escena of pizarrasDeClip(clip)) {
+          if (escena.dibujos.length === 0) continue;
+
+          const nombre = videoDeEscena(escena);
+
+          const grupo = porVideo.get(nombre) ?? new Map<string, EscenaTel>();
+
+          grupo.set(escena.id, escena);
+          porVideo.set(nombre, grupo);
         }
       }
 
-      if (necesarias.size === 0) return vacio;
+      if (porVideo.size === 0) return porClip;
 
       await esperaFuentePortada();
 
-      const estabaEn = video.currentTime;
-      const estabaParado = video.paused;
-
-      video.pause();
-
       const pngs = new Map<string, string>();
+      const sinAbrir: string[] = [];
 
-      for (const escena of necesarias.values()) {
-        const llegado = await vePorElFotograma(video, escena.tMs / 1000);
+      let perdidas = 0;
 
-        if (!llegado) continue;
+      const delante = videoRef.current;
 
-        const png = componeEscena(video, escena, FAMILIA_PORTADA, "jpeg");
+      const nombreDelante =
+        sesion.sesion.fuente?.nombre ?? videosSesion[0]?.nombre ?? "";
 
-        if (png) pngs.set(escena.id, png);
+      for (const [nombre, escenasDelVideo] of porVideo) {
+        const esElDeDelante = Boolean(delante) && nombre === nombreDelante;
+
+        const video = esElDeDelante
+          ? delante
+          : await abreVideoOculto(origenDeVideo(nombre));
+
+        if (!video) {
+          sinAbrir.push(nombre);
+          perdidas += escenasDelVideo.size;
+          continue;
+        }
+
+        const estabaEn = video.currentTime;
+        const estabaParado = video.paused;
+
+        video.pause();
+
+        try {
+          for (const escena of escenasDelVideo.values()) {
+            const llegado = await vePorElFotograma(video, escena.tMs / 1000);
+
+            const png = llegado
+              ? componeEscena(video, escena, FAMILIA_PORTADA, "jpeg")
+              : null;
+
+            if (png) pngs.set(escena.id, png);
+            else perdidas += 1;
+          }
+        } finally {
+          if (esElDeDelante) {
+            video.currentTime = estabaEn;
+
+            if (!estabaParado) void video.play().catch(() => undefined);
+          } else {
+            cierraVideoOculto(video);
+          }
+        }
       }
 
-      video.currentTime = estabaEn;
-
-      if (!estabaParado) void video.play().catch(() => undefined);
-
-      const porClip = new Map<string, ParadaDeClip[]>();
+      if (perdidas > 0) {
+        toast.warning(
+          perdidas === 1
+            ? "Una pizarra no se ha podido quemar"
+            : `${perdidas} pizarras no se han podido quemar`,
+          {
+            description: sinAbrir.length
+              ? `No se ha podido abrir ${sinAbrir.slice(0, 3).join(", ")}. Si es un vídeo del ordenador, vuelve a abrirlo en «El vídeo». El resto sale igual.`
+              : "No ha llegado el fotograma de esas pizarras. El resto sale igual.",
+            duration: 15000,
+          },
+        );
+      }
 
       for (const clip of lista) {
-        const paradas = escenasDeClip(clip)
+        const paradas = pizarrasDeClip(clip)
           .filter((escena) => pngs.has(escena.id))
           .map((escena) => ({
             imagen: pngs.get(escena.id)!,
             /* La reutilizada no tiene instante aquí: va delante de la acción. */
-            enMs: caeDentro(escena, clip)
-              ? Math.max(0, escena.tMs - clip.inicioMs)
-              : 0,
+            enMs:
+              videoDeEscena(escena) === videoDeClip(clip) && caeDentro(escena, clip)
+                ? Math.max(0, escena.tMs - clip.inicioMs)
+                : 0,
             duracionMs: Math.max(
               500,
               escena.congelada && escena.pausaMs > 0
                 ? escena.pausaMs
                 : escena.duracionMs,
             ),
-          }));
+          }))
+          .sort((una, otra) => una.enMs - otra.enMs);
 
         if (paradas.length > 0) porClip.set(clip.id, paradas);
       }
 
       return porClip;
     },
-    [caeDentro, escenas, escenasDeClip, idsDelVideo, quemaPizarras],
+    [
+      caeDentro,
+      origenDeVideo,
+      pizarrasDeClip,
+      quemaPizarras,
+      sesion.sesion.fuente,
+      videoDeClip,
+      videoDeEscena,
+      videosSesion,
+    ],
   );
 
   /*
@@ -3243,9 +3396,7 @@ function Coding() {
                     onMover={sesion.mueveClipA}
                     /* Las pizarras son del vídeo que está delante: las de
                        otro no se pueden contar con estas escenas. */
-                    pizarrasDe={(clip) =>
-                      idsDelVideo.has(clip.id) ? escenasDeClip(clip).length : 0
-                    }
+                    pizarrasDe={(clip) => pizarrasDeClip(clip).length}
                     exportando={exportador.exportando}
                   />
                 </Panel>
