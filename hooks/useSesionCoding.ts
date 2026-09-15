@@ -63,7 +63,16 @@ export function useSesionCoding(opciones: {
     [ambito, config, doc.value, refId, titulo],
   );
 
-  const historial = useRef<ClipCoding[][]>([]);
+  /*
+  | Cada paso de deshacer lleva la sesión en la que se dio.
+  |
+  | Cambiar de rival o de partido no desmonta la pantalla, así que la pila
+  | seguía viva: deshacer en el rival B le ponía los clips del rival A, y se
+  | autoguardaba. Los pasos de otra sesión se descartan.
+  */
+  const clave = claveSesion(ambito, refId);
+
+  const historial = useRef<{ clave: string; clips: ClipCoding[] }[]>([]);
 
   const { setValue } = doc;
 
@@ -71,8 +80,10 @@ export function useSesionCoding(opciones: {
     (cambio: (actual: SesionCoding) => SesionCoding, conDeshacer = false) => {
       if (conDeshacer) {
         historial.current = [
-          ...historial.current.slice(-(TOPE_DESHACER - 1)),
-          sesion.clips,
+          ...historial.current
+            .filter((paso) => paso.clave === clave)
+            .slice(-(TOPE_DESHACER - 1)),
+          { clave, clips: sesion.clips },
         ];
       }
 
@@ -85,7 +96,7 @@ export function useSesionCoding(opciones: {
         };
       });
     },
-    [ambito, config, refId, sesion.clips, setValue, titulo],
+    [ambito, clave, config, refId, sesion.clips, setValue, titulo],
   );
 
   /* ------------------------------------------------------------ clips */
@@ -361,21 +372,53 @@ export function useSesionCoding(opciones: {
     [muta],
   );
 
-  const ordenaClipsPorTiempo = useCallback(() => {
-    muta((actual) => ({ ...actual, clips: ordenaPorTiempo(actual.clips) }), true);
-  }, [muta]);
+  /**
+   * Devuelve al orden del partido. Con `ids`, sólo esos clips —los del vídeo
+   * que está delante—, cada uno dentro de los huecos que ya ocupaban: el orden
+   * hecho a mano en los otros vídeos de la sesión no se toca.
+   */
+  const ordenaClipsPorTiempo = useCallback(
+    (ids?: string[]) => {
+      muta((actual) => {
+        if (!ids) return { ...actual, clips: ordenaPorTiempo(actual.clips) };
+
+        const cuales = new Set(ids);
+
+        const ordenados = ordenaPorTiempo(
+          actual.clips.filter((clip) => cuales.has(clip.id)),
+        );
+
+        let siguiente = 0;
+
+        return {
+          ...actual,
+          clips: actual.clips.map((clip) =>
+            cuales.has(clip.id) ? ordenados[siguiente++] : clip,
+          ),
+        };
+      }, true);
+    },
+    [muta],
+  );
 
   const deshacer = useCallback(() => {
-    const anterior = historial.current[historial.current.length - 1];
+    /* Sólo los pasos de esta sesión: ver `historial`. */
+    const propios = historial.current.filter((paso) => paso.clave === clave);
 
-    if (!anterior) return false;
+    const anterior = propios[propios.length - 1];
 
-    historial.current = historial.current.slice(0, -1);
+    if (!anterior) {
+      historial.current = [];
 
-    muta((actual) => ({ ...actual, clips: anterior }));
+      return false;
+    }
+
+    historial.current = propios.slice(0, -1);
+
+    muta((actual) => ({ ...actual, clips: anterior.clips }));
 
     return true;
-  }, [muta]);
+  }, [clave, muta]);
 
   /* --------------------------------------------------- las pizarras */
 

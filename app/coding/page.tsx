@@ -799,10 +799,29 @@ function Coding() {
     [añadeVideos, ponCortesCompletos],
   );
 
+  /*
+  | La I pendiente y la cola de «Reproducir todos» se declaran aquí arriba, y
+  | no donde se usan, porque cambiar de vídeo las tiene que cancelar: el
+  | compilador de React no deja usar un estado antes de declararlo.
+  */
+  const [inicioMs, setInicioMs] = useState<number | null>(null);
+  const [cola, setCola] = useState<ClipCoding[] | null>(null);
+  const [enCola, setEnCola] = useState(0);
+  const [bucle, setBucle] = useState(false);
+
   /** Pone delante uno de los vídeos que ya están en la sesión. */
   const miraVideo = useCallback(
     (fuente: FuenteVideo) => {
       setCambiandoVideo(false);
+
+      /*
+      | Lo que estaba a medias era del vídeo de antes: una I marcada en la
+      | primera parte y una O en la segunda daban un clip con el inicio de
+      | una y el final de la otra, y la cola de «Reproducir todos» seguía
+      | aplicando los minutos de un vídeo sobre el otro.
+      */
+      setInicioMs(null);
+      setCola(null);
 
       ponFuente(fuente);
     },
@@ -885,7 +904,6 @@ function Coding() {
   } | null>(null);
 
   const [categoriaActiva, setCategoriaActiva] = useState("");
-  const [inicioMs, setInicioMs] = useState<number | null>(null);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
   const [ayuda, setAyuda] = useState(true);
@@ -1249,6 +1267,9 @@ function Coding() {
 
   const reproduceClip = useCallback(
     (clip: ClipCoding) => {
+      /* Reproducir uno a mano deja la cola de «Reproducir todos»: si no, en
+         cuanto pasaba el final del clip de la cola saltaba al siguiente. */
+      setCola(null);
       setSeleccionado(clip.id);
       salta(clip.inicioMs);
       reproductor.play();
@@ -1265,8 +1286,14 @@ function Coding() {
   | `loadeddata` del propio `<video>` —un evento, no un efecto— porque hasta
   | que el vídeo nuevo no está cargado, saltar sería saltar en el viejo.
   */
+  /* La espera del vídeo anterior, para quitarla si se pide otro antes. */
+  const esperaCarga = useRef<(() => void) | null>(null);
+
   const reproduceDeCualquierVideo = useCallback(
     (clip: ClipCoding) => {
+      /* Dos clics seguidos en clips de vídeos distintos: gana el último. */
+      esperaCarga.current?.();
+      esperaCarga.current = null;
       const nombre = clip.video ?? videosSesion[0]?.nombre ?? "";
 
       const delante = sesion.sesion.fuente?.nombre ?? "";
@@ -1296,21 +1323,26 @@ function Coding() {
       const video = videoRef.current;
 
       if (video) {
-        const alListo = () => {
+        const suelta = () => {
           video.removeEventListener("loadeddata", alListo);
 
           clearTimeout(plazo);
+
+          esperaCarga.current = null;
+        };
+
+        const alListo = () => {
+          suelta();
 
           reproduceClip(clip);
         };
 
         /* Si el vídeo no llega a cargar, no se queda nadie escuchando. */
-        const plazo = setTimeout(
-          () => video.removeEventListener("loadeddata", alListo),
-          15_000,
-        );
+        const plazo = setTimeout(suelta, 15_000);
 
         video.addEventListener("loadeddata", alListo);
+
+        esperaCarga.current = suelta;
       }
 
       miraVideo(fuente);
@@ -1318,11 +1350,36 @@ function Coding() {
     [miraVideo, reproduceClip, sesion.sesion.fuente, srcPorVideo, videosSesion],
   );
 
+  /*
+  | Editar un clip de otro vídeo: ese vídeo se pone delante.
+  |
+  | La ficha recorta el corte a la duración del vídeo del reproductor y su
+  | botón «Aquí» coge el instante del reproductor: con el clip de otro vídeo,
+  | guardar sólo una nota dejaba un corte de diez minutos en los tres que
+  | durase el vídeo de delante.
+  */
+  const editaClip = useCallback(
+    (clip: ClipCoding) => {
+      const nombre = clip.video ?? videosSesion[0]?.nombre ?? "";
+
+      const delante = sesion.sesion.fuente?.nombre ?? videosSesion[0]?.nombre ?? "";
+
+      if (videosSesion.length > 1 && nombre && nombre !== delante) {
+        const fuente = videosSesion.find((uno) => uno.nombre === nombre);
+
+        if (fuente && (fuente.tipo !== "local" || srcPorVideo[nombre])) {
+          miraVideo(fuente);
+        }
+      }
+
+      setEditando(clip);
+    },
+    [miraVideo, sesion.sesion.fuente, srcPorVideo, videosSesion],
+  );
+
   /* ------------------------------------------------------ playlist */
 
-  const [cola, setCola] = useState<ClipCoding[] | null>(null);
-  const [enCola, setEnCola] = useState(0);
-  const [bucle, setBucle] = useState(false);
+  /* `cola`, `enCola` y `bucle` se declaran arriba, junto a `miraVideo`. */
 
   const clipEnCola = cola?.[enCola] ?? null;
 
@@ -3097,7 +3154,9 @@ function Coding() {
                         <Button
                           icon={ArrowDownWideNarrow}
                           onClick={() => {
-                            sesion.ordenaClipsPorTiempo();
+                            /* Sólo los del vídeo de delante: el orden hecho a
+                               mano en los demás vídeos se respeta. */
+                            sesion.ordenaClipsPorTiempo(clips.map((clip) => clip.id));
                             toast.success("Clips en el orden del partido");
                           }}
                           title="Deshacer el orden a mano y volver al del partido"
@@ -3110,9 +3169,13 @@ function Coding() {
                         icon={Play}
                         onClick={() => lanzaCola(clipsFiltrados)}
                         disabled={clipsFiltrados.length === 0}
-                        title="Reproducir todos los clips filtrados, uno detrás de otro"
+                        title={
+                          verTodosEnLista
+                            ? "Reproducir uno detrás de otro los clips del vídeo que está delante (el reproductor es de un vídeo)"
+                            : "Reproducir todos los clips filtrados, uno detrás de otro"
+                        }
                       >
-                        Reproducir todos
+                        {verTodosEnLista ? "Reproducir todos (este vídeo)" : "Reproducir todos"}
                       </Button>
                     </div>
                   }
@@ -3162,7 +3225,7 @@ function Coding() {
                     seleccionado={seleccionado}
                     onSeleccionar={setSeleccionado}
                     onReproducir={reproduceDeCualquierVideo}
-                    onEditar={setEditando}
+                    onEditar={editaClip}
                     onDuplicar={sesion.duplicaClip}
                     onBorrar={(id) => {
                       sesion.borraClip(id);
@@ -3674,10 +3737,17 @@ function Coding() {
           tiempoActualMs={estado.tiempoMs}
           onCerrar={() => setEditando(null)}
           onGuardar={(cambios) => {
+            /* Sólo se recorta a la duración del reproductor si el clip es
+               de ese vídeo: si no, es la de otro. */
+            const suyoDelante =
+              videosSesion.length <= 1 ||
+              (editando.video ?? videosSesion[0]?.nombre) ===
+                sesion.sesion.fuente?.nombre;
+
             sesion.actualizaClip(
               editando.id,
               cambios,
-              estado.duracionMs || undefined,
+              suyoDelante ? estado.duracionMs || undefined : undefined,
             );
 
             setEditando(null);

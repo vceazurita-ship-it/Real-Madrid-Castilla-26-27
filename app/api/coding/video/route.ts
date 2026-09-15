@@ -76,9 +76,20 @@ export async function GET(request: NextRequest) {
 
   const trozos = /bytes=(\d*)-(\d*)/.exec(rango);
 
-  const desde = trozos?.[1] ? Number(trozos[1]) : 0;
+  /* «bytes=-500» son los ÚLTIMOS 500, no los primeros. */
+  const sufijo = Boolean(trozos && !trozos[1] && trozos[2]);
 
-  const hasta = trozos?.[2] ? Number(trozos[2]) : tamano - 1;
+  const desde = sufijo
+    ? Math.max(0, tamano - Number(trozos?.[2]))
+    : trozos?.[1]
+      ? Number(trozos[1])
+      : 0;
+
+  const hasta = sufijo
+    ? tamano - 1
+    : trozos?.[2]
+      ? Math.min(Number(trozos[2]), tamano - 1)
+      : tamano - 1;
 
   if (
     !Number.isFinite(desde) ||

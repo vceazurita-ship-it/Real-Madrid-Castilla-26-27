@@ -581,7 +581,14 @@ export function useExportador(opciones: {
 
       const nombres = [...new Set(peticion.clips.map(deClip))];
 
-      if (nombres.length > 1) {
+      /*
+      | Y también con UN solo vídeo, si no es el de delante: exportar un clip
+      | de otro vídeo desde la lista de todos cortaba el tramo del vídeo del
+      | reproductor con los minutos del otro.
+      */
+      const delante = fuente?.nombre ?? primero;
+
+      if (nombres.length > 1 || (nombres.length === 1 && nombres[0] !== delante)) {
         const videoDe = (nombre: string) =>
           videos?.find((uno) => uno.nombre === nombre) ?? null;
 
@@ -623,6 +630,20 @@ export function useExportador(opciones: {
         const faltan = nombres.filter(
           (nombre) => !ficheros?.[nombre] && !enServidor(videoDe(nombre)),
         );
+
+        /* Todos se pueden leer, pero unos aquí y otros en el servidor. */
+        if (faltan.length === 0) {
+          toast.error("No se pueden montar juntos vídeos del ordenador y de la carpeta", {
+            description:
+              "Un vídeo abierto del ordenador sólo lo lee esta pestaña, y uno de la " +
+              "carpeta sólo el servidor. Abre también los de la carpeta con «Abrir " +
+              "ficheros» (se pueden elegir todos a la vez) o aparta unos de la " +
+              "exportación y móntalos por separado.",
+            duration: 15000,
+          });
+
+          return;
+        }
 
         toast.error(
           faltan.length === 1

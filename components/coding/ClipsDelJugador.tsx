@@ -118,13 +118,36 @@ export function ClipsDelJugador({
 
   const exporta = useCallback(
     async (formato: "unificado" | "zip") => {
-      const lista = seleccionados.filter((clip) => clip.fuente);
+      /*
+      | Sólo los que el servidor puede leer: carpeta o enlace. Un corte de un
+      | fichero del portátil entraba igual, la ruta rechazaba la petición
+      | entera y no salía ninguno.
+      */
+      const lista = seleccionados.filter(
+        (clip) => clip.fuente && clip.fuente.tipo !== "local",
+      );
 
       if (lista.length === 0) {
         toast.error(
           "Estos cortes no tienen un vídeo que el servidor pueda leer.",
+          {
+            description:
+              "Se codificaron con un fichero del ordenador. Llévalo a la carpeta de partidos para poder montarlos desde aquí.",
+          },
         );
         return;
+      }
+
+      const fuera = seleccionados.length - lista.length;
+
+      if (fuera > 0) {
+        toast.warning(
+          `${fuera} ${fuera === 1 ? "corte se queda" : "cortes se quedan"} fuera`,
+          {
+            description:
+              "Son de un vídeo del ordenador, que el servidor no puede leer. El resto sale igual.",
+          },
+        );
       }
 
       setTrabajando(true);
