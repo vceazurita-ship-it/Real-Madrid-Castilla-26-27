@@ -70,6 +70,14 @@ export type JugadorDestacado = {
   /** Tanto por ciento de los minutos posibles de su equipo. */
   cuotaMinutos: number;
   fuertes: { nombre: string; valor: number; unidad: Unidad; percentil: number }[];
+  /**
+   * Y en lo que va por detrás de los de su puesto.
+   *
+   * Un informe que sólo dice lo bueno del rival no sirve para preparar nada:
+   * lo que cambia el plan es saber por dónde se le puede atacar. Va con el
+   * mismo listón que las fortalezas, por el otro lado: percentil 20 o menos.
+   */
+  flojos: { nombre: string; valor: number; unidad: Unidad; percentil: number }[];
 };
 
 export type DestacadosRival = {

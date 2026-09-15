@@ -583,6 +583,14 @@ async function bajaEquipo(nav, equipo) {
     }
   }
 
+  /*
+  | `--parar` deja la ventana abierta en la tabla, sin exportar nada.
+  |
+  | Es la herramienta de mantenimiento: el día que Wyscout cambie un botón,
+  | esto deja la pantalla exactamente donde hay que mirar.
+  */
+  if (bandera("parar")) return { equipo, estado: "parado en la tabla" };
+
   const antes = new Set(fs.readdirSync(DESCARGAS));
 
   if (!(await nav.clic("Exportar en Excel", { luego: 2000 }))) {
@@ -702,9 +710,9 @@ async function principal() {
       | export que no arranca. Reintentando una vez se recuperan casi todos, y
       | lo que no, sale en el resumen con su motivo.
       */
-      let resultado = null;
+      let resultado = bandera("parar") ? await bajaEquipo(nav, equipo) : null;
 
-      for (let intento = 0; intento < 2 && !resultado?.fichero; intento++) {
+      for (let intento = 0; intento < 2 && !resultado?.fichero && !bandera("parar"); intento++) {
         if (intento > 0) {
           await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" });
 
@@ -738,6 +746,9 @@ async function principal() {
       | que es donde se perdía el proceso. Si aun así no aparece la rejilla, se
       | rehace el camino entero, que siempre funciona aunque tarde.
       */
+      /* Con `--parar` la gracia es quedarse donde está, para poder mirarlo. */
+      if (bandera("parar")) break;
+
       if (!(await volverAlGrupo(nav))) await vaAlGrupo(nav);
     }
 

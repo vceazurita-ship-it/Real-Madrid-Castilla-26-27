@@ -2578,32 +2578,75 @@ function pintaFichaDestacado(
         },
       );
 
-      jugador.fuertes.slice(0, 3).forEach((fuerte, indice) => {
-        const linea = dentro + 118 + indice * 74;
-
-        escribe(ctx, fuerte.nombre.toUpperCase(), x + 24, linea, {
-          tamano: 21,
-          peso: 500,
-          tinta: C.navy,
-          espaciado: 1,
-          maxAncho: w - 170,
-        });
-
-        escribe(ctx, formatea(fuerte.valor, fuerte.unidad), x + w - 28, linea, {
-          tamano: 24,
-          tinta: C.navy,
-          alinea: "dcha",
-        });
-
-        pistaPercentil(ctx, x + 24, linea + 14, w - 52, 12, fuerte.percentil, C.verde);
-
-        escribe(ctx, `PERCENTIL ${fuerte.percentil}`, x + 24, linea + 46, {
-          tamano: 16,
-          peso: 500,
-          tinta: "#8A8370",
+      /*
+      | Las dos caras del jugador, una debajo de otra.
+      |
+      | Un informe que sólo dice lo bueno del rival no prepara nada: lo que
+      | cambia un plan es saber **por dónde se le puede atacar**. Arriba en
+      | verde lo que le sale mejor que a nadie de su puesto, abajo en rosa lo
+      | que le sale peor, con el mismo listón por los dos lados y la misma
+      | pista para que se comparen de un vistazo.
+      */
+      const bloque = (
+        titulo: string,
+        filas: JugadorDestacado["fuertes"],
+        tinta: string,
+        arranque: number,
+      ) => {
+        escribe(ctx, titulo, x + 24, arranque, {
+          tamano: 15,
+          peso: 600,
+          tinta,
           espaciado: 2,
         });
-      });
+
+        if (filas.length === 0) {
+          escribe(ctx, "NADA QUE SEÑALAR", x + 24, arranque + 26, {
+            tamano: 17,
+            peso: 500,
+            tinta: "#A9A190",
+            espaciado: 1,
+          });
+
+          return;
+        }
+
+        filas.slice(0, 2).forEach((fila, indice) => {
+          const linea = arranque + 30 + indice * 56;
+
+          escribe(ctx, fila.nombre.toUpperCase(), x + 24, linea, {
+            tamano: 19,
+            peso: 500,
+            tinta: C.navy,
+            espaciado: 1,
+            maxAncho: w - 160,
+          });
+
+          escribe(ctx, formatea(fila.valor, fila.unidad), x + w - 28, linea, {
+            tamano: 21,
+            tinta: C.navy,
+            alinea: "dcha",
+          });
+
+          pistaPercentil(ctx, x + 24, linea + 12, w - 52, 10, fila.percentil, tinta);
+
+          escribe(ctx, `PERCENTIL ${fila.percentil}`, x + 24, linea + 38, {
+            tamano: 14,
+            peso: 500,
+            tinta: "#8A8370",
+            espaciado: 2,
+          });
+        });
+      };
+
+      bloque("LO QUE MEJOR LE SALE", jugador.fuertes, C.verde, dentro + 104);
+
+      bloque(
+        "POR DONDE SE LE PUEDE ATACAR",
+        jugador.flojos ?? [],
+        "#9A6169",
+        dentro + 104 + 2 * 56 + 34,
+      );
     },
   );
 }
@@ -2615,14 +2658,14 @@ function pintaDestacadosJugadores(
   destacados: DestacadosRival,
 ) {
   papel(g);
-  cabecera(g, "SUS JUGADORES DESTACADOS", data, escudo);
+  cabecera(g, "SUS JUGADORES: FORTALEZAS Y DEBILIDADES", data, escudo);
 
   const jugadores = destacados.jugadores.slice(0, 6);
 
   g.el("Nota de la hoja", { x: MARGEN, y: CUERPO_Y - 34, w: ANCHO, h: 30 }, (ctx) =>
     escribe(
       ctx,
-      "CON AL MENOS EL 60 % DE LOS MINUTOS · PERCENTIL CONTRA LOS DE SU PUESTO EN TODA LA CATEGORÍA",
+      "CON AL MENOS EL 60 % DE LOS MINUTOS · EN VERDE LO QUE MEJOR LE SALE, EN ROSA POR DÓNDE SE LE PUEDE ATACAR · PERCENTIL CONTRA LOS DE SU PUESTO EN TODA LA CATEGORÍA",
       MARGEN,
       CUERPO_Y - 12,
       {
@@ -2657,7 +2700,7 @@ function pintaDestacadosJugadores(
 
   pie(
     g,
-    `WYSCOUT · TODO POR NOVENTA MINUTOS · ${destacados.temporada} · SÓLO LO QUE PASA DEL PERCENTIL 80`,
+    `WYSCOUT · TODO POR NOVENTA MINUTOS · TEMPORADA EN CURSO · FORTALEZAS DEL PERCENTIL 80 PARA ARRIBA, DEBILIDADES DEL 20 PARA ABAJO`,
   );
 }
 
@@ -4902,7 +4945,7 @@ export async function construyeHojasInforme(
   }
 
   if ((data.destacados?.jugadores ?? []).length > 0) {
-    hoja("Jugadores destacados", (g) =>
+    hoja("Jugadores · fortalezas y debilidades", (g) =>
       pintaDestacadosJugadores(g, data, escudo, data.destacados!),
     );
   }

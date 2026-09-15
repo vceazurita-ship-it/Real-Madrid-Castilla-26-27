@@ -281,6 +281,13 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
         unidad: f.metrica.unidad,
         percentil: f.percentil,
       })),
+      /* Y por dónde se le puede atacar, que es la otra mitad del scouting. */
+      flojos: j.flojos.map((f) => ({
+        nombre: f.metrica.nombre,
+        valor: f.valor,
+        unidad: f.metrica.unidad,
+        percentil: f.percentil,
+      })),
     })),
   };
 }
