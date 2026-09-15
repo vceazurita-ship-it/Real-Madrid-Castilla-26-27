@@ -27,10 +27,6 @@ import PlayerStatsCard from "@/components/rivals/PlayerStatsCard";
 import { useRivalStats } from "@/hooks/useRivalStats";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { leeTipologia } from "@/lib/rivals/tipologia";
-import {
-  mezclaTipologia,
-  traePropuestaTipologia,
-} from "@/lib/rivals/tipologia-wyscout";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import type { AutoSaveStatus as AutoSaveStatusValue } from "@/hooks/useAutoSave";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
@@ -1932,23 +1928,16 @@ export default function RivalPlayersPage() {
           /* Y los partidos que se han marcado en el pop-up: dos por hoja. */
           partidosElegidos: elegidos,
           /*
-          | El reparto de goles: lo que ha escrito el analista **encima** de lo
-          | que propone Wyscout.
+          | El reparto de goles: SÓLO lo que ha escrito el analista.
           |
-          | La propuesta rellena los huecos y lo escrito gana siempre, casilla a
-          | casilla, así que la hoja sale con números desde el primer día y el
-          | analista sólo corrige lo que no cuadre. Es la misma mezcla que se ve
-          | en el pop-up, para que el documento no diga otra cosa.
+          | Hasta el 15/09/2026 se le mezclaba la propuesta de Wyscout, y la
+          | diapositiva enseñaba como dato un reparto que, con dos o tres
+          | partidos por rival, no lo es. La propuesta sigue en el pop-up como
+          | sugerencia y entra aquí sólo si el analista la da por buena; lo que
+          | quede en blanco sale punteado y los penaltis y las propias los pinta
+          | la hoja con lo que cuenta el marcador.
           */
-          tipologia: mezclaTipologia(
-            (
-              await traePropuestaTipologia(
-                equipoDelOnce,
-                golesDeJugada(informe),
-              )
-            ).tipologia,
-            await leeTipologia(equipoDelOnce),
-          ),
+          tipologia: await leeTipologia(equipoDelOnce),
           /* Y lo que le hace distinto contra la categoría entera, que sale de
              los informes de Wyscout y lo calcula el servidor. Si no hay dato
              —o el endpoint falla—, el informe se monta sin esas dos hojas. */

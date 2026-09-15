@@ -402,10 +402,30 @@ function TipologiaEditor({
 
   const escritos = useMemo(() => normalizaTipologia(doc.value), [doc.value]);
 
-  const valores = useMemo(
-    () => mezclaTipologia(propuesta.tipologia, escritos),
-    [escritos, propuesta],
+  /*
+  | En el informe sale SÓLO lo escrito.
+  |
+  | La propuesta de Wyscout se rellenaba sola y acababa en la diapositiva
+  | como si fuera dato. Con dos o tres partidos y cuatro goles, repartirlos por
+  | origen es poner la media de la liga con el nombre del rival: no se puede
+  | firmar. Así que se enseña como **sugerencia** en las casillas vacías y
+  | sólo entra en el documento si el analista la escribe o la da por buena con
+  | el botón.
+  */
+  const valores = escritos;
+
+  const haySugerencia = (["aFavor", "enContra"] as const).some((lado) =>
+    Object.keys(propuesta.tipologia[lado]).some(
+      (fila) => escritos[lado][fila] === undefined,
+    ),
   );
+
+  /** La sugerencia pasa a las casillas vacías: desde ahí es del analista. */
+  const usaSugerencia = () => {
+    doc.setValue((actual) =>
+      mezclaTipologia(propuesta.tipologia, normalizaTipologia(actual)),
+    );
+  };
 
   /** Si una casilla viene de la propuesta y no de la mano, se dice. */
   const esPropuesta = (lado: "aFavor" | "enContra", fila: string) =>
@@ -438,17 +458,18 @@ function TipologiaEditor({
         min={0}
         inputMode="numeric"
         value={valores[lado][fila] ?? ""}
+        placeholder={propuesto ? String(propuesta.tipologia[lado][fila]) : undefined}
         onChange={(evento) => pon(lado, fila, evento.target.value)}
         title={
           propuesto
-            ? "Propuesto con los informes de Wyscout. Escribe encima para corregirlo."
+            ? "Sugerencia de Wyscout: no sale en el informe hasta que la escribes o pulsas «Usar la sugerencia»."
             : undefined
         }
         /* La propuesta va en dorado y a medio tono: se ve de un vistazo qué
            ha puesto el analista y qué ha puesto el dato. */
         className={`h-7 w-14 rounded-md border text-center text-xs font-semibold tabular-nums outline-none focus:border-[#C8A96B] ${
           propuesto
-            ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] text-[#C8A96B]"
+            ? "border-dashed border-[#C8A96B]/40 bg-white/[0.02] text-white placeholder:text-[#C8A96B]/55"
             : "border-white/15 bg-white/[0.04] text-white"
         }`}
       />
@@ -461,6 +482,17 @@ function TipologiaEditor({
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
           Tipología de gol
         </h3>
+
+        {haySugerencia && (
+          <button
+            type="button"
+            onClick={usaSugerencia}
+            title="Copia la sugerencia de Wyscout en las casillas vacías. Lo que ya has escrito no se toca."
+            className="rounded-md border border-dashed border-[#C8A96B]/40 px-2 py-0.5 text-[11px] text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+          >
+            Usar la sugerencia
+          </button>
+        )}
 
         <span className="text-[11px] text-white/35">
           {doc.sinGuardar ? "Guardando…" : "Se guarda solo"} ·{" "}
@@ -550,19 +582,18 @@ function TipologiaEditor({
       */}
       {propuesta.base.partidos > 0 && (
         <p className="mt-2 text-[11px] leading-relaxed text-[#C8A96B]/70">
-          Las casillas en dorado son una{" "}
-          <strong className="font-semibold">propuesta</strong>: reparten los{" "}
-          {propuesta.base.golesFavor} goles de jugada a favor y los{" "}
-          {propuesta.base.golesContra} en contra según{" "}
-          <strong className="font-semibold">de dónde nacen los remates</strong>{" "}
-          de este equipo —jugada, contra o balón parado— en sus{" "}
-          {propuesta.base.partidos}{" "}
+          Las cifras en dorado claro son una{" "}
+          <strong className="font-semibold">sugerencia, no un dato</strong>:
+          reparten los {propuesta.base.golesFavor} goles de jugada a favor y
+          los {propuesta.base.golesContra} en contra según de dónde nacen los
+          remates de este equipo en sus {propuesta.base.partidos}{" "}
           {propuesta.base.partidos === 1 ? "informe" : "informes"} de Wyscout,
-          corregido por lo que convierte cada vía en la categoría según Opta
-          —un remate de córner entra la mitad que uno de jugada—. Es lo más
-          cerca que llega el dato: Wyscout no clasifica los goles.
-          Los penaltis y las propias puertas no se tocan, que ésos los cuenta el
-          marcador. Escribe encima y manda lo tuyo.
+          corregido por lo que convierte cada vía en la categoría según Opta.
+          Wyscout no clasifica los goles y, con tan pocos partidos, el reparto
+          de un equipo concreto no es fiable:{" "}
+          <strong className="font-semibold">no sale en el informe</strong>{" "}
+          hasta que la escribes o pulsas «Usar la sugerencia». Los penaltis y
+          las propias puertas sí son dato: los cuenta el marcador.
         </p>
       )}
     </div>

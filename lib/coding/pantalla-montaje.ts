@@ -35,6 +35,14 @@ export type ClipNavegador = {
   inicioMs: number;
   finMs: number;
   paradas?: ParadaNavegador[];
+  /**
+   * De qué fichero sale, si no es el de la petición.
+   *
+   * Un montaje puede juntar cortes de varios vídeos de la sesión —los
+   * veintidós de un jugador, las dos partes de un partido—, y cada corte se
+   * lee del suyo.
+   */
+  fichero?: Blob;
 };
 
 export type PeticionNavegador = {

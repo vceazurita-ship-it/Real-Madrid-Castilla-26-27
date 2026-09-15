@@ -415,6 +415,19 @@ async function montaATiempoReal(
 
   if (clips.length === 0) throw new Error("No hay clips que exportar.");
 
+  /*
+  | Este motor graba lo que reproduce un solo `<video>`, así que no junta
+  | vídeos distintos. Sólo entra cuando el rápido no ha podido —un .mkv, un
+  | códec raro—, y entonces es mejor decirlo que entregar medio montaje.
+  */
+  if (new Set(clips.map((clip) => clip.fichero ?? peticion.fichero)).size > 1) {
+    throw new Error(
+      "Uno de los vídeos no se deja leer para montarlo junto a los demás " +
+        "(suele ser un .mkv o un códec raro). Apártalo de la exportación y " +
+        "móntalo por su lado, o pásalo a .mp4.",
+    );
+  }
+
   const arranqueTotal = Date.now();
 
   escenario.enseñaVideo(true);

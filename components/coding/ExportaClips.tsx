@@ -180,6 +180,16 @@ export function useExportador(opciones: {
    * que volver a abrirlo. Sin él no se puede llevar el vídeo a la carpeta.
    */
   ficheroLocal?: File | null;
+  /**
+   * Todos los vídeos de la sesión, para los cortes que vengan de otro.
+   *
+   * La exportación junta los cortes de todos los vídeos subidos, y cada uno
+   * se lee del suyo: del fichero abierto si está en `ficheros`, o de la
+   * carpeta o del enlace si el vídeo está ahí.
+   */
+  videos?: FuenteVideo[];
+  /** Los ficheros abiertos del ordenador, por nombre de vídeo. */
+  ficheros?: Record<string, File>;
   /** Los fotogramas por segundo de la sesión: el montaje del navegador graba a ellos. */
   fps?: number;
   /** El partido, para la pantalla del montaje. */
@@ -204,6 +214,8 @@ export function useExportador(opciones: {
     modo,
     topeMegas = 0,
     ficheroLocal,
+    videos,
+    ficheros,
     fps,
     titulo,
     onAdopta,
@@ -243,7 +255,12 @@ export function useExportador(opciones: {
   | cuenta y el botón de cancelar —va a tiempo real, y eso hay que verlo—.
   */
   const montaAqui = useCallback(
-    async (peticion: PeticionExport, fichero: File) => {
+    async (
+      peticion: PeticionExport,
+      fichero: Blob,
+      /** El fichero de cada corte, cuando no todos salen del mismo vídeo. */
+      ficheroDe?: (clip: ClipCoding) => Blob | undefined,
+    ) => {
       setExportando(true);
 
       try {
@@ -260,6 +277,7 @@ export function useExportador(opciones: {
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             paradas: peticion.paradas?.get(clip.id),
+            fichero: ficheroDe?.(clip),
           })),
         });
 
@@ -310,7 +328,12 @@ export function useExportador(opciones: {
   | que salir ya con la ruta nueva, no con la que se quedó en el cierre.
   */
   const lanza = useCallback(
-    async (peticion: PeticionExport, fuenteServidor: FuenteServidor) => {
+    async (
+      peticion: PeticionExport,
+      fuenteServidor: FuenteServidor,
+      /** El vídeo de cada corte, cuando no todos salen del mismo. */
+      fuenteDe?: (clip: ClipCoding) => FuenteServidor | undefined,
+    ) => {
       setExportando(true);
 
       /*
@@ -382,6 +405,7 @@ export function useExportador(opciones: {
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             pizarras: imagenes.paradas.get(clip.id),
+            fuente: fuenteDe?.(clip),
           })),
         });
 
@@ -543,6 +567,81 @@ export function useExportador(opciones: {
       }
 
       /*
+      | Cortes de varios vídeos: cada uno se lee del suyo.
+      |
+      | Es lo que pasa al subir los vídeos de un jugador ya recortados —cada
+      | uno entra con su corte de inicio a fin— o las dos partes de un
+      | partido. Con todos abiertos del ordenador se monta aquí; con todos en
+      | la carpeta o en un enlace, en el servidor. Mezclados no se puede: un
+      | vídeo del ordenador sólo lo lee esta pestaña.
+      */
+      const primero = videos?.[0]?.nombre ?? fuente?.nombre ?? "";
+
+      const deClip = (clip: ClipCoding) => clip.video ?? primero;
+
+      const nombres = [...new Set(peticion.clips.map(deClip))];
+
+      if (nombres.length > 1) {
+        const videoDe = (nombre: string) =>
+          videos?.find((uno) => uno.nombre === nombre) ?? null;
+
+        const enServidor = (video: FuenteVideo | null): FuenteServidor | null =>
+          video?.tipo === "url"
+            ? { tipo: "url", url: video.url }
+            : video?.tipo === "archivo"
+              ? { tipo: "archivo", ruta: video.ruta }
+              : null;
+
+        if (nombres.every((nombre) => ficheros?.[nombre])) {
+          if (!puedeCortarAqui()) {
+            toast.error("Este navegador no sabe montar el vídeo", {
+              description: "Ábrelo en Chrome o en Edge y se monta aquí mismo.",
+            });
+
+            return;
+          }
+
+          await montaAqui(
+            peticion,
+            ficheros![deClip(peticion.clips[0])],
+            (clip) => ficheros?.[deClip(clip)],
+          );
+
+          return;
+        }
+
+        if (nombres.every((nombre) => enServidor(videoDe(nombre)))) {
+          await lanza(
+            peticion,
+            enServidor(videoDe(deClip(peticion.clips[0])))!,
+            (clip) => enServidor(videoDe(deClip(clip))) ?? undefined,
+          );
+
+          return;
+        }
+
+        const faltan = nombres.filter(
+          (nombre) => !ficheros?.[nombre] && !enServidor(videoDe(nombre)),
+        );
+
+        toast.error(
+          faltan.length === 1
+            ? "Hay que volver a abrir un vídeo"
+            : `Hay que volver a abrir ${faltan.length} vídeos`,
+          {
+            description:
+              `${faltan.slice(0, 3).join(", ")}${faltan.length > 3 ? "…" : ""}. ` +
+              "Están en tu ordenador y al recargar la página el navegador " +
+              "pierde el permiso sobre ellos. Ábrelos otra vez en «El vídeo» " +
+              "—se pueden elegir todos de golpe— o apártalos de la exportación.",
+            duration: 15000,
+          },
+        );
+
+        return;
+      }
+
+      /*
       | El fichero del ordenador se monta aquí mismo, y manda sobre la sesión.
       |
       | Es lo que hay que hacer con la app desplegada —el servidor no lo ve, y
@@ -604,7 +703,16 @@ export function useExportador(opciones: {
           : { tipo: "archivo", ruta: fuente.ruta },
       );
     },
-    [exportando, ficheroLocal, fuente, lanza, llevaYExporta, montaAqui],
+    [
+      exportando,
+      ficheroLocal,
+      ficheros,
+      fuente,
+      lanza,
+      llevaYExporta,
+      montaAqui,
+      videos,
+    ],
   );
 
   return { exporta, exportando };
@@ -636,6 +744,11 @@ export function BarraExportacion({
   onQuema,
   enNavegador,
   youtube,
+  videos = [],
+  onVideo,
+  onTodosLosVideos,
+  plantillaCaratula = [],
+  pistaCaratula,
 }: {
   clips: ClipCoding[];
   /** Qué se va a exportar: "todos", "Sergio Mestre", "Pase"… */
@@ -686,6 +799,19 @@ export function BarraExportacion({
     preguntaAntes: boolean;
     onSube: (sube: boolean) => void;
   };
+  /**
+   * Los vídeos de la sesión y si entran en la exportación.
+   *
+   * Por defecto entran todos: se enseña para poder apartar alguno. Con un
+   * solo vídeo no se enseña, que no hay nada que elegir.
+   */
+  videos?: { nombre: string; dentro: boolean; clips: number }[];
+  onVideo?: (nombre: string, dentro: boolean) => void;
+  onTodosLosVideos?: (dentro: boolean) => void;
+  /** La plantilla entera, para poner la cara de quien sea aunque los cortes no digan de quién son. */
+  plantillaCaratula?: { id: string; nombre: string }[];
+  /** Por qué se ha puesto sola esa carátula, si se ha puesto sola. */
+  pistaCaratula?: string;
 }) {
   const total = clips.reduce((suma, clip) => suma + duracionClip(clip), 0);
 
@@ -693,7 +819,10 @@ export function BarraExportacion({
 
   const nombreCaratula = porJugador
     ? "cada jugador"
-    : (opcionesCaratula.find((uno) => uno.id === caratula)?.nombre ?? "");
+    : ([...opcionesCaratula, ...plantillaCaratula].find((uno) => uno.id === caratula)
+        ?.nombre ?? "");
+
+  const videosDentro = videos.filter((video) => video.dentro).length;
 
   return (
     <div className="min-w-0 space-y-3">
@@ -726,6 +855,70 @@ export function BarraExportacion({
           {formateaTotal(total)} · {etiqueta}
         </span>
       </div>
+
+      {/* ------------------------- LOS VÍDEOS -------------------------- */}
+
+      {/*
+      | Todo lo subido entra solo; aquí se aparta lo que no se quiera.
+      |
+      | Veintidós vídeos de un jugador son veintidós fichas: van en una fila que
+      | se enrolla, y el número de al lado son sus cortes —el de inicio a fin
+      | y los que se hayan marcado encima—.
+      */}
+      {videos.length > 1 && (
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+              <Film size={12} className="text-[#C8A96B]" />
+              Vídeos
+            </span>
+
+            <span className="text-[11px] text-white/35">
+              {videosDentro === videos.length
+                ? `Entran los ${videos.length}`
+                : `Entran ${videosDentro} de ${videos.length}`}{" "}
+              · pulsa uno para apartarlo o volver a meterlo
+            </span>
+
+            {onTodosLosVideos && (
+              <button
+                type="button"
+                onClick={() => onTodosLosVideos(videosDentro < videos.length)}
+                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/45 transition hover:text-white"
+              >
+                {videosDentro < videos.length ? "Meter todos" : "Apartar todos"}
+              </button>
+            )}
+          </div>
+
+          <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+            {videos.map((video) => (
+              <button
+                key={video.nombre}
+                type="button"
+                onClick={() => onVideo?.(video.nombre, !video.dentro)}
+                aria-pressed={video.dentro}
+                title={
+                  video.dentro
+                    ? `${video.nombre} entra en la exportación. Pulsa para apartarlo.`
+                    : `${video.nombre} no entra. Pulsa para meterlo.`
+                }
+                className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                  video.dentro
+                    ? "border-[#C8A96B]/60 bg-[#C8A96B]/10 text-[#C8A96B]"
+                    : "border-white/10 text-white/35 line-through hover:text-white"
+                }`}
+              >
+                <span className="max-w-[14rem] truncate">
+                  {video.nombre.replace(/\.[^.]+$/, "")}
+                </span>
+
+                <span className="tabular-nums opacity-60">{video.clips}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ------------------------- EL PESO DE CADA FICHERO ------------- */}
 
@@ -827,6 +1020,18 @@ export function BarraExportacion({
               {uno.nombre}
             </option>
           ))}
+
+          {/* Toda la plantilla: los cortes de «Vídeo completo» no dicen de
+              quién son, y la cara hay que poder ponerla igual. */}
+          {plantillaCaratula.length > 0 && (
+            <optgroup label="Plantilla">
+              {plantillaCaratula.map((uno) => (
+                <option key={uno.id} value={uno.id}>
+                  {uno.nombre}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
 
         <Button
@@ -842,7 +1047,7 @@ export function BarraExportacion({
           {porJugador
             ? `Cada bloque abre con la suya, ${SEGUNDOS_CARATULA} s · «Ver» enseña la del primero`
             : caratula
-              ? `Abre el vídeo unificado, ${SEGUNDOS_CARATULA} s, con la plantilla del club`
+              ? `${pistaCaratula ? `${pistaCaratula} · ` : ""}Abre el vídeo unificado, ${SEGUNDOS_CARATULA} s, con la plantilla del club`
               : "El vídeo empieza directo en el primer corte"}
         </span>
       </div>

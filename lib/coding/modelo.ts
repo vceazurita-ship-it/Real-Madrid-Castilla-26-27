@@ -182,6 +182,22 @@ export type SesionCoding = {
    * cuanto se recargara la pantalla.
    */
   videosConCorte: string[];
+  /**
+   * Los vídeos que NO entran en la exportación, por nombre.
+   *
+   * Lo normal es exportar todo lo que se ha subido —veintidós vídeos de un
+   * jugador, cada uno con su corte de inicio a fin—, así que se apunta lo que
+   * se quita y no lo que se pone: un vídeo recién abierto entra solo.
+   */
+  videosFuera?: string[];
+  /**
+   * De quién es la carátula del vídeo unificado, si se ha elegido.
+   *
+   * Se guarda con la sesión para no tener que volver a elegirla en cada
+   * montaje: `""` es «sin carátula» a propósito, y sin el campo manda la que
+   * se proponga sola.
+   */
+  caratula?: string;
   /** Fotogramas por segundo, para que las flechas avancen un fotograma justo. */
   fps: number;
   preRollMs: number;
@@ -793,6 +809,12 @@ export function normalizaSesion(
           (nombre): nombre is string => typeof nombre === "string" && !!nombre,
         )
       : base.videosConCorte,
+    videosFuera: Array.isArray(dato.videosFuera)
+      ? dato.videosFuera.filter(
+          (nombre): nombre is string => typeof nombre === "string" && !!nombre,
+        )
+      : [],
+    caratula: typeof dato.caratula === "string" ? dato.caratula : undefined,
     fps: typeof dato.fps === "number" && dato.fps > 0 ? dato.fps : base.fps,
     preRollMs:
       typeof dato.preRollMs === "number" ? dato.preRollMs : base.preRollMs,
@@ -925,6 +947,71 @@ export function clipsPorVideo(
   }
 
   return cuenta;
+}
+
+/**
+ * Lo que se exporta: los cortes de **todos** los vídeos de la sesión.
+ *
+ * La pantalla enseña los de un vídeo —los minutos de cada uno empiezan en
+ * cero—, pero la exportación es de la sesión entera: quien sube veintidós
+ * vídeos de un jugador quiere un montaje con los veintidós, no con el que
+ * esté delante. Van en el orden de los vídeos y, dentro de cada uno, en el
+ * de la lista, que es el que se arrastra a mano. Los vídeos apartados
+ * (`videosFuera`) no entran.
+ */
+export function clipsParaExportar(
+  clips: ClipCoding[],
+  videos: FuenteVideo[],
+  fuera: string[] = [],
+): ClipCoding[] {
+  const apartados = new Set(fuera);
+
+  /* Con un solo vídeo no hay nada que ordenar: todo es suyo. */
+  if (videos.length <= 1) {
+    const unico = videos[0] ? nombreDeFuente(videos[0]) : "";
+
+    return unico && apartados.has(unico) ? [] : clips;
+  }
+
+  const primero = nombreDeFuente(videos[0]);
+
+  const posicion = new Map(videos.map((video, indice) => [nombreDeFuente(video), indice]));
+
+  return clips
+    .map((clip, indice) => ({ clip, indice, video: clip.video ?? primero }))
+    .filter((uno) => posicion.has(uno.video) && !apartados.has(uno.video))
+    .sort(
+      (una, otra) =>
+        (posicion.get(una.video) ?? 0) - (posicion.get(otra.video) ?? 0) ||
+        una.indice - otra.indice,
+    )
+    .map((uno) => uno.clip);
+}
+
+/**
+ * El dorsal que comparten los vídeos por su nombre, si lo comparten.
+ *
+ * Los vídeos de un jugador llegan de la mesa de edición numerados y con su
+ * dorsal detrás: «01-15_OF_Pase_dentro.mp4», «22-15_DF_1x1.mp4». Es lo que
+ * permite proponer su carátula sin que nadie reetiquete veintidós cortes de
+ * «Vídeo completo». Si un solo nombre no sigue la forma, o no todos dicen el
+ * mismo dorsal, no se propone nada.
+ */
+export function dorsalDeVideos(nombres: string[]): number | null {
+  let comun: number | null = null;
+
+  for (const nombre of nombres) {
+    const hallado = /^\d{1,3}-(\d{1,2})(?=[_\s.-])/.exec(nombre);
+
+    if (!hallado) return null;
+
+    const dorsal = Number(hallado[1]);
+
+    if (comun === null) comun = dorsal;
+    else if (comun !== dorsal) return null;
+  }
+
+  return comun;
 }
 
 /** Lo mismo para la configuración: una categoría nueva no puede tumbar nada. */

@@ -133,6 +133,36 @@ export function useSesionCoding(opciones: {
   );
 
   /**
+   * Mete o saca un vídeo de la exportación.
+   *
+   * No toca sus cortes: apartar un vídeo es no llevárselo esta vez, no
+   * borrar lo codificado.
+   */
+  const ponVideoFuera = useCallback(
+    (nombres: string | string[], fuera: boolean) => {
+      muta((actual) => {
+        const lista = new Set(actual.videosFuera ?? []);
+
+        for (const nombre of Array.isArray(nombres) ? nombres : [nombres]) {
+          if (fuera) lista.add(nombre);
+          else lista.delete(nombre);
+        }
+
+        return { ...actual, videosFuera: [...lista] };
+      });
+    },
+    [muta],
+  );
+
+  /** La carátula elegida, guardada con la sesión. `null` vuelve a la propuesta. */
+  const ponCaratula = useCallback(
+    (id: string | null) => {
+      muta((actual) => ({ ...actual, caratula: id ?? undefined }));
+    },
+    [muta],
+  );
+
+  /**
    * Le pone a un vídeo el corte de inicio a fin, si no lo tiene ya.
    *
    * Es lo que hace que abrir un vídeo baste: el corte que casi siempre se
@@ -460,6 +490,8 @@ export function useSesionCoding(opciones: {
     guardaYa: doc.guardaYa,
     añadeClip,
     ponCorteCompleto,
+    ponVideoFuera,
+    ponCaratula,
     actualizaClip,
     borraClip,
     duplicaClip,

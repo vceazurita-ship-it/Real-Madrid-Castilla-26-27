@@ -485,6 +485,8 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Los cuatro tiempos de un clip",
         filas: [
           { que: "Inicio y fin", es: "Lo que se exporta" },
+          { que: "Varios vídeos", es: "Cada vídeo entra solo con su corte de inicio a fin, y la exportación junta los de todos; en «Vídeos» se aparta el que sobre" },
+          { que: "Carátula", es: "Se elige entre los sujetos o toda la plantilla y se guarda con la sesión; con vídeos «01-15_…» se propone sola la del dorsal 15" },
           { que: "Antes y después", es: "El aire que se añade al corte" },
           { que: "Sin conexión", es: "El vídeo no se sube: se trabaja en local" },
         ],

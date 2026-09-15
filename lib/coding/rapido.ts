@@ -502,6 +502,95 @@ type ParadaLista = {
   duracionUs: number;
 };
 
+/* ------------------------------------------------------------------ */
+/*  LAS FUENTES                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Un fichero abierto y listo para leer de él: sus pistas, su config y sus lectores. */
+type FuenteAbierta = {
+  video: PistaMp4;
+  configVideo: VideoDecoderConfig;
+  sonido: PistaMp4 | null;
+  configSonido: AudioDecoderConfig | null;
+  lectorVideo: LectorMuestras;
+  lectorSonido: LectorMuestras;
+};
+
+/**
+ * Abre un fichero para montar de él, o `null` si este motor no sabe.
+ *
+ * Es lo que antes se hacía una sola vez al principio del montaje; ahora se
+ * hace **por fichero**, porque un montaje puede juntar cortes de varios
+ * vídeos de la sesión. Las reglas son las mismas: un códec que no se
+ * descodifica, o un sonido que no se sabe pasar, retiran a este motor.
+ */
+async function abreFuente(fichero: Blob): Promise<FuenteAbierta | null> {
+  const abierto = await abreMp4(fichero);
+
+  if (!abierto?.video) return null;
+
+  const video = abierto.video;
+
+  const configVideo: VideoDecoderConfig = {
+    codec: video.codec,
+    description: video.descripcion ?? undefined,
+    codedWidth: video.ancho,
+    codedHeight: video.alto,
+    hardwareAcceleration: "no-preference",
+  };
+
+  try {
+    const { supported } = await VideoDecoder.isConfigSupported(configVideo);
+
+    if (!supported) return null;
+  } catch {
+    return null;
+  }
+
+  const sonido = abierto.audio ?? null;
+
+  let configSonido: AudioDecoderConfig | null = null;
+
+  if (sonido) {
+    configSonido = {
+      codec: sonido.codec,
+      sampleRate: sonido.frecuencia,
+      numberOfChannels: sonido.canales,
+      description: sonido.descripcion ?? undefined,
+    };
+
+    try {
+      const cabe = await AudioDecoder.isConfigSupported(configSonido);
+
+      const codifica = await AudioEncoder.isConfigSupported({
+        codec: "mp4a.40.2",
+        sampleRate: sonido.frecuencia,
+        numberOfChannels: sonido.canales,
+        bitrate: sonido.canales > 1 ? 192_000 : 128_000,
+      });
+
+      /*
+      | Con sonido que no se sabe pasar, este motor se retira.
+      |
+      | Entregar el vídeo mudo sin decir nada sería peor que tardar: el otro
+      | motor lo graba a tiempo real, pero lo graba.
+      */
+      if (!cabe.supported || !codifica.supported) return null;
+    } catch {
+      return null;
+    }
+  }
+
+  return {
+    video,
+    configVideo,
+    sonido,
+    configSonido,
+    lectorVideo: new LectorMuestras(fichero),
+    lectorSonido: new LectorMuestras(fichero),
+  };
+}
+
 /**
  * Monta el vídeo con WebCodecs, o devuelve `null` si aquí no se puede.
  *
@@ -519,67 +608,41 @@ export async function montaRapido(
 
   if (clips.length === 0) throw new Error("No hay clips que exportar.");
 
-  const abierto = await abreMp4(peticion.fichero);
+  const principal = await abreFuente(peticion.fichero);
 
-  if (!abierto?.video) return null;
+  if (!principal) return null;
 
-  const fuente = abierto.video;
+  /*
+  | Cada corte se lee de su fichero.
+  |
+  | Se abren todos por delante: si uno no se deja leer, se sabe antes de
+  | codificar nada y el montaje se retira entero, en vez de dejar medio vídeo
+  | hecho. La medida, los fotogramas y el sonido de la salida son los del
+  | primero; un vídeo de otra medida se encaja en ella al copiarlo al lienzo.
+  */
+  const fuentes = new Map<Blob, FuenteAbierta>([[peticion.fichero, principal]]);
 
-  const configDecodificador: VideoDecoderConfig = {
-    codec: fuente.codec,
-    description: fuente.descripcion ?? undefined,
-    codedWidth: fuente.ancho,
-    codedHeight: fuente.alto,
-    hardwareAcceleration: "no-preference",
-  };
+  for (const clip of clips) {
+    if (!clip.fichero || fuentes.has(clip.fichero)) continue;
 
-  try {
-    const { supported } = await VideoDecoder.isConfigSupported(configDecodificador);
+    const otra = await abreFuente(clip.fichero);
 
-    if (!supported) return null;
-  } catch {
-    return null;
+    if (!otra) return null;
+
+    fuentes.set(clip.fichero, otra);
   }
 
-  const plan = await planea(fuente, peticion.fps);
+  const fuenteDe = (clip: ClipNavegador) =>
+    fuentes.get(clip.fichero ?? peticion.fichero) ?? principal;
+
+  const plan = await planea(principal.video, peticion.fps);
 
   if (!plan) return null;
 
   /* ------------------------------------------------------- el sonido */
 
-  const pistaSonido = abierto.audio;
-
-  let configSonido: AudioDecoderConfig | null = null;
-
-  if (pistaSonido) {
-    configSonido = {
-      codec: pistaSonido.codec,
-      sampleRate: pistaSonido.frecuencia,
-      numberOfChannels: pistaSonido.canales,
-      description: pistaSonido.descripcion ?? undefined,
-    };
-
-    try {
-      const cabe = await AudioDecoder.isConfigSupported(configSonido);
-
-      const codifica = await AudioEncoder.isConfigSupported({
-        codec: "mp4a.40.2",
-        sampleRate: pistaSonido.frecuencia,
-        numberOfChannels: pistaSonido.canales,
-        bitrate: pistaSonido.canales > 1 ? 192_000 : 128_000,
-      });
-
-      /*
-      | Con sonido que no se sabe pasar, este motor se retira.
-      |
-      | Entregar el vídeo mudo sin decir nada sería peor que tardar: el otro
-      | motor lo graba a tiempo real, pero lo graba.
-      */
-      if (!cabe.supported || !codifica.supported) return null;
-    } catch {
-      return null;
-    }
-  }
+  /* La pista de sonido de la salida: la del primer vídeo. */
+  const pistaSonido = principal.sonido;
 
   const arranque = Date.now();
 
@@ -770,8 +833,7 @@ export async function montaRapido(
 
   /* ------------------------------------------------------ el descodificador */
 
-  const lectorVideo = new LectorMuestras(peticion.fichero);
-  const lectorSonido = new LectorMuestras(peticion.fichero);
+  /* Cada fichero trae sus lectores: ver `abreFuente`. */
 
   /**
    * Mete en la salida una imagen quieta, tantos fotogramas como haga falta.
@@ -846,7 +908,12 @@ export async function montaRapido(
       },
     });
 
-    descodificador.configure(configDecodificador);
+    /* El fichero de este corte, que no tiene por qué ser el del anterior. */
+    const origen = fuenteDe(clip);
+
+    const fuente = origen.video;
+
+    descodificador.configure(origen.configVideo);
 
     const desde = claveAntesDe(fuente, inicioUs);
     const hasta = Math.min(fuente.n - 1, primeraDesde(fuente, finUs));
@@ -909,7 +976,22 @@ export async function montaRapido(
 
         paraSiCancelan();
 
-        const salidaUs = Math.round(t + desplazamiento);
+        /*
+        | Nunca antes de donde empieza este corte en la salida.
+        |
+        | El primer fotograma que entra suele empezar un poco ANTES del punto
+        | de corte —a los 480 ms si se cortó en los 500— porque todavía se ve
+        | en él. Sin este tope su instante salía negativo (−20 000 µs), el
+        | codificador de Chrome lo guardaba sin signo (1,8·10¹⁹) y el MP4
+        | declaraba una duración de 870 horas; en los cortes siguientes caía
+        | encima del último fotograma del anterior. Medido el 15/09/2026 con
+        | `ffprobe`: pasaba en todos los montajes, también antes de poder
+        | juntar varios vídeos. Adelantarlo como mucho un fotograma no se ve.
+        */
+        const salidaUs = Math.max(
+          desplazamientoInicial,
+          Math.round(t + desplazamiento),
+        );
 
         salida.mete(
           new VideoFrame(lienzo, { timestamp: salidaUs, duration: dur }),
@@ -927,7 +1009,7 @@ export async function montaRapido(
 
       if (falloDec) throw falloDec;
 
-      const datos = await lectorVideo.dame(fuente.offsets[i], fuente.tam[i]);
+      const datos = await origen.lectorVideo.dame(fuente.offsets[i], fuente.tam[i]);
 
       descodificador.decode(
         new EncodedVideoChunk({
@@ -984,7 +1066,9 @@ export async function montaRapido(
    * lo mismo hasta el final del vídeo.
    */
   const pasaSonido = async (salida: Salida, clip: ClipNavegador) => {
-    if (!pistaSonido || !configSonido) return;
+    if (!pistaSonido) return;
+
+    const origen = fuenteDe(clip);
 
     dice("Poniendo el sonido");
 
@@ -1073,6 +1157,25 @@ export async function montaRapido(
       datos.close();
     };
 
+    /* Silencio del largo del corte, con los canales de la salida. */
+    const silencio = () =>
+      Array.from({ length: pistaSonido.canales }, () => new Float32Array(escrito));
+
+    const pista = origen.sonido;
+
+    /*
+    | Un vídeo mudo, o con otro sonido que el del primero, entra en silencio.
+    |
+    | La salida lleva una sola pista, abierta a la frecuencia del primer
+    | vídeo: unas muestras a otra frecuencia las tiraría el codificador, y el
+    | sonido de todo lo que viene detrás se descuadraría con la imagen.
+    */
+    if (!pista || !origen.configSonido || pista.frecuencia !== frecuencia) {
+      salida.meteSonido(silencio(), frecuencia);
+
+      return;
+    }
+
     const descodificador = new AudioDecoder({
       output: guarda,
       error: (error) => {
@@ -1080,23 +1183,20 @@ export async function montaRapido(
       },
     });
 
-    descodificador.configure(configSonido);
+    descodificador.configure(origen.configSonido);
 
     /* Un paquete antes del principio: el AAC necesita carrerilla. */
-    const desde = Math.max(0, primeraDesde(pistaSonido, inicioUs) - 2);
-    const hasta = Math.min(pistaSonido.n - 1, primeraDesde(pistaSonido, finUs));
+    const desde = Math.max(0, primeraDesde(pista, inicioUs) - 2);
+    const hasta = Math.min(pista.n - 1, primeraDesde(pista, finUs));
 
     for (let i = desde; i <= hasta; i += 1) {
-      const datos = await lectorSonido.dame(
-        pistaSonido.offsets[i],
-        pistaSonido.tam[i],
-      );
+      const datos = await origen.lectorSonido.dame(pista.offsets[i], pista.tam[i]);
 
       descodificador.decode(
         new EncodedAudioChunk({
           type: "key",
-          timestamp: Math.round(pistaSonido.ptsUs[i]),
-          duration: Math.round(pistaSonido.duracionUs[i]),
+          timestamp: Math.round(pista.ptsUs[i]),
+          duration: Math.round(pista.duracionUs[i]),
           data: datos,
         }),
       );
@@ -1114,12 +1214,23 @@ export async function montaRapido(
 
     if (canales.length === 0) {
       /* Ni un paquete: silencio del mismo largo, que el vídeo no se descuadre. */
-      salida.meteSonido([new Float32Array(escrito), new Float32Array(escrito)], frecuencia);
+      salida.meteSonido(silencio(), frecuencia);
 
       return;
     }
 
-    salida.meteSonido(canales, frecuencia);
+    /*
+    | Los canales de la salida, aunque este vídeo traiga otros: un mono detrás
+    | de un estéreo se duplica, y lo que sobre se deja. El codificador se
+    | abrió con los del primero y no admite otro número.
+    */
+    salida.meteSonido(
+      Array.from(
+        { length: pistaSonido.canales },
+        (_, c) => canales[Math.min(c, canales.length - 1)],
+      ),
+      frecuencia,
+    );
   };
 
   /* --------------------------------------------------- un vídeo entero */

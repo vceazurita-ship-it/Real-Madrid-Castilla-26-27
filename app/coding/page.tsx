@@ -115,10 +115,13 @@ import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
   CLAVE_CONFIG_CODING,
   CONFIG_POR_DEFECTO,
+  SUJETO_VIDEO_COMPLETO,
   TIPO_CODING,
   apodoCoding,
   clipsDeVideo,
+  clipsParaExportar,
   clipsPorVideo,
+  dorsalDeVideos,
   duracionClip,
   enOrdenDePartido,
   formateaMs,
@@ -976,6 +979,30 @@ function Coding() {
     [clips, filtroCategoria, filtroSujeto],
   );
 
+  /*
+  | Lo que se EXPORTA: los cortes de todos los vídeos de la sesión.
+  |
+  | La pantalla es de un vídeo, pero quien sube los veintidós vídeos de un
+  | jugador quiere un montaje con los veintidós sin tener que ir abriéndolos
+  | uno a uno: cada vídeo entra solo con su corte de inicio a fin, y en la
+  | barra de exportación se aparta el que sobre. Los filtros de sujeto y de
+  | categoría se aplican igual que en la lista.
+  */
+  const videosFuera = sesion.sesion.videosFuera;
+
+  const clipsExportables = useMemo(
+    () =>
+      clipsParaExportar(sesion.sesion.clips, videosSesion, videosFuera).filter(
+        (clip) =>
+          (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
+          (!filtroCategoria || clip.categoriaId === filtroCategoria),
+      ),
+    [filtroCategoria, filtroSujeto, sesion.sesion.clips, videosFuera, videosSesion],
+  );
+
+  /* Los del vídeo que está en el reproductor: de ésos se pueden quemar las pizarras. */
+  const idsDelVideo = useMemo(() => new Set(clips.map((clip) => clip.id)), [clips]);
+
   /* ¿Sigue la lista en el orden en el que ocurrió el partido? */
   const ordenDePartido = useMemo(() => enOrdenDePartido(clips), [clips]);
 
@@ -1582,6 +1609,9 @@ function Coding() {
     modo: modoCorte,
     topeMegas,
     ficheroLocal,
+    /* Los cortes de otros vídeos se leen de los suyos. */
+    videos: videosSesion,
+    ficheros: ficherosLocales,
     fps: sesion.sesion.fps,
     titulo,
     /* El vídeo copiado a la carpeta entra en la sesión y se pone delante. */
@@ -1623,16 +1653,24 @@ function Coding() {
   /* Cuántas pizarras se van a quemar con lo que hay elegido ahora. */
   const pizarrasEnLaExportacion = useMemo(
     () =>
-      clipsFiltrados.reduce(
-        (suma, clip) => suma + escenasDeClip(clip).length,
-        0,
-      ),
-    [clipsFiltrados, escenasDeClip],
+      clipsExportables
+        .filter((clip) => idsDelVideo.has(clip.id))
+        .reduce((suma, clip) => suma + escenasDeClip(clip).length, 0),
+    [clipsExportables, escenasDeClip, idsDelVideo],
   );
 
   const componePizarras = useCallback(
-    async (lista: ClipCoding[]) => {
+    async (todos: ClipCoding[]) => {
       const vacio = new Map<string, ParadaDeClip[]>();
+
+      /*
+      | Sólo las del vídeo que está en el reproductor.
+      |
+      | Una pizarra se quema componiendo el fotograma de ESTE `<video>`, y las
+      | escenas son las de este vídeo: con los cortes de otro, el mismo minuto
+      | casaría con una pizarra que no es suya. Los demás salen limpios.
+      */
+      const lista = todos.filter((clip) => idsDelVideo.has(clip.id));
 
       if (!quemaPizarras || escenas.length === 0) return vacio;
 
@@ -1697,7 +1735,7 @@ function Coding() {
 
       return porClip;
     },
-    [caeDentro, escenas, escenasDeClip, quemaPizarras],
+    [caeDentro, escenas, escenasDeClip, idsDelVideo, quemaPizarras],
   );
 
   /*
@@ -1719,7 +1757,10 @@ function Coding() {
   const sujetosDeClips = useMemo(() => {
     const vistos = new Map<string, { id: string; nombre: string }>();
 
-    for (const clip of clipsFiltrados) {
+    for (const clip of clipsExportables) {
+      /* El corte de inicio a fin no es de nadie: no pide carátula propia. */
+      if (clip.jugadorId === SUJETO_VIDEO_COMPLETO.id) continue;
+
       if (!vistos.has(clip.jugadorId)) {
         vistos.set(clip.jugadorId, {
           id: clip.jugadorId,
@@ -1729,13 +1770,65 @@ function Coding() {
     }
 
     return [...vistos.values()];
-  }, [clipsFiltrados]);
+  }, [clipsExportables]);
 
-  /* Lo que se pone sin tocar nada: el del filtro, o el único que haya. */
+  /*
+  | La carátula por el dorsal de los nombres de los vídeos.
+  |
+  | Cuando los cortes no dicen de quién son —los veintidós vídeos de un
+  | jugador entran como «Vídeo completo»— la carátula salía «VÍDEO
+  | COMPLETO», sin cara. Los vídeos de la mesa de edición llevan el dorsal en
+  | el nombre («01-15_OF_Pase_dentro.mp4»): si todos dicen el mismo y en la
+  | plantilla hay uno solo con ese dorsal, la carátula es la suya. Si no,
+  | no se adivina nada.
+  */
+  const caratulaPorDorsal = useMemo(() => {
+    if (sujetosDeClips.length > 0) return null;
+
+    const primero = videosSesion[0]?.nombre ?? "";
+
+    const nombres = [
+      ...new Set(clipsExportables.map((clip) => clip.video ?? primero)),
+    ].filter(Boolean);
+
+    const dorsal = dorsalDeVideos(nombres);
+
+    if (dorsal === null) return null;
+
+    const suyos = jugadores.filter(
+      (uno) => uno.dorsal === dorsal && !uno.id.startsWith("dorsal-"),
+    );
+
+    return suyos.length === 1 ? { id: suyos[0].id, dorsal } : null;
+  }, [clipsExportables, jugadores, sujetosDeClips.length, videosSesion]);
+
+  /* Lo que se pone sin tocar nada: el del filtro, el único que haya, o el del dorsal. */
   const caratulaPorDefecto =
-    filtroSujeto ?? (sujetosDeClips.length === 1 ? sujetosDeClips[0].id : "");
+    filtroSujeto ??
+    (sujetosDeClips.length === 1
+      ? sujetosDeClips[0].id
+      : (caratulaPorDorsal?.id ?? ""));
 
-  const [caratulaPedida, setCaratulaPedida] = useState<string | null>(null);
+  /* Lo elegido se guarda con la sesión: no hay que volver a elegirlo en cada montaje. */
+  const caratulaPedida = sesion.sesion.caratula ?? null;
+
+  const setCaratulaPedida = sesion.ponCaratula;
+
+  /* La plantilla entera, para poner la cara de quien sea. */
+  const plantillaCaratula = useMemo(
+    () =>
+      jugadores
+        .filter(
+          (uno) =>
+            !uno.id.startsWith("dorsal-") &&
+            !sujetosDeClips.some((otro) => otro.id === uno.id),
+        )
+        .map((uno) => ({
+          id: uno.id,
+          nombre: uno.dorsal !== undefined ? `${uno.dorsal} · ${uno.nombre}` : uno.nombre,
+        })),
+    [jugadores, sujetosDeClips],
+  );
 
   /*
   | «Una por jugador» sólo tiene sentido con más de uno dentro.
@@ -1753,7 +1846,8 @@ function Coding() {
     caratulaPedida !== null &&
     (caratulaPedida === "" ||
       (caratulaPedida === CARATULA_POR_JUGADOR && cabePorJugador) ||
-      sujetosDeClips.some((uno) => uno.id === caratulaPedida))
+      sujetosDeClips.some((uno) => uno.id === caratulaPedida) ||
+      plantillaCaratula.some((uno) => uno.id === caratulaPedida))
       ? caratulaPedida
       : caratulaPorDefecto;
 
@@ -1877,7 +1971,7 @@ function Coding() {
       ? toast.loading("Montando la carátula del vídeo…")
       : null;
 
-    const { portada, dentro, faltan } = await construyeCaratulas(clipsFiltrados);
+    const { portada, dentro, faltan } = await construyeCaratulas(clipsExportables);
 
     if (aviso) toast.dismiss(aviso);
 
@@ -1920,7 +2014,7 @@ function Coding() {
     | Y van aunque las pizarras estén en «Fuera»: apagar las pizarras es no
     | quemar los dibujos, no renunciar a las diapositivas que se han pedido.
     */
-    const paradas = await componePizarras(clipsFiltrados);
+    const paradas = await componePizarras(clipsExportables);
 
     for (const { clipId, imagen } of dentro) {
       paradas.set(clipId, [
@@ -1930,7 +2024,7 @@ function Coding() {
     }
 
     await exporta({
-      clips: clipsFiltrados,
+      clips: clipsExportables,
       formato: "unificado",
       nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
       portada,
@@ -1938,7 +2032,7 @@ function Coding() {
     });
   }, [
     caratulaSujeto,
-    clipsFiltrados,
+    clipsExportables,
     componePizarras,
     construyeCaratulas,
     etiquetaFiltro,
@@ -2922,7 +3016,7 @@ function Coding() {
                   icon={Film}
                 >
                   <BarraExportacion
-                    clips={clipsFiltrados}
+                    clips={clipsExportables}
                     etiqueta={etiquetaFiltro}
                     exportando={exportador.exportando}
                     modo={modoCorte}
@@ -2931,6 +3025,14 @@ function Coding() {
                     onTopeMegas={setTopeMegas}
                     caratula={caratulaSujeto}
                     opcionesCaratula={sujetosDeClips}
+                    plantillaCaratula={plantillaCaratula}
+                    pistaCaratula={
+                      caratulaPedida === null &&
+                      caratulaPorDorsal &&
+                      caratulaSujeto === caratulaPorDorsal.id
+                        ? `Por el dorsal ${caratulaPorDorsal.dorsal} de los nombres de los vídeos`
+                        : undefined
+                    }
                     cabePorJugador={cabePorJugador}
                     onCaratula={setCaratulaPedida}
                     onVerCaratula={() => void verCaratula()}
@@ -2940,6 +3042,18 @@ function Coding() {
                     quema={quemaPizarras}
                     onQuema={setQuemaPizarras}
                     enNavegador={montaEnNavegador}
+                    videos={videosSesion.map((video) => ({
+                      nombre: video.nombre,
+                      dentro: !(videosFuera ?? []).includes(video.nombre),
+                      clips: clipsPorFuente.get(video.nombre) ?? 0,
+                    }))}
+                    onVideo={(nombre, dentro) => sesion.ponVideoFuera(nombre, !dentro)}
+                    onTodosLosVideos={(dentro) =>
+                      sesion.ponVideoFuera(
+                        videosSesion.map((video) => video.nombre),
+                        !dentro,
+                      )
+                    }
                     youtube={{
                       conectado: estadoYoutube.conectado,
                       subeSiempre: estadoYoutube.subeSiempre,
@@ -2951,10 +3065,10 @@ function Coding() {
                     onZip={() =>
                       void (async () =>
                         exporta({
-                          clips: clipsFiltrados,
+                          clips: clipsExportables,
                           formato: "zip",
                           nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
-                          paradas: await componePizarras(clipsFiltrados),
+                          paradas: await componePizarras(clipsExportables),
                         }))()
                     }
                     onUnificado={() => void exportaUnificado()}
