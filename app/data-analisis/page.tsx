@@ -106,6 +106,7 @@ import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
+import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelTransferencia } from "@/components/data/PanelTransferencia";
 import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
@@ -166,6 +167,7 @@ type Area =
   | "liga"
   | "todos"
   | "destacados"
+  | "golesAbp"
   | "eventos"
   | "individual"
   | "abp"
@@ -211,6 +213,18 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     label: "Los más destacados",
     icono: Award,
     pregunta: "¿Quién se sale de la categoría, y en qué?",
+  },
+  /*
+    Los goles, que es lo que la fase de balón parado de «Contra la liga» no
+    enseña: allí está cuánta estrategia se juega y cuánta acaba en remate;
+    aquí, cuántos goles da y cuántos cuesta, de toda la liga y de nuestras
+    temporadas. Córner y falta son estimación y la pantalla lo dice.
+  */
+  {
+    key: "golesAbp",
+    label: "Goles a balón parado",
+    icono: Target,
+    pregunta: "¿Cuántos goles hacemos y recibimos a balón parado, y de qué tipo?",
   },
   {
     key: "eventos",
@@ -1231,6 +1245,18 @@ export default function DataAnalisisPage() {
                   <PanelDestacados
                     partidos={datos.partidos ?? []}
                     jugadores={datos.jugadores ?? []}
+                  />
+                )}
+
+                {/* ========= 3 ter · GOLES A BALÓN PARADO ========= */}
+
+                {area === "golesAbp" && (
+                  <PanelGolesAbp
+                    partidos={partidos}
+                    temporada={laQueMando}
+                    historico={datos.historico ?? []}
+                    nosotros={NOSOTROS}
+                    onVerRegistro={() => setArea("abp")}
                   />
                 )}
 

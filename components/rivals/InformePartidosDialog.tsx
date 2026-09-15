@@ -558,7 +558,9 @@ function TipologiaEditor({
           de este equipo —jugada, contra o balón parado— en sus{" "}
           {propuesta.base.partidos}{" "}
           {propuesta.base.partidos === 1 ? "informe" : "informes"} de Wyscout,
-          que es lo más cerca que llega el dato: Wyscout no clasifica los goles.
+          corregido por lo que convierte cada vía en la categoría según Opta
+          —un remate de córner entra la mitad que uno de jugada—. Es lo más
+          cerca que llega el dato: Wyscout no clasifica los goles.
           Los penaltis y las propias puertas no se tocan, que ésos los cuenta el
           marcador. Escribe encima y manda lo tuyo.
         </p>

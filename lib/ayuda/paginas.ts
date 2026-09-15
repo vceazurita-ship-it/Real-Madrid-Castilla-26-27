@@ -70,13 +70,14 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas. El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
-        titulo: "Las nueve áreas",
+        titulo: "Las diez áreas",
         filas: [
           { que: "Partido en el campo", es: "Cada cifra puesta donde ocurre, el partido contra nuestra media" },
           { que: "Nuestra historia", es: "El Castilla contra sus seis temporadas" },
           { que: "Contra la liga", es: "Percentiles contra los 20 equipos, por fase de juego" },
           { que: "Todos contra todos", es: "La liga ordenada y el cruce de dos métricas" },
           { que: "Los más destacados", es: "Quién se sale de la categoría y en qué, equipos y jugadores" },
+          { que: "Goles a balón parado", es: "Córner, falta y penalti, a favor y en contra: toda la liga y nuestras seis temporadas" },
           { que: "Acción por acción", es: "El log de Opta: quién, cuándo y tras cuánto tiempo" },
           { que: "Jugador a jugador", es: "Cada uno contra la categoría, y su evolución de un año a otro" },
           { que: "Nuestro balón parado", es: "Las 500 acciones que registramos a mano" },
@@ -112,6 +113,11 @@ export const AYUDAS: AyudaDePagina[] = [
             que: "«Del rival»",
             es: "Lo que concedemos no es una columna: es la fila del contrario",
             cuenta: "El informe trae los dos equipos de cada partido",
+          },
+          {
+            que: "Goles de córner y de falta (≈)",
+            es: "Estimación: nadie publica de qué jugada nace cada gol de toda la liga; el penalti sí es dato",
+            cuenta: "Goles sin penalti repartidos según el origen de los remates, corregido por lo que convierte cada vía en Opta (córner ×0,49 · falta y otras ×1,35)",
           },
           {
             que: "Nivel de una fase",

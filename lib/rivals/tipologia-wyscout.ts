@@ -1,4 +1,5 @@
 import type { FilaPartido } from "@/lib/data-analisis/leer";
+import { CONVERSION_ABP, reparte } from "@/lib/data-analisis/goles-abp";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import {
   FILA_PROPIA,
@@ -26,11 +27,15 @@ import {
  *   es su propia taxonomía y es excluyente— y desde dónde se dispara. Los goles
  *   que quedan se reparten con esas proporciones.
  *
- * Eso supone que un gol es igual de probable venga de donde venga el remate, y
- * **no es verdad**: un remate de córner entra menos que uno de jugada. Con dos
- * o tres jornadas y cuatro goles, el reparto es un punto de partida, no un
- * análisis; por eso la pantalla dice de dónde sale cada número y el analista lo
- * pisa sin pedir permiso.
+ * Repartir en proporción a los remates supondría que un gol es igual de
+ * probable venga de donde venga el remate, y **no es verdad**: un remate de
+ * córner entra la mitad que uno de jugada. Por eso los remates de balón parado
+ * pesan con `CONVERSION_ABP`, medido contra los goles reales de Opta en la
+ * categoría —lo mismo que usa «Goles a balón parado» en Data Análisis, para
+ * que las dos pantallas no digan cosas distintas—. Aun así, con dos o tres
+ * jornadas y cuatro goles el reparto es un punto de partida, no un análisis;
+ * por eso la pantalla dice de dónde sale cada número y el analista lo pisa sin
+ * pedir permiso.
  */
 
 const COL = {
@@ -66,45 +71,6 @@ export const PROPUESTA_VACIA: PropuestaTipologia = {
 
 const suma = (filas: FilaPartido[], columna: string) =>
   filas.reduce((total, fila) => total + (Number(fila.datos[columna]) || 0), 0);
-
-/**
- * Reparte N goles entre unos pesos sin que se pierda ni se invente ninguno.
- *
- * Es el reparto de restos mayores de toda la vida: cada fila se lleva su parte
- * entera y los goles que sobran van a las que más decimales dejaron. Redondear
- * cada una por su cuenta daría una tabla que no suma los goles del equipo, y
- * una tabla de goles que no cuadra con el marcador no se puede enseñar.
- */
-function reparte(total: number, pesos: [string, number][]): ColumnaTipologia {
-  const utiles = pesos.filter(([, peso]) => peso > 0);
-
-  const acumulado = utiles.reduce((t, [, peso]) => t + peso, 0);
-
-  if (total <= 0 || acumulado <= 0) return {};
-
-  const crudos = utiles.map(([fila, peso]) => {
-    const exacto = (peso / acumulado) * total;
-
-    return { fila, entero: Math.floor(exacto), resto: exacto - Math.floor(exacto) };
-  });
-
-  let faltan = total - crudos.reduce((t, c) => t + c.entero, 0);
-
-  for (const uno of [...crudos].sort((a, b) => b.resto - a.resto)) {
-    if (faltan <= 0) break;
-
-    uno.entero += 1;
-    faltan -= 1;
-  }
-
-  const salida: ColumnaTipologia = {};
-
-  for (const uno of crudos) {
-    if (uno.entero > 0) salida[uno.fila] = uno.entero;
-  }
-
-  return salida;
-}
 
 /**
  * Una columna de la tabla —a favor o en contra— desde las filas que la
@@ -161,10 +127,11 @@ function columnaDe(
     ["DENTRO", posicional * (1 - cuotaFuera)],
     ["IND. FUERA ÁREA", posicional * cuotaFuera],
     ["C. CONTRARIO", contras],
-    ["CÓRNER", abp * cuotaCorner],
+    /* Cada remate de ABP pesa lo que convierte su vía en la categoría. */
+    ["CÓRNER", abp * cuotaCorner * CONVERSION_ABP.corner],
     /* Wyscout no distingue la falta directa de la indirecta; se propone en la
        indirecta, que es la que más veces acaba en remate, y se mueve a mano. */
-    ["FALTA INDIRECTA", abp * (1 - cuotaCorner)],
+    ["FALTA INDIRECTA", abp * (1 - cuotaCorner) * CONVERSION_ABP.falta],
   ]);
 
   /* Sin una sola vía clasificada no hay reparto posible y no se inventa. */
