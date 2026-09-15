@@ -85,7 +85,7 @@ import {
   onceFinal,
   reparteOnceInicial,
   rotuloCompeticion,
-  tipologiaGoles,
+  tipologiaGoles, partidosDeTipologia,
   type FilaClasificacion,
   type InformeEquipo,
   type OncePartido,
@@ -4889,7 +4889,9 @@ export async function construyeHojasInforme(
 
   /* La tabla de tipología del original. Sin goles no hay nada que repartir. */
   if (conFicha.length > 0) {
-    hoja("Tipología de gol", (g) => pintaTipologia(g, data, escudo, conFicha));
+    hoja("Tipología de gol", (g) =>
+      pintaTipologia(g, data, escudo, partidosDeTipologia(informe)),
+    );
   }
 
   /*

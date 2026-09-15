@@ -90,8 +90,7 @@ import {
 import {
   esLiga,
   findInforme,
-  jugados,
-  tipologiaGoles,
+  tipologiaGoles, partidosDeTipologia,
   type InformeEquipo,
 } from "@/lib/rivals/informe";
 import {
@@ -276,13 +275,13 @@ const PARTIDOS_INFORME_MAXIMO = 6;
 /**
  * Los goles de jugada de un rival, que son los que hay que repartir.
  *
- * La hoja de tipología cuenta arriba **todos** los goles de los partidos con
- * ficha, y pinta sola los penaltis y las propias puertas. Lo que queda por
+ * La hoja de tipología cuenta arriba los goles de `partidosDeTipologia` —los de
+ * liga con ficha, sin amistosos—, y pinta sola los penaltis y las propias puertas. Lo que queda por
  * repartir entre las casillas —y lo que propone Wyscout— son los demás: si se
  * repartieran todos, los penaltis saldrían dos veces.
  */
 function golesDeJugada(informe: InformeEquipo) {
-  const cuentas = tipologiaGoles(jugados(informe).filter((p) => p.goles));
+  const cuentas = tipologiaGoles(partidosDeTipologia(informe));
 
   return {
     aFavor: cuentas.aFavor.jugada,

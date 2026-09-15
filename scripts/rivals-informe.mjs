@@ -22,7 +22,9 @@
  *   - entrenador y estadio de la página del club, y la trayectoria del
  *     entrenador de su propia ficha.
  *
- * Cada ficha se guarda por su id en `.cache/rivals-informe/partidos` y, una
+ * Cada ficha se guarda por su id **y por el lado del equipo** —un partido entre
+ * dos rivales nuestros son dos fichas, una por informe— en
+ * `.cache/rivals-informe/partidos` y, una
  * vez el partido lleva unos días cerrado, no se vuelve a pedir: un partido
  * terminado no cambia. Por eso `--refrescar` refresca el calendario, la
  * clasificación y los partidos recientes, pero no reescribe la alineación de
@@ -1099,28 +1101,46 @@ function guardaCache(nombre, valor) {
 
 const CACHE_PARTIDOS = path.join(CACHE_DIR, "partidos");
 
-function rutaFicha(id) {
-  return path.join(CACHE_PARTIDOS, String(id) + ".json");
+/*
+| LA FICHA SE GUARDA POR PARTIDO **Y POR LADO**.
+|
+| Lo que se guarda no es la ficha entera sino **la mitad de un equipo**: su
+| once, su banquillo, sus cambios y tarjetas, su entrenador, y los goles con
+| `propio` visto desde él. Un partido entre dos rivales nuestros —Sant Andreu
+| contra Águilas— sale en los dos informes, y hasta el 15/09/2026 la caché iba
+| sólo por id: el segundo equipo en bajarlo heredaba la mitad del primero. En
+| diecinueve partidos el informe enseñaba la alineación del contrario de aquel
+| día y los goles al revés —el Sant Andreu «perdía» 0-2 el partido que ganó
+| 2-0—. Por eso ahora cada lado tiene su fichero y la ficha dice de qué lado
+| es: las antiguas, sin `lado`, no valen y se vuelven a bajar.
+*/
+const LADOS = { false: "local", true: "visitante" };
+
+function rutaFicha(id, visitante) {
+  return path.join(CACHE_PARTIDOS, `${id}-${LADOS[Boolean(visitante)]}.json`);
 }
 
 /**
- * ¿Se puede dar por buena la ficha guardada de este partido?
+ * ¿Se puede dar por buena la ficha guardada de este partido, de este lado?
  *
  * Sólo si el partido ya no puede cambiar —terminado y con unos días encima— y
  * no se ha pedido `--refrescar-todo`. Un `--refrescar` normal **no** la tira:
  * lo que se quiere refrescar cada noche es el calendario y la clasificación,
  * no reescribir la alineación de un partido de agosto.
  */
-function fichaEnCache(partido) {
+function fichaEnCache(partido, visitante) {
   if (REFRESCAR_TODO) return null;
 
   let guardada;
 
   try {
-    guardada = JSON.parse(fs.readFileSync(rutaFicha(partido.id), "utf8"));
+    guardada = JSON.parse(fs.readFileSync(rutaFicha(partido.id, visitante), "utf8"));
   } catch {
     return null;
   }
+
+  /* Una ficha de otro lado es la de otro equipo: mejor volver a pedirla. */
+  if (guardada.lado !== LADOS[Boolean(visitante)]) return null;
 
   /*
   | Lo que importa no es cuántos días tiene el partido, sino **cuántos tenía
@@ -1135,9 +1155,13 @@ function fichaEnCache(partido) {
   return reposo >= DIAS_QUE_YA_NO_CAMBIAN ? guardada : null;
 }
 
-function guardaFicha(id, valor) {
+function guardaFicha(id, visitante, valor) {
   fs.mkdirSync(CACHE_PARTIDOS, { recursive: true });
-  fs.writeFileSync(rutaFicha(id), JSON.stringify(valor), "utf8");
+  fs.writeFileSync(
+    rutaFicha(id, visitante),
+    JSON.stringify({ ...valor, lado: LADOS[Boolean(visitante)] }),
+    "utf8",
+  );
 }
 
 /**
@@ -1239,7 +1263,7 @@ async function bajaEquipo(id, slug, clasificacion) {
     const visitante = !partido.enCasa;
 
     /* Lo que ya se bajó en su día no se vuelve a pedir. */
-    const guardada = fichaEnCache(partido);
+    const guardada = fichaEnCache(partido, visitante);
 
     if (guardada) {
       if (guardada.once) onces.push(guardada.once);
@@ -1315,8 +1339,26 @@ async function bajaEquipo(id, slug, clasificacion) {
     | curaba solo a la noche siguiente. Si falta cualquiera de las dos páginas
     | no se guarda nada y se vuelve a intentar.
     */
-    if (ficha && eventos) {
-      guardaFicha(partido.id, {
+    /*
+    | Y una ficha **de competición sin un solo gol en un partido que los tuvo**
+    | tampoco se da por buena: BeSoccer sirve a veces la página sin el módulo de
+    | eventos, y la caché la congelaría vacía para siempre. Se deja sin guardar
+    | y se vuelve a pedir la noche siguiente.
+    |
+    | Los amistosos no: de ellos BeSoccer casi nunca publica los goleadores
+    | —el 15/09/2026 eran cinco, todos de pretemporada—, y reintentarlos cada
+    | noche sería pedir para siempre algo que no va a llegar.
+    */
+    const golesDelMarcador =
+      (partido.local.goles ?? 0) + (partido.visitante.goles ?? 0);
+
+    const sinGolesQueHubo =
+      !esAmistoso(partido) &&
+      golesDelMarcador > 0 &&
+      (partido.goles ?? []).length === 0;
+
+    if (ficha && eventos && !sinGolesQueHubo) {
+      guardaFicha(partido.id, visitante, {
         bajadaEn: new Date().toISOString(),
         fecha: partido.fecha,
         once,

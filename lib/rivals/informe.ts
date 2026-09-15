@@ -359,6 +359,27 @@ export function jugados(informe: InformeEquipo) {
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
 
+/**
+ * Los partidos de los que se cuenta la tipología de gol.
+ *
+ * Los que tienen ficha —los únicos con goles apuntados— y **sin mezclar**: si
+ * ya hay jornadas de liga con ficha, sólo ésas; si todavía no, la
+ * pretemporada. Es la misma regla que el gráfico de tramos de la hoja de
+ * estadísticas. Antes entraban todos, y en septiembre la tabla del Sant Andreu
+ * sumaba el 3-1 al Manresa y el 2-1 al Girona B con las tres jornadas: la
+ * cabecera decía goles que no eran de la liga que se prepara.
+ *
+ * La usan la hoja del `.pptx` y el pop-up de antes de montarlo, que tienen que
+ * contar lo mismo.
+ */
+export function partidosDeTipologia(informe: InformeEquipo) {
+  const conFicha = jugados(informe).filter((partido) => partido.goles);
+
+  const deLiga = conFicha.filter((partido) => esLiga(partido));
+
+  return deLiga.length > 0 ? deLiga : conFicha;
+}
+
 /** El marcador de un partido, tal y como se titula una diapositiva. */
 export function marcador(partido: Partido) {
   const goles = partido.jugado
