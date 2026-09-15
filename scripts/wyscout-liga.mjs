@@ -126,6 +126,8 @@ function abreChrome() {
 
   fs.mkdirSync(DESCARGAS, { recursive: true });
 
+  guardaLaSesionAlCerrar();
+
   return spawn(
     CHROME,
     [
@@ -133,11 +135,52 @@ function abreChrome() {
       `--user-data-dir=${PERFIL}`,
       "--no-first-run",
       "--no-default-browser-check",
+      /*
+      | «Continuar donde lo dejaste», y no es por comodidad.
+      |
+      | La cookie de Hudl es **de sesión**: no tiene fecha de caducidad, y
+      | Chrome las tira al cerrarse salvo que esté puesto a restaurar. Por eso
+      | había que volver a entrar en Wyscout cada vez que el proceso terminaba
+      | —se echó la culpa a `chrome.kill()`, se cambió por `Browser.close`, y
+      | seguía pasando: `exit_type` decía «Normal» y la sesión se perdía
+      | igual—. Con esto las cookies de sesión se guardan en disco y la semana
+      | siguiente arranca ya dentro, que es lo que hace posible programarlo.
+      */
+      "--restore-last-session",
       "--window-size=1600,1000",
       "https://wyscout.hudl.com/app/",
     ],
     { stdio: "ignore" },
   );
+}
+
+/**
+ * Deja escrito en el perfil que al arrancar se restaura la sesión anterior.
+ *
+ * El interruptor de la línea de órdenes vale para el arranque, pero **la
+ * decisión de guardar las cookies se toma al cerrar**, y ahí manda lo que diga
+ * el perfil. Se escriben las dos cosas y no se discute.
+ *
+ * Si no se puede —el fichero no está todavía, Chrome lo tiene abierto— no pasa
+ * nada: se sigue, que esto es una mejora, no un requisito.
+ */
+function guardaLaSesionAlCerrar() {
+  const fichero = path.join(PERFIL, "Default", "Preferences");
+
+  try {
+    if (!fs.existsSync(fichero)) return;
+
+    const ajustes = JSON.parse(fs.readFileSync(fichero, "utf8"));
+
+    /* 1 = «continuar donde lo dejaste». */
+    if (ajustes.session?.restore_on_startup === 1) return;
+
+    ajustes.session = { ...ajustes.session, restore_on_startup: 1 };
+
+    fs.writeFileSync(fichero, JSON.stringify(ajustes), "utf8");
+  } catch {
+    /* el interruptor de la línea de órdenes sigue puesto */
+  }
 }
 
 /** El hilo de mando con la pestaña. */
@@ -159,6 +202,28 @@ async function conecta() {
   }
 
   if (!pestana) throw new Error("Chrome no ha abierto el puerto de mando.");
+
+  /*
+  | Una sola pestaña, que si no se pierde el hilo.
+  |
+  | Al restaurar la sesión anterior Chrome reabre lo que hubiera, y con tres
+  | pestañas de Wyscout abiertas cada orden podía irse a una distinta: se
+  | pulsaba un filtro en una y se leía el resultado en otra. Se queda la que se
+  | va a manejar y se cierran las demás.
+  */
+  try {
+    const todas = await fetch(`http://127.0.0.1:${PUERTO}/json`).then((r) => r.json());
+
+    for (const otra of todas) {
+      if (otra.type !== "page" || otra.id === pestana.id) continue;
+
+      if (!/wyscout|hudl/i.test(otra.url)) continue;
+
+      await fetch(`http://127.0.0.1:${PUERTO}/json/close/${otra.id}`);
+    }
+  } catch {
+    /* si no se dejan cerrar, se sigue con la que hay */
+  }
 
   const ws = new WebSocket(pestana.webSocketDebuggerUrl);
 
@@ -330,7 +395,7 @@ async function conecta() {
   };
 
   const texto = () =>
-    js(`return (document.body.innerText || "").replace(/\\s+/g, " ");`);
+    js(`return ((document.body || {}).innerText || "").replace(/\\s+/g, " ");`);
 
   /**
    * Esperar a que aparezca algo, en vez de esperar un rato.
@@ -344,7 +409,7 @@ async function conecta() {
     for (let i = 0; i < segundos * 2; i++) {
       const hay = await js(`
         return new RegExp(${JSON.stringify(patron)}, "i")
-          .test((document.body.innerText || "").replace(/\\s+/g, " "));
+          .test(((document.body || {}).innerText || "").replace(/\\s+/g, " "));
       `);
 
       if (hay) return true;
@@ -389,6 +454,26 @@ async function esperaLogin(nav) {
     console.log("  Sesión ya iniciada en este perfil.\n");
 
     return true;
+  }
+
+  /*
+  | Desatendido: no se espera a nadie.
+  |
+  | Cuando esto lo lanza el Programador de tareas un martes por la mañana no
+  | hay quien escriba la contraseña, y quedarse diez minutos con una ventana
+  | abierta esperando sólo sirve para que la tarea muera por tiempo y no deje
+  | ni rastro de por qué. Se sale en seco con un motivo que se lee de un
+  | vistazo en el registro, y ya lo reintenta la pasada siguiente.
+  */
+  if (bandera("desatendido")) {
+    console.log(
+      "\n  LA SESIÓN DE WYSCOUT HA CADUCADO.\n" +
+        "  Nadie puede escribir la contraseña en una tarea programada: abre\n" +
+        "  scripts\\actualizar-wys.cmd a mano una vez, entra en la ventana que\n" +
+        "  sale, y a partir de ahí la tarea vuelve sola.\n",
+    );
+
+    return false;
   }
 
   console.log(
@@ -583,7 +668,7 @@ async function bajaEquipo(nav, equipo) {
 
   /* ¿Está ya en ALL? El rótulo del desplegable lo dice. */
   const enAll = await nav.js(`
-    const t = (document.body.innerText || "").replace(/\\s+/g, " ");
+    const t = ((document.body || {}).innerText || "").replace(/\\s+/g, " ");
 
     return /MOSTRAR: ?ALL/i.test(t);
   `);
@@ -1448,6 +1533,10 @@ async function principal() {
   try {
     if (!(await esperaLogin(nav))) {
       console.log("  No se ha iniciado sesión. Nada que hacer.\n");
+
+      /* Un código propio: quien lo lanza sin mirar necesita distinguir «hay
+         que volver a entrar en Wyscout» de «se ha roto algo». */
+      process.exitCode = 2;
 
       return;
     }

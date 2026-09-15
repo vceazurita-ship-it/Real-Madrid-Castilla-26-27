@@ -153,8 +153,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Cómo se actualiza (una vez por semana)",
         filas: [
           {
+            que: "Sola, todas las semanas",
+            es: "Una tarea de Windows lo hace los martes por la mañana y lo publica sin que nadie mire",
+            cuenta: "Se instala una vez con scripts/instalar-tarea-wyscout.ps1; el registro queda en .cache/wyscout",
+          },
+          {
             que: "scripts/actualizar-wys.cmd",
-            es: "Doble clic y ya: baja los equipos, baja los jugadores, relee la carpeta y pregunta si se publica",
+            es: "Lo mismo a mano: doble clic, y pregunta antes de publicar. Para un partido entre semana",
             cuenta: "Tarda entre cinco y diez minutos; abre un Chrome aparte que se mueve solo",
           },
           {
@@ -197,6 +202,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "El balón parado propio lo registramos nosotros: no sale de Wyscout ni de Opta, y no hay liga con la que compararlo.",
       "En el percentil del jugador no entran los que no llegan a 90 minutos.",
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
+      "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
   },
 
