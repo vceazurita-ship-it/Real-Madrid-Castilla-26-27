@@ -705,8 +705,19 @@ function Coding() {
    * encima: el corte completo es uno más de la lista y se borra como los otros.
    */
   const abreVideos = useCallback(
-    (elegidos: VideoElegido[]) => {
+    (
+      elegidos: VideoElegido[],
+      /*
+      | `forzar` (por defecto): los elegidos A MANO entran con su corte aunque
+      | ya lo hubieran tenido alguna vez. Sólo los caminos automáticos —la
+      | adopción desde la carpeta, la copia al exportar— pasan `false`, para
+      | no resucitar un corte borrado a propósito. Ver `ponCortesCompletos`.
+      */
+      opciones: { forzar?: boolean } = {},
+    ) => {
       if (elegidos.length === 0) return;
+
+      const forzar = opciones.forzar ?? true;
 
       setSrcPorVideo((actual) => {
         const siguiente = { ...actual };
@@ -762,7 +773,7 @@ function Coding() {
           }),
         );
 
-        ponCortesCompletos(medidas);
+        ponCortesCompletos(medidas, { forzar });
 
         const sinMedir = medidas.filter((uno) => !(uno.duracionMs > 0));
 
@@ -835,12 +846,16 @@ function Coding() {
 
         if (!igual) return;
 
-        abreVideos([
-          {
-            fuente: { tipo: "archivo", ruta: igual.ruta, nombre: igual.nombre },
-            src: `/api/coding/video?ruta=${encodeURIComponent(igual.ruta)}`,
-          },
-        ]);
+        abreVideos(
+          [
+            {
+              fuente: { tipo: "archivo", ruta: igual.ruta, nombre: igual.nombre },
+              src: `/api/coding/video?ruta=${encodeURIComponent(igual.ruta)}`,
+            },
+          ],
+          /* Es el mismo vídeo por otro camino: no se le vuelve a poner nada. */
+          { forzar: false },
+        );
 
         toast.success("El vídeo ya está en la carpeta de partidos", {
           description: "Se corta desde ahí: el coding y las pizarras se quedan como están.",
@@ -1757,7 +1772,7 @@ function Coding() {
     fps: sesion.sesion.fps,
     titulo,
     /* El vídeo copiado a la carpeta entra en la sesión y se pone delante. */
-    onAdopta: (fuente, src) => abreVideos([{ fuente, src }]),
+    onAdopta: (fuente, src) => abreVideos([{ fuente, src }], { forzar: false }),
     alTerminarVideo,
   });
 
@@ -3263,7 +3278,8 @@ function Coding() {
                     <SelectorFuente
                       fuente={sesion.sesion.fuente}
                       videos={videosSesion}
-                      onElegir={abreVideos}
+                      /* Elegidos a mano: entran siempre con su corte completo. */
+                      onElegir={(elegidos) => abreVideos(elegidos)}
                     />
                   </Panel>
                 )}

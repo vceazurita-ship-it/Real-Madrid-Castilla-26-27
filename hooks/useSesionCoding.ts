@@ -172,7 +172,22 @@ export function useSesionCoding(opciones: {
    * sólo si el vídeo no trae cortes.
    */
   const ponCortesCompletos = useCallback(
-    (lista: { fuente: FuenteVideo; duracionMs: number }[]) => {
+    (
+      lista: { fuente: FuenteVideo; duracionMs: number }[],
+      opciones: {
+        /**
+         * Aunque el vídeo ya tuviera su corte alguna vez.
+         *
+         * Es lo que pide elegir los vídeos A MANO: el 15/09/2026 la sesión del
+         * Águilas tenía seis vídeos y sólo tres cortes, porque los otros tres
+         * ya habían pasado por la sesión y al volver a elegirlos no entraban.
+         * Lo que no fuerza es lo automático —la copia a la carpeta, la
+         * adopción—: ahí un corte borrado a propósito no puede reaparecer.
+         * Un vídeo que ya tiene cortes nunca recibe otro.
+         */
+        forzar?: boolean;
+      } = {},
+    ) => {
       const validos = lista.filter(
         (uno) => uno.duracionMs > 0 && Boolean(nombreDeFuente(uno.fuente)),
       );
@@ -191,7 +206,7 @@ export function useSesionCoding(opciones: {
         for (const { fuente, duracionMs } of validos) {
           const nombre = nombreDeFuente(fuente);
 
-          if (marcados.has(nombre)) continue;
+          if (marcados.has(nombre) && !opciones.forzar) continue;
 
           marcados.add(nombre);
 
