@@ -55,8 +55,17 @@ export function ListaClips({
   onMover,
   pizarrasDe,
   exportando,
+  videoDe,
 }: {
   clips: ClipCoding[];
+  /**
+   * De qué vídeo es cada clip, cuando la lista enseña los de varios.
+   *
+   * Pinta una columna con el nombre y no deja mover un clip a otro vídeo:
+   * el orden de exportación va por vídeos y, dentro de cada uno, por la
+   * lista, así que subir un clip por encima de otro vídeo no haría nada.
+   */
+  videoDe?: (clip: ClipCoding) => string;
   categorias: CategoriaCoding[];
   seleccionado: string | null;
   onSeleccionar: (id: string) => void;
@@ -105,6 +114,7 @@ export function ListaClips({
           <tr className="text-[10px] uppercase tracking-[0.16em] text-white/30">
             <th className="w-6 px-1 py-1.5 font-medium" aria-label="Orden" />
             <th className="px-2 py-1.5 font-medium">#</th>
+            {videoDe && <th className="px-2 py-1.5 font-medium">Vídeo</th>}
             {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
             <th className="px-2 py-1.5 font-medium">Quién</th>
             <th className="px-2 py-1.5 font-medium">Categoría</th>
@@ -123,8 +133,14 @@ export function ListaClips({
 
             const activo = clip.id === seleccionado;
 
-            const anterior = clips[indice - 1];
-            const siguiente = clips[indice + 1];
+            /* Sólo se mueve dentro de su vídeo: ver `videoDe`. */
+            const delMismoVideo = (otro: ClipCoding | undefined) =>
+              otro && (!videoDe || videoDe(otro) === videoDe(clip))
+                ? otro
+                : undefined;
+
+            const anterior = delMismoVideo(clips[indice - 1]);
+            const siguiente = delMismoVideo(clips[indice + 1]);
 
             const marca =
               destino && destino.id === clip.id && arrastrado !== clip.id
@@ -139,6 +155,13 @@ export function ListaClips({
                 onClick={() => onSeleccionar(clip.id)}
                 onDragOver={(evento) => {
                   if (!arrastrado) return;
+
+                  /* Otro vídeo: aquí no se suelta. */
+                  if (videoDe) {
+                    const suyo = clips.find((uno) => uno.id === arrastrado);
+
+                    if (suyo && videoDe(suyo) !== videoDe(clip)) return;
+                  }
 
                   /* Sin esto el navegador no deja soltar: es la forma de decir
                      que aquí sí se puede. */
@@ -197,6 +220,17 @@ export function ListaClips({
                 <td className="px-2 py-1.5 text-[11px] tabular-nums text-white/35">
                   {String(clip.numero).padStart(3, "0")}
                 </td>
+
+                {videoDe && (
+                  <td className="max-w-[170px] px-2 py-1.5">
+                    <span
+                      className="block truncate text-[11px] text-white/45"
+                      title={videoDe(clip)}
+                    >
+                      {videoDe(clip).replace(/\.[^.]+$/, "")}
+                    </span>
+                  </td>
+                )}
 
                 <td className="max-w-[190px] px-2 py-1.5">
                   <span className="flex min-w-0 items-center gap-2">

@@ -163,6 +163,56 @@ export function useSesionCoding(opciones: {
   );
 
   /**
+   * Los cortes de inicio a fin de varios vídeos, de una sola vez.
+   *
+   * Al subir tres vídeos a la vez tienen que entrar los tres cortes, y en el
+   * orden en el que se eligieron: medirlos por separado los metía según
+   * fuera acabando cada medida, y un solo cambio es además un solo paso de
+   * deshacer. Las reglas son las de `ponCorteCompleto`: una vez por vídeo, y
+   * sólo si el vídeo no trae cortes.
+   */
+  const ponCortesCompletos = useCallback(
+    (lista: { fuente: FuenteVideo; duracionMs: number }[]) => {
+      const validos = lista.filter(
+        (uno) => uno.duracionMs > 0 && Boolean(nombreDeFuente(uno.fuente)),
+      );
+
+      if (validos.length === 0) return;
+
+      muta((actual) => {
+        const primero = nombreDeFuente(actual.videos[0]);
+
+        const marcados = new Set(actual.videosConCorte);
+
+        const ahora = new Date().toISOString();
+
+        let clips = actual.clips;
+
+        for (const { fuente, duracionMs } of validos) {
+          const nombre = nombreDeFuente(fuente);
+
+          if (marcados.has(nombre)) continue;
+
+          marcados.add(nombre);
+
+          if (clips.some((clip) => (clip.video ?? primero) === nombre)) continue;
+
+          const clip = creaClip(
+            borradorVideoCompleto(duracionMs),
+            siguienteNumero(clips),
+            ahora,
+          );
+
+          clips = [...clips, { ...clip, video: nombre }];
+        }
+
+        return { ...actual, clips, videosConCorte: [...marcados] };
+      }, true);
+    },
+    [muta, siguienteNumero],
+  );
+
+  /**
    * Le pone a un vídeo el corte de inicio a fin, si no lo tiene ya.
    *
    * Es lo que hace que abrir un vídeo baste: el corte que casi siempre se
@@ -452,6 +502,10 @@ export function useSesionCoding(opciones: {
         return {
           ...actual,
           videos,
+          /* Quitado del todo: si se vuelve a subir, vuelve a entrar con su
+             corte de inicio a fin, como uno nuevo. */
+          videosConCorte: actual.videosConCorte.filter((uno) => uno !== nombre),
+          videosFuera: (actual.videosFuera ?? []).filter((uno) => uno !== nombre),
           fuente: mismaFuente(actual.fuente, fuente)
             ? (videos[0] ?? null)
             : actual.fuente,
@@ -490,6 +544,7 @@ export function useSesionCoding(opciones: {
     guardaYa: doc.guardaYa,
     añadeClip,
     ponCorteCompleto,
+    ponCortesCompletos,
     ponVideoFuera,
     ponCaratula,
     actualizaClip,

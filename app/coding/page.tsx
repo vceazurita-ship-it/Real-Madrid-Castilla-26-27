@@ -111,6 +111,7 @@ import {
 } from "@/components/coding/BarraMarcado";
 import { useSesionCoding } from "@/hooks/useSesionCoding";
 import { duracionDeVideoMs } from "@/lib/coding/duracion";
+import { abreMp4 } from "@/lib/coding/mp4";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
   CLAVE_CONFIG_CODING,
@@ -610,7 +611,7 @@ function Coding() {
 
   const sesion = useSesionCoding({ ambito, refId, titulo, config });
 
-  const { ponFuente, añadeVideos, ponCorteCompleto, quitaVideo } = sesion;
+  const { ponFuente, añadeVideos, ponCortesCompletos, quitaVideo } = sesion;
 
   /* Las teclas de quien todavía no tenga: se reparten con la lista delante. */
   const teclas = useMemo(
@@ -736,13 +737,55 @@ function Coding() {
       | el reproductor no sabe nada de la otra —y de la que sí, tarda en
       | saberlo—. Cada medida es la cabecera del fichero y nada más.
       */
-      for (const uno of elegidos) {
-        void duracionDeVideoMs(uno.src).then((duracionMs) => {
-          ponCorteCompleto(uno.fuente, duracionMs);
-        });
-      }
+      /*
+      | Y todos los cortes entran juntos, en el orden en que se eligieron.
+      |
+      | Si el reproductor no sabe decir cuánto dura un vídeo —un .mov, un
+      | códec que Chrome no pinta—, se lee la cabecera del fichero, que es
+      | lo que ya hace el montaje. Antes ese vídeo se quedaba sin su corte y
+      | sin que nadie lo dijera.
+      */
+      void (async () => {
+        const medidas = await Promise.all(
+          elegidos.map(async (uno) => {
+            let duracionMs = await duracionDeVideoMs(uno.src);
+
+            if (!(duracionMs > 0) && uno.fichero) {
+              const abierto = await abreMp4(uno.fichero).catch(() => null);
+
+              duracionMs = abierto?.duracionUs
+                ? Math.round(abierto.duracionUs / 1000)
+                : 0;
+            }
+
+            return { fuente: uno.fuente, duracionMs };
+          }),
+        );
+
+        ponCortesCompletos(medidas);
+
+        const sinMedir = medidas.filter((uno) => !(uno.duracionMs > 0));
+
+        if (sinMedir.length > 0) {
+          toast.warning(
+            sinMedir.length === 1
+              ? "Un vídeo ha entrado sin su corte completo"
+              : `${sinMedir.length} vídeos han entrado sin su corte completo`,
+            {
+              description:
+                `${sinMedir
+                  .slice(0, 3)
+                  .map((uno) => uno.fuente.nombre)
+                  .join(", ")}${sinMedir.length > 3 ? "…" : ""}: no se ha ` +
+                "podido saber cuánto duran. Márcales el inicio y el final con " +
+                "la I y la O.",
+              duration: 15000,
+            },
+          );
+        }
+      })();
     },
-    [añadeVideos, ponCorteCompleto],
+    [añadeVideos, ponCortesCompletos],
   );
 
   /** Pone delante uno de los vídeos que ya están en la sesión. */
@@ -1003,6 +1046,43 @@ function Coding() {
   /* Los del vídeo que está en el reproductor: de ésos se pueden quemar las pizarras. */
   const idsDelVideo = useMemo(() => new Set(clips.map((clip) => clip.id)), [clips]);
 
+  /*
+  | La LISTA, con los cortes de todos los vídeos.
+  |
+  | Al subir tres vídeos a la vez entran sus tres cortes completos, pero la
+  | lista sólo enseñaba el del que estaba delante y parecía que se había
+  | quedado uno. Con más de un vídeo se ven todos, agrupados por vídeo y con
+  | su nombre al lado; «Este vídeo» vuelve a la vista de siempre.
+  */
+  const [listaDeTodos, setListaDeTodos] = useState(true);
+
+  const verTodosEnLista = listaDeTodos && videosSesion.length > 1;
+
+  const clipsDeLaLista = useMemo(
+    () =>
+      verTodosEnLista
+        ? clipsParaExportar(sesion.sesion.clips, videosSesion).filter(
+            (clip) =>
+              (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
+              (!filtroCategoria || clip.categoriaId === filtroCategoria),
+          )
+        : clipsFiltrados,
+    [
+      clipsFiltrados,
+      filtroCategoria,
+      filtroSujeto,
+      sesion.sesion.clips,
+      verTodosEnLista,
+      videosSesion,
+    ],
+  );
+
+  /* De qué vídeo es cada clip de la lista, por su nombre. */
+  const videoDeClip = useCallback(
+    (clip: ClipCoding) => clip.video ?? videosSesion[0]?.nombre ?? "",
+    [videosSesion],
+  );
+
   /* ¿Sigue la lista en el orden en el que ocurrió el partido? */
   const ordenDePartido = useMemo(() => enOrdenDePartido(clips), [clips]);
 
@@ -1159,6 +1239,68 @@ function Coding() {
       reproductor.play();
     },
     [reproductor, salta],
+  );
+
+  /*
+  | Un clip de otro vídeo: se pone ese vídeo delante y, en cuanto tiene
+  | imagen, se salta al clip.
+  |
+  | La lista enseña los cortes de todos los vídeos, pero el reproductor es
+  | uno: los minutos de un clip sólo valen dentro de SU vídeo. Se espera al
+  | `loadeddata` del propio `<video>` —un evento, no un efecto— porque hasta
+  | que el vídeo nuevo no está cargado, saltar sería saltar en el viejo.
+  */
+  const reproduceDeCualquierVideo = useCallback(
+    (clip: ClipCoding) => {
+      const nombre = clip.video ?? videosSesion[0]?.nombre ?? "";
+
+      const delante = sesion.sesion.fuente?.nombre ?? "";
+
+      if (videosSesion.length <= 1 || !nombre || nombre === delante) {
+        reproduceClip(clip);
+
+        return;
+      }
+
+      const fuente = videosSesion.find((uno) => uno.nombre === nombre);
+
+      if (!fuente) return;
+
+      if (fuente.tipo === "local" && !srcPorVideo[nombre]) {
+        toast.error("Hay que volver a abrir ese vídeo", {
+          description:
+            `${nombre} está en tu ordenador y, al recargar la página, el ` +
+            "navegador pierde el permiso. Ábrelo otra vez en «El vídeo».",
+        });
+
+        return;
+      }
+
+      setSeleccionado(clip.id);
+
+      const video = videoRef.current;
+
+      if (video) {
+        const alListo = () => {
+          video.removeEventListener("loadeddata", alListo);
+
+          clearTimeout(plazo);
+
+          reproduceClip(clip);
+        };
+
+        /* Si el vídeo no llega a cargar, no se queda nadie escuchando. */
+        const plazo = setTimeout(
+          () => video.removeEventListener("loadeddata", alListo),
+          15_000,
+        );
+
+        video.addEventListener("loadeddata", alListo);
+      }
+
+      miraVideo(fuente);
+    },
+    [miraVideo, reproduceClip, sesion.sesion.fuente, srcPorVideo, videosSesion],
   );
 
   /* ------------------------------------------------------ playlist */
@@ -2897,6 +3039,23 @@ function Coding() {
                   icon={ListVideo}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* Con varios vídeos, la lista enseña los cortes de
+                          todos; esto vuelve a los del que está delante. */}
+                      {videosSesion.length > 1 && (
+                        <Button
+                          onClick={() => setListaDeTodos((valor) => !valor)}
+                          title={
+                            listaDeTodos
+                              ? "Enseñar sólo los clips del vídeo que está delante"
+                              : "Enseñar los clips de todos los vídeos de la sesión"
+                          }
+                        >
+                          {listaDeTodos
+                            ? "Ver sólo este vídeo"
+                            : `Ver los ${videosSesion.length} vídeos`}
+                        </Button>
+                      )}
+
                       {(filtroSujeto || filtroCategoria) && (
                         <Button
                           onClick={() => {
@@ -2978,11 +3137,12 @@ function Coding() {
                   )}
 
                   <ListaClips
-                    clips={clipsFiltrados}
+                    clips={clipsDeLaLista}
+                    videoDe={verTodosEnLista ? videoDeClip : undefined}
                     categorias={config.categorias}
                     seleccionado={seleccionado}
                     onSeleccionar={setSeleccionado}
-                    onReproducir={reproduceClip}
+                    onReproducir={reproduceDeCualquierVideo}
                     onEditar={setEditando}
                     onDuplicar={sesion.duplicaClip}
                     onBorrar={(id) => {
@@ -2999,7 +3159,11 @@ function Coding() {
                         }))()
                     }
                     onMover={sesion.mueveClipA}
-                    pizarrasDe={(clip) => escenasDeClip(clip).length}
+                    /* Las pizarras son del vídeo que está delante: las de
+                       otro no se pueden contar con estas escenas. */
+                    pizarrasDe={(clip) =>
+                      idsDelVideo.has(clip.id) ? escenasDeClip(clip).length : 0
+                    }
                     exportando={exportador.exportando}
                   />
                 </Panel>
