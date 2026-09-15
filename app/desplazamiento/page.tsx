@@ -52,6 +52,7 @@ import { Topbar } from "@/components/ui/topbar";
 import {
   AbpHeader,
   Button,
+  Dialog,
   Field,
   Notice,
   Panel,
@@ -60,7 +61,8 @@ import {
 } from "@/components/abp/ui";
 import { CampoImagen } from "@/components/viaje/CampoImagen";
 import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
-import { EditorHorario } from "@/components/viaje/EditorHorario";
+import { EditorHorario, type DiaCopiado } from "@/components/viaje/EditorHorario";
+import { EntradaHora } from "@/components/viaje/EntradaHora";
 import { ExportaViaje } from "@/components/viaje/ExportaViaje";
 import { HojasHorario } from "@/components/viaje/HojaHorario";
 import { NotasVestuario } from "@/components/viaje/NotasVestuario";
@@ -88,12 +90,22 @@ import {
   EMPTY_VIAJE_STORE,
   HOJA_H,
   HOJA_W,
+  COPIA_POR_DEFECTO,
+  aHora,
+  aMinutos,
+  anclaDelHorario,
+  comoDesfase,
   copiaViaje,
+  diasEntre,
+  mueveDiaPartido,
+  mueveFechas,
   normalizaViaje,
   viajeVacio,
   type Desplazamiento,
+  type QueCopiar,
   type ViajeStore,
 } from "@/lib/viaje/modelo";
+import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { conSemilla, tieneSemilla } from "@/lib/viaje/semilla";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 
@@ -387,19 +399,187 @@ export default function DesplazamientoPage() {
     return null;
   }, [partido, partidos, store.viajes]);
 
-  const traeDelAnterior = () => {
-    if (!anterior || !viaje) return;
+  /* ------------------------ COPIAR DE OTRO VIAJE ------------------- */
 
-    const fuente = store.viajes?.[anterior.id];
+  /*
+  | Cualquier viaje montado sirve de punto de partida, no sólo el anterior:
+  | el de la jornada con el mismo horario, el de la ida contra este mismo
+  | rival —mismo estadio, mismo hotel—, el de la última vez que se durmió
+  | fuera. Se elige cuál y qué se trae.
+  */
+  const otrosViajes = useMemo(() => {
+    if (!partido || !viaje) return [];
+
+    return Object.entries(store.viajes ?? {})
+      .filter(([id]) => id !== partido.id)
+      .map(([id, guardadoAhi]) => {
+        const suyo = normalizaViaje(guardadoAhi);
+
+        const delCalendario = partidos.find((item) => item.id === id);
+
+        return {
+          id,
+          etiqueta: delCalendario
+            ? etiquetaPartido(delCalendario)
+            : `${suyo.rival || "Sin rival"} · ${suyo.fecha || "sin fecha"}`,
+          fecha: suyo.fecha,
+          dias: suyo.dias.length,
+          citas: suyo.dias.reduce((suma, dia) => suma + dia.citas.length, 0),
+          mismoRival:
+            Boolean(suyo.rivalId && suyo.rivalId === viaje.rivalId) ||
+            Boolean(suyo.rival && viaje.rival && mismoEquipo(suyo.rival, viaje.rival)),
+        };
+      })
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [partido, partidos, store.viajes, viaje]);
+
+  const [copiando, setCopiando] = useState(false);
+  const [fuenteCopia, setFuenteCopia] = useState("");
+  const [queCopiar, setQueCopiar] = useState<QueCopiar>(COPIA_POR_DEFECTO);
+
+  /* Estadio y hotel sólo se proponen si es el mismo rival: si no, mandarían al
+     equipo a la ciudad equivocada. */
+  const eligeFuente = (id: string) => {
+    const uno = otrosViajes.find((item) => item.id === id);
+
+    setFuenteCopia(id);
+
+    setQueCopiar({
+      horario: true,
+      rutina: true,
+      estadio: Boolean(uno?.mismoRival),
+      hotel: Boolean(uno?.mismoRival),
+    });
+  };
+
+  const abreCopia = () => {
+    const propuesta =
+      otrosViajes.find((item) => item.mismoRival)?.id ??
+      (anterior && otrosViajes.some((item) => item.id === anterior.id)
+        ? anterior.id
+        : otrosViajes[0]?.id) ??
+      "";
+
+    eligeFuente(propuesta);
+
+    setCopiando(true);
+  };
+
+  const confirmaCopia = () => {
+    if (!partido || !viaje) return;
+
+    const fuente = store.viajes?.[fuenteCopia];
 
     if (!fuente) return;
 
-    muta((actual) => copiaViaje(fuente, actual));
+    /* Lo de antes, para poder volver atrás desde el aviso. */
+    const previo = store.viajes?.[partido.id];
+    const id = partido.id;
 
-    toast.success(
-      `Traídos la rutina y el horario de ${matchLabel(anterior)}, con las horas movidas a este partido`,
-    );
+    muta((actual) => copiaViaje(fuente, actual, queCopiar));
+
+    setCopiando(false);
+
+    const partes = [
+      queCopiar.horario && "el horario",
+      queCopiar.rutina && "la salida y los avisos",
+      queCopiar.estadio && "el estadio",
+      queCopiar.hotel && "el hotel",
+    ].filter(Boolean);
+
+    const de = otrosViajes.find((item) => item.id === fuenteCopia)?.etiqueta ?? "otro viaje";
+
+    toast.success(`Copiado de ${de}: ${partes.join(", ")}`, {
+      description: queCopiar.horario
+        ? "El día del partido va reanclado a la hora de este partido; los demás días, a su hora."
+        : undefined,
+      duration: 10000,
+      action: {
+        label: "Deshacer",
+        onClick: () =>
+          setStore((actual) => {
+            const viajes = { ...actual.viajes };
+
+            if (previo) viajes[id] = previo;
+            else delete viajes[id];
+
+            return { ...actual, viajes };
+          }),
+      },
+    });
   };
+
+  /* ---------------------- HORA Y FECHA DEL PARTIDO ------------------ */
+
+  /*
+  | Cambiar la hora del partido mueve el día del partido.
+  |
+  | Es lo que prometía la pantalla y no hacía: se escribía la hora y el
+  | horario se quedaba donde estaba —en un viaje recién abierto, montado para
+  | las 20:00—. Se mueve desde la hora a la que ESTÁ montado el día (la cita
+  | «Partido»), así que la comida, la charla y el calentamiento quedan a la
+  | misma distancia del saque inicial. Los demás días van por reloj.
+  */
+  const cambiaHora = useCallback(
+    (minuto: number | null) => {
+      if (!viaje) return;
+
+      const antes = anclaDelHorario(viaje);
+
+      muta((actual) => {
+        const ancla = anclaDelHorario(actual);
+
+        const salto = minuto !== null && ancla !== null ? minuto - ancla : 0;
+
+        return {
+          ...actual,
+          hora: minuto === null ? "" : aHora(minuto),
+          dias: salto ? mueveDiaPartido(actual, salto) : actual.dias,
+        };
+      });
+
+      if (minuto !== null && antes !== null && minuto !== antes) {
+        toast.success(
+          `El día del partido se mueve ${comoDesfase(minuto - antes)}`,
+          {
+            description:
+              "Todo sigue a la misma distancia del saque inicial. Los demás días no se tocan.",
+          },
+        );
+      }
+    },
+    [muta, viaje],
+  );
+
+  /* Y cambiar la fecha lleva todo el viaje con ella: la víspera sigue siendo la víspera. */
+  const cambiaFecha = useCallback(
+    (fecha: string) => {
+      if (!viaje) return;
+
+      const salto = viaje.fecha && fecha ? diasEntre(viaje.fecha, fecha) : 0;
+
+      muta((actual) => ({
+        ...actual,
+        fecha,
+        dias: mueveFechas(
+          actual.dias,
+          actual.fecha && fecha ? diasEntre(actual.fecha, fecha) : 0,
+        ),
+      }));
+
+      if (salto && viaje.dias.length) {
+        toast.success(
+          `Los ${viaje.dias.length} días del viaje se mueven con el partido (${
+            salto > 0 ? "+" : "−"
+          }${Math.abs(salto)} ${Math.abs(salto) === 1 ? "día" : "días"})`,
+        );
+      }
+    },
+    [muta, viaje],
+  );
+
+  /* Lo copiado de un día: aquí arriba para poder pegarlo en otro viaje. */
+  const [diaCopiado, setDiaCopiado] = useState<DiaCopiado | null>(null);
 
   /* ----------------------------- VISTA ----------------------------- */
 
@@ -465,13 +645,13 @@ export default function DesplazamientoPage() {
               </label>
 
               <div className="flex flex-wrap items-end gap-2">
-                {anterior && (
+                {viaje && otrosViajes.length > 0 && (
                   <Button
                     icon={Copy}
-                    onClick={traeDelAnterior}
-                    title={`Traer la rutina y el horario de ${matchLabel(anterior)}, con las horas recalculadas`}
+                    onClick={abreCopia}
+                    title="Traer el horario, los avisos, el estadio o el hotel de cualquier otro viaje ya montado"
                   >
-                    Traer de {matchLabel(anterior)}
+                    Copiar de otro viaje
                   </Button>
                 )}
 
@@ -566,21 +746,41 @@ export default function DesplazamientoPage() {
                           placeholder="1"
                         />
 
-                        <Field
-                          label="Fecha"
-                          value={viaje.fecha}
-                          onChange={(valor) => campo("fecha", valor)}
-                          placeholder="2026-08-31"
-                          hint="En formato AAAA-MM-DD: de ahí sale el día escrito entero."
-                        />
+                        <label className="block min-w-0">
+                          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                            Fecha
+                          </span>
 
-                        <Field
-                          label="Hora del partido"
-                          value={viaje.hora}
-                          onChange={(valor) => campo("hora", valor)}
-                          placeholder="21:15"
-                          hint="Es la cifra que manda: el horario del día se calcula desde ella."
-                        />
+                          <input
+                            type="date"
+                            value={viaje.fecha}
+                            onChange={(evento) => cambiaFecha(evento.target.value)}
+                            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm tabular-nums text-white outline-none transition [color-scheme:dark] focus:border-[#C8A96B]/50"
+                          />
+
+                          <span className="mt-1 block text-[11px] leading-snug text-white/35">
+                            Si cambia, los días del viaje se mueven con ella.
+                          </span>
+                        </label>
+
+                        <label className="block min-w-0">
+                          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                            Hora del partido
+                          </span>
+
+                          <EntradaHora
+                            minuto={aMinutos(viaje.hora)}
+                            onCambia={cambiaHora}
+                            permiteVacio
+                            placeholder="21:15"
+                            etiqueta="Hora del partido"
+                            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm tabular-nums text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+                          />
+
+                          <span className="mt-1 block text-[11px] leading-snug text-white/35">
+                            La que manda: al cambiarla, el día del partido se mueve solo.
+                          </span>
+                        </label>
                       </div>
 
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -830,9 +1030,17 @@ export default function DesplazamientoPage() {
                   {/* =================== HORARIO =================== */}
 
                   <div className="mt-5">
+                    {/*
+                    | Con `key`: al cambiar de partido el editor empieza de
+                    | cero. Sin ella, «Deshacer» guardaba los días del viaje
+                    | anterior y los podía meter en éste.
+                    */}
                     <EditorHorario
+                      key={partido.id}
                       viaje={viaje}
                       onCambio={(dias) => campo("dias", dias)}
+                      copiado={diaCopiado}
+                      onCopiado={setDiaCopiado}
                     />
                   </div>
 
@@ -948,6 +1156,119 @@ export default function DesplazamientoPage() {
                 }
               />
             </div>
+
+            {/* ============== COPIAR DE OTRO VIAJE ============== */}
+
+            {copiando && viaje && (
+              <Dialog
+                title="Copiar de otro viaje"
+                subtitle="Elige de cuál y qué te traes. Lo que marques se sustituye en este viaje; se puede deshacer justo después."
+                onClose={() => setCopiando(false)}
+                footer={
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button onClick={() => setCopiando(false)}>Cancelar</Button>
+
+                    <Button
+                      tone="primary"
+                      icon={Copy}
+                      onClick={confirmaCopia}
+                      disabled={
+                        !fuenteCopia ||
+                        !(
+                          queCopiar.horario ||
+                          queCopiar.rutina ||
+                          queCopiar.estadio ||
+                          queCopiar.hotel
+                        )
+                      }
+                    >
+                      Copiar
+                    </Button>
+                  </div>
+                }
+              >
+                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  De qué viaje
+                </p>
+
+                <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                  {otrosViajes.map((uno) => (
+                    <label
+                      key={uno.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                        fuenteCopia === uno.id
+                          ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.08]"
+                          : "border-white/10 hover:border-white/25"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="fuente-copia"
+                        checked={fuenteCopia === uno.id}
+                        onChange={() => eligeFuente(uno.id)}
+                        className="h-4 w-4 accent-[#C8A96B]"
+                      />
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-white/85">
+                          {uno.etiqueta}
+                        </span>
+
+                        <span className="block text-[11px] text-white/40">
+                          {uno.dias} {uno.dias === 1 ? "día" : "días"} ·{" "}
+                          {uno.citas} {uno.citas === 1 ? "cita" : "citas"}
+                        </span>
+                      </span>
+
+                      {uno.mismoRival && (
+                        <span className="shrink-0 rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B]">
+                          Mismo rival
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Qué te traes
+                </p>
+
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {(
+                    [
+                      ["horario", "El horario", "Todos los días y sus citas; el del partido, movido a la hora de éste"],
+                      ["rutina", "Salida y avisos", "De dónde sale el autobús y la línea «No olvidar»"],
+                      ["estadio", "El estadio", "Nombre, datos y planos: sirve contra el mismo rival"],
+                      ["hotel", "El hotel", "Nombre, datos y fotos: sirve contra el mismo rival"],
+                    ] as const
+                  ).map(([clave, rotulo, pista]) => (
+                    <label
+                      key={clave}
+                      className="flex cursor-pointer items-start gap-2 rounded-xl border border-white/10 px-3 py-2 transition hover:border-white/25"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={queCopiar[clave]}
+                        onChange={(evento) =>
+                          setQueCopiar((actual) => ({
+                            ...actual,
+                            [clave]: evento.target.checked,
+                          }))
+                        }
+                        className="mt-0.5 h-4 w-4 accent-[#C8A96B]"
+                      />
+
+                      <span>
+                        <span className="block text-sm text-white/85">{rotulo}</span>
+                        <span className="block text-[11px] leading-snug text-white/40">
+                          {pista}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </Dialog>
+            )}
           </div>
         </section>
       </div>

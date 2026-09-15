@@ -78,14 +78,19 @@ import {
 import { toast } from "sonner";
 
 import { Button, Notice, Panel } from "@/components/abp/ui";
+import { EntradaHora } from "@/components/viaje/EntradaHora";
 import {
+  CITAS_RAPIDAS,
   PLANTILLAS_DIA,
   PLANTILLAS_HORARIO,
   PLANTILLAS_VIAJE,
   TIPO_CITA,
   aHora,
   aMinutos,
+  anclaDelHorario,
   citaDeHora,
+  citaRapida,
+  minutoDeRapida,
   clonaCitas,
   comoDesfase,
   conCitas,
@@ -100,6 +105,7 @@ import {
   esDiaSiguiente,
   horarioDePlantilla,
   indiceDiaPartido,
+  mueveDiaPartido,
   mueveEnLista,
   nuevoId,
   ordenaDias,
@@ -110,6 +116,9 @@ import {
   type Desplazamiento,
   type TipoCita,
 } from "@/lib/viaje/modelo";
+
+/** Las citas de un día copiadas para pegarlas en otro, también de otro viaje. */
+export type DiaCopiado = { rotulo: string; citas: CitaHorario[] };
 
 /* ------------------------------------------------------------------ */
 /*  IDENTIDADES DEL ARRASTRE                                           */
@@ -143,6 +152,7 @@ function FilaCita({
   viaje,
   dias,
   arrastrando,
+  enfoca = false,
   onCambia,
   onQuita,
   onDuplica,
@@ -153,6 +163,8 @@ function FilaCita({
   viaje: Desplazamiento;
   dias: DiaViaje[];
   arrastrando: boolean;
+  /** Recién creada: el cursor va directo a escribir qué es. */
+  enfoca?: boolean;
   onCambia: (parche: Partial<CitaHorario>) => void;
   onQuita: () => void;
   onDuplica: () => void;
@@ -187,19 +199,13 @@ function FilaCita({
       </button>
 
       <div className="min-w-0">
-        <input
-          value={aHora(cita.minuto)}
-          onChange={(evento) => {
-            const minutos = aMinutos(evento.target.value);
-
-            if (minutos === null) return;
-
-            /* Escribir "03:15" en una cita de madrugada tiene que dejarla en
-               la madrugada, no mandarla al amanecer. */
-            onCambia({
-              minuto: esDiaSiguiente(cita.minuto) ? minutos + 1440 : minutos,
-            });
+        {/* Se escribe entero y se guarda al salir: ver `EntradaHora`. */}
+        <EntradaHora
+          minuto={cita.minuto}
+          onCambia={(minuto) => {
+            if (minuto !== null) onCambia({ minuto });
           }}
+          etiqueta={`Hora de «${cita.texto || "la cita"}»`}
           className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-sm font-semibold tabular-nums text-white outline-none transition focus:border-[#C8A96B]/50"
         />
 
@@ -213,7 +219,8 @@ function FilaCita({
       <input
         value={cita.texto}
         onChange={(evento) => onCambia({ texto: evento.target.value })}
-        placeholder="Salida bus"
+        autoFocus={enfoca}
+        placeholder="Qué es: salida bus, comida…"
         className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
       />
 
@@ -254,6 +261,34 @@ function FilaCita({
             ))}
           </select>
         )}
+
+        {/*
+        | La vuelta que llega a las 3:15 pertenece a la hoja del día que se
+        | jugó: esto la manda a la madrugada de después, y otra vez la trae.
+        */}
+        <button
+          type="button"
+          onClick={() =>
+            onCambia({
+              minuto: esDiaSiguiente(cita.minuto)
+                ? cita.minuto - 1440
+                : cita.minuto + 1440,
+            })
+          }
+          aria-pressed={esDiaSiguiente(cita.minuto)}
+          title={
+            esDiaSiguiente(cita.minuto)
+              ? "Es de madrugada, ya del día siguiente. Pulsa para volverla a este día."
+              : "Pasarla a la madrugada del día siguiente (la vuelta de un viaje largo)"
+          }
+          className={`rounded-lg border px-2 py-1.5 text-[11px] transition ${
+            esDiaSiguiente(cita.minuto)
+              ? "border-[#C8A96B]/50 bg-[#C8A96B]/10 text-[#C8A96B]"
+              : "border-white/10 text-white/45 hover:text-white"
+          }`}
+        >
+          Madrugada
+        </button>
 
         <Button
           icon={ArrowUp}
@@ -329,6 +364,8 @@ function TarjetaDia({
   onCopia,
   onPega,
   onMueveCita,
+  recien,
+  onRecien,
 }: {
   dia: DiaViaje;
   indice: number;
@@ -348,6 +385,9 @@ function TarjetaDia({
   onCopia: () => void;
   onPega: () => void;
   onMueveCita: (citaId: string, destinoId: string) => void;
+  /** La cita que se acaba de añadir a mano: se abre con el cursor dentro. */
+  recien: string | null;
+  onRecien: (id: string | null) => void;
 }) {
   /* Se desestructura en la llamada: el linter de React no deja leer `.current`
      ni ningún campo de lo que devuelve un hook de arrastre durante el render. */
@@ -401,16 +441,35 @@ function TarjetaDia({
     if (suelta) onCambiaCitas(suelta.horas.map(citaDeHora));
   };
 
-  const anade = () =>
-    onCambiaCitas([
-      ...citas,
-      {
-        id: nuevoId("CI"),
-        minuto: esDelPartido ? (minutoPartido ?? 20 * 60) : 12 * 60,
-        texto: "Nueva cita",
-        tipo: "otro",
-      },
-    ]);
+  /*
+  | Una cita a mano: media hora después de la última, que es donde se suele
+  | escribir la siguiente, y con el cursor ya en el texto. Antes caía encima
+  | del saque inicial —justo donde está el partido— y llamada «Nueva cita»,
+  | que había que borrar antes de escribir.
+  */
+  const anade = () => {
+    const ultima = citas.length ? Math.max(...citas.map((cita) => cita.minuto)) : null;
+
+    const nueva: CitaHorario = {
+      id: nuevoId("CI"),
+      minuto:
+        ultima !== null
+          ? ultima + 30
+          : esDelPartido && minutoPartido !== null
+            ? Math.max(0, minutoPartido - 300)
+            : 12 * 60,
+      texto: "",
+      tipo: "otro",
+    };
+
+    onCambiaCitas([...citas, nueva]);
+
+    onRecien(nueva.id);
+  };
+
+  /** Una de las de siempre, ya con su hora: ver `CITAS_RAPIDAS`. */
+  const anadeRapida = (rapida: (typeof CITAS_RAPIDAS)[number]) =>
+    onCambiaCitas([...citas, citaRapida(rapida, dia, viaje)]);
 
   const fantasma = arrastre?.tipo === "dia" && arrastre.diaId === dia.id;
 
@@ -626,6 +685,7 @@ function TarjetaDia({
               arrastrando={
                 arrastre?.tipo === "cita" && arrastre.citaId === cita.id
               }
+              enfoca={recien === cita.id}
               onCambia={(parche) => cambia(cita.id, parche)}
               onQuita={() =>
                 onCambiaCitas(citas.filter((item) => item.id !== cita.id))
@@ -640,10 +700,33 @@ function TarjetaDia({
             />
           ))}
 
-          <div className="pt-1">
+          {/*
+          | Las de siempre, de un toque y ya a su hora: el día del partido, a
+          | su distancia del saque inicial; cualquier otro, a la hora de
+          | siempre. Es lo que evita escribir «Merienda» y calcular 18:30 cada
+          | semana.
+          */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <Button icon={Plus} onClick={anade}>
               Añadir cita
             </Button>
+
+            <span className="ml-1 text-[10px] uppercase tracking-[0.16em] text-white/30">
+              Rápidas
+            </span>
+
+            {CITAS_RAPIDAS.map((rapida) => (
+              <button
+                key={rapida.texto}
+                type="button"
+                onClick={() => anadeRapida(rapida)}
+                title={`Añadir «${rapida.texto}» a las ${aHora(minutoDeRapida(rapida, dia, viaje))}`}
+                className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/55 transition hover:border-[#C8A96B]/50 hover:text-white"
+                style={{ borderLeft: `3px solid ${TIPO_CITA[rapida.tipo].color}` }}
+              >
+                {rapida.texto}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -658,9 +741,18 @@ function TarjetaDia({
 export function EditorHorario({
   viaje,
   onCambio,
+  copiado,
+  onCopiado,
 }: {
   viaje: Desplazamiento;
   onCambio: (dias: DiaViaje[]) => void;
+  /**
+   * Lo copiado de un día. Vive en la página y no aquí para poder pegarlo en
+   * OTRO viaje: se copia el día de la víspera de Teruel, se cambia de partido
+   * y se pega.
+   */
+  copiado: DiaCopiado | null;
+  onCopiado: (copiado: DiaCopiado | null) => void;
 }) {
   const dias = viaje.dias;
 
@@ -668,10 +760,9 @@ export function EditorHorario({
 
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
   const [plegados, setPlegados] = useState<string[]>([]);
-  const [copiado, setCopiado] = useState<{
-    rotulo: string;
-    citas: CitaHorario[];
-  } | null>(null);
+
+  /* La cita recién añadida a mano, para abrirla con el cursor dentro. */
+  const [recien, setRecien] = useState<string | null>(null);
 
   /*
   | Deshacer, de una sola pila y en memoria: casi todo lo de esta pantalla
@@ -833,6 +924,12 @@ export function EditorHorario({
 
   const sinDiaDePartido = dias.length > 0 && indiceDiaPartido(viaje) < 0;
 
+  /* A qué hora está montado el día del partido, y cuánto se aparta de la hora. */
+  const ancla = anclaDelHorario(viaje);
+
+  const saltoHora =
+    ancla !== null && minutoPartido !== null ? minutoPartido - ancla : 0;
+
   const total = dias.reduce((suma, dia) => suma + dia.citas.length, 0);
 
   const desordenadas = dias.some(
@@ -958,6 +1055,43 @@ export function EditorHorario({
         </div>
       )}
 
+      {/*
+      | El día del partido montado para otra hora.
+      |
+      | Pasa con los viajes guardados antes de que la hora moviera el día sola,
+      | y con cualquier cambio hecho a mano en la cita del partido. Se dice y
+      | se arregla de un toque, en vez de dejar que la hoja salga con el
+      | partido a una hora y la charla calculada para otra.
+      */}
+      {saltoHora !== 0 && ancla !== null && minutoPartido !== null && (
+        <div className="mt-3">
+          <Notice
+            tone="warn"
+            title={`El día del partido está montado para las ${aHora(ancla)}`}
+          >
+            <p>
+              El partido es a las {aHora(minutoPartido)}, pero la cita «Partido»
+              de ese día está a las {aHora(ancla)}: la comida, la charla y el
+              calentamiento están calculados para esa otra hora.
+            </p>
+
+            <div className="mt-2">
+              <Button
+                icon={CalendarClock}
+                onClick={() =>
+                  guarda(
+                    mueveDiaPartido(viaje, saltoHora),
+                    `Día del partido movido ${comoDesfase(saltoHora)}. Se puede deshacer.`,
+                  )
+                }
+              >
+                Mover el día del partido {comoDesfase(saltoHora)}
+              </Button>
+            </div>
+          </Notice>
+        </div>
+      )}
+
       {dias.length === 0 && (
         <p className="py-8 text-center text-xs text-white/35">
           Todavía no hay ningún día. Monta el viaje con una plantilla de arriba
@@ -985,6 +1119,8 @@ export function EditorHorario({
                 dias={dias}
                 plegado={plegados.includes(dia.id)}
                 copiado={copiado}
+                recien={recien}
+                onRecien={setRecien}
                 arrastre={arrastre}
                 onPliega={() =>
                   setPlegados(
@@ -1014,13 +1150,15 @@ export function EditorHorario({
                   )
                 }
                 onCopia={() => {
-                  setCopiado({
-                    rotulo: diaCorto(dia.fecha).toLowerCase() || `día ${indice + 1}`,
+                  onCopiado({
+                    rotulo: `${
+                      diaCorto(dia.fecha).toLowerCase() || `día ${indice + 1}`
+                    } · ${viaje.rival || "este viaje"}`,
                     citas: dia.citas,
                   });
 
                   toast.success(
-                    `Copiadas las ${dia.citas.length} citas: pégalas en otro día`,
+                    `Copiadas las ${dia.citas.length} citas: pégalas en otro día, también de otro viaje`,
                   );
                 }}
                 onPega={() => {
@@ -1104,8 +1242,9 @@ export function EditorHorario({
         citas se ordenan solas por hora, así que arrastrarlas sirve para pasarlas
         de un día a otro —o el desplegable de la fila, que es lo cómodo desde el
         móvil—; los días se arrastran por su asa. Del día del partido cuelgan las
-        plantillas por desfase: si la federación cambia la hora, se mueve el día
-        entero con los botones y los desfases se conservan.
+        plantillas por desfase: si la federación cambia la hora, al escribirla
+        arriba el día del partido se mueve solo y los desfases se conservan. Las
+        horas se escriben enteras («1830» vale) y se guardan al salir del campo.
         {abarca > dias.length
           ? ` Ojo: los ${dias.length} días abarcan ${abarca} de calendario, así que hay alguno suelto en medio.`
           : ""}

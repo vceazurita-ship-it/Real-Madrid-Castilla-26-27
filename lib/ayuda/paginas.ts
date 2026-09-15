@@ -578,8 +578,12 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Días", es: "Un viaje puede tener uno o varios: cada día es una hoja A4" },
           {
             que: "Horario elástico",
-            es: "Las citas relativas se recolocan si se mueve la hora del partido",
+            es: "Al cambiar la hora del partido, el día del partido se mueve solo; los demás días van por reloj",
           },
+          { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min" },
+          { que: "Copiar de otro viaje", es: "Cualquier viaje montado: el horario, los avisos, y el estadio y el hotel si es el mismo rival" },
+          { que: "Citas rápidas", es: "Desayuno, comida, charla… de un toque y ya a su hora respecto al partido" },
+          { que: "Copiar un día", es: "Se copia en un viaje y se pega en otro" },
         ],
       },
     ],

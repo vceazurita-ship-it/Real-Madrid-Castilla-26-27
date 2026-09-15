@@ -1153,15 +1153,24 @@ export function viajeVacio(
 export function copiaViaje(
   origen: Desplazamiento,
   destino: Desplazamiento,
+  que: QueCopiar = COPIA_POR_DEFECTO,
 ): Desplazamiento {
-  const antes = aMinutos(origen.hora);
+  /*
+  | El de origen puede estar guardado con el formato de un solo día —`horario`
+  | y no `dias`—: sin convertirlo antes, copiar de él rompía la página.
+  */
+  const fuente = normalizaViaje(origen);
+
+  /* El horario se reancla desde la hora a la que ESTÁ montado, no desde la
+     que dijera el viaje: ver `anclaDelHorario`. */
+  const antes = anclaDelHorario(fuente);
   const ahora = aMinutos(destino.hora);
 
   const salto = antes !== null && ahora !== null ? ahora - antes : 0;
 
-  const saltoDias = diasEntre(origen.fecha, destino.fecha);
+  const saltoDias = diasEntre(fuente.fecha, destino.fecha);
 
-  const dias = origen.dias.map((dia) =>
+  const dias = fuente.dias.map((dia) =>
     conCitas(
       {
         ...dia,
@@ -1169,15 +1178,172 @@ export function copiaViaje(
         fecha: sumaDias(dia.fecha, saltoDias),
         citas: [],
       },
-      clonaCitas(dia.citas, dia.fecha === origen.fecha ? salto : 0),
+      clonaCitas(dia.citas, dia.fecha === fuente.fecha ? salto : 0),
     ),
   );
 
   return {
     ...destino,
-    origen: origen.origen,
-    avisos: [...origen.avisos],
-    dias: dias.length ? dias : destino.dias,
+    ...(que.rutina
+      ? { origen: fuente.origen, avisos: [...(fuente.avisos ?? [])] }
+      : {}),
+    ...(que.horario && dias.length ? { dias } : {}),
+    /*
+    | El estadio y el hotel sólo sirven contra el MISMO rival —la vuelta, una
+    | eliminatoria—: por eso no van marcados por defecto. Las dimensiones que
+    | ya trajera la hoja RIVALES se respetan si el de origen no las tenía, y la
+    | entrada al hotel se vacía porque lleva el día escrito dentro.
+    */
+    ...(que.estadio
+      ? {
+          estadio: {
+            ...fuente.estadio,
+            dimensiones: fuente.estadio.dimensiones || destino.estadio.dimensiones,
+          },
+        }
+      : {}),
+    ...(que.hotel
+      ? { hotel: { ...fuente.hotel, entrada: "" }, conHotel: fuente.conHotel }
+      : {}),
+  };
+}
+
+/** Qué se trae de otro viaje. */
+export type QueCopiar = {
+  /** Los días y sus citas, con el día del partido reanclado a la nueva hora. */
+  horario: boolean;
+  /** De dónde sale el autobús y los avisos del pie de la hoja. */
+  rutina: boolean;
+  /** El estadio con sus planos. */
+  estadio: boolean;
+  /** El hotel con sus fotos. */
+  hotel: boolean;
+};
+
+export const COPIA_POR_DEFECTO: QueCopiar = {
+  horario: true,
+  rutina: true,
+  estadio: false,
+  hotel: false,
+};
+
+/**
+ * El minuto al que está montado el horario del día del partido.
+ *
+ * Es el de la cita «Partido» de ese día, no la hora que diga el viaje: un
+ * viaje recién abierto se monta para las 20:00 con la hora todavía en blanco,
+ * y fiarse de la hora escrita dejaba el horario a las 20:00 con el partido a
+ * las 18:00. Sin cita de partido, la hora del viaje.
+ */
+export function anclaDelHorario(viaje: Desplazamiento): number | null {
+  const dia = viaje.dias.find((uno) => uno.fecha === viaje.fecha);
+
+  const partido = dia?.citas.find((cita) => cita.tipo === "partido");
+
+  if (partido) return partido.minuto;
+
+  return aMinutos(viaje.hora);
+}
+
+/**
+ * Mueve el día del partido entero `salto` minutos.
+ *
+ * Es lo que pasa cuando la federación cambia la hora: todo ese día sigue a la
+ * misma distancia del saque inicial. Los demás días van por reloj —la víspera
+ * se sale a las cuatro juegue a la hora que juegue— y no se tocan.
+ */
+export function mueveDiaPartido(viaje: Desplazamiento, salto: number): DiaViaje[] {
+  if (!salto) return viaje.dias;
+
+  return viaje.dias.map((dia) =>
+    dia.fecha === viaje.fecha
+      ? conCitas(
+          dia,
+          dia.citas.map((cita) => ({
+            ...cita,
+            minuto: Math.max(0, cita.minuto + salto),
+          })),
+        )
+      : dia,
+  );
+}
+
+/** Corre las fechas de todos los días: el partido cambia de día y el viaje va con él. */
+export function mueveFechas(dias: DiaViaje[], n: number): DiaViaje[] {
+  if (!n) return dias;
+
+  return dias.map((dia) => ({
+    ...dia,
+    fecha: dia.fecha ? sumaDias(dia.fecha, n) : dia.fecha,
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/*  CITAS RÁPIDAS                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Una cita de las de siempre, lista para meterla de un toque.
+ *
+ * El día del partido cae a su distancia del saque inicial (`desfase`), que es
+ * como se piensa —«la merienda, dos horas y tres cuartos antes»—; cualquier
+ * otro día, a su hora de siempre.
+ */
+export type CitaRapida = {
+  texto: string;
+  tipo: TipoCita;
+  /** Minutos respecto al saque inicial, para el día del partido. */
+  desfase?: number;
+  /** A qué hora cae cualquier otro día. */
+  hora: string;
+  nota?: string;
+};
+
+export const CITAS_RAPIDAS: CitaRapida[] = [
+  { texto: "Desayuno", tipo: "comida", hora: "09:30" },
+  { texto: "Activación", tipo: "trabajo", hora: "11:00" },
+  { texto: "Comida", tipo: "comida", desfase: -300, hora: "14:00" },
+  { texto: "Descanso habitaciones", tipo: "descanso", desfase: -240, hora: "15:30" },
+  { texto: "Merienda", tipo: "comida", desfase: -165, hora: "18:00" },
+  { texto: "Charla de partido", tipo: "trabajo", desfase: -135, hora: "19:00" },
+  { texto: "Salida bus", tipo: "viaje", hora: "16:00", nota: "Lavandería" },
+  { texto: "Llegada hotel", tipo: "viaje", hora: "19:30" },
+  { texto: "Salida hacia el estadio", tipo: "viaje", desfase: -105, hora: "19:00" },
+  { texto: "Llegada estadio", tipo: "viaje", desfase: -90, hora: "19:30" },
+  { texto: "Calentamiento", tipo: "trabajo", desfase: -30, hora: "20:30" },
+  { texto: "Partido", tipo: "partido", desfase: 0, hora: "21:00" },
+  { texto: "Cena", tipo: "comida", desfase: 120, hora: "21:00" },
+  { texto: "Llegada Valdebebas", tipo: "viaje", hora: "15:00" },
+];
+
+/** A qué minuto cae una cita rápida en ese día. */
+export function minutoDeRapida(
+  rapida: CitaRapida,
+  dia: DiaViaje,
+  viaje: Desplazamiento,
+) {
+  const minutoPartido = aMinutos(viaje.hora);
+
+  const desfase = rapida.desfase;
+
+  if (dia.fecha === viaje.fecha && minutoPartido !== null && desfase !== undefined) {
+    return Math.max(0, minutoPartido + desfase);
+  }
+
+  return aMinutos(rapida.hora) ?? 12 * 60;
+}
+
+export function citaRapida(
+  rapida: CitaRapida,
+  dia: DiaViaje,
+  viaje: Desplazamiento,
+): CitaHorario {
+  return {
+    id: nuevoId("CI"),
+    minuto: minutoDeRapida(rapida, dia, viaje),
+    texto: rapida.texto,
+    tipo: rapida.tipo,
+    ...(rapida.nota ? { nota: rapida.nota } : {}),
   };
 }
 
