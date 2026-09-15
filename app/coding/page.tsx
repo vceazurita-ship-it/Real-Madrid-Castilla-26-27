@@ -3035,7 +3035,11 @@ function Coding() {
 
                 <Panel
                   title="Clips"
-                  subtitle={`${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · el orden de la lista es el del vídeo`}
+                  subtitle={
+                    verTodosEnLista
+                      ? `${clipsDeLaLista.length} de ${sesion.sesion.clips.length} · de ${videosSesion.length} vídeos · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
+                      : `${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
+                  }
                   icon={ListVideo}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
