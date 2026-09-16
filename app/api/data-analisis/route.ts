@@ -7,6 +7,10 @@ import {
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
 import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
+import {
+  equiposConMuestra,
+  golesAbpDe,
+} from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { readDoc } from "@/lib/docStore";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
@@ -336,6 +340,127 @@ function alertasDe(datos: Dataset) {
   return seleccionaAlertas(alertasDeData(datos.partidos, datos.jugadores));
 }
 
+/* ------------------------------------------------------------------ */
+/*  EL BALÓN PARADO, PARA EL INFORME DEL MICROCICLO                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Con quién nos comparamos en balón parado: la liga de este año y nosotros
+ * mismos en las temporadas anteriores, **a estas alturas**.
+ *
+ * Lo pide el informe de ABP del microciclo, que se arma en el navegador: el
+ * dataset entero son más de dos megas y esto son cuatro kilobytes. Se calcula
+ * con las mismas funciones que la pantalla de Data Análisis —`golesAbpDe`, que
+ * ya avisa de qué es dato y qué estimación— para que no puedan discrepar.
+ *
+ * **«A estas alturas» no es un adorno**: comparar los 3 partidos de este año
+ * con los 38 del pasado no compara nada. Cada temporada se recorta a los mismos
+ * partidos que lleva la actual, en orden de calendario, y los goles en contra
+ * se sacan de las filas de los rivales **de esos mismos partidos**.
+ */
+function abpParaInforme(datos: Dataset) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
+    .filter(Boolean)
+    .sort();
+
+  const actual = temporadas[temporadas.length - 1] ?? "";
+
+  const deLaLiga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+
+  const metricaCorners = METRICA_POR_KEY.get("corners");
+
+  /** Los partidos del Castilla de una temporada, en orden y recortados. */
+  const nuestrosDe = (temporada: string, cuantos: number | null) => {
+    const suyos = datos.partidos
+      .filter((p) => temporadaDe(p.fecha) === temporada && p.equipo === NOSOTROS)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    return cuantos === null ? suyos : suyos.slice(0, cuantos);
+  };
+
+  /** Las filas del rival de esos mismos partidos: es el «en contra». */
+  const rivalesDe = (nuestros: typeof datos.partidos) => {
+    const cuales = new Set(nuestros.map((p) => `${p.fecha}|${p.partido}`));
+
+    return datos.partidos.filter(
+      (p) => p.rival === NOSOTROS && cuales.has(`${p.fecha}|${p.partido}`),
+    );
+  };
+
+  const jugados = nuestrosDe(actual, null).length;
+
+  const filaDe = (equipo: string, aFavorFilas: typeof datos.partidos, enContraFilas: typeof datos.partidos) => {
+    const aFavor = golesAbpDe(aFavorFilas);
+    const enContra = golesAbpDe(enContraFilas);
+
+    const partidos = aFavorFilas.length || 1;
+
+    return {
+      equipo,
+      partidos: aFavorFilas.length,
+      /* Goles de balón parado por partido, que es lo comparable entre
+         temporadas con distinto número de jornadas. */
+      favor: aFavor.abp,
+      favorPorPartido: aFavor.abp / partidos,
+      contra: enContra.abp,
+      contraPorPartido: enContra.abp / partidos,
+      /* Penaltis aparte: son dato, no estimación. */
+      penaltisFavor: aFavor.penalti,
+      penaltisContra: enContra.penalti,
+      corners:
+        metricaCorners && aFavorFilas.length
+          ? valorEnGrupo(metricaCorners, aFavorFilas)
+          : null,
+      cornersContra:
+        metricaCorners && enContraFilas.length
+          ? valorEnGrupo(metricaCorners, enContraFilas)
+          : null,
+    };
+  };
+
+  /* ---- La liga de este año ---- */
+
+  /* `equiposConMuestra` devuelve también cuántos se quedan fuera y con qué
+     suelo: aquí sólo hace falta la lista. */
+  const liga = equiposConMuestra(deLaLiga)
+    .equipos.map((equipo) =>
+      filaDe(
+        equipo,
+        deLaLiga.filter((p) => p.equipo === equipo),
+        deLaLiga.filter((p) => p.rival === equipo),
+      ),
+    )
+    .sort((a, b) => b.favorPorPartido - a.favorPorPartido);
+
+  /* ---- Nosotros, temporada a temporada, a estas alturas ---- */
+
+  const historico = temporadas
+    .map((temporada) => {
+      const nuestros = nuestrosDe(temporada, jugados || null);
+
+      if (nuestros.length === 0) return null;
+
+      return {
+        ...filaDe(temporada, nuestros, rivalesDe(nuestros)),
+        temporada,
+        esActual: temporada === actual,
+      };
+    })
+    .filter((una): una is NonNullable<typeof una> => una !== null);
+
+  const nosotros = liga.find((fila) => fila.equipo === NOSOTROS) ?? null;
+
+  return {
+    temporada: actual,
+    jugados,
+    equipos: liga.length,
+    liga,
+    nosotros,
+    puesto: nosotros ? liga.indexOf(nosotros) + 1 : null,
+    historico,
+  };
+}
+
 export async function GET(peticion: Request) {
   const parametros = new URL(peticion.url).searchParams;
 
@@ -383,6 +508,11 @@ export async function GET(peticion: Request) {
       return NextResponse.json({ ok: true, alertas: alertasDe(guardado.datos) });
     }
 
+    /* El informe de ABP del microciclo: la liga y nuestras otras temporadas. */
+    if (parametros.has("abpInforme")) {
+      return NextResponse.json({ ok: true, abp: abpParaInforme(guardado.datos) });
+    }
+
     if (equipoTipologia) {
       return NextResponse.json({
         ok: true,
@@ -426,6 +556,10 @@ export async function GET(peticion: Request) {
 
     if (soloAlertas) {
       return NextResponse.json({ ok: true, origen, alertas: alertasDe(datos) });
+    }
+
+    if (parametros.has("abpInforme")) {
+      return NextResponse.json({ ok: true, origen, abp: abpParaInforme(datos) });
     }
 
     if (equipoTipologia) {

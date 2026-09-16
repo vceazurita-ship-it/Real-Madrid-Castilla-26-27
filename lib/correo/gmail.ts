@@ -34,6 +34,16 @@ export type Adjunto = {
   tipo: string;
   /** El contenido ya en base64. */
   base64: string;
+  /**
+   * Para las imágenes que van DENTRO del cuerpo del correo.
+   *
+   * Gmail no pinta un `<img src="data:…">` —lo quita—, así que los gráficos no
+   * pueden viajar dentro del HTML: van como parte aparte con este identificador
+   * y el HTML las llama con `src="cid:<esto>"`. Es lo que hace que un informe
+   * con dibujos se vea igual en Gmail, en Outlook y en el móvil, sin alojar
+   * nada en ningún sitio.
+   */
+  cid?: string;
 };
 
 export type Correo = {
@@ -114,12 +124,34 @@ function parteTexto(tipo: string, contenido: string) {
 }
 
 function parteAdjunto(adjunto: Adjunto) {
-  return [
-    `Content-Type: ${adjunto.tipo}; name="${adjunto.nombre.replace(/"/g, "")}"`,
+  const nombre = adjunto.nombre.replace(/"/g, "");
+
+  const cabeceras = [
+    `Content-Type: ${adjunto.tipo}; name="${nombre}"`,
     "Content-Transfer-Encoding: base64",
-    `Content-Disposition: attachment; filename="${adjunto.nombre.replace(/"/g, "")}"`,
+  ];
+
+  if (adjunto.cid) {
+    /* Va dentro del cuerpo, no colgando al final: `inline` es lo que evita que
+       Outlook la enseñe además como adjunto suelto. */
+    cabeceras.push(
+      `Content-ID: <${adjunto.cid}>`,
+      `Content-Disposition: inline; filename="${nombre}"`,
+    );
+  } else {
+    cabeceras.push(`Content-Disposition: attachment; filename="${nombre}"`);
+  }
+
+  return [...cabeceras, "", base64EnLineas(adjunto.base64)].join("\r\n");
+}
+
+/** Envuelve un cuerpo en un multipart, con sus partes dentro. */
+function envuelve(tipo: string, limite: string, partes: string[], extra = "") {
+  return [
+    `Content-Type: ${tipo}; boundary="${limite}"${extra}`,
     "",
-    base64EnLineas(adjunto.base64),
+    ...partes.flatMap((parte) => [`--${limite}`, parte]),
+    `--${limite}--`,
   ].join("\r\n");
 }
 
@@ -135,39 +167,49 @@ function parteAdjunto(adjunto: Adjunto) {
  * mano sólo sirve para que no coincida.
  */
 export function escribeMensaje(correo: Correo) {
-  const limite = `castilla-${Date.now().toString(36)}`;
-  const limiteMixto = `${limite}-mixto`;
+  const sello = Date.now().toString(36);
 
-  const alternativo = [
-    `Content-Type: multipart/alternative; boundary="${limite}"`,
-    "",
-    `--${limite}`,
-    parteTexto("text/plain", correo.texto),
-    `--${limite}`,
-    parteTexto("text/html", correo.html),
-    `--${limite}--`,
-  ].join("\r\n");
+  const alternativo = envuelve(
+    "multipart/alternative",
+    `castilla-alt-${sello}`,
+    [
+      parteTexto("text/plain", correo.texto),
+      parteTexto("text/html", correo.html),
+    ],
+  );
 
   const adjuntos = correo.adjuntos ?? [];
 
-  const cabeceras = [
+  const dentroDelCuerpo = adjuntos.filter((uno) => uno.cid);
+  const sueltos = adjuntos.filter((uno) => !uno.cid);
+
+  /*
+  | Las imágenes del cuerpo —los gráficos del informe— van **con** el HTML
+  | dentro de un `related`, que es lo que le dice al cliente de correo que esas
+  | partes no son adjuntos sino el propio documento. Los adjuntos de verdad, si
+  | algún día los hay, cuelgan del `mixed` de fuera.
+  */
+  const conImagenes = dentroDelCuerpo.length
+    ? envuelve(
+        "multipart/related",
+        `castilla-rel-${sello}`,
+        [alternativo, ...dentroDelCuerpo.map(parteAdjunto)],
+        '; type="text/html"',
+      )
+    : alternativo;
+
+  const cuerpo = sueltos.length
+    ? envuelve("multipart/mixed", `castilla-mix-${sello}`, [
+        conImagenes,
+        ...sueltos.map(parteAdjunto),
+      ])
+    : conImagenes;
+
+  return [
     `To: ${correo.para.join(", ")}`,
     `Subject: ${cabecera(correo.asunto)}`,
     "MIME-Version: 1.0",
-  ];
-
-  if (adjuntos.length === 0) {
-    return [...cabeceras, alternativo].join("\r\n");
-  }
-
-  return [
-    ...cabeceras,
-    `Content-Type: multipart/mixed; boundary="${limiteMixto}"`,
-    "",
-    `--${limiteMixto}`,
-    alternativo,
-    ...adjuntos.flatMap((adjunto) => [`--${limiteMixto}`, parteAdjunto(adjunto)]),
-    `--${limiteMixto}--`,
+    cuerpo,
   ].join("\r\n");
 }
 

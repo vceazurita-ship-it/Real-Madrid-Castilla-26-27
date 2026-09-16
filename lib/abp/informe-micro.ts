@@ -47,6 +47,8 @@ import { hayEvaluacion, textoEsAbp, type RegistroTarea } from "./registro";
 
 import type { FilaCruce } from "./transferencia";
 
+import type { ComparativaAbp, GraficoInforme } from "./informe-graficos";
+
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
 /* ------------------------------------------------------------------ */
@@ -85,6 +87,15 @@ export type DatosInforme = {
   filas: FilaCruce[];
   /** Las cinco urgencias de arriba, ya ordenadas. */
   prioridades: FilaCruce[];
+  /**
+   * Con quién nos comparamos: la categoría de este año y nosotros mismos en las
+   * temporadas anteriores, a estas alturas. Sale de
+   * `/api/data-analisis?abpInforme=1`; sin ella el informe se monta igual, sólo
+   * que sin la parte de comparación.
+   */
+  comparativa?: ComparativaAbp | null;
+  /** Los gráficos ya dibujados (`lib/abp/informe-graficos.ts`). */
+  graficos?: GraficoInforme[];
   /** Para poder fijar la fecha en las pruebas. */
   generado?: Date;
 };
@@ -208,8 +219,32 @@ export type InformeMicro = {
   };
   equipo: LineaEquipo[];
   prioridades: LineaEquipo[];
+  /** Cómo estamos contra la categoría y contra nosotros mismos. */
+  comparativa: ComparativaInforme | null;
+  /** Los gráficos, en el orden en que van en el correo. */
+  graficos: GraficoInforme[];
   /** Lo que el informe no sabe, dicho donde se lee. */
   avisos: string[];
+};
+
+export type ComparativaInforme = {
+  temporada: string;
+  jugados: number;
+  equipos: number;
+  /** Puesto por goles de ABP marcados por partido. */
+  puesto: number | null;
+  /** Puesto por goles de ABP encajados, del que menos encaja al que más. */
+  puestoContra: number | null;
+  favorPorPartido: number | null;
+  contraPorPartido: number | null;
+  medianaFavor: number;
+  medianaContra: number;
+  temporadas: {
+    temporada: string;
+    favor: number;
+    contra: number;
+    esActual: boolean;
+  }[];
 };
 
 const ASPECTO_LABEL = new Map(ASPECTOS.map((uno) => [uno.key, uno.label]));
@@ -432,6 +467,58 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     },
   ];
 
+  /* ---------------- contra la liga y contra nosotros mismos ---------------- */
+
+  const mediana = (valores: number[]) => {
+    if (valores.length === 0) return 0;
+
+    const orden = [...valores].sort((a, b) => a - b);
+    const medio = Math.floor(orden.length / 2);
+
+    return orden.length % 2
+      ? orden[medio]
+      : (orden[medio - 1] + orden[medio]) / 2;
+  };
+
+  const comparativa: ComparativaInforme | null = datos.comparativa?.liga.length
+    ? (() => {
+        const { liga, nosotros, historico } = datos.comparativa!;
+
+        const porFavor = [...liga].sort(
+          (a, b) => b.favorPorPartido - a.favorPorPartido,
+        );
+
+        /* Encajar menos es mejor: este orden va al revés. */
+        const porContra = [...liga].sort(
+          (a, b) => a.contraPorPartido - b.contraPorPartido,
+        );
+
+        return {
+          temporada: datos.comparativa!.temporada,
+          jugados: datos.comparativa!.jugados,
+          equipos: liga.length,
+          puesto: nosotros ? porFavor.indexOf(nosotros) + 1 : null,
+          puestoContra: nosotros ? porContra.indexOf(nosotros) + 1 : null,
+          favorPorPartido: nosotros?.favorPorPartido ?? null,
+          contraPorPartido: nosotros?.contraPorPartido ?? null,
+          medianaFavor: mediana(liga.map((una) => una.favorPorPartido)),
+          medianaContra: mediana(liga.map((una) => una.contraPorPartido)),
+          temporadas: historico.map((una) => ({
+            temporada: una.temporada,
+            favor: una.favor,
+            contra: una.contra,
+            esActual: una.esActual,
+          })),
+        };
+      })()
+    : null;
+
+  if (!comparativa) {
+    avisos.push(
+      "No se ha podido comparar con la categoría: falta el dato de Wyscout de esta temporada.",
+    );
+  }
+
   const titulo = `Balón parado · Microciclo ${datos.micro}`;
 
   const subtitulo = [datos.rival && `Contra ${datos.rival}`, datos.temporada]
@@ -464,6 +551,8 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     seguimiento: { lineas: lineasSeguimiento, jugadores },
     equipo,
     prioridades: datos.prioridades.map(filaEquipo),
+    comparativa,
+    graficos: datos.graficos ?? [],
     avisos,
   };
 }
@@ -521,6 +610,11 @@ function seccion(titulo: string, pie: string, cuerpo: string) {
   }${cuerpo}</td></tr>`;
 }
 
+/** Dos decimales con coma, que es como se leen aquí. */
+function fmtDec(valor: number) {
+  return valor.toFixed(2).replace(".", ",");
+}
+
 function numeroConSigno(valor: number | null, sufijo = "") {
   if (valor === null || !Number.isFinite(valor)) return "—";
 
@@ -529,8 +623,34 @@ function numeroConSigno(valor: number | null, sufijo = "") {
   return `${signo}${valor.toFixed(1)}${sufijo}`;
 }
 
+/**
+ * Cómo se enseña una imagen según dónde se vea.
+ *
+ * En la vista previa de la app vale el `data:` de siempre. En el correo **no**:
+ * Gmail quita esas imágenes, así que allí van como partes aparte y el HTML las
+ * llama por su `cid` (ver `lib/correo/gmail.ts`).
+ */
+export type ModoImagenes = "data" | "cid";
+
+function bloqueGraficos(informe: InformeMicro, modo: ModoImagenes) {
+  if (informe.graficos.length === 0) return "";
+
+  return informe.graficos
+    .map(
+      (grafico) =>
+        `<p style="margin:0 0 4px;font:600 11px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(grafico.titulo)}</p><img src="${
+          modo === "cid" ? `cid:${esc(grafico.cid)}` : grafico.imagen
+        }" alt="${esc(grafico.titulo)}" width="${grafico.ancho}" style="display:block;width:100%;max-width:${grafico.ancho}px;height:auto;border:1px solid #E5E1D6;border-radius:8px;margin:0 0 18px">`,
+    )
+    .join("");
+}
+
 /** El informe como correo: tablas y estilos en línea, que es lo que sobrevive. */
-export function informeHtml(informe: InformeMicro) {
+export function informeHtml(
+  informe: InformeMicro,
+  opciones: { imagenes?: ModoImagenes } = {},
+) {
+  const modoImagenes = opciones.imagenes ?? "data";
   const resumen = informe.resumen
     .map(
       (dato) =>
@@ -676,6 +796,40 @@ ${seccion(
   equipo,
 )}
 
+${seccion(
+  "Cómo estamos contra la categoría",
+  informe.comparativa
+    ? `${informe.comparativa.equipos} equipos · ${informe.comparativa.jugados} jornada${informe.comparativa.jugados === 1 ? "" : "s"} · los goles de córner y falta son estimación calibrada; los penaltis, dato.`
+    : "",
+  informe.comparativa
+    ? `${tabla(
+        ["", "Nosotros", "Mediana de la liga", "Puesto"],
+        [
+          [
+            "<b>Marca de ABP</b> (por partido)",
+            informe.comparativa.favorPorPartido === null
+              ? "—"
+              : fmtDec(informe.comparativa.favorPorPartido),
+            fmtDec(informe.comparativa.medianaFavor),
+            informe.comparativa.puesto === null
+              ? "—"
+              : `<b>${informe.comparativa.puesto}.º</b> de ${informe.comparativa.equipos}`,
+          ],
+          [
+            "<b>Encaja de ABP</b> (por partido)",
+            informe.comparativa.contraPorPartido === null
+              ? "—"
+              : fmtDec(informe.comparativa.contraPorPartido),
+            fmtDec(informe.comparativa.medianaContra),
+            informe.comparativa.puestoContra === null
+              ? "—"
+              : `<b>${informe.comparativa.puestoContra}.º</b> de ${informe.comparativa.equipos}`,
+          ],
+        ],
+      )}${bloqueGraficos(informe, modoImagenes)}`
+    : bloqueGraficos(informe, modoImagenes),
+)}
+
 <tr><td style="padding:18px 24px 24px;border-top:1px solid #E5E1D6">
   <p style="margin:0;font:400 11px/1.6 Arial,sans-serif;color:${SUAVE}">Generado automáticamente por la plataforma del Real Madrid Castilla · ${esc(informe.generado)}</p>
 </td></tr>
@@ -744,6 +898,34 @@ export function informeTexto(informe: InformeMicro) {
       } · ${linea.acciones} acciones · peligro ${linea.peligro}`,
     );
   });
+
+  if (informe.comparativa) {
+    const c = informe.comparativa;
+
+    lineas.push("", `CONTRA LA CATEGORÍA (${c.equipos} equipos · ${c.jugados} jornadas)`);
+
+    lineas.push(
+      `- Marca de ABP: ${c.favorPorPartido === null ? "—" : fmtDec(c.favorPorPartido)} por partido (mediana ${fmtDec(c.medianaFavor)})${
+        c.puesto === null ? "" : ` · ${c.puesto}.º de ${c.equipos}`
+      }`,
+    );
+
+    lineas.push(
+      `- Encaja de ABP: ${c.contraPorPartido === null ? "—" : fmtDec(c.contraPorPartido)} por partido (mediana ${fmtDec(c.medianaContra)})${
+        c.puestoContra === null ? "" : ` · ${c.puestoContra}.º de ${c.equipos}`
+      }`,
+    );
+
+    if (c.temporadas.length > 1) {
+      lineas.push("", `NUESTRAS TEMPORADAS, EN SUS ${c.jugados} PRIMEROS PARTIDOS`);
+
+      c.temporadas.forEach((una) => {
+        lineas.push(
+          `- ${una.temporada}${una.esActual ? " (ésta)" : ""}: ${una.favor} a favor · ${una.contra} en contra`,
+        );
+      });
+    }
+  }
 
   lineas.push("", "EL BALÓN PARADO DEL EQUIPO");
 

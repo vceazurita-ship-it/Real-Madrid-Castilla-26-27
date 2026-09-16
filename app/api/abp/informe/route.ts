@@ -47,8 +47,41 @@ export async function POST(request: NextRequest) {
   if (!asunto) return mal("El correo no tiene asunto.");
   if (!html.trim()) return mal("El informe ha llegado vacío.");
 
+  /*
+  | Los gráficos viajan como partes del correo, no dentro del HTML.
+  |
+  | Gmail quita los `<img src="data:…">`, así que el informe los llama por su
+  | `cid` y aquí se adjuntan con ese identificador. Llegan ya en base64 desde el
+  | navegador, que es quien los dibuja (`lib/abp/informe-graficos.ts`).
+  */
+  const imagenes = Array.isArray(cuerpo.imagenes) ? cuerpo.imagenes : [];
+
+  const adjuntos = imagenes.flatMap((una) => {
+    const dato = una as { cid?: unknown; base64?: unknown };
+
+    const cid = String(dato.cid ?? "").trim();
+    const base64 = String(dato.base64 ?? "").trim();
+
+    if (!cid || !base64) return [];
+
+    return [
+      {
+        nombre: `${cid}.png`,
+        tipo: "image/png",
+        base64,
+        cid,
+      },
+    ];
+  });
+
   try {
-    const { id, cuenta } = await envia({ para: buenas, asunto, html, texto });
+    const { id, cuenta } = await envia({
+      para: buenas,
+      asunto,
+      html,
+      texto,
+      adjuntos,
+    });
 
     return NextResponse.json({ ok: true, id, cuenta, para: buenas });
   } catch (error) {
