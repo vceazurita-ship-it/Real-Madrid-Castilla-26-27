@@ -72,7 +72,17 @@ export function useSesionCoding(opciones: {
   */
   const clave = claveSesion(ambito, refId);
 
-  const historial = useRef<{ clave: string; clips: ClipCoding[] }[]>([]);
+  /*
+  | Cada paso lleva TAMBIÉN las pizarras, y no es un detalle.
+  |
+  | Mientras lo único que se deshacía eran cortes sueltos bastaba con `clips`.
+  | Vaciar la sesión para empezar otro bloque se lleva además las escenas, y un
+  | deshacer que devolviera los cortes pero no los dibujos sería peor que no
+  | tener deshacer: parecería que lo ha recuperado todo.
+  */
+  const historial = useRef<
+    { clave: string; clips: ClipCoding[]; escenas: EscenaTel[] }[]
+  >([]);
 
   const { setValue } = doc;
 
@@ -83,7 +93,7 @@ export function useSesionCoding(opciones: {
           ...historial.current
             .filter((paso) => paso.clave === clave)
             .slice(-(TOPE_DESHACER - 1)),
-          { clave, clips: sesion.clips },
+          { clave, clips: sesion.clips, escenas: sesion.escenas },
         ];
       }
 
@@ -96,7 +106,7 @@ export function useSesionCoding(opciones: {
         };
       });
     },
-    [ambito, clave, config, refId, sesion.clips, setValue, titulo],
+    [ambito, clave, config, refId, sesion.clips, sesion.escenas, setValue, titulo],
   );
 
   /* ------------------------------------------------------------ clips */
@@ -415,10 +425,58 @@ export function useSesionCoding(opciones: {
 
     historial.current = propios.slice(0, -1);
 
-    muta((actual) => ({ ...actual, clips: anterior.clips }));
+    muta((actual) => ({
+      ...actual,
+      clips: anterior.clips,
+      escenas: anterior.escenas,
+    }));
 
     return true;
   }, [clave, muta]);
+
+  /**
+   * Vacía los cortes para empezar otro bloque, dejando los vídeos puestos.
+   *
+   * Un partido se codifica por tandas: se marcan los cortes de un jugador o de
+   * un aspecto, se exportan o se suben, y se vuelve a empezar sobre el MISMO
+   * vídeo. Hasta ahora eso era borrar los clips de uno en uno —veinte veces la
+   * papelera— o cambiar de sesión y perder el vídeo abierto, la carátula y los
+   * ajustes.
+   *
+   * Qué se lleva y qué no:
+   *
+   * - **Se va** lo del bloque terminado: los cortes, las pizarras pintadas
+   *   sobre ellos y la marca de qué vídeos ya recibieron su corte de inicio a
+   *   fin (`videosConCorte`), para que al vaciar vuelva a ofrecerse el vídeo
+   *   entero como primer corte del bloque nuevo.
+   * - **Se queda** todo lo que costó preparar: los vídeos abiertos, cuál está
+   *   delante, la carátula elegida, los márgenes, los fps y la configuración.
+   *
+   * Entra en el deshacer, así que un vaciado por error se retira con el
+   * `Backspace` de siempre —y ahora vuelven también las pizarras—. Devuelve lo
+   * que se ha llevado para que la pantalla pueda decirlo.
+   */
+  const vaciaCortes = useCallback(() => {
+    const llevado = { clips: sesion.clips.length, escenas: sesion.escenas.length };
+
+    if (llevado.clips === 0 && llevado.escenas === 0) return llevado;
+
+    muta(
+      (actual) => ({
+        ...actual,
+        clips: [],
+        escenas: [],
+        videosConCorte: [],
+        videosFuera: [],
+        /* El aviso de «quedó a medias» sobra: el bloque se ha cerrado a
+           propósito, no se ha dejado a medias. */
+        abierta: false,
+      }),
+      true,
+    );
+
+    return llevado;
+  }, [muta, sesion.clips.length, sesion.escenas.length]);
 
   /* --------------------------------------------------- las pizarras */
 
@@ -611,6 +669,7 @@ export function useSesionCoding(opciones: {
     mueveClipA,
     ordenaClipsPorTiempo,
     deshacer,
+    vaciaCortes,
     guardaEscena,
     ponClipsDeEscena,
     borraEscena,

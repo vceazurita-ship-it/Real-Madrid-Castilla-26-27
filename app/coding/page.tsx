@@ -35,6 +35,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDownWideNarrow,
   BookOpen,
+  Eraser,
   Eye,
   EyeOff,
   Film,
@@ -618,6 +619,10 @@ function Coding() {
 
   const [añadiendoRival, setAñadiendoRival] = useState(false);
   const [rivalNuevo, setRivalNuevo] = useState("");
+
+  /* Vaciar los cortes para empezar otra tanda sobre el mismo vídeo: se
+     pregunta antes, porque se lleva el trabajo de toda una tanda. */
+  const [vaciando, setVaciando] = useState(false);
 
   /** El rival del partido propio, ya resuelto contra la lista de rivales. */
   const rivalPropio = useMemo(
@@ -2420,6 +2425,9 @@ function Coding() {
     editando !== null ||
     pizarraEditando !== null ||
     pizarraRepartida !== null ||
+    /* Con la pregunta de vaciar delante, una tecla no puede marcar un corte
+       en el bloque que se está a punto de cerrar. */
+    vaciando ||
     /* Con la hoja de selección abierta, la I no puede marcar por detrás. */
     eligiendoMarca;
 
@@ -3318,6 +3326,24 @@ function Coding() {
                         </Button>
                       )}
 
+                      {/*
+                      | Cerrar la tanda y empezar otra sobre el mismo vídeo.
+                      |
+                      | Un partido se codifica por bloques —un jugador, un
+                      | aspecto—, y entre uno y otro había que borrar los cortes
+                      | de uno en uno o cambiar de sesión y perder el vídeo
+                      | abierto. Sólo aparece cuando hay algo que vaciar.
+                      */}
+                      {sesion.sesion.clips.length > 0 && (
+                        <Button
+                          icon={Eraser}
+                          onClick={() => setVaciando(true)}
+                          title="Vaciar los cortes y las pizarras para empezar otra tanda, dejando los vídeos puestos"
+                        >
+                          Vaciar y empezar otro bloque
+                        </Button>
+                      )}
+
                       <Button
                         icon={Play}
                         onClick={() => lanzaCola(clipsFiltrados)}
@@ -3769,6 +3795,88 @@ function Coding() {
             toast.success("Configuración guardada");
           }}
         />
+      )}
+
+      {/*
+      | Antes de vaciar se pregunta, y se dice EXACTAMENTE qué se lleva.
+      |
+      | Es la única acción de la pantalla que borra una tanda entera de un
+      | toque. Se puede deshacer con el `Backspace` de siempre —el paso guarda
+      | los cortes y las pizarras—, pero eso se avisa aquí y no se deja para
+      | que lo descubra quien acabe de perder media tarde.
+      */}
+      {vaciando && (
+        <Dialog
+          title="Empezar otro bloque de cortes"
+          subtitle="Los vídeos se quedan abiertos"
+          onClose={() => setVaciando(false)}
+          footer={
+            <>
+              <Button onClick={() => setVaciando(false)}>Cancelar</Button>
+
+              <Button
+                tone="primary"
+                icon={Eraser}
+                onClick={() => {
+                  const llevado = sesion.vaciaCortes();
+
+                  setVaciando(false);
+
+                  /* Lo que estuviera a medias en pantalla deja de tener
+                     sentido: la marca pendiente, la selección y la cola son
+                     del bloque que se acaba de cerrar. */
+                  setInicioMs(null);
+                  setSeleccionado(null);
+                  setFiltroSujeto(null);
+                  setFiltroCategoria(null);
+
+                  toast.success("Listo para el bloque siguiente", {
+                    description: `${llevado.clips} corte${
+                      llevado.clips === 1 ? "" : "s"
+                    }${
+                      llevado.escenas > 0
+                        ? ` y ${llevado.escenas} pizarra${
+                            llevado.escenas === 1 ? "" : "s"
+                          }`
+                        : ""
+                    } fuera · se puede deshacer`,
+                  });
+                }}
+              >
+                Vaciar los cortes
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <Notice
+              tone="warn"
+              title={`Se van ${sesion.sesion.clips.length} corte${
+                sesion.sesion.clips.length === 1 ? "" : "s"
+              }${
+                sesion.sesion.escenas.length > 0
+                  ? ` y ${sesion.sesion.escenas.length} pizarra${
+                      sesion.sesion.escenas.length === 1 ? "" : "s"
+                    }`
+                  : ""
+              }`}
+            >
+              Se puede deshacer con <kbd>Retroceso</kbd>, pero si este bloque va
+              a hacer falta, expórtalo o súbelo antes.
+            </Notice>
+
+            <p className="text-[11.5px] leading-relaxed text-white/55">
+              Se quedan como están los{" "}
+              <strong className="text-white/75">
+                {videosSesion.length} vídeo
+                {videosSesion.length === 1 ? "" : "s"}
+              </strong>{" "}
+              de la sesión, cuál está delante, la carátula elegida y los
+              márgenes. Al vaciar, cada vídeo vuelve a ofrecer su corte de
+              inicio a fin para la tanda nueva.
+            </p>
+          </div>
+        </Dialog>
       )}
 
       {/*
