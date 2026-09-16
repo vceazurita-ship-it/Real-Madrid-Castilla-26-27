@@ -51,14 +51,64 @@ export type JornadaQuiniela = {
   cerradaEn?: string;
 };
 
+/**
+ * Lo que cada uno se pone de su cosecha.
+ *
+ * No tiene nada que ver con acertar: es la parte de guasa. Cada uno puede
+ * ponerse una canción, una frase y una foto de broma, y **puede hacerlo cuando
+ * le dé la gana** —al entrar no hace falta nada de esto—. Sale junto a su
+ * nombre en el ranking.
+ *
+ * La canción es un enlace (YouTube, Spotify, lo que sea) y no un fichero: subir
+ * audio al almacén del club para una broma sería pagar espacio y derechos por
+ * algo que ya está enlazado en cualquier sitio. La foto **sí** se sube, porque
+ * la gracia está en que sea suya.
+ */
+export type ExtrasJugador = {
+  /** Enlace a la canción. */
+  cancion?: string;
+  /** Cómo se llama, para no enseñar una URL pelada. */
+  cancionNombre?: string;
+  /** Su frase. */
+  frase?: string;
+  /** La foto de broma, ya subida. */
+  foto?: string;
+};
+
 export type DocumentoQuiniela = {
   /** Por número de jornada. */
   jornadas: Record<string, JornadaQuiniela>;
   /** Quién juega esta temporada, por `slug` del staff. */
   jugadores: string[];
+  /** La canción, la frase y la foto de broma de cada uno. */
+  extras?: Record<string, ExtrasJugador>;
 };
 
 export const QUINIELA_VACIA: DocumentoQuiniela = { jornadas: {}, jugadores: [] };
+
+/* ------------------------------------------------------------------ */
+/*  LA COMIDA                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Cada cuántas jornadas se paga la comida.
+ *
+ * La temporada son 38 jornadas, así que salen tres bloques cerrados —1-10,
+ * 11-20, 21-30— y un último de ocho, del 31 al 38. Ese último se cuenta igual:
+ * dejar fuera las ocho jornadas finales, que son las que más se juegan, no
+ * tendría ninguna gracia.
+ */
+export const JORNADAS_POR_BLOQUE = 10;
+
+/** Cuántos no pagan: los dos mejores de cada bloque. */
+export const INVITADOS_POR_BLOQUE = 2;
+
+export type Bloque = {
+  /** 1, 2, 3… */
+  numero: number;
+  desde: number;
+  hasta: number;
+};
 
 /* ------------------------------------------------------------------ */
 /*  EL CALENDARIO                                                      */
@@ -71,6 +121,34 @@ export function partidosDe(jornada: number): PartidoQuiniela[] {
 export const JORNADAS = [...new Set(CALENDARIO.map((uno) => uno.jornada))].sort(
   (a, b) => a - b,
 );
+
+/*
+| Los bloques se calculan aquí y no arriba, junto a su tipo, porque necesitan
+| `JORNADAS` y en JavaScript un `const` no existe hasta su línea: declararlos
+| antes reventaba al cargar el módulo.
+*/
+export const BLOQUES: Bloque[] = (() => {
+  const salida: Bloque[] = [];
+
+  const ultima = JORNADAS[JORNADAS.length - 1] ?? 0;
+
+  for (let desde = 1; desde <= ultima; desde += JORNADAS_POR_BLOQUE) {
+    salida.push({
+      numero: salida.length + 1,
+      desde,
+      hasta: Math.min(desde + JORNADAS_POR_BLOQUE - 1, ultima),
+    });
+  }
+
+  return salida;
+})();
+
+export function bloqueDe(jornada: number): Bloque {
+  return (
+    BLOQUES.find((uno) => jornada >= uno.desde && jornada <= uno.hasta) ??
+    BLOQUES[BLOQUES.length - 1]
+  );
+}
 
 /**
  * Qué jornada toca hoy.
@@ -238,6 +316,98 @@ export function rarezasDe(jornada: JornadaQuiniela, jugadores: string[]) {
   });
 
   return { todos, nadie };
+}
+
+/* ------------------------------------------------------------------ */
+/*  QUIÉN PAGA LA COMIDA                                               */
+/* ------------------------------------------------------------------ */
+
+export type FilaBloque = {
+  slug: string;
+  aciertos: number;
+  jugados: number;
+  porcentaje: number;
+  /** De los dos que no pagan. */
+  invitado: boolean;
+};
+
+/**
+ * El acierto de cada uno en un bloque de diez jornadas.
+ *
+ * Ordena por porcentaje, igual que el ranking general y por el mismo motivo:
+ * quien se pierde dos jornadas de viaje no puede quedar detrás por eso.
+ *
+ * **Los empatados a porcentaje entran todos.** Si tres empatan en el segundo
+ * puesto, no pagan cuatro: inventar un desempate para que la cuenta salga a dos
+ * sería peor que pagar una comida de más, y un desempate arbitrario en una
+ * apuesta entre compañeros no lo acepta nadie.
+ */
+export function rankingDeBloque(
+  doc: DocumentoQuiniela,
+  jugadores: string[],
+  bloque: Bloque,
+): FilaBloque[] {
+  const jornadas = Object.values(doc.jornadas).filter(
+    (una) => una.jornada >= bloque.desde && una.jornada <= bloque.hasta,
+  );
+
+  const filas = jugadores
+    .map((slug) => {
+      let aciertos = 0;
+      let jugados = 0;
+
+      for (const jornada of jornadas) {
+        const marcador = marcadorDe(jornada, slug);
+
+        aciertos += marcador.aciertos;
+        jugados += marcador.jugados;
+      }
+
+      return {
+        slug,
+        aciertos,
+        jugados,
+        porcentaje: jugados > 0 ? (aciertos / jugados) * 100 : 0,
+        invitado: false,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.porcentaje - a.porcentaje ||
+        b.aciertos - a.aciertos ||
+        a.slug.localeCompare(b.slug),
+    );
+
+  /* Sin un solo partido jugado no invita nadie a nadie. */
+  const conJuego = filas.filter((una) => una.jugados > 0);
+
+  if (conJuego.length === 0) return filas;
+
+  const corte = conJuego[Math.min(INVITADOS_POR_BLOQUE, conJuego.length) - 1];
+
+  for (const fila of filas) {
+    fila.invitado =
+      fila.jugados > 0 &&
+      (fila.porcentaje > corte.porcentaje ||
+        (fila.porcentaje === corte.porcentaje && fila.aciertos >= corte.aciertos));
+  }
+
+  return filas;
+}
+
+/** Si el bloque ya se ha jugado entero: hasta entonces, nada es definitivo. */
+export function bloqueCerrado(doc: DocumentoQuiniela, bloque: Bloque) {
+  for (let jornada = bloque.desde; jornada <= bloque.hasta; jornada += 1) {
+    const guardada = doc.jornadas[String(jornada)];
+
+    const partidos = partidosDe(jornada).length;
+
+    const conResultado = (guardada?.resultados ?? []).filter(Boolean).length;
+
+    if (conResultado < partidos) return false;
+  }
+
+  return true;
 }
 
 /** Una jornada en blanco, con tantos huecos como partidos tenga. */

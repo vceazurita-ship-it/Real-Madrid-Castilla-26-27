@@ -19,25 +19,34 @@
  * a discutir.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
+  ImagePlus,
   ListOrdered,
+  Music,
+  Quote,
+  Smile,
   Trophy,
+  UtensilsCrossed,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   AbpHeader,
   Button,
+  Dialog,
   EmptyState,
+  Field,
   Notice,
   Panel,
   SaveState,
+  TextArea,
 } from "@/components/abp/ui";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -47,12 +56,16 @@ import {
   NOMBRE_DEL_SIGNO,
   QUINIELA_VACIA,
   SIGNOS,
+  bloqueCerrado,
+  bloqueDe,
   jornadaDeHoy,
   jornadaVacia,
   partidosDe,
   ranking,
+  rankingDeBloque,
   rarezasDe,
   type DocumentoQuiniela,
+  type ExtrasJugador,
   type JornadaQuiniela,
   type Signo,
 } from "@/lib/quiniela/modelo";
@@ -114,6 +127,107 @@ export default function QuinielaPage() {
   const [yo, setYo] = useState<string | null>(null);
 
   const [eligiendoJugadores, setEligiendoJugadores] = useState(false);
+
+  /* De quién se está editando la canción, la frase y la foto de broma. */
+  const [editandoExtras, setEditandoExtras] = useState<string | null>(null);
+
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  const extras = doc.extras ?? {};
+
+  /**
+   * Guarda lo que alguien se pone de su cosecha.
+   *
+   * Va aparte de los pronósticos a propósito: esto no caduca con la jornada y
+   * se puede rellenar cualquier día, que es justo lo que se pidió.
+   */
+  const ponExtras = (slug: string, cambio: Partial<ExtrasJugador>) => {
+    setDoc((actual) => {
+      const base = actual ?? QUINIELA_VACIA;
+
+      const suyos = base.extras?.[slug] ?? {};
+
+      /* Un campo vacío se borra en vez de guardarse en blanco. */
+      const fundidos = { ...suyos, ...cambio };
+
+      for (const clave of Object.keys(fundidos) as (keyof ExtrasJugador)[]) {
+        if (!String(fundidos[clave] ?? "").trim()) delete fundidos[clave];
+      }
+
+      return {
+        ...base,
+        jornadas: base.jornadas ?? {},
+        jugadores: base.jugadores?.length ? base.jugadores : JUEGAN_POR_DEFECTO,
+        extras: { ...base.extras, [slug]: fundidos },
+      };
+    });
+  };
+
+  /**
+   * Sube la foto de broma.
+   *
+   * Por la misma puerta que los recursos del rival (`/api/rivals/media`), que
+   * ya deja los ficheros en el almacén del club: una foto de guasa no merece
+   * una ruta nueva ni un bucket aparte.
+   */
+  const subeFoto = async (slug: string, archivo: File) => {
+    if (archivo.size > 4 * 1024 * 1024) {
+      toast.error("La foto pesa demasiado", {
+        description: "Máximo 4 MB. Con una del móvil reducida sobra.",
+      });
+
+      return;
+    }
+
+    setSubiendoFoto(true);
+
+    const aviso = toast.loading("Subiendo la foto…");
+
+    try {
+      const formulario = new FormData();
+
+      formulario.append("file", archivo);
+      formulario.append("folder", "quiniela");
+
+      const respuesta = await fetch("/api/rivals/media", {
+        method: "POST",
+        body: formulario,
+      });
+
+      const datos = (await respuesta.json()) as {
+        success?: boolean;
+        url?: string;
+        error?: string;
+      };
+
+      if (!respuesta.ok || !datos.success || !datos.url) {
+        throw new Error(datos.error || `HTTP ${respuesta.status}`);
+      }
+
+      ponExtras(slug, { foto: datos.url });
+
+      toast.success("Foto puesta", { id: aviso });
+    } catch (error) {
+      console.error("[quiniela] foto de broma", error);
+
+      toast.error("No se ha podido subir la foto", {
+        id: aviso,
+        description: error instanceof Error ? error.message : "Inténtalo otra vez",
+      });
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
+
+  /* En qué bloque de diez jornadas estamos y cómo va la comida. */
+  const bloque = useMemo(() => bloqueDe(jornada), [jornada]);
+
+  const tablaBloque = useMemo(
+    () => rankingDeBloque(doc, jugadores, bloque),
+    [doc, jugadores, bloque],
+  );
+
+  const cerrado = useMemo(() => bloqueCerrado(doc, bloque), [doc, bloque]);
 
   const partidos = useMemo(() => partidosDe(jornada), [jornada]);
 
@@ -309,6 +423,31 @@ export default function QuinielaPage() {
                               ? "Completa"
                               : `${puestos}/${partidos.length}`}
                           </span>
+                        </span>
+
+                        {/* Su cosecha: canción, frase y foto de broma. */}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`La cosecha de ${persona.nombre}`}
+                          title="Su canción, su frase y su foto de broma"
+                          onClick={(evento) => {
+                            evento.stopPropagation();
+                            setEditandoExtras(slug);
+                          }}
+                          onKeyDown={(evento) => {
+                            if (evento.key === "Enter" || evento.key === " ") {
+                              evento.stopPropagation();
+                              setEditandoExtras(slug);
+                            }
+                          }}
+                          className={`shrink-0 rounded-full p-1 transition hover:bg-white/10 ${
+                            extras[slug] && Object.keys(extras[slug]).length > 0
+                              ? "text-[#C8A96B]"
+                              : "text-white/20"
+                          }`}
+                        >
+                          <Smile size={13} aria-hidden />
                         </span>
                       </button>
                     );
@@ -607,6 +746,86 @@ export default function QuinielaPage() {
               </Panel>
             </div>
 
+            {/* ---------------------- LA COMIDA ----------------------- */}
+
+            <div className="mt-5">
+              <Panel
+                title={`La comida · jornadas ${bloque.desde} a ${bloque.hasta}`}
+                subtitle={
+                  cerrado
+                    ? "Bloque cerrado: éstos son los dos que no pagan"
+                    : "Cada diez jornadas, los dos primeros comen invitados por el resto. Así va el bloque en marcha."
+                }
+                icon={UtensilsCrossed}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {tablaBloque.map((fila, indice) => {
+                    const persona = PERSONA_POR_SLUG.get(fila.slug);
+
+                    if (!persona) return null;
+
+                    return (
+                      <div
+                        key={fila.slug}
+                        className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 ${
+                          fila.invitado
+                            ? "border-[#C8A96B]/50 bg-[#C8A96B]/[0.10]"
+                            : "border-white/10 bg-white/[0.02]"
+                        }`}
+                      >
+                        <span className="text-[10px] tabular-nums text-white/25">
+                          {indice + 1}
+                        </span>
+
+                        <Image
+                          src={fotoDe(fila.slug)}
+                          alt=""
+                          width={26}
+                          height={26}
+                          className="h-[26px] w-[26px] shrink-0 rounded-full object-cover"
+                        />
+
+                        <span className="min-w-0">
+                          <span
+                            className={`block truncate text-[12px] ${
+                              fila.invitado
+                                ? "font-semibold text-[#C8A96B]"
+                                : "text-white/75"
+                            }`}
+                          >
+                            {nombreCorto(persona)}
+                          </span>
+
+                          <span className="block text-[10px] tabular-nums text-white/40">
+                            {fila.jugados > 0
+                              ? `${fila.aciertos}/${fila.jugados} · ${fila.porcentaje.toFixed(0)} %`
+                              : "sin jugar"}
+                          </span>
+                        </span>
+
+                        {fila.invitado && (
+                          <UtensilsCrossed
+                            size={13}
+                            className="shrink-0 text-[#C8A96B]"
+                            aria-label="No paga"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                  {cerrado
+                    ? "Las diez jornadas están jugadas, así que esto ya no cambia."
+                    : `Provisional: faltan jornadas del bloque por jugar.`}{" "}
+                  Si hay empate en el segundo puesto no pagan todos los empatados:
+                  inventar un desempate en una apuesta entre compañeros no lo acepta
+                  nadie.
+                </p>
+              </Panel>
+            </div>
+
             <div className="mt-5">
               <Notice tone="info" title="Cómo se cuenta">
                 Un partido sin resultado no cuenta para nadie, ni a favor ni en
@@ -620,7 +839,161 @@ export default function QuinielaPage() {
           </div>
         </section>
       </div>
+
+      {editandoExtras && (
+        <FichaExtras
+          slug={editandoExtras}
+          extras={extras[editandoExtras] ?? {}}
+          subiendo={subiendoFoto}
+          onCambia={(cambio) => ponExtras(editandoExtras, cambio)}
+          onFoto={(archivo) => void subeFoto(editandoExtras, archivo)}
+          onCerrar={() => setEditandoExtras(null)}
+        />
+      )}
     </main>
+  );
+}
+
+/**
+ * La cosecha de cada uno: su canción, su frase y su foto de broma.
+ *
+ * Se puede dejar a medias y volver otro día —no hay nada obligatorio— y por eso
+ * se guarda según se escribe, sin botón de guardar. La canción es un enlace y no
+ * un fichero: subir audio al almacén del club para una broma sería pagar espacio
+ * y derechos por algo que ya está en YouTube o en Spotify. La foto sí se sube,
+ * porque la gracia está en que sea suya.
+ */
+function FichaExtras({
+  slug,
+  extras,
+  subiendo,
+  onCambia,
+  onFoto,
+  onCerrar,
+}: {
+  slug: string;
+  extras: ExtrasJugador;
+  subiendo: boolean;
+  onCambia: (cambio: Partial<ExtrasJugador>) => void;
+  onFoto: (archivo: File) => void;
+  onCerrar: () => void;
+}) {
+  const persona = PERSONA_POR_SLUG.get(slug);
+
+  const entrada = useRef<HTMLInputElement | null>(null);
+
+  if (!persona) return null;
+
+  return (
+    <Dialog
+      title={`La cosecha de ${persona.nombre}`}
+      subtitle="Se puede rellenar cuando quieras, y cambiar las veces que haga falta"
+      onClose={onCerrar}
+      footer={<Button onClick={onCerrar}>Cerrar</Button>}
+    >
+      <div className="space-y-4">
+        <div>
+          <span className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
+            <Music size={11} aria-hidden />
+            Su canción
+          </span>
+
+          <Field
+            label="Cómo se llama"
+            value={extras.cancionNombre ?? ""}
+            onChange={(valor) => onCambia({ cancionNombre: valor })}
+            placeholder="Ej.: Paquito el Chocolatero"
+          />
+
+          <div className="mt-2">
+            <Field
+              label="Enlace"
+              value={extras.cancion ?? ""}
+              onChange={(valor) => onCambia({ cancion: valor })}
+              placeholder="Pega el enlace de YouTube o Spotify"
+              hint="Suena cuando gane una jornada. No se sube el audio: va el enlace."
+            />
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
+            <Quote size={11} aria-hidden />
+            Su frase
+          </span>
+
+          <TextArea
+            label=""
+            value={extras.frase ?? ""}
+            onChange={(valor) => onCambia({ frase: valor })}
+            placeholder="La que quiera que le saquen cuando acierte… o cuando falle"
+            rows={2}
+          />
+        </div>
+
+        <div>
+          <span className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
+            <ImagePlus size={11} aria-hidden />
+            Su foto de broma
+          </span>
+
+          <div className="flex items-center gap-3">
+            {extras.foto ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={extras.foto}
+                alt=""
+                className="h-16 w-16 shrink-0 rounded-xl object-cover"
+              />
+            ) : (
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/15 text-white/20">
+                <Smile size={20} aria-hidden />
+              </span>
+            )}
+
+            <div className="min-w-0">
+              <input
+                ref={entrada}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(evento) => {
+                  const archivo = evento.target.files?.[0];
+
+                  if (archivo) onFoto(archivo);
+
+                  /* Se limpia para que elegir la misma foto otra vez vuelva a
+                     disparar el cambio. */
+                  evento.target.value = "";
+                }}
+              />
+
+              <Button
+                icon={ImagePlus}
+                disabled={subiendo}
+                onClick={() => entrada.current?.click()}
+              >
+                {subiendo ? "Subiendo…" : extras.foto ? "Cambiarla" : "Subir una"}
+              </Button>
+
+              {extras.foto && (
+                <button
+                  type="button"
+                  onClick={() => onCambia({ foto: "" })}
+                  className="ml-2 text-[11px] text-white/35 underline underline-offset-2 transition hover:text-white/70"
+                >
+                  Quitarla
+                </button>
+              )}
+
+              <p className="mt-1.5 text-[11px] text-white/35">
+                Hasta 4 MB. Sale junto a su nombre en el ranking.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
