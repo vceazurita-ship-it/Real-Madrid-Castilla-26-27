@@ -78,7 +78,29 @@ export type Metrica = {
   denominador?: string;
   /** Multiplica el cociente (100 para un porcentaje). */
   factor?: number;
+  /**
+   * Si sumar sus valores da algo que signifique alguna cosa.
+   *
+   * Es lo que separa «19 córners en tres partidos» —que se entiende— de «PPDA
+   * 25,5», que no es nada. Sólo lo llevan los **conteos**: lo que se cuenta una
+   * vez por acción y se puede acumular.
+   *
+   * **No lo lleva, y no es un olvido:** los porcentajes y los cocientes (un
+   * `numerador`/`denominador` se recalcula, nunca se suma) y —la trampa— cinco
+   * columnas que Wyscout ya entrega promediadas: PPDA, distancia media de tiro,
+   * longitud media de pase, pases por posesión e intensidad de paso. Ésas
+   * vienen con `columna` como cualquier conteo, así que sin esta marca el
+   * conmutador de «total» las habría multiplicado por los partidos jugados y
+   * habría enseñado un PPDA de 25 con toda naturalidad.
+   *
+   * Al no ponerlo, una métrica se queda en promedio, que es como estaba todo
+   * antes de que esto existiera: olvidarse no puede romper una cifra.
+   */
+  acumulable?: boolean;
 };
+
+/** Ver los datos por partido o sumados. */
+export type ModoValor = "promedio" | "total";
 
 /* ------------------------------------------------------------------ */
 /*  EL CATÁLOGO                                                        */
@@ -102,6 +124,7 @@ export const METRICAS: Metrica[] = [
   /* -------------------------- RESULTADO -------------------------- */
   {
     key: "goles",
+    acumulable: true,
     nombre: "Goles",
     grupo: "Resultado",
     fase: "general",
@@ -112,6 +135,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "golesContra",
+    acumulable: true,
     nombre: "Goles recibidos",
     grupo: "Resultado",
     fase: "general",
@@ -134,6 +158,7 @@ export const METRICAS: Metrica[] = [
   /* -------------------------- VALOR GOL -------------------------- */
   {
     key: "xg",
+    acumulable: true,
     nombre: "xG a favor",
     grupo: "Valor gol",
     fase: "con",
@@ -166,6 +191,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "tiros",
+    acumulable: true,
     nombre: "Remates",
     grupo: "Valor gol",
     fase: "con",
@@ -245,6 +271,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "ataquesPos",
+    acumulable: true,
     nombre: "Ataques posicionales",
     grupo: "Creación",
     fase: "con",
@@ -267,6 +294,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "contras",
+    acumulable: true,
     nombre: "Contraataques",
     grupo: "Creación",
     fase: "con",
@@ -311,6 +339,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "corners",
+    acumulable: true,
     nombre: "Córners",
     grupo: "Balón parado",
     fase: "abp",
@@ -333,6 +362,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "faltasTiro",
+    acumulable: true,
     nombre: "Faltas lanzadas",
     grupo: "Balón parado",
     fase: "abp",
@@ -355,6 +385,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "penaltis",
+    acumulable: true,
     nombre: "Penaltis",
     grupo: "Balón parado",
     fase: "abp",
@@ -377,6 +408,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "centros",
+    acumulable: true,
     nombre: "Centros laterales",
     grupo: "Creación",
     fase: "con",
@@ -401,6 +433,7 @@ export const METRICAS: Metrica[] = [
   /* --------------------- OCUPACIÓN DEL ÁREA ---------------------- */
   {
     key: "toquesArea",
+    acumulable: true,
     nombre: "Toques en el área",
     grupo: "Ocupación del área",
     fase: "con",
@@ -411,6 +444,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "entradasArea",
+    acumulable: true,
     nombre: "Entradas al área (conducción)",
     grupo: "Ocupación del área",
     fase: "con",
@@ -421,6 +455,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "entradasAreaPase",
+    acumulable: true,
     nombre: "Entradas al área (pase)",
     grupo: "Ocupación del área",
     fase: "con",
@@ -442,6 +477,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "pasesUltimoTercio",
+    acumulable: true,
     nombre: "Pases en el último tercio",
     grupo: "Ocupación del área",
     fase: "con",
@@ -466,6 +502,7 @@ export const METRICAS: Metrica[] = [
   /* ------------------------- CIRCULACIÓN ------------------------- */
   {
     key: "pases",
+    acumulable: true,
     nombre: "Pases",
     grupo: "Circulación",
     fase: "con",
@@ -518,6 +555,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "pasesLaterales",
+    acumulable: true,
     nombre: "Pases horizontales",
     grupo: "Circulación",
     fase: "con",
@@ -552,6 +590,7 @@ export const METRICAS: Metrica[] = [
   /* -------------------------- PROGRESIÓN ------------------------- */
   {
     key: "pasesProgresivos",
+    acumulable: true,
     nombre: "Pases progresivos",
     grupo: "Progresión",
     fase: "con",
@@ -586,6 +625,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "pasesProfundidad",
+    acumulable: true,
     nombre: "Pases en profundidad",
     grupo: "Progresión",
     fase: "con",
@@ -596,6 +636,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "desmarques",
+    acumulable: true,
     nombre: "Desmarques",
     grupo: "Progresión",
     fase: "con",
@@ -608,6 +649,7 @@ export const METRICAS: Metrica[] = [
   /* ---------------------------- DUELOS --------------------------- */
   {
     key: "duelos",
+    acumulable: true,
     nombre: "Duelos",
     grupo: "Duelos",
     fase: "general",
@@ -678,6 +720,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "recuperaciones",
+    acumulable: true,
     nombre: "Recuperaciones",
     grupo: "Presión y transición",
     fase: "sin",
@@ -700,6 +743,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "perdidas",
+    acumulable: true,
     nombre: "Pérdidas",
     grupo: "Presión y transición",
     fase: "con",
@@ -724,6 +768,7 @@ export const METRICAS: Metrica[] = [
   /* ---------------------------- DEFENSA -------------------------- */
   {
     key: "tirosContra",
+    acumulable: true,
     nombre: "Remates en contra",
     grupo: "Defensa",
     fase: "sin",
@@ -746,6 +791,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "interceptaciones",
+    acumulable: true,
     nombre: "Interceptaciones",
     grupo: "Defensa",
     fase: "sin",
@@ -756,6 +802,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "despejes",
+    acumulable: true,
     nombre: "Despejes",
     grupo: "Defensa",
     fase: "sin",
@@ -780,6 +827,7 @@ export const METRICAS: Metrica[] = [
   /* -------------------------- DISCIPLINA ------------------------- */
   {
     key: "faltas",
+    acumulable: true,
     nombre: "Faltas",
     grupo: "Disciplina",
     fase: "sin",
@@ -790,6 +838,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "amarillas",
+    acumulable: true,
     nombre: "Tarjetas amarillas",
     grupo: "Disciplina",
     fase: "sin",
@@ -800,6 +849,7 @@ export const METRICAS: Metrica[] = [
   },
   {
     key: "rojas",
+    acumulable: true,
     nombre: "Tarjetas rojas",
     grupo: "Disciplina",
     fase: "sin",
@@ -903,8 +953,18 @@ export function valorEnPartido(metrica: Metrica, fila: FilaPartido) {
  * Un cociente se recalcula sumando los dos lados; una columna directa se
  * promedia por partido. Promediar los cocientes partido a partido daría más
  * peso a un partido de cinco remates que a otro de veinte.
+ *
+ * `modo` decide si una columna directa se promedia o se suma, y por aquí pasa
+ * **toda** la aplicación —las tablas, los gráficos, la portada, las alertas y
+ * la API—, así que el conmutador de la pantalla se nota en todas partes sin
+ * tocar ni un componente de pintado. Sólo obedecen las métricas `acumulable`:
+ * un porcentaje o un PPDA se promedian siempre, se pida lo que se pida.
  */
-export function valorEnGrupo(metrica: Metrica, filas: FilaPartido[]) {
+export function valorEnGrupo(
+  metrica: Metrica,
+  filas: FilaPartido[],
+  modo: ModoValor = "promedio",
+) {
   if (filas.length === 0) return null;
 
   if (metrica.columna) {
@@ -914,8 +974,13 @@ export function valorEnGrupo(metrica: Metrica, filas: FilaPartido[]) {
 
     if (valores.length === 0) return null;
 
+    const suma = valores.reduce((a, b) => a + b, 0);
+
+    /* Sumar lo que no es un conteo no significa nada: ver `acumulable`. */
+    if (modo === "total" && metrica.acumulable) return suma;
+
     /* Los porcentajes que vienen dados ya son medias: se promedian. */
-    return valores.reduce((a, b) => a + b, 0) / valores.length;
+    return suma / valores.length;
   }
 
   if (!metrica.numerador || !metrica.denominador) return null;

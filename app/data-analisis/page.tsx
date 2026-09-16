@@ -101,6 +101,7 @@ import {
   valorEnGrupo,
   valorEnPartido,
   type Fase,
+  type ModoValor,
 } from "@/lib/data-analisis/metricas";
 import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
@@ -335,6 +336,21 @@ export default function DataAnalisisPage() {
 
   const laQueMando = temporada || actual;
 
+  /*
+  | PROMEDIO O TOTAL.
+  |
+  | Las dos preguntas son distintas y las dos se hacen: «¿cuántos córners
+  | sacamos por partido?» compara equipos con distinto número de partidos
+  | jugados; «¿cuántos llevamos?» es lo que se cuenta en una reunión. Hasta
+  | ahora sólo se podía contestar la primera.
+  |
+  | Obedecen **sólo las métricas de conteo** (`acumulable` en `metricas.ts`):
+  | un porcentaje, un cociente o un PPDA se promedian siempre, se pida lo que
+  | se pida, porque su suma no significa nada. Por eso el rótulo de al lado
+  | avisa de que en total no cambian todas.
+  */
+  const [modo, setModo] = useState<ModoValor>("promedio");
+
   /* ------------------------ LO QUE SE MIRA ------------------------- */
 
   const deLaLiga = useMemo(
@@ -372,10 +388,10 @@ export default function DataAnalisisPage() {
 
     return METRICAS.map((met) => {
       const valores = equiposLiga
-        .map((e) => valorEnGrupo(met, porEquipo.get(e) ?? []))
+        .map((e) => valorEnGrupo(met, porEquipo.get(e) ?? [], modo))
         .filter((v): v is number => v !== null);
 
-      const mio = valorEnGrupo(met, nuestros);
+      const mio = valorEnGrupo(met, nuestros, modo);
 
       const orden = [...valores].sort((a, b) =>
         met.mejorAlto === false ? a - b : b - a,
@@ -395,7 +411,7 @@ export default function DataAnalisisPage() {
         comoLeer: met.comoLeer,
       };
     });
-  }, [deLaLiga, equiposLiga, nuestros]);
+  }, [deLaLiga, equiposLiga, modo, nuestros]);
 
   const avisoMuestra = useMemo(
     () => avisoDeMuestra(nuestros.length),
@@ -450,9 +466,9 @@ export default function DataAnalisisPage() {
 
     return equiposLiga.map((equipo) => ({
       equipo,
-      valor: valorEnGrupo(met, deLaLiga.filter((p) => p.equipo === equipo)),
+      valor: valorEnGrupo(met, deLaLiga.filter((p) => p.equipo === equipo), modo),
     }));
-  }, [deLaLiga, equiposLiga, metricaTabla]);
+  }, [deLaLiga, equiposLiga, metricaTabla, modo]);
 
   const puntos = useMemo(() => {
     const mx = METRICA_POR_KEY.get(metricaX);
@@ -467,13 +483,13 @@ export default function DataAnalisisPage() {
         const suyos = deLaLiga.filter((p) => p.equipo === equipo);
         const rivales = deLaLiga.filter((p) => p.rival === equipo);
 
-        const x = valorEnGrupo(mx, contraX ? rivales : suyos);
-        const y = valorEnGrupo(my, contraY ? rivales : suyos);
+        const x = valorEnGrupo(mx, contraX ? rivales : suyos, modo);
+        const y = valorEnGrupo(my, contraY ? rivales : suyos, modo);
 
         return x === null || y === null ? null : { equipo, x, y };
       })
       .filter((p): p is { equipo: string; x: number; y: number } => p !== null);
-  }, [contraX, contraY, deLaLiga, equiposLiga, metricaX, metricaY]);
+  }, [contraX, contraY, deLaLiga, equiposLiga, metricaX, metricaY, modo]);
 
   /* --------------------------- HISTORIA ---------------------------- */
 
@@ -554,12 +570,12 @@ export default function DataAnalisisPage() {
 
         return {
           etiqueta: t,
-          valor: valorEnGrupo(met, filas),
+          valor: valorEnGrupo(met, filas, modo),
           nota: `${filas.length} partidos`,
         };
       })
       .filter((p) => p.valor !== null);
-  }, [deTemporada, laQueMando, metricaHist, nuestraHistoria, porPartido, temporadas]);
+  }, [deTemporada, laQueMando, metricaHist, modo, nuestraHistoria, porPartido, temporadas]);
 
   const resumenTemporadas = useMemo(
     () =>
@@ -601,10 +617,10 @@ export default function DataAnalisisPage() {
     const fuera = deLaTemporada.filter((p) => !enCasa.includes(p));
 
     return {
-      casa: { n: enCasa.length, valor: valorEnGrupo(met, enCasa) },
-      fuera: { n: fuera.length, valor: valorEnGrupo(met, fuera) },
+      casa: { n: enCasa.length, valor: valorEnGrupo(met, enCasa, modo) },
+      fuera: { n: fuera.length, valor: valorEnGrupo(met, fuera, modo) },
     };
-  }, [deTemporada, laQueMando, metricaHist]);
+  }, [deTemporada, laQueMando, metricaHist, modo]);
 
   /* ------------------- DOS MÉTRICAS, PERO NUESTRAS ----------------- */
 
@@ -623,13 +639,13 @@ export default function DataAnalisisPage() {
 
     return temporadas
       .map((t) => {
-        const x = valorEnGrupo(mx, contraX ? deTemporadaContra(t) : deTemporada(t));
-        const y = valorEnGrupo(my, contraY ? deTemporadaContra(t) : deTemporada(t));
+        const x = valorEnGrupo(mx, contraX ? deTemporadaContra(t) : deTemporada(t), modo);
+        const y = valorEnGrupo(my, contraY ? deTemporadaContra(t) : deTemporada(t), modo);
 
         return x === null || y === null ? null : { equipo: t, x, y };
       })
       .filter((p): p is { equipo: string; x: number; y: number } => p !== null);
-  }, [contraX, contraY, deTemporada, deTemporadaContra, metricaX, metricaY, temporadas]);
+  }, [contraX, contraY, deTemporada, deTemporadaContra, metricaX, metricaY, modo, temporadas]);
 
   /* ---------------------------- PINTADO ---------------------------- */
 
@@ -788,6 +804,34 @@ export default function DataAnalisisPage() {
                         ))}
                       </select>
                     </label>
+                  )}
+
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && (
+                    <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                      {[
+                        { valor: "promedio" as ModoValor, rotulo: "Por partido" },
+                        { valor: "total" as ModoValor, rotulo: "Total" },
+                      ].map((opcion) => (
+                        <button
+                          key={opcion.valor}
+                          type="button"
+                          onClick={() => setModo(opcion.valor)}
+                          aria-pressed={modo === opcion.valor}
+                          title={
+                            opcion.valor === "promedio"
+                              ? "La media por partido: es lo que compara equipos que no han jugado lo mismo"
+                              : "Lo acumulado. Los porcentajes y las medias (PPDA, longitud de pase…) se siguen enseñando por partido: sumarlos no significaría nada"
+                          }
+                          className={`rounded-lg px-3 py-2 text-xs transition ${
+                            modo === opcion.valor
+                              ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                              : "text-white/50 hover:text-white"
+                          }`}
+                        >
+                          {opcion.rotulo}
+                        </button>
+                      ))}
+                    </div>
                   )}
 
                   <span className="text-[11px] text-white/30">
@@ -1135,6 +1179,7 @@ export default function DataAnalisisPage() {
                           nuestros={nuestros}
                           deLaLiga={deLaLiga}
                           equiposLiga={equiposLiga}
+                          modo={modo}
                         />
 
                         {/* Y el detalle métrica a métrica. */}
@@ -2036,11 +2081,24 @@ function suma(filas: FilaPartido[], columna: string) {
   return hay ? total : null;
 }
 
-/** Lo mismo, por partido: es lo que se compara entre equipos. */
-const porPartido = (filas: FilaPartido[], columna: string) => {
+/**
+ * Lo mismo, por partido: es lo que se compara entre equipos.
+ *
+ * Con `modo: "total"` devuelve la suma sin dividir. Estas barras cuentan
+ * acciones —remates por origen, pases por tipo, córners a favor y en contra—,
+ * así que sumarlas sí significa algo; si no obedecieran al conmutador, la misma
+ * pantalla estaría enseñando totales arriba y medias aquí abajo.
+ */
+const porPartido = (
+  filas: FilaPartido[],
+  columna: string,
+  modo: ModoValor = "promedio",
+) => {
   const total = suma(filas, columna);
 
-  return total === null || filas.length === 0 ? 0 : total / filas.length;
+  if (total === null || filas.length === 0) return 0;
+
+  return modo === "total" ? total : total / filas.length;
 };
 
 /**
@@ -2061,16 +2119,18 @@ function PanelesDeFase({
   nuestros,
   deLaLiga,
   equiposLiga,
+  modo,
 }: {
   fase: Fase;
   nuestros: FilaPartido[];
   deLaLiga: FilaPartido[];
   equiposLiga: string[];
+  modo: ModoValor;
 }) {
-  /** El mismo reparto, promediado sobre todos los equipos de la liga. */
+  /** El mismo reparto, sobre todos los equipos de la liga. */
   const enLaLiga = (columna: string) => {
     const valores = equiposLiga
-      .map((e) => porPartido(deLaLiga.filter((p) => p.equipo === e), columna))
+      .map((e) => porPartido(deLaLiga.filter((p) => p.equipo === e), columna, modo))
       .filter((v) => Number.isFinite(v));
 
     return mediana(valores) ?? 0;
@@ -2081,7 +2141,7 @@ function PanelesDeFase({
   ): { nuestra: Trozo[]; liga: Trozo[] } => ({
     nuestra: partes.map((p) => ({
       etiqueta: p.etiqueta,
-      valor: porPartido(nuestros, p.columna),
+      valor: porPartido(nuestros, p.columna, modo),
     })),
     liga: partes.map((p) => ({
       etiqueta: p.etiqueta,
