@@ -42,6 +42,9 @@ export function BotonAlertas() {
         pista="Avisos por correo, con adjuntos"
         onClick={() => setAbierto(true)}
         destacado
+        /* Igual que la ayuda y que exportar: el cajón es hijo de esta fila y
+           cerrar el menú lo desmontaría antes de que se vea. */
+        mantenAbierto
       />
 
       {abierto && (

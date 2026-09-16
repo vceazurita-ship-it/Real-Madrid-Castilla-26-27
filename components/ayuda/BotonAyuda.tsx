@@ -64,6 +64,10 @@ export function BotonAyuda() {
         pista={ayuda.titulo}
         onClick={() => setAbierto(true)}
         destacado
+        /* Su cajón cuelga de esta misma fila: si el menú se cierra, se lleva
+           por delante el estado que dice que está abierto. Es el mismo fallo
+           que tuvo exportar. El velo del cajón ya tapa el menú de detrás. */
+        mantenAbierto
       />
 
       {abierto && (
