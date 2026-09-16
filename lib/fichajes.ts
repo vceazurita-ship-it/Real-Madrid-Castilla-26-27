@@ -33,33 +33,23 @@ type Ficha = {
   dorsal?: number;
 };
 
-const FICHAS: Ficha[] = [
-  {
-    /*
-    | Central ghanés de 21 años, del Granada, agosto de 2026. Juega también de
-    | lateral derecho; en la hoja sólo cabe un puesto y va el de lateral
-    | derecho, que es donde el cuerpo técnico lo quiere ahora.
-    */
-    id: "JUG-52",
-    nombre: "Óscar Naasei",
-    apodo: "Naasei",
-    posicion: "LATERAL D.",
-    licencia: "RMCF Castilla",
-  },
-  {
-    /*
-    | Alta del 4 de septiembre de 2026. Mediocentro: en la hoja el puesto se
-    | escribe con el número, y `positionGroups` mete en el centro del campo al
-    | 6, al 8 y al 10. Va el **6** —el mediocentro posicional—; si resulta ser
-    | interior, aquí se cambia por "8" y no hay nada más que tocar.
-    */
-    id: "JUG-53",
-    nombre: "Sergio Martínez",
-    apodo: "Sergio",
-    posicion: "6",
-    licencia: "RMCF Castilla",
-  },
-];
+/*
+| Vacío desde el 16/09/2026: la hoja ya trae a los dos que había aquí —Óscar
+| Naasei (JUG-52) y Sergio Martínez (JUG-53)—, así que el puente ha hecho su
+| trabajo y se retira, que es justo lo que dice el encabezado.
+|
+| Y no era inofensivo dejarlos: **la hoja escribe "Óscar Nassei"** y aquí
+| estaba escrito "Óscar Naasei" —que es como lo escriben la foto, el recorte,
+| el dorsal y el registro de Opta—. El cruce que evita duplicados es por
+| nombre, dos eses contra dos aes no casan, y el jugador salía DOS VECES en
+| todas las pantallas que leen la plantilla: el once, la pizarra, el coding,
+| las valoraciones y el dashboard de seguimiento. Se vio al contar la plantilla
+| del dashboard: quince jugadores de campo y dieciséis en la lista.
+|
+| Si algún día hay que volver a usar esto, el nombre tiene que ir **como lo
+| escriba la hoja**, aunque esté mal escrito: es la hoja la que manda.
+*/
+const FICHAS: Ficha[] = [];
 
 /** Los fichajes convertidos en jugadores, con sus recortes. */
 const PENDIENTES: Player[] = FICHAS.map((ficha) => ({

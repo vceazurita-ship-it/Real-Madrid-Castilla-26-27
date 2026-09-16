@@ -39,12 +39,23 @@ const HIDDEN_NAMES = new Set([
   "seco",
 
   /*
-  | David Jiménez, JUG-38 en la hoja. No se lista "david" a secas: en la
-  | plantilla hay un Cristian David y se ocultaría también.
+  | David Jiménez, JUG-38 en la hoja. No se lista "david" a secas: es el
+  | segundo nombre de más gente y se llevaría por delante a quien no toca.
   */
   "david jimenez",
   "jime",
   "jimenez",
+
+  /*
+  | Cristian David, JUG-12. Se fue a otro club el 16/09/2026.
+  |
+  | La hoja lo sigue dando por activo —la pestaña JUGADORES la lleva a mano el
+  | cuerpo técnico y desde aquí no se escribe—, así que se oculta por nombre:
+  | "Cristian David" es lo que pone la columna NOMBRE y "Cristian" lo que pone
+  | APODO, que es como lo escriben el seguimiento y las sesiones.
+  */
+  "cristian david",
+  "cristian",
 
   // Manuel Ángel, JUG-34.
   "manuel angel",

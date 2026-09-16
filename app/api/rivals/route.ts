@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 import { listDocs, readDoc, writeDoc } from "@/lib/docStore";
 
@@ -63,11 +63,18 @@ const enVuelo = new Map<string, Promise<unknown>>();
 | alineación de un partido— no entra: son muchas, pequeñas y cada una la mira
 | una persona.
 |
-| La copia se sirve hasta doce horas. Más allá se espera a la hoja: preferimos
-| que el primero del día pague la espera a enseñar la plantilla de anteayer sin
-| avisar.
+| **Y se sirve aunque sea de ayer** (16/09/2026). Hasta hoy la copia valía
+| doce horas y pasadas ésas se esperaba a Google: se prefería que el primero
+| del día pagase la espera a enseñar datos de anteayer sin avisar. Medido otra
+| vez ese día, con el script frío: `seguimiento` **41 s**. Eso no es «tarda»,
+| es que la pantalla no se abre —y la copia que teníamos a mano era de unas
+| horas antes, con todo lo que le importa a quien entra—.
+|
+| Así que dentro del tope de abajo se contesta con lo guardado y se pide lo
+| nuevo por detrás, siempre. Lo que no se hace es servir una copia de la
+| semana pasada: pasado el tope se espera a la hoja, como antes.
 */
-const VIDA_GUARDADA = 12 * 60 * 60_000;
+const VIDA_GUARDADA = 3 * 24 * 60 * 60_000;
 
 const PREFIJO_GUARDADO = "cache:apps-script:";
 
@@ -187,6 +194,20 @@ function pide(consulta: string) {
   return peticion;
 }
 
+/**
+ * Pide la hoja **después** de haber contestado, sin hacer esperar a nadie.
+ *
+ * Va con `after` y no con un `void pide(...)` suelto por dónde vive esto: en
+ * el despliegue cada petición es una función que se congela en cuanto sale la
+ * respuesta, así que una promesa lanzada al aire se quedaba a medias y la
+ * copia no se renovaba nunca —el siguiente volvía a encontrarla vieja—.
+ * `after` mantiene viva la invocación hasta que termina. Un fallo del refresco
+ * no puede tumbar una petición que ya está contestada.
+ */
+function renueva(consulta: string) {
+  after(() => pide(consulta).catch(() => undefined));
+}
+
 async function lee(consulta: string, fresco: boolean) {
   if (fresco) {
     /*
@@ -218,7 +239,7 @@ async function lee(consulta: string, fresco: boolean) {
     if (edad < VIDA_RANCIA) {
       /* Se contesta con lo que hay y se renueva por detrás. Un fallo del
          refresco no puede tumbar esta petición, que ya está contestada. */
-      void pide(consulta).catch(() => undefined);
+      renueva(consulta);
 
       return guardado.data;
     }
@@ -235,7 +256,7 @@ async function lee(consulta: string, fresco: boolean) {
   if (deFuera) {
     cache.set(consulta, deFuera);
 
-    void pide(consulta).catch(() => undefined);
+    renueva(consulta);
 
     return deFuera.data;
   }

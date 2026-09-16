@@ -129,9 +129,16 @@ type MergedPlayer = Player & {
   capacidadFisica: number;
   tecnica: number;
 
-  sessions: number;
-  videos: number;
-  hasReport: boolean;
+  /*
+  | Los tres contadores son `null` mientras su lectura va por el camino.
+  |
+  | No es lo mismo un jugador sin seguimientos que un jugador cuyos
+  | seguimientos todavía no han bajado, y la rejilla se pinta antes de que
+  | lleguen: un cero de mentira es peor que un guion.
+  */
+  sessions: number | null;
+  videos: number | null;
+  hasReport: boolean | null;
   score: number;
   lastSession: Date | null;
 };
@@ -305,13 +312,6 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
     position: "Centrocampista",
     photo:
       "https://assets.realmadrid.com/is/image/realmadrid/JORGE_CESTERO_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
-  },
-  {
-    idJugador: "JUG-12",
-    name: "Cristian David",
-    position: "Centrocampista",
-    photo:
-      "https://assets.realmadrid.com/is/image/realmadrid/CRISTIAN_DAVID_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
   },
   {
     idJugador: "JUG-14",
@@ -1318,27 +1318,39 @@ function PlayerCard({
           className={`flex items-center gap-1 text-[10px] tabular-nums ${
             player.sessions ? "text-white/60" : "text-white/20"
           }`}
-          title={`${player.sessions} sesiones de seguimiento`}
+          title={
+            player.sessions === null
+              ? "Cargando los seguimientos…"
+              : `${player.sessions} sesiones de seguimiento`
+          }
         >
           <ClipboardList size={11} />
-          {player.sessions}
+          {player.sessions ?? "—"}
         </span>
 
         <span
           className={`flex items-center gap-1 text-[10px] tabular-nums ${
             player.videos ? "text-white/60" : "text-white/20"
           }`}
-          title={`${player.videos} vídeos`}
+          title={
+            player.videos === null ? "Cargando los vídeos…" : `${player.videos} vídeos`
+          }
         >
           <Video size={11} />
-          {player.videos}
+          {player.videos ?? "—"}
         </span>
 
         <span
           className={
             player.hasReport ? "text-[#C8A96B]" : "text-white/20"
           }
-          title={player.hasReport ? "Con informe" : "Sin informe"}
+          title={
+            player.hasReport === null
+              ? "Cargando los informes…"
+              : player.hasReport
+                ? "Con informe"
+                : "Sin informe"
+          }
         >
           <FileText size={11} />
         </span>
@@ -1369,7 +1381,26 @@ export default function IndividualPage() {
   const [videoData, setVideoData] = useState<VideoItem[]>([]);
   const [reportData, setReportData] = useState<ReportItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  /*
+  | Qué falta por llegar, lectura a lectura.
+  |
+  | Era un solo `loading` para las cuatro, y la pantalla esperaba a la más
+  | lenta para enseñar algo. Ahora cada una se coloca cuando llega y esto es
+  | sólo para decirlo: el guion de los contadores y el aviso de arriba.
+  */
+  const [pendiente, setPendiente] = useState({
+    jugadores: true,
+    seguimiento: true,
+    videos: true,
+    informes: true,
+  });
+
+  const cargandoAlgo =
+    pendiente.jugadores ||
+    pendiente.seguimiento ||
+    pendiente.videos ||
+    pendiente.informes;
+
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -1459,80 +1490,112 @@ export default function IndividualPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadData() {
-      setLoading(true);
+    /*
+    | CADA LECTURA PINTA LO SUYO EN CUANTO LLEGA
+    |
+    | Las cuatro se pedían a la vez, pero se esperaba a las cuatro para enseñar
+    | algo: la pantalla tardaba lo que la más lenta. Medido el 16/09/2026
+    | contra el Apps Script en frío, `seguimiento` son 138 KB y **41 segundos**
+    | —la lista de jugadores, 2,6; las dos hojas publicadas, segundo y medio
+    | cada una—. Cuarenta segundos de esqueleto para enseñar una plantilla que
+    | ya nos sabemos: los nombres, los puestos y las fotos están escritos aquí
+    | arriba y no dependen de ninguna hoja.
+    |
+    | Las dos lecturas del Apps Script van por `/api/rivals`, que guarda la
+    | respuesta en el servidor y así el arranque en frío lo paga como mucho
+    | uno. Al recargar a mano —y después de guardar— se pide `fresco=1`, que se
+    | salta esa copia: una de hace dos minutos diría que no está escrito algo
+    | que sí lo está.
+    */
+    function carga() {
+      setPendiente({
+        jugadores: true,
+        seguimiento: true,
+        videos: true,
+        informes: true,
+      });
+
       setLoadError("");
 
-      /*
-      | Las dos lecturas van por `/api/rivals`, que guarda la respuesta del
-      | Apps Script en el servidor: en frío ese script tarda entre treinta y
-      | setenta segundos, y así sólo lo paga el primero del día.
-      |
-      | Al recargar a mano —y después de guardar— se pide `fresco=1`, que se
-      | salta esa copia: una de hace dos minutos diría que no está escrito algo
-      | que sí lo está.
-      */
       const fresco = reloadKey > 0 ? "&fresco=1" : "";
+      const forzar = reloadKey > 0;
 
-      const results = await Promise.allSettled([
-        traeJson<
-          Record<string, string>[] | { data?: Record<string, string>[] }
-        >(`/api/rivals?action=jugadores${fresco}`, {
-          forzar: reloadKey > 0,
-        }),
-        traeJson(`/api/rivals?action=seguimiento${fresco}`, {
-          forzar: reloadKey > 0,
-        }),
-        traeCsv(SHEET_VIDEOS, { forzar: reloadKey > 0 }),
-        traeCsv(SHEET_INFORMES, { forzar: reloadKey > 0 }),
-      ]);
+      const falla = (que: string) => (error: unknown) => {
+        console.error(`[individual] no se pudo cargar ${que}`, error);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      const jugadores =
-        results[0].status === "fulfilled" ? results[0].value : null;
-
-      const seguimiento =
-        results[1].status === "fulfilled" ? results[1].value : null;
-
-      const videos = results[2].status === "fulfilled" ? results[2].value : "";
-      const informes =
-        results[3].status === "fulfilled" ? results[3].value : "";
-
-      const filasJugadores: Record<string, string>[] = Array.isArray(jugadores)
-        ? jugadores
-        : jugadores?.data || [];
-
-      setSheetData(
-        filasJugadores.filter(
-          (fila) => !isHiddenPlayer(fila.NOMBRE, fila.APODO),
-        ),
-      );
-
-      setTrackingData(Array.isArray(seguimiento) ? seguimiento : []);
-      setVideoData(parseCSV(videos) as VideoItem[]);
-      setReportData(parseCSV(informes) as ReportItem[]);
-
-      if (results.some((r) => r.status === "rejected")) {
         setLoadError(
           "No se han podido cargar todos los datos. Revisa la conexión y vuelve a intentarlo.",
         );
-      }
+      };
 
-      /* Enlace directo /individual?player=JUG-XX */
-      const wanted = new URLSearchParams(window.location.search).get("player");
+      const listo = (que: keyof typeof pendiente) => () => {
+        if (cancelled) return;
 
-      if (wanted && players.some((p) => p.idJugador === wanted)) {
-        setSelectedId(wanted);
-        setActiveTab("perfil");
+        setPendiente((antes) => ({ ...antes, [que]: false }));
+      };
 
-        window.history.replaceState({}, "", "/individual");
-      }
+      void traeJson<
+        Record<string, string>[] | { data?: Record<string, string>[] }
+      >(`/api/rivals?action=jugadores${fresco}`, { forzar })
+        .then((jugadores) => {
+          if (cancelled) return;
 
-      setLoading(false);
+          const filas: Record<string, string>[] = Array.isArray(jugadores)
+            ? jugadores
+            : jugadores?.data || [];
+
+          setSheetData(
+            filas.filter((fila) => !isHiddenPlayer(fila.NOMBRE, fila.APODO)),
+          );
+
+          /* Enlace directo /individual?player=JUG-XX */
+          const wanted = new URLSearchParams(window.location.search).get(
+            "player",
+          );
+
+          if (wanted && players.some((p) => p.idJugador === wanted)) {
+            setSelectedId(wanted);
+            setActiveTab("perfil");
+
+            window.history.replaceState({}, "", "/individual");
+          }
+        })
+        .catch(falla("la ficha de los jugadores"))
+        .finally(listo("jugadores"));
+
+      void traeJson(`/api/rivals?action=seguimiento${fresco}`, { forzar })
+        .then((seguimiento) => {
+          if (cancelled) return;
+
+          setTrackingData(
+            Array.isArray(seguimiento) ? (seguimiento as TrackingRecord[]) : [],
+          );
+        })
+        .catch(falla("el seguimiento"))
+        .finally(listo("seguimiento"));
+
+      void traeCsv(SHEET_VIDEOS, { forzar })
+        .then((videos) => {
+          if (cancelled) return;
+
+          setVideoData(parseCSV(videos) as VideoItem[]);
+        })
+        .catch(falla("los vídeos"))
+        .finally(listo("videos"));
+
+      void traeCsv(SHEET_INFORMES, { forzar })
+        .then((informes) => {
+          if (cancelled) return;
+
+          setReportData(parseCSV(informes) as ReportItem[]);
+        })
+        .catch(falla("los informes"))
+        .finally(listo("informes"));
     }
 
-    loadData();
+    carga();
 
     return () => {
       cancelled = true;
@@ -1571,16 +1634,20 @@ export default function IndividualPage() {
       return {
         ...base,
 
-        sessions: sessions.length,
-        videos: videoData.filter((v) => v.ID_JUGADOR === p.idJugador).length,
-        hasReport: reportData.some((r) => r.ID_JUGADOR === p.idJugador),
+        sessions: pendiente.seguimiento ? null : sessions.length,
+        videos: pendiente.videos
+          ? null
+          : videoData.filter((v) => v.ID_JUGADOR === p.idJugador).length,
+        hasReport: pendiente.informes
+          ? null
+          : reportData.some((r) => r.ID_JUGADOR === p.idJugador),
         score: averageScore(base),
         lastSession: dates.length
           ? new Date(Math.max(...dates.map((d) => d.getTime())))
           : null,
       };
     });
-  }, [sheetData, trackingData, videoData, reportData]);
+  }, [sheetData, trackingData, videoData, reportData, pendiente]);
 
   /* La ficha se deriva del id: así nunca queda desfasada tras editar o recargar. */
   const selected = useMemo(
@@ -1621,7 +1688,7 @@ export default function IndividualPage() {
 
     return {
       players: mergedPlayers.length,
-      tracked: mergedPlayers.filter((p) => p.sessions > 0).length,
+      tracked: mergedPlayers.filter((p) => (p.sessions ?? 0) > 0).length,
       sessions: trackingData.length,
       videos: videoData.length,
       reports: reportData.length,
@@ -1668,7 +1735,7 @@ export default function IndividualPage() {
     }
 
     if (sortBy === "seguimientos") {
-      return [...list].sort((a, b) => b.sessions - a.sessions);
+      return [...list].sort((a, b) => (b.sessions ?? 0) - (a.sessions ?? 0));
     }
 
     if (sortBy === "valoracion") {
@@ -2334,9 +2401,9 @@ export default function IndividualPage() {
         {
           icon: ClipboardList,
           label: "Sesiones",
-          value: selected.sessions,
+          value: selected.sessions ?? "—",
         },
-        { icon: Video, label: "Vídeos", value: selected.videos },
+        { icon: Video, label: "Vídeos", value: selected.videos ?? "—" },
         {
           icon: FileText,
           label: "Informe",
@@ -2386,6 +2453,15 @@ export default function IndividualPage() {
 
                 <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
 
+                {/* La rejilla ya está puesta; esto dice que todavía están
+                    bajando los seguimientos, los vídeos o los informes. */}
+                {cargandoAlgo && (
+                  <span className="hidden shrink-0 items-center gap-2 text-xs text-white/35 sm:flex">
+                    <Loader2 size={13} className="animate-spin" />
+                    Cargando datos…
+                  </span>
+                )}
+
                 <button
                   onClick={() => setReloadKey((k) => k + 1)}
                   className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-[#C8A96B] hover:text-white"
@@ -2418,27 +2494,31 @@ export default function IndividualPage() {
                   icon={Users}
                   label="Jugadores"
                   value={stats.players}
-                  hint={`${stats.tracked} con seguimiento`}
+                  hint={
+                    pendiente.seguimiento
+                      ? "cargando los seguimientos…"
+                      : `${stats.tracked} con seguimiento`
+                  }
                 />
 
                 <StatTile
                   icon={ClipboardList}
                   label="Sesiones"
-                  value={stats.sessions}
+                  value={pendiente.seguimiento ? "—" : stats.sessions}
                   hint="Registros de seguimiento"
                 />
 
                 <StatTile
                   icon={Video}
                   label="Vídeos"
-                  value={stats.videos}
+                  value={pendiente.videos ? "—" : stats.videos}
                   hint="Clips individuales"
                 />
 
                 <StatTile
                   icon={FileText}
                   label="Informes"
-                  value={stats.reports}
+                  value={pendiente.informes ? "—" : stats.reports}
                   hint="Fichas completadas"
                 />
 
@@ -2574,23 +2654,10 @@ export default function IndividualPage() {
 
               {/* PLANTILLA */}
 
-              {loading ? (
-                <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
-                    >
-                      <div className="aspect-[3/4] w-full animate-pulse bg-white/[0.05]" />
-
-                      <div className="space-y-2 p-3">
-                        <div className="h-3 w-2/3 animate-pulse rounded bg-white/[0.07]" />
-                        <div className="h-2 w-1/2 animate-pulse rounded bg-white/[0.05]" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filtered.length === 0 ? (
+              {/* Sin esqueleto: la plantilla no sale de ninguna hoja, así que
+                  se pinta ya. Lo que falta por bajar son los contadores, y
+                  ésos se enseñan como «—» hasta que llegan. */}
+              {filtered.length === 0 ? (
                 <div className="mt-8">
                   <EmptyState
                     icon={Search}

@@ -9,6 +9,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
+import type { Player } from "@/types/player";
 
 import {
   AlertTriangle,
@@ -186,6 +187,27 @@ function clean(text?: string) {
   return t && t !== "-" ? t : "";
 }
 
+/**
+ * Quién entra en este panel: la plantilla del Castilla, y sin porteros.
+ *
+ * El seguimiento individual que se cuenta aquí es el del cuerpo técnico del
+ * Castilla con sus jugadores de campo. Los de licencia RMC y juvenil vienen a
+ * entrenar y su seguimiento lo lleva su equipo; los porteros tienen su
+ * entrenador y su propia planificación, y su trabajo no se registra en esta
+ * hoja. Contarlos sólo hundía los números que se miran —la cobertura y la
+ * media por jugador—, porque sumaban al denominador sin sumar registros.
+ *
+ * El puesto lo escribe la hoja de dos maneras, con palabra ("PORTERO") y con
+ * el número de rol (1), así que se miran las dos. Ver `lib/posiciones.ts`.
+ */
+function esDeSeguimiento(jugador: Player) {
+  if (!jugador.esCastilla) return false;
+
+  const puesto = (jugador.posicion || "").trim();
+
+  return puesto !== "1" && !/portero/i.test(puesto);
+}
+
 type TabKey = "resumen" | "jugadores" | "contenidos" | "registros";
 
 const TABS: { key: TabKey; label: string; icon: any }[] = [
@@ -213,14 +235,45 @@ type Filters = typeof emptyFilters;
 /* ------------------------------------------------------------------ */
 
 export default function DashboardSeguimiento() {
-  const { players } = usePlayers();
+  const { players: plantillaEntera } = usePlayers();
 
   const [crudoTracking, setTracking] = useState<TrackingRecord[]>([]);
+
+  /*
+  | La plantilla de este panel no es la plantilla entera: `esDeSeguimiento`
+  | deja fuera a los que no son del Castilla y a los porteros. Se filtra aquí,
+  | en un sitio, y de aquí cuelga todo lo demás —los KPI, las gráficas, los
+  | filtros y la exportación—, así que ningún número de la pantalla los cuenta.
+  */
+  const players = useMemo(
+    () => plantillaEntera.filter(esDeSeguimiento),
+    [plantillaEntera],
+  );
 
   /*
   | El nombre manda sobre el ID: la hoja JUGADORES ha renumerado los JUG-XX y
   | un seguimiento viejo apunta hoy a otra persona (ver `lib/seguimiento.ts`).
   |
+  | El cruce se hace contra la plantilla ENTERA a propósito: un registro de un
+  | portero también tiene que resolverse a su dueño, o se quedaría con un ID
+  | viejo que hoy es de otro y se colaría aquí a nombre de quien no es.
+  */
+  const alineados = useMemo(
+    () => alineaSeguimiento(crudoTracking, plantillaEntera),
+    [crudoTracking, plantillaEntera],
+  );
+
+  const idsEnPanel = useMemo(
+    () => new Set(players.map((jugador) => jugador.id)),
+    [players],
+  );
+
+  const delGrupo = useMemo(
+    () => alineados.filter((s) => idsEnPanel.has(s.ID_JUGADOR)),
+    [alineados, idsEnPanel],
+  );
+
+  /*
   | Y **fuera lo que no tiene fecha usable**. Todo este panel se ordena por
   | fecha: la semana de temporada, el mes, la media semanal, el mapa de calor
   | y el «último registro». Un `FECHA` vacío —la hoja tiene dos, los dos con
@@ -228,17 +281,12 @@ export default function DashboardSeguimiento() {
   | activa más y puede colarse como el registro más reciente. Se dice cuántos
   | son al lado del total, para que no desaparezcan en silencio.
   */
-  const conFecha = useMemo(
-    () => crudoTracking.filter((s) => fechaValida(s.FECHA)),
-    [crudoTracking],
-  );
-
-  const sinFecha = crudoTracking.length - conFecha.length;
-
   const tracking = useMemo(
-    () => alineaSeguimiento(conFecha, players),
-    [conFecha, players],
+    () => delGrupo.filter((s) => fechaValida(s.FECHA)),
+    [delGrupo],
   );
+
+  const sinFecha = delGrupo.length - tracking.length;
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");
@@ -857,6 +905,15 @@ export default function DashboardSeguimiento() {
 
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60">
                 {totalSessions} registros
+              </span>
+
+              {/* Se dice a quién cuenta el panel: si no, la cobertura y la
+                  media parecen de toda la plantilla y no lo son. */}
+              <span
+                title="Sólo jugadores de campo con licencia del Castilla. Los porteros llevan su propio seguimiento y los de licencia RMC o juvenil, el de su equipo."
+                className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]"
+              >
+                jugadores de campo del Castilla
               </span>
 
               {sinFecha > 0 && (

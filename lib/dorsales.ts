@@ -51,6 +51,10 @@ const DORSALES: Dorsal[] = [
   { id: "JUG-24", nombre: "Javi Navarro", dorsal: 13 },
   { id: "JUG-26", nombre: "Ángel Carvajal", dorsal: 19 },
   { id: "JUG-15", nombre: "Roberto", dorsal: 20 },
+  /* La hoja lo escribe "Nassei" y el club "Naasei" (la foto, el recorte y el
+     registro de Opta). El cruce es por nombre, así que van los dos: el dorsal
+     no se pierde ni ahora ni si algún día corrigen la hoja. */
+  { id: "JUG-52", nombre: "Óscar Nassei", dorsal: 21 },
   { id: "JUG-52", nombre: "Óscar Naasei", dorsal: 21 },
   { id: "JUG-17", nombre: "Mesonero", dorsal: 22 },
   { id: "JUG-09", nombre: "Lamini", dorsal: 23 },
