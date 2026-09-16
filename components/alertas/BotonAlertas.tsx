@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react";
 import { AlarmClock, X } from "lucide-react";
 
+import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import GestorAlertas from "./GestorAlertas";
 
 /**
- * Botón flotante de tareas con alerta, disponible en todas las páginas.
+ * Tareas con alerta, dentro del menú de herramientas (`MenuFlotante`).
  *
- * Va en la misma columna que el conmutador de tema y el de exportar, justo
- * encima de ellos, y lleva `data-export-hide` para no salir en las capturas.
- *
- * El gestor se monta **solo al abrir el panel**: es un botón que está en todas
- * las pantallas de la app, y cargar la lista de alertas en cada visita a
- * cualquier página sería una llamada a la hoja que casi nadie ha pedido.
+ * El gestor se monta **solo al abrir el panel**: está en todas las pantallas
+ * de la app, y cargar la lista de alertas en cada visita a cualquier página
+ * sería una llamada a la hoja que casi nadie ha pedido. Por eso la fila del
+ * menú tampoco puede enseñar cuántas hay: para saberlo habría que pedirlas, y
+ * volveríamos a pagar esa llamada en todas partes.
  */
 
 export function BotonAlertas() {
@@ -36,30 +36,13 @@ export function BotonAlertas() {
 
   return (
     <>
-      <button
-        type="button"
-        data-export-hide
-        /* Se aparta cuando hay un modal abierto: ver globals.css. */
-        data-flotante
+      <ItemMenuFlotante
+        icono={<AlarmClock className="h-4 w-4" aria-hidden />}
+        titulo="Tareas y alertas"
+        pista="Avisos por correo, con adjuntos"
         onClick={() => setAbierto(true)}
-        aria-label="Tareas y alertas"
-        title="Tareas y alertas"
-        className="
-          fixed bottom-[192px] right-5 z-[60]
-          flex h-11 w-11 items-center justify-center
-          rounded-full
-          border border-white/10
-          bg-white/[0.06]
-          text-[#C8A96B]
-          shadow-xl
-          backdrop-blur
-          transition
-          hover:bg-white/10
-          print:hidden
-        "
-      >
-        <AlarmClock className="h-5 w-5" aria-hidden />
-      </button>
+        destacado
+      />
 
       {abierto && (
         <div

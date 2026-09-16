@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
 import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
 
 /**
@@ -1062,13 +1063,48 @@ export function PageExportButton() {
   );
 
   return (
-    <div
-      ref={containerRef}
-      data-export-hide
-      className="fixed bottom-20 right-5 z-[60] flex flex-col items-end gap-2 print:hidden"
-    >
+    <div ref={containerRef} data-export-hide>
+      {/*
+      | La fila del menú de herramientas, y su panel aparte.
+      |
+      | El panel NO se ha metido dentro del menú general: exportar tiene tres
+      | formatos, más las dos portadas cuando hay una ficha abierta, y unos
+      | rótulos que cambian según se vaya a capturar la página o el pop-up.
+      | Anidar todo eso en otro desplegable se navega peor que tenerlo aparte.
+      */}
+      <ItemMenuFlotante
+        icono={
+          busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <Download className="h-4 w-4" aria-hidden />
+          )
+        }
+        titulo={busy ? "Exportando" : onDialog ? "Exportar la ficha" : "Exportar"}
+        pista={
+          busy
+            ? "Un momento"
+            : onDialog
+              ? "Sólo el pop-up que está abierto · PDF o PNG"
+              : "La página entera · PDF o PNG"
+        }
+        onClick={() => {
+          if (busy) return;
+
+          /* Qué se va a capturar se mira AL ABRIR, no en cada pintado: es una
+             lectura del DOM y sólo sirve para rotular las opciones. */
+          if (!open) setOnDialog(Boolean(findOpenDialog()));
+
+          setOpen(!open);
+        }}
+        destacado
+        /* Su panel cuelga de esta misma fila: si el menú se cierra, se lo
+           lleva por delante antes de que se llegue a ver. */
+        mantenAbierto
+      />
+
       {open && !busy && (
-        <div className="w-[248px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur">
+        <div className="fixed bottom-20 right-5 z-[70] w-[248px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur print:hidden">
           <p className="border-b border-white/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.2em] text-white/40">
             {onDialog ? "Exportar solo la ficha" : "Exportar página completa"}
           </p>
@@ -1173,29 +1209,6 @@ export function PageExportButton() {
         </div>
       )}
 
-      <button
-        type="button"
-        aria-label={onDialog ? "Exportar ficha" : "Exportar página"}
-        aria-expanded={open}
-        title={
-          onDialog
-            ? "Exportar solo la ficha abierta (PDF / PNG)"
-            : "Exportar página completa (PDF / PNG)"
-        }
-        disabled={busy !== null}
-        onClick={() => {
-          if (!open) setOnDialog(Boolean(findOpenDialog()));
-
-          setOpen(!open);
-        }}
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-[#C8A96B] text-black shadow-xl transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
-      >
-        {busy ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
-        ) : (
-          <Download className="h-5 w-5" />
-        )}
-      </button>
     </div>
   );
 }

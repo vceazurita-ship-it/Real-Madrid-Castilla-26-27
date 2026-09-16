@@ -1792,6 +1792,86 @@ function Coding() {
     resuelve: (nombre: { titulo: string; descripcion: string } | null) => void;
   } | null>(null);
 
+  /**
+   * Escribe el enlace de YouTube en la ficha del jugador rival.
+   *
+   * El vídeo se ha montado filtrando por un jugador, así que ya sabemos de
+   * quién es: `filtroSujeto` guarda su `ID_JUGADOR`, el mismo identificador
+   * con el que la hoja de plantillas rivales guarda su fila. No hay que
+   * adivinar nada por el título.
+   *
+   * **La fila se relee antes de escribir.** El coding sólo conserva cinco
+   * campos del jugador —nombre, dorsal, foto, posición e id— y la hoja se
+   * guarda entera: mandar lo que tenemos aquí borraría el resto de su ficha.
+   *
+   * No escribe nada si el corte no es de un jugador concreto del rival: un
+   * montaje del equipo, uno de «vídeo completo» o uno con varios sujetos no
+   * son de nadie en particular. Y si falla, se dice y ya está: el vídeo está
+   * subido, que es lo que costaba.
+   */
+  const ponVideoEnFichaRival = useCallback(
+    async (url: string) => {
+      if (ambito !== "rival" || !filtroSujeto) return;
+
+      /* Los dorsales sueltos son para rivales sin plantilla cargada: no
+         tienen fila en la hoja a la que escribir. */
+      if (filtroSujeto.startsWith("dorsal-")) return;
+
+      const jugador = jugadorDe(filtroSujeto);
+
+      if (!jugador) return;
+
+      try {
+        const relectura = await fetch(
+          `/api/rivals?action=rivalesPlantillas&jugador=${encodeURIComponent(
+            jugador.id,
+          )}&fresco=1`,
+          { cache: "no-store" },
+        );
+
+        if (!relectura.ok) throw new Error("No se ha podido leer su ficha");
+
+        const fila = (await relectura.json()) as Record<string, unknown> | null;
+
+        if (!fila || typeof fila !== "object" || Array.isArray(fila)) {
+          throw new Error("Ese jugador no está en la hoja de plantillas");
+        }
+
+        const respuesta = await fetch("/api/rivals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "guardarRivalJugador",
+            player: { ...fila, VIDEO: url },
+          }),
+        });
+
+        const guardado = (await respuesta.json().catch(() => null)) as {
+          success?: boolean;
+          error?: string;
+        } | null;
+
+        if (!guardado?.success) {
+          throw new Error(guardado?.error || "La hoja no lo ha guardado");
+        }
+
+        toast.success(`Vídeo puesto en la ficha de ${jugador.nombre}`, {
+          description: "Ya sale en su plantilla de rivales.",
+        });
+      } catch (error) {
+        console.error("[coding] vídeo a la ficha del rival", error);
+
+        toast.warning("El vídeo está subido, pero no en su ficha", {
+          duration: 12000,
+          description: `${
+            error instanceof Error ? error.message : "No se ha podido guardar"
+          }. El enlace está en el aviso de arriba.`,
+        });
+      }
+    },
+    [ambito, filtroSujeto, jugadorDe],
+  );
+
   const alTerminarVideo = useCallback(
     async (blob: Blob, nombre: string) => {
       if (!subeSiempre) return;
@@ -1851,6 +1931,20 @@ function Coding() {
             onClick: () => window.open(resultado.url, "_blank", "noopener"),
           },
         });
+
+        /*
+        | Y el enlace va solo a la ficha del jugador en plantillas rivales.
+        |
+        | El vídeo se monta filtrando por un jugador, se sube, y hasta ahora el
+        | enlace se quedaba en este aviso: quien lo quisiera en la ficha tenía
+        | que copiarlo a mano antes de que el aviso se fuera. Es el paso que
+        | más se olvidaba, y el que hace que el vídeo aparezca donde se busca.
+        |
+        | Sólo cuando el corte es **de un jugador del rival que se analiza**:
+        | un vídeo del equipo, uno de «vídeo completo» o uno de varios sujetos
+        | no son de nadie en particular y no se escriben en ninguna ficha.
+        */
+        void ponVideoEnFichaRival(resultado.url);
       } catch (error) {
         if (error instanceof Error && error.message === SUBIDA_CANCELADA) {
           toast("Subida cancelada", {
@@ -1881,6 +1975,7 @@ function Coding() {
       estadoYoutube.preguntaAntes,
       estadoYoutube.tituloPlantilla,
       etiquetaFiltro,
+      ponVideoEnFichaRival,
       /* El compilador lo cuenta como dependencia aunque `useState` lo dé estable. */
       setPideNombre,
       subeSiempre,

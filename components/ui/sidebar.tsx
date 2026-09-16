@@ -49,6 +49,7 @@ import {
   Sigma,
   Star,
   Target,
+  Trophy,
   User,
   UserCheck,
   UserSearch,
@@ -449,6 +450,21 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               {navLink("/desplazamiento", "Desplazamiento", <Bus size={18} />)}
 
               {navLink("/general", "Repositorio", <Database size={18} />)}
+            </>,
+          )}
+
+          {/*
+            LA QUINIELA
+
+            Lo único del menú que no es trabajo: los pronósticos de la jornada
+            y el ranking de acierto del cuerpo técnico. Va al final, después de
+            todo lo demás y antes de lo que está en obras, porque es lo que se
+            mira el lunes cuando ya está lo importante.
+          */}
+          {seccion(
+            "La Quiniela",
+            <>
+              {navLink("/quiniela", "Quiniela de la Semana", <Trophy size={18} />)}
             </>,
           )}
 

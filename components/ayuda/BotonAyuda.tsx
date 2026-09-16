@@ -4,22 +4,23 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { CircleHelp, Sigma, TriangleAlert, X } from "lucide-react";
 
+import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
 import { ayudaDe } from "@/lib/ayuda/paginas";
 
 /**
  * LA CHULETA DE LA PANTALLA QUE SE ESTÁ MIRANDO.
  *
- * Va en la misma columna que los otros flotantes —alertas, día/noche,
- * exportar— porque es el sitio donde ya se busca lo que no es contenido de la
- * página. Se abre con la interrogación y enseña, de la pantalla en la que uno
- * está: de dónde sale el dato, qué significa cada cifra y **cómo se calcula**
- * cuando hay cuenta de por medio.
+ * Vive dentro del menú de herramientas (`MenuFlotante`), junto a las alertas,
+ * el tema y la exportación. Enseña, de la pantalla en la que uno está: de
+ * dónde sale el dato, qué significa cada cifra y **cómo se calcula** cuando
+ * hay cuenta de por medio.
  *
  * En filas de una línea a propósito. Si una explicación necesita un párrafo,
  * el problema no es la ayuda: es el gráfico.
  *
- * El botón desaparece en las pantallas que no tienen entrada, en vez de abrir
- * un panel vacío. Y no sale en las capturas: lleva `data-export-hide`.
+ * **Desaparece del menú en las pantallas que no tienen entrada**, en vez de
+ * ofrecer un panel vacío; por eso la fila lleva el título de la ayuda como
+ * pista: dice de qué va antes de abrirla.
  */
 export function BotonAyuda() {
   const ruta = usePathname() ?? "/";
@@ -57,30 +58,13 @@ export function BotonAyuda() {
 
   return (
     <>
-      <button
-        type="button"
-        data-export-hide
-        /* Se aparta cuando hay un modal abierto: ver globals.css. */
-        data-flotante
+      <ItemMenuFlotante
+        icono={<CircleHelp className="h-4 w-4" aria-hidden />}
+        titulo="Cómo se lee esta pantalla"
+        pista={ayuda.titulo}
         onClick={() => setAbierto(true)}
-        aria-label={`Cómo se lee esta pantalla: ${ayuda.titulo}`}
-        title="Cómo se lee esta pantalla"
-        className="
-          fixed bottom-[248px] right-5 z-[60]
-          flex h-11 w-11 items-center justify-center
-          rounded-full
-          border border-white/10
-          bg-white/[0.06]
-          text-[#C8A96B]
-          shadow-xl
-          backdrop-blur
-          transition
-          hover:bg-white/10
-          print:hidden
-        "
-      >
-        <CircleHelp className="h-5 w-5" aria-hidden />
-      </button>
+        destacado
+      />
 
       {abierto && (
         <div

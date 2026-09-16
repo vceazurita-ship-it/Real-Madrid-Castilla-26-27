@@ -7,6 +7,7 @@ import { BotonAyuda } from "@/components/ayuda/BotonAyuda";
 import { PageExportButton } from "@/components/page-export-button";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
+import { MenuFlotante } from "@/components/ui/MenuFlotante";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
 import { ServiceWorker } from "@/components/service-worker";
@@ -103,10 +104,22 @@ export default function RootLayout({
         <ThemeProvider>
           <DataProvider>
             {children}
-            <BotonAyuda />
-            <BotonAlertas />
-            <ThemeToggle />
-            <PageExportButton />
+
+            {/*
+            | Las cuatro herramientas, detrás de un solo botón.
+            |
+            | Eran cuatro flotantes apilados en el borde derecho, 250 px de
+            | pantalla ocupados en todas las páginas para cosas que no se usan
+            | a menudo. El orden es el de uso: primero entender la pantalla,
+            | luego lo pendiente, y al final lo que cambia cómo se ve o se
+            | lleva. La ayuda se quita sola en las pantallas que no tienen.
+            */}
+            <MenuFlotante>
+              <BotonAyuda />
+              <BotonAlertas />
+              <ThemeToggle />
+              <PageExportButton />
+            </MenuFlotante>
             <ThemedToaster />
             <ServiceWorker />
             <SinConexion />
