@@ -20,6 +20,10 @@
 */
 
 import { FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
+import {
+  apuntaTexto,
+  elTextoEstaApagado,
+} from "@/lib/rivals/texto-capturado";
 
 export type Ctx = CanvasRenderingContext2D;
 
@@ -113,10 +117,19 @@ export function textoEspaciado(
   y: number,
   espaciado: number,
 ) {
+  /*
+  | En la segunda pasada del informe las letras no se pintan: van al `.pptx`
+  | como caja de texto de verdad, y si además quedaran quemadas en el PNG se
+  | verían dos veces (ver `texto-capturado.ts`). Se mide igual, que la maqueta
+  | depende de estos anchos.
+  */
+  const pinta = !elTextoEstaApagado();
+
   let cursor = x;
 
   for (const letra of texto) {
-    ctx.fillText(letra, cursor, y);
+    if (pinta) ctx.fillText(letra, cursor, y);
+
     cursor += ctx.measureText(letra).width + espaciado;
   }
 
@@ -261,13 +274,25 @@ export function chapa(
 
   /* Centrado óptico: la Barlow Condensed en versales apoya la mitad del ojo
      algo por encima de la línea media de la caja. */
-  textoEspaciado(
-    ctx,
-    texto,
-    izquierda + (ancho - anchoTexto) / 2,
-    y + alto / 2 + cuerpo * 0.35,
+  const textoX = izquierda + (ancho - anchoTexto) / 2;
+  const textoY = y + alto / 2 + cuerpo * 0.35;
+
+  const medida = ctx.measureText(texto);
+
+  apuntaTexto({
+    contenido: texto,
+    x: textoX,
+    y: textoY,
+    ancho: anchoTexto,
+    subida: medida.actualBoundingBoxAscent || cuerpo * 0.72,
+    bajada: medida.actualBoundingBoxDescent || cuerpo * 0.2,
+    tamano: cuerpo,
+    peso: 600,
+    tinta,
     espaciado,
-  );
+  });
+
+  textoEspaciado(ctx, texto, textoX, textoY, espaciado);
 
   return ancho;
 }

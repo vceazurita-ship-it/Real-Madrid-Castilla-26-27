@@ -124,6 +124,8 @@ import {
   type Ctx,
 } from "@/lib/rivals/lienzo-club";
 
+import { apuntaTexto } from "@/lib/rivals/texto-capturado";
+
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
 /* ------------------------------------------------------------------ */
@@ -285,6 +287,29 @@ function escribe(
     alinea === "centro" ? x - ancho / 2 : alinea === "dcha" ? x - ancho : x;
 
   ctx.fillStyle = tinta;
+
+  /*
+  | Por aquí pasa todo el texto del informe, así que es aquí donde se apunta
+  | para que en el `.pptx` salga como caja de texto de verdad y se pueda
+  | corregir en PowerPoint. La letra ya está puesta en el contexto —`ajusta`
+  | puede haberla encogido—, así que lo que se apunta es el cuerpo real.
+  */
+  const medida = ctx.measureText(texto);
+
+  const cuerpo = Number(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1]) || tamano;
+
+  apuntaTexto({
+    contenido: texto,
+    x: izquierda,
+    y,
+    ancho,
+    subida: medida.actualBoundingBoxAscent || cuerpo * 0.72,
+    bajada: medida.actualBoundingBoxDescent || cuerpo * 0.2,
+    tamano: cuerpo,
+    peso,
+    tinta,
+    espaciado,
+  });
 
   textoEspaciado(ctx, texto, izquierda, y, espaciado);
 
@@ -5045,6 +5070,34 @@ export async function exportaHojasInforme(
     const capas: CapaPptx[] = [];
 
     for (const elemento of hoja.elementos) {
+      /*
+      | Lo que es texto va como **caja de texto de verdad**: es lo que permite
+      | rematar el informe en PowerPoint —corregir una errata, cambiar un
+      | apodo, reescribir una nota— sin volver a la app.
+      |
+      | Se queda como imagen lo que lleva chapa: ahí el texto y la píldora de
+      | debajo son el mismo dibujo, y separarlos dejaría la chapa vacía.
+      */
+      if (elemento.texto && !elemento.texto.conChapa) {
+        capas.push({
+          nombre: elemento.nombre,
+          texto: {
+            contenido: elemento.texto.contenido,
+            tamano: elemento.texto.tamano,
+            tinta: elemento.texto.tinta,
+            peso: elemento.texto.peso,
+            espaciado: elemento.texto.espaciado,
+            alinea: elemento.texto.alinea,
+          },
+          x: elemento.x / W,
+          y: elemento.y / H,
+          w: elemento.w / W,
+          h: elemento.h / H,
+        });
+
+        continue;
+      }
+
       capas.push({
         nombre: elemento.nombre,
         imagen: await conOpacidad(elemento),
@@ -5112,14 +5165,28 @@ export async function piezaDeTexto(
 
   const texto = contenido.trim() || "…";
 
-  const alto = conChapa ? tamano + 26 : tamano + 16;
-
   /* Un lienzo de un píxel sólo para medir: el ancho manda el de la pieza. */
   const { ctx: medidor } = lienzo(4, 4);
 
   fuente(medidor, tamano, peso);
 
-  const ancho = anchoEspaciado(medidor, texto, espaciado) + (conChapa ? 48 : 12);
+  const medida = medidor.measureText(texto);
+
+  /*
+  | Sin chapa se miden la subida y la bajada de la letra, igual que cuando el
+  | texto se captura al pintar la hoja (`informe-elementos.ts`): así reescribir
+  | un rótulo del informe lo deja **donde estaba**, y no un par de píxeles más
+  | arriba o más abajo según el cuerpo de letra.
+  */
+  const AIRE = 3;
+
+  const subida = medida.actualBoundingBoxAscent || tamano * 0.72;
+  const bajada = medida.actualBoundingBoxDescent || tamano * 0.2;
+
+  const alto = conChapa ? tamano + 26 : subida + bajada + AIRE * 2;
+
+  const ancho =
+    anchoEspaciado(medidor, texto, espaciado) + (conChapa ? 48 : AIRE * 2);
 
   const { canvas, ctx } = lienzo(ancho, alto);
 
@@ -5135,7 +5202,12 @@ export async function piezaDeTexto(
       padding: 24,
     });
   } else {
-    escribe(ctx, texto, 6, tamano + 4, { tamano, peso, tinta, espaciado });
+    escribe(ctx, texto, AIRE, subida + AIRE, {
+      tamano,
+      peso,
+      tinta,
+      espaciado,
+    });
   }
 
   return {

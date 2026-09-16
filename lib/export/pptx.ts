@@ -118,6 +118,61 @@ function imagen(
   )}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
 }
 
+/** De píxeles del lienzo de 1920 a puntos de PowerPoint: 1920 px son 960 pt. */
+const PT_POR_PX = 0.5;
+
+/** "#0F1E3D" → "0F1E3D", y lo que no se entienda, negro. */
+function hexDe(tinta: string) {
+  const limpio = String(tinta ?? "").replace(/[^0-9a-fA-F]/g, "");
+
+  return limpio.length >= 6 ? limpio.slice(0, 6).toUpperCase() : "000000";
+}
+
+/**
+ * Una caja de texto de verdad.
+ *
+ * Es lo que hace que el informe del rival se remate en PowerPoint: el cuerpo
+ * técnico corrige una errata o cambia una nota sin volver a la app. Va sin
+ * relleno ni borde y **sin ajuste de línea** (`wrap="none"`), porque la caja
+ * viene medida del lienzo: lo que se escribió es lo que ocupa. `spAutoFit`
+ * hace que crezca sola cuando se escribe más largo.
+ *
+ * Los márgenes interiores van a cero: si no, PowerPoint mete casi un milímetro
+ * por cada lado y el texto se movería respecto a lo que se vio en la app.
+ */
+function formaTexto(indice: number, capa: CapaPptx) {
+  const texto = capa.texto!;
+
+  const limpio = escapaXml(capa.nombre);
+
+  /* El cuerpo en centésimas de punto, que es como lo mide OOXML. */
+  const sz = Math.max(100, Math.round(texto.tamano * PT_POR_PX * 100));
+
+  const spc = Math.round((texto.espaciado ?? 0) * PT_POR_PX * 100);
+
+  /*
+  | En PowerPoint la letra sólo tiene «negrita sí o no». La plantilla usa tres
+  | pesos, así que el medio (600) se va con la negrita: entre una semibold que
+  | se ve regular y una que se ve negrita, la segunda se parece más.
+  */
+  const negrita = texto.peso >= 600 ? 1 : 0;
+
+  const algn =
+    texto.alinea === "centro" ? "ctr" : texto.alinea === "dcha" ? "r" : "l";
+
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${indice}" name="${limpio}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${Math.round(
+    capa.x * SLIDE_CX,
+  )}" y="${Math.round(capa.y * SLIDE_CY)}"/><a:ext cx="${Math.round(
+    capa.w * SLIDE_CX,
+  )}" cy="${Math.round(
+    capa.h * SLIDE_CY,
+  )}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="${algn}"/><a:r><a:rPr lang="es-ES" sz="${sz}" b="${negrita}" spc="${spc}" dirty="0"><a:solidFill><a:srgbClr val="${hexDe(
+    texto.tinta,
+  )}"/></a:solidFill><a:latin typeface="Barlow Condensed"/><a:cs typeface="Barlow Condensed"/></a:rPr><a:t>${escapaXml(
+    texto.contenido,
+  )}</a:t></a:r></a:p></p:txBody></p:sp>`;
+}
+
 /**
  * Una hoja: el fondo a sangre y, encima, sus capas.
  *
@@ -148,6 +203,20 @@ function hoja(slide: DiapositivaPptx) {
   }
 
   for (const capa of slide.capas ?? []) {
+    /*
+    | Una capa de texto no gasta relación: no lleva imagen que meter en el
+    | paquete. Si se contara aquí, la siguiente ficha saldría con la cara de
+    | otro jugador —las relaciones y los ficheros de `media` se numeran en el
+    | mismo orden, y la lista de allí sólo tiene las que llevan imagen—.
+    */
+    if (capa.texto) {
+      piezas.push(formaTexto(siguiente, capa));
+
+      siguiente += 1;
+
+      continue;
+    }
+
     piezas.push(
       imagen(siguiente, capa.nombre, `rId${rel}`, {
         x: capa.x * SLIDE_CX,
@@ -182,11 +251,37 @@ function extensionDe(dataUrl: string) {
  * quien la coloca razona sobre un lienzo de 1920×1080 y no tiene por qué saber
  * cuántos EMU mide una pulgada.
  */
+/**
+ * Un texto que va como texto, no como imagen.
+ *
+ * Es lo que hace que el informe del rival se pueda corregir en PowerPoint sin
+ * volver a la app: una errata, un apodo, una nota del entrenador. El tamaño y
+ * el espaciado llegan en píxeles del lienzo de 1920×1080 y aquí se pasan a
+ * puntos —960 pt de ancho de diapositiva, o sea medio punto por píxel—.
+ */
+export type TextoPptx = {
+  contenido: string;
+  /** Píxeles del lienzo de 1920×1080. */
+  tamano: number;
+  /** "#0F1E3D". */
+  tinta: string;
+  peso: 500 | 600 | 700;
+  /** Espaciado entre letras, también en píxeles del lienzo. */
+  espaciado: number;
+  alinea?: "izq" | "centro" | "dcha";
+};
+
 export type CapaPptx = {
   /** Lo que dice el panel de selección de PowerPoint: "Nº9 · ENRIC GALLEGO". */
   nombre: string;
-  /** `data:image/png;base64,…` — con transparencia si la ficha la lleva. */
-  imagen: string;
+  /**
+   * `data:image/png;base64,…` — con transparencia si la ficha la lleva.
+   *
+   * Va vacío en las capas de texto: ésas no llevan imagen ninguna.
+   */
+  imagen?: string;
+  /** Si viene, la capa se escribe como caja de texto editable. */
+  texto?: TextoPptx;
   x: number;
   y: number;
   w: number;
@@ -340,9 +435,11 @@ export function creaPptx(
     | orden en que las escribe `hoja()`**: si aquí se ordenaran de otra forma,
     | cada ficha saldría con la cara de otro jugador.
     */
-    const imagenes = [
+    const imagenes: { nombre: string; imagen: string }[] = [
       ...(slide.imagen ? [{ nombre: slide.titulo, imagen: slide.imagen }] : []),
-      ...(slide.capas ?? []),
+      ...(slide.capas ?? [])
+        .filter((capa) => !capa.texto && capa.imagen)
+        .map((capa) => ({ nombre: capa.nombre, imagen: capa.imagen! })),
     ];
 
     entradas.push(

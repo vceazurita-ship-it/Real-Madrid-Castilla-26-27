@@ -31,6 +31,13 @@
 | invisible que estorba en el editor.
 */
 
+import { fuente, textoEspaciado } from "@/lib/rivals/lienzo-club";
+import {
+  capturaTextos,
+  sinTexto,
+  type TextoPintado,
+} from "@/lib/rivals/texto-capturado";
+
 /** El lienzo de la diapositiva: 1920×1080 px son 12192000×6858000 EMU. */
 export const LIENZO_W = 1920;
 export const LIENZO_H = 1080;
@@ -63,11 +70,17 @@ export type ElementoInforme = {
   imagen: string;
   /** 0..1. Se toca en el editor; se hornea en la imagen al exportar. */
   opacidad?: number;
-  /** Sólo lo que ha creado el usuario en el editor lleva texto rehacible. */
+  /**
+   * Lo que la pieza dice, cuando lo que hay es texto.
+   *
+   * Lo llevan las notas escritas en el editor **y todos los rótulos del
+   * informe** (16/09/2026): al exportar, una pieza con esto se escribe como
+   * caja de texto de verdad y se corrige en PowerPoint.
+   */
   texto?: TextoElemento;
 };
 
-/** Un rótulo escrito a mano en el editor, que se puede volver a escribir. */
+/** Un texto de la hoja, que se puede volver a escribir. */
 export type TextoElemento = {
   contenido: string;
   tamano: number;
@@ -76,6 +89,8 @@ export type TextoElemento = {
   espaciado: number;
   /** Con fondo de chapa detrás, para que se lea sobre una foto. */
   conChapa: boolean;
+  /** Cómo se alinea dentro de su caja al reescribirlo en Office. */
+  alinea?: "izq" | "centro" | "dcha";
 };
 
 export type HojaInforme = {
@@ -206,14 +221,44 @@ export class GuionHoja {
 
     const { canvas, ctx } = lienzoInforme(w0, h0);
 
-    ctx.save();
-    ctx.translate(-x0, -y0);
-    pinta(ctx);
-    ctx.restore();
+    /*
+    | Se pinta DOS VECES, y no es un descuido (16/09/2026).
+    |
+    | La primera con la grabadora abierta, que apunta qué se escribe y dónde
+    | (`texto-capturado.ts`); la segunda con las letras apagadas, y ésa es la
+    | imagen que va al `.pptx`: el marco, la cinta, las barras, los escudos…
+    | todo menos el texto. Encima se ponen los textos como piezas propias, que
+    | al exportar son cajas de texto de verdad.
+    |
+    | Así el informe deja de ser una foto que se mueve: en PowerPoint se
+    | corrige una errata, se cambia un apodo o se reescribe una nota sin volver
+    | a la app. Y de paso los bloques dejan de ser bloques: cada rótulo y cada
+    | cifra es un objeto suyo.
+    */
+    const textos = capturaTextos(() => {
+      ctx.save();
+      ctx.translate(-x0, -y0);
+      pinta(ctx);
+      ctx.restore();
+    });
+
+    ctx.clearRect(0, 0, w0, h0);
+
+    sinTexto(() => {
+      ctx.save();
+      ctx.translate(-x0, -y0);
+      pinta(ctx);
+      ctx.restore();
+    });
 
     const recorte = cajaPintada(canvas);
 
-    if (!recorte) return null;
+    if (!recorte) {
+      /* Sólo era texto: no hay dibujo que guardar, pero sí sus rótulos. */
+      for (const texto of textos) this.piezaTexto(texto);
+
+      return null;
+    }
 
     const { canvas: ajustado, ctx: destino } = lienzoInforme(
       recorte.w / ESCALA_INFORME,
@@ -243,6 +288,66 @@ export class GuionHoja {
       w: recorte.w / ESCALA_INFORME,
       h: recorte.h / ESCALA_INFORME,
       imagen: ajustado.toDataURL("image/png"),
+    };
+
+    this.piezas.push(pieza);
+
+    /* Los textos van detrás del dibujo: encima de su bloque, no debajo. */
+    for (const texto of textos) this.piezaTexto(texto);
+
+    return pieza;
+  }
+
+  /**
+   * Un texto apuntado mientras se pintaba, convertido en pieza.
+   *
+   * Lleva su propio PNG —el editor enseña imágenes y el arnés recompone la
+   * hoja con ellas— y, sobre todo, lleva `texto`: es eso lo que hace que al
+   * exportar salga como caja de texto y no como dibujo.
+   *
+   * La caja se saca de lo que midió el lienzo: desde la línea base hacia
+   * arriba lo que sube la letra, hacia abajo lo que baja, y tres píxeles de
+   * aire para que un acento o una coma no queden cortados.
+   */
+  private piezaTexto(texto: TextoPintado) {
+    const aire = 3;
+
+    const w = Math.max(4, texto.ancho + aire * 2);
+    const h = Math.max(4, texto.subida + texto.bajada + aire * 2);
+
+    const { canvas, ctx } = lienzoInforme(w, h);
+
+    fuente(ctx, texto.tamano, texto.peso);
+    ctx.fillStyle = texto.tinta;
+
+    textoEspaciado(
+      ctx,
+      texto.contenido,
+      aire,
+      texto.subida + aire,
+      texto.espaciado,
+    );
+
+    this.contador += 1;
+
+    const pieza: ElementoInforme = {
+      id: `${this.prefijo}-${this.contador}`,
+      nombre: `Texto · ${texto.contenido.slice(0, 40)}`,
+      x: texto.x - aire,
+      y: texto.y - texto.subida - aire,
+      w,
+      h,
+      imagen: canvas.toDataURL("image/png"),
+      texto: {
+        contenido: texto.contenido,
+        tamano: texto.tamano,
+        tinta: texto.tinta,
+        peso: texto.peso,
+        espaciado: texto.espaciado,
+        conChapa: false,
+        /* La x ya viene resuelta: lo que se apuntó es el borde izquierdo. */
+        alinea: "izq",
+      },
     };
 
     this.piezas.push(pieza);
