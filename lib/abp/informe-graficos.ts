@@ -846,6 +846,488 @@ export function etiquetaFamilia(bruta: string) {
   return enContra ? `${nombre} (en contra)` : nombre;
 }
 
+/* ------------------------------------------------------------------ */
+/*  EL TIEMPO DE LA SEMANA                                             */
+/* ------------------------------------------------------------------ */
+
+/** Lo que el informe sabe del tiempo dedicado, ya calculado. */
+export type TiempoSemana = {
+  minutos: number;
+  minimo: number;
+  maximo: number;
+  diasEntreno: number;
+  veredicto: "corto" | "dentro" | "pasado";
+  /** Minutos por día de la semana, en orden. */
+  porDia: { etiqueta: string; minutos: number; esEntreno: boolean }[];
+  /** Reparto por aspecto y lado. */
+  porAspecto: { etiqueta: string; ofensivo: number; defensivo: number }[];
+  porMedio: { campo: number; video: number };
+  porMomento: { pre: number; intra: number; post: number };
+  porRol: { sacadores: number; fijadores: number; rematadores: number };
+};
+
+/**
+ * El termómetro de la semana: cuánto se ha trabajado contra lo que tocaba.
+ *
+ * La franja verde es el objetivo **prorrateado por los días que se entrena**:
+ * 90-100 minutos en una semana de seis, y su parte en las de menos. Sin
+ * prorratear, una semana de cuatro sesiones salía siempre corta aunque se
+ * hubiera hecho exactamente lo previsto.
+ */
+export function termometroTiempo(tiempo: TiempoSemana, ancho = 760, alto = 200) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    "Minutos de balón parado de la semana",
+    `Objetivo del cuerpo técnico: 90-100 minutos en una semana de seis entrenamientos. Con ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"}, la parte que toca son ${tiempo.minimo}-${tiempo.maximo}.`,
+  );
+
+  const x0 = 4;
+  const x1 = ancho - 8;
+
+  const tope = Math.max(tiempo.maximo * 1.25, tiempo.minutos * 1.1, 30);
+
+  const px = (valor: number) => x0 + (valor / tope) * (x1 - x0);
+
+  const y = caja.arriba + 26;
+  const altoBarra = 26;
+
+  /* La franja del objetivo, de fondo. */
+  ctx.fillStyle = "rgba(27,158,119,0.16)";
+  ctx.fillRect(px(tiempo.minimo), y - 8, px(tiempo.maximo) - px(tiempo.minimo), altoBarra + 16);
+
+  ctx.fillStyle = "rgba(15,30,61,0.08)";
+  ctx.fillRect(x0, y, x1 - x0, altoBarra);
+
+  /*
+  | El naranja se reserva para quedarse corto DE VERDAD.
+  |
+  | Con «falta un minuto» pintaba la semana en rojo, y eso es leer mal un
+  | trabajo que está en su sitio. Por debajo de un 10 % del mínimo es ámbar —al
+  | borde—, y sólo por debajo de eso, naranja.
+  */
+  const distancia = tiempo.minimo > 0 ? (tiempo.minimo - tiempo.minutos) / tiempo.minimo : 0;
+
+  const alBorde = tiempo.veredicto === "corto" && distancia <= 0.1;
+
+  const color =
+    tiempo.veredicto === "dentro"
+      ? BIEN
+      : tiempo.veredicto === "corto"
+        ? alBorde
+          ? ORO
+          : MAL
+        : ORO;
+
+  ctx.fillStyle = color;
+  ctx.fillRect(x0, y, Math.max(2, px(tiempo.minutos) - x0), altoBarra);
+
+  /*
+  | La cifra, siempre sobre papel y nunca encima de la franja del objetivo.
+  |
+  | Con 89′ de 90-100 caía justo dentro del verde claro y se leía fatal: si el
+  | hueco que queda a la derecha de la franja es corto, se escribe a la
+  | izquierda del final de la barra, en blanco sobre el color.
+  */
+  const finBarra = px(tiempo.minutos);
+  const finFranja = px(tiempo.maximo);
+
+  const chocaConLaFranja = finBarra + 46 > px(tiempo.minimo) && finBarra < finFranja + 8;
+
+  escribe(
+    ctx,
+    `${Math.round(tiempo.minutos)}′`,
+    chocaConLaFranja ? finBarra - 8 : finBarra + 8,
+    y + 19,
+    {
+      px: 17,
+      peso: 700,
+      tinta: chocaConLaFranja ? PAPEL : color,
+      alinea: chocaConLaFranja ? "right" : "left",
+    },
+  );
+
+  /* Las marcas del objetivo. */
+  [tiempo.minimo, tiempo.maximo].forEach((marca) => {
+    ctx.strokeStyle = BIEN;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(px(marca), y - 10);
+    ctx.lineTo(px(marca), y + altoBarra + 10);
+    ctx.stroke();
+
+    escribe(ctx, `${marca}′`, px(marca), y + altoBarra + 24, {
+      px: 11,
+      peso: 600,
+      tinta: BIEN,
+      alinea: "center",
+    });
+  });
+
+  const faltan = Math.max(0, tiempo.minimo - Math.round(tiempo.minutos));
+
+  const dice =
+    tiempo.veredicto === "dentro"
+      ? "Dentro del objetivo de la semana."
+      : tiempo.veredicto === "corto"
+        ? alBorde
+          ? `A ${faltan}′ del objetivo: prácticamente en su sitio.`
+          : `Faltan ${faltan}′ para llegar al mínimo.`
+        : `${Math.round(tiempo.minutos) - tiempo.maximo}′ por encima del objetivo.`;
+
+  escribe(ctx, dice, x0, y + altoBarra + 52, { px: 13, peso: 600, tinta: NAVY });
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Cómo se reparte la semana: por día, y dentro del día por momento y medio. */
+export function repartoSemana(tiempo: TiempoSemana, ancho = 760, alto = 300) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    "Cómo se reparte la semana",
+    "Minutos de ABP por día. Los días de descanso o partido van en gris claro.",
+  );
+
+  const filas = tiempo.porDia;
+
+  if (filas.length === 0) return canvas.toDataURL("image/png");
+
+  const x0 = 34;
+  const x1 = ancho - 10;
+  const y0 = caja.arriba + 14;
+  const y1 = caja.abajo - 46;
+
+  const maximo = techo(Math.max(5, ...filas.map((una) => una.minutos)));
+
+  ctx.strokeStyle = REJILLA;
+
+  for (let i = 0; i <= 4; i += 1) {
+    const y = y1 - ((y1 - y0) * i) / 4;
+
+    ctx.beginPath();
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x1, y);
+    ctx.stroke();
+
+    escribe(ctx, `${Math.round((maximo * i) / 4)}′`, x0 - 6, y + 4, {
+      px: 10,
+      peso: 400,
+      tinta: SUAVE,
+      alinea: "right",
+    });
+  }
+
+  const paso = (x1 - x0) / filas.length;
+  const anchoBarra = Math.min(46, paso * 0.6);
+
+  filas.forEach((fila, indice) => {
+    const centro = x0 + paso * (indice + 0.5);
+    const altura = ((y1 - y0) * fila.minutos) / maximo;
+
+    ctx.fillStyle = fila.esEntreno ? "rgba(15,30,61,0.30)" : "rgba(15,30,61,0.08)";
+    ctx.fillRect(centro - anchoBarra / 2, y1 - altura, anchoBarra, Math.max(0, altura));
+
+    if (fila.minutos > 0) {
+      escribe(ctx, `${Math.round(fila.minutos)}′`, centro, y1 - altura - 5, {
+        px: 12,
+        peso: 700,
+        tinta: NAVY,
+        alinea: "center",
+      });
+    }
+
+    escribe(ctx, fila.etiqueta, centro, y1 + 16, {
+      px: 11,
+      peso: fila.esEntreno ? 600 : 400,
+      tinta: fila.esEntreno ? TINTA : SUAVE,
+      alinea: "center",
+    });
+  });
+
+  /* Pie con los tres repartos que caben en una línea. */
+  const pie = [
+    `Campo ${Math.round(tiempo.porMedio.campo)}′ · vídeo ${Math.round(tiempo.porMedio.video)}′`,
+    `Pre ${Math.round(tiempo.porMomento.pre)}′ · intra ${Math.round(tiempo.porMomento.intra)}′ · post ${Math.round(tiempo.porMomento.post)}′`,
+    `Sacadores ${Math.round(tiempo.porRol.sacadores)}′ · fijadores ${Math.round(tiempo.porRol.fijadores)}′ · rematadores ${Math.round(tiempo.porRol.rematadores)}′`,
+  ];
+
+  pie.forEach((linea, indice) => {
+    escribe(ctx, linea, 4, caja.abajo - 20 + indice * 13, {
+      px: 11,
+      peso: 400,
+      tinta: SUAVE,
+    });
+  });
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Qué aspecto se trabaja y con qué lado: barras enfrentadas. */
+export function repartoPorAspecto(tiempo: TiempoSemana, ancho = 760, alto = 300) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    "Qué se ha trabajado esta semana",
+    "Minutos por aspecto. Verde lo ofensivo, naranja lo defensivo. Una tarea que trabaja dos aspectos reparte sus minutos entre ellos.",
+  );
+
+  const filas = tiempo.porAspecto.filter(
+    (una) => una.ofensivo + una.defensivo > 0,
+  );
+
+  if (filas.length === 0) {
+    escribe(ctx, "Sin trabajo de ABP planificado esta semana.", 4, caja.arriba + 24, {
+      px: 13,
+      peso: 400,
+      tinta: SUAVE,
+    });
+
+    return canvas.toDataURL("image/png");
+  }
+
+  const x0 = 4;
+
+  const paso = Math.max(14, Math.min(26, (caja.abajo - caja.arriba) / filas.length));
+
+  const maximo = Math.max(
+    1,
+    ...filas.map((una) => una.ofensivo + una.defensivo),
+  );
+
+  /* El hueco de la derecha lo manda el texto más largo: «30′ (28′ / 2′)» no
+     cabía en el fijo de antes y se leía cortado. */
+  fuente(ctx, 11, 600);
+
+  const masLargo = filas.reduce((tope, fila) => {
+    const total = fila.ofensivo + fila.defensivo;
+
+    const texto = `${Math.round(total)}′${fila.defensivo > 0 && fila.ofensivo > 0 ? ` (${Math.round(fila.ofensivo)}′ / ${Math.round(fila.defensivo)}′)` : ""}`;
+
+    return Math.max(tope, ctx.measureText(texto).width);
+  }, 0);
+
+  const anchoBarra = Math.max(90, ancho - 190 - masLargo);
+
+  filas.forEach((fila, indice) => {
+    const y = caja.arriba + indice * paso;
+
+    if (y + paso > caja.abajo) return;
+
+    escribe(ctx, fila.etiqueta, x0, y + paso - 6, { px: 12, peso: 400, tinta: TINTA });
+
+    const largoOf = (fila.ofensivo / maximo) * anchoBarra;
+    const largoDef = (fila.defensivo / maximo) * anchoBarra;
+
+    ctx.fillStyle = BIEN;
+    ctx.fillRect(x0 + 170, y + 3, Math.max(0, largoOf), paso - 10);
+
+    ctx.fillStyle = MAL;
+    ctx.fillRect(x0 + 170 + largoOf, y + 3, Math.max(0, largoDef), paso - 10);
+
+    const total = fila.ofensivo + fila.defensivo;
+
+    escribe(
+      ctx,
+      `${Math.round(total)}′${fila.defensivo > 0 && fila.ofensivo > 0 ? ` (${Math.round(fila.ofensivo)}′ / ${Math.round(fila.defensivo)}′)` : ""}`,
+      x0 + 176 + largoOf + largoDef,
+      y + paso - 6,
+      { px: 11, peso: 600, tinta: SUAVE },
+    );
+  });
+
+  return canvas.toDataURL("image/png");
+}
+
+/* ------------------------------------------------------------------ */
+/*  CONTENIDOS Y VALORACIÓN                                            */
+/* ------------------------------------------------------------------ */
+
+export type TareaValorada = {
+  /** El nombre que le da la hoja, que suele ser un código («M-T4»). */
+  tarea: string;
+  /** Lo que se trabajó, que es lo que se reconoce de un vistazo. */
+  contenido?: string;
+  dia: string;
+  nota: number;
+  minutos: number;
+};
+
+/** Las tareas de la semana con su nota, de la hoja de registro. */
+export function valoracionTareas(
+  tareas: TareaValorada[],
+  media: number | null,
+  ancho = 760,
+  alto = 300,
+) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    "Cómo salieron las tareas",
+    media === null
+      ? "Nota de cada tarea de ABP en la hoja de registro."
+      : `Nota de cada tarea de ABP · media de la semana ${media.toFixed(1)} · la línea dorada es esa media.`,
+  );
+
+  if (tareas.length === 0) {
+    escribe(ctx, "Ninguna tarea de ABP valorada esta semana.", 4, caja.arriba + 24, {
+      px: 13,
+      peso: 400,
+      tinta: SUAVE,
+    });
+
+    return canvas.toDataURL("image/png");
+  }
+
+  const x0 = 4;
+  const anchoBarra = ancho - 300;
+
+  const paso = Math.max(16, Math.min(30, (caja.abajo - caja.arriba) / tareas.length));
+
+  tareas.forEach((tarea, indice) => {
+    const y = caja.arriba + indice * paso;
+
+    if (y + paso > caja.abajo) return;
+
+    /* El nombre de la tarea en la hoja es un código —«M-T4»—, así que si hay
+       contenido escrito manda el contenido, que es lo que se reconoce. */
+    const nombre = (tarea.contenido || tarea.tarea).trim();
+
+    /* 26 y no 30: con el día delante, un contenido largo llegaba a tocar la
+       barra y las dos cosas se leían como una sola. */
+    const corto = nombre.length > 26 ? `${nombre.slice(0, 25)}…` : nombre;
+
+    escribe(ctx, `${tarea.dia} · ${corto}`, x0, y + paso - 7, {
+      px: 12,
+      peso: 400,
+      tinta: TINTA,
+    });
+
+    const largo = (Math.max(0, Math.min(10, tarea.nota)) / 10) * anchoBarra;
+
+    /* Verde por encima de 7, naranja por debajo de 5: el color es la lectura. */
+    ctx.fillStyle = tarea.nota >= 7 ? BIEN : tarea.nota < 5 ? MAL : "rgba(200,169,107,0.85)";
+    ctx.fillRect(x0 + 200, y + 3, Math.max(2, largo), paso - 12);
+
+    escribe(ctx, tarea.nota.toFixed(1), x0 + 206 + largo, y + paso - 7, {
+      px: 12,
+      peso: 700,
+      tinta: NAVY,
+    });
+
+    escribe(ctx, `${Math.round(tarea.minutos)}′`, ancho - 16, y + paso - 7, {
+      px: 11,
+      peso: 400,
+      tinta: SUAVE,
+      alinea: "right",
+    });
+  });
+
+  if (media !== null) {
+    const x = x0 + 200 + (Math.max(0, Math.min(10, media)) / 10) * anchoBarra;
+
+    ctx.strokeStyle = ORO;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+
+    ctx.beginPath();
+    ctx.moveTo(x, caja.arriba);
+    ctx.lineTo(x, caja.abajo);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+/* ------------------------------------------------------------------ */
+/*  SEGUIMIENTO INDIVIDUAL                                             */
+/* ------------------------------------------------------------------ */
+
+export type SeguimientoResumen = {
+  porJugador: { jugador: string; registros: number }[];
+  porQuien: { quien: string; registros: number }[];
+  total: number;
+  jugadores: number;
+};
+
+/** Quién ha recibido seguimiento de ABP y quién se lo ha hecho. */
+export function seguimientoAbp(
+  resumen: SeguimientoResumen,
+  ancho = 760,
+  alto = 320,
+) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    "Seguimiento individual de balón parado",
+    `${resumen.total} registros · ${resumen.jugadores} jugadores · reconocido por lo que está escrito en los objetivos y el feedback, así que es una lectura, no una casilla.`,
+  );
+
+  if (resumen.porJugador.length === 0) {
+    escribe(ctx, "Sin seguimientos de ABP en estas fechas.", 4, caja.arriba + 24, {
+      px: 13,
+      peso: 400,
+      tinta: SUAVE,
+    });
+
+    return canvas.toDataURL("image/png");
+  }
+
+  const mitad = (caja.abajo - caja.arriba) / 2;
+
+  escribe(ctx, "JUGADORES", 4, caja.arriba + 10, { px: 11, peso: 700, tinta: NAVY });
+
+  barras(
+    ctx,
+    { arriba: caja.arriba + 16, abajo: caja.arriba + mitad - 6 },
+    ancho,
+    resumen.porJugador.slice(0, 6).map((una) => ({
+      rotulo: una.jugador,
+      valor: una.registros,
+      extra: "registros",
+    })),
+    "rgba(27,158,119,0.55)",
+  );
+
+  escribe(ctx, "QUIÉN LO HACE", 4, caja.arriba + mitad + 10, {
+    px: 11,
+    peso: 700,
+    tinta: NAVY,
+  });
+
+  barras(
+    ctx,
+    { arriba: caja.arriba + mitad + 16, abajo: caja.abajo },
+    ancho,
+    resumen.porQuien.slice(0, 5).map((una) => ({
+      rotulo: una.quien || "sin anotar",
+      valor: una.registros,
+      extra: "registros",
+    })),
+    "rgba(200,169,107,0.75)",
+  );
+
+  return canvas.toDataURL("image/png");
+}
+
 /** Qué se trabaja y qué renta, aspecto por aspecto, de nuestras hojas. */
 export function nuestroPorAspecto(propio: PropioAbp, ancho = 760, alto = 320) {
   const { canvas, ctx } = lienzo(ancho, alto);
@@ -1036,10 +1518,34 @@ export function nuestrosNombres(propio: PropioAbp, ancho = 760, alto = 320) {
 /*  LOS GRÁFICOS DEL INFORME                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * En qué parte del informe va cada gráfico.
+ *
+ * El orden lo pidió el cuerpo técnico y es el orden en que se lee la semana:
+ * primero lo que hay que mirar sí o sí, después cuánto se ha trabajado, luego
+ * el espejo de la categoría, lo nuestro del partido, lo que se hizo en el campo
+ * y, al final, el trabajo individual.
+ */
+export type AreaGrafico =
+  | "destacados"
+  | "tiempo"
+  | "wyscout"
+  | "nuestro"
+  | "contenidos"
+  | "seguimiento";
+
 export type GraficoInforme = {
   /** El identificador con el que el correo lo llama: `src="cid:…"`. */
   cid: string;
   titulo: string;
+  area: AreaGrafico;
+  /**
+   * Cómo se lee, en una línea.
+   *
+   * Va debajo de cada imagen y no es un adorno: un gráfico que hay que
+   * explicar de viva voz no sirve en un correo que se lee en el móvil.
+   */
+  leyenda: string;
   /** `data:image/png;base64,…` */
   imagen: string;
   ancho: number;
@@ -1061,116 +1567,271 @@ function medidaDe(comparativa: ComparativaAbp, key: string) {
   );
 }
 
+/** Lo que hace falta para dibujar todo el informe. */
+export type DatosGraficos = {
+  comparativa: ComparativaAbp | null;
+  propio: PropioAbp | null;
+  tiempo: TiempoSemana | null;
+  tareasValoradas: TareaValorada[];
+  seguimiento: SeguimientoResumen | null;
+  mediaValoracion: number | null;
+};
+
 /**
- * Los gráficos del informe, en el orden en que se leen.
+ * Los gráficos del informe, por áreas y en el orden en que se leen.
+ *
+ * El orden lo pidió el cuerpo técnico: **primero los cuatro que hay que mirar
+ * sí o sí**, después cuánto se ha trabajado y cómo se ha repartido, luego el
+ * espejo de la categoría, lo nuestro del partido, lo que se hizo en el campo y,
+ * al final, el trabajo individual.
  *
  * Lo que no tenga dato no se dibuja: un gráfico vacío ocupa lo mismo que uno
  * lleno y no dice nada.
  */
-export function graficosDelInforme(
-  comparativa: ComparativaAbp | null,
-  propio: PropioAbp | null,
-): GraficoInforme[] {
+export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
+  const { comparativa, propio, tiempo, tareasValoradas, seguimiento } = datos;
+
   const graficos: GraficoInforme[] = [];
 
-  /* ---- Lo nuestro primero: es lo único con goles de verdad ---- */
+  const mete = (
+    cid: string,
+    titulo: string,
+    area: AreaGrafico,
+    leyenda: string,
+    imagen: string,
+  ) => {
+    graficos.push({ cid, titulo, area, leyenda, imagen, ancho: 760 });
+  };
 
-  if (propio && propio.acciones > 0) {
-    graficos.push({
-      cid: "abp-aspectos",
-      titulo: "Nuestro balón parado, acción por acción",
-      imagen: nuestroPorAspecto(propio),
-      ancho: 760,
-    });
+  const hayLiga = Boolean(comparativa && comparativa.liga.length > 0);
 
-    if (propio.porJornada.length > 1) {
-      graficos.push({
-        cid: "abp-jornadas",
-        titulo: "Jornada a jornada",
-        imagen: nuestraEvolucion(propio),
-        ancho: 760,
-      });
-    }
+  /* ================= 1 · LOS CUATRO DE CABECERA ================= */
 
-    if (propio.rematadores.length > 0 || propio.sacadores.length > 0) {
-      graficos.push({
-        cid: "abp-nombres",
-        titulo: "Quién remata y quién saca",
-        imagen: nuestrosNombres(propio),
-        ancho: 760,
-      });
-    }
+  if (tiempo) {
+    mete(
+      "d-tiempo",
+      "¿Hemos dedicado el tiempo que tocaba?",
+      "destacados",
+      `La barra son los minutos de ABP de la semana; la franja verde, el objetivo prorrateado por los ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"} que se ha entrenado.`,
+      termometroTiempo(tiempo),
+    );
   }
 
-  /* ---- Y la categoría, con lo que Wyscout mide ---- */
-
-  if (comparativa && comparativa.liga.length > 0) {
-    graficos.push({
-      cid: "abp-dispersion-corners",
-      titulo: "Córners: los que sacamos y los que concedemos",
-      imagen: dispersion(
-        comparativa,
+  if (hayLiga) {
+    mete(
+      "d-corners",
+      "¿Cuántos córners generamos y cuántos concedemos?",
+      "destacados",
+      "Cada punto es un equipo de la categoría, por partido. Arriba y a la derecha es lo bueno: muchos a favor y pocos en contra. Las rayas son las medianas de la liga.",
+      dispersion(
+        comparativa!,
         { key: "corners", lado: "favor", rotulo: "CÓRNERS A FAVOR" },
-        { key: "corners", lado: "contra", rotulo: "CÓRNERS CONCEDIDOS", menosEsMejor: true },
-        `Córners en la categoría · ${comparativa.temporada}`,
-        "Por partido. Arriba y a la derecha: se sacan muchos y se conceden pocos. Fuente Wyscout.",
+        {
+          key: "corners",
+          lado: "contra",
+          rotulo: "CÓRNERS CONCEDIDOS",
+          menosEsMejor: true,
+        },
+        `Córners en la categoría · ${comparativa!.temporada}`,
+        "Por partido. Arriba y a la derecha, mejor. Fuente Wyscout.",
       ),
-      ancho: 760,
-    });
+    );
 
-    graficos.push({
-      cid: "abp-dispersion-acierto",
-      titulo: "Volumen contra acierto",
-      imagen: dispersion(
-        comparativa,
+    mete(
+      "d-acierto",
+      "¿Y los rematamos?",
+      "destacados",
+      "El volumen lo pone el partido; el porcentaje que acaba en remate lo pone el entrenamiento. Estar a la derecha y abajo es sacar muchos sin rematarlos.",
+      dispersion(
+        comparativa!,
         { key: "corners", lado: "favor", rotulo: "CÓRNERS POR PARTIDO" },
         { key: "cornersRemate", lado: "favor", rotulo: "% QUE ACABA EN REMATE" },
         "Cuántos córners se sacan y cuántos se rematan",
-        "El volumen lo pone el partido; el porcentaje que acaba en remate, el entrenamiento. Fuente Wyscout.",
+        "Cada punto, un equipo. Fuente Wyscout.",
       ),
-      ancho: 760,
-    });
+    );
+  }
 
-    graficos.push({
-      cid: "abp-ranking-corners",
-      titulo: "Córners a favor en la categoría",
-      imagen: ranking(comparativa, medidaDe(comparativa, "corners"), "favor"),
-      ancho: 760,
-    });
+  if (propio && propio.acciones > 0) {
+    mete(
+      "d-nuestro",
+      "¿Qué está rentando de lo nuestro?",
+      "destacados",
+      "De nuestras hojas de ABP: cuántas acciones hay de cada tipo, qué parte acaba en gol u ocasión y los goles que llevamos. Aquí los goles son dato, no estimación.",
+      nuestroPorAspecto(propio),
+    );
+  }
 
-    graficos.push({
-      cid: "abp-ranking-corners-contra",
-      titulo: "Córners concedidos en la categoría",
-      imagen: ranking(comparativa, medidaDe(comparativa, "corners"), "contra"),
-      ancho: 760,
-    });
+  /* ================= 2 · EL TIEMPO Y SU REPARTO ================= */
 
-    graficos.push({
-      cid: "abp-ranking-remate",
-      titulo: "Qué parte de los remates nace de estrategia",
-      imagen: ranking(
-        comparativa,
-        medidaDe(comparativa, "cuotaRematesAbp"),
-        "favor",
-      ),
-      ancho: 760,
-    });
+  if (tiempo) {
+    mete(
+      "t-dias",
+      "Minutos por día",
+      "tiempo",
+      "Dónde cayeron los minutos de balón parado dentro de la semana. Debajo, cómo se repartieron entre campo y vídeo, entre momentos de la sesión y entre roles.",
+      repartoSemana(tiempo),
+    );
 
-    if (comparativa.historico.length > 1) {
-      graficos.push({
-        cid: "abp-temporadas-corners",
-        titulo: "Córners, temporada a temporada",
-        imagen: temporadas(comparativa, medidaDe(comparativa, "corners")),
-        ancho: 760,
-      });
+    mete(
+      "t-aspectos",
+      "Qué aspecto se trabajó",
+      "tiempo",
+      "Minutos por aspecto: verde lo ofensivo, naranja lo defensivo. Una tarea que trabaja dos aspectos reparte sus minutos entre ellos, no los cuenta dos veces.",
+      repartoPorAspecto(tiempo),
+    );
+  }
 
-      graficos.push({
-        cid: "abp-temporadas-remate",
-        titulo: "Córners con remate, temporada a temporada",
-        imagen: temporadas(comparativa, medidaDe(comparativa, "cornersRemate")),
-        ancho: 760,
-      });
+  /* ================= 3 · LA CATEGORÍA (WYSCOUT) ================= */
+
+  if (hayLiga) {
+    const liga = comparativa!;
+
+    mete(
+      "w-corners-favor",
+      "Córners a favor",
+      "wyscout",
+      "Cuántos córners saca cada equipo por partido. Nosotros, en dorado.",
+      ranking(liga, medidaDe(liga, "corners"), "favor"),
+    );
+
+    mete(
+      "w-corners-remate",
+      "Córners que acaban en remate",
+      "wyscout",
+      "De cada diez córners, cuántos acaban en remate. Es la nota del ensayo: el volumen lo pone el partido, esto el entrenamiento.",
+      ranking(liga, medidaDe(liga, "cornersRemate"), "favor"),
+    );
+
+    mete(
+      "w-corners-contra",
+      "Córners concedidos",
+      "wyscout",
+      "Cuántos córners concede cada equipo por partido. Aquí el primero es el que menos concede.",
+      ranking(liga, medidaDe(liga, "corners"), "contra"),
+    );
+
+    mete(
+      "w-corners-contra-remate",
+      "Córners concedidos que nos rematan",
+      "wyscout",
+      "Qué parte de los córners que concedemos acaba en remate del rival: es la nota de nuestra defensa del córner.",
+      ranking(liga, medidaDe(liga, "cornersRemate"), "contra"),
+    );
+
+    mete(
+      "w-faltas-favor",
+      "Faltas lanzadas y rematadas",
+      "wyscout",
+      "Cuántas faltas se lanzan por partido. Depende tanto de lo que se provoque como de cómo defienda el rival.",
+      ranking(liga, medidaDe(liga, "faltasTiro"), "favor"),
+    );
+
+    mete(
+      "w-faltas-remate",
+      "Faltas que acaban en remate",
+      "wyscout",
+      "De las faltas lanzadas, cuántas acaban en remate. Incluye las que se ponen al área, no sólo las que van a puerta.",
+      ranking(liga, medidaDe(liga, "faltasRemate"), "favor"),
+    );
+
+    mete(
+      "w-faltas-contra",
+      "Faltas concedidas",
+      "wyscout",
+      "Faltas que le regalamos al rival para lanzar, por partido. El primero es el que menos concede.",
+      ranking(liga, medidaDe(liga, "faltasTiro"), "contra"),
+    );
+
+    mete(
+      "w-faltas-contra-remate",
+      "Faltas concedidas que nos rematan",
+      "wyscout",
+      "De las faltas que concedemos, cuántas acaban en remate del rival.",
+      ranking(liga, medidaDe(liga, "faltasRemate"), "contra"),
+    );
+
+    mete(
+      "w-cuota",
+      "Qué parte de los remates nace de estrategia",
+      "wyscout",
+      "De todos los remates del equipo, cuántos salen de una jugada a balón parado. Ni alto ni bajo es mejor: dice qué tipo de equipo es cada uno.",
+      ranking(liga, medidaDe(liga, "cuotaRematesAbp"), "favor"),
+    );
+
+    if (liga.historico.length > 1) {
+      mete(
+        "w-temporadas-corners",
+        "Córners, temporada a temporada",
+        "wyscout",
+        `Nuestros córners a favor y en contra en los ${liga.jugados} primeros partidos de cada temporada, que es la única comparación honesta.`,
+        temporadas(liga, medidaDe(liga, "corners")),
+      );
+
+      mete(
+        "w-temporadas-remate",
+        "Córners con remate, temporada a temporada",
+        "wyscout",
+        "Lo mismo con el porcentaje que acaba en remate: dice si el trabajo de estos años ha movido la aguja.",
+        temporadas(liga, medidaDe(liga, "cornersRemate")),
+      );
     }
+  }
+
+  /* ================= 4 · NUESTROS REGISTROS ================= */
+
+  if (propio && propio.acciones > 0) {
+    mete(
+      "n-aspectos",
+      "Acción por acción",
+      "nuestro",
+      "Todas las acciones registradas por familia, con el porcentaje que acaba en gol u ocasión y los goles conseguidos o encajados.",
+      nuestroPorAspecto(propio),
+    );
+
+    if (propio.porJornada.length > 1) {
+      mete(
+        "n-jornadas",
+        "Jornada a jornada",
+        "nuestro",
+        "Barras: cuántas acciones de ABP hubo en cada partido. Línea dorada: qué parte acabó en gol u ocasión, sobre el eje de la derecha.",
+        nuestraEvolucion(propio),
+      );
+    }
+
+    if (propio.rematadores.length > 0 || propio.sacadores.length > 0) {
+      mete(
+        "n-nombres",
+        "Quién remata y quién saca",
+        "nuestro",
+        "Los dos nombres que la hoja guarda de cada acción. A la derecha, en cuántas de ellas hubo gol u ocasión.",
+        nuestrosNombres(propio),
+      );
+    }
+  }
+
+  /* ================= 5 · CONTENIDOS Y VALORACIÓN ================= */
+
+  if (tareasValoradas.length > 0) {
+    mete(
+      "c-valoracion",
+      "Cómo salieron las tareas",
+      "contenidos",
+      "La nota que puso el cuerpo técnico a cada tarea de ABP en la hoja de registro. Verde a partir de 7, naranja por debajo de 5, y la raya dorada es la media de la semana.",
+      valoracionTareas(tareasValoradas, datos.mediaValoracion),
+    );
+  }
+
+  /* ================= 6 · SEGUIMIENTO INDIVIDUAL ================= */
+
+  if (seguimiento && seguimiento.total > 0) {
+    mete(
+      "s-jugadores",
+      "Quién ha llevado seguimiento de ABP",
+      "seguimiento",
+      "Arriba, los jugadores con más registros de balón parado en estas fechas. Abajo, quién del cuerpo técnico los ha hecho.",
+      seguimientoAbp(seguimiento),
+    );
   }
 
   return graficos;

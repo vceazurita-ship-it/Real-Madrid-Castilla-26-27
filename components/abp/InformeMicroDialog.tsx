@@ -51,7 +51,7 @@ import {
 /** Lo que la pantalla del microciclo ya tiene y aquí no hay que volver a pedir. */
 export type DatosDelMicro = Omit<
   DatosInforme,
-  "seguimientos" | "nombrePorId" | "generado" | "comparativa" | "graficos"
+  "seguimientos" | "nombrePorId" | "generado" | "comparativa" | "propio" | "graficos"
 >;
 
 type AjustesCorreo = { destinatarios: string };
@@ -277,14 +277,16 @@ export function InformeMicroDialog({
     };
   }, [acciones]);
 
-  /* Los gráficos se dibujan en un lienzo y salen en PNG: un correo no ejecuta
-     nada, así que lo único que sobrevive es una imagen. */
-  const graficos = useMemo(
-    () => graficosDelInforme(comparativa, propio),
-    [comparativa, propio],
-  );
-
-  const informe = useMemo(
+  /*
+  | El informe se arma DOS VECES, y no es un descuido.
+  |
+  | Los gráficos necesitan cosas que sólo salen de armarlo —el objetivo de
+  | minutos prorrateado, el reparto de la semana, las tareas valoradas y el
+  | seguimiento ya agrupado—, así que primero se monta sin dibujos, con eso se
+  | pintan, y se vuelve a montar con ellos dentro. Montarlo es contar y
+  | ordenar listas: lo que cuesta es dibujar, y eso se hace una sola vez.
+  */
+  const borrador = useMemo(
     () =>
       construyeInforme({
         ...datos,
@@ -292,9 +294,28 @@ export function InformeMicroDialog({
         nombrePorId,
         comparativa,
         propio,
-        graficos,
       }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio, graficos],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio],
+  );
+
+  /* Los gráficos se dibujan en un lienzo y salen en PNG: un correo no ejecuta
+     nada, así que lo único que sobrevive es una imagen. */
+  const graficos = useMemo(
+    () =>
+      graficosDelInforme({
+        comparativa,
+        propio,
+        tiempo: borrador.tiempo,
+        tareasValoradas: borrador.tareasValoradas,
+        seguimiento: borrador.seguimientoResumen,
+        mediaValoracion: borrador.valoracion.media,
+      }),
+    [comparativa, propio, borrador],
+  );
+
+  const informe = useMemo(
+    () => ({ ...borrador, graficos }),
+    [borrador, graficos],
   );
 
   const html = useMemo(() => informeHtml(informe), [informe]);

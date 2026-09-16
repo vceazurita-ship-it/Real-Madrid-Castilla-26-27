@@ -1199,6 +1199,23 @@ export default function AbpMicrocicloPage() {
             tareas: tareasAbpDelMicro,
             filas,
             prioridades,
+            /*
+            | Los días de ENTRENAMIENTO de la semana: con ellos se prorratea el
+            | objetivo de minutos de ABP (90-100′ en una semana de seis, y su
+            | parte en las de menos; el tope de seis lo pone el propio cálculo).
+            |
+            | Es el tipo de día del plan, y no «los días con ABP»: un lunes de
+            | entrenamiento sin balón parado **sigue siendo** un día en el que
+            | se podía haber trabajado, así que tiene que contar para el
+            | objetivo. Contando sólo los que ya tenían ABP, el objetivo se
+            | encogía hasta darlo por cumplido siempre.
+            */
+            diasEntreno: Object.values(plan.dias).filter(
+              (dia) => dia.tipo === "entreno",
+            ).length,
+            minutosPorAspecto: [...minutosMicro.entries()].map(
+              ([clave, minutos]) => ({ clave, minutos }),
+            ),
           }}
           onClose={() => setInformeAbierto(false)}
         />

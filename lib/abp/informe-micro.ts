@@ -48,9 +48,13 @@ import { hayEvaluacion, textoEsAbp, type RegistroTarea } from "./registro";
 import type { FilaCruce } from "./transferencia";
 
 import type {
+  AreaGrafico,
   ComparativaAbp,
   GraficoInforme,
   PropioAbp,
+  SeguimientoResumen,
+  TareaValorada,
+  TiempoSemana,
 } from "./informe-graficos";
 
 /* ------------------------------------------------------------------ */
@@ -108,9 +112,76 @@ export type DatosInforme = {
   propio?: PropioAbp | null;
   /** Los gráficos ya dibujados (`lib/abp/informe-graficos.ts`). */
   graficos?: GraficoInforme[];
+  /**
+   * Días de entrenamiento de la semana.
+   *
+   * Con ellos se prorratea el objetivo de minutos de ABP: el cuerpo técnico
+   * quiere **90-100 minutos en una semana de seis entrenamientos**, así que una
+   * de cuatro pide su parte, no los noventa enteros.
+   */
+  diasEntreno?: number;
+  /** Minutos del microciclo por `aspecto|lado`, para el reparto. */
+  minutosPorAspecto?: { clave: string; minutos: number }[];
   /** Para poder fijar la fecha en las pruebas. */
   generado?: Date;
 };
+
+/** El objetivo de minutos de ABP de una semana, según lo que se entrene. */
+export const OBJETIVO_ABP = {
+  /** La referencia del cuerpo técnico: 90-100 minutos en seis días. */
+  minimo: 90,
+  maximo: 100,
+  dias: 6,
+} as const;
+
+export type ObjetivoSemana = {
+  diasEntreno: number;
+  minimo: number;
+  maximo: number;
+  hechos: number;
+  /** Cuánto falta para el mínimo, o 0 si ya se llegó. */
+  faltan: number;
+  /** 0..1 contra el mínimo, para poder pintarlo. */
+  cumplido: number;
+  veredicto: "corto" | "dentro" | "pasado";
+};
+
+/**
+ * El objetivo de la semana, prorrateado por los días que se entrena.
+ *
+ * Sin prorratear, una semana de cuatro entrenamientos sale siempre en rojo
+ * aunque se haya trabajado exactamente lo que tocaba.
+ */
+export function objetivoDeLaSemana(
+  minutos: number,
+  diasEntreno: number,
+): ObjetivoSemana {
+  /*
+  | El tope son seis, aunque la semana tenga siete días marcados.
+  |
+  | La referencia del cuerpo técnico es «90-100 minutos en una semana de seis
+  | entrenamientos»: eso es el objetivo de una semana completa, no una regla de
+  | tres sin fin. Sin este tope, un plan con los siete días puestos pedía
+  | 105-117 minutos y dejaba en rojo una semana de 89′ que está justo en su
+  | sitio. Hacia abajo sí se prorratea, que es para lo que se hizo.
+  */
+  const dias = Math.min(OBJETIVO_ABP.dias, Math.max(0, diasEntreno));
+
+  const parte = dias / OBJETIVO_ABP.dias;
+
+  const minimo = Math.round(OBJETIVO_ABP.minimo * parte);
+  const maximo = Math.round(OBJETIVO_ABP.maximo * parte);
+
+  return {
+    diasEntreno: dias,
+    minimo,
+    maximo,
+    hechos: minutos,
+    faltan: Math.max(0, minimo - minutos),
+    cumplido: minimo > 0 ? Math.min(1.4, minutos / minimo) : 0,
+    veredicto: minutos < minimo ? "corto" : minutos > maximo ? "pasado" : "dentro",
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /*  FECHAS                                                             */
@@ -231,6 +302,13 @@ export type InformeMicro = {
   };
   equipo: LineaEquipo[];
   prioridades: LineaEquipo[];
+  /** El tiempo de la semana: objetivo prorrateado y cómo se reparte. */
+  tiempo: TiempoSemana;
+  objetivo: ObjetivoSemana;
+  /** Las tareas valoradas, para pintarlas. */
+  tareasValoradas: TareaValorada[];
+  /** El seguimiento de ABP, agrupado. */
+  seguimientoResumen: SeguimientoResumen;
   /** Cómo estamos contra la categoría y contra nosotros mismos. */
   comparativa: ComparativaInforme | null;
   /** Nuestro balón parado registrado acción por acción, con sus goles. */
@@ -580,6 +658,90 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     );
   }
 
+  /* ---------------- el tiempo de la semana ---------------- */
+
+  const objetivo = objetivoDeLaSemana(totales.minutos, datos.diasEntreno ?? 0);
+
+  /*
+  | El reparto por día sale de las entradas, no del plan: lo que importa aquí
+  | es dónde cayeron los minutos de ABP, y un día de partido puede llevarlos.
+  */
+  const minutosDelDia = new Map<DiaKey, number>();
+
+  datos.entradas.forEach(({ dia, trabajo }) => {
+    minutosDelDia.set(dia, (minutosDelDia.get(dia) ?? 0) + (trabajo.minutos || 0));
+  });
+
+  const porDia = DIAS.map((dia) => ({
+    etiqueta: dia.corto,
+    minutos: minutosDelDia.get(dia.key) ?? 0,
+    esEntreno: (minutosDelDia.get(dia.key) ?? 0) > 0,
+  }));
+
+  /* El reparto por aspecto llega en `aspecto|lado`: se junta por aspecto. */
+  const porAspectoMapa = new Map<string, { ofensivo: number; defensivo: number }>();
+
+  (datos.minutosPorAspecto ?? []).forEach(({ clave, minutos }) => {
+    const [aspecto, lado] = clave.split("|");
+
+    const fila = porAspectoMapa.get(aspecto) ?? { ofensivo: 0, defensivo: 0 };
+
+    if (lado === "defensivo") fila.defensivo += minutos;
+    else fila.ofensivo += minutos;
+
+    porAspectoMapa.set(aspecto, fila);
+  });
+
+  const tiempo: TiempoSemana = {
+    minutos: totales.minutos,
+    minimo: objetivo.minimo,
+    maximo: objetivo.maximo,
+    diasEntreno: objetivo.diasEntreno,
+    veredicto: objetivo.veredicto,
+    porDia,
+    porAspecto: [...porAspectoMapa.entries()]
+      .map(([aspecto, valores]) => ({
+        etiqueta: ASPECTO_LABEL.get(aspecto as never) ?? aspecto,
+        ...valores,
+      }))
+      .sort((a, b) => b.ofensivo + b.defensivo - (a.ofensivo + a.defensivo)),
+    porMedio: { campo: totales.minutosCampo, video: totales.minutosVideo },
+    porMomento: totales.porMomento,
+    porRol: totales.porRol,
+  };
+
+  /* ---------------- lo que se pinta de valoración y seguimiento ---------- */
+
+  const tareasValoradas: TareaValorada[] = valoradas
+    .filter((tarea) => tarea.evaluacion > 0)
+    .map((tarea) => ({
+      tarea: tarea.tarea,
+      /* «M-T4» no dice nada; lo que se reconoce es el contenido. */
+      contenido: tarea.contenidoSecundario || tarea.contenidoPrincipal || "",
+      dia: DIA_LABEL.get(tarea.dia as DiaKey)?.slice(0, 3) ?? tarea.dia ?? "",
+      nota: tarea.evaluacion,
+      minutos: tarea.tiempo,
+    }));
+
+  const cuentaPor = (lista: string[]) => {
+    const mapa = new Map<string, number>();
+
+    lista.forEach((uno) => mapa.set(uno, (mapa.get(uno) ?? 0) + 1));
+
+    return [...mapa.entries()].sort((a, b) => b[1] - a[1]);
+  };
+
+  const seguimientoResumen: SeguimientoResumen = {
+    porJugador: cuentaPor(lineasSeguimiento.map((una) => una.jugador)).map(
+      ([jugador, registros]) => ({ jugador, registros }),
+    ),
+    porQuien: cuentaPor(lineasSeguimiento.map((una) => una.quien)).map(
+      ([quien, registros]) => ({ quien, registros }),
+    ),
+    total: lineasSeguimiento.length,
+    jugadores,
+  };
+
   const titulo = `Balón parado · Microciclo ${datos.micro}`;
 
   const subtitulo = [datos.rival && `Contra ${datos.rival}`, datos.temporada]
@@ -612,6 +774,10 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     seguimiento: { lineas: lineasSeguimiento, jugadores },
     equipo,
     prioridades: datos.prioridades.map(filaEquipo),
+    tiempo,
+    objetivo,
+    tareasValoradas,
+    seguimientoResumen,
     comparativa,
     propio,
     graficos: datos.graficos ?? [],
@@ -710,15 +876,27 @@ function numeroConSigno(valor: number | null, sufijo = "") {
  */
 export type ModoImagenes = "data" | "cid";
 
-function bloqueGraficos(informe: InformeMicro, modo: ModoImagenes) {
-  if (informe.graficos.length === 0) return "";
+/**
+ * Los gráficos de un área, cada uno con su leyenda debajo.
+ *
+ * La leyenda no es un adorno: un gráfico que hay que explicar de viva voz no
+ * sirve en un correo que se abre en el móvil de camino al campo.
+ */
+function bloqueGraficos(
+  informe: InformeMicro,
+  modo: ModoImagenes,
+  area: AreaGrafico,
+) {
+  const suyos = informe.graficos.filter((grafico) => grafico.area === area);
 
-  return informe.graficos
+  if (suyos.length === 0) return "";
+
+  return suyos
     .map(
       (grafico) =>
-        `<p style="margin:0 0 4px;font:600 11px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(grafico.titulo)}</p><img src="${
+        `<p style="margin:0 0 4px;font:600 11px/1.3 Arial,sans-serif;color:${NAVY};text-transform:uppercase;letter-spacing:.08em">${esc(grafico.titulo)}</p><img src="${
           modo === "cid" ? `cid:${esc(grafico.cid)}` : grafico.imagen
-        }" alt="${esc(grafico.titulo)}" width="${grafico.ancho}" style="display:block;width:100%;max-width:${grafico.ancho}px;height:auto;border:1px solid #E5E1D6;border-radius:8px;margin:0 0 18px">`,
+        }" alt="${esc(grafico.titulo)}" width="${grafico.ancho}" style="display:block;width:100%;max-width:${grafico.ancho}px;height:auto;border:1px solid #E5E1D6;border-radius:8px;margin:0 0 6px"><p style="margin:0 0 20px;font:400 12px/1.55 Arial,sans-serif;color:${SUAVE}">${esc(grafico.leyenda)}</p>`,
     )
     .join("");
 }
@@ -846,63 +1024,33 @@ export function informeHtml(
 
 ${avisos}
 
-${seccion("La semana", "Lo planificado de balón parado, día a día. «est.» es carga estimada; el resto viene medida de la hoja de registro.", semana)}
-
 ${seccion(
-  "La valoración registrada",
-  informe.valoracion.media === null
-    ? `${informe.valoracion.valoradas} de ${informe.valoracion.total} tareas con algo escrito.`
-    : `${informe.valoracion.valoradas} de ${informe.valoracion.total} tareas valoradas · media ${informe.valoracion.media.toFixed(1)}.`,
-  valoracion,
+  "Lo que hay que mirar",
+  "Los cuatro gráficos que contestan la semana: si se ha dedicado el tiempo que tocaba, cuántos córners generamos y concedemos, si los rematamos, y qué está rentando de lo nuestro.",
+  bloqueGraficos(informe, modoImagenes, "destacados"),
 )}
 
 ${seccion(
-  "Seguimiento individual de balón parado",
-  "Reconocido por lo que está escrito en los objetivos y el feedback: la hoja de seguimiento no tiene casilla de ABP, así que esta lista es una lectura, no un dato cerrado.",
-  seguimiento,
+  "El tiempo de la semana",
+  `${fmtMin(informe.tiempo.minutos)} de balón parado en ${informe.objetivo.diasEntreno} día${informe.objetivo.diasEntreno === 1 ? "" : "s"} de entrenamiento. El objetivo del cuerpo técnico son 90-100 minutos en una semana de seis, así que aquí tocaban ${informe.objetivo.minimo}-${informe.objetivo.maximo}.`,
+  `${tabla(
+    ["", "Minutos", "Objetivo", "Diferencia"],
+    [
+      [
+        "<b>Esta semana</b>",
+        `<b>${fmtMin(informe.tiempo.minutos)}</b>`,
+        `${informe.objetivo.minimo}′ – ${informe.objetivo.maximo}′`,
+        informe.objetivo.veredicto === "dentro"
+          ? "<b>dentro del objetivo</b>"
+          : informe.objetivo.veredicto === "corto"
+            ? `faltan <b>${informe.objetivo.faltan}′</b>`
+            : `<b>+${Math.round(informe.tiempo.minutos) - informe.objetivo.maximo}′</b> por encima`,
+      ],
+    ],
+  )}${bloqueGraficos(informe, modoImagenes, "tiempo")}`,
 )}
 
-${seccion(
-  "Por dónde empezar",
-  "Las cinco urgencias de arriba: mezclan lo que pasa en el partido, lo peligroso que está siendo y lo poco que se ha trabajado.",
-  prioridades,
-)}
-
-${seccion(
-  "El balón parado del equipo, aspecto por aspecto",
-  "Toda la temporada registrada en las hojas de ABP. «Transferencia» compara los partidos con trabajo previo y los que no; en blanco cuando todavía no hay muestra.",
-  equipo,
-)}
-
-${seccion(
-  "Nuestro balón parado, registrado",
-  informe.propio
-    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. Aquí los goles son dato: los escribe el analista acción por acción.`
-    : "",
-  informe.propio
-    ? tabla(
-        ["", "Acciones", "Remates", "Peligro", "Goles", "xG"],
-        [
-          [
-            "<b>A favor</b>",
-            String(informe.propio.ofensivo.acciones),
-            String(informe.propio.ofensivo.remates),
-            String(informe.propio.ofensivo.peligros),
-            `<b>${informe.propio.ofensivo.goles}</b>`,
-            fmtDec(informe.propio.ofensivo.xg),
-          ],
-          [
-            "<b>En contra</b>",
-            String(informe.propio.defensivo.acciones),
-            String(informe.propio.defensivo.remates),
-            String(informe.propio.defensivo.peligros),
-            `<b>${informe.propio.defensivo.goles}</b>`,
-            fmtDec(informe.propio.defensivo.xg),
-          ],
-        ],
-      )
-    : "",
-)}
+${seccion("La semana, tarea a tarea", "Lo planificado de balón parado, día a día. «est.» es carga estimada; el resto viene medida de la hoja de registro.", semana)}
 
 ${seccion(
   "Cómo estamos contra la categoría",
@@ -933,8 +1081,72 @@ ${seccion(
             ? "—"
             : `<b>${fila.puestoContra}.º</b> de ${informe.comparativa!.equipos}`,
         ]),
-      )}${bloqueGraficos(informe, modoImagenes)}`
-    : bloqueGraficos(informe, modoImagenes),
+      )}${bloqueGraficos(informe, modoImagenes, "wyscout")}`
+    : "",
+)}
+
+${seccion(
+  "Nuestros registros de competición",
+  informe.propio
+    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. Aquí los goles son dato: los escribe el analista acción por acción.`
+    : "",
+  bloqueGraficos(informe, modoImagenes, "nuestro"),
+)}
+
+${seccion(
+  "Los contenidos y su valoración",
+  informe.valoracion.media === null
+    ? `${informe.valoracion.valoradas} de ${informe.valoracion.total} tareas con algo escrito.`
+    : `${informe.valoracion.valoradas} de ${informe.valoracion.total} tareas valoradas · media ${informe.valoracion.media.toFixed(1)}.`,
+  `${bloqueGraficos(informe, modoImagenes, "contenidos")}${valoracion}`,
+)}
+
+${seccion(
+  "Seguimiento individual de balón parado",
+  "Reconocido por lo que está escrito en los objetivos y el feedback: la hoja de seguimiento no tiene casilla de ABP, así que esta lista es una lectura, no un dato cerrado.",
+  `${bloqueGraficos(informe, modoImagenes, "seguimiento")}${seguimiento}`,
+)}
+
+${seccion(
+  "Por dónde empezar",
+  "Las cinco urgencias de arriba: mezclan lo que pasa en el partido, lo peligroso que está siendo y lo poco que se ha trabajado.",
+  prioridades,
+)}
+
+${seccion(
+  "El balón parado del equipo, aspecto por aspecto",
+  "Toda la temporada registrada en las hojas de ABP. «Transferencia» compara los partidos con trabajo previo y los que no; en blanco cuando todavía no hay muestra.",
+  equipo,
+)}
+
+${seccion(
+  "Nuestro balón parado, en cifras",
+  informe.propio
+    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. Aquí los goles son dato: los escribe el analista acción por acción.`
+    : "",
+  informe.propio
+    ? tabla(
+        ["", "Acciones", "Remates", "Peligro", "Goles", "xG"],
+        [
+          [
+            "<b>A favor</b>",
+            String(informe.propio.ofensivo.acciones),
+            String(informe.propio.ofensivo.remates),
+            String(informe.propio.ofensivo.peligros),
+            `<b>${informe.propio.ofensivo.goles}</b>`,
+            fmtDec(informe.propio.ofensivo.xg),
+          ],
+          [
+            "<b>En contra</b>",
+            String(informe.propio.defensivo.acciones),
+            String(informe.propio.defensivo.remates),
+            String(informe.propio.defensivo.peligros),
+            `<b>${informe.propio.defensivo.goles}</b>`,
+            fmtDec(informe.propio.defensivo.xg),
+          ],
+        ],
+      )
+    : "",
 )}
 
 <tr><td style="padding:18px 24px 24px;border-top:1px solid #E5E1D6">
