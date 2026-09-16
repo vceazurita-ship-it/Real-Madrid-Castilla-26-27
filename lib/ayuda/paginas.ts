@@ -616,6 +616,60 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
 
+  {
+    ruta: "/quiniela",
+    titulo: "La Quiniela de la Semana",
+    resumen:
+      "Los diez partidos de la jornada, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
+    origen:
+      "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos y los resultados los escribe el cuerpo técnico aquí mismo; no salen de ninguna hoja.",
+    bloques: [
+      {
+        titulo: "Cómo se rellena",
+        filas: [
+          {
+            que: "Quién rellena",
+            es: "Elígete arriba antes de marcar: cada uno pone sólo lo suyo. Los resultados los puede meter cualquiera",
+          },
+          {
+            que: "1 · X · 2",
+            es: "Gana el local, empate, gana el visitante. Volver a pulsar el mismo signo lo quita",
+          },
+          {
+            que: "Quién juega",
+            es: "Se cambia con el botón de arriba a la derecha. Entra y sale quien haga falta sin perder lo ya jugado",
+          },
+        ],
+      },
+      {
+        titulo: "Cómo se cuenta el acierto",
+        filas: [
+          {
+            que: "Acierto",
+            es: "Los aciertos entre los partidos que YA se han jugado, no entre los diez",
+            cuenta: "3 aciertos de 3 jugados = 100 %, aunque falten siete por jugar",
+          },
+          {
+            que: "Un partido sin resultado",
+            es: "No cuenta para nadie, ni a favor ni en contra, hasta que se meta el resultado",
+          },
+          {
+            que: "No pronosticar",
+            es: "Cuenta como fallo, pero sólo cuando el partido ya se ha jugado",
+          },
+          {
+            que: "Jornadas",
+            es: "Las que se han ganado: acertar más que todos los demás. Si empatan dos, la ganan los dos",
+          },
+        ],
+      },
+    ],
+    ojo: [
+      "El ranking ordena por porcentaje y no por aciertos, para que quien se incorpore tarde no arranque con una desventaja imposible de remontar.",
+      "El Excel del que salió el calendario traía diez columnas de pronóstico. Nueve se reconocen por sus iniciales; «AI» no casa con nadie del cuerpo técnico y está sin dueño hasta que se diga quién es.",
+    ],
+  },
+
   /* ==================== LA PORTADA ==================== */
   {
     ruta: "/",

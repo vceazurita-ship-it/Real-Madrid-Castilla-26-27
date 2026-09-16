@@ -24,6 +24,7 @@ import {
   ShieldHalf,
   Sigma,
   Star,
+  Trophy,
   User,
   Users,
 } from "lucide-react";
@@ -443,6 +444,30 @@ export const MODULES: AppModule[] = [
     icon: Database,
     rank: 55,
     alias: ["repositorio", "datos"],
+  },
+
+  /*
+  | Lo único de la plataforma que no es trabajo, y por eso el `rank` más bajo
+  | de todos: se busca cuando se busca, pero no puede colarse por delante de
+  | nada en la portada.
+  */
+  {
+    href: "/quiniela",
+    area: "OPERATIVA",
+    title: "La Quiniela de la Semana",
+    desc: "Los pronósticos de la jornada y el ranking de acierto del cuerpo técnico",
+    icon: Trophy,
+    rank: 10,
+    alias: [
+      "quiniela",
+      "pronostico",
+      "pronósticos",
+      "ranking",
+      "acierto",
+      "apuesta",
+      "porra",
+      "1x2",
+    ],
   },
 ];
 
