@@ -27,7 +27,6 @@ export type PersonaStaff = {
 };
 
 export const STAFF: PersonaStaff[] = [
-  { slug: "victor-cea", nombre: "Víctor Cea", rol: "Segundo entrenador", iniciales: "VC" },
   { slug: "julian-lopez-de-lerma", nombre: "Julián López de Lerma", rol: "Entrenador", iniciales: "JL" },
   { slug: "miguel-barrio", nombre: "Miguel Barrio", rol: "Asistente", iniciales: "MB" },
   { slug: "mikelats-zarraga", nombre: "Mikelats Zárraga", rol: "Analista", iniciales: "MZ" },
@@ -45,6 +44,9 @@ export const STAFF: PersonaStaff[] = [
   { slug: "carolina-perea", nombre: "Carolina Perea", rol: "Nutricionista" },
   { slug: "eduardo-del-amo", nombre: "Eduardo del Amo", rol: "Utillero" },
   { slug: "hugo-jimenez", nombre: "Hugo Jiménez", rol: "Utillero" },
+
+  /* Víctor va el último por petición suya. */
+  { slug: "victor-cea", nombre: "Víctor Cea", rol: "Segundo entrenador", iniciales: "VC" },
 ];
 
 /**

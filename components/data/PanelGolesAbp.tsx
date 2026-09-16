@@ -15,13 +15,12 @@
  */
 
 import { useMemo, useState } from "react";
-import { Database, Flag, History, Scale, Swords } from "lucide-react";
+import { Database, Flag, History, Scale } from "lucide-react";
 
 import { Button, Notice, Panel } from "@/components/abp/ui";
-import { Dispersion, MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
-import { Composicion, Lectura, type Trozo } from "@/components/data/formas";
+import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
+import { Lectura } from "@/components/data/formas";
 import {
-  CONVERSION_ABP,
   equiposConMuestra,
   golesAbpDeEquipo,
   type FilaGolesAbp,
@@ -35,17 +34,21 @@ type Modo = "total" | "partido";
 
 type Lado = "aFavor" | "enContra";
 
-type Campo = "abp" | "corner" | "falta" | "penalti" | "cuota";
+type Campo = "goles" | "penalti";
 
 type Columna = { lado: Lado; campo: Campo; rotulo: string; estimado: boolean };
 
-/* El mismo juego de columnas a cada lado: el balón parado es a favor contra en contra. */
+/*
+| SÓLO LO QUE ESTÁ MEDIDO.
+|
+| Aquí hubo cinco columnas por lado —ABP, córner, falta, penalti y % de goles—
+| y tres de ellas eran un reparto estimado de los goles sin penalti. Se
+| retiraron el 16/09/2026 después de medirlas: ver el aviso de la pantalla.
+| Quedan las dos que cuentan el marcador y Wyscout.
+*/
 const CAMPOS: { campo: Campo; rotulo: string; estimado: boolean }[] = [
-  { campo: "abp", rotulo: "ABP", estimado: true },
-  { campo: "corner", rotulo: "Córner", estimado: true },
-  { campo: "falta", rotulo: "Falta", estimado: true },
-  { campo: "penalti", rotulo: "Penalti", estimado: false },
-  { campo: "cuota", rotulo: "% goles", estimado: true },
+  { campo: "goles", rotulo: "Goles", estimado: false },
+  { campo: "penalti", rotulo: "De penalti", estimado: false },
 ];
 
 const COLUMNAS: Columna[] = (["aFavor", "enContra"] as Lado[]).flatMap((lado) =>
@@ -54,14 +57,8 @@ const COLUMNAS: Columna[] = (["aFavor", "enContra"] as Lado[]).flatMap((lado) =>
 
 const claveDe = (c: { lado: Lado; campo: Campo }) => `${c.lado}.${c.campo}`;
 
-const porcentaje = (parte: number, total: number) => (total > 0 ? (parte / total) * 100 : null);
-
 /** El valor de una casilla, en total o por partido. `null` si no se puede saber. */
 function valorDe(g: GolesAbp, campo: Campo, modo: Modo): number | null {
-  if (campo === "cuota") return g.hayOrigen ? porcentaje(g.abp, g.goles) : null;
-
-  if (campo !== "penalti" && !g.hayOrigen) return null;
-
   const n = g[campo];
 
   if (modo === "total") return n;
@@ -69,20 +66,8 @@ function valorDe(g: GolesAbp, campo: Campo, modo: Modo): number | null {
   return g.partidos > 0 ? n / g.partidos : null;
 }
 
-/** El balance, siempre por partido cuando se pide así: los dos lados no tienen por qué tener los mismos. */
-function balanceDe(fila: FilaGolesAbp, modo: Modo): number | null {
-  const a = valorDe(fila.aFavor, "abp", modo);
-  const b = valorDe(fila.enContra, "abp", modo);
-
-  return a === null || b === null ? null : a - b;
-}
-
-const muestra = (valor: number | null, campo: Campo, modo: Modo) =>
-  campo === "cuota"
-    ? valor === null
-      ? "—"
-      : `${Math.round(valor)}%`
-    : formatea(valor, modo === "total" ? "entero" : "decimal");
+const muestra = (valor: number | null, modo: Modo) =>
+  formatea(valor, modo === "total" ? "entero" : "decimal");
 
 const goles = (n: number) => (n === 1 ? "gol" : "goles");
 
@@ -103,7 +88,7 @@ export function PanelGolesAbp({
 }) {
   const [modo, setModo] = useState<Modo>("total");
   const [orden, setOrden] = useState<{ clave: string; desc: boolean }>({
-    clave: "aFavor.abp",
+    clave: "aFavor.goles",
     desc: true,
   });
 
@@ -128,8 +113,6 @@ export function PanelGolesAbp({
 
   const ordenadas = useMemo(() => {
     const valor = (f: FilaGolesAbp) => {
-      if (orden.clave === "balance") return balanceDe(f, modo);
-
       const [lado, campo] = orden.clave.split(".") as [Lado, Campo];
 
       return valorDe(f[lado], campo, modo);
@@ -150,37 +133,6 @@ export function PanelGolesAbp({
 
   const pulsa = (clave: string) =>
     setOrden((o) => (o.clave === clave ? { clave, desc: !o.desc } : { clave, desc: true }));
-
-  const nuestra = filas.find((f) => f.equipo === nosotros) ?? null;
-
-  /* La categoría sumada: para la composición y para el contraste con Opta. */
-  const total = useMemo(() => {
-    const suma = (lado: Lado, campo: "goles" | "penalti" | "corner" | "falta" | "abp") =>
-      filas
-        .filter((f) => f[lado].hayOrigen)
-        .reduce((t, f) => t + f[lado][campo], 0);
-
-    return {
-      goles: suma("aFavor", "goles"),
-      penalti: suma("aFavor", "penalti"),
-      corner: suma("aFavor", "corner"),
-      falta: suma("aFavor", "falta"),
-      abp: suma("aFavor", "abp"),
-    };
-  }, [filas]);
-
-  const puntos = useMemo(
-    () =>
-      filas
-        .map((f) => {
-          const x = valorDe(f.aFavor, "abp", "partido");
-          const y = valorDe(f.enContra, "abp", "partido");
-
-          return x === null || y === null ? null : { equipo: f.equipo, x, y };
-        })
-        .filter((p): p is { equipo: string; x: number; y: number } => p !== null),
-    [filas],
-  );
 
   /* --------------------------- NUESTRA HISTORIA ------------------------ */
 
@@ -227,31 +179,38 @@ export function PanelGolesAbp({
   return (
     <>
       <div className="mt-5">
-        <Notice title="Qué es dato y qué es estimación">
+        <Notice tone="warn" title="Aquí ya no se reparten los goles por tipo de jugada">
           <p>
             Los goles y los <strong className="text-white/75">penaltis</strong> son
-            dato: los cuentan el marcador y Wyscout. De qué jugada nace cada gol no
-            lo publica nadie para toda la liga —Wyscout no clasifica los goles y
-            BeSoccer sólo distingue el penalti y la propia puerta—, así que{" "}
-            <strong className="text-white/75">córner y falta son una estimación</strong>{" "}
-            (≈): los goles sin penalti de cada equipo se reparten según de dónde
-            nacen sus remates, corregido por lo que convierte cada vía en la
-            categoría según Opta —un remate de córner entra la mitad que uno de
-            jugada (×{CONVERSION_ABP.corner.toFixed(2).replace(".", ",")}) y el de
-            falta, algo más (×{CONVERSION_ABP.falta.toFixed(2).replace(".", ",")})—.
-            Sirve para ordenar la liga y ver tendencias; el gol concreto, en el vídeo.
+            dato: los cuentan el marcador y Wyscout. Pero{" "}
+            <strong className="text-white/75">
+              de qué jugada nace cada gol no lo publica nadie para toda la liga
+            </strong>
+            : Wyscout no clasifica los goles y BeSoccer sólo distingue el penalti y
+            la propia puerta.
           </p>
 
           <p className="mt-2">
-            «Falta» incluye el resto de jugadas paradas que no son córner ni penalti
-            —saques de banda largos, sobre todo—, igual que las cuenta Opta.
-            {onVerRegistro && (
-              <>
-                {" "}
-                Del Castilla de este año hay dato real, acción por acción, en el
-                registro propio.
-              </>
-            )}
+            Esta pantalla llegó a repartir los goles sin penalti entre córner y
+            falta, estimándolos a partir de los remates.{" "}
+            <strong className="text-white/75">
+              Se retiró el 16/09/2026 después de medirlo
+            </strong>
+            : ese reparto decía que el{" "}
+            <strong className="text-white/75">33,3 %</strong> de los goles de la
+            categoría eran de balón parado y el agregado de Opta, que sí los cuenta,
+            dice el <strong className="text-white/75">22,7 %</strong> — diez puntos
+            largos de más. Equipo a equipo era peor: con dos o tres jornadas, siete
+            de los veinte salían con cero goles de córner y cero de falta, y el resto
+            con un cero o un uno que era puro redondeo.
+          </p>
+
+          <p className="mt-2">
+            Así que se queda lo medido y se va lo inventado. Para saber de qué nace
+            cada gol nuestro está el{" "}
+            <strong className="text-white/75">registro propio</strong>, donde el
+            analista escribe la acción una a una, y para el rival, el vídeo.
+            {onVerRegistro && " Ahí sí hay dato real, acción por acción."}
           </p>
 
           {onVerRegistro && (
@@ -346,22 +305,12 @@ export function PanelGolesAbp({
                           separa={i === CAMPOS.length}
                         />
                       ))}
-
-                      <CabeceraOrdenable
-                        rotulo="Balance"
-                        estimado
-                        activa={orden.clave === "balance"}
-                        desc={orden.desc}
-                        onPulsa={() => pulsa("balance")}
-                        separa
-                      />
                     </tr>
                   </thead>
 
                   <tbody>
                     {ordenadas.map((fila, indice) => {
                       const esNuestro = fila.equipo === nosotros;
-                      const balance = balanceDe(fila, modo);
 
                       return (
                         <tr
@@ -402,47 +351,21 @@ export function PanelGolesAbp({
                             {fila.aFavor.partidos}
                           </td>
 
-                          {COLUMNAS.map((c, i) => {
-                            const valor = valorDe(fila[c.lado], c.campo, modo);
-
-                            return (
-                              <td
-                                key={claveDe(c)}
-                                className={`py-1.5 text-right tabular-nums ${
-                                  i === CAMPOS.length ? "border-l pl-3" : "pl-2"
-                                } ${
-                                  c.campo === "abp"
-                                    ? "font-semibold text-white"
-                                    : c.campo === "cuota"
-                                      ? "text-white/40"
-                                      : "text-white/65"
-                                }`}
-                                style={i === CAMPOS.length ? { borderColor: tinta(0.08) } : undefined}
-                              >
-                                {muestra(valor, c.campo, modo)}
-                              </td>
-                            );
-                          })}
-
-                          <td
-                            className="border-l py-1.5 pl-3 text-right font-semibold tabular-nums"
-                            style={{
-                              borderColor: tinta(0.08),
-                              color:
-                                balance === null || Math.abs(balance) < 1e-9
-                                  ? tinta(0.5)
-                                  : balance > 0
-                                    ? MEJOR
-                                    : PEOR,
-                            }}
-                          >
-                            {balance === null
-                              ? "—"
-                              : `${balance > 0 ? "+" : ""}${formatea(
-                                  balance,
-                                  modo === "total" ? "entero" : "decimal",
-                                )}`}
-                          </td>
+                          {COLUMNAS.map((c, i) => (
+                            <td
+                              key={claveDe(c)}
+                              className={`py-1.5 text-right tabular-nums ${
+                                i === CAMPOS.length ? "border-l pl-3" : "pl-2"
+                              } ${
+                                c.campo === "goles"
+                                  ? "font-semibold text-white"
+                                  : "text-white/65"
+                              }`}
+                              style={i === CAMPOS.length ? { borderColor: tinta(0.08) } : undefined}
+                            >
+                              {muestra(valorDe(fila[c.lado], c.campo, modo), modo)}
+                            </td>
+                          ))}
                         </tr>
                       );
                     })}
@@ -453,76 +376,20 @@ export function PanelGolesAbp({
               <Lectura>{lecturaDeLaLiga(filas, nosotros, temporada)}</Lectura>
 
               <p className="mt-2 text-[11px] leading-relaxed text-white/40">
-                ≈ estimación · sin ≈, dato. «ABP» suma córner, falta y penalti; «%
-                goles» es qué parte de todos sus goles llega así. El puesto de la
-                lectura va siempre por partido, que no todos llevan los mismos.
+                Las dos columnas son dato: el marcador y los penaltis que cuenta
+                Wyscout. De qué jugada nace cada gol no se enseña porque no se sabe
+                —ver el aviso de arriba—.
                 {muestraLiga.fuera > 0 &&
                   ` Fuera de la tabla, ${muestraLiga.fuera} equipos con menos de ${muestraLiga.suelo} partidos en los informes: son rivales de rivales, con un partido o dos.`}
               </p>
             </Panel>
           </div>
 
-          <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
-            <Panel
-              title="Lo que da y lo que cuesta"
-              subtitle="Goles a balón parado por partido, a favor y en contra. Abajo a la derecha, los que ganan la estrategia."
-              icon={Swords}
-            >
-              <Dispersion
-                puntos={puntos}
-                etiquetaX="Goles ABP a favor por partido"
-                etiquetaY="Goles ABP en contra por partido"
-                unidadX="decimal"
-                unidadY="decimal"
-                destacado={nosotros}
-              />
-
-              <Lectura>{lecturaDeLaNube(puntos, nosotros)}</Lectura>
-            </Panel>
-
-            <Panel
-              title="De qué tipo son"
-              subtitle="Córner, falta o penalti: no se entrenan igual ni se defienden igual"
-              icon={Flag}
-            >
-              <div className="space-y-5">
-                {(["aFavor", "enContra"] as Lado[]).map((lado) => {
-                  const mia = nuestra?.[lado];
-
-                  const trozos: Trozo[] = [
-                    { etiqueta: "Córner ≈", valor: mia?.corner ?? 0 },
-                    { etiqueta: "Falta ≈", valor: mia?.falta ?? 0 },
-                    { etiqueta: "Penalti", valor: mia?.penalti ?? 0 },
-                  ];
-
-                  /* La categoría, por el lado de quien marca: son los mismos goles. */
-                  const liga: Trozo[] = [
-                    { etiqueta: "Córner ≈", valor: total.corner },
-                    { etiqueta: "Falta ≈", valor: total.falta },
-                    { etiqueta: "Penalti", valor: total.penalti },
-                  ];
-
-                  return (
-                    <Composicion
-                      key={lado}
-                      titulo={lado === "aFavor" ? "Los que marcamos" : "Los que nos marcan"}
-                      trozos={trozos}
-                      trozosLiga={liga}
-                      rotulo={nosotros}
-                      rotuloLiga="La categoría entera"
-                      lectura={lecturaDelTipo(mia ?? null, lado, total)}
-                    />
-                  );
-                })}
-              </div>
-            </Panel>
-          </div>
-
           {opta && (
             <div className="mt-5">
               <Panel
-                title="Contra lo que mide Opta"
-                subtitle="Opta sí cuenta los goles de balón parado, pero sólo de la categoría sumada: sirve para ver cuánto se parece la estimación a lo real"
+                title="Lo único que sí cuenta los goles de balón parado"
+                subtitle="El agregado de la categoría que baja Opta: no se puede abrir por equipo ni por temporada, pero es la referencia de cuánto pesa realmente la estrategia"
                 icon={Database}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -537,26 +404,29 @@ export function PanelGolesAbp({
                       0,
                       opta.abp - opta.corner - opta.directa,
                     )} de otras jugadas paradas`}
-                  />
-
-                  <CifraContraste
-                    rotulo={`Esta pantalla · ${temporada}`}
-                    pie={`Los ${filas.length} equipos de la tabla, sumados`}
-                    goles={total.goles}
-                    abp={total.corner + total.falta}
-                    corner={total.corner}
-                    penalti={total.penalti}
-                    detalle={`${total.corner} de córner y ${total.falta} de falta y otras`}
                     oro
                   />
+
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      Por equipo
+                    </p>
+
+                    <p className="mt-2 text-[12px] leading-relaxed text-white/55">
+                      No hay. Opta sólo publica el agregado de la categoría, y ni
+                      Wyscout ni BeSoccer dicen de qué jugada nace cada gol. Repartirlo
+                      a ojo es lo que se hacía aquí hasta el 16/09/2026 y se ha
+                      retirado: con dos o tres jornadas por equipo, el reparto era
+                      redondeo.
+                    </p>
+                  </div>
                 </div>
 
                 <p className="mt-3 text-[11px] leading-relaxed text-white/40">
                   Los porcentajes son sobre todos los goles; «balón parado» aquí es sin
-                  penaltis, que van aparte. El agregado de Opta no dice de qué temporada
-                  ni de cuántos equipos es, así que no se compara equipo a equipo: dice
-                  si el reparto de la categoría se parece al real. Si un día se separan
-                  mucho, hay que volver a medir los factores de `goles-abp.ts`.
+                  penaltis, que van aparte. El agregado no dice de qué temporada ni de
+                  cuántos equipos es, así que sirve de referencia de la categoría, no
+                  para comparar equipos.
                 </p>
               </Panel>
             </div>
@@ -579,14 +449,14 @@ export function PanelGolesAbp({
                   <th colSpan={2} />
                   <th
                     className="border-b pb-1 text-center font-medium"
-                    colSpan={6}
+                    colSpan={2}
                     style={{ color: MEJOR, borderColor: tinta(0.1) }}
                   >
                     A favor
                   </th>
                   <th
                     className="border-b pb-1 text-center font-medium"
-                    colSpan={6}
+                    colSpan={2}
                     style={{ color: PEOR, borderColor: tinta(0.1) }}
                   >
                     En contra
@@ -597,7 +467,7 @@ export function PanelGolesAbp({
                   <th className="pb-2 pt-1.5 text-left font-medium">Temporada</th>
                   <th className="pb-2 pr-3 pt-1.5 font-medium">PJ</th>
                   {[0, 1].map((lado) =>
-                    ["Goles", "ABP ≈", "Córner ≈", "Falta ≈", "Penalti", "% ≈"].map((r, i) => (
+                    ["Goles", "De penalti"].map((r, i) => (
                       <th
                         key={`${lado}-${r}`}
                         className={`pb-2 pt-1.5 font-medium ${i === 0 && lado === 1 ? "border-l pl-3" : "pl-2"}`}
@@ -632,15 +502,8 @@ export function PanelGolesAbp({
                       const g = t[lado];
 
                       const celdas: { valor: string; fuerte?: boolean; tenue?: boolean }[] = [
-                        { valor: String(g.goles), tenue: true },
-                        { valor: g.hayOrigen ? String(g.abp) : "—", fuerte: true },
-                        { valor: g.hayOrigen ? String(g.corner) : "—" },
-                        { valor: g.hayOrigen ? String(g.falta) : "—" },
+                        { valor: String(g.goles), fuerte: true },
                         { valor: String(g.penalti) },
-                        {
-                          valor: muestra(valorDe(g, "cuota", "total"), "cuota", "total"),
-                          tenue: true,
-                        },
                       ];
 
                       return celdas.map((celda, i) => (
@@ -672,9 +535,9 @@ export function PanelGolesAbp({
           <Lectura>{lecturaDeLaHistoria(historia)}</Lectura>
 
           <p className="mt-2 text-[11px] leading-relaxed text-white/40">
-            {actual} va con los partidos que lleva y las demás con todos: los totales
-            no se comparan, los porcentajes sí. El reparto de cada curso se hace con
-            los remates de ese curso.
+            {actual} va con los partidos que lleva y las demás con todos, así que los
+            totales de una y otra no se comparan. De qué jugada nace cada gol sólo se
+            sabe de lo que registra el cuerpo técnico, no de estos informes.
           </p>
         </Panel>
       </div>
@@ -813,97 +676,24 @@ function lecturaDeLaLiga(filas: FilaGolesAbp[], nosotros: string, temporada: str
     return `El Castilla no tiene informes en ${temporada}: la tabla es la de la categoría.`;
   }
 
-  const favor = puesto(filas, nosotros, (f) => valorDe(f.aFavor, "abp", "partido"), true);
-  const contra = puesto(filas, nosotros, (f) => valorDe(f.enContra, "abp", "partido"), false);
+  const favor = puesto(filas, nosotros, (f) => valorDe(f.aFavor, "goles", "partido"), true);
+  const contra = puesto(filas, nosotros, (f) => valorDe(f.enContra, "goles", "partido"), false);
 
   const a = mia.aFavor;
   const c = mia.enContra;
 
-  const cuotaLiga = mediana(
-    filas
-      .map((f) => valorDe(f.aFavor, "cuota", "total"))
-      .filter((v): v is number => v !== null),
-  );
-
-  const cuota = valorDe(a, "cuota", "total");
-
-  /* «Lleva 0 goles (0 de penalti)» no lo dice nadie en una caseta. */
-  const marca =
-    a.abp === 0
-      ? `El Castilla no ha marcado ningún gol a balón parado en ${a.partidos} partidos`
-      : `El Castilla lleva ${a.abp} ${goles(a.abp)} a balón parado en ${a.partidos} partidos (${a.penalti} de penalti)`;
-
-  const encaja =
-    c.abp === 0
-      ? " No le han marcado ninguno"
-      : ` Encaja ${c.abp} (${c.penalti} de penalti)`;
-
   const partes = [
-    marca,
+    `El Castilla lleva ${a.goles} ${goles(a.goles)} en ${a.partidos} partidos`,
     favor
-      ? `: ${favor.puesto}º de ${favor.de} por partido, con la mediana de la categoría en ${formatea(favor.mediana, "decimal")}.`
-      : ".",
-    encaja,
-    contra ? `: ${contra.puesto}º de ${contra.de} contando de menos a más.` : ".",
+      ? `, ${favor.puesto}º de ${favor.de} por partido con la mediana de la categoría en ${formatea(favor.mediana, "decimal")}`
+      : "",
+    `, y encaja ${c.goles}`,
+    contra ? `, ${contra.puesto}º contando de menos a más` : "",
+    ". De penalti marca ",
+    `${a.penalti} y encaja ${c.penalti}: eso es lo único de balón parado que estos informes cuentan de verdad.`,
   ];
 
-  if (cuota !== null && cuotaLiga !== null) {
-    partes.push(
-      ` El ${Math.round(cuota)} % de sus goles llega a balón parado; en el equipo mediano de la categoría, el ${Math.round(cuotaLiga)} %.`,
-    );
-  }
-
   return partes.join("");
-}
-
-function lecturaDeLaNube(
-  puntos: { equipo: string; x: number; y: number }[],
-  nosotros: string,
-) {
-  const mio = puntos.find((p) => p.equipo === nosotros);
-
-  if (!mio || puntos.length < 3) return "Cada punto es un equipo: a la derecha marca más, arriba encaja más.";
-
-  const mx = mediana(puntos.map((p) => p.x)) ?? 0;
-  const my = mediana(puntos.map((p) => p.y)) ?? 0;
-
-  const marca = mio.x >= mx ? "marca más que la mediana" : "marca menos que la mediana";
-  const encaja = mio.y <= my ? "encaja menos" : "encaja más";
-
-  const cuadrante =
-    mio.x >= mx && mio.y <= my
-      ? "Es el cuadrante bueno: la estrategia suma."
-      : mio.x < mx && mio.y > my
-        ? "Es el cuadrante malo: la estrategia resta por los dos lados."
-        : mio.x >= mx
-          ? "Lo que se gana arriba se devuelve atrás."
-          : "Se defiende bien, pero no se le saca partido en ataque.";
-
-  return `El Castilla ${marca} a balón parado (${formatea(mio.x, "decimal")} por partido frente a ${formatea(mx, "decimal")}) y ${encaja} (${formatea(mio.y, "decimal")} frente a ${formatea(my, "decimal")}). ${cuadrante}`;
-}
-
-function lecturaDelTipo(
-  mia: GolesAbp | null,
-  lado: Lado,
-  total: { corner: number; falta: number; penalti: number; abp: number },
-) {
-  const ligaCorner = total.abp > 0 ? Math.round((total.corner / total.abp) * 100) : null;
-
-  if (!mia || !mia.hayOrigen) return "Sin remates clasificados no hay reparto.";
-
-  if (mia.abp === 0) {
-    return lado === "aFavor"
-      ? "El Castilla no ha marcado ningún gol a balón parado en esta temporada."
-      : "Al Castilla no le han marcado ningún gol a balón parado en esta temporada.";
-  }
-
-  const sujeto = lado === "aFavor" ? "De los que marca el Castilla" : "De los que le marcan";
-
-  const corner = Math.round((mia.corner / mia.abp) * 100);
-
-  return `${sujeto}, ${mia.corner} de córner, ${mia.falta} de falta y ${mia.penalti} de penalti: el córner es el ${corner} %${
-    ligaCorner === null ? "" : `, y en la categoría el ${ligaCorner} %`
-  }.`;
 }
 
 function lecturaDeLaHistoria(
@@ -913,24 +703,12 @@ function lecturaDeLaHistoria(
 
   const [actual, ...cerradas] = historia;
 
-  const cuotaDe = (lista: GolesAbp[]) => {
-    const conOrigen = lista.filter((g) => g.hayOrigen);
+  const penaltisDe = (lista: GolesAbp[]) =>
+    lista.reduce((t, g) => t + g.penalti, 0);
 
-    const goles = conOrigen.reduce((t, g) => t + g.goles, 0);
-    const abp = conOrigen.reduce((t, g) => t + g.abp, 0);
-
-    return goles > 0 ? Math.round((abp / goles) * 100) : null;
-  };
-
-  const antesFavor = cuotaDe(cerradas.map((t) => t.aFavor));
-  const antesContra = cuotaDe(cerradas.map((t) => t.enContra));
-
-  const ahoraFavor = cuotaDe([actual.aFavor]);
-  const ahoraContra = cuotaDe([actual.enContra]);
-
-  if (cerradas.length === 0 || antesFavor === null || antesContra === null) {
-    return `En ${actual.temporada}, ${actual.aFavor.abp} ${goles(actual.aFavor.abp)} a balón parado a favor y ${actual.enContra.abp} en contra.`;
+  if (cerradas.length === 0) {
+    return `En ${actual.temporada}, ${actual.aFavor.goles} ${goles(actual.aFavor.goles)} a favor y ${actual.enContra.goles} en contra, con ${actual.aFavor.penalti} de penalti a favor.`;
   }
 
-  return `En las ${cerradas.length} temporadas cerradas, el ${antesFavor} % de los goles del Castilla llegó a balón parado y el ${antesContra} % de los que encajó, también. En ${actual.temporada} va en el ${ahoraFavor ?? "—"} % y el ${ahoraContra ?? "—"} %, con ${actual.aFavor.partidos} partidos: con tan pocos, un gol mueve diez puntos.`;
+  return `En las ${cerradas.length} temporadas cerradas, el Castilla marcó ${penaltisDe(cerradas.map((t) => t.aFavor))} goles de penalti y encajó ${penaltisDe(cerradas.map((t) => t.enContra))}. En ${actual.temporada} va por ${actual.aFavor.penalti} y ${actual.enContra.penalti}, con ${actual.aFavor.partidos} partidos jugados.`;
 }
