@@ -46,7 +46,23 @@ export type RegistroTarea = {
   /** «Carga cognitiva» de la hoja. Su fórmula lleva más ingredientes. */
   cargaCog: number;
   observaciones: string;
+  /*
+  | La valoración de la tarea, tal y como la escribió quien la dirigió.
+  |
+  | La hoja la tiene desde siempre —y `/microcycles` ya la enseña—, pero aquí
+  | no se leía. Se lee desde el 16/09/2026 porque es lo único que dice si lo
+  | planificado salió bien: el informe de ABP del microciclo la lleva. Un cero
+  | es «no valorada», que es distinto de valorarla con un cero; por eso
+  | `hayEvaluacion` mira que la casilla traiga algo.
+  */
+  evaluacion: number;
+  analisisPost: string;
 };
+
+/** `true` si alguien valoró de verdad esa tarea. */
+export function hayEvaluacion(tarea: RegistroTarea) {
+  return tarea.evaluacion > 0 || tarea.analisisPost.trim().length > 0;
+}
 
 export type RegistroMicro = {
   temporada: string;
@@ -131,6 +147,8 @@ export async function loadRegistro(): Promise<RegistroDataset> {
     exigCog: indiceDe(cabeceras, "exig.cog", "exig cog", "exigencia cog"),
     cargaCog: indiceDe(cabeceras, "carga cognitiva"),
     observaciones: indiceDe(cabeceras, "observaciones"),
+    evaluacion: indiceDe(cabeceras, "evaluacion", "evaluación", "valoracion"),
+    analisisPost: indiceDe(cabeceras, "analisis post", "análisis post"),
   };
 
   const texto = (fila: string[], indice: number) =>
@@ -167,6 +185,8 @@ export async function loadRegistro(): Promise<RegistroDataset> {
       exigCog: numero(fila, col.exigCog),
       cargaCog: numero(fila, col.cargaCog),
       observaciones: texto(fila, col.observaciones),
+      evaluacion: numero(fila, col.evaluacion),
+      analisisPost: texto(fila, col.analisisPost),
     });
   });
 
@@ -243,17 +263,29 @@ export async function loadRegistro(): Promise<RegistroDataset> {
 const PISTAS_ABP =
   /\babp\b|balon parado|corner|falta lateral|falta directa|saque de banda|saque de puerta|saque de meta|saque de medio|penalti|penati/;
 
-export function esTareaAbp(tarea: RegistroTarea) {
-  const texto = norm(
-    [
-      tarea.fase,
-      tarea.contenidoPrincipal,
-      tarea.contenidoSecundario,
-      tarea.tipoTarea,
-    ].join(" · "),
-  );
+/**
+ * ¿Este texto habla de balón parado?
+ *
+ * Sale fuera de `esTareaAbp` (16/09/2026) porque hay otro sitio que necesita la
+ * misma pregunta con otro texto: el **seguimiento individual**, donde tampoco
+ * hay casilla de «esto es ABP» y lo único que se puede mirar son los objetivos
+ * y el feedback escritos a mano. Compartir el criterio evita que la misma tarea
+ * cuente como ABP en una pantalla y no en la otra.
+ *
+ * Es una lectura de texto libre, no un dato: quien la use tiene que decir que
+ * es una estimación.
+ */
+export function textoEsAbp(...partes: (string | undefined)[]) {
+  return PISTAS_ABP.test(norm(partes.filter(Boolean).join(" · ")));
+}
 
-  return PISTAS_ABP.test(texto);
+export function esTareaAbp(tarea: RegistroTarea) {
+  return textoEsAbp(
+    tarea.fase,
+    tarea.contenidoPrincipal,
+    tarea.contenidoSecundario,
+    tarea.tipoTarea,
+  );
 }
 
 /** Ofensivo, defensivo, o `null` si la hoja no lo dice y hay que elegirlo. */

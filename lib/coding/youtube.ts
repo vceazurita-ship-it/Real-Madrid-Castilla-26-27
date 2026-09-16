@@ -158,6 +158,22 @@ export function esPrivacidad(valor: unknown): valor is PrivacidadYoutube {
 export const PERMISOS = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube",
+  /*
+  | Y desde el 16/09/2026, mandar correo con esta misma cuenta.
+  |
+  | El informe de balón parado del microciclo sale **del club**, no de una
+  | cuenta de servicio con otro nombre (`lib/correo/gmail.ts`). `gmail.send`
+  | sólo permite enviar: no puede leer el buzón ni borrar nada.
+  |
+  | `userinfo.email` es para poder decir en pantalla desde qué dirección va a
+  | salir antes de mandarlo.
+  |
+  | **Una cuenta conectada antes de esto no tiene estos permisos** y Google
+  | contestará 403 al enviar: hay que volver a conectarla desde el panel del
+  | coding, que es donde se conecta.
+  */
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
 export function credenciales() {

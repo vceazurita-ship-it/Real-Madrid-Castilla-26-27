@@ -30,11 +30,14 @@ import {
   CalendarDays,
   Dumbbell,
   Flame,
+  Mail,
   Plus,
   Download,
   Target,
   TriangleAlert,
 } from "lucide-react";
+
+import { InformeMicroDialog } from "@/components/abp/InformeMicroDialog";
 
 import { toast } from "sonner";
 
@@ -496,6 +499,10 @@ export default function AbpMicrocicloPage() {
 
   const [importando, setImportando] = useState(false);
 
+  /* El informe de la semana: se mira aquí y se manda por correo desde la
+     cuenta del club. Lo arma `lib/abp/informe-micro.ts`. */
+  const [informeAbierto, setInformeAbierto] = useState(false);
+
   /* --------------------------- TAREAS DE LA HOJA ------------------------ */
 
   const tareasAbpDelMicro = useMemo(() => {
@@ -808,6 +815,14 @@ export default function AbpMicrocicloPage() {
             >
               Importar del registro
               {tareasAbpDelMicro.length ? ` (${tareasAbpDelMicro.length})` : ""}
+            </Button>
+
+            <Button
+              icon={Mail}
+              onClick={() => setInformeAbierto(true)}
+              title="Ver el informe de balón parado de esta semana y mandarlo por correo"
+            >
+              Informe de la semana
             </Button>
 
             <Button icon={Plus} onClick={creaMicro}>
@@ -1164,6 +1179,28 @@ export default function AbpMicrocicloPage() {
           yaImportadas={yaImportadas}
           onImportar={importa}
           onCerrar={() => setImportando(false)}
+        />
+      )}
+
+      {informeAbierto && (
+        <InformeMicroDialog
+          datos={{
+            temporada: plan.temporada || microActivo?.temporada || "",
+            micro: plan.micro || microActivo?.micro || 0,
+            rival: plan.rival,
+            partido: partidoDelMicro
+              ? {
+                  jornada: partidoDelMicro.jornada,
+                  rival: partidoDelMicro.rival,
+                }
+              : null,
+            entradas,
+            totales,
+            tareas: tareasAbpDelMicro,
+            filas,
+            prioridades,
+          }}
+          onClose={() => setInformeAbierto(false)}
         />
       )}
     </div>
