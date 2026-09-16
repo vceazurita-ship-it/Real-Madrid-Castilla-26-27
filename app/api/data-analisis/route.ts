@@ -7,10 +7,7 @@ import {
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
 import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
-import {
-  equiposConMuestra,
-  golesAbpDe,
-} from "@/lib/data-analisis/goles-abp";
+import { equiposConMuestra } from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { readDoc } from "@/lib/docStore";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
@@ -344,19 +341,57 @@ function alertasDe(datos: Dataset) {
 /*  EL BALÓN PARADO, PARA EL INFORME DEL MICROCICLO                    */
 /* ------------------------------------------------------------------ */
 
+/*
+|--------------------------------------------------------------------------
+| AQUÍ NO SE ESTIMAN GOLES. NUNCA.
+|--------------------------------------------------------------------------
+|
+| La primera versión de esto (16/09/2026) comparaba «goles de balón parado»
+| por equipo. **Nadie publica ese dato**: Wyscout da remates por vía y
+| «Penaltis · marcados», y de goles sólo el total. Lo que se pintaba era un
+| reparto de los goles totales proporcional a los remates de cada vía, y con
+| tres jornadas eso inventa: al Zaragoza le asignaba 0,81 goles de córner y al
+| Villarreal B 0,00 clavado; a nosotros, 0,00 a favor habiendo metido dos. Un
+| eje que dice «goles» con un número que nadie ha registrado no es un gráfico,
+| es una estimación disfrazada de dato.
+|
+| Así que el informe compara **lo que las fuentes miden de verdad**: córners,
+| faltas lanzadas, jugadas de balón parado, cuántas acaban en remate, qué parte
+| de todos los remates nace de estrategia, saques laterales y penaltis. La
+| estimación de goles sigue viva en `/data-analisis?area=golesAbp`, que es una
+| pantalla de temporada entera y lo rotula con «≈» ([[goles-abp-liga]]).
+|
+| Los goles de balón parado **del Castilla** sí son dato, pero de otra fuente:
+| nuestras cuatro hojas de ABP, donde el analista marca el resultado de cada
+| acción. Eso entra en el informe por su lado (`lib/data-analisis/abp-propio.ts`),
+| y por eso aquí no hace falta inventarlos.
+*/
+
+/** Las métricas de ABP que Wyscout mide de verdad, en el orden del informe. */
+const ABP_MEDIDAS = [
+  { key: "corners", rotulo: "Córners", sentido: "alto" },
+  { key: "cornersRemate", rotulo: "Córners con remate %", sentido: "alto" },
+  { key: "faltasTiro", rotulo: "Faltas lanzadas", sentido: "neutro" },
+  { key: "faltasRemate", rotulo: "Faltas con remate %", sentido: "alto" },
+  { key: "abp", rotulo: "Jugadas de ABP", sentido: "neutro" },
+  { key: "abpRemate", rotulo: "ABP con remate %", sentido: "alto" },
+  { key: "cuotaRematesAbp", rotulo: "Remates que nacen de ABP %", sentido: "neutro" },
+  { key: "penaltis", rotulo: "Penaltis a favor", sentido: "alto" },
+] as const;
+
 /**
  * Con quién nos comparamos en balón parado: la liga de este año y nosotros
  * mismos en las temporadas anteriores, **a estas alturas**.
  *
  * Lo pide el informe de ABP del microciclo, que se arma en el navegador: el
  * dataset entero son más de dos megas y esto son cuatro kilobytes. Se calcula
- * con las mismas funciones que la pantalla de Data Análisis —`golesAbpDe`, que
- * ya avisa de qué es dato y qué estimación— para que no puedan discrepar.
+ * con las mismas métricas que la pantalla de Data Análisis para que no puedan
+ * discrepar.
  *
  * **«A estas alturas» no es un adorno**: comparar los 3 partidos de este año
  * con los 38 del pasado no compara nada. Cada temporada se recorta a los mismos
- * partidos que lleva la actual, en orden de calendario, y los goles en contra
- * se sacan de las filas de los rivales **de esos mismos partidos**.
+ * partidos que lleva la actual, en orden de calendario, y lo «en contra» se
+ * saca de las filas de los rivales **de esos mismos partidos**.
  */
 function abpParaInforme(datos: Dataset) {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
@@ -366,8 +401,6 @@ function abpParaInforme(datos: Dataset) {
   const actual = temporadas[temporadas.length - 1] ?? "";
 
   const deLaLiga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
-
-  const metricaCorners = METRICA_POR_KEY.get("corners");
 
   /** Los partidos del Castilla de una temporada, en orden y recortados. */
   const nuestrosDe = (temporada: string, cuantos: number | null) => {
@@ -389,33 +422,37 @@ function abpParaInforme(datos: Dataset) {
 
   const jugados = nuestrosDe(actual, null).length;
 
-  const filaDe = (equipo: string, aFavorFilas: typeof datos.partidos, enContraFilas: typeof datos.partidos) => {
-    const aFavor = golesAbpDe(aFavorFilas);
-    const enContra = golesAbpDe(enContraFilas);
+  /**
+   * Una fila: las ocho métricas medidas, a favor y en contra.
+   *
+   * «En contra» sale de las filas del rival de esos mismos partidos, que es lo
+   * que permite contestar «¿cuántos córners concedemos?» sin pedir nada más:
+   * cada partido está dos veces en el informe, una por equipo.
+   */
+  const filaDe = (
+    equipo: string,
+    aFavorFilas: typeof datos.partidos,
+    enContraFilas: typeof datos.partidos,
+  ) => {
+    const valores: Record<string, { favor: number | null; contra: number | null }> =
+      {};
 
-    const partidos = aFavorFilas.length || 1;
+    for (const medida of ABP_MEDIDAS) {
+      const metrica = METRICA_POR_KEY.get(medida.key);
 
-    return {
-      equipo,
-      partidos: aFavorFilas.length,
-      /* Goles de balón parado por partido, que es lo comparable entre
-         temporadas con distinto número de jornadas. */
-      favor: aFavor.abp,
-      favorPorPartido: aFavor.abp / partidos,
-      contra: enContra.abp,
-      contraPorPartido: enContra.abp / partidos,
-      /* Penaltis aparte: son dato, no estimación. */
-      penaltisFavor: aFavor.penalti,
-      penaltisContra: enContra.penalti,
-      corners:
-        metricaCorners && aFavorFilas.length
-          ? valorEnGrupo(metricaCorners, aFavorFilas)
-          : null,
-      cornersContra:
-        metricaCorners && enContraFilas.length
-          ? valorEnGrupo(metricaCorners, enContraFilas)
-          : null,
-    };
+      valores[medida.key] = {
+        favor:
+          metrica && aFavorFilas.length
+            ? valorEnGrupo(metrica, aFavorFilas)
+            : null,
+        contra:
+          metrica && enContraFilas.length
+            ? valorEnGrupo(metrica, enContraFilas)
+            : null,
+      };
+    }
+
+    return { equipo, partidos: aFavorFilas.length, valores };
   };
 
   /* ---- La liga de este año ---- */
@@ -430,7 +467,12 @@ function abpParaInforme(datos: Dataset) {
         deLaLiga.filter((p) => p.rival === equipo),
       ),
     )
-    .sort((a, b) => b.favorPorPartido - a.favorPorPartido);
+    /* Por volumen de córners: es la métrica que todo el mundo mira primero y
+       la que ordena la tabla en pantalla. Los puestos de cada métrica los
+       calcula quien pinta, que para eso le va la liga entera. */
+    .sort(
+      (a, b) => (b.valores.corners?.favor ?? 0) - (a.valores.corners?.favor ?? 0),
+    );
 
   /* ---- Nosotros, temporada a temporada, a estas alturas ---- */
 
@@ -454,9 +496,12 @@ function abpParaInforme(datos: Dataset) {
     temporada: actual,
     jugados,
     equipos: liga.length,
+    /* El catálogo viaja con los datos: quien pinta necesita el rótulo y el
+       sentido de cada métrica, y no puede tener su propia copia o el día que
+       se añada una, el informe la enseñaría sin nombre. */
+    medidas: ABP_MEDIDAS,
     liga,
     nosotros,
-    puesto: nosotros ? liga.indexOf(nosotros) + 1 : null,
     historico,
   };
 }

@@ -39,7 +39,14 @@ import {
 import {
   graficosDelInforme,
   type ComparativaAbp,
+  type PropioAbp,
 } from "@/lib/abp/informe-graficos";
+
+import {
+  leeAbpPropio,
+  porJugadorAbp,
+  type AccionAbp,
+} from "@/lib/data-analisis/abp-propio";
 
 /** Lo que la pantalla del microciclo ya tiene y aquí no hay que volver a pedir. */
 export type DatosDelMicro = Omit<
@@ -80,6 +87,16 @@ export function InformeMicroDialog({
 
   const [faltaComparativa, setFaltaComparativa] = useState(false);
 
+  /*
+  | Nuestras cuatro hojas de ABP.
+  |
+  | Es la única fuente donde los **goles de balón parado son un dato**: el
+  | analista escribe el resultado de cada acción. De la liga nadie publica de
+  | qué jugada nace cada gol, así que lo que se compara con la categoría son
+  | córners, faltas y remates, no goles.
+  */
+  const [acciones, setAcciones] = useState<AccionAbp[] | null>(null);
+
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
@@ -95,6 +112,24 @@ export function InformeMicroDialog({
         console.error("[abp] seguimiento para el informe", error);
 
         if (!cancelado) setSeguimientos([]);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    leeAbpPropio()
+      .then((datos) => {
+        if (!cancelado) setAcciones(datos.acciones);
+      })
+      .catch((error) => {
+        console.error("[abp] hojas propias para el informe", error);
+
+        if (!cancelado) setAcciones([]);
       });
 
     return () => {
@@ -148,9 +183,106 @@ export function InformeMicroDialog({
     [players],
   );
 
+  /**
+   * Nuestro balón parado, resumido para el informe.
+   *
+   * Se agrupa aquí y no en la librería porque es una lectura de nuestras hojas
+   * y sólo la necesita este diálogo. El orden de las jornadas es el de
+   * `porJornadaAbp`: la pretemporada, que es de julio, va delante.
+   */
+  const propio = useMemo<PropioAbp | null>(() => {
+    if (!acciones) return null;
+
+    const ofensivas = acciones.filter((una) => una.bloque.endsWith("Of"));
+    const defensivas = acciones.filter((una) => una.bloque.endsWith("Def"));
+
+    const resume = (lista: AccionAbp[]) => ({
+      acciones: lista.length,
+      remates: lista.filter((una) => una.remate).length,
+      goles: lista.filter((una) => una.gol).length,
+      peligros: lista.filter((una) => una.peligro).length,
+      xg: Number(lista.reduce((suma, una) => suma + una.xg, 0).toFixed(2)),
+    });
+
+    const todo = resume(acciones);
+
+    /* Por familia de acción: córner, falta, banda… */
+    const porFamilia = new Map<string, AccionAbp[]>();
+
+    acciones.forEach((una) => {
+      const clave = `${una.familia}${una.bloque.endsWith("Def") ? " (en contra)" : ""}`;
+
+      porFamilia.set(clave, [...(porFamilia.get(clave) ?? []), una]);
+    });
+
+    const porAspecto = [...porFamilia.entries()]
+      .map(([etiqueta, lista]) => ({
+        etiqueta,
+        acciones: lista.length,
+        peligro: lista.length
+          ? (lista.filter((una) => una.peligro).length / lista.length) * 100
+          : 0,
+        goles: lista.filter((una) => una.gol).length,
+      }))
+      .sort((a, b) => b.acciones - a.acciones);
+
+    /* Por jornada, en orden de calendario y con la pretemporada delante. */
+    const porClave = new Map<string, AccionAbp[]>();
+
+    acciones.forEach((una) => {
+      porClave.set(una.jornada.clave, [
+        ...(porClave.get(una.jornada.clave) ?? []),
+        una,
+      ]);
+    });
+
+    const porJornada = [...porClave.values()]
+      .sort((a, b) => {
+        const bloque = (lista: AccionAbp[]) =>
+          lista[0].jornada.competicion === "amistoso" ? 0 : 1;
+
+        if (bloque(a) !== bloque(b)) return bloque(a) - bloque(b);
+
+        return (a[0].jornada.numero ?? 0) - (b[0].jornada.numero ?? 0);
+      })
+      .map((lista) => ({
+        etiqueta: lista[0].jornada.corto,
+        acciones: lista.length,
+        peligro: lista.length
+          ? (lista.filter((una) => una.peligro).length / lista.length) * 100
+          : 0,
+        goles: lista.filter((una) => una.gol).length,
+        nota: `${lista[0].jornada.etiqueta} · ${lista[0].rival ?? ""}`,
+      }));
+
+    return {
+      partidos: porClave.size,
+      ...todo,
+      cuotaRemate: todo.acciones ? (todo.remates / todo.acciones) * 100 : 0,
+      cuotaPeligro: todo.acciones ? (todo.peligros / todo.acciones) * 100 : 0,
+      ofensivo: resume(ofensivas),
+      defensivo: resume(defensivas),
+      porAspecto,
+      porJornada,
+      /* Los nombres sólo valen en lo nuestro: en las hojas defensivas el que
+         remata es del rival. */
+      rematadores: porJugadorAbp(ofensivas, (una) => una.rematador).map(
+        (uno) => ({ jugador: uno.jugador, total: uno.total, peligro: uno.peligro }),
+      ),
+      sacadores: porJugadorAbp(ofensivas, (una) => una.sacador).map((uno) => ({
+        jugador: uno.jugador,
+        total: uno.total,
+        peligro: uno.peligro,
+      })),
+    };
+  }, [acciones]);
+
   /* Los gráficos se dibujan en un lienzo y salen en PNG: un correo no ejecuta
      nada, así que lo único que sobrevive es una imagen. */
-  const graficos = useMemo(() => graficosDelInforme(comparativa), [comparativa]);
+  const graficos = useMemo(
+    () => graficosDelInforme(comparativa, propio),
+    [comparativa, propio],
+  );
 
   const informe = useMemo(
     () =>
@@ -159,9 +291,10 @@ export function InformeMicroDialog({
         seguimientos: filasSeguimiento,
         nombrePorId,
         comparativa,
+        propio,
         graficos,
       }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, graficos],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, graficos],
   );
 
   const html = useMemo(() => informeHtml(informe), [informe]);
@@ -169,6 +302,8 @@ export function InformeMicroDialog({
   const cargandoSeguimiento = seguimientos === null;
 
   const cargandoComparativa = comparativa === null && !faltaComparativa;
+
+  const cargandoPropio = acciones === null;
 
   const envia = async () => {
     if (enviando) return;
@@ -249,7 +384,12 @@ export function InformeMicroDialog({
               tone="primary"
               icon={enviando ? Loader2 : Send}
               onClick={() => void envia()}
-              disabled={enviando || cargandoSeguimiento || cargandoComparativa}
+              disabled={
+                enviando ||
+                cargandoSeguimiento ||
+                cargandoComparativa ||
+                cargandoPropio
+              }
             >
               {enviando ? "Enviando…" : "Enviar por correo"}
             </Button>
@@ -271,12 +411,14 @@ export function InformeMicroDialog({
           y valen para todos los microciclos.
         </p>
 
-        {cargandoSeguimiento || cargandoComparativa ? (
+        {cargandoSeguimiento || cargandoComparativa || cargandoPropio ? (
           <p className="flex items-center gap-2 text-xs text-white/45">
             <RefreshCw size={13} className="animate-spin" />
             {cargandoSeguimiento
               ? "Cargando el seguimiento individual…"
-              : "Cargando la comparación con la categoría…"}
+              : cargandoPropio
+                ? "Cargando nuestras hojas de balón parado…"
+                : "Cargando la comparación con la categoría…"}
           </p>
         ) : (
           informe.avisos.length > 0 && (

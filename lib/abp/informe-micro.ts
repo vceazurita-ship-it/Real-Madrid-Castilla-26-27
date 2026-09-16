@@ -47,7 +47,11 @@ import { hayEvaluacion, textoEsAbp, type RegistroTarea } from "./registro";
 
 import type { FilaCruce } from "./transferencia";
 
-import type { ComparativaAbp, GraficoInforme } from "./informe-graficos";
+import type {
+  ComparativaAbp,
+  GraficoInforme,
+  PropioAbp,
+} from "./informe-graficos";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
@@ -94,6 +98,14 @@ export type DatosInforme = {
    * que sin la parte de comparación.
    */
   comparativa?: ComparativaAbp | null;
+  /**
+   * Nuestro balón parado tal y como lo registran nuestras cuatro hojas.
+   *
+   * Es la única fuente donde los **goles de balón parado son un dato**: el
+   * analista escribe el resultado de cada acción. De la liga nadie publica de
+   * qué jugada nace cada gol, así que ahí sólo se comparan cosas medidas.
+   */
+  propio?: PropioAbp | null;
   /** Los gráficos ya dibujados (`lib/abp/informe-graficos.ts`). */
   graficos?: GraficoInforme[];
   /** Para poder fijar la fecha en las pruebas. */
@@ -221,29 +233,44 @@ export type InformeMicro = {
   prioridades: LineaEquipo[];
   /** Cómo estamos contra la categoría y contra nosotros mismos. */
   comparativa: ComparativaInforme | null;
+  /** Nuestro balón parado registrado acción por acción, con sus goles. */
+  propio: PropioAbp | null;
   /** Los gráficos, en el orden en que van en el correo. */
   graficos: GraficoInforme[];
   /** Lo que el informe no sabe, dicho donde se lee. */
   avisos: string[];
 };
 
+/**
+ * Una métrica medida, con lo nuestro, la mediana de la liga y el puesto.
+ *
+ * **No hay goles aquí, y es a propósito.** De la liga nadie publica de qué
+ * jugada nace cada gol: Wyscout da remates por vía y penaltis marcados. Lo que
+ * se compara es lo que se mide.
+ */
+export type FilaComparativa = {
+  key: string;
+  rotulo: string;
+  sentido: "alto" | "neutro";
+  /** Lo nuestro a favor y dónde queda en la categoría. */
+  favor: number | null;
+  medianaFavor: number;
+  puestoFavor: number | null;
+  /** Lo que nos hacen, y el puesto con el mejor primero (menos, mejor). */
+  contra: number | null;
+  medianaContra: number;
+  puestoContra: number | null;
+};
+
 export type ComparativaInforme = {
   temporada: string;
   jugados: number;
   equipos: number;
-  /** Puesto por goles de ABP marcados por partido. */
-  puesto: number | null;
-  /** Puesto por goles de ABP encajados, del que menos encaja al que más. */
-  puestoContra: number | null;
-  favorPorPartido: number | null;
-  contraPorPartido: number | null;
-  medianaFavor: number;
-  medianaContra: number;
+  filas: FilaComparativa[];
   temporadas: {
     temporada: string;
-    favor: number;
-    contra: number;
     esActual: boolean;
+    valores: Record<string, { favor: number | null; contra: number | null }>;
   }[];
 };
 
@@ -480,34 +507,60 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       : (orden[medio - 1] + orden[medio]) / 2;
   };
 
+  /** El puesto de un valor dentro de la categoría, con su sentido. */
+  const puestoDe = (
+    valor: number | null,
+    todos: number[],
+    menosEsMejor: boolean,
+  ) => {
+    if (valor === null || todos.length === 0) return null;
+
+    const orden = [...todos].sort((a, b) => (menosEsMejor ? a - b : b - a));
+
+    const sitio = orden.findIndex((uno) => Math.abs(uno - valor) < 1e-9);
+
+    return sitio < 0 ? null : sitio + 1;
+  };
+
   const comparativa: ComparativaInforme | null = datos.comparativa?.liga.length
     ? (() => {
-        const { liga, nosotros, historico } = datos.comparativa!;
+        const { liga, nosotros, historico, medidas } = datos.comparativa!;
 
-        const porFavor = [...liga].sort(
-          (a, b) => b.favorPorPartido - a.favorPorPartido,
-        );
+        const filas: FilaComparativa[] = (medidas ?? []).map((medida) => {
+          const favores = liga
+            .map((fila) => fila.valores?.[medida.key]?.favor)
+            .filter((uno): uno is number => typeof uno === "number");
 
-        /* Encajar menos es mejor: este orden va al revés. */
-        const porContra = [...liga].sort(
-          (a, b) => a.contraPorPartido - b.contraPorPartido,
-        );
+          const contras = liga
+            .map((fila) => fila.valores?.[medida.key]?.contra)
+            .filter((uno): uno is number => typeof uno === "number");
+
+          const favor = nosotros?.valores?.[medida.key]?.favor ?? null;
+          const contra = nosotros?.valores?.[medida.key]?.contra ?? null;
+
+          return {
+            key: medida.key,
+            rotulo: medida.rotulo,
+            sentido: medida.sentido,
+            favor,
+            medianaFavor: mediana(favores),
+            puestoFavor: puestoDe(favor, favores, false),
+            contra,
+            medianaContra: mediana(contras),
+            /* Lo que nos hacen: el primero es el que menos concede. */
+            puestoContra: puestoDe(contra, contras, true),
+          };
+        });
 
         return {
           temporada: datos.comparativa!.temporada,
           jugados: datos.comparativa!.jugados,
           equipos: liga.length,
-          puesto: nosotros ? porFavor.indexOf(nosotros) + 1 : null,
-          puestoContra: nosotros ? porContra.indexOf(nosotros) + 1 : null,
-          favorPorPartido: nosotros?.favorPorPartido ?? null,
-          contraPorPartido: nosotros?.contraPorPartido ?? null,
-          medianaFavor: mediana(liga.map((una) => una.favorPorPartido)),
-          medianaContra: mediana(liga.map((una) => una.contraPorPartido)),
+          filas,
           temporadas: historico.map((una) => ({
             temporada: una.temporada,
-            favor: una.favor,
-            contra: una.contra,
             esActual: una.esActual,
+            valores: una.valores,
           })),
         };
       })()
@@ -515,7 +568,15 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   if (!comparativa) {
     avisos.push(
-      "No se ha podido comparar con la categoría: falta el dato de Wyscout de esta temporada.",
+      "No se ha podido comparar con la categoría: falta el informe de Wyscout de esta temporada.",
+    );
+  }
+
+  const propio = datos.propio ?? null;
+
+  if (!propio || propio.acciones === 0) {
+    avisos.push(
+      "No hay acciones de balón parado registradas en nuestras hojas, así que el informe no puede decir cuántos goles de estrategia llevamos.",
     );
   }
 
@@ -552,6 +613,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     equipo,
     prioridades: datos.prioridades.map(filaEquipo),
     comparativa,
+    propio,
     graficos: datos.graficos ?? [],
     avisos,
   };
@@ -613,6 +675,22 @@ function seccion(titulo: string, pie: string, cuerpo: string) {
 /** Dos decimales con coma, que es como se leen aquí. */
 function fmtDec(valor: number) {
   return valor.toFixed(2).replace(".", ",");
+}
+
+/**
+ * Cada métrica con su forma: los porcentajes con su signo.
+ *
+ * Se decide por la clave y no por el rótulo: el rótulo lo escribe el catálogo
+ * del servidor y puede cambiar sin avisar.
+ */
+function fmtMedida(valor: number | null, key: string) {
+  if (valor === null || !Number.isFinite(valor)) return "—";
+
+  const esPorcentaje = /Remate$/.test(key) || key === "cuotaRematesAbp";
+
+  return esPorcentaje
+    ? `${valor.toFixed(1).replace(".", ",")} %`
+    : valor.toFixed(key === "penaltis" ? 2 : 1).replace(".", ",");
 }
 
 function numeroConSigno(valor: number | null, sufijo = "") {
@@ -797,35 +875,64 @@ ${seccion(
 )}
 
 ${seccion(
+  "Nuestro balón parado, registrado",
+  informe.propio
+    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. Aquí los goles son dato: los escribe el analista acción por acción.`
+    : "",
+  informe.propio
+    ? tabla(
+        ["", "Acciones", "Remates", "Peligro", "Goles", "xG"],
+        [
+          [
+            "<b>A favor</b>",
+            String(informe.propio.ofensivo.acciones),
+            String(informe.propio.ofensivo.remates),
+            String(informe.propio.ofensivo.peligros),
+            `<b>${informe.propio.ofensivo.goles}</b>`,
+            fmtDec(informe.propio.ofensivo.xg),
+          ],
+          [
+            "<b>En contra</b>",
+            String(informe.propio.defensivo.acciones),
+            String(informe.propio.defensivo.remates),
+            String(informe.propio.defensivo.peligros),
+            `<b>${informe.propio.defensivo.goles}</b>`,
+            fmtDec(informe.propio.defensivo.xg),
+          ],
+        ],
+      )
+    : "",
+)}
+
+${seccion(
   "Cómo estamos contra la categoría",
   informe.comparativa
-    ? `${informe.comparativa.equipos} equipos · ${informe.comparativa.jugados} jornada${informe.comparativa.jugados === 1 ? "" : "s"} · los goles de córner y falta son estimación calibrada; los penaltis, dato.`
+    ? `${informe.comparativa.equipos} equipos · ${informe.comparativa.jugados} jornada${informe.comparativa.jugados === 1 ? "" : "s"} · lo que Wyscout mide de verdad, por partido. De la liga nadie publica de qué jugada nace cada gol, así que aquí no hay goles estimados.`
     : "",
   informe.comparativa
     ? `${tabla(
-        ["", "Nosotros", "Mediana de la liga", "Puesto"],
         [
-          [
-            "<b>Marca de ABP</b> (por partido)",
-            informe.comparativa.favorPorPartido === null
-              ? "—"
-              : fmtDec(informe.comparativa.favorPorPartido),
-            fmtDec(informe.comparativa.medianaFavor),
-            informe.comparativa.puesto === null
-              ? "—"
-              : `<b>${informe.comparativa.puesto}.º</b> de ${informe.comparativa.equipos}`,
-          ],
-          [
-            "<b>Encaja de ABP</b> (por partido)",
-            informe.comparativa.contraPorPartido === null
-              ? "—"
-              : fmtDec(informe.comparativa.contraPorPartido),
-            fmtDec(informe.comparativa.medianaContra),
-            informe.comparativa.puestoContra === null
-              ? "—"
-              : `<b>${informe.comparativa.puestoContra}.º</b> de ${informe.comparativa.equipos}`,
-          ],
+          "Métrica",
+          "Nosotros",
+          "Mediana liga",
+          "Puesto",
+          "En contra",
+          "Mediana",
+          "Puesto",
         ],
+        informe.comparativa.filas.map((fila) => [
+          `<b>${esc(fila.rotulo)}</b>`,
+          fmtMedida(fila.favor, fila.key),
+          fmtMedida(fila.medianaFavor, fila.key),
+          fila.puestoFavor === null
+            ? "—"
+            : `<b>${fila.puestoFavor}.º</b> de ${informe.comparativa!.equipos}`,
+          fmtMedida(fila.contra, fila.key),
+          fmtMedida(fila.medianaContra, fila.key),
+          fila.puestoContra === null
+            ? "—"
+            : `<b>${fila.puestoContra}.º</b> de ${informe.comparativa!.equipos}`,
+        ]),
       )}${bloqueGraficos(informe, modoImagenes)}`
     : bloqueGraficos(informe, modoImagenes),
 )}
@@ -899,29 +1006,43 @@ export function informeTexto(informe: InformeMicro) {
     );
   });
 
+  if (informe.propio) {
+    const p = informe.propio;
+
+    lineas.push(
+      "",
+      `NUESTRO BALÓN PARADO REGISTRADO (${p.acciones} acciones en ${p.partidos} partidos)`,
+      `- A favor: ${p.ofensivo.acciones} acciones · ${p.ofensivo.remates} remates · ${p.ofensivo.goles} goles · xG ${fmtDec(p.ofensivo.xg)}`,
+      `- En contra: ${p.defensivo.acciones} acciones · ${p.defensivo.remates} remates · ${p.defensivo.goles} goles · xG ${fmtDec(p.defensivo.xg)}`,
+    );
+  }
+
   if (informe.comparativa) {
     const c = informe.comparativa;
 
-    lineas.push("", `CONTRA LA CATEGORÍA (${c.equipos} equipos · ${c.jugados} jornadas)`);
-
     lineas.push(
-      `- Marca de ABP: ${c.favorPorPartido === null ? "—" : fmtDec(c.favorPorPartido)} por partido (mediana ${fmtDec(c.medianaFavor)})${
-        c.puesto === null ? "" : ` · ${c.puesto}.º de ${c.equipos}`
-      }`,
+      "",
+      `CONTRA LA CATEGORÍA (${c.equipos} equipos · ${c.jugados} jornadas · lo que mide Wyscout, por partido)`,
     );
 
-    lineas.push(
-      `- Encaja de ABP: ${c.contraPorPartido === null ? "—" : fmtDec(c.contraPorPartido)} por partido (mediana ${fmtDec(c.medianaContra)})${
-        c.puestoContra === null ? "" : ` · ${c.puestoContra}.º de ${c.equipos}`
-      }`,
-    );
+    c.filas.forEach((fila) => {
+      lineas.push(
+        `- ${fila.rotulo}: ${fmtMedida(fila.favor, fila.key)} (mediana ${fmtMedida(fila.medianaFavor, fila.key)})${
+          fila.puestoFavor === null ? "" : ` · ${fila.puestoFavor}.º de ${c.equipos}`
+        } · en contra ${fmtMedida(fila.contra, fila.key)}${
+          fila.puestoContra === null ? "" : ` · ${fila.puestoContra}.º de ${c.equipos}`
+        }`,
+      );
+    });
 
     if (c.temporadas.length > 1) {
       lineas.push("", `NUESTRAS TEMPORADAS, EN SUS ${c.jugados} PRIMEROS PARTIDOS`);
 
       c.temporadas.forEach((una) => {
+        const corners = una.valores?.corners;
+
         lineas.push(
-          `- ${una.temporada}${una.esActual ? " (ésta)" : ""}: ${una.favor} a favor · ${una.contra} en contra`,
+          `- ${una.temporada}${una.esActual ? " (ésta)" : ""}: ${fmtMedida(corners?.favor ?? null, "corners")} córners a favor · ${fmtMedida(corners?.contra ?? null, "corners")} en contra`,
         );
       });
     }
