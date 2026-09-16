@@ -202,6 +202,7 @@ const DE_FUERA_CON_SEGUIMIENTO = [
   "Álvaro Lezcano",
   "Diego Lacosta",
   "M. Rezola",
+  "Izan Regueira",
 ].map(normalizePlayerName);
 
 /**
