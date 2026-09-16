@@ -222,18 +222,38 @@ function paraGmail(mensaje: string) {
   return Buffer.from(mensaje, "utf8").toString("base64url");
 }
 
+/*
+| EL ORDEN DE ESTAS DOS PREGUNTAS IMPORTA, Y NO ES OBVIO.
+|
+| Los dos fallos que puede dar el envío contestan **403**. Durante un día la
+| primera rama era «o el mensaje habla de permisos O el estado es 403», así que
+| se tragaba también el de la API desactivada y mandaba a reconectar la cuenta:
+| el usuario reconectó, concedió el permiso, y la pantalla le siguió diciendo lo
+| mismo porque el problema era el otro. Se mira PRIMERO lo que dice Google y sólo
+| al final se cae en el genérico por código.
+*/
 function traduceFallo(estado: number, mensaje: string) {
-  if (/insufficient|scope|permission/i.test(mensaje) || estado === 403) {
-    return (
-      "La cuenta de Google está conectada pero sin permiso para enviar correo. " +
-      "Vuelve a conectarla en Coding · YouTube: al reconectar se pide también ese permiso."
-    );
-  }
+  if (/has not been used|is disabled|Gmail API/i.test(mensaje)) {
+    /*
+    | El mensaje de Google trae el número de proyecto y el enlace exacto: se
+    | pasan tal cual.
+    |
+    | Comprobado el 16/09/2026 con un envío de verdad: la cuenta tenía el
+    | permiso `gmail.send` concedido y Google seguía contestando 403 porque la
+    | **Gmail API no estaba activada en el proyecto**. Sin decir cuál es el
+    | proyecto ni dónde se activa, el aviso mandaba a reconectar la cuenta una
+    | y otra vez sin arreglar nada.
+    */
+    const proyecto = /project (\d+)/.exec(mensaje)?.[1] ?? "";
 
-  if (/has not been used|disabled|Gmail API/i.test(mensaje)) {
+    const enlace = proyecto
+      ? `https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=${proyecto}`
+      : "https://console.cloud.google.com/apis/library/gmail.googleapis.com";
+
     return (
-      "Falta activar la Gmail API en el proyecto de Google que ya usa YouTube. " +
-      "Se hace una vez en la consola de Google Cloud."
+      "Falta activar la Gmail API en el proyecto de Google. El permiso de la " +
+      `cuenta está bien: lo que hay que hacer es entrar en ${enlace} y pulsar ` +
+      "«Habilitar». Tarda un par de minutos en surtir efecto."
     );
   }
 

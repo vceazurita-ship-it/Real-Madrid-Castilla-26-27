@@ -58,6 +58,34 @@ type AjustesCorreo = { destinatarios: string };
 
 const VACIO: AjustesCorreo = { destinatarios: "" };
 
+/**
+ * El mismo texto, pero con las direcciones de internet pulsables.
+ *
+ * Cuando Gmail se niega, el motivo trae **la dirección exacta** de la consola de
+ * Google donde se arregla. Escribirla y que haya que copiarla a mano sería
+ * dejar el aviso a medias, así que se parte el texto por la URL y el trozo de
+ * en medio sale como enlace.
+ */
+function conEnlace(texto: string) {
+  /* El paréntesis del `split` conserva lo que separa, así que la lista alterna
+     texto y enlace y no hay que buscar posiciones. */
+  return texto.split(/(https?:\/\/\S+)/g).map((trozo, indice) =>
+    /^https?:\/\//.test(trozo) ? (
+      <a
+        key={indice}
+        href={trozo}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 hover:text-rose-200"
+      >
+        {trozo}
+      </a>
+    ) : (
+      trozo
+    ),
+  );
+}
+
 export function InformeMicroDialog({
   datos,
   onClose,
@@ -98,6 +126,17 @@ export function InformeMicroDialog({
   const [acciones, setAcciones] = useState<AccionAbp[] | null>(null);
 
   const [enviando, setEnviando] = useState(false);
+
+  /*
+  | Por qué el fallo del envío NO se queda en un aviso flotante.
+  |
+  | Los dos motivos por los que Gmail puede negarse —falta el permiso, falta
+  | activar la API— se arreglan **fuera de aquí**, en la consola de Google, y el
+  | aviso trae la dirección exacta a la que ir. Un `toast` se va solo a los
+  | segundos y no deja pulsar un enlace: el mensaje se queda en el pie del
+  | diálogo hasta el siguiente intento.
+  */
+  const [fallo, setFallo] = useState("");
 
   useEffect(() => {
     let cancelado = false;
@@ -329,6 +368,7 @@ export function InformeMicroDialog({
   const envia = async () => {
     if (enviando) return;
 
+
     const para = ajustes.destinatarios.trim();
 
     if (!para) {
@@ -337,6 +377,7 @@ export function InformeMicroDialog({
     }
 
     setEnviando(true);
+    setFallo("");
 
     try {
       const respuesta = await fetch("/api/abp/informe", {
@@ -378,9 +419,16 @@ export function InformeMicroDialog({
         },
       );
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "No se ha podido enviar.",
-      );
+      const dice =
+        error instanceof Error ? error.message : "No se ha podido enviar.";
+
+      setFallo(dice);
+
+      /* El aviso corto avisa; el largo, con la dirección a la que hay que ir,
+         se queda escrito debajo del botón. */
+      toast.error("No se ha podido enviar el informe", {
+        description: "Debajo del botón está el motivo.",
+      });
     } finally {
       setEnviando(false);
     }
@@ -393,6 +441,12 @@ export function InformeMicroDialog({
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
+          {fallo ? (
+            <p className="min-w-0 basis-full text-[11px] leading-relaxed text-rose-300">
+              {conEnlace(fallo)}
+            </p>
+          ) : null}
+
           <p className="min-w-0 text-[11px] text-white/35">
             Sale de la cuenta de Google del club, la misma que sube los vídeos
             al canal.
