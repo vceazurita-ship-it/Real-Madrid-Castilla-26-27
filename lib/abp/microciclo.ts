@@ -352,7 +352,64 @@ export type MicroPlan = {
   micro: number;
   rival: string;
   dias: Record<DiaKey, PlanDia>;
+  /**
+   * Cuántos días se entrenó de verdad, dicho a mano.
+   *
+   * Manda sobre lo que se deduzca del tipo de los días. Existe porque el tipo
+   * **no se puede creer cuando nadie lo ha tocado**: todo día nace como
+   * «entreno» (ver `diaDe`), así que un plan al que no se le marcan los
+   * descansos declara siete entrenamientos aunque se entrenaran cuatro, y el
+   * objetivo de minutos —que se prorratea por esos días— se iba siempre al
+   * máximo. Comprobado el 16/09/2026 en los microciclos 10 y 11: los siete
+   * días en «entreno», sin un solo descanso ni el día de partido.
+   */
+  diasEntrenados?: number;
 };
+
+/** De dónde sale el número de días de entrenamiento de la semana. */
+export type OrigenDias = "a mano" | "marcados" | "sin marcar";
+
+export type DiasDeLaSemana = {
+  dias: number;
+  origen: OrigenDias;
+  /** Días con algún trabajo de balón parado dentro. */
+  conAbp: number;
+};
+
+/**
+ * Los días que se entrenó en un microciclo.
+ *
+ * Tres casos, y el tercero es el que importa:
+ *
+ * - **A mano**: alguien escribió el número. Manda siempre; es el único dato
+ *   que nadie puede deducir con certeza.
+ * - **Marcados**: el plan tiene algún día de descanso o de partido, así que
+ *   el cuerpo técnico sí ha marcado la semana y sus «entreno» son de fiar.
+ * - **Sin marcar**: los siete días están como «entreno», que es el valor por
+ *   defecto de un día que nadie ha tocado. Eso **no es una semana de siete
+ *   entrenamientos**, es una semana sin marcar: se devuelven los días en los
+ *   que consta trabajo, y quien lo lea sabrá que es una lectura y no un dato.
+ */
+export function diasDeLaSemana(plan: MicroPlan | undefined): DiasDeLaSemana {
+  const dias = Object.values(diasCompletos(plan));
+
+  const conAbp = dias.filter((dia) => dia.trabajos.length > 0).length;
+
+  const aMano = Number(plan?.diasEntrenados);
+
+  if (Number.isFinite(aMano) && aMano > 0) {
+    return { dias: Math.min(7, Math.round(aMano)), origen: "a mano", conAbp };
+  }
+
+  const entrenos = dias.filter((dia) => dia.tipo === "entreno").length;
+
+  /* Si hay algún descanso o partido, la semana está marcada de verdad. */
+  if (entrenos < dias.length) {
+    return { dias: entrenos, origen: "marcados", conAbp };
+  }
+
+  return { dias: conAbp, origen: "sin marcar", conAbp };
+}
 
 /** Todo lo planificado, indexado por `claveMicro`. */
 export type MicroStore = {

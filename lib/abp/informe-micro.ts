@@ -39,6 +39,7 @@ import {
   normalizaTrabajo,
   type AbpLado,
   type DiaKey,
+  type OrigenDias,
   type TotalesPlan,
   type Trabajo,
 } from "./microciclo";
@@ -120,6 +121,14 @@ export type DatosInforme = {
    * de cuatro pide su parte, no los noventa enteros.
    */
   diasEntreno?: number;
+  /**
+   * De dónde sale ese número de días.
+   *
+   * Sin esto el informe no puede distinguir «se entrenaron cuatro días» de «no
+   * se sabe cuántos días se entrenó», y son cosas muy distintas para juzgar si
+   * la semana se quedó corta. Lo calcula `diasDeLaSemana`.
+   */
+  origenDias?: OrigenDias;
   /** Minutos del microciclo por `aspecto|lado`, para el reparto. */
   minutosPorAspecto?: { clave: string; minutos: number }[];
   /** Para poder fijar la fecha en las pruebas. */
@@ -144,6 +153,8 @@ export type ObjetivoSemana = {
   /** 0..1 contra el mínimo, para poder pintarlo. */
   cumplido: number;
   veredicto: "corto" | "dentro" | "pasado";
+  /** De dónde sale el número de días, para poder decirlo. */
+  origen: OrigenDias;
 };
 
 /**
@@ -151,10 +162,18 @@ export type ObjetivoSemana = {
  *
  * Sin prorratear, una semana de cuatro entrenamientos sale siempre en rojo
  * aunque se haya trabajado exactamente lo que tocaba.
+ *
+ * **El número de días tiene que venir de `diasDeLaSemana`**, que distingue los
+ * días marcados de un plan que nadie ha tocado. Pasar aquí el recuento crudo de
+ * días con `tipo === "entreno"` es lo que tuvo roto esto: como todo día nace
+ * «entreno», salían siete, el tope los dejaba en seis y el objetivo era
+ * 90-100′ **siempre**, en todas las semanas. El prorrateo no llegaba a
+ * activarse nunca.
  */
 export function objetivoDeLaSemana(
   minutos: number,
   diasEntreno: number,
+  origen: OrigenDias = "marcados",
 ): ObjetivoSemana {
   /*
   | El tope son seis, aunque la semana tenga siete días marcados.
@@ -180,7 +199,28 @@ export function objetivoDeLaSemana(
     faltan: Math.max(0, minimo - minutos),
     cumplido: minimo > 0 ? Math.min(1.4, minutos / minimo) : 0,
     veredicto: minutos < minimo ? "corto" : minutos > maximo ? "pasado" : "dentro",
+    origen,
   };
+}
+
+/** Cómo se explica en el informe de dónde salen los días contados. */
+export function explicaDias(objetivo: ObjetivoSemana) {
+  const dias = `${objetivo.diasEntreno} día${objetivo.diasEntreno === 1 ? "" : "s"}`;
+
+  if (objetivo.origen === "a mano") {
+    return `${dias} de entrenamiento, según lo anotado en el microciclo.`;
+  }
+
+  if (objetivo.origen === "marcados") {
+    return `${dias} de entrenamiento, según los días marcados en el plan.`;
+  }
+
+  return (
+    `${dias} con trabajo de balón parado. En el plan no hay ningún día marcado ` +
+    "como descanso ni como partido, así que no se puede saber cuántos días se " +
+    "entrenó: se cuentan los que tienen trabajo. Marcando los descansos —o " +
+    "escribiendo los días entrenados— el objetivo sale exacto."
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -660,7 +700,11 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   /* ---------------- el tiempo de la semana ---------------- */
 
-  const objetivo = objetivoDeLaSemana(totales.minutos, datos.diasEntreno ?? 0);
+  const objetivo = objetivoDeLaSemana(
+    totales.minutos,
+    datos.diasEntreno ?? 0,
+    datos.origenDias ?? "marcados",
+  );
 
   /*
   | El reparto por día sale de las entradas, no del plan: lo que importa aquí
@@ -697,6 +741,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     minimo: objetivo.minimo,
     maximo: objetivo.maximo,
     diasEntreno: objetivo.diasEntreno,
+    origenDias: objetivo.origen,
     veredicto: objetivo.veredicto,
     porDia,
     porAspecto: [...porAspectoMapa.entries()]
@@ -1032,7 +1077,7 @@ ${seccion(
 
 ${seccion(
   "El tiempo de la semana",
-  `${fmtMin(informe.tiempo.minutos)} de balón parado en ${informe.objetivo.diasEntreno} día${informe.objetivo.diasEntreno === 1 ? "" : "s"} de entrenamiento. El objetivo del cuerpo técnico son 90-100 minutos en una semana de seis, así que aquí tocaban ${informe.objetivo.minimo}-${informe.objetivo.maximo}.`,
+  `${fmtMin(informe.tiempo.minutos)} de balón parado. ${explicaDias(informe.objetivo)} El objetivo del cuerpo técnico son 90-100 minutos en una semana de seis entrenamientos, así que la parte que toca en ésta son ${informe.objetivo.minimo}-${informe.objetivo.maximo}.`,
   `${tabla(
     ["", "Minutos", "Objetivo", "Diferencia"],
     [
@@ -1051,6 +1096,16 @@ ${seccion(
 )}
 
 ${seccion("La semana, tarea a tarea", "Lo planificado de balón parado, día a día. «est.» es carga estimada; el resto viene medida de la hoja de registro.", semana)}
+
+${
+  bloqueGraficos(informe, modoImagenes, "partido").trim()
+    ? seccion(
+        "Nuestro partido, por las dos vías",
+        "Lo mismo contado por Wyscout y por nosotros. Wyscout mide igual a todos los equipos, así que vale para comparar; nuestro registro llega a donde él no llega —la falta lateral separada, el saque de banda— y es el único que trae goles, porque el analista escribe el resultado de cada acción. Que las dos vías no den lo mismo es normal: no cuentan lo mismo.",
+        bloqueGraficos(informe, modoImagenes, "partido"),
+      )
+    : ""
+}
 
 ${seccion(
   "Cómo estamos contra la categoría",

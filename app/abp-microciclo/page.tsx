@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 
 import { InformeMicroDialog } from "@/components/abp/InformeMicroDialog";
+import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
 
 import { toast } from "sonner";
 
@@ -76,6 +77,7 @@ import {
   claveAspecto,
   claveMicro,
   diasCompletos,
+  diasDeLaSemana,
   duplicaTrabajo,
   etiquetaTrabajo,
   fmtMin,
@@ -340,6 +342,29 @@ export default function AbpMicrocicloPage() {
     [mutaPlan],
   );
 
+  /**
+   * Cuántos días se entrenó, dicho a mano.
+   *
+   * Vacío vuelve a lo deducido del plan. Existe porque el tipo de los días no
+   * se puede creer mientras nadie lo toque: todo día nace «entreno», así que
+   * una semana sin marcar declaraba siete entrenamientos y el objetivo de
+   * minutos salía al máximo en todas.
+   */
+  const cambiaDiasEntrenados = useCallback(
+    (texto: string) =>
+      mutaPlan((actual) => {
+        const numero = Number.parseInt(texto, 10);
+
+        const limpio =
+          Number.isFinite(numero) && numero > 0
+            ? Math.min(7, numero)
+            : undefined;
+
+        return { ...actual, diasEntrenados: limpio };
+      }),
+    [mutaPlan],
+  );
+
   const cambiaRival = useCallback(
     (rival: string) => mutaPlan((actual) => ({ ...actual, rival })),
     [mutaPlan],
@@ -577,6 +602,14 @@ export default function AbpMicrocicloPage() {
   const entradas = useMemo(() => trabajosDelPlan(plan), [plan]);
   const totales = useMemo(() => totalesDe(entradas), [entradas]);
 
+  /* Los días que cuentan para el objetivo, y de dónde sale ese número. */
+  const semana = useMemo(() => diasDeLaSemana(plan), [plan]);
+
+  const objetivoSemana = useMemo(
+    () => objetivoDeLaSemana(totales.minutos, semana.dias, semana.origen),
+    [totales.minutos, semana],
+  );
+
   const minutosMicro = useMemo(() => minutosPorAspecto(entradas), [entradas]);
 
   const minutosTemporada = useMemo(() => {
@@ -800,6 +833,42 @@ export default function AbpMicrocicloPage() {
                   placeholder="Contra quién se juega"
                   className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
                 />
+              </span>
+            </label>
+
+            {/*
+              LOS DÍAS QUE SE ENTRENÓ.
+              |
+              | Con ellos se prorratea el objetivo de balón parado de la semana
+              | (90-100′ en una de seis). Si se deja vacío se deduce del plan,
+              | pero esa deducción sólo es fiable cuando los descansos están
+              | marcados: todo día nace como «entreno», así que una semana sin
+              | tocar declara siete. El recuadro dice qué número se está usando
+              | y de dónde sale, para que no haya que abrir el informe para
+              | descubrirlo.
+            */}
+            <label className="block w-[150px]">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                Días entrenados
+              </span>
+
+              <input
+                type="number"
+                min={0}
+                max={7}
+                value={plan.diasEntrenados ?? ""}
+                onChange={(event) => cambiaDiasEntrenados(event.target.value)}
+                placeholder={String(semana.dias)}
+                title="En blanco se deduce del plan. Se usa para prorratear el objetivo de minutos."
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+              />
+
+              <span className="mt-1 block text-[10px] leading-snug text-white/35">
+                {semana.origen === "a mano"
+                  ? `Objetivo: ${objetivoSemana.minimo}-${objetivoSemana.maximo}′`
+                  : semana.origen === "marcados"
+                    ? `${semana.dias} en el plan · objetivo ${objetivoSemana.minimo}-${objetivoSemana.maximo}′`
+                    : `Sin descansos marcados: se leen ${semana.dias} con trabajo`}
               </span>
             </label>
 
@@ -1204,15 +1273,15 @@ export default function AbpMicrocicloPage() {
             | objetivo de minutos de ABP (90-100′ en una semana de seis, y su
             | parte en las de menos; el tope de seis lo pone el propio cálculo).
             |
-            | Es el tipo de día del plan, y no «los días con ABP»: un lunes de
-            | entrenamiento sin balón parado **sigue siendo** un día en el que
-            | se podía haber trabajado, así que tiene que contar para el
-            | objetivo. Contando sólo los que ya tenían ABP, el objetivo se
-            | encogía hasta darlo por cumplido siempre.
+            | Aquí se contaban los días con `tipo === "entreno"` a pelo, y eso
+            | estaba roto: **todo día nace «entreno»**, así que un plan al que
+            | nadie marca los descansos declaraba siete y el objetivo salía
+            | 90-100′ en todas las semanas. `diasDeLaSemana` distingue los tres
+            | casos y dice de cuál viene el número, para que el informe pueda
+            | contarlo en vez de dar una cifra que nadie puede comprobar.
             */
-            diasEntreno: Object.values(plan.dias).filter(
-              (dia) => dia.tipo === "entreno",
-            ).length,
+            diasEntreno: diasDeLaSemana(plan).dias,
+            origenDias: diasDeLaSemana(plan).origen,
             minutosPorAspecto: [...minutosMicro.entries()].map(
               ([clave, minutos]) => ({ clave, minutos }),
             ),

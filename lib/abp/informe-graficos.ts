@@ -88,6 +88,25 @@ export type PropioAbp = {
   ofensivo: { acciones: number; remates: number; goles: number; peligros: number; xg: number };
   defensivo: { acciones: number; remates: number; goles: number; peligros: number; xg: number };
   porAspecto: { etiqueta: string; acciones: number; peligro: number; goles: number }[];
+  /**
+   * Lo mismo, pero partido por familia **y por lado**, sin pegar el lado al
+   * texto de la etiqueta.
+   *
+   * `porAspecto` junta las dos cosas en una cadena («corner (en contra)»), que
+   * vale para una lista pero no para poner el córner a favor al lado del
+   * córner en contra: para eso hacen falta separados. Las familias son las de
+   * la hoja —`corner`, `falta-lateral`, `banda`…—, sin traducir, que de eso se
+   * encarga quien pinta.
+   */
+  porFamiliaYLado: {
+    familia: string;
+    lado: "ofensivo" | "defensivo";
+    acciones: number;
+    remates: number;
+    goles: number;
+    peligros: number;
+    xg: number;
+  }[];
   porJornada: { etiqueta: string; acciones: number; peligro: number; goles: number; nota: string }[];
   rematadores: { jugador: string; total: number; peligro: number }[];
   sacadores: { jugador: string; total: number; peligro: number }[];
@@ -856,6 +875,15 @@ export type TiempoSemana = {
   minimo: number;
   maximo: number;
   diasEntreno: number;
+  /**
+   * Si esos días son un dato o una lectura.
+   *
+   * `sin marcar` significa que en el plan no hay ningún descanso ni partido
+   * puesto —todo día nace «entreno»—, así que lo que se cuenta son los días con
+   * trabajo. El gráfico no puede afirmar «se entrenó cuatro días» en ese caso:
+   * diría como dato algo que nadie ha declarado.
+   */
+  origenDias?: "a mano" | "marcados" | "sin marcar";
   veredicto: "corto" | "dentro" | "pasado";
   /** Minutos por día de la semana, en orden. */
   porDia: { etiqueta: string; minutos: number; esEntreno: boolean }[];
@@ -882,7 +910,7 @@ export function termometroTiempo(tiempo: TiempoSemana, ancho = 760, alto = 200) 
     ancho,
     alto,
     "Minutos de balón parado de la semana",
-    `Objetivo del cuerpo técnico: 90-100 minutos en una semana de seis entrenamientos. Con ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"}, la parte que toca son ${tiempo.minimo}-${tiempo.maximo}.`,
+    `Objetivo del cuerpo técnico: 90-100 minutos en una semana de seis entrenamientos. Con ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"}${tiempo.origenDias === "sin marcar" ? " con trabajo" : ""}, la parte que toca son ${tiempo.minimo}-${tiempo.maximo}.`,
   );
 
   const x0 = 4;
@@ -1329,6 +1357,133 @@ export function seguimientoAbp(
 }
 
 /** Qué se trabaja y qué renta, aspecto por aspecto, de nuestras hojas. */
+/* ------------------------------------------------------------------ */
+/*  NUESTRO PARTIDO: LAS DOS VÍAS                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Una familia de balón parado, a favor contra en contra, según **Wyscout**.
+ *
+ * Dos barras por métrica: lo que hacemos y lo que nos hacen. Es el espejo más
+ * directo que hay del balón parado, porque las dos cifras salen del mismo
+ * informe del mismo partido.
+ *
+ * **Wyscout no separa la falta lateral del resto de faltas ni cuenta el saque
+ * de banda**, así que por esta vía sólo se puede pintar el córner y la falta
+ * lanzada entera. El desglose fino vive en nuestro registro, donde el analista
+ * sí lo escribe.
+ */
+export function wyscoutPorFamilia(
+  comparativa: ComparativaAbp,
+  claves: { cantidad: string; remate: string },
+  titulo: string,
+  ancho = 760,
+  alto = 200,
+) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const nuestros = comparativa.nosotros?.valores ?? {};
+
+  const cantidad = nuestros[claves.cantidad] ?? { favor: null, contra: null };
+  const remate = nuestros[claves.remate] ?? { favor: null, contra: null };
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    titulo,
+    `Lo que Wyscout mide en nuestros ${comparativa.jugados} partido${
+      comparativa.jugados === 1 ? "" : "s"
+    }, por partido: a favor y en contra.`,
+  );
+
+  const filas = [
+    {
+      rotulo: "A favor",
+      valor: cantidad.favor ?? 0,
+      extra: remate.favor === null ? undefined : `${fmt(remate.favor, 0)} % con remate`,
+      destaca: true,
+    },
+    {
+      rotulo: "En contra",
+      valor: cantidad.contra ?? 0,
+      extra: remate.contra === null ? undefined : `${fmt(remate.contra, 0)} % con remate`,
+    },
+  ];
+
+  barras(ctx, caja, ancho, filas, NAVY);
+
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * Una familia de balón parado según **nuestro registro**, a favor y en contra.
+ *
+ * Aquí el dato es más rico que en Wyscout —lleva goles, porque el analista
+ * escribe el resultado de cada acción— y llega a donde Wyscout no llega: la
+ * falta lateral separada de la directa y el saque de banda, que ninguna
+ * plataforma cuenta.
+ */
+export function nuestroPorFamilia(
+  propio: PropioAbp,
+  familia: string,
+  titulo: string,
+  ancho = 760,
+  alto = 200,
+) {
+  const { canvas, ctx } = lienzo(ancho, alto);
+
+  const suyas = (propio.porFamiliaYLado ?? []).filter(
+    (una) => una.familia === familia,
+  );
+
+  const lado = (cual: "ofensivo" | "defensivo") =>
+    suyas.find((una) => una.lado === cual);
+
+  const caja = marco(
+    ctx,
+    ancho,
+    alto,
+    titulo,
+    `Lo que registra el cuerpo técnico en ${propio.partidos} partido${
+      propio.partidos === 1 ? "" : "s"
+    }: acciones, cuántas acaban en peligro y los goles.`,
+  );
+
+  const fila = (cual: "ofensivo" | "defensivo", rotulo: string) => {
+    const datos = lado(cual);
+
+    const acciones = datos?.acciones ?? 0;
+    const peligros = datos?.peligros ?? 0;
+    const goles = datos?.goles ?? 0;
+
+    const trozos: string[] = [];
+
+    if (acciones > 0) {
+      trozos.push(`${Math.round((peligros / acciones) * 100)} % peligro`);
+    }
+
+    if (goles > 0) trozos.push(`${goles} gol${goles === 1 ? "" : "es"}`);
+
+    return {
+      rotulo,
+      valor: acciones,
+      extra: trozos.length ? trozos.join(" · ") : undefined,
+      destaca: cual === "ofensivo",
+    };
+  };
+
+  barras(
+    ctx,
+    caja,
+    ancho,
+    [fila("ofensivo", "A favor"), fila("defensivo", "En contra")],
+    ORO,
+  );
+
+  return canvas.toDataURL("image/png");
+}
+
 export function nuestroPorAspecto(propio: PropioAbp, ancho = 760, alto = 320) {
   const { canvas, ctx } = lienzo(ancho, alto);
 
@@ -1529,6 +1684,12 @@ export function nuestrosNombres(propio: PropioAbp, ancho = 760, alto = 320) {
 export type AreaGrafico =
   | "destacados"
   | "tiempo"
+  /**
+   * Nuestro partido, por las dos vías: lo que mide Wyscout y lo que registra
+   * el cuerpo técnico. Va justo detrás del microciclo, porque es la pregunta
+   * que sigue a «qué hemos entrenado»: qué ha salido de eso en el campo.
+   */
+  | "partido"
   | "wyscout"
   | "nuestro"
   | "contenidos"
@@ -1612,7 +1773,9 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
       "d-tiempo",
       "¿Hemos dedicado el tiempo que tocaba?",
       "destacados",
-      `La barra son los minutos de ABP de la semana; la franja verde, el objetivo prorrateado por los ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"} que se ha entrenado.`,
+      tiempo.origenDias === "sin marcar"
+        ? `La barra son los minutos de ABP de la semana; la franja verde, el objetivo prorrateado por los ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"} en los que consta trabajo. En el plan no hay descansos marcados, así que ése es el número que se puede leer, no el de días entrenados.`
+        : `La barra son los minutos de ABP de la semana; la franja verde, el objetivo prorrateado por los ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"} que se ha entrenado.`,
       termometroTiempo(tiempo),
     );
   }
@@ -1774,6 +1937,87 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
         "wyscout",
         "Lo mismo con el porcentaje que acaba en remate: dice si el trabajo de estos años ha movido la aguja.",
         temporadas(liga, medidaDe(liga, "cornersRemate")),
+      );
+    }
+  }
+
+  /* ============ 3.5 · NUESTRO PARTIDO, POR LAS DOS VÍAS ============ */
+
+  /*
+  | Lo mismo contado por Wyscout y por nosotros, uno detrás de otro.
+  |
+  | Va aquí —detrás del microciclo y delante del resto— porque es la pregunta
+  | que sigue a «qué hemos entrenado»: qué ha salido de eso en el campo.
+  |
+  | **Wyscout no separa la falta lateral ni cuenta el saque de banda**, así que
+  | por esa vía sólo salen el córner y la falta lanzada entera. La falta lateral
+  | y la banda existen abajo, en nuestro registro, que es el único sitio donde
+  | alguien las escribe.
+  */
+  if (comparativa?.nosotros) {
+    mete(
+      "p-wys-corner",
+      "Córner · lo que mide Wyscout",
+      "partido",
+      "Córners por partido, a favor y en contra, con el porcentaje que acaba en remate. Wyscout mide igual a todos los equipos, así que esta cifra sí se puede comparar con la de cualquier rival.",
+      wyscoutPorFamilia(
+        comparativa,
+        { cantidad: "corners", remate: "cornersRemate" },
+        "Córners por partido (Wyscout)",
+      ),
+    );
+
+    mete(
+      "p-wys-falta",
+      "Falta lanzada · lo que mide Wyscout",
+      "partido",
+      "Faltas lanzadas por partido, a favor y en contra. Ojo: Wyscout no separa la lateral de la directa, las cuenta todas juntas; el desglose está abajo, en nuestro registro.",
+      wyscoutPorFamilia(
+        comparativa,
+        { cantidad: "faltasTiro", remate: "faltasRemate" },
+        "Faltas lanzadas por partido (Wyscout)",
+      ),
+    );
+  }
+
+  if (propio && propio.acciones > 0) {
+    const hayFamilia = (familia: string) =>
+      (propio.porFamiliaYLado ?? []).some(
+        (una) => una.familia === familia && una.acciones > 0,
+      );
+
+    const nuestras: { familia: string; cid: string; titulo: string; pie: string }[] = [
+      {
+        familia: "corner",
+        cid: "p-nos-corner",
+        titulo: "Córner · lo que registramos nosotros",
+        pie: "Córners a favor y en contra según nuestras hojas, con el porcentaje que acaba en peligro y los goles. Esto trae goles y Wyscout no: aquí el analista escribe el resultado de cada acción.",
+      },
+      {
+        familia: "falta-lateral",
+        cid: "p-nos-falta",
+        titulo: "Falta lateral · lo que registramos nosotros",
+        pie: "La falta lateral separada de la directa, que es como se entrena y como se defiende. Ninguna plataforma la da así de desglosada.",
+      },
+      {
+        familia: "banda",
+        cid: "p-nos-banda",
+        titulo: "Saque de banda · lo que registramos nosotros",
+        pie: "Saques de banda a favor y en contra. No lo cuenta ni Wyscout ni Opta: sale entero de nuestras dos hojas de banda.",
+      },
+    ];
+
+    for (const una of nuestras) {
+      /* Una familia sin una sola acción no se pinta: un gráfico vacío ocupa
+         lo mismo que uno lleno y no dice nada. */
+      if (!hayFamilia(una.familia)) continue;
+
+      mete(
+        una.cid,
+        una.titulo,
+        "partido",
+        una.pie,
+        nuestroPorFamilia(propio, una.familia, una.titulo),
       );
     }
   }

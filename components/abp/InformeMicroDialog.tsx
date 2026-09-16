@@ -265,6 +265,38 @@ export function InformeMicroDialog({
       }))
       .sort((a, b) => b.acciones - a.acciones);
 
+    /*
+    | Lo mismo, con la familia y el lado SEPARADOS.
+    |
+    | `porAspecto` los pega en una cadena («corner (en contra)»), que sirve para
+    | una lista pero no para poner el córner a favor junto al córner en contra,
+    | que es lo que pide el informe del partido. El lado sale del bloque de la
+    | hoja: las que acaban en «Def» son las que nos hacen.
+    */
+    const porLado = new Map<string, AccionAbp[]>();
+
+    acciones.forEach((una) => {
+      const lado = una.bloque.endsWith("Def") ? "defensivo" : "ofensivo";
+
+      const clave = `${una.familia}|${lado}`;
+
+      porLado.set(clave, [...(porLado.get(clave) ?? []), una]);
+    });
+
+    const porFamiliaYLado = [...porLado.entries()].map(([clave, lista]) => {
+      const [familia, lado] = clave.split("|");
+
+      return {
+        familia,
+        lado: lado as "ofensivo" | "defensivo",
+        acciones: lista.length,
+        remates: lista.filter((una) => una.remate).length,
+        goles: lista.filter((una) => una.gol).length,
+        peligros: lista.filter((una) => una.peligro).length,
+        xg: Number(lista.reduce((suma, una) => suma + una.xg, 0).toFixed(2)),
+      };
+    });
+
     /* Por jornada, en orden de calendario y con la pretemporada delante. */
     const porClave = new Map<string, AccionAbp[]>();
 
@@ -302,6 +334,7 @@ export function InformeMicroDialog({
       ofensivo: resume(ofensivas),
       defensivo: resume(defensivas),
       porAspecto,
+      porFamiliaYLado,
       porJornada,
       /* Los nombres sólo valen en lo nuestro: en las hojas defensivas el que
          remata es del rival. */
