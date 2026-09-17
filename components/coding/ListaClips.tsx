@@ -133,14 +133,41 @@ export function ListaClips({
 
             const activo = clip.id === seleccionado;
 
-            /* Sólo se mueve dentro de su vídeo: ver `videoDe`. */
-            const delMismoVideo = (otro: ClipCoding | undefined) =>
-              otro && (!videoDe || videoDe(otro) === videoDe(clip))
-                ? otro
-                : undefined;
+            /*
+            | El vecino con el que se intercambia sitio.
+            |
+            | Aquí hubo un fallo que dejó el reordenar inservible: se exigía
+            | que el vecino fuera **del mismo vídeo**, y en la forma de trabajo
+            | más habitual —un corte por vídeo, los veintidós clips de un
+            | jugador— ningún clip tiene vecino de su vídeo. Resultado: las
+            | cuarenta flechas desactivadas y el arrastre rechazado, sin que
+            | nada dijera por qué.
+            |
+            | Sólo se restringe cuando de verdad importa: si el clip comparte
+            | vídeo con otros, su orden **dentro** de ese vídeo es lo que manda
+            | al exportar y moverlo fuera no significaría nada. Si es el único
+            | de su vídeo, moverlo es reordenar los vídeos, que es justo lo que
+            | se quiere poder hacer.
+            */
+            const compartenVideo = (otro: ClipCoding | undefined) => {
+              if (!otro) return undefined;
 
-            const anterior = delMismoVideo(clips[indice - 1]);
-            const siguiente = delMismoVideo(clips[indice + 1]);
+              if (!videoDe) return otro;
+
+              const suyo = videoDe(clip);
+
+              /* ¿Hay algún otro corte en su mismo vídeo? */
+              const conHermanos = clips.some(
+                (uno) => uno.id !== clip.id && videoDe(uno) === suyo,
+              );
+
+              if (!conHermanos) return otro;
+
+              return videoDe(otro) === suyo ? otro : undefined;
+            };
+
+            const anterior = compartenVideo(clips[indice - 1]);
+            const siguiente = compartenVideo(clips[indice + 1]);
 
             const marca =
               destino && destino.id === clip.id && arrastrado !== clip.id
@@ -156,11 +183,25 @@ export function ListaClips({
                 onDragOver={(evento) => {
                   if (!arrastrado) return;
 
-                  /* Otro vídeo: aquí no se suelta. */
+                  /*
+                  | Sólo se impide soltar en otro vídeo cuando el clip que se
+                  | arrastra comparte vídeo con otros: entonces su orden dentro
+                  | de ese vídeo es lo que manda al exportar. Con un corte por
+                  | vídeo, arrastrar ES reordenar los vídeos, y bloquearlo
+                  | dejaba el arrastre muerto (ver `compartenVideo`).
+                  */
                   if (videoDe) {
                     const suyo = clips.find((uno) => uno.id === arrastrado);
 
-                    if (suyo && videoDe(suyo) !== videoDe(clip)) return;
+                    if (suyo) {
+                      const deEl = videoDe(suyo);
+
+                      const conHermanos = clips.some(
+                        (uno) => uno.id !== suyo.id && videoDe(uno) === deEl,
+                      );
+
+                      if (conHermanos && deEl !== videoDe(clip)) return;
+                    }
                   }
 
                   /* Sin esto el navegador no deja soltar: es la forma de decir
