@@ -106,19 +106,29 @@ export function PanelOnce({
       }
     }
 
+    /* Los que más han jugado primero: es el criterio de «quién es titular». */
+    const porMinutos = (a: (typeof deCasa)[number], b: (typeof deCasa)[number]) =>
+      (minutosDe.get(b.nombre.toLowerCase()) ?? 0) -
+      (minutosDe.get(a.nombre.toLowerCase()) ?? 0);
+
     for (const hueco of HUECOS) {
       if (puestos.has(hueco.clave)) continue;
 
-      const candidato = deCasa
-        .filter(
-          (uno) =>
-            !usados.has(uno.id) && puestoDeLaHoja(uno.posicion ?? "") === hueco.puesto,
-        )
-        .sort(
-          (a, b) =>
-            (minutosDe.get(b.nombre.toLowerCase()) ?? 0) -
-            (minutosDe.get(a.nombre.toLowerCase()) ?? 0),
-        )[0];
+      const libres = deCasa.filter((uno) => !usados.has(uno.id));
+
+      /*
+      | Si no queda nadie de ese puesto, se pone al que más haya jugado de los
+      | que quedan, en vez de dejar el hueco en blanco.
+      |
+      | Pasa de verdad: la plantilla tiene cuatro medios contando a uno que ya
+      | no está en el club, así que al tercer medio no le queda candidato. Un
+      | desplegable vacío no dice nada y además deja la rejilla coja; puesto
+      | alguien, se ve el once entero y se cambia a mano en un toque.
+      */
+      const candidato =
+        libres
+          .filter((uno) => puestoDeLaHoja(uno.posicion ?? "") === hueco.puesto)
+          .sort(porMinutos)[0] ?? libres.sort(porMinutos)[0];
 
       if (candidato) {
         puestos.set(hueco.clave, candidato.id);
