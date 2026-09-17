@@ -35,7 +35,7 @@ import {
   type LineaOnce,
 } from "@/lib/data-analisis/once";
 import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
-import type { FilaJugador } from "@/lib/data-analisis/leer";
+import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
 
 /** Los once puestos de la pizarra, en el orden en que se rellena un once. */
@@ -56,15 +56,69 @@ const HUECOS: { clave: string; rotulo: string; puesto: Puesto }[] = [
 export function PanelOnce({
   jugadores,
   eventos,
+  nuestros,
+  sistema,
+  competicion,
 }: {
   /** Las filas de Wyscout, de todos los equipos: hacen falta para el percentil. */
   jugadores: FilaJugador[];
   eventos: PartidoEventos[];
+  /**
+   * Los partidos del Castilla que ha dejado pasar la barra de arriba, ya
+   * recortados por temporada, competición y sistema.
+   *
+   * Es lo que ata esta pantalla a esos selectores: hasta ahora se enseñaban
+   * encima del once y no hacían nada, que es peor que no tenerlos —se cambia
+   * el sistema, no se mueve un número, y no hay forma de saber si es que no
+   * hay dato o es que está roto—.
+   */
+  nuestros: FilaPartido[];
+  /** Lo elegido arriba, sólo para poder decir en qué se está mirando. */
+  sistema: string;
+  competicion: string;
 }) {
   const { players, loading } = usePlayers();
   const { season } = useRatingsSeason();
 
   const [fuente, setFuente] = useState<FuenteOnce>("wyscout");
+
+  /*
+  | LAS FECHAS QUE ENTRAN.
+  |
+  | Se cruza **sólo por fecha**, y a propósito: Wyscout escribe «Real Madrid
+  | Castilla» y el log de Opta «Real Madrid II», así que atar por nombre
+  | obligaría a mantener una tabla de equivalencias que se rompe sola. Como el
+  | conjunto de partida ya son NUESTROS partidos, una fecha identifica uno sin
+  | ambigüedad: un equipo no juega dos veces el mismo día.
+  */
+  const fechas = useMemo(
+    () => new Set(nuestros.map((uno) => uno.fecha)),
+    [nuestros],
+  );
+
+  /* El log de Opta es por partido, así que se recorta de verdad. */
+  const susEventos = useMemo(
+    () => eventos.filter((uno) => fechas.has(uno.fecha)),
+    [eventos, fechas],
+  );
+
+  /*
+  | Y nuestras valoraciones también: son por partido (Individual →
+  | Valoraciones), así que se recorta la temporada a los partidos elegidos y se
+  | vuelve a resumir. Las medias, la forma y la tendencia salen ya sólo de
+  | esos, en vez de ser las del curso entero con otro rótulo encima.
+  */
+  const suTemporada = useMemo(
+    () => ({
+      ...season,
+      matches: Object.fromEntries(
+        Object.entries(season.matches).filter(([, uno]) =>
+          fechas.has(uno.match.date),
+        ),
+      ),
+    }),
+    [fechas, season],
+  );
 
   /* Quién ocupa cada hueco. Vacío = se propone solo, por minutos jugados. */
   const [elegidos, setElegidos] = useState<Record<string, string>>({});
@@ -145,7 +199,10 @@ export function PanelOnce({
     });
   }, [deCasa, elegidos, minutosDe]);
 
-  const resumenes = useMemo(() => [...summarizeAll(season).values()], [season]);
+  const resumenes = useMemo(
+    () => [...summarizeAll(suTemporada).values()],
+    [suTemporada],
+  );
 
   const resuelto = useMemo(
     () =>
@@ -159,17 +216,63 @@ export function PanelOnce({
           })),
         jugadores,
         resumenes,
-        eventos,
+        susEventos,
       ),
-    [once, jugadores, resumenes, eventos],
+    [once, jugadores, resumenes, susEventos],
   );
 
   const rejilla = useMemo(
-    () => rejillaDe(fuente, resuelto, jugadores, eventos),
-    [fuente, resuelto, jugadores, eventos],
+    () => rejillaDe(fuente, resuelto, jugadores, susEventos),
+    [fuente, resuelto, jugadores, susEventos],
   );
 
   const pregunta = FUENTES.find((una) => una.key === fuente)?.pregunta ?? "";
+
+  /*
+  | QUÉ ALCANCE TIENE LO QUE SE ESTÁ MIRANDO.
+  |
+  | Las tres fuentes no obedecen igual al recorte de arriba, y callarlo sería
+  | el peor de los fallos: enseñar la cifra de la temporada entera con un
+  | «4-4-2» puesto en la barra la convierte en una mentira. Así que cada vista
+  | dice qué está contando y, si no puede recortarse, lo dice también.
+  */
+  const recorte = sistema || competicion.replace(/^Spain\.\s*/, "");
+
+  const alcance = useMemo(() => {
+    const cuantos = nuestros.length;
+
+    const partidos = `${cuantos} partido${cuantos === 1 ? "" : "s"} del Castilla`;
+
+    if (fuente === "wyscout") {
+      return recorte
+        ? [
+            `Wyscout da una fila por jugador y temporada, no por partido: esta rejilla es la del curso entero y NO está recortada a ${recorte}.`,
+            `Para ver el once por ${sistema ? "sistema" : "competición"}, cambia a Opta o a Nuestra valoración, que sí son por partido.`,
+          ]
+        : [];
+    }
+
+    if (cuantos === 0) {
+      return [
+        `No queda ningún partido del Castilla${recorte ? ` con ${recorte}` : ""} en lo elegido arriba.`,
+      ];
+    }
+
+    const valorados = Object.keys(suTemporada.matches).length;
+
+    return fuente === "nuestra"
+      ? [
+          `${partidos}${recorte ? ` con ${recorte}` : ""}, de los que ${valorados} ${
+            valorados === 1 ? "está valorado" : "están valorados"
+          }: las notas, la forma y la tendencia salen sólo de ésos.`,
+        ]
+      : [`${partidos}${recorte ? ` con ${recorte}` : ""} en lo elegido arriba.`];
+  }, [fuente, nuestros.length, recorte, sistema, suTemporada.matches]);
+
+  const avisos = useMemo(
+    () => [...alcance, ...rejilla.avisos],
+    [alcance, rejilla.avisos],
+  );
 
   if (loading) {
     return (
@@ -273,18 +376,24 @@ export function PanelOnce({
         {/* ----------------------- LA REJILLA ----------------------- */}
 
         <div className="min-w-0">
-          {rejilla.avisos.length > 0 && (
+          {avisos.length > 0 && (
             <div className="mb-4">
               <Notice
-                tone={fuente === "opta" ? "warn" : "info"}
+                tone={
+                  fuente === "opta" || (fuente === "wyscout" && recorte)
+                    ? "warn"
+                    : "info"
+                }
                 title={
-                  fuente === "opta"
-                    ? "Antes de leer esto"
-                    : "Lo que falta por cubrir"
+                  fuente === "wyscout" && recorte
+                    ? `Esta vista no se puede recortar a ${recorte}`
+                    : fuente === "opta"
+                      ? "Antes de leer esto"
+                      : "Qué se está contando"
                 }
               >
                 <ul className="space-y-1">
-                  {rejilla.avisos.map((aviso) => (
+                  {avisos.map((aviso) => (
                     <li key={aviso}>{aviso}</li>
                   ))}
                 </ul>

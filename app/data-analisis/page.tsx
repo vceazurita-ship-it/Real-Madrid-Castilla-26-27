@@ -1502,6 +1502,9 @@ export default function DataAnalisisPage() {
                   <PanelOnce
                     jugadores={datos.jugadores ?? []}
                     eventos={datos.eventos ?? []}
+                    nuestros={nuestros}
+                    sistema={sistema}
+                    competicion={competicion}
                   />
                 )}
 
