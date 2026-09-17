@@ -20,7 +20,6 @@
  */
 
 import { useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import {
   CalendarDays,
   Check,
@@ -69,12 +68,12 @@ import {
   type JornadaQuiniela,
   type Signo,
 } from "@/lib/quiniela/modelo";
+import { Avatar } from "@/components/quiniela/Avatar";
 import {
   INICIALES_SIN_DUENO,
   JUEGAN_POR_DEFECTO,
   PERSONA_POR_SLUG,
   STAFF,
-  fotoDe,
   nombreCorto,
 } from "@/lib/quiniela/staff";
 
@@ -405,13 +404,7 @@ export default function QuinielaPage() {
                             : "border-white/10 bg-white/[0.02] hover:border-white/25"
                         }`}
                       >
-                        <Image
-                          src={fotoDe(slug)}
-                          alt=""
-                          width={28}
-                          height={28}
-                          className="h-7 w-7 shrink-0 rounded-full object-cover"
-                        />
+                        <Avatar slug={slug} lado={28} />
 
                         <span className="text-left">
                           <span className="block text-[12px] font-medium text-white">
@@ -690,13 +683,7 @@ export default function QuinielaPage() {
 
                               <td className="py-1.5 pl-2">
                                 <span className="flex items-center gap-2">
-                                  <Image
-                                    src={fotoDe(fila.slug)}
-                                    alt=""
-                                    width={24}
-                                    height={24}
-                                    className="h-6 w-6 shrink-0 rounded-full object-cover"
-                                  />
+                                  <Avatar slug={fila.slug} lado={24} />
 
                                   <span className="min-w-0">
                                     <span className="block truncate text-white/85">
@@ -777,13 +764,7 @@ export default function QuinielaPage() {
                           {indice + 1}
                         </span>
 
-                        <Image
-                          src={fotoDe(fila.slug)}
-                          alt=""
-                          width={26}
-                          height={26}
-                          className="h-[26px] w-[26px] shrink-0 rounded-full object-cover"
-                        />
+                        <Avatar slug={fila.slug} lado={26} />
 
                         <span className="min-w-0">
                           <span
