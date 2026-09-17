@@ -29,11 +29,12 @@ import {
   FUENTES,
   LINEAS,
   armaOnce,
+  puestoDeLaHoja,
   rejillaDe,
   type FuenteOnce,
   type LineaOnce,
 } from "@/lib/data-analisis/once";
-import { PUESTOS, puestoDe, type Puesto } from "@/lib/data-analisis/individual";
+import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
 
@@ -111,7 +112,7 @@ export function PanelOnce({
       const candidato = deCasa
         .filter(
           (uno) =>
-            !usados.has(uno.id) && puestoDe(uno.posicion ?? "") === hueco.puesto,
+            !usados.has(uno.id) && puestoDeLaHoja(uno.posicion ?? "") === hueco.puesto,
         )
         .sort(
           (a, b) =>
@@ -206,13 +207,13 @@ export function PanelOnce({
           <div className="space-y-2">
             {once.map(({ hueco, jugador }) => {
               const delPuesto = deCasa
-                .filter((uno) => puestoDe(uno.posicion ?? "") === hueco.puesto)
+                .filter((uno) => puestoDeLaHoja(uno.posicion ?? "") === hueco.puesto)
                 .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
               /* Quien no sea del puesto también se puede poner: un central
                  puede jugar de lateral y el cuerpo técnico lo sabe mejor. */
               const resto = deCasa
-                .filter((uno) => puestoDe(uno.posicion ?? "") !== hueco.puesto)
+                .filter((uno) => puestoDeLaHoja(uno.posicion ?? "") !== hueco.puesto)
                 .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
               return (

@@ -153,6 +153,45 @@ function media(valores: number[]) {
 /*  QUIÉN JUEGA                                                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * El puesto de un jugador **de la hoja de plantilla**.
+ *
+ * No vale `puestoDe`: ésa lee las siglas de Wyscout (`GK`, `LCB`, `RB`) y la
+ * columna `POSICION` de la hoja escribe **el número de rol** —1 portero, 6
+ * pivote, 8 interior, 10 mediapunta, 7 y 11 extremos, 9 delantero— o el nombre
+ * en castellano. Pasándole un «4» devuelve «MED», y con eso el once salía casi
+ * entero sin elegir y el desplegable del portero ofrecía a los diecinueve.
+ *
+ * El criterio es el mismo de `detectRow` (`lib/ratings/pitch.ts`), que es el
+ * que ya colocan el campograma, la pizarra y las valoraciones: si algún día
+ * cambia el idioma de la hoja, cambia en los dos sitios o las pantallas
+ * discrepan.
+ */
+export function puestoDeLaHoja(posicion: string): Puesto {
+  const p = (posicion || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toUpperCase();
+
+  if (p.startsWith("PORTERO") || p === "1") return "POR";
+
+  if (p.startsWith("LATERAL") || p === "2" || p === "3") return "LAT";
+
+  if (p.startsWith("CENTRAL") || p.startsWith("DEFENSA") || p === "4" || p === "5") {
+    return "CEN";
+  }
+
+  if (p === "9" || p.startsWith("DELANTERO")) return "DEL";
+
+  if (p === "7" || p === "11" || p.startsWith("EXTREMO")) return "BAN";
+
+  if (p === "10" || p.startsWith("MEDIAPUNTA")) return "BAN";
+
+  /* 6 pivote y 8 interior, y lo que no se reconozca: medio. */
+  return "MED";
+}
+
 /** Un jugador del once, ya resuelto contra las tres fuentes. */
 export type JugadorOnce = {
   /** El id de la plantilla, que es con el que se guarda el once. */
