@@ -669,7 +669,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/quiniela",
     titulo: "La Quiniela de la Semana",
     resumen:
-      "Los diez partidos de la jornada, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
+      "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos y los resultados los escribe el cuerpo técnico aquí mismo; no salen de ninguna hoja.",
     bloques: [
@@ -677,8 +677,24 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Cómo se rellena",
         filas: [
           {
-            que: "Quién rellena",
-            es: "Elígete arriba antes de marcar: cada uno pone sólo lo suyo. Los resultados los puede meter cualquiera",
+            que: "Entrar",
+            es: "Con tu correo. La primera vez, «Registrarme»: la contraseña es lo que va antes de la @, y conviene cambiarla. Cada uno pone sólo lo suyo",
+          },
+          {
+            que: "Guardar mi apuesta",
+            es: "Marcar un signo no guarda nada: se guarda con el botón. Se puede cambiar las veces que haga falta hasta el cierre",
+          },
+          {
+            que: "El cierre",
+            es: "El viernes de la semana de la jornada a las 12:00, hora de Madrid. Después no se puede tocar, y lo que no esté guardado cuenta como fallo",
+          },
+          {
+            que: "El aviso",
+            es: "Ese mismo viernes a las 9:00 llega un correo a todos los registrados con los partidos y una frase de leyenda",
+          },
+          {
+            que: "Resultados",
+            es: "Los mete cualquiera que haya entrado, y se guardan al marcarlos",
           },
           {
             que: "1 · X · 2",
@@ -695,8 +711,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           {
             que: "Acierto",
-            es: "Los aciertos entre los partidos que YA se han jugado, no entre los diez",
-            cuenta: "3 aciertos de 3 jugados = 100 %, aunque falten siete por jugar",
+            es: "Los aciertos entre los partidos que YA se han jugado, no entre los nueve",
+            cuenta: "3 aciertos de 3 jugados = 100 %, aunque falten seis por jugar",
           },
           {
             que: "Un partido sin resultado",
@@ -715,7 +731,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
     ojo: [
       "El ranking ordena por porcentaje y no por aciertos, para que quien se incorpore tarde no arranque con una desventaja imposible de remontar.",
-      "El Excel del que salió el calendario traía diez columnas de pronóstico. Nueve se reconocen por sus iniciales; «AI» no casa con nadie del cuerpo técnico y está sin dueño hasta que se diga quién es.",
+      "Cada diez jornadas, los dos primeros del bloque comen invitados por el resto. Si hay empate en el segundo puesto, no se inventa desempate.",
+      "La contraseña de registro no es secreta —quien sabe tu correo la sabe—. Es un pestillo entre compañeros: cámbiala desde «Cambiar contraseña».",
     ],
   },
 

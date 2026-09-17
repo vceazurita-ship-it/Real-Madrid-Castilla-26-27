@@ -7,11 +7,9 @@
  *
  * **Las iniciales salen del Excel del cuerpo técnico**, que traía diez columnas
  * de pronóstico —MZ, JL, VC, MB, DL, AI, AG, JP, MC, SM— y ninguna fila
- * rellena. Nueve de esas diez casan con una persona de la lista sin ninguna
- * duda. La décima, **AI, no casa con nadie**: no hay en el staff nadie cuyo
- * nombre y apellido den esas iniciales. Está marcada aparte a propósito, sin
- * inventarle dueño; en cuanto se sepa quién es, se le pone su `slug` y aparece
- * con su foto como los demás.
+ * rellena. Nueve casaban con una persona de la lista sin ninguna duda; la
+ * décima, **AI**, no casaba con nadie hasta que el 17/09/2026 se supo que es
+ * Alberto Isla. Ya no queda ninguna columna sin dueño.
  *
  * Que alguien juegue no depende de esta lista: la quiniela la puede rellenar
  * cualquiera del staff, y estos diez son sólo los que venían marcados.
@@ -55,14 +53,9 @@ export const STAFF: PersonaStaff[] = [
   { slug: "hugo-jimenez", nombre: "Hugo Jiménez", rol: "Utillero" },
 
   /*
-  | La «AI» del Excel, identificada el 17/09/2026.
-  |
-  | Su foto llegó un día después y es la única de las diecinueve que no pasó
-  | por el recorte del club: viene a 160×160 y con fondo blanco, frente a los
-  | 560×678 con transparencia de las demás. Se usa igual —su cara es mejor que
-  | su inicial— pero **sin escalarla**, que sólo la emborronaría, y con el
-  | fondo recortado en círculo para que no cante al lado del resto. Si algún
-  | día aparece la buena, se sustituye el `.webp` y ya está.
+  | La «AI» del Excel, identificada el 17/09/2026. Su foto llegó aparte, de
+  | estudio, y se trató igual que las otras dieciocho: recorte a cabeza y
+  | torso, 560 px de ancho y webp.
   */
   {
     slug: "alberto-isla",
@@ -76,12 +69,12 @@ export const STAFF: PersonaStaff[] = [
 ];
 
 /**
- * La columna del Excel que todavía no tiene dueño.
+ * Las columnas del Excel que todavía no tienen dueño.
  *
- * Se guarda para que la pantalla lo pueda decir en voz alta en vez de perder
- * una de las diez columnas sin explicar por qué.
+ * Vacía desde que «AI» resultó ser Alberto Isla. Se deja para que, si algún día
+ * llega otra columna sin dueño, la pantalla lo diga en voz alta.
  */
-export const INICIALES_SIN_DUENO = ["AI"];
+export const INICIALES_SIN_DUENO: string[] = [];
 
 /** Los que venían con columna en el Excel, en ese mismo orden. */
 export const JUEGAN_POR_DEFECTO = STAFF.filter((una) => una.iniciales).map(

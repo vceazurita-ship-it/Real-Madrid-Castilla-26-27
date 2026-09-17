@@ -4,8 +4,15 @@
  * LA QUINIELA DE LA SEMANA.
  *
  * Lo único de la plataforma que no es trabajo: cada uno pone su 1-X-2 a los
- * diez partidos de la jornada, se meten los resultados el lunes y el acierto
- * se cuenta solo. El cuerpo técnico compite entre sí toda la temporada.
+ * nueve partidos de la jornada —los de la liga sin el Castilla—, se meten los
+ * resultados el lunes y el acierto se cuenta solo. El cuerpo técnico compite
+ * entre sí toda la temporada.
+ *
+ * **Cada uno entra con su correo** (`/api/quiniela/cuenta`) y sólo puede tocar
+ * lo suyo. La apuesta es un borrador hasta que se pulsa «Guardar mi apuesta»,
+ * se puede cambiar las veces que haga falta y **se cierra el viernes a las
+ * 12:00**, hora de Madrid (`lib/quiniela/cierre.ts`). Todo eso lo comprueba el
+ * servidor (`/api/quiniela/guardar`), no esta pantalla: aquí sólo se enseña.
  *
  * **El calendario es dato del repositorio** (`lib/quiniela/calendario.ts`), no
  * de la hoja: son treinta y ocho jornadas que no cambian, y en el proyecto no
@@ -19,16 +26,21 @@
  * a discutir.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock,
   ImagePlus,
+  KeyRound,
   ListOrdered,
+  Lock,
+  LogOut,
   Music,
   Quote,
+  Save,
   Smile,
   Trophy,
   UtensilsCrossed,
@@ -45,15 +57,18 @@ import {
   Notice,
   Panel,
   SaveState,
+  Segmented,
+  Select,
   TextArea,
 } from "@/components/abp/ui";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { useAhora, useQuinielaDoc } from "@/hooks/useQuinielaDoc";
+import { useQuinielaSesion, type Yo } from "@/hooks/useQuinielaSesion";
+import { cuandoCierra, estadoDe } from "@/lib/quiniela/cierre";
 import {
   JORNADAS,
   NOMBRE_DEL_SIGNO,
-  QUINIELA_VACIA,
   SIGNOS,
   bloqueCerrado,
   bloqueDe,
@@ -63,7 +78,6 @@ import {
   ranking,
   rankingDeBloque,
   rarezasDe,
-  type DocumentoQuiniela,
   type ExtrasJugador,
   type JornadaQuiniela,
   type Signo,
@@ -97,18 +111,24 @@ function fechaCorta(fecha: string) {
   return `${Number(dia)} ${meses[Number(mes) - 1] ?? ""}`;
 }
 
+/** Dos listas de signos iguales, contando un hueco que falta como vacío. */
+function mismosSignos(a: (Signo | null)[], b: (Signo | null)[], largo: number) {
+  for (let i = 0; i < largo; i += 1) {
+    if ((a[i] ?? null) !== (b[i] ?? null)) return false;
+  }
+
+  return true;
+}
+
 export default function QuinielaPage() {
-  const {
-    value: doc,
-    setValue: setDoc,
-    status,
-    localOnly,
-    lastSavedAt,
-  } = useRemoteDoc<DocumentoQuiniela>({
-    key: "quiniela",
-    kind: "quiniela",
-    fallback: QUINIELA_VACIA,
-  });
+  const { doc, estado, guardadoEn, guarda, recarga } = useQuinielaDoc();
+
+  const sesion = useQuinielaSesion();
+
+  /* Quién ha entrado. Lo dice la cookie, que sólo lee el servidor. */
+  const yo = sesion.yo?.slug ?? null;
+
+  const ahora = useAhora();
 
   /*
   | Quién juega.
@@ -121,61 +141,211 @@ export default function QuinielaPage() {
 
   const [jornada, setJornada] = useState(() => jornadaDeHoy(hoyTexto()));
 
-  /* Quién está rellenando. Es de la pestaña, no del documento: cada uno entra
-     desde su ordenador y pone lo suyo. */
-  const [yo, setYo] = useState<string | null>(null);
+  /*
+  | LA APUESTA EN BORRADOR, por jornada.
+  |
+  | Marcar un signo no guarda nada: se guarda con el botón. Así se puede
+  | rellenar a medias, pensarlo y cambiarlo sin que cada clic sea una apuesta
+  | ya hecha. El borrador es de la pestaña; lo guardado, del servidor.
+  */
+  const [borradores, setBorradores] = useState<Record<string, (Signo | null)[]>>({});
+
+  const [guardandoApuesta, setGuardandoApuesta] = useState(false);
 
   const [eligiendoJugadores, setEligiendoJugadores] = useState(false);
 
-  /* De quién se está editando la canción, la frase y la foto de broma. */
-  const [editandoExtras, setEditandoExtras] = useState<string | null>(null);
+  /* De quién se está viendo la canción, la frase y la foto de broma. */
+  const [viendoExtras, setViendoExtras] = useState<string | null>(null);
 
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   const extras = doc.extras ?? {};
 
-  /**
-   * Guarda lo que alguien se pone de su cosecha.
-   *
-   * Va aparte de los pronósticos a propósito: esto no caduca con la jornada y
-   * se puede rellenar cualquier día, que es justo lo que se pidió.
-   */
-  const ponExtras = (slug: string, cambio: Partial<ExtrasJugador>) => {
-    setDoc((actual) => {
-      const base = actual ?? QUINIELA_VACIA;
+  /* En qué bloque de diez jornadas estamos y cómo va la comida. */
+  const bloque = useMemo(() => bloqueDe(jornada), [jornada]);
 
-      const suyos = base.extras?.[slug] ?? {};
+  const tablaBloque = useMemo(
+    () => rankingDeBloque(doc, jugadores, bloque),
+    [doc, jugadores, bloque],
+  );
 
-      /* Un campo vacío se borra en vez de guardarse en blanco. */
-      const fundidos = { ...suyos, ...cambio };
+  const cerrado = useMemo(() => bloqueCerrado(doc, bloque), [doc, bloque]);
 
-      for (const clave of Object.keys(fundidos) as (keyof ExtrasJugador)[]) {
-        if (!String(fundidos[clave] ?? "").trim()) delete fundidos[clave];
-      }
+  const partidos = useMemo(() => partidosDe(jornada), [jornada]);
 
-      return {
-        ...base,
-        jornadas: base.jornadas ?? {},
-        jugadores: base.jugadores?.length ? base.jugadores : JUEGAN_POR_DEFECTO,
-        extras: { ...base.extras, [slug]: fundidos },
-      };
+  const laJornada: JornadaQuiniela =
+    doc.jornadas[String(jornada)] ?? jornadaVacia(jornada);
+
+  const tabla = useMemo(
+    () => ranking(doc, jugadores, jornada),
+    [doc, jugadores, jornada],
+  );
+
+  const rarezas = useMemo(
+    () => rarezasDe(laJornada, jugadores),
+    [laJornada, jugadores],
+  );
+
+  /* Si la jornada que se mira ya no se puede tocar. */
+  const plazo = useMemo(() => estadoDe(jornada, ahora), [jornada, ahora]);
+
+  const guardados = yo ? (laJornada.pronosticos[yo] ?? []) : [];
+
+  const borrador = borradores[String(jornada)];
+
+  const mios = borrador ?? guardados;
+
+  const sinGuardar =
+    Boolean(yo) &&
+    !plazo.cerrada &&
+    borrador !== undefined &&
+    !mismosSignos(borrador, guardados, partidos.length);
+
+  /* Alguna jornada con cambios sin guardar, para avisar antes de irse. */
+  const hayBorradores = Object.entries(borradores).some(([clave, signos]) => {
+    const guardada = yo ? (doc.jornadas[clave]?.pronosticos[yo] ?? []) : [];
+
+    return !mismosSignos(signos, guardada, partidosDe(Number(clave)).length);
+  });
+
+  useEffect(() => {
+    if (!hayBorradores) return;
+
+    const avisa = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+    };
+
+    window.addEventListener("beforeunload", avisa);
+
+    return () => window.removeEventListener("beforeunload", avisa);
+  }, [hayBorradores]);
+
+  /** Un error del servidor, contado como se entiende. */
+  const avisaError = (titulo: string, error: unknown) => {
+    console.error(`[quiniela] ${titulo}`, error);
+
+    toast.error(titulo, {
+      description: error instanceof Error ? error.message : "Inténtalo otra vez",
     });
   };
 
+  const ponPronostico = (indice: number, signo: Signo) => {
+    if (!yo || plazo.cerrada) return;
+
+    setBorradores((actuales) => {
+      const base = actuales[String(jornada)] ?? guardados;
+
+      const suyos = partidos.map((_, i) => base[i] ?? null);
+
+      /* Volver a pulsar el mismo signo lo quita: rectificar no puede exigir
+         recargar la página. */
+      suyos[indice] = suyos[indice] === signo ? null : signo;
+
+      return { ...actuales, [String(jornada)]: suyos };
+    });
+  };
+
+  const guardaApuesta = async () => {
+    if (!yo || !borrador) return;
+
+    setGuardandoApuesta(true);
+
+    try {
+      await guarda({
+        accion: "apuesta",
+        jornada,
+        signos: partidos.map((_, i) => borrador[i] ?? null),
+      });
+
+      setBorradores((actuales) => {
+        const resto = { ...actuales };
+
+        delete resto[String(jornada)];
+
+        return resto;
+      });
+
+      const faltan = partidos.filter((_, i) => !borrador[i]).length;
+
+      toast.success(`Apuesta de la jornada ${jornada} guardada`, {
+        description:
+          faltan > 0
+            ? `Te faltan ${faltan}. Puedes cambiarla hasta el ${cuandoCierra(plazo.viernes)}.`
+            : `Puedes cambiarla hasta el ${cuandoCierra(plazo.viernes)}.`,
+      });
+    } catch (error) {
+      avisaError("No se ha guardado la apuesta", error);
+
+      /* Si es que se cerró mientras tanto, que la pantalla lo sepa ya. */
+      recarga();
+    } finally {
+      setGuardandoApuesta(false);
+    }
+  };
+
+  const descartaBorrador = () =>
+    setBorradores((actuales) => {
+      const resto = { ...actuales };
+
+      delete resto[String(jornada)];
+
+      return resto;
+    });
+
+  const ponResultado = async (indice: number, signo: Signo) => {
+    if (!yo) return;
+
+    const actual = laJornada.resultados[indice] ?? null;
+
+    try {
+      await guarda({
+        accion: "resultado",
+        jornada,
+        indice,
+        signo: actual === signo ? null : signo,
+      });
+    } catch (error) {
+      avisaError("No se ha guardado el resultado", error);
+    }
+  };
+
+  const cambiaJugadores = async (lista: string[]) => {
+    try {
+      await guarda({ accion: "jugadores", jugadores: lista });
+    } catch (error) {
+      avisaError("No se ha cambiado quién juega", error);
+    }
+  };
+
+  /** Guarda la canción, la frase y la foto de quien ha entrado. */
+  const guardaExtras = async (nuevos: ExtrasJugador) => {
+    try {
+      await guarda({ accion: "extras", extras: nuevos });
+
+      toast.success("Guardado");
+
+      return true;
+    } catch (error) {
+      avisaError("No se ha guardado", error);
+
+      return false;
+    }
+  };
+
   /**
-   * Sube la foto de broma.
+   * Sube la foto de broma y devuelve su dirección.
    *
    * Por la misma puerta que los recursos del rival (`/api/rivals/media`), que
    * ya deja los ficheros en el almacén del club: una foto de guasa no merece
    * una ruta nueva ni un bucket aparte.
    */
-  const subeFoto = async (slug: string, archivo: File) => {
+  const subeFoto = async (archivo: File): Promise<string | null> => {
     if (archivo.size > 4 * 1024 * 1024) {
       toast.error("La foto pesa demasiado", {
         description: "Máximo 4 MB. Con una del móvil reducida sobra.",
       });
 
-      return;
+      return null;
     }
 
     setSubiendoFoto(true);
@@ -203,9 +373,12 @@ export default function QuinielaPage() {
         throw new Error(datos.error || `HTTP ${respuesta.status}`);
       }
 
-      ponExtras(slug, { foto: datos.url });
+      toast.success("Foto subida", {
+        id: aviso,
+        description: "Pulsa «Guardar» para que se quede.",
+      });
 
-      toast.success("Foto puesta", { id: aviso });
+      return datos.url;
     } catch (error) {
       console.error("[quiniela] foto de broma", error);
 
@@ -213,89 +386,28 @@ export default function QuinielaPage() {
         id: aviso,
         description: error instanceof Error ? error.message : "Inténtalo otra vez",
       });
+
+      return null;
     } finally {
       setSubiendoFoto(false);
     }
   };
-
-  /* En qué bloque de diez jornadas estamos y cómo va la comida. */
-  const bloque = useMemo(() => bloqueDe(jornada), [jornada]);
-
-  const tablaBloque = useMemo(
-    () => rankingDeBloque(doc, jugadores, bloque),
-    [doc, jugadores, bloque],
-  );
-
-  const cerrado = useMemo(() => bloqueCerrado(doc, bloque), [doc, bloque]);
-
-  const partidos = useMemo(() => partidosDe(jornada), [jornada]);
-
-  const laJornada: JornadaQuiniela =
-    doc.jornadas[String(jornada)] ?? jornadaVacia(jornada);
-
-  const tabla = useMemo(
-    () => ranking(doc, jugadores, jornada),
-    [doc, jugadores, jornada],
-  );
-
-  const rarezas = useMemo(
-    () => rarezasDe(laJornada, jugadores),
-    [laJornada, jugadores],
-  );
-
-  /** Cambia la jornada que se está mirando, dejándola creada si hacía falta. */
-  const cambiaJornada = (
-    cambio: (actual: JornadaQuiniela) => JornadaQuiniela,
-  ) => {
-    setDoc((actual) => {
-      const base = actual ?? QUINIELA_VACIA;
-
-      const previa = base.jornadas?.[String(jornada)] ?? jornadaVacia(jornada);
-
-      return {
-        ...base,
-        jugadores: base.jugadores?.length ? base.jugadores : JUEGAN_POR_DEFECTO,
-        jornadas: {
-          ...base.jornadas,
-          [String(jornada)]: cambio(previa),
-        },
-      };
-    });
-  };
-
-  const ponPronostico = (indice: number, signo: Signo) => {
-    if (!yo) return;
-
-    cambiaJornada((actual) => {
-      const suyos = [...(actual.pronosticos[yo] ?? partidos.map(() => null))];
-
-      /* Volver a pulsar el mismo signo lo quita: rectificar no puede exigir
-         recargar la página. */
-      suyos[indice] = suyos[indice] === signo ? null : signo;
-
-      return { ...actual, pronosticos: { ...actual.pronosticos, [yo]: suyos } };
-    });
-  };
-
-  const ponResultado = (indice: number, signo: Signo) => {
-    cambiaJornada((actual) => {
-      const resultados = [...actual.resultados];
-
-      while (resultados.length < partidos.length) resultados.push(null);
-
-      resultados[indice] = resultados[indice] === signo ? null : signo;
-
-      return { ...actual, resultados };
-    });
-  };
-
-  const mios = yo ? (laJornada.pronosticos[yo] ?? []) : [];
 
   const sinRellenar = yo
     ? partidos.filter((_, indice) => !mios[indice]).length
     : 0;
 
   const jugados = laJornada.resultados.filter(Boolean).length;
+
+  /* El estado de guardado, en el idioma de `SaveState`. */
+  const estadoGuardado =
+    estado === "cargando"
+      ? "loading"
+      : estado === "guardando"
+        ? "saving"
+        : estado === "error"
+          ? "error"
+          : "saved";
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -309,12 +421,12 @@ export default function QuinielaPage() {
             <AbpHeader
               area="RMCF Castilla · Entre nosotros"
               title="La Quiniela de la Semana"
-              lead="Los diez partidos de la jornada, el 1-X-2 de cada uno y el ranking de acierto de la temporada."
+              lead="Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto de la temporada."
               aside={
                 <SaveState
-                  status={status}
-                  localOnly={localOnly}
-                  savedAt={lastSavedAt}
+                  status={estadoGuardado}
+                  savedAt={guardadoEn}
+                  onGuardar={estado === "error" ? recarga : undefined}
                 />
               }
             />
@@ -369,16 +481,22 @@ export default function QuinielaPage() {
               </div>
             </div>
 
-            {/* ------------------- QUIÉN ESTÁ RELLENANDO -------------- */}
+            {/* ------------------------ QUIÉN ERES --------------------- */}
+
+            <div className="mt-5">
+              <Acceso
+                yo={sesion.yo}
+                cargando={sesion.cargando}
+                manda={sesion.manda}
+              />
+            </div>
+
+            {/* ------------------------ QUIÉN JUEGA -------------------- */}
 
             <div className="mt-5">
               <Panel
-                title="Quién rellena"
-                subtitle={
-                  yo
-                    ? `Estás poniendo los pronósticos de ${PERSONA_POR_SLUG.get(yo)?.nombre ?? yo}`
-                    : "Elígete para poder marcar tus resultados"
-                }
+                title="Quién juega"
+                subtitle={`Cómo va cada uno con la jornada ${jornada}. La carita abre su canción, su frase y su foto de broma`}
                 icon={Users}
               >
                 <div className="flex flex-wrap gap-2">
@@ -390,14 +508,15 @@ export default function QuinielaPage() {
                     const suyos = laJornada.pronosticos[slug] ?? [];
                     const puestos = suyos.filter(Boolean).length;
                     const soyYo = yo === slug;
+                    const conExtras =
+                      extras[slug] && Object.keys(extras[slug]).length > 0;
 
                     return (
                       <button
                         key={slug}
                         type="button"
-                        onClick={() => setYo(soyYo ? null : slug)}
-                        aria-pressed={soyYo}
-                        title={`${persona.nombre} · ${persona.rol}`}
+                        onClick={() => setViendoExtras(slug)}
+                        title={`${persona.nombre} · ${persona.rol} — su canción, su frase y su foto de broma`}
                         className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition ${
                           soyYo
                             ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
@@ -409,39 +528,35 @@ export default function QuinielaPage() {
                         <span className="text-left">
                           <span className="block text-[12px] font-medium text-white">
                             {nombreCorto(persona)}
+                            {soyYo && (
+                              <span className="ml-1 text-[10px] font-normal text-[#C8A96B]">
+                                (tú)
+                              </span>
+                            )}
                           </span>
 
-                          <span className="block text-[10px] text-white/40">
+                          <span
+                            className={`block text-[10px] ${
+                              puestos === partidos.length
+                                ? "text-emerald-300/70"
+                                : "text-white/40"
+                            }`}
+                          >
                             {puestos === partidos.length
                               ? "Completa"
-                              : `${puestos}/${partidos.length}`}
+                              : puestos === 0
+                                ? "Sin apostar"
+                                : `${puestos}/${partidos.length}`}
                           </span>
                         </span>
 
-                        {/* Su cosecha: canción, frase y foto de broma. */}
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`La cosecha de ${persona.nombre}`}
-                          title="Su canción, su frase y su foto de broma"
-                          onClick={(evento) => {
-                            evento.stopPropagation();
-                            setEditandoExtras(slug);
-                          }}
-                          onKeyDown={(evento) => {
-                            if (evento.key === "Enter" || evento.key === " ") {
-                              evento.stopPropagation();
-                              setEditandoExtras(slug);
-                            }
-                          }}
-                          className={`shrink-0 rounded-full p-1 transition hover:bg-white/10 ${
-                            extras[slug] && Object.keys(extras[slug]).length > 0
-                              ? "text-[#C8A96B]"
-                              : "text-white/20"
+                        <Smile
+                          size={13}
+                          aria-hidden
+                          className={`shrink-0 ${
+                            conExtras ? "text-[#C8A96B]" : "text-white/20"
                           }`}
-                        >
-                          <Smile size={13} aria-hidden />
-                        </span>
+                        />
                       </button>
                     );
                   })}
@@ -453,6 +568,12 @@ export default function QuinielaPage() {
                       Quién juega esta temporada
                     </p>
 
+                    {!yo && (
+                      <p className="mb-2 text-[11px] text-white/35">
+                        Entra con tu correo para poder cambiar la lista.
+                      </p>
+                    )}
+
                     <div className="flex flex-wrap gap-1.5">
                       {STAFF.map((persona) => {
                         const dentro = jugadores.includes(persona.slug);
@@ -461,24 +582,15 @@ export default function QuinielaPage() {
                           <button
                             key={persona.slug}
                             type="button"
+                            disabled={!yo || estado === "guardando"}
                             onClick={() =>
-                              setDoc((actual) => {
-                                const base = actual ?? QUINIELA_VACIA;
-
-                                const lista = base.jugadores?.length
-                                  ? base.jugadores
-                                  : JUEGAN_POR_DEFECTO;
-
-                                return {
-                                  ...base,
-                                  jornadas: base.jornadas ?? {},
-                                  jugadores: dentro
-                                    ? lista.filter((uno) => uno !== persona.slug)
-                                    : [...lista, persona.slug],
-                                };
-                              })
+                              void cambiaJugadores(
+                                dentro
+                                  ? jugadores.filter((uno) => uno !== persona.slug)
+                                  : [...jugadores, persona.slug],
+                              )
                             }
-                            className={`rounded-lg border px-2 py-1 text-[11px] transition ${
+                            className={`rounded-lg border px-2 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50 ${
                               dentro
                                 ? "border-[#C8A96B]/50 bg-[#C8A96B]/10 text-[#C8A96B]"
                                 : "border-white/10 text-white/45 hover:border-white/25"
@@ -491,15 +603,15 @@ export default function QuinielaPage() {
                       })}
                     </div>
 
-                    <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-                      El Excel traía diez columnas de pronóstico. Nueve se
-                      reconocen por sus iniciales;{" "}
-                      <strong className="text-white/55">
-                        {INICIALES_SIN_DUENO.join(", ")}
-                      </strong>{" "}
-                      no casa con nadie del cuerpo técnico, así que no se le ha
-                      asignado dueño: dinos quién es y entra con su foto.
-                    </p>
+                    {INICIALES_SIN_DUENO.length > 0 && (
+                      <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+                        Del Excel del cuerpo técnico queda sin dueño{" "}
+                        <strong className="text-white/55">
+                          {INICIALES_SIN_DUENO.join(", ")}
+                        </strong>
+                        : dinos quién es y entra con su foto.
+                      </p>
+                    )}
                   </div>
                 )}
               </Panel>
@@ -511,14 +623,43 @@ export default function QuinielaPage() {
               <Panel
                 title="Los partidos"
                 subtitle={
-                  yo
-                    ? sinRellenar > 0
-                      ? `Te faltan ${sinRellenar} por marcar`
-                      : "Los tienes todos puestos"
-                    : "Elige arriba quién eres para marcar; abajo se meten los resultados"
+                  !yo
+                    ? "Entra con tu correo para apostar y meter resultados"
+                    : plazo.cerrada
+                      ? "Jornada cerrada: tu apuesta ya no se puede cambiar"
+                      : sinRellenar > 0
+                        ? `Te faltan ${sinRellenar} por marcar`
+                        : "Los tienes todos puestos"
                 }
                 icon={ListOrdered}
               >
+                {/* El plazo, siempre a la vista: es lo que más se pregunta. */}
+                {plazo.viernes && (
+                  <div
+                    className={`mb-3 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-[12px] ${
+                      plazo.cerrada
+                        ? "border-white/10 bg-white/[0.02] text-white/50"
+                        : plazo.ultimasHoras
+                          ? "border-amber-400/40 bg-amber-400/[0.08] text-amber-200"
+                          : "border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] text-white/70"
+                    }`}
+                  >
+                    {plazo.cerrada ? (
+                      <Lock size={13} aria-hidden />
+                    ) : (
+                      <Clock size={13} aria-hidden />
+                    )}
+
+                    <span>
+                      {plazo.cerrada
+                        ? `Cerrada desde el ${cuandoCierra(plazo.viernes)}.`
+                        : plazo.ultimasHoras
+                          ? `Hoy a las 12:00 se cierra. Lo que no esté guardado para entonces cuenta como fallo.`
+                          : `Se puede apostar y cambiar hasta el ${cuandoCierra(plazo.viernes)}.`}
+                    </span>
+                  </div>
+                )}
+
                 <div className="min-w-0 overflow-x-auto">
                   <table className="w-full min-w-[720px] text-[12px]">
                     <thead>
@@ -581,7 +722,7 @@ export default function QuinielaPage() {
                               <Tripleta
                                 valor={mio}
                                 onElige={(signo) => ponPronostico(indice, signo)}
-                                apagado={!yo}
+                                apagado={!yo || plazo.cerrada || guardandoApuesta}
                                 resultado={resultado}
                               />
                             </td>
@@ -589,7 +730,8 @@ export default function QuinielaPage() {
                             <td className="py-2 text-center">
                               <Tripleta
                                 valor={resultado}
-                                onElige={(signo) => ponResultado(indice, signo)}
+                                onElige={(signo) => void ponResultado(indice, signo)}
+                                apagado={!yo || estado === "guardando"}
                                 tono="neutro"
                               />
                             </td>
@@ -604,10 +746,43 @@ export default function QuinielaPage() {
                   </table>
                 </div>
 
-                {!yo && (
+                {/* Guardar la apuesta: sólo si hay algo que guardar. */}
+                {yo && !plazo.cerrada && (
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-3">
+                    <span
+                      className={`mr-auto text-[11px] ${
+                        sinGuardar ? "text-amber-200/90" : "text-white/35"
+                      }`}
+                    >
+                      {sinGuardar
+                        ? "Tienes cambios sin guardar."
+                        : guardados.some(Boolean)
+                          ? "Tu apuesta está guardada. Puedes cambiarla hasta el cierre."
+                          : "Marca tus signos y guarda la apuesta."}
+                    </span>
+
+                    {sinGuardar && (
+                      <Button onClick={descartaBorrador} disabled={guardandoApuesta}>
+                        Descartar
+                      </Button>
+                    )}
+
+                    <Button
+                      tone="primary"
+                      icon={Save}
+                      onClick={() => void guardaApuesta()}
+                      disabled={!sinGuardar || guardandoApuesta}
+                    >
+                      {guardandoApuesta ? "Guardando…" : "Guardar mi apuesta"}
+                    </Button>
+                  </div>
+                )}
+
+                {yo && (
                   <p className="mt-3 text-[11px] text-white/35">
-                    Los resultados los puede meter cualquiera; los pronósticos,
-                    sólo el suyo.
+                    Los resultados se guardan al marcarlos y los puede meter
+                    cualquiera que haya entrado; los pronósticos, sólo cada uno
+                    el suyo.
                   </p>
                 )}
 
@@ -821,78 +996,481 @@ export default function QuinielaPage() {
         </section>
       </div>
 
-      {editandoExtras && (
+      {viendoExtras && (
         <FichaExtras
-          slug={editandoExtras}
-          extras={extras[editandoExtras] ?? {}}
+          key={viendoExtras}
+          slug={viendoExtras}
+          extras={extras[viendoExtras] ?? {}}
+          editable={viendoExtras === yo}
           subiendo={subiendoFoto}
-          onCambia={(cambio) => ponExtras(editandoExtras, cambio)}
-          onFoto={(archivo) => void subeFoto(editandoExtras, archivo)}
-          onCerrar={() => setEditandoExtras(null)}
+          onGuardar={guardaExtras}
+          onFoto={subeFoto}
+          onCerrar={() => setViendoExtras(null)}
         />
       )}
     </main>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  ENTRAR                                                             */
+/* ------------------------------------------------------------------ */
+
+/** Un campo de texto con el tipo que haga falta: correo o contraseña. */
+function Entrada({
+  label,
+  value,
+  onChange,
+  type = "text",
+  autoComplete,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (valor: string) => void;
+  type?: "text" | "email" | "password";
+  autoComplete?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block min-w-0">
+      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </span>
+
+      <input
+        type={type}
+        value={value}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        onChange={(evento) => onChange(evento.target.value)}
+        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+      />
+    </label>
+  );
+}
+
+type Manda = ReturnType<typeof useQuinielaSesion>["manda"];
+
+/**
+ * Registrarse, entrar, salir y cambiar la contraseña.
+ *
+ * Al registrarse **la contraseña es lo que va antes de la @ del correo**, y se
+ * dice en pantalla tal cual: nadie tiene que repartir contraseñas por WhatsApp.
+ * A cambio no es secreta, así que mientras alguien no la cambie se le recuerda.
+ */
+function Acceso({
+  yo,
+  cargando,
+  manda,
+}: {
+  yo: Yo | null;
+  cargando: boolean;
+  manda: Manda;
+}) {
+  const [modo, setModo] = useState<"entrar" | "registrar">("entrar");
+  const [correo, setCorreo] = useState("");
+  const [clave, setClave] = useState("");
+  const [quien, setQuien] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [cambiando, setCambiando] = useState(false);
+
+  const envia = async (cuerpo: Record<string, unknown>, exito: string) => {
+    setEnviando(true);
+
+    try {
+      await manda(cuerpo);
+
+      setClave("");
+      toast.success(exito);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se ha podido");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (cargando) {
+    return (
+      <Panel title="Tu cuenta" subtitle="Comprobando si ya habías entrado…" icon={KeyRound}>
+        <div className="h-10" />
+      </Panel>
+    );
+  }
+
+  if (yo) {
+    return (
+      <Panel
+        title={`Has entrado como ${yo.nombre}`}
+        subtitle={yo.correo}
+        icon={KeyRound}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button icon={KeyRound} onClick={() => setCambiando(true)}>
+              Cambiar contraseña
+            </Button>
+
+            <Button
+              icon={LogOut}
+              disabled={enviando}
+              onClick={() => void envia({ accion: "salir" }, "Has salido")}
+            >
+              Salir
+            </Button>
+          </div>
+        }
+      >
+        {yo.inicial ? (
+          <Notice tone="warn" title="Tu contraseña es la de registro">
+            Es lo que va antes de la @ de tu correo, así que quien sepa tu
+            correo puede entrar como tú. Cámbiala cuando puedas.
+          </Notice>
+        ) : (
+          <p className="text-[11px] text-white/40">
+            Sólo tú puedes poner y cambiar tu apuesta. La sesión dura un mes en
+            este navegador.
+          </p>
+        )}
+
+        {cambiando && (
+          <CambiarClave manda={manda} onCerrar={() => setCambiando(false)} />
+        )}
+      </Panel>
+    );
+  }
+
+  const registrando = modo === "registrar";
+
+  const nombreCorreo = correo.includes("@") ? correo.split("@")[0] : "";
+
+  return (
+    <Panel
+      title="Entra para apostar"
+      subtitle="Cada uno pone sólo lo suyo. Ver el ranking no necesita entrar"
+      icon={KeyRound}
+      action={
+        <Segmented
+          ariaLabel="Entrar o registrarse"
+          value={modo}
+          onChange={setModo}
+          options={[
+            { key: "entrar", label: "Entrar" },
+            { key: "registrar", label: "Registrarme" },
+          ]}
+        />
+      }
+    >
+      <form
+        onSubmit={(evento) => {
+          evento.preventDefault();
+
+          if (registrando) {
+            void envia(
+              { accion: "registrar", slug: quien, correo },
+              "Registrado. Ya puedes apostar",
+            );
+          } else {
+            void envia({ accion: "entrar", correo, clave }, "Dentro");
+          }
+        }}
+        className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+      >
+        {registrando ? (
+          <Select
+            label="Quién eres"
+            value={quien}
+            onChange={setQuien}
+            options={[
+              { value: "", label: "Elige tu nombre" },
+              ...STAFF.map((persona) => ({
+                value: persona.slug,
+                label: persona.nombre,
+              })),
+            ]}
+          />
+        ) : null}
+
+        <Entrada
+          label="Tu correo"
+          type="email"
+          autoComplete="email"
+          value={correo}
+          onChange={setCorreo}
+          placeholder="nombre@dominio.com"
+        />
+
+        {!registrando && (
+          <Entrada
+            label="Contraseña"
+            type="password"
+            autoComplete="current-password"
+            value={clave}
+            onChange={setClave}
+          />
+        )}
+
+        <Button
+          type="submit"
+          tone="primary"
+          disabled={
+            enviando ||
+            !correo.trim() ||
+            (registrando ? !quien : !clave)
+          }
+        >
+          {enviando ? "Un momento…" : registrando ? "Registrarme" : "Entrar"}
+        </Button>
+      </form>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+        {registrando ? (
+          <>
+            Tu contraseña será lo que va antes de la @ de tu correo
+            {nombreCorreo && (
+              <>
+                {" "}— en tu caso,{" "}
+                <strong className="text-white/70">{nombreCorreo}</strong>
+              </>
+            )}
+            . Después puedes cambiarla. Con ese correo te llegará el aviso de
+            los viernes a las 9:00.
+          </>
+        ) : (
+          <>
+            ¿Primera vez? Pulsa «Registrarme». Si ya te registraste y no
+            cambiaste la contraseña, es lo que va antes de la @ de tu correo.
+          </>
+        )}
+      </p>
+    </Panel>
+  );
+}
+
+function CambiarClave({ manda, onCerrar }: { manda: Manda; onCerrar: () => void }) {
+  const [actual, setActual] = useState("");
+  const [nueva, setNueva] = useState("");
+  const [repite, setRepite] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const noCasan = repite.length > 0 && nueva !== repite;
+
+  const cambia = async () => {
+    setEnviando(true);
+
+    try {
+      await manda({ accion: "cambiar", actual, nueva });
+
+      toast.success("Contraseña cambiada");
+      onCerrar();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se ha podido");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Dialog
+      title="Cambiar la contraseña"
+      subtitle="La de ahora, y dos veces la nueva"
+      onClose={onCerrar}
+      footer={
+        <>
+          <Button onClick={onCerrar}>Cancelar</Button>
+
+          <Button
+            tone="primary"
+            disabled={enviando || !actual || !nueva || nueva !== repite}
+            onClick={() => void cambia()}
+          >
+            {enviando ? "Cambiando…" : "Cambiarla"}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3">
+        <Entrada
+          label="La de ahora"
+          type="password"
+          autoComplete="current-password"
+          value={actual}
+          onChange={setActual}
+        />
+
+        <Entrada
+          label="La nueva"
+          type="password"
+          autoComplete="new-password"
+          value={nueva}
+          onChange={setNueva}
+        />
+
+        <Entrada
+          label="Otra vez la nueva"
+          type="password"
+          autoComplete="new-password"
+          value={repite}
+          onChange={setRepite}
+        />
+
+        {noCasan && (
+          <p className="text-[11px] text-rose-300/80">Las dos nuevas no coinciden.</p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA COSECHA                                                         */
+/* ------------------------------------------------------------------ */
+
 /**
  * La cosecha de cada uno: su canción, su frase y su foto de broma.
  *
- * Se puede dejar a medias y volver otro día —no hay nada obligatorio— y por eso
- * se guarda según se escribe, sin botón de guardar. La canción es un enlace y no
- * un fichero: subir audio al almacén del club para una broma sería pagar espacio
- * y derechos por algo que ya está en YouTube o en Spotify. La foto sí se sube,
- * porque la gracia está en que sea suya.
+ * Cada uno edita **la suya** y ve la de los demás. Se escribe en un borrador y
+ * se guarda con el botón: guardar a cada tecla serían decenas de escrituras por
+ * una frase. La canción es un enlace y no un fichero: subir audio al almacén
+ * del club para una broma sería pagar espacio y derechos por algo que ya está
+ * en YouTube o en Spotify. La foto sí se sube, porque la gracia está en que sea
+ * suya.
  */
 function FichaExtras({
   slug,
   extras,
+  editable,
   subiendo,
-  onCambia,
+  onGuardar,
   onFoto,
   onCerrar,
 }: {
   slug: string;
   extras: ExtrasJugador;
+  editable: boolean;
   subiendo: boolean;
-  onCambia: (cambio: Partial<ExtrasJugador>) => void;
-  onFoto: (archivo: File) => void;
+  onGuardar: (extras: ExtrasJugador) => Promise<boolean>;
+  onFoto: (archivo: File) => Promise<string | null>;
   onCerrar: () => void;
 }) {
   const persona = PERSONA_POR_SLUG.get(slug);
 
   const entrada = useRef<HTMLInputElement | null>(null);
 
+  const [borrador, setBorrador] = useState<ExtrasJugador>(extras);
+  const [guardando, setGuardando] = useState(false);
+
   if (!persona) return null;
+
+  const cambia = (cambio: Partial<ExtrasJugador>) =>
+    setBorrador((actual) => ({ ...actual, ...cambio }));
+
+  const iguales = (["cancion", "cancionNombre", "frase", "foto"] as const).every(
+    (clave) => (borrador[clave] ?? "").trim() === (extras[clave] ?? "").trim(),
+  );
+
+  const guarda = async () => {
+    setGuardando(true);
+
+    const bien = await onGuardar(borrador);
+
+    setGuardando(false);
+
+    if (bien) onCerrar();
+  };
+
+  /* Lo de otro: sólo se mira. */
+  if (!editable) {
+    const vacio = !extras.cancion && !extras.frase && !extras.foto;
+
+    return (
+      <Dialog
+        title={`La cosecha de ${persona.nombre}`}
+        subtitle="Cada uno pone la suya cuando quiere"
+        onClose={onCerrar}
+        footer={<Button onClick={onCerrar}>Cerrar</Button>}
+      >
+        {vacio ? (
+          <EmptyState
+            title="Todavía no ha puesto nada"
+            description="Ni canción, ni frase, ni foto de broma. Ya caerá."
+          />
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            {extras.foto && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={extras.foto}
+                alt={`La foto de broma de ${persona.nombre}`}
+                className="h-40 w-40 shrink-0 rounded-xl object-cover"
+              />
+            )}
+
+            <div className="min-w-0 space-y-3">
+              {extras.frase && (
+                <p className="text-[15px] italic leading-relaxed text-white/85">
+                  «{extras.frase}»
+                </p>
+              )}
+
+              {extras.cancion && (
+                <a
+                  href={extras.cancion}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[12px] text-[#C8A96B] underline underline-offset-2"
+                >
+                  <Music size={12} aria-hidden />
+                  {extras.cancionNombre || "Su canción"}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
-      title={`La cosecha de ${persona.nombre}`}
+      title="Tu cosecha"
       subtitle="Se puede rellenar cuando quieras, y cambiar las veces que haga falta"
       onClose={onCerrar}
-      footer={<Button onClick={onCerrar}>Cerrar</Button>}
+      footer={
+        <>
+          <Button onClick={onCerrar}>Cancelar</Button>
+
+          <Button
+            tone="primary"
+            icon={Save}
+            disabled={guardando || subiendo || iguales}
+            onClick={() => void guarda()}
+          >
+            {guardando ? "Guardando…" : "Guardar"}
+          </Button>
+        </>
+      }
     >
       <div className="space-y-4">
         <div>
           <span className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
             <Music size={11} aria-hidden />
-            Su canción
+            Tu canción
           </span>
 
           <Field
             label="Cómo se llama"
-            value={extras.cancionNombre ?? ""}
-            onChange={(valor) => onCambia({ cancionNombre: valor })}
+            value={borrador.cancionNombre ?? ""}
+            onChange={(valor) => cambia({ cancionNombre: valor })}
             placeholder="Ej.: Paquito el Chocolatero"
           />
 
           <div className="mt-2">
             <Field
               label="Enlace"
-              value={extras.cancion ?? ""}
-              onChange={(valor) => onCambia({ cancion: valor })}
-              placeholder="Pega el enlace de YouTube o Spotify"
-              hint="Suena cuando gane una jornada. No se sube el audio: va el enlace."
+              value={borrador.cancion ?? ""}
+              onChange={(valor) => cambia({ cancion: valor })}
+              placeholder="https://… de YouTube o Spotify"
+              hint="No se sube el audio: va el enlace, empezando por https://"
             />
           </div>
         </div>
@@ -900,14 +1478,14 @@ function FichaExtras({
         <div>
           <span className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
             <Quote size={11} aria-hidden />
-            Su frase
+            Tu frase
           </span>
 
           <TextArea
             label=""
-            value={extras.frase ?? ""}
-            onChange={(valor) => onCambia({ frase: valor })}
-            placeholder="La que quiera que le saquen cuando acierte… o cuando falle"
+            value={borrador.frase ?? ""}
+            onChange={(valor) => cambia({ frase: valor })}
+            placeholder="La que quieras que te saquen cuando aciertes… o cuando falles"
             rows={2}
           />
         </div>
@@ -915,14 +1493,14 @@ function FichaExtras({
         <div>
           <span className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/40">
             <ImagePlus size={11} aria-hidden />
-            Su foto de broma
+            Tu foto de broma
           </span>
 
           <div className="flex items-center gap-3">
-            {extras.foto ? (
+            {borrador.foto ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={extras.foto}
+                src={borrador.foto}
                 alt=""
                 className="h-16 w-16 shrink-0 rounded-xl object-cover"
               />
@@ -941,7 +1519,11 @@ function FichaExtras({
                 onChange={(evento) => {
                   const archivo = evento.target.files?.[0];
 
-                  if (archivo) onFoto(archivo);
+                  if (archivo) {
+                    void onFoto(archivo).then((url) => {
+                      if (url) cambia({ foto: url });
+                    });
+                  }
 
                   /* Se limpia para que elegir la misma foto otra vez vuelva a
                      disparar el cambio. */
@@ -954,13 +1536,13 @@ function FichaExtras({
                 disabled={subiendo}
                 onClick={() => entrada.current?.click()}
               >
-                {subiendo ? "Subiendo…" : extras.foto ? "Cambiarla" : "Subir una"}
+                {subiendo ? "Subiendo…" : borrador.foto ? "Cambiarla" : "Subir una"}
               </Button>
 
-              {extras.foto && (
+              {borrador.foto && (
                 <button
                   type="button"
-                  onClick={() => onCambia({ foto: "" })}
+                  onClick={() => cambia({ foto: "" })}
                   className="ml-2 text-[11px] text-white/35 underline underline-offset-2 transition hover:text-white/70"
                 >
                   Quitarla
@@ -968,7 +1550,7 @@ function FichaExtras({
               )}
 
               <p className="mt-1.5 text-[11px] text-white/35">
-                Hasta 4 MB. Sale junto a su nombre en el ranking.
+                Hasta 4 MB. La ven todos al pulsar tu nombre.
               </p>
             </div>
           </div>

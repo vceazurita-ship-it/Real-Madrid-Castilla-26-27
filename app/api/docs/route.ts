@@ -18,6 +18,17 @@ const PREFIJO_VETADO = /^secreto:/i;
 
 const vetada = (key: string) => PREFIJO_VETADO.test(key);
 
+/**
+ * Claves que se leen por aquí pero **no se escriben** por aquí.
+ *
+ * La quiniela tiene su propia puerta (`/api/quiniela/guardar`), que mira quién
+ * ha entrado y si la jornada ya se cerró el viernes. Si esta ruta siguiera
+ * aceptando el documento entero, ese cierre sería decorativo, y una pestaña
+ * vieja —o una copia de antes de la actualización guardada en el navegador—
+ * podría pisar las apuestas de todos con lo que tenía al cargar.
+ */
+const SOLO_LECTURA = new Set(["quiniela"]);
+
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key") ?? "";
 
@@ -58,6 +69,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Clave no válida." },
         { status: 400 }
+      );
+    }
+
+    if (SOLO_LECTURA.has(key)) {
+      return NextResponse.json(
+        { success: false, error: "Este documento se guarda desde su pantalla." },
+        { status: 403 }
       );
     }
 

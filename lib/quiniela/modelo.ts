@@ -6,14 +6,14 @@
  * poder comprobarse sin abrir un navegador.
  *
  * **Se juega al 1-X-2 de toda la vida**, jornada a jornada, sobre el calendario
- * de `calendario.ts`. Cada uno rellena sus diez pronósticos, se meten los
+ * de `calendario.ts`. Cada uno rellena sus nueve pronósticos, se meten los
  * resultados cuando se juegan, y el acierto se cuenta solo.
  *
  * Dos decisiones que no son obvias:
  *
  * - **Un partido sin resultado no cuenta para nadie.** Ni acierto ni fallo: la
  *   jornada se va completando según se juega, y el porcentaje del lunes tiene
- *   que ser el de los partidos jugados, no el de los diez.
+ *   que ser el de los partidos jugados, no el de los nueve.
  * - **No pronosticar es fallar**, pero sólo cuando el partido ya se ha jugado.
  *   Si no, quien se olvida de rellenar saldría con el mismo porcentaje que
  *   quien acierta todo, y la quiniela dejaría de tener gracia.
@@ -82,6 +82,13 @@ export type DocumentoQuiniela = {
   jugadores: string[];
   /** La canción, la frase y la foto de broma de cada uno. */
   extras?: Record<string, ExtrasJugador>;
+  /**
+   * Las jornadas de las que ya salió el correo del viernes.
+   *
+   * Lo apunta `/api/quiniela/aviso`: el cron puede repetirse y nadie quiere
+   * el mismo aviso dos veces.
+   */
+  avisadas?: number[];
 };
 
 export const QUINIELA_VACIA: DocumentoQuiniela = { jornadas: {}, jugadores: [] };
@@ -113,6 +120,11 @@ export type Bloque = {
 /* ------------------------------------------------------------------ */
 /*  EL CALENDARIO                                                      */
 /* ------------------------------------------------------------------ */
+
+/** Si un valor que llega de fuera es un signo de verdad. */
+export function esSigno(valor: unknown): valor is Signo {
+  return valor === "1" || valor === "X" || valor === "2";
+}
 
 export function partidosDe(jornada: number): PartidoQuiniela[] {
   return CALENDARIO.filter((uno) => uno.jornada === jornada);

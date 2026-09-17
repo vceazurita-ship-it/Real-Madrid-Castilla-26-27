@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/quiniela/aviso",
+      "schedule": "0 7 * * 5"
+    },
+    {
+      "path": "/api/quiniela/aviso",
+      "schedule": "0 8 * * 5"
+    }
+  ]
+}
