@@ -519,7 +519,7 @@ export default function QuinielaPage() {
                         key={slug}
                         type="button"
                         onClick={() => setViendoExtras(slug)}
-                        title={`${persona.nombre} · ${persona.rol} — su canción, su frase y su foto de broma`}
+                        title={`${persona.nombre} — su canción, su frase y su foto de broma`}
                         className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition ${
                           soyYo
                             ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
@@ -863,14 +863,11 @@ export default function QuinielaPage() {
                                 <span className="flex items-center gap-2">
                                   <Avatar slug={fila.slug} lado={24} />
 
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-white/85">
-                                      {persona.nombre}
-                                    </span>
-
-                                    <span className="block truncate text-[10px] text-white/35">
-                                      {persona.rol}
-                                    </span>
+                                  {/* Sólo el nombre: el puesto de cada uno no
+                                      pinta nada en una apuesta entre
+                                      compañeros (17/09/2026). */}
+                                  <span className="min-w-0 truncate text-white/85">
+                                    {persona.nombre}
                                   </span>
                                 </span>
                               </td>
