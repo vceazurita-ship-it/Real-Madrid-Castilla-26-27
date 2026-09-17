@@ -12,7 +12,7 @@ import {
   type Puesto,
 } from "./individual";
 import { percentil } from "./metricas";
-import type { FilaJugador } from "./leer";
+import type { FilaJugador, FilaPartido } from "./leer";
 import type { AreaKey } from "@/lib/ratings/types";
 import type { PlayerSummary } from "@/lib/ratings/compute";
 
@@ -22,8 +22,8 @@ import type { PlayerSummary } from "@/lib/ratings/compute";
  * La misma alineación contada por quien la mide de tres maneras distintas, y
  * el usuario elige con cuál se queda:
  *
- * - **Wyscout**: cincuenta y una métricas por jugador, agrupadas, y el
- *   percentil contra los de su puesto. Es la vista rica.
+ * - **Wyscout**: setenta y ocho métricas por jugador, agrupadas, y el percentil
+ *   contra los de su puesto. Es la vista rica.
  * - **Opta**: lo que se puede contar de su registro de eventos —robos,
  *   rechaces, duelos—. **Es una muestra corta a propósito declarada**: el
  *   fichero trae del orden de diez o veinte acciones por jugador en tres
@@ -35,6 +35,12 @@ import type { PlayerSummary } from "@/lib/ratings/compute";
  * un número medio entre un percentil de Wyscout y un 7,5 nuestro no significa
  * nada. Se enseñan por separado y se compara con los ojos, que es lo que hace
  * el cuerpo técnico de todas formas.
+ *
+ * **Y se puede mirar por líneas o jugador a jugador** (17/09/2026). Era la
+ * carencia gorda: la rejilla sólo daba la media de la línea, así que el dato
+ * individual de Wyscout —que es el que hay— quedaba escondido detrás de un
+ * promedio de cuatro. Las columnas son ahora una lista, y cada vista decide
+ * cuáles son; el cálculo de cada casilla es el mismo.
  */
 
 export type FuenteOnce = "wyscout" | "opta" | "nuestra";
@@ -59,6 +65,27 @@ export const FUENTES: {
     key: "nuestra",
     label: "Nuestra valoración",
     pregunta: "La nota del cuerpo técnico por áreas, con su forma y su tendencia",
+  },
+];
+
+/** Cómo se reparten las columnas de la rejilla. */
+export type VistaOnce = "lineas" | "jugadores";
+
+export const VISTAS: { key: VistaOnce; label: string; explica: string }[] = [
+  {
+    key: "lineas",
+    label: "Por líneas",
+    explica: "El once y sus tres líneas, con la media de cada una.",
+  },
+  {
+    /*
+    | «Uno a uno» y no «jugador a jugador»: así se llama ya el área individual
+    | de DATA, y dos botones con el mismo rótulo en la misma pantalla —uno que
+    | cambia de área y otro que cambia de columnas— es un tropiezo seguro.
+    */
+    key: "jugadores",
+    label: "Uno a uno",
+    explica: "Una columna por futbolista: el dato de cada uno, sin promediar con nadie.",
   },
 ];
 
@@ -90,6 +117,66 @@ export const lineaDe = (puesto: Puesto): LineaOnce =>
         : "once";
 
 /* ------------------------------------------------------------------ */
+/*  EL LADO                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Por qué lado juega. `C` es el centro, o «da igual».
+ *
+ * **Esto faltaba y era el fallo que se veía desde fuera**: el once tiene un
+ * hueco para el lateral derecho y otro para el izquierdo, pero el puesto sólo
+ * decía «LAT», así que los dos huecos se rellenaban por minutos jugados y
+ * Diego Aguado —lateral izquierdo— salía de lateral derecho y Jesús Fortea al
+ * revés. Con el lado, cada uno cae en su sitio y quien mire la rejilla puede
+ * fiarse de los rótulos.
+ */
+export type Lado = "D" | "I" | "C";
+
+/**
+ * El lado que dice Wyscout en su «Posición específica».
+ *
+ * Las siglas llevan el lado delante: `LB` lateral izquierdo, `RB` derecho,
+ * `RCB` central derecho, `LAMF` mediapunta por la izquierda. Manda la primera
+ * de la lista, que es donde más ha jugado. Es **dato medido**, no una etiqueta
+ * de plantilla: dice dónde ha jugado de verdad esta temporada.
+ */
+export function ladoDeWyscout(posicion: string): Lado {
+  const primera = (posicion || "").split(",")[0].trim().toUpperCase();
+
+  /* `L`/`R` sólo son lado cuando delante van de una sigla de puesto. */
+  if (/^L[A-Z]/.test(primera)) return "I";
+
+  if (/^R[A-Z]/.test(primera)) return "D";
+
+  return "C";
+}
+
+/**
+ * El lado que dice la hoja de plantilla.
+ *
+ * `LATERAL D.` y `LATERAL I.` lo escriben con todas las letras, y los números
+ * de rol también lo llevan: el 7 es el extremo derecho y el 11 el izquierdo,
+ * el 2 lateral derecho y el 3 izquierdo. Lo demás es centro.
+ */
+export function ladoDeLaHoja(posicion: string): Lado {
+  const p = (posicion || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toUpperCase();
+
+  if (p === "2" || /\bD\.?$/.test(p) || p.includes("DERECH")) return "D";
+
+  if (p === "3" || /\bI\.?$/.test(p) || p.includes("IZQUIERD")) return "I";
+
+  if (p === "7") return "D";
+
+  if (p === "11") return "I";
+
+  return "C";
+}
+
+/* ------------------------------------------------------------------ */
 /*  UNA FILA DE LA REJILLA                                             */
 /* ------------------------------------------------------------------ */
 
@@ -107,6 +194,18 @@ export type CeldaOnce = {
   fuerza: number | null;
   /** Si un valor alto es bueno, malo, o ninguna de las dos. */
   sentido: boolean | null;
+  /** Lo que se cuenta al pasar por encima: el percentil, quién entra en la media… */
+  detalle?: string;
+};
+
+/** Una columna de la rejilla: una línea entera o un solo jugador. */
+export type ColumnaOnce = {
+  key: string;
+  label: string;
+  /** La segunda línea del encabezado: el puesto, los minutos… */
+  sub?: string;
+  /** La del once va destacada, que es la que se lee primero. */
+  destacada?: boolean;
 };
 
 export type FilaOnce = {
@@ -115,8 +214,8 @@ export type FilaOnce = {
   grupo: string;
   /** Cómo se lee, para el `title` de la fila. */
   comoLeer: string;
-  /** Por línea: `once`, `defensas`, `medios`, `puntas`. */
-  celdas: Record<LineaOnce, CeldaOnce>;
+  /** Por columna, en el orden de `columnas`. */
+  celdas: Record<string, CeldaOnce>;
 };
 
 export type BloqueOnce = {
@@ -126,19 +225,13 @@ export type BloqueOnce = {
 
 export type RejillaOnce = {
   fuente: FuenteOnce;
+  columnas: ColumnaOnce[];
   bloques: BloqueOnce[];
   /** Lo que hay que saber antes de leerla. Vacío si no hay nada que avisar. */
   avisos: string[];
 };
 
 const VACIA: CeldaOnce = { texto: null, fuerza: null, sentido: null };
-
-const celdas = (): Record<LineaOnce, CeldaOnce> => ({
-  once: VACIA,
-  defensas: VACIA,
-  medios: VACIA,
-  puntas: VACIA,
-});
 
 /** La media de unos números, o `null` si no hay ninguno. */
 function media(valores: number[]) {
@@ -192,13 +285,184 @@ export function puestoDeLaHoja(posicion: string): Puesto {
   return "MED";
 }
 
+/**
+ * Dónde juega uno, cruzando las dos fuentes que lo dicen.
+ *
+ * **Manda Wyscout cuando tiene fila suya**, porque es dónde ha jugado de
+ * verdad esta temporada; la hoja es la etiqueta del club, que va por detrás de
+ * los cambios —un central al que se ha pasado a lateral sigue de central en la
+ * hoja hasta que alguien la toque—. Si no hay fila de Wyscout, manda la hoja,
+ * que siempre está.
+ *
+ * Se devuelven las dos para poder **decirlo en pantalla cuando no coinciden**:
+ * callarlo sería cambiarle el puesto a alguien sin avisar.
+ */
+export type SitioJugador = {
+  puesto: Puesto;
+  lado: Lado;
+  /** De dónde ha salido lo anterior. */
+  segun: "wyscout" | "hoja";
+  /** Lo que dice Wyscout, tal cual («LB», «RCB, RB»). Vacío si no tiene fila. */
+  wyscout: string;
+  /** Lo que dice la hoja, tal cual («LATERAL I.», «11»). */
+  hoja: string;
+};
+
+export function sitioDe(
+  posicionHoja: string,
+  posicionWyscout: string | null,
+): SitioJugador {
+  const hoja = (posicionHoja || "").trim();
+
+  const wyscout = (posicionWyscout || "").trim();
+
+  if (wyscout) {
+    return {
+      puesto: puestoDe(wyscout),
+      lado: ladoDeWyscout(wyscout),
+      segun: "wyscout",
+      wyscout,
+      hoja,
+    };
+  }
+
+  return {
+    puesto: puestoDeLaHoja(hoja),
+    lado: ladoDeLaHoja(hoja),
+    segun: "hoja",
+    wyscout: "",
+    hoja,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS ONCE HUECOS                                                    */
+/* ------------------------------------------------------------------ */
+
+export type Hueco = {
+  clave: string;
+  rotulo: string;
+  puesto: Puesto;
+  lado: Lado;
+};
+
+/**
+ * Los once puestos de la pizarra, en el orden en que se rellena un once.
+ *
+ * **Cada hueco lleva su lado** (17/09/2026). Sin eso, «lateral derecho» y
+ * «lateral izquierdo» eran el mismo hueco dos veces y se rellenaban por
+ * minutos jugados: Diego Aguado —lateral izquierdo— salía de derecho y Jesús
+ * Fortea de izquierdo.
+ */
+export const HUECOS: Hueco[] = [
+  { clave: "por", rotulo: "Portero", puesto: "POR", lado: "C" },
+  { clave: "lat-d", rotulo: "Lateral derecho", puesto: "LAT", lado: "D" },
+  { clave: "cen-d", rotulo: "Central derecho", puesto: "CEN", lado: "D" },
+  { clave: "cen-i", rotulo: "Central izquierdo", puesto: "CEN", lado: "I" },
+  { clave: "lat-i", rotulo: "Lateral izquierdo", puesto: "LAT", lado: "I" },
+  { clave: "med-d", rotulo: "Medio derecho", puesto: "MED", lado: "D" },
+  { clave: "med-c", rotulo: "Medio centro", puesto: "MED", lado: "C" },
+  { clave: "med-i", rotulo: "Medio izquierdo", puesto: "MED", lado: "I" },
+  { clave: "ban-d", rotulo: "Banda derecha", puesto: "BAN", lado: "D" },
+  { clave: "del", rotulo: "Delantero", puesto: "DEL", lado: "C" },
+  { clave: "ban-i", rotulo: "Banda izquierda", puesto: "BAN", lado: "I" },
+];
+
+/** Si un jugador sirve para un hueco por lado: el centro vale para los dos. */
+export const vaAlLado = (hueco: Hueco, lado: Lado) =>
+  hueco.lado === "C" || lado === "C" || lado === hueco.lado;
+
+export type Candidato = {
+  id: string;
+  sitio: SitioJugador;
+  /** Los que lleva jugados esta temporada, que es el criterio de titular. */
+  minutos: number;
+};
+
+/**
+ * El once que se propone solo.
+ *
+ * **En tres pasadas, y el orden importa**: primero quien es de ese puesto **y
+ * de ese lado**, luego quien es del puesto, y al final se rellena con quien
+ * quede. Hueco a hueco en una sola pasada, el lateral derecho —que va antes en
+ * la lista— se llevaba al lateral izquierdo si tenía más minutos, y de ahí
+ * salía el once con los dos lados cambiados.
+ *
+ * La tercera pasada existe porque pasa de verdad: la plantilla tiene cuatro
+ * medios contando a uno que ya no está, así que al tercer medio no le queda
+ * candidato de su puesto. Un desplegable vacío no dice nada y deja la rejilla
+ * coja; puesto alguien, se ve el once entero y se cambia a mano en un toque.
+ */
+export function proponeOnce(
+  candidatos: Candidato[],
+  aMano: Record<string, string> = {},
+): Record<string, string> {
+  const puestos: Record<string, string> = {};
+
+  const usados = new Set<string>();
+
+  for (const hueco of HUECOS) {
+    const elegido = aMano[hueco.clave];
+
+    if (elegido && candidatos.some((uno) => uno.id === elegido)) {
+      puestos[hueco.clave] = elegido;
+      usados.add(elegido);
+    }
+  }
+
+  const rellena = (vale: (hueco: Hueco, uno: Candidato) => boolean) => {
+    for (const hueco of HUECOS) {
+      if (puestos[hueco.clave]) continue;
+
+      const candidato = candidatos
+        .filter((uno) => !usados.has(uno.id) && vale(hueco, uno))
+        .sort((a, b) => b.minutos - a.minutos)[0];
+
+      if (candidato) {
+        puestos[hueco.clave] = candidato.id;
+        usados.add(candidato.id);
+      }
+    }
+  };
+
+  /*
+  | 1. Su puesto y **exactamente** su lado.
+  |
+  | Primero el lado exacto y sólo después los de centro, que valen para
+  | cualquiera de los dos: si no, un mediapunta (`AMF`, sin lado) con más
+  | minutos se quedaba la banda derecha y dejaba fuera a un extremo derecho
+  | puro (`RAMF`). Quien no tiene lado se coloca mejor en el hueco que sobre.
+  */
+  rellena(
+    (hueco, uno) => uno.sitio.puesto === hueco.puesto && uno.sitio.lado === hueco.lado,
+  );
+
+  /* 2. Su puesto, y un lado que no estorbe: el centro vale para los dos. */
+  rellena(
+    (hueco, uno) => uno.sitio.puesto === hueco.puesto && vaAlLado(hueco, uno.sitio.lado),
+  );
+
+  /* 3. Su puesto, aunque sea del otro lado. */
+  rellena((hueco, uno) => uno.sitio.puesto === hueco.puesto);
+
+  /* 4. Quien quede. */
+  rellena(() => true);
+
+  return puestos;
+}
+
 /** Un jugador del once, ya resuelto contra las tres fuentes. */
 export type JugadorOnce = {
   /** El id de la plantilla, que es con el que se guarda el once. */
   id: string;
   nombre: string;
+  /** El hueco del que sale: `lat-i`, `med-c`… */
+  hueco?: string;
   puesto: Puesto;
+  lado: Lado;
   linea: LineaOnce;
+  /** De dónde sale el puesto y qué dice cada fuente. */
+  sitio: SitioJugador;
   /** Su fila de Wyscout, si la hay. */
   wyscout: FilaJugador | null;
   /** Su resumen de valoraciones, si lo hay. */
@@ -244,11 +508,52 @@ export function casaNombre<T>(
 }
 
 /* ------------------------------------------------------------------ */
-/*  LAS TRES REJILLAS                                                  */
+/*  LAS COLUMNAS                                                       */
+/* ------------------------------------------------------------------ */
+
+/** Una columna con los jugadores que entran en ella. */
+type Grupo = { columna: ColumnaOnce; jugadores: JugadorOnce[] };
+
+/** "Álvaro Leiva" → "Á. Leiva", que es lo que cabe en una columna. */
+function corto(nombre: string) {
+  const trozos = nombre.trim().split(/\s+/);
+
+  if (trozos.length < 2) return nombre;
+
+  return `${trozos[0][0]}. ${trozos.slice(1).join(" ")}`;
+}
+
+const ROTULO_LADO: Record<Lado, string> = { D: "der.", I: "izq.", C: "" };
+
+/** Las columnas de una vista, con quién va en cada una. */
+export function gruposDe(once: JugadorOnce[], vista: VistaOnce): Grupo[] {
+  if (vista === "jugadores") {
+    return once.map((uno) => ({
+      columna: {
+        key: uno.id,
+        label: corto(uno.nombre),
+        sub: [uno.puesto, ROTULO_LADO[uno.lado]].filter(Boolean).join(" "),
+      },
+      jugadores: [uno],
+    }));
+  }
+
+  return LINEAS.map((linea) => ({
+    columna: {
+      key: linea.key,
+      label: linea.label,
+      destacada: linea.key === "once",
+    },
+    jugadores: once.filter((uno) => linea.puestos.includes(uno.puesto)),
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAS REJILLAS                                                       */
 /* ------------------------------------------------------------------ */
 
 /**
- * Wyscout: el percentil de cada métrica, por línea.
+ * Wyscout: el percentil de cada métrica, por columna.
  *
  * La barra es el percentil **contra los de su puesto** y no el valor en bruto,
  * porque un lateral y un delantero no se comparan en pases al último tercio.
@@ -258,8 +563,11 @@ export function rejillaWyscout(
   once: JugadorOnce[],
   jugadores: FilaJugador[],
   ambito: Ambito = "liga",
+  vista: VistaOnce = "lineas",
+  /** Los partidos del Castilla, para poder cruzar el equipo con el jugador. */
+  nuestros: FilaPartido[] = [],
 ): RejillaOnce {
-  const conDato = once.filter((uno) => uno.wyscout);
+  const grupos = gruposDe(once, vista);
 
   const avisos: string[] = [];
 
@@ -294,54 +602,70 @@ export function rejillaWyscout(
     return pct === null ? null : { valor, pct };
   };
 
-  const grupos = [...new Set(METRICAS_JUGADOR.map((m) => m.grupo))];
+  const nombresGrupo = [...new Set(METRICAS_JUGADOR.map((m) => m.grupo))];
 
-  const bloques = grupos.map((grupo) => {
+  const bloques = nombresGrupo.map((grupo) => {
     const filas = METRICAS_JUGADOR.filter((m) => m.grupo === grupo).map((metrica) => {
       const fila: FilaOnce = {
         clave: metrica.columna,
         etiqueta: metrica.nombre,
         grupo,
         comoLeer: metrica.comoLeer,
-        celdas: celdas(),
+        celdas: {},
       };
 
-      for (const { key, puestos } of LINEAS) {
-        /* Sólo los de esa línea a los que la métrica les dice algo. */
-        const suyos = conDato.filter(
-          (uno) =>
-            puestos.includes(uno.puesto) &&
-            (!metrica.puestos || metrica.puestos.includes(uno.puesto)),
+      for (const { columna, jugadores: suyosTodos } of grupos) {
+        /* Sólo aquellos a los que la métrica les dice algo. */
+        const suyos = suyosTodos.filter(
+          (uno) => uno.wyscout && (!metrica.puestos || metrica.puestos.includes(uno.puesto)),
         );
 
         const medidos = suyos
           .map((uno) => percentilDe(uno, metrica))
           .filter((m): m is { valor: number; pct: number } => m !== null);
 
-        if (medidos.length === 0) continue;
+        if (medidos.length === 0) {
+          fila.celdas[columna.key] = VACIA;
+
+          continue;
+        }
 
         const pct = media(medidos.map((m) => m.pct));
         const valor = media(medidos.map((m) => m.valor));
 
-        fila.celdas[key] = {
+        fila.celdas[columna.key] = {
           texto: valor === null ? null : formatea(valor, metrica),
           fuerza: pct === null ? null : pct / 100,
           sentido: metrica.mejorAlto,
+          detalle:
+            pct === null
+              ? undefined
+              : `Percentil ${Math.round(pct)}${
+                  medidos.length > 1 ? ` · media de ${medidos.length}` : ""
+                }`,
         };
       }
 
       return fila;
     });
 
-    /* Un grupo en el que ninguna línea tiene dato no se enseña vacío. */
+    /* Un grupo en el que ninguna columna tiene dato no se enseña vacío. */
     return {
       grupo,
       filas: filas.filter((f) => Object.values(f.celdas).some((c) => c.texto !== null)),
     };
   });
 
+  const peso = bloquePeso(grupos, nuestros);
+
+  if (peso) {
+    bloques.push(peso.bloque);
+    avisos.push(peso.aviso);
+  }
+
   return {
     fuente: "wyscout",
+    columnas: grupos.map((g) => g.columna),
     bloques: bloques.filter((b) => b.filas.length > 0),
     avisos,
   };
@@ -353,6 +677,201 @@ function formatea(valor: number, metrica: MetricaJugador) {
   if (metrica.unidad === "entero") return String(Math.round(valor));
 
   return valor.toFixed(2).replace(".", ",");
+}
+
+/* ------------------------------------------------------------------ */
+/*  LO COLECTIVO CRUZADO CON LO INDIVIDUAL                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PARES DE COLUMNAS QUE MIDEN LO MISMO EN EL EQUIPO Y EN EL JUGADOR.
+ *
+ * Las dos descargas de Wyscout —«Team Stats», una fila por equipo y partido, y
+ * la de jugadores, una fila por cabeza con todo por noventa minutos— cuentan
+ * varias cosas con el mismo criterio. Cruzarlas contesta una pregunta que
+ * ninguna de las dos contesta sola: **qué parte del equipo es ese jugador**.
+ *
+ * El reparto es `su valor por 90 ÷ la media por partido del equipo`, y sale en
+ * tanto por ciento. Con las once columnas sumadas ronda el 100 %: lo que falta
+ * es de los suplentes que entraron.
+ */
+const PARES_PESO: { equipo: string; jugador: string; nombre: string; comoLeer: string }[] = [
+  {
+    equipo: "Pases",
+    jugador: "Pases/90",
+    nombre: "Pases",
+    comoLeer: "Qué parte de la circulación del equipo pasa por él.",
+  },
+  {
+    equipo: "Pases progresivos",
+    jugador: "Pases progresivos/90",
+    nombre: "Pases progresivos",
+    comoLeer: "Quién lleva de verdad el balón hacia adelante.",
+  },
+  {
+    equipo: "Pases en el último tercio",
+    jugador: "Pases en el último tercio/90",
+    nombre: "Pases en el último tercio",
+    comoLeer: "Quién juega cerca del área contraria.",
+  },
+  {
+    equipo: "Centros",
+    jugador: "Centros/90",
+    nombre: "Centros",
+    comoLeer: "De los centros del equipo, cuántos pone él.",
+  },
+  {
+    equipo: "Tiros",
+    jugador: "Remates/90",
+    nombre: "Remates",
+    comoLeer: "Qué parte de los remates del equipo son suyos.",
+  },
+  {
+    equipo: "xG",
+    jugador: "xG/90",
+    nombre: "Peligro generado (xG)",
+    comoLeer: "Del peligro que genera el equipo, cuánto sale de sus remates.",
+  },
+  {
+    equipo: "Toques en el área de penalti",
+    jugador: "Toques en el área de penalti/90",
+    nombre: "Toques en el área",
+    comoLeer: "Quién pisa el área rival.",
+  },
+  {
+    equipo: "Duelos defensivos",
+    jugador: "Duelos defensivos/90",
+    nombre: "Duelos defensivos",
+    comoLeer: "Quién se come los duelos atrás.",
+  },
+  {
+    equipo: "Duelos aéreos",
+    jugador: "Duelos aéreos en los 90",
+    nombre: "Duelos aéreos",
+    comoLeer: "Quién salta por el equipo.",
+  },
+  {
+    equipo: "Interceptaciones",
+    jugador: "Interceptaciones/90",
+    nombre: "Interceptaciones",
+    comoLeer: "Quién corta.",
+  },
+  {
+    equipo: "Entradas a ras de suelo",
+    jugador: "Entradas/90",
+    nombre: "Entradas",
+    comoLeer: "Quién entra al suelo.",
+  },
+  {
+    equipo: "Desmarques",
+    jugador: "Desmarques/90",
+    nombre: "Desmarques",
+    comoLeer: "Quién ataca el espacio cuando el equipo lo busca.",
+  },
+  {
+    equipo: "Faltas",
+    jugador: "Faltas/90",
+    nombre: "Faltas",
+    comoLeer: "De las faltas que hace el equipo, cuántas son suyas.",
+  },
+];
+
+/**
+ * El bloque «Peso en el equipo»: lo colectivo cruzado con lo individual.
+ *
+ * `null` si no hay partidos del equipo con los que comparar —sin denominador
+ * no hay reparto que valga—.
+ */
+function bloquePeso(
+  grupos: Grupo[],
+  nuestros: FilaPartido[],
+): { bloque: BloqueOnce; aviso: string } | null {
+  if (nuestros.length === 0) return null;
+
+  /* La media por partido del equipo en cada columna de los «Team Stats». */
+  const delEquipo = (columna: string) =>
+    media(
+      nuestros
+        .map((partido) => partido.datos[columna])
+        .filter((v): v is number => v !== undefined),
+    );
+
+  const filas: FilaOnce[] = [];
+
+  for (const par of PARES_PESO) {
+    const suma = delEquipo(par.equipo);
+
+    if (suma === null || suma <= 0) continue;
+
+    const fila: FilaOnce = {
+      clave: `peso:${par.equipo}`,
+      etiqueta: par.nombre,
+      grupo: "Peso en el equipo",
+      comoLeer: `${par.comoLeer} Es su valor por 90 minutos dividido entre los ${formateaNumero(
+        suma,
+      )} que hace el equipo por partido.`,
+      celdas: {},
+    };
+
+    const partes: number[] = [];
+
+    for (const { columna, jugadores } of grupos) {
+      const suyos = jugadores
+        .map((uno) => uno.wyscout?.datos[par.jugador])
+        .filter((v): v is number => v !== undefined);
+
+      if (suyos.length === 0) {
+        fila.celdas[columna.key] = VACIA;
+
+        continue;
+      }
+
+      /* Se SUMA, no se promedia: es un reparto de la tarta del equipo. */
+      const parte = (suyos.reduce((t, v) => t + v, 0) / suma) * 100;
+
+      partes.push(parte);
+
+      fila.celdas[columna.key] = {
+        texto: `${parte.toFixed(parte < 10 ? 1 : 0).replace(".", ",")} %`,
+        fuerza: null,
+        /* Un reparto no es bueno ni malo: dice de qué se encarga cada uno. */
+        sentido: null,
+        detalle: `${formateaNumero(
+          suyos.reduce((t, v) => t + v, 0),
+        )} por 90′ de los ${formateaNumero(suma)} del equipo por partido`,
+      };
+    }
+
+    /* La barra va contra la columna que más tenga, como en el recuento de Opta. */
+    const tope = Math.max(...partes, 1);
+
+    for (const { columna } of grupos) {
+      const celda = fila.celdas[columna.key];
+
+      if (!celda || celda.texto === null) continue;
+
+      const parte = Number(celda.texto.replace(" %", "").replace(",", "."));
+
+      fila.celdas[columna.key] = { ...celda, fuerza: parte / tope };
+    }
+
+    filas.push(fila);
+  }
+
+  if (filas.length === 0) return null;
+
+  return {
+    bloque: { grupo: "Peso en el equipo", filas },
+    aviso: `«Peso en el equipo» cruza las dos descargas de Wyscout: lo que hace cada uno por 90 minutos frente a lo que hace el equipo por partido (${nuestros.length} partido${
+      nuestros.length === 1 ? "" : "s"
+    }). Es un reparto, no una nota: un lateral con el 9 % de los pases no está mejor ni peor que uno con el 6 %.`,
+  };
+}
+
+function formateaNumero(valor: number) {
+  return valor >= 100
+    ? String(Math.round(valor))
+    : valor.toFixed(1).replace(".", ",");
 }
 
 /**
@@ -375,7 +894,10 @@ export function rejillaOpta(
    * mitad de los robos llegan sin nombre.
    */
   enElLog?: { con: number; sin: number },
+  vista: VistaOnce = "lineas",
 ): RejillaOnce {
+  const grupos = gruposDe(once, vista);
+
   const conDato = once.filter((uno) => uno.opta && uno.opta.total > 0);
 
   const total = conDato.reduce((t, uno) => t + (uno.opta?.total ?? 0), 0);
@@ -432,30 +954,25 @@ export function rejillaOpta(
       etiqueta: familia.familia,
       grupo: "Acciones registradas",
       comoLeer: familia.explica,
-      celdas: celdas(),
+      celdas: {},
     };
 
+    const sumaDe = (suyos: JugadorOnce[]) =>
+      suyos.reduce((t, uno) => t + (uno.opta?.familias[familia.familia] ?? 0), 0);
+
     /* El tope manda la barra: es un recuento, no hay percentil que valga. */
-    const tope = Math.max(
-      1,
-      ...LINEAS.map(({ puestos }) =>
-        conDato
-          .filter((uno) => puestos.includes(uno.puesto))
-          .reduce((t, uno) => t + (uno.opta?.familias[familia.familia] ?? 0), 0),
-      ),
-    );
+    const tope = Math.max(1, ...grupos.map((g) => sumaDe(g.jugadores)));
 
-    for (const { key, puestos } of LINEAS) {
-      const suyos = conDato.filter((uno) => puestos.includes(uno.puesto));
+    for (const { columna, jugadores } of grupos) {
+      if (jugadores.length === 0) {
+        fila.celdas[columna.key] = VACIA;
 
-      if (suyos.length === 0) continue;
+        continue;
+      }
 
-      const suma = suyos.reduce(
-        (t, uno) => t + (uno.opta?.familias[familia.familia] ?? 0),
-        0,
-      );
+      const suma = sumaDe(jugadores);
 
-      fila.celdas[key] = {
+      fila.celdas[columna.key] = {
         texto: String(suma),
         fuerza: suma / tope,
         /* Más robos es mejor; más rechaces no dice nada por sí solo. */
@@ -468,6 +985,7 @@ export function rejillaOpta(
 
   return {
     fuente: "opta",
+    columnas: grupos.map((g) => g.columna),
     bloques: [{ grupo: "Acciones registradas", filas }],
     avisos,
   };
@@ -498,8 +1016,11 @@ const AREAS_NUESTRAS: { clave: AreaKey | "global" | "form"; etiqueta: string; co
  * el cuerpo técnico suele mirar primero. La barra es la nota sobre diez, sin
  * percentiles: un 7 es un 7 aunque toda la plantilla ande por ahí.
  */
-export function rejillaNuestra(once: JugadorOnce[]): RejillaOnce {
-  const conNota = once.filter((uno) => uno.nuestra && uno.nuestra.played > 0);
+export function rejillaNuestra(
+  once: JugadorOnce[],
+  vista: VistaOnce = "lineas",
+): RejillaOnce {
+  const grupos = gruposDe(once, vista);
 
   const avisos: string[] = [];
 
@@ -517,13 +1038,13 @@ export function rejillaNuestra(once: JugadorOnce[]): RejillaOnce {
       etiqueta: area.etiqueta,
       grupo: "Valoración del cuerpo técnico",
       comoLeer: area.comoLeer,
-      celdas: celdas(),
+      celdas: {},
     };
 
     const notaDe = (uno: JugadorOnce) => {
       const suyo = uno.nuestra;
 
-      if (!suyo) return null;
+      if (!suyo || suyo.played === 0) return null;
 
       if (area.clave === "global") return suyo.avg || null;
       if (area.clave === "form") return suyo.form || null;
@@ -531,30 +1052,64 @@ export function rejillaNuestra(once: JugadorOnce[]): RejillaOnce {
       return suyo.areas[area.clave as AreaKey] || null;
     };
 
-    for (const { key, puestos } of LINEAS) {
-      const suyos = conNota.filter((uno) => puestos.includes(uno.puesto));
-
-      const notas = suyos
+    for (const { columna, jugadores } of grupos) {
+      const notas = jugadores
         .map(notaDe)
         .filter((n): n is number => n !== null && n > 0);
 
-      if (notas.length === 0) continue;
+      if (notas.length === 0) {
+        fila.celdas[columna.key] = VACIA;
+
+        continue;
+      }
 
       const nota = media(notas)!;
 
-      fila.celdas[key] = {
+      fila.celdas[columna.key] = {
         texto: nota.toFixed(1).replace(".", ","),
         fuerza: Math.min(1, nota / 10),
         sentido: true,
+        detalle:
+          notas.length > 1 ? `Media de ${notas.length} jugadores` : undefined,
       };
     }
 
     return fila;
   });
 
+  /* Los partidos valorados de cada uno: sin eso, un 8 de un partido y un 8 de
+     diez se leen igual. */
+  const jugados: FilaOnce = {
+    clave: "valorados",
+    etiqueta: "Partidos valorados",
+    grupo: "Valoración del cuerpo técnico",
+    comoLeer: "De cuántos partidos sale la nota. Una nota de un solo partido es una impresión, no una media.",
+    celdas: {},
+  };
+
+  const tope = Math.max(1, ...once.map((uno) => uno.nuestra?.played ?? 0));
+
+  for (const { columna, jugadores } of grupos) {
+    const suyos = jugadores.map((uno) => uno.nuestra?.played ?? 0);
+
+    const valor = media(suyos);
+
+    jugados.celdas[columna.key] =
+      valor === null
+        ? VACIA
+        : {
+            texto: valor % 1 === 0 ? String(valor) : valor.toFixed(1).replace(".", ","),
+            fuerza: Math.min(1, valor / tope),
+            sentido: null,
+          };
+  }
+
   return {
     fuente: "nuestra",
-    bloques: [{ grupo: "Valoración del cuerpo técnico", filas }],
+    columnas: grupos.map((g) => g.columna),
+    bloques: [
+      { grupo: "Valoración del cuerpo técnico", filas: [...filas, jugados] },
+    ],
     avisos,
   };
 }
@@ -570,7 +1125,7 @@ export function rejillaNuestra(once: JugadorOnce[]): RejillaOnce {
  * único que comparten las tres (ver `casaNombre`).
  */
 export function armaOnce(
-  elegidos: { id: string; nombre: string; posicion: string }[],
+  elegidos: { id: string; nombre: string; posicion: string; hueco?: string }[],
   jugadores: FilaJugador[],
   resumenes: PlayerSummary[],
   eventos: PartidoEventos[],
@@ -582,20 +1137,22 @@ export function armaOnce(
   const deOpta = porJugador(eventos.flatMap((p) => p.eventos));
 
   return elegidos.map((uno) => {
-    const puesto = puestoDe(uno.posicion);
-
     const wyscout = casaNombre(uno.nombre, nuestrosWys, (j) => j.jugador);
 
     const opta = casaNombre(uno.nombre, deOpta, (j) => j.jugador);
 
-    const nuestra =
-      resumenes.find((r) => r.playerId === uno.id) ?? null;
+    const nuestra = resumenes.find((r) => r.playerId === uno.id) ?? null;
+
+    const sitio = sitioDe(uno.posicion, wyscout?.posicion ?? null);
 
     return {
       id: uno.id,
       nombre: uno.nombre,
-      puesto,
-      linea: lineaDe(puesto),
+      hueco: uno.hueco,
+      puesto: sitio.puesto,
+      lado: sitio.lado,
+      linea: lineaDe(sitio.puesto),
+      sitio,
       wyscout,
       nuestra,
       opta: opta ? { total: opta.total, familias: opta.familias } : null,
@@ -610,19 +1167,26 @@ export function rejillaDe(
   jugadores: FilaJugador[],
   eventos: PartidoEventos[],
   ambito: Ambito = "liga",
+  vista: VistaOnce = "lineas",
+  nuestros: FilaPartido[] = [],
 ): RejillaOnce {
   if (fuente === "opta") {
     const todos = eventos.flatMap((p) => p.eventos);
 
-    return rejillaOpta(once, eventos.length, {
-      con: todos.filter((e) => e.jugador).length,
-      sin: todos.filter((e) => !e.jugador).length,
-    });
+    return rejillaOpta(
+      once,
+      eventos.length,
+      {
+        con: todos.filter((e) => e.jugador).length,
+        sin: todos.filter((e) => !e.jugador).length,
+      },
+      vista,
+    );
   }
 
-  if (fuente === "nuestra") return rejillaNuestra(once);
+  if (fuente === "nuestra") return rejillaNuestra(once, vista);
 
-  return rejillaWyscout(once, jugadores, ambito);
+  return rejillaWyscout(once, jugadores, ambito, vista, nuestros);
 }
 
 /** Los puestos, por si la pantalla quiere ofrecerlos en orden. */

@@ -551,6 +551,315 @@ export const METRICAS_JUGADOR: MetricaJugador[] = [
     mejorAlto: true,
     comoLeer: "Lo que aporta en el área en las jugadas de estrategia.",
   },
+
+  /* ================================================================ */
+  /*  EL DETALLE QUE VENÍA EN LA DESCARGA Y SE ESTABA TIRANDO         */
+  /* ================================================================ */
+
+  /*
+  | 17/09/2026: la descarga de Wyscout trae **115 columnas por jugador** y el
+  | lector sólo guardaba las declaradas aquí —49—, así que cuarenta y cuatro se
+  | perdían al leer el fichero. Entre ellas, las que contestan preguntas que se
+  | hacen a diario: por qué banda centra un lateral, si un medio recibe o pide
+  | el balón, si juega corto o largo, y casi todo lo que hace un portero.
+  |
+  | `COLUMNAS_UTILES` (en `leer.ts`) sale de esta lista, así que añadir aquí es
+  | lo único que hace falta para que el dato llegue a las pantallas. Ojo con
+  | los rótulos: se copian **tal cual los escribe Wyscout**, con sus espacios
+  | de más («Pases recibidos /90») y sus erratas («Precision pases hacia
+  | atrás, %», sin tilde). Si se corrigen, la columna deja de encontrarse.
+  */
+
+  /* ---------------------------- CIRCULACIÓN ----------------------- */
+  {
+    columna: "Pases recibidos /90",
+    nombre: "Pases recibidos",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer:
+      "Cuántas veces le llega el balón. Junto a «Pases» dice si es un jugador al que se busca o uno que sólo devuelve.",
+  },
+  {
+    columna: "Pases largos recibidos/90",
+    nombre: "Pases largos recibidos",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer:
+      "Cuántos de los que recibe llegan en largo: es la señal de a quién se busca por alto.",
+  },
+  {
+    columna: "Pases cortos / medios /90",
+    nombre: "Pases cortos y medios",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "El volumen de juego asociado.",
+  },
+  {
+    columna: "Precisión pases cortos / medios, %",
+    nombre: "Acierto en corto %",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Acertar en corto es el suelo: por debajo del 85 % cuesta sostener una posesión.",
+  },
+  {
+    columna: "Pases largos/90",
+    nombre: "Pases largos",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "Cuánto cambia de zona. No es bueno ni malo: dice de qué va su juego.",
+  },
+  {
+    columna: "Precisión pases largos, %",
+    nombre: "Acierto en largo %",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Se lee con el volumen: acertar dos de dos no es tener pase largo.",
+  },
+  {
+    columna: "Longitud media pases, m",
+    nombre: "Longitud media de pase",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "En metros. Distingue al que junta del que estira sin pedir permiso.",
+  },
+  {
+    columna: "Pases hacia atrás/90",
+    nombre: "Pases hacia atrás",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "Ni virtud ni defecto: con «Pases hacia adelante» dice hacia dónde mira.",
+  },
+  {
+    columna: "Pases laterales/90",
+    nombre: "Pases laterales",
+    grupo: "Circulación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "El pase que cambia de carril sin avanzar.",
+  },
+
+  /* ---------------------------- PROGRESIÓN ------------------------ */
+  {
+    columna: "Precisión pases hacia adelante, %",
+    nombre: "Acierto hacia adelante %",
+    grupo: "Progresión",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Lo que cuesta de verdad: acertar el pase que rompe una línea.",
+  },
+  {
+    columna: "Precisión pases en profundidad, %",
+    nombre: "Acierto en profundidad %",
+    grupo: "Progresión",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "De los pases a la espalda de la defensa, cuántos llegan.",
+  },
+  {
+    columna: "Ataque en profundidad/90",
+    nombre: "Ataques a la espalda",
+    grupo: "Progresión",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: true,
+    comoLeer: "Cuántas veces ataca el espacio de detrás de la última línea.",
+  },
+
+  /* ----------------------------- CREACIÓN ------------------------- */
+  {
+    columna: "Second assists/90",
+    nombre: "Asistencias de la asistencia",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: true,
+    comoLeer: "El pase anterior al del gol: aparece quien participa en la jugada sin firmarla.",
+  },
+  {
+    columna: "Third assists/90",
+    nombre: "Dos pases antes del gol",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: true,
+    comoLeer: "El pase que arranca la jugada del gol. De los pocos números que premian al que empieza.",
+  },
+  {
+    columna: "Centros al área pequeña/90",
+    nombre: "Centros al área pequeña",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: true,
+    comoLeer: "El centro que obliga al portero a decidir.",
+  },
+  {
+    columna: "Centros desde el último tercio/90",
+    nombre: "Centros desde el último tercio",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "Los centros puestos desde cerca, no desde su campo.",
+  },
+  {
+    columna: "Pases hacía el área pequeña, %",
+    nombre: "Pases al área pequeña %",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Qué parte de lo que mete al área va a la zona donde se marca.",
+  },
+
+  /*
+  | POR QUÉ BANDA CENTRA.
+  |
+  | Cuatro columnas que Wyscout ya traía y que aquí valen doble: dicen el lado
+  | real de un jugador, no el que figura en la hoja. Un lateral que pone seis
+  | centros por noventa minutos desde la izquierda y ninguno desde la derecha
+  | es un lateral izquierdo, lo ponga donde lo ponga nadie.
+  */
+  {
+    columna: "Centros desde la banda izquierda/90",
+    nombre: "Centros por la izquierda",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "Con los de la derecha, dice por qué lado juega de verdad.",
+  },
+  {
+    columna: "Precisión centros desde la banda izquierda, %",
+    nombre: "Acierto centrando por la izquierda %",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Con pocos centros, un porcentaje alto no significa nada: mírese el volumen.",
+  },
+  {
+    columna: "Centros desde la banda derecha/90",
+    nombre: "Centros por la derecha",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "Con los de la izquierda, dice por qué lado juega de verdad.",
+  },
+  {
+    columna: "Precisión centros desde la banda derecha, %",
+    nombre: "Acierto centrando por la derecha %",
+    grupo: "Creación",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Con pocos centros, un porcentaje alto no significa nada: mírese el volumen.",
+  },
+
+  /* ------------------------ OCUPACIÓN DEL ÁREA -------------------- */
+  {
+    columna: "Precisión desmarques, %",
+    nombre: "Desmarques acertados %",
+    grupo: "Ocupación del área",
+    fase: "con",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "De los desmarques que hace, en cuántos le llega el balón.",
+  },
+
+  /* ---------------------------- VALOR GOL ------------------------- */
+  {
+    columna: "Goles, excepto los penaltis/90",
+    nombre: "Goles sin penaltis",
+    grupo: "Valor gol",
+    fase: "con",
+    unidad: "decimal",
+    mejorAlto: true,
+    comoLeer: "El gol en juego. Es el que compara de verdad a dos delanteros.",
+  },
+  {
+    columna: "Penaltis realizados, %",
+    nombre: "Penaltis marcados %",
+    grupo: "Valor gol",
+    fase: "abp",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "Con dos o tres lanzamientos no dice nada; se guarda porque a final de curso sí.",
+  },
+
+  /* --------------------------- BALÓN PARADO ----------------------- */
+  {
+    columna: "Tiros libres directos/90",
+    nombre: "Faltas directas lanzadas",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "decimal",
+    mejorAlto: null,
+    comoLeer: "Quién tira las de gol, aparte de las puestas al área.",
+  },
+  {
+    columna: "Tiros libres directos, %",
+    nombre: "Faltas directas a portería %",
+    grupo: "Balón parado",
+    fase: "abp",
+    unidad: "porcentaje",
+    mejorAlto: true,
+    comoLeer: "De las que tira a portería, cuántas van entre los tres palos.",
+  },
+
+  /* ----------------------------- PORTERÍA ------------------------- */
+  {
+    columna: "Remates en contra/90",
+    nombre: "Remates recibidos",
+    grupo: "Portería",
+    fase: "sin",
+    unidad: "decimal",
+    mejorAlto: false,
+    puestos: ["POR"],
+    comoLeer:
+      "Cuánto le tiran. Dice más del equipo que del portero, y por eso se lee antes que las paradas.",
+  },
+  {
+    columna: "Porterías imbatidas en los 90",
+    nombre: "Porterías a cero",
+    grupo: "Portería",
+    fase: "sin",
+    unidad: "decimal",
+    mejorAlto: true,
+    puestos: ["POR"],
+    comoLeer: "Las veces que acaba sin encajar, por noventa minutos jugados.",
+  },
+
+  /* ---------------------------- DISCIPLINA ------------------------ */
+  {
+    columna: "Tarjetas rojas/90",
+    nombre: "Rojas",
+    grupo: "Disciplina",
+    fase: "general",
+    unidad: "decimal",
+    mejorAlto: false,
+    comoLeer: "Con esta muestra, una roja dispara el número: se mira el total, no el ritmo.",
+  },
 ];
 
 export const METRICA_JUGADOR_POR_COLUMNA = new Map(

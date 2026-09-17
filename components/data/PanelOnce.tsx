@@ -5,12 +5,17 @@
  *
  * Se elige un once —un jugador por puesto— y se mira contado por Wyscout, por
  * Opta o por el cuerpo técnico. Las tres vistas tienen la misma forma: una
- * rejilla de ítems por bloques y cuatro columnas —el once entero y sus tres
- * líneas—, así que cambiar de fuente no obliga a reaprender a leerla.
+ * rejilla de ítems por bloques y unas columnas, así que cambiar de fuente no
+ * obliga a reaprender a leerla.
+ *
+ * **Las columnas se eligen**: por líneas —el once y sus tres líneas— o jugador
+ * a jugador. Lo segundo es lo que faltaba: la descarga de Wyscout es
+ * individual, y enseñar sólo la media de la línea escondía justo el dato que
+ * hay.
  *
  * **Cada barra se pinta con su propia regla.** En Wyscout es el percentil
  * contra los de su puesto; en nuestra valoración, la nota sobre diez; en Opta,
- * el recuento contra la línea que más tiene. Por eso el número que se escribe
+ * el recuento contra la columna que más tiene. Por eso el número que se escribe
  * es siempre el valor de verdad y la barra sólo ordena la vista: mezclarlas en
  * una escala común habría dado una cifra que no significa nada.
  *
@@ -27,31 +32,31 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { summarizeAll } from "@/lib/ratings/compute";
 import {
   FUENTES,
-  LINEAS,
+  HUECOS,
+  VISTAS,
   armaOnce,
+  casaNombre,
+  ladoDeLaHoja,
+  proponeOnce,
   puestoDeLaHoja,
   rejillaDe,
+  sitioDe,
+  vaAlLado,
+  type CeldaOnce,
+  type ColumnaOnce,
+  type FilaOnce,
   type FuenteOnce,
   type LineaOnce,
+  type VistaOnce,
 } from "@/lib/data-analisis/once";
-import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
+import {
+  AMBITOS,
+  PUESTOS,
+  esNuestro,
+  type Ambito,
+} from "@/lib/data-analisis/individual";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
-
-/** Los once puestos de la pizarra, en el orden en que se rellena un once. */
-const HUECOS: { clave: string; rotulo: string; puesto: Puesto }[] = [
-  { clave: "por", rotulo: "Portero", puesto: "POR" },
-  { clave: "lat-d", rotulo: "Lateral derecho", puesto: "LAT" },
-  { clave: "cen-d", rotulo: "Central derecho", puesto: "CEN" },
-  { clave: "cen-i", rotulo: "Central izquierdo", puesto: "CEN" },
-  { clave: "lat-i", rotulo: "Lateral izquierdo", puesto: "LAT" },
-  { clave: "med-d", rotulo: "Medio derecho", puesto: "MED" },
-  { clave: "med-c", rotulo: "Medio centro", puesto: "MED" },
-  { clave: "med-i", rotulo: "Medio izquierdo", puesto: "MED" },
-  { clave: "ban-d", rotulo: "Banda derecha", puesto: "BAN" },
-  { clave: "del", rotulo: "Delantero", puesto: "DEL" },
-  { clave: "ban-i", rotulo: "Banda izquierda", puesto: "BAN" },
-];
 
 export function PanelOnce({
   jugadores,
@@ -70,7 +75,8 @@ export function PanelOnce({
    * Es lo que ata esta pantalla a esos selectores: hasta ahora se enseñaban
    * encima del once y no hacían nada, que es peor que no tenerlos —se cambia
    * el sistema, no se mueve un número, y no hay forma de saber si es que no
-   * hay dato o es que está roto—.
+   * hay dato o es que está roto—. Y son también el denominador del bloque
+   * «Peso en el equipo».
    */
   nuestros: FilaPartido[];
   /** Lo elegido arriba, sólo para poder decir en qué se está mirando. */
@@ -81,6 +87,8 @@ export function PanelOnce({
   const { season } = useRatingsSeason();
 
   const [fuente, setFuente] = useState<FuenteOnce>("wyscout");
+  const [vista, setVista] = useState<VistaOnce>("lineas");
+  const [ambito, setAmbito] = useState<Ambito>("liga");
 
   /*
   | LAS FECHAS QUE ENTRAN.
@@ -128,76 +136,53 @@ export function PanelOnce({
     [players],
   );
 
-  /*
-  | El once que se propone solo: por cada hueco, el que más ha jugado de ese
-  | puesto y no esté ya puesto en otro sitio.
-  |
-  | Se propone en vez de dejarlo vacío porque la pantalla con once desplegables
-  | en blanco no dice nada, y lo primero que se quiere ver es el once de la
-  | semana pasada, no rellenar un formulario.
-  */
-  const minutosDe = useMemo(() => {
-    const mapa = new Map<string, number>();
+  /* Las filas de Wyscout de los nuestros, que son las que dicen puesto y lado. */
+  const nuestrosWys = useMemo(
+    () => jugadores.filter((j) => esNuestro(j) && j.temporada === "actual"),
+    [jugadores],
+  );
 
-    for (const fila of jugadores) {
-      mapa.set(fila.jugador.toLowerCase(), fila.minutos);
+  /**
+   * Dónde juega cada uno de la plantilla, y cuántos minutos lleva.
+   *
+   * Se resuelve una vez y se reparte: lo usan el once que se propone solo, los
+   * desplegables y el aviso de «la hoja y Wyscout no dicen lo mismo».
+   */
+  const ficha = useMemo(() => {
+    const mapa = new Map<
+      string,
+      { sitio: ReturnType<typeof sitioDe>; minutos: number }
+    >();
+
+    for (const uno of deCasa) {
+      const suya = casaNombre(uno.nombre, nuestrosWys, (j) => j.jugador);
+
+      mapa.set(uno.id, {
+        sitio: sitioDe(uno.posicion ?? "", suya?.posicion ?? null),
+        minutos: suya?.minutos ?? 0,
+      });
     }
 
     return mapa;
-  }, [jugadores]);
+  }, [deCasa, nuestrosWys]);
 
+  /* El once que se propone solo: la regla vive en el modelo, con su prueba. */
   const once = useMemo(() => {
-    const puestos = new Map<string, string>();
+    const candidatos = deCasa
+      .map((uno) => {
+        const suya = ficha.get(uno.id);
 
-    const usados = new Set<string>();
+        return suya ? { id: uno.id, sitio: suya.sitio, minutos: suya.minutos } : null;
+      })
+      .filter((uno) => uno !== null);
 
-    for (const hueco of HUECOS) {
-      const aMano = elegidos[hueco.clave];
+    const puestos = proponeOnce(candidatos, elegidos);
 
-      if (aMano) {
-        puestos.set(hueco.clave, aMano);
-        usados.add(aMano);
-      }
-    }
-
-    /* Los que más han jugado primero: es el criterio de «quién es titular». */
-    const porMinutos = (a: (typeof deCasa)[number], b: (typeof deCasa)[number]) =>
-      (minutosDe.get(b.nombre.toLowerCase()) ?? 0) -
-      (minutosDe.get(a.nombre.toLowerCase()) ?? 0);
-
-    for (const hueco of HUECOS) {
-      if (puestos.has(hueco.clave)) continue;
-
-      const libres = deCasa.filter((uno) => !usados.has(uno.id));
-
-      /*
-      | Si no queda nadie de ese puesto, se pone al que más haya jugado de los
-      | que quedan, en vez de dejar el hueco en blanco.
-      |
-      | Pasa de verdad: la plantilla tiene cuatro medios contando a uno que ya
-      | no está en el club, así que al tercer medio no le queda candidato. Un
-      | desplegable vacío no dice nada y además deja la rejilla coja; puesto
-      | alguien, se ve el once entero y se cambia a mano en un toque.
-      */
-      const candidato =
-        libres
-          .filter((uno) => puestoDeLaHoja(uno.posicion ?? "") === hueco.puesto)
-          .sort(porMinutos)[0] ?? libres.sort(porMinutos)[0];
-
-      if (candidato) {
-        puestos.set(hueco.clave, candidato.id);
-        usados.add(candidato.id);
-      }
-    }
-
-    return HUECOS.map((hueco) => {
-      const id = puestos.get(hueco.clave);
-
-      const jugador = deCasa.find((uno) => uno.id === id);
-
-      return { hueco, jugador };
-    });
-  }, [deCasa, elegidos, minutosDe]);
+    return HUECOS.map((hueco) => ({
+      hueco,
+      jugador: deCasa.find((uno) => uno.id === puestos[hueco.clave]),
+    }));
+  }, [deCasa, elegidos, ficha]);
 
   const resumenes = useMemo(
     () => [...summarizeAll(suTemporada).values()],
@@ -213,6 +198,7 @@ export function PanelOnce({
             id: uno.jugador!.id,
             nombre: uno.jugador!.nombre,
             posicion: uno.jugador!.posicion ?? "",
+            hueco: uno.hueco.clave,
           })),
         jugadores,
         resumenes,
@@ -222,8 +208,8 @@ export function PanelOnce({
   );
 
   const rejilla = useMemo(
-    () => rejillaDe(fuente, resuelto, jugadores, susEventos),
-    [fuente, resuelto, jugadores, susEventos],
+    () => rejillaDe(fuente, resuelto, jugadores, susEventos, ambito, vista, nuestros),
+    [fuente, resuelto, jugadores, susEventos, ambito, vista, nuestros],
   );
 
   const pregunta = FUENTES.find((una) => una.key === fuente)?.pregunta ?? "";
@@ -246,7 +232,7 @@ export function PanelOnce({
     if (fuente === "wyscout") {
       return recorte
         ? [
-            `Wyscout da una fila por jugador y temporada, no por partido: esta rejilla es la del curso entero y NO está recortada a ${recorte}.`,
+            `Wyscout da una fila por jugador y temporada, no por partido: los percentiles son los del curso entero y NO están recortados a ${recorte}.`,
             `Para ver el once por ${sistema ? "sistema" : "competición"}, cambia a Opta o a Nuestra valoración, que sí son por partido.`,
           ]
         : [];
@@ -269,6 +255,34 @@ export function PanelOnce({
       : [`${partidos}${recorte ? ` con ${recorte}` : ""} en lo elegido arriba.`];
   }, [fuente, nuestros.length, recorte, sistema, suTemporada.matches]);
 
+  /*
+  | CUANDO LA HOJA Y WYSCOUT NO DICEN LO MISMO.
+  |
+  | Manda Wyscout, porque es dónde ha jugado de verdad, pero cambiarle el
+  | puesto a alguien sin decirlo sería peor que el fallo que se arregla: el
+  | cuerpo técnico tiene que poder ver que la hoja se ha quedado atrás —o que
+  | Wyscout se equivoca— y corregir a mano.
+  */
+  const discrepan = useMemo(
+    () =>
+      resuelto.filter((uno) => {
+        if (uno.sitio.segun !== "wyscout" || !uno.sitio.hoja) return false;
+
+        const puestoHoja = puestoDeLaHoja(uno.sitio.hoja);
+
+        const ladoHoja = ladoDeLaHoja(uno.sitio.hoja);
+
+        /* Que la hoja no diga el lado —«CENTRAL», «6»— no es discrepar: es que
+           esa columna no lo escribe. Sólo se avisa cuando las dos lo dicen y
+           dicen cosas distintas. */
+        return (
+          puestoHoja !== uno.puesto ||
+          (ladoHoja !== "C" && uno.lado !== "C" && ladoHoja !== uno.lado)
+        );
+      }),
+    [resuelto],
+  );
+
   const avisos = useMemo(
     () => [...alcance, ...rejilla.avisos],
     [alcance, rejilla.avisos],
@@ -284,7 +298,7 @@ export function PanelOnce({
 
   return (
     <>
-      {/* ---------------------- EL CONMUTADOR ---------------------- */}
+      {/* ---------------------- LOS CONMUTADORES -------------------- */}
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
@@ -306,6 +320,43 @@ export function PanelOnce({
           ))}
         </div>
 
+        <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+          {VISTAS.map((una) => (
+            <button
+              key={una.key}
+              type="button"
+              onClick={() => setVista(una.key)}
+              aria-pressed={vista === una.key}
+              title={una.explica}
+              className={`rounded-lg px-3 py-2 text-xs transition ${
+                vista === una.key
+                  ? "bg-white/10 text-white"
+                  : "text-white/50 hover:text-white"
+              }`}
+            >
+              {una.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Contra quién se compara. Sólo Wyscout tiene percentiles. */}
+        {fuente === "wyscout" && (
+          <label className="flex items-center gap-2 text-[11px] text-white/35">
+            Comparado con
+            <select
+              value={ambito}
+              onChange={(evento) => setAmbito(evento.target.value as Ambito)}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
+            >
+              {AMBITOS.map((uno) => (
+                <option key={uno.key} value={uno.key} className="bg-[#11161C]">
+                  {uno.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <span className="text-[11px] text-white/35">{pregunta}</span>
       </div>
 
@@ -319,15 +370,40 @@ export function PanelOnce({
         >
           <div className="space-y-2">
             {once.map(({ hueco, jugador }) => {
-              const delPuesto = deCasa
-                .filter((uno) => puestoDeLaHoja(uno.posicion ?? "") === hueco.puesto)
-                .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+              /* Del puesto y del lado, del puesto, y el resto. */
+              const suyo = (id: string) => ficha.get(id)?.sitio;
+
+              const delLado = deCasa.filter((uno) => {
+                const sitio = suyo(uno.id);
+
+                return sitio?.puesto === hueco.puesto && vaAlLado(hueco, sitio.lado);
+              });
+
+              const delPuesto = deCasa.filter(
+                (uno) =>
+                  suyo(uno.id)?.puesto === hueco.puesto && !delLado.includes(uno),
+              );
 
               /* Quien no sea del puesto también se puede poner: un central
                  puede jugar de lateral y el cuerpo técnico lo sabe mejor. */
-              const resto = deCasa
-                .filter((uno) => puestoDeLaHoja(uno.posicion ?? "") !== hueco.puesto)
-                .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+              const resto = deCasa.filter(
+                (uno) => !delLado.includes(uno) && !delPuesto.includes(uno),
+              );
+
+              const rotulo = (uno: (typeof deCasa)[number]) => {
+                const sitio = suyo(uno.id);
+
+                const etiqueta = sitio?.wyscout || sitio?.hoja || "";
+
+                return `${uno.dorsal ? `${uno.dorsal} · ` : ""}${uno.nombre}${
+                  etiqueta ? ` · ${etiqueta}` : ""
+                }`;
+              };
+
+              const porNombre = (
+                a: (typeof deCasa)[number],
+                b: (typeof deCasa)[number],
+              ) => a.nombre.localeCompare(b.nombre, "es");
 
               return (
                 <label key={hueco.clave} className="block">
@@ -349,19 +425,27 @@ export function PanelOnce({
                       — sin elegir —
                     </option>
 
-                    {delPuesto.map((uno) => (
+                    {[...delLado].sort(porNombre).map((uno) => (
                       <option key={uno.id} value={uno.id} className="bg-[#11161C]">
-                        {uno.dorsal ? `${uno.dorsal} · ` : ""}
-                        {uno.nombre}
+                        {rotulo(uno)}
                       </option>
                     ))}
 
+                    {delPuesto.length > 0 && (
+                      <optgroup label="Del puesto, otro lado">
+                        {[...delPuesto].sort(porNombre).map((uno) => (
+                          <option key={uno.id} value={uno.id} className="bg-[#11161C]">
+                            {rotulo(uno)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
                     {resto.length > 0 && (
                       <optgroup label="De otro puesto">
-                        {resto.map((uno) => (
+                        {[...resto].sort(porNombre).map((uno) => (
                           <option key={uno.id} value={uno.id} className="bg-[#11161C]">
-                            {uno.dorsal ? `${uno.dorsal} · ` : ""}
-                            {uno.nombre}
+                            {rotulo(uno)}
                           </option>
                         ))}
                       </optgroup>
@@ -371,11 +455,35 @@ export function PanelOnce({
               );
             })}
           </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+            El puesto y el lado salen de Wyscout —«LB» es lateral izquierdo,
+            «RCB» central derecho— y de la hoja de plantilla cuando no hay fila
+            suya. Es lo que ordena los desplegables.
+          </p>
         </Panel>
 
         {/* ----------------------- LA REJILLA ----------------------- */}
 
         <div className="min-w-0">
+          {discrepan.length > 0 && (
+            <div className="mb-4">
+              <Notice tone="info" title="Wyscout y la hoja no dicen lo mismo">
+                <ul className="space-y-1">
+                  {discrepan.map((uno) => (
+                    <li key={uno.id}>
+                      <strong className="text-white/75">{uno.nombre}</strong>:
+                      Wyscout lo tiene de{" "}
+                      <strong className="text-white/75">{uno.sitio.wyscout}</strong>{" "}
+                      y la hoja dice «{uno.sitio.hoja}». Manda Wyscout, que es
+                      dónde ha jugado esta temporada.
+                    </li>
+                  ))}
+                </ul>
+              </Notice>
+            </div>
+          )}
+
           {avisos.length > 0 && (
             <div className="mb-4">
               <Notice
@@ -407,19 +515,28 @@ export function PanelOnce({
             </p>
           ) : (
             <div className="min-w-0 overflow-x-auto">
-              <table className="w-full min-w-[720px] text-[12px]">
+              <table
+                className="w-full text-[12px]"
+                style={{ minWidth: `${260 + rejilla.columnas.length * 116}px` }}
+              >
                 <thead>
                   <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
                     <th className="pb-2 pt-1.5 text-left font-medium">&nbsp;</th>
 
-                    {LINEAS.map((linea) => (
+                    {rejilla.columnas.map((columna) => (
                       <th
-                        key={linea.key}
-                        className={`w-[132px] pb-2 pt-1.5 text-center font-medium ${
-                          linea.key === "once" ? "text-[#C8A96B]" : ""
+                        key={columna.key}
+                        className={`pb-2 pt-1.5 text-center font-medium ${
+                          columna.destacada ? "text-[#C8A96B]" : ""
                         }`}
                       >
-                        {linea.label}
+                        <span className="block truncate">{columna.label}</span>
+
+                        {columna.sub && (
+                          <span className="block text-[9px] font-normal normal-case tracking-normal text-white/25">
+                            {columna.sub}
+                          </span>
+                        )}
                       </th>
                     ))}
                   </tr>
@@ -427,7 +544,11 @@ export function PanelOnce({
 
                 <tbody>
                   {rejilla.bloques.map((bloque) => (
-                    <BloqueFilas key={bloque.grupo} bloque={bloque} />
+                    <BloqueFilas
+                      key={bloque.grupo}
+                      bloque={bloque}
+                      columnas={rejilla.columnas}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -442,14 +563,16 @@ export function PanelOnce({
 /** Un grupo de la rejilla: su rótulo y sus filas. */
 function BloqueFilas({
   bloque,
+  columnas,
 }: {
-  bloque: { grupo: string; filas: import("@/lib/data-analisis/once").FilaOnce[] };
+  bloque: { grupo: string; filas: FilaOnce[] };
+  columnas: ColumnaOnce[];
 }) {
   return (
     <>
       <tr>
         <td
-          colSpan={LINEAS.length + 1}
+          colSpan={columnas.length + 1}
           className="pb-1 pt-4 text-[10px] uppercase tracking-[0.16em] text-[#C8A96B]"
         >
           {bloque.grupo}
@@ -465,8 +588,8 @@ function BloqueFilas({
             {fila.etiqueta}
           </td>
 
-          {LINEAS.map((linea) => (
-            <Celda key={linea.key} celda={fila.celdas[linea.key]} />
+          {columnas.map((columna) => (
+            <Celda key={columna.key} celda={fila.celdas[columna.key]} />
           ))}
         </tr>
       ))}
@@ -479,14 +602,11 @@ function BloqueFilas({
  *
  * El color sale del **sentido** de la métrica, no del valor: en pérdidas o en
  * PPDA, mucho no es bueno, y pintarlo verde sería mentir con un color. Las que
- * no tienen «bueno» —la posesión, los rechaces— van en dorado neutro.
+ * no tienen «bueno» —la posesión, los rechaces, el reparto del peso— van en
+ * dorado neutro.
  */
-function Celda({
-  celda,
-}: {
-  celda: import("@/lib/data-analisis/once").CeldaOnce;
-}) {
-  if (celda.texto === null) {
+function Celda({ celda }: { celda?: CeldaOnce }) {
+  if (!celda || celda.texto === null) {
     return <td className="py-1.5 text-center text-white/20">—</td>;
   }
 
@@ -502,7 +622,7 @@ function Celda({
           : ORO;
 
   return (
-    <td className="px-2 py-1.5">
+    <td className="px-2 py-1.5" title={celda.detalle}>
       <span className="flex items-center gap-2">
         <span
           className="relative h-[18px] min-w-0 flex-1 overflow-hidden rounded"
