@@ -201,9 +201,12 @@ export default function QuinielaPage() {
     borrador !== undefined &&
     !mismosSignos(borrador, guardados, partidos.length);
 
-  /* Alguna jornada con cambios sin guardar, para avisar antes de irse. */
+  /* Alguna jornada con cambios sin guardar —y que aún se puedan guardar—,
+     para avisar antes de irse. */
   const hayBorradores = Object.entries(borradores).some(([clave, signos]) => {
-    const guardada = yo ? (doc.jornadas[clave]?.pronosticos[yo] ?? []) : [];
+    if (!yo || estadoDe(Number(clave), ahora).cerrada) return false;
+
+    const guardada = doc.jornadas[clave]?.pronosticos[yo] ?? [];
 
     return !mismosSignos(signos, guardada, partidosDe(Number(clave)).length);
   });
@@ -636,7 +639,7 @@ export default function QuinielaPage() {
                 {/* El plazo, siempre a la vista: es lo que más se pregunta. */}
                 {plazo.viernes && (
                   <div
-                    className={`mb-3 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-[12px] ${
+                    className={`mb-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug ${
                       plazo.cerrada
                         ? "border-white/10 bg-white/[0.02] text-white/50"
                         : plazo.ultimasHoras
@@ -645,9 +648,9 @@ export default function QuinielaPage() {
                     }`}
                   >
                     {plazo.cerrada ? (
-                      <Lock size={13} aria-hidden />
+                      <Lock size={13} aria-hidden className="mt-0.5 shrink-0" />
                     ) : (
-                      <Clock size={13} aria-hidden />
+                      <Clock size={13} aria-hidden className="mt-0.5 shrink-0" />
                     )}
 
                     <span>
@@ -975,9 +978,10 @@ export default function QuinielaPage() {
                   {cerrado
                     ? "Las diez jornadas están jugadas, así que esto ya no cambia."
                     : `Provisional: faltan jornadas del bloque por jugar.`}{" "}
-                  Si hay empate en el segundo puesto no pagan todos los empatados:
-                  inventar un desempate en una apuesta entre compañeros no lo acepta
-                  nadie.
+                  Si hay empate en el segundo puesto no paga ninguno de los
+                  empatados —inventar un desempate no lo acepta nadie—, salvo que
+                  así no pagase nadie: entonces sólo se invita a quien va por
+                  delante. Con cero aciertos no se invita a nadie.
                 </p>
               </Panel>
             </div>

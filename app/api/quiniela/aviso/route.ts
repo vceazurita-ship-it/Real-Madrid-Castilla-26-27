@@ -83,7 +83,12 @@ function autorizado(request: NextRequest) {
 /*  EL CORREO                                                          */
 /* ------------------------------------------------------------------ */
 
-function armaCorreo(jornada: number, viernes: string | null) {
+/**
+ * El correo lleva el enlace a la pantalla. Se saca de la dirección por la que
+ * ha entrado el cron, no de un dominio escrito a mano: el primero que se puso
+ * no era el de la aplicación y el botón del correo daba 404.
+ */
+function armaCorreo(jornada: number, viernes: string | null, origen: string) {
   const partidos = partidosDe(jornada);
 
   const frase = fraseDe(jornada);
@@ -130,7 +135,7 @@ function armaCorreo(jornada: number, viernes: string | null) {
         </td></tr>
 
         <tr><td style="padding:22px 24px 26px;">
-          <a href="https://rmcf-castilla.vercel.app/quiniela" style="display:inline-block;background:${ORO};color:#000000;text-decoration:none;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:9px;">Rellenar mi quiniela</a>
+          <a href="${origen}/quiniela" style="display:inline-block;background:${ORO};color:#000000;text-decoration:none;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:9px;">Rellenar mi quiniela</a>
           <p style="margin:14px 0 0;font-size:11px;color:#5b6570;">Se cierra el ${cierre}. Después ya no se puede tocar.</p>
         </td></tr>
 
@@ -151,6 +156,7 @@ function armaCorreo(jornada: number, viernes: string | null) {
     `${frase.autor} — ${frase.quien}`,
     "",
     `Se cierra el ${cierre}.`,
+    `Rellenar: ${origen}/quiniela`,
   ].join("\n");
 
   return {
@@ -199,7 +205,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const correo = armaCorreo(jornada, viernesDe(jornada));
+  const correo = armaCorreo(jornada, viernesDe(jornada), request.nextUrl.origin);
 
   /* Quién recibe: los que se han registrado. */
   const { data: cuentas } = await readDoc<DocumentoCuentas>(CLAVE_CUENTAS);

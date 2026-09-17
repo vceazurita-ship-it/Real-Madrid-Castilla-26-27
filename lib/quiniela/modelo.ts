@@ -397,11 +397,28 @@ export function rankingDeBloque(
 
   const corte = conJuego[Math.min(INVITADOS_POR_BLOQUE, conJuego.length) - 1];
 
+  const porEncima = (fila: FilaBloque) =>
+    fila.porcentaje > corte.porcentaje ||
+    (fila.porcentaje === corte.porcentaje && fila.aciertos > corte.aciertos);
+
+  const empatado = (fila: FilaBloque) =>
+    fila.porcentaje === corte.porcentaje && fila.aciertos === corte.aciertos;
+
+  /*
+  | Con cero aciertos no invita nadie a nadie. Y si el empate del corte se
+  | llevase a todos, nadie pagaría: entonces entran sólo los que van por
+  | delante del empate. Pasó de verdad en la jornada 4, con uno solo apostando
+  | y nueve empatados a 0 %.
+  */
+  const candidatos = filas.filter(
+    (fila) => fila.jugados > 0 && fila.aciertos > 0 && (porEncima(fila) || empatado(fila)),
+  );
+
+  const nadiePaga = candidatos.length >= filas.length;
+
   for (const fila of filas) {
     fila.invitado =
-      fila.jugados > 0 &&
-      (fila.porcentaje > corte.porcentaje ||
-        (fila.porcentaje === corte.porcentaje && fila.aciertos >= corte.aciertos));
+      candidatos.includes(fila) && (!nadiePaga || porEncima(fila));
   }
 
   return filas;
