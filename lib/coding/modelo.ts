@@ -963,8 +963,31 @@ export function clipsParaExportar(
   clips: ClipCoding[],
   videos: FuenteVideo[],
   fuera: string[] = [],
+  /**
+   * Si se agrupan por vídeo.
+   *
+   * **Para exportar, sí**: el montaje va vídeo a vídeo y los cortes de cada uno
+   * tienen que salir juntos. **Para la lista de la pantalla, no**, y esto costó
+   * un fallo: agrupando, reordenar un clip lo movía en el documento pero la
+   * vista lo devolvía a su sitio al repintar, así que las flechas y el arrastre
+   * parecían no hacer nada. Con un corte por vídeo —los veintidós clips de un
+   * jugador— el reordenar era sencillamente imposible.
+   */
+  agrupaPorVideo = true,
 ): ClipCoding[] {
   const apartados = new Set(fuera);
+
+  if (!agrupaPorVideo) {
+    const nombres = new Set(videos.map((video) => nombreDeFuente(video)));
+
+    const primero = nombreDeFuente(videos[0]);
+
+    return clips.filter((clip) => {
+      const suyo = clip.video ?? primero;
+
+      return nombres.has(suyo) && !apartados.has(suyo);
+    });
+  }
 
   /* Con un solo vídeo no hay nada que ordenar: todo es suyo. */
   if (videos.length <= 1) {
