@@ -24,6 +24,15 @@ export type PersonaStaff = {
   rol: string;
   /** Sus iniciales en el Excel, si venía con columna propia. */
   iniciales?: string;
+  /**
+   * Si no tiene foto en `public/staff`.
+   *
+   * Las dieciocho fotos vinieron de una tanda de recortes del club, y quien se
+   * incorpora después no está en ella. En vez de pedir un fichero que no existe
+   * —y quedarse con el hueco roto— se pinta su inicial. En cuanto llegue su
+   * foto, se quita esta marca y ya está.
+   */
+  sinFoto?: boolean;
 };
 
 export const STAFF: PersonaStaff[] = [
@@ -45,6 +54,16 @@ export const STAFF: PersonaStaff[] = [
   { slug: "eduardo-del-amo", nombre: "Eduardo del Amo", rol: "Utillero" },
   { slug: "hugo-jimenez", nombre: "Hugo Jiménez", rol: "Utillero" },
 
+  /* La «AI» del Excel, identificada el 17/09/2026. No entró en la tanda de
+     recortes del club, así que todavía no tiene foto. */
+  {
+    slug: "alberto-isla",
+    nombre: "Alberto Isla",
+    rol: "Cuerpo técnico",
+    iniciales: "AI",
+    sinFoto: true,
+  },
+
   /* Víctor va el último por petición suya. */
   { slug: "victor-cea", nombre: "Víctor Cea", rol: "Segundo entrenador", iniciales: "VC" },
 ];
@@ -64,9 +83,21 @@ export const JUEGAN_POR_DEFECTO = STAFF.filter((una) => una.iniciales).map(
 
 export const PERSONA_POR_SLUG = new Map(STAFF.map((una) => [una.slug, una]));
 
-/** Su foto en `public/staff`. */
-export function fotoDe(slug: string) {
-  return `/staff/${slug}.webp`;
+/**
+ * Su foto en `public/staff`, o `null` si todavía no tiene.
+ *
+ * Devolver la ruta igualmente dejaría una imagen rota: las dieciocho fotos
+ * vinieron de una tanda de recortes del club y quien se incorpora después no
+ * está en ella. Quien pinte decide qué poner en su lugar —la inicial— en vez
+ * de pedir un fichero que no existe.
+ */
+export function fotoDe(slug: string): string | null {
+  return PERSONA_POR_SLUG.get(slug)?.sinFoto ? null : `/staff/${slug}.webp`;
+}
+
+/** La inicial con la que se dibuja a quien no tiene foto. */
+export function inicialDe(slug: string) {
+  return (PERSONA_POR_SLUG.get(slug)?.nombre ?? "?").trim().charAt(0).toUpperCase();
 }
 
 /** "Víctor Cea" → "V. Cea", para las columnas estrechas de la tabla. */
