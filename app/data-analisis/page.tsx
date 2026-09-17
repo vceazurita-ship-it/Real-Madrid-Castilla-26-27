@@ -109,6 +109,7 @@ import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
+import { PanelOnce } from "@/components/data/PanelOnce";
 import { PanelTransferencia } from "@/components/data/PanelTransferencia";
 import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
 import {
@@ -171,6 +172,7 @@ type Area =
   | "golesAbp"
   | "eventos"
   | "individual"
+  | "once"
   | "abp"
   | "transferencia";
 
@@ -232,6 +234,13 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     label: "Acción por acción",
     icono: Timer,
     pregunta: "¿Quién, cuándo y tras cuánto tiempo?",
+  },
+  {
+    key: "once",
+    label: "El once",
+    icono: Users,
+    pregunta:
+      "¿Cómo se ve este once según Wyscout, según Opta y según nosotros?",
   },
   {
     key: "individual",
@@ -1375,6 +1384,21 @@ export default function DataAnalisisPage() {
 
                 {area === "individual" && (
                   <PanelIndividual jugadores={datos.jugadores ?? []} />
+                )}
+
+                {/*
+                  EL ONCE POR TRES FUENTES
+
+                  La misma alineación contada por Wyscout, por Opta y por el
+                  cuerpo técnico. No se mezclan: cada una mide cosas distintas
+                  con escalas distintas, y el conmutador es justo para poder
+                  mirarlas una a una sin promediarlas.
+                */}
+                {area === "once" && (
+                  <PanelOnce
+                    jugadores={datos.jugadores ?? []}
+                    eventos={datos.eventos ?? []}
+                  />
                 )}
 
                 {/* ============ 6 · NUESTRO BALÓN PARADO ========== */}

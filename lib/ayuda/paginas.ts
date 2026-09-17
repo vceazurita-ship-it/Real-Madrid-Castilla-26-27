@@ -617,6 +617,55 @@ export const AYUDAS: AyudaDePagina[] = [
   },
 
   {
+    ruta: "/data-analisis/once",
+    titulo: "El once por tres fuentes",
+    resumen:
+      "La misma alineación contada por Wyscout, por Opta y por el cuerpo técnico, sin mezclarlas.",
+    origen:
+      "Wyscout y Opta salen de la carpeta de datos; la valoración, de las notas que pone el cuerpo técnico en /ratings. La plantilla y los puestos, de la hoja de jugadores.",
+    bloques: [
+      {
+        titulo: "Las tres fuentes",
+        filas: [
+          {
+            que: "Wyscout",
+            es: "Las 51 métricas por jugador. La barra es el percentil contra los de su puesto; el número, su valor de verdad",
+            cuenta: "p78 = mejor que el 78 % de los de su puesto en la categoría",
+          },
+          {
+            que: "Opta",
+            es: "Lo que su registro de eventos permite contar: robos, rechaces y paradas. Son recuentos, no promedios",
+          },
+          {
+            que: "Nuestra valoración",
+            es: "La nota del cuerpo técnico por áreas, con la forma de los cinco últimos partidos. Es la única que juzga en vez de contar",
+          },
+        ],
+      },
+      {
+        titulo: "Cómo se lee la rejilla",
+        filas: [
+          {
+            que: "Las cuatro columnas",
+            es: "El once entero y sus tres líneas. Cada casilla es la media de los jugadores de esa línea",
+          },
+          {
+            que: "El color",
+            es: "Sale del sentido de la métrica, no del valor: en pérdidas, mucho no es bueno. Lo que no tiene «bueno» va en dorado",
+          },
+          {
+            que: "Un guion",
+            es: "Esa métrica no le dice nada a esa línea, o no hay con quién comparar",
+          },
+        ],
+      },
+    ],
+    ojo: [
+      "Las tres fuentes NO se mezclan ni se promedian entre sí: miden cosas distintas con escalas distintas, y una media entre un percentil y un 7,5 no significa nada.",
+      "La vista de Opta es una muestra corta —del orden de diez acciones por jugador— y además la mitad de las acciones de su log llegan sin nombre. Los duelos y los fueras de juego nunca traen jugador, así que no se enseñan en vez de dar ceros que no son ceros.",
+    ],
+  },
+  {
     ruta: "/quiniela",
     titulo: "La Quiniela de la Semana",
     resumen:
