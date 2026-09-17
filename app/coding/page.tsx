@@ -1157,10 +1157,7 @@ function Coding() {
   const clipsDeLaLista = useMemo(
     () =>
       verTodosEnLista
-        ? /* SIN agrupar por vídeo: el orden que se ve tiene que ser el que se
-             guarda, o reordenar no serviría de nada (ver `clipsParaExportar`).
-             La exportación sí agrupa, que es lo suyo. */
-          clipsParaExportar(sesion.sesion.clips, videosSesion, [], false).filter(
+        ? clipsParaExportar(sesion.sesion.clips, videosSesion, []).filter(
             (clip) =>
               (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
               (!filtroCategoria || clip.categoriaId === filtroCategoria),

@@ -963,52 +963,41 @@ export function clipsParaExportar(
   clips: ClipCoding[],
   videos: FuenteVideo[],
   fuera: string[] = [],
-  /**
-   * Si se agrupan por vídeo.
-   *
-   * **Para exportar, sí**: el montaje va vídeo a vídeo y los cortes de cada uno
-   * tienen que salir juntos. **Para la lista de la pantalla, no**, y esto costó
-   * un fallo: agrupando, reordenar un clip lo movía en el documento pero la
-   * vista lo devolvía a su sitio al repintar, así que las flechas y el arrastre
-   * parecían no hacer nada. Con un corte por vídeo —los veintidós clips de un
-   * jugador— el reordenar era sencillamente imposible.
-   */
-  agrupaPorVideo = true,
 ): ClipCoding[] {
+  /*
+  | MANDA EL ORDEN DE LOS CLIPS, NO EL DE LOS VÍDEOS.
+  |
+  | Esto agrupaba por vídeo —todos los cortes de uno, luego los del siguiente—
+  | y estaba mal por partida doble (17/09/2026):
+  |
+  | - En la **lista** de la pantalla, reordenar un clip lo movía en el
+  |   documento pero la vista lo devolvía a su sitio al repintar: con un corte
+  |   por vídeo, las flechas y el arrastre no hacían nada visible.
+  | - Y en la **exportación**, que es lo que de verdad importa: el montaje
+  |   salía en el orden de los vídeos, así que colocar los cortes a mano no
+  |   servía para nada. Es justo lo que se reordena para decidir.
+  |
+  | No hace falta agrupar: cada corte lleva su vídeo (`clip.video`) y el
+  | exportador resuelve la fuente de cada uno, así que pueden ir entrelazados.
+  | Lo único que se hace aquí es quitar los de vídeos que ya no están o que se
+  | han apartado en la barra.
+  */
   const apartados = new Set(fuera);
-
-  if (!agrupaPorVideo) {
-    const nombres = new Set(videos.map((video) => nombreDeFuente(video)));
-
-    const primero = nombreDeFuente(videos[0]);
-
-    return clips.filter((clip) => {
-      const suyo = clip.video ?? primero;
-
-      return nombres.has(suyo) && !apartados.has(suyo);
-    });
-  }
-
-  /* Con un solo vídeo no hay nada que ordenar: todo es suyo. */
-  if (videos.length <= 1) {
-    const unico = videos[0] ? nombreDeFuente(videos[0]) : "";
-
-    return unico && apartados.has(unico) ? [] : clips;
-  }
 
   const primero = nombreDeFuente(videos[0]);
 
-  const posicion = new Map(videos.map((video, indice) => [nombreDeFuente(video), indice]));
+  const nombres = new Set(videos.map((video) => nombreDeFuente(video)));
 
-  return clips
-    .map((clip, indice) => ({ clip, indice, video: clip.video ?? primero }))
-    .filter((uno) => posicion.has(uno.video) && !apartados.has(uno.video))
-    .sort(
-      (una, otra) =>
-        (posicion.get(una.video) ?? 0) - (posicion.get(otra.video) ?? 0) ||
-        una.indice - otra.indice,
-    )
-    .map((uno) => uno.clip);
+  /* Con un solo vídeo todo es suyo, aunque los clips no lo digan. */
+  if (videos.length <= 1) {
+    return primero && apartados.has(primero) ? [] : clips;
+  }
+
+  return clips.filter((clip) => {
+    const suyo = clip.video ?? primero;
+
+    return nombres.has(suyo) && !apartados.has(suyo);
+  });
 }
 
 /**
