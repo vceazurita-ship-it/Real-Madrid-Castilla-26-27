@@ -7,6 +7,7 @@ import {
   esNuestro,
   metricasDe,
   puestoDe,
+  volumenDelPorcentaje,
   type Ambito,
   type MetricaJugador,
   type Puesto,
@@ -552,6 +553,9 @@ export function gruposDe(once: JugadorOnce[], vista: VistaOnce): Grupo[] {
 /*  LAS REJILLAS                                                       */
 /* ------------------------------------------------------------------ */
 
+/** Lo medido de un jugador en una métrica: sin percentil si la muestra es corta. */
+type Medido = { valor: number; pct: number | null; flojo?: string };
+
 /**
  * Wyscout: el percentil de cada métrica, por columna.
  *
@@ -580,12 +584,33 @@ export function rejillaWyscout(
   }
 
   /* El percentil de un jugador en una métrica, contra los de su puesto. */
-  const percentilDe = (uno: JugadorOnce, metrica: MetricaJugador) => {
+  const percentilDe = (
+    uno: JugadorOnce,
+    metrica: MetricaJugador,
+  ): Medido | null => {
     if (!uno.wyscout) return null;
 
     const valor = uno.wyscout.datos[metrica.columna];
 
     if (valor === undefined) return null;
+
+    /*
+    | Un porcentaje sacado de una acción no lleva barra.
+    |
+    | «Acierto de centro: 100 %» de un central que puso un centro es verdad y
+    | no significa nada, y pintado en el percentil 97 se lee como una virtud.
+    | Se enseña la cifra —esconderla sería peor— y se dice de cuántas acciones
+    | sale, pero sin percentil.
+    */
+    const volumen = volumenDelPorcentaje(uno.wyscout, metrica.columna);
+
+    if (!volumen.fiable) {
+      return {
+        valor,
+        pct: null,
+        flojo: `De ${formateaNumero(volumen.cuantas ?? 0)} por 90′: muy pocas para un porcentaje`,
+      };
+    }
 
     const { lista } = comparablesDe(jugadores, uno.puesto, ambito);
 
@@ -622,7 +647,7 @@ export function rejillaWyscout(
 
         const medidos = suyos
           .map((uno) => percentilDe(uno, metrica))
-          .filter((m): m is { valor: number; pct: number } => m !== null);
+          .filter((m): m is Medido => m !== null);
 
         if (medidos.length === 0) {
           fila.celdas[columna.key] = VACIA;
@@ -630,19 +655,26 @@ export function rejillaWyscout(
           continue;
         }
 
-        const pct = media(medidos.map((m) => m.pct));
+        /* Los de muestra corta cuentan para la cifra, pero no para la barra. */
+        const pct = media(
+          medidos.map((m) => m.pct).filter((p): p is number => p !== null),
+        );
+
         const valor = media(medidos.map((m) => m.valor));
+
+        const flojo = medidos.find((m) => m.flojo)?.flojo;
 
         fila.celdas[columna.key] = {
           texto: valor === null ? null : formatea(valor, metrica),
           fuerza: pct === null ? null : pct / 100,
-          sentido: metrica.mejorAlto,
+          /* Sin percentil no hay bueno ni malo que pintar: dorado neutro. */
+          sentido: pct === null ? null : metrica.mejorAlto,
           detalle:
             pct === null
-              ? undefined
+              ? flojo
               : `Percentil ${Math.round(pct)}${
                   medidos.length > 1 ? ` · media de ${medidos.length}` : ""
-                }`,
+                }${flojo ? ` · ${flojo}` : ""}`,
         };
       }
 

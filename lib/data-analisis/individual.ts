@@ -1046,6 +1046,82 @@ export function comparablesDe(
 export const metricasDe = (puesto: Puesto) =>
   METRICAS_JUGADOR.filter((m) => !m.puestos || m.puestos.includes(puesto));
 
+/* ------------------------------------------------------------------ */
+/*  UN PORCENTAJE DE UNA ACCIÓN NO ES UN PORCENTAJE                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * DE CUÁNTAS ACCIONES SALE CADA PORCENTAJE, Y CUÁNTAS HACEN FALTA.
+ *
+ * Mario Rivas, central, salía con «lo que más destaca: acierto de centro,
+ * 100 %, percentil 97». Es verdad y no significa nada: puso **un** centro en
+ * tres partidos y le salió. Con la mitad de las métricas nuevas siendo
+ * porcentajes, esto pasaba de ser un caso raro a ser la norma de la ficha.
+ *
+ * Así que un porcentaje sólo entra en las listas de fortalezas y flaquezas —y
+ * sólo se pinta con su percentil— si **el volumen del que sale llega a un
+ * mínimo por noventa minutos**. Debajo de eso se sigue enseñando la cifra, sin
+ * barra y diciendo de cuántas acciones sale: esconderla sería peor.
+ *
+ * Los mínimos son bajos a propósito: no se trata de exigir una muestra
+ * estadística —con tres partidos no la hay de nada— sino de tumbar el «100 %
+ * de uno».
+ */
+export const VOLUMEN_DEL_PORCENTAJE: Record<
+  string,
+  { columna: string; minimo: number }
+> = {
+  "Precisión pases, %": { columna: "Pases/90", minimo: 10 },
+  "Precisión pases cortos / medios, %": { columna: "Pases cortos / medios /90", minimo: 8 },
+  "Precisión pases largos, %": { columna: "Pases largos/90", minimo: 2 },
+  "Precisión pases hacia adelante, %": { columna: "Pases hacia adelante/90", minimo: 3 },
+  "Precision pases hacia atrás, %": { columna: "Pases hacia atrás/90", minimo: 3 },
+  "Precisión pases laterales, %": { columna: "Pases laterales/90", minimo: 3 },
+  "Precisión pases progresivos, %": { columna: "Pases progresivos/90", minimo: 2 },
+  "Precisión pases en el último tercio, %": { columna: "Pases en el último tercio/90", minimo: 2 },
+  "Precisión pases en profundidad, %": { columna: "Pases en profundidad/90", minimo: 1 },
+  "Pases hacía el área pequeña, %": { columna: "Pases al área de penalti/90", minimo: 1 },
+  "Precisión centros, %": { columna: "Centros/90", minimo: 1 },
+  "Precisión centros desde la banda izquierda, %": {
+    columna: "Centros desde la banda izquierda/90",
+    minimo: 1,
+  },
+  "Precisión centros desde la banda derecha, %": {
+    columna: "Centros desde la banda derecha/90",
+    minimo: 1,
+  },
+  "Regates realizados, %": { columna: "Regates/90", minimo: 1 },
+  "Precisión desmarques, %": { columna: "Desmarques/90", minimo: 1 },
+  "Duelos defensivos ganados, %": { columna: "Duelos defensivos/90", minimo: 2 },
+  "Duelos atacantes ganados, %": { columna: "Duelos atacantes/90", minimo: 2 },
+  "Duelos aéreos ganados, %": { columna: "Duelos aéreos en los 90", minimo: 1 },
+  "Tiros a la portería, %": { columna: "Remates/90", minimo: 1 },
+  "Goles hechos, %": { columna: "Remates/90", minimo: 1 },
+  "Tiros libres directos, %": { columna: "Tiros libres directos/90", minimo: 0.5 },
+  "Paradas, %": { columna: "Remates en contra/90", minimo: 1 },
+};
+
+/**
+ * Si el porcentaje de un jugador sale de acciones suficientes.
+ *
+ * Devuelve también de cuántas sale, para poder decirlo en pantalla. Una
+ * métrica que no sea porcentaje —o de la que no se sepa el volumen— se da por
+ * buena: lo que se persigue aquí es el «100 % de uno», no todo lo demás.
+ */
+export function volumenDelPorcentaje(jugador: FilaJugador, columna: string) {
+  const regla = VOLUMEN_DEL_PORCENTAJE[columna];
+
+  if (!regla) return { fiable: true, cuantas: null as number | null, regla: null };
+
+  const cuantas = valorDe(jugador, regla.columna);
+
+  return {
+    fiable: cuantas !== null && cuantas >= regla.minimo,
+    cuantas,
+    regla,
+  };
+}
+
 /**
  * Lo que más destaca y lo que más flojea de un jugador.
  *
@@ -1060,6 +1136,8 @@ export function fuertesYFlojos(
 ) {
   const filas = metricasDe(puesto)
     .filter((m) => m.mejorAlto !== null)
+    /* Un porcentaje de una acción no encabeza nada: ver `VOLUMEN_DEL_PORCENTAJE`. */
+    .filter((m) => volumenDelPorcentaje(jugador, m.columna).fiable)
     .map((m) => {
       const valor = valorDe(jugador, m.columna);
 
