@@ -360,11 +360,56 @@ export default function DataAnalisisPage() {
   */
   const [modo, setModo] = useState<ModoValor>("promedio");
 
+  /*
+  | QUÉ PARTIDOS ENTRAN: la competición y el sistema.
+  |
+  | Los dos salen de columnas que Wyscout sí trae y que hasta ahora no se
+  | usaban: `competicion` («Spain. Primera Division RFEF», «Copa del Rey»…) y
+  | `esquema` («4-2-3-1 (100.0%)»). Mezclar la Copa con la liga, o comparar un
+  | equipo consigo mismo jugando con dos sistemas distintos, promedia cosas
+  | que no se parecen.
+  |
+  | Vacío es «todas», que es como estaba hasta hoy.
+  */
+  const [competicion, setCompeticion] = useState("");
+  const [sistema, setSistema] = useState("");
+
   /* ------------------------ LO QUE SE MIRA ------------------------- */
 
-  const deLaLiga = useMemo(
+  const deLaTemporada = useMemo(
     () => partidos.filter((p) => temporadaDe(p.fecha) === laQueMando),
     [partidos, laQueMando],
+  );
+
+  /** Las competiciones y los sistemas que hay en esa temporada. */
+  const competiciones = useMemo(
+    () =>
+      [...new Set(deLaTemporada.map((p) => p.competicion).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "es"),
+      ),
+    [deLaTemporada],
+  );
+
+  /** «4-2-3-1 (100.0%)» → «4-2-3-1»: el porcentaje es de ese partido. */
+  const sistemaDe = (fila: FilaPartido) =>
+    (fila.esquema || "").replace(/\s*\(.*\)\s*$/, "").trim();
+
+  const sistemas = useMemo(
+    () =>
+      [...new Set(deLaTemporada.map(sistemaDe).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "es"),
+      ),
+    [deLaTemporada],
+  );
+
+  const deLaLiga = useMemo(
+    () =>
+      deLaTemporada.filter(
+        (p) =>
+          (!competicion || p.competicion === competicion) &&
+          (!sistema || sistemaDe(p) === sistema),
+      ),
+    [competicion, deLaTemporada, sistema],
   );
 
   const equiposLiga = useMemo(
@@ -809,6 +854,65 @@ export default function DataAnalisisPage() {
                         {temporadas.map((t) => (
                           <option key={t} value={t} className="bg-[#11161C]">
                             {t}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {/*
+                    QUÉ PARTIDOS ENTRAN.
+
+                    La competición separa la Copa y las categorías de años
+                    anteriores; el sistema, lo que se hace jugando de una
+                    manera o de otra. Los dos salen de columnas de Wyscout que
+                    hasta ahora se descartaban al leer. Sólo se ofrecen cuando
+                    hay más de una opción: un desplegable con un solo valor no
+                    ayuda a nadie.
+                  */}
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && competiciones.length > 1 && (
+                    <label className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        Competición
+                      </span>
+
+                      <select
+                        value={competicion}
+                        onChange={(e) => setCompeticion(e.target.value)}
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                      >
+                        <option value="" className="bg-[#11161C]">
+                          Todas
+                        </option>
+
+                        {competiciones.map((una) => (
+                          <option key={una} value={una} className="bg-[#11161C]">
+                            {una.replace(/^Spain\.\s*/, "")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && sistemas.length > 1 && (
+                    <label className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        Sistema
+                      </span>
+
+                      <select
+                        value={sistema}
+                        onChange={(e) => setSistema(e.target.value)}
+                        title="El esquema que más tiempo usó cada equipo en cada partido, según Wyscout"
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                      >
+                        <option value="" className="bg-[#11161C]">
+                          Todos
+                        </option>
+
+                        {sistemas.map((uno) => (
+                          <option key={uno} value={uno} className="bg-[#11161C]">
+                            {uno}
                           </option>
                         ))}
                       </select>

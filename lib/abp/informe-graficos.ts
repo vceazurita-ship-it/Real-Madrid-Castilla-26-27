@@ -78,6 +78,17 @@ export type ComparativaAbp = {
 export type PropioAbp = {
   partidos: number;
   acciones: number;
+  /**
+   * Si dentro van también los amistosos de verano.
+   *
+   * El informe **tiene que decirlo**: sin esto, uno hecho con pretemporada y
+   * otro sin ella se leen exactamente igual, y las cifras no se parecen. Con
+   * los datos del 17/09/2026, mezclarla daba «4 goles a balón parado a favor»
+   * cuando en competición eran **cero** —los cuatro eran de julio—.
+   */
+  conPretemporada?: boolean;
+  /** Cuántas acciones de pretemporada se han dejado fuera, si se han dejado. */
+  fueraDePretemporada?: number;
   remates: number;
   goles: number;
   peligros: number;

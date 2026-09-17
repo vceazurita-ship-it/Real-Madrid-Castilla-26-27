@@ -125,6 +125,38 @@ export function InformeMicroDialog({
   */
   const [acciones, setAcciones] = useState<AccionAbp[] | null>(null);
 
+  /*
+  | LA PRETEMPORADA, FUERA POR DEFECTO.
+  |
+  | Medido el 17/09/2026: de las 500 acciones registradas, **335 son de
+  | amistosos de julio** —siete partidos de pretemporada frente a tres de
+  | liga—. Mezclándolas, el informe decía «4 goles a balón parado a favor y
+  | 16 % de peligro»; **los cuatro goles son de pretemporada**, y en liga el
+  | peligro es del 21 %, mejor de lo que parecía.
+  |
+  | Así que el informe de la semana habla de competición, que es de lo que se
+  | decide. La pretemporada se puede meter con el interruptor, a propósito y
+  | sabiendo lo que se hace.
+  */
+  const [conPretemporada, setConPretemporada] = useState(false);
+
+  const deCompeticion = useMemo(
+    () =>
+      acciones === null
+        ? null
+        : conPretemporada
+          ? acciones
+          : acciones.filter((una) => una.jornada.competicion !== "amistoso"),
+    [acciones, conPretemporada],
+  );
+
+  const cuantasDePretemporada = useMemo(
+    () =>
+      (acciones ?? []).filter((una) => una.jornada.competicion === "amistoso")
+        .length,
+    [acciones],
+  );
+
   const [enviando, setEnviando] = useState(false);
 
   /*
@@ -230,10 +262,10 @@ export function InformeMicroDialog({
    * `porJornadaAbp`: la pretemporada, que es de julio, va delante.
    */
   const propio = useMemo<PropioAbp | null>(() => {
-    if (!acciones) return null;
+    if (!deCompeticion) return null;
 
-    const ofensivas = acciones.filter((una) => una.bloque.endsWith("Of"));
-    const defensivas = acciones.filter((una) => una.bloque.endsWith("Def"));
+    const ofensivas = deCompeticion.filter((una) => una.bloque.endsWith("Of"));
+    const defensivas = deCompeticion.filter((una) => una.bloque.endsWith("Def"));
 
     const resume = (lista: AccionAbp[]) => ({
       acciones: lista.length,
@@ -243,12 +275,12 @@ export function InformeMicroDialog({
       xg: Number(lista.reduce((suma, una) => suma + una.xg, 0).toFixed(2)),
     });
 
-    const todo = resume(acciones);
+    const todo = resume(deCompeticion);
 
     /* Por familia de acción: córner, falta, banda… */
     const porFamilia = new Map<string, AccionAbp[]>();
 
-    acciones.forEach((una) => {
+    deCompeticion.forEach((una) => {
       const clave = `${una.familia}${una.bloque.endsWith("Def") ? " (en contra)" : ""}`;
 
       porFamilia.set(clave, [...(porFamilia.get(clave) ?? []), una]);
@@ -275,7 +307,7 @@ export function InformeMicroDialog({
     */
     const porLado = new Map<string, AccionAbp[]>();
 
-    acciones.forEach((una) => {
+    deCompeticion.forEach((una) => {
       const lado = una.bloque.endsWith("Def") ? "defensivo" : "ofensivo";
 
       const clave = `${una.familia}|${lado}`;
@@ -300,7 +332,7 @@ export function InformeMicroDialog({
     /* Por jornada, en orden de calendario y con la pretemporada delante. */
     const porClave = new Map<string, AccionAbp[]>();
 
-    acciones.forEach((una) => {
+    deCompeticion.forEach((una) => {
       porClave.set(una.jornada.clave, [
         ...(porClave.get(una.jornada.clave) ?? []),
         una,
@@ -328,6 +360,8 @@ export function InformeMicroDialog({
 
     return {
       partidos: porClave.size,
+      conPretemporada,
+      fueraDePretemporada: conPretemporada ? 0 : cuantasDePretemporada,
       ...todo,
       cuotaRemate: todo.acciones ? (todo.remates / todo.acciones) * 100 : 0,
       cuotaPeligro: todo.acciones ? (todo.peligros / todo.acciones) * 100 : 0,
@@ -347,7 +381,7 @@ export function InformeMicroDialog({
         peligro: uno.peligro,
       })),
     };
-  }, [acciones]);
+  }, [conPretemporada, cuantasDePretemporada, deCompeticion]);
 
   /*
   | El informe se arma DOS VECES, y no es un descuido.
@@ -518,6 +552,44 @@ export function InformeMicroDialog({
           Separadas por comas, por punto y coma o una por línea. Se guardan solas
           y valen para todos los microciclos.
         </p>
+
+        {/*
+        | QUÉ PARTIDOS ENTRAN EN EL DATO PROPIO.
+        |
+        | Por defecto, sólo competición. La pretemporada son siete partidos de
+        | julio contra tres de liga, y mezclándola el informe presumía de
+        | cuatro goles a balón parado que no se habían hecho en competición.
+        */}
+        {cuantasDePretemporada > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+              {[
+                { valor: false, rotulo: "Sólo competición" },
+                { valor: true, rotulo: "Con pretemporada" },
+              ].map((opcion) => (
+                <button
+                  key={opcion.rotulo}
+                  type="button"
+                  onClick={() => setConPretemporada(opcion.valor)}
+                  aria-pressed={conPretemporada === opcion.valor}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] transition ${
+                    conPretemporada === opcion.valor
+                      ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  {opcion.rotulo}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-[11px] text-white/35">
+              {conPretemporada
+                ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
+                : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada: el informe habla de competición.`}
+            </span>
+          </div>
+        )}
 
         {cargandoSeguimiento || cargandoComparativa || cargandoPropio ? (
           <p className="flex items-center gap-2 text-xs text-white/45">

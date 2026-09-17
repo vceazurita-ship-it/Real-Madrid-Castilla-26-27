@@ -1143,7 +1143,7 @@ ${seccion(
 ${seccion(
   "Nuestros registros de competición",
   informe.propio
-    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. Aquí los goles son dato: los escribe el analista acción por acción.`
+    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. ${informe.propio.conPretemporada ? "Van dentro los amistosos de verano." : informe.propio.fueraDePretemporada ? `Sólo competición: fuera quedan ${informe.propio.fueraDePretemporada} acciones de pretemporada.` : ""} Aquí los goles son dato: los escribe el analista acción por acción.`
     : "",
   bloqueGraficos(informe, modoImagenes, "nuestro"),
 )}
@@ -1177,7 +1177,7 @@ ${seccion(
 ${seccion(
   "Nuestro balón parado, en cifras",
   informe.propio
-    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. Aquí los goles son dato: los escribe el analista acción por acción.`
+    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. ${informe.propio.conPretemporada ? "Van dentro los amistosos de verano." : informe.propio.fueraDePretemporada ? `Sólo competición: fuera quedan ${informe.propio.fueraDePretemporada} acciones de pretemporada.` : ""} Aquí los goles son dato: los escribe el analista acción por acción.`
     : "",
   informe.propio
     ? tabla(
