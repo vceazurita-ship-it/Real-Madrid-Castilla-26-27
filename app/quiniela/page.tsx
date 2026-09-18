@@ -83,6 +83,7 @@ import {
   type Signo,
 } from "@/lib/quiniela/modelo";
 import { Avatar } from "@/components/quiniela/Avatar";
+import { Parrilla } from "@/components/quiniela/Parrilla";
 import {
   INICIALES_SIN_DUENO,
   JUEGAN_POR_DEFECTO,
@@ -508,8 +509,12 @@ export default function QuinielaPage() {
 
                     if (!persona) return null;
 
+                    /* Con la jornada abierta, de los demás sólo llega el
+                       recuento: los signos no viajan hasta que se cierra. */
                     const suyos = laJornada.pronosticos[slug] ?? [];
-                    const puestos = suyos.filter(Boolean).length;
+
+                    const puestos =
+                      laJornada.puestos?.[slug] ?? suyos.filter(Boolean).length;
                     const soyYo = yo === slug;
                     const conExtras =
                       extras[slug] && Object.keys(extras[slug]).length > 0;
@@ -811,6 +816,17 @@ export default function QuinielaPage() {
                   </div>
                 )}
               </Panel>
+            </div>
+
+            {/* --------------------- LA PARRILLA ---------------------- */}
+
+            <div className="mt-5">
+              <Parrilla
+                jornada={laJornada}
+                jugadores={jugadores}
+                cerrada={plazo.cerrada}
+                cuandoSeAbre={cuandoCierra(plazo.viernes)}
+              />
             </div>
 
             {/* ---------------------- EL RANKING ---------------------- */}

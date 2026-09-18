@@ -30,24 +30,31 @@ export function useQuinielaDoc() {
   useEffect(() => {
     let cancelado = false;
 
-    fetch("/api/docs?key=quiniela", { cache: "no-store" })
+    /*
+    | Se lee por `/api/quiniela/leer` y no por `/api/docs`.
+    |
+    | Esa ruta sirve el documento entero, y con él la apuesta de los demás
+    | **antes** de que se cierre la jornada. La de aquí sólo manda la de quien
+    | pregunta hasta el viernes a las 12:00, y a partir de ahí, la de todos.
+    */
+    fetch("/api/quiniela/leer", { cache: "no-store" })
       .then((r) => r.json() as Promise<{
-        success?: boolean;
-        data?: DocumentoQuiniela | null;
+        ok?: boolean;
+        doc?: DocumentoQuiniela | null;
         updatedAt?: string | null;
       }>)
       .then((datos) => {
         if (cancelado) return;
 
-        if (!datos.success) throw new Error("No se ha podido leer la quiniela.");
+        if (!datos.ok) throw new Error("No se ha podido leer la quiniela.");
 
         /* Lo guardado con el calendario de diez, ya en el de nueve. */
         setDoc(
           sinCastilla({
             ...QUINIELA_VACIA,
-            ...(datos.data ?? {}),
-            jornadas: datos.data?.jornadas ?? {},
-            jugadores: datos.data?.jugadores ?? [],
+            ...(datos.doc ?? {}),
+            jornadas: datos.doc?.jornadas ?? {},
+            jugadores: datos.doc?.jugadores ?? [],
           }),
         );
         setGuardadoEn(datos.updatedAt ?? null);

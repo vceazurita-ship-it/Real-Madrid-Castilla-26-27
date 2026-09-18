@@ -49,6 +49,17 @@ export type JornadaQuiniela = {
   resultados: (Signo | null)[];
   /** Cuándo se cerró la jornada, si se cerró. */
   cerradaEn?: string;
+  /**
+   * Cuántos lleva puestos cada uno, **sin decir cuáles**.
+   *
+   * Sólo existe en lo que sirve `/api/quiniela/leer` y sólo mientras la
+   * jornada está abierta: en ese rato el servidor borra los pronósticos de los
+   * demás —si no, con mirar la respuesta se copiaba la quiniela del vecino— y
+   * manda únicamente el recuento, que es lo que la pantalla necesita para
+   * decir «completa» o «3 de 9». Al cerrarse, llegan los pronósticos enteros y
+   * esto sobra.
+   */
+  puestos?: Record<string, number>;
 };
 
 /**
@@ -328,6 +339,101 @@ export function rarezasDe(jornada: JornadaQuiniela, jugadores: string[]) {
   });
 
   return { todos, nadie };
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA PARRILLA: LO QUE PUSO CADA UNO                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo que ha puesto todo el mundo, partido a partido.
+ *
+ * Es lo que se enseña **cuando la jornada ya está cerrada**, que es cuando
+ * deja de ser información privilegiada y pasa a ser la conversación del
+ * vestuario: quién se ha atrevido con el 2, quién ha firmado la quiniela del
+ * miedo y quién es el único que ve algo que no ve nadie.
+ *
+ * Se calcula aquí y no en la pantalla para poder comprobarlo sin navegador.
+ */
+export type FilaParrilla = {
+  indice: number;
+  partido: PartidoQuiniela;
+  resultado: Signo | null;
+  /** El signo de cada uno, por `slug`. */
+  signos: Record<string, Signo | null>;
+  /** Cuántos han puesto cada signo. */
+  votos: Record<Signo, number>;
+  /** El signo más votado, o `null` si hay empate o no hay votos. */
+  mayoria: Signo | null;
+  /**
+   * Quien ha puesto un signo que **no ha puesto nadie más**.
+   *
+   * Es el dato que más se comenta el lunes: el que se la jugó solo. Vacío si
+   * todos coinciden o si son dos o más en cada opción.
+   */
+  solitarios: string[];
+  /** Si todos los que han rellenado han puesto lo mismo. */
+  unanime: boolean;
+  /** Cuántos han acertado, de los que han puesto algo. */
+  aciertos: number;
+  /** Cuántos han puesto algo. */
+  rellenado: number;
+};
+
+export function parrillaDe(
+  jornada: JornadaQuiniela,
+  jugadores: string[],
+): FilaParrilla[] {
+  const partidos = partidosDe(jornada.jornada);
+
+  return partidos.map((partido, indice) => {
+    const signos: Record<string, Signo | null> = {};
+
+    const votos: Record<Signo, number> = { "1": 0, X: 0, "2": 0 };
+
+    for (const slug of jugadores) {
+      const suyo = jornada.pronosticos[slug]?.[indice] ?? null;
+
+      signos[slug] = suyo;
+
+      if (suyo) votos[suyo] += 1;
+    }
+
+    const rellenado = SIGNOS.reduce((t, signo) => t + votos[signo], 0);
+
+    const masVotado = SIGNOS.reduce(
+      (mejor, signo) => (votos[signo] > votos[mejor] ? signo : mejor),
+      SIGNOS[0],
+    );
+
+    /* Empate arriba no es mayoría: nadie manda. */
+    const empatados = SIGNOS.filter((signo) => votos[signo] === votos[masVotado]);
+
+    const mayoria = rellenado > 0 && empatados.length === 1 ? masVotado : null;
+
+    const solitarios = jugadores.filter((slug) => {
+      const suyo = signos[slug];
+
+      return suyo !== null && votos[suyo] === 1;
+    });
+
+    const resultado = jornada.resultados[indice] ?? null;
+
+    return {
+      indice,
+      partido,
+      resultado,
+      signos,
+      votos,
+      mayoria,
+      solitarios: rellenado > 1 ? solitarios : [],
+      unanime: rellenado > 1 && empatados.length === 1 && votos[masVotado] === rellenado,
+      aciertos: resultado
+        ? jugadores.filter((slug) => signos[slug] === resultado).length
+        : 0,
+      rellenado,
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */
