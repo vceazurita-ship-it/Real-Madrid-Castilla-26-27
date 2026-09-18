@@ -338,8 +338,10 @@ export default function AjustesPage() {
                     los viernes a las 9:00, con los partidos y una frase.
                   </li>
                   <li>
-                    Los <strong className="text-white/75">resultados</strong>, cada
-                    noche: viernes, sábado y domingo incluidos.
+                    Los <strong className="text-white/75">resultados</strong>, dos
+                    veces al día —a las 21:00 y a medianoche— desde el propio
+                    servidor, y otra vez de madrugada desde el ordenador del
+                    club. El fin de semana se ponen solos.
                   </li>
                   <li>
                     La <strong className="text-white/75">foto semanal de Wyscout</strong>,
