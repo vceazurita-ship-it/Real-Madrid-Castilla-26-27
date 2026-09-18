@@ -25,10 +25,16 @@
 |   · `Ctrl+Z` y `Ctrl+Y`, que es lo primero que busca cualquiera,
 |   · `Alt`+clic para ir bajando por las piezas apiladas en un mismo sitio.
 |
-| Las miniaturas de la izquierda enseñan sólo el papel de cada hoja, no las
-| piezas: pintar las diez hojas enteras a la vez son varios cientos de imágenes
-| en pantalla y el editor se arrastraba. El detalle se ve al abrir la hoja, que
-| es donde se trabaja.
+| Las miniaturas de la izquierda enseñan **la hoja entera**, como en PowerPoint:
+| papel y piezas. Enseñaban sólo el papel —y diez de las once parecían vacías
+| estando llenas— porque pintar todas las piezas de todas las hojas son varios
+| cientos de `<img>` en pantalla y el editor se arrastraba. La salida no es
+| pintar menos sino pintar **una sola imagen por hoja**: se componen en un
+| lienzo pequeño y se rehacen sólo cuando esa hoja cambia
+| (`hooks/useMiniaturasInforme.ts`).
+|
+| Y se recorren con el teclado: `AvPág` y `RePág` siempre, y las flechas cuando
+| no hay ninguna pieza seleccionada —con selección siguen afinando el píxel—.
 */
 
 import {
@@ -58,6 +64,8 @@ import {
 } from "lucide-react";
 
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
+
+import { useMiniaturasInforme } from "@/hooks/useMiniaturasInforme";
 
 import {
   LIENZO_H,
@@ -185,15 +193,6 @@ export default function InformePptEditor({
   /* ---------------------------------------------------------------- */
 
   /*
-  | Lo que hay ahora, en una referencia.
-  |
-  | El arrastre lo lee desde un escuchador de `window` que se suscribe una sola
-  | vez: si dependiera del estado, el efecto se volvería a montar en cada
-  | movimiento del ratón —y con él la marca de «ya he apuntado este arrastre en
-  | el historial», que es lo que dejaba cuarenta pasos de deshacer para un solo
-  | arrastre—.
-  */
-  /*
   | La columna de miniaturas, para poder traer la activa a la vista.
   |
   | Con once hojas en una columna de 150 px, pasar de hoja con el teclado
@@ -210,6 +209,18 @@ export default function InformePptEditor({
     activaEnPantalla?.scrollIntoView({ block: "nearest" });
   }, [activa]);
 
+  /* Y lo que se ve en cada una: el papel con todas sus piezas encima. */
+  const miniaturas = useMiniaturasInforme(hojas);
+
+  /*
+  | Lo que hay ahora, en una referencia.
+  |
+  | El arrastre lo lee desde un escuchador de `window` que se suscribe una sola
+  | vez: si dependiera del estado, el efecto se volvería a montar en cada
+  | movimiento del ratón —y con él la marca de «ya he apuntado este arrastre en
+  | el historial», que es lo que dejaba cuarenta pasos de deshacer para un solo
+  | arrastre—.
+  */
   const hojasRef = useRef(hojas);
 
   useEffect(() => {
@@ -1062,9 +1073,15 @@ export default function InformePptEditor({
                     : "border-white/10 hover:border-white/30"
                 }`}
               >
+                {/*
+                  La miniatura con lo que hay dentro, como en PowerPoint.
+                  Mientras se compone —fracciones de segundo al abrir— se
+                  enseña el papel, que es lo que había antes: así la columna
+                  nunca aparece en blanco.
+                */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={una.fondo}
+                  src={miniaturas[una.id] ?? una.fondo}
                   alt=""
                   className="block w-full"
                   draggable={false}
