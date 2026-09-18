@@ -26,6 +26,7 @@ import { useMemo, useState } from "react";
 import { Users } from "lucide-react";
 
 import { Notice, Panel } from "@/components/abp/ui";
+import { PanelSinergias } from "@/components/data/PanelSinergias";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRatingsSeason } from "@/hooks/useRatings";
@@ -55,6 +56,7 @@ import {
   esNuestro,
   type Ambito,
 } from "@/lib/data-analisis/individual";
+import { sinergiasDe } from "@/lib/data-analisis/sinergias";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
 
@@ -86,7 +88,16 @@ export function PanelOnce({
   const { players, loading } = usePlayers();
   const { season } = useRatingsSeason();
 
-  const [fuente, setFuente] = useState<FuenteOnce>("wyscout");
+  /*
+  | Las tres fuentes, más las sinergias.
+  |
+  | Va en el mismo conmutador porque contesta a la misma pregunta —«¿cómo se ve
+  | este once?»— sólo que mirando parejas en vez de jugadores sueltos. Lo que
+  | cambia es la pantalla entera, no una columna, así que no es una vista.
+  */
+  const [fuente, setFuente] = useState<FuenteOnce | "sinergias">("wyscout");
+
+  const enSinergias = fuente === "sinergias";
   const [vista, setVista] = useState<VistaOnce>("lineas");
   const [ambito, setAmbito] = useState<Ambito>("liga");
 
@@ -208,8 +219,23 @@ export function PanelOnce({
   );
 
   const rejilla = useMemo(
-    () => rejillaDe(fuente, resuelto, jugadores, susEventos, ambito, vista, nuestros),
-    [fuente, resuelto, jugadores, susEventos, ambito, vista, nuestros],
+    () =>
+      rejillaDe(
+        enSinergias ? "wyscout" : fuente,
+        resuelto,
+        jugadores,
+        susEventos,
+        ambito,
+        vista,
+        nuestros,
+      ),
+    [enSinergias, fuente, resuelto, jugadores, susEventos, ambito, vista, nuestros],
+  );
+
+  /* Las parejas del once, con su veredicto y lo que llevan jugado juntos. */
+  const parejas = useMemo(
+    () => (enSinergias ? sinergiasDe(resuelto, jugadores, ambito, suTemporada) : []),
+    [enSinergias, resuelto, jugadores, ambito, suTemporada],
   );
 
   const pregunta = FUENTES.find((una) => una.key === fuente)?.pregunta ?? "";
@@ -302,7 +328,14 @@ export function PanelOnce({
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-          {FUENTES.map((una) => (
+          {[
+            ...FUENTES,
+            {
+              key: "sinergias" as const,
+              label: "Sinergias",
+              pregunta: "Qué parejas se potencian y cuáles se pisan",
+            },
+          ].map((una) => (
             <button
               key={una.key}
               type="button"
@@ -320,27 +353,29 @@ export function PanelOnce({
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-          {VISTAS.map((una) => (
-            <button
-              key={una.key}
-              type="button"
-              onClick={() => setVista(una.key)}
-              aria-pressed={vista === una.key}
-              title={una.explica}
-              className={`rounded-lg px-3 py-2 text-xs transition ${
-                vista === una.key
-                  ? "bg-white/10 text-white"
-                  : "text-white/50 hover:text-white"
-              }`}
-            >
-              {una.label}
-            </button>
-          ))}
-        </div>
+        {!enSinergias && (
+          <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+            {VISTAS.map((una) => (
+              <button
+                key={una.key}
+                type="button"
+                onClick={() => setVista(una.key)}
+                aria-pressed={vista === una.key}
+                title={una.explica}
+                className={`rounded-lg px-3 py-2 text-xs transition ${
+                  vista === una.key
+                    ? "bg-white/10 text-white"
+                    : "text-white/50 hover:text-white"
+                }`}
+              >
+                {una.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {/* Contra quién se compara. Sólo Wyscout tiene percentiles. */}
-        {fuente === "wyscout" && (
+        {/* Contra quién se compara: en sinergias también manda el percentil. */}
+        {(fuente === "wyscout" || enSinergias) && (
           <label className="flex items-center gap-2 text-[11px] text-white/35">
             Comparado con
             <select
@@ -484,7 +519,7 @@ export function PanelOnce({
             </div>
           )}
 
-          {avisos.length > 0 && (
+          {!enSinergias && avisos.length > 0 && (
             <div className="mb-4">
               <Notice
                 tone={
@@ -509,7 +544,14 @@ export function PanelOnce({
             </div>
           )}
 
-          {rejilla.bloques.length === 0 ? (
+          {enSinergias ? (
+            <PanelSinergias
+              parejas={parejas}
+              ambito={
+                AMBITOS.find((uno) => uno.key === ambito)?.label ?? "su puesto"
+              }
+            />
+          ) : rejilla.bloques.length === 0 ? (
             <p className="px-1 py-10 text-center text-xs text-white/35">
               No hay datos de esta fuente para el once elegido.
             </p>
