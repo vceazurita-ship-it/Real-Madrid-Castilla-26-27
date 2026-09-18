@@ -63,20 +63,43 @@ const ORO = "#C8A96B";
 /**
  * Sólo el cron.
  *
- * Vercel manda `Authorization: Bearer <CRON_SECRET>` en sus crons. Sin esto,
- * cualquiera que supiera la dirección podría mandarle un correo a todo el
- * cuerpo técnico las veces que quisiera.
+ * **Con `CRON_SECRET` dado de alta en Vercel**, que es como debe estar: Vercel
+ * lo manda solo en la cabecera `Authorization: Bearer …` de cada invocación y
+ * aquí se compara. Sin eso, cualquiera que supiera la dirección podría
+ * disparar el correo a todo el cuerpo técnico.
+ *
+ * **Y si no lo está**, en vez de dejar el aviso muerto se acepta la llamada
+ * cuando trae `x-vercel-cron-schedule`, la cabecera que Vercel pone en **todas**
+ * las invocaciones de cron y que sirve además para saber cuál de los dos
+ * disparos —07:00 o 08:00 UTC— es éste. No es tan bueno como el secreto: esa
+ * cabecera la puede escribir cualquiera desde fuera. Lo que puede conseguir
+ * quien lo intente está acotado a propósito: el correo sale **sólo los viernes
+ * a las 9 de Madrid**, **una vez por jornada** —queda apuntado en `avisadas`—
+ * y **sólo a quien se haya registrado**. O sea, adelantar un correo que iba a
+ * salir de todas formas dentro de esa misma hora.
+ *
+ * La respuesta dice por cuál de las dos vías ha entrado, para que se vea en
+ * los registros de Vercel mientras el secreto no esté puesto.
  */
-function autorizado(request: NextRequest) {
+type Entrada = { vale: boolean; via: "secreto" | "cabecera" | "ninguna" };
+
+function autorizado(request: NextRequest): Entrada {
   const secreto = process.env.CRON_SECRET;
 
-  /* Sin secreto configurado no se atiende a nadie: es preferible que el aviso
-     no salga y se vea en los registros, a dejar la puerta abierta. */
-  if (!secreto) return false;
+  if (secreto) {
+    const cabecera = request.headers.get("authorization") ?? "";
 
-  const cabecera = request.headers.get("authorization") ?? "";
+    return {
+      vale: cabecera === `Bearer ${secreto}`,
+      via: cabecera === `Bearer ${secreto}` ? "secreto" : "ninguna",
+    };
+  }
 
-  return cabecera === `Bearer ${secreto}`;
+  const deVercel = request.headers.get("x-vercel-cron-schedule");
+
+  return deVercel
+    ? { vale: true, via: "cabecera" }
+    : { vale: false, via: "ninguna" };
 }
 
 /* ------------------------------------------------------------------ */
@@ -173,10 +196,18 @@ function armaCorreo(jornada: number, viernes: string | null, origen: string) {
 export async function GET(request: NextRequest) {
   const probar = request.nextUrl.searchParams.get("probar") === "1";
 
-  if (!autorizado(request)) {
+  const entrada = autorizado(request);
+
+  if (!entrada.vale) {
     return NextResponse.json(
       { ok: false, error: "No autorizado." },
       { status: 401 },
+    );
+  }
+
+  if (entrada.via === "cabecera") {
+    console.warn(
+      "[quiniela] el aviso ha entrado sin CRON_SECRET, sólo por la cabecera de cron de Vercel. Dar de alta CRON_SECRET en el proyecto y volver a desplegar.",
     );
   }
 
