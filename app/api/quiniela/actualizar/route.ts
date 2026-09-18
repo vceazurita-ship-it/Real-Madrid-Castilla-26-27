@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { actualizaResultados } from "@/lib/quiniela/actualiza";
-import { traePaginaConFetch } from "@/lib/quiniela/besoccer";
+import { leeCalendario, traePaginaConFetch } from "@/lib/quiniela/besoccer";
 import { JORNADAS } from "@/lib/quiniela/modelo";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
@@ -32,18 +32,35 @@ export const maxDuration = 60;
  * número de tres cifras sobre una web pública.
  */
 export async function GET() {
-  const { estado } = await traePaginaConFetch(
+  const { cuerpo, estado } = await traePaginaConFetch(
     "https://es.besoccer.com/equipo/partidos/teruel",
   );
+
+  /*
+  | No basta con el código: contestar 200 no es contestar lo mismo.
+  |
+  | El 18/09/2026 el servidor recibía un 200 y **una página sin el calendario**:
+  | la comprobación decía que sí y luego no había ni un partido que leer. Así
+  | que se cuenta lo que de verdad se puede parsear, que es lo que importa.
+  */
+  const partidos = cuerpo ? leeCalendario(cuerpo) : [];
+
+  const puede = estado === 200 && partidos.length > 0;
 
   return NextResponse.json({
     ok: true,
     estado,
-    puede: estado === 200,
-    dice:
-      estado === 200
-        ? "BeSoccer contesta desde el servidor: el botón puede actualizar al momento."
-        : `BeSoccer contesta ${estado} desde el servidor: los resultados los tendrá que poner el ordenador del club.`,
+    puede,
+    bytes: cuerpo.length,
+    partidos: partidos.length,
+    /* Para poder ver de un vistazo si lo que llega es otra cosa. */
+    muestra: partidos.slice(0, 3).map((uno) => `J${uno.jornada} ${uno.cuando.slice(0, 10)} ${uno.local}-${uno.visitante}`),
+    tienePanel: cuerpo.includes('panel-title">Partidos'),
+    dice: puede
+      ? `BeSoccer contesta y trae ${partidos.length} partidos: el botón puede actualizar al momento.`
+      : estado === 200
+        ? `BeSoccer contesta 200 pero la página que llega no trae el calendario (${cuerpo.length} bytes). Los resultados los pondrá el ordenador del club.`
+        : `BeSoccer contesta ${estado} desde el servidor: los resultados los pondrá el ordenador del club.`,
   });
 }
 
