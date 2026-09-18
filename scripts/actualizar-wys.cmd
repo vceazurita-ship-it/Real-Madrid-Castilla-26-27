@@ -76,6 +76,31 @@ if errorlevel 1 (
 )
 
 rem ------------------------------------------------------------------
+rem  La foto de la jornada
+rem ------------------------------------------------------------------
+rem
+rem  La descarga individual de Wyscout es acumulada: una fila por jugador con
+rem  la temporada entera. Guardando una foto cada semana, la resta entre dos
+rem  fotos es lo que paso en medio -la jornada-, que es lo que esa descarga
+rem  no da. La resta la hace sola la pantalla del once.
+rem
+rem  Si falla no se para nada: bajar los datos es lo importante, y la foto se
+rem  puede tomar otro dia a mano.
+
+echo.
+echo  --- Guardando la foto de la jornada ---
+echo.
+
+call node scripts\wyscout-instantanea.cjs
+
+if errorlevel 1 (
+  echo.
+  echo  No se ha podido guardar la foto. Los datos siguen bien; tomala cuando
+  echo  puedas con:  node scripts\wyscout-instantanea.cjs
+  echo.
+)
+
+rem ------------------------------------------------------------------
 rem  Publicar
 rem ------------------------------------------------------------------
 rem  Se pregunta a proposito. Bajar datos no rompe nada; publicarlos cambia

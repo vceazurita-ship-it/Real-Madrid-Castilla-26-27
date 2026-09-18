@@ -28,6 +28,7 @@ import { CalendarDays, Users } from "lucide-react";
 import { Notice, Panel } from "@/components/abp/ui";
 import { PanelSinergias } from "@/components/data/PanelSinergias";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
+import { useInstantaneas } from "@/hooks/useInstantaneas";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { summarizeAll } from "@/lib/ratings/compute";
@@ -53,9 +54,11 @@ import {
 import {
   AMBITOS,
   PUESTOS,
+  VOLUMEN_DEL_PORCENTAJE,
   esNuestro,
   type Ambito,
 } from "@/lib/data-analisis/individual";
+import { tramoEntre, tramosDe } from "@/lib/data-analisis/instantaneas";
 import { sinergiasDe } from "@/lib/data-analisis/sinergias";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
@@ -206,6 +209,60 @@ export function PanelOnce({
     [fechas, season],
   );
 
+  /*
+  | LO QUE HIZO EN UNA JORNADA SUELTA.
+  |
+  | La descarga individual de Wyscout es acumulada, así que el selector de
+  | partidos de aquí al lado no puede recortarla. Lo que sí se puede es
+  | **restar dos fotos semanales** de esa descarga: la diferencia es lo que
+  | pasó entre medias. Las fotos las guarda el script semanal; aquí sólo se
+  | leen y se restan.
+  |
+  | `null` es el acumulado de siempre.
+  */
+  const { historial } = useInstantaneas();
+
+  const [tramo, setTramo] = useState<number | null>(null);
+
+  const tramosDisponibles = useMemo(
+    () => tramosDe(historial, VOLUMEN_DEL_PORCENTAJE),
+    [historial],
+  );
+
+  const elTramo = tramo === null ? null : (tramosDisponibles[tramo] ?? null);
+
+  /*
+  | Las filas de Wyscout que se van a usar.
+  |
+  | Con un tramo elegido, a los nuestros se les cambia su fila acumulada por la
+  | del tramo —misma forma, así que todo lo de abajo sigue igual— y quien no
+  | jugó ese tramo se cae. Los demás equipos se quedan como están: son el
+  | término de comparación del percentil.
+  */
+  const filasDelTramo = useMemo(() => {
+    if (!elTramo) return null;
+
+    return tramoEntre(
+      historial.fotos[elTramo.desde],
+      historial.fotos[elTramo.hasta],
+      VOLUMEN_DEL_PORCENTAJE,
+    );
+  }, [elTramo, historial]);
+
+  const filasWyscout = useMemo(() => {
+    if (!filasDelTramo) return jugadores;
+
+    const mios = new Map(filasDelTramo.map((uno) => [uno.fila.jugador, uno.fila]));
+
+    return jugadores.flatMap((una) => {
+      if (!esNuestro(una) || una.temporada !== "actual") return [una];
+
+      const suya = mios.get(una.jugador);
+
+      return suya ? [suya] : [];
+    });
+  }, [jugadores, filasDelTramo]);
+
   /* Quién ocupa cada hueco. Vacío = se propone solo, por minutos jugados. */
   const [elegidos, setElegidos] = useState<Record<string, string>>({});
 
@@ -278,11 +335,11 @@ export function PanelOnce({
             posicion: uno.jugador!.posicion ?? "",
             hueco: uno.hueco.clave,
           })),
-        jugadores,
+        filasWyscout,
         resumenes,
         susEventos,
       ),
-    [once, jugadores, resumenes, susEventos],
+    [once, filasWyscout, resumenes, susEventos],
   );
 
   const rejilla = useMemo(
@@ -290,19 +347,19 @@ export function PanelOnce({
       rejillaDe(
         enSinergias ? "wyscout" : fuente,
         resuelto,
-        jugadores,
+        filasWyscout,
         susEventos,
         ambito,
         vista,
         losPartidos,
       ),
-    [enSinergias, fuente, resuelto, jugadores, susEventos, ambito, vista, losPartidos],
+    [enSinergias, fuente, resuelto, filasWyscout, susEventos, ambito, vista, losPartidos],
   );
 
   /* Las parejas del once, con su veredicto y lo que llevan jugado juntos. */
   const parejas = useMemo(
-    () => (enSinergias ? sinergiasDe(resuelto, jugadores, ambito, suTemporada) : []),
-    [enSinergias, resuelto, jugadores, ambito, suTemporada],
+    () => (enSinergias ? sinergiasDe(resuelto, filasWyscout, ambito, suTemporada) : []),
+    [enSinergias, resuelto, filasWyscout, ambito, suTemporada],
   );
 
   const pregunta = FUENTES.find((una) => una.key === fuente)?.pregunta ?? "";
@@ -323,12 +380,32 @@ export function PanelOnce({
     const partidos = `${cuantos} partido${cuantos === 1 ? "" : "s"} del Castilla`;
 
     if (fuente === "wyscout") {
+      /*
+      | Con un tramo elegido, esta vista SÍ es de unos partidos concretos: sale
+      | de restar dos descargas semanales. Hay que decir de dónde sale y con qué
+      | se está comparando, porque el percentil sigue siendo contra la
+      | temporada de los demás.
+      */
+      if (elTramo) {
+        return [
+          `Lo que hizo cada uno entre el ${elTramo.rotulo}: sale de restar las dos descargas semanales de Wyscout, que son acumuladas. El que más jugó, ${elTramo.minutos} minutos.`,
+          "El percentil compara ese tramo con la temporada entera de los de su puesto, así que es un indicio de cómo fue el partido, no su nota.",
+          "La longitud media de pase no aparece: es una media que no se puede restar sin el número de pases de cada tramo.",
+        ];
+      }
+
+      const conFoto =
+        tramosDisponibles.length > 0
+          ? "En «Qué se cuenta» puedes ver una jornada suelta, restando dos fotos semanales."
+          : "Desde el 18/09/2026 se guarda una foto de esa descarga cada semana: a partir de la próxima jornada podrá verse el partido suelto aquí mismo.";
+
       return recorte
         ? [
             `Wyscout da una fila por jugador y temporada, no por partido: los percentiles son los del curso entero y NO están recortados a ${recorte}.`,
             `Para ver el once por ${sistema ? "sistema" : "competición"}, cambia a Opta o a Nuestra valoración, que sí son por partido.`,
+            conFoto,
           ]
-        : [];
+        : [conFoto];
     }
 
     if (cuantos === 0) {
@@ -346,7 +423,15 @@ export function PanelOnce({
           }: las notas, la forma y la tendencia salen sólo de ésos.`,
         ]
       : [`${partidos}${recorte ? ` con ${recorte}` : ""} en lo elegido arriba.`];
-  }, [fuente, losPartidos.length, recorte, sistema, suTemporada.matches]);
+  }, [
+    fuente,
+    losPartidos.length,
+    recorte,
+    sistema,
+    suTemporada.matches,
+    elTramo,
+    tramosDisponibles.length,
+  ]);
 
   /*
   | CUANDO LA HOJA Y WYSCOUT NO DICEN LO MISMO.
@@ -453,6 +538,30 @@ export function PanelOnce({
               {AMBITOS.map((uno) => (
                 <option key={uno.key} value={uno.key} className="bg-[#11161C]">
                   {uno.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {/* Acumulado o una jornada suelta, restando dos fotos semanales. */}
+        {fuente === "wyscout" && tramosDisponibles.length > 0 && (
+          <label className="flex items-center gap-2 text-[11px] text-white/35">
+            Qué se cuenta
+            <select
+              value={tramo === null ? "" : String(tramo)}
+              onChange={(evento) =>
+                setTramo(evento.target.value === "" ? null : Number(evento.target.value))
+              }
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
+            >
+              <option value="" className="bg-[#11161C]">
+                Todo lo jugado
+              </option>
+
+              {tramosDisponibles.map((uno, indice) => (
+                <option key={uno.rotulo} value={indice} className="bg-[#11161C]">
+                  {uno.rotulo} · {uno.minutos}′
                 </option>
               ))}
             </select>
