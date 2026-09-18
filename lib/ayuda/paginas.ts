@@ -638,7 +638,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "Nuestra valoración",
-            es: "La nota del cuerpo técnico por áreas, con la forma de los cinco últimos partidos. Es la única que juzga en vez de contar",
+            es: "La nota del cuerpo técnico y la forma de los cinco últimos partidos, con cuántos lleva valorados. Es la única que juzga en vez de contar",
           },
           {
             que: "Sinergias",

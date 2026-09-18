@@ -29,8 +29,8 @@ import type { PlayerSummary } from "@/lib/ratings/compute";
  *   rechaces, duelos—. **Es una muestra corta a propósito declarada**: el
  *   fichero trae del orden de diez o veinte acciones por jugador en tres
  *   partidos, así que la vista lo dice en vez de disfrazarlo de estadística.
- * - **Nosotros**: la nota del cuerpo técnico por áreas, con la forma de los
- *   últimos partidos y la tendencia. Es la única que juzga, en vez de contar.
+ * - **Nosotros**: la nota del cuerpo técnico y la forma de los últimos
+ *   partidos. Es la única que juzga, en vez de contar.
  *
  * **No se mezclan.** Cada fuente mide cosas distintas con escalas distintas, y
  * un número medio entre un percentil de Wyscout y un 7,5 nuestro no significa
@@ -65,7 +65,7 @@ export const FUENTES: {
   {
     key: "nuestra",
     label: "Nuestra valoración",
-    pregunta: "La nota del cuerpo técnico por áreas, con su forma y su tendencia",
+    pregunta: "La nota del cuerpo técnico y su forma en los últimos partidos",
   },
 ];
 
@@ -1031,17 +1031,21 @@ export function rejillaOpta(
   };
 }
 
-/** Las cuatro áreas que puntúa el cuerpo técnico, más la nota global. */
+/**
+ * Lo que se enseña de nuestra valoración: la nota y la forma.
+ *
+ * **Sin las cuatro áreas** (18/09/2026, a petición del cuerpo técnico): técnica,
+ * táctica, física y mental sobraban aquí. En una rejilla de once columnas, cuatro
+ * filas que casi siempre se mueven juntas —quien juega bien un partido puntúa
+ * alto en las cuatro— ocupaban sitio sin añadir criterio. Siguen estando donde
+ * se ponen y donde se leen una a una, en la ficha del jugador.
+ */
 const AREAS_NUESTRAS: { clave: AreaKey | "global" | "form"; etiqueta: string; comoLeer: string }[] = [
   {
     clave: "global",
     etiqueta: "Nota",
     comoLeer: "La nota del partido, de 0 a 10. Es la media de las que se le han puesto.",
   },
-  { clave: "tecnica", etiqueta: "Técnica", comoLeer: "Lo que hace con el balón." },
-  { clave: "tactica", etiqueta: "Táctica", comoLeer: "Dónde se coloca y qué decide." },
-  { clave: "fisica", etiqueta: "Física", comoLeer: "Lo que aguanta y lo que repite." },
-  { clave: "mental", etiqueta: "Mental", comoLeer: "Cómo compite cuando viene mal dada." },
   {
     clave: "form",
     etiqueta: "Forma (5 últimos)",
@@ -1050,7 +1054,7 @@ const AREAS_NUESTRAS: { clave: AreaKey | "global" | "form"; etiqueta: string; co
 ];
 
 /**
- * Nuestra valoración: la nota por áreas, de 0 a 10.
+ * Nuestra valoración: la nota, de 0 a 10.
  *
  * Es la única de las tres que **juzga** en vez de contar, y por eso es la que
  * el cuerpo técnico suele mirar primero. La barra es la nota sobre diez, sin
