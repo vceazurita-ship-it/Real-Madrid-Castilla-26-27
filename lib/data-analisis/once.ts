@@ -348,12 +348,20 @@ export type Hueco = {
 };
 
 /**
- * Los once puestos de la pizarra, en el orden en que se rellena un once.
+ * Los once puestos de la pizarra, **en 4-2-3-1**, que es como juega el equipo.
  *
- * **Cada hueco lleva su lado** (17/09/2026). Sin eso, «lateral derecho» y
- * «lateral izquierdo» eran el mismo hueco dos veces y se rellenaban por
- * minutos jugados: Diego Aguado —lateral izquierdo— salía de derecho y Jesús
- * Fortea de izquierdo.
+ * Dos cosas que costaron un fallo cada una:
+ *
+ * - **Cada hueco lleva su lado** (17/09/2026). Sin eso, «lateral derecho» y
+ *   «lateral izquierdo» eran el mismo hueco dos veces y se rellenaban por
+ *   minutos jugados: Diego Aguado —lateral izquierdo— salía de derecho y Jesús
+ *   Fortea de izquierdo.
+ * - **Los huecos son los del sistema, no tres medios en fila** (18/09/2026).
+ *   Había «medio derecho, medio centro y medio izquierdo», que es un 4-3-3 y no
+ *   lo que juega el Castilla: son **dos pivotes** y, por delante, banda,
+ *   **mediapunta** y banda. La mediapunta es `BAN` en el modelo porque Wyscout
+ *   escribe `AMF` y ése es el grupo con el que se compara —«bandas y
+ *   mediapuntas»—, y va sin lado para que la ocupe quien juega por dentro.
  */
 export const HUECOS: Hueco[] = [
   { clave: "por", rotulo: "Portero", puesto: "POR", lado: "C" },
@@ -361,12 +369,12 @@ export const HUECOS: Hueco[] = [
   { clave: "cen-d", rotulo: "Central derecho", puesto: "CEN", lado: "D" },
   { clave: "cen-i", rotulo: "Central izquierdo", puesto: "CEN", lado: "I" },
   { clave: "lat-i", rotulo: "Lateral izquierdo", puesto: "LAT", lado: "I" },
-  { clave: "med-d", rotulo: "Medio derecho", puesto: "MED", lado: "D" },
-  { clave: "med-c", rotulo: "Medio centro", puesto: "MED", lado: "C" },
-  { clave: "med-i", rotulo: "Medio izquierdo", puesto: "MED", lado: "I" },
+  { clave: "piv-d", rotulo: "Pivote derecho", puesto: "MED", lado: "D" },
+  { clave: "piv-i", rotulo: "Pivote izquierdo", puesto: "MED", lado: "I" },
   { clave: "ban-d", rotulo: "Banda derecha", puesto: "BAN", lado: "D" },
-  { clave: "del", rotulo: "Delantero", puesto: "DEL", lado: "C" },
+  { clave: "media", rotulo: "Mediapunta", puesto: "BAN", lado: "C" },
   { clave: "ban-i", rotulo: "Banda izquierda", puesto: "BAN", lado: "I" },
+  { clave: "del", rotulo: "Delantero", puesto: "DEL", lado: "C" },
 ];
 
 /** Si un jugador sirve para un hueco por lado: el centro vale para los dos. */

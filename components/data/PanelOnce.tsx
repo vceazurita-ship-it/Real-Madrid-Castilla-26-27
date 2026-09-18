@@ -23,7 +23,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { Users } from "lucide-react";
+import { CalendarDays, Users } from "lucide-react";
 
 import { Notice, Panel } from "@/components/abp/ui";
 import { PanelSinergias } from "@/components/data/PanelSinergias";
@@ -59,6 +59,29 @@ import {
 import { sinergiasDe } from "@/lib/data-analisis/sinergias";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
+
+/**
+ * Los atajos de la selección de partidos.
+ *
+ * `cuantos: null` es «todos los que deja pasar la barra de arriba». Los tres
+ * tramos son los que se piden de verdad al mirar un once: el partido de la
+ * semana, la racha corta y la temporada.
+ */
+const ATAJOS: { label: string; cuantos: number | null }[] = [
+  { label: "Último", cuantos: 1 },
+  { label: "Últimos 3", cuantos: 3 },
+  { label: "Últimos 5", cuantos: 5 },
+  { label: "Toda la temporada", cuantos: null },
+];
+
+/** "2026-09-12" → "12 sep". */
+function fechaCorta(fecha: string) {
+  const [, mes, dia] = fecha.split("-");
+
+  const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+  return `${Number(dia)} ${meses[Number(mes) - 1] ?? ""}`;
+}
 
 export function PanelOnce({
   jugadores,
@@ -102,6 +125,50 @@ export function PanelOnce({
   const [ambito, setAmbito] = useState<Ambito>("liga");
 
   /*
+  | QUÉ PARTIDOS ENTRAN.
+  |
+  | `null` es «todos los que deja pasar la barra de arriba». En cuanto se toca
+  | un partido concreto, pasa a ser la lista de fechas elegidas.
+  |
+  | Se guarda por **fecha** y no por índice para que elegir «los tres últimos»
+  | y luego cambiar de sistema arriba no deje seleccionados otros partidos: si
+  | una fecha ya no está disponible, simplemente se cae.
+  */
+  const [partidosElegidos, setPartidosElegidos] = useState<string[] | null>(null);
+
+  /* Los del equipo que deja pasar la barra, del más reciente al más antiguo. */
+  const disponibles = useMemo(
+    () => [...nuestros].sort((a, b) => b.fecha.localeCompare(a.fecha)),
+    [nuestros],
+  );
+
+  /*
+  | Los que se están mirando.
+  |
+  | La selección se cruza con lo disponible en vez de corregirse en un efecto:
+  | un `setState` dentro de un efecto lo tumba el linter de pureza, y además
+  | así cambiar el sistema de arriba nunca deja la pantalla en blanco —si no
+  | queda ninguno de los elegidos, se vuelve solo a «todos»—.
+  */
+  const elegidosValidos = useMemo(() => {
+    if (!partidosElegidos) return null;
+
+    const quedan = partidosElegidos.filter((fecha) =>
+      disponibles.some((uno) => uno.fecha === fecha),
+    );
+
+    return quedan.length > 0 ? quedan : null;
+  }, [partidosElegidos, disponibles]);
+
+  const losPartidos = useMemo(
+    () =>
+      elegidosValidos
+        ? disponibles.filter((uno) => elegidosValidos.includes(uno.fecha))
+        : disponibles,
+    [disponibles, elegidosValidos],
+  );
+
+  /*
   | LAS FECHAS QUE ENTRAN.
   |
   | Se cruza **sólo por fecha**, y a propósito: Wyscout escribe «Real Madrid
@@ -111,8 +178,8 @@ export function PanelOnce({
   | ambigüedad: un equipo no juega dos veces el mismo día.
   */
   const fechas = useMemo(
-    () => new Set(nuestros.map((uno) => uno.fecha)),
-    [nuestros],
+    () => new Set(losPartidos.map((uno) => uno.fecha)),
+    [losPartidos],
   );
 
   /* El log de Opta es por partido, así que se recorta de verdad. */
@@ -227,9 +294,9 @@ export function PanelOnce({
         susEventos,
         ambito,
         vista,
-        nuestros,
+        losPartidos,
       ),
-    [enSinergias, fuente, resuelto, jugadores, susEventos, ambito, vista, nuestros],
+    [enSinergias, fuente, resuelto, jugadores, susEventos, ambito, vista, losPartidos],
   );
 
   /* Las parejas del once, con su veredicto y lo que llevan jugado juntos. */
@@ -251,7 +318,7 @@ export function PanelOnce({
   const recorte = sistema || competicion.replace(/^Spain\.\s*/, "");
 
   const alcance = useMemo(() => {
-    const cuantos = nuestros.length;
+    const cuantos = losPartidos.length;
 
     const partidos = `${cuantos} partido${cuantos === 1 ? "" : "s"} del Castilla`;
 
@@ -279,7 +346,7 @@ export function PanelOnce({
           }: las notas, la forma y la tendencia salen sólo de ésos.`,
         ]
       : [`${partidos}${recorte ? ` con ${recorte}` : ""} en lo elegido arriba.`];
-  }, [fuente, nuestros.length, recorte, sistema, suTemporada.matches]);
+  }, [fuente, losPartidos.length, recorte, sistema, suTemporada.matches]);
 
   /*
   | CUANDO LA HOJA Y WYSCOUT NO DICEN LO MISMO.
@@ -398,6 +465,136 @@ export function PanelOnce({
       <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
         {/* ------------------------ EL ONCE ------------------------ */}
 
+        <div className="min-w-0 space-y-5">
+        <Panel
+          title="Los partidos"
+          subtitle={
+            disponibles.length === 0
+              ? "No hay ninguno con lo elegido arriba"
+              : elegidosValidos
+                ? `${losPartidos.length} de ${disponibles.length} elegidos`
+                : `Los ${disponibles.length} de la barra de arriba`
+          }
+          icon={CalendarDays}
+        >
+          {disponibles.length === 0 ? (
+            <p className="text-[11px] text-white/35">
+              Cambia la temporada, la competición o el sistema para que entre
+              algún partido del Castilla.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-1.5">
+                {ATAJOS.map((atajo) => {
+                  /* «Toda la temporada» es no tener nada elegido. */
+                  const puesto =
+                    atajo.cuantos === null
+                      ? elegidosValidos === null
+                      : elegidosValidos !== null &&
+                        elegidosValidos.length === Math.min(atajo.cuantos, disponibles.length) &&
+                        disponibles
+                          .slice(0, atajo.cuantos)
+                          .every((uno) => elegidosValidos.includes(uno.fecha));
+
+                  return (
+                    <button
+                      key={atajo.label}
+                      type="button"
+                      disabled={
+                        atajo.cuantos !== null && disponibles.length <= atajo.cuantos
+                      }
+                      /* Un atajo apagado tiene que decir por qué: con tres
+                         partidos, «Últimos 3» y «Toda la temporada» son lo
+                         mismo y el botón no se puede pulsar. */
+                      title={
+                        atajo.cuantos === null
+                          ? "Todos los que deja pasar la barra de arriba"
+                          : disponibles.length <= atajo.cuantos
+                            ? `Sólo hay ${disponibles.length} partido${
+                                disponibles.length === 1 ? "" : "s"
+                              }: sería lo mismo que toda la temporada`
+                            : `Los ${atajo.cuantos} últimos`
+                      }
+                      onClick={() =>
+                        setPartidosElegidos(
+                          atajo.cuantos === null
+                            ? null
+                            : disponibles.slice(0, atajo.cuantos).map((uno) => uno.fecha),
+                        )
+                      }
+                      className={`rounded-lg border px-2.5 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                        puesto
+                          ? "border-[#C8A96B]/50 bg-[#C8A96B]/10 text-[#C8A96B]"
+                          : "border-white/10 text-white/50 hover:border-white/25 hover:text-white"
+                      }`}
+                    >
+                      {atajo.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Uno a uno. Con una temporada cerrada son treinta y ocho, así
+                  que la lista scrollea en vez de empujar la rejilla. */}
+              <div className="mt-3 max-h-[240px] space-y-1 overflow-y-auto pr-1">
+                {disponibles.map((partido) => {
+                  const dentro = !elegidosValidos || elegidosValidos.includes(partido.fecha);
+
+                  const marcador = `${partido.golesFavor}-${partido.golesContra}`;
+
+                  return (
+                    <button
+                      key={partido.fecha}
+                      type="button"
+                      onClick={() =>
+                        setPartidosElegidos((antes) => {
+                          /* Del «todos» se sale eligiendo sólo ése: es lo que
+                             espera quien pulsa un partido concreto. */
+                          if (!antes || elegidosValidos === null) return [partido.fecha];
+
+                          return antes.includes(partido.fecha)
+                            ? antes.filter((una) => una !== partido.fecha)
+                            : [...antes, partido.fecha];
+                        })
+                      }
+                      aria-pressed={dentro}
+                      className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] transition ${
+                        dentro
+                          ? "border-white/15 bg-white/[0.05] text-white/80"
+                          : "border-white/[0.06] text-white/30 hover:border-white/20"
+                      }`}
+                    >
+                      <span className="w-[52px] shrink-0 tabular-nums text-white/40">
+                        {fechaCorta(partido.fecha)}
+                      </span>
+
+                      <span className="min-w-0 flex-1 truncate">{partido.rival}</span>
+
+                      <span
+                        className={`shrink-0 tabular-nums ${
+                          partido.golesFavor > partido.golesContra
+                            ? "text-emerald-300/80"
+                            : partido.golesFavor < partido.golesContra
+                              ? "text-rose-300/80"
+                              : "text-white/45"
+                        }`}
+                      >
+                        {marcador}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="mt-2 text-[11px] leading-relaxed text-white/35">
+                Recorta Opta, nuestra valoración y el peso en el equipo. Wyscout
+                da una fila por jugador y temporada, así que sus percentiles no
+                se pueden recortar por partido.
+              </p>
+            </>
+          )}
+        </Panel>
+
         <Panel
           title="El once"
           subtitle="Cambia a quien quieras: la rejilla se rehace"
@@ -497,6 +694,7 @@ export function PanelOnce({
             suya. Es lo que ordena los desplegables.
           </p>
         </Panel>
+        </div>
 
         {/* ----------------------- LA REJILLA ----------------------- */}
 

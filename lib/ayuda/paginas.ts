@@ -650,6 +650,14 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Cómo se lee la rejilla",
         filas: [
           {
+            que: "Los partidos",
+            es: "Se elige uno, varios, los últimos 3 o 5, o toda la temporada. Recorta Opta, nuestra valoración y el peso en el equipo; los percentiles de Wyscout no, que son por temporada",
+          },
+          {
+            que: "Los huecos",
+            es: "Son los del 4-2-3-1: portero, cuatro atrás, dos pivotes, banda, mediapunta y banda, y el delantero",
+          },
+          {
             que: "Por líneas o uno a uno",
             es: "Por líneas, cada casilla es la media de esa línea; uno a uno, hay una columna por futbolista y no se promedia con nadie",
           },
