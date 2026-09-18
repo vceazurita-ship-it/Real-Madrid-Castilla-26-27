@@ -172,6 +172,20 @@ if errorlevel 1 (
   set "HUBO_FALLO=1"
 )
 
+rem --- 6. los resultados de la quiniela ---
+rem
+rem  Lee de BeSoccer el 1-X-2 de los nueve partidos de la jornada y los escribe
+rem  en la quiniela, para que el ranking y la parrilla se pongan al dia solos.
+rem  Solo toca las jornadas que alguien ha apostado: escribir los resultados de
+rem  una jornada que nadie jugo pondria a los diez con nueve fallos.
+echo. >> "%LOG%"
+echo --- Resultados de la quiniela --- >> "%LOG%"
+call node scripts\quiniela-resultados.mjs >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo FALLO en quiniela-resultados ^(codigo !errorlevel!^) >> "%LOG%"
+  set "HUBO_FALLO=1"
+)
+
 echo. >> "%LOG%"
 if defined HUBO_FALLO (
   echo TERMINADO CON FALLOS · %DATE% %TIME% >> "%LOG%"

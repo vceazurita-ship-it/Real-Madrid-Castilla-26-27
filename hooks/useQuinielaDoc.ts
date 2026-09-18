@@ -21,11 +21,26 @@ import { QUINIELA_VACIA, type DocumentoQuiniela } from "@/lib/quiniela/modelo";
 
 type Estado = "cargando" | "listo" | "guardando" | "error";
 
-export function useQuinielaDoc() {
+/**
+ * @param refrescoMs Cada cuánto releer solo. `0` es no releer.
+ *
+ * Se usa el fin de semana: los resultados los baja de BeSoccer el trabajo
+ * nocturno, y quien tenga la pantalla abierta el domingo por la noche vería un
+ * marcador congelado hasta recargar. Con esto, el ranking se mueve solo.
+ */
+export function useQuinielaDoc(refrescoMs = 0) {
   const [doc, setDoc] = useState<DocumentoQuiniela>(QUINIELA_VACIA);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [guardadoEn, setGuardadoEn] = useState<string | null>(null);
   const [testigo, setTestigo] = useState(0);
+
+  useEffect(() => {
+    if (!refrescoMs) return;
+
+    const reloj = window.setInterval(() => setTestigo((n) => n + 1), refrescoMs);
+
+    return () => window.clearInterval(reloj);
+  }, [refrescoMs]);
 
   useEffect(() => {
     let cancelado = false;

@@ -50,6 +50,18 @@ export type JornadaQuiniela = {
   /** Cuándo se cerró la jornada, si se cerró. */
   cerradaEn?: string;
   /**
+   * Cuándo se tocaron los resultados por última vez, y de dónde salieron.
+   *
+   * Lo escribe el que los pone: `scripts/quiniela-resultados.mjs` cuando los
+   * baja de BeSoccer por la noche, y `/api/quiniela/guardar` cuando alguien
+   * marca uno a mano. Sirve para que la pantalla pueda decir **de cuándo es lo
+   * que se está viendo**, que en una jornada en marcha es la mitad de la
+   * información: un 3 de 9 no significa lo mismo a las once de la noche del
+   * sábado que el lunes.
+   */
+  resultadosEn?: string;
+  origenResultados?: "besoccer" | "mano";
+  /**
    * Cuántos lleva puestos cada uno, **sin decir cuáles**.
    *
    * Sólo existe en lo que sirve `/api/quiniela/leer` y sólo mientras la

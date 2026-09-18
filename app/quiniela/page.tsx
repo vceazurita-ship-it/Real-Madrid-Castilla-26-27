@@ -83,6 +83,7 @@ import {
   type Signo,
 } from "@/lib/quiniela/modelo";
 import { Avatar } from "@/components/quiniela/Avatar";
+import { EstadoJornada } from "@/components/quiniela/EstadoJornada";
 import { Parrilla } from "@/components/quiniela/Parrilla";
 import {
   INICIALES_SIN_DUENO,
@@ -122,14 +123,46 @@ function mismosSignos(a: (Signo | null)[], b: (Signo | null)[], largo: number) {
 }
 
 export default function QuinielaPage() {
-  const { doc, estado, guardadoEn, guarda, recarga } = useQuinielaDoc();
+  const ahora = useAhora();
+
+  const [jornada, setJornada] = useState(() => jornadaDeHoy(hoyTexto()));
+
+  /* Si la jornada que se mira ya no se puede tocar. */
+  const plazo = useMemo(() => estadoDe(jornada, ahora), [jornada, ahora]);
+
+  /*
+  | EL FIN DE SEMANA DE LA JORNADA.
+  |
+  | Desde que se cierra —el viernes a las 12:00— hasta tres días después, que
+  | es cuando se juega y cuando el trabajo nocturno va escribiendo los
+  | resultados que baja de BeSoccer. Fuera de esa ventana no hay nada que
+  | esperar, y no se pide nada.
+  */
+  const enJuego = useMemo(() => {
+    if (!plazo.cerrada || !plazo.viernes) return false;
+
+    const desde = new Date(`${plazo.viernes}T12:00:00Z`).getTime();
+
+    const dias = (ahora.getTime() - desde) / 86_400_000;
+
+    return dias >= 0 && dias <= 3.5;
+  }, [plazo, ahora]);
+
+  /*
+  | La pantalla se relee sola mientras la jornada está en juego.
+  |
+  | Los resultados los baja de BeSoccer el trabajo nocturno, así que quien
+  | tenga esto abierto un domingo por la noche vería el marcador congelado
+  | hasta recargar. Dos minutos basta: esto no es un directo.
+  */
+  const { doc, estado, guardadoEn, guarda, recarga } = useQuinielaDoc(
+    enJuego ? 120_000 : 0,
+  );
 
   const sesion = useQuinielaSesion();
 
   /* Quién ha entrado. Lo dice la cookie, que sólo lee el servidor. */
   const yo = sesion.yo?.slug ?? null;
-
-  const ahora = useAhora();
 
   /*
   | Quién juega.
@@ -139,8 +172,6 @@ export default function QuinielaPage() {
   | que alguien toque algo, el documento sigue vacío y no se escribe nada.
   */
   const jugadores = doc.jugadores.length > 0 ? doc.jugadores : JUEGAN_POR_DEFECTO;
-
-  const [jornada, setJornada] = useState(() => jornadaDeHoy(hoyTexto()));
 
   /*
   | LA APUESTA EN BORRADOR, por jornada.
@@ -186,9 +217,6 @@ export default function QuinielaPage() {
     () => rarezasDe(laJornada, jugadores),
     [laJornada, jugadores],
   );
-
-  /* Si la jornada que se mira ya no se puede tocar. */
-  const plazo = useMemo(() => estadoDe(jornada, ahora), [jornada, ahora]);
 
   const guardados = yo ? (laJornada.pronosticos[yo] ?? []) : [];
 
@@ -483,6 +511,21 @@ export default function QuinielaPage() {
                   {jugadores.length} jugando
                 </Button>
               </div>
+            </div>
+
+            {/* --------------- CÓMO VA LA JORNADA --------------------- */}
+
+            <div className="mt-6">
+              <EstadoJornada
+                jornada={laJornada}
+                numero={jornada}
+                jugadores={jugadores}
+                partidos={partidos.length}
+                cerrada={plazo.cerrada}
+                ultimasHoras={plazo.ultimasHoras}
+                cuandoCierra={cuandoCierra(plazo.viernes)}
+                ahora={ahora}
+              />
             </div>
 
             {/* ------------------------ QUIÉN ERES --------------------- */}

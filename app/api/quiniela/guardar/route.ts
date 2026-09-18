@@ -160,7 +160,14 @@ export async function POST(request: NextRequest) {
         ...base,
         jornadas: {
           ...base.jornadas,
-          [String(jornada)]: { ...previa, resultados },
+          [String(jornada)]: {
+            ...previa,
+            resultados,
+            /* Queda dicho quién lo puso y cuándo: por la noche los baja solo
+               el trabajo nocturno de BeSoccer, y la pantalla distingue. */
+            resultadosEn: new Date().toISOString(),
+            origenResultados: "mano" as const,
+          },
         },
       };
     }
