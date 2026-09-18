@@ -49,6 +49,17 @@ rem  es lo que se quiere despues de un partido de la tarde.
 
 if /I "%~1"=="--forzar" goto :adelante
 
+rem  El boton de Ajustes de la app no ejecuta nada: deja un encargo en
+rem  Supabase, porque el servidor no puede bajar de BeSoccer. Si lo hay, se
+rem  hace la pasada aunque ya se hubiera hecho hoy, y al terminar se marca.
+set "PEDIDO="
+call node scripts\peticion-nocturna.cjs --hay >> "%LOG%" 2>&1
+if not errorlevel 1 (
+  set "PEDIDO=1"
+  echo Hay un encargo desde la app: se hace igual. >> "%LOG%"
+  goto :adelante
+)
+
 if exist "%HECHO%" (
   echo Ya se actualizo hoy ^(%HOY%^). Nada que hacer.
   echo Ya se actualizo hoy ^(%HOY%^) · %DATE% %TIME% >> "%LOG%"
@@ -180,7 +191,7 @@ rem  Solo toca las jornadas que alguien ha apostado: escribir los resultados de
 rem  una jornada que nadie jugo pondria a los diez con nueve fallos.
 echo. >> "%LOG%"
 echo --- Resultados de la quiniela --- >> "%LOG%"
-call node scripts\quiniela-resultados.mjs >> "%LOG%" 2>&1
+call node scripts\quiniela-resultados.cjs >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo FALLO en quiniela-resultados ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
@@ -196,6 +207,9 @@ if defined HUBO_FALLO (
 
   rem El dia queda marcado: las repeticiones de hoy ya no haran nada.
   echo %DATE% %TIME% > "%HECHO%"
+
+  rem Y si esta pasada venia de un encargo de la app, queda contestado.
+  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho "sin incidencias" >> "%LOG%" 2>&1
 )
 
 :limpieza

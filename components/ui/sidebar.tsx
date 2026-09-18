@@ -13,6 +13,7 @@ import { useState } from "react"
 | sección en la que cae.
 */
 import {
+  Settings,
   ArrowLeft,
   BarChart3,
   Binoculars,
@@ -494,6 +495,17 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "La prueba del borrador del plan sigue en /laboratorio, pero no se entra desde aquí hasta que se decida si pasa a producción",
               )}
             </>,
+          )}
+
+          {/*
+            AJUSTES
+
+            Lo último del menú, y a propósito: no se entra aquí a trabajar, se
+            entra a poner algo al día cuando no se quiere esperar a la noche.
+          */}
+          {seccion(
+            "Ajustes",
+            <>{navLink("/ajustes", "Poner al día", <Settings size={18} />)}</>,
           )}
         </nav>
       </aside>

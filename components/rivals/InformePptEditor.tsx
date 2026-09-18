@@ -193,6 +193,23 @@ export default function InformePptEditor({
   | el historial», que es lo que dejaba cuarenta pasos de deshacer para un solo
   | arrastre—.
   */
+  /*
+  | La columna de miniaturas, para poder traer la activa a la vista.
+  |
+  | Con once hojas en una columna de 150 px, pasar de hoja con el teclado
+  | dejaba la miniatura marcada fuera de la parte visible: se veía cambiar el
+  | lienzo pero no dónde estabas.
+  */
+  const columnaRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const activaEnPantalla = columnaRef.current?.querySelector<HTMLElement>(
+      '[data-activa="si"]',
+    );
+
+    activaEnPantalla?.scrollIntoView({ block: "nearest" });
+  }, [activa]);
+
   const hojasRef = useRef(hojas);
 
   useEffect(() => {
@@ -449,6 +466,46 @@ export default function InformePptEditor({
         return;
       }
 
+      /*
+      | PASAR DE HOJA CON EL TECLADO.
+      |
+      | Las flechas ya movían la pieza elegida, y eso no se toca: con algo
+      | seleccionado siguen siendo el ajuste fino de un píxel. Lo que faltaba
+      | era poder recorrer las once hojas sin ir al ratón, así que:
+      |
+      | - **`AvPág` y `RePág` siempre** cambian de hoja. No hay ambigüedad
+      |   posible: no mueven nada.
+      | - **Las flechas, cuando no hay nada seleccionado**: arriba e izquierda
+      |   a la anterior, abajo y derecha a la siguiente. Es el caso de quien
+      |   está mirando el informe, no editándolo.
+      |
+      | Al cambiar, la miniatura se trae a la vista sola: con once hojas y una
+      | columna de 150 px, la activa se quedaba fuera de pantalla.
+      */
+      const pasarHoja =
+        evento.key === "PageDown"
+          ? 1
+          : evento.key === "PageUp"
+            ? -1
+            : seleccion.length === 0 &&
+                (evento.key === "ArrowDown" || evento.key === "ArrowRight")
+              ? 1
+              : seleccion.length === 0 &&
+                  (evento.key === "ArrowUp" || evento.key === "ArrowLeft")
+                ? -1
+                : 0;
+
+      if (pasarHoja !== 0) {
+        evento.preventDefault();
+
+        setActiva((previa) =>
+          Math.min(hojas.length - 1, Math.max(0, previa + pasarHoja)),
+        );
+        setSeleccion([]);
+
+        return;
+      }
+
       const paso = evento.shiftKey ? 10 : 1;
 
       const flechas: Record<string, [number, number]> = {
@@ -473,6 +530,7 @@ export default function InformePptEditor({
     borra,
     deshacer,
     hoja,
+    hojas.length,
     mueveSeleccion,
     onCerrar,
     rehacer,
@@ -984,11 +1042,16 @@ export default function InformePptEditor({
 
           {/* -------- HOJAS -------- */}
 
-          <div className="hidden w-[150px] shrink-0 overflow-y-auto border-r border-white/10 p-2 md:block">
+          <div
+            ref={columnaRef}
+            className="hidden w-[150px] shrink-0 overflow-y-auto border-r border-white/10 p-2 md:block"
+          >
             {hojas.map((una, indice) => (
               <button
                 key={una.id}
                 type="button"
+                data-activa={indice === activa ? "si" : "no"}
+                title={`${indice + 1}. ${una.titulo} · con las flechas se pasa de hoja`}
                 onClick={() => {
                   setActiva(indice);
                   setSeleccion([]);
