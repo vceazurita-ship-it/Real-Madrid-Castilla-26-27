@@ -146,8 +146,8 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-46": "izan-regueira",
   "JUG-47": "cherif-fofana",
   "JUG-48": "gabriel-valero",
-  "JUG-52": "oscar-naasei",
-  "JUG-53": "sergio-martinez",
+  "JUG-49": "oscar-naasei",
+  "JUG-50": "sergio-martinez",
 };
 
 /**
@@ -163,6 +163,10 @@ const NAME_ALIASES: Record<string, PlayerImageSlug> = {
   "leo maitre": "leo-lemaitre",
   "manuel angel moran": "manuel-angel",
   "gabri valero": "gabriel-valero",
+  /* La hoja escribe «Nassei» con dos eses y el recorte se llama «naasei»: sin
+     esto no casaba ni por nombre ni por ID —el suyo cambió de JUG-52 a
+     JUG-49— y la ficha salía con el marcador de posición. */
+  "oscar nassei": "oscar-naasei",
 
   // Apodos de la columna APODO (algunas pantallas sólo manejan el apodo).
   lezca: "alvaro-lezcano",
