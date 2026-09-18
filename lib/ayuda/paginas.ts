@@ -620,7 +620,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/data-analisis/once",
     titulo: "El once por tres fuentes",
     resumen:
-      "La misma alineación contada por Wyscout, por Opta y por el cuerpo técnico, sin mezclarlas.",
+      "La misma alineación contada por Wyscout, por Opta y por el cuerpo técnico, sin mezclarlas, y qué parejas se potencian.",
     origen:
       "Wyscout y Opta salen de la carpeta de datos; la valoración, de las notas que pone el cuerpo técnico en /ratings. La plantilla y los puestos, de la hoja de jugadores.",
     bloques: [
@@ -629,7 +629,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           {
             que: "Wyscout",
-            es: "Las 51 métricas por jugador. La barra es el percentil contra los de su puesto; el número, su valor de verdad",
+            es: "Las 78 métricas por jugador. La barra es el percentil contra los de su puesto; el número, su valor de verdad",
             cuenta: "p78 = mejor que el 78 % de los de su puesto en la categoría",
           },
           {
@@ -640,14 +640,26 @@ export const AYUDAS: AyudaDePagina[] = [
             que: "Nuestra valoración",
             es: "La nota del cuerpo técnico por áreas, con la forma de los cinco últimos partidos. Es la única que juzga en vez de contar",
           },
+          {
+            que: "Sinergias",
+            es: "Pareja a pareja: si lo que hace uno le hace falta al otro (se potencian) o es lo mismo que ya hace el otro (se pisan). Compara perfiles; no mide lo que pasa cuando juegan juntos",
+          },
         ],
       },
       {
         titulo: "Cómo se lee la rejilla",
         filas: [
           {
-            que: "Las cuatro columnas",
-            es: "El once entero y sus tres líneas. Cada casilla es la media de los jugadores de esa línea",
+            que: "Por líneas o uno a uno",
+            es: "Por líneas, cada casilla es la media de esa línea; uno a uno, hay una columna por futbolista y no se promedia con nadie",
+          },
+          {
+            que: "El puesto y el lado",
+            es: "Salen de Wyscout —«LB» es lateral izquierdo, «RCB» central derecho— y de la hoja cuando no hay fila suya. Por eso cada uno cae en su banda",
+          },
+          {
+            que: "Peso en el equipo",
+            es: "Cruza las dos descargas de Wyscout: lo que hace cada uno por 90 minutos frente a lo que hace el equipo por partido. Es un reparto, no una nota",
           },
           {
             que: "El color",
@@ -663,6 +675,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Las tres fuentes NO se mezclan ni se promedian entre sí: miden cosas distintas con escalas distintas, y una media entre un percentil y un 7,5 no significa nada.",
       "La vista de Opta es una muestra corta —del orden de diez acciones por jugador— y además la mitad de las acciones de su log llegan sin nombre. Los duelos y los fueras de juego nunca traen jugador, así que no se enseñan en vez de dar ceros que no son ceros.",
+      "Las sinergias comparan perfiles, no rendimiento juntos: para lo segundo hacen falta alineaciones de muchos partidos y lo único que sabe quién jugó cada uno son nuestras valoraciones. En cuanto una pareja llegue a cinco partidos valorados juntos, la tarjeta compara su nota juntos y por separado.",
+      "Un porcentaje sacado de una o dos acciones no lleva percentil ni entra en fortalezas: se enseña la cifra diciendo de cuántas acciones sale.",
     ],
   },
   {
