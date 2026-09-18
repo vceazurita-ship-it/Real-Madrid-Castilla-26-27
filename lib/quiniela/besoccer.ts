@@ -285,12 +285,24 @@ export async function traeResultados(
     });
   }
 
+  /*
+  | CUÁNDO DECIMOS QUE NO NOS DEJAN MIRAR.
+  |
+  | No basta con el código HTTP, y esto costó un despliegue: a la IP de Vercel,
+  | BeSoccer contesta **200 con una página de tres kilobytes y sin calendario**.
+  | Un bloqueo disfrazado de respuesta buena. Mirando sólo el estado, la
+  | comprobación decía que sí y luego no había ni un partido que leer.
+  |
+  | Así que se mira lo que se ha podido parsear: si se pidieron páginas y
+  | ninguna trajo un calendario, es que no nos dejan.
+  */
+  const conCalendario = [...calendarios.values()].filter((unos) => unos.length > 0).length;
+
   return {
     jornada,
     partidos,
     estados,
-    /* Ninguna página contestó 200: o no hay red, o no nos dejan mirar. */
-    bloqueado: estados.length > 0 && estados.every((estado) => estado !== 200),
+    bloqueado: calendarios.size > 0 && conCalendario === 0,
   };
 }
 

@@ -3,15 +3,25 @@
  *
  * Es lo que hace el botón de Ajustes: leer de BeSoccer el 1-X-2 de la jornada
  * en curso y la anterior, y escribirlo. El trabajo de verdad está en
- * `lib/quiniela/actualiza.ts`, que comparte con el cron nocturno
- * (`/api/quiniela/cron`).
+ * `lib/quiniela/actualiza.ts`, que comparte con el script nocturno del
+ * ordenador del club (`scripts/quiniela-resultados.cjs`).
  *
- * El `GET` no actualiza nada: dice si **este servidor puede leer BeSoccer**,
- * que es de lo que depende todo lo demás.
+ * **Hoy, desde Vercel, no puede**: a las IP de centro de datos BeSoccer les
+ * contesta 200 con una página de tres kilobytes y sin calendario. Un bloqueo
+ * disfrazado de respuesta buena, que es justo lo que tumbó la primera versión
+ * de la comprobación —miraba el código HTTP y daba el visto bueno—. Cuando eso
+ * pasa, el botón **deja el encargo** para el trabajo nocturno de ese ordenador,
+ * que tiene una conexión normal y sí puede.
+ *
+ * Se deja montado igualmente: el día que BeSoccer deje de bloquear, o se ponga
+ * un proxy en medio, esto funciona sin tocar nada. Y el `GET` contesta a la
+ * pregunta que decide todo —**¿puede este servidor leer BeSoccer?**— contando
+ * los partidos que consigue parsear, no el código que recibe.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { readDoc, writeDoc } from "@/lib/docStore";
 import { actualizaResultados } from "@/lib/quiniela/actualiza";
 import { leeCalendario, traePaginaConFetch } from "@/lib/quiniela/besoccer";
 import { JORNADAS } from "@/lib/quiniela/modelo";
@@ -80,6 +90,22 @@ export async function POST(request: NextRequest) {
     const parte = await actualizaResultados(
       JORNADAS.includes(pedida) ? pedida : undefined,
     );
+
+    /*
+    | Si BeSoccer no deja mirar, el botón no se queda en nada: deja el mismo
+    | encargo que el de los rivales, y el trabajo nocturno del ordenador del
+    | club lo atiende en su siguiente pasada —cada dos horas— aunque ya hubiera
+    | hecho la de hoy. Es lo único honesto que se puede ofrecer desde aquí.
+    */
+    if (parte.bloqueado) {
+      const { data } = await readDoc<Record<string, unknown>>("mantenimiento");
+
+      await writeDoc("mantenimiento", "mantenimiento", {
+        ...(data ?? {}),
+        pedidoEn: new Date().toISOString(),
+        pedidoPor: slug,
+      });
+    }
 
     return NextResponse.json({ ok: true, ...parte });
   } catch (error) {

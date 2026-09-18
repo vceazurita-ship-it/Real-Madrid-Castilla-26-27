@@ -11,13 +11,16 @@
  * Aquí están esos botones, y **cada uno dice lo que de verdad hace**, que es la
  * parte que importa:
  *
- * - **Los resultados de la quiniela** se piden en el momento: el servidor lee
- *   BeSoccer y escribe el 1-X-2. Puede no poder —BeSoccer contesta 403 o 406 a
- *   las IP de centro de datos— y entonces lo dice en vez de fingir que sí.
- * - **Los datos de los rivales** no: son media hora de trabajo y la misma
- *   puerta cerrada. El botón **deja un encargo**, y el ordenador del club lo
- *   atiende en su siguiente pasada —se despierta cada dos horas— aunque ya
- *   hubiera hecho la de hoy.
+ * - **Los resultados de la quiniela** se intentan en el momento: el servidor
+ *   lee BeSoccer y escribe el 1-X-2. Hoy **no lo consigue** —a las IP de centro
+ *   de datos BeSoccer les contesta 200 con una página vacía, sin calendario— y
+ *   entonces el botón deja el encargo en vez de fingir que sí. Se mantiene el
+ *   intento porque el día que eso cambie funciona sin tocar nada.
+ * - **Los datos de los rivales** ni se intentan: son media hora de descargas y
+ *   la misma puerta cerrada. El botón **deja un encargo** directamente.
+ *
+ * En los dos casos lo recoge el trabajo nocturno del ordenador del club, que se
+ * despierta cada dos horas y lo hace aunque ya hubiera pasado hoy.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -234,16 +237,23 @@ export default function AjustesPage() {
 
                 <p className="mt-2 text-[11px] leading-relaxed text-white/30">
                   Esto mismo lo hace solo el ordenador del club cada noche, y se
-                  repite cada dos horas si una pasada no sale.
+                  repite cada dos horas si una pasada no sale. Si desde aquí no
+                  se puede, el botón deja el encargo y lo hará esa máquina.
                 </p>
 
                 {bloqueado && (
                   <div className="mt-3">
                     <Notice tone="warn" title="BeSoccer no deja mirar desde aquí">
-                      Contesta 403 o 406 a las IP de centro de datos, y esta
-                      página vive en una. No es un fallo del botón ni de la red
-                      del club: desde el ordenador del club sí funciona, y es lo
-                      que hace cada noche. Si corre prisa, doble clic en{" "}
+                      A las IP de centro de datos les contesta{" "}
+                      <strong className="text-white/70">
+                        200 con una página vacía
+                      </strong>
+                      , sin calendario: parece que dice que sí y no trae nada. Y
+                      esta página vive en una de esas IP. No es un fallo del
+                      botón ni de la red del club: desde el ordenador del club
+                      funciona, y es lo que hace cada noche.{" "}
+                      <strong className="text-white/70">Queda encargado</strong> y
+                      lo hará en su próxima pasada; si corre prisa, doble clic en{" "}
                       <code className="text-white/60">scripts/jornada-nocturna.cmd</code>.
                     </Notice>
                   </div>
@@ -338,10 +348,9 @@ export default function AjustesPage() {
                     los viernes a las 9:00, con los partidos y una frase.
                   </li>
                   <li>
-                    Los <strong className="text-white/75">resultados</strong>, dos
-                    veces al día —a las 21:00 y a medianoche— desde el propio
-                    servidor, y otra vez de madrugada desde el ordenador del
-                    club. El fin de semana se ponen solos.
+                    Los <strong className="text-white/75">resultados</strong>, cada
+                    noche desde el ordenador del club: viernes, sábado y domingo
+                    incluidos, y con reintentos cada dos horas.
                   </li>
                   <li>
                     La <strong className="text-white/75">foto semanal de Wyscout</strong>,

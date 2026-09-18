@@ -8,14 +8,6 @@
     {
       "path": "/api/quiniela/aviso",
       "schedule": "0 8 * * 5"
-    },
-    {
-      "path": "/api/quiniela/cron",
-      "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/quiniela/cron",
-      "schedule": "0 22 * * *"
     }
   ]
 }
