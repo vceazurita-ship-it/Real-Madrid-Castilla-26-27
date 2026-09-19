@@ -71,6 +71,7 @@ import {
   SEGUNDOS_CARATULA,
   useExportador,
   type ModoCorteUI,
+  MEDIDA_POR_DEFECTO,
   TOPE_MEGAS_POR_DEFECTO,
   type ParadaDeClip,
 } from "@/components/coding/ExportaClips";
@@ -985,6 +986,9 @@ function Coding() {
   /* Lo que puede pesar cada fichero que salga. Vive en la pestaña, como el
      modo de corte: es una decisión del momento de exportar. */
   const [topeMegas, setTopeMegas] = useState<number>(TOPE_MEGAS_POR_DEFECTO);
+
+  /* Con qué medida sale la imagen. `0` es la del partido, sin encoger. */
+  const [medidaVideo, setMedidaVideo] = useState<number>(MEDIDA_POR_DEFECTO);
 
   /* ------------------------------------------------- la pizarra */
 
@@ -1989,6 +1993,7 @@ function Coding() {
     carpeta: apodoCoding(titulo),
     modo: modoCorte,
     topeMegas,
+    topeAncho: medidaVideo,
     ficheroLocal,
     /* Los cortes de otros vídeos se leen de los suyos. */
     videos: videosSesion,
@@ -3541,6 +3546,8 @@ function Coding() {
                     onModo={setModoCorte}
                     topeMegas={topeMegas}
                     onTopeMegas={setTopeMegas}
+                    medida={medidaVideo}
+                    onMedida={setMedidaVideo}
                     caratula={caratulaSujeto}
                     opcionesCaratula={sujetosDeClips}
                     plantillaCaratula={plantillaCaratula}

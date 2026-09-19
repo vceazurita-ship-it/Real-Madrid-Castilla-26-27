@@ -497,9 +497,18 @@ async function montaATiempoReal(
     let ancho = video.videoWidth || 1280;
     let alto = video.videoHeight || 720;
 
-    if (ancho > TOPE_ANCHO) {
-      alto = Math.round((alto * TOPE_ANCHO) / ancho);
-      ancho = TOPE_ANCHO;
+    /*
+    | Aquí el 1920 sí es un techo de verdad y no una decisión: esto graba a
+    | tiempo real desde un lienzo, y por encima de 1080p el navegador empieza
+    | a tirar fotogramas. Si han pedido menos en la barra, manda lo pedido.
+    */
+    const pedido = Math.max(0, peticion.topeAncho ?? 0);
+
+    const techo = pedido > 0 ? Math.min(TOPE_ANCHO, pedido) : TOPE_ANCHO;
+
+    if (ancho > techo) {
+      alto = Math.round((alto * techo) / ancho);
+      ancho = techo;
     }
 
     /* Los codificadores quieren medidas pares. */

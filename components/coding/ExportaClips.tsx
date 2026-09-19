@@ -34,6 +34,7 @@ import {
   Eye,
   Film,
   Image as Icono,
+  Maximize2,
   Package,
   PenTool,
   SkipForward,
@@ -94,6 +95,24 @@ export const PESOS = [0, 16, 50, 100, 200];
  * elige el tope en la barra, que sigue ahí con sus 16, 50, 100 y 200 MB.
  */
 export const TOPE_MEGAS_POR_DEFECTO = 0;
+
+/**
+ * Las medidas de imagen que se ofrecen, de mayor a menor.
+ *
+ * `0` es **la del partido**: si se grabó en 4K, el corte sale en 4K. Antes
+ * no era una opción sino una regla escondida —todo lo que pasara de 1920 se
+ * bajaba a 1920 sin decir nada—, y eso se notaba justo donde no se puede
+ * perder: el número de la espalda y el balón lejos. Las otras dos están para
+ * cuando lo que importa es que el fichero viaje.
+ */
+export const MEDIDAS = [
+  { px: 0, nombre: "La del partido" },
+  { px: 1920, nombre: "1080p" },
+  { px: 1280, nombre: "720p" },
+];
+
+/** La medida de partida: la del partido, sin tocar nada. */
+export const MEDIDA_POR_DEFECTO = 0;
 
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
@@ -173,6 +192,13 @@ export function useExportador(opciones: {
    */
   topeMegas?: number;
   /**
+   * El ancho máximo de la imagen. `0` —lo normal— es la del partido.
+   *
+   * Sólo lo mira el camino del navegador: el del servidor nunca ha encogido
+   * nada, corta con la imagen que traía el fichero.
+   */
+  topeAncho?: number;
+  /**
    * El fichero que se abrió del ordenador, mientras siga a mano.
    *
    * Vive en la pestaña y no en la sesión: un navegador no puede guardar el
@@ -213,6 +239,7 @@ export function useExportador(opciones: {
     carpeta,
     modo,
     topeMegas = 0,
+    topeAncho = 0,
     ficheroLocal,
     videos,
     ficheros,
@@ -272,6 +299,7 @@ export function useExportador(opciones: {
           portadaSegundos: SEGUNDOS_CARATULA,
           fps,
           topeMegas,
+          topeAncho,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
@@ -316,7 +344,7 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [alTerminarVideo, fps, nombraClips, titulo, topeMegas],
+    [alTerminarVideo, fps, nombraClips, titulo, topeAncho, topeMegas],
   );
 
   /*
@@ -751,6 +779,8 @@ export function BarraExportacion({
   onModo,
   topeMegas,
   onTopeMegas,
+  medida,
+  onMedida,
   onZip,
   onUnificado,
   caratula,
@@ -780,6 +810,9 @@ export function BarraExportacion({
   /** Lo que puede pesar cada fichero, en megas. `0` es sin tope. */
   topeMegas: number;
   onTopeMegas: (megas: number) => void;
+  /** El ancho máximo de la imagen. `0` es la medida del partido. */
+  medida: number;
+  onMedida: (px: number) => void;
   onZip: () => void;
   onUnificado: () => void;
   /** Id del sujeto de la carátula; `""` es sin carátula. */
@@ -979,6 +1012,46 @@ export function BarraExportacion({
           {topeMegas > 0
             ? "por fichero, apretando la imagen sólo si hace falta"
             : "el corte pesa lo que pida el partido"}
+        </span>
+      </div>
+
+      {/* ------------------------- LA MEDIDA DE LA IMAGEN ------------- */}
+
+      {/*
+      | El corte sale con la medida del partido salvo que aquí se diga otra
+      | cosa. Bajarla codifica antes y pesa menos; subirla no se puede, que
+      | inventar píxeles no devuelve detalle.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          <Maximize2 size={12} className="text-[#C8A96B]" />
+          Medida
+        </span>
+
+        {MEDIDAS.map((una) => (
+          <button
+            key={una.px}
+            type="button"
+            onClick={() => onMedida(una.px)}
+            title={
+              una.px === 0
+                ? "El corte sale con la imagen del partido, sin encogerla"
+                : `La imagen se baja a ${una.px} de ancho`
+            }
+            className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
+              medida === una.px
+                ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                : "border-white/10 text-white/40 hover:text-white"
+            }`}
+          >
+            {una.nombre}
+          </button>
+        ))}
+
+        <span className="text-[11px] text-white/30">
+          {medida > 0
+            ? "se encoge sólo si el partido es más grande"
+            : "sin encoger: sale como se grabó"}
         </span>
       </div>
 

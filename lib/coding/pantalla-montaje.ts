@@ -67,6 +67,14 @@ export type PeticionNavegador = {
    * ni volver a pasar nada.
    */
   topeMegas?: number;
+  /**
+   * El ancho máximo de la imagen, en píxeles. `0` es **el del partido**.
+   *
+   * No se encoge nada por su cuenta: un partido en 4K sale en 4K. Esto es
+   * para cuando alguien decide bajarlo —pesa menos y se codifica antes—, y
+   * se elige en la barra de la exportación.
+   */
+  topeAncho?: number;
 };
 
 export type ResultadoNavegador = {

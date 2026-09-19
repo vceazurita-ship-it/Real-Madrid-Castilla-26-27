@@ -57,13 +57,19 @@ import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 /* ------------------------------------------------------------------ */
 
 /**
- * El ancho máximo del montaje.
+ * El ancho máximo del montaje: **el del partido**.
  *
- * Un partido en 4K se codifica a 1920: un 4K entero tarda cuatro veces más y
- * ningún proyector de sala de vídeo lo va a enseñar. Lo normal —1080p— no se
- * toca, así que el corte sale con la medida del partido.
+ * Aquí había un 1920 fijo. Se puso por velocidad —un 4K entero tarda cuatro
+ * veces más— pero es exactamente lo que no queremos: un partido grabado en 4K
+ * salía a 1080 sin que nadie lo pidiera, y encima YouTube trata distinto lo
+ * que sube de 1440 (le da VP9/AV1 en vez de H.264), así que se perdía dos
+ * veces. Ahora el corte sale con la medida del partido y quien quiera bajarla
+ * la elige en la barra.
+ *
+ * Este número no es una decisión de calidad, es el techo del códec: H.264 no
+ * pasa de 4096 de ancho en el nivel más alto que se prueba abajo.
  */
-const TOPE_ANCHO = 1920;
+const TECHO_DEL_CODEC = 4096;
 
 /** Fotogramas por segundo como mucho: de 60 para arriba no aporta nada. */
 const TOPE_FPS = 60;
@@ -392,13 +398,26 @@ function abreSalida(plan: Plan): Salida {
 /*  EL PLAN DE SALIDA                                                  */
 /* ------------------------------------------------------------------ */
 
-async function planea(fuente: PistaMp4, fpsSesion?: number): Promise<Plan | null> {
+async function planea(
+  fuente: PistaMp4,
+  fpsSesion?: number,
+  topeAncho?: number,
+): Promise<Plan | null> {
   let ancho = fuente.ancho;
   let alto = fuente.alto;
 
-  if (ancho > TOPE_ANCHO) {
-    alto = Math.round((alto * TOPE_ANCHO) / ancho);
-    ancho = TOPE_ANCHO;
+  /*
+  | Sólo se encoge si lo han pedido en la barra, o si el partido no le cabe
+  | al códec. Un 1080p —lo normal— nunca pasa por aquí.
+  */
+  const techo = Math.min(
+    TECHO_DEL_CODEC,
+    (topeAncho ?? 0) > 0 ? (topeAncho as number) : TECHO_DEL_CODEC,
+  );
+
+  if (ancho > techo) {
+    alto = Math.round((alto * techo) / ancho);
+    ancho = techo;
   }
 
   ancho -= ancho % 2;
@@ -424,9 +443,16 @@ async function planea(fuente: PistaMp4, fpsSesion?: number): Promise<Plan | null
   */
   const proporcion = (ancho * alto) / Math.max(1, fuente.ancho * fuente.alto);
 
+  /*
+  | El techo del caudal va con la medida: 30 Mb/s de tope dejaban un 4K por
+  | debajo de lo que pide su propia cuenta (3840×2160 a 30 son 30 Mb/s justos,
+  | y a 50 se quedaba a la mitad). Para 1080p el techo sigue siendo 30.
+  */
+  const techoCaudal = Math.max(30_000_000, Math.round(ancho * alto * fps * 0.2));
+
   const bitrate = Math.round(
     Math.min(
-      30_000_000,
+      techoCaudal,
       Math.max(
         3_000_000,
         fuente.bitrate * proporcion * 1.3,
@@ -635,7 +661,7 @@ export async function montaRapido(
   const fuenteDe = (clip: ClipNavegador) =>
     fuentes.get(clip.fichero ?? peticion.fichero) ?? principal;
 
-  const plan = await planea(principal.video, peticion.fps);
+  const plan = await planea(principal.video, peticion.fps, peticion.topeAncho);
 
   if (!plan) return null;
 
