@@ -4,33 +4,33 @@
  * AJUSTES: LO QUE SE PUEDE PONER AL DÍA A MANO.
  *
  * Casi todo en esta plataforma se actualiza solo —la tarea nocturna del
- * ordenador del club baja lo de BeSoccer cada noche y el índice de Wyscout se
- * rehace al publicar— pero a veces no se quiere esperar: se acaba un partido un
- * martes, o la noche anterior el ordenador estaba apagado.
+ * ordenador del club baja lo de BeSoccer cada noche y Wyscout se baja una vez
+ * por semana— pero a veces no se quiere esperar: se acaba un partido un
+ * sábado por la tarde y se quiere ver ya.
  *
- * Aquí están esos botones, y **cada uno dice lo que de verdad hace**, que es la
- * parte que importa:
+ * Los tres botones hacen su trabajo **en el ordenador del club**, porque es el
+ * único sitio desde donde se puede: BeSoccer contesta con páginas vacías a los
+ * servidores y Wyscout sólo se baja manejando un Chrome con la sesión puesta.
+ * El botón deja un encargo, el vigía de ese ordenador (`scripts/vigia.cjs`) lo
+ * recoge en segundos y la pantalla va contando: pedido, en marcha, hecho y
+ * cómo fue. Si el ordenador está apagado se dice, y el encargo espera a que se
+ * encienda.
  *
- * - **Los resultados de la quiniela** se intentan en el momento: el servidor
- *   lee BeSoccer y escribe el 1-X-2. Hoy **no lo consigue** —a las IP de centro
- *   de datos BeSoccer les contesta 200 con una página vacía, sin calendario— y
- *   entonces el botón deja el encargo en vez de fingir que sí. Se mantiene el
- *   intento porque el día que eso cambie funciona sin tocar nada.
- * - **Los datos de los rivales** ni se intentan: son media hora de descargas y
- *   la misma puerta cerrada. El botón **deja un encargo** directamente.
- *
- * En los dos casos lo recoge el trabajo nocturno del ordenador del club, que se
- * despierta cada dos horas y lo hace aunque ya hubiera pasado hoy.
+ * La quiniela tiene un atajo: si el vigía no contesta, el servidor lo intenta
+ * él mismo por si BeSoccer le deja algún día.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
-  CalendarClock,
+  BarChart3,
   Check,
   Download,
+  Loader2,
+  Monitor,
   RefreshCw,
   Trophy,
+  UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,6 +38,15 @@ import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
+import {
+  LIMITE_MIN,
+  estadoEncargo,
+  vigiaVivo,
+  type EstadoEncargo,
+  type Mantenimiento,
+  type Tarea,
+  type Vigia,
+} from "@/lib/mantenimiento";
 
 type ParteJornada = {
   jornada: number;
@@ -46,22 +55,17 @@ type ParteJornada = {
   saltada?: string;
 };
 
-type Mantenimiento = {
-  pedidoEn?: string;
-  pedidoPor?: string;
-  hechoEn?: string;
-  resultado?: string;
-};
-
 /** "hace 12 min", "hace 3 h", "ayer". */
-function hace(iso?: string) {
-  if (!iso) return "";
+function hace(iso: string | undefined, ahora: number) {
+  if (!iso || !ahora) return "";
 
-  const minutos = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  const segundos = Math.round((ahora - new Date(iso).getTime()) / 1000);
 
-  if (!Number.isFinite(minutos) || minutos < 0) return "";
+  if (!Number.isFinite(segundos) || segundos < 0) return "ahora mismo";
 
-  if (minutos < 2) return "ahora mismo";
+  if (segundos < 60) return segundos < 10 ? "ahora mismo" : `hace ${segundos} s`;
+
+  const minutos = Math.round(segundos / 60);
 
   if (minutos < 60) return `hace ${minutos} min`;
 
@@ -74,44 +78,204 @@ function hace(iso?: string) {
   return dias === 1 ? "ayer" : `hace ${dias} días`;
 }
 
+const NOMBRE: Record<Tarea, string> = {
+  quiniela: "Resultados de la quiniela",
+  rivales: "Jornada de BeSoccer",
+  wyscout: "Datos de Wyscout",
+};
+
+const TARDA: Record<Tarea, string> = {
+  quiniela: "suele tardar menos de un minuto",
+  rivales: "suele tardar unos cuarenta minutos",
+  wyscout: "suele tardar unos diez minutos",
+};
+
+/** Lo que dice el pie de cada panel. */
+function EstadoLinea({
+  tarea,
+  estado,
+  vigia,
+  ahora,
+  encargo,
+}: {
+  tarea: Tarea;
+  estado: EstadoEncargo;
+  vigia: Vigia | null;
+  ahora: number;
+  encargo: Mantenimiento[Tarea];
+}) {
+  const vivo = vigiaVivo(vigia, ahora);
+
+  return (
+    <div className="mt-3 space-y-1.5 text-[11px] leading-relaxed">
+      {estado === "pedido" && (
+        <p className="flex items-start gap-1.5 text-amber-300">
+          <Loader2 size={12} className="mt-0.5 shrink-0 animate-spin" aria-hidden />
+          <span>
+            Pedido {hace(encargo?.pedidoEn, ahora)}.{" "}
+            {vivo
+              ? "El ordenador del club lo coge en unos segundos…"
+              : "El ordenador del club está apagado: lo hará en cuanto se encienda."}
+          </span>
+        </p>
+      )}
+
+      {estado === "en-marcha" && (
+        <p className="flex items-start gap-1.5 text-amber-300">
+          <Loader2 size={12} className="mt-0.5 shrink-0 animate-spin" aria-hidden />
+          <span>
+            En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} ·{" "}
+            {TARDA[tarea]}. Puedes cerrar esta página: sigue igual.
+          </span>
+        </p>
+      )}
+
+      {estado === "cortado" && (
+        <p className="flex items-start gap-1.5 text-amber-300">
+          <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden />
+          <span>
+            Empezó {hace(encargo?.empezadoEn, ahora)} y no terminó (más de{" "}
+            {LIMITE_MIN[tarea]} min): se cortó. Se puede volver a pedir.
+          </span>
+        </p>
+      )}
+
+      {encargo?.hechoEn && (
+        <p className="flex items-start gap-1.5 text-white/45">
+          {encargo.ok === false ? (
+            <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+          ) : (
+            <Check size={12} className="mt-0.5 shrink-0 text-emerald-300" aria-hidden />
+          )}
+          <span>
+            Última vez: <span className="text-white/65">{hace(encargo.hechoEn, ahora)}</span>
+            {encargo.resultado ? ` · ${encargo.resultado}` : ""}
+          </span>
+        </p>
+      )}
+
+      {!encargo?.hechoEn && estado === "libre" && (
+        <p className="text-white/35">Todavía no se ha pedido desde aquí.</p>
+      )}
+    </div>
+  );
+}
+
 export default function AjustesPage() {
   const { yo, cargando } = useQuinielaSesion();
 
-  const [pidiendo, setPidiendo] = useState<"quiniela" | "rivales" | null>(null);
+  const [pidiendo, setPidiendo] = useState<Tarea | null>(null);
 
   const [parte, setParte] = useState<ParteJornada[] | null>(null);
 
-  const [bloqueado, setBloqueado] = useState(false);
+  const [estado, setEstado] = useState<Mantenimiento>({});
 
-  const [mantenimiento, setMantenimiento] = useState<Mantenimiento | null>(null);
+  const [vigia, setVigia] = useState<Vigia | null>(null);
+
+  /* El reloj de la pantalla: se pone al día con cada lectura. Así los «hace
+     X min» se mueven sin llamar a Date.now() en el render. */
+  const [ahora, setAhora] = useState(0);
 
   const [testigo, setTestigo] = useState(0);
 
-  /* El estado del encargo. La forma del efecto es la que pasa el linter. */
+  /* Lo que esta pantalla ha pedido y todavía no ha visto terminar, para
+     avisar con un toast cuando acabe. */
+  const esperando = useRef<Partial<Record<Tarea, string>>>({});
+
+  const activo = (["quiniela", "rivales", "wyscout"] as Tarea[]).some((tarea) => {
+    const suyo = estadoEncargo(tarea, estado[tarea], ahora);
+
+    return suyo === "pedido" || suyo === "en-marcha";
+  });
+
+  /* Lee el estado; mientras haya algo en marcha, cada cinco segundos. */
   useEffect(() => {
     let cancelado = false;
 
-    fetch("/api/mantenimiento", { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ ok?: boolean; estado?: Mantenimiento }>)
-      .then((datos) => {
-        if (!cancelado && datos.ok) setMantenimiento(datos.estado ?? {});
-      })
-      .catch(() => {
-        /* Sin esto la pantalla sigue: es un añadido, no un requisito. */
-      });
+    const lee = () =>
+      fetch("/api/mantenimiento", { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ ok?: boolean; estado?: Mantenimiento; vigia?: Vigia | null }>)
+        .then((datos) => {
+          if (cancelado || !datos.ok) return;
+
+          const nuevo = datos.estado ?? {};
+
+          setEstado(nuevo);
+          setVigia(datos.vigia ?? null);
+          setAhora(Date.now());
+
+          for (const [tarea, pedidoEn] of Object.entries(esperando.current) as [Tarea, string][]) {
+            const suyo = nuevo[tarea];
+
+            if (suyo?.hechoEn && Date.parse(suyo.hechoEn) > Date.parse(pedidoEn)) {
+              delete esperando.current[tarea];
+
+              const decir = suyo.ok === false ? toast.warning : toast.success;
+
+              decir(`${NOMBRE[tarea]}: ${suyo.ok === false ? "no ha salido" : "hecho"}`, {
+                description: suyo.resultado,
+              });
+            }
+          }
+        })
+        .catch(() => {
+          /* Sin esto la pantalla sigue: se reintenta en la siguiente vuelta. */
+        });
+
+    void lee();
+
+    const reloj = setInterval(() => void lee(), activo ? 5_000 : 30_000);
 
     return () => {
       cancelado = true;
+
+      clearInterval(reloj);
     };
-  }, [testigo]);
+  }, [testigo, activo]);
 
   const recarga = useCallback(() => setTestigo((n) => n + 1), []);
+
+  const pide = async (tarea: Tarea) => {
+    setPidiendo(tarea);
+
+    try {
+      const respuesta = await fetch("/api/mantenimiento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tarea }),
+      });
+
+      const datos = (await respuesta.json()) as {
+        ok?: boolean;
+        error?: string;
+        estado?: Mantenimiento;
+      };
+
+      if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
+
+      esperando.current[tarea] = datos.estado?.[tarea]?.pedidoEn ?? new Date().toISOString();
+
+      toast.success("Pedido", {
+        description: vigiaVivo(vigia, Date.now())
+          ? "El ordenador del club lo empieza en unos segundos."
+          : "El ordenador del club está apagado: lo hará en cuanto se encienda.",
+      });
+
+      recarga();
+    } catch (error) {
+      toast.error("No se ha podido pedir", {
+        description: error instanceof Error ? error.message : "Inténtalo otra vez",
+      });
+    } finally {
+      setPidiendo(null);
+    }
+  };
 
   const actualizaQuiniela = async () => {
     setPidiendo("quiniela");
     setParte(null);
 
-    const aviso = toast.loading("Preguntando a BeSoccer…");
+    const aviso = toast.loading("Pidiendo los resultados…");
 
     try {
       const respuesta = await fetch("/api/quiniela/actualizar", { method: "POST" });
@@ -120,31 +284,32 @@ export default function AjustesPage() {
         ok?: boolean;
         cambios?: number;
         bloqueado?: boolean;
+        encargado?: boolean;
         jornadas?: ParteJornada[];
         error?: string;
       };
 
       if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
 
-      setParte(datos.jornadas ?? []);
-      setBloqueado(Boolean(datos.bloqueado));
+      if (datos.encargado) {
+        esperando.current.quiniela = new Date().toISOString();
 
-      if (datos.bloqueado) {
-        toast.warning("BeSoccer no contesta desde el servidor", {
+        toast.success("Pedido al ordenador del club", {
           id: aviso,
-          description: "Lo hará el ordenador del club esta noche.",
-        });
-      } else if ((datos.cambios ?? 0) > 0) {
-        toast.success(`${datos.cambios} resultado(s) puestos`, {
-          id: aviso,
-          description: "El ranking y la parrilla ya lo tienen.",
+          description: datos.bloqueado
+            ? "BeSoccer no deja mirar desde el servidor y el ordenador del club no contesta: lo hará en cuanto se encienda."
+            : "Lo está mirando en BeSoccer; en unos segundos lo verás aquí.",
         });
       } else {
-        toast.success("Nada nuevo", {
-          id: aviso,
-          description: "No hay ningún partido nuevo con resultado.",
-        });
+        setParte(datos.jornadas ?? []);
+
+        toast.success(
+          (datos.cambios ?? 0) > 0 ? `${datos.cambios} resultado(s) puestos` : "Nada nuevo",
+          { id: aviso, description: "El ranking y la parrilla ya lo tienen." },
+        );
       }
+
+      recarga();
     } catch (error) {
       toast.error("No se ha podido actualizar", {
         id: aviso,
@@ -155,34 +320,35 @@ export default function AjustesPage() {
     }
   };
 
-  const pideRivales = async () => {
-    setPidiendo("rivales");
+  /* Un pedido que el vigía dice tener entre manos ya está en marcha: pasa con
+     la jornada de BeSoccer, que se apunta al empezar la tarea programada. */
+  const deTarea = (tarea: Tarea): EstadoEncargo => {
+    const suyo = estadoEncargo(tarea, estado[tarea], ahora);
 
-    try {
-      const respuesta = await fetch("/api/mantenimiento", { method: "POST" });
-
-      const datos = (await respuesta.json()) as { ok?: boolean; error?: string };
-
-      if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
-
-      toast.success("Encargo dejado", {
-        description: "El ordenador del club lo hará en su próxima pasada.",
-      });
-
-      recarga();
-    } catch (error) {
-      toast.error("No se ha podido dejar el encargo", {
-        description: error instanceof Error ? error.message : "Inténtalo otra vez",
-      });
-    } finally {
-      setPidiendo(null);
-    }
+    return suyo === "pedido" && vigiaVivo(vigia, ahora) && vigia?.ocupado?.includes(tarea)
+      ? "en-marcha"
+      : suyo;
   };
 
-  const pendiente =
-    mantenimiento?.pedidoEn &&
-    (!mantenimiento.hechoEn ||
-      Date.parse(mantenimiento.pedidoEn) > Date.parse(mantenimiento.hechoEn));
+  const estados = {
+    quiniela: deTarea("quiniela"),
+    rivales: deTarea("rivales"),
+    wyscout: deTarea("wyscout"),
+  } satisfies Record<Tarea, EstadoEncargo>;
+
+  const ocupada = (tarea: Tarea) =>
+    estados[tarea] === "pedido" || estados[tarea] === "en-marcha";
+
+  const vivo = vigiaVivo(vigia, ahora);
+
+  const rotulo = (tarea: Tarea, libre: string) =>
+    pidiendo === tarea
+      ? "Pidiendo…"
+      : estados[tarea] === "en-marcha"
+        ? "En marcha…"
+        : estados[tarea] === "pedido"
+          ? "Pedido"
+          : libre;
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -210,21 +376,49 @@ export default function AjustesPage() {
               </div>
             )}
 
-            <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-2">
+            {/* ---------------- EL ORDENADOR DEL CLUB ---------------- */}
+
+            <div className="mt-6 flex items-start gap-2.5 rounded-2xl border border-white/[0.07] px-4 py-3 text-[12px] leading-relaxed">
+              <Monitor
+                size={15}
+                className={`mt-0.5 shrink-0 ${vivo ? "text-emerald-300" : "text-amber-300"}`}
+                aria-hidden
+              />
+
+              {!ahora ? (
+                <p className="text-white/40">Mirando si el ordenador del club está escuchando…</p>
+              ) : vivo ? (
+                <p className="text-white/55">
+                  <strong className="text-white/80">El ordenador del club está escuchando</strong>{" "}
+                  (último aviso {hace(vigia?.vistoEn, ahora)}
+                  {vigia?.equipo ? `, ${vigia.equipo}` : ""}). Lo que pidas aquí empieza en
+                  unos segundos.
+                </p>
+              ) : (
+                <p className="text-white/55">
+                  <strong className="text-amber-300">El ordenador del club no contesta</strong>
+                  {vigia?.vistoEn ? ` desde ${hace(vigia.vistoEn, ahora)}` : ""}.
+                  Estará apagado o sin red: lo que pidas queda apuntado y se hace en
+                  cuanto se encienda.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-3">
               {/* ------------------- LA QUINIELA ------------------- */}
 
               <Panel
                 title="Resultados de la quiniela"
-                subtitle="Los baja de BeSoccer y los escribe al momento"
+                subtitle="El 1-X-2 de la jornada, de BeSoccer"
                 icon={Trophy}
                 action={
                   <Button
                     tone="primary"
                     icon={RefreshCw}
-                    disabled={!yo || pidiendo !== null}
+                    disabled={!yo || pidiendo !== null || ocupada("quiniela")}
                     onClick={() => void actualizaQuiniela()}
                   >
-                    {pidiendo === "quiniela" ? "Mirando…" : "Actualizar ahora"}
+                    {rotulo("quiniela", "Actualizar ahora")}
                   </Button>
                 }
               >
@@ -235,29 +429,13 @@ export default function AjustesPage() {
                   fallos.
                 </p>
 
-                <p className="mt-2 text-[11px] leading-relaxed text-white/30">
-                  Esto mismo lo hace solo el ordenador del club cada noche, y se
-                  repite cada dos horas si una pasada no sale. Si desde aquí no
-                  se puede, el botón deja el encargo y lo hará esa máquina.
-                </p>
-
-                {bloqueado && (
-                  <div className="mt-3">
-                    <Notice tone="warn" title="BeSoccer no deja mirar desde aquí">
-                      A las IP de centro de datos les contesta{" "}
-                      <strong className="text-white/70">
-                        200 con una página vacía
-                      </strong>
-                      , sin calendario: parece que dice que sí y no trae nada. Y
-                      esta página vive en una de esas IP. No es un fallo del
-                      botón ni de la red del club: desde el ordenador del club
-                      funciona, y es lo que hace cada noche.{" "}
-                      <strong className="text-white/70">Queda encargado</strong> y
-                      lo hará en su próxima pasada; si corre prisa, doble clic en{" "}
-                      <code className="text-white/60">scripts/jornada-nocturna.cmd</code>.
-                    </Notice>
-                  </div>
-                )}
+                <EstadoLinea
+                  tarea="quiniela"
+                  estado={estados.quiniela}
+                  encargo={estado.quiniela}
+                  vigia={vigia}
+                  ahora={ahora}
+                />
 
                 {parte && parte.length > 0 && (
                   <ul className="mt-3 space-y-2 text-[11px] leading-relaxed">
@@ -290,53 +468,77 @@ export default function AjustesPage() {
                 )}
               </Panel>
 
-              {/* -------------------- LOS RIVALES ------------------- */}
+              {/* -------------------- BESOCCER ------------------- */}
 
               <Panel
-                title="Datos de los rivales"
-                subtitle="Informes, plantillas, fichas y clasificación"
+                title="Jornada de BeSoccer"
+                subtitle="Equipos y jugadores: rivales y los nuestros"
                 icon={Download}
                 action={
                   <Button
-                    icon={CalendarClock}
-                    disabled={!yo || pidiendo !== null || Boolean(pendiente)}
-                    onClick={() => void pideRivales()}
+                    tone="primary"
+                    icon={RefreshCw}
+                    disabled={!yo || pidiendo !== null || ocupada("rivales")}
+                    onClick={() => void pide("rivales")}
                   >
-                    {pidiendo === "rivales"
-                      ? "Pidiendo…"
-                      : pendiente
-                        ? "Ya está pedido"
-                        : "Pedir actualización"}
+                    {rotulo("rivales", "Actualizar ahora")}
                   </Button>
                 }
               >
                 <p className="text-[12px] leading-relaxed text-white/45">
-                  Esto <strong className="text-white/70">no</strong> lo puede hacer esta página: es media hora de
-                  descargas y BeSoccer no atiende a los servidores. El botón deja
-                  un encargo y lo recoge el ordenador del club, que se despierta
-                  cada dos horas y lo hará aunque ya hubiera pasado hoy.
+                  Resultados, goleadores y alineaciones de los rivales,
+                  clasificación, las fichas de sus jugadores y de los nuestros,
+                  altas, bajas, dorsales y las caras que falten. Es la misma
+                  pasada que se hace cada noche, lanzada ahora.
                 </p>
 
-                <div className="mt-3 space-y-1 text-[11px] text-white/40">
-                  {mantenimiento?.pedidoEn && (
-                    <p>
-                      Último encargo: <span className="text-white/65">{hace(mantenimiento.pedidoEn)}</span>
-                      {pendiente ? " · todavía sin hacer" : ""}
-                    </p>
-                  )}
+                <EstadoLinea
+                  tarea="rivales"
+                  estado={estados.rivales}
+                  encargo={estado.rivales}
+                  vigia={vigia}
+                  ahora={ahora}
+                />
+              </Panel>
 
-                  {mantenimiento?.hechoEn && (
-                    <p>
-                      Última pasada hecha:{" "}
-                      <span className="text-white/65">{hace(mantenimiento.hechoEn)}</span>
-                      {mantenimiento.resultado ? ` · ${mantenimiento.resultado}` : ""}
-                    </p>
-                  )}
+              {/* -------------------- WYSCOUT ------------------- */}
 
-                  {!mantenimiento?.pedidoEn && !mantenimiento?.hechoEn && (
-                    <p>Todavía no se ha pedido ninguna desde aquí.</p>
-                  )}
-                </div>
+              <Panel
+                title="Datos de Wyscout"
+                subtitle="Los informes nuevos de toda la liga, y publicados"
+                icon={BarChart3}
+                action={
+                  <Button
+                    tone="primary"
+                    icon={UploadCloud}
+                    disabled={!yo || pidiendo !== null || ocupada("wyscout")}
+                    onClick={() => void pide("wyscout")}
+                  >
+                    {rotulo("wyscout", "Traer y publicar")}
+                  </Button>
+                }
+              >
+                <p className="text-[12px] leading-relaxed text-white/45">
+                  Baja de Wyscout la ficha de los veinte equipos del grupo y los
+                  jugadores de toda la categoría, relee la carpeta, guarda la
+                  foto de la jornada y lo publica: en un par de minutos más lo
+                  tiene Data Análisis.
+                </p>
+
+                <p className="mt-2 text-[11px] leading-relaxed text-white/30">
+                  En el ordenador del club se abre un Chrome que se mueve solo:
+                  que nadie lo toque mientras trabaja. Si la sesión de Wyscout ha
+                  caducado, alguien tiene que entrar una vez a mano
+                  (<code className="text-white/50">scripts\actualizar-wys.cmd</code>).
+                </p>
+
+                <EstadoLinea
+                  tarea="wyscout"
+                  estado={estados.wyscout}
+                  encargo={estado.wyscout}
+                  vigia={vigia}
+                  ahora={ahora}
+                />
               </Panel>
             </div>
 
@@ -348,9 +550,9 @@ export default function AjustesPage() {
                     los viernes a las 9:00, con los partidos y una frase.
                   </li>
                   <li>
-                    Los <strong className="text-white/75">resultados</strong>, cada
-                    noche desde el ordenador del club: viernes, sábado y domingo
-                    incluidos, y con reintentos cada dos horas.
+                    La <strong className="text-white/75">jornada de BeSoccer</strong> y
+                    los <strong className="text-white/75">resultados</strong>, cada
+                    noche desde el ordenador del club, con reintentos cada dos horas.
                   </li>
                   <li>
                     La <strong className="text-white/75">foto semanal de Wyscout</strong>,

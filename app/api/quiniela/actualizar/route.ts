@@ -13,6 +13,11 @@
  * pasa, el botón **deja el encargo** para el trabajo nocturno de ese ordenador,
  * que tiene una conexión normal y sí puede.
  *
+ * **Y si el ordenador del club está escuchando, ni se intenta aquí**: su vigía
+ * (`scripts/vigia.cjs`) recoge el encargo en segundos y lo hace con su
+ * conexión. Intentarlo antes desde aquí sólo serían veinte segundos de páginas
+ * vacías.
+ *
  * Se deja montado igualmente: el día que BeSoccer deje de bloquear, o se ponga
  * un proxy en medio, esto funciona sin tocar nada. Y el `GET` contesta a la
  * pregunta que decide todo —**¿puede este servidor leer BeSoccer?**— contando
@@ -21,7 +26,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { readDoc, writeDoc } from "@/lib/docStore";
+import { vigiaVivo } from "@/lib/mantenimiento";
+import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
 import { actualizaResultados } from "@/lib/quiniela/actualiza";
 import { leeCalendario, traePaginaConFetch } from "@/lib/quiniela/besoccer";
 import { JORNADAS } from "@/lib/quiniela/modelo";
@@ -87,24 +93,27 @@ export async function POST(request: NextRequest) {
   const pedida = Number(request.nextUrl.searchParams.get("jornada"));
 
   try {
+    const { vigia } = await leeMantenimiento();
+
+    if (vigiaVivo(vigia)) {
+      await pideEncargo("quiniela", slug);
+
+      return NextResponse.json({ ok: true, encargado: true, cambios: 0, jornadas: [] });
+    }
+
     const parte = await actualizaResultados(
       JORNADAS.includes(pedida) ? pedida : undefined,
     );
 
     /*
-    | Si BeSoccer no deja mirar, el botón no se queda en nada: deja el mismo
-    | encargo que el de los rivales, y el trabajo nocturno del ordenador del
-    | club lo atiende en su siguiente pasada —cada dos horas— aunque ya hubiera
-    | hecho la de hoy. Es lo único honesto que se puede ofrecer desde aquí.
+    | Si BeSoccer no deja mirar, el botón no se queda en nada: deja el encargo
+    | de la quiniela, y el vigía del ordenador del club lo hace en cuanto se
+    | encienda. Es lo único honesto que se puede ofrecer desde aquí.
     */
     if (parte.bloqueado) {
-      const { data } = await readDoc<Record<string, unknown>>("mantenimiento");
+      await pideEncargo("quiniela", slug);
 
-      await writeDoc("mantenimiento", "mantenimiento", {
-        ...(data ?? {}),
-        pedidoEn: new Date().toISOString(),
-        pedidoPor: slug,
-      });
+      return NextResponse.json({ ok: true, ...parte, encargado: true });
     }
 
     return NextResponse.json({ ok: true, ...parte });

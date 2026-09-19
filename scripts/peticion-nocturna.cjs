@@ -1,69 +1,65 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: se
    ejecuta con `node` desde el .cmd de la tarea nocturna, no lo empaqueta nadie. */
 /**
- * ¿HAY UN ENCARGO DESDE LA APP?
+ * LOS ENCARGOS DESDE LA APP, VISTOS DESDE EL ORDENADOR DEL CLUB.
  *
- * El botón de Ajustes no ejecuta nada —el servidor no puede bajar de BeSoccer—:
- * deja un encargo en el documento `mantenimiento`. Esto es lo que lo mira desde
- * el ordenador del club, para que el trabajo nocturno lo atienda aunque ya
- * hubiera hecho su pasada de hoy.
+ * Los botones de Ajustes no ejecutan nada —el servidor no puede bajar de
+ * BeSoccer ni de Wyscout—: dejan un encargo en el documento `mantenimiento`,
+ * uno por tarea (`quiniela`, `rivales`, `wyscout`). La forma del documento y
+ * las reglas están en `lib/mantenimiento.ts`; esto es la herramienta de línea
+ * de órdenes para los `.cmd`:
  *
- *   node scripts/peticion-nocturna.cjs --hay     → código 0 si hay encargo
- *   node scripts/peticion-nocturna.cjs --hecho "sin incidencias"
+ *   node scripts/peticion-nocturna.cjs --hay [tarea]      → código 0 si está pedida
+ *   node scripts/peticion-nocturna.cjs --empieza [tarea]
+ *   node scripts/peticion-nocturna.cjs --hecho [tarea] "nota" [--fallo]
  *
- * El `--hay` se usa desde un `.cmd`, así que lo que importa es el código de
- * salida y no lo que escriba: 0 es «sí, hazlo».
+ * Sin tarea es la de los rivales, que es lo que llamaba el .cmd antes de que
+ * hubiera más de una. El `--hay` se usa desde un `.cmd`, así que lo que importa
+ * es el código de salida: 0 es «sí, hazlo».
  */
 
-const fs = require("node:fs");
 const path = require("path");
 
 const RAIZ = path.join(__dirname, "..");
 
+require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
+
 const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
 
-const CLAVE = "mantenimiento";
+const {
+  CLAVE_MANTENIMIENTO,
+  esTarea,
+  estadoEncargo,
+  normalizaMantenimiento,
+} = require(path.join(RAIZ, "lib/mantenimiento.ts"));
 
-/**
- * Salir con un código, sin reventar.
- *
- * `process.exit()` a secas, con el cliente de Supabase todavía abierto, tumba
- * a Node en Windows con una aserción de libuv —«!(handle->flags &
- * UV_HANDLE_CLOSING)»— y el proceso acaba con **127**. En un `.cmd` eso es
- * justo lo contrario de lo que se pregunta: 127 no es 0 ni es 1. Así que se
- * marca el código y se deja terminar solo; el cierre a la fuerza queda como
- * red, sin sujetar el proceso (`unref`).
- */
-function salir(codigo) {
-  process.exitCode = codigo;
+const { entorno, salir } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
 
-  setTimeout(() => process.exit(codigo), 150).unref();
-}
+/** La orden, la tarea y la nota, se escriban como se escriban. */
+function argumentos() {
+  const args = process.argv.slice(2);
 
-function entorno() {
-  const env = {};
+  const orden = ["--hay", "--empieza", "--hecho"].find((o) => args.includes(o));
 
-  const fichero = path.join(RAIZ, ".env.local");
+  const resto = args.filter((a) => a !== orden && a !== "--fallo");
 
-  if (fs.existsSync(fichero)) {
-    for (const linea of fs.readFileSync(fichero, "utf8").split("\r").join("").split("\n")) {
-      const trozo = linea.match(/^([A-Z0-9_]+)=(.*)$/);
+  const tarea = esTarea(resto[0]) ? resto.shift() : "rivales";
 
-      if (trozo) env[trozo[1]] = trozo[2].trim();
-    }
-  }
-
-  for (const clave of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
-    if (process.env[clave]) env[clave] = process.env[clave];
-  }
-
-  return env;
+  return { orden, tarea, nota: resto[0] ?? "", fallo: args.includes("--fallo") };
 }
 
 async function main() {
+  const { orden, tarea, nota, fallo } = argumentos();
+
+  if (!orden) {
+    console.log("[peticion] uso: --hay | --empieza | --hecho [tarea] [nota] [--fallo]");
+
+    return salir(1);
+  }
+
   const env = entorno();
 
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env) {
     /* Sin llaves no se puede mirar; que no pare nada. */
     console.log("[peticion] sin credenciales de Supabase: no se mira.");
 
@@ -75,7 +71,7 @@ async function main() {
   const { data, error } = await supabase
     .from("app_documents")
     .select("data")
-    .eq("key", CLAVE)
+    .eq("key", CLAVE_MANTENIMIENTO)
     .maybeSingle();
 
   if (error) {
@@ -84,48 +80,48 @@ async function main() {
     return salir(1);
   }
 
-  const estado = data?.data ?? {};
+  const estado = normalizaMantenimiento(data?.data);
 
-  if (process.argv.includes("--hecho")) {
-    const donde = process.argv.indexOf("--hecho");
+  const suyo = estado[tarea] ?? {};
 
-    const nota = process.argv[donde + 1] ?? "";
+  if (orden === "--hay") {
+    if (estadoEncargo(tarea, suyo) === "pedido") {
+      console.log(`[peticion] hay un encargo de ${tarea} de ${suyo.pedidoEn}.`);
 
-    const { error: alEscribir } = await supabase.from("app_documents").upsert(
-      {
-        key: CLAVE,
-        kind: "mantenimiento",
-        data: { ...estado, hechoEn: new Date().toISOString(), resultado: nota },
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "key" },
-    );
-
-    if (alEscribir) {
-      console.log(`[peticion] no se ha podido marcar: ${alEscribir.message}`);
-
-      return salir(1);
+      return salir(0);
     }
 
-    console.log("[peticion] marcada como hecha.");
+    console.log(`[peticion] no hay encargos de ${tarea} pendientes.`);
 
-    return salir(0);
+    return salir(1);
   }
 
-  /* --hay: pendiente es «se pidió después de la última vez que se hizo». */
-  const pedido = estado.pedidoEn ? Date.parse(estado.pedidoEn) : 0;
+  const ahora = new Date().toISOString();
 
-  const hecho = estado.hechoEn ? Date.parse(estado.hechoEn) : 0;
+  const cambio =
+    orden === "--empieza"
+      ? { empezadoEn: ahora }
+      : { hechoEn: ahora, resultado: nota, ok: !fallo };
 
-  if (pedido && pedido > hecho) {
-    console.log(`[peticion] hay un encargo de ${estado.pedidoEn}.`);
+  const { error: alEscribir } = await supabase.from("app_documents").upsert(
+    {
+      key: CLAVE_MANTENIMIENTO,
+      kind: "mantenimiento",
+      data: { ...estado, [tarea]: { ...suyo, ...cambio } },
+      updated_at: ahora,
+    },
+    { onConflict: "key" },
+  );
 
-    return salir(0);
+  if (alEscribir) {
+    console.log(`[peticion] no se ha podido marcar: ${alEscribir.message}`);
+
+    return salir(1);
   }
 
-  console.log("[peticion] no hay encargos pendientes.");
+  console.log(`[peticion] ${tarea}: ${orden === "--empieza" ? "empezada" : "marcada como hecha"}.`);
 
-  return salir(1);
+  return salir(0);
 }
 
 main().catch((error) => {

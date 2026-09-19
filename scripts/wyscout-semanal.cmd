@@ -11,11 +11,17 @@ rem
 rem    1. Baja la ficha de los veinte equipos del grupo (el Castilla incluido).
 rem    2. Baja los jugadores de toda la categoria (los nuestros incluidos).
 rem    3. Relee la carpeta y escribe public/data/analisis.json.
-rem    4. PUBLICA: git add de los datos, commit y push. Vercel hace el resto.
+rem    4. Toma la foto de la jornada (la resta entre dos fotos es la jornada).
+rem    5. PUBLICA: commit de los datos y push. Vercel hace el resto.
 rem
-rem  Lo programa `scripts\instalar-tarea-wyscout.ps1`. Tambien se puede lanzar
-rem  a mano con doble clic, pero para eso esta `actualizar-wys.cmd`, que
-rem  ensena lo que hace y pregunta antes de publicar.
+rem  Lo programa `scripts\instalar-tarea-wyscout.ps1` y lo lanza tambien el
+rem  vigia (`scripts\vigia.cjs`) cuando alguien pulsa «Traer lo nuevo de
+rem  Wyscout» en Ajustes. A mano, mejor `actualizar-wys.cmd`, que ensena lo
+rem  que hace y pregunta antes de publicar.
+rem
+rem  EL CODIGO DE SALIDA DICE COMO HA IDO (lo lee el vigia):
+rem    0 publicado        3 no habia nada nuevo     2 la sesion ha caducado
+rem    1 fallo al bajar   5 fallo al releer         4 fallo al subir (push)
 rem
 rem  LO UNICO QUE NO PUEDE HACER SOLO
 rem
@@ -42,6 +48,7 @@ rem La semana ISO, para no repetir el trabajo dentro de la misma jornada.
 for /f %%i in ('powershell -NoProfile -Command "$c=(Get-Culture).Calendar; '{0}-S{1:00}' -f (Get-Date).Year, $c.GetWeekOfYear((Get-Date),[System.Globalization.CalendarWeekRule]::FirstFourDayWeek,[System.DayOfWeek]::Monday)"') do set "SEMANA=%%i"
 
 set "LOG=%REGISTRO%\%SELLO%.log"
+set "CODIGO=1"
 set "HECHO=%REGISTRO%\hecho-%SEMANA%.txt"
 
 rem ------------------------------------------------------------------
@@ -57,6 +64,7 @@ if /I "%~1"=="--forzar" goto :adelante
 if exist "%HECHO%" (
   echo Ya se actualizo esta semana ^(%SEMANA%^). Nada que hacer.
   echo Ya se actualizo esta semana ^(%SEMANA%^) · %DATE% %TIME% >> "%LOG%"
+  set "CODIGO=3"
   goto :limpieza
 )
 
@@ -83,6 +91,7 @@ if "%SALIDA%"=="2" (
   echo   Abre scripts\actualizar-wys.cmd, entra en la ventana que sale, y >> "%LOG%"
   echo   la tarea vuelve sola la proxima vez. >> "%LOG%"
   echo LA SESION DE WYSCOUT HA CADUCADO. Abre scripts\actualizar-wys.cmd y entra.
+  set "CODIGO=2"
   goto :limpieza
 )
 
@@ -90,6 +99,7 @@ if not "%SALIDA%"=="0" (
   echo. >> "%LOG%"
   echo FALLO en la descarga ^(codigo %SALIDA%^). Se reintenta en la siguiente pasada. >> "%LOG%"
   echo Fallo en la descarga. Se reintentara.
+  set "CODIGO=1"
   goto :limpieza
 )
 
@@ -108,26 +118,43 @@ if errorlevel 1 (
   echo. >> "%LOG%"
   echo FALLO al releer la carpeta. Los .xlsx estan bajados pero NO se publica. >> "%LOG%"
   echo Fallo al releer la carpeta. No se publica.
+  set "CODIGO=5"
   goto :limpieza
 )
 
 rem ------------------------------------------------------------------
-rem  4. Publicar
+rem  4. La foto de la jornada
+rem ------------------------------------------------------------------
+rem  La descarga individual es acumulada; restando dos fotos sale lo que
+rem  paso en medio. Si falla no se para nada: se puede tomar otro dia.
+
+echo. >> "%LOG%"
+echo --- Foto de la jornada --- >> "%LOG%"
+
+call node scripts\wyscout-instantanea.cjs >> "%LOG%" 2>&1
+
+if errorlevel 1 echo No se ha podido guardar la foto; los datos siguen bien. >> "%LOG%"
+
+rem ------------------------------------------------------------------
+rem  5. Publicar
 rem ------------------------------------------------------------------
 rem  Solo los datos. Nunca codigo: si alguien esta a media faena con un
-rem  componente abierto, esta tarea no se lo lleva por delante.
+rem  componente abierto, esta tarea no se lo lleva por delante. Por eso el
+rem  commit lleva las rutas detras: aunque hubiera otra cosa preparada con
+rem  "git add", en este commit solo entran los datos.
 
 echo. >> "%LOG%"
 echo --- Publicando --- >> "%LOG%"
 
 git add "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
-git commit -m "Los datos de Wyscout de la semana %SEMANA%" >> "%LOG%" 2>&1
+git commit -m "Los datos de Wyscout de la semana %SEMANA%" -- "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
 if errorlevel 1 (
   echo No habia nada nuevo que publicar. >> "%LOG%"
   echo No habia nada nuevo que publicar.
   echo %DATE% %TIME% · sin cambios > "%HECHO%"
+  set "CODIGO=3"
   goto :limpieza
 )
 
@@ -138,6 +165,7 @@ if errorlevel 1 (
   echo EL COMMIT ESTA HECHO PERO EL PUSH HA FALLADO: queda sin publicar. >> "%LOG%"
   echo   Con red, un "git push" a mano lo resuelve. >> "%LOG%"
   echo El push ha fallado: los datos estan en local, sin publicar.
+  set "CODIGO=4"
   goto :limpieza
 )
 
@@ -147,6 +175,7 @@ echo Publicado. Vercel tarda un par de minutos.
 
 rem La semana queda marcada: las repeticiones de hoy ya no haran nada.
 echo %DATE% %TIME% > "%HECHO%"
+set "CODIGO=0"
 
 :limpieza
 
@@ -155,4 +184,5 @@ rem semanas, que es de sobra para mirar atras sin llenar la carpeta.
 powershell -NoProfile -Command ^
   "Get-ChildItem '%REGISTRO%\*.log' | Sort-Object Name -Descending | Select-Object -Skip 30 | Remove-Item -Force -ErrorAction SilentlyContinue; Get-ChildItem '%REGISTRO%\hecho-*.txt' | Sort-Object Name -Descending | Select-Object -Skip 8 | Remove-Item -Force -ErrorAction SilentlyContinue"
 
-endlocal
+rem El codigo sale del setlocal: es lo que lee el vigia para contar como ha ido.
+endlocal & exit /b %CODIGO%

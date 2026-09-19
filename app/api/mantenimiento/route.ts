@@ -1,49 +1,30 @@
 /**
- * EL ENCARGO PARA EL TRABAJO NOCTURNO.
+ * LOS ENCARGOS AL ORDENADOR DEL CLUB.
  *
- * Hay cosas que **no puede hacer el servidor**: bajar de BeSoccer los informes
- * de los rivales, sus plantillas y las fichas es media hora de trabajo y, sobre
- * todo, BeSoccer contesta 403 o 406 a las IP de centro de datos. Eso lo hace el
- * ordenador del club cada noche (`scripts/jornada-nocturna.cmd`).
+ * Hay cosas que **no puede hacer el servidor**: BeSoccer contesta con una
+ * página vacía a las IP de centro de datos, y Wyscout sólo se baja manejando un
+ * Chrome con la sesión del club. Eso lo hace el ordenador del club.
  *
- * Así que el botón de Ajustes no ejecuta nada: **deja un encargo aquí**. La
- * tarea de ese ordenador se despierta cada dos horas, ve el encargo y hace la
- * pasada aunque ya la hubiera hecho hoy. Cuando termina, lo marca como hecho y
- * la pantalla lo cuenta.
- *
- * Es menos inmediato que un botón que ejecuta, y es lo honesto: lo otro sería
- * un botón que dice que sí y no hace nada.
+ * Así que los botones de Ajustes no ejecutan nada aquí: **dejan un encargo**
+ * (`quiniela`, `rivales` o `wyscout`). El vigía de ese ordenador
+ * (`scripts/vigia.cjs`) mira cada pocos segundos, lo hace, y apunta cuándo
+ * empezó, cuándo acabó y cómo fue. La pantalla lo va leyendo de aquí, junto con
+ * el latido del vigía: si lleva minutos sin dar señal, el ordenador está
+ * apagado y se dice.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { readDoc, writeDoc } from "@/lib/docStore";
+import { esTarea } from "@/lib/mantenimiento";
+import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 
 export const dynamic = "force-dynamic";
 
-const CLAVE = "mantenimiento";
-
-export type Mantenimiento = {
-  /** Cuándo se pidió la última pasada, y quién. */
-  pedidoEn?: string;
-  pedidoPor?: string;
-  /** Cuándo la terminó el ordenador del club. */
-  hechoEn?: string;
-  /** Cómo fue: lo escribe el propio trabajo nocturno. */
-  resultado?: string;
-};
-
-async function lee(): Promise<Mantenimiento> {
-  const { data } = await readDoc<Mantenimiento>(CLAVE);
-
-  return data ?? {};
-}
-
 export async function GET() {
   try {
-    return NextResponse.json({ ok: true, estado: await lee() });
+    return NextResponse.json({ ok: true, ...(await leeMantenimiento()) });
   } catch (error) {
     console.error("[mantenimiento] leer", error);
 
@@ -61,18 +42,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  /* Sin cuerpo es el encargo de siempre, el de los rivales. */
+  const cuerpo = (await request.json().catch(() => ({}))) as { tarea?: unknown };
+
+  const tarea = cuerpo.tarea ?? "rivales";
+
+  if (!esTarea(tarea)) {
+    return NextResponse.json({ ok: false, error: "No sé qué hay que hacer." }, { status: 400 });
+  }
+
   try {
-    const estado = await lee();
+    const estado = await pideEncargo(tarea, slug);
 
-    const nuevo: Mantenimiento = {
-      ...estado,
-      pedidoEn: new Date().toISOString(),
-      pedidoPor: slug,
-    };
-
-    await writeDoc(CLAVE, "mantenimiento", nuevo);
-
-    return NextResponse.json({ ok: true, estado: nuevo });
+    return NextResponse.json({ ok: true, estado });
   } catch (error) {
     console.error("[mantenimiento] pedir", error);
 

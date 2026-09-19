@@ -24,6 +24,9 @@
  *   node scripts/quiniela-resultados.cjs              → la jornada de ahora y la anterior
  *   node scripts/quiniela-resultados.cjs --jornada 3  → una concreta
  *   node scripts/quiniela-resultados.cjs --ver        → dice qué haría, sin escribir
+ *
+ * Termina con una línea `RESUMEN: …`: es lo que el vigía (`scripts/vigia.cjs`)
+ * copia a la pantalla de Ajustes cuando alguien pulsa el botón.
  */
 
 const { execFileSync } = require("node:child_process");
@@ -185,6 +188,13 @@ async function main() {
 
   let cambios = 0;
 
+  /* Lo que se ha escrito de cada jornada, para mezclarlo al final. */
+  const nuevos = {};
+
+  const bloqueadas = [];
+
+  const sinApuestas = [];
+
   for (const numero of jornadas) {
     const nuestros = CALENDARIO.filter((uno) => uno.jornada === numero);
 
@@ -213,6 +223,8 @@ async function main() {
     ).length;
 
     if (apostaron === 0) {
+      sinApuestas.push(numero);
+
       console.log(
         `\n[quiniela] jornada ${numero}: no la apostó nadie, así que no se tocan sus resultados.`,
       );
@@ -227,6 +239,8 @@ async function main() {
     const lectura = await traeResultados(numero, traePagina);
 
     if (lectura.bloqueado) {
+      bloqueadas.push(numero);
+
       console.warn(
         `[quiniela] BeSoccer no ha contestado (${[...new Set(lectura.estados)].join(", ")}). Se deja para la próxima pasada.`,
       );
@@ -274,18 +288,23 @@ async function main() {
       cambios += 1;
     }
 
-    doc.jornadas[String(numero)] = {
-      ...guardada,
-      jornada: numero,
-      resultados,
-      /* De dónde salen y de cuándo son, para poder decirlo en pantalla. */
-      resultadosEn: new Date().toISOString(),
-      origenResultados: "besoccer",
-    };
+    nuevos[String(numero)] = { guardada, resultados };
   }
 
   if (cambios === 0) {
     console.log("\n[quiniela] nada nuevo que escribir.");
+
+    console.log(
+      `RESUMEN: ${
+        bloqueadas.length > 0
+          ? "BeSoccer no ha contestado; se reintentará"
+          : sinApuestas.length === jornadas.length
+            ? `nadie apostó la jornada ${jornadas.join(" ni la ")}: no se toca`
+            : `nada nuevo en la jornada ${jornadas.join(" y ")}`
+      }`,
+    );
+
+    if (bloqueadas.length > 0) process.exitCode = 1;
 
     return;
   }
@@ -296,8 +315,39 @@ async function main() {
     return;
   }
 
+  /*
+  | Releer y cambiar SÓLO los resultados.
+  |
+  | Entre la lectura de arriba y ahora han pasado las páginas de BeSoccer, y en
+  | ese rato alguien puede haber guardado su apuesta: escribir la copia de
+  | antes se la llevaría por delante. Esto corre también desde el botón de
+  | Ajustes, a cualquier hora, así que no es una hipótesis.
+  */
+  const { data: ahora, error: alReleer } = await supabase
+    .from("app_documents")
+    .select("data")
+    .eq("key", CLAVE)
+    .maybeSingle();
+
+  if (alReleer) throw new Error(`No se ha podido releer la quiniela: ${alReleer.message}`);
+
+  const fresco = ahora?.data ?? doc;
+
+  fresco.jornadas = fresco.jornadas ?? {};
+
+  for (const [numero, { guardada, resultados }] of Object.entries(nuevos)) {
+    fresco.jornadas[numero] = {
+      ...(fresco.jornadas[numero] ?? guardada),
+      jornada: Number(numero),
+      resultados,
+      /* De dónde salen y de cuándo son, para poder decirlo en pantalla. */
+      resultadosEn: new Date().toISOString(),
+      origenResultados: "besoccer",
+    };
+  }
+
   const { error: alEscribir } = await supabase.from("app_documents").upsert(
-    { key: CLAVE, kind: "quiniela", data: doc, updated_at: new Date().toISOString() },
+    { key: CLAVE, kind: "quiniela", data: fresco, updated_at: new Date().toISOString() },
     { onConflict: "key" },
   );
 
@@ -310,12 +360,16 @@ async function main() {
     .eq("key", CLAVE)
     .maybeSingle();
 
-  const puestos = jornadas.flatMap((numero) =>
+  const puestos = Object.keys(nuevos).flatMap((numero) =>
     (despues?.data?.jornadas?.[String(numero)]?.resultados ?? []).filter(Boolean),
   ).length;
 
   console.log(
     `\n[quiniela] ${cambios} resultado(s) escritos. En total hay ${puestos} puestos en esas jornadas.`,
+  );
+
+  console.log(
+    `RESUMEN: ${cambios} resultado(s) nuevos · ${puestos} puestos en la jornada ${Object.keys(nuevos).join(" y ")}`,
   );
 }
 
@@ -323,9 +377,9 @@ main()
   .then(() => {
     /* Sin `process.exit`: con el cliente de Supabase abierto, Node revienta en
        Windows con una aserción de libuv y el código de salida se va a 127. */
-    process.exitCode = 0;
+    const codigo = process.exitCode ?? 0;
 
-    setTimeout(() => process.exit(0), 150).unref();
+    setTimeout(() => process.exit(codigo), 150).unref();
   })
   .catch((error) => {
     console.error("[quiniela]", error.message);
