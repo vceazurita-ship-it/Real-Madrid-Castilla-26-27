@@ -1036,6 +1036,143 @@ export function revisaTablero(tablero: TableroPizarra): RevisionPizarra {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/*  CAMBIAR A UN JUGADOR EN TODA LA JORNADA                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Quién sale en el tablero y cuánto: en cuántas diapositivas y con cuántas
+ * fichas. Es la lista de la que se elige al que se cambia, con el que más sale
+ * primero —el que está en todas es casi siempre un titular—.
+ */
+export function jugadoresDelTablero(tablero: TableroPizarra) {
+  const cuenta = new Map<string, { slides: Set<string>; fichas: number }>();
+
+  for (const slide of tablero.slides) {
+    for (const ficha of slide.fichas) {
+      const suyo = cuenta.get(ficha.playerId) ?? { slides: new Set<string>(), fichas: 0 };
+
+      suyo.slides.add(slide.id);
+      suyo.fichas += 1;
+      cuenta.set(ficha.playerId, suyo);
+    }
+  }
+
+  return [...cuenta.entries()]
+    .map(([playerId, suyo]) => ({
+      playerId,
+      slides: suyo.slides.size,
+      fichas: suyo.fichas,
+    }))
+    .sort((a, b) => b.slides - a.slides || b.fichas - a.fichas);
+}
+
+export type AlcanceCambio = {
+  /** Fichas del que sale que pasan a ser del que entra. */
+  fichas: number;
+  /** Diapositivas en las que cambia algo. */
+  slides: { id: string; titulo: string }[];
+  /**
+   * Diapositivas en las que el que entra **ya estaba**: sustituyendo sin más
+   * saldría dos veces. Ahí lo que tiene sentido es intercambiarlos.
+   */
+  choques: { id: string; titulo: string }[];
+};
+
+/** Lo que haría `cambiaJugador`, contado antes de hacerlo. */
+export function alcanceDelCambio(
+  tablero: TableroPizarra,
+  sale: string,
+  entra: string,
+): AlcanceCambio {
+  const alcance: AlcanceCambio = { fichas: 0, slides: [], choques: [] };
+
+  if (!sale || !entra || sale === entra) return alcance;
+
+  for (const slide of tablero.slides) {
+    const suyas = slide.fichas.filter((ficha) => ficha.playerId === sale).length;
+
+    if (suyas === 0) continue;
+
+    alcance.fichas += suyas;
+    alcance.slides.push({ id: slide.id, titulo: slide.titulo });
+
+    if (slide.fichas.some((ficha) => ficha.playerId === entra)) {
+      alcance.choques.push({ id: slide.id, titulo: slide.titulo });
+    }
+  }
+
+  return alcance;
+}
+
+/**
+ * Pone a un jugador en el sitio de otro **en todas las diapositivas** de la
+ * jornada.
+ *
+ * Es lo que pasa de verdad a mitad de semana: se cae uno del once y entra
+ * otro, y el que entra hace lo que hacía el que sale —remata donde remataba,
+ * marca a quien marcaba—. Antes eso eran siete diapositivas repasadas a mano y
+ * alguna se quedaba sin cambiar, que es justo lo que canta el control de la
+ * convocatoria.
+ *
+ * Cada ficha **conserva su puesto y su sitio en el campo**: sólo cambia de
+ * quién es. La cara, el nombre y el dorsal salen de la plantilla por el
+ * `playerId`, así que cambian solos en la pantalla y al exportar.
+ *
+ * Con `intercambia`, el que entra ocupa lo del que sale **y viceversa**: es lo
+ * que se quiere cuando los dos ya estaban en la pizarra y se cambian los
+ * papeles, y vale para toda la jornada, también donde sólo estaba el que
+ * entra. Sin él, el que ya estaba se queda donde estaba.
+ *
+ * El histórico no se toca: las versiones guardadas son lo que se montó.
+ */
+export function cambiaJugador(
+  tablero: TableroPizarra,
+  sale: string,
+  entra: string,
+  opciones: { cuando: string; intercambia?: boolean },
+): TableroPizarra {
+  if (!sale || !entra || sale === entra) return tablero;
+
+  let tocado = false;
+
+  const slides = tablero.slides.map((slide) => {
+    const toca = slide.fichas.some(
+      (ficha) =>
+        ficha.playerId === sale || (opciones.intercambia && ficha.playerId === entra),
+    );
+
+    if (!toca) return slide;
+
+    tocado = true;
+
+    return {
+      ...slide,
+      fichas: slide.fichas.map((ficha) =>
+        ficha.playerId === sale
+          ? { ...ficha, playerId: entra }
+          : opciones.intercambia && ficha.playerId === entra
+            ? { ...ficha, playerId: sale }
+            : ficha,
+      ),
+    };
+  });
+
+  return tocado ? { ...tablero, slides, actualizado: opciones.cuando } : tablero;
+}
+
+/**
+ * Los puestos que pasa a ocupar el que entra, para anotarlos en la memoria
+ * igual que si se hubiera colocado a mano en cada uno.
+ */
+export function puestosQueHereda(tablero: TableroPizarra, sale: string) {
+  return tablero.slides.flatMap((slide) =>
+    slide.fichas
+      .filter((ficha) => ficha.playerId === sale && ficha.puesto)
+      .map((ficha) => ficha.puesto as string),
+  );
+}
+
 /**
  * Trae las diapositivas de otra jornada a este tablero.
  *

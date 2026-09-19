@@ -49,6 +49,7 @@ import {
   Pin,
   PinOff,
   Plus,
+  Repeat,
   RotateCcw,
   Save,
   Shield,
@@ -71,6 +72,7 @@ import {
 } from "@/components/abp/ui";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
+import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
@@ -91,7 +93,9 @@ import {
   PLANTILLA_BY_KEY,
   admiteRepetidos,
   aplicaVersion,
+  alcanceDelCambio,
   aprende,
+  cambiaJugador,
   colocaAutomatico,
   conElegidosDelGrupo,
   copiaTablero,
@@ -109,6 +113,7 @@ import {
   ocupantesDeGrupo,
   puestoDe,
   puestosDeGrupo,
+  puestosQueHereda,
   quitaVersion,
   registraVersion,
   renombraVersion,
@@ -913,6 +918,89 @@ export default function PizarraAbpPage() {
     );
   }, [tablero, etiquetaNueva, mutaTablero]);
 
+  /* ------------------------ CAMBIAR JUGADOR ------------------------ */
+
+  /*
+  | Uno sale del once y entra otro en su sitio en TODAS las diapositivas.
+  |
+  | `null` es el diálogo cerrado; abierto lleva al que sale si se abrió desde
+  | un aviso concreto. Como en `coloca`, lo que se cuenta —cuántas fichas,
+  | qué puestos se aprenden— se calcula ANTES de tocar el estado, y todo va en
+  | un solo `setStore`: el tablero, la versión previa y la memoria se guardan
+  | juntos o no se guardan.
+  |
+  | Antes de cambiar se congela lo que había en el histórico: si el cambio era
+  | el equivocado, se restaura desde ahí.
+  */
+  const [cambiando, setCambiando] = useState<{ sale: string | null } | null>(null);
+
+  const aplicaCambio = useCallback(
+    (sale: string, entra: string, intercambia: boolean) => {
+      if (!partido || !tablero) return;
+
+      const alcance = alcanceDelCambio(tablero, sale, entra);
+
+      if (alcance.fichas === 0) {
+        setCambiando(null);
+
+        return;
+      }
+
+      const cuando = new Date().toISOString();
+
+      const heredaEntra = puestosQueHereda(tablero, sale);
+
+      const heredaSale = intercambia ? puestosQueHereda(tablero, entra) : [];
+
+      const nombre = (playerId: string) => {
+        const player = porId.get(playerId);
+
+        return player?.apodo || player?.nombre || playerId;
+      };
+
+      setStore((actual) => {
+        const base =
+          actual.tableros?.[partido.id] ??
+          tableroVacio(partido.id, partido.opponent, actual.textos);
+
+        const conPrevia = tieneFichas(base.slides)
+          ? registraVersion(base, {
+              cuando,
+              motivo: "previa",
+              etiqueta: `Antes de cambiar a ${nombre(sale)} por ${nombre(entra)}`,
+            })
+          : base;
+
+        let memoria = actual.memoria ?? {};
+
+        for (const puesto of heredaEntra) memoria = aprende(memoria, puesto, entra, cuando);
+
+        for (const puesto of heredaSale) memoria = aprende(memoria, puesto, sale, cuando);
+
+        return {
+          ...actual,
+          memoria,
+          tableros: {
+            ...actual.tableros,
+            [partido.id]: cambiaJugador(conPrevia, sale, entra, { cuando, intercambia }),
+          },
+        };
+      });
+
+      setCambiando(null);
+
+      toast.success(
+        intercambia
+          ? `${nombre(entra)} y ${nombre(sale)} intercambiados`
+          : `${nombre(entra)} entra por ${nombre(sale)}`,
+        {
+          description: `${alcance.fichas} ${alcance.fichas === 1 ? "ficha cambiada" : "fichas cambiadas"} en ${alcance.slides.length} ${alcance.slides.length === 1 ? "diapositiva" : "diapositivas"}. Lo anterior queda en el histórico.`,
+        },
+      );
+    },
+    [partido, tablero, porId, setStore],
+  );
+
   /*
   | Restaurar tampoco pierde nada: antes de traer la versión vieja se congela
   | la que está en pantalla, así que se puede ir y volver.
@@ -1190,6 +1278,15 @@ export default function PizarraAbpPage() {
                   title="Congelar la pizarra tal y como está en el histórico de la jornada"
                 >
                   Guardar versión
+                </Button>
+
+                <Button
+                  icon={Repeat}
+                  onClick={() => setCambiando({ sale: null })}
+                  disabled={!tablero || !tieneFichas(tablero.slides)}
+                  title="Poner a otro jugador en el sitio de uno del once, en todas las diapositivas"
+                >
+                  Cambiar jugador
                 </Button>
 
                 <Button
@@ -1658,7 +1755,11 @@ export default function PizarraAbpPage() {
 
                 {tablero && tablero.slides.length > 1 && (
                   <div className="mt-5">
-                    <ControlDeGazapos tablero={tablero} players={porId} />
+                    <ControlDeGazapos
+                      tablero={tablero}
+                      players={porId}
+                      onCambiar={(playerId) => setCambiando({ sale: playerId })}
+                    />
                   </div>
                 )}
 
@@ -1799,6 +1900,16 @@ export default function PizarraAbpPage() {
           }
           onQuitar={() => vacia(puestoEditado.key)}
           onCerrar={() => setEditando(null)}
+        />
+      )}
+
+      {tablero && cambiando && (
+        <CambiaJugador
+          tablero={tablero}
+          players={players}
+          inicial={cambiando.sale}
+          onAplicar={aplicaCambio}
+          onCerrar={() => setCambiando(null)}
         />
       )}
     </main>
@@ -2259,9 +2370,12 @@ function conAdorno(
 function ControlDeGazapos({
   tablero,
   players,
+  onCambiar,
 }: {
   tablero: TableroPizarra;
   players: Map<string, Player>;
+  /** Abre el cambio de jugador con éste como el que sale. */
+  onCambiar: (playerId: string) => void;
 }) {
   const revision = useMemo(() => revisaTablero(tablero), [tablero]);
 
@@ -2316,6 +2430,16 @@ function ControlDeGazapos({
                   <span className="min-w-0 text-[11px] text-amber-200/70">
                     {gazapo.falta.map((slide) => slide.titulo).join(" · ")}
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={() => onCambiar(gazapo.playerId)}
+                    title="Poner a otro en su sitio en todas las diapositivas"
+                    className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/12 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-[#C8A96B]/50 hover:text-white sm:px-2 sm:py-0.5"
+                  >
+                    <Repeat size={11} />
+                    Cambiar
+                  </button>
                 </div>
               );
             })}
