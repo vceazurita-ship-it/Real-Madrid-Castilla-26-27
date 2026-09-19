@@ -30,7 +30,15 @@ import { traeJson } from "@/lib/hojaCsv";
  * a una pregunta sola.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as PunteroReact,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDownWideNarrow,
@@ -44,6 +52,10 @@ import {
   Pause,
   Maximize2,
   Minimize2,
+  Minus,
+  MoveDiagonal2,
+  PanelRightClose,
+  PanelRightOpen,
   PenTool,
   Play,
   Plus,
@@ -52,6 +64,7 @@ import {
   SkipForward,
   Video,
   X,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -107,6 +120,7 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useReproductor, VELOCIDADES } from "@/hooks/useReproductor";
 import { useLanzadera } from "@/hooks/useLanzadera";
 import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
+import { acota, useVisor, VISOR_MAXIMO, VISOR_PASO } from "@/hooks/useVisor";
 import {
   BarraMarcado,
   SelectorDeMarca,
@@ -1059,6 +1073,104 @@ function Coding() {
     disponible: hayPantallaCompleta,
     alterna: alternaPantalla,
   } = usePantallaCompleta<HTMLDivElement>();
+
+  /*
+  | EL TAMAÑO DEL VISOR
+  |
+  | Lo elige cada uno según su pantalla y se recuerda en su navegador. Se
+  | agranda o se encoge con − y +, con «Ajustar» —lo que quepa en la altura
+  | de la ventana— o arrastrando la esquina de la imagen.
+  */
+  const visor = useVisor();
+  const ponTamañoVisor = visor.ponTamaño;
+
+  /*
+  | El porcentaje que ocupa ahora el marco. Hace falta al salir de «ajustado»,
+  | que no guarda un número: el − y el + siguen desde lo que se está viendo.
+  */
+  const tamañoVisible = useCallback((): number => {
+    const marco = marcoDeLaPantalla.current;
+    const columna = marco?.parentElement?.clientWidth ?? 0;
+
+    if (!marco || columna === 0) return VISOR_MAXIMO;
+
+    return (marco.offsetWidth / columna) * 100;
+  }, [marcoDeLaPantalla]);
+
+  const cambiaVisor = useCallback(
+    (paso: number) => {
+      const desde = visor.tamaño || tamañoVisible();
+
+      /* Se redondea al escalón para que no queden números sueltos. */
+      ponTamañoVisor(Math.round((desde + paso) / VISOR_PASO) * VISOR_PASO);
+    },
+    [ponTamañoVisor, tamañoVisible, visor.tamaño],
+  );
+
+  /*
+  | EL TIRADOR DE LA ESQUINA
+  |
+  | Mientras se arrastra se toca el `max-width` del marco a mano y sólo se
+  | guarda al soltar: guardar en cada movimiento repintaría la página entera
+  | del coding con cada píxel. Como el marco va centrado, la esquina se aleja
+  | el doble de lo que crece cada lado; de ahí el `* 2`, que deja la esquina
+  | debajo del dedo.
+  |
+  | Es un `<button>` para que la lanzadera no lo tome por un arrastre sobre la
+  | imagen: la lanzadera deja pasar siempre los botones.
+  */
+  const arrastreVisor = useRef<{
+    puntero: number;
+    marco: HTMLDivElement;
+    x: number;
+    ancho: number;
+    columna: number;
+  } | null>(null);
+
+  const alBajarTirador = (evento: PunteroReact<HTMLButtonElement>) => {
+    const marco = marcoDeLaPantalla.current;
+    const columna = marco?.parentElement?.clientWidth ?? 0;
+
+    if (!marco || columna === 0 || evento.button !== 0) return;
+
+    evento.preventDefault();
+    evento.currentTarget.setPointerCapture(evento.pointerId);
+
+    arrastreVisor.current = {
+      puntero: evento.pointerId,
+      marco,
+      x: evento.clientX,
+      ancho: marco.offsetWidth,
+      columna,
+    };
+  };
+
+  const tamañoArrastrado = (evento: PunteroReact<HTMLButtonElement>) => {
+    const arrastre = arrastreVisor.current;
+
+    if (!arrastre || arrastre.puntero !== evento.pointerId) return null;
+
+    const ancho = arrastre.ancho + (evento.clientX - arrastre.x) * 2;
+
+    return {
+      marco: arrastre.marco,
+      tamaño: acota((ancho / arrastre.columna) * 100),
+    };
+  };
+
+  const alMoverTirador = (evento: PunteroReact<HTMLButtonElement>) => {
+    const arrastrado = tamañoArrastrado(evento);
+
+    if (arrastrado) arrastrado.marco.style.maxWidth = `${arrastrado.tamaño}%`;
+  };
+
+  const alSoltarTirador = (evento: PunteroReact<HTMLButtonElement>) => {
+    const arrastrado = tamañoArrastrado(evento);
+
+    arrastreVisor.current = null;
+
+    if (arrastrado) ponTamañoVisor(arrastrado.tamaño);
+  };
 
   /* La pizarra que se está repartiendo entre cortes, si es que hay alguna. */
   const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
@@ -3008,7 +3120,11 @@ function Coding() {
 
             {/* ========================= EL TABLERO ===================== */}
 
-            <div className="mt-5 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div
+              className={`mt-5 grid min-w-0 gap-4 ${
+                visor.aLoAncho ? "" : "xl:grid-cols-[minmax(0,1fr)_380px]"
+              }`}
+            >
               {/* ------------------------- IZQUIERDA ------------------- */}
 
               <div className="min-w-0 space-y-4">
@@ -3020,10 +3136,18 @@ function Coding() {
                 | clips. El rebobinado —que va en vertical— se queda entonces
                 | para el ratón y el mousepad, que es donde se ha pedido.
                 */}
+                {/*
+                | El tamaño va en el marco y no en el `<video>`: la pizarra se
+                | ancla a la esquina del marco, y los dos tienen que medir lo
+                | mismo. A pantalla completa no hay tope: manda la pantalla.
+                */}
                 <div
                   ref={marcoDeLaPantalla}
-                  style={{ touchAction: "pan-y" }}
-                  className={`relative min-w-0 overflow-hidden border border-white/10 bg-black ${
+                  style={{
+                    touchAction: "pan-y",
+                    maxWidth: enPantallaCompleta ? undefined : visor.anchoMaximo,
+                  }}
+                  className={`relative mx-auto min-w-0 overflow-hidden border border-white/10 bg-black ${
                     enPantallaCompleta ? "rounded-none border-0" : "rounded-2xl"
                   }`}
                 >
@@ -3088,6 +3212,27 @@ function Coding() {
                   | Escape; en la tablet, que es donde más se usa esto, no hay
                   | tecla Escape y no habría forma de volver.
                   */}
+                  {/*
+                  | El tirador para agrandar o encoger arrastrando. Se quita
+                  | mientras se pinta, que la esquina también es campo.
+                  */}
+                  {!enPantallaCompleta && pizarraEditando === null && (
+                    <button
+                      type="button"
+                      aria-label="Arrastra para cambiar el tamaño del vídeo"
+                      title="Arrastra para agrandar o encoger el vídeo · doble clic: todo el ancho"
+                      onPointerDown={alBajarTirador}
+                      onPointerMove={alMoverTirador}
+                      onPointerUp={alSoltarTirador}
+                      onPointerCancel={alSoltarTirador}
+                      onDoubleClick={() => ponTamañoVisor(VISOR_MAXIMO)}
+                      style={{ touchAction: "none" }}
+                      className="absolute bottom-1.5 right-1.5 z-20 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-md border border-white/15 bg-black/60 text-white/60 opacity-60 backdrop-blur transition hover:opacity-100"
+                    >
+                      <MoveDiagonal2 size={14} />
+                    </button>
+                  )}
+
                   {enPantallaCompleta && (
                     <button
                       type="button"
@@ -3308,6 +3453,67 @@ function Coding() {
                         {enPantallaCompleta ? "Salir" : "Completa"}
                       </Button>
                     )}
+
+                    {/*
+                    | EL TAMAÑO DEL VISOR. Cada uno lo deja como le va a su
+                    | pantalla, y la próxima vez sigue así.
+                    */}
+                    <span className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.04]">
+                      <button
+                        type="button"
+                        onClick={() => cambiaVisor(-VISOR_PASO)}
+                        title="Vídeo más pequeño"
+                        aria-label="Vídeo más pequeño"
+                        className="px-2 py-1.5 text-white/60 transition hover:text-white"
+                      >
+                        <Minus size={14} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          ponTamañoVisor(visor.tamaño === 0 ? VISOR_MAXIMO : 0)
+                        }
+                        title={
+                          visor.tamaño === 0
+                            ? "Ajustado a la altura de la pantalla · pulsa para ocupar todo el ancho"
+                            : "Ajustar el vídeo a la altura de la pantalla, con los mandos a la vista"
+                        }
+                        className={`inline-flex min-w-[5.5rem] items-center justify-center gap-1 border-x border-white/10 px-2 py-1.5 text-[11px] tabular-nums transition ${
+                          visor.tamaño === 0
+                            ? "text-[#C8A96B]"
+                            : "text-white/60 hover:text-white"
+                        }`}
+                      >
+                        <ZoomIn size={12} />
+                        {visor.tamaño === 0 ? "Ajustado" : `${visor.tamaño}%`}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => cambiaVisor(VISOR_PASO)}
+                        title="Vídeo más grande"
+                        aria-label="Vídeo más grande"
+                        className="px-2 py-1.5 text-white/60 transition hover:text-white"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </span>
+
+                    {/* Sólo hay paneles a la derecha en pantallas anchas. */}
+                    <span className="hidden xl:inline-flex">
+                      <Button
+                        icon={visor.aLoAncho ? PanelRightOpen : PanelRightClose}
+                        onClick={visor.alternaAncho}
+                        title={
+                          visor.aLoAncho
+                            ? "Devolver los paneles a la derecha del vídeo"
+                            : "El vídeo a todo el ancho: los paneles de la derecha pasan abajo"
+                        }
+                      >
+                        {visor.aLoAncho ? "Paneles" : "A lo ancho"}
+                      </Button>
+                    </span>
 
                     <Button
                       icon={pizarraVisible ? Eye : EyeOff}
