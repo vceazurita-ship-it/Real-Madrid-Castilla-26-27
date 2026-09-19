@@ -55,6 +55,7 @@ import {
   Droplet,
   Eraser,
   Flag,
+  Clock3,
   Layers,
   Lightbulb,
   Maximize2,
@@ -65,6 +66,8 @@ import {
   Pencil,
   Pentagon,
   Ruler,
+  SkipBack,
+  SkipForward,
   Snowflake,
   Square,
   Trash2,
@@ -1627,14 +1630,22 @@ export function PizarraVideo({
 
 export function FilaPizarra({
   escena,
+  nombre: nombreMostrado,
   indice,
   activa,
   alAbrir,
   alEditar,
   alRepartir,
   alBorrar,
+  alMover,
+  alRenombrar,
+  tiempoVideoMs,
+  duracionVideoMs = 0,
+  fps = 25,
 }: {
   escena: EscenaTel;
+  /** El nombre que se enseña, que puede ser el que se le calcula al vuelo. */
+  nombre?: string;
   indice: number;
   activa: boolean;
   alAbrir: () => void;
@@ -1642,82 +1653,207 @@ export function FilaPizarra({
   /** Abre el reparto de esta pizarra entre varios cortes. */
   alRepartir?: () => void;
   alBorrar: () => void;
+  /**
+   * Llevar lo pintado a otro instante del vídeo.
+   *
+   * Marcando en directo la pausa se hace tarde, y el dibujo se quedaba
+   * clavado donde cayó: para moverlo medio segundo había que borrarlo y
+   * repetirlo entero. Los dibujos van en proporciones del lienzo, así que
+   * mover la pizarra en el tiempo no toca el dibujo, sólo el fotograma de
+   * debajo.
+   */
+  alMover?: (tMs: number) => void;
+  /** Ponerle nombre a la pizarra: se ve aquí y en la línea de tiempo. */
+  alRenombrar?: (nombre: string) => void;
+  /** Dónde va el vídeo ahora mismo, para poder traerla aquí de un botón. */
+  tiempoVideoMs?: number;
+  duracionVideoMs?: number;
+  fps?: number;
 }) {
-  const nombre = escena.nombre.trim() || `Pizarra ${indice + 1}`;
+  const nombre =
+    (nombreMostrado ?? escena.nombre).trim() || `Pizarra ${indice + 1}`;
 
   const reutilizada = escena.clipIds?.length ?? 0;
 
+  /* El panel de ajuste, cerrado: la lista tiene que seguir leyéndose. */
+  const [ajustando, setAjustando] = useState(false);
+
+  const unFotograma = Math.max(1, Math.round(1000 / Math.max(1, fps)));
+
+  const lleva = (ms: number) => {
+    if (!alMover) return;
+
+    const techo =
+      duracionVideoMs > 0 ? duracionVideoMs : Number.MAX_SAFE_INTEGER;
+
+    alMover(Math.max(0, Math.min(techo, Math.round(escena.tMs + ms))));
+  };
+
   return (
     <div
-      className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 transition ${
+      className={`rounded-xl border transition ${
         activa
           ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
           : "border-white/10 bg-white/[0.03] hover:border-white/20"
       }`}
     >
-      <button
-        type="button"
-        onClick={alAbrir}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
-      >
-        <span className="font-mono text-[11px] tabular-nums text-[#C8A96B]">
-          {formateaMs(escena.tMs)}
-        </span>
-
-        <span className="min-w-0 flex-1 truncate text-[12px] text-white/80">
-          {nombre}
-        </span>
-
-        <span className="shrink-0 text-[10px] text-white/35">
-          {escena.dibujos.length} · {Math.round(escena.duracionMs / 1000)}s
-          {escena.congelada
-            ? escena.pausaMs > 0
-              ? ` · ❄ ${Math.round(escena.pausaMs / 1000)}s`
-              : " · ❄"
-            : ""}
-        </span>
-      </button>
-
-      <button
-        type="button"
-        onClick={alEditar}
-        title="Pintar en esta pizarra"
-        aria-label="Pintar en esta pizarra"
-        className="rounded-lg p-1 text-white/40 transition hover:text-white"
-      >
-        <PenTool size={13} />
-      </button>
-
-      {alRepartir && (
+      <div className="flex items-center gap-2 px-2.5 py-2">
         <button
           type="button"
-          onClick={alRepartir}
-          title={
-            reutilizada > 0
-              ? `Se reutiliza en ${reutilizada} ${reutilizada === 1 ? "corte" : "cortes"} más`
-              : "Usar esta pizarra en otros cortes"
-          }
-          aria-label="Usar esta pizarra en otros cortes"
-          className={`flex items-center gap-0.5 rounded-lg p-1 text-[10px] tabular-nums transition ${
-            reutilizada > 0
-              ? "text-[#C8A96B]"
-              : "text-white/40 hover:text-white"
-          }`}
+          onClick={alAbrir}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <Layers size={13} />
-          {reutilizada > 0 && reutilizada}
-        </button>
-      )}
+          <span className="font-mono text-[11px] tabular-nums text-[#C8A96B]">
+            {formateaMs(escena.tMs)}
+          </span>
 
-      <button
-        type="button"
-        onClick={alBorrar}
-        title="Borrar la pizarra"
-        aria-label="Borrar la pizarra"
-        className="rounded-lg p-1 text-white/40 transition hover:text-red-300"
-      >
-        <Trash2 size={13} />
-      </button>
+          <span className="min-w-0 flex-1 truncate text-[12px] text-white/80">
+            {nombre}
+          </span>
+
+          <span className="shrink-0 text-[10px] text-white/35">
+            {escena.dibujos.length} · {Math.round(escena.duracionMs / 1000)}s
+            {escena.congelada
+              ? escena.pausaMs > 0
+                ? ` · ❄ ${Math.round(escena.pausaMs / 1000)}s`
+                : " · ❄"
+              : ""}
+          </span>
+        </button>
+
+        {(alMover || alRenombrar) && (
+          <button
+            type="button"
+            onClick={() => setAjustando((abierto) => !abierto)}
+            title="Mover la pizarra en el tiempo y ponerle nombre"
+            aria-label="Ajustar la pizarra"
+            aria-expanded={ajustando}
+            className={`rounded-lg p-1 transition ${
+              ajustando ? "text-[#C8A96B]" : "text-white/40 hover:text-white"
+            }`}
+          >
+            <Clock3 size={13} />
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={alEditar}
+          title="Pintar en esta pizarra"
+          aria-label="Pintar en esta pizarra"
+          className="rounded-lg p-1 text-white/40 transition hover:text-white"
+        >
+          <PenTool size={13} />
+        </button>
+
+        {alRepartir && (
+          <button
+            type="button"
+            onClick={alRepartir}
+            title={
+              reutilizada > 0
+                ? `Se reutiliza en ${reutilizada} ${reutilizada === 1 ? "corte" : "cortes"} más`
+                : "Usar esta pizarra en otros cortes"
+            }
+            aria-label="Usar esta pizarra en otros cortes"
+            className={`flex items-center gap-0.5 rounded-lg p-1 text-[10px] tabular-nums transition ${
+              reutilizada > 0
+                ? "text-[#C8A96B]"
+                : "text-white/40 hover:text-white"
+            }`}
+          >
+            <Layers size={13} />
+            {reutilizada > 0 && reutilizada}
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={alBorrar}
+          title="Borrar la pizarra"
+          aria-label="Borrar la pizarra"
+          className="rounded-lg p-1 text-white/40 transition hover:text-red-300"
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      {/* ------------------------ MOVERLA Y NOMBRARLA ------------------ */}
+
+      {ajustando && (alMover || alRenombrar) && (
+        <div className="space-y-2 border-t border-white/10 px-2.5 py-2">
+          {alRenombrar && (
+            <input
+              value={escena.nombre}
+              onChange={(evento) => alRenombrar(evento.target.value)}
+              placeholder={`Pizarra ${indice + 1}`}
+              className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-[12px] text-white/85 outline-none transition focus:border-[#C8A96B]/60"
+            />
+          )}
+
+          {alMover && (
+            <>
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => lleva(-1000)}
+                  title="Un segundo antes"
+                  className="rounded-md border border-white/10 px-1.5 py-0.5 text-[11px] text-white/50 transition hover:text-white"
+                >
+                  <SkipBack size={11} className="inline" /> 1s
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => lleva(-unFotograma)}
+                  title="Un fotograma antes"
+                  className="rounded-md border border-white/10 px-1.5 py-0.5 text-[11px] text-white/50 transition hover:text-white"
+                >
+                  ◀ 1f
+                </button>
+
+                <span className="min-w-[4.5rem] text-center font-mono text-[11px] tabular-nums text-[#C8A96B]">
+                  {formateaMs(escena.tMs)}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => lleva(unFotograma)}
+                  title="Un fotograma después"
+                  className="rounded-md border border-white/10 px-1.5 py-0.5 text-[11px] text-white/50 transition hover:text-white"
+                >
+                  1f ▶
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => lleva(1000)}
+                  title="Un segundo después"
+                  className="rounded-md border border-white/10 px-1.5 py-0.5 text-[11px] text-white/50 transition hover:text-white"
+                >
+                  1s <SkipForward size={11} className="inline" />
+                </button>
+              </div>
+
+              {tiempoVideoMs !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => alMover(Math.max(0, Math.round(tiempoVideoMs)))}
+                  disabled={Math.abs(tiempoVideoMs - escena.tMs) < 40}
+                  className="w-full rounded-lg border border-[#C8A96B]/40 px-2 py-1 text-[11px] text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:border-white/10 disabled:text-white/25"
+                >
+                  Traerla a donde va el vídeo ({formateaMs(tiempoVideoMs)})
+                </button>
+              )}
+
+              <p className="text-[10px] leading-relaxed text-white/30">
+                El dibujo no se toca: lo que cambia es el fotograma de debajo.
+                En la línea de tiempo también se arrastra la muesca dorada.
+              </p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

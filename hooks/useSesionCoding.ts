@@ -511,6 +511,37 @@ export function useSesionCoding(opciones: {
   );
 
   /**
+   * Cambiar algo de una pizarra ya pintada sin volver a pintarla.
+   *
+   * Lo que más se usa es el instante: marcando en directo la pausa se hace
+   * medio segundo tarde, y hasta ahora el dibujo se quedaba clavado donde
+   * cayó —para moverlo había que borrarlo y repetirlo—. Los dibujos van en
+   * proporciones del lienzo, así que cambiar `tMs` no les hace nada: lo que
+   * cambia es el fotograma de debajo.
+   *
+   * Si se toca el instante hay que **volver a ordenar**: la lista de pizarras
+   * y la línea de tiempo dan por hecho que van en orden.
+   */
+  const ajustaEscena = useCallback(
+    (escenaId: string, cambios: Partial<EscenaTel>) => {
+      muta((actual) => {
+        const escenas = actual.escenas.map((una) =>
+          una.id === escenaId ? { ...una, ...cambios } : una,
+        );
+
+        return {
+          ...actual,
+          escenas:
+            cambios.tMs === undefined
+              ? escenas
+              : [...escenas].sort((a, b) => a.tMs - b.tMs),
+        };
+      });
+    },
+    [muta],
+  );
+
+  /**
    * En qué cortes se reutiliza una pizarra, además de en el suyo.
    *
    * Se guarda en la escena y no en el clip porque la pizarra es lo que se
@@ -671,6 +702,7 @@ export function useSesionCoding(opciones: {
     deshacer,
     vaciaCortes,
     guardaEscena,
+    ajustaEscena,
     ponClipsDeEscena,
     borraEscena,
     ponFuente,

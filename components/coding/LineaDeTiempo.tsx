@@ -35,6 +35,7 @@ export function LineaDeTiempo({
   onSalta,
   onElegirClip,
   onElegirEscena,
+  onMueveEscena,
 }: {
   duracionMs: number;
   tiempoMs: number;
@@ -47,10 +48,26 @@ export function LineaDeTiempo({
   onSalta: (ms: number) => void;
   onElegirClip: (id: string) => void;
   onElegirEscena?: (id: string) => void;
+  /**
+   * Llevar una pizarra a otro instante arrastrando su muesca.
+   *
+   * Sin esto, lo pintado se quedaba clavado donde se pintó: si la pausa se
+   * había hecho medio segundo tarde —que es lo normal marcando en directo—
+   * había que borrar el dibujo y volver a hacerlo. El dibujo va en
+   * proporciones del lienzo, así que moverlo en el tiempo no le hace nada.
+   */
+  onMueveEscena?: (id: string, tMs: number) => void;
 }) {
   const barraRef = useRef<HTMLDivElement>(null);
 
   const [encima, setEncima] = useState<number | null>(null);
+
+  /* La pizarra que se está arrastrando, con el sitio donde va ahora mismo. */
+  const [arrastrada, setArrastrada] = useState<{
+    id: string;
+    tMs: number;
+    movida: boolean;
+  } | null>(null);
 
   const porcentaje = useCallback(
     (ms: number) => (duracionMs > 0 ? (ms / duracionMs) * 100 : 0),
@@ -145,21 +162,75 @@ export function LineaDeTiempo({
         | una pizarra es un instante dibujado encima. Mezcladas, la línea de
         | tiempo dejaba de leerse de un vistazo.
         */}
-        {(escenas ?? []).map((escena) => (
-          <button
-            key={escena.id}
-            type="button"
-            title={`Pizarra · ${escena.nombre.trim() || formateaMs(escena.tMs)} (${escena.dibujos.length} dibujos)`}
-            onClick={(evento) => {
-              evento.stopPropagation();
+        {(escenas ?? []).map((escena) => {
+          const suelta = arrastrada?.id === escena.id ? arrastrada : null;
 
-              if (onElegirEscena) onElegirEscena(escena.id);
-              else onSalta(escena.tMs);
-            }}
-            className="absolute top-0 h-2 w-1.5 -translate-x-1/2 rounded-b-sm bg-[#C8A96B] transition hover:h-3"
-            style={{ left: `${porcentaje(escena.tMs)}%` }}
-          />
-        ))}
+          const donde = suelta ? suelta.tMs : escena.tMs;
+
+          return (
+            <button
+              key={escena.id}
+              type="button"
+              title={`Pizarra · ${escena.nombre.trim() || formateaMs(escena.tMs)} (${escena.dibujos.length} dibujos)${
+                onMueveEscena
+                  ? "\nArrástrala para llevarla a otro instante"
+                  : ""
+              }`}
+              onPointerDown={(evento) => {
+                if (!onMueveEscena || evento.button !== 0) return;
+
+                evento.stopPropagation();
+                evento.preventDefault();
+
+                evento.currentTarget.setPointerCapture(evento.pointerId);
+
+                setArrastrada({ id: escena.id, tMs: escena.tMs, movida: false });
+              }}
+              onPointerMove={(evento) => {
+                if (arrastrada?.id !== escena.id) return;
+
+                evento.stopPropagation();
+
+                const tMs = msDeEvento(evento.clientX);
+
+                setArrastrada({ id: escena.id, tMs, movida: true });
+              }}
+              onPointerUp={(evento) => {
+                if (arrastrada?.id !== escena.id) return;
+
+                evento.stopPropagation();
+
+                /*
+                | Un clic es un arrastre de cero: si la muesca no se ha movido
+                | se abre la pizarra, que es lo de siempre; si se ha movido,
+                | se lleva ahí y no se abre nada.
+                */
+                if (arrastrada.movida && onMueveEscena) {
+                  onMueveEscena(escena.id, arrastrada.tMs);
+                } else if (onElegirEscena) {
+                  onElegirEscena(escena.id);
+                } else {
+                  onSalta(escena.tMs);
+                }
+
+                setArrastrada(null);
+              }}
+              onClick={(evento) => {
+                evento.stopPropagation();
+
+                /* Con `onMueveEscena` manda el puntero, no el clic. */
+                if (onMueveEscena) return;
+
+                if (onElegirEscena) onElegirEscena(escena.id);
+                else onSalta(escena.tMs);
+              }}
+              className={`absolute top-0 -translate-x-1/2 rounded-b-sm bg-[#C8A96B] transition hover:h-3 ${
+                onMueveEscena ? "cursor-ew-resize" : ""
+              } ${suelta?.movida ? "h-4 w-2 shadow-[0_0_8px_#C8A96B]" : "h-2 w-1.5"}`}
+              style={{ left: `${porcentaje(donde)}%` }}
+            />
+          );
+        })}
 
         {/* El tramo que se está marcando ahora mismo. */}
         {inicioPendienteMs !== null && (
@@ -194,7 +265,11 @@ export function LineaDeTiempo({
         <span>{formateaMs(tiempoMs)}</span>
 
         <span className="text-white/25">
-          {encima !== null ? formateaMs(encima) : `${clips.length} clips`}
+          {arrastrada?.movida
+            ? `Pizarra → ${formateaMs(arrastrada.tMs)}`
+            : encima !== null
+              ? formateaMs(encima)
+              : `${clips.length} clips`}
         </span>
 
         <span>{formateaMs(duracionMs)}</span>

@@ -1635,6 +1635,42 @@ function Coding() {
     [escenas, reproductor, salta],
   );
 
+  /**
+   * Llevar una pizarra a otro instante del vídeo.
+   *
+   * Lo pintado va en proporciones del lienzo, así que aquí no se toca ni un
+   * dibujo: cambia el fotograma de debajo. El vídeo se lleva al sitio nuevo
+   * —y se para— para que se vea enseguida si la pizarra ha caído donde
+   * tenía que caer.
+   */
+  const mueveEscena = useCallback(
+    (id: string, tMs: number) => {
+      const escena = escenas.find((una) => una.id === id);
+
+      if (!escena) return;
+
+      const techo = estado.duracionMs > 0 ? estado.duracionMs : tMs;
+
+      const sitio = Math.max(0, Math.min(techo, Math.round(tMs)));
+
+      if (sitio === escena.tMs) return;
+
+      sesion.ajustaEscena(id, { tMs: sitio });
+
+      reproductor.pausa();
+      salta(sitio);
+      setPizarraVisible(true);
+    },
+    [escenas, estado.duracionMs, reproductor, salta, sesion],
+  );
+
+  const renombraEscena = useCallback(
+    (id: string, nombre: string) => {
+      sesion.ajustaEscena(id, { nombre });
+    },
+    [sesion],
+  );
+
   /*
   | Las pizarras congeladas paran el vídeo al llegar.
   |
@@ -3360,6 +3396,7 @@ function Coding() {
                         if (clip) reproduceClip(clip);
                       }}
                       onElegirEscena={(id) => abreEscena(id, false)}
+                      onMueveEscena={mueveEscena}
                     />
                   </div>
                 </div>
@@ -3657,11 +3694,16 @@ function Coding() {
                       {escenas.map((escena, indice) => (
                         <FilaPizarra
                           key={escena.id}
-                          escena={{
-                            ...escena,
-                            nombre: nombreEscena(escena, indice),
-                          }}
+                          escena={escena}
+                          nombre={nombreEscena(escena, indice)}
                           indice={indice}
+                          tiempoVideoMs={estado.tiempoMs}
+                          duracionVideoMs={estado.duracionMs}
+                          fps={sesion.sesion.fps}
+                          alMover={(tMs) => mueveEscena(escena.id, tMs)}
+                          alRenombrar={(nombre) =>
+                            renombraEscena(escena.id, nombre)
+                          }
                           activa={escena.id === pizarraEditando}
                           alAbrir={() => abreEscena(escena.id, false)}
                           alEditar={() => abreEscena(escena.id, true)}
