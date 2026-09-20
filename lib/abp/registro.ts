@@ -36,6 +36,10 @@ export type RegistroTarea = {
   tarea: string;
   tipoTarea: string;
   fase: string;
+  /** Cómo se monta la tarea: «8v8+6». Lo pide el editor de microciclos para
+      poder sugerir lo que ya se usa. */
+  formato: string;
+  grupo: string;
   contenidoPrincipal: string;
   contenidoSecundario: string;
   tiempo: number;
@@ -139,6 +143,8 @@ export async function loadRegistro(): Promise<RegistroDataset> {
     tarea: indiceDe(cabeceras, "tarea"),
     tipoTarea: indiceDe(cabeceras, "tipo tarea"),
     fase: indiceDe(cabeceras, "fase"),
+    formato: indiceDe(cabeceras, "formato"),
+    grupo: indiceDe(cabeceras, "grupo"),
     principal: indiceDe(cabeceras, "contenido principal"),
     secundario: indiceDe(cabeceras, "contenido secundario"),
     tiempo: indiceDe(cabeceras, "tiempo"),
@@ -177,6 +183,8 @@ export async function loadRegistro(): Promise<RegistroDataset> {
       tarea,
       tipoTarea: texto(fila, col.tipoTarea),
       fase: texto(fila, col.fase),
+      formato: texto(fila, col.formato),
+      grupo: texto(fila, col.grupo),
       contenidoPrincipal: texto(fila, col.principal),
       contenidoSecundario: texto(fila, col.secundario),
       tiempo: numero(fila, col.tiempo),

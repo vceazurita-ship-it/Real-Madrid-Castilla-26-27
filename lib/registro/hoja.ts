@@ -170,6 +170,58 @@ export type MicroNuevo = {
   sesiones: SesionNueva[];
 };
 
+/* ------------------------------------------------------------------ */
+/*  LO QUE YA SE ESCRIBE EN LA HOJA                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Las opciones, sacadas de la propia hoja y ordenadas por lo que más se usa.
+ *
+ * Las listas de arriba son el respaldo —lo que hay que ofrecer una temporada
+ * nueva, con la hoja en blanco— pero mandan los valores que el cuerpo técnico
+ * viene escribiendo: «Partido Reducido» y «Juego de Posición» existen y no
+ * estaban en ningún catálogo, y escribirlos distinto rompe los agrupados de
+ * `/microcycles`.
+ */
+export function sugerenciasDelRegistro(
+  tareas: {
+    tipoTarea: string;
+    fase: string;
+    formato: string;
+    grupo: string;
+    contenidoPrincipal: string;
+    contenidoSecundario: string;
+  }[],
+) {
+  const porUso = (valores: string[], respaldo: string[] = []) => {
+    const cuenta = new Map<string, number>();
+
+    for (const bruto of valores) {
+      const valor = (bruto || "").trim();
+
+      if (!valor) continue;
+
+      cuenta.set(valor, (cuenta.get(valor) ?? 0) + 1);
+    }
+
+    const usados = [...cuenta].sort((a, b) => b[1] - a[1]).map(([valor]) => valor);
+
+    /* Lo del catálogo que nadie ha usado todavía, detrás y en su orden. */
+    return [...usados, ...respaldo.filter((uno) => !cuenta.has(uno))];
+  };
+
+  return {
+    tipos: porUso(tareas.map((t) => t.tipoTarea), TIPOS_TAREA),
+    fases: porUso(tareas.map((t) => t.fase), FASES),
+    formatos: porUso(tareas.map((t) => t.formato)),
+    grupos: porUso(tareas.map((t) => t.grupo), GRUPOS),
+    principales: porUso(tareas.map((t) => t.contenidoPrincipal)),
+    secundarios: porUso(tareas.map((t) => t.contenidoSecundario)),
+  };
+}
+
+export type Sugerencias = ReturnType<typeof sugerenciasDelRegistro>;
+
 export function tareaVacia(dia: string, numero: number): TareaNueva {
   return {
     tarea: `${dia}-T${numero}`,
@@ -202,6 +254,131 @@ export function tareaDeCompeticion(dia: string): TareaNueva {
     tipoTarea: "Competición",
     fase: "Competición",
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  MANEJAR LAS SESIONES                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Renumera las tareas de una sesión: D-T1, D-T2…
+ *
+ * Quitar la segunda de cuatro dejaba T1, T3 y T4, y en la hoja eso se lee como
+ * que falta una. La del partido («X-COMP») no lleva número y se queda quieta.
+ */
+export function renumera(sesion: SesionNueva): SesionNueva {
+  let numero = 0;
+
+  return {
+    ...sesion,
+    tareas: sesion.tareas.map((tarea) => {
+      if (/-COMP$/i.test(tarea.tarea)) return tarea;
+
+      numero += 1;
+
+      return { ...tarea, tarea: `${sesion.dia}-T${numero}` };
+    }),
+  };
+}
+
+/** Minutos de cada sesión y del microciclo entero. */
+export function minutosDe(sesiones: SesionNueva[]) {
+  const porFecha: Record<string, number> = {};
+
+  let total = 0;
+
+  let tareas = 0;
+
+  for (const sesion of sesiones) {
+    const suyos = sesion.tareas.reduce((suma, tarea) => suma + (tarea.tiempo || 0), 0);
+
+    porFecha[sesion.fecha] = suyos;
+
+    total += suyos;
+
+    tareas += sesion.tareas.length;
+  }
+
+  return { porFecha, total, tareas };
+}
+
+/** Los minutos de balón parado, que son los que mide el microciclo de ABP. */
+export function minutosAbp(sesiones: SesionNueva[]) {
+  return sesiones.reduce(
+    (suma, sesion) =>
+      suma +
+      sesion.tareas.reduce(
+        (parcial, tarea) =>
+          parcial + (FASES_ABP.includes(tarea.fase) ? tarea.tiempo || 0 : 0),
+        0,
+      ),
+    0,
+  );
+}
+
+export type TareaDeOtro = {
+  dia: string;
+  md: string;
+  tarea: string;
+  tipoTarea: string;
+  fase: string;
+  formato: string;
+  grupo: string;
+  contenidoPrincipal: string;
+  contenidoSecundario: string;
+  tiempo: number;
+  intensidad: number;
+  exigCog: number;
+};
+
+/**
+ * Copia la estructura de otro microciclo sobre el que se está creando.
+ *
+ * Una semana se parece mucho a la anterior: los mismos tipos de tarea en el
+ * mismo sitio, los mismos contenidos, los mismos tiempos. Copiarla y cambiar lo
+ * que toque es la mitad del trabajo.
+ *
+ * **Se ata por MD, no por día de la semana**: el MD-2 de la semana pasada es el
+ * MD-2 de ésta aunque uno cayera en sábado y el otro en lunes. Lo que no
+ * encuentre pareja se queda como estaba, sin borrar nada.
+ */
+export function copiaEstructura(
+  sesiones: SesionNueva[],
+  deOtro: TareaDeOtro[],
+): SesionNueva[] {
+  const porMd = new Map<string, TareaDeOtro[]>();
+
+  for (const tarea of deOtro) {
+    const clave = (tarea.md || "").trim().toUpperCase();
+
+    if (!clave) continue;
+
+    porMd.set(clave, [...(porMd.get(clave) ?? []), tarea]);
+  }
+
+  return sesiones.map((sesion) => {
+    const suyas = porMd.get((sesion.md || "").trim().toUpperCase());
+
+    if (!suyas || suyas.length === 0) return sesion;
+
+    return renumera({
+      ...sesion,
+      tareas: suyas.map((tarea, indice) => ({
+        ...tareaVacia(sesion.dia, indice + 1),
+        /* La del partido conserva su nombre; las demás se renumeran después. */
+        tarea: /-COMP$/i.test(tarea.tarea) ? `${sesion.dia}-COMP` : `${sesion.dia}-T${indice + 1}`,
+        tipoTarea: tarea.tipoTarea,
+        fase: tarea.fase,
+        formato: tarea.formato,
+        grupo: tarea.grupo || "Plantilla Parcial",
+        contenidoPrincipal: tarea.contenidoPrincipal,
+        contenidoSecundario: tarea.contenidoSecundario,
+        tiempo: tarea.tiempo,
+        intensidad: tarea.intensidad,
+        exigCog: tarea.exigCog,
+      })),
+    });
+  });
 }
 
 /* ------------------------------------------------------------------ */
