@@ -119,14 +119,22 @@ export function EstadoJornada({
     (uno) => mejor && uno.marcador.aciertos === mejor.marcador.aciertos,
   );
 
-  /* Cuántos han dejado su apuesta: es el otro «estado» que se pregunta. */
-  const apostaron = jugadores.filter((slug) =>
-    (jornada.pronosticos[slug] ?? []).some(Boolean),
-  ).length;
+  /*
+  | Cuántos han dejado su apuesta: es el otro «estado» que se pregunta.
+  |
+  | **Se cuenta con `puestos`, no con los pronósticos.** Antes del viernes el
+  | servidor sólo manda el pronóstico de quien pregunta —de los demás manda
+  | cuántos signos llevan— así que contando aquí salía siempre «1 de 10» y el
+  | pie decía «faltan 9 por empezar» con la quiniela de todos ya rellena. El
+  | panel de al lado, que sí usa `puestos`, decía lo contrario en la misma
+  | pantalla.
+  */
+  const cuantosPuestos = (slug: string) =>
+    jornada.puestos?.[slug] ?? (jornada.pronosticos[slug] ?? []).filter(Boolean).length;
 
-  const completas = jugadores.filter(
-    (slug) => (jornada.pronosticos[slug] ?? []).filter(Boolean).length === partidos,
-  ).length;
+  const apostaron = jugadores.filter((slug) => cuantosPuestos(slug) > 0).length;
+
+  const completas = jugadores.filter((slug) => cuantosPuestos(slug) === partidos).length;
 
   const cuando = jornada.resultadosEn ? hace(jornada.resultadosEn, ahora) : "";
 

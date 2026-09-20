@@ -222,7 +222,22 @@ export default function QuinielaPage() {
 
   const borrador = borradores[String(jornada)];
 
-  const mios = borrador ?? guardados;
+  /*
+  | Con la jornada cerrada mandan los guardados, aunque haya borrador.
+  |
+  | Si alguien marcaba los nueve signos a las 11:59 y no pulsaba «Guardar», a
+  | las 12:00 la pantalla le seguía enseñando SUS signos —el borrador— debajo
+  | del cartel de «jornada cerrada», mientras la parrilla de al lado mostraba
+  | su fila vacía. Se iba convencido de haber apostado.
+  */
+  const mios = plazo.cerrada ? guardados : (borrador ?? guardados);
+
+  /* Y si se quedó a medias, se dice en vez de dejarlo a su interpretación. */
+  const borradorPerdido =
+    Boolean(yo) &&
+    plazo.cerrada &&
+    borrador !== undefined &&
+    !mismosSignos(borrador, guardados, partidos.length);
 
   const sinGuardar =
     Boolean(yo) &&
@@ -704,6 +719,18 @@ export default function QuinielaPage() {
                 }
                 icon={ListOrdered}
               >
+                {/* Se quedó a medias: lo que se ve abajo es lo guardado, no lo
+                    que marcó y no llegó a guardar. */}
+                {borradorPerdido && (
+                  <div className="mb-3">
+                    <Notice tone="warn" title="Marcaste signos que no llegaste a guardar">
+                      La jornada se cerró antes de pulsar «Guardar mi apuesta», así que lo que se
+                      ve aquí es lo que había guardado, no lo que dejaste marcado. Ya no se puede
+                      cambiar.
+                    </Notice>
+                  </div>
+                )}
+
                 {/* El plazo, siempre a la vista: es lo que más se pregunta. */}
                 {plazo.viernes && (
                   <div
@@ -755,14 +782,22 @@ export default function QuinielaPage() {
                         const acertado = resultado && mio === resultado;
                         const fallado = resultado && mio && mio !== resultado;
 
-                        /* Cuántos de los que juegan lo han acertado: es lo
-                           que se comenta el lunes. */
-                        const aciertan = resultado
-                          ? jugadores.filter(
-                              (slug) =>
-                                laJornada.pronosticos[slug]?.[indice] === resultado,
-                            ).length
-                          : 0;
+                        /*
+                        | Cuántos de los que juegan lo han acertado: es lo que
+                        | se comenta el lunes.
+                        |
+                        | Sólo se puede contar con la jornada cerrada: antes,
+                        | el servidor no manda los pronósticos de los demás
+                        | —y hace bien—, así que el recuento salía «1 de 10»
+                        | aunque lo hubieran acertado todos.
+                        */
+                        const aciertan =
+                          resultado && plazo.cerrada
+                            ? jugadores.filter(
+                                (slug) =>
+                                  laJornada.pronosticos[slug]?.[indice] === resultado,
+                              ).length
+                            : null;
 
                         return (
                           <tr
@@ -808,7 +843,7 @@ export default function QuinielaPage() {
                             </td>
 
                             <td className="py-2 text-center text-[11px] tabular-nums text-white/45">
-                              {resultado ? `${aciertan}/${jugadores.length}` : "—"}
+                              {aciertan === null ? "—" : `${aciertan}/${jugadores.length}`}
                             </td>
                           </tr>
                         );

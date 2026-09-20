@@ -196,13 +196,25 @@ export default function AjustesPage() {
       fetch("/api/mantenimiento", { cache: "no-store" })
         .then((r) => r.json() as Promise<{ ok?: boolean; estado?: Mantenimiento; vigia?: Vigia | null }>)
         .then((datos) => {
-          if (cancelado || !datos.ok) return;
+          if (cancelado) return;
+
+          /*
+          | El reloj se pone al día aunque la lectura falle.
+          |
+          | Estaba dentro del «si ha ido bien», así que un 503 —la tabla, la
+          | red— dejaba `ahora` en cero para siempre: el banner se quedaba en
+          | «Mirando si el ordenador del club está escuchando…» girando, los
+          | «hace X min» salían vacíos y un encargo cortado no se detectaba
+          | nunca, con su botón deshabilitado.
+          */
+          setAhora(Date.now());
+
+          if (!datos.ok) return;
 
           const nuevo = datos.estado ?? {};
 
           setEstado(nuevo);
           setVigia(datos.vigia ?? null);
-          setAhora(Date.now());
 
           for (const [tarea, pedidoEn] of Object.entries(esperando.current) as [Tarea, string][]) {
             const suyo = nuevo[tarea];
