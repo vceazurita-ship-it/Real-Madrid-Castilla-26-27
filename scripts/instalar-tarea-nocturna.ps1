@@ -68,15 +68,16 @@ $disparador.Repetition = (New-ScheduledTaskTrigger -Once -At "00:00" `
 # de perderse esa noche. `DontStopIfGoingOnBatteries` para que no la corte al
 # desenchufar el portátil a media descarga —son unos cuarenta minutos—.
 #
-# El plazo es de **hora y media**, no de dos horas: si fuera de dos, una
+# El plazo es de **115 minutos**, no de dos horas: si fuera de dos, una
 # pasada colgada moriría en el mismo instante en que arranca la repetición
-# siguiente, y con `IgnoreNew` esa repetición se perdería. Media hora de
-# holgura basta para que el hueco esté siempre libre.
+# siguiente, y con `IgnoreNew` esa repetición se perdería. Cinco minutos de
+# holgura bastan, y hacen falta: con hora y media Windows cortó la pasada del
+# 20/09/2026 a los 93 minutos, con 514 fichas de jugador por descargar.
 $opciones = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
     -DontStopIfGoingOnBatteries `
     -AllowStartIfOnBatteries `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 90) `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 115) `
     -MultipleInstances IgnoreNew
 
 # Fuera de la consola.

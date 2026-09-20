@@ -50,13 +50,17 @@ rem  es lo que se quiere despues de un partido de la tarde.
 if /I "%~1"=="--forzar" goto :adelante
 
 rem  El boton de Ajustes de la app no ejecuta nada: deja un encargo en
-rem  Supabase, porque el servidor no puede bajar de BeSoccer. Si lo hay, se
-rem  hace la pasada aunque ya se hubiera hecho hoy, y al terminar se marca.
+rem  Supabase, porque el servidor no puede bajar de BeSoccer. El vigia
+rem  (scripts\vigia.cjs) lanza esta tarea al verlo. Si lo hay, se hace la
+rem  pasada aunque ya se hubiera hecho hoy, se apunta que ha empezado y, al
+rem  terminar, COMO HA IDO, tambien si falla: sin eso el vigia volveria a
+rem  lanzarla una y otra vez.
 set "PEDIDO="
-call node scripts\peticion-nocturna.cjs --hay >> "%LOG%" 2>&1
+call node scripts\peticion-nocturna.cjs --hay rivales >> "%LOG%" 2>&1
 if not errorlevel 1 (
   set "PEDIDO=1"
   echo Hay un encargo desde la app: se hace igual. >> "%LOG%"
+  call node scripts\peticion-nocturna.cjs --empieza rivales >> "%LOG%" 2>&1
   goto :adelante
 )
 
@@ -100,12 +104,14 @@ if "%SALIDA_CURL%"=="60" (
   echo   ^(en la wifi del club es el portal cautivo, wlc.realmadrid.es^). >> "%LOG%"
   echo   Se reintenta en la siguiente pasada. >> "%LOG%"
   echo LA RED NO DEJA PASAR: certificado interceptado. Se reintentara.
+  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho rivales "la red del ordenador del club no deja pasar (portal cautivo)" --fallo >> "%LOG%" 2>&1
   goto :limpieza
 )
 
 if not "%CODIGO_BESOCCER%"=="200" (
   echo BESOCCER NO CONTESTA BIEN ^(HTTP %CODIGO_BESOCCER%^). Se reintenta en la siguiente pasada. >> "%LOG%"
   echo BESOCCER NO CONTESTA BIEN ^(HTTP %CODIGO_BESOCCER%^). Se reintentara.
+  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho rivales "BeSoccer no contesta bien (HTTP %CODIGO_BESOCCER%)" --fallo >> "%LOG%" 2>&1
   goto :limpieza
 )
 
@@ -115,6 +121,7 @@ if errorlevel 60 (
   echo NO SE LLEGA A LA HOJA ^(script.google.com^): conexion interceptada. >> "%LOG%"
   echo   Se reintenta en la siguiente pasada. >> "%LOG%"
   echo NO SE LLEGA A LA HOJA: conexion interceptada. Se reintentara.
+  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho rivales "no se llega a la hoja: conexion interceptada" --fallo >> "%LOG%" 2>&1
   goto :limpieza
 )
 
@@ -201,6 +208,10 @@ echo. >> "%LOG%"
 if defined HUBO_FALLO (
   echo TERMINADO CON FALLOS · %DATE% %TIME% >> "%LOG%"
   echo Terminado con fallos. Se reintentara en la siguiente pasada.
+
+  rem  El encargo se contesta igual: lo que ha salido bien ya esta arriba, y
+  rem  la repeticion de dentro de dos horas vuelve a por lo que falto.
+  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho rivales "hecha con algun fallo; el registro esta en .cache\jornada-nocturna" --fallo >> "%LOG%" 2>&1
 ) else (
   echo Terminado sin incidencias · %DATE% %TIME% >> "%LOG%"
   echo Terminado sin incidencias.
@@ -209,7 +220,7 @@ if defined HUBO_FALLO (
   echo %DATE% %TIME% > "%HECHO%"
 
   rem Y si esta pasada venia de un encargo de la app, queda contestado.
-  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho "sin incidencias" >> "%LOG%" 2>&1
+  if defined PEDIDO call node scripts\peticion-nocturna.cjs --hecho rivales "hecha sin incidencias" >> "%LOG%" 2>&1
 )
 
 :limpieza
