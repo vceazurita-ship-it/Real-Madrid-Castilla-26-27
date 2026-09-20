@@ -42,6 +42,8 @@ export type MedidaAbp = {
   sentido: "alto" | "neutro";
 };
 
+import type { FilaGolesAbp } from "@/lib/data-analisis/goles-abp";
+
 export type ValoresAbp = Record<
   string,
   { favor: number | null; contra: number | null }
@@ -67,6 +69,13 @@ export type ComparativaAbp = {
   liga: FilaEquipoAbp[];
   nosotros: FilaEquipoAbp | null;
   historico: FilaTemporadaAbp[];
+  /**
+   * Los goles de ABP estimados de cada equipo, con los factores de Opta.
+   *
+   * Opcional: los informes guardados antes del 20/09/2026 no lo traen, y el
+   * boceto del microciclo se apaña sin ellos.
+   */
+  golesAbp?: FilaGolesAbp[];
 };
 
 /**

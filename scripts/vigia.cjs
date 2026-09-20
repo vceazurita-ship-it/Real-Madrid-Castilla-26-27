@@ -150,6 +150,27 @@ const acaba = (tarea, ok, resultado) =>
 /** Lo que está corriendo desde este vigía. */
 const enMarcha = new Set();
 
+/**
+ * El calendario del Castilla, que no es un encargo de nadie.
+ *
+ * Lo necesita el microciclo para saber cuándo se juega el próximo partido, y
+ * cambia poco: se refresca al arrancar y cada seis horas. Es **una** página de
+ * BeSoccer, así que no molesta a nada.
+ */
+let calendarioEn = 0;
+
+const CALENDARIO_CADA_MS = 6 * 3_600_000;
+
+async function refrescaCalendario() {
+  calendarioEn = Date.now();
+
+  const { codigo, texto } = await ejecuta("calendario", process.execPath, [
+    path.join(RAIZ, "scripts/castilla-calendario.cjs"),
+  ]);
+
+  apunta(`Calendario: ${resumen(texto) || (codigo === 0 ? "al día" : `no ha salido (${codigo})`)}.`);
+}
+
 /** Cuándo se lanzó por última vez la tarea nocturna, para no insistir. */
 let tareaLanzadaEn = 0;
 
@@ -211,7 +232,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -390,6 +411,14 @@ async function ronda() {
     }
   } else {
     nocturnaCorriendo = false;
+  }
+
+  if (Date.now() - calendarioEn > CALENDARIO_CADA_MS && !enMarcha.has("calendario")) {
+    enMarcha.add("calendario");
+
+    refrescaCalendario()
+      .catch((error) => apunta(`Calendario: se ha roto (${error.message}).`))
+      .finally(() => enMarcha.delete("calendario"));
   }
 
   if (Date.now() - ultimoLatido > LATIDO_MS) await latido();

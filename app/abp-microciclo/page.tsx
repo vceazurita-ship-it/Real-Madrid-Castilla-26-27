@@ -33,10 +33,12 @@ import {
   Mail,
   Plus,
   Download,
+  Sparkles,
   Target,
   TriangleAlert,
 } from "lucide-react";
 
+import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
 import { InformeMicroDialog } from "@/components/abp/InformeMicroDialog";
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
 
@@ -92,6 +94,7 @@ import {
   type MicroStore,
   type TipoDia,
   type Trabajo,
+  type PlanDia,
 } from "@/lib/abp/microciclo";
 import {
   buscaPartido,
@@ -524,6 +527,9 @@ export default function AbpMicrocicloPage() {
 
   const [importando, setImportando] = useState(false);
 
+  /* El boceto de la semana: lo propone la app y se aplica al plan a mano. */
+  const [bocetoAbierto, setBocetoAbierto] = useState(false);
+
   /* El informe de la semana: se mira aquí y se manda por correo desde la
      cuenta del club. Lo arma `lib/abp/informe-micro.ts`. */
   const [informeAbierto, setInformeAbierto] = useState(false);
@@ -593,6 +599,34 @@ export default function AbpMicrocicloPage() {
       });
 
       setImportando(false);
+    },
+    [mutaPlan],
+  );
+
+  /* ------------------------------ BOCETO ------------------------------- */
+
+  /**
+   * Aplicar lo propuesto.
+   *
+   * Llega la semana entera ya montada (`lib/abp/boceto.ts`): los días con su
+   * tipo y su MD, y las tareas con su marca. Se escribe de una vez —un solo
+   * guardado— y se apunta el rival del próximo partido si el microciclo no
+   * tenía ninguno, que es lo que ata el plan con la competición.
+   */
+  const aplicaBoceto = useCallback(
+    (dias: Record<DiaKey, PlanDia>, rival: string, diasEntrenados: number) => {
+      mutaPlan((actual) => ({
+        ...actual,
+        rival: actual.rival || rival,
+        dias,
+        diasEntrenados,
+      }));
+
+      setBocetoAbierto(false);
+
+      toast.success("Boceto aplicado", {
+        description: "Está en la semana como cualquier otra tarea: muévelo, recórtalo y ciérralo.",
+      });
     },
     [mutaPlan],
   );
@@ -871,6 +905,16 @@ export default function AbpMicrocicloPage() {
                     : `Sin descansos marcados: se leen ${semana.dias} con trabajo`}
               </span>
             </label>
+
+            <Button
+              tone="primary"
+              icon={Sparkles}
+              onClick={() => setBocetoAbierto(true)}
+              disabled={!claveActiva}
+              title="Proponer la semana entera: días, aspectos y minutos, según el próximo partido, nuestro rendimiento y el del rival"
+            >
+              Proponer boceto
+            </Button>
 
             <Button
               icon={Download}
@@ -1239,6 +1283,16 @@ export default function AbpMicrocicloPage() {
               : undefined
           }
           onCerrar={() => setEditor(null)}
+        />
+      )}
+
+      {bocetoAbierto && (
+        <BocetoDialog
+          filas={filas}
+          plan={plan}
+          events={competicion?.events ?? []}
+          onAplicar={aplicaBoceto}
+          onCerrar={() => setBocetoAbierto(false)}
         />
       )}
 

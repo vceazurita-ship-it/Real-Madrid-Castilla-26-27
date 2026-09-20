@@ -7,7 +7,7 @@ import {
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
 import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
-import { equiposConMuestra } from "@/lib/data-analisis/goles-abp";
+import { equiposConMuestra, golesAbpDeEquipo } from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { readDoc } from "@/lib/docStore";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
@@ -503,6 +503,17 @@ function abpParaInforme(datos: Dataset) {
     liga,
     nosotros,
     historico,
+    /*
+    | Los goles de balón parado de cada equipo, estimados.
+    |
+    | No es una métrica de Wyscout: es el reparto de los goles por su origen
+    | con los factores calibrados contra Opta (`lib/data-analisis/goles-abp.ts`,
+    | córner ×0,49 y falta ×1,35). Va aquí porque calcularlo en el navegador
+    | obligaría a bajarse el dataset entero —dos megas— y esto son unas líneas
+    | más en un paquete de cuatro kilobytes. Lo usa el boceto del microciclo
+    | para decir de qué vive el rival al que se juega.
+    */
+    golesAbp: liga.map((fila) => golesAbpDeEquipo(fila.equipo, deLaLiga)),
   };
 }
 
