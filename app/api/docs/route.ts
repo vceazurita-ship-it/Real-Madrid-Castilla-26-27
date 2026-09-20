@@ -112,7 +112,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await writeDoc(key, kind, body.data);
+    /*
+    | `basadaEn` es la versión sobre la que se editó.
+    |
+    | Con ella, si otro ha guardado en medio no se escribe encima: se contesta
+    | 409 con lo que hay ahora, y la pantalla decide. Sin ella se escribe como
+    | siempre —lo mandan los guardados de despedida del navegador, que no
+    | pueden preguntar nada—, así que quien la manda gana seguridad y quien no,
+    | se comporta como antes.
+    */
+    const basadaEn =
+      body?.basadaEn === undefined ? undefined : (body.basadaEn as string | null);
+
+    const result = await writeDoc(key, kind, body.data, basadaEn);
+
+    if (result.conflicto) {
+      return NextResponse.json(
+        {
+          success: false,
+          conflicto: true,
+          error: "Alguien ha guardado este documento mientras lo editabas.",
+          updatedAt: result.conflicto.updatedAt,
+          data: result.conflicto.actual,
+        },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({
       success: true,

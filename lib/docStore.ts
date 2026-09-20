@@ -61,12 +61,67 @@ export async function readDoc<T = unknown>(
   };
 }
 
+export type ConflictoDoc = {
+  /** Lo que hay ahora mismo en el servidor, para poder enseñarlo o releerlo. */
+  actual: unknown;
+  updatedAt: string | null;
+};
+
+/**
+ * Guarda un documento.
+ *
+ * **Con `basadaEn` se comprueba que nadie haya escrito en medio.** Es el
+ * `updatedAt` que tenía quien edita cuando empezó: si el del servidor es otro,
+ * hay alguien más —otra pestaña, otro portátil, el ordenador del club— que ha
+ * guardado desde entonces, y escribir encima sería borrar su trabajo sin que
+ * nadie se entere. Eso no se resuelve solo: se devuelve el conflicto para que
+ * la pantalla lo cuente y decida quien está delante.
+ *
+ * Sin `basadaEn` se escribe como siempre: lo usan los documentos que no edita
+ * nadie a mano (cachés, latidos, lo que escribe un script).
+ */
 export async function writeDoc(
   key: string,
   kind: string,
-  data: unknown
-): Promise<DocResult> {
+  data: unknown,
+  basadaEn?: string | null
+): Promise<DocResult & { conflicto?: ConflictoDoc }> {
   const updatedAt = new Date().toISOString();
+
+  if (basadaEn !== undefined) {
+    const previo = await readDoc(key);
+
+    if (previo.missingTable) {
+      return { data: null, updatedAt: null, missingTable: true };
+    }
+
+    /* `null` es «no había documento»: sólo cuadra si sigue sin haberlo. */
+    const enServidor = previo.updatedAt ?? null;
+
+    const esperado = basadaEn ?? null;
+
+    /*
+    | Se comparan como INSTANTES, no como texto.
+    |
+    | Supabase devuelve «…+00:00» y aquí se escribe «…Z»: el mismo momento en
+    | dos formatos. Comparando cadenas, el segundo guardado seguido de la misma
+    | pantalla habría dado un conflicto falso —«alguien ha guardado esto»— con
+    | nadie más delante.
+    */
+    const mismoMomento =
+      enServidor === esperado ||
+      (enServidor != null &&
+        esperado != null &&
+        Date.parse(enServidor) === Date.parse(esperado));
+
+    if (!mismoMomento) {
+      return {
+        data: null,
+        updatedAt: enServidor,
+        conflicto: { actual: previo.data, updatedAt: enServidor },
+      };
+    }
+  }
 
   const { error } = await supabase
     .from(TABLE)

@@ -55,8 +55,17 @@ interface Trabajo<T> {
   key: string;
   kind: string;
   data: T;
-  /** Cuándo se escribió, para poder compararlo con la fecha del servidor. */
+  /** Cuándo se escribió, para poder ordenar los avisos. */
   at: string;
+  /**
+   * La versión del servidor sobre la que se editó.
+   *
+   * Es lo que permite saber si alguien ha guardado en medio. Comparando
+   * relojes no se puede: el de este navegador y el del servidor no son el
+   * mismo, y una tablet con la hora mal decidía tirar trabajo bueno o pisar
+   * el de otro.
+   */
+  basadaEn?: string | null;
 }
 
 const claveCache = (key: string) => `${PREFIJO_CACHE}${key}`;
@@ -94,10 +103,25 @@ function borraLocal(clave: string) {
   }
 }
 
+/** Alguien guardó el documento mientras se editaba. */
+export class ConflictoDeVersion extends Error {
+  readonly updatedAt: string | null;
+
+  readonly actual: unknown;
+
+  constructor(updatedAt: string | null, actual: unknown) {
+    super("Alguien ha guardado este documento mientras lo editabas.");
+
+    this.name = "ConflictoDeVersion";
+    this.updatedAt = updatedAt;
+    this.actual = actual;
+  }
+}
+
 /** Manda un documento al servidor. Lanza si no ha quedado guardado. */
 async function envia<T>(
   trabajo: Trabajo<T>,
-  opciones: { keepalive?: boolean } = {},
+  opciones: { keepalive?: boolean; forzar?: boolean } = {},
 ): Promise<{ updatedAt: string | null; missingTable: boolean }> {
   const response = await fetch("/api/docs", {
     method: "POST",
@@ -106,11 +130,24 @@ async function envia<T>(
       key: trabajo.key,
       kind: trabajo.kind,
       data: trabajo.data,
+      /* Sin la versión, el servidor escribe sin preguntar: es lo que se
+         quiere al forzar a propósito, y lo único posible en el envío de
+         despedida, que no puede esperar respuesta. */
+      ...(opciones.forzar || trabajo.basadaEn === undefined
+        ? {}
+        : { basadaEn: trabajo.basadaEn }),
     }),
     keepalive: opciones.keepalive === true,
   });
 
   const body = await response.json();
+
+  if (response.status === 409 && body?.conflicto) {
+    throw new ConflictoDeVersion(
+      (body.updatedAt as string | null) ?? null,
+      body.data,
+    );
+  }
 
   if (!response.ok || !body.success) throw new Error(body.error);
 
@@ -225,6 +262,14 @@ export function useRemoteDoc<T>({
   /** Lo que hay que mandar al servidor y todavía no ha llegado. */
   const pendiente = useRef<Trabajo<T> | null>(null);
 
+  /**
+   * La versión del servidor sobre la que se está editando.
+   *
+   * Viaja con cada guardado: si en el servidor hay otra, es que alguien ha
+   * escrito en medio —otra pestaña, otro portátil— y no se pisa.
+   */
+  const versionServidor = useRef<string | null | undefined>(undefined);
+
   /** Para poder llamar al guardado desde temporizadores y desde `window`. */
   const flushRef = useRef<(() => Promise<boolean>) | null>(null);
 
@@ -303,12 +348,72 @@ export function useRemoteDoc<T>({
 
       setLocalOnly(false);
       setLastSavedAt(resultado.updatedAt);
+      versionServidor.current = resultado.updatedAt;
       setStatus(alDia ? "saved" : "saving");
       yaAvisado.current = false;
       espera.current = REINTENTO_MIN;
 
       return true;
     } catch (error) {
+      /*
+      |------------------------------------------------------------------
+      | ALGUIEN HA GUARDADO ESTO MIENTRAS LO EDITABAS
+      |------------------------------------------------------------------
+      |
+      | Dos pestañas abiertas, dos portátiles, el ordenador del club. Antes
+      | ganaba el último en escribir **y el otro no se enteraba**: el trabajo
+      | de media hora desaparecía sin un aviso. Ahora no se escribe encima:
+      | lo pendiente se queda en la cola —no se pierde— y se pregunta.
+      |
+      | Reintentar solo tampoco vale: el reintento volvería a chocar. Decide
+      | quien está delante, que es el único que sabe cuál de las dos versiones
+      | vale.
+      */
+      if (error instanceof ConflictoDeVersion) {
+        setStatus("error");
+        setSinGuardar(true);
+
+        toast.warning("Alguien ha guardado esto mientras lo editabas", {
+          id: `doc-conflicto-${trabajo.key}`,
+          duration: 30000,
+          description:
+            "No se ha escrito encima. Puedes quedarte con lo tuyo —se manda y pisa lo suyo— o traer lo del servidor y perder lo que tengas sin guardar.",
+          action: {
+            label: "Quedarme con lo mío",
+            onClick: () => {
+              void envia(trabajo, { forzar: true })
+                .then((forzado) => {
+                  if (pendiente.current === trabajo) {
+                    pendiente.current = null;
+                    borraLocal(claveCola(trabajo.key));
+                    setSinGuardar(false);
+                  }
+
+                  versionServidor.current = forzado.updatedAt;
+                  setLastSavedAt(forzado.updatedAt);
+                  setStatus("saved");
+
+                  toast.success("Guardado lo tuyo");
+                })
+                .catch(() => {
+                  toast.error("No se ha podido guardar. Inténtalo otra vez.");
+                });
+            },
+          },
+          cancel: {
+            label: "Traer lo suyo",
+            onClick: () => {
+              pendiente.current = null;
+              borraLocal(claveCola(trabajo.key));
+              setSinGuardar(false);
+              setReloadToken((n) => n + 1);
+            },
+          },
+        });
+
+        return false;
+      }
+
       console.error("[useRemoteDoc] guardado", error);
 
       /*
@@ -423,6 +528,9 @@ export function useRemoteDoc<T>({
           }
 
           setLastSavedAt(body.updatedAt ?? null);
+
+          /* La versión sobre la que se edita a partir de ahora. */
+          versionServidor.current = (body.updatedAt as string | null) ?? null;
           setStatus("saved");
 
           /*
@@ -439,15 +547,29 @@ export function useRemoteDoc<T>({
 
           if (cola && cola.key === key) {
             /*
-            | Se comparan como fechas, no como texto: Supabase devuelve
-            | `…+00:00` y aquí se escribe `…Z`, así que dos instantes iguales
-            | no dan cadenas iguales.
+            | ¿Sigue el servidor donde lo dejamos?
+            |
+            | Antes esto se decidía comparando el reloj del navegador con el
+            | del servidor. Son dos relojes distintos: una tablet con la hora
+            | atrasada daba por vieja una cola buena —y la tiraba— y una
+            | adelantada reenviaba una cola vieja encima de lo que otro había
+            | guardado después. Ahora se compara **la versión sobre la que se
+            | editó**: si el servidor sigue en ella, la cola es lo nuevo y se
+            | manda; si no, es que alguien escribió en medio y se pregunta.
+            |
+            | Las colas viejas —guardadas antes de que existiera la versión—
+            | se siguen tratando como antes: son de este mismo navegador y lo
+            | que traen es trabajo de alguien.
             */
-            const delServidorMs = Date.parse(String(body.updatedAt ?? ""));
+            const versionCola = cola.basadaEn;
+
+            const mismas = (a: string | null, b: string | null) =>
+              a === b ||
+              (a != null && b != null && Date.parse(a) === Date.parse(b));
 
             const masNueva =
-              !Number.isFinite(delServidorMs) ||
-              Date.parse(cola.at) > delServidorMs;
+              versionCola === undefined ||
+              mismas(versionCola, (body.updatedAt as string | null) ?? null);
 
             if (masNueva) {
               pendiente.current = { ...cola, kind };
@@ -483,18 +605,40 @@ export function useRemoteDoc<T>({
                 });
             } else {
               /*
-              | La cola es más vieja que el servidor: alguien guardó después
-              | desde otro sitio. No se pisa lo nuevo, pero tampoco se tira lo
-              | del usuario sin que pueda quedárselo.
+              | Alguien guardó desde otro sitio después de que esto se
+              | quedara en la cola. No se pisa lo suyo, pero tampoco se tira lo
+              | del usuario: se guarda aparte y se ofrecen las dos salidas.
               */
               borraLocal(claveCola(key));
 
-              toast.warning("Había cambios locales antiguos", {
+              escribeLocal(`${claveCola(key)}:apartado`, cola);
+
+              toast.warning("Tenías cambios sin guardar de otra vez", {
                 id: `doc-viejo-${key}`,
-                duration: 12000,
+                duration: 30000,
                 description:
-                  "El servidor tenía una versión posterior, así que se ha quedado la del servidor.",
+                  "Mientras tanto alguien guardó este documento desde otro sitio, así que en pantalla está lo suyo. Lo tuyo no se ha perdido: puedes descargarlo o mandarlo encima.",
                 action: {
+                  label: "Mandar lo mío",
+                  onClick: () => {
+                    void envia({ ...cola, kind }, { forzar: true })
+                      .then((forzado) => {
+                        delServidor.current = cola.data;
+                        setInternal(cola.data);
+                        escribeLocal(claveCache(key), cola.data);
+                        versionServidor.current = forzado.updatedAt;
+                        setLastSavedAt(forzado.updatedAt);
+                        setStatus("saved");
+                        borraLocal(`${claveCola(key)}:apartado`);
+
+                        toast.success("Guardado lo tuyo");
+                      })
+                      .catch(() => {
+                        toast.error("No se ha podido guardar. Inténtalo otra vez.");
+                      });
+                  },
+                },
+                cancel: {
                   label: "Descargar los locales",
                   onClick: () => descargarJson(`${key}-local`, cola.data),
                 },
@@ -553,6 +697,7 @@ export function useRemoteDoc<T>({
       kind,
       data: value,
       at: new Date().toISOString(),
+      basadaEn: versionServidor.current,
     };
 
     pendiente.current = trabajo;
