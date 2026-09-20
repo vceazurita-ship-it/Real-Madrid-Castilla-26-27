@@ -595,6 +595,14 @@ export async function cortaClipConParadas(opciones: {
   /** Carpeta de trabajo y prefijo de los trozos, para no pisarse entre clips. */
   carpeta: string;
   prefijo: string;
+  /**
+   * Segundos entre los que repartir `topeMegas`.
+   *
+   * En un montaje unificado es lo que va a durar el fichero ENTERO, no este
+   * clip: sin esto, cada clip con pizarras se llevaba el presupuesto completo
+   * y veinte cortes con un tope de 50 MB salían en cerca de un giga.
+   */
+  segundosDelTope?: number;
   destino: string;
   /** Lo que puede pesar el corte ya montado, en megas. */
   topeMegas?: number;
@@ -643,7 +651,7 @@ export async function cortaClipConParadas(opciones: {
         /* El tope es del fichero entero, y cada trozo es un pedazo de él: se
            aplica el mismo caudal a todos, que es lo que lo hace cumplir. */
         topeMegas: opciones.topeMegas,
-        segundosDelTope: (duracion + paradasMs) / 1000,
+        segundosDelTope: opciones.segundosDelTope ?? (duracion + paradasMs) / 1000,
         destino: nombra("video"),
       }),
     );

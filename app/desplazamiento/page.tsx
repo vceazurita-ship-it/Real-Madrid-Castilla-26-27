@@ -85,6 +85,7 @@ import {
   type JornadaRival,
 } from "@/lib/abp/jornada";
 import {
+  comoIso,
   DOSSIER_H,
   DOSSIER_W,
   EMPTY_VIAJE_STORE,
@@ -278,7 +279,10 @@ export default function DesplazamientoPage() {
 
     if (conViaje.length) return conViaje[conViaje.length - 1].id;
 
-    const hoy = new Date().toISOString().slice(0, 10);
+    /* En hora local, como todo `lib/viaje`: en UTC, a las 00:30 de un
+       domingo español el «hoy» era el sábado y la pantalla abría el partido
+       ya jugado en vez del siguiente. */
+    const hoy = comoIso(new Date());
 
     return (partidos.find((item) => item.date && item.date >= hoy) ?? partidos[0])
       .id;
@@ -476,9 +480,20 @@ export default function DesplazamientoPage() {
     const previo = store.viajes?.[partido.id];
     const id = partido.id;
 
+    /* El horario se reancla a la fecha del partido de destino: sin ella, se
+       quedaría con las del de origen, así que no se copia y se dice. */
+    const sinFecha = queCopiar.horario && !viaje.fecha;
+
     muta((actual) => copiaViaje(fuente, actual, queCopiar));
 
     setCopiando(false);
+
+    if (sinFecha) {
+      toast.warning("El horario no se ha copiado", {
+        description:
+          "Este partido todavía no tiene fecha, y sin ella los días se quedarían con las del otro viaje. Pon la fecha y vuelve a copiar.",
+      });
+    }
 
     const partes = [
       queCopiar.horario && "el horario",

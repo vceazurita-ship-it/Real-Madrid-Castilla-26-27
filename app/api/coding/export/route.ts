@@ -369,6 +369,7 @@ export async function POST(request: NextRequest) {
                 /* El fichero final es el montaje entero: el caudal se reparte
                    entre todo lo que va a durar, no entre este trozo. */
                 topeMegas,
+                segundosDelTope: duracionDe(clips),
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,

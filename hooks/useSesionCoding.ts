@@ -627,6 +627,9 @@ export function useSesionCoding(opciones: {
    */
   const quitaVideo = useCallback(
     (fuente: FuenteVideo) => {
+      /* El updater de `muta` lo ejecuta React al renderizar, así que leerlo
+         justo después devolvía siempre `false`: quien preguntara si se
+         había quitado recibía un «no» con el vídeo ya fuera. */
       let quitado = false;
 
       muta((actual) => {

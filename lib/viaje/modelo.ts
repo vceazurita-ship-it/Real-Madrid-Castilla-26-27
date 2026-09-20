@@ -1168,6 +1168,15 @@ export function copiaViaje(
 
   const salto = antes !== null && ahora !== null ? ahora - antes : 0;
 
+  /*
+  | Sin fecha en el destino no se puede reanclar nada.
+  |
+  | `diasEntre` devuelve 0 cuando una de las dos no se entiende, así que los
+  | días copiados se quedaban con la fecha del partido de ORIGEN mientras el
+  | aviso decía que se habían recolocado.
+  */
+  const puedeReanclar = leeFecha(destino.fecha) !== null;
+
   const saltoDias = diasEntre(fuente.fecha, destino.fecha);
 
   const dias = fuente.dias.map((dia) =>
@@ -1187,7 +1196,9 @@ export function copiaViaje(
     ...(que.rutina
       ? { origen: fuente.origen, avisos: [...(fuente.avisos ?? [])] }
       : {}),
-    ...(que.horario && dias.length ? { dias } : {}),
+    /* Sin fecha en el destino no se copia el horario: los días se quedarían
+       con las fechas del partido de origen. */
+    ...(que.horario && puedeReanclar && dias.length ? { dias } : {}),
     /*
     | El estadio y el hotel sólo sirven contra el MISMO rival —la vuelta, una
     | eliminatoria—: por eso no van marcados por defecto. Las dimensiones que

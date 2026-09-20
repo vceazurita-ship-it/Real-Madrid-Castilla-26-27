@@ -997,6 +997,49 @@ function Coding() {
 
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
 
+  /*
+  |--------------------------------------------------------------------------
+  | AL CAMBIAR DE SESIÓN SE EMPIEZA DE CERO
+  |--------------------------------------------------------------------------
+  |
+  | Cambiar de partido o de rival no desmonta esta pantalla —es un
+  | `router.replace`—, así que todo lo de la sesión anterior seguía puesto:
+  |
+  | - Los vídeos abiertos del disco se guardaban **por nombre de fichero**. Dos
+  |   partidos con un «1T.mp4» cada uno y el segundo reproducía —y exportaba—
+  |   el del primero.
+  | - Los `blob:` de esos ficheros no se soltaban nunca: una tarde abriendo seis
+  |   partidos de cuatro gigas los dejaba los seis vivos en memoria.
+  | - Y los filtros: con el filtro puesto en el 10 del Teruel, subir el montaje
+  |   a YouTube escribía el enlace en la ficha de **ese** jugador aunque ya
+  |   estuvieras en otro rival.
+  */
+  const sesionAbierta = `${ambito}:${refId}`;
+
+  const sesionAnterior = useRef(sesionAbierta);
+
+  useEffect(() => {
+    if (sesionAnterior.current === sesionAbierta) return;
+
+    sesionAnterior.current = sesionAbierta;
+
+    setSrcPorVideo((actual) => {
+      for (const url of Object.values(actual)) {
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      }
+
+      return {};
+    });
+
+    setFicherosLocales({});
+    setFiltroSujeto(null);
+    setFiltroCategoria(null);
+    setSujetoActivo(null);
+    setSeleccionado(null);
+    setEditando(null);
+    setInicioMs(null);
+  }, [sesionAbierta]);
+
   /* Lo que puede pesar cada fichero que salga. Vive en la pestaña, como el
      modo de corte: es una decisión del momento de exportar. */
   const [topeMegas, setTopeMegas] = useState<number>(TOPE_MEGAS_POR_DEFECTO);
