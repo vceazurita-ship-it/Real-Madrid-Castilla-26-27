@@ -54,11 +54,36 @@ function texto(valor: unknown, maximo: number) {
   return String(valor ?? "").trim().slice(0, maximo);
 }
 
-/** Sólo direcciones web: un `javascript:` en el enlace de la canción, no. */
-function enlace(valor: unknown) {
-  const limpio = texto(valor, 500);
+/**
+ * Sólo direcciones web: un `javascript:` en el enlace de la canción, no.
+ *
+ * **Se completa lo que falte en vez de tirarlo.** Nadie escribe «https://»
+ * delante: se copia «open.spotify.com/…» del móvil y se pega. Hasta el
+ * 20/09/2026 eso se guardaba como cadena vacía sin decir nada —la pantalla
+ * contestaba «Guardado» y el enlace no aparecía—, y por eso no había ni una
+ * canción puesta.
+ *
+ * Devuelve `null` cuando había algo escrito y no hay forma de entenderlo, para
+ * que quien llame pueda contarlo en vez de borrarlo por su cuenta.
+ */
+function enlace(valor: unknown): string | null {
+  const limpio = texto(valor, 600);
 
-  return /^https?:\/\//i.test(limpio) ? limpio : "";
+  if (!limpio) return "";
+
+  const conEsquema = /^https?:\/\//i.test(limpio) ? limpio : `https://${limpio}`;
+
+  /* Un dominio de verdad: algo.algo, sin espacios. */
+  if (!/^https?:\/\/[^\s/]+\.[^\s/]{2,}(\/|$)/i.test(conEsquema)) return null;
+
+  try {
+    /* `new URL` es lo único que descarta de verdad un «https://javascript:…». */
+    const url = new URL(conEsquema);
+
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -176,11 +201,25 @@ export async function POST(request: NextRequest) {
 
     const dados = (cuerpo.extras ?? {}) as Record<string, unknown>;
 
+    const cancion = enlace(dados.cancion);
+
+    if (cancion === null) {
+      return mal(
+        "El enlace de la canción no se entiende. Pega la dirección de YouTube o de Spotify, por ejemplo open.spotify.com/track/…",
+      );
+    }
+
+    const foto = enlace(dados.foto);
+
+    if (foto === null) {
+      return mal("La dirección de la foto no vale. Vuelve a subirla.");
+    }
+
     const suyos: ExtrasJugador = {
-      cancion: enlace(dados.cancion),
+      cancion,
       cancionNombre: texto(dados.cancionNombre, 120),
       frase: texto(dados.frase, 280),
-      foto: enlace(dados.foto),
+      foto,
     };
 
     /* Un campo vacío se borra en vez de guardarse en blanco. */

@@ -369,12 +369,32 @@ export default function QuinielaPage() {
    *
    * Por la misma puerta que los recursos del rival (`/api/rivals/media`), que
    * ya deja los ficheros en el almacén del club: una foto de guasa no merece
-   * una ruta nueva ni un bucket aparte.
+   * una ruta nueva ni un bucket aparte. La carpeta es `2026/quiniela`, y tiene
+   * que estar en la lista de esa ruta: mandando `quiniela` a secas —como se
+   * hizo hasta el 20/09/2026— contestaba «Carpeta no válida» y no subía nada.
    */
   const subeFoto = async (archivo: File): Promise<string | null> => {
     if (archivo.size > 4 * 1024 * 1024) {
       toast.error("La foto pesa demasiado", {
         description: "Máximo 4 MB. Con una del móvil reducida sobra.",
+      });
+
+      return null;
+    }
+
+    /*
+    | El iPhone guarda en HEIC y el navegador no lo pinta.
+    |
+    | Subirlo funcionaría —el almacén se traga cualquier cosa— pero la foto
+    | saldría como un hueco roto en la ficha de todo el mundo. Mejor decirlo
+    | aquí, que tiene arreglo en dos toques desde el propio móvil.
+    */
+    if (!/^image\/(jpe?g|png|webp|gif|avif)$/i.test(archivo.type)) {
+      toast.error("Ese formato de foto no se ve en el navegador", {
+        description:
+          archivo.type.includes("hei")
+            ? "Es una foto HEIC del iPhone: ábrela y compártela como JPG, o haz una captura de pantalla."
+            : "Vale JPG, PNG, WEBP o GIF.",
       });
 
       return null;
@@ -388,7 +408,7 @@ export default function QuinielaPage() {
       const formulario = new FormData();
 
       formulario.append("file", archivo);
-      formulario.append("folder", "quiniela");
+      formulario.append("folder", "2026/quiniela");
 
       const respuesta = await fetch("/api/rivals/media", {
         method: "POST",
@@ -1440,7 +1460,8 @@ function FichaExtras({
 
   /* Lo de otro: sólo se mira. */
   if (!editable) {
-    const vacio = !extras.cancion && !extras.frase && !extras.foto;
+    const vacio =
+      !extras.cancion && !extras.cancionNombre && !extras.frase && !extras.foto;
 
     return (
       <Dialog
@@ -1472,7 +1493,7 @@ function FichaExtras({
                 </p>
               )}
 
-              {extras.cancion && (
+              {extras.cancion ? (
                 <a
                   href={extras.cancion}
                   target="_blank"
@@ -1482,6 +1503,15 @@ function FichaExtras({
                   <Music size={12} aria-hidden />
                   {extras.cancionNombre || "Su canción"}
                 </a>
+              ) : (
+                /* Sin enlace pero con nombre: se dice igual, que para eso lo
+                   ha escrito. */
+                extras.cancionNombre && (
+                  <p className="inline-flex items-center gap-1.5 text-[12px] text-white/55">
+                    <Music size={12} aria-hidden />
+                    {extras.cancionNombre}
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -1529,8 +1559,8 @@ function FichaExtras({
               label="Enlace"
               value={borrador.cancion ?? ""}
               onChange={(valor) => cambia({ cancion: valor })}
-              placeholder="https://… de YouTube o Spotify"
-              hint="No se sube el audio: va el enlace, empezando por https://"
+              placeholder="open.spotify.com/track/… o youtu.be/…"
+              hint="No se sube el audio: va el enlace. Se puede pegar tal cual, sin https://"
             />
           </div>
         </div>

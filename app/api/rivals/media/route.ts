@@ -22,8 +22,22 @@ const supabase = createClient(
 
 const BUCKET = "performance";
 
-/** Solo dentro de la carpeta de rivales: la ruta llega del cliente. */
-const CARPETA_PATTERN = /^2026\/rivales\/[a-z0-9][a-z0-9_-]{0,80}$/;
+/*
+| Las carpetas a las que se puede subir. La ruta llega del cliente, así que es
+| una lista cerrada y no un «lo que venga».
+|
+| La de la quiniela se añadió el 20/09/2026: la foto de broma de cada uno se
+| subía por aquí desde el primer día —mismo bucket, misma puerta— pero mandaba
+| `quiniela` a secas y esto contestaba «Carpeta no válida» a todo el mundo. No
+| se subió ni una sola foto hasta que se arregló.
+*/
+const CARPETAS = [
+  /^2026\/rivales\/[a-z0-9][a-z0-9_-]{0,80}$/,
+  /^2026\/quiniela$/,
+];
+
+const carpetaValida = (carpeta: string) =>
+  CARPETAS.some((patron) => patron.test(carpeta));
 
 /** Nombre de archivo sin acentos ni caracteres que rompan la URL pública. */
 function limpiarNombre(nombre: string) {
@@ -50,7 +64,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!CARPETA_PATTERN.test(folder)) {
+    if (!carpetaValida(folder)) {
       return NextResponse.json(
         { success: false, error: "Carpeta no válida." },
         { status: 400 }
@@ -106,7 +120,7 @@ export async function DELETE(request: NextRequest) {
 
     const carpeta = path.slice(0, path.lastIndexOf("/"));
 
-    if (!CARPETA_PATTERN.test(carpeta)) {
+    if (!carpetaValida(carpeta)) {
       return NextResponse.json(
         { success: false, error: "Ruta no válida." },
         { status: 400 }
