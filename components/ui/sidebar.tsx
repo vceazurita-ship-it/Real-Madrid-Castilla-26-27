@@ -40,6 +40,7 @@ import {
   Menu,
   Network,
   PenTool,
+  ClipboardPlus,
   PencilRuler,
   Presentation,
   Projector,
@@ -481,6 +482,17 @@ const seccion = (titulo: string, hijos: ReactNode) => (
           {seccion(
             "En obras",
             <>
+              {/*
+                Éste SÍ se puede pinchar: está a medias, pero escribe en la
+                hoja de verdad y se está trabajando sobre él. Lo de al lado
+                son pantallas paradas.
+              */}
+              {navLink(
+                "/laboratorio/microciclo",
+                "Crear microciclo (hoja)",
+                <ClipboardPlus size={18} />,
+              )}
+
               {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}
 
               {disabledLink("Jugadores Sesión", <UserCheck size={18} />)}
