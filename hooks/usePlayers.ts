@@ -114,10 +114,19 @@ export function usePlayers() {
   const [loading, setLoading] = useState(plantillaEnMemoria === null);
 
   useEffect(() => {
-    if (plantillaEnMemoria) return;
-
     let vivo = true;
 
+    /*
+    | Se pide SIEMPRE, aunque ya esté en memoria.
+    |
+    | `cargaPlantilla` devuelve lo que ya tiene sin bajar nada, así que no
+    | cuesta una petición. Lo que sí costaba era el atajo de antes: el efecto
+    | corre DESPUÉS del render, y si la descarga compartida terminaba justo en
+    | ese hueco, el consumidor se quedaba con la plantilla vacía y «Cargando…»
+    | para siempre, sin nada que lo sacara de ahí. En `/pizarra` hay ocho
+    | consumidores y el que monta más tarde —un panel que se abre al pulsar—
+    | cae justo en esa ventana.
+    */
     void cargaPlantilla().then((plantilla) => {
       if (!vivo) return;
 

@@ -389,7 +389,25 @@ export function useRemoteDoc<T>({
 
         if (!response.ok || !body.success) throw new Error(body.error);
 
-        if (body.missingTable) {
+        /*
+        | Si esto viene de la caché del service worker, NO es el servidor.
+        |
+        | Sin red, el propio service worker contesta con la última copia que
+        | vio, y con un 200 limpio. Tratarla como buena era declararse
+        | «guardado» con un documento viejo delante y machacar la copia local,
+        | que es justo la que hay que conservar para cuando vuelva la
+        | cobertura: lo que se editara encima se subiría sobre esa versión
+        | vieja, borrando lo que hubiera guardado otro desde entonces.
+        */
+        if (response.headers.get("x-rmcf-de-la-cache")) {
+          if (cached === null && body.data !== null && body.data !== undefined) {
+            delServidor.current = body.data as T;
+            setInternal(body.data as T);
+          }
+
+          setLocalOnly(true);
+          setStatus("offline");
+        } else if (body.missingTable) {
           setLocalOnly(true);
           setStatus("offline");
         } else {

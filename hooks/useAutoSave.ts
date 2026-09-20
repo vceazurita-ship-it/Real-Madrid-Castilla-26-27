@@ -439,7 +439,20 @@ export function useAutoSave<T>({
          sea una edición: se acepta como base y no se escribe nada. */
       cancelarTemporizador();
 
-      guardado.current = huella;
+      /*
+      | Pero lo que estaba SIN ESCRIBIR no se da por guardado.
+      |
+      | Este efecto corre antes que el de «al salir del modo edición», así que
+      | marcando aquí la huella como guardada, el `flush()` de después se
+      | encontraba que no había nada que escribir y salía sin hacer nada: un
+      | guardado a medias —o uno que había fallado y esperaba reintento—
+      | desaparecía al cerrar la edición, con el aviso en pantalla y sin que
+      | nadie volviera a intentarlo.
+      */
+      const hayPendiente =
+        timer.current !== null || reintento.current !== null || enVuelo.current !== null;
+
+      if (!hayPendiente) guardado.current = huella;
 
       return;
     }

@@ -280,10 +280,30 @@ export async function GET(request: NextRequest) {
 
   const { id } = await envia({ para, ...correo });
 
-  await writeDoc(CLAVE_QUINIELA, "quiniela", {
-    ...doc,
-    avisadas: [...avisadas, jornada],
-  });
+  /*
+  | RELEER ANTES DE APUNTAR QUE SE AVISÓ.
+  |
+  | Entre la lectura de arriba y esta línea se ha mandado un correo por Gmail:
+  | segundos. Y son las nueve de la mañana del viernes, que es justo cuando la
+  | gente entra a rellenar **porque acaba de recibir ese correo**. Guardando la
+  | copia de antes, la apuesta de quien fuera rápido desaparecía sin que nadie
+  | se enterara: la pantalla ya había dicho «guardada».
+  |
+  | Y si la relectura no trae documento, no se escribe nada: mejor un aviso
+  | repetido la próxima vez que dejar la temporada en blanco.
+  */
+  const { data: reciente } = await readDoc<DocumentoQuiniela>(CLAVE_QUINIELA);
+
+  if (reciente) {
+    const fresco = sinCastilla({ ...QUINIELA_VACIA, ...reciente });
+
+    await writeDoc(CLAVE_QUINIELA, "quiniela", {
+      ...fresco,
+      avisadas: [...new Set([...(fresco.avisadas ?? []), jornada])],
+    });
+  } else {
+    console.error("[quiniela] aviso: la relectura no trae documento; no se apunta la jornada.");
+  }
 
   return NextResponse.json({
     ok: true,

@@ -197,7 +197,27 @@ async function redAntes(peticion, cache, opciones = {}) {
   } catch (error) {
     const guardada = await caches.match(peticion);
 
-    if (guardada) return guardada;
+    /*
+    | Lo servido de la copia va MARCADO.
+    |
+    | Sin marca, quien pide un documento no distingue «esto es lo que hay en el
+    | servidor» de «esto es lo último que llegué a ver». El hook de documentos
+    | daba la copia por buena: se declaraba guardado, pisaba su propia caché
+    | local con una versión vieja y, si se seguía editando, subía esa versión
+    | vieja con los cambios encima, borrando lo que hubiera guardado cualquier
+    | otro desde entonces.
+    */
+    if (guardada) {
+      const cabeceras = new Headers(guardada.headers);
+
+      cabeceras.set("x-rmcf-de-la-cache", "1");
+
+      return new Response(await guardada.blob(), {
+        status: guardada.status,
+        statusText: guardada.statusText,
+        headers: cabeceras,
+      });
+    }
 
     /* Una pantalla que no se ha visitado nunca: se abre la portada, que casi
        seguro sí está, y desde ahí se navega a lo que haya guardado. */

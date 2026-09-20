@@ -8,6 +8,7 @@ import {
   jornadaVacia,
   partidosDe,
   type DocumentoQuiniela,
+  type Signo,
 } from "./modelo";
 
 /**
@@ -76,6 +77,10 @@ export async function actualizaResultados(pedida?: number): Promise<ParteActuali
   });
 
   const jornadas: ParteJornada[] = [];
+
+  /* Sólo lo que de verdad cambia este pase: al final se aplica sobre el
+     documento recién leído, no sobre la copia de hace un minuto. */
+  const puestos: { jornada: number; indice: number; signo: Signo }[] = [];
 
   let bloqueado = false;
 
@@ -146,6 +151,8 @@ export async function actualizaResultados(pedida?: number): Promise<ParteActuali
 
       resultados[partido.indice] = partido.signo;
 
+      puestos.push({ jornada: numero, indice: partido.indice, signo: partido.signo });
+
       escritos += 1;
     }
 
@@ -164,7 +171,48 @@ export async function actualizaResultados(pedida?: number): Promise<ParteActuali
     jornadas.push({ jornada: numero, escritos, detalle });
   }
 
-  if (cambios > 0) await writeDoc(CLAVE, "quiniela", doc);
+  /*
+  | RELEER ANTES DE ESCRIBIR, Y TOCAR SÓLO LOS RESULTADOS QUE CAMBIAN.
+  |
+  | Entre la lectura de arriba y este momento han pasado hasta dieciocho
+  | páginas de BeSoccer: medio minuto largo. Guardar la copia de entonces
+  | borraba en silencio cualquier apuesta guardada mientras tanto —y el
+  | viernes por la mañana, con el aviso recién mandado, es exactamente cuando
+  | la gente entra a rellenar—. Así que se relee y se aplican sólo los signos
+  | que este pase ha puesto.
+  */
+  if (puestos.length > 0) {
+    const ahora = await readDoc<DocumentoQuiniela>(CLAVE);
+
+    const fresco = sinCastilla({
+      ...QUINIELA_VACIA,
+      ...(ahora.data ?? doc),
+      jornadas: ahora.data?.jornadas ?? doc.jornadas,
+      jugadores: ahora.data?.jugadores ?? doc.jugadores,
+    });
+
+    for (const { jornada, indice, signo } of puestos) {
+      const clave = String(jornada);
+
+      const previa = fresco.jornadas[clave] ?? jornadaVacia(jornada);
+
+      const resultados = [...(previa.resultados ?? [])];
+
+      while (resultados.length < partidosDe(jornada).length) resultados.push(null);
+
+      resultados[indice] = signo;
+
+      fresco.jornadas[clave] = {
+        ...previa,
+        jornada,
+        resultados,
+        resultadosEn: new Date().toISOString(),
+        origenResultados: "besoccer",
+      };
+    }
+
+    await writeDoc(CLAVE, "quiniela", fresco);
+  }
 
   return { cambios, bloqueado, jornadas };
 }

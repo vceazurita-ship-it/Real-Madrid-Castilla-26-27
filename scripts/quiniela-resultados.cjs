@@ -188,8 +188,8 @@ async function main() {
 
   let cambios = 0;
 
-  /* Lo que se ha escrito de cada jornada, para mezclarlo al final. */
-  const nuevos = {};
+  /* Lo que cambia ESTE pase, partido a partido: es lo único que se escribirá. */
+  const cambiados = [];
 
   const bloqueadas = [];
 
@@ -285,10 +285,10 @@ async function main() {
 
       resultados[partido.indice] = partido.signo;
 
+      cambiados.push({ jornada: numero, indice: partido.indice, signo: partido.signo });
+
       cambios += 1;
     }
-
-    nuevos[String(numero)] = { guardada, resultados };
   }
 
   if (cambios === 0) {
@@ -335,10 +335,31 @@ async function main() {
 
   fresco.jornadas = fresco.jornadas ?? {};
 
-  for (const [numero, { guardada, resultados }] of Object.entries(nuevos)) {
-    fresco.jornadas[numero] = {
-      ...(fresco.jornadas[numero] ?? guardada),
-      jornada: Number(numero),
+  /*
+  | Se aplican los signos UNO A UNO sobre lo recién leído.
+  |
+  | Antes se escribía el array entero de resultados construido con la copia de
+  | hace medio minuto: si alguien marcaba un resultado a mano desde la pantalla
+  | mientras el script bajaba las páginas, ese resultado se borraba —y encima
+  | la jornada quedaba etiquetada como «besoccer»—. Y se tocaban también
+  | jornadas en las que este pase no tenía nada que aportar.
+  */
+  for (const { jornada, indice, signo } of cambiados) {
+    const clave = String(jornada);
+
+    const previa = fresco.jornadas[clave] ?? { jornada, pronosticos: {}, resultados: [] };
+
+    const resultados = [...(previa.resultados ?? [])];
+
+    const cuantos = CALENDARIO.filter((uno) => uno.jornada === jornada).length;
+
+    while (resultados.length < cuantos) resultados.push(null);
+
+    resultados[indice] = signo;
+
+    fresco.jornadas[clave] = {
+      ...previa,
+      jornada,
       resultados,
       /* De dónde salen y de cuándo son, para poder decirlo en pantalla. */
       resultadosEn: new Date().toISOString(),
@@ -360,8 +381,10 @@ async function main() {
     .eq("key", CLAVE)
     .maybeSingle();
 
-  const puestos = Object.keys(nuevos).flatMap((numero) =>
-    (despues?.data?.jornadas?.[String(numero)]?.resultados ?? []).filter(Boolean),
+  const tocadas = [...new Set(cambiados.map((uno) => String(uno.jornada)))];
+
+  const puestos = tocadas.flatMap((numero) =>
+    (despues?.data?.jornadas?.[numero]?.resultados ?? []).filter(Boolean),
   ).length;
 
   console.log(
@@ -369,7 +392,7 @@ async function main() {
   );
 
   console.log(
-    `RESUMEN: ${cambios} resultado(s) nuevos · ${puestos} puestos en la jornada ${Object.keys(nuevos).join(" y ")}`,
+    `RESUMEN: ${cambios} resultado(s) nuevos · ${puestos} puestos en la jornada ${tocadas.join(" y ")}`,
   );
 }
 
