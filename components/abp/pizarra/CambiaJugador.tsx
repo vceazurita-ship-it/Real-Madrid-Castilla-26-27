@@ -63,7 +63,8 @@ export function CambiaJugador({
   /* `null` = lo que toque según haya choque o no; se fija en cuanto se toca. */
   const [intercambiaPedido, setIntercambiaPedido] = useState<boolean | null>(null);
 
-  const alcance = useMemo(
+  /* Sin intercambio: es lo que dice si los dos coinciden en alguna diapositiva. */
+  const alcanceSimple = useMemo(
     () => (sale && entra ? alcanceDelCambio(tablero, sale, entra) : null),
     [tablero, sale, entra],
   );
@@ -72,7 +73,19 @@ export function CambiaJugador({
     entra && enLaPizarra.some((item) => item.playerId === entra),
   );
 
-  const intercambia = entraYaEsta && (intercambiaPedido ?? (alcance?.choques.length ?? 0) > 0);
+  const intercambia =
+    entraYaEsta && (intercambiaPedido ?? (alcanceSimple?.choques.length ?? 0) > 0);
+
+  /*
+  | Y el alcance de VERDAD, que es el que se enseña y el que se confirma.
+  |
+  | Intercambiando se tocan también las diapositivas donde sólo está el que
+  | entra, así que el botón decía «cambiar en 3 diapositivas» y cambiaba siete.
+  */
+  const alcance = useMemo(
+    () => (sale && entra ? alcanceDelCambio(tablero, sale, entra, intercambia) : null),
+    [tablero, sale, entra, intercambia],
+  );
 
   const candidatos = useMemo(() => {
     const query = normaliza(busca.trim());

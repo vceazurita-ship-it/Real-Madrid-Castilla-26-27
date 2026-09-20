@@ -292,7 +292,10 @@ export function minutosDe(sesiones: SesionNueva[]) {
   for (const sesion of sesiones) {
     const suyos = sesion.tareas.reduce((suma, tarea) => suma + (tarea.tiempo || 0), 0);
 
-    porFecha[sesion.fecha] = suyos;
+    /* Se SUMA: dos sesiones pueden acabar con la misma fecha si alguien la
+       corrige a mano, y asignando, el panel de una enseñaba los minutos de la
+       otra. */
+    porFecha[sesion.fecha] = (porFecha[sesion.fecha] ?? 0) + suyos;
 
     total += suyos;
 
@@ -345,7 +348,7 @@ export type TareaDeOtro = {
 export function copiaEstructura(
   sesiones: SesionNueva[],
   deOtro: TareaDeOtro[],
-): SesionNueva[] {
+): { sesiones: SesionNueva[]; puestas: number; sinPareja: number } {
   const porMd = new Map<string, TareaDeOtro[]>();
 
   for (const tarea of deOtro) {
@@ -356,10 +359,22 @@ export function copiaEstructura(
     porMd.set(clave, [...(porMd.get(clave) ?? []), tarea]);
   }
 
-  return sesiones.map((sesion) => {
-    const suyas = porMd.get((sesion.md || "").trim().toUpperCase());
+  /* Un MD sólo se vuelca una vez: si el usuario escribe «MD-3» en dos días, el
+     bloque iría a los dos y el microciclo saldría con las tareas duplicadas. */
+  const usados = new Set<string>();
+
+  let puestas = 0;
+
+  const nuevas = sesiones.map((sesion) => {
+    const clave = (sesion.md || "").trim().toUpperCase();
+
+    const suyas = usados.has(clave) ? undefined : porMd.get(clave);
 
     if (!suyas || suyas.length === 0) return sesion;
+
+    usados.add(clave);
+
+    puestas += suyas.length;
 
     return renumera({
       ...sesion,
@@ -379,6 +394,8 @@ export function copiaEstructura(
       })),
     });
   });
+
+  return { sesiones: nuevas, puestas, sinPareja: deOtro.length - puestas };
 }
 
 /* ------------------------------------------------------------------ */
@@ -456,6 +473,22 @@ export function revisaMicro(micro: MicroNuevo) {
   const nombres = new Set<string>();
 
   for (const sesion of conTareas) {
+    /*
+    | La fecha tiene que ser una fecha.
+    |
+    | El campo es editable y nadie valida lo que se escribe: con «20/9/26» o
+    | «2026/09/20», el panel se titulaba «undefined NaN», la hoja recibía texto
+    | en vez de fecha —y el calendario de microciclos deja de ver esa fila— y
+    | la ventana del microciclo se saltaba el día entero.
+    */
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sesion.fecha)) {
+      problemas.push(
+        `La fecha «${sesion.fecha || "(vacía)"}» no vale: se escribe como 2026-09-20.`,
+      );
+    } else if (Number.isNaN(Date.parse(`${sesion.fecha}T12:00:00Z`))) {
+      problemas.push(`La fecha «${sesion.fecha}» no existe en el calendario.`);
+    }
+
     for (const tarea of sesion.tareas) {
       if (!tarea.tarea.trim()) {
         problemas.push(`Hay una tarea sin nombre el ${aFechaHoja(sesion.fecha)}.`);

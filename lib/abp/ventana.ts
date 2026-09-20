@@ -42,6 +42,10 @@ export function diaKeyDe(fecha: string): DiaKey {
 export function etiquetaDia(fecha: string) {
   const dia = new Date(aMedioDia(fecha));
 
+  /* Una fecha que no se entiende se enseña tal cual: «undefined NaN» no le
+     dice a nadie que lo que hay escrito está mal. */
+  if (Number.isNaN(dia.getTime())) return fecha || "sin fecha";
+
   return `${NOMBRES[dia.getUTCDay()]} ${dia.getUTCDate()}`;
 }
 
@@ -236,9 +240,19 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
       (diaDelPartido && fecha === diaDelPartido) ||
       /^md$/i.test((deLaHoja?.rotulo ?? "").trim());
 
-    const md = diaDelPartido
+    const crudo = diaDelPartido
       ? Math.round((aMedioDia(diaDelPartido) - momento) / DIA_MS)
       : null;
+
+    /*
+    | Un día POSTERIOR al partido no es «MD--1».
+    |
+    | Pasa cuando el partido se aplaza y la hoja conserva las sesiones de la
+    | semana vieja: salían rótulos como «MD--2» y, peor, el boceto colocaba el
+    | «ensayo del día antes» en un día que ya era después. Esos días son del
+    | microciclo siguiente: se quedan sin MD.
+    */
+    const md = crudo != null && crudo >= 0 ? crudo : null;
 
     const tipo: TipoDia = esPartido ? "partido" : deLaHoja ? "entreno" : "descanso";
 
@@ -269,6 +283,12 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
   if (letras.size < dias.length) {
     avisos.push(
       `Este microciclo tiene ${dias.length} días y el plan guarda uno por día de la semana: los días repetidos se pisan. Pártelo en dos microciclos en la hoja.`,
+    );
+  }
+
+  if (dias.some((dia) => dia.md == null && dia.tipo !== "partido") && diaDelPartido) {
+    avisos.push(
+      "Hay días de la hoja posteriores al partido: son del microciclo siguiente y se quedan sin MD. Si el partido se aplazó, repasa las fechas.",
     );
   }
 

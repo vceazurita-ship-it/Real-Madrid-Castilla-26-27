@@ -1016,7 +1016,7 @@ export function informeHtml(
       esc(LADO_LABEL[linea.lado]),
       linea.urgencia === null
         ? "—"
-        : `<b>${Math.round(linea.urgencia * 100)}</b>`,
+        : `<b>${Math.round(linea.urgencia)}</b>`,
       String(linea.acciones),
       esc(linea.peligro),
       esc(linea.minutosTemporada),
@@ -1268,7 +1268,7 @@ export function informeTexto(informe: InformeMicro) {
   informe.prioridades.forEach((linea) => {
     lineas.push(
       `- ${linea.aspecto} (${LADO_LABEL[linea.lado]}) · urgencia ${
-        linea.urgencia === null ? "—" : Math.round(linea.urgencia * 100)
+        linea.urgencia === null ? "—" : Math.round(linea.urgencia)
       } · ${linea.acciones} acciones · peligro ${linea.peligro}`,
     );
   });

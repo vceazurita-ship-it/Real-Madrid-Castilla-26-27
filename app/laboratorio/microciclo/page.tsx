@@ -420,16 +420,35 @@ export default function EditorMicrocicloPage() {
         ? ([...alrededor.todos].filter((uno) => uno.cuando < objetivo.cuando).slice(-1)[0] ?? null)
         : null;
 
-      /* El borrador manda sobre la propuesta: es trabajo de alguien. */
+      /*
+      | El borrador manda sobre la propuesta: es trabajo de alguien.
+      |
+      | Pero sólo si sigue teniendo sentido. Un borrador del micro 10 que se
+      | quedó a medias, con el 10 ya escrito en la hoja desde entonces, llevaba
+      | a marcar «rehacerlo» y **borrar las filas buenas** para escribir las del
+      | borrador a medio rellenar. Y el partido que se pinta al lado sale
+      | siempre del calendario, así que se veía el número de un microciclo con
+      | las fechas de otro. Si el borrador ya está en la hoja, o es de hace más
+      | de tres semanas, se tira.
+      */
       let guardado: MicroNuevo | null = null;
 
       try {
         const crudo = window.localStorage.getItem(BORRADOR);
 
         if (crudo) {
-          const posible = JSON.parse(crudo) as MicroNuevo;
+          const posible = JSON.parse(crudo) as MicroNuevo & { guardadoEn?: string };
 
-          if (posible?.sesiones?.length) guardado = posible;
+          const yaEscrito = (datos?.micros ?? []).some(
+            (uno) => uno.micro === posible?.micro && uno.tareas > 0,
+          );
+
+          const viejo =
+            posible?.guardadoEn != null &&
+            Date.now() - Date.parse(posible.guardadoEn) > 21 * 86_400_000;
+
+          if (posible?.sesiones?.length && !yaEscrito && !viejo) guardado = posible;
+          else if (posible?.sesiones?.length) window.localStorage.removeItem(BORRADOR);
         }
       } catch {
         /* Sin borrador se empieza con la propuesta, que es lo normal. */
@@ -466,7 +485,11 @@ export default function EditorMicrocicloPage() {
     if (!leido.current || !micro) return;
 
     try {
-      window.localStorage.setItem(BORRADOR, JSON.stringify(micro));
+      /* Con la fecha de guardado: un borrador de hace un mes no se restaura. */
+      window.localStorage.setItem(
+        BORRADOR,
+        JSON.stringify({ ...micro, guardadoEn: new Date().toISOString() }),
+      );
     } catch {
       /* Sin sitio en el navegador se sigue igual, sólo que sin red. */
     }
@@ -558,7 +581,7 @@ export default function EditorMicrocicloPage() {
       return;
     }
 
-    const sesiones = copiaEstructura(
+    const { sesiones, puestas, sinPareja } = copiaEstructura(
       micro.sesiones,
       suyas.map((tarea) => ({
         dia: tarea.dia || "",
@@ -586,12 +609,10 @@ export default function EditorMicrocicloPage() {
     | Si aquella semana tenía cinco días y ésta tiene cuatro, hay tareas que no
     | encuentran su MD y se quedan fuera. Decir «15 tareas copiadas» cuando en
     | la pantalla hay diez es exactamente el tipo de mentira que hace que nadie
-    | se fíe de un aviso.
+    | se fíe de un aviso. El recuento lo lleva `copiaEstructura`, que es quien
+    | sabe qué ha colocado: contar las tareas de la pantalla incluía también
+    | las vacías que ya estaban.
     */
-    const puestas = minutosDe(sesiones).tareas;
-
-    const sinPareja = suyas.length - puestas;
-
     toast.success(`Copiado del microciclo ${numero}`, {
       description:
         `${puestas} tarea(s) de la semana del ${rival || "—"}, atadas por MD.` +

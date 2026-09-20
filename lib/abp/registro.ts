@@ -105,7 +105,30 @@ function indiceDe(cabeceras: string[], ...pistas: string[]) {
 const DIAS_VALIDOS = new Set<string>(DIA_KEYS);
 
 function parseDia(value: string): DiaKey | "" {
-  const letra = value.trim().toUpperCase().slice(0, 1);
+  const limpio = value.trim().toUpperCase();
+
+  /*
+  | «Miércoles» no es «M».
+  |
+  | Quedándose con la primera letra, un día escrito entero metía el miércoles
+  | en la casilla del martes y el sábado en la del viernes, sin decir nada. La
+  | app siempre escribe la inicial, pero la hoja la rellenan personas.
+  */
+  const enteros: Record<string, DiaKey> = {
+    LUNES: "L",
+    MARTES: "M",
+    MIERCOLES: "X",
+    MIÉRCOLES: "X",
+    JUEVES: "J",
+    VIERNES: "V",
+    SABADO: "S",
+    SÁBADO: "S",
+    DOMINGO: "D",
+  };
+
+  if (enteros[limpio]) return enteros[limpio];
+
+  const letra = limpio.slice(0, 1);
 
   return DIAS_VALIDOS.has(letra) ? (letra as DiaKey) : "";
 }

@@ -116,6 +116,25 @@ function indiceDeColumna_(nombres, nombre) {
   return -1;
 }
 
+/** La última fila que es de verdad una tarea: tiene número de microciclo. */
+function ultimaFilaDeDatos_(hoja, cabecera) {
+  var desde = cabecera.fila + 1;
+
+  var alto = hoja.getLastRow() - cabecera.fila;
+
+  if (alto <= 0) return cabecera.fila;
+
+  var colMicro = indiceDeColumna_(cabecera.nombres, 'Micro');
+
+  var valores = hoja.getRange(desde, colMicro + 1, alto, 1).getValues();
+
+  for (var i = valores.length - 1; i >= 0; i--) {
+    if (Number(valores[i][0]) > 0) return desde + i;
+  }
+
+  return cabecera.fila;
+}
+
 function filasDelMicro_(temporada, micro) {
   var hoja = hojaRegistro_();
 
@@ -190,10 +209,34 @@ function guardaMicrociclo_(datos) {
 
   var previas = filasDelMicro_(temporada, micro);
 
+  /*
+  | Con la temporada escrita distinta, «rehacer» duplicaba el microciclo.
+  |
+  | La pantalla avisa de que el micro 12 ya existe mirando SÓLO el número; aquí
+  | se filtraba también por temporada exacta. Si la hoja tenía «2026-2027» y la
+  | app mandaba «2026 - 2027», no se encontraba nada que borrar y las filas se
+  | añadían encima de las que ya estaban: el microciclo quedaba dos veces y
+  | todo lo que lee la pestaña contaba doble.
+  |
+  | Así que, al rehacer, si por temporada no aparece nada se mira sólo el
+  | número; y si aun así no hay nada que sustituir, se dice, en vez de escribir
+  | por segunda vez sin avisar.
+  */
+  if (datos.reemplazar && previas.length === 0) {
+    previas = filasDelMicro_('', micro);
+  }
+
   if (previas.length && !datos.reemplazar) {
     throw new Error(
       'El microciclo ' + micro + ' ya tiene ' + previas.length + ' filas en la hoja. ' +
         'Marca «rehacerlo» si quieres sustituirlas.',
+    );
+  }
+
+  if (datos.reemplazar && previas.length === 0) {
+    throw new Error(
+      'Se pidió rehacer el microciclo ' + micro + ' pero en la hoja no hay ninguna fila suya. ' +
+        'Quita la marca de «rehacerlo» para escribirlo como nuevo.',
     );
   }
 
@@ -208,7 +251,15 @@ function guardaMicrociclo_(datos) {
 
   /* --- Dónde caen las nuevas --- */
 
-  var ultima = hoja.getLastRow();
+  /*
+  | La última fila DE DATOS, no la última de la hoja.
+  |
+  | `getLastRow()` devuelve la última con cualquier cosa escrita: una nota al
+  | pie o una celda suelta bastaba para que las filas nuevas se insertaran
+  | detrás de ella y se clonaran DE ella, es decir, sin las fórmulas de carga
+  | que todo esto existe para conservar.
+  */
+  var ultima = ultimaFilaDeDatos_(hoja, cabecera);
 
   if (ultima <= cabecera.fila) {
     throw new Error('La hoja no tiene ninguna fila de datos de la que copiar las fórmulas.');

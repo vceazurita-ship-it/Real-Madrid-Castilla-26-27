@@ -1084,20 +1084,30 @@ export function alcanceDelCambio(
   tablero: TableroPizarra,
   sale: string,
   entra: string,
+  /**
+   * Con intercambio, el cambio toca también las diapositivas donde **sólo**
+   * está el que entra: ahí pasa a ocupar el sitio del que sale. Sin contarlas,
+   * el botón decía «cambiar en 3 diapositivas» y cambiaba siete.
+   */
+  intercambia = false,
 ): AlcanceCambio {
   const alcance: AlcanceCambio = { fichas: 0, slides: [], choques: [] };
 
   if (!sale || !entra || sale === entra) return alcance;
 
   for (const slide of tablero.slides) {
-    const suyas = slide.fichas.filter((ficha) => ficha.playerId === sale).length;
+    const delQueSale = slide.fichas.filter((ficha) => ficha.playerId === sale).length;
+
+    const delQueEntra = slide.fichas.filter((ficha) => ficha.playerId === entra).length;
+
+    const suyas = delQueSale + (intercambia ? delQueEntra : 0);
 
     if (suyas === 0) continue;
 
     alcance.fichas += suyas;
     alcance.slides.push({ id: slide.id, titulo: slide.titulo });
 
-    if (slide.fichas.some((ficha) => ficha.playerId === entra)) {
+    if (delQueSale > 0 && delQueEntra > 0) {
       alcance.choques.push({ id: slide.id, titulo: slide.titulo });
     }
   }

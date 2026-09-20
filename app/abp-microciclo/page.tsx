@@ -590,6 +590,13 @@ export default function AbpMicrocicloPage() {
     [tareasDelMicro, microActivo, calendario],
   );
 
+  /* Sin letras repetidas: dos columnas con la misma inicial editarían el mismo
+     día, y dnd-kit no sabría en cuál se suelta. La ventana lo avisa. */
+  const ordenDias = useMemo(
+    () => [...new Set(ventana.dias.map((dia) => dia.clave))],
+    [ventana],
+  );
+
   const etiquetasDia = useMemo(() => {
     const mapa: Partial<Record<DiaKey, string>> = {};
 
@@ -1097,9 +1104,21 @@ export default function AbpMicrocicloPage() {
                     />
                   }
                 >
+                  {ventana.avisos.length > 0 && (
+                    <div className="mb-3">
+                      <Notice tone="warn" title="Ojo con los días de este microciclo">
+                        <ul className="space-y-1">
+                          {ventana.avisos.map((aviso) => (
+                            <li key={aviso}>{aviso}</li>
+                          ))}
+                        </ul>
+                      </Notice>
+                    </div>
+                  )}
+
                   <SemanaGrid
                     dias={plan.dias}
-                    orden={ventana.dias.map((dia) => dia.clave)}
+                    orden={ordenDias}
                     etiquetas={etiquetasDia}
                     detalle={vistaSemana === "completa"}
                     onCambiaTipo={cambiaTipo}

@@ -362,11 +362,20 @@ export function construyeBoceto(entrada: EntradaBoceto): Boceto {
     };
   }
 
+  /*
+  | Se marcan los días, pero NO se vacían.
+  |
+  | Antes, un día que la hoja deja sin sesión —o el propio día de partido— se
+  | quedaba con la lista de trabajos en blanco: los diez minutos de vídeo del
+  | rival que alguien hubiera puesto ahí a mano desaparecían al aplicar el
+  | boceto, justo lo contrario de lo que promete el diálogo. Lo del boceto ya
+  | se ha quitado arriba; lo demás es de su dueño.
+  */
   for (const dia of ventana.dias) {
     plan[dia.clave] = {
+      ...plan[dia.clave],
       tipo: dia.tipo,
       md: dia.rotulo,
-      trabajos: dia.tipo === "entreno" ? plan[dia.clave].trabajos : [],
     };
   }
 
@@ -435,8 +444,19 @@ function colocaTrabajo(
 
   const porDia = new Map<DiaKey, Candidato[]>();
 
+  /*
+  | Se alinea por el FINAL, no por el principio.
+  |
+  | Los días van de lejos a cerca y los candidatos de lo nuestro a lo del
+  | rival, así que el último candidato tiene que caer en el último día. Con la
+  | alineación por el principio, un microciclo de cinco entrenamientos y dos
+  | aspectos lo metía todo en MD-5 y MD-4 y dejaba MD-2 vacío: justo al revés
+  | de lo que se quiere, que es llegar al partido con lo del rival reciente.
+  */
+  const desde = Math.max(0, orden.length - enOrden.length);
+
   enOrden.forEach((candidato, indice) => {
-    const dia = orden[Math.min(indice, orden.length - 1)];
+    const dia = orden[Math.min(orden.length - 1, desde + indice)];
 
     porDia.set(dia.clave, [...(porDia.get(dia.clave) ?? []), candidato]);
   });

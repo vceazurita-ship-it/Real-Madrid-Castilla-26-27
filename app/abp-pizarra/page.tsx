@@ -938,7 +938,7 @@ export default function PizarraAbpPage() {
     (sale: string, entra: string, intercambia: boolean) => {
       if (!partido || !tablero) return;
 
-      const alcance = alcanceDelCambio(tablero, sale, entra);
+      const alcance = alcanceDelCambio(tablero, sale, entra, intercambia);
 
       if (alcance.fichas === 0) {
         setCambiando(null);
