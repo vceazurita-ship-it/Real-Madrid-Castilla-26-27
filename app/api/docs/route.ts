@@ -16,7 +16,33 @@ const KEY_PATTERN = /^[a-z0-9][a-z0-9:_-]{2,120}$/i;
  */
 const PREFIJO_VETADO = /^secreto:/i;
 
-const vetada = (key: string) => PREFIJO_VETADO.test(key);
+/**
+ * Claves que NO se leen por aquí.
+ *
+ * La quiniela lleva dentro los pronósticos de todos, y antes del viernes eso
+ * es privado: cada uno ve el suyo y cuántos lleva puestos el resto. Esa criba
+ * la hace `/api/quiniela/leer`, que mira quién pregunta y si la jornada está
+ * cerrada. Servir el documento entero por esta puerta dejaba esa criba en
+ * papel mojado: bastaba con pedir `?key=quiniela` —sin entrar siquiera— para
+ * tener la apuesta de los diez el martes.
+ */
+const CLAVES_VETADAS = new Set(["quiniela"]);
+
+/**
+ * Y la caché del servidor tampoco se toca desde fuera.
+ *
+ * `cache:apps-script:<accion>` son las copias que `lib/appsScript.ts` guarda
+ * de las lecturas de la hoja y sirve durante horas a todo el mundo. Escribir
+ * ahí desde el navegador es poder inventarse la plantilla, el seguimiento o
+ * las alertas para todos; leerlo de aquí no hace daño, pero tampoco lo
+ * necesita nadie.
+ */
+const PREFIJO_CACHE = /^cache:/i;
+
+const vetada = (key: string) =>
+  PREFIJO_VETADO.test(key) ||
+  PREFIJO_CACHE.test(key) ||
+  CLAVES_VETADAS.has(key.trim().toLowerCase());
 
 /**
  * Claves que se leen por aquí pero **no se escriben** por aquí.

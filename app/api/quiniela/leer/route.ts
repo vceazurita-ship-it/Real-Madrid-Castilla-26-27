@@ -26,6 +26,7 @@ import { estadoDe } from "@/lib/quiniela/cierre";
 import { sinCastilla } from "@/lib/quiniela/migracion";
 import {
   QUINIELA_VACIA,
+  comoLaVe,
   type DocumentoQuiniela,
   type JornadaQuiniela,
 } from "@/lib/quiniela/modelo";
@@ -34,27 +35,6 @@ import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 export const dynamic = "force-dynamic";
 
 const CLAVE_QUINIELA = "quiniela";
-
-/** La jornada tal y como se la puede ver quien pregunta. */
-function comoLaVe(
-  jornada: JornadaQuiniela,
-  yo: string | null,
-  ahora: Date,
-): JornadaQuiniela {
-  if (estadoDe(jornada.jornada, ahora).cerrada) return jornada;
-
-  const puestos: Record<string, number> = {};
-
-  const mios: Record<string, (typeof jornada.pronosticos)[string]> = {};
-
-  for (const [slug, signos] of Object.entries(jornada.pronosticos ?? {})) {
-    puestos[slug] = signos.filter(Boolean).length;
-
-    if (slug === yo) mios[slug] = signos;
-  }
-
-  return { ...jornada, pronosticos: mios, puestos };
-}
 
 export async function GET(request: NextRequest) {
   const yo = leeSesion(request.cookies.get(COOKIE)?.value);
@@ -94,7 +74,7 @@ export async function GET(request: NextRequest) {
       jornadas: Object.fromEntries(
         Object.entries(doc.jornadas).map(([clave, jornada]) => [
           clave,
-          comoLaVe(jornada, yo, ahora),
+          comoLaVe(jornada, yo, estadoDe(jornada.jornada, ahora).cerrada),
         ]),
       ),
     },

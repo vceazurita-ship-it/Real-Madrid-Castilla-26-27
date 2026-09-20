@@ -31,6 +31,7 @@ import { estadoDe, cuandoCierra } from "@/lib/quiniela/cierre";
 import {
   JORNADAS,
   QUINIELA_VACIA,
+  comoLaVe,
   esSigno,
   jornadaVacia,
   partidosDe,
@@ -256,5 +257,26 @@ export async function POST(request: NextRequest) {
     return mal("No se ha podido guardar. Inténtalo en un momento.", 503);
   }
 
-  return NextResponse.json({ ok: true, doc: nuevo });
+  /*
+  | Lo que se devuelve va CRIBADO, como en la lectura.
+  |
+  | Antes se contestaba el documento entero: guardar cualquier cosa —hasta los
+  | extras— devolvía los pronósticos de los diez con la jornada todavía
+  | abierta, y la pantalla los metía en su estado. El cierre del viernes sólo
+  | tapaba lo de los demás al pintar, no al servir.
+  */
+  const ahora = new Date();
+
+  return NextResponse.json({
+    ok: true,
+    doc: {
+      ...nuevo,
+      jornadas: Object.fromEntries(
+        Object.entries(nuevo.jornadas).map(([clave, jornada]) => [
+          clave,
+          comoLaVe(jornada, slug, estadoDe(jornada.jornada, ahora).cerrada),
+        ]),
+      ),
+    },
+  });
 }

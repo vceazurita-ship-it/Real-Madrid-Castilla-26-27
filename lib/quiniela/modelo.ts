@@ -558,6 +558,35 @@ export function bloqueCerrado(doc: DocumentoQuiniela, bloque: Bloque) {
 }
 
 /** Una jornada en blanco, con tantos huecos como partidos tenga. */
+/**
+ * La jornada tal y como se la puede ver quien pregunta.
+ *
+ * Con la jornada abierta, de los demás sólo se sabe **cuántos** signos llevan
+ * puestos, no cuáles. Vive aquí —y no en la ruta de lectura— porque hay dos
+ * sitios que contestan con el documento: `/api/quiniela/leer` y la respuesta
+ * de `/api/quiniela/guardar`. Cuando sólo la tenía el primero, bastaba con
+ * guardar cualquier cosa para que el servidor devolviera las apuestas de todos.
+ */
+export function comoLaVe(
+  jornada: JornadaQuiniela,
+  yo: string | null,
+  cerrada: boolean,
+): JornadaQuiniela {
+  if (cerrada) return jornada;
+
+  const puestos: Record<string, number> = {};
+
+  const mios: Record<string, (Signo | null)[]> = {};
+
+  for (const [slug, signos] of Object.entries(jornada.pronosticos ?? {})) {
+    puestos[slug] = signos.filter(Boolean).length;
+
+    if (slug === yo) mios[slug] = signos;
+  }
+
+  return { ...jornada, pronosticos: mios, puestos };
+}
+
 export function jornadaVacia(jornada: number): JornadaQuiniela {
   return {
     jornada,
