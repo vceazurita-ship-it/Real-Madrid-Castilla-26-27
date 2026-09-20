@@ -52,6 +52,7 @@ import { chipInk } from "@/lib/theme";
 
 import {
   DIAS,
+  DIA_KEYS,
   LADO_COLOR,
   LADO_LABEL,
   LADO_SHORT,
@@ -348,6 +349,7 @@ function DiaColumna({
   dia,
   plan,
   detalle,
+  etiqueta,
   onCambiaTipo,
   onCambiaMd,
   onAbrir,
@@ -358,6 +360,8 @@ function DiaColumna({
   dia: DiaKey;
   plan: PlanDia;
   detalle: boolean;
+  /** "dom 20": la fecha real de ese día en este microciclo. */
+  etiqueta?: string;
   onCambiaTipo: (tipo: TipoDia) => void;
   onCambiaMd: (md: string) => void;
   onAbrir: (trabajo: Trabajo) => void;
@@ -406,6 +410,11 @@ function DiaColumna({
         <div className="flex items-baseline justify-between gap-1.5">
           <p className="text-xs font-semibold uppercase tracking-wider text-white">
             {info?.corto}
+            {etiqueta && (
+              <span className="ml-1 text-[10px] font-normal normal-case tracking-normal text-white/40">
+                {etiqueta}
+              </span>
+            )}
           </p>
 
           <input
@@ -493,6 +502,8 @@ function DiaColumna({
 
 export function SemanaGrid({
   dias,
+  orden,
+  etiquetas,
   detalle = true,
   onCambiaTipo,
   onCambiaMd,
@@ -503,6 +514,17 @@ export function SemanaGrid({
   onBorrar,
 }: {
   dias: Record<DiaKey, PlanDia>;
+  /**
+   * Qué días se pintan y en qué orden.
+   *
+   * Un microciclo **no es una semana natural**: el del Sant Andreu va de
+   * domingo a miércoles. Cuando la hoja de registro dice cuáles son sus días,
+   * llegan aquí en su orden; sin eso, se pinta la semana de lunes a domingo de
+   * siempre.
+   */
+  orden?: DiaKey[];
+  /** La fecha de cada día, para la cabecera ("dom 20"). */
+  etiquetas?: Partial<Record<DiaKey, string>>;
   /** Ficha completa —la de compartir— o corta —la de replanificar—. */
   detalle?: boolean;
   onCambiaTipo: (dia: DiaKey, tipo: TipoDia) => void;
@@ -521,6 +543,22 @@ export function SemanaGrid({
 }) {
   /* Lo que se está arrastrando, sólo para pintar el fantasma. */
   const [arrastrando, setArrastrando] = useState<Trabajo | null>(null);
+
+  /*
+  | Los días del microciclo, y si no se saben, la semana entera.
+  |
+  | Se añaden al final los días que no son del microciclo pero tienen trabajo
+  | escrito: si alguien puso algo un jueves que ya es de la semana siguiente,
+  | esconderlo sería perderlo de vista sin borrarlo.
+  */
+  const columnas: DiaKey[] = orden?.length
+    ? [
+        ...orden,
+        ...DIA_KEYS.filter(
+          (clave) => !orden.includes(clave) && (dias[clave]?.trabajos.length ?? 0) > 0,
+        ),
+      ]
+    : DIA_KEYS;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -565,22 +603,25 @@ export function SemanaGrid({
         {/* La ficha completa necesita columna ancha: con 140 px «Falta lateral
             indirecta» se parte en cuatro renglones. */}
         <div
-          className={`grid grid-cols-7 items-stretch gap-2 ${
-            detalle ? "min-w-[1260px]" : "min-w-[980px]"
-          }`}
+          className="grid items-stretch gap-2"
+          style={{
+            gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))`,
+            minWidth: columnas.length * (detalle ? 180 : 140),
+          }}
         >
-          {DIAS.map((dia) => (
+          {columnas.map((clave) => (
             <DiaColumna
-              key={dia.key}
-              dia={dia.key}
-              plan={dias[dia.key]}
+              key={clave}
+              dia={clave}
+              plan={dias[clave]}
               detalle={detalle}
-              onCambiaTipo={(tipo) => onCambiaTipo(dia.key, tipo)}
-              onCambiaMd={(md) => onCambiaMd(dia.key, md)}
-              onAbrir={(trabajo) => onAbrir(dia.key, trabajo)}
-              onAnadir={() => onAnadir(dia.key)}
-              onDuplicar={(trabajo) => onDuplicar(dia.key, trabajo)}
-              onBorrar={(trabajo) => onBorrar(dia.key, trabajo)}
+              etiqueta={etiquetas?.[clave]}
+              onCambiaTipo={(tipo) => onCambiaTipo(clave, tipo)}
+              onCambiaMd={(md) => onCambiaMd(clave, md)}
+              onAbrir={(trabajo) => onAbrir(clave, trabajo)}
+              onAnadir={() => onAnadir(clave)}
+              onDuplicar={(trabajo) => onDuplicar(clave, trabajo)}
+              onBorrar={(trabajo) => onBorrar(clave, trabajo)}
             />
           ))}
         </div>

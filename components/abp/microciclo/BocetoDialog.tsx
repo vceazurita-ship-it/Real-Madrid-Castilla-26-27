@@ -1,12 +1,17 @@
 "use client";
 
 /**
- * EL BOCETO DE LA SEMANA, PARA MIRARLO ANTES DE APLICARLO.
+ * EL BOCETO DEL MICROCICLO, PARA MIRARLO ANTES DE APLICARLO.
  *
  * El motor está en `lib/abp/boceto.ts`; esto es la cara: trae lo que hace
  * falta —nuestro calendario de BeSoccer y el balón parado de la liga—, enseña
- * la semana propuesta día a día con el porqué de cada tarea, y sólo escribe en
- * el plan cuando alguien pulsa «Aplicar al plan».
+ * el microciclo propuesto día a día con el porqué de cada tarea, y sólo escribe
+ * en el plan cuando alguien pulsa «Aplicar al plan».
+ *
+ * **Los días salen de la hoja de registro de tareas**, no de la semana natural:
+ * el microciclo del Sant Andreu va de domingo a miércoles. Si esa semana
+ * todavía no está creada en la hoja, aquí no se propone nada: se dice que hay
+ * que crearla primero, con sus días, y volver.
  *
  * **Propone, no cierra.** Lo aplicado queda como cualquier otra tarea: se
  * mueve, se recorta y se borra. Las tareas del boceto se reconocen por su nota
@@ -18,23 +23,13 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, Check, Info, Wand2 } from "lucide-react";
 
 import { Button, Dialog, EmptyState, Notice } from "@/components/abp/ui";
-import {
-  construyeBoceto,
-  semanaDe,
-  type Boceto,
-} from "@/lib/abp/boceto";
+import { construyeBoceto, type Boceto } from "@/lib/abp/boceto";
 import { construyeRivalAbp, type RivalAbp } from "@/lib/abp/rivalAbp";
-import {
-  alrededorDe,
-  CLAVE_CALENDARIO,
-  soloDia,
-  type PartidoCastilla,
-  type PartidoNuestro,
-} from "@/lib/castilla/calendario";
+import { ventanaDelMicro, type VentanaMicro } from "@/lib/abp/ventana";
+import { CLAVE_CALENDARIO, type PartidoCastilla } from "@/lib/castilla/calendario";
 import type { CompeticionEvent } from "@/lib/abp/competicion";
 import type { ComparativaAbp } from "@/lib/abp/informe-graficos";
 import {
-  DIAS,
   MOMENTO_SHORT,
   etiquetaLados,
   etiquetaTrabajo,
@@ -43,37 +38,44 @@ import {
   type MicroPlan,
   type PlanDia,
 } from "@/lib/abp/microciclo";
+import type { RegistroTarea } from "@/lib/abp/registro";
 import type { FilaCruce } from "@/lib/abp/transferencia";
 
 type Estado =
   | { fase: "cargando" }
+  | { fase: "sin-semana"; ventana: VentanaMicro }
   | { fase: "roto"; motivo: string }
   | {
       fase: "listo";
       boceto: Boceto;
-      proximo: PartidoNuestro;
-      rivales: Record<string, RivalAbp | null>;
-      fechas: string[];
+      ventana: VentanaMicro;
+      rival: RivalAbp | null;
     };
-
-/** El día de la semana con su fecha, "lunes 21". */
-function diaConFecha(fecha: string, nombre: string) {
-  const numero = Number(fecha.slice(8, 10));
-
-  return `${nombre} ${numero}`;
-}
 
 export function BocetoDialog({
   filas,
   plan,
   events,
+  tareasDelMicro,
+  rivalDelMicro,
+  micro,
   onAplicar,
   onCerrar,
 }: {
   filas: FilaCruce[];
   plan: MicroPlan;
   events: CompeticionEvent[];
-  onAplicar: (dias: Record<DiaKey, PlanDia>, rival: string, diasEntrenados: number) => void;
+  /** Todas las tareas de la hoja de este microciclo, no sólo las de ABP. */
+  tareasDelMicro: RegistroTarea[];
+  /** El rival del microciclo según la hoja. */
+  rivalDelMicro: string;
+  /** Para poder nombrarlo en pantalla. */
+  micro: { temporada: string; numero: number };
+  onAplicar: (
+    dias: Record<DiaKey, PlanDia>,
+    rival: string,
+    diasEntrenados: number,
+  ) => void;
   onCerrar: () => void;
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
@@ -100,45 +102,28 @@ export function BocetoDialog({
 
         if (cancelado) return;
 
-        if (calendario.length === 0) {
-          setEstado({
-            fase: "roto",
-            motivo:
-              "No tengo el calendario del Castilla. Lo baja de BeSoccer el ordenador del club (scripts/castilla-calendario.cjs, que corre solo cada pocas horas): en cuanto pase, esto funciona.",
-          });
+        const ventana = ventanaDelMicro({
+          tareas: tareasDelMicro,
+          rival: rivalDelMicro,
+          partidos: calendario,
+        });
+
+        /* Sin días en la hoja no hay microciclo que planificar. */
+        if (ventana.dias.length === 0) {
+          setEstado({ fase: "sin-semana", ventana });
 
           return;
         }
 
-        const { proximo, todos } = alrededorDe(calendario, Date.now());
-
-        if (!proximo) {
-          setEstado({ fase: "roto", motivo: "No queda ningún partido por jugar en el calendario." });
-
-          return;
-        }
-
-        const fechas = semanaDe(proximo.cuando);
-
-        /* Un perfil por cada rival de la semana: puede haber dos partidos. */
-        const rivales: Record<string, RivalAbp | null> = {};
-
-        for (const partido of todos) {
-          if (!fechas.includes(soloDia(partido.cuando))) continue;
-
-          rivales[partido.rival] = construyeRivalAbp({
-            equipo: partido.rival,
-            comparativa,
-            events,
-          });
-        }
+        const rival = ventana.partido
+          ? construyeRivalAbp({ equipo: ventana.partido.rival, comparativa, events })
+          : null;
 
         setEstado({
           fase: "listo",
-          proximo,
-          fechas,
-          rivales,
-          boceto: construyeBoceto({ fechas, partidos: todos, filas, rivales, plan }),
+          ventana,
+          rival,
+          boceto: construyeBoceto({ ventana, filas, rival, plan }),
         });
       } catch (error) {
         if (cancelado) return;
@@ -155,30 +140,27 @@ export function BocetoDialog({
     return () => {
       cancelado = true;
     };
-  }, [filas, plan, events]);
+  }, [filas, plan, events, tareasDelMicro, rivalDelMicro]);
 
-  const resumen = useMemo(() => {
-    if (estado.fase !== "listo") return null;
+  const dentro = useMemo(() => {
+    if (estado.fase !== "listo") return true;
 
     const { boceto } = estado;
 
-    const dentro =
-      boceto.minutos >= boceto.objetivo.minimo && boceto.minutos <= boceto.objetivo.maximo;
-
-    return { dentro, ...boceto };
+    return boceto.minutos >= boceto.objetivo.minimo && boceto.minutos <= boceto.objetivo.maximo;
   }, [estado]);
 
   return (
     <Dialog
-      title="Boceto de la semana"
-      subtitle="Lo propone la app con el calendario, nuestro rendimiento y el del rival. Se aplica al plan y se cierra a mano."
+      title={`Boceto del microciclo ${micro.numero || ""}`.trim()}
+      subtitle="Los días salen de la hoja de registro; los aspectos, de nuestro rendimiento y del rival. Se aplica al plan y se cierra a mano."
       onClose={onCerrar}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] text-white/40">
             {estado.fase === "listo"
               ? `${fmtMin(estado.boceto.minutos)} en ${estado.boceto.diasEntrenados} entreno(s) · objetivo ${estado.boceto.objetivo.minimo}-${estado.boceto.objetivo.maximo}′`
-              : "Mirando el calendario y los datos de la liga…"}
+              : "Mirando la hoja, el calendario y los datos de la liga…"}
           </p>
 
           <div className="flex gap-2">
@@ -193,7 +175,7 @@ export function BocetoDialog({
 
                 onAplicar(
                   estado.boceto.dias,
-                  estado.proximo.rival,
+                  estado.ventana.partido?.rival ?? estado.ventana.rivalHoja,
                   estado.boceto.diasEntrenados,
                 );
               }}
@@ -207,7 +189,7 @@ export function BocetoDialog({
       {estado.fase === "cargando" && (
         <EmptyState
           title="Montando el boceto…"
-          description="Se está mirando cuándo es el próximo partido y qué hace de balón parado el rival."
+          description="Se está leyendo qué días entrenamos en la hoja y qué hace de balón parado el rival."
         />
       )}
 
@@ -217,62 +199,109 @@ export function BocetoDialog({
         </Notice>
       )}
 
-      {estado.fase === "listo" && resumen && (
-        <div className="space-y-4">
-          {/* ---------------- EL PARTIDO Y LA SEMANA ---------------- */}
+      {estado.fase === "sin-semana" && (
+        <div className="space-y-3">
+          <Notice tone="warn" title="Esa semana todavía no está en la hoja">
+            <p>
+              El microciclo {micro.numero || "—"} de {micro.temporada || "la temporada"} no tiene
+              ninguna fila con fecha en la hoja de registro de tareas, así que no sé qué días se
+              entrena.
+            </p>
 
-          <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-white/[0.07] px-4 py-3 text-[12px] leading-relaxed">
-            <CalendarClock size={15} className="shrink-0 text-emerald-300" aria-hidden />
+            <p className="mt-2">
+              <strong className="text-white/75">Créalo primero en la hoja</strong> —una fila por
+              tarea, con su día, su MD y su fecha— y vuelve a pulsar «Proponer boceto». Los días de
+              entrenamiento salen de ahí: el microciclo no tiene por qué ser de lunes a domingo.
+            </p>
+          </Notice>
 
-            <p className="text-white/55">
-              Próximo partido:{" "}
-              <strong className="text-white/85">
-                J{estado.proximo.jornada} · {estado.proximo.rival}
-              </strong>{" "}
-              {estado.proximo.lado === "casa" ? "en casa" : "fuera"}, el{" "}
-              {new Date(estado.proximo.cuando).toLocaleString("es-ES", {
+          {estado.ventana.partido && (
+            <p className="text-[11px] leading-relaxed text-white/40">
+              El partido sí lo tengo: J{estado.ventana.partido.jornada} contra{" "}
+              {estado.ventana.partido.rival}, el{" "}
+              {new Date(estado.ventana.partido.cuando).toLocaleString("es-ES", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-              . Semana del {estado.fechas[0].slice(8, 10)} al {estado.fechas[6].slice(8, 10)}.
+              .
+            </p>
+          )}
+
+          {estado.ventana.avisos.map((aviso) => (
+            <p key={aviso} className="text-[11px] leading-relaxed text-white/40">
+              {aviso}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {estado.fase === "listo" && (
+        <div className="space-y-4">
+          {/* ---------------- EL PARTIDO Y EL MICROCICLO ---------------- */}
+
+          <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-white/[0.07] px-4 py-3 text-[12px] leading-relaxed">
+            <CalendarClock size={15} className="shrink-0 text-emerald-300" aria-hidden />
+
+            <p className="text-white/55">
+              {estado.ventana.partido ? (
+                <>
+                  Microciclo {estado.ventana.comoSeLlama} ·{" "}
+                  <strong className="text-white/85">
+                    J{estado.ventana.partido.jornada} · {estado.ventana.partido.rival}
+                  </strong>{" "}
+                  {estado.ventana.partido.lado === "casa" ? "en casa" : "fuera"}, el{" "}
+                  {new Date(estado.ventana.partido.cuando).toLocaleString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </>
+              ) : (
+                <>
+                  Microciclo {estado.ventana.comoSeLlama} · sin partido atado (
+                  {estado.ventana.rivalHoja || "sin rival en la hoja"})
+                </>
+              )}
+              . {estado.boceto.diasEntrenados} día(s) de entrenamiento según la hoja.
             </p>
           </div>
 
-          {/* ---------------- LOS DÍAS ---------------- */}
+          {/* ---------------- LOS DÍAS, EN ORDEN DE MICROCICLO ---------------- */}
 
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {DIAS.map((dia) => {
-              const suyo = estado.boceto.dias[dia.key];
+            {estado.ventana.dias.map((dia) => {
+              const suyo = estado.boceto.dias[dia.clave];
 
-              const info = estado.boceto.reparto.find((uno) => uno.clave === dia.key);
-
-              const minutos = suyo.trabajos.reduce((total, uno) => total + (uno.minutos || 0), 0);
+              const minutos = suyo.trabajos.reduce(
+                (total, uno) => total + (uno.minutos || 0),
+                0,
+              );
 
               return (
                 <div
-                  key={dia.key}
+                  key={dia.fecha}
                   className={`rounded-2xl border px-3 py-2.5 ${
-                    suyo.tipo === "partido"
+                    dia.tipo === "partido"
                       ? "border-emerald-400/25 bg-emerald-400/[0.06]"
-                      : suyo.tipo === "descanso"
+                      : dia.tipo === "descanso"
                         ? "border-white/[0.07] bg-white/[0.02]"
                         : "border-white/[0.07]"
                   }`}
                 >
                   <p className="flex items-baseline justify-between gap-2 text-[12px]">
-                    <span className="font-semibold text-white/80">
-                      {info ? diaConFecha(info.fecha, dia.label.toLowerCase()) : dia.label}
-                    </span>
+                    <span className="font-semibold text-white/80">{dia.etiqueta}</span>
 
                     <span className="text-[10px] uppercase tracking-wide text-white/40">
-                      {suyo.tipo === "partido"
-                        ? `MD · ${info?.prepara?.rival ?? ""}`
-                        : suyo.tipo === "descanso"
-                          ? "Descanso"
-                          : `${suyo.md}${minutos ? ` · ${fmtMin(minutos)}` : ""}`}
+                      {dia.tipo === "partido"
+                        ? `MD · ${estado.ventana.partido?.rival ?? ""}`
+                        : dia.tipo === "descanso"
+                          ? "Sin sesión en la hoja"
+                          : `${dia.rotulo}${minutos ? ` · ${fmtMin(minutos)}` : ""}`}
                     </span>
                   </p>
 
@@ -297,8 +326,10 @@ export function BocetoDialog({
                     </ul>
                   )}
 
-                  {suyo.trabajos.length === 0 && suyo.tipo === "entreno" && (
-                    <p className="mt-2 text-[10px] text-white/30">Sin balón parado.</p>
+                  {suyo.trabajos.length === 0 && dia.tipo === "entreno" && (
+                    <p className="mt-2 text-[10px] text-white/30">
+                      Sin balón parado{dia.tareasHoja ? ` · ${dia.tareasHoja} tarea(s) en la hoja` : ""}.
+                    </p>
                   )}
                 </div>
               );
@@ -314,15 +345,16 @@ export function BocetoDialog({
 
             <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-white/45">
               <li>
-                <strong className="text-white/65">La semana</strong>, del calendario del Castilla
-                en BeSoccer: cada día se prepara para su partido.
+                <strong className="text-white/65">Los días</strong>, de la hoja de registro de
+                tareas: los que tienen sesión escrita, con su fecha y su MD.
               </li>
 
               <li>
                 <strong className="text-white/65">Los minutos</strong>, del objetivo de 90-100′ en
                 una semana de seis entrenamientos, prorrateado a los{" "}
-                {estado.boceto.diasEntrenados} de ésta ({estado.boceto.objetivo.minimo}-
-                {estado.boceto.objetivo.maximo}′).
+                {estado.boceto.diasEntrenados} de este microciclo (
+                {estado.boceto.objetivo.minimo}-{estado.boceto.objetivo.maximo}′), con el vídeo y
+                el ensayo dentro.
               </li>
 
               <li>
@@ -330,34 +362,31 @@ export function BocetoDialog({
                 y de lo que el rival ataca y concede (45 %).
               </li>
 
-              {Object.entries(estado.rivales).map(([equipo, perfil]) => (
-                <li key={equipo}>
-                  <strong className="text-white/65">{equipo}</strong>:{" "}
-                  {perfil ? perfil.fuentes.join(" · ") : "sin datos de balón parado"}
+              {estado.rival && (
+                <li>
+                  <strong className="text-white/65">{estado.rival.equipo}</strong>:{" "}
+                  {estado.rival.fuentes.join(" · ")}
                 </li>
-              ))}
+              )}
             </ul>
           </div>
 
           {(estado.boceto.avisos.length > 0 ||
-            Object.values(estado.rivales).some((uno) => (uno?.avisos.length ?? 0) > 0)) && (
+            (estado.rival?.avisos.length ?? 0) > 0 ||
+            !dentro) && (
             <Notice tone="warn" title="Lo que hay que saber antes de cerrarlo">
               <ul className="space-y-1">
                 {estado.boceto.avisos.map((aviso) => (
                   <li key={aviso}>{aviso}</li>
                 ))}
 
-                {[
-                  ...new Set(
-                    Object.values(estado.rivales).flatMap((uno) => uno?.avisos ?? []),
-                  ),
-                ].map((aviso) => (
+                {(estado.rival?.avisos ?? []).map((aviso) => (
                   <li key={aviso}>{aviso}</li>
                 ))}
 
-                {!resumen.dentro && (
+                {!dentro && (
                   <li>
-                    El boceto suma {fmtMin(estado.boceto.minutos)} y el objetivo de la semana es{" "}
+                    El boceto suma {fmtMin(estado.boceto.minutos)} y el objetivo es{" "}
                     {estado.boceto.objetivo.minimo}-{estado.boceto.objetivo.maximo}′: los mínimos
                     por tarea no dan para cuadrarlo al minuto.
                   </li>

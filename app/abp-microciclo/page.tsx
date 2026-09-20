@@ -106,6 +106,11 @@ import {
   loadRegistro,
   type RegistroDataset,
 } from "@/lib/abp/registro";
+import { ventanaDelMicro } from "@/lib/abp/ventana";
+import {
+  CLAVE_CALENDARIO,
+  type PartidoCastilla,
+} from "@/lib/castilla/calendario";
 import {
   colorUrgencia,
   construyeCruce,
@@ -202,15 +207,25 @@ export default function AbpMicrocicloPage() {
   const [cargando, setCargando] = useState(true);
   const [errorRegistro, setErrorRegistro] = useState(false);
 
+  /* Nuestro calendario, para saber qué día es MD-1 de cada microciclo. Lo baja
+     de BeSoccer el ordenador del club (scripts/castilla-calendario.cjs). */
+  const [calendario, setCalendario] = useState<PartidoCastilla[]>([]);
+
   /* --------------------------- CARGA DE HOJAS --------------------------- */
 
   useEffect(() => {
     let cancelado = false;
 
     const cargar = async () => {
-      const [datosRegistro, datosCompeticion] = await Promise.all([
+      const [datosRegistro, datosCompeticion, partidos] = await Promise.all([
         loadRegistro().catch(() => null),
         loadCompeticion(),
+        fetch("/api/docs?key=" + encodeURIComponent(CLAVE_CALENDARIO), {
+          cache: "no-store",
+        })
+          .then((r) => r.json() as Promise<{ data?: { partidos?: PartidoCastilla[] } }>)
+          .then((datos) => datos?.data?.partidos ?? [])
+          .catch(() => [] as PartidoCastilla[]),
       ]);
 
       if (cancelado) return;
@@ -218,6 +233,7 @@ export default function AbpMicrocicloPage() {
       setRegistro(datosRegistro);
       setErrorRegistro(datosRegistro === null);
       setCompeticion(datosCompeticion);
+      setCalendario(partidos);
       setCargando(false);
     };
 
@@ -546,6 +562,42 @@ export default function AbpMicrocicloPage() {
         esTareaAbp(tarea),
     );
   }, [registro, microActivo]);
+
+  /**
+   * TODAS las tareas de la hoja de este microciclo, no sólo las de ABP.
+   *
+   * Son las que dicen **qué días se entrena**: el microciclo del Sant Andreu va
+   * de domingo a miércoles, y eso no se puede deducir del calendario.
+   */
+  const tareasDelMicro = useMemo(() => {
+    if (!registro || !microActivo) return [];
+
+    return registro.tareas.filter(
+      (tarea) =>
+        tarea.micro === microActivo.micro &&
+        tarea.temporada === microActivo.temporada,
+    );
+  }, [registro, microActivo]);
+
+  /** Los días de este microciclo, en su orden, con su fecha y su partido. */
+  const ventana = useMemo(
+    () =>
+      ventanaDelMicro({
+        tareas: tareasDelMicro,
+        rival: microActivo?.rival ?? "",
+        partidos: calendario,
+      }),
+    [tareasDelMicro, microActivo, calendario],
+  );
+
+  const etiquetasDia = useMemo(() => {
+    const mapa: Partial<Record<DiaKey, string>> = {};
+
+    /* "domingo 20" no cabe en la cabecera: sólo el número. */
+    for (const dia of ventana.dias) mapa[dia.clave] = dia.fecha.slice(8, 10);
+
+    return mapa;
+  }, [ventana]);
 
   const yaImportadas = useMemo(
     () =>
@@ -1047,6 +1099,8 @@ export default function AbpMicrocicloPage() {
                 >
                   <SemanaGrid
                     dias={plan.dias}
+                    orden={ventana.dias.map((dia) => dia.clave)}
+                    etiquetas={etiquetasDia}
                     detalle={vistaSemana === "completa"}
                     onCambiaTipo={cambiaTipo}
                     onCambiaMd={cambiaMd}
@@ -1291,6 +1345,12 @@ export default function AbpMicrocicloPage() {
           filas={filas}
           plan={plan}
           events={competicion?.events ?? []}
+          tareasDelMicro={tareasDelMicro}
+          rivalDelMicro={microActivo?.rival ?? plan.rival}
+          micro={{
+            temporada: plan.temporada || microActivo?.temporada || "",
+            numero: plan.micro || microActivo?.micro || 0,
+          }}
           onAplicar={aplicaBoceto}
           onCerrar={() => setBocetoAbierto(false)}
         />
