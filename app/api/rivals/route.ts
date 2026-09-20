@@ -160,8 +160,17 @@ function olvidaFuera() {
  * La clave es **la consulta entera** —`action=getAlineacion&id=12`—, no sólo
  * la acción: hay lecturas que llevan parámetros y cada una guarda su copia.
  */
-function pide(consulta: string) {
-  const yaVa = enVuelo.get(consulta);
+function pide(consulta: string, { propia = false } = {}) {
+  /*
+  | Una petición «propia» no se engancha a la que ya iba.
+  |
+  | La comprobación de un guardado pide fresco, y si en ese momento había una
+  | lectura en vuelo —lanzada ANTES de escribir, porque a la hoja se le piden
+  | 30-70 segundos— se le devolvía aquélla: la fila de antes de guardar. El
+  | save-guard decía «no se ha guardado» de algo que sí estaba escrito, y
+  | encima esa respuesta vieja repoblaba la caché que se acababa de tirar.
+  */
+  const yaVa = propia ? null : enVuelo.get(consulta);
 
   if (yaVa) return yaVa;
 
@@ -189,7 +198,9 @@ function pide(consulta: string) {
     }
   })();
 
-  enVuelo.set(consulta, peticion);
+  /* La «propia» no se apunta: nadie debe engancharse a ella, y tampoco tiene
+     que desaparecer del mapa la que ya iba. */
+  if (!propia) enVuelo.set(consulta, peticion);
 
   return peticion;
 }
@@ -220,7 +231,7 @@ async function lee(consulta: string, fresco: boolean) {
     cache.delete(consulta);
 
     try {
-      return await pide(consulta);
+      return await pide(consulta, { propia: true });
     } catch (error) {
       /* Se devuelve la copia al sitio: no vale tirarla por un fallo de red. */
       if (anterior) cache.set(consulta, anterior);

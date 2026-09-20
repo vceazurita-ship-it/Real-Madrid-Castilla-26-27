@@ -1,4 +1,5 @@
 import type { FilaPartido } from "./leer";
+import { mismoEquipo } from "./nombres";
 
 /**
  * LOS GOLES A BALÓN PARADO, DE TODA LA LIGA.
@@ -168,12 +169,20 @@ export type FilaGolesAbp = {
   enContra: GolesAbp;
 };
 
-/** Lo que marca un equipo y lo que le marcan, en las filas que se le den. */
+/**
+ * Lo que marca un equipo y lo que le marcan, en las filas que se le den.
+ *
+ * El «en contra» se compara con `mismoEquipo`, como en el resto de la casa:
+ * `equipo` viene de la columna del informe —el nombre largo— y `rival` del
+ * rótulo del partido, que Wyscout recorta. Con una igualdad exacta, en cuanto
+ * los dos nombres no coincidían al carácter el equipo perdía todo su «en
+ * contra» sin avisar, y seguía apareciendo en la tabla como si fuera cero.
+ */
 export function golesAbpDeEquipo(equipo: string, filas: FilaPartido[]): FilaGolesAbp {
   return {
     equipo,
-    aFavor: golesAbpDe(filas.filter((p) => p.equipo === equipo)),
-    enContra: golesAbpDe(filas.filter((p) => p.rival === equipo)),
+    aFavor: golesAbpDe(filas.filter((p) => mismoEquipo(p.equipo, equipo))),
+    enContra: golesAbpDe(filas.filter((p) => mismoEquipo(p.rival, equipo))),
   };
 }
 

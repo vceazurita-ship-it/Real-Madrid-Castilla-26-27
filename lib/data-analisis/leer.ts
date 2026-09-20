@@ -291,9 +291,17 @@ export function aNumero(valor: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** "Real Murcia - Teruel 4:0" → los dos equipos y el marcador. */
+/**
+ * "Real Murcia - Teruel 4:0" → los dos equipos y el marcador.
+ *
+ * **El marcador puede no ser lo último.** Los partidos con prórroga o penaltis
+ * los escribe Wyscout como «Águilas - Castilla 1:1 (P)», y exigiendo el final
+ * de la cadena no casaba ninguno: el partido quedaba 0-0 y el nombre del rival
+ * se llevaba el marcador pegado —«Águilas 1:1 (P)»—, con lo que además dejaba
+ * de cruzar con su propia ficha. Cinco partidos del histórico estaban así.
+ */
 export function leeRotuloDePartido(rotulo: string) {
-  const marcador = /(\d+)\s*:\s*(\d+)\s*$/.exec(rotulo.trim());
+  const marcador = /(\d+)\s*:\s*(\d+)(?:\s*\([^)]*\))?\s*$/.exec(rotulo.trim());
 
   const sinMarcador = marcador
     ? rotulo.slice(0, marcador.index).trim()
@@ -462,8 +470,21 @@ function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
     .slice(1)
     .reduce((tope, fila) => Math.max(tope, aNumero(fila.H) ?? 0), 0);
 
+  /*
+  | El corte no puede ser un número pequeño: en noviembre nos comíamos la
+  | temporada.
+  |
+  | Con «ocho o menos es la actual», en cuanto el equipo que más juega llegaba
+  | a nueve partidos —hacia noviembre— la descarga del curso en marcha pasaba a
+  | etiquetarse «anterior», pisaba a la del año pasado y **todo lo que filtra
+  | por «actual» se quedaba vacío**: la ficha individual, el once, las alertas,
+  | los destacados y las fotos semanales por jornada.
+  |
+  | Una liga son 38 jornadas, así que la temporada cerrada se reconoce por
+  | tener una vuelta larga jugada. Por debajo de eso es la que está en curso.
+  */
   const temporada: "actual" | "anterior" =
-    partidosMaximos <= 8 ? "actual" : "anterior";
+    partidosMaximos <= 25 ? "actual" : "anterior";
 
   return filas
     .slice(1)

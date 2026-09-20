@@ -184,7 +184,10 @@ let nocturnaCorriendo = false;
  */
 function ejecuta(tarea, orden, args) {
   return new Promise((resolve) => {
-    const sello = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    /* Con segundos: dos pasadas de la misma tarea dentro del mismo minuto
+       compartían fichero y la segunda borraba el registro de la primera, que
+       es justo el que se va a mirar cuando algo falle. */
+    const sello = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
 
     const fichero = path.join(REGISTRO, `${tarea}-${sello}.log`);
 
@@ -323,7 +326,13 @@ async function lanzaRivales() {
     apunta("Rivales: lanzando la tarea de la jornada nocturna…");
 
     execFile("schtasks.exe", ["/Run", "/TN", TAREA_NOCTURNA], { windowsHide: true }, (error) => {
-      if (error) apunta(`Rivales: no se ha podido lanzar la tarea (${error.message}).`);
+      if (error) {
+        /* Si no arrancó, se quita la espera de cinco minutos: lo que toca es
+           volver a intentarlo, no quedarse esperando a algo que no salió. */
+        tareaLanzadaEn = 0;
+
+        apunta(`Rivales: no se ha podido lanzar la tarea (${error.message}).`);
+      }
     });
 
     return;
@@ -401,7 +410,13 @@ async function ronda() {
 
   /* Los rivales: se mira la tarea sólo cuando hay algo que mirar, que cada
      consulta es un PowerShell. */
-  if (estados.rivales === "pedido" || estados.rivales === "en-marcha") {
+  /* «Cortado» también se mira: si la pasada sigue corriendo de verdad, el
+     latido tiene que seguir diciéndolo en vez de dejar el botón suelto. */
+  if (
+    estados.rivales === "pedido" ||
+    estados.rivales === "en-marcha" ||
+    estados.rivales === "cortado"
+  ) {
     nocturnaCorriendo = (await estadoTareaNocturna()) === "Running";
 
     const reciente = Date.now() - tareaLanzadaEn < 5 * 60_000;

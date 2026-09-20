@@ -1087,8 +1087,18 @@ export default function RivalPlayersPage() {
   | quedamos con la del equipo seleccionado (o la primera del resultado).
   */
 
+  /*
+  | El equipo elegido MANDA, aunque el filtro deje su plantilla a cero.
+  |
+  | Antes, si se tecleaba una posición que ningún jugador del Teruel cumple,
+  | `pitchTeam` saltaba al primer equipo de la búsqueda: el campograma, el once
+  | y las lecturas pasaban a ser de OTRO rival mientras el selector seguía
+  | diciendo «Teruel»… y lo que se marcaba se guardaba en el documento de ese
+  | otro. Sin equipo elegido —búsqueda global— sí vale el primero.
+  */
   const pitchTeam = useMemo(() => {
-    if (teamsInResults.includes(selectedTeam)) return selectedTeam;
+    if (selectedTeam) return selectedTeam;
+
     return teamsInResults[0] ?? "";
   }, [teamsInResults, selectedTeam]);
 
