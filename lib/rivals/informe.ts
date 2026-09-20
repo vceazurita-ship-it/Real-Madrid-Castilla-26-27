@@ -287,6 +287,31 @@ export const INFORME_KIND = "rivals";
  * guarda el documento: el de la hoja ("Teruel") y el de BeSoccer ("CD
  * Teruel"), que no siempre coinciden.
  */
+/**
+ * Uno contiene al otro… salvo que la diferencia sea el filial.
+ *
+ * «Castellón» está contenido en «Castellón B», y «Real Madrid C» en «Real
+ * Madrid Castilla»: aceptando cualquier inclusión, un club sin informe se
+ * llevaba el de OTRO club del grupo y pintaba su campograma y su lectura de
+ * temporada. Si lo que sobra es una marca de filial, no son el mismo.
+ */
+const FILIALES = new Set(["b", "c", "ii", "2", "at", "atletico"]);
+
+function cuadraPorDentro(uno: string, otro: string) {
+  if (!uno || !otro) return false;
+
+  if (uno === otro) return true;
+
+  const largo = uno.length >= otro.length ? uno : otro;
+  const corto = uno.length >= otro.length ? otro : uno;
+
+  if (!largo.includes(corto)) return false;
+
+  const sobra = largo.replace(corto, "").trim().split(/s+/).filter(Boolean);
+
+  return !sobra.some((palabra) => FILIALES.has(palabra));
+}
+
 export function findInforme(
   doc: InformeDoc | null,
   equipo: { ID_EQUIPO?: unknown; NOMBRE_EQUIPO?: unknown } | string | null,
@@ -319,10 +344,7 @@ export function findInforme(
       const largo = normalizeKey(informe.nombreLargo);
       const corto = normalizeKey(informe.nombre);
 
-      return (
-        (largo && (largo.includes(nombre) || nombre.includes(largo))) ||
-        (corto && (corto.includes(nombre) || nombre.includes(corto)))
-      );
+      return cuadraPorDentro(largo, nombre) || cuadraPorDentro(corto, nombre);
     }) ??
     null
   );

@@ -176,6 +176,30 @@ export async function POST(request: NextRequest) {
 
       const signo = esSigno(cuerpo.signo) ? cuerpo.signo : null;
 
+      /*
+      | Un resultado sólo se pone si el partido ya se ha jugado.
+      |
+      | No pronosticar cuenta como fallo **en cuanto el partido tiene
+      | resultado**, así que marcando por error el de un partido que aún no se
+      | ha jugado se le clavaba un fallo permanente a todo el que no hubiera
+      | rellenado todavía. La pantalla promete justo lo contrario: «sólo cuando
+      | el partido se ha jugado». Borrarlo (signo `null`) se puede siempre:
+      | deshacer un error no puede estar prohibido.
+      */
+      if (signo) {
+        const cuando = partidosDe(jornada)[indice]?.fecha ?? "";
+
+        const yaSeJugo = cuando
+          ? Date.now() >= Date.parse(`${cuando}T12:00:00Z`)
+          : true;
+
+        if (!yaSeJugo) {
+          return mal(
+            "Ese partido todavía no se ha jugado: poner su resultado le contaría como fallo a quien aún no haya rellenado.",
+          );
+        }
+      }
+
       const resultados = [...previa.resultados];
 
       while (resultados.length < partidos) resultados.push(null);

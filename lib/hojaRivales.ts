@@ -27,6 +27,7 @@
  */
 
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
+import { olvidaTodoElCsv } from "@/lib/hojaCsv";
 
 /** El despliegue del Apps Script que sirve la hoja. */
 export const HOJA_RIVALES_URL =
@@ -48,6 +49,16 @@ export function olvidaLoGuardado() {
   if (typeof window === "undefined") return;
 
   void fetch("/api/rivals", { method: "DELETE" }).catch(() => undefined);
+
+  /*
+  | Y la copia de esta pestaña, que es otra distinta.
+  |
+  | `lib/hojaCsv.ts` guarda en memoria cada URL mientras dura la pestaña, y
+  | nadie la tiraba nunca: tras guardar una plantilla rival, cualquier
+  | pantalla que volviera a pedirla —el coding, el scouting— seguía viendo
+  | la de antes hasta recargar el navegador.
+  */
+  olvidaTodoElCsv();
 }
 
 /**

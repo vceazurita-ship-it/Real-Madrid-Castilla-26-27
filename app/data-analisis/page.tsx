@@ -425,11 +425,23 @@ export default function DataAnalisisPage() {
     [deLaLiga],
   );
 
-  /* Las filas de quien nos jugó: hacen falta para las cifras «en contra». */
-  const contraNosotrosLiga = useMemo(
-    () => deLaLiga.filter((p) => p.rival === NOSOTROS),
-    [deLaLiga],
-  );
+  /*
+  | Las filas de quien nos jugó: hacen falta para las cifras «en contra».
+  |
+  | **De NUESTROS partidos, no de los suyos.** Con el filtro de sistema puesto,
+  | `deLaLiga` se queda con las filas cuyo dibujo es ése: las nuestras son los
+  | partidos en los que jugamos con 4-2-3-1 y las del rival, los partidos en
+  | los que el rival jugó con 4-2-3-1 —dos conjuntos distintos—. El campograma
+  | los pinta emparejados, así que el «en contra» salía de partidos que no eran
+  | los mismos. Con el filtro de competición no se nota porque es simétrico.
+  */
+  const contraNosotrosLiga = useMemo(() => {
+    const mios = new Set(nuestros.map((p) => `${p.fecha}|${p.partido}`));
+
+    return deLaTemporada.filter(
+      (p) => p.rival === NOSOTROS && mios.has(`${p.fecha}|${p.partido}`),
+    );
+  }, [deLaTemporada, nuestros]);
 
   /* --------------------------- PERCENTILES ------------------------- */
 

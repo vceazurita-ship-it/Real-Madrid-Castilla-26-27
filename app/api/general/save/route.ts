@@ -12,13 +12,26 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-const { error } = await supabase
-  .from("general_seasons")
-  .update({
-    data: body.data,
-    updated_at: new Date().toISOString(),
-  })
-      .eq("season", CURRENT_SEASON);
+    /*
+    | UPSERT, y comprobando que ha escrito.
+    |
+    | Era un `update` sobre la fila de la temporada: si esa fila no existe
+    | —proyecto nuevo, cambio de temporada— Supabase no da error, afecta a
+    | cero filas y esto contestaba «guardado». El calendario de operativa
+    | del año entero se escribía contra la nada, con la pantalla diciendo
+    | que todo iba bien.
+    */
+    const { data: escrito, error } = await supabase
+      .from("general_seasons")
+      .upsert(
+        {
+          season: CURRENT_SEASON,
+          data: body.data,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "season" },
+      )
+      .select("season");
 
     if (error) {
       return NextResponse.json(
@@ -29,6 +42,13 @@ const { error } = await supabase
         {
           status: 500,
         }
+      );
+    }
+
+    if (!escrito || escrito.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No se ha escrito ninguna fila de la temporada." },
+        { status: 500 },
       );
     }
 

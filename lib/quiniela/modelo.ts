@@ -264,6 +264,10 @@ export type FilaRanking = {
  * diez no puede empezar con cuarenta puntos de desventaja imposibles de
  * remontar. A igualdad de porcentaje mandan los aciertos, y después el nombre,
  * para que el orden no baile entre recargas.
+ *
+ * Y **cada uno cuenta desde su primera apuesta**: el porcentaje por sí solo no
+ * arreglaba nada si a quien llega tarde se le sumaban como fallos todos los
+ * partidos anteriores a su llegada.
  */
 export function ranking(
   doc: DocumentoQuiniela,
@@ -278,7 +282,25 @@ export function ranking(
     let jornadasGanadas = 0;
     let mejorJornada = 0;
 
+    /*
+    | CADA UNO CUENTA DESDE QUE EMPIEZA A JUGAR.
+    |
+    | Ordenar por porcentaje se hizo para que quien se incorpora en la jornada
+    | diez no arrastre una desventaja imposible, y no lo conseguía: se le
+    | sumaban como fallos los ochenta y un partidos anteriores a su llegada,
+    | así que entraba con un 0 % y último para siempre. Peor que la desventaja
+    | que se quería evitar.
+    |
+    | Dentro de su participación, no pronosticar SÍ cuenta como fallo —es la
+    | regla de la casa—: lo que no cuenta es lo que pasó antes de estar.
+    */
+    const suyaPrimera = jornadas
+      .filter((jornada) => (jornada.pronosticos[slug] ?? []).some(Boolean))
+      .reduce((menor, jornada) => Math.min(menor, jornada.jornada), Infinity);
+
     for (const jornada of jornadas) {
+      if (Number.isFinite(suyaPrimera) && jornada.jornada < suyaPrimera) continue;
+
       const marcador = marcadorDe(jornada, slug);
 
       aciertos += marcador.aciertos;

@@ -14,7 +14,13 @@ export async function GET() {
       .from("general_seasons")
       .select("data")
       .eq("season", CURRENT_SEASON)
-      .single();
+      .maybeSingle();
+
+    /* Sin fila todavía no es un fallo: es una temporada que empieza. El
+       `.single()` de antes devolvía 500 y la pantalla no arrancaba. */
+    if (!error && !data) {
+      return NextResponse.json({ success: true, season: [] });
+    }
 
     if (error) {
       return NextResponse.json(
@@ -30,7 +36,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      season: data.data,
+      season: data?.data ?? [],
     });
   } catch (err) {
     console.error(err);

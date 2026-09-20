@@ -20,6 +20,17 @@
 
 const enMemoria = new Map<string, Promise<string>>();
 
+/**
+ * Tira todas las copias de esta pestaña.
+ *
+ * Lo llama `olvidaLoGuardado()` después de escribir en la hoja: escribir
+ * invalida cualquier lectura, y afinar por URL no merece la pena —son
+ * cuatro descargas y vuelven a bajarse en cuanto hagan falta—.
+ */
+export function olvidaTodoElCsv() {
+  enMemoria.clear();
+}
+
 export function traeCsv(
   url: string,
   opciones: { forzar?: boolean } = {},
