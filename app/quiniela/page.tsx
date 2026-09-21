@@ -84,6 +84,7 @@ import {
 } from "@/lib/quiniela/modelo";
 import { Avatar } from "@/components/quiniela/Avatar";
 import { EstadoJornada } from "@/components/quiniela/EstadoJornada";
+import { Historico } from "@/components/quiniela/Historico";
 import { Parrilla } from "@/components/quiniela/Parrilla";
 import {
   INICIALES_SIN_DUENO,
@@ -190,6 +191,15 @@ export default function QuinielaPage() {
   const [viendoExtras, setViendoExtras] = useState<string | null>(null);
 
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  /*
+  | Dos vistas: la semana y el histórico.
+  |
+  | La de la semana es la de siempre —apostar, meter resultados, la parrilla—.
+  | El histórico contesta lo que se pregunta el lunes: cómo fue cada uno en
+  | todas las jornadas jugadas, sin tener que ir una por una con las flechas.
+  */
+  const [vista, setVista] = useState<"jornada" | "historico">("jornada");
 
   const extras = doc.extras ?? {};
 
@@ -538,6 +548,15 @@ export default function QuinielaPage() {
               </span>
 
               <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Segmented
+                  options={[
+                    { key: "jornada" as const, label: "La jornada" },
+                    { key: "historico" as const, label: "Jornadas anteriores" },
+                  ]}
+                  value={vista}
+                  onChange={setVista}
+                />
+
                 <Button
                   icon={Users}
                   onClick={() => setEligiendoJugadores((v) => !v)}
@@ -563,6 +582,22 @@ export default function QuinielaPage() {
               />
             </div>
 
+            {vista === "historico" && (
+              <div className="mt-5">
+                <Historico
+                  doc={doc}
+                  jugadores={jugadores}
+                  jornadaAbierta={jornada}
+                  onVerJornada={(numero) => {
+                    setJornada(numero);
+                    setVista("jornada");
+                  }}
+                />
+              </div>
+            )}
+
+            {vista === "jornada" && (
+              <>
             {/* ------------------------ QUIÉN ERES --------------------- */}
 
             <div className="mt-5">
@@ -1107,6 +1142,8 @@ export default function QuinielaPage() {
                 dos.
               </Notice>
             </div>
+              </>
+            )}
           </div>
         </section>
       </div>
