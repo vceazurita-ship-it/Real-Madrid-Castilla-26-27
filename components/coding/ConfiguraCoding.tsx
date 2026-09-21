@@ -20,7 +20,7 @@
 import { useState } from "react";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 
-import { Button, Dialog, Field, Notice } from "@/components/abp/ui";
+import { Button, Dialog, Field, Notice, sePuedeDescartar } from "@/components/abp/ui";
 import {
   CATEGORIAS_INICIALES,
   COMPORTAMIENTOS_INICIALES,
@@ -73,14 +73,21 @@ export function ConfiguraCoding({
       ),
     }));
 
+  /* Rehacer las teclas de una plantilla entera es media hora de trabajo: no
+     se tira sin preguntar. */
+  const sinGuardar = JSON.stringify(borrador) !== JSON.stringify(config);
+
   return (
     <Dialog
       title="Configuración del coding"
       subtitle="Teclas, categorías y márgenes de los cortes"
       onClose={onCerrar}
+      sinGuardar={sinGuardar}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={() => sePuedeDescartar(sinGuardar) && onCerrar()}>
+            Cancelar
+          </Button>
 
           <Button tone="primary" onClick={() => onGuardar(borrador)}>
             Guardar

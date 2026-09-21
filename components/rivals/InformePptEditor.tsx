@@ -411,6 +411,27 @@ export default function InformePptEditor({
     [cambia],
   );
 
+  /*
+  | CERRAR TIRA EL MONTAJE ENTERO
+  |
+  | Esto no guarda en ningún sitio: lo que se coloca aquí sólo sale por el
+  | `.pptx`. Mover, escribir y recolocar las piezas de un informe es media
+  | tarde, y Escape o la X se lo llevaban sin decir nada. La pila de deshacer
+  | es la que sabe si se ha tocado algo.
+  */
+  const cierra = useCallback(() => {
+    if (
+      pasado.length > 0 &&
+      !window.confirm(
+        "Lo colocado aquí no se guarda en ningún sitio: si cierras sin exportar el .pptx, se pierde. ¿Cerrar igual?",
+      )
+    ) {
+      return;
+    }
+
+    onCerrar();
+  }, [onCerrar, pasado.length]);
+
   /* ---------------------------------------------------------------- */
   /*  TECLADO                                                          */
   /* ---------------------------------------------------------------- */
@@ -435,7 +456,7 @@ export default function InformePptEditor({
         evento.preventDefault();
 
         if (seleccion.length > 0) setSeleccion([]);
-        else onCerrar();
+        else cierra();
 
         return;
       }
@@ -543,7 +564,7 @@ export default function InformePptEditor({
     hoja,
     hojas.length,
     mueveSeleccion,
-    onCerrar,
+    cierra,
     rehacer,
     replica,
     seleccion,
@@ -1010,7 +1031,7 @@ export default function InformePptEditor({
 
             <button
               type="button"
-              onClick={onCerrar}
+              onClick={cierra}
               aria-label="Cerrar"
               className="rounded-full border border-white/10 p-2 text-white/40 transition hover:border-white/30 hover:text-white"
             >

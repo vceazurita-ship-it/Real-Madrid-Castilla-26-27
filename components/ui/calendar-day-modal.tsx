@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useCallback, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { formatLongDate } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ type CalendarDayModalProps = {
   /** Acciones fijas bajo la cabecera. */
   actions?: ReactNode;
   children: ReactNode;
+  /** Hay una ficha a medio rellenar dentro: cerrar tiene que preguntar. */
+  sinGuardar?: boolean;
 };
 
 export function CalendarDayModal({
@@ -34,7 +36,32 @@ export function CalendarDayModal({
   size = "md",
   actions,
   children,
+  sinGuardar = false,
 }: CalendarDayModalProps) {
+  /*
+  | Dentro de esta ventana se rellena la ficha del día, y cerrarla desmonta el
+  | formulario con lo escrito dentro. Escape, el velo y la X preguntan ahora
+  | antes de tirarlo; quien monta el formulario avisa con `sinGuardar`.
+  */
+  const hayTexto = useRef(sinGuardar);
+
+  useEffect(() => {
+    hayTexto.current = sinGuardar;
+  });
+
+  const cierra = useCallback(() => {
+    if (
+      hayTexto.current &&
+      !window.confirm(
+        "Hay una ficha a medio rellenar. ¿Cerrar el día y perder lo escrito?",
+      )
+    ) {
+      return;
+    }
+
+    onClose();
+  }, [onClose]);
+
   // Bloquea el scroll del fondo mientras el modal está abierto.
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -58,7 +85,7 @@ export function CalendarDayModal({
 
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        cierra();
         return;
       }
 
@@ -77,12 +104,12 @@ export function CalendarDayModal({
 
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
-  }, [keyboardEnabled, onClose, onPrev, onNext, canPrev, canNext]);
+  }, [keyboardEnabled, cierra, onPrev, onNext, canPrev, canNext]);
 
   return (
     <div
       className="modal-veil fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={cierra}
     >
       <div
         role="dialog"
@@ -134,7 +161,7 @@ export function CalendarDayModal({
           <button
             type="button"
             aria-label="Cerrar"
-            onClick={onClose}
+            onClick={cierra}
             className="shrink-0 rounded-full border border-white/10 p-2 text-white/60 transition hover:border-[#C8A96B] hover:text-white"
           >
             <X size={18} />

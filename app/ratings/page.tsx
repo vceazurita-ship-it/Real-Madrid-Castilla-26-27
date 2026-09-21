@@ -89,9 +89,24 @@ export default function RatingsPage() {
 
   const tab = tabOf(hash);
 
-  const goToTab = useCallback((key: TabKey) => {
-    window.location.hash = key;
-  }, []);
+  /* Lo dice el panel de valorar: cambiar de pestaña lo desmonta entero. */
+  const [valoracionesSucias, setValoracionesSucias] = useState(false);
+
+  const goToTab = useCallback(
+    (key: TabKey) => {
+      if (
+        valoracionesSucias &&
+        !window.confirm(
+          "Hay valoraciones sin guardar. Si cambias de pestaña se perderán. ¿Continuar?",
+        )
+      ) {
+        return;
+      }
+
+      window.location.hash = key;
+    },
+    [valoracionesSucias],
+  );
 
   const [openPlayer, setOpenPlayer] = useState<string | null>(null);
   const [pendingMatch, setPendingMatch] = useState<MatchMeta | null>(null);
@@ -263,6 +278,7 @@ export default function RatingsPage() {
                     onDelete={deleteMatch}
                     onCreateMatch={setPendingMatch}
                     initialMatchId={editMatchId}
+                    onSucio={setValoracionesSucias}
                   />
                 )}
 

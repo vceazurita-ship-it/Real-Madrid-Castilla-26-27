@@ -19,7 +19,14 @@ import {
   X,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 
@@ -767,11 +774,35 @@ export function Button({
 /* ------------------------------------------------------------------ */
 
 /**
+ * ¿Se puede tirar lo escrito?
+ *
+ * La usan el propio `Dialog` —para Escape y para la X— y el botón «Cancelar»
+ * de quien lo monta, que vive en el pie y no pasa por aquí. Con el formulario
+ * vacío no pregunta nada: un aviso que sale siempre enseña a decir que sí sin
+ * leerlo, y entonces deja de proteger el día que hace falta.
+ */
+export function sePuedeDescartar(sinGuardar: boolean) {
+  if (!sinGuardar) return true;
+
+  return window.confirm(
+    "Hay cosas escritas aquí que todavía no se han guardado. ¿Cerrar y perderlas?",
+  );
+}
+
+/**
  * Panel modal para editar una acción.
  *
  * Cierra con Escape salvo que el foco esté dentro de un campo, donde Escape
  * suele significar «descartar lo que estoy escribiendo» y perder el formulario
  * entero sería peor que no cerrar.
+ *
+ * **Con `sinGuardar` puesto, cerrar pregunta** (21/09/2026). Estos paneles no
+ * se pueden autoguardar como el resto de la app —lo que hay dentro todavía no
+ * existe en el documento, y escribirlo en cada pausa crearía un trabajo, un
+ * clip o una acción por cada vez que alguien se para a pensar—, así que la red
+ * es preguntar antes de tirar lo tecleado. Quien lo usa le pasa `true` sólo
+ * cuando hay algo escrito de verdad: preguntar por un formulario vacío enseña
+ * a decir que sí sin leer.
  */
 export function Dialog({
   title,
@@ -779,13 +810,28 @@ export function Dialog({
   onClose,
   footer,
   children,
+  sinGuardar = false,
 }: {
   title: string;
   subtitle?: string;
   onClose: () => void;
   footer?: ReactNode;
   children: ReactNode;
+  /** Hay algo escrito que cerrar se llevaría por delante. */
+  sinGuardar?: boolean;
 }) {
+  /* El aviso lo lee un manejador que vive fuera del render; la referencia lo
+     mantiene al día sin volver a enganchar el oyente en cada tecla. */
+  const hayTexto = useRef(sinGuardar);
+
+  useEffect(() => {
+    hayTexto.current = sinGuardar;
+  });
+
+  const cierra = useCallback(() => {
+    if (sePuedeDescartar(hayTexto.current)) onClose();
+  }, [onClose]);
+
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -800,7 +846,7 @@ export function Dialog({
         target instanceof HTMLTextAreaElement ||
         target instanceof HTMLSelectElement;
 
-      if (!typing) onClose();
+      if (!typing) cierra();
     };
 
     window.addEventListener("keydown", handleKey);
@@ -809,7 +855,7 @@ export function Dialog({
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", handleKey);
     };
-  }, [onClose]);
+  }, [cierra]);
 
   return (
     <div
@@ -830,7 +876,7 @@ export function Dialog({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={cierra}
             aria-label="Cerrar"
             className="shrink-0 rounded-lg p-1.5 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
           >

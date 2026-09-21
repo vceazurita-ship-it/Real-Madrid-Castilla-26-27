@@ -136,6 +136,9 @@ export default function CalendarGeneralPage() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<GeneralEvent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  /* Lo dice la ficha de dentro: cerrar el día la desmontaría con lo escrito. */
+  const [fichaSucia, setFichaSucia] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [fullscreenImageIndex, setFullscreenImageIndex] = useState<
     number | null
@@ -407,6 +410,7 @@ export default function CalendarGeneralPage() {
         <CalendarDayModal
           date={selectedDate}
           size="lg"
+          sinGuardar={fichaSucia}
           subtitle={[
             `${selectedEvents.length} ${
               selectedEvents.length === 1 ? "evento" : "eventos"
@@ -446,6 +450,7 @@ export default function CalendarGeneralPage() {
             <EventForm
               key={editingEvent?.id ?? "nuevo"}
               initialData={editingEvent}
+              onSucio={setFichaSucia}
               onCancel={() => {
                 setIsCreating(false);
                 setEditingEvent(null);
@@ -751,10 +756,19 @@ function EventForm({
   initialData,
   onCancel,
   onSave,
+  onSucio,
 }: {
   initialData?: GeneralEvent | null;
   onCancel: () => void;
   onSave: (data: Omit<GeneralEvent, "id" | "fecha">) => void;
+  /**
+   * Avisa al día de si hay algo escrito sin guardar.
+   *
+   * El formulario vive aquí dentro, pero quien cierra la ventana es el día:
+   * sin este aviso, cerrarlo desmontaba la ficha a medio rellenar y no
+   * quedaba rastro de lo escrito.
+   */
+  onSucio?: (sucio: boolean) => void;
 }) {
   const [tipo, setTipo] = useState<EventType>(initialData?.tipo ?? "REUNION");
   const [titulo, setTitulo] = useState(initialData?.titulo ?? "");
@@ -771,6 +785,22 @@ function EventForm({
   );
 
   const [formError, setFormError] = useState<string | null>(null);
+
+  const sucio =
+    tipo !== (initialData?.tipo ?? "REUNION") ||
+    titulo !== (initialData?.titulo ?? "") ||
+    descripcion !== (initialData?.descripcion ?? "") ||
+    responsable !== (initialData?.responsable ?? "") ||
+    hora !== (initialData?.hora ?? "") ||
+    lugar !== (initialData?.lugar ?? "") ||
+    participantes !== (initialData?.participantes ?? "");
+
+  useEffect(() => {
+    onSucio?.(sucio);
+
+    /* Al desmontar, el día vuelve a poder cerrarse sin preguntar. */
+    return () => onSucio?.(false);
+  }, [sucio, onSucio]);
 
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2 outline-none transition focus:border-[#C8A96B]";

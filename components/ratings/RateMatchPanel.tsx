@@ -91,6 +91,7 @@ export function RateMatchPanel({
   onDelete,
   onCreateMatch,
   initialMatchId,
+  onSucio,
 }: {
   players: Player[];
   season: RatingsSeason;
@@ -100,6 +101,14 @@ export function RateMatchPanel({
   onDelete: (matchId: string) => Promise<boolean>;
   onCreateMatch: (match: MatchMeta) => void;
   initialMatchId?: string | null;
+  /**
+   * Avisa a la página de si hay valoraciones sin guardar.
+   *
+   * Aquí dentro ya se avisaba al recargar y al cambiar de partido, pero no al
+   * cambiar de pestaña ni al irse por el menú, que desmontan el panel entero
+   * con el borrador dentro.
+   */
+  onSucio?: (sucio: boolean) => void;
 }) {
   /* Partido más reciente por defecto: es el que casi siempre se va a valorar. */
   const ordered = useMemo(() => [...matches].reverse(), [matches]);
@@ -263,6 +272,12 @@ export function RateMatchPanel({
 
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  useEffect(() => {
+    onSucio?.(dirty);
+
+    return () => onSucio?.(false);
+  }, [dirty, onSucio]);
 
   /*
   | El filtro por estado se congela al activarlo: si mirase el borrador vivo,

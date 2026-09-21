@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlarmClock, Loader2, Send, X } from "lucide-react";
 
+import { sePuedeDescartar } from "@/components/abp/ui";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import {
   inputLocalAIso,
@@ -47,15 +48,28 @@ export default function DialogoAlerta({
 
   useBodyScrollLock(true);
 
+  /*
+  | Cerrar con la tarea a medio escribir preguntaba nada: Escape, el velo, la
+  | X y «Cancelar» tiraban el título, el mensaje, los destinatarios y los
+  | avisos sin decir ni mu. Las cuatro salidas pasan ahora por el mismo sitio.
+  */
+  const sinGuardar = JSON.stringify(borrador) !== JSON.stringify(alerta);
+
+  const cierra = useCallback(() => {
+    if (trabajando) return;
+
+    if (sePuedeDescartar(sinGuardar)) onCerrar();
+  }, [onCerrar, sinGuardar, trabajando]);
+
   useEffect(() => {
     const alPulsar = (evento: KeyboardEvent) => {
-      if (evento.key === "Escape" && !trabajando) onCerrar();
+      if (evento.key === "Escape") cierra();
     };
 
     window.addEventListener("keydown", alPulsar);
 
     return () => window.removeEventListener("keydown", alPulsar);
-  }, [onCerrar, trabajando]);
+  }, [cierra]);
 
   const cambia = <C extends keyof Alerta>(campo: C, valor: Alerta[C]) =>
     setBorrador((actual) => ({ ...actual, [campo]: valor }));
@@ -96,7 +110,7 @@ export default function DialogoAlerta({
       aria-modal="true"
       aria-label={esNueva ? "Nueva tarea con alerta" : "Editar alerta"}
       className="modal-veil fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto p-4 py-10 backdrop-blur-sm"
-      onClick={() => !trabajando && onCerrar()}
+      onClick={cierra}
     >
       <div
         data-export-panel
@@ -124,7 +138,7 @@ export default function DialogoAlerta({
 
           <button
             type="button"
-            onClick={onCerrar}
+            onClick={cierra}
             aria-label="Cerrar"
             className="rounded-full p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white"
           >
@@ -279,7 +293,7 @@ export default function DialogoAlerta({
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 p-5">
           <button
             type="button"
-            onClick={onCerrar}
+            onClick={cierra}
             disabled={Boolean(trabajando)}
             className="rounded-full px-4 py-2.5 text-sm text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
           >

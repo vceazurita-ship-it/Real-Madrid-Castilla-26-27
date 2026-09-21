@@ -60,6 +60,7 @@ import {
   Segmented,
   Select,
   TextArea,
+  sePuedeDescartar,
 } from "@/components/abp/ui";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -1597,9 +1598,12 @@ function FichaExtras({
       title="Tu cosecha"
       subtitle="Se puede rellenar cuando quieras, y cambiar las veces que haga falta"
       onClose={onCerrar}
+      sinGuardar={!iguales}
       footer={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={() => sePuedeDescartar(!iguales) && onCerrar()}>
+            Cancelar
+          </Button>
 
           <Button
             tone="primary"

@@ -36,6 +36,7 @@ import {
   Segmented,
   Select,
   TextArea,
+  sePuedeDescartar,
 } from "@/components/abp/ui";
 import { AbpFamily, FAMILY_LABEL } from "@/lib/abp/model";
 import { AbpSide } from "@/lib/abp/rival";
@@ -100,23 +101,29 @@ export function RivalScoutEditor({
   const [draft, setDraft] = useState<RivalScoutAction | null>(null);
   const [isNew, setIsNew] = useState(false);
 
+  /* Cómo estaba la acción al abrirla. Con esto, cerrar sólo pregunta cuando
+     de verdad se ha tocado algo, y no por heredar la jornada del anterior. */
+  const [fotoDraft, setFotoDraft] = useState("");
+
   /* La jornada y el oponente se repiten acción tras acción del mismo partido:
      el alta hereda los del último registro para no reescribirlos cada vez. */
   const last = actions[actions.length - 1];
 
   const openNew = () => {
-    setDraft(
-      newAction({
-        jornada: last?.jornada ?? "",
-        oponente: last?.oponente ?? "",
-        condicion: last?.condicion ?? "ofensivo",
-      }),
-    );
+    const inicial = newAction({
+      jornada: last?.jornada ?? "",
+      oponente: last?.oponente ?? "",
+      condicion: last?.condicion ?? "ofensivo",
+    });
+
+    setDraft(inicial);
+    setFotoDraft(JSON.stringify(inicial));
     setIsNew(true);
   };
 
   const openEdit = (action: RivalScoutAction) => {
     setDraft({ ...action });
+    setFotoDraft(JSON.stringify(action));
     setIsNew(false);
   };
 
@@ -141,15 +148,16 @@ export function RivalScoutEditor({
       return;
     }
 
-    setDraft(
-      newAction({
-        jornada: draft.jornada,
-        oponente: draft.oponente,
-        condicion: draft.condicion,
-        tiempo: draft.tiempo,
-        family: draft.family,
-      }),
-    );
+    const siguiente = newAction({
+      jornada: draft.jornada,
+      oponente: draft.oponente,
+      condicion: draft.condicion,
+      tiempo: draft.tiempo,
+      family: draft.family,
+    });
+
+    setDraft(siguiente);
+    setFotoDraft(JSON.stringify(siguiente));
   };
 
   const remove = (id: string) => {
@@ -325,6 +333,7 @@ export function RivalScoutEditor({
           onChange={setDraft}
           onClose={close}
           onSave={save}
+          sinGuardar={JSON.stringify(draft) !== fotoDraft}
         />
       )}
     </>
@@ -344,6 +353,7 @@ function ActionDialog({
   onChange,
   onClose,
   onSave,
+  sinGuardar,
 }: {
   equipo: string;
   draft: RivalScoutAction;
@@ -353,6 +363,8 @@ function ActionDialog({
   onChange: (action: RivalScoutAction) => void;
   onClose: () => void;
   onSave: (again?: boolean) => void;
+  /** Se ha tocado algo desde que se abrió: cerrar tiene que preguntar. */
+  sinGuardar: boolean;
 }) {
   const set = <K extends keyof RivalScoutAction>(
     field: K,
@@ -372,9 +384,12 @@ function ActionDialog({
       title={isNew ? "Nueva acción de ABP" : "Editar acción"}
       subtitle={`${equipo} · ${composeTipoAccion(draft)}`}
       onClose={onClose}
+      sinGuardar={sinGuardar}
       footer={
         <>
-          <Button onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => sePuedeDescartar(sinGuardar) && onClose()}>
+            Cancelar
+          </Button>
 
           {isNew && (
             <Button icon={Plus} onClick={() => onSave(true)}>

@@ -51,6 +51,9 @@ import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
+import { useAutoSave, type AutoSaveResult } from "@/hooks/useAutoSave";
+import { useBorradorLocal, type BorradorLocal } from "@/hooks/useBorradorLocal";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
@@ -1157,6 +1160,80 @@ function Field({
   );
 }
 
+/**
+ * El cartel de «tenías esto sin guardar».
+ *
+ * Sale arriba del formulario cuando una visita anterior dejó texto escrito que
+ * nunca llegó a la hoja. **No se aplica solo**: entre medias se puede haber
+ * editado el mismo registro desde otro sitio, y meter texto viejo sin
+ * preguntar cambiaría una pérdida silenciosa por otra.
+ */
+function AvisoBorrador({
+  fecha,
+  onRecuperar,
+  onDescartar,
+}: {
+  fecha: string;
+  onRecuperar: () => void;
+  onDescartar: () => void;
+}) {
+  const cuando = (() => {
+    const momento = new Date(fecha);
+
+    if (Number.isNaN(momento.getTime())) return null;
+
+    return momento.toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  })();
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.08] px-4 py-3">
+      <RotateCcw size={16} className="shrink-0 text-[#C8A96B]" />
+
+      <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-white/70">
+        Quedó texto escrito sin guardar
+        {cuando ? ` el ${cuando}` : ""}. Está aquí, en este navegador.
+      </p>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onRecuperar}
+          className="rounded-lg bg-[#C8A96B] px-3 py-1.5 text-[12px] font-medium text-black transition hover:bg-[#d8bd82]"
+        >
+          Recuperarlo
+        </button>
+
+        <button
+          type="button"
+          onClick={onDescartar}
+          className="rounded-lg border border-white/10 px-3 py-1.5 text-[12px] text-white/55 transition hover:border-white/30 hover:text-white"
+        >
+          Descartar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El modal de los cuatro formularios de la ficha.
+ *
+ * Tiene dos formas, según si lo que hay dentro **ya tiene sitio en la hoja**:
+ *
+ *   · **Editando** (`auto`): se escribe solo mientras se teclea. El botón de
+ *     guardar pasa a ser «Hecho» —consolida y comprueba que la hoja se ha
+ *     quedado con todo— y «Cancelar» pasa a «Deshacer», que ya no es «no
+ *     guardar» —lo escrito ya está fuera— sino volver a como estaba al abrir.
+ *   · **Dando de alta** (sin `auto`): no se puede autoguardar, porque cada
+ *     pausa crearía una fila nueva en la hoja. El botón sigue siendo «Guardar»
+ *     y lo que protege el texto es el borrador de `useBorradorLocal`, así que
+ *     cerrar sin querer ya no se lleva nada.
+ */
 function FormModal({
   title,
   subtitle,
@@ -1166,6 +1243,9 @@ function FormModal({
   saving,
   children,
   maxWidth = "max-w-3xl",
+  auto,
+  onDeshacer,
+  aviso,
 }: {
   title: string;
   subtitle?: string;
@@ -1175,6 +1255,10 @@ function FormModal({
   saving: boolean;
   children: ReactNode;
   maxWidth?: string;
+  /** Presente cuando el registro ya existe y se escribe solo. */
+  auto?: AutoSaveResult<unknown> | null;
+  onDeshacer?: () => void;
+  aviso?: ReactNode;
 }) {
   return (
     <div
@@ -1196,6 +1280,15 @@ function FormModal({
             )}
           </div>
 
+          {/* Sin botón de guardar, esto es lo único que dice si está a salvo. */}
+          {auto && (
+            <AutoSaveStatus
+              estado={auto.status}
+              guardadoEn={auto.lastSavedAt}
+              className="ml-auto shrink-0"
+            />
+          )}
+
           <button
             onClick={onClose}
             aria-label="Cerrar"
@@ -1206,15 +1299,23 @@ function FormModal({
         </div>
 
         <div className="min-w-0 flex-1 overflow-y-auto px-5 py-5">
+          {aviso}
+
           {children}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-white/10 px-5 py-4">
+        <div className="flex shrink-0 items-center gap-3 border-t border-white/10 px-5 py-4">
+          {auto && (
+            <p className="mr-auto hidden text-[11px] text-white/35 sm:block">
+              Se guarda solo mientras escribes.
+            </p>
+          )}
+
           <button
-            onClick={onClose}
-            className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60 transition hover:border-white/30 hover:text-white"
+            onClick={auto && onDeshacer ? onDeshacer : onClose}
+            className={`rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60 transition hover:border-white/30 hover:text-white ${auto ? "" : "ml-auto"}`}
           >
-            Cancelar
+            {auto ? "Deshacer" : "Cancelar"}
           </button>
 
           <button
@@ -1223,7 +1324,7 @@ function FormModal({
             className="inline-flex items-center gap-2 rounded-xl bg-[#C8A96B] px-5 py-2.5 text-sm font-medium text-black transition hover:bg-[#d8bd82] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? "Guardando..." : submitLabel}
+            {saving ? "Guardando..." : auto ? "Hecho" : submitLabel}
           </button>
         </div>
       </div>
@@ -1476,6 +1577,22 @@ export default function IndividualPage() {
   });
 
   const [saving, setSaving] = useState(false);
+
+  /*
+  | Cómo estaba cada formulario al abrirlo.
+  |
+  | Con el autoguardado puesto, «Cancelar» sería mentira: lo escrito ya está en
+  | la hoja. El botón pasa a «Deshacer» y lo que hace es volver a esta foto y
+  | escribirla de vuelta, así que hay que tomarla al abrir.
+  |
+  | Va en estado y no en una referencia porque quien la toma es el mismo
+  | manejador que abre el formulario, y ese manejador se pasa como `onClick`
+  | desde el render: tocar una referencia ahí lo prohíbe `react-hooks/refs`.
+  */
+  const [fotoTracking, setFotoTracking] = useState(trackingForm);
+  const [fotoProfile, setFotoProfile] = useState(profileForm);
+  const [fotoVideo, setFotoVideo] = useState(videoForm);
+  const [fotoReport, setFotoReport] = useState(reportForm);
 
   /* Todas las escrituras acaban en una hoja que descarta lo que no tiene
      columna. Se releen para confirmar antes de cerrar cada formulario. */
@@ -1876,7 +1993,7 @@ export default function IndividualPage() {
   const openTrackingForm = (record?: TrackingRecord) => {
     setEditingTracking(record || null);
 
-    setTrackingForm({
+    const inicial = {
       FECHA: record?.FECHA?.split("T")[0] || "",
       OBJETIVO_OFENSIVO: record?.OBJETIVO_OFENSIVO || "",
       OBJETIVO_DEFENSIVO: record?.OBJETIVO_DEFENSIVO || "",
@@ -1886,7 +2003,11 @@ export default function IndividualPage() {
       MODALIDAD: record?.MODALIDAD || "",
       MOMENTO: record?.MOMENTO || "",
       ESTRATEGIA: record?.ESTRATEGIA || "",
-    });
+    };
+
+    setFotoTracking(inicial);
+
+    setTrackingForm(inicial);
 
     setShowTrackingForm(true);
   };
@@ -1894,13 +2015,17 @@ export default function IndividualPage() {
   const openVideoForm = (video?: VideoItem) => {
     setEditingVideo(video || null);
 
-    setVideoForm({
+    const inicial = {
       CATEGORIA: video?.CATEGORIA || "",
       TITULO: video?.TITULO || "",
       DESCRIPCION: video?.DESCRIPCION || "",
       URL_VIDEO: video?.URL_VIDEO || "",
       FECHA: video?.FECHA?.split("T")[0] || "",
-    });
+    };
+
+    setFotoVideo(inicial);
+
+    setVideoForm(inicial);
 
     setShowVideoForm(true);
   };
@@ -1908,7 +2033,7 @@ export default function IndividualPage() {
   const openProfileForm = () => {
     if (!selected) return;
 
-    setProfileForm({
+    const inicial = {
       conBalon:
         selected.conBalon === DEFAULT_CON_BALON ? "" : selected.conBalon || "",
       sinBalon:
@@ -1920,19 +2045,27 @@ export default function IndividualPage() {
       interpretacion: String(selected.interpretacion || ""),
       capacidadFisica: String(selected.capacidadFisica || ""),
       tecnica: String(selected.tecnica || ""),
-    });
+    };
+
+    setFotoProfile(inicial);
+
+    setProfileForm(inicial);
 
     setShowProfileForm(true);
   };
 
   const openReportForm = () => {
-    setReportForm({
+    const inicial = {
       RESUMEN_EJECUTIVO: playerReport?.RESUMEN_EJECUTIVO || "",
       FORTALEZAS_INFORME: playerReport?.FORTALEZAS_INFORME || "",
       ASPECTOS_MEJORA_INFORME: playerReport?.ASPECTOS_MEJORA_INFORME || "",
       OBJETIVOS: playerReport?.OBJETIVOS || "",
       OBSERVACIONES_FINALES: playerReport?.OBSERVACIONES_FINALES || "",
-    });
+    };
+
+    setFotoReport(inicial);
+
+    setReportForm(inicial);
 
     setShowReportForm(true);
   };
@@ -2032,6 +2165,8 @@ export default function IndividualPage() {
         toast.success("Seguimiento guardado");
       }
 
+      borradorTracking.descarta();
+
       setEditingTracking(null);
       setShowTrackingForm(false);
     } catch (error) {
@@ -2109,6 +2244,8 @@ export default function IndividualPage() {
         toast.success("Vídeo guardado");
       }
 
+      borradorVideo.descarta();
+
       setEditingVideo(null);
       setShowVideoForm(false);
     } catch (error) {
@@ -2117,6 +2254,50 @@ export default function IndividualPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /* El perfil se escribe desde dos sitios —el botón y el autoguardado—, así
+     que la fila y el parche a la lista se arman una sola vez. */
+  const filaPerfil = (valor: typeof profileForm) => ({
+    CON_BALON: valor.conBalon,
+    SIN_BALON: valor.sinBalon,
+    MENTAL: valor.mental,
+    HUDL_PERFIL_URL: valor.hudlPerfilUrl,
+    MENTALIDAD: valor.mentalidad,
+    HABITOS: valor.habitos,
+    INTERPRETACION: valor.interpretacion,
+    CAPACIDAD_FISICA: valor.capacidadFisica,
+    TECNICA: valor.tecnica,
+  });
+
+  const aplicaPerfil = (idJugador: string, valor: typeof profileForm) => {
+    const patch = filaPerfil(valor);
+
+    setSheetData((prev) => {
+      const exists = prev.some((row) => row.ID_JUGADOR === idJugador);
+
+      if (exists) {
+        return prev.map((row) =>
+          row.ID_JUGADOR === idJugador ? { ...row, ...patch } : row,
+        );
+      }
+
+      return [...prev, { ID_JUGADOR: idJugador, ...patch }];
+    });
+  };
+
+  const aplicaInforme = (idJugador: string, valor: typeof reportForm) => {
+    setReportData((prev) => {
+      const exists = prev.some((r) => r.ID_JUGADOR === idJugador);
+
+      if (exists) {
+        return prev.map((r) =>
+          r.ID_JUGADOR === idJugador ? { ...r, ...valor } : r,
+        );
+      }
+
+      return [...prev, { ID_JUGADOR: idJugador, ...valor }];
+    });
   };
 
   const saveProfile = async () => {
@@ -2128,17 +2309,7 @@ export default function IndividualPage() {
       const enviado = {
         action: "editarPerfil",
         ID_JUGADOR: selected.idJugador,
-
-        CON_BALON: profileForm.conBalon,
-        SIN_BALON: profileForm.sinBalon,
-        MENTAL: profileForm.mental,
-        HUDL_PERFIL_URL: profileForm.hudlPerfilUrl,
-
-        MENTALIDAD: profileForm.mentalidad,
-        HABITOS: profileForm.habitos,
-        INTERPRETACION: profileForm.interpretacion,
-        CAPACIDAD_FISICA: profileForm.capacidadFisica,
-        TECNICA: profileForm.tecnica,
+        ...filaPerfil(profileForm),
       };
 
       const result = await postToScript(enviado);
@@ -2175,31 +2346,9 @@ export default function IndividualPage() {
 
       if (!verificacion.ok) return;
 
-      setSheetData((prev) => {
-        const exists = prev.some(
-          (row) => row.ID_JUGADOR === selected.idJugador,
-        );
+      aplicaPerfil(selected.idJugador, profileForm);
 
-        const patch = {
-          CON_BALON: profileForm.conBalon,
-          SIN_BALON: profileForm.sinBalon,
-          MENTAL: profileForm.mental,
-          HUDL_PERFIL_URL: profileForm.hudlPerfilUrl,
-          MENTALIDAD: profileForm.mentalidad,
-          HABITOS: profileForm.habitos,
-          INTERPRETACION: profileForm.interpretacion,
-          CAPACIDAD_FISICA: profileForm.capacidadFisica,
-          TECNICA: profileForm.tecnica,
-        };
-
-        if (exists) {
-          return prev.map((row) =>
-            row.ID_JUGADOR === selected.idJugador ? { ...row, ...patch } : row,
-          );
-        }
-
-        return [...prev, { ID_JUGADOR: selected.idJugador, ...patch }];
-      });
+      borradorProfile.descarta();
 
       setShowProfileForm(false);
       toast.success("Perfil actualizado");
@@ -2245,17 +2394,9 @@ export default function IndividualPage() {
 
       if (!verificacion.ok) return;
 
-      setReportData((prev) => {
-        const exists = prev.some((r) => r.ID_JUGADOR === selected.idJugador);
+      aplicaInforme(selected.idJugador, reportForm);
 
-        if (exists) {
-          return prev.map((r) =>
-            r.ID_JUGADOR === selected.idJugador ? { ...r, ...reportForm } : r,
-          );
-        }
-
-        return [...prev, { ID_JUGADOR: selected.idJugador, ...reportForm }];
-      });
+      borradorReport.descarta();
 
       setShowReportForm(false);
       toast.success("Informe guardado");
@@ -2267,8 +2408,229 @@ export default function IndividualPage() {
     }
   };
 
+  /* ---------------- autoguardado y borradores ---------------- */
+
+  /*
+  | LO QUE SE ESCRIBE AQUÍ YA NO SE PIERDE (21/09/2026)
+  |
+  | Los cuatro formularios de la ficha vivían en el estado de React hasta que
+  | alguien pulsaba «Guardar»: un clic fuera del modal, la X o «Cancelar» se
+  | llevaban el informe entero —cinco textos largos— sin preguntar. Dos redes,
+  | según lo que haya dentro:
+  |
+  |   · **El registro ya existe** → se escribe solo, como en el resto de la
+  |     app. La hoja tarda de treinta a setenta segundos en frío, así que el
+  |     retardo es más largo que el de siempre: no tiene sentido lanzar una
+  |     escritura por cada palabra si la anterior sigue en vuelo.
+  |   · **Es un alta** → NO se puede autoguardar: cada pausa crearía una fila
+  |     nueva en la hoja, que es la misma razón por la que el alta de un rival
+  |     sigue siendo un botón. Lo que protege el texto es el borrador del
+  |     navegador, que se ofrece de vuelta al volver a abrir.
+  |
+  | El autoguardado escribe **sin** releer la hoja para comprobarlo: esa
+  | comprobación cuesta otros cuarenta segundos y es la que hace el botón, que
+  | es cuando el formulario se cierra. Si el POST falla, `useAutoSave` lo
+  | reintenta solo y el indicador de la cabecera lo dice.
+  */
+  const RETARDO_HOJA = 3000;
+
+  const idSel = selected?.idJugador ?? "";
+
+  const autoguardaTracking = async (valor: typeof trackingForm) => {
+    if (!editingTracking) return;
+
+    const result = await postToScript({
+      action: "editarSeguimiento",
+      ID_REGISTRO: editingTracking.ID_REGISTRO,
+      ...valor,
+    });
+
+    if (!result?.success) return false;
+
+    setTrackingData((prev) =>
+      prev.map((r) =>
+        r.ID_REGISTRO === editingTracking.ID_REGISTRO ? { ...r, ...valor } : r,
+      ),
+    );
+  };
+
+  const autoguardaVideo = async (valor: typeof videoForm) => {
+    if (!editingVideo) return;
+
+    const result = await postToScript({
+      action: "editarVideo",
+      ID_VIDEO: editingVideo.ID_VIDEO,
+      ...valor,
+    });
+
+    if (!result?.success) return false;
+
+    setVideoData((prev) =>
+      prev.map((v) =>
+        v.ID_VIDEO === editingVideo.ID_VIDEO ? { ...v, ...valor } : v,
+      ),
+    );
+  };
+
+  const autoguardaPerfil = async (valor: typeof profileForm) => {
+    if (!idSel) return;
+
+    const result = await postToScript({
+      action: "editarPerfil",
+      ID_JUGADOR: idSel,
+      ...filaPerfil(valor),
+    });
+
+    if (!result?.success) return false;
+
+    aplicaPerfil(idSel, valor);
+  };
+
+  const autoguardaInforme = async (valor: typeof reportForm) => {
+    if (!idSel) return;
+
+    const result = await postToScript({
+      action: "editarInforme",
+      ID_JUGADOR: idSel,
+      ...valor,
+    });
+
+    if (!result?.success) return false;
+
+    aplicaInforme(idSel, valor);
+  };
+
+  const autoTracking = useAutoSave({
+    value: trackingForm,
+    enabled: showTrackingForm && Boolean(editingTracking),
+    debounce: RETARDO_HOJA,
+    save: autoguardaTracking,
+  });
+
+  const autoVideo = useAutoSave({
+    value: videoForm,
+    enabled: showVideoForm && Boolean(editingVideo),
+    debounce: RETARDO_HOJA,
+    save: autoguardaVideo,
+  });
+
+  const autoProfile = useAutoSave({
+    value: profileForm,
+    enabled: showProfileForm && Boolean(idSel),
+    debounce: RETARDO_HOJA,
+    save: autoguardaPerfil,
+  });
+
+  const autoReport = useAutoSave({
+    value: reportForm,
+    enabled: showReportForm && Boolean(idSel),
+    debounce: RETARDO_HOJA,
+    save: autoguardaInforme,
+  });
+
+  /*
+  | Abrir un formulario no es una edición.
+  |
+  | Al sembrarlo con lo que ya hay en la hoja, el valor cambia de golpe y el
+  | autoguardado lo tomaría por texto nuevo: reescribiría el registro con lo
+  | que acaba de leer. `sync()` lo acepta como punto de partida. El efecto va
+  | **después** del hook para poder cancelar el temporizador que aquél acaba de
+  | programar.
+  */
+  const idTracking = editingTracking?.ID_REGISTRO ?? "";
+  const idVideo = editingVideo?.ID_VIDEO ?? "";
+
+  const syncTracking = autoTracking.sync;
+  const syncVideo = autoVideo.sync;
+  const syncProfile = autoProfile.sync;
+  const syncReport = autoReport.sync;
+
+  useEffect(() => {
+    if (showTrackingForm) syncTracking();
+  }, [showTrackingForm, idTracking, syncTracking]);
+
+  useEffect(() => {
+    if (showVideoForm) syncVideo();
+  }, [showVideoForm, idVideo, syncVideo]);
+
+  useEffect(() => {
+    if (showProfileForm) syncProfile();
+  }, [showProfileForm, idSel, syncProfile]);
+
+  useEffect(() => {
+    if (showReportForm) syncReport();
+  }, [showReportForm, idSel, syncReport]);
+
+  /* Una clave por registro: lo que quedó a medias de un jugador no puede
+     aparecer al abrir la ficha de otro. */
+  const borradorTracking = useBorradorLocal({
+    clave: idSel ? `individual:seguimiento:${idTracking || `nuevo:${idSel}`}` : null,
+    valor: trackingForm,
+    activo: showTrackingForm,
+    vacio: (v) =>
+      !v.FECHA &&
+      !v.FEEDBACK.trim() &&
+      !v.OBJETIVO_OFENSIVO.trim() &&
+      !v.OBJETIVO_DEFENSIVO.trim() &&
+      !v.OBJETIVO_MENTAL.trim(),
+  });
+
+  const borradorVideo = useBorradorLocal({
+    clave: idSel ? `individual:video:${idVideo || `nuevo:${idSel}`}` : null,
+    valor: videoForm,
+    activo: showVideoForm,
+    vacio: (v) => !v.TITULO.trim() && !v.URL_VIDEO.trim() && !v.DESCRIPCION.trim(),
+  });
+
+  const borradorProfile = useBorradorLocal({
+    clave: idSel ? `individual:perfil:${idSel}` : null,
+    valor: profileForm,
+    activo: showProfileForm,
+    vacio: (v) =>
+      !v.conBalon.trim() && !v.sinBalon.trim() && !v.mental.trim() && !v.hudlPerfilUrl.trim(),
+  });
+
+  const borradorReport = useBorradorLocal({
+    clave: idSel ? `individual:informe:${idSel}` : null,
+    valor: reportForm,
+    activo: showReportForm,
+    vacio: (v) => !Object.values(v).some((texto) => texto.trim()),
+  });
+
+  /*
+  | «Deshacer»: vuelve a como estaba al abrir y lo escribe de vuelta.
+  |
+  | El `flush()` va primero para que no quede en vuelo una escritura de lo
+  | tachado que llegase DESPUÉS de la foto y la pisara. Y la foto se envía a
+  | mano porque al cerrar el formulario el autoguardado se apaga: sin este
+  | envío, lo tecleado se quedaría en la hoja.
+  */
+  const deshace = async <T,>(
+    auto: AutoSaveResult<T>,
+    borrador: BorradorLocal<T>,
+    foto: T,
+    pon: (valor: T) => void,
+    escribe: (valor: T) => Promise<boolean | void>,
+    cierra: () => void,
+  ) => {
+    pon(foto);
+    cierra();
+
+    borrador.descarta();
+
+    await auto.flush();
+
+    await escribe(foto);
+  };
+
   const deleteTracking = async (idRegistro: string) => {
     if (!confirm("¿Eliminar este seguimiento?")) return;
+
+    /* Lo pendiente se descarta antes de borrar: si no, el autoguardado
+       reescribiría la fila que se acaba de tirar. */
+    autoTracking.sync();
+
+    borradorTracking.descarta();
 
     try {
       const result = await postToScript({
@@ -2294,6 +2656,10 @@ export default function IndividualPage() {
 
   const deleteVideo = async (idVideo: string) => {
     if (!confirm("¿Eliminar este vídeo?")) return;
+
+    autoVideo.sync();
+
+    borradorVideo.descarta();
 
     try {
       const result = await postToScript({
@@ -3466,6 +3832,32 @@ export default function IndividualPage() {
               setEditingTracking(null);
             }}
             onSubmit={saveTracking}
+            auto={editingTracking ? autoTracking : null}
+            onDeshacer={() =>
+              void deshace(
+                autoTracking,
+                borradorTracking,
+                fotoTracking,
+                setTrackingForm,
+                autoguardaTracking,
+                () => {
+                  setShowTrackingForm(false);
+                  setEditingTracking(null);
+                },
+              )
+            }
+            aviso={
+              borradorTracking.recuperado && (
+                <AvisoBorrador
+                  fecha={borradorTracking.recuperado.fecha}
+                  onRecuperar={() => {
+                    setTrackingForm(borradorTracking.recuperado!.valor);
+                    borradorTracking.descarta();
+                  }}
+                  onDescartar={borradorTracking.descarta}
+                />
+              )
+            }
           >
             <div className="grid min-w-0 gap-5">
               <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -3642,6 +4034,29 @@ export default function IndividualPage() {
             maxWidth="max-w-4xl"
             onClose={() => setShowProfileForm(false)}
             onSubmit={saveProfile}
+            auto={autoProfile}
+            onDeshacer={() =>
+              void deshace(
+                autoProfile,
+                borradorProfile,
+                fotoProfile,
+                setProfileForm,
+                autoguardaPerfil,
+                () => setShowProfileForm(false),
+              )
+            }
+            aviso={
+              borradorProfile.recuperado && (
+                <AvisoBorrador
+                  fecha={borradorProfile.recuperado.fecha}
+                  onRecuperar={() => {
+                    setProfileForm(borradorProfile.recuperado!.valor);
+                    borradorProfile.descarta();
+                  }}
+                  onDescartar={borradorProfile.descarta}
+                />
+              )
+            }
           >
             <div className="grid min-w-0 gap-5">
               <div className="grid min-w-0 gap-4 lg:grid-cols-3">
@@ -3760,6 +4175,32 @@ export default function IndividualPage() {
               setEditingVideo(null);
             }}
             onSubmit={saveVideo}
+            auto={editingVideo ? autoVideo : null}
+            onDeshacer={() =>
+              void deshace(
+                autoVideo,
+                borradorVideo,
+                fotoVideo,
+                setVideoForm,
+                autoguardaVideo,
+                () => {
+                  setShowVideoForm(false);
+                  setEditingVideo(null);
+                },
+              )
+            }
+            aviso={
+              borradorVideo.recuperado && (
+                <AvisoBorrador
+                  fecha={borradorVideo.recuperado.fecha}
+                  onRecuperar={() => {
+                    setVideoForm(borradorVideo.recuperado!.valor);
+                    borradorVideo.descarta();
+                  }}
+                  onDescartar={borradorVideo.descarta}
+                />
+              )
+            }
           >
             <div className="grid min-w-0 gap-5">
               <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -3838,6 +4279,29 @@ export default function IndividualPage() {
             maxWidth="max-w-4xl"
             onClose={() => setShowReportForm(false)}
             onSubmit={saveReport}
+            auto={autoReport}
+            onDeshacer={() =>
+              void deshace(
+                autoReport,
+                borradorReport,
+                fotoReport,
+                setReportForm,
+                autoguardaInforme,
+                () => setShowReportForm(false),
+              )
+            }
+            aviso={
+              borradorReport.recuperado && (
+                <AvisoBorrador
+                  fecha={borradorReport.recuperado.fecha}
+                  onRecuperar={() => {
+                    setReportForm(borradorReport.recuperado!.valor);
+                    borradorReport.descarta();
+                  }}
+                  onDescartar={borradorReport.descarta}
+                />
+              )
+            }
           >
             <div className="grid min-w-0 gap-5">
               <Field label="Resumen ejecutivo">

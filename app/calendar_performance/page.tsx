@@ -109,6 +109,9 @@ export default function CalendarPerformance() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<ConditionalEvent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  /* Lo dice la ficha de dentro: cerrar el día la desmontaría con lo escrito. */
+  const [fichaSucia, setFichaSucia] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   /* Comprueba que la hoja se queda con el texto de cada trabajo. */
@@ -488,6 +491,7 @@ export default function CalendarPerformance() {
         <CalendarDayModal
           date={selectedDate}
           size="lg"
+          sinGuardar={fichaSucia}
           subtitle={`${selectedEvents.length} ${
             selectedEvents.length === 1
               ? "trabajo programado"
@@ -522,6 +526,7 @@ export default function CalendarPerformance() {
               key={editingEvent?.ID_EVENTO ?? "nuevo"}
               players={players}
               initialData={editingEvent}
+              onSucio={setFichaSucia}
               onCancel={() => {
                 setIsCreating(false);
                 setEditingEvent(null);
@@ -821,11 +826,20 @@ function EventForm({
   initialData,
   onCancel,
   onSave,
+  onSucio,
 }: {
   players: { id: string; nombre: string }[];
   initialData?: ConditionalEvent | null;
   onCancel: () => void;
   onSave: (data: Partial<ConditionalEvent>) => Promise<void>;
+  /**
+   * Avisa al día de si hay algo escrito sin guardar.
+   *
+   * El formulario vive aquí dentro, pero quien cierra la ventana es el día:
+   * sin este aviso, cerrarlo desmontaba la ficha a medio rellenar sin dejar
+   * rastro de lo escrito.
+   */
+  onSucio?: (sucio: boolean) => void;
 }) {
   const [TIPO, setTIPO] = useState<EventType>(initialData?.TIPO ?? "FUERZA");
   const [TITULO, setTITULO] = useState(initialData?.TITULO ?? "");
@@ -837,6 +851,22 @@ function EventForm({
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const sucio =
+    TIPO !== (initialData?.TIPO ?? "FUERZA") ||
+    TITULO !== (initialData?.TITULO ?? "") ||
+    DESCRIPCION !== (initialData?.DESCRIPCION ?? "") ||
+    JUGADORES !== (initialData?.JUGADORES ?? "") ||
+    RESPONSABLE !== (initialData?.RESPONSABLE ?? "") ||
+    DURACION !== (initialData?.DURACION ?? "") ||
+    INTENSIDAD !== (initialData?.INTENSIDAD ?? "");
+
+  useEffect(() => {
+    onSucio?.(sucio);
+
+    /* Al desmontar, el día vuelve a poder cerrarse sin preguntar. */
+    return () => onSucio?.(false);
+  }, [sucio, onSucio]);
 
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2 outline-none transition focus:border-[#C8A96B]";

@@ -31,7 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { Button, Dialog, Field, TextArea } from "@/components/abp/ui";
+import { Button, Dialog, Field, TextArea, sePuedeDescartar } from "@/components/abp/ui";
 import {
   duracionClip,
   formateaDuracion,
@@ -506,14 +506,21 @@ export function FichaClip({
       ? comportamientos.some((uno) => uno.id === borrador.jugadorId)
       : jugadores.some((uno) => uno.id === borrador.jugadorId);
 
+  /* La nota del clip se escribe mirando la jugada: cerrar sin querer y tener
+     que volver a verla es lo que se está evitando. */
+  const sinGuardar = JSON.stringify(borrador) !== JSON.stringify(clip);
+
   return (
     <Dialog
       title={`Clip ${String(clip.numero).padStart(3, "0")}`}
       subtitle="Se puede corregir todo sin borrar ni volver a marcar"
       onClose={onCerrar}
+      sinGuardar={sinGuardar}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={() => sePuedeDescartar(sinGuardar) && onCerrar()}>
+            Cancelar
+          </Button>
 
           <Button
             tone="primary"

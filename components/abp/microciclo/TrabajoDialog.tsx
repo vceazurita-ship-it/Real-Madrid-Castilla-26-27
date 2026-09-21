@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
-import { Button, Dialog, TextArea } from "@/components/abp/ui";
+import { Button, Dialog, TextArea, sePuedeDescartar } from "@/components/abp/ui";
 import { chipInk } from "@/lib/theme";
 import {
   ASPECTOS_POR_GRUPO,
@@ -376,11 +376,17 @@ export function TrabajoDialog({
   const carga = cargaCondicional(borrador);
   const cargaCog = cargaCognitiva(borrador);
 
+  /* Lo de dentro no existe en el plan hasta que se pulsa el botón, así que
+     cerrar sin más se lo llevaría: se avisa. */
+  const sinGuardar =
+    diaBorrador !== dia || JSON.stringify(borrador) !== JSON.stringify(trabajo);
+
   return (
     <Dialog
       title={nuevo ? "Nuevo trabajo de ABP" : etiquetaTrabajo(borrador)}
       subtitle={DIAS.find((item) => item.key === diaBorrador)?.label}
       onClose={onCerrar}
+      sinGuardar={sinGuardar}
       footer={
         <>
           {onBorrar && (
@@ -389,7 +395,9 @@ export function TrabajoDialog({
             </Button>
           )}
 
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={() => sePuedeDescartar(sinGuardar) && onCerrar()}>
+            Cancelar
+          </Button>
 
           <Button
             tone="primary"
