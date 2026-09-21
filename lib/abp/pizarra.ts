@@ -472,7 +472,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "corner-def",
-    rev: 3,
+    rev: 4,
     titulo: "CÓRNER DEFENSIVO",
     vista: "ancho",
     lado: "defensivo",
@@ -482,17 +482,41 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { key: "marcas", label: "MARCAS" },
       { key: "rechace", label: "RL / MARCA" },
     ],
+    /*
+    | EL DIBUJO ES EL QUE SE DEFIENDE, NO UNA FILA (21/09/2026)
+    |
+    | Las cinco marcas salían en línea recta a la misma altura, repartidas a 74
+    | px por el ancho del campo, y las tres del rechace donde cayeran: el
+    | rechace corto en la banda izquierda, a medio campo de todo lo demás. Se
+    | leía como un peine, no como un córner, y cada jornada había que arrastrar
+    | a los diez a su sitio antes de proyectarla.
+    |
+    | Estas coordenadas son las del tablero que montó el cuerpo técnico para el
+    | Sant Andreu, copiadas tal cual. La estructura tiene tres alturas:
+    |
+    |   · **El área pequeña.** C y M4 abren por los dos palos a la misma
+    |     profundidad, y entre ellos B —el que sale al balón— con M1 y M2
+    |     apenas un paso por delante.
+    |   · **La frontal.** RC, M3 y M5 recogen a la altura del punto de
+    |     penalti, que es donde cae lo que se despeja de cabeza.
+    |   · **Fuera.** RL cubre el rechace largo por la izquierda, abierto; y AR
+    |     se queda arriba, que es el principio de las flechas de la transición.
+    |
+    | La casilla del dorsal va sobre la cabeza de cada marca (ver `dorsal`),
+    | así que dos marcas a la misma altura no se pueden acercar más de 74 px o
+    | las casillas se pisan.
+    */
     puestos: puestos("corner-def", [
       { code: "C", label: "Corta", grupo: "corta", x: 788, y: 254 },
-      { code: "B", label: "Balón", grupo: "balon", x: 866, y: 273 },
-      { code: "M1", label: "Marca 1", grupo: "marcas", x: 946, y: 351 },
-      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1020, y: 351 },
-      { code: "M3", label: "Marca 3", grupo: "marcas", x: 1094, y: 351 },
-      { code: "M4", label: "Marca 4", grupo: "marcas", x: 1168, y: 351 },
-      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1242, y: 351 },
-      { code: "RC", label: "Rechace corto", grupo: "rechace", x: 374, y: 350 },
-      { code: "RL", label: "Rechace largo", grupo: "rechace", x: 933, y: 510 },
-      { code: "AR", label: "Área", grupo: "rechace", x: 727, y: 506 },
+      { code: "B", label: "Balón", grupo: "balon", x: 855, y: 295 },
+      { code: "M1", label: "Marca 1", grupo: "marcas", x: 930, y: 321 },
+      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1013, y: 322 },
+      { code: "M3", label: "Marca 3", grupo: "marcas", x: 1019, y: 498 },
+      { code: "M4", label: "Marca 4", grupo: "marcas", x: 1094, y: 253 },
+      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1135, y: 485 },
+      { code: "RC", label: "Rechace corto", grupo: "rechace", x: 912, y: 492 },
+      { code: "RL", label: "Rechace largo", grupo: "rechace", x: 759, y: 593 },
+      { code: "AR", label: "Área", grupo: "rechace", x: 1031, y: 932 },
     ]),
     /* Cada marca es un rival con nombre y apellidos, pero el dorsal no se sabe
        hasta que salen al campo: la casilla va en blanco y se rellena a boli. */
@@ -506,6 +530,8 @@ export const PLANTILLAS: PlantillaSlide[] = [
       "Marcas: amenaza lejana «distancia de brazo».",
       "Bloqueos: cambio de marca.",
       "Bloques de 3 o más rivales: el último libra para marcar a la primera amenaza.",
+      "Seguir marcas hasta el final de la acción.",
+      "Reorganización a dos líneas de 4 tras despeje.",
     ],
   },
   {
