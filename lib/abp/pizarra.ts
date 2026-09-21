@@ -317,6 +317,17 @@ export type PlantillaSlide = {
    * campo **y** en la fila del panel, para que valga leerla de las dos formas.
    */
   dorsal?: string[];
+  /**
+   * Cómo se llamaba antes cada puesto que ha cambiado de nombre.
+   *
+   * De `code` viejo a `code` nuevo, sin el prefijo de la plantilla. Renombrar
+   * un puesto cambia su clave, y sin este puente las jornadas ya montadas se
+   * abrirían con las fichas sueltas por el campo: su puesto ya no existiría.
+   *
+   * Se aplica **de una vez**, nunca en cadena, para que dos puestos que se
+   * intercambian el nombre no acaben los dos en el mismo sitio.
+   */
+  renombra?: Record<string, string>;
 };
 
 /* Atajo para no repetir el prefijo de la clave en cada puesto. */
@@ -472,16 +483,36 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "corner-def",
-    rev: 4,
+    rev: 5,
     titulo: "CÓRNER DEFENSIVO",
     vista: "ancho",
     lado: "defensivo",
     grupos: [
       { key: "corta", label: "CORTA" },
-      { key: "balon", label: "BALÓN" },
+      { key: "zonas", label: "ZONAS" },
       { key: "marcas", label: "MARCAS" },
-      { key: "rechace", label: "RL / MARCA" },
+      { key: "fuera", label: "CORTO / ARRIBA" },
     ],
+    /*
+    | Los puestos cambiaron de nombre en la rev 5, y sus claves con ellos. Sin
+    | este puente, `normalizaTablero` no encontraría «corner-def:B» en la
+    | plantilla nueva y soltaría la ficha en mitad del campo: las jornadas ya
+    | montadas se desarmarían solas al abrirlas.
+    |
+    | Se aplica de una vez, no en cadena: M3 pasa a ser M1 **y** el viejo M1
+    | pasa a ser Z2, y hacerlo en dos pasos dejaría a los dos en el mismo sitio.
+    */
+    renombra: {
+      B: "Z1",
+      M1: "Z2",
+      M2: "Z3",
+      M4: "P2",
+      RC: "MU",
+      M3: "M1",
+      M5: "M2",
+      RL: "JC",
+      AR: "AD",
+    },
     /*
     | EL DIBUJO ES EL QUE SE DEFIENDE, NO UNA FILA (21/09/2026)
     |
@@ -505,21 +536,55 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | La casilla del dorsal va sobre la cabeza de cada marca (ver `dorsal`),
     | así que dos marcas a la misma altura no se pueden acercar más de 74 px o
     | las casillas se pisan.
+    |
+    | ---
+    |
+    | LOS COMETIDOS SON LOS DE LA SALA (21/09/2026)
+    |
+    | Eran cinco «marcas» numeradas, un «balón» y tres de rechace, y no es así
+    | como se defiende ni como se dice: dentro del área se defiende **por
+    | zonas** y sólo tres van a un rival concreto. Ahora la diapositiva dice lo
+    | que hace cada uno —zona 1, zona 2, zona 3, segundo palo— en vez de
+    | numerarlos a todos igual.
+    |
+    | `1½` es el que marca y además cubre el uno y medio: va en MARCAS porque
+    | lleva rival, y la casilla del dorsal se la lleva con él.
     */
     puestos: puestos("corner-def", [
       { code: "C", label: "Corta", grupo: "corta", x: 788, y: 254 },
-      { code: "B", label: "Balón", grupo: "balon", x: 855, y: 295 },
-      { code: "M1", label: "Marca 1", grupo: "marcas", x: 930, y: 321 },
-      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1013, y: 322 },
-      { code: "M3", label: "Marca 3", grupo: "marcas", x: 1019, y: 498 },
-      { code: "M4", label: "Marca 4", grupo: "marcas", x: 1094, y: 253 },
-      { code: "M5", label: "Marca 5", grupo: "marcas", x: 1135, y: 485 },
-      { code: "RC", label: "Rechace corto", grupo: "rechace", x: 912, y: 492 },
-      { code: "RL", label: "Rechace largo", grupo: "rechace", x: 759, y: 593 },
-      { code: "AR", label: "Área", grupo: "rechace", x: 1031, y: 932 },
+      { code: "Z1", label: "Zona 1", grupo: "zonas", x: 855, y: 295 },
+      { code: "Z2", label: "Zona 2", grupo: "zonas", x: 930, y: 321 },
+      { code: "Z3", label: "Zona 3", grupo: "zonas", x: 1013, y: 322 },
+      {
+        code: "P2",
+        sigla: "2ºP",
+        label: "Segundo palo",
+        grupo: "zonas",
+        x: 1094,
+        y: 253,
+      },
+      {
+        code: "MU",
+        sigla: "1½",
+        label: "Marca y uno y medio",
+        grupo: "marcas",
+        x: 912,
+        y: 492,
+      },
+      { code: "M1", label: "Marca 1", grupo: "marcas", x: 1019, y: 498 },
+      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1135, y: 485 },
+      { code: "JC", label: "Juego en corto", grupo: "fuera", x: 759, y: 593 },
+      {
+        code: "AD",
+        label: "Arriba descolgado",
+        grupo: "fuera",
+        x: 1031,
+        y: 932,
+      },
     ]),
     /* Cada marca es un rival con nombre y apellidos, pero el dorsal no se sabe
-       hasta que salen al campo: la casilla va en blanco y se rellena a boli. */
+       hasta que salen al campo: la casilla va en blanco y se rellena a boli.
+       Los de zona no marcan a nadie, así que no la llevan. */
     dorsal: ["marcas"],
     adornos: [
       { tipo: "transicion", label: "Defendemos el córner", remate: "Volamos todos para hacer gol" },
@@ -941,17 +1006,29 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
       plantilla.puestos.map((puesto) => [puesto.key, puesto]),
     );
 
+    /* Los puestos que han cambiado de nombre, de clave vieja a clave nueva. */
+    const renombrados = new Map(
+      Object.entries(plantilla.renombra ?? {}).map(([antes, ahora]) => [
+        `${plantilla.key}:${antes}`,
+        `${plantilla.key}:${ahora}`,
+      ]),
+    );
+
     const fichas = slide.fichas.map((ficha) => {
       if (!ficha.puesto) return ficha;
 
-      const puesto = porClave.get(ficha.puesto);
+      const clave = renombrados.get(ficha.puesto) ?? ficha.puesto;
+
+      const puesto = porClave.get(clave);
 
       /* El puesto ya no existe en la plantilla: la ficha se queda suelta. */
       if (!puesto) return { ...ficha, puesto: null };
 
       const { x, y } = sitioDe(puesto);
 
-      return ficha.x === x && ficha.y === y ? ficha : { ...ficha, x, y };
+      return ficha.x === x && ficha.y === y && ficha.puesto === clave
+        ? ficha
+        : { ...ficha, puesto: clave, x, y };
     });
 
     tocado = true;
@@ -1674,6 +1751,60 @@ export function aprende(
     : [...lista, { playerId, veces: 1, ultima: cuando }];
 
   return { ...memoria, [puesto]: ordenaMemoria(siguiente) };
+}
+
+/**
+ * La memoria con los puestos que han cambiado de nombre ya traducidos.
+ *
+ * Lo aprendido va por clave de puesto, así que renombrar uno lo dejaría huérfano
+ * y «colocar automáticamente» se olvidaría de quién lo hace desde agosto. Si la
+ * clave nueva ya tiene lista propia, las dos se suman: es el mismo sitio.
+ *
+ * Devuelve **el mismo objeto** si no hay nada que traducir, para no disparar el
+ * autoguardado al leer.
+ */
+export function normalizaMemoria(memoria: MemoriaPizarra): MemoriaPizarra {
+  const renombrados = new Map<string, string>();
+
+  for (const plantilla of PLANTILLAS) {
+    for (const [antes, ahora] of Object.entries(plantilla.renombra ?? {})) {
+      renombrados.set(`${plantilla.key}:${antes}`, `${plantilla.key}:${ahora}`);
+    }
+  }
+
+  if (!Object.keys(memoria).some((clave) => renombrados.has(clave))) {
+    return memoria;
+  }
+
+  const salida: MemoriaPizarra = {};
+
+  for (const [clave, lista] of Object.entries(memoria)) {
+    const destino = renombrados.get(clave) ?? clave;
+
+    const juntas = [...(salida[destino] ?? []), ...lista];
+
+    /* Un jugador puede salir en las dos listas: se suman sus veces. */
+    const porJugador = new Map<string, MemoriaPuesto>();
+
+    for (const item of juntas) {
+      const previo = porJugador.get(item.playerId);
+
+      porJugador.set(
+        item.playerId,
+        previo
+          ? {
+              playerId: item.playerId,
+              veces: previo.veces + item.veces,
+              ultima: previo.ultima > item.ultima ? previo.ultima : item.ultima,
+            }
+          : item,
+      );
+    }
+
+    salida[destino] = ordenaMemoria([...porJugador.values()]);
+  }
+
+  return salida;
 }
 
 /** Manda quién lo ha hecho más veces; a igualdad, quien lo hizo más tarde. */

@@ -120,6 +120,7 @@ import {
   revisaTablero,
   sinTextosPropios,
   slideDePlantilla,
+  normalizaMemoria,
   normalizaTablero,
   tableroVacio,
   textosDeSlide,
@@ -418,6 +419,13 @@ export default function PizarraAbpPage() {
   | abre porque las chapas se tapaban—, la jornada montada hace semanas se abre
   | ya corregida, y lo mismo sale al exportar. Ver `normalizaTablero`.
   */
+  /* Lo aprendido, con los puestos que han cambiado de nombre ya traducidos:
+     si no, renombrar uno borraría de golpe quién lo hace desde agosto. */
+  const memoriaAlDia = useMemo(
+    () => normalizaMemoria(store.memoria ?? {}),
+    [store.memoria],
+  );
+
   const tablero: TableroPizarra | null = useMemo(() => {
     if (!partido) return null;
 
@@ -670,7 +678,7 @@ export default function PizarraAbpPage() {
 
       setStore((actual) => ({
         ...actual,
-        memoria: aprende(actual.memoria ?? {}, puestoKey, playerId, cuando),
+        memoria: aprende(normalizaMemoria(actual.memoria ?? {}), puestoKey, playerId, cuando),
       }));
 
       setEditando(null);
@@ -736,7 +744,7 @@ export default function PizarraAbpPage() {
           memoria: nuevos.reduce(
             (memoria, { puesto, playerId }) =>
               aprende(memoria, puesto.key, playerId, cuando),
-            actual.memoria ?? {},
+            normalizaMemoria(actual.memoria ?? {}),
           ),
         }));
       }
@@ -773,7 +781,7 @@ export default function PizarraAbpPage() {
       const reparto = tablero.slides.map((item, indice) =>
         !todas && indice !== activa
           ? []
-          : colocaAutomatico(item, store.memoria ?? {}, disponibles),
+          : colocaAutomatico(item, memoriaAlDia, disponibles),
       );
 
       const puestas = reparto.reduce((total, lista) => total + lista.length, 0);
@@ -799,7 +807,7 @@ export default function PizarraAbpPage() {
         `${puestas} ${puestas === 1 ? "jugador colocado" : "jugadores colocados"} por prioridad`,
       );
     },
-    [tablero, mutaTablero, activa, store.memoria, disponibles],
+    [tablero, mutaTablero, activa, memoriaAlDia, disponibles],
   );
 
   /*
@@ -971,7 +979,7 @@ export default function PizarraAbpPage() {
             })
           : base;
 
-        let memoria = actual.memoria ?? {};
+        let memoria = normalizaMemoria(actual.memoria ?? {});
 
         for (const puesto of heredaEntra) memoria = aprende(memoria, puesto, entra, cuando);
 
@@ -1197,7 +1205,7 @@ export default function PizarraAbpPage() {
     );
   }, [tablero]);
 
-  const aprendidos = Object.keys(store.memoria ?? {}).length;
+  const aprendidos = Object.keys(memoriaAlDia).length;
 
   return (
     <main
@@ -1883,8 +1891,8 @@ export default function PizarraAbpPage() {
           players={players}
           memoria={
             grupoEditado
-              ? memoriaDeGrupo(store.memoria ?? {}, grupoEditado.puestos)
-              : (store.memoria?.[puestoEditado.key] ?? [])
+              ? memoriaDeGrupo(memoriaAlDia, grupoEditado.puestos)
+              : (memoriaAlDia[puestoEditado.key] ?? [])
           }
           ocupadoPor={ocupadoPor}
           actual={
@@ -2065,13 +2073,18 @@ function MemoriaResumen({
   store: PizarraStore;
   porId: Map<string, { apodo?: string; nombre: string }>;
 }) {
+  const memoriaAlDia = useMemo(
+    () => normalizaMemoria(store.memoria ?? {}),
+    [store.memoria],
+  );
+
   const filas = useMemo(() => {
     const porPlantilla = new Map<
       string,
       { code: string; label: string; nombres: string[] }[]
     >();
 
-    Object.entries(store.memoria ?? {}).forEach(([key, lista]) => {
+    Object.entries(memoriaAlDia).forEach(([key, lista]) => {
       const [plantillaKey] = key.split(":");
 
       const plantilla = PLANTILLA_BY_KEY.get(plantillaKey);
@@ -2098,7 +2111,7 @@ function MemoriaResumen({
     });
 
     return [...porPlantilla.entries()];
-  }, [store.memoria, porId]);
+  }, [memoriaAlDia, porId]);
 
   if (filas.length === 0) {
     return (
