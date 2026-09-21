@@ -475,14 +475,37 @@ export default function PizarraAbpPage() {
 
   /* ---------------------------- MUTACIÓN --------------------------- */
 
+  /*
+  | SE ESCRIBE SOBRE EL TABLERO YA PUESTO AL DÍA, NO SOBRE EL GUARDADO
+  |
+  | La pantalla pinta `normalizaTablero(guardado)`, pero los cambios se
+  | aplicaban sobre el guardado tal cual. Mientras la `rev` de la plantilla
+  | fuera por delante de la de la jornada, eso dejaba las fichas clavadas: se
+  | arrastraba una, el cambio se guardaba con la `rev` vieja, la siguiente
+  | lectura volvía a llamar a `normalizaTablero` y la devolvía a su sitio de
+  | plantilla. En la práctica, cada vez que se cambiaba el dibujo de una acción
+  | las jornadas ya montadas se quedaban sin poder moverse.
+  |
+  | Poniéndolo al día ANTES de tocarlo, el primer cambio consolida la
+  | recolocación y a partir de ahí la jornada se mueve como cualquier otra.
+  | `normalizaTablero` devuelve el mismo objeto si no hay nada que cambiar, así
+  | que en una jornada al día esto no cuesta nada.
+  */
+  const tableroAlDia = useCallback(
+    (actual: PizarraStore, partidoId: string, rival: string) =>
+      normalizaTablero(
+        actual.tableros?.[partidoId] ??
+          tableroVacio(partidoId, rival, actual.textos),
+      ),
+    [],
+  );
+
   const mutaTablero = useCallback(
     (fn: (actual: TableroPizarra) => TableroPizarra) => {
       if (!partido) return;
 
       setStore((actual) => {
-        const base =
-          actual.tableros?.[partido.id] ??
-          tableroVacio(partido.id, partido.opponent, actual.textos);
+        const base = tableroAlDia(actual, partido.id, partido.opponent);
 
         return {
           ...actual,
@@ -490,7 +513,7 @@ export default function PizarraAbpPage() {
         };
       });
     },
-    [partido, setStore],
+    [tableroAlDia, partido, setStore],
   );
 
   /* ---------------------- RIVAL Y JORNADA -------------------------- */
@@ -967,9 +990,7 @@ export default function PizarraAbpPage() {
       };
 
       setStore((actual) => {
-        const base =
-          actual.tableros?.[partido.id] ??
-          tableroVacio(partido.id, partido.opponent, actual.textos);
+        const base = tableroAlDia(actual, partido.id, partido.opponent);
 
         const conPrevia = tieneFichas(base.slides)
           ? registraVersion(base, {
@@ -1006,7 +1027,7 @@ export default function PizarraAbpPage() {
         },
       );
     },
-    [partido, tablero, porId, setStore],
+    [tableroAlDia, partido, tablero, porId, setStore],
   );
 
   /*
