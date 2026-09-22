@@ -49,7 +49,29 @@ type Ficha = {
 | Si algún día hay que volver a usar esto, el nombre tiene que ir **como lo
 | escriba la hoja**, aunque esté mal escrito: es la hoja la que manda.
 */
-const FICHAS: Ficha[] = [];
+const FICHAS: Ficha[] = [
+  /*
+  | Thiago Pitarch, 22/09/2026. Vuelve a la plantilla y la hoja JUGADORES
+  | todavía no lo trae, así que entra por aquí para estar desde el primer día
+  | en el once, la pizarra de ABP, el coding y el resto de la app.
+  |
+  | El ID es NUEVO a propósito. Su JUG-13 de la temporada pasada ya no es suyo:
+  | la hoja renumeró y hoy ese ID es el de Diego Lacosta. JUG-54 no lo usa
+  | nadie —la hoja llega a JUG-50 y en la de sesiones se llegaron a repartir el
+  | 52 y el 53—, y de todas formas el cruce que evita duplicados es por nombre.
+  |
+  | Cuando alguien escriba su fila en la hoja, **el nombre de ahí manda**: si la
+  | hoja lo escribe distinto, hay que copiar su grafía en `nombre` o saldrá dos
+  | veces (pasó con Óscar Nassei el 16/09/2026).
+  */
+  {
+    id: "JUG-54",
+    nombre: "Thiago Pitarch",
+    apodo: "Thiago",
+    posicion: "10",
+    licencia: "RMCF Castilla",
+  },
+];
 
 /** Los fichajes convertidos en jugadores, con sus recortes. */
 const PENDIENTES: Player[] = FICHAS.map((ficha) => ({

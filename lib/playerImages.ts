@@ -86,6 +86,7 @@ export const PLAYER_IMAGE_SLUGS = [
   "sergio-martinez",
   "sergio-martos",
   "sergio-mestre",
+  "thiago-pitarch",
   "tirso-lorente",
   "victor-cea",
 ] as const;
@@ -148,6 +149,8 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-48": "gabriel-valero",
   "JUG-49": "oscar-naasei",
   "JUG-50": "sergio-martinez",
+  // Thiago Pitarch vuelve el 22/09/2026 con ID nuevo: su JUG-13 es hoy de Diego Lacosta.
+  "JUG-54": "thiago-pitarch",
 };
 
 /**

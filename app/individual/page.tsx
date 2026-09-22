@@ -309,6 +309,17 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   },
 
   // CENTROCAMPISTAS
+  /*
+  | Thiago Pitarch vuelve el 22/09/2026. Va con ID nuevo (JUG-54): su JUG-13 de
+  | la temporada pasada lo tiene hoy Diego Lacosta, porque la hoja renumeró.
+  */
+  {
+    idJugador: "JUG-54",
+    name: "Thiago",
+    position: "Centrocampista",
+    photo:
+      "https://assets.realmadrid.com/is/image/realmadrid/THIAGO_PITARCH_550x650?$Desktop$&fit=wrap&wid=288&hei=384",
+  },
   {
     idJugador: "JUG-11",
     name: "Cestero",

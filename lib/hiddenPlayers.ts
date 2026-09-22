@@ -14,10 +14,12 @@
  */
 
 const HIDDEN_NAMES = new Set([
-  // Thiago Pitarch
-  "thiago pitarch",
-  "thiago",
-  "tiago",
+  /*
+  | Thiago Pitarch vuelve a estar en la plantilla desde el 22/09/2026, así que
+  | ya no se oculta. Como la hoja JUGADORES todavía no lo trae, entra por el
+  | puente de `lib/fichajes.ts`; el día que aparezca en la hoja, esa entrada se
+  | puede borrar y aquí no hay nada que tocar.
+  */
 
   // Manu Serrano
   "manu serrano",

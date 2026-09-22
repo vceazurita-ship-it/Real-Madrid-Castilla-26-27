@@ -41,6 +41,7 @@ import {
   Network,
   PenTool,
   ClipboardPlus,
+  Crosshair,
   PencilRuler,
   Presentation,
   Projector,
@@ -491,6 +492,18 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "/laboratorio/microciclo",
                 "Crear microciclo (hoja)",
                 <ClipboardPlus size={18} />,
+              )}
+
+              {/*
+                También se puede pinchar: los datos son de verdad —salen de
+                mirar el vídeo imagen a imagen— pero todavía no está el partido
+                entero, y la pantalla lo dice en grande. Vive aquí hasta que
+                haya partidos completos con los que comparar.
+              */}
+              {navLink(
+                "/laboratorio/transiciones",
+                "Robos y transiciones",
+                <Crosshair size={18} />,
               )}
 
               {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}
