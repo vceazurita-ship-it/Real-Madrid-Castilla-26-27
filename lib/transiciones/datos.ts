@@ -50,19 +50,20 @@ export const PARTIDOS: PartidoTransiciones[] = [
     "rival": "Juventud Torremolinos",
     "local": true,
     "fecha": "2026-09-05",
-    "resultado": "1-1",
+    "resultado": "",
     "segundosVideo": 6060,
     "bloquesTotales": 21,
     "notas": [
       "El vídeo arranca en el saque inicial y su reloj va casi a la par del reloj del partido.",
-      "Pausa de hidratación con riego entre el 29'05\" y el 31'30\": ahí no hay partido.",
-      "El Castilla ataca hacia arriba de la imagen en las dos partes."
+      "El juego se detiene en el 28'31\" por una lesión y ya no se reanuda: enlaza con la pausa de hidratación, campo vacío y aspersores, hasta el 31'30\".",
+      "El Castilla ataca hacia arriba de la imagen en las dos partes.",
+      "La 1ª parte acaba en el minuto 50:31 del vídeo (45+6, con el marcador 1-0) y el descanso está cortado: el vídeo salta en el 50:38 y la 2ª parte arranca en el 50:41. A partir de ahí el minuto del vídeo va unos 5:40 por delante del reloj del partido."
     ],
     "goles": [
       {
-        "seg": 3019,
-        "de": "rival",
-        "texto": "Gol del Torremolinos"
+        "seg": 1555,
+        "de": "castilla",
+        "texto": "Gol del Castilla, concedido tras una revisión de la jugada"
       },
       {
         "seg": 5343,
@@ -70,7 +71,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "texto": "Gol del Castilla, nacido del robo del 88'53\""
       }
     ],
-    "bloquesCerrados": 13,
+    "bloquesCerrados": 20,
     "robos": [
       {
         "seg": 24,
@@ -181,6 +182,30 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "bloque": "b01200"
       },
       {
+        "seg": 1645,
+        "zona": "campo rival",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "REMATE",
+        "duracion": 2,
+        "pases": "0",
+        "detalle": "presion encima del central en la frontal del area, le quita el balon y encara, el portero verde sale a los pies y bloca el remate dentro del area pequena",
+        "confianza": "media",
+        "bloque": "b01500"
+      },
+      {
+        "seg": 1665,
+        "zona": "campo rival",
+        "carril": "derecha",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "FUERA",
+        "duracion": 6,
+        "pases": "?",
+        "detalle": "el Torremolinos saca el balon desde su area por su banda izquierda y el blanco se lo roba en carrera junto a la linea, siguen duelos en la banda y el balon acaba saliendo por el lateral",
+        "confianza": "media",
+        "bloque": "b01500"
+      },
+      {
         "seg": 2092,
         "zona": "medio campo",
         "carril": "",
@@ -203,6 +228,42 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "detalle": "dos blancos aprietan al negro que conducia por su banda derecha pasado el medio campo y el balon queda para el Castilla, que conduce en diagonal hacia dentro y mete el balon en el area rival, donde lo saca un defensa",
         "confianza": "media",
         "bloque": "b02100"
+      },
+      {
+        "seg": 2473,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 2,
+        "pases": "0",
+        "detalle": "un blanco entra encima del conductor negro dentro del circulo central y le quita el balon, lo lleva dos segundos y el Torremolinos se lo vuelve a quitar antes de que salga un pase",
+        "confianza": "media",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 2502,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "DESPEJE",
+        "desenlace": "FUERA",
+        "duracion": 2,
+        "pases": "0",
+        "detalle": "el central blanco numero 5 gana la carrera al extremo negro pegado a la banda derecha y le roba el balon, pero lo empuja hacia la linea y el balon se marcha fuera",
+        "confianza": "baja",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 2864,
+        "zona": "medio campo",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 15,
+        "pases": "3",
+        "detalle": "duelo en la banda derecha junto al banquillo rival con el negro conduciendo y un blanco encima: en 2863 el balon queda suelto y en 2865 ya lo controla el Castilla, que sale conduciendo hacia arriba por el centro-derecha, progresa hasta el borde del area rival y alli un defensa negro se lo vuelve a quitar justo antes de que el juego se detenga",
+        "confianza": "media",
+        "bloque": "b02700"
       },
       {
         "seg": 3221,
@@ -229,6 +290,78 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "bloque": "b03000"
       },
       {
+        "seg": 3371,
+        "zona": "campo rival",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 3,
+        "pases": "1",
+        "detalle": "presion sobre el rival que conducia por nuestra derecha pasada la linea de medio campo: se lo quita y lo juega en largo hacia el area, pero el central rival corta el envio junto a su area",
+        "confianza": "alta",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 3433,
+        "zona": "campo rival",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "FALTA_FAVOR",
+        "duracion": 5,
+        "pases": "2",
+        "detalle": "interceptacion junto a la banda derecha en campo rival: el rival saca el balon hacia la linea y un blanco se lo quita y lo mete hacia dentro, acaba en barullo y el arbitro pita falta con un jugador nuestro en el suelo",
+        "confianza": "media",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 3603,
+        "zona": "campo rival",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 2,
+        "pases": "0",
+        "detalle": "presion encima del conductor rival entre el circulo central y la frontal, le quita el balon y lo empuja en diagonal a la derecha pero un negro llega antes y lo recupera",
+        "confianza": "media",
+        "bloque": "b03600"
+      },
+      {
+        "seg": 3607,
+        "zona": "campo rival",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 2,
+        "pases": "1",
+        "detalle": "el negro conduce hacia la banda derecha del ataque y el blanco que le persigue le roba el balon, lo mete hacia dentro y el rival vuelve a quedarselo",
+        "confianza": "media",
+        "bloque": "b03600"
+      },
+      {
+        "seg": 3614,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "PERDIDA",
+        "duracion": 5,
+        "pases": "2",
+        "detalle": "disputa junto al vertice izquierdo del area rival: se le va el balon al negro que conducia, un blanco lo gana con un negro encima, se saca en diagonal a la derecha y el rival lo recupera en 3619",
+        "confianza": "baja",
+        "bloque": "b03600"
+      },
+      {
+        "seg": 3743,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 3,
+        "pases": "1",
+        "detalle": "un blanco va encima del negro que conduce junto al circulo central y le quita el balon, se saca hacia delante pero el rival lo recupera enseguida",
+        "confianza": "baja",
+        "bloque": "b03600"
+      },
+      {
         "seg": 3903,
         "zona": "campo rival",
         "carril": "izquierda",
@@ -251,6 +384,18 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "detalle": "entrada de un blanco sobre el conductor rival junto al circulo central: el balon queda suelto y un blanco llega primero, pero el rival lo recupera al segundo siguiente",
         "confianza": "baja",
         "bloque": "b03900"
+      },
+      {
+        "seg": 4278,
+        "zona": "medio campo",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "REMATE",
+        "duracion": 11,
+        "pases": "3",
+        "detalle": "entrada de un blanco sobre el rival que conducia justo en la linea de medio campo por la derecha, el Castilla sale con el balon y progresa por la banda derecha, envio raso al area en 4287 y remate que el portero verde ataja en el suelo en 4289",
+        "confianza": "media",
+        "bloque": "b04200"
       },
       {
         "seg": 4568,
@@ -359,6 +504,18 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "detalle": "presion de dos blancos sobre el lateral rival junto a la banda derecha (5331 el balon es de negro, 5332 lo aprietan, 5333 lo recupera el 21), el Castilla progresa por la derecha, cambia a la izquierda del area y en 5342 tira — el balon entra y es gol",
         "confianza": "alta",
         "bloque": "b05100"
+      },
+      {
+        "seg": 5448,
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "FUERA",
+        "duracion": 5,
+        "pases": "0",
+        "detalle": "un negro conduce por la banda izquierda hacia el area del Castilla con un blanco pegado a el, en 5443 el blanco entra y el balon queda suelto, tras un barullo de varios segundos el blanco sale con el balon pegado a la linea de cal en 5448 y lo protege bajo presion sin llegar a dar pase, en 5453 el balon sale por la banda y el asistente senala saque de banda para el Castilla",
+        "confianza": "media",
+        "bloque": "b05400"
       },
       {
         "seg": 5712,
