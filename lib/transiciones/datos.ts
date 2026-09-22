@@ -52,7 +52,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
     "fecha": "2026-09-05",
     "resultado": "",
     "segundosVideo": 6060,
-    "bloquesTotales": 21,
+    "bloquesTotales": 20,
     "notas": [
       "El vídeo arranca en el saque inicial y su reloj va casi a la par del reloj del partido.",
       "El juego se detiene en el 28'31\" por una lesión y ya no se reanuda: enlaza con la pausa de hidratación, campo vacío y aspersores, hasta el 31'30\".",

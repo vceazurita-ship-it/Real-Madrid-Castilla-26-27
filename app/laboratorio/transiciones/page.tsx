@@ -50,7 +50,7 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { AbpHeader, Notice, Panel } from "@/components/abp/ui";
+import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 
 /* ------------------------------------------------------------------ */
@@ -320,7 +320,6 @@ export default function TransicionesPage() {
             <AbpHeader
               area="RMCF Castilla · En obras"
               title="Robos y transiciones"
-              lead="Cada vez que le quitamos el balón al rival: dónde se lo quitamos, qué es lo primero que hacemos —salir hacia delante o moverla en horizontal y atrás— y en qué acaba la jugada."
               aside={
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
                   <HardHat size={12} />
@@ -328,44 +327,6 @@ export default function TransicionesPage() {
                 </span>
               }
             />
-
-            {/* ---------------- cobertura ---------------- */}
-
-            <div className="mt-5">
-              <Notice
-                tone={cobertura.completo ? "info" : "warn"}
-                title={
-                  cobertura.completo
-                    ? "Partido revisado entero"
-                    : `Revisado ${cobertura.minutosVistos} de ${cobertura.minutosVideo} minutos de vídeo`
-                }
-              >
-                <p>
-                  Estos números salen de mirar el vídeo <strong className="text-white/75">imagen
-                  a imagen</strong>, un fotograma por segundo: no hay proveedor de datos para
-                  estos partidos. Van cerrados{" "}
-                  <strong className="text-white/75">
-                    {cobertura.cerrados} de {cobertura.totales} bloques
-                  </strong>{" "}
-                  de cinco minutos.
-                  {!cobertura.completo && (
-                    <>
-                      {" "}
-                      Mientras falten bloques, lo que ves son los robos de los minutos ya
-                      revisados, <strong className="text-white/75">no del partido entero</strong>.
-                    </>
-                  )}
-                </p>
-
-                {elegidos.length === 1 && elegidos[0].notas.length > 0 && (
-                  <ul className="mt-2 space-y-1 text-white/50">
-                    {elegidos[0].notas.map((n) => (
-                      <li key={n}>· {n}</li>
-                    ))}
-                  </ul>
-                )}
-              </Notice>
-            </div>
 
             {/* ---------------- mandos ---------------- */}
 
@@ -417,6 +378,23 @@ export default function TransicionesPage() {
                 <Eye size={14} />
                 {conDudosos ? "Quitar los dudosos" : "Incluir los dudosos"}
               </button>
+
+              {/*
+                Cuánto partido lleva revisado. No es adorno: mientras falten
+                bloques, los totales son de esos minutos y no del partido, y
+                quien mire la pantalla tiene que poder verlo sin preguntar.
+              */}
+              <span
+                className={`ml-auto rounded-xl border px-3 py-2 text-xs ${
+                  cobertura.completo
+                    ? "border-white/10 bg-white/[0.03] text-white/45"
+                    : "border-amber-400/25 bg-amber-400/[0.07] text-amber-200/80"
+                }`}
+              >
+                {cobertura.completo
+                  ? `Revisado entero · ${cobertura.minutosVideo} min`
+                  : `Revisado ${cobertura.minutosVistos} de ${cobertura.minutosVideo} min`}
+              </span>
             </div>
 
             {/* ---------------- cifras ---------------- */}

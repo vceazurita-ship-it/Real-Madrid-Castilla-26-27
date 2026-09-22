@@ -38,7 +38,12 @@ const PARTIDOS = [
     fecha: "2026-09-05",
     resultado: "",
     segundosVideo: 6060,
-    bloquesTotales: 21,
+    /*
+    | Veinte y no veintiuno: el último bloque se etiquetó de corrido desde el
+    | 95' hasta el final del vídeo, seis minutos en vez de cinco, así que con
+    | veinte ficheros el partido está cubierto entero.
+    */
+    bloquesTotales: 20,
     notas: [
       "El vídeo arranca en el saque inicial y su reloj va casi a la par del reloj del partido.",
       "El juego se detiene en el 28'31\" por una lesión y ya no se reanuda: enlaza con la pausa de hidratación, campo vacío y aspersores, hasta el 31'30\".",
