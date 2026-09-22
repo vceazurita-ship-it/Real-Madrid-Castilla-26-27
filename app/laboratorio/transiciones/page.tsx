@@ -718,7 +718,7 @@ export default function TransicionesPage() {
                 bodyClassName="p-0"
               >
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[820px] text-sm">
+                  <table className="w-full min-w-[640px] text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-[0.12em] text-white/40">
                         <th className="px-4 py-3">Min</th>
@@ -727,7 +727,6 @@ export default function TransicionesPage() {
                         <th className="px-4 py-3">Carril</th>
                         <th className="px-4 py-3">Salida</th>
                         <th className="px-4 py-3">Acaba en</th>
-                        <th className="px-4 py-3">Qué se ve</th>
                         <th className="px-4 py-3">Fiabilidad</th>
                       </tr>
                     </thead>
@@ -775,10 +774,6 @@ export default function TransicionesPage() {
                             ) : null}
                           </td>
 
-                          <td className="max-w-[420px] px-4 py-3 text-xs leading-relaxed text-white/45">
-                            {r.detalle}
-                          </td>
-
                           <td className="whitespace-nowrap px-4 py-3 text-xs">
                             <span
                               className={
@@ -797,7 +792,7 @@ export default function TransicionesPage() {
 
                       {robos.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center text-white/40">
+                          <td colSpan={7} className="px-4 py-8 text-center text-white/40">
                             Todavía no hay robos etiquetados con este filtro.
                           </td>
                         </tr>
