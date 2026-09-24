@@ -506,6 +506,17 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 <Crosshair size={18} />,
               )}
 
+              {/*
+                También se puede pinchar: no da datos, da un fichero. Los
+                escudos salen de los que ya se bajan para el informe del rival,
+                así que no hay nada que poner al día a mano.
+              */}
+              {navLink(
+                "/laboratorio/escudos",
+                "Escudos de la liga",
+                <Shield size={18} />,
+              )}
+
               {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}
 
               {disabledLink("Jugadores Sesión", <UserCheck size={18} />)}
