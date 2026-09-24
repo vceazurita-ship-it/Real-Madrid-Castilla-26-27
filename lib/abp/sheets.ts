@@ -80,6 +80,83 @@ export function sheetUrl(gid: string) {
   return `${BOOK}?gid=${gid}&single=true&output=csv`;
 }
 
+/**
+ * Por dónde se ESCRIBE en las hojas de ABP.
+ *
+ * `BOOK` es el libro publicado en la web, y eso sólo sirve para leer: una URL
+ * `2PACX-…` es una copia estática que Google sirve aparte del documento, sin
+ * identificador real ni destino de escritura. Publicar en la web da lectura
+ * pública, no permiso de edición.
+ *
+ * Para escribir hace falta un Apps Script en el propio libro. Está escrito en
+ * `scripts/abp-hoja.gs`, con sus instrucciones: se pega una vez en
+ * Extensiones → Apps Script, se implementa como aplicación web y la URL que
+ * sale —la que acaba en `/exec`— se pone aquí.
+ *
+ * Mientras esté vacío, `escribeFilas` lo dice y no intenta nada.
+ */
+export const ABP_ESCRITURA_URL = "";
+
+export type RespuestaEscritura = {
+  success: boolean;
+  escritas?: number;
+  desdeLaFila?: number;
+  /** Claves que la hoja no supo colocar: no tenían cabecera. */
+  ignoradas?: string[];
+  error?: string;
+};
+
+/**
+ * Añade filas al final de una pestaña de ABP.
+ *
+ * Va como **JSON con `Content-Type: text/plain`**, y las dos cosas son a
+ * propósito. El `doPost` del script hace `JSON.parse` del cuerpo, así que un
+ * formulario se estrella antes de repartir por acción —es lo que tumbó el
+ * guardado de RIVALES en septiembre—. Y `text/plain` es uno de los tipos que
+ * el navegador considera «simples»: con `application/json` haría antes una
+ * petición `OPTIONS` de comprobación, y un despliegue de Apps Script no
+ * contesta a `OPTIONS`, así que el guardado moriría sin llegar a la hoja.
+ *
+ * Ojo: la hoja escribe por nombre de columna y devuelve en `ignoradas` lo que
+ * no encajó. Quien llame **tiene que mirarlo**: un `success: true` con
+ * `ignoradas` llenas significa que se han escrito filas a medias.
+ */
+export async function escribeFilas(
+  gid: string,
+  filas: Record<string, string>[],
+): Promise<RespuestaEscritura> {
+  if (!ABP_ESCRITURA_URL) {
+    return {
+      success: false,
+      error:
+        "Falta el Apps Script del libro de ABP: pega scripts/abp-hoja.gs y pon su URL en ABP_ESCRITURA_URL.",
+    };
+  }
+
+  const respuesta = await fetch(ABP_ESCRITURA_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "anadirFilas", gid, filas }),
+  });
+
+  if (!respuesta.ok) {
+    return { success: false, error: `La hoja contestó ${respuesta.status}.` };
+  }
+
+  const texto = await respuesta.text();
+
+  try {
+    return JSON.parse(texto) as RespuestaEscritura;
+  } catch {
+    /* Casi siempre la página de «Authorization required» de Google. */
+    return {
+      success: false,
+      error:
+        "La hoja no ha contestado JSON. Suele ser que la aplicación web no está publicada para «Cualquier usuario».",
+    };
+  }
+}
+
 export type SheetRow = Record<string, string>;
 
 /**
