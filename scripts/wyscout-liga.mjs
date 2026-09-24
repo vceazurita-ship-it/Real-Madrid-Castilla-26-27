@@ -80,6 +80,9 @@ const RAIZ = path.resolve(import.meta.dirname, "..");
 
 const DESTINO = path.join(RAIZ, "public", "data", "wys");
 
+/** Donde van el registro de cada pasada y el testigo de la sesión. */
+const CACHE = path.join(RAIZ, ".cache", "wyscout");
+
 /* El perfil vive fuera del repositorio: es una sesión, no código. */
 const PERFIL = path.join(
   process.env.LOCALAPPDATA ?? os.homedir(),
@@ -157,12 +160,18 @@ function abreChrome() {
 /**
  * Deja escrito en el perfil que al arrancar se restaura la sesión anterior.
  *
- * El interruptor de la línea de órdenes vale para el arranque, pero **la
- * decisión de guardar las cookies se toma al cerrar**, y ahí manda lo que diga
- * el perfil. Se escriben las dos cosas y no se discute.
+ * **Esto no funciona, y se deja a propósito.** `restore_on_startup` es una
+ * preferencia *protegida*: Chrome no la guarda en `Default\Preferences` sino en
+ * `Default\Secure Preferences`, firmada con un MAC en `protection.macs`. Lo que
+ * se escriba en el fichero llano lo ignora y lo borra en el siguiente arranque
+ * —comprobado el 24/09/2026: en `Preferences` no quedaba ni rastro y en
+ * `Secure Preferences` estaba con su firma—. La firma no se puede calcular sin
+ * la semilla del binario, y poner una política de Chrome en el registro
+ * afectaría también al navegador del usuario.
  *
- * Si no se puede —el fichero no está todavía, Chrome lo tiene abierto— no pasa
- * nada: se sigue, que esto es una mejora, no un requisito.
+ * Por eso la sesión la guardamos nosotros, en `guardaLasCookies()`. Esta
+ * función se queda porque no molesta y porque el día que Chrome deje de
+ * proteger la preferencia volverá a valer.
  */
 function guardaLaSesionAlCerrar() {
   const fichero = path.join(PERFIL, "Default", "Preferences");
@@ -180,6 +189,103 @@ function guardaLaSesionAlCerrar() {
     fs.writeFileSync(fichero, JSON.stringify(ajustes), "utf8");
   } catch {
     /* el interruptor de la línea de órdenes sigue puesto */
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA SESIÓN, GUARDADA A MANO                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Dónde se guarda el testigo de la sesión de Wyscout.
+ *
+ * **Es una credencial**: quien tenga este fichero entra en Wyscout como el
+ * club, hasta que Hudl caduque la sesión por su cuenta. Vive en el mismo disco
+ * y en el mismo perfil de Windows donde ya está la base de cookies de Chrome,
+ * que no es más segura, así que no abre una puerta nueva; pero no se copia, no
+ * se sube al repositorio (`.cache/` está ignorado) y no sale de ese ordenador.
+ */
+const FICHERO_SESION = path.join(CACHE, "sesion.json");
+
+/** Las cookies que hacen falta para entrar: sólo las de Hudl y Wyscout. */
+const DOMINIOS_SESION = /(^|\.)(hudl|wyscout)\.com$/i;
+
+/**
+ * Guarda las cookies de sesión antes de cerrar Chrome.
+ *
+ * Hace falta porque **la cookie de Hudl es de sesión** —no tiene fecha de
+ * caducidad— y Chrome tira esas al cerrarse salvo que el perfil esté puesto a
+ * «continuar donde lo dejaste», que es justo lo que no se puede dejar puesto
+ * (ver `guardaLaSesionAlCerrar`). Sin esto hay que entrar a mano cada semana, y
+ * una tarea programada no puede escribir una contraseña.
+ */
+async function guardaLasCookies(nav) {
+  try {
+    const { cookies } = await nav.manda("Network.getAllCookies");
+
+    const nuestras = (cookies ?? []).filter((c) =>
+      DOMINIOS_SESION.test(String(c.domain ?? "").replace(/^\./, "")),
+    );
+
+    if (!nuestras.length) return;
+
+    fs.mkdirSync(CACHE, { recursive: true });
+
+    fs.writeFileSync(
+      FICHERO_SESION,
+      JSON.stringify({ guardadoEn: new Date().toISOString(), cookies: nuestras }),
+      "utf8",
+    );
+
+    /* Sólo para el dueño: es una credencial. En Windows no hace nada, pero si
+       esto acaba corriendo en otro sitio, que no nazca abierto. */
+    try {
+      fs.chmodSync(FICHERO_SESION, 0o600);
+    } catch {
+      /* Windows */
+    }
+  } catch {
+    /* Si no se dejan leer, lo peor que pasa es volver a entrar a mano. */
+  }
+}
+
+/**
+ * Repone las cookies guardadas nada más conectar.
+ *
+ * Se hace **antes** de mirar si estamos dentro, para que la comprobación vea ya
+ * la sesión puesta. Si las cookies ya no valen —Hudl las caduca por su cuenta—
+ * no pasa nada: la comprobación dirá que hay que entrar y el fichero se
+ * reescribirá con las nuevas.
+ */
+async function reponeLasCookies(nav) {
+  try {
+    if (!fs.existsSync(FICHERO_SESION)) return false;
+
+    const { cookies } = JSON.parse(fs.readFileSync(FICHERO_SESION, "utf8"));
+
+    if (!Array.isArray(cookies) || !cookies.length) return false;
+
+    /*
+    | `Network.setCookies` quiere las cookies como las devuelve
+    | `getAllCookies` menos los campos de sólo lectura: si se le cuela `size` o
+    | `session`, contesta «Invalid parameters».
+    */
+    const limpias = cookies.map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      secure: c.secure,
+      httpOnly: c.httpOnly,
+      sameSite: c.sameSite,
+      ...(c.expires && c.expires > 0 ? { expires: c.expires } : {}),
+    }));
+
+    await nav.manda("Network.setCookies", { cookies: limpias });
+
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -1530,6 +1636,26 @@ async function principal() {
 
   const nav = await conecta();
 
+  /*
+  | La sesión de la semana pasada, puesta a mano antes de mirar nada.
+  |
+  | Va aquí y no después de comprobar el login porque la comprobación tiene que
+  | ver ya las cookies puestas: si no, diría que hay que entrar cuando no hace
+  | falta. Si las cookies han caducado por su cuenta, no estorban.
+  */
+  if (await reponeLasCookies(nav)) {
+    console.log("  sesión repuesta de la última vez\n");
+
+    /* Con las cookies puestas hay que recargar: la página se abrió sin ellas. */
+    try {
+      await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" });
+
+      await espera(4000);
+    } catch {
+      /* si no recarga, `esperaLogin` lo verá y pedirá entrar */
+    }
+  }
+
   try {
     if (!(await esperaLogin(nav))) {
       console.log("  No se ha iniciado sesión. Nada que hacer.\n");
@@ -1680,6 +1806,16 @@ async function principal() {
       | siguiente: aparecía la pantalla de entrada como si nunca se hubiera
       | entrado. `Browser.close` le deja guardar antes de irse.
       */
+      /*
+      | Las cookies, a un fichero nuestro, ANTES de cerrar.
+      |
+      | Chrome no las va a guardar: la cookie de Hudl es de sesión y la
+      | preferencia que las salvaría está protegida y no se deja escribir (ver
+      | `guardaLaSesionAlCerrar`). Si no se copian aquí, la semana que viene
+      | hay que volver a entrar a mano y la tarea programada no puede.
+      */
+      await guardaLasCookies(nav);
+
       try {
         await nav.manda("Browser.close");
 
