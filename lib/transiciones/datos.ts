@@ -5,7 +5,7 @@
  * scripts/transiciones-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES.
  *
- * Generado: 2026-09-22
+ * Generado: 2026-09-24
  */
 
 export type Accion = "ADELANTE" | "HORIZONTAL_ATRAS" | "DESPEJE" | "PERDIDA";
@@ -38,6 +38,8 @@ export type PartidoTransiciones = {
   segundosVideo: number;
   bloquesTotales: number;
   bloquesCerrados: number;
+  /** Segundos de vídeo mirados de verdad, contando los bloques a medias. */
+  segundosRevisados: number;
   notas: string[];
   goles: Gol[];
   robos: Robo[];
@@ -72,6 +74,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
       }
     ],
     "bloquesCerrados": 20,
+    "segundosRevisados": 6060,
     "robos": [
       {
         "seg": 24,
@@ -552,9 +555,156 @@ export const PARTIDOS: PartidoTransiciones[] = [
     "resultado": "",
     "segundosVideo": 6158,
     "bloquesTotales": 21,
-    "notas": [],
-    "goles": [],
-    "bloquesCerrados": 0,
-    "robos": []
+    "notas": [
+      "PARTIDO A MEDIAS: van 24 de los 103 minutos. Ocho bloques se empezaron y solo dos se cerraron, así que estos 11 robos son una cata, no el recuento del partido. No los sumes al J2 como si fueran comparables.",
+      "Partido fuera: el Castilla juega de NEGRO y el Águilas de rayas azules y blancas.",
+      "Aquí la dirección SÍ cambia: el Castilla ataca hacia arriba de la imagen hasta el segundo 3016 y hacia abajo desde el 3017.",
+      "El descanso no está grabado: hay un corte de montaje entre el 3016 y el 3017. No hay marcador en pantalla, así que los minutos son de vídeo.",
+      "Pausa de hidratación del 83'09\" al 84'53\". El vídeo acaba en el 102'37\" con el partido todavía en juego.",
+      "En el 74'10\" nuestro portero le para un penalti al Águilas."
+    ],
+    "goles": [
+      {
+        "seg": 687,
+        "de": "rival",
+        "texto": "Gol del Águilas, en una falta al borde del área"
+      }
+    ],
+    "bloquesCerrados": 2,
+    "segundosRevisados": 1452,
+    "robos": [
+      {
+        "seg": 59,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 3,
+        "pases": "1",
+        "detalle": "entrada en banda izquierda sobre el rival que conducia y pase largo al espacio que no encuentra a nadie",
+        "confianza": "media",
+        "bloque": "b00000"
+      },
+      {
+        "seg": 204,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 8,
+        "pases": "3",
+        "detalle": "gana el segundo balon en el duelo aereo del centro tras el despeje del rival y el Castilla progresa por la banda derecha hasta el ultimo tercio",
+        "confianza": "media",
+        "bloque": "b00000"
+      },
+      {
+        "seg": 343,
+        "zona": "campo rival",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 20,
+        "pases": "?",
+        "detalle": "presion alta sobre la salida del Aguilas junto al area y conduccion hacia la banda derecha antes de perderla cerca del medio campo",
+        "confianza": "media",
+        "bloque": "b00300"
+      },
+      {
+        "seg": 997,
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "FALTA_FAVOR",
+        "duracion": 12,
+        "pases": "2",
+        "detalle": "el central 2 le quita el balon al extremo azul en el borde del area propia y el 11 la saca en conduccion por la izquierda",
+        "confianza": "media",
+        "bloque": "b00900"
+      },
+      {
+        "seg": 1091,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "AREA",
+        "duracion": 9,
+        "pases": "?",
+        "detalle": "entrada por abajo de un centrocampista negro al conductor azul justo pasada la linea de medio campo y el balon queda suelto para el Castilla que sale por la izquierda",
+        "confianza": "media",
+        "bloque": "b00900"
+      },
+      {
+        "seg": 1112,
+        "zona": "medio campo",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "ATRAS_PORTERO",
+        "duracion": 8,
+        "pases": "3",
+        "detalle": "el lateral 2 entra al extremo azul pegado a la banda derecha el balon queda muerto y lo recoge el Castilla para salir hacia delante",
+        "confianza": "media",
+        "bloque": "b00900"
+      },
+      {
+        "seg": 1955,
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 3,
+        "pases": "1",
+        "detalle": "el central negro se anticipa en la banda izquierda cerca del medio campo el rival cae al suelo y el saca un envio largo hacia delante que el Aguilas corta",
+        "confianza": "media",
+        "bloque": "b01800"
+      },
+      {
+        "seg": 2463,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 7,
+        "pases": "1",
+        "detalle": "entrada y presion junto al area del Aguilas el balon queda ante el portero que sale y el rival lo recupera",
+        "confianza": "media",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 2474,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "FALTA_FAVOR",
+        "duracion": 8,
+        "pases": "3",
+        "detalle": "robo en la salida del Aguilas por la izquierda y el Castilla progresa hasta que le hacen falta junto al circulo central",
+        "confianza": "media",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 2512,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "AREA",
+        "duracion": 7,
+        "pases": "2",
+        "detalle": "robo en la presion junto al circulo central y conduccion directa hasta meter el balon en el area del Aguilas donde lo bloca el portero",
+        "confianza": "media",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 6024,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 9,
+        "pases": "1",
+        "detalle": "interceptacion en el borde del circulo central de un balon que el 3 azul saca presionado y conduccion larga por la banda izquierda hasta que el 6 azul se la quita",
+        "confianza": "media",
+        "bloque": "b06000"
+      }
+    ]
   }
 ];

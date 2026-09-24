@@ -25,6 +25,9 @@ const RAIZ = join(AQUI, "..");
 const ORIGEN = "C:/Users/Usuario/Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES";
 const DESTINO = join(RAIZ, "lib", "transiciones", "datos.ts");
 
+/** Cada bloque del etiquetado son cinco minutos de vídeo. */
+const SEGUNDOS_BLOQUE = 300;
+
 const ACCIONES = ["ADELANTE", "HORIZONTAL_ATRAS", "DESPEJE", "PERDIDA"];
 const CONFIANZAS = ["alta", "media", "baja"];
 
@@ -64,8 +67,17 @@ const PARTIDOS = [
     resultado: "",
     segundosVideo: 6158,
     bloquesTotales: 21,
-    notas: [],
-    goles: [],
+    notas: [
+      "PARTIDO A MEDIAS: van 24 de los 103 minutos. Ocho bloques se empezaron y solo dos se cerraron, así que estos 11 robos son una cata, no el recuento del partido. No los sumes al J2 como si fueran comparables.",
+      "Partido fuera: el Castilla juega de NEGRO y el Águilas de rayas azules y blancas.",
+      "Aquí la dirección SÍ cambia: el Castilla ataca hacia arriba de la imagen hasta el segundo 3016 y hacia abajo desde el 3017.",
+      "El descanso no está grabado: hay un corte de montaje entre el 3016 y el 3017. No hay marcador en pantalla, así que los minutos son de vídeo.",
+      "Pausa de hidratación del 83'09\" al 84'53\". El vídeo acaba en el 102'37\" con el partido todavía en juego.",
+      "En el 74'10\" nuestro portero le para un penalti al Águilas.",
+    ],
+    goles: [
+      { seg: 687, de: "rival", texto: "Gol del Águilas, en una falta al borde del área" },
+    ],
   },
 ];
 
@@ -117,12 +129,33 @@ function parteLinea(linea) {
 
 function leePartido(partido) {
   const dir = join(ORIGEN, partido.id, "bloques");
-  if (!existsSync(dir)) return { ...partido, bloquesCerrados: 0, robos: [] };
+  if (!existsSync(dir)) {
+    return { ...partido, bloquesCerrados: 0, segundosRevisados: 0, robos: [] };
+  }
 
   const ficheros = readdirSync(dir).filter((f) => f.endsWith(".csv")).sort();
   const robos = [];
+  let cerrados = 0;
+  let segundosRevisados = 0;
+
   for (const f of ficheros) {
-    for (const linea of readFileSync(join(dir, f), "utf8").split(/\r?\n/)) {
+    const inicio = Number.parseInt(f.replace(/\D/g, ""), 10) || 0;
+    const esUltimo = inicio === (partido.bloquesTotales - 1) * SEGUNDOS_BLOQUE;
+    const fin = esUltimo ? partido.segundosVideo - 1 : inicio + SEGUNDOS_BLOQUE - 1;
+
+    const texto = readFileSync(join(dir, f), "utf8");
+
+    /*
+    | Un bloque a medias deja dicho hasta dónde llegó: `# revisado hasta el
+    | segundo 371`. Sin esa línea se entiende que está entero, que es el caso
+    | de los bloques del J2, etiquetados antes de que existiera la costumbre.
+    */
+    const hasta = texto.match(/revisado hasta el segundo\s+(\d+)/i);
+    const llega = hasta ? Math.min(Number.parseInt(hasta[1], 10), fin) : fin;
+    if (llega >= fin) cerrados += 1;
+    segundosRevisados += Math.max(0, llega - inicio + 1);
+
+    for (const linea of texto.split(/\r?\n/)) {
       const t = linea.trim();
       if (!t || t.startsWith("segundo;") || t.startsWith("#")) continue;
       const fila = parteLinea(t);
@@ -140,7 +173,7 @@ function leePartido(partido) {
     limpio.push(r);
   }
 
-  return { ...partido, bloquesCerrados: ficheros.length, robos: limpio };
+  return { ...partido, bloquesCerrados: cerrados, segundosRevisados, robos: limpio };
 }
 
 const datos = PARTIDOS.map(leePartido);
@@ -185,6 +218,8 @@ export type PartidoTransiciones = {
   segundosVideo: number;
   bloquesTotales: number;
   bloquesCerrados: number;
+  /** Segundos de vídeo mirados de verdad, contando los bloques a medias. */
+  segundosRevisados: number;
   notas: string[];
   goles: Gol[];
   robos: Robo[];

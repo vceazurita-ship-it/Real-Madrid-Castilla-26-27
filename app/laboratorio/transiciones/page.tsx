@@ -206,11 +206,19 @@ export default function TransicionesPage() {
     const minutosVideo = Math.round(
       elegidos.reduce((a, p) => a + p.segundosVideo, 0) / 60,
     );
+    /*
+    | Los minutos vistos NO son los bloques cerrados por cinco: un bloque puede
+    | quedarse a medias, y entonces sus robos cuentan pero sus minutos no del
+    | todo. Por eso el generador apunta los segundos revisados de verdad.
+    */
+    const minutosVistos = Math.round(
+      elegidos.reduce((a, p) => a + p.segundosRevisados, 0) / 60,
+    );
     return {
       cerrados,
       totales,
       minutosVideo,
-      minutosVistos: cerrados * 5,
+      minutosVistos,
       completo: cerrados === totales && totales > 0,
     };
   }, [elegidos]);
