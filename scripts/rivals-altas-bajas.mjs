@@ -335,7 +335,23 @@ async function preparar(salida, salvo) {
           ID_JUGADOR: hueco ? hueco.ID_JUGADOR : `RIV-JUG-${idLibre++}`,
           ID_EQUIPO: equipo,
           NOMBRE_EQUIPO: nombreEquipo,
-          DORSAL: hueco ? hueco.DORSAL : dorsalLibre++,
+          /*
+          | El dorsal DE VERDAD, que ya viene de la página de plantilla.
+          |
+          | Aquí se escribía «el máximo del equipo + 1», que es la convención
+          | vieja de cuando esta columna era el índice de la fila. Dejó de
+          | serlo en septiembre de 2026 ([[dorsales-plantilla-y-rivales]]) y
+          | nadie tocó esto: Gonzalo Melero entró en el Alcorcón como dorsal 36
+          | siendo el 18, y con él las otras nueve altas de esa tanda. El
+          | número se ve en la ficha, en el campograma, en el once probable y
+          | en el PPT de día de partido, así que un número inventado se
+          | propaga a todo.
+          |
+          | `plantillaDe` lo lee de la celda `number-box` de cada fila. Puede
+          | venir vacío —el club no lo ha publicado— y entonces sí hace falta
+          | poner algo que no choque con otro.
+          */
+          DORSAL: alta.dorsal ?? (hueco ? hueco.DORSAL : dorsalLibre++),
           JUGADOR: mayus(ficha.nombre || alta.nombre),
           "NOMBRE DEPORTIVO": mayus(ficha.alias || alta.nombre),
           "LUGAR DE NACIMIENTO": mayus(ficha.pais),
