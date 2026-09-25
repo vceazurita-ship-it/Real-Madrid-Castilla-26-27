@@ -83,6 +83,14 @@ export type DatosInforme = {
   rival: string;
   /** El partido con el que se mide la semana, si se ha podido cruzar. */
   partido: { jornada: string; rival: string } | null;
+  /**
+   * De qué partido viene la semana.
+   *
+   * El microciclo va de partido a partido, así que el informe tiene que decir
+   * los dos: con uno solo no se sabe si la semana fue de siete días o de tres,
+   * y el objetivo de minutos se lee contra eso.
+   */
+  partidoAnterior?: { rival: string; cuando: string } | null;
   /** Los trabajos planificados, día a día. */
   entradas: { dia: DiaKey; trabajo: Trabajo }[];
   totales: TotalesPlan;
@@ -805,9 +813,16 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       minute: "2-digit",
     }),
     rango,
-    partido: datos.partido
-      ? `Se mide contra ${datos.partido.jornada} · ${datos.partido.rival}`
-      : "",
+    partido: [
+      datos.partidoAnterior
+        ? `Viene del partido contra ${datos.partidoAnterior.rival} (${datos.partidoAnterior.cuando})`
+        : "",
+      datos.partido
+        ? `Se mide contra ${datos.partido.jornada} · ${datos.partido.rival}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
     resumen,
     trabajos,
     valoracion: {

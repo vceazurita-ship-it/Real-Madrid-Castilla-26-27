@@ -90,6 +90,20 @@ export type VentanaMicro = {
   entrenos: DiaMicro[];
   /** El partido de este microciclo, atado con el calendario. */
   partido: PartidoNuestro | null;
+  /**
+   * El partido del que viene la semana: el anterior del calendario.
+   *
+   * Un microciclo va **de partido a partido**, así que el día de después del
+   * anterior ya es el primer día de éste —aunque en la hoja no haya ninguna
+   * tarea escrita ese día, que es lo normal cuando toca descanso—. Antes la
+   * ventana empezaba en el primer día CON tareas y ese descanso se quedaba
+   * fuera: la semana parecía empezar el martes cuando empezaba el domingo.
+   *
+   * No se mete como un día más de la rejilla: el plan guarda los días por su
+   * letra y un lunes-a-lunes daría dos lunes en la misma casilla. Va como
+   * cabecera, para que se vea de dónde se viene.
+   */
+  partidoAnterior: PartidoNuestro | null;
   /** Cómo se llama el rival en la hoja. */
   rivalHoja: string;
   /** "de domingo a miércoles". */
@@ -159,6 +173,29 @@ export type EntradaVentana = {
  * Devuelve la lista vacía cuando la hoja no tiene ese microciclo: quien llame
  * tiene que poder decir «créala primero» en vez de inventarse una semana.
  */
+/**
+ * El último partido nuestro anterior a una fecha.
+ *
+ * Es lo que cierra el microciclo por arriba: la semana empieza cuando acaba el
+ * partido de antes. Se miran todos los del calendario —liga, copa y
+ * amistosos—, porque para la carga de la semana da igual de qué fuera: lo que
+ * cuenta es que se jugó.
+ */
+function partidoPrevio(
+  diaDelPartido: string,
+  partidos: PartidoCastilla[],
+): PartidoNuestro | null {
+  if (!diaDelPartido) return null;
+
+  const antes = partidos
+    .map((uno) => comoNuestro(uno))
+    .filter((uno): uno is PartidoNuestro => Boolean(uno))
+    .filter((uno) => soloDia(uno.cuando) < diaDelPartido)
+    .sort((a, b) => a.cuando.localeCompare(b.cuando));
+
+  return antes[antes.length - 1] ?? null;
+}
+
 export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
   const { tareas, rival, partidos } = entrada;
 
@@ -206,6 +243,7 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
       dias: [],
       entrenos: [],
       partido: buscaPartidoDelMicro(rival, "", partidos),
+      partidoAnterior: null,
       rivalHoja: rival,
       comoSeLlama: "",
       avisos,
@@ -215,6 +253,26 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
   const partido = buscaPartidoDelMicro(rival, fechas[fechas.length - 1], partidos);
 
   const diaDelPartido = partido ? soloDia(partido.cuando) : "";
+
+  /*
+  | DE PARTIDO A PARTIDO.
+  |
+  | El anterior es el último partido nuestro que se jugó antes que éste. El
+  | microciclo empieza al día siguiente: si se jugó el sábado, el domingo ya es
+  | MD-6 aunque nadie escriba una tarea ese día.
+  |
+  | Se empieza el día DESPUÉS y no el mismo a propósito: incluyendo los dos
+  | partidos, una semana de sábado a sábado son ocho días y el plan guarda uno
+  | por letra —habría dos sábados en la misma casilla—. El anterior se enseña
+  | aparte, en la cabecera.
+  */
+  const partidoAnterior = partidoPrevio(diaDelPartido, partidos);
+
+  const diaSiguienteAlAnterior = partidoAnterior
+    ? new Date(aMedioDia(soloDia(partidoAnterior.cuando)) + DIA_MS)
+        .toISOString()
+        .slice(0, 10)
+    : "";
 
   /* --- El último día: el partido, aunque no esté escrito en la hoja --- */
 
@@ -227,8 +285,21 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
 
   const dias: DiaMicro[] = [];
 
+  /*
+  | Se adelanta el arranque hasta el día siguiente al partido anterior, pero
+  | sólo si eso no se sale de la semana: con un parón de por medio, o si la
+  | hoja trae tareas de antes, manda lo que haya escrito.
+  */
+  const primero =
+    diaSiguienteAlAnterior &&
+    diaSiguienteAlAnterior < fechas[0] &&
+    (!ultimo ||
+      (aMedioDia(ultimo) - aMedioDia(diaSiguienteAlAnterior)) / DIA_MS <= 6)
+      ? diaSiguienteAlAnterior
+      : fechas[0];
+
   for (
-    let momento = aMedioDia(fechas[0]);
+    let momento = aMedioDia(primero);
     momento <= aMedioDia(ultimo);
     momento += DIA_MS
   ) {
@@ -306,6 +377,7 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
     dias,
     entrenos,
     partido,
+    partidoAnterior,
     rivalHoja: rival,
     comoSeLlama:
       dias.length > 0

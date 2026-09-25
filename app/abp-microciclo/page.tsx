@@ -28,6 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Brain,
   CalendarDays,
+  Flag,
   Dumbbell,
   Flame,
   Mail,
@@ -106,9 +107,10 @@ import {
   loadRegistro,
   type RegistroDataset,
 } from "@/lib/abp/registro";
-import { ventanaDelMicro } from "@/lib/abp/ventana";
+import { etiquetaDia, ventanaDelMicro } from "@/lib/abp/ventana";
 import {
   CLAVE_CALENDARIO,
+  soloDia,
   type PartidoCastilla,
 } from "@/lib/castilla/calendario";
 import {
@@ -1104,6 +1106,44 @@ export default function AbpMicrocicloPage() {
                     />
                   }
                 >
+                  {/*
+                    DE QUÉ PARTIDO VIENE Y A CUÁL VA.
+                    Un microciclo va de partido a partido, y hasta ahora la
+                    rejilla empezaba en el primer día con tareas escritas: el
+                    domingo de descanso después de jugar se quedaba fuera y la
+                    semana parecía arrancar el martes. Ahora arranca al día
+                    siguiente del partido anterior, y los dos partidos se ven
+                    aquí para que el ciclo se lea entero de un vistazo.
+                  */}
+                  {(ventana.partidoAnterior || ventana.partido) && (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
+                      {ventana.partidoAnterior && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-white/45">
+                          <Flag size={11} />
+                          Viene de {ventana.partidoAnterior.rival}
+                          <span className="text-white/25">
+                            · {etiquetaDia(soloDia(ventana.partidoAnterior.cuando))}
+                          </span>
+                        </span>
+                      )}
+
+                      {ventana.partidoAnterior && ventana.partido && (
+                        <span className="text-white/20">→</span>
+                      )}
+
+                      {ventana.partido && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1.5 font-semibold text-[#C8A96B]">
+                          <Flag size={11} />
+                          Se juega contra {ventana.partido.rival}
+                          <span className="text-[#C8A96B]/60">
+                            · {etiquetaDia(soloDia(ventana.partido.cuando))}
+                            {ventana.partido.lado === "casa" ? " · en casa" : " · fuera"}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {ventana.avisos.length > 0 && (
                     <div className="mb-3">
                       <Notice tone="warn" title="Ojo con los días de este microciclo">
@@ -1394,6 +1434,13 @@ export default function AbpMicrocicloPage() {
               ? {
                   jornada: partidoDelMicro.jornada,
                   rival: partidoDelMicro.rival,
+                }
+              : null,
+            /* De dónde viene la semana: el microciclo va de partido a partido. */
+            partidoAnterior: ventana.partidoAnterior
+              ? {
+                  rival: ventana.partidoAnterior.rival,
+                  cuando: etiquetaDia(soloDia(ventana.partidoAnterior.cuando)),
                 }
               : null,
             entradas,
