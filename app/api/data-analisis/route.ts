@@ -10,6 +10,7 @@ import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
 import { equiposConMuestra, golesAbpDeEquipo } from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { readDoc } from "@/lib/docStore";
+import { alertasDeFichajes, type CotejoRival } from "@/lib/portada/alertas-fichajes";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
 import {
   ASPECTOS,
@@ -333,8 +334,49 @@ function tipologiaDe(datos: Dataset, equipo: string, goles: string) {
   return { temporada: actual, ...proponeTipologia(equipo, liga, objetivo) };
 }
 
+/**
+ * Los fichajes rivales sin escribir, guardados como los escudos.
+ *
+ * Viaja con las alertas de Data y no por su propia petición **a propósito**:
+ * ésta es la pantalla que más se abre de la app y una llamada más se nota.
+ * El documento es de cuatro líneas, así que no encarece la respuesta.
+ */
+let cotejoGuardado: { doc: CotejoRival | null; en: number } | null = null;
+
+async function leeCotejo(): Promise<CotejoRival | null> {
+  const ahora = Date.now();
+
+  if (cotejoGuardado && ahora - cotejoGuardado.en < VIDA) return cotejoGuardado.doc;
+
+  try {
+    const doc = (await readDoc("rivals:cotejo")).data as CotejoRival | null;
+
+    cotejoGuardado = { doc, en: ahora };
+
+    return doc;
+  } catch (error) {
+    console.error("[data-analisis] cotejo", error);
+
+    /* Sin cotejo la portada pinta el resto de alertas: no es un error. */
+    return null;
+  }
+}
+
 function alertasDe(datos: Dataset) {
   return seleccionaAlertas(alertasDeData(datos.partidos, datos.jugadores));
+}
+
+/**
+ * Las de Data más las de fichajes, que no se ordenan aquí.
+ *
+ * `seleccionaAlertas` recorta las de Data de ~35 a 12 con su cupo por familia;
+ * las de fichajes no entran en ese reparto —son dos como mucho y hablan de otra
+ * cosa— y la portada las ordena todas por fuerza al juntarlas.
+ */
+async function alertasConFichajes(datos: Dataset) {
+  const fichajes = alertasDeFichajes(await leeCotejo(), Date.now());
+
+  return [...alertasDe(datos), ...fichajes];
 }
 
 /* ------------------------------------------------------------------ */
@@ -561,7 +603,7 @@ export async function GET(peticion: Request) {
     }
 
     if (soloAlertas) {
-      return NextResponse.json({ ok: true, alertas: alertasDe(guardado.datos) });
+      return NextResponse.json({ ok: true, alertas: await alertasConFichajes(guardado.datos) });
     }
 
     /* El informe de ABP del microciclo: la liga y nuestras otras temporadas. */
@@ -611,7 +653,7 @@ export async function GET(peticion: Request) {
     }
 
     if (soloAlertas) {
-      return NextResponse.json({ ok: true, origen, alertas: alertasDe(datos) });
+      return NextResponse.json({ ok: true, origen, alertas: await alertasConFichajes(datos) });
     }
 
     if (parametros.has("abpInforme")) {

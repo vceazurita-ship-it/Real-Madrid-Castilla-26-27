@@ -436,6 +436,99 @@ async function main() {
   const bajas = informe.reduce((suma, uno) => suma + uno.bajas.length, 0);
 
   console.log(`\nTotal: ${altas} altas, ${bajas} bajas.`);
+
+  await publica(informe);
+}
+
+/* ------------------------------------------------------------------ */
+/*  PUBLICAR LO ENCONTRADO                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Deja en Supabase lo que este cotejo ha visto.
+ *
+ * **Por qué existe:** este script encuentra los fichajes y luego los perdía.
+ * Escribía el informe en la consola, la pasada nocturna lo guardaba en un
+ * `.log` del ordenador del club y ahí se quedaba. Gonzalo Melero salió como
+ * alta del Alcorcón cuatro noches seguidas —del 21 al 24 de septiembre— sin que
+ * nadie se enterara, y con él otras nueve altas de la liga.
+ *
+ * Las altas y bajas **se siguen sin escribir solas**, y eso no cambia: una baja
+ * mal emparejada tacha a un jugador que sigue en el equipo. Lo que cambia es
+ * que ahora se ven: la portada lee este documento y avisa.
+ *
+ * Va en un documento aparte y ligero (`rivals:cotejo`), no dentro del informe
+ * del rival, porque la portada lo lee en cada carga y ese otro documento pesa
+ * diecinueve clasificaciones.
+ */
+async function publica(informe) {
+  const pendientes = informe
+    .filter((uno) => uno.altas.length || uno.bajas.length || uno.vueltas.length)
+    .map((uno) => ({
+      equipo: uno.equipo,
+      nombre: uno.nombre,
+      altas: uno.altas.map((a) => ({ nombre: a.nombre, puesto: a.puesto, id: a.id })),
+      bajas: uno.bajas.map((b) => ({
+        nombre: b.JUGADOR,
+        puesto: b["POSICIÓN"],
+        id: b.ID_JUGADOR,
+      })),
+      vueltas: uno.vueltas.map((v) => ({ nombre: v.JUGADOR, id: v.ID_JUGADOR })),
+    }));
+
+  const doc = {
+    cuando: new Date().toISOString(),
+    equiposMirados: informe.length,
+    altas: pendientes.reduce((s, u) => s + u.altas.length, 0),
+    bajas: pendientes.reduce((s, u) => s + u.bajas.length, 0),
+    vueltas: pendientes.reduce((s, u) => s + u.vueltas.length, 0),
+    pendientes,
+  };
+
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+
+    const env = { ...process.env };
+
+    if (fs.existsSync(".env.local")) {
+      for (const linea of fs.readFileSync(".env.local", "utf8").split(/\r?\n/)) {
+        const m = linea.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
+
+        /* El entorno manda: es lo que pone la tarea nocturna. */
+        if (m && !env[m[1]]) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+      }
+    }
+
+    if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log("  (sin credenciales de Supabase: no se publica el cotejo)");
+
+      return;
+    }
+
+    const supabase = createClient(
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.SUPABASE_SERVICE_ROLE_KEY,
+    );
+
+    const { error } = await supabase.from("app_documents").upsert(
+      {
+        key: "rivals:cotejo",
+        kind: "rivals",
+        data: doc,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" },
+    );
+
+    if (error) throw new Error(error.message);
+
+    console.log(
+      `  publicado en rivals:cotejo · ${doc.altas} altas y ${doc.bajas} bajas por escribir`,
+    );
+  } catch (error) {
+    /* Que no se publique no invalida el cotejo: el informe ya está impreso. */
+    console.log(`  (no se ha podido publicar el cotejo: ${error.message})`);
+  }
 }
 
 /* El fichero se importa además desde `rivals-altas-bajas.mjs`, así que sólo se
