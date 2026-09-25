@@ -363,6 +363,42 @@ async function componer(hoja) {
 
 construyeHojasInforme(DATOS)
   .then(async (hojas) => {
+    /*
+    | El guion en JSON, sin las imágenes.
+    |
+    | Es lo que hace falta para cruzar el informe recién montado con un .pptx
+    | ya exportado: qué pieza es cada una y dónde estaba antes de que nadie la
+    | tocara. Sin las imágenes son unos pocos kilobytes; con ellas, megas.
+    */
+    if (process.argv.includes("--guion")) {
+      const destino =
+        process.argv[process.argv.indexOf("--guion") + 1] ||
+        path.join(SALIDA, "guion.json");
+
+      fs.writeFileSync(
+        destino,
+        JSON.stringify(
+          hojas.map((hoja) => ({
+            id: hoja.id,
+            titulo: hoja.titulo,
+            elementos: hoja.elementos.map((p) => ({
+              id: p.id,
+              nombre: p.nombre,
+              x: p.x,
+              y: p.y,
+              w: p.w,
+              h: p.h,
+              ...(p.texto ? { texto: p.texto.contenido } : {}),
+            })),
+          })),
+          null,
+          1,
+        ),
+      );
+
+      console.log(`  guion -> ${destino}`);
+    }
+
     for (const [indice, hoja] of hojas.entries()) {
       const numero = String(indice + 1).padStart(2, "0");
 

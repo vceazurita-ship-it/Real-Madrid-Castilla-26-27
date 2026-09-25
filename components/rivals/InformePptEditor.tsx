@@ -75,6 +75,16 @@ import {
 } from "@/lib/rivals/informe-elementos";
 
 import { piezaDeTexto } from "@/lib/rivals/informe-ppt";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { SaveState } from "@/components/abp/ui";
+import {
+  AJUSTES_INFORME_KEY,
+  AJUSTES_INFORME_VACIO,
+  aplicaAjustes,
+  cuentaAjustes,
+  extraeAjustes,
+  type AjustesInforme,
+} from "@/lib/rivals/informe-ajustes";
 
 interface InformePptEditorProps {
   equipo: string;
@@ -131,6 +141,35 @@ export default function InformePptEditor({
   useBodyScrollLock(true);
 
   const [hojas, setHojas] = useState<HojaInforme[]>(hojasIniciales);
+
+  /*
+  | EL REPASO SE GUARDA.
+  |
+  | Antes no se guardaba en ninguna parte —ni en el navegador—: se movían
+  | paneles, se borraban filas y se escribían notas, se cerraba, y desaparecía
+  | todo. El 24/09/2026 se repasó el informe del Alcorcón entero desde un Mac y
+  | al día siguiente no quedaba nada.
+  |
+  | Lo que viaja a Supabase **no son las hojas** —cada pieza lleva su PNG
+  | dentro y pesan megas— sino el retoque: dónde quedó cada pieza, cuáles se
+  | borraron, qué copias y qué notas. Ver `lib/rivals/informe-ajustes.ts`.
+  |
+  | Es un documento para todos los equipos: así abrir el informe de otro rival
+  | no vuelve a pedir nada.
+  */
+  const ajustes = useRemoteDoc<AjustesInforme>({
+    key: AJUSTES_INFORME_KEY,
+    kind: "rivals",
+    fallback: AJUSTES_INFORME_VACIO,
+  });
+
+  /** Ya se han puesto encima los retoques guardados: a partir de aquí, se guarda. */
+  const [repuesto, setRepuesto] = useState(false);
+
+  const retoques = useMemo(
+    () => cuentaAjustes(ajustes.value.porEquipo?.[equipo]?.porHoja ?? {}),
+    [ajustes.value, equipo],
+  );
 
   const [activa, setActiva] = useState(0);
 
@@ -231,6 +270,81 @@ export default function InformePptEditor({
     setPasado((previo) => [...previo, hojasRef.current].slice(-HISTORIAL));
     setFuturo([]);
   }, []);
+
+  /* ---------------------------------------------------------------- */
+  /*  EL REPASO GUARDADO                                               */
+  /* ---------------------------------------------------------------- */
+
+  /*
+  | Primero: poner encima lo que se guardó la última vez.
+  |
+  | Se espera a que el documento haya cargado —si no, se repondría un
+  | documento vacío y se borraría el repaso de otro día— y se hace una sola
+  | vez, con la bandera. El trabajo va dentro del efecto y no en un
+  | `useCallback`: el linter traza la función, no el momento, y un `setState`
+  | por medio de una función externa lo marca aunque vaya tras un `await`.
+  */
+  useEffect(() => {
+    if (repuesto || ajustes.status === "loading") return;
+
+    let cancelado = false;
+
+    (async () => {
+      const guardado = ajustes.value.porEquipo?.[equipo]?.porHoja;
+
+      try {
+        const conRetoques = await aplicaAjustes(
+          hojasIniciales,
+          guardado,
+          piezaDeTexto,
+        );
+
+        if (cancelado) return;
+
+        if (guardado && Object.keys(guardado).length > 0) {
+          setHojas(conRetoques);
+        }
+      } catch (error) {
+        console.error("[informe] reponer el repaso", error);
+      } finally {
+        if (!cancelado) setRepuesto(true);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [ajustes.status, ajustes.value, equipo, hojasIniciales, repuesto]);
+
+  /*
+  | Y después: guardar cada cambio, sin que nadie pulse nada.
+  |
+  | El `setTimeout` de cero no es un adorno: un `setState` síncrono dentro de
+  | un efecto encadena renders y el linter lo para (es el mismo recurso que usa
+  | la tira de alertas de la portada). De paso agrupa las ráfagas de un
+  | arrastre; el retardo de verdad lo pone `useRemoteDoc`.
+  |
+  | Se compara siempre contra el guion original, así que lo guardado es el
+  | repaso entero y no una pila de parches: deshacer un cambio lo quita del
+  | documento igual que hacerlo lo añade.
+  */
+  useEffect(() => {
+    if (!repuesto) return;
+
+    const id = setTimeout(() => {
+      const porHoja = extraeAjustes(hojasIniciales, hojasRef.current);
+
+      ajustes.setValue((previo) => ({
+        ...previo,
+        porEquipo: {
+          ...previo.porEquipo,
+          [equipo]: { actualizado: new Date().toISOString(), porHoja },
+        },
+      }));
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [ajustes, equipo, hojas, hojasIniciales, repuesto]);
 
   /** Cambia las piezas de la hoja abierta. `marca` apunta el paso de deshacer. */
   const cambia = useCallback(
@@ -1012,6 +1126,32 @@ export default function InformePptEditor({
             >
               <Plus size={13} />
             </BotonBarra>
+
+            <span className="mx-1 h-5 w-px bg-white/10" />
+
+            {/*
+              Que se vea que esto se guarda solo. Antes no se guardaba nada y
+              nadie tenía por qué saberlo: sin un rótulo, «se guarda» y «no se
+              guarda» se ven exactamente igual.
+            */}
+            <SaveState
+              status={ajustes.status}
+              localOnly={ajustes.localOnly}
+              savedAt={ajustes.lastSavedAt}
+              sinGuardar={ajustes.sinGuardar}
+              onGuardar={ajustes.guardaYa}
+            />
+
+            {/*
+              Y cuántos retoques hay puestos. Es lo que contesta a «hice
+              cambios y no me aparecen»: si el repaso de otro día está, se ve
+              aquí sin tener que buscar el panel que uno movió.
+            */}
+            {retoques > 0 ? (
+              <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-white/40">
+                {retoques} {retoques === 1 ? "retoque" : "retoques"}
+              </span>
+            ) : null}
 
             <span className="mx-1 h-5 w-px bg-white/10" />
 
