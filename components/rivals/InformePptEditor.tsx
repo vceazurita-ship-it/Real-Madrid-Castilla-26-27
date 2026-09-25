@@ -81,6 +81,7 @@ import {
   AJUSTES_INFORME_KEY,
   AJUSTES_INFORME_VACIO,
   aplicaAjustes,
+  clavesDeHoja,
   cuentaAjustes,
   extraeAjustes,
   type AjustesInforme,
@@ -334,13 +335,35 @@ export default function InformePptEditor({
     const id = setTimeout(() => {
       const porHoja = extraeAjustes(hojasIniciales, hojasRef.current);
 
-      ajustes.setValue((previo) => ({
-        ...previo,
-        porEquipo: {
-          ...previo.porEquipo,
-          [equipo]: { actualizado: new Date().toISOString(), porHoja },
-        },
-      }));
+      /*
+      | Las hojas que hoy no se han montado NO se tocan.
+      |
+      | El informe no siempre trae las mismas: las de Wyscout sólo salen si hay
+      | datos y las de partidos son las que se elijan en el pop-up. Si aquí se
+      | escribiera `porHoja` tal cual, abrir el informe con dos hojas de
+      | partidos **borraría** el repaso de la tercera sin que nadie lo pidiera.
+      | Sólo se manda lo de las hojas que se han tenido delante.
+      */
+      const presentes = new Set(clavesDeHoja(hojasIniciales));
+
+      ajustes.setValue((previo) => {
+        const antes = previo.porEquipo?.[equipo]?.porHoja ?? {};
+
+        const conservadas = Object.fromEntries(
+          Object.entries(antes).filter(([clave]) => !presentes.has(clave)),
+        );
+
+        return {
+          ...previo,
+          porEquipo: {
+            ...previo.porEquipo,
+            [equipo]: {
+              actualizado: new Date().toISOString(),
+              porHoja: { ...conservadas, ...porHoja },
+            },
+          },
+        };
+      });
     }, 0);
 
     return () => clearTimeout(id);

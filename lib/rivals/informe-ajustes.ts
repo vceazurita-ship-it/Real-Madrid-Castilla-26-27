@@ -73,6 +73,33 @@ export const AJUSTES_INFORME_KEY = "rivals:informe-ajustes";
 
 export const AJUSTES_INFORME_VACIO: AjustesInforme = { porEquipo: {} };
 
+/**
+ * Con qué nombre se guarda cada hoja.
+ *
+ * **NO se usa el `id` de la hoja**, que es posicional (`h1`, `h2`… se asignan
+ * con `hojas.length + 1` al montarlas). El informe no siempre trae las mismas:
+ * las tres hojas de Wyscout sólo salen si hay datos, y las de partidos son dos
+ * o tres según lo que se elija en el pop-up. Con el id, un informe con una
+ * hoja menos convierte `h12` en otra distinta y el repaso aterriza donde no
+ * es. Pasó de verdad: el repaso del 25/09 se guardó como h10/h11/h12
+ * —Plantilla, Once probable y el primer Partidos— y al reabrir el informe sin
+ * las hojas de Wyscout esos nombres ya eran otras hojas.
+ *
+ * El título sí es estable. Se repite en las de partidos, así que a la segunda
+ * y siguientes se les pone el ordinal.
+ */
+export function clavesDeHoja(hojas: { id: string; titulo: string }[]) {
+  const vistos = new Map<string, number>();
+
+  return hojas.map((hoja) => {
+    const n = (vistos.get(hoja.titulo) ?? 0) + 1;
+
+    vistos.set(hoja.titulo, n);
+
+    return n === 1 ? hoja.titulo : `${hoja.titulo}#${n}`;
+  });
+}
+
 /** Medio píxel no es un cambio: es el redondeo de un arrastre. */
 const IGUAL = 0.5;
 
@@ -103,12 +130,16 @@ export function extraeAjustes(
 ): Record<string, AjustesHoja> {
   const porHoja: Record<string, AjustesHoja> = {};
 
-  const baseporId = new Map(base.map((h) => [h.id, h]));
+  const claves = clavesDeHoja(base);
+
+  const baseporId = new Map(base.map((h, i) => [h.id, { hoja: h, clave: claves[i] }]));
 
   for (const hoja of ahora) {
-    const original = baseporId.get(hoja.id);
+    const encontrada = baseporId.get(hoja.id);
 
-    if (!original) continue;
+    if (!encontrada) continue;
+
+    const { hoja: original, clave } = encontrada;
 
     const originales = new Map(original.elementos.map((e) => [e.id, e]));
 
@@ -184,7 +215,7 @@ export function extraeAjustes(
       continue;
     }
 
-    porHoja[hoja.id] = {
+    porHoja[clave] = {
       ...(Object.keys(cajas).length ? { cajas } : {}),
       ...(borrados.length ? { borrados } : {}),
       ...(copias.length ? { copias } : {}),
@@ -236,8 +267,10 @@ export async function aplicaAjustes(
 
   const salida: HojaInforme[] = [];
 
-  for (const hoja of hojas) {
-    const ajuste = porHoja[hoja.id];
+  const claves = clavesDeHoja(hojas);
+
+  for (const [indice, hoja] of hojas.entries()) {
+    const ajuste = porHoja[claves[indice]];
 
     if (!ajuste) {
       salida.push(hoja);
