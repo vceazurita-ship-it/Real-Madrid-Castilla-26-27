@@ -96,7 +96,14 @@ import {
 import type { InformeData } from "@/lib/rivals/informe-ppt";
 import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
+import {
+  PARTIDOS_ELEGIDOS_KEY,
+  PARTIDOS_ELEGIDOS_VACIO,
+  eleccionGuardada,
+  type PartidosElegidosDoc,
+} from "@/lib/rivals/informe-partidos-elegidos";
 import {
   ANCLAS_SLOT,
   columnasDeBanda,
@@ -1801,6 +1808,38 @@ export default function RivalPlayersPage() {
 
   const [partidosInforme, setPartidosInforme] = useState<string[]>([]);
 
+  /*
+  | Qué partidos se eligieron la última vez para este rival.
+  |
+  | No se guardaba: cada semana había que rehacer la elección de memoria. Va
+  | en su propio documento y no con los retoques del editor —que tiene el suyo
+  | abierto mientras se trabaja dentro— porque dos `useRemoteDoc` sobre la
+  | misma clave se pisan al guardar.
+  */
+  const partidosElegidosDoc = useRemoteDoc<PartidosElegidosDoc>({
+    key: PARTIDOS_ELEGIDOS_KEY,
+    kind: "rivals",
+    fallback: PARTIDOS_ELEGIDOS_VACIO,
+  });
+
+  /** Marca unos partidos y los recuerda para la próxima vez. */
+  const eligePartidos = useCallback(
+    (ids: string[]) => {
+      setPartidosInforme(ids);
+
+      if (!selectedTeam) return;
+
+      partidosElegidosDoc.setValue((previo) => ({
+        ...previo,
+        porEquipo: {
+          ...previo.porEquipo,
+          [selectedTeam]: { ids, actualizado: new Date().toISOString() },
+        },
+      }));
+    },
+    [partidosElegidosDoc, selectedTeam],
+  );
+
   const abrirInforme = useCallback(async () => {
     if (!selectedTeam) return;
 
@@ -1868,7 +1907,18 @@ export default function RivalPlayersPage() {
         .filter((id) => porDefecto.has(id));
 
       setEleccionInforme({ doc, informe, partidos, porDefecto: marcados });
-      setPartidosInforme(marcados);
+
+      /* Lo que se eligió la última vez para este rival manda sobre la
+         propuesta; si aquellos partidos ya no están bajados, se cae solo. */
+      setPartidosInforme(
+        eleccionGuardada(
+          partidosElegidosDoc.value,
+          selectedTeam,
+          partidos.map((uno) => uno.id),
+          marcados,
+          PARTIDOS_INFORME_MAXIMO,
+        ),
+      );
     } catch (error) {
       console.error("Error pidiendo el informe del rival:", error);
 
@@ -1880,7 +1930,7 @@ export default function RivalPlayersPage() {
     } finally {
       setExportando(false);
     }
-  }, [selectedTeam, pideInforme]);
+  }, [selectedTeam, pideInforme, partidosElegidosDoc.value]);
 
   const montarInforme = useCallback(
     async (elegidos: string[]) => {
@@ -3924,7 +3974,7 @@ export default function RivalPlayersPage() {
           porDefecto={eleccionInforme.porDefecto}
           maximo={PARTIDOS_INFORME_MAXIMO}
           montando={exportando}
-          onCambiar={setPartidosInforme}
+          onCambiar={eligePartidos}
           onMontar={(ids) => void montarInforme(ids)}
           onCerrar={() => setEleccionInforme(null)}
         />
