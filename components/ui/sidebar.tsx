@@ -507,6 +507,17 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               )}
 
               {/*
+                Hermana de la de arriba y por eso va pegada: los dos recuentos
+                salen de mirar el vídeo imagen a imagen y los dos dicen en
+                pantalla de cuánto partido hablan.
+              */}
+              {navLink(
+                "/laboratorio/faltas",
+                "Análisis de faltas",
+                <Crosshair size={18} />,
+              )}
+
+              {/*
                 También se puede pinchar: no da datos, da un fichero. Los
                 escudos salen de los que ya se bajan para el informe del rival,
                 así que no hay nada que poner al día a mano.
