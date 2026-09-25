@@ -270,7 +270,16 @@ export async function aplicaAjustes(
   const claves = clavesDeHoja(hojas);
 
   for (const [indice, hoja] of hojas.entries()) {
-    const ajuste = porHoja[claves[indice]];
+    /*
+    | El título primero y el id viejo después.
+    |
+    | Hasta el 25/09/2026 esto se guardaba con el `id` posicional de la hoja
+    | (`h10`, `h11`…). Si se leyera sólo por título, un repaso guardado por una
+    | pestaña que todavía no se ha recargado se quedaría sin aplicar y parecería
+    | perdido. Se acepta la clave vieja, y el siguiente guardado ya la reescribe
+    | con el título.
+    */
+    const ajuste = porHoja[claves[indice]] ?? porHoja[hoja.id];
 
     if (!ajuste) {
       salida.push(hoja);

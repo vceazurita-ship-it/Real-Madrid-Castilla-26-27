@@ -344,7 +344,12 @@ export default function InformePptEditor({
       | partidos **borraría** el repaso de la tercera sin que nadie lo pidiera.
       | Sólo se manda lo de las hojas que se han tenido delante.
       */
-      const presentes = new Set(clavesDeHoja(hojasIniciales));
+      const presentes = new Set([
+        ...clavesDeHoja(hojasIniciales),
+        /* Y las claves viejas de estas mismas hojas, para que el repaso no
+           quede duplicado bajo los dos nombres al recargar. */
+        ...hojasIniciales.map((h) => h.id),
+      ]);
 
       ajustes.setValue((previo) => {
         const antes = previo.porEquipo?.[equipo]?.porHoja ?? {};
