@@ -861,7 +861,14 @@ export async function leeDatos(): Promise<Dataset> {
       a.jugador.localeCompare(b.jugador, "es"),
   );
 
-  return { partidos, equipos, jugadores, historico, eventos, fuentes };
+  return {
+    partidos: conXgEnContra(partidos),
+    equipos,
+    jugadores,
+    historico,
+    eventos,
+    fuentes,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -903,14 +910,70 @@ export function compactaIndice(datos: Dataset): DatasetCompacto {
   };
 }
 
+/** El nombre con el que viaja el xG del rival, ya como una columna más. */
+export const COLUMNA_XG_CONTRA = "xG en contra";
+
+/**
+ * El xG EN CONTRA, que Wyscout no da y sí se puede saber.
+ *
+ * El informe de equipo trae una sola columna de xG: la propia. Por eso en la
+ * pantalla había «Remates en contra» pero no su xG, que es la medida honesta de
+ * lo que se concede —diez remates de fuera del área no son lo mismo que tres
+ * mano a mano—.
+ *
+ * Pero el dato está: el xG en contra de un equipo es el xG **del rival en ese
+ * mismo partido**, y de la liga se bajan los veinte equipos, así que las dos
+ * filas del mismo encuentro están en el conjunto. Se cruzan por la etiqueta
+ * `partido` —«Real Murcia - Teruel 4:0», que Wyscout escribe igual en las dos—
+ * más la fecha, que separa dos enfrentamientos del mismo par en la temporada.
+ *
+ * Se inyecta como una columna normal en vez de calcularse al vuelo porque así
+ * sirve para todo lo demás sin tocar nada: percentiles, medias de la categoría,
+ * nubes y campograma leen columnas.
+ *
+ * Lo que no se puede cruzar se queda sin el dato: un amistoso contra alguien de
+ * fuera del grupo no tiene la otra fila, y ahí la métrica sale vacía, que es lo
+ * honesto.
+ */
+export function conXgEnContra(partidos: FilaPartido[]): FilaPartido[] {
+  const porEncuentro = new Map<string, FilaPartido[]>();
+
+  for (const fila of partidos) {
+    const clave = `${fila.fecha}|${fila.partido}`;
+
+    const lista = porEncuentro.get(clave);
+
+    if (lista) lista.push(fila);
+    else porEncuentro.set(clave, [fila]);
+  }
+
+  return partidos.map((fila) => {
+    const otros = porEncuentro.get(`${fila.fecha}|${fila.partido}`) ?? [];
+
+    const rival = otros.find((otra) => otra.equipo !== fila.equipo);
+
+    const xg = rival?.datos["xG"];
+
+    if (xg === undefined) return fila;
+
+    return { ...fila, datos: { ...fila.datos, [COLUMNA_XG_CONTRA]: xg } };
+  });
+}
+
 export function expandeIndice(crudo: DatasetCompacto | Dataset): Dataset {
   const columnas = (crudo as DatasetCompacto).columnasJugador;
 
-  /* Un índice viejo, escrito antes de esto, se devuelve tal cual. */
-  if (!Array.isArray(columnas)) return crudo as Dataset;
+  /* Un índice viejo, escrito antes de esto, se devuelve tal cual —pero con el
+     xG en contra puesto, que no depende del formato. */
+  if (!Array.isArray(columnas)) {
+    const viejo = crudo as Dataset;
+
+    return { ...viejo, partidos: conXgEnContra(viejo.partidos) };
+  }
 
   return {
     ...(crudo as DatasetCompacto),
+    partidos: conXgEnContra((crudo as DatasetCompacto).partidos),
     jugadores: (crudo as DatasetCompacto).jugadores.map(({ v, ...resto }) => {
       const datos: Record<string, number> = {};
 

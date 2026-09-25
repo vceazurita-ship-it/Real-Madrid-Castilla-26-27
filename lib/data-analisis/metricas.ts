@@ -778,6 +778,30 @@ export const METRICAS: Metrica[] = [
     comoLeer: "Cuánto remata el rival. Es la medida más directa de si la defensa sostiene.",
   },
   {
+    key: "xgContra",
+    acumulable: true,
+    nombre: "xG en contra",
+    grupo: "Defensa",
+    fase: "sin",
+    unidad: "decimal",
+    mejorAlto: false,
+    columna: "xG en contra",
+    comoLeer:
+      "Lo que valían las ocasiones que se conceden. Diez remates de fuera del área no son lo mismo que tres mano a mano, y los remates en contra no distinguen entre las dos cosas.",
+  },
+  {
+    key: "xgContraPorTiro",
+    nombre: "xG en contra por remate",
+    grupo: "Defensa",
+    fase: "sin",
+    unidad: "decimal",
+    mejorAlto: false,
+    numerador: "xG en contra",
+    denominador: "Tiros en contra",
+    comoLeer:
+      "La calidad media de lo que se le deja rematar al rival. Sube cuando llegan limpios al área; baja cuando sólo se les deja disparar de lejos.",
+  },
+  {
     key: "tirosContraPuerta",
     nombre: "Remates en contra a portería %",
     grupo: "Defensa",

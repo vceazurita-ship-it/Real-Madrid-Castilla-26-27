@@ -198,6 +198,22 @@ export const FICHAS: Record<MomentoJuego, FichaCampo[]> = {
       y: 35,
       nota: "Lo que de verdad se concede, al final de todo lo demás.",
     },
+    {
+      /*
+      | Pegado a los remates en contra, y no por sitio: es su lectura.
+      |
+      | Wyscout no da esta columna —su informe de equipo sólo trae el xG
+      | propio— así que se deduce del xG del rival en ese mismo partido
+      | (`conXgEnContra`, en `leer.ts`). Faltaba, y sin ella «remates en
+      | contra» no distingue diez disparos de fuera del área de tres mano a
+      | mano.
+      */
+      metrica: "xgContra",
+      rotulo: "xG en contra",
+      x: 9,
+      y: 65,
+      nota: "Lo que valían esas ocasiones. Es la medida honesta de lo que se concede.",
+    },
   ],
 
   /* ----------------------- TRANSICIÓN OFENSIVA --------------------- */

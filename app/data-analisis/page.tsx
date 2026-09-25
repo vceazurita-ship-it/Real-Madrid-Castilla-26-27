@@ -268,6 +268,15 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
   },
 ];
 
+/** «06/09 · vs Teruel (2-1)», que es como se pide un partido de viva voz. */
+function etiquetaDePartido(fila: FilaPartido) {
+  const [, mes, dia] = fila.fecha.split("-");
+
+  const donde = fila.partido.startsWith(fila.equipo) ? "vs" : "en";
+
+  return `${dia}/${mes} · ${donde} ${fila.rival} (${fila.golesFavor}-${fila.golesContra})`;
+}
+
 export default function DataAnalisisPage() {
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -374,6 +383,19 @@ export default function DataAnalisisPage() {
   const [competicion, setCompeticion] = useState("");
   const [sistema, setSistema] = useState("");
 
+  /*
+  | UN SOLO PARTIDO, cuando se quiere mirar una jornada y no la temporada.
+  |
+  | Filtra **sólo nuestras filas**, nunca las de la categoría: la gracia de
+  | mirar un partido es ver dónde quedó ESE partido contra el listón de la liga
+  | entera. Recortando también el listón, el percentil se compararía contra sí
+  | mismo y saldría siempre el 50.
+  |
+  | La clave es `fecha|partido` y no el rótulo: dos enfrentamientos del mismo
+  | par en la temporada comparten nombre.
+  */
+  const [partidoElegido, setPartidoElegido] = useState("");
+
   /* ------------------------ LO QUE SE MIRA ------------------------- */
 
   const deLaTemporada = useMemo(
@@ -420,10 +442,27 @@ export default function DataAnalisisPage() {
     [deLaLiga],
   );
 
-  const nuestros = useMemo(
-    () => deLaLiga.filter((p) => p.equipo === NOSOTROS),
+  /** Nuestros partidos de ese filtro, del más reciente al más antiguo. */
+  const nuestrosPartidos = useMemo(
+    () =>
+      deLaLiga
+        .filter((p) => p.equipo === NOSOTROS)
+        .slice()
+        .sort((a, b) => b.fecha.localeCompare(a.fecha)),
     [deLaLiga],
   );
+
+  const nuestros = useMemo(() => {
+    if (!partidoElegido) return nuestrosPartidos;
+
+    const uno = nuestrosPartidos.filter(
+      (p) => p.fecha + "|" + p.partido === partidoElegido,
+    );
+
+    /* Si el partido elegido ya no está en el filtro —se cambió de competición
+       o de sistema— se enseña la temporada entera en vez de nada. */
+    return uno.length > 0 ? uno : nuestrosPartidos;
+  }, [nuestrosPartidos, partidoElegido]);
 
   /*
   | Las filas de quien nos jugó: hacen falta para las cifras «en contra».
@@ -900,6 +939,44 @@ export default function DataAnalisisPage() {
                         {competiciones.map((una) => (
                           <option key={una} value={una} className="bg-[#11161C]">
                             {una.replace(/^Spain\.\s*/, "")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {/*
+                    UN PARTIDO SUELTO.
+                    Va después de competición y sistema porque los respeta: la
+                    lista son nuestros partidos de ese filtro. Y afecta sólo a
+                    nuestras cifras —el listón de la categoría se queda entero—,
+                    que es lo que permite leer «en este partido fuimos el 15 %
+                    peor de la liga presionando» en vez de compararnos con
+                    nosotros mismos.
+                  */}
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && nuestrosPartidos.length > 1 && (
+                    <label className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        Partido
+                      </span>
+
+                      <select
+                        value={partidoElegido}
+                        onChange={(e) => setPartidoElegido(e.target.value)}
+                        title="Mira un solo partido. La comparación sigue siendo contra toda la categoría."
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                      >
+                        <option value="" className="bg-[#11161C]">
+                          Toda la temporada ({nuestrosPartidos.length})
+                        </option>
+
+                        {nuestrosPartidos.map((uno) => (
+                          <option
+                            key={uno.fecha + "|" + uno.partido}
+                            value={uno.fecha + "|" + uno.partido}
+                            className="bg-[#11161C]"
+                          >
+                            {etiquetaDePartido(uno)}
                           </option>
                         ))}
                       </select>
