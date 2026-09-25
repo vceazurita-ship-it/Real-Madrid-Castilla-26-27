@@ -43,6 +43,19 @@ export function PanelAbpPropio() {
   /* Liga por defecto: la pretemporada es contra equipos de otra categoría. */
   const [ambito, setAmbito] = useState<"liga" | "amistoso" | "todo">("liga");
 
+  /*
+  | UNA JORNADA SUELTA.
+  |
+  | El balón parado se corrige jornada a jornada —«en el último partido nos
+  | remataron dos córners al primer palo»— y aquí sólo se podía mirar la
+  | temporada entera o la pretemporada entera. Cada acción ya sabe de qué
+  | jornada es (`a.jornada`), así que es filtrar.
+  |
+  | Guarda el texto crudo de la celda, que es lo único que no se repite: la
+  | etiqueta bonita de dos competiciones distintas podría coincidir.
+  */
+  const [jornada, setJornada] = useState("");
+
   useEffect(() => {
     let vivo = true;
 
@@ -68,11 +81,37 @@ export function PanelAbpPropio() {
     return acciones.filter(
       (a) =>
         a.bloque === bloque &&
-        (ambito === "todo" || a.jornada.competicion === ambito),
+        (ambito === "todo" || a.jornada.competicion === ambito) &&
+        (!jornada || a.jornada.bruto === jornada),
     );
-  }, [acciones, ambito, bloque]);
+  }, [acciones, ambito, bloque, jornada]);
 
   const resumen = useMemo(() => resumeAbp(suyas), [suyas]);
+
+  /*
+  | Las jornadas que hay con el ámbito puesto, de la más reciente a la más
+  | antigua. Se miran TODAS las acciones del bloque, no las ya filtradas por
+  | jornada, que si no la lista se quedaría con una sola opción en cuanto se
+  | eligiera una y no habría forma de volver a otra.
+  */
+  const jornadas = useMemo(() => {
+    const vistas = new Map<string, { bruto: string; etiqueta: string; orden: number }>();
+
+    for (const a of acciones ?? []) {
+      if (a.bloque !== bloque) continue;
+      if (ambito !== "todo" && a.jornada.competicion !== ambito) continue;
+
+      if (!vistas.has(a.jornada.bruto)) {
+        vistas.set(a.jornada.bruto, {
+          bruto: a.jornada.bruto,
+          etiqueta: a.jornada.etiqueta,
+          orden: a.jornada.numero ?? 0,
+        });
+      }
+    }
+
+    return [...vistas.values()].sort((x, y) => y.orden - x.orden);
+  }, [acciones, ambito, bloque]);
 
   const hayLiga = useMemo(
     () => (acciones ?? []).some((a) => a.jornada.competicion === "liga"),
@@ -193,6 +232,25 @@ export function PanelAbpPropio() {
             </button>
           ))}
         </div>
+
+        {jornadas.length > 1 && (
+          <select
+            value={jornadas.some((j) => j.bruto === jornada) ? jornada : ""}
+            onChange={(e) => setJornada(e.target.value)}
+            title="Mira una sola jornada"
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
+          >
+            <option value="" className="bg-[#11161C]">
+              Todas las jornadas ({jornadas.length})
+            </option>
+
+            {jornadas.map((j) => (
+              <option key={j.bruto} value={j.bruto} className="bg-[#11161C]">
+                {j.etiqueta}
+              </option>
+            ))}
+          </select>
+        )}
 
         <span className="text-[11px] text-white/35">{meta.pregunta}</span>
       </div>
