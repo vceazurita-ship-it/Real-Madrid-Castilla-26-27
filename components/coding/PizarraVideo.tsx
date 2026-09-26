@@ -51,11 +51,13 @@ import {
   ChevronUp,
   Circle,
   CircleDot,
+  Cone,
   Copy,
   Droplet,
   Eraser,
   Flag,
   Clock3,
+  Hash,
   Layers,
   Lightbulb,
   Maximize2,
@@ -65,6 +67,7 @@ import {
   PenTool,
   Pencil,
   Pentagon,
+  Route,
   Ruler,
   SkipBack,
   SkipForward,
@@ -193,14 +196,17 @@ const ICONOS: Record<TipoDibujo | "mano", ComponentType<{ size?: number }>> = {
   foco: Lightbulb,
   anillo: CircleDot,
   flecha: ArrowUpRight,
+  pasillo: Route,
   linea: Minus,
   libre: Pencil,
   zona: Pentagon,
+  cono: Cone,
   rect: Square,
   elipse: Circle,
   seleccion: Users,
   mover: Move,
   texto: Type,
+  numero: Hash,
   lupa: ZoomIn,
   difumina: Droplet,
   "fuera-juego": Flag,
@@ -685,6 +691,36 @@ function EditorPizarra({
       return;
     }
 
+    /* ------------------------------------- el número de orden */
+
+    if (herramienta === "numero") {
+      /*
+      | El número lo pone la pantalla, no la mano.
+      |
+      | Lo que se quiere al numerar una jugada es pinchar cuatro veces y que
+      | salga 1, 2, 3, 4. Se cuenta lo que ya hay en ESTA pizarra: si se borra
+      | el 2 y se vuelve a pinchar, el nuevo vuelve a ser un 2, que es lo que
+      | espera cualquiera. Y como es un campo normal, se corrige a mano en la
+      | barra cuando no cuadra.
+      */
+      const cuantos = localRef.current.dibujos.filter(
+        (uno) => uno.tipo === "numero",
+      ).length;
+
+      const dibujo = {
+        ...creaDibujo("numero", [punto], ajustes, nuevoId()),
+        etiqueta: String(cuantos + 1),
+      };
+
+      cambia((una) => ({ ...una, dibujos: [...una.dibujos, dibujo] }), {
+        deshacer: true,
+      });
+
+      setSeleccion(dibujo.id);
+
+      return;
+    }
+
     /* --------------------------------- polígonos: clic a clic */
 
     if (formaDe(herramienta) === "muchos" && herramienta !== "libre") {
@@ -974,6 +1010,32 @@ function EditorPizarra({
         return;
       }
 
+      /*
+      | Un rótulo elegido se reabre con Intro o F2.
+      |
+      | Se podía corregir de dos maneras —doble clic encima, o el campo de la
+      | barra— y ninguna se ve. Intro sobre lo elegido es lo que hace todo el
+      | mundo, y F2 es lo que hace quien viene de una hoja de cálculo.
+      */
+      if (
+        (evento.key === "Enter" || evento.key === "F2") &&
+        !evento.ctrlKey &&
+        !evento.metaKey
+      ) {
+        /* Por el ref, como el resto de atajos: el oyente se registra una vez y
+           con `seleccion` a secas miraría lo que estuviera elegido entonces. */
+        const suyo = localRef.current.dibujos.find(
+          (uno) => uno.id === seleccionRef.current,
+        );
+
+        if (suyo?.tipo === "texto") {
+          evento.preventDefault();
+          setEscribiendo(suyo.id);
+
+          return;
+        }
+      }
+
       if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "z") {
         evento.preventDefault();
         deshace();
@@ -1214,6 +1276,39 @@ function EditorPizarra({
               />
             )}
 
+            {tipoActivo === "pasillo" && (
+              <Deslizador
+                etiqueta="Ancho"
+                valor={elegido?.radio ?? ajustes.radio ?? 0.055}
+                min={0.02}
+                max={0.25}
+                paso={0.005}
+                onChange={(valor) => ponAjuste({ radio: valor })}
+              />
+            )}
+
+            {tipoActivo === "cono" && (
+              <Deslizador
+                etiqueta="Apertura"
+                valor={elegido?.apertura ?? ajustes.apertura ?? 0.32}
+                min={0}
+                max={1}
+                paso={0.02}
+                onChange={(valor) => ponAjuste({ apertura: valor })}
+              />
+            )}
+
+            {tipoActivo === "numero" && (
+              <Deslizador
+                etiqueta="Tamaño"
+                valor={elegido?.radio ?? ajustes.radio ?? 0.026}
+                min={0.012}
+                max={0.07}
+                paso={0.002}
+                onChange={(valor) => ponAjuste({ radio: valor })}
+              />
+            )}
+
             {(tipoActivo === "anillo" ||
               tipoActivo === "lupa" ||
               tipoActivo === "mover") && (
@@ -1299,12 +1394,13 @@ function EditorPizarra({
 
             {(tipoActivo === "anillo" ||
               tipoActivo === "mover" ||
+              tipoActivo === "numero" ||
               tipoActivo === "seleccion") && (
               <input
                 value={elegido?.etiqueta ?? ""}
                 onChange={(evento) => ponAjuste({ etiqueta: evento.target.value })}
-                placeholder="Dorsal o nombre"
-                aria-label="Dorsal o nombre"
+                placeholder={tipoActivo === "numero" ? "1" : "Dorsal o nombre"}
+                aria-label={tipoActivo === "numero" ? "Número" : "Dorsal o nombre"}
                 disabled={!elegido}
                 className="w-28 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40"
               />
@@ -1314,6 +1410,9 @@ function EditorPizarra({
               tipoActivo === "fuera-juego" ||
               tipoActivo === "zona" ||
               tipoActivo === "texto" ||
+              tipoActivo === "pasillo" ||
+              tipoActivo === "cono" ||
+              tipoActivo === "numero" ||
               tipoActivo === "seleccion") && (
               <input
                 value={elegido?.texto ?? ""}
@@ -1327,7 +1426,17 @@ function EditorPizarra({
                 }
                 aria-label="Rótulo"
                 disabled={!elegido}
-                className="w-24 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40"
+                /*
+                | Ancho según lo que se escriba.
+                |
+                | Estaba fijo en 96 px para todos. En una cota cabe «12 m», pero
+                | en un rótulo de pizarra cabe una frase, y en 96 px no se lee
+                | lo que uno acaba de escribir: parecía que no se podía
+                | corregir.
+                */
+                className={`rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40 ${
+                  tipoActivo === "texto" ? "w-56" : "w-24"
+                }`}
               />
             )}
 
@@ -1432,9 +1541,10 @@ function EditorPizarra({
         >
           <textarea
             autoFocus
-            rows={2}
+            rows={3}
             value={enTexto.texto}
             aria-label="Texto de la pizarra"
+            placeholder="Escribe y pulsa Intro"
             onChange={(evento) =>
               cambia(
                 (una) => ({
@@ -1470,8 +1580,7 @@ function EditorPizarra({
                 evento.currentTarget.blur();
               }
             }}
-            placeholder="Escribe y pulsa Intro"
-            className="w-52 resize-none rounded-xl border border-[#C8A96B]/50 bg-[#0B0F14]/95 px-2 py-1.5 text-[12px] text-white outline-none placeholder:text-white/30"
+            className="w-72 resize-none rounded-xl border border-[#C8A96B]/50 bg-[#0B0F14]/95 px-2.5 py-2 text-[12px] leading-snug text-white outline-none placeholder:text-white/30"
           />
         </div>
       )}
@@ -1489,6 +1598,9 @@ function EditorPizarra({
  */
 function terminaDibujo(dibujo: DibujoTel, aspecto: number): DibujoTel | null {
   if (dibujo.tipo === "anillo" || dibujo.tipo === "lupa") return dibujo;
+
+  /* El número es un clic: no hay recorrido que exigirle. */
+  if (dibujo.tipo === "numero") return dibujo;
 
   if (dibujo.tipo === "libre") return dibujo.puntos.length >= 3 ? dibujo : null;
 

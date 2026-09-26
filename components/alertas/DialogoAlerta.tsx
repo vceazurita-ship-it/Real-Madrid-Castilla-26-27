@@ -151,7 +151,9 @@ export default function DialogoAlerta({
     >
       <div
         data-export-panel
-        className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#11161D] shadow-2xl"
+        /* Igual que el cajón: en este formulario hay diez campos y en 512 px
+           se leía como una lista de la compra. */
+        className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#11161D] shadow-2xl sm:max-w-2xl"
         onClick={(evento) => evento.stopPropagation()}
       >
         {/* ---------------------- CABECERA ---------------------- */}

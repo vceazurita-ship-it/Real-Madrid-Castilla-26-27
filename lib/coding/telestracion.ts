@@ -57,14 +57,17 @@ export type TipoDibujo =
   | "foco"
   | "anillo"
   | "flecha"
+  | "pasillo"
   | "linea"
   | "libre"
   | "zona"
+  | "cono"
   | "rect"
   | "elipse"
   | "seleccion"
   | "mover"
   | "texto"
+  | "numero"
   | "lupa"
   | "difumina"
   | "fuera-juego"
@@ -96,6 +99,8 @@ export type DibujoTel = {
   intensidad: number;
   /** El dorsal o el nombre que acompaña a un anillo o a un jugador movido. */
   etiqueta: string;
+  /** De 0 a 1: lo abierto que va el cono de cobertura. */
+  apertura: number;
 };
 
 /**
@@ -222,6 +227,12 @@ export const HERRAMIENTAS: {
     tecla: "a",
     ayuda: "Pase o carrera. Con la curvatura se comba; discontinua para lo que no lleva balón.",
   },
+  {
+    tipo: "pasillo",
+    nombre: "Pasillo",
+    tecla: "i",
+    ayuda: "La vía por la que cabía el pase. Arrastra de origen a destino y abre la cinta con «Ancho».",
+  },
   { tipo: "linea", nombre: "Línea", tecla: "l", ayuda: "Una línea recta o combada, sin punta." },
   { tipo: "libre", nombre: "Lápiz", tecla: "p", ayuda: "Trazo a mano alzada." },
   {
@@ -229,6 +240,12 @@ export const HERRAMIENTAS: {
     nombre: "Zona",
     tecla: "z",
     ayuda: "Polígono sombreado. Clic por cada vértice y doble clic para cerrarlo.",
+  },
+  {
+    tipo: "cono",
+    nombre: "Cono",
+    tecla: "k",
+    ayuda: "Lo que tapa un defensor: arrastra desde sus pies hacia donde cubre y ajusta «Apertura».",
   },
   { tipo: "rect", nombre: "Caja", tecla: "c", ayuda: "Rectángulo." },
   { tipo: "elipse", nombre: "Elipse", tecla: "e", ayuda: "Elipse o círculo." },
@@ -245,6 +262,12 @@ export const HERRAMIENTAS: {
     ayuda: "Arrastra al jugador a donde tenía que estar: se recorta del fotograma y viaja hasta allí.",
   },
   { tipo: "texto", nombre: "Texto", tecla: "t", ayuda: "Una chapa con lo que hay que leer." },
+  {
+    tipo: "numero",
+    nombre: "Número",
+    tecla: "n",
+    ayuda: "El orden de la jugada: 1, 2, 3… Se numera solo según los vas pinchando.",
+  },
   { tipo: "lupa", nombre: "Lupa", tecla: "u", ayuda: "Aumenta un trozo de la imagen." },
   { tipo: "difumina", nombre: "Difuminar", tecla: "b", ayuda: "Desenfoca lo que estorba." },
   {
@@ -263,7 +286,7 @@ export const HERRAMIENTAS: {
 
 /** Cuántos puntos pide cada herramienta para quedar hecha. */
 export function formaDe(tipo: TipoDibujo): "punto" | "arrastre" | "muchos" {
-  if (tipo === "texto") return "punto";
+  if (tipo === "texto" || tipo === "numero") return "punto";
   if (tipo === "libre" || tipo === "zona" || tipo === "seleccion") return "muchos";
   return "arrastre";
 }
@@ -287,6 +310,7 @@ const BASE_DIBUJO: Omit<DibujoTel, "id" | "tipo" | "puntos"> = {
   zoom: 2,
   intensidad: 0.66,
   etiqueta: "",
+  apertura: 0.35,
 };
 
 /** Los ajustes propios de cada herramienta, encima de los de todas. */
@@ -310,6 +334,12 @@ function porDefectoDe(tipo: TipoDibujo): Partial<DibujoTel> {
       return { color: "#22D3EE", grosor: 4, texto: "" };
     case "medida":
       return { color: "#FFFFFF", grosor: 3 };
+    case "pasillo":
+      return { radio: 0.055, grosor: 3, relleno: true };
+    case "cono":
+      return { apertura: 0.32, grosor: 3, relleno: true, discontinua: true };
+    case "numero":
+      return { radio: 0.026, grosor: 4, relleno: true, tamano: 24 };
     case "texto":
       return { tamano: 28 };
     default:
@@ -410,6 +440,7 @@ function normalizaDibujo(crudo: unknown, indice: number): DibujoTel | null {
     zoom: numero(dato.zoom, base.zoom),
     intensidad: numero(dato.intensidad, base.intensidad),
     etiqueta: texto(dato.etiqueta, base.etiqueta),
+    apertura: numero(dato.apertura, base.apertura),
   };
 }
 
@@ -675,6 +706,34 @@ export function tocaDibujo(
       if (b && distancia(p, b) <= radio) return true;
 
       return b ? distanciaASegmento(p, a, b) <= cerca : false;
+    }
+
+    case "numero": {
+      return distancia(p, a) <= Math.max(9, dibujo.radio * medidas.ancho) + 6;
+    }
+
+    case "pasillo": {
+      if (!b) return distancia(p, a) <= cerca;
+
+      /* La cinta se abre, así que se coge por su ancho, no por el eje. */
+      return distanciaASegmento(p, a, b) <= Math.max(6, dibujo.radio * medidas.ancho) + cerca;
+    }
+
+    case "cono": {
+      if (!b) return distancia(p, a) <= cerca;
+
+      const alcance = distancia(a, b);
+
+      if (distancia(p, a) > alcance + cerca) return false;
+
+      let giro = Math.atan2(p.y - a.y, p.x - a.x) - Math.atan2(b.y - a.y, b.x - a.x);
+
+      /* El ángulo, traído al intervalo de -π a π: sin esto, un cono apuntando
+         hacia la izquierda no se podía coger por su mitad de arriba. */
+      while (giro > Math.PI) giro -= Math.PI * 2;
+      while (giro < -Math.PI) giro += Math.PI * 2;
+
+      return Math.abs(giro) <= medioAngulo(dibujo.apertura) + 0.12;
     }
 
     case "texto": {
@@ -1677,6 +1736,247 @@ function pintaSeleccion(entorno: Contexto, dibujo: DibujoTel) {
   }
 }
 
+/* --------------------------------------- el pasillo de pase ---- */
+
+/**
+ * La vía por la que cabía el pase, o por la que se iba a llegar.
+ *
+ * Una flecha dice la dirección; un pasillo dice el HUECO, que es lo que se
+ * discute de verdad en la charla: «por aquí cabía». Se pinta como una cinta
+ * que se abre del origen al destino —lo de lejos siempre se ve más ancho— con
+ * los bordes marcados y el interior velado, para que se lea por dónde va sin
+ * tapar a quién hay dentro.
+ */
+function pintaPasillo(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala, progreso } = entorno;
+
+  const [a, b] = dibujo.puntos.map((punto) => aPx(punto, medidas));
+
+  if (!b) return;
+
+  const avance = dibujo.animado ? Math.max(0.06, progreso) : 1;
+
+  const fin = { x: a.x + (b.x - a.x) * avance, y: a.y + (b.y - a.y) * avance };
+
+  const largo = Math.hypot(fin.x - a.x, fin.y - a.y);
+
+  if (largo < 1) return;
+
+  /* El eje y su normal: por la normal es por donde se abre la cinta. */
+  const ux = (fin.x - a.x) / largo;
+  const uy = (fin.y - a.y) / largo;
+  const nx = -uy;
+  const ny = ux;
+
+  const ancho = Math.max(6, dibujo.radio * medidas.ancho);
+  const estrecho = ancho * 0.45;
+
+  const p1 = { x: a.x + nx * estrecho, y: a.y + ny * estrecho };
+  const p2 = { x: fin.x + nx * ancho, y: fin.y + ny * ancho };
+  const p3 = { x: fin.x - nx * ancho, y: fin.y - ny * ancho };
+  const p4 = { x: a.x - nx * estrecho, y: a.y - ny * estrecho };
+
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+
+  if (dibujo.relleno) {
+    const velo = ctx.createLinearGradient(a.x, a.y, fin.x, fin.y);
+
+    velo.addColorStop(0, conAlfa(dibujo.color, 0.34));
+    velo.addColorStop(1, conAlfa(dibujo.color, 0.08));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.lineTo(p4.x, p4.y);
+    ctx.closePath();
+    ctx.fillStyle = velo;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /*
+  | Los dos bordes se trazan por separado, y no es capricho.
+  |
+  | Cerrando el polígono se pintarían también la raya de la salida y la del
+  | final, y entonces un pasillo es una caja torcida: deja de leerse como un
+  | camino abierto, que es justo lo único que tiene que decir.
+  */
+  trazaConContorno(
+    entorno,
+    () => {
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.moveTo(p4.x, p4.y);
+      ctx.lineTo(p3.x, p3.y);
+    },
+    dibujo.color,
+    grosor,
+    dibujo.discontinua,
+  );
+
+  pintaPunta(entorno, fin, a, dibujo.color, grosor * 1.3);
+
+  if (dibujo.texto.trim()) {
+    pintaChapa(
+      entorno,
+      (a.x + fin.x) / 2 + nx * (ancho + 12 * escala),
+      (a.y + fin.y) / 2 + ny * (ancho + 12 * escala),
+      [dibujo.texto.trim()],
+      dibujo.color,
+      dibujo.tamano * escala * 0.72,
+      "centro",
+    );
+  }
+}
+
+/* ------------------------------------------ el cono que cubre ---- */
+
+/** Medio ángulo del cono, en radianes, a partir de la apertura de 0 a 1. */
+function medioAngulo(apertura: number) {
+  /*
+  | De unos 8° a unos 64° a cada lado.
+  |
+  | Por debajo de 8° el cono es una flecha gorda y por encima de 64° tapa
+  | medio campo y ya no señala a nadie: fuera de esa horquilla el dibujo deja
+  | de explicar nada, así que la apertura no llega ahí.
+  */
+  const grados = 8 + Math.min(1, Math.max(0, apertura)) * 56;
+
+  return (Math.PI / 180) * grados;
+}
+
+/**
+ * Lo que un jugador tapa: su sombra de cobertura.
+ *
+ * Es el dibujo que explica un dos contra uno sin decir una palabra. Desde el
+ * vértice —los pies del defensor— se abre el ángulo que cubre, y lo que queda
+ * FUERA del cono es el pase que había. El borde va discontinuo por omisión
+ * porque un cono no es una línea del campo: es una estimación, y tiene que
+ * verse que lo es.
+ */
+function pintaCono(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala, progreso } = entorno;
+
+  const [a, b] = dibujo.puntos.map((punto) => aPx(punto, medidas));
+
+  if (!b) return;
+
+  const largo = Math.hypot(b.x - a.x, b.y - a.y);
+
+  if (largo < 2) return;
+
+  const eje = Math.atan2(b.y - a.y, b.x - a.x);
+  const medio = medioAngulo(dibujo.apertura);
+
+  const alcance = dibujo.animado ? largo * Math.max(0.08, progreso) : largo;
+
+  const traza = () => {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.arc(a.x, a.y, alcance, eje - medio, eje + medio);
+    ctx.closePath();
+  };
+
+  if (dibujo.relleno) {
+    const velo = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, alcance);
+
+    velo.addColorStop(0, conAlfa(dibujo.color, 0.36));
+    velo.addColorStop(1, conAlfa(dibujo.color, 0.05));
+
+    ctx.save();
+    traza();
+    ctx.fillStyle = velo;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  trazaConContorno(
+    entorno,
+    traza,
+    dibujo.color,
+    Math.max(1.5, dibujo.grosor * escala),
+    dibujo.discontinua,
+  );
+
+  /* El punto del vértice: sin él no se sabe de quién es el cono. */
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(a.x, a.y, Math.max(3.5, dibujo.grosor * escala * 1.1), 0, Math.PI * 2);
+  ctx.fillStyle = dibujo.color;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  if (dibujo.texto.trim()) {
+    pintaChapa(
+      entorno,
+      a.x + Math.cos(eje) * alcance * 0.62,
+      a.y + Math.sin(eje) * alcance * 0.62,
+      [dibujo.texto.trim()],
+      dibujo.color,
+      dibujo.tamano * escala * 0.72,
+      "centro",
+    );
+  }
+}
+
+/* ------------------------------------------ el orden numerado ---- */
+
+/**
+ * El orden de lo que pasó, en chapas numeradas.
+ *
+ * Una jugada son tres o cuatro cosas seguidas, y en la pizarra salían todas a
+ * la vez: quien la ve no sabe qué fue antes. El número lo pone la pantalla
+ * según el orden en que se pinchan, y se puede corregir a mano en el campo del
+ * dorsal.
+ */
+function pintaNumero(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala } = entorno;
+
+  const a = aPx(dibujo.puntos[0], medidas);
+
+  const radio = Math.max(9, dibujo.radio * medidas.ancho);
+  const grosor = Math.max(2, dibujo.grosor * escala);
+
+  ctx.save();
+
+  ctx.beginPath();
+  ctx.arc(a.x, a.y, radio, 0, Math.PI * 2);
+  ctx.fillStyle = dibujo.relleno ? dibujo.color : "rgba(8, 11, 15, 0.86)";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = radio * 0.7;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = dibujo.relleno ? "rgba(8, 11, 15, 0.75)" : dibujo.color;
+  ctx.lineWidth = grosor * 0.6;
+  ctx.stroke();
+
+  ctx.fillStyle = dibujo.relleno ? "#0B0F14" : "#FFFFFF";
+  ctx.font = `700 ${radio * 1.2}px ${entorno.familia}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(dibujo.etiqueta.trim() || "1", a.x, a.y + radio * 0.05);
+
+  ctx.restore();
+
+  if (dibujo.texto.trim()) {
+    pintaChapa(
+      entorno,
+      a.x + radio * 1.35,
+      a.y,
+      [dibujo.texto.trim()],
+      dibujo.color,
+      dibujo.tamano * escala * 0.66,
+    );
+  }
+}
+
 /* ================================================================== */
 /*  UN DIBUJO                                                          */
 /* ================================================================== */
@@ -1721,6 +2021,18 @@ function pintaDibujo(entorno: Contexto, dibujo: DibujoTel) {
 
     case "seleccion":
       pintaSeleccion(entorno, dibujo);
+      break;
+
+    case "pasillo":
+      pintaPasillo(entorno, dibujo);
+      break;
+
+    case "cono":
+      pintaCono(entorno, dibujo);
+      break;
+
+    case "numero":
+      pintaNumero(entorno, dibujo);
       break;
 
     case "flecha":

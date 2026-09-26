@@ -57,7 +57,14 @@ export function BotonAlertas() {
           onClick={() => setAbierto(false)}
         >
           <aside
-            className="flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#11161D] shadow-2xl"
+            /*
+              Ancho de verdad. Estaba en `max-w-md` —448 px— y aquí dentro hay
+              una lista de tareas con destinatarios, adjuntos, periodicidad y
+              campanadas: todo salía apilado en una columna estrecha y había que
+              hacer scroll para cualquier cosa. En pantalla grande ocupa la
+              mitad larga; en el móvil sigue siendo la pantalla entera.
+            */
+            className="flex h-full w-full flex-col border-l border-white/10 bg-[#11161D] shadow-2xl sm:max-w-xl lg:max-w-3xl"
             onClick={(evento) => evento.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-4 border-b border-white/10 p-5">
