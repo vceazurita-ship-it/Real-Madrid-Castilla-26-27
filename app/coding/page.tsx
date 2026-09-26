@@ -2119,7 +2119,28 @@ function Coding() {
       | el filtro de la pantalla puede cambiar. Lo que cuenta es con qué filtro
       | se montó, que es lo que de verdad hay dentro del vídeo.
       */
-      const sujetoAlEmpezar = filtroSujeto;
+      /*
+      | Si no hay filtro puesto pero TODOS los clips del montaje son del mismo
+      | jugador, el vídeo es suyo igual y el enlace va a su ficha.
+      |
+      | Pasa constantemente: se eligen a mano los cortes de uno y se exporta sin
+      | tocar el filtro. Antes eso no escribía nada, y la diferencia con el caso
+      | que sí escribe era invisible desde fuera.
+      */
+      const deLosClips = (() => {
+        const suyos = new Set(
+          clipsExportables
+            .map((clip) => clip.jugadorId)
+            .filter(
+              (id): id is string =>
+                Boolean(id) && id !== SUJETO_VIDEO_COMPLETO.id,
+            ),
+        );
+
+        return suyos.size === 1 ? [...suyos][0] : null;
+      })();
+
+      const sujetoAlEmpezar = filtroSujeto ?? deLosClips;
 
       const datos = {
         partido: titulo,
@@ -2220,8 +2241,9 @@ function Coding() {
       estadoYoutube.preguntaAntes,
       estadoYoutube.tituloPlantilla,
       etiquetaFiltro,
-      /* Se lee al entrar, para apuntar de quién es el vídeo antes de subirlo. */
+      /* Se leen al entrar, para apuntar de quién es el vídeo antes de subirlo. */
       filtroSujeto,
+      clipsExportables,
       ponVideoEnFichaRival,
       /* El compilador lo cuenta como dependencia aunque `useState` lo dé estable. */
       setPideNombre,

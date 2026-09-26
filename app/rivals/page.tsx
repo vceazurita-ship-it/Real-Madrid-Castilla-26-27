@@ -35,6 +35,7 @@ import { useRivalOnce } from "@/hooks/useRivalOnce";
 import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
 import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
+import { EligeVideoDeLista } from "@/components/rivals/EligeVideoDeLista";
 import {
   exportPortadaPdf,
   exportPortadaPng,
@@ -4454,12 +4455,31 @@ export default function RivalPlayersPage() {
                       onChange={(value) => updateForm("FOTO", value)}
                     />
 
-                    <EditableField
-                      label="Vídeo YouTube (URL)"
-                      value={editForm.VIDEO}
-                      onChange={(value) => updateForm("VIDEO", value)}
-                      placeholder="https://youtu.be/…"
-                    />
+                    <div>
+                      <EditableField
+                        label="Vídeo YouTube (URL)"
+                        value={editForm.VIDEO}
+                        onChange={(value) => updateForm("VIDEO", value)}
+                        placeholder="https://youtu.be/…"
+                      />
+
+                      {/*
+                        Y si el corte ya está en el canal, se elige en vez de
+                        pegarlo a mano. Los que se suben desde el coding
+                        filtrando por el jugador caen solos en esta casilla;
+                        esto cubre lo demás: lo subido antes, lo montado sin
+                        filtrar y lo que alguien colgó a mano.
+                      */}
+                      <EligeVideoDeLista
+                        equipo={String(editForm.NOMBRE_EQUIPO ?? "")}
+                        jugador={String(
+                          editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || "",
+                        )}
+                        dorsal={String(editForm.DORSAL ?? "")}
+                        valor={editForm.VIDEO}
+                        onElegir={(url) => updateForm("VIDEO", url)}
+                      />
+                    </div>
 
                     <EditableField
                       label="Documento URL"
