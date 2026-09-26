@@ -588,8 +588,11 @@ export default function AbpMicrocicloPage() {
         tareas: tareasDelMicro,
         rival: microActivo?.rival ?? "",
         partidos: calendario,
+        /* Para un microciclo que todavía no está escrito en la hoja: con esto
+           los días salen del calendario en vez de un lunes-a-domingo vacío. */
+        diasEntrenados: plan.diasEntrenados,
       }),
-    [tareasDelMicro, microActivo, calendario],
+    [tareasDelMicro, microActivo, calendario, plan.diasEntrenados],
   );
 
   /* Sin letras repetidas: dos columnas con la misma inicial editarían el mismo

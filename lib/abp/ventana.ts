@@ -165,6 +165,17 @@ export type EntradaVentana = {
   rival: string;
   /** Nuestro calendario, para atar el partido. */
   partidos: PartidoCastilla[];
+  /**
+   * Cuántos días se entrena esa semana, cuando la hoja todavía no lo dice.
+   *
+   * Un microciclo recién creado no tiene ni una fila en la hoja de registro,
+   * así que no hay fechas de las que sacar los días. Antes eso devolvía la
+   * lista vacía y la pantalla caía en un lunes-a-domingo sin fechas y sin el
+   * partido marcado, que es justo lo que no se quiere ver. Con este número
+   * —el que se escribe en «días entrenados»— se cuenta hacia atrás desde el
+   * partido y salen los días de verdad.
+   */
+  diasEntrenados?: number;
 };
 
 /**
@@ -239,13 +250,79 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
   const fechas = [...porFecha.keys()].sort();
 
   if (fechas.length === 0) {
+    /*
+    | Sin nada escrito en la hoja, la semana se deduce del calendario.
+    |
+    | Es el caso de un microciclo recién creado: todavía no hay tareas, pero el
+    | partido sí se sabe. Se cuentan hacia atrás los días que se vayan a
+    | entrenar y se les añade el del partido; si no se sabe cuántos, se llega
+    | hasta el partido anterior.
+    */
+    const suyo = buscaPartidoDelMicro(rival, "", partidos);
+
+    const dia = suyo ? soloDia(suyo.cuando) : "";
+
+    if (!dia) {
+      return {
+        dias: [],
+        entrenos: [],
+        partido: suyo,
+        partidoAnterior: null,
+        rivalHoja: rival,
+        comoSeLlama: "",
+        avisos,
+      };
+    }
+
+    const previo = partidoPrevio(dia, partidos);
+
+    const desdeElAnterior = previo
+      ? Math.min(
+          6,
+          Math.max(
+            1,
+            Math.round((aMedioDia(dia) - aMedioDia(soloDia(previo.cuando))) / DIA_MS) - 1,
+          ),
+        )
+      : 3;
+
+    const cuantos = Math.min(
+      6,
+      Math.max(1, Number.isFinite(entrada.diasEntrenados) ? Number(entrada.diasEntrenados) : desdeElAnterior),
+    );
+
+    const sueltos: DiaMicro[] = [];
+
+    for (let atras = cuantos; atras >= 0; atras -= 1) {
+      const fecha = new Date(aMedioDia(dia) - atras * DIA_MS).toISOString().slice(0, 10);
+
+      const esPartido = atras === 0;
+
+      sueltos.push({
+        clave: diaKeyDe(fecha),
+        fecha,
+        etiqueta: etiquetaDia(fecha),
+        tipo: esPartido ? "partido" : "entreno",
+        md: atras,
+        rotulo: esPartido ? "MD" : `MD-${atras}`,
+        tareasHoja: 0,
+        deLaHoja: false,
+      });
+    }
+
+    avisos.push(
+      "Este microciclo todavía no está en la hoja de registro: los días salen del calendario y de «días entrenados». En cuanto se escriba la semana, mandan las fechas de la hoja.",
+    );
+
     return {
-      dias: [],
-      entrenos: [],
-      partido: buscaPartidoDelMicro(rival, "", partidos),
-      partidoAnterior: null,
+      dias: sueltos,
+      entrenos: sueltos.filter((d) => d.tipo === "entreno"),
+      partido: suyo,
+      partidoAnterior: previo,
       rivalHoja: rival,
-      comoSeLlama: "",
+      comoSeLlama: `de ${NOMBRES[new Date(aMedioDia(sueltos[0].fecha)).getUTCDay()]} a ${
+        NOMBRES[new Date(aMedioDia(dia)).getUTCDay()]
+      }`,
       avisos,
     };
   }
@@ -274,12 +351,21 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
         .slice(0, 10)
     : "";
 
-  /* --- El último día: el partido, aunque no esté escrito en la hoja --- */
+  /* --- El último día ES el partido, y ahí se corta --- */
 
-  const ultimo =
-    diaDelPartido && diaDelPartido > fechas[fechas.length - 1]
-      ? diaDelPartido
-      : fechas[fechas.length - 1];
+  /*
+  | Antes esto era `max(partido, última tarea de la hoja)` y ahí estaba el
+  | fallo gordo: la hoja de registro trae con el mismo número de micro días
+  | POSTERIORES al partido —el jueves, el viernes y el sábado de después—, que
+  | ya son del microciclo siguiente. La semana del Sant Andreu, que va del
+  | domingo al miércoles, salía de ocho días: se comía media semana de después
+  | y, al guardar el plan por letra, el domingo 20 y el domingo 27 caían en la
+  | misma casilla y se pisaban.
+  |
+  | Con partido, el microciclo termina EL DÍA DEL PARTIDO. Sin partido
+  | —«NO COMPETICIÓN», un parón— manda lo escrito en la hoja.
+  */
+  const ultimo = diaDelPartido || fechas[fechas.length - 1];
 
   /* --- Todos los días de principio a fin, huecos incluidos --- */
 
@@ -290,13 +376,37 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
   | sólo si eso no se sale de la semana: con un parón de por medio, o si la
   | hoja trae tareas de antes, manda lo que haya escrito.
   */
-  const primero =
-    diaSiguienteAlAnterior &&
-    diaSiguienteAlAnterior < fechas[0] &&
-    (!ultimo ||
-      (aMedioDia(ultimo) - aMedioDia(diaSiguienteAlAnterior)) / DIA_MS <= 6)
+  /*
+  | Y el primero, nunca antes de que acabe el partido anterior.
+  |
+  | Son los dos topes del microciclo: empieza cuando acaba el partido de antes
+  | y termina con el suyo. Dentro caben los días que diga la hoja; fuera, nada.
+  |
+  | Si entre los dos partidos hay más de una semana —un parón, una jornada
+  | aplazada— no se pinta el hueco entero: el plan guarda un día por letra y
+  | dos lunes en la misma casilla se pisan. En ese caso se enseñan los siete
+  | últimos y se avisa.
+  */
+  const conTareas = fechas.filter(
+    (f) => !diaDelPartido || f <= diaDelPartido,
+  );
+
+  const arranqueHoja = conTareas[0] ?? fechas[0];
+
+  let primero =
+    diaSiguienteAlAnterior && diaSiguienteAlAnterior > arranqueHoja
       ? diaSiguienteAlAnterior
-      : fechas[0];
+      : arranqueHoja;
+
+  const largo = (aMedioDia(ultimo) - aMedioDia(primero)) / DIA_MS + 1;
+
+  if (largo > 7) {
+    primero = new Date(aMedioDia(ultimo) - 6 * DIA_MS).toISOString().slice(0, 10);
+
+    avisos.push(
+      `Entre el partido anterior y éste hay ${Math.round(largo)} días. Se enseñan los siete últimos: el plan guarda un día por letra y dos lunes no caben en la misma casilla.`,
+    );
+  }
 
   for (
     let momento = aMedioDia(primero);
@@ -357,11 +467,13 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
     );
   }
 
-  if (dias.some((dia) => dia.md == null && dia.tipo !== "partido") && diaDelPartido) {
-    avisos.push(
-      "Hay días de la hoja posteriores al partido: son del microciclo siguiente y se quedan sin MD. Si el partido se aplazó, repasa las fechas.",
-    );
-  }
+  /*
+  | El aviso de «hay días posteriores al partido» se ha quitado: ya no puede
+  | pasar. La ventana termina EL DÍA DEL PARTIDO, así que lo de después no
+  | entra en la rejilla en vez de entrar y avisar. Lo que sí queda avisado es
+  | el caso contrario —una semana de más de siete días entre dos partidos—,
+  | que sí obliga a recortar.
+  */
 
   if (!partido) {
     avisos.push(
