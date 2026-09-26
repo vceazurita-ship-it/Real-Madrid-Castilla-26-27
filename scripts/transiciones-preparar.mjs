@@ -148,12 +148,46 @@ console.log("");
 
 /* ------------------------------------------------ las imágenes --- */
 
-fs.rmSync(SALIDA, { recursive: true, force: true });
-fs.mkdirSync(SALIDA, { recursive: true });
-
 const tmp = path.join(SALIDA, "_sueltas");
 
+/*
+| SE REANUDA, Y NO ES UN LUJO.
+|
+| Esto empezaba borrando la carpeta de salida. Decodificar seis gigas y medio
+| tarda lo suyo y se corta por cosas que no tienen nada que ver con el vídeo
+| —al Sant Andreu lo paró el sistema por falta de memoria con 650 de 740
+| imágenes hechas—, y entonces relanzarlo tiraba las que ya estaban y volvía a
+| empezar desde el minuto cero.
+|
+| Lo que hay en `_sueltas` se cuenta y se sigue desde donde se quedó: cada
+| imagen cubre `PASO` segundos, así que con `hechas` imágenes el vídeo está
+| visto hasta el segundo `hechas * PASO`. Desde ahí se le pide a ffmpeg con
+| `-ss`, y la numeración sigue con `-start_number`.
+|
+| La cuenta cuadra porque el arranque cae SIEMPRE en un múltiplo de `PASO`: el
+| `select` del filtro cuenta fotogramas desde donde empieza, y empezando en un
+| múltiplo la rejilla de segundos es la misma que la del primer intento. Con
+| `--desdeCero` se fuerza el borrado.
+|
+| La última imagen del intento anterior se tira antes de seguir: si el corte la
+| pilló a medio escribir, es media imagen.
+*/
+const DESDE_CERO = process.argv.includes("--desdeCero");
+
+if (DESDE_CERO) fs.rmSync(SALIDA, { recursive: true, force: true });
+
+fs.mkdirSync(SALIDA, { recursive: true });
 fs.mkdirSync(tmp, { recursive: true });
+
+const yaEstaban = fs.readdirSync(tmp).filter((f) => f.endsWith(".jpg")).sort();
+
+if (yaEstaban.length > 0) {
+  fs.rmSync(path.join(tmp, yaEstaban[yaEstaban.length - 1]), { force: true });
+  yaEstaban.pop();
+}
+
+const hechas = yaEstaban.length;
+const desde = hechas * PASO;
 
 const filtros = [
   "fps=1",
@@ -163,23 +197,35 @@ const filtros = [
   "tile=1x2",
 ].filter(Boolean);
 
-console.log("  Sacando las imágenes… (esto tarda: son varios gigas)");
+if (hechas > 0) {
+  console.log(
+    `  Reanudando: ${hechas} imágenes ya estaban, el vídeo visto hasta ${mm(desde)}.`,
+  );
+}
 
-execFileSync(
-  FFMPEG,
-  [
-    "-v", "error",
-    "-i", VIDEO,
-    "-vf", filtros.join(","),
-    /* Sin esto, lo que `select` tira vuelve duplicado. */
-    "-fps_mode", "passthrough",
-    "-q:v", "3",
-    "-start_number", "0",
-    path.join(tmp, "o_%05d.jpg"),
-    "-y",
-  ],
-  { stdio: "inherit" },
-);
+if (desde >= DURACION) {
+  console.log("  Las imágenes ya estaban todas: no hay nada que sacar.");
+} else {
+  console.log("  Sacando las imágenes… (esto tarda: son varios gigas)");
+
+  execFileSync(
+    FFMPEG,
+    [
+      "-v", "error",
+      /* Delante de `-i`: así el salto es rápido y no decodifica lo de antes. */
+      ...(desde > 0 ? ["-ss", String(desde)] : []),
+      "-i", VIDEO,
+      "-vf", filtros.join(","),
+      /* Sin esto, lo que `select` tira vuelve duplicado. */
+      "-fps_mode", "passthrough",
+      "-q:v", "3",
+      "-start_number", String(hechas),
+      path.join(tmp, "o_%05d.jpg"),
+      "-y",
+    ],
+    { stdio: "inherit" },
+  );
+}
 
 /* ------------------------------------------- repartir en bloques - */
 
