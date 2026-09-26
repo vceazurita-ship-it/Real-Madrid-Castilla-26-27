@@ -1037,8 +1037,19 @@ function enviaCorreo_(alerta) {
     return { ok: false, error: 'Se ha agotado el cupo diario de correos' };
   }
 
+  /*
+  | Todo el mundo en copia oculta.
+  |
+  | Una tarea con aviso suele ir a varias personas, y en `to` cada una se
+  | llevaba las direcciones de las demás. Los destinatarios pasan a `bcc` y en
+  | `to` va la cuenta que manda: un correo sin `to` lo tratan peor los filtros,
+  | y así queda copia en el buzón del club. `getEffectiveUser` es quien ejecuta
+  | el script, que con la implementación «ejecutar como: yo» es la cuenta del
+  | club.
+  */
   const mensaje = {
-    to: destinatarios.join(','),
+    to: Session.getEffectiveUser().getEmail(),
+    bcc: destinatarios.join(','),
     subject: alerta.titulo || 'Aviso RMCF Castilla',
     htmlBody: cuerpoHtml_(alerta),
     name: NOMBRE_REMITENTE,

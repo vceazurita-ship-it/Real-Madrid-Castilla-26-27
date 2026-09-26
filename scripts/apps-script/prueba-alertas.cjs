@@ -154,7 +154,12 @@ const contexto = {
       getName: () => nombre,
     }),
   },
-  Session: { getScriptTimeZone: () => "Europe/Madrid" },
+  Session: {
+    getScriptTimeZone: () => "Europe/Madrid",
+    /* Desde el 26/09/2026 el envío la usa para el `to`: los destinatarios
+       van en copia oculta y en `to` va la cuenta que manda. */
+    getEffectiveUser: () => ({ getEmail: () => "club@rmcastilla.test" }),
+  },
 };
 
 vm.createContext(contexto);
@@ -353,6 +358,22 @@ comprueba(
   "revisarAlertas → manda la que ya tocaba",
   mandadas === 1 && enviados.length === 1,
   { mandadas, enviados: enviados.length },
+);
+
+/*
+ * NADIE VE A LOS DEMÁS. Un aviso suele ir a varias personas y ponerlas a todas
+ * en `to` reparte sus direcciones sin que nadie lo haya pedido. Se comprueba
+ * aquí porque es de las cosas que nadie mira hasta que alguien responde a
+ * todos.
+ */
+const salido = enviados[0] || {};
+
+comprueba(
+  "el correo va en copia oculta: nadie ve a los demás destinatarios",
+  salido.bcc === "uno@ejemplo.com,dos@ejemplo.com" &&
+    salido.to === "club@rmcastilla.test" &&
+    !String(salido.to || "").includes("ejemplo.com"),
+  { to: salido.to, bcc: salido.bcc },
 );
 
 /*

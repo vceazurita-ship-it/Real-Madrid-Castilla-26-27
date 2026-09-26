@@ -166,7 +166,22 @@ function envuelve(tipo: string, limite: string, partes: string[], extra = "") {
  * `From` no se pone: lo escribe Gmail con la cuenta que autoriza, y ponerlo a
  * mano sólo sirve para que no coincida.
  */
-export function escribeMensaje(correo: Correo) {
+/**
+ * Nadie ve a los demás: todo el mundo va en copia oculta.
+ *
+ * Los correos de la plataforma salen a una lista —el cuerpo técnico, los
+ * jugadores de un grupo— y poniéndolos a todos en `To:` cada uno se lleva las
+ * direcciones de los demás. Eso es repartir datos personales sin que nadie lo
+ * haya pedido, y basta con que uno responda a todos para montar un hilo que no
+ * quería nadie.
+ *
+ * Así que los destinatarios van en `Bcc:` y en `To:` va **la propia cuenta que
+ * envía**: un mensaje sin `To:` lo tratan peor los filtros de correo, y de paso
+ * queda copia en el buzón del club de lo que salió. Si no se sabe la cuenta se
+ * usa `undisclosed-recipients:;`, que es la forma de decir lo mismo cuando no
+ * hay a quién poner.
+ */
+export function escribeMensaje(correo: Correo, remitente?: string | null) {
   const sello = Date.now().toString(36);
 
   const alternativo = envuelve(
@@ -206,7 +221,8 @@ export function escribeMensaje(correo: Correo) {
     : conImagenes;
 
   return [
-    `To: ${correo.para.join(", ")}`,
+    `To: ${remitente || "undisclosed-recipients:;"}`,
+    `Bcc: ${correo.para.join(", ")}`,
     `Subject: ${cabecera(correo.asunto)}`,
     "MIME-Version: 1.0",
     cuerpo,
@@ -275,6 +291,16 @@ export async function envia(correo: Correo) {
 
   const acceso = await dameAcceso(ajustes);
 
+  /*
+  | Se pregunta la cuenta ANTES de mandar, no después.
+  |
+  | Antes sólo hacía falta para enseñar el remitente en pantalla y se
+  | preguntaba al final; ahora va en la cabecera `To:`, porque los
+  | destinatarios viajan en copia oculta. Si falla, el envío sigue: la
+  | cabecera cae en `undisclosed-recipients:;` y nadie ve a nadie igual.
+  */
+  const remitente = await cuentaDeEnvio(acceso);
+
   const respuesta = await fetch(
     "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
     {
@@ -283,7 +309,7 @@ export async function envia(correo: Correo) {
         Authorization: `Bearer ${acceso}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ raw: paraGmail(escribeMensaje(correo)) }),
+      body: JSON.stringify({ raw: paraGmail(escribeMensaje(correo, remitente)) }),
     },
   );
 
@@ -298,7 +324,7 @@ export async function envia(correo: Correo) {
     );
   }
 
-  return { id: datos.id, cuenta: await cuentaDeEnvio(acceso) };
+  return { id: datos.id, cuenta: remitente };
 }
 
 /**
