@@ -4,20 +4,27 @@
  * En obras · Análisis de faltas.
  *
  * Qué mide, y por qué sólo eso: **dónde se comete cada falta** y **cuánta
- * gente hay protegiendo la portería en ese momento**. Con esas dos cosas se
- * contesta a lo que se pregunta el lunes —dónde nos pitan, dónde pitamos
- * nosotros y con qué defensa enfrente— sin pedirle al que mira el vídeo veinte
- * campos por jugada, que es como se abandonan estos recuentos.
+ * gente defendía en ese momento entre la falta y la portería que se ataca**.
+ * Con esas dos cosas se contesta a lo que se pregunta el lunes —dónde nos
+ * pitan, dónde pitamos nosotros y con qué defensa enfrente— sin pedirle al que
+ * mira el vídeo veinte campos por jugada, que es como se abandonan estos
+ * recuentos.
  *
  * El número que manda es **cuántos defensores hay entre la falta y su propia
  * portería, portero incluido**. Una falta en el mismo sitio no vale lo mismo
  * con nueve por delante que con tres: lo primero es un balón parado contra un
- * bloque hecho y lo segundo es una transición que se ha cortado con falta.
+ * bloque hecho y lo segundo es una transición que se ha cortado con falta. De
+ * ahí el apartado de «faltas que cortaron algo», que es el que de verdad se
+ * lleva a la charla.
  *
- * De dónde salen los datos: NO hay proveedor. Se etiquetan mirando los clips
- * del coding imagen a imagen, con el mismo método que los robos y los saques
- * de banda. `scripts/abp-clips-preparar.mjs` prepara la carpeta y
+ * De dónde salen los datos: NO hay proveedor. Se etiquetan viendo el partido
+ * falta a falta, con el mismo método que los robos y los saques de banda.
+ * `scripts/abp-clips-preparar.mjs` prepara la carpeta y
  * `scripts/faltas-datos.mjs` convierte los CSV en `lib/faltas/datos.ts`.
+ *
+ * El campo y la tabla van atados: se pasa por encima de un punto y se enciende
+ * su fila, y al revés. Con veintitantas faltas es la diferencia entre mirar el
+ * dibujo y entenderlo.
  *
  * Está en obras porque el recuento es de un partido: con una jornada no hay
  * tendencia que leer, y la pantalla lo dice en vez de dibujar porcentajes que
@@ -25,12 +32,13 @@
  */
 
 import { useMemo, useState } from "react";
-import { Crosshair, HardHat, Shield, Swords } from "lucide-react";
+import { Crosshair, HardHat, Shield, Swords, Zap } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
-import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
+import { PARTIDOS, type LadoFalta } from "@/lib/faltas/datos";
+import { CampoFaltas } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 
 const ZONAS = ["campo propio", "medio campo", "campo rival"];
@@ -42,11 +50,40 @@ const TINTA_LADO: Record<LadoFalta, string> = {
   defensivo: "#F6AFB6",
 };
 
+const NOMBRE_LADO: Record<LadoFalta, string> = {
+  ofensivo: "A favor",
+  defensivo: "En contra",
+};
+
+/**
+ * Por debajo de esto, la falta cortó una transición.
+ *
+ * Tres defensores contando al portero es un campo abierto: si ahí hubo falta,
+ * no se estaba defendiendo un balón parado, se estaba frenando una carrera. El
+ * corte está puesto a mano y se dice en pantalla, que es lo honesto con un
+ * umbral que nadie ha calibrado con nada.
+ */
+const CORTE_TRANSICION = 3;
+
 type Filtro = "todas" | LadoFalta;
+
+/** "2026-09-21" → "21 sep". */
+function fechaCorta(iso: string) {
+  const fecha = new Date(`${iso}T12:00:00`);
+
+  if (Number.isNaN(fecha.getTime())) return iso;
+
+  return fecha
+    .toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+    .replace(".", "");
+}
 
 export default function FaltasPage() {
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [partidoId, setPartidoId] = useState<string>(PARTIDOS[0]?.id ?? "");
+
+  /** La falta que está encendida, compartida entre el campo y la tabla. */
+  const [resaltada, setResaltada] = useState<string | null>(null);
 
   const partido = useMemo(
     () => PARTIDOS.find((p) => p.id === partidoId) ?? PARTIDOS[0] ?? null,
@@ -59,22 +96,17 @@ export default function FaltasPage() {
     return filtro === "todas" ? todas : todas.filter((f) => f.lado === filtro);
   }, [partido, filtro]);
 
-  /** El tablero de 3×3: tercio del campo por carril. */
-  const rejilla = useMemo(() => {
-    const cuenta = new Map<string, Falta[]>();
-
-    for (const f of faltas) {
-      if (!f.zona || !f.carril) continue;
-
-      const clave = `${f.zona}|${f.carril}`;
-
-      cuenta.set(clave, [...(cuenta.get(clave) ?? []), f]);
-    }
-
-    return cuenta;
-  }, [faltas]);
-
   const sinSitio = faltas.filter((f) => !f.zona || !f.carril).length;
+
+  /** Cuántas hay de cada lado, para los mandos y el encabezado. */
+  const porLado = useMemo(() => {
+    const todas = partido?.faltas ?? [];
+
+    return {
+      ofensivo: todas.filter((f) => f.lado === "ofensivo").length,
+      defensivo: todas.filter((f) => f.lado === "defensivo").length,
+    };
+  }, [partido]);
 
   const porDistancia = useMemo(
     () =>
@@ -85,7 +117,7 @@ export default function FaltasPage() {
     [faltas],
   );
 
-  /** La media de defensores entre la falta y su portería. */
+  /** La media de defensores entre la falta y la portería que se ataca. */
   const defensores = useMemo(() => {
     const con = faltas.filter((f) => f.entre !== null).map((f) => f.entre as number);
 
@@ -102,7 +134,14 @@ export default function FaltasPage() {
     };
   }, [faltas]);
 
-  const tope = Math.max(1, ...[...rejilla.values()].map((v) => v.length));
+  /** Las que se pitaron con el campo abierto: ésas cortaron algo. */
+  const cortes = useMemo(
+    () =>
+      faltas
+        .filter((f) => f.entre !== null && (f.entre as number) <= CORTE_TRANSICION)
+        .sort((a, b) => (a.entre as number) - (b.entre as number)),
+    [faltas],
+  );
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -116,7 +155,7 @@ export default function FaltasPage() {
             <AbpHeader
               area="RMCF Castilla · En obras"
               title="Análisis de faltas"
-              lead="Dónde se comete cada falta y cuánta gente hay entre ella y la portería. Sale de mirar los clips del coding, uno a uno."
+              lead="Dónde se comete cada falta y cuánta gente defendía entre ella y la portería. Sale de ver el partido falta a falta."
               aside={
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
                   <HardHat size={12} />
@@ -136,13 +175,62 @@ export default function FaltasPage() {
               </div>
             ) : null}
 
+            {/* ---------------- el partido ---------------- */}
+
+            {partido && (
+              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+                  {partido.jornada}
+                </span>
+
+                <span className="text-sm font-semibold text-white">
+                  {partido.local
+                    ? `RM Castilla · ${partido.rival}`
+                    : `${partido.rival} · RM Castilla`}
+                </span>
+
+                <span className="rounded-lg border border-white/10 bg-black/30 px-2 py-0.5 font-mono text-[12px] tabular-nums text-white/80">
+                  {partido.resultado}
+                </span>
+
+                <span className="text-[11px] uppercase tracking-[0.12em] text-white/35">
+                  {partido.local ? "en casa" : "fuera"} · {fechaCorta(partido.fecha)}
+                </span>
+
+                <span className="ml-auto flex flex-wrap items-center gap-2 text-[11px]">
+                  <span
+                    className="rounded-full px-2.5 py-1"
+                    style={{
+                      color: TINTA_LADO.ofensivo,
+                      background: `${TINTA_LADO.ofensivo}1A`,
+                    }}
+                  >
+                    {porLado.ofensivo} a favor
+                  </span>
+
+                  <span
+                    className="rounded-full px-2.5 py-1"
+                    style={{
+                      color: TINTA_LADO.defensivo,
+                      background: `${TINTA_LADO.defensivo}1A`,
+                    }}
+                  >
+                    {porLado.defensivo} en contra
+                  </span>
+                </span>
+              </div>
+            )}
+
             {/* ---------------- mandos ---------------- */}
 
-            <div className="mt-5 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {PARTIDOS.length > 1 && (
                 <select
                   value={partidoId}
-                  onChange={(e) => setPartidoId(e.target.value)}
+                  onChange={(e) => {
+                    setPartidoId(e.target.value);
+                    setResaltada(null);
+                  }}
                   className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                 >
                   {PARTIDOS.map((p) => (
@@ -164,7 +252,10 @@ export default function FaltasPage() {
                   <button
                     key={uno.key}
                     type="button"
-                    onClick={() => setFiltro(uno.key)}
+                    onClick={() => {
+                      setFiltro(uno.key);
+                      setResaltada(null);
+                    }}
                     aria-pressed={filtro === uno.key}
                     className={`rounded-lg px-3 py-2 text-xs transition ${
                       filtro === uno.key
@@ -192,71 +283,34 @@ export default function FaltasPage() {
 
             {/* ---------------- el campo ---------------- */}
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1.45fr_1fr]">
               <Panel
                 title="Dónde se cometen"
-                subtitle="El campo va de izquierda a derecha en el sentido en que ataca quien saca la falta"
+                subtitle="Cada punto es una falta, en su tercio y su carril. El campo va en el sentido en que ataca quien la saca"
                 icon={Crosshair}
               >
-                <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A1A12]">
-                  <div className="grid grid-cols-3">
-                    {ZONAS.map((zona) =>
-                      CARRILES.map((carril) => {
-                        const suyas = rejilla.get(`${zona}|${carril}`) ?? [];
-
-                        /* El fondo dice cuántas hay sin tener que leer. */
-                        const peso = suyas.length / tope;
-
-                        return (
-                          <div
-                            key={`${zona}|${carril}`}
-                            className="relative flex aspect-[4/3] flex-col items-center justify-center border border-white/5"
-                            style={{
-                              background: `rgba(200,169,107,${(peso * 0.42).toFixed(3)})`,
-                            }}
-                            title={`${zona} · ${carril}`}
-                          >
-                            <span className="text-2xl font-semibold text-white">
-                              {suyas.length || ""}
-                            </span>
-
-                            {/* Y en la casilla, el tercio: el carril ya lo
-                                dice la columna. */}
-                            <span className="mt-1 text-center text-[9px] uppercase tracking-[0.12em] text-white/35">
-                              {zona}
-                            </span>
-                          </div>
-                        );
-                      }),
-                    )}
-                  </div>
-
-                  {/*
-                    Las columnas son CARRILES, no zonas.
-                    La rejilla se recorre `zona -> carril`, así que cada fila es
-                    un tercio del campo y cada columna un carril. Este pie
-                    rotulaba las columnas con las zonas: la primera columna,
-                    que son las tres zonas por la izquierda, ponía «campo
-                    propio». Quien lo leyera situaba mal todas las faltas.
-                  */}
-                  <div className="grid grid-cols-3 border-t border-white/10 text-center text-[10px] uppercase tracking-[0.14em] text-white/35">
-                    {CARRILES.map((carril) => (
-                      <span key={carril} className="py-2">
-                        {carril}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <CampoFaltas
+                  faltas={faltas}
+                  zonas={ZONAS}
+                  carriles={CARRILES}
+                  tinta={TINTA_LADO}
+                  resaltada={resaltada}
+                  onResaltar={setResaltada}
+                />
 
                 {sinSitio > 0 && (
                   <p className="mt-3 text-[11px] text-white/35">
-                    {sinSitio} {sinSitio === 1 ? "falta no se pudo situar" : "faltas no se pudieron situar"} en el campo y no están en el tablero.
+                    {sinSitio}{" "}
+                    {sinSitio === 1
+                      ? "falta no se pudo situar"
+                      : "faltas no se pudieron situar"}{" "}
+                    en el campo y no salen dibujadas.
                   </p>
                 )}
               </Panel>
 
               <div className="space-y-4">
-                <Panel title="Cuánta gente protege la portería" icon={Shield}>
+                <Panel title="Cuánta gente defendía" icon={Shield}>
                   {defensores ? (
                     <>
                       <div className="flex items-end gap-2">
@@ -265,7 +319,7 @@ export default function FaltasPage() {
                         </span>
 
                         <span className="pb-1 text-sm text-white/45">
-                          defensores de media, portero incluido
+                          de media entre la falta y la portería, portero incluido
                         </span>
                       </div>
 
@@ -281,6 +335,51 @@ export default function FaltasPage() {
                     <p className="text-sm text-white/45">
                       Todavía no se ha podido contar en ninguna.
                     </p>
+                  )}
+                </Panel>
+
+                <Panel
+                  title="Faltas que cortaron algo"
+                  subtitle={`Con ${CORTE_TRANSICION} defensores o menos por delante: campo abierto`}
+                  icon={Zap}
+                >
+                  {cortes.length === 0 ? (
+                    <p className="text-sm text-white/45">
+                      Ninguna con el campo abierto: todas se pitaron con el bloque
+                      hecho.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {cortes.map((f) => (
+                        <li
+                          key={f.clip}
+                          onMouseEnter={() => setResaltada(f.clip)}
+                          onMouseLeave={() => setResaltada(null)}
+                          className={`flex items-start gap-2 rounded-xl border px-2.5 py-2 transition ${
+                            resaltada === f.clip
+                              ? "border-[#C8A96B]/50 bg-[#C8A96B]/[0.07]"
+                              : "border-white/[0.06]"
+                          }`}
+                        >
+                          <span
+                            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-[#0B0F14]"
+                            style={{ background: TINTA_LADO[f.lado] }}
+                          >
+                            {f.entre}
+                          </span>
+
+                          <span className="min-w-0 text-[12px] leading-relaxed text-white/55">
+                            <span className="text-white/80">
+                              {NOMBRE_LADO[f.lado]}
+                            </span>
+                            {" · "}
+                            {f.zona}
+                            {f.carril ? ` · ${f.carril}` : ""}
+                            {f.distancia ? ` · ${f.distancia}` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </Panel>
 
@@ -315,31 +414,46 @@ export default function FaltasPage() {
 
             {faltas.length > 0 && (
               <div className="mt-4">
-                <Panel title="Una por una" subtitle="En el orden en que las cortó el coding">
+                <Panel
+                  title="Una por una"
+                  subtitle="En el orden en que se dieron. Pasa por encima de una fila y se enciende su punto en el campo"
+                >
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[640px] text-left text-sm">
+                    <table className="w-full min-w-[720px] text-left text-sm">
                       <thead className="text-[10px] uppercase tracking-[0.14em] text-white/35">
                         <tr>
-                          <th className="pb-2 pr-3 font-medium">Clip</th>
+                          <th className="pb-2 pr-3 font-medium">#</th>
+                          <th className="pb-2 pr-3 font-medium">Lado</th>
                           <th className="pb-2 pr-3 font-medium">Dónde</th>
                           <th className="pb-2 pr-3 font-medium">Distancia</th>
-                          <th className="pb-2 pr-3 font-medium">Entre</th>
+                          <th className="pb-2 pr-3 font-medium">Defendían</th>
                           <th className="pb-2 font-medium">Qué pasó</th>
                         </tr>
                       </thead>
 
                       <tbody className="align-top">
-                        {faltas.map((f) => (
-                          <tr key={f.clip} className="border-t border-white/[0.06]">
+                        {faltas.map((f, indice) => (
+                          <tr
+                            key={f.clip}
+                            onMouseEnter={() => setResaltada(f.clip)}
+                            onMouseLeave={() => setResaltada(null)}
+                            className={`border-t border-white/[0.06] transition ${
+                              resaltada === f.clip ? "bg-[#C8A96B]/[0.07]" : ""
+                            }`}
+                          >
+                            <td className="py-2 pr-3 font-mono text-[12px] tabular-nums text-white/35">
+                              {String(indice + 1).padStart(2, "0")}
+                            </td>
+
                             <td className="py-2 pr-3">
                               <span
-                                className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                                className="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
                                 style={{
                                   color: TINTA_LADO[f.lado],
                                   background: `${TINTA_LADO[f.lado]}1A`,
                                 }}
                               >
-                                {f.clip}
+                                {NOMBRE_LADO[f.lado]}
                               </span>
                             </td>
 
@@ -348,7 +462,9 @@ export default function FaltasPage() {
                               {f.carril ? ` · ${f.carril}` : ""}
                             </td>
 
-                            <td className="py-2 pr-3 text-white/60">{f.distancia || "—"}</td>
+                            <td className="py-2 pr-3 text-white/60">
+                              {f.distancia || "—"}
+                            </td>
 
                             <td className="py-2 pr-3 font-semibold text-white">
                               {f.entre ?? "?"}

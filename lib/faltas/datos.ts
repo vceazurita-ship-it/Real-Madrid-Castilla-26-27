@@ -1,11 +1,11 @@
 /**
- * Faltas etiquetadas a mano sobre los clips del coding.
+ * Faltas etiquetadas a mano mirando el vídeo del partido.
  *
  * ESTE FICHERO SE GENERA. No lo edites: lo escribe
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-09-25
+ * Generado: 2026-09-26
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -51,8 +51,8 @@ export const PARTIDOS: PartidoFaltas[] = [
     "resultado": "1-1",
     "clips": "C:/Users/Usuario/Downloads/ABP vs SANT ANDREU",
     "notas": [
-      "Partido fuera: el Castilla juega de blanco y el Sant Andreu de amarillo. Nuestro portero, de azul; el suyo, de verde.",
-      "Los clips no traen marcador ni reloj, así que las faltas no llevan minuto: van en el orden en que las cortó el coding."
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta: «campo propio» es el del que la saca, no el nuestro.",
+      "Las faltas van en el orden en que se dieron. El vídeo del partido no lleva reloj en pantalla, así que no se anota el minuto."
     ],
     "faltas": [
       {
@@ -62,7 +62,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 8,
-        "nota": "falta del Castilla al cortar la salida amarilla junto a la banda, sacan en corto y sigue el juego"
+        "nota": "Falta del Castilla al cortar la salida del Sant Andreu junto a la banda. Saque en corto y sigue el juego."
       },
       {
         "clip": "def-c02",
@@ -71,7 +71,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": 6,
-        "nota": "entrada del Castilla en el circulo central, el amarillo queda en el suelo y el saque en largo acaba con el balon en nuestra area"
+        "nota": "Entrada del Castilla en el círculo central. El jugador del Sant Andreu queda en el suelo y el saque en largo acaba con el balón en nuestra área."
       },
       {
         "clip": "def-c03",
@@ -80,7 +80,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "media",
         "entre": 2,
-        "nota": "falta del Castilla que corta la salida rapida amarilla con la defensa muy abierta, el saque llega al area y se despeja"
+        "nota": "Falta del Castilla para cortar una salida rápida del Sant Andreu con la defensa muy abierta. El saque llega al área y se despeja."
       },
       {
         "clip": "def-c04",
@@ -89,7 +89,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 6,
-        "nota": "falta del Castilla sobre el amarillo en el medio campo por su carril derecho, sacan en corto hacia la banda y sigue el juego"
+        "nota": "Falta del Castilla sobre un jugador del Sant Andreu en el medio campo, por su carril derecho. Saque en corto hacia la banda y sigue el juego."
       },
       {
         "clip": "def-c05",
@@ -98,7 +98,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 9,
-        "nota": "falta de un blanco sobre un amarillo junto a la banda cerca del area del Sant Andreu saque en largo y sigue el juego sin peligro"
+        "nota": "Falta del Castilla sobre un jugador del Sant Andreu junto a la banda, cerca de su propia área. Saque en largo y sigue el juego sin peligro."
       },
       {
         "clip": "def-c06",
@@ -107,7 +107,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "frontal",
         "entre": 5,
-        "nota": "derriban al amarillo en la frontal del area tras una contra y el clip acaba con la barrera colocandose"
+        "nota": "Derriban a un jugador del Sant Andreu en la frontal de nuestra área tras una contra. Falta directa, con barrera."
       },
       {
         "clip": "def-c07",
@@ -116,7 +116,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": 5,
-        "nota": "falta sobre un amarillo pegado a la banda pasado el medio campo el jugador queda tendido y hay parada larga por asistencia"
+        "nota": "Falta sobre un jugador del Sant Andreu pegado a la banda, pasado el medio campo. Queda tendido y hay parada larga por asistencia."
       },
       {
         "clip": "def-c08",
@@ -125,7 +125,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": 5,
-        "nota": "derriban al amarillo a unos 25 metros por su carril izquierdo saque muy retrasado que se cuelga al area y acaba en barullo delante del portero"
+        "nota": "Derriban a un jugador del Sant Andreu a unos 25 metros, por su carril izquierdo. Saque muy retrasado que se cuelga al área y acaba en barullo delante del portero."
       },
       {
         "clip": "def-c09",
@@ -134,7 +134,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 8,
-        "nota": "falta del Castilla sobre el que sacaba el balon junto a la banda, saque en largo al area y despeje"
+        "nota": "Falta del Castilla sobre el que sacaba el balón junto a la banda. Saque en largo al área y despeje."
       },
       {
         "clip": "def-c10",
@@ -143,7 +143,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": 9,
-        "nota": "falta junto al circulo central, parada muy larga con cambios y saque en largo al area del Castilla"
+        "nota": "Falta junto al círculo central. Parada muy larga con cambios y saque en largo al área del Castilla."
       },
       {
         "clip": "def-c11",
@@ -152,7 +152,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": 4,
-        "nota": "falta en el circulo central con el Castilla muy adelantado, parada larga por asistencia y saque en corto"
+        "nota": "Falta en el círculo central con el Castilla muy adelantado. Parada larga por asistencia y saque en corto."
       },
       {
         "clip": "def-c12",
@@ -161,7 +161,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 5,
-        "nota": "falta en su banda derecha con el Castilla presionando arriba, parada larga y saque en corto"
+        "nota": "Falta en la banda derecha del Sant Andreu con el Castilla presionando arriba. Parada larga y saque en corto."
       },
       {
         "clip": "of-c01",
@@ -170,7 +170,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 10,
-        "nota": "falta del rival sobre el jugador blanco al borde del area propia y el saque va en largo por banda hasta el medio campo"
+        "nota": "Falta del Sant Andreu sobre un jugador del Castilla al borde de nuestra área. El saque va en largo por banda hasta el medio campo."
       },
       {
         "clip": "of-c02",
@@ -179,7 +179,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": 9,
-        "nota": "dos rivales agarran al jugador blanco en la salida de balon y el saque se juega en corto para seguir jugando"
+        "nota": "Dos jugadores del Sant Andreu agarran a nuestro jugador en la salida de balón. El saque se juega en corto para seguir jugando."
       },
       {
         "clip": "of-c03",
@@ -188,7 +188,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": 10,
-        "nota": "cortan al conductor blanco dentro del circulo central y el balon queda parado en la linea de medio campo"
+        "nota": "Cortan a nuestro conductor dentro del círculo central. El balón queda parado en la línea de medio campo."
       },
       {
         "clip": "of-c04",
@@ -197,7 +197,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 10,
-        "nota": "choque con el rival en la banda izquierda justo en la linea de medio campo y el saque se juega en corto hacia dentro"
+        "nota": "Choque con un jugador del Sant Andreu en la banda izquierda, justo en la línea de medio campo. El saque se juega en corto hacia dentro."
       },
       {
         "clip": "of-c05",
@@ -206,7 +206,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": 10,
-        "nota": "falta sobre el jugador blanco en la linea de medio campo por la izquierda se saca en corto hacia atras y el Castilla reinicia la posesion sin peligro"
+        "nota": "Falta sobre nuestro jugador en la línea de medio campo, por la izquierda. Se saca en corto hacia atrás y el Castilla reinicia la posesión sin peligro."
       },
       {
         "clip": "of-c06",
@@ -215,7 +215,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "media",
         "entre": 8,
-        "nota": "falta pegada a la banda derecha ya en campo del Sant Andreu el blanco queda en el suelo se saca en corto y el Castilla sigue atacando por ese lado"
+        "nota": "Falta pegada a la banda derecha, ya en campo del Sant Andreu. Nuestro jugador queda en el suelo, se saca en corto y el Castilla sigue atacando por ese lado."
       },
       {
         "clip": "of-c07",
@@ -224,7 +224,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 11,
-        "nota": "entrada sobre el conductor justo por detras de la linea de medio campo en campo propio con todo el Sant Andreu por detras del balon y el clip acaba con el balon ya colocado"
+        "nota": "Entrada sobre nuestro conductor justo por detrás de la línea de medio campo, en campo propio, con todo el Sant Andreu por detrás del balón."
       },
       {
         "clip": "of-c08",
@@ -233,7 +233,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "frontal",
         "entre": 2,
-        "nota": "tras una parada larga el Castilla gana la espalda por la derecha y derriban al blanco junto al vertice del area con solo el portero y el defensa que entra por detras del balon"
+        "nota": "Tras una parada larga el Castilla gana la espalda por la derecha y derriban a nuestro jugador junto al vértice del área, con sólo el portero y el defensa que entra por detrás del balón."
       },
       {
         "clip": "of-c09",
@@ -242,7 +242,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "media",
         "entre": 6,
-        "nota": "falta sobre el atacante junto a la linea de fondo y el centro posterior lo atrapa el portero en el area pequena"
+        "nota": "Falta sobre nuestro atacante junto a la línea de fondo. El centro posterior lo atrapa el portero del Sant Andreu en el área pequeña."
       },
       {
         "clip": "of-c10",
@@ -251,7 +251,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": 9,
-        "nota": "entrada sobre el atacante en la esquina del area y el centro posterior lo despeja la defensa local con bloque muy replegado"
+        "nota": "Entrada sobre nuestro atacante en la esquina del área. El centro posterior lo despeja la defensa del Sant Andreu, con el bloque muy replegado."
       },
       {
         "clip": "of-c11",
@@ -260,7 +260,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "frontal",
         "entre": 2,
-        "nota": "agarron lejos del balon dentro del area con el atacante dolorido y solo el portero y su par por delante, el clip acaba antes del lanzamiento"
+        "nota": "Agarrón lejos del balón dentro del área, con nuestro atacante dolorido y sólo el portero y su par por delante."
       }
     ]
   }

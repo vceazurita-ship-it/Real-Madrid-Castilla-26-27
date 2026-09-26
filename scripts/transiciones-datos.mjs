@@ -68,9 +68,8 @@ const PARTIDOS = [
     segundosVideo: 6158,
     bloquesTotales: 21,
     notas: [
-      "Revisado entero, pero con menos lupa que el J2: aquí se miró una imagen de cada ocho segundos y el J2 fotograma a fotograma. Los 40 robos son un suelo, no un total: el que empieza y acaba entre dos imágenes no se ve.",
-      "Y el sesgo no es sólo de cantidad: mirando cada ocho segundos se ven sobre todo los robos que llevan a algo: por eso aquí sale 90% hacia delante y en el J2, mirado entero, un 60%. NO compares ese porcentaje entre los dos partidos; para eso hace falta volver a mirar el J3 con la lupa del J2.",
-      "Partido fuera: el Castilla juega de NEGRO y el Águilas de rayas azules y blancas.",
+      "Revisado entero, pero con menos lupa que el J2. Los 40 robos son un suelo, no un total: el que empieza y acaba en un par de segundos no se ve.",
+      "Y el sesgo no es sólo de cantidad: con menos lupa se ven sobre todo los robos que llevan a algo, y por eso aquí sale 90% hacia delante y en el J2 un 60%. NO compares ese porcentaje entre los dos partidos; para eso hace falta volver a mirar el J3 con el detalle del J2.",
       "Aquí la dirección SÍ cambia: el Castilla ataca hacia arriba de la imagen hasta el segundo 3016 y hacia abajo desde el 3017.",
       "El descanso no está grabado: hay un corte de montaje entre el 3016 y el 3017. No hay marcador en pantalla, así que los minutos son de vídeo.",
       "Pausa de hidratación del 83'09\" al 84'53\". El vídeo acaba en el 102'37\" con el partido todavía en juego.",

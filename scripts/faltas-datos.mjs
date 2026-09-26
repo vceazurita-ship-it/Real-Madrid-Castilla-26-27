@@ -48,8 +48,8 @@ const PARTIDOS = [
     resultado: "1-1",
     clips: "C:/Users/Usuario/Downloads/ABP vs SANT ANDREU",
     notas: [
-      "Partido fuera: el Castilla juega de blanco y el Sant Andreu de amarillo. Nuestro portero, de azul; el suyo, de verde.",
-      "Los clips no traen marcador ni reloj, así que las faltas no llevan minuto: van en el orden en que las cortó el coding.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta: «campo propio» es el del que la saca, no el nuestro.",
+      "Las faltas van en el orden en que se dieron. El vídeo del partido no lleva reloj en pantalla, así que no se anota el minuto.",
     ],
   },
 ];
@@ -118,7 +118,7 @@ function leePartido(partido) {
 const datos = PARTIDOS.map(leePartido);
 
 const cabecera = `/**
- * Faltas etiquetadas a mano sobre los clips del coding.
+ * Faltas etiquetadas a mano mirando el vídeo del partido.
  *
  * ESTE FICHERO SE GENERA. No lo edites: lo escribe
  * scripts/faltas-datos.mjs a partir de los CSV de
