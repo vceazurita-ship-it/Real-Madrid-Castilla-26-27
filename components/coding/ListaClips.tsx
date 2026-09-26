@@ -87,13 +87,27 @@ export function ListaClips({
     donde: "antes" | "despues";
   } | null>(null);
 
+  const limpia = () => {
+    setArrastrado(null);
+    setDestino(null);
+  };
+
+  /*
+  | SOLTAR MUEVE. TERMINAR EL ARRASTRE, NO.
+  |
+  | Esto mismo estaba colgado del `onDrop` **y** del `onDragEnd` del asa, y
+  | `dragend` salta también cuando el arrastre se CANCELA: arrastrar el clip
+  | 007, pasar por encima del 012, cambiar de idea y soltar fuera del panel
+  | movía el clip igual, porque `destino` seguía apuntando al 012 —tampoco se
+  | limpiaba al salir de la fila—. El orden de exportación cambiaba sin que
+  | nadie lo hubiera pedido.
+  */
   const suelta = () => {
     if (arrastrado && destino && arrastrado !== destino.id) {
       onMover(arrastrado, destino.id, destino.donde);
     }
 
-    setArrastrado(null);
-    setDestino(null);
+    limpia();
   };
 
   if (clips.length === 0) {
@@ -222,6 +236,17 @@ export function ListaClips({
                   evento.preventDefault();
                   suelta();
                 }}
+                onDragLeave={(evento) => {
+                  if (destino?.id !== clip.id) return;
+
+                  /* `dragleave` salta también al entrar en una celda de la
+                     propia fila: sólo cuenta salirse de la fila entera. */
+                  const fuera = evento.relatedTarget as Node | null;
+
+                  if (fuera && evento.currentTarget.contains(fuera)) return;
+
+                  setDestino(null);
+                }}
                 className={`cursor-pointer border-t transition ${
                   marca === "antes"
                     ? "border-t-2 border-t-[#C8A96B]"
@@ -249,7 +274,8 @@ export function ListaClips({
                       /* Firefox no arranca el arrastre sin datos dentro. */
                       evento.dataTransfer.setData("text/plain", clip.id);
                     }}
-                    onDragEnd={suelta}
+                    /* Sólo limpia: mover es cosa de `onDrop`. */
+                    onDragEnd={limpia}
                     onClick={(evento) => evento.stopPropagation()}
                     title="Arrastra para cambiar el orden del vídeo"
                     className="flex cursor-grab justify-center text-white/20 transition hover:text-white/60 active:cursor-grabbing"

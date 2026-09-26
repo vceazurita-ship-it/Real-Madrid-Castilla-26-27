@@ -1124,7 +1124,17 @@ function EditorPizarra({
 
       {/* --------------------------------- las herramientas ---------- */}
 
-      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/85 p-1.5 backdrop-blur">
+{/*
+        LA BARRA SE PARTE EN COLUMNAS CUANDO NO CABE DE ALTO.
+        Eran diecinueve botones en una sola columna, sin tope de alto y sin
+        forma de desplazarla: con el vídeo en una ventana baja —media pantalla,
+        un portátil, el móvil de lado— los de abajo se salían del hueco y NO
+        HABÍA MANERA de llegar a ellos. La cota y el fuera de juego, que son
+        los últimos, no existían. Con `flex-wrap` y el alto limitado al del
+        vídeo, lo que no cabe salta a una segunda columna al lado, y a una
+        tercera si hace falta: siempre se ven todas.
+      */}
+      <div className="pointer-events-auto absolute left-2 top-1/2 flex max-h-[calc(100%-6rem)] -translate-y-1/2 flex-col flex-wrap content-start gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/85 p-1.5 backdrop-blur">
         <BotonHerramienta
           activo={herramienta === "mano"}
           titulo="Elegir y mover (V)"
@@ -1135,7 +1145,9 @@ function EditorPizarra({
           }}
         />
 
-        <span className="my-0.5 h-px bg-white/10" />
+        {/* El filete va a lo ancho de UN botón: sin ancho propio, al partirse
+            la barra se estiraba por encima de todas las columnas. */}
+        <span className="my-0.5 h-px w-8 shrink-0 bg-white/10" />
 
         {HERRAMIENTAS.map((una) => (
           <BotonHerramienta
@@ -1214,7 +1226,10 @@ function EditorPizarra({
 
       {/* --------------------------------------- los ajustes --------- */}
 
-      <div className="pointer-events-auto absolute bottom-2 left-2 right-2 rounded-xl border border-white/10 bg-[#0B0F14]/88 backdrop-blur">
+      {/* Y la de abajo tampoco puede comerse el vídeo: en una ventana
+          estrecha los mandos se parten en cuatro o cinco renglones, así que se
+          le pone tope y se desplaza. */}
+      <div className="pointer-events-auto absolute bottom-2 left-2 right-2 max-h-[45%] overflow-y-auto rounded-xl border border-white/10 bg-[#0B0F14]/88 backdrop-blur">
         <div className="flex flex-wrap items-center gap-2 px-2 py-1.5">
           <div className="flex gap-1">
             {PALETA_TEL.map((una) => (

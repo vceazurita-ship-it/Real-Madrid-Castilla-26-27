@@ -25,7 +25,6 @@ import {
   CATEGORIAS_INICIALES,
   COMPORTAMIENTOS_INICIALES,
   TECLAS_RESERVADAS,
-  apodoCoding,
   reparteTeclas,
   teclasRepetidas,
   type CategoriaCoding,
@@ -47,7 +46,8 @@ export function ConfiguraCoding({
 }) {
   const [borrador, setBorrador] = useState<ConfigCoding>(config);
 
-  const repetidas = teclasRepetidas(borrador);
+  /* Sólo las de esta convocatoria: ver `teclasRepetidas`. */
+  const repetidas = teclasRepetidas(borrador, jugadores);
 
   const reservadas = [
     ...Object.values(borrador.teclasJugador),
@@ -214,15 +214,22 @@ export function ConfiguraCoding({
                 title="Color en la línea de tiempo"
               />
 
+              {/*
+                EL ID NO SE TOCA AL ESCRIBIR EL NOMBRE.
+                Se recalculaba a partir del nombre en cada tecla, y como la
+                fila lleva `key={categoria.id}`, React desmontaba y volvía a
+                montar la fila entera: el campo perdía el foco después de la
+                PRIMERA letra, así que escribir «Córner» dejaba una «C». Y dos
+                categorías nuevas sin nombre daban las dos `sin-id`, o sea dos
+                filas con la misma llave que `cambiaCategoria` editaba a la vez.
+                El id que se pone al crearla ya es único y estable, y además es
+                el que llevan dentro los clips ya codificados: cambiarlo a
+                media edición los dejaría huérfanos.
+              */}
               <input
                 value={categoria.nombre}
                 onChange={(evento) =>
-                  cambiaCategoria(categoria.id, {
-                    nombre: evento.target.value,
-                    id: categoria.id.startsWith("cat-")
-                      ? apodoCoding(evento.target.value)
-                      : categoria.id,
-                  })
+                  cambiaCategoria(categoria.id, { nombre: evento.target.value })
                 }
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/50"
               />
@@ -323,15 +330,11 @@ export function ConfiguraCoding({
                 title="Color del comportamiento"
               />
 
+              {/* Lo mismo que en las categorías: el id se queda quieto. */}
               <input
                 value={uno.nombre}
                 onChange={(evento) =>
-                  cambiaComportamiento(uno.id, {
-                    nombre: evento.target.value,
-                    id: uno.id.startsWith("col-")
-                      ? apodoCoding(evento.target.value)
-                      : uno.id,
-                  })
+                  cambiaComportamiento(uno.id, { nombre: evento.target.value })
                 }
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/50"
               />
@@ -378,7 +381,22 @@ export function ConfiguraCoding({
             onClick={() =>
               setBorrador((actual) => ({
                 ...actual,
-                teclasJugador: reparteTeclas(jugadores, {}),
+                teclasJugador: reparteTeclas(
+                  jugadores,
+                  /*
+                  | Se rehace lo de ESTA convocatoria, no el documento entero.
+                  |
+                  | Con `{}` se vaciaba `teclasJugador` de golpe, y como es un
+                  | documento compartido, darle a «Repartir de nuevo» mirando a
+                  | un rival borraba también el teclado del Castilla.
+                  */
+                  Object.fromEntries(
+                    Object.entries(actual.teclasJugador).filter(
+                      ([id]) => !jugadores.some((uno) => uno.id === id),
+                    ),
+                  ),
+                  actual.categorias.map((una) => una.tecla),
+                ),
               }))
             }
           >
@@ -442,6 +460,17 @@ function CampoTecla({
         if (!escuchando) return;
 
         evento.preventDefault();
+
+        /*
+        | La tecla se queda AQUÍ mientras se está capturando.
+        |
+        | `Dialog` escucha el Escape en la ventana, así que el Escape con el que
+        | se cancelaba la captura de una tecla llegaba también allí y CERRABA LA
+        | CONFIGURACIÓN ENTERA: media hora repartiendo el teclado de una
+        | plantilla, tirada por arrepentirse de una tecla. Y la barra espaciadora
+        | o una letra podían activar un botón de detrás.
+        */
+        evento.stopPropagation();
 
         if (evento.key === "Escape") {
           setEscuchando(false);

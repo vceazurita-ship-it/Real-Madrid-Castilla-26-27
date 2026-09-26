@@ -654,6 +654,7 @@ export function Field({
   type = "text",
   hint,
   suggestions,
+  autoFocus,
 }: {
   label: string;
   value: string;
@@ -662,6 +663,8 @@ export function Field({
   type?: "text" | "number";
   hint?: string;
   suggestions?: string[];
+  /** Se enfoca solo al aparecer. Para el primer campo de un diálogo. */
+  autoFocus?: boolean;
 }) {
   const id = useId();
   const listId = `${id}-list`;
@@ -676,6 +679,7 @@ export function Field({
         id={id}
         type={type}
         value={value}
+        autoFocus={autoFocus}
         placeholder={placeholder}
         list={suggestions?.length ? listId : undefined}
         onChange={(event) => onChange(event.target.value)}

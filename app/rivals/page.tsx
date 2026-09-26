@@ -4627,7 +4627,10 @@ export default function RivalPlayersPage() {
                       </Link>
                     </div>
 
+                    {/* El `key` limpia la ficha al pasar a otro jugador: ver
+                        el mismo sitio en /individual. */}
                     <ClipsDelJugador
+                      key={textoUtil(editForm.ID_JUGADOR)}
                       jugadorId={textoUtil(editForm.ID_JUGADOR)}
                       ambito="rival"
                       caratula={

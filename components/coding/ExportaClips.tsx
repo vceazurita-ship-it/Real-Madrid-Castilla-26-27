@@ -508,6 +508,25 @@ export function useExportador(opciones: {
 
         descarga(blob, `${peticion.nombre}.${extension}`);
 
+        /*
+        | EL CONTADOR SE PARA AQUÍ, NO EN EL `finally`.
+        |
+        | Estaba sólo en el `finally`, o sea DESPUÉS de esperar a
+        | `alTerminarVideo`, que es por donde entra la subida a YouTube. Con la
+        | subida encendida, el intervalo saltaba un segundo después del
+        | «Vídeo listo» y convertía ese mismo aviso —comparten `id`— otra vez
+        | en «Montando el vídeo…», contando segundos durante toda la subida. Y
+        | `setExportando(false)` esperaba lo mismo, así que los botones de
+        | exportar se quedaban apagados mientras el diálogo del nombre esperaba
+        | a que alguien escribiera.
+        */
+        if (tic) {
+          clearInterval(tic);
+          tic = undefined;
+        }
+
+        setExportando(false);
+
         toast.success("Vídeo listo", {
           id: aviso,
           description: `${peticion.nombre}.${extension} · ${megas(blob.size)} · ${reloj(
@@ -564,7 +583,29 @@ export function useExportador(opciones: {
           description: `${nombre} · el coding y las pizarras se quedan como están.`,
         });
 
-        onAdopta?.({ tipo: "archivo", ruta, nombre }, srcDeCarpeta(ruta));
+        /*
+        | EL VÍDEO ADOPTADO CONSERVA SU NOMBRE DE SIEMPRE, Y ES IMPORTANTE.
+        |
+        | El servidor devuelve el nombre con el que ha guardado el fichero, y
+        | ése NO es el que se abrió: le quita tildes, cambia lo que no sea
+        | letra o número por guiones y, si ya había uno igual, le pega un «-2».
+        | Así, «Castilla - Alcorcón 1ª parte.mov» volvía como otro nombre
+        | distinto.
+        |
+        | Y la sesión identifica los vídeos POR EL NOMBRE. Con el nombre
+        | cambiado, adoptar no cambiaba la fuente: metía un vídeo nuevo. La
+        | sesión pasaba de uno a dos, el de delante era la copia vacía, los
+        | clips —que se filtran por nombre— desaparecían de la lista y de la
+        | línea de tiempo, y encima entraba un corte de «Vídeo completo» que
+        | nadie había pedido. Una tarde de doscientos clips parecía perdida.
+        |
+        | Lo que cambia al llevarlo a la carpeta es DE DÓNDE se lee, no qué
+        | vídeo es: la ruta es la del servidor y el nombre sigue siendo el suyo.
+        */
+        onAdopta?.(
+          { tipo: "archivo", ruta, nombre: fichero.name },
+          srcDeCarpeta(ruta),
+        );
 
         setExportando(false);
 

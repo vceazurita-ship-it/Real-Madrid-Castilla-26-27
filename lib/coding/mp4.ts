@@ -1029,14 +1029,26 @@ export class MuxorMp4 {
         ),
         caja(
           "mdia",
+          /*
+          | LA DURACIÓN DEL VÍDEO VA EN 64 BITS, Y HACE FALTA.
+          |
+          | Esta caja iba en versión 0, que guarda la duración en 32 bits. Y la
+          | escala de esta pista es de MICROSEGUNDOS, así que el número se sale
+          | a los 4.295 segundos: 71 minutos y 36 segundos. El corte de «Vídeo
+          | completo» que la app crea sola para cada partido dura noventa, y ahí
+          | la pista decía durar dieciocho mientras `tkhd` y `mvhd` —que van en
+          | milisegundos y no se salen— decían noventa: cada reproductor se
+          | creía a uno distinto. La versión 1 de `mdhd` guarda las fechas y la
+          | duración en 64 bits y eso ya no pasa.
+          */
           cajaV(
             "mdhd",
+            1,
             0,
-            0,
-            u32(0),
-            u32(0),
+            u64(0),
+            u64(0),
             u32(ESCALA_VIDEO),
-            u32(Math.round(duracionVideo)),
+            u64(Math.round(duracionVideo)),
             u16(0x55c4),
             u16(0),
           ),
@@ -1178,7 +1190,18 @@ export class MuxorMp4 {
                   u16(16),
                   u16(0),
                   u16(0),
-                  u32(frecuencia * 65536),
+                  /*
+                  | La frecuencia es un 16.16, no un entero por 65536.
+                  |
+                  | `frecuencia * 65536` se sale de los 32 bits en cuanto la
+                  | fuente pasa de 65.535 Hz, y los 96 kHz están en la lista de
+                  | frecuencias que este mismo fichero sabe leer: el número
+                  | daba la vuelta y la cabecera salía con una basura. La parte
+                  | entera de un 16.16 son los dos primeros bytes, así que se
+                  | escribe así y ya no hay multiplicación que se desborde.
+                  */
+                  u16(Math.min(65535, Math.round(frecuencia))),
+                  u16(0),
                   esds,
                 ),
               ),

@@ -1498,10 +1498,24 @@ function pintaDifumina(entorno: Contexto, dibujo: DibujoTel) {
 
     ctx.filter = `blur(${Math.max(2, margen)}px)`;
 
+    /*
+    | EL ORIGEN NO SE PEGA AL BORDE, Y ESTO ERA UN AGUJERO DE VERDAD.
+    |
+    | El recorte de origen llevaba `Math.max(0, …)` pero el destino no, y los
+    | anchos tampoco: con la caja pegada al borde izquierdo o al de arriba, el
+    | origen empezaba en 0 y se pintaba en `x - margen` —negativo— con el mismo
+    | ancho, así que la imagen salía CORRIDA unos veinte píxeles a la derecha y
+    | lo de debajo del borde aparecía sin difuminar. Justo la cara o la
+    | matrícula que se quería tapar.
+    |
+    | `drawImage` sabe recortar un origen que se sale: recorta el destino en la
+    | misma proporción, que es exactamente lo que hace falta. Es lo que ya hace
+    | `recorta()` unas líneas más arriba, sin tope y bien.
+    */
     ctx.drawImage(
       imagen,
-      Math.max(0, (x - margen) * escalaX),
-      Math.max(0, (y - margen) * escalaY),
+      (x - margen) * escalaX,
+      (y - margen) * escalaY,
       (ancho + margen * 2) * escalaX,
       (alto + margen * 2) * escalaY,
       x - margen,

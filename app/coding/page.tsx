@@ -693,10 +693,16 @@ function Coding() {
 
   const { ponFuente, añadeVideos, ponCortesCompletos, quitaVideo } = sesion;
 
-  /* Las teclas de quien todavía no tenga: se reparten con la lista delante. */
+  /* Las teclas de quien todavía no tenga: se reparten con la lista delante,
+     y sin pisar las que ya se llevan las categorías. */
   const teclas = useMemo(
-    () => reparteTeclas(jugadores, config.teclasJugador),
-    [config.teclasJugador, jugadores],
+    () =>
+      reparteTeclas(
+        jugadores,
+        config.teclasJugador,
+        config.categorias.map((una) => una.tecla),
+      ),
+    [config.categorias, config.teclasJugador, jugadores],
   );
 
   /* ------------------------------------------------- el reproductor */
@@ -2794,7 +2800,17 @@ function Coding() {
        en el bloque que se está a punto de cerrar. */
     vaciando ||
     /* Con la hoja de selección abierta, la I no puede marcar por detrás. */
-    eligiendoMarca;
+    eligiendoMarca ||
+    /*
+    | Y con el diálogo del nombre de YouTube delante, tampoco.
+    |
+    | Se quedaba fuera de esta lista, y ese diálogo no enfoca solo: bastaba
+    | pinchar en su cuerpo o en un botón y darle a Retroceso para corregir el
+    | título para que, por detrás, `sesion.deshacer()` se llevara el último
+    | clip del partido —con su «Deshecho» y todo, invisible bajo el modal—.
+    | El espacio paraba el vídeo y la I y la O movían los cortes.
+    */
+    pideNombre !== null;
 
   useEffect(() => {
     if (hayModal) return;
@@ -4296,6 +4312,18 @@ function Coding() {
                   setSeleccionado(null);
                   setFiltroSujeto(null);
                   setFiltroCategoria(null);
+
+                  /*
+                  | La cola, de verdad: aquí faltaba.
+                  |
+                  | El comentario de arriba ya decía que la cola es del bloque
+                  | cerrado, pero no se vaciaba: con «Reproducir todos» en
+                  | marcha, vaciar el bloque dejaba el vídeo dando saltos por
+                  | los cortes que se acababan de quitar.
+                  */
+                  setCola(null);
+                  setEnCola(0);
+                  setBucle(false);
 
                   toast.success("Listo para el bloque siguiente", {
                     description: `${llevado.clips} corte${

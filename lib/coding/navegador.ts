@@ -305,15 +305,31 @@ function siguienteDelVideo(video: HTMLVideoElement, plazoMs = 250) {
   });
 }
 
-/** Lleva el vídeo a un instante y espera a tener ese fotograma de verdad. */
+/**
+ * Lleva el vídeo a un instante y espera a tener ese fotograma de verdad.
+ *
+ * SI NO LLEGA, SE ROMPE, Y ANTES NO.
+ *
+ * Devolvía `false` al agotarse los veinte segundos y ninguno de los cinco
+ * sitios que la llaman miraba el resultado: el corte se grababa desde donde se
+ * hubiera quedado `currentTime`, así que el fichero salía con el nombre de la
+ * acción correcta y **otra jugada dentro**. En un partido pesado eso pasa, y no
+ * hay forma de enterarse mirando: el detector de cuelgues tampoco lo ve,
+ * porque el vídeo SÍ avanza, sólo que desde el sitio equivocado. Un corte
+ * equivocado y mudo es peor que un montaje que se para y lo dice.
+ */
 async function ve(video: HTMLVideoElement, segundos: number) {
-  if (Math.abs(video.currentTime - segundos) < 0.002) return true;
+  if (Math.abs(video.currentTime - segundos) < 0.002) return;
 
   const llegada = esperaEvento(video, "seeked", 20_000);
 
   video.currentTime = segundos;
 
-  return llegada;
+  if (!(await llegada)) {
+    throw new Error(
+      `El vídeo no ha conseguido colocarse en ${reloj(segundos)}. El montaje se para aquí para no grabar otra jugada con este nombre.`,
+    );
+  }
 }
 
 /**
@@ -1120,6 +1136,22 @@ async function montaATiempoReal(
           indice += 1;
 
           await arrancaConImagen(graba);
+
+          /*
+          | EL CRONÓMETRO DEL CUELGUE SE PONE A CERO AL SALIR DE UNA PARADA.
+          |
+          | `sostiene` se come los segundos de la pizarra con el vídeo PARADO a
+          | propósito, así que el reloj del vídeo no se mueve ni tiene por qué.
+          | Sin reponer `desdeCuando`, esos segundos contaban como vídeo
+          | atascado: cualquier pizarra de diez segundos o más —y los mandos
+          | dejan ponerla en treinta— tumbaba el montaje entero con un
+          | «El vídeo se ha quedado parado y no avanza» que era mentira.
+          |
+          | `ultimoT` también, porque el reloj puede haber retrocedido un pelo
+          | al volver a arrancar y entonces no pasaría el margen de 250 ms.
+          */
+          ultimoT = -1;
+          desdeCuando = performance.now();
 
           continue;
         }

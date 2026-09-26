@@ -3567,7 +3567,18 @@ export default function IndividualPage() {
                             </Link>
                           </div>
 
+                          {/*
+                            EL `key` ES LO QUE LIMPIA LA FICHA AL CAMBIAR DE
+                            JUGADOR. Sin él, las flechas ← y → pasaban al
+                            siguiente sin cerrar la tarjeta y los cortes del
+                            anterior se quedaban en pantalla debajo del nombre
+                            nuevo; y como `elegidos` seguía con las claves del
+                            de antes, la cabecera decía «0 de N» y «Vídeo
+                            unificado» soltaba un aviso falso de que ningún
+                            corte se podía leer.
+                          */}
                           <ClipsDelJugador
+                            key={selected.idJugador}
                             jugadorId={selected.idJugador}
                             ambito="partido"
                             caratula={{

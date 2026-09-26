@@ -607,8 +607,11 @@ export function DialogoNombreYoutube({
       }
     >
       <div className="space-y-3">
+        {/* Enfocado al abrir: se viene aquí a corregir el título, y sin foco
+            las teclas se las quedaba la pantalla de detrás. */}
         <Field
           label="Título"
+          autoFocus
           value={titulo}
           onChange={setTitulo}
           hint={`${largo} de 100 caracteres${

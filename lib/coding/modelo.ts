@@ -314,6 +314,49 @@ export const TECLAS_JUGADOR_POR_DEFECTO = [
   "m",
 ];
 
+/**
+ * Lo que se reparte cuando se acaban las de siempre.
+ *
+ * Una convocatoria de dieciocho cabe en `TECLAS_JUGADOR_POR_DEFECTO`; una de
+ * veintidós con los tres porteros y dos juveniles, no, y los de abajo se
+ * quedaban sin nada. Primero van las del teclado español que no usa nadie
+ * —ésas no pueden chocar— y detrás el resto del abecedario: si una categoría
+ * ya se lleva esa letra, se salta sola porque entra en `usadas`.
+ *
+ * Las de puntuación son todas de pulsación SIMPLE en el teclado español: el
+ * turno de mayúsculas es el teclado de los comportamientos colectivos y no se
+ * le puede quitar ni una.
+ *
+ * Medido con una convocatoria de veintidós y las categorías de fábrica: con
+ * sólo cuatro signos se quedaba uno sin tecla, y no se veía hasta tener la
+ * plantilla entera delante.
+ */
+export const TECLAS_JUGADOR_DE_RESERVA = [
+  "ñ",
+  ",",
+  ".",
+  "-",
+  "'",
+  "ç",
+  "<",
+  "+",
+  "º",
+  "q",
+  "w",
+  "e",
+  "r",
+  "t",
+  "y",
+  "u",
+  "a",
+  "s",
+  "d",
+  "f",
+  "g",
+  "h",
+  "p",
+];
+
 export const CONFIG_POR_DEFECTO: ConfigCoding = {
   categorias: CATEGORIAS_INICIALES,
   comportamientos: COMPORTAMIENTOS_INICIALES,
@@ -1085,17 +1128,53 @@ export function normalizaConfig(crudo: unknown): ConfigCoding {
 export function reparteTeclas(
   jugadores: { id: string }[],
   teclas: Record<string, string>,
+  /** Las que ya se llevan las categorías, para no dar una tecla pisada. */
+  ocupadas: string[] = [],
 ): Record<string, string> {
-  const usadas = new Set(Object.values(teclas).filter(Boolean));
+  /*
+  | SÓLO ESTORBAN LAS TECLAS DE ESTA LISTA, Y AQUÍ ESTABA EL FALLO GORDO.
+  |
+  | `teclas` es un documento compartido: la plantilla del Castilla, la de cada
+  | rival y la de cualquier convocatoria de hace tres meses viven todas en
+  | `coding:config`. Sembrando `usadas` con el documento ENTERO bastaba con
+  | haber guardado una convocatoria de dieciocho para que, al abrir un rival,
+  | no quedara ni una tecla libre y NINGÚN jugador del rival tuviera tecla:
+  | la pantalla entera se quedaba sin su forma de marcar.
+  |
+  | Lo que de verdad choca es lo que se pulsa a la vez, o sea los jugadores que
+  | hay delante. Lo de los demás no se borra —sigue en `resultado`— pero no
+  | reserva teclado.
+  */
+  const dentro = new Set(jugadores.map((uno) => uno.id));
+
+  const usadas = new Set(
+    Object.entries(teclas)
+      .filter(([id, tecla]) => Boolean(tecla) && dentro.has(id))
+      .map(([, tecla]) => tecla),
+  );
+
+  for (const tecla of ocupadas) if (tecla) usadas.add(tecla);
+
+  const reserva = [
+    ...TECLAS_JUGADOR_POR_DEFECTO,
+    ...TECLAS_JUGADOR_DE_RESERVA,
+  ].filter((tecla) => !TECLAS_RESERVADAS.includes(tecla));
 
   const resultado = { ...teclas };
 
   for (const jugador of jugadores) {
     if (resultado[jugador.id]) continue;
 
-    const libre = TECLAS_JUGADOR_POR_DEFECTO.find((tecla) => !usadas.has(tecla));
+    const libre = reserva.find((tecla) => !usadas.has(tecla));
 
-    if (!libre) break;
+    /*
+    | Sin hueco se sigue, no se corta.
+    |
+    | Con `break`, el primero que se quedaba sin tecla dejaba sin repartir a
+    | TODOS los de detrás. Si de verdad no queda ninguna, ese jugador se marca
+    | con el ratón y los demás conservan la suya.
+    */
+    if (!libre) continue;
 
     resultado[jugador.id] = libre;
     usadas.add(libre);
@@ -1105,7 +1184,11 @@ export function reparteTeclas(
 }
 
 /** Las teclas repetidas, para poder avisar en la configuración. */
-export function teclasRepetidas(config: ConfigCoding): string[] {
+export function teclasRepetidas(
+  config: ConfigCoding,
+  /** Si se da, sólo cuentan los jugadores que hay delante. */
+  jugadores?: { id: string }[],
+): string[] {
   const cuenta = new Map<string, number>();
 
   const suma = (tecla: string) => {
@@ -1114,7 +1197,19 @@ export function teclasRepetidas(config: ConfigCoding): string[] {
     cuenta.set(tecla, (cuenta.get(tecla) ?? 0) + 1);
   };
 
-  Object.values(config.teclasJugador).forEach(suma);
+  /*
+  | Los de otras convocatorias no cuentan como repetidos.
+  |
+  | Desde que el reparto sólo mira a los jugadores de la pantalla, la misma
+  | tecla puede estar en un jugador del Castilla y en uno del Alcorcón sin que
+  | eso sea un problema: no se pulsan nunca a la vez. Contando el documento
+  | entero, el aviso saltaría siempre y acabaría sin mirarse.
+  */
+  const dentro = jugadores ? new Set(jugadores.map((uno) => uno.id)) : null;
+
+  Object.entries(config.teclasJugador)
+    .filter(([id]) => !dentro || dentro.has(id))
+    .forEach(([, tecla]) => suma(tecla));
   config.categorias.forEach((categoria) => suma(categoria.tecla));
 
   /*

@@ -10,6 +10,7 @@ import {
   cortaClipConParadas,
   creaCarpetaTemporal,
   entradaDeFuente,
+  urlDeFueraDeCasa,
   guardaImagen,
   hayFfmpeg,
   imagenComoVideo,
@@ -172,6 +173,38 @@ export async function POST(request: NextRequest) {
   /* Cada clip puede traer el suyo; el de la petición es el de por defecto. */
   const entradaDe = (clip: ClipPedido) =>
     clip.fuente ? entradaDeFuente(clip.fuente) : entrada;
+
+  /*
+  | Las URLs, comprobadas antes de que ffmpeg toque ninguna.
+  |
+  | Se juntan las distintas y se resuelven de una vez: una por clip serían
+  | doscientas consultas de DNS para el mismo servidor.
+  */
+  const urlsPedidas = [
+    ...new Set(
+      [peticion.fuente, ...clips.map((clip) => clip.fuente)]
+        .filter((fuente) => fuente?.tipo === "url")
+        .map((fuente) => (fuente as { url: string }).url),
+    ),
+  ];
+
+  const malas: string[] = [];
+
+  for (const url of urlsPedidas) {
+    if (!(await urlDeFueraDeCasa(url))) malas.push(url);
+  }
+
+  if (malas.length > 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Ese enlace no se puede leer desde el servidor: tiene que ser una " +
+          "dirección http(s) pública, no una de la red interna.",
+      },
+      { status: 400 },
+    );
+  }
 
   const sinVideo = clips.filter((clip) => !entradaDe(clip));
 

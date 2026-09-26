@@ -67,7 +67,22 @@ export function LineaDeTiempo({
     id: string;
     tMs: number;
     movida: boolean;
+    /** Dónde se apoyó el dedo, para saber si de verdad se ha arrastrado. */
+    desdeX: number;
   } | null>(null);
+
+  /*
+  | CUÁNTO HAY QUE ARRASTRAR PARA QUE CUENTE COMO ARRASTRE.
+  |
+  | `movida` se ponía a `true` en CUALQUIER `pointermove`, y un dedo sobre una
+  | tableta —que es donde se usa esta pantalla— nunca se está del todo quieto.
+  | La muesca mide 1,5 px y en un partido de noventa minutos sobre una barra de
+  | 800 px un solo píxel son casi siete segundos: tocar una pizarra para abrirla
+  | la movía varios segundos, lo guardaba con `mueveEscena` y encima saltaba el
+  | vídeo en vez de abrir el dibujo. Seis píxeles es lo que el sistema llama un
+  | arrastre y un dedo no los hace sin querer.
+  */
+  const ARRASTRE_MINIMO_PX = 6;
 
   const porcentaje = useCallback(
     (ms: number) => (duracionMs > 0 ? (ms / duracionMs) * 100 : 0),
@@ -184,16 +199,29 @@ export function LineaDeTiempo({
 
                 evento.currentTarget.setPointerCapture(evento.pointerId);
 
-                setArrastrada({ id: escena.id, tMs: escena.tMs, movida: false });
+                setArrastrada({
+                  id: escena.id,
+                  tMs: escena.tMs,
+                  movida: false,
+                  desdeX: evento.clientX,
+                });
               }}
               onPointerMove={(evento) => {
                 if (arrastrada?.id !== escena.id) return;
 
                 evento.stopPropagation();
 
-                const tMs = msDeEvento(evento.clientX);
+                const lejos =
+                  Math.abs(evento.clientX - arrastrada.desdeX) >= ARRASTRE_MINIMO_PX;
 
-                setArrastrada({ id: escena.id, tMs, movida: true });
+                /* Antes del umbral no se toca nada: ni la posición dibujada. */
+                if (!lejos && !arrastrada.movida) return;
+
+                setArrastrada({
+                  ...arrastrada,
+                  tMs: msDeEvento(evento.clientX),
+                  movida: true,
+                });
               }}
               onPointerUp={(evento) => {
                 if (arrastrada?.id !== escena.id) return;
@@ -212,6 +240,19 @@ export function LineaDeTiempo({
                 } else {
                   onSalta(escena.tMs);
                 }
+
+                setArrastrada(null);
+              }}
+              /*
+              | Un toque que el sistema cancela —una llamada, el gesto de
+              | volver atrás, el dedo saliéndose de la pantalla— no manda
+              | `pointerup`. Sin esto, la muesca se quedaba dibujada en el
+              | sitio abandonado hasta recargar la página.
+              */
+              onPointerCancel={(evento) => {
+                if (arrastrada?.id !== escena.id) return;
+
+                evento.stopPropagation();
 
                 setArrastrada(null);
               }}

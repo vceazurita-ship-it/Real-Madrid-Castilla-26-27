@@ -63,6 +63,39 @@ export type VideoElegido = {
   fichero?: File;
 };
 
+/**
+ * Cómo se llama el vídeo de un enlace.
+ *
+ * Dos cosas que estaban mal en una línea:
+ *
+ * - `decodeURIComponent` **revienta** con un `%` suelto —`URIError`— y eso
+ *   ocurre de verdad: basta pegar una URL con un «100%» en el nombre. La
+ *   excepción salía dentro del `onClick`, así que el botón no hacía nada y no
+ *   se decía por qué.
+ * - Cortando por «/» a pelo, la última pieza de una URL firmada se lleva TODA
+ *   la cadena de consulta: el vídeo se llamaba
+ *   `partido.mp4?X-Amz-Signature=…` y, como la sesión identifica los vídeos por
+ *   el nombre, el mismo partido con otra firma era otro vídeo.
+ */
+function nombreDeEnlace(url: string) {
+  let camino = url;
+
+  try {
+    camino = new URL(url).pathname;
+  } catch {
+    /* Sin protocolo no es una URL: se corta a mano y ya. */
+    camino = url.split("?")[0].split("#")[0];
+  }
+
+  const ultimo = camino.split("/").filter(Boolean).pop() ?? "partido";
+
+  try {
+    return decodeURIComponent(ultimo) || "partido";
+  } catch {
+    return ultimo || "partido";
+  }
+}
+
 export function SelectorFuente({
   fuente,
   videos,
@@ -274,7 +307,7 @@ export function SelectorFuente({
                   fuente: {
                     tipo: "url" as const,
                     url,
-                    nombre: decodeURIComponent(url.split("/").pop() ?? "partido"),
+                    nombre: nombreDeEnlace(url),
                   },
                   src: url,
                 })),

@@ -146,7 +146,24 @@ export async function subeAYoutube(opciones: {
       | sí había terminado: el corte puede haber sido al recibir la respuesta,
       | con el vídeo ya entero en Google.
       */
-      const estado = await preguntaPorDonde(url, blob.size, senal).catch(() => null);
+      const estado = await preguntaPorDonde(url, blob.size, senal).catch(
+        (error: unknown) => {
+          /*
+          | LO FATAL NO SE TRAGA.
+          |
+          | Este `.catch` se comía TODO, incluida la única respuesta que
+          | significa «esta URL está muerta»: el 404/410 con el que
+          | `preguntaPorDonde` avisa de que la sesión de subida ha caducado.
+          | Al tragárselo, `desde` volvía a 0 y el bucle mandaba el fichero
+          | ENTERO otra vez, hasta cuatro veces más, contra una dirección que
+          | ya no existe. En un unificado de 800 MB eso son horas de subida
+          | tirada que además acaban con el mensaje equivocado.
+          */
+          if (error instanceof FalloSubida && error.fatal) throw error;
+
+          return null;
+        },
+      );
 
       if (estado && "id" in estado) {
         videoId = estado.id;
@@ -314,7 +331,21 @@ function preguntaPorDonde(url: string, total: number, senal?: AbortSignal) {
 
     peticion.onload = () => {
       if (peticion.status === 200 || peticion.status === 201) {
-        const id = (JSON.parse(peticion.responseText || "{}") as { id?: string }).id;
+        /*
+        | El JSON se lee dentro de un try, y no es por gusto.
+        |
+        | Esto estaba al aire dentro del manejador del XHR: un 200 con un
+        | cuerpo que no fuera JSON —la pasarela de la red del club metiendo su
+        | página de aviso— tiraba aquí y la promesa NO SE RESOLVÍA NUNCA. La
+        | subida se quedaba dando vueltas para siempre, sin error y sin fin.
+        */
+        let id = "";
+
+        try {
+          id = (JSON.parse(peticion.responseText || "{}") as { id?: string }).id ?? "";
+        } catch {
+          id = "";
+        }
 
         if (id) {
           resuelve({ id });

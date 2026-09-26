@@ -8,6 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
+import { lookup } from "node:dns/promises";
 import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import path from "node:path";
@@ -149,11 +150,103 @@ export async function destinoDeImportacion(nombre: string) {
   return { absoluta: path.join(base, relativa), relativa };
 }
 
+/**
+ * ¿Es una dirección de la red de dentro?
+ *
+ * Todo lo que no sea internet público: el bucle local, los rangos privados de
+ * la RFC 1918, la 169.254 —donde vive el servicio de metadatos de los
+ * proveedores, que es el objetivo clásico— y sus equivalentes en IPv6.
+ */
+function esDeCasa(ip: string) {
+  const limpio = ip.replace(/^\[|\]$/g, "").replace(/^::ffff:/i, "");
+
+  const trozos = limpio.split(".");
+
+  if (trozos.length === 4 && trozos.every((uno) => /^\d{1,3}$/.test(uno))) {
+    const [a, b] = trozos.map(Number);
+
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    if (a >= 224) return true;
+
+    return false;
+  }
+
+  const seis = limpio.toLowerCase();
+
+  if (seis === "::" || seis === "::1") return true;
+
+  /* fc00::/7 (privadas) y fe80::/10 (enlace local). */
+  return /^f[cd]/.test(seis) || /^fe[89ab]/.test(seis);
+}
+
+/**
+ * COMPRUEBA QUE UNA URL DEL CLIENTE APUNTA FUERA, NO A LA RED DEL DESPLIEGUE.
+ *
+ * Aquí entra una URL que escribe quien usa la app —«Desde un enlace» del
+ * selector de fuente— y va derecha a ffmpeg, que se la descarga. Sin esta
+ * comprobación, una petición con
+ * `fuente: { tipo: "url", url: "http://169.254.169.254/…" }` hacía que el
+ * servidor se asomara a su propia red interna y devolviera por el informe de
+ * ffmpeg lo que hubiera encontrado. `guardaImagen` ya se defendía de esto con
+ * `esDelBucket`; la entrada de vídeo no, y no puede limitarse al bucket porque
+ * pegar un enlace de un proveedor es una función de verdad.
+ *
+ * Se mira el nombre **y a dónde resuelve**: sin lo segundo basta un dominio
+ * propio apuntando a 127.0.0.1 para saltársela.
+ */
+export async function urlDeFueraDeCasa(url: string) {
+  let sitio: URL;
+
+  try {
+    sitio = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (sitio.protocol !== "http:" && sitio.protocol !== "https:") return false;
+
+  /* Usuario y contraseña en la URL: no hace falta para un vídeo y es la forma
+     de colar credenciales de dentro. */
+  if (sitio.username || sitio.password) return false;
+
+  const nombre = sitio.hostname.toLowerCase();
+
+  if (
+    nombre === "localhost" ||
+    nombre.endsWith(".localhost") ||
+    nombre.endsWith(".internal") ||
+    nombre.endsWith(".local") ||
+    /* Sin punto sólo puede ser una máquina de la red de dentro. */
+    !nombre.includes(".")
+  ) {
+    return false;
+  }
+
+  if (esDeCasa(nombre)) return false;
+
+  try {
+    const sitios = await lookup(nombre, { all: true });
+
+    if (sitios.length === 0) return false;
+
+    return sitios.every((uno) => !esDeCasa(uno.address));
+  } catch {
+    /* Si no resuelve, ffmpeg tampoco va a poder: se corta aquí. */
+    return false;
+  }
+}
+
 /** Lo que se le pasa a ffmpeg como entrada: una ruta de disco o una URL. */
 export function entradaDeFuente(fuente: FuenteServidor) {
   if (fuente.tipo === "url") {
     /* Sólo http(s): `file:` o `concat:` desde el cliente sería dar acceso al
-       disco del servidor con otro nombre. */
+       disco del servidor con otro nombre. Que apunte de verdad a fuera lo
+       comprueba `urlDeFueraDeCasa`, que necesita esperar al DNS. */
     if (!/^https?:\/\//i.test(fuente.url)) return null;
 
     return fuente.url;
