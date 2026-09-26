@@ -52,6 +52,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
+import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 
 /* ------------------------------------------------------------------ */
 /*  Colores                                                            */
@@ -190,6 +191,21 @@ export default function TransicionesPage() {
   const elegidos = useMemo(
     () => (quien === "todos" ? partidos : partidos.filter((p) => p.id === quien)),
     [partidos, quien],
+  );
+
+  /*
+  | Cuál se va a actualizar: el que se esté mirando, o el último.
+  |
+  | `partidos` se queda con los que tienen algo etiquetado, así que para el
+  | panel se mira la lista ENTERA: el partido que se acaba de dar de alta y
+  | todavía no tiene ni un robo es justo el que hay que preparar.
+  */
+  const paraActualizar = useMemo(
+    () =>
+      quien === "todos"
+        ? PARTIDOS[PARTIDOS.length - 1]
+        : PARTIDOS.find((p) => p.id === quien),
+    [quien],
   );
 
   /** Los robos que se están contando ahora mismo, ya filtrados. */
@@ -831,6 +847,15 @@ export default function TransicionesPage() {
                 </Panel>
               </div>
             )}
+
+            {/* Lo mismo que en faltas: la ruta del vídeo se escribe aquí y
+                salen las órdenes hechas, en vez de vivir dentro de un script. */}
+            <div className="mt-4">
+              <ComoActualizar
+                videoPorDefecto={paraActualizar?.video ?? ""}
+                partidoPorDefecto={paraActualizar?.id ?? ""}
+              />
+            </div>
 
             <p className="mt-6 text-xs leading-relaxed text-white/30">
               Cuenta como robo la recuperación activa: entrada, interceptación o balón ganado

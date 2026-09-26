@@ -35,6 +35,8 @@ export type PartidoTransiciones = {
   local: boolean;
   fecha: string;
   resultado: string;
+  /** Dónde está el vídeo, para poder volver a él y para el panel de actualizar. */
+  video: string;
   segundosVideo: number;
   bloquesTotales: number;
   bloquesCerrados: number;
@@ -53,6 +55,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
     "local": true,
     "fecha": "2026-09-05",
     "resultado": "",
+    "video": "",
     "segundosVideo": 6060,
     "bloquesTotales": 20,
     "notas": [
@@ -553,6 +556,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
     "local": false,
     "fecha": "2026-09-12",
     "resultado": "",
+    "video": "",
     "segundosVideo": 6158,
     "bloquesTotales": 21,
     "notas": [
@@ -1054,5 +1058,24 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "bloque": "b06000"
       }
     ]
+  },
+  {
+    "id": "sant-andreu",
+    "jornada": "J4",
+    "rival": "UE Sant Andreu",
+    "local": false,
+    "fecha": "2026-09-21",
+    "resultado": "1-1",
+    "video": "C:/Users/Usuario/Downloads/SANT ANDREU - RM CASTILLA.mov",
+    "segundosVideo": 5914,
+    "bloquesTotales": 20,
+    "notas": [
+      "Revisado con la misma lupa que el J3, no con la del J2: los robos que salen son un suelo, no un total, y el que empieza y acaba en un par de segundos no se ve.",
+      "Por lo mismo, el reparto entre ADELANTE y HORIZONTAL_ATRAS de este partido NO se puede comparar con el del J2, que se miró imagen a imagen. Con el J3 sí: están mirados igual."
+    ],
+    "goles": [],
+    "bloquesCerrados": 0,
+    "segundosRevisados": 0,
+    "robos": []
   }
 ];

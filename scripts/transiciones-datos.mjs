@@ -40,6 +40,12 @@ const PARTIDOS = [
     local: true,
     fecha: "2026-09-05",
     resultado: "",
+    /*
+    | Sin ruta: estos dos vídeos ya no están en este ordenador y no consta
+    | dónde acabaron. Se deja en blanco a propósito —una ruta que no existe es
+    | peor que ninguna— y el panel de actualizar empieza vacío para ellos.
+    */
+    video: "",
     segundosVideo: 6060,
     /*
     | Veinte y no veintiuno: el último bloque se etiquetó de corrido desde el
@@ -65,6 +71,7 @@ const PARTIDOS = [
     local: false,
     fecha: "2026-09-12",
     resultado: "",
+    video: "",
     segundosVideo: 6158,
     bloquesTotales: 21,
     notas: [
@@ -78,6 +85,22 @@ const PARTIDOS = [
     goles: [
       { seg: 687, de: "rival", texto: "Gol del Águilas, en una falta al borde del área" },
     ],
+  },
+  {
+    id: "sant-andreu",
+    jornada: "J4",
+    rival: "UE Sant Andreu",
+    local: false,
+    fecha: "2026-09-21",
+    resultado: "1-1",
+    video: "C:/Users/Usuario/Downloads/SANT ANDREU - RM CASTILLA.mov",
+    segundosVideo: 5914,
+    bloquesTotales: 20,
+    notas: [
+      "Revisado con la misma lupa que el J3, no con la del J2: los robos que salen son un suelo, no un total, y el que empieza y acaba en un par de segundos no se ve.",
+      "Por lo mismo, el reparto entre ADELANTE y HORIZONTAL_ATRAS de este partido NO se puede comparar con el del J2, que se miró imagen a imagen. Con el J3 sí: están mirados igual.",
+    ],
+    goles: [],
   },
 ];
 
@@ -215,6 +238,8 @@ export type PartidoTransiciones = {
   local: boolean;
   fecha: string;
   resultado: string;
+  /** Dónde está el vídeo, para poder volver a él y para el panel de actualizar. */
+  video: string;
   segundosVideo: number;
   bloquesTotales: number;
   bloquesCerrados: number;
