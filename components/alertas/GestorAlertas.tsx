@@ -86,13 +86,26 @@ export default function GestorAlertas() {
 
     const ahora = Date.now();
 
+    /*
+    | Se recalculan TODAS, no sólo las vencidas.
+    |
+    | Antes sólo se tocaban las que ya habían pasado o no tenían fecha, y eso
+    | dejaba fuera justo el caso que da sentido a esta periodicidad: que el
+    | partido se mueva. Una jornada que pasa del domingo al miércoles deja un
+    | MD-2 apuntando al viernes de antes —cinco días pronto—, y una adelantada
+    | lo deja sonando DESPUÉS del partido. El formulario promete que «se mueve
+    | solo», así que tiene que moverse.
+    */
     const desfasadas = alertas.filter((alerta) => {
       if (!alerta.activa || alerta.repeticion !== "partido") return false;
 
-      const cuando = new Date(alerta.proximoEnvio).getTime();
+      const puesta = conFechaDePartido(alerta, partidos);
 
-      return !Number.isFinite(cuando) || cuando <= ahora;
+      return Boolean(puesta.proximoEnvio) && puesta.proximoEnvio !== alerta.proximoEnvio;
     });
+
+    /* `ahora` ya no hace falta para decidir, pero sí lo usa el cálculo. */
+    void ahora;
 
     if (desfasadas.length === 0) return;
 
@@ -282,6 +295,17 @@ function conFechaDePartido(
   partidos: PartidoParaAlerta[],
 ): Alerta {
   if (alerta.repeticion !== "partido") return alerta;
+
+  /*
+  | Sin calendario, no se toca la fecha.
+  |
+  | El calendario llega por su propia petición y tarda un momento; si alguien
+  | guardaba en ese hueco, `proximoDesdeElPartido` no encontraba ningún partido
+  | y la alerta se escribía con `proximoEnvio` vacío. El formulario ya la había
+  | dado por buena porque TENÍA fecha, y el motor no manda las que no la
+  | tienen: quedaba guardada y no sonaba nunca.
+  */
+  if (partidos.length === 0) return alerta;
 
   /* La hora que el usuario dejó puesta arriba, que es la que quiere. */
   const previa = new Date(alerta.proximoEnvio);

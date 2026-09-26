@@ -76,9 +76,15 @@ export function alertasDeFichajes(cotejo: CotejoRival | null, ahora: number): Al
 
   if (altas + bajas === 0) return alertas;
 
-  /* Recién detectado no es noticia: BeSoccer publica las plantillas a medias y
-     conviene dejar pasar una noche antes de dar la matraca. */
-  if (dias !== null && dias < 0) return alertas;
+  /*
+  | Recién detectado no es noticia: BeSoccer publica las plantillas a medias y
+  | conviene dejar pasar una noche antes de dar la matraca.
+  |
+  | Estaba escrito `dias < 0`, que no se cumple nunca: un cotejo de esta misma
+  | noche da 0 y sólo saldría negativo con una fecha del futuro. O sea que
+  | avisaba a la primera, justo lo contrario de lo que dice el comentario.
+  */
+  if (dias !== null && dias < 1) return alertas;
 
   const equipos = (cotejo.pendientes ?? []).filter(
     (u) => (u.altas?.length ?? 0) + (u.bajas?.length ?? 0) > 0,

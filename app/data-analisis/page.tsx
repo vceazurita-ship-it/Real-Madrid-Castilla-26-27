@@ -961,7 +961,20 @@ export default function DataAnalisisPage() {
                       </span>
 
                       <select
-                        value={partidoElegido}
+                        /*
+                          Si el partido elegido se cae al cambiar de
+                          competición o de sistema, el desplegable vuelve a
+                          «toda la temporada» en vez de quedarse en blanco: los
+                          números ya son los de la temporada entera y el
+                          control tiene que decir lo mismo que la pantalla.
+                        */
+                        value={
+                          nuestrosPartidos.some(
+                            (uno) => uno.fecha + "|" + uno.partido === partidoElegido,
+                          )
+                            ? partidoElegido
+                            : ""
+                        }
                         onChange={(e) => setPartidoElegido(e.target.value)}
                         title="Mira un solo partido. La comparación sigue siendo contra toda la categoría."
                         className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"

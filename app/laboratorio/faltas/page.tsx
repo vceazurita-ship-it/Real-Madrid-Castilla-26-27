@@ -220,8 +220,10 @@ export default function FaltasPage() {
                               {suyas.length || ""}
                             </span>
 
+                            {/* Y en la casilla, el tercio: el carril ya lo
+                                dice la columna. */}
                             <span className="mt-1 text-center text-[9px] uppercase tracking-[0.12em] text-white/35">
-                              {carril}
+                              {zona}
                             </span>
                           </div>
                         );
@@ -229,10 +231,18 @@ export default function FaltasPage() {
                     )}
                   </div>
 
+                  {/*
+                    Las columnas son CARRILES, no zonas.
+                    La rejilla se recorre `zona -> carril`, así que cada fila es
+                    un tercio del campo y cada columna un carril. Este pie
+                    rotulaba las columnas con las zonas: la primera columna,
+                    que son las tres zonas por la izquierda, ponía «campo
+                    propio». Quien lo leyera situaba mal todas las faltas.
+                  */}
                   <div className="grid grid-cols-3 border-t border-white/10 text-center text-[10px] uppercase tracking-[0.14em] text-white/35">
-                    {ZONAS.map((zona) => (
-                      <span key={zona} className="py-2">
-                        {zona}
+                    {CARRILES.map((carril) => (
+                      <span key={carril} className="py-2">
+                        {carril}
                       </span>
                     ))}
                   </div>

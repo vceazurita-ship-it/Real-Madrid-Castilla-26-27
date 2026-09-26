@@ -75,6 +75,27 @@ export function PanelAbpPropio() {
 
   const meta = BLOQUES.find((b) => b.key === bloque)!;
 
+  /*
+  | La jornada elegida, sólo si sigue existiendo con este ámbito y este bloque.
+  |
+  | Al cambiar de ámbito el desplegable ya vuelve a «todas» por su cuenta, pero
+  | el filtro seguía usando la jornada vieja: el panel salía vacío diciendo que
+  | las enseñaba todas. Y si el ámbito nuevo tiene una sola jornada, el
+  | desplegable ni se pinta y no había forma de quitarlo.
+  */
+  const jornadaViva = useMemo(() => {
+    if (!jornada) return "";
+
+    const existe = (acciones ?? []).some(
+      (a) =>
+        a.bloque === bloque &&
+        (ambito === "todo" || a.jornada.competicion === ambito) &&
+        a.jornada.bruto === jornada,
+    );
+
+    return existe ? jornada : "";
+  }, [acciones, ambito, bloque, jornada]);
+
   const suyas = useMemo(() => {
     if (!acciones) return [];
 
@@ -82,9 +103,16 @@ export function PanelAbpPropio() {
       (a) =>
         a.bloque === bloque &&
         (ambito === "todo" || a.jornada.competicion === ambito) &&
-        (!jornada || a.jornada.bruto === jornada),
+        /*
+        | Si la jornada elegida ya no existe con este ámbito o este bloque, no
+        | filtra: el desplegable ya vuelve a «todas» por su cuenta, pero esto
+        | seguía filtrando por una jornada que no está y el panel salía vacío
+        | diciendo que las enseñaba todas. Y con un solo valor el desplegable
+        | ni se pinta, así que no había forma de quitarlo.
+        */
+        (!jornadaViva || a.jornada.bruto === jornadaViva),
     );
-  }, [acciones, ambito, bloque, jornada]);
+  }, [acciones, ambito, bloque, jornadaViva]);
 
   const resumen = useMemo(() => resumeAbp(suyas), [suyas]);
 

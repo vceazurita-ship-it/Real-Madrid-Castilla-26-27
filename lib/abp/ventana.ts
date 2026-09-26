@@ -365,11 +365,20 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
   | Con partido, el microciclo termina EL DÍA DEL PARTIDO. Sin partido
   | —«NO COMPETICIÓN», un parón— manda lo escrito en la hoja.
   */
-  const ultimo = diaDelPartido || fechas[fechas.length - 1];
+  let ultimo = diaDelPartido || fechas[fechas.length - 1];
 
   /* --- Todos los días de principio a fin, huecos incluidos --- */
 
   const dias: DiaMicro[] = [];
+
+  /*
+  | Si el recorte deja la ventana del revés, manda la hoja.
+  |
+  | Pasa cuando TODAS las filas escritas caen después del partido —un partido
+  | aplazado hacia atrás, o un número de micro reutilizado—: `primero` se iría
+  | más allá de `ultimo` y el bucle no daría ni un día, dejando la rejilla en
+  | blanco y sin decir por qué. Antes de eso, mejor enseñar lo que hay escrito.
+  */
 
   /*
   | Se adelanta el arranque hasta el día siguiente al partido anterior, pero
@@ -397,6 +406,23 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
     diaSiguienteAlAnterior && diaSiguienteAlAnterior > arranqueHoja
       ? diaSiguienteAlAnterior
       : arranqueHoja;
+
+  /*
+  | Si el recorte deja la ventana del revés, manda la hoja.
+  |
+  | Pasa cuando TODAS las filas escritas caen después del partido —un partido
+  | adelantado, o un número de micro reutilizado—: `primero` se iría más allá
+  | de `ultimo`, el bucle no daría ni un día y la rejilla saldría en blanco sin
+  | decir por qué. Antes que eso, se enseña lo que hay escrito y se avisa.
+  */
+  if (aMedioDia(primero) > aMedioDia(ultimo)) {
+    primero = fechas[0];
+    ultimo = fechas[fechas.length - 1];
+
+    avisos.push(
+      "Todas las sesiones escritas de este microciclo son posteriores al partido. Se enseñan tal cual: repasa las fechas o el número de micro en la hoja.",
+    );
+  }
 
   const largo = (aMedioDia(ultimo) - aMedioDia(primero)) / DIA_MS + 1;
 

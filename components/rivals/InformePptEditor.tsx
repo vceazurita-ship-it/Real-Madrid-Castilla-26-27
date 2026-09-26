@@ -193,6 +193,12 @@ export default function InformePptEditor({
   /** Numera lo que se crea aquí —copias y notas— sin repetir nunca. */
   const siguienteId = useRef(1);
 
+  /** Lo último que se mandó a guardar, para no repetir escrituras iguales. */
+  const ultimaFirma = useRef<string | null>(null);
+
+  /* La única parte de `ajustes` que es estable entre renders. */
+  const guardaAjustes = ajustes.setValue;
+
   const hoja = hojas[activa];
 
   /* ---------------------------------------------------------------- */
@@ -302,6 +308,23 @@ export default function InformePptEditor({
 
         if (cancelado) return;
 
+        /*
+        | El contador de lo que se crea aquí arranca por encima de lo que ya
+        | hay puesto.
+        |
+        | Empezaba siempre en 1, y eso valía cuando las copias y las notas
+        | nacían y morían en la misma sesión. Ahora se reponen de Supabase: al
+        | reabrir el informe y pulsar Ctrl+D sobre el mismo panel salía otra vez
+        | `panel-3-copia1`, dos piezas con el mismo id, y el guardado —que
+        | indexa por id— se comía una de las dos en silencio.
+        */
+        const usados = conRetoques
+          .flatMap((una) => una.elementos)
+          .map((el) => Number((el.id.match(/(\d+)$/) ?? [])[1]))
+          .filter((n): n is number => Number.isFinite(n));
+
+        siguienteId.current = Math.max(0, ...usados) + 1;
+
         if (guardado && Object.keys(guardado).length > 0) {
           setHojas(conRetoques);
         }
@@ -351,7 +374,23 @@ export default function InformePptEditor({
         ...hojasIniciales.map((h) => h.id),
       ]);
 
-      ajustes.setValue((previo) => {
+      /*
+      | Si no ha cambiado nada, no se escribe.
+      |
+      | Sin esto se guardaba en CADA render: el documento llevaba dentro un
+      | `actualizado` con la hora, así que el objeto siempre era distinto, el
+      | estado cambiaba, y el render siguiente volvía a entrar aquí. Un bucle
+      | que además **reiniciaba el retardo de `useRemoteDoc` una y otra vez**,
+      | de modo que el guardado de verdad no llegaba a salir mientras el editor
+      | estuviera abierto: sólo se salvaba al cerrar.
+      */
+      const firma = JSON.stringify(porHoja);
+
+      if (firma === ultimaFirma.current) return;
+
+      ultimaFirma.current = firma;
+
+      guardaAjustes((previo) => {
         const antes = previo.porEquipo?.[equipo]?.porHoja ?? {};
 
         const conservadas = Object.fromEntries(
@@ -372,7 +411,12 @@ export default function InformePptEditor({
     }, 0);
 
     return () => clearTimeout(id);
-  }, [ajustes, equipo, hojas, hojasIniciales, repuesto]);
+    /*
+    | `ajustes.setValue` y no `ajustes`: `useRemoteDoc` devuelve un objeto
+    | nuevo en cada render —no está memorizado— así que ponerlo entero aquí
+    | reprograma el efecto siempre.
+    */
+  }, [guardaAjustes, equipo, hojas, hojasIniciales, repuesto]);
 
   /** Cambia las piezas de la hoja abierta. `marca` apunta el paso de deshacer. */
   const cambia = useCallback(
