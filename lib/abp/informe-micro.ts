@@ -280,6 +280,23 @@ export function leeFecha(valor: string | undefined): Date | null {
   return null;
 }
 
+/**
+ * La fecha de la hoja, escrita para leerla.
+ *
+ * La hoja de seguimiento guarda marcas de tiempo enteras
+ * —`2026-09-22T07:00:00.000Z`— y eso se colaba tal cual en las tablas del
+ * informe, que es un correo que se lee de un vistazo: una columna de
+ * veinticuatro caracteres de los que sólo importan diez.
+ *
+ * Lo que no se entienda se deja como está: perder el dato por no saber
+ * formatearlo es peor que enseñarlo feo.
+ */
+export function fechaCorta(valor: string | undefined): string {
+  const fecha = leeFecha(valor);
+
+  return fecha ? diaMes(fecha) : String(valor ?? "").trim();
+}
+
 function diaMes(fecha: Date) {
   return fecha.toLocaleDateString("es-ES", {
     day: "2-digit",
@@ -508,7 +525,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
   const lineasValoracion: LineaValoracion[] = valoradas.map((tarea) => ({
     tarea: tarea.tarea,
     dia: DIA_LABEL.get(tarea.dia as DiaKey) ?? tarea.dia ?? "",
-    fecha: tarea.fecha,
+    fecha: fechaCorta(tarea.fecha),
     evaluacion: tarea.evaluacion,
     analisis: tarea.analisisPost,
     observaciones: tarea.observaciones,
@@ -558,7 +575,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       jugador:
         datos.nombrePorId?.get(String(fila.ID_JUGADOR ?? "")) ??
         String(fila.NOMBRE ?? fila.ID_JUGADOR ?? "—"),
-      fecha: fila.FECHA ?? "",
+      fecha: fechaCorta(fila.FECHA),
       quien: fila.QUIEN ?? "",
       modalidad: fila.MODALIDAD ?? "",
       momento: fila.MOMENTO ?? "",
