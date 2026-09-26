@@ -259,6 +259,13 @@ export function describeRepeticion(alerta: Alerta) {
       return alerta.intervaloDias === 1
         ? "Cada día"
         : `Cada ${alerta.intervaloDias} días`;
+    case "partido": {
+      /* Caía en el `default` y la lista la llamaba «Una sola vez», que es
+         justo lo contrario de lo que hace. */
+      const dias = alerta.diasAntesDelPartido ?? 2;
+
+      return dias === 0 ? "El día del partido" : `MD-${dias}`;
+    }
     default:
       return "Una sola vez";
   }

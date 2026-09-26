@@ -43,6 +43,18 @@ const COLUMNAS_ALERTAS = [
   | alertas viejas se leen como «sin alarma» en vez de descolocarse enteras.
   */
   'AVISOS',
+  /*
+  | Cuántos días antes del partido avisa, con `REPETICION = partido`.
+  |
+  | También la ÚLTIMA, y por lo mismo que `AVISOS`: las hojas en marcha tienen
+  | trece columnas y añadirla al final las deja en su sitio. `hojaDe_` reescribe
+  | la cabecera cuando le falta, así que la columna aparece sola.
+  |
+  | Sin ella el campo se guardaba desde la app, la hoja lo tiraba en silencio y
+  | la alerta volvía siempre como MD-2, que es el valor por defecto: se
+  | guardaba bien y se leía mal, que es la peor forma de fallar.
+  */
+  'DIAS_PARTIDO',
 ];
 
 const COLUMNAS_AGENDA = ['EMAIL', 'NOMBRE', 'USOS', 'ULTIMO_USO'];
@@ -460,6 +472,10 @@ function aAlerta_(fila) {
     ultimoEnvio: aIso_(fila.ULTIMO_ENVIO) || null,
     envios: Number(fila.ENVIOS) || 0,
     avisos: aAvisos_(fila.AVISOS),
+    diasAntesDelPartido:
+      fila.DIAS_PARTIDO === "" || fila.DIAS_PARTIDO === undefined
+        ? undefined
+        : Math.max(0, Number(fila.DIAS_PARTIDO) || 0),
     _fila: fila._fila,
   };
 }
@@ -480,6 +496,9 @@ function aFila_(alerta) {
     alerta.ultimoEnvio || '',
     String(alerta.envios || 0),
     aAvisos_((alerta.avisos || []).join(',')).join(','),
+    alerta.diasAntesDelPartido === undefined || alerta.diasAntesDelPartido === null
+      ? ''
+      : String(Math.max(0, Number(alerta.diasAntesDelPartido) || 0)),
   ];
 }
 

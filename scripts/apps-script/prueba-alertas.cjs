@@ -315,6 +315,30 @@ comprueba(
 
 const listada = llama("listarAlertas").alertas[0];
 
+/*
+ * Los días de MD tienen que sobrevivir a la ida y vuelta.
+ *
+ * Cuando se añadió la periodicidad «a X días del partido» no se añadió su
+ * columna: el campo se guardaba desde la app, la hoja lo tiraba en silencio y
+ * la alerta volvía siempre como MD-2, el valor por defecto. Se guardaba bien y
+ * se leía mal, que es la peor forma de fallar.
+ */
+llama("guardarAlerta", {
+  alerta: { ...alerta, repeticion: "partido", diasAntesDelPartido: 3 },
+});
+
+const conMd = llama("listarAlertas").alertas[0];
+
+comprueba(
+  "una alerta a X días del partido vuelve con sus días",
+  conMd && conMd.repeticion === "partido" && conMd.diasAntesDelPartido === 3,
+  { repeticion: conMd && conMd.repeticion, dias: conMd && conMd.diasAntesDelPartido },
+);
+
+/* Y se deja como estaba para lo que viene detrás. */
+llama("guardarAlerta", { alerta });
+
+
 comprueba(
   "listarAlertas → devuelve la tarea recién guardada, entera",
   listada &&
