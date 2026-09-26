@@ -72,8 +72,18 @@ const PARTIDO = bandera("partido");
  */
 const CADA = Number(bandera("cada", "1"));
 
-/** Ancho al que se guardan las imágenes. Menos de 1280 y el balón se pierde. */
-const ANCHO = Number(bandera("ancho", "1280"));
+/**
+ * Ancho al que se guardan las imágenes.
+ *
+ * 1920 es el nativo de estos vídeos, y **encoger no sale a cuenta**. Medido en
+ * el Sant Andreu: a 1280 los dos primeros bloques etiquetados salieron a CERO
+ * robos y los dos decían lo mismo —«la cámara se abre y el balón queda por
+ * debajo de lo distinguible», tres o cuatro píxeles—. La misma imagen a 1920
+ * deja el balón claro. Un bloque que no se puede etiquetar cuesta lo mismo que
+ * uno que sí y no devuelve nada, así que ahorrar aquí es tirar el trabajo
+ * entero.
+ */
+const ANCHO = Number(bandera("ancho", "1920"));
 
 const SALIDA = bandera("salida", path.join(RAIZ, ".cache", "transiciones", PARTIDO ?? "partido"));
 
