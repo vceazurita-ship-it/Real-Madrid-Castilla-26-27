@@ -32,10 +32,15 @@ import {
   Search,
 } from "lucide-react";
 
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
+  CLAVE_LISTAS,
+  LISTAS_VACIAS,
   buscaLista,
+  desnuda,
   jugadorDelTitulo,
   type ListaCanal,
+  type ListasRivales,
 } from "@/lib/rivals/youtube-listas";
 
 type VideoCanal = {
@@ -70,6 +75,28 @@ export function EligeVideoDeLista({
   const [listaId, setListaId] = useState("");
   const [videos, setVideos] = useState<VideoCanal[]>([]);
   const [busca, setBusca] = useState("");
+
+  /*
+  | LA LISTA ELEGIDA A MANO SE RECUERDA, Y EN EL MISMO SITIO QUE EL SCOUTING.
+  |
+  | El emparejamiento por nombre acierta casi siempre, pero no con las listas
+  | que alguien tituló a su manera. Cuando hay que elegirla a mano, se guarda
+  | en `youtube-listas-rivales` —el documento que ya usa `VideosDelCanal`— así
+  | que **elegirla aquí la deja elegida allí, y al revés**: son el mismo canal y
+  | el mismo equipo, y tener dos memorias que discrepan sería peor que no
+  | recordar nada.
+  */
+  const { value: elegidas, setValue: setElegidas } = useRemoteDoc<ListasRivales>({
+    key: CLAVE_LISTAS,
+    kind: "rivals",
+    fallback: LISTAS_VACIAS,
+  });
+
+  /* La misma clave que usa el scouting: el nombre del equipo, desnudo. */
+  const claveEquipo = useMemo(
+    () => desnuda(equipo).replace(/\s+/g, "-"),
+    [equipo],
+  );
 
   /* El testigo dispara la recarga: el trabajo va dentro del efecto, que es lo
      que el linter acepta (ver `hooks/useRemoteDoc.ts`). */
@@ -109,9 +136,15 @@ export function EligeVideoDeLista({
 
         setListas(suyas);
 
-        const encontrada = buscaLista(suyas, equipo);
+        /* Lo elegido a mano manda sobre lo que se adivine por el nombre. */
+        const recordada = elegidas.porEquipo?.[claveEquipo];
 
-        setListaId((previa) => previa || encontrada?.id || "");
+        const puesta =
+          (recordada && suyas.find((una) => una.id === recordada)?.id) ||
+          buscaLista(suyas, equipo)?.id ||
+          "";
+
+        setListaId((previa) => previa || puesta);
         setEstado("listo");
       } catch (error) {
         if (cancelado) return;
@@ -125,7 +158,7 @@ export function EligeVideoDeLista({
     return () => {
       cancelado = true;
     };
-  }, [abierto, equipo, testigo]);
+  }, [abierto, equipo, testigo, elegidas.porEquipo, claveEquipo]);
 
   /* --- Los vídeos de la lista elegida --- */
 
@@ -218,7 +251,21 @@ export function EligeVideoDeLista({
 
         <select
           value={listaId}
-          onChange={(e) => setListaId(e.target.value)}
+          onChange={(e) => {
+            const id = e.target.value;
+
+            setListaId(id);
+
+            /*
+            | Se recuerda en cuanto se elige, no al cerrar: quien la busca a
+            | mano no tiene por qué saber que hay que confirmar nada, y si se
+            | va de la pantalla sin más la próxima vez volvería a buscarla.
+            */
+            setElegidas((previo) => ({
+              ...previo,
+              porEquipo: { ...previo.porEquipo, [claveEquipo]: id },
+            }));
+          }}
           className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none focus:border-[#C8A96B]/50"
         >
           <option value="" className="bg-[#11161C]">
