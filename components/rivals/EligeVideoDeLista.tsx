@@ -14,9 +14,11 @@
  * mismo emparejamiento que usa el scouting individual, así que los dos sitios
  * encuentran lo mismo. Si no la encuentra, se elige a mano de entre todas.
  *
- * **Los vídeos que parecen del jugador salen primero.** Se mira su nombre y su
- * dorsal en el título (`jugadorDelTitulo`); el resto queda debajo, porque un
- * corte del equipo también puede querer colgarse de una ficha.
+ * **Los vídeos que parecen del jugador salen primero.** Se busca su nombre en
+ * el título con `jugadorDelTitulo`, el mismo emparejamiento del scouting: exige
+ * que encaje entre separadores y no arriesga con menos de cuatro letras. El
+ * resto no se esconde, baja: un corte del equipo también puede querer colgarse
+ * de una ficha.
  *
  * El token NO sale al navegador: todo pasa por `/api/youtube/videos`, que sólo
  * devuelve títulos, miniaturas e ids.
@@ -199,8 +201,8 @@ export function EligeVideoDeLista({
   /*
   | Primero los suyos.
   |
-  | `jugadorDelTitulo` es el mismo emparejamiento del scouting individual: mira
-  | el nombre y el dorsal dentro del título. Lo que no se le pueda atribuir no
+  | `jugadorDelTitulo` es el mismo emparejamiento del scouting individual: busca
+  | el nombre dentro del título. Lo que no se le pueda atribuir no
   | se esconde —un corte del equipo también se cuelga de una ficha— sino que
   | baja.
   */

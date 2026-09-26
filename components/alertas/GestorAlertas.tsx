@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Plus, TriangleAlert } from "lucide-react";
 
 import ConfirmDialog from "@/components/season/ConfirmDialog";
@@ -45,6 +45,23 @@ export default function GestorAlertas() {
   */
   const [partidos, setPartidos] = useState<PartidoParaAlerta[]>([]);
 
+  /*
+  | LO QUE IMPIDE UN BUCLE DE ESCRITURAS, Y NO ES PARANOIA.
+  |
+  | Guardar recarga la lista (`useAlertas.guardar` llama a `recargar`), así que
+  | cada escritura devuelve un `alertas` nuevo y vuelve a disparar este efecto.
+  | Para que pare hace falta que lo guardado vuelva IGUAL, y eso no está
+  | garantizado: la fecha pasa por la hoja, que reinterpreta los valores
+  | —Google convierte lo que le parece una fecha en un Date— y el Apps Script
+  | la reescribe con `toISOString()` en SU huso. Basta con que vuelva
+  | desplazada un segundo para que esto escribiera sin parar contra la hoja.
+  |
+  | Dos cinturones, porque el precio de equivocarse aquí es machacar la hoja:
+  | se compara al minuto, no carácter a carácter, y cada alerta se reprograma
+  | **una sola vez por sesión**.
+  */
+  const yaPuestas = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     let cancelado = false;
 
@@ -84,8 +101,6 @@ export default function GestorAlertas() {
   useEffect(() => {
     if (cargando || partidos.length === 0) return;
 
-    const ahora = Date.now();
-
     /*
     | Se recalculan TODAS, no sólo las vencidas.
     |
@@ -99,13 +114,13 @@ export default function GestorAlertas() {
     const desfasadas = alertas.filter((alerta) => {
       if (!alerta.activa || alerta.repeticion !== "partido") return false;
 
+      /* Una sola vez por alerta y por sesión: ver `yaPuestas`. */
+      if (yaPuestas.current.has(alerta.id)) return false;
+
       const puesta = conFechaDePartido(alerta, partidos);
 
-      return Boolean(puesta.proximoEnvio) && puesta.proximoEnvio !== alerta.proximoEnvio;
+      return Boolean(puesta.proximoEnvio) && !mismoMinuto(puesta.proximoEnvio, alerta.proximoEnvio);
     });
-
-    /* `ahora` ya no hace falta para decidir, pero sí lo usa el cálculo. */
-    void ahora;
 
     if (desfasadas.length === 0) return;
 
@@ -113,10 +128,11 @@ export default function GestorAlertas() {
       for (const alerta of desfasadas) {
         const puesta = conFechaDePartido(alerta, partidos);
 
-        /* Si no hay partido por delante no se toca: se quedaría igual. */
-        if (puesta.proximoEnvio && puesta.proximoEnvio !== alerta.proximoEnvio) {
-          void guardar(puesta);
-        }
+        if (!puesta.proximoEnvio) continue;
+
+        yaPuestas.current.add(alerta.id);
+
+        void guardar(puesta);
       }
     }, 0);
 
@@ -277,6 +293,17 @@ export default function GestorAlertas() {
       />
     </div>
   );
+}
+
+/** ¿Son la misma hora, al minuto? Lo que vuelve de la hoja puede venir con
+ *  otros segundos o con el huso del script, y eso no es un cambio. */
+function mismoMinuto(a: string, b: string) {
+  const uno = new Date(a).getTime();
+  const otro = new Date(b).getTime();
+
+  if (!Number.isFinite(uno) || !Number.isFinite(otro)) return false;
+
+  return Math.abs(uno - otro) < 60_000;
 }
 
 /**
