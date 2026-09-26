@@ -2004,17 +2004,58 @@ function Coding() {
    * son de nadie en particular. Y si falla, se dice y ya está: el vídeo está
    * subido, que es lo que costaba.
    */
+  /**
+   * Por qué el enlace no ha ido a ninguna ficha.
+   *
+   * Los cuatro motivos por los que esto no escribe eran cuatro `return` mudos:
+   * el vídeo se subía, no aparecía en la ficha y no había forma de saber si
+   * estaba roto o es que no tocaba. Un aviso corto y se acabó la duda.
+   */
+  const aviso = useCallback((porque: string) => {
+    toast("El enlace no va a ninguna ficha", {
+      duration: 9000,
+      description: porque,
+    });
+  }, []);
+
   const ponVideoEnFichaRival = useCallback(
-    async (url: string) => {
-      if (ambito !== "rival" || !filtroSujeto) return;
+    async (url: string, sujeto: string | null) => {
+      /*
+      | A quién se le escribe se decide ANTES de subir, no después.
+      |
+      | Esto miraba `filtroSujeto` en el momento de terminar la subida, y una
+      | subida son minutos: si en ese rato alguien quitaba el filtro para ver
+      | otra cosa —que es lo normal mientras se espera— el enlace no iba a
+      | ninguna ficha, y si lo cambiaba a otro jugador iba a la ficha
+      | equivocada. Ahora el sujeto viaja desde que empieza el montaje.
+      */
+      if (ambito !== "rival") {
+        aviso("Este coding es de un partido nuestro, no de un rival: el enlace no va a ninguna ficha.");
+
+        return;
+      }
+
+      if (!sujeto) {
+        aviso("El vídeo no está filtrado por un jugador, así que no es de nadie en particular y no va a ninguna ficha.");
+
+        return;
+      }
 
       /* Los dorsales sueltos son para rivales sin plantilla cargada: no
          tienen fila en la hoja a la que escribir. */
-      if (filtroSujeto.startsWith("dorsal-")) return;
+      if (sujeto.startsWith("dorsal-")) {
+        aviso("Este rival va por dorsales sueltos: no hay ficha en plantillas rivales donde poner el enlace.");
 
-      const jugador = jugadorDe(filtroSujeto);
+        return;
+      }
 
-      if (!jugador) return;
+      const jugador = jugadorDe(sujeto);
+
+      if (!jugador) {
+        aviso("El filtro del vídeo no es un jugador —será un comportamiento—, así que no hay ficha donde ponerlo.");
+
+        return;
+      }
 
       try {
         const relectura = await fetch(
@@ -2064,12 +2105,21 @@ function Coding() {
         });
       }
     },
-    [ambito, filtroSujeto, jugadorDe],
+    [ambito, aviso, jugadorDe],
   );
 
   const alTerminarVideo = useCallback(
     async (blob: Blob, nombre: string) => {
       if (!subeSiempre) return;
+
+      /*
+      | De quién es este vídeo, apuntado AHORA.
+      |
+      | Lo que sigue —preguntar el título y subir— tarda minutos, y en ese rato
+      | el filtro de la pantalla puede cambiar. Lo que cuenta es con qué filtro
+      | se montó, que es lo que de verdad hay dentro del vídeo.
+      */
+      const sujetoAlEmpezar = filtroSujeto;
 
       const datos = {
         partido: titulo,
@@ -2139,7 +2189,7 @@ function Coding() {
         | un vídeo del equipo, uno de «vídeo completo» o uno de varios sujetos
         | no son de nadie en particular y no se escriben en ninguna ficha.
         */
-        void ponVideoEnFichaRival(resultado.url);
+        void ponVideoEnFichaRival(resultado.url, sujetoAlEmpezar);
       } catch (error) {
         if (error instanceof Error && error.message === SUBIDA_CANCELADA) {
           toast("Subida cancelada", {
@@ -2170,6 +2220,8 @@ function Coding() {
       estadoYoutube.preguntaAntes,
       estadoYoutube.tituloPlantilla,
       etiquetaFiltro,
+      /* Se lee al entrar, para apuntar de quién es el vídeo antes de subirlo. */
+      filtroSujeto,
       ponVideoEnFichaRival,
       /* El compilador lo cuenta como dependencia aunque `useState` lo dé estable. */
       setPideNombre,
