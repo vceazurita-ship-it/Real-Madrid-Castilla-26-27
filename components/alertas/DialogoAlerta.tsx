@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { AlarmClock, Loader2, Send, X } from "lucide-react";
 
 import { sePuedeDescartar } from "@/components/abp/ui";
@@ -10,6 +10,7 @@ import {
   isoAInputLocal,
   problemasDe,
   REPETICIONES,
+  proximoDesdeElPartido,
   type Alerta,
   type ContactoAgenda,
   type Repeticion,
@@ -31,6 +32,8 @@ interface Props {
   /** `true` cuando la alerta aún no está en la hoja. */
   esNueva: boolean;
   onGuardar: (alerta: Alerta) => Promise<boolean>;
+  /** Para enseñar qué día caería el aviso con el calendario de ahora. */
+  partidos?: { cuando: string }[];
   onEnviarAhora: (alerta: Alerta) => Promise<boolean>;
   onCerrar: () => void;
 }
@@ -40,6 +43,7 @@ export default function DialogoAlerta({
   agenda,
   esNueva,
   onGuardar,
+  partidos = [],
   onEnviarAhora,
   onCerrar,
 }: Props) {
@@ -70,6 +74,39 @@ export default function DialogoAlerta({
 
     return () => window.removeEventListener("keydown", alPulsar);
   }, [cierra]);
+
+  /*
+  | Qué día caería el aviso con el calendario de ahora.
+  |
+  | No se guarda: es sólo para que quien lo programa vea el día de verdad antes
+  | de aceptar. La fecha buena la escribe el gestor al guardar.
+  */
+  const proximoAviso = useMemo(() => {
+    if (borrador.repeticion !== "partido") return "";
+
+    const previa = new Date(borrador.proximoEnvio);
+
+    const hora = Number.isNaN(previa.getTime())
+      ? { horas: 9, minutos: 0 }
+      : { horas: previa.getHours(), minutos: previa.getMinutes() };
+
+    const cuando = proximoDesdeElPartido(
+      partidos,
+      borrador.diasAntesDelPartido ?? 2,
+      hora,
+      new Date(),
+    );
+
+    return cuando
+      ? cuando.toLocaleString("es-ES", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "";
+  }, [borrador.repeticion, borrador.diasAntesDelPartido, borrador.proximoEnvio, partidos]);
 
   const cambia = <C extends keyof Alerta>(campo: C, valor: Alerta[C]) =>
     setBorrador((actual) => ({ ...actual, [campo]: valor }));
@@ -268,6 +305,60 @@ export default function DialogoAlerta({
                 }
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:bg-white/[0.06] sm:w-32"
               />
+            </div>
+          )}
+
+          {borrador.repeticion === "partido" && (
+            <div className="space-y-2">
+              <label
+                htmlFor="alerta-md"
+                className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40"
+              >
+                Cuántos días antes del partido
+              </label>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  id="alerta-md"
+                  type="number"
+                  min={0}
+                  max={10}
+                  value={borrador.diasAntesDelPartido ?? 2}
+                  onChange={(evento) =>
+                    cambia(
+                      "diasAntesDelPartido",
+                      Math.max(0, Math.min(10, Number(evento.target.value) || 0)),
+                    )
+                  }
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white outline-none transition focus:bg-white/[0.06] sm:w-32"
+                />
+
+                <span className="text-sm text-white/45">
+                  {(borrador.diasAntesDelPartido ?? 2) === 0
+                    ? "El mismo día del partido"
+                    : `MD-${borrador.diasAntesDelPartido ?? 2}`}
+                </span>
+              </div>
+
+              {/*
+                Se dice de dónde sale la fecha porque no la escribe nadie: si
+                alguien ve que el aviso ha cambiado de día, tiene que poder
+                entender por qué sin preguntar.
+              */}
+              <p className="text-[11px] leading-relaxed text-white/35">
+                La hora es la que hayas puesto arriba. El día se calcula con el
+                calendario del Castilla y se mueve solo si la jornada
+                cambia de día.
+                {proximoAviso ? (
+                  <>
+                    {" "}
+                    Con el calendario de ahora, el próximo sería el{" "}
+                    <span className="text-[#C8A96B]">{proximoAviso}</span>.
+                  </>
+                ) : (
+                  " Ahora mismo no hay ningún partido por delante en el calendario, así que no se puede programar."
+                )}
+              </p>
             </div>
           )}
 

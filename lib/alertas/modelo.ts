@@ -21,7 +21,20 @@ export type Repeticion =
   | "diaria"
   | "semanal"
   | "mensual"
-  | "personalizada";
+  | "personalizada"
+  /**
+   * A tantos días del partido, y se mueve con el calendario.
+   *
+   * Es lo que de verdad ordena la semana de un cuerpo técnico: «el vídeo del
+   * rival, MD-2» no es «todos los jueves». Una semana se juega el domingo y la
+   * siguiente el miércoles, y con una alerta semanal el aviso llega el día que
+   * no toca —o después del partido—.
+   *
+   * La fecha no se guarda a mano: se calcula con el calendario del Castilla
+   * (`castilla:calendario`) cada vez que se abre la pantalla y al guardar, y
+   * se vuelve a calcular sola cuando cambia la jornada.
+   */
+  | "partido";
 
 /** Cada cuánto vuelve a sonar, para el desplegable del formulario. */
 export const REPETICIONES: { valor: Repeticion; etiqueta: string }[] = [
@@ -30,6 +43,7 @@ export const REPETICIONES: { valor: Repeticion; etiqueta: string }[] = [
   { valor: "semanal", etiqueta: "Cada semana" },
   { valor: "mensual", etiqueta: "Cada mes" },
   { valor: "personalizada", etiqueta: "Cada N días" },
+  { valor: "partido", etiqueta: "A X días del partido" },
 ];
 
 /** Fichero subido al bucket. Al correo va `url`, nunca el binario. */
@@ -53,6 +67,14 @@ export interface Alerta {
   repeticion: Repeticion;
   /** Días entre avisos. Solo se mira con `repeticion: "personalizada"`. */
   intervaloDias: number;
+  /**
+   * Cuántos días antes del partido. Solo con `repeticion: "partido"`.
+   *
+   * `0` es el día del partido, `1` es MD-1, y así. Se guarda el número, no la
+   * fecha: la fecha se deduce del calendario cada vez, que es lo que hace que
+   * el aviso siga al partido cuando la jornada se mueve.
+   */
+  diasAntesDelPartido?: number;
   activa: boolean;
   creada: string;
   ultimoEnvio: string | null;
@@ -265,9 +287,57 @@ export function siguienteEnvio(alerta: Alerta, desde: Date): Date | null {
     case "personalizada":
       fecha.setDate(fecha.getDate() + Math.max(1, alerta.intervaloDias));
       return fecha;
+    case "partido":
+      /*
+      | Ésta no se puede calcular aquí: hace falta el calendario.
+      |
+      | Quien la programa es `proximoDesdeElPartido`, que sí lo tiene. Devolver
+      | `null` es lo correcto —no hay una cuenta que hacer sobre la fecha
+      | anterior— y deja que la pantalla la reprograme con el partido siguiente.
+      */
+      return null;
     default:
       return null;
   }
+}
+
+/** Un partido nuestro, con lo poco que hace falta para programar un aviso. */
+export type PartidoParaAlerta = { cuando: string };
+
+/**
+ * Cuándo toca avisar, contando desde el partido.
+ *
+ * Busca el primer partido cuyo aviso todavía no haya pasado y le resta los
+ * días. Se mira partido a partido y no sólo el siguiente: si hoy es MD-1 y el
+ * aviso es de MD-3, el de este partido ya pasó y hay que ir al de la semana que
+ * viene.
+ *
+ * **La hora se conserva.** Lo que se pide es «dos días antes, a la hora de
+ * siempre», no «dos días antes a la hora del partido»: un aviso a las 21:15
+ * porque el partido es de noche no lo lee nadie.
+ */
+export function proximoDesdeElPartido(
+  partidos: PartidoParaAlerta[],
+  diasAntes: number,
+  hora: { horas: number; minutos: number },
+  desde: Date,
+): Date | null {
+  const dias = Math.max(0, Math.round(diasAntes));
+
+  const candidatos = partidos
+    .map((uno) => new Date(uno.cuando))
+    .filter((fecha) => !Number.isNaN(fecha.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime())
+    .map((partido) => {
+      const aviso = new Date(partido.getTime());
+
+      aviso.setDate(aviso.getDate() - dias);
+      aviso.setHours(hora.horas, hora.minutos, 0, 0);
+
+      return aviso;
+    });
+
+  return candidatos.find((aviso) => aviso.getTime() > desde.getTime()) ?? null;
 }
 
 /** "vie 28 ago · 09:30", en horario del navegador. */
