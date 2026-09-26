@@ -84,6 +84,16 @@ export type DatosInforme = {
   /** El partido con el que se mide la semana, si se ha podido cruzar. */
   partido: { jornada: string; rival: string } | null;
   /**
+   * Los días DE ESTE microciclo, en su orden, tal y como los da la ventana.
+   *
+   * Hace falta porque el reparto por día se dibujaba sobre las siete letras de
+   * la semana natural, de lunes a domingo, y un microciclo no es eso: el del
+   * Sant Andreu va de domingo a miércoles. Salían cuatro columnas vacías de
+   * días que no existen en esa semana, y el día de partido no se distinguía de
+   * uno de descanso.
+   */
+  dias?: { clave: DiaKey; etiqueta: string; tipo: "entreno" | "descanso" | "partido" }[];
+  /**
    * De qué partido viene la semana.
    *
    * El microciclo va de partido a partido, así que el informe tiene que decir
@@ -724,11 +734,35 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     minutosDelDia.set(dia, (minutosDelDia.get(dia) ?? 0) + (trabajo.minutos || 0));
   });
 
-  const porDia = DIAS.map((dia) => ({
-    etiqueta: dia.corto,
-    minutos: minutosDelDia.get(dia.key) ?? 0,
-    esEntreno: (minutosDelDia.get(dia.key) ?? 0) > 0,
-  }));
+  /*
+  | Sólo los días que existen en ESTE microciclo, y el partido marcado.
+  |
+  | Antes se recorría `DIAS` —las siete letras de la semana natural— y eso
+  | pintaba columnas de días que no son de esta semana. Ahora manda la ventana:
+  | los días de entrenamiento y el del partido, en su orden. El descanso se
+  | queda fuera: no aporta nada a un gráfico de minutos y roba sitio.
+  |
+  | Sin ventana —un informe viejo, o la consola— se hace lo de antes, para no
+  | dejar el gráfico vacío.
+  */
+  const deLaVentana = (datos.dias ?? []).filter(
+    (dia) => dia.tipo === "entreno" || dia.tipo === "partido",
+  );
+
+  const porDia =
+    deLaVentana.length > 0
+      ? deLaVentana.map((dia) => ({
+          etiqueta: dia.etiqueta,
+          minutos: minutosDelDia.get(dia.clave) ?? 0,
+          esEntreno: dia.tipo === "entreno",
+          esPartido: dia.tipo === "partido",
+        }))
+      : DIAS.map((dia) => ({
+          etiqueta: dia.corto,
+          minutos: minutosDelDia.get(dia.key) ?? 0,
+          esEntreno: (minutosDelDia.get(dia.key) ?? 0) > 0,
+          esPartido: false,
+        }));
 
   /* El reparto por aspecto llega en `aspecto|lado`: se junta por aspecto. */
   const porAspectoMapa = new Map<string, { ofensivo: number; defensivo: number }>();

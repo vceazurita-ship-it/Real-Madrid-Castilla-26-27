@@ -1439,6 +1439,15 @@ export default function AbpMicrocicloPage() {
                   rival: partidoDelMicro.rival,
                 }
               : null,
+            /*
+            | Los días de ESTE microciclo, para que el reparto por día del
+            | informe no se dibuje sobre las siete letras de la semana natural.
+            */
+            dias: ventana.dias.map((dia) => ({
+              clave: dia.clave,
+              etiqueta: dia.etiqueta,
+              tipo: dia.tipo,
+            })),
             /* De dónde viene la semana: el microciclo va de partido a partido. */
             partidoAnterior: ventana.partidoAnterior
               ? {

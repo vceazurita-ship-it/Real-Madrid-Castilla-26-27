@@ -906,7 +906,13 @@ export type TiempoSemana = {
   origenDias?: "a mano" | "marcados" | "sin marcar";
   veredicto: "corto" | "dentro" | "pasado";
   /** Minutos por día de la semana, en orden. */
-  porDia: { etiqueta: string; minutos: number; esEntreno: boolean }[];
+  porDia: {
+    etiqueta: string;
+    minutos: number;
+    esEntreno: boolean;
+    /** El día del partido, que se pinta aparte: es contra lo que se mide todo. */
+    esPartido?: boolean;
+  }[];
   /** Reparto por aspecto y lado. */
   porAspecto: { etiqueta: string; ofensivo: number; defensivo: number }[];
   porMedio: { campo: number; video: number };
@@ -1041,7 +1047,7 @@ export function repartoSemana(tiempo: TiempoSemana, ancho = 760, alto = 300) {
     ancho,
     alto,
     "Cómo se reparte la semana",
-    "Minutos de ABP por día. Los días de descanso o partido van en gris claro.",
+    "Minutos de ABP por día del microciclo. El día de partido va en dorado.",
   );
 
   const filas = tiempo.porDia;
@@ -1080,8 +1086,25 @@ export function repartoSemana(tiempo: TiempoSemana, ancho = 760, alto = 300) {
     const centro = x0 + paso * (indice + 0.5);
     const altura = ((y1 - y0) * fila.minutos) / maximo;
 
-    ctx.fillStyle = fila.esEntreno ? "rgba(15,30,61,0.30)" : "rgba(15,30,61,0.08)";
+    /*
+    | El día de partido, en dorado y con su columna marcada aunque no lleve
+    | minutos: es el día contra el que se mide toda la semana y tenía la misma
+    | pinta que un descanso.
+    */
+    ctx.fillStyle = fila.esPartido
+      ? "rgba(200,169,107,0.55)"
+      : fila.esEntreno
+        ? "rgba(15,30,61,0.30)"
+        : "rgba(15,30,61,0.08)";
+
     ctx.fillRect(centro - anchoBarra / 2, y1 - altura, anchoBarra, Math.max(0, altura));
+
+    if (fila.esPartido) {
+      /* Un filo hasta arriba: la columna se ve aunque ese día no haya ABP. */
+      ctx.strokeStyle = "rgba(200,169,107,0.85)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(centro - anchoBarra / 2, y0, anchoBarra, y1 - y0);
+    }
 
     if (fila.minutos > 0) {
       escribe(ctx, `${Math.round(fila.minutos)}′`, centro, y1 - altura - 5, {
@@ -1094,10 +1117,19 @@ export function repartoSemana(tiempo: TiempoSemana, ancho = 760, alto = 300) {
 
     escribe(ctx, fila.etiqueta, centro, y1 + 16, {
       px: 11,
-      peso: fila.esEntreno ? 600 : 400,
-      tinta: fila.esEntreno ? TINTA : SUAVE,
+      peso: fila.esEntreno || fila.esPartido ? 600 : 400,
+      tinta: fila.esPartido ? "#8A6B2F" : fila.esEntreno ? TINTA : SUAVE,
       alinea: "center",
     });
+
+    if (fila.esPartido) {
+      escribe(ctx, "PARTIDO", centro, y1 + 29, {
+        px: 9,
+        peso: 700,
+        tinta: "#8A6B2F",
+        alinea: "center",
+      });
+    }
   });
 
   /* Pie con los tres repartos que caben en una línea. */
