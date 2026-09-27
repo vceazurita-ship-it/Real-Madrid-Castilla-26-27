@@ -131,7 +131,24 @@ export type TrabajoJornada = {
   laminas: Lamina[];
   /** Una conclusión por sección, aunque no tenga lámina. */
   notas?: Partial<Record<SeccionId, string>>;
+  /** El título de la portada de cada informe, si se ha cambiado. */
+  titulos?: Partial<Record<Ambito, string>>;
 };
+
+/** Lo que dice la portada si nadie ha escrito otra cosa. */
+export const TITULO_INFORME: Record<Ambito, string> = {
+  abp: "INFORME COMPLEMENTARIO ABP",
+  area: "INFORME CENTROS LATERALES",
+};
+
+/**
+ * Una lámina sin nada: ni marcas, ni jugadores, ni consignas.
+ *
+ * No sale ni en el informe del microciclo ni en el PDF o el PPT de la
+ * jornada: una diapositiva con el campo vacío sólo hace pasar de largo.
+ */
+export const laminaVacia = (lamina: Lamina) =>
+  lamina.marcas.length === 0 && lamina.jugadores.length === 0 && !lamina.notas?.trim();
 
 export type RivalAnalisisDoc = {
   /** Por jornada («J5»): contra el mismo rival se juega ida y vuelta. */
@@ -336,6 +353,10 @@ export function normalizaAnalisis(crudo: unknown): RivalAnalisisDoc {
       notas:
         t.notas && typeof t.notas === "object"
           ? (t.notas as Partial<Record<SeccionId, string>>)
+          : {},
+      titulos:
+        t.titulos && typeof t.titulos === "object"
+          ? (t.titulos as Partial<Record<Ambito, string>>)
           : {},
     };
   }

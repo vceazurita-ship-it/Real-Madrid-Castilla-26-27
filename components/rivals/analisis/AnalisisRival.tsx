@@ -46,6 +46,7 @@ import {
   clipsKey,
   type Lamina,
   laminaNueva,
+  laminaVacia,
   normalizaAnalisis,
   normalizaClips,
   nuevoIdAnalisis,
@@ -53,12 +54,13 @@ import {
   type RivalAnalisisDoc,
   type RivalClipsDoc,
   SECCION_POR_ID,
+  TITULO_INFORME,
   type SeccionId,
   seccionesDe,
   type TrabajoJornada,
 } from "@/lib/rivals/analisis";
 import { fichaDesdePlantilla, resolutorDeFichas } from "@/lib/rivals/analisis-fichas";
-import { laminaImagen } from "@/lib/rivals/analisis-svg";
+import { laminaImagen, portadaImagen, portadaSvg } from "@/lib/rivals/analisis-svg";
 import { playerKey } from "@/lib/rivals/once";
 
 type Props = {
@@ -203,6 +205,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
     cambiaTrabajo((actual) => ({ ...actual, laminas: [...actual.laminas, nueva] }));
     setLaminaElegida(nueva.id);
+    setVerPortada(false);
   };
 
   /* Quitar no pregunta: avisa y deja deshacer, que es más rápido y más seguro
@@ -466,9 +469,17 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   const [exportando, setExportando] = useState<"pdf" | "ppt" | null>(null);
   const [alcance, setAlcance] = useState<"lamina" | "jornada">("jornada");
+  const [conPortada, setConPortada] = useState(true);
 
+  /* La portada y el cierre del informe, como el PDF que se montaba a mano. */
+  const [verPortada, setVerPortada] = useState(false);
+
+  const tituloInforme = trabajo.titulos?.[ambito]?.trim() || TITULO_INFORME[ambito];
+
+  /* Sólo las que tienen algo: una diapositiva con el campo vacío sobra. */
   const laminasJornada = useMemo(
-    () => secciones.flatMap((s) => trabajo.laminas.filter((l) => l.seccion === s.id)),
+    () =>
+      secciones.flatMap((s) => trabajo.laminas.filter((l) => l.seccion === s.id && !laminaVacia(l))),
     [secciones, trabajo.laminas],
   );
 
@@ -480,14 +491,26 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
     setExportando(formato);
 
     try {
-      const imagenes: string[] = [];
+      const diapositivas: { titulo: string; imagen: string }[] = [];
+
+      const portada = (tipo: "portada" | "cierre") =>
+        portadaImagen({ tipo, equipo, jornada, titulo: tituloInforme, escudo }, { formato: "image/jpeg" });
+
+      const conTapas = alcance === "jornada" && conPortada;
+
+      if (conTapas) diapositivas.push({ titulo: "Portada", imagen: await portada("portada") });
 
       /* En serie: varias láminas de 1920 a la vez tumban la pestaña. */
       for (const una of aExportar) {
-        imagenes.push(
-          await laminaImagen(una, { ficha, escudo, equipo, jornada }, { formato: "image/jpeg" }),
-        );
+        diapositivas.push({
+          titulo: una.titulo,
+          imagen: await laminaImagen(una, { ficha, escudo, equipo, jornada }, { formato: "image/jpeg" }),
+        });
       }
+
+      if (conTapas) diapositivas.push({ titulo: "Cierre", imagen: await portada("cierre") });
+
+      const imagenes = diapositivas.map((una) => una.imagen);
 
       const base =
         alcance === "lamina" && lamina
@@ -507,7 +530,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
         descarga(pdf.output("blob"), `${nombre}.pdf`);
       } else {
         const blob = creaPptx(
-          aExportar.map((una, i) => ({ titulo: una.titulo, imagen: imagenes[i] })),
+          diapositivas,
           {
             titulo: `${ambito === "abp" ? "Balón parado" : "Área"} · ${equipo} · ${jornada}`,
             aplicacion: "RMCF Castilla · Análisis del rival",
@@ -598,6 +621,13 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               </button>
             ))}
           </div>
+
+          {alcance === "jornada" && (
+            <label className="flex items-center gap-1.5 text-[11px] text-white/55" title="Primera y última diapositiva del informe">
+              <input type="checkbox" checked={conPortada} onChange={(e) => setConPortada(e.target.checked)} />
+              Portada y cierre
+            </label>
+          )}
 
           <button
             type="button"
@@ -767,6 +797,17 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
             <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVerPortada(true)}
+                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                    verPortada ? "bg-[#C8A96B] text-black" : "bg-white/[0.06] text-white/70 hover:bg-white/10"
+                  }`}
+                  title="La primera y la última diapositiva del informe"
+                >
+                  Portada y cierre
+                </button>
+
                 {laminas.map((una, i) =>
                   renombrando === una.id ? (
                     <input
@@ -787,7 +828,10 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                     <button
                       key={una.id}
                       type="button"
-                      onClick={() => setLaminaElegida(una.id)}
+                      onClick={() => {
+                        setLaminaElegida(una.id);
+                        setVerPortada(false);
+                      }}
                       onDoubleClick={() => empiezaRenombrar(una)}
                       className={`group/lamina flex max-w-[300px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
                         una.id === lamina?.id
@@ -827,7 +871,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 </button>
               </div>
 
-              {lamina && (
+              {lamina && !verPortada && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-2 py-1.5">
                   <button
                     type="button"
@@ -887,7 +931,45 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 </div>
               )}
 
-              {lamina ? (
+              {verPortada ? (
+                <div className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {(["portada", "cierre"] as const).map((tipo) => (
+                      <figure key={tipo} className="space-y-1">
+                        <div
+                          className="overflow-hidden rounded-xl border border-[#C8A96B]/25 bg-[#081524] [&>svg]:h-auto [&>svg]:w-full"
+                          dangerouslySetInnerHTML={{
+                            __html: portadaSvg({ tipo, equipo, jornada, titulo: tituloInforme, escudo }),
+                          }}
+                        />
+                        <figcaption className="text-[11px] text-white/45">
+                          {tipo === "portada" ? "Primera diapositiva" : "Última diapositiva"}
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+
+                  <label className="block text-[11px] uppercase tracking-wider text-white/40">
+                    Título del informe
+                    <input
+                      value={trabajo.titulos?.[ambito] ?? ""}
+                      placeholder={TITULO_INFORME[ambito]}
+                      onChange={(e) =>
+                        cambiaTrabajo((actual) => ({
+                          ...actual,
+                          titulos: { ...actual.titulos, [ambito]: e.target.value.toUpperCase() },
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-sm normal-case tracking-normal text-white"
+                    />
+                  </label>
+
+                  <p className="text-xs text-white/45">
+                    Salen al exportar la {jornada} entera (se pueden quitar con «Portada y cierre», arriba). Las láminas
+                    vacías —sin marcas, jugadores ni consignas— no salen ni aquí ni en el informe del microciclo.
+                  </p>
+                </div>
+              ) : lamina ? (
                 <PizarraLamina
                   lamina={lamina}
                   onChange={cambiaLamina}

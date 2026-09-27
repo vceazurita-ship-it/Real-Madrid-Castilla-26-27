@@ -19,6 +19,7 @@ import type { RivalAnalisisInforme } from "@/lib/abp/informe-micro";
 import { traeJson } from "@/lib/hojaCsv";
 import {
   analisisKey,
+  laminaVacia,
   normalizaAnalisis,
   ordenJornada,
   SECCION_POR_ID,
@@ -93,7 +94,7 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
           const t = analisis.jornadas[j];
 
           return (
-            t.laminas.some((l) => deAbp.has(l.seccion)) ||
+            t.laminas.some((l) => deAbp.has(l.seccion) && !laminaVacia(l)) ||
             Object.entries(t.notas ?? {}).some(([s, texto]) => deAbp.has(s as never) && texto?.trim())
           );
         })
@@ -106,7 +107,10 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
       const ficha = resolutorDeFichas(plantilla, equipo);
 
-      const laminas = seccionesDe("abp").flatMap((s) => trabajo.laminas.filter((l) => l.seccion === s.id));
+      /* Sólo las que tienen algo: una lámina en blanco no dice nada. */
+      const laminas = seccionesDe("abp").flatMap((s) =>
+        trabajo.laminas.filter((l) => l.seccion === s.id && !laminaVacia(l)),
+      );
 
       const graficos: GraficoInforme[] = [];
 

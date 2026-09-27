@@ -601,7 +601,7 @@ const recurso = (url: string) => {
 export async function laminaImagen(
   lamina: Lamina,
   opciones: OpcionesSvg,
-  salida: { ancho?: number; formato?: "image/png" | "image/jpeg" } = {},
+  salida: Salida = {},
 ): Promise<string> {
   const fichasConFoto = new Map<string, FichaLamina | null>();
 
@@ -629,6 +629,13 @@ export async function laminaImagen(
     ficha: (clave, nombre) => fichasConFoto.get(clave || nombre) ?? null,
   });
 
+  return svgAImagen(svg, salida);
+}
+
+type Salida = { ancho?: number; formato?: "image/png" | "image/jpeg" };
+
+/** Un SVG de 1920×1080 ya autosuficiente, pasado a imagen. */
+async function svgAImagen(svg: string, salida: Salida): Promise<string> {
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
 
   try {
@@ -664,4 +671,92 @@ export async function laminaImagen(
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  PORTADA Y CIERRE                                                   */
+/* ------------------------------------------------------------------ */
+
+export type OpcionesPortada = {
+  tipo: "portada" | "cierre";
+  equipo: string;
+  jornada: string;
+  /** «INFORME COMPLEMENTARIO ABP», «INFORME CENTROS LATERALES». */
+  titulo: string;
+  escudo?: string;
+  recursos?: Partial<RecursosLamina>;
+};
+
+/**
+ * La primera y la última diapositiva del informe.
+ *
+ * El PDF que se montaba a mano abría con el escudo del rival sobre su estadio
+ * y el título del informe, y cerraba con el escudo y la temporada. Aquí salen
+ * igual pero con el cromo de la pizarra: la foto del campo apagada hacia el
+ * azul noche, la banda de cristal y el filo oro-rosa.
+ */
+export function portadaSvg(opciones: OpcionesPortada) {
+  const r: RecursosLamina = { ...RECURSOS, ...opciones.recursos };
+  const equipo = opciones.equipo.toUpperCase();
+  const pie = "REAL MADRID CASTILLA · TEMPORADA 26 / 27";
+
+  const fondo = `
+  ${fuentes(r)}
+  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="${PIZARRA.tinta}"/>
+  <image href="${esc(r.campo)}" x="0" y="0" width="${LAMINA_W}" height="${LAMINA_H}" preserveAspectRatio="none"/>
+  <defs>
+    <linearGradient id="portadaVelo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${NOCHE}" stop-opacity=".9"/>
+      <stop offset=".55" stop-color="${NOCHE}" stop-opacity=".72"/>
+      <stop offset="1" stop-color="${NOCHE}" stop-opacity=".92"/>
+    </linearGradient>
+    <linearGradient id="portadaFilo" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${ORO}"/><stop offset=".26" stop-color="${ORO_CLARO}"/><stop offset=".62" stop-color="${PIZARRA.rosa}"/><stop offset="1" stop-color="${ORO}" stop-opacity=".25"/>
+    </linearGradient>
+  </defs>
+  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="url(#portadaVelo)"/>
+  <rect x="0" y="${LAMINA_H - 8}" width="${LAMINA_W}" height="8" fill="url(#portadaFilo)"/>
+  <circle cx="92" cy="92" r="52" fill="#FFFFFF" fill-opacity=".04" stroke="${ORO}" stroke-opacity=".38"/>
+  <image href="${esc(r.logo)}" x="56" y="56" width="72" height="72" preserveAspectRatio="xMidYMid meet"/>
+  <text x="170" y="86" font-family="${FUENTE}" font-weight="600" font-size="16" letter-spacing="5" fill="${ORO}">REAL MADRID CF - CASTILLA</text>
+  <text x="170" y="112" font-family="${FUENTE}" font-weight="600" font-size="14" letter-spacing="4" fill="#FFFFFF" fill-opacity=".5">ANÁLISIS DEL RIVAL</text>`;
+
+  const escudo = (x: number, y: number, lado: number) =>
+    opciones.escudo
+      ? `<image href="${esc(opciones.escudo)}" x="${x}" y="${y}" width="${lado}" height="${lado}" preserveAspectRatio="xMidYMid meet"/>`
+      : "";
+
+  if (opciones.tipo === "cierre") {
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${LAMINA_W} ${LAMINA_H}" width="${LAMINA_W}" height="${LAMINA_H}">
+  ${fondo}
+  ${escudo(LAMINA_W / 2 - 170, 250, 340)}
+  <rect x="${LAMINA_W / 2 - 60}" y="648" width="120" height="3" fill="${ORO}"/>
+  <text x="${LAMINA_W / 2}" y="720" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="44" letter-spacing="2" fill="#FFFFFF">${esc(equipo)}</text>
+  <text x="${LAMINA_W / 2}" y="772" text-anchor="middle" font-family="${FUENTE}" font-weight="600" font-size="22" letter-spacing="6" fill="${ORO_CLARO}">${esc(pie)}</text>
+</svg>`;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${LAMINA_W} ${LAMINA_H}" width="${LAMINA_W}" height="${LAMINA_H}">
+  ${fondo}
+  <rect x="0" y="410" width="${LAMINA_W}" height="260" fill="${NOCHE}" fill-opacity=".62"/>
+  <rect x="0" y="410" width="${LAMINA_W}" height="2" fill="${ORO}" fill-opacity=".6"/>
+  <rect x="0" y="668" width="${LAMINA_W}" height="2" fill="${ORO}" fill-opacity=".6"/>
+  ${escudo(250, 300, 480)}
+  <text x="840" y="492" font-family="${FUENTE}" font-weight="600" font-size="22" letter-spacing="7" fill="${ORO}">${esc(opciones.jornada.toUpperCase())} · ANÁLISIS DEL RIVAL</text>
+  <text x="836" y="590" font-family="${FUENTE}" font-weight="700" font-size="96" letter-spacing="2" fill="#FFFFFF">${esc(equipo)}</text>
+  <text x="840" y="644" font-family="${FUENTE}" font-weight="600" font-size="40" letter-spacing="3" fill="${ORO_CLARO}">${esc(opciones.titulo.toUpperCase())}</text>
+  <text x="${LAMINA_W - 60}" y="${LAMINA_H - 44}" text-anchor="end" font-family="${FUENTE}" font-weight="600" font-size="20" letter-spacing="5" fill="#FFFFFF" fill-opacity=".7">${esc(pie)}</text>
+</svg>`;
+}
+
+export async function portadaImagen(opciones: OpcionesPortada, salida: Salida = {}): Promise<string> {
+  const [campo, logo, bold, semi, escudo] = await Promise.all([
+    recurso(RECURSOS.campo),
+    recurso(RECURSOS.logo),
+    recurso(RECURSOS.bold),
+    recurso(RECURSOS.semi),
+    opciones.escudo ? recurso(opciones.escudo) : Promise.resolve(""),
+  ]);
+
+  return svgAImagen(portadaSvg({ ...opciones, escudo, recursos: { campo, logo, bold, semi } }), salida);
 }
