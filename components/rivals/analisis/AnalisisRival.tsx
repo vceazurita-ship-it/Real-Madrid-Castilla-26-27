@@ -19,6 +19,7 @@ import {
   Copy,
   FileDown,
   FileText,
+  FileUp,
   FolderInput,
   Loader2,
   Pencil,
@@ -45,6 +46,7 @@ import {
   type ClipAnalisis,
   clipsKey,
   type Lamina,
+  jornadaDeTexto,
   laminaNueva,
   laminaVacia,
   normalizaAnalisis,
@@ -60,6 +62,7 @@ import {
 } from "@/lib/rivals/analisis";
 import { fichaDesdePlantilla, resolutorDeFichas } from "@/lib/rivals/analisis-fichas";
 import { laminaImagen } from "@/lib/rivals/analisis-svg";
+import { importaPdfAnalisis, type LaminaImportada, type PdfLib } from "@/lib/rivals/importa-pdf";
 import { playerKey } from "@/lib/rivals/once";
 
 type Props = {
@@ -463,6 +466,115 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
     }
   };
 
+  /* -------------------------- importar un PDF -------------------------- */
+
+  /*
+  | Para las jornadas que no se preparan aquí: el informe hecho en PowerPoint y
+  | pasado a PDF se lee (`lib/rivals/importa-pdf.ts`) y sus diapositivas se
+  | convierten en láminas. Antes de añadir nada se enseña lo que se ha
+  | encontrado en cada una, para elegir.
+  */
+  type Propuesta = LaminaImportada & { elegida: boolean; repetida: boolean };
+
+  const [importacion, setImportacion] = useState<{
+    origen: string;
+    destino: string;
+    laminas: Propuesta[];
+    saltadas: number[];
+  } | null>(null);
+  const [leyendoPdf, setLeyendoPdf] = useState(false);
+  const entradaPdf = useRef<HTMLInputElement | null>(null);
+
+  const leePdf = async (obtener: () => Promise<ArrayBuffer>, origen: string) => {
+    if (leyendoPdf) return;
+
+    setLeyendoPdf(true);
+
+    try {
+      const pdfjs = await import("pdfjs-dist");
+
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+      const resultado = await importaPdfAnalisis(pdfjs as unknown as PdfLib, await obtener(), delEquipo);
+
+      if (!resultado.laminas.length) {
+        toast.error(
+          "No he encontrado ninguna lámina en ese PDF. Tiene que ser un informe con el campo de la plantilla del club y un título que diga córner, falta o centros.",
+        );
+        return;
+      }
+
+      const destino = jornada || jornadaDeTexto(origen) || "";
+
+      const existe = (propuesta: LaminaImportada) =>
+        (analisis.jornadas[destino]?.laminas ?? []).some(
+          (l) => l.seccion === propuesta.lamina.seccion && l.titulo === propuesta.lamina.titulo,
+        );
+
+      setImportacion({
+        origen,
+        destino,
+        saltadas: resultado.saltadas,
+        laminas: resultado.laminas.map((propuesta) => ({
+          ...propuesta,
+          repetida: existe(propuesta),
+          elegida: !existe(propuesta),
+        })),
+      });
+    } catch (error) {
+      console.error("[analisis] importar PDF", error);
+      toast.error("No se ha podido leer el PDF. ¿Está bien el archivo?");
+    } finally {
+      setLeyendoPdf(false);
+    }
+  };
+
+  const aplicaImportacion = () => {
+    if (!importacion) return;
+
+    const destino = importacion.destino.trim().toUpperCase().replace(/^(\d+)$/, "J$1");
+
+    if (!/^J\d{1,2}$/.test(destino)) {
+      toast.error("Di a qué jornada van, como «J6».");
+      return;
+    }
+
+    const elegidas = importacion.laminas.filter((p) => p.elegida).map((p) => p.lamina);
+
+    if (!elegidas.length) {
+      toast.error("No hay ninguna lámina marcada.");
+      return;
+    }
+
+    setValue((actual) => {
+      const limpio = normalizaAnalisis(actual);
+      const previo = limpio.jornadas[destino] ?? TRABAJO_VACIO;
+
+      return {
+        ...limpio,
+        jornadas: { ...limpio.jornadas, [destino]: { ...previo, laminas: [...previo.laminas, ...elegidas] } },
+      };
+    });
+
+    const aqui = elegidas.filter((l) => SECCION_POR_ID.get(l.seccion)?.ambito === ambito);
+    const fuera = elegidas.length - aqui.length;
+
+    setJornadaElegida(destino);
+
+    if (aqui[0]) {
+      setSeccion(aqui[0].seccion);
+      setLaminaElegida(aqui[0].id);
+    }
+
+    setImportacion(null);
+
+    toast.success(
+      `${elegidas.length} lámina${elegidas.length === 1 ? "" : "s"} añadida${elegidas.length === 1 ? "" : "s"} a la ${destino}${
+        fuera ? ` (${fuera} en ${ambito === "abp" ? "Área del Rival" : "ABP del Rival"})` : ""
+      }. Revísalas en la pizarra.`,
+    );
+  };
+
   /* -------------------------- exportar -------------------------- */
 
   const [exportando, setExportando] = useState<"pdf" | "ppt" | null>(null);
@@ -577,6 +689,19 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   return (
     <section className="space-y-4 rounded-2xl border border-[#C8A96B]/20 bg-white/[0.03] p-4 md:p-5">
+      <input
+        ref={entradaPdf}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const archivo = e.target.files?.[0];
+
+          e.target.value = "";
+
+          if (archivo) void leePdf(() => archivo.arrayBuffer(), archivo.name.replace(/\.pdf$/i, ""));
+        }}
+      />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.3em] text-[#C8A96B]">Análisis visual</p>
@@ -838,7 +963,110 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 >
                   <Plus size={13} /> Nueva lámina
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => entradaPdf.current?.click()}
+                  disabled={leyendoPdf}
+                  title="Convierte en láminas un informe hecho fuera (PowerPoint pasado a PDF)"
+                  className={`${boton} bg-white/[0.06] text-white/75 hover:bg-white/10`}
+                >
+                  {leyendoPdf ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />} Importar PDF
+                </button>
               </div>
+
+              {importacion && (
+                <div className="space-y-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.06] p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-white">
+                      «{importacion.origen}»: {importacion.laminas.length} lámina
+                      {importacion.laminas.length === 1 ? "" : "s"} encontrada{importacion.laminas.length === 1 ? "" : "s"}
+                      {importacion.saltadas.length > 0 && (
+                        <span className="font-normal text-white/50">
+                          {" "}
+                          · se saltan las páginas {importacion.saltadas.join(", ")} (sin campo: portada, cierre…)
+                        </span>
+                      )}
+                    </p>
+
+                    <label className="flex items-center gap-1.5 text-xs text-white/60">
+                      A la jornada
+                      <input
+                        value={importacion.destino}
+                        onChange={(e) => setImportacion({ ...importacion, destino: e.target.value })}
+                        placeholder="J6"
+                        aria-label="Jornada a la que van"
+                        className="w-16 rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1 text-xs text-white"
+                      />
+                    </label>
+                  </div>
+
+                  <ul className="space-y-1.5">
+                    {importacion.laminas.map((propuesta, i) => {
+                      const destino = SECCION_POR_ID.get(propuesta.lamina.seccion);
+                      const otraArea = destino && destino.ambito !== ambito;
+
+                      return (
+                        <li key={propuesta.lamina.id}>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={propuesta.elegida}
+                              onChange={(e) =>
+                                setImportacion({
+                                  ...importacion,
+                                  laminas: importacion.laminas.map((p, k) => (k === i ? { ...p, elegida: e.target.checked } : p)),
+                                })
+                              }
+                            />
+                            <span className="min-w-0 text-xs">
+                              <span className="block font-medium text-white">
+                                Pág. {propuesta.pagina} · {propuesta.lamina.titulo}
+                              </span>
+                              <span className="block text-white/55">
+                                → {destino?.titulo}
+                                {otraArea ? ` (en ${destino?.ambito === "abp" ? "ABP del Rival" : "Área del Rival"})` : ""} ·{" "}
+                                {propuesta.cuenta.cruces} cruces · {propuesta.cuenta.balones} balones · {propuesta.cuenta.rotulos} rótulos ·{" "}
+                                {propuesta.cuenta.jugadores} jugadores
+                              </span>
+                              {propuesta.sinCasar.length > 0 && (
+                                <span className="block text-[#C8A96B]">
+                                  Sin encontrar en la plantilla: {propuesta.sinCasar.join(", ")} (salen sin foto; se pueden cambiar en la lámina)
+                                </span>
+                              )}
+                              {propuesta.repetida && (
+                                <span className="block text-[#C8A96B]">
+                                  Ya hay una lámina con este título en la {importacion.destino}: desmarcada para no duplicarla.
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setImportacion(null)}
+                      className={`${boton} bg-white/[0.06] text-white/75 hover:bg-white/10`}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={aplicaImportacion}
+                      disabled={!importacion.laminas.some((p) => p.elegida)}
+                      className="flex items-center gap-1.5 rounded-lg bg-[#C8A96B] px-3 py-1.5 text-xs font-medium text-black disabled:opacity-40"
+                    >
+                      <FileUp size={13} /> Añadir {importacion.laminas.filter((p) => p.elegida).length} a la{" "}
+                      {importacion.destino || "jornada"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {lamina && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-2 py-1.5">
@@ -1042,15 +1270,34 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   </p>
                   <ul className="space-y-1">
                     {docs.map((d) => (
-                      <li key={d.id}>
+                      <li key={d.id} className="flex items-center gap-1">
                         <a
                           href={d.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="block truncate rounded-lg px-2 py-1 text-xs text-white/75 hover:bg-white/10"
+                          className="min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-xs text-white/75 hover:bg-white/10"
                         >
                           {d.nombre}
                         </a>
+                        {/\.pdf($|\?)/i.test(d.url) && (
+                          <button
+                            type="button"
+                            disabled={leyendoPdf}
+                            onClick={() =>
+                              void leePdf(async () => {
+                                const respuesta = await fetch(d.url);
+
+                                if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
+                                return respuesta.arrayBuffer();
+                              }, d.nombre)
+                            }
+                            title="Convertir sus diapositivas en láminas"
+                            className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-[#C8A96B] hover:bg-[#C8A96B]/10 disabled:opacity-40"
+                          >
+                            Pasar a láminas
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
