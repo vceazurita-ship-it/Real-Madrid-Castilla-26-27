@@ -498,7 +498,8 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { key: "corta", label: "CORTA" },
       { key: "zonas", label: "ZONAS" },
       { key: "marcas", label: "MARCAS" },
-      { key: "fuera", label: "CORTO / ARRIBA" },
+      /* Nombre del cuerpo técnico (27/09/2026); la clave no cambia. */
+      { key: "fuera", label: "FRONTAL Y CORTO" },
     ],
     /*
     | Los puestos cambiaron de nombre en la rev 5, y sus claves con ellos. Sin
