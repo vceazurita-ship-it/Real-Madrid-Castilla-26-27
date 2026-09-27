@@ -131,7 +131,17 @@ export type TrabajoJornada = {
   laminas: Lamina[];
   /** Una conclusión por sección, aunque no tenga lámina. */
   notas?: Partial<Record<SeccionId, string>>;
+  /**
+   * Las láminas quitadas, para poder recuperarlas.
+   *
+   * El 27/09/2026 desapareció la lámina de córner cerrado del Alcorcón y no
+   * había forma de volver atrás: el aviso con «Deshacer» dura unos segundos.
+   * Se guardan las últimas `MAX_QUITADAS` de cada jornada.
+   */
+  quitadas?: { lamina: Lamina; en: string }[];
 };
+
+export const MAX_QUITADAS = 15;
 
 /**
  * Una lámina sin nada: ni marcas, ni jugadores, ni consignas.
@@ -346,6 +356,15 @@ export function normalizaAnalisis(crudo: unknown): RivalAnalisisDoc {
         t.notas && typeof t.notas === "object"
           ? (t.notas as Partial<Record<SeccionId, string>>)
           : {},
+      quitadas: Array.isArray(t.quitadas)
+        ? t.quitadas
+            .map((q) => {
+              const lamina = normalizaLamina((q as { lamina?: unknown })?.lamina);
+
+              return lamina ? { lamina, en: String((q as { en?: unknown }).en ?? "") } : null;
+            })
+            .filter((q): q is { lamina: Lamina; en: string } => q !== null)
+        : [],
     };
   }
 

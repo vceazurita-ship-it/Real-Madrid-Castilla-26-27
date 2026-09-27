@@ -49,6 +49,7 @@ import {
   jornadaDeTexto,
   laminaNueva,
   laminaVacia,
+  MAX_QUITADAS,
   normalizaAnalisis,
   normalizaClips,
   nuevoIdAnalisis,
@@ -217,24 +218,46 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
     if (!quitada) return;
 
-    cambiaTrabajo((actual) => ({ ...actual, laminas: actual.laminas.filter((l) => l.id !== id) }));
+    const en = new Date().toISOString();
+
+    /* Se guarda en «Quitadas» de su jornada: el aviso con «Deshacer» dura
+       unos segundos, y esto no. Una lámina vacía no merece sitio. */
+    cambiaTrabajo((actual) => ({
+      ...actual,
+      laminas: actual.laminas.filter((l) => l.id !== id),
+      quitadas: laminaVacia(quitada)
+        ? actual.quitadas
+        : [{ lamina: quitada, en }, ...(actual.quitadas ?? [])].slice(0, MAX_QUITADAS),
+    }));
     setLaminaElegida(null);
 
     toast(`Lámina «${quitada.titulo || "sin título"}» quitada`, {
+      description: laminaVacia(quitada) ? undefined : "Se puede recuperar desde «Quitadas».",
       action: {
         label: "Deshacer",
-        onClick: () => {
-          cambiaTrabajo((actual) => {
-            const lista = [...actual.laminas];
-
-            lista.splice(Math.min(indice, lista.length), 0, quitada);
-
-            return { ...actual, laminas: lista };
-          });
-          setLaminaElegida(quitada.id);
-        },
+        onClick: () => recuperaLamina(quitada, indice),
       },
     });
+  };
+
+  /** Devuelve a la jornada una lámina quitada, en su sitio si se sabe. */
+  const recuperaLamina = (lamina: Lamina, indice?: number) => {
+    cambiaTrabajo((actual) => {
+      if (actual.laminas.some((l) => l.id === lamina.id)) return actual;
+
+      const lista = [...actual.laminas];
+
+      lista.splice(indice == null ? lista.length : Math.min(indice, lista.length), 0, lamina);
+
+      return {
+        ...actual,
+        laminas: lista,
+        quitadas: (actual.quitadas ?? []).filter((q) => q.lamina.id !== lamina.id),
+      };
+    });
+
+    setSeccion(lamina.seccion);
+    setLaminaElegida(lamina.id);
   };
 
   /** Cambia de sitio una lámina entre las de su misma sección. */
@@ -1151,6 +1174,40 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                     <Plus size={15} /> Crear la primera lámina
                   </button>
                 </div>
+              )}
+
+              {(trabajo.quitadas?.length ?? 0) > 0 && (
+                <details className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                  <summary className="cursor-pointer text-xs text-white/55">
+                    Quitadas en la {jornada} ({trabajo.quitadas?.length}) · se pueden recuperar
+                  </summary>
+                  <ul className="mt-2 space-y-1">
+                    {trabajo.quitadas?.map((q) => {
+                      const suya = SECCION_POR_ID.get(q.lamina.seccion);
+
+                      return (
+                        <li key={q.lamina.id} className="flex items-center gap-2 text-xs">
+                          <span className="min-w-0 flex-1 truncate text-white/75">
+                            {q.lamina.titulo || "Sin título"}
+                            <span className="text-white/40">
+                              {" "}
+                              · {suya?.titulo}
+                              {suya && suya.ambito !== ambito ? ` (${suya.ambito === "abp" ? "ABP del Rival" : "Área del Rival"})` : ""}
+                              {q.en ? ` · ${new Date(q.en).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => recuperaLamina(q.lamina)}
+                            className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-[#C8A96B] hover:bg-[#C8A96B]/10"
+                          >
+                            Recuperar
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </details>
               )}
 
               <label className="block text-[11px] uppercase tracking-wider text-white/40">
