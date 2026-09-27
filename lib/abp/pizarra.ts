@@ -345,11 +345,14 @@ export const PLANTILLAS: PlantillaSlide[] = [
     vista: "ancho",
     lado: "ofensivo",
     grupos: [
-      { key: "lanzadores", label: "LANZADORES" },
+      /* Nombres del cuerpo técnico (27/09/2026): el de atrás es el
+         equilibrio y los dos de la banda, el saque y la corta. Las claves no
+         cambian, así que las jornadas ya montadas no se mueven. */
+      { key: "lanzadores", label: "EQUILIBRIO" },
       { key: "bloqueos", label: "BLOQUEOS" },
       { key: "rechace", label: "RECHACE" },
       { key: "rematadores", label: "REMATADORES" },
-      { key: "cierra", label: "CIERRA" },
+      { key: "cierra", label: "SAQUE Y CORTA" },
     ],
     /*
     | Fuera el puesto de «lanzador»: su chapa caía en 190,120, o sea **debajo
@@ -365,9 +368,10 @@ export const PLANTILLAS: PlantillaSlide[] = [
     */
     puestos: puestos("corner-of", [
       { code: "C", label: "Corta", grupo: "lanzadores", x: 831, y: 845 },
-      { code: "BZ", label: "Bloqueo zona", grupo: "bloqueos", x: 960, y: 317 },
+      /* Se leen «CORTA» y «BC» (27/09/2026); la clave sigue siendo BZ y RC. */
+      { code: "BZ", sigla: "CORTA", label: "Corta", grupo: "bloqueos", x: 960, y: 317 },
       { code: "BC", label: "Bloqueo corta", grupo: "bloqueos", x: 880, y: 233 },
-      { code: "RC", label: "Rechace corto", grupo: "rechace", x: 590, y: 531 },
+      { code: "RC", sigla: "BC", label: "Bloqueo corta", grupo: "rechace", x: 590, y: 531 },
       { code: "RL", label: "Rechace largo", grupo: "rechace", x: 906, y: 537 },
       { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 1000, y: 455 },
       { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 1076, y: 415 },
