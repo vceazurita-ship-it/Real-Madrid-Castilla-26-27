@@ -615,8 +615,9 @@ export const PLANTILLAS: PlantillaSlide[] = [
     lado: "defensivo",
     grupos: [
       { key: "corta", label: "CORTA" },
-      { key: "marcas", label: "MARCAS" },
-      { key: "zona", label: "ZONA" },
+      /* Nombres del cuerpo técnico (27/09/2026); las claves no cambian. */
+      { key: "marcas", label: "ZONAS" },
+      { key: "zona", label: "FRONTAL Y CORTO" },
     ],
     puestos: puestos("falta-lat-def", [
       { code: "C", label: "Corta", grupo: "corta", x: 680, y: 467 },
