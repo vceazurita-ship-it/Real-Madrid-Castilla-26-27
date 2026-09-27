@@ -393,11 +393,14 @@ export const PLANTILLAS: PlantillaSlide[] = [
     vista: "porteria",
     lado: "ofensivo",
     grupos: [
-      { key: "lanzadores", label: "LANZADORES" },
+      /* Nombres del cuerpo técnico (27/09/2026): los dos de atrás son los
+         lanzadores, y los de arriba, amplitud y equilibrio. Las claves no
+         cambian, así que las jornadas ya montadas no se mueven. */
+      { key: "lanzadores", label: "AMPLITUD Y EQUILIBRA" },
       { key: "bloqueo", label: "BLOQUEO Y CARRERA" },
       { key: "rechace", label: "RECHACE" },
       { key: "rematadores", label: "REMATADORES" },
-      { key: "equilibra", label: "EQUILIBRA Y CORTA" },
+      { key: "equilibra", label: "LANZADORES" },
     ],
     puestos: puestos("falta-lat-of", [
       { code: "E", label: "Ejecutor", grupo: "lanzadores", x: 831, y: 845 },
