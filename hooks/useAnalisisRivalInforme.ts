@@ -110,7 +110,7 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
         if (cancelado) break;
 
         try {
-          const imagen = await laminaImagen(lamina, { ficha }, { ancho: 1280, formato: "image/png" });
+          const imagen = await laminaImagen(lamina, { ficha, equipo, jornada }, { ancho: 1280, formato: "image/png" });
 
           graficos.push({
             cid: `rival-${i + 1}`,

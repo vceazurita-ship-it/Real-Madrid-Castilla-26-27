@@ -1447,6 +1447,7 @@ export default function AbpMicrocicloPage() {
               clave: dia.clave,
               etiqueta: dia.etiqueta,
               tipo: dia.tipo,
+              fecha: dia.fecha,
             })),
             /* De dónde viene la semana: el microciclo va de partido a partido. */
             partidoAnterior: ventana.partidoAnterior

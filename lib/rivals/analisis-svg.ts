@@ -1,21 +1,26 @@
 /**
- * LA LÁMINA DE ANÁLISIS, DIBUJADA.
+ * LA LÁMINA DE ANÁLISIS, DIBUJADA CON EL CROMO DE LA PIZARRA DE ABP.
  *
- * Una sola función pinta la lámina entera como texto SVG a 1920×1080, con el
- * aspecto de los informes del cuerpo técnico: barra azul noche con el título,
- * medio campo verde con la portería arriba y las fichas de los jugadores a la
- * derecha. De esa misma cadena sale todo:
- *
- * - la pantalla la usa de fondo y pone encima las marcas que se arrastran;
- * - el PDF, el PPT y el informe del microciclo la pasan a imagen.
- *
- * Tener un segundo dibujo «para exportar» era garantizar que un día la
+ * Una sola función pinta la lámina entera como texto SVG a 1920×1080. De esa
+ * misma cadena sale todo: la pantalla la usa de fondo y pone encima las marcas
+ * que se arrastran, y el PDF, el PPT y el informe del microciclo la pasan a
+ * imagen. Tener un segundo dibujo «para exportar» era garantizar que un día la
  * pantalla y el documento no dijesen lo mismo.
  *
- * Las fuentes son de sistema a propósito: un SVG que se pinta como imagen no
- * puede pedir fuentes de fuera, y con una web se quedaría en la de por defecto.
+ * **Se parece a propósito a la pizarra de balón parado propia**
+ * (`components/abp/pizarra/TableroSlide.tsx`): la misma cabecera azul noche con
+ * el escudo en su círculo de oro, el filo oro-rosa, la foto del estadio a
+ * sangre con sus velos, los paneles de cristal azul noche con rótulos en oro y
+ * la tarjeta blanca de consignas. Los colores salen de `COLORES` de
+ * `lib/abp/pizarra.ts`, no se copian: si la pizarra cambia de tono, cambia
+ * también esto.
+ *
+ * Las marcas se guardan en metros y se llevan a la foto con una homografía
+ * sacada de las cuatro esquinas del área grande: la foto está en perspectiva y
+ * un reparto lineal dejaba los remates del segundo palo fuera del área.
  */
 
+import { COLORES as PIZARRA, CABECERA_H } from "@/lib/abp/pizarra";
 import {
   CAMPO_ANCHO,
   CAMPO_FONDO,
@@ -29,25 +34,113 @@ import {
 export const LAMINA_W = 1920;
 export const LAMINA_H = 1080;
 
-export const NAVY = "#0E1F5B";
+export const NAVY = PIZARRA.noche;
 
-const FUENTE = "Calibri, 'Segoe UI', Arial, sans-serif";
+const FUENTE = "'Barlow Condensed Pizarra', 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
 
-/** El recuadro verde, en píxeles de la lámina. */
-export const TABLERO = { x: 36, y: 100, w: 1464, h: 950 };
+/** Lo que se puede tocar del campo: todo lo que no es cabecera ni columna. */
+export const COLUMNA = { x: 1548, w: 352 };
 
-/** Píxeles por metro: el medio campo entero tiene que caber a lo alto. */
-export const ESCALA = 20.2;
+export const TABLERO = { x: 0, y: CABECERA_H + 5, w: COLUMNA.x - 8, h: LAMINA_H - CABECERA_H - 5 };
 
-const PX0 = TABLERO.x + (TABLERO.w - CAMPO_ANCHO * ESCALA) / 2;
-const PY0 = TABLERO.y + 34;
+/**
+ * La foto del campo va corrida a la izquierda para que la banda derecha —de
+ * donde salen la mitad de los centros— no quede debajo de la columna. Lo que
+ * sobra a la derecha se apaga hacia el azul noche, como en el plano de
+ * portería de la pizarra.
+ */
+const FOTO_X = -170;
 
-export const aPx = (p: Punto) => ({ x: PX0 + p.x * ESCALA, y: PY0 + p.y * ESCALA });
+/* ------------------------------------------------------------------ */
+/*  LA PERSPECTIVA                                                     */
+/* ------------------------------------------------------------------ */
 
-export const aMetros = (p: Punto) => ({
-  x: Math.min(CAMPO_ANCHO + 1.5, Math.max(-1.5, (p.x - PX0) / ESCALA)),
-  y: Math.min(CAMPO_FONDO + 0.3, Math.max(-1.5, (p.y - PY0) / ESCALA)),
-});
+type Matriz = number[];
+
+/** Homografía que lleva cuatro puntos a otros cuatro (DLT con h33 = 1). */
+function homografia(de: Punto[], a: Punto[]): Matriz {
+  const filas: number[][] = [];
+  const b: number[] = [];
+
+  de.forEach((p, i) => {
+    const q = a[i];
+
+    filas.push([p.x, p.y, 1, 0, 0, 0, -q.x * p.x, -q.x * p.y]);
+    b.push(q.x);
+    filas.push([0, 0, 0, p.x, p.y, 1, -q.y * p.x, -q.y * p.y]);
+    b.push(q.y);
+  });
+
+  /* Gauss con pivote: ocho ecuaciones, ocho incógnitas. */
+  const n = 8;
+  const m = filas.map((fila, i) => [...fila, b[i]]);
+
+  for (let c = 0; c < n; c++) {
+    let pivote = c;
+
+    for (let f = c + 1; f < n; f++) if (Math.abs(m[f][c]) > Math.abs(m[pivote][c])) pivote = f;
+
+    [m[c], m[pivote]] = [m[pivote], m[c]];
+
+    for (let f = 0; f < n; f++) {
+      if (f === c) continue;
+
+      const k = m[f][c] / m[c][c];
+
+      for (let k2 = c; k2 <= n; k2++) m[f][k2] -= k * m[c][k2];
+    }
+  }
+
+  return [...m.map((fila, i) => fila[n] / fila[i]), 1];
+}
+
+const aplica = (h: Matriz, p: Punto): Punto => {
+  const w = h[6] * p.x + h[7] * p.y + h[8];
+
+  return { x: (h[0] * p.x + h[1] * p.y + h[2]) / w, y: (h[3] * p.x + h[4] * p.y + h[5]) / w };
+};
+
+/* Las esquinas del área grande en la foto a 1920×1080 (medidas a mano). */
+const AREA_M: Punto[] = [
+  { x: 13.84, y: 0 },
+  { x: 54.16, y: 0 },
+  { x: 13.84, y: 16.5 },
+  { x: 54.16, y: 16.5 },
+];
+
+const AREA_PX: Punto[] = [
+  { x: 513 + FOTO_X, y: 222 },
+  { x: 1353 + FOTO_X, y: 222 },
+  { x: 443 + FOTO_X, y: 468 },
+  { x: 1418 + FOTO_X, y: 468 },
+];
+
+const H_IDA = homografia(AREA_M, AREA_PX);
+const H_VUELTA = homografia(AREA_PX, AREA_M);
+
+export const aPx = (p: Punto) => aplica(H_IDA, p);
+
+export const aMetros = (p: Punto) => {
+  const m = aplica(H_VUELTA, p);
+
+  return {
+    x: Math.min(CAMPO_ANCHO + 3, Math.max(-3, m.x)),
+    y: Math.min(CAMPO_FONDO + 10, Math.max(-2, m.y)),
+  };
+};
+
+/** Píxeles por metro alrededor de un punto: de lejos, el campo encoge. */
+export function escalaEn(p: Punto) {
+  const c = aPx(p);
+  const dx = aPx({ x: p.x + 1, y: p.y });
+  const dy = aPx({ x: p.x, y: p.y + 1 });
+
+  return { x: Math.hypot(dx.x - c.x, dx.y - c.y), y: Math.hypot(dy.x - c.x, dy.y - c.y) };
+}
+
+/* ------------------------------------------------------------------ */
+/*  OPCIONES                                                           */
+/* ------------------------------------------------------------------ */
 
 /** Lo que la ficha necesita de un jugador. */
 export type FichaLamina = {
@@ -58,12 +151,31 @@ export type FichaLamina = {
   foto: string;
 };
 
+export type RecursosLamina = {
+  campo: string;
+  logo: string;
+  bold: string;
+  semi: string;
+};
+
+export const RECURSOS: RecursosLamina = {
+  campo: "/abp-campo-ancho.png",
+  logo: "/logo.png",
+  bold: "/fuentes/BarlowCondensed-Bold.ttf",
+  semi: "/fuentes/BarlowCondensed-SemiBold.ttf",
+};
+
 export type OpcionesSvg = {
   /** Resuelve cada jugador de la lámina; `null` si ya no está en la hoja. */
   ficha: (clave: string, nombre: string) => FichaLamina | null;
   escudo?: string;
+  /** Lo que se lee en la placa del rival de la cabecera. */
+  equipo?: string;
+  jornada?: string;
   /** La pantalla pinta las marcas aparte para poder arrastrarlas. */
   sinMarcas?: boolean;
+  /** Para exportar van dentro, como `data:`; en pantalla, por su ruta. */
+  recursos?: Partial<RecursosLamina>;
 };
 
 export const esc = (valor: string) =>
@@ -73,72 +185,10 @@ export const esc = (valor: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-/* ------------------------------------------------------------------ */
-/*  EL CAMPO                                                           */
-/* ------------------------------------------------------------------ */
-
-function campo() {
-  const { x, y, w, h } = TABLERO;
-
-  const linea = `stroke="#FFFFFF" stroke-width="4" fill="none"`;
-
-  const px = (m: number) => m * ESCALA;
-
-  const izq = PX0;
-  const der = PX0 + px(CAMPO_ANCHO);
-  const fondo = PY0;
-  const centro = PX0 + px(CAMPO_ANCHO / 2);
-
-  const franjas = Array.from({ length: 10 }, (_, i) =>
-    i % 2
-      ? `<rect x="${x}" y="${y + (i * h) / 10}" width="${w}" height="${h / 10}" fill="#000" opacity=".045"/>`
-      : "",
-  ).join("");
-
-  const area = { w: px(40.32), h: px(16.5) };
-  const chica = { w: px(18.32), h: px(5.5) };
-  const porteria = px(7.32);
-  const penalti = { x: centro, y: fondo + px(11) };
-  const radio = px(9.15);
-
-  /* El arco del área: sólo lo que queda fuera de ella. */
-  const dy = fondo + area.h - penalti.y;
-  const dx = Math.sqrt(radio * radio - dy * dy);
-
-  /* La red, a rombos, como en la plantilla del club. */
-  const red = Array.from({ length: 14 }, (_, i) => {
-    const xi = centro - porteria / 2 + (i * porteria) / 13;
-
-    return `<line x1="${xi}" y1="${fondo - 30}" x2="${xi}" y2="${fondo}" stroke="#FFFFFF" stroke-width="1.2" opacity=".75"/>`;
-  }).join("");
-
-  const redH = [0.25, 0.5, 0.75]
-    .map(
-      (t) =>
-        `<line x1="${centro - porteria / 2}" y1="${fondo - 30 * t}" x2="${centro + porteria / 2}" y2="${fondo - 30 * t}" stroke="#FFFFFF" stroke-width="1.2" opacity=".75"/>`,
-    )
-    .join("");
-
-  const medio = PY0 + px(52.5);
-
-  return `
-  <defs><clipPath id="tablero"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs>
-  <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#1D7A1F"/>
-  ${franjas}
-  <g clip-path="url(#tablero)">
-    <rect x="${izq}" y="${fondo}" width="${der - izq}" height="${px(60)}" ${linea}/>
-    <rect x="${centro - area.w / 2}" y="${fondo}" width="${area.w}" height="${area.h}" ${linea}/>
-    <rect x="${centro - chica.w / 2}" y="${fondo}" width="${chica.w}" height="${chica.h}" ${linea}/>
-    <circle cx="${penalti.x}" cy="${penalti.y}" r="5" fill="#FFFFFF"/>
-    <path d="M ${penalti.x - dx} ${fondo + area.h} A ${radio} ${radio} 0 0 0 ${penalti.x + dx} ${fondo + area.h}" ${linea}/>
-    <path d="M ${izq + px(1)} ${fondo} A ${px(1)} ${px(1)} 0 0 1 ${izq} ${fondo + px(1)}" ${linea}/>
-    <path d="M ${der - px(1)} ${fondo} A ${px(1)} ${px(1)} 0 0 0 ${der} ${fondo + px(1)}" ${linea}/>
-    <circle cx="${centro}" cy="${medio}" r="${radio}" ${linea}/>
-    <line x1="${izq}" y1="${medio}" x2="${der}" y2="${medio}" stroke="#FFFFFF" stroke-width="4"/>
-    <rect x="${centro - porteria / 2}" y="${fondo - 30}" width="${porteria}" height="30" fill="#FFFFFF" fill-opacity=".12" stroke="#FFFFFF" stroke-width="4"/>
-    ${red}${redH}
-  </g>`;
-}
+const ORO = PIZARRA.oro;
+const ORO_CLARO = PIZARRA.oroClaro;
+const NOCHE = PIZARRA.noche;
+const NOCHE_ALTO = PIZARRA.nocheAlto;
 
 /* ------------------------------------------------------------------ */
 /*  LAS MARCAS                                                         */
@@ -154,7 +204,7 @@ const BALON: Record<ColorMarca, string> = {
 export function cruzSvg(cx: number, cy: number, color: ColorMarca, r = 17) {
   const d = `M ${cx - r} ${cy - r} L ${cx + r} ${cy + r} M ${cx + r} ${cy - r} L ${cx - r} ${cy + r}`;
 
-  return `<path d="${d}" stroke="#111" stroke-width="15" stroke-linecap="square"/><path d="${d}" stroke="${COLORES[color]}" stroke-width="9" stroke-linecap="square"/>`;
+  return `<path d="${d}" stroke="#081524" stroke-width="15" stroke-linecap="square" opacity=".9"/><path d="${d}" stroke="${COLORES[color]}" stroke-width="9" stroke-linecap="square"/>`;
 }
 
 export function balonSvg(cx: number, cy: number, color: ColorMarca) {
@@ -164,11 +214,11 @@ export function balonSvg(cx: number, cy: number, color: ColorMarca) {
     return `${cx + 6 * Math.cos(a)},${cy + 6 * Math.sin(a)}`;
   }).join(" ");
 
-  return `<circle cx="${cx}" cy="${cy}" r="16" fill="${BALON[color]}" stroke="#3A3A3A" stroke-width="2.5"/><polygon points="${pentagono}" fill="#3A3A3A" opacity=".55"/><path d="M ${cx - 12} ${cy - 9} Q ${cx} ${cy - 16} ${cx + 12} ${cy - 9}" stroke="#3A3A3A" stroke-width="1.6" fill="none" opacity=".5"/>`;
+  return `<circle cx="${cx}" cy="${cy + 3}" r="16" fill="#000" opacity=".3"/><circle cx="${cx}" cy="${cy}" r="16" fill="${BALON[color]}" stroke="#2A2A2A" stroke-width="2.5"/><polygon points="${pentagono}" fill="#2A2A2A" opacity=".55"/><path d="M ${cx - 12} ${cy - 9} Q ${cx} ${cy - 16} ${cx + 12} ${cy - 9}" stroke="#2A2A2A" stroke-width="1.6" fill="none" opacity=".5"/>`;
 }
 
 /** Ancho del rótulo: sin medir texto, que en un SVG suelto no se puede. */
-export const anchoEtiqueta = (texto: string) => Math.max(90, texto.length * 17 + 44);
+export const anchoEtiqueta = (texto: string) => Math.max(88, texto.length * 16 + 44);
 
 export function etiquetaSvg(marca: Extract<Marca, { tipo: "etiqueta" }>) {
   const c = aPx(marca);
@@ -181,11 +231,11 @@ export function etiquetaSvg(marca: Extract<Marca, { tipo: "etiqueta" }>) {
 
       const desde = destino.y < c.y ? c.y - h / 2 : c.y + h / 2;
 
-      return `<line x1="${c.x}" y1="${desde}" x2="${destino.x}" y2="${destino.y}" stroke="#FFFFFF" stroke-width="3"/>`;
+      return `<line x1="${c.x}" y1="${desde}" x2="${destino.x}" y2="${destino.y}" stroke="#081524" stroke-width="6" opacity=".35"/><line x1="${c.x}" y1="${desde}" x2="${destino.x}" y2="${destino.y}" stroke="#FFFFFF" stroke-width="3"/>`;
     })
     .join("");
 
-  return `${lineas}<rect x="${c.x - w / 2}" y="${c.y - h / 2}" width="${w}" height="${h}" fill="${NAVY}"/><text x="${c.x}" y="${c.y + 10}" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="29" fill="#FFFFFF">${esc(marca.texto)}</text>`;
+  return `${lineas}<rect x="${c.x - w / 2}" y="${c.y - h / 2 + 4}" width="${w}" height="${h}" rx="6" fill="#000" opacity=".35"/><rect x="${c.x - w / 2}" y="${c.y - h / 2}" width="${w}" height="${h}" rx="6" fill="${NOCHE}" stroke="${ORO}" stroke-opacity=".7" stroke-width="1.5"/><rect x="${c.x - w / 2 + 10}" y="${c.y + h / 2 - 5}" width="${w - 20}" height="2" fill="${ORO}"/><text x="${c.x}" y="${c.y + 10}" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="29" letter-spacing="1" fill="#FFFFFF">${esc(marca.texto)}</text>`;
 }
 
 export function flechaSvg(marca: Extract<Marca, { tipo: "flecha" }>) {
@@ -200,14 +250,15 @@ export function flechaSvg(marca: Extract<Marca, { tipo: "flecha" }>) {
   /* La línea acaba antes de la punta, o asoma por delante. */
   const fin = { x: b.x - 18 * Math.cos(ang), y: b.y - 18 * Math.sin(ang) };
 
-  return `<line x1="${a.x}" y1="${a.y}" x2="${fin.x}" y2="${fin.y}" stroke="${color}" stroke-width="6" ${marca.discontinua ? 'stroke-dasharray="16 11"' : ""} stroke-linecap="round"/><polygon points="${b.x},${b.y} ${punta(0.42)} ${punta(-0.42)}" fill="${color}"/>`;
+  return `<line x1="${a.x}" y1="${a.y}" x2="${fin.x}" y2="${fin.y}" stroke="#081524" stroke-width="10" opacity=".3" stroke-linecap="round"/><line x1="${a.x}" y1="${a.y}" x2="${fin.x}" y2="${fin.y}" stroke="${color}" stroke-width="6" ${marca.discontinua ? 'stroke-dasharray="16 11"' : ""} stroke-linecap="round"/><polygon points="${b.x},${b.y} ${punta(0.42)} ${punta(-0.42)}" fill="${color}"/>`;
 }
 
 export function zonaSvg(marca: Extract<Marca, { tipo: "zona" }>) {
   const c = aPx(marca);
+  const e = escalaEn(marca);
   const color = COLORES[marca.color];
 
-  return `<ellipse cx="${c.x}" cy="${c.y}" rx="${marca.rx * ESCALA}" ry="${marca.ry * ESCALA}" fill="${color}" fill-opacity=".28" stroke="${color}" stroke-width="3" stroke-dasharray="10 7"/>`;
+  return `<ellipse cx="${c.x}" cy="${c.y}" rx="${marca.rx * e.x}" ry="${marca.ry * e.y}" fill="${color}" fill-opacity=".26" stroke="${color}" stroke-width="3" stroke-dasharray="10 7"/>`;
 }
 
 export function marcaSvg(marca: Marca) {
@@ -236,10 +287,148 @@ export const ordenPintado = (marca: Marca) =>
   marca.tipo === "zona" ? 0 : marca.tipo === "flecha" ? 1 : marca.tipo === "etiqueta" ? 3 : 2;
 
 /* ------------------------------------------------------------------ */
-/*  LA LEYENDA Y LAS FICHAS                                            */
+/*  EL CROMO                                                           */
 /* ------------------------------------------------------------------ */
 
-function leyenda(lamina: Lamina) {
+function fuentes(r: RecursosLamina) {
+  return `<style>@font-face{font-family:'Barlow Condensed Pizarra';font-weight:700;src:url('${esc(r.bold)}') format('truetype');}@font-face{font-family:'Barlow Condensed Pizarra';font-weight:600;src:url('${esc(r.semi)}') format('truetype');}</style>`;
+}
+
+function campo(r: RecursosLamina) {
+  return `
+  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="${PIZARRA.tinta}"/>
+  <image href="${esc(r.campo)}" x="${FOTO_X}" y="0" width="${LAMINA_W}" height="${LAMINA_H}" preserveAspectRatio="none"/>
+  <defs>
+    <linearGradient id="veloV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${NOCHE}" stop-opacity=".46"/>
+      <stop offset=".36" stop-color="${NOCHE}" stop-opacity=".06"/>
+      <stop offset="1" stop-color="${NOCHE}" stop-opacity=".34"/>
+    </linearGradient>
+    <radialGradient id="veloR" cx=".42" cy=".36" r=".9">
+      <stop offset=".4" stop-color="${NOCHE}" stop-opacity="0"/>
+      <stop offset=".76" stop-color="${NOCHE}" stop-opacity=".32"/>
+      <stop offset="1" stop-color="${NOCHE}" stop-opacity=".62"/>
+    </radialGradient>
+    <linearGradient id="veloD" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${NOCHE}" stop-opacity="0"/>
+      <stop offset=".62" stop-color="${NOCHE}" stop-opacity="0"/>
+      <stop offset=".76" stop-color="${NOCHE}" stop-opacity=".55"/>
+      <stop offset=".88" stop-color="${NOCHE}" stop-opacity=".9"/>
+      <stop offset="1" stop-color="${NOCHE}" stop-opacity=".96"/>
+    </linearGradient>
+    <clipPath id="tablero"><rect x="${TABLERO.x}" y="${TABLERO.y}" width="${TABLERO.w}" height="${TABLERO.h}"/></clipPath>
+  </defs>
+  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="url(#veloV)"/>
+  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="url(#veloR)"/>
+  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="url(#veloD)"/>`;
+}
+
+function cabecera(lamina: Lamina, opciones: OpcionesSvg, r: RecursosLamina) {
+  const equipo = (opciones.equipo ?? "").toUpperCase();
+  const pie = [opciones.jornada, "TEMPORADA 26 / 27"].filter(Boolean).join(" · ");
+
+  /* La placa del rival crece con el nombre, como la de la pizarra. */
+  const placaW = Math.min(440, Math.max(230, equipo.length * 15 + 60, pie.length * 9 + 50));
+  const placaX = LAMINA_W - 32 - placaW;
+
+  const escudo = opciones.escudo
+    ? `<image href="${esc(opciones.escudo)}" x="${placaX - 78}" y="${CABECERA_H / 2 - 32}" width="64" height="64" preserveAspectRatio="xMidYMid meet"/>`
+    : "";
+
+  return `
+  <defs>
+    <linearGradient id="cabecera" x1="0" y1="0" x2="1" y2=".1">
+      <stop offset="0" stop-color="${NOCHE}"/><stop offset=".52" stop-color="${NOCHE_ALTO}"/><stop offset="1" stop-color="${NOCHE}"/>
+    </linearGradient>
+    <linearGradient id="cabeceraOro" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${ORO}" stop-opacity="0"/><stop offset=".48" stop-color="${ORO}" stop-opacity=".10"/><stop offset="1" stop-color="${ORO}" stop-opacity=".24"/>
+    </linearGradient>
+    <linearGradient id="filo" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${ORO}"/><stop offset=".26" stop-color="${ORO_CLARO}"/><stop offset=".62" stop-color="${PIZARRA.rosa}"/><stop offset="1" stop-color="${ORO}" stop-opacity=".25"/>
+    </linearGradient>
+    <linearGradient id="divisor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${ORO}" stop-opacity="0"/><stop offset=".5" stop-color="${ORO}" stop-opacity=".6"/><stop offset="1" stop-color="${ORO}" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="${CABECERA_H - 6}" width="${LAMINA_W}" height="30" fill="#000" opacity=".25"/>
+  <rect width="${LAMINA_W}" height="${CABECERA_H}" fill="url(#cabecera)"/>
+  <rect x="${LAMINA_W - 720}" width="720" height="${CABECERA_H}" fill="url(#cabeceraOro)"/>
+  <circle cx="74" cy="${CABECERA_H / 2}" r="46" fill="#FFFFFF" fill-opacity=".04" stroke="${ORO}" stroke-opacity=".38"/>
+  <image href="${esc(r.logo)}" x="42" y="${CABECERA_H / 2 - 32}" width="64" height="64" preserveAspectRatio="xMidYMid meet"/>
+  <rect x="144" y="${CABECERA_H / 2 - 33}" width="1" height="66" fill="url(#divisor)"/>
+  <text x="170" y="44" font-family="${FUENTE}" font-weight="600" font-size="13" letter-spacing="4.4" fill="${ORO}">REAL MADRID CF - CASTILLA · ANÁLISIS DEL RIVAL</text>
+  <text x="170" y="94" font-family="${FUENTE}" font-weight="700" font-size="42" letter-spacing=".6" fill="#FFFFFF">${esc(lamina.titulo.toUpperCase())}</text>
+  ${escudo}
+  <rect x="${placaX}" y="${CABECERA_H / 2 - 38}" width="${placaW}" height="76" rx="12" fill="#FFFFFF" fill-opacity=".05" stroke="${ORO}" stroke-opacity=".32"/>
+  <text x="${placaX + placaW - 20}" y="${CABECERA_H / 2 - 14}" text-anchor="end" font-family="${FUENTE}" font-weight="600" font-size="10" letter-spacing="3" fill="${ORO}" fill-opacity=".85">RIVAL</text>
+  <text x="${placaX + placaW - 20}" y="${CABECERA_H / 2 + 12}" text-anchor="end" font-family="${FUENTE}" font-weight="700" font-size="24" letter-spacing="1.2" fill="#FFFFFF">${esc(equipo || "RIVAL")}</text>
+  <text x="${placaX + placaW - 20}" y="${CABECERA_H / 2 + 30}" text-anchor="end" font-family="${FUENTE}" font-weight="600" font-size="10" letter-spacing="2.6" fill="#FFFFFF" fill-opacity=".45">${esc(pie)}</text>
+  <rect x="0" y="${CABECERA_H}" width="${LAMINA_W}" height="5" fill="url(#filo)"/>`;
+}
+
+/** Un panel de cristal azul noche con su rótulo en oro, como «Asignaciones». */
+function panel(y: number, alto: number, titulo: string, derecha = "") {
+  return `<rect x="${COLUMNA.x}" y="${y + 6}" width="${COLUMNA.w}" height="${alto}" rx="16" fill="#000" opacity=".35"/><rect x="${COLUMNA.x}" y="${y}" width="${COLUMNA.w}" height="${alto}" rx="16" fill="${NOCHE}" fill-opacity=".92" stroke="${ORO}" stroke-opacity=".3"/><text x="${COLUMNA.x + 20}" y="${y + 28}" font-family="${FUENTE}" font-weight="600" font-size="12" letter-spacing="3.6" fill="${ORO}">${esc(titulo)}</text>${derecha ? `<text x="${COLUMNA.x + COLUMNA.w - 20}" y="${y + 28}" text-anchor="end" font-family="${FUENTE}" font-weight="600" font-size="12" fill="#FFFFFF" fill-opacity=".4">${esc(derecha)}</text>` : ""}<rect x="${COLUMNA.x + 20}" y="${y + 40}" width="${COLUMNA.w - 40}" height="1" fill="${ORO}" fill-opacity=".25"/>`;
+}
+
+function fichas(lamina: Lamina, opciones: OpcionesSvg, y0: number) {
+  const lista = lamina.jugadores.slice(0, 6);
+
+  if (!lista.length) return { svg: "", fin: y0 };
+
+  const FILA = 112;
+  const alto = 52 + lista.length * FILA;
+
+  let svg = panel(y0, alto, (lamina.tituloJugadores || "JUGADORES CLAVE").toUpperCase(), String(lista.length));
+
+  lista.forEach((jugador, i) => {
+    const ficha = opciones.ficha(jugador.clave, jugador.nombre);
+
+    /* El nombre de la lámina manda: en el vestuario es «IRU», no «IRURITA». */
+    const nombre = (jugador.nombre || ficha?.nombre || "").toUpperCase();
+    const dato = jugador.dato === "pie" ? (ficha?.pie ?? "") : ficha?.edad ? `${ficha.edad} AÑOS` : "";
+
+    const y = y0 + 52 + i * FILA;
+    const fx = COLUMNA.x + 20;
+
+    svg += `<clipPath id="foto${i}"><rect x="${fx}" y="${y}" width="92" height="100" rx="10"/></clipPath>`;
+    svg += `<rect x="${fx}" y="${y}" width="92" height="100" rx="10" fill="${NOCHE_ALTO}" stroke="${ORO}" stroke-opacity=".3"/>`;
+
+    if (ficha?.foto) {
+      svg += `<image href="${esc(ficha.foto)}" x="${fx - 4}" y="${y + 2}" width="100" height="104" preserveAspectRatio="xMidYMin slice" clip-path="url(#foto${i})"/>`;
+    }
+
+    const tx = fx + 112;
+
+    svg += `<text x="${tx}" y="${y + 36}" font-family="${FUENTE}" font-weight="700" font-size="${nombre.length > 14 ? 22 : 26}" letter-spacing=".5" fill="#FFFFFF">${esc(nombre)}</text>`;
+
+    const chapa = (texto: string, x: number) => {
+      const w = texto.length * 10 + 18;
+
+      return {
+        svg: `<rect x="${x}" y="${y + 52}" width="${w}" height="26" rx="4" fill="${ORO}" fill-opacity=".16" stroke="${ORO}" stroke-opacity=".3"/><text x="${x + w / 2}" y="${y + 71}" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="17" letter-spacing=".6" fill="${ORO_CLARO}">${esc(texto)}</text>`,
+        w,
+      };
+    };
+
+    let x = tx;
+
+    for (const texto of [ficha?.altura ?? "", dato].filter(Boolean)) {
+      const c = chapa(texto, x);
+
+      svg += c.svg;
+      x += c.w + 8;
+    }
+
+    if (i < lista.length - 1) {
+      svg += `<rect x="${fx}" y="${y + FILA - 6}" width="${COLUMNA.w - 40}" height="1" fill="${ORO}" fill-opacity=".12"/>`;
+    }
+  });
+
+  return { svg, fin: y0 + alto };
+}
+
+function leyenda(lamina: Lamina, y0: number) {
   const usados = new Set(
     lamina.marcas
       .filter((m) => m.tipo === "cruz" || m.tipo === "balon")
@@ -250,96 +439,81 @@ function leyenda(lamina: Lamina) {
     ([color, texto]) => usados.has(color) && texto.trim(),
   );
 
-  if (!entradas.length) return "";
+  if (!entradas.length) return { svg: "", fin: y0 };
 
-  const paso = Math.min(460, TABLERO.w / entradas.length);
-  const inicio = TABLERO.x + TABLERO.w / 2 - (paso * entradas.length) / 2;
-  const y = TABLERO.y + TABLERO.h - 46;
+  const alto = 56 + entradas.length * 42;
 
-  return entradas
-    .map(([color, texto], i) => {
-      const x = inicio + i * paso + paso / 2 - 110;
-      const w = anchoEtiqueta(texto.toUpperCase());
+  let svg = panel(y0, alto, "LEYENDA");
 
-      return `${cruzSvg(x, y, color, 16)}<rect x="${x + 34}" y="${y - 23}" width="${w}" height="46" fill="${NAVY}"/><text x="${x + 34 + w / 2}" y="${y + 10}" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="27" fill="#FFFFFF">${esc(texto.toUpperCase())}</text>`;
-    })
-    .join("");
-}
+  entradas.forEach(([color, texto], i) => {
+    const y = y0 + 74 + i * 42;
 
-/** Parte un título largo en dos renglones por la palabra más centrada. */
-function dosRenglones(texto: string): string[] {
-  if (texto.length <= 18) return [texto];
-
-  const palabras = texto.split(/\s+/);
-
-  let mejor = 1;
-  let diferencia = Infinity;
-
-  for (let i = 1; i < palabras.length; i++) {
-    const d = Math.abs(palabras.slice(0, i).join(" ").length - palabras.slice(i).join(" ").length);
-
-    if (d < diferencia) {
-      diferencia = d;
-      mejor = i;
-    }
-  }
-
-  return [palabras.slice(0, mejor).join(" "), palabras.slice(mejor).join(" ")];
-}
-
-export const PANEL_X = 1516;
-const PANEL_W = LAMINA_W - 20 - PANEL_X;
-
-function fichas(lamina: Lamina, opciones: OpcionesSvg) {
-  let y = TABLERO.y;
-
-  let salida = "";
-
-  const titulo = (lamina.tituloJugadores ?? "").trim().toUpperCase();
-
-  if (titulo) {
-    const renglones = dosRenglones(titulo);
-    const alto = renglones.length * 40 + 24;
-
-    salida += `<rect x="${PANEL_X}" y="${y}" width="${PANEL_W}" height="${alto}" fill="${NAVY}"/>`;
-
-    renglones.forEach((renglon, i) => {
-      salida += `<text x="${PANEL_X + PANEL_W / 2}" y="${y + 44 + i * 40}" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="31" fill="#FFFFFF">${esc(renglon)}</text>`;
-    });
-
-    y += alto + 10;
-  }
-
-  const ALTO = 142;
-  const caben = Math.floor((TABLERO.y + TABLERO.h - y) / (ALTO + 8));
-
-  lamina.jugadores.slice(0, caben).forEach((jugador, i) => {
-    const ficha = opciones.ficha(jugador.clave, jugador.nombre);
-
-    /* El nombre de la lámina manda: en el vestuario es «IRU», no «IRURITA». */
-    const nombre = (jugador.nombre || ficha?.nombre || "").toUpperCase();
-    const dato = jugador.dato === "pie" ? (ficha?.pie ?? "") : ficha?.edad ? `${ficha.edad} AÑOS` : "";
-
-    const fy = y + i * (ALTO + 8);
-    const fotoW = 128;
-    const bx = PANEL_X + fotoW + 8;
-    const bw = PANEL_W - fotoW - 8;
-    const fila = (ALTO - 10) / 3;
-
-    salida += `<clipPath id="foto${i}"><rect x="${PANEL_X}" y="${fy}" width="${fotoW}" height="${ALTO}"/></clipPath>`;
-
-    salida += ficha?.foto
-      ? `<image href="${esc(ficha.foto)}" x="${PANEL_X - 6}" y="${fy}" width="${fotoW + 12}" height="${ALTO + 12}" preserveAspectRatio="xMidYMin slice" clip-path="url(#foto${i})"/>`
-      : `<rect x="${PANEL_X}" y="${fy}" width="${fotoW}" height="${ALTO}" fill="#DADDE8"/>`;
-
-    salida += `<rect x="${bx}" y="${fy}" width="${bw}" height="${fila}" fill="${NAVY}"/><text x="${bx + bw / 2}" y="${fy + fila / 2 + 10}" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="${nombre.length > 13 ? 23 : 27}" fill="#FFFFFF">${esc(nombre)}</text>`;
-
-    salida += `<rect x="${bx}" y="${fy + fila + 5}" width="${bw}" height="${fila}" fill="#CDD3EA"/><text x="${bx + bw / 2}" y="${fy + fila * 1.5 + 14}" text-anchor="middle" font-family="${FUENTE}" font-size="27" fill="#1B2440">${esc(ficha?.altura ?? "")}</text>`;
-
-    salida += `<rect x="${bx}" y="${fy + 2 * fila + 10}" width="${bw}" height="${fila}" fill="#E6E8F2"/><text x="${bx + bw / 2}" y="${fy + fila * 2.5 + 19}" text-anchor="middle" font-family="${FUENTE}" font-size="27" fill="#1B2440">${esc(dato)}</text>`;
+    svg += `${cruzSvg(COLUMNA.x + 40, y - 8, color, 12)}<text x="${COLUMNA.x + 68}" y="${y}" font-family="${FUENTE}" font-weight="700" font-size="21" letter-spacing=".6" fill="#FFFFFF">${esc(texto.toUpperCase())}</text>`;
   });
 
+  return { svg, fin: y0 + alto };
+}
+
+/** Parte un texto en renglones de hasta `ancho` letras, por palabras. */
+function renglones(texto: string, ancho: number) {
+  const salida: string[] = [];
+
+  for (const parrafo of texto.split(/\n+/)) {
+    let actual = "";
+
+    for (const palabra of parrafo.trim().split(/\s+/).filter(Boolean)) {
+      if ((actual + " " + palabra).trim().length > ancho && actual) {
+        salida.push(actual);
+        actual = palabra;
+      } else {
+        actual = `${actual} ${palabra}`.trim();
+      }
+    }
+
+    if (actual) salida.push(actual);
+  }
+
   return salida;
+}
+
+/** La tarjeta blanca de consignas, con la viñeta de oro de la pizarra. */
+function consignas(lamina: Lamina, y0: number) {
+  const puntos = (lamina.notas ?? "")
+    .split(/\n+/)
+    .map((linea) => linea.replace(/^[-•·*]\s*/, "").trim())
+    .filter(Boolean);
+
+  if (!puntos.length) return "";
+
+  const lineas = puntos.map((punto) => renglones(punto.toUpperCase(), 27));
+  const total = lineas.reduce((n, l) => n + l.length, 0);
+
+  const alto = Math.min(LAMINA_H - 20 - y0, 58 + total * 24 + puntos.length * 8);
+
+  if (alto < 90) return "";
+
+  let svg = `<clipPath id="consignas"><rect x="${COLUMNA.x}" y="${y0}" width="${COLUMNA.w}" height="${alto}" rx="16"/></clipPath>`;
+
+  svg += `<rect x="${COLUMNA.x}" y="${y0 + 6}" width="${COLUMNA.w}" height="${alto}" rx="16" fill="#000" opacity=".35"/>`;
+  svg += `<g clip-path="url(#consignas)"><rect x="${COLUMNA.x}" y="${y0}" width="${COLUMNA.w}" height="${alto}" fill="${PIZARRA.papel}"/><rect x="${COLUMNA.x}" y="${y0}" width="6" height="${alto}" fill="${ORO}"/>`;
+  svg += `<text x="${COLUMNA.x + 26}" y="${y0 + 28}" font-family="${FUENTE}" font-weight="700" font-size="12" letter-spacing="3.6" fill="${ORO}">CONSIGNAS</text><rect x="${COLUMNA.x + 26}" y="${y0 + 38}" width="${COLUMNA.w - 50}" height="1" fill="${PIZARRA.navy}" fill-opacity=".12"/>`;
+
+  let y = y0 + 64;
+
+  lineas.forEach((grupo) => {
+    svg += `<rect x="${COLUMNA.x + 26}" y="${y - 12}" width="7" height="7" rx="1" fill="${ORO}"/>`;
+
+    grupo.forEach((renglon) => {
+      svg += `<text x="${COLUMNA.x + 42}" y="${y}" font-family="${FUENTE}" font-weight="600" font-size="19" fill="${PIZARRA.navy}">${esc(renglon)}</text>`;
+      y += 24;
+    });
+
+    y += 8;
+  });
+
+  svg += "</g>";
+
+  return svg;
 }
 
 /* ------------------------------------------------------------------ */
@@ -347,7 +521,8 @@ function fichas(lamina: Lamina, opciones: OpcionesSvg) {
 /* ------------------------------------------------------------------ */
 
 export function laminaSvg(lamina: Lamina, opciones: OpcionesSvg) {
-  /* Sin fichas, el campo se queda con todo el ancho de la barra de título. */
+  const r: RecursosLamina = { ...RECURSOS, ...opciones.recursos };
+
   const marcas = opciones.sinMarcas
     ? ""
     : [...lamina.marcas]
@@ -355,19 +530,19 @@ export function laminaSvg(lamina: Lamina, opciones: OpcionesSvg) {
         .map(marcaSvg)
         .join("");
 
-  const escudo = opciones.escudo
-    ? `<image href="${esc(opciones.escudo)}" x="22" y="16" width="64" height="72" preserveAspectRatio="xMidYMid meet"/>`
-    : "";
+  const conFichas = fichas(lamina, opciones, TABLERO.y + 16);
+  const conLeyenda = opciones.sinMarcas
+    ? { svg: "", fin: conFichas.fin }
+    : leyenda(lamina, conFichas.fin + (conFichas.svg ? 16 : 0));
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${LAMINA_W} ${LAMINA_H}" width="${LAMINA_W}" height="${LAMINA_H}">
-  <rect width="${LAMINA_W}" height="${LAMINA_H}" fill="#FFFFFF"/>
-  ${escudo}
-  <rect x="100" y="22" width="${LAMINA_W - 120}" height="58" fill="${NAVY}"/>
-  <text x="${100 + (LAMINA_W - 120) / 2}" y="62" text-anchor="middle" font-family="${FUENTE}" font-weight="700" font-size="31" fill="#FFFFFF" letter-spacing="1">${esc(lamina.titulo.toUpperCase())}</text>
-  ${campo()}
+  ${fuentes(r)}
+  ${campo(r)}
   <g clip-path="url(#tablero)">${marcas}</g>
-  ${opciones.sinMarcas ? "" : leyenda(lamina)}
-  ${fichas(lamina, opciones)}
+  ${cabecera(lamina, opciones, r)}
+  ${conFichas.svg}
+  ${conLeyenda.svg}
+  ${consignas(lamina, conLeyenda.fin + (conLeyenda.svg || conFichas.svg ? 16 : 0))}
 </svg>`;
 }
 
@@ -376,11 +551,11 @@ export function laminaSvg(lamina: Lamina, opciones: OpcionesSvg) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Trae una imagen como `data:`.
+ * Trae una imagen o una fuente como `data:`.
  *
- * Un SVG que se pinta como imagen NO carga nada de fuera: o lleva las fotos
- * dentro o salen huecas. Las de BeSoccer, además, no traen CORS y tienen que
- * pasar por `/api/rivals/foto`.
+ * Un SVG que se pinta como imagen NO carga nada de fuera: o lleva las fotos y
+ * las letras dentro o salen huecas. Las fotos de BeSoccer, además, no traen
+ * CORS y tienen que pasar por `/api/rivals/foto`.
  */
 export async function aDataUrl(url: string): Promise<string> {
   if (!url || url.startsWith("data:")) return url;
@@ -408,6 +583,16 @@ export async function aDataUrl(url: string): Promise<string> {
   }
 }
 
+/* Las fuentes, el campo y el escudo son los mismos en todas las láminas: se
+   traen una vez por pestaña. */
+const cacheRecursos = new Map<string, Promise<string>>();
+
+const recurso = (url: string) => {
+  if (!cacheRecursos.has(url)) cacheRecursos.set(url, aDataUrl(url));
+
+  return cacheRecursos.get(url) as Promise<string>;
+};
+
 /**
  * La lámina como imagen, lista para un PDF, un PPT o un correo.
  *
@@ -418,17 +603,6 @@ export async function laminaImagen(
   opciones: OpcionesSvg,
   salida: { ancho?: number; formato?: "image/png" | "image/jpeg" } = {},
 ): Promise<string> {
-  const cache = new Map<string, string>();
-
-  const incrusta = async (url: string) => {
-    if (!url) return "";
-
-    if (!cache.has(url)) cache.set(url, await aDataUrl(url));
-
-    return cache.get(url) ?? "";
-  };
-
-  /* Primero se traen todas las fotos y luego se dibuja con ellas dentro. */
   const fichasConFoto = new Map<string, FichaLamina | null>();
 
   for (const jugador of lamina.jugadores) {
@@ -436,15 +610,22 @@ export async function laminaImagen(
 
     fichasConFoto.set(
       jugador.clave || jugador.nombre,
-      ficha ? { ...ficha, foto: await incrusta(ficha.foto) } : null,
+      ficha ? { ...ficha, foto: ficha.foto ? await recurso(ficha.foto) : "" } : null,
     );
   }
 
-  const escudo = opciones.escudo ? await incrusta(opciones.escudo) : "";
+  const [campo, logo, bold, semi, escudo] = await Promise.all([
+    recurso(RECURSOS.campo),
+    recurso(RECURSOS.logo),
+    recurso(RECURSOS.bold),
+    recurso(RECURSOS.semi),
+    opciones.escudo ? recurso(opciones.escudo) : Promise.resolve(""),
+  ]);
 
   const svg = laminaSvg(lamina, {
     ...opciones,
     escudo,
+    recursos: { campo, logo, bold, semi },
     ficha: (clave, nombre) => fichasConFoto.get(clave || nombre) ?? null,
   });
 
@@ -459,6 +640,10 @@ export async function laminaImagen(
       imagen.src = url;
     });
 
+    /* Una fuente dentro de un SVG-imagen se carga aparte: se le da un respiro
+       para que no salga el primer dibujo con la letra de sistema. */
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
     const ancho = salida.ancho ?? LAMINA_W;
     const lienzo = document.createElement("canvas");
 
@@ -469,7 +654,7 @@ export async function laminaImagen(
 
     if (!ctx) throw new Error("El navegador no deja dibujar.");
 
-    ctx.fillStyle = "#FFFFFF";
+    ctx.fillStyle = PIZARRA.tinta;
     ctx.fillRect(0, 0, lienzo.width, lienzo.height);
     ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
 

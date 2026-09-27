@@ -338,7 +338,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
       /* En serie: varias láminas de 1920 a la vez tumban la pestaña. */
       for (const una of laminasAmbito) {
-        imagenes.push(await laminaImagen(una, { ficha, escudo }, { formato: "image/jpeg" }));
+        imagenes.push(await laminaImagen(una, { ficha, escudo, equipo, jornada }, { formato: "image/jpeg" }));
       }
 
       const nombre = apodo(`${jornada} ${equipo} ${ambito === "abp" ? "ABP" : "area"}`, "analisis");
@@ -610,6 +610,8 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   ficha={ficha}
                   plantilla={opciones}
                   escudo={escudo}
+                  equipo={equipo}
+                  jornada={jornada}
                 />
               ) : (
                 <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-white/15 text-sm text-white/40">

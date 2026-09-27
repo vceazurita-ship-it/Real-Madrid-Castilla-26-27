@@ -92,7 +92,13 @@ export type DatosInforme = {
    * días que no existen en esa semana, y el día de partido no se distinguía de
    * uno de descanso.
    */
-  dias?: { clave: DiaKey; etiqueta: string; tipo: "entreno" | "descanso" | "partido" }[];
+  dias?: {
+    clave: DiaKey;
+    etiqueta: string;
+    tipo: "entreno" | "descanso" | "partido";
+    /** "2026-09-21": el día del calendario, lo sepa o no la hoja de registro. */
+    fecha?: string;
+  }[];
   /**
    * De qué partido viene la semana.
    *
@@ -501,10 +507,26 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   /* ---------------- el rango de fechas ---------------- */
 
-  const fechas = datos.tareas
+  /*
+  | Las fechas de la semana salen, por orden, de:
+  |
+  | 1. La ventana del microciclo —de partido a partido, con el calendario—, que
+  |    la pantalla ya conoce. Hasta el 27/09/2026 no se miraba, y en cuanto la
+  |    hoja de registro venía sin fechas el informe decía no saberlas cuando
+  |    la cabecera de la propia pantalla las estaba enseñando.
+  | 2. Las tareas de la hoja de registro, si la ventana no llega.
+  */
+  const fechasVentana = (datos.dias ?? [])
+    .map((dia) => leeFecha(dia.fecha))
+    .filter((fecha): fecha is Date => fecha !== null);
+
+  const fechasHoja = datos.tareas
     .map((tarea) => leeFecha(tarea.fecha))
-    .filter((fecha): fecha is Date => fecha !== null)
-    .sort((a, b) => a.getTime() - b.getTime());
+    .filter((fecha): fecha is Date => fecha !== null);
+
+  const fechas = (fechasVentana.length ? fechasVentana : fechasHoja).sort(
+    (a, b) => a.getTime() - b.getTime(),
+  );
 
   const desde = fechas[0] ?? null;
   const hasta = fechas[fechas.length - 1] ?? null;
@@ -518,7 +540,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   if (!rango) {
     avisos.push(
-      "La hoja de registro no trae fechas de este microciclo, así que el seguimiento de abajo es el de toda la temporada, no el de esta semana.",
+      "Ni el calendario ni la hoja de registro dicen las fechas de este microciclo, así que el seguimiento de abajo es el de toda la temporada, no el de esta semana.",
     );
   }
 

@@ -40,13 +40,14 @@ import {
   anchoEtiqueta,
   aMetros,
   aPx,
-  ESCALA,
+  escalaEn,
   type FichaLamina,
   LAMINA_H,
   LAMINA_W,
   laminaSvg,
   marcaSvg,
   ordenPintado,
+  TABLERO,
 } from "@/lib/rivals/analisis-svg";
 
 type Herramienta = "mover" | "cruz" | "balon" | "etiqueta" | "flecha" | "zona" | "linea";
@@ -59,6 +60,8 @@ type Props = {
   ficha: (clave: string, nombre: string) => FichaLamina | null;
   plantilla: OpcionJugador[];
   escudo?: string;
+  equipo?: string;
+  jornada?: string;
   soloLectura?: boolean;
 };
 
@@ -84,7 +87,16 @@ type Arrastre =
   | { tipo: "linea"; id: string; indice: number }
   | { tipo: "nueva-flecha"; id: string };
 
-export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, soloLectura }: Props) {
+export function PizarraLamina({
+  lamina,
+  onChange,
+  ficha,
+  plantilla,
+  escudo,
+  equipo,
+  jornada,
+  soloLectura,
+}: Props) {
   const [herramienta, setHerramienta] = useState<Herramienta>("mover");
   const [color, setColor] = useState<ColorMarca>("rojo");
   const [elegida, setElegida] = useState<string | null>(null);
@@ -107,10 +119,11 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
   }
 
   const fondo = useMemo(
-    () => laminaSvg(vista, { ficha, escudo, sinMarcas: true }),
-    /* Las marcas no cuentan: el fondo sólo cambia con título y fichas. */
+    () => laminaSvg(vista, { ficha, escudo, equipo, jornada, sinMarcas: true }),
+    /* Las marcas no cuentan: el fondo sólo cambia con título, fichas y
+       consignas. La leyenda va con las marcas, en la capa de encima. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [vista.titulo, vista.tituloJugadores, vista.jugadores, ficha, escudo],
+    [vista.titulo, vista.tituloJugadores, vista.jugadores, vista.notas, ficha, escudo, equipo, jornada],
   );
 
   const aLamina = useCallback((evento: { clientX: number; clientY: number }): Punto => {
@@ -213,7 +226,7 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
             }
 
             if (actual.tipo === "punta" && m.tipo === "zona") {
-              return { ...m, rx: Math.max(1, Math.abs(p.x - m.x)), ry: Math.max(1, Math.abs(p.y - m.y)) };
+              return { ...m, rx: Math.max(0.5, Math.abs(p.x - m.x)), ry: Math.max(0.5, Math.abs(p.y - m.y)) };
             }
 
             if (actual.tipo === "linea" && m.tipo === "etiqueta") {
@@ -351,10 +364,11 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
 
         return <line x1={c.x} y1={c.y} x2={b.x} y2={b.y} stroke="transparent" strokeWidth={28} />;
       }
-      case "zona":
-        return (
-          <ellipse cx={c.x} cy={c.y} rx={marca.rx * ESCALA} ry={marca.ry * ESCALA} fill="transparent" />
-        );
+      case "zona": {
+        const e = escalaEn(marca);
+
+        return <ellipse cx={c.x} cy={c.y} rx={marca.rx * e.x} ry={marca.ry * e.y} fill="transparent" />;
+      }
     }
   };
 
@@ -381,11 +395,12 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
 
     if (marca.tipo === "zona") {
       const c = aPx(marca);
+      const e = escalaEn(marca);
 
       return (
         <circle
-          cx={c.x + marca.rx * ESCALA}
-          cy={c.y + marca.ry * ESCALA}
+          cx={c.x + marca.rx * e.x}
+          cy={c.y + marca.ry * e.y}
           r={13}
           strokeWidth={4}
           className={estilo}
@@ -482,7 +497,7 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
         </div>
       )}
 
-      <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white shadow-lg" style={{ aspectRatio: `${LAMINA_W} / ${LAMINA_H}` }}>
+      <div className="relative w-full overflow-hidden rounded-2xl border border-[#C8A96B]/25 bg-[#081524] shadow-[0_18px_44px_rgba(0,0,0,.45)]" style={{ aspectRatio: `${LAMINA_W} / ${LAMINA_H}` }}>
         <div
           className="pointer-events-none absolute inset-0 [&>svg]:h-full [&>svg]:w-full"
           dangerouslySetInnerHTML={{ __html: fondo }}
@@ -494,7 +509,7 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
           className="absolute inset-0 h-full w-full touch-none select-none"
           style={{ cursor }}
         >
-          <rect x={36} y={100} width={1464} height={950} fill="transparent" onPointerDown={alPulsarCampo} />
+          <rect x={TABLERO.x} y={TABLERO.y} width={TABLERO.w} height={TABLERO.h} fill="transparent" onPointerDown={alPulsarCampo} />
 
           {marcasOrdenadas.map((marca) => (
             <g
@@ -515,7 +530,7 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
                   marcaElegida.tipo === "etiqueta"
                     ? anchoEtiqueta(marcaElegida.texto) / 2 + 10
                     : marcaElegida.tipo === "zona"
-                      ? Math.max(marcaElegida.rx, marcaElegida.ry) * ESCALA + 10
+                      ? Math.max(marcaElegida.rx * escalaEn(marcaElegida).x, marcaElegida.ry * escalaEn(marcaElegida).y) + 10
                       : 30;
 
                 return (
@@ -635,7 +650,7 @@ export function PizarraLamina({ lamina, onChange, ficha, plantilla, escudo, solo
             </div>
 
             <label className="block text-[11px] uppercase tracking-wider text-white/40">
-              Lo que se concluye (va al informe)
+              Consignas (una por línea; van a la lámina y al informe)
               <textarea
                 value={lamina.notas ?? ""}
                 rows={3}
