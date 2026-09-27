@@ -11,6 +11,7 @@ import {
   CLAVE_VIGIA,
   normalizaMantenimiento,
   type Mantenimiento,
+  type DatosCarpeta,
   type Tarea,
   type Vigia,
 } from "@/lib/mantenimiento";
@@ -33,7 +34,11 @@ export async function leeMantenimiento(): Promise<{
  * Se relee el documento justo antes de escribir y sólo cambia el trozo de esa
  * tarea: el vigía escribe en el mismo documento cuando empieza y cuando acaba.
  */
-export async function pideEncargo(tarea: Tarea, quien: string): Promise<Mantenimiento> {
+export async function pideEncargo(
+  tarea: Tarea,
+  quien: string,
+  datos?: DatosCarpeta,
+): Promise<Mantenimiento> {
   const { data } = await readDoc<unknown>(CLAVE_MANTENIMIENTO);
 
   const estado = normalizaMantenimiento(data);
@@ -44,6 +49,7 @@ export async function pideEncargo(tarea: Tarea, quien: string): Promise<Mantenim
       ...estado[tarea],
       pedidoEn: new Date().toISOString(),
       pedidoPor: quien,
+      ...(datos ? { datos } : {}),
     },
   };
 

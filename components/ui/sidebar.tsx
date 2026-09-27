@@ -42,6 +42,7 @@ import {
   PenTool,
   ClipboardPlus,
   Crosshair,
+  CircleDot,
   PencilRuler,
   Presentation,
   Projector,
@@ -343,6 +344,8 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               )}
 
               {navLink("/scout-rival-abp", "ABP del Rival", <Target size={18} />)}
+
+              {navLink("/scout-rival-area", "Área del Rival", <CircleDot size={18} />)}
             </>,
           )}
 

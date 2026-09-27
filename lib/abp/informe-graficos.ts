@@ -1745,7 +1745,9 @@ export type AreaGrafico =
   | "wyscout"
   | "nuestro"
   | "contenidos"
-  | "seguimiento";
+  | "seguimiento"
+  /** Las láminas del análisis del rival que se ha preparado para la semana. */
+  | "rival";
 
 export type GraficoInforme = {
   /** El identificador con el que el correo lo llama: `src="cid:…"`. */

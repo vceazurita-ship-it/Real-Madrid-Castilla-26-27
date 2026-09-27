@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { esTarea } from "@/lib/mantenimiento";
+import { esTarea, type DatosCarpeta } from "@/lib/mantenimiento";
 import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
@@ -43,7 +43,12 @@ export async function POST(request: NextRequest) {
   }
 
   /* Sin cuerpo es el encargo de siempre, el de los rivales. */
-  const cuerpo = (await request.json().catch(() => ({}))) as { tarea?: unknown };
+  const cuerpo = (await request.json().catch(() => ({}))) as {
+    tarea?: unknown;
+    ruta?: unknown;
+    equipo?: unknown;
+    jornada?: unknown;
+  };
 
   const tarea = cuerpo.tarea ?? "rivales";
 
@@ -51,8 +56,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "No sé qué hay que hacer." }, { status: 400 });
   }
 
+  /* La carpeta necesita saber cuál y de quién: sin eso el vigía no puede
+     hacer nada, así que se contesta aquí y no a los diez segundos. */
+  let datos: DatosCarpeta | undefined;
+
+  if (tarea === "carpeta") {
+    const ruta = String(cuerpo.ruta ?? "").trim().replace(/^"+|"+$/g, "");
+    const equipo = String(cuerpo.equipo ?? "").trim();
+    const jornada = String(cuerpo.jornada ?? "").trim();
+
+    if (!ruta || ruta.length > 400) {
+      return NextResponse.json({ ok: false, error: "Pega la ruta de la carpeta." }, { status: 400 });
+    }
+
+    if (!equipo) {
+      return NextResponse.json({ ok: false, error: "Elige antes el rival." }, { status: 400 });
+    }
+
+    datos = { ruta, equipo, ...(jornada ? { jornada } : {}) };
+  }
+
   try {
-    const estado = await pideEncargo(tarea, slug);
+    const estado = await pideEncargo(tarea, slug, datos);
 
     return NextResponse.json({ ok: true, estado });
   } catch (error) {

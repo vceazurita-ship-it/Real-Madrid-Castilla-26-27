@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { Button, Dialog, Notice, TextArea } from "@/components/abp/ui";
 import { traeJson } from "@/lib/hojaCsv";
+import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento } from "@/lib/seguimiento";
@@ -419,9 +420,17 @@ export function InformeMicroDialog({
     [comparativa, propio, borrador],
   );
 
+  /* Lo preparado del rival de la semana en «ABP del Rival»: sus láminas
+     van como un gráfico más y sus conclusiones, en su propia sección. */
+  const rivalInforme = useAnalisisRivalInforme(datos.rival);
+
   const informe = useMemo(
-    () => ({ ...borrador, graficos }),
-    [borrador, graficos],
+    () => ({
+      ...borrador,
+      graficos: [...graficos, ...rivalInforme.graficos],
+      rivalAnalisis: rivalInforme.rivalAnalisis,
+    }),
+    [borrador, graficos, rivalInforme],
   );
 
   const html = useMemo(() => informeHtml(informe), [informe]);
@@ -457,7 +466,7 @@ export function InformeMicroDialog({
              `cid` y viajan como partes aparte, que es lo único que Gmail pinta. */
           html: informeHtml(informe, { imagenes: "cid" }),
           texto: informeTexto(informe),
-          imagenes: graficos.map((grafico) => ({
+          imagenes: informe.graficos.map((grafico) => ({
             cid: grafico.cid,
             base64: grafico.imagen.replace(/^data:image\/png;base64,/, ""),
           })),

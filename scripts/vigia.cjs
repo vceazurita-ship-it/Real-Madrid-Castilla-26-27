@@ -235,7 +235,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -293,6 +293,45 @@ async function haceWyscout() {
   await acaba("wyscout", ok, dice);
 
   apunta(`Wyscout: ${dice}.`);
+}
+
+/**
+ * La carpeta de análisis de una jornada: vídeos de ABP y de centros y los PDF.
+ *
+ * La ruta es del disco de ESTE ordenador —la pega alguien en «ABP del Rival» o
+ * en «Área del Rival»—, que es el único sitio donde se puede leer.
+ */
+async function haceCarpeta() {
+  const encargos = await leeEncargos();
+
+  const datos = encargos.carpeta?.datos;
+
+  await empieza("carpeta");
+
+  if (!datos?.ruta || !datos?.equipo) {
+    await acaba("carpeta", false, "el encargo no traía la ruta o el rival");
+
+    return;
+  }
+
+  apunta(`Carpeta: ${datos.equipo} · ${datos.ruta}`);
+
+  const args = [
+    path.join(RAIZ, "scripts/rival-carpeta.cjs"),
+    "--ruta",
+    datos.ruta,
+    "--equipo",
+    datos.equipo,
+    ...(datos.jornada ? ["--jornada", datos.jornada] : []),
+  ];
+
+  const { codigo, texto } = await ejecuta("carpeta", process.execPath, args);
+
+  const dice = resumen(texto) || (codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
+
+  await acaba("carpeta", codigo === 0, dice);
+
+  apunta(`Carpeta: ${dice}.`);
 }
 
 /** ¿Está corriendo la tarea programada de la jornada? */
@@ -398,7 +437,12 @@ async function ronda() {
     quiniela: estadoEncargo("quiniela", encargos.quiniela),
     rivales: estadoEncargo("rivales", encargos.rivales),
     wyscout: estadoEncargo("wyscout", encargos.wyscout),
+    carpeta: estadoEncargo("carpeta", encargos.carpeta),
   };
+
+  if (estados.carpeta === "pedido" && !enMarcha.has("carpeta")) {
+    arranca("carpeta", haceCarpeta);
+  }
 
   if (estados.quiniela === "pedido" && !enMarcha.has("quiniela")) {
     arranca("quiniela", haceQuiniela);

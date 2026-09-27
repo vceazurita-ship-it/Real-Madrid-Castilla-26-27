@@ -12,6 +12,7 @@ import {
   Database,
   Dumbbell,
   Flag,
+  CircleDot,
   Goal,
   Handshake,
   HeartHandshake,
@@ -368,6 +369,15 @@ export const MODULES: AppModule[] = [
     icon: Flag,
     rank: 84,
     alias: ["abp rival", "balon parado rival", "corners rival", "estrategia rival"],
+  },
+  {
+    href: "/scout-rival-area",
+    area: "RIVAL",
+    title: "Área del Rival",
+    desc: "Sus centros laterales: cómo atacan y cómo defienden el área",
+    icon: CircleDot,
+    rank: 83,
+    alias: ["area rival", "centros rival", "centros laterales", "remates rival"],
   },
 
   /* -------------------------------------------------------------- RENDIMIENTO */

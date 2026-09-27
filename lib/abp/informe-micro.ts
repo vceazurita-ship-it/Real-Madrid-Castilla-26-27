@@ -392,6 +392,17 @@ export type InformeMicro = {
   graficos: GraficoInforme[];
   /** Lo que el informe no sabe, dicho donde se lee. */
   avisos: string[];
+  /**
+   * Lo analizado del rival de la semana en «ABP del Rival»: sus conclusiones
+   * por sección. Las láminas van en `graficos` con el área `rival`.
+   */
+  rivalAnalisis?: RivalAnalisisInforme | null;
+};
+
+export type RivalAnalisisInforme = {
+  equipo: string;
+  jornada: string;
+  conclusiones: { seccion: string; texto: string }[];
 };
 
 /**
@@ -1164,6 +1175,24 @@ ${seccion(
 ${seccion("La semana, tarea a tarea", "Lo planificado de balón parado, día a día. «est.» es carga estimada; el resto viene medida de la hoja de registro.", semana)}
 
 ${
+  informe.rivalAnalisis &&
+  (informe.rivalAnalisis.conclusiones.length || bloqueGraficos(informe, modoImagenes, "rival").trim())
+    ? seccion(
+        `El rival a balón parado · ${informe.rivalAnalisis.equipo}`,
+        `Lo analizado en «ABP del Rival» para la ${informe.rivalAnalisis.jornada}: cómo ataca y cómo defiende, con las láminas que se han dibujado.`,
+        `${
+          informe.rivalAnalisis.conclusiones.length
+            ? tabla(
+                ["Sección", "Lo que se concluye"],
+                informe.rivalAnalisis.conclusiones.map((una) => [`<b>${esc(una.seccion)}</b>`, esc(una.texto)]),
+              )
+            : ""
+        }${bloqueGraficos(informe, modoImagenes, "rival")}`,
+      )
+    : ""
+}
+
+${
   bloqueGraficos(informe, modoImagenes, "partido").trim()
     ? seccion(
         "Nuestro partido, por las dos vías",
@@ -1291,6 +1320,11 @@ export function informeTexto(informe: InformeMicro) {
   informe.resumen.forEach((dato) => {
     lineas.push(`- ${dato.rotulo}: ${dato.valor} (${dato.pie})`);
   });
+
+  if (informe.rivalAnalisis?.conclusiones.length) {
+    lineas.push("", `EL RIVAL A BALÓN PARADO · ${informe.rivalAnalisis.equipo.toUpperCase()} · ${informe.rivalAnalisis.jornada}`);
+    informe.rivalAnalisis.conclusiones.forEach((una) => lineas.push(`- ${una.seccion}: ${una.texto}`));
+  }
 
   if (informe.avisos.length) {
     lineas.push("", "AVISOS");

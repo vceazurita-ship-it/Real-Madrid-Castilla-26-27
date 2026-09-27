@@ -550,6 +550,29 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Deducido", es: "Sólo los partidos contra nosotros. La página dice cuál está enseñando" },
         ],
       },
+      {
+        titulo: "Análisis visual de la jornada",
+        filas: [
+          { que: "Recoger la carpeta", es: "Pega la ruta de la carpeta de la jornada: el ordenador del club sube los vídeos (comprimidos) y los PDF a su sección" },
+          { que: "Láminas", es: "Medio campo para dibujar cruces, balones, rótulos, flechas y zonas, con las fichas de sus jugadores" },
+          { que: "PDF y PPT", es: "Sacan todas las láminas de la jornada; las conclusiones van al informe del microciclo de ABP" },
+        ],
+      },
+    ],
+  },
+  {
+    ruta: "/scout-rival-area",
+    titulo: "Área del Rival",
+    resumen: "Sus centros laterales: cómo atacan y cómo defienden el área.",
+    origen: "La carpeta de centros de cada jornada y las láminas que se dibujan en la propia página.",
+    bloques: [
+      {
+        titulo: "Cómo se prepara",
+        filas: [
+          { que: "Recoger la carpeta", es: "Con «CENTRO» en el nombre va a cómo atacan; con «DEF», a cómo defienden. El partido sale de «VS …»" },
+          { que: "Láminas", es: "Perfil izquierdo y derecho: balones donde centran, cruces donde caen (roja cerrada, amarilla abierta) y los centradores" },
+        ],
+      },
     ],
   },
 

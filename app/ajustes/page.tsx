@@ -82,12 +82,14 @@ const NOMBRE: Record<Tarea, string> = {
   quiniela: "Resultados de la quiniela",
   rivales: "Jornada de BeSoccer",
   wyscout: "Datos de Wyscout",
+  carpeta: "Carpeta de análisis del rival",
 };
 
 const TARDA: Record<Tarea, string> = {
   quiniela: "suele tardar menos de un minuto",
   rivales: "suele tardar unos cuarenta minutos",
   wyscout: "suele tardar unos diez minutos",
+  carpeta: "unos cuatro segundos por vídeo",
 };
 
 /** Lo que dice el pie de cada panel. */
@@ -346,6 +348,7 @@ export default function AjustesPage() {
     quiniela: deTarea("quiniela"),
     rivales: deTarea("rivales"),
     wyscout: deTarea("wyscout"),
+    carpeta: deTarea("carpeta"),
   } satisfies Record<Tarea, EstadoEncargo>;
 
   const ocupada = (tarea: Tarea) =>

@@ -18,7 +18,9 @@ export const CLAVE_MANTENIMIENTO = "mantenimiento";
     no debe pisar un encargo que se deja en ese mismo instante. */
 export const CLAVE_VIGIA = "mantenimiento:vigia";
 
-export const TAREAS = ["quiniela", "rivales", "wyscout"] as const;
+/* `carpeta` (27/09/2026): recoger la carpeta de análisis de una jornada —vídeos
+   de ABP y de centros, y los PDF— y dejarla en la ficha del rival. */
+export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta"] as const;
 
 export type Tarea = (typeof TAREAS)[number];
 
@@ -32,6 +34,17 @@ export type Encargo = {
   hechoEn?: string;
   resultado?: string;
   ok?: boolean;
+  /** Lo que necesita el encargo para hacerse; sólo lo usa `carpeta`. */
+  datos?: DatosCarpeta;
+};
+
+export type DatosCarpeta = {
+  /** La carpeta tal y como se ve en el ordenador del club. */
+  ruta: string;
+  /** El equipo tal y como viene en la hoja de plantillas rivales. */
+  equipo: string;
+  /** «J5»; si no viene, sale del nombre de la carpeta. */
+  jornada?: string;
 };
 
 export type Mantenimiento = Partial<Record<Tarea, Encargo>>;
@@ -57,6 +70,7 @@ export const LIMITE_MIN: Record<Tarea, number> = {
   quiniela: 10,
   rivales: 100,
   wyscout: 60,
+  carpeta: 45,
 };
 
 export function esTarea(valor: unknown): valor is Tarea {

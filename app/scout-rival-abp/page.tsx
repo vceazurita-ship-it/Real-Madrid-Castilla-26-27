@@ -48,6 +48,7 @@ import {
 import { RivalPatterns } from "@/components/abp/RivalPatterns";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
+import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -751,6 +752,17 @@ export default function ScoutRivalAbpPage() {
                   </span>
                 </div>
               </div>
+
+              {/* ----------- análisis visual de la jornada ----------- */}
+
+              {equipo && grupo === "liga" && (
+                <AnalisisRival
+                  ambito="abp"
+                  equipo={equipo}
+                  plantilla={squad}
+                  escudo={escudoDe(equipo) ?? undefined}
+                />
+              )}
 
               {delEquipo.length > 0 && (
                 <FilterDrawer
