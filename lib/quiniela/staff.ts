@@ -64,6 +64,14 @@ export const STAFF: PersonaStaff[] = [
     iniciales: "AI",
   },
 
+  /*
+  | Se incorpora el 27/09/2026. Su foto era de calle, con el chándal oscuro:
+  | la cara va montada sobre la camiseta blanca de los demás, con «DC» en el
+  | pecho. Entra en la lista de los que juegan con su primera apuesta y el
+  | ranking le cuenta desde ahí.
+  */
+  { slug: "david-crespo", nombre: "David Crespo", rol: "Cuerpo técnico", iniciales: "DC" },
+
   /* Víctor va el último por petición suya. */
   { slug: "victor-cea", nombre: "Víctor Cea", rol: "Segundo entrenador", iniciales: "VC" },
 ];
