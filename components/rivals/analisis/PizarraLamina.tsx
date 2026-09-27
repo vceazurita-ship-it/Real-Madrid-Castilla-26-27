@@ -23,6 +23,10 @@ import {
   Spline,
   Tag,
   Trash2,
+  Undo2,
+  Redo2,
+  CopyPlus,
+  Eraser,
   X as Cruz,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -65,14 +69,20 @@ type Props = {
   soloLectura?: boolean;
 };
 
-const HERRAMIENTAS: { id: Herramienta; nombre: string; icono: React.ReactNode }[] = [
-  { id: "mover", nombre: "Mover", icono: <MousePointer2 size={15} /> },
-  { id: "cruz", nombre: "Cruz", icono: <Cruz size={15} /> },
-  { id: "balon", nombre: "Balón", icono: <Circle size={15} /> },
-  { id: "etiqueta", nombre: "Rótulo", icono: <Tag size={15} /> },
-  { id: "flecha", nombre: "Flecha", icono: <ArrowUpRight size={15} /> },
-  { id: "zona", nombre: "Zona", icono: <Spline size={15} /> },
+/* Cada herramienta con su tecla: se dibuja con una mano en el ratón. */
+const HERRAMIENTAS: { id: Herramienta; nombre: string; atajo: string; icono: React.ReactNode }[] = [
+  { id: "mover", nombre: "Mover", atajo: "V", icono: <MousePointer2 size={15} /> },
+  { id: "cruz", nombre: "Cruz", atajo: "X", icono: <Cruz size={15} /> },
+  { id: "balon", nombre: "Balón", atajo: "B", icono: <Circle size={15} /> },
+  { id: "etiqueta", nombre: "Rótulo", atajo: "T", icono: <Tag size={15} /> },
+  { id: "flecha", nombre: "Flecha", atajo: "F", icono: <ArrowUpRight size={15} /> },
+  { id: "zona", nombre: "Zona", atajo: "Z", icono: <Spline size={15} /> },
 ];
+
+const COLOR_POR_NUMERO: ColorMarca[] = ["rojo", "amarillo", "azul", "blanco"];
+
+/** Pasos que se pueden deshacer por lámina. */
+const MAX_PASOS = 60;
 
 const NOMBRE_COLOR: Record<ColorMarca, string> = {
   rojo: "Rojo",
@@ -112,10 +122,19 @@ export function PizarraLamina({
   /* Al cambiar de lámina no se arrastra nada de la anterior. */
   const [laminaVista, setLaminaVista] = useState(lamina.id);
 
+  /* Deshacer y rehacer: copias enteras de la lámina, que pesan poco. */
+  const [pasado, setPasado] = useState<Lamina[]>([]);
+  const [futuro, setFuturo] = useState<Lamina[]>([]);
+
+  /** Cuándo se guardó escribiendo por última vez: una palabra es un paso. */
+  const escritoEn = useRef(0);
+
   if (laminaVista !== lamina.id) {
     setLaminaVista(lamina.id);
     setElegida(null);
     setBorrador(null);
+    setPasado([]);
+    setFuturo([]);
   }
 
   const fondo = useMemo(
@@ -143,13 +162,52 @@ export function PizarraLamina({
     [],
   );
 
+  /*
+  | Todo cambio pasa por aquí para poder deshacerlo. Lo que se escribe en un
+  | campo se agrupa: sin eso, «CORTA» serían cinco pasos de deshacer.
+  */
   const guarda = useCallback(
     (nueva: Lamina) => {
+      const ahora = Date.now();
+      const escribiendo = Boolean(
+        typeof document !== "undefined" &&
+          document.activeElement?.matches("input:not([type=checkbox]), textarea"),
+      );
+
+      if (!(escribiendo && ahora - escritoEn.current < 1500)) {
+        setPasado((lista) => [...lista.slice(-(MAX_PASOS - 1)), lamina]);
+      }
+
+      escritoEn.current = escribiendo ? ahora : 0;
+
+      setFuturo([]);
       setBorrador(null);
       onChange(nueva);
     },
-    [onChange],
+    [lamina, onChange],
   );
+
+  const deshaz = useCallback(() => {
+    const previa = pasado[pasado.length - 1];
+
+    if (!previa) return;
+
+    setPasado((lista) => lista.slice(0, -1));
+    setFuturo((lista) => [lamina, ...lista]);
+    escritoEn.current = 0;
+    onChange(previa);
+  }, [lamina, onChange, pasado]);
+
+  const rehaz = useCallback(() => {
+    const siguiente = futuro[0];
+
+    if (!siguiente) return;
+
+    setFuturo((lista) => lista.slice(1));
+    setPasado((lista) => [...lista, lamina]);
+    escritoEn.current = 0;
+    onChange(siguiente);
+  }, [futuro, lamina, onChange]);
 
   const marcaElegida = vista.marcas.find((m) => m.id === elegida) ?? null;
 
@@ -160,7 +218,51 @@ export function PizarraLamina({
     setElegida(null);
   }, [cambiaMarcas, elegida, guarda, lamina]);
 
-  /* Suprimir borra la marca elegida, salvo que se esté escribiendo. */
+  /** Mueve lo elegido unos centímetros: el ajuste fino que el ratón no da. */
+  const empuja = useCallback(
+    (dx: number, dy: number) => {
+      if (!elegida) return;
+
+      guarda(
+        cambiaMarcas(lamina, (marcas) =>
+          marcas.map((m) => {
+            if (m.id !== elegida) return m;
+
+            if (m.tipo === "flecha") return { ...m, x: m.x + dx, y: m.y + dy, x2: m.x2 + dx, y2: m.y2 + dy };
+
+            return { ...m, x: m.x + dx, y: m.y + dy };
+          }),
+        ),
+      );
+    },
+    [cambiaMarcas, elegida, guarda, lamina],
+  );
+
+  const duplica = useCallback(() => {
+    const original = lamina.marcas.find((m) => m.id === elegida);
+
+    if (!original) return;
+
+    const id = nuevoIdAnalisis();
+
+    const copia: Marca =
+      original.tipo === "flecha"
+        ? { ...original, id, x: original.x + 1.5, x2: original.x2 + 1.5 }
+        : original.tipo === "etiqueta"
+          ? { ...original, id, x: original.x + 1.5, a: original.a.map((p) => ({ ...p })) }
+          : { ...original, id, x: original.x + 1.5 };
+
+    guarda(cambiaMarcas(lamina, (marcas) => [...marcas, copia]));
+    setElegida(id);
+  }, [cambiaMarcas, elegida, guarda, lamina]);
+
+  /*
+  | EL TECLADO. Nada de esto actúa mientras se escribe en un campo.
+  |
+  | V X B T F Z: herramientas · 1-4: color · Supr: borrar · Esc: soltar ·
+  | flechas: mover lo elegido (con Mayús, un metro) · Ctrl+D: duplicar ·
+  | Ctrl+Z / Ctrl+Mayús+Z / Ctrl+Y: deshacer y rehacer.
+  */
   useEffect(() => {
     if (soloLectura) return;
 
@@ -169,21 +271,80 @@ export function PizarraLamina({
 
       if (destino?.closest("input, textarea, select, [contenteditable]")) return;
 
+      const control = evento.ctrlKey || evento.metaKey;
+      const letra = evento.key.toLowerCase();
+
+      if (control && letra === "z") {
+        evento.preventDefault();
+
+        if (evento.shiftKey) rehaz();
+        else deshaz();
+
+        return;
+      }
+
+      if (control && letra === "y") {
+        evento.preventDefault();
+        rehaz();
+
+        return;
+      }
+
+      if (control && letra === "d" && elegida) {
+        evento.preventDefault();
+        duplica();
+
+        return;
+      }
+
+      if (control || evento.altKey) return;
+
       if ((evento.key === "Delete" || evento.key === "Backspace") && elegida) {
         evento.preventDefault();
         borra();
+
+        return;
       }
 
       if (evento.key === "Escape") {
         setElegida(null);
         setHerramienta("mover");
+
+        return;
       }
+
+      const paso = evento.shiftKey ? 1 : 0.25;
+      const flechas: Record<string, [number, number]> = {
+        ArrowLeft: [-paso, 0],
+        ArrowRight: [paso, 0],
+        ArrowUp: [0, -paso],
+        ArrowDown: [0, paso],
+      };
+
+      if (flechas[evento.key] && elegida) {
+        evento.preventDefault();
+        empuja(...flechas[evento.key]);
+
+        return;
+      }
+
+      const herramientaTecla = HERRAMIENTAS.find((h) => h.atajo.toLowerCase() === letra);
+
+      if (herramientaTecla) {
+        setHerramienta(herramientaTecla.id);
+
+        return;
+      }
+
+      const numero = Number(evento.key);
+
+      if (numero >= 1 && numero <= COLOR_POR_NUMERO.length) setColor(COLOR_POR_NUMERO[numero - 1]);
     };
 
     window.addEventListener("keydown", tecla);
 
     return () => window.removeEventListener("keydown", tecla);
-  }, [borra, elegida, soloLectura]);
+  }, [borra, deshaz, duplica, elegida, empuja, rehaz, soloLectura]);
 
   /* ------------------------- arrastrar ------------------------- */
 
@@ -337,7 +498,7 @@ export function PizarraLamina({
 
   /* ------------------------- fichas ------------------------- */
 
-  const setJugadores = (jugadores: JugadorLamina[]) => onChange({ ...lamina, jugadores });
+  const setJugadores = (jugadores: JugadorLamina[]) => guarda({ ...lamina, jugadores });
 
   const [candidato, setCandidato] = useState("");
 
@@ -447,6 +608,7 @@ export function PizarraLamina({
               key={uno.id}
               type="button"
               onClick={() => setHerramienta(uno.id)}
+              title={`${uno.nombre} (${uno.atajo})`}
               className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${
                 herramienta === uno.id
                   ? "bg-[#C8A96B] text-black"
@@ -455,6 +617,7 @@ export function PizarraLamina({
             >
               {uno.icono}
               {uno.nombre}
+              <kbd className="hidden rounded bg-black/20 px-1 text-[9px] opacity-60 xl:inline">{uno.atajo}</kbd>
             </button>
           ))}
 
@@ -464,7 +627,7 @@ export function PizarraLamina({
             <button
               key={uno}
               type="button"
-              title={NOMBRE_COLOR[uno]}
+              title={`${NOMBRE_COLOR[uno]} (${COLOR_POR_NUMERO.indexOf(uno) + 1})`}
               aria-label={NOMBRE_COLOR[uno]}
               onClick={() => {
                 setColor(uno);
@@ -485,9 +648,57 @@ export function PizarraLamina({
             />
           ))}
 
+          <span className="mx-1 h-5 w-px bg-white/10" />
+
+          <button
+            type="button"
+            onClick={deshaz}
+            disabled={!pasado.length}
+            title="Deshacer (Ctrl+Z)"
+            aria-label="Deshacer"
+            className="rounded-lg p-1.5 text-white/70 transition hover:bg-white/10 disabled:opacity-30"
+          >
+            <Undo2 size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={rehaz}
+            disabled={!futuro.length}
+            title="Rehacer (Ctrl+Y)"
+            aria-label="Rehacer"
+            className="rounded-lg p-1.5 text-white/70 transition hover:bg-white/10 disabled:opacity-30"
+          >
+            <Redo2 size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={duplica}
+            disabled={!elegida}
+            title="Duplicar lo elegido (Ctrl+D)"
+            aria-label="Duplicar lo elegido"
+            className="rounded-lg p-1.5 text-white/70 transition hover:bg-white/10 disabled:opacity-30"
+          >
+            <CopyPlus size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!lamina.marcas.length) return;
+
+              guarda({ ...lamina, marcas: [] });
+              setElegida(null);
+            }}
+            disabled={!lamina.marcas.length}
+            title="Vaciar el campo (se puede deshacer)"
+            aria-label="Vaciar el campo"
+            className="rounded-lg p-1.5 text-white/70 transition hover:bg-white/10 disabled:opacity-30"
+          >
+            <Eraser size={15} />
+          </button>
+
           <span className="ml-auto text-[11px] text-white/35">
             {herramienta === "mover"
-              ? "Arrastra para mover · Supr borra lo elegido"
+              ? "Arrastra para mover · flechas para afinar · Supr borra · Ctrl+Z deshace"
               : herramienta === "flecha"
                 ? "Pulsa y arrastra hasta donde acaba"
                 : herramienta === "linea"
@@ -630,7 +841,7 @@ export function PizarraLamina({
               Título de la lámina
               <input
                 value={lamina.titulo}
-                onChange={(e) => onChange({ ...lamina, titulo: e.target.value.toUpperCase() })}
+                onChange={(e) => guarda({ ...lamina, titulo: e.target.value.toUpperCase() })}
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-sm normal-case tracking-normal text-white"
               />
             </label>
@@ -642,7 +853,7 @@ export function PizarraLamina({
                   <input
                     value={lamina.leyenda?.[uno] ?? ""}
                     placeholder={`Leyenda ${NOMBRE_COLOR[uno].toLowerCase()}`}
-                    onChange={(e) => onChange({ ...lamina, leyenda: { ...lamina.leyenda, [uno]: e.target.value.toUpperCase() } })}
+                    onChange={(e) => guarda({ ...lamina, leyenda: { ...lamina.leyenda, [uno]: e.target.value.toUpperCase() } })}
                     className="w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-xs text-white"
                   />
                 </label>
@@ -654,7 +865,7 @@ export function PizarraLamina({
               <textarea
                 value={lamina.notas ?? ""}
                 rows={3}
-                onChange={(e) => onChange({ ...lamina, notas: e.target.value })}
+                onChange={(e) => guarda({ ...lamina, notas: e.target.value })}
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-sm normal-case tracking-normal text-white"
               />
             </label>
@@ -666,7 +877,7 @@ export function PizarraLamina({
               <input
                 value={lamina.tituloJugadores ?? ""}
                 placeholder="Sin rótulo"
-                onChange={(e) => onChange({ ...lamina, tituloJugadores: e.target.value.toUpperCase() })}
+                onChange={(e) => guarda({ ...lamina, tituloJugadores: e.target.value.toUpperCase() })}
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-sm normal-case tracking-normal text-white"
               />
             </label>
