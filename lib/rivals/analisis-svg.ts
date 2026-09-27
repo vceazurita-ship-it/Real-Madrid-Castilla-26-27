@@ -531,9 +531,9 @@ export function laminaSvg(lamina: Lamina, opciones: OpcionesSvg) {
         .join("");
 
   const conFichas = fichas(lamina, opciones, TABLERO.y + 16);
-  const conLeyenda = opciones.sinMarcas
-    ? { svg: "", fin: conFichas.fin }
-    : leyenda(lamina, conFichas.fin + (conFichas.svg ? 16 : 0));
+  /* La leyenda va también en el fondo de la pantalla: sin ella la tarjeta de
+     consignas se colocaba más arriba que en el PDF. */
+  const conLeyenda = leyenda(lamina, conFichas.fin + (conFichas.svg ? 16 : 0));
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${LAMINA_W} ${LAMINA_H}" width="${LAMINA_W}" height="${LAMINA_H}">
   ${fuentes(r)}

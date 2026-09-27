@@ -42,7 +42,12 @@ function mismoEquipo(uno: string, otro: string) {
   const a = clave(uno);
   const b = clave(otro);
 
-  return Boolean(a && b) && (a === b || a.includes(b) || b.includes(a));
+  if (!a || !b) return false;
+
+  if (a === b) return true;
+
+  /* Contenerse sólo vale con nombres de verdad: «b» está dentro de todo. */
+  return Math.min(a.length, b.length) >= 4 && (a.includes(b) || b.includes(a));
 }
 
 export type AnalisisRivalInforme = {

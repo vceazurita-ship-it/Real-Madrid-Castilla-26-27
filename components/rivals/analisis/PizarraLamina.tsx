@@ -129,20 +129,58 @@ export function PizarraLamina({
   /** Cuándo se guardó escribiendo por última vez: una palabra es un paso. */
   const escritoEn = useRef(0);
 
+  /*
+  | El título y la sección también se cambian FUERA de la pizarra —renombrar en
+  | la pestaña, «Pasar a»—. Las copias del historial llevan los de antes, así
+  | que deshacer una cruz devolvía el nombre viejo o mandaba la lámina a la
+  | sección anterior, donde dejaba de verse. Cuando cambian por fuera, el
+  | historial los adopta.
+  */
+  const [conocida, setConocida] = useState({ titulo: lamina.titulo, seccion: lamina.seccion });
+
   if (laminaVista !== lamina.id) {
     setLaminaVista(lamina.id);
     setElegida(null);
     setBorrador(null);
     setPasado([]);
     setFuturo([]);
+    setConocida({ titulo: lamina.titulo, seccion: lamina.seccion });
+  } else if (lamina.titulo !== conocida.titulo || lamina.seccion !== conocida.seccion) {
+    const fija = (una: Lamina) => ({ ...una, titulo: lamina.titulo, seccion: lamina.seccion });
+
+    setConocida({ titulo: lamina.titulo, seccion: lamina.seccion });
+    setPasado((lista) => lista.map(fija));
+    setFuturo((lista) => lista.map(fija));
   }
+
+  /* Los colores que se usan: de ellos depende qué sale en la leyenda. */
+  const coloresUsados = [
+    ...new Set(
+      vista.marcas
+        .filter((m) => m.tipo === "cruz" || m.tipo === "balon")
+        .map((m) => (m as { color: string }).color),
+    ),
+  ]
+    .sort()
+    .join();
 
   const fondo = useMemo(
     () => laminaSvg(vista, { ficha, escudo, equipo, jornada, sinMarcas: true }),
-    /* Las marcas no cuentan: el fondo sólo cambia con título, fichas y
-       consignas. La leyenda va con las marcas, en la capa de encima. */
+    /* Las marcas no cuentan, salvo por sus colores (la leyenda): el fondo
+       sólo cambia con título, fichas, leyenda y consignas. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [vista.titulo, vista.tituloJugadores, vista.jugadores, vista.notas, ficha, escudo, equipo, jornada],
+    [
+      vista.titulo,
+      vista.tituloJugadores,
+      vista.jugadores,
+      vista.notas,
+      vista.leyenda,
+      coloresUsados,
+      ficha,
+      escudo,
+      equipo,
+      jornada,
+    ],
   );
 
   const aLamina = useCallback((evento: { clientX: number; clientY: number }): Punto => {
@@ -182,6 +220,7 @@ export function PizarraLamina({
 
       setFuturo([]);
       setBorrador(null);
+      setConocida({ titulo: nueva.titulo, seccion: nueva.seccion });
       onChange(nueva);
     },
     [lamina, onChange],
@@ -195,6 +234,7 @@ export function PizarraLamina({
     setPasado((lista) => lista.slice(0, -1));
     setFuturo((lista) => [lamina, ...lista]);
     escritoEn.current = 0;
+    setConocida({ titulo: previa.titulo, seccion: previa.seccion });
     onChange(previa);
   }, [lamina, onChange, pasado]);
 
@@ -206,6 +246,7 @@ export function PizarraLamina({
     setFuturo((lista) => lista.slice(1));
     setPasado((lista) => [...lista, lamina]);
     escritoEn.current = 0;
+    setConocida({ titulo: siguiente.titulo, seccion: siguiente.seccion });
     onChange(siguiente);
   }, [futuro, lamina, onChange]);
 
@@ -269,7 +310,7 @@ export function PizarraLamina({
     const tecla = (evento: KeyboardEvent) => {
       const destino = evento.target as HTMLElement | null;
 
-      if (destino?.closest("input, textarea, select, [contenteditable]")) return;
+      if (destino instanceof Element && destino.closest("input, textarea, select, [contenteditable]")) return;
 
       const control = evento.ctrlKey || evento.metaKey;
       const letra = evento.key.toLowerCase();
@@ -406,7 +447,22 @@ export function PizarraLamina({
         window.removeEventListener("pointerup", suelta);
         window.removeEventListener("pointercancel", suelta);
 
+        const nueva = arrastre.current?.tipo === "nueva-flecha" ? arrastre.current.id : null;
+
         arrastre.current = null;
+
+        /* Un clic sin arrastrar dejaba una flecha de largo cero: no se ve ni
+           se puede elegir, pero se quedaba guardada. */
+        if (nueva) {
+          const flecha = ultimo.marcas.find((m) => m.id === nueva);
+
+          if (flecha?.tipo === "flecha" && Math.hypot(flecha.x2 - flecha.x, flecha.y2 - flecha.y) < 0.8) {
+            setBorrador(null);
+            setElegida(null);
+
+            return;
+          }
+        }
 
         guarda(ultimo);
       };

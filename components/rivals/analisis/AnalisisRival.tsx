@@ -271,13 +271,24 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
   const [renombrando, setRenombrando] = useState<string | null>(null);
   const [nombreNuevo, setNombreNuevo] = useState("");
 
+  /*
+  | Cerrar la caja dispara también su «blur»: sin esta marca, Esc cerraba sin
+  | guardar y acto seguido el blur guardaba lo escrito igualmente.
+  */
+  const renombreCerrado = useRef(true);
+
   const empiezaRenombrar = (una: Lamina) => {
+    renombreCerrado.current = false;
     setLaminaElegida(una.id);
     setRenombrando(una.id);
     setNombreNuevo(una.titulo);
   };
 
   const acabaRenombrar = (guardar: boolean) => {
+    if (renombreCerrado.current) return;
+
+    renombreCerrado.current = true;
+
     const id = renombrando;
 
     setRenombrando(null);
