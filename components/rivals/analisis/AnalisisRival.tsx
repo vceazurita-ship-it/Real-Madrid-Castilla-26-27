@@ -557,7 +557,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             : "";
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[#C8A96B]/20 bg-gradient-to-b from-[#0F2036] via-[#0F2036]/60 to-transparent p-4 md:p-5">
+    <section className="space-y-4 rounded-2xl border border-[#C8A96B]/20 bg-white/[0.03] p-4 md:p-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.3em] text-[#C8A96B]">Análisis visual</p>
@@ -636,7 +636,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             onKeyDown={(e) => e.key === "Enter" && creaJornada()}
             placeholder="J6"
             aria-label="Jornada nueva"
-            className="w-16 rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-xs text-white"
+            className="w-16 rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1.5 text-xs text-white"
           />
           <button type="button" onClick={creaJornada} className={`${boton} bg-white/[0.06] text-white/70 hover:bg-white/10`}>
             <Plus size={13} /> Jornada
@@ -658,7 +658,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 : `subiendo vídeos… (${material.clips.length} ya en la ${jornada || "jornada"})`}
             </span>
           ) : encargo?.resultado ? (
-            <span className={`ml-2 truncate text-xs ${encargo.ok ? "text-emerald-300/80" : "text-red-300/80"}`}>
+            <span className={`ml-2 truncate text-xs ${encargo.ok ? "text-emerald-300/80" : "text-red-300"}`}>
               {encargo.resultado}
             </span>
           ) : null}
@@ -680,14 +680,14 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               onKeyDown={(e) => e.key === "Enter" && void pideCarpeta()}
               placeholder="C:\Users\Usuario\Downloads\VICTOR J6 …"
               aria-label="Ruta de la carpeta"
-              className="min-w-[260px] flex-1 rounded-lg border border-white/15 bg-black/30 px-2.5 py-1.5 text-sm text-white"
+              className="min-w-[260px] flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-sm text-white"
             />
             <input
               value={jornadaCarpeta}
               onChange={(e) => setJornadaCarpeta(e.target.value)}
               placeholder="Jornada (si la carpeta no la dice)"
               aria-label="Jornada de la carpeta"
-              className="w-56 rounded-lg border border-white/15 bg-black/30 px-2.5 py-1.5 text-sm text-white"
+              className="w-56 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-sm text-white"
             />
             <button
               type="button"
@@ -737,11 +737,11 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 >
                   <span className="block text-sm font-medium text-white">{s.titulo}</span>
                   <span className="mt-0.5 flex gap-2 text-[11px] text-white/45">
-                    <span className={n.laminas ? "text-[#E4CE9B]" : ""}>
+                    <span className={n.laminas ? "text-[#C8A96B]" : ""}>
                       {n.laminas} lámina{n.laminas === 1 ? "" : "s"}
                     </span>
                     ·
-                    <span className={n.clips ? "text-[#E4CE9B]" : ""}>
+                    <span className={n.clips ? "text-[#C8A96B]" : ""}>
                       {n.clips} vídeo{n.clips === 1 ? "" : "s"}
                     </span>
                     {trabajo.notas?.[s.id]?.trim() ? <span>· con conclusión</span> : null}
@@ -770,7 +770,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                       }}
                       onBlur={() => acabaRenombrar(true)}
                       aria-label="Nombre de la lámina"
-                      className="w-72 rounded-lg border border-[#C8A96B]/60 bg-black/40 px-3 py-1.5 text-xs uppercase text-white outline-none"
+                      className="w-72 rounded-lg border border-[#C8A96B]/60 bg-white/[0.06] px-3 py-1.5 text-xs uppercase text-white outline-none"
                     />
                   ) : (
                     <button
@@ -780,7 +780,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                       onDoubleClick={() => empiezaRenombrar(una)}
                       className={`group/lamina flex max-w-[300px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
                         una.id === lamina?.id
-                          ? "bg-white text-[#0F2036]"
+                          ? "bg-[#C8A96B] text-black"
                           : "bg-white/[0.06] text-white/70 hover:bg-white/10"
                       }`}
                       title={`${una.titulo} · doble clic para renombrar`}
@@ -798,7 +798,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                             empiezaRenombrar(una);
                           }}
                           onKeyDown={(e) => e.key === "Enter" && empiezaRenombrar(una)}
-                          className="rounded p-0.5 text-[#0F2036]/60 hover:bg-black/10 hover:text-[#0F2036]"
+                          className="rounded p-0.5 text-black/60 hover:bg-black/10"
                         >
                           <Pencil size={12} />
                         </span>
@@ -856,7 +856,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                     <select
                       value={lamina.seccion}
                       onChange={(e) => cambiaSeccionLamina(lamina.id, e.target.value as SeccionId)}
-                      className="rounded-lg border border-white/15 bg-black/40 px-2 py-1 text-xs text-white"
+                      className="rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1 text-xs text-white"
                     >
                       {secciones.map((s) => (
                         <option key={s.id} value={s.id}>
@@ -913,7 +913,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                     }))
                   }
                   placeholder="Lo que hay que saber de esta sección en dos líneas."
-                  className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2.5 py-2 text-sm normal-case tracking-normal text-white"
+                  className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-2 text-sm normal-case tracking-normal text-white"
                 />
               </label>
             </div>
@@ -975,7 +975,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   <button
                     type="button"
                     onClick={() => setClipElegido(clipsEnOrden[0].id)}
-                    className="mb-3 flex aspect-video w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-black/40 text-xs text-white/60 hover:text-white"
+                    className="mb-3 flex aspect-video w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.06] text-xs text-white/60 hover:text-white"
                   >
                     <Video size={16} /> Ver el primero
                   </button>
@@ -998,7 +998,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                               onClick={() => setClipElegido(uno.id)}
                               title={uno.nombre}
                               className={`h-8 min-w-8 rounded-lg px-2 text-xs font-semibold transition ${
-                                uno.id === clip?.id ? "bg-[#C8A96B] text-black" : "bg-white/[0.08] text-white/75 hover:bg-white/15"
+                                uno.id === clip?.id ? "bg-[#C8A96B] text-black" : "bg-white/10 text-white/75 hover:bg-white/15"
                               }`}
                             >
                               {i + 1}

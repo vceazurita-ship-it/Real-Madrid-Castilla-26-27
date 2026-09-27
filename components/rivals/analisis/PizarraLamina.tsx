@@ -780,7 +780,7 @@ export function PizarraLamina({
                     ),
                   )
                 }
-                className="w-40 rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white"
+                className="w-40 rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1 text-white"
               />
               <button
                 type="button"
@@ -842,7 +842,7 @@ export function PizarraLamina({
               <input
                 value={lamina.titulo}
                 onChange={(e) => guarda({ ...lamina, titulo: e.target.value.toUpperCase() })}
-                className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-sm normal-case tracking-normal text-white"
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1.5 text-sm normal-case tracking-normal text-white"
               />
             </label>
 
@@ -854,7 +854,7 @@ export function PizarraLamina({
                     value={lamina.leyenda?.[uno] ?? ""}
                     placeholder={`Leyenda ${NOMBRE_COLOR[uno].toLowerCase()}`}
                     onChange={(e) => guarda({ ...lamina, leyenda: { ...lamina.leyenda, [uno]: e.target.value.toUpperCase() } })}
-                    className="w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-xs text-white"
+                    className="w-full rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1 text-xs text-white"
                   />
                 </label>
               ))}
@@ -866,7 +866,7 @@ export function PizarraLamina({
                 value={lamina.notas ?? ""}
                 rows={3}
                 onChange={(e) => guarda({ ...lamina, notas: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-sm normal-case tracking-normal text-white"
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1.5 text-sm normal-case tracking-normal text-white"
               />
             </label>
           </div>
@@ -878,7 +878,7 @@ export function PizarraLamina({
                 value={lamina.tituloJugadores ?? ""}
                 placeholder="Sin rótulo"
                 onChange={(e) => guarda({ ...lamina, tituloJugadores: e.target.value.toUpperCase() })}
-                className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-sm normal-case tracking-normal text-white"
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1.5 text-sm normal-case tracking-normal text-white"
               />
             </label>
 
@@ -891,7 +891,7 @@ export function PizarraLamina({
                     onChange={(e) =>
                       setJugadores(lamina.jugadores.map((j, k) => (k === i ? { ...j, nombre: e.target.value.toUpperCase() } : j)))
                     }
-                    className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-xs text-white"
+                    className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1 text-xs text-white"
                   />
                   <button
                     type="button"
@@ -932,7 +932,7 @@ export function PizarraLamina({
               <select
                 value={candidato}
                 onChange={(e) => setCandidato(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-xs text-white"
+                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2 py-1.5 text-xs text-white"
               >
                 <option value="">Añadir jugador…</option>
                 {disponibles.map((uno) => (
