@@ -689,21 +689,24 @@ export const PLANTILLAS: PlantillaSlide[] = [
     vista: "porteria",
     lado: "defensivo",
     grupos: [
-      { key: "sacador", label: "SACADOR" },
+      /* Grupos del cuerpo técnico (27/09/2026): el que va al sacador es de la
+         defensa de banda, la corta es del área y los rechaces, del frontal.
+         Las claves de los puestos no cambian: nadie se mueve de su sitio. */
       { key: "banda", label: "DEF BANDA" },
       { key: "area", label: "ÁREA" },
+      { key: "frontal", label: "FRONTAL" },
     ],
     puestos: puestos("banda-def", [
-      { code: "S", label: "Al sacador", grupo: "sacador", x: 339, y: 345 },
+      { code: "S", label: "Al sacador", grupo: "banda", x: 339, y: 345 },
       { code: "DB", label: "Defensa de banda", grupo: "banda", x: 345, y: 555 },
-      { code: "C", label: "Corta", grupo: "banda", x: 529, y: 346 },
+      { code: "C", label: "Corta", grupo: "area", x: 529, y: 346 },
       { code: "M1", label: "Marca 1", grupo: "area", x: 579, y: 487 },
       { code: "M2", label: "Marca 2", grupo: "area", x: 648, y: 361 },
       { code: "M3", label: "Marca 3", grupo: "area", x: 723, y: 471 },
       { code: "M4", label: "Marca 4", grupo: "area", x: 818, y: 365 },
       { code: "M5", label: "Marca 5", grupo: "area", x: 929, y: 363 },
-      { code: "RC", label: "Rechace corto", grupo: "area", x: 639, y: 561 },
-      { code: "RL", label: "Rechace largo", grupo: "area", x: 936, y: 523 },
+      { code: "RC", label: "Rechace corto", grupo: "frontal", x: 639, y: 561 },
+      { code: "RL", label: "Rechace largo", grupo: "frontal", x: 936, y: 523 },
     ]),
     adornos: [
       { tipo: "transicion", label: "Ganamos el duelo", remate: "Volamos todos para hacer gol" },
