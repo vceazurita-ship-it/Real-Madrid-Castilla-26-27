@@ -371,8 +371,8 @@ export const PLANTILLAS: PlantillaSlide[] = [
       /* Nombres del cuerpo técnico (27/09/2026). Las claves siguen siendo BZ, BC
          y RC, así que nadie se mueve de su sitio: sólo cambian la sigla que se
          lee y el grupo en el que sale. */
-      { code: "BZ", sigla: "CORTA", label: "Corta", grupo: "cierra", x: 960, y: 317 },
-      { code: "BC", sigla: "BZ", label: "Bloqueo a zona", grupo: "bloqueos", x: 880, y: 233 },
+      { code: "BZ", label: "Bloqueo a zona", grupo: "bloqueos", x: 960, y: 317 },
+      { code: "BC", sigla: "CORTA", label: "Corta", grupo: "cierra", x: 880, y: 233 },
       { code: "RC", sigla: "BC", label: "Bloqueo en corta", grupo: "bloqueos", x: 590, y: 531 },
       { code: "RL", label: "Rechace largo", grupo: "rechace", x: 906, y: 537 },
       { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 1000, y: 455 },
