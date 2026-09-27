@@ -131,14 +131,6 @@ export type TrabajoJornada = {
   laminas: Lamina[];
   /** Una conclusión por sección, aunque no tenga lámina. */
   notas?: Partial<Record<SeccionId, string>>;
-  /** El título de la portada de cada informe, si se ha cambiado. */
-  titulos?: Partial<Record<Ambito, string>>;
-};
-
-/** Lo que dice la portada si nadie ha escrito otra cosa. */
-export const TITULO_INFORME: Record<Ambito, string> = {
-  abp: "INFORME COMPLEMENTARIO ABP",
-  area: "INFORME CENTROS LATERALES",
 };
 
 /**
@@ -353,10 +345,6 @@ export function normalizaAnalisis(crudo: unknown): RivalAnalisisDoc {
       notas:
         t.notas && typeof t.notas === "object"
           ? (t.notas as Partial<Record<SeccionId, string>>)
-          : {},
-      titulos:
-        t.titulos && typeof t.titulos === "object"
-          ? (t.titulos as Partial<Record<Ambito, string>>)
           : {},
     };
   }
