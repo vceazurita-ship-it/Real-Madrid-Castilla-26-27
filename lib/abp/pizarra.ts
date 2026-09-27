@@ -400,7 +400,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
          cambian, así que las jornadas ya montadas no se mueven. */
       { key: "lanzadores", label: "AMPLITUD Y EQUILIBRA" },
       { key: "bloqueo", label: "BLOQUEO Y CARRERA" },
-      { key: "rechace", label: "RECHACE" },
+      { key: "rechace", label: "RECHACE Y CORTA" },
       { key: "rematadores", label: "REMATADORES" },
       { key: "equilibra", label: "LANZADORES" },
     ],
