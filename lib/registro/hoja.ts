@@ -161,7 +161,35 @@ export type SesionNueva = {
   md: string;
   /** Sin tareas es un día de descanso: no se escribe ninguna fila. */
   tareas: TareaNueva[];
+  /**
+   * Día libre marcado a propósito (27/09/2026).
+   *
+   * No es lo mismo que un día que se ha quedado sin tareas: copiar otra semana
+   * no le mete tareas y la pantalla lo pinta como libre, no como pendiente.
+   */
+  libre?: boolean;
 };
+
+/**
+ * Una tarea que nadie ha tocado: sin tipo, sin contenido, sin tiempo ni
+ * observaciones. No se escribe en la hoja.
+ *
+ * Cada día nacía con cuatro tareas vacías y, si no se quitaban a mano, se
+ * escribían como cuatro filas en blanco en el registro.
+ */
+export function tareaEnBlanco(tarea: TareaNueva) {
+  return (
+    !tarea.tipoTarea.trim() &&
+    !tarea.contenidoPrincipal.trim() &&
+    !tarea.contenidoSecundario.trim() &&
+    !tarea.observaciones.trim() &&
+    !(tarea.tiempo > 0)
+  );
+}
+
+/** Las tareas de una sesión que sí se escriben. */
+export const tareasQueSeEscriben = (sesion: SesionNueva) =>
+  sesion.libre ? [] : sesion.tareas.filter((tarea) => !tareaEnBlanco(tarea));
 
 export type MicroNuevo = {
   temporada: string;
@@ -299,7 +327,8 @@ export function minutosDe(sesiones: SesionNueva[]) {
 
     total += suyos;
 
-    tareas += sesion.tareas.length;
+    /* Las que se escriben: las cuatro vacías de cada día no cuentan. */
+    tareas += tareasQueSeEscriben(sesion).length;
   }
 
   return { porFecha, total, tareas };
@@ -422,7 +451,7 @@ export function filasDelMicro(micro: MicroNuevo): FilaRegistro[] {
   const numero = (valor: number) => (valor > 0 ? valor : "");
 
   for (const sesion of micro.sesiones) {
-    for (const tarea of sesion.tareas) {
+    for (const tarea of tareasQueSeEscriben(sesion)) {
       filas.push({
         Temporada: micro.temporada,
         Micro: micro.micro,
@@ -466,9 +495,9 @@ export function revisaMicro(micro: MicroNuevo) {
 
   if (!micro.rival.trim()) problemas.push("Falta el rival (o «NO COMPETICIÓN»).");
 
-  const conTareas = micro.sesiones.filter((sesion) => sesion.tareas.length > 0);
+  const conTareas = micro.sesiones.filter((sesion) => tareasQueSeEscriben(sesion).length > 0);
 
-  if (conTareas.length === 0) problemas.push("No hay ninguna sesión con tareas.");
+  if (conTareas.length === 0) problemas.push("No hay ninguna sesión con tareas rellenas.");
 
   const nombres = new Set<string>();
 
@@ -489,7 +518,7 @@ export function revisaMicro(micro: MicroNuevo) {
       problemas.push(`La fecha «${sesion.fecha}» no existe en el calendario.`);
     }
 
-    for (const tarea of sesion.tareas) {
+    for (const tarea of tareasQueSeEscriben(sesion)) {
       if (!tarea.tarea.trim()) {
         problemas.push(`Hay una tarea sin nombre el ${aFechaHoja(sesion.fecha)}.`);
 

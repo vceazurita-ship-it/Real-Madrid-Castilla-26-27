@@ -44,6 +44,10 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  Moon,
+  Dumbbell,
+  Trophy,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,6 +65,7 @@ import {
   revisaMicro,
   sugerenciasDelRegistro,
   tareaDeCompeticion,
+  tareaEnBlanco,
   tareaVacia,
   type MicroNuevo,
   type SesionNueva,
@@ -97,7 +102,10 @@ const BORRADOR = "rmcf-microciclo-borrador";
  * día del partido trae su fila de competición, que es como está escrito en la
  * hoja toda la temporada.
  */
-function armaSesiones(proximo: PartidoNuestro, anterior: PartidoNuestro | null): SesionNueva[] {
+type DiaVentana = { fecha: string; dia: string; md: string; esPartido: boolean; postPartido: boolean };
+
+/** Los días que abarca el microciclo, con su MD, sin tareas todavía. */
+function diasDeVentana(proximo: PartidoNuestro, anterior: PartidoNuestro | null): DiaVentana[] {
   const partido = soloDia(proximo.cuando);
 
   const desde = anterior ? soloDia(anterior.cuando) : "";
@@ -117,27 +125,124 @@ function armaSesiones(proximo: PartidoNuestro, anterior: PartidoNuestro | null):
   const ultimos = dias.slice(-7);
 
   return ultimos.map((fecha, indice) => {
-    const clave = diaKeyDe(fecha);
-
     const md = Math.round(
       (Date.parse(`${partido}T12:00:00Z`) - Date.parse(`${fecha}T12:00:00Z`)) / DIA_MS,
     );
 
-    const esPartido = md === 0;
-
-    const esPostPartido = indice === 0 && Boolean(desde) && ultimos.length > 4;
-
     return {
       fecha,
-      dia: clave,
-      md: esPartido ? "MD" : `MD-${md}`,
-      tareas: esPartido
-        ? [tareaDeCompeticion(clave)]
-        : esPostPartido
-          ? []
-          : Array.from({ length: TAREAS_POR_SESION }, (_, i) => tareaVacia(clave, i + 1)),
+      dia: diaKeyDe(fecha),
+      md: md === 0 ? "MD" : `MD-${md}`,
+      esPartido: md === 0,
+      postPartido: indice === 0 && Boolean(desde) && ultimos.length > 4,
     };
   });
+}
+
+/** Lo que se propone libre si nadie dice otra cosa: el día después del partido. */
+const libresPorDefecto = (dias: DiaVentana[]) =>
+  dias.filter((uno) => uno.postPartido && !uno.esPartido).map((uno) => uno.fecha);
+
+/**
+ * Las sesiones del microciclo, con los días libres que se han marcado antes.
+ *
+ * El día del partido trae su fila de competición, que es como está escrito en
+ * la hoja toda la temporada; los libres van sin tareas y los de entreno con
+ * cuatro huecos, que no se escriben mientras sigan vacíos.
+ */
+function armaSesiones(
+  proximo: PartidoNuestro,
+  anterior: PartidoNuestro | null,
+  libres?: string[],
+): SesionNueva[] {
+  const dias = diasDeVentana(proximo, anterior);
+  const marcados = new Set(libres ?? libresPorDefecto(dias));
+
+  return dias.map((uno) => {
+    if (uno.esPartido) return { fecha: uno.fecha, dia: uno.dia, md: uno.md, tareas: [tareaDeCompeticion(uno.dia)] };
+
+    if (marcados.has(uno.fecha)) return { fecha: uno.fecha, dia: uno.dia, md: uno.md, tareas: [], libre: true };
+
+    return {
+      fecha: uno.fecha,
+      dia: uno.dia,
+      md: uno.md,
+      tareas: Array.from({ length: TAREAS_POR_SESION }, (_, i) => tareaVacia(uno.dia, i + 1)),
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS DÍAS: ENTRENO O LIBRE                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La tira de días de la semana, para marcar cuáles son libres.
+ *
+ * Se usa antes de crear el microciclo —para que la semana nazca ya con sus
+ * libres— y después, para cambiar de idea sin rehacer nada.
+ */
+function TiraDias({
+  dias,
+  libres,
+  onCambia,
+}: {
+  dias: { fecha: string; md: string; esPartido: boolean }[];
+  libres: Set<string>;
+  onCambia: (fecha: string, libre: boolean) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      {dias.map((uno) => {
+        const libre = libres.has(uno.fecha);
+
+        return (
+          <div
+            key={uno.fecha}
+            className={`rounded-xl border px-3 py-2.5 transition ${
+              uno.esPartido
+                ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
+                : libre
+                  ? "border-white/10 bg-white/[0.02]"
+                  : "border-emerald-400/30 bg-emerald-400/[0.06]"
+            }`}
+          >
+            <p className="text-[12px] font-semibold capitalize text-white/85">{etiquetaDia(uno.fecha)}</p>
+            <p className="text-[11px] text-white/45">{uno.md}</p>
+
+            {uno.esPartido ? (
+              <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-[#C8A96B]">
+                <Trophy size={12} aria-hidden /> Partido
+              </p>
+            ) : (
+              <div className="mt-2 flex rounded-lg border border-white/10 p-0.5 text-[11px]" role="group" aria-label={`${etiquetaDia(uno.fecha)}: entreno o libre`}>
+                <button
+                  type="button"
+                  onClick={() => onCambia(uno.fecha, false)}
+                  aria-pressed={!libre}
+                  className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 transition ${
+                    !libre ? "bg-emerald-400/20 text-emerald-200" : "text-white/45 hover:text-white/80"
+                  }`}
+                >
+                  <Dumbbell size={11} aria-hidden /> Entreno
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onCambia(uno.fecha, true)}
+                  aria-pressed={libre}
+                  className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 transition ${
+                    libre ? "bg-white/15 text-white" : "text-white/45 hover:text-white/80"
+                  }`}
+                >
+                  <Moon size={11} aria-hidden /> Libre
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -373,6 +478,10 @@ export default function EditorMicrocicloPage() {
 
   const [revisar, setRevisar] = useState(false);
 
+  /* Los días libres que se marcan ANTES de crear el microciclo. `null` es
+     «lo de siempre»: libre el día después del partido. */
+  const [libresPlan, setLibresPlan] = useState<string[] | null>(null);
+
   /* Para no guardar el borrador antes de haberlo leído. */
   const leido = useRef(false);
 
@@ -396,7 +505,6 @@ export default function EditorMicrocicloPage() {
 
       const alrededor = alrededorDe(partidos, Date.now());
 
-      const ultimo = (datos?.micros ?? []).reduce((mayor, uno) => Math.max(mayor, uno.micro), 0);
 
       /*
       | El primer partido que TODAVÍA no tiene microciclo.
@@ -458,15 +566,9 @@ export default function EditorMicrocicloPage() {
       setCalendario(partidos);
       setPartido({ proximo: objetivo, anterior: previo });
 
+      /* Sin borrador, la semana NO se crea sola: primero se marcan los días
+         libres (paso 1) y luego se crea con ellos. */
       if (guardado) setMicro(guardado);
-      else if (objetivo) {
-        setMicro({
-          temporada: TEMPORADA,
-          micro: ultimo + 1,
-          rival: objetivo.rival.toUpperCase(),
-          sesiones: armaSesiones(objetivo, previo),
-        });
-      }
 
       leido.current = true;
 
@@ -504,21 +606,85 @@ export default function EditorMicrocicloPage() {
 
   const sugerencias = useMemo(() => sugerenciasDelRegistro(registro?.tareas ?? []), [registro]);
 
-  /** Vuelve a montar los días con el calendario. */
+  /** Vuelve a montar los días con el calendario, respetando los libres. */
   const arma = useCallback(() => {
     if (!proximo) return;
+
+    if (
+      micro?.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
+      !window.confirm("Rehacer los días vacía las tareas que ya has rellenado. ¿Seguir?")
+    ) {
+      return;
+    }
 
     setMicro((actual) => ({
       temporada: actual?.temporada || TEMPORADA,
       micro: actual?.micro || ultimoMicro + 1,
       rival: actual?.rival || proximo.rival.toUpperCase(),
-      sesiones: armaSesiones(proximo, anterior),
+      sesiones: armaSesiones(
+        proximo,
+        anterior,
+        actual?.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha),
+      ),
     }));
 
     setEscrito(null);
 
     toast.success("Días rehechos con el calendario");
-  }, [proximo, anterior, ultimoMicro]);
+  }, [micro, proximo, anterior, ultimoMicro]);
+
+  /* ------------------- PASO 1: LA SEMANA ------------------- */
+
+  const diasPlan = useMemo(() => (proximo ? diasDeVentana(proximo, anterior) : []), [proximo, anterior]);
+
+  const libresMarcados = useMemo(
+    () => new Set(libresPlan ?? libresPorDefecto(diasPlan)),
+    [libresPlan, diasPlan],
+  );
+
+  const creaMicro = () => {
+    if (!proximo) return;
+
+    setMicro({
+      temporada: TEMPORADA,
+      micro: ultimoMicro + 1,
+      rival: proximo.rival.toUpperCase(),
+      sesiones: armaSesiones(proximo, anterior, [...libresMarcados]),
+    });
+
+    setEscrito(null);
+
+    const libres = libresMarcados.size;
+
+    toast.success(`Microciclo ${ultimoMicro + 1} creado`, {
+      description: `${diasPlan.length - libres - 1} día(s) de entreno, ${libres} libre(s) y el partido.`,
+    });
+  };
+
+  /** Cambiar un día a libre o a entreno con el microciclo ya creado. */
+  const cambiaLibre = (fecha: string, libre: boolean) => {
+    if (!micro) return;
+
+    const indice = micro.sesiones.findIndex((sesion) => sesion.fecha === fecha);
+    const sesion = micro.sesiones[indice];
+
+    if (!sesion || Boolean(sesion.libre) === libre) return;
+
+    if (libre) {
+      const rellenas = sesion.tareas.filter((tarea) => !tareaEnBlanco(tarea)).length;
+
+      if (rellenas > 0 && !window.confirm(`${etiquetaDia(fecha)} tiene ${rellenas} tarea(s) rellena(s). Si lo pasas a libre se quitan. ¿Seguir?`)) {
+        return;
+      }
+
+      cambiaSesion(indice, { libre: true, tareas: [] });
+    } else {
+      cambiaSesion(indice, {
+        libre: false,
+        tareas: Array.from({ length: TAREAS_POR_SESION }, (_, i) => tareaVacia(sesion.dia, i + 1)),
+      });
+    }
+  };
 
   const yaEnLaHoja = useMemo(
     () => registro?.micros.some((uno) => uno.micro === micro?.micro) ?? false,
@@ -531,6 +697,18 @@ export default function EditorMicrocicloPage() {
 
   const cuentas = useMemo(
     () => (micro ? minutosDe(micro.sesiones) : { porFecha: {}, total: 0, tareas: 0 }),
+    [micro],
+  );
+
+  /* Las que se quedan fuera por no tener nada: se dice, para que no sorprenda. */
+  const enBlanco = useMemo(
+    () =>
+      micro
+        ? micro.sesiones.reduce(
+            (suma, sesion) => suma + (sesion.libre ? 0 : sesion.tareas.filter(tareaEnBlanco).length),
+            0,
+          )
+        : 0,
     [micro],
   );
 
@@ -581,8 +759,11 @@ export default function EditorMicrocicloPage() {
       return;
     }
 
-    const { sesiones, puestas, sinPareja } = copiaEstructura(
-      micro.sesiones,
+    /* Los días libres se quedan libres: sólo se copia en los de entreno y el partido. */
+    const activas = micro.sesiones.filter((sesion) => !sesion.libre);
+
+    const copiado = copiaEstructura(
+      activas,
       suyas.map((tarea) => ({
         dia: tarea.dia || "",
         md: tarea.md,
@@ -599,7 +780,14 @@ export default function EditorMicrocicloPage() {
       })),
     );
 
-    setMicro({ ...micro, sesiones });
+    const { puestas, sinPareja } = copiado;
+
+    const porFecha = new Map(copiado.sesiones.map((sesion) => [sesion.fecha, sesion]));
+
+    setMicro({
+      ...micro,
+      sesiones: micro.sesiones.map((sesion) => (sesion.libre ? sesion : (porFecha.get(sesion.fecha) ?? sesion))),
+    });
 
     const rival = registro.micros.find((uno) => uno.micro === numero)?.rival ?? "";
 
@@ -623,8 +811,16 @@ export default function EditorMicrocicloPage() {
     });
   };
 
+  /* Vuelve al paso 1, con los libres que tenía, para montar la semana otra vez. */
   const empiezaDeCero = () => {
     if (!proximo) return;
+
+    if (
+      micro?.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
+      !window.confirm("Empezar de cero tira el borrador con sus tareas. ¿Seguir?")
+    ) {
+      return;
+    }
 
     try {
       window.localStorage.removeItem(BORRADOR);
@@ -632,16 +828,9 @@ export default function EditorMicrocicloPage() {
       /* da igual: lo que manda es el estado */
     }
 
-    setMicro({
-      temporada: TEMPORADA,
-      micro: ultimoMicro + 1,
-      rival: proximo.rival.toUpperCase(),
-      sesiones: armaSesiones(proximo, anterior),
-    });
-
+    setLibresPlan(micro ? micro.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha) : null);
+    setMicro(null);
     setEscrito(null);
-
-    toast.success("Borrador nuevo");
   };
 
   /* --------------------------- ESCRIBIR --------------------------- */
@@ -748,6 +937,50 @@ export default function EditorMicrocicloPage() {
               </Notice>
             )}
 
+            {!micro && proximo && !cargando && (
+              <Panel
+                title="1 · La semana: marca los días libres"
+                subtitle={`Microciclo ${ultimoMicro + 1} · contra ${proximo.rival} · J${proximo.jornada}, ${new Date(proximo.cuando).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}`}
+                icon={CalendarClock}
+              >
+                <p className="mb-3 text-[12px] leading-relaxed text-white/50">
+                  Del día siguiente al partido anterior hasta el del próximo. Los días libres no llevan sesión y no
+                  escriben ninguna fila; el día después del partido viene marcado como libre, pero se puede cambiar.
+                </p>
+
+                <TiraDias
+                  dias={diasPlan}
+                  libres={libresMarcados}
+                  onCambia={(fecha, libre) => {
+                    const siguiente = new Set(libresMarcados);
+
+                    if (libre) siguiente.add(fecha);
+                    else siguiente.delete(fecha);
+
+                    setLibresPlan([...siguiente]);
+                  }}
+                />
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <Button tone="primary" icon={Sparkles} onClick={creaMicro}>
+                    Crear el microciclo
+                  </Button>
+
+                  <Button onClick={() => setLibresPlan(null)} title="Libre sólo el día después del partido">
+                    Lo de siempre
+                  </Button>
+
+                  <Button onClick={() => setLibresPlan([])} title="Todos los días con sesión">
+                    Sin días libres
+                  </Button>
+
+                  <span className="text-[11px] text-white/45">
+                    {diasPlan.length - libresMarcados.size - 1} día(s) de entreno · {libresMarcados.size} libre(s) · partido
+                  </span>
+                </div>
+              </Panel>
+            )}
+
             {micro && proximo && (
               <>
                 {/* ------------------ QUÉ MICROCICLO ------------------ */}
@@ -820,6 +1053,22 @@ export default function EditorMicrocicloPage() {
                     </div>
                   </div>
 
+                  {/* --- Los días: entreno o libre, también después de crearlo --- */}
+
+                  <div className="mt-4">
+                    <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">Días de la semana</p>
+
+                    <TiraDias
+                      dias={micro.sesiones.map((sesion) => ({
+                        fecha: sesion.fecha,
+                        md: sesion.md,
+                        esPartido: /^MD$/i.test(sesion.md.trim()),
+                      }))}
+                      libres={new Set(micro.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha))}
+                      onCambia={cambiaLibre}
+                    />
+                  </div>
+
                   {/* --- Copiar otra semana: la mitad del trabajo --- */}
 
                   <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-white/[0.07] px-3 py-3">
@@ -847,7 +1096,7 @@ export default function EditorMicrocicloPage() {
                     <p className="mb-2 min-w-[240px] flex-[2] text-[11px] leading-relaxed text-white/35">
                       Trae sus tareas atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— con
                       su tipo, sus contenidos y sus tiempos. Lo que no encuentre pareja se queda
-                      como está.
+                      como está, y los días libres siguen libres.
                     </p>
                   </div>
 
@@ -886,7 +1135,9 @@ export default function EditorMicrocicloPage() {
                       key={sesion.fecha}
                       title={etiquetaDia(sesion.fecha)}
                       subtitle={
-                        sesion.tareas.length === 0
+                        sesion.libre
+                          ? `${sesion.md} · día libre`
+                          : sesion.tareas.length === 0
                           ? `${sesion.md} · sin sesión`
                           : `${sesion.md} · ${sesion.tareas.length} tarea(s) · ${suyos}′${
                               corta ? " (corta para lo habitual)" : larga ? " (larga)" : ""
@@ -908,13 +1159,13 @@ export default function EditorMicrocicloPage() {
                             Tarea
                           </Button>
 
-                          {sesion.tareas.length > 0 && (
+                          {!sesion.libre && !/^MD$/i.test(sesion.md.trim()) && (
                             <Button
-                              icon={Trash2}
-                              onClick={() => cambiaSesion(indice, { tareas: [] })}
-                              title="Dejar el día sin sesión: no se escribe ninguna fila"
+                              icon={Moon}
+                              onClick={() => cambiaLibre(sesion.fecha, true)}
+                              title="Día libre: no se escribe ninguna fila"
                             >
-                              Descanso
+                              Libre
                             </Button>
                           )}
                         </div>
@@ -944,7 +1195,18 @@ export default function EditorMicrocicloPage() {
                         />
                       </div>
 
-                      {sesion.tareas.length === 0 ? (
+                      {sesion.libre ? (
+                        <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/45">
+                          <Moon size={13} aria-hidden /> Día libre: no se escribe ninguna fila.
+                          <button
+                            type="button"
+                            onClick={() => cambiaLibre(sesion.fecha, false)}
+                            className="rounded-md px-1.5 py-0.5 text-[#C8A96B] hover:bg-[#C8A96B]/10"
+                          >
+                            Entrenar este día
+                          </button>
+                        </p>
+                      ) : sesion.tareas.length === 0 ? (
                         <p className="text-[12px] text-white/35">
                           Día sin sesión: no se escribe ninguna fila. Con «Tarea» se añade una.
                         </p>
@@ -1019,6 +1281,9 @@ export default function EditorMicrocicloPage() {
                     <p className="text-[12px] leading-relaxed text-white/45">
                       Se añaden {filas.length} filas al final de la pestaña, clonando la última para
                       heredar las fórmulas de carga y las listas desplegables.
+                      {enBlanco > 0
+                        ? ` ${enBlanco} tarea(s) en blanco —sin tipo, contenido ni tiempo— no se escriben.`
+                        : ""}
                       {yaEnLaHoja && reemplazar
                         ? ` Antes se borran las del microciclo ${micro.micro} que ya estaban.`
                         : ""}
