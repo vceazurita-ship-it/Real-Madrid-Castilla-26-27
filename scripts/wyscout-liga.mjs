@@ -1126,6 +1126,13 @@ const HERRAMIENTAS = `
   };
 
   const cuenta = () => (document.querySelector(".count--2cwld") || {}).innerText || "?";
+
+  /* Lo que está puesto en un filtro: las fichas de react-select. */
+  const puestosEn = (rotulo) => {
+    const f = filtro(rotulo);
+
+    return f ? [...f.querySelectorAll(".Select-value-label")].map((x) => x.textContent.trim()) : [];
+  };
 `;
 
 /**
@@ -1349,33 +1356,88 @@ async function abreBuscador(nav) {
       return true;
     `);
 
-    if (texto && escribible) {
-      /*
-      | Un «seleccionar todo» antes de escribir.
-      |
-      | En el de equipos el campo no siempre se vacía al elegir uno, y lo que
-      | se escribía encima quedaba pegado a lo anterior —«AlcorcónAlgeciras»—
-      | y no encontraba nada. Con el texto seleccionado, lo que se escribe lo
-      | sustituye.
-      */
-      for (const type of ["rawKeyDown", "keyUp"]) {
-        await nav.manda("Input.dispatchKeyEvent", {
-          type,
-          windowsVirtualKeyCode: 65,
-          key: "a",
-          code: "KeyA",
-          modifiers: 2,
-        });
+    /*
+    | Vacía el buscador: seleccionar todo y borrar, PERO SÓLO SI TIENE TEXTO.
+    |
+    | Con el campo vacío, la tecla de borrar de react-select se lleva la
+    | última ficha puesta: probado el 28/09/2026, siete equipos «elegidos» y
+    | en el filtro sólo quedaba el último.
+    */
+    const vacia = async () => {
+      const escrito = await js(`
+        const f = filtro(${JSON.stringify(rotulo)});
+
+        const i = f ? f.querySelector("input") : null;
+
+        return i ? (i.value || "").length : 0;
+      `);
+
+      if (!escrito) return;
+
+      /* Sólo «seleccionar todo»: lo que se escriba después lo sustituye. Nada
+         de la tecla de borrar, que en este desplegable se lleva fichas. */
+      for (const [key, code, vk, mod] of [["a", "KeyA", 65, 2]]) {
+        for (const type of ["rawKeyDown", "keyUp"]) {
+          await nav.manda("Input.dispatchKeyEvent", {
+            type,
+            windowsVirtualKeyCode: vk,
+            key,
+            code,
+            modifiers: mod,
+          });
+        }
       }
 
-      await espera(200);
+      await espera(300);
+    };
 
-      await nav.manda("Input.insertText", { text: texto });
+    /* ¿Ha salido ya la opción? Se mira, no se da por hecho. */
+    const hayOpcion = () =>
+      js(`return !!opcion(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)});`);
 
+    /*
+    | ESPERAR A LA OPCIÓN, NO UN TIEMPO FIJO (28/09/2026).
+    |
+    | Cada lote perdía dos equipos distintos en cada pasada. No se borraban:
+    | no llegaban a entrar. Se escribía el nombre, se esperaban 1,8 segundos
+    | fijos y se buscaba la opción; si la búsqueda de Wyscout —que va al
+    | servidor— no había contestado aún, no estaba y el equipo se daba por
+    | perdido. Y el segundo intento escribía EL MISMO texto: el campo no
+    | cambiaba, react-select no volvía a buscar y fallaba igual. Ahora se
+    | espera a que la opción aparezca (hasta 8 s) y, si no aparece, se vacía el
+    | campo y se vuelve a escribir, que es lo que obliga a buscar de nuevo.
+    */
+    if (texto && escribible) {
+      for (let vuelta = 0; vuelta < 2; vuelta++) {
+        await vacia();
+
+        /* En la segunda vuelta se escribe en dos veces: el campo cambia y
+           react-select vuelve a buscar, sin haber borrado nada. */
+        if (vuelta > 0 && texto.length > 1) {
+          await nav.manda("Input.insertText", { text: texto.slice(0, -1) });
+
+          await espera(600);
+
+          await nav.manda("Input.insertText", { text: texto.slice(-1) });
+        } else {
+          await nav.manda("Input.insertText", { text: texto });
+        }
+
+        let esta = false;
+
+        for (let i = 0; i < 16 && !esta; i++) {
+          await espera(500);
+
+          esta = await hayOpcion();
+        }
+
+        if (esta) break;
+      }
+    } else if (!texto) {
       await espera(1800);
     }
 
-    return js(`
+    const elegido = await js(`
       const e = opcion(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)});
 
       if (!e) return null;
@@ -1386,6 +1448,20 @@ async function abreBuscador(nav) {
 
       return puesto;
     `);
+
+    if (!elegido && texto) {
+      /* La prueba de lo que había, para el registro: sin esto, «SIN Huesca»
+         no dice si la opción no salió o salió con otro nombre. */
+      const vistas = await js(`
+        const f = filtro(${JSON.stringify(rotulo)});
+
+        return f ? [...f.querySelectorAll(".Select-option, .Select-noresults")].slice(0, 6).map((x) => x.textContent.trim()) : [];
+      `);
+
+      console.log(`\n    (no sale «${busca}» en «${rotulo}»; se ve: ${vistas.join(" · ") || "nada"})`);
+    }
+
+    return elegido;
   };
 
   /*
@@ -1409,7 +1485,7 @@ async function abreBuscador(nav) {
 
   if (!pintado) throw new Error("El buscador se ha abierto pero no pinta los filtros.");
 
-  return { js, clicReal, eligeEn };
+  return { js, clicReal, eligeEn, puestosEn: (rotulo) => js(`return puestosEn(${JSON.stringify(rotulo)});`) };
 }
 
 /**
@@ -1529,6 +1605,9 @@ async function bajaLote(nav, buscador, equipos, numero) {
   /* Los que no han llegado a entrar: salen en el resumen, no se callan. */
   const faltan = [];
 
+  /* Con qué nombre salió cada uno en la lista: es el que lleva su ficha. */
+  const elegidoDe = new Map();
+
   for (const equipo of equipos) {
     /*
     | Se escribe el nombre entero y manda la coincidencia exacta.
@@ -1553,11 +1632,66 @@ async function bajaLote(nav, buscador, equipos, numero) {
       if (!elegido) await espera(1500);
     }
 
-    if (elegido) puestos.push(elegido);
-    else faltan.push(equipo);
+    if (elegido) {
+      puestos.push(elegido);
+      elegidoDe.set(equipo, elegido);
+    } else {
+      faltan.push(equipo);
+    }
 
     await espera(1500);
   }
+
+  /*
+  | Y se comprueba en el propio filtro, que es lo que manda en la exportación.
+  |
+  | Que un clic diga que ha elegido no garantiza que la ficha siga ahí: se
+  | leen las fichas puestas y lo que falte se vuelve a pedir una vez.
+  */
+  const normaliza = (t) => (t || "").toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "");
+
+  /*
+  | OJO: sólo se vuelven a pedir los que NUNCA se eligieron. Volver a pulsar
+  | uno que ya está puesto lo QUITA (react-select alterna): la primera versión
+  | de esta comprobación leía mal las fichas, creía que faltaban todos, los
+  | volvía a pulsar y el lote bajó con un equipo de siete.
+  */
+  const nuncaElegidos = () => equipos.filter((equipo) => !elegidoDe.get(equipo));
+
+  const puestasAhora = async () => (await buscador.puestosEn("Equipo actual")).map(normaliza);
+
+  const noEstan = async () => {
+    const puestas = await puestasAhora();
+
+    /* Si no se sabe leer las fichas, no se inventa nada: manda lo elegido. */
+    if (puestas.length === 0) return nuncaElegidos();
+
+    return equipos.filter((equipo) => {
+      const suyo = elegidoDe.get(equipo);
+
+      return !suyo || !puestas.some((p) => p === normaliza(suyo) || p.includes(normaliza(suyo)));
+    });
+  };
+
+  for (const equipo of nuncaElegidos()) {
+    let otra = null;
+
+    try {
+      otra = await buscador.eligeEn("Equipo actual", equipo);
+    } catch {
+      /* se queda en «faltan» */
+    }
+
+    if (otra) {
+      if (!puestos.includes(otra)) puestos.push(otra);
+
+      elegidoDe.set(equipo, otra);
+
+      await espera(1500);
+    }
+  }
+
+  faltan.splice(0, faltan.length, ...(await noEstan()));
 
   if (puestos.length === 0) {
     return { numero, estado: "ningún equipo del lote está en el buscador" };
@@ -1566,9 +1700,19 @@ async function bajaLote(nav, buscador, equipos, numero) {
   const jugadores = await buscador.js(`return cuenta();`);
 
   if (bandera("parar")) {
+    const fichas = await buscador.js(`
+      const f = filtro("Equipo actual");
+
+      if (!f) return "sin filtro";
+
+      const clases = [...new Set([...f.querySelectorAll("*")].map((x) => String(x.className || "")).filter(Boolean))].slice(0, 25);
+
+      return JSON.stringify({ texto: f.innerText.replace(/\\s+/g, " ").slice(0, 400), clases });
+    `);
+
     return {
       numero,
-      estado: `parado con ${puestos.length} equipos y ${jugadores} jugadores`,
+      estado: `parado con ${puestos.length} equipos y ${jugadores} jugadores · fichas: ${fichas}`,
     };
   }
 
@@ -1634,7 +1778,12 @@ async function bajaLote(nav, buscador, equipos, numero) {
 
   const kb = Math.round(fs.statSync(origen).size / 1024);
 
-  const destino = path.join(DESTINO, `Player Stats ${numero}.xlsx`);
+  /* Si faltan equipos, el lote no sustituye al de la semana pasada: va
+     aparte como «(parcial)» y el lector coge de él sólo lo más nuevo. */
+  const destino = path.join(
+    DESTINO,
+    faltan.length > 0 ? `Player Stats ${numero} (parcial).xlsx` : `Player Stats ${numero}.xlsx`,
+  );
 
   fs.copyFileSync(origen, destino);
   fs.unlinkSync(origen);
@@ -1655,7 +1804,7 @@ async function bajaLote(nav, buscador, equipos, numero) {
 async function bajaJugadores(nav, equipos) {
   console.log(`\n  JUGADORES · ${COMPETICION} · ${TEMPORADA}\n`);
 
-  const buscador = await abreBuscador(nav);
+  let buscador = await abreBuscador(nav);
 
   const puesto = await preparaBuscador(buscador);
 
@@ -1668,18 +1817,13 @@ async function bajaJugadores(nav, equipos) {
   console.log(`  ${puesto.resultados} jugadores en la categoría\n`);
 
   /*
-  | Los ficheros de la semana pasada, fuera.
-  |
-  | El lector se queda con la descarga que más minutos trae, así que un dato
-  | viejo no gana nunca... salvo que esta semana falle justo ese lote, y
-  | entonces la pantalla enseñaría una jornada atrasada sin avisar. Se borran
-  | los `Player Stats N` y se vuelven a escribir enteros.
+  | Ya NO se borran al empezar (28/09/2026): con la pestaña colgada fallaron
+  | los tres lotes y la carpeta se quedó sin ningún fichero de jugadores. Cada
+  | lote que baja bien sustituye a su «Player Stats N»; los que fallan dejan
+  | el de la semana pasada, que el lector sólo usa si no hay nada más nuevo de
+  | ese jugador. Al final, si todo ha ido bien, se quitan los números que ya
+  | no existen (de cuando había más lotes).
   */
-  for (const viejo of fs.readdirSync(DESTINO)) {
-    if (/^Player Stats \d+\.xlsx$/i.test(viejo)) {
-      fs.unlinkSync(path.join(DESTINO, viejo));
-    }
-  }
 
   const lotes = [];
 
@@ -1701,6 +1845,22 @@ async function bajaJugadores(nav, equipos) {
         resultado = await bajaLote(nav, buscador, lote, i + 1);
       } catch (error) {
         resultado = { numero: i + 1, estado: error.message };
+
+        /*
+        | Si la pestaña se ha colgado, se cambia por otra y se vuelve a abrir
+        | el buscador con sus filtros: sin esto, el segundo intento y los lotes
+        | siguientes se estrellaban contra la misma pestaña muerta.
+        */
+        if (atasco(error)) {
+          try {
+            await recupera(nav);
+            await vaAlGrupo(nav).catch(() => {});
+            buscador = await abreBuscador(nav);
+            await preparaBuscador(buscador);
+          } catch (otro) {
+            resultado = { numero: i + 1, estado: `${error.message} (y no se ha podido reabrir: ${otro.message})` };
+          }
+        }
       }
 
       if (bandera("parar")) break;
@@ -1719,6 +1879,16 @@ async function bajaJugadores(nav, equipos) {
     );
 
     if (bandera("parar")) break;
+  }
+
+  /* Con todos los lotes bien, fuera los «Player Stats N» de números que ya no
+     se usan (de una semana con más lotes): esos sí son viejos seguro. */
+  if (!bandera("parar") && resultados.every((r) => r?.estado === "ok")) {
+    for (const viejo of fs.readdirSync(DESTINO)) {
+      const numero = Number(viejo.match(/^Player Stats (\d+)\.xlsx$/i)?.[1] ?? 0);
+
+      if (numero > lotes.length) fs.unlinkSync(path.join(DESTINO, viejo));
+    }
   }
 
   return resultados;
