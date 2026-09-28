@@ -222,7 +222,12 @@ export function mismoRival(unoDeLaHoja: string, unoDelInforme: string) {
   const limpia = (texto: string) =>
     sinAcentos(texto)
       .replace(/[.]/g, " ")
-      .replace(/\b(cf|cd|sd|fc|rcd|ud|club|de|del|la|el)\b/g, " ")
+      /*
+      | Las siglas del club fuera, también las de dos letras: «UE SANT
+      | ANDREU» y «AD ALCORCÓN» se quedaban con «ue»/«ad» de cola, la regla
+      | de abajo las tomaba por otro equipo y la semana salía sin informe.
+      */
+      .replace(/\b(cf|cd|sd|fc|rcd|ud|ue|ad|ce|cp|sad|club|de|del|la|el)\b/g, " ")
       .replace(/\s+/g, " ")
       .trim();
 
@@ -332,6 +337,17 @@ export function nivelDeFase(
   return diferencias.reduce((s, d) => s + d, 0) / diferencias.length;
 }
 
+/** El último día de un grupo de tareas, en `aaaa-mm-dd` (la hoja escribe `dd/mm/aaaa`). */
+function ultimaFecha(tareas: TareaEntrenamiento[]) {
+  const iso = tareas
+    .map((t) => t.fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))
+    .filter((m): m is RegExpMatchArray => m !== null)
+    .map((m) => `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`)
+    .sort();
+
+  return iso.at(-1) ?? null;
+}
+
 /** Las semanas, con lo entrenado y lo jugado en la misma fila. */
 export function cruza(
   tareas: TareaEntrenamiento[],
@@ -339,14 +355,41 @@ export function cruza(
   liga: FilaPartido[],
   equipos: string[],
 ): SemanaCruzada[] {
-  const micros = [...new Set(tareas.map((t) => t.micro))].sort((a, b) => a - b);
+  /*
+  | Una semana es un micro **y un rival**, no sólo un micro: con partido entre
+  | semana el micro 13 lleva a Sant Andreu (miércoles) y a Alcorcón (domingo),
+  | y cada tarea dice de cuál es. Agrupando sólo por micro se quedaba el primer
+  | rival y el segundo partido no aparecía.
+  */
+  const grupos = new Map<string, TareaEntrenamiento[]>();
 
-  return micros.map((micro) => {
-    const suyas = tareas.filter((t) => t.micro === micro);
+  for (const t of tareas) {
+    const clave = `${t.micro}|${t.rival}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), t]);
+  }
 
-    const rival = suyas.find((t) => t.rival)?.rival ?? "";
+  const ordenadas = [...grupos.values()].sort(
+    (a, b) =>
+      a[0].micro - b[0].micro ||
+      (ultimaFecha(a) ?? "").localeCompare(ultimaFecha(b) ?? ""),
+  );
 
-    const partido = nuestros.find((p) => mismoRival(rival, p.rival)) ?? null;
+  return ordenadas.map((suyas) => {
+    const micro = suyas[0].micro;
+    const rival = suyas[0].rival;
+
+    /*
+    | Contra el mismo rival se juega dos veces: se ata el partido más cercano
+    | al último día de la semana, no el primero que salga en la lista.
+    */
+    const hasta = ultimaFecha(suyas);
+    const distancia = (p: FilaPartido) =>
+      hasta ? Math.abs(Date.parse(p.fecha) - Date.parse(hasta)) : 0;
+
+    const partido =
+      nuestros
+        .filter((p) => mismoRival(rival, p.rival))
+        .sort((a, b) => distancia(a) - distancia(b))[0] ?? null;
 
     const minutos: Record<string, number> = {};
     const carga: Record<string, number> = {};

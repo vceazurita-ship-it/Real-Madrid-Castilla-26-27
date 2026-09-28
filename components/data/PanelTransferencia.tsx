@@ -230,7 +230,7 @@ export function PanelTransferencia({
               <tbody>
                 {semanas.map((s) => (
                   <tr
-                    key={s.micro}
+                    key={`${s.micro}|${s.rival}`}
                     className={`border-t border-white/[0.06] ${
                       s.partido ? "" : "opacity-45"
                     }`}
