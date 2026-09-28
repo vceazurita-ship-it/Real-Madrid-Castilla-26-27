@@ -155,19 +155,64 @@ export function useRatings() {
     }
   }, []);
 
+  /** Cambios de un partido que no son notas: editarlo, quitarlo o volver a ponerlo. */
+  const cambiaPartido = useCallback(
+    async (body: { accion: "editar" | "ocultar" | "mostrar"; matchId: string; cambios?: Partial<MatchMeta> }) => {
+      setSaving(true);
+
+      try {
+        const response = await fetch("/api/ratings/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.error || "Error guardando el partido");
+        }
+
+        setSeason(payload.season as RatingsSeason);
+
+        return true;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [],
+  );
+
+  const editMatch = useCallback(
+    (matchId: string, cambios: Partial<MatchMeta>) => cambiaPartido({ accion: "editar", matchId, cambios }),
+    [cambiaPartido],
+  );
+
+  const setMatchHidden = useCallback(
+    (matchId: string, oculto: boolean) => cambiaPartido({ accion: oculto ? "ocultar" : "mostrar", matchId }),
+    [cambiaPartido],
+  );
+
   /* Calendario + partidos manuales, sin duplicar los que ya vienen del CSV. */
-  const matches = useMemo<MatchMeta[]>(() => {
+  const todos = useMemo<MatchMeta[]>(() => {
     const byId = new Map<string, MatchMeta>();
 
     calendar.forEach((match) => byId.set(match.id, match));
 
     Object.values(season.matches).forEach((record) => {
-      /* El CSV manda en resultado y microciclo; lo manual sólo se añade. */
-      if (!byId.has(record.match.id)) byId.set(record.match.id, record.match);
+      /* El CSV manda en resultado y microciclo; lo manual sólo se añade.
+         Salvo que se haya corregido a mano: entonces manda lo corregido. */
+      if (!byId.has(record.match.id) || record.match.editado) byId.set(record.match.id, record.match);
     });
 
     return [...byId.values()].sort(compareMatches);
   }, [calendar, season]);
+
+  const ocultos = useMemo(() => new Set(season.ocultos ?? []), [season.ocultos]);
+
+  const matches = useMemo(() => todos.filter((match) => !ocultos.has(match.id)), [todos, ocultos]);
+
+  const hiddenMatches = useMemo(() => todos.filter((match) => ocultos.has(match.id)), [todos, ocultos]);
 
   return {
     season,
@@ -178,5 +223,8 @@ export function useRatings() {
     reload,
     saveMatch,
     deleteMatch,
+    editMatch,
+    setMatchHidden,
+    hiddenMatches,
   };
 }

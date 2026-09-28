@@ -10,6 +10,8 @@ import {
   Save,
   Search,
   Trash2,
+  Pencil,
+  EyeOff,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +29,7 @@ import {
   emptyRating,
   hasContent,
   isResolved,
+  marcadorDe,
 } from "@/lib/ratings/types";
 import { Player } from "@/types/player";
 
@@ -89,6 +92,9 @@ export function RateMatchPanel({
   saving,
   onSave,
   onDelete,
+  onEditMatch,
+  onHideMatch,
+  hiddenMatches = [],
   onCreateMatch,
   initialMatchId,
   onSucio,
@@ -99,6 +105,11 @@ export function RateMatchPanel({
   saving: boolean;
   onSave: (match: MatchMeta, draft: Draft) => Promise<boolean>;
   onDelete: (matchId: string) => Promise<boolean>;
+  /** Corregir fecha, rival, competición o resultado de un partido guardado. */
+  onEditMatch?: (matchId: string, cambios: Partial<MatchMeta>) => Promise<boolean>;
+  /** Quitar de la lista un partido del calendario, o volver a ponerlo. */
+  onHideMatch?: (matchId: string, oculto: boolean) => Promise<boolean>;
+  hiddenMatches?: MatchMeta[];
   onCreateMatch: (match: MatchMeta) => void;
   initialMatchId?: string | null;
   /**
@@ -131,6 +142,7 @@ export function RateMatchPanel({
   };
 
   const [showNewMatch, setShowNewMatch] = useState(false);
+  const [editandoPartido, setEditandoPartido] = useState(false);
 
   /* Sin elección explícita se valora el último partido del calendario. */
   const selectedId = pickedId || ordered[0]?.id || "";
@@ -475,6 +487,96 @@ export function RateMatchPanel({
             </div>
           )}
         </div>
+
+        {selected && (season.matches[selected.id] || selected.source === "csv") && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {season.matches[selected.id] && onEditMatch && (
+              <GhostButton
+                icon={Pencil}
+                active={editandoPartido}
+                onClick={() => {
+                  setEditandoPartido((valor) => !valor);
+                  setShowNewMatch(false);
+                }}
+              >
+                Editar partido
+              </GhostButton>
+            )}
+
+            {/* Un partido del calendario sin notas se puede quitar de la
+                lista: con notas, antes hay que borrarlas. */}
+            {selected.source === "csv" && !season.matches[selected.id] && onHideMatch && (
+              <GhostButton
+                icon={EyeOff}
+                disabled={saving}
+                onClick={async () => {
+                  if (!window.confirm(`¿Quitar ${matchLabel(selected)} de Valoraciones? Se puede volver a mostrar.`)) return;
+
+                  try {
+                    await onHideMatch(selected.id, true);
+                    setPickedId("");
+                    toast.success("Partido quitado de la lista");
+                  } catch (error) {
+                    console.error(error);
+                    toast.error("No se ha podido quitar el partido");
+                  }
+                }}
+              >
+                Quitar de la lista
+              </GhostButton>
+            )}
+          </div>
+        )}
+
+        {editandoPartido && selected && season.matches[selected.id] && onEditMatch && (
+          <NewMatchForm
+            key={selected.id}
+            inicial={selected}
+            boton="Guardar cambios"
+            onCreate={async (cambios) => {
+              try {
+                await onEditMatch(selected.id, {
+                  date: cambios.date,
+                  opponent: cambios.opponent,
+                  competition: cambios.competition,
+                  isHome: cambios.isHome,
+                  result: cambios.result,
+                });
+                setEditandoPartido(false);
+                toast.success("Partido actualizado");
+              } catch (error) {
+                console.error(error);
+                toast.error(error instanceof Error ? error.message : "No se ha podido guardar el partido");
+              }
+            }}
+          />
+        )}
+
+        {hiddenMatches.length > 0 && onHideMatch && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/40">
+            Quitados de la lista:
+            {hiddenMatches.map((match) => (
+              <button
+                key={match.id}
+                type="button"
+                disabled={saving}
+                onClick={async () => {
+                  try {
+                    await onHideMatch(match.id, false);
+                    toast.success(`${matchLabel(match)} vuelve a la lista`);
+                  } catch (error) {
+                    console.error(error);
+                    toast.error("No se ha podido volver a mostrar");
+                  }
+                }}
+                className="rounded-md px-1.5 py-0.5 text-white/60 underline decoration-dotted underline-offset-2 hover:text-white"
+                title="Volver a mostrarlo"
+              >
+                {matchLabel(match)} ({formatMatchDate(match)}) · volver a mostrar
+              </button>
+            ))}
+          </p>
+        )}
 
         {showNewMatch && (
           <NewMatchForm
@@ -910,12 +1012,24 @@ export function RateMatchPanel({
   );
 }
 
-function NewMatchForm({ onCreate }: { onCreate: (match: MatchMeta) => void }) {
-  const [date, setDate] = useState("");
-  const [opponent, setOpponent] = useState("");
-  const [competition, setCompetition] = useState("");
-  const [isHome, setIsHome] = useState(true);
-  const [result, setResult] = useState("");
+/**
+ * El formulario de un partido: para crearlo y, con `inicial`, para corregir
+ * uno ya guardado.
+ */
+function NewMatchForm({
+  onCreate,
+  inicial,
+  boton = "Crear",
+}: {
+  onCreate: (match: MatchMeta) => void;
+  inicial?: MatchMeta;
+  boton?: string;
+}) {
+  const [date, setDate] = useState(inicial?.date ?? "");
+  const [opponent, setOpponent] = useState(inicial?.opponent ?? "");
+  const [competition, setCompetition] = useState(inicial?.competition ?? "");
+  const [isHome, setIsHome] = useState(inicial?.isHome ?? true);
+  const [result, setResult] = useState(inicial?.result ?? "");
 
   const submit = () => {
     if (!opponent.trim()) {
@@ -923,10 +1037,7 @@ function NewMatchForm({ onCreate }: { onCreate: (match: MatchMeta) => void }) {
       return;
     }
 
-    const score = result.match(/(\d+)\s*[-–:]\s*(\d+)/);
-
-    const gf = score ? Number(isHome ? score[1] : score[2]) : null;
-    const ga = score ? Number(isHome ? score[2] : score[1]) : null;
+    const { gf, ga } = marcadorDe(result, isHome);
 
     onCreate({
       id: matchId(date, opponent.trim(), "manual"),
@@ -939,6 +1050,8 @@ function NewMatchForm({ onCreate }: { onCreate: (match: MatchMeta) => void }) {
       ga,
       source: "manual",
     });
+
+    if (inicial) return;
 
     setDate("");
     setOpponent("");
@@ -993,7 +1106,7 @@ function NewMatchForm({ onCreate }: { onCreate: (match: MatchMeta) => void }) {
           {isHome ? "Local" : "Visitante"}
         </button>
 
-        <GoldButton onClick={submit}>Crear</GoldButton>
+        <GoldButton onClick={submit}>{boton}</GoldButton>
       </div>
     </div>
   );

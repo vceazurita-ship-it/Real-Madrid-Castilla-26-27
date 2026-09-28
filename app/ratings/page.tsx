@@ -79,6 +79,9 @@ export default function RatingsPage() {
     reload,
     saveMatch,
     deleteMatch,
+    editMatch,
+    setMatchHidden,
+    hiddenMatches,
   } = useRatings();
 
   const hash = useSyncExternalStore(
@@ -276,6 +279,9 @@ export default function RatingsPage() {
                     saving={saving}
                     onSave={saveMatch}
                     onDelete={deleteMatch}
+                    onEditMatch={editMatch}
+                    onHideMatch={setMatchHidden}
+                    hiddenMatches={hiddenMatches}
                     onCreateMatch={setPendingMatch}
                     initialMatchId={editMatchId}
                     onSucio={setValoracionesSucias}

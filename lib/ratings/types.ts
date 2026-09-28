@@ -68,6 +68,11 @@ export type MatchMeta = {
   ga: number | null;
   /** "csv" viene del calendario de partidos; "manual" lo creó el cuerpo técnico. */
   source: "csv" | "manual";
+  /**
+   * Corregido a mano después de guardarlo. Manda sobre lo que diga el
+   * calendario: sin esto, el CSV volvía a poner el nombre de antes.
+   */
+  editado?: boolean;
 };
 
 export type MatchRatings = {
@@ -80,7 +85,23 @@ export type RatingsSeason = {
   season: string;
   matches: Record<string, MatchRatings>;
   updatedAt: string;
+  /**
+   * Partidos del calendario que no deben salir en Valoraciones (el amistoso
+   * contra el Real Madrid C). Se quitan aquí y no en la hoja, que alimenta
+   * también el plan de partido.
+   */
+  ocultos?: string[];
 };
+
+/** Goles a favor y en contra de un marcador escrito a mano («2-1»). */
+export function marcadorDe(result: string, isHome: boolean) {
+  const score = result.match(/(\d+)\s*[-–:]\s*(\d+)/);
+
+  return {
+    gf: score ? Number(isHome ? score[1] : score[2]) : null,
+    ga: score ? Number(isHome ? score[2] : score[1]) : null,
+  };
+}
 
 export function emptySeason(season = RATINGS_SEASON): RatingsSeason {
   return { season, matches: {}, updatedAt: "" };

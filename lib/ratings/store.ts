@@ -35,6 +35,7 @@ function normalize(payload: unknown, season: string): RatingsSeason {
     season,
     matches: value.matches,
     updatedAt: value.updatedAt ?? "",
+    ocultos: Array.isArray(value.ocultos) ? value.ocultos.map(String) : [],
   };
 }
 
