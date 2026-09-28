@@ -328,6 +328,14 @@ export type PlantillaSlide = {
    * intercambian el nombre no acaben los dos en el mismo sitio.
    */
   renombra?: Record<string, string>;
+  /**
+   * Sólo se renombra lo que venga de una revisión ANTERIOR a ésta.
+   *
+   * Sin tope, cada vez que se sube `rev` para mover chapas el cambio de nombre
+   * se volvía a aplicar a tableros que ya lo tenían: en el córner defensivo, la
+   * M1 de hoy pasaría a ser la Z2 y los jugadores se cruzarían de puesto.
+   */
+  renombraAntesDe?: number;
 };
 
 /* Atajo para no repetir el prefijo de la clave en cada puesto. */
@@ -492,7 +500,8 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "corner-def",
-    rev: 5,
+    /* rev 6 (28/09/2026): las siete marcas juntas en dos filas y la M7 con ellas. */
+    rev: 6,
     titulo: "CÓRNER DEFENSIVO",
     vista: "ancho",
     lado: "defensivo",
@@ -512,6 +521,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | Se aplica de una vez, no en cadena: M3 pasa a ser M1 **y** el viejo M1
     | pasa a ser Z2, y hacerlo en dos pasos dejaría a los dos en el mismo sitio.
     */
+    renombraAntesDe: 5,
     renombra: {
       B: "Z1",
       M1: "Z2",
@@ -569,36 +579,22 @@ export const PLANTILLAS: PlantillaSlide[] = [
       | siguen siendo las de antes, así que nadie se mueve de su sitio.
       */
       { code: "C", label: "Corta", grupo: "corta", x: 788, y: 254 },
-      { code: "Z1", sigla: "M1", label: "Marca 1", grupo: "marcas", x: 855, y: 295 },
+      /*
+      | Las siete marcas juntas, en dos filas: M1-M4 con los pies en la línea del
+      | área y M5-M7 detrás. Cada ficha ocupa 96×150 (foto y chapa) con el pie
+      | en (x, y): a 105 px de lado y 165 de fondo no se tocan, no pisan a la
+      | corta, al balón ni al juego en corto, y la M4 acaba antes del panel de
+      | asignaciones (x 1279).
+      */
+      { code: "Z1", sigla: "M1", label: "Marca 1", grupo: "marcas", x: 880, y: 475 },
       { code: "Z2", sigla: "B", label: "Balón", grupo: "zonas", x: 930, y: 321 },
-      { code: "Z3", sigla: "M2", label: "Marca 2", grupo: "marcas", x: 1013, y: 322 },
-      {
-        code: "P2",
-        sigla: "M3",
-        label: "Marca 3",
-        grupo: "marcas",
-        x: 1094,
-        y: 253,
-      },
-      {
-        code: "MU",
-        sigla: "M4",
-        label: "Marca 4",
-        grupo: "marcas",
-        x: 912,
-        y: 492,
-      },
-      { code: "M1", sigla: "M5", label: "Marca 5", grupo: "marcas", x: 1019, y: 498 },
-      { code: "M2", sigla: "M6", label: "Marca 6", grupo: "marcas", x: 1135, y: 485 },
+      { code: "Z3", sigla: "M2", label: "Marca 2", grupo: "marcas", x: 985, y: 475 },
+      { code: "P2", sigla: "M3", label: "Marca 3", grupo: "marcas", x: 1090, y: 475 },
+      { code: "MU", sigla: "M4", label: "Marca 4", grupo: "marcas", x: 1195, y: 475 },
+      { code: "M1", sigla: "M5", label: "Marca 5", grupo: "marcas", x: 880, y: 640 },
+      { code: "M2", sigla: "M6", label: "Marca 6", grupo: "marcas", x: 985, y: 640 },
       { code: "JC", label: "Juego en corto", grupo: "fuera", x: 759, y: 593 },
-      {
-        code: "AD",
-        sigla: "M7",
-        label: "Marca 7",
-        grupo: "fuera",
-        x: 1031,
-        y: 932,
-      },
+      { code: "AD", sigla: "M7", label: "Marca 7", grupo: "marcas", x: 1090, y: 640 },
     ]),
     /* Cada marca es un rival con nombre y apellidos, pero el dorsal no se sabe
        hasta que salen al campo: la casilla va en blanco y se rellena a boli.
@@ -1029,8 +1025,11 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
     );
 
     /* Los puestos que han cambiado de nombre, de clave vieja a clave nueva. */
+    const toca =
+      plantilla.renombraAntesDe == null || (slide.rev ?? 0) < plantilla.renombraAntesDe;
+
     const renombrados = new Map(
-      Object.entries(plantilla.renombra ?? {}).map(([antes, ahora]) => [
+      Object.entries(toca ? (plantilla.renombra ?? {}) : {}).map(([antes, ahora]) => [
         `${plantilla.key}:${antes}`,
         `${plantilla.key}:${ahora}`,
       ]),
