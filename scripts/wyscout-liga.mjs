@@ -71,6 +71,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { strFromU8, unzipSync } from "fflate";
 
 /* ------------------------------------------------------------------ */
 /*  AJUSTES                                                            */
@@ -787,6 +788,27 @@ async function volverAlGrupo(nav) {
  * para los siguientes equipos; aun así se comprueba en cada uno, que es lo que
  * cuesta cero y evita bajarse veinte ficheros con la mitad de las columnas.
  */
+/** Las columnas del primer informe con ALL: 109. Por debajo de esto, algo falla. */
+const MIN_COLUMNAS = 80;
+
+/** Cuántas columnas trae un .xlsx, leyendo su rango; `null` si no se sabe. */
+function columnasDe(fichero) {
+  try {
+    const zip = unzipSync(new Uint8Array(fs.readFileSync(fichero)));
+    const hoja = zip["xl/worksheets/sheet1.xml"];
+
+    if (!hoja) return null;
+
+    const rango = strFromU8(hoja).match(/<dimension ref="[A-Z]+\d+:([A-Z]+)\d+"/)?.[1];
+
+    if (!rango) return null;
+
+    return [...rango].reduce((total, letra) => total * 26 + (letra.charCodeAt(0) - 64), 0);
+  } catch {
+    return null;
+  }
+}
+
 async function bajaEquipo(nav, equipo) {
   if (!(await nav.clicHasta(equipo, "Estadísticas|Vista general"))) {
     return { equipo, estado: "no se abre la ficha del equipo" };
@@ -852,6 +874,28 @@ async function bajaEquipo(nav, equipo) {
   }
 
   /*
+  | Y se COMPRUEBA que ha quedado en ALL antes de exportar nada.
+  |
+  | El 28/09/2026 la sesión era de otra cuenta de Wyscout (la del juvenil), sin
+  | el layout ALL: el clic no encontraba nada, se exportaba «General» —26
+  | columnas en vez de 109— y ese fichero machacaba el bueno de cada equipo.
+  | Sin ALL no se exporta: el fichero de antes se queda como está.
+  */
+  const quedoEnAll = await nav.js(`
+    const t = ((document.body || {}).innerText || "").replace(/\\s+/g, " ");
+
+    return /MOSTRAR: ?ALL/i.test(t);
+  `);
+
+  if (!quedoEnAll && !bandera("parar")) {
+    return {
+      equipo,
+      estado:
+        "esta cuenta de Wyscout no tiene el layout ALL (se deja el fichero de antes; entra con la cuenta buena o crea el layout ALL)",
+    };
+  }
+
+  /*
   | `--parar` deja la ventana abierta en la tabla, sin exportar nada.
   |
   | Es la herramienta de mantenimiento: el día que Wyscout cambie un botón,
@@ -884,6 +928,25 @@ async function bajaEquipo(nav, equipo) {
   const origen = path.join(DESCARGAS, fichero);
 
   const kb = Math.round(fs.statSync(origen).size / 1024);
+
+  /*
+  | Las columnas, antes de sustituir nada.
+  |
+  | Un informe con ALL trae más de cien; con la tabla a medio cargar o con
+  | otro layout, una veintena. El tamaño sólo avisaba y el fichero corto se
+  | copiaba igual encima del bueno. Ahora no: si no llega, se tira el nuevo y
+  | se queda el de antes.
+  */
+  const columnas = columnasDe(origen);
+
+  if (columnas !== null && columnas < MIN_COLUMNAS) {
+    fs.unlinkSync(origen);
+
+    return {
+      equipo,
+      estado: `el Excel sólo trae ${columnas} columnas (con ALL son más de ${MIN_COLUMNAS}): se deja el fichero de antes`,
+    };
+  }
 
   /*
   | El nombre lo ponemos nosotros, no Wyscout.
