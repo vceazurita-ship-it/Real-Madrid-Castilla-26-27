@@ -290,6 +290,47 @@ async function reponeLasCookies(nav) {
 }
 
 /** El hilo de mando con la pestaña. */
+/** Una orden que Chrome no ha llegado a contestar: la pestaña está colgada. */
+const atasco = (error) => /sin respuesta/i.test(String(error?.message ?? error ?? ""));
+
+/**
+ * Cambia la pestaña colgada por una limpia, sin cerrar Chrome.
+ *
+ * El 28/09/2026 la pestaña se quedó sin contestar pintando las tablas del
+ * Águilas y el «Page.navigate» del reintento tumbó la descarga ENTERA: ni un
+ * equipo, ni un jugador. Una pestaña colgada no contesta por su canal, pero el
+ * navegador sí deja cerrarla y abrir otra por HTTP; la sesión sigue viva
+ * porque las cookies son del navegador, no de la pestaña. `nav` se rellena
+ * con la conexión nueva para que todo lo que lo tiene en la mano siga valiendo.
+ */
+async function recupera(nav) {
+  console.log("\n    (la pestaña no contesta: se abre otra limpia y se sigue)");
+
+  try {
+    nav.cierra();
+  } catch {
+    /* ya estaba rota */
+  }
+
+  try {
+    const todas = await fetch(`http://127.0.0.1:${PUERTO}/json`).then((r) => r.json());
+
+    for (const vieja of todas) {
+      if (vieja.type === "page" && /wyscout|hudl/i.test(vieja.url)) {
+        await fetch(`http://127.0.0.1:${PUERTO}/json/close/${vieja.id}`);
+      }
+    }
+  } catch {
+    /* si no deja cerrar, se abre la nueva igualmente */
+  }
+
+  await fetch(`http://127.0.0.1:${PUERTO}/json/new?https://wyscout.hudl.com/app/`, { method: "PUT" });
+
+  Object.assign(nav, await conecta());
+
+  await espera(4000);
+}
+
 async function conecta() {
   let pestana = null;
 
@@ -1730,18 +1771,24 @@ async function principal() {
       let resultado = bandera("parar") ? await bajaEquipo(nav, equipo) : null;
 
       for (let intento = 0; intento < 2 && !resultado?.fichero && !bandera("parar"); intento++) {
-        if (intento > 0) {
-          await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" });
-
-          await espera(4000);
-
-          await vaAlGrupo(nav);
-        }
-
+        /*
+        | TODO dentro del try, también el camino de vuelta del reintento: fuera,
+        | una pestaña colgada tumbaba la descarga entera en vez de este equipo.
+        */
         try {
+          if (intento > 0) {
+            await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" });
+
+            await espera(4000);
+
+            await vaAlGrupo(nav);
+          }
+
           resultado = await bajaEquipo(nav, equipo);
         } catch (error) {
           resultado = { equipo, estado: error.message };
+
+          if (atasco(error)) await recupera(nav).catch(() => {});
         }
       }
 
@@ -1766,7 +1813,19 @@ async function principal() {
       /* Con `--parar` la gracia es quedarse donde está, para poder mirarlo. */
       if (bandera("parar")) break;
 
-      if (!(await volverAlGrupo(nav))) await vaAlGrupo(nav);
+      /* Si el camino de vuelta se cuelga, pestaña nueva y a por el siguiente:
+         el reintento del próximo equipo rehace el camino desde cero. */
+      try {
+        if (!(await volverAlGrupo(nav))) await vaAlGrupo(nav);
+      } catch (error) {
+        if (atasco(error)) await recupera(nav).catch(() => {});
+
+        try {
+          await vaAlGrupo(nav);
+        } catch {
+          /* lo intenta otra vez el siguiente equipo */
+        }
+      }
     }
 
     if (!bandera("solo-jugadores")) {
@@ -1793,7 +1852,19 @@ async function principal() {
       try {
         await bajaJugadores(nav, lista);
       } catch (error) {
-        console.log(`\n  ✗ jugadores: ${error.message}\n`);
+        /* Colgada a mitad: pestaña nueva y otra vuelta, que son cientos de
+           jugadores. */
+        if (atasco(error)) {
+          await recupera(nav).catch(() => {});
+
+          try {
+            await bajaJugadores(nav, lista);
+          } catch (otro) {
+            console.log(`\n  ✗ jugadores: ${otro.message}\n`);
+          }
+        } else {
+          console.log(`\n  ✗ jugadores: ${error.message}\n`);
+        }
       }
     }
   } finally {
