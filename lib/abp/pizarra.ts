@@ -561,32 +561,40 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | lleva rival, y la casilla del dorsal se la lleva con él.
     */
     puestos: puestos("corner-def", [
+      /*
+      | NOMBRES DEL CUERPO TÉCNICO (28/09/2026): marcas de la M1 a la M7 y el
+      | del balón. Z1, Z3 y 2ºP pasan a M1, M2 y M3 (y al grupo de marcas, que
+      | es el que lleva la casilla del dorsal); 1½ es M4, M1 es M5, M2 es M6,
+      | AD es M7 y Z2 es B, el del balón. Sólo cambia lo que se lee: las claves
+      | siguen siendo las de antes, así que nadie se mueve de su sitio.
+      */
       { code: "C", label: "Corta", grupo: "corta", x: 788, y: 254 },
-      { code: "Z1", label: "Zona 1", grupo: "zonas", x: 855, y: 295 },
-      { code: "Z2", label: "Zona 2", grupo: "zonas", x: 930, y: 321 },
-      { code: "Z3", label: "Zona 3", grupo: "zonas", x: 1013, y: 322 },
+      { code: "Z1", sigla: "M1", label: "Marca 1", grupo: "marcas", x: 855, y: 295 },
+      { code: "Z2", sigla: "B", label: "Balón", grupo: "zonas", x: 930, y: 321 },
+      { code: "Z3", sigla: "M2", label: "Marca 2", grupo: "marcas", x: 1013, y: 322 },
       {
         code: "P2",
-        sigla: "2ºP",
-        label: "Segundo palo",
-        grupo: "zonas",
+        sigla: "M3",
+        label: "Marca 3",
+        grupo: "marcas",
         x: 1094,
         y: 253,
       },
       {
         code: "MU",
-        sigla: "1½",
-        label: "Marca y uno y medio",
+        sigla: "M4",
+        label: "Marca 4",
         grupo: "marcas",
         x: 912,
         y: 492,
       },
-      { code: "M1", label: "Marca 1", grupo: "marcas", x: 1019, y: 498 },
-      { code: "M2", label: "Marca 2", grupo: "marcas", x: 1135, y: 485 },
+      { code: "M1", sigla: "M5", label: "Marca 5", grupo: "marcas", x: 1019, y: 498 },
+      { code: "M2", sigla: "M6", label: "Marca 6", grupo: "marcas", x: 1135, y: 485 },
       { code: "JC", label: "Juego en corto", grupo: "fuera", x: 759, y: 593 },
       {
         code: "AD",
-        label: "Arriba descolgado",
+        sigla: "M7",
+        label: "Marca 7",
         grupo: "fuera",
         x: 1031,
         y: 932,
