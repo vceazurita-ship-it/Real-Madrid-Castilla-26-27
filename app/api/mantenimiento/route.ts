@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
     const equipo = String(cuerpo.equipo ?? "").trim();
     const jornada = String(cuerpo.jornada ?? "").trim();
 
-    if (!ruta || ruta.length > 400) {
+    /* Puede ser una carpeta o varios PDF, uno por línea: de ahí el margen. */
+    if (!ruta || ruta.length > 2000) {
       return NextResponse.json({ ok: false, error: "Pega la ruta de la carpeta." }, { status: 400 });
     }
 

@@ -78,7 +78,6 @@ const TRABAJO_VACIO: TrabajoJornada = { laminas: [], notas: {} };
 
 /** La última carpeta que se pegó: la de la jornada siguiente se le parece. */
 const ULTIMA_RUTA = "rmcf-analisis-rival:ruta";
-
 function leeLocal(clave: string) {
   try {
     return window.localStorage.getItem(clave) ?? "";
@@ -835,21 +834,24 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
         <div className="mt-3 space-y-2">
           <p className="text-xs text-white/45">
-            Pega la ruta de la carpeta tal y como se ve en el ordenador del club (en el Explorador: clic derecho sobre
-            la carpeta → «Copiar como ruta de acceso»). Se recorre entera: los vídeos van a su sección por el nombre de
-            la carpeta —«CORNER OFF», «CORNER DEF», «FALTA OFF», «FALTA DEF», o «CENTRO»; con «DEF» son los que
-            defiende—, el partido sale de «VS …» y los PDF se guardan como documentos. Los vídeos se comprimen antes de
-            subirlos y lo ya subido no se repite.
+            Pega la ruta tal y como se ve en el ordenador del club (en el Explorador: clic derecho → «Copiar como ruta
+            de acceso»). Vale una carpeta entera o los PDF del informe sueltos, uno por línea; se puede hacer desde
+            cualquier aparato, porque quien lo lee es el ordenador del club. Los vídeos van a su sección por el nombre
+            de la carpeta —«CORNER OFF», «CORNER DEF», «FALTA OFF», «FALTA DEF», o «CENTRO»; con «DEF» son los que
+            defiende— y se comprimen antes de subirlos. Cada PDF va a Área del Rival si su nombre dice «CENTRO», «CEN
+            LAT» o «ÁREA», y si no a ABP del Rival, y se pasa solo a láminas (las que ya estén no se repiten). Lo ya
+            subido no se vuelve a subir.
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <input
+            <textarea
               value={ruta}
               onChange={(e) => setRuta(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void pideCarpeta()}
-              placeholder="C:\Users\Usuario\Downloads\VICTOR J6 …"
-              aria-label="Ruta de la carpeta"
-              className="min-w-[260px] flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-sm text-white"
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), void pideCarpeta())}
+              placeholder={"C:\\Users\\Usuario\\Downloads\\J6 INFORME COMPLEMENTARIO ABP.pdf\nC:\\Users\\Usuario\\Downloads\\J6 INFORME CEN LAT.pdf"}
+              aria-label="Ruta de la carpeta o de los PDF"
+              rows={Math.min(4, Math.max(1, ruta.split("\n").length))}
+              className="min-w-[260px] flex-1 resize-y rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-sm text-white"
             />
             <input
               value={jornadaCarpeta}

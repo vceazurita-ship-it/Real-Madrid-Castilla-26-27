@@ -178,17 +178,29 @@ async function principal() {
     return termina(1, "faltan la ruta o el equipo");
   }
 
-  if (!fs.existsSync(ruta) || !fs.statSync(ruta).isDirectory()) {
-    return termina(1, `no encuentro la carpeta «${ruta}» en el ordenador del club`);
+  /*
+  | La ruta puede ser una carpeta o uno o varios ficheros sueltos (los PDF del
+  | informe de la semana), separados por saltos de línea o «;». Así basta con
+  | copiar la ruta de cada PDF en el Explorador y pegarla, sin montar carpeta.
+  */
+  const rutas = ruta
+    .split(/[\r\n;]+/)
+    .map((r) => r.trim().replace(/^"+|"+$/g, ""))
+    .filter(Boolean);
+
+  const noEsta = rutas.find((r) => !fs.existsSync(r));
+
+  if (noEsta) {
+    return termina(1, `no encuentro «${noEsta}» en el ordenador del club`);
   }
 
   const jornada =
     bandera("jornada") ||
-    jornadaDeTexto(ruta.split(/[\\/]/).reverse().join(" ")) ||
+    rutas.map((r) => jornadaDeTexto(r.split(/[\\/]/).reverse().join(" "))).find(Boolean) ||
     null;
 
   if (!jornada) {
-    return termina(1, "no sé de qué jornada es: la carpeta tiene que llevar «J5», «J12»…");
+    return termina(1, "no sé de qué jornada es: la carpeta o el fichero tiene que llevar «J5», «J12»…");
   }
 
   const env = entorno();
@@ -241,7 +253,21 @@ async function principal() {
 
   fs.mkdirSync(TEMPORAL, { recursive: true });
 
-  const ficheros = recorre(ruta);
+  /* Cada fichero con la base contra la que se cuenta su ruta relativa (la
+     que decide la sección y lo que «ya está»): su carpeta si es suelto. */
+  const base = new Map();
+  const ficheros = [];
+
+  for (const r of rutas) {
+    const dentro = fs.statSync(r).isDirectory() ? recorre(r) : [r];
+
+    for (const f of dentro) {
+      base.set(f, fs.statSync(r).isDirectory() ? r : path.dirname(r));
+      ficheros.push(f);
+    }
+  }
+
+  const relativaDe = (f) => path.relative(base.get(f), f);
 
   const previo = (await lee()).jornadas[jornada] ?? { clips: [], docs: [] };
 
@@ -257,15 +283,15 @@ async function principal() {
 
   await guarda((suya) => ({
     ...suya,
-    rutas: [...new Set([...(suya.rutas ?? []), ruta])],
+    rutas: [...new Set([...(suya.rutas ?? []), ...rutas])],
   }));
 
   const videos = ficheros.filter((f) => VIDEO.test(f));
 
-  console.log(`${equipo} · ${jornada}: ${videos.length} vídeos en «${ruta}».`);
+  console.log(`${equipo} · ${jornada}: ${videos.length} vídeos en «${rutas.join(" · ")}».`);
 
   for (const [i, fichero] of videos.entries()) {
-    const relativa = path.relative(ruta, fichero);
+    const relativa = relativaDe(fichero);
     const segmentos = relativa.split(/[\\/]/);
     const seccion = seccionDe(segmentos);
 
@@ -336,7 +362,7 @@ async function principal() {
   }
 
   for (const fichero of ficheros.filter((f) => DOC.test(f))) {
-    const relativa = path.relative(ruta, fichero);
+    const relativa = relativaDe(fichero);
 
     if (yaEsta(relativa, null, previo.docs)) continue;
 
@@ -364,7 +390,8 @@ async function principal() {
           ...suya.docs.filter((d) => d.origen !== relativa),
           {
             id: nuevoIdAnalisis(),
-            ambito: /CENTRO|AREA|ÁREA/i.test(relativa) ? "area" : "abp",
+            /* «J6 INFORME CEN LAT» es de centros laterales aunque no diga «centro». */
+            ambito: /CENTRO|CEN\.? ?LAT|LATERAL|\bAREA|ÁREA/i.test(relativa) ? "area" : "abp",
             nombre: path.basename(fichero, path.extname(fichero)),
             url,
             path: destino,
@@ -382,12 +409,37 @@ async function principal() {
     }
   }
 
+  /*
+  | Los PDF nuevos se pasan a láminas aquí mismo, con el mismo lector que el
+  | botón «Pasar a láminas»: pegar la ruta y abrir la pantalla con el informe
+  | ya dibujado. Sólo añade láminas que no estén (misma sección y título).
+  */
+  let laminas = "";
+
+  if (pdfs > 0) {
+    laminas = await new Promise((resolve) => {
+      execFile(
+        process.execPath,
+        [path.join(RAIZ, "scripts/rival-pdf-laminas.mjs"), "--equipo", equipo, "--jornada", jornada, "--escribe"],
+        { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 10 * 60 * 1000 },
+        (error, stdout) => {
+          const dice = String(stdout || "").match(/RESUMEN: (.*)/)?.[1] ?? "";
+          if (error && !dice) fallos.push(`pasar a láminas: ${error.message}`);
+          resolve(dice);
+        },
+      );
+    });
+
+    if (laminas) console.log(`Láminas: ${laminas}`);
+  }
+
   const partes = [
     `${equipo} ${jornada}: ${subidos} vídeo${subidos === 1 ? "" : "s"} subido${subidos === 1 ? "" : "s"} (${megas.toFixed(0)} MB)`,
   ];
 
   if (saltados) partes.push(`${saltados} ya estaban`);
   if (pdfs) partes.push(`${pdfs} documento${pdfs === 1 ? "" : "s"}`);
+  if (laminas) partes.push(laminas);
   if (sinSitio.length) partes.push(`${sinSitio.length} sin sección (la carpeta no dice córner, falta ni centro)`);
   if (fallos.length) partes.push(`${fallos.length} fallo${fallos.length === 1 ? "" : "s"}`);
 

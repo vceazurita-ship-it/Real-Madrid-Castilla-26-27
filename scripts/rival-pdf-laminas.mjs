@@ -1,0 +1,100 @@
+/**
+ * PASA A LÁMINAS LOS PDF QUE YA ESTÁN SUBIDOS DE UNA JORNADA DEL RIVAL.
+ *
+ *   node scripts/rival-pdf-laminas.mjs --equipo "Atlético Madrileño" --jornada J6 [--escribe]
+ *
+ * Es lo mismo que el botón «Pasar a láminas» de ABP del Rival / Área del Rival
+ * (usa `lib/rivals/importa-pdf.ts`, el mismo lector), pero sin navegador: lee
+ * los PDF de `rival-analisis-clips:<equipo>` de esa jornada, casa los nombres
+ * con la plantilla del rival y añade a `rival-analisis:<equipo>` las láminas
+ * que no estén ya (misma sección y mismo título). Sin `--escribe` sólo cuenta
+ * lo que haría.
+ */
+import path from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
+
+const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
+const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
+const { analisisKey, clipsKey, normalizaAnalisis, normalizaClips, ANALISIS_KIND } = require(path.join(RAIZ, "lib/rivals/analisis.ts"));
+const { importaPdfAnalisis } = require(path.join(RAIZ, "lib/rivals/importa-pdf.ts"));
+
+const bandera = (n) => {
+  const i = process.argv.indexOf(`--${n}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+};
+
+const equipo = bandera("equipo");
+const jornada = (bandera("jornada") || "").toUpperCase();
+const escribe = process.argv.includes("--escribe");
+
+if (!equipo || !/^J\d{1,2}$/.test(jornada)) {
+  console.log("RESUMEN: faltan --equipo o --jornada (como J6)");
+  process.exit(1);
+}
+
+const env = entorno();
+const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+
+const leeDoc = async (clave) => {
+  const { data, error } = await supabase.from("app_documents").select("data").eq("key", clave).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.data;
+};
+
+/* La plantilla del rival, del mismo sitio que la pantalla. */
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+const plantillaEntera = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`).then((r) => r.json()).catch(() => []);
+const filas = (Array.isArray(plantillaEntera) ? plantillaEntera : plantillaEntera?.data ?? []).filter(
+  (f) => String(f.NOMBRE_EQUIPO ?? "") === equipo,
+);
+
+const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+const clips = normalizaClips(await leeDoc(clipsKey(equipo)));
+const docs = (clips.jornadas[jornada]?.docs ?? []).filter((d) => /\.pdf($|\?)/i.test(d.url));
+
+const nuevas = [];
+const analisisPrevio = normalizaAnalisis(await leeDoc(analisisKey(equipo)));
+const yaHay = analisisPrevio.jornadas[jornada]?.laminas ?? [];
+
+for (const d of docs) {
+  const datos = new Uint8Array(await fetch(d.url).then((r) => r.arrayBuffer()));
+  const { laminas, saltadas } = await importaPdfAnalisis(pdfjs, datos, filas);
+  const suyas = laminas
+    .map((p) => p.lamina)
+    .filter((l) => !yaHay.some((y) => y.seccion === l.seccion && y.titulo === l.titulo))
+    .filter((l) => !nuevas.some((y) => y.seccion === l.seccion && y.titulo === l.titulo));
+  console.log(`${d.nombre} (${d.ambito}): ${laminas.length} láminas, ${suyas.length} nuevas${saltadas.length ? ` · diapositivas sin lámina: ${saltadas.join(", ")}` : ""}`);
+  for (const l of suyas) console.log(`   ${l.seccion.padEnd(12)} ${l.titulo}`);
+  nuevas.push(...suyas);
+}
+
+if (!escribe || !nuevas.length) {
+  console.log(`RESUMEN: ${nuevas.length} láminas nuevas para ${equipo} ${jornada}${escribe ? "" : " (sin escribir: añade --escribe)"}; plantilla con ${filas.length} jugadores`);
+  process.exit(0);
+}
+
+/* Se relee justo antes de escribir para no pisar lo que alguien haya dibujado. */
+const actual = normalizaAnalisis(await leeDoc(analisisKey(equipo)));
+const previo = actual.jornadas[jornada] ?? { laminas: [] };
+actual.jornadas[jornada] = { ...previo, laminas: [...(previo.laminas ?? []), ...nuevas] };
+
+const { error } = await supabase
+  .from("app_documents")
+  .upsert({ key: analisisKey(equipo), kind: ANALISIS_KIND, data: actual, updated_at: new Date().toISOString() }, { onConflict: "key" });
+
+if (error) {
+  console.log(`RESUMEN: no se ha podido guardar: ${error.message}`);
+  process.exit(1);
+}
+
+const comprobado = normalizaAnalisis(await leeDoc(analisisKey(equipo))).jornadas[jornada]?.laminas?.length ?? 0;
+console.log(`RESUMEN: ${nuevas.length} láminas añadidas a ${equipo} ${jornada} (ahora hay ${comprobado})`);
+process.exit(0);
