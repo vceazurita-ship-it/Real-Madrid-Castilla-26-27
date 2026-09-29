@@ -61,8 +61,9 @@ const PARTIDOS = [
     resultado: "1-2",
     clips: "Hudl · Castilla · «2026-09-27 Real Madrid Castilla - Alcorcón 1 - 2» (timeline de Sportscode)",
     notas: [
-      "Sale del timeline de Sportscode subido a Hudl, no de mirar el vídeo: cada falta trae minuto, quién la hace, sobre quién y la tarjeta.",
-      "Lo que el timeline no mide es cuántos defensores había entre la falta y la portería, así que aquí esa cifra no está. Y la distancia sale sólo del tercio y el carril: en campo rival, centro es «frontal» y banda «media»; lo demás, «lejana».",
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se ha revisado después con la retransmisión: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "La cámara de TV es lateral y sigue al balón: los defensores entre la falta y la portería sólo se han podido contar en 1 de 28 (en las dos faltas laterales junto al área del minuto 83 y 91 la cuenta va en la nota: medida contra la línea de fondo no dice lo mismo). Donde la defensa o el portero quedan fuera de plano va «?», no una estimación.",
+      "La falta del minuto 34 (Davo sobre Joan) no tiene vídeo: ese tramo no se pudo bajar de Hudl y va con lo que dice el timeline.",
       "El campo se cuenta siempre hacia la portería que ataca quien saca la falta.",
     ],
   },

@@ -16,6 +16,11 @@
  * 4. Copia la URL que acaba en /exec y pégala en `lib/abp/sheets.ts`, en
  *    `ABP_ESCRITURA_URL`.
  *
+ * PARA ACTUALIZARLO sin que cambie la URL: pega el fichero nuevo, guarda, y
+ * Implementar -> Gestionar implementaciones -> lápiz -> Versión: «Nueva
+ * versión» -> Implementar. Con «Nueva implementación» sale OTRA URL.
+ * El `ping` devuelve `acciones`: si no aparece la que buscas, falta este paso.
+ *
  * ---------------------------------------------------------------------------
  * POR QUÉ ESTÁ ESCRITO ASÍ
  * ---------------------------------------------------------------------------
@@ -65,7 +70,10 @@ function doPost(e) {
     }
 
     if (datos.action === 'anadirFilas') return anadirFilas(datos);
-    if (datos.action === 'ping') return responde({ success: true, hojas: HOJAS });
+    if (datos.action === 'actualizarFilas') return actualizarFilas(datos);
+    if (datos.action === 'ping') {
+      return responde({ success: true, hojas: HOJAS, acciones: ['anadirFilas', 'actualizarFilas'] });
+    }
 
     return responde({ success: false, error: 'Acción desconocida: ' + datos.action });
   } catch (err) {
@@ -135,6 +143,101 @@ function anadirFilas(datos) {
       hoja: HOJAS[gid],
       escritas: matriz.length,
       desdeLaFila: desde,
+      ignoradas: Object.keys(ignoradas)
+    });
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+/**
+ * Corrige filas que ya están escritas: las de un partido, en su orden.
+ *
+ * Espera: { action:'actualizarFilas', gid, clave:{JORNADA:'LIGA 05', Rival:'AD ALCORCÓN'},
+ *           filas:[ {columna: valor} ] }
+ *
+ * Busca las filas cuya JORNADA y Rival coinciden con la clave y **sólo si hay
+ * exactamente tantas como filas vienen** escribe, en orden, las columnas que
+ * trae cada fila. Las demás celdas no se tocan —ni las fórmulas ni lo que haya
+ * escrito a mano el cuerpo técnico en otras columnas—. Si el número no cuadra
+ * no escribe nada: es la señal de que alguien ha añadido o borrado filas y hay
+ * que mirarlo antes.
+ */
+function actualizarFilas(datos) {
+  var gid = String(datos.gid || '');
+
+  if (!HOJAS[gid]) return responde({ success: false, error: 'gid no permitido: ' + gid });
+
+  var clave = datos.clave || {};
+  var filas = datos.filas || [];
+
+  if (!Object.keys(clave).length || !filas.length) {
+    return responde({ success: false, error: 'Faltan la clave o las filas.' });
+  }
+
+  var bloqueo = LockService.getDocumentLock();
+
+  if (!bloqueo.tryLock(30000)) {
+    return responde({ success: false, error: 'La hoja está ocupada. Reintenta.' });
+  }
+
+  try {
+    var hoja = porGid(gid);
+
+    if (!hoja) return responde({ success: false, error: 'No encuentro la pestaña.' });
+
+    var todo = hoja.getDataRange().getDisplayValues();
+    var cabecera = todo[0].map(function (c) { return String(c).trim(); });
+
+    var ignoradas = {};
+    var claves = Object.keys(clave);
+
+    for (var k = 0; k < claves.length; k++) {
+      if (cabecera.indexOf(claves[k]) < 0) {
+        return responde({ success: false, error: 'La clave usa una columna que no existe: ' + claves[k] });
+      }
+    }
+
+    var encontradas = [];
+
+    for (var r = 1; r < todo.length; r++) {
+      var casa = claves.every(function (c) {
+        return String(todo[r][cabecera.indexOf(c)]).trim() === String(clave[c]).trim();
+      });
+
+      if (casa) encontradas.push(r + 1);
+    }
+
+    if (encontradas.length !== filas.length) {
+      return responde({
+        success: false,
+        error: 'En la hoja hay ' + encontradas.length + ' filas con esa clave y vienen ' + filas.length + '. No se toca nada.'
+      });
+    }
+
+    var celdas = 0;
+
+    filas.forEach(function (fila, i) {
+      Object.keys(fila).forEach(function (col) {
+        var c = cabecera.indexOf(col);
+
+        if (c < 0) {
+          ignoradas[col] = true;
+          return;
+        }
+
+        hoja.getRange(encontradas[i], c + 1).setValue(fila[col] === null ? '' : fila[col]);
+        celdas++;
+      });
+    });
+
+    SpreadsheetApp.flush();
+
+    return responde({
+      success: true,
+      hoja: HOJAS[gid],
+      filas: encontradas,
+      celdas: celdas,
       ignoradas: Object.keys(ignoradas)
     });
   } finally {

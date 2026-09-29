@@ -273,8 +273,9 @@ export const PARTIDOS: PartidoFaltas[] = [
     "resultado": "1-2",
     "clips": "Hudl · Castilla · «2026-09-27 Real Madrid Castilla - Alcorcón 1 - 2» (timeline de Sportscode)",
     "notas": [
-      "Sale del timeline de Sportscode subido a Hudl, no de mirar el vídeo: cada falta trae minuto, quién la hace, sobre quién y la tarjeta.",
-      "Lo que el timeline no mide es cuántos defensores había entre la falta y la portería, así que aquí esa cifra no está. Y la distancia sale sólo del tercio y el carril: en campo rival, centro es «frontal» y banda «media»; lo demás, «lejana».",
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se ha revisado después con la retransmisión: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "La cámara de TV es lateral y sigue al balón: los defensores entre la falta y la portería sólo se han podido contar en 1 de 28 (en las dos faltas laterales junto al área del minuto 83 y 91 la cuenta va en la nota: medida contra la línea de fondo no dice lo mismo). Donde la defensa o el portero quedan fuera de plano va «?», no una estimación.",
+      "La falta del minuto 34 (Davo sobre Joan) no tiene vídeo: ese tramo no se pudo bajar de Hudl y va con lo que dice el timeline.",
       "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
     ],
     "faltas": [
@@ -285,7 +286,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1, min 18. Falta de Joan Martínez (del Castilla) sobre Álvaro Mayorga. Vídeo 18:03."
+        "nota": "T1, min 18. Tras un centro de Fortea Joan Martínez choca en el juego aéreo con un jugador del Alcorcón dentro del área pequeña del Alcorcón (18:05). El árbitro deja seguir y Leiva remata pero luego señala la falta a favor del Alcorcón entre protestas del Castilla. No se ven los jugadores del Castilla de atrás ni su portero. Vídeo 18:03."
       },
       {
         "clip": "def-c02",
@@ -294,7 +295,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1, min 40. Falta de Pol Fortuny (del Castilla) sobre Ouhdadi. Vídeo 40:05."
+        "nota": "T1, min 40. Pol Fortuny derriba a un jugador del Alcorcón justo sobre la línea de medio campo pegado a la banda de la tribuna (40:08). Luego Fortuny discute con Vacas y la falta aún no se ha sacado al acabar las imágenes. Por detrás del balón se ven cuatro jugadores del Castilla pero su defensa y el portero quedan fuera de plano. Vídeo 40:05."
       },
       {
         "clip": "def-c03",
@@ -303,7 +304,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1, min 42. Falta de Álvaro Leiva (del Castilla) sobre Álvaro Mayorga. Vídeo 42:42."
+        "nota": "T1, min 42. Leiva entra a un jugador del Alcorcón (Mayorga según Hudl) unos 10 m dentro del campo del Alcorcón y algo escorado hacia la banda de la cámara (42:45). El árbitro deja seguir un segundo y luego pita falta y Leiva protesta. La defensa y el portero del Castilla no salen en el plano. Vídeo 42:42."
       },
       {
         "clip": "def-c04",
@@ -311,8 +312,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2, min 45. Falta de Joan Martínez (del Castilla) sobre Esteban Aparicio. Vídeo 50:59."
+        "entre": 7,
+        "nota": "T2, min 45. Joan Martínez tumba a Esteban Aparicio unos 10 m dentro del campo del Castilla y cerca de la banda de la tribuna nada más empezar la 2ª parte (45:53). Entre el balón y la portería quedan seis jugadores del Castilla más el portero (los otros cuatro están a la altura del balón o por delante). La realización pasa a primeros planos y no se ve el saque. Vídeo 50:59."
       },
       {
         "clip": "def-c05",
@@ -321,7 +322,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 50. Falta de Thiago Pitarch (del Castilla) sobre Xabi Irurita. Amarilla. Vídeo 55:49."
+        "nota": "T2, min 50. Pitarch entra en plancha y derriba a un jugador del Alcorcón (Irurita según Hudl) a unos 30 m de la portería del Alcorcón (50:45). Hay amarilla (el árbitro la muestra a las 50:49). El Castilla estaba atacando y su defensa y su portero quedan fuera de plano. El reloj dice 50 y Hudl lo tenía a los 55:49 de vídeo (es el desfase del vídeo). Vídeo 55:49."
       },
       {
         "clip": "def-c06",
@@ -330,16 +331,16 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": null,
-        "nota": "T2, min 52. Mano de Oscar Naasei (del Castilla). Vídeo 57:27."
+        "nota": "T2, min 52. Mano de Naasei según Hudl en un balón que el Alcorcón llevaba hacia el banderín de córner del Castilla por la banda de la cámara (52:22-52:23). La mano en sí no se ve y el balón acaba fuera junto al banderín. Los del Alcorcón la reclaman y a las 52:25 hay un jugador del Alcorcón junto al balón con el Castilla metido en el área. Es una falta lateral junto a la línea de fondo más que media. Vídeo 57:27."
       },
       {
         "clip": "def-c07",
         "lado": "defensivo",
         "zona": "medio campo",
-        "carril": "centro",
+        "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 57. Falta de Thiago Pitarch (del Castilla) sobre Álvaro Mayorga. Vídeo 62:16."
+        "nota": "T2, min 57. Pitarch pelea por arriba con Mayorga unos 10 m dentro del campo del Alcorcón junto a la banda de la tribuna (57:12) y el árbitro pita falta con el brazo en alto. El balón se coloca ahí mismo y el Alcorcón aún no ha sacado a las 57:17. Hudl la pone por el centro pero en la imagen está en el carril de la banda lejana. No se ven la defensa ni el portero del Castilla. Vídeo 62:16."
       },
       {
         "clip": "def-c08",
@@ -348,7 +349,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 71. Falta de Dani Meso (del Castilla) sobre Álvaro Mayorga. Vídeo 76:39."
+        "nota": "T2, min 71. Dani Meso (dorsal 22) derriba a Mayorga en la frontal del área del Alcorcón junto al semicírculo después de perder el Castilla el balón (71:35). El árbitro señala hacia la portería del Castilla. El Castilla estaba atacando y su defensa y su portero quedan fuera de plano. Vídeo 76:39."
       },
       {
         "clip": "def-c09",
@@ -357,7 +358,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 78. Falta de Mario Rivas (del Castilla) sobre Luis Vacas. Vídeo 83:22."
+        "nota": "T2, min 78. Tras una falta botada por el Castilla el balón queda suelto y Mario Rivas derriba a Luis Vacas fuera del área del Alcorcón por la banda de la tribuna (78:16-78:17). El juego sigue unos segundos y el árbitro la pita a las 78:21. La defensa y el portero del Castilla no salen en el plano. Vídeo 83:22."
       },
       {
         "clip": "of-c01",
@@ -366,7 +367,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "frontal",
         "entre": null,
-        "nota": "T1, min 7. Penalti de Miguel Bañuz (del Alcorcón) sobre Daniel Yáñez. Vídeo 7:22."
+        "nota": "T1, min 7. Es un PENALTI: tras el cabezazo (07:22) Bañuz para (07:23) y en el rechace choca con Yáñez que queda en el suelo junto a la portería (07:24-07:26) y el Alcorcón rodea al árbitro protestando. «Entre» no aplica a un penalti (se lanza con el portero solo) y en el choque el punto está pegado a la línea de gol. Hudl lo codifica como falta normal y pone la parada después de la falta cuando en la imagen va antes. Vídeo 7:22."
       },
       {
         "clip": "of-c02",
@@ -375,7 +376,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1, min 20. Falta de Miguel Cuesta (del Alcorcón) sobre Martínez. Vídeo 20:55."
+        "nota": "T1, min 20. Cuesta derriba a Martínez pegado a la banda lejana a la altura del borde de nuestra área (20:59) y el 7 del Alcorcón abre los brazos protestando. Por delante del balón quedan 9 - 7 y 20 del Alcorcón y el resto está fuera de plano a la izquierda así que no se puede contar. La TV pasa a primeros planos de Cuesta y el saque no se ve. Vídeo 20:55."
       },
       {
         "clip": "of-c03",
@@ -384,7 +385,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1, min 34. Falta de Davo (del Alcorcón) sobre Joan Martínez. Vídeo 34:54."
+        "nota": "T1, min 34. Sin imágenes (ese tramo no se pudo bajar). Davo sobre Joan Martínez y zona y carril salen de la ficha de Hudl dados la vuelta (Final third Right flank del Alcorcón = nuestro tercio y banda izquierda). Minuto estimado con el desfase vídeo-reloj de las jugadas vecinas (unos 34:57). Según Hudl la saca el propio Joan 3 s después del duelo. Vídeo 34:54."
       },
       {
         "clip": "of-c04",
@@ -393,7 +394,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1, min 35. Falta de Ouhdadi (del Alcorcón) sobre Jesús Fortea. Vídeo 35:22."
+        "nota": "T1, min 35. Ouhdadi derriba a Fortea en la banda lejana poco pasado el medio campo en nuestro campo (35:26) y Fortea queda sentado en el suelo. Por delante del balón quedan 20 - 7 y 9 del Alcorcón y el resto está fuera de plano a la izquierda. Luego primeros planos de Ouhdadi y el saque no se ve. Vídeo 35:22."
       },
       {
         "clip": "of-c05",
@@ -402,7 +403,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 46. Falta de Javi Lancho (del Alcorcón) sobre Thiago Pitarch. Vídeo 51:49."
+        "nota": "T2, min 46. Lancho entra por detrás a Pitarch en la banda cercana en nuestro campo a unos 17 m del medio campo (46:43-46:44) casi en la frontera con nuestro tercio. Pitarch la saca él mismo enseguida y corto (46:47-46:49) con el Alcorcón replegado y fuera de plano hacia su portería así que no se puede contar. Vídeo 51:49."
       },
       {
         "clip": "of-c06",
@@ -411,7 +412,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 48. Falta de Davo (del Alcorcón) sobre Thiago Pitarch. Vídeo 54:06."
+        "nota": "T2, min 48. Tras el saque de banda de Irurita (48:58) Davo y Pitarch caen juntos pegados a la banda lejana un poco pasado el pico de nuestra área (49:00) y el 17 del Alcorcón protesta con los brazos. Casi todo el Alcorcón está fuera de plano hacia la derecha así que no se puede contar y luego la TV enseña a Davo en primer plano sin el saque. Vídeo 54:06."
       },
       {
         "clip": "of-c07",
@@ -420,7 +421,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 49. Falta de Ouhdadi (del Alcorcón) sobre Daniel Yáñez. Vídeo 54:53."
+        "nota": "T2, min 49. El Castilla roba junto a nuestra área y Yáñez conduce hasta que Ouhdadi lo derriba por detrás en el lado de la banda cercana a unos metros del borde de nuestra área (49:48). Un jugador del Alcorcón aleja el balón (49:50) y el saque no se ve. La defensa y el portero del Alcorcón quedan fuera de plano así que no se puede contar. Vídeo 54:53."
       },
       {
         "clip": "of-c08",
@@ -429,7 +430,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 50. Falta de Davo (del Alcorcón) sobre Jesús Fortea. Vídeo 55:17."
+        "nota": "T2, min 50. Davo (Alcorcón) derriba a Jesús Fortea (Castilla) a las 50:13 cuando este conduce fuera de su área por el costado derecho con Davo y el 11 del Alcorcón encima. Detrás del punto no hay ningún jugador del Alcorcón (serían todos) pero la cámara solo enseña a 5 y no a su portero. El balón queda parado a las 50:15 con Naasei al lado para sacar corto. Vídeo 55:17."
       },
       {
         "clip": "of-c09",
@@ -438,7 +439,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 53. Falta de Pablo Rivera (del Alcorcón) sobre Álvaro Leiva. Vídeo 58:35."
+        "nota": "T2, min 53. Pablo Rivera (Alcorcón) derriba a Álvaro Leiva (Castilla) junto a la banda de los banquillos en campo propio a unos 15 m del medio campo a las 53:31. Entre 53:21 y 53:28 se ve una repetición del córner anterior del Alcorcón con el reloj corriendo y la cámara no enseña a la defensa ni al portero del Alcorcón. Vídeo 58:35."
       },
       {
         "clip": "of-c10",
@@ -447,7 +448,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 54. Falta de Miguel Berlanga (del Alcorcón) sobre Joan Martínez. Vídeo 59:41."
+        "nota": "T2, min 54. Miguel Berlanga (Alcorcón) llega tarde en un balón dividido y Joan Martínez (Castilla) cae junto a la banda de los banquillos en campo propio a las 54:36 y el árbitro la pita. Casi coincide con la línea entre tercio propio y central y la cámara no enseña la zona de la portería del Alcorcón. Vídeo 59:41."
       },
       {
         "clip": "of-c11",
@@ -456,7 +457,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 55. Mano de Miguel Cuesta (del Alcorcón). Vídeo 60:27."
+        "nota": "T2, min 55. Mano de Miguel Cuesta (Alcorcón) al controlar en el borde del área del Castilla a las 55:22 tras un centro de Berlanga. El árbitro deja seguir y la señala a las 55:26 tras las protestas del Castilla y sólo se ve a la mitad de los jugadores del Alcorcón. Vídeo 60:27."
       },
       {
         "clip": "of-c12",
@@ -465,16 +466,16 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 58. Falta de Davo (del Alcorcón) sobre Jesús Fortea. Vídeo 63:40."
+        "nota": "T2, min 58. Davo (Alcorcón) derriba por detrás a Jesús Fortea (Castilla) pegado a la banda y a la altura del área propia a las 58:35 cuando Fortea sacaba el balón conduciendo. Detrás del punto no queda ningún jugador del Alcorcón pero la cámara solo enseña a 2 y el Castilla recoge el balón junto a la banda para sacar. Vídeo 63:40."
       },
       {
         "clip": "of-c13",
         "lado": "ofensivo",
         "zona": "medio campo",
-        "carril": "derecha",
+        "carril": "centro",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 65. Falta de Ouhdadi (del Alcorcón) sobre Martínez. Amarilla. Vídeo 70:49."
+        "nota": "T2, min 65. Ouhdadi (Alcorcón) derriba por detrás a Martínez (Castilla) a unos 14 m del medio campo en campo propio a las 65:44 y el árbitro le enseña la amarilla a las 65:47. Hudl la pone en la banda derecha pero la imagen la deja a la altura del círculo central y el balón queda parado con Naasei al lado. Vídeo 70:49."
       },
       {
         "clip": "of-c14",
@@ -483,7 +484,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 68. Falta de Miguel Cuesta (del Alcorcón) sobre Dani Meso. Vídeo 73:45."
+        "nota": "T2, min 68. Choque en la banda cercana junto al medio campo (68:40-68:43) entre un jugador del Castilla y uno del Alcorcón que acaba sentado en el suelo y el juego se para a las 68:44 (Hudl: Miguel Cuesta sobre Dani Meso). Las imágenes no dejan ver con claridad quién derriba a quién ni el saque. La cámara no enseña el campo del Alcorcón ni a su portero. Vídeo 73:45."
       },
       {
         "clip": "of-c15",
@@ -492,7 +493,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": null,
-        "nota": "T2, min 74. Falta de Xabi Irurita (del Alcorcón) sobre Alexis Ciria. Vídeo 79:56."
+        "nota": "T2, min 74. Irurita derriba a Alexis Ciria cuando conduce por la banda lejana (74:52-74:53) a unos 20 m del medio campo en campo del Alcorcón y el juego se para a las 74:54. Se ven al menos siete del Alcorcón por delante del balón pero el portero queda fuera de plano. Hudl la sitúa en el último tercio y en la imagen está en el límite entre el tercio central y el último. Vídeo 79:56."
       },
       {
         "clip": "of-c16",
@@ -501,7 +502,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": null,
-        "nota": "T2, min 83. Falta de Nicola (del Alcorcón) sobre Diego Aguado. Amarilla. Vídeo 88:43."
+        "nota": "T2, min 83. Nicola derriba a Diego Aguado junto al área del Alcorcón por la banda lejana (83:38) fuera del área a la altura de la esquina y a unos 9 m de la línea de fondo. El árbitro deja seguir un instante y a las 83:43 le enseña la amarilla. Es una falta lateral para centrar: en el instante de la falta sólo el 4 y el 5 (casi en línea) y el portero están más cerca de la línea de fondo que el balón. Vídeo 88:43."
       },
       {
         "clip": "of-c17",
@@ -510,7 +511,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 87. Falta de Davo (del Alcorcón) sobre Mario Rivas. Vídeo 92:49."
+        "nota": "T2, min 87. Tras el saque de banda de Pol Domingo junto a nuestra área (87:42) Davo carga a Mario Rivas en el salto dentro del área del Castilla hacia el lado lejano y el árbitro señala falta a favor del Castilla a las 87:46. El juego se reanuda muy rápido y no se distingue cómo se saca. La falta llega unos 6 s después de la marca de Hudl y no en la acción de +0 que pone la ficha. Vídeo 92:49."
       },
       {
         "clip": "of-c18",
@@ -519,7 +520,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "media",
         "entre": null,
-        "nota": "T2, min 91. Falta de Rober Ibáñez (del Alcorcón) sobre Jesús Fortea. Vídeo 96:16."
+        "nota": "T2, min 91. Rober Ibáñez derriba a Jesús Fortea (91:11) justo fuera del lateral del área del Alcorcón por la banda cercana a unos 9 m de la línea de fondo. Es una falta lateral para centrar: en el instante de la falta todos los del Alcorcón están a la altura del punto de penalti o más lejos y sólo el portero queda más cerca de su portería que el balón. Los del Alcorcón protestan con los brazos en alto. Vídeo 96:16."
       },
       {
         "clip": "of-c19",
@@ -528,7 +529,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T2, min 93. Falta de Rober Ibáñez (del Alcorcón) sobre Jesús Fortea. Vídeo 98:55."
+        "nota": "T2, min 93. Tras despejar el Alcorcón el córner de Meso (con Mestre subido) Rober Ibáñez conduce la contra y Jesús Fortea le alcanza y caen juntos en la banda lejana a unos 10 m del medio campo en campo del Alcorcón (93:50) y el árbitro pita falta del 23. El Castilla la saca rápido y en corto desde la banda (93:54-93:55). La cámara no enseña el campo del Alcorcón ni a su portero. Vídeo 98:55."
       }
     ]
   }
