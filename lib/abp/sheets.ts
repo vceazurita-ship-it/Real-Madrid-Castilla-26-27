@@ -95,7 +95,8 @@ export function sheetUrl(gid: string) {
  *
  * Mientras esté vacío, `escribeFilas` lo dice y no intenta nada.
  */
-export const ABP_ESCRITURA_URL = "";
+export const ABP_ESCRITURA_URL =
+  "https://script.google.com/macros/s/AKfycbzqxGuQdr2fNfNukyqNAM5qYsMXdhZN0ilaeRA30tU76MhIaoHretWbk4t-Hp9LFL8K/exec";
 
 export type RespuestaEscritura = {
   success: boolean;
