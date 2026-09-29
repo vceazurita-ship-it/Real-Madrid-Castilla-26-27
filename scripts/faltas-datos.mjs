@@ -52,6 +52,20 @@ const PARTIDOS = [
       "Las faltas van en el orden en que se dieron. El vídeo del partido no lleva reloj en pantalla, así que no se anota el minuto.",
     ],
   },
+  {
+    id: "alcorcon",
+    jornada: "LIGA 05",
+    rival: "AD Alcorcón",
+    local: true,
+    fecha: "2026-09-27",
+    resultado: "1-2",
+    clips: "Hudl · Castilla · «2026-09-27 Real Madrid Castilla - Alcorcón 1 - 2» (timeline de Sportscode)",
+    notas: [
+      "Sale del timeline de Sportscode subido a Hudl, no de mirar el vídeo: cada falta trae minuto, quién la hace, sobre quién y la tarjeta.",
+      "Lo que el timeline no mide es cuántos defensores había entre la falta y la portería, así que aquí esa cifra no está. Y la distancia sale sólo del tercio y el carril: en campo rival, centro es «frontal» y banda «media»; lo demás, «lejana».",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta.",
+    ],
+  },
 ];
 
 /** "3" → 3. "?" o vacío → null, que no es lo mismo que cero. */

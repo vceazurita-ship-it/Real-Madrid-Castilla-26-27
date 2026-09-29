@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-09-26
+ * Generado: 2026-09-29
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -261,6 +261,274 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "frontal",
         "entre": 2,
         "nota": "Agarrón lejos del balón dentro del área, con nuestro atacante dolorido y sólo el portero y su par por delante."
+      }
+    ]
+  },
+  {
+    "id": "alcorcon",
+    "jornada": "LIGA 05",
+    "rival": "AD Alcorcón",
+    "local": true,
+    "fecha": "2026-09-27",
+    "resultado": "1-2",
+    "clips": "Hudl · Castilla · «2026-09-27 Real Madrid Castilla - Alcorcón 1 - 2» (timeline de Sportscode)",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl, no de mirar el vídeo: cada falta trae minuto, quién la hace, sobre quién y la tarjeta.",
+      "Lo que el timeline no mide es cuántos defensores había entre la falta y la portería, así que aquí esa cifra no está. Y la distancia sale sólo del tercio y el carril: en campo rival, centro es «frontal» y banda «media»; lo demás, «lejana».",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "faltas": [
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1, min 18. Falta de Joan Martínez (del Castilla) sobre Álvaro Mayorga. Vídeo 18:03."
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1, min 40. Falta de Pol Fortuny (del Castilla) sobre Ouhdadi. Vídeo 40:05."
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1, min 42. Falta de Álvaro Leiva (del Castilla) sobre Álvaro Mayorga. Vídeo 42:42."
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 45. Falta de Joan Martínez (del Castilla) sobre Esteban Aparicio. Vídeo 50:59."
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 50. Falta de Thiago Pitarch (del Castilla) sobre Xabi Irurita. Amarilla. Vídeo 55:49."
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2, min 52. Mano de Oscar Naasei (del Castilla). Vídeo 57:27."
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 57. Falta de Thiago Pitarch (del Castilla) sobre Álvaro Mayorga. Vídeo 62:16."
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 71. Falta de Dani Meso (del Castilla) sobre Álvaro Mayorga. Vídeo 76:39."
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 78. Falta de Mario Rivas (del Castilla) sobre Luis Vacas. Vídeo 83:22."
+      },
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "T1, min 7. Penalti de Miguel Bañuz (del Alcorcón) sobre Daniel Yáñez. Vídeo 7:22."
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1, min 20. Falta de Miguel Cuesta (del Alcorcón) sobre Martínez. Vídeo 20:55."
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1, min 34. Falta de Davo (del Alcorcón) sobre Joan Martínez. Vídeo 34:54."
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1, min 35. Falta de Ouhdadi (del Alcorcón) sobre Jesús Fortea. Vídeo 35:22."
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 46. Falta de Javi Lancho (del Alcorcón) sobre Thiago Pitarch. Vídeo 51:49."
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 48. Falta de Davo (del Alcorcón) sobre Thiago Pitarch. Vídeo 54:06."
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 49. Falta de Ouhdadi (del Alcorcón) sobre Daniel Yáñez. Vídeo 54:53."
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 50. Falta de Davo (del Alcorcón) sobre Jesús Fortea. Vídeo 55:17."
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 53. Falta de Pablo Rivera (del Alcorcón) sobre Álvaro Leiva. Vídeo 58:35."
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 54. Falta de Miguel Berlanga (del Alcorcón) sobre Joan Martínez. Vídeo 59:41."
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 55. Mano de Miguel Cuesta (del Alcorcón). Vídeo 60:27."
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 58. Falta de Davo (del Alcorcón) sobre Jesús Fortea. Vídeo 63:40."
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 65. Falta de Ouhdadi (del Alcorcón) sobre Martínez. Amarilla. Vídeo 70:49."
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 68. Falta de Miguel Cuesta (del Alcorcón) sobre Dani Meso. Vídeo 73:45."
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2, min 74. Falta de Xabi Irurita (del Alcorcón) sobre Alexis Ciria. Vídeo 79:56."
+      },
+      {
+        "clip": "of-c16",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2, min 83. Falta de Nicola (del Alcorcón) sobre Diego Aguado. Amarilla. Vídeo 88:43."
+      },
+      {
+        "clip": "of-c17",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 87. Falta de Davo (del Alcorcón) sobre Mario Rivas. Vídeo 92:49."
+      },
+      {
+        "clip": "of-c18",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2, min 91. Falta de Rober Ibáñez (del Alcorcón) sobre Jesús Fortea. Vídeo 96:16."
+      },
+      {
+        "clip": "of-c19",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2, min 93. Falta de Rober Ibáñez (del Alcorcón) sobre Jesús Fortea. Vídeo 98:55."
       }
     ]
   }
