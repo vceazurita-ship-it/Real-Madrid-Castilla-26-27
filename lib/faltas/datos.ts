@@ -529,7 +529,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 10,
-        "nota": "T2, min 93. Tras despejar el Alcorcón el córner de Meso (con Mestre subido) Rober Ibáñez conduce la contra y Jesús Fortea le alcanza y caen juntos por la banda izquierda del Castilla unos 15 m pasado el medio campo en campo del Alcorcón (táctica 5973-5974) con Mestre volviendo a su portería. Todo el Alcorcón salvo Rober Ibáñez está entre el balón y su portería (9 de campo en el área y la frontal y el portero). El Castilla la saca rápido y en corto desde la banda (5976-5977) y conduce hacia dentro. Vídeo 98:55."
+        "nota": "T2, min 93. Tras despejar el Alcorcón el córner de Meso (con Mestre subido) Rober Ibáñez conduce la contra y Jesús Fortea le alcanza y caen juntos por la banda izquierda del Castilla unos 15 m pasado el medio campo en campo del Alcorcón (táctica 5973-5974). La jugada va a revisión de Video Support (acaba en no roja) y la falta no se saca hasta unos 85 s después: Pitarch la cuelga desde Z4 a la espalda de la línea y Rachad remata forzado ante el portero (táctica 6058-6059). Todo el Alcorcón salvo el que la comete queda por delante del balón en el instante de la falta. Vídeo 98:55."
       }
     ]
   }
