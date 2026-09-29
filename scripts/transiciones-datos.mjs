@@ -97,10 +97,35 @@ const PARTIDOS = [
     segundosVideo: 5914,
     bloquesTotales: 20,
     notas: [
-      "Revisado con la misma lupa que el J3, no con la del J2: los robos que salen son un suelo, no un total, y el que empieza y acaba en un par de segundos no se ve.",
-      "Por lo mismo, el reparto entre ADELANTE y HORIZONTAL_ATRAS de este partido NO se puede comparar con el del J2, que se miró imagen a imagen. Con el J3 sí: están mirados igual.",
+      "Sacado del timeline de Hudl (el etiquetado de Wyscout del partido), no mirando imagen a imagen: salen TODOS los robos del partido, también los cortos que a ojo se escapaban. Por eso hay más que en el J2 y el J3, y el reparto no se compara con ellos sin decirlo.",
+      "Cuenta como robo la interceptación, el duelo defensivo que acaba con el balón nuestro y la recuperación con el rival presionado o tras nuestra pérdida. No cuentan las del portero, las que vienen de un despeje, un rechace o un balón parado del rival, ni las faltas pitadas.",
+      "El segundo es el del vídeo táctico del club, atado al de Hudl por tramos; el minuto del detalle es el del partido.",
     ],
-    goles: [],
+    goles: [
+      { seg: 967, de: "castilla", texto: "Gol del Castilla" },
+      { seg: 1943, de: "rival", texto: "Gol del Sant Andreu" },
+    ],
+  },
+  {
+    id: "alcorcon",
+    jornada: "J5",
+    rival: "AD Alcorcón",
+    local: true,
+    fecha: "2026-09-27",
+    resultado: "1-2",
+    video: "C:/Users/Usuario/Downloads/CASTILLA - ALCORCON.mov",
+    segundosVideo: 6082,
+    bloquesTotales: 21,
+    notas: [
+      "Sacado del timeline de Hudl (el etiquetado de Wyscout del partido), no mirando imagen a imagen: salen TODOS los robos del partido, también los cortos que a ojo se escapaban. Por eso hay más que en el J2 y el J3, y el reparto no se compara con ellos sin decirlo.",
+      "Cuenta como robo la interceptación, el duelo defensivo que acaba con el balón nuestro y la recuperación con el rival presionado o tras nuestra pérdida. No cuentan las del portero, las que vienen de un despeje, un rechace o un balón parado del rival, ni las faltas pitadas.",
+      "El segundo es el del vídeo táctico del club. Esa grabación tiene cortes: el desfase con el reloj del partido cambia cuatro veces (medido jugada a jugada), así que en algún robo el vídeo puede caer unos segundos antes o después.",
+    ],
+    goles: [
+      { seg: 702, de: "castilla", texto: "Gol del Castilla, de penalti (Fortuny)" },
+      { seg: 2281, de: "rival", texto: "Gol del Alcorcón, de cabeza tras un córner (Mayorga)" },
+      { seg: 2670, de: "rival", texto: "Gol del Alcorcón (Aparicio)" },
+    ],
   },
 ];
 
