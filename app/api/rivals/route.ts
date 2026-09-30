@@ -36,7 +36,12 @@ const APPS_SCRIPT_URL =
 const VIDA_FRESCA = 60_000;
 const VIDA_RANCIA = 10 * 60_000;
 
-type Guardado = { data: unknown; hecha: number };
+/*
+| `sucia`: la copia de Supabase es de antes de la última escritura. Sólo la
+| acepta quien lo pide (`?rancia=1`) y se compromete a pedir después la hoja
+| al día; ver `buscaFuera`.
+*/
+type Guardado = { data: unknown; hecha: number; sucia?: boolean };
 
 const cache = new Map<string, Guardado>();
 const enVuelo = new Map<string, Promise<unknown>>();
@@ -114,13 +119,18 @@ function guardaFuera(consulta: string, data: unknown) {
 }
 
 /** La copia de Supabase, si la hay y todavía vale. */
-async function buscaFuera(consulta: string): Promise<Guardado | null> {
+async function buscaFuera(
+  consulta: string,
+  { aceptaSucia = false } = {},
+): Promise<Guardado | null> {
   if (!seGuarda(consulta)) return null;
 
   try {
     const { data } = await readDoc<Guardado>(claveGuardada(consulta));
 
     if (!data || data.data == null || typeof data.hecha !== "number") return null;
+
+    if (data.sucia && !aceptaSucia) return null;
 
     if (Date.now() - data.hecha > VIDA_GUARDADA) return null;
 
@@ -143,10 +153,26 @@ function olvidaFuera() {
     try {
       const guardados = await listDocs(PREFIJO_GUARDADO);
 
+      /*
+      | Se marcan como sucias en vez de vaciarlas (01/10/2026). Vaciarlas
+      | hacía que, tras cualquier guardado —y el autoguardado del plan de
+      | partido guarda cada pocos segundos—, el siguiente en entrar esperase
+      | los 30-70 s de Google. Para quien no la pide, una sucia es como si no
+      | hubiera copia, igual que antes.
+      */
       await Promise.all(
-        guardados.map((uno) =>
-          writeDoc(uno.key, TIPO_GUARDADO, { data: null, hecha: 0 }),
-        ),
+        guardados
+          .filter((uno) => {
+            const g = uno.data as Guardado | null;
+
+            return g && g.data != null && !g.sucia;
+          })
+          .map((uno) =>
+            writeDoc(uno.key, TIPO_GUARDADO, {
+              ...(uno.data as Guardado),
+              sucia: true,
+            }),
+          ),
       );
     } catch {
       /* Lo peor que pasa es servir la copia un rato más. */
@@ -219,7 +245,7 @@ function renueva(consulta: string) {
   after(() => pide(consulta).catch(() => undefined));
 }
 
-async function lee(consulta: string, fresco: boolean) {
+async function lee(consulta: string, fresco: boolean, rancia = false) {
   if (fresco) {
     /*
     | Quien pide fresco quiere la verdad de la hoja, así que aquí no hay red:
@@ -262,9 +288,16 @@ async function lee(consulta: string, fresco: boolean) {
   | servidor recién levantado— de los treinta a setenta segundos del arranque
   | en frío. Se contesta con ella y se pide la nueva por detrás.
   */
-  const deFuera = await buscaFuera(consulta);
+  const deFuera = await buscaFuera(consulta, { aceptaSucia: rancia });
 
   if (deFuera) {
+    /*
+    | Una sucia no entra en la memoria —la verían los que no la aceptan— ni
+    | se renueva desde aquí: quien la acepta pide justo después `fresco=1`,
+    | y esa lectura ya deja la copia limpia.
+    */
+    if (deFuera.sucia) return deFuera.data;
+
     cache.set(consulta, deFuera);
 
     renueva(consulta);
@@ -334,12 +367,19 @@ export async function GET(request: NextRequest) {
 
     parametros.delete("fresco");
     parametros.delete("jugador");
+    parametros.delete("rancia");
 
     if (!parametros.has("action")) parametros.set("action", "rivalesPlantillas");
 
+    /*
+    | `?rancia=1`: vale la copia de Supabase aunque sea de antes del último
+    | guardado. Lo pide el plan de partido, que abre con ella y se pone al día
+    | él solo con un `fresco=1` por detrás.
+    */
     const data = await lee(
       parametros.toString(),
       searchParams.get("fresco") === "1",
+      searchParams.get("rancia") === "1",
     );
 
     /*

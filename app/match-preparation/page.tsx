@@ -968,7 +968,8 @@ export default function MatchPreparation() {
   | Antes se pedía al Apps Script directamente y sin caché: 30-70 segundos en
   | frío cada vez que se entraba, y a veces ni eso («No se han podido cargar
   | los partidos»). Ahora se abre con la copia de `/api/rivals` —memoria del
-  | servidor o Supabase, décimas de segundo— y por detrás se pide la hoja al
+  | servidor o Supabase, décimas de segundo; con `rancia=1`, aunque sea de
+  | antes del último guardado— y por detrás se pide la hoja al
   | día (`fresco=1`). Cuando llega, se cambia en silencio; si para entonces
   | ya se está editando y la fila abierta había cambiado en la hoja, se avisa
   | en vez de pisar nada.
@@ -1027,7 +1028,7 @@ export default function MatchPreparation() {
       setError(null);
 
       try {
-        const data = await traeJson("/api/rivals?action=rivales", {
+        const data = await traeJson("/api/rivals?action=rivales&rancia=1", {
           forzar: recargas > 0,
         });
 
