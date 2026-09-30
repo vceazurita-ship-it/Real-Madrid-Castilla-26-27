@@ -268,7 +268,7 @@ export default function ComparativaCategoria() {
             </p>
 
             {/* ---------------- filtros y pestañas, siempre a la vista ---------------- */}
-            <div className="sticky top-0 z-20 -mx-4 mt-6 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8">
+            <div className="sticky top-[81px] z-20 -mx-4 mt-6 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Contra</span>
                 {REFERENCIAS.map((r) => (
@@ -637,17 +637,65 @@ function Dispersion({
   const M = { l: 48, r: 16, t: 14, b: 40 };
   const xs = puntos.map((p) => p.x);
   const ys = puntos.map((p) => p.y);
+  /* Con margen, pero sin inventarse negativos: si nada baja de cero, el eje empieza en cero. */
   const rango = (v: number[]) => {
     const min = Math.min(...v);
     const max = Math.max(...v);
     const pad = (max - min || 1) * 0.06;
-    return [min - pad, max + pad] as const;
+    return [min >= 0 ? Math.max(0, min - pad) : min - pad, max + pad] as const;
   };
+
+
   const [x0, x1] = rango(xs);
   const [y0, y1] = rango(ys);
   const sx = (v: number) => M.l + ((v - x0) / (x1 - x0)) * (W - M.l - M.r);
   const sy = (v: number) => H - M.b - ((v - y0) / (y1 - y0)) * (H - M.t - M.b);
   const ticks = (a: number, b: number) => [0, 0.25, 0.5, 0.75, 1].map((t) => a + (b - a) * t);
+
+  /*
+  | Los nombres de los nuestros sin pisarse: se prueba a la derecha arriba,
+  | derecha abajo, izquierda arriba e izquierda abajo, y si no cabe en ningún
+  | sitio se queda sin rótulo (el punto sigue diciendo quién es al pasar por
+  | encima). El elegido va primero, para que el suyo salga siempre.
+  */
+  const rotulos = (() => {
+    const puestos: { x: number; y: number; w: number; h: number }[] = [];
+    const salida = new Map<string, { x: number; y: number; ancla: "start" | "end" }>();
+    const nuestros = puntos
+      .filter((p) => p.nuestro)
+      .sort((a, b) => Number(b.jugador.jugador === elegido) - Number(a.jugador.jugador === elegido));
+    const choca = (r: { x: number; y: number; w: number; h: number }) =>
+      puestos.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y) ||
+      nuestros.some((p) => {
+        const cx = sx(p.x);
+        const cy = sy(p.y);
+        return cx > r.x - 3 && cx < r.x + r.w + 3 && cy > r.y - 3 && cy < r.y + r.h + 3;
+      });
+    for (const p of nuestros) {
+      const texto = apellido(nombreDe(p.jugador));
+      const w = texto.length * 5.8;
+      const h = 11;
+      const cx = sx(p.x);
+      const cy = sy(p.y);
+      const pruebas: { x: number; y: number; ancla: "start" | "end" }[] = [
+        { x: cx + 7, y: cy - 6, ancla: "start" },
+        { x: cx + 7, y: cy + 13, ancla: "start" },
+        { x: cx - 7, y: cy - 6, ancla: "end" },
+        { x: cx - 7, y: cy + 13, ancla: "end" },
+      ];
+      for (const t of pruebas) {
+        const caja = { x: t.ancla === "start" ? t.x : t.x - w, y: t.y - 9, w, h };
+        if (caja.x < 0 || caja.x + w > W || !choca(caja)) {
+          if (caja.x >= 0 && caja.x + w <= W) {
+            puestos.push(caja);
+            salida.set(p.jugador.jugador, t);
+            break;
+          }
+        }
+      }
+    }
+    return salida;
+  })();
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`${etiquetaDe(x)} frente a ${etiquetaDe(y)}`}>
@@ -692,9 +740,18 @@ function Dispersion({
               <circle cx={sx(p.x)} cy={sy(p.y)} r={es ? 6.5 : 5} fill={ORO} stroke={es ? "white" : "rgba(0,0,0,.35)"} strokeWidth={es ? 1.5 : 0.8}>
                 <title>{`${nombreDe(p.jugador)}, ${p.jugador.edad} años · ${formatea(p.x)} · ${formatea(p.y)}`}</title>
               </circle>
-              <text x={sx(p.x) + 7} y={sy(p.y) - 6} fontSize={10} fill={ORO} fontWeight={es ? 700 : 500}>
-                {apellido(nombreDe(p.jugador))}
-              </text>
+              {rotulos.has(p.jugador.jugador) && (
+                <text
+                  x={rotulos.get(p.jugador.jugador)!.x}
+                  y={rotulos.get(p.jugador.jugador)!.y}
+                  textAnchor={rotulos.get(p.jugador.jugador)!.ancla}
+                  fontSize={10}
+                  fill={ORO}
+                  fontWeight={es ? 700 : 500}
+                >
+                  {apellido(nombreDe(p.jugador))}
+                </text>
+              )}
             </g>
           );
         })}
