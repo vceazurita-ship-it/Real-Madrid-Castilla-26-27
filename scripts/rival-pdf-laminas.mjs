@@ -50,10 +50,26 @@ const leeDoc = async (clave) => {
 /* La plantilla del rival, del mismo sitio que la pantalla. */
 const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
-const plantillaEntera = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`).then((r) => r.json()).catch(() => []);
-const filas = (Array.isArray(plantillaEntera) ? plantillaEntera : plantillaEntera?.data ?? []).filter(
-  (f) => String(f.NOMBRE_EQUIPO ?? "") === equipo,
-);
+/*
+| El Apps Script tarda 30-70 s en despertar y a veces no contesta a la primera.
+| Sin plantilla las láminas se escriben sin casar a nadie —sin fotos, pasó con
+| la J6 del Atlético Madrileño—, así que se reintenta y, si no llega, NO se
+| escribe nada.
+*/
+let filas = [];
+for (let intento = 1; intento <= 4 && !filas.length; intento++) {
+  const plantillaEntera = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`, { signal: AbortSignal.timeout(120000) })
+    .then((r) => r.json())
+    .catch(() => []);
+  filas = (Array.isArray(plantillaEntera) ? plantillaEntera : plantillaEntera?.data ?? []).filter(
+    (f) => String(f.NOMBRE_EQUIPO ?? "") === equipo,
+  );
+  if (!filas.length && intento < 4) await new Promise((r) => setTimeout(r, 15000));
+}
+if (!filas.length) {
+  console.log(`RESUMEN: no ha llegado la plantilla de ${equipo} de la hoja de rivales: no se escriben láminas sin fotos. Vuelve a intentarlo.`);
+  process.exit(1);
+}
 
 const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
