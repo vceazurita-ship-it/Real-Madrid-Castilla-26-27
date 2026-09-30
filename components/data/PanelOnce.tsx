@@ -62,6 +62,7 @@ import { tramoEntre, tramosDe } from "@/lib/data-analisis/instantaneas";
 import { sinergiasDe } from "@/lib/data-analisis/sinergias";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
+import { idVigente } from "@/lib/fichajes";
 
 /**
  * Los atajos de la selección de partidos.
@@ -263,8 +264,41 @@ export function PanelOnce({
     });
   }, [jugadores, filasDelTramo]);
 
-  /* Quién ocupa cada hueco. Vacío = se propone solo, por minutos jugados. */
-  const [elegidos, setElegidos] = useState<Record<string, string>>({});
+  /*
+  | Quién ocupa cada hueco. Vacío = se propone solo.
+  |
+  | Lo cambiado a mano se guarda **por selección de partidos**: al pinchar en
+  | otro partido se parte de sus titulares, no de lo que se tocó en el anterior.
+  */
+  const claveSeleccion = elegidosValidos ? [...elegidosValidos].sort().join("|") : "temporada";
+  const [elegidosPor, setElegidosPor] = useState<Record<string, Record<string, string>>>({});
+  const elegidos = useMemo(() => elegidosPor[claveSeleccion] ?? {}, [elegidosPor, claveSeleccion]);
+  const setElegidos = (cambia: (antes: Record<string, string>) => Record<string, string>) =>
+    setElegidosPor((todo) => ({ ...todo, [claveSeleccion]: cambia(todo[claveSeleccion] ?? {}) }));
+
+  /*
+  | LOS TITULARES DEL PARTIDO.
+  |
+  | Con un solo partido elegido, el once de partida son los que salieron de
+  | titulares ese día, sacados de nuestras valoraciones (Individual →
+  | Valoraciones marca «titular» a cada uno). Se colocan por su puesto con la
+  | misma regla de siempre. Sin valoraciones de ese partido, se propone como
+  | antes, por minutos de la temporada.
+  */
+  const titulares = useMemo(() => {
+    if (losPartidos.length !== 1) return null;
+
+    const fecha = losPartidos[0].fecha;
+    const suyo = Object.values(season.matches).find((uno) => uno.match.date === fecha);
+
+    if (!suyo) return null;
+
+    const ids = Object.values(suyo.players)
+      .filter((uno) => uno.starter)
+      .map((uno) => idVigente(uno.playerId));
+
+    return ids.length >= 7 ? new Set(ids) : null;
+  }, [losPartidos, season]);
 
   const deCasa = useMemo(
     () => players.filter((uno) => uno.esCastilla),
@@ -311,13 +345,23 @@ export function PanelOnce({
       })
       .filter((uno) => uno !== null);
 
-    const puestos = proponeOnce(candidatos, elegidos);
+    /*
+    | Primero los titulares (y quien se haya puesto a mano); los huecos que
+    | queden —en las valoraciones no siempre están marcados los once— se
+    | rellenan con la regla de siempre.
+    */
+    const deSalida = titulares
+      ? candidatos.filter((uno) => titulares.has(uno.id) || Object.values(elegidos).includes(uno.id))
+      : candidatos;
+
+    const primero = proponeOnce(deSalida, elegidos);
+    const puestos = titulares ? proponeOnce(candidatos, primero) : primero;
 
     return HUECOS.map((hueco) => ({
       hueco,
       jugador: deCasa.find((uno) => uno.id === puestos[hueco.clave]),
     }));
-  }, [deCasa, elegidos, ficha]);
+  }, [deCasa, elegidos, ficha, titulares]);
 
   const resumenes = useMemo(
     () => [...summarizeAll(suTemporada).values()],
@@ -462,8 +506,16 @@ export function PanelOnce({
   );
 
   const avisos = useMemo(
-    () => [...alcance, ...rejilla.avisos],
-    [alcance, rejilla.avisos],
+    () => [
+      ...(titulares
+        ? [
+            `El once de partida son los titulares de ese partido, según Valoraciones (${titulares.size} marcados); si falta alguno, el hueco se rellena por puesto y minutos. Se puede cambiar a mano.`,
+          ]
+        : []),
+      ...alcance,
+      ...rejilla.avisos,
+    ],
+    [alcance, rejilla.avisos, titulares],
   );
 
   if (loading) {
