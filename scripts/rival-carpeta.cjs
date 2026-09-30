@@ -278,6 +278,8 @@ async function principal() {
   let saltados = 0;
   let megas = 0;
   let pdfs = 0;
+  /* Los PDF subidos en esta pasada: son los únicos que se pasan a láminas. */
+  const pdfsNuevos = [];
   const sinSitio = [];
   const fallos = [];
 
@@ -402,6 +404,7 @@ async function principal() {
       }));
 
       pdfs += 1;
+      if (/\.pdf$/i.test(fichero)) pdfsNuevos.push(relativa);
 
       console.log(`  documento: ${relativa}`);
     } catch (error) {
@@ -416,11 +419,11 @@ async function principal() {
   */
   let laminas = "";
 
-  if (pdfs > 0) {
+  if (pdfsNuevos.length > 0) {
     laminas = await new Promise((resolve) => {
       execFile(
         process.execPath,
-        [path.join(RAIZ, "scripts/rival-pdf-laminas.mjs"), "--equipo", equipo, "--jornada", jornada, "--escribe"],
+        [path.join(RAIZ, "scripts/rival-pdf-laminas.mjs"), "--equipo", equipo, "--jornada", jornada, "--solo", pdfsNuevos.join("|"), "--escribe"],
         { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 10 * 60 * 1000 },
         (error, stdout) => {
           const dice = String(stdout || "").match(/RESUMEN: (.*)/)?.[1] ?? "";

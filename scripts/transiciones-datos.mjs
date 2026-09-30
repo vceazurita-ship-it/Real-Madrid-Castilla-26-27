@@ -119,7 +119,7 @@ const PARTIDOS = [
     notas: [
       "Sacado del timeline de Hudl (el etiquetado de Wyscout del partido), no mirando imagen a imagen: salen TODOS los robos del partido, también los cortos que a ojo se escapaban. Por eso hay más que en el J2 y el J3, y el reparto no se compara con ellos sin decirlo.",
       "Cuenta como robo la interceptación, el duelo defensivo que acaba con el balón nuestro y la recuperación con el rival presionado o tras nuestra pérdida. No cuentan las del portero, las que vienen de un despeje, un rechace o un balón parado del rival, ni las faltas pitadas.",
-      "El segundo es el del vídeo táctico del club. Esa grabación tiene cortes: el desfase con el reloj del partido cambia cuatro veces (medido jugada a jugada), así que en algún robo el vídeo puede caer unos segundos antes o después.",
+      "El segundo es el del vídeo táctico del club. Esa grabación tiene cortes: el desfase con el reloj del partido cambia tres veces (medido jugada a jugada), así que en algún robo el vídeo puede caer unos segundos antes o después.",
     ],
     goles: [
       { seg: 702, de: "castilla", texto: "Gol del Castilla, de penalti (Fortuny)" },

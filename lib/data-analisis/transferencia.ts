@@ -363,9 +363,15 @@ export function cruza(
   */
   const grupos = new Map<string, TareaEntrenamiento[]>();
 
+  /* Una tarea sin rival escrito es de la semana de su micro: hereda el primero que lo diga. */
+  const rivalDelMicro = new Map<number, string>();
+
+  for (const t of tareas) if (t.rival && !rivalDelMicro.has(t.micro)) rivalDelMicro.set(t.micro, t.rival);
+
   for (const t of tareas) {
-    const clave = `${t.micro}|${t.rival}`;
-    grupos.set(clave, [...(grupos.get(clave) ?? []), t]);
+    const suya = t.rival ? t : { ...t, rival: rivalDelMicro.get(t.micro) ?? "" };
+    const clave = `${suya.micro}|${suya.rival}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), suya]);
   }
 
   const ordenadas = [...grupos.values()].sort(
@@ -386,9 +392,17 @@ export function cruza(
     const distancia = (p: FilaPartido) =>
       hasta ? Math.abs(Date.parse(p.fecha) - Date.parse(hasta)) : 0;
 
+    /*
+    | Y sólo si está cerca: en la segunda vuelta, la semana del Alcorcón antes
+    | de jugar se ataba al partido de septiembre. Diez días cubren el partido
+    | del domingo aunque el micro se cierre el viernes.
+    */
+    const DIEZ_DIAS = 10 * 24 * 3600 * 1000;
+
     const partido =
       nuestros
         .filter((p) => mismoRival(rival, p.rival))
+        .filter((p) => !hasta || distancia(p) <= DIEZ_DIAS)
         .sort((a, b) => distancia(a) - distancia(b))[0] ?? null;
 
     const minutos: Record<string, number> = {};

@@ -58,11 +58,24 @@ const filas = (Array.isArray(plantillaEntera) ? plantillaEntera : plantillaEnter
 const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
 const clips = normalizaClips(await leeDoc(clipsKey(equipo)));
-const docs = (clips.jornadas[jornada]?.docs ?? []).filter((d) => /\.pdf($|\?)/i.test(d.url));
+/*
+| `--solo "origen1|origen2"`: sólo esos PDF (los que se acaban de subir). Sin
+| él se miran todos los de la jornada; con él, recoger una carpeta nueva no
+| vuelve a pasar los PDF de antes.
+*/
+const solo = (bandera("solo") || "").split("|").filter(Boolean);
+const docs = (clips.jornadas[jornada]?.docs ?? [])
+  .filter((d) => /\.pdf($|\?)/i.test(d.url))
+  .filter((d) => !solo.length || solo.includes(d.origen));
 
 const nuevas = [];
 const analisisPrevio = normalizaAnalisis(await leeDoc(analisisKey(equipo)));
-const yaHay = analisisPrevio.jornadas[jornada]?.laminas ?? [];
+
+/* Las que ya están Y las que alguien quitó a propósito: ninguna vuelve. */
+const yaHay = [
+  ...(analisisPrevio.jornadas[jornada]?.laminas ?? []),
+  ...(analisisPrevio.jornadas[jornada]?.quitadas ?? []).map((q) => q.lamina),
+];
 
 for (const d of docs) {
   const datos = new Uint8Array(await fetch(d.url).then((r) => r.arrayBuffer()));
