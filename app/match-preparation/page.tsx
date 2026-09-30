@@ -15,7 +15,8 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { guardaEnLaHoja, HOJA_RIVALES_URL, leeRivales } from "@/lib/hojaRivales";
+import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
+import { traeJson } from "@/lib/hojaCsv";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
@@ -70,8 +71,6 @@ import type { LucideIcon } from "lucide-react";
 | unos segundos después de cada cambio (`useAutoSave`). `alEntrar` conserva la
 | versión con la que se abrió la edición: es a la que vuelve «Deshacer».
 */
-
-const APPS_SCRIPT_URL = HOJA_RIVALES_URL;
 
 type Rival = Record<string, string>;
 
@@ -956,27 +955,87 @@ export default function MatchPreparation() {
     setRecargas((valor) => valor + 1);
   }, []);
 
+  /* Si se está editando cuando llega la hoja al día, no se pisa lo escrito. */
+  const editandoAhora = useRef(false);
+
+  useEffect(() => {
+    editandoAhora.current = modoEdicion;
+  }, [modoEdicion]);
+
+  /*
+  | LA CARGA, EN DOS TIEMPOS
+  |
+  | Antes se pedía al Apps Script directamente y sin caché: 30-70 segundos en
+  | frío cada vez que se entraba, y a veces ni eso («No se han podido cargar
+  | los partidos»). Ahora se abre con la copia de `/api/rivals` —memoria del
+  | servidor o Supabase, décimas de segundo— y por detrás se pide la hoja al
+  | día (`fresco=1`). Cuando llega, se cambia en silencio; si para entonces
+  | ya se está editando y la fila abierta había cambiado en la hoja, se avisa
+  | en vez de pisar nada.
+  */
   useEffect(() => {
     let cancelado = false;
+
+    const ordena = (data: unknown) => {
+      const lista: Rival[] = Array.isArray(data) ? (data as Rival[]) : [];
+
+      return lista.sort(
+        (a, b) => Number(a?.JORNADA ?? 0) - Number(b?.JORNADA ?? 0)
+      );
+    };
+
+    async function alDia(copia: Rival[]) {
+      try {
+        const res = await fetch("/api/rivals?action=rivales&fresco=1", {
+          cache: "no-store",
+        });
+
+        if (!res.ok) return;
+
+        const nueva = ordena(await res.json());
+
+        if (cancelado || nueva.length === 0) return;
+
+        setRivales(nueva);
+
+        setRivalActivo((previo) => {
+          if (!previo) return previo;
+
+          const suya = nueva.find((r) => String(r.ID) === String(previo.ID));
+
+          if (!suya) return previo;
+
+          if (!editandoAhora.current) return suya;
+
+          const deAntes = copia.find((r) => String(r.ID) === String(previo.ID));
+
+          if (JSON.stringify(deAntes) !== JSON.stringify(suya)) {
+            toast.warning(
+              "Este plan había cambiado en la hoja mientras abrías la edición. Revisa que no falte nada de lo último antes de seguir."
+            );
+          }
+
+          return previo;
+        });
+      } catch {
+        /* Sin la hoja al día se queda la copia, que es lo que ya se ve. */
+      }
+    }
 
     async function cargarRivales() {
       setCargando(true);
       setError(null);
 
       try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=rivales`, {
-          cache: "no-store",
+        const data = await traeJson("/api/rivals?action=rivales", {
+          forzar: recargas > 0,
         });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
 
         if (cancelado) return;
 
-        const lista: Rival[] = Array.isArray(data) ? (data as Rival[]) : [];
+        const lista = ordena(data);
 
-        lista.sort((a, b) => Number(a?.JORNADA ?? 0) - Number(b?.JORNADA ?? 0));
+        void alDia(lista);
 
         setRivales(lista);
 
