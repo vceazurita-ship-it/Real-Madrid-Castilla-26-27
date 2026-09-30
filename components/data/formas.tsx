@@ -22,7 +22,7 @@ import { useId, useState } from "react";
 
 import { formatea, type Unidad } from "@/lib/data-analisis/metricas";
 
-import { MEJOR, ORO, PEOR, tinta } from "./graficas";
+import { COMPARADO, MEJOR, ORO, PEOR, tinta } from "./graficas";
 
 /* ------------------------------------------------------------------ */
 /*  LA LECTURA                                                         */
@@ -62,6 +62,8 @@ export function Composicion({
   lectura,
   rotulo = "Nosotros",
   rotuloLiga = "Mediana de la liga",
+  trozosOtro,
+  rotuloOtro,
 }: {
   titulo?: string;
   trozos: Trozo[];
@@ -78,6 +80,9 @@ export function Composicion({
    */
   rotulo?: string;
   rotuloLiga?: string;
+  /** El mismo reparto del equipo con el que uno se compara, en azul. */
+  trozosOtro?: Trozo[];
+  rotuloOtro?: string;
 }) {
   const id = useId();
 
@@ -86,14 +91,22 @@ export function Composicion({
   /* Una rampa de un solo tono: es una composición, no categorías sueltas. */
   const tonos = [ORO, tinta(0.5), tinta(0.34), tinta(0.22), tinta(0.14)];
 
-  const dibuja = (lista: Trozo[], rotulo: string, esLiga: boolean) => {
+  const dibuja = (
+    lista: Trozo[],
+    rotulo: string,
+    esLiga: boolean,
+    esOtro = false,
+  ) => {
     const total = lista.reduce((s, t) => s + t.valor, 0);
 
     if (total <= 0) return null;
 
     return (
       <div className="min-w-0">
-        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+        <p
+          className="mb-1 text-[10px] uppercase tracking-[0.16em] text-white/35"
+          style={esOtro ? { color: COMPARADO } : undefined}
+        >
           {rotulo}
         </p>
 
@@ -112,7 +125,11 @@ export function Composicion({
                 className="flex items-center justify-center"
                 style={{
                   width: `${parte}%`,
-                  background: esLiga ? tinta(0.18) : tonos[i % tonos.length],
+                  background: esOtro
+                    ? `color-mix(in srgb, ${COMPARADO} ${Math.max(25, 90 - i * 25)}%, transparent)`
+                    : esLiga
+                      ? tinta(0.18)
+                      : tonos[i % tonos.length],
                   opacity:
                     encima && encima !== `${rotulo}|${trozo.etiqueta}` ? 0.55 : 1,
                 }}
@@ -121,8 +138,8 @@ export function Composicion({
                   <span
                     className="text-[10px] font-semibold tabular-nums"
                     style={{
-                      color: esLiga
-                        ? tinta(0.7)
+                      color: esLiga || esOtro
+                        ? tinta(0.8)
                         : i === 0
                           ? "#0B0F14"
                           : tinta(0.85),
@@ -149,6 +166,7 @@ export function Composicion({
 
       <div className="space-y-2.5">
         {dibuja(trozos, rotulo, false)}
+        {trozosOtro && dibuja(trozosOtro, rotuloOtro ?? "El otro", false, true)}
         {trozosLiga && dibuja(trozosLiga, rotuloLiga, true)}
       </div>
 
@@ -303,12 +321,17 @@ export function Distribucion({
   unidad,
   referencia,
   etiquetaReferencia = "mediana de la liga",
+  referenciaOtra,
+  etiquetaOtra,
   lectura,
 }: {
   puntos: PuntoPartido[];
   unidad: Unidad;
   referencia?: number | null;
   etiquetaReferencia?: string;
+  /** La media del equipo con el que uno se compara, en azul y por debajo. */
+  referenciaOtra?: number | null;
+  etiquetaOtra?: string;
   lectura?: React.ReactNode;
 }) {
   const [encima, setEncima] = useState<PuntoPartido | null>(null);
@@ -323,8 +346,8 @@ export function Distribucion({
 
   const valores = puntos.map((p) => p.valor);
 
-  const min = Math.min(...valores, referencia ?? Infinity);
-  const max = Math.max(...valores, referencia ?? -Infinity);
+  const min = Math.min(...valores, referencia ?? Infinity, referenciaOtra ?? Infinity);
+  const max = Math.max(...valores, referencia ?? -Infinity, referenciaOtra ?? -Infinity);
 
   const aire = (max - min) * 0.1 || 1;
 
@@ -335,7 +358,11 @@ export function Distribucion({
 
   return (
     <div className="min-w-0">
-      <div className="relative h-14">
+      <div
+        className={`relative ${
+          referenciaOtra !== null && referenciaOtra !== undefined ? "h-[72px]" : "h-14"
+        }`}
+      >
         {/* El eje. */}
         <span
           className="absolute left-0 right-0 top-7 h-px"
@@ -356,6 +383,23 @@ export function Distribucion({
               style={{ left: `${pos(referencia)}%`, color: tinta(0.45) }}
             >
               {etiquetaReferencia}
+            </span>
+          </>
+        )}
+
+        {referenciaOtra !== null && referenciaOtra !== undefined && (
+          <>
+            <span
+              className="absolute top-3 h-8 w-[2px]"
+              style={{ left: `${pos(referenciaOtra)}%`, background: COMPARADO }}
+              aria-hidden
+            />
+
+            <span
+              className="absolute top-[44px] -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold"
+              style={{ left: `${pos(referenciaOtra)}%`, color: COMPARADO }}
+            >
+              {etiquetaOtra}
             </span>
           </>
         )}

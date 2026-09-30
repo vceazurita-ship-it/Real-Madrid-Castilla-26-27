@@ -474,7 +474,13 @@ export type ValorFicha = {
  * Con tres jornadas la primera se mueve entera con un partido y la segunda no:
  * sesenta informes no los cambia nadie. Por eso conviene mirar las dos.
  */
-export type ReferenciaCampo = "nuestra" | "liga";
+export type ReferenciaCampo = "nuestra" | "liga" | "equipo";
+
+/**
+ * Las filas de un equipo concreto de la categoría, para la referencia
+ * `equipo`: las suyas y las de quien le jugó, igual que las nuestras.
+ */
+export type OtroEquipo = { nombre: string; suyos: FilaPartido[]; contra: FilaPartido[] };
 
 export const REFERENCIAS_CAMPO: {
   key: ReferenciaCampo;
@@ -518,9 +524,12 @@ export function fichasDe(
   contrarios: FilaPartido[],
   referencia: ReferenciaCampo = "nuestra",
   liga: FilaPartido[] = [],
+  otro: OtroEquipo | null = null,
 ): ValorFicha[] {
   /* Sin filas de la categoría no hay media de la categoría: manda la nuestra. */
   const contraLaLiga = referencia === "liga" && liga.length > 0;
+  /* Y contra un equipo concreto, sus filas: lo suyo y lo que le hicieron. */
+  const contraOtro = referencia === "equipo" && !!otro && otro.suyos.length > 0;
 
   /*
   | Sin partido elegido, a la izquierda va **nuestra temporada entera**.
@@ -540,7 +549,15 @@ export function fichasDe(
 
       const fila = ficha.contra ? contraDelPartido : delPartido;
 
-      const grupo = contraLaLiga ? liga : ficha.contra ? contrarios : nuestros;
+      const grupo = contraOtro
+        ? ficha.contra
+          ? otro!.contra
+          : otro!.suyos
+        : contraLaLiga
+          ? liga
+          : ficha.contra
+            ? contrarios
+            : nuestros;
 
       const partido = nosotrosEnteros
         ? valorEnGrupo(met, ficha.contra ? contrarios : nuestros)
@@ -601,9 +618,14 @@ export function lecturaDeMomento(
   fichas: ValorFicha[],
   rival: string,
   referencia: ReferenciaCampo = "nuestra",
+  otro = "",
 ) {
   const contra =
-    referencia === "liga" ? "la media de la categoría" : "nuestra media";
+    referencia === "liga"
+      ? "la media de la categoría"
+      : referencia === "equipo"
+        ? `la media de ${otro}`
+        : "nuestra media";
 
   const utiles = fichas.filter(
     (f): f is ValorFicha & { diferencia: number } =>

@@ -18,7 +18,7 @@ import { useMemo, useState } from "react";
 import { Database, Flag, History, Scale } from "lucide-react";
 
 import { Button, Notice, Panel } from "@/components/abp/ui";
-import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
 import {
   equiposConMuestra,
@@ -76,6 +76,7 @@ export function PanelGolesAbp({
   temporada,
   historico,
   nosotros,
+  comparado = "",
   onVerRegistro,
 }: {
   /** Todas las filas del dataset, de todas las temporadas. */
@@ -83,6 +84,8 @@ export function PanelGolesAbp({
   temporada: string;
   historico: HistoricoOpta[];
   nosotros: string;
+  /** El equipo elegido arriba para compararse: su fila va en azul. */
+  comparado?: string;
   /** Lleva a «Nuestro balón parado», que es donde está el dato real del Castilla. */
   onVerRegistro?: () => void;
 }) {
@@ -311,12 +314,13 @@ export function PanelGolesAbp({
                   <tbody>
                     {ordenadas.map((fila, indice) => {
                       const esNuestro = fila.equipo === nosotros;
+                      const esOtro = !!comparado && fila.equipo === comparado;
 
                       return (
                         <tr
                           key={fila.equipo}
                           className={`border-t border-white/[0.06] ${
-                            esNuestro ? "bg-[#C8A96B]/[0.07]" : ""
+                            esNuestro ? "bg-[#C8A96B]/[0.07]" : esOtro ? "bg-[#4F8FE8]/[0.08]" : ""
                           }`}
                         >
                           <td className="py-1.5 text-right text-[10px] tabular-nums text-white/25">
@@ -339,8 +343,14 @@ export function PanelGolesAbp({
                               )}
 
                               <span
-                                className={`truncate ${esNuestro ? "font-semibold" : "text-white/70"}`}
-                                style={esNuestro ? { color: ORO } : undefined}
+                                className={`truncate ${esNuestro || esOtro ? "font-semibold" : "text-white/70"}`}
+                                style={
+                                  esNuestro
+                                    ? { color: ORO }
+                                    : esOtro
+                                      ? { color: COMPARADO }
+                                      : undefined
+                                }
                               >
                                 {fila.equipo}
                               </span>
@@ -373,7 +383,10 @@ export function PanelGolesAbp({
                 </table>
               </div>
 
-              <Lectura>{lecturaDeLaLiga(filas, nosotros, temporada)}</Lectura>
+              <Lectura>
+                {lecturaDeLaLiga(filas, nosotros, temporada)}
+                {comparado && ` ${lecturaCaraACara(filas, nosotros, comparado)}`}
+              </Lectura>
 
               <p className="mt-2 text-[11px] leading-relaxed text-white/40">
                 Las dos columnas son dato: el marcador y los penaltis que cuenta
@@ -694,6 +707,19 @@ function lecturaDeLaLiga(filas: FilaGolesAbp[], nosotros: string, temporada: str
   ];
 
   return partes.join("");
+}
+
+/** Nosotros contra el equipo elegido, en goles a balón parado por partido. */
+function lecturaCaraACara(filas: FilaGolesAbp[], nosotros: string, otro: string) {
+  const mia = filas.find((f) => f.equipo === nosotros);
+  const suya = filas.find((f) => f.equipo === otro);
+
+  if (!mia || !suya) return `${otro} no tiene informes esta temporada.`;
+
+  const favor = (f: FilaGolesAbp) => valorDe(f.aFavor, "goles", "partido") ?? 0;
+  const contra = (f: FilaGolesAbp) => valorDe(f.enContra, "goles", "partido") ?? 0;
+
+  return `Frente a ${otro}: marcamos ${formatea(favor(mia), "decimal")} por partido y ellos ${formatea(favor(suya), "decimal")}; encajamos ${formatea(contra(mia), "decimal")} y ellos ${formatea(contra(suya), "decimal")}. De penalti, ${mia.aFavor.penalti}-${mia.enContra.penalti} nosotros y ${suya.aFavor.penalti}-${suya.enContra.penalti} ellos.`;
 }
 
 function lecturaDeLaHistoria(

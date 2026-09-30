@@ -62,6 +62,7 @@ import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import {
   BarraPercentil,
   BarrasEquipos,
+  COMPARADO,
   Dispersion,
   Evolucion,
   MEJOR,
@@ -101,6 +102,7 @@ import {
   valorEnGrupo,
   valorEnPartido,
   type Fase,
+  type Metrica,
   type ModoValor,
 } from "@/lib/data-analisis/metricas";
 import { BateriaDePreguntas } from "@/components/data/preguntas";
@@ -175,6 +177,9 @@ type Area =
   | "once"
   | "abp"
   | "transferencia";
+
+/** Las áreas donde tiene sentido ponerse al lado de otro equipo de la categoría. */
+const AREAS_CON_EQUIPO: Area[] = ["campo", "liga", "todos", "destacados", "golesAbp"];
 
 const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string }[] = [
   /*
@@ -482,10 +487,39 @@ export default function DataAnalisisPage() {
     );
   }, [deLaTemporada, nuestros]);
 
+  /*
+  | COMPARAR CON OTRO EQUIPO
+  |
+  | Un solo mando arriba para todas las áreas de equipo: se elige a quién se
+  | quiere tener al lado y cada gráfico lo pinta en azul junto al Castilla en
+  | oro. Si el equipo no tiene informes con el filtro puesto —otra temporada,
+  | otra competición—, se apaga solo en vez de enseñar nada.
+  */
+  const [comparado, setComparado] = useState("");
+
+  const otroEquipo =
+    comparado && comparado !== NOSOTROS && equiposLiga.includes(comparado)
+      ? comparado
+      : "";
+
+  const otroCampo = useMemo(
+    () =>
+      otroEquipo
+        ? {
+            nombre: otroEquipo,
+            suyos: deLaLiga.filter((p) => p.equipo === otroEquipo),
+            contra: deLaLiga.filter((p) => p.rival === otroEquipo),
+          }
+        : null,
+    [deLaLiga, otroEquipo],
+  );
+
   /* --------------------------- PERCENTILES ------------------------- */
 
-  const percentiles = useMemo<FilaPercentil[]>(() => {
-    if (equiposLiga.length < 3) return [];
+  /* Las filas de percentil de un grupo de partidos contra toda la liga. */
+  const percentilesDe = useCallback(
+    (filas: FilaPartido[]): FilaPercentil[] => {
+    if (equiposLiga.length < 3 || filas.length === 0) return [];
 
     const porEquipo = new Map(
       equiposLiga.map((e) => [e, deLaLiga.filter((p) => p.equipo === e)]),
@@ -496,7 +530,7 @@ export default function DataAnalisisPage() {
         .map((e) => valorEnGrupo(met, porEquipo.get(e) ?? [], modo))
         .filter((v): v is number => v !== null);
 
-      const mio = valorEnGrupo(met, nuestros, modo);
+      const mio = valorEnGrupo(met, filas, modo);
 
       const orden = [...valores].sort((a, b) =>
         met.mejorAlto === false ? a - b : b - a,
@@ -516,7 +550,16 @@ export default function DataAnalisisPage() {
         comoLeer: met.comoLeer,
       };
     });
-  }, [deLaLiga, equiposLiga, modo, nuestros]);
+    },
+    [deLaLiga, equiposLiga, modo],
+  );
+
+  const percentiles = useMemo(() => percentilesDe(nuestros), [nuestros, percentilesDe]);
+
+  const percentilesOtro = useMemo(
+    () => (otroCampo ? percentilesDe(otroCampo.suyos) : []),
+    [otroCampo, percentilesDe],
+  );
 
   const avisoMuestra = useMemo(
     () => avisoDeMuestra(nuestros.length),
@@ -704,6 +747,71 @@ export default function DataAnalisisPage() {
       }),
     [deTemporada, temporadas],
   );
+
+  /*
+  | UN CASTILLA CONTRA OTRO
+  |
+  | En la historia el «otro» no es un equipo de la categoría: es otra temporada
+  | nuestra. Por defecto, la anterior a la que se mira. Respeta «a estas
+  | alturas»: con él puesto las dos entran con los mismos partidos.
+  */
+  const [temporadaOtra, setTemporadaOtra] = useState("");
+
+  const otraTemporada =
+    temporadaOtra && temporadaOtra !== laQueMando && temporadas.includes(temporadaOtra)
+      ? temporadaOtra
+      : (temporadas.find((t) => t < laQueMando) ??
+        temporadas.find((t) => t !== laQueMando) ??
+        "");
+
+  const caraACaraTemporadas = useMemo(() => {
+    if (!otraTemporada) return null;
+
+    const estas = deTemporada(laQueMando);
+    const aquellas = deTemporada(otraTemporada);
+
+    const resumen = (filas: FilaPartido[]) => {
+      const ganados = filas.filter((p) => p.golesFavor > p.golesContra).length;
+      const empates = filas.filter((p) => p.golesFavor === p.golesContra).length;
+
+      return {
+        partidos: filas.length,
+        ganados,
+        empates,
+        perdidos: filas.length - ganados - empates,
+        gf: filas.reduce((n, p) => n + p.golesFavor, 0),
+        gc: filas.reduce((n, p) => n + p.golesContra, 0),
+      };
+    };
+
+    return {
+      a: { temporada: laQueMando, ...resumen(estas) },
+      b: { temporada: otraTemporada, ...resumen(aquellas) },
+      filas: METRICAS.map((met) => {
+        const va = valorEnGrupo(met, estas, modo);
+        const vb = valorEnGrupo(met, aquellas, modo);
+
+        const bruta =
+          va === null || vb === null || vb === 0
+            ? null
+            : ((va - vb) / Math.abs(vb)) * 100;
+
+        return {
+          met,
+          va,
+          vb,
+          cambio: bruta,
+          /* Con el sentido de la métrica puesto: positivo es mejor. */
+          mejora:
+            bruta === null || met.mejorAlto === null
+              ? null
+              : met.mejorAlto === false
+                ? -bruta
+                : bruta,
+        };
+      }),
+    };
+  }, [deTemporada, laQueMando, modo, otraTemporada]);
 
   /* ----------------------- LOCAL Y VISITANTE ----------------------- */
 
@@ -996,6 +1104,70 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
+                  {/*
+                    CON QUIÉN SE COMPARA.
+                    En las áreas de equipo, cualquier equipo de la categoría; en
+                    la historia, cualquier otra temporada del Castilla. El
+                    elegido va en azul en todos los gráficos.
+                  */}
+                  {AREAS_CON_EQUIPO.includes(area) && equiposLiga.length > 1 && (
+                    <label className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] uppercase tracking-[0.16em] ${otroEquipo ? "" : "text-white/40"}`}
+                        style={otroEquipo ? { color: COMPARADO } : undefined}
+                      >
+                        Comparar con
+                      </span>
+
+                      <select
+                        value={otroEquipo}
+                        onChange={(e) => setComparado(e.target.value)}
+                        title="Otro equipo de la categoría para ponerlo al lado del Castilla en todos los gráficos"
+                        className="max-w-[220px] rounded-xl border bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                        style={{ borderColor: otroEquipo ? COMPARADO : "rgb(var(--rmcf-ink-rgb) / .1)" }}
+                      >
+                        <option value="" className="bg-[#11161C]">
+                          Nadie (sólo la liga)
+                        </option>
+
+                        {equiposLiga
+                          .filter((e) => e !== NOSOTROS)
+                          .map((e) => (
+                            <option key={e} value={e} className="bg-[#11161C]">
+                              {e}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {area === "historia" && temporadas.length > 1 && (
+                    <label className="flex items-center gap-2">
+                      <span
+                        className="text-[10px] uppercase tracking-[0.16em]"
+                        style={{ color: COMPARADO }}
+                      >
+                        Comparar con el Castilla de
+                      </span>
+
+                      <select
+                        value={otraTemporada}
+                        onChange={(e) => setTemporadaOtra(e.target.value)}
+                        title="Otra temporada del Castilla para ponerla cara a cara con la elegida"
+                        className="rounded-xl border bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                        style={{ borderColor: COMPARADO }}
+                      >
+                        {temporadas
+                          .filter((t) => t !== laQueMando)
+                          .map((t) => (
+                            <option key={t} value={t} className="bg-[#11161C]">
+                              {t}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
+
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && sistemas.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
@@ -1075,6 +1247,7 @@ export default function DataAnalisisPage() {
                     liga={deLaLiga}
                     equipos={equiposLiga.length}
                     temporada={laQueMando}
+                    otro={otroCampo}
                   />
                 )}
 
@@ -1216,6 +1389,25 @@ export default function DataAnalisisPage() {
                       </Panel>
                     </div>
 
+                    {/*
+                      UN CASTILLA CONTRA OTRO
+
+                      La temporada elegida arriba contra la que se elija en
+                      «Comparar con el Castilla de», métrica a métrica y por
+                      fase. Con «a estas alturas» las dos entran con los mismos
+                      partidos.
+                    */}
+                    {caraACaraTemporadas && (
+                      <div className="mt-5">
+                        <PanelTemporadasCaraACara
+                          datos={caraACaraTemporadas}
+                          fase={fase}
+                          onFase={setFase}
+                          aEstasAlturas={aEstasAlturas}
+                        />
+                      </div>
+                    )}
+
                     <div className="mt-5">
                       <Panel
                         title="La métrica a lo largo del tiempo"
@@ -1310,6 +1502,7 @@ export default function DataAnalisisPage() {
                       subtitulo="Un punto por temporada del Castilla, con su año escrito. Las rayas son las medianas de nuestra propia historia."
                       puntos={puntosHistoria}
                       destacado={actual}
+                      comparado={otraTemporada}
                       /* Aquí cada punto es un curso: sin el año no se sabe
                          cuál es cuál, y son seis, así que caben los seis. */
                       rotulaTodos
@@ -1395,7 +1588,26 @@ export default function DataAnalisisPage() {
                           deLaLiga={deLaLiga}
                           equiposLiga={equiposLiga}
                           modo={modo}
+                          comparado={otroEquipo}
                         />
+
+                        {/* Cara a cara con el equipo elegido, en esta fase. */}
+                        {otroEquipo && (
+                          <div className="mt-5">
+                            <Panel
+                              title={`Cara a cara con ${otroEquipo}`}
+                              subtitle="Las métricas de esta fase en las que más nos separamos, con el puesto de cada uno en la liga"
+                              icon={Swords}
+                            >
+                              <CaraACara
+                                nuestras={percentiles}
+                                suyas={percentilesOtro}
+                                otro={otroEquipo}
+                                fase={fase}
+                              />
+                            </Panel>
+                          </div>
+                        )}
 
                         {/* Y el detalle métrica a métrica. */}
                         {GRUPOS.map((grupo) => {
@@ -1413,11 +1625,20 @@ export default function DataAnalisisPage() {
                             <div key={grupo} className="mt-5">
                               <Panel
                                 title={grupo}
-                                subtitle="A la derecha, mejor. La raya del centro es la mediana de la liga; pulsa un nombre para ver cómo se lee."
+                                subtitle={
+                                  otroEquipo
+                                    ? `A la derecha, mejor. La raya del centro es la mediana de la liga y la marca azul, ${otroEquipo}.`
+                                    : "A la derecha, mejor. La raya del centro es la mediana de la liga; pulsa un nombre para ver cómo se lee."
+                                }
                                 icon={Scale}
                               >
                                 {filas.map((fila) => (
-                                  <BarraPercentil key={fila.key} fila={fila} />
+                                  <BarraPercentil
+                                    key={fila.key}
+                                    fila={fila}
+                                    otra={percentilesOtro.find((o) => o.key === fila.key) ?? null}
+                                    nombreOtra={otroEquipo}
+                                  />
                                 ))}
 
                                 {lectura && (
@@ -1442,7 +1663,11 @@ export default function DataAnalisisPage() {
                     <div className="mt-5">
                       <Panel
                         title="La liga, ordenada"
-                        subtitle="Cualquier métrica, los equipos de mejor a peor. El Castilla va en oro."
+                        subtitle={
+                          otroEquipo
+                            ? `Cualquier métrica, los equipos de mejor a peor. El Castilla va en oro y ${otroEquipo}, en azul.`
+                            : "Cualquier métrica, los equipos de mejor a peor. El Castilla va en oro; pulsa otro equipo para ponerlo al lado."
+                        }
                         icon={BarChart3}
                         action={
                           <SelectorMetrica
@@ -1456,12 +1681,16 @@ export default function DataAnalisisPage() {
                           unidad={metTabla?.unidad ?? "decimal"}
                           mejorAlto={metTabla?.mejorAlto ?? null}
                           destacado={NOSOTROS}
+                          comparado={otroEquipo}
+                          alPulsar={(e) => e !== NOSOTROS && setComparado(e === otroEquipo ? "" : e)}
                         />
 
                         {metTabla && (
                           <>
                             <Lectura>
                               {lecturaDeLiga(filasEquipos, NOSOTROS, metTabla)}
+                              {otroEquipo &&
+                                ` ${lecturaFrenteA(filasEquipos, NOSOTROS, otroEquipo, metTabla)}`}
                             </Lectura>
 
                             <p className="mt-2 text-[12px] leading-relaxed text-white/45">
@@ -1486,6 +1715,7 @@ export default function DataAnalisisPage() {
                       subtitulo="Un punto por equipo. Las rayas son las medianas: los cuatro cuadrantes son la lectura."
                       puntos={puntos}
                       destacado={NOSOTROS}
+                      comparado={otroEquipo}
                       metricaX={metricaX}
                       metricaY={metricaY}
                       contraX={contraX}
@@ -1494,7 +1724,7 @@ export default function DataAnalisisPage() {
                       onPregunta={eligePregunta}
                       onCambiaX={cambiaX}
                       onCambiaY={cambiaY}
-                      nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro.`}
+                      nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro${otroEquipo ? ` y ${otroEquipo}, en azul` : ""}.`}
                     />
                   </>
                 )}
@@ -1505,6 +1735,7 @@ export default function DataAnalisisPage() {
                   <PanelDestacados
                     partidos={datos.partidos ?? []}
                     jugadores={datos.jugadores ?? []}
+                    comparado={otroEquipo}
                   />
                 )}
 
@@ -1516,6 +1747,7 @@ export default function DataAnalisisPage() {
                     temporada={laQueMando}
                     historico={datos.historico ?? []}
                     nosotros={NOSOTROS}
+                    comparado={otroEquipo}
                     onVerRegistro={() => setArea("abp")}
                   />
                 )}
@@ -2207,11 +2439,14 @@ function ParDeMetricas({
   onCambiaY,
   nota,
   rotulaTodos = false,
+  comparado,
 }: {
   titulo: string;
   subtitulo: string;
   puntos: { equipo: string; x: number; y: number }[];
   destacado: string;
+  /** El segundo punto resaltado, en azul. */
+  comparado?: string;
   metricaX: string;
   metricaY: string;
   contraX: boolean;
@@ -2270,6 +2505,7 @@ function ParDeMetricas({
               unidadX={metX?.unidad ?? "decimal"}
               unidadY={metY?.unidad ?? "decimal"}
               destacado={destacado}
+              comparado={comparado}
               rotulaTodos={rotulaTodos}
             />
 
@@ -2353,13 +2589,18 @@ function PanelesDeFase({
   deLaLiga,
   equiposLiga,
   modo,
+  comparado = "",
 }: {
   fase: Fase;
   nuestros: FilaPartido[];
   deLaLiga: FilaPartido[];
   equiposLiga: string[];
   modo: ModoValor;
+  /** El equipo elegido arriba: su reparto va en una tercera barra, en azul. */
+  comparado?: string;
 }) {
+  const suyos = comparado ? deLaLiga.filter((p) => p.equipo === comparado) : [];
+
   /** El mismo reparto, sobre todos los equipos de la liga. */
   const enLaLiga = (columna: string) => {
     const valores = equiposLiga
@@ -2371,11 +2612,17 @@ function PanelesDeFase({
 
   const composicion = (
     partes: { etiqueta: string; columna: string }[],
-  ): { nuestra: Trozo[]; liga: Trozo[] } => ({
+  ): { nuestra: Trozo[]; liga: Trozo[]; otro?: Trozo[] } => ({
     nuestra: partes.map((p) => ({
       etiqueta: p.etiqueta,
       valor: porPartido(nuestros, p.columna, modo),
     })),
+    otro: suyos.length
+      ? partes.map((p) => ({
+          etiqueta: p.etiqueta,
+          valor: porPartido(suyos, p.columna, modo),
+        }))
+      : undefined,
     liga: partes.map((p) => ({
       etiqueta: p.etiqueta,
       valor: enLaLiga(p.columna),
@@ -2408,6 +2655,8 @@ function PanelesDeFase({
             <Composicion
               trozos={origen.nuestra}
               trozosLiga={origen.liga}
+              trozosOtro={origen.otro}
+              rotuloOtro={comparado}
               lectura={lecturaDeComposicion(origen.nuestra, origen.liga, {
                 sustantivo: "remates",
                 verbo: "nacen de",
@@ -2424,6 +2673,8 @@ function PanelesDeFase({
             <Composicion
               trozos={pase.nuestra}
               trozosLiga={pase.liga}
+              trozosOtro={pase.otro}
+              rotuloOtro={comparado}
               lectura={lecturaDeComposicion(pase.nuestra, pase.liga, {
                 sustantivo: "pases",
                 verbo: "van",
@@ -2441,6 +2692,7 @@ function PanelesDeFase({
             nuestros={nuestros}
             deLaLiga={deLaLiga}
             equiposLiga={equiposLiga}
+              comparado={comparado}
           />
         </div>
       </>
@@ -2473,6 +2725,8 @@ function PanelesDeFase({
             <Composicion
               trozos={robos.nuestra}
               trozosLiga={robos.liga}
+              trozosOtro={robos.otro}
+              rotuloOtro={comparado}
               lectura={lecturaDeComposicion(robos.nuestra, robos.liga, {
                 sustantivo: "recuperaciones",
                 verbo: "se producen en",
@@ -2489,6 +2743,8 @@ function PanelesDeFase({
             <Composicion
               trozos={perdidas.nuestra}
               trozosLiga={perdidas.liga}
+              trozosOtro={perdidas.otro}
+              rotuloOtro={comparado}
               lectura={lecturaDeComposicion(perdidas.nuestra, perdidas.liga, {
                 sustantivo: "pérdidas",
                 verbo: "se producen en",
@@ -2506,6 +2762,7 @@ function PanelesDeFase({
             nuestros={nuestros}
             deLaLiga={deLaLiga}
             equiposLiga={equiposLiga}
+              comparado={comparado}
           />
         </div>
       </>
@@ -2569,6 +2826,8 @@ function PanelesDeFase({
             <Composicion
               trozos={reparto.nuestra}
               trozosLiga={reparto.liga}
+              trozosOtro={reparto.otro}
+              rotuloOtro={comparado}
               lectura={lecturaDeComposicion(reparto.nuestra, reparto.liga, {
                 sustantivo: "jugadas a balón parado",
                 verbo: "son",
@@ -2589,6 +2848,7 @@ function PanelesDeFase({
               nuestros={nuestros}
               deLaLiga={deLaLiga}
               equiposLiga={equiposLiga}
+              comparado={comparado}
               sinPanel
             />
           </Panel>
@@ -2613,6 +2873,7 @@ function DistribucionDeMetrica({
   deLaLiga,
   equiposLiga,
   sinPanel,
+  comparado = "",
 }: {
   claveInicial: string;
   fase: Fase;
@@ -2620,6 +2881,7 @@ function DistribucionDeMetrica({
   deLaLiga: FilaPartido[];
   equiposLiga: string[];
   sinPanel?: boolean;
+  comparado?: string;
 }) {
   const [clave, setClave] = useState(claveInicial);
 
@@ -2647,6 +2909,12 @@ function DistribucionDeMetrica({
       puntos={puntos}
       unidad={met.unidad}
       referencia={referencia}
+      referenciaOtra={
+        comparado
+          ? valorEnGrupo(met, deLaLiga.filter((p) => p.equipo === comparado))
+          : null
+      }
+      etiquetaOtra={comparado ? `media de ${comparado}` : undefined}
       lectura={lecturaDeDistribucion(puntos, met.unidad, met.nombre, met.mejorAlto)}
     />
   );
@@ -2671,6 +2939,300 @@ function DistribucionDeMetrica({
       action={<SelectorMetrica valor={clave} onCambio={setClave} soloFase={fase} />}
     >
       {cuerpo}
+    </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  CARA A CARA                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Nosotros y el equipo elegido en la métrica de la tabla ordenada. */
+function lecturaFrenteA(
+  filas: { equipo: string; valor: number | null }[],
+  nosotros: string,
+  otro: string,
+  met: Metrica,
+) {
+  const orden = filas
+    .filter((f): f is { equipo: string; valor: number } => f.valor !== null)
+    .sort((a, b) => (met.mejorAlto === false ? a.valor - b.valor : b.valor - a.valor));
+
+  const mio = orden.findIndex((f) => f.equipo === nosotros);
+  const suyo = orden.findIndex((f) => f.equipo === otro);
+
+  if (mio < 0 || suyo < 0) return `${otro} no tiene este dato.`;
+
+  const delante = met.mejorAlto === null ? null : mio < suyo;
+
+  return `Frente a ${otro}: ${formatea(orden[mio].valor, met.unidad)} nuestro (${mio + 1}º) y ${formatea(orden[suyo].valor, met.unidad)} suyo (${suyo + 1}º)${
+    delante === null ? "" : delante ? ", por delante nuestro." : ", por delante suyo."
+  }`;
+}
+
+/**
+ * Las métricas de una fase en las que más nos separamos de otro equipo.
+ *
+ * Se compara el percentil y no el número: es lo que deja poner en la misma
+ * lista un PPDA y unos centros, y ya lleva dentro el sentido de cada métrica.
+ */
+function CaraACara({
+  nuestras,
+  suyas,
+  otro,
+  fase,
+}: {
+  nuestras: FilaPercentil[];
+  suyas: FilaPercentil[];
+  otro: string;
+  fase: Fase;
+}) {
+  const pares = nuestras
+    .map((n) => {
+      const met = METRICA_POR_KEY.get(n.key);
+      const s = suyas.find((x) => x.key === n.key);
+
+      if (!met || met.fase !== fase || met.mejorAlto === null) return null;
+      if (!s || n.percentil === null || s.percentil === null) return null;
+
+      return { n, s, gap: n.percentil - s.percentil };
+    })
+    .filter((p): p is { n: FilaPercentil; s: FilaPercentil; gap: number } => p !== null)
+    .sort((a, b) => b.gap - a.gap);
+
+  if (pares.length === 0) {
+    return (
+      <p className="text-[12px] text-white/45">
+        No hay métricas de esta fase con dato de los dos equipos.
+      </p>
+    );
+  }
+
+  const ganamos = pares.filter((p) => p.gap > 0).length;
+
+  const nuestrasMejores = pares.filter((p) => p.gap > 0).slice(0, 4);
+  const suyasMejores = pares
+    .filter((p) => p.gap < 0)
+    .slice(-4)
+    .reverse();
+
+  const fila = (p: (typeof pares)[number]) => (
+    <div
+      key={p.n.key}
+      className="flex min-w-0 items-baseline gap-2 border-b border-white/[0.06] py-1.5 text-[12px] last:border-0"
+    >
+      <span className="min-w-0 flex-1 truncate text-white/75">{p.n.nombre}</span>
+      <span className="shrink-0 font-semibold tabular-nums" style={{ color: ORO }}>
+        {formatea(p.n.valor, p.n.unidad)}
+      </span>
+      <span className="shrink-0 text-white/25">·</span>
+      <span className="shrink-0 font-semibold tabular-nums" style={{ color: COMPARADO }}>
+        {formatea(p.s.valor, p.s.unidad)}
+      </span>
+      <span className="w-20 shrink-0 text-right text-[10px] tabular-nums text-white/40">
+        {p.n.puesto ?? "—"}º vs {p.s.puesto ?? "—"}º
+      </span>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+        <div className="min-w-0">
+          <p className="mb-1 text-[10px] uppercase tracking-[0.16em]" style={{ color: MEJOR }}>
+            Donde le sacamos ventaja
+          </p>
+          {nuestrasMejores.length ? (
+            nuestrasMejores.map(fila)
+          ) : (
+            <p className="text-[12px] text-white/40">En ninguna.</p>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="mb-1 text-[10px] uppercase tracking-[0.16em]" style={{ color: PEOR }}>
+            Donde nos saca ventaja
+          </p>
+          {suyasMejores.length ? (
+            suyasMejores.map(fila)
+          ) : (
+            <p className="text-[12px] text-white/40">En ninguna.</p>
+          )}
+        </div>
+      </div>
+
+      <Lectura>
+        De {pares.length} métricas de esta fase con un sentido claro, el
+        Castilla está por delante de {otro} en {ganamos} y por detrás en{" "}
+        {pares.filter((p) => p.gap < 0).length}.
+        {nuestrasMejores[0] &&
+          ` Donde más le saca: ${nuestrasMejores[0].n.nombre.toLowerCase()}.`}
+        {suyasMejores[0] &&
+          ` Donde más le sacan: ${suyasMejores[0].n.nombre.toLowerCase()}.`}
+      </Lectura>
+
+      <p className="mt-2 text-[11px] text-white/40">
+        En oro, el Castilla; en azul, {otro}. A la derecha, el puesto de cada
+        uno en la liga. El orden sale de la distancia en percentil, que ya
+        lleva el sentido de cada métrica puesto.
+      </p>
+    </>
+  );
+}
+
+type ResumenTemporada = {
+  temporada: string;
+  partidos: number;
+  ganados: number;
+  empates: number;
+  perdidos: number;
+  gf: number;
+  gc: number;
+};
+
+type DatosTemporadas = {
+  a: ResumenTemporada;
+  b: ResumenTemporada;
+  filas: {
+    met: Metrica;
+    va: number | null;
+    vb: number | null;
+    cambio: number | null;
+    mejora: number | null;
+  }[];
+};
+
+/** Dos temporadas del Castilla, una al lado de la otra, por fase del juego. */
+function PanelTemporadasCaraACara({
+  datos,
+  fase,
+  onFase,
+  aEstasAlturas,
+}: {
+  datos: DatosTemporadas;
+  fase: Fase;
+  onFase: (f: Fase) => void;
+  aEstasAlturas: boolean;
+}) {
+  const { a, b } = datos;
+
+  const filas = datos.filas.filter((f) => f.met.fase === fase);
+
+  const conSentido = filas.filter(
+    (f): f is (typeof filas)[number] & { mejora: number } => f.mejora !== null,
+  );
+
+  const orden = [...conSentido].sort((x, y) => y.mejora - x.mejora);
+
+  const mejor = orden.filter((f) => f.mejora > 0);
+  const peor = orden.filter((f) => f.mejora < 0).reverse();
+
+  const cabecera = (t: ResumenTemporada, color: string) => (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+      <p className="text-[10px] uppercase tracking-[0.16em]" style={{ color }}>
+        Castilla {t.temporada}
+      </p>
+      <p className="mt-1 text-sm tabular-nums text-white/80">
+        {t.partidos} PJ · {t.ganados}-{t.empates}-{t.perdidos} · {t.gf}-{t.gc}
+      </p>
+    </div>
+  );
+
+  const cuenta = (f: (typeof conSentido)[number]) =>
+    `${f.met.nombre.toLowerCase()} (${formatea(f.va, f.met.unidad)} frente a ${formatea(f.vb, f.met.unidad)})`;
+
+  return (
+    <Panel
+      title={`El Castilla de ${a.temporada} contra el de ${b.temporada}`}
+      subtitle={
+        aEstasAlturas
+          ? "Métrica a métrica, las dos con los mismos partidos jugados"
+          : "Métrica a métrica, cada una con sus partidos; pon «a estas alturas» para igualarlas"
+      }
+      icon={Swords}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        {cabecera(a, ORO)}
+        {cabecera(b, COMPARADO)}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+        {FASES.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => onFase(f.key)}
+            aria-pressed={fase === f.key}
+            title={f.pregunta}
+            className={`rounded-lg px-3 py-2 text-xs transition ${
+              fase === f.key
+                ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+              <th className="pb-2 pr-3 font-medium">Métrica</th>
+              <th className="pb-2 pr-3 text-right font-medium" style={{ color: ORO }}>
+                {a.temporada}
+              </th>
+              <th className="pb-2 pr-3 text-right font-medium" style={{ color: COMPARADO }}>
+                {b.temporada}
+              </th>
+              <th
+                className="pb-2 text-right font-medium"
+                title="Cuánto cambia la cifra de una temporada a la otra. El color dice si el cambio es bueno o malo."
+              >
+                Cambio
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.met.key} className="border-t border-white/[0.06]">
+                <td className="py-1.5 pr-3 text-white/75" title={f.met.comoLeer}>
+                  {f.met.nombre}
+                </td>
+                <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-white">
+                  {formatea(f.va, f.met.unidad)}
+                </td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-white/60">
+                  {formatea(f.vb, f.met.unidad)}
+                </td>
+                <td
+                  className="py-1.5 text-right tabular-nums"
+                  style={{
+                    color:
+                      f.mejora === null ? tinta(0.4) : f.mejora >= 0 ? MEJOR : PEOR,
+                  }}
+                >
+                  {f.cambio === null
+                    ? "—"
+                    : `${f.cambio >= 0 ? "+" : ""}${f.cambio.toFixed(0)} %`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {conSentido.length > 0 && (
+        <Lectura>
+          De {conSentido.length} métricas de esta fase con un sentido claro, el
+          Castilla de {a.temporada} mejora al de {b.temporada} en {mejor.length}{" "}
+          y empeora en {peor.length}.
+          {mejor[0] && ` Lo que más ha subido: ${cuenta(mejor[0])}.`}
+          {peor[0] && ` Lo que más ha caído: ${cuenta(peor[0])}.`}
+        </Lectura>
+      )}
     </Panel>
   );
 }

@@ -49,14 +49,25 @@ const NOSOTROS = "Real Madrid Castilla";
 export function PanelDestacados({
   partidos,
   jugadores,
+  comparado = "",
 }: {
   partidos: FilaPartido[];
   jugadores: FilaJugador[];
+  /** El equipo elegido arriba para compararse: se abre él y va en azul. */
+  comparado?: string;
 }) {
   const [elegidos, setElegidos] = useState<string[]>(ASPECTOS_POR_DEFECTO);
 
-  /* El equipo que se abre en detalle: se empieza por casa. */
-  const [equipo, setEquipo] = useState<string>(NOSOTROS);
+  /* El equipo que se abre en detalle: se empieza por casa, o por el elegido. */
+  const [equipo, setEquipo] = useState<string>(comparado || NOSOTROS);
+
+  /* Elegir otro equipo arriba lo abre aquí; se ajusta en el render. */
+  const [comparadoVisto, setComparadoVisto] = useState(comparado);
+
+  if (comparadoVisto !== comparado) {
+    setComparadoVisto(comparado);
+    setEquipo(comparado || NOSOTROS);
+  }
 
   const [deQuien, setDeQuien] = useState<string>("todos");
   const [puesto, setPuesto] = useState<"todos" | Puesto>("todos");
@@ -317,7 +328,8 @@ export function PanelDestacados({
                     filas={filas}
                     unidad="entero"
                     mejorAlto
-                    destacado={equipo}
+                    destacado={NOSOTROS}
+                    comparado={equipo !== NOSOTROS ? equipo : comparado}
                     alPulsar={setEquipo}
                   />
                 </Panel>

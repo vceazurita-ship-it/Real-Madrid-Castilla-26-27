@@ -6,13 +6,14 @@ import { LayoutGrid, Scale } from "lucide-react";
 import { Notice, Panel } from "@/components/abp/ui";
 import { Lectura } from "@/components/data/formas";
 import { Campograma } from "@/components/data/Campograma";
-import { MEJOR, PEOR } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, PEOR } from "@/components/data/graficas";
 import {
   MOMENTOS_CAMPO,
   REFERENCIAS_CAMPO,
   fichasDe,
   lecturaDeMomento,
   type MomentoJuego,
+  type OtroEquipo,
   type ReferenciaCampo,
 } from "@/lib/data-analisis/campograma";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
@@ -32,6 +33,7 @@ export function PanelCampograma({
   liga,
   equipos,
   temporada,
+  otro = null,
 }: {
   /** Nuestras filas de la temporada elegida. */
   nuestros: FilaPartido[];
@@ -42,6 +44,8 @@ export function PanelCampograma({
   /** Cuántos equipos hay detrás de esa media. */
   equipos: number;
   temporada: string;
+  /** El equipo de la categoría elegido arriba para compararse, si lo hay. */
+  otro?: OtroEquipo | null;
 }) {
   const [momento, setMomento] = useState<MomentoJuego>("con");
 
@@ -52,7 +56,22 @@ export function PanelCampograma({
   | o es lo que somos?—; la categoría contesta la de después, que es si lo que
   | somos es mucho o poco, y además no se mueve con un partido.
   */
-  const [referencia, setReferencia] = useState<ReferenciaCampo>("nuestra");
+  const [referencia, setReferencia] = useState<ReferenciaCampo>(
+    otro ? "equipo" : "nuestra",
+  );
+
+  /*
+  | Elegir un equipo arriba es pedir compararse con él: la referencia salta a
+  | su media sola. Se ajusta en el render, con el nombre anterior guardado, que
+  | es lo que React pide en vez de un efecto.
+  */
+  const nombreOtro = otro?.nombre ?? "";
+  const [otroVisto, setOtroVisto] = useState(nombreOtro);
+
+  if (otroVisto !== nombreOtro) {
+    setOtroVisto(nombreOtro);
+    setReferencia(nombreOtro ? "equipo" : "nuestra");
+  }
 
   const jugados = useMemo(
     () => [...nuestros].sort((a, b) => b.fecha.localeCompare(a.fecha)),
@@ -90,7 +109,14 @@ export function PanelCampograma({
   | Mirándonos enteros, la referencia sólo puede ser la categoría: compararnos
   | con nuestra propia media daría cero en todas las fichas.
   */
-  const referenciaUsada: ReferenciaCampo = nosotrosEnteros ? "liga" : referencia;
+  const referenciaUsada: ReferenciaCampo =
+    referencia === "equipo" && otro
+      ? "equipo"
+      : nosotrosEnteros
+        ? "liga"
+        : referencia === "equipo"
+          ? "nuestra"
+          : referencia;
 
   const fichas = useMemo(
     () =>
@@ -102,6 +128,7 @@ export function PanelCampograma({
         contrarios,
         referenciaUsada,
         liga,
+        otro,
       ),
     [
       contraDelPartido,
@@ -109,6 +136,7 @@ export function PanelCampograma({
       liga,
       momento,
       nuestros,
+      otro,
       partido,
       referenciaUsada,
     ],
@@ -129,9 +157,17 @@ export function PanelCampograma({
 
   /* Sin filas de la categoría el conmutador está apagado y manda lo nuestro. */
   const contraLaLiga = referenciaUsada === "liga" && liga.length > 0;
+  const contraOtro = referenciaUsada === "equipo" && !!otro;
 
   /* Cuántos informes hay detrás de la referencia, para poder decirlo. */
   const cuantos = contraLaLiga ? liga.length : nuestros.length;
+
+  /* Cómo se nombra la referencia en cada frase. */
+  const nombreReferencia = contraOtro
+    ? `la media de ${otro!.nombre}`
+    : contraLaLiga
+      ? "la media de la categoría"
+      : "nuestra media";
 
   return (
     <>
@@ -198,6 +234,23 @@ export function PanelCampograma({
               {r.corto}
             </button>
           ))}
+
+          {otro && (
+            <button
+              type="button"
+              onClick={() => setReferencia("equipo")}
+              aria-pressed={referenciaUsada === "equipo"}
+              title={`Lo que hace ${otro.nombre} de media esta temporada: ¿estamos por encima o por debajo de él?`}
+              className={`rounded-lg px-3 py-2 text-xs transition ${
+                referenciaUsada === "equipo"
+                  ? "bg-[#4F8FE8]/15"
+                  : "text-white/50 hover:text-white"
+              }`}
+              style={referenciaUsada === "equipo" ? { color: COMPARADO } : undefined}
+            >
+              Media de {otro.nombre}
+            </button>
+          )}
         </div>
 
         <span className="text-[11px] text-white/35">{meta.pregunta}</span>
@@ -207,7 +260,9 @@ export function PanelCampograma({
         <Panel
           title={meta.label}
           subtitle={
-            nosotrosEnteros
+            contraOtro
+              ? `${nosotrosEnteros ? "Nosotros" : "El partido"} a la izquierda y lo que hace ${otro!.nombre} de media a la derecha, con las mismas cifras en el mismo sitio`
+              : nosotrosEnteros
               ? "Nosotros a la izquierda y un equipo medio de la categoría a la derecha, con las mismas cifras en el mismo sitio"
               : contraLaLiga
                 ? "El partido a la izquierda y lo que hace un equipo medio de la categoría a la derecha, con las mismas cifras en el mismo sitio"
@@ -222,7 +277,11 @@ export function PanelCampograma({
                 className="inline-block h-2.5 w-2.5 rounded-[2px]"
                 style={{ background: MEJOR }}
               />
-              {contraLaLiga ? "Mejor que la categoría" : "Mejor que nuestra media"}
+              {contraOtro
+                ? `Mejor que ${otro!.nombre}`
+                : contraLaLiga
+                  ? "Mejor que la categoría"
+                  : "Mejor que nuestra media"}
             </span>
 
             <span className="flex items-center gap-1.5" style={{ color: PEOR }}>
@@ -266,9 +325,17 @@ export function PanelCampograma({
             <Campograma
               fichas={fichas}
               lado="media"
-              titulo={contraLaLiga ? "La media de la liga" : "Nuestra media"}
+              titulo={
+                contraOtro
+                  ? `La media de ${otro!.nombre}`
+                  : contraLaLiga
+                    ? "La media de la liga"
+                    : "Nuestra media"
+              }
               subtitulo={
-                contraLaLiga
+                contraOtro
+                  ? `${otro!.suyos.length} ${otro!.suyos.length === 1 ? "partido" : "partidos"} de ${temporada}`
+                  : contraLaLiga
                   ? `${equipos} equipos · ${liga.length} informes de ${temporada}`
                   : `${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} de ${temporada}`
               }
@@ -276,19 +343,25 @@ export function PanelCampograma({
           </div>
 
           <Lectura>
-            {lecturaDeMomento(fichas, partido?.rival ?? "", referenciaUsada)}
+            {lecturaDeMomento(fichas, partido?.rival ?? "", referenciaUsada, otro?.nombre)}
           </Lectura>
 
           <p className="mt-3 text-[11px] leading-relaxed text-white/40">
             El tanto por ciento de encima de cada cifra es{" "}
             <strong className="text-white/60">cuánto cambia respecto a{" "}
-            {contraLaLiga ? "la media de la categoría" : "nuestra media"}, tal
+            {nombreReferencia}, tal
             cual</strong>: 13 remates en contra sobre una media de 8,33 son un
             +56 %. Lo que dice si eso es bueno o malo es{" "}
             <strong className="text-white/60">el color</strong>, que sí lleva el
             sentido de la métrica puesto: en PPDA, pérdidas o remates en contra,
             subir sale en naranja.{" "}
-            {nosotrosEnteros ? (
+            {contraOtro ? (
+              <>
+                Detrás de la media de {otro!.nombre} hay {otro!.suyos.length}{" "}
+                {otro!.suyos.length === 1 ? "partido" : "partidos"} suyos: con
+                pocos, un partido la mueve entera.
+              </>
+            ) : nosotrosEnteros ? (
               <>
                 A la izquierda no hay un partido: son nuestros{" "}
                 {nuestros.length}{" "}
@@ -318,7 +391,7 @@ export function PanelCampograma({
         <Panel
           title="Las cifras del momento"
           subtitle={`Lo mismo del campo, en columna, por si hace falta el número exacto. La referencia es ${
-            contraLaLiga ? "la media de la categoría" : "nuestra media de la temporada"
+            contraOtro || contraLaLiga ? nombreReferencia : "nuestra media de la temporada"
           }.`}
           icon={Scale}
         >
@@ -331,7 +404,11 @@ export function PanelCampograma({
                     {partido?.rival ?? "Nosotros"}
                   </th>
                   <th className="pb-2 pr-3 text-right font-medium">
-                    {contraLaLiga ? "Media liga" : "Nuestra media"}
+                    {contraOtro
+                      ? `Media ${otro!.nombre}`
+                      : contraLaLiga
+                        ? "Media liga"
+                        : "Nuestra media"}
                   </th>
                   <th className="pb-2 text-right font-medium" title="Cuánto cambia la cifra respecto a la referencia. El color dice si ese cambio es bueno o malo.">
                     Cambio

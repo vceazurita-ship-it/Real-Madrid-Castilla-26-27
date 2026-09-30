@@ -76,6 +76,14 @@ export const tinta = (alfa: number) => `rgb(var(--rmcf-ink-rgb) / ${alfa})`;
 
 export const ORO = "var(--rmcf-gold-ink)";
 
+/**
+ * El equipo (o la temporada) con el que uno se compara a mano.
+ *
+ * Azul porque no se confunde ni con el oro nuestro ni con el verde y el naranja
+ * de mejor y peor, y se lee igual en modo día y en modo noche.
+ */
+export const COMPARADO = "#4F8FE8";
+
 /* ------------------------------------------------------------------ */
 /*  BARRA DE PERCENTIL                                                 */
 /* ------------------------------------------------------------------ */
@@ -104,7 +112,16 @@ export type FilaPercentil = {
  * La marca del 50 es la mediana de la liga, no el centro del dibujo: es la
  * referencia contra la que se lee todo.
  */
-export function BarraPercentil({ fila }: { fila: FilaPercentil }) {
+export function BarraPercentil({
+  fila,
+  otra,
+  nombreOtra,
+}: {
+  fila: FilaPercentil;
+  /** La misma métrica del equipo elegido para compararse, si lo hay. */
+  otra?: FilaPercentil | null;
+  nombreOtra?: string;
+}) {
   const [abierta, setAbierta] = useState(false);
 
   const pct = fila.percentil;
@@ -159,6 +176,15 @@ export function BarraPercentil({ fila }: { fila: FilaPercentil }) {
             aria-hidden
           />
 
+          {otra?.percentil !== null && otra?.percentil !== undefined && (
+            <span
+              className="absolute inset-y-[-4px] w-[3px] -translate-x-1/2 rounded-full"
+              style={{ left: `${otra.percentil}%`, background: COMPARADO }}
+              title={`${nombreOtra ?? "El otro"}: p${Math.round(otra.percentil)}`}
+              aria-hidden
+            />
+          )}
+
           {pct !== null && (
             <span
               className="absolute inset-y-0 rounded-full"
@@ -180,6 +206,23 @@ export function BarraPercentil({ fila }: { fila: FilaPercentil }) {
           {pct === null ? "—" : `p${Math.round(pct)}`}
         </span>
       </div>
+
+      {otra && (
+        <p className="mt-1 flex min-w-0 items-baseline gap-2 text-[11px] tabular-nums">
+          <span className="min-w-0 flex-1 truncate" style={{ color: COMPARADO }}>
+            {nombreOtra}
+          </span>
+          <span className="shrink-0 font-semibold" style={{ color: COMPARADO }}>
+            {formatea(otra.valor, otra.unidad)}
+          </span>
+          <span className="w-16 shrink-0 text-right" style={{ color: COMPARADO }}>
+            {otra.puesto ? `${otra.puesto}º/${otra.deCuantos}` : "—"}
+          </span>
+          <span className="w-9 shrink-0 text-right text-[10px]" style={{ color: tinta(0.4) }}>
+            {otra.percentil === null ? "—" : `p${Math.round(otra.percentil)}`}
+          </span>
+        </p>
+      )}
 
       {abierta && (
         <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
@@ -208,12 +251,15 @@ export function BarrasEquipos({
   unidad,
   mejorAlto,
   destacado,
+  comparado,
   alPulsar,
 }: {
   filas: FilaEquipo[];
   unidad: Unidad;
   mejorAlto: boolean | null;
   destacado: string;
+  /** El segundo equipo que se quiere ver resaltado, en azul. */
+  comparado?: string;
   alPulsar?: (equipo: string) => void;
 }) {
   const escudoDe = useEscudos();
@@ -235,6 +281,7 @@ export function BarrasEquipos({
     <div className="min-w-0 space-y-1">
       {orden.map((fila, indice) => {
         const esNuestro = fila.equipo === destacado;
+        const esOtro = !!comparado && fila.equipo === comparado;
 
         return (
           <button
@@ -265,7 +312,7 @@ export function BarrasEquipos({
 
               <span
                 className={`min-w-0 truncate text-[12px] ${
-                  esNuestro ? "font-semibold text-white" : "text-white/60"
+                  esNuestro || esOtro ? "font-semibold text-white" : "text-white/60"
                 }`}
               >
                 {fila.equipo}
@@ -277,14 +324,14 @@ export function BarrasEquipos({
                 className="block h-3 rounded-[3px]"
                 style={{
                   width: `${Math.max(2, (Math.abs(fila.valor) / tope) * 100)}%`,
-                  background: esNuestro ? ORO : tinta(0.28),
+                  background: esNuestro ? ORO : esOtro ? COMPARADO : tinta(0.28),
                 }}
               />
             </span>
 
             <span
               className={`w-16 shrink-0 text-right text-[12px] tabular-nums ${
-                esNuestro ? "font-semibold text-white" : "text-white/55"
+                esNuestro || esOtro ? "font-semibold text-white" : "text-white/55"
               }`}
             >
               {formatea(fila.valor, unidad)}
@@ -316,6 +363,7 @@ export function Dispersion({
   unidadX,
   unidadY,
   destacado,
+  comparado,
   alPulsar,
   rotulaTodos = false,
 }: {
@@ -325,6 +373,8 @@ export function Dispersion({
   unidadX: Unidad;
   unidadY: Unidad;
   destacado: string;
+  /** El segundo punto resaltado, en azul: el equipo o la temporada elegidos. */
+  comparado?: string;
   alPulsar?: (equipo: string) => void;
   /**
    * Escribe el rótulo de **todos** los puntos, no sólo el del destacado.
@@ -469,12 +519,20 @@ export function Dispersion({
             {etiquetaY}
           </text>
 
-          {puntos.map((punto) => {
+          {/* Los dos resaltados, los últimos: encima de los demás. */}
+          {[...puntos]
+            .sort(
+              (a, b) =>
+                Number(a.equipo === destacado || a.equipo === comparado) -
+                Number(b.equipo === destacado || b.equipo === comparado),
+            )
+            .map((punto) => {
             const esNuestro = punto.equipo === destacado;
+            const esOtro = !!comparado && punto.equipo === comparado;
 
             const escudo = escudoDe(punto.equipo);
 
-            const lado = esNuestro ? 30 : 22;
+            const lado = esNuestro || esOtro ? 30 : 22;
 
             const cx = px(punto.x);
             const cy = py(punto.y);
@@ -494,8 +552,8 @@ export function Dispersion({
                       cy={cy}
                       r={lado / 2 + 2}
                       fill="var(--rmcf-surface, #11161C)"
-                      stroke={esNuestro ? ORO : tinta(0.18)}
-                      strokeWidth={esNuestro ? 2 : 1}
+                      stroke={esNuestro ? ORO : esOtro ? COMPARADO : tinta(0.18)}
+                      strokeWidth={esNuestro || esOtro ? 2 : 1}
                     />
 
                     <image
@@ -511,8 +569,8 @@ export function Dispersion({
                   <circle
                     cx={cx}
                     cy={cy}
-                    r={esNuestro ? 7 : 5}
-                    fill={esNuestro ? ORO : tinta(0.3)}
+                    r={esNuestro || esOtro ? 7 : 5}
+                    fill={esNuestro ? ORO : esOtro ? COMPARADO : tinta(0.3)}
                     /* El anillo del color del fondo separa los puntos que se
                        pisan sin inventar otro color. */
                     stroke="var(--rmcf-surface, #11161C)"
@@ -533,14 +591,14 @@ export function Dispersion({
                   style={{ cursor: alPulsar ? "pointer" : "default" }}
                 />
 
-                {(esNuestro || rotulaTodos) && (
+                {(esNuestro || esOtro || rotulaTodos) && (
                   <text
                     x={cx}
                     y={cy - lado / 2 - 5}
                     textAnchor="middle"
                     fontSize={11}
-                    fontWeight={esNuestro ? 700 : 500}
-                    fill={esNuestro ? tinta(0.9) : tinta(0.55)}
+                    fontWeight={esNuestro || esOtro ? 700 : 500}
+                    fill={esNuestro ? tinta(0.9) : esOtro ? COMPARADO : tinta(0.55)}
                   >
                     {punto.equipo}
                   </text>
