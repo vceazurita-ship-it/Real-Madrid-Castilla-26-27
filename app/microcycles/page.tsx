@@ -475,7 +475,7 @@ function parseCSV(text: string): Row[] {
     skipEmptyLines: true,
   });
 
-  return parsed.data
+  const filas = parsed.data
     .slice(1)
     .map((r) => ({
       temporada: r[0] || "",
@@ -510,6 +510,68 @@ function parseCSV(text: string): Row[] {
       observaciones: r[30] || "",
     }))
     .filter((r) => r.micro > 0 && r.md && r.tarea.trim() !== "");
+
+  return separaSemanas(filas);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Un micro con dos rivales son dos semanas                           */
+/* ------------------------------------------------------------------ */
+
+/** «dd/mm/aaaa» → «aaaa-mm-dd», para ordenar. */
+const fechaIso = (f: string) => {
+  const m = f.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
+};
+
+/**
+ * Con partido entre semana, la hoja apunta dos semanas con el mismo número de
+ * micro: el 13 lleva al Sant Andreu (miércoles) y al Alcorcón (domingo), y
+ * cada tarea dice de cuál es. Agrupando sólo por número se juntaban en una y
+ * la del Alcorcón no aparecía.
+ *
+ * Se separan sin tocar la numeración del cuerpo técnico: el primer rival (por
+ * fecha) se queda con el 13 y el siguiente pasa a ser el «13B» —internamente
+ * 13,1, para que siga ordenado entre el 13 y el 14—. Una tarea sin rival
+ * escrito es de la semana del primero.
+ */
+function separaSemanas(filas: Row[]): Row[] {
+  const porMicro = new Map<number, Row[]>();
+
+  for (const f of filas) porMicro.set(f.micro, [...(porMicro.get(f.micro) ?? []), f]);
+
+  const salida: Row[] = [];
+
+  for (const [micro, suyas] of porMicro) {
+    const rivales = [...new Set(suyas.map((f) => f.rival.trim()).filter(Boolean))].sort((a, b) => {
+      const primera = (r: string) =>
+        suyas
+          .filter((f) => f.rival.trim() === r)
+          .map((f) => fechaIso(f.fecha))
+          .filter(Boolean)
+          .sort()[0] ?? "";
+      return primera(a).localeCompare(primera(b));
+    });
+
+    for (const f of suyas) {
+      const i = Math.max(0, rivales.indexOf(f.rival.trim()));
+      salida.push({ ...f, rival: f.rival.trim() || rivales[0] || "", micro: micro + i / 10 });
+    }
+  }
+
+  return salida;
+}
+
+/** 13 → «13»; 13,1 → «13B»; 13,2 → «13C». */
+function etiquetaMicro(micro: number | string) {
+  const n = Number(micro);
+
+  if (!Number.isFinite(n)) return String(micro);
+
+  const entero = Math.floor(n + 1e-9);
+  const extra = Math.round((n - entero) * 10);
+
+  return extra > 0 ? `${entero}${String.fromCharCode(65 + extra)}` : String(entero);
 }
 
 type TabKey =
@@ -715,7 +777,7 @@ export default function Page() {
 
       return {
         micro: m,
-        label: `M${m}`,
+        label: `M${etiquetaMicro(m)}`,
         rival: set.find((r) => r.rival)?.rival || "",
         tareas: set.length,
         tiempo: sum(set.map((r) => r.tiempo)),
@@ -1158,7 +1220,7 @@ export default function Page() {
   const exportCSV = () => {
     const csv = Papa.unparse(
       sortedTasks.map((r) => ({
-        Micro: r.micro,
+        Micro: etiquetaMicro(r.micro),
         Rival: r.rival,
         Dia: r.dia,
         MD: r.md,
@@ -1257,7 +1319,7 @@ export default function Page() {
       out.push({
         icon: Activity,
         tone: "text-amber-400",
-        text: `Respecto a M${microDelta.prev.micro}, la evaluación ${arrow} ${Math.abs(
+        text: `Respecto a M${etiquetaMicro(microDelta.prev.micro)}, la evaluación ${arrow} ${Math.abs(
           microDelta.eval
         )} pts y la carga varía ${microDelta.load >= 0 ? "+" : ""}${fmtInt(
           microDelta.load
@@ -1387,7 +1449,7 @@ export default function Page() {
 
                 {selectedMicroStat && (
                   <span className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-xs sm:text-sm text-[#C8A96B]">
-                    M{selectedMicroStat.micro}
+                    M{etiquetaMicro(selectedMicroStat.micro)}
                     {selectedMicroStat.rival
                       ? ` · ${selectedMicroStat.rival}`
                       : ""}
@@ -1442,7 +1504,7 @@ export default function Page() {
                     </div>
                   </button>
 
-                  {microStats.map((m) => {
+                  {[...microStats].reverse().map((m) => {
                     const active = String(m.micro) === micro;
 
                     return (
@@ -1459,7 +1521,7 @@ export default function Page() {
                       >
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-white/50">
-                            Micro {m.micro}
+                            Micro {etiquetaMicro(m.micro)}
                           </p>
 
                           <span
@@ -1509,9 +1571,9 @@ export default function Page() {
                   label="Microciclo"
                   options={[
                     { value: "ALL", label: "Todos los microciclos" },
-                    ...microOptions.map((m) => ({
+                    ...[...microOptions].reverse().map((m) => ({
                       value: String(m.micro),
-                      label: `Micro ${m.micro}${m.rival ? ` · ${m.rival}` : ""}`,
+                      label: `Micro ${etiquetaMicro(m.micro)}${m.rival ? ` · ${m.rival}` : ""}`,
                     })),
                   ]}
                 />
@@ -1604,7 +1666,7 @@ export default function Page() {
                     <FilterChip
                       color="gold"
                       onClear={() => setMicro("ALL")}
-                      label={`Micro ${micro}`}
+                      label={`Micro ${etiquetaMicro(micro)}`}
                     />
                   )}
 
@@ -2268,7 +2330,7 @@ export default function Page() {
                                 </p>
 
                                 <p className="text-xs text-white/50">
-                                  M{d.micro} · {d.md} · {d.tipo}
+                                  M{etiquetaMicro(d.micro)} · {d.md} · {d.tipo}
                                 </p>
 
                                 <div className="mt-2 space-y-0.5 text-xs">
@@ -3732,7 +3794,7 @@ function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
             : "border-white/5 bg-white/[0.02] hover:border-white/20"
         }`}
       >
-        <span className="text-xs font-semibold">Micro {row.micro}</span>
+        <span className="text-xs font-semibold">Micro {etiquetaMicro(row.micro)}</span>
 
         <span className="w-full truncate text-[10px] text-white/40">
           {row.rival || "—"}
@@ -3749,7 +3811,7 @@ function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
             disabled={!v.tareas}
             title={
               v.tareas
-                ? `M${row.micro} · ${v.md}\n${v.tareas} tareas · ${v.tiempo}'\nCarga ${fmtInt(
+                ? `M${etiquetaMicro(row.micro)} · ${v.md}\n${v.tareas} tareas · ${v.tiempo}'\nCarga ${fmtInt(
                     v.carga
                   )} · Cog ${fmtInt(v.cog)}${v.eval ? `\nEval ${v.eval}` : ""}`
                 : "Sin tareas"
@@ -3807,7 +3869,7 @@ function TaskRow({ row }: { row: Row }) {
         <p className="truncate text-sm font-semibold">{row.tarea}</p>
 
         <p className="truncate text-xs text-white/40">
-          M{row.micro} · {row.md} · {row.tipo}
+          M{etiquetaMicro(row.micro)} · {row.md} · {row.tipo}
         </p>
       </div>
 
