@@ -21,6 +21,71 @@ import {
   recordDateKey,
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
+import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
+
+/** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
+const NOSOTROS = "RM Castilla";
+
+/**
+ * ¿Es día de partido? La hoja lo marca con «MD» y una tarea de competición.
+ * Se mira el MD y no sólo la tarea porque un MD-2 puede llevar un «partido
+ * reducido» apuntado como competición.
+ */
+function esDiaDePartido(tareas: MicrocycleRecord[]) {
+  return tareas.some(
+    (t) =>
+      String(t.MD ?? "").trim().toUpperCase() === "MD" &&
+      /COMPETICION/.test(normalizeText(`${t["Tipo Tarea"]} ${t["Contenido Principal"]} ${t.Fase}`)),
+  );
+}
+
+/** «UE SANT ANDREU» → «UE Sant Andreu»; las siglas cortas se quedan en mayúscula. */
+function nombreBonito(nombre: string) {
+  return nombre
+    .toLowerCase()
+    .split(/\s+/)
+    .map((p) => (p.length <= 3 && !/^(de|del|la|el)$/.test(p) ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
+/** Escudo del club o, si no lo hay (amistosos), sus iniciales en un círculo. */
+function Escudo({ url, nombre, className }: { url: string | null; nombre: string; className?: string }) {
+  const [roto, setRoto] = useState(false);
+
+  if (url && !roto) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
+      <img
+        src={url}
+        alt={nombre}
+        title={nombre}
+        onError={() => setRoto(true)}
+        className={cn("shrink-0 object-contain", className)}
+      />
+    );
+  }
+
+  const iniciales = nombre
+    .replace(/[^\p{L}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((p) => p.length > 2)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <span
+      title={nombre}
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[8px] font-bold text-white/70",
+        className,
+      )}
+    >
+      {iniciales || "?"}
+    </span>
+  );
+}
 
 
 type MicrocycleRecord = {
@@ -175,6 +240,23 @@ export default function MicroCalendar() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  /* Los escudos, los mismos que usan los gráficos de Data Análisis. */
+  const [listaEscudos, setListaEscudos] = useState<Escudos>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void traeEscudos().then((lista) => {
+      if (vivo) setListaEscudos(lista);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const escudoDe = useMemo(() => buscadorDeEscudos(listaEscudos), [listaEscudos]);
 
   useEffect(() => {
     let cancelled = false;
@@ -363,6 +445,8 @@ export default function MicroCalendar() {
         const theme = phaseTheme(dominantPhase);
         const md = dayTasks[0]?.MD;
 
+        const partido = esDiaDePartido(dayTasks) ? String(dayTasks[0]?.Rival ?? "").trim() : "";
+
         return {
           hasContent: true,
           accentClass: theme.cell,
@@ -382,6 +466,21 @@ export default function MicroCalendar() {
           ),
           children: (
             <>
+              {/* El partido del día, a la vista sin abrir la casilla. */}
+              {partido && (
+                <div
+                  className="flex items-center gap-1 rounded-md border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-1.5 py-1"
+                  title={`Castilla vs ${nombreBonito(partido)}`}
+                >
+                  <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="shrink-0 text-[9px] font-semibold text-[#C8A96B]">vs</span>
+                  <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden min-w-0 truncate text-[10px] font-semibold text-white/85 md:inline">
+                    {nombreBonito(partido)}
+                  </span>
+                </div>
+              )}
+
               {orderedBlocks.map(([name, minutes]) => (
                 <div key={name}>
                   <div className="flex items-baseline justify-between gap-2">
