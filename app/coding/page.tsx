@@ -1044,6 +1044,13 @@ function Coding() {
     setSeleccionado(null);
     setEditando(null);
     setInicioMs(null);
+
+    /* La cola de «Reproducir todos» son clips de la sesión anterior: seguía
+       saltando por sus tiempos encima del vídeo del rival nuevo. (Las
+       pizarras se sueltan más abajo, donde ya están declaradas.) */
+    setCola(null);
+    setEnCola(0);
+    setBucle(false);
   }, [sesionAbierta]);
 
   /* Lo que puede pesar cada fichero que salga. Vive en la pestaña, como el
@@ -1224,6 +1231,21 @@ function Coding() {
   /* La pizarra que se está repartiendo entre cortes, si es que hay alguna. */
   const [pizarraRepartida, setPizarraRepartida] = useState<string | null>(null);
   const [pizarraVisible, setPizarraVisible] = useState(true);
+
+  /* Al cambiar de sesión, una pizarra a medio pintar o a medio repartir es de
+     un clip que ya no está: se suelta, como el resto en «AL CAMBIAR DE SESIÓN
+     SE EMPIEZA DE CERO». Va aquí y no allí porque el linter no deja usar un
+     `set` antes de declararlo. */
+  const sesionDeLaPizarra = useRef(sesionAbierta);
+
+  useEffect(() => {
+    if (sesionDeLaPizarra.current === sesionAbierta) return;
+
+    sesionDeLaPizarra.current = sesionAbierta;
+
+    setPizarraEditando(null);
+    setPizarraRepartida(null);
+  }, [sesionAbierta]);
 
   /* Los vídeos abiertos en esta sesión: uno normalmente, dos o tres cuando
      el partido viene partido en ficheros. */

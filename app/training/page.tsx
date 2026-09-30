@@ -187,6 +187,11 @@ export default function JugadoresSesionPage() {
         body: JSON.stringify({
           fecha,
           estados: actual,
+          /* El nombre de cada ID: el servidor cruza por nombre por si la hoja
+             ha renumerado los JUG-XX desde que se cargó la pantalla. */
+          nombres: Object.fromEntries(
+            squad.map((player) => [player.id, player.nombre]),
+          ),
           imageUrl: initialImageUrl,
         }),
       });
@@ -198,7 +203,7 @@ export default function JugadoresSesionPage() {
 
       return true;
     },
-    [fecha, initialImageUrl]
+    [fecha, initialImageUrl, squad]
   );
 
   /*

@@ -47,6 +47,14 @@ const cache = new Map<string, Guardado>();
 const enVuelo = new Map<string, Promise<unknown>>();
 
 /*
+| Cuántas veces se ha tirado la copia. Una lectura sólo guarda lo que trae si
+| nadie ha escrito desde que salió: una lectura lanzada antes de un guardado
+| —y a la hoja se le piden 30-70 s— volvía después con la fila de antes y
+| repoblaba la caché que el guardado acababa de tirar.
+*/
+let generacion = 0;
+
+/*
 |--------------------------------------------------------------------------
 | Y UNA COPIA QUE SOBREVIVE AL SERVIDOR
 |--------------------------------------------------------------------------
@@ -200,6 +208,8 @@ function pide(consulta: string, { propia = false } = {}) {
 
   if (yaVa) return yaVa;
 
+  const nacida = generacion;
+
   const peticion = (async () => {
     try {
       const response = await fetch(`${APPS_SCRIPT_URL}?${consulta}`, {
@@ -214,13 +224,22 @@ function pide(consulta: string, { propia = false } = {}) {
 
       const data = await response.json();
 
-      cache.set(consulta, { data, hecha: Date.now() });
+      /* Si se ha escrito en la hoja mientras volaba, esto puede ser la fila de
+         antes: se entrega a quien la pidió, pero no se guarda como copia. */
+      if (nacida === generacion) {
+        cache.set(consulta, { data, hecha: Date.now() });
 
-      guardaFuera(consulta, data);
+        guardaFuera(consulta, data);
+      }
 
       return data;
     } finally {
-      enVuelo.delete(consulta);
+      /*
+      | Sólo la que se apuntó se desapunta, y sólo si sigue siendo la suya:
+      | tras un guardado el mapa se vacía y la que haya ahora es otra, más
+      | nueva, que no hay que quitar.
+      */
+      if (!propia && nacida === generacion) enVuelo.delete(consulta);
     }
   })();
 
@@ -325,7 +344,12 @@ async function lee(consulta: string, fresco: boolean, rancia = false) {
 
 /** Lo que se acaba de escribir tiene que verse ya: el POST tira la copia. */
 function olvida() {
+  generacion += 1;
+
   cache.clear();
+
+  /* Nadie debe engancharse a una lectura que salió antes de escribir. */
+  enVuelo.clear();
 
   olvidaFuera();
 }
@@ -438,6 +462,14 @@ export async function POST(request: NextRequest) {
     });
 
     const text = await response.text();
+
+    /*
+    | Y otra vez al volver. El POST tarda lo suyo, y lo que se leyó mientras
+    | tanto —y se guardó como copia, aquí o en Supabase— puede ser la fila de
+    | antes de escribir. El `olvida()` de antes sólo sirve para quien lea
+    | durante la escritura; éste es el que deja la copia de verdad limpia.
+    */
+    olvida();
 
     let data;
 

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { readSeason, writeSeason } from "@/lib/ratings/store";
 import { MatchMeta, marcadorDe } from "@/lib/ratings/types";
+
+import {
+  CambioNoValido,
+  ConflictoDeGuardado,
+  cambiaTemporada,
+} from "../_lib/cambiaTemporada";
 
 export const dynamic = "force-dynamic";
 
@@ -34,54 +39,69 @@ export async function POST(request: NextRequest) {
 
     if (!matchId) return mal("Falta el partido");
 
-    const season = await readSeason();
+    const accion = body.accion;
 
-    if (body.accion === "editar") {
-      const guardado = season.matches[matchId];
-
-      if (!guardado) return mal("Ese partido todavía no está guardado.", 404);
-
-      const cambios = body.cambios ?? {};
-      const opponent = String(cambios.opponent ?? guardado.match.opponent).trim();
-
-      if (!opponent) return mal("El rival no puede quedar vacío.");
-
-      const isHome = typeof cambios.isHome === "boolean" ? cambios.isHome : guardado.match.isHome;
-      const result = String(cambios.result ?? guardado.match.result).trim();
-      const date = String(cambios.date ?? guardado.match.date).trim();
-
-      if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return mal("La fecha no es válida.");
-
-      season.matches[matchId] = {
-        ...guardado,
-        match: {
-          ...guardado.match,
-          date,
-          opponent,
-          competition: String(cambios.competition ?? guardado.match.competition).trim() || "Amistoso",
-          isHome,
-          result,
-          ...marcadorDe(result, isHome),
-          editado: true,
-        },
-        updatedAt: new Date().toISOString(),
-      };
-    } else if (body.accion === "ocultar" || body.accion === "mostrar") {
-      const ocultos = new Set(season.ocultos ?? []);
-
-      if (body.accion === "ocultar") ocultos.add(matchId);
-      else ocultos.delete(matchId);
-
-      season.ocultos = [...ocultos];
-    } else {
+    if (accion !== "editar" && accion !== "ocultar" && accion !== "mostrar") {
       return mal("No sé qué hay que hacer.");
     }
 
-    const saved = await writeSeason(season);
+    /*
+    | Condicional (ver `cambiaTemporada`): el cambio se aplica sobre la
+    | temporada recién leída y, si alguien guardó en medio, se reaplica sobre
+    | lo nuevo. Las comprobaciones van dentro porque dependen de lo guardado.
+    */
+    const saved = await cambiaTemporada((season) => {
+      if (accion === "editar") {
+        const guardado = season.matches[matchId];
+
+        if (!guardado) throw new CambioNoValido("Ese partido todavía no está guardado.", 404);
+
+        const cambios = body.cambios ?? {};
+        const opponent = String(cambios.opponent ?? guardado.match.opponent).trim();
+
+        if (!opponent) throw new CambioNoValido("El rival no puede quedar vacío.");
+
+        const isHome = typeof cambios.isHome === "boolean" ? cambios.isHome : guardado.match.isHome;
+        const result = String(cambios.result ?? guardado.match.result).trim();
+        const date = String(cambios.date ?? guardado.match.date).trim();
+
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          throw new CambioNoValido("La fecha no es válida.");
+        }
+
+        season.matches[matchId] = {
+          ...guardado,
+          match: {
+            ...guardado.match,
+            date,
+            opponent,
+            competition: String(cambios.competition ?? guardado.match.competition).trim() || "Amistoso",
+            isHome,
+            result,
+            ...marcadorDe(result, isHome),
+            editado: true,
+          },
+          updatedAt: new Date().toISOString(),
+        };
+
+        return;
+      }
+
+      const ocultos = new Set(season.ocultos ?? []);
+
+      if (accion === "ocultar") ocultos.add(matchId);
+      else ocultos.delete(matchId);
+
+      season.ocultos = [...ocultos];
+    });
 
     return NextResponse.json({ success: true, season: saved });
   } catch (error) {
+    if (error instanceof CambioNoValido) return mal(error.message, error.status);
+
     console.error("POST /api/ratings/match", error);
+
+    if (error instanceof ConflictoDeGuardado) return mal(error.message, 409);
 
     return mal("Error guardando el partido", 500);
   }

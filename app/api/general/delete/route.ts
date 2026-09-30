@@ -15,6 +15,14 @@ const supabase = createClient(
 | rival tienen su propia puerta (`/api/rivals/media`), con su propia lista.
 */
 const CARPETAS = [
+  /*
+  | Las semanas del Área General (WeekPanel → deleteSeasonFile): la carpeta es
+  | `storagePrefix` + `/semana-XX/…` = `2026/general/semana-XX/…`, y las
+  | semanas subidas antes de separar las áreas quedaron en `2026/semana-XX/…`.
+  | Sin estas dos, borrar una imagen o un PDF de la semana daba 400.
+  */
+  /^2026\/general\/semana-\d{1,3}\//i,
+  /^2026\/semana-\d{1,3}\//i,
   /^alertas\/[a-z0-9][a-z0-9_-]{0,80}\//i,
   /^training\//i,
   /^desplazamientos\/[a-z0-9][a-z0-9_-]{0,80}\//i,

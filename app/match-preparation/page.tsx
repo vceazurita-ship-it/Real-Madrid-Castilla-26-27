@@ -102,6 +102,20 @@ const CAMPOS_PLAN = [
 | de vídeo y el informe son de ese rival, y la fecha, el campo y si somos
 | locales son del partido, así que ésos no viajan.
 */
+/*
+| Las columnas de la hoja que se editan en esta pantalla: el plan y los datos
+| del partido de la cabecera. Es lo único que se manda encima de la fila recién
+| leída; el resto —el informe de scouting colectivo, sobre todo— se deja como
+| esté en la hoja.
+*/
+const CAMPOS_DE_ESTA_PANTALLA: readonly string[] = [
+  ...CAMPOS_PLAN,
+  "EQUIPO",
+  "FECHA",
+  "DIMENSIONES",
+  "LOCAL_VISITANTE",
+];
+
 const CAMPOS_REPLICABLES = CAMPOS_PLAN.filter(
   (campo) => !campo.startsWith("HUDL_") && campo !== "DOC",
 );
@@ -963,6 +977,15 @@ export default function MatchPreparation() {
   }, [modoEdicion]);
 
   /*
+  | Cuándo empezó y cuándo se verificó el último guardado (ms). La relectura
+  | al día de la carga tarda lo suyo y puede volver DESPUÉS de cerrar la
+  | edición con la fila de antes de guardar: con `editandoAhora` ya en falso,
+  | pisaba lo recién escrito. Si ha habido un guardado desde que salió —o hay
+  | uno en marcha—, se descarta.
+  */
+  const ultimoGuardadoVerificado = useRef(0);
+
+  /*
   | LA CARGA, EN DOS TIEMPOS
   |
   | Antes se pedía al Apps Script directamente y sin caché: 30-70 segundos en
@@ -986,6 +1009,8 @@ export default function MatchPreparation() {
     };
 
     async function alDia(copia: Rival[]) {
+      const empezo = Date.now();
+
       try {
         const res = await fetch("/api/rivals?action=rivales&fresco=1", {
           cache: "no-store",
@@ -996,6 +1021,9 @@ export default function MatchPreparation() {
         const nueva = ordena(await res.json());
 
         if (cancelado || nueva.length === 0) return;
+
+        /* Se guardó algo mientras volaba: esto puede ser la hoja de antes. */
+        if (ultimoGuardadoVerificado.current > empezo) return;
 
         setRivales(nueva);
 
@@ -1254,16 +1282,44 @@ export default function MatchPreparation() {
     async (rival: Rival | null) => {
       if (!rival) return true;
 
+      /* Una escritura que empieza también invalida la relectura en vuelo:
+         puede volver antes de que ésta termine, con la fila de antes. */
+      ultimoGuardadoVerificado.current = Date.now();
+
+      /*
+      | SÓLO LO QUE SE EDITA AQUÍ. La fila la comparte el informe de scouting
+      | colectivo, que escribe con la misma acción: mandar la fila tal y como
+      | se leyó al abrir devolvía a la hoja el informe de ESE momento y borraba
+      | lo escrito allí desde entonces. Se relee la fila justo antes y encima
+      | van sólo los campos del plan. Sin relectura no se escribe: el
+      | autoguardado reintenta.
+      */
+      const filas = await leeRivales();
+
+      const fresca = filas.find((r) => String(r.ID) === String(rival.ID));
+
+      const editados: Rival = { ID: String(rival.ID ?? "") };
+
+      for (const campo of CAMPOS_DE_ESTA_PANTALLA) {
+        if (campo in rival) editados[campo] = String(rival[campo] ?? "");
+      }
+
+      const aMandar: Rival = fresca
+        ? { ...fresca, ...editados, ID: String(rival.ID ?? "") }
+        : rival;
+
       /* En JSON, no como formulario: el `doPost` de la hoja pasa el cuerpo por
          `JSON.parse` y un formulario se estrella antes de guardar nada
          (`lib/hojaRivales.ts`). */
-      await guardaEnLaHoja("guardarRival", rival);
+      await guardaEnLaHoja("guardarRival", aMandar);
 
       const verificacion = await verificarGuardado({
         titulo: `Plan de partido · ${rival.EQUIPO ?? ""} · Jornada ${
           rival.JORNADA ?? "-"
         }`,
-        enviado: rival,
+        /* Se comprueba lo que es de esta pantalla: el resto es de la hoja. */
+        enviado: editados,
+        registro: rival,
         ignorar: ["FECHA"],
         modoAuto: true,
         releer: async () => {
@@ -1280,9 +1336,10 @@ export default function MatchPreparation() {
       });
 
       if (verificacion.ok) {
-  
+        ultimoGuardadoVerificado.current = Date.now();
+
         setRivales((previo) =>
-          previo.map((r) => (String(r.ID) === String(rival.ID) ? rival : r))
+          previo.map((r) => (String(r.ID) === String(rival.ID) ? aMandar : r))
         );
       }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPlayerImage } from "@/lib/playerImages";
+import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 /**
@@ -85,11 +85,43 @@ export async function POST(request: NextRequest) {
 
     const estados: Record<string, string> = body?.estados ?? {};
 
+    /* El nombre de cada ID tal como lo tenía la pantalla al cargar. */
+    const nombres: Record<string, string> = body?.nombres ?? {};
+
     const squad = await fetchSquad();
+
+    /*
+    | Cruce por NOMBRE, el ID sólo de respaldo.
+    |
+    | `estados` llega con los JUG-XX de cuando la pantalla cargó la plantilla,
+    | y aquí se cruza con la plantilla releída ahora. Si la hoja renumeró en
+    | medio, el estado de uno caía en otro, y como se escribe con
+    | `replace: true` la sesión del día quedaba mal para los dos. Con el
+    | nombre que manda la pantalla se ata cada estado a su persona; el ID se
+    | usa sólo si la pantalla no mandó nombre para ese ID (versión vieja).
+    */
+    const porNombre = new Map<string, string>();
+
+    Object.entries(estados).forEach(([id, estado]) => {
+      const nombre = normalizePlayerName(String(nombres[id] ?? ""));
+
+      if (nombre) porNombre.set(nombre, estado);
+    });
+
+    const estadoDe = (player: SheetPlayer) => {
+      const porSuNombre = porNombre.get(normalizePlayerName(player.NOMBRE ?? ""));
+
+      if (porSuNombre) return porSuNombre;
+
+      /* Ese ID era de otra persona cuando cargó la pantalla: no es suyo. */
+      if (nombres[player.ID_JUGADOR]) return "NO CONVOCADO";
+
+      return estados[player.ID_JUGADOR] ?? "NO CONVOCADO";
+    };
 
     const players = squad.map((player) => ({
       ...toClient(player),
-      estado: estados[player.ID_JUGADOR] ?? "NO CONVOCADO",
+      estado: estadoDe(player),
     }));
 
     const response = await fetch(APPS_SCRIPT, {

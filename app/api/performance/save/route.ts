@@ -12,13 +12,25 @@ export async function POST(req: NextRequest) {
   try {
     const seasonData = await req.json();
 
-    const { error } = await supabase
-  .from("performance_seasons")
-  .update({
-    data: seasonData,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("season", CURRENT_SEASON);
+    /*
+    | UPSERT, y comprobando que ha escrito (igual que /api/general/save).
+    |
+    | Era un `update` sobre la fila de la temporada: si esa fila no existe,
+    | Supabase no da error, afecta a cero filas y esto contestaba «guardado».
+    | La forma guardada no cambia: la fila guarda el cuerpo entero
+    | (`{ season, data }`), que es lo que desenvuelve `unwrapSeason`.
+    */
+    const { data: escrito, error } = await supabase
+      .from("performance_seasons")
+      .upsert(
+        {
+          season: CURRENT_SEASON,
+          data: seasonData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "season" },
+      )
+      .select("season");
 
     if (error) {
       return NextResponse.json(
@@ -29,6 +41,13 @@ export async function POST(req: NextRequest) {
         {
           status: 500,
         }
+      );
+    }
+
+    if (!escrito || escrito.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No se ha escrito ninguna fila de la temporada." },
+        { status: 500 },
       );
     }
 

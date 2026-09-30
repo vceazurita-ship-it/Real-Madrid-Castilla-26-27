@@ -6,7 +6,9 @@ import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
-import { guardaEnLaHoja, HOJA_RIVALES_URL, leeRivales } from "@/lib/hojaRivales";
+import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
+import { traeJson } from "@/lib/hojaCsv";
+import { toast } from "sonner";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
@@ -27,8 +29,6 @@ import {
   MapPin,
   Pencil,
 } from "lucide-react";
-
-const ENDPOINT = HOJA_RIVALES_URL;
 
 /* Los campos que la hoja RIVALES no tiene viven aquí, en Supabase, con el
    `ID` del rival por clave. Ver `CAMPOS_REMOTOS`, más abajo. */
@@ -397,6 +397,22 @@ const CAMPOS_REMOTOS = new Set(
   ALL_FIELDS.filter((f) => f.remoto).map((f) => f.campo),
 );
 
+/*
+| Las columnas de la hoja que se editan en esta pantalla: el informe, los
+| datos del partido de la cabecera y los recursos fijos. Es lo único que se
+| manda encima de la fila recién leída; el resto de la fila —el plan de
+| partido, sobre todo— se deja como esté en la hoja.
+*/
+const CAMPOS_DE_ESTA_PANTALLA = [
+  ...ALL_FIELDS.filter((f) => !f.remoto).map((f) => f.campo),
+  "JORNADA",
+  "FECHA",
+  "LOCAL_VISITANTE",
+  "VIDEO",
+  "HUDL_PLAYLIST",
+  "DOC",
+];
+
 const NAV = [
   { id: "datos", label: "Datos y recursos" },
   { id: "ofensivo", label: "Fase ofensiva" },
@@ -466,10 +482,14 @@ export default function ScoutRivalCollective() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`${ENDPOINT}?action=rivales`)
-      .then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.json();
+    /* Por `/api/rivals` y su caché, no directa al Apps Script: directa eran
+       30-70 s en frío cada vez que se abría la pantalla. */
+    traeJson<unknown>("/api/rivals?action=rivales")
+      .then((respuesta) => {
+        /* Si Google falla, la ruta contesta `{ success: false }`. */
+        if (!Array.isArray(respuesta)) throw new Error("Sin filas");
+
+        return respuesta as Rival[];
       })
       .then((data: Rival[]) => {
         if (cancelled) return;
@@ -505,8 +525,9 @@ export default function ScoutRivalCollective() {
   }, []);
 
   /* Puente hacia el `flush` del autoguardado: `cambiarRival` se declara antes
-     que el hook y necesita poder consolidar lo pendiente. */
-  const flushPendiente = useRef<() => Promise<void>>(async () => {});
+     que el hook y necesita poder consolidar lo pendiente. Dice si lo pendiente
+     ha llegado a la hoja. */
+  const flushPendiente = useRef<() => Promise<boolean>>(async () => true);
 
   const indice = useMemo(
     () =>
@@ -549,13 +570,49 @@ export default function ScoutRivalCollective() {
     return ALL_FIELDS.filter((f) => valorDe(f.campo).trim()).length;
   }, [rivalActivo, valorDe]);
 
+  /* El rival abierto, al día, para quien lo lea después de un `await`. */
+  const rivalActivoRef = useRef<Rival | null>(rivalActivo);
+
+  useEffect(() => {
+    rivalActivoRef.current = rivalActivo;
+  }, [rivalActivo]);
+
   const cambiarRival = useCallback(
     (rival: Rival | undefined) => {
       if (!rival) return;
 
       /* Cambiar de rival con el retardo del autoguardado a medias se llevaría
          por delante lo último escrito: primero se consolida, luego se cambia. */
-      void flushPendiente.current().then(() => setRivalActivo(rival));
+      void flushPendiente.current().then((guardado) => {
+        const actual = rivalActivoRef.current;
+
+        /*
+        | Lo escrito se deja también en la lista. Si no, al volver a este rival
+        | se abría la fila tal y como se leyó al entrar: lo tecleado desde
+        | entonces desaparecía de la pantalla aunque estuviera en la hoja.
+        */
+        if (actual) {
+          setRivales((previo) =>
+            previo.map((r) => (String(r.ID) === String(actual.ID) ? actual : r))
+          );
+        }
+
+        /*
+        | Y si no ha llegado a la hoja, no se cambia. Cambiar era darlo por
+        | perdido: el autoguardado toma el rival nuevo como base y lo que
+        | fallaba del anterior ya no lo reintenta nadie.
+        */
+        if (!guardado) {
+          toast.error("No se ha podido guardar el informe de este rival", {
+            description:
+              "No se cambia de rival hasta que llegue a la hoja: se sigue reintentando solo. Si no hay conexión, espera a que vuelva.",
+          });
+
+          return;
+        }
+
+        setRivalActivo(rival);
+      });
     },
     []
   );
@@ -598,18 +655,48 @@ export default function ScoutRivalCollective() {
   | la cabecera, que no se puede cerrar por error.
   */
 
-  const guardarEnLaHoja = useCallback(
-    async (rival: Rival | null) => {
-      if (!rival) return true;
+  /* Si el último guardado llegó a la hoja. Lo lee `cambiarRival` tras el
+     `flush`: el estado del hook todavía no se ha repintado en ese momento. */
+  const ultimoGuardadoOk = useRef(true);
+
+  const escribirEnLaHoja = useCallback(
+    async (rival: Rival) => {
+      /*
+      |----------------------------------------------------------------------
+      | SÓLO LO QUE SE EDITA AQUÍ
+      |----------------------------------------------------------------------
+      |
+      | La fila la comparte el plan de partido (`/match-preparation`), que
+      | escribe con la misma acción. Mandar la fila entera tal y como se leyó
+      | al abrir devolvía a la hoja el plan de ESE momento: lo que se hubiera
+      | escrito en el plan desde entonces desaparecía. Así que justo antes de
+      | escribir se relee la fila y encima se ponen sólo los campos de esta
+      | pantalla. Sin relectura no se escribe: el autoguardado reintenta.
+      */
+      const filas = await leeRivales();
+
+      const fresca = filas.find((r) => String(r.ID) === String(rival.ID));
+
+      const editados: Rival = { ID: String(rival.ID ?? "") };
+
+      for (const campo of CAMPOS_DE_ESTA_PANTALLA) {
+        if (campo in rival) editados[campo] = String(rival[campo] ?? "");
+      }
+
+      const aMandar: Rival = fresca
+        ? { ...fresca, ...editados, ID: String(rival.ID ?? "") }
+        : rival;
 
       /* En JSON, no como formulario: el `doPost` de la hoja pasa el cuerpo por
          `JSON.parse` y un formulario se estrella antes de guardar nada
          (`lib/hojaRivales.ts`). */
-      await guardaEnLaHoja("guardarRival", rival);
+      await guardaEnLaHoja("guardarRival", aMandar);
 
       const verificacion = await verificarGuardado({
         titulo: `Informe de scouting · ${rival.EQUIPO ?? ""}`,
-        enviado: rival,
+        /* Se comprueba lo que es de esta pantalla: el resto es de la hoja. */
+        enviado: editados,
+        registro: rival,
         ignorar: ["FECHA"],
         modoAuto: true,
         releer: async () => {
@@ -625,15 +712,47 @@ export default function ScoutRivalCollective() {
         },
       });
 
-      if (verificacion.ok) {
+      /*
+      | Una columna que la hoja no tiene no va a aparecer en el intento
+      | siguiente: devolver `false` hacía que el autoguardado reescribiera la
+      | fila sin fin. Si el envío llegó y sólo faltan columnas, está guardado
+      | todo lo que se puede guardar; la pérdida se sigue enseñando en la banda
+      | roja de la cabecera (`columnasPerdidas`).
+      */
+      const soloColumnas =
+        !verificacion.ok &&
+        verificacion.perdidos.every((p) => p.motivo === "columna-inexistente");
+
+      const bueno = verificacion.ok || soloColumnas;
+
+      if (bueno) {
         setRivales((previo) =>
-          previo.map((r) => (String(r.ID) === String(rival.ID) ? rival : r))
+          previo.map((r) => (String(r.ID) === String(rival.ID) ? aMandar : r))
         );
       }
 
-      return verificacion.ok;
+      return bueno;
     },
     [verificarGuardado]
+  );
+
+  const guardarEnLaHoja = useCallback(
+    async (rival: Rival | null) => {
+      if (!rival) return true;
+
+      try {
+        const bueno = await escribirEnLaHoja(rival);
+
+        ultimoGuardadoOk.current = bueno;
+
+        return bueno;
+      } catch (error) {
+        ultimoGuardadoOk.current = false;
+
+        throw error;
+      }
+    },
+    [escribirEnLaHoja]
   );
 
   const auto = useAutoSave<Rival | null>({
@@ -641,11 +760,25 @@ export default function ScoutRivalCollective() {
     enabled: modoEdicion,
     debounce: 1800,
     save: guardarEnLaHoja,
+    /* Una copia por rival, como el plan de partido: lo que no llegue a la
+       hoja sobrevive a cerrar la pestaña. Sin `ID` no hay a qué fila
+       devolverlo, así que no hay copia. */
+    respaldo: rivalActivo?.ID ? `scout-rival:${rivalActivo.ID}` : undefined,
   });
 
+  const { flush: flushAuto } = auto;
+
   useEffect(() => {
-    flushPendiente.current = auto.flush;
-  }, [auto.flush]);
+    flushPendiente.current = async () => {
+      /* Si no hay nada pendiente, `flush` no llega a guardar y esto se queda
+         en `true`, que es lo que es. */
+      ultimoGuardadoOk.current = true;
+
+      await flushAuto();
+
+      return ultimoGuardadoOk.current;
+    };
+  }, [flushAuto]);
 
   /* Cambiar de rival no es una edición: se toma como nueva base. */
   const idRivalActivo = String(rivalActivo?.ID ?? "");
@@ -670,6 +803,48 @@ export default function ScoutRivalCollective() {
 
     setModoEdicion(false);
   }, [auto]);
+
+  /*
+  | Lo que no llegó a la hoja en otra visita se ofrece al abrir ese rival,
+  | sólo si de verdad dice algo distinto de la fila. Recuperar es ponerlo en
+  | pantalla y abrir la edición: el autoguardado lo escribe como cualquier
+  | otro cambio, con su verificación.
+  */
+  const { recuperado, descartaRecuperado } = auto;
+
+  useEffect(() => {
+    const copia = recuperado?.valor;
+
+    if (!copia || !rivalActivo || modoEdicion) return;
+
+    if (String(copia.ID ?? "") !== String(rivalActivo.ID ?? "")) return;
+
+    const distinto = Object.keys({ ...rivalActivo, ...copia }).some(
+      (campo) =>
+        campo !== "FECHA" &&
+        String(copia[campo] ?? "") !== String(rivalActivo[campo] ?? "")
+    );
+
+    if (!distinto) return;
+
+    toast.info("Hay cambios de este informe que no llegaron a la hoja", {
+      id: `scout-recuperado-${rivalActivo.ID}`,
+      duration: 30000,
+      description: "Se quedaron guardados en este navegador.",
+      action: {
+        label: "Recuperar",
+        onClick: () => {
+          setRivalActivo(copia);
+          setModoEdicion(true);
+          descartaRecuperado();
+        },
+      },
+      cancel: {
+        label: "Descartar",
+        onClick: () => descartaRecuperado(),
+      },
+    });
+  }, [recuperado, rivalActivo, modoEdicion, descartaRecuperado]);
 
   /* Columnas de la hoja que se enseñan dentro de la lista de recursos. */
   const recursosFijos = useMemo<RecursoFijo[]>(

@@ -42,6 +42,93 @@ type PosicionItem = {
 const API =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
 
+/**
+ * ¿Ha escrito de verdad el Apps Script?
+ *
+ * Un 200 no basta: el script contesta 200 también cuando no escribe, con
+ * `{ success: false, error }` en el cuerpo, y la página de «Authorization
+ * required» de Google también llega con 200. Mirar sólo `res.ok` daba por
+ * guardado un texto que no estaba en la hoja. Una respuesta de texto que no
+ * es JSON ni HTML se da por buena, que es lo que se hacía antes.
+ */
+async function escritoEnLaHoja(res: Response): Promise<boolean> {
+  if (!res.ok) return false;
+
+  const texto = await res.text().catch(() => "");
+
+  try {
+    const cuerpo = JSON.parse(texto) as {
+      success?: boolean;
+      ok?: boolean;
+      error?: unknown;
+    } | null;
+
+    if (!cuerpo || typeof cuerpo !== "object") return true;
+
+    if (cuerpo.success === false || cuerpo.ok === false) return false;
+
+    return !(cuerpo.error && cuerpo.success !== true && cuerpo.ok !== true);
+  } catch {
+    return !/<html|<!doctype/i.test(texto);
+  }
+}
+
+/**
+ * Lo que llega de la hoja, sin comerse lo que se está escribiendo.
+ *
+ * Una relectura en plena edición (la de después de crear un contenido, que va
+ * con `fresco=1` y puede tardar lo suyo) hacía `setData`/`setOriginalData`
+ * con lo de la hoja y borraba lo tecleado mientras tanto. Aquí:
+ *
+ * - una fila tocada (su texto difiere de la base) conserva el texto local, y
+ *   su base sigue siendo la de antes, así que el autoguardado la sigue viendo
+ *   pendiente y la escribe;
+ * - las no tocadas se ponen al día con la hoja;
+ * - las filas nuevas de la hoja entran;
+ * - una fila tocada que ya no está en la hoja se queda: si no se puede
+ *   escribir, el aviso de guardado deja rescatar el texto.
+ */
+function mezclaConLoEditado(
+  servidor: PosicionItem[],
+  local: PosicionItem[],
+  base: PosicionItem[],
+): { data: PosicionItem[]; original: PosicionItem[] } {
+  const baseDe = new Map(base.map((fila) => [fila.ID, fila]));
+  const localDe = new Map(local.map((fila) => [fila.ID, fila]));
+
+  const tocada = (fila: PosicionItem) => {
+    const suBase = baseDe.get(fila.ID);
+
+    return Boolean(suBase) && suBase!.CONTENIDO !== fila.CONTENIDO;
+  };
+
+  const enServidor = new Set(servidor.map((fila) => fila.ID));
+
+  const data: PosicionItem[] = [];
+  const original: PosicionItem[] = [];
+
+  servidor.forEach((fila) => {
+    const suya = localDe.get(fila.ID);
+
+    if (suya && tocada(suya)) {
+      data.push({ ...fila, CONTENIDO: suya.CONTENIDO });
+      original.push(structuredClone(baseDe.get(fila.ID)!));
+    } else {
+      data.push(fila);
+      original.push(structuredClone(fila));
+    }
+  });
+
+  local.forEach((fila) => {
+    if (enServidor.has(fila.ID) || !tocada(fila)) return;
+
+    data.push(fila);
+    original.push(structuredClone(baseDe.get(fila.ID)!));
+  });
+
+  return { data, original };
+}
+
 /** Columnas fijas: se muestran siempre, aunque la posición todavía no tenga contenidos. */
 const BLOQUES_BASE = ["CON BALÓN", "SIN BALÓN"];
 
@@ -64,6 +151,27 @@ export default function IdentidadPosicionalPage() {
 
   /* Deja rescatar el texto de los contenidos que el servidor no acepte. */
   const { reportarRechazo, dialogo: avisoGuardado } = useSaveGuard();
+
+  /*
+  | Foto del contenido al entrar en edición. No es lo mismo que
+  | `originalData`, que el autoguardado va adelantando conforme escribe: esta
+  | se queda quieta y es a la que vuelve «Deshacer». (Declarada aquí arriba
+  | porque la carga también la toca: ver `mezclaConLoEditado`.)
+  */
+  const [alEntrar, setAlEntrar] = useState<PosicionItem[]>([]);
+
+  /* Lo que la carga necesita saber del momento en que llega, no del momento
+     en que salió: si se está editando y qué hay escrito. Se ponen al día
+     tras cada render, nunca durante. */
+  const editandoRef = useRef(false);
+  const dataRef = useRef<PosicionItem[]>([]);
+  const originalRef = useRef<PosicionItem[]>([]);
+
+  useEffect(() => {
+    editandoRef.current = editing;
+    dataRef.current = data;
+    originalRef.current = originalData;
+  });
 
   const [nuevoBloque, setNuevoBloque] = useState<string | null>(null);
   const [nuevoContenido, setNuevoContenido] = useState("");
@@ -103,8 +211,30 @@ export default function IdentidadPosicionalPage() {
 
         if (cancelado) return;
 
-        setData(activos);
-        setOriginalData(structuredClone(activos));
+        if (editandoRef.current) {
+          const mezcla = mezclaConLoEditado(
+            activos,
+            dataRef.current,
+            originalRef.current,
+          );
+
+          setData(mezcla.data);
+          setOriginalData(mezcla.original);
+
+          /* Lo recién creado entra también en la foto de «Deshacer»: si no,
+             deshacer lo quitaba de la pantalla aunque siga en la hoja. */
+          setAlEntrar((foto) => {
+            const ya = new Set(foto.map((fila) => fila.ID));
+            const nuevas = activos.filter((fila) => !ya.has(fila.ID));
+
+            return nuevas.length > 0
+              ? [...foto, ...structuredClone(nuevas)]
+              : foto;
+          });
+        } else {
+          setData(activos);
+          setOriginalData(structuredClone(activos));
+        }
         setPosicion((actual) => actual || activos[0]?.POSICION || "");
         setError(null);
       } catch (err) {
@@ -180,13 +310,6 @@ export default function IdentidadPosicionalPage() {
 
   /* ------------------------------------------------------------ edición */
 
-  /*
-  | Foto del contenido al entrar en edición. No es lo mismo que
-  | `originalData`, que el autoguardado va adelantando conforme escribe: esta
-  | se queda quieta y es a la que vuelve «Deshacer».
-  */
-  const [alEntrar, setAlEntrar] = useState<PosicionItem[]>([]);
-
   const entrarEnEdicion = () => {
     setAlEntrar(structuredClone(data));
 
@@ -240,7 +363,7 @@ export default function IdentidadPosicionalPage() {
             `${API}?action=guardarIdentidadPosicional&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
               p.CONTENIDO,
             )}`,
-          ),
+          ).then(escritoEnLaHoja),
         ),
       );
 
@@ -250,7 +373,7 @@ export default function IdentidadPosicionalPage() {
       const fallidos = pendientes.filter((_, indice) => {
         const resultado = resultados[indice];
 
-        return resultado.status === "rejected" || !resultado.value.ok;
+        return resultado.status === "rejected" || !resultado.value;
       });
 
       if (fallidos.length > 0) {
@@ -341,12 +464,18 @@ export default function IdentidadPosicionalPage() {
         `${API}?action=borrarIdentidadPosicional&ID=${porBorrar.ID}`,
       );
 
-      if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+      if (!(await escritoEnLaHoja(res))) {
+        throw new Error(`La hoja no lo ha borrado (${res.status})`);
+      }
 
       olvidaLoGuardado();
 
       setData((prev) => prev.filter((x) => x.ID !== porBorrar.ID));
       setOriginalData((prev) => prev.filter((x) => x.ID !== porBorrar.ID));
+
+      /* Y de la foto de «Deshacer»: si no, deshacer lo resucitaba en
+         pantalla aunque en la hoja ya no esté. */
+      setAlEntrar((prev) => prev.filter((x) => x.ID !== porBorrar.ID));
 
       toast.success("Contenido eliminado");
       setPorBorrar(null);
@@ -400,8 +529,12 @@ export default function IdentidadPosicionalPage() {
           `&ORDEN=${encodeURIComponent(nuevoOrden)}`,
       );
 
-      if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+      if (!(await escritoEnLaHoja(res))) {
+        throw new Error(`La hoja no lo ha creado (${res.status})`);
+      }
 
+      /* Lo nuevo entra en la foto de «Deshacer» con la relectura de abajo
+         (ver la carga), que es cuando se sabe su ID. */
       toast.success("Contenido añadido");
 
       setNuevoBloque(null);

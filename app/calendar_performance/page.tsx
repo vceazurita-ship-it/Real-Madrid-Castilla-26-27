@@ -334,14 +334,18 @@ export default function CalendarPerformance() {
     const frescos = await reloadEvents(true);
 
     /* Recién creado el ID lo pone la hoja, así que el trabajo se localiza por
-       fecha y título, que es justo lo que acabamos de escribir. */
+       fecha y título, que es justo lo que acabamos de escribir. La fecha se
+       compara por su clave de día: la hoja puede devolverla en ISO con hora
+       («2026-09-30T22:00:00.000Z») y con `===` el trabajo recién escrito no
+       aparecía y se daba por perdido. */
     const guardado = existing?.ID_EVENTO
       ? frescos.find(
           (evento) => String(evento.ID_EVENTO) === String(existing.ID_EVENTO)
         )
       : frescos.find(
           (evento) =>
-            evento.FECHA === enviado.FECHA && evento.TITULO === enviado.TITULO
+            recordDateKey(evento.FECHA) === recordDateKey(enviado.FECHA) &&
+            evento.TITULO === enviado.TITULO
         );
 
     /* Si tras recargar el trabajo no aparece, no ha llegado a escribirse por

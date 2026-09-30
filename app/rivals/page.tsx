@@ -343,6 +343,18 @@ type RivalPlayer = {
   ESTADO: string;
 };
 
+/*
+| La identidad de un jugador en la lista y en el campo.
+|
+| Se usaba `ID_JUGADOR` a secas, y en la hoja hay filas que no lo tienen: dos
+| jugadores sin ID daban la misma `key` —React mezclaba sus filas— y al soltar
+| un arrastre el `find` cogía al primero sin ID, que no era el arrastrado. Sin
+| ID se cae a la clave del once (`playerKey`: la foto de BeSoccer o el nombre).
+*/
+function idDeJugador(player: RivalPlayer) {
+  return player.ID_JUGADOR || playerKey(player);
+}
+
 function normalize(value: unknown) {
   return String(value || "")
     .normalize("NFD")
@@ -2709,7 +2721,24 @@ export default function RivalPlayersPage() {
 
   const escribirJugador = useCallback(
     async (form: RivalPlayer | null) => {
-      if (!form?.ID_JUGADOR) return true;
+      if (!form) return true;
+
+      /*
+      | Sin `ID_JUGADOR` no hay fila donde escribir. Antes esto devolvía `true`
+      | y el autoguardado enseñaba «guardado» sin haber mandado nada: lo
+      | escrito en la ficha se perdía al cerrarla. No se trata como alta
+      | (`crearRivalJugador`): la fila ya existe en la hoja, sólo le falta el
+      | ID, y darla de alta la duplicaría. Se dice claro y no se da por bueno.
+      */
+      if (!form.ID_JUGADOR) {
+        toast.error("Este jugador no tiene ID en la hoja", {
+          id: `ficha-sin-id-${form.NOMBRE_EQUIPO ?? ""}-${form.JUGADOR ?? ""}`,
+          description:
+            "Los cambios de la ficha no se pueden guardar hasta que su fila de la hoja tenga ID_JUGADOR. Copia lo escrito antes de cerrarla.",
+        });
+
+        return false;
+      }
 
       const response = await fetch(RIVALS_API_URL, {
         method: "POST",
@@ -3492,7 +3521,7 @@ export default function RivalPlayersPage() {
                                 <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2 lg:grid-cols-1">
                                   {group.players.map((player) => (
                                     <PlayerRow
-                                      key={player.ID_JUGADOR}
+                                      key={idDeJugador(player)}
                                       player={player}
                                       showTeam={teamsInResults.length > 1}
                                       onceEstado={onceDe(player)}
@@ -3524,7 +3553,7 @@ export default function RivalPlayersPage() {
                         <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2 lg:grid-cols-1">
                           {unclassified.map((player) => (
                             <PlayerRow
-                              key={player.ID_JUGADOR}
+                              key={idDeJugador(player)}
                               player={player}
                               showTeam={teamsInResults.length > 1}
                               onceEstado={onceDe(player)}
@@ -3884,7 +3913,7 @@ export default function RivalPlayersPage() {
 
                       <TacticalPitch
                         players={pitchPlayers}
-                        selectedId={selectedPlayer?.ID_JUGADOR}
+                        selectedId={selectedPlayer ? idDeJugador(selectedPlayer) : undefined}
                         activeTags={activeTags}
                         onceEstado={onceDe}
                         onCiclarOnce={ciclarOnceDe}
@@ -4469,8 +4498,13 @@ export default function RivalPlayersPage() {
                         filtrando por el jugador caen solos en esta casilla;
                         esto cubre lo demás: lo subido antes, lo montado sin
                         filtrar y lo que alguien colgó a mano.
+
+                        La `key` por equipo lo monta de nuevo al pasar a un
+                        jugador de otro equipo: la lista elegida se conserva
+                        (`previa || puesta`) y sin esto seguía la del anterior.
                       */}
                       <EligeVideoDeLista
+                        key={String(editForm.NOMBRE_EQUIPO ?? "")}
                         equipo={String(editForm.NOMBRE_EQUIPO ?? "")}
                         jugador={String(
                           editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || "",
@@ -7255,7 +7289,7 @@ function TacticalPitch({
     const dedo = evento.pointerType === "touch";
 
     setArrastre({
-      id: ficha.player.ID_JUGADOR,
+      id: idDeJugador(ficha.player),
       x: punto.x,
       y: punto.y,
       x0: punto.x,
@@ -7345,7 +7379,7 @@ function TacticalPitch({
       } = vivo.current;
 
       if (actual?.activo && seMovio.current && actual.sobre) {
-        const ficha = fichas.find((uno) => uno.player.ID_JUGADOR === actual.id);
+        const ficha = fichas.find((uno) => idDeJugador(uno.player) === actual.id);
 
         if (ficha && actual.sobre !== actual.desde) {
           const suyo = suyos.get(playerKey(ficha.player));
@@ -7509,11 +7543,11 @@ function TacticalPitch({
         const { player, color, tagRow } = ficha;
 
         /* Mientras se arrastra, la ficha va donde va el puntero. */
-        const cogida = arrastre?.activo && arrastre.id === player.ID_JUGADOR;
+        const cogida = arrastre?.activo && arrastre.id === idDeJugador(player);
 
         const x = cogida ? arrastre.x - arrastre.dx : ficha.x;
         const y = cogida ? arrastre.y - arrastre.dy : ficha.y;
-        const selected = selectedId === player.ID_JUGADOR;
+        const selected = selectedId === idDeJugador(player);
 
         const { tags } = parseTags(player.IMPACTO);
 
@@ -7546,7 +7580,7 @@ function TacticalPitch({
 
         return (
           <div
-            key={player.ID_JUGADOR}
+            key={idDeJugador(player)}
             role="button"
             tabIndex={0}
             onPointerDown={(evento) => empiezaArrastre(evento, ficha)}

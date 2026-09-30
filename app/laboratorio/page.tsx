@@ -39,6 +39,7 @@ import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { cargaJornadas, type JornadaRival } from "@/lib/abp/jornada";
+import { todayKey } from "@/lib/session-board/helpers";
 import {
   ETIQUETA_CAMPO,
   MOTORES,
@@ -80,8 +81,11 @@ export default function LaboratorioPage() {
         setJornadas(filas);
         setCargando(false);
 
-        /* Se abre en el próximo partido, que es el que se está preparando. */
-        const hoy = new Date().toISOString().slice(0, 10);
+        /* Se abre en el próximo partido, que es el que se está preparando.
+           Hoy en fecha LOCAL: `toISOString` es UTC y, de 00:00 a 02:00 en
+           Madrid, seguía siendo ayer y abría en el partido de ayer, ya
+           jugado. Va dentro del `then`, no en el render. */
+        const hoy = todayKey();
 
         const proximo =
           filas.find((fila) => fila.fecha && fila.fecha >= hoy) ?? filas[0];

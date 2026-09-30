@@ -25,6 +25,9 @@ const DOMINIOS = [
   "supabase.co",
 ];
 
+/** Saltos de redirección que se siguen como mucho. */
+const MAX_REDIRECCIONES = 3;
+
 function permitido(url: URL) {
   if (url.protocol !== "https:") return false;
 
@@ -55,11 +58,50 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const respuesta = await fetch(destino, {
-      /* La foto de un jugador cambia una vez por temporada; el PDF se genera
-         varias veces la misma semana. */
-      next: { revalidate: 60 * 60 * 24 },
-    });
+    /*
+    | Las redirecciones se siguen a mano, comprobando la lista en cada salto.
+    | Con el `fetch` por defecto bastaba que un dominio permitido redirigiera
+    | —una URL firmada de Supabase, un enlace de BeSoccer— a otro sitio para
+    | que el proxy acabara pidiendo lo que fuera: la lista sólo miraba el
+    | primer salto.
+    */
+    let respuesta: Response | null = null;
+
+    for (let saltos = 0; ; saltos += 1) {
+      respuesta = await fetch(destino, {
+        redirect: "manual",
+        /* La foto de un jugador cambia una vez por temporada; el PDF se genera
+           varias veces la misma semana. */
+        next: { revalidate: 60 * 60 * 24 },
+      });
+
+      if (respuesta.status < 300 || respuesta.status >= 400) break;
+
+      const siguiente = respuesta.headers.get("location");
+
+      if (!siguiente || saltos >= MAX_REDIRECCIONES) {
+        return NextResponse.json(
+          { success: false, error: "Demasiadas redirecciones." },
+          { status: 502 },
+        );
+      }
+
+      try {
+        destino = new URL(siguiente, destino);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "Redirección no válida." },
+          { status: 502 },
+        );
+      }
+
+      if (!permitido(destino)) {
+        return NextResponse.json(
+          { success: false, error: "Redirección a un dominio no permitido." },
+          { status: 403 },
+        );
+      }
+    }
 
     if (!respuesta.ok) {
       return NextResponse.json(

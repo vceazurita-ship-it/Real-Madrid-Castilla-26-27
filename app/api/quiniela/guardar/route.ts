@@ -47,6 +47,9 @@ export const dynamic = "force-dynamic";
 
 const CLAVE_QUINIELA = "quiniela";
 
+/** Cuántas veces se repite leer → cambiar → escribir si alguien escribe en medio. */
+const INTENTOS = 3;
+
 const mal = (error: string, estado = 400) =>
   NextResponse.json({ ok: false, error }, { status: estado });
 
@@ -104,16 +107,93 @@ export async function POST(request: NextRequest) {
 
   const accion = String(cuerpo.accion ?? "");
 
-  let data: DocumentoQuiniela | null;
+  /*
+  | LEER → CAMBIAR → ESCRIBIR, Y SI ALGUIEN ESCRIBIÓ EN MEDIO, OTRA VEZ.
+  |
+  | Cambiar sólo el trozo propio no basta si dos personas lo hacen a la vez:
+  | las dos leen el mismo documento y la segunda escritura lleva una copia sin
+  | la apuesta de la primera. Por eso se escribe «basada en» el `updatedAt`
+  | leído y, si el servidor dice que otro ha guardado entretanto, se vuelve a
+  | leer y a aplicar el cambio sobre lo nuevo, hasta `INTENTOS` veces.
+  */
+  let nuevo: DocumentoQuiniela | null = null;
 
-  try {
-    ({ data } = await readDoc<DocumentoQuiniela>(CLAVE_QUINIELA));
-  } catch (error) {
-    console.error("[quiniela] leer antes de guardar", error);
+  for (let intento = 0; intento < INTENTOS && !nuevo; intento += 1) {
+    let leido: { data: DocumentoQuiniela | null; updatedAt: string | null };
 
-    return mal("No se ha podido leer la quiniela. Inténtalo en un momento.", 503);
+    try {
+      leido = await readDoc<DocumentoQuiniela>(CLAVE_QUINIELA);
+    } catch (error) {
+      console.error("[quiniela] leer antes de guardar", error);
+
+      return mal("No se ha podido leer la quiniela. Inténtalo en un momento.", 503);
+    }
+
+    const cambiado = aplica(leido.data, accion, cuerpo, slug);
+
+    if (cambiado instanceof NextResponse) return cambiado;
+
+    try {
+      const escrito = await writeDoc(
+        CLAVE_QUINIELA,
+        "quiniela",
+        cambiado,
+        leido.updatedAt ?? null,
+      );
+
+      if (escrito.missingTable) throw new Error("Falta la tabla app_documents.");
+
+      if (!escrito.conflicto) nuevo = cambiado;
+    } catch (error) {
+      console.error("[quiniela] guardar", error);
+
+      return mal("No se ha podido guardar. Inténtalo en un momento.", 503);
+    }
   }
 
+  if (!nuevo) {
+    return mal("Hay otra persona guardando a la vez. Inténtalo otra vez en un momento.", 409);
+  }
+
+  /*
+  | Lo que se devuelve va CRIBADO, como en la lectura.
+  |
+  | Antes se contestaba el documento entero: guardar cualquier cosa —hasta los
+  | extras— devolvía los pronósticos de los diez con la jornada todavía
+  | abierta, y la pantalla los metía en su estado. El cierre del viernes sólo
+  | tapaba lo de los demás al pintar, no al servir.
+  */
+  const ahora = new Date();
+
+  const guardado = nuevo;
+
+  return NextResponse.json({
+    ok: true,
+    doc: {
+      ...guardado,
+      jornadas: Object.fromEntries(
+        Object.entries(guardado.jornadas).map(([clave, jornada]) => [
+          clave,
+          comoLaVe(jornada, slug, estadoDe(jornada.jornada, ahora).cerrada),
+        ]),
+      ),
+    },
+  });
+}
+
+/**
+ * El cambio de cada acción sobre el documento leído.
+ *
+ * Va aparte para poder repetirlo sobre una lectura nueva cuando hay conflicto:
+ * las comprobaciones —el cierre, el partido jugado— también se repiten.
+ * Devuelve el documento nuevo o la respuesta de error.
+ */
+function aplica(
+  data: DocumentoQuiniela | null,
+  accion: string,
+  cuerpo: Record<string, unknown>,
+  slug: string,
+): DocumentoQuiniela | NextResponse {
   /* Lo guardado con el calendario de diez se pasa al de nueve antes de tocarlo. */
   const base: DocumentoQuiniela = sinCastilla({
     ...QUINIELA_VACIA,
@@ -271,36 +351,5 @@ export async function POST(request: NextRequest) {
     return mal("No sé qué quieres guardar.");
   }
 
-  try {
-    const escrito = await writeDoc(CLAVE_QUINIELA, "quiniela", nuevo);
-
-    if (escrito.missingTable) throw new Error("Falta la tabla app_documents.");
-  } catch (error) {
-    console.error("[quiniela] guardar", error);
-
-    return mal("No se ha podido guardar. Inténtalo en un momento.", 503);
-  }
-
-  /*
-  | Lo que se devuelve va CRIBADO, como en la lectura.
-  |
-  | Antes se contestaba el documento entero: guardar cualquier cosa —hasta los
-  | extras— devolvía los pronósticos de los diez con la jornada todavía
-  | abierta, y la pantalla los metía en su estado. El cierre del viernes sólo
-  | tapaba lo de los demás al pintar, no al servir.
-  */
-  const ahora = new Date();
-
-  return NextResponse.json({
-    ok: true,
-    doc: {
-      ...nuevo,
-      jornadas: Object.fromEntries(
-        Object.entries(nuevo.jornadas).map(([clave, jornada]) => [
-          clave,
-          comoLaVe(jornada, slug, estadoDe(jornada.jornada, ahora).cerrada),
-        ]),
-      ),
-    },
-  });
+  return nuevo;
 }

@@ -213,6 +213,43 @@ export function partidoDeJornada(jornada: JornadaRival): MatchMeta {
   };
 }
 
+/** El número de jornada que se lea en un texto: "Jornada 7", "J07"… */
+function numeroDeJornada(texto: string | number | null | undefined) {
+  const crudo = String(texto ?? "").trim();
+
+  if (/^\d+$/.test(crudo)) return Number(crudo);
+
+  const leido = crudo.match(/\bj(?:ornada)?\.?\s*0*(\d+)\b/i);
+
+  return leido ? Number(leido[1]) : null;
+}
+
+/**
+ * ¿Hablan el partido del calendario y la jornada de la hoja del mismo partido?
+ *
+ * Con fecha en los dos, por fecha. Si la jornada de la hoja **no tiene fecha**
+ * —la vuelta, casi siempre, que se escribe sin día hasta que se fija—, el
+ * nombre solo no vale: casaba con la ida, ya jugada y con fecha, y la vuelta
+ * desaparecía del calendario. Así que hace falta además que coincida el número
+ * de jornada o, si el calendario no lo dice, que el partido tampoco tenga
+ * fecha.
+ */
+function mismoPartido(partido: MatchMeta, jornada: JornadaRival) {
+  if (partido.date && jornada.fecha) return partido.date === jornada.fecha;
+
+  if (!mismoEquipo(partido.opponent, jornada.equipo)) return false;
+
+  /* La jornada tiene fecha y el partido no: como hasta ahora, por nombre. */
+  if (jornada.fecha) return true;
+
+  const suya = numeroDeJornada(jornada.jornada);
+  const delCalendario = numeroDeJornada(partido.competition);
+
+  if (suya !== null && delCalendario !== null) return suya === delCalendario;
+
+  return !partido.date;
+}
+
 /**
  * El calendario con el que trabaja la pizarra: lo jugado más lo que viene.
  *
@@ -230,11 +267,7 @@ export function mezclaCalendario(
 ): MatchMeta[] {
   const sueltas = jornadas.filter(
     (jornada) =>
-      !partidos.some((partido) =>
-        partido.date && jornada.fecha
-          ? partido.date === jornada.fecha
-          : mismoEquipo(partido.opponent, jornada.equipo),
-      ),
+      !partidos.some((partido) => mismoPartido(partido, jornada)),
   );
 
   return [...partidos, ...sueltas.map(partidoDeJornada)].sort(compareMatches);

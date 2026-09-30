@@ -62,10 +62,17 @@ const claveDe = (clip: { sesion: string; id: string }) =>
 
 export function ClipsDelJugador({
   jugadorId,
+  nombres,
   caratula,
   ambito,
 }: {
   jugadorId: string;
+  /**
+   * Cómo se llama (el de la pantalla, el de la hoja, el apodo). Con esto la
+   * ruta cruza los clips por nombre y no por el ID, que la hoja renumera: sin
+   * él, tras una renumeración salían los cortes de otro jugador.
+   */
+  nombres?: string[];
   /** Con qué se pinta la portada del vídeo unificado. */
   caratula: DatosCaratula;
   /** Limita la búsqueda: los cortes de nuestros partidos o los de rival. */
@@ -77,12 +84,24 @@ export function ClipsDelJugador({
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [trabajando, setTrabajando] = useState(false);
 
+  /* En texto para el efecto: un array nuevo en cada render lo relanzaría. */
+  const nombresClave = (nombres ?? [])
+    .map((nombre) => nombre.trim())
+    .filter(Boolean)
+    .join("|");
+
   useEffect(() => {
     if (!jugadorId) return;
 
     let vivo = true;
 
     const parametros = new URLSearchParams({ jugador: jugadorId });
+
+    if (nombresClave) {
+      nombresClave
+        .split("|")
+        .forEach((nombre) => parametros.append("nombre", nombre));
+    }
 
     if (ambito) parametros.set("ambito", ambito);
 
@@ -106,7 +125,7 @@ export function ClipsDelJugador({
     return () => {
       vivo = false;
     };
-  }, [ambito, jugadorId]);
+  }, [ambito, jugadorId, nombresClave]);
 
   const seleccionados = useMemo(
     () =>

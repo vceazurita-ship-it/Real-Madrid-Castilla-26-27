@@ -14,7 +14,7 @@
  * recargar— es la que acepta el linter de pureza de React.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sinCastilla } from "@/lib/quiniela/migracion";
 import { QUINIELA_VACIA, type DocumentoQuiniela } from "@/lib/quiniela/modelo";
@@ -34,6 +34,16 @@ export function useQuinielaDoc(refrescoMs = 0) {
   const [guardadoEn, setGuardadoEn] = useState<string | null>(null);
   const [testigo, setTestigo] = useState(0);
 
+  /*
+  | Cuántos guardados han empezado o terminado. Una lectura que salió ANTES de
+  | guardar vuelve con el documento de antes y, pintada encima, borraba de la
+  | pantalla la apuesta recién guardada —la del reloj del fin de semana cae en
+  | cualquier momento—. Cada lectura apunta el número al salir y, si al volver
+  | ha cambiado, se tira: lo bueno ya lo pintó `guarda` con lo que devolvió el
+  | servidor.
+  */
+  const guardados = useRef(0);
+
   useEffect(() => {
     if (!refrescoMs) return;
 
@@ -44,6 +54,8 @@ export function useQuinielaDoc(refrescoMs = 0) {
 
   useEffect(() => {
     let cancelado = false;
+
+    const alSalir = guardados.current;
 
     /*
     | Se lee por `/api/quiniela/leer` y no por `/api/docs`.
@@ -59,7 +71,7 @@ export function useQuinielaDoc(refrescoMs = 0) {
         updatedAt?: string | null;
       }>)
       .then((datos) => {
-        if (cancelado) return;
+        if (cancelado || guardados.current !== alSalir) return;
 
         if (!datos.ok) throw new Error("No se ha podido leer la quiniela.");
 
@@ -96,6 +108,10 @@ export function useQuinielaDoc(refrescoMs = 0) {
    * enseñar: «la jornada ya se cerró» no es lo mismo que «no hay red».
    */
   const guarda = useCallback(async (cuerpo: Record<string, unknown>) => {
+    /* Al empezar y al acabar: así también se tira la lectura que salió
+       mientras este guardado estaba en vuelo. */
+    guardados.current += 1;
+
     setEstado("guardando");
 
     try {
@@ -124,6 +140,8 @@ export function useQuinielaDoc(refrescoMs = 0) {
       setEstado("listo");
 
       throw error;
+    } finally {
+      guardados.current += 1;
     }
   }, []);
 

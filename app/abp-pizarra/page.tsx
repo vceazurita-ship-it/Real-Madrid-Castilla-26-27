@@ -369,6 +369,15 @@ export default function PizarraAbpPage() {
   );
 
   /*
+  | Hoy en la hora de aquí, no en UTC. Con `toISOString()`, de medianoche a las
+  | dos de la madrugada (verano) seguía siendo «ayer» y se abría el partido de
+  | ayer como el próximo. `sv-SE` escribe la fecha como AAAA-MM-DD, que es lo
+  | que traen los partidos. Se lee una vez al montar —inicializador perezoso—
+  | y no en cada render.
+  */
+  const [hoy] = useState(() => new Date().toLocaleDateString("sv-SE"));
+
+  /*
   | Al entrar manda el último tablero tocado —preparar el ABP es tarea de toda
   | la semana—, y si no hay ninguno se abre la **próxima** jornada, que es la
   | que se va a preparar, no la primera de la temporada.
@@ -398,11 +407,9 @@ export default function PizarraAbpPage() {
       ).id;
     }
 
-    const hoy = new Date().toISOString().slice(0, 10);
-
     return (partidos.find((item) => item.date && item.date >= hoy) ?? partidos[0])
       .id;
-  }, [cargando, partidos, store.tableros]);
+  }, [cargando, partidos, store.tableros, hoy]);
 
   const elegido = pedido || porDefecto;
 

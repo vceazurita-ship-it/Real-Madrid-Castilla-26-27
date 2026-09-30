@@ -457,7 +457,12 @@ export function useAutoSave<T>({
       return;
     }
 
-    if (huella === guardado.current) return;
+    if (huella === guardado.current) {
+      /* Se ha vuelto a lo guardado: el envío programado ya no hace falta. */
+      cancelarTemporizador();
+
+      return;
+    }
 
     setStatus("dirty");
 
@@ -474,7 +479,14 @@ export function useAutoSave<T>({
       void escribir();
     }, debounce);
 
-    return cancelarTemporizador;
+    /*
+    | Sin limpieza a propósito. Devolvía `cancelarTemporizador`, y al desmontar
+    | las limpiezas corren en orden: ésta iba antes que la del desmontaje, que
+    | es la que manda lo último escrito… y que ya no encontraba temporizador.
+    | Salir de la pantalla a menos de un segundo de teclear perdía ese cambio.
+    | No quedan temporizadores colgando: cada pasada de este efecto cancela el
+    | anterior antes de programar otro, y el desmontaje lo cancela y escribe.
+    */
   }, [
     huella,
     value,

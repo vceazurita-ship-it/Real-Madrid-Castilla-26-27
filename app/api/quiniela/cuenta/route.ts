@@ -37,11 +37,49 @@ async function dameCuentas(): Promise<DocumentoCuentas> {
   return data?.cuentas ? data : CUENTAS_VACIAS;
 }
 
-const guarda = (doc: DocumentoCuentas) =>
-  writeDoc(CLAVE_CUENTAS, "quiniela-cuentas", doc);
-
 const mal = (error: string, estado = 400) =>
   NextResponse.json({ ok: false, error }, { status: estado });
+
+/** Cuántas veces se repite leer → cambiar → escribir si alguien escribe en medio. */
+const INTENTOS = 3;
+
+/*
+| CAMBIAR LAS CUENTAS SIN PISAR A NADIE.
+|
+| Todas las cuentas van en un solo documento. Leerlo, añadir la tuya y
+| escribirlo entero sin más borraba la de quien se registrara a la vez: la
+| segunda escritura llevaba la copia de antes de la primera. Ahora se escribe
+| «basada en» el `updatedAt` leído y, si otro ha escrito en medio, se vuelve a
+| leer y a aplicar el cambio sobre lo nuevo —las comprobaciones también, que
+| el correo pudo quedar cogido entretanto—.
+|
+| `cambio` devuelve el documento nuevo y lo que haga falta para contestar, o
+| la respuesta de error si con lo leído no se puede.
+*/
+async function cambiaCuentas<T>(
+  cambio: (doc: DocumentoCuentas) => { doc: DocumentoCuentas; valor: T } | NextResponse,
+): Promise<{ valor: T } | NextResponse> {
+  for (let intento = 0; intento < INTENTOS; intento += 1) {
+    const leido = await readDoc<DocumentoCuentas>(CLAVE_CUENTAS);
+
+    const doc = leido.data?.cuentas ? leido.data : CUENTAS_VACIAS;
+
+    const hecho = cambio(doc);
+
+    if (hecho instanceof NextResponse) return hecho;
+
+    const escrito = await writeDoc(
+      CLAVE_CUENTAS,
+      "quiniela-cuentas",
+      hecho.doc,
+      leido.updatedAt ?? null,
+    );
+
+    if (!escrito.conflicto) return { valor: hecho.valor };
+  }
+
+  return mal("Hay otra persona guardando a la vez. Inténtalo otra vez en un momento.", 409);
+}
 
 /** Lo que la pantalla necesita saber de quien ha entrado. Nunca el hash. */
 const suyo = (cuenta: CuentaQuiniela) => ({
@@ -99,20 +137,6 @@ export async function POST(request: NextRequest) {
 
     if (!correo) return mal("Ese correo no tiene buena pinta. Repásalo.");
 
-    const doc = await dameCuentas();
-
-    if (doc.cuentas[slug]) {
-      return mal(
-        "Ya estás registrado. Entra con tu correo y tu contraseña; si no te acuerdas, avisa a Víctor.",
-      );
-    }
-
-    const deOtro = cuentaDeCorreo(doc, correo);
-
-    if (deOtro) {
-      return mal("Ese correo ya lo está usando otra persona.");
-    }
-
     /* La contraseña inicial es lo que va antes de la arroba. */
     const { sal, hash } = cifra(claveInicialDe(correo));
 
@@ -125,7 +149,23 @@ export async function POST(request: NextRequest) {
       inicial: true,
     };
 
-    await guarda({ cuentas: { ...doc.cuentas, [slug]: cuenta } });
+    const hecho = await cambiaCuentas((doc) => {
+      if (doc.cuentas[slug]) {
+        return mal(
+          "Ya estás registrado. Entra con tu correo y tu contraseña; si no te acuerdas, avisa a Víctor.",
+        );
+      }
+
+      const deOtro = cuentaDeCorreo(doc, correo);
+
+      if (deOtro) {
+        return mal("Ese correo ya lo está usando otra persona.");
+      }
+
+      return { doc: { cuentas: { ...doc.cuentas, [slug]: cuenta } }, valor: cuenta };
+    });
+
+    if (hecho instanceof NextResponse) return hecho;
 
     const respuesta = NextResponse.json({ ok: true, yo: suyo(cuenta) });
 
@@ -175,21 +215,26 @@ export async function POST(request: NextRequest) {
       return mal(`La nueva contraseña necesita al menos ${MINIMO_CLAVE} caracteres.`);
     }
 
-    const doc = await dameCuentas();
-
-    const cuenta = doc.cuentas[slug];
-
-    if (!cuenta) return mal("No encuentro tu cuenta.", 401);
-
-    if (!acierta(actual, cuenta)) return mal("La contraseña de ahora no es ésa.");
-
     const { sal, hash } = cifra(nueva);
 
-    const cambiada: CuentaQuiniela = { ...cuenta, sal, hash, inicial: false };
+    const hecho = await cambiaCuentas((doc) => {
+      const cuenta = doc.cuentas[slug];
 
-    await guarda({ cuentas: { ...doc.cuentas, [slug]: cambiada } });
+      if (!cuenta) return mal("No encuentro tu cuenta.", 401);
 
-    return NextResponse.json({ ok: true, yo: suyo(cambiada) });
+      if (!acierta(actual, cuenta)) return mal("La contraseña de ahora no es ésa.");
+
+      const cambiada: CuentaQuiniela = { ...cuenta, sal, hash, inicial: false };
+
+      return {
+        doc: { cuentas: { ...doc.cuentas, [slug]: cambiada } },
+        valor: cambiada,
+      };
+    });
+
+    if (hecho instanceof NextResponse) return hecho;
+
+    return NextResponse.json({ ok: true, yo: suyo(hecho.valor) });
   }
 
   return mal("No sé qué quieres hacer.");

@@ -158,6 +158,31 @@ async function envia<T>(
 }
 
 /**
+ * Tras un guardado bueno, lo que siga pendiente pasa a basarse en la versión
+ * que acaba de quedar en el servidor.
+ *
+ * Cada cambio se encola con la versión del servidor de ese momento. Si se
+ * tecleaba con un guardado en vuelo, lo pendiente se quedaba apuntando a la
+ * versión de ANTES de ese guardado —que es nuestro— y el siguiente envío
+ * chocaba consigo mismo: un 409 y el aviso falso de «Alguien ha guardado esto».
+ * También se reescribe la cola persistida, que es la que se compara al volver.
+ */
+function rebasaPendiente<T>(
+  pendiente: { current: Trabajo<T> | null },
+  key: string,
+  version: string | null,
+) {
+  const sigue = pendiente.current;
+
+  if (!sigue || sigue.key !== key) return;
+
+  /* Se toca en el sitio, sin cambiar el objeto: las comprobaciones de
+     `pendiente.current === trabajo` de los envíos en vuelo siguen valiendo. */
+  sigue.basadaEn = version;
+  escribeLocal(claveCola(sigue.key), sigue);
+}
+
+/**
  * Envío de despedida: al cerrar la pestaña o al esconderla.
  *
  * `sendBeacon` es lo único que el navegador garantiza que sale con la página
@@ -349,6 +374,7 @@ export function useRemoteDoc<T>({
       setLocalOnly(false);
       setLastSavedAt(resultado.updatedAt);
       versionServidor.current = resultado.updatedAt;
+      if (!alDia) rebasaPendiente(pendiente, trabajo.key, resultado.updatedAt);
       setStatus(alDia ? "saved" : "saving");
       yaAvisado.current = false;
       espera.current = REINTENTO_MIN;
@@ -387,6 +413,8 @@ export function useRemoteDoc<T>({
                     pendiente.current = null;
                     borraLocal(claveCola(trabajo.key));
                     setSinGuardar(false);
+                  } else {
+                    rebasaPendiente(pendiente, trabajo.key, forzado.updatedAt);
                   }
 
                   versionServidor.current = forzado.updatedAt;
@@ -591,7 +619,16 @@ export function useRemoteDoc<T>({
 
               void envia(pendiente.current)
                 .then((resultado) => {
-                  if (pendiente.current?.at !== cola.at) return;
+                  /* La versión que queda en el servidor es la nuestra: sin
+                     apuntarla, lo siguiente que se editara chocaba con ella. */
+                  if (claveDelValor.current === key) {
+                    versionServidor.current = resultado.updatedAt;
+                  }
+
+                  if (pendiente.current?.at !== cola.at) {
+                    rebasaPendiente(pendiente, key, resultado.updatedAt);
+                    return;
+                  }
 
                   pendiente.current = null;
                   borraLocal(claveCola(key));

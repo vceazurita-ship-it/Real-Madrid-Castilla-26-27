@@ -66,7 +66,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAhora, useQuinielaDoc } from "@/hooks/useQuinielaDoc";
 import { useQuinielaSesion, type Yo } from "@/hooks/useQuinielaSesion";
-import { cuandoCierra, estadoDe } from "@/lib/quiniela/cierre";
+import { cuandoCierra, estadoDe, instanteDeCierre } from "@/lib/quiniela/cierre";
 import {
   JORNADAS,
   NOMBRE_DEL_SIGNO,
@@ -143,7 +143,9 @@ export default function QuinielaPage() {
   const enJuego = useMemo(() => {
     if (!plazo.cerrada || !plazo.viernes) return false;
 
-    const desde = new Date(`${plazo.viernes}T12:00:00Z`).getTime();
+    /* Las 12:00 de Madrid, no de UTC: con «T12:00:00Z» la ventana empezaba a
+       las 14:00 en verano y durante dos horas no se releía nada. */
+    const desde = instanteDeCierre(plazo.viernes).getTime();
 
     const dias = (ahora.getTime() - desde) / 86_400_000;
 

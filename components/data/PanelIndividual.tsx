@@ -108,12 +108,19 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
 
   const corto = jugador.minutos < MINUTOS_MINIMOS;
 
-  const suyas = metricasDe(puesto).filter(
-    (m) => grupo === "todos" || m.grupo === grupo,
-  );
-
   const gruposConMetricas = GRUPOS_JUGADOR.filter((g) =>
     metricasDe(puesto).some((m) => m.grupo === g),
+  );
+
+  /* El grupo elegido sobrevive al cambiar de jugador: «Portería» con un
+     central delante dejaba el panel vacío y el desplegable sin esa opción.
+     Si el puesto nuevo no tiene ese grupo, se miran todas. */
+  const grupoVivo = (gruposConMetricas as readonly string[]).includes(grupo)
+    ? grupo
+    : "todos";
+
+  const suyas = metricasDe(puesto).filter(
+    (m) => grupoVivo === "todos" || m.grupo === grupoVivo,
   );
 
   return (
@@ -327,7 +334,7 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
           icon={Scale}
           action={
             <select
-              value={grupo}
+              value={grupoVivo}
               onChange={(e) => setGrupo(e.target.value)}
               className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
             >

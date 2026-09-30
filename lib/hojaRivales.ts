@@ -104,9 +104,18 @@ export async function guardaEnLaHoja(
   return leido;
 }
 
-/** Las filas de la hoja RIVALES, sin caché: se usa para verificar guardados. */
+/**
+ * Las filas de la hoja RIVALES, sin caché: se usa para verificar guardados y
+ * para releer la fila justo antes de escribirla.
+ *
+ * Pasa por `/api/rivals` con `fresco=1` y no directa al Apps Script. Directa
+ * eran 30-70 s en frío por cada comprobación; por la ruta, la lectura es la
+ * misma —`fresco` se salta la copia, que es lo correcto para verificar— pero
+ * una lectura fresca en vuelo no se mezcla con otra vieja, y lo que trae deja
+ * la copia del servidor al día para las demás pantallas.
+ */
 export async function leeRivales(): Promise<FilaHoja[]> {
-  const respuesta = await fetch(`${HOJA_RIVALES_URL}?action=rivales`, {
+  const respuesta = await fetch("/api/rivals?action=rivales&fresco=1", {
     cache: "no-store",
   });
 
@@ -114,5 +123,9 @@ export async function leeRivales(): Promise<FilaHoja[]> {
 
   const filas = await respuesta.json();
 
-  return Array.isArray(filas) ? filas : [];
+  /* La ruta contesta `{ success: false }` cuando falla Google: eso no es una
+     hoja vacía, y darlo por tal haría creer que la fila no existe. */
+  if (!Array.isArray(filas)) throw new Error("La hoja no devolvió filas");
+
+  return filas;
 }

@@ -42,8 +42,8 @@ const HOJA =
 /** Cuántos planes ya escritos se le enseñan como ejemplo de estilo. */
 const EJEMPLOS = 2;
 
-async function leeRivales(): Promise<Fila[]> {
-  const respuesta = await fetch(`${HOJA}?action=rivales`, { cache: "no-store" });
+async function leeDe(url: string): Promise<Fila[]> {
+  const respuesta = await fetch(url, { cache: "no-store" });
 
   if (!respuesta.ok) throw new Error(`la hoja respondió ${respuesta.status}`);
 
@@ -52,6 +52,25 @@ async function leeRivales(): Promise<Fila[]> {
   if (!Array.isArray(filas)) throw new Error("la hoja no devolvió filas");
 
   return filas as Fila[];
+}
+
+/*
+| La hoja se lee por `/api/rivals`, la misma ruta que usan las pantallas, y no
+| directa al Apps Script: directa eran 30-70 s en frío antes de empezar siquiera
+| a hablar con el modelo, y la ruta tiene ya la copia en memoria o en Supabase.
+| Para un borrador vale una copia de hace unos minutos.
+|
+| Si la ruta propia no contesta —un despliegue que no deja llamarse a sí
+| mismo, por ejemplo—, se va a la hoja como antes: tarda, pero sale.
+*/
+async function leeRivales(peticion: NextRequest): Promise<Fila[]> {
+  try {
+    return await leeDe(new URL("/api/rivals?action=rivales", peticion.url).toString());
+  } catch (error) {
+    console.warn("[laboratorio/plan] /api/rivals no contestó; a la hoja", error);
+
+    return leeDe(`${HOJA}?action=rivales`);
+  }
 }
 
 /** Un plan escrito de verdad: sirve de ejemplo si tiene lo bastante relleno. */
@@ -113,7 +132,7 @@ export async function POST(peticion: NextRequest) {
       );
     }
 
-    const filas = await leeRivales();
+    const filas = await leeRivales(peticion);
 
     const rival = filas.find((fila) => String(fila.ID) === rivalId);
 

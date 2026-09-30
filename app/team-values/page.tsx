@@ -1,5 +1,5 @@
 "use client";
-import { traeCsv } from "@/lib/hojaCsv";
+import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -44,6 +44,37 @@ type CulturaItem = {
 
 const API =
   "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+
+/**
+ * ¿Ha escrito de verdad el Apps Script?
+ *
+ * Un 200 no basta: el script contesta 200 también cuando no escribe, con
+ * `{ success: false, error }` en el cuerpo, y la página de «Authorization
+ * required» de Google también llega con 200. Mirar sólo `res.ok` daba por
+ * guardado un texto que no estaba en la hoja. Una respuesta de texto que no
+ * es JSON ni HTML se da por buena, que es lo que se hacía antes.
+ */
+async function escritoEnLaHoja(res: Response): Promise<boolean> {
+  if (!res.ok) return false;
+
+  const texto = await res.text().catch(() => "");
+
+  try {
+    const cuerpo = JSON.parse(texto) as {
+      success?: boolean;
+      ok?: boolean;
+      error?: unknown;
+    } | null;
+
+    if (!cuerpo || typeof cuerpo !== "object") return true;
+
+    if (cuerpo.success === false || cuerpo.ok === false) return false;
+
+    return !(cuerpo.error && cuerpo.success !== true && cuerpo.ok !== true);
+  } catch {
+    return !/<html|<!doctype/i.test(texto);
+  }
+}
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv";
@@ -275,7 +306,7 @@ export default function TeamValuesPage() {
             `${API}?action=guardarCultura&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
               p.CONTENIDO,
             )}`,
-          ),
+          ).then(escritoEnLaHoja),
         ),
       );
 
@@ -285,7 +316,7 @@ export default function TeamValuesPage() {
       const fallidos = pendientes.filter((_, indice) => {
         const resultado = resultados[indice];
 
-        return resultado.status === "rejected" || !resultado.value.ok;
+        return resultado.status === "rejected" || !resultado.value;
       });
 
       if (fallidos.length > 0) {
@@ -301,6 +332,11 @@ export default function TeamValuesPage() {
 
         return false;
       }
+
+      /* La copia de la hoja en esta pestaña ya no vale: sin tirarla, al
+         volver a la pantalla se leía el texto de antes, y la siguiente
+         edición partía de él y machacaba lo guardado. */
+      olvidaCsv(CSV_URL);
 
       setOriginalData(structuredClone(actual));
 

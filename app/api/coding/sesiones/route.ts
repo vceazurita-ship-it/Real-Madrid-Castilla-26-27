@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { listDocs } from "@/lib/docStore";
 import type { ClipCoding, SesionCoding } from "@/lib/coding/modelo";
+import { idVigente } from "@/lib/fichajes";
+import { normalizePlayerName } from "@/lib/playerImages";
 
 /**
  * Todo lo codificado, visto desde fuera del coding.
@@ -13,6 +15,7 @@ import type { ClipCoding, SesionCoding } from "@/lib/coding/modelo";
  * - sin `jugador`: la lista de sesiones, para saber qué hay codificado;
  * - con `jugador`: **sus** clips de todas las sesiones, ya con el partido al
  *   que pertenece cada uno, que es lo que pinta la biblioteca de la ficha.
+ *   Con `nombre` (uno o varios), el cruce es por nombre: ver `esDelJugador`.
  *
  * No duplica nada: la fuente sigue siendo el documento de cada sesión.
  */
@@ -39,9 +42,60 @@ export type ClipConPartido = ClipCoding & {
   enlace: string;
 };
 
+/*
+| ¿Es de este jugador el clip?
+|
+| Era `clip.jugadorId === jugador`, y los JUG-XX de la hoja se han renumerado:
+| un clip guardado con el JUG-13 de Thiago salía hoy en la ficha de Diego
+| Lacosta, que es quien tiene ahora ese número. El clip copia el nombre al
+| crearse (`jugadorNombre`), y el nombre es lo que se mueve con la persona.
+|
+| - Si la ficha manda sus nombres (`nombre`, puede venir varias veces: el de
+|   la pantalla, el completo de la hoja y el apodo) y el clip tiene nombre,
+|   manda el nombre: igual → suyo; distinto → de otro, aunque el ID coincida.
+|   Un nombre que sólo coincide en parte («Thiago» dentro de «Thiago
+|   Pitarch») vale si además el ID cuadra.
+| - Sin nombres (o clip sin nombre), el ID, traducido en los dos lados con
+|   `idVigente` (JUG-54 → JUG-51).
+*/
+function esDelJugador(
+  clip: ClipCoding,
+  jugador: string,
+  nombres: string[],
+): boolean {
+  if (clip.sujeto === "colectivo") return false;
+
+  const mismoId = idVigente(clip.jugadorId) === idVigente(jugador);
+  const suyo = normalizePlayerName(clip.jugadorNombre ?? "");
+
+  if (nombres.length === 0 || !suyo) return mismoId;
+
+  if (nombres.includes(suyo)) return true;
+
+  const fichas = suyo.split(" ");
+  const enParte = nombres.some((nombre) => {
+    const piezas = nombre.split(" ");
+
+    return (
+      fichas.every((pieza) => piezas.includes(pieza)) ||
+      piezas.every((pieza) => fichas.includes(pieza))
+    );
+  });
+
+  return enParte && mismoId;
+}
+
 export async function GET(request: NextRequest) {
   const jugador = request.nextUrl.searchParams.get("jugador");
   const ambito = request.nextUrl.searchParams.get("ambito");
+  const nombres = [
+    ...new Set(
+      request.nextUrl.searchParams
+        .getAll("nombre")
+        .map(normalizePlayerName)
+        .filter(Boolean),
+    ),
+  ];
 
   try {
     const documentos = await listDocs<SesionCoding>(
@@ -74,7 +128,7 @@ export async function GET(request: NextRequest) {
       const sesion = documento.data;
 
       for (const clip of sesion.clips) {
-        if (clip.jugadorId !== jugador) continue;
+        if (!esDelJugador(clip, jugador, nombres)) continue;
 
         const parametros = new URLSearchParams({ ambito: sesion.ambito });
 

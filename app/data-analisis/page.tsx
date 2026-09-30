@@ -429,14 +429,26 @@ export default function DataAnalisisPage() {
     [deLaTemporada],
   );
 
+  /*
+  | LOS FILTROS VIVOS.
+  |
+  | Lo elegido sobrevive al cambiar de temporada, y la otra temporada puede no
+  | tener esa competición o ese sistema. Como el desplegable sólo se pinta con
+  | más de una opción, quedaba un filtro puesto que no se veía ni se podía
+  | quitar, y la pantalla entera se quedaba vacía. Un valor que no existe en la
+  | temporada mirada se lee como «todas».
+  */
+  const compViva = competiciones.includes(competicion) ? competicion : "";
+  const sistemaVivo = sistemas.includes(sistema) ? sistema : "";
+
   const deLaLiga = useMemo(
     () =>
       deLaTemporada.filter(
         (p) =>
-          (!competicion || p.competicion === competicion) &&
-          (!sistema || sistemaDe(p) === sistema),
+          (!compViva || p.competicion === compViva) &&
+          (!sistemaVivo || sistemaDe(p) === sistemaVivo),
       ),
-    [competicion, deLaTemporada, sistema],
+    [compViva, deLaTemporada, sistemaVivo],
   );
 
   const equiposLiga = useMemo(
@@ -502,23 +514,37 @@ export default function DataAnalisisPage() {
       ? comparado
       : "";
 
-  const otroCampo = useMemo(
-    () =>
-      otroEquipo
-        ? {
-            nombre: otroEquipo,
-            suyos: deLaLiga.filter((p) => p.equipo === otroEquipo),
-            contra: deLaLiga.filter((p) => p.rival === otroEquipo),
-          }
-        : null,
-    [deLaLiga, otroEquipo],
+  /*
+  | Las filas «en contra» de cualquier equipo, con la misma regla que
+  | `contraNosotrosLiga`: se sacan de la temporada entera emparejando por
+  | `fecha|partido` con SUS filas ya filtradas. Tomarlas de `deLaLiga` con el
+  | filtro de sistema puesto daba los partidos en los que el RIVAL jugó con
+  | ese dibujo, que no son los mismos.
+  */
+  const contraDe = useCallback(
+    (equipo: string, suyos: FilaPartido[]) => {
+      const claves = new Set(suyos.map((p) => `${p.fecha}|${p.partido}`));
+
+      return deLaTemporada.filter(
+        (p) => p.rival === equipo && claves.has(`${p.fecha}|${p.partido}`),
+      );
+    },
+    [deLaTemporada],
   );
+
+  const otroCampo = useMemo(() => {
+    if (!otroEquipo) return null;
+
+    const suyos = deLaLiga.filter((p) => p.equipo === otroEquipo);
+
+    return { nombre: otroEquipo, suyos, contra: contraDe(otroEquipo, suyos) };
+  }, [contraDe, deLaLiga, otroEquipo]);
 
   /* --------------------------- PERCENTILES ------------------------- */
 
   /* Las filas de percentil de un grupo de partidos contra toda la liga. */
   const percentilesDe = useCallback(
-    (filas: FilaPartido[]): FilaPercentil[] => {
+    (filas: FilaPartido[], modoFilas: ModoValor = modo): FilaPercentil[] => {
     if (equiposLiga.length < 3 || filas.length === 0) return [];
 
     const porEquipo = new Map(
@@ -527,10 +553,10 @@ export default function DataAnalisisPage() {
 
     return METRICAS.map((met) => {
       const valores = equiposLiga
-        .map((e) => valorEnGrupo(met, porEquipo.get(e) ?? [], modo))
+        .map((e) => valorEnGrupo(met, porEquipo.get(e) ?? [], modoFilas))
         .filter((v): v is number => v !== null);
 
-      const mio = valorEnGrupo(met, filas, modo);
+      const mio = valorEnGrupo(met, filas, modoFilas);
 
       const orden = [...valores].sort((a, b) =>
         met.mejorAlto === false ? a - b : b - a,
@@ -554,7 +580,21 @@ export default function DataAnalisisPage() {
     [deLaLiga, equiposLiga, modo],
   );
 
-  const percentiles = useMemo(() => percentilesDe(nuestros), [nuestros, percentilesDe]);
+  /*
+  | Con UN partido elegido, el total de ese partido contra el total de
+  | temporada de cada equipo no es comparable: saldría siempre el último. Un
+  | partido suelto sólo se puede poner contra el promedio por partido de la
+  | liga, así que ahí se manda «promedio» pida lo que pida el conmutador.
+  */
+  const unPartidoElegido =
+    Boolean(partidoElegido) &&
+    nuestros.length === 1 &&
+    nuestros[0].fecha + "|" + nuestros[0].partido === partidoElegido;
+
+  const percentiles = useMemo(
+    () => percentilesDe(nuestros, unPartidoElegido ? "promedio" : modo),
+    [modo, nuestros, percentilesDe, unPartidoElegido],
+  );
 
   const percentilesOtro = useMemo(
     () => (otroCampo ? percentilesDe(otroCampo.suyos) : []),
@@ -629,7 +669,7 @@ export default function DataAnalisisPage() {
         /* Las suyas y, para las preguntas de «en contra», las de quien le
            jugó: el informe trae las dos filas de cada partido. */
         const suyos = deLaLiga.filter((p) => p.equipo === equipo);
-        const rivales = deLaLiga.filter((p) => p.rival === equipo);
+        const rivales = contraDe(equipo, suyos);
 
         const x = valorEnGrupo(mx, contraX ? rivales : suyos, modo);
         const y = valorEnGrupo(my, contraY ? rivales : suyos, modo);
@@ -637,7 +677,7 @@ export default function DataAnalisisPage() {
         return x === null || y === null ? null : { equipo, x, y };
       })
       .filter((p): p is { equipo: string; x: number; y: number } => p !== null);
-  }, [contraX, contraY, deLaLiga, equiposLiga, metricaX, metricaY, modo]);
+  }, [contraDe, contraX, contraY, deLaLiga, equiposLiga, metricaX, metricaY, modo]);
 
   /* --------------------------- HISTORIA ---------------------------- */
 
@@ -1036,7 +1076,7 @@ export default function DataAnalisisPage() {
                       </span>
 
                       <select
-                        value={competicion}
+                        value={compViva}
                         onChange={(e) => setCompeticion(e.target.value)}
                         className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                       >
@@ -1175,7 +1215,7 @@ export default function DataAnalisisPage() {
                       </span>
 
                       <select
-                        value={sistema}
+                        value={sistemaVivo}
                         onChange={(e) => setSistema(e.target.value)}
                         title="El esquema que más tiempo usó cada equipo en cada partido, según Wyscout"
                         className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
@@ -1837,8 +1877,8 @@ export default function DataAnalisisPage() {
                     jugadores={datos.jugadores ?? []}
                     eventos={datos.eventos ?? []}
                     nuestros={nuestros}
-                    sistema={sistema}
-                    competicion={competicion}
+                    sistema={sistemaVivo}
+                    competicion={compViva}
                   />
                 )}
 

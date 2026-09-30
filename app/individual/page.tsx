@@ -61,6 +61,8 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
+import { idVigente } from "@/lib/fichajes";
+import { alineaSeguimiento } from "@/lib/seguimiento";
 
 import {
   RadarChart,
@@ -149,6 +151,8 @@ type MergedPlayer = Player & {
 type TrackingRecord = {
   ID_REGISTRO: string;
   ID_JUGADOR: string;
+  /* Lo que ata el registro a su dueño (ver `alineaSeguimiento`). */
+  NOMBRE?: string;
   FECHA: string;
   OBJETIVO_OFENSIVO: string;
   OBJETIVO_DEFENSIVO: string;
@@ -310,11 +314,13 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
 
   // CENTROCAMPISTAS
   /*
-  | Thiago Pitarch vuelve el 22/09/2026. Va con ID nuevo (JUG-54): su JUG-13 de
-  | la temporada pasada lo tiene hoy Diego Lacosta, porque la hoja renumeró.
+  | Thiago Pitarch vuelve el 22/09/2026. Su JUG-13 de la temporada pasada lo
+  | tiene hoy Diego Lacosta, porque la hoja renumeró. Entró por el puente con
+  | JUG-54, pero la hoja lo dio de alta como JUG-51 (ver `IDS_ANTERIORES` en
+  | lib/fichajes.ts): con el 54 no casaba con su fila de JUGADORES.
   */
   {
-    idJugador: "JUG-54",
+    idJugador: "JUG-51",
     name: "Thiago",
     position: "Centrocampista",
     photo:
@@ -713,6 +719,34 @@ function parseDate(value = "") {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * La fecha de la hoja, lista para un <input type="date">.
+ *
+ * Antes era `FECHA.split("T")[0]`: si la hoja manda la fecha como ISO en UTC
+ * (medianoche de Madrid = 22:00 del día anterior en UTC), el corte se quedaba
+ * con el día de antes, y cada vez que se editaba y guardaba el registro
+ * retrocedía un día. Con hora, se lee como instante y se toma el día local;
+ * una "yyyy-mm-dd" pelada ya es el día y se deja tal cual.
+ */
+function fechaParaInput(value?: string) {
+  if (!value) return "";
+
+  if (/^d{4}-d{2}-d{2}$/.test(value)) return value;
+
+  if (value.includes("T")) {
+    const fecha = new Date(value);
+
+    if (!Number.isNaN(fecha.getTime())) {
+      const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+      const dia = String(fecha.getDate()).padStart(2, "0");
+
+      return `${fecha.getFullYear()}-${mes}-${dia}`;
+    }
+  }
+
+  return value.split("T")[0];
 }
 
 function formatDate(value = "") {
@@ -1679,9 +1713,12 @@ export default function IndividualPage() {
           );
 
           /* Enlace directo /individual?player=JUG-XX */
-          const wanted = new URLSearchParams(window.location.search).get(
+          /* Traducido: un enlace guardado con un ID viejo (JUG-54) sigue
+             abriendo a su jugador. */
+          const pedido = new URLSearchParams(window.location.search).get(
             "player",
           );
+          const wanted = pedido ? idVigente(pedido) : pedido;
 
           if (wanted && players.some((p) => p.idJugador === wanted)) {
             setSelectedId(wanted);
@@ -1732,11 +1769,34 @@ export default function IndividualPage() {
 
   /* ---------------- derivados ---------------- */
 
+  /*
+  | El seguimiento, atado a su dueño por NOMBRE.
+  |
+  | La hoja de seguimiento guarda ID y nombre, y los JUG-XX se han renumerado:
+  | filtrar por el ID crudo enseñaba en la ficha de uno los seguimientos de
+  | otro. Igual que la portada y /individual_proc, se reescribe el ID con la
+  | plantilla de ahora (la de la hoja, que trae el nombre completo; la lista
+  | de esta pantalla lleva apodos y no cruzaría) y el ID viejo que quede se
+  | traduce con `idVigente`.
+  */
+  const trackingAlineado = useMemo(() => {
+    const plantilla = sheetData
+      .filter((fila) => fila.ID_JUGADOR && fila.NOMBRE)
+      .map((fila) => ({ id: fila.ID_JUGADOR, nombre: fila.NOMBRE }));
+
+    return alineaSeguimiento(trackingData, plantilla).map((fila) => {
+      const id = idVigente(fila.ID_JUGADOR);
+
+      return id === fila.ID_JUGADOR ? fila : { ...fila, ID_JUGADOR: id };
+    });
+  }, [trackingData, sheetData]);
+
   const mergedPlayers = useMemo<MergedPlayer[]>(() => {
     return players.map((p) => {
-      const row = sheetData.find((r) => r.ID_JUGADOR === p.idJugador) || {};
+      const row =
+        sheetData.find((r) => idVigente(r.ID_JUGADOR) === p.idJugador) || {};
 
-      const sessions = trackingData.filter(
+      const sessions = trackingAlineado.filter(
         (t) => t.ID_JUGADOR === p.idJugador,
       );
 
@@ -1765,17 +1825,18 @@ export default function IndividualPage() {
         sessions: pendiente.seguimiento ? null : sessions.length,
         videos: pendiente.videos
           ? null
-          : videoData.filter((v) => v.ID_JUGADOR === p.idJugador).length,
+          : videoData.filter((v) => idVigente(v.ID_JUGADOR) === p.idJugador)
+              .length,
         hasReport: pendiente.informes
           ? null
-          : reportData.some((r) => r.ID_JUGADOR === p.idJugador),
+          : reportData.some((r) => idVigente(r.ID_JUGADOR) === p.idJugador),
         score: averageScore(base),
         lastSession: dates.length
           ? new Date(Math.max(...dates.map((d) => d.getTime())))
           : null,
       };
     });
-  }, [sheetData, trackingData, videoData, reportData, pendiente]);
+  }, [sheetData, trackingAlineado, videoData, reportData, pendiente]);
 
   /* La ficha se deriva del id: así nunca queda desfasada tras editar o recargar. */
   const selected = useMemo(
@@ -1921,7 +1982,7 @@ export default function IndividualPage() {
   const playerTracking = useMemo(() => {
     if (!selected) return [];
 
-    return trackingData
+    return trackingAlineado
       .filter((item) => item.ID_JUGADOR === selected.idJugador)
       .sort((a, b) => {
         const da = parseDate(a.FECHA)?.getTime() ?? 0;
@@ -1929,7 +1990,7 @@ export default function IndividualPage() {
 
         return db - da;
       });
-  }, [trackingData, selected]);
+  }, [trackingAlineado, selected]);
 
   const trackingGroups = useMemo(() => {
     const groups: { key: string; label: string; items: TrackingRecord[] }[] = [];
@@ -1963,7 +2024,7 @@ export default function IndividualPage() {
     if (!selected) return [];
 
     return videoData
-      .filter((item) => item.ID_JUGADOR === selected.idJugador)
+      .filter((item) => idVigente(item.ID_JUGADOR) === selected.idJugador)
       .sort((a, b) => {
         const da = parseDate(a.FECHA)?.getTime() ?? 0;
         const db = parseDate(b.FECHA)?.getTime() ?? 0;
@@ -1986,8 +2047,24 @@ export default function IndividualPage() {
       : playerVideos.filter((v) => v.CATEGORIA === videoCategory);
 
   const playerReport = selected
-    ? reportData.find((item) => item.ID_JUGADOR === selected.idJugador)
+    ? reportData.find(
+        (item) => idVigente(item.ID_JUGADOR) === selected.idJugador,
+      )
     : null;
+
+  /* Los nombres del seleccionado, para que sus clips se crucen por nombre
+     (ver `esDelJugador` en /api/coding/sesiones) y no por un ID renumerable. */
+  const nombresSeleccionado = useMemo(() => {
+    if (!selected) return [];
+
+    const fila = sheetData.find(
+      (r) => idVigente(r.ID_JUGADOR) === selected.idJugador,
+    );
+
+    return [selected.name, fila?.NOMBRE ?? "", fila?.APODO ?? ""].filter(
+      Boolean,
+    );
+  }, [sheetData, selected]);
 
   const playerRatings = useMemo(
     () => (selected ? playerEntries(ratingsSeason, selected.idJugador) : []),
@@ -2005,7 +2082,7 @@ export default function IndividualPage() {
     setEditingTracking(record || null);
 
     const inicial = {
-      FECHA: record?.FECHA?.split("T")[0] || "",
+      FECHA: fechaParaInput(record?.FECHA),
       OBJETIVO_OFENSIVO: record?.OBJETIVO_OFENSIVO || "",
       OBJETIVO_DEFENSIVO: record?.OBJETIVO_DEFENSIVO || "",
       OBJETIVO_MENTAL: record?.OBJETIVO_MENTAL || "",
@@ -2031,7 +2108,7 @@ export default function IndividualPage() {
       TITULO: video?.TITULO || "",
       DESCRIPCION: video?.DESCRIPCION || "",
       URL_VIDEO: video?.URL_VIDEO || "",
-      FECHA: video?.FECHA?.split("T")[0] || "",
+      FECHA: fechaParaInput(video?.FECHA),
     };
 
     setFotoVideo(inicial);
@@ -3415,9 +3492,12 @@ export default function IndividualPage() {
                                 </span>
                               </div>
 
-                              {group.items.map((item) => (
+                              {group.items.map((item, indice) => (
                                 <article
-                                  key={item.ID_REGISTRO}
+                                  /* Con el índice: las filas sin fecha pueden
+                                     compartir ID_REGISTRO y React las
+                                     confundía (una se pintaba dos veces). */
+                                  key={`${item.ID_REGISTRO}-${indice}`}
                                   className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025] transition hover:border-white/20"
                                 >
                                   <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-4 py-2.5">
@@ -3580,6 +3660,7 @@ export default function IndividualPage() {
                           <ClipsDelJugador
                             key={selected.idJugador}
                             jugadorId={selected.idJugador}
+                            nombres={nombresSeleccionado}
                             ambito="partido"
                             caratula={{
                               equipo: "RMCF Castilla",

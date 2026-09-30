@@ -162,6 +162,22 @@ export function estadoDe(jornada: number, ahora: Date): EstadoJornada {
   return { viernes, cerrada, ultimasHoras: !cerrada };
 }
 
+/**
+ * El instante exacto del cierre: el viernes a las 12:00 **de Madrid**.
+ *
+ * Escribir `${viernes}T12:00:00Z` son las 12:00 de UTC, que en Madrid son las
+ * 14:00 en verano y las 13:00 en invierno. Se parte de ese mediodía de UTC, se
+ * le pregunta a `enMadrid` qué hora es allí y se retrocede la diferencia: vale
+ * con horario de verano y sin él.
+ */
+export function instanteDeCierre(viernes: string): Date {
+  const mediodiaUtc = new Date(`${viernes}T${String(HORA_CIERRE).padStart(2, "0")}:00:00Z`);
+
+  const adelanto = enMadrid(mediodiaUtc).hora - HORA_CIERRE;
+
+  return new Date(mediodiaUtc.getTime() - adelanto * 3_600_000);
+}
+
 /** "viernes 18 de septiembre a las 12:00", para escribirlo en pantalla. */
 export function cuandoCierra(viernes: string | null) {
   if (!viernes) return "";

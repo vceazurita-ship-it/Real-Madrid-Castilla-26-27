@@ -78,6 +78,41 @@ function seasonDateKey(date: Date) {
   return dateKey(date);
 }
 
+/*
+| El día de una subida, en Madrid.
+|
+| `created_at` es un instante (UTC), y `dateKey` lo pasa a día con el huso
+| del servidor, que en Vercel es UTC: un archivo subido a las 00:30 de Madrid
+| caía en el día anterior del calendario. Aquí el día se saca en
+| Europe/Madrid, esté donde esté el servidor. Las fechas de semana, que ya se
+| construyen como día local, siguen por `seasonDateKey`.
+*/
+const DIA_EN_MADRID = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Madrid",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function uploadDateKey(instante: string) {
+  const fecha = new Date(instante);
+
+  if (Number.isNaN(fecha.getTime())) return seasonDateKey(fecha);
+
+  const partes = Object.fromEntries(
+    DIA_EN_MADRID.formatToParts(fecha).map((parte) => [parte.type, parte.value]),
+  );
+  const clave = `${partes.year}-${partes.month}-${partes.day}`;
+
+  const primero = dateKey(SEASON_FIRST_DAY);
+  const ultimo = dateKey(SEASON_LAST_DAY);
+
+  if (clave < primero) return primero;
+  if (clave > ultimo) return ultimo;
+
+  return clave;
+}
+
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
@@ -153,7 +188,7 @@ function filesFromSeason(
           url,
           name: fileNameFromUrl(url),
           created_at: uploadedAt ?? weekDate,
-          date: uploadedAt ? seasonDateKey(new Date(uploadedAt)) : weekDate,
+          date: uploadedAt ? uploadDateKey(uploadedAt) : weekDate,
           type,
         });
       };
@@ -274,7 +309,7 @@ export async function GET() {
         name: item.name,
         created_at: item.created_at,
         type: isPdf(item.name) ? "pdf" : "image",
-        date: seasonDateKey(new Date(item.created_at)),
+        date: uploadDateKey(item.created_at),
         week: "",
         weekRange: "",
         month: "",

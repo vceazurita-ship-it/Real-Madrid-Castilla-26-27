@@ -219,9 +219,21 @@ function percentilEnLiga(
   liga: FilaPartido[],
   equipos: string[],
   mejorAlto: boolean | null,
+  enContra = false,
 ) {
+  /*
+  | La referencia tiene que medir lo mismo que el valor. En «balón parado en
+  | contra» el del equipo sale de las filas de sus rivales —lo que concede—, así
+  | que el listón es lo que concede cada equipo de la liga (las filas en las que
+  | él es el rival), no lo que produce.
+  */
   const valores = equipos
-    .map((e) => valorEnGrupo(metrica, liga.filter((p) => p.equipo === e)))
+    .map((e) =>
+      valorEnGrupo(
+        metrica,
+        liga.filter((p) => (enContra ? p.rival === e : p.equipo === e)),
+      ),
+    )
     .filter((v): v is number => v !== null);
 
   if (valores.length < 5) return null;
@@ -294,6 +306,7 @@ export function destacadosDeEquipo(
           liga,
           equipos,
           mejorAlto,
+          enContra,
         );
 
         if (!enLaLiga) continue;
