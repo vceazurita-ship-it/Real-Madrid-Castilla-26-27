@@ -283,8 +283,8 @@ export const MODULES: AppModule[] = [
   {
     href: "/comparative_ind",
     area: "INDIVIDUAL",
-    title: "Comparativo U-21",
-    desc: "Comparación y proyección de talento",
+    title: "Comparativa con la categoría",
+    desc: "Frente a los sub-21, los sub-23 o toda la categoría",
     icon: Scale,
     rank: 69,
   },

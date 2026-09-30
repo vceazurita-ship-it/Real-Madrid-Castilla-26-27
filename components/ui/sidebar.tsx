@@ -356,7 +356,7 @@ const seccion = (titulo: string, hijos: ReactNode) => (
 
               {navLink("/ratings", "Valoraciones", <Star size={18} />)}
 
-              {navLink("/comparative_ind", "Comparativo U-21", <Scale size={18} />)}
+              {navLink("/comparative_ind", "Comparativa categoría", <Scale size={18} />)}
             </>,
           )}
 

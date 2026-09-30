@@ -439,9 +439,9 @@ export const AYUDAS: AyudaDePagina[] = [
   },
   {
     ruta: "/comparative_ind",
-    titulo: "Comparativo U-21",
-    resumen: "Nuestros jugadores contra los de su edad.",
-    origen: "Hoja de comparativa y datos de plantilla.",
+    titulo: "Comparativa con la categoría",
+    resumen: "Cada jugador frente a los de su puesto en la categoría: sub-21, sub-23 o todos. Ranking, gráficos por fase del juego (con preguntas o dos métricas a elegir) y ficha.",
+    origen: "Descarga de jugadores de Wyscout de toda la categoría, nuestras valoraciones de partido y los seguimientos.",
     bloques: [{ titulo: "Cómo se lee", filas: [PERCENTIL] }],
   },
 

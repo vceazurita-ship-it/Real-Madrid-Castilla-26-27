@@ -1,22 +1,37 @@
 "use client";
 
 /**
- * Comparativo U-21 — ya no es un Power BI incrustado: es nuestro.
+ * Comparativa con la categoría (antes «Comparativo U-21», un Power BI).
  *
- * Junta lo que recopilamos de cada jugador:
+ * Cada jugador del Castilla frente a los de su puesto en la categoría —los
+ * sub-21, los sub-23 o todos—, con lo que recopilamos de él:
  * - la descarga de jugadores de Wyscout de TODA la categoría (edad, puesto,
- *   minutos y 86 métricas por noventa), que es lo que permite compararle con
- *   los sub-21 de su puesto de los otros diecinueve equipos;
+ *   minutos y 86 métricas por noventa);
  * - nuestras valoraciones de partido (nota, titularidades, goles, asistencias);
  * - los seguimientos individuales.
  *
+ * Tres pestañas con los mismos filtros arriba: el ranking de la plantilla, los
+ * gráficos por fase del juego (una batería de preguntas como la de DATA, o dos
+ * métricas a elección) y la ficha de cada uno. Pinchar en un jugador —en la
+ * tabla o en un gráfico— abre su ficha.
+ *
  * El modelo vive en `lib/comparativa-u21.ts` y reutiliza el de DATA
- * (`lib/data-analisis/individual.ts`), con sus reglas: percentil siempre,
- * nada de porcentajes de una acción y el portero sólo contra porteros.
+ * (`lib/data-analisis/individual.ts`), con sus reglas: percentil siempre, nada
+ * de porcentajes de una acción y el portero sólo contra porteros.
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Loader2, Minus, Scale } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowDownUp,
+  ArrowUpRight,
+  BarChart3,
+  Loader2,
+  Minus,
+  ScatterChart,
+  UserRound,
+  Users,
+} from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -27,23 +42,39 @@ import { traeJson } from "@/lib/hojaCsv";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 import { summarizeAll } from "@/lib/ratings/compute";
 import { casaNombre } from "@/lib/data-analisis/once";
-import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
+import {
+  METRICAS_JUGADOR,
+  METRICA_JUGADOR_POR_COLUMNA,
+  PUESTOS,
+  type Puesto,
+} from "@/lib/data-analisis/individual";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import {
+  FASES,
+  PREGUNTAS,
   REFERENCIAS,
   comparativa,
+  mediana,
   mejoresDe,
   nubeDe,
+  puntosDe,
   type FilaComparativa,
+  type PuntoJugador,
   type Referencia,
 } from "@/lib/comparativa-u21";
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
+type Pestana = "ranking" | "graficos" | "ficha";
+type Orden = "nombre" | "edad" | "minutos" | "nota" | "indice" | "ranking" | "evolucion" | "seguimientos";
 
 const colorIndice = (i: number | null) => (i === null ? tinta(0.2) : i >= 60 ? MEJOR : i < 45 ? PEOR : ORO);
 
 const ordinal = (n: number) => `${n}º`;
+
+const apellido = (nombre: string) => nombre.split(" ").slice(-1)[0];
+
+const formatea = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ""));
 
 function Barra({ valor, color }: { valor: number; color: string }) {
   return (
@@ -64,7 +95,26 @@ function Foto({ src, nombre, size = 36 }: { src?: string; nombre: string; size?:
   );
 }
 
-export default function ComparativoU21() {
+function Chip({ activo, onClick, children, fuerte }: { activo: boolean; onClick: () => void; children: React.ReactNode; fuerte?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+        activo
+          ? fuerte
+            ? "border-[#C8A96B] bg-[#C8A96B]/15 font-medium text-[#C8A96B]"
+            : "border-white/40 bg-white/10 text-white"
+          : "border-white/10 text-white/55 hover:border-white/25"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function ComparativaCategoria() {
   const { players } = usePlayers();
   const { season } = useRatingsSeason();
   const escudoDe = useEscudos();
@@ -73,7 +123,9 @@ export default function ComparativoU21() {
   const [seguimientos, setSeguimientos] = useState<RegistroSeguimiento[]>([]);
   const [ref, setRef] = useState<Referencia>("u21");
   const [filtroPuesto, setFiltroPuesto] = useState<Puesto | "todos">("todos");
+  const [pestana, setPestana] = useState<Pestana>("ranking");
   const [elegido, setElegido] = useState<string | null>(null);
+  const [orden, setOrden] = useState<{ por: Orden; desc: boolean }>({ por: "indice", desc: true });
 
   useEffect(() => {
     const control = new AbortController();
@@ -90,16 +142,14 @@ export default function ComparativoU21() {
   }, []);
 
   const jugadores = useMemo(() => datos?.jugadores ?? [], [datos]);
-
   const filas = useMemo(() => (jugadores.length ? comparativa(jugadores, ref) : []), [jugadores, ref]);
 
-  /* De la fila de Wyscout a la ficha de la plantilla (foto, ID para valoraciones y seguimientos). */
   /*
-  | Contra la plantilla ENTERA, no sólo las licencias del Castilla: Alexis
-  | Ciria juega con nosotros sin licencia nuestra. Y por tres caminos, porque
-  | la hoja no siempre escribe el nombre completo («Roberto» es «Roberto
-  | Martín» en Wyscout): nombre, apodo y, si la hoja sólo pone el nombre de
-  | pila y no hay otro igual, ese nombre.
+  | De la fila de Wyscout a la ficha de la plantilla (foto, ID para
+  | valoraciones y seguimientos). Contra la plantilla ENTERA —Alexis juega con
+  | nosotros sin licencia nuestra— y por cuatro caminos, porque la hoja no
+  | siempre escribe el nombre completo: nombre, apodo, inicial y apellido
+  | («S. Martínez») y nombre de pila cuando no hay otro igual («Roberto»).
   */
   const fichaDe = useMemo(() => {
     const limpio = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
@@ -107,7 +157,6 @@ export default function ComparativoU21() {
       casaNombre(fila.jugador, players, (p) => p.nombre) ??
       casaNombre(fila.jugador, players, (p) => p.apodo ?? "") ??
       (() => {
-        /* «S. Martínez»: inicial y apellido juntos, que el apellido solo lo comparten tres. */
         const inicial = limpio(fila.jugador).match(/^(\p{L})\.\s*(.+)$/u);
         if (inicial) {
           const suyos = players.filter((p) => {
@@ -134,16 +183,51 @@ export default function ComparativoU21() {
     return m;
   }, [seguimientos, players]);
 
-  const visibles = useMemo(
+  /* Todo lo nuestro de cada fila, resuelto una vez: la tabla ordena por ello. */
+  const conFicha = useMemo(
     () =>
-      filas
-        .filter((f) => filtroPuesto === "todos" || f.puesto === filtroPuesto)
-        .sort((a, b) => (b.indice ?? -1) - (a.indice ?? -1)),
-    [filas, filtroPuesto],
+      filas.map((f) => {
+        const ficha = fichaDe(f.jugador);
+        const nota = ficha ? resumenes.get(ficha.id) : undefined;
+        const seg = ficha ? cuentaSeguimientos.get(ficha.id) : undefined;
+        return { f, ficha, nota, seg };
+      }),
+    [filas, fichaDe, resumenes, cuentaSeguimientos],
   );
 
-  const activo: FilaComparativa | null =
-    visibles.find((f) => f.jugador.jugador === elegido) ?? visibles[0] ?? null;
+  const visibles = useMemo(() => {
+    const valor = (x: (typeof conFicha)[number]): number | string => {
+      switch (orden.por) {
+        case "nombre": return x.ficha?.nombre ?? x.f.jugador.jugador;
+        case "edad": return x.f.jugador.edad;
+        case "minutos": return x.f.jugador.minutos;
+        case "nota": return x.nota?.played ? x.nota.avg : -1;
+        case "indice": return x.f.indice ?? -1;
+        case "ranking": return x.f.ranking ? -x.f.ranking.posicion / x.f.ranking.de : -99;
+        case "evolucion": return x.f.evolucion?.salto ?? -99;
+        case "seguimientos": return x.seg?.n ?? 0;
+      }
+    };
+    return conFicha
+      .filter((x) => filtroPuesto === "todos" || x.f.puesto === filtroPuesto)
+      .sort((a, b) => {
+        const va = valor(a);
+        const vb = valor(b);
+        const c = typeof va === "string" ? va.localeCompare(String(vb), "es") : va - (vb as number);
+        return orden.desc ? -c : c;
+      });
+  }, [conFicha, filtroPuesto, orden]);
+
+  const activo =
+    conFicha.find((x) => x.f.jugador.jugador === elegido) ??
+    visibles[0] ??
+    conFicha[0] ??
+    null;
+
+  const abreFicha = (nombre: string) => {
+    setElegido(nombre);
+    setPestana("ficha");
+  };
 
   const refLabel = REFERENCIAS.find((r) => r.key === ref)?.label ?? "";
   const cargando = datos === null;
@@ -158,6 +242,12 @@ export default function ComparativoU21() {
     };
   }, [filas]);
 
+  const PESTANAS: { key: Pestana; label: string; icono: React.ReactNode }[] = [
+    { key: "ranking", label: "Ranking de la plantilla", icono: <Users size={15} /> },
+    { key: "graficos", label: "Gráficos por fase", icono: <ScatterChart size={15} /> },
+    { key: "ficha", label: "Ficha del jugador", icono: <UserRound size={15} /> },
+  ];
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -168,42 +258,49 @@ export default function ComparativoU21() {
           <section className="px-4 pb-12 pt-6 sm:px-8 sm:pt-10">
             <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">RMCF CASTILLA · INDIVIDUAL</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Scale className="h-7 w-7 text-[#C8A96B]" />
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Comparativo U-21</h1>
+              <BarChart3 className="h-7 w-7 text-[#C8A96B]" />
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Comparativa con la categoría</h1>
             </div>
             <p className="mt-3 max-w-3xl text-sm text-white/55">
-              Cada jugador del Castilla frente a los jóvenes de su puesto que juegan en la categoría: sus percentiles en las
-              métricas de Wyscout de su puesto, dónde queda en el ranking, cómo ha cambiado desde el año pasado y lo que
-              dicen nuestras valoraciones y seguimientos.
+              Cada jugador del Castilla frente a los de su puesto en la categoría —los sub-21, los sub-23 o todos—: dónde
+              queda, en qué destaca por fase del juego y cómo ha cambiado desde el año pasado, junto a nuestras valoraciones
+              y seguimientos.
             </p>
 
-            {/* ---------------- controles ---------------- */}
-            <div className="mt-6 flex flex-wrap items-center gap-2">
-              {REFERENCIAS.map((r) => (
-                <button
-                  key={r.key}
-                  type="button"
-                  onClick={() => setRef(r.key)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                    ref === r.key ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/10 text-white/60 hover:border-white/25"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
-              <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
-              {[{ key: "todos" as const, label: "Todos" }, ...PUESTOS.map((p) => ({ key: p.key, label: p.label }))].map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => setFiltroPuesto(p.key)}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                    filtroPuesto === p.key ? "border-white/40 bg-white/10 text-white" : "border-white/10 text-white/50 hover:border-white/25"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
+            {/* ---------------- filtros y pestañas, siempre a la vista ---------------- */}
+            <div className="sticky top-0 z-20 -mx-4 mt-6 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Contra</span>
+                {REFERENCIAS.map((r) => (
+                  <Chip key={r.key} activo={ref === r.key} onClick={() => setRef(r.key)} fuerte>
+                    {r.label}
+                  </Chip>
+                ))}
+                <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+                <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Puesto</span>
+                {[{ key: "todos" as const, label: "Todos" }, ...PUESTOS.map((p) => ({ key: p.key, label: p.label }))].map((p) => (
+                  <Chip key={p.key} activo={filtroPuesto === p.key} onClick={() => setFiltroPuesto(p.key)}>
+                    {p.label}
+                  </Chip>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-1 overflow-x-auto" role="tablist">
+                {PESTANAS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={pestana === p.key}
+                    onClick={() => setPestana(p.key)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm transition ${
+                      pestana === p.key ? "bg-white/10 font-medium text-white" : "text-white/50 hover:bg-white/[0.05] hover:text-white/80"
+                    }`}
+                  >
+                    {p.icono}
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {cargando ? (
@@ -216,113 +313,151 @@ export default function ComparativoU21() {
               </p>
             ) : (
               <>
-                {/* ---------------- KPIs ---------------- */}
-                <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  {[
-                    { t: "Jugadores comparados", v: kpis.comparados, h: `contra ${refLabel.toLowerCase()}` },
-                    { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de la referencia" },
-                    { t: "Índice medio", v: kpis.media ?? "—", h: "50 = en la media del grupo" },
-                    { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: "con muestra suficiente el año pasado" },
-                  ].map((k) => (
-                    <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                      <p className="text-xs text-white/50">{k.t}</p>
-                      <p className="mt-1 text-2xl font-semibold">{k.v}</p>
-                      <p className="mt-1 text-[11px] text-white/35">{k.h}</p>
+                {pestana === "ranking" && (
+                  <>
+                    <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      {[
+                        { t: "Jugadores comparados", v: kpis.comparados, h: `contra ${refLabel.toLowerCase()}` },
+                        { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de la referencia" },
+                        { t: "Índice medio", v: kpis.media ?? "—", h: "50 = en la media del grupo" },
+                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: "con muestra suficiente el año pasado" },
+                      ].map((k) => (
+                        <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                          <p className="text-xs text-white/50">{k.t}</p>
+                          <p className="mt-1 text-2xl font-semibold">{k.v}</p>
+                          <p className="mt-1 text-[11px] text-white/35">{k.h}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                {/* ---------------- tabla ---------------- */}
-                <div className="mt-6 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                  <table className="w-full min-w-[860px] text-sm">
-                    <thead>
-                      <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
-                        <th className="px-4 py-3 font-medium">Jugador</th>
-                        <th className="px-2 py-3 font-medium">Edad</th>
-                        <th className="px-2 py-3 font-medium">Puesto</th>
-                        <th className="px-2 py-3 text-right font-medium">Minutos</th>
-                        <th className="px-2 py-3 text-right font-medium">Nota</th>
-                        <th className="w-44 px-3 py-3 font-medium">Índice vs {ref === "todos" ? "categoría" : ref.toUpperCase()}</th>
-                        <th className="px-2 py-3 font-medium">Ranking</th>
-                        <th className="px-2 py-3 font-medium">Evolución</th>
-                        <th className="px-2 py-3 text-right font-medium">Seguim.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibles.map((f) => {
-                        const ficha = fichaDe(f.jugador);
-                        const nota = ficha ? resumenes.get(ficha.id) : undefined;
-                        const seg = ficha ? cuentaSeguimientos.get(ficha.id) : undefined;
-                        const sel = activo?.jugador === f.jugador;
-                        return (
-                          <tr
-                            key={f.jugador.jugador}
-                            onClick={() => setElegido(f.jugador.jugador)}
-                            className={`cursor-pointer border-t border-white/[0.06] transition ${sel ? "bg-[#C8A96B]/10" : "hover:bg-white/[0.03]"}`}
-                          >
-                            <td className="px-4 py-2.5">
-                              <div className="flex items-center gap-2.5">
-                                <Foto src={ficha?.foto} nombre={f.jugador.jugador} size={30} />
-                                <span className="font-medium text-white/90">{ficha?.nombre ?? f.jugador.jugador}</span>
-                              </div>
-                            </td>
-                            <td className="px-2 text-white/70">{f.jugador.edad}</td>
-                            <td className="px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
-                            <td className="px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
-                            <td className="px-2 text-right tabular-nums text-white/70">
-                              {nota && nota.played ? nota.avg.toFixed(1) : "—"}
-                            </td>
-                            <td className="px-3">
-                              <div className="flex items-center gap-2">
-                                <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
-                                  {f.indice ?? "—"}
-                                </span>
-                                <Barra valor={f.indice ?? 0} color={colorIndice(f.indice)} />
-                              </div>
-                            </td>
-                            <td className="px-2 text-xs text-white/70">
-                              {f.ranking ? `${ordinal(f.ranking.posicion)} de ${f.ranking.de}` : "—"}
-                            </td>
-                            <td className="px-2 text-xs">
-                              {f.evolucion ? (
-                                <span
-                                  className={`inline-flex items-center gap-0.5 ${f.evolucion.fiable ? "" : "opacity-45"}`}
-                                  style={{ color: f.evolucion.salto > 2 ? MEJOR : f.evolucion.salto < -2 ? PEOR : tinta(0.6) }}
-                                  title={f.evolucion.fiable ? "Salto medio de percentil frente a su categoría del año pasado" : "El año pasado jugó menos de 450′: poca muestra"}
-                                >
-                                  {f.evolucion.salto > 2 ? <ArrowUpRight size={13} /> : f.evolucion.salto < -2 ? <ArrowDownRight size={13} /> : <Minus size={13} />}
-                                  {f.evolucion.salto > 0 ? "+" : ""}
-                                  {f.evolucion.salto}
-                                </span>
-                              ) : (
-                                <span className="text-white/30">nuevo</span>
-                              )}
-                            </td>
-                            <td className="px-2 text-right tabular-nums text-white/60">{seg?.n ?? 0}</td>
+                    <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha.</p>
+                    <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                      <table className="w-full min-w-[860px] text-sm">
+                        <thead>
+                          <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
+                            {(
+                              [
+                                ["nombre", "Jugador", "px-4"],
+                                ["edad", "Edad", "px-2"],
+                                [null, "Puesto", "px-2"],
+                                ["minutos", "Minutos", "px-2 text-right"],
+                                ["nota", "Nota", "px-2 text-right"],
+                                ["indice", `Índice vs ${ref === "todos" ? "categoría" : ref.toUpperCase()}`, "w-44 px-3"],
+                                ["ranking", "Ranking", "px-2"],
+                                ["evolucion", "Evolución", "px-2"],
+                                ["seguimientos", "Seguim.", "px-2 text-right"],
+                              ] as [Orden | null, string, string][]
+                            ).map(([clave, texto, clase]) => (
+                              <th key={texto} className={`py-3 font-medium ${clase}`}>
+                                {clave ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOrden((o) => ({ por: clave, desc: o.por === clave ? !o.desc : clave !== "nombre" }))
+                                    }
+                                    className={`inline-flex items-center gap-1 uppercase hover:text-white/80 ${orden.por === clave ? "text-[#C8A96B]" : ""}`}
+                                  >
+                                    {texto}
+                                    <ArrowDownUp size={10} className={orden.por === clave ? "" : "opacity-40"} />
+                                  </button>
+                                ) : (
+                                  texto
+                                )}
+                              </th>
+                            ))}
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {visibles.map(({ f, ficha, nota, seg }) => (
+                            <tr
+                              key={f.jugador.jugador}
+                              onClick={() => abreFicha(f.jugador.jugador)}
+                              className="cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04]"
+                            >
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-2.5">
+                                  <Foto src={ficha?.foto} nombre={f.jugador.jugador} size={30} />
+                                  <span className="font-medium text-white/90">{ficha?.nombre ?? f.jugador.jugador}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 text-white/70">{f.jugador.edad}</td>
+                              <td className="px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
+                              <td className="px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
+                              <td className="px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1) : "—"}</td>
+                              <td className="px-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
+                                    {f.indice ?? "—"}
+                                  </span>
+                                  <Barra valor={f.indice ?? 0} color={colorIndice(f.indice)} />
+                                </div>
+                              </td>
+                              <td className="px-2 text-xs text-white/70">{f.ranking ? `${ordinal(f.ranking.posicion)} de ${f.ranking.de}` : "—"}</td>
+                              <td className="px-2 text-xs">
+                                {f.evolucion ? (
+                                  <span
+                                    className={`inline-flex items-center gap-0.5 ${f.evolucion.fiable ? "" : "opacity-45"}`}
+                                    style={{ color: f.evolucion.salto > 2 ? MEJOR : f.evolucion.salto < -2 ? PEOR : tinta(0.6) }}
+                                    title={f.evolucion.fiable ? "Salto medio de percentil frente a su categoría del año pasado" : "El año pasado jugó menos de 450′: poca muestra"}
+                                  >
+                                    {f.evolucion.salto > 2 ? <ArrowUpRight size={13} /> : f.evolucion.salto < -2 ? <ArrowDownRight size={13} /> : <Minus size={13} />}
+                                    {f.evolucion.salto > 0 ? "+" : ""}
+                                    {f.evolucion.salto}
+                                  </span>
+                                ) : (
+                                  <span className="text-white/30">nuevo</span>
+                                )}
+                              </td>
+                              <td className="px-2 text-right tabular-nums text-white/60">{seg?.n ?? 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
 
-                {activo && (
-                  <Detalle
-                    fila={activo}
+                {pestana === "graficos" && (
+                  <Graficos
                     jugadores={jugadores}
                     refe={ref}
                     refLabel={refLabel}
-                    ficha={fichaDe(activo.jugador)}
-                    nota={(() => {
-                      const f = fichaDe(activo.jugador);
-                      return f ? resumenes.get(f.id) : undefined;
-                    })()}
-                    seg={(() => {
-                      const f = fichaDe(activo.jugador);
-                      return f ? cuentaSeguimientos.get(f.id) : undefined;
-                    })()}
-                    escudoDe={escudoDe}
+                    puesto={filtroPuesto}
+                    elegido={activo?.f.jugador.jugador ?? null}
+                    nombreDe={(j) => fichaDe(j)?.nombre ?? j.jugador}
+                    onElige={abreFicha}
                   />
+                )}
+
+                {pestana === "ficha" && activo && (
+                  <>
+                    <label className="mt-6 flex max-w-sm flex-col gap-1 text-[11px] uppercase tracking-wider text-white/40">
+                      Jugador
+                      <select
+                        value={activo.f.jugador.jugador}
+                        onChange={(e) => setElegido(e.target.value)}
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm normal-case tracking-normal text-white"
+                      >
+                        {[...conFicha]
+                          .sort((a, b) => (a.ficha?.nombre ?? a.f.jugador.jugador).localeCompare(b.ficha?.nombre ?? b.f.jugador.jugador, "es"))
+                          .map((x) => (
+                            <option key={x.f.jugador.jugador} value={x.f.jugador.jugador} className="bg-[#11161C]">
+                              {x.ficha?.nombre ?? x.f.jugador.jugador} · {PUESTOS.find((p) => p.key === x.f.puesto)?.label}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <Detalle
+                      fila={activo.f}
+                      jugadores={jugadores}
+                      refe={ref}
+                      refLabel={refLabel}
+                      ficha={activo.ficha}
+                      nota={activo.nota}
+                      seg={activo.seg}
+                      escudoDe={escudoDe}
+                    />
+                  </>
                 )}
 
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
@@ -338,6 +473,232 @@ export default function ComparativoU21() {
         </div>
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS GRÁFICOS POR FASE                                              */
+/* ------------------------------------------------------------------ */
+
+const etiquetaDe = (columna: string) => {
+  const m = METRICA_JUGADOR_POR_COLUMNA.get(columna);
+  if (!m) return columna;
+  return `${m.nombre}${m.unidad === "porcentaje" ? "" : " /90"}${m.mejorAlto === false ? " (menos es mejor)" : ""}`;
+};
+
+function Graficos({
+  jugadores,
+  refe,
+  refLabel,
+  puesto,
+  elegido,
+  nombreDe,
+  onElige,
+}: {
+  jugadores: FilaJugador[];
+  refe: Referencia;
+  refLabel: string;
+  puesto: Puesto | "todos";
+  elegido: string | null;
+  nombreDe: (j: FilaJugador) => string;
+  onElige: (nombre: string) => void;
+}) {
+  const [pregunta, setPregunta] = useState(0);
+  const [ejes, setEjes] = useState<{ x: string; y: string } | null>(null);
+
+  const p = PREGUNTAS[pregunta];
+  const x = ejes?.x ?? p.x;
+  const y = ejes?.y ?? p.y;
+
+  /* Las de porteros, sólo con porteros; el resto, con el puesto de arriba. */
+  const puestoGrafico: Puesto | "todos" = !ejes && p.fase === "por" ? "POR" : puesto;
+  const puntos = useMemo(() => puntosDe(jugadores, refe, puestoGrafico, x, y), [jugadores, refe, puestoGrafico, x, y]);
+
+  const mx = mediana(puntos.filter((q) => !q.nuestro).map((q) => q.x));
+  const my = mediana(puntos.filter((q) => !q.nuestro).map((q) => q.y));
+  const mejorX = METRICA_JUGADOR_POR_COLUMNA.get(x)?.mejorAlto;
+  const mejorY = METRICA_JUGADOR_POR_COLUMNA.get(y)?.mejorAlto;
+  const porEncima = (v: number, m: number, mejor: boolean | null | undefined) => (mejor === false ? v < m : v > m);
+  const destacan = puntos.filter((q) => q.nuestro && porEncima(q.x, mx, mejorX) && porEncima(q.y, my, mejorY));
+
+  const puestoTexto = puestoGrafico === "todos" ? "jugadores de campo" : PUESTOS.find((q) => q.key === puestoGrafico)?.label.toLowerCase();
+
+  return (
+    <div className="mt-6 grid gap-4 lg:grid-cols-[300px_1fr]">
+      <aside className="space-y-4">
+        {FASES.map((fase) => (
+          <div key={fase.key}>
+            <p className="mb-1.5 text-[11px] uppercase tracking-wider text-white/40">{fase.label}</p>
+            <div className="space-y-1">
+              {PREGUNTAS.map((q, i) =>
+                q.fase === fase.key ? (
+                  <button
+                    key={q.pregunta}
+                    type="button"
+                    onClick={() => {
+                      setPregunta(i);
+                      setEjes(null);
+                    }}
+                    className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm transition ${
+                      !ejes && pregunta === i ? "bg-[#C8A96B]/15 text-[#C8A96B]" : "text-white/70 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    {q.pregunta}
+                  </button>
+                ) : null,
+              )}
+            </div>
+          </div>
+        ))}
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <p className="text-[11px] uppercase tracking-wider text-white/40">O elige tú las dos métricas</p>
+          {(["x", "y"] as const).map((eje) => (
+            <label key={eje} className="mt-2 block text-[11px] text-white/45">
+              {eje === "x" ? "Eje horizontal" : "Eje vertical"}
+              <select
+                value={eje === "x" ? x : y}
+                onChange={(e) => setEjes({ x: eje === "x" ? e.target.value : x, y: eje === "y" ? e.target.value : y })}
+                className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white"
+              >
+                {[
+                  ["con", "Con balón"],
+                  ["sin", "Sin balón"],
+                  ["abp", "Balón parado"],
+                  ["general", "General"],
+                ].map(([fase, rotulo]) => (
+                  <optgroup key={fase} label={rotulo} className="bg-[#11161C]">
+                    {METRICAS_JUGADOR.filter((m) => m.fase === fase).map((m) => (
+                      <option key={m.columna} value={m.columna} className="bg-[#11161C]">
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      </aside>
+
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+        <p className="text-base font-semibold">{ejes ? `${etiquetaDe(x)} frente a ${etiquetaDe(y)}` : p.pregunta}</p>
+        <p className="mt-1 text-xs text-white/45">
+          {ejes ? "Las dos métricas elegidas." : p.lectura} {puntos.length} {puestoTexto} ({refLabel.toLowerCase()} y todos los
+          nuestros), con al menos 90′. Las líneas son la mediana de la categoría.
+        </p>
+
+        {puntos.length < 3 ? (
+          <p className="mt-6 text-sm text-white/45">No hay bastantes jugadores con esas dos métricas para dibujarlas.</p>
+        ) : (
+          <Dispersion puntos={puntos} x={x} y={y} mx={mx} my={my} elegido={elegido} nombreDe={nombreDe} onElige={onElige} />
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-white/45">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: ORO }} /> Castilla (pincha para abrir su ficha)
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: tinta(0.3) }} /> Resto de la categoría
+          </span>
+        </div>
+        {destacan.length > 0 && (
+          <p className="mt-3 text-sm text-white/70">
+            <b className="text-[#C8A96B]">Por encima de la mediana en las dos:</b>{" "}
+            {destacan.map((q) => nombreDe(q.jugador)).join(", ")}.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Dispersion({
+  puntos,
+  x,
+  y,
+  mx,
+  my,
+  elegido,
+  nombreDe,
+  onElige,
+}: {
+  puntos: PuntoJugador[];
+  x: string;
+  y: string;
+  mx: number;
+  my: number;
+  elegido: string | null;
+  nombreDe: (j: FilaJugador) => string;
+  onElige: (nombre: string) => void;
+}) {
+  const W = 640;
+  const H = 420;
+  const M = { l: 48, r: 16, t: 14, b: 40 };
+  const xs = puntos.map((p) => p.x);
+  const ys = puntos.map((p) => p.y);
+  const rango = (v: number[]) => {
+    const min = Math.min(...v);
+    const max = Math.max(...v);
+    const pad = (max - min || 1) * 0.06;
+    return [min - pad, max + pad] as const;
+  };
+  const [x0, x1] = rango(xs);
+  const [y0, y1] = rango(ys);
+  const sx = (v: number) => M.l + ((v - x0) / (x1 - x0)) * (W - M.l - M.r);
+  const sy = (v: number) => H - M.b - ((v - y0) / (y1 - y0)) * (H - M.t - M.b);
+  const ticks = (a: number, b: number) => [0, 0.25, 0.5, 0.75, 1].map((t) => a + (b - a) * t);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`${etiquetaDe(x)} frente a ${etiquetaDe(y)}`}>
+      {ticks(x0, x1).map((t) => (
+        <g key={`x${t}`}>
+          <line x1={sx(t)} x2={sx(t)} y1={M.t} y2={H - M.b} stroke={tinta(0.06)} />
+          <text x={sx(t)} y={H - M.b + 14} fontSize={10} textAnchor="middle" fill={tinta(0.45)}>
+            {formatea(t)}
+          </text>
+        </g>
+      ))}
+      {ticks(y0, y1).map((t) => (
+        <g key={`y${t}`}>
+          <line x1={M.l} x2={W - M.r} y1={sy(t)} y2={sy(t)} stroke={tinta(0.06)} />
+          <text x={M.l - 6} y={sy(t) + 3} fontSize={10} textAnchor="end" fill={tinta(0.45)}>
+            {formatea(t)}
+          </text>
+        </g>
+      ))}
+      <line x1={sx(mx)} x2={sx(mx)} y1={M.t} y2={H - M.b} stroke={tinta(0.3)} strokeDasharray="4 4" />
+      <line x1={M.l} x2={W - M.r} y1={sy(my)} y2={sy(my)} stroke={tinta(0.3)} strokeDasharray="4 4" />
+      <text x={(M.l + W - M.r) / 2} y={H - 6} fontSize={11} textAnchor="middle" fill={tinta(0.6)}>
+        {etiquetaDe(x)}
+      </text>
+      <text x={12} y={(M.t + H - M.b) / 2} fontSize={11} textAnchor="middle" fill={tinta(0.6)} transform={`rotate(-90 12 ${(M.t + H - M.b) / 2})`}>
+        {etiquetaDe(y)}
+      </text>
+
+      {puntos
+        .filter((p) => !p.nuestro)
+        .map((p) => (
+          <circle key={`${p.jugador.jugador}-${p.jugador.equipo}`} cx={sx(p.x)} cy={sy(p.y)} r={3.4} fill={tinta(0.28)}>
+            <title>{`${p.jugador.jugador} (${p.jugador.equipo}), ${p.jugador.edad} años · ${formatea(p.x)} · ${formatea(p.y)}`}</title>
+          </circle>
+        ))}
+      {puntos
+        .filter((p) => p.nuestro)
+        .map((p) => {
+          const es = p.jugador.jugador === elegido;
+          return (
+            <g key={p.jugador.jugador} className="cursor-pointer" onClick={() => onElige(p.jugador.jugador)}>
+              <circle cx={sx(p.x)} cy={sy(p.y)} r={es ? 6.5 : 5} fill={ORO} stroke={es ? "white" : "rgba(0,0,0,.35)"} strokeWidth={es ? 1.5 : 0.8}>
+                <title>{`${nombreDe(p.jugador)}, ${p.jugador.edad} años · ${formatea(p.x)} · ${formatea(p.y)}`}</title>
+              </circle>
+              <text x={sx(p.x) + 7} y={sy(p.y) - 6} fontSize={10} fill={ORO} fontWeight={es ? 700 : 500}>
+                {apellido(nombreDe(p.jugador))}
+              </text>
+            </g>
+          );
+        })}
+    </svg>
   );
 }
 
@@ -359,7 +720,7 @@ function Detalle({
   jugadores: FilaJugador[];
   refe: Referencia;
   refLabel: string;
-  ficha: ReturnType<typeof casaNombre<{ id: string; nombre: string; foto?: string }>>;
+  ficha: { id: string; nombre: string; foto?: string } | null | undefined;
   nota?: ReturnType<ReturnType<typeof summarizeAll>["get"]>;
   seg?: { n: number; ultima: string };
   escudoDe: (equipo: string) => string | null;

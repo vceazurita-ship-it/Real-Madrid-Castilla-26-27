@@ -163,3 +163,80 @@ export function nubeDe(jugadores: FilaJugador[], puesto: Puesto) {
     .map((j) => ({ jugador: j, edad: j.edad, indice: indiceDe(percentilesDe(j, todos, puesto)), nuestro: esNuestro(j) }))
     .filter((x): x is { jugador: FilaJugador; edad: number; indice: number; nuestro: boolean } => x.indice !== null);
 }
+
+/* ------------------------------------------------------------------ */
+/*  LA BATERÍA DE PREGUNTAS                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Como en DATA (`lib/data-analisis/preguntas.ts`), pero de jugadores: una
+ * pregunta de caseta y el par de métricas que la contesta. Al elegirla se
+ * rellenan los dos ejes; luego se pueden cambiar a mano.
+ */
+export type Fase = "con" | "sin" | "tr" | "abp" | "por";
+
+export const FASES: { key: Fase; label: string }[] = [
+  { key: "con", label: "Con balón" },
+  { key: "sin", label: "Sin balón" },
+  { key: "tr", label: "Transiciones" },
+  { key: "abp", label: "Balón parado" },
+  { key: "por", label: "Porteros" },
+];
+
+export type Pregunta = { fase: Fase; pregunta: string; x: string; y: string; lectura: string };
+
+export const PREGUNTAS: Pregunta[] = [
+  { fase: "con", pregunta: "¿Quién hace avanzar el balón?", x: "Pases progresivos/90", y: "Carreras en progresión/90", lectura: "Arriba a la derecha, los que progresan pasando y conduciendo." },
+  { fase: "con", pregunta: "¿Quién da el último pase?", x: "Jugadas claves/90", y: "xA/90", lectura: "Pases clave contra la calidad de las ocasiones que dan." },
+  { fase: "con", pregunta: "¿Quién pisa el área y genera peligro?", x: "Toques en el área de penalti/90", y: "xG/90", lectura: "Presencia en el área contra peligro propio." },
+  { fase: "con", pregunta: "¿Quién finaliza mejor de lo esperado?", x: "xG/90", y: "Goles/90", lectura: "Por encima de la diagonal marca más de lo que dicen sus ocasiones." },
+  { fase: "con", pregunta: "¿Quién desborda?", x: "Regates/90", y: "Regates realizados, %", lectura: "Cuánto lo intenta y cuánto le sale." },
+  { fase: "con", pregunta: "¿Quién la pide y la cuida?", x: "Pases recibidos /90", y: "Precisión pases, %", lectura: "Participación contra seguridad en el pase." },
+  { fase: "con", pregunta: "¿Quién centra y con qué acierto?", x: "Centros/90", y: "Precisión centros, %", lectura: "Volumen de centros contra acierto." },
+  { fase: "sin", pregunta: "¿Quién gana los duelos?", x: "Duelos defensivos/90", y: "Duelos defensivos ganados, %", lectura: "Cuántos duelos defiende y cuántos gana." },
+  { fase: "sin", pregunta: "¿Quién anticipa y roba?", x: "Interceptaciones/90", y: "Posesión conquistada después de una interceptación", lectura: "Interceptaciones y cuántas acaban en balón para su equipo." },
+  { fase: "sin", pregunta: "¿Quién defiende sin hacer falta?", x: "Acciones defensivas realizadas/90", y: "Faltas/90", lectura: "Abajo a la derecha: mucho trabajo defensivo y pocas faltas." },
+  { fase: "sin", pregunta: "¿Quién manda por arriba?", x: "Duelos aéreos en los 90", y: "Duelos aéreos ganados, %", lectura: "Duelos aéreos disputados y ganados." },
+  { fase: "tr", pregunta: "¿Quién ataca la espalda?", x: "Ataque en profundidad/90", y: "Aceleraciones/90", lectura: "Desmarques de ruptura contra cambios de ritmo." },
+  { fase: "tr", pregunta: "¿Quién sale corriendo tras robar?", x: "Posesión conquistada después de una entrada", y: "Carreras en progresión/90", lectura: "Balones ganados en la entrada contra conducciones que hacen avanzar." },
+  { fase: "tr", pregunta: "¿Quién cuida el balón en la pérdida?", x: "Duelos atacantes/90", y: "Duelos atacantes ganados, %", lectura: "Duelos con balón disputados y ganados: quien los gana no regala transiciones." },
+  { fase: "abp", pregunta: "¿Quién es amenaza a balón parado?", x: "Duelos aéreos en los 90", y: "Goles de cabeza/90", lectura: "Juego aéreo contra goles de cabeza." },
+  { fase: "abp", pregunta: "¿Quién lanza?", x: "Córneres/90", y: "Tiros libres/90", lectura: "Quién se encarga de córners y faltas." },
+  { fase: "por", pregunta: "¿Qué portero para más de lo esperado?", x: "Paradas, %", y: "Goles evitados/90", lectura: "Porcentaje de paradas contra goles evitados sobre el xG recibido." },
+  { fase: "por", pregunta: "¿Qué portero juega con los pies?", x: "Pases largos/90", y: "Precisión pases largos, %", lectura: "Volumen de juego en largo contra acierto." },
+];
+
+export type PuntoJugador = { jugador: FilaJugador; x: number; y: number; nuestro: boolean };
+
+/**
+ * Los puntos de un par de métricas: la referencia (edad y puesto) más los
+ * nuestros aunque no entren en ella por edad, para que siempre se vean.
+ * Un porcentaje sacado de muy pocas acciones no se pinta.
+ */
+export function puntosDe(
+  jugadores: FilaJugador[],
+  ref: Referencia,
+  puesto: Puesto | "todos",
+  x: string,
+  y: string,
+): PuntoJugador[] {
+  const edad = edadMaxima(ref);
+  const valen = (j: FilaJugador) =>
+    j.temporada === "actual" &&
+    j.minutos >= MINUTOS_MINIMOS &&
+    (puesto === "todos" ? puestoDe(j.posicion) !== "POR" : puestoDe(j.posicion) === puesto) &&
+    (esNuestro(j) || (j.edad > 0 && j.edad <= edad));
+
+  return jugadores
+    .filter(valen)
+    .filter((j) => volumenDelPorcentaje(j, x).fiable && volumenDelPorcentaje(j, y).fiable)
+    .map((j) => ({ jugador: j, x: valorDe(j, x), y: valorDe(j, y), nuestro: esNuestro(j) }))
+    .filter((p): p is PuntoJugador => p.x !== null && p.y !== null);
+}
+
+export const mediana = (valores: number[]) => {
+  const o = [...valores].sort((a, b) => a - b);
+  if (!o.length) return 0;
+  const m = Math.floor(o.length / 2);
+  return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
+};
