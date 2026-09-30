@@ -31,6 +31,7 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  Copy,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -96,6 +97,15 @@ const CAMPOS_PLAN = [
   "HUDL_ANALISIS",
   "DOC",
 ] as const;
+
+/*
+| Lo que se copia al replicar el plan de otra jornada: los textos. Los enlaces
+| de vídeo y el informe son de ese rival, y la fecha, el campo y si somos
+| locales son del partido, así que ésos no viajan.
+*/
+const CAMPOS_REPLICABLES = CAMPOS_PLAN.filter(
+  (campo) => !campo.startsWith("HUDL_") && campo !== "DOC",
+);
 
 const SECCIONES: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "contexto", label: "Contexto", icon: ClipboardList },
@@ -810,6 +820,107 @@ function Esqueleto() {
 |--------------------------------------------------------------------------
 */
 
+/*
+|--------------------------------------------------------------------------
+| REPLICAR DE OTRA JORNADA
+|--------------------------------------------------------------------------
+| Un desplegable con las jornadas que tienen plan escrito. Elegir una copia
+| sus textos en el partido abierto (lo hace la página, con confirmación).
+*/
+function ReplicarPlan({
+  jornadas,
+  onElegir,
+}: {
+  jornadas: { rival: Rival; apartados: number }[];
+  onElegir: (rival: Rival) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!abierto) return;
+
+    const fuera = (e: MouseEvent) => {
+      if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false);
+    };
+
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAbierto(false);
+    };
+
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", escape);
+
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [abierto]);
+
+  return (
+    <div ref={caja} className="relative">
+      <button
+        type="button"
+        onClick={() => setAbierto(!abierto)}
+        disabled={jornadas.length === 0}
+        aria-expanded={abierto}
+        title={
+          jornadas.length === 0
+            ? "Todavía no hay otra jornada con plan escrito"
+            : "Copiar el plan de otra jornada en ésta y editarlo desde ahí"
+        }
+        className="
+          flex items-center gap-2 rounded-xl border border-white/10
+          bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70 transition
+          hover:border-white/25 hover:text-white
+          disabled:cursor-not-allowed disabled:opacity-40
+        "
+      >
+        <Copy size={15} />
+
+        <span className="hidden md:inline">Replicar de otra jornada</span>
+      </button>
+
+      {abierto && (
+        <div className="absolute right-0 top-full z-40 mt-2 max-h-80 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-2xl">
+          <p className="px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+            Copiar el plan de…
+          </p>
+
+          {jornadas.map(({ rival, apartados }) => (
+            <button
+              key={String(rival.ID)}
+              type="button"
+              onClick={() => {
+                setAbierto(false);
+                onElegir(rival);
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-white/[0.05]"
+            >
+              <span className="w-8 shrink-0 text-xs font-semibold tabular-nums text-[#C8A96B]">
+                J{String(rival.JORNADA ?? "--").padStart(2, "0")}
+              </span>
+
+              <span className="min-w-0 flex-1 truncate text-sm text-white/85">
+                {rival.EQUIPO}
+              </span>
+
+              <span className="shrink-0 text-[11px] tabular-nums text-white/40">
+                {apartados}/{CAMPOS_REPLICABLES.length}
+              </span>
+            </button>
+          ))}
+
+          <p className="px-3 py-2 text-[11px] leading-relaxed text-white/35">
+            Se copian los textos del plan; los vídeos, el informe, la fecha y
+            el campo se quedan los de este partido.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MatchPreparation() {
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
@@ -1010,6 +1121,59 @@ export default function MatchPreparation() {
 
     toast.info("Cambios deshechos");
   }, [alEntrar, hayCambiosDeSesion]);
+
+  /*
+  | REPLICAR EL PLAN DE OTRA JORNADA
+  |
+  | Se parte de un plan ya hecho y se retoca. Copia los textos encima de este
+  | partido, abre la edición y deja que el autoguardado lo escriba en la hoja
+  | como cualquier otro cambio. «Deshacer» vuelve a como estaba antes de
+  | copiar, porque la foto de entrada se toma justo antes.
+  */
+  const replicarDe = useCallback(
+    (origen: Rival) => {
+      if (!rivalActivo) return;
+
+      const conTexto = CAMPOS_REPLICABLES.filter((c) => relleno(rivalActivo[c]));
+
+      if (
+        conTexto.length > 0 &&
+        !window.confirm(
+          `Este plan ya tiene ${conTexto.length} ${conTexto.length === 1 ? "apartado escrito" : "apartados escritos"}. ¿Sustituirlos por los de la jornada ${origen.JORNADA ?? "-"} (${origen.EQUIPO ?? ""})? Podrás deshacerlo.`
+        )
+      ) {
+        return;
+      }
+
+      const copiado: Rival = { ...rivalActivo };
+
+      for (const campo of CAMPOS_REPLICABLES) copiado[campo] = String(origen[campo] ?? "");
+
+      if (!modoEdicion) setAlEntrar(rivalActivo);
+
+      setRivalActivo(copiado);
+      setModoEdicion(true);
+
+      toast.success(
+        `Plan de la jornada ${origen.JORNADA ?? "-"} copiado. Edítalo: se guarda solo.`
+      );
+    },
+    [modoEdicion, rivalActivo]
+  );
+
+  /* Las otras jornadas que tienen algo que copiar, la más reciente primero. */
+  const jornadasReplicables = useMemo(
+    () =>
+      rivales
+        .filter((r) => String(r.ID) !== String(rivalActivo?.ID))
+        .map((r) => ({
+          rival: r,
+          apartados: CAMPOS_REPLICABLES.filter((c) => relleno(r[c])).length,
+        }))
+        .filter((r) => r.apartados > 0)
+        .reverse(),
+    [rivales, rivalActivo?.ID]
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -1398,6 +1562,13 @@ export default function MatchPreparation() {
 
                     <span className="hidden md:inline">Imprimir</span>
                   </button>
+                )}
+
+                {!cargando && rivalActivo && (
+                  <ReplicarPlan
+                    jornadas={jornadasReplicables}
+                    onElegir={replicarDe}
+                  />
                 )}
 
                 {editando ? (
