@@ -406,6 +406,16 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Robos y transiciones",
                 <Crosshair size={18} />,
               )}
+
+              {/*
+                Y debajo, las faltas (30/09/2026): salen de mirar el vídeo
+                falta a falta y dicen en pantalla de cuánto partido hablan.
+              */}
+              {navLink(
+                "/laboratorio/faltas",
+                "Análisis de faltas",
+                <Crosshair size={18} />,
+              )}
             </>,
           )}
 
@@ -506,16 +516,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "/laboratorio/microciclo",
                 "Crear microciclo (hoja)",
                 <ClipboardPlus size={18} />,
-              )}
-
-              {/*
-                Sale de mirar el vídeo falta a falta y dice en pantalla de
-                cuánto partido habla.
-              */}
-              {navLink(
-                "/laboratorio/faltas",
-                "Análisis de faltas",
-                <Crosshair size={18} />,
               )}
 
               {/*

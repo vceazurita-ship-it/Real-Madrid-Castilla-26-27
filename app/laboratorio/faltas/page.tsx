@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * En obras · Análisis de faltas.
+ * Competición · Análisis de faltas.
  *
  * Qué mide, y por qué sólo eso: **dónde se comete cada falta** y **cuánta
  * gente defendía en ese momento entre la falta y la portería que se ataca**.
@@ -32,7 +32,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { Crosshair, HardHat, Shield, Swords, Zap } from "lucide-react";
+import { Crosshair, Shield, Swords, Zap } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -162,15 +162,9 @@ export default function FaltasPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · En obras"
+              area="RMCF Castilla · Competición"
               title="Análisis de faltas"
               lead="Dónde se comete cada falta y cuánta gente defendía entre ella y la portería. Sale de ver el partido falta a falta."
-              aside={
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
-                  <HardHat size={12} />
-                  En obras
-                </span>
-              }
             />
 
             {PARTIDOS.length === 0 || (partido?.faltas.length ?? 0) === 0 ? (
