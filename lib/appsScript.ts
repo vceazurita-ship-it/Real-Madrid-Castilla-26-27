@@ -56,12 +56,31 @@ export async function llamaScript(
   }
 
   try {
-    const manda = (a: string) =>
-      fetch(a, {
+    /*
+    | La redirección, a mano (01/10/2026).
+    |
+    | Apps Script contesta al POST con un 302 hacia googleusercontent.com, y
+    | lo que hay allí se pide con GET. Desde Vercel, dejando que `fetch` la
+    | siguiera solo, la hoja contestaba 404 a lo que en local iba bien. Se
+    | hace como el navegador: POST, y si viene 3xx, GET a su `location`. Y en
+    | `text/plain`, como `app/api/rivals`: el script lee el cuerpo tal cual.
+    */
+    const manda = async (a: string) => {
+      const primera = await fetch(a, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: accion, ...datos }),
+        redirect: "manual",
       });
+
+      const destinoRedirigido = primera.headers.get("location");
+
+      if (primera.status >= 300 && primera.status < 400 && destinoRedirigido) {
+        return fetch(destinoRedirigido, { method: "GET" });
+      }
+
+      return primera;
+    };
 
     let respuesta = await manda(url);
 
@@ -78,7 +97,14 @@ export async function llamaScript(
       console.error(`[apps-script] ${accion}: HTTP ${respuesta.status}`);
 
       return Response.json(
-        { ok: false, error: `La hoja respondió ${respuesta.status}` },
+        {
+          ok: false,
+          /* Con el sitio que contestó: un 404 de script.google.com es un
+             despliegue que no existe; de googleusercontent, la redirección. */
+          error: `La hoja respondió ${respuesta.status}${
+            respuesta.url ? ` (${new URL(respuesta.url).host})` : ""
+          }`,
+        },
         { status: 502 },
       );
     }
