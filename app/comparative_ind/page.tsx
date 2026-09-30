@@ -94,9 +94,32 @@ export default function ComparativoU21() {
   const filas = useMemo(() => (jugadores.length ? comparativa(jugadores, ref) : []), [jugadores, ref]);
 
   /* De la fila de Wyscout a la ficha de la plantilla (foto, ID para valoraciones y seguimientos). */
+  /*
+  | Contra la plantilla ENTERA, no sólo las licencias del Castilla: Alexis
+  | Ciria juega con nosotros sin licencia nuestra. Y por tres caminos, porque
+  | la hoja no siempre escribe el nombre completo («Roberto» es «Roberto
+  | Martín» en Wyscout): nombre, apodo y, si la hoja sólo pone el nombre de
+  | pila y no hay otro igual, ese nombre.
+  */
   const fichaDe = useMemo(() => {
-    const deCasa = players.filter((p) => p.esCastilla);
-    return (fila: FilaJugador) => casaNombre(fila.jugador, deCasa, (p) => p.nombre);
+    const limpio = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+    return (fila: FilaJugador) =>
+      casaNombre(fila.jugador, players, (p) => p.nombre) ??
+      casaNombre(fila.jugador, players, (p) => p.apodo ?? "") ??
+      (() => {
+        /* «S. Martínez»: inicial y apellido juntos, que el apellido solo lo comparten tres. */
+        const inicial = limpio(fila.jugador).match(/^(\p{L})\.\s*(.+)$/u);
+        if (inicial) {
+          const suyos = players.filter((p) => {
+            const n = limpio(p.nombre);
+            return n.startsWith(inicial[1]) && n.endsWith(inicial[2]);
+          });
+          if (suyos.length === 1) return suyos[0];
+        }
+        const pila = limpio(fila.jugador).split(/\s+/)[0];
+        const suyos = players.filter((p) => limpio(p.nombre) === pila || limpio(p.apodo ?? "") === pila);
+        return suyos.length === 1 ? suyos[0] : null;
+      })();
   }, [players]);
 
   const resumenes = useMemo(() => summarizeAll(season), [season]);
