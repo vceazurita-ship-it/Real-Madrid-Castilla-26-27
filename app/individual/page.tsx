@@ -208,7 +208,7 @@ const MOMENTO_OPTIONS = [
   "POST-ENTRENAMIENTO",
 ];
 
-const ESTRATEGIA_OPTIONS = ["CAMPO", "VÍDEO", "CHARLA"];
+const ESTRATEGIA_OPTIONS = ["CAMPO", "VÍDEO", "CHARLA", "VÍDEO Y CHARLA"];
 
 /* Las cinco competencias que alimentan el radar y la media del jugador. */
 const METRICS = [
