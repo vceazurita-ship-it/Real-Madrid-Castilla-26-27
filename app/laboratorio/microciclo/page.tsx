@@ -1,7 +1,18 @@
 "use client";
 
 /**
- * EN OBRAS · CREAR EL MICROCICLO EN LA HOJA DE REGISTRO.
+ * CREAR O EDITAR UN MICROCICLO EN LA HOJA DE REGISTRO.
+ *
+ * Dos caminos (01/10/2026):
+ *
+ * - **Crear el siguiente**: la semana sale del calendario y, por defecto, se
+ *   rellena con lo que ya está escrito en la hoja —el último microciclo con
+ *   tareas, atado por MD—, así que se parte de la semana anterior y se cambia
+ *   lo que toque.
+ * - **Editar uno que ya está**: se elige cualquiera de la hoja, se carga con
+ *   TODAS sus columnas (`registroFilas`, no el CSV) y al escribir se
+ *   sustituyen sus filas en el mismo sitio. Las columnas que el editor no
+ *   maneja —la evaluación y el análisis post— viajan intactas.
  *
  * La pestaña de registro de tareas es de donde come todo lo que analiza
  * microciclos —`/microcycles`, la transferencia de Data Análisis, el microciclo
@@ -34,9 +45,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
   CheckCircle2,
+  ArrowDown,
+  ArrowUp,
+  CalendarPlus,
   ChevronDown,
   ChevronRight,
   ClipboardCopy,
+  Pencil,
   Copy,
   Eraser,
   ExternalLink,
@@ -59,6 +74,7 @@ import {
   FASES_ABP,
   copiaEstructura,
   filasDelMicro,
+  microDeFilas,
   minutosAbp,
   minutosDe,
   renumera,
@@ -67,6 +83,7 @@ import {
   tareaDeCompeticion,
   tareaEnBlanco,
   tareaVacia,
+  tareasQueSeEscriben,
   type MicroNuevo,
   type SesionNueva,
   type Sugerencias,
@@ -255,12 +272,17 @@ function FilaTarea({
   onCambia,
   onDuplicar,
   onQuitar,
+  onSubir,
+  onBajar,
 }: {
   tarea: TareaNueva;
   sugerencias: Sugerencias;
   onCambia: (cambio: Partial<TareaNueva>) => void;
   onDuplicar: () => void;
   onQuitar: () => void;
+  /** Sin función, el botón no sale: la primera no sube, la última no baja. */
+  onSubir?: () => void;
+  onBajar?: () => void;
 }) {
   const [abierta, setAbierta] = useState(false);
 
@@ -274,7 +296,7 @@ function FilaTarea({
         esAbp ? "border-[#C8A96B]/25 bg-[#C8A96B]/[0.04]" : "border-white/[0.07] bg-white/[0.02]"
       }`}
     >
-      <div className="grid gap-2 md:grid-cols-[86px_1.3fr_1fr_66px_58px_58px_64px] md:items-end">
+      <div className="grid gap-2 md:grid-cols-[86px_1.3fr_1fr_66px_66px_66px_128px] md:items-end">
         <Field label="Tarea" value={tarea.tarea} onChange={(v) => onCambia({ tarea: v })} />
 
         <Field
@@ -300,20 +322,40 @@ function FilaTarea({
         />
 
         <Field
-          label="Int."
+          label="Int. (1-5)"
           type="number"
           value={tarea.intensidad ? String(tarea.intensidad) : ""}
-          onChange={(v) => onCambia({ intensidad: Math.min(10, numero(v)) })}
+          onChange={(v) => onCambia({ intensidad: Math.min(5, numero(v)) })}
         />
 
         <Field
-          label="Cog."
+          label="Cog. (1-5)"
           type="number"
           value={tarea.exigCog ? String(tarea.exigCog) : ""}
-          onChange={(v) => onCambia({ exigCog: Math.min(10, numero(v)) })}
+          onChange={(v) => onCambia({ exigCog: Math.min(5, numero(v)) })}
         />
 
         <div className="mb-1 flex gap-1">
+          <button
+            type="button"
+            onClick={onSubir}
+            disabled={!onSubir}
+            title="Subir esta tarea"
+            className="flex h-9 w-7 items-center justify-center rounded-lg text-white/30 transition hover:bg-white/[0.06] hover:text-white/70 disabled:opacity-20"
+          >
+            <ArrowUp size={14} aria-hidden />
+          </button>
+
+          <button
+            type="button"
+            onClick={onBajar}
+            disabled={!onBajar}
+            title="Bajar esta tarea"
+            className="flex h-9 w-7 items-center justify-center rounded-lg text-white/30 transition hover:bg-white/[0.06] hover:text-white/70 disabled:opacity-20"
+          >
+            <ArrowDown size={14} aria-hidden />
+          </button>
+
           <button
             type="button"
             onClick={onDuplicar}
@@ -448,6 +490,44 @@ function FilaTarea({
 }
 
 /* ------------------------------------------------------------------ */
+/*  ELEGIR UN MICROCICLO DE LA HOJA                                    */
+/* ------------------------------------------------------------------ */
+
+function EligeMicro({
+  micros,
+  abriendo,
+  onAbrir,
+}: {
+  micros: { micro: number; rival: string; tareas: number }[];
+  abriendo: boolean;
+  onAbrir: (numero: number) => void;
+}) {
+  const [elegido, setElegido] = useState("");
+
+  const valor = elegido || String(micros[0]?.micro ?? "");
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="min-w-[260px] flex-1">
+        <Select
+          label="Microciclo"
+          value={valor}
+          options={micros.map((uno) => ({
+            value: String(uno.micro),
+            label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+          }))}
+          onChange={setElegido}
+        />
+      </div>
+
+      <Button icon={Pencil} disabled={!valor || abriendo} onClick={() => onAbrir(Number(valor))}>
+        {abriendo ? "Leyendo la hoja…" : "Abrir para editar"}
+      </Button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  LA PÁGINA                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -481,6 +561,23 @@ export default function EditorMicrocicloPage() {
   /* Los días libres que se marcan ANTES de crear el microciclo. `null` es
      «lo de siempre»: libre el día después del partido. */
   const [libresPlan, setLibresPlan] = useState<string[] | null>(null);
+
+  /*
+  | QUÉ SE ESTÁ HACIENDO: crear el siguiente o editar uno de la hoja.
+  |
+  | `editando` es el número del microciclo que se abrió de la hoja (o que se
+  | acaba de escribir): con él, escribir SUSTITUYE sus filas en vez de
+  | añadir otras.
+  */
+  const [editando, setEditando] = useState<number | null>(null);
+
+  const [abriendo, setAbriendo] = useState(false);
+
+  /* De qué microciclo se parte al crear: por defecto, el último con tareas. */
+  const [partirDe, setPartirDe] = useState<string>("ultimo");
+
+  /* El día que se quiere añadir a mano. */
+  const [diaNuevo, setDiaNuevo] = useState("");
 
   /* Para no guardar el borrador antes de haberlo leído. */
   const leido = useRef(false);
@@ -545,11 +642,18 @@ export default function EditorMicrocicloPage() {
         const crudo = window.localStorage.getItem(BORRADOR);
 
         if (crudo) {
-          const posible = JSON.parse(crudo) as MicroNuevo & { guardadoEn?: string };
+          const posible = JSON.parse(crudo) as MicroNuevo & {
+            guardadoEn?: string;
+            editando?: number | null;
+          };
 
-          const yaEscrito = (datos?.micros ?? []).some(
-            (uno) => uno.micro === posible?.micro && uno.tareas > 0,
-          );
+          /* Una edición a medias sigue valiendo aunque el micro esté en la
+             hoja: es justamente lo que se estaba cambiando. */
+          const yaEscrito =
+            !posible?.editando &&
+            (datos?.micros ?? []).some(
+              (uno) => uno.micro === posible?.micro && uno.tareas > 0,
+            );
 
           const viejo =
             posible?.guardadoEn != null &&
@@ -568,7 +672,19 @@ export default function EditorMicrocicloPage() {
 
       /* Sin borrador, la semana NO se crea sola: primero se marcan los días
          libres (paso 1) y luego se crea con ellos. */
-      if (guardado) setMicro(guardado);
+      if (guardado) {
+        const { editando: deEdicion, ...soloMicro } = guardado as MicroNuevo & {
+          editando?: number | null;
+          guardadoEn?: string;
+        };
+
+        setMicro(soloMicro);
+
+        if (deEdicion) {
+          setEditando(deEdicion);
+          setReemplazar(true);
+        }
+      }
 
       leido.current = true;
 
@@ -590,12 +706,12 @@ export default function EditorMicrocicloPage() {
       /* Con la fecha de guardado: un borrador de hace un mes no se restaura. */
       window.localStorage.setItem(
         BORRADOR,
-        JSON.stringify({ ...micro, guardadoEn: new Date().toISOString() }),
+        JSON.stringify({ ...micro, editando, guardadoEn: new Date().toISOString() }),
       );
     } catch {
       /* Sin sitio en el navegador se sigue igual, sólo que sin red. */
     }
-  }, [micro]);
+  }, [micro, editando]);
 
   const { proximo, anterior } = partido;
 
@@ -605,6 +721,23 @@ export default function EditorMicrocicloPage() {
   );
 
   const sugerencias = useMemo(() => sugerenciasDelRegistro(registro?.tareas ?? []), [registro]);
+
+  /* La temporada como está escrita en la hoja: «2026-2027» y «2026 - 2027»
+     no se agrupan juntas en las pantallas que la leen. */
+  const temporadaHoja = useMemo(() => {
+    const ultimo = [...(registro?.micros ?? [])].sort((a, b) => b.micro - a.micro)[0];
+
+    return ultimo?.temporada?.trim() || TEMPORADA;
+  }, [registro]);
+
+  /** Los micros de la hoja, del más nuevo al más viejo. */
+  const microsDeLaHoja = useMemo(
+    () => [...(registro?.micros ?? [])].sort((a, b) => b.micro - a.micro),
+    [registro],
+  );
+
+  /** El último con tareas: del que se parte por defecto al crear. */
+  const ultimoConTareas = microsDeLaHoja.find((uno) => uno.tareas > 0)?.micro ?? null;
 
   /** Vuelve a montar los días con el calendario, respetando los libres. */
   const arma = useCallback(() => {
@@ -645,20 +778,145 @@ export default function EditorMicrocicloPage() {
   const creaMicro = () => {
     if (!proximo) return;
 
-    setMicro({
-      temporada: TEMPORADA,
+    const vacio: MicroNuevo = {
+      temporada: temporadaHoja,
       micro: ultimoMicro + 1,
       rival: proximo.rival.toUpperCase(),
       sesiones: armaSesiones(proximo, anterior, [...libresMarcados]),
-    });
+    };
 
+    /* Lo ya relleno en la hoja es la base: el último micro, o el elegido. */
+    const origen =
+      partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null;
+
+    const hecho = origen ? copiaSobre(vacio, origen) : null;
+
+    setMicro(hecho?.micro ?? vacio);
+    setEditando(null);
+    setReemplazar(false);
     setEscrito(null);
 
     const libres = libresMarcados.size;
 
     toast.success(`Microciclo ${ultimoMicro + 1} creado`, {
-      description: `${diasPlan.length - libres - 1} día(s) de entreno, ${libres} libre(s) y el partido.`,
+      description:
+        `${diasPlan.length - libres - 1} día(s) de entreno, ${libres} libre(s) y el partido.` +
+        (hecho
+          ? ` Relleno con ${hecho.puestas} tarea(s) del micro ${origen} (${hecho.rival || "—"}), atadas por MD: cambia lo que toque.`
+          : ""),
     });
+  };
+
+  /*
+  | EDITAR UNO QUE YA ESTÁ
+  |
+  | Se lee de la hoja con todas sus columnas (el CSV no trae la demanda
+  | cognitiva y va minutos por detrás). Si la hoja no contesta, no se abre:
+  | editar con datos incompletos y reescribir borraría lo que falta.
+  */
+  const abreParaEditar = async (numero: number) => {
+    if (
+      micro &&
+      micro.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
+      !window.confirm("Tienes un microciclo a medias en pantalla. ¿Dejarlo y abrir el otro?")
+    ) {
+      return;
+    }
+
+    const suyo = registro?.micros.find((uno) => uno.micro === numero);
+
+    setAbriendo(true);
+
+    const aviso = toast.loading(`Leyendo el microciclo ${numero} de la hoja…`);
+
+    try {
+      const respuesta = await fetch("/api/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "filas", micro: numero, temporada: suyo?.temporada ?? "" }),
+      });
+
+      const datos = (await respuesta.json()) as { ok?: boolean; error?: string; filas?: Record<string, unknown>[] };
+
+      if (!respuesta.ok || !datos.ok || !Array.isArray(datos.filas)) {
+        throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
+      }
+
+      if (datos.filas.length === 0) throw new Error("La hoja no tiene filas de ese microciclo.");
+
+      setMicro(
+        microDeFilas(datos.filas, {
+          temporada: suyo?.temporada ?? temporadaHoja,
+          micro: numero,
+          rival: suyo?.rival ?? "",
+        }),
+      );
+
+      setEditando(numero);
+      setReemplazar(true);
+      setEscrito(null);
+
+      toast.success(`Microciclo ${numero} abierto`, {
+        id: aviso,
+        description: `${datos.filas.length} fila(s). Al escribir se sustituyen en el mismo sitio de la hoja.`,
+      });
+    } catch (error) {
+      const dice = error instanceof Error ? error.message : "Inténtalo otra vez";
+
+      toast.error("No se ha podido abrir", {
+        id: aviso,
+        description: /acci[oó]n|action|desconocid|reconocid/i.test(dice)
+          ? "La hoja todavía no conoce la lectura del registro: falta pegar scripts/abp-hoja.gs en el Apps Script del libro de ABP y publicar versión nueva."
+          : dice,
+      });
+    } finally {
+      setAbriendo(false);
+    }
+  };
+
+  /** Añade un día a mano, en su sitio del calendario. */
+  const anadeDia = () => {
+    if (!micro || !/^\d{4}-\d{2}-\d{2}$/.test(diaNuevo)) return;
+
+    if (micro.sesiones.some((sesion) => sesion.fecha === diaNuevo)) {
+      toast.error("Ese día ya está en el microciclo");
+
+      return;
+    }
+
+    const dia = diaKeyDe(diaNuevo);
+
+    setMicro({
+      ...micro,
+      sesiones: [
+        ...micro.sesiones,
+        {
+          fecha: diaNuevo,
+          dia,
+          md: "",
+          tareas: Array.from({ length: TAREAS_POR_SESION }, (_, i) => tareaVacia(dia, i + 1)),
+        },
+      ].sort((a, b) => a.fecha.localeCompare(b.fecha)),
+    });
+
+    setDiaNuevo("");
+
+    toast.success(`${etiquetaDia(diaNuevo)} añadido`, { description: "Ponle su MD (MD-3, MD+1…)." });
+  };
+
+  /** Mueve una tarea dentro de su sesión. */
+  const mueveTarea = (indice: number, desde: number, hasta: number) => {
+    if (!micro) return;
+
+    const tareas = [...micro.sesiones[indice].tareas];
+
+    if (hasta < 0 || hasta >= tareas.length) return;
+
+    const [una] = tareas.splice(desde, 1);
+
+    tareas.splice(hasta, 0, una);
+
+    cambiaSesion(indice, { tareas });
   };
 
   /** Cambiar un día a libre o a entreno con el microciclo ya creado. */
@@ -687,9 +945,53 @@ export default function EditorMicrocicloPage() {
   };
 
   const yaEnLaHoja = useMemo(
-    () => registro?.micros.some((uno) => uno.micro === micro?.micro) ?? false,
-    [registro, micro],
+    () =>
+      (micro !== null && editando === micro.micro) ||
+      (registro?.micros.some((uno) => uno.micro === micro?.micro) ?? false),
+    [registro, micro, editando],
   );
+
+  /* El partido de ese microciclo, para pintarlo al lado: al crear, el del
+     calendario; al editar, el del rival más cercano a sus fechas. */
+  const partidoDelMicro = useMemo(() => {
+    if (!micro) return null;
+
+    if (editando === null) return proximo;
+
+    const fin = micro.sesiones[micro.sesiones.length - 1]?.fecha ?? "";
+
+    const clave = teamKey(micro.rival);
+
+    return (
+      alrededorDe(calendario, 0)
+        .todos.filter((uno) => uno?.rival && teamKey(uno.rival) === clave)
+        .sort(
+          (a, b) =>
+            Math.abs(Date.parse(soloDia(a.cuando)) - Date.parse(fin)) -
+            Math.abs(Date.parse(soloDia(b.cuando)) - Date.parse(fin)),
+        )[0] ?? null
+    );
+  }, [calendario, editando, micro, proximo]);
+
+  /* La semana de un vistazo: minutos y carga (tiempo × intensidad) por día. */
+  const vistazo = useMemo(
+    () =>
+      (micro?.sesiones ?? []).map((sesion) => {
+        const tareas = tareasQueSeEscriben(sesion);
+
+        return {
+          fecha: sesion.fecha,
+          md: sesion.md,
+          libre: Boolean(sesion.libre),
+          minutos: tareas.reduce((n, t) => n + (t.tiempo || 0), 0),
+          carga: tareas.reduce((n, t) => n + (t.tiempo || 0) * (t.intensidad || 0), 0),
+          abp: tareas.filter((t) => FASES_ABP.includes(t.fase)).reduce((n, t) => n + (t.tiempo || 0), 0),
+        };
+      }),
+    [micro],
+  );
+
+  const cargaMaxima = Math.max(1, ...vistazo.map((d) => d.carga));
 
   const filas = useMemo(() => (micro ? filasDelMicro(micro) : []), [micro]);
 
@@ -747,20 +1049,19 @@ export default function EditorMicrocicloPage() {
         : actual,
     );
 
-  /** Copia la semana de otro microciclo sobre ésta, atando por MD. */
-  const copiaDe = (numero: number) => {
-    if (!micro || !registro) return;
+  /**
+   * La semana de otro microciclo puesta sobre `base`, atando por MD. Pura:
+   * la usan el botón de copiar y la creación del siguiente.
+   */
+  const copiaSobre = (base: MicroNuevo, numero: number) => {
+    if (!registro) return null;
 
     const suyas = registro.tareas.filter((tarea) => tarea.micro === numero);
 
-    if (suyas.length === 0) {
-      toast.error("Ese microciclo no tiene tareas en la hoja");
-
-      return;
-    }
+    if (suyas.length === 0) return null;
 
     /* Los días libres se quedan libres: sólo se copia en los de entreno y el partido. */
-    const activas = micro.sesiones.filter((sesion) => !sesion.libre);
+    const activas = base.sesiones.filter((sesion) => !sesion.libre);
 
     const copiado = copiaEstructura(
       activas,
@@ -780,16 +1081,36 @@ export default function EditorMicrocicloPage() {
       })),
     );
 
-    const { puestas, sinPareja } = copiado;
-
     const porFecha = new Map(copiado.sesiones.map((sesion) => [sesion.fecha, sesion]));
 
-    setMicro({
-      ...micro,
-      sesiones: micro.sesiones.map((sesion) => (sesion.libre ? sesion : (porFecha.get(sesion.fecha) ?? sesion))),
-    });
+    return {
+      micro: {
+        ...base,
+        sesiones: base.sesiones.map((sesion) =>
+          sesion.libre ? sesion : (porFecha.get(sesion.fecha) ?? sesion),
+        ),
+      },
+      puestas: copiado.puestas,
+      sinPareja: copiado.sinPareja,
+      rival: registro.micros.find((uno) => uno.micro === numero)?.rival ?? "",
+    };
+  };
 
-    const rival = registro.micros.find((uno) => uno.micro === numero)?.rival ?? "";
+  /** Copia la semana de otro microciclo sobre ésta, atando por MD. */
+  const copiaDe = (numero: number) => {
+    if (!micro) return;
+
+    const hecho = copiaSobre(micro, numero);
+
+    if (!hecho) {
+      toast.error("Ese microciclo no tiene tareas en la hoja");
+
+      return;
+    }
+
+    setMicro(hecho.micro);
+
+    const { puestas, sinPareja, rival } = hecho;
 
     /*
     | Se cuenta lo que de verdad ha entrado, no lo que traía el otro micro.
@@ -828,8 +1149,14 @@ export default function EditorMicrocicloPage() {
       /* da igual: lo que manda es el estado */
     }
 
-    setLibresPlan(micro ? micro.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha) : null);
+    setLibresPlan(
+      micro && editando === null
+        ? micro.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha)
+        : null,
+    );
     setMicro(null);
+    setEditando(null);
+    setReemplazar(false);
     setEscrito(null);
   };
 
@@ -878,6 +1205,11 @@ export default function EditorMicrocicloPage() {
         /* nada */
       }
 
+      /* Ya está en la hoja: lo siguiente que se escriba lo sustituye, no lo
+         duplica. El CSV tarda minutos en enterarse, así que no se espera. */
+      setEditando(micro.micro);
+      setReemplazar(true);
+
       toast.success(`${datos.escritas ?? filas.length} fila(s) escritas`, {
         id: aviso,
         description: "La hoja tarda unos minutos en refrescar el CSV que leen las pantallas.",
@@ -888,8 +1220,8 @@ export default function EditorMicrocicloPage() {
       toast.error("No se ha podido escribir", {
         id: aviso,
         /* El fallo más probable es que el .gs no esté pegado todavía. */
-        description: /acci[oó]n|action|no s[eé] qu[eé]|desconocid/i.test(dice)
-          ? "La hoja no conoce la acción: falta pegar registro-tareas.gs en Apps Script y publicar versión nueva."
+        description: /acci[oó]n|action|no s[eé] qu[eé]|desconocid|reconocid/i.test(dice)
+          ? "La hoja no conoce la acción: falta pegar scripts/abp-hoja.gs en el Apps Script del libro de ABP y publicar versión nueva."
           : dice,
       });
     } finally {
@@ -908,9 +1240,9 @@ export default function EditorMicrocicloPage() {
 
         <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
           <AbpHeader
-            area="RMCF Castilla · En obras"
-            title="Crear el microciclo en la hoja"
-            lead="La semana viene hecha del calendario: se copia la anterior, se repasa y se escribe en la hoja de registro de tareas."
+            area="RMCF Castilla · Metodología"
+            title="Crear o editar el microciclo"
+            lead="El siguiente sale del calendario y de lo que ya está escrito en la hoja; cualquiera de los que ya están se abre, se retoca y se reescribe en su sitio."
             aside={
               micro ? (
                 <div className="text-right text-[11px] leading-relaxed text-white/45">
@@ -961,9 +1293,35 @@ export default function EditorMicrocicloPage() {
                   }}
                 />
 
+                <div className="mt-4 max-w-md">
+                  <Select
+                    label="Partir de lo que ya está en la hoja"
+                    value={partirDe}
+                    options={[
+                      {
+                        value: "ultimo",
+                        label: ultimoConTareas
+                          ? `El último: micro ${ultimoConTareas} · ${microsDeLaHoja.find((uno) => uno.micro === ultimoConTareas)?.rival ?? ""}`
+                          : "El último (no hay ninguno con tareas)",
+                      },
+                      { value: "", label: "Semana en blanco" },
+                      ...microsDeLaHoja
+                        .filter((uno) => uno.tareas > 0 && uno.micro !== ultimoConTareas)
+                        .map((uno) => ({
+                          value: String(uno.micro),
+                          label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+                        })),
+                    ]}
+                    onChange={setPartirDe}
+                  />
+                  <p className="mt-1 text-[11px] text-white/35">
+                    Sus tareas entran atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— y luego se cambia lo que toque.
+                  </p>
+                </div>
+
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button tone="primary" icon={Sparkles} onClick={creaMicro}>
-                    Crear el microciclo
+                    Crear el microciclo {ultimoMicro + 1}
                   </Button>
 
                   <Button onClick={() => setLibresPlan(null)} title="Libre sólo el día después del partido">
@@ -981,30 +1339,54 @@ export default function EditorMicrocicloPage() {
               </Panel>
             )}
 
-            {micro && proximo && (
+            {!micro && !cargando && microsDeLaHoja.length > 0 && (
+              <Panel
+                title="O edita uno que ya está en la hoja"
+                subtitle="Se carga con todas sus columnas y, al escribir, se sustituye en el mismo sitio. La evaluación y el análisis post no se tocan."
+                icon={Pencil}
+              >
+                <EligeMicro
+                  micros={microsDeLaHoja}
+                  abriendo={abriendo}
+                  onAbrir={(numero) => void abreParaEditar(numero)}
+                />
+              </Panel>
+            )}
+
+            {micro && (
               <>
                 {/* ------------------ QUÉ MICROCICLO ------------------ */}
 
                 <Panel
-                  title="Qué microciclo"
-                  subtitle="Sale del calendario; se puede cambiar"
-                  icon={CalendarClock}
+                  title={
+                    editando !== null
+                      ? `Editando el microciclo ${micro.micro}`
+                      : `Creando el microciclo ${micro.micro}`
+                  }
+                  subtitle={
+                    editando !== null
+                      ? "Ya está en la hoja: al escribir se sustituyen sus filas en el mismo sitio"
+                      : "Nuevo: sale del calendario y de lo ya escrito; se puede cambiar"
+                  }
+                  icon={editando !== null ? Pencil : CalendarClock}
                   action={
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        icon={RefreshCw}
-                        onClick={arma}
-                        title="Volver a montar los días con el calendario"
-                      >
-                        Rehacer los días
-                      </Button>
+                      {editando === null && proximo && (
+                        <Button
+                          icon={RefreshCw}
+                          onClick={arma}
+                          title="Volver a montar los días con el calendario"
+                        >
+                          Rehacer los días
+                        </Button>
+                      )}
 
                       <Button
                         icon={Eraser}
                         onClick={empiezaDeCero}
-                        title="Tirar el borrador y empezar otra vez"
+                        title="Dejar este microciclo y volver a elegir qué hacer"
                       >
-                        Empezar de cero
+                        {editando !== null ? "Cerrar" : "Empezar de cero"}
                       </Button>
                     </div>
                   }
@@ -1040,16 +1422,22 @@ export default function EditorMicrocicloPage() {
                         Partido
                       </span>
 
-                      J{proximo.jornada} · {proximo.rival} ·{" "}
-                      {proximo.lado === "casa" ? "en casa" : "fuera"}
-                      <br />
-                      {new Date(proximo.cuando).toLocaleString("es-ES", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {partidoDelMicro ? (
+                        <>
+                          J{partidoDelMicro.jornada} · {partidoDelMicro.rival} ·{" "}
+                          {partidoDelMicro.lado === "casa" ? "en casa" : "fuera"}
+                          <br />
+                          {new Date(partidoDelMicro.cuando).toLocaleString("es-ES", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </>
+                      ) : (
+                        "No lo encuentro en el calendario"
+                      )}
                     </div>
                   </div>
 
@@ -1067,7 +1455,58 @@ export default function EditorMicrocicloPage() {
                       libres={new Set(micro.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha))}
                       onCambia={cambiaLibre}
                     />
+
+                    <div className="mt-3 flex flex-wrap items-end gap-2">
+                      <div className="w-44">
+                        <Field label="Añadir un día" type="date" value={diaNuevo} onChange={setDiaNuevo} />
+                      </div>
+
+                      <Button icon={CalendarPlus} onClick={anadeDia} disabled={!diaNuevo}>
+                        Añadir
+                      </Button>
+
+                      <span className="mb-2 text-[11px] text-white/35">
+                        Una doble sesión, un amistoso o un día que el calendario no trae.
+                      </span>
+                    </div>
                   </div>
+
+                  {/* --- La semana de un vistazo: minutos y carga por día --- */}
+
+                  {vistazo.some((dia) => dia.minutos > 0) && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        La semana de un vistazo · carga = tiempo × intensidad
+                      </p>
+
+                      <div className="flex items-end gap-2 overflow-x-auto pb-1">
+                        {vistazo.map((dia) => (
+                          <div key={dia.fecha} className="flex w-16 shrink-0 flex-col items-center gap-1">
+                            <span className="text-[10px] tabular-nums text-white/55">
+                              {dia.libre ? "—" : dia.carga || ""}
+                            </span>
+
+                            <div className="flex h-20 w-6 items-end rounded bg-white/[0.04]">
+                              <div
+                                className="w-full rounded"
+                                style={{
+                                  height: `${(dia.carga / cargaMaxima) * 100}%`,
+                                  background: /^MD$/i.test(dia.md.trim()) ? "#C8A96B" : "rgb(52 211 153 / .6)",
+                                }}
+                              />
+                            </div>
+
+                            <span className="text-[10px] font-semibold text-white/70">{dia.md || "¿MD?"}</span>
+
+                            <span className="text-[10px] tabular-nums text-white/40">
+                              {dia.libre ? "libre" : `${dia.minutos}′`}
+                              {dia.abp > 0 ? ` · ${dia.abp}′ ABP` : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* --- Copiar otra semana: la mitad del trabajo --- */}
 
@@ -1100,7 +1539,7 @@ export default function EditorMicrocicloPage() {
                     </p>
                   </div>
 
-                  {yaEnLaHoja && (
+                  {yaEnLaHoja && editando === null && (
                     <div className="mt-3">
                       <Notice
                         tone="warn"
@@ -1115,6 +1554,14 @@ export default function EditorMicrocicloPage() {
                           />
                           Borrar sus filas y escribirlas otra vez
                         </label>
+
+                        <button
+                          type="button"
+                          onClick={() => void abreParaEditar(micro.micro)}
+                          className="mt-2 text-[12px] text-[#C8A96B] hover:underline"
+                        >
+                          O ábrelo de la hoja para editarlo
+                        </button>
                       </Notice>
                     </div>
                   )}
@@ -1189,9 +1636,9 @@ export default function EditorMicrocicloPage() {
 
                         <Field
                           label="Fecha"
+                          type="date"
                           value={sesion.fecha}
-                          onChange={(v) => cambiaSesion(indice, { fecha: v })}
-                          hint="Se escribe como fecha, no como texto"
+                          onChange={(v) => cambiaSesion(indice, { fecha: v, dia: /^\d{4}-\d{2}-\d{2}$/.test(v) ? diaKeyDe(v) : sesion.dia })}
                         />
                       </div>
 
@@ -1231,6 +1678,12 @@ export default function EditorMicrocicloPage() {
                                 cambiaSesion(indice, {
                                   tareas: sesion.tareas.filter((_, k) => k !== j),
                                 })
+                              }
+                              onSubir={j > 0 ? () => mueveTarea(indice, j, j - 1) : undefined}
+                              onBajar={
+                                j < sesion.tareas.length - 1
+                                  ? () => mueveTarea(indice, j, j + 1)
+                                  : undefined
                               }
                             />
                           ))}
@@ -1279,12 +1732,13 @@ export default function EditorMicrocicloPage() {
                     </Notice>
                   ) : (
                     <p className="text-[12px] leading-relaxed text-white/45">
-                      Se añaden {filas.length} filas al final de la pestaña, clonando la última para
-                      heredar las fórmulas de carga y las listas desplegables.
+                      {editando !== null
+                        ? `Se sustituyen las filas del microciclo ${micro.micro} por estas ${filas.length}, en el mismo sitio de la pestaña, heredando las fórmulas de carga y las listas desplegables.`
+                        : `Se añaden ${filas.length} filas al final de la pestaña, clonando la última para heredar las fórmulas de carga y las listas desplegables.`}
                       {enBlanco > 0
                         ? ` ${enBlanco} tarea(s) en blanco —sin tipo, contenido ni tiempo— no se escriben.`
                         : ""}
-                      {yaEnLaHoja && reemplazar
+                      {yaEnLaHoja && reemplazar && editando === null
                         ? ` Antes se borran las del microciclo ${micro.micro} que ya estaban.`
                         : ""}
                     </p>
@@ -1364,8 +1818,8 @@ export default function EditorMicrocicloPage() {
                     «Carga Ponderada», «Carga cognitiva» y «Demanda Cognitiva» no se mandan: las
                     calcula la hoja con sus fórmulas. Si contesta que no conoce la acción, falta
                     pegar{" "}
-                    <code className="text-white/50">scripts/apps-script/registro-tareas.gs</code> en
-                    Apps Script y publicar versión nueva.
+                    <code className="text-white/50">scripts/abp-hoja.gs</code> en el Apps Script
+                    del libro de ABP y publicar versión nueva.
                   </p>
                 </Panel>
               </>

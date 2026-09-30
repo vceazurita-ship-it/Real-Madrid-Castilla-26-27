@@ -15,6 +15,14 @@
 import { NextRequest } from "next/server";
 
 import { llamaScript } from "@/lib/appsScript";
+import { ABP_ESCRITURA_URL } from "@/lib/abp/sheets";
+
+/*
+| La pestaña de registro está en el libro de ABP, así que se escribe con SU
+| script (`scripts/abp-hoja.gs`), no con el principal de RIVALES, que es de
+| otro libro y no conoce estas acciones.
+*/
+const HOJA = { url: ABP_ESCRITURA_URL };
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (cuerpo.accion === "filas") {
-    return llamaScript("registroFilas", { temporada: cuerpo.temporada, micro });
+    return llamaScript("registroFilas", { temporada: cuerpo.temporada, micro }, HOJA);
   }
 
   if (!Array.isArray(cuerpo.filas) || cuerpo.filas.length === 0) {
@@ -57,5 +65,5 @@ export async function POST(request: NextRequest) {
     rival: cuerpo.rival ?? "",
     reemplazar: Boolean(cuerpo.reemplazar),
     filas: cuerpo.filas,
-  });
+  }, HOJA);
 }

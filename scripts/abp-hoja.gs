@@ -71,8 +71,13 @@ function doPost(e) {
 
     if (datos.action === 'anadirFilas') return anadirFilas(datos);
     if (datos.action === 'actualizarFilas') return actualizarFilas(datos);
+    if (datos.action === 'registroGuardar' || datos.action === 'registroFilas') return registro(datos);
     if (datos.action === 'ping') {
-      return responde({ success: true, hojas: HOJAS, acciones: ['anadirFilas', 'actualizarFilas'] });
+      return responde({
+        success: true,
+        hojas: HOJAS,
+        acciones: ['anadirFilas', 'actualizarFilas', 'registroFilas', 'registroGuardar']
+      });
     }
 
     return responde({ success: false, error: 'Acción desconocida: ' + datos.action });
@@ -260,4 +265,322 @@ function responde(objeto) {
   return ContentService
     .createTextOutput(JSON.stringify(objeto))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ========================================================================== */
+/*  REGISTRO DE TAREAS: CREAR Y EDITAR MICROCICLOS DESDE LA APP                */
+/* ========================================================================== */
+/*
+| Vive aquí desde el 01/10/2026 porque la pestaña de registro de tareas está en
+| ESTE libro. Antes era un .gs aparte que había que pegar en el script principal
+| de RIVALES —que es de otro libro— y por eso el editor de microciclos nunca
+| llegó a escribir: la hoja contestaba ACTION_NO_RECONOCIDA.
+|
+|   registroFilas   → las filas de un microciclo (para editarlo o comprobarlo)
+|   registroGuardar → escribe o reescribe las filas de un microciclo
+|
+| POR QUÉ NO ES UN appendRow: tres columnas son fórmulas —«Carga Ponderada»,
+| «Demanda Cognitiva» y «Carga cognitiva»—. Las filas nuevas se crean CLONANDO
+| una fila con datos (arrastra fórmulas, formato y listas) y luego se escriben
+| sólo las columnas de mano, por tramos, nunca con un setValues del rango
+| entero (devolvería lo calculado y machacaría la fórmula).
+|
+| La cabecera NO está en la fila 1: encima hay un título del club. Se busca la
+| fila cuya primera casilla es «Temporada».
+*/
+
+/** El identificador de la pestaña dentro del libro. */
+var REGISTRO_GID = 111318766;
+
+/** Las columnas que calcula la hoja: no se escriben nunca. */
+var REGISTRO_CALCULADAS = ['Carga Ponderada', 'Carga cognitiva', 'Demanda Cognitiva'];
+
+function registro(datos) {
+  var salida;
+
+  try {
+    salida =
+      datos.action === 'registroFilas'
+        ? { ok: true, filas: filasDelMicro_(datos.temporada, Number(datos.micro)) }
+        : guardaMicrociclo_(datos);
+  } catch (error) {
+    salida = { ok: false, error: String((error && error.message) || error) };
+  }
+
+  return responde(salida);
+}
+
+function hojaRegistro_() {
+  var hoja = porGid(REGISTRO_GID);
+
+  if (!hoja) throw new Error('No encuentro la pestaña de registro de tareas (gid ' + REGISTRO_GID + ').');
+
+  return hoja;
+}
+
+/** La fila de cabeceras y sus nombres: encima hay un título del club. */
+function cabecerasRegistro_(hoja) {
+  var alto = Math.min(hoja.getLastRow(), 10);
+
+  var arriba = hoja.getRange(1, 1, alto, hoja.getLastColumn()).getValues();
+
+  for (var i = 0; i < arriba.length; i++) {
+    var primera = String(arriba[i][0] || '').trim().toLowerCase();
+
+    if (primera === 'temporada') {
+      return { fila: i + 1, nombres: arriba[i].map(function (uno) { return String(uno || '').trim(); }) };
+    }
+  }
+
+  throw new Error('No encuentro la fila de cabeceras («Temporada») en el registro de tareas.');
+}
+
+function indiceDeColumna_(nombres, nombre) {
+  var buscado = String(nombre || '').trim().toLowerCase();
+
+  for (var i = 0; i < nombres.length; i++) {
+    if (nombres[i].toLowerCase() === buscado) return i;
+  }
+
+  return -1;
+}
+
+/** La última fila que es de verdad una tarea: tiene número de microciclo. */
+function ultimaFilaDeDatos_(hoja, cabecera) {
+  var desde = cabecera.fila + 1;
+
+  var alto = hoja.getLastRow() - cabecera.fila;
+
+  if (alto <= 0) return cabecera.fila;
+
+  var colMicro = indiceDeColumna_(cabecera.nombres, 'Micro');
+
+  var valores = hoja.getRange(desde, colMicro + 1, alto, 1).getValues();
+
+  for (var i = valores.length - 1; i >= 0; i--) {
+    if (Number(valores[i][0]) > 0) return desde + i;
+  }
+
+  return cabecera.fila;
+}
+
+/**
+ * Las filas de un microciclo, con su número de fila.
+ *
+ * La fecha sale como «2026-09-20» en la zona horaria del libro: un objeto
+ * Date viajaría como «2026-09-19T22:00:00.000Z» y el editor pondría la tarea
+ * el día anterior.
+ */
+function filasDelMicro_(temporada, micro) {
+  var hoja = hojaRegistro_();
+
+  var cabecera = cabecerasRegistro_(hoja);
+
+  var desde = cabecera.fila + 1;
+
+  var alto = hoja.getLastRow() - cabecera.fila;
+
+  if (alto <= 0) return [];
+
+  var valores = hoja.getRange(desde, 1, alto, cabecera.nombres.length).getValues();
+
+  var colTemporada = indiceDeColumna_(cabecera.nombres, 'Temporada');
+  var colMicro = indiceDeColumna_(cabecera.nombres, 'Micro');
+
+  var zona = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+
+  var salida = [];
+
+  for (var i = 0; i < valores.length; i++) {
+    var fila = valores[i];
+
+    if (Number(fila[colMicro]) !== Number(micro)) continue;
+
+    if (temporada && String(fila[colTemporada]).trim() !== String(temporada).trim()) continue;
+
+    var objeto = { _fila: desde + i };
+
+    for (var c = 0; c < cabecera.nombres.length; c++) {
+      if (!cabecera.nombres[c]) continue;
+
+      var valor = fila[c];
+
+      objeto[cabecera.nombres[c]] =
+        valor instanceof Date ? Utilities.formatDate(valor, zona, 'yyyy-MM-dd') : valor;
+    }
+
+    salida.push(objeto);
+  }
+
+  return salida;
+}
+
+/**
+ * Escribe (o reescribe) las filas de un microciclo.
+ *
+ * - Con `reemplazar`, se borran sus filas y las nuevas se escriben **en el
+ *   mismo sitio** donde estaban: editar el micro 10 no lo manda al final de la
+ *   pestaña detrás del 14.
+ * - Las filas nuevas se clonan de una fila con datos, para heredar las
+ *   fórmulas de carga y las listas desplegables.
+ * - `Fecha` se escribe como **fecha de verdad**, no como texto.
+ * - Con cerrojo: dos guardados a la vez calcularían la misma fila.
+ */
+function guardaMicrociclo_(datos) {
+  var filasEntrantes = datos.filas || [];
+
+  if (!filasEntrantes.length) throw new Error('No llega ninguna fila que escribir.');
+
+  var bloqueo = LockService.getScriptLock();
+
+  if (!bloqueo.tryLock(30000)) throw new Error('La hoja está ocupada con otro guardado. Inténtalo en unos segundos.');
+
+  try {
+    var hoja = hojaRegistro_();
+
+    var cabecera = cabecerasRegistro_(hoja);
+
+    var nombres = cabecera.nombres;
+
+    var ancho = nombres.length;
+
+    var temporada = datos.temporada || '';
+    var micro = Number(datos.micro);
+
+    /* --- Lo que ya hubiera de este microciclo --- */
+
+    var previas = filasDelMicro_(temporada, micro);
+
+    /* Con la temporada escrita distinta («2026-2027» / «2026 - 2027»), rehacer
+       duplicaba el microciclo: si por temporada no aparece nada, se mira sólo
+       el número. */
+    if (datos.reemplazar && previas.length === 0) previas = filasDelMicro_('', micro);
+
+    if (previas.length && !datos.reemplazar) {
+      throw new Error(
+        'El microciclo ' + micro + ' ya tiene ' + previas.length + ' filas en la hoja. ' +
+          'Ábrelo en «Editar» para sustituirlas.',
+      );
+    }
+
+    /* Rehacer un micro que ya no está (lo borró alguien a mano) es escribirlo
+       como nuevo: no hay nada que perder. */
+    var hueco = 0;
+
+    if (previas.length && datos.reemplazar) {
+      /* De abajo arriba: borrar una fila mueve las de debajo. */
+      var aBorrar = previas
+        .map(function (una) { return una._fila; })
+        .sort(function (a, b) { return b - a; });
+
+      /* Donde empezaba: las nuevas vuelven ahí. Lo de encima no se mueve. */
+      hueco = aBorrar[aBorrar.length - 1] - 1;
+
+      for (var b = 0; b < aBorrar.length; b++) hoja.deleteRow(aBorrar[b]);
+    }
+
+    /* --- Dónde caen las nuevas y de qué fila se clonan --- */
+
+    var ultima = ultimaFilaDeDatos_(hoja, cabecera);
+
+    if (ultima <= cabecera.fila) {
+      throw new Error('La hoja no tiene ninguna fila de datos de la que copiar las fórmulas.');
+    }
+
+    var cuantas = filasEntrantes.length;
+
+    /* Detrás de la fila anterior al micro, o al final si era nuevo. */
+    var despues = hueco > cabecera.fila ? hueco : ultima;
+
+    /* El molde: la fila de encima del hueco si es de datos; si no, la última. */
+    var molde = hueco > cabecera.fila ? hueco : ultima;
+
+    hoja.insertRowsAfter(despues, cuantas);
+
+    /* Insertar por encima del molde lo baja: se corrige. */
+    if (molde > despues) molde += cuantas;
+
+    hoja
+      .getRange(molde, 1, 1, ancho)
+      .copyTo(hoja.getRange(despues + 1, 1, cuantas, ancho));
+
+    /* --- Los valores, sólo en las columnas de mano, por tramos --- */
+
+    var escribible = function (indice) {
+      var nombre = nombres[indice];
+
+      return Boolean(nombre) && REGISTRO_CALCULADAS.indexOf(nombre) < 0;
+    };
+
+    var valorDe = function (entrante, nombre) {
+      /* Lo que no llega se vacía: la fila clonada trae los datos de otra. */
+      if (!Object.prototype.hasOwnProperty.call(entrante, nombre)) return '';
+
+      var valor = entrante[nombre];
+
+      if (nombre === 'Fecha') return aFechaDeVerdad_(valor);
+
+      return valor === null || valor === undefined ? '' : valor;
+    };
+
+    var tramo = 0;
+
+    while (tramo < ancho) {
+      if (!escribible(tramo)) {
+        tramo += 1;
+
+        continue;
+      }
+
+      var fin = tramo;
+
+      while (fin + 1 < ancho && escribible(fin + 1)) fin += 1;
+
+      var valores = [];
+
+      for (var i = 0; i < cuantas; i++) {
+        var fila = [];
+
+        for (var c = tramo; c <= fin; c++) fila.push(valorDe(filasEntrantes[i], nombres[c]));
+
+        valores.push(fila);
+      }
+
+      hoja.getRange(despues + 1, tramo + 1, cuantas, fin - tramo + 1).setValues(valores);
+
+      tramo = fin + 1;
+    }
+
+    SpreadsheetApp.flush();
+
+    /* Se relee lo escrito: un `ok` no es una comprobación. */
+    return {
+      ok: true,
+      escritas: cuantas,
+      borradas: previas.length && datos.reemplazar ? previas.length : 0,
+      desde: despues + 1,
+      filas: filasDelMicro_(temporada, micro),
+    };
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+/** "20/09/2026" o "2026-09-20" → Date, para que la celda sea una fecha. */
+function aFechaDeVerdad_(valor) {
+  if (valor instanceof Date) return valor;
+
+  var texto = String(valor || '').trim();
+
+  if (!texto) return '';
+
+  var barras = texto.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+
+  if (barras) return new Date(Number(barras[3]), Number(barras[2]) - 1, Number(barras[1]));
+
+  var iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+
+  return texto;
 }

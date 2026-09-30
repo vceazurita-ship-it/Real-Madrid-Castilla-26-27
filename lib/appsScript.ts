@@ -16,7 +16,20 @@
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
 import { readDoc, writeDoc } from "@/lib/docStore";
 
-const ORIGEN = () => process.env.APPS_SCRIPT_URL ?? process.env.NEXT_PUBLIC_API_URL;
+/** El despliegue principal (hoja RIVALES): el mismo que `lib/hojaRivales.ts`. */
+const PRINCIPAL =
+  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+
+/*
+| La variable de entorno, limpia. Con comillas o un salto de línea pegados al
+| copiarla en Vercel, Google contesta 404 y todas las rutas que escriben por
+| aquí —alta de jugadores, alias, alertas— fallaban sin decir por qué
+| (01/10/2026: el registro de microciclos recibía «La hoja respondió 404»).
+*/
+const ORIGEN = () =>
+  (process.env.APPS_SCRIPT_URL ?? process.env.NEXT_PUBLIC_API_URL ?? PRINCIPAL)
+    .trim()
+    .replace(/^["']|["']$/g, "") || PRINCIPAL;
 
 export type RespuestaScript = { ok: false; error: string } | Record<string, unknown>;
 
@@ -29,8 +42,9 @@ export type RespuestaScript = { ok: false; error: string } | Record<string, unkn
 export async function llamaScript(
   accion: string,
   datos: Record<string, unknown> = {},
+  { url: destino }: { url?: string } = {},
 ) {
-  const url = ORIGEN();
+  const url = destino ?? ORIGEN();
 
   if (!url) {
     console.error(`[apps-script] ${accion}: falta APPS_SCRIPT_URL`);
@@ -42,11 +56,21 @@ export async function llamaScript(
   }
 
   try {
-    const respuesta = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: accion, ...datos }),
-    });
+    const manda = (a: string) =>
+      fetch(a, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: accion, ...datos }),
+      });
+
+    let respuesta = await manda(url);
+
+    /* Un 404 es un despliegue que ya no existe: se prueba el principal. */
+    if (respuesta.status === 404 && !destino && url !== PRINCIPAL) {
+      console.error(`[apps-script] ${accion}: 404 en la URL configurada, pruebo la principal`);
+
+      respuesta = await manda(PRINCIPAL);
+    }
 
     const cuerpo = await respuesta.text();
 

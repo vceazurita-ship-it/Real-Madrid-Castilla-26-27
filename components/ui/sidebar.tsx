@@ -316,6 +316,14 @@ const seccion = (titulo: string, hijos: ReactNode) => (
 
               {navLink("/microcycles", "Microciclos", <CalendarDays size={18} />)}
 
+              {/* Crear el siguiente o editar cualquiera, escribiendo en la hoja
+                  de registro (01/10/2026: sale de «En obras»). */}
+              {navLink(
+                "/laboratorio/microciclo",
+                "Crear o editar microciclo",
+                <ClipboardPlus size={18} />,
+              )}
+
               {navLink("/calendar", "Calendario Seguimiento", <CalendarCheck size={18} />)}
 
               {navLink(
@@ -507,17 +515,6 @@ const seccion = (titulo: string, hijos: ReactNode) => (
           {seccion(
             "En obras",
             <>
-              {/*
-                Éste SÍ se puede pinchar: está a medias, pero escribe en la
-                hoja de verdad y se está trabajando sobre él. Lo de al lado
-                son pantallas paradas.
-              */}
-              {navLink(
-                "/laboratorio/microciclo",
-                "Crear microciclo (hoja)",
-                <ClipboardPlus size={18} />,
-              )}
-
               {/*
                 También se puede pinchar: no da datos, da un fichero. Los
                 escudos salen de los que ya se bajan para el informe del rival,

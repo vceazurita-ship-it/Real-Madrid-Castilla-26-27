@@ -660,7 +660,7 @@ export function Field({
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  type?: "text" | "number";
+  type?: "text" | "number" | "date";
   hint?: string;
   suggestions?: string[];
   /** Se enfoca solo al aparecer. Para el primer campo de un diálogo. */

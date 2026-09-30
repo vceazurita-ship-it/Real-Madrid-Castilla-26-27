@@ -152,6 +152,15 @@ export type TareaNueva = {
   familiaridad: number;
   motivacion: number;
   observaciones: string;
+  /**
+   * Las columnas de la hoja que el editor no maneja —«Evaluación», «Análisis
+   * Post», «Espacio»—, tal y como estaban.
+   *
+   * Editar un microciclo es borrar sus filas y escribirlas otra vez: sin esto,
+   * retocar un tiempo se llevaba por delante la valoración que el cuerpo
+   * técnico escribió después de la sesión.
+   */
+  extra?: Record<string, string | number>;
 };
 
 export type SesionNueva = {
@@ -453,6 +462,8 @@ export function filasDelMicro(micro: MicroNuevo): FilaRegistro[] {
   for (const sesion of micro.sesiones) {
     for (const tarea of tareasQueSeEscriben(sesion)) {
       filas.push({
+        /* Lo que el editor no toca va primero: lo suyo manda encima. */
+        ...(tarea.extra ?? {}),
         Temporada: micro.temporada,
         Micro: micro.micro,
         Rival: micro.rival,
@@ -534,4 +545,100 @@ export function revisaMicro(micro: MicroNuevo) {
   }
 
   return problemas;
+}
+
+/* ------------------------------------------------------------------ */
+/*  DE LA HOJA A LA PANTALLA: EDITAR UN MICROCICLO                     */
+/* ------------------------------------------------------------------ */
+
+/** Las columnas que el editor no maneja y que hay que devolver tal cual. */
+export const COLUMNAS_QUE_VIAJAN = ["Evaluación", "Análisis Post", "Espacio"] as const;
+
+const numeroDeHoja = (valor: unknown) => {
+  const n = Number(String(valor ?? "").replace(",", ".").trim());
+
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+const textoDeHoja = (valor: unknown) => String(valor ?? "").trim();
+
+/** "20/09/2026", "2026-09-20" o "2026-09-20T…" → "2026-09-20". */
+export function fechaIsoDeHoja(valor: unknown) {
+  const texto = textoDeHoja(valor);
+
+  const iso = texto.match(/^(d{4})-(d{2})-(d{2})/);
+
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const barras = texto.match(/^(d{1,2})[/-](d{1,2})[/-](d{4})$/);
+
+  if (barras) return `${barras[3]}-${barras[2].padStart(2, "0")}-${barras[1].padStart(2, "0")}`;
+
+  return texto;
+}
+
+/**
+ * Un microciclo de la hoja, listo para editarlo.
+ *
+ * Las filas llegan de `registroFilas` con TODAS sus columnas (el CSV
+ * publicado no trae las de la demanda cognitiva y tarda minutos en
+ * refrescar). Se agrupan por fecha, en el orden de la hoja.
+ */
+export function microDeFilas(
+  filas: Record<string, unknown>[],
+  respaldo: { temporada: string; micro: number; rival: string },
+): MicroNuevo {
+  const porFecha = new Map<string, SesionNueva>();
+
+  for (const fila of filas) {
+    const fecha = fechaIsoDeHoja(fila.Fecha);
+
+    const dia = textoDeHoja(fila["Día"]).toUpperCase().slice(0, 1);
+
+    if (!porFecha.has(fecha)) {
+      porFecha.set(fecha, { fecha, dia, md: textoDeHoja(fila.MD).toUpperCase(), tareas: [] });
+    }
+
+    const extra: Record<string, string | number> = {};
+
+    for (const columna of COLUMNAS_QUE_VIAJAN) {
+      const valor = fila[columna];
+
+      if (valor !== undefined && valor !== null && valor !== "") {
+        extra[columna] = typeof valor === "number" ? valor : String(valor);
+      }
+    }
+
+    porFecha.get(fecha)!.tareas.push({
+      tarea: textoDeHoja(fila.Tarea),
+      tipoTarea: textoDeHoja(fila["Tipo Tarea"]),
+      fase: textoDeHoja(fila.Fase),
+      formato: textoDeHoja(fila.Formato),
+      grupo: textoDeHoja(fila.Grupo),
+      jugadores: numeroDeHoja(fila["Nº Jugadores"]),
+      contenidoPrincipal: textoDeHoja(fila["Contenido Principal"]),
+      contenidoSecundario: textoDeHoja(fila["Contenido Secundario"]),
+      tiempo: numeroDeHoja(fila.Tiempo),
+      intensidad: numeroDeHoja(fila["Intensidad (1-5)"]),
+      exigCog: numeroDeHoja(fila["Exig.Cog.(1-5)"]),
+      densidad: numeroDeHoja(fila.Densidad),
+      nJug: numeroDeHoja(fila["NºJug"]),
+      nComodines: numeroDeHoja(fila["NºComodines"]),
+      normativa: numeroDeHoja(fila.Normativa),
+      incertidumbre: numeroDeHoja(fila.Incertidumbre),
+      familiaridad: numeroDeHoja(fila["Familiaridad (dificultad)"]),
+      motivacion: numeroDeHoja(fila.Motivacion),
+      observaciones: textoDeHoja(fila.Observaciones),
+      extra,
+    });
+  }
+
+  const primera = filas[0] ?? {};
+
+  return {
+    temporada: textoDeHoja(primera.Temporada) || respaldo.temporada,
+    micro: numeroDeHoja(primera.Micro) || respaldo.micro,
+    rival: textoDeHoja(primera.Rival) || respaldo.rival,
+    sesiones: [...porFecha.values()].sort((a, b) => a.fecha.localeCompare(b.fecha)),
+  };
 }
