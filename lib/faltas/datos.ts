@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-09-29
+ * Generado: 2026-09-30
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -274,7 +274,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     "clips": "Hudl · Castilla · «2026-09-27 Real Madrid Castilla - Alcorcón 1 - 2» (timeline de Sportscode)",
     "notas": [
       "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se ha mirado después en la retransmisión y en la cámara táctica del club, que enseña el campo entero: zona, carril, distancia, defensores y la nota salen de la imagen.",
-      "Los defensores entre la falta y la portería están contados en 24 de 28. Faltan el penalti y tres faltas laterales junto al área (minutos 52, 83 y 91): ahí la cuenta va en la nota, porque medida contra la línea de fondo no dice lo mismo que en el resto del campo.",
+      "Los defensores entre la falta y la portería están contados en las 28, con la cámara táctica. En las faltas laterales junto al área y en el penalti se cuentan en profundidad —los que están más cerca de su línea de fondo que el balón— y los que están a la misma altura no cuentan; por eso ahí sale 1, el portero. Esas no entran en «Faltas que cortaron algo»: son balón parado, no una transición cortada.",
       "La cámara táctica no tiene el mismo tiempo que la retransmisión (lleva cortes): cada falta se buscó en ella a mano.",
       "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
     ],
@@ -330,8 +330,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo rival",
         "carril": "izquierda",
         "distancia": "media",
-        "entre": null,
-        "nota": "T2, min 52. Mano de Naasei según Hudl en la carrera del Alcorcón hacia el banderín del Castilla por la banda de la derecha de la imagen (izquierda del Alcorcón) y el balón acaba fuera junto al córner (táctica 3520-3522 y los del Alcorcón reclaman con los brazos en alto a 3522). La mano no se distingue. El árbitro marca el punto fuera del área a la altura de su línea frontal o algo más adelantado pegado a la banda. Falta lateral: en profundidad sólo el portero está más cerca de su portería que el balón (el resto del Castilla a la altura del balón o por delante y un jugador a medio metro). A 3533 aún no se ha sacado y un jugador del Castilla va a por el balón. Segundo de táctica 3520. Vídeo 57:27."
+        "entre": 1,
+        "nota": "T2, min 52. T2, min 52. Mano de Naasei según Hudl en la carrera del Alcorcón hacia el banderín del Castilla por la banda de la derecha de la imagen (izquierda del Alcorcón) y el balón acaba fuera junto al córner (táctica 3520-3522 y los del Alcorcón reclaman con los brazos en alto a 3522). La mano no se distingue. El árbitro marca el punto fuera del área a la altura de su línea frontal o algo más adelantado pegado a la banda. Falta lateral: en profundidad sólo el portero está más cerca de su portería que el balón (el resto del Castilla a la altura del balón o por delante y un jugador a medio metro). A 3533 aún no se ha sacado y un jugador del Castilla va a por el balón. Segundo de táctica 3520. Vídeo 57:27. Entre: 1 — contado en la táctica segundo 3522,2 con zoom (el balón rebota en Naasei hacia 3522,1-3522,3 y sale hacia el córner): Naasei está fuera del área pegado a la banda a unos 10 m de su línea de fondo y sólo el portero del Castilla está más cerca de su línea de fondo. Dudoso no contado: otro del Castilla junto a Naasei a un metro por fuera. En la TV (52:23) se ve el rebote junto a esos dos del Castilla pero no enseña al portero. Ojo: si el punto de la falta fuera la altura de la línea frontal del área como decía la primera pasada entrarían más jugadores del Castilla que están dentro del área. Vídeo 57:27."
       },
       {
         "clip": "def-c07",
@@ -366,8 +366,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo rival",
         "carril": "centro",
         "distancia": "frontal",
-        "entre": null,
-        "nota": "T1, min 7. Es PENALTI. Tras el cabezazo y la parada de Bañuz el balón queda suelto junto al segundo palo y en el rechace el portero del Alcorcón choca con Yáñez sobre la línea de gol a la derecha de la portería (en la táctica ambos quedan en el suelo pegados a la línea). El choque es en la propia línea así que entre el punto y la portería sólo está Bañuz (el resto del Alcorcón está a la altura del balón o por delante) y en el lanzamiento también queda él solo. El Alcorcón rodea al árbitro protestando. Hudl lo codifica como falta normal. Vídeo 7:22."
+        "entre": 1,
+        "nota": "T1, min 7. T1, min 7. Es PENALTI. Tras el cabezazo y la parada de Bañuz el balón queda suelto junto al segundo palo y en el rechace el portero del Alcorcón choca con Yáñez sobre la línea de gol a la derecha de la portería (en la táctica ambos quedan en el suelo pegados a la línea). El choque es en la propia línea así que entre el punto y la portería sólo está Bañuz (el resto del Alcorcón está a la altura del balón o por delante) y en el lanzamiento también queda él solo. El Alcorcón rodea al árbitro protestando. Hudl lo codifica como falta normal. Vídeo 7:22. Entre: 1 — contado en la táctica segundo 452,8-453,2 (el choque es hacia 453,2): Bañuz se tira a los pies de Yáñez sobre la línea de gol unos 4-5 m a la derecha del palo derecho. Sólo cuenta él. Dudoso: un jugador del Alcorcón está de pie junto a ese palo pisando la línea de gol (entre el punto y la portería de lado pero a la misma profundidad que el balón) y no se cuenta. Si se contara serían 2. Otro del Alcorcón a 1-2 m de la línea queda por delante del balón. Vídeo 7:22."
       },
       {
         "clip": "of-c02",
@@ -501,8 +501,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo rival",
         "carril": "izquierda",
         "distancia": "media",
-        "entre": null,
-        "nota": "T2, min 83. Nicola derriba a Diego Aguado fuera del área por la banda izquierda del Castilla a la altura de la esquina del área y a unos 9-11 m de la línea de fondo (táctica 5361-5362 y a 5362 ya está en el suelo). Es una falta lateral para centrar: más cerca de la línea de fondo que el balón sólo hay dos de campo del Alcorcón y el portero y otro está casi en línea con el balón. El árbitro deja seguir un instante y la jugada se para con amarilla y a 5375 aún no se ha sacado. Vídeo 88:43."
+        "entre": 1,
+        "nota": "T2, min 83. T2, min 83. Nicola derriba a Diego Aguado fuera del área por la banda izquierda del Castilla a la altura de la esquina del área y a unos 9-11 m de la línea de fondo (táctica 5361-5362 y a 5362 ya está en el suelo). Es una falta lateral para centrar: más cerca de la línea de fondo que el balón sólo hay dos de campo del Alcorcón y el portero y otro está casi en línea con el balón. El árbitro deja seguir un instante y la jugada se para con amarilla y a 5375 aún no se ha sacado. Vídeo 88:43. Entre: 1 — contado en la táctica segundo 5361,7 (el contacto) con zoom a 5361,5 y 5361,9: el contacto es fuera del área casi a la altura de la línea frontal del área (unos 15-16 m de la línea de fondo) y Aguado cae resbalando hasta unos 10-11 m. En ese instante sólo el portero está claramente más cerca de su línea de fondo. Dudosos no contados: un jugador del Alcorcón dentro del área apenas medio metro más adentro que el balón y que a 5361,9 ya está en línea con él y otro a la misma altura más al centro. Contado desde donde cae Aguado (5362) saldrían 3 como decía la primera pasada. Vídeo 88:43."
       },
       {
         "clip": "of-c17",
@@ -519,8 +519,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo rival",
         "carril": "derecha",
         "distancia": "media",
-        "entre": null,
-        "nota": "T2, min 91. Rober Ibáñez derriba a Jesús Fortea justo fuera del lateral derecho del área del Alcorcón a unos 8-9 m de la línea de fondo (táctica 5815). Es una falta lateral para centrar: sólo el portero está claramente más cerca de su portería que el balón y dos del Alcorcón quedan más o menos a la misma altura del balón (no contados). Casi a la vez caen un jugador de cada equipo dentro del área y los del Alcorcón protestan con los brazos en alto alrededor del árbitro y a 5828 aún no se ha sacado. Vídeo 96:16."
+        "entre": 1,
+        "nota": "T2, min 91. T2, min 91. Rober Ibáñez derriba a Jesús Fortea justo fuera del lateral derecho del área del Alcorcón a unos 8-9 m de la línea de fondo (táctica 5815). Es una falta lateral para centrar: sólo el portero está claramente más cerca de su portería que el balón y dos del Alcorcón quedan más o menos a la misma altura del balón (no contados). Casi a la vez caen un jugador de cada equipo dentro del área y los del Alcorcón protestan con los brazos en alto alrededor del árbitro y a 5828 aún no se ha sacado. Vídeo 96:16. Entre: 1 — contado en la táctica segundo 5815,0-5815,2 con zoom: la entrada es fuera del área a unos 10-11 m de la línea de fondo y sólo el portero está más cerca de su línea de fondo que el balón. Dudosos no contados: dos del Alcorcón dentro del área a 1-1,5 m por fuera de la altura del balón. Vídeo 96:16."
       },
       {
         "clip": "of-c19",

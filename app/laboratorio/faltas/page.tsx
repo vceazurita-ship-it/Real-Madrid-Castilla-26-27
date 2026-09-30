@@ -134,10 +134,19 @@ export default function FaltasPage() {
     };
   }, [faltas]);
 
-  /** Las que se pitaron con el campo abierto: ésas cortaron algo. */
+  /*
+  | Las que se pitaron con el campo abierto: ésas cortaron algo.
+  |
+  | Sólo lejos del área que se ataca. Una falta lateral junto al área, o un
+  | penalti, deja casi siempre a uno o dos defensores «por detrás» del balón
+  | —se cuentan en profundidad, contra la línea de fondo— y no es una
+  | transición cortada: es un balón parado. Metidas aquí, la lista se llenaba
+  | de centros laterales.
+  */
   const cortes = useMemo(
     () =>
       faltas
+        .filter((f) => f.zona !== "campo rival")
         .filter((f) => f.entre !== null && (f.entre as number) <= CORTE_TRANSICION)
         .sort((a, b) => (a.entre as number) - (b.entre as number)),
     [faltas],
@@ -340,7 +349,7 @@ export default function FaltasPage() {
 
                 <Panel
                   title="Faltas que cortaron algo"
-                  subtitle={`Con ${CORTE_TRANSICION} defensores o menos por delante: campo abierto`}
+                  subtitle={`Con ${CORTE_TRANSICION} defensores o menos por delante, fuera del último tercio: campo abierto`}
                   icon={Zap}
                 >
                   {cortes.length === 0 ? (
