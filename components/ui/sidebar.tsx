@@ -395,6 +395,17 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               )}
 
               {navLink("/data-analisis", "Data Análisis", <Sigma size={18} />)}
+
+              {/*
+                Debajo de Data, en Competición (30/09/2026): desde el J4 los
+                robos salen del etiquetado de Hudl del partido entero, así que
+                ya no es una pantalla a medias.
+              */}
+              {navLink(
+                "/laboratorio/transiciones",
+                "Robos y transiciones",
+                <Crosshair size={18} />,
+              )}
             </>,
           )}
 
@@ -498,21 +509,8 @@ const seccion = (titulo: string, hijos: ReactNode) => (
               )}
 
               {/*
-                También se puede pinchar: los datos son de verdad —salen de
-                mirar el vídeo imagen a imagen— pero todavía no está el partido
-                entero, y la pantalla lo dice en grande. Vive aquí hasta que
-                haya partidos completos con los que comparar.
-              */}
-              {navLink(
-                "/laboratorio/transiciones",
-                "Robos y transiciones",
-                <Crosshair size={18} />,
-              )}
-
-              {/*
-                Hermana de la de arriba y por eso va pegada: los dos recuentos
-                salen de mirar el vídeo imagen a imagen y los dos dicen en
-                pantalla de cuánto partido hablan.
+                Sale de mirar el vídeo falta a falta y dice en pantalla de
+                cuánto partido habla.
               */}
               {navLink(
                 "/laboratorio/faltas",
