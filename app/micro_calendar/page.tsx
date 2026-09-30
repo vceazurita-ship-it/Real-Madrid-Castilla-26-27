@@ -44,7 +44,7 @@ function nombreBonito(nombre: string) {
   return nombre
     .toLowerCase()
     .split(/\s+/)
-    .map((p) => (p.length <= 3 && !/^(de|del|la|el)$/.test(p) ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1)))
+    .map((p) => (/^(de|del|la|el)$/.test(p) ? p : p.length <= 3 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1)))
     .join(" ");
 }
 

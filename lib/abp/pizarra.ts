@@ -1,3 +1,4 @@
+import { idVigente } from "@/lib/fichajes";
 /**
  * Pizarra de balón parado: vocabulario, plantillas de diapositiva y memoria.
  *
@@ -1018,7 +1019,13 @@ export function sinTextosPropios(slide: SlidePizarra): SlidePizarra {
 export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
   let tocado = false;
 
-  const slides = tablero.slides.map((slide) => {
+  const slides = tablero.slides.map((entrada) => {
+    /* Fichas con un ID de jugador que ya no existe: al suyo de hoy (lib/fichajes). */
+    const slide = entrada.fichas.some((ficha) => idVigente(ficha.playerId) !== ficha.playerId)
+      ? ((tocado = true),
+        { ...entrada, fichas: entrada.fichas.map((ficha) => ({ ...ficha, playerId: idVigente(ficha.playerId) })) })
+      : entrada;
+
     const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
 
     if (!plantilla || slide.rev === plantilla.rev) return slide;
@@ -1796,7 +1803,11 @@ export function normalizaMemoria(memoria: MemoriaPizarra): MemoriaPizarra {
     }
   }
 
-  if (!Object.keys(memoria).some((clave) => renombrados.has(clave))) {
+  const conIdViejo = Object.values(memoria).some((lista) =>
+    lista.some((item) => idVigente(item.playerId) !== item.playerId),
+  );
+
+  if (!conIdViejo && !Object.keys(memoria).some((clave) => renombrados.has(clave))) {
     return memoria;
   }
 
@@ -1805,7 +1816,9 @@ export function normalizaMemoria(memoria: MemoriaPizarra): MemoriaPizarra {
   for (const [clave, lista] of Object.entries(memoria)) {
     const destino = renombrados.get(clave) ?? clave;
 
-    const juntas = [...(salida[destino] ?? []), ...lista];
+    const juntas = [...(salida[destino] ?? []), ...lista].map((item) =>
+      idVigente(item.playerId) === item.playerId ? item : { ...item, playerId: idVigente(item.playerId) },
+    );
 
     /* Un jugador puede salir en las dos listas: se suman sus veces. */
     const porJugador = new Map<string, MemoriaPuesto>();

@@ -31,6 +31,11 @@ type Ficha = {
   posicion: string;
   licencia: string;
   dorsal?: number;
+  /**
+   * Otras grafías con que la hoja puede escribirlo. Si la hoja ya lo trae con
+   * una de ellas, NO se añade otra ficha: se completa la de la hoja.
+   */
+  alias?: string[];
 };
 
 /*
@@ -70,8 +75,28 @@ const FICHAS: Ficha[] = [
     apodo: "Thiago",
     posicion: "10",
     licencia: "RMCF Castilla",
+    /*
+    | La hoja lo dio de alta el 26/09/2026 como «Thiago», JUG-51. Sin este
+    | alias el cruce por nombre no lo reconocía y salían DOS Thiagos: el de la
+    | hoja, con los seguimientos, y este, con el historial de la pizarra de ABP.
+    */
+    alias: ["Thiago"],
   },
 ];
+
+/**
+ * IDs que ya no son de nadie y a quién corresponden hoy.
+ *
+ * Thiago Pitarch entró el 22/09 por el puente con JUG-54 y la hoja lo dio de
+ * alta después como JUG-51. Lo guardado con el ID viejo —la memoria y las
+ * fichas de la pizarra de ABP— se traduce al leer (`idVigente`), sin
+ * reescribir nada: en cuanto alguien guarde, ya se guarda con el nuevo.
+ */
+export const IDS_ANTERIORES: Record<string, string> = {
+  "JUG-54": "JUG-51",
+};
+
+export const idVigente = (id: string) => IDS_ANTERIORES[id] ?? id;
 
 /** Los fichajes convertidos en jugadores, con sus recortes. */
 const PENDIENTES: Player[] = FICHAS.map((ficha) => ({
@@ -100,11 +125,41 @@ const PENDIENTES: Player[] = FICHAS.map((ficha) => ({
 export function conFichajes(deLaHoja: Player[]): Player[] {
   if (PENDIENTES.length === 0) return deLaHoja;
 
-  const yaEstan = new Set(deLaHoja.map((jugador) => normalizePlayerName(jugador.nombre)));
-
-  const faltan = PENDIENTES.filter(
-    (ficha) => !yaEstan.has(normalizePlayerName(ficha.nombre)),
+  const posicionEnLaHoja = new Map(
+    deLaHoja.map((jugador, i) => [normalizePlayerName(jugador.nombre), i]),
   );
 
-  return faltan.length > 0 ? [...deLaHoja, ...faltan] : deLaHoja;
+  const salida = [...deLaHoja];
+
+  FICHAS.forEach((ficha, k) => {
+    const pendiente = PENDIENTES[k];
+
+    const i = [ficha.nombre, ...(ficha.alias ?? [])]
+      .map((nombre) => posicionEnLaHoja.get(normalizePlayerName(nombre)))
+      .find((x) => x !== undefined);
+
+    if (i === undefined) {
+      salida.push(pendiente);
+      return;
+    }
+
+    /*
+    | Ya está en la hoja, aunque sea con otra grafía: una sola ficha, con el
+    | ID de la hoja —que es el que llevan los seguimientos—, y lo que la hoja
+    | no sabe (el nombre completo, que es como lo escriben Wyscout y Hudl, y
+    | la foto, que va por ese nombre) sale de aquí.
+    */
+    const suya = salida[i];
+    const sinFoto = !suya.foto || /default|placeholder/i.test(suya.foto);
+
+    salida[i] = {
+      ...suya,
+      nombre: ficha.nombre,
+      apodo: suya.apodo && suya.apodo !== suya.nombre ? suya.apodo : ficha.apodo,
+      foto: sinFoto ? pendiente.foto : suya.foto,
+      fotoLejos: suya.fotoLejos ?? pendiente.fotoLejos,
+    };
+  });
+
+  return salida;
 }
