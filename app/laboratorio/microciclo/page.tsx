@@ -995,7 +995,10 @@ export default function EditorMicrocicloPage() {
 
   const filas = useMemo(() => (micro ? filasDelMicro(micro) : []), [micro]);
 
-  const problemas = useMemo(() => (micro ? revisaMicro(micro) : []), [micro]);
+  const problemas = useMemo(
+    () => (micro ? revisaMicro(micro, { permitirRepetidas: editando !== null }) : []),
+    [micro, editando],
+  );
 
   const cuentas = useMemo(
     () => (micro ? minutosDe(micro.sesiones) : { porFecha: {}, total: 0, tareas: 0 }),
@@ -1619,6 +1622,15 @@ export default function EditorMicrocicloPage() {
                       }
                     >
                       <div className="mb-3 grid gap-2 md:grid-cols-4">
+                        {sesion.rival !== undefined && (
+                          <Field
+                            label="Rival de este día"
+                            value={sesion.rival}
+                            onChange={(v) => cambiaSesion(indice, { rival: v })}
+                            hint="Este microciclo abarca otro partido"
+                          />
+                        )}
+
                         <Field
                           label="MD"
                           value={sesion.md}

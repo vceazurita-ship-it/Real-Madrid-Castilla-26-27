@@ -177,6 +177,14 @@ export type SesionNueva = {
    * no le mete tareas y la pantalla lo pinta como libre, no como pendiente.
    */
   libre?: boolean;
+  /**
+   * El rival de ESTE día, si no es el del microciclo (01/10/2026).
+   *
+   * Un micro puede abarcar dos partidos —el 13 lleva la semana del Sant
+   * Andreu y la del Alcorcón— y cada fila lleva el suyo. Editarlo con un
+   * único rival reescribía las del segundo partido con el nombre del primero.
+   */
+  rival?: string;
 };
 
 /**
@@ -466,7 +474,7 @@ export function filasDelMicro(micro: MicroNuevo): FilaRegistro[] {
         ...(tarea.extra ?? {}),
         Temporada: micro.temporada,
         Micro: micro.micro,
-        Rival: micro.rival,
+        Rival: sesion.rival?.trim() || micro.rival,
         "Día": sesion.dia,
         MD: sesion.md,
         Fecha: aFechaHoja(sesion.fecha),
@@ -497,7 +505,17 @@ export function filasDelMicro(micro: MicroNuevo): FilaRegistro[] {
 }
 
 /** Lo que hay que mirar antes de escribir nada. */
-export function revisaMicro(micro: MicroNuevo) {
+/**
+ * Lo que hay que mirar antes de escribir nada.
+ *
+ * `permitirRepetidas`: al editar uno que YA está en la hoja con nombres
+ * repetidos —el micro 13 tiene dos «L-T1», la de ABP y el rondo—, eso no puede
+ * impedir guardarlo: se avisa en `avisos` y se deja escribir.
+ */
+export function revisaMicro(
+  micro: MicroNuevo,
+  { permitirRepetidas = false }: { permitirRepetidas?: boolean } = {},
+) {
   const problemas: string[] = [];
 
   if (!micro.temporada.trim()) problemas.push("Falta la temporada.");
@@ -536,7 +554,7 @@ export function revisaMicro(micro: MicroNuevo) {
         continue;
       }
 
-      if (nombres.has(tarea.tarea)) {
+      if (nombres.has(tarea.tarea) && !permitirRepetidas) {
         problemas.push(`«${tarea.tarea}» está repetida: los nombres de tarea no se repiten dentro de un microciclo.`);
       }
 
@@ -596,7 +614,13 @@ export function microDeFilas(
     const dia = textoDeHoja(fila["Día"]).toUpperCase().slice(0, 1);
 
     if (!porFecha.has(fecha)) {
-      porFecha.set(fecha, { fecha, dia, md: textoDeHoja(fila.MD).toUpperCase(), tareas: [] });
+      porFecha.set(fecha, {
+        fecha,
+        dia,
+        md: textoDeHoja(fila.MD).toUpperCase(),
+        tareas: [],
+        rival: textoDeHoja(fila.Rival),
+      });
     }
 
     const extra: Record<string, string | number> = {};
@@ -635,10 +659,16 @@ export function microDeFilas(
 
   const primera = filas[0] ?? {};
 
+  const rival = textoDeHoja(primera.Rival) || respaldo.rival;
+
   return {
     temporada: textoDeHoja(primera.Temporada) || respaldo.temporada,
     micro: numeroDeHoja(primera.Micro) || respaldo.micro,
-    rival: textoDeHoja(primera.Rival) || respaldo.rival,
-    sesiones: [...porFecha.values()].sort((a, b) => a.fecha.localeCompare(b.fecha)),
+    rival,
+    /* El rival sólo se guarda en el día cuando es OTRO: así cambiar el del
+       microciclo arriba sigue cambiando todos los demás. */
+    sesiones: [...porFecha.values()]
+      .map((sesion) => (sesion.rival === rival ? { ...sesion, rival: undefined } : sesion))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha)),
   };
 }
