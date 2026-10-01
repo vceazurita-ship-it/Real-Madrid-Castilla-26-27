@@ -612,11 +612,11 @@ const textoDeHoja = (valor: unknown) => String(valor ?? "").trim();
 export function fechaIsoDeHoja(valor: unknown) {
   const texto = textoDeHoja(valor);
 
-  const iso = texto.match(/^(d{4})-(d{2})-(d{2})/);
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
-  const barras = texto.match(/^(d{1,2})[/-](d{1,2})[/-](d{4})$/);
+  const barras = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
 
   if (barras) return `${barras[3]}-${barras[2].padStart(2, "0")}-${barras[1].padStart(2, "0")}`;
 

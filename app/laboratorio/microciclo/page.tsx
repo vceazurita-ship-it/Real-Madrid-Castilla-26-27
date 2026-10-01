@@ -84,6 +84,7 @@ import {
   tareaEnBlanco,
   tareaVacia,
   tareasQueSeEscriben,
+  fechaIsoDeHoja,
   type MicroNuevo,
   type SesionNueva,
   type Sugerencias,
@@ -97,7 +98,6 @@ import {
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
 import { diaKeyDe, etiquetaDia } from "@/lib/abp/ventana";
-import { teamKey } from "@/lib/abp/model";
 
 const DIA_MS = 86_400_000;
 
@@ -610,16 +610,34 @@ export default function EditorMicrocicloPage() {
       | escrita en la hoja —como el 20/09/2026, con el micro del Sant Andreu
       | hecho— lo que toca crear es el siguiente.
       */
-      const hechos = new Set(
-        (datos?.micros ?? []).map((uno) => teamKey(uno.rival)).filter((clave) => clave.length > 0),
-      );
+      /*
+      | Un partido «ya tiene microciclo» si la hoja tiene tareas entre el día
+      | siguiente al partido anterior y el del partido. Por FECHAS, no por el
+      | nombre del rival: la hoja escribe «ATL MADRID B» y el calendario
+      | «Atlético Madrileño», y con el nombre se ofrecía crear otra vez la
+      | semana del micro 15. Además, en la vuelta el rival se repite.
+      */
+      const fechasEscritas = [
+        ...new Set(
+          (datos?.tareas ?? []).map((una) => fechaIsoDeHoja(una.fecha)).filter(Boolean),
+        ),
+      ];
+
+      const tieneMicro = (uno: (typeof alrededor.todos)[number]) => {
+        const dia = soloDia(uno.cuando);
+
+        const anterior = [...alrededor.todos].filter((otro) => otro.cuando < uno.cuando).slice(-1)[0];
+
+        const desde = anterior ? soloDia(anterior.cuando) : "";
+
+        return fechasEscritas.some((fecha) => fecha > desde && fecha <= dia);
+      };
 
       const pendientes = alrededor.proximo
         ? alrededor.todos.filter((uno) => uno.cuando >= (alrededor.proximo?.cuando ?? ""))
         : [];
 
-      const objetivo =
-        pendientes.find((uno) => !hechos.has(teamKey(uno.rival))) ?? alrededor.proximo;
+      const objetivo = pendientes.find((uno) => !tieneMicro(uno)) ?? alrededor.proximo;
 
       const previo = objetivo
         ? ([...alrededor.todos].filter((uno) => uno.cuando < objetivo.cuando).slice(-1)[0] ?? null)
@@ -960,11 +978,11 @@ export default function EditorMicrocicloPage() {
 
     const fin = micro.sesiones[micro.sesiones.length - 1]?.fecha ?? "";
 
-    const clave = teamKey(micro.rival);
-
+    /* Por fecha: el nombre de la hoja («ATL MADRID B») no tiene por qué
+       coincidir con el del calendario («Atlético Madrileño»). */
     return (
       alrededorDe(calendario, 0)
-        .todos.filter((uno) => uno?.rival && teamKey(uno.rival) === clave)
+        .todos.filter((uno) => uno?.rival)
         .sort(
           (a, b) =>
             Math.abs(Date.parse(soloDia(a.cuando)) - Date.parse(fin)) -
