@@ -161,6 +161,12 @@ export type TareaNueva = {
    * técnico escribió después de la sesión.
    */
   extra?: Record<string, string | number>;
+  /**
+   * Las columnas numéricas que en la hoja valían **0**. El editor trata el 0
+   * como «sin rellenar» y lo escribía vacío: «NºComodines» 0 pasaba a vacío y
+   * la fórmula de «Demanda Cognitiva» cambiaba al reescribir el micro 4.
+   */
+  ceros?: ColumnaRegistro[];
 };
 
 export type SesionNueva = {
@@ -498,6 +504,13 @@ export function filasDelMicro(micro: MicroNuevo): FilaRegistro[] {
         Motivacion: numero(tarea.motivacion),
         Observaciones: tarea.observaciones,
       });
+
+      /* Un 0 que ya estaba en la hoja se queda en 0, no en vacío. */
+      const fila = filas[filas.length - 1];
+
+      for (const columna of tarea.ceros ?? []) {
+        if (fila[columna] === "") fila[columna] = 0;
+      }
     }
   }
 
@@ -572,6 +585,21 @@ export function revisaMicro(
 /** Las columnas que el editor no maneja y que hay que devolver tal cual. */
 export const COLUMNAS_QUE_VIAJAN = ["Evaluación", "Análisis Post", "Espacio"] as const;
 
+/** Las columnas de número que escribe el editor (ver `filasDelMicro`). */
+const COLUMNAS_NUMERICAS: ColumnaRegistro[] = [
+  "Nº Jugadores",
+  "Tiempo",
+  "Intensidad (1-5)",
+  "Exig.Cog.(1-5)",
+  "Densidad",
+  "NºJug",
+  "NºComodines",
+  "Normativa",
+  "Incertidumbre",
+  "Familiaridad (dificultad)",
+  "Motivacion",
+];
+
 const numeroDeHoja = (valor: unknown) => {
   const n = Number(String(valor ?? "").replace(",", ".").trim());
 
@@ -633,6 +661,10 @@ export function microDeFilas(
       }
     }
 
+    const ceros = COLUMNAS_NUMERICAS.filter(
+      (columna) => fila[columna] !== "" && fila[columna] !== null && Number(fila[columna]) === 0,
+    );
+
     porFecha.get(fecha)!.tareas.push({
       tarea: textoDeHoja(fila.Tarea),
       tipoTarea: textoDeHoja(fila["Tipo Tarea"]),
@@ -654,6 +686,7 @@ export function microDeFilas(
       motivacion: numeroDeHoja(fila.Motivacion),
       observaciones: textoDeHoja(fila.Observaciones),
       extra,
+      ...(ceros.length ? { ceros } : {}),
     });
   }
 

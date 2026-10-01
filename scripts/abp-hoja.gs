@@ -76,7 +76,9 @@ function doPost(e) {
       return responde({
         success: true,
         hojas: HOJAS,
-        acciones: ['anadirFilas', 'actualizarFilas', 'registroFilas', 'registroGuardar']
+        acciones: ['anadirFilas', 'actualizarFilas', 'registroFilas', 'registroGuardar'],
+        /* Sube cuando cambia cómo se escribe: así se ve desde fuera si está pegado. */
+        version: 'registro-calculadas-1'
       });
     }
 
@@ -467,6 +469,8 @@ function guardaMicrociclo_(datos) {
        como nuevo: no hay nada que perder. */
     var hueco = 0;
 
+    var calculadasPrevias = [];
+
     if (previas.length && datos.reemplazar) {
       /* De abajo arriba: borrar una fila mueve las de debajo. */
       var aBorrar = previas
@@ -475,6 +479,14 @@ function guardaMicrociclo_(datos) {
 
       /* Donde empezaba: las nuevas vuelven ahí. Lo de encima no se mueve. */
       hueco = aBorrar[aBorrar.length - 1] - 1;
+
+      /* Lo que tenía cada fila en las columnas calculadas, ANTES de borrar:
+         fórmula o número escrito a mano (los partidos viejos llevan un 10
+         fijo en «Demanda Cognitiva»). Se repone tal cual al escribir. */
+      calculadasPrevias = previas
+        .slice()
+        .sort(function (a, b) { return a._fila - b._fila; })
+        .map(function (una) { return calculadasDeFila_(hoja, nombres, una._fila); });
 
       for (var b = 0; b < aBorrar.length; b++) hoja.deleteRow(aBorrar[b]);
     }
@@ -492,8 +504,10 @@ function guardaMicrociclo_(datos) {
     /* Detrás de la fila anterior al micro, o al final si era nuevo. */
     var despues = hueco > cabecera.fila ? hueco : ultima;
 
-    /* El molde: la fila de encima del hueco si es de datos; si no, la última. */
-    var molde = hueco > cabecera.fila ? hueco : ultima;
+    /* El molde: la fila con FÓRMULAS más cercana por encima del hueco (o la
+       última). La de justo encima puede ser un partido con «Demanda Cognitiva»
+       escrita a mano, y clonarla copiaba ese 10 fijo a todo el microciclo. */
+    var molde = moldeConFormulas_(hoja, cabecera, hueco > cabecera.fila ? hueco : ultima);
 
     hoja.insertRowsAfter(despues, cuantas);
 
@@ -551,6 +565,23 @@ function guardaMicrociclo_(datos) {
       tramo = fin + 1;
     }
 
+    /* --- Las calculadas: como estaban en esa fila, o la fórmula del molde --- */
+
+    for (var r = 0; r < cuantas; r++) {
+      /* `_calculadas: 'formula'` fuerza la fórmula (para reparar una fila). */
+      if (filasEntrantes[r]._calculadas === 'formula') continue;
+
+      var antes = calculadasPrevias.length === cuantas ? calculadasPrevias[r] : null;
+
+      if (!antes) continue;
+
+      for (var k = 0; k < antes.length; k++) {
+        if (antes[k].formula) continue;
+
+        hoja.getRange(despues + 1 + r, antes[k].columna).setValue(antes[k].valor);
+      }
+    }
+
     SpreadsheetApp.flush();
 
     /* Se relee lo escrito: un `ok` no es una comprobación. */
@@ -564,6 +595,50 @@ function guardaMicrociclo_(datos) {
   } finally {
     bloqueo.releaseLock();
   }
+}
+
+/** Fórmula o valor de cada columna calculada de una fila. */
+function calculadasDeFila_(hoja, nombres, fila) {
+  var salida = [];
+
+  for (var c = 0; c < nombres.length; c++) {
+    if (REGISTRO_CALCULADAS.indexOf(nombres[c]) < 0) continue;
+
+    var celda = hoja.getRange(fila, c + 1);
+
+    salida.push({ columna: c + 1, formula: celda.getFormula(), valor: celda.getValue() });
+  }
+
+  return salida;
+}
+
+/** La fila más cercana a `desde` (subiendo y, si no, bajando) con fórmula en TODAS las calculadas. */
+function moldeConFormulas_(hoja, cabecera, desde) {
+  var primera = cabecera.fila + 1;
+
+  var ultima = hoja.getLastRow();
+
+  var columnas = [];
+
+  for (var c = 0; c < cabecera.nombres.length; c++) {
+    if (REGISTRO_CALCULADAS.indexOf(cabecera.nombres[c]) >= 0) columnas.push(c);
+  }
+
+  if (!columnas.length || ultima < primera) return desde;
+
+  var formulas = hoja.getRange(primera, 1, ultima - primera + 1, cabecera.nombres.length).getFormulas();
+
+  var tieneTodas = function (fila) {
+    var una = formulas[fila - primera];
+
+    return Boolean(una) && columnas.every(function (col) { return Boolean(una[col]); });
+  };
+
+  for (var arriba = desde; arriba >= primera; arriba--) if (tieneTodas(arriba)) return arriba;
+
+  for (var abajo = desde + 1; abajo <= ultima; abajo++) if (tieneTodas(abajo)) return abajo;
+
+  return desde;
 }
 
 /** "20/09/2026" o "2026-09-20" → Date, para que la celda sea una fecha. */
