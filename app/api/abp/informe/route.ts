@@ -57,17 +57,20 @@ export async function POST(request: NextRequest) {
   const imagenes = Array.isArray(cuerpo.imagenes) ? cuerpo.imagenes : [];
 
   const adjuntos = imagenes.flatMap((una) => {
-    const dato = una as { cid?: unknown; base64?: unknown };
+    const dato = una as { cid?: unknown; base64?: unknown; tipo?: unknown };
 
     const cid = String(dato.cid ?? "").trim();
     const base64 = String(dato.base64 ?? "").trim();
 
     if (!cid || !base64) return [];
 
+    /* Las páginas de los PDF del rival van en JPEG; el resto, PNG. */
+    const tipo = dato.tipo === "image/jpeg" ? "image/jpeg" : "image/png";
+
     return [
       {
-        nombre: `${cid}.png`,
-        tipo: "image/png",
+        nombre: `${cid}.${tipo === "image/jpeg" ? "jpg" : "png"}`,
+        tipo,
         base64,
         cid,
       },

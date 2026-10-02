@@ -19,12 +19,17 @@ import type { RivalAnalisisInforme } from "@/lib/abp/informe-micro";
 import { traeJson } from "@/lib/hojaCsv";
 import {
   analisisKey,
+  clipsKey,
   laminaVacia,
   normalizaAnalisis,
   ordenJornada,
   SECCION_POR_ID,
   seccionesDe,
+  type RivalClipsDoc,
 } from "@/lib/rivals/analisis";
+
+/** Páginas de cada PDF que entran en el informe. */
+const PAGINAS_POR_PDF = 8;
 import { resolutorDeFichas } from "@/lib/rivals/analisis-fichas";
 import { laminaImagen } from "@/lib/rivals/analisis-svg";
 
@@ -111,31 +116,47 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
       const analisis = normalizaAnalisis(json?.data);
 
-      const deAbp = new Set(seccionesDe("abp").map((s) => s.id));
+      /* Los vídeos y los PDF de la jornada viven aparte (los sube el vigía). */
+      const clips = await fetch(`/api/docs?key=${encodeURIComponent(clipsKey(equipo))}`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ data?: RivalClipsDoc | null }>)
+        .then((d) => d?.data?.jornadas ?? {})
+        .catch(() => ({}) as RivalClipsDoc["jornadas"]);
 
-      /* La jornada más reciente que tenga algo de balón parado. */
-      const jornada = Object.keys(analisis.jornadas)
-        .filter((j) => {
-          const t = analisis.jornadas[j];
+      /*
+      | TODO lo preparado del rival, no sólo el balón parado (02/10/2026): el
+      | informe del microciclo 15 salía sin los centros laterales del
+      | Atlético Madrileño ni los dos PDF de la J6. Primero ABP y luego Área.
+      */
+      const secciones = [...seccionesDe("abp"), ...seccionesDe("area")];
 
-          return (
-            t.laminas.some((l) => deAbp.has(l.seccion) && !laminaVacia(l)) ||
-            Object.entries(t.notas ?? {}).some(([s, texto]) => deAbp.has(s as never) && texto?.trim())
-          );
-        })
+      const tieneAlgo = (j: string) => {
+        const t = analisis.jornadas[j];
+
+        return Boolean(
+          t?.laminas.some((l) => !laminaVacia(l)) ||
+            Object.values(t?.notas ?? {}).some((texto) => texto?.trim()) ||
+            clips[j]?.docs?.length,
+        );
+      };
+
+      /* La jornada más reciente que tenga algo. */
+      const jornada = [...new Set([...Object.keys(analisis.jornadas), ...Object.keys(clips)])]
+        .filter(tieneAlgo)
         .sort(ordenJornada)
         .pop();
 
       if (!jornada) return NADA;
 
-      const trabajo = analisis.jornadas[jornada];
+      const trabajo = analisis.jornadas[jornada] ?? { laminas: [], notas: {} };
 
       const ficha = resolutorDeFichas(plantilla, equipo);
 
       /* Sólo las que tienen algo: una lámina en blanco no dice nada. */
-      const laminas = seccionesDe("abp").flatMap((s) =>
+      const laminas = secciones.flatMap((s) =>
         trabajo.laminas.filter((l) => l.seccion === s.id && !laminaVacia(l)),
       );
+
+      const documentos = (clips[jornada]?.docs ?? []).filter((d) => /\.pdf($|\?)/i.test(d.url || d.path || ""));
 
       const graficos: GraficoInforme[] = [];
 
@@ -159,13 +180,79 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
         }
       }
 
-      const conclusiones = seccionesDe("abp")
+      /*
+      | Los PDF de la jornada (el informe complementario de ABP, el de centros
+      | laterales…): sus páginas, como imágenes. Un correo no abre un PDF
+      | dentro, y un enlace solo no se lee en el móvil. Con tope por documento
+      | para que el correo no pese más de la cuenta.
+      */
+      if (documentos.length && !cancelado) {
+        try {
+          const pdfjs = await import("pdfjs-dist");
+
+          pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+          for (const doc of documentos) {
+            if (cancelado) break;
+
+            try {
+              const respuesta = await fetch(doc.url);
+
+              if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
+              const datos = new Uint8Array((await respuesta.arrayBuffer()) as ArrayBuffer);
+
+              const pdf = await pdfjs.getDocument({ data: datos }).promise;
+
+              const paginas = Math.min(pdf.numPages, PAGINAS_POR_PDF);
+
+              for (let n = 1; n <= paginas && !cancelado; n++) {
+                const pagina = await pdf.getPage(n);
+
+                const base = pagina.getViewport({ scale: 1 });
+
+                const vista = pagina.getViewport({ scale: 1100 / base.width });
+
+                const lienzo = document.createElement("canvas");
+
+                lienzo.width = Math.round(vista.width);
+                lienzo.height = Math.round(vista.height);
+
+                await pagina.render({ canvas: lienzo, viewport: vista }).promise;
+
+                graficos.push({
+                  cid: `rival-doc-${graficos.length + 1}`,
+                  titulo: pdf.numPages > 1 ? `${doc.nombre} · ${n}/${pdf.numPages}` : doc.nombre,
+                  area: "rival",
+                  leyenda:
+                    n === paginas && pdf.numPages > paginas
+                      ? `${doc.nombre}: aquí sólo las ${paginas} primeras páginas; el PDF entero está en el enlace de arriba.`
+                      : `${doc.ambito === "area" ? "Área del Rival" : "ABP del Rival"} · ${equipo}, ${jornada}.`,
+                  imagen: lienzo.toDataURL("image/jpeg", 0.75),
+                  ancho: 760,
+                });
+              }
+            } catch {
+              /* Un PDF que no se deja leer no tumba el informe: queda el enlace. */
+            }
+          }
+        } catch {
+          /* Sin pdf.js, quedan los enlaces. */
+        }
+      }
+
+      const conclusiones = secciones
         .map((s) => ({ seccion: s.titulo, texto: trabajo.notas?.[s.id]?.trim() ?? "" }))
         .filter((una) => una.texto);
 
       return {
         graficos,
-        rivalAnalisis: { equipo, jornada, conclusiones },
+        rivalAnalisis: {
+          equipo,
+          jornada,
+          conclusiones,
+          documentos: documentos.map((d) => ({ nombre: d.nombre, url: d.url })),
+        },
         cargando: false,
       };
     }

@@ -87,6 +87,49 @@ function conEnlace(texto: string) {
   );
 }
 
+/** Lo que se deja pasar a /api/abp/informe: Vercel corta las peticiones de más de ~4,5 MB. */
+const TOPE_CORREO = 3_800_000;
+
+/**
+ * Una imagen del informe, aligerada para el correo (02/10/2026).
+ *
+ * Las láminas del rival salían en PNG de 2 MB cada una (la foto del campo de
+ * fondo) y las gráficas, en PNG al doble de tamaño: con dos láminas el correo
+ * ya pasaba del tope de Vercel y no salía. En el correo se ven a 760 px, así
+ * que se mandan a 1000 px como mucho y en JPEG sobre blanco (el fondo del
+ * correo): pesan la décima parte y no se nota.
+ */
+function aligera(dataUrl: string): Promise<string> {
+  return new Promise((resuelve) => {
+    const imagen = new Image();
+
+    imagen.onload = () => {
+      const escala = Math.min(1, 1000 / (imagen.naturalWidth || 1000));
+
+      const lienzo = document.createElement("canvas");
+
+      lienzo.width = Math.round(imagen.naturalWidth * escala);
+      lienzo.height = Math.round(imagen.naturalHeight * escala);
+
+      const ctx = lienzo.getContext("2d");
+
+      if (!ctx) return resuelve(dataUrl);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+      ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+
+      const ligera = lienzo.toDataURL("image/jpeg", 0.85);
+
+      resuelve(ligera.length < dataUrl.length ? ligera : dataUrl);
+    };
+
+    imagen.onerror = () => resuelve(dataUrl);
+
+    imagen.src = dataUrl;
+  });
+}
+
 export function InformeMicroDialog({
   datos,
   onClose,
@@ -456,19 +499,50 @@ export function InformeMicroDialog({
     setFallo("");
 
     try {
+      /*
+      | El correo pasa por una función de Vercel, que no admite peticiones de
+      | más de ~4,5 MB. Las páginas de los PDF del rival son lo que más pesa:
+      | si con ellas no cabe, salen del correo (el enlace al PDF se queda) y se
+      | dice.
+      */
+      const peso = (lista: typeof informe.graficos) => lista.reduce((s, g) => s + g.imagen.length, 0);
+
+      /* Primero se aligera todo; sólo si aun así no cabe, salen las páginas de los PDF. */
+      const ligeros = [];
+
+      for (const grafico of informe.graficos) ligeros.push({ ...grafico, imagen: await aligera(grafico.imagen) });
+
+      const sinPdf = ligeros.filter((g) => !g.cid.startsWith("rival-doc-"));
+
+      const caben = peso(ligeros) < TOPE_CORREO;
+
+      const paraEnviar = { ...informe, graficos: caben ? ligeros : sinPdf };
+
+      if (peso(paraEnviar.graficos) >= TOPE_CORREO) {
+        throw new Error("El informe pesa demasiado para mandarlo por correo, incluso sin las páginas de los PDF.");
+      }
+
+      if (!caben) {
+        toast.message("Las páginas de los PDF del rival no caben en el correo", {
+          description: "Van como enlace a cada PDF; las láminas sí van dentro.",
+        });
+      }
+
       const respuesta = await fetch("/api/abp/informe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           para,
-          asunto: informe.asunto,
+          asunto: paraEnviar.asunto,
           /* En el correo las imágenes no van dentro del HTML: se llaman por su
              `cid` y viajan como partes aparte, que es lo único que Gmail pinta. */
-          html: informeHtml(informe, { imagenes: "cid" }),
-          texto: informeTexto(informe),
-          imagenes: informe.graficos.map((grafico) => ({
+          html: informeHtml(paraEnviar, { imagenes: "cid" }),
+          texto: informeTexto(paraEnviar),
+          imagenes: paraEnviar.graficos.map((grafico) => ({
             cid: grafico.cid,
-            base64: grafico.imagen.replace(/^data:image\/png;base64,/, ""),
+            /* PNG o JPEG (las páginas de los PDF): cada una con su tipo. */
+            tipo: grafico.imagen.match(/^data:([^;]+);base64,/)?.[1] ?? "image/png",
+            base64: grafico.imagen.replace(/^data:[^;]+;base64,/, ""),
           })),
         }),
       });

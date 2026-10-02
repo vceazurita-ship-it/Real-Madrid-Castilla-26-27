@@ -409,6 +409,8 @@ export type RivalAnalisisInforme = {
   equipo: string;
   jornada: string;
   conclusiones: { seccion: string; texto: string }[];
+  /** Los PDF preparados de la jornada (ABP y centros), con su enlace. */
+  documentos?: { nombre: string; url: string }[];
 };
 
 /**
@@ -1198,11 +1200,19 @@ ${seccion("La semana, tarea a tarea", "Lo planificado de balón parado, día a d
 
 ${
   informe.rivalAnalisis &&
-  (informe.rivalAnalisis.conclusiones.length || bloqueGraficos(informe, modoImagenes, "rival").trim())
+  (informe.rivalAnalisis.conclusiones.length ||
+    informe.rivalAnalisis.documentos?.length ||
+    bloqueGraficos(informe, modoImagenes, "rival").trim())
     ? seccion(
         `El rival a balón parado · ${informe.rivalAnalisis.equipo}`,
-        `Lo analizado en «ABP del Rival» para la ${informe.rivalAnalisis.jornada}: cómo ataca y cómo defiende, con las láminas que se han dibujado.`,
+        `Lo analizado en «ABP del Rival» y «Área del Rival» para la ${informe.rivalAnalisis.jornada}: cómo ataca y cómo defiende a balón parado y en los centros laterales, con las láminas y los informes preparados.`,
         `${
+          informe.rivalAnalisis.documentos?.length
+            ? `<p style="margin:0 0 12px;font-size:13px">Informes de la jornada: ${informe.rivalAnalisis.documentos
+                .map((d) => `<a href="${esc(d.url)}" style="color:#8A6A2C;font-weight:600">${esc(d.nombre)} (PDF)</a>`)
+                .join(" · ")}</p>`
+            : ""
+        }${
           informe.rivalAnalisis.conclusiones.length
             ? tabla(
                 ["Sección", "Lo que se concluye"],
@@ -1343,9 +1353,10 @@ export function informeTexto(informe: InformeMicro) {
     lineas.push(`- ${dato.rotulo}: ${dato.valor} (${dato.pie})`);
   });
 
-  if (informe.rivalAnalisis?.conclusiones.length) {
+  if (informe.rivalAnalisis?.conclusiones.length || informe.rivalAnalisis?.documentos?.length) {
     lineas.push("", `EL RIVAL A BALÓN PARADO · ${informe.rivalAnalisis.equipo.toUpperCase()} · ${informe.rivalAnalisis.jornada}`);
     informe.rivalAnalisis.conclusiones.forEach((una) => lineas.push(`- ${una.seccion}: ${una.texto}`));
+    (informe.rivalAnalisis.documentos ?? []).forEach((d) => lineas.push(`- ${d.nombre} (PDF): ${d.url}`));
   }
 
   if (informe.avisos.length) {
