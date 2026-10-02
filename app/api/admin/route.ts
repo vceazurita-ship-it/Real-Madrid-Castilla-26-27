@@ -30,7 +30,16 @@ export async function POST(request: NextRequest) {
   const email = String(cuerpo.email ?? "");
   const contrasena = String(cuerpo.contrasena ?? "");
 
-  if (!email || !contrasena || !credencialesValidas(email, contrasena)) {
+  const resultado = email && contrasena ? await credencialesValidas(email, contrasena) : false;
+
+  if (resultado === "bloqueado") {
+    return NextResponse.json(
+      { ok: false, error: "Demasiados intentos fallidos. Prueba dentro de un cuarto de hora." },
+      { status: 429 },
+    );
+  }
+
+  if (!resultado) {
     /* Un respiro antes de contestar: probar contraseñas a mano se hace lento. */
     await new Promise((r) => setTimeout(r, 1200));
 

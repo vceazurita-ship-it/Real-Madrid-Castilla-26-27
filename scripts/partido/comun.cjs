@@ -65,26 +65,47 @@ async function mandaHoja(cuerpo, { reintenta = true } = {}) {
 
   let ultimo = "";
 
-  /* Sólo lo que se puede repetir sin estropear nada: `actualizarFilas` sí
-     (escribe lo mismo en las mismas filas); `anadirFilas` no (duplica). */
-  for (let i = 0; i < (reintenta ? 4 : 1); i++) {
+  /*
+  | Un «no» claro del Apps Script ({success:false}: hoja ocupada, versión vieja
+  | recién publicada) es seguro repetirlo siempre: no escribió nada. Lo que no
+  | se repite con `reintenta: false` es una respuesta perdida o ilegible
+  | (red, arranque en frío): ahí puede haber escrito, y `anadirFilas`
+  | duplicaría. `actualizarFilas` sí se repite: escribe lo mismo en las mismas filas.
+  */
+  for (let i = 0; i < 4; i++) {
     if (i > 0) await espera(20_000);
 
+    let texto = "";
+
     try {
-      const texto = await fetch(url, {
+      texto = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(cuerpo),
       }).then((x) => x.text());
-
-      const json = JSON.parse(texto);
-
-      if (json.success) return json;
-
-      ultimo = json.error || texto.slice(0, 200);
     } catch (error) {
       ultimo = error.message;
+
+      if (!reintenta) break;
+
+      continue;
     }
+
+    let json = null;
+
+    try {
+      json = JSON.parse(texto);
+    } catch {
+      ultimo = texto.slice(0, 200) || "respuesta vacía";
+
+      if (!reintenta) break;
+
+      continue;
+    }
+
+    if (json.success) return json;
+
+    ultimo = json.error || texto.slice(0, 200);
   }
 
   throw new Error(`la hoja no escribe: ${ultimo}`);

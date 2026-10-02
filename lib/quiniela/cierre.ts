@@ -19,7 +19,7 @@
  *   viernes, es ese mismo día.
  */
 
-import { partidosDe } from "./modelo";
+import { partidosDe, prorrogaActiva, type JornadaQuiniela } from "./modelo";
 
 export const HORA_CIERRE = 12;
 export const HORA_AVISO = 9;
@@ -134,6 +134,8 @@ export type EstadoJornada = {
   cerrada: boolean;
   /** Si hoy es el viernes de cierre y todavía se puede. */
   ultimasHoras: boolean;
+  /** Si está abierta sólo por una prórroga del administrador: hasta cuándo (ISO). */
+  prorrogaHasta?: string;
 };
 
 /**
@@ -212,4 +214,25 @@ export function cuandoCierra(viernes: string | null) {
  */
 export function jornadaQueCierraEl(fecha: string, jornadas: number[]) {
   return jornadas.find((una) => viernesDe(una) === fecha) ?? null;
+}
+
+/**
+ * El estado de una jornada **para una persona**: cerrada para todos salvo
+ * para quien tenga una prórroga abierta (`JornadaQuiniela.prorroga`).
+ *
+ * Lo usan el servidor —para dejar guardar y para decidir qué apuestas ajenas
+ * se sirven— y la pantalla, para dejar tocar. Los dos tienen que decir lo
+ * mismo: si no, la pantalla dejaría apostar y el servidor contestaría 423.
+ */
+export function estadoPara(
+  jornada: JornadaQuiniela | undefined,
+  numero: number,
+  slug: string | null,
+  ahora: Date,
+): EstadoJornada {
+  const base = estadoDe(numero, ahora);
+
+  if (!base.cerrada || !prorrogaActiva(jornada?.prorroga, slug, ahora)) return base;
+
+  return { ...base, cerrada: false, ultimasHoras: true, prorrogaHasta: jornada?.prorroga?.hasta };
 }

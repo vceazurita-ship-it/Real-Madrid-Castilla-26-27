@@ -22,7 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readDoc } from "@/lib/docStore";
-import { estadoDe } from "@/lib/quiniela/cierre";
+import { estadoPara } from "@/lib/quiniela/cierre";
 import { sinCastilla } from "@/lib/quiniela/migracion";
 import {
   QUINIELA_VACIA,
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       jornadas: Object.fromEntries(
         Object.entries(doc.jornadas).map(([clave, jornada]) => [
           clave,
-          comoLaVe(jornada, yo, estadoDe(jornada.jornada, ahora).cerrada),
+          comoLaVe(jornada, yo, estadoPara(jornada, jornada.jornada, yo, ahora).cerrada),
         ]),
       ),
     },

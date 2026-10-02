@@ -6,25 +6,46 @@
  * contraseña propios, aparte de la cuenta de la quiniela, y queda una cookie
  * firmada `admin_sesion` de 12 horas.
  *
- * La contraseña NO está escrita aquí: sólo su huella (scrypt con sal). Se
- * pueden cambiar sin tocar código con `ADMIN_EMAIL` y `ADMIN_PASSWORD_HASH`
- * («sal:huella», en hexadecimal) en las variables de entorno de Vercel.
+ * **Ni el correo ni la contraseña están en el código** —el repositorio es
+ * público—: viven en Supabase, en el documento `secreto:admin`
+ * `{ email, sal, huella }` (scrypt), que `/api/docs` no sirve nunca. Con
+ * `ADMIN_EMAIL` y `ADMIN_PASSWORD_HASH` («sal:huella») en Vercel, mandan esas.
+ * Tras cinco fallos seguidos se bloquea un cuarto de hora (`secreto:admin-intentos`).
  *
  * Sólo servidor: lleva el secreto de firma.
  */
 
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 
+import { readDoc, writeDoc } from "@/lib/docStore";
+
 export const COOKIE_ADMIN = "admin_sesion";
 
 export const DURACION_ADMIN_H = 12;
 
-const EMAIL = (process.env.ADMIN_EMAIL ?? "v.ceazurita@gmail.com").trim().toLowerCase();
+const CLAVE_CREDENCIAL = "secreto:admin";
 
-const [SAL, HUELLA] = (
-  process.env.ADMIN_PASSWORD_HASH ??
-  "9f4df709e3ca5d597484c07a43045171:c6acb72a354e4d49b554016f47a2fceb7382e20613f59043c05f0bf81c93b4ba"
-).split(":");
+const CLAVE_INTENTOS = "secreto:admin-intentos";
+
+const MAX_FALLOS = 5;
+
+const BLOQUEO_MS = 15 * 60_000;
+
+type Credencial = { email: string; sal: string; huella: string };
+
+async function credencial(): Promise<Credencial | null> {
+  if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD_HASH) {
+    const [sal, huella] = process.env.ADMIN_PASSWORD_HASH.split(":");
+
+    return { email: process.env.ADMIN_EMAIL, sal, huella };
+  }
+
+  const { data } = await readDoc<Credencial>(CLAVE_CREDENCIAL);
+
+  return data?.email && data.sal && data.huella ? data : null;
+}
+
+type Intentos = { fallos: number; desde: string };
 
 function secreto() {
   const base = process.env.QUINIELA_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,13 +60,38 @@ const firma = (cuerpo: string) => createHmac("sha256", secreto()).update(cuerpo)
 
 const iguales = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeEqual(a, b);
 
-/** ¿Son el usuario y la contraseña del administrador? */
-export function credencialesValidas(email: string, contrasena: string) {
-  const correo = iguales(Buffer.from(email.trim().toLowerCase()), Buffer.from(EMAIL));
+/**
+ * ¿Son el usuario y la contraseña del administrador?
+ *
+ * Devuelve `"bloqueado"` si ya van cinco fallos en el último cuarto de hora:
+ * la contraseña es corta y, sin esto, se puede probar entera en un rato.
+ */
+export async function credencialesValidas(email: string, contrasena: string): Promise<boolean | "bloqueado"> {
+  const { data: intentos } = await readDoc<Intentos>(CLAVE_INTENTOS);
 
-  const clave = iguales(scryptSync(contrasena, SAL, 32), Buffer.from(HUELLA, "hex"));
+  const reciente = intentos && Date.now() - Date.parse(intentos.desde) < BLOQUEO_MS;
 
-  return correo && clave;
+  if (reciente && intentos.fallos >= MAX_FALLOS) return "bloqueado";
+
+  const buena = await credencial();
+
+  if (!buena) return false;
+
+  const correo = iguales(Buffer.from(email.trim().toLowerCase()), Buffer.from(buena.email.trim().toLowerCase()));
+
+  const clave = iguales(scryptSync(contrasena, buena.sal, 32), Buffer.from(buena.huella, "hex"));
+
+  const valida = correo && clave;
+
+  await writeDoc(
+    CLAVE_INTENTOS,
+    "secreto",
+    valida
+      ? { fallos: 0, desde: new Date().toISOString() }
+      : { fallos: (reciente ? intentos.fallos : 0) + 1, desde: reciente ? intentos.desde : new Date().toISOString() },
+  ).catch(() => undefined);
+
+  return valida;
 }
 
 export function creaSesionAdmin() {

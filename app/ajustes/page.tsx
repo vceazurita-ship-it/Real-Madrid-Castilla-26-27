@@ -35,6 +35,7 @@ import {
   Monitor,
   RefreshCw,
   Trophy,
+  Unlock,
   UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -600,6 +601,8 @@ export default function AjustesPage() {
 
             {/* ---------------- TEXTOS EXPLICATIVOS ---------------- */}
 
+            <ReabrirQuiniela />
+
             <InterruptorTextos />
 
             {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
@@ -707,6 +710,244 @@ export default function AjustesPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  REABRIR LA QUINIELA                                                */
+/* ------------------------------------------------------------------ */
+
+type JornadaProrroga = {
+  jornada: number;
+  viernes: string | null;
+  cerrada: boolean;
+  partidos: number;
+  jugadores: { slug: string; nombre: string; puestos: number; conProrroga: boolean }[];
+  prorroga: { para: string[]; hasta: string } | null;
+};
+
+const HORAS_PRORROGA = [1, 2, 4, 8, 24, 48];
+
+const horaMadrid = (iso: string) =>
+  new Date(iso).toLocaleString("es-ES", {
+    timeZone: "Europe/Madrid",
+    weekday: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+/**
+ * Deja apostar, pasado el cierre del viernes, a quien no lo hizo. Sólo salen
+ * los que no tienen la apuesta completa; mientras tienen la prórroga ven la
+ * jornada como abierta (sin las apuestas de los demás).
+ */
+function ReabrirQuiniela() {
+  const [jornadas, setJornadas] = useState<JornadaProrroga[] | null>(null);
+  const [elegida, setElegida] = useState<number | null>(null);
+  const [marcados, setMarcados] = useState<string[]>([]);
+  const [horas, setHoras] = useState(2);
+  const [guardando, setGuardando] = useState(false);
+  const [testigo, setTestigo] = useState(0);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    fetch("/api/quiniela/prorroga", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ ok?: boolean; jornadas?: JornadaProrroga[] }>)
+      .then((datos) => {
+        if (cancelado) return;
+
+        const lista = datos.jornadas ?? [];
+
+        setJornadas(lista);
+
+        /* Por defecto, la última que ya se ha cerrado: es la que se reabre. */
+        setElegida((actual) => actual ?? [...lista].reverse().find((j) => j.cerrada)?.jornada ?? lista[0]?.jornada ?? null);
+      })
+      .catch(() => {
+        if (!cancelado) setJornadas([]);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [testigo]);
+
+  const jornada = jornadas?.find((j) => j.jornada === elegida) ?? null;
+
+  const sinApostar = jornada?.jugadores.filter((p) => p.puestos < jornada.partidos) ?? [];
+
+  const manda = async (cuerpo: Record<string, unknown>, bien: string) => {
+    setGuardando(true);
+
+    try {
+      const respuesta = await fetch("/api/quiniela/prorroga", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpo),
+      });
+
+      const datos = (await respuesta.json()) as { ok?: boolean; error?: string };
+
+      if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
+
+      toast.success(bien);
+
+      setMarcados([]);
+      setTestigo((n) => n + 1);
+    } catch (error) {
+      toast.error("No se ha podido", { description: error instanceof Error ? error.message : "" });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="mt-5">
+      <Panel
+        title="Reabrir la quiniela"
+        subtitle="Para quien no apostó antes del cierre del viernes a las 12:00"
+        icon={Unlock}
+      >
+        {!jornadas ? (
+          <p className="flex items-center gap-2 text-[12px] text-white/40">
+            <Loader2 size={12} className="animate-spin" /> Mirando la quiniela…
+          </p>
+        ) : !jornada ? (
+          <p className="text-[12px] text-white/40">No hay ninguna jornada reciente.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">Jornada</span>
+              {jornadas.map((j) => (
+                <button
+                  key={j.jornada}
+                  type="button"
+                  onClick={() => {
+                    setElegida(j.jornada);
+                    setMarcados([]);
+                  }}
+                  className={`rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition ${
+                    j.jornada === elegida
+                      ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white"
+                      : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
+                  }`}
+                >
+                  J{j.jornada}
+                  <span className="ml-1 text-[10px] font-normal text-white/40">{j.cerrada ? "cerrada" : "abierta"}</span>
+                </button>
+              ))}
+            </div>
+
+            {jornada.prorroga && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.06] px-3 py-2 text-[12px] text-emerald-100">
+                <span>
+                  Reabierta para{" "}
+                  <strong>
+                    {jornada.jugadores
+                      .filter((p) => jornada.prorroga?.para.includes(p.slug))
+                      .map((p) => p.nombre)
+                      .join(", ")}
+                  </strong>{" "}
+                  hasta el {horaMadrid(jornada.prorroga.hasta)}.
+                </span>
+                <Button
+                  tone="danger"
+                  icon={Lock}
+                  disabled={guardando}
+                  onClick={() => void manda({ jornada: jornada.jornada, cerrar: true }, `J${jornada.jornada} cerrada otra vez`)}
+                >
+                  Cerrar ya
+                </Button>
+              </div>
+            )}
+
+            {!jornada.cerrada ? (
+              <p className="text-[12px] text-white/45">
+                La J{jornada.jornada} todavía está abierta para todos: no hace falta reabrirla.
+              </p>
+            ) : sinApostar.length === 0 ? (
+              <p className="flex items-center gap-1.5 text-[12px] text-white/55">
+                <Check size={12} className="text-emerald-300" /> En la J{jornada.jornada} han apostado todos.
+              </p>
+            ) : (
+              <>
+                <div>
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                    Sin la apuesta completa · elige a quién dejar
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sinApostar.map((p) => {
+                      const si = marcados.includes(p.slug);
+
+                      return (
+                        <button
+                          key={p.slug}
+                          type="button"
+                          aria-pressed={si}
+                          onClick={() => setMarcados((m) => (si ? m.filter((x) => x !== p.slug) : [...m, p.slug]))}
+                          className={`rounded-lg border px-2.5 py-1.5 text-[12px] transition ${
+                            si
+                              ? "border-[#C8A96B] bg-[#C8A96B]/20 text-white"
+                              : "border-white/10 text-white/65 hover:border-white/25"
+                          }`}
+                        >
+                          {p.nombre}
+                          <span className="ml-1.5 text-[10px] text-white/40">
+                            {p.puestos ? `${p.puestos}/${jornada.partidos}` : "nada"}
+                            {p.conProrroga ? " · ya reabierta" : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">Durante</span>
+                  {HORAS_PRORROGA.map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setHoras(h)}
+                      className={`rounded-lg border px-2.5 py-1 text-[12px] transition ${
+                        horas === h
+                          ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white"
+                          : "border-white/10 text-white/55 hover:border-white/25"
+                      }`}
+                    >
+                      {h} h
+                    </button>
+                  ))}
+
+                  <span className="flex-1" />
+
+                  <Button
+                    tone="primary"
+                    icon={Unlock}
+                    disabled={guardando || marcados.length === 0}
+                    onClick={() =>
+                      void manda(
+                        { jornada: jornada.jornada, para: marcados, horas },
+                        `J${jornada.jornada} reabierta ${horas} h para ${marcados.length} persona(s)`,
+                      )
+                    }
+                  >
+                    {marcados.length ? `Reabrir para ${marcados.length}` : "Reabrir"}
+                  </Button>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-white/35">
+                  Mientras la tienen reabierta ven la jornada como abierta, sin las apuestas de los demás.
+                  Volver a reabrir sustituye a la anterior.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </Panel>
+    </div>
   );
 }
 

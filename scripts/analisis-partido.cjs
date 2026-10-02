@@ -265,7 +265,7 @@ function publica(mensaje, rutas) {
   /* Los commits propios de una pasada anterior que no llegó a subir, sí. */
   const ajenos = git("log", "origin/main..HEAD", "--format=%s")
     .split(/\r?\n/)
-    .filter((linea) => linea && !linea.startsWith("Análisis del partido:")).length;
+    .filter((linea) => linea && !/^Análisis del partido: .+ \(faltas y robos\)$/.test(linea)).length;
 
   /* Los generadores reescriben siempre la línea «Generado: <fecha>»: si es lo
      único que cambia, no es un cambio y no se sube. */

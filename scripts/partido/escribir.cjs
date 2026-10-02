@@ -150,11 +150,33 @@ function adapta(fila, cabecera, existentes) {
       });
     };
 
+    /*
+    | Al reescribir nuestras filas, cada una vuelve a SU fila de la hoja (la
+    | de la misma firma), no a la que le toque por orden: si no, las columnas
+    | que no escribe el script —una nota del cuerpo técnico— quedarían en la
+    | fila de otra jugada. Las que no casan ocupan los huecos, en orden.
+    */
+    const enSusFilas = (lista) => {
+      const quedan = [...lista];
+
+      const huecos = firmasYa.map((f) => {
+        const i = quedan.findIndex((x) => firma(x) === f);
+
+        return i >= 0 ? quedan.splice(i, 1)[0] : null;
+      });
+
+      return { enHoja: huecos.map((h) => h ?? quedan.shift()), resto: quedan };
+    };
+
     if (!filas.length) plan = { tipo: "nada" };
     else if (!ya.length) plan = { tipo: "anadir", filas };
-    else if (ya.length === filas.length && (nuestras || firmasYa.join(",") === firmasNuevas.join(","))) plan = { tipo: "reescribir", filas };
-    else if (nuestras && ya.length < filas.length) {
-      plan = { tipo: "reescribir+anadir", filas: filas.slice(0, ya.length), mas: filas.slice(ya.length) };
+    else if (ya.length === filas.length && firmasYa.join(",") === firmasNuevas.join(",")) plan = { tipo: "reescribir", filas };
+    else if (nuestras && ya.length <= filas.length) {
+      const { enHoja, resto } = enSusFilas(filas);
+
+      plan = resto.length
+        ? { tipo: "reescribir+anadir", filas: enHoja, mas: resto }
+        : { tipo: "reescribir", filas: enHoja };
     } else if (ya.length < filas.length && resta(filas, firmasYa).length === filas.length - ya.length) {
       /* Las de la hoja (puestas a mano) se respetan tal cual; se añaden las que faltan. */
       plan = { tipo: "completar", filas: resta(filas, firmasYa) };
@@ -162,9 +184,13 @@ function adapta(fila, cabecera, existentes) {
 
     console.log(`  plan: ${plan.tipo}${plan.filas ? ` (${plan.filas.length}${plan.mas ? ` + ${plan.mas.length}` : ""})` : ""}${nuestras ? " · son las que escribió este script" : ""}`);
 
-    /* Lo que quedará en la hoja, en su orden, para reconocerlo la próxima vez. */
+    /*
+    | Lo que quedará en la hoja, en su orden, para reconocerlo la próxima vez.
+    | Tras «completar» NO se apunta nada: en la hoja hay filas puestas a mano y,
+    | si se apuntaran como nuestras, la pasada siguiente las reescribiría.
+    */
     const quedara =
-      plan.tipo === "completar" ? [...firmasYa, ...plan.filas.map(firma)] : firmasNuevas;
+      plan.tipo === "completar" ? null : [...(plan.filas ?? []), ...(plan.mas ?? [])].map(firma);
 
     if (plan.tipo === "choque") {
       secciones.push({
@@ -197,7 +223,10 @@ function adapta(fila, cabecera, existentes) {
         console.log(`  ✓ ${r.escritas} filas añadidas desde la fila ${r.desdeLaFila}`);
       }
 
-      if (ESCRIBE && plan.tipo !== "nada") fs.writeFileSync(registro, JSON.stringify(quedara), "utf8");
+      if (ESCRIBE && plan.tipo !== "nada") {
+        if (quedara) fs.writeFileSync(registro, JSON.stringify(quedara), "utf8");
+        else fs.rmSync(registro, { force: true });
+      }
     } catch (error) {
       secciones.push({
         clave,

@@ -384,6 +384,9 @@ export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEqui
      la lista, los dos acababan con el mismo identificador y compartían sitio. */
   const antes = new Map<string, JugadorSesion[]>();
 
+  /* Los que estaban de baja en la lista anterior. */
+  const eraBaja = new Set<string>();
+
   for (const j of sesion.jugadores) {
     const clave = claveNombre(j.nombre);
 
@@ -392,6 +395,8 @@ export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEqui
 
   const jugadores: JugadorSesion[] = lista.jugadores.map((j) => {
     const previo = antes.get(claveNombre(j.nombre))?.shift();
+
+    if (previo?.baja) eraBaja.add(previo.id);
 
     return { ...j, id: previo?.id ?? nuevoId("ju"), ...(previo?.puesto ? { puesto: previo.puesto } : {}) };
   });
@@ -405,6 +410,13 @@ export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEqui
 
     /* Una baja nueva empieza fuera; si ya tenía sitio, se respeta. */
     for (const j of jugadores) if (j.baja && !(j.id in sitio)) sitio[j.id] = FUERA;
+
+    /* Y quien vuelve de la baja deja de estar fuera: queda sin colocar, que
+       es lo que el validador avisa. Si no, seguía fuera en todas las tareas
+       sin que nada lo dijera. */
+    for (const j of jugadores) {
+      if (!j.baja && eraBaja.has(j.id) && sitio[j.id] === FUERA) delete sitio[j.id];
+    }
 
     return { ...t, sitio };
   });
@@ -541,7 +553,7 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
       texto: `Equipos descompensados: ${tarea.equipos.map((e, i) => `${e.nombre} ${tamanos[i]}`).join(" · ")}`,
     });
   } else {
-    avisos.push({ nivel: "ok", texto: `Equipos de ${[...new Set(tamanos)].sort().join(" y ")}` });
+    avisos.push({ nivel: "ok", texto: `Equipos de ${[...new Set(tamanos)].sort((a, b) => a - b).join(" y ")}` });
   }
 
   /* 4. Comodines. */
@@ -676,6 +688,13 @@ export function completaReparto(
 
   cola.sort((a, b) => ORDEN_PUESTO.indexOf(linea(a)) - ORDEN_PUESTO.indexOf(linea(b)));
 
+  const total = Object.values(tamano).reduce((s, t) => s + t, 0) + cola.length;
+
+  const cupo = Math.ceil(total / tarea.equipos.length);
+
+  /* Cuántos equipos pueden llegar al cupo; los demás se quedan en uno menos. */
+  const llenos = tarea.equipos.length - (cupo * tarea.equipos.length - total);
+
   for (const j of cola) {
     const l = linea(j);
 
@@ -685,12 +704,22 @@ export function completaReparto(
         (deLinea[a.id][l] ?? 0) - (deLinea[b.id][l] ?? 0),
     );
 
-    /* Entre los más cortos (o a uno de diferencia), el que menos tiene de su línea. */
-    const minimo = tamano[destino[0].id];
+    /*
+    | El tamaño final de cada equipo está decidido de antemano: con T
+    | jugadores y n equipos, todos llevan ⌊T/n⌋ y sólo T mod n llevan uno más.
+    | Se elige sólo entre los que aún caben en ese cupo y, entre ellos, el que
+    | menos tiene de su línea. Con «≤ el más corto + 1» salía 4-3-2 al
+    | completar un 2-1-1.
+    */
+    const enCupo = tarea.equipos.filter((e) => tamano[e.id] >= cupo).length;
 
-    const corto = destino
-      .filter((e) => tamano[e.id] <= minimo + (l === "?" ? 0 : 1))
-      .sort((a, b) => (deLinea[a.id][l] ?? 0) - (deLinea[b.id][l] ?? 0) || tamano[a.id] - tamano[b.id])[0];
+    const tope = enCupo < llenos ? cupo : cupo - 1;
+
+    const caben = destino.filter((e) => tamano[e.id] < tope);
+
+    const corto = (caben.length ? caben : destino).sort(
+      (a, b) => (deLinea[a.id][l] ?? 0) - (deLinea[b.id][l] ?? 0) || tamano[a.id] - tamano[b.id],
+    )[0];
 
     sitio[j.id] = corto.id;
     tamano[corto.id] += 1;

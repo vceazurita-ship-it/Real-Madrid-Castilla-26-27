@@ -527,12 +527,8 @@ const resultadoOk =
     ].includes(r.tipoRemate)
 ).length;
 
-const goals = filtered.filter(
-  (r) =>
-    r.resultadoFinal
-      .toLowerCase()
-      .includes("gol")
-).length;
+/* Sólo «Gol» (del Castilla): con includes("gol") contaba también un «Gol Rival». */
+const goals = filtered.filter((r) => normalizaResultado(r.resultadoFinal) === "Gol").length;
 
 const totalXg = filtered.reduce(
   (a, b) => a + b.xg,
@@ -1112,8 +1108,7 @@ const totalTipoCarrera =
   const sinMinuto =
     filtered.length - conMinuto.length;
 
-  const esGol = (r: Row) =>
-    r.resultadoFinal.toLowerCase().includes("gol");
+  const esGol = (r: Row) => normalizaResultado(r.resultadoFinal) === "Gol";
 
   const esRemate = (r: Row) =>
     Boolean(r.tipoRemate) &&
@@ -1164,9 +1159,7 @@ const totalTipoCarrera =
           nombre,
           total: dentro.length,
           remates,
-          goles: dentro.filter((r) =>
-            r.resultadoFinal.toLowerCase().includes("gol")
-          ).length,
+          goles: dentro.filter((r) => normalizaResultado(r.resultadoFinal) === "Gol").length,
           xg: Number(dentro.reduce((suma, r) => suma + r.xg, 0).toFixed(2)),
           rematePct: dentro.length ? (remates / dentro.length) * 100 : 0,
         };

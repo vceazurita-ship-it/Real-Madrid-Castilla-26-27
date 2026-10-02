@@ -41,6 +41,19 @@ export const NOMBRE_DEL_SIGNO: Record<Signo, string> = {
  * índice y no el nombre de los equipos porque un partido aplazado se sigue
  * jugando en su sitio de la jornada.
  */
+export type ProrrogaQuiniela = {
+  /** A quiénes (slugs). */
+  para: string[];
+  /** Hasta cuándo (ISO). */
+  hasta: string;
+  abiertaEn: string;
+};
+
+/** ¿Tiene `slug` la prórroga abierta en este momento? */
+export function prorrogaActiva(prorroga: ProrrogaQuiniela | undefined, slug: string | null, ahora: Date) {
+  return Boolean(slug && prorroga && prorroga.para.includes(slug) && Date.parse(prorroga.hasta) > ahora.getTime());
+}
+
 export type JornadaQuiniela = {
   jornada: number;
   /** Por persona, su signo en cada partido. `null` es sin rellenar. */
@@ -49,6 +62,13 @@ export type JornadaQuiniela = {
   resultados: (Signo | null)[];
   /** Cuándo se cerró la jornada, si se cerró. */
   cerradaEn?: string;
+  /**
+   * Una prórroga después del cierre (02/10/2026): el administrador, desde
+   * Ajustes, deja apostar a quien no lo hizo, hasta una hora. Mientras la
+   * tiene abierta, esa persona ve la jornada como abierta —sin las apuestas
+   * de los demás—; para el resto sigue cerrada.
+   */
+  prorroga?: ProrrogaQuiniela;
   /**
    * Cuándo se tocaron los resultados por última vez, y de dónde salieron.
    *

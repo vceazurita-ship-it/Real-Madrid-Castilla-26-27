@@ -27,7 +27,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readDoc, writeDoc } from "@/lib/docStore";
-import { estadoDe, cuandoCierra } from "@/lib/quiniela/cierre";
+import { estadoPara, cuandoCierra } from "@/lib/quiniela/cierre";
 import {
   JORNADAS,
   QUINIELA_VACIA,
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       jornadas: Object.fromEntries(
         Object.entries(guardado.jornadas).map(([clave, jornada]) => [
           clave,
-          comoLaVe(jornada, slug, estadoDe(jornada.jornada, ahora).cerrada),
+          comoLaVe(jornada, slug, estadoPara(jornada, jornada.jornada, slug, ahora).cerrada),
         ]),
       ),
     },
@@ -216,7 +216,8 @@ function aplica(
     const previa = base.jornadas[String(jornada)] ?? jornadaVacia(jornada);
 
     if (accion === "apuesta") {
-      const estado = estadoDe(jornada, new Date());
+      /* Cerrada, salvo que el administrador le haya abierto una prórroga. */
+      const estado = estadoPara(previa, jornada, slug, new Date());
 
       if (estado.cerrada) {
         return mal(

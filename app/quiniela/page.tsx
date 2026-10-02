@@ -66,7 +66,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAhora, useQuinielaDoc } from "@/hooks/useQuinielaDoc";
 import { useQuinielaSesion, type Yo } from "@/hooks/useQuinielaSesion";
-import { cuandoCierra, estadoDe, instanteDeCierre } from "@/lib/quiniela/cierre";
+import { cuandoCierra, estadoDe, estadoPara, instanteDeCierre } from "@/lib/quiniela/cierre";
 import {
   JORNADAS,
   NOMBRE_DEL_SIGNO,
@@ -130,7 +130,7 @@ export default function QuinielaPage() {
   const [jornada, setJornada] = useState(() => jornadaDeHoy(hoyTexto()));
 
   /* Si la jornada que se mira ya no se puede tocar. */
-  const plazo = useMemo(() => estadoDe(jornada, ahora), [jornada, ahora]);
+  const plazoGeneral = useMemo(() => estadoDe(jornada, ahora), [jornada, ahora]);
 
   /*
   | EL FIN DE SEMANA DE LA JORNADA.
@@ -141,16 +141,16 @@ export default function QuinielaPage() {
   | esperar, y no se pide nada.
   */
   const enJuego = useMemo(() => {
-    if (!plazo.cerrada || !plazo.viernes) return false;
+    if (!plazoGeneral.cerrada || !plazoGeneral.viernes) return false;
 
     /* Las 12:00 de Madrid, no de UTC: con «T12:00:00Z» la ventana empezaba a
        las 14:00 en verano y durante dos horas no se releía nada. */
-    const desde = instanteDeCierre(plazo.viernes).getTime();
+    const desde = instanteDeCierre(plazoGeneral.viernes).getTime();
 
     const dias = (ahora.getTime() - desde) / 86_400_000;
 
     return dias >= 0 && dias <= 3.5;
-  }, [plazo, ahora]);
+  }, [plazoGeneral, ahora]);
 
   /*
   | La pantalla se relee sola mientras la jornada está en juego.
@@ -167,6 +167,17 @@ export default function QuinielaPage() {
 
   /* Quién ha entrado. Lo dice la cookie, que sólo lee el servidor. */
   const yo = sesion.yo?.slug ?? null;
+
+  /* Para mí: cerrada salvo que el administrador me haya abierto una prórroga. */
+  const plazo = useMemo(
+    () => estadoPara(doc.jornadas[String(jornada)], jornada, yo, ahora),
+    [doc, jornada, yo, ahora],
+  );
+
+  /* «las 18:30 del viernes 3», para la prórroga. */
+  const hastaProrroga = plazo.prorrogaHasta
+    ? new Date(plazo.prorrogaHasta).toLocaleString("es-ES", { timeZone: "Europe/Madrid", weekday: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "";
 
   /*
   | Quién juega.
@@ -261,7 +272,7 @@ export default function QuinielaPage() {
   /* Alguna jornada con cambios sin guardar —y que aún se puedan guardar—,
      para avisar antes de irse. */
   const hayBorradores = Object.entries(borradores).some(([clave, signos]) => {
-    if (!yo || estadoDe(Number(clave), ahora).cerrada) return false;
+    if (!yo || estadoPara(doc.jornadas[clave], Number(clave), yo, ahora).cerrada) return false;
 
     const guardada = doc.jornadas[clave]?.pronosticos[yo] ?? [];
 
@@ -330,8 +341,8 @@ export default function QuinielaPage() {
       toast.success(`Apuesta de la jornada ${jornada} guardada`, {
         description:
           faltan > 0
-            ? `Te faltan ${faltan}. Puedes cambiarla hasta el ${cuandoCierra(plazo.viernes)}.`
-            : `Puedes cambiarla hasta el ${cuandoCierra(plazo.viernes)}.`,
+            ? `Te faltan ${faltan}. Puedes cambiarla hasta ${plazo.prorrogaHasta ? hastaProrroga : `el ${cuandoCierra(plazo.viernes)}`}.`
+            : `Puedes cambiarla hasta ${plazo.prorrogaHasta ? hastaProrroga : `el ${cuandoCierra(plazo.viernes)}`}.`,
       });
     } catch (error) {
       avisaError("No se ha guardado la apuesta", error);
@@ -789,7 +800,9 @@ export default function QuinielaPage() {
                     <span>
                       {plazo.cerrada
                         ? `Cerrada desde el ${cuandoCierra(plazo.viernes)}.`
-                        : plazo.ultimasHoras
+                        : plazo.prorrogaHasta
+                          ? `Te la han reabierto hasta ${hastaProrroga}. Lo que no guardes para entonces cuenta como fallo.`
+                          : plazo.ultimasHoras
                           ? `Hoy a las 12:00 se cierra. Lo que no esté guardado para entonces cuenta como fallo.`
                           : `Se puede apostar y cambiar hasta el ${cuandoCierra(plazo.viernes)}.`}
                     </span>
