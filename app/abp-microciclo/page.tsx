@@ -24,7 +24,7 @@
  * `lib/abp/transferencia.ts` (urgencia y transferencia).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain,
   CalendarDays,
@@ -103,7 +103,9 @@ import {
   type CompeticionDataset,
 } from "@/lib/abp/competicion";
 import {
+  aspectosDeTarea,
   esTareaAbp,
+  ladoDeTarea,
   loadRegistro,
   type RegistroDataset,
 } from "@/lib/abp/registro";
@@ -626,14 +628,15 @@ export default function AbpMicrocicloPage() {
       mutaPlan((actual) => {
         const dias = { ...actual.dias };
 
-        seleccionadas.forEach(({ tarea, lado, aspecto }) => {
+        seleccionadas.forEach(({ tarea, lado, aspecto, lados, aspectos }) => {
           const dia = (tarea.dia || "L") as DiaKey;
 
           const trabajo = nuevoTrabajo({
             /* La hoja anota un lado por tarea; aquí se pueden marcar los dos
-               abriendo el bloque. */
-            lados: [lado],
-            aspectos: [aspecto],
+               abriendo el bloque. El relleno automático ya trae los dos
+               cuando la hoja menciona of y def. */
+            lados: lados?.length ? lados : [lado],
+            aspectos: aspectos?.length ? aspectos : [aspecto],
             /* La hoja no anota el momento de la sesión; intra es lo habitual
                y se corrige de un toque. */
             momento: "intra",
@@ -659,13 +662,97 @@ export default function AbpMicrocicloPage() {
           };
         });
 
-        return { ...actual, dias };
+        /* Lo importado a mano también cuenta como tratado: el relleno
+           automático no lo vuelve a meter. */
+        const tratadas = new Set(actual.deRegistro ?? []);
+
+        for (const { tarea } of seleccionadas) tratadas.add(idTarea(tarea.micro, tarea.dia, tarea.tarea));
+
+        return { ...actual, dias, deRegistro: [...tratadas] };
       });
 
       setImportando(false);
     },
     [mutaPlan],
   );
+
+  /*
+  | EL MICROCICLO DE ABP SE RELLENA SOLO CON LO QUE DICE EL MICROCICLO
+  | (02/10/2026).
+  |
+  | Al abrir un micro, las tareas de balón parado que tiene en la hoja de
+  | registro y que todavía no están en la semana entran solas: su día, su
+  | lado (los dos si la hoja dice «of y def»), sus aspectos, sus minutos y
+  | sus cargas medidas. Encima de eso se edita como siempre.
+  |
+  | Cada tarea se trata UNA vez (`deRegistro`): si se borra de la semana, no
+  | vuelve. Las que no dicen qué aspecto trabajan («ABP global») no se
+  | inventan: se avisa y quedan para «Importar del registro».
+  */
+  const rellenadas = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (status === "loading" || !registro || !microActivo || !claveActiva) return;
+
+    const tratadas = new Set([...(plan.deRegistro ?? []), ...yaImportadas]);
+
+    const nuevas = tareasAbpDelMicro.filter((tarea) => {
+      const id = idTarea(tarea.micro, tarea.dia, tarea.tarea);
+
+      return !tratadas.has(id) && !rellenadas.current.has(`${claveActiva}|${id}`);
+    });
+
+    if (!nuevas.length) return;
+
+    for (const tarea of nuevas) rellenadas.current.add(`${claveActiva}|${idTarea(tarea.micro, tarea.dia, tarea.tarea)}`);
+
+    const entran: Importacion[] = [];
+
+    let sinAspecto = 0;
+
+    for (const tarea of nuevas) {
+      const aspectos = aspectosDeTarea(tarea);
+
+      if (!aspectos.length) {
+        sinAspecto += 1;
+
+        continue;
+      }
+
+      const lado = ladoDeTarea(tarea);
+
+      entran.push({
+        tarea,
+        lado: lado ?? "ofensivo",
+        aspecto: aspectos[0],
+        lados: lado ? [lado] : ["ofensivo", "defensivo"],
+        aspectos,
+      });
+    }
+
+    importa(entran);
+
+    /* Las que no se pudieron leer también quedan tratadas: no se insiste. */
+    if (sinAspecto) {
+      mutaPlan((actual) => ({
+        ...actual,
+        deRegistro: [
+          ...new Set([
+            ...(actual.deRegistro ?? []),
+            ...nuevas.map((tarea) => idTarea(tarea.micro, tarea.dia, tarea.tarea)),
+          ]),
+        ],
+      }));
+    }
+
+    if (entran.length || sinAspecto) {
+      toast.success(`Microciclo ${microActivo.micro}: ${entran.length} tarea(s) de ABP del registro puestas en la semana`, {
+        description:
+          (sinAspecto ? `${sinAspecto} no dicen qué aspecto trabajan: están en «Importar del registro». ` : "") +
+          "Edítalo encima como quieras: lo que quites no vuelve.",
+      });
+    }
+  }, [status, registro, microActivo, claveActiva, plan.deRegistro, yaImportadas, tareasAbpDelMicro, importa, mutaPlan]);
 
   /* ------------------------------ BOCETO ------------------------------- */
 

@@ -364,6 +364,12 @@ export type MicroPlan = {
    * días en «entreno», sin un solo descanso ni el día de partido.
    */
   diasEntrenados?: number;
+  /**
+   * Las tareas de la hoja de registro que el relleno automático ya ha
+   * tratado (02/10/2026): las que metió y las que no pudo. Así una que se
+   * borra de la semana no vuelve a aparecer al abrir la página.
+   */
+  deRegistro?: string[];
 };
 
 /** De dónde sale el número de días de entrenamiento de la semana. */

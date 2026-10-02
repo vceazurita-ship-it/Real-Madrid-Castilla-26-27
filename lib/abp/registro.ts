@@ -374,6 +374,42 @@ export function ladoDeTarea(tarea: RegistroTarea): AbpLado | null {
  * aspectos del catálogo. Por eso el diálogo de importación lo enseña como
  * sugerencia editable y no lo aplica a ciegas.
  */
+/**
+ * TODOS los aspectos que nombra una tarea (02/10/2026, para el relleno
+ * automático del microciclo de ABP).
+ *
+ * «Córners y faltas laterales ofensivas» son dos aspectos, y una ficha con
+ * sólo el primero mentía sobre lo que se hizo. Se buscan por separado el
+ * córner, la falta, la banda, el penalti y los saques; si no se reconoce
+ * ninguno, la lista va vacía y la tarea se deja para importarla a mano.
+ */
+export function aspectosDeTarea(tarea: RegistroTarea): AspectoKey[] {
+  const texto = norm([tarea.contenidoSecundario, tarea.contenidoPrincipal, tarea.fase].join(" "));
+
+  const corto = /corto|indirect/.test(texto);
+
+  const salida = new Set<AspectoKey>();
+
+  if (/corner/.test(texto)) salida.add(corto ? "corner-indirecto" : "corner-directo");
+
+  /* «Lanzamientos (directos / de falta)» es tirar a portería. */
+  if (/falta directa|lanzamiento/.test(texto)) salida.add("falta-directa-porteria");
+  else if (/falta/.test(texto)) salida.add(corto ? "falta-lateral-indirecta" : "falta-lateral-directa");
+
+  if (/banda/.test(texto)) {
+    salida.add(/z ?3|zona ?3/.test(texto) ? "banda-z3" : /z ?1|zona ?1|inicio/.test(texto) ? "banda-z1" : "banda-z2");
+  }
+
+  if (/penalti|penati/.test(texto)) salida.add("penalti");
+  if (/saques? de (medio|centro)/.test(texto)) salida.add("saque-medio");
+  if (/saques? de (puerta|meta)|reinicio/.test(texto)) salida.add("reinicio-porteria");
+
+  /* «ABP ofensivo en corto», sin decir de qué: en el club es el córner en corto. */
+  if (!salida.size && corto) salida.add("corner-indirecto");
+
+  return [...salida];
+}
+
 export function aspectoDeTarea(tarea: RegistroTarea): AspectoKey | null {
   const texto = norm(
     [tarea.contenidoSecundario, tarea.contenidoPrincipal, tarea.fase].join(" "),

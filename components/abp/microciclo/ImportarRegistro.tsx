@@ -37,6 +37,9 @@ export type Importacion = {
   tarea: RegistroTarea;
   lado: AbpLado;
   aspecto: AspectoKey;
+  /** Del relleno automático: varios lados o aspectos de una vez. Mandan sobre los de arriba. */
+  lados?: AbpLado[];
+  aspectos?: AspectoKey[];
 };
 
 type Fila = {
