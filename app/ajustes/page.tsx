@@ -20,7 +20,7 @@
  * él mismo por si BeSoccer le deja algún día.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -28,6 +28,9 @@ import {
   Clapperboard,
   Download,
   Loader2,
+  Lock,
+  LogIn,
+  LogOut,
   Monitor,
   RefreshCw,
   Trophy,
@@ -38,7 +41,7 @@ import { toast } from "sonner";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
+import { useAdmin } from "@/hooks/useAdmin";
 import {
   LIMITE_MIN,
   estadoEncargo,
@@ -191,7 +194,8 @@ function EstadoLinea({
 }
 
 export default function AjustesPage() {
-  const { yo, cargando } = useQuinielaSesion();
+  /* Sólo el administrador (02/10/2026): usuario y contraseña propios. */
+  const { admin: yo, entra, sale } = useAdmin();
 
   const [pidiendo, setPidiendo] = useState<Tarea | null>(null);
 
@@ -406,18 +410,25 @@ export default function AjustesPage() {
               area="RMCF Castilla · Ajustes"
               title="Poner al día"
               lead="Lo que normalmente se actualiza solo, pedido a mano cuando no se quiere esperar."
+              aside={
+                yo ? (
+                  <Button icon={LogOut} onClick={() => void sale()} title="Cerrar la sesión de administrador">
+                    Salir
+                  </Button>
+                ) : undefined
+              }
             />
 
-            {!cargando && !yo && (
-              <div className="mt-6">
-                <Notice tone="warn" title="Hay que entrar para usar esto">
-                  Estos botones escriben en los datos del club, así que piden la
-                  misma cuenta que la quiniela. Entra desde{" "}
-                  <strong className="text-white/75">La Quiniela de la Semana</strong>{" "}
-                  y vuelve.
-                </Notice>
-              </div>
+            {yo === null && (
+              <p className="mt-10 flex items-center gap-2 text-sm text-white/40">
+                <Loader2 size={14} className="animate-spin" /> Comprobando el acceso…
+              </p>
             )}
+
+            {yo === false && <PuertaAdmin onEntra={entra} />}
+
+            {yo && (
+            <>
 
             {/* ---------------- EL ORDENADOR DEL CLUB ---------------- */}
 
@@ -684,9 +695,87 @@ export default function AjustesPage() {
                 </ul>
               </Notice>
             </div>
+            </>
+            )}
           </div>
         </section>
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA PUERTA                                                          */
+/* ------------------------------------------------------------------ */
+
+/** Usuario y contraseña del administrador: sin ellos no se ve nada de Ajustes. */
+function PuertaAdmin({ onEntra }: { onEntra: (email: string, contrasena: string) => Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [contrasena, setContrasena] = useState("");
+  const [entrando, setEntrando] = useState(false);
+  const [error, setError] = useState("");
+
+  const envia = async (e: FormEvent) => {
+    e.preventDefault();
+
+    setEntrando(true);
+    setError("");
+
+    try {
+      await onEntra(email, contrasena);
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se ha podido entrar.");
+      setContrasena("");
+    } finally {
+      setEntrando(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => void envia(e)}
+      className="mx-auto mt-10 max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-6"
+    >
+      <div className="flex items-center gap-2.5">
+        <Lock size={16} className="text-[#C8A96B]" aria-hidden />
+        <h2 className="text-sm font-semibold text-white">Acceso de administrador</h2>
+      </div>
+
+      <p className="mt-2 text-[12px] leading-relaxed text-white/45">
+        Ajustes lanza trabajos en el ordenador del club que escriben en las hojas y publican la
+        plataforma. Sólo entra el administrador.
+      </p>
+
+      <label className="mt-5 block">
+        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Usuario</span>
+        <input
+          type="email"
+          autoComplete="username"
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
+        />
+      </label>
+
+      <label className="mt-3 block">
+        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Contraseña</span>
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={contrasena}
+          onChange={(e) => setContrasena(e.target.value)}
+          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
+        />
+      </label>
+
+      {error && <p className="mt-3 text-[12px] text-red-300">{error}</p>}
+
+      <div className="mt-5 flex justify-end">
+        <Button tone="primary" type="submit" icon={entrando ? Loader2 : LogIn} disabled={entrando || !email || !contrasena}>
+          {entrando ? "Entrando…" : "Entrar"}
+        </Button>
+      </div>
+    </form>
   );
 }

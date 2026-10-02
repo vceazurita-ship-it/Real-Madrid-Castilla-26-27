@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
 import { esTarea, type DatosCarpeta } from "@/lib/mantenimiento";
 import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
@@ -33,9 +34,15 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const slug = leeSesion(request.cookies.get(COOKIE)?.value);
+  const deQuiniela = leeSesion(request.cookies.get(COOKIE)?.value);
 
-  if (!slug || !PERSONA_POR_SLUG.has(slug)) {
+  /* El administrador entra con su propio usuario: no le hace falta además la
+     cuenta de la quiniela. El pedido queda a su nombre. */
+  const admin = esAdmin(request.cookies.get(COOKIE_ADMIN)?.value);
+
+  const slug = deQuiniela && PERSONA_POR_SLUG.has(deQuiniela) ? deQuiniela : admin ? "victor-cea" : null;
+
+  if (!slug) {
     return NextResponse.json(
       { ok: false, error: "Entra con tu correo para poder pedirlo." },
       { status: 401 },
@@ -54,6 +61,15 @@ export async function POST(request: NextRequest) {
 
   if (!esTarea(tarea)) {
     return NextResponse.json({ ok: false, error: "No sé qué hay que hacer." }, { status: 400 });
+  }
+
+  /* Los botones de Ajustes, sólo el administrador (02/10/2026). La carpeta
+     del rival la pide cualquiera del cuerpo técnico desde ABP/Área del Rival. */
+  if (tarea !== "carpeta" && !admin) {
+    return NextResponse.json(
+      { ok: false, error: "Sólo el administrador puede pedir esto. Entra en Ajustes con su usuario." },
+      { status: 403 },
+    );
   }
 
   /* La carpeta necesita saber cuál y de quién: sin eso el vigía no puede

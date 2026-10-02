@@ -65,6 +65,8 @@ import type { ReactNode } from "react"
 
 import { trackModuleVisit } from "@/lib/module-usage"
 import { useVolver } from "@/hooks/useVolver"
+import { useAdmin } from "@/hooks/useAdmin"
+import { useQuinielaSesion } from "@/hooks/useQuinielaSesion"
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -73,6 +75,11 @@ export function Sidebar() {
 
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(true)
+
+  /* Ajustes sólo para Víctor: con la sesión de administrador o con su cuenta. */
+  const { admin } = useAdmin()
+  const { yo } = useQuinielaSesion()
+  const veAjustes = admin === true || yo?.slug === "victor-cea"
 
   const activeClass =
   "flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
@@ -552,10 +559,11 @@ const seccion = (titulo: string, hijos: ReactNode) => (
             Lo último del menú, y a propósito: no se entra aquí a trabajar, se
             entra a poner algo al día cuando no se quiere esperar a la noche.
           */}
-          {seccion(
-            "Ajustes",
-            <>{navLink("/ajustes", "Poner al día", <Settings size={18} />)}</>,
-          )}
+          {veAjustes &&
+            seccion(
+              "Ajustes",
+              <>{navLink("/ajustes", "Poner al día", <Settings size={18} />)}</>,
+            )}
         </nav>
       </aside>
     </>

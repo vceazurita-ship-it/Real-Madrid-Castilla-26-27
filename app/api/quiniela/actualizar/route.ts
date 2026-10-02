@@ -31,6 +31,7 @@ import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
 import { actualizaResultados } from "@/lib/quiniela/actualiza";
 import { leeCalendario, traePaginaConFetch } from "@/lib/quiniela/besoccer";
 import { JORNADAS } from "@/lib/quiniela/modelo";
+import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 
@@ -81,14 +82,17 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const slug = leeSesion(request.cookies.get(COOKIE)?.value);
-
-  if (!slug || !PERSONA_POR_SLUG.has(slug)) {
+  /* Es un botón de Ajustes: sólo el administrador (02/10/2026). */
+  if (!esAdmin(request.cookies.get(COOKIE_ADMIN)?.value)) {
     return NextResponse.json(
-      { ok: false, error: "Entra con tu correo para poder actualizar." },
-      { status: 401 },
+      { ok: false, error: "Sólo el administrador puede actualizar. Entra en Ajustes con su usuario." },
+      { status: 403 },
     );
   }
+
+  const deQuiniela = leeSesion(request.cookies.get(COOKIE)?.value);
+
+  const slug = deQuiniela && PERSONA_POR_SLUG.has(deQuiniela) ? deQuiniela : "victor-cea";
 
   const pedida = Number(request.nextUrl.searchParams.get("jornada"));
 
