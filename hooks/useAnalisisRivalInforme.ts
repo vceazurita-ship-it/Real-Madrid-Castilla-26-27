@@ -158,6 +158,9 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
       const documentos = (clips[jornada]?.docs ?? []).filter((d) => /\.pdf($|\?)/i.test(d.url || d.path || ""));
 
+      /* Los títulos de lo que ya va dibujado, para no repetirlo desde el PDF. */
+      const titulosDibujados = laminas.map((l) => clave(l.titulo ?? ""));
+
       const graficos: GraficoInforme[] = [];
 
       /* En serie, como al exportar: varias a la vez tumban la pestaña. */
@@ -208,6 +211,24 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
               for (let n = 1; n <= paginas && !cancelado; n++) {
                 const pagina = await pdf.getPage(n);
+
+                /*
+                | Sólo las páginas que son una lámina y que NO están ya dibujadas
+                | arriba (02/10/2026). Los PDF se hacen sobre una plantilla y
+                | traen portada y cierre —el del Atlético Madrileño llevaba aún
+                | el escudo del Alcorcón en la contraportada—, y sus láminas son
+                | las mismas que ya salen dibujadas. Lo demás, en el enlace.
+                */
+                const texto = clave(
+                  ((await pagina.getTextContent()).items as { str?: string }[]).map((i) => i.str ?? "").join(" "),
+                );
+
+                /* Una portada dice «INFORME …»; una lámina, no. */
+                const esLamina = /corner|falta|centro|penalti|banda|saque|area/.test(texto) && !/\binforme\b/.test(texto);
+
+                const yaDibujada = titulosDibujados.some((t) => t && texto.includes(t));
+
+                if (!esLamina || yaDibujada) continue;
 
                 const base = pagina.getViewport({ scale: 1 });
 
