@@ -52,6 +52,11 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
+import {
+  Conclusiones,
+  Explicativo,
+  useTextosExplicativos,
+} from "@/components/ui/textos-analisis";
 
 /* ------------------------------------------------------------------ */
 /*  Colores                                                            */
@@ -116,6 +121,10 @@ function pct(parte: number, total: number) {
   return Math.round((parte / total) * 100);
 }
 
+/** 8.43 → "8,4". */
+const decimal = (n: number) =>
+  n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
 /* ------------------------------------------------------------------ */
 /*  Piezas sueltas                                                     */
 /* ------------------------------------------------------------------ */
@@ -178,6 +187,7 @@ function Pista({ active, payload, label }: PistaProps) {
 /* ------------------------------------------------------------------ */
 
 export default function TransicionesPage() {
+  const explicativos = useTextosExplicativos();
   const [quien, setQuien] = useState<string>("todos");
   const [porcentajes, setPorcentajes] = useState(false);
   const [conDudosos, setConDudosos] = useState(true);
@@ -324,12 +334,80 @@ export default function TransicionesPage() {
     .map((r) => r.duracion)
     .filter((d): d is number => typeof d === "number");
   const duracionMedia = duraciones.length
-    ? (duraciones.reduce((a, b) => a + b, 0) / duraciones.length).toFixed(1)
+    ? decimal(duraciones.reduce((a, b) => a + b, 0) / duraciones.length)
     : "—";
 
   const llegadas = conDesenlace.filter(
     (r) => r.desenlace === "REMATE" || r.desenlace === "AREA",
   ).length;
+
+  /** Lo que dicen los robos que se están viendo (partido y filtro), en pocas frases. */
+  const conclusiones = useMemo(() => {
+    const total = robos.length;
+
+    if (total === 0) return [];
+
+    const frases: string[] = [];
+
+    const partidosVistos = new Set(robos.map((r) => r.partido)).size;
+
+    frases.push(
+      partidosVistos > 1
+        ? `${total} robos en ${partidosVistos} partidos.`
+        : `${total} ${total === 1 ? "robo" : "robos"} en el partido.`,
+    );
+
+    const salen = robos.filter(
+      (r) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS",
+    );
+    const haciaDelante = salen.filter((r) => r.accion === "ADELANTE").length;
+
+    if (salen.length) {
+      frases.push(`El ${pct(haciaDelante, salen.length)} % sale hacia delante tras robar.`);
+    }
+
+    const zonas = ZONAS.map((z) => {
+      const dentro = robos.filter((r) => zonaDe(r) === z);
+      return {
+        zona: z,
+        total: dentro.length,
+        adelante: dentro.filter((r) => r.accion === "ADELANTE").length,
+      };
+    }).sort((a, b) => b.total - a.total);
+
+    const top = zonas[0];
+
+    if (top && top.total > 0) {
+      frases.push(
+        `Más robos en ${top.zona} (${pct(top.total, total)} %); ${pct(top.adelante, top.total)} % salen adelante.`,
+      );
+    }
+
+    const seguidas = robos.filter((r) => r.desenlace);
+
+    if (seguidas.length) {
+      const llegan = seguidas.filter(
+        (r) => r.desenlace === "REMATE" || r.desenlace === "AREA",
+      ).length;
+      const perdidas = seguidas.filter((r) => r.desenlace === "PERDIDA").length;
+
+      frases.push(
+        `${pct(llegan, seguidas.length)} % acaba en remate o área; ${pct(perdidas, seguidas.length)} % en pérdida.`,
+      );
+
+      const tiempos = seguidas
+        .map((r) => r.duracion)
+        .filter((d): d is number => typeof d === "number");
+
+      if (tiempos.length) {
+        frases.push(
+          `La transición dura ${decimal(tiempos.reduce((a, b) => a + b, 0) / tiempos.length)} s de media.`,
+        );
+      }
+    }
+
+    return frases;
+  }, [robos]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -389,7 +467,11 @@ export default function TransicionesPage() {
               <button
                 type="button"
                 onClick={() => setConDudosos((v) => !v)}
-                title="Los robos marcados con confianza baja son los que el etiquetado no puede defender fotograma a fotograma"
+                title={
+                  explicativos
+                    ? "Los robos marcados con confianza baja son los que el etiquetado no puede defender fotograma a fotograma"
+                    : undefined
+                }
                 className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70 transition hover:border-white/20"
               >
                 <Eye size={14} />
@@ -413,6 +495,8 @@ export default function TransicionesPage() {
                   : `Revisado ${cobertura.minutosVistos} de ${cobertura.minutosVideo} min`}
               </span>
             </div>
+
+            <Conclusiones items={conclusiones} className="mt-5" />
 
             {/* ---------------- cifras ---------------- */}
 
@@ -457,7 +541,7 @@ export default function TransicionesPage() {
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               <Panel
                 title="Qué hacemos con el balón robado"
-                subtitle="Lo primero que pasa después del robo"
+                subtitle={explicativos ? "Lo primero que pasa después del robo" : undefined}
                 icon={Target}
               >
                 {robos.length === 0 ? (
@@ -516,7 +600,7 @@ export default function TransicionesPage() {
                 }
                 icon={MapIcon}
                 analisis={
-                  robos.length > 3 ? (
+                  explicativos && robos.length > 3 ? (
                     <p className="mx-4 mb-4 border-l-2 border-[#C8A96B]/40 pl-3 text-[12px] leading-relaxed text-white/60 sm:mx-5">
                       Lo que hay que mirar aquí es el contraste entre la barra de campo
                       rival y la de campo propio: cuanto más arriba se roba, más se sale
@@ -632,7 +716,7 @@ export default function TransicionesPage() {
 
               <Panel
                 title="Cuándo robamos"
-                subtitle="Por tramos de quince minutos de vídeo"
+                subtitle={explicativos ? "Por tramos de quince minutos de vídeo" : undefined}
                 icon={Clock}
               >
                 <div className="h-[280px]">
@@ -681,7 +765,9 @@ export default function TransicionesPage() {
               <div className="mt-4">
                 <Panel
                   title="Por qué carril"
-                  subtitle="Sólo los bloques con el etiquetado ampliado"
+                  subtitle={
+                    explicativos ? "Sólo los bloques con el etiquetado ampliado" : undefined
+                  }
                   icon={MapIcon}
                 >
                   <div className="h-[220px]">
@@ -730,7 +816,9 @@ export default function TransicionesPage() {
             <div className="mt-4">
               <Panel
                 title="Robo a robo"
-                subtitle="El minuto es del vídeo, para ir directo a la jugada"
+                subtitle={
+                  explicativos ? "El minuto es del vídeo, para ir directo a la jugada" : undefined
+                }
                 icon={Crosshair}
                 bodyClassName="p-0"
               >
@@ -843,20 +931,22 @@ export default function TransicionesPage() {
 
             {/* Lo mismo que en faltas: la ruta del vídeo se escribe aquí y
                 salen las órdenes hechas, en vez de vivir dentro de un script. */}
-            <div className="mt-4">
-              <ComoActualizar
-                videoPorDefecto={paraActualizar?.video ?? ""}
-                partidoPorDefecto={paraActualizar?.id ?? ""}
-              />
-            </div>
+            <Explicativo>
+              <div className="mt-4">
+                <ComoActualizar
+                  videoPorDefecto={paraActualizar?.video ?? ""}
+                  partidoPorDefecto={paraActualizar?.id ?? ""}
+                />
+              </div>
 
-            <p className="mt-6 text-xs leading-relaxed text-white/30">
-              Cuenta como robo la recuperación activa: entrada, interceptación o balón ganado
-              por presión directa, con el balón en juego. No cuentan los rechaces sin disputa,
-              los despejes del rival, las paradas del portero, lo que nace de balón parado ni
-              los cambios de posesión por falta pitada. El criterio completo está en
-              ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.
-            </p>
+              <p className="mt-6 text-xs leading-relaxed text-white/30">
+                Cuenta como robo la recuperación activa: entrada, interceptación o balón ganado
+                por presión directa, con el balón en juego. No cuentan los rechaces sin disputa,
+                los despejes del rival, las paradas del portero, lo que nace de balón parado ni
+                los cambios de posesión por falta pitada. El criterio completo está en
+                ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.
+              </p>
+            </Explicativo>
           </div>
         </section>
       </div>

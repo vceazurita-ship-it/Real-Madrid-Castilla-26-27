@@ -40,6 +40,11 @@ import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type LadoFalta } from "@/lib/faltas/datos";
 import { CampoFaltas } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
+import {
+  Conclusiones,
+  Explicativo,
+  useTextosExplicativos,
+} from "@/components/ui/textos-analisis";
 
 const ZONAS = ["campo propio", "medio campo", "campo rival"];
 const CARRILES = ["izquierda", "centro", "derecha"];
@@ -67,6 +72,25 @@ const CORTE_TRANSICION = 3;
 
 type Filtro = "todas" | LadoFalta;
 
+/** 6.25 → "6,3". */
+const decimal = (n: number) =>
+  n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** La clave que más se repite, con cuántas veces. */
+function laQueMas(valores: string[]) {
+  const cuenta = new Map<string, number>();
+
+  for (const v of valores) if (v) cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
+
+  let mejor: { clave: string; veces: number } | null = null;
+
+  for (const [clave, veces] of cuenta) {
+    if (!mejor || veces > mejor.veces) mejor = { clave, veces };
+  }
+
+  return mejor;
+}
+
 /** "2026-09-21" → "21 sep". */
 function fechaCorta(iso: string) {
   const fecha = new Date(`${iso}T12:00:00`);
@@ -79,6 +103,7 @@ function fechaCorta(iso: string) {
 }
 
 export default function FaltasPage() {
+  const explicativos = useTextosExplicativos();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [partidoId, setPartidoId] = useState<string>(PARTIDOS[0]?.id ?? "");
 
@@ -152,6 +177,73 @@ export default function FaltasPage() {
     [faltas],
   );
 
+  /*
+  | Lo que dice lo que se está viendo (partido y filtro), en pocas frases.
+  | La zona va hacia la portería que ataca quien saca: «campo rival» es
+  | siempre el último tercio del que la saca.
+  */
+  const conclusiones = useMemo(() => {
+    const total = faltas.length;
+
+    if (total === 0) return [];
+
+    const frases: string[] = [];
+
+    frases.push(
+      filtro === "todas"
+        ? `${porLado.ofensivo} a favor y ${porLado.defensivo} en contra.`
+        : `${total} ${total === 1 ? "falta" : "faltas"} ${filtro === "ofensivo" ? "a favor" : "en contra"}.`,
+    );
+
+    const zona = laQueMas(faltas.map((f) => f.zona));
+    const carril = laQueMas(faltas.map((f) => f.carril));
+
+    /* La zona, dicha desde el lado del Castilla cuando se puede. */
+    const nombreZona = (z: string) => {
+      if (z === "medio campo") return z;
+      const propio = z === "campo propio";
+      if (filtro === "ofensivo") return propio ? "nuestro campo" : "campo rival";
+      if (filtro === "defensivo") return propio ? "campo rival" : "nuestro campo";
+      return propio ? "campo de quien saca" : "último tercio";
+    };
+
+    if (zona && carril) {
+      frases.push(
+        `Se concentran en ${nombreZona(zona.clave)} (${zona.veces}) y ${carril.clave === "centro" ? "por el centro" : `por la ${carril.clave}`} (${carril.veces}).`,
+      );
+    }
+
+    const ultimoTercio = faltas.filter((f) => f.zona === "campo rival").length;
+    const frontales = faltas.filter((f) => f.distancia === "frontal").length;
+
+    if (ultimoTercio || frontales) {
+      const donde =
+        filtro === "ofensivo"
+          ? "en campo rival"
+          : filtro === "defensivo"
+            ? "cerca de nuestra área"
+            : "en último tercio";
+
+      frases.push(
+        `${ultimoTercio} ${donde}; ${frontales} ${frontales === 1 ? "frontal" : "frontales"}.`,
+      );
+    }
+
+    if (defensores) {
+      frases.push(
+        `${decimal(defensores.media)} defensores por delante de media (de ${defensores.minimo} a ${defensores.maximo}).`,
+      );
+    }
+
+    frases.push(
+      cortes.length
+        ? `${cortes.length} ${cortes.length === 1 ? "cortó" : "cortaron"} una transición con el campo abierto.`
+        : "Ninguna cortó una transición: siempre con bloque hecho.",
+    );
+
+    return frases;
+  }, [faltas, filtro, porLado, defensores, cortes]);
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -164,16 +256,22 @@ export default function FaltasPage() {
             <AbpHeader
               area="RMCF Castilla · Competición"
               title="Análisis de faltas"
-              lead="Dónde se comete cada falta y cuánta gente defendía entre ella y la portería. Sale de ver el partido falta a falta."
+              lead={
+                explicativos
+                  ? "Dónde se comete cada falta y cuánta gente defendía entre ella y la portería. Sale de ver el partido falta a falta."
+                  : undefined
+              }
             />
 
             {PARTIDOS.length === 0 || (partido?.faltas.length ?? 0) === 0 ? (
               <div className="mt-5">
                 <Panel title="Todavía no hay ninguna falta etiquetada" icon={Crosshair}>
-                  <p className="text-sm text-white/50">
-                    Prepara una carpeta de clips y etiquétala: abajo están las
-                    órdenes, con la carpeta que quieras.
-                  </p>
+                  <Explicativo>
+                    <p className="text-sm text-white/50">
+                      Prepara una carpeta de clips y etiquétala: abajo están las
+                      órdenes, con la carpeta que quieras.
+                    </p>
+                  </Explicativo>
                 </Panel>
               </div>
             ) : null}
@@ -277,19 +375,27 @@ export default function FaltasPage() {
             </div>
 
             {partido?.notas.length ? (
-              <ul className="mt-3 space-y-1 text-[12px] text-white/40">
-                {partido.notas.map((nota) => (
-                  <li key={nota}>· {nota}</li>
-                ))}
-              </ul>
+              <Explicativo>
+                <ul className="mt-3 space-y-1 text-[12px] text-white/40">
+                  {partido.notas.map((nota) => (
+                    <li key={nota}>· {nota}</li>
+                  ))}
+                </ul>
+              </Explicativo>
             ) : null}
+
+            <Conclusiones items={conclusiones} className="mt-4" />
 
             {/* ---------------- el campo ---------------- */}
 
             <div className="mt-5 grid gap-4 lg:grid-cols-[1.45fr_1fr]">
               <Panel
                 title="Dónde se cometen"
-                subtitle="Cada punto es una falta, en su tercio y su carril. El campo va en el sentido en que ataca quien la saca"
+                subtitle={
+                  explicativos
+                    ? "Cada punto es una falta, en su tercio y su carril. El campo va en el sentido en que ataca quien la saca"
+                    : undefined
+                }
                 icon={Crosshair}
               >
                 <CampoFaltas
@@ -318,7 +424,7 @@ export default function FaltasPage() {
                     <>
                       <div className="flex items-end gap-2">
                         <span className="text-4xl font-semibold text-[#C8A96B]">
-                          {defensores.media.toFixed(1)}
+                          {decimal(defensores.media)}
                         </span>
 
                         <span className="pb-1 text-sm text-white/45">
@@ -343,7 +449,11 @@ export default function FaltasPage() {
 
                 <Panel
                   title="Faltas que cortaron algo"
-                  subtitle={`Con ${CORTE_TRANSICION} defensores o menos por delante, fuera del último tercio: campo abierto`}
+                  subtitle={
+                    explicativos
+                      ? `Con ${CORTE_TRANSICION} defensores o menos por delante, fuera del último tercio: campo abierto`
+                      : undefined
+                  }
                   icon={Zap}
                 >
                   {cortes.length === 0 ? (
@@ -419,7 +529,11 @@ export default function FaltasPage() {
               <div className="mt-4">
                 <Panel
                   title="Una por una"
-                  subtitle="En el orden en que se dieron. Pasa por encima de una fila y se enciende su punto en el campo"
+                  subtitle={
+                    explicativos
+                      ? "En el orden en que se dieron. Pasa por encima de una fila y se enciende su punto en el campo"
+                      : undefined
+                  }
                 >
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[720px] text-left text-sm">
@@ -485,9 +599,11 @@ export default function FaltasPage() {
 
             {/* ---------------- cómo se actualiza ---------------- */}
 
-            <div className="mt-4">
-              <ComoActualizar carpetaPorDefecto={partido?.clips ?? ""} />
-            </div>
+            <Explicativo>
+              <div className="mt-4">
+                <ComoActualizar carpetaPorDefecto={partido?.clips ?? ""} />
+              </div>
+            </Explicativo>
           </div>
         </section>
       </div>

@@ -28,6 +28,7 @@ import {
   type Tono,
 } from "@/lib/abp/analisis";
 import type { JornadaAbp } from "@/lib/abp/partido";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 
 /* ------------------------------------------------------------------ */
 /*  LECTOR                                                             */
@@ -249,6 +250,10 @@ export function AnalisisSeccion<T>({
   /** Más aire y letra, para la lectura de cabecera de la página. */
   destacado?: boolean;
 }) {
+  /* El reparto de cada panel explica; las conclusiones van en la cabecera.
+     Escondido salvo que el administrador encienda los textos explicativos. */
+  const explicativos = useTextosExplicativos();
+
   const analisis = useMemo(() => {
     const traduce = (fila: T): EventoAnalisis => ({
       jornada: lector.jornada(fila),
@@ -310,7 +315,7 @@ export function AnalisisSeccion<T>({
   | pinta pie.
   */
   if (!destacado) {
-    if (!reparto) return null;
+    if (!reparto || !explicativos) return null;
 
     return (
       <section

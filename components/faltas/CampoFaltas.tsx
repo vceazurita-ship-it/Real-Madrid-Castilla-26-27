@@ -368,10 +368,7 @@ export function CampoFaltas({
           En contra
         </span>
 
-        <span>
-          El número de dentro es cuánta gente defendía entre la falta y la
-          portería que se ataca, portero incluido.
-        </span>
+        <span>Número: defensores hasta la portería</span>
       </div>
     </div>
   );

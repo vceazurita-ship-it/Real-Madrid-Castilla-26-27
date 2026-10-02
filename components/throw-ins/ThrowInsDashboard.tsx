@@ -7,6 +7,11 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { FileDown } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import { traeCsv } from "@/lib/hojaCsv";
+import {
+  Conclusiones,
+  Explicativo,
+  useTextosExplicativos,
+} from "@/components/ui/textos-analisis";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, FilterDrawer } from "@/components/abp/ui";
@@ -239,6 +244,207 @@ function groupBy(rows: RecordRow[], key: string) {
     .sort((a, b) => b.total - a.total);
 }
 
+/*
+| LAS CONCLUSIONES DE ARRIBA.
+|
+| Tres a cinco frases cortas con lo que dicen las filas filtradas —las mismas
+| que pintan los gráficos—. Qué se ve, no cómo se ha medido: el método vive en
+| los textos explicativos, que van apagados salvo que se enciendan en Ajustes.
+|
+| Un valor sólo compite si trae al menos MIN_MUESTRA saques: con dos, un 100 %
+| es ruido.
+*/
+const MIN_MUESTRA = 3;
+
+type Grupo = { key: string; valor: string; n: number; favorables: number; produccion: number };
+
+const pctTexto = (parte: number, total: number) =>
+  `${Math.round(total ? (parte / total) * 100 : 0)} %`;
+
+const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
+
+/* Cómo se nombra un valor dentro de una frase. */
+function nombreDe(key: string, valor: string) {
+  switch (key) {
+    case "Tipo_Envio":
+      return `envío ${valor.toLowerCase()}`;
+    case "Zona_Saque":
+      return /^zona/i.test(valor) ? valor.replace(/^zona/i, "zona") : `zona ${valor}`;
+    case "Perfil":
+    case "Zona_Caida":
+      return valor.toLowerCase();
+    case "Receptor":
+      return `receptor «${valor}»`;
+    case "Intencion":
+      return `intención «${valor}»`;
+    default:
+      return valor;
+  }
+}
+
+function gruposDe(rows: RecordRow[], key: string, mode: Mode): Grupo[] {
+  const mapa = new Map<string, Grupo>();
+
+  rows.forEach((row) => {
+    const valor = valorDe(row, key);
+
+    if (!valor || valor === "Sin dato") return;
+
+    const resultado = parseResultado(read(row, "Resultado_Final"));
+    const grupo = mapa.get(valor) ?? { key, valor, n: 0, favorables: 0, produccion: 0 };
+
+    grupo.n += 1;
+    if (esFavorable(resultado)) grupo.favorables += 1;
+    if (esProduccion(resultado, mode)) grupo.produccion += 1;
+
+    mapa.set(valor, grupo);
+  });
+
+  return [...mapa.values()].filter((grupo) => grupo.n >= MIN_MUESTRA);
+}
+
+/* El mejor (o peor) grupo por una tasa; con empate, el de más muestra. */
+function extremo(grupos: Grupo[], tasa: (g: Grupo) => number, mayor: boolean) {
+  return [...grupos].sort(
+    (a, b) => (mayor ? tasa(b) - tasa(a) : tasa(a) - tasa(b)) || b.n - a.n,
+  )[0];
+}
+
+const retencionDe = (g: Grupo) => g.favorables / g.n;
+const produccionTasa = (g: Grupo) => g.produccion / g.n;
+
+function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
+  if (!rows.length) return [];
+
+  const ofensivo = mode === "offensive";
+  const resumen = resumenDe(rows, mode);
+  const total = rows.length;
+  const favorables = Math.round((resumen.favorablePct / 100) * total);
+  const goles = rows.filter((row) => {
+    const resultado = parseResultado(read(row, "Resultado_Final"));
+
+    return resultado.rank === 5 && resultado.owner === (ofensivo ? "rmcf" : "rival");
+  }).length;
+
+  const frases: string[] = [];
+
+  /* 1. Volumen y cómo acaban. */
+  const llegan = `${resumen.produccion} ${
+    ofensivo
+      ? resumen.produccion === 1 ? "llega" : "llegan"
+      : resumen.produccion === 1 ? "le llega" : "le llegan"
+  } a último tercio`;
+
+  frases.push(
+    ofensivo
+      ? `${total} ${total === 1 ? "saque" : "saques"}: ${pctTexto(favorables, total)} conservados, ${llegan}${
+          goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""
+        }.`
+      : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos el ${pctTexto(
+          favorables,
+          total,
+        )}, ${llegan}${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}.`,
+  );
+
+  /* 2. Dónde y cómo funciona mejor (para nosotros). */
+  const zonas = [
+    ...gruposDe(rows, "Zona_Saque", mode),
+    ...gruposDe(rows, "Perfil", mode),
+  ];
+  const envios = gruposDe(rows, "Tipo_Envio", mode);
+
+  if (ofensivo) {
+    const productivas = zonas.filter((g) => g.produccion > 0);
+
+    if (productivas.length) {
+      const mejor = extremo(productivas, produccionTasa, true);
+
+      frases.push(
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio.`,
+      );
+    }
+
+    if (envios.length >= 2) {
+      const mejor = extremo(envios, retencionDe, true);
+
+      frases.push(
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: ${pctTexto(mejor.favorables, mejor.n)} conservados.`,
+      );
+    }
+  } else {
+    if (zonas.length >= 2) {
+      const mejor = extremo(zonas, retencionDe, true);
+
+      if (mejor.favorables > 0) {
+        frases.push(
+          `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos el ${pctTexto(mejor.favorables, mejor.n)}.`,
+        );
+      }
+    }
+
+    const peligrosas = [...zonas, ...envios].filter((g) => g.produccion > 0);
+
+    if (peligrosas.length) {
+      const peor = extremo(peligrosas, produccionTasa, true);
+
+      frases.push(
+        `Su vía más peligrosa: ${nombreDe(peor.key, peor.valor)}, ${peor.produccion} de ${peor.n} a último tercio.`,
+      );
+    }
+
+    if (resumen.transicion > 0) {
+      frases.push(
+        `Tras robar: ${resumen.transicion} ${resumen.transicion === 1 ? "transición" : "transiciones"} a último tercio o más.`,
+      );
+    }
+  }
+
+  /* 3. Receptor o intención más eficaz (en defensa, su receptor más cómodo). */
+  const receptores = gruposDe(rows, "Receptor", mode);
+  const intenciones = ofensivo
+    ? gruposDe(rows, "Intencion", mode)
+    : [];
+  const personas = [...receptores, ...intenciones];
+
+  if (personas.length >= 2) {
+    if (ofensivo) {
+      const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
+
+      frases.push(
+        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (${pctTexto(mejor.favorables, mejor.n)} conservados, ${mejor.produccion} a último tercio).`,
+      );
+    } else {
+      const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
+
+      frases.push(
+        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos solo el ${pctTexto(comodo.favorables, comodo.n)}.`,
+      );
+    }
+  }
+
+  /* 4. Punto débil (sólo en ataque: en defensa ya lo dice la vía peligrosa). */
+  if (ofensivo) {
+    const candidatos = [
+      ...envios,
+      ...gruposDe(rows, "Zona_Caida", mode),
+      ...zonas,
+    ];
+    const global = favorables / total;
+
+    if (candidatos.length >= 2) {
+      const peor = extremo(candidatos, retencionDe, false);
+
+      if (retencionDe(peor) < global) {
+        frases.push(
+          `Punto débil: ${nombreDe(peor.key, peor.valor)}, solo ${pctTexto(peor.favorables, peor.n)} conservados.`,
+        );
+      }
+    }
+  }
+
+  return frases.slice(0, 5);
+}
+
 function SelectFilter({
   value,
   onChange,
@@ -284,7 +490,8 @@ function MetricCard({
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
       <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
       <p className={`mt-2 text-2xl font-semibold ${accent ? "text-[#E7D2A0]" : "text-white"}`}>{value}</p>
-      {hint ? <p className="mt-1 text-[11px] leading-snug text-slate-500">{hint}</p> : null}
+      {/* La ayuda de cada KPI cuenta cómo se mide: va con los textos explicativos. */}
+      {hint ? <Explicativo><p className="mt-1 text-[11px] leading-snug text-slate-500">{hint}</p></Explicativo> : null}
     </div>
   );
 }
@@ -370,6 +577,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   const isOffensive = mode === "offensive";
+  /* Lo que explica el método sólo sale si el administrador lo enciende. */
+  const explicativos = useTextosExplicativos();
   const FILTERS = useMemo(() => filtersFor(mode), [mode]);
   const CHARTS = useMemo(() => chartsFor(mode), [mode]);
 
@@ -458,6 +667,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const activos = FILTERS.filter(({ key }) => (filters[key] ?? "ALL") !== "ALL");
 
   const totals = useMemo(() => resumenDe(filtered, mode), [filtered, mode]);
+
+  /* Las frases de arriba, con las mismas filas filtradas que los gráficos. */
+  const conclusiones = useMemo(() => conclusionesDe(filtered, mode), [filtered, mode]);
 
   /*
   | Cómo lee el análisis una fila de esta hoja.
@@ -618,12 +830,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
               area="RMCF Castilla · Colectivo"
               title={title}
               lead={
-                <>
-                  Análisis de saques de banda {isOffensive ? "a favor" : "en contra"}. Un
-                  resultado sin sufijo es del RMCF y uno acabado en
-                  &laquo;Rival&raquo; es del rival: sobre esa regla se calculan
-                  retención, progresión y peligro.
-                </>
+                explicativos ? (
+                  <>
+                    Análisis de saques de banda {isOffensive ? "a favor" : "en contra"}. Un
+                    resultado sin sufijo es del RMCF y uno acabado en
+                    &laquo;Rival&raquo; es del rival: sobre esa regla se calculan
+                    retención, progresión y peligro.
+                  </>
+                ) : undefined
               }
               aside={
                 <button
@@ -658,7 +872,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 ))}
               </FilterDrawer>
 
-              {pendientes > 0 ? (
+              {pendientes > 0 && explicativos ? (
                 <p className="rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3 text-xs leading-relaxed text-[#E7D2A0]">
                   Hay {pendientes} {pendientes === 1 ? "saque anotado" : "saques anotados"} con
                   minuto y marcador que todavía no {pendientes === 1 ? "está" : "están"} codificad
@@ -705,6 +919,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     {filtered.length} de {rows.length} saques registrados
                   </p>
                 </div>
+
+                <Conclusiones items={conclusiones} className="mb-7" />
 
                 <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                   <MetricCard

@@ -7,6 +7,11 @@ import { FileDown } from "lucide-react";
 import ABPFlowField from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
 import {
+  Conclusiones,
+  Explicativo,
+  useTextosExplicativos,
+} from "@/components/ui/textos-analisis";
+import {
   AnalisisSeccion,
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
@@ -98,6 +103,53 @@ function normalizaResultado(v?: string): string {
 /** true cuando el valor de Zona_Caida describe una superioridad en corto (3v2, 2v1...). */
 function esSuperioridad(v?: string) {
   return /^\s*\d+\s*v\s*\d+\s*$/i.test(v || "");
+}
+
+/*
+| Ayudas de las conclusiones de arriba.
+|
+| Las cifras van como se dicen en el vestuario: coma decimal y porcentajes
+| redondos. `mejorGrupo` pide un mínimo de acciones (3) porque un 1 de 1
+| saldría «lo mejor» y no dice nada.
+*/
+function cifra(n: number, decimales = 1) {
+  return n.toLocaleString("es-ES", { maximumFractionDigits: decimales });
+}
+
+function plural(n: number, uno: string, varios: string) {
+  return `${n} ${n === 1 ? uno : varios}`;
+}
+
+function mejorGrupo<T>(
+  filas: T[],
+  clave: (fila: T) => string,
+  valor: (grupo: T[]) => number,
+  minimo = 3,
+) {
+  const grupos = new Map<string, T[]>();
+
+  for (const fila of filas) {
+    const k = (clave(fila) || "").trim();
+
+    if (!k) continue;
+
+    const grupo = grupos.get(k) ?? [];
+
+    grupo.push(fila);
+    grupos.set(k, grupo);
+  }
+
+  let mejor: { nombre: string; n: number; valor: number } | null = null;
+
+  for (const [nombre, grupo] of grupos) {
+    if (grupo.length < minimo) continue;
+
+    const v = valor(grupo);
+
+    if (!mejor || v > mejor.valor) mejor = { nombre, n: grupo.length, valor: v };
+  }
+
+  return mejor;
 }
 
 type Row = {
@@ -1959,6 +2011,93 @@ originalStyles.forEach(
 };
 
 /*
+| Las conclusiones de arriba: qué dice lo que se está viendo, no cómo se ha
+| hecho. Salen de `filtered`, las mismas filas que pintan los gráficos, así
+| que cambian con cada filtro.
+*/
+const textosExplicativos = useTextosExplicativos();
+
+const conclusiones = useMemo(() => {
+  if (!filtered.length) return [];
+
+  const resultado = (r: Row) => normalizaResultado(r.resultadoFinal);
+  const tasaPeligroDe = (grupo: Row[]) =>
+    grupo.filter(LECTOR.peligro).length / grupo.length;
+
+  const goles = filtered.filter((r) => resultado(r) === "Gol").length;
+  const ocasiones = filtered.filter((r) => resultado(r) === "Ocasión").length;
+  const xg = filtered.reduce((a, r) => a + r.xg, 0);
+
+  const frases: (string | null)[] = [
+    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, xG ${cifra(xg)}.`,
+  ];
+
+  const zona = mejorGrupo(
+    filtered,
+    (r) => (esSuperioridad(r.zonaCaida) ? "" : r.zonaCaida),
+    tasaPeligroDe,
+  );
+
+  if (zona && zona.valor > 0) {
+    frases.push(
+      `Más peligro cayendo en ${zona.nombre}: ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
+    );
+  }
+
+  /* La rutina dice más que la intención; si no hay ninguna con muestra, la
+     intención. */
+  const rutina = mejorGrupo(filtered, (r) => r.rutina, tasaPeligroDe);
+  const intencion = rutina && rutina.valor > 0
+    ? null
+    : mejorGrupo(filtered, (r) => r.intencion, tasaPeligroDe);
+
+  if (rutina && rutina.valor > 0) {
+    frases.push(
+      `Rutina que más rinde: «${rutina.nombre}», ${Math.round(rutina.valor * 100)} % gol u ocasión.`,
+    );
+  } else if (intencion && intencion.valor > 0) {
+    frases.push(
+      `Intención más eficaz: ${intencion.nombre.toLowerCase()}, ${Math.round(intencion.valor * 100)} % gol u ocasión.`,
+    );
+  }
+
+  const lanzador = mejorGrupo(
+    filtered,
+    (r) => r.sacador,
+    (grupo) => grupo.reduce((a, r) => a + r.xg, 0) / grupo.length,
+  );
+
+  if (lanzador && lanzador.valor > 0) {
+    frases.push(
+      `Más xG por envío: ${lanzador.nombre} (${cifra(lanzador.valor, 2)}).`,
+    );
+  }
+
+  const ganados = filtered.filter((r) => /gan/i.test(r.segundoBalon)).length;
+  const perdidos = filtered.filter((r) => /perd/i.test(r.segundoBalon)).length;
+
+  if (ganados + perdidos >= 3) {
+    frases.push(
+      perdidos >= ganados
+        ? `Segundo balón: perdemos el ${Math.round((perdidos / (ganados + perdidos)) * 100)} % de los disputados.`
+        : `Segundo balón: ganamos el ${Math.round((ganados / (ganados + perdidos)) * 100)} % de los disputados.`,
+    );
+  }
+
+  const transiciones = filtered.filter(
+    (r) => resultado(r) === "Transición Rival",
+  ).length;
+
+  if (transiciones > 0) {
+    frases.push(
+      `${plural(transiciones, "acción acaba", "acciones acaban")} en transición rival.`,
+    );
+  }
+
+  return frases.filter(Boolean).slice(0, 5);
+}, [filtered]);
+
+/*
 | El pie de lectura de cada sección.
 |
 | Se llama como una función y no se usa como componente a propósito: así el
@@ -2000,7 +2139,11 @@ const pie = (
   <AbpHeader
     area="RMCF Castilla · Colectivo"
     title="ABP Ofensivo"
-    lead="Córners y faltas a favor: qué se lanza, dónde cae el balón, quién remata y cuánto peligro acaba generando cada rutina."
+    lead={
+      textosExplicativos
+        ? "Córners y faltas a favor: qué se lanza, dónde cae el balón, quién remata y cuánto peligro acaba generando cada rutina."
+        : undefined
+    }
   />
 
   {/* Selector + KPIs */}
@@ -2193,7 +2336,7 @@ const pie = (
   value={`${metrics.conversion.toFixed(
     1
   )}%`}
-  hint="Goles sobre el total de ABP"
+  hint="Goles sobre remates"
 />
 <Card
   title="xG / ABP"
@@ -2228,6 +2371,9 @@ const pie = (
     </div>
 
   </div>
+
+            {/* Las conclusiones en pocas frases, antes de cualquier panel. */}
+            <Conclusiones items={conclusiones} className="mt-6" />
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
@@ -2954,11 +3100,15 @@ margin={{
   </Chart></div>
 </Panel>
 <Panel title="Momento del partido" analisis={pie({ metrica: "volumen", dimension: "tramo", categoria: (r) => TRAMOS.find((uno) => uno.key === r.contexto.minuto.tramo)?.label ?? "" })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Acciones y remates por tramos de 15&apos;.
     {sinMinuto > 0 &&
       ` ${sinMinuto} acciones quedan fuera por no tener minuto registrado.`}
   </p>
+
+  </Explicativo>
 
   <div id="grafico-timeline">
 
@@ -3051,11 +3201,15 @@ margin={{
   no se lee ninguna.
 */}
 <Panel title="Rutinas" analisis={pie({ dimension: "rutina", categoria: (r) => r.rutina })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Lo que produce cada jugada ensayada, de más a menos xG.
     {sinRutina > 0 &&
       ` ${sinRutina} acciones no llevan rutina anotada.`}
   </p>
+
+  </Explicativo>
 
   {porRutina.length === 0 ? (
     <p className="py-10 text-center text-sm text-zinc-500">
@@ -3141,11 +3295,15 @@ margin={{
   separar lo que se lanza yendo por delante de lo que se lanza remando.
 */}
 <Panel title="Según el marcador" analisis={pie({ dimension: "marcador", categoria: (r) => ESTADOS.find((uno) => uno.key === r.contexto.marcador.estado)?.label ?? "" })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Acciones, remates y goles según cómo iba el partido.
     {sinMarcador > 0 &&
       ` ${sinMarcador} acciones quedan fuera por no tener marcador anotado.`}
   </p>
+
+  </Explicativo>
 
   <div id="grafico-abp-marcador">
 
@@ -3460,10 +3618,14 @@ const words =
   </Chart></div>
 </Panel>
 <Panel title="Resultado final" analisis={pie({ dimension: "resultado", dimensionDerivada: true, categoria: (r) => normalizaResultado(r.resultadoFinal) })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     {accionesPeligrosas} de {metrics.total} acciones acaban en gol u
     ocasión ({tasaPeligro.toFixed(1)}%). Pulsa un sector para filtrar.
   </p>
+
+  </Explicativo>
 
   <div id="grafico-conversión">
 
@@ -3533,10 +3695,14 @@ value={`${tasaPeligro.toFixed(0)}%`}
 </Panel>
 
 <Panel title="Calidad del envío" analisis={pie({ metrica: "xg", dimension: "calidad de envío", categoria: (r) => (r.calidadEnvio ? "Calidad " + r.calidadEnvio : "") })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Escala 1-4 valorada por el cuerpo técnico: volumen de envíos y
     porcentaje que termina en remate.
   </p>
+
+  </Explicativo>
 
   <div id="grafico-calidad-envio">
   <Chart>
@@ -3606,10 +3772,14 @@ value={`${tasaPeligro.toFixed(0)}%`}
 </Panel>
 
 <Panel title="Superioridad en corto" analisis={pie({ dimension: "superioridad", categoria: (r) => (esSuperioridad(r.zonaCaida) ? r.zonaCaida : "") })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Ventajas numéricas creadas antes del envío al área. Estos valores no
     son zonas de caída, por eso se analizan aparte.
   </p>
+
+  </Explicativo>
 
   <div id="grafico-superioridad">
   <Chart>
@@ -3672,10 +3842,14 @@ value={`${tasaPeligro.toFixed(0)}%`}
 </Panel>
 
 <Panel title="Estructura de la jugada" analisis={pie({ dimension: "atacantes en el área", categoria: (r) => (r.nAtacantes ? r.nAtacantes + " atacantes" : "") })}>
+  <Explicativo>
+
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
     Número de atacantes implicados frente al xG medio generado y a los
     bloqueadores utilizados.
   </p>
+
+  </Explicativo>
 
   <div id="grafico-estructura">
   <Chart>

@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import {
   AlertTriangle,
   BarChart3,
+  BookOpenText,
   Check,
   Clapperboard,
   Download,
@@ -42,6 +43,7 @@ import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
+import { avisaCambioTextos, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import {
   LIMITE_MIN,
   estadoEncargo,
@@ -596,6 +598,10 @@ export default function AjustesPage() {
               </Panel>
             </div>
 
+            {/* ---------------- TEXTOS EXPLICATIVOS ---------------- */}
+
+            <InterruptorTextos />
+
             {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
 
             <div className="mt-5">
@@ -701,6 +707,78 @@ export default function AjustesPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  TEXTOS EXPLICATIVOS                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Los textos que explican cómo se ha hecho cada análisis (ABP, saques de
+ * banda, faltas, transiciones): escondidos para todos salvo que se enciendan
+ * aquí. Las conclusiones se ven siempre.
+ */
+function InterruptorTextos() {
+  const encendidos = useTextosExplicativos();
+
+  const [guardando, setGuardando] = useState(false);
+
+  const cambia = async () => {
+    setGuardando(true);
+
+    try {
+      const respuesta = await fetch("/api/textos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ explicativos: !encendidos }),
+      });
+
+      const datos = (await respuesta.json()) as { ok?: boolean; error?: string };
+
+      if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
+
+      avisaCambioTextos();
+
+      toast.success(!encendidos ? "Textos explicativos visibles para todos" : "Textos explicativos escondidos");
+    } catch (error) {
+      toast.error("No se ha podido cambiar", { description: error instanceof Error ? error.message : "" });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-sm font-semibold text-white">
+          <BookOpenText size={15} className="text-[#C8A96B]" aria-hidden />
+          Textos explicativos en los análisis
+        </p>
+        <p className="mt-0.5 text-[12px] leading-relaxed text-white/45">
+          ABP, saques de banda, faltas y transiciones. Apagados, se ven sólo las conclusiones; encendidos,
+          también cómo se ha hecho cada análisis y la lectura de cada panel.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={encendidos}
+        disabled={guardando}
+        onClick={() => void cambia()}
+        className={`relative h-6 w-11 shrink-0 rounded-full border transition disabled:opacity-50 ${
+          encendidos ? "border-[#C8A96B] bg-[#C8A96B]" : "border-white/15 bg-white/10"
+        }`}
+      >
+        <span className="sr-only">Textos explicativos</span>
+        <span
+          className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-all ${
+            encendidos ? "left-[22px]" : "left-0.5"
+          }`}
+        />
+      </button>
+    </div>
   );
 }
 
