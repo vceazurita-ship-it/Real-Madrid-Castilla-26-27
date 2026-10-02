@@ -539,7 +539,9 @@ export function InformeMicroDialog({
                 enviando ||
                 cargandoSeguimiento ||
                 cargandoComparativa ||
-                cargandoPropio
+                cargandoPropio ||
+                /* Sin esto el correo salía sin las láminas del rival si se pulsaba pronto. */
+                rivalInforme.cargando
               }
             >
               {enviando ? "Enviando…" : "Enviar por correo"}
@@ -600,22 +602,30 @@ export function InformeMicroDialog({
           </div>
         )}
 
-        {cargandoSeguimiento || cargandoComparativa || cargandoPropio ? (
+        {cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando ? (
           <p className="flex items-center gap-2 text-xs text-white/45">
             <RefreshCw size={13} className="animate-spin" />
             {cargandoSeguimiento
               ? "Cargando el seguimiento individual…"
               : cargandoPropio
                 ? "Cargando nuestras hojas de balón parado…"
-                : "Cargando la comparación con la categoría…"}
+                : rivalInforme.cargando
+                  ? "Preparando el análisis del rival…"
+                  : "Cargando la comparación con la categoría…"}
           </p>
         ) : (
-          informe.avisos.length > 0 && (
+          (informe.avisos.length > 0 || (datos.rival && !rivalInforme.rivalAnalisis)) && (
             <Notice tone="warn" title="Lo que este informe no sabe">
               <ul className="ml-4 list-disc space-y-1">
                 {informe.avisos.map((aviso) => (
                   <li key={aviso}>{aviso}</li>
                 ))}
+                {datos.rival && !rivalInforme.rivalAnalisis && (
+                  <li>
+                    No hay nada de balón parado de {datos.rival} en «ABP del Rival»: el informe sale sin el
+                    análisis del rival hasta que se prepare allí.
+                  </li>
+                )}
               </ul>
             </Notice>
           )
