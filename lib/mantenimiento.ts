@@ -19,8 +19,11 @@ export const CLAVE_MANTENIMIENTO = "mantenimiento";
 export const CLAVE_VIGIA = "mantenimiento:vigia";
 
 /* `carpeta` (27/09/2026): recoger la carpeta de análisis de una jornada —vídeos
-   de ABP y de centros, y los PDF— y dejarla en la ficha del rival. */
-export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta"] as const;
+   de ABP y de centros, y los PDF— y dejarla en la ficha del rival.
+   `partido` (02/10/2026): el análisis entero del último partido —Wyscout, el
+   timeline de Hudl y la cámara táctica— volcado en todas las secciones que lo
+   leen. Lo hace `scripts/analisis-partido.cjs`. */
+export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido"] as const;
 
 export type Tarea = (typeof TAREAS)[number];
 
@@ -34,8 +37,20 @@ export type Encargo = {
   hechoEn?: string;
   resultado?: string;
   ok?: boolean;
+  /** Por dónde va un trabajo largo («3/6 · Timeline de Hudl»); sólo `partido`. */
+  paso?: string;
+  /** Cómo quedó cada sección al acabar; sólo `partido`. */
+  secciones?: SeccionPartido[];
   /** Lo que necesita el encargo para hacerse; sólo lo usa `carpeta`. */
   datos?: DatosCarpeta;
+};
+
+export type SeccionPartido = {
+  /** «Saques de banda ofensivos», «Robos y transiciones»… */
+  nombre: string;
+  ok: boolean;
+  /** «17 de 17 en la hoja», «no hay timeline en Hudl»… */
+  detalle: string;
 };
 
 export type DatosCarpeta = {
@@ -71,6 +86,9 @@ export const LIMITE_MIN: Record<Tarea, number> = {
   rivales: 100,
   wyscout: 60,
   carpeta: 45,
+  /* Wyscout, Hudl y mirar en vídeo cada jugada a balón parado: horas. Más
+     allá de esto, el ordenador se apagó a media pasada. */
+  partido: 12 * 60,
 };
 
 export function esTarea(valor: unknown): valor is Tarea {

@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   BarChart3,
   Check,
+  Clapperboard,
   Download,
   Loader2,
   Monitor,
@@ -83,6 +84,7 @@ const NOMBRE: Record<Tarea, string> = {
   rivales: "Jornada de BeSoccer",
   wyscout: "Datos de Wyscout",
   carpeta: "Carpeta de análisis del rival",
+  partido: "Análisis del partido",
 };
 
 const TARDA: Record<Tarea, string> = {
@@ -90,6 +92,7 @@ const TARDA: Record<Tarea, string> = {
   rivales: "suele tardar unos cuarenta minutos",
   wyscout: "suele tardar unos diez minutos",
   carpeta: "unos cuatro segundos por vídeo",
+  partido: "unas horas: mira en vídeo cada jugada a balón parado",
 };
 
 /** Lo que dice el pie de cada panel. */
@@ -128,6 +131,12 @@ function EstadoLinea({
           <span>
             En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} ·{" "}
             {TARDA[tarea]}. Puedes cerrar esta página: sigue igual.
+            {encargo?.paso ? (
+              <>
+                <br />
+                <span className="text-white/60">Ahora: {encargo.paso}</span>
+              </>
+            ) : null}
           </span>
         </p>
       )}
@@ -154,6 +163,24 @@ function EstadoLinea({
             {encargo.resultado ? ` · ${encargo.resultado}` : ""}
           </span>
         </p>
+      )}
+
+      {encargo?.hechoEn && estado !== "en-marcha" && encargo.secciones && encargo.secciones.length > 0 && (
+        <ul className="grid gap-x-4 gap-y-1 pl-[18px] sm:grid-cols-2">
+          {encargo.secciones.map((seccion) => (
+            <li key={seccion.nombre} className="flex items-start gap-1.5">
+              {seccion.ok ? (
+                <Check size={11} className="mt-0.5 shrink-0 text-emerald-300" aria-hidden />
+              ) : (
+                <AlertTriangle size={11} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+              )}
+              <span className="text-white/45">
+                <span className={seccion.ok ? "text-white/65" : "text-amber-200"}>{seccion.nombre}</span>
+                {seccion.detalle ? ` · ${seccion.detalle}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
 
       {!encargo?.hechoEn && estado === "libre" && (
@@ -184,7 +211,7 @@ export default function AjustesPage() {
      avisar con un toast cuando acabe. */
   const esperando = useRef<Partial<Record<Tarea, string>>>({});
 
-  const activo = (["quiniela", "rivales", "wyscout"] as Tarea[]).some((tarea) => {
+  const activo = (["quiniela", "rivales", "wyscout", "partido"] as Tarea[]).some((tarea) => {
     const suyo = estadoEncargo(tarea, estado[tarea], ahora);
 
     return suyo === "pedido" || suyo === "en-marcha";
@@ -349,6 +376,7 @@ export default function AjustesPage() {
     rivales: deTarea("rivales"),
     wyscout: deTarea("wyscout"),
     carpeta: deTarea("carpeta"),
+    partido: deTarea("partido"),
   } satisfies Record<Tarea, EstadoEncargo>;
 
   const ocupada = (tarea: Tarea) =>
@@ -551,6 +579,85 @@ export default function AjustesPage() {
                   tarea="wyscout"
                   estado={estados.wyscout}
                   encargo={estado.wyscout}
+                  vigia={vigia}
+                  ahora={ahora}
+                />
+              </Panel>
+            </div>
+
+            {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
+
+            <div className="mt-5">
+              <Panel
+                title="Análisis del partido"
+                subtitle="El último partido jugado, en todas las secciones que lo leen"
+                icon={Clapperboard}
+                action={
+                  <Button
+                    tone="primary"
+                    icon={RefreshCw}
+                    disabled={!yo || pidiendo !== null || ocupada("partido")}
+                    onClick={() => void pide("partido")}
+                  >
+                    {rotulo("partido", "Actualizar análisis")}
+                  </Button>
+                }
+              >
+                <div className="grid gap-4 text-[12px] leading-relaxed text-white/45 lg:grid-cols-2">
+                  <div>
+                    <p className="text-white/70">De dónde sale, sin decirle nada</p>
+                    <ul className="mt-1.5 space-y-1">
+                      <li>
+                        <strong className="text-white/65">El partido</strong>: el último que ha
+                        jugado el Castilla según el calendario.
+                      </li>
+                      <li>
+                        <strong className="text-white/65">Cámara táctica</strong>: el vídeo
+                        «J 06 - …» de{" "}
+                        <code className="text-white/50">Downloads\RMCF CASTILLA\PARTIDOS</code>.
+                      </li>
+                      <li>
+                        <strong className="text-white/65">Hudl</strong>: la retransmisión de TV con
+                        todo el etiquetado (el vídeo «AAAA-MM-DD Local - Visitante x - y»).
+                      </li>
+                      <li>
+                        <strong className="text-white/65">Wyscout</strong>: los datos del partido y
+                        de cada jugador.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="text-white/70">Lo que deja al día</p>
+                    <ul className="mt-1.5 space-y-1">
+                      <li>
+                        <strong className="text-white/65">Data Análisis</strong>: el partido, la
+                        liga y la foto de la jornada de los jugadores.
+                      </li>
+                      <li>
+                        <strong className="text-white/65">ABP</strong>: córners, faltas a balón
+                        parado y penaltis, a favor y en contra, y los saques de banda ofensivos y
+                        defensivos, con el análisis de cada jugada mirado en vídeo.
+                      </li>
+                      <li>
+                        <strong className="text-white/65">Faltas</strong> y{" "}
+                        <strong className="text-white/65">Robos y transiciones</strong>.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-[11px] leading-relaxed text-white/30">
+                  Al acabar comprueba cada sección leyendo lo que ve la plataforma y dice cuál
+                  falta, si falta alguna. Mientras trabaja, en el ordenador del club se abre un
+                  Chrome que se mueve solo: que nadie lo toque. Si el partido aún no está en
+                  Hudl, lo dice y se puede volver a pedir más tarde.
+                </p>
+
+                <EstadoLinea
+                  tarea="partido"
+                  estado={estados.partido}
+                  encargo={estado.partido}
                   vigia={vigia}
                   ahora={ahora}
                 />

@@ -69,6 +69,25 @@ const PARTIDOS = [
   },
 ];
 
+/*
+| Los partidos nuevos no se escriben aquí: el análisis del partido
+| (`scripts/analisis-partido.cjs`) deja un `partido.json` en su carpeta con
+| estos mismos campos y se recoge solo. Lo que está arriba manda.
+*/
+for (const carpeta of existsSync(ORIGEN) ? readdirSync(ORIGEN) : []) {
+  const fichero = join(ORIGEN, carpeta, "partido.json");
+
+  if (!existsSync(fichero) || PARTIDOS.some((p) => p.id === carpeta)) continue;
+
+  try {
+    PARTIDOS.push({ ...JSON.parse(readFileSync(fichero, "utf8")), id: carpeta });
+  } catch (error) {
+    console.warn(`${fichero}: no se puede leer (${error.message})`);
+  }
+}
+
+PARTIDOS.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+
 /** "3" → 3. "?" o vacío → null, que no es lo mismo que cero. */
 function numero(valor) {
   const n = Number.parseInt(String(valor ?? "").trim(), 10);

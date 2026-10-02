@@ -20,6 +20,10 @@
  *   - `wyscout`  → `wyscout-semanal.cmd --forzar`: baja los equipos y los
  *                  jugadores, relee la carpeta, toma la foto de la jornada y
  *                  publica. Unos diez minutos, con un Chrome que se mueve solo.
+ *   - `partido`  → `analisis-partido.cjs`: el análisis entero del último
+ *                  partido (Wyscout, Hudl, cámara táctica) en todas las
+ *                  secciones. Horas. Va contando el paso en el encargo.
+ *                  Comparte el Chrome de Wyscout: nunca corren a la vez.
  *
  * Y cada medio minuto deja un latido (`mantenimiento:vigia`), para que la
  * pantalla sepa si hay alguien escuchando o si el ordenador está apagado.
@@ -182,7 +186,7 @@ let nocturnaCorriendo = false;
  * La salida va también a un fichero por pasada, que es lo que se mira cuando
  * la pantalla dice que algo ha fallado.
  */
-function ejecuta(tarea, orden, args) {
+function ejecuta(tarea, orden, args, alLinea) {
   return new Promise((resolve) => {
     /* Con segundos: dos pasadas de la misma tarea dentro del mismo minuto
        compartían fichero y la segunda borraba el registro de la primera, que
@@ -197,10 +201,20 @@ function ejecuta(tarea, orden, args) {
 
     const hijo = spawn(orden, args, { cwd: RAIZ, windowsHide: true });
 
+    let resto = "";
+
     const recoge = (trozo) => {
       salida.write(trozo);
 
       texto = (texto + trozo.toString()).slice(-20_000);
+
+      if (!alLinea) return;
+
+      const lineas = (resto + trozo.toString()).split(/\r?\n/);
+
+      resto = lineas.pop() ?? "";
+
+      for (const linea of lineas) alLinea(linea);
     };
 
     hijo.stdout.on("data", recoge);
@@ -235,7 +249,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -332,6 +346,64 @@ async function haceCarpeta() {
   await acaba("carpeta", codigo === 0, dice);
 
   apunta(`Carpeta: ${dice}.`);
+}
+
+/**
+ * El análisis del último partido, de principio a fin.
+ *
+ * Tarda horas (mirar en vídeo cada jugada a balón parado), así que va dejando
+ * en el encargo por dónde va: el script escribe «PASO: …» y se copia aquí, sin
+ * escribir más de una vez cada veinte segundos.
+ */
+async function haceAnalisisPartido() {
+  await empieza("partido");
+
+  apunta("Partido: empieza el análisis del último partido…");
+
+  let ultimoPaso = 0;
+
+  const ponPaso = (texto) => {
+    if (Date.now() - ultimoPaso < 20_000) return;
+
+    ultimoPaso = Date.now();
+
+    marca("partido", { paso: texto }).catch(() => {});
+  };
+
+  const { codigo, texto } = await ejecuta(
+    "partido",
+    process.execPath,
+    [path.join(RAIZ, "scripts/analisis-partido.cjs")],
+    (linea) => {
+      const paso = linea.match(/^PASO:\s*(.+)$/)?.[1];
+
+      if (paso) ponPaso(paso.trim());
+    },
+  );
+
+  let secciones = null;
+
+  try {
+    const lineas = texto.match(/SECCIONES:\s*(\[.*\])/g) ?? [];
+
+    secciones = JSON.parse(lineas[lineas.length - 1].replace(/^SECCIONES:\s*/, ""));
+  } catch {
+    /* sin el desglose, queda el resumen */
+  }
+
+  const dice =
+    resumen(texto) ||
+    (codigo === 0 ? "hecho" : codigo === 3 ? "el partido aún no está en Hudl" : `ha fallado (código ${codigo})`);
+
+  await marca("partido", {
+    hechoEn: new Date().toISOString(),
+    ok: codigo === 0,
+    resultado: dice,
+    paso: "",
+    ...(secciones ? { secciones } : {}),
+  });
+
+  apunta(`Partido: ${dice}.`);
 }
 
 /** ¿Está corriendo la tarea programada de la jornada? */
@@ -438,6 +510,7 @@ async function ronda() {
     rivales: estadoEncargo("rivales", encargos.rivales),
     wyscout: estadoEncargo("wyscout", encargos.wyscout),
     carpeta: estadoEncargo("carpeta", encargos.carpeta),
+    partido: estadoEncargo("partido", encargos.partido),
   };
 
   if (estados.carpeta === "pedido" && !enMarcha.has("carpeta")) {
@@ -448,8 +521,14 @@ async function ronda() {
     arranca("quiniela", haceQuiniela);
   }
 
-  if (estados.wyscout === "pedido" && !enMarcha.has("wyscout")) {
+  /* Wyscout y el análisis del partido manejan el mismo Chrome (perfil y
+     puerto): el segundo espera, pedido, a que acabe el primero. */
+  if (estados.wyscout === "pedido" && !enMarcha.has("wyscout") && !enMarcha.has("partido")) {
     arranca("wyscout", haceWyscout);
+  }
+
+  if (estados.partido === "pedido" && !enMarcha.has("partido") && !enMarcha.has("wyscout")) {
+    arranca("partido", haceAnalisisPartido);
   }
 
   /* Los rivales: se mira la tarea sólo cuando hay algo que mirar, que cada
