@@ -72,6 +72,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { strFromU8, unzipSync } from "fflate";
+import { esperaTurno } from "./chrome-turno.mjs";
 
 /* ------------------------------------------------------------------ */
 /*  AJUSTES                                                            */
@@ -1905,6 +1906,10 @@ async function principal() {
   console.log(`  grupo    ${GRUPO}\n`);
 
   fs.mkdirSync(DESTINO, { recursive: true });
+
+  /* El Chrome lo comparte con Hudl (el análisis del partido): por turnos.
+     Si a la hora y media sigue ocupado, se sigue igual, como antes. */
+  await esperaTurno("Wyscout (descarga de la liga)");
 
   const chrome = abreChrome();
 

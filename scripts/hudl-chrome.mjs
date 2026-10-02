@@ -18,6 +18,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { esperaTurno, sueltaTurno } from "./chrome-turno.mjs";
+
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const PERFIL = path.join(
@@ -54,6 +56,11 @@ async function pestanas() {
  * `cierra()`, que guarda las cookies y deja Chrome como estaba.
  */
 export async function abreHudl() {
+  /* Por turnos con la descarga de Wyscout: mismo perfil y mismo puerto. */
+  if (!(await esperaTurno("Hudl (análisis del partido)"))) {
+    throw new Error("el Chrome del club lleva más de hora y media ocupado con otra cosa");
+  }
+
   let loAbrimos = false;
 
   if (!(await pestanas())) {
@@ -185,6 +192,8 @@ export async function abreHudl() {
     } catch {
       /* nada */
     }
+
+    sueltaTurno();
   }
 
   return { manda, js, al, cierra };

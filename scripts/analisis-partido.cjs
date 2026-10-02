@@ -143,11 +143,28 @@ async function localiza() {
 
   const pedida = Number(arg("jornada"));
 
-  const jugados = partidos.filter((p) => p.jugado && Date.parse(p.cuando) < Date.now());
+  /*
+  | Por FECHA, no por «tiene marcador». El calendario se refresca cada seis
+  | horas: pulsado la noche del partido, el último con marcador era el
+  | anterior y se rehacía la jornada pasada entera. El último que ya ha
+  | terminado (dos horas y media de gracia) es el que toca; si aún no tiene
+  | marcador, se espera.
+  */
+  const corte = Date.now() - 2.5 * 3_600_000;
 
-  const elegido = pedida ? partidos.find((p) => p.jornada === pedida) : jugados[jugados.length - 1];
+  const terminados = partidos.filter((p) => Date.parse(p.cuando) < corte);
+
+  const elegido = pedida ? partidos.find((p) => p.jornada === pedida) : terminados[terminados.length - 1];
 
   if (!elegido) throw new Error(pedida ? `no hay jornada ${pedida} en el calendario` : "el calendario no tiene ningún partido jugado");
+
+  if (!elegido.jugado) {
+    const error = new Error(`la J${elegido.jornada} (${elegido.rival}) aún no tiene marcador en el calendario: se puede volver a pedir en un rato`);
+
+    error.codigo = 3;
+
+    throw error;
+  }
 
   return elegido;
 }
@@ -184,15 +201,26 @@ async function nombreEnHoja(rival) {
   return rival.toUpperCase();
 }
 
-/** «Atlético Madrileño» → «atletico-madrileno»; «UE Sant Andreu» → «sant-andreu». */
-const slugDe = (rival) =>
-  sinTildes(rival)
+/**
+ * «J6 Atlético Madrileño» → «j06-atletico-madrileno».
+ *
+ * Con la jornada delante: en la segunda vuelta se repiten los rivales y, sin
+ * ella, el J30 del Alcorcón pisaba las carpetas de faltas y robos del J5.
+ */
+const slugDe = (jornada, rival) =>
+  `j${String(jornada).padStart(2, "0")}-${sinTildes(rival)
     .split(/[^a-z0-9ñ]+/)
     .filter((p) => p.length > 2)
     .join("-")
-    .replace(/ñ/g, "n");
+    .replace(/ñ/g, "n")}`;
 
-/** La grabación táctica: «J 06 - …» en PARTIDOS, o la que nombre al rival. */
+/**
+ * La grabación táctica: «J 06 - …» en PARTIDOS.
+ *
+ * Si no hay ninguna con la jornada, sólo vale una SIN número de jornada que
+ * nombre al rival entero: con números, en la segunda vuelta se cogía en
+ * silencio el vídeo de la primera.
+ */
 function videoTactico(jornada, rival) {
   if (!fs.existsSync(PARTIDOS)) return null;
 
@@ -204,7 +232,9 @@ function videoTactico(jornada, rival) {
 
   const suyas = palabras(rival);
 
-  const porRival = videos.find((f) => suyas.some((p) => sinTildes(f).includes(p)));
+  const porRival = videos.find(
+    (f) => !/^J\s*\d+/i.test(f) && suyas.length > 0 && suyas.every((p) => sinTildes(f).includes(p)),
+  );
 
   return porRival ? path.join(PARTIDOS, porRival).replace(/\\/g, "/") : null;
 }
@@ -217,8 +247,26 @@ function git(...args) {
   return execFileSync("git", args, { cwd: RAIZ, encoding: "utf8" }).trim();
 }
 
-/** Sube sólo los ficheros de datos del partido; nada más del árbol. */
+/**
+ * Sube sólo los ficheros de datos del partido; nada más del árbol.
+ *
+ * Si antes de empezar ya había commits locales sin subir (de alguien que está
+ * trabajando en este ordenador), no se sube nada: un push los mandaría a
+ * Vercel sin que nadie lo haya decidido. Y si traer lo de fuera choca, se
+ * deja el repositorio como estaba en vez de a medio rebase.
+ */
 function publica(mensaje, rutas) {
+  try {
+    git("fetch", "-q", "origin");
+  } catch {
+    /* sin red: el push dirá */
+  }
+
+  /* Los commits propios de una pasada anterior que no llegó a subir, sí. */
+  const ajenos = git("log", "origin/main..HEAD", "--format=%s")
+    .split(/\r?\n/)
+    .filter((linea) => linea && !linea.startsWith("Análisis del partido:")).length;
+
   /* Los generadores reescriben siempre la línea «Generado: <fecha>»: si es lo
      único que cambia, no es un cambio y no se sube. */
   for (const r of rutas) {
@@ -239,11 +287,28 @@ function publica(mensaje, rutas) {
 
   if (git("rev-list", "--count", "origin/main..HEAD") === "0") return cambiadas.length ? "subido" : "sin cambios";
 
+  if (ajenos > 0) {
+    throw new Error(
+      `en este ordenador había ${ajenos} commit(s) sin subir que no son del análisis: se ha guardado en git pero no se ha subido (un «git push» a mano lo publica todo)`,
+    );
+  }
+
   try {
     git("push");
   } catch {
     /* Otro ordenador ha subido algo: se trae y se vuelve a subir. */
-    git("pull", "--rebase", "--autostash");
+    try {
+      git("pull", "--rebase", "--autostash");
+    } catch (error) {
+      try {
+        git("rebase", "--abort");
+      } catch {
+        /* no había rebase a medias */
+      }
+
+      throw new Error(`no se ha podido traer lo de GitHub para subir (${String(error.message).split("\n")[0]})`);
+    }
+
     git("push");
   }
 
@@ -263,7 +328,7 @@ async function principal() {
 
   const rivalHoja = await nombreEnHoja(partido.rival);
 
-  const slug = slugDe(partido.rival);
+  const slug = slugDe(partido.jornada, partido.rival);
 
   const fecha = partido.cuando.slice(0, 10);
 
@@ -473,9 +538,11 @@ async function principal() {
       "No escribas en las hojas ni hagas git: eso lo hace el script que te ha llamado cuando acabes. Tu trabajo son los ficheros que pide el manual.",
     ].join("\n");
 
+    /* Un `.cmd` no se puede lanzar sin shell en Node 24 (EINVAL). */
     const c = await corre(
-      CLAUDE,
+      CLAUDE.endsWith(".cmd") ? "cmd.exe" : CLAUDE,
       [
+        ...(CLAUDE.endsWith(".cmd") ? ["/d", "/c", CLAUDE] : []),
         "-p",
         encargo,
         "--permission-mode",
@@ -517,6 +584,10 @@ async function principal() {
   const e = await node("scripts/partido/escribir.cjs", "--carpeta", CARPETA, "--hoja");
 
   console.log(`Hojas: ${e.resumen}`);
+
+  /* Lo que no se pudo escribir —un choque con filas puestas a mano— tiene que
+     llegar a la pantalla: es justo lo que alguien debe mirar. */
+  for (const s of seccionesDe(e.texto) ?? []) if (!s.ok) anota(`Hoja · ${s.nombre}`, false, s.detalle);
 
   /* Con los desfases ya medidos, los robos van al segundo bueno de la táctica. */
   await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
@@ -582,6 +653,10 @@ async function termina(carpeta, codigoForzado) {
 }
 
 principal().catch((error) => {
-  console.log(`RESUMEN: el análisis del partido se ha roto (${error.message})`);
-  process.exitCode = 1;
+  console.log(
+    error.codigo === 3
+      ? `RESUMEN: ${error.message}`
+      : `RESUMEN: el análisis del partido se ha roto (${error.message})`,
+  );
+  process.exitCode = error.codigo === 3 ? 3 : 1;
 });

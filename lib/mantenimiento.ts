@@ -69,6 +69,9 @@ export type Vigia = {
   equipo?: string;
   /** Lo que está haciendo ahora mismo. */
   ocupado?: Tarea[];
+  /** Por dónde va el análisis del partido, si está en marcha (va aquí y no en
+      el encargo para no reescribir los encargos cada pocos segundos). */
+  paso?: string;
 };
 
 /** Más de esto sin latido y el vigía se da por apagado. */

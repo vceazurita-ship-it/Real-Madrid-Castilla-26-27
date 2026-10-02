@@ -229,7 +229,8 @@ function git(...args) {
 
     const datos = fs.readFileSync(path.join(REPO, "lib", "faltas", "datos.ts"), "utf8");
 
-    const enApp = datos.includes(`"id": "${P.slug}"`) || datos.includes(`id: "${P.slug}"`);
+    /* Por su carpeta o, si el partido ya estaba escrito a mano en el generador, por su fecha. */
+    const enApp = datos.includes(`"id": "${P.slug}"`) || datos.includes(`"fecha": "${P.fecha}"`);
 
     const quiere = conteo ? conteo.faltas : { aFavor: of, enContra: def };
 
@@ -264,7 +265,8 @@ function git(...args) {
 
     const datos = fs.readFileSync(path.join(REPO, "lib", "transiciones", "datos.ts"), "utf8");
 
-    const enApp = datos.includes(`"id": "${P.slug}"`) || datos.includes(`id: "${P.slug}"`);
+    /* Por su carpeta o, si el partido ya estaba escrito a mano en el generador, por su fecha. */
+    const enApp = datos.includes(`"id": "${P.slug}"`) || datos.includes(`"fecha": "${P.fecha}"`);
 
     apunta(
       "Robos y transiciones",

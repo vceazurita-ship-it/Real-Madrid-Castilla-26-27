@@ -73,7 +73,7 @@ for (const m of EQ.moments.items) {
   for (const p of tag(m, "09 - Players")) equipo[p] ??= nuestro ? "RMC" : "RIV";
 }
 
-const inicioT2 = EQ.moments.items.filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b)[1];
+const inicioT2 = EQ.moments.items.filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b)[1] ?? Infinity;
 
 const ev = JUG.moments.items
   .filter((m) => cod(m) !== "Periods")
@@ -186,7 +186,8 @@ function desenlaceDe(e, i) {
 const aTactica = (t) => {
   const tramos = TRAMOS[PARTIDO] || [];
   const tr = tramos.find((x) => t < x.hasta);
-  return Math.round(t + (tr ? tr.d : 0));
+  /* Nunca negativo: con un desfase negativo al principio caía en el bloque −300, que no se escribe. */
+  return Math.max(0, Math.round(t + (tr ? tr.d : 0)));
 };
 
 const reloj = (t) => {

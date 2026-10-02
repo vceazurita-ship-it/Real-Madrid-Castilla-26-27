@@ -58,14 +58,18 @@ async function publicada(clave) {
  * Tras publicar una versión, Google tarda en servirla en todos sus servidores
  * y una llamada puede contestar con la vieja: se reintenta a los 20 s.
  */
-async function mandaHoja(cuerpo) {
+async function mandaHoja(cuerpo, { reintenta = true } = {}) {
   const url = urlEscritura();
 
   if (!url) throw new Error("falta ABP_ESCRITURA_URL en lib/abp/sheets.ts");
 
   let ultimo = "";
 
-  for (let i = 0; i < 4; i++) {
+  /* Sólo lo que se puede repetir sin estropear nada: `actualizarFilas` sí
+     (escribe lo mismo en las mismas filas); `anadirFilas` no (duplica). */
+  for (let i = 0; i < (reintenta ? 4 : 1); i++) {
+    if (i > 0) await espera(20_000);
+
     try {
       const texto = await fetch(url, {
         method: "POST",
@@ -81,8 +85,6 @@ async function mandaHoja(cuerpo) {
     } catch (error) {
       ultimo = error.message;
     }
-
-    await espera(20_000);
   }
 
   throw new Error(`la hoja no escribe: ${ultimo}`);

@@ -140,7 +140,12 @@ for (const carpeta of existsSync(ORIGEN) ? readdirSync(ORIGEN) : []) {
   if (!existsSync(fichero) || PARTIDOS.some((p) => p.id === carpeta)) continue;
 
   try {
-    PARTIDOS.push({ ...JSON.parse(readFileSync(fichero, "utf8")), id: carpeta });
+    const datos = JSON.parse(readFileSync(fichero, "utf8"));
+
+    /* El mismo partido ya escrito arriba a mano (J4, J5 en carpetas sin jornada): manda el de arriba. */
+    if (PARTIDOS.some((p) => p.fecha && p.fecha === datos.fecha)) continue;
+
+    PARTIDOS.push({ ...datos, id: carpeta });
   } catch (error) {
     console.warn(`${fichero}: no se puede leer (${error.message})`);
   }

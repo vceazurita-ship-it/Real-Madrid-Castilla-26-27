@@ -131,10 +131,10 @@ function EstadoLinea({
           <span>
             En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} ·{" "}
             {TARDA[tarea]}. Puedes cerrar esta página: sigue igual.
-            {encargo?.paso ? (
+            {tarea === "partido" && (vigia?.paso || encargo?.paso) ? (
               <>
                 <br />
-                <span className="text-white/60">Ahora: {encargo.paso}</span>
+                <span className="text-white/60">Ahora: {vigia?.paso || encargo?.paso}</span>
               </>
             ) : null}
           </span>

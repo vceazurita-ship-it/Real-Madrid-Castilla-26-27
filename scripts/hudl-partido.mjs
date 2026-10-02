@@ -66,13 +66,23 @@ async function principal() {
   const nav = await abreHudl();
 
   /* Lo que va contestando la página: cuerpo pedido a la carta. */
+  /*
+  | El cuerpo se pide cuando la respuesta ha terminado de llegar
+  | (`loadingFinished`), no con las cabeceras: el timeline pesa ~2 MB y,
+  | pedido antes, podía venir vacío y darse el partido por «sin timeline».
+  */
   const respuestas = [];
+  const pendientes = new Set();
+
+  nav.al("Network.loadingFinished", (p) => {
+    if (pendientes.delete(p.requestId)) respuestas.push(p.requestId);
+  });
   const hls = [];
 
   nav.al("Network.responseReceived", (p) => {
     const url = p.response?.url ?? "";
 
-    if (/\/api\/graphql\/query/.test(url)) respuestas.push(p.requestId);
+    if (/\/api\/graphql\/query/.test(url)) pendientes.add(p.requestId);
 
     if (/video\.ondemand\.m3u8/.test(url)) hls.push(url);
   });
@@ -172,6 +182,7 @@ async function principal() {
 
     for (const v of candidatos) {
       respuestas.length = 0;
+      pendientes.clear();
       hls.length = 0;
 
       await nav.manda("Page.navigate", { url: `https://www.hudl.com/watch/video/${v.id}` });

@@ -122,14 +122,49 @@ function adapta(fila, cabecera, existentes) {
     const firmasYa = ya.map(firma);
     const firmasNuevas = filas.map(firma);
 
+    /*
+    | ¿Las filas que hay son las que escribió este script la última vez? Se
+    | guarda lo escrito en `hoja/escrito-<pestaña>.json`. Si la hoja sigue
+    | igual, son nuestras y se pueden corregir aunque cambien los minutos (la
+    | segunda pasada pone el del reloj de la TV) o haya más filas. Si alguien
+    | las ha tocado a mano, ya no son nuestras y no se pisan.
+    */
+    const registro = path.join(CARPETA, "hoja", `escrito-${clave}.json`);
+
+    const escritas = fs.existsSync(registro) ? JSON.parse(fs.readFileSync(registro, "utf8")) : null;
+
+    const nuestras = Array.isArray(escritas) && escritas.length === firmasYa.length && escritas.every((x, i) => x === firmasYa[i]);
+
+    /* Lo que falta de `b` en `a`, contando repetidas: dos saques en el mismo minuto son dos. */
+    const resta = (a, b) => {
+      const quedan = [...b];
+
+      return a.filter((x) => {
+        const i = quedan.indexOf(firma(x));
+
+        if (i < 0) return true;
+
+        quedan.splice(i, 1);
+
+        return false;
+      });
+    };
+
     if (!filas.length) plan = { tipo: "nada" };
     else if (!ya.length) plan = { tipo: "anadir", filas };
-    else if (ya.length === filas.length && firmasYa.join(",") === firmasNuevas.join(",")) plan = { tipo: "reescribir", filas };
-    else if (ya.length < filas.length && firmasYa.every((x) => firmasNuevas.includes(x))) {
-      plan = { tipo: "completar", filas: filas.filter((f) => !firmasYa.includes(firma(f))) };
+    else if (ya.length === filas.length && (nuestras || firmasYa.join(",") === firmasNuevas.join(","))) plan = { tipo: "reescribir", filas };
+    else if (nuestras && ya.length < filas.length) {
+      plan = { tipo: "reescribir+anadir", filas: filas.slice(0, ya.length), mas: filas.slice(ya.length) };
+    } else if (ya.length < filas.length && resta(filas, firmasYa).length === filas.length - ya.length) {
+      /* Las de la hoja (puestas a mano) se respetan tal cual; se añaden las que faltan. */
+      plan = { tipo: "completar", filas: resta(filas, firmasYa) };
     } else plan = { tipo: "choque" };
 
-    console.log(`  plan: ${plan.tipo}${plan.filas ? ` (${plan.filas.length})` : ""}`);
+    console.log(`  plan: ${plan.tipo}${plan.filas ? ` (${plan.filas.length}${plan.mas ? ` + ${plan.mas.length}` : ""})` : ""}${nuestras ? " · son las que escribió este script" : ""}`);
+
+    /* Lo que quedará en la hoja, en su orden, para reconocerlo la próxima vez. */
+    const quedara =
+      plan.tipo === "completar" ? [...firmasYa, ...plan.filas.map(firma)] : firmasNuevas;
 
     if (plan.tipo === "choque") {
       secciones.push({
@@ -142,22 +177,36 @@ function adapta(fila, cabecera, existentes) {
       continue;
     }
 
-    if (ESCRIBE && plan.tipo === "anadir") {
-      const r = await mandaHoja({ action: "anadirFilas", gid: hoja.gid, filas: plan.filas });
+    /*
+    | Añadir NO se reintenta: si el Apps Script escribió pero la respuesta se
+    | perdió (arranque en frío de 30-70 s), repetirlo duplicaba las filas. Si
+    | falla, la sección queda sin hacer y la próxima pasada ve lo que haya.
+    */
+    try {
+      if (ESCRIBE && (plan.tipo === "reescribir" || plan.tipo === "reescribir+anadir")) {
+        const r = await mandaHoja({ action: "actualizarFilas", gid: hoja.gid, clave: CLAVE, filas: plan.filas });
 
-      console.log(`  ✓ ${r.escritas} filas desde la fila ${r.desdeLaFila}`);
-    }
+        console.log(`  ✓ reescritas ${r.filas.length} filas (${r.celdas} celdas)`);
+      }
 
-    if (ESCRIBE && plan.tipo === "completar") {
-      const r = await mandaHoja({ action: "anadirFilas", gid: hoja.gid, filas: plan.filas });
+      const anadir = plan.tipo === "anadir" || plan.tipo === "completar" ? plan.filas : plan.mas;
 
-      console.log(`  ✓ ${r.escritas} filas que faltaban, desde la fila ${r.desdeLaFila}`);
-    }
+      if (ESCRIBE && anadir?.length) {
+        const r = await mandaHoja({ action: "anadirFilas", gid: hoja.gid, filas: anadir }, { reintenta: false });
 
-    if (ESCRIBE && plan.tipo === "reescribir") {
-      const r = await mandaHoja({ action: "actualizarFilas", gid: hoja.gid, clave: CLAVE, filas: plan.filas });
+        console.log(`  ✓ ${r.escritas} filas añadidas desde la fila ${r.desdeLaFila}`);
+      }
 
-      console.log(`  ✓ reescritas ${r.filas.length} filas (${r.celdas} celdas)`);
+      if (ESCRIBE && plan.tipo !== "nada") fs.writeFileSync(registro, JSON.stringify(quedara), "utf8");
+    } catch (error) {
+      secciones.push({
+        clave,
+        nombre: hoja.nombre,
+        ok: false,
+        detalle: `la hoja no ha contestado bien (${error.message}): se vuelve a intentar en la próxima pasada`,
+      });
+
+      continue;
     }
 
     secciones.push({ clave, nombre: hoja.nombre, esperadas: filas.length, ok: null, detalle: "" });

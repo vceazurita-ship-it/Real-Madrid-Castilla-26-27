@@ -355,20 +355,22 @@ async function haceCarpeta() {
  * en el encargo por dónde va: el script escribe «PASO: …» y se copia aquí, sin
  * escribir más de una vez cada veinte segundos.
  */
+/**
+ * Por dónde va el análisis del partido. Viaja en el LATIDO, no en el
+ * documento de encargos: reescribir ése cada pocos segundos durante horas
+ * ensanchaba la carrera con los botones de Ajustes —un pedido que entrara
+ * entre la lectura y la escritura se perdía—. El latido es sólo del vigía.
+ */
+let pasoPartido = "";
+
 async function haceAnalisisPartido() {
-  await empieza("partido");
+  /* Al empezar se limpian las secciones de la pasada anterior: si ésta se
+     rompe, la pantalla no puede enseñar las ✓ de la otra. */
+  await marca("partido", { empezadoEn: new Date().toISOString(), secciones: [], paso: "" });
 
   apunta("Partido: empieza el análisis del último partido…");
 
-  let ultimoPaso = 0;
-
-  const ponPaso = (texto) => {
-    if (Date.now() - ultimoPaso < 20_000) return;
-
-    ultimoPaso = Date.now();
-
-    marca("partido", { paso: texto }).catch(() => {});
-  };
+  pasoPartido = "empezando";
 
   const { codigo, texto } = await ejecuta(
     "partido",
@@ -377,9 +379,11 @@ async function haceAnalisisPartido() {
     (linea) => {
       const paso = linea.match(/^PASO:\s*(.+)$/)?.[1];
 
-      if (paso) ponPaso(paso.trim());
+      if (paso) pasoPartido = paso.trim();
     },
-  );
+  ).finally(() => {
+    pasoPartido = "";
+  });
 
   let secciones = null;
 
@@ -400,7 +404,7 @@ async function haceAnalisisPartido() {
     ok: codigo === 0,
     resultado: dice,
     paso: "",
-    ...(secciones ? { secciones } : {}),
+    secciones: secciones ?? [],
   });
 
   apunta(`Partido: ${dice}.`);
@@ -491,7 +495,7 @@ async function latido() {
     {
       key: CLAVE_VIGIA,
       kind: "mantenimiento",
-      data: { vistoEn: new Date().toISOString(), equipo: os.hostname(), ocupado },
+      data: { vistoEn: new Date().toISOString(), equipo: os.hostname(), ocupado, ...(pasoPartido ? { paso: pasoPartido } : {}) },
       updated_at: new Date().toISOString(),
     },
     { onConflict: "key" },
