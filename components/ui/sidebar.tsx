@@ -58,6 +58,7 @@ import {
   UserCheck,
   UserSearch,
   Users,
+  UsersRound,
   X,
 } from "lucide-react"
 import type { ReactNode } from "react"
@@ -323,6 +324,9 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Crear o editar microciclo",
                 <ClipboardPlus size={18} />,
               )}
+
+              {/* Los equipos de cada tarea con la lista del día (02/10/2026). */}
+              {navLink("/jugadores-sesion", "Jugadores Sesión", <UsersRound size={18} />)}
 
               {navLink("/calendar", "Calendario Seguimiento", <CalendarCheck size={18} />)}
 

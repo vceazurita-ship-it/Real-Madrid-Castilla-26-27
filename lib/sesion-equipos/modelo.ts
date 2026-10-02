@@ -1,0 +1,556 @@
+/**
+ * JUGADORES DE LA SESIÓN: LOS EQUIPOS DE CADA TAREA.
+ *
+ * El cuerpo técnico recibe cada día la lista de la sesión en texto —la manda
+ * el delegado así:
+ *
+ *   CASTILLA - SÁBADO 26/09/26
+ *   ==========================
+ *   LISTADO DE JUGADORES (20):
+ *     - OSCAR NAASEI
+ *     - MELVIN UKPEIGBE (RMC)
+ *   LESIONADOS:
+ *     - IZAN REGUEIRA
+ *
+ * y con ella hace los equipos de cada tarea. Aquí está todo lo que no es
+ * pantalla: leer ese texto, la forma de lo que se guarda, el validador (nadie
+ * olvidado, nadie en dos sitios, comodines y equipos cuadrados) y el reparto
+ * automático. No importa nada de React, así que se puede probar en Node.
+ *
+ * **Cada jugador está en un solo sitio por tarea**: el reparto es un mapa
+ * jugador → sitio, no una lista por equipo. Así repetir a alguien en dos
+ * equipos es imposible por construcción, y el validador sólo tiene que mirar
+ * los repetidos que vengan ya en la lista pegada.
+ */
+
+/* ------------------------------------------------------------------ */
+/*  LA FORMA                                                           */
+/* ------------------------------------------------------------------ */
+
+export type JugadorSesion = {
+  id: string;
+  /** Tal y como viene en la lista: «OSCAR NAASEI». */
+  nombre: string;
+  /** Lo que va entre paréntesis: «RMC», «JA» (jugadores de otro equipo). */
+  etiqueta?: string;
+  /**
+   * Si no está disponible, por qué: el nombre de su apartado en la lista
+   * («Lesionados»). Un lesionado **puede** hacer alguna tarea: por defecto no
+   * entra, pero se le puede meter en un equipo.
+   */
+  baja?: string;
+};
+
+export type EquipoTarea = {
+  id: string;
+  nombre: string;
+  /** «#F97316». */
+  color: string;
+};
+
+/** Dónde está cada jugador en una tarea. Sin entrada = todavía sin sitio. */
+export type Sitio = string | typeof COMODIN | typeof FUERA;
+
+export const COMODIN = "comodin";
+
+/** No hace esta tarea (descansa, va con el preparador, o es la baja). */
+export const FUERA = "fuera";
+
+export type TareaEquipos = {
+  id: string;
+  nombre: string;
+  equipos: EquipoTarea[];
+  /** Cuántos comodines lleva; 0 es sin comodines. */
+  comodines: number;
+  colorComodin: string;
+  sitio: Record<string, Sitio>;
+};
+
+export type SesionEquipos = {
+  id: string;
+  /** «CASTILLA - SÁBADO 26/09/26». */
+  titulo: string;
+  /** «2026-09-26», si el título trae fecha. */
+  fecha?: string;
+  /** El texto que se pegó, para poder volver a él. */
+  texto: string;
+  jugadores: JugadorSesion[];
+  tareas: TareaEquipos[];
+  creadaEn: string;
+};
+
+export type AlmacenEquipos = { sesiones: SesionEquipos[] };
+
+export const ALMACEN_VACIO: AlmacenEquipos = { sesiones: [] };
+
+/* ------------------------------------------------------------------ */
+/*  COLORES                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Los petos del club. Los cuatro primeros son los de por defecto. */
+export const COLORES = [
+  { nombre: "Naranja", valor: "#F97316" },
+  { nombre: "Verde", valor: "#22C55E" },
+  { nombre: "Amarillo", valor: "#FACC15" },
+  { nombre: "Azul", valor: "#3B82F6" },
+  { nombre: "Rojo", valor: "#EF4444" },
+  { nombre: "Rosa", valor: "#EC4899" },
+  { nombre: "Morado", valor: "#8B5CF6" },
+  { nombre: "Celeste", valor: "#38BDF8" },
+  { nombre: "Blanco", valor: "#F4F4F5" },
+  { nombre: "Gris", valor: "#71717A" },
+  { nombre: "Negro", valor: "#18181B" },
+] as const;
+
+export const COLOR_COMODIN = "#F4F4F5";
+
+export const nombreDeColor = (valor: string) =>
+  COLORES.find((c) => c.valor.toLowerCase() === valor.toLowerCase())?.nombre ?? "Equipo";
+
+/** ¿Letra clara u oscura sobre este color? Luminancia relativa de WCAG. */
+export function tintaSobre(hex: string) {
+  const limpio = hex.replace("#", "");
+
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const c = parseInt(limpio.slice(i, i + 2), 16) / 255;
+
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+
+  const luz = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+  return luz > 0.4 ? "#0B0F14" : "#FFFFFF";
+}
+
+/* ------------------------------------------------------------------ */
+/*  IDENTIFICADORES Y NOMBRES                                          */
+/* ------------------------------------------------------------------ */
+
+export const nuevoId = (prefijo: string) =>
+  `${prefijo}-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
+
+/** «Álvaro  Leiva» → «alvaro leiva»: para casar nombres al volver a pegar. */
+export const claveNombre = (nombre: string) =>
+  nombre
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9ñ]+/g, " ")
+    .trim();
+
+/* ------------------------------------------------------------------ */
+/*  LEER LA LISTA PEGADA                                               */
+/* ------------------------------------------------------------------ */
+
+export type ListaLeida = {
+  titulo: string;
+  fecha?: string;
+  jugadores: Omit<JugadorSesion, "id">[];
+  /** Nombres que salen dos veces en la lista: el validador los enseña. */
+  repetidos: string[];
+};
+
+/** Un apartado de disponibles: «LISTADO DE JUGADORES», «CONVOCADOS»… */
+const ES_DISPONIBLE = /jugador|convocad|listado|disponible|plantilla/i;
+
+function capitaliza(texto: string) {
+  const t = texto.trim().toLowerCase();
+
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** «26/09/26» o «26/09/2026» → «2026-09-26». */
+function fechaDe(texto: string) {
+  const m = texto.match(/(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/);
+
+  if (!m) return undefined;
+
+  const anio = m[3].length === 2 ? `20${m[3]}` : m[3];
+
+  return `${anio}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
+/**
+ * Lee el texto del delegado.
+ *
+ * Es tolerante a propósito: la primera línea con letras es el título; una
+ * línea que acaba en «:» abre un apartado; una que empieza por guion, punto o
+ * asterisco es un jugador. Un apartado que no es el listado («LESIONADOS»,
+ * «ENFERMOS», «SELECCIÓN»…) deja a sus jugadores como baja con ese motivo.
+ * Si no hay ningún apartado, todas las líneas sueltas son jugadores.
+ */
+export function leeLista(texto: string): ListaLeida {
+  const lineas = texto.replace(/\r/g, "").split("\n");
+
+  let titulo = "";
+  let apartado: string | null = null;
+
+  const jugadores: Omit<JugadorSesion, "id">[] = [];
+  const vistos = new Map<string, number>();
+
+  const anota = (crudo: string) => {
+    let nombre = crudo.trim().replace(/\s+/g, " ");
+
+    if (!nombre) return;
+
+    let etiqueta: string | undefined;
+
+    const parentesis = nombre.match(/\(([^)]+)\)\s*$/);
+
+    if (parentesis) {
+      etiqueta = parentesis[1].trim();
+      nombre = nombre.slice(0, parentesis.index).trim();
+    }
+
+    const clave = claveNombre(nombre);
+
+    if (!clave) return;
+
+    vistos.set(clave, (vistos.get(clave) ?? 0) + 1);
+
+    const baja = apartado && !ES_DISPONIBLE.test(apartado) ? capitaliza(apartado) : undefined;
+
+    jugadores.push({ nombre, ...(etiqueta ? { etiqueta } : {}), ...(baja ? { baja } : {}) });
+  };
+
+  const hayApartados = lineas.some((l) => /^[^-•*].*:\s*$/.test(l.trim()));
+
+  for (const cruda of lineas) {
+    const linea = cruda.trim();
+
+    if (!linea || /^[=\-_~*\s]+$/.test(linea)) continue;
+
+    const item = linea.match(/^[-•*·]\s*(.+)$/);
+
+    if (item) {
+      anota(item[1]);
+
+      continue;
+    }
+
+    if (/:\s*$/.test(linea)) {
+      apartado = linea.replace(/:\s*$/, "").replace(/\(\s*\d+\s*\)/, "").trim();
+
+      continue;
+    }
+
+    if (!titulo) {
+      titulo = linea;
+
+      continue;
+    }
+
+    /* Sin apartados, una línea suelta es un jugador. */
+    if (!hayApartados) anota(linea);
+  }
+
+  const repetidos = jugadores
+    .filter((j, i, todos) => (vistos.get(claveNombre(j.nombre)) ?? 0) > 1 && todos.findIndex((x) => claveNombre(x.nombre) === claveNombre(j.nombre)) === i)
+    .map((j) => j.nombre);
+
+  return { titulo: titulo || "Sesión", fecha: fechaDe(titulo), jugadores, repetidos };
+}
+
+/* ------------------------------------------------------------------ */
+/*  CREAR Y ACTUALIZAR                                                 */
+/* ------------------------------------------------------------------ */
+
+export function equiposPorDefecto(n: number, previos: EquipoTarea[] = []): EquipoTarea[] {
+  return Array.from({ length: n }, (_, i) => {
+    if (previos[i]) return previos[i];
+
+    const color = COLORES[i % COLORES.length].valor;
+
+    return { id: nuevoId("eq"), nombre: nombreDeColor(color).toUpperCase(), color };
+  });
+}
+
+export function nuevaTarea(numero: number, jugadores: JugadorSesion[]): TareaEquipos {
+  /* Las bajas empiezan fuera: si alguna hace la tarea, se la mete a mano. */
+  const sitio: Record<string, Sitio> = {};
+
+  for (const j of jugadores) if (j.baja) sitio[j.id] = FUERA;
+
+  return {
+    id: nuevoId("ta"),
+    nombre: `Tarea ${numero}`,
+    equipos: equiposPorDefecto(2),
+    comodines: 0,
+    colorComodin: COLOR_COMODIN,
+    sitio,
+  };
+}
+
+export function nuevaSesion(texto: string): SesionEquipos {
+  const lista = leeLista(texto);
+
+  const jugadores = lista.jugadores.map((j) => ({ ...j, id: nuevoId("ju") }));
+
+  return {
+    id: nuevoId("se"),
+    titulo: lista.titulo,
+    ...(lista.fecha ? { fecha: lista.fecha } : {}),
+    texto,
+    jugadores,
+    tareas: [nuevaTarea(1, jugadores)],
+    creadaEn: new Date().toISOString(),
+  };
+}
+
+/**
+ * Vuelve a pegar la lista sobre una sesión que ya tiene equipos.
+ *
+ * Pasa a menudo: llega uno tarde, otro se cae. Los que siguen conservan su
+ * identificador —y con él su sitio en cada tarea—; los nuevos entran sin
+ * sitio (el validador los marca) y los que ya no están desaparecen de todas.
+ */
+export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEquipos {
+  const lista = leeLista(texto);
+
+  const antes = new Map(sesion.jugadores.map((j) => [claveNombre(j.nombre), j]));
+
+  const jugadores: JugadorSesion[] = lista.jugadores.map((j) => {
+    const previo = antes.get(claveNombre(j.nombre));
+
+    return { ...j, id: previo?.id ?? nuevoId("ju") };
+  });
+
+  const ids = new Set(jugadores.map((j) => j.id));
+
+  const tareas = sesion.tareas.map((t) => {
+    const sitio: Record<string, Sitio> = {};
+
+    for (const [id, donde] of Object.entries(t.sitio)) if (ids.has(id)) sitio[id] = donde;
+
+    /* Una baja nueva empieza fuera; si ya tenía sitio, se respeta. */
+    for (const j of jugadores) if (j.baja && !(j.id in sitio)) sitio[j.id] = FUERA;
+
+    return { ...t, sitio };
+  });
+
+  return {
+    ...sesion,
+    titulo: lista.titulo || sesion.titulo,
+    ...(lista.fecha ? { fecha: lista.fecha } : {}),
+    texto,
+    jugadores,
+    tareas,
+  };
+}
+
+/** Cambia el número de equipos; los de los equipos que se quitan, sin sitio. */
+export function conEquipos(tarea: TareaEquipos, n: number): TareaEquipos {
+  const equipos = equiposPorDefecto(n, tarea.equipos.slice(0, n));
+
+  const vivos = new Set(equipos.map((e) => e.id));
+
+  const sitio: Record<string, Sitio> = {};
+
+  for (const [id, donde] of Object.entries(tarea.sitio)) {
+    if (donde === COMODIN || donde === FUERA || vivos.has(donde)) sitio[id] = donde;
+  }
+
+  return { ...tarea, equipos, sitio };
+}
+
+/** Copia de una tarea: mismos equipos y colores, mismo reparto. */
+export function duplicaTarea(tarea: TareaEquipos, nombre: string): TareaEquipos {
+  const ids = new Map(tarea.equipos.map((e) => [e.id, nuevoId("eq")]));
+
+  const sitio: Record<string, Sitio> = {};
+
+  for (const [id, donde] of Object.entries(tarea.sitio)) sitio[id] = ids.get(donde) ?? donde;
+
+  return {
+    ...tarea,
+    id: nuevoId("ta"),
+    nombre,
+    equipos: tarea.equipos.map((e) => ({ ...e, id: ids.get(e.id)! })),
+    sitio,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  QUIÉN ESTÁ DÓNDE                                                   */
+/* ------------------------------------------------------------------ */
+
+export type Reparto = {
+  porEquipo: Record<string, JugadorSesion[]>;
+  comodines: JugadorSesion[];
+  fuera: JugadorSesion[];
+  sinSitio: JugadorSesion[];
+};
+
+export function repartoDe(tarea: TareaEquipos, jugadores: JugadorSesion[]): Reparto {
+  const porEquipo: Record<string, JugadorSesion[]> = Object.fromEntries(tarea.equipos.map((e) => [e.id, []]));
+
+  const reparto: Reparto = { porEquipo, comodines: [], fuera: [], sinSitio: [] };
+
+  for (const j of jugadores) {
+    const donde = tarea.sitio[j.id];
+
+    if (donde === COMODIN) reparto.comodines.push(j);
+    else if (donde === FUERA) reparto.fuera.push(j);
+    else if (donde && porEquipo[donde]) porEquipo[donde].push(j);
+    else reparto.sinSitio.push(j);
+  }
+
+  return reparto;
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL VALIDADOR                                                       */
+/* ------------------------------------------------------------------ */
+
+export type Aviso = {
+  nivel: "error" | "aviso" | "info" | "ok";
+  texto: string;
+};
+
+export function valida(tarea: TareaEquipos, sesion: SesionEquipos): Aviso[] {
+  const r = repartoDe(tarea, sesion.jugadores);
+
+  const avisos: Aviso[] = [];
+
+  /* 1. Nadie olvidado. */
+  if (r.sinSitio.length) {
+    avisos.push({
+      nivel: "error",
+      texto: `${r.sinSitio.length === 1 ? "Falta por colocar" : `Faltan ${r.sinSitio.length} por colocar`}: ${r.sinSitio.map((j) => j.nombre).join(", ")}`,
+    });
+  } else {
+    avisos.push({ nivel: "ok", texto: "Nadie olvidado: todos tienen sitio" });
+  }
+
+  /* 2. Nadie repetido. En la tarea es imposible; en la lista pegada, no. */
+  const repetidos = [
+    ...new Set(
+      sesion.jugadores
+        .map((j) => claveNombre(j.nombre))
+        .filter((clave, i, todas) => todas.indexOf(clave) !== i),
+    ),
+  ];
+
+  if (repetidos.length) {
+    avisos.push({
+      nivel: "error",
+      texto: `En la lista sale dos veces: ${repetidos
+        .map((c) => sesion.jugadores.find((j) => claveNombre(j.nombre) === c)?.nombre ?? c)
+        .join(", ")}`,
+    });
+  } else {
+    avisos.push({ nivel: "ok", texto: "Nadie repetido: cada jugador está en un solo sitio" });
+  }
+
+  /* 3. Equipos. */
+  const tamanos = tarea.equipos.map((e) => r.porEquipo[e.id]?.length ?? 0);
+
+  const vacios = tarea.equipos.filter((e) => !(r.porEquipo[e.id]?.length));
+
+  if (vacios.length) {
+    avisos.push({ nivel: "error", texto: `Sin jugadores: ${vacios.map((e) => e.nombre).join(", ")}` });
+  } else if (Math.max(...tamanos) - Math.min(...tamanos) > 1) {
+    avisos.push({
+      nivel: "aviso",
+      texto: `Equipos descompensados: ${tarea.equipos.map((e, i) => `${e.nombre} ${tamanos[i]}`).join(" · ")}`,
+    });
+  } else {
+    avisos.push({ nivel: "ok", texto: `Equipos de ${[...new Set(tamanos)].sort().join(" y ")}` });
+  }
+
+  /* 4. Comodines. */
+  if (tarea.comodines > 0 && r.comodines.length !== tarea.comodines) {
+    avisos.push({
+      nivel: "aviso",
+      texto: `Comodines: ${r.comodines.length} de ${tarea.comodines}`,
+    });
+  } else if (tarea.comodines === 0 && r.comodines.length > 0) {
+    avisos.push({ nivel: "aviso", texto: `Hay ${r.comodines.length} comodín(es) en una tarea sin comodines` });
+  } else if (tarea.comodines > 0) {
+    avisos.push({ nivel: "ok", texto: `${tarea.comodines} comodín(es) puestos` });
+  }
+
+  /* 5. Colores repetidos: dos equipos con el mismo peto. */
+  const colores = tarea.equipos.map((e) => e.color.toLowerCase());
+
+  if (new Set(colores).size !== colores.length) {
+    avisos.push({ nivel: "aviso", texto: "Dos equipos llevan el mismo color" });
+  }
+
+  if (tarea.comodines > 0 && colores.includes(tarea.colorComodin.toLowerCase())) {
+    avisos.push({ nivel: "aviso", texto: "Los comodines llevan el color de un equipo" });
+  }
+
+  /* 6. Bajas que hacen la tarea: no es un error, pero que se vea. */
+  const bajasDentro = sesion.jugadores.filter((j) => j.baja && tarea.sitio[j.id] && tarea.sitio[j.id] !== FUERA);
+
+  if (bajasDentro.length) {
+    avisos.push({
+      nivel: "info",
+      texto: `Hacen la tarea estando de baja: ${bajasDentro.map((j) => `${j.nombre} (${j.baja?.toLowerCase()})`).join(", ")}`,
+    });
+  }
+
+  return avisos;
+}
+
+export const tareaLista = (avisos: Aviso[]) => !avisos.some((a) => a.nivel === "error");
+
+/* ------------------------------------------------------------------ */
+/*  REPARTO AUTOMÁTICO                                                 */
+/* ------------------------------------------------------------------ */
+
+function baraja<T>(lista: T[], azar: () => number = Math.random) {
+  const copia = [...lista];
+
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(azar() * (i + 1));
+
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+
+  return copia;
+}
+
+/**
+ * Coloca a los que no tienen sitio: primero los comodines que falten, luego
+ * cada uno al equipo más corto. No mueve a nadie que ya esté colocado.
+ */
+export function completaReparto(tarea: TareaEquipos, jugadores: JugadorSesion[], azar?: () => number): TareaEquipos {
+  const r = repartoDe(tarea, jugadores);
+
+  const sitio = { ...tarea.sitio };
+
+  const cola = baraja(r.sinSitio, azar);
+
+  let faltanComodines = Math.max(0, tarea.comodines - r.comodines.length);
+
+  const tamano = Object.fromEntries(tarea.equipos.map((e) => [e.id, r.porEquipo[e.id]?.length ?? 0]));
+
+  for (const j of cola) {
+    if (faltanComodines > 0) {
+      sitio[j.id] = COMODIN;
+      faltanComodines -= 1;
+
+      continue;
+    }
+
+    const corto = [...tarea.equipos].sort((a, b) => tamano[a.id] - tamano[b.id])[0];
+
+    if (!corto) break;
+
+    sitio[j.id] = corto.id;
+    tamano[corto.id] += 1;
+  }
+
+  return { ...tarea, sitio };
+}
+
+/** Sortea de cero a todos los que hacen la tarea (los de fuera se quedan fuera). */
+export function sorteaReparto(tarea: TareaEquipos, jugadores: JugadorSesion[], azar?: () => number): TareaEquipos {
+  const sitio: Record<string, Sitio> = {};
+
+  for (const [id, donde] of Object.entries(tarea.sitio)) if (donde === FUERA) sitio[id] = FUERA;
+
+  return completaReparto({ ...tarea, sitio }, jugadores, azar);
+}
