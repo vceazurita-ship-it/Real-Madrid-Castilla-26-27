@@ -384,14 +384,44 @@ export type TareaDeOtro = {
   tiempo: number;
   intensidad: number;
   exigCog: number;
+  /* Cómo es la tarea: se copia (02/10/2026). */
+  jugadores?: number;
+  densidad?: number;
+  nJug?: number;
+  nComodines?: number;
+  normativa?: number;
+  incertidumbre?: number;
+  familiaridad?: number;
+  motivacion?: number;
 };
+
+/**
+ * Lo que se queda en blanco al copiar una tarea: **tiempo e intensidad** los
+ * rellena otra persona después de la sesión (petición del usuario, 02/10/2026).
+ * Todo lo que describe la tarea —formato, jugadores, el bloque de la demanda
+ * cognitiva— viaja con la copia. La valoración (Evaluación, Análisis Post) es
+ * de la sesión que se hizo y tampoco viaja; el Espacio, sí.
+ */
+export function copiaDeTarea(tarea: TareaNueva): TareaNueva {
+  const extra = tarea.extra?.Espacio !== undefined ? { Espacio: tarea.extra.Espacio } : undefined;
+
+  return {
+    ...tarea,
+    tiempo: 0,
+    intensidad: 0,
+    extra,
+    ceros: tarea.ceros?.filter((columna) => columna !== "Tiempo" && columna !== "Intensidad (1-5)"),
+  };
+}
 
 /**
  * Copia la estructura de otro microciclo sobre el que se está creando.
  *
  * Una semana se parece mucho a la anterior: los mismos tipos de tarea en el
- * mismo sitio, los mismos contenidos, los mismos tiempos. Copiarla y cambiar lo
- * que toque es la mitad del trabajo.
+ * mismo sitio, los mismos contenidos. Copiarla y cambiar lo que toque es la
+ * mitad del trabajo. Viajan el formato y el bloque que alimenta la demanda
+ * cognitiva; **tiempo e intensidad se quedan en blanco**: los pone otra
+ * persona (ver `copiaDeTarea`).
  *
  * **Se ata por MD, no por día de la semana**: el MD-2 de la semana pasada es el
  * MD-2 de ésta aunque uno cayera en sábado y el otro en lunes. Lo que no
@@ -440,9 +470,21 @@ export function copiaEstructura(
         grupo: tarea.grupo || "Plantilla Parcial",
         contenidoPrincipal: tarea.contenidoPrincipal,
         contenidoSecundario: tarea.contenidoSecundario,
-        tiempo: tarea.tiempo,
-        intensidad: tarea.intensidad,
+        tiempo: 0,
+        intensidad: 0,
         exigCog: tarea.exigCog,
+        jugadores: tarea.jugadores ?? 0,
+        densidad: tarea.densidad ?? 0,
+        nJug: tarea.nJug ?? 0,
+        nComodines: tarea.nComodines ?? 0,
+        normativa: tarea.normativa ?? 0,
+        incertidumbre: tarea.incertidumbre ?? 0,
+        familiaridad: tarea.familiaridad ?? 0,
+        motivacion: tarea.motivacion ?? 0,
+        /* Una tarea sin comodines tiene un 0 de verdad en la hoja, y vacío
+           cambia la fórmula de la demanda cognitiva. Con el bloque relleno, el
+           0 es un dato y se escribe. */
+        ceros: (tarea.densidad ?? 0) > 0 && !tarea.nComodines ? (["NºComodines"] as ColumnaRegistro[]) : undefined,
       })),
     });
   });

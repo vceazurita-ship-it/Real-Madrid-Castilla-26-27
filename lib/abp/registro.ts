@@ -49,6 +49,20 @@ export type RegistroTarea = {
   exigCog: number;
   /** «Carga cognitiva» de la hoja. Su fórmula lleva más ingredientes. */
   cargaCog: number;
+  /*
+  | «Nº Jugadores» y el bloque que alimenta la «Demanda Cognitiva» (Densidad…
+  | Motivación). Se leen desde el 02/10/2026 para que copiar un microciclo los
+  | arrastre: describen cómo es la tarea, no cómo salió, y rellenarlos otra vez
+  | en cada copia era el trabajo que se quería ahorrar.
+  */
+  jugadores: number;
+  densidad: number;
+  nJug: number;
+  nComodines: number;
+  normativa: number;
+  incertidumbre: number;
+  familiaridad: number;
+  motivacion: number;
   observaciones: string;
   /*
   | La valoración de la tarea, tal y como la escribió quien la dirigió.
@@ -175,6 +189,14 @@ export async function loadRegistro(): Promise<RegistroDataset> {
     carga: indiceDe(cabeceras, "carga ponderada"),
     exigCog: indiceDe(cabeceras, "exig.cog", "exig cog", "exigencia cog"),
     cargaCog: indiceDe(cabeceras, "carga cognitiva"),
+    jugadores: indiceDe(cabeceras, "nº jugadores", "n jugadores"),
+    densidad: indiceDe(cabeceras, "densidad"),
+    nJug: indiceDe(cabeceras, "nºjug"),
+    nComodines: indiceDe(cabeceras, "nºcomodines", "nº comodines"),
+    normativa: indiceDe(cabeceras, "normativa"),
+    incertidumbre: indiceDe(cabeceras, "incertidumbre"),
+    familiaridad: indiceDe(cabeceras, "familiaridad"),
+    motivacion: indiceDe(cabeceras, "motivacion"),
     observaciones: indiceDe(cabeceras, "observaciones"),
     evaluacion: indiceDe(cabeceras, "evaluacion", "evaluación", "valoracion"),
     analisisPost: indiceDe(cabeceras, "analisis post", "análisis post"),
@@ -215,6 +237,14 @@ export async function loadRegistro(): Promise<RegistroDataset> {
       carga: numero(fila, col.carga),
       exigCog: numero(fila, col.exigCog),
       cargaCog: numero(fila, col.cargaCog),
+      jugadores: numero(fila, col.jugadores),
+      densidad: numero(fila, col.densidad),
+      nJug: numero(fila, col.nJug),
+      nComodines: numero(fila, col.nComodines),
+      normativa: numero(fila, col.normativa),
+      incertidumbre: numero(fila, col.incertidumbre),
+      familiaridad: numero(fila, col.familiaridad),
+      motivacion: numero(fila, col.motivacion),
       observaciones: texto(fila, col.observaciones),
       evaluacion: numero(fila, col.evaluacion),
       analisisPost: texto(fila, col.analisisPost),

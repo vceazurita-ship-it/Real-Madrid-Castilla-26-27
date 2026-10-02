@@ -72,6 +72,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
 import {
   FASES_ABP,
+  copiaDeTarea,
   copiaEstructura,
   filasDelMicro,
   microDeFilas,
@@ -1096,9 +1097,18 @@ export default function EditorMicrocicloPage() {
         grupo: tarea.grupo,
         contenidoPrincipal: tarea.contenidoPrincipal,
         contenidoSecundario: tarea.contenidoSecundario,
-        tiempo: Math.round(tarea.tiempo),
-        intensidad: Math.round(tarea.intensidad),
+        /* Tiempo e intensidad no viajan: los rellena otra persona. */
+        tiempo: 0,
+        intensidad: 0,
         exigCog: Math.round(tarea.exigCog),
+        jugadores: tarea.jugadores,
+        densidad: tarea.densidad,
+        nJug: tarea.nJug,
+        nComodines: tarea.nComodines,
+        normativa: tarea.normativa,
+        incertidumbre: tarea.incertidumbre,
+        familiaridad: tarea.familiaridad,
+        motivacion: tarea.motivacion,
       })),
     );
 
@@ -1699,7 +1709,7 @@ export default function EditorMicrocicloPage() {
                                 cambiaSesion(indice, {
                                   tareas: [
                                     ...sesion.tareas.slice(0, j + 1),
-                                    { ...tarea },
+                                    copiaDeTarea(tarea),
                                     ...sesion.tareas.slice(j + 1),
                                   ],
                                 })
