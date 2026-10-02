@@ -38,6 +38,9 @@ import {
   Plus,
   Shuffle,
   Trash2,
+  Undo2,
+  MessageSquareText,
+  Repeat2,
   Users,
   Wand2,
   X,
@@ -57,6 +60,7 @@ import {
   COLORES,
   COMODIN,
   FUERA,
+  PUESTOS,
   actualizaLista,
   completaReparto,
   conEquipos,
@@ -64,17 +68,25 @@ import {
   nombreDeColor,
   nuevaSesion,
   nuevaTarea,
+  ordenPorPuesto,
+  puestosDesdePlantilla,
   repartoDe,
+  rotacionDe,
   sorteaReparto,
   tareaLista,
+  textoDeSesion,
+  textoDeTarea,
   tintaSobre,
   valida,
   type AlmacenEquipos,
   type JugadorSesion,
+  type Puesto,
+  type PuestoDe,
   type SesionEquipos,
   type Sitio,
   type TareaEquipos,
 } from "@/lib/sesion-equipos/modelo";
+import { usePlayers } from "@/hooks/usePlayers";
 
 const EJEMPLO = `CASTILLA - SÁBADO 26/09/26
 ==========================
@@ -116,12 +128,14 @@ function useAncho<T extends HTMLElement>() {
 function Chip({
   jugador,
   color,
+  puesto,
   seleccionado,
   onClick,
   onDragStart,
 }: {
   jugador: JugadorSesion;
   color?: string;
+  puesto?: Puesto;
   seleccionado: boolean;
   onClick: () => void;
   onDragStart: (e: DragEvent) => void;
@@ -141,6 +155,15 @@ function Chip({
     >
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color ?? "rgba(255,255,255,0.25)" }} />
       <span className="min-w-0 truncate">{jugador.nombre}</span>
+      {puesto && (
+        <span
+          className={`shrink-0 rounded px-1 text-[9px] font-bold ${
+            puesto === "POR" ? "bg-[#C8A96B] text-black" : "bg-white/[0.07] text-white/45"
+          }`}
+        >
+          {puesto}
+        </span>
+      )}
       {jugador.etiqueta && (
         <span className="shrink-0 rounded border border-[#C8A96B]/40 px-1 text-[9px] font-bold text-[#C8A96B]">
           {jugador.etiqueta}
@@ -360,7 +383,7 @@ const ICONO_AVISO = {
 export default function JugadoresSesionPage() {
   const {
     value: almacen,
-    setValue: setAlmacen,
+    setValue: escribeAlmacen,
     status,
     localOnly,
     lastSavedAt,
@@ -371,6 +394,43 @@ export default function JugadoresSesionPage() {
     kind: "jugadores-sesion",
     fallback: ALMACEN_VACIO,
   });
+
+  /*
+  | Deshacer. Con prisa se suelta a alguien en el equipo que no es, o se
+  | sortea sin querer encima de unos equipos hechos a mano: cada cambio guarda
+  | cómo estaba todo antes (las 40 últimas).
+  */
+  const historia = useRef<AlmacenEquipos[]>([]);
+
+  const almacenAhora = useRef(almacen);
+
+  useEffect(() => {
+    almacenAhora.current = almacen;
+  }, [almacen]);
+
+  const [pasos, setPasos] = useState(0);
+
+  const setAlmacen = useCallback(
+    (cambio: (actual: AlmacenEquipos) => AlmacenEquipos) => {
+      historia.current = [...historia.current.slice(-39), almacenAhora.current];
+
+      setPasos(historia.current.length);
+
+      escribeAlmacen(cambio);
+    },
+    [escribeAlmacen],
+  );
+
+  const deshaz = useCallback(() => {
+    const previo = historia.current.pop();
+
+    setPasos(historia.current.length);
+
+    if (previo) escribeAlmacen(previo);
+  }, [escribeAlmacen]);
+
+  /* El puesto de cada uno: el puesto a mano manda; si no, el de la plantilla. */
+  const { players: plantilla } = usePlayers();
 
   const sesiones = useMemo(
     () =>
@@ -389,6 +449,19 @@ export default function JugadoresSesionPage() {
   const activa = sesion ? Math.min(pedida, Math.max(0, sesion.tareas.length - 1)) : 0;
 
   const tarea = sesion?.tareas[activa] ?? null;
+
+  const puestosAuto = useMemo(
+    () =>
+      sesion
+        ? puestosDesdePlantilla(
+            sesion.jugadores,
+            plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })),
+          )
+        : {},
+    [sesion, plantilla],
+  );
+
+  const puestoDe: PuestoDe = useCallback((j) => j.puesto ?? puestosAuto[j.id], [puestosAuto]);
 
   const [elegido, setElegido] = useState<string | null>(null);
 
@@ -461,7 +534,16 @@ export default function JugadoresSesionPage() {
     const tecla = (e: KeyboardEvent) => {
       const objetivo = e.target as HTMLElement | null;
 
-      if (objetivo instanceof HTMLInputElement || objetivo instanceof HTMLTextAreaElement) return;
+      if (
+        objetivo instanceof HTMLInputElement ||
+        objetivo instanceof HTMLTextAreaElement ||
+        objetivo instanceof HTMLSelectElement ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey
+      ) {
+        return;
+      }
 
       const n = Number(e.key);
 
@@ -479,6 +561,27 @@ export default function JugadoresSesionPage() {
 
     return () => window.removeEventListener("keydown", tecla);
   }, [elegido, tarea, suelta, presentando]);
+
+  /* Ctrl/Cmd+Z deshace, salvo escribiendo (ahí deshace el propio campo). */
+  useEffect(() => {
+    if (presentando) return;
+
+    const tecla = (e: KeyboardEvent) => {
+      const objetivo = e.target as HTMLElement | null;
+
+      if (objetivo instanceof HTMLInputElement || objetivo instanceof HTMLTextAreaElement) return;
+
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+
+        deshaz();
+      }
+    };
+
+    window.addEventListener("keydown", tecla);
+
+    return () => window.removeEventListener("keydown", tecla);
+  }, [deshaz, presentando]);
 
   /* ---------------- sesiones ---------------- */
 
@@ -580,6 +683,40 @@ export default function JugadoresSesionPage() {
     toast.success(`Equipos de «${previa.nombre}» copiados`);
   };
 
+  /** Al portapapeles, con el formato que se lee bien en WhatsApp. */
+  const copiaTexto = async (todo: boolean) => {
+    if (!sesion || !tarea) return;
+
+    const texto = todo ? textoDeSesion(sesion) : textoDeTarea(tarea, sesion, activa + 1);
+
+    try {
+      await navigator.clipboard.writeText(texto);
+
+      toast.success(todo ? "Todas las tareas copiadas" : "Equipos copiados", {
+        description: "Pégalos en el grupo: un equipo por línea.",
+      });
+    } catch {
+      toast.error("El navegador no deja copiar", { description: "Prueba otra vez con la página en primer plano." });
+    }
+  };
+
+  const ponPuesto = (jugadorId: string, puesto: Puesto | "") => {
+    if (!sesion) return;
+
+    cambiaSesion(sesion.id, (s) => ({
+      ...s,
+      jugadores: s.jugadores.map((j) => {
+        if (j.id !== jugadorId) return j;
+
+        const { puesto: _quitado, ...resto } = j;
+
+        void _quitado;
+
+        return puesto ? { ...resto, puesto } : resto;
+      }),
+    }));
+  };
+
   const quitaTarea = () => {
     if (!sesion || !tarea || sesion.tareas.length <= 1) return;
 
@@ -659,12 +796,31 @@ export default function JugadoresSesionPage() {
 
   const reparto = sesion && tarea ? repartoDe(tarea, sesion.jugadores) : null;
 
-  const avisos = sesion && tarea ? valida(tarea, sesion) : [];
+  const avisos = sesion && tarea ? valida(tarea, sesion, puestoDe) : [];
 
   const estadoTareas = useMemo(
-    () => (sesion ? sesion.tareas.map((t) => valida(t, sesion)) : []),
-    [sesion],
+    () => (sesion ? sesion.tareas.map((t) => valida(t, sesion, puestoDe)) : []),
+    [sesion, puestoDe],
   );
+
+  const rotacion = useMemo(() => (sesion ? rotacionDe(sesion) : []), [sesion]);
+
+  /* Las veces que cada uno ha sido comodín en las OTRAS tareas: para rotar. */
+  const vecesComodin = useMemo(() => {
+    const veces: Record<string, number> = {};
+
+    if (!sesion || !tarea) return veces;
+
+    for (const t of sesion.tareas) {
+      if (t.id === tarea.id) continue;
+
+      for (const [id, donde] of Object.entries(t.sitio)) if (donde === COMODIN) veces[id] = (veces[id] ?? 0) + 1;
+    }
+
+    return veces;
+  }, [sesion, tarea]);
+
+  const opcionesReparto = { puestoDe, vecesComodin };
 
   const [refPrevia, anchoPrevia] = useAncho<HTMLDivElement>();
 
@@ -684,6 +840,7 @@ export default function JugadoresSesionPage() {
       key={j.id}
       jugador={j}
       color={colorDe(tarea?.sitio[j.id])}
+      puesto={puestoDe(j)}
       seleccionado={elegido === j.id}
       onClick={() => setElegido((actual) => (actual === j.id ? null : j.id))}
       onDragStart={(e) => {
@@ -748,6 +905,12 @@ export default function JugadoresSesionPage() {
 
                 <span className="flex-1" />
 
+                <Button icon={Undo2} disabled={pasos === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)">
+                  Deshacer
+                </Button>
+                <Button icon={MessageSquareText} onClick={() => void copiaTexto(true)} title="Todas las tareas en texto, para el grupo">
+                  Copiar todo
+                </Button>
                 <Button
                   icon={ClipboardPaste}
                   onClick={() => {
@@ -932,7 +1095,7 @@ export default function JugadoresSesionPage() {
                         <Button
                           icon={Wand2}
                           disabled={!reparto.sinSitio.length}
-                          onClick={() => cambiaTarea((t) => completaReparto(t, sesion.jugadores))}
+                          onClick={() => cambiaTarea((t) => completaReparto(t, sesion.jugadores, opcionesReparto))}
                           title="Coloca a los que faltan en el equipo más corto, sin mover a los demás"
                         >
                           Completar
@@ -941,7 +1104,7 @@ export default function JugadoresSesionPage() {
                           icon={Shuffle}
                           onClick={() => {
                             if (enTarea > 0 && !window.confirm("Sortear de nuevo deshace los equipos de esta tarea. ¿Seguir?")) return;
-                            cambiaTarea((t) => sorteaReparto(t, sesion.jugadores));
+                            cambiaTarea((t) => sorteaReparto(t, sesion.jugadores, opcionesReparto));
                           }}
                           title="Equipos al azar con todos los que hacen la tarea"
                         >
@@ -968,7 +1131,7 @@ export default function JugadoresSesionPage() {
                       onSoltar={() => suelta(null)}
                       vacio="Nadie pendiente. Toca a un jugador para cambiarlo de sitio."
                     >
-                      {reparto.sinSitio.map(chip)}
+                      {ordenPorPuesto(reparto.sinSitio, puestoDe).map(chip)}
                     </Caja>
 
                     {elegido && (
@@ -1036,7 +1199,7 @@ export default function JugadoresSesionPage() {
                             </>
                           }
                         >
-                          {(reparto.porEquipo[equipo.id] ?? []).map(chip)}
+                          {ordenPorPuesto(reparto.porEquipo[equipo.id] ?? [], puestoDe).map(chip)}
                         </Caja>
                       ))}
 
@@ -1051,10 +1214,17 @@ export default function JugadoresSesionPage() {
                           onSoltar={() => suelta(COMODIN)}
                           vacio="Suelta aquí los comodines"
                         >
-                          {reparto.comodines.map(chip)}
+                          {ordenPorPuesto(reparto.comodines, puestoDe).map(chip)}
                         </Caja>
                       )}
                     </div>
+
+                    <p className="-mt-1 text-[11px] text-white/40">
+                      {tarea.equipos.map((e) => reparto.porEquipo[e.id]?.length ?? 0).join(" · ")}
+                      {tarea.comodines > 0 ? ` + ${reparto.comodines.length} comodín${reparto.comodines.length === 1 ? "" : "es"}` : ""}
+                      {" "}= {enTarea} en la tarea
+                      {reparto.fuera.length ? ` · ${reparto.fuera.length} fuera` : ""}
+                    </p>
 
                     {/* --- fuera --- */}
                     <Caja
@@ -1066,7 +1236,7 @@ export default function JugadoresSesionPage() {
                       onSoltar={() => suelta(FUERA)}
                       vacio="Los lesionados empiezan aquí; si alguno hace la tarea, muévelo a un equipo."
                     >
-                      {reparto.fuera.map(chip)}
+                      {ordenPorPuesto(reparto.fuera, puestoDe).map(chip)}
                     </Caja>
                   </div>
 
@@ -1112,6 +1282,9 @@ export default function JugadoresSesionPage() {
                           <Button icon={Expand} onClick={() => setPresentando(true)}>
                             Presentar
                           </Button>
+                          <Button icon={MessageSquareText} onClick={() => void copiaTexto(false)} title="Los equipos de esta tarea en texto, para el grupo">
+                            Texto
+                          </Button>
                           <Button icon={Download} disabled={Boolean(exportando)} onClick={() => void exporta([activa])} title="Esta tarea en imagen (.jpg)">
                             Esta
                           </Button>
@@ -1129,17 +1302,85 @@ export default function JugadoresSesionPage() {
                     >
                       <div ref={refPrevia} className="min-w-0 overflow-hidden rounded-xl">
                         {anchoPrevia > 0 && (
-                          <LaminaEscalada ancho={anchoPrevia} sesion={sesion} tarea={tarea} indice={activa} total={sesion.tareas.length} />
+                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tarea} indice={activa} total={sesion.tareas.length} />
                         )}
                       </div>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-white/40">
-                        <button type="button" disabled={activa === 0} onClick={() => setPedida(activa - 1)} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
+                        <button type="button" disabled={activa === 0} onClick={() => { setPedida(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           <ChevronLeft size={13} /> Anterior
                         </button>
                         <span>Sólo nombres: lista para proyectar o mandar</span>
-                        <button type="button" disabled={activa >= sesion.tareas.length - 1} onClick={() => setPedida(activa + 1)} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
+                        <button type="button" disabled={activa >= sesion.tareas.length - 1} onClick={() => { setPedida(activa + 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           Siguiente <ChevronRight size={13} />
                         </button>
+                      </div>
+                    </Panel>
+
+                    {/* --- plantilla del día: puestos y rotación --- */}
+                    <Panel
+                      title="Plantilla del día"
+                      subtitle="Puesto (para que el sorteo reparta porteros y líneas) y cuántas veces ha sido comodín o ha descansado"
+                      icon={Repeat2}
+                      bodyClassName="p-0"
+                    >
+                      <div className="max-h-[420px] overflow-y-auto">
+                        <table className="w-full text-[12px]">
+                          <thead className="sticky top-0 bg-[#11161C] text-[10px] uppercase tracking-[0.14em] text-white/35">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium">Jugador</th>
+                              <th className="px-2 py-2 text-left font-medium">Puesto</th>
+                              <th className="px-2 py-2 text-center font-medium" title="Tareas como comodín">Com.</th>
+                              <th className="px-2 py-2 text-center font-medium" title="Tareas sin participar">Fuera</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ordenPorPuesto(
+                              rotacion.map((r) => r.jugador),
+                              puestoDe,
+                            ).map((j) => {
+                              const r = rotacion.find((x) => x.jugador.id === j.id)!;
+
+                              const auto = puestosAuto[j.id];
+
+                              return (
+                                <tr key={j.id} className="border-t border-white/[0.05]">
+                                  <td className="max-w-0 px-4 py-1.5">
+                                    <span className="block truncate font-semibold uppercase text-white/80">
+                                      {j.nombre}
+                                      {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]">{j.etiqueta}</span>}
+                                      {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-1">
+                                    <select
+                                      value={j.puesto ?? ""}
+                                      onChange={(e) => ponPuesto(j.id, e.target.value as Puesto | "")}
+                                      aria-label={`Puesto de ${j.nombre}`}
+                                      className={`rounded-lg border bg-transparent px-1.5 py-1 text-[11px] outline-none focus:border-[#C8A96B]/50 ${
+                                        j.puesto ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
+                                      }`}
+                                    >
+                                      <option value="" className="bg-[#11161C]">
+                                        {auto ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)` : "Sin puesto"}
+                                      </option>
+                                      {PUESTOS.map((p) => (
+                                        <option key={p.clave} value={p.clave} className="bg-[#11161C]">
+                                          {p.nombre}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : "text-white/55"}`}>
+                                    {r.comodin || "·"}
+                                  </td>
+                                  <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : "text-white/55"}`}>
+                                    {r.fuera || "·"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </Panel>
                   </div>
@@ -1188,6 +1429,7 @@ export default function JugadoresSesionPage() {
         <Presentacion
           sesion={sesion}
           inicial={activa}
+          puestoDe={puestoDe}
           onCierra={(ultima) => {
             setPresentando(false);
             setPedida(ultima);
@@ -1204,7 +1446,7 @@ export default function JugadoresSesionPage() {
           style={{ position: "fixed", left: -30000, top: 0, width: LAMINA_W, pointerEvents: "none" }}
         >
           {exportando.indices.map((i) => (
-            <LaminaEquipos key={sesion.tareas[i].id} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />
+            <LaminaEquipos key={sesion.tareas[i].id} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />
           ))}
         </div>
       )}
@@ -1220,10 +1462,12 @@ function Presentacion({
   sesion,
   inicial,
   onCierra,
+  puestoDe,
 }: {
   sesion: SesionEquipos;
   inicial: number;
   onCierra: (ultima: number) => void;
+  puestoDe: PuestoDe;
 }) {
   const [i, setI] = useState(inicial);
 
@@ -1245,6 +1489,33 @@ function Presentacion({
     };
   }, []);
 
+  /* En pantalla completa, Esc lo consume el navegador para salir de ella y la
+     página no recibe la tecla: la capa negra se quedaba puesta. Salir de la
+     pantalla completa es salir de la presentación. */
+  const ultima = useRef(i);
+
+  /* `onCierra` llega nuevo en cada render: en una ref, para no volver a
+     enganchar el oyente (y perder el «entró») cada vez. */
+  const cierra = useRef(onCierra);
+
+  useEffect(() => {
+    ultima.current = i;
+    cierra.current = onCierra;
+  });
+
+  useEffect(() => {
+    let entro = false;
+
+    const cambia = () => {
+      if (document.fullscreenElement) entro = true;
+      else if (entro) cierra.current(ultima.current);
+    };
+
+    document.addEventListener("fullscreenchange", cambia);
+
+    return () => document.removeEventListener("fullscreenchange", cambia);
+  }, []);
+
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") setI((n) => Math.min(sesion.tareas.length - 1, n + 1));
@@ -1264,7 +1535,7 @@ function Presentacion({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black" onClick={() => setI((n) => Math.min(sesion.tareas.length - 1, n + 1))}>
-      {ancho > 0 && <LaminaEscalada ancho={ancho} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />}
+      {ancho > 0 && <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />}
 
       <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/10 px-2 py-1 text-white/80 opacity-30 transition hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <button type="button" aria-label="Anterior" onClick={() => setI((n) => Math.max(0, n - 1))} className="rounded-full p-1.5 hover:bg-white/15">

@@ -13,9 +13,11 @@
 import type { CSSProperties } from "react";
 
 import {
+  ordenPorPuesto,
   repartoDe,
   tintaSobre,
   type JugadorSesion,
+  type Puesto,
   type SesionEquipos,
   type TareaEquipos,
 } from "@/lib/sesion-equipos/modelo";
@@ -35,7 +37,17 @@ type Columna = {
   jugadores: JugadorSesion[];
 };
 
-function Nombre({ jugador, color, tamano }: { jugador: JugadorSesion; color: string; tamano: number }) {
+function Nombre({
+  jugador,
+  color,
+  tamano,
+  portero,
+}: {
+  jugador: JugadorSesion;
+  color: string;
+  tamano: number;
+  portero?: boolean;
+}) {
   return (
     <div
       style={{
@@ -70,6 +82,22 @@ function Nombre({ jugador, color, tamano }: { jugador: JugadorSesion; color: str
       >
         {jugador.nombre}
       </span>
+      {portero && (
+        <span
+          style={{
+            fontSize: tamano * 0.42,
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            color: FONDO,
+            background: ORO,
+            borderRadius: 8,
+            padding: `${tamano * 0.04}px ${tamano * 0.14}px`,
+            flexShrink: 0,
+          }}
+        >
+          POR
+        </span>
+      )}
       {jugador.etiqueta && (
         <span
           style={{
@@ -112,19 +140,24 @@ export function LaminaEquipos({
   tarea,
   indice,
   total,
+  puestoDe,
 }: {
   sesion: SesionEquipos;
   tarea: TareaEquipos;
   indice: number;
   total: number;
+  /** El puesto de cada uno: los porteros van los primeros y con su marca. */
+  puestoDe?: (j: JugadorSesion) => Puesto | undefined;
 }) {
   const r = repartoDe(tarea, sesion.jugadores);
+
+  const porPuesto = puestoDe ?? ((j: JugadorSesion) => j.puesto);
 
   const columnas: Columna[] = tarea.equipos.map((e) => ({
     clave: e.id,
     titulo: e.nombre,
     color: e.color,
-    jugadores: r.porEquipo[e.id] ?? [],
+    jugadores: ordenPorPuesto(r.porEquipo[e.id] ?? [], porPuesto),
   }));
 
   if (tarea.comodines > 0 || r.comodines.length > 0) {
@@ -132,7 +165,7 @@ export function LaminaEquipos({
       clave: "comodines",
       titulo: r.comodines.length === 1 ? "COMODÍN" : "COMODINES",
       color: tarea.colorComodin,
-      jugadores: r.comodines,
+      jugadores: ordenPorPuesto(r.comodines, porPuesto),
     });
   }
 
@@ -156,7 +189,7 @@ export function LaminaEquipos({
         Math.max(
           8,
           ...columnas.flatMap((c) =>
-            c.jugadores.map((j) => j.nombre.length * 0.37 + 0.6 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0)),
+            c.jugadores.map((j) => j.nombre.length * 0.37 + 0.6 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
           ),
         ),
     ),
@@ -337,7 +370,7 @@ export function LaminaEquipos({
                 }}
               >
                 {c.jugadores.map((j) => (
-                  <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} />
+                  <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} />
                 ))}
                 {c.jugadores.length === 0 && (
                   <span style={{ fontSize: 30, color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>—</span>

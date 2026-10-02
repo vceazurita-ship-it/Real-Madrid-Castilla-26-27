@@ -39,7 +39,80 @@ export type JugadorSesion = {
    * entra, pero se le puede meter en un equipo.
    */
   baja?: string;
+  /**
+   * El puesto puesto a mano. Si no está, sale de la plantilla (la pestaña
+   * JUGADORES) cruzando por nombre; los de otro equipo (RMC, JA) no salen y
+   * se les pone aquí.
+   */
+  puesto?: Puesto;
 };
+
+/* ------------------------------------------------------------------ */
+/*  PUESTOS                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Lo justo para repartir: que los porteros y las líneas queden parejos. */
+export type Puesto = "POR" | "DEF" | "MED" | "EXT" | "DEL";
+
+export const PUESTOS: { clave: Puesto; nombre: string }[] = [
+  { clave: "POR", nombre: "Portero" },
+  { clave: "DEF", nombre: "Defensa" },
+  { clave: "MED", nombre: "Medio" },
+  { clave: "EXT", nombre: "Extremo" },
+  { clave: "DEL", nombre: "Delantero" },
+];
+
+/** La columna POSICION de la plantilla: «PORTERO», «LATERAL D.», «CENTRAL», «6», «11»… */
+export function puestoDePosicion(posicion: string): Puesto | undefined {
+  const p = posicion.trim().toUpperCase();
+
+  if (!p) return undefined;
+  if (/PORTER|^1$/.test(p)) return "POR";
+  if (/LATERAL|CENTRAL|DEFENS|CARRILERO|^[2-5]$/.test(p)) return "DEF";
+  if (/^(6|8|10)$|PIVOTE|MEDIO|INTERIOR|MEDIAPUNTA/.test(p)) return "MED";
+  if (/^(7|11)$|EXTREMO/.test(p)) return "EXT";
+  if (/^9$|DELANTER|PUNTA/.test(p)) return "DEL";
+
+  return undefined;
+}
+
+const ORDEN_LISTA: (Puesto | undefined)[] = ["POR", "DEF", "MED", "EXT", "DEL", undefined];
+
+/** Una lista ordenada como se lee un equipo: portero, defensas, medios, extremos, delanteros. */
+export function ordenPorPuesto(lista: JugadorSesion[], puestoDe: (j: JugadorSesion) => Puesto | undefined) {
+  return [...lista].sort((a, b) => ORDEN_LISTA.indexOf(puestoDe(a)) - ORDEN_LISTA.indexOf(puestoDe(b)));
+}
+
+export type FichaPlantilla ={ nombre: string; apodo?: string; posicion: string };
+
+/**
+ * El puesto de cada uno de la lista según la plantilla.
+ *
+ * La lista dice «DANIEL YAÑEZ» y la plantilla «Yáñez» o «Melvin Ukpeigbe»:
+ * casa si todas las palabras del nombre de la plantilla (o su apodo) están en
+ * el de la lista. Si casan dos fichas distintas, no se pone ninguna.
+ */
+export function puestosDesdePlantilla(jugadores: JugadorSesion[], plantilla: FichaPlantilla[]) {
+  const salida: Record<string, Puesto> = {};
+
+  for (const j of jugadores) {
+    const suyas = new Set(claveNombre(j.nombre).split(" "));
+
+    const casan = plantilla.filter((f) =>
+      [f.nombre, f.apodo ?? ""].some((n) => {
+        const pals = claveNombre(n).split(" ").filter((p) => p.length > 1);
+
+        return pals.length > 0 && pals.every((p) => suyas.has(p));
+      }),
+    );
+
+    const puestos = [...new Set(casan.map((f) => puestoDePosicion(f.posicion)).filter(Boolean))] as Puesto[];
+
+    if (puestos.length === 1) salida[j.id] = puestos[0];
+  }
+
+  return salida;
+}
 
 export type EquipoTarea = {
   id: string;
@@ -307,12 +380,20 @@ export function nuevaSesion(texto: string): SesionEquipos {
 export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEquipos {
   const lista = leeLista(texto);
 
-  const antes = new Map(sesion.jugadores.map((j) => [claveNombre(j.nombre), j]));
+  /* Por nombre, y cada previo se usa una sola vez: con un nombre repetido en
+     la lista, los dos acababan con el mismo identificador y compartían sitio. */
+  const antes = new Map<string, JugadorSesion[]>();
+
+  for (const j of sesion.jugadores) {
+    const clave = claveNombre(j.nombre);
+
+    antes.set(clave, [...(antes.get(clave) ?? []), j]);
+  }
 
   const jugadores: JugadorSesion[] = lista.jugadores.map((j) => {
-    const previo = antes.get(claveNombre(j.nombre));
+    const previo = antes.get(claveNombre(j.nombre))?.shift();
 
-    return { ...j, id: previo?.id ?? nuevoId("ju") };
+    return { ...j, id: previo?.id ?? nuevoId("ju"), ...(previo?.puesto ? { puesto: previo.puesto } : {}) };
   });
 
   const ids = new Set(jugadores.map((j) => j.id));
@@ -407,7 +488,12 @@ export type Aviso = {
   texto: string;
 };
 
-export function valida(tarea: TareaEquipos, sesion: SesionEquipos): Aviso[] {
+/** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */
+export type PuestoDe = (j: JugadorSesion) => Puesto | undefined;
+
+const soloAMano: PuestoDe = (j) => j.puesto;
+
+export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: PuestoDe = soloAMano): Aviso[] {
   const r = repartoDe(tarea, sesion.jugadores);
 
   const avisos: Aviso[] = [];
@@ -481,7 +567,19 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos): Aviso[] {
     avisos.push({ nivel: "aviso", texto: "Los comodines llevan el color de un equipo" });
   }
 
-  /* 6. Bajas que hacen la tarea: no es un error, pero que se vea. */
+  /* 6. Porteros: dos en un equipo y otro equipo sin ninguno. */
+  if (tarea.equipos.length > 1) {
+    const porteros = tarea.equipos.map((e) => (r.porEquipo[e.id] ?? []).filter((j) => puestoDe(j) === "POR").length);
+
+    if (Math.max(...porteros) >= 2 && Math.min(...porteros) === 0) {
+      avisos.push({
+        nivel: "aviso",
+        texto: `Porteros mal repartidos: ${tarea.equipos.map((e, i) => `${e.nombre} ${porteros[i]}`).join(" · ")}`,
+      });
+    }
+  }
+
+  /* 7. Bajas que hacen la tarea: no es un error, pero que se vea. */
   const bajasDentro = sesion.jugadores.filter((j) => j.baja && tarea.sitio[j.id] && tarea.sitio[j.id] !== FUERA);
 
   if (bajasDentro.length) {
@@ -512,45 +610,152 @@ function baraja<T>(lista: T[], azar: () => number = Math.random) {
   return copia;
 }
 
+export type OpcionesReparto = {
+  azar?: () => number;
+  puestoDe?: PuestoDe;
+  /** Cuántas veces ha sido comodín cada uno en la sesión (`rotacionDe`). */
+  vecesComodin?: Record<string, number>;
+};
+
+/** En qué orden se reparten las líneas: los escasos primero, para que caigan parejos. */
+const ORDEN_PUESTO: (Puesto | "?")[] = ["POR", "DEL", "EXT", "DEF", "MED", "?"];
+
 /**
- * Coloca a los que no tienen sitio: primero los comodines que falten, luego
- * cada uno al equipo más corto. No mueve a nadie que ya esté colocado.
+ * Coloca a los que no tienen sitio. No mueve a nadie que ya esté colocado.
+ *
+ * Primero los comodines que falten —nunca un portero, y mejor un medio—;
+ * luego línea a línea (porteros, delanteros, extremos, defensas, medios y los
+ * que no tienen puesto), cada uno al equipo con menos de su línea y, a la
+ * par, al más corto. Así un sorteo no deja dos porteros juntos ni a todos los
+ * centrales en el mismo peto.
  */
-export function completaReparto(tarea: TareaEquipos, jugadores: JugadorSesion[], azar?: () => number): TareaEquipos {
+export function completaReparto(
+  tarea: TareaEquipos,
+  jugadores: JugadorSesion[],
+  { azar, puestoDe = soloAMano, vecesComodin = {} }: OpcionesReparto = {},
+): TareaEquipos {
   const r = repartoDe(tarea, jugadores);
 
   const sitio = { ...tarea.sitio };
 
-  const cola = baraja(r.sinSitio, azar);
+  const linea = (j: JugadorSesion) => puestoDe(j) ?? "?";
 
+  let cola = baraja(r.sinSitio, azar);
+
+  /* Comodines: medios primero, después cualquiera que no sea portero. */
   let faltanComodines = Math.max(0, tarea.comodines - r.comodines.length);
 
-  const tamano = Object.fromEntries(tarea.equipos.map((e) => [e.id, r.porEquipo[e.id]?.length ?? 0]));
+  /* Y entre ellos, quien menos veces lo ha sido en la sesión: que roten. */
+  const porVeces = (lista: JugadorSesion[]) =>
+    [...lista].sort((a, b) => (vecesComodin[a.id] ?? 0) - (vecesComodin[b.id] ?? 0));
+
+  const candidatos = [
+    ...porVeces(cola.filter((j) => linea(j) === "MED")),
+    ...porVeces(cola.filter((j) => !["MED", "POR"].includes(linea(j)))),
+  ];
+
+  for (const j of candidatos) {
+    if (faltanComodines <= 0) break;
+
+    sitio[j.id] = COMODIN;
+    faltanComodines -= 1;
+    cola = cola.filter((x) => x.id !== j.id);
+  }
+
+  if (!tarea.equipos.length) return { ...tarea, sitio };
+
+  const tamano: Record<string, number> = {};
+  const deLinea: Record<string, Record<string, number>> = {};
+
+  for (const e of tarea.equipos) {
+    tamano[e.id] = r.porEquipo[e.id]?.length ?? 0;
+    deLinea[e.id] = {};
+
+    for (const j of r.porEquipo[e.id] ?? []) deLinea[e.id][linea(j)] = (deLinea[e.id][linea(j)] ?? 0) + 1;
+  }
+
+  cola.sort((a, b) => ORDEN_PUESTO.indexOf(linea(a)) - ORDEN_PUESTO.indexOf(linea(b)));
 
   for (const j of cola) {
-    if (faltanComodines > 0) {
-      sitio[j.id] = COMODIN;
-      faltanComodines -= 1;
+    const l = linea(j);
 
-      continue;
-    }
+    const destino = [...tarea.equipos].sort(
+      (a, b) =>
+        tamano[a.id] - tamano[b.id] ||
+        (deLinea[a.id][l] ?? 0) - (deLinea[b.id][l] ?? 0),
+    );
 
-    const corto = [...tarea.equipos].sort((a, b) => tamano[a.id] - tamano[b.id])[0];
+    /* Entre los más cortos (o a uno de diferencia), el que menos tiene de su línea. */
+    const minimo = tamano[destino[0].id];
 
-    if (!corto) break;
+    const corto = destino
+      .filter((e) => tamano[e.id] <= minimo + (l === "?" ? 0 : 1))
+      .sort((a, b) => (deLinea[a.id][l] ?? 0) - (deLinea[b.id][l] ?? 0) || tamano[a.id] - tamano[b.id])[0];
 
     sitio[j.id] = corto.id;
     tamano[corto.id] += 1;
+    deLinea[corto.id][l] = (deLinea[corto.id][l] ?? 0) + 1;
   }
 
   return { ...tarea, sitio };
 }
 
 /** Sortea de cero a todos los que hacen la tarea (los de fuera se quedan fuera). */
-export function sorteaReparto(tarea: TareaEquipos, jugadores: JugadorSesion[], azar?: () => number): TareaEquipos {
+export function sorteaReparto(
+  tarea: TareaEquipos,
+  jugadores: JugadorSesion[],
+  opciones: OpcionesReparto = {},
+): TareaEquipos {
   const sitio: Record<string, Sitio> = {};
 
   for (const [id, donde] of Object.entries(tarea.sitio)) if (donde === FUERA) sitio[id] = FUERA;
 
-  return completaReparto({ ...tarea, sitio }, jugadores, azar);
+  return completaReparto({ ...tarea, sitio }, jugadores, opciones);
+}
+
+/* ------------------------------------------------------------------ */
+/*  PARA MANDAR Y PARA ROTAR                                           */
+/* ------------------------------------------------------------------ */
+
+/** La tarea en texto, para pegarla en el grupo: un equipo por línea. */
+export function textoDeTarea(tarea: TareaEquipos, sesion: SesionEquipos, numero: number) {
+  const r = repartoDe(tarea, sesion.jugadores);
+
+  const linea = (titulo: string, lista: JugadorSesion[]) =>
+    `*${titulo}* (${lista.length}): ${lista.map((j) => j.nombre).join(", ") || "—"}`;
+
+  return [
+    `*${numero}. ${tarea.nombre.toUpperCase()}*`,
+    ...tarea.equipos.map((e) => linea(e.nombre, r.porEquipo[e.id] ?? [])),
+    ...(tarea.comodines > 0 || r.comodines.length ? [linea("COMODINES", r.comodines)] : []),
+    ...(r.fuera.length ? [`_No participan: ${r.fuera.map((j) => j.nombre).join(", ")}_`] : []),
+  ].join("\n");
+}
+
+export function textoDeSesion(sesion: SesionEquipos) {
+  return [`*${sesion.titulo.toUpperCase()}*`, ...sesion.tareas.map((t, i) => textoDeTarea(t, sesion, i + 1))].join("\n\n");
+}
+
+export type Rotacion = { jugador: JugadorSesion; comodin: number; fuera: number; juega: number };
+
+/**
+ * Cuántas veces ha sido cada uno comodín o se ha quedado fuera en la sesión.
+ *
+ * Sirve para rotar: que los comodines no recaigan siempre en los mismos y
+ * que nadie descanse dos tareas seguidas sin querer.
+ */
+export function rotacionDe(sesion: SesionEquipos): Rotacion[] {
+  return sesion.jugadores.map((jugador) => {
+    const fila = { jugador, comodin: 0, fuera: 0, juega: 0 };
+
+    for (const t of sesion.tareas) {
+      const donde = t.sitio[jugador.id];
+
+      if (donde === COMODIN) fila.comodin += 1;
+      else if (donde === FUERA) fila.fuera += 1;
+      else if (donde && t.equipos.some((e) => e.id === donde)) fila.juega += 1;
+    }
+
+    return fila;
+  });
 }
