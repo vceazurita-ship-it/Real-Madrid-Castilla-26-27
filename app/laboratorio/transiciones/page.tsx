@@ -833,6 +833,8 @@ export default function TransicionesPage() {
                         <th className="px-4 py-3">Salida</th>
                         <th className="px-4 py-3">Acaba en</th>
                         <th className="px-4 py-3">Fiabilidad</th>
+                        {/* Lo que pasó en cada robo: sólo con los textos explicativos encendidos. */}
+                        {explicativos && <th className="px-4 py-3">Qué pasó</th>}
                       </tr>
                     </thead>
 
@@ -892,12 +894,18 @@ export default function TransicionesPage() {
                               {r.confianza}
                             </span>
                           </td>
+
+                          {explicativos && (
+                            <td className="min-w-[280px] px-4 py-3 text-xs leading-relaxed text-white/45">
+                              {r.detalle || "—"}
+                            </td>
+                          )}
                         </tr>
                       ))}
 
                       {robos.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-white/40">
+                          <td colSpan={7 + (explicativos ? 1 : 0)} className="px-4 py-8 text-center text-white/40">
                             Todavía no hay robos etiquetados con este filtro.
                           </td>
                         </tr>

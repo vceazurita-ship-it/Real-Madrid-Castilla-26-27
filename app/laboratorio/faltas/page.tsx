@@ -544,7 +544,8 @@ export default function FaltasPage() {
                           <th className="pb-2 pr-3 font-medium">Dónde</th>
                           <th className="pb-2 pr-3 font-medium">Distancia</th>
                           <th className="pb-2 pr-3 font-medium">Defendían</th>
-                          <th className="pb-2 font-medium">Qué pasó</th>
+                          {/* «Qué pasó» explica la jugada: sólo con los textos explicativos encendidos. */}
+                          {explicativos && <th className="pb-2 font-medium">Qué pasó</th>}
                         </tr>
                       </thead>
 
@@ -587,7 +588,7 @@ export default function FaltasPage() {
                               {f.entre ?? "?"}
                             </td>
 
-                            <td className="py-2 text-white/45">{f.nota}</td>
+                            {explicativos && <td className="py-2 text-white/45">{f.nota}</td>}
                           </tr>
                         ))}
                       </tbody>
