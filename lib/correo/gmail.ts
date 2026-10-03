@@ -238,6 +238,40 @@ function paraGmail(mensaje: string) {
   return Buffer.from(mensaje, "utf8").toString("base64url");
 }
 
+/**
+ * A partir de aquí el mensaje va por la ruta de subida de Gmail.
+ *
+ * `messages.send` con el mensaje en JSON (`raw`) no admite cuerpos de más de
+ * unos megas, y un informe con el PPT del rival adjunto pasa de diez. La ruta
+ * `/upload/…?uploadType=media` recibe el mensaje tal cual —texto RFC 822, sin
+ * base64 por fuera— y llega a 35 MB. Los correos pequeños siguen por la de
+ * siempre, que es la que lleva meses funcionando.
+ */
+export const LIMITE_RAW = 3.5 * 1024 * 1024;
+
+/** La petición a Gmail para ese mensaje: la de siempre o la de subida si es grande. */
+export function peticionDeEnvio(mensaje: string, acceso: string): [string, RequestInit] {
+  if (Buffer.byteLength(mensaje, "utf8") > LIMITE_RAW) {
+    return [
+      "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${acceso}`, "Content-Type": "message/rfc822" },
+        body: mensaje,
+      },
+    ];
+  }
+
+  return [
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${acceso}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ raw: paraGmail(mensaje) }),
+    },
+  ];
+}
+
 /*
 | EL ORDEN DE ESTAS DOS PREGUNTAS IMPORTA, Y NO ES OBVIO.
 |
@@ -301,17 +335,9 @@ export async function envia(correo: Correo) {
   */
   const remitente = await cuentaDeEnvio(acceso);
 
-  const respuesta = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${acceso}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ raw: paraGmail(escribeMensaje(correo, remitente)) }),
-    },
-  );
+  const mensaje = escribeMensaje(correo, remitente);
+
+  const respuesta = await fetch(...peticionDeEnvio(mensaje, acceso));
 
   const datos = (await respuesta.json().catch(() => null)) as {
     id?: string;

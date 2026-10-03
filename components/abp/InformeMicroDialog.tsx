@@ -18,7 +18,7 @@
  *   microciclos y para cualquiera del cuerpo técnico.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,11 +33,15 @@ import {
   accionesDelPartido,
   construyeInforme,
   fechaDelPartido,
+  informeCuerpoHtml,
   informeHtml,
   informeTexto,
   modoSugerido,
+  pinceladaAbp,
   type DatosInforme,
+  type InformeMicro,
   type ModoInforme,
+  type PinceladaAbp,
   type SeguimientoFila,
 } from "@/lib/abp/informe-micro";
 
@@ -142,12 +146,91 @@ function aligera(dataUrl: string): Promise<string> {
   });
 }
 
+/**
+ * Lo que devuelve el informe cuando se monta incrustado (03/10/2026).
+ *
+ * El informe del partido (Microciclos) abre esta pantalla en un marco oculto y
+ * recibe esto por `postMessage`: el informe de balón parado entero, listo para
+ * meterlo como una sección de su correo, y su pincelada para el resumen. Así
+ * el balón parado se calcula en un solo sitio.
+ */
+export type ResultadoIncrustado =
+  | {
+      ok: true;
+      clave: string;
+      modo: ModoInforme;
+      asunto: string;
+      /** Sin marco: `informeCuerpoHtml` con las imágenes por `cid` y prefijo «abp-». */
+      cuerpo: string;
+      texto: string;
+      /** Los `cid` ya llevan el prefijo «abp-». */
+      imagenes: { cid: string; tipo: string; base64: string }[];
+      pincelada: PinceladaAbp;
+      avisos: string[];
+    }
+  | { ok: false; clave: string; error: string };
+
+/** El tope de imágenes del informe incrustado: el correo del partido lleva más cosas. */
+const TOPE_INCRUSTADO = 2_500_000;
+
+/** Lo que se tarda como mucho en tenerlo: el seguimiento y el Apps Script van lentos en frío. */
+const ESPERA_INCRUSTADO = 60_000;
+
+const PREFIJO_CID = "abp-";
+
+/**
+ * Las imágenes del informe, aligeradas y recortadas a un tope.
+ *
+ * Lo mismo que hace el envío: primero se aligera todo y, si no cabe, salen
+ * antes las páginas de los PDF del rival (su enlace se queda en el informe) y
+ * después, de la más pesada a la más ligera, lo que haga falta.
+ */
+async function imagenesQueCaben(informe: InformeMicro, tope: number) {
+  const avisos: string[] = [];
+
+  const peso = (lista: InformeMicro["graficos"]) => lista.reduce((suma, grafico) => suma + grafico.imagen.length, 0);
+
+  let graficos: InformeMicro["graficos"] = [];
+
+  for (const grafico of informe.graficos) graficos.push({ ...grafico, imagen: await aligera(grafico.imagen) });
+
+  if (peso(graficos) >= tope) {
+    const sinPdf = graficos.filter((grafico) => !grafico.cid.startsWith("rival-doc-"));
+
+    if (sinPdf.length < graficos.length) {
+      avisos.push("Las páginas de los PDF del rival no caben: van como enlace a cada PDF.");
+
+      graficos = sinPdf;
+    }
+  }
+
+  const fuera: string[] = [];
+
+  while (peso(graficos) >= tope && graficos.length) {
+    const mayor = graficos.reduce((uno, otro) => (otro.imagen.length > uno.imagen.length ? otro : uno));
+
+    fuera.push(mayor.titulo);
+
+    graficos = graficos.filter((grafico) => grafico !== mayor);
+  }
+
+  if (fuera.length) avisos.push(`No caben en el correo y se quedan fuera: ${fuera.join(", ")}.`);
+
+  return { informe: { ...informe, graficos }, avisos };
+}
+
 export function InformeMicroDialog({
   datos,
   onClose,
+  incrustado,
 }: {
   datos: DatosDelMicro;
   onClose: () => void;
+  /**
+   * Sin ventana: espera a tenerlo todo, arma el informe como para el correo y
+   * se lo da a `alListo` una sola vez. Lo usa `/abp-microciclo?incrustado=…`.
+   */
+  incrustado?: { modo: ModoInforme; alListo: (resultado: ResultadoIncrustado) => void };
 }) {
   const { value: ajustes, setValue: setAjustes } = useRemoteDoc<AjustesCorreo>({
     key: "abp:informe-correo",
@@ -465,7 +548,7 @@ export function InformeMicroDialog({
   | toque, sigue a la propuesta: si las hojas llegan tarde y traen el partido,
   | el informe pasa solo a post.
   */
-  const [modoElegido, setModoElegido] = useState<ModoInforme | null>(null);
+  const [modoElegido, setModoElegido] = useState<ModoInforme | null>(() => incrustado?.modo ?? null);
 
   const modo = useMemo<ModoInforme>(
     () =>
@@ -654,6 +737,75 @@ export function InformeMicroDialog({
       setEnviando(false);
     }
   };
+
+  /*
+  | INCRUSTADO: cuando ya está todo, se arma una vez y se entrega. Si en un
+  | minuto no ha llegado todo, se entrega el fallo: quien espera tiene que
+  | saber que no va a venir.
+  */
+  const clave = `${datos.temporada}|${datos.micro}`;
+
+  const entregado = useRef(false);
+
+  const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando;
+
+  const alListo = incrustado?.alListo;
+
+  useEffect(() => {
+    if (!alListo) return;
+
+    const reloj = window.setTimeout(() => {
+      if (entregado.current) return;
+
+      entregado.current = true;
+
+      alListo({ ok: false, clave, error: "El informe de balón parado no ha terminado de cargar en un minuto." });
+    }, ESPERA_INCRUSTADO);
+
+    return () => window.clearTimeout(reloj);
+  }, [alListo, clave]);
+
+  useEffect(() => {
+    if (!alListo || !listo || entregado.current) return;
+
+    let cancelado = false;
+
+    imagenesQueCaben(informe, TOPE_INCRUSTADO)
+      .then(({ informe: paraEnviar, avisos }) => {
+        if (cancelado || entregado.current) return;
+
+        entregado.current = true;
+
+        alListo({
+          ok: true,
+          clave,
+          modo: paraEnviar.modo,
+          asunto: paraEnviar.asunto,
+          cuerpo: informeCuerpoHtml(paraEnviar, { imagenes: "cid", prefijoCid: PREFIJO_CID }),
+          texto: informeTexto(paraEnviar),
+          imagenes: paraEnviar.graficos.map((grafico) => ({
+            cid: `${PREFIJO_CID}${grafico.cid}`,
+            tipo: grafico.imagen.match(/^data:([^;]+);base64,/)?.[1] ?? "image/png",
+            base64: grafico.imagen.replace(/^data:[^;]+;base64,/, ""),
+          })),
+          pincelada: pinceladaAbp(paraEnviar),
+          avisos: [...paraEnviar.avisos, ...avisos],
+        });
+      })
+      .catch((error) => {
+        if (cancelado || entregado.current) return;
+
+        entregado.current = true;
+
+        alListo({ ok: false, clave, error: error instanceof Error ? error.message : "No se ha podido armar el informe de balón parado." });
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [alListo, listo, informe, clave]);
+
+  if (incrustado) return null;
 
   return (
     <Dialog

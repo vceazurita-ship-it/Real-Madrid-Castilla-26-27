@@ -24,7 +24,7 @@
  * `lib/abp/transferencia.ts` (urgencia y transferencia).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Brain,
   CalendarDays,
@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 
 import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
-import { InformeMicroDialog } from "@/components/abp/InformeMicroDialog";
+import { InformeMicroDialog, type DatosDelMicro, type ResultadoIncrustado } from "@/components/abp/InformeMicroDialog";
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
 
 import { toast } from "sonner";
@@ -188,7 +188,50 @@ function Reparto({
 /*  PÁGINA                                                             */
 /* ------------------------------------------------------------------ */
 
+/*
+| INCRUSTADA (03/10/2026).
+|
+| El informe del partido, en Microciclos, abre esta pantalla en un marco oculto
+| con `?incrustado=<temporada>|<micro>&modo=previa|post` para llevarse el
+| informe de balón parado entero sin calcularlo dos veces. En ese modo la
+| pantalla **sólo lee**: no rellena el plan con las tareas del registro ni
+| guarda nada, y entrega el informe por `postMessage` a quien la abrió.
+|
+| Se lee de la barra de direcciones con `useSyncExternalStore`, como en la
+| pizarra táctica: `useSearchParams` obligaría a envolver la página en un
+| `Suspense`, y con la instantánea de servidor vacía no hay desajuste al hidratar.
+*/
+const parametro = (nombre: string) => () => new URLSearchParams(window.location.search).get(nombre) ?? "";
+
+const parametroIncrustado = parametro("incrustado");
+
+const parametroModo = parametro("modo");
+
+function sinParametro() {
+  return "";
+}
+
+function seSabraAlLlegar(avisa: () => void) {
+  const aviso = setTimeout(avisa, 0);
+
+  return () => clearTimeout(aviso);
+}
+
+/** «2026 - 2027» y «2026-2027» son la misma temporada. */
+const mismaTemporada = (una: string, otra: string) => una.replace(/\s+/g, "") === otra.replace(/\s+/g, "");
+
+/** Entrega el resultado a quien abrió la pantalla en el marco. */
+function entrega(resultado: ResultadoIncrustado) {
+  if (window.parent === window) return;
+
+  window.parent.postMessage({ tipo: "abp-informe", ...resultado }, window.location.origin);
+}
+
 export default function AbpMicrocicloPage() {
+  const pedidoIncrustado = useSyncExternalStore(seSabraAlLlegar, parametroIncrustado, sinParametro);
+
+  const modoIncrustado = useSyncExternalStore(seSabraAlLlegar, parametroModo, sinParametro) === "post" ? "post" : "previa";
+
   /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
   const escudoDe = useEscudos();
 
@@ -299,8 +342,21 @@ export default function AbpMicrocicloPage() {
   /* El microciclo más reciente es el que se está preparando: es el que se
      abre solo. Se calcula en vez de fijarse en un efecto para que no haya un
      instante con la pantalla en el micro que no es. */
-  const claveActiva =
-    seleccion && micros.some((micro) => micro.clave === seleccion)
+  /* Incrustada, el micro lo dice la dirección: «<temporada>|<micro>». */
+  const microIncrustado = useMemo(() => {
+    if (!pedidoIncrustado) return undefined;
+
+    const corte = pedidoIncrustado.lastIndexOf("|");
+
+    const temporada = pedidoIncrustado.slice(0, corte);
+    const numero = Number(pedidoIncrustado.slice(corte + 1));
+
+    return micros.find((micro) => micro.micro === numero && mismaTemporada(micro.temporada, temporada));
+  }, [pedidoIncrustado, micros]);
+
+  const claveActiva = pedidoIncrustado
+    ? (microIncrustado?.clave ?? "")
+    : seleccion && micros.some((micro) => micro.clave === seleccion)
       ? seleccion
       : (micros[micros.length - 1]?.clave ?? "");
 
@@ -692,6 +748,9 @@ export default function AbpMicrocicloPage() {
   const rellenadas = useRef(new Set<string>());
 
   useEffect(() => {
+    /* Incrustada sólo se lee: nada de rellenar el plan al abrir. */
+    if (pedidoIncrustado) return;
+
     if (status === "loading" || !registro || !microActivo || !claveActiva) return;
 
     const tratadas = new Set([...(plan.deRegistro ?? []), ...yaImportadas]);
@@ -752,7 +811,7 @@ export default function AbpMicrocicloPage() {
           "Edítalo encima como quieras: lo que quites no vuelve.",
       });
     }
-  }, [status, registro, microActivo, claveActiva, plan.deRegistro, yaImportadas, tareasAbpDelMicro, importa, mutaPlan]);
+  }, [pedidoIncrustado, status, registro, microActivo, claveActiva, plan.deRegistro, yaImportadas, tareasAbpDelMicro, importa, mutaPlan]);
 
   /* ------------------------------ BOCETO ------------------------------- */
 
@@ -923,6 +982,89 @@ export default function AbpMicrocicloPage() {
   /* ------------------------------ RENDER ------------------------------- */
 
   const sinMicros = !cargando && !micros.length;
+
+  /* Lo que el informe de ABP necesita de esta pantalla. */
+  const datosInforme: DatosDelMicro = {
+    temporada: plan.temporada || microActivo?.temporada || "",
+    micro: plan.micro || microActivo?.micro || 0,
+    rival: plan.rival,
+    partido: partidoDelMicro
+      ? {
+          jornada: partidoDelMicro.jornada,
+          rival: partidoDelMicro.rival,
+        }
+      : null,
+    /*
+    | El partido de la semana en el calendario: jornada, hora y, si ya
+    | se jugó, el resultado. Con él el informe decide si toca previa o
+    | post y encuentra las acciones de ESA jornada (no las de la ida).
+    */
+    partidoCalendario: ventana.partido
+      ? {
+          jornada: ventana.partido.jornada,
+          cuando: ventana.partido.cuando,
+          rival: ventana.partido.rival,
+          lado: ventana.partido.lado,
+          golesFavor: ventana.partido.golesFavor,
+          golesContra: ventana.partido.golesContra,
+          jugado: ventana.partido.jugado,
+        }
+      : null,
+    /*
+    | Los días de ESTE microciclo, para que el reparto por día del
+    | informe no se dibuje sobre las siete letras de la semana natural.
+    */
+    dias: ventana.dias.map((dia) => ({
+      clave: dia.clave,
+      etiqueta: dia.etiqueta,
+      tipo: dia.tipo,
+      fecha: dia.fecha,
+    })),
+    /* De dónde viene la semana: el microciclo va de partido a partido. */
+    partidoAnterior: ventana.partidoAnterior
+      ? {
+          rival: ventana.partidoAnterior.rival,
+          cuando: etiquetaDia(soloDia(ventana.partidoAnterior.cuando)),
+        }
+      : null,
+    entradas,
+    totales,
+    tareas: tareasAbpDelMicro,
+    filas,
+    prioridades,
+    /*
+    | Los días de ENTRENAMIENTO de la semana: con ellos se prorratea el
+    | objetivo de minutos de ABP (90-100′ en una semana de seis, y su
+    | parte en las de menos; el tope de seis lo pone el propio cálculo).
+    |
+    | Aquí se contaban los días con `tipo === "entreno"` a pelo, y eso
+    | estaba roto: **todo día nace «entreno»**, así que un plan al que
+    | nadie marca los descansos declaraba siete y el objetivo salía
+    | 90-100′ en todas las semanas. `diasDeLaSemana` distingue los tres
+    | casos y dice de cuál viene el número, para que el informe pueda
+    | contarlo en vez de dar una cifra que nadie puede comprobar.
+    */
+    diasEntreno: diasDeLaSemana(plan).dias,
+    origenDias: diasDeLaSemana(plan).origen,
+    minutosPorAspecto: [...minutosMicro.entries()].map(
+      ([clave, minutos]) => ({ clave, minutos }),
+    ),
+  };
+
+  /* Incrustada: el micro pedido no existe, o la hoja no ha cargado. */
+  const incrustadaLista = Boolean(pedidoIncrustado) && !cargando && status !== "loading";
+
+  useEffect(() => {
+    if (!incrustadaLista || microIncrustado) return;
+
+    entrega({
+      ok: false,
+      clave: pedidoIncrustado,
+      error: errorRegistro
+        ? "No se ha podido leer la hoja de registro de tareas."
+        : `No encuentro el microciclo ${pedidoIncrustado.replace("|", " · ")} en Microciclo de Balón Parado.`,
+    });
+  }, [incrustadaLista, microIncrustado, pedidoIncrustado, errorRegistro]);
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -1514,74 +1656,13 @@ export default function AbpMicrocicloPage() {
         />
       )}
 
+      {incrustadaLista && microIncrustado && (
+        <InformeMicroDialog datos={datosInforme} onClose={() => undefined} incrustado={{ modo: modoIncrustado, alListo: entrega }} />
+      )}
+
       {informeAbierto && (
         <InformeMicroDialog
-          datos={{
-            temporada: plan.temporada || microActivo?.temporada || "",
-            micro: plan.micro || microActivo?.micro || 0,
-            rival: plan.rival,
-            partido: partidoDelMicro
-              ? {
-                  jornada: partidoDelMicro.jornada,
-                  rival: partidoDelMicro.rival,
-                }
-              : null,
-            /*
-            | El partido de la semana en el calendario: jornada, hora y, si ya
-            | se jugó, el resultado. Con él el informe decide si toca previa o
-            | post y encuentra las acciones de ESA jornada (no las de la ida).
-            */
-            partidoCalendario: ventana.partido
-              ? {
-                  jornada: ventana.partido.jornada,
-                  cuando: ventana.partido.cuando,
-                  rival: ventana.partido.rival,
-                  lado: ventana.partido.lado,
-                  golesFavor: ventana.partido.golesFavor,
-                  golesContra: ventana.partido.golesContra,
-                  jugado: ventana.partido.jugado,
-                }
-              : null,
-            /*
-            | Los días de ESTE microciclo, para que el reparto por día del
-            | informe no se dibuje sobre las siete letras de la semana natural.
-            */
-            dias: ventana.dias.map((dia) => ({
-              clave: dia.clave,
-              etiqueta: dia.etiqueta,
-              tipo: dia.tipo,
-              fecha: dia.fecha,
-            })),
-            /* De dónde viene la semana: el microciclo va de partido a partido. */
-            partidoAnterior: ventana.partidoAnterior
-              ? {
-                  rival: ventana.partidoAnterior.rival,
-                  cuando: etiquetaDia(soloDia(ventana.partidoAnterior.cuando)),
-                }
-              : null,
-            entradas,
-            totales,
-            tareas: tareasAbpDelMicro,
-            filas,
-            prioridades,
-            /*
-            | Los días de ENTRENAMIENTO de la semana: con ellos se prorratea el
-            | objetivo de minutos de ABP (90-100′ en una semana de seis, y su
-            | parte en las de menos; el tope de seis lo pone el propio cálculo).
-            |
-            | Aquí se contaban los días con `tipo === "entreno"` a pelo, y eso
-            | estaba roto: **todo día nace «entreno»**, así que un plan al que
-            | nadie marca los descansos declaraba siete y el objetivo salía
-            | 90-100′ en todas las semanas. `diasDeLaSemana` distingue los tres
-            | casos y dice de cuál viene el número, para que el informe pueda
-            | contarlo en vez de dar una cifra que nadie puede comprobar.
-            */
-            diasEntreno: diasDeLaSemana(plan).dias,
-            origenDias: diasDeLaSemana(plan).origen,
-            minutosPorAspecto: [...minutosMicro.entries()].map(
-              ([clave, minutos]) => ({ clave, minutos }),
-            ),
-          }}
+          datos={datosInforme}
           onClose={() => setInformeAbierto(false)}
         />
       )}

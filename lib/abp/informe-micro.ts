@@ -2244,14 +2244,30 @@ function seccionHtml(seccion: Seccion) {
   }${seccion.html}</td></tr>`;
 }
 
-/** El informe como correo: tablas y estilos en línea, que es lo que sobrevive. */
-export function informeHtml(
+/**
+ * El informe sin su marco: cabecera de cifras, avisos y secciones.
+ *
+ * Es lo que se mete DENTRO de otro correo —el del partido lleva el informe de
+ * balón parado entero como una sección más— y lo que envuelve `informeHtml`
+ * para el correo propio, así que hay una sola fuente. Va en una tabla al 100 %
+ * para caber en un contenedor blanco de 760 px.
+ *
+ * `prefijoCid` antepone algo a cada `cid:` de los gráficos: en un correo con
+ * otras imágenes (las diapositivas del partido) dos `cid` iguales se pisan.
+ */
+export function informeCuerpoHtml(
   informe: InformeMicro,
-  opciones: { imagenes?: ModoImagenes } = {},
+  opciones: { imagenes?: ModoImagenes; prefijoCid?: string } = {},
 ) {
   const modoImagenes = opciones.imagenes ?? "data";
 
-  const resumen = informe.resumen
+  const prefijo = opciones.prefijoCid ?? "";
+
+  const conPrefijo = prefijo
+    ? { ...informe, graficos: informe.graficos.map((grafico) => ({ ...grafico, cid: `${prefijo}${grafico.cid}` })) }
+    : informe;
+
+  const resumen = conPrefijo.resumen
     .map(
       (dato) =>
         `<td style="padding:10px 12px;background:${CREMA};border:1px solid #E5E1D6;border-radius:8px;width:33%"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(dato.rotulo)}</p><p style="margin:4px 0 0;font:700 19px/1.2 Arial,sans-serif;color:${NAVY}">${esc(dato.valor)}</p><p style="margin:2px 0 0;font:400 11px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(dato.pie)}</p></td>`,
@@ -2271,14 +2287,28 @@ export function informeHtml(
     )
     .join("");
 
-  const avisos = informe.avisos.length
-    ? `<tr><td style="padding:6px 24px 8px"><table role="presentation" width="100%" style="width:100%;border-collapse:collapse"><tr><td style="padding:10px 12px;background:#FEF7E7;border-left:3px solid ${ORO};font:400 12px/1.6 Arial,sans-serif;color:#7A5B1E">${informe.avisos
+  const avisos = conPrefijo.avisos.length
+    ? `<tr><td style="padding:6px 24px 8px"><table role="presentation" width="100%" style="width:100%;border-collapse:collapse"><tr><td style="padding:10px 12px;background:#FEF7E7;border-left:3px solid ${ORO};font:400 12px/1.6 Arial,sans-serif;color:#7A5B1E">${conPrefijo.avisos
         .map((aviso) => esc(aviso))
         .join("<br>")}</td></tr></table></td></tr>`
     : "";
 
-  const secciones = seccionesDe(informe, modoImagenes).map(seccionHtml).join("\n");
+  const secciones = seccionesDe(conPrefijo, modoImagenes).map(seccionHtml).join("\n");
 
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;background:#FFFFFF">
+<tr><td style="padding:18px 24px 0"><table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0">${resumen}</table></td></tr>
+
+${avisos}
+
+${secciones}
+</table>`;
+}
+
+/** El informe como correo: tablas y estilos en línea, que es lo que sobrevive. */
+export function informeHtml(
+  informe: InformeMicro,
+  opciones: { imagenes?: ModoImagenes } = {},
+) {
   const lineaPartido = [informe.partido, informe.vieneDe].filter(Boolean);
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(`${informe.titulo} · ${informe.modoRotulo}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">
@@ -2294,17 +2324,184 @@ export function informeHtml(
   ${lineaPartido.map((linea) => `<p style="margin:4px 0 0;font:400 12px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(linea)}</p>`).join("")}
 </td></tr>
 
-<tr><td style="padding:18px 24px 0"><table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0">${resumen}</table></td></tr>
-
-${avisos}
-
-${secciones}
+<tr><td style="padding:0">${informeCuerpoHtml(informe, opciones)}</td></tr>
 
 <tr><td style="padding:18px 24px 24px;border-top:1px solid #E5E1D6">
   <p style="margin:0;font:400 11px/1.6 Arial,sans-serif;color:${SUAVE}">Generado automáticamente por la plataforma del Real Madrid Castilla · ${esc(informe.generado)}</p>
 </td></tr>
 
 </table></td></tr></table></body></html>`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA PINCELADA: EL BALÓN PARADO EN CUATRO LÍNEAS                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo esencial del informe de balón parado para otro documento (el resumen
+ * del partido en dos diapositivas): un titular, hasta tres claves cortas,
+ * hasta cuatro cifras grandes y hasta dos conclusiones del rival.
+ *
+ * Sale del informe ya montado —no recalcula nada—, así que dice lo mismo que
+ * el informe completo, sólo que más corto.
+ */
+export type PinceladaAbp = {
+  modo: "previa" | "post";
+  titular: string;
+  claves: string[];
+  cifras: { rotulo: string; valor: string; pie?: string }[];
+  rival: string[];
+};
+
+/** Un texto recortado a `n` caracteres por una palabra entera, con «…». */
+function corto(texto: string, n = 90) {
+  const limpio = texto.replace(/\s+/g, " ").trim();
+
+  if (limpio.length <= n) return limpio;
+
+  const cortado = limpio.slice(0, n - 1);
+
+  const espacio = cortado.lastIndexOf(" ");
+
+  return `${(espacio > n * 0.6 ? cortado.slice(0, espacio) : cortado).replace(/[\s,;:.·-]+$/, "")}…`;
+}
+
+export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
+  const rivalNombre = informe.subtitulo.match(/^Contra (.+?)(?: · |$)/)?.[1] ?? "";
+
+  const conclusiones = (informe.rivalAnalisis?.conclusiones ?? [])
+    .filter((una) => una.texto.trim())
+    .slice(0, 2)
+    .map((una) => corto(`${una.seccion}: ${una.texto}`));
+
+  /* Sin conclusiones escritas, al menos lo que hay preparado: que no parezca
+     que del rival no se ha mirado nada. */
+  const laminas = informe.graficos.filter((grafico) => grafico.area === "rival").length;
+
+  const documentos = informe.rivalAnalisis?.documentos?.length ?? 0;
+
+  const rival = conclusiones.length
+    ? conclusiones
+    : laminas || documentos
+      ? [
+          `Del rival: ${[laminas ? `${laminas} ${laminas === 1 ? "lámina" : "láminas"}` : "", documentos ? `${documentos} ${documentos === 1 ? "informe en PDF" : "informes en PDF"}` : ""]
+            .filter(Boolean)
+            .join(" y ")} en ABP del Rival, sin conclusiones escritas`,
+        ]
+      : [];
+
+  const minutos = Math.round(informe.tiempo.minutos);
+
+  const objetivo = `${fmtMin(informe.objetivo.minimo)}-${fmtMin(informe.objetivo.maximo)}`;
+
+  const tareas = {
+    rotulo: "Tareas valoradas",
+    valor: `${informe.valoracion.valoradas}/${informe.valoracion.total}`,
+    pie: informe.valoracion.media === null ? undefined : `media ${dec(informe.valoracion.media)}`,
+  };
+
+  if (informe.modo === "post") {
+    const p = informe.partidoAbp;
+
+    if (!p) {
+      return {
+        modo: "post",
+        titular: "El partido aún no está registrado en las hojas de balón parado",
+        claves: [`La semana: ${fmtMin(minutos)} de balón parado (objetivo ${objetivo})`],
+        cifras: [{ rotulo: "Minutos de ABP", valor: fmtMin(minutos), pie: `objetivo ${objetivo}` }, tareas],
+        rival,
+      };
+    }
+
+    const trabajadas = p.cruce.filter((una) => una.trabajado && una.medible);
+
+    const aparecieron = trabajadas.filter((una) => una.acciones > 0);
+
+    const buenas = aparecieron.filter((una) => una.tono === "bien");
+
+    const daño = p.cruce
+      .filter((una) => !una.trabajado && una.lado === "defensivo" && (una.goles > 0 || una.peligros > 0))
+      .sort((a, b) => b.goles - a.goles || b.peligros - a.peligros)[0];
+
+    const claves = [
+      `${p.favor.goles} a favor y ${p.contra.goles} en contra a balón parado · ${p.favor.remates}-${p.contra.remates} en remates`,
+      trabajadas.length
+        ? `De ${trabajadas.length} aspectos trabajados aparecieron ${aparecieron.length}; ${buenas.length} salieron bien`
+        : "",
+      daño ? `Nos hizo daño sin trabajarlo: ${nombreAspecto(daño.aspecto, daño.lado).toLowerCase()}` : "",
+    ]
+      .filter(Boolean)
+      .map((una) => corto(una));
+
+    return {
+      modo: "post",
+      titular:
+        p.favor.goles > p.contra.goles
+          ? `El balón parado sumó: ${p.favor.goles}-${p.contra.goles}${rivalNombre ? ` ante ${rivalNombre}` : ""}`
+          : p.favor.goles < p.contra.goles
+            ? `El balón parado restó: ${p.favor.goles}-${p.contra.goles}${rivalNombre ? ` ante ${rivalNombre}` : ""}`
+            : p.favor.goles === 0
+              ? "Sin goles a balón parado en ningún área"
+              : `Empate a balón parado: ${p.favor.goles}-${p.contra.goles}`,
+      claves: claves.slice(0, 3),
+      cifras: [
+        { rotulo: "Goles ABP", valor: `${p.favor.goles}·${p.contra.goles}`, pie: "a favor · en contra" },
+        { rotulo: "Remates ABP", valor: `${p.favor.remates}·${p.contra.remates}`, pie: "a favor · en contra" },
+        { rotulo: "xG ABP", valor: `${dec(p.favor.xg, 2)}·${dec(p.contra.xg, 2)}`, pie: "a favor · en contra" },
+        { rotulo: "Minutos de ABP", valor: fmtMin(minutos), pie: `objetivo ${objetivo}` },
+      ],
+      rival,
+    };
+  }
+
+  /* Previa: la urgencia número uno, cuánto se trabajó y lo que se dejó sin tocar. */
+  const primera = informe.prioridades[0];
+
+  const sinTocar = informe.prioridades.filter((una) => una.urgencia !== null && una.minutosSemana === fmtMin(0));
+
+  const aspectos = new Set(informe.trabajos.flatMap((una) => una.aspectos.split(/,\s*/)).filter(Boolean)).size;
+
+  const veredicto =
+    informe.objetivo.veredicto === "corto"
+      ? `faltan ${fmtMin(informe.objetivo.faltan)} para el objetivo`
+      : informe.objetivo.veredicto === "pasado"
+        ? "por encima del objetivo"
+        : "dentro del objetivo";
+
+  const claves = [
+    primera
+      ? `Urgencia nº 1: ${nombreAspecto(primera.aspecto, primera.lado).toLowerCase()} · ${
+          primera.minutosSemana === fmtMin(0) ? "sin trabajar esta semana" : `${primera.minutosSemana} esta semana`
+        }`
+      : "",
+    `${fmtMin(minutos)} de balón parado en la semana, ${veredicto} (${objetivo})`,
+    sinTocar.length
+      ? `Sin trabajar: ${sinTocar
+          .slice(0, 2)
+          .map((una) => nombreAspecto(una.aspecto, una.lado).toLowerCase())
+          .join(" y ")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .map((una) => corto(una));
+
+  return {
+    modo: "previa",
+    titular: rivalNombre ? `Balón parado para el ${rivalNombre}: ${fmtMin(minutos)} de trabajo` : `${fmtMin(minutos)} de balón parado en la semana`,
+    claves: claves.slice(0, 3),
+    cifras: [
+      { rotulo: "Minutos de ABP", valor: fmtMin(minutos), pie: `objetivo ${objetivo}` },
+      {
+        rotulo: "Aspectos trabajados",
+        valor: String(aspectos),
+        pie: informe.prioridades.length
+          ? `${informe.prioridades.length - sinTocar.length} de ${informe.prioridades.length} urgencias`
+          : undefined,
+      },
+      tareas,
+    ],
+    rival,
+  };
 }
 
 /**

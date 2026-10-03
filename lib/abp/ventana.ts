@@ -24,6 +24,7 @@ import {
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
 import { teamKey } from "@/lib/abp/model";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import type { DiaKey, TipoDia } from "@/lib/abp/microciclo";
 import type { RegistroTarea } from "@/lib/abp/registro";
 
@@ -139,7 +140,10 @@ export function buscaPartidoDelMicro(
   const candidatos = nuestros.filter((uno) => {
     const suyo = teamKey(uno.rival);
 
-    return suyo === clave || suyo.includes(clave) || clave.includes(suyo);
+    /* `mismoClub` sabe que «ATL MADRID B» es el Atlético Madrileño: sin él el
+       micro no encontraba su partido y el post buscaba las acciones del
+       amistoso de julio contra el mismo club. */
+    return suyo === clave || suyo.includes(clave) || clave.includes(suyo) || mismoClub(uno.rival, rival);
   });
 
   if (candidatos.length === 0) return null;

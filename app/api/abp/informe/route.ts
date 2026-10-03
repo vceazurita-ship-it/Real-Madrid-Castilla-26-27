@@ -14,3 +14,5 @@
 export { POST } from "@/app/api/informe/correo/route";
 
 export const dynamic = "force-dynamic";
+
+export const maxDuration = 60;

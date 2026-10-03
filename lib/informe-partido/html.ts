@@ -11,7 +11,7 @@
  * la semana → balón parado → lo que el informe no sabe.
  */
 
-import { cifra, ordinal, type InformePartido, type JugadorRival } from "./modelo";
+import { cifra, conDato, ordinal, pct, revisaPalancas, type InformePartido, type JugadorRival } from "./modelo";
 
 const NAVY = "#0F1E3D";
 const ORO = "#A8874A";
@@ -96,7 +96,15 @@ const cifrasJugador = (j: JugadorRival) =>
     .filter(Boolean)
     .join(" · ");
 
-export function informeHtml(inf: InformePartido) {
+/** Lo que el informe extenso lleva además de lo suyo. */
+export type ExtrasInforme = {
+  /** El informe de ABP del microciclo, ya en HTML (sus imágenes van por `cid:abp-…`). */
+  abpCuerpo?: string;
+  /** Los documentos que van adjuntos al correo, para nombrarlos. */
+  adjuntos?: string[];
+};
+
+export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
   const p = inf.partido;
 
   const rival = p.rival || "el rival";
@@ -238,19 +246,76 @@ export function informeHtml(inf: InformePartido) {
   const duelo = inf.duelo?.metricas.length
     ? tabla(
         ["Métrica", "Nosotros", rival, "Mediana liga"],
-        inf.duelo.metricas.map((m) => [
-          esc(m.nombre),
+        inf.duelo.metricas.filter(conDato).flatMap((m, i, todas) => [
+          ...(m.bloque && m.bloque !== todas[i - 1]?.bloque
+            ? [[`<b style="color:${ORO};text-transform:uppercase;letter-spacing:.1em;font-size:11px">${esc(m.bloque)}</b>`, "", "", ""]]
+            : []),
+          [
+          `${esc(m.nombre)}${m.comoLeer ? `<br><span style="color:${SUAVE};font-size:11px">${esc(m.comoLeer)}</span>` : ""}`,
           m.nosotros ? `<b>${cifra(m.nosotros.valor, m.unidad)}</b> <span style="color:${SUAVE}">${ordinal(m.nosotros.puesto)}</span>${barra(m.nosotros.percentil, ORO)}` : "—",
           m.rival ? `<b>${cifra(m.rival.valor, m.unidad)}</b> <span style="color:${SUAVE}">${ordinal(m.rival.puesto)}</span>${barra(m.rival.percentil, ROJO)}` : "—",
           cifra(m.mediana, m.unidad),
+          ],
         ]),
       )
     : "";
 
+  /* ---------------- el pronóstico y cómo lo inclinamos ---------------- */
+
+  const pr = inf.pronostico;
+
+  const pronostico = pr
+    ? `<p style="margin:0 0 10px;font:700 16px/1.4 Arial,sans-serif;color:${NAVY}">${esc(pr.lectura)}</p>${tarjetas([
+        { rotulo: "Victoria", valor: pct(pr.victoria), pie: `con el plan: ${pct(pr.conPlan.victoria)}` },
+        { rotulo: "Empate", valor: pct(pr.empate), pie: `con el plan: ${pct(pr.conPlan.empate)}` },
+        { rotulo: "Derrota", valor: pct(pr.derrota), pie: `con el plan: ${pct(pr.conPlan.derrota)}` },
+        { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable: ${pr.marcador}` },
+      ])}<div style="height:12px"></div>${tabla(
+        ["Palanca", "La meta", "Por qué (dato)", "Cómo (plan)", "+ victoria"],
+        pr.palancas.map((x) => [
+          `<b>${esc(x.momento)}</b>`,
+          esc(x.objetivo),
+          esc(x.porque),
+          esc(x.plan || "—"),
+          `<b style="color:${ORO}">+${Math.max(0, x.victoria)} pts</b>`,
+        ]),
+      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Modelo de Poisson con ${esc(pr.base)}. No es una apuesta: dice de qué partido venimos a hablar y cuánto mueve cada parte del plan.</p>`
+    : "";
+
+  const veredicto =
+    pr && esPost && inf.sintesis.veredicto
+      ? `<p style="margin:0 0 10px;font:700 15px/1.5 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.veredicto)}.</p>${tarjetas([
+          { rotulo: "Victoria", valor: pct(pr.victoria) },
+          { rotulo: "Empate", valor: pct(pr.empate) },
+          { rotulo: "Derrota", valor: pct(pr.derrota) },
+          { rotulo: "Resultado", valor: p.gf !== null && p.gc !== null ? `${p.gf}-${p.gc}` : "—", pie: `el más probable era ${pr.marcador}` },
+        ])}<div style="height:12px"></div>${tabla(
+          ["Palanca", "La meta", "Lo que pasó", ""],
+          revisaPalancas(inf).map((x) => [
+            `<b>${esc(x.momento)}</b>`,
+            esc(x.meta),
+            esc(x.real),
+            x.cumplida === null ? "—" : x.cumplida ? `<b style="color:${VERDE}">Cumplida</b>` : `<b style="color:${ROJO}">No</b>`,
+          ]),
+        )}`
+      : "";
+
   /* ---------------- su juego ---------------- */
 
+  const resumenJuego = inf.colectivo?.resumen;
+
   const colectivo = inf.colectivo
-    ? `${inf.colectivo.bloques
+    ? `${
+        resumenJuego?.fases.length
+          ? `${tabla(
+              ["En una línea", ""],
+              [
+                ...resumenJuego.fases.map((f) => [`<b>${esc(f.titulo)}</b>`, esc(f.texto)]),
+                ...resumenJuego.dano.map((t, i) => [i === 0 ? `<b style="color:${VERDE}">Dónde hacerles daño</b>` : "", esc(t)]),
+              ],
+            )}<div style="height:14px"></div>`
+          : ""
+      }${inf.colectivo.bloques
         .map(
           (b) =>
             `<p style="margin:14px 0 6px;font:700 14px/1.3 Arial,sans-serif;color:${NAVY}">${esc(b.fase)} · ${esc(b.bloque)}</p>${tabla(
@@ -372,6 +437,24 @@ export function informeHtml(inf: InformePartido) {
       }<p style="margin:10px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">El detalle de balón parado va en su propio informe, desde Microciclo de Balón Parado.</p>`
     : "";
 
+  const abpEntero = extras.abpCuerpo
+    ? `<tr><td style="padding:26px 0 6px"><p style="margin:0 28px;font:700 12px/1.3 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:${ORO}">Balón parado · el informe del microciclo</p><p style="margin:4px 28px 12px;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">El mismo informe que sale de Microciclo de Balón Parado, entero.</p>${extras.abpCuerpo}</td></tr>`
+    : "";
+
+  const enlace = (x: { nombre: string; url: string }) => `<a href="${esc(x.url)}" style="color:${ORO};font-weight:700">${esc(x.nombre)}</a>`;
+
+  const material = [
+    ...(extras.adjuntos?.length ? [`<p style="margin:0 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Van adjuntos a este correo</p>${lista(extras.adjuntos.map((n) => `📎 ${n}`))}`] : []),
+    ...(inf.recursos.documentos.length
+      ? [`<p style="margin:12px 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Documentos del rival</p><p style="margin:0;font:400 13px/1.8 Arial,sans-serif">${inf.recursos.documentos.map(enlace).join(" · ")}</p>`]
+      : []),
+    ...(inf.recursos.videos.length
+      ? [`<p style="margin:12px 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Vídeos del rival</p><p style="margin:0;font:400 13px/1.8 Arial,sans-serif">${inf.recursos.videos.map(enlace).join(" · ")}</p>`]
+      : []),
+  ].join("");
+
+  const adjuntosTexto = material;
+
   const avisos = inf.avisos.length ? lista(inf.avisos, SUAVE) : "";
 
   const titulo = `${esPost ? "Post partido" : "Previa"} · ${p.lado === "fuera" ? `${rival} - RM Castilla` : `RM Castilla - ${rival}`}`;
@@ -386,24 +469,28 @@ ${
         seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial),
         seccion("El partido", "Goles, cambios y tarjetas (BeSoccer).", cronica),
         seccion("El partido en datos", "Wyscout: lo nuestro, lo suyo y nuestra media de la temporada.", partidoDatos),
+        seccion("El pronóstico, frente al resultado", "Lo que daban los números de los dos antes del partido.", veredicto),
         seccion(`Su once${cr?.estructura ? ` · ${cr.estructura}` : ""}`, cr?.acierto ? "El que sacaron, frente al que habíamos previsto en Plantillas." : "El que sacaron (BeSoccer).", onceReal),
         seccion("El plan, a revisión", "Lo que nos propusimos en Preparación de Partido; la columna de la derecha es para cerrarlo en la reunión.", revision),
         seccion("La semana que lo preparó", "El microciclo de la hoja de registro de tareas.", semana),
         seccion("Dónde quedamos", "Clasificación y racha (BeSoccer).", contexto),
         seccion("Los dos en la temporada", `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: media por partido y puesto entre los ${inf.duelo?.equipos ?? ""} del grupo. La barra es el percentil.`, duelo),
-        seccion("Balón parado", "", abp),
+        abpEntero || seccion("Balón parado", "", abp),
+        seccion("Material del partido", "", adjuntosTexto),
         seccion("Lo que este informe no sabe", "", avisos),
       ].join("\n")
     : [
         seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial),
         seccion(`${rival}: su momento`, "Clasificación, racha y quién marca (BeSoccer).", contexto),
+        seccion("El pronóstico y cómo lo inclinamos", "Lo que vienen siendo los dos, y lo que mueve cada parte del plan.", pronostico),
         seccion("El duelo en datos", `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: la media por partido de cada equipo y su puesto entre los ${inf.duelo?.equipos ?? ""} del grupo (1.º = el mejor). La barra es el percentil.`, duelo),
         seccion(`Cómo juega ${rival}`, "El análisis colectivo del cuerpo técnico (Scouting colectivo).", colectivo),
         seccion(inf.once.fuente === "marcado" ? "Su once probable" : "Su último once", "Ficha, números de la temporada (BeSoccer) y lo que dice cada ficha.", once),
         seccion("El resto de su plantilla", "Por minutos jugados.", plantilla),
         seccion("Nuestro plan de partido", "Preparación de Partido.", plan),
         seccion("La semana", "El microciclo de la hoja de registro de tareas.", semana),
-        seccion("Balón parado", "", abp),
+        abpEntero || seccion("Balón parado", "", abp),
+        seccion("Material del rival", "La plantilla, el informe del rival y sus vídeos, para abrirlos aparte.", adjuntosTexto),
         seccion("Lo que este informe no sabe", "", avisos),
       ].join("\n")
 }
@@ -438,6 +525,12 @@ export function informeTexto(inf: InformePartido) {
     ...inf.sintesis.claves.map((c, i) => `${i + 1}. ${c}`),
   ];
 
+  if (inf.pronostico) {
+    const pr = inf.pronostico;
+
+    l.push("", "EL PRONÓSTICO", pr.lectura, ...pr.palancas.map((x) => `- ${x.momento}: ${x.objetivo} (+${Math.max(0, x.victoria)} pts de victoria)`));
+  }
+  if (inf.sintesis.veredicto) l.push("", inf.sintesis.veredicto);
   if (inf.sintesis.relato.length) l.push("", "CÓMO FUE", ...inf.sintesis.relato.map((v) => `- ${v}`));
   if (inf.sintesis.frenados.length) l.push("", "¿LOS FRENAMOS?", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
   if (inf.sintesis.ventajas.length) l.push("", "DONDE SOMOS MEJORES", ...inf.sintesis.ventajas.map((v) => `- ${v}`));

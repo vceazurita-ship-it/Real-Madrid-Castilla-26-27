@@ -20,11 +20,12 @@ import { traeJson } from "@/lib/hojaCsv";
 import { analisisKey, clipsKey, laminaVacia, normalizaAnalisis, ordenJornada } from "@/lib/rivals/analisis";
 import { esLiga, findInforme, type InformeDoc, type InformeEquipo, type OncePartido } from "@/lib/rivals/informe";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { normalizarMedia, rivalMediaKey } from "@/lib/rivals/media";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
-import { mismoJugador, type Cronica } from "./modelo";
+import { fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
 import {
@@ -456,7 +457,31 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
 
   const conclusiones = CONCLUSIONES.map((c) => ({ titulo: c.titulo, texto: valor(c.campo) })).filter((c) => c.texto);
 
-  return bloques.length || conclusiones.length ? { bloques, conclusiones } : null;
+  /* Una línea por momento: el primer campo con algo, por orden de importancia. */
+  const primero = (campos: string[]) => campos.map((k) => fraseUtil(valor(k), 120)).find(Boolean) ?? "";
+
+  const fases = [
+    { titulo: "Cómo salen", texto: primero(["OF_INICIO_ESTRUCTURA", "OF_REINICIO_CONTEXTO", "OF_REINICIO_REFERENCIAS", "OF_INICIO_ASOCIACIONES"]) },
+    { titulo: "Cómo atacan", texto: primero(["OF_CAMPO_ESTRUCTURA", "OF_CAMPO_CARRIL_EXTERIOR", "OF_AREA_JUGADORES", "OF_AREA_CENTROS"]) },
+    { titulo: "Cómo defienden", texto: primero(["DEF_BLOQUE_MEDIO_ESTRUCTURA", "DEF_BLOQUE_ALTO_ESTRUCTURA", "DEF_REINICIO_EMPAREJAN", "DEF_REINICIO_ORIENTAN"]) },
+    { titulo: "Al robar", texto: primero(["TRANSICION_OF_PRIMERA_INTENCION", "TRANSICION_OF_ESPACIOS", "TRANSICION_OF_ZONAS_ROBO", "TRANSICION_OF_JUGADORES_REFERENCIA"]) },
+  ].filter((f) => f.texto);
+
+  /* Dónde hacerles daño: sus puntos débiles, sin repetir. */
+  const dano = [
+    "TRANSICION_DEF_DIFICULTADES_ESPALDA",
+    "DEF_BLOQUE_ALTO_ESPALDA",
+    "DEF_BLOQUE_MEDIO_ESPALDA",
+    "OF_INICIO_JUGADOR_DEBIL_DENTRO",
+    "DEF_REINICIO_JUGADORES_DEBILES",
+    "DEF_AREA_JUGADOR_DEBIL",
+    "DEBILIDADES_INDIVIDUALES",
+  ]
+    .map((k) => fraseUtil(valor(k), 110))
+    .filter((t, i, todos) => t && todos.indexOf(t) === i)
+    .slice(0, 3);
+
+  return bloques.length || conclusiones.length ? { bloques, conclusiones, resumen: { fases, dano } } : null;
 }
 
 function contextoDe(informe: InformeEquipo | null, rival: string, nuestros: PartidoNuestro[], corte: string): ContextoRival | null {
@@ -570,17 +595,40 @@ export async function cargaInforme(entrada: {
 
   const informeRival = findInforme(informes, equipoHoja);
 
-  const [onceDoc, analisisDoc, clipsDoc, duelo] = await Promise.all([
+  const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc] = await Promise.all([
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
     doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[] }> }>(clipsKey(equipoHoja)),
     fetch(
-      `/api/data-analisis?duelo=${encodeURIComponent(rival)}${momento === "post" && partido ? `&fecha=${soloDia(partido.cuando)}` : ""}`,
+      /* Las medias, de antes del partido (`corte`); en el post, además, el partido. */
+      `/api/data-analisis?duelo=${encodeURIComponent(rival)}${partido ? `&corte=${soloDia(partido.cuando)}` : ""}${momento === "post" && partido ? `&fecha=${soloDia(partido.cuando)}` : ""}`,
     )
       .then((r) => r.json() as Promise<{ duelo?: Duelo }>)
       .then((j) => j.duelo ?? null)
       .catch(() => null),
+    filaRival ? doc<unknown>(rivalMediaKey(texto(filaRival.ID))) : Promise.resolve(null),
   ]);
+
+  /* Los recursos del rival: los PDF y PPT subidos se pueden adjuntar al correo. */
+  const media = normalizarMedia(mediaDoc);
+
+  const tipoDeDoc = (nombre: string, mime?: string) =>
+    mime || (/\.pptx$/i.test(nombre) ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : /\.pdf$/i.test(nombre) ? "application/pdf" : "");
+
+  const recursos = {
+    documentos: media.docs.map((d) => {
+      const tipo = tipoDeDoc(d.path ?? d.url, d.mime);
+
+      return {
+        nombre: d.nombre,
+        url: d.url,
+        tipo,
+        tamano: d.tamano ?? null,
+        adjuntable: d.origen === "archivo" && /pdf|presentationml/.test(tipo),
+      };
+    }),
+    videos: media.videos.map((v) => ({ nombre: v.nombre, url: v.url })),
+  };
 
   let once: InformePartido["once"] = { jugadores: [], fuente: null, detalle: "" };
 
@@ -668,6 +716,8 @@ export async function cargaInforme(entrada: {
       partido ? (momento === "post" ? soloDia(partido.cuando) : diaAnterior(soloDia(partido.cuando))) : "",
     ),
     cronica,
+    recursos,
+    pronostico: pronostica({ duelo, partido: { lado: partido?.lado ?? "" }, plan }),
     abp: microciclo || laminasRival || docsRival.length
       ? { minutosSemana: microciclo?.totales.abpMinutos ?? 0, laminasRival, documentosRival: docsRival }
       : null,

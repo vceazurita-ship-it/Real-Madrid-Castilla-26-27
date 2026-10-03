@@ -4,14 +4,21 @@
  * El informe llega escrito desde el navegador; aquí sólo se comprueba quién lo
  * pide y se manda con la cuenta de Google del club. Ver
  * `lib/correo/peticionInforme.ts`.
+ *
+ * Los adjuntos grandes (el PDF o el PPT del rival) no viajan en la petición:
+ * llegan como `adjuntosUrl` —ya subidos a Supabase por el navegador— y se
+ * traen desde aquí.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { envia } from "@/lib/correo/gmail";
-import { leePeticionInforme, puedeMandar } from "@/lib/correo/peticionInforme";
+import { leeAdjuntosUrl, leePeticionInforme, puedeMandar, traeAdjuntosUrl } from "@/lib/correo/peticionInforme";
 
 export const dynamic = "force-dynamic";
+
+/* Traer un PPT de 20 MB y subirlo a Gmail no cabe en los 10 s por defecto. */
+export const maxDuration = 60;
 
 const mal = (mensaje: string, estado = 400) => NextResponse.json({ ok: false, error: mensaje }, { status: estado });
 
@@ -31,6 +38,16 @@ export async function POST(request: NextRequest) {
   const correo = leePeticionInforme(cuerpo);
 
   if ("error" in correo) return mal(correo.error);
+
+  const porUrl = leeAdjuntosUrl(cuerpo);
+
+  if ("error" in porUrl) return mal(porUrl.error);
+
+  try {
+    correo.adjuntos = [...(correo.adjuntos ?? []), ...(await traeAdjuntosUrl(porUrl))];
+  } catch (error) {
+    return mal(error instanceof Error ? error.message : "No se han podido traer los adjuntos.");
+  }
 
   try {
     const { id, cuenta } = await envia(correo);

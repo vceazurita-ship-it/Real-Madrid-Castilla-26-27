@@ -6,28 +6,61 @@
  * Se abre desde Microciclos. Elige el microciclo (por defecto el que se esté
  * mirando) y si es la previa o el post (por defecto lo dice el calendario).
  * Enseña el resumen —dos diapositivas— y el informe extenso tal y como van a
- * llegar, y con un botón manda **los dos correos**: el resumen con las
- * diapositivas dentro y en PDF adjunto, y el extenso.
+ * llegar, y manda **dos correos**: el resumen con las diapositivas dentro y en
+ * PDF adjunto, y el extenso con el informe de ABP entero y los documentos del
+ * rival adjuntos.
  *
- * Lo que arma el informe está en `lib/informe-partido/`; aquí sólo se carga,
- * se pinta y se envía.
+ * Tres piezas vienen de fuera y llegan a su ritmo:
+ *
+ *   - El informe en sí: `lib/informe-partido/carga.ts`.
+ *   - El informe de ABP del microciclo: lo arma la propia pantalla de
+ *     Microciclo de Balón Parado, abierta en un iframe oculto en modo
+ *     incrustado (sólo lectura), y lo devuelve por `postMessage`. Así sólo hay
+ *     un sitio que sabe hacer ese informe.
+ *   - Los adjuntos: los PDF y PPT del rival que estén en sus Recursos, más los
+ *     que se suban aquí. Van directos a Supabase (`subeAdjunto`) y el servidor
+ *     los adjunta al correo: por Vercel no caben.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileText, Loader2, Presentation, RefreshCw, Send } from "lucide-react";
+import { Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented, TextArea } from "@/components/abp/ui";
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { informeHtml, informeTexto, resumenHtml } from "@/lib/informe-partido/html";
-import type { InformePartido, Momento } from "@/lib/informe-partido/modelo";
+import type { InformePartido, Momento, PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { apodo, capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 
 type AjustesCorreo = { destinatarios: string };
+
+/** Lo que devuelve la pantalla de ABP incrustada. */
+type AbpLlegado =
+  | {
+      ok: true;
+      clave: string;
+      cuerpo: string;
+      texto: string;
+      imagenes: { cid: string; tipo: string; base64: string }[];
+      pincelada: PinceladaAbp;
+      avisos: string[];
+    }
+  | { ok: false; clave: string; error: string };
+
+/** Un documento para el correo extenso. */
+type Documento = { nombre: string; url: string; tipo: string; tamano: number | null; adjuntable: boolean; origen: "rival" | "subido" };
+
+/* El correo extenso lleva los adjuntos que se trae el servidor: Gmail admite
+   ~35 MB por mensaje y la base64 suma un tercio. */
+const TOPE_ADJUNTOS = 22 * 1024 * 1024;
+
+/* Lo que se espera al informe de ABP antes de darlo por perdido. */
+const ESPERA_ABP = 120_000;
 
 const base64De = (blob: Blob) =>
   new Promise<string>((resuelve, falla) => {
@@ -38,6 +71,8 @@ const base64De = (blob: Blob) =>
 
     lector.readAsDataURL(blob);
   });
+
+const mb = (bytes: number | null) => (bytes === null ? "" : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
 export function InformePartidoDialog({
   temporada,
@@ -51,9 +86,7 @@ export function InformePartidoDialog({
 }) {
   const [micros, setMicros] = useState<MicroDisponible[] | null>(null);
 
-  const [elegido, setElegido] = useState<{ temporada: string; micro: number } | null>(
-    temporada && micro ? { temporada, micro } : null,
-  );
+  const [elegido, setElegido] = useState<{ temporada: string; micro: number } | null>(temporada && micro ? { temporada, micro } : null);
 
   /* `null` = lo que diga el calendario. */
   const [momentoPedido, setMomentoPedido] = useState<Momento | null>(null);
@@ -127,7 +160,117 @@ export function InformePartidoDialog({
     };
   }, [elegido, momentoPedido, testigo]);
 
-  const html = useMemo(() => (informe ? informeHtml(informe) : ""), [informe]);
+  /* ---------------- el informe de ABP, de su pantalla ---------------- */
+
+  /* Qué informe de ABP toca: el del micro y el momento del informe cargado. */
+  const abpClave = informe && elegido && !cargando ? `${elegido.temporada}|${elegido.micro}|${informe.momento}` : "";
+
+  const [abp, setAbp] = useState<AbpLlegado | null>(null);
+
+  useEffect(() => {
+    const oye = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+
+      const d = e.data as { tipo?: string; clave?: string; modo?: string } & Record<string, unknown>;
+
+      if (d?.tipo !== "abp-informe") return;
+
+      setAbp({ ...(d as unknown as AbpLlegado), clave: `${d.clave}|${d.modo ?? ""}` });
+    };
+
+    window.addEventListener("message", oye);
+
+    return () => window.removeEventListener("message", oye);
+  }, []);
+
+  /* Si no contesta, se da por perdido: el informe sale sin él y lo dice. */
+  useEffect(() => {
+    if (!abpClave) return;
+
+    const t = window.setTimeout(() => {
+      setAbp((actual) => (actual?.clave === abpClave ? actual : { ok: false, clave: abpClave, error: "La pantalla de ABP no ha contestado a tiempo." }));
+    }, ESPERA_ABP);
+
+    return () => window.clearTimeout(t);
+  }, [abpClave, testigo]);
+
+  const abpActual = abp && abp.clave === abpClave ? abp : null;
+
+  const abpCargando = Boolean(abpClave) && !abpActual;
+
+  const [, temporadaAbp, microAbp] = abpClave.match(/^(.*)\|(\d+)\|/) ?? [];
+
+  /* Lo que se pinta: el informe con la pincelada de ABP dentro. */
+  const informeVisto = useMemo<InformePartido | null>(() => {
+    if (!informe) return null;
+
+    if (!abpActual?.ok) return informe;
+
+    return {
+      ...informe,
+      abp: { ...(informe.abp ?? { minutosSemana: 0, laminasRival: 0, documentosRival: [] }), pincelada: abpActual.pincelada },
+      avisos: [...informe.avisos, ...abpActual.avisos.map((a) => `ABP: ${a}`)],
+    };
+  }, [informe, abpActual]);
+
+  /* ---------------- los adjuntos ---------------- */
+
+  const [subidos, setSubidos] = useState<Documento[]>([]);
+
+  const [quitados, setQuitados] = useState<Set<string>>(new Set());
+
+  const [subiendo, setSubiendo] = useState<{ nombre: string; fraccion: number } | null>(null);
+
+  const elegirArchivo = useRef<HTMLInputElement | null>(null);
+
+  const documentos = useMemo<Documento[]>(
+    () => [...(informe?.recursos.documentos ?? []).map((d) => ({ ...d, origen: "rival" as const })), ...subidos],
+    [informe, subidos],
+  );
+
+  const marcados = documentos.filter((d) => d.adjuntable && !quitados.has(d.url));
+
+  const pesoAdjuntos = marcados.reduce((s, d) => s + (d.tamano ?? 0), 0);
+
+  const sube = async (archivos: FileList | null) => {
+    for (const file of Array.from(archivos ?? [])) {
+      try {
+        setSubiendo({ nombre: file.name, fraccion: 0 });
+
+        const a = await subeAdjunto(file, (fraccion) => setSubiendo({ nombre: file.name, fraccion }));
+
+        setSubidos((lista) => [...lista, { nombre: a.nombre, url: a.url, tipo: a.tipo, tamano: a.tamano, adjuntable: true, origen: "subido" }]);
+      } catch (error) {
+        toast.error(`No se ha podido subir ${file.name}`, { description: error instanceof Error ? error.message : "" });
+      }
+    }
+
+    setSubiendo(null);
+  };
+
+  /* ---------------- el HTML del extenso ---------------- */
+
+  /* La lista de adjuntos, como texto: cambia sólo si cambia lo marcado. */
+  const nombresAdjuntos = marcados.map((d) => d.nombre).join("\n");
+
+  const extras = useMemo(
+    () => ({
+      abpCuerpo: abpActual?.ok ? abpActual.cuerpo : undefined,
+      adjuntos: nombresAdjuntos ? nombresAdjuntos.split("\n") : [],
+    }),
+    [abpActual, nombresAdjuntos],
+  );
+
+  const html = useMemo(() => (informeVisto ? informeHtml(informeVisto, extras) : ""), [informeVisto, extras]);
+
+  /* En la vista previa las imágenes de ABP van dentro (en el correo, por cid). */
+  const htmlVista = useMemo(() => {
+    if (!abpActual?.ok) return html;
+
+    const porCid = new Map(abpActual.imagenes.map((i) => [i.cid, `data:${i.tipo};base64,${i.base64}`]));
+
+    return html.replace(/cid:([^"'\s)]+)/g, (todo, cid: string) => porCid.get(cid) ?? todo);
+  }, [html, abpActual]);
 
   const [anchoVista, setAnchoVista] = useState(0);
 
@@ -185,7 +328,7 @@ export function InformePartidoDialog({
 
       descarga(
         creaPptx(
-          imagenes.map((imagen, i) => ({ titulo: i === 0 ? "El partido" : "El plan", imagen })),
+          imagenes.map((imagen, i) => ({ titulo: i === 0 ? (informe?.momento === "post" ? "El resultado" : "El partido") : informe?.momento === "post" ? "Lo que nos deja" : "El plan", imagen })),
           { titulo: `${informe?.momento === "post" ? "Post" : "Previa"} · ${informe?.partido.rival ?? ""}`, aplicacion: "Informe del partido" },
         ),
         `${nombreArchivo}.pptx`,
@@ -210,7 +353,7 @@ export function InformePartidoDialog({
   };
 
   const envia = async () => {
-    if (!informe) return;
+    if (!informeVisto) return;
 
     /* Antes de dibujar nada: dibujar y comprimir lleva unos segundos y no
        tiene sentido gastarlos para que el servidor diga que falta el correo. */
@@ -236,21 +379,25 @@ export function InformePartidoDialog({
       return;
     }
 
+    if (que.completo && pesoAdjuntos > TOPE_ADJUNTOS) {
+      toast.error("Los adjuntos pesan demasiado para un correo", { description: `${mb(pesoAdjuntos)} de ${mb(TOPE_ADJUNTOS)}: quita alguno.` });
+
+      return;
+    }
+
     const para = direcciones.join(", ");
 
-    const p = informe.partido;
+    const p = informeVisto.partido;
 
-    const etiqueta = informe.momento === "post" ? "POST" : "PREVIA";
+    const etiqueta = informeVisto.momento === "post" ? "POST" : "PREVIA";
 
     /* En el post el marcador va en el asunto: es lo primero que se busca. */
-    const conGoles = informe.momento === "post" && p.gf !== null && p.gc !== null;
+    const conGoles = informeVisto.momento === "post" && p.gf !== null && p.gc !== null;
 
     const [gLocal, gVisit] = p.lado === "fuera" ? [p.gc, p.gf] : [p.gf, p.gc];
 
     const cruce =
-      p.lado === "fuera"
-        ? `${p.rival}${conGoles ? ` ${gLocal}-${gVisit}` : " -"} RM Castilla`
-        : `RM Castilla${conGoles ? ` ${gLocal}-${gVisit}` : " -"} ${p.rival}`;
+      p.lado === "fuera" ? `${p.rival}${conGoles ? ` ${gLocal}-${gVisit}` : " -"} RM Castilla` : `RM Castilla${conGoles ? ` ${gLocal}-${gVisit}` : " -"} ${p.rival}`;
 
     const partido = `${cruce}${p.jornada ? ` · J${p.jornada}` : ""}`;
 
@@ -265,27 +412,28 @@ export function InformePartidoDialog({
         await manda({
           para,
           asunto: `[${etiqueta} · RESUMEN] ${partido}`,
-          html: resumenHtml(informe, cids),
-          texto: informeTexto(informe),
+          html: resumenHtml(informeVisto, cids),
+          texto: informeTexto(informeVisto),
           imagenes: imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
           adjuntos: [{ nombre: `${nombreArchivo}.pdf`, tipo: "application/pdf", base64: await base64De(await pdfDe(imagenes)) }],
         });
-
       }
 
       if (que.completo) {
-        setTrabajando("Mandando el informe completo…");
+        setTrabajando(marcados.length ? "Mandando el completo con sus adjuntos…" : "Mandando el informe completo…");
 
         await manda({
           para,
           asunto: `[${etiqueta} · COMPLETO] ${partido}`,
           html,
-          texto: informeTexto(informe),
+          texto: `${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}`,
+          imagenes: abpActual?.ok ? abpActual.imagenes : [],
+          adjuntosUrl: marcados.map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
         });
       }
 
       toast.success(que.resumen && que.completo ? "Mandados los dos correos" : "Mandado", {
-        description: `${[que.resumen && "El resumen (con PDF)", que.completo && "el informe completo"].filter(Boolean).join(" y ")} a ${direcciones.length} ${direcciones.length === 1 ? "persona" : "personas"}.`,
+        description: `${[que.resumen && "El resumen (con PDF)", que.completo && `el informe completo${marcados.length ? ` con ${marcados.length} adjunto${marcados.length === 1 ? "" : "s"}` : ""}`].filter(Boolean).join(" y ")} a ${direcciones.length} ${direcciones.length === 1 ? "persona" : "personas"}.`,
       });
     } catch (error) {
       toast.error("No se ha podido mandar", { description: error instanceof Error ? error.message : "" });
@@ -297,12 +445,16 @@ export function InformePartidoDialog({
   /* Lo que se ve mientras carga es lo pedido, no lo que había. */
   const momento = momentoPedido ?? informe?.momento ?? "previa";
 
-  const [Uno, Dos] = DIAPOSITIVAS[informe?.momento ?? "previa"];
+  const [Uno, Dos] = DIAPOSITIVAS[informeVisto?.momento ?? "previa"];
+
+  /* Mandar el completo sin esperar a ABP dejaría fuera su informe: se espera,
+     salvo que sólo se mande el resumen (que ya lleva su pincelada si llegó). */
+  const esperaAbp = que.completo && abpCargando;
 
   return (
     <Dialog
       title="Informe del partido"
-      subtitle="Resumen en dos diapositivas e informe completo: microciclo, nosotros, el rival y el plan"
+      subtitle="Resumen en dos diapositivas e informe completo: la semana, los dos en datos, el rival, el pronóstico, el plan y el balón parado"
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -314,7 +466,7 @@ export function InformePartidoDialog({
             </label>
             <label className="inline-flex cursor-pointer items-center gap-1.5">
               <input type="checkbox" checked={que.completo} onChange={(e) => setQue((q) => ({ ...q, completo: e.target.checked }))} className="accent-[#C8A96B]" />
-              Informe completo
+              Informe completo{marcados.length ? ` + ${marcados.length} adjunto${marcados.length === 1 ? "" : "s"}` : ""}
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -324,17 +476,20 @@ export function InformePartidoDialog({
             <Button icon={Presentation} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPptx()}>
               PPT
             </Button>
-            <Button tone="primary" icon={trabajando ? Loader2 : Send} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void envia()}>
-              {trabajando ?? (que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
+            <Button
+              tone="primary"
+              icon={trabajando || esperaAbp ? Loader2 : Send}
+              disabled={!informe || Boolean(trabajando) || cargando || esperaAbp || Boolean(subiendo)}
+              onClick={() => void envia()}
+              title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
+            >
+              {trabajando ?? (esperaAbp ? "Preparando ABP…" : que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
             </Button>
           </div>
         </div>
       }
     >
-      <div
-        className={`space-y-4 ${barlowCondensed.className}`}
-        style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily, fontFamily: "inherit" }}
-      >
+      <div className={`space-y-4 ${barlowCondensed.className}`} style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily, fontFamily: "inherit" }}>
         <div className="flex flex-wrap items-end gap-3 font-sans">
           <label className="min-w-[220px]">
             <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Microciclo</span>
@@ -345,6 +500,8 @@ export function InformePartidoDialog({
 
                 setElegido({ temporada: t, micro: Number(m) });
                 setMomentoPedido(null);
+                setSubidos([]);
+                setQuitados(new Set());
               }}
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
             >
@@ -368,11 +525,7 @@ export function InformePartidoDialog({
               onChange={(m) => setMomentoPedido(m as Momento)}
             />
             <span className="mt-1 block text-[10px] text-white/35">
-              {momentoPedido
-                ? "Elegido a mano"
-                : informe?.partido.jugado
-                  ? "Lo dice el calendario: ya se jugó"
-                  : "Lo dice el calendario: aún no se ha jugado"}
+              {momentoPedido ? "Elegido a mano" : informe?.partido.jugado ? "Lo dice el calendario: ya se jugó" : "Lo dice el calendario: aún no se ha jugado"}
             </span>
           </div>
 
@@ -404,11 +557,97 @@ export function InformePartidoDialog({
           />
         </div>
 
-        {informe && informe.avisos.length > 0 && (
+        {/* El estado de las piezas que llegan aparte. */}
+        {informe && !cargando && (
+          <div className="grid gap-3 font-sans md:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/65">
+              <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-white/40">Balón parado</p>
+              {abpCargando ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin" /> Preparando el informe de ABP del microciclo…
+                </span>
+              ) : abpActual?.ok ? (
+                <span>
+                  Listo: va su resumen en las diapositivas y el informe entero en el completo
+                  {abpActual.imagenes.length ? ` (${abpActual.imagenes.length} gráficos y láminas)` : ""}.
+                </span>
+              ) : abpActual ? (
+                <span className="text-amber-200/80">
+                  No ha llegado ({abpActual.error}). El informe sale con lo que hay del plan de ABP.{" "}
+                  <button className="underline underline-offset-2" onClick={() => setTestigo((n) => n + 1)}>
+                    Reintentar
+                  </button>
+                </span>
+              ) : null}
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/65">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Adjuntos del informe completo</p>
+                <span className="text-[10px] text-white/35">{marcados.length ? `${mb(pesoAdjuntos)} de ${mb(TOPE_ADJUNTOS)}` : ""}</span>
+              </div>
+              {documentos.length ? (
+                <ul className="space-y-1">
+                  {documentos.map((d) => (
+                    <li key={d.url} className="flex items-center gap-2">
+                      {d.adjuntable ? (
+                        <input
+                          type="checkbox"
+                          className="accent-[#C8A96B]"
+                          checked={!quitados.has(d.url)}
+                          onChange={(e) =>
+                            setQuitados((s) => {
+                              const n = new Set(s);
+
+                              if (e.target.checked) n.delete(d.url);
+                              else n.add(d.url);
+
+                              return n;
+                            })
+                          }
+                        />
+                      ) : (
+                        <ExternalLink size={12} className="text-white/35" />
+                      )}
+                      <span className="truncate">{d.nombre}</span>
+                      <span className="shrink-0 text-white/35">
+                        {d.adjuntable ? mb(d.tamano) : "va como enlace"}
+                        {d.origen === "subido" ? " · subido ahora" : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-white/45">El rival no tiene documentos en sus Recursos.</p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  ref={elegirArchivo}
+                  type="file"
+                  accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    void sube(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <Button icon={subiendo ? Loader2 : Upload} disabled={Boolean(subiendo)} onClick={() => elegirArchivo.current?.click()}>
+                  {subiendo ? `Subiendo ${Math.round(subiendo.fraccion * 100)} %` : "Añadir PDF o PPT"}
+                </Button>
+                <a href="/rivals" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-[#C8A96B] underline-offset-2 hover:underline">
+                  <Paperclip size={11} /> Sacar el PDF de la plantilla o el PPT del rival
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {informeVisto && informeVisto.avisos.length > 0 && (
           <div className="font-sans">
             <Notice tone="warn" title="Lo que este informe no sabe">
               <ul className="ml-4 list-disc space-y-1">
-                {informe.avisos.map((a) => (
+                {informeVisto.avisos.map((a) => (
                   <li key={a}>{a}</li>
                 ))}
               </ul>
@@ -417,44 +656,56 @@ export function InformePartidoDialog({
         )}
 
         <div ref={caja} className="min-w-0">
-          {!informe || cargando ? (
-            <p className="flex items-center gap-2 py-10 text-sm text-white/45 font-sans">
+          {!informeVisto || cargando ? (
+            <p className="flex items-center gap-2 py-10 font-sans text-sm text-white/45">
               <Loader2 size={14} className="animate-spin" /> Juntando el microciclo, Data, el rival y el plan…
             </p>
           ) : vista === "resumen" ? (
             anchoVista > 0 && (
               <div className="space-y-3">
                 <Escalada ancho={anchoVista}>
-                  <Uno inf={informe} />
+                  <Uno inf={informeVisto} />
                 </Escalada>
                 <Escalada ancho={anchoVista}>
-                  <Dos inf={informe} />
+                  <Dos inf={informeVisto} />
                 </Escalada>
               </div>
             )
           ) : (
-            <iframe title="Informe completo" srcDoc={html} className="h-[70vh] w-full rounded-xl border border-white/10 bg-white" />
+            <iframe title="Informe completo" srcDoc={htmlVista} className="h-[70vh] w-full rounded-xl border border-white/10 bg-white" />
           )}
         </div>
 
         {informe && (
-          <p className="text-[11px] text-white/35 font-sans">
+          <p className="font-sans text-[11px] text-white/35">
             <Download size={11} className="mr-1 inline" />
             PDF y PPT bajan las dos diapositivas; el informe completo va en el segundo correo.
           </p>
         )}
       </div>
 
+      {/* La pantalla de ABP, oculta y en sólo lectura, hasta que devuelve su informe. */}
+      {abpCargando && temporadaAbp && microAbp && (
+        <iframe
+          key={`${abpClave}|${testigo}`}
+          title="Informe de balón parado"
+          aria-hidden
+          tabIndex={-1}
+          src={`/abp-microciclo?incrustado=${encodeURIComponent(`${temporadaAbp}|${microAbp}`)}&modo=${informe?.momento ?? "previa"}`}
+          style={{ position: "fixed", left: -30000, top: 0, width: 1280, height: 900, border: 0, visibility: "hidden" }}
+        />
+      )}
+
       {/* Las diapositivas a su tamaño, fuera de pantalla, para capturarlas. */}
-      {informe && trabajando && (
+      {informeVisto && trabajando && (
         <div
           ref={lienzos}
           aria-hidden
           className={barlowCondensed.className}
           style={{ position: "fixed", left: -30000, top: 0, width: DIAPO_W, pointerEvents: "none", ["--fuente-informe" as string]: barlowCondensed.style.fontFamily }}
         >
-          <Uno inf={informe} />
-          <Dos inf={informe} />
+          <Uno inf={informeVisto} />
+          <Dos inf={informeVisto} />
         </div>
       )}
     </Dialog>

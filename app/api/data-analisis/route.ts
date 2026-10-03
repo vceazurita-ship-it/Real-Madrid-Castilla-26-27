@@ -445,28 +445,45 @@ const ABP_MEDIDAS = [
  * Las métricas que cuentan un partido de un vistazo (03/10/2026, informe del
  * partido). Cada una dice quién la lleva mejor en la liga con su puesto.
  */
-const METRICAS_DUELO = [
-  "goles",
-  "golesContra",
-  "xg",
-  "xgContra",
-  "posesion",
-  "tiros",
-  "tirosContra",
-  "ppda",
-  "recuperacionesAltas",
-  "pasesProgresivos",
-  "entradasArea",
-  "centros",
-  "corners",
-  "duelosGanados",
-  "perdidasBajas",
+/*
+| Las métricas del duelo, por bloque de juego. El orden es el de lectura: lo
+| que decide el resultado, cómo se ataca, qué pasa al perder o robar, cómo se
+| defiende y el balón parado. Las dos primeras de cada bloque son las que
+| entran en el resumen de dos diapositivas; el resto, en el informe extenso.
+*/
+const METRICAS_DUELO: [string, string][] = [
+  ["goles", "Resultado"],
+  ["xg", "Resultado"],
+  ["golesContra", "Resultado"],
+  ["xgContra", "Resultado"],
+  ["posesion", "Con balón"],
+  ["entradasArea", "Con balón"],
+  ["pasesProgresivos", "Con balón"],
+  ["pasesUltimoTercio", "Con balón"],
+  ["ataquesPosRemate", "Con balón"],
+  ["xgPorTiro", "Con balón"],
+  ["tiros", "Con balón"],
+  ["centros", "Con balón"],
+  ["recuperacionesAltas", "Transiciones"],
+  ["contrasRemate", "Transiciones"],
+  ["contras", "Transiciones"],
+  ["perdidasBajas", "Transiciones"],
+  ["ppda", "Sin balón"],
+  ["tirosContra", "Sin balón"],
+  ["xgContraPorTiro", "Sin balón"],
+  ["duelosDefensivos", "Sin balón"],
+  ["duelosAereos", "Sin balón"],
+  ["duelosGanados", "Sin balón"],
+  ["corners", "Balón parado"],
+  ["abpRemate", "Balón parado"],
+  ["cornersRemate", "Balón parado"],
+  ["faltasTiro", "Balón parado"],
 ];
 
 /* Los que no comparten palabras entre BeSoccer y Wyscout. */
 const ALIAS_EQUIPO: [RegExp, RegExp][] = [[/atl(etico)?\.? ?madrile|atl(etico)?\.? ?madrid b/i, /atl[eé]tico madrid b/i]];
 
-function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
+function duelo(datos: Dataset, rivalPedido: string, fecha: string | null, corte: string | null) {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))].filter(Boolean).sort();
 
   const actual = temporadas[temporadas.length - 1] ?? "";
@@ -485,11 +502,21 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
     equipos.find((e) => ALIAS_EQUIPO.some(([de, a]) => de.test(sinTildes(rivalPedido)) && a.test(e))) ??
     null;
 
-  const filasDe = (equipo: string) => deLaLiga.filter((p) => p.equipo === equipo);
+  /*
+  | Las medias, hasta el día ANTES del partido (`corte`). Sin el corte, el
+  | post de un martes —cuando Wyscout ya tiene el partido— mezclaba el propio
+  | partido en «cómo llegábamos», y el pronóstico se hacía con el resultado
+  | dentro. El partido en sí se sigue buscando en la temporada entera.
+  */
+  const previos = corte ? deLaLiga.filter((p) => p.fecha.slice(0, 10) < corte) : deLaLiga;
 
-  const metricas = METRICAS_DUELO.map((key) => METRICA_POR_KEY.get(key)).filter(
-    (m): m is NonNullable<typeof m> => Boolean(m),
-  );
+  const filasDe = (equipo: string) => previos.filter((p) => p.equipo === equipo);
+
+  const metricas = METRICAS_DUELO.flatMap(([key, bloque]) => {
+    const m = METRICA_POR_KEY.get(key);
+
+    return m ? [{ ...m, bloque }] : [];
+  });
 
   const filas = metricas.map((m) => {
     const porEquipo = equipos
@@ -523,7 +550,11 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
       unidad: m.unidad,
       mejorAlto: m.mejorAlto,
       fase: m.fase,
+      bloque: m.bloque,
+      comoLeer: m.comoLeer ?? "",
       mediana: ordenMediana.length ? ordenMediana[Math.floor(ordenMediana.length / 2)] : null,
+      /* La media de la liga: es la base del pronóstico (goles y xG por equipo y partido). */
+      media: todos.length ? todos.reduce((a, b) => a + b, 0) / todos.length : null,
       nosotros: de(NOSOTROS),
       rival: de(rival),
     };
@@ -574,6 +605,9 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
 
     const nuestra = deLaLiga.find((p) => p.equipo === NOSOTROS && p.rival === rival && cerca(p.fecha));
 
+    /* La media de comparación, sin el propio partido y sin lo jugado después. */
+    const antesDelPartido = (q: (typeof deLaLiga)[number]) => q !== nuestra && q.fecha.slice(0, 10) <= (corte ?? "9999");
+
     const suya = deLaLiga.find((p) => p.equipo === rival && p.rival === NOSOTROS && cerca(p.fecha));
 
     if (nuestra) {
@@ -587,7 +621,7 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
           mejorAlto: m.mejorAlto,
           nuestro: valorEnGrupo(m, [nuestra]),
           suyo: suya ? valorEnGrupo(m, [suya]) : null,
-          media: valorEnGrupo(m, filasDe(NOSOTROS).filter((p) => p !== nuestra)),
+          media: valorEnGrupo(m, deLaLiga.filter((q) => q.equipo === NOSOTROS && antesDelPartido(q))),
         })),
       };
     }
@@ -598,6 +632,7 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
     equipos: equipos.length,
     rival,
     jugados: { nosotros: filasDe(NOSOTROS).length, rival: rival ? filasDe(rival).length : 0 },
+    corte: corte ?? null,
     esquema: { nosotros: esquemaDe(NOSOTROS), rival: esquemaDe(rival) },
     metricas: filas,
     forma: { nosotros: forma(NOSOTROS), rival: forma(rival) },
@@ -783,7 +818,7 @@ export async function GET(peticion: Request) {
 
     /* El informe del partido: nosotros contra el rival de la semana. */
     if (parametros.get("duelo")) {
-      return NextResponse.json({ ok: true, duelo: duelo(guardado.datos, parametros.get("duelo") ?? "", parametros.get("fecha")) });
+      return NextResponse.json({ ok: true, duelo: duelo(guardado.datos, parametros.get("duelo") ?? "", parametros.get("fecha"), parametros.get("corte")) });
     }
 
     if (equipoTipologia) {
@@ -836,7 +871,7 @@ export async function GET(peticion: Request) {
     }
 
     if (parametros.get("duelo")) {
-      return NextResponse.json({ ok: true, origen, duelo: duelo(datos, parametros.get("duelo") ?? "", parametros.get("fecha")) });
+      return NextResponse.json({ ok: true, origen, duelo: duelo(datos, parametros.get("duelo") ?? "", parametros.get("fecha"), parametros.get("corte")) });
     }
 
     if (equipoTipologia) {
