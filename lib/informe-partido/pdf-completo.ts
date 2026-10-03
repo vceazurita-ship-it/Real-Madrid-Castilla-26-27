@@ -2,8 +2,18 @@
  * EL INFORME COMPLETO, EN PDF (03/10/2026).
  *
  * El extenso es un correo (HTML con estilos en línea). Para bajarlo —y para
- * mandarlo también como adjunto— se pinta fuera de pantalla, se fotografía
- * entero con `html-to-image` y se corta en hojas A4.
+ * mandarlo también como adjunto— se pinta fuera de pantalla y se fotografía
+ * **hoja a hoja** con `html-to-image`: cada A4 es una captura del trozo que le
+ * toca, desplazando el contenido hacia arriba.
+ *
+ * Dos trampas que ya mordieron:
+ *
+ *   - La copia que hace `html-to-image` se lleva también la posición fuera de
+ *     pantalla (`left:-30000px`) y pintaba el contenido fuera del lienzo: 18
+ *     hojas en blanco. Por eso cada captura anula posición y desplazamiento.
+ *   - Fotografiar el documento entero de una vez obliga a bajar la nitidez
+ *     (el lienzo del navegador no pasa de ~32.000 px de alto) y salía borroso.
+ *     Hoja a hoja, cada una va a 1,6.
  *
  * Los cortes caen **entre filas** (la parte de arriba de un `<tr>`) siempre
  * que haya una en la segunda mitad de la hoja: así una tabla o un párrafo no
@@ -19,15 +29,19 @@ import { PIXEL_VACIO, pdfDeLienzos } from "@/lib/export/lienzos";
 
 const FONDO = "#EEEAE0";
 
-/* El lienzo del navegador no pasa de ~32.000 px de alto. */
-const ALTO_MAXIMO = 30_000;
+const ANCHO = 820;
 
-export async function completoEnPdf(html: string): Promise<Blob> {
+/* La hoja: A4 en vertical. */
+const ALTO_HOJA = Math.round(ANCHO * Math.SQRT2);
+
+const NITIDEZ = 1.6;
+
+export async function completoEnPdf(html: string, alPaso?: (hoja: number, total: number) => void): Promise<Blob> {
   const documento = new DOMParser().parseFromString(html, "text/html");
 
   const caja = document.createElement("div");
 
-  caja.style.cssText = `position:fixed;left:-30000px;top:0;width:820px;background:${FONDO};pointer-events:none`;
+  caja.style.cssText = `position:fixed;left:-30000px;top:0;width:${ANCHO}px;background:${FONDO};pointer-events:none`;
   caja.innerHTML = documento.body.innerHTML;
 
   for (const img of Array.from(caja.querySelectorAll("img"))) {
@@ -43,61 +57,72 @@ export async function completoEnPdf(html: string): Promise<Blob> {
   try {
     await Promise.all(Array.from(caja.querySelectorAll("img")).map((img) => img.decode().catch(() => undefined)));
 
-    const nitidez = Math.min(1.5, ALTO_MAXIMO / Math.max(1, caja.scrollHeight));
+    const alto = caja.scrollHeight;
 
-    const { toCanvas } = await import("html-to-image");
-
-    const lienzo = await toCanvas(caja, {
-      pixelRatio: nitidez,
-      backgroundColor: FONDO,
-      includeQueryParams: true,
-      imagePlaceholder: PIXEL_VACIO,
-    });
-
-    /* Dónde se puede cortar: el borde de arriba de cada fila. */
+    /* Dónde se puede cortar: el borde de arriba de cada fila, en px CSS. */
     const arriba = caja.getBoundingClientRect().top;
 
     const cortes = Array.from(caja.querySelectorAll("tr"))
-      .map((tr) => Math.round((tr.getBoundingClientRect().top - arriba) * nitidez))
+      .map((tr) => Math.round(tr.getBoundingClientRect().top - arriba))
       .filter((y) => y > 0)
       .sort((a, b) => a - b);
 
-    const ancho = lienzo.width;
+    const tramos: [number, number][] = [];
 
-    const altoHoja = Math.round(ancho * Math.SQRT2);
+    for (let y = 0; y < alto - 2; ) {
+      let fin = Math.min(y + ALTO_HOJA, alto);
 
-    const hojas: string[] = [];
-
-    let y = 0;
-
-    while (y < lienzo.height - 2) {
-      let fin = Math.min(y + altoHoja, lienzo.height);
-
-      if (fin < lienzo.height) {
-        const corte = cortes.filter((c) => c > y + altoHoja * 0.55 && c <= y + altoHoja).pop();
+      if (fin < alto) {
+        const corte = cortes.filter((c) => c > y + ALTO_HOJA * 0.55 && c <= y + ALTO_HOJA).pop();
 
         if (corte) fin = corte;
       }
 
+      tramos.push([y, fin]);
+
+      y = fin;
+    }
+
+    const { toCanvas } = await import("html-to-image");
+
+    const hojas: string[] = [];
+
+    for (const [i, [y, fin]] of tramos.entries()) {
+      alPaso?.(i + 1, tramos.length);
+
+      const lienzo = await toCanvas(caja, {
+        width: ANCHO,
+        height: fin - y,
+        pixelRatio: NITIDEZ,
+        backgroundColor: FONDO,
+        includeQueryParams: true,
+        imagePlaceholder: PIXEL_VACIO,
+        style: { position: "static", left: "0", top: "0", transform: `translateY(-${y}px)` },
+      });
+
+      /* Cada hoja, del mismo tamaño: lo que sobra abajo, del color del fondo. */
       const hoja = document.createElement("canvas");
 
-      hoja.width = ancho;
-      hoja.height = altoHoja;
+      hoja.width = Math.round(ANCHO * NITIDEZ);
+      hoja.height = Math.round(ALTO_HOJA * NITIDEZ);
 
       const ctx = hoja.getContext("2d");
 
       if (!ctx) throw new Error("El navegador no deja dibujar el PDF.");
 
       ctx.fillStyle = FONDO;
-      ctx.fillRect(0, 0, ancho, altoHoja);
-      ctx.drawImage(lienzo, 0, y, ancho, fin - y, 0, 0, ancho, fin - y);
+      ctx.fillRect(0, 0, hoja.width, hoja.height);
+      ctx.drawImage(lienzo, 0, 0);
 
       hojas.push(hoja.toDataURL("image/jpeg", 0.85));
-
-      y = fin;
     }
 
-    const pdf = await pdfDeLienzos(hojas, { ancho, alto: altoHoja, orientacion: "portrait", margen: 0 });
+    const pdf = await pdfDeLienzos(hojas, {
+      ancho: Math.round(ANCHO * NITIDEZ),
+      alto: Math.round(ALTO_HOJA * NITIDEZ),
+      orientacion: "portrait",
+      margen: 0,
+    });
 
     return pdf.output("blob") as Blob;
   } finally {

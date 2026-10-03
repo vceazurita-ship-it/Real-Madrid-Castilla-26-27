@@ -2159,7 +2159,25 @@ export default function RivalPlayersPage() {
 
     if (window.parent !== window) {
       window.parent.postMessage(mensaje, window.location.origin);
+
+      return;
     }
+
+    /*
+    | Abierta en una pestaña propia (el informe del partido la abre así para
+    | que montar el PPT no congele su página): se contesta por un canal del
+    | mismo origen y la pestaña se cierra sola.
+    */
+    try {
+      const canal = new BroadcastChannel("rival-documentos");
+
+      canal.postMessage(mensaje);
+      canal.close();
+    } catch {
+      /* Sin BroadcastChannel no hay a quién contestar. */
+    }
+
+    window.setTimeout(() => window.close(), 400);
   }, []);
 
   /**

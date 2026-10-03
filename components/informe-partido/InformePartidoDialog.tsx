@@ -229,6 +229,12 @@ export function InformePartidoDialog({
   | Tienen que ir siempre en el completo. Si nadie los ha sacado en Plantillas
   | rivales —o son de antes de esta semana—, se piden: la pantalla se abre
   | oculta, los saca como si se pulsaran sus botones, los guarda y contesta.
+  |
+  | Se piden AL ENVIAR (o con «Volver a sacar»), no al abrir, y en una
+  | PESTAÑA APARTE (sin `opener`, o sea en su propio proceso): montar el PPT
+  | ocupa el hilo de la página medio minuto largo y, en un iframe, congelaba
+  | el diálogo varios minutos en un portátil. La pestaña contesta por un
+  | `BroadcastChannel` y se cierra sola.
   */
   const [pideDocs, setPideDocs] = useState(0);
 
@@ -246,7 +252,10 @@ export function InformePartidoDialog({
 
   const faltanDocs = Boolean(informe) && !cargando && Boolean(equipoDocs) && (viejo("plantilla-pdf") || viejo("informe-pptx"));
 
-  const docsClave = (faltanDocs || pideDocs > 0) && equipoDocs ? `${equipoDocs}|${pideDocs}|${testigo}` : "";
+  const docsClave = pideDocs > 0 && equipoDocs ? `${equipoDocs}|${pideDocs}|${testigo}` : "";
+
+  /* Quien espera a los documentos dentro del envío. */
+  const esperaDocs = useRef<((r: DocsLlegados) => void) | null>(null);
 
   const [docsRival, setDocsRival] = useState<DocsLlegados | null>(null);
 
@@ -264,13 +273,49 @@ export function InformePartidoDialog({
 
       if (d?.tipo !== "rival-documentos") return;
 
-      setDocsRival({ ...(d as unknown as DocsLlegados), clave: docsClaveRef.current });
+      recibe(d);
+    };
+
+    const recibe = (d: Record<string, unknown>) => {
+      const llegado = { ...(d as unknown as DocsLlegados), clave: docsClaveRef.current };
+
+      setDocsRival(llegado);
+
+      esperaDocs.current?.(llegado);
+
+      esperaDocs.current = null;
     };
 
     window.addEventListener("message", oye);
 
-    return () => window.removeEventListener("message", oye);
+    let canal: BroadcastChannel | null = null;
+
+    try {
+      canal = new BroadcastChannel("rival-documentos");
+
+      canal.onmessage = (e) => {
+        const d = e.data as { tipo?: string } & Record<string, unknown>;
+
+        if (d?.tipo === "rival-documentos") recibe(d);
+      };
+    } catch {
+      /* Sin canal sólo queda el aviso de tiempo agotado. */
+    }
+
+    return () => {
+      window.removeEventListener("message", oye);
+      canal?.close();
+    };
   }, []);
+
+  /** Abre Plantillas rivales en su pestaña para sacar los dos documentos. Tiene que ir dentro del clic. */
+  const abreDocs = () => {
+    if (!equipoDocs) return;
+
+    window.open(`/rivals?incrustado=documentos&equipo=${encodeURIComponent(equipoDocs)}`, "_blank", "noopener");
+
+    setPideDocs((n) => n + 1);
+  };
 
   useEffect(() => {
     if (!docsClave) return;
@@ -428,7 +473,7 @@ export function InformePartidoDialog({
     try {
       setTrabajando("Montando el PDF del completo…");
 
-      descarga(await completoEnPdf(htmlVista), `${nombreArchivo}-completo.pdf`);
+      descarga(await completoEnPdf(htmlVista, (h, t) => setTrabajando(`Montando el completo en PDF · hoja ${h} de ${t}…`)), `${nombreArchivo}-completo.pdf`);
     } catch (error) {
       toast.error("No se ha podido exportar el completo", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -504,6 +549,40 @@ export function InformePartidoDialog({
     const partido = `${cruce}${p.jornada ? ` · J${p.jornada}` : ""}`;
 
     try {
+      /* Si faltan el PDF y el PPT del rival, se sacan antes de mandar nada:
+         así un fallo no deja el resumen enviado y el completo a medias. */
+      let docsNuevos: Documento[] = [];
+
+      if (que.completo && faltanDocs && !docsActual?.ok) {
+        setTrabajando("Sacando el PDF y el PPT del rival en otra pestaña (≈40 s)…");
+
+        const llegado = await new Promise<DocsLlegados>((resuelve) => {
+          esperaDocs.current = resuelve;
+
+          abreDocs();
+
+          window.setTimeout(() => resuelve({ ok: false, clave: "", error: "Plantillas rivales no ha contestado a tiempo." }), ESPERA_DOCS);
+        });
+
+        if (llegado.ok) {
+          docsNuevos = llegado.docs.map((x) => ({
+            nombre: `${ROTULO_DOCUMENTO[x.tipo]} · recién sacado`,
+            url: x.url,
+            tipo: x.tipo === "plantilla-pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            tamano: x.tamano,
+            adjuntable: true,
+            origen: "rival" as const,
+            generado: x.tipo,
+          }));
+        } else {
+          toast.message("El PDF y el PPT del rival no han salido", { description: `${llegado.error} El completo sale sin ellos.` });
+        }
+      }
+
+      const sustituidos = new Set(docsNuevos.map((x) => x.generado));
+
+      const adjuntosRival = [...docsNuevos, ...marcados.filter((x) => !x.generado || !sustituidos.has(x.generado))];
+
       const imagenes = await capturaDiapositivas();
 
       const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
@@ -534,7 +613,7 @@ export function InformePartidoDialog({
         const propios: { nombre: string; blob: Blob; tipo: string }[] = [
           { nombre: `${nombreArchivo}-resumen.pdf`, blob: pdfResumen, tipo: "application/pdf" },
           { nombre: `${nombreArchivo}-resumen.pptx`, blob: pptDe(imagenes), tipo: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-          { nombre: `${nombreArchivo}-completo.pdf`, blob: await completoEnPdf(htmlVista), tipo: "application/pdf" },
+          { nombre: `${nombreArchivo}-completo.pdf`, blob: await completoEnPdf(htmlVista, (h, t) => setTrabajando(`Montando el completo en PDF · hoja ${h} de ${t}…`)), tipo: "application/pdf" },
         ];
 
         const subidosAhora = [];
@@ -550,18 +629,18 @@ export function InformePartidoDialog({
         await manda({
           para,
           asunto: `[${etiqueta} · COMPLETO] ${partido}`,
-          html: informeVisto ? informeHtml(informeVisto, { ...extras, diapositivas: cids, adjuntos: [...subidosAhora.map((a) => a.nombre), ...extras.adjuntos] }) : html,
+          html: informeHtml(informeVisto, { ...extras, diapositivas: cids, adjuntos: [...subidosAhora, ...adjuntosRival].map((a) => a.nombre) }),
           texto: `${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}`,
           imagenes: [
             ...imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
             ...(abpActual?.ok ? abpActual.imagenes : []),
           ],
-          adjuntosUrl: [...subidosAhora, ...marcados].map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
+          adjuntosUrl: [...subidosAhora, ...adjuntosRival].map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
         });
       }
 
       toast.success(que.resumen && que.completo ? "Mandados los dos correos" : "Mandado", {
-        description: `${[que.resumen && "El resumen (con PDF)", que.completo && `el informe completo${marcados.length ? ` con ${marcados.length} adjunto${marcados.length === 1 ? "" : "s"}` : ""}`].filter(Boolean).join(" y ")} a ${direcciones.length} ${direcciones.length === 1 ? "persona" : "personas"}.`,
+        description: `${[que.resumen && "El resumen (con PDF)", que.completo && "el informe completo con sus adjuntos"].filter(Boolean).join(" y ")} a ${direcciones.length} ${direcciones.length === 1 ? "persona" : "personas"}.`,
       });
     } catch (error) {
       toast.error("No se ha podido mandar", { description: error instanceof Error ? error.message : "" });
@@ -577,7 +656,7 @@ export function InformePartidoDialog({
 
   /* Mandar el completo sin esperar a ABP dejaría fuera su informe: se espera,
      salvo que sólo se mande el resumen (que ya lleva su pincelada si llegó). */
-  const esperaAbp = que.completo && (abpCargando || docsCargando);
+  const esperaAbp = que.completo && abpCargando;
 
   return (
     <Dialog
@@ -614,7 +693,7 @@ export function InformePartidoDialog({
               onClick={() => void envia()}
               title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
             >
-              {trabajando ?? (esperaAbp ? (abpCargando ? "Preparando ABP…" : "Sacando PDF y PPT del rival…") : que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
+              {trabajando ?? (esperaAbp ? "Preparando ABP…" : que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
             </Button>
           </div>
         </div>
@@ -721,14 +800,19 @@ export function InformePartidoDialog({
                 <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Adjuntos del completo · además del resumen (PDF y PPT) y el completo en PDF</p>
                 <span className="text-[10px] text-white/35">{marcados.length ? `${mb(pesoAdjuntos)} de ${mb(TOPE_ADJUNTOS)}` : ""}</span>
               </div>
+              {faltanDocs && !docsActual && !docsCargando ? (
+                <p className="mb-1 text-white/60">
+                  El PDF de la plantilla y el PPT del rival {generados.length ? "son de antes de esta semana" : "no se han sacado"}: se sacarán solos al enviar el completo, en otra pestaña que se cierra sola (≈40 s).
+                </p>
+              ) : null}
               {docsCargando ? (
                 <p className="mb-1 inline-flex items-center gap-2 text-white/60">
-                  <Loader2 size={12} className="animate-spin" /> Sacando el PDF de la plantilla y el PPT del rival…
+                  <Loader2 size={12} className="animate-spin" /> Sacando el PDF de la plantilla y el PPT del rival en otra pestaña (se cierra sola)…
                 </p>
               ) : docsActual && !docsActual.ok ? (
                 <p className="mb-1 text-amber-200/80">
                   No se han podido sacar solos ({docsActual.error}).{" "}
-                  <button className="underline underline-offset-2" onClick={() => setPideDocs((n) => n + 1)}>
+                  <button className="underline underline-offset-2" onClick={abreDocs}>
                     Reintentar
                   </button>
                 </p>
@@ -782,7 +866,7 @@ export function InformePartidoDialog({
                 <Button icon={subiendo ? Loader2 : Upload} disabled={Boolean(subiendo)} onClick={() => elegirArchivo.current?.click()}>
                   {subiendo ? `Subiendo ${Math.round(subiendo.fraccion * 100)} %` : "Añadir PDF o PPT"}
                 </Button>
-                <Button icon={docsCargando ? Loader2 : Paperclip} disabled={docsCargando || !equipoDocs} onClick={() => setPideDocs((n) => n + 1)} title="Vuelve a sacar el PDF de la plantilla y el PPT del rival con lo último">
+                <Button icon={docsCargando ? Loader2 : Paperclip} disabled={docsCargando || !equipoDocs} onClick={abreDocs} title="Abre Plantillas rivales en otra pestaña, saca el PDF de la plantilla y el PPT del rival con lo último y se cierra sola">
                   Volver a sacar PDF y PPT del rival
                 </Button>
               </div>
@@ -840,18 +924,6 @@ export function InformePartidoDialog({
           tabIndex={-1}
           src={`/abp-microciclo?incrustado=${encodeURIComponent(`${temporadaAbp}|${microAbp}`)}&modo=${informe?.momento ?? "previa"}`}
           style={{ position: "fixed", left: -30000, top: 0, width: 1280, height: 900, border: 0, visibility: "hidden" }}
-        />
-      )}
-
-      {/* Plantillas rivales, oculta, mientras saca el PDF y el PPT del rival. */}
-      {docsCargando && (
-        <iframe
-          key={docsClave}
-          title="Documentos del rival"
-          aria-hidden
-          tabIndex={-1}
-          src={`/rivals?incrustado=documentos&equipo=${encodeURIComponent(equipoDocs)}`}
-          style={{ position: "fixed", left: -30000, top: 0, width: 1600, height: 1000, border: 0, visibility: "hidden" }}
         />
       )}
 
