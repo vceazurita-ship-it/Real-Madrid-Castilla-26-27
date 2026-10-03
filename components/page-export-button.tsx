@@ -667,6 +667,8 @@ async function capturePage(): Promise<Capture> {
       width,
       height,
       cacheBust: true,
+      /* Sin esto la caché ignora la query y dos fotos del proxy salen iguales. */
+      includeQueryParams: true,
       backgroundColor: resolveBackground(root),
       imagePlaceholder: TRANSPARENT_PIXEL,
       style: {

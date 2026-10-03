@@ -64,6 +64,9 @@ export function InformePartidoDialog({
 
   const [vista, setVista] = useState<"resumen" | "completo">("resumen");
 
+  /* Qué correos salen. Los dos por defecto: es para lo que existe el botón. */
+  const [que, setQue] = useState({ resumen: true, completo: true });
+
   const [trabajando, setTrabajando] = useState<null | string>(null);
 
   const lienzos = useRef<HTMLDivElement | null>(null);
@@ -209,44 +212,81 @@ export function InformePartidoDialog({
   const envia = async () => {
     if (!informe) return;
 
-    const para = ajustes.destinatarios.trim();
+    /* Antes de dibujar nada: dibujar y comprimir lleva unos segundos y no
+       tiene sentido gastarlos para que el servidor diga que falta el correo. */
+    const direcciones = ajustes.destinatarios.split(/[\s,;]+/).filter(Boolean);
 
-    if (!para) {
+    const malas = direcciones.filter((d) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d));
+
+    if (!direcciones.length) {
       toast.error("Escribe al menos una dirección de correo.");
 
       return;
     }
 
+    if (malas.length) {
+      toast.error("Hay direcciones mal escritas", { description: malas.join(", ") });
+
+      return;
+    }
+
+    if (!que.resumen && !que.completo) {
+      toast.error("Marca qué quieres mandar: el resumen, el completo o los dos.");
+
+      return;
+    }
+
+    const para = direcciones.join(", ");
+
+    const p = informe.partido;
+
+    const etiqueta = informe.momento === "post" ? "POST" : "PREVIA";
+
+    /* En el post el marcador va en el asunto: es lo primero que se busca. */
+    const conGoles = informe.momento === "post" && p.gf !== null && p.gc !== null;
+
+    const [gLocal, gVisit] = p.lado === "fuera" ? [p.gc, p.gf] : [p.gf, p.gc];
+
+    const cruce =
+      p.lado === "fuera"
+        ? `${p.rival}${conGoles ? ` ${gLocal}-${gVisit}` : " -"} RM Castilla`
+        : `RM Castilla${conGoles ? ` ${gLocal}-${gVisit}` : " -"} ${p.rival}`;
+
+    const partido = `${cruce}${p.jornada ? ` · J${p.jornada}` : ""}`;
+
     try {
-      const imagenes = await capturaDiapositivas();
+      if (que.resumen) {
+        const imagenes = await capturaDiapositivas();
 
-      setTrabajando("Mandando el resumen…");
+        setTrabajando("Mandando el resumen…");
 
-      const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
+        const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
 
-      const etiqueta = informe.momento === "post" ? "POST" : "PREVIA";
+        await manda({
+          para,
+          asunto: `[${etiqueta} · RESUMEN] ${partido}`,
+          html: resumenHtml(informe, cids),
+          texto: informeTexto(informe),
+          imagenes: imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
+          adjuntos: [{ nombre: `${nombreArchivo}.pdf`, tipo: "application/pdf", base64: await base64De(await pdfDe(imagenes)) }],
+        });
 
-      const partido = `${informe.partido.lado === "fuera" ? `${informe.partido.rival} - RM Castilla` : `RM Castilla - ${informe.partido.rival}`}${informe.partido.jornada ? ` · J${informe.partido.jornada}` : ""}`;
+      }
 
-      await manda({
-        para,
-        asunto: `[${etiqueta} · RESUMEN] ${partido}`,
-        html: resumenHtml(informe, cids),
-        texto: informeTexto(informe),
-        imagenes: imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
-        adjuntos: [{ nombre: `${nombreArchivo}.pdf`, tipo: "application/pdf", base64: await base64De(await pdfDe(imagenes)) }],
+      if (que.completo) {
+        setTrabajando("Mandando el informe completo…");
+
+        await manda({
+          para,
+          asunto: `[${etiqueta} · COMPLETO] ${partido}`,
+          html,
+          texto: informeTexto(informe),
+        });
+      }
+
+      toast.success(que.resumen && que.completo ? "Mandados los dos correos" : "Mandado", {
+        description: `${[que.resumen && "El resumen (con PDF)", que.completo && "el informe completo"].filter(Boolean).join(" y ")} a ${direcciones.length} ${direcciones.length === 1 ? "persona" : "personas"}.`,
       });
-
-      setTrabajando("Mandando el informe completo…");
-
-      await manda({
-        para,
-        asunto: `[${etiqueta} · COMPLETO] ${partido}`,
-        html,
-        texto: informeTexto(informe),
-      });
-
-      toast.success("Mandados los dos correos", { description: "El resumen (con PDF) y el informe completo." });
     } catch (error) {
       toast.error("No se ha podido mandar", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -254,9 +294,10 @@ export function InformePartidoDialog({
     }
   };
 
-  const momento = informe?.momento ?? "previa";
+  /* Lo que se ve mientras carga es lo pedido, no lo que había. */
+  const momento = momentoPedido ?? informe?.momento ?? "previa";
 
-  const [Uno, Dos] = DIAPOSITIVAS[momento];
+  const [Uno, Dos] = DIAPOSITIVAS[informe?.momento ?? "previa"];
 
   return (
     <Dialog
@@ -265,7 +306,17 @@ export function InformePartidoDialog({
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[11px] text-white/35">Salen dos correos desde la cuenta de Google del club: el resumen (con PDF) y el completo.</span>
+          <div className="flex flex-wrap items-center gap-3 text-[12px] text-white/60">
+            <span className="text-white/35">Mandar:</span>
+            <label className="inline-flex cursor-pointer items-center gap-1.5">
+              <input type="checkbox" checked={que.resumen} onChange={(e) => setQue((q) => ({ ...q, resumen: e.target.checked }))} className="accent-[#C8A96B]" />
+              Resumen (2 diapositivas + PDF)
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-1.5">
+              <input type="checkbox" checked={que.completo} onChange={(e) => setQue((q) => ({ ...q, completo: e.target.checked }))} className="accent-[#C8A96B]" />
+              Informe completo
+            </label>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button icon={FileText} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPdf()}>
               PDF
@@ -274,7 +325,7 @@ export function InformePartidoDialog({
               PPT
             </Button>
             <Button tone="primary" icon={trabajando ? Loader2 : Send} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void envia()}>
-              {trabajando ?? "Enviar los dos"}
+              {trabajando ?? (que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
             </Button>
           </div>
         </div>
@@ -316,6 +367,13 @@ export function InformePartidoDialog({
               ]}
               onChange={(m) => setMomentoPedido(m as Momento)}
             />
+            <span className="mt-1 block text-[10px] text-white/35">
+              {momentoPedido
+                ? "Elegido a mano"
+                : informe?.partido.jugado
+                  ? "Lo dice el calendario: ya se jugó"
+                  : "Lo dice el calendario: aún no se ha jugado"}
+            </span>
           </div>
 
           <div>

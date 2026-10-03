@@ -172,9 +172,35 @@ export type ContextoRival = {
   goleadores: { nombre: string; goles: number }[];
   entrenador: string;
   estructuras: string[];
+  /** Nuestros «G», «E», «P» de liga (calendario de BeSoccer), del más reciente al más antiguo. */
+  nuestraRacha: string[];
   /** Nuestro puesto, para la cabecera. */
   nuestroPuesto: number | null;
   nuestrosPuntos: number | null;
+};
+
+export type GolCronica = {
+  minuto: string;
+  /** Quien lo marca; en propia puerta, el del equipo que se lo mete. */
+  jugador: string;
+  asistente: string;
+  tipo: "" | "penalti" | "propia";
+  /** Gol a nuestro favor. */
+  nuestro: boolean;
+};
+
+/** Post: lo que pasó en el partido según BeSoccer (goles, su once, cambios y tarjetas). */
+export type Cronica = {
+  goles: GolCronica[];
+  /** Su dibujo en el partido («1-4-3-3»). */
+  estructura: string;
+  /** Su once de verdad, colocado por líneas. */
+  onceReal: JugadorRival[];
+  /** El once previsto frente al real: sólo si había uno marcado. */
+  acierto: { acertados: number; total: number; noSalieron: string[]; sorpresas: string[] } | null;
+  /** Suyos: BeSoccer los da del equipo del informe, que es el rival. */
+  cambios: { minuto: string; sale: string; entra: string }[];
+  tarjetas: { minuto: string; jugador: string; tipo: "amarilla" | "roja" }[];
 };
 
 export type InformePartido = {
@@ -199,6 +225,8 @@ export type InformePartido = {
   plantilla: JugadorRival[];
   contexto: ContextoRival | null;
   abp: { minutosSemana: number; laminasRival: number; documentosRival: { nombre: string; url: string }[] } | null;
+  /** Post: el partido contado. `null` en la previa o si BeSoccer aún no lo tiene. */
+  cronica: Cronica | null;
   sintesis: Sintesis;
   avisos: string[];
 };
@@ -215,6 +243,10 @@ export type Sintesis = {
   vigilar: JugadorRival[];
   /** Post: lo que dijo el partido en datos, frente a lo habitual. */
   partido: string[];
+  /** Post: los goles que cambiaron el partido, en frases. */
+  relato: string[];
+  /** Post: qué hicieron en el partido los que había que vigilar. */
+  frenados: { jugador: JugadorRival; texto: string; bien: boolean }[];
 };
 
 /* ------------------------------------------------------------------ */
@@ -332,20 +364,152 @@ export function lecturaDelPartido(duelo: Duelo | null) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  EL POST: EL PARTIDO CONTADO                                        */
+/* ------------------------------------------------------------------ */
+
+const plano = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z ]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 1);
+
+/**
+ * El mismo jugador escrito de dos maneras: «R. HUESO» y «Rubén Hueso», o
+ * «THIAGO HELGUERA MERELLO VOLANTE» y «Thiago Helguera». Basta con que el
+ * apellido de uno esté en el otro.
+ */
+export function mismoJugador(a: string, b: string) {
+  const x = plano(a);
+  const y = plano(b);
+
+  if (!x.length || !y.length) return false;
+
+  const apellidoX = x[x.length - 1];
+  const apellidoY = y[y.length - 1];
+
+  return y.includes(apellidoX) || x.includes(apellidoY) || (x.length > 1 && y.includes(x[1]) && y.includes(x[0]));
+}
+
+/** El apellido, para las frases: «Carvajal». */
+export const apellido = (nombre: string) => {
+  const partes = nombre.trim().split(/\s+/);
+
+  const ultimo = partes[partes.length - 1] ?? "";
+
+  return ultimo.charAt(0).toUpperCase() + ultimo.slice(1).toLowerCase();
+};
+
+const quienGol = (g: GolCronica) =>
+  g.tipo === "propia" ? `en propia de ${apellido(g.jugador)}` : `${apellido(g.jugador)}${g.tipo === "penalti" ? ", de penalti" : ""}`;
+
+/**
+ * Los goles que cambiaron el partido, contados como en el vestuario: quién
+ * marcó primero, los empates, quién se puso por delante y el que lo cerró.
+ * El marcador va siempre desde nuestro lado (nosotros-ellos).
+ */
+export function relatoDeGoles(goles: GolCronica[]) {
+  const frases: string[] = [];
+
+  let nos = 0;
+  let ellos = 0;
+
+  goles.forEach((g, i) => {
+    const antesIgual = nos === ellos;
+
+    if (g.nuestro) nos++;
+    else ellos++;
+
+    const cuando = `${g.minuto}′, ${quienGol(g)}`;
+
+    if (i === 0) frases.push(`${g.nuestro ? "Marcamos primero" : "Nos marcaron primero"} (${cuando})`);
+    else if (nos === ellos) frases.push(`${g.nuestro ? "Empatamos" : "Nos empataron"} ${nos}-${ellos} (${cuando})`);
+    else if (antesIgual) frases.push(`${g.nuestro ? "Nos pusimos" : "Se pusieron"} ${nos}-${ellos} (${cuando})`);
+    else if (i === goles.length - 1) frases.push(`${g.nuestro ? "Lo cerramos" : "Lo cerraron"} ${nos}-${ellos} (${cuando})`);
+  });
+
+  return frases;
+}
+
+/** Qué hicieron en el partido los que había que vigilar. */
+export function frenadosEn(vigilar: JugadorRival[], cronica: Cronica | null) {
+  if (!cronica) return [] as Sintesis["frenados"];
+
+  return vigilar.map((j) => {
+    const suyos = cronica.goles.filter((g) => !g.nuestro && g.tipo !== "propia");
+
+    const marco = suyos.filter((g) => mismoJugador(j.nombre, g.jugador)).map((g) => `${g.minuto}′`);
+
+    const asistio = suyos.filter((g) => g.asistente && mismoJugador(j.nombre, g.asistente)).map((g) => `${g.minuto}′`);
+
+    const titular = cronica.onceReal.some((r) => r.clave === j.clave || mismoJugador(j.nombre, r.nombre));
+
+    const entro = cronica.cambios.some((c) => mismoJugador(j.nombre, c.entra));
+
+    if (marco.length || asistio.length) {
+      return {
+        jugador: j,
+        bien: false,
+        texto: [marco.length ? `marcó (${marco.join(", ")})` : "", asistio.length ? `dio una asistencia (${asistio.join(", ")})` : ""].filter(Boolean).join(" y "),
+      };
+    }
+
+    return {
+      jugador: j,
+      bien: true,
+      texto: titular ? "sin gol ni asistencia" : entro ? "salió desde el banquillo, sin gol ni asistencia" : "no fue titular",
+    };
+  });
+}
+
 export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   const { ventajas, amenazas } = ventajasYAmenazas(inf.duelo);
 
   const vigilar = aVigilar(inf.once.jugadores, inf.plantilla);
 
-  const partido = inf.momento === "post" ? lecturaDelPartido(inf.duelo) : [];
+  const esPost = inf.momento === "post";
+
+  const partido = esPost ? lecturaDelPartido(inf.duelo) : [];
+
+  const relato = esPost ? relatoDeGoles(inf.cronica?.goles ?? []) : [];
+
+  const frenados = esPost ? frenadosEn(vigilar, inf.cronica) : [];
 
   /* Las claves: las que escribió el cuerpo técnico en el plan; si no hay, las
      que dicen los datos. Nunca más de cuatro: es lo que cabe en la cabeza. */
   const delPlan = inf.plan?.claves ?? [];
 
+  /* Post: lo que nos deja, de lo más sólido a lo más fino. El resultado y el
+     relato ya van en el titular y en la línea de goles; aquí lo que se
+     aprende: el partido en datos, si los conocíamos y si los frenamos. */
+  const acierto = inf.cronica?.acierto;
+
+  const frenadosBien = frenados.filter((f) => f.bien);
+
+  const clavesPost = [
+    ...partido.slice(0, 2),
+    acierto
+      ? `Acertamos ${acierto.acertados} de ${acierto.total} de su once${acierto.sorpresas.length ? ` · ${acierto.sorpresas.length === 1 ? "la sorpresa" : "las sorpresas"}: ${acierto.sorpresas.map(apellido).join(", ")}` : ""}`
+      : "",
+    frenados.length
+      ? frenadosBien.length === frenados.length
+        ? `Ninguno de los ${frenados.length} jugadores a vigilar marcó ni asistió`
+        : `${frenados
+            .filter((f) => !f.bien)
+            .map((f) => `${apellido(f.jugador.nombre)} ${f.texto}`)
+            .join("; ")}${frenados.length - frenadosBien.length > 1 ? ": estaban entre los que había que frenar" : ": era uno de los que había que frenar"}`
+      : "",
+    ...ventajas.slice(0, 1).map((v) => `Seguimos fuertes en ${v.charAt(0).toLowerCase()}${v.slice(1)}`),
+  ]
+    .filter(Boolean)
+    .slice(0, 4);
+
   const claves =
-    inf.momento === "post"
-      ? partido.slice(0, 2).concat(delPlan.slice(0, 2).map((c) => `Plan: ${c}`))
+    esPost
+      ? clavesPost
       : delPlan.length >= 3
         ? delPlan.slice(0, 4)
         : /* Con dos o menos del plan, se completan con lo que dicen los datos.
@@ -370,5 +534,5 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
         : `Post partido ante el ${rival}`
       : `${inf.partido.lado === "fuera" ? "Visitamos al" : "Recibimos al"} ${rival}${inf.contexto?.puesto ? `, ${ordinal(inf.contexto.puesto)} de la tabla` : ""}`;
 
-  return { titular, claves, ventajas, amenazas, vigilar, partido };
+  return { titular, claves, ventajas, amenazas, vigilar, partido, relato, frenados };
 }

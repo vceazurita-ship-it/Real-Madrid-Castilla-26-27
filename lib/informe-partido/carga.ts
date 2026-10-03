@@ -18,12 +18,13 @@ import { esTareaAbp, loadRegistro, type RegistroTarea } from "@/lib/abp/registro
 import { comoNuestro, soloDia, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { traeJson } from "@/lib/hojaCsv";
 import { analisisKey, clipsKey, laminaVacia, normalizaAnalisis, ordenJornada } from "@/lib/rivals/analisis";
-import { esLiga, findInforme, type InformeDoc, type InformeEquipo } from "@/lib/rivals/informe";
+import { esLiga, findInforme, type InformeDoc, type InformeEquipo, type OncePartido } from "@/lib/rivals/informe";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
+import { mismoJugador, type Cronica } from "./modelo";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
 import {
@@ -198,6 +199,9 @@ function partidoDelMicro(partidos: PartidoBeSoccer[], tareas: RegistroTarea[], r
 /*  EL RIVAL                                                           */
 /* ------------------------------------------------------------------ */
 
+/** «2026-10-02» → «2026-10-01». */
+const diaAnterior = (dia: string) => new Date(Date.parse(`${dia}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+
 const LINEA = (posicion: string): JugadorRival["linea"] => {
   const p = posicion.toUpperCase();
 
@@ -256,6 +260,123 @@ function codigoDeLado(posicion: string) {
   if (/EXTREMO|BANDA/.test(p)) return izquierda ? "EI" : derecha ? "ED" : "";
 
   return "";
+}
+
+/** Un once de BeSoccer con las fichas de la hoja (por nombre: BeSoccer no lleva el id de la foto). */
+function jugadoresDeOnce(once: OncePartido, plantilla: JugadorRival[]): JugadorRival[] {
+  return [...once.jugadores].sort((a, b) => (a.puesto || 99) - (b.puesto || 99)).map((uno) => {
+    const enHoja = plantilla.find((j) => mismoJugador(j.nombre, uno.nombre));
+
+    const linea: JugadorRival["linea"] =
+      uno.demarcacion === "PT" ? "POR" : uno.demarcacion === "DF" ? "DEF" : uno.demarcacion === "MC" ? "MED" : uno.demarcacion === "DL" ? "DEL" : "";
+
+    return enHoja
+      ? { ...enHoja, linea: linea || enHoja.linea }
+      : ({
+          clave: `once:${uno.nombre}`,
+          nombre: uno.nombre,
+          dorsal: uno.dorsal,
+          posicion: "",
+          linea,
+          foto: uno.foto,
+          pie: "",
+          altura: "",
+          edad: "",
+          rasgos: [],
+          caracteristicas: "",
+          fortalezas: "",
+          debilidades: "",
+          rol: "",
+          goles: null,
+          asistencias: null,
+          partidos: null,
+          minutos: null,
+        } satisfies JugadorRival);
+  });
+}
+
+/** Post: el partido contado con lo que BeSoccer guarda del rival. */
+function cronicaDe(informe: InformeEquipo | null, partido: PartidoNuestro | null, plantilla: JugadorRival[], previsto: JugadorRival[]): Cronica | null {
+  if (!informe || !partido?.jugado) return null;
+
+  const dia = soloDia(partido.cuando);
+
+  const bs = informe.partidos.find((p) => p.jugado && soloDia(p.fecha) === dia);
+
+  if (!bs) return null;
+
+  const suOnce = informe.onces.find((o) => o.partidoId === bs.id) ?? null;
+
+  const onceReal = suOnce ? colocaPorDibujo(jugadoresDeOnce(suOnce, plantilla), suOnce.estructura) : [];
+
+  /* «propio» es del equipo del informe —el rival—: los demás son nuestros. */
+  const goles = (bs.goles ?? []).map((g) => ({
+    minuto: g.minuto,
+    jugador: g.jugador,
+    asistente: g.asistente ?? "",
+    tipo: g.tipo,
+    nuestro: !g.propio,
+  }));
+
+  const acierto =
+    previsto.length && onceReal.length
+      ? {
+          acertados: onceReal.filter((r) => previsto.some((p) => p.clave === r.clave || mismoJugador(p.nombre, r.nombre))).length,
+          total: onceReal.length,
+          noSalieron: previsto.filter((p) => !onceReal.some((r) => p.clave === r.clave || mismoJugador(p.nombre, r.nombre))).map((p) => p.nombre),
+          sorpresas: onceReal.filter((r) => !previsto.some((p) => p.clave === r.clave || mismoJugador(p.nombre, r.nombre))).map((r) => r.nombre),
+        }
+      : null;
+
+  return {
+    goles,
+    estructura: suOnce?.estructura ?? "",
+    onceReal,
+    acierto,
+    cambios: (suOnce?.cambios ?? []).map((c) => ({ minuto: c.minuto, sale: c.sale, entra: c.entra })),
+    tarjetas: (suOnce?.tarjetas ?? []).map((t) => ({ minuto: t.minuto, jugador: t.jugador, tipo: t.tipo })),
+  };
+}
+
+/** Izquierda 0, centro 1, derecha 2, por lo que diga la ficha de la hoja. */
+const ladoDe = (j: JugadorRival) => {
+  const c = codigoDeLado(j.posicion);
+
+  return c === "LI" || c === "EI" ? 0 : c === "LD" || c === "ED" ? 2 : 1;
+};
+
+/**
+ * Un once de BeSoccer con su dibujo: viene ordenado de la portería a la
+ * delantera, así que «1-4-3-3» es cortarlo en 1, 4, 3 y 3. La demarcación de
+ * cada uno no vale para esto: BeSoccer llama delantero a un extremo y medio a
+ * otro, y un 1-4-3-3 salía dibujado como un 4-4-2.
+ */
+function colocaPorDibujo(once: JugadorRival[], estructura: string) {
+  const lineas = (estructura.match(/\d+/g) ?? []).map(Number);
+
+  if (lineas.reduce((a, b) => a + b, 0) !== once.length || lineas.length < 3) return colocaPorLineas(once);
+
+  let desde = 0;
+
+  lineas.forEach((cuantos, i) => {
+    const linea = once
+      .slice(desde, desde + cuantos)
+      .map((j, orden) => ({ j, orden }))
+      .sort((a, b) => ladoDe(a.j) - ladoDe(b.j) || a.orden - b.orden)
+      .map((x) => x.j);
+
+    desde += cuantos;
+
+    /* La portería abajo y el resto de líneas repartidas hasta el ataque. */
+    const y = i === 0 ? 0.06 : 0.3 + ((i - 1) / Math.max(1, lineas.length - 2)) * 0.55;
+
+    linea.forEach((j, k) => {
+      j.x = (k + 1) / (linea.length + 1);
+      j.y = y;
+    });
+  });
+
+  return once;
 }
 
 /** Coloca un once por líneas cuando nadie lo ha dibujado (portería abajo, ataque arriba). */
@@ -338,14 +459,24 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
   return bloques.length || conclusiones.length ? { bloques, conclusiones } : null;
 }
 
-function contextoDe(informe: InformeEquipo | null, rival: string): ContextoRival | null {
+function contextoDe(informe: InformeEquipo | null, rival: string, nuestros: PartidoNuestro[], corte: string): ContextoRival | null {
   if (!informe) return null;
 
   const fila = informe.clasificacion.total.find((f) => f.slug === informe.slug) ?? informe.clasificacion.total.find((f) => mismoClub(f.equipo, rival));
 
   const nuestra = informe.clasificacion.total.find((f) => /castilla/i.test(f.equipo));
 
-  const liga = informe.partidos.filter((p) => p.jugado && esLiga(p)).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  /* Hasta el corte: en la previa, lo que había antes del partido; en el post,
+     con él dentro. Así un informe de hace semanas no trae la racha de hoy. */
+  const antes = (fecha: string) => !corte || soloDia(fecha) <= corte;
+
+  const liga = informe.partidos.filter((p) => p.jugado && esLiga(p) && antes(p.fecha)).sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  const nuestraRacha = nuestros
+    .filter((p) => p.jugado && p.golesFavor !== null && p.golesContra !== null && antes(p.cuando))
+    .sort((a, b) => b.cuando.localeCompare(a.cuando))
+    .slice(0, 5)
+    .map((p) => (p.golesFavor! > p.golesContra! ? "G" : p.golesFavor! < p.golesContra! ? "P" : "E"));
 
   return {
     escudo: informe.escudo,
@@ -356,6 +487,7 @@ function contextoDe(informe: InformeEquipo | null, rival: string): ContextoRival
     goleadores: informe.goleadores.slice(0, 3).map((g) => ({ nombre: g.nombre, goles: g.goles })),
     entrenador: informe.entrenador?.nombre ?? "",
     estructuras: informe.estructuras.slice(0, 2).map((e) => e.estructura),
+    nuestraRacha,
     nuestroPuesto: nuestra?.puesto ?? null,
     nuestrosPuntos: nuestra?.puntos ?? null,
   };
@@ -481,40 +613,10 @@ export async function cargaInforme(entrada: {
   } else if (informeRival?.onces?.length) {
     const ultimo = informeRival.onces[0];
 
-    const jugadores = ultimo.jugadores.map((uno) => {
-      const enHoja = plantilla.find(
-        (j) => mismoClub(j.nombre, uno.nombre) || j.nombre.toLowerCase().includes(uno.nombre.toLowerCase().split(" ").pop() ?? "~"),
-      );
-
-      const linea: JugadorRival["linea"] =
-        uno.demarcacion === "PT" ? "POR" : uno.demarcacion === "DF" ? "DEF" : uno.demarcacion === "MC" ? "MED" : uno.demarcacion === "DL" ? "DEL" : "";
-
-      return enHoja
-        ? { ...enHoja, linea: enHoja.linea || linea }
-        : ({
-            clave: `once:${uno.nombre}`,
-            nombre: uno.nombre,
-            dorsal: uno.dorsal,
-            posicion: "",
-            linea,
-            foto: uno.foto,
-            pie: "",
-            altura: "",
-            edad: "",
-            rasgos: [],
-            caracteristicas: "",
-            fortalezas: "",
-            debilidades: "",
-            rol: "",
-            goles: null,
-            asistencias: null,
-            partidos: null,
-            minutos: null,
-          } satisfies JugadorRival);
-    });
+    const jugadores = jugadoresDeOnce(ultimo, plantilla);
 
     once = {
-      jugadores: colocaPorLineas(jugadores),
+      jugadores: colocaPorDibujo(jugadores, ultimo.estructura),
       fuente: "ultimo",
       detalle: `Su último once (${ultimo.estructura || "sin dibujo"}): nadie ha marcado aún el once probable en Plantillas`,
     };
@@ -536,6 +638,10 @@ export async function cargaInforme(entrada: {
 
   const docsRival = Object.values(clipsDoc?.jornadas ?? {}).flatMap((j) => j.docs ?? []).map((d) => ({ nombre: d.nombre, url: d.url }));
 
+  const cronica = momento === "post" ? cronicaDe(informeRival, partido, plantilla, once.fuente === "marcado" ? once.jugadores : []) : null;
+
+  if (momento === "post" && partido?.jugado && !cronica) avisos.push("BeSoccer aún no tiene la ficha del partido (goles, su once): se baja cada noche.");
+
   const sinSintesis: Omit<InformePartido, "sintesis"> = {
     momento,
     generado: new Date().toISOString(),
@@ -555,7 +661,13 @@ export async function cargaInforme(entrada: {
     colectivo,
     once,
     plantilla,
-    contexto: contextoDe(informeRival, rival),
+    contexto: contextoDe(
+      informeRival,
+      rival,
+      (calendario?.partidos ?? []).map(comoNuestro).filter((p) => p.jornada),
+      partido ? (momento === "post" ? soloDia(partido.cuando) : diaAnterior(soloDia(partido.cuando))) : "",
+    ),
+    cronica,
     abp: microciclo || laminasRival || docsRival.length
       ? { minutosSemana: microciclo?.totales.abpMinutos ?? 0, laminasRival, documentosRival: docsRival }
       : null,

@@ -133,6 +133,10 @@ export async function capturaLienzos(
     backgroundColor: opciones.fondo,
     imagePlaceholder: PIXEL_VACIO,
     quality: 0.92,
+    /* La caché de imágenes de `html-to-image` va por URL SIN la query: dos
+       fotos por el proxy (`/api/rivals/foto?url=…`) eran la misma y salían
+       los dos escudos iguales. */
+    includeQueryParams: true,
     style: {
       margin: "0",
       transform: "none",

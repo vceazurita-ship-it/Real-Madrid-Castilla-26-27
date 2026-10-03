@@ -19,7 +19,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-import { cifra, ordinal, type InformePartido, type JugadorRival, type MetricaDuelo } from "@/lib/informe-partido/modelo";
+import { apellido, cifra, ordinal, type GolCronica, type InformePartido, type JugadorRival, type MetricaDuelo } from "@/lib/informe-partido/modelo";
 
 export const DIAPO_W = 1920;
 export const DIAPO_H = 1080;
@@ -129,17 +129,18 @@ function Escudo({ src, size }: { src: string; size: number }) {
   );
 }
 
-function Forma({ titulo, lista, derecha = false }: { titulo: string; lista: { gf: number; gc: number }[]; derecha?: boolean }) {
+/** «G», «E», «P» de la forma de Wyscout, por si BeSoccer no trae la racha. */
+const deForma = (lista: { gf: number; gc: number }[] | undefined) => (lista ?? []).map((p) => (p.gf > p.gc ? "G" : p.gf < p.gc ? "P" : "E"));
+
+function Forma({ titulo, resultados, derecha = false }: { titulo: string; resultados: string[]; derecha?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, flexDirection: derecha ? "row-reverse" : "row" }}>
-      <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, textAlign: derecha ? "left" : "right" }}>
+      <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, textAlign: derecha ? "left" : "right", whiteSpace: "nowrap" }}>
         {titulo}
         <br />
-        <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "0.08em" }}>ÚLTIMOS 5</span>
+        <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "0.08em" }}>{derecha ? "← RECIENTE" : "RECIENTE →"}</span>
       </span>
-      {lista.slice(0, 5).map((p, i) => {
-        const r = p.gf > p.gc ? "G" : p.gf < p.gc ? "P" : "E";
-
+      {resultados.slice(0, 5).map((r, i) => {
         return (
           <span
             key={i}
@@ -160,7 +161,7 @@ function Forma({ titulo, lista, derecha = false }: { titulo: string; lista: { gf
           </span>
         );
       })}
-      {!lista.length && <span style={{ fontSize: 20, color: C.tenue }}>Sin datos</span>}
+      {!resultados.length && <span style={{ fontSize: 20, color: C.tenue }}>Sin datos</span>}
     </div>
   );
 }
@@ -208,11 +209,11 @@ function FilaDuelo({ m, equipos }: { m: MetricaDuelo; equipos: number }) {
  * panel (con la proporción de un campo) y coloca en tanto por ciento: con un
  * alto fijo, un panel más bajo lo encogía y se comía al portero.
  */
-function Campo({ once }: { once: JugadorRival[] }) {
+function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string> }) {
   const linea = "2px solid rgba(255,255,255,0.22)";
 
   return (
-    <div style={{ position: "relative", flex: 1, minHeight: 0, height: "100%", aspectRatio: "0.82", margin: "0 auto", borderRadius: 18, overflow: "hidden", background: "repeating-linear-gradient(180deg, #133A27 0 10%, #10301F 10% 20%)", border: "2px solid rgba(255,255,255,0.12)" }}>
+    <div style={{ position: "relative", flex: 1, minHeight: 0, height: "100%", aspectRatio: "1.12", maxWidth: "100%", margin: "0 auto", borderRadius: 18, overflow: "hidden", background: "repeating-linear-gradient(180deg, #133A27 0 10%, #10301F 10% 20%)", border: "2px solid rgba(255,255,255,0.12)" }}>
       {/* líneas */}
       <div style={{ position: "absolute", left: "4%", right: "4%", top: "3%", bottom: "3%", border: linea, borderRadius: 4 }} />
       <div style={{ position: "absolute", left: "4%", right: "4%", top: "50%", height: 2, background: "rgba(255,255,255,0.22)" }} />
@@ -225,14 +226,14 @@ function Campo({ once }: { once: JugadorRival[] }) {
         const y = 92 - (j.y ?? 0.5) * 84;
 
         return (
-          <div key={j.clave} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 128, transform: "translate(-50%, -24px)", textAlign: "center" }}>
+          <div key={j.clave} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 118, transform: "translate(-50%, -24px)", textAlign: "center" }}>
             <div
               style={{
                 width: 46,
                 height: 46,
                 margin: "0 auto",
                 borderRadius: 999,
-                background: C.rival,
+                background: resaltar?.has(j.clave) ? C.oro : C.rival,
                 border: "3px solid #fff",
                 color: "#fff",
                 fontSize: 22,
@@ -244,7 +245,7 @@ function Campo({ once }: { once: JugadorRival[] }) {
             >
               {j.dorsal || ""}
             </div>
-            <div style={{ marginTop: 4, fontSize: 19, fontWeight: 700, color: "#fff", textTransform: "uppercase", textShadow: "0 1px 3px rgba(0,0,0,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ marginTop: 3, fontSize: 18, fontWeight: 700, color: "#fff", textTransform: "uppercase", textShadow: "0 1px 3px rgba(0,0,0,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {j.nombre.split(" ").slice(-1)[0]}
             </div>
           </div>
@@ -452,9 +453,18 @@ function PreviaPlan({ inf }: { inf: InformePartido }) {
 function PostResultado({ inf }: { inf: InformePartido }) {
   const p = inf.partido;
 
-  const metricas = (inf.duelo?.partido?.metricas ?? []).filter((m) => m.nuestro !== null && m.suyo !== null).slice(0, 9);
+  const cronica = inf.cronica;
 
-  const temporada = (inf.duelo?.metricas ?? []).filter((m) => m.nosotros && m.rival).slice(0, 8);
+  const metricas = (inf.duelo?.partido?.metricas ?? []).filter((m) => m.nuestro !== null && m.suyo !== null).slice(0, cronica?.goles.length ? 7 : 9);
+
+  /* Con la línea de goles el panel tiene menos alto: dos filas menos. */
+  const temporada = (inf.duelo?.metricas ?? []).filter((m) => m.nosotros && m.rival).slice(0, cronica?.goles.length ? 6 : 8);
+
+  const real = cronica?.onceReal ?? [];
+
+  const acierto = cronica?.acierto ?? null;
+
+  const sorpresas = new Set(real.filter((r) => acierto?.sorpresas.includes(r.nombre)).map((r) => r.clave));
 
   const marcador = p.gf !== null && p.gc !== null ? (p.lado === "fuera" ? `${p.gc} - ${p.gf}` : `${p.gf} - ${p.gc}`) : "—";
 
@@ -467,20 +477,22 @@ function PostResultado({ inf }: { inf: InformePartido }) {
           <span style={{ fontSize: 58, fontWeight: 700 }}>{local}</span>
           <Escudo src={(p.lado === "fuera" ? inf.contexto?.escudo : inf.contexto?.escudoNuestro) ?? ""} size={78} />
         </div>
-        <div style={{ fontSize: 120, fontWeight: 700, color: C.oro, lineHeight: 1, padding: "0 30px", borderRadius: 26, background: "rgba(200,169,107,0.1)" }}>{marcador}</div>
+        <div style={{ fontSize: 108, fontWeight: 700, color: C.oro, lineHeight: 1, padding: "0 30px", borderRadius: 26, background: "rgba(200,169,107,0.1)" }}>{marcador}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 22, minWidth: 600 }}>
           <Escudo src={(p.lado === "fuera" ? inf.contexto?.escudoNuestro : inf.contexto?.escudo) ?? ""} size={78} />
           <span style={{ fontSize: 58, fontWeight: 700 }}>{visitante}</span>
         </div>
       </div>
-      <div style={{ textAlign: "center", fontSize: 28, fontWeight: 600, letterSpacing: "0.1em", color: C.suave, marginTop: 6 }}>{inf.sintesis.titular.toUpperCase()}</div>
+      <div style={{ textAlign: "center", fontSize: 26, fontWeight: 600, letterSpacing: "0.1em", color: C.suave, marginTop: 4 }}>{inf.sintesis.titular.toUpperCase()}</div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 26, marginTop: 22 }}>
+      {cronica?.goles.length ? <LineaGoles goles={cronica.goles} /> : null}
+
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 26, marginTop: cronica?.goles.length ? 8 : 22 }}>
         {/* Sin el partido en Wyscout (se baja los martes), el panel no se queda
             vacío: enseña cómo llegábamos los dos a la jornada. */}
         {!metricas.length && temporada.length ? (
           <Panel titulo="CÓMO LLEGÁBAMOS LOS DOS">
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 21, fontWeight: 700, letterSpacing: "0.16em", marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 21, fontWeight: 700, letterSpacing: "0.16em", marginBottom: 8 }}>
               <span style={{ color: C.oro }}>NOSOTROS · PUESTO EN LA LIGA</span>
               <span style={{ color: C.rival }}>{p.rival.toUpperCase()}</span>
             </div>
@@ -489,56 +501,131 @@ function PostResultado({ inf }: { inf: InformePartido }) {
                 <FilaDuelo key={m.key} m={m} equipos={inf.duelo?.equipos ?? 0} />
               ))}
             </div>
-            <div style={{ marginTop: 10, fontSize: 18, color: C.tenue }}>
-              Wyscout aún no tiene este partido (se baja los martes o desde Ajustes): son las medias de la temporada hasta la jornada.
+            <div style={{ marginTop: 8, fontSize: 18, color: C.tenue }}>
+              Wyscout aún no tiene este partido (se baja los martes o desde Ajustes): medias de la temporada hasta la jornada.
             </div>
           </Panel>
         ) : (
-        <Panel titulo="EL PARTIDO EN DATOS">
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 21, fontWeight: 700, letterSpacing: "0.16em", marginBottom: 8 }}>
-            <span style={{ color: C.oro }}>NOSOTROS</span>
-            <span style={{ color: C.rival }}>{p.rival.toUpperCase()}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flex: 1 }}>
-            {metricas.map((m) => {
-              const tope = Math.max(Math.abs(m.nuestro ?? 0), Math.abs(m.suyo ?? 0), 0.0001);
+          <Panel titulo="EL PARTIDO EN DATOS">
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 21, fontWeight: 700, letterSpacing: "0.16em", marginBottom: 8 }}>
+              <span style={{ color: C.oro }}>NOSOTROS</span>
+              <span style={{ color: C.rival }}>{p.rival.toUpperCase()}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flex: 1 }}>
+              {metricas.map((m) => {
+                const tope = Math.max(Math.abs(m.nuestro ?? 0), Math.abs(m.suyo ?? 0), 0.0001);
 
-              return (
-                <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ width: 110, textAlign: "right", fontSize: 30, fontWeight: 700 }}>{cifra(m.nuestro, m.unidad)}</span>
-                  <div style={{ flex: 1, height: 20, display: "flex", justifyContent: "flex-end", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
-                    <div style={{ width: `${(Math.abs(m.nuestro ?? 0) / tope) * 100}%`, background: C.oro, borderRadius: 10 }} />
+                return (
+                  <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ width: 110, textAlign: "right", fontSize: 30, fontWeight: 700 }}>{cifra(m.nuestro, m.unidad)}</span>
+                    <div style={{ flex: 1, height: 20, display: "flex", justifyContent: "flex-end", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                      <div style={{ width: `${(Math.abs(m.nuestro ?? 0) / tope) * 100}%`, background: C.oro, borderRadius: 10 }} />
+                    </div>
+                    <span style={{ width: 300, textAlign: "center", fontSize: 21, fontWeight: 700, color: C.suave, textTransform: "uppercase" }}>{m.nombre}</span>
+                    <div style={{ flex: 1, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                      <div style={{ width: `${(Math.abs(m.suyo ?? 0) / tope) * 100}%`, height: "100%", background: C.rival, borderRadius: 10 }} />
+                    </div>
+                    <span style={{ width: 110, fontSize: 30, fontWeight: 700 }}>{cifra(m.suyo, m.unidad)}</span>
                   </div>
-                  <span style={{ width: 300, textAlign: "center", fontSize: 21, fontWeight: 700, color: C.suave, textTransform: "uppercase" }}>{m.nombre}</span>
-                  <div style={{ flex: 1, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
-                    <div style={{ width: `${(Math.abs(m.suyo ?? 0) / tope) * 100}%`, height: "100%", background: C.rival, borderRadius: 10 }} />
-                  </div>
-                  <span style={{ width: 110, fontSize: 30, fontWeight: 700 }}>{cifra(m.suyo, m.unidad)}</span>
-                </div>
-              );
-            })}
-            {!metricas.length && (
-              <span style={{ fontSize: 26, color: C.tenue }}>
-                Wyscout todavía no tiene este partido: se baja los martes (o desde Ajustes). El resto del informe ya vale.
-              </span>
-            )}
-          </div>
+                );
+              })}
+              {!metricas.length && (
+                <span style={{ fontSize: 26, color: C.tenue }}>Wyscout todavía no tiene este partido: se baja los martes (o desde Ajustes).</span>
+              )}
+            </div>
+          </Panel>
+        )}
+
+        {/* Su once de verdad (BeSoccer) y, si había uno marcado, cuánto acertamos. */}
+        <Panel
+          titulo={real.length ? `SU ONCE${cronica?.estructura ? ` · ${cronica.estructura}` : ""}` : inf.once.fuente === "marcado" ? "SU ONCE PREVISTO" : "SU ONCE"}
+          acento={C.rival}
+        >
+          {real.length || inf.once.jugadores.length ? (
+            <Campo once={real.length ? real : inf.once.jugadores} resaltar={sorpresas} />
+          ) : (
+            <span style={{ fontSize: 24, color: C.tenue }}>Sin once.</span>
+          )}
+          {acierto && (
+            <div style={{ marginTop: 10, textAlign: "center", fontSize: 22, fontWeight: 600, color: C.suave }}>
+              <b style={{ color: C.oro, fontSize: 30 }}>
+                {acierto.acertados}/{acierto.total}
+              </b>{" "}
+              del once previsto
+              {acierto.sorpresas.length ? <span style={{ color: C.tenue }}> · en oro, los que no esperábamos</span> : null}
+            </div>
+          )}
         </Panel>
-        )}
-
-        {inf.sintesis.partido.length ? (
-          <Panel titulo="LO QUE SE SALIÓ DE LO HABITUAL">
-            <Lista items={inf.sintesis.partido} tamano={27} max={4} corte={130} />
-          </Panel>
-        ) : (
-          <Panel titulo={inf.once.fuente === "marcado" ? "SU ONCE PREVISTO" : "SU ONCE"} acento={C.rival}>
-            {inf.once.jugadores.length ? <Campo once={inf.once.jugadores} /> : <span style={{ fontSize: 24, color: C.tenue }}>Sin once.</span>}
-          </Panel>
-        )}
       </div>
 
       <Pie inf={inf} />
     </Marco>
+  );
+}
+
+/** «45+1» → 45,5; «9» → 9: dónde cae en la línea del partido. */
+const minutoDe = (m: string) => {
+  const [base, extra] = m.split("+").map((x) => Number.parseInt(x, 10) || 0);
+
+  return base + Math.min(extra ?? 0, 6) * 0.5;
+};
+
+/** Los goles en la línea del partido: los nuestros arriba, los suyos abajo. */
+function LineaGoles({ goles }: { goles: GolCronica[] }) {
+  const fin = Math.max(92, ...goles.map((g) => minutoDe(g.minuto) + 2));
+
+  const x = (min: number) => `${(min / fin) * 100}%`;
+
+  const raya = 62;
+
+  /* El rótulo del descanso va donde no haya un gol cerca del 45. */
+  const cerca = (nuestro: boolean) => goles.some((g) => g.nuestro === nuestro && Math.abs(minutoDe(g.minuto) - 45) < 9);
+
+  const descanso = !cerca(false) ? "abajo" : !cerca(true) ? "arriba" : null;
+
+  return (
+    <div style={{ position: "relative", height: 132, margin: "10px 70px 0" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: raya, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.14)" }} />
+      {[0, 45, 90].map((m) => (
+        <div key={m} style={{ position: "absolute", left: x(m), top: raya - 9, width: 2, height: 22, background: "rgba(255,255,255,0.3)", transform: "translateX(-1px)" }} />
+      ))}
+      {descanso && (
+        <div style={{ position: "absolute", left: x(45), top: descanso === "abajo" ? raya + 16 : raya - 34, transform: "translateX(-50%)", fontSize: 15, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue }}>
+          DESCANSO
+        </div>
+      )}
+      <div style={{ position: "absolute", left: -56, top: raya - 12, fontSize: 18, fontWeight: 700, color: C.tenue }}>0′</div>
+      <div style={{ position: "absolute", right: -60, top: raya - 12, fontSize: 18, fontWeight: 700, color: C.tenue }}>90′</div>
+
+      {goles.map((g, i) => {
+        const color = g.nuestro ? C.oro : C.rival;
+
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: x(minutoDe(g.minuto)),
+              top: g.nuestro ? 0 : raya - 8,
+              transform: "translateX(-50%)",
+              display: "flex",
+              flexDirection: g.nuestro ? "column" : "column-reverse",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <div style={{ whiteSpace: "nowrap", lineHeight: 1.05, textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: C.crema }}>
+                {apellido(g.jugador).toUpperCase()}
+                {g.tipo === "penalti" ? " (P)" : g.tipo === "propia" ? " (PP)" : ""}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color }}>{g.minuto}′</div>
+            </div>
+            <span style={{ width: 20, height: 20, borderRadius: 999, background: color, border: "3px solid #0C1A2E", boxShadow: `0 0 0 2px ${color}` }} />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -548,7 +635,7 @@ function Pie({ inf }: { inf: InformePartido }) {
 
   return (
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, gap: 30 }}>
-        <Forma titulo="NOSOTROS" lista={inf.duelo?.forma.nosotros ?? []} />
+        <Forma titulo="NOSOTROS" resultados={ctx?.nuestraRacha.length ? ctx.nuestraRacha : deForma(inf.duelo?.forma.nosotros)} />
         <div style={{ fontSize: 22, fontWeight: 600, color: C.suave, textAlign: "center" }}>
           {ctx?.nuestroPuesto && ctx.puesto ? (
             <>
@@ -557,7 +644,7 @@ function Pie({ inf }: { inf: InformePartido }) {
             </>
           ) : null}
         </div>
-        <Forma titulo="ELLOS" lista={inf.duelo?.forma.rival ?? []} derecha />
+        <Forma titulo="ELLOS" resultados={ctx?.racha.length ? ctx.racha : deForma(inf.duelo?.forma.rival)} derecha />
       </div>
   );
 }
@@ -569,7 +656,25 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
         <Panel titulo="EL PLAN, A REVISIÓN">
           <div style={{ fontSize: 20, color: C.tenue, marginBottom: 10 }}>Lo que nos propusimos. ¿Se cumplió?</div>
           <Lista items={inf.plan?.claves ?? []} numerada tamano={28} max={4} corte={110} />
-          {inf.sintesis.vigilar.length > 0 && (
+          {inf.sintesis.frenados.length > 0 ? (
+            <div style={{ marginTop: "auto", paddingTop: 18 }}>
+              <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 10 }}>¿LOS FRENAMOS?</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {inf.sintesis.frenados.map((f) => (
+                  <div key={f.jugador.clave} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 14px", borderRadius: 14, background: f.bien ? "rgba(63,191,138,0.08)" : "rgba(232,97,90,0.1)", border: `2px solid ${f.bien ? "rgba(63,191,138,0.3)" : "rgba(232,97,90,0.35)"}` }}>
+                    <span style={{ width: 40, height: 40, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#08111F", background: f.bien ? C.bien : C.mal }}>{f.bien ? "✓" : "!"}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 25, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {f.jugador.dorsal ? `${f.jugador.dorsal} · ` : ""}
+                        {f.jugador.nombre}
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: C.suave }}>{f.texto}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : inf.sintesis.vigilar.length > 0 ? (
             <div style={{ marginTop: "auto", paddingTop: 18 }}>
               <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 10 }}>LOS QUE HABÍA QUE FRENAR</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -578,12 +683,11 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </Panel>
 
-        <Panel titulo="EN LA LIGA">
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "0.16em", color: C.bien, marginBottom: 8 }}>DONDE SOMOS MEJORES</div>
-          <Lista items={inf.sintesis.ventajas} tamano={25} max={3} corte={90} />
+        <Panel titulo="LO QUE NOS DEJA">
+          <Lista items={inf.sintesis.claves} tamano={25} max={4} corte={120} />
           <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, margin: "26px 0 8px" }}>DONDE HAY QUE CRECER</div>
           <Lista
             items={(inf.duelo?.metricas ?? [])
@@ -591,7 +695,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
               .slice(0, 3)
               .map((m) => `${m.nombre}: ${cifra(m.nosotros!.valor, m.unidad)} (${ordinal(m.nosotros!.puesto)} de ${inf.duelo?.equipos ?? 20})`)}
             tamano={25}
-            max={3}
+            max={2}
           />
           {inf.contexto?.nuestroPuesto ? (
             <div style={{ marginTop: "auto", paddingTop: 18, display: "flex", alignItems: "baseline", gap: 14 }}>
