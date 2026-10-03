@@ -1527,6 +1527,22 @@ export default function AbpMicrocicloPage() {
                 }
               : null,
             /*
+            | El partido de la semana en el calendario: jornada, hora y, si ya
+            | se jugó, el resultado. Con él el informe decide si toca previa o
+            | post y encuentra las acciones de ESA jornada (no las de la ida).
+            */
+            partidoCalendario: ventana.partido
+              ? {
+                  jornada: ventana.partido.jornada,
+                  cuando: ventana.partido.cuando,
+                  rival: ventana.partido.rival,
+                  lado: ventana.partido.lado,
+                  golesFavor: ventana.partido.golesFavor,
+                  golesContra: ventana.partido.golesContra,
+                  jugado: ventana.partido.jugado,
+                }
+              : null,
+            /*
             | Los días de ESTE microciclo, para que el reparto por día del
             | informe no se dibuje sobre las siete letras de la semana natural.
             */

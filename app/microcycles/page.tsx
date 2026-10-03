@@ -4,6 +4,7 @@ import { traeCsv } from "@/lib/hojaCsv";
 import { Sidebar } from "@/components/ui/sidebar";
 import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
+import { InformePartidoDialog } from "@/components/informe-partido/InformePartidoDialog";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import {
@@ -14,6 +15,7 @@ import {
   CalendarDays,
   Clock,
   Download,
+  FileText,
   Flame,
   Gauge,
   Layers,
@@ -613,6 +615,7 @@ export default function Page() {
   const [tab, setTab] = useState<TabKey>("resumen");
 
   const [micro, setMicro] = useState("ALL");
+  const [informeAbierto, setInformeAbierto] = useState(false);
   const [tipoFilter, setTipoFilter] = useState("ALL");
   const [contenidoPrincipalFilter, setContenidoPrincipalFilter] =
     useState("ALL");
@@ -1472,8 +1475,25 @@ export default function Page() {
                 )}
 
                 <div className="hidden sm:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+
+                <button
+                  onClick={() => setInformeAbierto(true)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                  title="Previa o post del partido: resumen en dos diapositivas e informe completo, por correo"
+                >
+                  <FileText className="h-4 w-4" />
+                  Informe del partido
+                </button>
               </div>
             </div>
+
+            {informeAbierto && (
+              <InformePartidoDialog
+                temporada={selectedMicroStat ? rows.find((r) => r.micro === selectedMicroStat.micro)?.temporada : undefined}
+                micro={selectedMicroStat?.micro}
+                onClose={() => setInformeAbierto(false)}
+              />
+            )}
 
             {/* ---------------- Micro rail ---------------- */}
 

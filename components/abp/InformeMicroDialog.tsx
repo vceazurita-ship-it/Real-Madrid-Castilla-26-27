@@ -30,10 +30,14 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 
 import {
+  accionesDelPartido,
   construyeInforme,
+  fechaDelPartido,
   informeHtml,
   informeTexto,
+  modoSugerido,
   type DatosInforme,
+  type ModoInforme,
   type SeguimientoFila,
 } from "@/lib/abp/informe-micro";
 
@@ -52,7 +56,15 @@ import {
 /** Lo que la pantalla del microciclo ya tiene y aquí no hay que volver a pedir. */
 export type DatosDelMicro = Omit<
   DatosInforme,
-  "seguimientos" | "nombrePorId" | "generado" | "comparativa" | "propio" | "graficos"
+  | "seguimientos"
+  | "nombrePorId"
+  | "generado"
+  | "comparativa"
+  | "propio"
+  | "graficos"
+  | "modo"
+  | "accionesPartido"
+  | "rivalAnalisis"
 >;
 
 type AjustesCorreo = { destinatarios: string };
@@ -428,6 +440,45 @@ export function InformeMicroDialog({
   }, [conPretemporada, cuantasDePretemporada, deCompeticion]);
 
   /*
+  | LAS ACCIONES DEL PARTIDO DE LA SEMANA, para el post.
+  |
+  | De todas las acciones, no de las filtradas por la pretemporada: el partido
+  | del micro es oficial y `accionesDelPartido` ya deja fuera los amistosos.
+  | Se busca por la jornada del calendario, que es lo que separa la ida de la
+  | vuelta contra el mismo rival.
+  */
+  const accionesPartido = useMemo(
+    () =>
+      accionesDelPartido(acciones ?? [], {
+        rival: datos.partidoCalendario?.rival || datos.rival,
+        jornada: datos.partidoCalendario?.jornada ?? null,
+        jornadaHoja: datos.partido?.jornada ?? null,
+      }),
+    [acciones, datos.partidoCalendario, datos.rival, datos.partido],
+  );
+
+  /*
+  | PREVIA O POST.
+  |
+  | Lo propone `modoSugerido` —post si el partido ya se jugó o ya tiene
+  | acciones en nuestras hojas— y se puede cambiar a mano. Mientras nadie lo
+  | toque, sigue a la propuesta: si las hojas llegan tarde y traen el partido,
+  | el informe pasa solo a post.
+  */
+  const [modoElegido, setModoElegido] = useState<ModoInforme | null>(null);
+
+  const modo = useMemo<ModoInforme>(
+    () =>
+      modoElegido ??
+      modoSugerido({
+        fecha: fechaDelPartido(datos),
+        jugado: datos.partidoCalendario?.jugado,
+        hayAcciones: accionesPartido.length > 0,
+      }),
+    [modoElegido, datos, accionesPartido],
+  );
+
+  /*
   | El informe se arma DOS VECES, y no es un descuido.
   |
   | Los gráficos necesitan cosas que sólo salen de armarlo —el objetivo de
@@ -436,17 +487,20 @@ export function InformeMicroDialog({
   | pintan, y se vuelve a montar con ellos dentro. Montarlo es contar y
   | ordenar listas: lo que cuesta es dibujar, y eso se hace una sola vez.
   */
-  const borrador = useMemo(
-    () =>
-      construyeInforme({
-        ...datos,
-        seguimientos: filasSeguimiento,
-        nombrePorId,
-        comparativa,
-        propio,
-      }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio],
+  const base = useMemo<DatosInforme>(
+    () => ({
+      ...datos,
+      seguimientos: filasSeguimiento,
+      nombrePorId,
+      comparativa,
+      propio,
+      modo,
+      accionesPartido,
+    }),
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido],
   );
+
+  const borrador = useMemo(() => construyeInforme(base), [base]);
 
   /* Los gráficos se dibujan en un lienzo y salen en PNG: un correo no ejecuta
      nada, así que lo único que sobrevive es una imagen. */
@@ -467,13 +521,21 @@ export function InformeMicroDialog({
      van como un gráfico más y sus conclusiones, en su propia sección. */
   const rivalInforme = useAnalisisRivalInforme(datos.rival);
 
+  /*
+  | La segunda vuelta, ya con los dibujos y con lo del rival: sus conclusiones
+  | entran en las claves de la previa, así que no basta con pegarlas al final.
+  | En el post las láminas y las páginas de los PDF del rival no van —ese
+  | análisis ya se mandó en la previa, y es lo que más pesa—; sus conclusiones
+  | sí, para leerlas con el partido jugado.
+  */
   const informe = useMemo(
-    () => ({
-      ...borrador,
-      graficos: [...graficos, ...rivalInforme.graficos],
-      rivalAnalisis: rivalInforme.rivalAnalisis,
-    }),
-    [borrador, graficos, rivalInforme],
+    () =>
+      construyeInforme({
+        ...base,
+        rivalAnalisis: rivalInforme.cargando ? undefined : rivalInforme.rivalAnalisis,
+        graficos: modo === "post" ? graficos : [...graficos, ...rivalInforme.graficos],
+      }),
+    [base, graficos, rivalInforme, modo],
   );
 
   const html = useMemo(() => informeHtml(informe), [informe]);
@@ -547,6 +609,15 @@ export function InformeMicroDialog({
         }),
       });
 
+      /*
+      | El envío pide sesión del cuerpo técnico o de administrador: sin ella el
+      | servidor contesta 401, y el motivo tiene que decirse claro, no como un
+      | «no se ha podido enviar» que no dice qué hacer.
+      */
+      if (respuesta.status === 401) {
+        throw new Error("Entra con tu cuenta del cuerpo técnico (la de la quiniela) para poder mandar el informe.");
+      }
+
       const datosRespuesta = (await respuesta.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
@@ -586,7 +657,7 @@ export function InformeMicroDialog({
 
   return (
     <Dialog
-      title={informe.titulo}
+      title={`${informe.titulo} · ${informe.modoRotulo}`}
       subtitle={[informe.subtitulo, informe.rango].filter(Boolean).join(" · ")}
       onClose={onClose}
       footer={
@@ -625,6 +696,46 @@ export function InformeMicroDialog({
       }
     >
       <div className="space-y-4">
+        {/*
+        | PREVIA O POST. Dos informes distintos de la misma semana: la previa
+        | cuenta qué se va a hacer y por qué; el post, qué pasó en el partido y
+        | si lo entrenado apareció. El asunto lleva [PREVIA] o [POST].
+        */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+            {(
+              [
+                { valor: "previa", rotulo: "Previa del partido" },
+                { valor: "post", rotulo: "Post partido" },
+              ] as { valor: ModoInforme; rotulo: string }[]
+            ).map((opcion) => (
+              <button
+                key={opcion.valor}
+                type="button"
+                onClick={() => setModoElegido(opcion.valor)}
+                aria-pressed={modo === opcion.valor}
+                className={`rounded-lg px-3 py-1.5 text-[11px] transition ${
+                  modo === opcion.valor
+                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                    : "text-white/50 hover:text-white"
+                }`}
+              >
+                {opcion.rotulo}
+              </button>
+            ))}
+          </div>
+
+          <span className="text-[11px] text-white/35">
+            {modo === "post"
+              ? accionesPartido.length > 0
+                ? `Qué pasó: las ${accionesPartido.length} acciones de la ${accionesPartido[0].jornada.etiqueta.toLowerCase()} en nuestras hojas, cruzadas con lo trabajado.`
+                : cargandoPropio
+                  ? "Buscando el partido en nuestras hojas de ABP…"
+                  : "Qué pasó. El partido todavía no tiene acciones en nuestras hojas de ABP."
+              : "Qué vamos a hacer y por qué: la semana, las urgencias, el rival y las claves."}
+          </span>
+        </div>
+
         <TextArea
           label="A quién se le manda"
           value={ajustes.destinatarios}
@@ -688,18 +799,12 @@ export function InformeMicroDialog({
                   : "Cargando la comparación con la categoría…"}
           </p>
         ) : (
-          (informe.avisos.length > 0 || (datos.rival && !rivalInforme.rivalAnalisis)) && (
+          informe.avisos.length > 0 && (
             <Notice tone="warn" title="Lo que este informe no sabe">
               <ul className="ml-4 list-disc space-y-1">
                 {informe.avisos.map((aviso) => (
                   <li key={aviso}>{aviso}</li>
                 ))}
-                {datos.rival && !rivalInforme.rivalAnalisis && (
-                  <li>
-                    No hay nada de balón parado de {datos.rival} en «ABP del Rival»: el informe sale sin el
-                    análisis del rival hasta que se prepare allí.
-                  </li>
-                )}
               </ul>
             </Notice>
           )

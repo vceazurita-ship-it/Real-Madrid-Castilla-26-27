@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { mismoEquipo } from "@/lib/data-analisis/nombres";
 
 import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer";
 import {
   METRICA_POR_KEY,
+  percentil,
   temporadaDe,
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
@@ -435,6 +437,174 @@ const ABP_MEDIDAS = [
  * partidos que lleva la actual, en orden de calendario, y lo «en contra» se
  * saca de las filas de los rivales **de esos mismos partidos**.
  */
+/* ------------------------------------------------------------------ */
+/*  EL DUELO: NOSOTROS Y EL RIVAL DE LA SEMANA                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Las métricas que cuentan un partido de un vistazo (03/10/2026, informe del
+ * partido). Cada una dice quién la lleva mejor en la liga con su puesto.
+ */
+const METRICAS_DUELO = [
+  "goles",
+  "golesContra",
+  "xg",
+  "xgContra",
+  "posesion",
+  "tiros",
+  "tirosContra",
+  "ppda",
+  "recuperacionesAltas",
+  "pasesProgresivos",
+  "entradasArea",
+  "centros",
+  "corners",
+  "duelosGanados",
+  "perdidasBajas",
+];
+
+/* Los que no comparten palabras entre BeSoccer y Wyscout. */
+const ALIAS_EQUIPO: [RegExp, RegExp][] = [[/atl(etico)?\.? ?madrile|atl(etico)?\.? ?madrid b/i, /atl[eé]tico madrid b/i]];
+
+function duelo(datos: Dataset, rivalPedido: string, fecha: string | null) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))].filter(Boolean).sort();
+
+  const actual = temporadas[temporadas.length - 1] ?? "";
+
+  /* Sólo competición: un amistoso de julio no dice cómo juega nadie en octubre. */
+  const deLaLiga = datos.partidos.filter(
+    (p) => temporadaDe(p.fecha) === actual && !/amistos|friendl/i.test(p.competicion ?? ""),
+  );
+
+  const equipos = [...new Set(deLaLiga.map((p) => p.equipo))];
+
+  const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+  const rival =
+    equipos.find((e) => e !== NOSOTROS && mismoEquipo(e, rivalPedido)) ??
+    equipos.find((e) => ALIAS_EQUIPO.some(([de, a]) => de.test(sinTildes(rivalPedido)) && a.test(e))) ??
+    null;
+
+  const filasDe = (equipo: string) => deLaLiga.filter((p) => p.equipo === equipo);
+
+  const metricas = METRICAS_DUELO.map((key) => METRICA_POR_KEY.get(key)).filter(
+    (m): m is NonNullable<typeof m> => Boolean(m),
+  );
+
+  const filas = metricas.map((m) => {
+    const porEquipo = equipos
+      .map((e) => ({ e, v: valorEnGrupo(m, filasDe(e)) }))
+      .filter((x): x is { e: string; v: number } => x.v !== null && Number.isFinite(x.v));
+
+    const todos = porEquipo.map((x) => x.v);
+
+    /* El puesto, con el mejor primero; si la métrica no tiene «mejor», de más a menos. */
+    const ordenados = [...porEquipo].sort((a, b) => (m.mejorAlto === false ? a.v - b.v : b.v - a.v));
+
+    const de = (equipo: string | null) => {
+      if (!equipo) return null;
+
+      const valor = porEquipo.find((x) => x.e === equipo)?.v ?? null;
+
+      if (valor === null) return null;
+
+      return {
+        valor,
+        puesto: ordenados.findIndex((x) => x.e === equipo) + 1,
+        percentil: percentil(valor, todos, m.mejorAlto),
+      };
+    };
+
+    const ordenMediana = [...todos].sort((a, b) => a - b);
+
+    return {
+      key: m.key,
+      nombre: m.nombre,
+      unidad: m.unidad,
+      mejorAlto: m.mejorAlto,
+      fase: m.fase,
+      mediana: ordenMediana.length ? ordenMediana[Math.floor(ordenMediana.length / 2)] : null,
+      nosotros: de(NOSOTROS),
+      rival: de(rival),
+    };
+  });
+
+  /** Los últimos cinco, del más reciente al más antiguo. */
+  const forma = (equipo: string | null) =>
+    equipo
+      ? filasDe(equipo)
+          .sort((a, b) => b.fecha.localeCompare(a.fecha))
+          .slice(0, 5)
+          .map((p) => ({
+            fecha: p.fecha,
+            rival: p.rival,
+            gf: p.golesFavor,
+            gc: p.golesContra,
+            xg: Number((p.datos?.["xG"] as number | undefined) ?? NaN),
+          }))
+      : [];
+
+  /** El esquema que más repite. */
+  const esquemaDe = (equipo: string | null) => {
+    if (!equipo) return "";
+
+    const cuenta = new Map<string, number>();
+
+    for (const p of filasDe(equipo)) {
+      const e = (p.esquema || "").replace(/\s*\(.*$/, "").trim();
+
+      if (e) cuenta.set(e, (cuenta.get(e) ?? 0) + 1);
+    }
+
+    return [...cuenta].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  };
+
+  /*
+  | El post: el partido de esa fecha, lo nuestro y lo suyo, contra nuestra
+  | media de la temporada. Con un día de margen: Wyscout fecha en UTC.
+  */
+  let partido = null as null | {
+    fecha: string;
+    marcador: string;
+    metricas: { key: string; nombre: string; unidad: string; mejorAlto: boolean | null; nuestro: number | null; suyo: number | null; media: number | null }[];
+  };
+
+  if (fecha && rival) {
+    const cerca = (f: string) => Math.abs(Date.parse(f) - Date.parse(fecha)) <= 86_400_000;
+
+    const nuestra = deLaLiga.find((p) => p.equipo === NOSOTROS && p.rival === rival && cerca(p.fecha));
+
+    const suya = deLaLiga.find((p) => p.equipo === rival && p.rival === NOSOTROS && cerca(p.fecha));
+
+    if (nuestra) {
+      partido = {
+        fecha: nuestra.fecha,
+        marcador: `${nuestra.golesFavor}-${nuestra.golesContra}`,
+        metricas: metricas.map((m) => ({
+          key: m.key,
+          nombre: m.nombre,
+          unidad: m.unidad,
+          mejorAlto: m.mejorAlto,
+          nuestro: valorEnGrupo(m, [nuestra]),
+          suyo: suya ? valorEnGrupo(m, [suya]) : null,
+          media: valorEnGrupo(m, filasDe(NOSOTROS).filter((p) => p !== nuestra)),
+        })),
+      };
+    }
+  }
+
+  return {
+    temporada: actual,
+    equipos: equipos.length,
+    rival,
+    jugados: { nosotros: filasDe(NOSOTROS).length, rival: rival ? filasDe(rival).length : 0 },
+    esquema: { nosotros: esquemaDe(NOSOTROS), rival: esquemaDe(rival) },
+    metricas: filas,
+    forma: { nosotros: forma(NOSOTROS), rival: forma(rival) },
+    partido,
+  };
+}
+
 function abpParaInforme(datos: Dataset) {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
     .filter(Boolean)
@@ -611,6 +781,11 @@ export async function GET(peticion: Request) {
       return NextResponse.json({ ok: true, abp: abpParaInforme(guardado.datos) });
     }
 
+    /* El informe del partido: nosotros contra el rival de la semana. */
+    if (parametros.get("duelo")) {
+      return NextResponse.json({ ok: true, duelo: duelo(guardado.datos, parametros.get("duelo") ?? "", parametros.get("fecha")) });
+    }
+
     if (equipoTipologia) {
       return NextResponse.json({
         ok: true,
@@ -658,6 +833,10 @@ export async function GET(peticion: Request) {
 
     if (parametros.has("abpInforme")) {
       return NextResponse.json({ ok: true, origen, abp: abpParaInforme(datos) });
+    }
+
+    if (parametros.get("duelo")) {
+      return NextResponse.json({ ok: true, origen, duelo: duelo(datos, parametros.get("duelo") ?? "", parametros.get("fecha")) });
     }
 
     if (equipoTipologia) {

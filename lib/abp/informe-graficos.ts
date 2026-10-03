@@ -868,7 +868,11 @@ const FAMILIA_LABEL: Record<string, string> = {
   banda: "Saque de banda",
   penalti: "Penalti",
   "saque-medio": "Saque de medio",
-  "saque-puerta": "Saque de puerta",
+  /* La familia de la hoja es «saque-meta» y «otra»: con «saque-puerta» y
+     «otras» solamente, esas dos salían en crudo («Saque meta», «Otra»). */
+  "saque-meta": "Reinicio de portería",
+  "saque-puerta": "Reinicio de portería",
+  otra: "Otras",
   otras: "Otras",
 };
 
@@ -1259,7 +1263,7 @@ export function valoracionTareas(
     "Cómo salieron las tareas",
     media === null
       ? "Nota de cada tarea de ABP en la hoja de registro."
-      : `Nota de cada tarea de ABP · media de la semana ${media.toFixed(1)} · la línea dorada es esa media.`,
+      : `Nota de cada tarea de ABP · media de la semana ${fmt(media, 1)} · la línea dorada es esa media.`,
   );
 
   if (tareas.length === 0) {
@@ -1302,7 +1306,7 @@ export function valoracionTareas(
     ctx.fillStyle = tarea.nota >= 7 ? BIEN : tarea.nota < 5 ? MAL : "rgba(200,169,107,0.85)";
     ctx.fillRect(x0 + 200, y + 3, Math.max(2, largo), paso - 12);
 
-    escribe(ctx, tarea.nota.toFixed(1), x0 + 206 + largo, y + paso - 7, {
+    escribe(ctx, fmt(tarea.nota, 1), x0 + 206 + largo, y + paso - 7, {
       px: 12,
       peso: 700,
       tinta: NAVY,
@@ -1728,19 +1732,20 @@ export function nuestrosNombres(propio: PropioAbp, ancho = 760, alto = 320) {
 /**
  * En qué parte del informe va cada gráfico.
  *
- * El orden lo pidió el cuerpo técnico y es el orden en que se lee la semana:
- * primero lo que hay que mirar sí o sí, después cuánto se ha trabajado, luego
- * el espejo de la categoría, lo nuestro del partido, lo que se hizo en el campo
- * y, al final, el trabajo individual.
+ * Cada área es UNA sección del informe (03/10/2026). Antes había una de
+ * «destacados» que repetía arriba lo que salía después —el termómetro del
+ * tiempo encima de su propia tabla, y el gráfico «acción por acción» dos
+ * veces, con dos títulos distintos— y otra, «nuestro partido», que no era el
+ * partido sino la temporada contada por Wyscout y por nosotros. Ahora cada
+ * gráfico vive donde se habla de lo suyo, y el informe decide qué secciones
+ * lleva según sea la previa o el post del partido.
+ *
+ * `destacados` y `partido` se quedan en el tipo por los informes viejos; no
+ * los usa ningún gráfico nuevo.
  */
 export type AreaGrafico =
   | "destacados"
   | "tiempo"
-  /**
-   * Nuestro partido, por las dos vías: lo que mide Wyscout y lo que registra
-   * el cuerpo técnico. Va justo detrás del microciclo, porque es la pregunta
-   * que sigue a «qué hemos entrenado»: qué ha salido de eso en el campo.
-   */
   | "partido"
   | "wyscout"
   | "nuestro"
@@ -1795,13 +1800,14 @@ export type DatosGraficos = {
 /**
  * Los gráficos del informe, por áreas y en el orden en que se leen.
  *
- * El orden lo pidió el cuerpo técnico: **primero los cuatro que hay que mirar
- * sí o sí**, después cuánto se ha trabajado y cómo se ha repartido, luego el
- * espejo de la categoría, lo nuestro del partido, lo que se hizo en el campo y,
- * al final, el trabajo individual.
+ * Dentro de cada área van en el orden en que se leen: en el tiempo, primero
+ * si llegamos al objetivo y después dónde cayeron los minutos; en la
+ * categoría, primero los dos cruces de córners y después los puestos.
  *
  * Lo que no tenga dato no se dibuja: un gráfico vacío ocupa lo mismo que uno
- * lleno y no dice nada.
+ * lleno y no dice nada. Y nada se dibuja dos veces: el «acción por acción» de
+ * nuestras hojas salía arriba y abajo con dos títulos, y las barras de
+ * Wyscout de córner y falta repetían dos filas de la tabla de la categoría.
  */
 export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
   const { comparativa, propio, tiempo, tareasValoradas, seguimiento } = datos;
@@ -1820,25 +1826,43 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
 
   const hayLiga = Boolean(comparativa && comparativa.liga.length > 0);
 
-  /* ================= 1 · LOS CUATRO DE CABECERA ================= */
+  /* ================= 1 · EL TIEMPO Y SU REPARTO ================= */
 
   if (tiempo) {
     mete(
       "d-tiempo",
       "¿Hemos dedicado el tiempo que tocaba?",
-      "destacados",
+      "tiempo",
       tiempo.origenDias === "sin marcar"
         ? `La barra son los minutos de ABP de la semana; la franja verde, el objetivo prorrateado por los ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"} en los que consta trabajo. En el plan no hay descansos marcados, así que ése es el número que se puede leer, no el de días entrenados.`
         : `La barra son los minutos de ABP de la semana; la franja verde, el objetivo prorrateado por los ${tiempo.diasEntreno} día${tiempo.diasEntreno === 1 ? "" : "s"} que se ha entrenado.`,
       termometroTiempo(tiempo),
     );
+
+    mete(
+      "t-dias",
+      "Minutos por día",
+      "tiempo",
+      "Dónde cayeron los minutos de balón parado dentro de la semana. Debajo, cómo se repartieron entre campo y vídeo, entre momentos de la sesión y entre roles.",
+      repartoSemana(tiempo),
+    );
+
+    mete(
+      "t-aspectos",
+      "Qué aspecto se trabajó",
+      "tiempo",
+      "Minutos por aspecto: verde lo ofensivo, naranja lo defensivo. Una tarea que trabaja dos aspectos reparte sus minutos entre ellos, no los cuenta dos veces.",
+      repartoPorAspecto(tiempo),
+    );
   }
+
+  /* ================= 2 · LA CATEGORÍA (WYSCOUT) ================= */
 
   if (hayLiga) {
     mete(
       "d-corners",
       "¿Cuántos córners generamos y cuántos concedemos?",
-      "destacados",
+      "wyscout",
       "Cada punto es un equipo de la categoría, por partido. Arriba y a la derecha es lo bueno: muchos a favor y pocos en contra. Las rayas son las medianas de la liga.",
       dispersion(
         comparativa!,
@@ -1857,7 +1881,7 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
     mete(
       "d-acierto",
       "¿Y los rematamos?",
-      "destacados",
+      "wyscout",
       "El volumen lo pone el partido; el porcentaje que acaba en remate lo pone el entrenamiento. Estar a la derecha y abajo es sacar muchos sin rematarlos.",
       dispersion(
         comparativa!,
@@ -1867,41 +1891,7 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
         "Cada punto, un equipo. Fuente Wyscout.",
       ),
     );
-  }
 
-  if (propio && propio.acciones > 0) {
-    mete(
-      "d-nuestro",
-      "¿Qué está rentando de lo nuestro?",
-      "destacados",
-      "De nuestras hojas de ABP: cuántas acciones hay de cada tipo, qué parte acaba en gol u ocasión y los goles que llevamos. Aquí los goles son dato, no estimación.",
-      nuestroPorAspecto(propio),
-    );
-  }
-
-  /* ================= 2 · EL TIEMPO Y SU REPARTO ================= */
-
-  if (tiempo) {
-    mete(
-      "t-dias",
-      "Minutos por día",
-      "tiempo",
-      "Dónde cayeron los minutos de balón parado dentro de la semana. Debajo, cómo se repartieron entre campo y vídeo, entre momentos de la sesión y entre roles.",
-      repartoSemana(tiempo),
-    );
-
-    mete(
-      "t-aspectos",
-      "Qué aspecto se trabajó",
-      "tiempo",
-      "Minutos por aspecto: verde lo ofensivo, naranja lo defensivo. Una tarea que trabaja dos aspectos reparte sus minutos entre ellos, no los cuenta dos veces.",
-      repartoPorAspecto(tiempo),
-    );
-  }
-
-  /* ================= 3 · LA CATEGORÍA (WYSCOUT) ================= */
-
-  if (hayLiga) {
     const liga = comparativa!;
 
     mete(
@@ -1995,95 +1985,25 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
     }
   }
 
-  /* ============ 3.5 · NUESTRO PARTIDO, POR LAS DOS VÍAS ============ */
-
   /*
-  | Lo mismo contado por Wyscout y por nosotros, uno detrás de otro.
-  |
-  | Va aquí —detrás del microciclo y delante del resto— porque es la pregunta
-  | que sigue a «qué hemos entrenado»: qué ha salido de eso en el campo.
-  |
-  | **Wyscout no separa la falta lateral ni cuenta el saque de banda**, así que
-  | por esa vía sólo salen el córner y la falta lanzada entera. La falta lateral
-  | y la banda existen abajo, en nuestro registro, que es el único sitio donde
-  | alguien las escribe.
+  | Aquí iban «nuestro partido, por las dos vías»: dos barras de Wyscout
+  | (córner y falta, a favor y en contra) y tres de nuestras hojas por familia.
+  | Fuera las dos cosas (03/10/2026): las de Wyscout eran dos filas de la tabla
+  | de la categoría dibujadas otra vez, y las nuestras, el mismo dato que el
+  | «acción por acción» de abajo partido en tres. Además no eran el partido,
+  | sino la temporada: el partido de verdad lo cuenta ahora el informe post
+  | con las acciones de esa jornada. `wyscoutPorFamilia` y `nuestroPorFamilia`
+  | se quedan exportadas por si se quieren volver a usar.
   */
-  if (comparativa?.nosotros) {
-    mete(
-      "p-wys-corner",
-      "Córner · lo que mide Wyscout",
-      "partido",
-      "Córners por partido, a favor y en contra, con el porcentaje que acaba en remate. Wyscout mide igual a todos los equipos, así que esta cifra sí se puede comparar con la de cualquier rival.",
-      wyscoutPorFamilia(
-        comparativa,
-        { cantidad: "corners", remate: "cornersRemate" },
-        "Córners por partido (Wyscout)",
-      ),
-    );
 
-    mete(
-      "p-wys-falta",
-      "Falta lanzada · lo que mide Wyscout",
-      "partido",
-      "Faltas lanzadas por partido, a favor y en contra. Ojo: Wyscout no separa la lateral de la directa, las cuenta todas juntas; el desglose está abajo, en nuestro registro.",
-      wyscoutPorFamilia(
-        comparativa,
-        { cantidad: "faltasTiro", remate: "faltasRemate" },
-        "Faltas lanzadas por partido (Wyscout)",
-      ),
-    );
-  }
-
-  if (propio && propio.acciones > 0) {
-    const hayFamilia = (familia: string) =>
-      (propio.porFamiliaYLado ?? []).some(
-        (una) => una.familia === familia && una.acciones > 0,
-      );
-
-    const nuestras: { familia: string; cid: string; titulo: string; pie: string }[] = [
-      {
-        familia: "corner",
-        cid: "p-nos-corner",
-        titulo: "Córner · lo que registramos nosotros",
-        pie: "Córners a favor y en contra según nuestras hojas, con el porcentaje que acaba en peligro y los goles. Esto trae goles y Wyscout no: aquí el analista escribe el resultado de cada acción.",
-      },
-      {
-        familia: "falta-lateral",
-        cid: "p-nos-falta",
-        titulo: "Falta lateral · lo que registramos nosotros",
-        pie: "La falta lateral separada de la directa, que es como se entrena y como se defiende. Ninguna plataforma la da así de desglosada.",
-      },
-      {
-        familia: "banda",
-        cid: "p-nos-banda",
-        titulo: "Saque de banda · lo que registramos nosotros",
-        pie: "Saques de banda a favor y en contra. No lo cuenta ni Wyscout ni Opta: sale entero de nuestras dos hojas de banda.",
-      },
-    ];
-
-    for (const una of nuestras) {
-      /* Una familia sin una sola acción no se pinta: un gráfico vacío ocupa
-         lo mismo que uno lleno y no dice nada. */
-      if (!hayFamilia(una.familia)) continue;
-
-      mete(
-        una.cid,
-        una.titulo,
-        "partido",
-        una.pie,
-        nuestroPorFamilia(propio, una.familia, una.titulo),
-      );
-    }
-  }
-
-  /* ================= 4 · NUESTROS REGISTROS ================= */
+  /* ================= 3 · NUESTROS REGISTROS ================= */
 
   if (propio && propio.acciones > 0) {
     mete(
       "n-aspectos",
       "Acción por acción",
       "nuestro",
-      "Todas las acciones registradas por familia, con el porcentaje que acaba en gol u ocasión y los goles conseguidos o encajados.",
+      "Todas las acciones registradas por tipo, a favor y en contra, con el porcentaje que acaba en gol u ocasión y los goles marcados o encajados.",
       nuestroPorAspecto(propio),
     );
 
@@ -2108,7 +2028,7 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
     }
   }
 
-  /* ================= 5 · CONTENIDOS Y VALORACIÓN ================= */
+  /* ================= 4 · CONTENIDOS Y VALORACIÓN ================= */
 
   if (tareasValoradas.length > 0) {
     mete(
@@ -2120,7 +2040,7 @@ export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
     );
   }
 
-  /* ================= 6 · SEGUIMIENTO INDIVIDUAL ================= */
+  /* ================= 5 · SEGUIMIENTO INDIVIDUAL ================= */
 
   if (seguimiento && seguimiento.total > 0) {
     mete(

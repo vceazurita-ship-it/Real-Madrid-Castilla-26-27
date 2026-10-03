@@ -23,10 +23,18 @@
  * El correo se escribe con tablas y estilos en línea a posta: Gmail y Outlook
  * tiran las hojas de estilo, y un informe que llega sin formato no lo lee
  * nadie.
+ *
+ * DOS INFORMES POR SEMANA (03/10/2026): la **previa** —qué vamos a hacer y por
+ * qué: la semana, las urgencias, el rival y las claves para el partido— y el
+ * **post** —qué pasó: nuestras acciones de esa jornada, si lo entrenado
+ * apareció y cómo salieron las tareas, y después el acumulado—. Es el mismo
+ * modelo con otro orden y otras secciones; lo decide `modo`, y
+ * `modoSugerido` propone el que toca según la fecha y las hojas.
  */
 
 import {
   ASPECTOS,
+  ASPECTO_BY_KEY,
   DIAS,
   LADO_LABEL,
   MEDIO_LABEL,
@@ -35,9 +43,12 @@ import {
   cargaCognitiva,
   cargaCondicional,
   cargaEsReal,
+  claveAspecto,
   fmtMin,
+  minutosPorAspecto,
   normalizaTrabajo,
   type AbpLado,
+  type AspectoKey,
   type DiaKey,
   type OrigenDias,
   type TotalesPlan,
@@ -48,15 +59,18 @@ import { hayEvaluacion, textoEsAbp, type RegistroTarea } from "./registro";
 
 import type { FilaCruce } from "./transferencia";
 
-import type {
-  AreaGrafico,
-  ComparativaAbp,
-  GraficoInforme,
-  PropioAbp,
-  SeguimientoResumen,
-  TareaValorada,
-  TiempoSemana,
+import {
+  etiquetaFamilia,
+  type AreaGrafico,
+  type ComparativaAbp,
+  type GraficoInforme,
+  type PropioAbp,
+  type SeguimientoResumen,
+  type TareaValorada,
+  type TiempoSemana,
 } from "./informe-graficos";
+
+import type { AccionAbp } from "@/lib/data-analisis/abp-propio";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
@@ -157,6 +171,38 @@ export type DatosInforme = {
   minutosPorAspecto?: { clave: string; minutos: number }[];
   /** Para poder fijar la fecha en las pruebas. */
   generado?: Date;
+  /** Previa del partido o post partido. Sin decir, previa. */
+  modo?: ModoInforme;
+  /**
+   * El partido de la semana según el calendario (BeSoccer), con su jornada,
+   * su hora y, si ya se jugó, el resultado. Es lo que permite separar la ida
+   * de la vuelta al buscar sus acciones en nuestras hojas.
+   */
+  partidoCalendario?: PartidoCalendario | null;
+  /**
+   * Las acciones de nuestras hojas de ABP de ESE partido
+   * (`accionesDelPartido`). Sólo se usan en el post.
+   */
+  accionesPartido?: AccionAbp[] | null;
+  /**
+   * Lo preparado del rival. `null` es «se ha mirado y no hay nada»;
+   * `undefined`, «todavía no se sabe» (no se avisa de nada).
+   */
+  rivalAnalisis?: RivalAnalisisInforme | null;
+};
+
+export type ModoInforme = "previa" | "post";
+
+/** El partido de la semana como lo da el calendario (`PartidoNuestro`). */
+export type PartidoCalendario = {
+  jornada: number;
+  /** "2026-09-20T12:00", hora de Madrid. */
+  cuando: string;
+  rival: string;
+  lado: "casa" | "fuera";
+  golesFavor: number | null;
+  golesContra: number | null;
+  jugado: boolean;
 };
 
 /** El objetivo de minutos de ABP de una semana, según lo que se entrene. */
@@ -310,6 +356,174 @@ function diaMes(fecha: Date) {
     year: "numeric",
   });
 }
+/* ------------------------------------------------------------------ */
+/*  EL PARTIDO DEL MICROCICLO                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Cuándo se juega el partido de la semana.
+ *
+ * Primero el calendario (trae la hora); si no, el día marcado como partido en
+ * la ventana del microciclo, sin hora. `conHora` lo dice, porque «ya se ha
+ * jugado» no se decide igual con una hora que con un día entero.
+ */
+export function fechaDelPartido(
+  datos: Pick<DatosInforme, "partidoCalendario" | "dias">,
+): { fecha: Date; conHora: boolean } | null {
+  const cuando = datos.partidoCalendario?.cuando ?? "";
+
+  const conHora = cuando.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+
+  if (conHora) {
+    const fecha = new Date(
+      Number(conHora[1]),
+      Number(conHora[2]) - 1,
+      Number(conHora[3]),
+      Number(conHora[4] ?? 0),
+      Number(conHora[5] ?? 0),
+    );
+
+    if (!Number.isNaN(fecha.getTime())) {
+      return { fecha, conHora: conHora[4] !== undefined && cuando.slice(11, 16) !== "00:00" };
+    }
+  }
+
+  const delDia = (datos.dias ?? []).find((dia) => dia.tipo === "partido");
+
+  const fecha = leeFecha(delDia?.fecha);
+
+  return fecha ? { fecha, conHora: false } : null;
+}
+
+/** «ATL. BALEARES», «Atlético Baleares»: se comparan sin tildes ni siglas. */
+const SIGLAS_CLUB =
+  /\b(ad|cd|ud|sd|cf|fc|rcd|sad|club|deportivo|deportiva|real|cultural|sociedad)\b/g;
+
+function claveEquipo(nombre: string) {
+  return String(nombre ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(SIGLAS_CLUB, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * ¿La hoja y el calendario hablan del mismo rival?
+ *
+ * Basta con que una palabra de tres letras o más de uno sea el principio de
+ * una del otro: «ATL MADRID B» y «Atlético Madrileño» comparten «atl», y la
+ * jornada ya ha filtrado antes, así que aquí sólo se descarta lo que es
+ * claramente otro equipo.
+ */
+export function mismoRival(uno: string, otro: string) {
+  const a = claveEquipo(uno);
+  const b = claveEquipo(otro);
+
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+
+  const palabrasA = a.split(" ").filter((p) => p.length >= 3);
+  const palabrasB = b.split(" ").filter((p) => p.length >= 3);
+
+  return palabrasA.some((p) =>
+    palabrasB.some((q) => p.startsWith(q) || q.startsWith(p)),
+  );
+}
+
+/**
+ * Las acciones de nuestras hojas de ABP que son del partido de este micro.
+ *
+ * Por orden de fiabilidad:
+ *
+ * 1. **La jornada del calendario** (BeSoccer) contra la de la hoja, en liga, y
+ *    con el rival comprobado. Es lo único que distingue la ida de la vuelta.
+ * 2. **El texto de la jornada** que la pantalla ya cruzó con la hoja
+ *    (`partido.jornada`), si no hay calendario.
+ * 3. Sin ninguna de las dos, el último partido oficial registrado contra ese
+ *    rival. Nunca un amistoso: el de julio contra el mismo equipo no es el
+ *    partido de esta semana.
+ *
+ * Si nada encaja devuelve una lista vacía, y el informe dice que el partido
+ * todavía no está registrado en vez de inventárselo.
+ */
+export function accionesDelPartido(
+  acciones: AccionAbp[],
+  partido: {
+    rival: string;
+    /** El número de jornada del calendario. */
+    jornada?: number | null;
+    /** La jornada tal y como la escribe la hoja («LIGA 07»). */
+    jornadaHoja?: string | null;
+  },
+): AccionAbp[] {
+  const oficiales = acciones.filter(
+    (una) => una.jornada.competicion !== "amistoso",
+  );
+
+  const delRival = (lista: AccionAbp[]) =>
+    lista.filter((una) => !una.rival || !partido.rival || mismoRival(una.rival, partido.rival));
+
+  if (partido.jornada) {
+    return delRival(
+      oficiales.filter(
+        (una) =>
+          una.jornada.competicion === "liga" && una.jornada.numero === partido.jornada,
+      ),
+    );
+  }
+
+  const hoja = String(partido.jornadaHoja ?? "").trim().toLowerCase();
+
+  if (hoja) {
+    const suyas = oficiales.filter(
+      (una) => una.jornada.bruto.trim().toLowerCase() === hoja,
+    );
+
+    if (suyas.length) return delRival(suyas);
+  }
+
+  if (!partido.rival) return [];
+
+  const conRival = oficiales.filter((una) => una.rival && mismoRival(una.rival, partido.rival));
+
+  const ultima = conRival.reduce<AccionAbp | null>(
+    (mejor, una) =>
+      !mejor || (una.jornada.numero ?? 0) > (mejor.jornada.numero ?? 0) ? una : mejor,
+    null,
+  );
+
+  return ultima ? conRival.filter((una) => una.jornada.clave === ultima.jornada.clave) : [];
+}
+
+/**
+ * Previa o post, según lo que se sabe del partido.
+ *
+ * Post si el partido ya tiene acciones en nuestras hojas, si el calendario lo
+ * da por jugado o si ya ha pasado: con hora, dos horas después del inicio;
+ * con sólo el día, desde el día siguiente. Si no, previa.
+ */
+export function modoSugerido(entrada: {
+  fecha: { fecha: Date; conHora: boolean } | null;
+  jugado?: boolean;
+  hayAcciones: boolean;
+  ahora?: Date;
+}): ModoInforme {
+  if (entrada.hayAcciones || entrada.jugado) return "post";
+
+  if (!entrada.fecha) return "previa";
+
+  const ahora = (entrada.ahora ?? new Date()).getTime();
+
+  const { fecha, conHora } = entrada.fecha;
+
+  const limite = conHora
+    ? fecha.getTime() + 2 * 3_600_000
+    : new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() + 1).getTime();
+
+  return ahora >= limite ? "post" : "previa";
+}
 
 /* ------------------------------------------------------------------ */
 /*  EL MODELO                                                          */
@@ -357,19 +571,73 @@ export type LineaEquipo = {
   remates: number;
   goles: number;
   peligro: string;
+  /** Minutos de este microciclo. */
+  minutosSemana: string;
   minutosTemporada: string;
   urgencia: number | null;
   transferencia: number | null;
 };
 
+/** Lo que pasó en el partido, contado a favor o en contra. */
+export type CifrasPartido = {
+  acciones: number;
+  remates: number;
+  peligros: number;
+  goles: number;
+  xg: number;
+};
+
+export type FilaPartidoAbp = CifrasPartido & {
+  familia: string;
+  /** «Córner», «Saque de banda»… */
+  etiqueta: string;
+  lado: AbpLado;
+  /** Sólo en la banda a favor: cuántas veces seguimos con el balón. */
+  retenidos: number | null;
+};
+
+/** Lo trabajado en la semana, frente a lo que pasó en el partido. */
+export type LineaCruce = CifrasPartido & {
+  aspecto: string;
+  lado: AbpLado;
+  /** Minutos de la semana; 0 si no se trabajó. */
+  minutos: number;
+  trabajado: boolean;
+  /** Si alguna hoja registra este aspecto. */
+  medible: boolean;
+  lectura: string;
+  tono: "bien" | "mal" | "neutro";
+};
+
+export type PartidoAbpInforme = {
+  /** «Jornada 7». */
+  jornada: string;
+  favor: CifrasPartido;
+  contra: CifrasPartido;
+  filas: FilaPartidoAbp[];
+  cruce: LineaCruce[];
+  rematadores: { jugador: string; total: number; peligro: number }[];
+  sacadores: { jugador: string; total: number; peligro: number }[];
+  /** Acciones que no se pueden atribuir a un aspecto (sin envío o sin zona). */
+  sinClasificar: number;
+};
+
 export type InformeMicro = {
+  modo: ModoInforme;
   asunto: string;
+  /** «Previa del partido» · «Post partido». */
+  modoRotulo: string;
   titulo: string;
   subtitulo: string;
   generado: string;
   rango: string;
+  /** El partido de la semana en una línea: jornada, fecha, campo y, en el post, el resultado. */
   partido: string;
+  /** De qué partido viene la semana. */
+  vieneDe: string;
   resumen: { rotulo: string; valor: string; pie: string }[];
+  /** Las claves: 3-5 frases calculadas, lo primero que se lee. */
+  claves: string[];
   trabajos: LineaTrabajo[];
   valoracion: {
     lineas: LineaValoracion[];
@@ -394,7 +662,9 @@ export type InformeMicro = {
   comparativa: ComparativaInforme | null;
   /** Nuestro balón parado registrado acción por acción, con sus goles. */
   propio: PropioAbp | null;
-  /** Los gráficos, en el orden en que van en el correo. */
+  /** Sólo en el post: el partido de la semana, acción por acción. */
+  partidoAbp: PartidoAbpInforme | null;
+  /** Los gráficos, cada uno con el área de la sección en la que va. */
   graficos: GraficoInforme[];
   /** Lo que el informe no sabe, dicho donde se lee. */
   avisos: string[];
@@ -450,6 +720,26 @@ const ASPECTO_LABEL = new Map(ASPECTOS.map((uno) => [uno.key, uno.label]));
 
 const DIA_LABEL = new Map(DIAS.map((uno) => [uno.key, uno.label]));
 
+/* ---------------- números, como se leen aquí ---------------- */
+
+/** Con coma decimal. */
+export function dec(valor: number, decimales = 1) {
+  return valor.toFixed(decimales).replace(".", ",");
+}
+
+function pct(parte: number, total: number) {
+  return total > 0 ? `${dec((parte / total) * 100)} %` : "—";
+}
+
+function plural(n: number, uno: string, varios: string) {
+  return `${n} ${n === 1 ? uno : varios}`;
+}
+
+/** «Córner directo (defensivo)»: el mismo nombre en todo el informe. */
+function nombreAspecto(aspecto: string, lado: AbpLado) {
+  return `${aspecto} (${LADO_LABEL[lado].toLowerCase()})`;
+}
+
 function listaAspectos(trabajo: Trabajo) {
   return trabajo.aspectos
     .map((clave) => ASPECTO_LABEL.get(clave) ?? clave)
@@ -463,11 +753,389 @@ function filaEquipo(fila: FilaCruce): LineaEquipo {
     acciones: fila.stats.acciones,
     remates: fila.stats.remates,
     goles: fila.stats.goles,
-    peligro: fila.stats.acciones ? `${fila.stats.peligroPct.toFixed(1)} %` : "—",
+    peligro: fila.stats.acciones ? `${dec(fila.stats.peligroPct)} %` : "—",
+    minutosSemana: fmtMin(fila.minutosMicro),
     minutosTemporada: fmtMin(fila.minutosTemporada),
     urgencia: fila.urgencia,
     transferencia: fila.transferencia?.delta ?? null,
   };
+}
+
+/* ---------------- el partido, acción por acción ---------------- */
+
+const ORDEN_FAMILIA = [
+  "corner",
+  "falta-lateral",
+  "falta-directa",
+  "penalti",
+  "banda",
+  "saque-medio",
+  "saque-meta",
+  "otra",
+];
+
+const ladoDe = (accion: AccionAbp): AbpLado =>
+  accion.bloque.endsWith("Def") ? "defensivo" : "ofensivo";
+
+/** Lo mismo que lee la pantalla del cruce (`lib/abp/competicion.ts`). */
+function envioDe(texto: string): "corto" | "largo" | null {
+  const t = String(texto ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  if (!t.trim()) return null;
+  if (t.includes("corto")) return "corto";
+  if (t.includes("bombead") || t.includes("tenso") || t.includes("largo")) return "largo";
+
+  return null;
+}
+
+function zonaDe(texto: string): number | null {
+  const encontrada = String(texto ?? "").match(/([1-3])/);
+
+  return encontrada ? Number(encontrada[1]) : null;
+}
+
+function encaja(accion: AccionAbp, aspecto: AspectoKey) {
+  const r = ASPECTO_BY_KEY.get(aspecto)?.reconocimiento;
+
+  if (!r) return false;
+  if (accion.familia !== r.family) return false;
+  if (r.envio && envioDe(accion.envio) !== r.envio) return false;
+  if (r.zonaSaque && zonaDe(accion.zonaSaque) !== r.zonaSaque) return false;
+
+  return true;
+}
+
+function cifras(lista: AccionAbp[]): CifrasPartido {
+  return {
+    acciones: lista.length,
+    remates: lista.filter((una) => una.remate).length,
+    peligros: lista.filter((una) => una.peligro).length,
+    goles: lista.filter((una) => una.gol).length,
+    xg: Number(lista.reduce((suma, una) => suma + (una.xg || 0), 0).toFixed(2)),
+  };
+}
+
+function cuentaNombres(lista: AccionAbp[], nombre: (una: AccionAbp) => string) {
+  const mapa = new Map<string, { total: number; peligro: number }>();
+
+  lista.forEach((una) => {
+    const quien = nombre(una).trim();
+
+    if (!quien) return;
+
+    const fila = mapa.get(quien) ?? { total: 0, peligro: 0 };
+
+    fila.total += 1;
+    if (una.peligro) fila.peligro += 1;
+
+    mapa.set(quien, fila);
+  });
+
+  return [...mapa.entries()]
+    .map(([jugador, fila]) => ({ jugador, ...fila }))
+    .sort((a, b) => b.total - a.total || b.peligro - a.peligro);
+}
+
+function lecturaCruce(lado: AbpLado, datos: CifrasPartido, medible: boolean) {
+  if (!medible) return { lectura: "Ninguna hoja lo registra", tono: "neutro" as const };
+
+  if (datos.acciones === 0) return { lectura: "No se dio en el partido", tono: "neutro" as const };
+
+  if (lado === "ofensivo") {
+    if (datos.goles > 0) return { lectura: `${plural(datos.goles, "gol", "goles")} a favor`, tono: "bien" as const };
+
+    if (datos.peligros > 0) return { lectura: `Peligro en ${datos.peligros} de ${datos.acciones}`, tono: "bien" as const };
+
+    return { lectura: "Sin peligro", tono: "mal" as const };
+  }
+
+  if (datos.goles > 0) return { lectura: `${plural(datos.goles, "gol", "goles")} en contra`, tono: "mal" as const };
+
+  if (datos.peligros > 0) return { lectura: `Nos generaron peligro en ${datos.peligros} de ${datos.acciones}`, tono: "mal" as const };
+
+  return { lectura: "Bien defendido", tono: "bien" as const };
+}
+
+/**
+ * El partido de la semana a balón parado, y el cruce con lo entrenado.
+ *
+ * El cruce va por aspecto y lado, con el mismo reconocimiento que la pantalla
+ * (familia, tipo de envío, zona del saque). Entran los aspectos trabajados en
+ * la semana —aparecieran o no— y, de los que NO se trabajaron, sólo los que
+ * dieron peligro o gol: son los que hay que mirar para el siguiente micro.
+ */
+function partidoDelInforme(
+  acciones: AccionAbp[],
+  minutos: Map<string, number>,
+): PartidoAbpInforme {
+  const favor = acciones.filter((una) => ladoDe(una) === "ofensivo");
+  const contra = acciones.filter((una) => ladoDe(una) === "defensivo");
+
+  const familias = [...new Set(acciones.map((una) => una.familia))].sort(
+    (a, b) =>
+      (ORDEN_FAMILIA.indexOf(a) + 1 || 99) - (ORDEN_FAMILIA.indexOf(b) + 1 || 99),
+  );
+
+  const filas: FilaPartidoAbp[] = familias.flatMap((familia) =>
+    (["ofensivo", "defensivo"] as AbpLado[]).flatMap((lado) => {
+      const suyas = acciones.filter((una) => una.familia === familia && ladoDe(una) === lado);
+
+      if (suyas.length === 0) return [];
+
+      return [
+        {
+          familia,
+          etiqueta: etiquetaFamilia(familia),
+          lado,
+          ...cifras(suyas),
+          retenidos:
+            familia === "banda" && lado === "ofensivo"
+              ? suyas.filter((una) => una.retenido).length
+              : null,
+        },
+      ];
+    }),
+  );
+
+  const cruce: LineaCruce[] = [];
+
+  ASPECTOS.forEach((aspecto) => {
+    (["ofensivo", "defensivo"] as AbpLado[]).forEach((lado) => {
+      const min = minutos.get(claveAspecto(aspecto.key, lado)) ?? 0;
+
+      const medible = aspecto.reconocimiento !== null;
+
+      const suyas = acciones.filter((una) => ladoDe(una) === lado && encaja(una, aspecto.key));
+
+      const datos = cifras(suyas);
+
+      const trabajado = min > 0;
+
+      if (!trabajado && datos.peligros === 0 && datos.goles === 0) return;
+
+      cruce.push({
+        aspecto: aspecto.label,
+        lado,
+        minutos: min,
+        trabajado,
+        medible,
+        ...datos,
+        ...lecturaCruce(lado, datos, medible),
+      });
+    });
+  });
+
+  /* Lo trabajado primero, por minutos; lo no trabajado detrás. */
+  cruce.sort(
+    (a, b) =>
+      Number(b.trabajado) - Number(a.trabajado) || b.minutos - a.minutos || b.acciones - a.acciones,
+  );
+
+  const sinClasificar = acciones.filter(
+    (una) => !ASPECTOS.some((aspecto) => encaja(una, aspecto.key)),
+  ).length;
+
+  const jornada = acciones[0]?.jornada.etiqueta ?? "";
+
+  return {
+    jornada,
+    favor: cifras(favor),
+    contra: cifras(contra),
+    filas,
+    cruce,
+    /* Los nombres sólo valen en lo nuestro: en las hojas de en contra el que
+       remata es del rival. */
+    rematadores: cuentaNombres(favor.filter((una) => una.remate), (una) => una.rematador),
+    sacadores: cuentaNombres(favor, (una) => una.sacador),
+    sinClasificar,
+  };
+}
+
+/* ---------------- las claves ---------------- */
+
+/** Un texto largo, cortado por una palabra y con puntos suspensivos. */
+function recorta(texto: string, tope = 170) {
+  const limpio = String(texto ?? "").replace(/\s+/g, " ").trim();
+
+  if (limpio.length <= tope) return limpio;
+
+  const corte = limpio.slice(0, tope);
+
+  return `${corte.slice(0, Math.max(corte.lastIndexOf(" "), tope - 20)).replace(/[\s,;.:]+$/, "")}…`;
+}
+
+function fraseLista(trozos: string[]) {
+  if (trozos.length <= 1) return trozos.join("");
+
+  return `${trozos.slice(0, -1).join(", ")} y ${trozos[trozos.length - 1]}`;
+}
+
+/**
+ * Las claves de la previa: qué se ha trabajado, por qué y qué vigilar.
+ *
+ * Cada frase sale de un dato que el informe trae más abajo; aquí sólo se
+ * elige lo que importa y se dice en una línea. Si un dato falta, su frase no
+ * sale: mejor tres claves ciertas que cinco con relleno.
+ */
+function clavesPrevia(
+  datos: DatosInforme,
+  porAspecto: TiempoSemana["porAspecto"],
+  comparativa: ComparativaInforme | null,
+) {
+  const claves: string[] = [];
+
+  const primera = datos.prioridades[0];
+
+  if (primera && primera.urgencia !== null) {
+    claves.push(
+      `La urgencia número uno es ${nombreAspecto(primera.aspecto.label, primera.lado)}: ` +
+        `${plural(primera.stats.acciones, "acción", "acciones")} en la temporada y ${dec(primera.stats.peligroPct)} % de peligro${primera.lado === "defensivo" ? " en contra" : ""}. ` +
+        (primera.minutosMicro > 0
+          ? `Esta semana se le han dado ${fmtMin(primera.minutosMicro)}.`
+          : "Esta semana no se ha trabajado."),
+    );
+  }
+
+  const olvidadas = datos.prioridades
+    .slice(1)
+    .filter((fila) => fila.urgencia !== null && fila.minutosMicro === 0)
+    .map((fila) => nombreAspecto(fila.aspecto.label, fila.lado));
+
+  if (olvidadas.length) {
+    claves.push(
+      `De las urgencias de la temporada, sin trabajar esta semana: ${fraseLista(olvidadas)}.`,
+    );
+  }
+
+  const total = porAspecto.reduce((s, una) => s + una.ofensivo + una.defensivo, 0);
+
+  if (total > 0) {
+    const arriba = porAspecto.slice(0, 2).filter((una) => una.ofensivo + una.defensivo > 0);
+
+    claves.push(
+      `El grueso de la semana: ${fraseLista(
+        arriba.map(
+          (una) =>
+            `${una.etiqueta} (${fmtMin(una.ofensivo + una.defensivo)}, ${
+              una.ofensivo >= una.defensivo ? "sobre todo ofensivo" : "sobre todo defensivo"
+            })`,
+        ),
+      )}, ${dec(((arriba.reduce((s, una) => s + una.ofensivo + una.defensivo, 0)) / total) * 100, 0)} % del tiempo de ABP.`,
+    );
+  }
+
+  const conclusion = datos.rivalAnalisis?.conclusiones.find((una) => una.texto.trim());
+
+  if (conclusion && datos.rivalAnalisis) {
+    claves.push(
+      `Del ${datos.rivalAnalisis.equipo}, a vigilar en «${conclusion.seccion}»: ${recorta(conclusion.texto)}`,
+    );
+  }
+
+  if (comparativa) {
+    type Puesto = { texto: string; puesto: number };
+
+    const puestos: Puesto[] = comparativa.filas
+      .filter((fila) => fila.sentido === "alto")
+      .flatMap((fila) => [
+        fila.puestoFavor === null
+          ? null
+          : { texto: `${fila.rotulo.toLowerCase()} a favor`, puesto: fila.puestoFavor },
+        fila.puestoContra === null
+          ? null
+          : { texto: `${fila.rotulo.toLowerCase()} en contra`, puesto: fila.puestoContra },
+      ])
+      .filter((uno): uno is Puesto => uno !== null);
+
+    const peor = [...puestos].sort((a, b) => b.puesto - a.puesto)[0];
+    const mejor = [...puestos].sort((a, b) => a.puesto - b.puesto)[0];
+
+    const n = comparativa.equipos;
+
+    const trozos: string[] = [];
+
+    if (mejor && mejor.puesto <= Math.ceil(n / 3)) trozos.push(`lo mejor, ${mejor.texto} (${mejor.puesto}.º de ${n})`);
+    if (peor && peor.puesto > n - Math.ceil(n / 3)) trozos.push(`lo peor, ${peor.texto} (${peor.puesto}.º de ${n})`);
+
+    if (trozos.length) claves.push(`Contra la categoría: ${trozos.join("; ")}.`);
+  }
+
+  return claves.slice(0, 5);
+}
+
+/** Las claves del post: qué pasó a balón parado y si lo trabajado apareció. */
+function clavesPost(
+  partido: PartidoAbpInforme,
+  calendario: PartidoCalendario | null | undefined,
+) {
+  const claves: string[] = [];
+
+  const { favor, contra } = partido;
+
+  const marcador =
+    calendario?.jugado && calendario.golesFavor !== null && calendario.golesContra !== null
+      ? `${calendario.golesFavor}-${calendario.golesContra}`
+      : "";
+
+  /*
+  | Los goles y las acciones ya están en la cabecera y en la tabla del
+  | partido: aquí sólo va lo que esas cifras no dicen solas, qué parte del
+  | resultado fue de balón parado.
+  */
+  if (marcador) {
+    const gf = calendario!.golesFavor!;
+    const gc = calendario!.golesContra!;
+
+    claves.push(
+      `El partido acabó ${marcador}. A balón parado: ${favor.goles} de ${gf} a favor y ${contra.goles} de ${gc} en contra.`,
+    );
+  }
+
+  const trabajadas = partido.cruce.filter((una) => una.trabajado && una.medible);
+
+  if (trabajadas.length) {
+    const aparecieron = trabajadas.filter((una) => una.acciones > 0);
+
+    const buenas = aparecieron.filter((una) => una.tono === "bien");
+    const malas = aparecieron.filter((una) => una.tono === "mal");
+
+    const cita = (una: LineaCruce) =>
+      `${una.aspecto.toLowerCase()} ${LADO_LABEL[una.lado].toLowerCase()} (${una.lectura.toLowerCase()})`;
+
+    let frase = `De los ${plural(trabajadas.length, "aspecto trabajado", "aspectos trabajados")} en la semana, en el partido ${
+      aparecieron.length === 1 ? "apareció 1" : `aparecieron ${aparecieron.length}`
+    }`;
+
+    if (buenas.length) frase += `; salió bien ${fraseLista(buenas.slice(0, 3).map(cita))}`;
+
+    if (malas.length) frase += `; no rindió ${fraseLista(malas.slice(0, 2).map(cita))}`;
+
+    claves.push(`${frase}.`);
+  }
+
+  const sinTrabajar = partido.cruce.filter(
+    (una) => !una.trabajado && una.lado === "defensivo" && (una.goles > 0 || una.peligros > 0),
+  );
+
+  if (sinTrabajar.length) {
+    claves.push(
+      `Nos hicieron daño en algo que no se trabajó: ${fraseLista(
+        sinTrabajar.slice(0, 3).map((una) => `${una.aspecto.toLowerCase()} (${una.lectura.toLowerCase()})`),
+      )}. Candidato para el próximo microciclo.`,
+    );
+  }
+
+  const productivas = partido.cruce.filter(
+    (una) => !una.trabajado && una.lado === "ofensivo" && una.goles > 0,
+  );
+
+  if (productivas.length) {
+    claves.push(
+      `Marcamos en algo que no se trabajó esta semana: ${fraseLista(productivas.map((una) => una.aspecto.toLowerCase()))}.`,
+    );
+  }
+
+  return claves.slice(0, 5);
 }
 
 /**
@@ -478,6 +1146,10 @@ function filaEquipo(fila: FilaCruce): LineaEquipo {
  */
 export function construyeInforme(datos: DatosInforme): InformeMicro {
   const generado = datos.generado ?? new Date();
+
+  const modo: ModoInforme = datos.modo ?? "previa";
+
+  const esPost = modo === "post";
 
   const avisos: string[] = [];
 
@@ -542,7 +1214,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   if (!rango) {
     avisos.push(
-      "Ni el calendario ni la hoja de registro dicen las fechas de este microciclo, así que el seguimiento de abajo es el de toda la temporada, no el de esta semana.",
+      "Ni el calendario ni la hoja de registro dicen las fechas de este microciclo, así que el seguimiento individual es el de toda la temporada, no el de esta semana.",
     );
   }
 
@@ -566,7 +1238,8 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     observaciones: tarea.observaciones,
   }));
 
-  if (datos.tareas.length > 0 && valoradas.length === 0) {
+  /* En la previa es normal que todavía no haya notas: sólo se avisa en el post. */
+  if (esPost && datos.tareas.length > 0 && valoradas.length === 0) {
     avisos.push(
       "Ninguna tarea de ABP de este microciclo está valorada en la hoja de registro.",
     );
@@ -577,7 +1250,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
   /*
   | El seguimiento no tiene casilla de «esto es ABP»: se reconoce por lo que
   | está escrito en los objetivos y en el feedback. Es una estimación, y por
-  | eso se dice en el propio título de la sección.
+  | eso se dice en el pie de la sección.
   */
   const dentroDelRango = (fecha: Date | null) => {
     if (!desde || !hasta) return true;
@@ -638,49 +1311,6 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     .sort((a, b) => b.stats.acciones - a.stats.acciones);
 
   const equipo = conMuestra.map(filaEquipo);
-
-  if (equipo.length === 0) {
-    avisos.push(
-      "Todavía no hay acciones de balón parado registradas en las hojas de competición.",
-    );
-  }
-
-  /* ---------------- la cabecera ---------------- */
-
-  const totales = datos.totales;
-
-  const resumen = [
-    {
-      rotulo: "Minutos de ABP",
-      valor: fmtMin(totales.minutos),
-      pie: `${totales.trabajos} trabajo${totales.trabajos === 1 ? "" : "s"} en ${totales.diasConAbp} día${totales.diasConAbp === 1 ? "" : "s"}`,
-    },
-    {
-      rotulo: "Ofensivo / defensivo",
-      valor: `${fmtMin(totales.porLado.ofensivo)} · ${fmtMin(totales.porLado.defensivo)}`,
-      pie: "Reparto por lado",
-    },
-    {
-      rotulo: "Campo / vídeo",
-      valor: `${fmtMin(totales.minutosCampo)} · ${fmtMin(totales.minutosVideo)}`,
-      pie: "Dónde se trabajó",
-    },
-    {
-      rotulo: "Carga",
-      valor: String(Math.round(totales.carga)),
-      pie: `Cognitiva ${Math.round(totales.cargaCog)}`,
-    },
-    {
-      rotulo: "Tareas valoradas",
-      valor: `${valoradas.length} de ${datos.tareas.length}`,
-      pie: media === null ? "Sin nota media" : `Media ${media.toFixed(1)}`,
-    },
-    {
-      rotulo: "Seguimiento de ABP",
-      valor: String(lineasSeguimiento.length),
-      pie: `${jugadores} jugador${jugadores === 1 ? "" : "es"}`,
-    },
-  ];
 
   /* ---------------- contra la liga y contra nosotros mismos ---------------- */
 
@@ -762,13 +1392,19 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   const propio = datos.propio ?? null;
 
-  if (!propio || propio.acciones === 0) {
+  /*
+  | Un solo aviso para «no hay nada en nuestras hojas». Antes salían dos —uno
+  | por el cruce y otro por el resumen— que decían lo mismo con otras palabras.
+  */
+  if ((!propio || propio.acciones === 0) && equipo.length === 0) {
     avisos.push(
-      "No hay acciones de balón parado registradas en nuestras hojas, así que el informe no puede decir cuántos goles de estrategia llevamos.",
+      "Todavía no hay acciones de balón parado registradas en nuestras hojas de competición: sin ellas no hay goles ni peligro de la temporada.",
     );
   }
 
   /* ---------------- el tiempo de la semana ---------------- */
+
+  const totales = datos.totales;
 
   const objetivo = objetivoDeLaSemana(
     totales.minutos,
@@ -816,10 +1452,18 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           esPartido: false,
         }));
 
+  /*
+  | Los minutos por `aspecto|lado`. Si la pantalla no los manda, se sacan de
+  | las entradas con la misma cuenta que ella (`minutosPorAspecto`).
+  */
+  const minutosAspecto = datos.minutosPorAspecto?.length
+    ? new Map(datos.minutosPorAspecto.map(({ clave, minutos }) => [clave, minutos]))
+    : minutosPorAspecto(datos.entradas);
+
   /* El reparto por aspecto llega en `aspecto|lado`: se junta por aspecto. */
   const porAspectoMapa = new Map<string, { ofensivo: number; defensivo: number }>();
 
-  (datos.minutosPorAspecto ?? []).forEach(({ clave, minutos }) => {
+  minutosAspecto.forEach((minutos, clave) => {
     const [aspecto, lado] = clave.split("|");
 
     const fila = porAspectoMapa.get(aspecto) ?? { ofensivo: 0, defensivo: 0 };
@@ -840,7 +1484,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     porDia,
     porAspecto: [...porAspectoMapa.entries()]
       .map(([aspecto, valores]) => ({
-        etiqueta: ASPECTO_LABEL.get(aspecto as never) ?? aspecto,
+        etiqueta: ASPECTO_LABEL.get(aspecto as AspectoKey) ?? aspecto,
         ...valores,
       }))
       .sort((a, b) => b.ofensivo + b.defensivo - (a.ofensivo + a.defensivo)),
@@ -881,14 +1525,153 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     jugadores,
   };
 
-  const titulo = `Balón parado · Microciclo ${datos.micro}`;
+  /* ---------------- el partido ---------------- */
 
-  const subtitulo = [datos.rival && `Contra ${datos.rival}`, datos.temporada]
+  const calendario = datos.partidoCalendario ?? null;
+
+  const cuandoPartido = fechaDelPartido(datos);
+
+  const jornadaTexto = calendario?.jornada
+    ? `Jornada ${calendario.jornada}`
+    : datos.partido?.jornada ?? "";
+
+  const accionesPartido = datos.accionesPartido ?? [];
+
+  const partidoAbp =
+    esPost && accionesPartido.length > 0
+      ? partidoDelInforme(accionesPartido, minutosAspecto)
+      : null;
+
+  if (esPost && !partidoAbp) {
+    avisos.push(
+      `Todavía no hay acciones ${jornadaTexto ? `de la ${jornadaTexto.toLowerCase()} ` : "de este partido "}en nuestras hojas de ABP: el informe post sale sin el partido a balón parado hasta que se registren.`,
+    );
+  }
+
+  if (partidoAbp && partidoAbp.sinClasificar > 0) {
+    avisos.push(
+      `${partidoAbp.sinClasificar === 1 ? "1 acción del partido no lleva" : `${partidoAbp.sinClasificar} acciones del partido no llevan`} el tipo de envío o la zona del saque en la hoja: ${partidoAbp.sinClasificar === 1 ? "cuenta" : "cuentan"} en el partido, pero no se ${partidoAbp.sinClasificar === 1 ? "puede" : "pueden"} atribuir a un aspecto del cruce.`,
+    );
+  }
+
+  if (!esPost && datos.rival && datos.rivalAnalisis === null) {
+    avisos.push(
+      `No hay nada preparado de ${datos.rival} en «ABP del Rival» ni en «Área del Rival»: la previa sale sin el análisis del rival.`,
+    );
+  }
+
+  const marcador =
+    calendario?.jugado && calendario.golesFavor !== null && calendario.golesContra !== null
+      ? `${calendario.golesFavor}-${calendario.golesContra}`
+      : "";
+
+  const partido = [
+    jornadaTexto,
+    cuandoPartido
+      ? cuandoPartido.fecha.toLocaleDateString("es-ES", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        }) +
+        (cuandoPartido.conHora
+          ? `, ${cuandoPartido.fecha.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`
+          : "")
+      : "",
+    calendario ? (calendario.lado === "casa" ? "en casa" : "fuera") : "",
+    esPost && marcador ? `resultado ${marcador}` : "",
+  ]
     .filter(Boolean)
     .join(" · ");
 
+  /* ---------------- la cabecera ---------------- */
+
+  const aspectosSemana = new Set(
+    [...minutosAspecto.entries()].filter(([, m]) => m > 0).map(([clave]) => clave.split("|")[0]),
+  ).size;
+
+  const urgenciasTocadas = datos.prioridades.filter((fila) => fila.minutosMicro > 0).length;
+
+  const minutosTile = {
+    rotulo: "Minutos de ABP",
+    valor: fmtMin(totales.minutos),
+    pie: `Objetivo ${fmtMin(objetivo.minimo)}-${fmtMin(objetivo.maximo)}`,
+  };
+
+  const valoracionTile = {
+    rotulo: "Tareas valoradas",
+    valor: `${valoradas.length} de ${datos.tareas.length}`,
+    pie: media === null ? "Sin nota media" : `Media ${dec(media)}`,
+  };
+
+  /*
+  | La cabecera dice cada dato UNA vez: lo que sale aquí no se repite en el pie
+  | de su sección (antes los minutos, la nota media y el seguimiento salían
+  | arriba y otra vez debajo). En el post, el detalle del partido va en su
+  | tabla; arriba sólo los goles, que son el titular.
+  */
+  const resumen = esPost
+    ? [
+        ...(partidoAbp
+          ? [
+              {
+                rotulo: "Goles a balón parado",
+                valor: `${partidoAbp.favor.goles} · ${partidoAbp.contra.goles}`,
+                pie: "A favor · en contra",
+              },
+            ]
+          : []),
+        minutosTile,
+        valoracionTile,
+      ]
+    : [
+        minutosTile,
+        {
+          rotulo: "Ofensivo · defensivo",
+          valor: `${fmtMin(totales.porLado.ofensivo)} · ${fmtMin(totales.porLado.defensivo)}`,
+          pie: "Reparto por lado",
+        },
+        {
+          rotulo: "Campo · vídeo",
+          valor: `${fmtMin(totales.minutosCampo)} · ${fmtMin(totales.minutosVideo)}`,
+          pie: "Dónde se trabajó",
+        },
+        {
+          rotulo: "Carga",
+          valor: String(Math.round(totales.carga)),
+          pie: `Cognitiva ${Math.round(totales.cargaCog)}`,
+        },
+        {
+          rotulo: "Aspectos trabajados",
+          valor: String(aspectosSemana),
+          pie: datos.prioridades.length
+            ? `Cubren ${urgenciasTocadas} de las ${datos.prioridades.length} urgencias`
+            : "Sin urgencias calculadas",
+        },
+        valoracionTile,
+      ];
+
+  const claves = esPost
+    ? partidoAbp
+      ? clavesPost(partidoAbp, calendario)
+      : []
+    : clavesPrevia(datos, tiempo.porAspecto, comparativa);
+
+  const modoRotulo = esPost ? "Post partido" : "Previa del partido";
+
+  const titulo = `Balón parado · Microciclo ${datos.micro}`;
+
+  const rivalNombre = datos.rival || calendario?.rival || "";
+
+  const subtitulo = [rivalNombre && `Contra ${rivalNombre}`, datos.temporada]
+    .filter(Boolean)
+    .join(" · ");
+
+  const jornadaCorta = calendario?.jornada ? ` · J${calendario.jornada}` : "";
+
   return {
-    asunto: `[RMCF Castilla] ABP · Microciclo ${datos.micro}${datos.rival ? ` · ${datos.rival}` : ""}`,
+    modo,
+    modoRotulo,
+    asunto: `[${esPost ? "POST" : "PREVIA"}] RMCF Castilla · ABP · Microciclo ${datos.micro}${rivalNombre ? ` · ${rivalNombre}` : ""}${jornadaCorta}${esPost && marcador ? ` (${marcador})` : ""}`,
     titulo,
     subtitulo,
     generado: generado.toLocaleString("es-ES", {
@@ -899,17 +1682,12 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       minute: "2-digit",
     }),
     rango,
-    partido: [
-      datos.partidoAnterior
-        ? `Viene del partido contra ${datos.partidoAnterior.rival} (${datos.partidoAnterior.cuando})`
-        : "",
-      datos.partido
-        ? `Se mide contra ${datos.partido.jornada} · ${datos.partido.rival}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" · "),
+    partido,
+    vieneDe: datos.partidoAnterior
+      ? `Viene del partido contra ${datos.partidoAnterior.rival} (${datos.partidoAnterior.cuando})`
+      : "",
     resumen,
+    claves,
     trabajos,
     valoracion: {
       lineas: lineasValoracion,
@@ -926,8 +1704,10 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     seguimientoResumen,
     comparativa,
     propio,
+    partidoAbp,
     graficos: datos.graficos ?? [],
     avisos,
+    rivalAnalisis: datos.rivalAnalisis ?? null,
   };
 }
 
@@ -940,6 +1720,8 @@ const NAVY = "#0F1E3D";
 const CREMA = "#F7F4EC";
 const TINTA = "#1F2937";
 const SUAVE = "#6B7280";
+const VERDE = "#0F7B5C";
+const NARANJA = "#B4530A";
 
 function esc(valor: unknown) {
   return String(valor ?? "")
@@ -971,46 +1753,32 @@ function tabla(cabeceras: string[], filas: string[][]) {
     )
     .join("");
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 6px"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 14px"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
 }
 
-function seccion(titulo: string, pie: string, cuerpo: string) {
-  if (!cuerpo) return "";
-
-  return `<tr><td style="padding:22px 24px 4px"><h2 style="margin:0;font:700 15px/1.3 Arial,sans-serif;color:${NAVY};text-transform:uppercase;letter-spacing:.08em">${esc(titulo)}</h2>${
-    pie
-      ? `<p style="margin:4px 0 12px;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(pie)}</p>`
-      : `<div style="height:12px"></div>`
-  }${cuerpo}</td></tr>`;
+function parrafo(texto: string) {
+  return `<p style="margin:0 0 12px;font:400 13px/1.55 Arial,sans-serif;color:${TINTA}">${texto}</p>`;
 }
 
-/** Dos decimales con coma, que es como se leen aquí. */
-function fmtDec(valor: number) {
-  return valor.toFixed(2).replace(".", ",");
-}
-
-/**
- * Cada métrica con su forma: los porcentajes con su signo.
- *
- * Se decide por la clave y no por el rótulo: el rótulo lo escribe el catálogo
- * del servidor y puede cambiar sin avisar.
- */
+/** Cada métrica con su forma: los porcentajes con su signo y coma decimal. */
 function fmtMedida(valor: number | null, key: string) {
   if (valor === null || !Number.isFinite(valor)) return "—";
 
   const esPorcentaje = /Remate$/.test(key) || key === "cuotaRematesAbp";
 
-  return esPorcentaje
-    ? `${valor.toFixed(1).replace(".", ",")} %`
-    : valor.toFixed(key === "penaltis" ? 2 : 1).replace(".", ",");
+  return esPorcentaje ? `${dec(valor)} %` : dec(valor, key === "penaltis" ? 2 : 1);
 }
 
 function numeroConSigno(valor: number | null, sufijo = "") {
   if (valor === null || !Number.isFinite(valor)) return "—";
 
-  const signo = valor > 0 ? "+" : "";
+  return `${valor > 0 ? "+" : ""}${dec(valor)}${sufijo}`;
+}
 
-  return `${signo}${valor.toFixed(1)}${sufijo}`;
+function tonoHtml(texto: string, tono: "bien" | "mal" | "neutro") {
+  if (tono === "neutro") return `<span style="color:${SUAVE}">${esc(texto)}</span>`;
+
+  return `<b style="color:${tono === "bien" ? VERDE : NARANJA}">${esc(texto)}</b>`;
 }
 
 /**
@@ -1047,12 +1815,442 @@ function bloqueGraficos(
     .join("");
 }
 
+/**
+ * Una sección del informe, escrita dos veces: en HTML y en texto.
+ *
+ * Las dos versiones salen del MISMO sitio (`seccionesDe`) para que no puedan
+ * decir cosas distintas ni ir en otro orden: antes el texto plano llevaba su
+ * propia lista de apartados, en otro orden y con otros títulos, y le faltaban
+ * secciones enteras.
+ */
+type Seccion = {
+  titulo: string;
+  pie: string;
+  html: string;
+  texto: string[];
+  /** Sale aunque no lleve cuerpo: su dato va entero en el pie. */
+  fija?: boolean;
+};
+
+function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion[] {
+  const esPost = informe.modo === "post";
+
+  const graficos = (area: AreaGrafico) => bloqueGraficos(informe, modoImagenes, area);
+
+  const lista: Seccion[] = [];
+
+  const mete = (seccion: Seccion) => {
+    if (seccion.fija || seccion.html.trim() || seccion.texto.length) lista.push(seccion);
+  };
+
+  /* ---------- las claves ---------- */
+
+  const claves: Seccion = {
+    titulo: esPost ? "Lo que nos deja el partido" : "Claves para el partido",
+    pie: esPost
+      ? "Lo que dice el dato del partido, y si lo trabajado en la semana apareció."
+      : "Qué se ha trabajado, por qué y qué vigilar del rival.",
+    html: informe.claves.length
+      ? `<ol style="margin:0 0 8px;padding-left:20px">${informe.claves
+          .map(
+            (una) =>
+              `<li style="margin:0 0 8px;font:400 14px/1.55 Arial,sans-serif;color:${TINTA}">${esc(una)}</li>`,
+          )
+          .join("")}</ol>`
+      : "",
+    texto: informe.claves.map((una, i) => `${i + 1}. ${una}`),
+  };
+
+  /* ---------- el partido (post) ---------- */
+
+  const p = informe.partidoAbp;
+
+  const partido: Seccion | null = p
+    ? {
+        titulo: "El partido a balón parado",
+        pie: `${p.jornada}, de nuestras hojas de ABP. «Peligro» es gol u ocasión para quien saca.`,
+        html:
+          tabla(
+            ["Acción", "Lado", "Acciones", "Remates", "Peligro", "Goles", "xG"],
+            [
+              ...p.filas.map((fila) => [
+                esc(fila.etiqueta) +
+                  (fila.retenidos !== null
+                    ? `<br><span style="color:${SUAVE};font-size:12px">${fila.retenidos} de ${fila.acciones} con el balón conservado</span>`
+                    : ""),
+                fila.lado === "ofensivo" ? "A favor" : "En contra",
+                String(fila.acciones),
+                String(fila.remates),
+                `${fila.peligros} (${pct(fila.peligros, fila.acciones)})`,
+                fila.goles ? `<b>${fila.goles}</b>` : "0",
+                fila.xg > 0 ? dec(fila.xg, 2) : "—",
+              ]),
+              ...(
+                [
+                  ["Total a favor", p.favor],
+                  ["Total en contra", p.contra],
+                ] as [string, CifrasPartido][]
+              ).map(([rotulo, c]) => [
+                `<b>${rotulo}</b>`,
+                "",
+                `<b>${c.acciones}</b>`,
+                `<b>${c.remates}</b>`,
+                `<b>${c.peligros} (${pct(c.peligros, c.acciones)})</b>`,
+                `<b>${c.goles}</b>`,
+                c.xg > 0 ? `<b>${dec(c.xg, 2)}</b>` : "—",
+              ]),
+            ],
+          ) +
+          (p.rematadores.length || p.sacadores.length
+            ? parrafo(
+                [
+                  p.sacadores.length
+                    ? `<b>Sacadores:</b> ${p.sacadores
+                        .slice(0, 5)
+                        .map((uno) => `${esc(uno.jugador)} (${uno.total})`)
+                        .join(", ")}`
+                    : "",
+                  p.rematadores.length
+                    ? `<b>Rematadores:</b> ${p.rematadores
+                        .slice(0, 5)
+                        .map((uno) => `${esc(uno.jugador)} (${uno.total}${uno.peligro ? `, ${uno.peligro} con peligro` : ""})`)
+                        .join(", ")}`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              )
+            : ""),
+        texto: [
+          ...p.filas.map(
+            (fila) =>
+              `- ${fila.etiqueta} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: ${plural(fila.acciones, "acción", "acciones")} · ${plural(fila.remates, "remate", "remates")} · peligro ${fila.peligros} (${pct(fila.peligros, fila.acciones)}) · ${plural(fila.goles, "gol", "goles")}${fila.xg > 0 ? ` · xG ${dec(fila.xg, 2)}` : ""}${fila.retenidos !== null ? ` · ${fila.retenidos} con el balón conservado` : ""}`,
+          ),
+          `- Total a favor: ${plural(p.favor.acciones, "acción", "acciones")} · ${plural(p.favor.remates, "remate", "remates")} · peligro ${p.favor.peligros} · ${plural(p.favor.goles, "gol", "goles")}${p.favor.xg > 0 ? ` · xG ${dec(p.favor.xg, 2)}` : ""}`,
+          `- Total en contra: ${plural(p.contra.acciones, "acción", "acciones")} · ${plural(p.contra.remates, "remate", "remates")} · peligro ${p.contra.peligros} · ${plural(p.contra.goles, "gol", "goles")}${p.contra.xg > 0 ? ` · xG ${dec(p.contra.xg, 2)}` : ""}`,
+          ...(p.sacadores.length
+            ? [`- Sacadores: ${p.sacadores.slice(0, 5).map((uno) => `${uno.jugador} (${uno.total})`).join(", ")}`]
+            : []),
+          ...(p.rematadores.length
+            ? [`- Rematadores: ${p.rematadores.slice(0, 5).map((uno) => `${uno.jugador} (${uno.total})`).join(", ")}`]
+            : []),
+        ],
+      }
+    : null;
+
+  const cruce: Seccion | null =
+    p && p.cruce.length
+      ? {
+          titulo: "Lo trabajado, ¿apareció?",
+          pie: "Cada aspecto trabajado en la semana frente a lo que pasó en el partido. Debajo, lo que no se trabajó y dio peligro o gol.",
+          html: tabla(
+            ["Aspecto", "Lado", "En la semana", "En el partido", "Lectura"],
+            p.cruce.map((una) => [
+              esc(una.aspecto),
+              LADO_LABEL[una.lado],
+              una.trabajado ? fmtMin(una.minutos) : `<span style="color:${SUAVE}">Sin trabajar</span>`,
+              una.medible
+                ? `${plural(una.acciones, "acción", "acciones")}${una.remates ? ` · ${plural(una.remates, "remate", "remates")}` : ""}`
+                : "—",
+              tonoHtml(una.lectura, una.tono),
+            ]),
+          ),
+          texto: p.cruce.map(
+            (una) =>
+              `- ${nombreAspecto(una.aspecto, una.lado)} · ${una.trabajado ? `${fmtMin(una.minutos)} en la semana` : "sin trabajar"} · ${
+                una.medible ? plural(una.acciones, "acción", "acciones") : "sin dato"
+              } · ${una.lectura}`,
+          ),
+        }
+      : null;
+
+  /* ---------- la semana ---------- */
+
+  const o = informe.objetivo;
+
+  const veredicto =
+    o.veredicto === "dentro"
+      ? "dentro del objetivo"
+      : o.veredicto === "corto"
+        ? `faltan ${fmtMin(o.faltan)} para el mínimo`
+        : `${fmtMin(Math.round(informe.tiempo.minutos) - o.maximo)} por encima del máximo`;
+
+  const tiempoTexto = `${veredicto.charAt(0).toUpperCase()}${veredicto.slice(1)}.`;
+
+  const tiempo: Seccion = {
+    titulo: esPost ? "El tiempo que se le dio" : "El tiempo de la semana",
+    pie: `${tiempoTexto} ${explicaDias(o)} Referencia: 90-100' en una semana de seis entrenamientos, prorrateada.`,
+    html: graficos("tiempo"),
+    texto: [],
+    fija: true,
+  };
+
+  const semana: Seccion = {
+    titulo: "La semana, tarea a tarea",
+    pie: "Lo planificado de balón parado, día a día. «est.» es carga estimada; el resto viene medida de la hoja de registro.",
+    html: tabla(
+      ["Día", "Aspecto", "Lado", "Momento", "Medio", "Roles", "Min.", "Carga"],
+      informe.trabajos.map((linea) => [
+        esc(linea.dia),
+        `${esc(linea.aspectos)}${linea.notas ? `<br><span style="color:${SUAVE};font-size:12px">${esc(linea.notas)}</span>` : ""}`,
+        esc(linea.lados),
+        esc(linea.momento),
+        esc(linea.medio),
+        esc(linea.roles),
+        esc(linea.minutos),
+        `${linea.carga}${linea.medida ? "" : ' <span style="color:#9CA3AF">est.</span>'}`,
+      ]),
+    ),
+    texto: informe.trabajos.map(
+      (linea) =>
+        `- ${linea.dia} · ${linea.aspectos} (${linea.lados}) · ${linea.minutos} · ${linea.momento} · ${linea.medio}${linea.notas ? ` · ${linea.notas}` : ""}`,
+    ),
+  };
+
+  /* ---------- prioridades (previa) y aspecto por aspecto (post) ---------- */
+
+  const prioridades: Seccion = {
+    titulo: "Prioridades de la semana",
+    pie: "Las cinco urgencias de la temporada: mezclan cuánto ocurre, lo peligroso que está siendo y lo poco que se ha trabajado. «Peligro» es el de quien saca: en lo defensivo, el que nos generan.",
+    html: tabla(
+      ["Aspecto", "Lado", "Urgencia", "Acciones", "Peligro", "Esta semana", "Temporada"],
+      informe.prioridades.map((linea) => [
+        esc(linea.aspecto),
+        LADO_LABEL[linea.lado],
+        linea.urgencia === null ? "—" : `<b>${Math.round(linea.urgencia)}</b>`,
+        String(linea.acciones),
+        esc(linea.peligro),
+        linea.minutosSemana === "0'" ? `<span style="color:${NARANJA}">Sin trabajar</span>` : esc(linea.minutosSemana),
+        esc(linea.minutosTemporada),
+      ]),
+    ),
+    texto: informe.prioridades.map(
+      (linea) =>
+        `- ${nombreAspecto(linea.aspecto, linea.lado)} · urgencia ${linea.urgencia === null ? "—" : Math.round(linea.urgencia)} · ${linea.acciones} acciones · peligro ${linea.peligro} · esta semana ${linea.minutosSemana === "0'" ? "sin trabajar" : linea.minutosSemana}`,
+    ),
+  };
+
+  const equipo: Seccion = {
+    titulo: "Aspecto por aspecto, en la temporada",
+    pie: "Todas nuestras hojas de ABP. «Transferencia» compara el peligro en los partidos con trabajo previo y sin él: positiva, el trabajo se nota; «—», todavía sin muestra.",
+    html: tabla(
+      ["Aspecto", "Lado", "Acciones", "Remates", "Goles", "Peligro", "Trabajado", "Transferencia"],
+      informe.equipo.map((linea) => [
+        esc(linea.aspecto),
+        LADO_LABEL[linea.lado],
+        String(linea.acciones),
+        String(linea.remates),
+        String(linea.goles),
+        esc(linea.peligro),
+        esc(linea.minutosTemporada),
+        numeroConSigno(linea.transferencia, " pts"),
+      ]),
+    ),
+    texto: informe.equipo.map(
+      (linea) =>
+        `- ${nombreAspecto(linea.aspecto, linea.lado)} · ${linea.acciones} acciones · ${linea.remates} remates · ${plural(linea.goles, "gol", "goles")} · peligro ${linea.peligro} · trabajado ${linea.minutosTemporada} · transferencia ${numeroConSigno(linea.transferencia, " pts")}`,
+    ),
+  };
+
+  /* ---------- la valoración ---------- */
+
+  const v = informe.valoracion;
+
+  const valoracion: Seccion = {
+    titulo: "Cómo salieron las tareas",
+    pie: "Nota y análisis posterior de cada tarea, de la hoja de registro.",
+    html: `${graficos("contenidos")}${tabla(
+      ["Tarea", "Día", "Fecha", "Nota", "Análisis posterior"],
+      v.lineas.map((linea) => [
+        esc(linea.tarea),
+        esc(linea.dia),
+        esc(linea.fecha),
+        linea.evaluacion > 0 ? `<b>${dec(linea.evaluacion)}</b>` : "—",
+        esc(linea.analisis || linea.observaciones || "—"),
+      ]),
+    )}`,
+    texto: v.lineas.map(
+      (linea) =>
+        `- ${linea.tarea}${linea.dia ? ` (${linea.dia})` : ""}${linea.evaluacion > 0 ? ` · nota ${dec(linea.evaluacion)}` : ""}${
+          linea.analisis || linea.observaciones ? ` · ${linea.analisis || linea.observaciones}` : ""
+        }`,
+    ),
+  };
+
+  /* ---------- el rival ---------- */
+
+  const r = informe.rivalAnalisis;
+
+  const docs = r?.documentos ?? [];
+
+  const rival: Seccion | null =
+    r && (r.conclusiones.length || docs.length || (!esPost && graficos("rival")))
+      ? {
+          titulo: esPost
+            ? `Lo que esperábamos del rival · ${r.equipo}`
+            : `El rival a balón parado · ${r.equipo}`,
+          pie: esPost
+            ? `Las conclusiones de la previa (${r.jornada}), para leerlas con el partido ya jugado.`
+            : `Lo analizado en «ABP del Rival» y «Área del Rival» (${r.jornada}): cómo ataca y defiende a balón parado y en centros laterales.`,
+          html: `${
+            docs.length
+              ? parrafo(
+                  `Informes de la jornada: ${docs
+                    .map((d) => `<a href="${esc(d.url)}" style="color:#8A6A2C;font-weight:600">${esc(d.nombre)} (PDF)</a>`)
+                    .join(" · ")}`,
+                )
+              : ""
+          }${tabla(
+            ["Sección", "Lo que se concluye"],
+            r.conclusiones.map((una) => [`<b>${esc(una.seccion)}</b>`, esc(una.texto)]),
+          )}${esPost ? "" : graficos("rival")}`,
+          texto: [
+            ...r.conclusiones.map((una) => `- ${una.seccion}: ${una.texto}`),
+            ...docs.map((d) => `- ${d.nombre} (PDF): ${d.url}`),
+          ],
+        }
+      : null;
+
+  /* ---------- la categoría ---------- */
+
+  const c = informe.comparativa;
+
+  const categoria: Seccion | null = c
+    ? {
+        titulo: "Cómo estamos contra la categoría",
+        pie: `${c.equipos} equipos · ${plural(c.jugados, "jornada", "jornadas")} · lo que Wyscout mide, por partido. En contra, el 1.º es el que menos concede. Sin goles: de la liga nadie publica de qué jugada nace cada uno.`,
+        html: `${tabla(
+          ["Métrica", "Nosotros", "Mediana", "Puesto", "En contra", "Mediana", "Puesto"],
+          c.filas.map((fila) => [
+            `<b>${esc(fila.rotulo)}</b>`,
+            fmtMedida(fila.favor, fila.key),
+            fmtMedida(fila.medianaFavor, fila.key),
+            fila.puestoFavor === null ? "—" : `<b>${fila.puestoFavor}.º</b> de ${c.equipos}`,
+            fmtMedida(fila.contra, fila.key),
+            fmtMedida(fila.medianaContra, fila.key),
+            fila.puestoContra === null ? "—" : `<b>${fila.puestoContra}.º</b> de ${c.equipos}`,
+          ]),
+        )}${graficos("wyscout")}`,
+        texto: [
+          ...c.filas.map(
+            (fila) =>
+              `- ${fila.rotulo}: ${fmtMedida(fila.favor, fila.key)} (mediana ${fmtMedida(fila.medianaFavor, fila.key)}${
+                fila.puestoFavor === null ? "" : `, ${fila.puestoFavor}.º de ${c.equipos}`
+              }) · en contra ${fmtMedida(fila.contra, fila.key)} (mediana ${fmtMedida(fila.medianaContra, fila.key)}${
+                fila.puestoContra === null ? "" : `, ${fila.puestoContra}.º de ${c.equipos}`
+              })`,
+          ),
+          ...(c.temporadas.length > 1
+            ? c.temporadas.map((una) => {
+                const corners = una.valores?.corners;
+
+                return `- Córners en los ${c.jugados} primeros partidos de ${una.temporada}${una.esActual ? " (ésta)" : ""}: ${fmtMedida(corners?.favor ?? null, "corners")} a favor · ${fmtMedida(corners?.contra ?? null, "corners")} en contra`;
+              })
+            : []),
+        ],
+      }
+    : null;
+
+  /* ---------- nuestro acumulado ---------- */
+
+  const pr = informe.propio;
+
+  const acumulado: Seccion | null =
+    pr && pr.acciones > 0
+      ? {
+          titulo: "Nuestro balón parado en la temporada",
+          pie: `${pr.acciones} acciones en ${plural(pr.partidos, "partido", "partidos")} de nuestras hojas de ABP${
+            pr.conPretemporada
+              ? ", con los amistosos de verano"
+              : pr.fueraDePretemporada
+                ? `, sólo competición (fuera ${pr.fueraDePretemporada} de pretemporada)`
+                : ""
+          }${esPost && p ? `, con la ${p.jornada.toLowerCase()} incluida` : ""}. Aquí los goles son dato.`,
+          html: `${tabla(
+            ["", "Acciones", "Remates", "Peligro", "Goles", "xG"],
+            (
+              [
+                ["A favor", pr.ofensivo],
+                ["En contra", pr.defensivo],
+              ] as [string, PropioAbp["ofensivo"]][]
+            ).map(([rotulo, lado]) => [
+              `<b>${rotulo}</b>`,
+              String(lado.acciones),
+              String(lado.remates),
+              `${lado.peligros} (${pct(lado.peligros, lado.acciones)})`,
+              `<b>${lado.goles}</b>`,
+              dec(lado.xg, 2),
+            ]),
+          )}${graficos("nuestro")}`,
+          texto: (
+            [
+              ["A favor", pr.ofensivo],
+              ["En contra", pr.defensivo],
+            ] as [string, PropioAbp["ofensivo"]][]
+          ).map(
+            ([rotulo, lado]) =>
+              `- ${rotulo}: ${lado.acciones} acciones · ${lado.remates} remates · peligro ${lado.peligros} (${pct(lado.peligros, lado.acciones)}) · ${plural(lado.goles, "gol", "goles")} · xG ${dec(lado.xg, 2)}`,
+          ),
+        }
+      : null;
+
+  /* ---------- el seguimiento individual ---------- */
+
+  const s = informe.seguimiento;
+
+  const seguimiento: Seccion = {
+    titulo: "Seguimiento individual de balón parado",
+    pie: `${plural(s.lineas.length, "registro", "registros")} de ${plural(s.jugadores, "jugador", "jugadores")}. Se reconoce por lo escrito en objetivos y feedback (la hoja no tiene casilla de ABP): es una lectura, no un dato cerrado.`,
+    html: `${graficos("seguimiento")}${tabla(
+      ["Jugador", "Fecha", "Quién", "Modalidad", "Objetivo", "Feedback"],
+      s.lineas.map((linea) => [
+        `<b>${esc(linea.jugador)}</b>`,
+        esc(linea.fecha),
+        esc(linea.quien),
+        esc([linea.modalidad, linea.estrategia].filter(Boolean).join(" · ")),
+        esc(linea.objetivo || "—"),
+        esc(linea.feedback || "—"),
+      ]),
+    )}`,
+    texto: s.lineas.map(
+      (linea) => `- ${linea.jugador} · ${linea.fecha} · ${linea.objetivo || "sin objetivo escrito"}`,
+    ),
+  };
+
+  /*
+  | EL ORDEN.
+  |
+  | Previa: qué vamos a hacer y por qué → las claves, las urgencias que lo
+  | justifican, la semana, el rival, y después el contexto (categoría y lo
+  | nuestro). Post: qué pasó → las claves, el partido, si lo entrenado
+  | apareció, cómo salieron las tareas, la semana, y después el acumulado.
+  */
+  const orden: (Seccion | null)[] = esPost
+    ? [claves, partido, cruce, valoracion, tiempo, semana, rival, acumulado, equipo, categoria, seguimiento]
+    : [claves, prioridades, tiempo, semana, valoracion, rival, categoria, acumulado, seguimiento];
+
+  orden.forEach((una) => {
+    if (una) mete(una);
+  });
+
+  return lista;
+}
+
+function seccionHtml(seccion: Seccion) {
+  return `<tr><td style="padding:22px 24px 4px"><h2 style="margin:0;font:700 15px/1.3 Arial,sans-serif;color:${NAVY};text-transform:uppercase;letter-spacing:.08em">${esc(seccion.titulo)}</h2>${
+    seccion.pie
+      ? `<p style="margin:4px 0 12px;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(seccion.pie)}</p>`
+      : `<div style="height:12px"></div>`
+  }${seccion.html}</td></tr>`;
+}
+
 /** El informe como correo: tablas y estilos en línea, que es lo que sobrevive. */
 export function informeHtml(
   informe: InformeMicro,
   opciones: { imagenes?: ModoImagenes } = {},
 ) {
   const modoImagenes = opciones.imagenes ?? "data";
+
   const resumen = informe.resumen
     .map(
       (dato) =>
@@ -1073,263 +2271,34 @@ export function informeHtml(
     )
     .join("");
 
-  const semana = tabla(
-    ["Día", "Aspecto", "Lado", "Momento", "Medio", "Roles", "Min.", "Carga"],
-    informe.trabajos.map((linea) => [
-      esc(linea.dia),
-      `${esc(linea.aspectos)}${linea.notas ? `<br><span style="color:${SUAVE};font-size:12px">${esc(linea.notas)}</span>` : ""}`,
-      esc(linea.lados),
-      esc(linea.momento),
-      esc(linea.medio),
-      esc(linea.roles),
-      esc(linea.minutos),
-      `${linea.carga}${linea.medida ? "" : " <span style=\"color:#9CA3AF\">est.</span>"}`,
-    ]),
-  );
-
-  const valoracion = tabla(
-    ["Tarea", "Día", "Fecha", "Nota", "Análisis posterior"],
-    informe.valoracion.lineas.map((linea) => [
-      esc(linea.tarea),
-      esc(linea.dia),
-      esc(linea.fecha),
-      linea.evaluacion > 0 ? `<b>${linea.evaluacion}</b>` : "—",
-      esc(linea.analisis || linea.observaciones || "—"),
-    ]),
-  );
-
-  const seguimiento = tabla(
-    ["Jugador", "Fecha", "Quién", "Modalidad", "Objetivo", "Feedback"],
-    informe.seguimiento.lineas.map((linea) => [
-      `<b>${esc(linea.jugador)}</b>`,
-      esc(linea.fecha),
-      esc(linea.quien),
-      esc([linea.modalidad, linea.estrategia].filter(Boolean).join(" · ")),
-      esc(linea.objetivo || "—"),
-      esc(linea.feedback || "—"),
-    ]),
-  );
-
-  const prioridades = tabla(
-    ["Aspecto", "Lado", "Urgencia", "Acciones", "Peligro", "Trabajado"],
-    informe.prioridades.map((linea) => [
-      esc(linea.aspecto),
-      esc(LADO_LABEL[linea.lado]),
-      linea.urgencia === null
-        ? "—"
-        : `<b>${Math.round(linea.urgencia)}</b>`,
-      String(linea.acciones),
-      esc(linea.peligro),
-      esc(linea.minutosTemporada),
-    ]),
-  );
-
-  const equipo = tabla(
-    [
-      "Aspecto",
-      "Lado",
-      "Acciones",
-      "Remates",
-      "Goles",
-      "Peligro",
-      "Trabajado",
-      "Transferencia",
-    ],
-    informe.equipo.map((linea) => [
-      esc(linea.aspecto),
-      esc(LADO_LABEL[linea.lado]),
-      String(linea.acciones),
-      String(linea.remates),
-      String(linea.goles),
-      esc(linea.peligro),
-      esc(linea.minutosTemporada),
-      numeroConSigno(linea.transferencia, " pts"),
-    ]),
-  );
-
   const avisos = informe.avisos.length
-    ? `<tr><td style="padding:6px 24px 18px"><table role="presentation" width="100%" style="width:100%;border-collapse:collapse"><tr><td style="padding:10px 12px;background:#FEF7E7;border-left:3px solid ${ORO};font:400 12px/1.6 Arial,sans-serif;color:#7A5B1E">${informe.avisos
+    ? `<tr><td style="padding:6px 24px 8px"><table role="presentation" width="100%" style="width:100%;border-collapse:collapse"><tr><td style="padding:10px 12px;background:#FEF7E7;border-left:3px solid ${ORO};font:400 12px/1.6 Arial,sans-serif;color:#7A5B1E">${informe.avisos
         .map((aviso) => esc(aviso))
         .join("<br>")}</td></tr></table></td></tr>`
     : "";
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(informe.titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">
+  const secciones = seccionesDe(informe, modoImagenes).map(seccionHtml).join("\n");
+
+  const lineaPartido = [informe.partido, informe.vieneDe].filter(Boolean);
+
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(`${informe.titulo} · ${informe.modoRotulo}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;background:#EEEAE0;padding:18px 0"><tr><td align="center">
 <table role="presentation" cellpadding="0" cellspacing="0" width="860" style="width:860px;max-width:96%;background:#FFFFFF;border-radius:12px;overflow:hidden">
 
 <tr><td style="padding:22px 24px;background:${NAVY}">
-  <p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${ORO};text-transform:uppercase;letter-spacing:.28em">RMCF Castilla · Balón parado</p>
+  <p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${ORO};text-transform:uppercase;letter-spacing:.28em">RMCF Castilla · Balón parado · ${esc(informe.modoRotulo)}</p>
   <h1 style="margin:8px 0 0;font:700 26px/1.2 Arial,sans-serif;color:#FFFFFF">${esc(informe.titulo)}</h1>
   <p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(
     [informe.subtitulo, informe.rango].filter(Boolean).join(" · "),
   )}</p>
-  ${informe.partido ? `<p style="margin:4px 0 0;font:400 12px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(informe.partido)}</p>` : ""}
+  ${lineaPartido.map((linea) => `<p style="margin:4px 0 0;font:400 12px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(linea)}</p>`).join("")}
 </td></tr>
 
 <tr><td style="padding:18px 24px 0"><table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0">${resumen}</table></td></tr>
 
 ${avisos}
 
-${seccion(
-  "Lo que hay que mirar",
-  "Los cuatro gráficos que contestan la semana: si se ha dedicado el tiempo que tocaba, cuántos córners generamos y concedemos, si los rematamos, y qué está rentando de lo nuestro.",
-  bloqueGraficos(informe, modoImagenes, "destacados"),
-)}
-
-${seccion(
-  "El tiempo de la semana",
-  `${fmtMin(informe.tiempo.minutos)} de balón parado. ${explicaDias(informe.objetivo)} El objetivo del cuerpo técnico son 90-100 minutos en una semana de seis entrenamientos, así que la parte que toca en ésta son ${informe.objetivo.minimo}-${informe.objetivo.maximo}.`,
-  `${tabla(
-    ["", "Minutos", "Objetivo", "Diferencia"],
-    [
-      [
-        "<b>Esta semana</b>",
-        `<b>${fmtMin(informe.tiempo.minutos)}</b>`,
-        `${informe.objetivo.minimo}′ – ${informe.objetivo.maximo}′`,
-        informe.objetivo.veredicto === "dentro"
-          ? "<b>dentro del objetivo</b>"
-          : informe.objetivo.veredicto === "corto"
-            ? `faltan <b>${informe.objetivo.faltan}′</b>`
-            : `<b>+${Math.round(informe.tiempo.minutos) - informe.objetivo.maximo}′</b> por encima`,
-      ],
-    ],
-  )}${bloqueGraficos(informe, modoImagenes, "tiempo")}`,
-)}
-
-${seccion("La semana, tarea a tarea", "Lo planificado de balón parado, día a día. «est.» es carga estimada; el resto viene medida de la hoja de registro.", semana)}
-
-${
-  informe.rivalAnalisis &&
-  (informe.rivalAnalisis.conclusiones.length ||
-    informe.rivalAnalisis.documentos?.length ||
-    bloqueGraficos(informe, modoImagenes, "rival").trim())
-    ? seccion(
-        `El rival a balón parado · ${informe.rivalAnalisis.equipo}`,
-        `Lo analizado en «ABP del Rival» y «Área del Rival» para la ${informe.rivalAnalisis.jornada}: cómo ataca y cómo defiende a balón parado y en los centros laterales, con las láminas y los informes preparados.`,
-        `${
-          informe.rivalAnalisis.documentos?.length
-            ? `<p style="margin:0 0 12px;font-size:13px">Informes de la jornada: ${informe.rivalAnalisis.documentos
-                .map((d) => `<a href="${esc(d.url)}" style="color:#8A6A2C;font-weight:600">${esc(d.nombre)} (PDF)</a>`)
-                .join(" · ")}</p>`
-            : ""
-        }${
-          informe.rivalAnalisis.conclusiones.length
-            ? tabla(
-                ["Sección", "Lo que se concluye"],
-                informe.rivalAnalisis.conclusiones.map((una) => [`<b>${esc(una.seccion)}</b>`, esc(una.texto)]),
-              )
-            : ""
-        }${bloqueGraficos(informe, modoImagenes, "rival")}`,
-      )
-    : ""
-}
-
-${
-  bloqueGraficos(informe, modoImagenes, "partido").trim()
-    ? seccion(
-        "Nuestro partido, por las dos vías",
-        "Lo mismo contado por Wyscout y por nosotros. Wyscout mide igual a todos los equipos, así que vale para comparar; nuestro registro llega a donde él no llega —la falta lateral separada, el saque de banda— y es el único que trae goles, porque el analista escribe el resultado de cada acción. Que las dos vías no den lo mismo es normal: no cuentan lo mismo.",
-        bloqueGraficos(informe, modoImagenes, "partido"),
-      )
-    : ""
-}
-
-${seccion(
-  "Cómo estamos contra la categoría",
-  informe.comparativa
-    ? `${informe.comparativa.equipos} equipos · ${informe.comparativa.jugados} jornada${informe.comparativa.jugados === 1 ? "" : "s"} · lo que Wyscout mide de verdad, por partido. De la liga nadie publica de qué jugada nace cada gol, así que aquí no hay goles estimados.`
-    : "",
-  informe.comparativa
-    ? `${tabla(
-        [
-          "Métrica",
-          "Nosotros",
-          "Mediana liga",
-          "Puesto",
-          "En contra",
-          "Mediana",
-          "Puesto",
-        ],
-        informe.comparativa.filas.map((fila) => [
-          `<b>${esc(fila.rotulo)}</b>`,
-          fmtMedida(fila.favor, fila.key),
-          fmtMedida(fila.medianaFavor, fila.key),
-          fila.puestoFavor === null
-            ? "—"
-            : `<b>${fila.puestoFavor}.º</b> de ${informe.comparativa!.equipos}`,
-          fmtMedida(fila.contra, fila.key),
-          fmtMedida(fila.medianaContra, fila.key),
-          fila.puestoContra === null
-            ? "—"
-            : `<b>${fila.puestoContra}.º</b> de ${informe.comparativa!.equipos}`,
-        ]),
-      )}${bloqueGraficos(informe, modoImagenes, "wyscout")}`
-    : "",
-)}
-
-${seccion(
-  "Nuestros registros de competición",
-  informe.propio
-    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. ${informe.propio.conPretemporada ? "Van dentro los amistosos de verano." : informe.propio.fueraDePretemporada ? `Sólo competición: fuera quedan ${informe.propio.fueraDePretemporada} acciones de pretemporada.` : ""} Aquí los goles son dato: los escribe el analista acción por acción.`
-    : "",
-  bloqueGraficos(informe, modoImagenes, "nuestro"),
-)}
-
-${seccion(
-  "Los contenidos y su valoración",
-  informe.valoracion.media === null
-    ? `${informe.valoracion.valoradas} de ${informe.valoracion.total} tareas con algo escrito.`
-    : `${informe.valoracion.valoradas} de ${informe.valoracion.total} tareas valoradas · media ${informe.valoracion.media.toFixed(1)}.`,
-  `${bloqueGraficos(informe, modoImagenes, "contenidos")}${valoracion}`,
-)}
-
-${seccion(
-  "Seguimiento individual de balón parado",
-  "Reconocido por lo que está escrito en los objetivos y el feedback: la hoja de seguimiento no tiene casilla de ABP, así que esta lista es una lectura, no un dato cerrado.",
-  `${bloqueGraficos(informe, modoImagenes, "seguimiento")}${seguimiento}`,
-)}
-
-${seccion(
-  "Por dónde empezar",
-  "Las cinco urgencias de arriba: mezclan lo que pasa en el partido, lo peligroso que está siendo y lo poco que se ha trabajado.",
-  prioridades,
-)}
-
-${seccion(
-  "El balón parado del equipo, aspecto por aspecto",
-  "Toda la temporada registrada en las hojas de ABP. «Transferencia» compara los partidos con trabajo previo y los que no; en blanco cuando todavía no hay muestra.",
-  equipo,
-)}
-
-${seccion(
-  "Nuestro balón parado, en cifras",
-  informe.propio
-    ? `${informe.propio.acciones} acciones en ${informe.propio.partidos} partidos, de nuestras cuatro hojas de ABP. ${informe.propio.conPretemporada ? "Van dentro los amistosos de verano." : informe.propio.fueraDePretemporada ? `Sólo competición: fuera quedan ${informe.propio.fueraDePretemporada} acciones de pretemporada.` : ""} Aquí los goles son dato: los escribe el analista acción por acción.`
-    : "",
-  informe.propio
-    ? tabla(
-        ["", "Acciones", "Remates", "Peligro", "Goles", "xG"],
-        [
-          [
-            "<b>A favor</b>",
-            String(informe.propio.ofensivo.acciones),
-            String(informe.propio.ofensivo.remates),
-            String(informe.propio.ofensivo.peligros),
-            `<b>${informe.propio.ofensivo.goles}</b>`,
-            fmtDec(informe.propio.ofensivo.xg),
-          ],
-          [
-            "<b>En contra</b>",
-            String(informe.propio.defensivo.acciones),
-            String(informe.propio.defensivo.remates),
-            String(informe.propio.defensivo.peligros),
-            `<b>${informe.propio.defensivo.goles}</b>`,
-            fmtDec(informe.propio.defensivo.xg),
-          ],
-        ],
-      )
-    : "",
-)}
+${secciones}
 
 <tr><td style="padding:18px 24px 24px;border-top:1px solid #E5E1D6">
   <p style="margin:0;font:400 11px/1.6 Arial,sans-serif;color:${SUAVE}">Generado automáticamente por la plataforma del Real Madrid Castilla · ${esc(informe.generado)}</p>
@@ -1338,14 +2307,21 @@ ${seccion(
 </table></td></tr></table></body></html>`;
 }
 
-/** El mismo informe en texto, para quien lea el correo sin formato. */
+/**
+ * El mismo informe en texto, para quien lea el correo sin formato.
+ *
+ * Las mismas secciones, en el mismo orden y con los mismos títulos que el
+ * HTML: salen de `seccionesDe`. Lo único que no lleva son los gráficos; su
+ * dato ya va en el pie o en las líneas de cada sección.
+ */
 export function informeTexto(informe: InformeMicro) {
   const lineas: string[] = [];
 
-  lineas.push(informe.titulo.toUpperCase());
+  lineas.push(`${informe.titulo.toUpperCase()} · ${informe.modoRotulo.toUpperCase()}`);
   lineas.push([informe.subtitulo, informe.rango].filter(Boolean).join(" · "));
 
   if (informe.partido) lineas.push(informe.partido);
+  if (informe.vieneDe) lineas.push(informe.vieneDe);
 
   lineas.push("");
 
@@ -1353,107 +2329,17 @@ export function informeTexto(informe: InformeMicro) {
     lineas.push(`- ${dato.rotulo}: ${dato.valor} (${dato.pie})`);
   });
 
-  if (informe.rivalAnalisis?.conclusiones.length || informe.rivalAnalisis?.documentos?.length) {
-    lineas.push("", `EL RIVAL A BALÓN PARADO · ${informe.rivalAnalisis.equipo.toUpperCase()} · ${informe.rivalAnalisis.jornada}`);
-    informe.rivalAnalisis.conclusiones.forEach((una) => lineas.push(`- ${una.seccion}: ${una.texto}`));
-    (informe.rivalAnalisis.documentos ?? []).forEach((d) => lineas.push(`- ${d.nombre} (PDF): ${d.url}`));
-  }
-
   if (informe.avisos.length) {
     lineas.push("", "AVISOS");
     informe.avisos.forEach((aviso) => lineas.push(`- ${aviso}`));
   }
 
-  lineas.push("", "LA SEMANA");
+  seccionesDe(informe, "data").forEach((seccion) => {
+    lineas.push("", seccion.titulo.toUpperCase());
 
-  informe.trabajos.forEach((linea) => {
-    lineas.push(
-      `- ${linea.dia} · ${linea.aspectos} (${linea.lados}) · ${linea.minutos} · ${linea.momento} · ${linea.medio}`,
-    );
-  });
+    if (seccion.pie) lineas.push(seccion.pie);
 
-  lineas.push(
-    "",
-    `LA VALORACIÓN REGISTRADA (${informe.valoracion.valoradas} de ${informe.valoracion.total})`,
-  );
-
-  informe.valoracion.lineas.forEach((linea) => {
-    lineas.push(
-      `- ${linea.tarea}${linea.evaluacion > 0 ? ` · nota ${linea.evaluacion}` : ""}${
-        linea.analisis ? ` · ${linea.analisis}` : ""
-      }`,
-    );
-  });
-
-  lineas.push(
-    "",
-    `SEGUIMIENTO INDIVIDUAL DE ABP (${informe.seguimiento.lineas.length} registros · ${informe.seguimiento.jugadores} jugadores)`,
-  );
-
-  informe.seguimiento.lineas.forEach((linea) => {
-    lineas.push(
-      `- ${linea.jugador} · ${linea.fecha} · ${linea.objetivo || "sin objetivo escrito"}`,
-    );
-  });
-
-  lineas.push("", "POR DÓNDE EMPEZAR");
-
-  informe.prioridades.forEach((linea) => {
-    lineas.push(
-      `- ${linea.aspecto} (${LADO_LABEL[linea.lado]}) · urgencia ${
-        linea.urgencia === null ? "—" : Math.round(linea.urgencia)
-      } · ${linea.acciones} acciones · peligro ${linea.peligro}`,
-    );
-  });
-
-  if (informe.propio) {
-    const p = informe.propio;
-
-    lineas.push(
-      "",
-      `NUESTRO BALÓN PARADO REGISTRADO (${p.acciones} acciones en ${p.partidos} partidos)`,
-      `- A favor: ${p.ofensivo.acciones} acciones · ${p.ofensivo.remates} remates · ${p.ofensivo.goles} goles · xG ${fmtDec(p.ofensivo.xg)}`,
-      `- En contra: ${p.defensivo.acciones} acciones · ${p.defensivo.remates} remates · ${p.defensivo.goles} goles · xG ${fmtDec(p.defensivo.xg)}`,
-    );
-  }
-
-  if (informe.comparativa) {
-    const c = informe.comparativa;
-
-    lineas.push(
-      "",
-      `CONTRA LA CATEGORÍA (${c.equipos} equipos · ${c.jugados} jornadas · lo que mide Wyscout, por partido)`,
-    );
-
-    c.filas.forEach((fila) => {
-      lineas.push(
-        `- ${fila.rotulo}: ${fmtMedida(fila.favor, fila.key)} (mediana ${fmtMedida(fila.medianaFavor, fila.key)})${
-          fila.puestoFavor === null ? "" : ` · ${fila.puestoFavor}.º de ${c.equipos}`
-        } · en contra ${fmtMedida(fila.contra, fila.key)}${
-          fila.puestoContra === null ? "" : ` · ${fila.puestoContra}.º de ${c.equipos}`
-        }`,
-      );
-    });
-
-    if (c.temporadas.length > 1) {
-      lineas.push("", `NUESTRAS TEMPORADAS, EN SUS ${c.jugados} PRIMEROS PARTIDOS`);
-
-      c.temporadas.forEach((una) => {
-        const corners = una.valores?.corners;
-
-        lineas.push(
-          `- ${una.temporada}${una.esActual ? " (ésta)" : ""}: ${fmtMedida(corners?.favor ?? null, "corners")} córners a favor · ${fmtMedida(corners?.contra ?? null, "corners")} en contra`,
-        );
-      });
-    }
-  }
-
-  lineas.push("", "EL BALÓN PARADO DEL EQUIPO");
-
-  informe.equipo.forEach((linea) => {
-    lineas.push(
-      `- ${linea.aspecto} (${LADO_LABEL[linea.lado]}) · ${linea.acciones} acciones · ${linea.remates} remates · ${linea.goles} goles · peligro ${linea.peligro} · trabajado ${linea.minutosTemporada}`,
-    );
+    seccion.texto.forEach((linea) => lineas.push(linea));
   });
 
   lineas.push(
