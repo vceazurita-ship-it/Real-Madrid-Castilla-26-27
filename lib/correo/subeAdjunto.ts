@@ -16,7 +16,10 @@
  * Se puede usar en el navegador.
  */
 
-export type AdjuntoSubido = { nombre: string; url: string; tipo: string; tamano: number };
+export type AdjuntoSubido = { nombre: string; url: string; tipo: string; tamano: number; path: string };
+
+/** Dónde se guarda: para un correo (se barre a la semana) o como documento del rival (se queda). */
+export type DestinoSubida = { carpeta?: "informe" | "rival"; equipo?: string };
 
 const TIPOS: Record<string, string> = {
   pdf: "application/pdf",
@@ -30,13 +33,13 @@ function tipoDe(file: File) {
   return TIPOS[file.name.split(".").pop()?.toLowerCase() ?? ""] ?? "";
 }
 
-export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) => void): Promise<AdjuntoSubido> {
+export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) => void, destino: DestinoSubida = {}): Promise<AdjuntoSubido> {
   const tipo = tipoDe(file);
 
   const firma = await fetch("/api/informe/subida", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nombre: file.name, tipo, tamano: file.size }),
+    body: JSON.stringify({ nombre: file.name, tipo, tamano: file.size, carpeta: destino.carpeta ?? "informe", equipo: destino.equipo ?? "" }),
   });
 
   if (firma.status === 401) {
@@ -48,6 +51,7 @@ export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) =>
     error?: string;
     subida?: string;
     url?: string;
+    path?: string;
   } | null;
 
   if (!firma.ok || !datos?.ok || !datos.subida || !datos.url) {
@@ -105,5 +109,5 @@ export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) =>
     xhr.send(formulario);
   });
 
-  return { nombre: file.name, url: datos.url, tipo, tamano: file.size };
+  return { nombre: file.name, url: datos.url, tipo, tamano: file.size, path: datos.path ?? "" };
 }

@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -212,6 +213,8 @@ import {
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
+import { guardaDocumentoRival, type TipoDocumentoRival } from "@/lib/rivals/documentos";
+import { descarga } from "@/lib/export/lienzos";
 
 /*
 |--------------------------------------------------------------------------
@@ -761,6 +764,98 @@ const EMPTY_PLAYER_KEYS: (keyof RivalPlayer)[] = [
   "ESTADO",
 ];
 
+/**
+ * Los partidos con alineación bajada que pueden ir a las hojas de partidos del
+ * informe, y los que se marcan por defecto (los cuatro últimos de liga). Lo
+ * usan el pop-up de elegir partidos y el informe que se monta sin pop-up
+ * (pantalla incrustada).
+ */
+function partidosElegiblesDe(informe: InformeEquipo) {
+  const porId = new Map(informe.partidos.map((uno) => [uno.id, uno]));
+
+  const partidos: PartidoElegible[] = informe.onces.flatMap((once) => {
+    const partido = porId.get(once.partidoId);
+
+    if (!partido) return [];
+
+    const contra = partido.enCasa ? partido.visitante : partido.local;
+
+    return [
+      {
+        id: partido.id,
+        fecha: fechaDePartido(partido.fecha),
+        competicion: partido.competicion,
+        deLiga: esLiga(partido),
+        rival: contra.nombre,
+        enCasa: partido.enCasa,
+        marcador: partido.jugado
+          ? `${partido.local.goles ?? 0}-${partido.visitante.goles ?? 0}`
+          : "—",
+        resultado: partido.resultado,
+      },
+    ];
+  });
+
+  /*
+  | Los cuatro últimos de liga. Si no llegan a cuatro —agosto, cuando la
+  | mitad de lo bajado es pretemporada— se completan con lo que haya, que
+  | es mejor que dejar media hoja en blanco.
+  */
+  const porDefecto = new Set(
+    [
+      ...partidos.filter((uno) => uno.deLiga),
+      ...partidos.filter((uno) => !uno.deLiga),
+    ]
+      .slice(0, PARTIDOS_INFORME_POR_DEFECTO)
+      .map((uno) => uno.id),
+  );
+
+  /* Siempre en el orden de la lista —del más reciente al más antiguo—,
+     que es el orden en el que van a salir las hojas. */
+  const marcados = partidos
+    .map((uno) => uno.id)
+    .filter((id) => porDefecto.has(id));
+
+  return { partidos, marcados };
+}
+
+/*
+| INCRUSTADA PARA EL INFORME DEL PARTIDO (03/10/2026).
+|
+| El informe del partido (Microciclos) abre esta pantalla en un marco oculto con
+| `?incrustado=documentos&equipo=<NOMBRE_EQUIPO>` para que el PDF de la
+| plantilla y el PPT del rival vayan siempre adjuntos al informe completo. En
+| ese modo la pantalla, sin pop-ups ni editor, monta los dos documentos igual
+| que sus botones, los guarda como los últimos del rival
+| (`guardaDocumentoRival`) y se lo dice a quien la abrió por `postMessage`.
+|
+| Se lee de la barra de direcciones con `useSyncExternalStore`, como en la
+| pizarra táctica: con la instantánea de servidor vacía no hay desajuste al
+| hidratar.
+*/
+const parametroIncrustado = () => new URLSearchParams(window.location.search).get("incrustado") ?? "";
+
+function sinParametro() {
+  return "";
+}
+
+function seSabraAlLlegar(avisa: () => void) {
+  const aviso = setTimeout(avisa, 0);
+
+  return () => clearTimeout(aviso);
+}
+
+/** Lo que la pantalla incrustada le devuelve al informe del partido. */
+export type MensajeDocumentosRival =
+  | {
+      tipo: "rival-documentos";
+      equipo: string;
+      ok: true;
+      docs: { tipo: TipoDocumentoRival; nombre: string; url: string; tamano: number }[];
+      avisos: string[];
+    }
+  | { tipo: "rival-documentos"; equipo: string; ok: false; error: string };
+
 export default function RivalPlayersPage() {
   const [players, setPlayers] = useState<RivalPlayer[]>([]);
 
@@ -833,7 +928,11 @@ export default function RivalPlayersPage() {
   | sitio de cada jugador, así que sin él el campograma se pinta con la columna
   | POSICIÓN de la hoja y habría que moverlo todo al llegar.
   */
-  const { pide: pideInforme, doc: informeDoc } = useRivalInforme({
+  const {
+    pide: pideInforme,
+    doc: informeDoc,
+    falta: informeFalta,
+  } = useRivalInforme({
     alEntrar: true,
   });
 
@@ -1427,9 +1526,11 @@ export default function RivalPlayersPage() {
           return true;
         }
 
-        const { exportOncePdf } = await import("@/lib/rivals/once-pdf");
+        const { buildOncePdf } = await import("@/lib/rivals/once-pdf");
 
-        const nombre = await exportOncePdf(datos);
+        const { doc, nombre } = await buildOncePdf(datos);
+
+        doc.save(nombre);
 
         toast.success(
           variante === "portero"
@@ -1437,6 +1538,19 @@ export default function RivalPlayersPage() {
             : "Once probable exportado",
           { description: nombre },
         );
+
+        /*
+        | El del once se guarda también como el último PDF de la plantilla del
+        | rival: el informe del partido (Microciclos) lo adjunta solo. Sin
+        | esperar: la descarga ya ha salido y esto no la puede estropear.
+        */
+        if (variante === "once") {
+          void guardaDocumentoRival(equipoDelOnce, "plantilla-pdf", doc.output("blob") as Blob, nombre).then((r) =>
+            r.ok
+              ? toast.message("Guardado para el informe del partido", { description: "Irá adjunto al informe completo desde Microciclos." })
+              : toast.message("No se ha guardado para el informe del partido", { description: r.motivo }),
+          );
+        }
 
         return true;
       } catch (error) {
@@ -1874,50 +1988,7 @@ export default function RivalPlayersPage() {
 
       /* Elegibles son los que tienen alineación: sin ella no hay campograma
          que dibujar y la hoja saldría vacía. */
-      const porId = new Map(informe.partidos.map((uno) => [uno.id, uno]));
-
-      const partidos: PartidoElegible[] = informe.onces.flatMap((once) => {
-        const partido = porId.get(once.partidoId);
-
-        if (!partido) return [];
-
-        const contra = partido.enCasa ? partido.visitante : partido.local;
-
-        return [
-          {
-            id: partido.id,
-            fecha: fechaDePartido(partido.fecha),
-            competicion: partido.competicion,
-            deLiga: esLiga(partido),
-            rival: contra.nombre,
-            enCasa: partido.enCasa,
-            marcador: partido.jugado
-              ? `${partido.local.goles ?? 0}-${partido.visitante.goles ?? 0}`
-              : "—",
-            resultado: partido.resultado,
-          },
-        ];
-      });
-
-      /*
-      | Los cuatro últimos de liga. Si no llegan a cuatro —agosto, cuando la
-      | mitad de lo bajado es pretemporada— se completan con lo que haya, que
-      | es mejor que dejar media hoja en blanco.
-      */
-      const porDefecto = new Set(
-        [
-          ...partidos.filter((uno) => uno.deLiga),
-          ...partidos.filter((uno) => !uno.deLiga),
-        ]
-          .slice(0, PARTIDOS_INFORME_POR_DEFECTO)
-          .map((uno) => uno.id),
-      );
-
-      /* Siempre en el orden de la lista —del más reciente al más antiguo—,
-         que es el orden en el que van a salir las hojas. */
-      const marcados = partidos
-        .map((uno) => uno.id)
-        .filter((id) => porDefecto.has(id));
+      const { partidos, marcados } = partidosElegiblesDe(informe);
 
       setEleccionInforme({ doc, informe, partidos, porDefecto: marcados });
 
@@ -1945,6 +2016,94 @@ export default function RivalPlayersPage() {
     }
   }, [selectedTeam, pideInforme, partidosElegidosDoc.value]);
 
+  /**
+   * Los datos del informe del rival para unos partidos: lo que se monta al
+   * aceptar el pop-up, y lo mismo que monta la pantalla incrustada sin él.
+   */
+  const armaDatosInforme = useCallback(
+    async (
+      doc: Awaited<ReturnType<typeof pideInforme>>,
+      informe: InformeEquipo,
+      elegidos: string[],
+    ): Promise<InformeData> => {
+    const partido = enfrentamientoDe(ordenRivales, selectedTeam);
+
+    /*
+    | La hoja de «once probable» tiene que salir **en todos** los informes.
+    | Si el cuerpo técnico no ha marcado a nadie todavía —diecinueve
+    | rivales y una semana— se propone uno con los onces que el rival viene
+    | sacando, y se dice en la propia hoja que es una propuesta. Marcarlo a
+    | mano en la pantalla lo sustituye siempre.
+    */
+    let sugerido: OnceSugerido | null = null;
+
+    if (onceProbableSitios.length === 0) {
+      sugerido = await proponeOnce(doc);
+    }
+
+    const onceProbable = sugerido
+      ? sugerido.titulares.flatMap((clave) => {
+          const pos = sugerido!.campo[clave];
+
+          return pos
+            ? [{ clave, x: pos.x, y: pos.y, estado: "titular" as const }]
+            : [];
+        })
+      : onceProbableSitios;
+
+    const data: InformeData = {
+      informe,
+      jornada: partido?.jornada ?? "",
+      fecha: partido?.fecha ?? "",
+      /* `local` de la hoja es **nuestro** campo: en su campo es lo
+         contrario. Sin calendario se asume fuera, que es cuando el informe
+         se mira con más detalle. */
+      enSuCampo: partido ? !partido.local : true,
+      temporada: temporadaCorta(doc?.temporada),
+      competicion: doc?.competicion ?? "",
+      /* Las dos hojas de campograma salen de la hoja RIVALES y del once
+         que ha colocado el cuerpo técnico, no de BeSoccer. */
+      plantilla: jugadoresPlantilla,
+      dibujo: dibujoDelEquipo,
+      onceProbable,
+      /* Para que la hoja lo diga: un once propuesto no es el del míster. */
+      onceSugerido: sugerido
+        ? { motivo: explicaSugerencia(sugerido) }
+        : undefined,
+      /* Y los partidos que se han marcado en el pop-up: dos por hoja. */
+      partidosElegidos: elegidos,
+      /*
+      | El reparto de goles: SÓLO lo que ha escrito el analista.
+      |
+      | Hasta el 15/09/2026 se le mezclaba la propuesta de Wyscout, y la
+      | diapositiva enseñaba como dato un reparto que, con dos o tres
+      | partidos por rival, no lo es. La propuesta sigue en el pop-up como
+      | sugerencia y entra aquí sólo si el analista la da por buena; lo que
+      | quede en blanco sale punteado y los penaltis y las propias los pinta
+      | la hoja con lo que cuenta el marcador.
+      */
+      tipologia: await leeTipologia(equipoDelOnce),
+      /* Y lo que le hace distinto contra la categoría entera, que sale de
+         los informes de Wyscout y lo calcula el servidor. Si no hay dato
+         —o el endpoint falla—, el informe se monta sin esas dos hojas. */
+      destacados: await traeDestacadosRival(
+        informe.nombreLargo || informe.nombre,
+      ),
+    };
+
+      return data;
+    },
+    [
+      dibujoDelEquipo,
+      selectedTeam,
+      equipoDelOnce,
+      ordenRivales,
+      proponeOnce,
+      jugadoresPlantilla,
+      onceProbableSitios,
+    ],
+  );
+
   const montarInforme = useCallback(
     async (elegidos: string[]) => {
       if (!eleccionInforme || !selectedTeam) return;
@@ -1954,70 +2113,7 @@ export default function RivalPlayersPage() {
       setExportando(true);
 
       try {
-        const partido = enfrentamientoDe(ordenRivales, selectedTeam);
-
-        /*
-        | La hoja de «once probable» tiene que salir **en todos** los informes.
-        | Si el cuerpo técnico no ha marcado a nadie todavía —diecinueve
-        | rivales y una semana— se propone uno con los onces que el rival viene
-        | sacando, y se dice en la propia hoja que es una propuesta. Marcarlo a
-        | mano en la pantalla lo sustituye siempre.
-        */
-        let sugerido: OnceSugerido | null = null;
-
-        if (onceProbableSitios.length === 0) {
-          sugerido = await proponeOnce(doc);
-        }
-
-        const onceProbable = sugerido
-          ? sugerido.titulares.flatMap((clave) => {
-              const pos = sugerido!.campo[clave];
-
-              return pos
-                ? [{ clave, x: pos.x, y: pos.y, estado: "titular" as const }]
-                : [];
-            })
-          : onceProbableSitios;
-
-        const data: InformeData = {
-          informe,
-          jornada: partido?.jornada ?? "",
-          fecha: partido?.fecha ?? "",
-          /* `local` de la hoja es **nuestro** campo: en su campo es lo
-             contrario. Sin calendario se asume fuera, que es cuando el informe
-             se mira con más detalle. */
-          enSuCampo: partido ? !partido.local : true,
-          temporada: temporadaCorta(doc?.temporada),
-          competicion: doc?.competicion ?? "",
-          /* Las dos hojas de campograma salen de la hoja RIVALES y del once
-             que ha colocado el cuerpo técnico, no de BeSoccer. */
-          plantilla: jugadoresPlantilla,
-          dibujo: dibujoDelEquipo,
-          onceProbable,
-          /* Para que la hoja lo diga: un once propuesto no es el del míster. */
-          onceSugerido: sugerido
-            ? { motivo: explicaSugerencia(sugerido) }
-            : undefined,
-          /* Y los partidos que se han marcado en el pop-up: dos por hoja. */
-          partidosElegidos: elegidos,
-          /*
-          | El reparto de goles: SÓLO lo que ha escrito el analista.
-          |
-          | Hasta el 15/09/2026 se le mezclaba la propuesta de Wyscout, y la
-          | diapositiva enseñaba como dato un reparto que, con dos o tres
-          | partidos por rival, no lo es. La propuesta sigue en el pop-up como
-          | sugerencia y entra aquí sólo si el analista la da por buena; lo que
-          | quede en blanco sale punteado y los penaltis y las propias los pinta
-          | la hoja con lo que cuenta el marcador.
-          */
-          tipologia: await leeTipologia(equipoDelOnce),
-          /* Y lo que le hace distinto contra la categoría entera, que sale de
-             los informes de Wyscout y lo calcula el servidor. Si no hay dato
-             —o el endpoint falla—, el informe se monta sin esas dos hojas. */
-          destacados: await traeDestacadosRival(
-            informe.nombreLargo || informe.nombre,
-          ),
-        };
+        const data = await armaDatosInforme(doc, informe, elegidos);
 
         const { construyeHojasInforme } = await import(
           "@/lib/rivals/informe-ppt"
@@ -2040,19 +2136,256 @@ export default function RivalPlayersPage() {
         setExportando(false);
       }
     },
-    [
-      dibujoDelEquipo,
-      eleccionInforme,
-      selectedTeam,
-      /* Es de quién lee la tipología escrita a mano: sin esto, el informe del
-         segundo rival de la sesión se montaría con los números del primero. */
-      equipoDelOnce,
-      ordenRivales,
-      proponeOnce,
-      jugadoresPlantilla,
-      onceProbableSitios,
-    ],
+    [eleccionInforme, selectedTeam, armaDatosInforme],
   );
+
+  /*
+  |--------------------------------------------------------------------------
+  | INCRUSTADA: LOS DOS DOCUMENTOS PARA EL INFORME DEL PARTIDO
+  |--------------------------------------------------------------------------
+  */
+  const incrustado = useSyncExternalStore(
+    seSabraAlLlegar,
+    parametroIncrustado,
+    sinParametro,
+  );
+
+  const documentosEntregados = useRef(false);
+
+  const entregaDocumentos = useCallback((mensaje: MensajeDocumentosRival) => {
+    if (documentosEntregados.current) return;
+
+    documentosEntregados.current = true;
+
+    if (window.parent !== window) {
+      window.parent.postMessage(mensaje, window.location.origin);
+    }
+  }, []);
+
+  /**
+   * Monta y guarda el PDF de la plantilla y el PPT del rival, sin pop-ups.
+   *
+   * - PDF: el once marcado (titulares y dudas). Si nadie lo ha marcado, el que
+   *   propone `sugiereOnce` con sus últimos onces, como hace el informe.
+   * - PPT: los partidos que se eligieron la última vez para este rival o, si
+   *   no, los cuatro últimos de liga; con los retoques guardados del editor.
+   */
+  const generaDocumentos = useCallback(async (): Promise<MensajeDocumentosRival> => {
+    const equipo = selectedTeam;
+
+    if (!equipo || !players.some((player) => player.NOMBRE_EQUIPO === equipo)) {
+      return {
+        tipo: "rival-documentos",
+        equipo,
+        ok: false,
+        error: `No encuentro la plantilla de «${equipo || "?"}» en Plantillas rivales.`,
+      };
+    }
+
+    const avisos: string[] = [];
+
+    const docs: { tipo: TipoDocumentoRival; nombre: string; url: string; tamano: number }[] = [];
+
+    let sinSesion = "";
+
+    const guarda = async (tipo: TipoDocumentoRival, blob: Blob, nombre: string) => {
+      const r = await guardaDocumentoRival(equipo, tipo, blob, nombre);
+
+      if (r.ok) {
+        docs.push({ tipo, nombre, url: r.doc.url, tamano: r.doc.tamano });
+      } else {
+        if (/cuenta del cuerpo técnico/i.test(r.motivo)) sinSesion = r.motivo;
+
+        avisos.push(`${tipo === "plantilla-pdf" ? "PDF de la plantilla" : "Informe del rival (PPT)"}: ${r.motivo}`);
+      }
+    };
+
+    const doc = await pideInforme();
+
+    const informe = findInforme(doc, equipo);
+
+    /* ---------------- el PDF de la plantilla ---------------- */
+
+    try {
+      let filas = marcados;
+
+      let campo = once.doc.campo;
+
+      if (!filas.some((fila) => fila.estado === "titular")) {
+        const sugerido = informe ? sugiereOnce(informe, jugadoresPlantilla) : null;
+
+        if (sugerido?.titulares.length) {
+          const titulares = new Set(sugerido.titulares);
+
+          filas = players
+            .filter((player) => player.NOMBRE_EQUIPO === equipo && titulares.has(playerKey(player)))
+            .map((player) => ({ player, estado: "titular" as const }));
+
+          campo = sugerido.campo;
+
+          avisos.push(`PDF de la plantilla: nadie ha marcado el once; va el propuesto con sus últimos onces (${explicaSugerencia(sugerido)}).`);
+        }
+      }
+
+      if (filas.length === 0) {
+        avisos.push("PDF de la plantilla: no hay once marcado ni alineaciones de donde proponerlo.");
+      } else {
+        const jugadores: OncePdfPlayer[] = [...filas]
+          .sort((a, b) => ordenDelOnce(a.player, b.player))
+          .map(({ player, estado }) => fichaDePdf(player, estado));
+
+        const { buildOncePdf } = await import("@/lib/rivals/once-pdf");
+
+        const { doc: pdf, nombre } = await buildOncePdf({
+          equipo,
+          escudo: escudoDe(equipo),
+          jugadores,
+          tema: theme,
+          campo,
+          variante: "once",
+        });
+
+        await guarda("plantilla-pdf", pdf.output("blob") as Blob, nombre);
+      }
+    } catch (error) {
+      console.error("[incrustada] PDF de la plantilla", error);
+
+      avisos.push(`PDF de la plantilla: ${error instanceof Error ? error.message : "no se ha podido montar"}.`);
+    }
+
+    /* ---------------- el PPT del rival ---------------- */
+
+    if (!informe) {
+      avisos.push("Informe del rival (PPT): todavía no hay informe de BeSoccer de este equipo.");
+    } else if (!sinSesion) {
+      try {
+        const { partidos, marcados: porDefecto } = partidosElegiblesDe(informe);
+
+        const elegidos = eleccionGuardada(
+          partidosElegidosDoc.value,
+          equipo,
+          partidos.map((uno) => uno.id),
+          porDefecto,
+          PARTIDOS_INFORME_MAXIMO,
+        );
+
+        const data = await armaDatosInforme(doc, informe, elegidos);
+
+        const { construyeHojasInforme, pptxHojasInforme, piezaDeTexto } = await import("@/lib/rivals/informe-ppt");
+
+        const { aplicaAjustes, AJUSTES_INFORME_KEY } = await import("@/lib/rivals/informe-ajustes");
+
+        /* Los retoques que se dejaron en el editor, como al abrirlo. */
+        const ajustes = (await fetch(`/api/docs?key=${encodeURIComponent(AJUSTES_INFORME_KEY)}`, { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => null)) as { data?: { porEquipo?: Record<string, { porHoja?: Parameters<typeof aplicaAjustes>[1] }> } } | null;
+
+        const hojas = await aplicaAjustes(
+          await construyeHojasInforme(data),
+          ajustes?.data?.porEquipo?.[equipo]?.porHoja,
+          piezaDeTexto,
+        );
+
+        const { blob, nombre } = await pptxHojasInforme(hojas, data);
+
+        await guarda("informe-pptx", blob, nombre);
+      } catch (error) {
+        console.error("[incrustada] PPT del rival", error);
+
+        avisos.push(`Informe del rival (PPT): ${error instanceof Error ? error.message : "no se ha podido montar"}.`);
+      }
+    }
+
+    if (docs.length === 0) {
+      return {
+        tipo: "rival-documentos",
+        equipo,
+        ok: false,
+        error: sinSesion || avisos.join(" ") || "No se ha podido montar ningún documento.",
+      };
+    }
+
+    return { tipo: "rival-documentos", equipo, ok: true, docs, avisos };
+  }, [
+    selectedTeam,
+    players,
+    pideInforme,
+    marcados,
+    once.doc.campo,
+    jugadoresPlantilla,
+    fichaDePdf,
+    escudoDe,
+    theme,
+    partidosElegidosDoc.value,
+    armaDatosInforme,
+  ]);
+
+  /* Si algo se queda colgado, se dice: el informe del partido no espera para siempre. */
+  useEffect(() => {
+    if (incrustado !== "documentos") return;
+
+    const reloj = window.setTimeout(() => {
+      entregaDocumentos({
+        tipo: "rival-documentos",
+        equipo: selectedTeam,
+        ok: false,
+        error: "Plantillas rivales no ha terminado a tiempo.",
+      });
+    }, 120_000);
+
+    return () => window.clearTimeout(reloj);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incrustado, entregaDocumentos]);
+
+  const documentosEmpezados = useRef(false);
+
+  /* Cuando está todo cargado, una sola vez. */
+  useEffect(() => {
+    if (incrustado !== "documentos" || documentosEmpezados.current) return;
+
+    if (loadError) {
+      documentosEmpezados.current = true;
+
+      entregaDocumentos({ tipo: "rival-documentos", equipo: selectedTeam, ok: false, error: loadError });
+
+      return;
+    }
+
+    if (
+      loading ||
+      statsLoading ||
+      once.status === "loading" ||
+      partidosElegidosDoc.status === "loading" ||
+      (!informeDoc && !informeFalta)
+    ) {
+      return;
+    }
+
+    documentosEmpezados.current = true;
+
+    void generaDocumentos()
+      .then(entregaDocumentos)
+      .catch((error) =>
+        entregaDocumentos({
+          tipo: "rival-documentos",
+          equipo: selectedTeam,
+          ok: false,
+          error: error instanceof Error ? error.message : "No se han podido montar los documentos.",
+        }),
+      );
+  }, [
+    incrustado,
+    loadError,
+    loading,
+    statsLoading,
+    once.status,
+    partidosElegidosDoc.status,
+    informeDoc,
+    informeFalta,
+    generaDocumentos,
+    entregaDocumentos,
+    selectedTeam,
+  ]);
 
   /** Lo que sale del editor: las hojas ya retocadas, al `.pptx`. */
   const exportarInformeEditado = useCallback(
@@ -2062,15 +2395,24 @@ export default function RivalPlayersPage() {
       setExportando(true);
 
       try {
-        const { exportaHojasInforme } = await import(
+        const { pptxHojasInforme } = await import(
           "@/lib/rivals/informe-ppt"
         );
 
-        const nombre = await exportaHojasInforme(hojas, datosInforme);
+        const { blob, nombre } = await pptxHojasInforme(hojas, datosInforme);
+
+        descarga(blob, nombre);
 
         toast.success("Informe del rival exportado", {
           description: `${nombre} · cada elemento va suelto y se edita en PowerPoint`,
         });
+
+        /* Y se guarda como el último informe del rival, para el del partido. */
+        void guardaDocumentoRival(equipoDelOnce, "informe-pptx", blob, nombre).then((r) =>
+          r.ok
+            ? toast.message("Guardado para el informe del partido", { description: "Irá adjunto al informe completo desde Microciclos." })
+            : toast.message("No se ha guardado para el informe del partido", { description: r.motivo }),
+        );
 
         setHojasInforme(null);
       } catch (error) {
@@ -2085,7 +2427,7 @@ export default function RivalPlayersPage() {
         setExportando(false);
       }
     },
-    [datosInforme],
+    [datosInforme, equipoDelOnce],
   );
 
   /*
@@ -2424,8 +2766,11 @@ export default function RivalPlayersPage() {
     }
 
     /* La URL vuelve a su sitio: si no, recargar reabriría la ficha y quien
-       copiase la barra de direcciones compartiría la de otro jugador. */
-    window.history.replaceState(null, "", window.location.pathname);
+       copiase la barra de direcciones compartiría la de otro jugador. En la
+       pantalla incrustada no: de la barra se lee que lo está. */
+    if (!new URLSearchParams(window.location.search).has("incrustado")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   }, [enlaceDirecto, players, openPlayer]);
 
   const isDirty =

@@ -17,9 +17,9 @@
  * calculado y ni `oklch` ni `backdrop-filter` sobreviven al JPEG.
  */
 
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 
-import { apellido, cifra, conDato, fraseUtil, ordinal, pct, revisaPalancas, type GolCronica, type InformePartido, type JugadorRival, type MetricaDuelo, type Probabilidades } from "@/lib/informe-partido/modelo";
+import { apellido, cifra, conDato, fraseUtil, ordinal, pct, revisaPalancas, contrastePronostico, type GolCronica, type InformePartido, type JugadorRival, type MetricaDuelo, type Probabilidades } from "@/lib/informe-partido/modelo";
 
 export const DIAPO_W = 1920;
 export const DIAPO_H = 1080;
@@ -228,24 +228,9 @@ function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string
         const y = 92 - (j.y ?? 0.5) * 84;
 
         return (
-          <div key={j.clave} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 118, transform: "translate(-50%, -24px)", textAlign: "center" }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                margin: "0 auto",
-                borderRadius: 999,
-                background: resaltar?.has(j.clave) ? C.oro : C.rival,
-                border: "3px solid #fff",
-                color: "#fff",
-                fontSize: 22,
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {j.dorsal || ""}
+          <div key={j.clave} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 118, transform: "translate(-50%, -30px)", textAlign: "center" }}>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <Cara j={j} size={54} color={resaltar?.has(j.clave) ? C.oro : C.rival} />
             </div>
             <div style={{ marginTop: 3, fontSize: 18, fontWeight: 700, color: "#fff", textTransform: "uppercase", textShadow: "0 1px 3px rgba(0,0,0,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {j.nombre.split(" ").slice(-1)[0]}
@@ -253,6 +238,64 @@ function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** La cara del jugador (por el proxy de fotos), con el dorsal en una chapa. Sin foto, el dorsal. */
+function Cara({ j, size, color = C.rival }: { j: JugadorRival; size: number; color?: string }) {
+  const src = j.foto ? `/api/rivals/foto?url=${encodeURIComponent(j.foto)}` : "";
+
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 999,
+          overflow: "hidden",
+          boxSizing: "border-box",
+          border: `3px solid ${color}`,
+          background: src ? "#E9E4D8" : color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          fontSize: size * 0.42,
+          fontWeight: 700,
+        }}
+      >
+        {src ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }} />
+        ) : (
+          j.dorsal || "·"
+        )}
+      </div>
+      {src && j.dorsal ? (
+        <span
+          style={{
+            position: "absolute",
+            right: -6,
+            bottom: -4,
+            minWidth: size * 0.44,
+            height: size * 0.44,
+            padding: "0 4px",
+            boxSizing: "border-box",
+            borderRadius: 999,
+            background: color,
+            border: "2px solid #0C1A2E",
+            color: "#fff",
+            fontSize: size * 0.26,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {j.dorsal}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -509,8 +552,8 @@ const rasgosDe = (j: JugadorRival) =>
 /** A quién vigilar, en una fila: dorsal, nombre y por qué. */
 function VigilarFila({ j }: { j: JugadorRival }) {
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-      <div style={{ width: 46, height: 46, borderRadius: 12, background: C.rival, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{j.dorsal || "·"}</div>
+    <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+      <Cara j={j} size={58} />
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 23, fontWeight: 700, lineHeight: 1.05, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {j.nombre} <span style={{ fontSize: 17, fontWeight: 600, color: C.tenue, textTransform: "none" }}>{j.posicion.toLowerCase()}</span>
@@ -664,6 +707,13 @@ function Palancas({ inf }: { inf: InformePartido }) {
 function PreviaPlan({ inf }: { inf: InformePartido }) {
   return (
     <Marco pagina={2} total={2} etiqueta="EL PLAN" inf={inf}>
+      {inf.pronostico?.idea ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 26px", marginBottom: 18, borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.22), rgba(200,169,107,0.04))", border: "2px solid rgba(200,169,107,0.45)" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.24em", color: C.oro, whiteSpace: "nowrap" }}>LA IDEA</span>
+          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
+          <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{inf.pronostico.idea}</span>
+        </div>
+      ) : null}
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.15fr 1fr 0.95fr", gap: 22 }}>
         <Panel titulo="CÓMO LO GANAMOS">
           <Lista items={inf.sintesis.claves} numerada tamano={27} max={4} corte={100} />
@@ -910,6 +960,22 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
               <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>EL PRONÓSTICO, FRENTE AL RESULTADO</div>
               <BarraResultado p={pr} alto={46} resaltar={real} />
               {inf.sintesis.veredicto ? <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.15, color: C.crema, marginTop: 6 }}>{recorta(inf.sintesis.veredicto, 130)}</div> : null}
+              {contrastePronostico(inf).length ? (
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr auto", columnGap: 14, rowGap: 4, marginTop: 8, fontSize: 18, fontWeight: 600, alignItems: "center" }}>
+                  <span style={{ fontSize: 13, letterSpacing: "0.14em", color: C.tenue }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", color: C.tenue }}>PREVISTO</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", color: C.tenue }}>PASÓ</span>
+                  <span />
+                  {contrastePronostico(inf).map((f) => (
+                    <Fragment key={f.rotulo}>
+                      <span style={{ color: C.oro, fontWeight: 700 }}>{f.rotulo}</span>
+                      <span style={{ color: C.suave }}>{f.previsto}</span>
+                      <span style={{ color: C.crema }}>{f.real}</span>
+                      <span style={{ color: f.acierto === null ? C.tenue : f.acierto ? C.bien : C.mal, fontWeight: 700 }}>{f.acierto === null ? "·" : f.acierto ? "✓" : "✗"}</span>
+                    </Fragment>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.tenue, marginBottom: 6 }}>LO QUE NOS PROPUSIMOS · ¿SE CUMPLIÓ?</div>
@@ -938,6 +1004,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
                 {inf.sintesis.frenados.map((f) => (
                   <div key={f.jugador.clave} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ width: 34, height: 34, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color: "#08111F", background: f.bien ? C.bien : C.mal }}>{f.bien ? "✓" : "!"}</span>
+                    <Cara j={f.jugador} size={44} color={f.bien ? C.bien : C.mal} />
                     <div style={{ minWidth: 0, fontSize: 21, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {f.jugador.nombre} <span style={{ fontSize: 17, fontWeight: 600, color: C.suave, textTransform: "none" }}>{f.texto}</span>
                     </div>

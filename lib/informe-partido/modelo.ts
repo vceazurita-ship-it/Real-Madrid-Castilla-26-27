@@ -175,7 +175,15 @@ export type Colectivo = {
   resumen: { fases: { titulo: string; texto: string }[]; dano: string[] };
 };
 
-export type DocumentoRival = { nombre: string; url: string; tipo: string; tamano: number | null; adjuntable: boolean };
+export type DocumentoRival = {
+  nombre: string;
+  url: string;
+  tipo: string;
+  tamano: number | null;
+  adjuntable: boolean;
+  /** Los sacados en Plantillas rivales: cuál es (se sustituyen al volver a sacarlos). */
+  generado?: "plantilla-pdf" | "informe-pptx";
+};
 
 /** Una de las tres palancas con las que el plan mueve el pronóstico. */
 export type Palanca = {
@@ -205,6 +213,8 @@ export type Probabilidades = { victoria: number; empate: number; derrota: number
  */
 export type Pronostico = Probabilidades & {
   lectura: string;
+  /** La idea del partido en una frase: qué quitarles y por dónde hacerles daño, con dato. */
+  idea: string;
   palancas: Palanca[];
   conPlan: Probabilidades;
   /** De dónde sale, para el pie: «xG y goles de 5 y 5 partidos · factor campo». */
@@ -288,7 +298,14 @@ export type InformePartido = {
    * Los recursos del rival (Scouting colectivo → Recursos): documentos y
    * vídeos. Los subidos al bucket se pueden adjuntar; los enlaces van como enlace.
    */
-  recursos: { documentos: DocumentoRival[]; videos: { nombre: string; url: string }[] };
+  recursos: {
+    documentos: DocumentoRival[];
+    videos: { nombre: string; url: string }[];
+    /** El equipo como lo escribe la hoja de plantillas (para pedir sus documentos a Plantillas rivales). */
+    equipoPlantilla: string;
+    /** Los que se sacaron en Plantillas rivales: de qué tipo y cuándo. */
+    generados: { tipo: "plantilla-pdf" | "informe-pptx"; creado: string }[];
+  };
   sintesis: Sintesis;
   avisos: string[];
 };
@@ -627,6 +644,15 @@ export function pronostica(inf: { duelo: Duelo | null; partido: { lado: "casa" |
     },
   ];
 
+  const enMinuscula = (x: MetricaDuelo) => x.nombre.replace(/\s*%$/, "").replace(/^./, (c) => c.toLowerCase());
+
+  const idea =
+    suFuerte && suDebil
+      ? `Quitarles ${enMinuscula(suFuerte)} (son ${ordinal(suFuerte.rival!.puesto)} de la liga) y hacerles daño donde sufren: ${enMinuscula(suDebil)} (${ordinal(suDebil.rival!.puesto)})`
+      : suFuerte
+        ? `Quitarles ${enMinuscula(suFuerte)}: son ${ordinal(suFuerte.rival!.puesto)} de la liga`
+        : "";
+
   const dif = base.victoria - base.derrota;
 
   const tipo =
@@ -637,10 +663,52 @@ export function pronostica(inf: { duelo: Duelo | null; partido: { lado: "casa" |
   return {
     ...base,
     lectura,
+    idea,
     palancas,
     conPlan,
     base: `xG y goles de la temporada antes del partido (${nNos} y ${nRiv} partidos) · ${campo === 1 ? "sin factor campo" : campo > 1 ? "en casa" : "fuera"}`,
   };
+}
+
+/**
+ * Post: lo que daba el pronóstico frente a lo que pasó, cifra a cifra.
+ *
+ * Tres comparaciones: el resultado (cuánto se le daba al que salió), los goles
+ * esperados contra los marcados y —cuando Wyscout tiene el partido— contra el
+ * xG de verdad, que dice si el partido se pareció a lo previsto aunque el
+ * marcador no lo hiciera.
+ */
+export function contrastePronostico(inf: { pronostico: Pronostico | null; duelo: Duelo | null; partido: InformePartido["partido"] }) {
+  const pr = inf.pronostico;
+
+  const p = inf.partido;
+
+  if (!pr || !p.jugado || p.gf === null || p.gc === null) return [] as { rotulo: string; previsto: string; real: string; acierto: boolean | null }[];
+
+  const resultado = p.gf > p.gc ? "victoria" : p.gf < p.gc ? "derrota" : "empate";
+
+  const masProbable = pr.victoria >= pr.empate && pr.victoria >= pr.derrota ? "victoria" : pr.derrota >= pr.empate ? "derrota" : "empate";
+
+  const xg = inf.duelo?.partido?.metricas.find((x) => x.key === "xg");
+
+  const filas = [
+    { rotulo: "Resultado", previsto: `${masProbable} (${pct(pr[masProbable])})`, real: `${resultado} ${p.gf}-${p.gc}`, acierto: masProbable === resultado },
+    { rotulo: "Marcador", previsto: pr.marcador, real: `${p.gf}-${p.gc}`, acierto: pr.marcador === `${p.gf}-${p.gc}` },
+    {
+      rotulo: "Goles",
+      previsto: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`,
+      real: `${p.gf} – ${p.gc}`,
+      acierto: Math.abs(p.gf - pr.esperados.nosotros) <= 1 && Math.abs(p.gc - pr.esperados.rival) <= 1,
+    },
+    {
+      rotulo: "xG del partido",
+      previsto: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`,
+      real: xg?.nuestro != null && xg?.suyo != null ? `${cifra(xg.nuestro, "decimal")} – ${cifra(xg.suyo, "decimal")}` : "pendiente de Wyscout",
+      acierto: xg?.nuestro != null && xg?.suyo != null ? Math.abs(xg.nuestro - pr.esperados.nosotros) <= 0.6 && Math.abs(xg.suyo - pr.esperados.rival) <= 0.6 : null,
+    },
+  ];
+
+  return filas;
 }
 
 /** Post: cada palanca, su meta y lo que pasó (si Wyscout ya tiene el partido). */

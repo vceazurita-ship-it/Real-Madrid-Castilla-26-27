@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
+import { BookOpen, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented, TextArea } from "@/components/abp/ui";
@@ -31,6 +31,8 @@ import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-p
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
+import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
+import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { informeHtml, informeTexto, resumenHtml } from "@/lib/informe-partido/html";
 import type { InformePartido, Momento, PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { apodo, capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
@@ -53,7 +55,15 @@ type AbpLlegado =
   | { ok: false; clave: string; error: string };
 
 /** Un documento para el correo extenso. */
-type Documento = { nombre: string; url: string; tipo: string; tamano: number | null; adjuntable: boolean; origen: "rival" | "subido" };
+type Documento = { nombre: string; url: string; tipo: string; tamano: number | null; adjuntable: boolean; origen: "rival" | "subido"; generado?: TipoDocumentoRival };
+
+/** Lo que devuelve Plantillas rivales incrustada: el PDF de la plantilla y el PPT del rival, ya guardados. */
+type DocsLlegados =
+  | { ok: true; clave: string; docs: { tipo: TipoDocumentoRival; nombre: string; url: string; tamano: number }[]; avisos: string[] }
+  | { ok: false; clave: string; error: string };
+
+/* Lo que se espera a que Plantillas rivales saque los dos documentos. */
+const ESPERA_DOCS = 180_000;
 
 /* El correo extenso lleva los adjuntos que se trae el servidor: Gmail admite
    ~35 MB por mensaje y la base64 suma un tercio. */
@@ -213,6 +223,69 @@ export function InformePartidoDialog({
     };
   }, [informe, abpActual]);
 
+  /* ---------------- el PDF y el PPT del rival, de su pantalla ---------------- */
+
+  /*
+  | Tienen que ir siempre en el completo. Si nadie los ha sacado en Plantillas
+  | rivales —o son de antes de esta semana—, se piden: la pantalla se abre
+  | oculta, los saca como si se pulsaran sus botones, los guarda y contesta.
+  */
+  const [pideDocs, setPideDocs] = useState(0);
+
+  const generados = informe?.recursos.generados ?? [];
+
+  const inicioSemana = informe?.microciclo?.dias[0]?.fecha ?? "";
+
+  const viejo = (tipo: TipoDocumentoRival) => {
+    const g = generados.find((x) => x.tipo === tipo);
+
+    return !g || (inicioSemana !== "" && g.creado.slice(0, 10) < inicioSemana);
+  };
+
+  const equipoDocs = informe?.recursos.equipoPlantilla ?? "";
+
+  const faltanDocs = Boolean(informe) && !cargando && Boolean(equipoDocs) && (viejo("plantilla-pdf") || viejo("informe-pptx"));
+
+  const docsClave = (faltanDocs || pideDocs > 0) && equipoDocs ? `${equipoDocs}|${pideDocs}|${testigo}` : "";
+
+  const [docsRival, setDocsRival] = useState<DocsLlegados | null>(null);
+
+  const docsClaveRef = useRef("");
+
+  useEffect(() => {
+    docsClaveRef.current = docsClave;
+  }, [docsClave]);
+
+  useEffect(() => {
+    const oye = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+
+      const d = e.data as { tipo?: string } & Record<string, unknown>;
+
+      if (d?.tipo !== "rival-documentos") return;
+
+      setDocsRival({ ...(d as unknown as DocsLlegados), clave: docsClaveRef.current });
+    };
+
+    window.addEventListener("message", oye);
+
+    return () => window.removeEventListener("message", oye);
+  }, []);
+
+  useEffect(() => {
+    if (!docsClave) return;
+
+    const t = window.setTimeout(() => {
+      setDocsRival((actual) => (actual?.clave === docsClave ? actual : { ok: false, clave: docsClave, error: "Plantillas rivales no ha contestado a tiempo." }));
+    }, ESPERA_DOCS);
+
+    return () => window.clearTimeout(t);
+  }, [docsClave]);
+
+  const docsActual = docsRival && docsRival.clave === docsClave ? docsRival : null;
+
+  const docsCargando = Boolean(docsClave) && !docsActual;
+
   /* ---------------- los adjuntos ---------------- */
 
   const [subidos, setSubidos] = useState<Documento[]>([]);
@@ -223,10 +296,27 @@ export function InformePartidoDialog({
 
   const elegirArchivo = useRef<HTMLInputElement | null>(null);
 
-  const documentos = useMemo<Documento[]>(
-    () => [...(informe?.recursos.documentos ?? []).map((d) => ({ ...d, origen: "rival" as const })), ...subidos],
-    [informe, subidos],
-  );
+  const documentos = useMemo<Documento[]>(() => {
+    const nuevos = docsActual?.ok
+      ? docsActual.docs.map((x) => ({
+          nombre: `${ROTULO_DOCUMENTO[x.tipo]} · recién sacado`,
+          url: x.url,
+          tipo: x.tipo === "plantilla-pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          tamano: x.tamano,
+          adjuntable: true,
+          origen: "rival" as const,
+          generado: x.tipo,
+        }))
+      : [];
+
+    const sustituidos = new Set(nuevos.map((x) => x.generado));
+
+    return [
+      ...nuevos,
+      ...(informe?.recursos.documentos ?? []).filter((x) => !x.generado || !sustituidos.has(x.generado)).map((x) => ({ ...x, origen: "rival" as const })),
+      ...subidos,
+    ];
+  }, [informe, subidos, docsActual]);
 
   const marcados = documentos.filter((d) => d.adjuntable && !quitados.has(d.url));
 
@@ -326,19 +416,31 @@ export function InformePartidoDialog({
     try {
       const imagenes = await capturaDiapositivas();
 
-      descarga(
-        creaPptx(
-          imagenes.map((imagen, i) => ({ titulo: i === 0 ? (informe?.momento === "post" ? "El resultado" : "El partido") : informe?.momento === "post" ? "Lo que nos deja" : "El plan", imagen })),
-          { titulo: `${informe?.momento === "post" ? "Post" : "Previa"} · ${informe?.partido.rival ?? ""}`, aplicacion: "Informe del partido" },
-        ),
-        `${nombreArchivo}.pptx`,
-      );
+      descarga(pptDe(imagenes), `${nombreArchivo}.pptx`);
     } catch (error) {
       toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
     } finally {
       setTrabajando(null);
     }
   };
+
+  const bajaCompleto = async () => {
+    try {
+      setTrabajando("Montando el PDF del completo…");
+
+      descarga(await completoEnPdf(htmlVista), `${nombreArchivo}-completo.pdf`);
+    } catch (error) {
+      toast.error("No se ha podido exportar el completo", { description: error instanceof Error ? error.message : "" });
+    } finally {
+      setTrabajando(null);
+    }
+  };
+
+  const pptDe = (imagenes: string[]) =>
+    creaPptx(
+      imagenes.map((imagen, i) => ({ titulo: i === 0 ? (informe?.momento === "post" ? "El resultado" : "El partido") : informe?.momento === "post" ? "Lo que nos deja" : "El plan", imagen })),
+      { titulo: `${informe?.momento === "post" ? "Post" : "Previa"} · ${informe?.partido.rival ?? ""}`, aplicacion: "Informe del partido" },
+    );
 
   const manda = async (cuerpo: Record<string, unknown>) => {
     const r = await fetch("/api/informe/correo", {
@@ -402,12 +504,14 @@ export function InformePartidoDialog({
     const partido = `${cruce}${p.jornada ? ` · J${p.jornada}` : ""}`;
 
     try {
+      const imagenes = await capturaDiapositivas();
+
+      const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
+
+      const pdfResumen = await pdfDe(imagenes);
+
       if (que.resumen) {
-        const imagenes = await capturaDiapositivas();
-
         setTrabajando("Mandando el resumen…");
-
-        const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
 
         await manda({
           para,
@@ -415,20 +519,44 @@ export function InformePartidoDialog({
           html: resumenHtml(informeVisto, cids),
           texto: informeTexto(informeVisto),
           imagenes: imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
-          adjuntos: [{ nombre: `${nombreArchivo}.pdf`, tipo: "application/pdf", base64: await base64De(await pdfDe(imagenes)) }],
+          adjuntos: [{ nombre: `${nombreArchivo}.pdf`, tipo: "application/pdf", base64: await base64De(pdfResumen) }],
         });
       }
 
       if (que.completo) {
-        setTrabajando(marcados.length ? "Mandando el completo con sus adjuntos…" : "Mandando el informe completo…");
+        /*
+        | El completo lleva adjuntos el resumen (PDF y PPT), él mismo en PDF y
+        | los documentos del rival. Los nuestros se suben antes a Supabase: por
+        | la función de Vercel no caben.
+        */
+        setTrabajando("Montando el completo en PDF…");
+
+        const propios: { nombre: string; blob: Blob; tipo: string }[] = [
+          { nombre: `${nombreArchivo}-resumen.pdf`, blob: pdfResumen, tipo: "application/pdf" },
+          { nombre: `${nombreArchivo}-resumen.pptx`, blob: pptDe(imagenes), tipo: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+          { nombre: `${nombreArchivo}-completo.pdf`, blob: await completoEnPdf(htmlVista), tipo: "application/pdf" },
+        ];
+
+        const subidosAhora = [];
+
+        for (const [i, archivo] of propios.entries()) {
+          setTrabajando(`Subiendo adjuntos ${i + 1}/${propios.length}…`);
+
+          subidosAhora.push(await subeAdjunto(new File([archivo.blob], archivo.nombre, { type: archivo.tipo })));
+        }
+
+        setTrabajando("Mandando el informe completo…");
 
         await manda({
           para,
           asunto: `[${etiqueta} · COMPLETO] ${partido}`,
-          html,
+          html: informeVisto ? informeHtml(informeVisto, { ...extras, diapositivas: cids, adjuntos: [...subidosAhora.map((a) => a.nombre), ...extras.adjuntos] }) : html,
           texto: `${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}`,
-          imagenes: abpActual?.ok ? abpActual.imagenes : [],
-          adjuntosUrl: marcados.map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
+          imagenes: [
+            ...imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
+            ...(abpActual?.ok ? abpActual.imagenes : []),
+          ],
+          adjuntosUrl: [...subidosAhora, ...marcados].map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
         });
       }
 
@@ -449,7 +577,7 @@ export function InformePartidoDialog({
 
   /* Mandar el completo sin esperar a ABP dejaría fuera su informe: se espera,
      salvo que sólo se mande el resumen (que ya lleva su pincelada si llegó). */
-  const esperaAbp = que.completo && abpCargando;
+  const esperaAbp = que.completo && (abpCargando || docsCargando);
 
   return (
     <Dialog
@@ -470,11 +598,14 @@ export function InformePartidoDialog({
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button icon={FileText} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPdf()}>
-              PDF
+            <Button icon={FileText} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPdf()} title="Las dos diapositivas en PDF">
+              Resumen PDF
             </Button>
-            <Button icon={Presentation} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPptx()}>
-              PPT
+            <Button icon={Presentation} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPptx()} title="Las dos diapositivas en PowerPoint">
+              Resumen PPT
+            </Button>
+            <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF (con el de balón parado)">
+              Completo PDF
             </Button>
             <Button
               tone="primary"
@@ -483,7 +614,7 @@ export function InformePartidoDialog({
               onClick={() => void envia()}
               title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
             >
-              {trabajando ?? (esperaAbp ? "Preparando ABP…" : que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
+              {trabajando ?? (esperaAbp ? (abpCargando ? "Preparando ABP…" : "Sacando PDF y PPT del rival…") : que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
             </Button>
           </div>
         </div>
@@ -525,7 +656,11 @@ export function InformePartidoDialog({
               onChange={(m) => setMomentoPedido(m as Momento)}
             />
             <span className="mt-1 block text-[10px] text-white/35">
-              {momentoPedido ? "Elegido a mano" : informe?.partido.jugado ? "Lo dice el calendario: ya se jugó" : "Lo dice el calendario: aún no se ha jugado"}
+              {momentoPedido
+                ? "Elegido a mano: la previa se puede sacar aunque ya se haya jugado"
+                : informe?.partido.jugado
+                  ? "Ya se jugó: sale el post (la previa sigue disponible)"
+                  : "Aún no se ha jugado: sale la previa"}
             </span>
           </div>
 
@@ -583,9 +718,21 @@ export function InformePartidoDialog({
 
             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/65">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Adjuntos del informe completo</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Adjuntos del completo · además del resumen (PDF y PPT) y el completo en PDF</p>
                 <span className="text-[10px] text-white/35">{marcados.length ? `${mb(pesoAdjuntos)} de ${mb(TOPE_ADJUNTOS)}` : ""}</span>
               </div>
+              {docsCargando ? (
+                <p className="mb-1 inline-flex items-center gap-2 text-white/60">
+                  <Loader2 size={12} className="animate-spin" /> Sacando el PDF de la plantilla y el PPT del rival…
+                </p>
+              ) : docsActual && !docsActual.ok ? (
+                <p className="mb-1 text-amber-200/80">
+                  No se han podido sacar solos ({docsActual.error}).{" "}
+                  <button className="underline underline-offset-2" onClick={() => setPideDocs((n) => n + 1)}>
+                    Reintentar
+                  </button>
+                </p>
+              ) : null}
               {documentos.length ? (
                 <ul className="space-y-1">
                   {documentos.map((d) => (
@@ -635,9 +782,9 @@ export function InformePartidoDialog({
                 <Button icon={subiendo ? Loader2 : Upload} disabled={Boolean(subiendo)} onClick={() => elegirArchivo.current?.click()}>
                   {subiendo ? `Subiendo ${Math.round(subiendo.fraccion * 100)} %` : "Añadir PDF o PPT"}
                 </Button>
-                <a href="/rivals" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-[#C8A96B] underline-offset-2 hover:underline">
-                  <Paperclip size={11} /> Sacar el PDF de la plantilla o el PPT del rival
-                </a>
+                <Button icon={docsCargando ? Loader2 : Paperclip} disabled={docsCargando || !equipoDocs} onClick={() => setPideDocs((n) => n + 1)} title="Vuelve a sacar el PDF de la plantilla y el PPT del rival con lo último">
+                  Volver a sacar PDF y PPT del rival
+                </Button>
               </div>
             </div>
           </div>
@@ -693,6 +840,18 @@ export function InformePartidoDialog({
           tabIndex={-1}
           src={`/abp-microciclo?incrustado=${encodeURIComponent(`${temporadaAbp}|${microAbp}`)}&modo=${informe?.momento ?? "previa"}`}
           style={{ position: "fixed", left: -30000, top: 0, width: 1280, height: 900, border: 0, visibility: "hidden" }}
+        />
+      )}
+
+      {/* Plantillas rivales, oculta, mientras saca el PDF y el PPT del rival. */}
+      {docsCargando && (
+        <iframe
+          key={docsClave}
+          title="Documentos del rival"
+          aria-hidden
+          tabIndex={-1}
+          src={`/rivals?incrustado=documentos&equipo=${encodeURIComponent(equipoDocs)}`}
+          style={{ position: "fixed", left: -30000, top: 0, width: 1600, height: 1000, border: 0, visibility: "hidden" }}
         />
       )}
 

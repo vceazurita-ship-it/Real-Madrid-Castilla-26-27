@@ -20,6 +20,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { analisisKey, clipsKey, laminaVacia, normalizaAnalisis, ordenJornada } from "@/lib/rivals/analisis";
 import { esLiga, findInforme, type InformeDoc, type InformeEquipo, type OncePartido } from "@/lib/rivals/informe";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { normalizaDocumentos, rivalDocumentosKey, ROTULO_DOCUMENTO } from "@/lib/rivals/documentos";
 import { normalizarMedia, rivalMediaKey } from "@/lib/rivals/media";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
@@ -595,7 +596,7 @@ export async function cargaInforme(entrada: {
 
   const informeRival = findInforme(informes, equipoHoja);
 
-  const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc] = await Promise.all([
+  const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc, generadosDoc] = await Promise.all([
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
     doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[] }> }>(clipsKey(equipoHoja)),
@@ -607,7 +608,18 @@ export async function cargaInforme(entrada: {
       .then((j) => j.duelo ?? null)
       .catch(() => null),
     filaRival ? doc<unknown>(rivalMediaKey(texto(filaRival.ID))) : Promise.resolve(null),
+    doc<unknown>(rivalDocumentosKey(equipoHoja)),
   ]);
+
+  /* Lo último que se sacó en Plantillas rivales: va primero y marcado. */
+  const generados = normalizaDocumentos(generadosDoc).docs.map((d) => ({
+    nombre: `${ROTULO_DOCUMENTO[d.tipo]} · ${new Date(d.creado).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`,
+    url: d.url,
+    tipo: d.mime,
+    tamano: d.tamano,
+    adjuntable: true,
+    generado: d.tipo,
+  }));
 
   /* Los recursos del rival: los PDF y PPT subidos se pueden adjuntar al correo. */
   const media = normalizarMedia(mediaDoc);
@@ -616,7 +628,9 @@ export async function cargaInforme(entrada: {
     mime || (/\.pptx$/i.test(nombre) ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : /\.pdf$/i.test(nombre) ? "application/pdf" : "");
 
   const recursos = {
-    documentos: media.docs.map((d) => {
+    documentos: [
+      ...generados,
+      ...media.docs.map((d) => {
       const tipo = tipoDeDoc(d.path ?? d.url, d.mime);
 
       return {
@@ -626,8 +640,11 @@ export async function cargaInforme(entrada: {
         tamano: d.tamano ?? null,
         adjuntable: d.origen === "archivo" && /pdf|presentationml/.test(tipo),
       };
-    }),
+      }),
+    ],
     videos: media.videos.map((v) => ({ nombre: v.nombre, url: v.url })),
+    equipoPlantilla: equipoHoja,
+    generados: normalizaDocumentos(generadosDoc).docs.map((d) => ({ tipo: d.tipo, creado: d.creado })),
   };
 
   let once: InformePartido["once"] = { jugadores: [], fuente: null, detalle: "" };

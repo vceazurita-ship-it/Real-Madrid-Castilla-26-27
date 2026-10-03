@@ -5060,7 +5060,20 @@ async function conOpacidad(elemento: ElementoInforme) {
  * el panel de selección, que se mueve y se borra sin tocar lo demás. Es lo que
  * pedía el cuerpo técnico para rematar el documento en Office.
  */
+/** Descarga el .pptx y devuelve su nombre (y el archivo, por si se guarda). */
 export async function exportaHojasInforme(
+  hojas: HojaInforme[],
+  data: InformeData,
+) {
+  const { blob, nombre } = await pptxHojasInforme(hojas, data);
+
+  descarga(blob, nombre);
+
+  return nombre;
+}
+
+/** El .pptx de las hojas ya retocadas, sin descargarlo. */
+export async function pptxHojasInforme(
   hojas: HojaInforme[],
   data: InformeData,
 ) {
@@ -5118,9 +5131,7 @@ export async function exportaHojasInforme(
 
   const nombre = nombreArchivoInforme(data);
 
-  descarga(blob, nombre);
-
-  return nombre;
+  return { blob, nombre };
 }
 
 /* ------------------------------------------------------------------ */

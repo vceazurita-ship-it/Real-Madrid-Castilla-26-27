@@ -11,7 +11,7 @@
  * la semana → balón parado → lo que el informe no sabe.
  */
 
-import { cifra, conDato, ordinal, pct, revisaPalancas, type InformePartido, type JugadorRival } from "./modelo";
+import { cifra, conDato, ordinal, pct, revisaPalancas, contrastePronostico, type InformePartido, type JugadorRival } from "./modelo";
 
 const NAVY = "#0F1E3D";
 const ORO = "#A8874A";
@@ -30,13 +30,26 @@ const esc = (s: unknown) =>
 /** Un texto libre con sus saltos de línea. */
 const parrafo = (t: string) => esc(t).replace(/\r?\n+/g, "<br>");
 
+const NUMERO = "{{N}}";
+
 function seccion(titulo: string, pie: string, cuerpo: string) {
   if (!cuerpo.trim()) return "";
 
-  return `<tr><td style="padding:26px 28px 6px"><p style="margin:0;font:700 12px/1.3 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:${ORO}">${esc(titulo)}</p>${
-    pie ? `<p style="margin:4px 0 12px;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(pie)}</p>` : `<div style="height:10px"></div>`
-  }${cuerpo}</td></tr>`;
+  return `<tr><td style="padding:34px 32px 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="58" valign="top" style="font:700 34px/1 Georgia,'Times New Roman',serif;color:#C8A96B">${NUMERO}</td><td valign="top"><p style="margin:0;font:700 20px/1.2 Arial,sans-serif;color:${NAVY}">${esc(titulo)}</p>${
+    pie ? `<p style="margin:5px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(pie)}</p>` : ""
+  }</td></tr></table><div style="height:2px;background:#E8DFC9;margin:14px 0 16px"></div>${cuerpo}</td></tr>`;
 }
+
+/** Numera los capítulos que han salido: 01, 02… */
+function numera(html: string) {
+  let n = 0;
+
+  return html.split(NUMERO).reduce((acc, trozo, i) => (i === 0 ? trozo : `${acc}${String(++n).padStart(2, "0")}${trozo}`), "");
+}
+
+/** Una foto de jugador pequeña y redonda (la URL de BeSoccer es pública). */
+const fotito = (url: string) =>
+  url ? `<img src="${esc(url)}" width="36" height="36" alt="" style="display:block;width:36px;height:36px;border-radius:18px;object-fit:cover;background:#EEE">` : "";
 
 function tabla(cabecera: string[], filas: string[][]) {
   if (!filas.length) return "";
@@ -61,7 +74,7 @@ function tarjetas(items: { rotulo: string; valor: string; pie?: string }[]) {
   const celdas = items
     .map(
       (d) =>
-        `<td style="padding:12px 14px;background:${CREMA};border:1px solid #E5E1D6;border-radius:8px"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(d.rotulo)}</p><p style="margin:4px 0 0;font:700 20px/1.2 Arial,sans-serif;color:${NAVY}">${esc(d.valor)}</p>${
+        `<td style="padding:14px 16px;background:${CREMA};border:1px solid #E5E1D6;border-top:3px solid #C8A96B;border-radius:8px"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(d.rotulo)}</p><p style="margin:4px 0 0;font:700 20px/1.2 Arial,sans-serif;color:${NAVY}">${esc(d.valor)}</p>${
           d.pie ? `<p style="margin:2px 0 0;font:400 11px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(d.pie)}</p>` : ""
         }</td>`,
     )
@@ -102,6 +115,8 @@ export type ExtrasInforme = {
   abpCuerpo?: string;
   /** Los documentos que van adjuntos al correo, para nombrarlos. */
   adjuntos?: string[];
+  /** Los `cid` de las dos diapositivas, si van dentro del correo. */
+  diapositivas?: string[];
 };
 
 export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
@@ -290,6 +305,14 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
           { rotulo: "Derrota", valor: pct(pr.derrota) },
           { rotulo: "Resultado", valor: p.gf !== null && p.gc !== null ? `${p.gf}-${p.gc}` : "—", pie: `el más probable era ${pr.marcador}` },
         ])}<div style="height:12px"></div>${tabla(
+          ["", "Lo previsto", "Lo que pasó", ""],
+          contrastePronostico(inf).map((f) => [
+            `<b>${esc(f.rotulo)}</b>`,
+            esc(f.previsto),
+            `<b>${esc(f.real)}</b>`,
+            f.acierto === null ? "—" : f.acierto ? `<b style="color:${VERDE}">✓</b>` : `<b style="color:${ROJO}">✗</b>`,
+          ]),
+        )}<div style="height:12px"></div>${tabla(
           ["Palanca", "La meta", "Lo que pasó", ""],
           revisaPalancas(inf).map((x) => [
             `<b>${esc(x.momento)}</b>`,
@@ -339,7 +362,7 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
     ? `<p style="margin:0 0 8px;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(inf.once.detalle)}.</p>${tabla(
         ["", "Jugador", "Ficha", "Temporada", "Rasgos y lectura"],
         inf.once.jugadores.map((j) => [
-          `<b>${esc(j.dorsal)}</b>`,
+          `${fotito(j.foto)}<b style="display:block;text-align:center;margin-top:2px">${esc(j.dorsal)}</b>`,
           `<b>${esc(j.nombre)}</b>`,
           fichaJugador(j),
           cifrasJugador(j),
@@ -459,8 +482,54 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
 
   const titulo = `${esPost ? "Post partido" : "Previa"} · ${p.lado === "fuera" ? `${rival} - RM Castilla` : `RM Castilla - ${rival}`}`;
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
-<tr><td style="padding:26px 28px;background:${NAVY}"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · ${esPost ? "POST PARTIDO" : "PREVIA DEL PARTIDO"}</p><p style="margin:8px 0 0;font:700 26px/1.2 Arial,sans-serif;color:#FFFFFF">${esc(titulo)}</p><p style="margin:6px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#C9CFDA">${esc([p.jornada ? `Jornada ${p.jornada}` : "", p.fechaTexto, inf.microciclo ? `Microciclo ${inf.microciclo.micro}` : ""].filter(Boolean).join(" · "))}</p></td></tr>
+  /* ---------------- la cabecera ---------------- */
+
+  const escudoImg = (url: string) => (url ? `<img src="${esc(url)}" width="64" height="64" alt="" style="display:block;width:64px;height:64px;object-fit:contain;margin:0 auto">` : "");
+
+  const [escIzq, escDer] = p.lado === "fuera" ? [ctx?.escudo ?? "", ctx?.escudoNuestro ?? ""] : [ctx?.escudoNuestro ?? "", ctx?.escudo ?? ""];
+
+  const [nomIzq, nomDer] = p.lado === "fuera" ? [rival, "RM Castilla"] : ["RM Castilla", rival];
+
+  const centro =
+    esPost && p.gf !== null && p.gc !== null
+      ? `<p style="margin:0;font:700 46px/1 Georgia,serif;color:#C8A96B">${p.lado === "fuera" ? `${p.gc} – ${p.gf}` : `${p.gf} – ${p.gc}`}</p>`
+      : `<p style="margin:0;font:700 26px/1 Georgia,serif;color:#C8A96B">vs</p>`;
+
+  const cifrasCabecera = ([] as ({ rotulo: string; valor: string; pie?: string } | null)[]).concat([
+    pr ? { rotulo: esPost ? "Victoria que daba el pronóstico" : "Victoria según el pronóstico", valor: pct(pr.victoria), pie: esPost ? undefined : `${pct(pr.conPlan.victoria)} con el plan` } : null,
+    pr ? { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable ${pr.marcador}` } : null,
+    ctx?.nuestroPuesto && ctx.puesto ? { rotulo: "Clasificación", valor: `${ordinal(ctx.nuestroPuesto)} · ${ordinal(ctx.puesto)}`, pie: `${ctx.nuestrosPuntos} y ${ctx.puntos} pts` } : null,
+    inf.microciclo ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}` } : null,
+  ]).filter((x): x is { rotulo: string; valor: string; pie?: string } => Boolean(x));
+
+  const cabecera = `<tr><td style="padding:30px 32px 26px;background:${NAVY}">
+<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.28em;color:#C8A96B">REAL MADRID CASTILLA</p>
+<p style="margin:10px 0 0"><span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#C8A96B;color:${NAVY};font:700 11px/1 Arial,sans-serif;letter-spacing:.2em">${esPost ? "POST PARTIDO" : "PREVIA DEL PARTIDO"}</span>${p.jornada ? ` <span style="font:700 11px/1 Arial,sans-serif;letter-spacing:.2em;color:#C9CFDA">&nbsp;JORNADA ${p.jornada}${inf.microciclo ? ` · MICROCICLO ${inf.microciclo.micro}` : ""}</span>` : ""}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr>
+<td width="38%" align="center" valign="middle">${escudoImg(escIzq)}<p style="margin:8px 0 0;font:700 18px/1.2 Arial,sans-serif;color:#FFFFFF">${esc(nomIzq)}</p></td>
+<td width="24%" align="center" valign="middle">${centro}</td>
+<td width="38%" align="center" valign="middle">${escudoImg(escDer)}<p style="margin:8px 0 0;font:700 18px/1.2 Arial,sans-serif;color:#FFFFFF">${esc(nomDer)}</p></td>
+</tr></table>
+<p style="margin:20px 0 0;text-align:center;font:400 13px/1.4 Arial,sans-serif;color:#C9CFDA">${esc(p.fechaTexto)}</p>
+<p style="margin:6px 0 0;text-align:center;font:700 17px/1.35 Arial,sans-serif;color:#F2E6C9">${esc(inf.sintesis.titular)}</p>
+</td></tr>${
+    cifrasCabecera.length ? `<tr><td style="padding:18px 32px 0">${tarjetas(cifrasCabecera)}</td></tr>` : ""
+  }${
+    pr?.idea && !esPost
+      ? `<tr><td style="padding:16px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:14px 18px;border-left:4px solid #C8A96B;background:#FBF6EA"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">LA IDEA</p><p style="margin:4px 0 0;font:700 16px/1.4 Arial,sans-serif;color:${NAVY}">${esc(pr.idea)}</p></td></tr></table></td></tr>`
+      : ""
+  }`;
+
+  /* Las dos diapositivas del resumen, arriba: lo primero que se ve. */
+  const diapositivas = extras.diapositivas?.length
+    ? `<tr><td style="padding:22px 32px 0"><p style="margin:0 0 8px;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">EL RESUMEN EN DOS DIAPOSITIVAS</p>${extras.diapositivas
+        .map((cid, i) => `<img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="696" style="display:block;width:100%;max-width:696px;height:auto;border-radius:8px;margin:0 0 10px">`)
+        .join("")}</td></tr>`
+    : "";
+
+  return numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
+${cabecera}
+${diapositivas}
 ${
   esPost
     ? /* El post cuenta el partido y lo cruza con lo que se preparó. El scouting
@@ -495,7 +564,7 @@ ${
       ].join("\n")
 }
 <tr><td style="padding:18px 28px 26px;font:400 11px/1.5 Arial,sans-serif;color:${SUAVE}">Generado desde la plataforma del Castilla el ${esc(new Date(inf.generado).toLocaleString("es-ES", { timeZone: "Europe/Madrid" }))}.</td></tr>
-</table></td></tr></table></body></html>`;
+</table></td></tr></table></body></html>`);
 }
 
 /** El correo del resumen: las dos diapositivas y una línea. */
