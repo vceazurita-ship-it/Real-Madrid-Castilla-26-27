@@ -654,15 +654,29 @@ async function termina(carpeta, codigoForzado) {
   if (codigoForzado === null) {
     const v = await node("scripts/partido/verificar.cjs", "--carpeta", carpeta);
 
-    for (const s of seccionesDe(v.texto) ?? []) secciones.push(s);
+    const vistas = seccionesDe(v.texto) ?? [];
 
-    if (v.codigo !== 0) codigo = 1;
+    for (const s of vistas) secciones.push(s);
+
+    /* Si se rompió sin decir nada, eso sí es un fallo. */
+    if (v.codigo !== 0 && !vistas.length) anota("Comprobación", false, v.resumen || `se ha roto (código ${v.codigo})`);
   }
 
-  /* Lo que falló por el camino y la verificación no mira (Wyscout, Hudl…). */
-  const fallos = secciones.filter((s) => !s.ok);
+  /*
+  | Lo que sólo espera a que Wyscout publique el partido (suele ser el martes)
+  | no es un fallo del análisis: no hay nada que repetir hoy. Sale como hecho,
+  | con el aviso en el resumen; la descarga semanal lo completa sola. Antes
+  | daba la pasada por fallida y la pantalla ofrecía repetirla (04/10/2026).
+  */
+  const espera = (s) => !s.ok && /todavía no trae el partido|no hay foto de Wyscout posterior/i.test(s.detalle ?? "");
 
-  if (fallos.length && codigo === 0) codigo = 1;
+  /* Lo que falló por el camino y la verificación no mira (Wyscout, Hudl…). */
+  const fallos = secciones.filter((s) => !s.ok && !espera(s));
+
+  const esperando = secciones.filter(espera);
+
+  if (codigoForzado === null) codigo = fallos.length ? 1 : 0;
+  else if (fallos.length && codigo === 0) codigo = 1;
 
   const bien = secciones.filter((s) => s.ok).length;
 
@@ -680,7 +694,9 @@ async function termina(carpeta, codigoForzado) {
 
   console.log(
     codigo === 0
-      ? `RESUMEN: ${partido} al día en las ${bien} secciones`
+      ? `RESUMEN: ${partido} al día en las ${bien} secciones${
+          esperando.length ? `; a la espera de que Wyscout publique el partido (suele el martes): ${esperando.map((s) => s.nombre.replace(/^Data Análisis · /, "")).join(" y ")}` : ""
+        }`
       : `RESUMEN: ${partido} — ${bien} de ${secciones.length} secciones al día; falta: ${fallos.map((s) => s.nombre).join(", ")}`,
   );
 

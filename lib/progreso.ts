@@ -278,7 +278,13 @@ export class Seguimiento {
       const redondo = minutos === undefined ? undefined : Math.round(minutos * 10) / 10;
 
       /* Falla la etapa en la que el script lo dijo y, si se paró, la última. */
-      if (this.fallos.has(i) || (!ok && i === this.etapa && !this.fallos.size)) return { nombre: e.nombre, estado: "fallo", minutos: redondo };
+      /* Si no acabó bien sin decir dónde, se paró en la etapa en la que iba;
+         salvo que fuera la última: entonces terminó, y lo que falta está en
+         sus secciones (el partido acababa «Falló en "Comprobar cada sección"»
+         con la comprobación hecha y bien). */
+      const seParo = !ok && i === this.etapa && !this.fallos.size && this.etapa < etapas.length - 1;
+
+      if (this.fallos.has(i) || seParo) return { nombre: e.nombre, estado: "fallo", minutos: redondo };
 
       if (redondo !== undefined) return { nombre: e.nombre, estado: "hecha", minutos: redondo };
 
@@ -545,7 +551,7 @@ export function planRecomendado(
   const malas = new Set<number>();
 
   encargo.recorrido.forEach((r, i) => {
-    if (r.estado === "fallo") malas.add(i);
+    if (r.estado === "fallo" && !(FIJAS[tarea] ?? []).includes(i)) malas.add(i);
   });
 
   if (tarea === "partido") {
