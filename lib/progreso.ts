@@ -282,7 +282,13 @@ export class Seguimiento {
          salvo que fuera la última: entonces terminó, y lo que falta está en
          sus secciones (el partido acababa «Falló en "Comprobar cada sección"»
          con la comprobación hecha y bien). */
-      const seParo = !ok && i === this.etapa && !this.fallos.size && this.etapa < etapas.length - 1;
+      /* Sólo cuentan los fallos de esta etapa o de las siguientes (04/10/2026):
+         con «✗ Cámara táctica» en la primera —sin vídeo táctico, lo normal—,
+         un script que se rompía después sin decir nada salía «hecho» en la
+         etapa en la que se paró y no se proponía seguir desde ahí. */
+      const yaDicho = [...this.fallos].some((f) => f >= this.etapa);
+
+      const seParo = !ok && i === this.etapa && !yaDicho && this.etapa < etapas.length - 1;
 
       if (this.fallos.has(i) || seParo) return { nombre: e.nombre, estado: "fallo", minutos: redondo };
 

@@ -17,6 +17,7 @@ import type { NextRequest } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
 import { conExtension, leeDestinatarios, type Adjunto, type Correo } from "@/lib/correo/gmail";
+import { TOPE_ADJUNTOS_CORREO } from "@/lib/correo/limites";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 
@@ -35,10 +36,13 @@ export const MAX_ADJUNTOS = 25 * 1024 * 1024;
  * Gmail manda hasta 35 MB por mensaje **ya codificado**, y la base64 engorda un
  * tercio: 25 MB de adjuntos son 34 MB antes de contar las diapositivas y los
  * gráficos de ABP, y el envío fallaba. Y muchos buzones de club (Exchange)
- * rechazan lo que pase de 25 MB al recibir. Con 18 MB se queda en ~26 MB
- * entero. Lo que no cabe, el navegador lo manda como enlace de descarga.
+ * rechazan lo que pase de 25 MB al recibir. Lo que no cabe, el navegador lo
+ * manda como enlace de descarga.
+ *
+ * Es el mismo número que usa el navegador para repartir (`lib/correo/limites.ts`):
+ * con dos topes distintos, lo que uno daba por bueno el otro lo rechazaba.
  */
-export const MAX_ADJUNTOS_CORREO = 18 * 1024 * 1024;
+export const MAX_ADJUNTOS_CORREO = TOPE_ADJUNTOS_CORREO;
 
 /** Un adjunto ya subido a Supabase (`lib/correo/subeAdjunto.ts`), por su URL pública. */
 export type AdjuntoUrl = { nombre: string; url: string; tipo: string };
@@ -153,9 +157,16 @@ export function leeAdjuntosUrl(cuerpo: Record<string, unknown>): AdjuntoUrl[] | 
  * Se trae del almacén los adjuntos ya subidos y los deja listos para el
  * correo. Los bytes no pasan por la petición del navegador —que en Vercel no
  * admite más de ~4,5 MB—: los descarga el servidor, que no tiene ese tope.
+ *
+ * **Lo que no cabe no tumba el correo (04/10/2026).** Antes, pasarse del tope
+ * lanzaba y el correo entero no salía, aunque cada documento llevara ya su
+ * botón de descarga en el cuerpo. Ahora se adjunta, por orden, mientras cabe;
+ * lo demás se devuelve en `enlazados` y el correo sale con su enlace.
  */
-export async function traeAdjuntosUrl(lista: AdjuntoUrl[]): Promise<Adjunto[]> {
+export async function traeAdjuntosUrl(lista: AdjuntoUrl[]): Promise<{ adjuntos: Adjunto[]; enlazados: AdjuntoUrl[] }> {
   const adjuntos: Adjunto[] = [];
+
+  const enlazados: AdjuntoUrl[] = [];
 
   let total = 0;
 
@@ -164,16 +175,29 @@ export async function traeAdjuntosUrl(lista: AdjuntoUrl[]): Promise<Adjunto[]> {
 
     if (!respuesta.ok) throw new Error(`No se ha podido traer el adjunto «${uno.nombre}» (${respuesta.status}).`);
 
+    /* Si dice lo que pesa y no cabe, ni se descarga. */
+    const anunciado = Number(respuesta.headers.get("content-length"));
+
+    if (Number.isFinite(anunciado) && anunciado > 0 && total + anunciado > MAX_ADJUNTOS_CORREO) {
+      await respuesta.body?.cancel().catch(() => undefined);
+
+      enlazados.push(uno);
+
+      continue;
+    }
+
     const datos = Buffer.from(await respuesta.arrayBuffer());
 
-    total += datos.length;
+    if (total + datos.length > MAX_ADJUNTOS_CORREO) {
+      enlazados.push(uno);
 
-    if (total > MAX_ADJUNTOS_CORREO) {
-      throw new Error(`Los adjuntos pasan de ${MAX_ADJUNTOS_CORREO / 1048576} MB, que es lo que cabe en un correo: manda el resto como enlace.`);
+      continue;
     }
+
+    total += datos.length;
 
     adjuntos.push({ nombre: uno.nombre, tipo: uno.tipo, base64: datos.toString("base64") });
   }
 
-  return adjuntos;
+  return { adjuntos, enlazados };
 }

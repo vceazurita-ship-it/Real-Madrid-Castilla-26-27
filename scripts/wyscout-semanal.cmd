@@ -179,7 +179,22 @@ git add "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
 git commit -m "Los datos de Wyscout de la semana %SEMANA%" -- "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
-if errorlevel 1 (
+if not errorlevel 1 goto :empuja
+
+rem  Nada que guardar NO es nada que publicar (04/10/2026). Si la pasada
+rem  anterior hizo el commit y el push fallo, repetir "solo publicar" (o una
+rem  descarga sin cambios) no encontraba nada que guardar, decia "no habia
+rem  nada nuevo", marcaba la semana como hecha y ese commit se quedaba sin
+rem  subir para siempre, bloqueando ademas la publicacion del analisis del
+rem  partido. Antes de rendirse se mira si hay commits locales sin subir:
+rem  si todos son de estos datos, se suben; si hay alguno de otra cosa, no
+rem  se sube nada, que publicar el trabajo de otro no lo decide esta tarea.
+set "PENDIENTES=0"
+set "AJENOS=0"
+for /f %%n in ('git rev-list --count "@{u}..HEAD" 2^>NUL') do set "PENDIENTES=%%n"
+for /f %%n in ('git log "@{u}..HEAD" "--format=%%s" 2^>NUL ^| findstr /v /b /c:"Los datos de Wyscout" ^| find /c /v ""') do set "AJENOS=%%n"
+
+if "%PENDIENTES%"=="0" (
   echo No habia nada nuevo que publicar. >> "%LOG%"
   echo No habia nada nuevo que publicar.
   echo %DATE% %TIME% · sin cambios > "%HECHO%"
@@ -187,6 +202,18 @@ if errorlevel 1 (
   goto :limpieza
 )
 
+if not "%AJENOS%"=="0" (
+  echo. >> "%LOG%"
+  echo HAY COMMITS SIN SUBIR QUE NO SON DE WYSCOUT: no se sube nada. El push ha fallado a proposito. >> "%LOG%"
+  echo   Un "git push" a mano lo publica todo cuando se haya mirado. >> "%LOG%"
+  echo Hay commits locales que no son de Wyscout: no se publica.
+  set "CODIGO=4"
+  goto :limpieza
+)
+
+echo Nada nuevo que guardar, pero hay %PENDIENTES% commit^(s^) de datos sin subir de una pasada anterior: se suben. >> "%LOG%"
+
+:empuja
 git push >> "%LOG%" 2>&1
 
 if errorlevel 1 (

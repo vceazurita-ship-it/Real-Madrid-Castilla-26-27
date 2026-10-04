@@ -56,8 +56,18 @@ export type Dimension<T> = {
  * para que un gráfico con dos series no alterne dos veces.
  */
 export function pulsaIndice<D>(datos: D[], elige: (dato: D) => void) {
-  return (estado: { activeTooltipIndex?: unknown } | null) => {
-    const i = Number(estado?.activeTooltipIndex);
+  return (
+    estado: { activeTooltipIndex?: unknown; isTooltipActive?: unknown } | null,
+  ) => {
+    /* Fuera del área del gráfico (el eje, el margen) recharts manda
+       `activeTooltipIndex: null`, y `Number(null)` es 0: elegía la primera
+       barra en vez de no hacer nada. */
+    const indice = estado?.activeTooltipIndex;
+
+    if (indice === null || indice === undefined || indice === "") return;
+    if (estado?.isTooltipActive === false) return;
+
+    const i = Number(indice);
 
     if (Number.isInteger(i) && datos[i] !== undefined) elige(datos[i]);
   };

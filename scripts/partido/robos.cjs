@@ -73,7 +73,10 @@ for (const m of EQ.moments.items) {
   for (const p of tag(m, "09 - Players")) equipo[p] ??= nuestro ? "RMC" : "RIV";
 }
 
-const inicioT2 = EQ.moments.items.filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b)[1] ?? Infinity;
+/* Arranque de cada parte en segundos de Hudl: la 1ª no empieza en el 0 (un segundo después). */
+const periodos = EQ.moments.items.filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b);
+const inicioT1 = periodos[0] ?? 0;
+const inicioT2 = periodos[1] ?? Infinity;
 
 const ev = JUG.moments.items
   .filter((m) => cod(m) !== "Periods")
@@ -119,7 +122,23 @@ function esRobo(e, i) {
   if (es(antes, ...BALON_PARADO)) return false;
 
   /* Segundo balón de un balón parado (de cualquiera de los dos): no es un robo. */
-  if (ev.slice(Math.max(0, i - 25), i).some((x) => x.t >= e.t - 10 && es(x, "Corner", "Free kick", "Throw in", "Goal kick"))) return false;
+  /*
+  | Salvo un saque de puerta que el rival ya ha jugado en corto (04/10/2026):
+  | con dos toques suyos controlados por el suelo —pase sin cabeza ni largo,
+  | conducción o control— el balón ya es suyo en juego y quitárselo es
+  | presionar su salida, no ganar un segundo balón. Lo del saque en largo
+  | (cabezazos, balón dividido) sigue fuera.
+  */
+  const parados = ev.slice(Math.max(0, i - 25), i).filter((x) => x.t >= e.t - 10 && es(x, "Corner", "Free kick", "Throw in", "Goal kick"));
+  if (parados.length) {
+    const ultimo = parados[parados.length - 1];
+    const soloSaqueDePuerta = parados.every((x) => es(x, "Goal kick") && !es(x, "Corner", "Free kick", "Throw in"));
+    const jugadoEnCorto =
+      ev
+        .slice(ev.indexOf(ultimo) + 1, i)
+        .filter((x) => x.eq === "RIV" && es(x, "Pass", "Carry", "Touch") && !es(x, "Head pass", "Long pass")).length >= 2;
+    if (!(soloSaqueDePuerta && ultimo.eq === "RIV" && jugadoEnCorto)) return false;
+  }
   if (es(antes, "Clearance", "Shot", "Save", "Shot block")) return false;
 
   /* El rechace de un tiro nuestro (bloqueado o parado) que volvemos a coger
@@ -129,7 +148,16 @@ function esRobo(e, i) {
 
   /* Una recuperación a secas sólo cuenta si el rival la perdió con alguien encima. */
   if (!es(e, "Interception", "Counterpressing recovery", "Defensive duel")) {
-    const presion = es(antes, "Loss", "Duel", "Offensive duel") || ev.slice(Math.max(0, i - 3), i).some((x) => x.eq === "RMC" && es(x, "Duel", "Defensive duel", "Aerial duel"));
+    /*
+    | El duelo del rival que va emparejado con el nuestro tiene el MISMO centro
+    | de clip y el orden lo deja detrás: hay que mirarlo también (04/10/2026).
+    | Sin esto se perdían duelos aéreos y de balón dividido ganados con el
+    | rival marcado «Loss» en la misma jugada.
+    */
+    const presion =
+      es(antes, "Loss", "Duel", "Offensive duel") ||
+      ev.slice(Math.max(0, i - 3), i).some((x) => x.eq === "RMC" && es(x, "Duel", "Defensive duel", "Aerial duel")) ||
+      ev.slice(i + 1, i + 4).some((x) => x.t - e.t <= 1 && x.eq === "RIV" && es(x, "Duel") && es(x, "Loss"));
     if (!presion) return false;
     if (es(antes, "Long pass") && !es(antes, "Loss")) return false;
   }
@@ -220,7 +248,7 @@ const aTactica = (t) => {
 */
 const reloj = (t) => {
   const primera = t < inicioT2;
-  const dentro = Math.max(0, primera ? t : t - inicioT2);
+  const dentro = Math.max(0, primera ? t - inicioT1 : t - inicioT2);
   const tope = 45 * 60;
   const descuento = dentro >= tope;
   const seg = descuento ? dentro - tope : dentro + (primera ? 0 : tope);
@@ -236,7 +264,9 @@ const tactica = (t) => {
 };
 
 /* «Con presión» sólo si había un duelo nuestro justo antes; si no, el rival la perdió solo. */
-const conPresion = (i) => ev.slice(Math.max(0, i - 3), i).some((x) => x.eq === "RMC" && es(x, "Duel", "Defensive duel", "Aerial duel"));
+const conPresion = (i) =>
+  es(ev[i], "Duel") ||
+  ev.slice(Math.max(0, i - 3), i).some((x) => x.eq === "RMC" && es(x, "Duel", "Defensive duel", "Aerial duel"));
 
 const TIPO = (e, i) =>
   es(e, "Interception")

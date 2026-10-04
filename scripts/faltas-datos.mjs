@@ -170,14 +170,31 @@ function relojDe(id) {
 
   const eq = sesiones.find((x) => x.moments.items.some((m) => / - Possessions$/.test(cod(m)))) || sesiones[0];
 
-  const inicioT2 = (eq?.moments.items ?? []).filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b)[1] ?? Infinity;
+  const periodos = (eq?.moments.items ?? []).filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b);
+  /* La 1ª parte no arranca en el 0 de Hudl (un segundo después): se descuenta. */
+  const inicioT1 = periodos[0] ?? 0;
+  const inicioT2 = periodos[1] ?? Infinity;
 
-  /* Las faltas de Hudl, por el centro de su clip. */
+  /* De qué equipo es cada jugador, de las jugadas por equipo en que sale (como robos.cjs). */
+  const players = (m) => (m.tags.find((t) => t.key === "09 - Players") || { values: [] }).values;
+  const equipo = {};
+  for (const m of eq?.moments.items ?? []) {
+    const c = cod(m);
+    if (!/ - /.test(c)) continue;
+    const nuestro = c.startsWith("Real Madrid Castilla");
+    for (const p of players(m)) equipo[p] ??= nuestro ? "defensivo" : "ofensivo";
+  }
+
+  /*
+  | Las faltas de Hudl, por el centro de su clip y con su lado: la hace uno
+  | del Castilla → «defensivo» (en contra); uno del rival → «ofensivo». Así
+  | dos faltas seguidas de equipos distintos no se cambian el minuto.
+  */
   const faltas = sesiones
     .flatMap((x) => x.moments.items)
     .filter((m) => tipos(m).some((t) => t === "Foul" || t === "Penalty foul" || t === "Infraction") && !tipos(m).includes("Offside"))
-    .map((m) => (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000)
-    .sort((a, b) => a - b);
+    .map((m) => ({ t: (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000, lado: equipo[cod(m)] ?? null }))
+    .sort((a, b) => a.t - b.t);
 
   const tramosFichero = join(TRANSICIONES, id, "tramos.json");
 
@@ -185,7 +202,7 @@ function relojDe(id) {
 
   const reloj = (t) => {
     const primera = t < inicioT2;
-    const dentro = Math.max(0, primera ? t : t - inicioT2);
+    const dentro = Math.max(0, primera ? t - inicioT1 : t - inicioT2);
     const tope = 45 * 60;
     const descuento = dentro >= tope;
     const seg = descuento ? dentro - tope : dentro + (primera ? 0 : tope);
@@ -204,10 +221,35 @@ function relojDe(id) {
     return ` (táctica ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`;
   };
 
-  return { faltas, reloj, tactica };
+  return { faltas, reloj, tactica, inicioT1, inicioT2 };
 }
 
-/** Los segundos de vídeo de cada falta según la base del timeline del partido (`clip` → segundos). */
+/** Sin tildes y en minúsculas, para buscar un nombre dentro de una nota. */
+const llano = (texto) =>
+  String(texto ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+/** ¿Sale en la nota alguna palabra del nombre («Oscar Naasei» vale con «Óscar (21)»)? */
+function nombraA(nota, nombre) {
+  const texto = llano(nota);
+
+  return llano(nombre)
+    .split(/[\s.]+/)
+    .filter((palabra) => palabra.length >= 3)
+    .some((palabra) => new RegExp(`(^|[^a-z])${palabra}($|[^a-z])`).test(texto));
+}
+
+/**
+ * La base del timeline del partido: por cada `clip`, sus segundos de vídeo,
+ * quién hace la falta y su posición en la lista de su lado.
+ *
+ * El `clip` de la base y el del CSV revisado coinciden HOY, pero la base se
+ * regenera (el análisis del partido) y sus números se corren si entra una
+ * falta nueva —la infracción de Pitarch del J06 entraría la primera—. Por eso
+ * no se fía sólo del número: ver `asignaBase`.
+ */
 function baseDe(id) {
   const vistos = new Map();
 
@@ -227,10 +269,24 @@ function baseDe(id) {
 
       if (!existsSync(f)) continue;
 
+      let orden = 0;
+
       for (const linea of readFileSync(f, "utf8").split(/\r?\n/)) {
         const m = /^((?:of|def)-c\d+);.*Vídeo Hudl (\d+):(\d{2})/i.exec(linea.trim());
 
-        if (m) vistos.set(m[1].toLowerCase(), Number(m[2]) * 60 + Number(m[3]));
+        if (!m) continue;
+
+        const autor = /(?:Falta|Mano|Penalti) de (.+?) \(del /.exec(linea)?.[1] ?? "";
+        const victima = /\) sobre (.+?)\. /.exec(linea)?.[1] ?? "";
+
+        vistos.set(m[1].toLowerCase(), {
+          clip: m[1].toLowerCase(),
+          lado: lado === "of" ? "ofensivo" : "defensivo",
+          orden: orden++,
+          segundos: Number(m[2]) * 60 + Number(m[3]),
+          autor,
+          victima,
+        });
       }
     }
   }
@@ -238,17 +294,92 @@ function baseDe(id) {
   return vistos;
 }
 
-/** El segundo de vídeo que dice la nota: el último «Vídeo (Hudl) mm:ss» o «mm:ss TV». */
-function segundoDeNota(nota) {
-  const todos = [...nota.matchAll(/(?:Vídeo(?: Hudl)?|TV)\s+(\d{1,3}):(\d{2})|(\d{1,3}):(\d{2})\s+TV/g)];
+/**
+ * Qué falta de la base es cada falta revisada, y sus segundos de vídeo.
+ *
+ * 1. La del mismo `clip`, si la nota revisada nombra a quien la hace (y a
+ *    quien la recibe, cuando la base lo dice).
+ * 2. Si no, la de su lado más cercana en el orden, entre las que no se ha
+ *    quedado ya otra, cuya nota nombre al autor (mejor si también a la
+ *    víctima).
+ * 3. Si ninguna, ninguna: la falta tira de su nota.
+ *
+ * La 2 es la que salva una base regenerada con los números corridos; el
+ * «entre las que no se ha quedado otra» evita que una falta sin pareja en la
+ * base (la de Pitarch del J06, hoy) se lleve la de otra jugada del mismo
+ * jugador.
+ */
+function asignaBase(base, faltas) {
+  const asignada = new Map();
+  const cogidas = new Set();
+
+  const nombra = (falta, b) => Boolean(b.autor) && nombraA(falta.nota, b.autor);
+  const victimaBien = (falta, b) => !b.victima || nombraA(falta.nota, b.victima);
+
+  for (const falta of faltas) {
+    const misma = base.get(falta.clip);
+
+    if (!misma || misma.lado !== falta.lado) continue;
+
+    if (!misma.autor || (nombra(falta, misma) && victimaBien(falta, misma))) {
+      asignada.set(falta, misma.segundos);
+      cogidas.add(misma.clip);
+    }
+  }
+
+  for (const falta of faltas) {
+    if (asignada.has(falta)) continue;
+
+    const orden = faltas.filter((x) => x.lado === falta.lado).indexOf(falta);
+
+    const candidata = [...base.values()]
+      .filter((b) => b.lado === falta.lado && !cogidas.has(b.clip) && nombra(falta, b))
+      .sort(
+        (a, b) =>
+          Number(victimaBien(falta, b)) - Number(victimaBien(falta, a)) ||
+          Math.abs(a.orden - orden) - Math.abs(b.orden - orden),
+      )[0];
+
+    if (candidata) {
+      asignada.set(falta, candidata.segundos);
+      cogidas.add(candidata.clip);
+    }
+  }
+
+  return asignada;
+}
+
+/**
+ * El segundo de vídeo que dice la nota: el último «Vídeo (Hudl) mm:ss» o
+ * «mm:ss TV».
+ *
+ * «Vídeo» ya es el segundo del vídeo de Hudl. «TV» es el reloj de la
+ * retransmisión: en la 1ª parte va con el vídeo (desde el arranque de la
+ * parte) y sigue contando en el descuento («49:21 TV»); en la 2ª arranca en
+ * el 45:00 cuando el vídeo ya va por el descanso, así que se lleva al
+ * arranque de la 2ª parte. Un «TV» de 45:00 en adelante es de la 2ª salvo que
+ * la nota diga que es de la 1ª o no quepa en ella.
+ */
+function segundoDeNota(nota, reloj) {
+  const todos = [...nota.matchAll(/(Vídeo(?: Hudl)?|TV)\s+(\d{1,3}):(\d{2})|(\d{1,3}):(\d{2})\s+TV/g)];
 
   const ultimo = todos[todos.length - 1];
 
   if (!ultimo) return null;
 
-  const [mm, ss] = ultimo[1] ? [ultimo[1], ultimo[2]] : [ultimo[3], ultimo[4]];
+  const deTv = ultimo[1] ? ultimo[1] === "TV" : true;
+  const [mm, ss] = ultimo[2] ? [ultimo[2], ultimo[3]] : [ultimo[4], ultimo[5]];
+  const s = Number(mm) * 60 + Number(ss);
 
-  return Number(mm) * 60 + Number(ss);
+  if (!deTv || !reloj) return s;
+
+  const tope = 45 * 60;
+  const enLaPrimera = /\b(1a|1ª|primera)\s+parte\b|\bT1\b/i.test(nota);
+  const enLaSegunda = /\b(2a|2ª|segunda)\s+parte\b|\bT2\b/i.test(nota);
+  const cabeEnLaPrimera = reloj.inicioT1 + s < reloj.inicioT2;
+  const segunda = s >= tope && !enLaPrimera && (enLaSegunda || !cabeEnLaPrimera || s > tope + 10 * 60);
+
+  return segunda ? reloj.inicioT2 + (s - tope) : reloj.inicioT1 + s;
 }
 
 function leePartido(partido) {
@@ -281,22 +412,52 @@ function leePartido(partido) {
 
   let conMinuto = 0;
 
-  for (const falta of faltas) {
+  /* El segundo de Hudl de cada falta, para el minuto y para el orden. */
+  const segundo = new Map();
+  const deLaBase = asignaBase(base, faltas);
+
+  faltas.forEach((falta) => {
     falta.minuto = "";
 
-    const aprox = base.get(falta.clip) ?? segundoDeNota(falta.nota);
+    const aprox = deLaBase.get(falta) ?? segundoDeNota(falta.nota, reloj);
 
-    if (aprox === null || aprox === undefined || !reloj) continue;
+    if (aprox === null || aprox === undefined || !reloj) return;
 
-    /* La de Hudl más cercana (el segundo de la base es el arranque del clip). */
-    const cerca = reloj.faltas.reduce((mejor, t) => (Math.abs(t - aprox) < Math.abs(mejor - aprox) ? t : mejor), Infinity);
+    /*
+    | La de Hudl más cercana DE SU LADO (el segundo de la base es el arranque
+    | del clip). Una falta de Hudl sin equipo conocido vale para los dos.
+    */
+    const cerca = reloj.faltas
+      .filter((h) => !h.lado || h.lado === falta.lado)
+      .reduce((mejor, h) => (Math.abs(h.t - aprox) < Math.abs(mejor - aprox) ? h.t : mejor), Infinity);
 
     const t = Math.abs(cerca - aprox) <= 12 ? cerca : aprox;
 
     falta.minuto = `${reloj.reloj(t)}${reloj.tactica(t)}`;
+    segundo.set(falta, t);
 
     conMinuto += 1;
-  }
+  });
+
+  /*
+  | En el orden en que se dieron: por su segundo cuando se sabe (el descuento
+  | de la 1ª va antes que la 2ª, porque es segundo de vídeo) y, si no, en el
+  | sitio que le da el coding, detrás de la anterior que sí lo tiene.
+  */
+  let ultimo = -Infinity;
+  const clave = new Map();
+
+  faltas.forEach((falta, indice) => {
+    if (segundo.has(falta)) ultimo = segundo.get(falta);
+    clave.set(falta, [ultimo, indice]);
+  });
+
+  faltas.sort((a, b) => {
+    const [ta, ia] = clave.get(a);
+    const [tb, ib] = clave.get(b);
+
+    return ta - tb || ia - ib;
+  });
 
   console.log(`  ${partido.id}: minuto exacto en ${conMinuto} de ${faltas.length}`);
 

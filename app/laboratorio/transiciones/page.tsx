@@ -180,10 +180,41 @@ function jugadorDe(r: Robo) {
 }
 
 const TRAMOS = [0, 15, 30, 45, 60, 75, 90];
-const nombreTramo = (ini: number) => `${ini}'-${ini + 15}'`;
+const nombreTramo = (ini: number) => (ini >= 90 ? "90'+" : `${ini}'-${ini + 15}'`);
 
-/** El tramo de quince minutos de vídeo en que cae el robo. */
-const tramoDe = (r: Robo) => nombreTramo(Math.floor(r.seg / 60 / 15) * 15);
+/*
+| El minuto del partido, en minutos con decimales, leído del detalle.
+|
+| El descuento cuenta en el último tramo de su parte: «45+1'56"» es del
+| 30'-45' y «90+4'37"» del 75'-90'. Ojo: un «45'31"» sin «+» ya es de la
+| segunda parte (el reloj sigue desde 45). Los bloques viejos no traen
+| minuto: ahí se devuelve null.
+*/
+const MINUTO = /^(\d+)(?:\+(\d+))?'(\d{1,2})"/;
+
+function minutoPartido(r: Robo) {
+  const m = MINUTO.exec(r.detalle ?? "");
+
+  if (!m) return null;
+
+  const base = Number(m[1]);
+
+  if (m[2] !== undefined) return base - 0.5;
+
+  return base + Number(m[3]) / 60;
+}
+
+/*
+| El tramo de quince minutos en que cae el robo: por el minuto del partido
+| cuando se sabe, y si no (bloques viejos) por el minuto del vídeo. Antes era
+| siempre el del vídeo, y con el descanso cortado o el reloj del vídeo
+| adelantado uno de cada cuatro robos caía en el cuarto de hora de al lado.
+*/
+const tramoDe = (r: Robo) => {
+  const minuto = minutoPartido(r) ?? r.seg / 60;
+
+  return nombreTramo(Math.min(90, Math.floor(minuto / 15) * 15));
+};
 
 /** Cómo se lee cada dimensión pinchable de un robo. */
 const LECTORES: Record<string, (r: RoboVisto) => string> = {
@@ -320,7 +351,7 @@ function Pista({ active, payload, label }: PistaProps) {
 
 export default function TransicionesPage() {
   const explicativos = useTextosExplicativos();
-  const [quien, setQuien] = useState<string>("todos");
+  const [quienElegido, setQuien] = useState<string>("todos");
   const [porcentajes, setPorcentajes] = useState(false);
   const [conDudosos, setConDudosos] = useState(true);
   /*
@@ -341,6 +372,13 @@ export default function TransicionesPage() {
       ),
     [conPretemporada],
   );
+
+  /*
+  | El partido elegido, si sigue a la vista. Si era de pretemporada y se
+  | vuelve a dejar fuera, la pantalla se quedaba vacía sin ningún chip que
+  | lo explicara: se vuelve a «todos».
+  */
+  const quien = partidos.some((p) => p.id === quienElegido) ? quienElegido : "todos";
 
   const elegidos = useMemo(
     () => (quien === "todos" ? partidos : partidos.filter((p) => p.id === quien)),
@@ -476,10 +514,14 @@ export default function TransicionesPage() {
     }))
     .filter((d) => d.valor > 0);
 
-  /** Los que sí llegan a pase o conducción: la comparación que importa. */
-  const jugados = useMemo(
-    () => robos.filter((r) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS"),
-    [robos],
+  /*
+  | Los que sí llegan a pase o conducción: la comparación que importa.
+  |
+  | Sin el filtro de salida, como la tarta: las dos cifras son la gráfica de
+  | esa dimensión. Con él puesto, «Adelante» salía al 100 % y la otra al 0 %.
+  */
+  const jugados = paraAccion.filter(
+    (r) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS",
   );
   const adelante = jugados.filter((r) => r.accion === "ADELANTE").length;
 
@@ -525,7 +567,10 @@ export default function TransicionesPage() {
 
   /* --- cuándo robamos (sin su propio filtro) --- */
   const paraTramo = filtrados(["tramo"]);
-  const porTramo = TRAMOS.map((ini) => {
+  /* El «90'+» sólo sale si algún robo cae ahí (los bloques viejos, por vídeo). */
+  const porTramo = TRAMOS.filter(
+    (ini) => ini < 90 || paraTramo.some((r) => tramoDe(r) === nombreTramo(ini)),
+  ).map((ini) => {
     const dentro = paraTramo.filter((r) => tramoDe(r) === nombreTramo(ini));
     return {
       clave: nombreTramo(ini),
@@ -1056,7 +1101,11 @@ export default function TransicionesPage() {
 
               <Panel
                 title="Cuándo robamos"
-                subtitle={explicativos ? "Por tramos de quince minutos de vídeo" : undefined}
+                subtitle={
+                  explicativos
+                    ? "Por cuartos de hora del partido (el descuento, en el último de su parte); en los partidos sin minuto, del vídeo"
+                    : undefined
+                }
                 icon={Clock}
               >
                 <div className="h-[280px]">

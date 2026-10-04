@@ -43,8 +43,16 @@ export async function POST(request: NextRequest) {
 
   if ("error" in porUrl) return mal(porUrl.error);
 
+  /* Lo que no cabe adjunto se queda como enlace (ya va su botón en el cuerpo):
+     se devuelve para que la pantalla lo diga. */
+  let enlazados: string[] = [];
+
   try {
-    correo.adjuntos = [...(correo.adjuntos ?? []), ...(await traeAdjuntosUrl(porUrl))];
+    const traidos = await traeAdjuntosUrl(porUrl);
+
+    correo.adjuntos = [...(correo.adjuntos ?? []), ...traidos.adjuntos];
+
+    enlazados = traidos.enlazados.map((x) => x.nombre);
   } catch (error) {
     return mal(error instanceof Error ? error.message : "No se han podido traer los adjuntos.");
   }
@@ -52,7 +60,7 @@ export async function POST(request: NextRequest) {
   try {
     const { id, cuenta } = await envia(correo);
 
-    return NextResponse.json({ ok: true, id, cuenta, para: correo.para });
+    return NextResponse.json({ ok: true, id, cuenta, para: correo.para, enlazados });
   } catch (error) {
     console.error("[informe] por correo", error);
 

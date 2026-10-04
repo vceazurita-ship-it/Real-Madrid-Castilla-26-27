@@ -293,6 +293,18 @@ function parseCSV(text: string): Row[] {
     );
 }
 
+/** La zona de remate con su clave corta («Segundo Palo» → «2P»); lo que no es zona, tal cual. */
+function zonaRemateCorta(v: string) {
+  return zonaRemateDelCampo(v) ?? v;
+}
+
+/** ¿Son la misma zona de remate, se escriban como se escriban? */
+function mismaZonaRemate(a: string | undefined, b: string) {
+  const ca = zonaRemateDelCampo(a);
+
+  return ca !== null && ca === zonaRemateDelCampo(b);
+}
+
 function countBy(rows: Row[], key: keyof Row) {
   const grouped: Record<string, number> = {};
 
@@ -573,16 +585,16 @@ const dimensiones: Dimension<Row>[] = [
     texto: (v) => ZONA_AREA_LABEL[v] ?? v,
   },
   {
-    /* El campo de «Situación global» agrupa «Primer Palo» y «1P» en «1P»:
-       vale cualquiera de las dos escrituras. */
+    /* «Primer Palo» y «1P» (y «Segundo Palo» y «2P») son la misma zona: se
+       comparan por su clave corta, la que pinta el campo y la tarta. */
     clave: "zonaRemate",
     etiqueta: "Zona remate",
     valor: zonaRemateFilter,
     poner: setZonaRemateFilter,
     coincide: (r, v) =>
-      igual(r.zonaRemate, v) || zonaRemateDelCampo(r.zonaRemate) === v,
+      igual(r.zonaRemate, v) || mismaZonaRemate(r.zonaRemate, v),
     rotuloCoincide: (rotulo, v) =>
-      rotulo === v || zonaRemateDelCampo(rotulo) === v,
+      rotulo === v || mismaZonaRemate(rotulo, v),
   },
   {
     clave: "segundoBalon",
@@ -921,9 +933,10 @@ const metrics = {
 
 const zonaRemateData =
   countBy(
-    sin("zonaRemate").filter(
-      (r) => r.zonaRemate
-    ),
+    sin("zonaRemate")
+      .filter((r) => r.zonaRemate)
+      /* Una sola porción por zona: «Segundo Palo» cuenta en «2P». */
+      .map((r) => ({ ...r, zonaRemate: zonaRemateCorta(r.zonaRemate) })),
     "zonaRemate"
   );
   
@@ -2604,12 +2617,9 @@ const pie = (
   seleccion={{
     accion: tipoAccionFilter === "ALL" ? undefined : tipoAccionFilter,
     medio: intencionFilter === "ALL" ? undefined : intencionFilter,
-    zona:
-      zonaCaidaFilter === "ALL"
-        ? undefined
-        : esSuperioridad(zonaCaidaFilter)
-          ? SUPERIORIDAD
-          : zonaCaidaFilter,
+    /* El valor tal cual: con «3v2» el flujo resalta su nodo de
+       superioridades pero sólo cuenta los 3v2, como el resto de la página. */
+    zona: zonaCaidaFilter === "ALL" ? undefined : zonaCaidaFilter,
     resultado: resultadoFilter === "ALL" ? undefined : resultadoFilter,
   }}
   onSeleccion={(col: ABPFlowCol, valor) =>

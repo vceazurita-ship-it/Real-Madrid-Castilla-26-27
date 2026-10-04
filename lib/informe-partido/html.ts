@@ -767,9 +767,16 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
 
   const mensaje = opciones.mensaje?.trim() ? `<tr><td style="padding:4px 4px 14px">${bloqueMensaje(opciones.mensaje, opciones.firma)}</td></tr>` : "";
 
+  /* El pie dice lo que de verdad va (04/10/2026): antes, sin el completo,
+     prometía «las dos diapositivas en PDF adjunto» aunque no fuera PDF o
+     fuera una sola. */
+  const llevaPdf = (opciones.descargas ?? []).some((d) => /\.pdf$/i.test(d.nombre));
+
   const pie = opciones.conCompleto
     ? "El informe completo, con todo el detalle y sus documentos, llega en otro correo."
-    : "Las dos diapositivas van también en PDF adjunto.";
+    : llevaPdf
+      ? `${cids.length === 1 ? "La diapositiva va" : "Las diapositivas van"} también en PDF adjunto.`
+      : "";
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(opciones.mensaje?.trim() ? opciones.mensaje.trim().slice(0, 140) : `${titular}${idea ? ` · ${idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
 <tr><td style="padding:4px 4px 14px"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · ${esPost ? "POST PARTIDO" : "PREVIA"} · RESUMEN</p><p style="margin:6px 0 0;font:700 24px/1.25 Arial,sans-serif;color:#F7F4EC">${esc(titulo)}</p>${
@@ -779,7 +786,7 @@ ${mensaje}
 ${cids.map((cid, i) => `<tr><td style="padding:6px 0"><img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px"></td></tr>`).join("")}
 ${textoClaves}
 ${descargas}
-<tr><td style="padding:16px 4px 4px;font:400 12px/1.5 Arial,sans-serif;color:#7D8798">${esc(pie)}</td></tr>
+${pie ? `<tr><td style="padding:16px 4px 4px;font:400 12px/1.5 Arial,sans-serif;color:#7D8798">${esc(pie)}</td></tr>` : ""}
 </table></td></tr></table></body></html>`;
 }
 

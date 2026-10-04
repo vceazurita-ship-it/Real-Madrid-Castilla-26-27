@@ -81,7 +81,9 @@ function git(...args) {
 
   const bajadoEn = fs.existsSync(informe) ? fs.statSync(informe).mtime : null;
 
-  const viejo = !bajadoEn || bajadoEn.toISOString().slice(0, 10) <= P.fecha;
+  /* En hora de Madrid: una descarga a la 1 de la noche del partido, en UTC,
+     caía el día anterior y salía «no está al día» (04/10/2026). */
+  const viejo = !bajadoEn || bajadoEn.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" }) <= P.fecha;
 
   const dia = (d) => d.toLocaleDateString("es-ES", { day: "numeric", month: "numeric" });
 
@@ -206,12 +208,15 @@ function git(...args) {
       );
 
       /* Que no se haya quedado a medias: las columnas de criterio rellenas. */
+      /* Celda a celda (04/10/2026): contando filas, un «?» en una columna
+         tapaba un hueco de verdad en otra de la misma fila. */
       const vacias = (filas, cols) =>
-        filas.filter((f) => cols.some((c) => c in f && !String(f[c] ?? "").trim())).length;
+        filas.reduce((n, f) => n + cols.filter((c) => c in f && !String(f[c] ?? "").trim()).length, 0);
 
       const CRITERIO = {
-        bandaOf: ["Calidad_Envio", "Intencion", "Defensa_Rival", "Resultado_Final"],
-        bandaDef: ["Calidad_Envio", "Defensa", "Resultado_Final"],
+        /* El envío del saque de banda la base lo deja vacío (preparar.cjs): es de la revisión. */
+        bandaOf: ["Tipo_Envio", "Calidad_Envio", "Intencion", "Defensa_Rival", "Resultado_Final"],
+        bandaDef: ["Tipo_Envio", "Calidad_Envio", "Defensa", "Resultado_Final"],
         piezasOf: ["Tipo_Envio", "Zona_Caida", "Resultado_Final"],
         piezasDef: ["Tipo_Envio", "Zona_Caida", "Resultado_Final"],
       };
@@ -237,7 +242,7 @@ function git(...args) {
 
         const indices = cols.map((c) => cabecera.indexOf(c)).filter((i) => i >= 0);
 
-        return s + filas.filter((f) => indices.some((i) => String(f[i] ?? "").trim() === "?")).length;
+        return s + filas.reduce((n, f) => n + indices.filter((i) => String(f[i] ?? "").trim() === "?").length, 0);
       }, 0);
 
       const huecos = Math.max(0, vaciasHoja - conInterrogacion);
@@ -246,8 +251,8 @@ function git(...args) {
         "ABP · análisis de cada jugada",
         huecos === 0,
         huecos === 0
-          ? `calidad, intención, defensa y resultado puestos en todas${conInterrogacion ? ` (${conInterrogacion} con «?»: no se ve en el vídeo)` : ""}`
-          : `${huecos} filas con columnas de criterio vacías${conInterrogacion ? ` (además de ${conInterrogacion} con «?», que no se ven)` : ""}`,
+          ? `envío, calidad, intención, defensa y resultado puestos en todas${conInterrogacion ? ` (${conInterrogacion} con «?»: no se ve en el vídeo)` : ""}`
+          : `${huecos} ${huecos === 1 ? "dato de criterio vacío" : "datos de criterio vacíos"}${conInterrogacion ? ` (además de ${conInterrogacion} con «?», que no se ven)` : ""}`,
       );
     }
   }

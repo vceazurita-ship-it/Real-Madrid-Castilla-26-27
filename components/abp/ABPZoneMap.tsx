@@ -806,7 +806,11 @@ export default function ABPZoneMap({
                   key={z.key}
                   type="button"
                   title={controlado ? "Pulsa para filtrar" : "Ver el detalle"}
-                  onClick={() => setSelectedZone(z.key)}
+                  /* Igual que en el mapa: pulsar la elegida la suelta. */
+                  onClick={() =>
+                    setSelectedZone(selectedZone === z.key ? null : z.key)
+                  }
+                  aria-pressed={selectedZone === z.key}
                   className="-mx-1 block w-[calc(100%+0.5rem)] cursor-pointer rounded-lg px-1 py-0.5 text-left transition hover:bg-white/[0.04]"
                 >
                   <div className="mb-1.5 flex items-center justify-between text-[11px]">

@@ -228,9 +228,15 @@ if (t.includes("falta indirecta")) {
 
   function normalizeZonaRemate(v?: string): string | null {
   if (!v) return null;
-  if (remateCoords[v]) return v;
 
+  /*
+  | Siempre a la clave corta. Antes \u00abPrimer Palo\u00bb y \u00abSegundo Palo\u00bb se
+  | devolv\u00edan tal cual por estar en `remateCoords`, y la hoja trae las dos
+  | graf\u00edas (LIGA 01-04 \u00ab2P\u00bb, LIGA 05 \u00abSegundo Palo\u00bb): el campo pintaba dos
+  | c\u00edrculos uno encima del otro y el filtro part\u00eda la zona en dos.
+  */
   const t = v
+    .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
@@ -367,10 +373,31 @@ if (t.includes("falta indirecta")) {
   const tipoElegido = seleccion?.tipoAccion ?? null;
   const remateElegido = seleccion?.zonaRemate ?? null;
 
+  /*
+  | Lo que de verdad está abierto. Con la página al mando, un detalle sólo
+  | sigue abierto mientras su filtro siga puesto: si se quita desde la tira,
+  | «Quitar filtros» o el cajón, se cierra solo (antes se quedaba abierto y
+  | apagaba los demás orígenes sin que nada filtrara). Se deriva en vez de
+  | borrar el estado en un efecto.
+  */
+  const origenAbierto = !onFiltra
+    ? selectedOrigin
+    : selectedOrigin && tipoElegido && selectedOrigin.key.split("__")[0] === tipoElegido
+      ? selectedOrigin
+      : null;
+  const remateAbierto = !onFiltra
+    ? selectedRemate
+    : selectedRemate && selectedRemate === remateElegido
+      ? selectedRemate
+      : null;
+
   /* Pulsar un origen: con la página, alterna su filtro; el detalle se abre
-     al elegirlo y se cierra al quitarlo. */
+     al elegirlo y se cierra al quitarlo. Los dos córners se llaman igual
+     («Córner») y sólo se distinguen por la clave: pulsar el otro lado con
+     uno abierto cambia el detalle, no quita el filtro. */
   const pulsaOrigen = (
     nombre: string,
+    key: string,
     abre: () => void,
   ) => {
     if (!onFiltra) {
@@ -379,6 +406,11 @@ if (t.includes("falta indirecta")) {
     }
 
     if (tipoElegido === nombre) {
+      if (origenAbierto && origenAbierto.key !== key) {
+        abre();
+        return;
+      }
+
       onFiltra("tipoAccion", null);
       setSelectedOrigin(null);
     } else {
@@ -968,7 +1000,7 @@ if (destinosReales.length === 0 && destinosArea.length > 0) {
    mismo tipo se quedan encendidos); sin él, el detalle abierto. */
 const atenuado = tipoElegido
   ? name !== tipoElegido
-  : !!selectedOrigin && selectedOrigin.key !== key;
+  : !!origenAbierto && origenAbierto.key !== key;
 
     return (
       <g
@@ -976,7 +1008,7 @@ const atenuado = tipoElegido
   filter="url(#shadow)"
   opacity={atenuado ? 0.22 : 1}
   onClick={() =>
-    pulsaOrigen(name, () =>
+    pulsaOrigen(name, key, () =>
       setSelectedOrigin({
         key,
         tipo: "origen",
@@ -1034,7 +1066,7 @@ const atenuado = tipoElegido
           markerEnd="url(#arrowGold)"
           onClick={(e) => {
             e.stopPropagation();
-            pulsaOrigen(name, () =>
+            pulsaOrigen(name, key, () =>
               setSelectedOrigin({
                 key,
                 tipo: "directo",
@@ -1078,7 +1110,7 @@ const atenuado = tipoElegido
       markerEnd="url(#arrowBlue)"
       onClick={(e) => {
         e.stopPropagation();
-        pulsaOrigen(name, () =>
+        pulsaOrigen(name, key, () =>
           setSelectedOrigin({
             key,
             tipo: "corto",
@@ -1183,8 +1215,8 @@ const atenuado = tipoElegido
 
     {/* Popup origen */}
 {/* Popup origen */}
-{selectedOrigin && (() => {
-  const envioStats = originEnvios[selectedOrigin.key]?.envios || {};
+{origenAbierto && (() => {
+  const envioStats = originEnvios[origenAbierto.key]?.envios || {};
 
   const cortoCount = envioStats["Corto"] || 0;
 
@@ -1193,12 +1225,12 @@ const atenuado = tipoElegido
     (envioStats["Tenso"] || 0) +
     (envioStats["Bombeado"] || 0);
 
-  const [popupName, popupPerfil] = selectedOrigin.key.split("__");
+  const [popupName, popupPerfil] = origenAbierto.key.split("__");
 
   const subtitle =
-    selectedOrigin.tipo === "corto"
+    origenAbierto.tipo === "corto"
       ? "Juego en corto"
-      : selectedOrigin.tipo === "directo"
+      : origenAbierto.tipo === "directo"
       ? "Envíos al área"
       : "Todas las variantes";
 
@@ -1233,7 +1265,7 @@ const atenuado = tipoElegido
             Acciones registradas
           </p>
           <p className="text-xl font-semibold text-[#E7D2A0]">
-            {originCounts[selectedOrigin.key]}
+            {originCounts[origenAbierto.key]}
           </p>
         </div>
 
@@ -1267,17 +1299,17 @@ const atenuado = tipoElegido
           <div className="rounded-lg bg-white/5 px-2 py-1.5">
             <p className="text-[11px] text-slate-400">xG generado</p>
             <p className="mt-0.5 text-sm font-semibold text-white">
-              {(originEnvios[selectedOrigin.key]?.xg || 0).toFixed(2)}
+              {(originEnvios[origenAbierto.key]?.xg || 0).toFixed(2)}
             </p>
           </div>
 
           <div className="rounded-lg bg-white/5 px-2 py-1.5">
             <p className="text-[11px] text-slate-400">Gol u ocasión</p>
             <p className="mt-0.5 text-sm font-semibold text-white">
-              {originCounts[selectedOrigin.key]
+              {originCounts[origenAbierto.key]
                 ? (
-                    ((originEnvios[selectedOrigin.key]?.peligro || 0) /
-                      originCounts[selectedOrigin.key]) *
+                    ((originEnvios[origenAbierto.key]?.peligro || 0) /
+                      originCounts[origenAbierto.key]) *
                     100
                   ).toFixed(0)
                 : 0}
@@ -1290,7 +1322,7 @@ const atenuado = tipoElegido
       {/* Reparto real de zonas de caída: es lo que dibujan las flechas doradas */}
       {(() => {
         const caidas = Object.entries(
-          originEnvios[selectedOrigin.key]?.caidas || {}
+          originEnvios[origenAbierto.key]?.caidas || {}
         ).sort((a, b) => b[1] - a[1]);
 
         const totalCaidas = caidas.reduce(
@@ -1344,15 +1376,15 @@ const atenuado = tipoElegido
               .normalize("NFD")
               .replace(/[\u0300-\u036f]/g, "");
 
-            if (`${tipo}__${perfil}` !== selectedOrigin.key) return false;
+            if (`${tipo}__${perfil}` !== origenAbierto.key) return false;
 
             const envio = (r.tipoEnvio ?? r.Tipo_Envio ?? "Directo").trim();
 
-            if (selectedOrigin.tipo === "corto") {
+            if (origenAbierto.tipo === "corto") {
               return envio === "Corto";
             }
 
-            if (selectedOrigin.tipo === "directo") {
+            if (origenAbierto.tipo === "directo") {
               return (
                 envio === "Directo" ||
                 envio === "Tenso" ||
@@ -1414,11 +1446,11 @@ const atenuado = tipoElegido
 })()}
 
     {/* Popup remate */}
-    {selectedRemate && remateStats[selectedRemate]?.xg > 0 && (
+    {remateAbierto && remateStats[remateAbierto]?.xg > 0 && (
       <div className="absolute bottom-2 left-2 right-2 max-h-[calc(100%-1rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111F]/95 p-4 text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-3 sm:w-80 sm:max-h-80">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="break-words text-base font-semibold leading-tight">{selectedRemate}</h3>
+            <h3 className="break-words text-base font-semibold leading-tight">{remateAbierto}</h3>
             <p className="mt-0.5 text-xs text-slate-400">Detalle de los remates</p>
           </div>
           <button
@@ -1433,11 +1465,11 @@ const atenuado = tipoElegido
 
         <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2">
           <p className="text-xs uppercase tracking-wide text-emerald-200">xG acumulado</p>
-          <p className="text-xl font-semibold text-emerald-100">{remateStats[selectedRemate].xg.toFixed(2)}</p>
+          <p className="text-xl font-semibold text-emerald-100">{remateStats[remateAbierto].xg.toFixed(2)}</p>
         </div>
 
         <div className="space-y-2">
-          {remateStats[selectedRemate].actions.map((r, idx) => (
+          {remateStats[remateAbierto].actions.map((r, idx) => (
             <div
               key={idx}
               className="rounded-xl border border-white/10 bg-white/[0.04] p-3"

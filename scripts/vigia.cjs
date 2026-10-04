@@ -321,19 +321,60 @@ function sigueRegistro(carpeta, desde, alLinea) {
   let leido = 0;
   let resto = "";
 
+  const esRegistro = (f) => /^\d{4}-\d{2}-\d{2}_\d{4}\.log$/.test(f);
+
+  /*
+  | Lo que ya había al empezar a mirar (04/10/2026).
+  |
+  | Antes valía cualquier registro tocado en el último minuto, y el .cmd tarda
+  | unos segundos en crear el suyo (dos PowerShell para la fecha): pulsando
+  | «Repetir» justo después de un fallo se cogía el registro de la pasada
+  | ANTERIOR, se releía entero —con su FALLO— y la nueva no se seguía. Y como
+  | el nombre va por minuto, dos pasadas en el mismo minuto comparten fichero.
+  |
+  | Ahora un registro que ya existía sólo vale si se ha escrito después de
+  | `desde` (la jornada nocturna se empieza a seguir con la pasada ya en
+  | marcha: su registro se lee desde el principio) o, si no, cuando crece, y
+  | entonces sólo lo nuevo.
+  */
+  const alEmpezar = new Map();
+
+  try {
+    for (const f of fs.readdirSync(carpeta).filter(esRegistro)) {
+      const datos = fs.statSync(path.join(carpeta, f));
+
+      alEmpezar.set(f, { tamano: datos.size, reciente: datos.mtimeMs >= desde - 2_000 });
+    }
+  } catch {
+    /* la carpeta todavía no existe */
+  }
+
   const mira = () => {
     try {
       if (!fichero) {
         const candidatos = fs
           .readdirSync(carpeta)
-          .filter((f) => /^\d{4}-\d{2}-\d{2}_\d{4}\.log$/.test(f))
-          .map((f) => ({ f, t: fs.statSync(path.join(carpeta, f)).mtimeMs }))
-          .filter((x) => x.t >= desde - 60_000)
+          .filter(esRegistro)
+          .map((f) => {
+            const datos = fs.statSync(path.join(carpeta, f));
+
+            const antes = alEmpezar.get(f);
+
+            /* Desde dónde se lee: todo, salvo lo que ya traía uno viejo. */
+            const inicio = !antes || antes.reciente ? 0 : antes.tamano;
+
+            const vale = !antes || antes.reciente || datos.size > antes.tamano;
+
+            return { f, t: datos.mtimeMs, inicio, vale };
+          })
+          .filter((x) => x.vale && x.t >= desde - 2_000)
           .sort((a, b) => b.t - a.t);
 
         if (!candidatos.length) return;
 
         fichero = path.join(carpeta, candidatos[0].f);
+
+        leido = candidatos[0].inicio;
       }
 
       const tamano = fs.statSync(fichero).size;

@@ -118,6 +118,9 @@ function intencion(r: ABPRow): string {
   return raw.replace(/penati/gi, "Penalti");
 }
 
+/** El nodo que agrupa todas las superioridades. */
+const SUPERIORIDAD_NODO = "Superioridad en corto";
+
 /**
  * Zona donde cae el envío. Las superioridades (2v1, 3v2, 3v3) no son zonas del
  * área: se agrupan en un único nodo para no romper la columna en variantes.
@@ -126,9 +129,21 @@ function zona(r: ABPRow): string {
   const raw = (r.zonaCaida || "").trim();
   if (!raw) return "Sin zona";
 
-  if (/^\d+\s*v\s*\d+$/i.test(raw)) return "Superioridad en corto";
+  if (esSuperioridadExacta(raw)) return SUPERIORIDAD_NODO;
 
   return raw;
+}
+
+/** «3v2», «2v1 »…: una superioridad concreta, no el grupo. */
+function esSuperioridadExacta(v?: string) {
+  return /^\d+\s*v\s*\d+$/i.test((v || "").trim());
+}
+
+/** «3v2» y «3 v 2» son la misma. */
+function mismaSuperioridad(a: string | undefined, b: string) {
+  const limpia = (v?: string) => (v || "").toLowerCase().replace(/\s+/g, "");
+
+  return limpia(a) === limpia(b);
 }
 
 /** Mismo vocabulario cerrado que el resto del panel ofensivo. */
@@ -301,15 +316,30 @@ const setFocus = (siguiente: { col: ColKey; value: string } | null) => {
   }
 };
 
+/*
+| Una superioridad concreta («3v2») elegida en la página se pinta sobre el
+| nodo que las agrupa, pero el recorrido resaltado es sólo el de esa: si el
+| flujo usara el grupo entero contaría también los 2v1 y 3v3 que el resto de
+| la página ya ha dejado fuera.
+*/
 const estaElegido = (col: ColKey, value: string) =>
-  elegidos.some((uno) => uno.col === col && uno.value === value);
+  elegidos.some(
+    (uno) =>
+      uno.col === col &&
+      (uno.value === value ||
+        (col === "zona" && value === SUPERIORIDAD_NODO && esSuperioridadExacta(uno.value))),
+  );
 
 // Filas que atraviesan los nodos seleccionados (todas si no hay selección).
 const activeRows = useMemo(
   () =>
     elegidos.length
       ? rows.filter((r) =>
-          elegidos.every((uno) => ACCESSORS[uno.col](r) === uno.value),
+          elegidos.every((uno) =>
+            uno.col === "zona" && esSuperioridadExacta(uno.value)
+              ? mismaSuperioridad(r.zonaCaida, uno.value)
+              : ACCESSORS[uno.col](r) === uno.value,
+          ),
         )
       : rows,
   [rows, elegidos, ACCESSORS]

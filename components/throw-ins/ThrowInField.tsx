@@ -62,7 +62,10 @@ type FieldNode = {
   key: string;
   banda: Banda;
   zona: Zona;
+  /** Saques de la zona que pasan los filtros, dirección incluida. */
   count: number;
+  /** Los de la zona sin mirar la dirección: el peso de cada flecha va sobre éstos. */
+  todas: number;
   produccion: number;
   rows: RecordRow[];
   salidas: Salida[];
@@ -115,33 +118,57 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
   const isOffensive = mode === "offensive";
   const tono = tonoDeModo(mode);
 
+  const filtroResultado =
+    filtros.Resultado_Final && filtros.Resultado_Final !== "ALL" ? filtros.Resultado_Final : null;
+
   const { nodes, sinUbicar } = useMemo(() => {
     const grouped = new Map<string, FieldNode>();
     const salidasPorZona = new Map<string, Map<string, Salida>>();
     let sinUbicar = 0;
 
+    /*
+    | Al campo le llegan las filas sin filtrar por banda, zona, dirección ni
+    | resultado. El resultado no lo pinta: se aplica aquí a todo. La dirección
+    | sí —son las flechas—: el disco cuenta sólo la elegida, pero las flechas
+    | se calculan con todas, para que la elegida salga en su peso real y las
+    | demás sigan ahí, apagadas, para cambiar de opinión.
+    */
     rows.forEach((row) => {
+      const resultado = parseResultado(read(row, "Resultado_Final"));
+
+      if (filtroResultado && resultado.label !== filtroResultado) return;
+
       const banda = parseBanda(row);
       const zona = parseZona(row);
+      const direccion = direccionDe(row);
+      const cuenta = !filtroDireccion || direccion.label === filtroDireccion;
 
       if (!banda || !zona) {
-        sinUbicar += 1;
+        if (cuenta) sinUbicar += 1;
         return;
       }
 
       const key = `${banda}-${zona}`;
       const node: FieldNode =
-        grouped.get(key) ?? { key, banda, zona, count: 0, produccion: 0, rows: [], salidas: [] };
+        grouped.get(key) ??
+        { key, banda, zona, count: 0, todas: 0, produccion: 0, rows: [], salidas: [] };
 
-      const produce = esProduccion(parseResultado(read(row, "Resultado_Final")), mode);
+      const produce = esProduccion(resultado, mode);
 
-      node.count += 1;
-      node.rows.push(row);
-      if (produce) node.produccion += 1;
+      node.todas += 1;
+      if (cuenta) {
+        node.count += 1;
+        node.rows.push(row);
+        if (produce) node.produccion += 1;
+      }
       grouped.set(key, node);
 
-      const direccion = direccionDe(row);
-      const clave = `${direccion.sentido ?? "otro"}|${direccion.carril ?? "otro"}`;
+      /*
+      | Una flecha por etiqueta, no por sentido y carril: la flecha filtra por
+      | su etiqueta, y dos etiquetas juntas en una flecha filtraban sólo por
+      | la primera que apareciera.
+      */
+      const clave = direccion.label;
       const salidas = salidasPorZona.get(key) ?? new Map<string, Salida>();
       const salida: Salida = salidas.get(clave) ?? {
         clave,
@@ -163,10 +190,11 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
     });
 
     return {
-      nodes: [...grouped.values()].sort((a, b) => b.count - a.count),
+      /* Una zona sin ninguna de la dirección elegida no tiene disco. */
+      nodes: [...grouped.values()].filter((node) => node.count > 0).sort((a, b) => b.count - a.count),
       sinUbicar,
     };
-  }, [rows, mode]);
+  }, [rows, mode, filtroDireccion, filtroResultado]);
 
   // El detalle se deriva de los datos vivos: sigue los filtros o se cierra solo.
   const selected =
@@ -220,7 +248,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
             return node.salidas.map((salida) => {
               const target = destino(node.banda, node.zona, mode, salida);
               const color = heatColor(salida.produccion / salida.count, tono);
-              const peso = salida.count / node.count;
+              const peso = salida.count / node.todas;
 
               return (
                 /* La flecha filtra por su dirección: es el «hacia dónde» del
@@ -237,7 +265,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                   onClick={() => onFiltrar([["Zona_Caida", salida.label]])}
                 >
                   <title>
-                    {`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${salida.label}: ${salida.count} de ${node.count} · Pulsa para filtrar`}
+                    {`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${salida.label}: ${salida.count} de ${node.todas} · Pulsa para filtrar`}
                   </title>
                   {/* Trazo invisible y ancho para poder acertar con el dedo. */}
                   <path
@@ -386,7 +414,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                   className={`rounded-full border px-2 py-0.5 text-[11px] transition ${
                     filtroDireccion === salida.label
                       ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#E7D2A0]"
-                      : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      : `border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 ${filtroDireccion ? "opacity-50" : ""}`
                   }`}
                 >
                   {salida.label} · {salida.count}

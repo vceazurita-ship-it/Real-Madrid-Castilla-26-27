@@ -554,7 +554,12 @@ function DistributionChart({
               margin={{ top: 10, right: 8, left: -18, bottom: 48 }}
               style={onPulsar ? { cursor: "pointer" } : undefined}
               onClick={(estado) => {
-                const indice = Number(estado?.activeIndex);
+                /* Fuera de la zona de dibujo (un rótulo del eje, el margen)
+                   recharts manda el índice a null, y Number(null) es 0:
+                   sin esta guarda se filtraba por la primera barra. */
+                if (estado?.activeIndex == null) return;
+
+                const indice = Number(estado.activeIndex);
                 const item = Number.isInteger(indice) ? data[indice] : undefined;
 
                 if (item && onPulsar) onPulsar(item.name);
@@ -679,7 +684,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   | pero **tampoco pueden desaparecer sin decirlo**: hasta ahora se filtraban
   | en silencio y la jornada 1 entera no existía para esta pantalla.
   */
-  const [pendientes, setPendientes] = useState(0);
+  const [filasPendientes, setPendientes] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -712,6 +717,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   | N» de los recuentos. Quitar aquí la pretemporada es quitarla de la página
   | entera sin que ningún bloque tenga que acordarse.
   */
+  /* Los saques a medias, con la misma regla: sin pretemporada si está fuera. */
+  const pendientes = soloLiga
+    ? filasPendientes.filter((row) => valorDe(row, "__competicion") !== PRETEMPORADA).length
+    : filasPendientes.length;
+
   const rows = useMemo(
     () =>
       soloLiga
@@ -749,7 +759,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
         if (active) {
           setRows(conZona);
-          setPendientes(aMedias.length);
+          setPendientes(aMedias);
         }
       })
       .catch((cause: unknown) => {
@@ -880,7 +890,16 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   }, []);
 
   /* Las columnas que pinta cada bloque: a cada uno le llegan sin esos filtros. */
-  const filasCampo = useMemo(() => filtradoSin(["Perfil", "Zona_Saque"]), [filtradoSin]);
+  /*
+  | El campo y el mapa de zonas pintan, además de la banda y la zona, la
+  | dirección del envío (flechas y desglose) y el resultado (desglose de la
+  | celda): les llegan también sin esos filtros. Si no, al pulsar una flecha
+  | desaparecían las demás y la elegida salía al 100 %.
+  */
+  const filasCampo = useMemo(
+    () => filtradoSin(["Perfil", "Zona_Saque", "Zona_Caida", "Resultado_Final"]),
+    [filtradoSin],
+  );
   const filasFlujo = useMemo(
     () =>
       filtradoSin(["Perfil", "Zona_Saque", "Tipo_Envio", "Zona_Caida", "Intencion", "Resultado_Final"]),

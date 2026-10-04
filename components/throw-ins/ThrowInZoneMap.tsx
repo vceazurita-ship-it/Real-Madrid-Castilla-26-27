@@ -152,6 +152,8 @@ function metricsFor(mode: Mode): Metric[] {
 type CellStats = Record<MetricKey, number> & {
   total: number;
   direcciones: [string, number][];
+  /** Sobre cuántas se reparten las direcciones (sin el filtro de dirección). */
+  totalDirecciones: number;
   resultados: [string, number][];
 };
 
@@ -227,6 +229,8 @@ export default function ThrowInZoneMap({
     (!filtroZona || filtroZona === `Zona ${zona}`);
   const hayFiltro = Boolean(filtroBanda || filtroZona);
   const filtroDe = (key: string) => (filtros[key] && filtros[key] !== "ALL" ? filtros[key] : null);
+  const filtroDireccion = filtroDe("Zona_Caida");
+  const filtroResultado = filtroDe("Resultado_Final");
   const selected =
     filtroBanda && filtroZona
       ? BANDAS.flatMap((banda) => ZONAS.map((zona) => ({ banda, zona })))
@@ -249,18 +253,32 @@ export default function ThrowInZoneMap({
         bloqSuma: number;
         bloqN: number;
         direcciones: Map<string, number>;
+        totalDirecciones: number;
         resultados: Map<string, number>;
       }
     >();
 
     let sinUbicar = 0;
 
+    /*
+    | Al mapa le llegan las filas sin filtrar por banda, zona, dirección ni
+    | resultado. Las cifras de la celda llevan todos los filtros; el desglose
+    | de direcciones, todos menos el de dirección, y el de resultados, todos
+    | menos el de resultado: así, pulsada una dirección, las demás siguen ahí
+    | para cambiar de opinión, y la elegida sale con su peso real.
+    */
     rows.forEach((row) => {
       const banda = parseBanda(row);
       const zona = parseZona(row);
+      const resultado = parseResultado(read(row, "Resultado_Final"));
+      const direccion = parseDireccion(read(row, "Zona_Caida"));
+      const pasaDireccion = !filtroDireccion || direccion.label === filtroDireccion;
+      const pasaResultado = !filtroResultado || resultado.label === filtroResultado;
+
+      if (!pasaDireccion && !pasaResultado) return;
 
       if (!banda || !zona) {
-        sinUbicar += 1;
+        if (pasaDireccion && pasaResultado) sinUbicar += 1;
         return;
       }
 
@@ -278,11 +296,23 @@ export default function ThrowInZoneMap({
           bloqSuma: 0,
           bloqN: 0,
           direcciones: new Map<string, number>(),
+          totalDirecciones: 0,
           resultados: new Map<string, number>(),
         };
 
-      const resultado = parseResultado(read(row, "Resultado_Final"));
-      const direccion = parseDireccion(read(row, "Zona_Caida"));
+      acc.set(key, cell);
+
+      if (pasaResultado) {
+        cell.totalDirecciones += 1;
+        cell.direcciones.set(direccion.label, (cell.direcciones.get(direccion.label) ?? 0) + 1);
+      }
+
+      if (pasaDireccion) {
+        cell.resultados.set(resultado.label, (cell.resultados.get(resultado.label) ?? 0) + 1);
+      }
+
+      if (!pasaDireccion || !pasaResultado) return;
+
       const calidad = numero(read(row, "Calidad_Envio"));
       const bloqueadores = numero(read(row, "N_Bloqueadores"));
 
@@ -303,15 +333,14 @@ export default function ThrowInZoneMap({
         cell.bloqN += 1;
       }
 
-      cell.direcciones.set(direccion.label, (cell.direcciones.get(direccion.label) ?? 0) + 1);
-      cell.resultados.set(resultado.label, (cell.resultados.get(resultado.label) ?? 0) + 1);
-
-      acc.set(key, cell);
     });
 
     const cells = new Map<string, CellStats>();
 
     acc.forEach((cell, key) => {
+      /* Una celda sin ninguna que pase todos los filtros no se pinta. */
+      if (!cell.total) return;
+
       const pct = (value: number) => (cell.total ? (value / cell.total) * 100 : 0);
 
       cells.set(key, {
@@ -325,12 +354,13 @@ export default function ThrowInZoneMap({
         calidad: cell.calidadN ? cell.calidadSuma / cell.calidadN : 0,
         bloqueadores: cell.bloqN ? cell.bloqSuma / cell.bloqN : 0,
         direcciones: topEntries(cell.direcciones, 4),
+        totalDirecciones: cell.totalDirecciones,
         resultados: topEntries(cell.resultados, 4),
       });
     });
 
     return { cells, sinUbicar };
-  }, [rows, mode]);
+  }, [rows, mode, filtroDireccion, filtroResultado]);
 
   const active = METRICS.find((m) => m.key === metric) ?? METRICS[0];
 
@@ -575,12 +605,12 @@ export default function ThrowInZoneMap({
                   disabled={label === "Sin dato"}
                   onClick={() => onFiltrar([["Zona_Caida", label]])}
                   className={`flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-0.5 text-left text-[11px] transition hover:bg-white/5 disabled:cursor-default ${
-                    filtroDe("Zona_Caida") === label ? "outline outline-1 outline-[#C8A96B]" : ""
+                    filtroDe("Zona_Caida") === label ? "outline outline-1 outline-[#C8A96B]" : filtroDireccion ? "opacity-50" : ""
                   }`}
                 >
                   <span className="min-w-0 truncate text-zinc-300">{label}</span>
                   <span className="shrink-0 text-zinc-500">
-                    {count} · {Math.round((count / selectedCell.total) * 100)}%
+                    {count} · {Math.round((count / Math.max(1, selectedCell.totalDirecciones)) * 100)}%
                   </span>
                 </button>
               ))}
@@ -596,7 +626,7 @@ export default function ThrowInZoneMap({
                   disabled={label === "Sin dato"}
                   onClick={() => onFiltrar([["Resultado_Final", label]])}
                   className={`flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-0.5 text-left text-[11px] transition hover:bg-white/5 disabled:cursor-default ${
-                    filtroDe("Resultado_Final") === label ? "outline outline-1 outline-[#C8A96B]" : ""
+                    filtroDe("Resultado_Final") === label ? "outline outline-1 outline-[#C8A96B]" : filtroResultado ? "opacity-50" : ""
                   }`}
                 >
                   <span className="flex min-w-0 items-center gap-1.5">

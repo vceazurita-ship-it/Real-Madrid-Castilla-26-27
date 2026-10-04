@@ -188,8 +188,17 @@ export function Filtrable({
  * mezclan con la liga salvo que se pida. Se decide por el rótulo de la
  * jornada, que es lo único que traen los dos generadores.
  */
-export const esPretemporada = (jornada: string) =>
-  /^\s*(pretemporada|amistoso|pre[\s\-_.]|pret\b)/i.test(jornada);
+export const esPretemporada = (jornada: string) => {
+  /* Con la misma regla que `parseJornada` (lib/abp/partido.ts): «pretemporada»
+     o «amistos-» en cualquier sitio, y además las abreviaturas «PR3», «Pre 2». */
+  const t = jornada.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  return (
+    t.includes("pretemporada") ||
+    t.includes("amistos") ||
+    /^\s*(pre[\s\-_.]|pret\b|pr\s*\d)/.test(t)
+  );
+};
 
 export type ChipFiltro = {
   clave: string;

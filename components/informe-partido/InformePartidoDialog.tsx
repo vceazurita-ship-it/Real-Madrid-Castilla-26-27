@@ -30,6 +30,7 @@ import { Button, Dialog, Notice, Segmented, TextArea } from "@/components/abp/ui
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
@@ -90,13 +91,30 @@ const ESPERA_DOCS = 180_000;
 /*
 | Lo que va ADJUNTO al completo (04/10/2026). Gmail manda hasta 35 MB por
 | mensaje ya en base64 (un tercio más) y muchos buzones de club no reciben más
-| de 25 MB: con 16 MB de adjuntos el correo entero queda en ~24 MB. Lo que no
-| cabe no se pierde: va como botón de descarga en el propio correo.
+| de 25 MB. Lo que no cabe no se pierde: va como botón de descarga en el propio
+| correo. Es el MISMO tope que aplica el servidor (`lib/correo/limites.ts`).
 */
-const TOPE_ADJUNTOS = 16 * 1024 * 1024;
+const TOPE_ADJUNTOS = TOPE_ADJUNTOS_CORREO;
 
-/* Si un documento del rival no dice cuánto pesa, se cuenta como si pesara esto. */
+/*
+| Si un documento del rival no dice cuánto pesa y tampoco se puede preguntar,
+| se cuenta como si pesara esto. Antes era lo único que se hacía, y un PPT de
+| 14 MB contado como 6 pasaba aquí y lo rechazaba el servidor (04/10/2026).
+*/
 const PESO_DESCONOCIDO = 6 * 1024 * 1024;
+
+/** Lo que pesa un archivo ya subido, preguntándolo sin bajarlo (HEAD). `null` si no se sabe. */
+const pesoDeUrl = async (url: string) => {
+  try {
+    const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+
+    const largo = Number(r.headers.get("content-length"));
+
+    return r.ok && Number.isFinite(largo) && largo > 0 ? largo : null;
+  } catch {
+    return null;
+  }
+};
 
 /*
 | Gmail recorta el cuerpo que pasa de ~102 KB («[Mensaje recortado] Ver todo el
@@ -114,16 +132,6 @@ const nombreDeArchivo = (base: string, ext: string) => `${base.replace(/[\\/:*?"
 
 /* Lo que se espera al informe de ABP antes de darlo por perdido. */
 const ESPERA_ABP = 120_000;
-
-const base64De = (blob: Blob) =>
-  new Promise<string>((resuelve, falla) => {
-    const lector = new FileReader();
-
-    lector.onload = () => resuelve(String(lector.result).replace(/^data:[^;]+;base64,/, ""));
-    lector.onerror = () => falla(lector.error);
-
-    lector.readAsDataURL(blob);
-  });
 
 const mb = (bytes: number | null) => (bytes === null ? "" : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
@@ -583,8 +591,12 @@ export function InformePartidoDialog({
 
     cache.current.diapos = { clave, imagenes };
 
+    /* Sólo si sigue siendo la pieza vigente: una vieja que acaba tarde no
+       puede pisar el «preparado» de la nueva (04/10/2026). */
     imagenes.then(
-      () => setPreparado((x) => ({ ...x, diapos: clave })),
+      () => {
+        if (cache.current.diapos?.clave === clave) setPreparado((x) => ({ ...x, diapos: clave }));
+      },
       () => {
         if (cache.current.diapos?.clave === clave) cache.current.diapos = undefined;
       },
@@ -603,8 +615,13 @@ export function InformePartidoDialog({
 
     cache.current.completo = { clave, pdf };
 
+    /* Cambiando de capítulos deprisa, el PDF de antes podía acabar después
+       del nuevo y dejar «preparado» con su clave: no salía nunca «enviar es
+       inmediato». Sólo cuenta si sigue siendo el de la caché (04/10/2026). */
     pdf.then(
-      () => setPreparado((x) => ({ ...x, completo: clave })),
+      () => {
+        if (cache.current.completo?.clave === clave) setPreparado((x) => ({ ...x, completo: clave }));
+      },
       () => {
         if (cache.current.completo?.clave === clave) cache.current.completo = undefined;
       },
@@ -716,16 +733,32 @@ export function InformePartidoDialog({
 
   /* ---------------- mandar ---------------- */
 
+  /**
+   * Manda un correo y devuelve lo que el servidor dejó como enlace.
+   *
+   * La petición pasa por Vercel, que corta hacia los 4,5 MB (04/10/2026): se
+   * mide antes y, si no cabe, se dice qué pasa en vez de un «HTTP 413».
+   */
   const manda = async (cuerpo: Record<string, unknown>) => {
+    const json = JSON.stringify(cuerpo);
+
+    const peso = bytesDe(json);
+
+    if (peso > TOPE_PETICION_CORREO) {
+      throw new Error(`El correo pesa ${mb(peso)} y por el servidor no pasa más de ${mb(TOPE_PETICION_CORREO)}: quita capítulos o gráficos.`);
+    }
+
     const r = await fetch("/api/informe/correo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cuerpo),
+      body: json,
     });
 
-    const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string; enlazados?: string[] } | null;
 
     if (!r.ok || !j?.ok) throw new Error(j?.error ?? `HTTP ${r.status}`);
+
+    return { enlazados: Array.isArray(j.enlazados) ? j.enlazados : [] };
   };
 
   /** Las direcciones de un texto, o las malas. */
@@ -742,7 +775,17 @@ export function InformePartidoDialog({
   /* Lo que va por pasos, para el botón: «Resumen: mandado · Completo: subiendo 2/4». */
   const pasos = useRef<{ resumen?: string; completo?: string }>({});
 
-  const pinta = (que: "resumen" | "completo", texto: string) => {
+  /*
+  | El envío en curso (04/10/2026). Si una subida fallaba, `Promise.all` se
+  | rendía pero el PDF y las otras subidas seguían y, ya terminado el envío,
+  | volvían a escribir en el botón («Completo: PDF 12/20…»): la pantalla se
+  | quedaba con todo deshabilitado. Lo que llega de un envío ya acabado no pinta.
+  */
+  const envioEnCurso = useRef(0);
+
+  const pinta = (vuelta: number, que: "resumen" | "completo", texto: string) => {
+    if (vuelta !== envioEnCurso.current) return;
+
     pasos.current[que] = texto;
 
     setTrabajando(
@@ -799,19 +842,38 @@ export function InformePartidoDialog({
 
     pasos.current = {};
 
+    /* Este envío: lo que pinte uno anterior que siga coleando no cuenta. */
+    envioEnCurso.current += 1;
+
+    const vuelta = envioEnCurso.current;
+
+    const paso = (que: "resumen" | "completo", texto: string) => pinta(vuelta, que, texto);
+
+    /* Al servidor van ya limpias, separadas por comas: lo que aquí se da por
+       bueno es lo que se manda (04/10/2026). */
+    const aResumen = direccionesDe(paraResumen).buenas.join(", ");
+
+    const aCompleto = direccionesDe(paraCompleto).buenas.join(", ");
+
     const firma = (ajustes.firma ?? "").trim() || undefined;
 
     /*
     | El PDF y el PPT del rival, si hay que sacarlos: se piden YA (dentro del
     | clic, o el navegador bloquea la pestaña) y se esperan sólo justo antes de
     | mandar el completo. El resumen no los espera.
+    |
+    | Si ya se están sacando («Volver a sacar» pulsado hace un momento), se
+    | espera a ESA pestaña en vez de abrir otra (04/10/2026): dos pestañas
+    | sacando lo mismo a la vez se pisaban los documentos guardados.
     */
+    const yaSacandose = docsCargando;
+
     const docsNuevosP: Promise<Documento[]> =
       c.activo && c.sacarDocs && faltanDocs && !docsActual?.ok
         ? new Promise<DocsLlegados>((resuelve) => {
             esperaDocs.current = resuelve;
 
-            abreDocs();
+            if (!yaSacandose) abreDocs();
 
             window.setTimeout(() => resuelve({ ok: false, clave: "", error: "Plantillas rivales no ha contestado a tiempo." }), ESPERA_DOCS);
           }).then((llegado) => {
@@ -834,8 +896,8 @@ export function InformePartidoDialog({
         : Promise.resolve([]);
 
     try {
-      if (r.activo) pinta("resumen", "diapositivas…");
-      if (c.activo) pinta("completo", listoTodo ? "listo para subir" : "preparando…");
+      if (r.activo) paso("resumen", "diapositivas…");
+      if (c.activo) paso("completo", listoTodo ? "listo para subir" : "preparando…");
 
       const { imagenes, indices } = await elegidas();
 
@@ -847,77 +909,120 @@ export function InformePartidoDialog({
 
       const nombreResumenPpt = nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx");
 
-      const pdfResumenP = pdfDe(imagenes);
+      const nombreCompletoPdf = nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf");
+
+      /* Se hacen sólo si alguno de los dos correos los lleva. */
+      let pdfResumenP: Promise<Blob> | null = null;
+
+      const pdfResumen = () => (pdfResumenP ??= pdfDe(imagenes));
+
+      let pptResumen: Blob | null = null;
+
+      const pptDelResumen = () => (pptResumen ??= pptDe(imagenes, indices));
+
+      /*
+      | Cada archivo propio se sube UNA vez aunque vaya en los dos correos
+      | (el PDF del resumen puede ir en ambos): las subidas se comparten.
+      */
+      const subidas = new Map<string, Promise<{ nombre: string; url: string; tipo: string; tamano: number | null }>>();
+
+      const subeUnaVez = (nombre: string, tipo: string, blob: () => Promise<Blob> | Blob) => {
+        const ya = subidas.get(nombre);
+
+        if (ya) return ya;
+
+        const promesa = (async () => {
+          const datos = await blob();
+
+          const a = await subeAdjunto(new File([datos], nombre, { type: tipo }));
+
+          return { nombre, url: a.url, tipo, tamano: datos.size as number | null };
+        })();
+
+        subidas.set(nombre, promesa);
+
+        return promesa;
+      };
+
+      /** Las imágenes que el HTML llama de verdad: lo que no se nombra saldría como adjunto suelto sin nombre. */
+      const usadas = <X extends { cid: string }>(html: string, lista: X[]) => lista.filter((i) => html.includes(`cid:${i.cid}"`));
 
       /* ------------- el resumen ------------- */
 
+      /*
+      | El PDF y el PPT del resumen ya no viajan dentro de la petición
+      | (04/10/2026): con las dos diapositivas en el cuerpo, en el PDF y en el
+      | PPT, la petición pasaba de los ~4,5 MB que admite Vercel y el resumen no
+      | salía. Suben a Supabase como los del completo y el servidor los adjunta.
+      | Dentro sólo va el HTML con sus dos diapositivas (~1-2 MB).
+      */
       const correoResumen = async () => {
-        const pdfResumen = await pdfResumenP;
+        const archivos = await Promise.all([
+          ...(r.pdf ? [subeUnaVez(nombreResumenPdf, "application/pdf", pdfResumen)] : []),
+          ...(r.ppt ? [subeUnaVez(nombreResumenPpt, PPTX, pptDelResumen)] : []),
+        ]);
 
-        const ppt = r.ppt ? pptDe(imagenes, indices) : null;
+        paso("resumen", "mandando…");
 
-        const adjuntos = [
-          ...(r.pdf ? [{ nombre: nombreResumenPdf, tipo: "application/pdf", base64: await base64De(pdfResumen) }] : []),
-          ...(ppt ? [{ nombre: nombreResumenPpt, tipo: PPTX, base64: await base64De(ppt) }] : []),
-        ];
-
-        pinta("resumen", "mandando…");
-
-        await manda({
-          para: paraResumen,
-          asunto: asuntoResumen,
-          html: resumenHtml(informeVisto, cids, {
-            conCompleto: c.activo,
-            mensaje: r.mensaje,
-            firma,
-            descargas: [
-              ...(r.pdf ? [{ nombre: nombreResumenPdf, tamano: pdfResumen.size, adjunto: true }] : []),
-              ...(ppt ? [{ nombre: nombreResumenPpt, tamano: ppt.size, adjunto: true }] : []),
-            ],
-          }),
-          texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
-          imagenes: diapositivasCid,
-          adjuntos,
+        const html = resumenHtml(informeVisto, cids, {
+          conCompleto: c.activo,
+          mensaje: r.mensaje,
+          firma,
+          descargas: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tamano: a.tamano, adjunto: true })),
         });
 
-        pinta("resumen", "mandado ✓");
+        await manda({
+          para: aResumen,
+          asunto: asuntoResumen,
+          html,
+          texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
+          imagenes: usadas(html, diapositivasCid),
+          adjuntosUrl: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
+        });
+
+        paso("resumen", "mandado ✓");
       };
 
       /* ------------- el completo ------------- */
 
       const correoCompleto = async () => {
-        const propios: { nombre: string; blob: Promise<Blob> | Blob; tipo: string }[] = [
-          ...(c.pdfCompleto ? [{ nombre: nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"), blob: damePdfCompleto((h, t) => pinta("completo", `PDF ${h}/${t}…`)), tipo: "application/pdf" }] : []),
-          ...(c.pdfResumen ? [{ nombre: nombreResumenPdf, blob: pdfResumenP, tipo: "application/pdf" }] : []),
-          ...(c.pptResumen ? [{ nombre: nombreResumenPpt, blob: pptDe(imagenes, indices), tipo: PPTX }] : []),
+        const propios = [
+          ...(c.pdfCompleto ? [{ nombre: nombreCompletoPdf, tipo: "application/pdf", blob: () => damePdfCompleto((h, t) => paso("completo", `PDF ${h}/${t}…`)) }] : []),
+          ...(c.pdfResumen ? [{ nombre: nombreResumenPdf, tipo: "application/pdf", blob: pdfResumen }] : []),
+          ...(c.pptResumen ? [{ nombre: nombreResumenPpt, tipo: PPTX, blob: pptDelResumen }] : []),
         ];
 
         /* Todo a la vez: cada archivo, en cuanto está, sube; no uno detrás de otro. */
         let subidos = 0;
 
-        pinta("completo", propios.length ? `subiendo 0/${propios.length}…` : "preparando…");
+        paso("completo", propios.length ? `subiendo 0/${propios.length}…` : "preparando…");
 
         const subidosAhora = await Promise.all(
           propios.map(async (archivo) => {
-            const blob = await archivo.blob;
-
-            const a = await subeAdjunto(new File([blob], archivo.nombre, { type: archivo.tipo }));
+            const subido = await subeUnaVez(archivo.nombre, archivo.tipo, archivo.blob);
 
             subidos += 1;
 
-            pinta("completo", `subiendo ${subidos}/${propios.length}…`);
+            paso("completo", `subiendo ${subidos}/${propios.length}…`);
 
-            return { nombre: archivo.nombre, url: a.url, tipo: archivo.tipo, tamano: blob.size as number | null };
+            return subido;
           }),
         );
 
-        if (c.sacarDocs && faltanDocs && !docsActual?.ok) pinta("completo", "esperando el PDF y el PPT del rival…");
+        if (c.sacarDocs && faltanDocs && !docsActual?.ok) paso("completo", "esperando el PDF y el PPT del rival…");
 
         const docsNuevos = await docsNuevosP;
 
         const sustituidos = new Set(docsNuevos.map((x) => x.generado));
 
         const adjuntosRival = [...docsNuevos, ...marcados.filter((x) => !x.generado || !sustituidos.has(x.generado))];
+
+        /*
+        | Lo que pesa cada documento del rival que no lo dice (04/10/2026): se
+        | pregunta al almacén sin bajarlo. Contarlo a ojo (6 MB) dejaba pasar
+        | uno de 14 MB que luego no cabía en el servidor.
+        */
+        const conPeso = await Promise.all(adjuntosRival.map(async (d) => ({ ...d, tamano: d.tamano ?? (await pesoDeUrl(d.url)) })));
 
         /*
         | Qué va adjunto y qué sólo como enlace. Por orden de importancia —el
@@ -928,7 +1033,7 @@ export function InformePartidoDialog({
         */
         const candidatos = [
           ...subidosAhora.filter((d) => d.tipo === "application/pdf"),
-          ...adjuntosRival.map((d) => ({ nombre: nombreEnCorreo(d), url: d.url, tipo: d.tipo, tamano: d.tamano })),
+          ...conPeso.map((d) => ({ nombre: nombreEnCorreo(d), url: d.url, tipo: d.tipo, tamano: d.tamano })),
           ...subidosAhora.filter((d) => d.tipo !== "application/pdf"),
         ];
 
@@ -956,32 +1061,55 @@ export function InformePartidoDialog({
           firma,
         };
 
+        /*
+        | Aligerar el cuerpo quita tablas y el ABP entero diciendo «está en el
+        | PDF del informe completo, adjunto». Sólo es verdad si ese PDF va de
+        | verdad adjunto (04/10/2026): sin él, lo quitado no estaba en ningún
+        | sitio. Sin PDF adjunto va entero, aunque Gmail lo recorte (el resto
+        | se ve con «Ver todo el mensaje»).
+        */
+        const pdfAdjunto = reparto.some((d) => d.nombre === nombreCompletoPdf && d.adjunto);
+
+        const imagenesAbp = abpActual?.ok ? abpActual.imagenes : [];
+
+        const arma = (ligero: 0 | 1 | 2) => {
+          const html = informeHtml(informeVisto, { ...base, ligero });
+
+          /* Sólo las imágenes que el cuerpo llama: con el capítulo de ABP
+             quitado, o ABP resumido, sus gráficos no viajan. */
+          return { html, imagenes: usadas(html, [...diapositivasCid, ...imagenesAbp]) };
+        };
+
+        const pesa = (x: { html: string; imagenes: { base64: string }[] }) => bytesDe(x.html) + x.imagenes.reduce((s, i) => s + i.base64.length, 0);
+
         let ligero: 0 | 1 | 2 = 0;
 
-        let html = informeHtml(informeVisto, base);
+        let pieza = arma(0);
 
-        while (bytesDe(html) > TOPE_HTML && ligero < 2) {
+        /* Con margen para el texto y lo demás de la petición. */
+        const cabePeticion = (x: typeof pieza) => pesa(x) < TOPE_PETICION_CORREO - 256 * 1024;
+
+        while (pdfAdjunto && ligero < 2 && (bytesDe(pieza.html) > TOPE_HTML || !cabePeticion(pieza))) {
           ligero = (ligero + 1) as 1 | 2;
 
-          html = informeHtml(informeVisto, { ...base, ligero });
+          pieza = arma(ligero);
         }
 
-        pinta("completo", "mandando…");
+        paso("completo", "mandando…");
 
-        await manda({
-          para: paraCompleto,
+        const { enlazados } = await manda({
+          para: aCompleto,
           asunto: asuntoCompleto,
-          html,
+          html: pieza.html,
           texto: `${c.mensaje?.trim() ? `${c.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${descargas.map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
-          /* Con ABP resumido, sus gráficos no se llaman desde el cuerpo: si
-             viajaran, saldrían como adjuntos sueltos sin nombre. */
-          imagenes: [...diapositivasCid, ...(abpActual?.ok && ligero < 2 ? abpActual.imagenes : [])],
+          imagenes: pieza.imagenes,
           adjuntosUrl: reparto.filter((d) => d.adjunto).map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
         });
 
-        pinta("completo", "mandado ✓");
+        paso("completo", "mandado ✓");
 
-        return reparto.filter((d) => !d.adjunto).length;
+        /* Los que no cabían aquí más los que el servidor dejó como enlace. */
+        return reparto.filter((d) => !d.adjunto).length + enlazados.length;
       };
 
       /* Los dos a la vez: el resumen no espera a que se suba el completo. */
@@ -1013,6 +1141,10 @@ export function InformePartidoDialog({
     } catch (error) {
       toast.error("No se ha podido mandar", { description: error instanceof Error ? error.message : "" });
     } finally {
+      /* Lo que aún esté corriendo de este envío (un PDF a medias, una subida
+         tras un fallo) ya no escribe en el botón. */
+      envioEnCurso.current += 1;
+
       setTrabajando(null);
     }
   };

@@ -71,9 +71,13 @@ export function limpiaCorreo(valor: unknown) {
  *
  * Se aceptan separadas por comas, por punto y coma o por saltos de línea,
  * porque es como las pega la gente desde otro correo. Se quitan las repetidas.
+ *
+ * También por espacios (04/10/2026): la pantalla del informe del partido ya
+ * aceptaba «a@x.com b@y.com» y aquí se leía como una sola dirección mala, así
+ * que los dos correos se rechazaban después de prepararlo todo.
  */
 export function leeDestinatarios(valor: string) {
-  const trozos = String(valor ?? "").split(/[,;\n]/);
+  const trozos = String(valor ?? "").split(/[\s,;]+/);
 
   const buenas: string[] = [];
   const malas: string[] = [];
