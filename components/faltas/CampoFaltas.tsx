@@ -20,9 +20,16 @@
  * «campo propio» sea el del que saca y no el nuestro, que es la confusión que
  * se lleva todo el mundo la primera vez. Y el carril izquierdo es el de arriba,
  * porque es el que queda a la izquierda de quien ataca hacia la derecha.
+ *
+ * **Todo se pincha.** Una casilla (o un punto, que es su casilla) filtra por
+ * su tercio y su carril a la vez; el rótulo de arriba, sólo por el tercio; el
+ * de la izquierda, sólo por el carril; la leyenda, por el lado. El campo
+ * recibe las faltas SIN su propio filtro de sitio, así que lo elegido se
+ * marca en oro y lo demás se apaga, pero no desaparece.
  */
 
 import type { Falta, LadoFalta } from "@/lib/faltas/datos";
+import { TITULO_FILTRO, marcaPieza } from "@/components/faltas/FiltrosCruzados";
 
 /* El campo en decímetros: 105 × 68 m. Todo lo demás sale de ahí. */
 const ANCHO = 1050;
@@ -44,6 +51,7 @@ const RADIO_CENTRAL = 91.5;
 const CORTE = Math.sqrt(RADIO_CENTRAL ** 2 - (AREA_FONDO - PUNTO_PENAL) ** 2);
 
 const LINEA = "rgba(255,255,255,0.26)";
+const ORO = "#C8A96B";
 
 export type CampoFaltasProps = {
   faltas: Falta[];
@@ -53,6 +61,15 @@ export type CampoFaltasProps = {
   /** La falta que está resaltada, para atarla con la tabla de abajo. */
   resaltada: string | null;
   onResaltar: (clip: string | null) => void;
+  /** Los tercios y carriles marcados como filtro (vacío = ninguno). */
+  zonasMarcadas?: string[];
+  carrilesMarcados?: string[];
+  /** El lado marcado, para la leyenda. */
+  ladoMarcado?: LadoFalta | null;
+  onCajon?: (zona: string, carril: string) => void;
+  onZona?: (zona: string) => void;
+  onCarril?: (carril: string) => void;
+  onLado?: (lado: LadoFalta) => void;
 };
 
 type Punto = { falta: Falta; x: number; y: number };
@@ -115,8 +132,25 @@ export function CampoFaltas({
   tinta,
   resaltada,
   onResaltar,
+  zonasMarcadas = [],
+  carrilesMarcados = [],
+  ladoMarcado = null,
+  onCajon,
+  onZona,
+  onCarril,
+  onLado,
 }: CampoFaltasProps) {
   const puntos = coloca(faltas, zonas, carriles);
+
+  /*
+  | Qué casilla está elegida. Con sólo un tercio marcado, son sus tres
+  | carriles; con sólo un carril, sus tres tercios; con los dos, el cruce.
+  */
+  const hayFiltroSitio = zonasMarcadas.length > 0 || carrilesMarcados.length > 0;
+  const cajonElegido = (zona: string, carril: string) =>
+    hayFiltroSitio &&
+    (zonasMarcadas.length === 0 || zonasMarcadas.includes(zona)) &&
+    (carrilesMarcados.length === 0 || carrilesMarcados.includes(carril));
 
   /* Cuántas hay en cada cajón, para el velo del fondo. */
   const porCajon = new Map<string, number>();
@@ -178,12 +212,14 @@ export function CampoFaltas({
           />
         ))}
 
-        {/* El velo que dice dónde se acumulan, por debajo de las líneas. */}
-        {zonas.map((_, zi) =>
-          carriles.map((__, ci) => {
+        {/*
+          El velo que dice dónde se acumulan, por debajo de las líneas. Va en
+          todas las casillas, también las vacías: es la superficie que se
+          pincha para filtrar por ese sitio.
+        */}
+        {zonas.map((zona, zi) =>
+          carriles.map((carril, ci) => {
             const cuantas = porCajon.get(`${zi}|${ci}`) ?? 0;
-
-            if (cuantas === 0) return null;
 
             return (
               <rect
@@ -193,13 +229,24 @@ export function CampoFaltas({
                 width={TERCIO}
                 height={BANDA}
                 fill={`rgba(200,169,107,${((cuantas / tope) * 0.2).toFixed(3)})`}
-              />
+                onClick={onCajon ? () => onCajon(zona, carril) : undefined}
+                style={onCajon ? { cursor: "pointer" } : undefined}
+              >
+                {onCajon && (
+                  <title>{`${zona} · ${carril} · ${cuantas} ${cuantas === 1 ? "falta" : "faltas"}\n${TITULO_FILTRO}`}</title>
+                )}
+              </rect>
             );
           }),
         )}
 
         {/* Las divisiones del etiquetado, muy tenues: son ayuda, no campo. */}
-        <g stroke="rgba(200,169,107,0.16)" strokeWidth={1.6} strokeDasharray="10 12">
+        <g
+          stroke="rgba(200,169,107,0.16)"
+          strokeWidth={1.6}
+          strokeDasharray="10 12"
+          style={{ pointerEvents: "none" }}
+        >
           <line x1={TERCIO} y1={0} x2={TERCIO} y2={ALTO} />
           <line x1={TERCIO * 2} y1={0} x2={TERCIO * 2} y2={ALTO} />
           <line x1={0} y1={BANDA} x2={ANCHO} y2={BANDA} />
@@ -208,7 +255,8 @@ export function CampoFaltas({
 
         {/* ------------------------------- el campo ------------------ */}
 
-        <g fill="none" stroke={LINEA} strokeWidth={3}>
+        {/* Las líneas no se pinchan: el clic tiene que llegar a la casilla. */}
+        <g fill="none" stroke={LINEA} strokeWidth={3} style={{ pointerEvents: "none" }}>
           <rect x={0} y={0} width={ANCHO} height={ALTO} />
 
           <line x1={ANCHO / 2} y1={0} x2={ANCHO / 2} y2={ALTO} />
@@ -255,16 +303,41 @@ export function CampoFaltas({
           <path d={`M ${ANCHO - 10} ${ALTO} A 10 10 0 0 1 ${ANCHO} ${ALTO - 10}`} />
         </g>
 
-        <g fill={LINEA}>
+        <g fill={LINEA} style={{ pointerEvents: "none" }}>
           <circle cx={ANCHO / 2} cy={MEDIO} r={7} />
           <circle cx={PUNTO_PENAL} cy={MEDIO} r={7} />
           <circle cx={ANCHO - PUNTO_PENAL} cy={MEDIO} r={7} />
         </g>
 
-        <g fill="rgba(255,255,255,0.10)" stroke={LINEA} strokeWidth={3}>
+        <g
+          fill="rgba(255,255,255,0.10)"
+          stroke={LINEA}
+          strokeWidth={3}
+          style={{ pointerEvents: "none" }}
+        >
           <rect x={-14} y={MEDIO - 36.6} width={14} height={73.2} />
           <rect x={ANCHO} y={MEDIO - 36.6} width={14} height={73.2} />
         </g>
+
+        {/* La casilla elegida, con el oro por encima de las líneas. */}
+        {hayFiltroSitio && (
+          <g fill="none" stroke={ORO} strokeWidth={4} style={{ pointerEvents: "none" }}>
+            {zonas.map((zona, zi) =>
+              carriles.map((carril, ci) =>
+                cajonElegido(zona, carril) ? (
+                  <rect
+                    key={`${zi}|${ci}`}
+                    x={TERCIO * zi + 3}
+                    y={BANDA * ci + 3}
+                    width={TERCIO - 6}
+                    height={BANDA - 6}
+                    rx={6}
+                  />
+                ) : null,
+              ),
+            )}
+          </g>
+        )}
 
         {/* --------------------------- los rótulos -------------------- */}
 
@@ -275,25 +348,51 @@ export function CampoFaltas({
           textAnchor="middle"
           style={{ textTransform: "uppercase" }}
         >
-          {zonas.map((zona, zi) => (
-            <text key={zona} x={TERCIO * (zi + 0.5)} y={-13}>
-              {zona}
-            </text>
-          ))}
+          {zonas.map((zona, zi) => {
+            const suya = zonasMarcadas.includes(zona);
+
+            return (
+              <text
+                key={zona}
+                x={TERCIO * (zi + 0.5)}
+                y={-13}
+                onClick={onZona ? () => onZona(zona) : undefined}
+                fill={suya ? ORO : undefined}
+                fillOpacity={zonasMarcadas.length && !suya ? 0.5 : 1}
+                fontWeight={suya ? 700 : undefined}
+                style={onZona ? { cursor: "pointer" } : undefined}
+              >
+                {onZona && <title>{TITULO_FILTRO}</title>}
+                {zona}
+              </text>
+            );
+          })}
         </g>
 
         <g fill="rgba(255,255,255,0.32)" fontSize={18} letterSpacing={1}>
-          {carriles.map((carril, ci) => (
-            <text
-              key={carril}
-              x={-14}
-              y={BANDA * (ci + 0.5) + 6}
-              textAnchor="end"
-              style={{ textTransform: "uppercase" }}
-            >
-              {carril}
-            </text>
-          ))}
+          {carriles.map((carril, ci) => {
+            const suyo = carrilesMarcados.includes(carril);
+
+            return (
+              <text
+                key={carril}
+                x={-14}
+                y={BANDA * (ci + 0.5) + 6}
+                textAnchor="end"
+                onClick={onCarril ? () => onCarril(carril) : undefined}
+                fill={suyo ? ORO : undefined}
+                fillOpacity={carrilesMarcados.length && !suyo ? 0.5 : 1}
+                fontWeight={suyo ? 700 : undefined}
+                style={{
+                  textTransform: "uppercase",
+                  cursor: onCarril ? "pointer" : undefined,
+                }}
+              >
+                {onCarril && <title>{TITULO_FILTRO}</title>}
+                {carril}
+              </text>
+            );
+          })}
         </g>
 
         <g fill="rgba(200,169,107,0.55)" fontSize={19} letterSpacing={2}>
@@ -307,15 +406,19 @@ export function CampoFaltas({
         {puntos.map(({ falta, x, y }) => {
           const suya = resaltada === falta.clip;
           const color = tinta[falta.lado];
+          /* Fuera de la casilla elegida, el punto se apaga pero se queda. */
+          const fuera = hayFiltroSitio && !cajonElegido(falta.zona, falta.carril);
 
           return (
             <g
               key={falta.clip}
               onMouseEnter={() => onResaltar(falta.clip)}
               onMouseLeave={() => onResaltar(null)}
+              onClick={onCajon ? () => onCajon(falta.zona, falta.carril) : undefined}
+              opacity={fuera && !suya ? 0.3 : 1}
               style={{ cursor: "pointer" }}
             >
-              <title>{`${falta.lado === "ofensivo" ? "A favor" : "En contra"} · ${falta.zona} · ${falta.carril} · ${falta.distancia} · ${falta.entre ?? "?"} defendiendo\n${falta.nota}`}</title>
+              <title>{`${falta.minuto || "—"} · ${falta.lado === "ofensivo" ? "A favor" : "En contra"} · ${falta.zona} · ${falta.carril} · ${falta.distancia} · ${falta.entre ?? "?"} defendiendo\n${falta.nota}${onCajon ? `\n${TITULO_FILTRO}` : ""}`}</title>
 
               {/* El halo sólo en la resaltada: con veintitrés, un halo por
                   punto deja el campo hecho una nube. */}
@@ -352,21 +455,29 @@ export function CampoFaltas({
       </svg>
 
       <div className="flex flex-wrap items-center gap-4 border-t border-white/10 px-3 py-2 text-[11px] text-white/40">
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-full"
-            style={{ background: tinta.ofensivo }}
-          />
-          A favor
-        </span>
-
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-full"
-            style={{ background: tinta.defensivo }}
-          />
-          En contra
-        </span>
+        {(
+          [
+            { lado: "ofensivo", nombre: "A favor" },
+            { lado: "defensivo", nombre: "En contra" },
+          ] satisfies { lado: LadoFalta; nombre: string }[]
+        ).map(({ lado, nombre }) => (
+          <button
+            key={lado}
+            type="button"
+            onClick={onLado ? () => onLado(lado) : undefined}
+            disabled={!onLado}
+            aria-pressed={ladoMarcado === lado}
+            title={onLado ? TITULO_FILTRO : undefined}
+            style={marcaPieza(ladoMarcado === lado, ladoMarcado !== null)}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 transition hover:opacity-100 disabled:cursor-default"
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ background: tinta[lado] }}
+            />
+            {nombre}
+          </button>
+        ))}
 
         <span>Número: defensores hasta la portería</span>
       </div>

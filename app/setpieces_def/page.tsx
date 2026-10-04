@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
-import ABPFlowField from '@/components/abp/ABPFlowField';
+import ABPFlowField, { zonaRemateDelCampo } from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
 import {
   Conclusiones,
@@ -16,8 +16,26 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import type { ClaveMetrica } from "@/lib/abp/analisis";
-import ABPObjectiveFlow from "@/components/abp/ABPObjectiveFlow";
-import ABPZoneMap from "@/components/abp/ABPZoneMap";
+import ABPObjectiveFlow, {
+  type ABPFlowCol,
+} from "@/components/abp/ABPObjectiveFlow";
+import ABPZoneMap, {
+  ZONA_AREA_LABEL,
+  zonasDeAccion,
+} from "@/components/abp/ABPZoneMap";
+import {
+  AvisoPretemporada,
+  BarraFiltros,
+  PULSA,
+  SIN_PRETEMPORADA,
+  alterna,
+  filtraFilas,
+  igual,
+  marca,
+  pulsaIndice,
+  type Chip,
+  type Dimension,
+} from "@/components/abp/filtroCruzado";
 import {
   lee,
   numero,
@@ -85,6 +103,9 @@ const RESULTADO_COLORS: Record<string, string> = {
   "Transición Ofensiva": "#567A68",
   "Gol RMCF": "#10B981",
 };
+
+/** El nodo del flujo que agrupa todas las superioridades. */
+const SUPERIORIDAD = "Superioridad en corto";
 
 /**
  * Normaliza el resultado final defensivo al vocabulario cerrado del cuerpo técnico.
@@ -337,36 +358,29 @@ const [tiempo, setTiempo] =
 | saques de banda: de qué competición es el partido, cómo iba el marcador y en
 | qué cuarto de hora pasó. Salen de columnas que la hoja ya trae.
 */
-const [competicionFilter, setCompeticionFilter] = useState("ALL");
+const [competicionFilter, setCompeticionFilter] = useState(SIN_PRETEMPORADA);
 const [estadoFilter, setEstadoFilter] = useState("ALL");
 const [tramoFilter, setTramoFilter] = useState("ALL");
 
-  const [visualFilters, setVisualFilters] =
-  useState<{
-    tipoAccion?: string;
-    zonaCaida?: string;
-    perfilGolpeo?: string;
-    tipoRemate?: string;
-    tipoEnvio?: string;
-    zonaRemate?: string;
-    segundoBalon?: string;
-    tipoCarrera?: string;
-    resultadoFinal?: string;
-  }>({});
-function toggleFilter(
-  key: keyof typeof visualFilters,
-  value?: string
-) {
-  if (!value) return;
-
-  setVisualFilters((prev) => ({
-    ...prev,
-    [key]:
-      prev[key] === value
-        ? undefined
-        : value,
-  }));
-}
+  /*
+  | Lo que se filtra pulsando los gráficos.
+  |
+  | Antes iba en un objeto aparte (`visualFilters`) que el cajón no veía: ahora
+  | cada dimensión tiene su estado, como en el ABP ofensivo, y todas pasan por
+  | la misma lista de `dimensiones` de abajo.
+  */
+  const [tipoAccionFilter, setTipoAccionFilter] = useState("ALL");
+  const [zonaCaidaFilter, setZonaCaidaFilter] = useState("ALL");
+  const [zonaAreaFilter, setZonaAreaFilter] = useState("ALL");
+  const [perfilGolpeoFilter, setPerfilGolpeoFilter] = useState("ALL");
+  const [tipoRemateFilter, setTipoRemateFilter] = useState("ALL");
+  const [tipoEnvioFilter, setTipoEnvioFilter] = useState("ALL");
+  const [zonaRemateFilter, setZonaRemateFilter] = useState("ALL");
+  const [segundoBalonFilter, setSegundoBalonFilter] = useState("ALL");
+  const [tipoCarreraFilter, setTipoCarreraFilter] = useState("ALL");
+  const [resultadoFilter, setResultadoFilter] = useState("ALL");
+  const [calidadFilter, setCalidadFilter] = useState("ALL");
+  const [atacantesFilter, setAtacantesFilter] = useState("ALL");
   useEffect(() => {
     traeCsv(CSV_URL)
       .then((t) =>
@@ -413,81 +427,267 @@ const perfiles = useMemo(
       .sort(),
   [rows]
 );
-const filtered = rows.filter((r) => {
-  const matchJornada =
-    jornada === "ALL" ||
-    r.contexto.jornada.clave === jornada;
+/*
+| Todo lo que se puede filtrar, en un sitio.
+|
+| Cada dimensión lleva su estado (los del cajón y los de los clics son los
+| mismos) y cómo se compara una fila con lo elegido. De aquí salen
+| `filtered`, las versiones «sin esta dimensión» con las que se pinta cada
+| gráfico y la tira de «Filtrando: …».
+*/
+const oficiales = competiciones.filter((una) => una !== "amistoso");
+const hayPretemporada = competiciones.includes("amistoso");
+const rotuloOficial = oficiales.length > 1 ? "Liga y copa" : "Sólo liga";
 
-  const matchCompeticion =
-    competicionFilter === "ALL" ||
-    r.contexto.jornada.competicion === competicionFilter;
+const dimensiones: Dimension<Row>[] = [
+  {
+    clave: "competicion",
+    etiqueta: "Competición",
+    valor: competicionFilter,
+    poner: setCompeticionFilter,
+    porDefecto: SIN_PRETEMPORADA,
+    coincide: (r, v) =>
+      v === SIN_PRETEMPORADA
+        ? r.contexto.jornada.competicion !== "amistoso"
+        : r.contexto.jornada.competicion === v,
+    texto: (v) =>
+      v === SIN_PRETEMPORADA
+        ? rotuloOficial
+        : (COMPETICION_LABEL[v as keyof typeof COMPETICION_LABEL] ?? v),
+  },
+  {
+    clave: "jornada",
+    etiqueta: "Jornada",
+    valor: jornada,
+    poner: setJornada,
+    coincide: (r, v) => r.contexto.jornada.clave === v,
+    texto: (v) => jornadas.find((una) => una.clave === v)?.etiqueta ?? v,
+  },
+  {
+    clave: "estado",
+    etiqueta: "Marcador",
+    valor: estadoFilter,
+    poner: setEstadoFilter,
+    coincide: (r, v) => r.contexto.marcador.estado === v,
+    texto: (v) => ESTADOS.find((uno) => uno.key === v)?.label ?? v,
+  },
+  {
+    clave: "tramo",
+    etiqueta: "Tramo",
+    valor: tramoFilter,
+    poner: setTramoFilter,
+    coincide: (r, v) => r.contexto.minuto.tramo === v,
+    texto: (v) => TRAMOS.find((uno) => uno.key === v)?.label ?? v,
+  },
+  {
+    clave: "rival",
+    etiqueta: "Rival",
+    valor: rival,
+    poner: setRival,
+    coincide: (r, v) => r.rival === v,
+  },
+  {
+    clave: "perfil",
+    etiqueta: "Perfil",
+    valor: perfil,
+    poner: setPerfil,
+    coincide: (r, v) => r.perfil === v,
+  },
+  {
+    /* La parte, comparada por el número y no por el texto: la hoja escribe
+       «1T» y las de banda «T1», y el día que aquí se cambie no debe romperse. */
+    clave: "tiempo",
+    etiqueta: "Parte",
+    valor: tiempo,
+    poner: setTiempo,
+    coincide: (r, v) => String(r.contexto.minuto.parte ?? "") === v,
+    texto: (v) => `${v}ª parte`,
+  },
+  {
+    clave: "tipoAccion",
+    etiqueta: "Tipo acción",
+    valor: tipoAccionFilter,
+    poner: setTipoAccionFilter,
+    coincide: (r, v) => igual(r.tipoAccion, v),
+  },
+  {
+    /* «Superioridad en corto» es el nodo que agrupa los 3v2, 2v1… del flujo. */
+    clave: "zonaCaida",
+    etiqueta: "Zona caída",
+    valor: zonaCaidaFilter,
+    poner: setZonaCaidaFilter,
+    coincide: (r, v) =>
+      v === SUPERIORIDAD
+        ? esSuperioridad(r.zonaCaida)
+        : igual(r.zonaCaida, v),
+  },
+  {
+    clave: "zonaArea",
+    etiqueta: "Zona del área",
+    valor: zonaAreaFilter,
+    poner: setZonaAreaFilter,
+    coincide: (r, v) =>
+      zonasDeAccion(
+        { zonaCaida: r.zonaCaida, zonaRemate: r.zonaRemate },
+        "defensive",
+      ).includes(v),
+    texto: (v) => ZONA_AREA_LABEL[v] ?? v,
+  },
+  {
+    clave: "perfilGolpeo",
+    etiqueta: "Perfil de golpeo",
+    valor: perfilGolpeoFilter,
+    poner: setPerfilGolpeoFilter,
+    coincide: (r, v) => igual(r.perfilGolpeo, v),
+  },
+  {
+    clave: "tipoRemate",
+    etiqueta: "Tipo remate",
+    valor: tipoRemateFilter,
+    poner: setTipoRemateFilter,
+    coincide: (r, v) => igual(r.tipoRemate, v),
+  },
+  {
+    clave: "tipoEnvio",
+    etiqueta: "Tipo envío",
+    valor: tipoEnvioFilter,
+    poner: setTipoEnvioFilter,
+    coincide: (r, v) => igual(r.tipoEnvio, v),
+  },
+  {
+    /* El campo de «Situación global» agrupa «Primer Palo» y «1P» en «1P»:
+       vale cualquiera de las dos escrituras. */
+    clave: "zonaRemate",
+    etiqueta: "Zona remate",
+    valor: zonaRemateFilter,
+    poner: setZonaRemateFilter,
+    coincide: (r, v) =>
+      igual(r.zonaRemate, v) || zonaRemateDelCampo(r.zonaRemate) === v,
+    rotuloCoincide: (rotulo, v) =>
+      rotulo === v || zonaRemateDelCampo(rotulo) === v,
+  },
+  {
+    clave: "segundoBalon",
+    etiqueta: "Segundo balón",
+    valor: segundoBalonFilter,
+    poner: setSegundoBalonFilter,
+    coincide: (r, v) => igual(r.segundoBalon, v),
+  },
+  {
+    clave: "tipoCarrera",
+    etiqueta: "Tipo carrera",
+    valor: tipoCarreraFilter,
+    poner: setTipoCarreraFilter,
+    coincide: (r, v) => igual(r.tipoCarrera, v),
+  },
+  {
+    clave: "resultado",
+    etiqueta: "Resultado",
+    valor: resultadoFilter,
+    poner: setResultadoFilter,
+    coincide: (r, v) => normalizaResultado(r.resultadoFinal) === v,
+  },
+  {
+    clave: "calidad",
+    etiqueta: "Calidad envío",
+    valor: calidadFilter,
+    poner: setCalidadFilter,
+    coincide: (r, v) => {
+      const calidad = num(r.calidadEnvio);
+      return Boolean(calidad) && `Calidad ${calidad}` === v;
+    },
+  },
+  {
+    clave: "atacantes",
+    etiqueta: "Atacantes",
+    valor: atacantesFilter,
+    poner: setAtacantesFilter,
+    coincide: (r, v) =>
+      Boolean(r.nAtacantes) && `${r.nAtacantes} atacantes` === v,
+  },
+];
 
-  const matchEstado =
-    estadoFilter === "ALL" ||
-    r.contexto.marcador.estado === estadoFilter;
+const dimension = (clave: string) =>
+  dimensiones.find((d) => d.clave === clave)!;
 
-  const matchTramo =
-    tramoFilter === "ALL" || r.contexto.minuto.tramo === tramoFilter;
+/** Todo filtrado salvo las dimensiones dadas: con eso se pinta cada gráfico. */
+const sin = (...claves: string[]) => filtraFilas(rows, dimensiones, claves);
 
-  const matchRival =
-    rival === "ALL" ||
-    r.rival === rival;
+const filtered = sin();
 
-  const matchPerfil =
-    perfil === "ALL" ||
-    r.perfil === perfil;
+/* Cada gráfico se pinta sin su propia dimensión: lo elegido sale resaltado
+   y el resto atenuado, en vez de quedarse en una sola barra. */
+const filasPerfilGolpeo = sin("perfilGolpeo");
+const filasTipoAccion = sin("tipoAccion");
+const filasTipoRemate = sin("tipoRemate");
+const filasEnvio = sin("tipoEnvio");
+const filasRival = sin("rival");
+const filasZonaCaida = sin("zonaCaida");
+const filasResultado = sin("resultado");
+const filasCalidad = sin("calidad");
+const filasAtacantes = sin("atacantes");
+const filasTramo = sin("tramo");
+const filasEstado = sin("estado");
 
-  /* La parte, comparada por el número y no por el texto: la hoja escribe
-     «1T» y las de banda «T1», y el día que aquí se cambie no debe romperse. */
-  const matchTiempo =
-    tiempo === "ALL" ||
-    String(r.contexto.minuto.parte ?? "") === tiempo;
-
-  const matchVisualFilters =
-    (!visualFilters.tipoAccion ||
-      r.tipoAccion === visualFilters.tipoAccion) &&
-    (!visualFilters.zonaCaida ||
-      r.zonaCaida === visualFilters.zonaCaida) &&
-    (!visualFilters.perfilGolpeo ||
-      r.perfilGolpeo ===
-        visualFilters.perfilGolpeo) &&
-    (!visualFilters.tipoRemate ||
-      r.tipoRemate ===
-        visualFilters.tipoRemate) &&
-    (!visualFilters.tipoEnvio ||
-      r.tipoEnvio ===
-        visualFilters.tipoEnvio) &&
-    (!visualFilters.zonaRemate ||
-      r.zonaRemate ===
-        visualFilters.zonaRemate) &&
-    (!visualFilters.segundoBalon ||
-      r.segundoBalon ===
-        visualFilters.segundoBalon) &&
-    (!visualFilters.tipoCarrera ||
-      r.tipoCarrera ===
-        visualFilters.tipoCarrera) &&
-    (!visualFilters.resultadoFinal ||
-      normalizaResultado(r.resultadoFinal) ===
-        visualFilters.resultadoFinal);
-
-  return (
-    matchJornada &&
-    matchCompeticion &&
-    matchEstado &&
-    matchTramo &&
-    matchRival &&
-    matchPerfil &&
-    matchTiempo &&
-    matchVisualFilters
-  );
-});
-const equiposVisualizados = useMemo(
-  () =>
-    [...new Set(filtered.map((r) => r.rival))]
-      .filter(Boolean)
-      .sort(),
-  [filtered]
+/* La muestra contra la que se compara el pie de lectura: con la pretemporada
+   fuera, el «global» tampoco la lleva. */
+const comparables = filtraFilas(
+  rows,
+  dimensiones.filter((d) => d.clave === "competicion"),
 );
+
+/** Pulsar un elemento: lo elige o, si ya lo estaba, lo quita. */
+const pulsa = (clave: string, valor: string) => {
+  const d = dimension(clave);
+
+  d.poner(alterna(d.valor, valor));
+};
+
+/** Aspecto de la barra o el sector `nombre` del gráfico de `clave`. */
+const pinta = (clave: string, nombre: string) => {
+  const d = dimension(clave);
+
+  return marca(
+    d.valor,
+    nombre,
+    d.valor !== "ALL" &&
+      (d.rotuloCoincide ? d.rotuloCoincide(nombre, d.valor) : d.valor === nombre),
+  );
+};
+
+const chips: Chip[] = dimensiones
+  .filter(
+    (d) =>
+      d.valor !== (d.porDefecto ?? "ALL") &&
+      /* La pretemporada tiene su propio aviso en la tira. */
+      !(d.clave === "competicion" && d.valor === "ALL"),
+  )
+  .map((d) => ({
+    clave: d.clave,
+    etiqueta: d.etiqueta,
+    texto: d.texto ? d.texto(d.valor) : d.valor,
+    quitar: () => d.poner(d.porDefecto ?? "ALL"),
+  }));
+
+/* «Quitar filtros» no toca si se quiere ver la pretemporada o no. */
+const quitaFiltros = () =>
+  dimensiones.forEach((d) => {
+    if (d.clave === "competicion") {
+      if (d.valor !== "ALL") d.poner(SIN_PRETEMPORADA);
+    } else {
+      d.poner("ALL");
+    }
+  });
+
+/* Si con la liga sola no queda nada pero con la pretemporada sí, se dice. */
+const vacioSinPretemporada =
+  filtered.length === 0 &&
+  competicionFilter === SIN_PRETEMPORADA &&
+  sin("competicion").length > 0;
+
+const equiposVisualizados = [...new Set(filasRival.map((r) => r.rival))]
+  .filter(Boolean)
+  .sort();
 
   const metrics = {
   total: filtered.length,
@@ -515,13 +715,13 @@ const equiposVisualizados = useMemo(
 };
 
   const tipoAccion =
-    countBy(filtered, "tipoAccion");
+    countBy(sin("tipoAccion"), "tipoAccion");
 
   const zonaCaida =
-    countBy(filtered, "zonaCaida");
+    countBy(filasZonaCaida, "zonaCaida");
 
   const tipoCarrera =
-    countBy(filtered, "tipoCarrera");
+    countBy(sin("tipoCarrera"), "tipoCarrera");
   
   
   const xgByTipoAccion =
@@ -531,7 +731,7 @@ const equiposVisualizados = useMemo(
       number
     > = {};
 
-    filtered.forEach((r) => {
+    filasTipoAccion.forEach((r) => {
       const k =
         r.tipoAccion || "Sin dato";
 
@@ -554,11 +754,11 @@ const equiposVisualizados = useMemo(
         (a, b) =>
           b.total - a.total
       );
-  }, [filtered]);
+  }, [filasTipoAccion]);
   
 const zonaRemateData =
   countBy(
-    filtered.filter(
+    sin("zonaRemate").filter(
       (r) => r.zonaRemate
     ),
     "zonaRemate"
@@ -566,7 +766,7 @@ const zonaRemateData =
 
 const segundoBalonData =
   countBy(
-    filtered.filter(
+    sin("segundoBalon").filter(
       (r) => r.segundoBalon
     ),
     "segundoBalon"
@@ -578,7 +778,7 @@ const sacadorData =
       number
     > = {};
 
-    filtered.forEach((r) => {
+    filasPerfilGolpeo.forEach((r) => {
       if (!r.perfilGolpeo) return;
 
       grouped[r.perfilGolpeo] =
@@ -594,7 +794,7 @@ const sacadorData =
       .sort(
         (a, b) => b.xg - a.xg
       );
-  }, [filtered]);
+  }, [filasPerfilGolpeo]);
   const rematadoresData =
   useMemo(() => {
     const grouped: Record<
@@ -602,7 +802,7 @@ const sacadorData =
       number
     > = {};
 
-    filtered.forEach((r) => {
+    filasTipoRemate.forEach((r) => {
       if (
         !r.tipoRemate ||
         [
@@ -628,7 +828,7 @@ const sacadorData =
       .sort(
         (a, b) => b.xg - a.xg
       );
-  }, [filtered]);
+  }, [filasTipoRemate]);
 const tipoEnvioData =
   useMemo(() => {
     const grouped: Record<
@@ -636,7 +836,7 @@ const tipoEnvioData =
       number
     > = {};
 
-    filtered.forEach((r) => {
+    filasEnvio.forEach((r) => {
       if (!r.tipoEnvio) return;
 
       grouped[r.tipoEnvio] =
@@ -656,7 +856,7 @@ const tipoEnvioData =
         (a, b) =>
           b.total - a.total
       );
-  }, [filtered]); 
+  }, [filasEnvio]); 
   
 const rivalesData =
   useMemo(() => {
@@ -665,7 +865,7 @@ const rivalesData =
       number
     > = {};
 
-    filtered.forEach((r) => {
+    filasRival.forEach((r) => {
       if (!r.rival) return;
 
       grouped[r.rival] =
@@ -684,7 +884,7 @@ const rivalesData =
           b.total - a.total
       )
       .slice(0, 8);
-  }, [filtered]);
+  }, [filasRival]);
 
 const xgZonaCaida =
   useMemo(() => {
@@ -693,7 +893,7 @@ const xgZonaCaida =
       number
     > = {};
 
-    filtered.forEach((r) => {
+    filasZonaCaida.forEach((r) => {
       if (!r.zonaCaida) return;
 
       // Las superioridades (3v2, 2v1...) tienen su propio panel:
@@ -715,7 +915,7 @@ const xgZonaCaida =
         (a, b) =>
           b.total - a.total
       );
-  }, [filtered]);
+  }, [filasZonaCaida]);
 
 // Desglose completo del resultado final
 // (Gol Rival / Ocasión / ABP / Nada / Transición Ofensiva / Gol RMCF)
@@ -731,7 +931,7 @@ const resultadoData = useMemo(() => {
 
   const grouped: Record<string, number> = {};
 
-  filtered.forEach((r) => {
+  filasResultado.forEach((r) => {
     const k = normalizaResultado(r.resultadoFinal);
     grouped[k] = (grouped[k] || 0) + 1;
   });
@@ -742,7 +942,7 @@ const resultadoData = useMemo(() => {
       name,
       total: grouped[name],
     }));
-}, [filtered]);
+}, [filasResultado]);
 
 // Acciones en las que el rival acaba generando peligro (gol u ocasión)
 const accionesPeligrosas = filtered.filter((r) => {
@@ -762,7 +962,7 @@ const calidadEnvioData = useMemo(() => {
     { total: number; xg: number; remates: number }
   > = {};
 
-  filtered.forEach((r) => {
+  filasCalidad.forEach((r) => {
     const calidad = num(r.calidadEnvio);
     if (!calidad) return;
 
@@ -794,7 +994,7 @@ const calidadEnvioData = useMemo(() => {
       pctRemate: +((v.remates / v.total) * 100).toFixed(1),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
-}, [filtered]);
+}, [filasCalidad]);
 
 // Superioridades que el rival genera en el juego en corto (3v2, 2v1...)
 const superioridadData = useMemo(() => {
@@ -803,7 +1003,7 @@ const superioridadData = useMemo(() => {
     { total: number; xg: number; goles: number }
   > = {};
 
-  filtered
+  filasZonaCaida
     .filter((r) => esSuperioridad(r.zonaCaida))
     .forEach((r) => {
       const k = r.zonaCaida.trim();
@@ -828,7 +1028,7 @@ const superioridadData = useMemo(() => {
       goles: v.goles,
     }))
     .sort((a, b) => b.total - a.total);
-}, [filtered]);
+}, [filasZonaCaida]);
 
 // Estructura de la jugada: atacantes rivales frente al xG concedido
 // y a la ocupación media que desplegamos dentro del área.
@@ -838,7 +1038,7 @@ const estructuraData = useMemo(() => {
     { total: number; xg: number; ocupacion: number }
   > = {};
 
-  filtered.forEach((r) => {
+  filasAtacantes.forEach((r) => {
     if (!r.nAtacantes) return;
 
     if (!grouped[r.nAtacantes]) {
@@ -868,7 +1068,7 @@ const estructuraData = useMemo(() => {
     .sort(
       (a, b) => parseInt(a.name) - parseInt(b.name)
     );
-}, [filtered]);
+}, [filasAtacantes]);
   /*
   | Cuándo nos lanzan el balón parado, y cuándo hacen daño.
   |
@@ -877,14 +1077,17 @@ const estructuraData = useMemo(() => {
   | hora, que es donde se ve de verdad si el equipo se descuelga al final.
   | Las acciones sin minuto se dejan fuera y se dicen.
   */
-  const conMinuto = filtered.filter(
+  const conMinuto = filasTramo.filter(
     (r) => r.contexto.minuto.tramo !== null
   );
 
-  const sinMinuto = filtered.length - conMinuto.length;
+  const sinMinuto = filasTramo.length - conMinuto.length;
 
+  /* «Gol Rival», que es lo que devuelve `normalizaResultado`: comparado con
+     «Gol» a secas no casaba nunca y los tramos y el marcador decían siempre
+     cero encajados. */
   const esGolRival = (r: Row) =>
-    normalizaResultado(r.resultadoFinal) === "Gol";
+    normalizaResultado(r.resultadoFinal) === "Gol Rival";
 
   const esRemate = (r: Row) =>
     Boolean(r.tipoRemate) &&
@@ -897,6 +1100,7 @@ const estructuraData = useMemo(() => {
 
     return {
       tramo: tramo.label,
+      key: tramo.key,
       total: dentro.length,
       remates: dentro.filter(esRemate).length,
       goles: dentro.filter(esGolRival).length,
@@ -904,11 +1108,11 @@ const estructuraData = useMemo(() => {
   });
 
   /* Y lo mismo según cómo iba el marcador cuando nos lo lanzaron. */
-  const conMarcador = filtered.filter(
+  const conMarcador = filasEstado.filter(
     (r) => r.contexto.marcador.estado !== null
   );
 
-  const sinMarcador = filtered.length - conMarcador.length;
+  const sinMarcador = filasEstado.length - conMarcador.length;
 
   const porMarcador = ESTADOS.map((estado) => {
     const dentro = conMarcador.filter(
@@ -955,50 +1159,33 @@ const xgAccion =
     ? metrics.xg / metrics.total
     : 0;
 
+/* Lo que se escribe en el PDF como «Filtros aplicados». */
 const activeFilters = [
-  {
-    label: "Jornada",
-    value:
-      jornada === "ALL"
-        ? "ALL"
-        : (jornadas.find((una) => una.clave === jornada)?.etiqueta ?? jornada),
-  },
-  {
-    label: "Competición",
-    value:
-      competicionFilter === "ALL"
-        ? "ALL"
-        : COMPETICION_LABEL[
-            competicionFilter as keyof typeof COMPETICION_LABEL
-          ],
-  },
-  {
-    label: "Marcador",
-    value:
-      estadoFilter === "ALL"
-        ? "ALL"
-        : (ESTADOS.find((uno) => uno.key === estadoFilter)?.label ?? estadoFilter),
-  },
-  {
-    label: "Tramo",
-    value:
-      tramoFilter === "ALL"
-        ? "ALL"
-        : (TRAMOS.find((uno) => uno.key === tramoFilter)?.label ?? tramoFilter),
-  },
-  {
-    label: "Rival",
-    value: rival,
-  },
-  {
-    label: "Perfil",
-    value: perfil,
-  },
-  {
-    label: "Parte",
-    value: tiempo === "ALL" ? "ALL" : `${tiempo}ª parte`,
-  },
+  ...(hayPretemporada && competicionFilter === SIN_PRETEMPORADA
+    ? [{ label: "Competición", value: `${rotuloOficial} (sin pretemporada)` }]
+    : []),
+  ...chips
+    .filter((c) => !(c.clave === "competicion" && competicionFilter === SIN_PRETEMPORADA))
+    .map((c) => ({ label: c.etiqueta, value: c.texto })),
 ];
+
+/* El panel de «Resultado final» se pinta sin su propio filtro: su frase y su
+   porcentaje central salen de esas mismas filas. */
+const peligrosasResultado = filasResultado.filter(LECTOR.peligro).length;
+const tasaPeligroResultado = filasResultado.length
+  ? (peligrosasResultado / filasResultado.length) * 100
+  : 0;
+
+/* El perfil de golpeo que más xG nos genera con lo que se está viendo. */
+const mayorPerfil = filtered
+  .reduce((acc, r) => {
+    if (!r.perfilGolpeo) return acc;
+    const previo = acc.find((uno) => uno.name === r.perfilGolpeo);
+    if (previo) previo.xg += r.xg;
+    else acc.push({ name: r.perfilGolpeo, xg: r.xg });
+    return acc;
+  }, [] as { name: string; xg: number }[])
+  .sort((a, b) => b.xg - a.xg)[0]?.name;
 const downloadPDF = async () => {
   /*
   | El motor de PDF llega al pulsar, no al abrir la pantalla.
@@ -1193,7 +1380,7 @@ const miniCards = [
   ],
   [
     "Peor Sacador Rival",
-    sacadorData[0]?.name || "-",
+    mayorPerfil || "-",
   ],
   [
     "Remates / ABP",
@@ -1273,7 +1460,7 @@ const resumen = [
 `• ${metrics.shots} remates recibidos`,
 `• ${metrics.goalsAgainst} goles encajados`,
 `• ${metrics.goalsRMCF} goles RMCF tras transición`,
-  `• Sacador rival más peligroso: ${sacadorData[0]?.name || "-"}`,
+  `• Sacador rival más peligroso: ${mayorPerfil || "-"}`,
   `• xG concedido por acción: ${xgAccion.toFixed(2)}`,
   `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión del rival`,
 ];
@@ -1854,7 +2041,7 @@ const pie = (
 ) => (
   <AnalisisSeccion
     filas={filtered}
-    todas={rows}
+    todas={comparables}
     lector={LECTOR}
     sentido="defensivo"
     unidad="acciones"
@@ -1890,29 +2077,22 @@ const pie = (
     {/* Cuatro desplegables sin etiqueta ocupaban la cabecera: plegados y
         rotulados, el contenido empieza arriba. */}
     <FilterDrawer
-      activeCount={
-        [
-          jornada,
-          competicionFilter,
-          estadoFilter,
-          tramoFilter,
-          rival,
-          perfil,
-          tiempo,
-        ].filter((value) => value !== "ALL").length
-      }
+      activeCount={chips.length}
       summary="7 filtros disponibles"
     >
-      {competiciones.length > 1 && (
+      {/* Por defecto sin pretemporada: los amistosos de julio se miran
+          a propósito, no se cuelan en todo. */}
+      {(competiciones.length > 1 || hayPretemporada) && (
         <Select
           label="Competición"
           value={competicionFilter}
           onChange={setCompeticionFilter}
           options={[
-            { value: "ALL", label: "Liga y pretemporada" },
+            { value: SIN_PRETEMPORADA, label: `${rotuloOficial} (sin pretemporada)` },
             ...COMPETICIONES.filter((una) =>
               competiciones.includes(una.key),
             ).map((una) => ({ value: una.key, label: una.label })),
+            { value: "ALL", label: "Liga y pretemporada" },
           ]}
         />
       )}
@@ -1982,33 +2162,6 @@ const pie = (
     {equiposVisualizados.length}
     )
   </p>
-  <div className="flex flex-wrap gap-2 mt-4">
-  {Object.entries(
-    visualFilters
-  ).map(([key, value]) =>
-    value ? (
-      <button
-        key={key}
-        onClick={() =>
-          toggleFilter(
-            key as any,
-            value
-          )
-        }
-        className="
-          px-3 py-1
-          rounded-full
-          bg-[#C8A96B]
-          text-black
-          text-xs
-          font-semibold
-        "
-      >
-        {value} ✕
-      </button>
-    ) : null
-  )}
-</div>
 
   <div className="flex flex-wrap gap-2">
   {equiposVisualizados.map((equipo) => {
@@ -2018,11 +2171,8 @@ const pie = (
       <button
         key={equipo}
         type="button"
-        onClick={() =>
-          setRival(
-            active ? "ALL" : equipo
-          )
-        }
+        title={PULSA}
+        onClick={() => pulsa("rival", equipo)}
         className={`
           px-3
           py-1.5
@@ -2113,12 +2263,16 @@ const pie = (
   title="Gol Rival"
   value={metrics.goalsAgainst.toLocaleString()}
   hint="Encajados desde su ABP"
+  activo={resultadoFilter === "Gol Rival"}
+  onClick={() => pulsa("resultado", "Gol Rival")}
   />
 
 <Card
   title="Gol RMCF"
   value={metrics.goalsRMCF.toLocaleString()}
   hint="Marcados al contragolpe"
+  activo={resultadoFilter === "Gol RMCF"}
+  onClick={() => pulsa("resultado", "Gol RMCF")}
   />
 
 <Card
@@ -2126,35 +2280,80 @@ const pie = (
   value={`${tasaPeligro.toFixed(1)}%`}
   hint="ABP que nos generan peligro real"
   />
-  <div
-className="
+  <button
+type="button"
+title={PULSA}
+disabled={!mayorPerfil && perfilGolpeoFilter === "ALL"}
+onClick={() => {
+  const elegido =
+    perfilGolpeoFilter !== "ALL" ? perfilGolpeoFilter : mayorPerfil;
+  if (elegido) pulsa("perfilGolpeo", elegido);
+}}
+className={`
   h-[96px]
   sm:h-[112px]
   rounded-[20px]
   sm:rounded-[24px]
   border
-  border-white/10
   bg-white/[0.03]
   p-3
   sm:p-5
   flex
   flex-col
   justify-between
-"
+  text-left
+  transition
+  hover:bg-white/[0.05]
+  ${perfilGolpeoFilter !== "ALL" ? "border-[#C8A96B]" : "border-white/10"}
+`}
 >
   <p className="text-sm text-zinc-400">
 Mayor xG concedido  </p>
 
   <h3 className="mt-4 text-lg md:text-xl font-semibold text-[#C8A96B]">
-    {sacadorData[0]?.name || "-"}
+    {mayorPerfil || "-"}
   </h3>
-</div>
+</button>
 </div>
 
 
 
   </div>
   
+
+            {/* La tira de filtros va fuera de la tarjeta de arriba: un `sticky`
+                sólo se pega dentro de su padre, y dentro de la tarjeta dejaba
+                de verse en cuanto se bajaba a los gráficos. */}
+            <BarraFiltros
+              chips={chips}
+              onQuitarTodo={quitaFiltros}
+              antes={
+                competicionFilter === SIN_PRETEMPORADA ||
+                competicionFilter === "ALL" ? (
+                  <AvisoPretemporada
+                    fuera={competicionFilter === SIN_PRETEMPORADA}
+                    hayPretemporada={hayPretemporada}
+                    rotulo={rotuloOficial}
+                    onCambia={(incluir) =>
+                      setCompeticionFilter(incluir ? "ALL" : SIN_PRETEMPORADA)
+                    }
+                  />
+                ) : null
+              }
+            />
+
+            {vacioSinPretemporada && (
+              <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/60">
+                No hay acciones de liga con estos filtros ·{" "}
+                <button
+                  type="button"
+                  onClick={() => setCompeticionFilter("ALL")}
+                  className="text-[#C8A96B] underline-offset-2 hover:underline"
+                >
+                  incluir pretemporada
+                </button>
+              </p>
+            )}
 
             {/* Las conclusiones en pocas frases, antes de cualquier panel. */}
             <Conclusiones items={conclusiones} className="mt-6" />
@@ -2171,7 +2370,9 @@ Mayor xG concedido  </p>
   <div id="grafico-zone-map">
     <ABPZoneMap
       mode="defensive"
-      rows={filtered.map((r) => ({
+      zonaFiltro={zonaAreaFilter === "ALL" ? null : zonaAreaFilter}
+      onZonaFiltro={(zona) => setZonaAreaFilter(zona ?? "ALL")}
+      rows={sin("zonaArea").map((r) => ({
         zonaCaida: r.zonaCaida,
         zonaRemate: r.zonaRemate,
         xg: r.xg,
@@ -2191,7 +2392,19 @@ Mayor xG concedido  </p>
 <Panel title="Situación Global" analisis={pie({})}>
   <div id="grafico-abp-flow">
 <ABPFlowField
-  rows={filtered.map((r) => ({
+  seleccion={{
+    tipoAccion: tipoAccionFilter === "ALL" ? undefined : tipoAccionFilter,
+    zonaRemate:
+      zonaRemateFilter === "ALL"
+        ? undefined
+        : (zonaRemateDelCampo(zonaRemateFilter) ?? zonaRemateFilter),
+  }}
+  onFiltra={(filtro, valor) =>
+    (filtro === "tipoAccion" ? setTipoAccionFilter : setZonaRemateFilter)(
+      valor ?? "ALL",
+    )
+  }
+  rows={sin("tipoAccion", "zonaRemate").map((r) => ({
     jornada: r.contexto.jornada.corto,
     rival: r.rival,
     tiempo: r.tiempo,
@@ -2230,7 +2443,26 @@ Mayor xG concedido  </p>
   <div id="grafico-abp-objective-flow">
    <ABPObjectiveFlow
   mode="defensive"
-  rows={filtered.map((r) => ({
+  seleccion={{
+    accion: tipoAccionFilter === "ALL" ? undefined : tipoAccionFilter,
+    medio: tipoEnvioFilter === "ALL" ? undefined : tipoEnvioFilter,
+    zona:
+      zonaCaidaFilter === "ALL"
+        ? undefined
+        : esSuperioridad(zonaCaidaFilter)
+          ? SUPERIORIDAD
+          : zonaCaidaFilter,
+    resultado: resultadoFilter === "ALL" ? undefined : resultadoFilter,
+  }}
+  onSeleccion={(col: ABPFlowCol, valor) =>
+    ({
+      accion: setTipoAccionFilter,
+      medio: setTipoEnvioFilter,
+      zona: setZonaCaidaFilter,
+      resultado: setResultadoFilter,
+    })[col](valor ?? "ALL")
+  }
+  rows={sin("tipoAccion", "tipoEnvio", "zonaCaida", "resultado").map((r) => ({
     jornada: r.contexto.jornada.corto,
     rival: r.rival,
     tiempo: r.tiempo,
@@ -2253,6 +2485,8 @@ Mayor xG concedido  </p>
   <Chart>
     <BarChart
       data={tipoAccion}
+      onClick={pulsaIndice(tipoAccion, (d) => pulsa("tipoAccion", d.name))}
+      style={{ cursor: "pointer" }}
 margin={{
   top: 10,
   right: 24,
@@ -2290,14 +2524,11 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.gold}
-        onClick={(data) =>
-    toggleFilter(
-      "tipoAccion",
-      data.name
-    )
-  }
         radius={[8, 8, 0, 0]}
       >
+        {tipoAccion.map((d) => (
+          <Cell key={d.name} fill={COLORS.gold} {...pinta("tipoAccion", d.name)} />
+        ))}
         <LabelList
           dataKey="total"
           position="top"
@@ -2322,12 +2553,9 @@ margin={{
     <PieChart>
       <Pie
         data={zonaCaida}
-        onClick={(data) =>
-    toggleFilter(
-      "zonaCaida",
-      data.name
-    )
-  }
+        onClick={(_, i) =>
+          zonaCaida[i] && pulsa("zonaCaida", zonaCaida[i].name)
+        }
         dataKey="total"
         nameKey="name"
 innerRadius={isMobile ? 65 : 95}
@@ -2337,7 +2565,7 @@ outerRadius={isMobile ? 90 : 120}
         stroke="transparent"
       >
         {zonaCaida.map(
-          (_, i) => (
+          (d, i) => (
             <Cell
               key={i}
               fill={
@@ -2346,10 +2574,11 @@ outerRadius={isMobile ? 90 : 120}
                     PIE_COLORS.length
                 ]
               }
+              {...pinta("zonaCaida", d.name)}
             />
           )
         )}<Label
-  value={filtered.length}
+  value={zonaCaida.reduce((suma, d) => suma + d.total, 0)}
   position="center"
   fill="#fff"
   fontSize={isMobile ? 22 : 30}
@@ -2372,7 +2601,10 @@ outerRadius={isMobile ? 90 : 120}
       
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      <Legend
+        {...pieLegendProps}
+        onClick={(e) => pulsa("zonaCaida", String(e.value))}
+      />
     </PieChart>
   </Chart></div>
 </Panel>
@@ -2382,6 +2614,8 @@ outerRadius={isMobile ? 90 : 120}
     <BarChart
       data={sacadorData}
       layout="vertical"
+      onClick={pulsaIndice(sacadorData, (d) => pulsa("perfilGolpeo", d.name))}
+      style={{ cursor: "pointer" }}
 margin={{
   top: 10,
   right: 24,
@@ -2427,14 +2661,11 @@ margin={{
       <Bar
         dataKey="xg"
         fill={COLORS.blue}
-        onClick={(data) =>
-    toggleFilter(
-      "perfilGolpeo",
-      data.name
-    )
-  }
         radius={[0, 8, 8, 0]}
       >
+        {sacadorData.map((d) => (
+          <Cell key={d.name} fill={COLORS.blue} {...pinta("perfilGolpeo", d.name)} />
+        ))}
         <LabelList
           dataKey="xg"
           position="right"
@@ -2457,6 +2688,8 @@ margin={{
     <BarChart
       data={rematadoresData}
       layout="vertical"
+      onClick={pulsaIndice(rematadoresData, (d) => pulsa("tipoRemate", d.name))}
+      style={{ cursor: "pointer" }}
 margin={{
   top: 10,
   right: 24,
@@ -2497,14 +2730,11 @@ margin={{
       <Bar
         dataKey="xg"
         fill={COLORS.gold}
-        onClick={(data) =>
-  toggleFilter(
-    "tipoRemate",
-    data.name
-  )
-}
         radius={[0, 8, 8, 0]}
       >
+        {rematadoresData.map((d) => (
+          <Cell key={d.name} fill={COLORS.gold} {...pinta("tipoRemate", d.name)} />
+        ))}
         <LabelList
           dataKey="xg"
           position="right"
@@ -2522,6 +2752,8 @@ margin={{
     <BarChart
       data={tipoEnvioData}
       layout="vertical"
+      onClick={pulsaIndice(tipoEnvioData, (d) => pulsa("tipoEnvio", d.name))}
+      style={{ cursor: "pointer" }}
 margin={{
   top: 10,
   right: 24,
@@ -2562,14 +2794,11 @@ margin={{
       <Bar
         dataKey="total"
         fill={COLORS.purple}
-        onClick={(data) =>
-  toggleFilter(
-    "tipoEnvio",
-    data.name
-  )
-}
         radius={[0, 8, 8, 0]}
       >
+        {tipoEnvioData.map((d) => (
+          <Cell key={d.name} fill={COLORS.purple} {...pinta("tipoEnvio", d.name)} />
+        ))}
         <LabelList
           dataKey="total"
           position="right"
@@ -2587,12 +2816,9 @@ margin={{
     <PieChart>
       <Pie
         data={zonaRemateData}
-        onClick={(data) =>
-    toggleFilter(
-      "zonaRemate",
-      data.name
-    )
-  }
+        onClick={(_, i) =>
+          zonaRemateData[i] && pulsa("zonaRemate", zonaRemateData[i].name)
+        }
         dataKey="total"
         nameKey="name"
         innerRadius={isMobile ? 65 : 95}
@@ -2603,7 +2829,7 @@ margin={{
 
       >
         {zonaRemateData.map(
-          (_, i) => (
+          (d, i) => (
             <Cell
               key={i}
               fill={
@@ -2612,6 +2838,7 @@ margin={{
                     PIE_COLORS.length
                 ]
               }
+              {...pinta("zonaRemate", d.name)}
             />
           )
         )} 
@@ -2641,7 +2868,10 @@ margin={{
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      <Legend
+        {...pieLegendProps}
+        onClick={(e) => pulsa("zonaRemate", String(e.value))}
+      />
     </PieChart>
   </Chart></div>
 </Panel>
@@ -2650,12 +2880,9 @@ margin={{
     <PieChart>
       <Pie
         data={segundoBalonData}
-         onClick={(data) =>
-    toggleFilter(
-      "segundoBalon",
-      data.name
-    )
-  }
+        onClick={(_, i) =>
+          segundoBalonData[i] && pulsa("segundoBalon", segundoBalonData[i].name)
+        }
         dataKey="total"
         nameKey="name"
         innerRadius={isMobile ? 65 : 95}
@@ -2666,7 +2893,7 @@ margin={{
 
       >
         {segundoBalonData.map(
-          (_, i) => (
+          (d, i) => (
             <Cell
               key={i}
               fill={
@@ -2675,6 +2902,7 @@ margin={{
                     PIE_COLORS.length
                 ]
               }
+              {...pinta("segundoBalon", d.name)}
             />
           )
         )}
@@ -2704,7 +2932,10 @@ margin={{
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      <Legend
+        {...pieLegendProps}
+        onClick={(e) => pulsa("segundoBalon", String(e.value))}
+      />
     </PieChart>
   </Chart></div>
 </Panel>
@@ -2714,12 +2945,9 @@ margin={{
     <PieChart>
       <Pie
         data={tipoCarrera}
-         onClick={(data) =>
-  toggleFilter(
-    "tipoCarrera",
-    data.name
-  )
-}
+        onClick={(_, i) =>
+          tipoCarrera[i] && pulsa("tipoCarrera", tipoCarrera[i].name)
+        }
         dataKey="total"
         nameKey="name"
         innerRadius={isMobile ? 65 : 95}
@@ -2728,7 +2956,7 @@ margin={{
         cornerRadius={8}
         stroke="transparent">
         {tipoCarrera.map(
-          (_, i) => (
+          (d, i) => (
             <Cell
               key={i}
               fill={
@@ -2737,11 +2965,12 @@ margin={{
                     PIE_COLORS.length
                 ]
               }
+              {...pinta("tipoCarrera", d.name)}
             />
           )
         )} 
         <Label
-  value={filtered.length}
+  value={tipoCarrera.reduce((suma, d) => suma + d.total, 0)}
   position="center"
   fill="#fff"
   fontSize={isMobile ? 22 : 30}
@@ -2763,7 +2992,10 @@ margin={{
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      <Legend
+        {...pieLegendProps}
+        onClick={(e) => pulsa("tipoCarrera", String(e.value))}
+      />
     </PieChart>
   </Chart></div>
 </Panel>
@@ -2779,7 +3011,11 @@ margin={{
   </Explicativo>
 
   <Chart>
-    <BarChart data={timeline}>
+    <BarChart
+      data={timeline}
+      onClick={pulsaIndice(timeline, (d) => pulsa("tramo", d.key))}
+      style={{ cursor: "pointer" }}
+    >
   <CartesianGrid
     stroke="#1E232A"
     vertical={false}
@@ -2807,6 +3043,9 @@ margin={{
     fill={COLORS.green}
     radius={[8, 8, 0, 0]}
   >
+    {timeline.map((d) => (
+      <Cell key={d.key} fill={COLORS.green} {...pinta("tramo", d.key)} />
+    ))}
     <LabelList
       dataKey="total"
       position="top"
@@ -2820,7 +3059,11 @@ margin={{
     dataKey="remates"
     fill={COLORS.gold}
     radius={[8, 8, 0, 0]}
-  />
+  >
+    {timeline.map((d) => (
+      <Cell key={d.key} fill={COLORS.gold} {...pinta("tramo", d.key)} />
+    ))}
+  </Bar>
 </BarChart>
       
   </Chart></div>
@@ -2845,7 +3088,11 @@ margin={{
   </Explicativo>
 
   <Chart>
-    <BarChart data={porMarcador}>
+    <BarChart
+      data={porMarcador}
+      onClick={pulsaIndice(porMarcador, (d) => pulsa("estado", d.key))}
+      style={{ cursor: "pointer" }}
+    >
       <CartesianGrid stroke="#1E232A" vertical={false} />
 
       <XAxis
@@ -2862,7 +3109,11 @@ margin={{
 
       <Bar dataKey="total" radius={[8, 8, 0, 0]} maxBarSize={54}>
         {porMarcador.map((fila) => (
-          <Cell key={fila.key} fill={ESTADO_COLOR[fila.key]} />
+          <Cell
+            key={fila.key}
+            fill={ESTADO_COLOR[fila.key]}
+            {...pinta("estado", fila.key)}
+          />
         ))}
 
         <LabelList dataKey="total" position="top" />
@@ -2873,9 +3124,18 @@ margin={{
 
   <div className="mt-4 grid grid-cols-3 gap-2">
     {porMarcador.map((fila) => (
-      <div
+      <button
         key={fila.key}
-        className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center"
+        type="button"
+        title={PULSA}
+        onClick={() => pulsa("estado", fila.key)}
+        className={`rounded-xl border bg-white/[0.02] p-3 text-center transition hover:bg-white/[0.04] ${
+          estadoFilter === fila.key
+            ? "border-[#C8A96B]"
+            : estadoFilter !== "ALL"
+              ? "border-white/10 opacity-40"
+              : "border-white/10"
+        }`}
       >
         <p
           className="text-[10px] uppercase tracking-[0.16em]"
@@ -2893,7 +3153,7 @@ margin={{
             ? `${Math.round((fila.remates / fila.total) * 100)}% remate · xG ${fila.xg.toFixed(2)}`
             : "Sin acciones"}
         </p>
-      </div>
+      </button>
     ))}
   </div>
 </Panel>
@@ -2902,6 +3162,8 @@ margin={{
     <BarChart
       data={xgByTipoAccion}
       layout="vertical"
+      onClick={pulsaIndice(xgByTipoAccion, (d) => pulsa("tipoAccion", d.name))}
+      style={{ cursor: "pointer" }}
 margin={{
   top: 10,
   right: 24,
@@ -2947,6 +3209,9 @@ margin={{
         fill={COLORS.green}
         radius={[0, 8, 8, 0]}
       >
+        {xgByTipoAccion.map((d) => (
+          <Cell key={d.name} fill={COLORS.green} {...pinta("tipoAccion", d.name)} />
+        ))}
         <LabelList
           dataKey="total"
           position="right"
@@ -2969,6 +3234,8 @@ margin={{
   <Chart>
     <BarChart
       data={rivalesData}
+      onClick={pulsaIndice(rivalesData, (d) => pulsa("rival", d.name))}
+      style={{ cursor: "pointer" }}
     >
       <CartesianGrid
         stroke="#1E232A"
@@ -3002,6 +3269,9 @@ margin={{
         fill={COLORS.blue}
         radius={[8, 8, 0, 0]}
       >
+        {rivalesData.map((d) => (
+          <Cell key={d.name} fill={COLORS.blue} {...pinta("rival", d.name)} />
+        ))}
         <LabelList
           dataKey="total"
           position="top"
@@ -3015,6 +3285,8 @@ margin={{
     <BarChart
   data={xgZonaCaida}
   layout="vertical"
+  onClick={pulsaIndice(xgZonaCaida, (d) => pulsa("zonaCaida", d.name))}
+  style={{ cursor: "pointer" }}
 margin={{
   top: 10,
   right: 24,
@@ -3097,6 +3369,9 @@ const words =
         fill={COLORS.green}
         radius={[0, 8, 8, 0]}
       >
+        {xgZonaCaida.map((d) => (
+          <Cell key={d.name} fill={COLORS.green} {...pinta("zonaCaida", d.name)} />
+        ))}
         <LabelList
           dataKey="total"
           position="right"
@@ -3109,8 +3384,8 @@ const words =
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
-    {accionesPeligrosas} de {metrics.total} acciones acaban en gol u
-    ocasión del rival ({tasaPeligro.toFixed(1)}%). Pulsa un sector para
+    {peligrosasResultado} de {filasResultado.length} acciones acaban en gol u
+    ocasión del rival ({tasaPeligroResultado.toFixed(1)}%). Pulsa un sector para
     filtrar.
   </p>
 
@@ -3121,8 +3396,8 @@ const words =
     <PieChart>
       <Pie
         data={resultadoData}
-        onClick={(data: any) =>
-          toggleFilter("resultadoFinal", data.name)
+        onClick={(_, i) =>
+          resultadoData[i] && pulsa("resultado", resultadoData[i].name)
         }
         dataKey="total"
         nameKey="name"
@@ -3139,12 +3414,12 @@ outerRadius={isMobile ? 90 : 120}
               RESULTADO_COLORS[entry.name] ||
               "#475569"
             }
-            cursor="pointer"
+            {...pinta("resultado", entry.name)}
           />
         ))}
 
 <Label
-  value={`${tasaPeligro.toFixed(0)}%`}
+  value={`${tasaPeligroResultado.toFixed(0)}%`}
   position="center"
   fill="#fff"
   fontSize={isMobile ? 22 : 30}
@@ -3160,7 +3435,10 @@ outerRadius={isMobile ? 90 : 120}
 
       <Tooltip />
 
-      <Legend {...pieLegendProps} />
+      <Legend
+        {...pieLegendProps}
+        onClick={(e) => pulsa("resultado", String(e.value))}
+      />
     </PieChart>
   </Chart></div>
 </Panel>
@@ -3179,6 +3457,8 @@ outerRadius={isMobile ? 90 : 120}
   <Chart>
     <ComposedChart
       data={calidadEnvioData}
+      onClick={pulsaIndice(calidadEnvioData, (d) => pulsa("calidad", d.name))}
+      style={{ cursor: "pointer" }}
       margin={{
         top: 10,
         right: 24,
@@ -3226,6 +3506,9 @@ outerRadius={isMobile ? 90 : 120}
         fill={COLORS.gold}
         radius={[8, 8, 0, 0]}
       >
+        {calidadEnvioData.map((d) => (
+          <Cell key={d.name} fill={COLORS.gold} {...pinta("calidad", d.name)} />
+        ))}
         <LabelList dataKey="total" position="top" />
       </Bar>
 
@@ -3256,6 +3539,8 @@ outerRadius={isMobile ? 90 : 120}
   <Chart>
     <BarChart
       data={superioridadData}
+      onClick={pulsaIndice(superioridadData, (d) => pulsa("zonaCaida", d.name))}
+      style={{ cursor: "pointer" }}
       margin={{
         top: 10,
         right: 24,
@@ -3290,11 +3575,10 @@ outerRadius={isMobile ? 90 : 120}
         name="Acciones"
         fill="#5E7FB8"
         radius={[8, 8, 0, 0]}
-        onClick={(data: any) =>
-          toggleFilter("zonaCaida", data.name)
-        }
-        cursor="pointer"
       >
+        {superioridadData.map((d) => (
+          <Cell key={d.name} fill="#5E7FB8" {...pinta("zonaCaida", d.name)} />
+        ))}
         <LabelList dataKey="total" position="top" />
       </Bar>
 
@@ -3303,7 +3587,11 @@ outerRadius={isMobile ? 90 : 120}
         name="Goles encajados"
         fill="#B45454"
         radius={[8, 8, 0, 0]}
-      />
+      >
+        {superioridadData.map((d) => (
+          <Cell key={d.name} fill="#B45454" {...pinta("zonaCaida", d.name)} />
+        ))}
+      </Bar>
     </BarChart>
   </Chart></div>
 </Panel>
@@ -3322,6 +3610,8 @@ outerRadius={isMobile ? 90 : 120}
   <Chart>
     <ComposedChart
       data={estructuraData}
+      onClick={pulsaIndice(estructuraData, (d) => pulsa("atacantes", d.name))}
+      style={{ cursor: "pointer" }}
       margin={{
         top: 10,
         right: 24,
@@ -3367,6 +3657,9 @@ outerRadius={isMobile ? 90 : 120}
         fill="#66758A"
         radius={[8, 8, 0, 0]}
       >
+        {estructuraData.map((d) => (
+          <Cell key={d.name} fill="#66758A" {...pinta("atacantes", d.name)} />
+        ))}
         <LabelList dataKey="total" position="top" />
       </Bar>
 
@@ -3433,9 +3726,12 @@ outerRadius={isMobile ? 90 : 120}
 
 function Chart({
   children,
-}: any) {
+}: {
+  children: React.ReactElement;
+}) {
   return (
     <div
+      title={PULSA}
       className="
         h-[340px]
         sm:h-[360px]
@@ -3464,26 +3760,36 @@ function Card({
   title,
   value,
   hint,
+  onClick,
+  activo = false,
 }: {
   title: string;
   value: React.ReactNode;
   hint?: string;
+  /** Las tarjetas que son un resultado concreto («Gol Rival») filtran por él. */
+  onClick?: () => void;
+  activo?: boolean;
 }) {
+  const Caja = onClick ? "button" : "div";
+
   return (
-    <div
-      className="
+    <Caja
+      {...(onClick ? { type: "button" as const, onClick, title: PULSA } : {})}
+      className={`
         min-h-[96px]
         sm:min-h-[112px]
         rounded-[20px]
         sm:rounded-[24px]
         border
-        border-white/10
         bg-white/[0.03]
         p-3
         sm:p-4
         flex
         flex-col
-      "
+        text-left
+        ${activo ? "border-[#C8A96B]" : "border-white/10"}
+        ${onClick ? "cursor-pointer transition hover:bg-white/[0.05]" : ""}
+      `}
     >
       <p className="text-[11px] sm:text-xs text-zinc-400 leading-tight">
         {title}
@@ -3507,14 +3813,20 @@ function Card({
       {hint && (
         <p className="mt-1.5 text-[10px] leading-snug text-white/35">{hint}</p>
       )}
-    </div>
+    </Caja>
   );
 }
 
 function Panel({
   title,
   children,
-}: any) {
+}: {
+  title: string;
+  children: React.ReactNode;
+  /* Se recibe y no se pinta: así estaba ya, y el pie de cada sección se
+     sigue pasando por si un día se vuelve a enseñar. */
+  analisis?: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-8 shadow-xl overflow-hidden">
       <h2 className="mb-5 md:mb-6 text-lg md:text-2xl font-semibold">

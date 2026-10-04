@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileDown } from "lucide-react";
@@ -32,6 +32,7 @@ import {
   type Mode,
   parseBanda,
   parseResultado,
+  parseZona,
   read,
   type RecordRow,
   resultColor,
@@ -83,6 +84,20 @@ const ACCESSORS: Record<string, (row: RecordRow) => string> = {
     return banda ? BANDA_LABEL[banda] : "Sin dato";
   },
   Zona_Caida: (row) => direccionDe(row).label,
+
+  /*
+  | La zona de saque, leída del número.
+  |
+  | La hoja ya escribe «Zona 1»…«Zona 3», pero el campo y el mapa de zonas la
+  | leen con `parseZona`: al pulsar una celda se filtra por «Zona N» y, si un
+  | día la hoja escribe «zona 2» o «Z2», el filtro tiene que seguir cuadrando
+  | con lo que se pintó.
+  */
+  Zona_Saque: (row) => {
+    const zona = parseZona(row);
+
+    return zona ? `Zona ${zona}` : read(row, "Zona_Saque") || "Sin dato";
+  },
   Resultado_Final: (row) => parseResultado(read(row, "Resultado_Final")).label,
 
   /* La jornada, escrita como se lee: "Jornada 1" y "Pretemporada 3". */
@@ -450,11 +465,14 @@ function SelectFilter({
   onChange,
   options,
   label,
+  allLabel = "Todos",
 }: {
   value: string;
   onChange: (value: string) => void;
   options: string[];
   label: string;
+  /** Cómo se llama «sin filtro» en este desplegable. */
+  allLabel?: string;
 }) {
   return (
     <label className="block">
@@ -464,7 +482,13 @@ function SelectFilter({
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-xl border border-white/10 bg-[#111827] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/60"
       >
-        <option value="ALL">Todos</option>
+        <option value="ALL">{allLabel}</option>
+        {/* Un valor elegido pulsando un gráfico puede no estar en la lista
+            —«Sin dato» no se ofrece—: si no se añade, el desplegable
+            enseñaba «Todos» con el filtro puesto. */}
+        {value !== "ALL" && !options.includes(value) ? (
+          <option value={value}>{value}</option>
+        ) : null}
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
@@ -501,20 +525,41 @@ function DistributionChart({
   data,
   colorFor,
   analisis,
+  seleccionado,
+  onPulsar,
 }: {
   title: string;
   data: { name: string; total: number }[];
   colorFor?: (name: string, index: number) => string;
   /** La lectura del gráfico: qué dice lo filtrado frente al global. */
   analisis?: ReactNode;
+  /** El valor por el que se está filtrando esta columna, si lo hay. */
+  seleccionado?: string;
+  /** Pulsar una barra filtra por su valor; pulsarla otra vez lo quita. */
+  onPulsar?: (name: string) => void;
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
       <h2 className="mb-5 text-lg font-semibold text-white">{title}</h2>
       {data.length ? (
-        <div className="h-72">
+        <div className="h-72" title={onPulsar ? "Pulsa para filtrar" : undefined}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 48 }}>
+            {/*
+            | El clic va en el gráfico y no en la barra: con una barra de un
+            | saque al lado de otra de cuarenta, la pequeña era un píxel. Así
+            | vale toda la franja de la categoría.
+            */}
+            <BarChart
+              data={data}
+              margin={{ top: 10, right: 8, left: -18, bottom: 48 }}
+              style={onPulsar ? { cursor: "pointer" } : undefined}
+              onClick={(estado) => {
+                const indice = Number(estado?.activeIndex);
+                const item = Number.isInteger(indice) ? data[indice] : undefined;
+
+                if (item && onPulsar) onPulsar(item.name);
+              }}
+            >
               <CartesianGrid stroke="#1E293B" vertical={false} />
               <XAxis
                 dataKey="name"
@@ -536,6 +581,11 @@ function DistributionChart({
                   <Cell
                     key={item.name}
                     fill={colorFor ? colorFor(item.name, index) : COLORS[index % COLORS.length]}
+                    /* Filtrando por esta columna se siguen pintando todas: la
+                       elegida entera y con borde oro, las demás apagadas. */
+                    fillOpacity={seleccionado && seleccionado !== item.name ? 0.25 : 1}
+                    stroke={seleccionado === item.name ? "#C8A96B" : undefined}
+                    strokeWidth={seleccionado === item.name ? 2 : 0}
                   />
                 ))}
               </Bar>
@@ -553,10 +603,71 @@ function DistributionChart({
   );
 }
 
+/*
+| Una celda de la tabla que filtra por su valor.
+|
+| Lo que se ve no cambia —el minuto sigue siendo «37'» aunque filtre por su
+| cuarto de hora—; lo que se filtra es lo que lee `valorDe`, que es lo mismo
+| que lee el desplegable. «Sin dato» no filtra: no distingue «no ocurrió» de
+| «no se anotó».
+*/
+function CeldaFiltro({
+  valor,
+  activo,
+  onPulsar,
+  className = "",
+  style,
+  children,
+}: {
+  valor: string;
+  activo: boolean;
+  onPulsar: () => void;
+  className?: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  const filtrable = Boolean(valor) && valor !== "Sin dato";
+
+  return (
+    <td className={`px-4 py-3 ${className}`}>
+      {filtrable ? (
+        <button
+          type="button"
+          title="Pulsa para filtrar"
+          onClick={onPulsar}
+          style={style}
+          className={`-mx-1.5 rounded-md px-1.5 py-0.5 text-left transition hover:bg-white/[0.06] ${
+            activo ? "bg-[#C8A96B]/10 outline outline-1 outline-[#C8A96B]" : ""
+          }`}
+        >
+          {children}
+        </button>
+      ) : (
+        <span style={style}>{children}</span>
+      )}
+    </td>
+  );
+}
+
 const MAX_TABLA = 100;
 
+/* La opción del desplegable de competición que deja fuera sólo los amistosos. */
+const SIN_PRETEMPORADA = "Sin pretemporada";
+
 export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProps) {
-  const [rows, setRows] = useState<RecordRow[]>([]);
+  /* Todo lo codificado de la hoja, pretemporada incluida. */
+  const [todasLasFilas, setRows] = useState<RecordRow[]>([]);
+
+  /*
+  | La pretemporada, fuera salvo que se pida.
+  |
+  | Los amistosos de julio son otra muestra —rivales de otra categoría,
+  | rotaciones, rutinas a medio montar— y mezclados con la liga movían todos
+  | los porcentajes. Por defecto la página es sólo de competición; se mete con
+  | «Incluir pretemporada» o eligiendo «Pretemporada» en el desplegable de
+  | competición.
+  */
+  const [incluirPretemporada, setIncluirPretemporada] = useState(false);
 
   /*
   | Saques anotados pero todavía sin codificar.
@@ -581,6 +692,33 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const explicativos = useTextosExplicativos();
   const FILTERS = useMemo(() => filtersFor(mode), [mode]);
   const CHARTS = useMemo(() => chartsFor(mode), [mode]);
+
+  const PRETEMPORADA = COMPETICION_LABEL.amistoso;
+
+  const hayPretemporada = useMemo(
+    () => todasLasFilas.some((row) => valorDe(row, "__competicion") === PRETEMPORADA),
+    [todasLasFilas, PRETEMPORADA],
+  );
+
+  /* Elegir «Pretemporada» en el desplegable ya es pedirla: no hace falta
+     además el interruptor. */
+  const pretemporadaDentro =
+    incluirPretemporada || filters.__competicion === PRETEMPORADA;
+
+  const soloLiga = hayPretemporada && !pretemporadaDentro;
+
+  /*
+  | Las filas de las que parte TODO: gráficos, tabla, KPI, frases y el «de
+  | N» de los recuentos. Quitar aquí la pretemporada es quitarla de la página
+  | entera sin que ningún bloque tenga que acordarse.
+  */
+  const rows = useMemo(
+    () =>
+      soloLiga
+        ? todasLasFilas.filter((row) => valorDe(row, "__competicion") !== PRETEMPORADA)
+        : todasLasFilas,
+    [todasLasFilas, soloLiga, PRETEMPORADA],
+  );
 
   useEffect(() => {
     let active = true;
@@ -632,7 +770,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     FILTERS.forEach(({ key }) => {
       // Sólo ofrecemos valores presentes en la hoja; "Sin dato" se descarta
       // porque no distingue "no ocurrió" de "no se anotó".
-      const values = [...new Set(rows.map((row) => valorDe(row, key)))].filter(
+      /* La competición se ofrece entera aunque la pretemporada esté fuera:
+         elegirla en el desplegable es la otra forma de meterla. */
+      const origen = key === "__competicion" ? todasLasFilas : rows;
+      const values = [...new Set(origen.map((row) => valorDe(row, key)))].filter(
         (value) => value && value !== "Sin dato"
       );
 
@@ -651,20 +792,100 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     });
 
     return map;
-  }, [rows, FILTERS]);
+  }, [rows, todasLasFilas, FILTERS]);
 
-  const filtered = useMemo(
+  /*
+  | Cada fila, leída una vez por cada filtro.
+  |
+  | Ahora se filtra muchas veces por pantalla —cada gráfico con todos los
+  | filtros menos el suyo— y `valorDe` busca la columna por nombre en cada
+  | llamada: con la tabla hecha, filtrar es comparar cadenas.
+  */
+  const valores = useMemo(
     () =>
-      rows.filter((row) =>
-        FILTERS.every(({ key }) => {
-          const selected = filters[key] ?? "ALL";
-          return selected === "ALL" || valorDe(row, key) === selected;
-        })
-      ),
-    [rows, filters, FILTERS]
+      rows.map((row) => {
+        const uno: Record<string, string> = {};
+
+        FILTERS.forEach(({ key }) => {
+          uno[key] = valorDe(row, key);
+        });
+
+        return uno;
+      }),
+    [rows, FILTERS],
   );
 
+  /*
+  | Las filas filtradas por todo MENOS por las columnas que se le digan.
+  |
+  | Es lo que recibe cada gráfico: si el de banda se filtrara también por la
+  | banda elegida, se quedaría con una sola barra y no habría manera de ver
+  | —ni de pulsar— las otras. Así se pintan todas, la elegida resaltada.
+  */
+  const filtradoSin = useCallback(
+    (excluir: string[]) =>
+      rows.filter((_, indice) =>
+        FILTERS.every(({ key }) => {
+          if (excluir.includes(key)) return true;
+
+          const selected = filters[key] ?? "ALL";
+
+          return selected === "ALL" || valores[indice][key] === selected;
+        }),
+      ),
+    [rows, valores, filters, FILTERS],
+  );
+
+  const filtered = useMemo(() => filtradoSin([]), [filtradoSin]);
+
   const activos = FILTERS.filter(({ key }) => (filters[key] ?? "ALL") !== "ALL");
+
+  /*
+  | Pulsar un elemento filtra; pulsarlo otra vez quita el filtro.
+  |
+  | Va por pares porque una celda del campo es dos columnas a la vez —banda y
+  | zona—: si ya están las dos puestas con esos valores, se quitan las dos; si
+  | no, se ponen. El desplegable de Filtros lee el mismo estado, así que queda
+  | al día solo.
+  */
+  const alternar = useCallback(
+    (pares: [string, string][]) => {
+      const validos = pares.filter(([key]) => FILTERS.some((uno) => uno.key === key));
+
+      if (!validos.length) return;
+
+      setFilters((prev) => {
+        const yaEstan = validos.every(([key, valor]) => (prev[key] ?? "ALL") === valor);
+        const next = { ...prev };
+
+        validos.forEach(([key, valor]) => {
+          if (yaEstan) delete next[key];
+          else next[key] = valor;
+        });
+
+        return next;
+      });
+    },
+    [FILTERS],
+  );
+
+  const quitar = useCallback((keys: string[]) => {
+    setFilters((prev) => {
+      const next = { ...prev };
+
+      keys.forEach((key) => delete next[key]);
+
+      return next;
+    });
+  }, []);
+
+  /* Las columnas que pinta cada bloque: a cada uno le llegan sin esos filtros. */
+  const filasCampo = useMemo(() => filtradoSin(["Perfil", "Zona_Saque"]), [filtradoSin]);
+  const filasFlujo = useMemo(
+    () =>
+      filtradoSin(["Perfil", "Zona_Saque", "Tipo_Envio", "Zona_Caida", "Intencion", "Resultado_Final"]),
+    [filtradoSin],
+  );
 
   const totals = useMemo(() => resumenDe(filtered, mode), [filtered, mode]);
 
@@ -813,9 +1034,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         "Resultado",
       ];
 
-  const resumenFiltros = activos.length
-    ? activos.map(({ key, label }) => `${label}: ${filters[key]}`).join(" · ")
-    : "Sin filtros · todos los saques registrados";
+  const resumenFiltros = [
+    ...(soloLiga ? ["Sólo liga (sin pretemporada)"] : []),
+    ...activos.map(({ key, label }) => `${label}: ${filters[key]}`),
+  ].join(" · ") || "Sin filtros · todos los saques registrados";
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -861,15 +1083,49 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 activeCount={activos.length}
                 summary={`${FILTERS.length} filtros disponibles`}
               >
-                {FILTERS.map(({ key, label }) => (
+                {FILTERS.map(({ key, label }) =>
+                  key === "__competicion" ? (
+                    /*
+                    | La competición lleva además el interruptor de la
+                    | pretemporada: «Todas» a secas era ambiguo ahora que por
+                    | defecto se deja fuera.
+                    */
+                    <SelectFilter
+                      key={key}
+                      label={label}
+                      value={filters[key] ?? (pretemporadaDentro || !hayPretemporada ? "ALL" : SIN_PRETEMPORADA)}
+                      allLabel={hayPretemporada ? "Liga y pretemporada" : "Todas"}
+                      onChange={(value) => {
+                        if (value === SIN_PRETEMPORADA) {
+                          setIncluirPretemporada(false);
+                          quitar([key]);
+                        } else if (value === "ALL") {
+                          setIncluirPretemporada(true);
+                          quitar([key]);
+                        } else {
+                          setFilters((prev) => ({ ...prev, [key]: value }));
+                        }
+                      }}
+                      options={
+                        hayPretemporada
+                          ? [SIN_PRETEMPORADA, ...(options[key] ?? [])]
+                          : options[key] ?? []
+                      }
+                    />
+                  ) : (
                   <SelectFilter
                     key={key}
                     label={label}
                     value={filters[key] ?? "ALL"}
-                    onChange={(value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+                    onChange={(value) =>
+                      value === "ALL"
+                        ? quitar([key])
+                        : setFilters((prev) => ({ ...prev, [key]: value }))
+                    }
                     options={options[key] ?? []}
                   />
-                ))}
+                  ),
+                )}
               </FilterDrawer>
 
               {pendientes > 0 && explicativos ? (
@@ -884,7 +1140,20 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 <span>
                   {filtered.length} de {rows.length} saques registrados
                   {activos.length ? ` · ${activos.length} ${activos.length === 1 ? "filtro" : "filtros"} activos` : ""}
+                  {soloLiga ? " · sin pretemporada" : ""}
                 </span>
+
+                {hayPretemporada && filters.__competicion !== PRETEMPORADA ? (
+                  <label className="flex cursor-pointer items-center gap-2 text-white/70">
+                    <input
+                      type="checkbox"
+                      checked={incluirPretemporada}
+                      onChange={(event) => setIncluirPretemporada(event.target.checked)}
+                      className="h-3.5 w-3.5 accent-[#C8A96B]"
+                    />
+                    Incluir pretemporada
+                  </label>
+                ) : null}
 
                 {activos.length ? (
                   <button
@@ -897,6 +1166,90 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 ) : null}
               </div>
             </div>
+
+            {/*
+            | LO QUE SE ESTÁ FILTRANDO, SIEMPRE A LA VISTA.
+            |
+            | Casi todo lo que se pinta en la página filtra al pulsarlo, y se
+            | pulsa muy abajo —en un gráfico o en la tabla—: el resumen de
+            | arriba ya no se ve desde ahí. La barra se pega bajo la cabecera
+            | mientras haya filtros, para que nadie lea una gráfica filtrada
+            | creyendo que la ve completa, y cada filtro se quita desde ella.
+            */}
+            {activos.length || soloLiga || (hayPretemporada && incluirPretemporada) ? (
+              <div className="sticky top-[81px] z-20 -mt-4 mb-6 md:top-[97px]">
+                <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/30 bg-[#0B0F14]/90 px-3 py-2 text-xs backdrop-blur-xl">
+                  <span className="mr-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-500">
+                    Filtrando
+                  </span>
+
+                  {/* El filtro de partida: se ve como uno más, pero al
+                      pulsarlo no se quita, se abre —mete la pretemporada—. */}
+                  {soloLiga ? (
+                    <button
+                      type="button"
+                      onClick={() => setIncluirPretemporada(true)}
+                      title="Pulsa para incluir la pretemporada"
+                      className="flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B]/40 hover:text-[#E7D2A0]"
+                    >
+                      Sólo liga · <span className="text-[#E7D2A0]">incluir pretemporada</span>
+                    </button>
+                  ) : hayPretemporada && incluirPretemporada ? (
+                    <button
+                      type="button"
+                      onClick={() => setIncluirPretemporada(false)}
+                      title="Volver a dejar fuera la pretemporada"
+                      className="flex max-w-full items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/20"
+                    >
+                      Con pretemporada
+                      <span aria-hidden className="shrink-0">✕</span>
+                    </button>
+                  ) : null}
+
+                  {activos.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => quitar([key])}
+                      title="Quitar este filtro"
+                      className="flex max-w-full items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/20"
+                    >
+                      <span className="truncate">
+                        <span className="text-slate-400">{label}:</span> {filters[key]}
+                      </span>
+                      <span aria-hidden className="shrink-0">✕</span>
+                    </button>
+                  ))}
+
+                  <span className="ml-auto flex items-center gap-2">
+                    <span className="tabular-nums text-white/40">
+                      {filtered.length} de {rows.length}
+                    </span>
+                    {activos.length ? (
+                      <button
+                        type="button"
+                        onClick={() => setFilters({})}
+                        className="rounded-full border border-white/10 px-2.5 py-1 text-white/70 transition hover:border-white/25 hover:text-white"
+                      >
+                        Quitar filtros
+                      </button>
+                    ) : null}
+                  </span>
+                </div>
+
+                {/* Sólo liga y nada que enseñar: que no parezca un fallo. */}
+                {soloLiga && !filtered.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setIncluirPretemporada(true)}
+                    className="mt-2 w-full rounded-2xl border border-[#C8A96B]/25 bg-[#0B0F14]/90 px-4 py-3 text-left text-sm text-slate-300 backdrop-blur-xl transition hover:border-[#C8A96B]/50"
+                  >
+                    No hay acciones de liga con estos filtros ·{" "}
+                    <span className="text-[#E7D2A0] underline underline-offset-2">incluir pretemporada</span>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             {error ? (
               <p className="mb-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</p>
@@ -977,7 +1330,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   })}
                 </div>
 
-                <ThrowInField rows={filtered} mode={mode} />
+                <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
 
                 <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {pie({
@@ -986,7 +1339,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   })}
                 </div>
 
-                <ThrowInZoneMap rows={filtered} mode={mode} />
+                <ThrowInZoneMap rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
 
                 <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {pie({
@@ -1003,7 +1356,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     </h2>
                   </div>
 
-                  <ThrowInFlow rows={filtered} mode={mode} />
+                  <ThrowInFlow
+                    rows={filasFlujo}
+                    activas={filtered}
+                    mode={mode}
+                    filtros={filters}
+                    onFiltrar={alternar}
+                  />
 
                   <div className="-mx-4 -mb-4 mt-5 overflow-hidden rounded-b-3xl md:-mx-7 md:-mb-7">
                     {pie({
@@ -1018,7 +1377,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     <DistributionChart
                       key={key}
                       title={chartTitle}
-                      data={groupBy(filtered, key)}
+                      data={groupBy(filtradoSin([key]), key)}
+                      seleccionado={filters[key] && filters[key] !== "ALL" ? filters[key] : undefined}
+                      onPulsar={(name) => alternar([[key, name]])}
                       colorFor={
                         key === "Resultado_Final"
                           ? (name) => resultColor(name)
@@ -1084,61 +1445,79 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         {tableRows.map((row, index) => {
                           const resultado = parseResultado(read(row, "Resultado_Final"));
 
+                          /* Cada celda categórica filtra por lo que lee el
+                             desplegable de esa columna, no por lo que pinta. */
+                          const celda = (
+                            key: string,
+                            contenido: ReactNode,
+                            extra: { className?: string; style?: CSSProperties } = {},
+                          ) => {
+                            const valor = valorDe(row, key);
+
+                            return (
+                              <CeldaFiltro
+                                valor={valor}
+                                activo={filters[key] === valor}
+                                onPulsar={() => alternar([[key, valor]])}
+                                className={extra.className}
+                                style={extra.style}
+                              >
+                                {contenido}
+                              </CeldaFiltro>
+                            );
+                          };
+
                           return (
                             <tr key={`${read(row, "JORNADA")}-${index}`} className="text-slate-200">
-                              <td className="px-4 py-3">
-                                {parseJornada(read(row, "JORNADA")).corto}
-                              </td>
-                              <td className="px-4 py-3">{read(row, "Rival") || "-"}</td>
-                              <td className="px-4 py-3 tabular-nums">
-                                {(() => {
+                              {celda("JORNADA", parseJornada(read(row, "JORNADA")).corto)}
+                              {celda("Rival", read(row, "Rival") || "-")}
+                              {/* El minuto filtra por su cuarto de hora: un
+                                  filtro de un solo minuto no sirve de nada. */}
+                              {celda(
+                                "__tramo",
+                                (() => {
                                   const minuto = parseMinuto(row);
 
                                   if (minuto.minuto != null) return `${minuto.minuto}'`;
 
                                   /* Sin minuto, al menos la parte. */
                                   return minuto.parte ? `${minuto.parte}ª` : "-";
-                                })()}
-                              </td>
-                              <td className="px-4 py-3 tabular-nums">
-                                {(() => {
-                                  const marcador = parseMarcador(row);
+                                })(),
+                                { className: "tabular-nums" },
+                              )}
+                              {(() => {
+                                const marcador = parseMarcador(row);
 
-                                  if (!marcador.texto) return "-";
-
-                                  return (
-                                    <span
-                                      style={{
-                                        color: marcador.estado
-                                          ? ESTADO_COLOR[marcador.estado]
-                                          : undefined,
-                                      }}
-                                    >
-                                      {marcador.texto}
-                                    </span>
-                                  );
-                                })()}
-                              </td>
-                              {isOffensive ? <td className="px-4 py-3">{read(row, "Sacador") || "-"}</td> : null}
-                              <td className="px-4 py-3">{valorDe(row, "Perfil")}</td>
-                              <td className="px-4 py-3">{read(row, "Zona_Saque") || "-"}</td>
-                              <td className="px-4 py-3">{read(row, "Tipo_Envio") || "-"}</td>
-                              <td className="px-4 py-3">{direccionDe(row).label}</td>
-                              <td className="px-4 py-3">{read(row, "Receptor") || "-"}</td>
+                                return celda("__marcador", marcador.texto || "-", {
+                                  className: "tabular-nums",
+                                  style: {
+                                    color: marcador.estado
+                                      ? ESTADO_COLOR[marcador.estado]
+                                      : undefined,
+                                  },
+                                });
+                              })()}
+                              {isOffensive ? celda("Sacador", read(row, "Sacador") || "-") : null}
+                              {celda("Perfil", valorDe(row, "Perfil"))}
+                              {celda("Zona_Saque", read(row, "Zona_Saque") || "-")}
+                              {celda("Tipo_Envio", read(row, "Tipo_Envio") || "-")}
+                              {celda("Zona_Caida", direccionDe(row).label)}
+                              {celda("Receptor", read(row, "Receptor") || "-")}
                               {isOffensive ? (
                                 <>
-                                  <td className="px-4 py-3">{read(row, "Intencion") || "-"}</td>
-                                  <td className="px-4 py-3">{read(row, "Rutina") || "-"}</td>
+                                  {celda("Intencion", read(row, "Intencion") || "-")}
+                                  {celda("Rutina", read(row, "Rutina") || "-")}
                                 </>
                               ) : (
                                 <>
-                                  <td className="px-4 py-3">{read(row, "Defensa") || "-"}</td>
-                                  <td className="px-4 py-3">{read(row, "Debilidad_Defensiva") || "-"}</td>
+                                  {celda("Defensa", read(row, "Defensa") || "-")}
+                                  {celda("Debilidad_Defensiva", read(row, "Debilidad_Defensiva") || "-")}
                                 </>
                               )}
-                              <td className="px-4 py-3 font-medium" style={{ color: resultInk(resultado.label) }}>
-                                {resultado.label}
-                              </td>
+                              {celda("Resultado_Final", resultado.label, {
+                                className: "font-medium",
+                                style: { color: resultInk(resultado.label) },
+                              })}
                             </tr>
                           );
                         })}

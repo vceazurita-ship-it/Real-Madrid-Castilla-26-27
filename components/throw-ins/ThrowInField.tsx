@@ -11,7 +11,7 @@
 // peso. Con una sola flecha dominante, una zona repartida al 50% entre
 // progresión y retroceso se leía como si sólo progresara.
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import BoardViewport from "@/components/board/BoardViewport";
 import {
@@ -34,9 +34,20 @@ import {
 } from "./throwInModel";
 
 type ThrowInFieldProps = {
+  /** Filtradas por todo menos por banda y zona: el campo las pinta todas. */
   rows: RecordRow[];
   mode: Mode;
+  /** Los filtros del panel, para marcar la zona elegida. */
+  filtros: Record<string, string>;
+  /** Pulsar una zona filtra la página entera por banda y zona a la vez. */
+  onFiltrar: (pares: [string, string][]) => void;
 };
+
+/* Lo mismo que lee el panel para «Perfil» y «Zona_Saque». */
+const paresDe = (banda: Banda, zona: Zona): [string, string][] => [
+  ["Perfil", BANDA_LABEL[banda]],
+  ["Zona_Saque", `Zona ${zona}`],
+];
 
 type Salida = {
   clave: string;
@@ -84,10 +95,23 @@ function destino(banda: Banda, zona: Zona, mode: Mode, salida: Salida) {
   };
 }
 
-export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
-  // Guardamos la clave, no el nodo: con el nodo el panel seguía mostrando las
-  // acciones capturadas al pulsar aunque después se cambiaran los filtros.
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldProps) {
+  /*
+  | La zona elegida ya no es un estado de aquí: es el filtro de la página.
+  |
+  | Pulsar un disco filtra todo por esa banda y esa zona; el detalle se abre
+  | cuando las dos coinciden con un disco y se cierra quitando el filtro. Si
+  | sólo hay una puesta —la banda desde el desplegable, por ejemplo— se
+  | resaltan los discos que la cumplen y se apagan los demás.
+  */
+  const filtroBanda = filtros.Perfil && filtros.Perfil !== "ALL" ? filtros.Perfil : null;
+  const filtroZona = filtros.Zona_Saque && filtros.Zona_Saque !== "ALL" ? filtros.Zona_Saque : null;
+  const cumple = (banda: Banda, zona: Zona) =>
+    (!filtroBanda || filtroBanda === BANDA_LABEL[banda]) &&
+    (!filtroZona || filtroZona === `Zona ${zona}`);
+  const hayFiltro = Boolean(filtroBanda || filtroZona);
+  const filtroDireccion =
+    filtros.Zona_Caida && filtros.Zona_Caida !== "ALL" ? filtros.Zona_Caida : null;
   const isOffensive = mode === "offensive";
   const tono = tonoDeModo(mode);
 
@@ -145,7 +169,10 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
   }, [rows, mode]);
 
   // El detalle se deriva de los datos vivos: sigue los filtros o se cierra solo.
-  const selected = nodes.find((node) => node.key === selectedKey) ?? null;
+  const selected =
+    filtroBanda && filtroZona
+      ? nodes.find((node) => cumple(node.banda, node.zona)) ?? null
+      : null;
   const maxCount = Math.max(...nodes.map((node) => node.count), 1);
 
   return (
@@ -157,7 +184,9 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
             Mapa de saques de banda {isOffensive ? "ofensivos" : "defensivos"}
           </h2>
         </div>
-        <p className="text-sm text-slate-400">Pulsa una zona para ver las acciones registradas.</p>
+        <p className="text-sm text-slate-400">
+          Pulsa una zona o una flecha para filtrar la página; otra vez para quitarlo.
+        </p>
       </div>
 
       <div className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
@@ -194,10 +223,29 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
               const peso = salida.count / node.count;
 
               return (
-                <g key={`${node.key}-${salida.clave}`} pointerEvents="none">
+                /* La flecha filtra por su dirección: es el «hacia dónde» del
+                   saque, la otra mitad de lo que cuenta el campo. */
+                <g
+                  key={`${node.key}-${salida.clave}`}
+                  className="cursor-pointer"
+                  opacity={
+                    (hayFiltro && !cumple(node.banda, node.zona)) ||
+                    (filtroDireccion && filtroDireccion !== salida.label)
+                      ? 0.3
+                      : 1
+                  }
+                  onClick={() => onFiltrar([["Zona_Caida", salida.label]])}
+                >
                   <title>
-                    {`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${salida.label}: ${salida.count} de ${node.count}`}
+                    {`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${salida.label}: ${salida.count} de ${node.count} · Pulsa para filtrar`}
                   </title>
+                  {/* Trazo invisible y ancho para poder acertar con el dedo. */}
+                  <path
+                    d={`M ${x} ${y} Q ${(x + target.x) / 2} ${(y + target.y) / 2 - 4} ${target.x} ${target.y}`}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={3}
+                  />
                   <path
                     d={`M ${x} ${y} Q ${(x + target.x) / 2} ${(y + target.y) / 2 - 4} ${target.x} ${target.y}`}
                     fill="none"
@@ -223,7 +271,8 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
             const { x, y } = origen(node.banda, node.zona, mode);
             const radius = 3 + Math.sqrt(node.count / maxCount) * 3.6;
             const color = heatColor(node.produccion / node.count, tono);
-            const isSelected = selectedKey === node.key;
+            const resaltado = hayFiltro && cumple(node.banda, node.zona);
+            const apagado = hayFiltro && !resaltado;
             // La cifra se pintaba siempre en azul noche, pero el disco toma el
             // color del mapa de calor: una zona sin producción queda casi negra
             // y el número desaparecía. Se decide por la luminancia del relleno.
@@ -239,23 +288,26 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
                 className="cursor-pointer"
                 role="button"
                 tabIndex={0}
-                aria-label={`${BANDA_LABEL[node.banda]}, ${zonaLabel(node.zona, mode)}, ${node.count} acciones`}
-                onClick={() => setSelectedKey(isSelected ? null : node.key)}
+                aria-label={`${BANDA_LABEL[node.banda]}, ${zonaLabel(node.zona, mode)}, ${node.count} acciones. Pulsa para filtrar`}
+                aria-pressed={resaltado}
+                opacity={apagado ? 0.35 : 1}
+                onClick={() => onFiltrar(paresDe(node.banda, node.zona))}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    setSelectedKey(isSelected ? null : node.key);
+                    onFiltrar(paresDe(node.banda, node.zona));
                   }
                 }}
               >
+                <title>{`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${node.count} saques · Pulsa para filtrar`}</title>
                 <circle
                   cx={x}
                   cy={y}
                   r={radius + 0.9}
                   fill="none"
-                  stroke={isSelected ? "#FFF7E5" : color}
-                  strokeOpacity={isSelected ? 1 : 0.55}
-                  strokeWidth={isSelected ? 0.8 : 0.55}
+                  stroke={resaltado ? "#C8A96B" : color}
+                  strokeOpacity={resaltado ? 1 : 0.55}
+                  strokeWidth={resaltado ? 0.9 : 0.55}
                 />
                 <circle cx={x} cy={y} r={radius} fill={color} fillOpacity="0.96" stroke="#FFF7E5" strokeWidth="0.35" />
                 <text
@@ -315,8 +367,9 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
               </div>
               <button
                 type="button"
-                aria-label="Cerrar detalle"
-                onClick={() => setSelectedKey(null)}
+                aria-label="Quitar el filtro de zona"
+                title="Quitar el filtro de zona"
+                onClick={() => onFiltrar(paresDe(selected.banda, selected.zona))}
                 className="rounded-full p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
               >
                 ×
@@ -325,12 +378,19 @@ export function ThrowInField({ rows, mode }: ThrowInFieldProps) {
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {selected.salidas.map((salida) => (
-                <span
+                <button
                   key={salida.clave}
-                  className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300"
+                  type="button"
+                  title="Pulsa para filtrar"
+                  onClick={() => onFiltrar([["Zona_Caida", salida.label]])}
+                  className={`rounded-full border px-2 py-0.5 text-[11px] transition ${
+                    filtroDireccion === salida.label
+                      ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#E7D2A0]"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
                 >
                   {salida.label} · {salida.count}
-                </span>
+                </button>
               ))}
             </div>
 

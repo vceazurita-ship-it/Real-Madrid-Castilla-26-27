@@ -221,6 +221,11 @@ if (t.includes("falta indirecta")) {
   };
 
 
+  /** La zona de remate tal y como la agrupa el campo («Primer Palo» → «1P»). */
+  export function zonaRemateDelCampo(v?: string): string | null {
+    return normalizeZonaRemate(v);
+  }
+
   function normalizeZonaRemate(v?: string): string | null {
   if (!v) return null;
   if (remateCoords[v]) return v;
@@ -336,13 +341,68 @@ if (t.includes("falta indirecta")) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
   }
 
-  export default function ABPFlowField({ rows }: { rows: ABPRow[] }) {
+  export type ABPFlowFieldFiltro = "tipoAccion" | "zonaRemate";
+
+  export default function ABPFlowField({
+    rows,
+    seleccion,
+    onFiltra,
+  }: {
+    rows: ABPRow[];
+    /**
+     * Filtro cruzado de la página. Con `onFiltra`, pulsar un origen filtra la
+     * página por su tipo de acción y pulsar una zona de remate, por esa zona;
+     * lo elegido vuelve en `seleccion` y aquí se resalta. El detalle de cada
+     * punto sigue abriéndose igual que antes.
+     */
+    seleccion?: Partial<Record<ABPFlowFieldFiltro, string>>;
+    onFiltra?: (filtro: ABPFlowFieldFiltro, valor: string | null) => void;
+  }) {
   const [selectedOrigin, setSelectedOrigin] = useState<{
   key: string;
   tipo: "corto" | "directo" | "origen";
 } | null>(null);
   const [selectedRemate, setSelectedRemate] = useState<string | null>(null);
   const [metric, setMetric] = useState<"acciones" | "xg">("acciones");
+  const tipoElegido = seleccion?.tipoAccion ?? null;
+  const remateElegido = seleccion?.zonaRemate ?? null;
+
+  /* Pulsar un origen: con la página, alterna su filtro; el detalle se abre
+     al elegirlo y se cierra al quitarlo. */
+  const pulsaOrigen = (
+    nombre: string,
+    abre: () => void,
+  ) => {
+    if (!onFiltra) {
+      abre();
+      return;
+    }
+
+    if (tipoElegido === nombre) {
+      onFiltra("tipoAccion", null);
+      setSelectedOrigin(null);
+    } else {
+      onFiltra("tipoAccion", nombre);
+      abre();
+    }
+  };
+
+  const pulsaRemate = (nombre: string) => {
+    if (!onFiltra) {
+      setSelectedRemate(nombre);
+      return;
+    }
+
+    if (remateElegido === nombre) {
+      onFiltra("zonaRemate", null);
+      setSelectedRemate(null);
+    } else {
+      onFiltra("zonaRemate", nombre);
+      setSelectedRemate(nombre);
+    }
+  };
+
+
 
   const { originCounts, originEnvios, remateStats } = useMemo(() => {
     const originCounts: Record<string, number> = {};
@@ -904,8 +964,11 @@ if (destinosReales.length === 0 && destinosArea.length > 0) {
   targetY = destinosArea[0].y;
 }
 
-const atenuado =
-  !!selectedOrigin && selectedOrigin.key !== key;
+/* Con filtro de la página manda el tipo elegido (los dos perfiles de un
+   mismo tipo se quedan encendidos); sin él, el detalle abierto. */
+const atenuado = tipoElegido
+  ? name !== tipoElegido
+  : !!selectedOrigin && selectedOrigin.key !== key;
 
     return (
       <g
@@ -913,15 +976,19 @@ const atenuado =
   filter="url(#shadow)"
   opacity={atenuado ? 0.22 : 1}
   onClick={() =>
-    setSelectedOrigin({
-      key,
-      tipo: "origen",
-    })
+    pulsaOrigen(name, () =>
+      setSelectedOrigin({
+        key,
+        tipo: "origen",
+      })
+    )
   }
   style={{ cursor: "pointer" }}
 >
   <title>
-    {`${name} · ${value} acciones · ${(data?.xg || 0).toFixed(2)} xG`}
+    {`${name} · ${value} acciones · ${(data?.xg || 0).toFixed(2)} xG${
+      onFiltra ? " · Pulsa para filtrar" : ""
+    }`}
   </title>
 
   {/* Envíos al área (DORADO): una flecha por zona de caída real */}
@@ -967,10 +1034,12 @@ const atenuado =
           markerEnd="url(#arrowGold)"
           onClick={(e) => {
             e.stopPropagation();
-            setSelectedOrigin({
-              key,
-              tipo: "directo",
-            });
+            pulsaOrigen(name, () =>
+              setSelectedOrigin({
+                key,
+                tipo: "directo",
+              })
+            );
           }}
           style={{ cursor: "pointer" }}
         >
@@ -1009,10 +1078,12 @@ const atenuado =
       markerEnd="url(#arrowBlue)"
       onClick={(e) => {
         e.stopPropagation();
-        setSelectedOrigin({
-          key,
-          tipo: "corto",
-        });
+        pulsaOrigen(name, () =>
+          setSelectedOrigin({
+            key,
+            tipo: "corto",
+          })
+        );
       }}
       style={{ cursor: "pointer" }}
     />
@@ -1036,8 +1107,8 @@ const atenuado =
     cy={p.y}
     r={r}
     fill="url(#goldNode)"
-    stroke="#F5E7C8"
-    strokeWidth="0.35"
+    stroke={tipoElegido === name ? "#FFFFFF" : "#F5E7C8"}
+    strokeWidth={tipoElegido === name ? 0.8 : 0.35}
   />
 
   {/* Valor de la métrica activa */}
@@ -1068,16 +1139,22 @@ const atenuado =
           <g
             key={name}
             filter="url(#shadow)"
-            onClick={() => setSelectedRemate(name)}
+            onClick={() => pulsaRemate(name)}
             style={{ cursor: "pointer" }}
+            opacity={remateElegido && remateElegido !== name ? 0.3 : 1}
           >
+            <title>
+              {`Remate desde ${name} · ${stat.xg.toFixed(2)} xG${
+                onFiltra ? " · Pulsa para filtrar" : ""
+              }`}
+            </title>
             <circle
               cx={p.x}
               cy={p.y}
               r={r + 0.6}
               fill="none"
-              stroke="#A7F3D0"
-              strokeWidth="0.5"
+              stroke={remateElegido === name ? "#C8A96B" : "#A7F3D0"}
+              strokeWidth={remateElegido === name ? 1 : 0.5}
             />
             <circle
               cx={p.x}

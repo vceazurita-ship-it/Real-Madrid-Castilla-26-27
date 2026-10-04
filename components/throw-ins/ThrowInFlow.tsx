@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import BoardViewport from "@/components/board/BoardViewport";
 import {
   ACCENT_LIGHT,
+  BANDA_LABEL,
   direccionDe,
   esFavorable,
   esProduccion,
@@ -65,6 +66,38 @@ function saqueLabel(row: RecordRow) {
   return `${banda === "izq" ? "Izquierda" : "Derecha"} · Zona ${zona}`;
 }
 
+/*
+| Qué filtro pone cada nodo en la página.
+|
+| Las columnas del flujo son columnas del panel con otro nombre: la zona de
+| saque son dos —banda y zona—, y lo que aquí se escribe «Sin definir» el
+| panel lo lee «Sin dato».
+*/
+function paresDeNodo(col: ColKey, medio: MedioKey, name: string): [string, string][] | null {
+  const sinDato = name === "Sin definir" ? "Sin dato" : name;
+
+  if (col === "saque") {
+    const zona = name.match(/Zona (\d)/);
+
+    if (!zona) return null;
+
+    const banda = name.startsWith("Izquierda") ? BANDA_LABEL.izq : BANDA_LABEL.der;
+
+    return [
+      ["Perfil", banda],
+      ["Zona_Saque", `Zona ${zona[1]}`],
+    ];
+  }
+
+  if (col === "envio") return [["Tipo_Envio", sinDato]];
+  if (col === "medio") return [[medio === "intencion" ? "Intencion" : "Zona_Caida", sinDato]];
+
+  return [["Resultado_Final", name]];
+}
+
+/* Las columnas del panel que el flujo pinta: a él le llegan sin esos filtros. */
+const CLAVES_FLUJO = ["Perfil", "Zona_Saque", "Tipo_Envio", "Zona_Caida", "Intencion", "Resultado_Final"];
+
 type NodeStat = {
   name: string;
   total: number;
@@ -72,12 +105,26 @@ type NodeStat = {
   favorable: number;
 };
 
-export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: Mode }) {
+export default function ThrowInFlow({
+  rows,
+  activas,
+  mode,
+  filtros,
+  onFiltrar,
+}: {
+  /** Filtradas por todo menos por las columnas del flujo: se pintan todos los nodos. */
+  rows: RecordRow[];
+  /** Las filas con todos los filtros: el recorrido que se resalta. */
+  activas: RecordRow[];
+  mode: Mode;
+  filtros: Record<string, string>;
+  /** Pulsar un nodo filtra la página entera por su valor. */
+  onFiltrar: (pares: [string, string][]) => void;
+}) {
   const isOffensive = mode === "offensive";
   const tono = tonoDeModo(mode);
 
   const [medioKey, setMedioKey] = useState<MedioKey>("direccion");
-  const [focusRaw, setFocus] = useState<{ col: ColKey; value: string } | null>(null);
 
   const medio = medioKey === "intencion" && isOffensive ? "intencion" : "direccion";
 
@@ -135,15 +182,23 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
     } as Record<ColKey, NodeStat[]>;
   }, [rows, accessors, mode]);
 
-  // Al cambiar los filtros el nodo aislado puede desaparecer del flujo. Si ya
-  // no existe se ignora, en vez de dejar el lienzo vacío y sin forma de salir.
-  const focus =
-    focusRaw && columns[focusRaw.col].some((node) => node.name === focusRaw.value) ? focusRaw : null;
+  /*
+  | Aislar un recorrido es ahora filtrar la página.
+  |
+  | Antes el nodo pulsado vivía sólo aquí y el resto de la pantalla no se
+  | enteraba. Ahora pulsar «Largo» filtra todo por envío largo; el flujo sigue
+  | pintando todos los nodos —le llegan las filas sin sus propios filtros— y
+  | resalta encima el recorrido de las filas que sí los cumplen.
+  */
+  const filtrosFlujo = CLAVES_FLUJO.filter((key) => filtros[key] && filtros[key] !== "ALL");
+  const focus = filtrosFlujo.length > 0;
+  const activeRows = activas;
 
-  const activeRows = useMemo(
-    () => (focus ? rows.filter((row) => accessors[focus.col](row) === focus.value) : rows),
-    [rows, focus, accessors]
-  );
+  const estaFiltrado = (col: ColKey, name: string) => {
+    const pares = paresDeNodo(col, medio, name);
+
+    return !!pares && pares.every(([key, valor]) => filtros[key] === valor);
+  };
 
   const buildLinks = useMemo(
     () => (source: ColKey, target: ColKey, subset: RecordRow[]) => {
@@ -226,6 +281,12 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
     const x2 = COLS[target].x;
 
     return links.map((link) => {
+      const pares = [
+        ...(paresDeNodo(source, medio, link.from) ?? []),
+        ...(paresDeNodo(target, medio, link.to) ?? []),
+      ];
+      const elegido = pares.length > 0 && pares.every(([key, valor]) => filtros[key] === valor);
+
       const y1 = yIndex[source][link.from];
       const y2 = yIndex[target][link.to];
 
@@ -239,15 +300,23 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
           : heatColor(link.produccion / Math.max(1, link.total), tono);
 
       return (
-        <path
+        /* El enlace filtra por sus dos extremos a la vez: «de la zona 2
+           izquierda al envío corto» son tres filtros de una pulsada. */
+        <g
           key={`${stageIndex}-${link.from}-${link.to}-${dimmed ? "d" : "a"}`}
-          d={linkPath(x1, y1, x2, y2)}
-          fill="none"
-          stroke={color}
-          strokeWidth={1.5 + (link.total / maxLink) * 9}
-          strokeLinecap="round"
-          opacity={dimmed ? 0.12 : 0.85}
-        />
+          style={{ cursor: "pointer" }}
+          onClick={() => onFiltrar(pares)}
+        >
+          <title>{`${link.from} → ${link.to} · ${link.total} saques · Pulsa para filtrar`}</title>
+          <path
+            d={linkPath(x1, y1, x2, y2)}
+            fill="none"
+            stroke={elegido && !dimmed ? "#C8A96B" : color}
+            strokeWidth={1.5 + (link.total / maxLink) * 9}
+            strokeLinecap="round"
+            opacity={dimmed ? 0.12 : 0.85}
+          />
+        </g>
       );
     });
   };
@@ -257,22 +326,23 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
 
     return columns[col].map((node, index) => {
       const y = TOP + index * STEP;
-      const isFocused = focus?.col === col && focus.value === node.name;
-      const atenuado = !!focus && !activeNodes[col].has(node.name);
+      const isFocused = estaFiltrado(col, node.name);
+      const atenuado = focus && !activeNodes[col].has(node.name);
+      const pares = paresDeNodo(col, medio, node.name);
 
       const dot = col === "resultado" ? resultColor(node.name) : heatColor(node.produccion, tono);
 
       return (
         <g
           key={`${col}-${node.name}`}
-          onClick={() => setFocus(isFocused ? null : { col, value: node.name })}
-          style={{ cursor: "pointer" }}
+          onClick={pares ? () => onFiltrar(pares) : undefined}
+          style={{ cursor: pares ? "pointer" : "default" }}
           opacity={atenuado ? 0.28 : 1}
         >
           <title>
             {`${node.name} · ${node.total} saques · ${(node.favorable * 100).toFixed(0)}% acaba en balón para el RMCF · ${(
               node.produccion * 100
-            ).toFixed(0)}% ${isOffensive ? "produce último tercio, ocasión o gol" : "concede último tercio, ocasión o gol"}`}
+            ).toFixed(0)}% ${isOffensive ? "produce último tercio, ocasión o gol" : "concede último tercio, ocasión o gol"}${pares ? " · Pulsa para filtrar" : ""}`}
           </title>
 
           <rect
@@ -282,7 +352,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
             height={NODE_H}
             rx="9"
             fill={isFocused ? "#16233A" : "#0B1320"}
-            stroke={isFocused ? ACCENT_LIGHT : "#334155"}
+            stroke={isFocused ? "#C8A96B" : "#334155"}
             strokeWidth={isFocused ? 1.4 : 1}
           />
 
@@ -323,7 +393,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
           Grosor = saques · color = {isOffensive ? "% que acaba en último tercio, ocasión o gol nuestro" : "% que acaba en último tercio, ocasión o gol del rival"}
         </span>
 
-        <span>Pulsa un nodo para aislar su recorrido completo</span>
+        <span>Pulsa un nodo o un enlace para filtrar la página por él; otra vez lo quita</span>
 
         {isOffensive ? (
           <span className="flex items-center gap-1">
@@ -331,10 +401,7 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
               <button
                 key={key}
                 type="button"
-                onClick={() => {
-                  setMedioKey(key);
-                  setFocus(null);
-                }}
+                onClick={() => setMedioKey(key)}
                 className={`rounded-full border px-2.5 py-1 transition ${
                   medio === key
                     ? "border-[#C8A96B] bg-[#C8A96B] text-black"
@@ -347,15 +414,6 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
           </span>
         ) : null}
 
-        {focus ? (
-          <button
-            type="button"
-            onClick={() => setFocus(null)}
-            className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/20"
-          >
-            {focus.value} ×
-          </button>
-        ) : null}
       </div>
 
       {/*
@@ -371,9 +429,6 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
         <svg
           viewBox={`0 0 1094 ${svgHeight}`}
           className="w-full min-w-[980px]"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setFocus(null);
-          }}
         >
           {(Object.keys(COLS) as ColKey[]).map((key) => (
             <text key={key} x={COLS[key].x} y="24" fill="#94A3B8" fontSize="11" fontWeight="600">
@@ -453,7 +508,9 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
         <div className="mt-5 rounded-2xl border border-white/10 bg-[#0B1320] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words text-lg font-semibold text-white">{focus.value}</h3>
+              <h3 className="break-words text-lg font-semibold text-white">
+                {filtrosFlujo.map((key) => filtros[key]).join(" · ")}
+              </h3>
               <p className="text-sm text-slate-400">
                 {activeRows.length} {activeRows.length === 1 ? "saque registrado" : "saques registrados"}
                 {activeRows.length > 12 ? " · se listan los 12 primeros" : ""}
@@ -461,7 +518,10 @@ export default function ThrowInFlow({ rows, mode }: { rows: RecordRow[]; mode: M
             </div>
 
             <button
-              onClick={() => setFocus(null)}
+              type="button"
+              title="Quitar los filtros del flujo"
+              aria-label="Quitar los filtros del flujo"
+              onClick={() => onFiltrar(filtrosFlujo.map((key) => [key, filtros[key]] as [string, string]))}
               className="shrink-0 rounded-lg border border-white/10 px-3 py-1 text-slate-400 transition hover:border-white/20 hover:text-white"
             >
               ×

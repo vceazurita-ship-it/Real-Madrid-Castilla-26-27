@@ -19,6 +19,12 @@
  * Los datos los genera `scripts/transiciones-datos.mjs` a partir de los CSV de
  * `Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES`. Cuando cierra un bloque
  * nuevo se vuelve a lanzar el script y esta pantalla se actualiza sola.
+ *
+ * Todo lo que se pincha filtra (`components/faltas/FiltrosCruzados.tsx`, que
+ * se comparte con faltas): un sector de la tarta, una barra, una leyenda, una
+ * cifra, cualquier celda de la tabla. El partido y «quitar los dudosos» siguen
+ * siendo los mandos de siempre; la barra de «Filtrando» los enseña junto con
+ * lo pinchado y se quitan desde ahí igual.
  */
 
 import { useMemo, useState } from "react";
@@ -52,6 +58,20 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
+import {
+  BarraFiltros,
+  Filtrable,
+  TITULO_FILTRO,
+  esPretemporada,
+  estaActivo,
+  hayFiltro,
+  marcaPieza,
+  marcaSvg,
+  pasaFiltros,
+  useFiltrosCruzados,
+  type ChipFiltro,
+  type Filtros,
+} from "@/components/faltas/FiltrosCruzados";
 import {
   Conclusiones,
   Explicativo,
@@ -125,6 +145,94 @@ function pct(parte: number, total: number) {
 const decimal = (n: number) =>
   n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
+/** Un robo con su partido pegado, que es lo que se cuenta en pantalla. */
+type RoboVisto = Robo & { partido: string; jornada: string; rival: string };
+
+/*
+| El detalle de los bloques nuevos empieza por el minuto y sigue con quién:
+| «45+1'56" (táctica 47:48) · Interceptación de Mario Rivas en medio campo…».
+| Los bloques viejos son texto libre y no traen ni lo uno ni lo otro: ahí se
+| devuelve vacío, y la tabla pone «—».
+*/
+const PARTES_DETALLE = /^(\d+(?:\+\d+)?'\d{1,2}"(?:\s*\([^)]*\))?)\s+·\s+([\s\S]*)$/;
+const QUIEN_ROBA = /^(.+?)\s+de\s+(.+?)\s+en\s+(?:campo|medio)\b/;
+
+/** El minuto del partido, sacado del principio del detalle. */
+function minutoDe(r: Robo) {
+  return PARTES_DETALLE.exec(r.detalle ?? "")?.[1] ?? "";
+}
+
+/** El detalle sin el minuto delante, que ya tiene su columna. */
+function textoDe(r: Robo) {
+  return PARTES_DETALLE.exec(r.detalle ?? "")?.[2] ?? r.detalle ?? "";
+}
+
+/** «Interceptación», «Duelo ganado»… (sólo en los bloques nuevos). */
+function tipoDe(r: Robo) {
+  const m = PARTES_DETALLE.exec(r.detalle ?? "");
+  return m ? (QUIEN_ROBA.exec(m[2])?.[1] ?? "") : "";
+}
+
+/** Quién roba (sólo en los bloques nuevos). */
+function jugadorDe(r: Robo) {
+  const m = PARTES_DETALLE.exec(r.detalle ?? "");
+  return m ? (QUIEN_ROBA.exec(m[2])?.[2] ?? "") : "";
+}
+
+const TRAMOS = [0, 15, 30, 45, 60, 75, 90];
+const nombreTramo = (ini: number) => `${ini}'-${ini + 15}'`;
+
+/** El tramo de quince minutos de vídeo en que cae el robo. */
+const tramoDe = (r: Robo) => nombreTramo(Math.floor(r.seg / 60 / 15) * 15);
+
+/** Cómo se lee cada dimensión pinchable de un robo. */
+const LECTORES: Record<string, (r: RoboVisto) => string> = {
+  zona: zonaDe,
+  carril: (r) => r.carril,
+  accion: (r) => r.accion,
+  desenlace: (r) => r.desenlace,
+  confianza: (r) => r.confianza,
+  tramo: tramoDe,
+  jugador: jugadorDe,
+  tipo: tipoDe,
+};
+
+const ROTULO: Record<string, string> = {
+  zona: "Zona",
+  carril: "Carril",
+  accion: "Salida",
+  desenlace: "Acaba en",
+  confianza: "Fiabilidad",
+  tramo: "Tramo",
+  jugador: "Jugador",
+  tipo: "Robo",
+};
+
+/** Lo que se lee en la barra de «Filtrando» para cada valor. */
+function nombreValor(dimension: string, valor: string) {
+  if (dimension === "accion") return NOMBRE_ACCION[valor as Accion] ?? valor;
+  if (dimension === "desenlace")
+    return DESENLACES.find((d) => d.clave === valor)?.nombre ?? valor;
+  return valor;
+}
+
+/**
+ * Las series de las gráficas de barras, en acciones. «Otro» son dos: el
+ * despeje y la pérdida inmediata, y se marcan y se sueltan juntas.
+ */
+const ACCIONES_SERIE: Record<string, Accion[]> = {
+  Adelante: ["ADELANTE"],
+  "Horizontal o atrás": ["HORIZONTAL_ATRAS"],
+  Otro: ["DESPEJE", "PERDIDA"],
+};
+
+/** ¿Está marcada la serie entera? */
+const serieActiva = (filtros: Filtros, serie: string) =>
+  (ACCIONES_SERIE[serie] ?? []).length > 0 &&
+  (ACCIONES_SERIE[serie] ?? []).every((a) => estaActivo(filtros, "accion", a));
+
+const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
+
 /* ------------------------------------------------------------------ */
 /*  Piezas sueltas                                                     */
 /* ------------------------------------------------------------------ */
@@ -135,26 +243,50 @@ function Cifra({
   pie,
   color = ORO,
   icono: Icono,
+  onClick,
+  activo = false,
+  atenuado = false,
 }: {
   valor: string;
   rotulo: string;
   pie?: string;
   color?: string;
   icono?: React.ComponentType<{ size?: number; className?: string }>;
+  /** Si se da, la cifra se pincha y filtra por lo que cuenta. */
+  onClick?: () => void;
+  activo?: boolean;
+  atenuado?: boolean;
 }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
+  const dentro = (
+    <>
+      <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
         {Icono && <Icono size={13} />}
         {rotulo}
-      </div>
+      </span>
 
-      <p className="mt-2 text-3xl font-semibold tabular-nums" style={{ color }}>
+      <span className="mt-2 block text-3xl font-semibold tabular-nums" style={{ color }}>
         {valor}
-      </p>
+      </span>
 
-      {pie && <p className="mt-1 text-xs text-white/40">{pie}</p>}
-    </div>
+      {pie && <span className="mt-1 block text-xs text-white/40">{pie}</span>}
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">{dentro}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      title={TITULO_FILTRO}
+      style={marcaPieza(activo, atenuado)}
+      className="block w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:opacity-100"
+    >
+      {dentro}
+    </button>
   );
 }
 
@@ -191,16 +323,32 @@ export default function TransicionesPage() {
   const [quien, setQuien] = useState<string>("todos");
   const [porcentajes, setPorcentajes] = useState(false);
   const [conDudosos, setConDudosos] = useState(true);
+  /*
+  | La pretemporada, fuera salvo que se pida: los amistosos no se leen igual
+  | que la liga. Hoy no hay ninguno en los datos y el mando ni sale.
+  */
+  const [conPretemporada, setConPretemporada] = useState(false);
+
+  /** Lo que se ha pinchado en gráficas, cifras y tabla. */
+  const { filtros, alterna, alternaVarios, quita, limpia } = useFiltrosCruzados();
 
   const partidos = useMemo(
-    () => PARTIDOS.filter((p) => p.robos.length > 0 || p.bloquesCerrados > 0),
-    [],
+    () =>
+      PARTIDOS.filter(
+        (p) =>
+          (p.robos.length > 0 || p.bloquesCerrados > 0) &&
+          (conPretemporada || !esPretemporada(p.jornada)),
+      ),
+    [conPretemporada],
   );
 
   const elegidos = useMemo(
     () => (quien === "todos" ? partidos : partidos.filter((p) => p.id === quien)),
     [partidos, quien],
   );
+
+  /** Pinchar un partido en la tabla: se queda con él, o vuelve a todos. */
+  const alternaPartido = (id: string) => setQuien((antes) => (antes === id ? "todos" : id));
 
   /*
   | Cuál se va a actualizar: el que se esté mirando, o el último.
@@ -217,13 +365,82 @@ export default function TransicionesPage() {
     [quien],
   );
 
-  /** Los robos que se están contando ahora mismo, ya filtrados. */
-  const robos = useMemo(() => {
+  /** Los robos de los partidos elegidos, antes de lo pinchado. */
+  const base = useMemo<RoboVisto[]>(() => {
     const todos = elegidos.flatMap((p) =>
       p.robos.map((r) => ({ ...r, partido: p.id, jornada: p.jornada, rival: p.rival })),
     );
     return conDudosos ? todos : todos.filter((r) => r.confianza !== "baja");
   }, [elegidos, conDudosos]);
+
+  /*
+  | Con todo lo pinchado menos `excepto`. Cada gráfica se pinta sin su propio
+  | filtro: la de zonas sigue enseñando las tres con la elegida marcada.
+  */
+  const filtrados = (excepto: string[] = []) =>
+    base.filter((r) => pasaFiltros(r, filtros, LECTORES, excepto));
+
+  /** Los robos que se están contando ahora mismo, ya filtrados. */
+  const robos = useMemo(
+    () => base.filter((r) => pasaFiltros(r, filtros, LECTORES)),
+    [base, filtros],
+  );
+
+  /** La barra de «Filtrando»: partido, dudosos y todo lo pinchado. */
+  const partidoElegido = partidos.find((p) => p.id === quien);
+  const chips: ChipFiltro[] = [
+    ...(partidoElegido
+      ? [
+          {
+            clave: "partido",
+            rotulo: "Partido",
+            valor: `${partidoElegido.jornada} · ${partidoElegido.rival}`,
+            onQuitar: () => setQuien("todos"),
+          },
+        ]
+      : []),
+    ...(conDudosos
+      ? []
+      : [
+          {
+            clave: "dudosos",
+            rotulo: "Fiabilidad",
+            valor: "sin los dudosos",
+            onQuitar: () => setConDudosos(true),
+          },
+        ]),
+    ...Object.entries(filtros).flatMap(([dimension, valores]) =>
+      valores.map((valor) => ({
+        clave: `${dimension}|${valor}`,
+        rotulo: ROTULO[dimension] ?? dimension,
+        valor: nombreValor(dimension, valor),
+        onQuitar: () => quita(dimension, valor),
+      })),
+    ),
+  ];
+
+  const quitaTodo = () => {
+    limpia();
+    setQuien("todos");
+    setConDudosos(true);
+  };
+
+  /** Una celda pinchable de la tabla. */
+  const celda = (dimension: string, valor: string, texto: React.ReactNode = valor) =>
+    valor ? (
+      <Filtrable
+        activo={estaActivo(filtros, dimension, valor)}
+        onClick={() => alterna(dimension, valor)}
+      >
+        {texto}
+      </Filtrable>
+    ) : (
+      "—"
+    );
+
+  /** Marcar o soltar una serie de barras (una o dos acciones). */
+  const alternaSerie = (serie: string) =>
+    alternaVarios((ACCIONES_SERIE[serie] ?? []).map((a) => ["accion", a]));
 
   const cobertura = useMemo(() => {
     const cerrados = elegidos.reduce((a, p) => a + p.bloquesCerrados, 0);
@@ -248,18 +465,16 @@ export default function TransicionesPage() {
     };
   }, [elegidos]);
 
-  /* --- reparto de la salida --- */
-  const porAccion = useMemo(() => {
-    const cuenta = (a: Accion) => robos.filter((r) => r.accion === a).length;
-    return (Object.keys(COLOR_ACCION) as Accion[])
-      .map((a) => ({
-        clave: a,
-        nombre: NOMBRE_ACCION[a],
-        valor: cuenta(a),
-        color: COLOR_ACCION[a],
-      }))
-      .filter((d) => d.valor > 0);
-  }, [robos]);
+  /* --- reparto de la salida (sin su propio filtro) --- */
+  const paraAccion = filtrados(["accion"]);
+  const porAccion = (Object.keys(COLOR_ACCION) as Accion[])
+    .map((a) => ({
+      clave: a,
+      nombre: NOMBRE_ACCION[a],
+      valor: paraAccion.filter((r) => r.accion === a).length,
+      color: COLOR_ACCION[a],
+    }))
+    .filter((d) => d.valor > 0);
 
   /** Los que sí llegan a pase o conducción: la comparación que importa. */
   const jugados = useMemo(
@@ -268,67 +483,96 @@ export default function TransicionesPage() {
   );
   const adelante = jugados.filter((r) => r.accion === "ADELANTE").length;
 
-  /* --- por zona --- */
-  const porZona = useMemo(
-    () =>
-      ZONAS.map((z) => {
-        const dentro = robos.filter((r) => zonaDe(r) === z);
-        const ade = dentro.filter((r) => r.accion === "ADELANTE").length;
-        const hor = dentro.filter((r) => r.accion === "HORIZONTAL_ATRAS").length;
-        const otro = dentro.length - ade - hor;
-        const base = dentro.length || 1;
-        return {
-          zona: z[0].toUpperCase() + z.slice(1),
-          total: dentro.length,
-          Adelante: porcentajes ? Math.round((ade / base) * 100) : ade,
-          "Horizontal o atrás": porcentajes ? Math.round((hor / base) * 100) : hor,
-          Otro: porcentajes ? Math.round((otro / base) * 100) : otro,
-        };
-      }),
-    [robos, porcentajes],
-  );
+  /* --- por zona: sin el filtro de zona ni el de salida, que son sus ejes --- */
+  const paraZona = filtrados(["zona", "accion"]);
+  const porZona = ZONAS.map((z) => {
+    const dentro = paraZona.filter((r) => zonaDe(r) === z);
+    const ade = dentro.filter((r) => r.accion === "ADELANTE").length;
+    const hor = dentro.filter((r) => r.accion === "HORIZONTAL_ATRAS").length;
+    const otro = dentro.length - ade - hor;
+    const sobre = dentro.length || 1;
+    return {
+      clave: z,
+      zona: z[0].toUpperCase() + z.slice(1),
+      total: dentro.length,
+      Adelante: porcentajes ? Math.round((ade / sobre) * 100) : ade,
+      "Horizontal o atrás": porcentajes ? Math.round((hor / sobre) * 100) : hor,
+      Otro: porcentajes ? Math.round((otro / sobre) * 100) : otro,
+    };
+  });
 
-  /* --- por carril --- */
-  const porCarril = useMemo(
-    () =>
-      CARRILES.map((c) => {
-        const dentro = robos.filter((r) => r.carril === c);
-        return {
-          carril: c[0].toUpperCase() + c.slice(1),
-          Robos: dentro.length,
-          Adelante: dentro.filter((r) => r.accion === "ADELANTE").length,
-        };
-      }),
-    [robos],
-  );
+  /* --- por carril (sin su propio filtro) --- */
+  const paraCarril = filtrados(["carril"]);
+  const porCarril = CARRILES.map((c) => {
+    const dentro = paraCarril.filter((r) => r.carril === c);
+    return {
+      clave: c,
+      carril: c[0].toUpperCase() + c.slice(1),
+      Robos: dentro.length,
+      Adelante: dentro.filter((r) => r.accion === "ADELANTE").length,
+    };
+  });
 
-  /* --- desenlaces --- */
+  /* --- desenlaces (la gráfica, sin su propio filtro; las cifras, con todo) --- */
   const conDesenlace = robos.filter((r) => r.desenlace);
-  const porDesenlace = useMemo(
-    () =>
-      DESENLACES.map((d) => ({
-        nombre: d.nombre,
-        color: d.color,
-        valor: conDesenlace.filter((r) => r.desenlace === d.clave).length,
-      })).filter((d) => d.valor > 0),
-    [conDesenlace],
-  );
+  const paraDesenlace = filtrados(["desenlace"]).filter((r) => r.desenlace);
+  const porDesenlace = DESENLACES.map((d) => ({
+    clave: d.clave,
+    nombre: d.nombre,
+    color: d.color,
+    valor: paraDesenlace.filter((r) => r.desenlace === d.clave).length,
+  })).filter((d) => d.valor > 0);
 
-  /* --- cuándo robamos --- */
-  const porTramo = useMemo(() => {
-    const tramos = [0, 15, 30, 45, 60, 75, 90];
-    return tramos.map((ini) => {
-      const dentro = robos.filter((r) => {
-        const min = Math.floor(r.seg / 60);
-        return min >= ini && min < ini + 15;
-      });
-      return {
-        tramo: `${ini}'-${ini + 15}'`,
-        Robos: dentro.length,
-        Adelante: dentro.filter((r) => r.accion === "ADELANTE").length,
-      };
-    });
-  }, [robos]);
+  /* --- cuándo robamos (sin su propio filtro) --- */
+  const paraTramo = filtrados(["tramo"]);
+  const porTramo = TRAMOS.map((ini) => {
+    const dentro = paraTramo.filter((r) => tramoDe(r) === nombreTramo(ini));
+    return {
+      clave: nombreTramo(ini),
+      tramo: nombreTramo(ini),
+      Robos: dentro.length,
+      Adelante: dentro.filter((r) => r.accion === "ADELANTE").length,
+    };
+  });
+
+  /** ¿Está elegida esta barra apilada de zonas? Zona y salida a la vez. */
+  const hayZonaOSalida = hayFiltro(filtros, "zona") || hayFiltro(filtros, "accion");
+  const segmentoActivo = (zona: string, serie: string) =>
+    hayZonaOSalida &&
+    (!hayFiltro(filtros, "zona") || estaActivo(filtros, "zona", zona)) &&
+    (!hayFiltro(filtros, "accion") || serieActiva(filtros, serie));
+
+  /** Pinchar un trozo de barra apilada: su zona y su salida juntas. */
+  const alternaSegmento = (zona: string, serie: string) =>
+    alternaVarios([
+      ["zona", zona],
+      ...(ACCIONES_SERIE[serie] ?? []).map((a): [string, string] => ["accion", a]),
+    ]);
+
+  /** La leyenda de una gráfica de series, pinchable y con la marcada en oro. */
+  const leyenda = (v: string) => {
+    const pinchable = Boolean(ACCIONES_SERIE[v]);
+    const activa = pinchable && serieActiva(filtros, v);
+    return (
+      <span
+        className="text-xs text-white/60"
+        title={pinchable ? TITULO_FILTRO : undefined}
+        style={
+          pinchable
+            ? { ...marcaPieza(activa, hayFiltro(filtros, "accion")), cursor: "pointer", borderRadius: 4, padding: "0 2px" }
+            : undefined
+        }
+      >
+        {v}
+      </span>
+    );
+  };
+
+  /** Lo que llega del clic de una leyenda de recharts: el nombre de la serie. */
+  const pinchaLeyenda = (dato: { value?: unknown; dataKey?: unknown }) => {
+    const serie = String(dato.dataKey ?? dato.value ?? "");
+    if (ACCIONES_SERIE[serie]) alternaSerie(serie);
+  };
 
   const duraciones = conDesenlace
     .map((r) => r.duracion)
@@ -351,10 +595,13 @@ export default function TransicionesPage() {
 
     const partidosVistos = new Set(robos.map((r) => r.partido)).size;
 
+    /* Con algo pinchado, la primera frase lo dice: si no, parece el total. */
+    const conFiltro = Object.keys(filtros).length > 0 ? " con este filtro" : "";
+
     frases.push(
       partidosVistos > 1
-        ? `${total} robos en ${partidosVistos} partidos.`
-        : `${total} ${total === 1 ? "robo" : "robos"} en el partido.`,
+        ? `${total} robos en ${partidosVistos} partidos${conFiltro}.`
+        : `${total} ${total === 1 ? "robo" : "robos"} en el partido${conFiltro}.`,
     );
 
     const salen = robos.filter(
@@ -407,7 +654,7 @@ export default function TransicionesPage() {
     }
 
     return frases;
-  }, [robos]);
+  }, [robos, filtros]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -496,6 +743,17 @@ export default function TransicionesPage() {
               </span>
             </div>
 
+            <BarraFiltros
+              chips={chips}
+              onLimpiar={quitaTodo}
+              pretemporada={
+                HAY_PRETEMPORADA
+                  ? { incluida: conPretemporada, onCambiar: setConPretemporada }
+                  : undefined
+              }
+              className="mt-3"
+            />
+
             <Conclusiones items={conclusiones} className="mt-5" />
 
             {/* ---------------- cifras ---------------- */}
@@ -514,6 +772,9 @@ export default function TransicionesPage() {
                 pie={`${adelante} de ${jugados.length} con pase o conducción`}
                 color={COLOR_ACCION.ADELANTE}
                 icono={ArrowUp}
+                onClick={() => alterna("accion", "ADELANTE")}
+                activo={estaActivo(filtros, "accion", "ADELANTE")}
+                atenuado={hayFiltro(filtros, "accion")}
               />
 
               <Cifra
@@ -522,6 +783,9 @@ export default function TransicionesPage() {
                 pie={`${jugados.length - adelante} de ${jugados.length}`}
                 color={COLOR_ACCION.HORIZONTAL_ATRAS}
                 icono={ArrowLeftRight}
+                onClick={() => alterna("accion", "HORIZONTAL_ATRAS")}
+                activo={estaActivo(filtros, "accion", "HORIZONTAL_ATRAS")}
+                atenuado={hayFiltro(filtros, "accion")}
               />
 
               <Cifra
@@ -544,8 +808,12 @@ export default function TransicionesPage() {
                 subtitle={explicativos ? "Lo primero que pasa después del robo" : undefined}
                 icon={Target}
               >
-                {robos.length === 0 ? (
-                  <p className="text-sm text-white/45">Todavía no hay robos etiquetados.</p>
+                {paraAccion.length === 0 ? (
+                  <p className="text-sm text-white/45">
+                    {base.length === 0
+                      ? "Todavía no hay robos etiquetados."
+                      : "Ningún robo con este filtro."}
+                  </p>
                 ) : (
                   <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -558,9 +826,20 @@ export default function TransicionesPage() {
                           outerRadius={100}
                           paddingAngle={2}
                           stroke="none"
+                          onClick={(_, i) => {
+                            const d = porAccion[i];
+                            if (d) alterna("accion", d.clave);
+                          }}
                         >
                           {porAccion.map((d) => (
-                            <Cell key={d.clave} fill={d.color} />
+                            <Cell
+                              key={d.clave}
+                              fill={d.color}
+                              {...marcaSvg(
+                                estaActivo(filtros, "accion", d.clave),
+                                hayFiltro(filtros, "accion"),
+                              )}
+                            />
                           ))}
 
                           <LabelList
@@ -571,19 +850,43 @@ export default function TransicionesPage() {
                             formatter={(v: unknown) => {
                               const n = Number(v);
                               if (!Number.isFinite(n)) return "";
-                              return porcentajes ? `${pct(n, robos.length)}%` : String(n);
+                              return porcentajes
+                                ? `${pct(n, paraAccion.length)}%`
+                                : String(n);
                             }}
                           />
                         </Pie>
 
                         <Tooltip content={<Pista />} />
 
+                        {/* La leyenda de la tarta son las acciones: se pincha igual. */}
                         <Legend
                           verticalAlign="bottom"
                           iconType="circle"
-                          formatter={(v) => (
-                            <span className="text-xs text-white/60">{v}</span>
-                          )}
+                          onClick={(dato) => {
+                            const d = porAccion.find((x) => x.nombre === dato.value);
+                            if (d) alterna("accion", d.clave);
+                          }}
+                          formatter={(v) => {
+                            const d = porAccion.find((x) => x.nombre === v);
+                            return (
+                              <span
+                                className="text-xs text-white/60"
+                                title={TITULO_FILTRO}
+                                style={{
+                                  ...marcaPieza(
+                                    Boolean(d && estaActivo(filtros, "accion", d.clave)),
+                                    hayFiltro(filtros, "accion"),
+                                  ),
+                                  cursor: "pointer",
+                                  borderRadius: 4,
+                                  padding: "0 2px",
+                                }}
+                              >
+                                {v}
+                              </span>
+                            );
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -632,23 +935,45 @@ export default function TransicionesPage() {
 
                       <Legend
                         iconType="circle"
-                        formatter={(v) => (
-                          <span className="text-xs text-white/60">{v}</span>
-                        )}
+                        onClick={pinchaLeyenda}
+                        formatter={(v) => leyenda(String(v))}
                       />
 
-                      <Bar
-                        dataKey="Adelante"
-                        stackId="z"
-                        fill={COLOR_ACCION.ADELANTE}
-                        radius={[0, 0, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="Horizontal o atrás"
-                        stackId="z"
-                        fill={COLOR_ACCION.HORIZONTAL_ATRAS}
-                      />
-                      <Bar dataKey="Otro" stackId="z" fill={ACERO} radius={[8, 8, 0, 0]} />
+                      {/*
+                        Cada trozo se pincha y filtra por su zona Y su salida;
+                        la leyenda, sólo por la salida.
+                      */}
+                      {(
+                        [
+                          { serie: "Adelante", color: COLOR_ACCION.ADELANTE, radio: [0, 0, 0, 0] },
+                          {
+                            serie: "Horizontal o atrás",
+                            color: COLOR_ACCION.HORIZONTAL_ATRAS,
+                            radio: [0, 0, 0, 0],
+                          },
+                          { serie: "Otro", color: ACERO, radio: [8, 8, 0, 0] },
+                        ] as { serie: string; color: string; radio: [number, number, number, number] }[]
+                      ).map(({ serie, color, radio }) => (
+                        <Bar
+                          key={serie}
+                          dataKey={serie}
+                          stackId="z"
+                          fill={color}
+                          radius={radio}
+                          onClick={(_, i) => {
+                            const z = porZona[i];
+                            if (z) alternaSegmento(z.clave, serie);
+                          }}
+                        >
+                          {porZona.map((z) => (
+                            <Cell
+                              key={z.clave}
+                              fill={color}
+                              {...marcaSvg(segmentoActivo(z.clave, serie), hayZonaOSalida)}
+                            />
+                          ))}
+                        </Bar>
+                      ))}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -661,8 +986,8 @@ export default function TransicionesPage() {
               <Panel
                 title="En qué acaba la transición"
                 subtitle={
-                  conDesenlace.length
-                    ? `${conDesenlace.length} jugadas seguidas hasta el final`
+                  paraDesenlace.length
+                    ? `${paraDesenlace.length} jugadas seguidas hasta el final`
                     : "todavía sin seguimiento completo"
                 }
                 icon={Crosshair}
@@ -696,9 +1021,24 @@ export default function TransicionesPage() {
 
                         <Tooltip content={<Pista />} cursor={{ fill: "#ffffff08" }} />
 
-                        <Bar dataKey="valor" name="Jugadas" radius={[0, 8, 8, 0]}>
+                        <Bar
+                          dataKey="valor"
+                          name="Jugadas"
+                          radius={[0, 8, 8, 0]}
+                          onClick={(_, i) => {
+                            const d = porDesenlace[i];
+                            if (d) alterna("desenlace", d.clave);
+                          }}
+                        >
                           {porDesenlace.map((d) => (
-                            <Cell key={d.nombre} fill={d.color} />
+                            <Cell
+                              key={d.clave}
+                              fill={d.color}
+                              {...marcaSvg(
+                                estaActivo(filtros, "desenlace", d.clave),
+                                hayFiltro(filtros, "desenlace"),
+                              )}
+                            />
                           ))}
 
                           <LabelList
@@ -742,17 +1082,39 @@ export default function TransicionesPage() {
 
                       <Legend
                         iconType="circle"
-                        formatter={(v) => (
-                          <span className="text-xs text-white/60">{v}</span>
-                        )}
+                        onClick={pinchaLeyenda}
+                        formatter={(v) => leyenda(String(v))}
                       />
 
-                      <Bar dataKey="Robos" fill={ACERO} radius={[8, 8, 0, 0]} />
-                      <Bar
-                        dataKey="Adelante"
-                        fill={COLOR_ACCION.ADELANTE}
-                        radius={[8, 8, 0, 0]}
-                      />
+                      {/* Las dos barras de un tramo filtran por ese tramo. */}
+                      {(
+                        [
+                          { serie: "Robos", color: ACERO },
+                          { serie: "Adelante", color: COLOR_ACCION.ADELANTE },
+                        ] as const
+                      ).map(({ serie, color }) => (
+                        <Bar
+                          key={serie}
+                          dataKey={serie}
+                          fill={color}
+                          radius={[8, 8, 0, 0]}
+                          onClick={(_, i) => {
+                            const t = porTramo[i];
+                            if (t) alterna("tramo", t.clave);
+                          }}
+                        >
+                          {porTramo.map((t) => (
+                            <Cell
+                              key={t.clave}
+                              fill={color}
+                              {...marcaSvg(
+                                estaActivo(filtros, "tramo", t.clave),
+                                hayFiltro(filtros, "tramo"),
+                              )}
+                            />
+                          ))}
+                        </Bar>
+                      ))}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -793,17 +1155,39 @@ export default function TransicionesPage() {
 
                         <Legend
                           iconType="circle"
-                          formatter={(v) => (
-                            <span className="text-xs text-white/60">{v}</span>
-                          )}
+                          onClick={pinchaLeyenda}
+                          formatter={(v) => leyenda(String(v))}
                         />
 
-                        <Bar dataKey="Robos" fill={ACERO} radius={[8, 8, 0, 0]} />
-                        <Bar
-                          dataKey="Adelante"
-                          fill={COLOR_ACCION.ADELANTE}
-                          radius={[8, 8, 0, 0]}
-                        />
+                        {/* Las dos barras de un carril filtran por ese carril. */}
+                        {(
+                          [
+                            { serie: "Robos", color: ACERO },
+                            { serie: "Adelante", color: COLOR_ACCION.ADELANTE },
+                          ] as const
+                        ).map(({ serie, color }) => (
+                          <Bar
+                            key={serie}
+                            dataKey={serie}
+                            fill={color}
+                            radius={[8, 8, 0, 0]}
+                            onClick={(_, i) => {
+                              const c = porCarril[i];
+                              if (c) alterna("carril", c.clave);
+                            }}
+                          >
+                            {porCarril.map((c) => (
+                              <Cell
+                                key={c.clave}
+                                fill={color}
+                                {...marcaSvg(
+                                  estaActivo(filtros, "carril", c.clave),
+                                  hayFiltro(filtros, "carril"),
+                                )}
+                              />
+                            ))}
+                          </Bar>
+                        ))}
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -817,17 +1201,22 @@ export default function TransicionesPage() {
               <Panel
                 title="Robo a robo"
                 subtitle={
-                  explicativos ? "El minuto es del vídeo, para ir directo a la jugada" : undefined
+                  explicativos
+                    ? "«Min.» es el del partido (y el de la táctica); «Vídeo», el del archivo, para ir directo a la jugada. Pincha un valor y filtra la pantalla"
+                    : undefined
                 }
                 icon={Crosshair}
                 bodyClassName="p-0"
               >
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-sm">
+                  <table className="w-full min-w-[860px] text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-[0.12em] text-white/40">
-                        <th className="px-4 py-3">Min</th>
+                        {/* El minuto del partido va siempre, sin depender de los textos. */}
+                        <th className="px-4 py-3">Min.</th>
+                        <th className="px-4 py-3">Vídeo</th>
                         {quien === "todos" && <th className="px-4 py-3">Partido</th>}
+                        <th className="px-4 py-3">Robo</th>
                         <th className="px-4 py-3">Zona</th>
                         <th className="px-4 py-3">Carril</th>
                         <th className="px-4 py-3">Salida</th>
@@ -845,37 +1234,68 @@ export default function TransicionesPage() {
                           className="border-b border-white/5 align-top hover:bg-white/[0.02]"
                         >
                           <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums text-white/80">
+                            {minutoDe(r) || "—"}
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-white/45">
                             {reloj(r.seg)}
                           </td>
 
                           {quien === "todos" && (
                             <td className="whitespace-nowrap px-4 py-3 text-white/50">
-                              {r.jornada}
+                              <Filtrable activo={false} onClick={() => alternaPartido(r.partido)}>
+                                {r.jornada}
+                              </Filtrable>
                             </td>
                           )}
 
+                          <td className="whitespace-nowrap px-4 py-3 text-white/70">
+                            {jugadorDe(r) ? (
+                              <>
+                                {celda("jugador", jugadorDe(r))}
+                                <span className="block text-[11px] text-white/40">
+                                  {celda("tipo", tipoDe(r))}
+                                </span>
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+
                           <td className="whitespace-nowrap px-4 py-3 text-white/60">
-                            {zonaDe(r)}
+                            {celda("zona", zonaDe(r))}
                           </td>
 
                           <td className="whitespace-nowrap px-4 py-3 text-white/40">
-                            {r.carril || "—"}
+                            {celda("carril", r.carril)}
                           </td>
 
                           <td className="whitespace-nowrap px-4 py-3">
-                            <span
-                              className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                            <button
+                              type="button"
+                              onClick={() => alterna("accion", r.accion)}
+                              aria-pressed={estaActivo(filtros, "accion", r.accion)}
+                              title={TITULO_FILTRO}
+                              className="cursor-pointer rounded-full px-2 py-0.5 text-xs font-semibold"
                               style={{
                                 background: `${COLOR_ACCION[r.accion]}22`,
                                 color: COLOR_ACCION[r.accion],
+                                ...(estaActivo(filtros, "accion", r.accion)
+                                  ? marcaPieza(true, true)
+                                  : {}),
                               }}
                             >
                               {NOMBRE_ACCION[r.accion]}
-                            </span>
+                            </button>
                           </td>
 
                           <td className="whitespace-nowrap px-4 py-3 text-white/60">
-                            {DESENLACES.find((d) => d.clave === r.desenlace)?.nombre ?? "—"}
+                            {celda(
+                              "desenlace",
+                              r.desenlace,
+                              DESENLACES.find((d) => d.clave === r.desenlace)?.nombre ??
+                                r.desenlace,
+                            )}
                             {r.duracion ? (
                               <span className="ml-1 text-white/30">· {r.duracion}s</span>
                             ) : null}
@@ -891,13 +1311,14 @@ export default function TransicionesPage() {
                                   : "text-amber-300/70"
                               }
                             >
-                              {r.confianza}
+                              {celda("confianza", r.confianza)}
                             </span>
                           </td>
 
+                          {/* El detalle sin el minuto delante: ya tiene su columna. */}
                           {explicativos && (
                             <td className="min-w-[280px] px-4 py-3 text-xs leading-relaxed text-white/45">
-                              {r.detalle || "—"}
+                              {textoDe(r) || "—"}
                             </td>
                           )}
                         </tr>
@@ -905,7 +1326,10 @@ export default function TransicionesPage() {
 
                       {robos.length === 0 && (
                         <tr>
-                          <td colSpan={7 + (explicativos ? 1 : 0)} className="px-4 py-8 text-center text-white/40">
+                          <td
+                            colSpan={8 + (quien === "todos" ? 1 : 0) + (explicativos ? 1 : 0)}
+                            className="px-4 py-8 text-center text-white/40"
+                          >
                             Todavía no hay robos etiquetados con este filtro.
                           </td>
                         </tr>

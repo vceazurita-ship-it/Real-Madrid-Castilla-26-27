@@ -29,6 +29,12 @@
  * Está en obras porque el recuento es de un partido: con una jornada no hay
  * tendencia que leer, y la pantalla lo dice en vez de dibujar porcentajes que
  * suenan a verdad.
+ *
+ * Todo lo que se pincha filtra (`components/faltas/FiltrosCruzados.tsx`): una
+ * casilla o un rótulo del campo, una barra de distancia, un número de
+ * defensores, cualquier celda de la tabla. El lado sigue siendo el mando de
+ * siempre (`filtro`), y pinchar un «A favor» en cualquier sitio lo mueve; el
+ * resto vive en `filtros`. La barra de «Filtrando» enseña los dos juntos.
  */
 
 import { useMemo, useState } from "react";
@@ -37,9 +43,21 @@ import { Crosshair, Shield, Swords, Zap } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
-import { PARTIDOS, type LadoFalta } from "@/lib/faltas/datos";
+import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
 import { CampoFaltas } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
+import {
+  BarraFiltros,
+  Filtrable,
+  TITULO_FILTRO,
+  esPretemporada,
+  estaActivo,
+  hayFiltro,
+  marcaPieza,
+  pasaFiltros,
+  useFiltrosCruzados,
+  type ChipFiltro,
+} from "@/components/faltas/FiltrosCruzados";
 import {
   Conclusiones,
   Explicativo,
@@ -71,6 +89,28 @@ const NOMBRE_LADO: Record<LadoFalta, string> = {
 const CORTE_TRANSICION = 3;
 
 type Filtro = "todas" | LadoFalta;
+
+/** Cómo se lee cada dimensión pinchable de una falta. */
+const LECTORES: Record<string, (f: Falta) => string> = {
+  zona: (f) => f.zona,
+  carril: (f) => f.carril,
+  distancia: (f) => f.distancia,
+  entre: (f) => (f.entre === null ? "?" : String(f.entre)),
+};
+
+/** El rótulo de cada dimensión en la barra de «Filtrando». */
+const ROTULO: Record<string, string> = {
+  zona: "Zona",
+  carril: "Carril",
+  distancia: "Distancia",
+  entre: "Defendían",
+};
+
+/** "12'03\" (táctica 12:58)" o «—» cuando no se sabe. */
+const minutoDe = (f: Falta) => f.minuto?.trim() || "—";
+
+/** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
+const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
 
 /** 6.25 → "6,3". */
 const decimal = (n: number) =>
@@ -105,42 +145,137 @@ function fechaCorta(iso: string) {
 export default function FaltasPage() {
   const explicativos = useTextosExplicativos();
   const [filtro, setFiltro] = useState<Filtro>("todas");
-  const [partidoId, setPartidoId] = useState<string>(PARTIDOS[0]?.id ?? "");
+  /*
+  | La pretemporada, fuera salvo que se pida: los amistosos no se leen igual
+  | que la liga. Hoy no hay ninguno en los datos y el mando ni sale.
+  */
+  const [conPretemporada, setConPretemporada] = useState(false);
+
+  const partidosVisibles = useMemo(
+    () => (conPretemporada ? PARTIDOS : PARTIDOS.filter((p) => !esPretemporada(p.jornada))),
+    [conPretemporada],
+  );
+
+  const [partidoId, setPartidoId] = useState<string>(partidosVisibles[0]?.id ?? "");
 
   /** La falta que está encendida, compartida entre el campo y la tabla. */
   const [resaltada, setResaltada] = useState<string | null>(null);
 
+  /** Lo que se ha pinchado: zona, carril, distancia y defensores. */
+  const { filtros, alterna, alternaVarios, quita, limpia } = useFiltrosCruzados();
+
   const partido = useMemo(
-    () => PARTIDOS.find((p) => p.id === partidoId) ?? PARTIDOS[0] ?? null,
-    [partidoId],
+    () =>
+      partidosVisibles.find((p) => p.id === partidoId) ?? partidosVisibles[0] ?? null,
+    [partidoId, partidosVisibles],
   );
 
-  const faltas = useMemo(() => {
-    const todas = partido?.faltas ?? [];
+  /** Pinchar un lado en cualquier sitio: lo pone, o lo quita si ya estaba. */
+  const alternaLado = (lado: LadoFalta) => {
+    setFiltro((antes) => (antes === lado ? "todas" : lado));
+    setResaltada(null);
+  };
 
-    return filtro === "todas" ? todas : todas.filter((f) => f.lado === filtro);
-  }, [partido, filtro]);
+  /*
+  | Las faltas del partido que pasan por los filtros, menos las dimensiones de
+  | `excepto` (y, con `sinLado`, sin mirar el lado). Cada gráfica se pinta con
+  | las suyas: así la de una dimensión filtrada sigue teniéndolas todas.
+  */
+  const filtradas = (excepto: string[] = [], sinLado = false) =>
+    (partido?.faltas ?? []).filter(
+      (f) =>
+        (sinLado || filtro === "todas" || f.lado === filtro) &&
+        pasaFiltros(f, filtros, LECTORES, excepto),
+    );
 
-  const sinSitio = faltas.filter((f) => !f.zona || !f.carril).length;
+  const faltas = useMemo(
+    () =>
+      (partido?.faltas ?? []).filter(
+        (f) =>
+          (filtro === "todas" || f.lado === filtro) && pasaFiltros(f, filtros, LECTORES),
+      ),
+    [partido, filtro, filtros],
+  );
 
-  /** Cuántas hay de cada lado, para los mandos y el encabezado. */
+  /* El campo ignora su propio filtro de sitio: lo que no sale es de ahí. */
+  const paraCampo = filtradas(["zona", "carril"]);
+  const sinSitio = paraCampo.filter((f) => !f.zona || !f.carril).length;
+
+  /** Cuántas hay de cada lado con los demás filtros, para los mandos y el encabezado. */
   const porLado = useMemo(() => {
-    const todas = partido?.faltas ?? [];
+    const todas = (partido?.faltas ?? []).filter((f) => pasaFiltros(f, filtros, LECTORES));
 
     return {
       ofensivo: todas.filter((f) => f.lado === "ofensivo").length,
       defensivo: todas.filter((f) => f.lado === "defensivo").length,
     };
-  }, [partido]);
+  }, [partido, filtros]);
 
-  const porDistancia = useMemo(
-    () =>
-      DISTANCIAS.map((d) => ({
-        clave: d,
-        cuantas: faltas.filter((f) => f.distancia === d).length,
+  /* Las gráficas, cada una sin su propio filtro. */
+  const paraDistancia = filtradas(["distancia"]);
+  const paraEntre = filtradas(["entre"]);
+
+  const porDistancia = DISTANCIAS.map((d) => ({
+    clave: d,
+    cuantas: paraDistancia.filter((f) => f.distancia === d).length,
+  }));
+
+  /** Cuántas faltas hubo con cada número de defensores por delante. */
+  const porEntre = (() => {
+    const cuenta = new Map<string, number>();
+
+    for (const f of paraEntre) {
+      const clave = LECTORES.entre(f);
+      cuenta.set(clave, (cuenta.get(clave) ?? 0) + 1);
+    }
+
+    return [...cuenta.entries()]
+      .map(([clave, cuantas]) => ({ clave, cuantas }))
+      .sort((a, b) =>
+        a.clave === "?" ? 1 : b.clave === "?" ? -1 : Number(a.clave) - Number(b.clave),
+      );
+  })();
+
+  /** La barra de «Filtrando»: el lado y todo lo pinchado. */
+  const chips: ChipFiltro[] = [
+    ...(filtro === "todas"
+      ? []
+      : [
+          {
+            clave: "lado",
+            rotulo: "Lado",
+            valor: NOMBRE_LADO[filtro],
+            onQuitar: () => setFiltro("todas"),
+          },
+        ]),
+    ...Object.entries(filtros).flatMap(([dimension, valores]) =>
+      valores.map((valor) => ({
+        clave: `${dimension}|${valor}`,
+        rotulo: ROTULO[dimension] ?? dimension,
+        valor: dimension === "entre" && valor === "?" ? "sin contar" : valor,
+        onQuitar: () => quita(dimension, valor),
       })),
-    [faltas],
-  );
+    ),
+  ];
+
+  const quitaTodo = () => {
+    limpia();
+    setFiltro("todas");
+    setResaltada(null);
+  };
+
+  /** Una celda pinchable de la tabla o de la lista. */
+  const celda = (dimension: string, valor: string, texto: string = valor) =>
+    valor ? (
+      <Filtrable
+        activo={estaActivo(filtros, dimension, valor)}
+        onClick={() => alterna(dimension, valor)}
+      >
+        {texto}
+      </Filtrable>
+    ) : (
+      "—"
+    );
 
   /** La media de defensores entre la falta y la portería que se ataca. */
   const defensores = useMemo(() => {
@@ -189,10 +324,13 @@ export default function FaltasPage() {
 
     const frases: string[] = [];
 
+    /* Con algo pinchado, la primera frase lo dice: si no, parece el partido entero. */
+    const conFiltro = Object.keys(filtros).length > 0 ? " con este filtro" : "";
+
     frases.push(
       filtro === "todas"
-        ? `${porLado.ofensivo} a favor y ${porLado.defensivo} en contra.`
-        : `${total} ${total === 1 ? "falta" : "faltas"} ${filtro === "ofensivo" ? "a favor" : "en contra"}.`,
+        ? `${porLado.ofensivo} a favor y ${porLado.defensivo} en contra${conFiltro}.`
+        : `${total} ${total === 1 ? "falta" : "faltas"} ${filtro === "ofensivo" ? "a favor" : "en contra"}${conFiltro}.`,
     );
 
     const zona = laQueMas(faltas.map((f) => f.zona));
@@ -242,7 +380,7 @@ export default function FaltasPage() {
     );
 
     return frases;
-  }, [faltas, filtro, porLado, defensores, cortes]);
+  }, [faltas, filtro, filtros, porLado, defensores, cortes]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -299,25 +437,23 @@ export default function FaltasPage() {
                 </span>
 
                 <span className="ml-auto flex flex-wrap items-center gap-2 text-[11px]">
-                  <span
-                    className="rounded-full px-2.5 py-1"
-                    style={{
-                      color: TINTA_LADO.ofensivo,
-                      background: `${TINTA_LADO.ofensivo}1A`,
-                    }}
-                  >
-                    {porLado.ofensivo} a favor
-                  </span>
-
-                  <span
-                    className="rounded-full px-2.5 py-1"
-                    style={{
-                      color: TINTA_LADO.defensivo,
-                      background: `${TINTA_LADO.defensivo}1A`,
-                    }}
-                  >
-                    {porLado.defensivo} en contra
-                  </span>
+                  {(["ofensivo", "defensivo"] as const).map((lado) => (
+                    <button
+                      key={lado}
+                      type="button"
+                      onClick={() => alternaLado(lado)}
+                      aria-pressed={filtro === lado}
+                      title={TITULO_FILTRO}
+                      className="cursor-pointer rounded-full px-2.5 py-1 transition hover:opacity-100"
+                      style={{
+                        color: TINTA_LADO[lado],
+                        background: `${TINTA_LADO[lado]}1A`,
+                        ...marcaPieza(filtro === lado, filtro !== "todas"),
+                      }}
+                    >
+                      {porLado[lado]} {lado === "ofensivo" ? "a favor" : "en contra"}
+                    </button>
+                  ))}
                 </span>
               </div>
             )}
@@ -325,16 +461,16 @@ export default function FaltasPage() {
             {/* ---------------- mandos ---------------- */}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {PARTIDOS.length > 1 && (
+              {partidosVisibles.length > 1 && (
                 <select
-                  value={partidoId}
+                  value={partido?.id ?? ""}
                   onChange={(e) => {
                     setPartidoId(e.target.value);
                     setResaltada(null);
                   }}
                   className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                 >
-                  {PARTIDOS.map((p) => (
+                  {partidosVisibles.map((p) => (
                     <option key={p.id} value={p.id} className="bg-[#11161C]">
                       {p.jornada} · {p.rival}
                     </option>
@@ -374,6 +510,17 @@ export default function FaltasPage() {
               </span>
             </div>
 
+            <BarraFiltros
+              chips={chips}
+              onLimpiar={quitaTodo}
+              pretemporada={
+                HAY_PRETEMPORADA
+                  ? { incluida: conPretemporada, onCambiar: setConPretemporada }
+                  : undefined
+              }
+              className="mt-3"
+            />
+
             {partido?.notas.length ? (
               <Explicativo>
                 <ul className="mt-3 space-y-1 text-[12px] text-white/40">
@@ -399,12 +546,24 @@ export default function FaltasPage() {
                 icon={Crosshair}
               >
                 <CampoFaltas
-                  faltas={faltas}
+                  faltas={paraCampo}
                   zonas={ZONAS}
                   carriles={CARRILES}
                   tinta={TINTA_LADO}
                   resaltada={resaltada}
                   onResaltar={setResaltada}
+                  zonasMarcadas={filtros.zona ?? []}
+                  carrilesMarcados={filtros.carril ?? []}
+                  ladoMarcado={filtro === "todas" ? null : filtro}
+                  onCajon={(zona, carril) =>
+                    alternaVarios([
+                      ["zona", zona],
+                      ["carril", carril],
+                    ])
+                  }
+                  onZona={(zona) => alterna("zona", zona)}
+                  onCarril={(carril) => alterna("carril", carril)}
+                  onLado={alternaLado}
                 />
 
                 {sinSitio > 0 && (
@@ -445,6 +604,30 @@ export default function FaltasPage() {
                       Todavía no se ha podido contar en ninguna.
                     </p>
                   )}
+
+                  {/*
+                    El reparto, número a número, y cada uno se pincha: con
+                    «3» marcado, la pantalla entera es de las faltas con tres
+                    defensores por delante.
+                  */}
+                  {porEntre.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {porEntre.map((e) => (
+                        <Filtrable
+                          key={e.clave}
+                          variante="pieza"
+                          activo={estaActivo(filtros, "entre", e.clave)}
+                          atenuado={hayFiltro(filtros, "entre")}
+                          onClick={() => alterna("entre", e.clave)}
+                          titulo={`${e.cuantas} ${e.cuantas === 1 ? "falta" : "faltas"} con ${e.clave === "?" ? "los defensores sin contar" : `${e.clave} por delante`} · ${TITULO_FILTRO}`}
+                          className="inline-flex items-baseline gap-1 rounded-lg bg-white/[0.04] px-2 py-1 text-[12px]"
+                        >
+                          <span className="font-semibold text-white">{e.clave}</span>
+                          <span className="text-white/40">×{e.cuantas}</span>
+                        </Filtrable>
+                      ))}
+                    </div>
+                  )}
                 </Panel>
 
                 <Panel
@@ -474,21 +657,36 @@ export default function FaltasPage() {
                               : "border-white/[0.06]"
                           }`}
                         >
-                          <span
-                            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-[#0B0F14]"
-                            style={{ background: TINTA_LADO[f.lado] }}
+                          <button
+                            type="button"
+                            onClick={() => alterna("entre", LECTORES.entre(f))}
+                            aria-pressed={estaActivo(filtros, "entre", LECTORES.entre(f))}
+                            title={TITULO_FILTRO}
+                            className="mt-0.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[11px] font-bold text-[#0B0F14]"
+                            style={{
+                              background: TINTA_LADO[f.lado],
+                              ...(estaActivo(filtros, "entre", LECTORES.entre(f))
+                                ? marcaPieza(true, true)
+                                : {}),
+                            }}
                           >
                             {f.entre}
-                          </span>
+                          </button>
 
                           <span className="min-w-0 text-[12px] leading-relaxed text-white/55">
-                            <span className="text-white/80">
-                              {NOMBRE_LADO[f.lado]}
-                            </span>
+                            <span className="text-white/45">{minutoDe(f)}</span>
                             {" · "}
-                            {f.zona}
-                            {f.carril ? ` · ${f.carril}` : ""}
-                            {f.distancia ? ` · ${f.distancia}` : ""}
+                            <Filtrable
+                              activo={filtro === f.lado}
+                              onClick={() => alternaLado(f.lado)}
+                              className="text-white/80"
+                            >
+                              {NOMBRE_LADO[f.lado]}
+                            </Filtrable>
+                            {" · "}
+                            {celda("zona", f.zona)}
+                            {f.carril ? <> · {celda("carril", f.carril)}</> : null}
+                            {f.distancia ? <> · {celda("distancia", f.distancia)}</> : null}
                           </span>
                         </li>
                       ))}
@@ -499,24 +697,35 @@ export default function FaltasPage() {
                 <Panel title="A qué distancia" icon={Swords}>
                   <div className="space-y-2">
                     {porDistancia.map((d) => (
-                      <div key={d.clave} className="flex items-center gap-3">
+                      <button
+                        key={d.clave}
+                        type="button"
+                        onClick={() => alterna("distancia", d.clave)}
+                        aria-pressed={estaActivo(filtros, "distancia", d.clave)}
+                        title={TITULO_FILTRO}
+                        style={marcaPieza(
+                          estaActivo(filtros, "distancia", d.clave),
+                          hayFiltro(filtros, "distancia"),
+                        )}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-md text-left transition hover:opacity-100"
+                      >
                         <span className="w-16 text-[11px] uppercase tracking-[0.12em] text-white/40">
                           {d.clave}
                         </span>
 
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
-                          <div
-                            className="h-full rounded-full bg-[#C8A96B]"
+                        <span className="block h-2 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+                          <span
+                            className="block h-full rounded-full bg-[#C8A96B]"
                             style={{
-                              width: `${faltas.length ? (d.cuantas / faltas.length) * 100 : 0}%`,
+                              width: `${paraDistancia.length ? (d.cuantas / paraDistancia.length) * 100 : 0}%`,
                             }}
                           />
-                        </div>
+                        </span>
 
                         <span className="w-6 text-right text-sm text-white">
                           {d.cuantas}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </Panel>
@@ -531,7 +740,7 @@ export default function FaltasPage() {
                   title="Una por una"
                   subtitle={
                     explicativos
-                      ? "En el orden en que se dieron. Pasa por encima de una fila y se enciende su punto en el campo"
+                      ? "En el orden en que se dieron. Pasa por encima de una fila y se enciende su punto en el campo; pincha un valor y filtra la pantalla"
                       : undefined
                   }
                 >
@@ -544,6 +753,8 @@ export default function FaltasPage() {
                           <th className="pb-2 pr-3 font-medium">Dónde</th>
                           <th className="pb-2 pr-3 font-medium">Distancia</th>
                           <th className="pb-2 pr-3 font-medium">Defendían</th>
+                          {/* El minuto va siempre: es lo que hace falta para ir al vídeo. */}
+                          <th className="pb-2 pr-3 font-medium">Min.</th>
                           {/* «Qué pasó» explica la jugada: sólo con los textos explicativos encendidos. */}
                           {explicativos && <th className="pb-2 font-medium">Qué pasó</th>}
                         </tr>
@@ -564,28 +775,37 @@ export default function FaltasPage() {
                             </td>
 
                             <td className="py-2 pr-3">
-                              <span
-                                className="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                              <button
+                                type="button"
+                                onClick={() => alternaLado(f.lado)}
+                                aria-pressed={filtro === f.lado}
+                                title={TITULO_FILTRO}
+                                className="cursor-pointer whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
                                 style={{
                                   color: TINTA_LADO[f.lado],
                                   background: `${TINTA_LADO[f.lado]}1A`,
+                                  ...(filtro === f.lado ? marcaPieza(true, true) : {}),
                                 }}
                               >
                                 {NOMBRE_LADO[f.lado]}
-                              </span>
+                              </button>
                             </td>
 
                             <td className="py-2 pr-3 text-white/70">
-                              {f.zona || "—"}
-                              {f.carril ? ` · ${f.carril}` : ""}
+                              {celda("zona", f.zona)}
+                              {f.carril ? <> · {celda("carril", f.carril)}</> : null}
                             </td>
 
                             <td className="py-2 pr-3 text-white/60">
-                              {f.distancia || "—"}
+                              {celda("distancia", f.distancia)}
                             </td>
 
                             <td className="py-2 pr-3 font-semibold text-white">
-                              {f.entre ?? "?"}
+                              {celda("entre", LECTORES.entre(f))}
+                            </td>
+
+                            <td className="whitespace-nowrap py-2 pr-3 font-mono text-[12px] tabular-nums text-white/60">
+                              {minutoDe(f)}
                             </td>
 
                             {explicativos && <td className="py-2 text-white/45">{f.nota}</td>}

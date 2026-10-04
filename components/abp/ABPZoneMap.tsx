@@ -205,6 +205,33 @@ function heatColor(t: number, def: boolean) {
 
 export type ABPZoneMode = "offensive" | "defensive";
 
+/** Rótulo de cada zona del mapa, también de los dos recuadros de abajo. */
+export const ZONA_AREA_LABEL: Record<string, string> = {
+  "1P": "Primer palo",
+  central: "6m / Penalti",
+  "2P": "Segundo palo",
+  frontal: "Frontal",
+  corto: "Juego en corto",
+  barrera: "Directa a barrera",
+};
+
+/**
+ * Zonas del mapa por las que pasa una acción: donde cae el envío y desde
+ * donde se remata. Es lo que usa la página para filtrar al pulsar una zona,
+ * con las mismas reglas con las que el mapa cuenta.
+ */
+export function zonasDeAccion(row: ZoneRow, mode: ABPZoneMode = "offensive") {
+  const def = mode === "defensive";
+  const zonas = new Set<string>();
+  const caida = zoneFromCaida(row.zonaCaida, def);
+  const remate = zoneFromRemate(row.zonaRemate);
+
+  if (caida) zonas.add(caida);
+  if (remate) zonas.add(remate);
+
+  return [...zonas];
+}
+
 /**
  * Mapa de calor de la zona de caída del balón parado.
  *
@@ -215,14 +242,36 @@ export type ABPZoneMode = "offensive" | "defensive";
 export default function ABPZoneMap({
   rows,
   mode = "offensive",
+  zonaFiltro,
+  onZonaFiltro,
 }: {
   rows: ZoneRow[];
   mode?: ABPZoneMode;
+  /**
+   * Filtro cruzado de la página. Con `onZonaFiltro` la zona elegida la lleva
+   * la página (pulsar una zona filtra todo lo demás) y aquí sólo se resalta;
+   * sin él el mapa funciona como siempre, con su detalle local.
+   */
+  zonaFiltro?: string | null;
+  onZonaFiltro?: (zona: string | null) => void;
 }) {
   const def = mode === "defensive";
+  const controlado = Boolean(onZonaFiltro);
 
   const [metric, setMetric] = useState<Metric>("ocupacion");
-  const [selectedZone, setSelectedZone] = useState<ZoneKey | null>(null);
+  const [zonaLocal, setZonaLocal] = useState<string | null>(null);
+
+  /* La elegida: la de la página si manda ella, la propia si no. Puede ser
+     también «corto» o «barrera», que no tienen detalle de zona. */
+  const elegida = controlado ? (zonaFiltro ?? null) : zonaLocal;
+  const selectedZone = ZONES.some((z) => z.key === elegida)
+    ? (elegida as ZoneKey)
+    : null;
+
+  const setSelectedZone = (zona: string | null) => {
+    if (onZonaFiltro) onZonaFiltro(zona);
+    else setZonaLocal(zona);
+  };
 
   const { stats, corto, barrera, sinZona } = useMemo(() => {
     const base: Record<
@@ -417,6 +466,7 @@ export default function ABPZoneMap({
               const value = stats[z.key][metric];
               const ratio = maxValue > 0 ? value / maxValue : 0;
               const isSelected = selectedZone === z.key;
+              const atenuada = controlado && elegida !== null && !isSelected;
 
               return (
                 <g
@@ -425,7 +475,11 @@ export default function ABPZoneMap({
                     setSelectedZone(isSelected ? null : z.key)
                   }
                   style={{ cursor: "pointer" }}
+                  opacity={atenuada ? 0.45 : 1}
                 >
+                  <title>
+                    {controlado ? `${z.label} · Pulsa para filtrar` : z.label}
+                  </title>
                   <rect
                     x={z.x}
                     y={z.y}
@@ -433,7 +487,13 @@ export default function ABPZoneMap({
                     height={z.h}
                     fill={heatColor(ratio, def)}
                     fillOpacity={0.9}
-                    stroke={isSelected ? "#FFFFFF" : "#0B1728"}
+                    stroke={
+                      isSelected
+                        ? controlado
+                          ? "#C8A96B"
+                          : "#FFFFFF"
+                        : "#0B1728"
+                    }
                     strokeWidth={isSelected ? 0.7 : 0.3}
                   />
 
@@ -522,8 +582,22 @@ export default function ABPZoneMap({
             />
 
             {/* Juego en corto del rival: no llega al área */}
-            {corto > 0 && (
-              <g>
+            {(corto > 0 || elegida === "corto") && (
+              <g
+                onClick={
+                  controlado
+                    ? () =>
+                        setSelectedZone(elegida === "corto" ? null : "corto")
+                    : undefined
+                }
+                style={controlado ? { cursor: "pointer" } : undefined}
+                opacity={
+                  controlado && elegida !== null && elegida !== "corto"
+                    ? 0.45
+                    : 1
+                }
+              >
+                {controlado && <title>Juego en corto · Pulsa para filtrar</title>}
                 <rect
                   x="4"
                   y="37"
@@ -531,8 +605,8 @@ export default function ABPZoneMap({
                   height="6"
                   rx="1.4"
                   fill="#0B1728"
-                  stroke="#3B82F6"
-                  strokeWidth="0.35"
+                  stroke={elegida === "corto" ? "#C8A96B" : "#3B82F6"}
+                  strokeWidth={elegida === "corto" ? 0.7 : 0.35}
                 />
                 <text
                   x="18.5"
@@ -561,8 +635,26 @@ export default function ABPZoneMap({
             )}
 
             {/* Golpeo directo contra la barrera */}
-            {def && barrera > 0 && (
-              <g>
+            {def && (barrera > 0 || elegida === "barrera") && (
+              <g
+                onClick={
+                  controlado
+                    ? () =>
+                        setSelectedZone(
+                          elegida === "barrera" ? null : "barrera",
+                        )
+                    : undefined
+                }
+                style={controlado ? { cursor: "pointer" } : undefined}
+                opacity={
+                  controlado && elegida !== null && elegida !== "barrera"
+                    ? 0.45
+                    : 1
+                }
+              >
+                {controlado && (
+                  <title>Directa a barrera · Pulsa para filtrar</title>
+                )}
                 <rect
                   x="35.5"
                   y="37"
@@ -571,7 +663,7 @@ export default function ABPZoneMap({
                   rx="1.4"
                   fill="#0B1728"
                   stroke="#C8A96B"
-                  strokeWidth="0.35"
+                  strokeWidth={elegida === "barrera" ? 0.8 : 0.35}
                 />
                 <text
                   x="50"
@@ -710,7 +802,13 @@ export default function ABPZoneMap({
                 : 0;
 
               return (
-                <div key={z.key}>
+                <button
+                  key={z.key}
+                  type="button"
+                  title={controlado ? "Pulsa para filtrar" : "Ver el detalle"}
+                  onClick={() => setSelectedZone(z.key)}
+                  className="-mx-1 block w-[calc(100%+0.5rem)] cursor-pointer rounded-lg px-1 py-0.5 text-left transition hover:bg-white/[0.04]"
+                >
                   <div className="mb-1.5 flex items-center justify-between text-[11px]">
                     <span className="text-zinc-300">{z.label}</span>
                     <span className="text-zinc-500">
@@ -733,7 +831,7 @@ export default function ABPZoneMap({
                       />
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -753,7 +851,9 @@ export default function ABPZoneMap({
           </div>
 
           <p className="mt-4 text-[11px] leading-snug text-zinc-500">
-            Pulsa una zona del campo para ver su detalle completo.
+            {controlado
+              ? "Pulsa una zona del campo para filtrar toda la página por ella."
+              : "Pulsa una zona del campo para ver su detalle completo."}
           </p>
         </div>
         )}

@@ -192,10 +192,47 @@ function topEntries(map: Map<string, number>, limit: number) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
 }
 
-export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode: Mode }) {
+/* Lo mismo que lee el panel para «Perfil» y «Zona_Saque». */
+const paresDe = (banda: Banda, zona: Zona): [string, string][] => [
+  ["Perfil", BANDA_LABEL[banda]],
+  ["Zona_Saque", `Zona ${zona}`],
+];
+
+export default function ThrowInZoneMap({
+  rows,
+  mode,
+  filtros,
+  onFiltrar,
+}: {
+  /** Filtradas por todo menos por banda y zona: se pintan las seis celdas. */
+  rows: RecordRow[];
+  mode: Mode;
+  filtros: Record<string, string>;
+  /** Pulsar una celda filtra la página entera por banda y zona a la vez. */
+  onFiltrar: (pares: [string, string][]) => void;
+}) {
   const METRICS = useMemo(() => metricsFor(mode), [mode]);
   const [metric, setMetric] = useState<MetricKey>("saques");
-  const [selected, setSelected] = useState<string | null>(null);
+
+  /*
+  | La celda elegida es el filtro de la página, no un estado de aquí.
+  |
+  | Con banda y zona puestas se abre su detalle; con sólo una —desde el
+  | desplegable— se resaltan las celdas que la cumplen y se apagan las demás.
+  */
+  const filtroBanda = filtros.Perfil && filtros.Perfil !== "ALL" ? filtros.Perfil : null;
+  const filtroZona = filtros.Zona_Saque && filtros.Zona_Saque !== "ALL" ? filtros.Zona_Saque : null;
+  const cumple = (banda: Banda, zona: Zona) =>
+    (!filtroBanda || filtroBanda === BANDA_LABEL[banda]) &&
+    (!filtroZona || filtroZona === `Zona ${zona}`);
+  const hayFiltro = Boolean(filtroBanda || filtroZona);
+  const filtroDe = (key: string) => (filtros[key] && filtros[key] !== "ALL" ? filtros[key] : null);
+  const selected =
+    filtroBanda && filtroZona
+      ? BANDAS.flatMap((banda) => ZONAS.map((zona) => ({ banda, zona })))
+          .filter(({ banda, zona }) => cumple(banda, zona))
+          .map(({ banda, zona }) => `${banda}-${zona}`)[0] ?? null
+      : null;
 
   const { cells, sinUbicar } = useMemo(() => {
     const acc = new Map<
@@ -336,7 +373,7 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
           <h2 className="mt-1 text-xl font-semibold md:text-2xl">Rendimiento por banda y zona de saque</h2>
         </div>
         <p className="max-w-md text-sm text-slate-400">
-          Elige una métrica y pulsa una celda para ver su detalle. El color mide la métrica activa: la
+          Elige una métrica y pulsa una celda para filtrar la página por ella (otra vez la quita). El color mide la métrica activa: la
           escala cambia de signo cuando lo que crece nos perjudica.
         </p>
       </div>
@@ -386,15 +423,21 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                 const cell = cells.get(key);
                 const value = cell ? cell[metric] : 0;
                 const ratio = ratioFor(value);
-                const isSelected = selectedKey === key;
+                const resaltada = hayFiltro && cumple(banda, zona);
+                const apagada = hayFiltro && !resaltada;
                 const fondo = cell ? heatColor(ratio, active.tono) : "#0B1320";
                 // El umbral fijo pintaba texto claro sobre el oro de media rampa.
                 const textoFuerte = textoSobre(fondo);
                 const textoSuave = textoSobre(fondo, "#1F2937", "#94A3B8");
 
                 return (
-                  <g key={key} onClick={() => setSelected(isSelected ? null : key)} style={{ cursor: "pointer" }}>
-                    <title>{`${BANDA_LABEL[banda]} · ${zonaLabel(zona, mode)} · ${cell?.total ?? 0} saques`}</title>
+                  <g
+                    key={key}
+                    onClick={() => onFiltrar(paresDe(banda, zona))}
+                    style={{ cursor: "pointer" }}
+                    opacity={apagada ? 0.4 : 1}
+                  >
+                    <title>{`${BANDA_LABEL[banda]} · ${zonaLabel(zona, mode)} · ${cell?.total ?? 0} saques · Pulsa para filtrar`}</title>
 
                     <rect
                       x={box.x}
@@ -403,8 +446,8 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                       height={box.h}
                       fill={fondo}
                       fillOpacity={cell ? 0.92 : 0.5}
-                      stroke={isSelected ? "#FFFFFF" : "#0B1728"}
-                      strokeWidth={isSelected ? 0.6 : 0.25}
+                      stroke={resaltada ? "#C8A96B" : "#0B1728"}
+                      strokeWidth={resaltada ? 0.7 : 0.25}
                     />
 
                     <text
@@ -501,8 +544,9 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
 
               <button
                 type="button"
-                aria-label="Cerrar detalle de celda"
-                onClick={() => setSelected(null)}
+                aria-label="Quitar el filtro de la celda"
+                title="Quitar el filtro de la celda"
+                onClick={() => onFiltrar(paresDe(selBanda, Number(selZona) as Zona))}
                 className="shrink-0 rounded-full p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
               >
                 ×
@@ -524,25 +568,43 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
             <p className="mt-4 text-[11px] uppercase tracking-wide text-zinc-500">Dirección del envío</p>
             <div className="mt-2 space-y-1.5">
               {selectedCell.direcciones.map(([label, count]) => (
-                <div key={label} className="flex items-center justify-between gap-2 text-[11px]">
+                <button
+                  key={label}
+                  type="button"
+                  title="Pulsa para filtrar"
+                  disabled={label === "Sin dato"}
+                  onClick={() => onFiltrar([["Zona_Caida", label]])}
+                  className={`flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-0.5 text-left text-[11px] transition hover:bg-white/5 disabled:cursor-default ${
+                    filtroDe("Zona_Caida") === label ? "outline outline-1 outline-[#C8A96B]" : ""
+                  }`}
+                >
                   <span className="min-w-0 truncate text-zinc-300">{label}</span>
                   <span className="shrink-0 text-zinc-500">
                     {count} · {Math.round((count / selectedCell.total) * 100)}%
                   </span>
-                </div>
+                </button>
               ))}
             </div>
 
             <p className="mt-4 text-[11px] uppercase tracking-wide text-zinc-500">Resultado final</p>
             <div className="mt-2 space-y-1.5">
               {selectedCell.resultados.map(([label, count]) => (
-                <div key={label} className="flex items-center justify-between gap-2 text-[11px]">
+                <button
+                  key={label}
+                  type="button"
+                  title="Pulsa para filtrar"
+                  disabled={label === "Sin dato"}
+                  onClick={() => onFiltrar([["Resultado_Final", label]])}
+                  className={`flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-0.5 text-left text-[11px] transition hover:bg-white/5 disabled:cursor-default ${
+                    filtroDe("Resultado_Final") === label ? "outline outline-1 outline-[#C8A96B]" : ""
+                  }`}
+                >
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: resultColor(label) }} />
                     <span className="truncate text-zinc-300">{label}</span>
                   </span>
                   <span className="shrink-0 text-zinc-500">{count}</span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -559,7 +621,15 @@ export default function ThrowInZoneMap({ rows, mode }: { rows: RecordRow[]; mode
                   const ratio = ratioFor(item.value);
 
                   return (
-                    <button key={item.key} type="button" onClick={() => setSelected(item.key)} className="block w-full text-left">
+                    <button
+                      key={item.key}
+                      type="button"
+                      title="Pulsa para filtrar"
+                      onClick={() => onFiltrar(paresDe(item.banda, item.zona))}
+                      className={`block w-full rounded-md text-left transition ${
+                        hayFiltro && !cumple(item.banda, item.zona) ? "opacity-40" : ""
+                      } ${hayFiltro && cumple(item.banda, item.zona) ? "outline outline-1 outline-offset-2 outline-[#C8A96B]" : ""}`}
+                    >
                       <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
                         <span className="min-w-0 truncate text-zinc-300">
                           {BANDA_LABEL[item.banda]} · Z{item.zona}

@@ -71,6 +71,8 @@ function resultColorsFor(def: boolean): Record<string, string> {
 /** `medio` es la segunda etapa; qué representa lo decide el modo. */
 type ColKey = "accion" | "medio" | "zona" | "resultado";
 
+export type ABPFlowCol = ColKey;
+
 function colsFor(def: boolean): Record<
   ColKey,
   { x: number; w: number; title: string }
@@ -240,10 +242,21 @@ export type ABPFlowMode = "offensive" | "defensive";
 export default function ABPObjectiveFlow({
   rows,
   mode = "offensive",
+  seleccion,
+  onSeleccion,
 }: {
   rows: ABPRow[];
   mode?: ABPFlowMode;
+  /**
+   * Filtro cruzado de la página. Con `onSeleccion` pulsar un nodo filtra la
+   * página entera y lo elegido llega de vuelta en `seleccion` (una entrada
+   * por columna, con el rótulo del nodo); sin él el diagrama aísla el
+   * recorrido por su cuenta, como siempre.
+   */
+  seleccion?: Partial<Record<ColKey, string>>;
+  onSeleccion?: (col: ColKey, value: string | null) => void;
 }) {
+  const controlado = Boolean(onSeleccion);
   const def = mode === "defensive";
 
   /* Configuración derivada del modo. Memoizada porque alimenta las
@@ -254,18 +267,52 @@ export default function ABPObjectiveFlow({
 
   /** Etiqueta del resultado que cuenta como gol propio del lado analizado. */
   const GOL = def ? "Gol Rival" : "Gol";
-const [focus, setFocus] = useState<{
+const [focusLocal, setFocusLocal] = useState<{
   col: ColKey;
   value: string;
 } | null>(null);
 
-// Filas que atraviesan el nodo seleccionado (todas si no hay selección).
+/* Lo elegido, como lista de columna y valor: en local es uno solo; con la
+   página pueden ser varios a la vez (acción y zona, por ejemplo). */
+const elegidos = useMemo(
+  () =>
+    controlado
+      ? (Object.entries(seleccion ?? {}) as [ColKey, string | undefined][])
+          .filter((par): par is [ColKey, string] => Boolean(par[1]))
+          .map(([col, value]) => ({ col, value }))
+      : focusLocal
+        ? [focusLocal]
+        : [],
+  [controlado, seleccion, focusLocal]
+);
+
+const focus = elegidos[0] ?? null;
+
+const setFocus = (siguiente: { col: ColKey; value: string } | null) => {
+  if (!onSeleccion) {
+    setFocusLocal(siguiente);
+    return;
+  }
+
+  if (siguiente) {
+    onSeleccion(siguiente.col, siguiente.value);
+  } else {
+    elegidos.forEach((uno) => onSeleccion(uno.col, null));
+  }
+};
+
+const estaElegido = (col: ColKey, value: string) =>
+  elegidos.some((uno) => uno.col === col && uno.value === value);
+
+// Filas que atraviesan los nodos seleccionados (todas si no hay selección).
 const activeRows = useMemo(
   () =>
-    focus
-      ? rows.filter((r) => ACCESSORS[focus.col](r) === focus.value)
+    elegidos.length
+      ? rows.filter((r) =>
+          elegidos.every((uno) => ACCESSORS[uno.col](r) === uno.value),
+        )
       : rows,
-  [rows, focus, ACCESSORS]
+  [rows, elegidos, ACCESSORS]
 );
 
 const columns = useMemo(() => {
@@ -474,8 +521,7 @@ const renderColumn = (col: ColKey) => {
 
   return columns[col].map((n, i) => {
     const y = TOP + i * STEP;
-    const isFocused =
-      focus?.col === col && focus.value === n.name;
+    const isFocused = estaElegido(col, n.name);
 
     const participa = activeNodes[col].has(n.name);
     const atenuado = !!focus && !participa;
@@ -488,11 +534,14 @@ const renderColumn = (col: ColKey) => {
     return (
       <g
         key={`${col}-${n.name}`}
-        onClick={() =>
-          setFocus(
-            isFocused ? null : { col, value: n.name }
-          )
-        }
+        onClick={() => {
+          if (onSeleccion) {
+            onSeleccion(col, isFocused ? null : n.name);
+            return;
+          }
+
+          setFocus(isFocused ? null : { col, value: n.name });
+        }}
         style={{ cursor: "pointer" }}
         opacity={atenuado ? 0.28 : 1}
       >
@@ -501,7 +550,9 @@ const renderColumn = (col: ColKey) => {
             2
           )} xG${def ? " concedido" : ""} · ${(n.peligro * 100).toFixed(
             0
-          )}% ${def ? "acaba en gol u ocasión rival" : "gol u ocasión"}`}
+          )}% ${def ? "acaba en gol u ocasión rival" : "gol u ocasión"}${
+            controlado ? " · Pulsa para filtrar" : ""
+          }`}
         </title>
 
         <rect
@@ -567,17 +618,24 @@ return (
       {def ? " rival" : ""}
     </span>
 
-    <span>Pulsa un nodo para aislar su recorrido completo</span>
+    <span>
+      {controlado
+        ? "Pulsa un nodo para filtrar la página por él"
+        : "Pulsa un nodo para aislar su recorrido completo"}
+    </span>
 
-    {focus && (
+    {elegidos.map((uno) => (
       <button
+        key={uno.col}
         type="button"
-        onClick={() => setFocus(null)}
+        onClick={() =>
+          onSeleccion ? onSeleccion(uno.col, null) : setFocus(null)
+        }
         className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/20"
       >
-        {focus.value} ×
+        {uno.value} ×
       </button>
-    )}
+    ))}
   </div>
 
 {/*
@@ -684,7 +742,7 @@ return (
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="break-words text-lg font-semibold text-white">
-            {focus.value}
+            {elegidos.map((uno) => uno.value).join(" · ")}
           </h3>
           <p className="text-sm text-slate-400">
             {activeRows.length}{" "}
