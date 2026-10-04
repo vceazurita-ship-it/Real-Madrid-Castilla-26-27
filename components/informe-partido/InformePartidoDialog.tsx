@@ -33,9 +33,9 @@ import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
-import { informeHtml, informeTexto, resumenHtml } from "@/lib/informe-partido/html";
+import { informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
 import type { InformePartido, Momento, PinceladaAbp } from "@/lib/informe-partido/modelo";
-import { apodo, capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
+import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 
@@ -65,9 +65,30 @@ type DocsLlegados =
 /* Lo que se espera a que Plantillas rivales saque los dos documentos. */
 const ESPERA_DOCS = 180_000;
 
-/* El correo extenso lleva los adjuntos que se trae el servidor: Gmail admite
-   ~35 MB por mensaje y la base64 suma un tercio. */
-const TOPE_ADJUNTOS = 22 * 1024 * 1024;
+/*
+| Lo que va ADJUNTO al completo (04/10/2026). Gmail manda hasta 35 MB por
+| mensaje ya en base64 (un tercio más) y muchos buzones de club no reciben más
+| de 25 MB: con 16 MB de adjuntos el correo entero queda en ~24 MB. Lo que no
+| cabe no se pierde: va como botón de descarga en el propio correo.
+*/
+const TOPE_ADJUNTOS = 16 * 1024 * 1024;
+
+/* Si un documento del rival no dice cuánto pesa, se cuenta como si pesara esto. */
+const PESO_DESCONOCIDO = 6 * 1024 * 1024;
+
+/*
+| Gmail recorta el cuerpo que pasa de ~102 KB («[Mensaje recortado] Ver todo el
+| mensaje») y lo de debajo —gráficos de ABP incluidos— no se ve. Se elige la
+| versión más completa que quede por debajo de esto.
+*/
+const TOPE_HTML = 96 * 1024;
+
+const PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+const bytesDe = (texto: string) => new TextEncoder().encode(texto).length;
+
+/** Un nombre de archivo que se lea bien en la bandeja: sin barras ni comillas, y con su extensión. */
+const nombreDeArchivo = (base: string, ext: string) => `${base.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim()}.${ext}`;
 
 /* Lo que se espera al informe de ABP antes de darlo por perdido. */
 const ESPERA_ABP = 120_000;
@@ -385,27 +406,39 @@ export function InformePartidoDialog({
 
   /* ---------------- el HTML del extenso ---------------- */
 
-  /* La lista de adjuntos, como texto: cambia sólo si cambia lo marcado. */
-  const nombresAdjuntos = marcados.map((d) => d.nombre).join("\n");
-
-  const extras = useMemo(
-    () => ({
-      abpCuerpo: abpActual?.ok ? abpActual.cuerpo : undefined,
-      adjuntos: nombresAdjuntos ? nombresAdjuntos.split("\n") : [],
-    }),
-    [abpActual, nombresAdjuntos],
-  );
-
-  const html = useMemo(() => (informeVisto ? informeHtml(informeVisto, extras) : ""), [informeVisto, extras]);
-
-  /* En la vista previa las imágenes de ABP van dentro (en el correo, por cid). */
-  const htmlVista = useMemo(() => {
-    if (!abpActual?.ok) return html;
+  /* Las imágenes de ABP van por cid en el correo; en la vista y en el PDF, dentro. */
+  const sinCid = (texto: string) => {
+    if (!abpActual?.ok) return texto;
 
     const porCid = new Map(abpActual.imagenes.map((i) => [i.cid, `data:${i.tipo};base64,${i.base64}`]));
 
-    return html.replace(/cid:([^"'\s)]+)/g, (todo, cid: string) => porCid.get(cid) ?? todo);
-  }, [html, abpActual]);
+    return texto.replace(/cid:([^"'\s)]+)/g, (todo, cid: string) => porCid.get(cid) ?? todo);
+  };
+
+  const abpCuerpo = abpActual?.ok ? abpActual.cuerpo : undefined;
+
+  /* La vista previa: tal y como llega, con los documentos que se van a mandar. */
+  /* La lista de adjuntos, como texto: cambia sólo si cambia lo marcado. */
+  const listaVista = marcados.map((d) => `${d.nombre}\t${d.tamano ?? ""}`).join("\n");
+
+  const htmlCrudo = useMemo(() => {
+    if (!informeVisto) return "";
+
+    const adjuntos: Descarga[] = listaVista
+      ? listaVista.split("\n").map((linea) => {
+          const [nombre, tamano] = linea.split("\t");
+
+          return { nombre, tamano: tamano ? Number(tamano) : null, adjunto: true };
+        })
+      : [];
+
+    return informeHtml(informeVisto, { abpCuerpo, adjuntos });
+  }, [informeVisto, abpCuerpo, listaVista]);
+
+  const htmlVista = sinCid(htmlCrudo);
+
+  /** El completo en PDF: entero (sin aligerar) y sin la lista de adjuntos, que en un PDF no pinta nada. */
+  const pdfCompleto = () => completoEnPdf(sinCid(informeHtml(informeVisto!, { abpCuerpo })), (h, t) => setTrabajando(`Montando el completo en PDF · hoja ${h} de ${t}…`));
 
   const [anchoVista, setAnchoVista] = useState(0);
 
@@ -423,9 +456,19 @@ export function InformePartidoDialog({
     return () => observa.disconnect();
   }, [informe, vista]);
 
-  const nombreArchivo = informe
-    ? `${informe.momento === "post" ? "post" : "previa"}-${apodo(informe.partido.rival, "rival")}${informe.partido.jornada ? `-j${informe.partido.jornada}` : ""}`
-    : "informe";
+  /* El nombre que ven en el correo: «Previa J7 CD Teruel - Resumen.pdf». */
+  const nombreLegible = informe
+    ? `${informe.momento === "post" ? "Post" : "Previa"}${informe.partido.jornada ? ` J${informe.partido.jornada}` : ""} ${informe.partido.rival || "rival"}`
+    : "Informe";
+
+  /** Cómo se llama en el correo un documento del rival: con su equipo y su extensión. */
+  const nombreEnCorreo = (d: Documento) => {
+    const ext = d.tipo === PPTX ? "pptx" : "pdf";
+
+    if (d.generado) return nombreDeArchivo(`${informe?.partido.rival || "Rival"} - ${ROTULO_DOCUMENTO[d.generado].replace(/\s*\((PDF|PPT)\)\s*$/, "")}`, ext);
+
+    return /\.(pdf|pptx)$/i.test(d.nombre) ? d.nombre : nombreDeArchivo(d.nombre, ext);
+  };
 
   /** Las dos diapositivas en JPEG, dibujadas fuera de pantalla a su tamaño real. */
   const capturaDiapositivas = async () => {
@@ -449,7 +492,7 @@ export function InformePartidoDialog({
     try {
       const imagenes = await capturaDiapositivas();
 
-      descarga(await pdfDe(imagenes), `${nombreArchivo}.pdf`);
+      descarga(await pdfDe(imagenes), nombreDeArchivo(`${nombreLegible} - Resumen`, "pdf"));
     } catch (error) {
       toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -461,7 +504,7 @@ export function InformePartidoDialog({
     try {
       const imagenes = await capturaDiapositivas();
 
-      descarga(pptDe(imagenes), `${nombreArchivo}.pptx`);
+      descarga(pptDe(imagenes), nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"));
     } catch (error) {
       toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -473,7 +516,7 @@ export function InformePartidoDialog({
     try {
       setTrabajando("Montando el PDF del completo…");
 
-      descarga(await completoEnPdf(htmlVista, (h, t) => setTrabajando(`Montando el completo en PDF · hoja ${h} de ${t}…`)), `${nombreArchivo}-completo.pdf`);
+      descarga(await pdfCompleto(), nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"));
     } catch (error) {
       toast.error("No se ha podido exportar el completo", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -526,12 +569,6 @@ export function InformePartidoDialog({
       return;
     }
 
-    if (que.completo && pesoAdjuntos > TOPE_ADJUNTOS) {
-      toast.error("Los adjuntos pesan demasiado para un correo", { description: `${mb(pesoAdjuntos)} de ${mb(TOPE_ADJUNTOS)}: quita alguno.` });
-
-      return;
-    }
-
     const para = direcciones.join(", ");
 
     const p = informeVisto.partido;
@@ -547,6 +584,8 @@ export function InformePartidoDialog({
       p.lado === "fuera" ? `${p.rival}${conGoles ? ` ${gLocal}-${gVisit}` : " -"} RM Castilla` : `RM Castilla${conGoles ? ` ${gLocal}-${gVisit}` : " -"} ${p.rival}`;
 
     const partido = `${cruce}${p.jornada ? ` · J${p.jornada}` : ""}`;
+
+    const nombreResumenPdf = nombreDeArchivo(`${nombreLegible} - Resumen`, "pdf");
 
     try {
       /* Si faltan el PDF y el PPT del rival, se sacan antes de mandar nada:
@@ -568,7 +607,7 @@ export function InformePartidoDialog({
           docsNuevos = llegado.docs.map((x) => ({
             nombre: `${ROTULO_DOCUMENTO[x.tipo]} · recién sacado`,
             url: x.url,
-            tipo: x.tipo === "plantilla-pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            tipo: x.tipo === "plantilla-pdf" ? "application/pdf" : PPTX,
             tamano: x.tamano,
             adjuntable: true,
             origen: "rival" as const,
@@ -587,6 +626,8 @@ export function InformePartidoDialog({
 
       const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
 
+      const diapositivasCid = imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") }));
+
       const pdfResumen = await pdfDe(imagenes);
 
       if (que.resumen) {
@@ -595,33 +636,79 @@ export function InformePartidoDialog({
         await manda({
           para,
           asunto: `[${etiqueta} · RESUMEN] ${partido}`,
-          html: resumenHtml(informeVisto, cids),
+          html: resumenHtml(informeVisto, cids, {
+            conCompleto: que.completo,
+            descargas: [{ nombre: nombreResumenPdf, tamano: pdfResumen.size, adjunto: true }],
+          }),
           texto: informeTexto(informeVisto),
-          imagenes: imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
-          adjuntos: [{ nombre: `${nombreArchivo}.pdf`, tipo: "application/pdf", base64: await base64De(pdfResumen) }],
+          imagenes: diapositivasCid,
+          adjuntos: [{ nombre: nombreResumenPdf, tipo: "application/pdf", base64: await base64De(pdfResumen) }],
         });
       }
 
       if (que.completo) {
         /*
-        | El completo lleva adjuntos el resumen (PDF y PPT), él mismo en PDF y
+        | El completo lleva el propio informe en PDF, el resumen (PDF y PPT) y
         | los documentos del rival. Los nuestros se suben antes a Supabase: por
         | la función de Vercel no caben.
         */
         setTrabajando("Montando el completo en PDF…");
 
         const propios: { nombre: string; blob: Blob; tipo: string }[] = [
-          { nombre: `${nombreArchivo}-resumen.pdf`, blob: pdfResumen, tipo: "application/pdf" },
-          { nombre: `${nombreArchivo}-resumen.pptx`, blob: pptDe(imagenes), tipo: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-          { nombre: `${nombreArchivo}-completo.pdf`, blob: await completoEnPdf(htmlVista, (h, t) => setTrabajando(`Montando el completo en PDF · hoja ${h} de ${t}…`)), tipo: "application/pdf" },
+          { nombre: nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"), blob: await pdfCompleto(), tipo: "application/pdf" },
+          { nombre: nombreResumenPdf, blob: pdfResumen, tipo: "application/pdf" },
+          { nombre: nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"), blob: pptDe(imagenes), tipo: PPTX },
         ];
 
-        const subidosAhora = [];
+        const subidosAhora: { nombre: string; url: string; tipo: string; tamano: number | null }[] = [];
 
         for (const [i, archivo] of propios.entries()) {
           setTrabajando(`Subiendo adjuntos ${i + 1}/${propios.length}…`);
 
-          subidosAhora.push(await subeAdjunto(new File([archivo.blob], archivo.nombre, { type: archivo.tipo })));
+          const a = await subeAdjunto(new File([archivo.blob], archivo.nombre, { type: archivo.tipo }));
+
+          subidosAhora.push({ nombre: archivo.nombre, url: a.url, tipo: archivo.tipo, tamano: archivo.blob.size });
+        }
+
+        /*
+        | Qué va adjunto y qué sólo como enlace. Por orden de importancia —el
+        | completo, el resumen, la plantilla y el informe del rival, lo demás, y
+        | el PPT del resumen al final—, se adjunta mientras quepa. Todo lleva
+        | además su botón de descarga en el correo: si el cliente no enseña un
+        | adjunto, el enlace sigue valiendo (30 días).
+        */
+        const candidatos = [
+          subidosAhora[0],
+          subidosAhora[1],
+          ...adjuntosRival.map((d) => ({ nombre: nombreEnCorreo(d), url: d.url, tipo: d.tipo, tamano: d.tamano })),
+          subidosAhora[2],
+        ];
+
+        let ocupado = 0;
+
+        const reparto = candidatos.map((d) => {
+          const bytes = d.tamano ?? PESO_DESCONOCIDO;
+
+          const cabe = ocupado + bytes <= TOPE_ADJUNTOS;
+
+          if (cabe) ocupado += bytes;
+
+          return { ...d, adjunto: cabe };
+        });
+
+        const descargas: Descarga[] = reparto.map((d) => ({ nombre: d.nombre, url: d.url, tamano: d.tamano, adjunto: d.adjunto }));
+
+        /* La versión más completa que Gmail no recorte. */
+        const base: ExtrasInforme = { abpCuerpo, diapositivas: cids, adjuntos: descargas };
+
+        let ligero: 0 | 1 | 2 = 0;
+
+        let html = informeHtml(informeVisto, base);
+
+        while (bytesDe(html) > TOPE_HTML && ligero < 2) {
+          ligero = (ligero + 1) as 1 | 2;
+
+          html = informeHtml(informeVisto, { ...base, ligero });
         }
 
         setTrabajando("Mandando el informe completo…");
@@ -629,14 +716,21 @@ export function InformePartidoDialog({
         await manda({
           para,
           asunto: `[${etiqueta} · COMPLETO] ${partido}`,
-          html: informeHtml(informeVisto, { ...extras, diapositivas: cids, adjuntos: [...subidosAhora, ...adjuntosRival].map((a) => a.nombre) }),
-          texto: `${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}`,
-          imagenes: [
-            ...imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") })),
-            ...(abpActual?.ok ? abpActual.imagenes : []),
-          ],
-          adjuntosUrl: [...subidosAhora, ...adjuntosRival].map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
+          html,
+          texto: `${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${descargas.map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
+          /* Con ABP resumido, sus gráficos no se llaman desde el cuerpo: si
+             viajaran, saldrían como adjuntos sueltos sin nombre. */
+          imagenes: [...diapositivasCid, ...(abpActual?.ok && ligero < 2 ? abpActual.imagenes : [])],
+          adjuntosUrl: reparto.filter((d) => d.adjunto).map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
         });
+
+        const enlazados = reparto.filter((d) => !d.adjunto).length;
+
+        if (enlazados) {
+          toast.message(`${enlazados} ${enlazados === 1 ? "documento va" : "documentos van"} como enlace de descarga`, {
+            description: `No cabían adjuntos (${mb(TOPE_ADJUNTOS)} por correo). En el correo tienen su botón «Descargar».`,
+          });
+        }
       }
 
       toast.success(que.resumen && que.completo ? "Mandados los dos correos" : "Mandado", {
@@ -798,7 +892,7 @@ export function InformePartidoDialog({
             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/65">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Adjuntos del completo · además del resumen (PDF y PPT) y el completo en PDF</p>
-                <span className="text-[10px] text-white/35">{marcados.length ? `${mb(pesoAdjuntos)} de ${mb(TOPE_ADJUNTOS)}` : ""}</span>
+                <span className="text-[10px] text-white/35">{marcados.length ? `${mb(pesoAdjuntos)} · adjunto hasta ${mb(TOPE_ADJUNTOS)}, lo demás como enlace` : ""}</span>
               </div>
               {faltanDocs && !docsActual && !docsCargando ? (
                 <p className="mb-1 text-white/60">

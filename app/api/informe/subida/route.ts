@@ -14,7 +14,8 @@
  *
  *   - `2026/informes/<día>/`: lo que se sube para UN correo desde el diálogo
  *     del informe. Se barre solo: cada subida borra lo que tenga más de
- *     `DIAS_INFORMES` días.
+ *     `DIAS_INFORMES` días (30 desde el 04/10/2026: el correo lleva enlaces de
+ *     descarga a estos archivos y con 7 días morían antes de la vuelta).
  *   - `2026/rivales-docs/<equipo>/`: el PDF de la plantilla y el PPT del rival
  *     que se sacan en Plantillas rivales. Se guardan para que el informe del
  *     partido los adjunte solos; al sacar uno nuevo, el viejo se borra
@@ -30,7 +31,7 @@ export const dynamic = "force-dynamic";
 
 const BUCKET = "performance";
 
-const DIAS_INFORMES = 7;
+const DIAS_INFORMES = 30;
 
 const CARPETA_RIVALES = "2026/rivales-docs/";
 

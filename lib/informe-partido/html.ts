@@ -109,15 +109,75 @@ const cifrasJugador = (j: JugadorRival) =>
     .filter(Boolean)
     .join(" · ");
 
+/** Un documento del correo: adjunto, o sólo enlazado porque no cabe. */
+export type Descarga = {
+  nombre: string;
+  /** Sin URL (todavía no subido, en la vista previa) se nombra sin botón. */
+  url?: string;
+  tamano?: number | null;
+  /** `true` si va adjunto; `false` si sólo va el enlace (no cabía). */
+  adjunto: boolean;
+};
+
 /** Lo que el informe extenso lleva además de lo suyo. */
 export type ExtrasInforme = {
   /** El informe de ABP del microciclo, ya en HTML (sus imágenes van por `cid:abp-…`). */
   abpCuerpo?: string;
-  /** Los documentos que van adjuntos al correo, para nombrarlos. */
-  adjuntos?: string[];
+  /** Los documentos del correo, para nombrarlos y dar su enlace de descarga. */
+  adjuntos?: Descarga[];
   /** Los `cid` de las dos diapositivas, si van dentro del correo. */
   diapositivas?: string[];
+  /**
+   * Cuánto se aligera el cuerpo para que Gmail no lo recorte (pasa de ~102 KB
+   * y esconde el resto tras «Ver todo el mensaje», imágenes incluidas):
+   * 0 = entero; 1 = sin las tablas largas (tarea a tarea, resto de la
+   * plantilla, scouting por bloques); 2 = además, ABP en resumen. Lo quitado
+   * va en el PDF del completo, que viaja adjunto.
+   */
+  ligero?: 0 | 1 | 2;
 };
+
+/** Tamaño de un archivo para leerlo: «3,2 MB», «640 KB». */
+const peso = (bytes: number | null | undefined) =>
+  !bytes ? "" : bytes >= 1048576 ? `${(bytes / 1048576).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+/**
+ * El texto que enseña la bandeja de entrada al lado del asunto.
+ *
+ * Sin él, Gmail y el iPhone enseñaban «REAL MADRID CASTILLA · RESUMEN…»,
+ * que no dice nada. Va oculto y relleno de espacios de anchura cero para que
+ * el cliente no complete la línea con el resto del cuerpo.
+ */
+export const preheader = (texto: string) =>
+  `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0">${esc(texto)}${"&#8203;&nbsp;".repeat(60)}</div>`;
+
+/** Los documentos del correo como botones de descarga: valen aunque el cliente esconda los adjuntos. */
+export function bloqueDescargas(lista: Descarga[], titulo = "Documentos") {
+  if (!lista.length) return "";
+
+  const filas = lista
+    .map((d) => {
+      const ext = (/\.(pdf|pptx)$/i.exec(d.nombre)?.[1] ?? "").toUpperCase();
+
+      const marca = `<td width="46" valign="middle" style="padding:10px 0 10px 12px"><div style="width:38px;height:38px;border-radius:6px;background:${ext === "PPTX" ? "#C4512F" : ROJO};color:#FFFFFF;font:700 10px/38px Arial,sans-serif;text-align:center">${esc(ext || "DOC")}</div></td>`;
+
+      const datos = `<td valign="middle" style="padding:10px 12px"><p style="margin:0;font:700 14px/1.3 Arial,sans-serif;color:${NAVY}">${esc(d.nombre)}</p><p style="margin:2px 0 0;font:400 12px/1.4 Arial,sans-serif;color:${SUAVE}">${[
+        peso(d.tamano),
+        d.adjunto ? "adjunto a este correo" : "no cabía adjunto: descárgalo con el botón",
+      ]
+        .filter(Boolean)
+        .join(" · ")}</p></td>`;
+
+      const boton = d.url
+        ? `<td width="112" align="right" valign="middle" style="padding:10px 12px 10px 0"><a href="${esc(d.url)}" style="display:inline-block;padding:9px 14px;border-radius:6px;background:${NAVY};color:#FFFFFF;font:700 12px/1 Arial,sans-serif;text-decoration:none">Descargar</a></td>`
+        : "";
+
+      return `<tr><td style="padding:0 0 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CREMA};border:1px solid #E5E1D6;border-radius:8px"><tr>${marca}${datos}${boton}</tr></table></td></tr>`;
+    })
+    .join("");
+
+  return `<p style="margin:0 0 8px;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO};text-transform:uppercase">${esc(titulo)}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filas}</table>`;
+}
 
 export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
   const p = inf.partido;
@@ -125,6 +185,12 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
   const rival = p.rival || "el rival";
 
   const esPost = inf.momento === "post";
+
+  const ligero = extras.ligero ?? 0;
+
+  /* Lo que se quita para que Gmail no recorte el correo: dónde está. */
+  const enElPdf = (que: string) =>
+    `<p style="margin:10px 0 0;padding:10px 12px;border-left:3px solid #C8A96B;background:#FBF6EA;font:400 13px/1.5 Arial,sans-serif;color:${NAVY}">${esc(que)}: en el PDF del informe completo, adjunto a este correo.</p>`;
 
   /* ---------------- lo esencial ---------------- */
 
@@ -338,7 +404,7 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
               ],
             )}<div style="height:14px"></div>`
           : ""
-      }${inf.colectivo.bloques
+      }${ligero >= 1 ? enElPdf("El scouting entero, fase a fase, y sus conclusiones") : inf.colectivo.bloques
         .map(
           (b) =>
             `<p style="margin:14px 0 6px;font:700 14px/1.3 Arial,sans-serif;color:${NAVY}">${esc(b.fase)} · ${esc(b.bloque)}</p>${tabla(
@@ -347,7 +413,7 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
             )}`,
         )
         .join("")}${
-        inf.colectivo.conclusiones.length
+        ligero < 1 && inf.colectivo.conclusiones.length
           ? `<p style="margin:16px 0 6px;font:700 14px/1.3 Arial,sans-serif;color:${NAVY}">Conclusiones del scouting</p>${tabla(
               ["", ""],
               inf.colectivo.conclusiones.map((c) => [`<b>${esc(c.titulo)}</b>`, parrafo(c.texto)]),
@@ -381,7 +447,9 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
 
   const resto = inf.plantilla.filter((j) => !enOnce.has(j.clave));
 
-  const plantilla = resto.length
+  const plantilla = resto.length && ligero >= 1
+    ? enElPdf(`Los otros ${resto.length} jugadores de su plantilla, con su ficha`)
+    : resto.length
     ? tabla(
         ["", "Jugador", "Ficha", "Temporada", "Rasgos"],
         resto
@@ -432,7 +500,7 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
         m.contenidos.length
           ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Qué se ha trabajado</p>${lista(m.contenidos.map((c) => `${c.nombre}: ${c.minutos}′`))}`
           : ""
-      }<p style="margin:14px 0 6px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Tarea a tarea</p>${tabla(
+      }${ligero >= 1 ? enElPdf("La semana tarea a tarea") : `<p style="margin:14px 0 6px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Tarea a tarea</p>${tabla(
         ["Día", "Tarea", "Fase", "Contenido", "Min.", "Nota"],
         m.tareas.map((t) => [
           `${esc(t.dia)} <span style="color:${SUAVE}">${esc(t.md)}</span>`,
@@ -442,7 +510,7 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
           t.minutos ? `${t.minutos}′` : "—",
           t.evaluacion ? `<b>${t.evaluacion}</b>${t.analisis ? `<br><span style="color:${SUAVE}">${esc(t.analisis)}</span>` : ""}` : "—",
         ]),
-      )}`
+      )}`}`
     : "";
 
   /* ---------------- balón parado ---------------- */
@@ -457,19 +525,25 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
               .map((d) => `<a href="${esc(d.url)}" style="color:${ORO};font-weight:700">${esc(d.nombre)} (PDF)</a>`)
               .join(" · ")}</p>`
           : ""
-      }<p style="margin:10px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">El detalle de balón parado va en su propio informe, desde Microciclo de Balón Parado.</p>`
+      }${
+        extras.abpCuerpo ? enElPdf("El informe de balón parado del microciclo, entero y con sus gráficos") : `<p style="margin:10px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">El detalle de balón parado va en su propio informe, desde Microciclo de Balón Parado.</p>`
+      }`
     : "";
 
-  const abpEntero = extras.abpCuerpo
+  const abpEntero = extras.abpCuerpo && ligero < 2
     ? `<tr><td style="padding:26px 0 6px"><p style="margin:0 28px;font:700 12px/1.3 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:${ORO}">Balón parado · el informe del microciclo</p><p style="margin:4px 28px 12px;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">El mismo informe que sale de Microciclo de Balón Parado, entero.</p>${extras.abpCuerpo}</td></tr>`
     : "";
 
   const enlace = (x: { nombre: string; url: string }) => `<a href="${esc(x.url)}" style="color:${ORO};font-weight:700">${esc(x.nombre)}</a>`;
 
+  /* Los documentos que ya van arriba (adjuntos o con su botón) no se repiten aquí. */
+  const yaArriba = new Set((extras.adjuntos ?? []).map((d) => d.url).filter(Boolean));
+
+  const otrosDocs = inf.recursos.documentos.filter((d) => !yaArriba.has(d.url));
+
   const material = [
-    ...(extras.adjuntos?.length ? [`<p style="margin:0 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Van adjuntos a este correo</p>${lista(extras.adjuntos.map((n) => `📎 ${n}`))}`] : []),
-    ...(inf.recursos.documentos.length
-      ? [`<p style="margin:12px 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Documentos del rival</p><p style="margin:0;font:400 13px/1.8 Arial,sans-serif">${inf.recursos.documentos.map(enlace).join(" · ")}</p>`]
+    ...(otrosDocs.length
+      ? [`<p style="margin:12px 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Documentos del rival</p><p style="margin:0;font:400 13px/1.8 Arial,sans-serif">${otrosDocs.map(enlace).join(" · ")}</p>`]
       : []),
     ...(inf.recursos.videos.length
       ? [`<p style="margin:12px 0 6px;font:700 13px/1.4 Arial,sans-serif;color:${NAVY}">Vídeos del rival</p><p style="margin:0;font:400 13px/1.8 Arial,sans-serif">${inf.recursos.videos.map(enlace).join(" · ")}</p>`]
@@ -527,9 +601,15 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
         .join("")}</td></tr>`
     : "";
 
-  return numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
+  /* Los documentos, arriba y con botón: lo segundo que se busca. */
+  const descargas = extras.adjuntos?.length
+    ? `<tr><td style="padding:22px 32px 0">${bloqueDescargas(extras.adjuntos, extras.adjuntos.some((d) => d.adjunto) ? "Adjuntos y descargas" : "Documentos")}</td></tr>`
+    : "";
+
+  return numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${preheader(`${inf.sintesis.titular}${pr?.idea && !esPost ? ` · ${pr.idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
 ${cabecera}
 ${diapositivas}
+${descargas}
 ${
   esPost
     ? /* El post cuenta el partido y lo cruza con lo que se preparó. El scouting
@@ -568,16 +648,58 @@ ${
 }
 
 /** El correo del resumen: las dos diapositivas y una línea. */
-export function resumenHtml(inf: InformePartido, cids: string[]) {
+/**
+ * El correo del resumen: las dos diapositivas, lo esencial en texto y el PDF.
+ *
+ * En el móvil una diapositiva de 16:9 se lee mal a 360 px de ancho, así que
+ * debajo va lo esencial escrito (la idea o el titular y las claves), que es
+ * lo que se lee de verdad en el vestuario o en el autobús.
+ */
+export function resumenHtml(inf: InformePartido, cids: string[], opciones: { conCompleto?: boolean; descargas?: Descarga[] } = {}) {
   const p = inf.partido;
 
   const rival = p.rival || "el rival";
 
-  const titulo = `${inf.momento === "post" ? "Post partido" : "Previa"} · ${p.lado === "fuera" ? `${rival} - RM Castilla` : `RM Castilla - ${rival}`}`;
+  const esPost = inf.momento === "post";
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
-<tr><td style="padding:4px 4px 14px"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · RESUMEN</p><p style="margin:6px 0 0;font:700 22px/1.25 Arial,sans-serif;color:#F7F4EC">${esc(titulo)}</p><p style="margin:4px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#9AA3B2">${esc(inf.sintesis.titular)}. El informe completo llega en otro correo; las dos diapositivas van también en PDF adjunto.</p></td></tr>
+  const titulo = `${esPost ? "Post partido" : "Previa"} · ${p.lado === "fuera" ? `${rival} - RM Castilla` : `RM Castilla - ${rival}`}`;
+
+  const marcador = esPost && p.gf !== null && p.gc !== null ? (p.lado === "fuera" ? `${p.gc} – ${p.gf}` : `${p.gf} – ${p.gc}`) : "";
+
+  const subtitulo = [p.jornada ? `Jornada ${p.jornada}` : "", p.fechaTexto, marcador ? `Resultado ${marcador}` : ""].filter(Boolean).join(" · ");
+
+  const titular = inf.sintesis.titular.replace(/[.\s]+$/, "");
+
+  const idea = !esPost ? inf.pronostico?.idea ?? "" : "";
+
+  const claves = inf.sintesis.claves.slice(0, 5);
+
+  const textoClaves = claves.length
+    ? `<tr><td style="padding:14px 4px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F1E3D;border-radius:10px"><tr><td style="padding:18px 20px">${
+        idea
+          ? `<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">LA IDEA</p><p style="margin:4px 0 14px;font:700 17px/1.4 Arial,sans-serif;color:#F7F4EC">${esc(idea)}</p>`
+          : ""
+      }<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">${esPost ? "LO QUE NOS DEJA" : "CLAVES DEL PARTIDO"}</p><ol style="margin:6px 0 0;padding-left:20px;font:400 15px/1.55 Arial,sans-serif;color:#E6E9EF">${claves
+        .map((c) => `<li style="margin:0 0 4px">${esc(c)}</li>`)
+        .join("")}</ol></td></tr></table></td></tr>`
+    : "";
+
+  const descargas = opciones.descargas?.length
+    ? `<tr><td style="padding:14px 4px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:10px"><tr><td style="padding:16px 16px 8px">${bloqueDescargas(opciones.descargas, "Adjunto")}</td></tr></table></td></tr>`
+    : "";
+
+  const pie = opciones.conCompleto
+    ? "El informe completo, con todo el detalle y sus documentos, llega en otro correo."
+    : "Las dos diapositivas van también en PDF adjunto.";
+
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(`${titular}${idea ? ` · ${idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
+<tr><td style="padding:4px 4px 14px"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · ${esPost ? "POST PARTIDO" : "PREVIA"} · RESUMEN</p><p style="margin:6px 0 0;font:700 24px/1.25 Arial,sans-serif;color:#F7F4EC">${esc(titulo)}</p>${
+    subtitulo ? `<p style="margin:4px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#9AA3B2">${esc(subtitulo)}</p>` : ""
+  }<p style="margin:10px 0 0;font:700 16px/1.4 Arial,sans-serif;color:#F2E6C9">${esc(titular)}.</p></td></tr>
 ${cids.map((cid, i) => `<tr><td style="padding:6px 0"><img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px"></td></tr>`).join("")}
+${textoClaves}
+${descargas}
+<tr><td style="padding:16px 4px 4px;font:400 12px/1.5 Arial,sans-serif;color:#7D8798">${esc(pie)}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 

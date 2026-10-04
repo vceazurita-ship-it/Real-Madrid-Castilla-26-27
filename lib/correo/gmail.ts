@@ -106,7 +106,25 @@ function cabecera(valor: string) {
   /* Si es ASCII puro no hace falta envolverlo, y se lee mejor en crudo. */
   if (/^[\x20-\x7E]*$/.test(limpio)) return limpio;
 
-  return `=?UTF-8?B?${Buffer.from(limpio, "utf8").toString("base64")}?=`;
+  /* Cada trozo codificado no puede pasar de 75 caracteres (RFC 2047): con un
+     asunto largo, un solo trozo lo dejaba en blanco en algunos clientes. Se
+     corta por caracteres, nunca en medio de una letra con tilde. */
+  const trozos: string[] = [];
+
+  let actual = "";
+
+  for (const letra of limpio) {
+    if (Buffer.byteLength(actual + letra, "utf8") > 45) {
+      trozos.push(actual);
+      actual = "";
+    }
+
+    actual += letra;
+  }
+
+  if (actual) trozos.push(actual);
+
+  return trozos.map((t) => `=?UTF-8?B?${Buffer.from(t, "utf8").toString("base64")}?=`).join("\r\n ");
 }
 
 /** Base64 partido en líneas de 76, que es lo que admite un correo. */
@@ -123,23 +141,72 @@ function parteTexto(tipo: string, contenido: string) {
   ].join("\r\n");
 }
 
-function parteAdjunto(adjunto: Adjunto) {
-  const nombre = adjunto.nombre.replace(/"/g, "");
+/** La extensión que le toca a cada tipo de adjunto. */
+const EXTENSION: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "text/html": "html",
+};
 
-  const cabeceras = [
-    `Content-Type: ${adjunto.tipo}; name="${nombre}"`,
-    "Content-Transfer-Encoding: base64",
-  ];
+/**
+ * El nombre con su extensión.
+ *
+ * Un adjunto llamado «Informe del rival (PPT) · recién sacado» —sin `.pptx`—
+ * llegaba, pero Gmail no lo previsualizaba y el móvil no sabía con qué
+ * abrirlo: es el «adjunto que no se ve» del 04/10/2026.
+ */
+export function conExtension(nombre: string, tipo: string) {
+  const ext = EXTENSION[tipo];
+
+  const limpio = nombre.replace(/[\r\n"\\/]/g, "").trim() || "adjunto";
+
+  if (!ext || limpio.toLowerCase().endsWith(`.${ext}`)) return limpio;
+
+  return `${limpio}.${ext}`;
+}
+
+/**
+ * Las cabeceras del nombre del archivo, para cualquier cliente.
+ *
+ * Con acentos o «·» escritos tal cual dentro de `filename="…"`, Outlook y el
+ * correo del iPhone enseñaban «ATT00001.bin» o «noname». Va en tres formas: una
+ * versión sólo ASCII (la entiende todo el mundo), `filename*` del RFC 2231 con
+ * el nombre bueno (la prefieren los clientes modernos) y `name` en RFC 2047 en
+ * el `Content-Type`, que es lo que miran los antiguos.
+ */
+function nombreEnCabeceras(nombre: string) {
+  const ascii =
+    nombre
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^\x20-\x7E]/g, "-")
+      .replace(/"/g, "") || "adjunto";
+
+  if (ascii === nombre) return { name: `name="${nombre}"`, filename: `filename="${nombre}"` };
+
+  const rfc2231 = encodeURIComponent(nombre).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
+  return {
+    name: `name="${cabecera(nombre)}"`,
+    filename: `filename="${ascii}";\r\n filename*=UTF-8''${rfc2231}`,
+  };
+}
+
+function parteAdjunto(adjunto: Adjunto) {
+  const nombre = conExtension(adjunto.nombre, adjunto.tipo);
+
+  const { name, filename } = nombreEnCabeceras(nombre);
+
+  const cabeceras = [`Content-Type: ${adjunto.tipo}; ${name}`, "Content-Transfer-Encoding: base64"];
 
   if (adjunto.cid) {
     /* Va dentro del cuerpo, no colgando al final: `inline` es lo que evita que
        Outlook la enseñe además como adjunto suelto. */
-    cabeceras.push(
-      `Content-ID: <${adjunto.cid}>`,
-      `Content-Disposition: inline; filename="${nombre}"`,
-    );
+    cabeceras.push(`Content-ID: <${adjunto.cid}>`, `Content-Disposition: inline; ${filename}`);
   } else {
-    cabeceras.push(`Content-Disposition: attachment; filename="${nombre}"`);
+    cabeceras.push(`Content-Disposition: attachment; ${filename}`);
   }
 
   return [...cabeceras, "", base64EnLineas(adjunto.base64)].join("\r\n");
@@ -182,16 +249,7 @@ function envuelve(tipo: string, limite: string, partes: string[], extra = "") {
  * hay a quién poner.
  */
 export function escribeMensaje(correo: Correo, remitente?: string | null) {
-  const sello = Date.now().toString(36);
-
-  const alternativo = envuelve(
-    "multipart/alternative",
-    `castilla-alt-${sello}`,
-    [
-      parteTexto("text/plain", correo.texto),
-      parteTexto("text/html", correo.html),
-    ],
-  );
+  const sello = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
   const adjuntos = correo.adjuntos ?? [];
 
@@ -199,31 +257,38 @@ export function escribeMensaje(correo: Correo, remitente?: string | null) {
   const sueltos = adjuntos.filter((uno) => !uno.cid);
 
   /*
-  | Las imágenes del cuerpo —los gráficos del informe— van **con** el HTML
-  | dentro de un `related`, que es lo que le dice al cliente de correo que esas
-  | partes no son adjuntos sino el propio documento. Los adjuntos de verdad, si
-  | algún día los hay, cuelgan del `mixed` de fuera.
+  | La forma canónica (04/10/2026), de dentro a fuera:
+  |
+  |   mixed
+  |   ├─ alternative
+  |   │  ├─ text/plain
+  |   │  └─ related            ← el HTML y SUS imágenes, juntos
+  |   │     ├─ text/html
+  |   │     └─ image/jpeg (cid) …
+  |   └─ application/pdf …      ← los adjuntos de verdad
+  |
+  | Antes el `related` envolvía al `alternative` y decía `type="text/html"`
+  | cuando su raíz era otro multipart. Gmail lo perdonaba; Outlook y el correo
+  | del iPhone no: enseñaban las diapositivas como adjuntos sueltos, o el PDF
+  | no aparecía en la lista de adjuntos.
   */
-  const conImagenes = dentroDelCuerpo.length
-    ? envuelve(
-        "multipart/related",
-        `castilla-rel-${sello}`,
-        [alternativo, ...dentroDelCuerpo.map(parteAdjunto)],
-        '; type="text/html"',
-      )
-    : alternativo;
+  const html = parteTexto("text/html", correo.html);
+
+  const htmlConImagenes = dentroDelCuerpo.length
+    ? envuelve("multipart/related", `castilla-rel-${sello}`, [html, ...dentroDelCuerpo.map(parteAdjunto)], '; type="text/html"')
+    : html;
+
+  const alternativo = envuelve("multipart/alternative", `castilla-alt-${sello}`, [parteTexto("text/plain", correo.texto), htmlConImagenes]);
 
   const cuerpo = sueltos.length
-    ? envuelve("multipart/mixed", `castilla-mix-${sello}`, [
-        conImagenes,
-        ...sueltos.map(parteAdjunto),
-      ])
-    : conImagenes;
+    ? envuelve("multipart/mixed", `castilla-mix-${sello}`, [alternativo, ...sueltos.map(parteAdjunto)])
+    : alternativo;
 
   return [
     `To: ${remitente || "undisclosed-recipients:;"}`,
     `Bcc: ${correo.para.join(", ")}`,
     `Subject: ${cabecera(correo.asunto)}`,
+    `Date: ${new Date().toUTCString().replace("GMT", "+0000")}`,
     "MIME-Version: 1.0",
     cuerpo,
   ].join("\r\n");

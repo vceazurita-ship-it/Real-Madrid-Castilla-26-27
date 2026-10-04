@@ -16,7 +16,7 @@
 import type { NextRequest } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
-import { leeDestinatarios, type Adjunto, type Correo } from "@/lib/correo/gmail";
+import { conExtension, leeDestinatarios, type Adjunto, type Correo } from "@/lib/correo/gmail";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 
@@ -28,6 +28,17 @@ export const ADJUNTOS_PERMITIDOS = new Set([
 
 /** Tope de los adjuntos que llegan por URL, entre todos: Gmail admite 25 MB por correo. */
 export const MAX_ADJUNTOS = 25 * 1024 * 1024;
+
+/**
+ * Lo que de verdad cabe adjunto en UN correo (04/10/2026).
+ *
+ * Gmail manda hasta 35 MB por mensaje **ya codificado**, y la base64 engorda un
+ * tercio: 25 MB de adjuntos son 34 MB antes de contar las diapositivas y los
+ * gráficos de ABP, y el envío fallaba. Y muchos buzones de club (Exchange)
+ * rechazan lo que pase de 25 MB al recibir. Con 18 MB se queda en ~26 MB
+ * entero. Lo que no cabe, el navegador lo manda como enlace de descarga.
+ */
+export const MAX_ADJUNTOS_CORREO = 18 * 1024 * 1024;
 
 /** Un adjunto ya subido a Supabase (`lib/correo/subeAdjunto.ts`), por su URL pública. */
 export type AdjuntoUrl = { nombre: string; url: string; tipo: string };
@@ -81,7 +92,7 @@ export function leePeticionInforme(cuerpo: Record<string, unknown>): Correo | { 
 
     if (!ADJUNTOS_PERMITIDOS.has(tipo) || !base64 || !nombre) return [];
 
-    return [{ nombre, tipo, base64 }];
+    return [{ nombre: conExtension(nombre, tipo), tipo, base64 }];
   });
 
   return { para: buenas, asunto, html, texto, adjuntos: [...imagenes, ...sueltos] };
@@ -132,7 +143,7 @@ export function leeAdjuntosUrl(cuerpo: Record<string, unknown>): AdjuntoUrl[] | 
 
     if (!nombre) return { error: "Un adjunto ha llegado sin nombre." };
 
-    buenos.push({ nombre, url, tipo });
+    buenos.push({ nombre: conExtension(nombre, tipo), url, tipo });
   }
 
   return buenos;
@@ -157,8 +168,8 @@ export async function traeAdjuntosUrl(lista: AdjuntoUrl[]): Promise<Adjunto[]> {
 
     total += datos.length;
 
-    if (total > MAX_ADJUNTOS) {
-      throw new Error(`Los adjuntos pasan de ${MAX_ADJUNTOS / 1048576} MB, que es lo que admite un correo.`);
+    if (total > MAX_ADJUNTOS_CORREO) {
+      throw new Error(`Los adjuntos pasan de ${MAX_ADJUNTOS_CORREO / 1048576} MB, que es lo que cabe en un correo: manda el resto como enlace.`);
     }
 
     adjuntos.push({ nombre: uno.nombre, tipo: uno.tipo, base64: datos.toString("base64") });
