@@ -111,6 +111,16 @@ if "%SALIDA%"=="2" (
   goto :limpieza
 )
 
+if "%SALIDA%"=="6" (
+  echo. >> "%LOG%"
+  echo WYSCOUT ESTA CON OTRA CUENTA, SIN EL LAYOUT ALL: no se ha bajado nada. >> "%LOG%"
+  echo   Hay que entrar con la cuenta del Castilla: scripts\actualizar-wys.cmd >> "%LOG%"
+  echo   ^(cerrar sesion en la ventana de Wyscout y entrar con la buena^). >> "%LOG%"
+  echo WYSCOUT ESTA CON OTRA CUENTA ^(sin layout ALL^). Entra con la del Castilla.
+  set "CODIGO=6"
+  goto :limpieza
+)
+
 if not "%SALIDA%"=="0" (
   echo. >> "%LOG%"
   echo FALLO en la descarga ^(codigo %SALIDA%^). Se reintenta en la siguiente pasada. >> "%LOG%"

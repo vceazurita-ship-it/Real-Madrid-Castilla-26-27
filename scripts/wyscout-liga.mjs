@@ -2076,6 +2076,36 @@ async function principal() {
         console.log("  Wyscout: abre la ventana, mira dónde está el botón y");
         console.log("  ajusta el texto que busca este script.\n");
       }
+
+      /*
+      | Ninguno bajado NO es «bajado y publicado» (04/10/2026).
+      |
+      | Ese día la sesión era otra vez la del juvenil, sin el layout ALL: 0 de
+      | 20, y el .cmd seguía, releía la carpeta de siempre, publicaba y Ajustes
+      | decía «publicado». Ahora sale con su código y dice con qué cuenta está,
+      | que es lo único que hay que cambiar.
+      */
+      if (bien === 0 && lista.length && !bandera("parar")) {
+        const porLaCuenta = resultados.filter((r) => /layout ALL/i.test(r?.estado ?? "")).length;
+
+        const quien = await nav
+          .js(`
+            const t = (document.body || {}).innerText || "";
+            const m = t.match(/\\n\\s*([^\\n]{2,40})\\n\\s*Real Madrid CF\\n\\s*([^\\n]{2,40})\\n/);
+            return m ? m[1].trim() + " · " + m[2].trim() : "";
+          `)
+          .catch(() => "");
+
+        if (porLaCuenta >= Math.ceil(lista.length / 2)) {
+          console.log(`  CUENTA: ${quien || "otra cuenta"} (sin el layout ALL)`);
+
+          process.exitCode = 6;
+        } else {
+          process.exitCode = 1;
+        }
+
+        return;
+      }
     }
 
     /*

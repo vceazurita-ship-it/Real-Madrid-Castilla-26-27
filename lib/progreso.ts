@@ -108,7 +108,7 @@ export type EtapaHecha = { nombre: string; estado: "hecha" | "fallo" | "saltada"
 const FALLO: Record<Tarea, RegExp> = {
   quiniela: /FALLO/,
   rivales: /^FALLO en |^LA RED NO DEJA|^BESOCCER NO CONTESTA|^NO SE LLEGA A LA HOJA/,
-  wyscout: /^FALLO|CADUCADO|PUSH HA FALLADO/i,
+  wyscout: /^FALLO|CADUCADO|PUSH HA FALLADO|OTRA CUENTA/i,
   carpeta: /FALLO|no encuentro la carpeta/i,
   partido: /^✗ /,
 };

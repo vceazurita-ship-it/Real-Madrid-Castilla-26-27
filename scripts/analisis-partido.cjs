@@ -391,6 +391,7 @@ async function principal() {
       2: [false, "la sesión de Wyscout ha caducado: hay que entrar una vez a mano (scripts\\actualizar-wys.cmd)"],
       4: [false, "bajado, pero la subida (git push) ha fallado"],
       5: [false, "bajado, pero no se ha podido releer la carpeta"],
+      6: [false, "Wyscout está con otra cuenta (la del juvenil, sin el layout ALL): no se ha bajado nada; hay que entrar con la del Castilla (scripts\\actualizar-wys.cmd)"],
     };
 
     const [ok, dice] = MOTIVO[w.codigo] ?? [false, `la descarga ha fallado (código ${w.codigo})`];

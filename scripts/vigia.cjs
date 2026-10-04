@@ -512,6 +512,7 @@ const MOTIVO_WYSCOUT = {
   2: [false, "la sesión de Wyscout ha caducado: hay que entrar una vez a mano en el ordenador del club (scripts\\actualizar-wys.cmd)"],
   4: [false, "bajado y guardado, pero la subida (git push) ha fallado: queda sin publicar"],
   5: [false, "bajado, pero no se ha podido releer la carpeta: no se publica"],
+  6: [false, "Wyscout está abierto con otra cuenta (la del juvenil), que no tiene el layout ALL: no se ha bajado nada. Hay que entrar una vez con la cuenta del Castilla (scripts\\actualizar-wys.cmd)"],
 };
 
 async function haceWyscout() {
