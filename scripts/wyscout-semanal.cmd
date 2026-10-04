@@ -75,6 +75,22 @@ echo Datos de Wyscout · %DATE% %TIME% >> "%LOG%"
 echo ================================================= >> "%LOG%"
 
 rem ------------------------------------------------------------------
+rem  Solo una parte? (04/10/2026)
+rem ------------------------------------------------------------------
+rem  Desde Ajustes se puede pedir "repetir solo lo que fallo". Esto es una
+rem  cadena (bajar, releer, foto, publicar), asi que el vigia dice desde
+rem  donde con RMCF_DESDE (los numeros de lib\progreso.ts: 2 releer, 3 foto,
+rem  4 publicar) y se salta lo de antes, que ya esta bajado. Sin ella, todo.
+if not defined RMCF_DESDE set "RMCF_DESDE=0"
+if %RMCF_DESDE% GEQ 2 (
+  echo. >> "%LOG%"
+  echo La descarga, de la pasada anterior: se sigue desde la etapa %RMCF_DESDE%. >> "%LOG%"
+)
+if %RMCF_DESDE% GEQ 4 goto :publicar
+if %RMCF_DESDE% GEQ 3 goto :foto
+if %RMCF_DESDE% GEQ 2 goto :releer
+
+rem ------------------------------------------------------------------
 rem  1 y 2. Los equipos y los jugadores
 rem ------------------------------------------------------------------
 
@@ -109,6 +125,7 @@ rem ------------------------------------------------------------------
 rem  public/ lo sirve el CDN pero la funcion de Vercel no tiene esa carpeta en
 rem  su disco: sin este fichero la pantalla de DATA sale vacia desplegada.
 
+:releer
 echo. >> "%LOG%"
 echo --- Releyendo la carpeta --- >> "%LOG%"
 
@@ -128,6 +145,7 @@ rem ------------------------------------------------------------------
 rem  La descarga individual es acumulada; restando dos fotos sale lo que
 rem  paso en medio. Si falla no se para nada: se puede tomar otro dia.
 
+:foto
 echo. >> "%LOG%"
 echo --- Foto de la jornada --- >> "%LOG%"
 
@@ -143,6 +161,7 @@ rem  componente abierto, esta tarea no se lo lleva por delante. Por eso el
 rem  commit lleva las rutas detras: aunque hubiera otra cosa preparada con
 rem  "git add", en este commit solo entran los datos.
 
+:publicar
 echo. >> "%LOG%"
 echo --- Publicando --- >> "%LOG%"
 

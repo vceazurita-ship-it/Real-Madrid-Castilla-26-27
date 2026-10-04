@@ -85,7 +85,7 @@ function git(...args) {
       nuestra && suya,
       nuestra
         ? `${nuestra.partido} · ${Object.keys(nuestra.datos ?? {}).length} métricas${suya ? " y la fila del rival" : " — FALTA la fila del rival"}`
-        : "Wyscout todavía no trae el partido en public/data/analisis.json",
+        : "Wyscout todavía no trae el partido (suele publicarlo hacia el martes): lo completa la descarga semanal o «Traer y publicar» en Ajustes",
     );
   } catch (error) {
     apunta("Data Análisis · el partido (Wyscout)", false, `no se puede leer analisis.json (${error.message})`);
@@ -190,16 +190,45 @@ function git(...args) {
       const vacias = (filas, cols) =>
         filas.filter((f) => cols.some((c) => c in f && !String(f[c] ?? "").trim())).length;
 
-      const huecos =
-        vacias(hojas.bandaOf, ["Calidad_Envio", "Intencion", "Defensa_Rival", "Resultado_Final"]) +
-        vacias(hojas.bandaDef, ["Calidad_Envio", "Defensa", "Resultado_Final"]) +
-        vacias(hojas.piezasOf, ["Tipo_Envio", "Zona_Caida", "Resultado_Final"]) +
-        vacias(hojas.piezasDef, ["Tipo_Envio", "Zona_Caida", "Resultado_Final"]);
+      const CRITERIO = {
+        bandaOf: ["Calidad_Envio", "Intencion", "Defensa_Rival", "Resultado_Final"],
+        bandaDef: ["Calidad_Envio", "Defensa", "Resultado_Final"],
+        piezasOf: ["Tipo_Envio", "Zona_Caida", "Resultado_Final"],
+        piezasDef: ["Tipo_Envio", "Zona_Caida", "Resultado_Final"],
+      };
+
+      const vaciasHoja = Object.entries(CRITERIO).reduce((s, [clave, cols]) => s + vacias(hojas[clave], cols), 0);
+
+      /*
+      | Un «?» del análisis es «no se ve en el vídeo» (MANUAL.md) y en la hoja
+      | se escribe vacío: no es un hueco sin hacer. Hasta el 04/10/2026 contaba
+      | como tal, y un análisis completo salía «5 filas con columnas de
+      | criterio vacías» y se repetía entero por nada.
+      */
+      const conInterrogacion = Object.entries(CRITERIO).reduce((s, [clave, cols]) => {
+        const fichero = path.join(CARPETA, "hoja", `${clave}.tsv`);
+
+        if (!fs.existsSync(fichero)) return s;
+
+        const [cabecera, ...filas] = fs
+          .readFileSync(fichero, "utf8")
+          .trim()
+          .split(/\r?\n/)
+          .map((linea) => linea.split("\t"));
+
+        const indices = cols.map((c) => cabecera.indexOf(c)).filter((i) => i >= 0);
+
+        return s + filas.filter((f) => indices.some((i) => String(f[i] ?? "").trim() === "?")).length;
+      }, 0);
+
+      const huecos = Math.max(0, vaciasHoja - conInterrogacion);
 
       apunta(
         "ABP · análisis de cada jugada",
         huecos === 0,
-        huecos === 0 ? "calidad, intención, defensa y resultado puestos en todas" : `${huecos} filas con columnas de criterio vacías`,
+        huecos === 0
+          ? `calidad, intención, defensa y resultado puestos en todas${conInterrogacion ? ` (${conInterrogacion} con «?»: no se ve en el vídeo)` : ""}`
+          : `${huecos} filas con columnas de criterio vacías${conInterrogacion ? ` (además de ${conInterrogacion} con «?», que no se ven)` : ""}`,
       );
     }
   }

@@ -524,7 +524,7 @@ function etapaDeSeccion(nombre: string) {
   if (/^(Wyscout|Data Análisis)/i.test(nombre)) return 1;
   if (/Hudl/i.test(nombre)) return 2;
   if (/base del timeline/i.test(nombre)) return 3;
-  if (/análisis de vídeo/i.test(nombre)) return 4;
+  if (/análisis de vídeo|análisis de cada jugada/i.test(nombre)) return 4;
   if (/cámara táctica/i.test(nombre)) return null;
 
   /* ABP, hojas, faltas, robos, publicar: se rehacen escribiendo otra vez. */
@@ -538,7 +538,7 @@ function etapaDeSeccion(nombre: string) {
  */
 export function planRecomendado(
   tarea: Tarea,
-  encargo: { ok?: boolean; recorrido?: EtapaHecha[]; secciones?: { nombre: string; ok: boolean }[] } | undefined,
+  encargo: { ok?: boolean; recorrido?: EtapaHecha[]; secciones?: { nombre: string; ok: boolean; detalle?: string }[] } | undefined,
 ): number[] | null {
   if (!REPETIBLE[tarea] || !encargo || encargo.ok !== false || !encargo.recorrido?.length) return null;
 
@@ -551,6 +551,10 @@ export function planRecomendado(
   if (tarea === "partido") {
     for (const s of encargo.secciones ?? []) {
       if (s.ok) continue;
+
+      /* Lo que espera a que Wyscout publique el partido (suele ser el martes)
+         no se arregla repitiendo hoy: no se propone, aunque se puede marcar. */
+      if (/todavía no trae el partido|no hay foto de Wyscout posterior/i.test(s.detalle ?? "")) continue;
 
       const etapa = etapaDeSeccion(s.nombre);
 
