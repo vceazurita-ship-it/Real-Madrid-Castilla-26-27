@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-09-30
+ * Generado: 2026-10-04
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -530,6 +530,309 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "lejana",
         "entre": 10,
         "nota": "T2, min 93. Tras despejar el Alcorcón el córner de Meso (con Mestre subido) Rober Ibáñez conduce la contra y Jesús Fortea le alcanza y caen juntos por la banda izquierda del Castilla unos 15 m pasado el medio campo en campo del Alcorcón (táctica 5973-5974). La jugada va a revisión de Video Support (acaba en no roja) y la falta no se saca hasta unos 85 s después: Pitarch la cuelga desde Z4 a la espalda de la línea y Rachad remata forzado ante el portero (táctica 6058-6059). Todo el Alcorcón salvo el que la comete queda por delante del balón en el instante de la falta. Vídeo 98:55."
+      }
+    ]
+  },
+  {
+    "jornada": "LIGA 06",
+    "rival": "Atlético Madrileño",
+    "local": true,
+    "fecha": "2026-10-02",
+    "resultado": "3-2",
+    "clips": "Hudl · Castilla · «2026-10-02 Real Madrid Castilla - Atlético Madrid B 3 - 2» (timeline de Sportscode) y la cámara táctica J 06 -CASTILLA - ATL. MADRILEÑO.mov",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j06-atletico-madrileno",
+    "faltas": [
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "Tras el córner de Aguado (11:26), Martínez (16) comete falta en ataque sobre Miguel Cubo dentro del área pequeña del Atlético (11:29). La saca el portero del Atlético desde su área y el Castilla repliega (los 11 contados en la táctica al preparar el saque, s 745)."
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "Óscar (21) derriba a Miguel Cubo junto a la banda izquierda del Atlético, en su campo cerca de la línea media (13:39 TV). Cordero saca en corto y el Atlético la juega hacia atrás hasta su portero (abp-def-01)."
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "Fortea (2) hace falta sobre Miguel Cubo en la misma línea de medio campo pegado a la banda izquierda del Atlético y ve amarilla (14:14 TV). Cubo se queda en el suelo y el saque no aparece en las imágenes."
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "Yáñez (7) derriba a Edgar Alcañiz en campo del Atlético, por el carril izquierdo a unos 12 m de la línea media (30:59 TV). Alcañiz saca en corto y el Atlético circula en su campo (abp-def-03)."
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "Cestero (6) derriba por detrás a David Hidalgo unos 10 m por fuera del área del Atlético, algo escorado al lado lejano de la TV (37:00 TV). Hidalgo la saca rápido en corto (37:03) y el Atlético la juega atrás hacia su portero. Entre: los 10 de campo del Castilla menos Cestero, que queda a la altura del balón, más el portero (contado en TV y táctica, en la táctica se distinguen mal los colores)."
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "Tras el disparo de Pitarch que para Astralaga (42:27), Pitarch (24) presiona y derriba a Miguel Cubo junto al banderín de córner del Atlético, en el lado lejano de la TV (42:31). El saque no sale en las imágenes (Hudl: lo saca Pan Pablo unos 20 s después). La táctica muestra otra jugada, así que no se puede contar entre (casi todo el Castilla queda por detrás del balón)."
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": null,
+        "nota": "En el descuento de la 1a parte (49:21 TV), Helguera cae junto a la banda cercana a unos 30 m de la portería del Castilla en el duelo con Aguado (3) tras la pared con Kamate. Hudl apunta la falta a Cestero (6) por su entrada a Helguera en el círculo central (49:16), con ventaja. Miguel Cubo la saca en corto hacia atrás (abp-def-04) y el Atlético circula. En la táctica la banda queda fuera de plano, así que no se cuentan todos."
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "Óscar (21) derriba por detrás a Cordero (17) junto a la banda izquierda del Atlético, unos 15-20 m dentro de su campo (TV 50:35, min 51). Alcañiz (20) la saca en corto hacia atrás a Pan Pablo y el Atlético reinicia desde el portero. Entre contado en la táctica 3497 (la falta cae 1-2 s después del último fotograma, seg estimado): Óscar, 4 jugadores más y Mestre."
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "David Hidalgo (15) conduce junto al círculo central, ya en campo del Atlético, supera la entrada de un primer defensor (Martínez según Hudl) y cae en el choque con Pitarch (24) (TV 52:45, min 53). Hidalgo la saca rápido en corto y el Atlético sigue la posesión hacia su izquierda. La falta no sale en la ventana de la táctica (cae después), no se puede contar entre."
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "PENALTI: Cordero filtra para Miguel Cubo (10), que entra en el área por el lado derecho del ataque del Atlético y cae ante Aguado (3) (TV 62:39, min 63), el árbitro señala el punto a las 62:43. La táctica arranca con la jugada ya parada (protestas en el área), no se ve el instante de la falta ni se puede contar entre. El penalti se lanza minutos después (abp-def-07)."
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "Cestero (6) derriba a Sergio Diez junto a la banda derecha del ataque del Atlético, unos metros dentro del campo del Castilla (67:31 TV). Jorge Castillo la saca en corto hacia Cordero, que lanza en largo (abp-def-08)."
+      },
+      {
+        "clip": "def-c12",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "Martínez (16) derriba a Jorge Castillo en el centro, junto al círculo central en campo del Castilla, y ve amarilla (la falta no sale en las imágenes: sólo la repetición y la preparación, 73:35-73:52 TV). Jorge Castillo la saca en corto hacia atrás a David Hidalgo (74:12 TV) y el Atlético circula (abp-def-09). Los 11 del Castilla contados en la táctica en el saque (s 4843)."
+      },
+      {
+        "clip": "def-c13",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 11,
+        "nota": "Pitarch (24) derriba a Romeo Hueso pegado a la banda derecha del ataque del Atlético, a unos 30 m de la portería del Castilla (74:27 TV). Arnau Solà la bota al área (75:09 TV) y Mestre la atrapa a la altura del penalti (abp-def-10). Los 11 del Castilla, contados en la táctica en el saque (s 4898), están por delante del balón."
+      },
+      {
+        "clip": "def-c14",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "Carvajal (19) comete falta sobre Pan Pablo en un balón dividido en campo del Atlético, por su carril izquierdo a unos 30 m de su portería, con el Castilla atacando tras un saque de puerta de Mestre (77:14 TV). Pan Pablo la saca en corto a David Hidalgo y el Atlético sale jugando (abp-def-11)."
+      },
+      {
+        "clip": "def-c15",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "Pitarch (24) derriba a Koke en el círculo central, a un par de metros dentro del campo del Castilla, y ve amarilla (84:47-84:48 TV). Jorge Castillo la saca en corto a David Hidalgo (85:35 TV) y el Atlético sigue jugando (abp-def-12). Táctica: alt (la principal muestra otra acción). Entre: 7 de campo más Mestre."
+      },
+      {
+        "clip": "def-c16",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "Ciria derriba a Yaakobishvili junto a la banda derecha del ataque del Atlético, unos 10-15 m dentro del campo del Atlético, y ve amarilla (86:05 TV). Yaakobishvili la saca hacia atrás a su portero Astralaga (86:47 TV) y el Atlético reinicia (abp-def-13). Táctica: alt (la principal muestra otra acción). Entre: 8 de campo más Mestre."
+      },
+      {
+        "clip": "def-c17",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "Cestero comete falta sobre Miguel Cubo en la banda derecha del ataque del Atlético, justo dentro del campo del Castilla junto a la línea media (92:43-92:46 TV, con ventaja breve). El Atlético la saca en corto a las 92:59: Romeo Hueso se la da a Jorge Castillo, que vuelve hacia su campo para seguir jugando. Táctica: alt (la principal muestra la falta de la c14). Entre contados en el saque (5969), donde se ve al portero: 8 de campo más el portero. En el instante de la falta (5955) eran 6 de campo y el portero fuera de cuadro."
+      },
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "Min 8 (07:08 TV): Kamate (21) derriba a Cestero junto a la banda lejana unos metros pasado el medio campo en campo del Atlético. Se saca en corto y rápido (Fortea-Cestero) y el Castilla sigue jugando por fuera hasta Yáñez."
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 3,
+        "nota": "Min 10 (09:50 TV): Arnau Solà (22) hace falta a Yáñez pegado a la banda derecha unos 10 m dentro del campo propio del Castilla. Fortea la saca rápida en corto hacia atrás (Óscar-Mestre) y el Castilla reinicia la salida. Entre aproximado: un rojiblanco casi a la altura del balón."
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": 5,
+        "nota": "Min 13 (12:08 TV): Edgar Alcañiz (20) derriba a Leiva unos 8 m fuera del área, escorado a la izquierda (a la altura del lateral del área). Aguado la tira directa a los 12:56 y la barrera de 4 la bloquea, el rechace lo recoge Pitarch y no hay ocasión."
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "Tras un córner del Atlético, Hidalgo (15) derriba a Pitarch (24) cuando el Castilla salía a la contra a unos 35-40 m de su portería, carril izquierdo (TV 19:50), y ve amarilla. En la táctica no se ve la mitad del Atlético (faltan su portero y algún zaguero), a ojo unos 5 entre balón y portería."
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "Sergio Diez (2) cae sobre Aguado (3) junto al banderín de córner del Castilla, lado izquierdo, al disputar un balón largo del Atlético (TV 22:50). La saca en largo el portero del Castilla desde junto a su línea de fondo, con todo el Atlético salvo Diez por delante del balón."
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "Helguera (16) derriba a Pitarch (24) junto al círculo central, en campo del Castilla (TV 27:04-27:05). Mario la saca en corto unos 20 s después (abp-of-04) y el Castilla sigue jugando. Entre contado en la táctica en el saque (seg 1691), con el Atlético entero por delante."
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "Helguera (16) derriba a Cestero (6) hacia el 33:10 cuando este conducía reculando hacia su campo, unos 10 m dentro del campo del Castilla por el carril izquierdo. La saca Naasei en corto para seguir jugando mientras la TV emite repeticiones. La táctica no muestra la jugada (desincronizada), entre sin contar."
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "Sergio Diez (2), con Alcañiz (20) encima, frena a Pitarch (24) en conducción hacia el 33:42, unos 8-10 m dentro del campo del Atlético por el carril izquierdo, el árbitro da ventaja y luego vuelve a la falta. Aguado la saca en corto atrás a Pitarch (33:55) y el Castilla mantiene la posesión. La táctica no muestra la jugada."
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "Tras un saque de banda de Yáñez, Helguera (16) derriba a Fortea (2) pegado a la banda derecha frente a los banquillos, unos 10 m dentro del campo del Atlético (40:36). Fortea la saca en corto hacia Pitarch (41:08) y el Castilla circula atrás. La táctica no muestra la jugada."
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "Tras una llegada del Atlético al área del Castilla en el añadido de la 1ª parte, Kamate (21) derriba a Aguado (3) en la carrera por el balón junto al banderín de córner izquierdo del Castilla (48:40). Con el balón en su propia línea de fondo, los 11 del Atlético quedan entre el balón y su portería (deducido, la táctica no muestra la jugada)."
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "Alcañiz (20) derriba a Cestero (6) en el carril izquierdo, unos metros dentro del campo del Castilla junto a la línea de medio campo (TV 53:43), y ve amarilla. Cestero se queda en el suelo y el Castilla la saca en corto y sigue la jugada (seg 3679 de la táctica, no se ve quién la saca). Entre contado en el instante de la falta (seg 3660, Cestero ya en el suelo): 6 del Atlético más el portero por delante del balón, con Alcañiz a la altura de la falta (en el saque ya estaban los 11 por delante). Táctica: re-corte."
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "Kamate (21) derriba a Aguado (3) dentro del área, en su lado izquierdo, después de que Aguado recibiera el pase de Leiva (TV 54:44-54:45), y el árbitro pita penalti. Lo lanza el propio Aguado mucho después, a los 60:42 de la TV, y marca el 2-1 (abp-of-08). La táctica empieza ya con los jugadores protestando en el área, así que no se puede contar el entre. El re-corte empieza en el seg 3721 con Aguado ya en el suelo dentro del área y los del Castilla pidiendo penalti, un instante después de la falta. Táctica: tampoco se ve."
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "Jorge Castillo (8) derriba a Fortuny tras la recuperación de Mario, en el centro a unos 30 m de la portería del Castilla (82:18-82:19 TV). El Castilla la saca en corto y reinicia desde atrás (Mestre recibe en el área en la táctica). Entre contados en la táctica (principal, única) en el instante de la falta: 8 de campo más el portero."
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "Cuellar Pérez (38) derriba a Cestero junto al círculo central, recién pasada la línea media (91:01 TV). El árbitro da ventaja, para el juego a las 91:06 y le enseña amarilla. Cestero la saca en largo a las 91:34 hacia la banda izquierda y Romeo Hueso la despeja de cabeza a banda. Táctica: alt (la principal muestra otra jugada). La falta cae justo antes del primer fotograma (5852, Cestero ya en el suelo). Entre contados en el saque (5884): los 10 de campo y el portero, todos por delante del balón."
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "Arnau Solà (22) derriba a Fortuny cuando este sale conduciendo por la derecha, a unos 25-30 m de la portería del Castilla (98:26 TV), tras robar el balón al borde del área. Táctica: principal (la alt no muestra la falta). Entre contados en el instante de la falta: 6 de campo más el portero. Uno más está a la altura del balón y no lo cuento."
       }
     ]
   }

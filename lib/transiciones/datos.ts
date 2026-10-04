@@ -5,7 +5,7 @@
  * scripts/transiciones-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES.
  *
- * Generado: 2026-09-30
+ * Generado: 2026-10-04
  */
 
 export type Accion = "ADELANTE" | "HORIZONTAL_ATRAS" | "DESPEJE" | "PERDIDA";
@@ -2421,6 +2421,503 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "detalle": "90'59\" · Recuperación con presión de Joan Martínez en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
         "bloque": "b05700"
+      }
+    ]
+  },
+  {
+    "jornada": "J6",
+    "rival": "Atlético Madrileño",
+    "local": true,
+    "fecha": "2026-10-02",
+    "resultado": "3-2",
+    "video": "C:/Users/Usuario/Downloads/RMCF CASTILLA/PARTIDOS/J 06 -CASTILLA - ATL. MADRILEÑO.mov",
+    "segundosVideo": 6424,
+    "bloquesTotales": 22,
+    "notas": [
+      "Sacado del timeline de Hudl (el etiquetado de Wyscout del partido), no mirando imagen a imagen: salen TODOS los robos del partido.",
+      "Cuenta como robo la interceptación, el duelo defensivo que acaba con el balón nuestro y la recuperación con el rival presionado o tras nuestra pérdida. No cuentan las del portero, las que vienen de un despeje, un rechace o un balón parado del rival, ni las faltas pitadas.",
+      "El segundo es el del vídeo táctico del club, atado al de Hudl por tramos medidos jugada a jugada.",
+      "Vídeo táctico (dron) de 6424 s. Desfase táctica − Hudl medido con córners, penaltis y jugadas revisadas: +49/+51 s en toda la 1ª parte.",
+      "Hacia el seg 3020-3085 de la táctica el dron aterriza (plano desde el suelo y pared del almacén): se pierde el final de la 1ª parte; la 2ª parte arranca con desfase +128 s que crece hasta +134 s (seg 4078, penalti del 2-1).",
+      "Corte hacia el seg 4245 de la táctica (cambio a plano lejano nocturno): desfase +76 s; llega a +78 s hacia el min 80-95.",
+      "Corte hacia el seg 6162 de la táctica (plano nocturno lejano): se pierden unos 45 s del juego (Hudl 6090-6130, incluido el saque de banda del Castilla del 96:44); desde ahí desfase +35 s hasta el final (córners del descuento en los seg 6353 y 6383).",
+      "Orientación en la táctica: en las dos partes el Castilla ataca la portería de arriba (lejana) y defiende la de abajo (cercana): el dron cambia de fondo en el descanso. En la TV el Castilla ataca hacia la izquierda en la 1ª parte y hacia la derecha en la 2ª.",
+      "Castilla de blanco; Atlético Madrileño con rayas rojiblancas y pantalón azul."
+    ],
+    "goles": [
+      {
+        "seg": 551,
+        "de": "castilla",
+        "texto": "1-0 (min 9). Gol del Castilla en jugada (Hudl: posesión de Mario Rivas y Ángel Carvajal). Segundo aproximado (±3 s): fin de la jugada de Hudl + desfase."
+      },
+      {
+        "seg": 2765,
+        "de": "rival",
+        "texto": "1-1 (min 45+1). Gol del Atlético Madrileño tras una posesión larga desde su portero (45 s). Segundo aproximado (±3 s)."
+      },
+      {
+        "seg": 4078,
+        "de": "castilla",
+        "texto": "2-1 (min 61). Penalti de Aguado, raso a la derecha del portero; Astralaga se tira al otro lado. Visto en la táctica."
+      },
+      {
+        "seg": 4352,
+        "de": "rival",
+        "texto": "2-2 (min 66). Penalti de David Hidalgo que para Mestre; Koke marca al rechace. Penalti en el seg 4340 de la táctica; gol aproximado."
+      },
+      {
+        "seg": 4633,
+        "de": "castilla",
+        "texto": "3-2 (min 71). Gol del Castilla en una transición larga desde Mestre (Naasei, Cestero, Pitarch, Leiva, Carvajal, Fortea, Yáñez). Segundo aproximado (±3 s)."
+      }
+    ],
+    "id": "j06-atletico-madrileno",
+    "bloquesCerrados": 22,
+    "segundosRevisados": 6424,
+    "robos": [
+      {
+        "seg": 58,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "0'09\" · Interceptación de Álvaro Leiva en campo rival por la izquierda, acaba en ultimo tercio",
+        "confianza": "baja",
+        "bloque": "b00000"
+      },
+      {
+        "seg": 186,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "AREA",
+        "duracion": 19,
+        "pases": "5",
+        "detalle": "2'16\" · Duelo ganado de Daniel Yáñez en medio campo por el centro, sigue Oscar Naasei, acaba en area",
+        "confianza": "alta",
+        "bloque": "b00000"
+      },
+      {
+        "seg": 230,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 0,
+        "pases": "0",
+        "detalle": "3'00\" · Interceptación de Jesús Fortea en campo propio por la derecha, acaba en perdida",
+        "confianza": "baja",
+        "bloque": "b00000"
+      },
+      {
+        "seg": 400,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 2,
+        "pases": "0",
+        "detalle": "5'51\" · Recuperación tras pérdida de Álvaro Leiva en medio campo por el centro, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b00300"
+      },
+      {
+        "seg": 700,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 5,
+        "pases": "1",
+        "detalle": "10'51\" · Recuperación tras pérdida de Diego Aguado en campo rival por la izquierda, acaba en ultimo tercio",
+        "confianza": "alta",
+        "bloque": "b00600"
+      },
+      {
+        "seg": 841,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 10,
+        "pases": "0",
+        "detalle": "13'11\" · Interceptación de Álvaro Leiva en campo rival por la izquierda, acaba en ultimo tercio",
+        "confianza": "alta",
+        "bloque": "b00600"
+      },
+      {
+        "seg": 1471,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "AREA",
+        "duracion": 22,
+        "pases": "7",
+        "detalle": "23'40\" · Recuperación con presión de Jesús Fortea en campo propio por la derecha, acaba en area",
+        "confianza": "media",
+        "bloque": "b01200"
+      },
+      {
+        "seg": 1501,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 41,
+        "pases": "13",
+        "detalle": "24'10\" · Recuperación tras pérdida de Álvaro Leiva en campo rival por la izquierda, acaba en ultimo tercio",
+        "confianza": "alta",
+        "bloque": "b01500"
+      },
+      {
+        "seg": 1550,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "REMATE",
+        "duracion": 17,
+        "pases": "5",
+        "detalle": "24'58\" · Recuperación con presión de Álvaro Leiva en campo rival por la izquierda, acaba en remate de Álvaro Leiva",
+        "confianza": "media",
+        "bloque": "b01500"
+      },
+      {
+        "seg": 1749,
+        "zona": "medio campo",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 41,
+        "pases": "14",
+        "detalle": "28'17\" · Interceptación de Oscar Naasei en medio campo por la derecha, acaba en ultimo tercio",
+        "confianza": "alta",
+        "bloque": "b01500"
+      },
+      {
+        "seg": 1888,
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "30'36\" · Interceptación de Diego Aguado en campo propio por la izquierda, acaba en perdida",
+        "confianza": "baja",
+        "bloque": "b01800"
+      },
+      {
+        "seg": 1947,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 4,
+        "pases": "2",
+        "detalle": "31'35\" · Interceptación de Mario Rivas en campo propio por el centro, sigue Álvaro Leiva, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b01800"
+      },
+      {
+        "seg": 1992,
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "ATRAS_PORTERO",
+        "duracion": 10,
+        "pases": "2",
+        "detalle": "32'21\" · Interceptación de Álvaro Leiva en campo propio por la izquierda, acaba en atras portero",
+        "confianza": "alta",
+        "bloque": "b01800"
+      },
+      {
+        "seg": 2305,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "AREA",
+        "duracion": 5,
+        "pases": "2",
+        "detalle": "37'33\" · Duelo ganado de Daniel Yáñez en campo propio por la derecha, sigue Daniel Yáñez, acaba en area",
+        "confianza": "alta",
+        "bloque": "b02100"
+      },
+      {
+        "seg": 2583,
+        "zona": "medio campo",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "REMATE",
+        "duracion": 9,
+        "pases": "2",
+        "detalle": "42'12\" · Interceptación de Martínez en medio campo por la derecha, acaba en remate de Thiago Pitarch",
+        "confianza": "alta",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 2654,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "REMATE",
+        "duracion": 32,
+        "pases": "8",
+        "detalle": "43'22\" · Duelo ganado de Ángel Carvajal en campo propio por el centro, sigue Martínez, acaba en remate de Jesús Fortea",
+        "confianza": "alta",
+        "bloque": "b02400"
+      },
+      {
+        "seg": 2906,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "DESPEJE",
+        "desenlace": "PERDIDA",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "47'35\" · Duelo ganado de Diego Aguado en campo propio por el centro, sigue Oscar Naasei, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b02700"
+      },
+      {
+        "seg": 3172,
+        "zona": "campo rival",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "AREA",
+        "duracion": 12,
+        "pases": "2",
+        "detalle": "45'29\" · Recuperación tras pérdida de Jesús Fortea en campo rival por la derecha, acaba en area",
+        "confianza": "alta",
+        "bloque": "b03000"
+      },
+      {
+        "seg": 3326,
+        "zona": "campo rival",
+        "carril": "centro",
+        "accion": "PERDIDA",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "48'02\" · Interceptación de Álvaro Leiva en campo rival por el centro, acaba en ultimo tercio",
+        "confianza": "baja",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 3441,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "ADELANTE",
+        "desenlace": "AREA",
+        "duracion": 22,
+        "pases": "6",
+        "detalle": "49'55\" · Recuperación con presión de Jorge Cestero en medio campo por la izquierda, acaba en area",
+        "confianza": "media",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 3518,
+        "zona": "medio campo",
+        "carril": "derecha",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 3,
+        "pases": "0",
+        "detalle": "51'11\" · Interceptación de Oscar Naasei en medio campo por la derecha, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 3576,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "52'10\" · Interceptación de Diego Aguado en medio campo por la izquierda, acaba en perdida",
+        "confianza": "baja",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 3582,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "DESPEJE",
+        "desenlace": "PERDIDA",
+        "duracion": 3,
+        "pases": "0",
+        "detalle": "52'16\" · Interceptación de Mario Rivas en campo propio por el centro, sigue Mario Rivas, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b03300"
+      },
+      {
+        "seg": 4528,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "68'57\" · Recuperación tras pérdida de Oscar Naasei en campo propio por la derecha, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b04500"
+      },
+      {
+        "seg": 5116,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 33,
+        "pases": "0",
+        "detalle": "78'42\" · Interceptación de Jesús Fortea en campo propio por la derecha, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b05100"
+      },
+      {
+        "seg": 5257,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "DESPEJE",
+        "desenlace": "PERDIDA",
+        "duracion": 11,
+        "pases": "0",
+        "detalle": "81'04\" · Interceptación de Mario Rivas en campo propio por el centro, sigue Thiago Pitarch, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b05100"
+      },
+      {
+        "seg": 5430,
+        "zona": "campo propio",
+        "carril": "derecha",
+        "accion": "ADELANTE",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 9,
+        "pases": "3",
+        "detalle": "83'56\" · Recuperación con presión de Oscar Naasei en campo propio por la derecha, acaba en ultimo tercio",
+        "confianza": "media",
+        "bloque": "b05400"
+      },
+      {
+        "seg": 5449,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "PERDIDA",
+        "duracion": 10,
+        "pases": "3",
+        "detalle": "84'15\" · Recuperación con presión de Álvaro Lezcano en campo propio por el centro, acaba en perdida",
+        "confianza": "media",
+        "bloque": "b05400"
+      },
+      {
+        "seg": 5615,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 1,
+        "pases": "0",
+        "detalle": "87'02\" · Interceptación de Alexis Ciria en medio campo por la izquierda, acaba en perdida",
+        "confianza": "baja",
+        "bloque": "b05400"
+      },
+      {
+        "seg": 5691,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 12,
+        "pases": "2",
+        "detalle": "88'17\" · Recuperación tras pérdida de Álvaro Lezcano en campo rival por la izquierda, acaba en ultimo tercio",
+        "confianza": "alta",
+        "bloque": "b05400"
+      },
+      {
+        "seg": 5792,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "ADELANTE",
+        "desenlace": "PERDIDA",
+        "duracion": 21,
+        "pases": "1",
+        "detalle": "89'59\" · Recuperación con presión de Oscar Naasei en campo propio por el centro, acaba en perdida",
+        "confianza": "media",
+        "bloque": "b05700"
+      },
+      {
+        "seg": 5926,
+        "zona": "medio campo",
+        "carril": "centro",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "AREA",
+        "duracion": 8,
+        "pases": "6",
+        "detalle": "92'12\" · Recuperación con presión de Jorge Cestero en medio campo por el centro, acaba en area",
+        "confianza": "media",
+        "bloque": "b05700"
+      },
+      {
+        "seg": 5938,
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "ULTIMO_TERCIO",
+        "duracion": 9,
+        "pases": "0",
+        "detalle": "92'24\" · Interceptación de Pol Fortuny en campo rival por la izquierda, acaba en ultimo tercio",
+        "confianza": "alta",
+        "bloque": "b05700"
+      },
+      {
+        "seg": 6026,
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "accion": "PERDIDA",
+        "desenlace": "FUERA",
+        "duracion": 14,
+        "pases": "0",
+        "detalle": "93'52\" · Interceptación de Rachad Fettal en medio campo por la izquierda, acaba en fuera",
+        "confianza": "alta",
+        "bloque": "b06000"
+      },
+      {
+        "seg": 6069,
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "AREA",
+        "duracion": 14,
+        "pases": "3",
+        "detalle": "94'35\" · Duelo ganado de Álvaro Lezcano en campo propio por la izquierda, sigue Álvaro Lezcano, acaba en area",
+        "confianza": "alta",
+        "bloque": "b06000"
+      },
+      {
+        "seg": 6088,
+        "zona": "campo rival",
+        "carril": "derecha",
+        "accion": "HORIZONTAL_ATRAS",
+        "desenlace": "AREA",
+        "duracion": 15,
+        "pases": "5",
+        "detalle": "94'54\" · Recuperación tras pérdida de Alexis Ciria en campo rival por la derecha, acaba en area",
+        "confianza": "alta",
+        "bloque": "b06000"
+      },
+      {
+        "seg": 6316,
+        "zona": "campo propio",
+        "carril": "centro",
+        "accion": "PERDIDA",
+        "desenlace": "PERDIDA",
+        "duracion": 37,
+        "pases": "0",
+        "detalle": "99'25\" · Interceptación de Álvaro Lezcano en campo propio por el centro, acaba en perdida",
+        "confianza": "alta",
+        "bloque": "b06300"
       }
     ]
   }
