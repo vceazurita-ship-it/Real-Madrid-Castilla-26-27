@@ -1922,7 +1922,36 @@ async function principal() {
   | ver ya las cookies puestas: si no, diría que hay que entrar cuando no hace
   | falta. Si las cookies han caducado por su cuenta, no estorban.
   */
-  if (await reponeLasCookies(nav)) {
+  /*
+  | `--cambiar-cuenta` (04/10/2026): para entrar con otra cuenta de Wyscout.
+  |
+  | La sesión guardada se vuelve a meter en cada arranque, así que abrir la
+  | ventana y cerrar la sesión a mano no bastaba: la siguiente pasada volvía a
+  | entrar con la de antes (la del juvenil, sin el layout ALL). Aquí se borran
+  | las cookies de este perfil —es sólo de Wyscout— y la copia guardada se
+  | aparta, y se espera a que alguien entre con la buena.
+  */
+  if (bandera("cambiar-cuenta")) {
+    try {
+      if (fs.existsSync(FICHERO_SESION)) {
+        fs.renameSync(FICHERO_SESION, FICHERO_SESION.replace(/\.json$/, `-anterior-${new Date().toISOString().slice(0, 10)}.json`));
+      }
+    } catch {
+      /* si no se puede apartar, se pisa al acabar */
+    }
+
+    await nav.manda("Network.clearBrowserCookies").catch(() => {});
+
+    console.log("  Sesión anterior borrada: entra con la cuenta del Castilla.\n");
+
+    try {
+      await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" });
+
+      await espera(4000);
+    } catch {
+      /* esperaLogin lo ve igual */
+    }
+  } else if (await reponeLasCookies(nav)) {
     console.log("  sesión repuesta de la última vez\n");
 
     /* Con las cookies puestas hay que recargar: la página se abrió sin ellas. */
@@ -1944,6 +1973,29 @@ async function principal() {
       process.exitCode = 2;
 
       return;
+    }
+
+    /*
+    | Al cambiar de cuenta, la sesión nueva se guarda en cuanto se entra, no al
+    | final: si la descarga se rompe después, la cuenta buena ya queda puesta.
+    | Con `--solo-entrar` se para aquí: lo demás lo hace el botón de Ajustes.
+    */
+    if (bandera("cambiar-cuenta")) {
+      const quien = await nav
+        .js(`
+          const t = (document.body || {}).innerText || "";
+          const m = t.match(/\\n\\s*([^\\n]{2,40})\\n\\s*Real Madrid CF\\n\\s*([^\\n]{2,40})\\n/);
+          return m ? m[1].trim() + " · " + m[2].trim() : "";
+        `)
+        .catch(() => "");
+
+      console.log(`  CUENTA: ${quien || "(no se lee el nombre)"}\n`);
+
+      await guardaLasCookies(nav);
+
+      console.log("  Sesión nueva guardada.\n");
+
+      if (bandera("solo-entrar")) return;
     }
 
     /*
