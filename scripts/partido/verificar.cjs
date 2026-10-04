@@ -70,6 +70,21 @@ function git(...args) {
 (async () => {
   /* ---------------- DATA ANÁLISIS (WYSCOUT) ---------------- */
 
+  /*
+  | ¿No está porque Wyscout aún no lo ha publicado, o porque nuestra descarga
+  | no ha bajado nada? (04/10/2026) Lo dice la fecha del informe del
+  | Castilla: si es de DESPUÉS del partido y no lo trae, es esperar a Wyscout;
+  | si es de antes, la última descarga falló (ese día, la cuenta del juvenil
+  | sin el layout ALL) y decir «hasta el martes» lo tapaba.
+  */
+  const informe = path.join(REPO, "public", "data", "wys", "Team Stats Real Madrid Castilla.xlsx");
+
+  const bajadoEn = fs.existsSync(informe) ? fs.statSync(informe).mtime : null;
+
+  const viejo = !bajadoEn || bajadoEn.toISOString().slice(0, 10) <= P.fecha;
+
+  const dia = (d) => d.toLocaleDateString("es-ES", { day: "numeric", month: "numeric" });
+
   try {
     const indice = JSON.parse(fs.readFileSync(path.join(REPO, "public", "data", "analisis.json"), "utf8"));
 
@@ -85,7 +100,9 @@ function git(...args) {
       nuestra && suya,
       nuestra
         ? `${nuestra.partido} · ${Object.keys(nuestra.datos ?? {}).length} métricas${suya ? " y la fila del rival" : " — FALTA la fila del rival"}`
-        : "Wyscout todavía no trae el partido (suele publicarlo hacia el martes): lo completa la descarga semanal o «Traer y publicar» en Ajustes",
+        : viejo
+          ? `la descarga de Wyscout no está al día (el informe del Castilla es del ${bajadoEn ? dia(bajadoEn) : "?"}, de antes del partido): la última no bajó nada; mira «Datos de Wyscout» en Ajustes`
+          : "Wyscout todavía no trae el partido (suele publicarlo hacia el martes): lo completa la descarga semanal o «Traer y publicar» en Ajustes",
     );
   } catch (error) {
     apunta("Data Análisis · el partido (Wyscout)", false, `no se puede leer analisis.json (${error.message})`);
@@ -113,7 +130,9 @@ function git(...args) {
       posterior.length > 0,
       posterior.length
         ? `foto del ${String(fechaDe(posterior[posterior.length - 1])).slice(0, 10)}: el tramo de la jornada se puede partir`
-        : "no hay foto de Wyscout posterior al partido",
+        : viejo
+          ? "no hay foto posterior al partido: la descarga de Wyscout no está al día (mira «Datos de Wyscout» en Ajustes)"
+          : "no hay foto de Wyscout posterior al partido",
     );
   } catch (error) {
     apunta("Data Análisis · foto de la jornada (jugadores)", false, `no se puede mirar (${error.message})`);
