@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
 import { esTarea, type DatosCarpeta } from "@/lib/mantenimiento";
+import { completaPlan, REPETIBLE } from "@/lib/progreso";
 import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
     ruta?: unknown;
     equipo?: unknown;
     jornada?: unknown;
+    plan?: unknown;
   };
 
   const tarea = cuerpo.tarea ?? "rivales";
@@ -93,8 +95,22 @@ export async function POST(request: NextRequest) {
     datos = { ruta, equipo, ...(jornada ? { jornada } : {}) };
   }
 
+  /* «Repetir sólo lo que falló»: las etapas elegidas, completadas con lo que
+     arrastran (lib/progreso.ts). Sólo en los trabajos que lo admiten. */
+  let plan: number[] | undefined;
+
+  if (Array.isArray(cuerpo.plan) && cuerpo.plan.length) {
+    if (!REPETIBLE[tarea]) {
+      return NextResponse.json({ ok: false, error: "Este trabajo no se puede repetir a trozos." }, { status: 400 });
+    }
+
+    plan = completaPlan(tarea, cuerpo.plan.map(Number));
+
+    if (!plan.length) return NextResponse.json({ ok: false, error: "No has marcado ninguna etapa." }, { status: 400 });
+  }
+
   try {
-    const estado = await pideEncargo(tarea, slug, datos);
+    const estado = await pideEncargo(tarea, slug, datos, plan);
 
     return NextResponse.json({ ok: true, estado });
   } catch (error) {

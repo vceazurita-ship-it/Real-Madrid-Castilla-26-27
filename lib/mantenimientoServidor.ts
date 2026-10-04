@@ -38,6 +38,7 @@ export async function pideEncargo(
   tarea: Tarea,
   quien: string,
   datos?: DatosCarpeta,
+  plan?: number[],
 ): Promise<Mantenimiento> {
   const { data } = await readDoc<unknown>(CLAVE_MANTENIMIENTO);
 
@@ -50,6 +51,9 @@ export async function pideEncargo(
       pedidoEn: new Date().toISOString(),
       pedidoPor: quien,
       ...(datos ? { datos } : {}),
+      /* Cada pedido dice el suyo: uno sin plan es «todo», y no hereda el
+         plan de la vez anterior. */
+      plan: plan?.length ? plan : undefined,
     },
   };
 

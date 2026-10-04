@@ -13,15 +13,18 @@
  * tiempo.
  */
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Circle, Loader2, Minus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Check, CheckCheck, Circle, Loader2, Minus, RotateCcw, X } from "lucide-react";
 
 import type { Tarea } from "@/lib/mantenimiento";
-import { duracion, vistaProgreso, type EtapaHecha, type ProgresoVivo } from "@/lib/progreso";
+import { completaPlan, duracion, ETAPAS, obligadas, vistaProgreso, type EtapaHecha, type ProgresoVivo } from "@/lib/progreso";
 
 const ORO = "#C8A96B";
 const VERDE = "#34D399";
 const ROJO = "#F87171";
+
+/* Lo que viene hecho de la pasada anterior: verde apagado. */
+const PREVIA = "rgba(52,211,153,0.35)";
 
 /** Un reloj que avanza cada segundo mientras el componente esté a la vista. */
 function useReloj(activo: boolean) {
@@ -79,7 +82,11 @@ export function ProgresoEncargo({
 
   const actual = v.etapas.find((e) => e.estado === "ahora");
 
-  const numero = v.etapas.findIndex((e) => e.estado === "ahora") + 1;
+  const delPlan = v.etapas.filter((e) => e.estado !== "previa");
+
+  const numero = delPlan.findIndex((e) => e.estado === "ahora") + 1;
+
+  const previas = v.etapas.length - delPlan.length;
 
   return (
     <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3" role="status" aria-live="polite">
@@ -90,7 +97,8 @@ export function ProgresoEncargo({
             {v.porcentaje} %
           </span>
           <span className="text-[11px] text-white/45">
-            etapa {numero || v.etapas.length} de {v.etapas.length}
+            etapa {numero || delPlan.length} de {delPlan.length}
+            {previas ? ` · ${previas} de la vez anterior` : ""}
           </span>
         </div>
         <div className="text-right text-[11px] leading-snug text-white/55">
@@ -108,7 +116,7 @@ export function ProgresoEncargo({
       {/* La barra, partida en etapas. */}
       <div className="mt-3 flex h-2.5 gap-[3px]" aria-hidden>
         {v.etapas.map((e) => {
-          const relleno = e.estado === "hecha" || e.estado === "saltada" ? 100 : e.estado === "ahora" ? parteDe(e, v) : 0;
+          const relleno = e.estado === "ahora" ? parteDe(e, v) : e.estado === "pendiente" ? 0 : 100;
 
           return (
             <div
@@ -121,7 +129,8 @@ export function ProgresoEncargo({
                 className={`h-full rounded-full transition-[width] duration-700 ${e.estado === "ahora" ? "progreso-rayas" : ""}`}
                 style={{
                   width: `${relleno}%`,
-                  background: e.estado === "saltada" ? "rgba(128,128,128,0.4)" : e.estado === "ahora" ? ORO : VERDE,
+                  background:
+                    e.estado === "saltada" ? "rgba(128,128,128,0.4)" : e.estado === "ahora" ? ORO : e.estado === "previa" ? PREVIA : e.estado === "fallo" ? ROJO : VERDE,
                 }}
               />
             </div>
@@ -158,6 +167,10 @@ export function ProgresoEncargo({
               <Check size={12} className="shrink-0 text-emerald-300" aria-label="hecho" />
             ) : e.estado === "ahora" ? (
               <Loader2 size={12} className="shrink-0 animate-spin" style={{ color: ORO }} aria-label="en marcha" />
+            ) : e.estado === "previa" ? (
+              <CheckCheck size={12} className="shrink-0 text-emerald-300" aria-label="de la vez anterior" />
+            ) : e.estado === "fallo" ? (
+              <X size={12} className="shrink-0 text-red-300" aria-label="ha fallado" />
             ) : e.estado === "saltada" ? (
               <Minus size={12} className="shrink-0 text-white/30" aria-label="no hacía falta" />
             ) : (
@@ -171,7 +184,11 @@ export function ProgresoEncargo({
                   ? `~${duracion(e.minutos, true)}`
                   : e.estado === "saltada"
                     ? "no hacía falta"
-                    : ""}
+                    : e.estado === "previa"
+                      ? "de la vez anterior"
+                      : e.estado === "fallo"
+                        ? "ha fallado"
+                        : ""}
             </span>
           </li>
         ))}
@@ -185,7 +202,7 @@ function parteDe(e: ReturnType<typeof vistaProgreso>["etapas"][number], v: Retur
   if (e.cuenta && e.cuenta[1] > 0) return Math.max(4, (e.cuenta[0] / e.cuenta[1]) * 100);
 
   /* Sin cuenta: lo que sale del porcentaje total menos las etapas enteras. */
-  const antes = v.etapas.filter((x) => x.estado === "hecha" || x.estado === "saltada").reduce((s, x) => s + x.peso, 0);
+  const antes = v.etapas.filter((x) => x.estado === "hecha" || x.estado === "saltada" || x.estado === "fallo").reduce((s, x) => s + x.peso, 0);
 
   const dentro = (v.porcentaje / 100 - antes) / (e.peso || 1);
 
@@ -214,7 +231,7 @@ export function RecorridoEncargo({ recorrido }: { recorrido: EtapaHecha[] }) {
             style={{
               flexGrow: Math.max((r.minutos ?? 0) / (total || 1), 0.04),
               flexBasis: 0,
-              background: r.estado === "hecha" ? VERDE : r.estado === "fallo" ? ROJO : "rgba(128,128,128,0.3)",
+              background: r.estado === "hecha" ? VERDE : r.estado === "fallo" ? ROJO : r.estado === "previa" ? PREVIA : "rgba(128,128,128,0.3)",
             }}
           />
         ))}
@@ -222,7 +239,7 @@ export function RecorridoEncargo({ recorrido }: { recorrido: EtapaHecha[] }) {
       <p className="mt-1 text-[10px] text-white/35">
         {fallo ? (
           <span className="inline-flex items-center gap-1 text-amber-200">
-            <AlertTriangle size={10} aria-hidden /> Se paró en «{fallo.nombre}»
+            <AlertTriangle size={10} aria-hidden /> Falló en «{recorrido.filter((r) => r.estado === "fallo").map((r) => r.nombre).join("», «")}»
           </span>
         ) : (
           <>
@@ -230,6 +247,135 @@ export function RecorridoEncargo({ recorrido }: { recorrido: EtapaHecha[] }) {
           </>
         )}
       </p>
+    </div>
+  );
+}
+
+/**
+ * REPETIR SÓLO LO QUE FALTA (04/10/2026).
+ *
+ * Después de una pasada que no acabó bien: la lista de etapas con cómo fue
+ * cada una y una casilla. Viene marcado lo que propone `planRecomendado` (lo
+ * que falló y lo que arrastra); se puede cambiar. Lo que va siempre o lo que
+ * obliga otra marcada sale marcado y sin poder quitarlo, diciendo por qué.
+ */
+export function RepetirEncargo({
+  tarea,
+  recorrido,
+  recomendado,
+  esperado,
+  ocupado,
+  onRepetir,
+  onTodo,
+}: {
+  tarea: Tarea;
+  recorrido: EtapaHecha[];
+  recomendado: number[];
+  /** Minutos que suele tardar cada etapa, para comparar. */
+  esperado?: number[];
+  ocupado: boolean;
+  onRepetir: (plan: number[]) => void;
+  onTodo: () => void;
+}) {
+  const etapas = ETAPAS[tarea];
+
+  /* Lo que marca quien lo pide; arranca en lo propuesto. */
+  const [marcadas, setMarcadas] = useState<number[] | null>(null);
+
+  const elegidas = marcadas ?? recomendado;
+
+  const plan = useMemo(() => completaPlan(tarea, elegidas), [tarea, elegidas]);
+
+  const forzadas = useMemo(() => obligadas(tarea, elegidas), [tarea, elegidas]);
+
+  const minutos = (i: number) => esperado?.[i] || etapas[i].minutos;
+
+  const conPlan = plan.reduce((s, i) => s + minutos(i), 0);
+
+  const entero = etapas.reduce((s, _, i) => s + minutos(i), 0);
+
+  const cambia = (i: number, si: boolean) => {
+    const base = new Set(elegidas);
+
+    if (si) base.add(i);
+    else base.delete(i);
+
+    setMarcadas([...base].sort((a, b) => a - b));
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/[0.04] p-3">
+      <p className="flex items-start gap-1.5 text-[12px] text-white/80">
+        <RotateCcw size={13} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+        <span>
+          <strong className="text-white/90">No hace falta empezar de cero.</strong> Lo que salió bien se aprovecha: marca lo que quieres repetir.
+        </span>
+      </p>
+
+      <ul className="mt-2.5 grid gap-x-5 gap-y-1 text-[11px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+        {etapas.map((e, i) => {
+          const antes = recorrido[i]?.estado;
+
+          const forzada = forzadas.get(i);
+
+          const marcada = plan.includes(i);
+
+          return (
+            <li key={e.nombre} className="flex min-w-0 items-center gap-2">
+              <input
+                type="checkbox"
+                className="shrink-0 accent-[#C8A96B]"
+                checked={marcada}
+                disabled={Boolean(forzada) || ocupado}
+                onChange={(ev) => cambia(i, ev.target.checked)}
+                aria-label={`Repetir «${e.nombre}»`}
+              />
+              <span className={`truncate ${marcada ? "text-white/85" : "text-white/45"}`}>{e.nombre}</span>
+              <span className="ml-auto shrink-0 pl-2 text-white/35">
+                {forzada === "siempre"
+                  ? "va siempre"
+                  : forzada === "arrastra"
+                    ? "va con lo marcado"
+                  : antes === "fallo"
+                    ? <span className="text-red-300">falló</span>
+                    : antes === "hecha" || antes === "previa"
+                      ? <span className="text-emerald-300">ya está</span>
+                      : "no llegó"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-2.5">
+        <p className="text-[11px] text-white/45">
+          {plan.length ? (
+            <>
+              Repetir lo marcado: <span className="text-white/75">~{duracion(conPlan)}</span> en vez de ~{duracion(entero)} de todo.
+            </>
+          ) : (
+            "Marca al menos una etapa."
+          )}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={onTodo}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-40"
+          >
+            Todo de cero
+          </button>
+          <button
+            type="button"
+            disabled={ocupado || !plan.length}
+            onClick={() => onRepetir(plan)}
+            className="rounded-lg bg-[#C8A96B] px-3 py-1.5 text-[11px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
+          >
+            Repetir lo marcado
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

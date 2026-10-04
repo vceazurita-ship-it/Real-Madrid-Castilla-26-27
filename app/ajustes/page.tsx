@@ -41,8 +41,8 @@ import {
 import { toast } from "sonner";
 
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
-import { ProgresoEncargo, RecorridoEncargo } from "@/components/ajustes/ProgresoEncargo";
-import { progresoDePaso } from "@/lib/progreso";
+import { ProgresoEncargo, RecorridoEncargo, RepetirEncargo } from "@/components/ajustes/ProgresoEncargo";
+import { planRecomendado, progresoDePaso } from "@/lib/progreso";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -110,14 +110,22 @@ function EstadoLinea({
   vigia,
   ahora,
   encargo,
+  onPide,
+  ocupado = false,
 }: {
   tarea: Tarea;
   estado: EstadoEncargo;
   vigia: Vigia | null;
   ahora: number;
   encargo: Mantenimiento[Tarea];
+  /** Pedirlo otra vez: con plan, sólo esas etapas; sin él, entero. */
+  onPide?: (plan?: number[]) => void;
+  ocupado?: boolean;
 }) {
   const vivo = vigiaVivo(vigia, ahora);
+
+  /* Si la última pasada no acabó bien, lo que se puede aprovechar de ella. */
+  const recomendado = onPide && estado !== "en-marcha" && estado !== "pedido" ? planRecomendado(tarea, encargo) : null;
 
   return (
     <div className="mt-3 space-y-1.5 text-[11px] leading-relaxed">
@@ -177,6 +185,18 @@ function EstadoLinea({
       )}
 
       {encargo?.hechoEn && estado !== "en-marcha" && encargo.recorrido && encargo.recorrido.length > 0 && <RecorridoEncargo recorrido={encargo.recorrido} />}
+
+      {recomendado && encargo?.recorrido && onPide && (
+        <RepetirEncargo
+          key={encargo.hechoEn}
+          tarea={tarea}
+          recorrido={encargo.recorrido}
+          recomendado={recomendado}
+          ocupado={ocupado}
+          onRepetir={(plan) => onPide(plan)}
+          onTodo={() => onPide()}
+        />
+      )}
 
       {encargo?.hechoEn && estado !== "en-marcha" && encargo.secciones && encargo.secciones.length > 0 && (
         <ul className="grid gap-x-4 gap-y-1 pl-[18px] sm:grid-cols-2">
@@ -290,14 +310,14 @@ export default function AjustesPage() {
 
   const recarga = useCallback(() => setTestigo((n) => n + 1), []);
 
-  const pide = async (tarea: Tarea) => {
+  const pide = async (tarea: Tarea, plan?: number[]) => {
     setPidiendo(tarea);
 
     try {
       const respuesta = await fetch("/api/mantenimiento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tarea }),
+        body: JSON.stringify({ tarea, ...(plan?.length ? { plan } : {}) }),
       });
 
       const datos = (await respuesta.json()) as {
@@ -310,7 +330,7 @@ export default function AjustesPage() {
 
       esperando.current[tarea] = datos.estado?.[tarea]?.pedidoEn ?? new Date().toISOString();
 
-      toast.success("Pedido", {
+      toast.success(plan?.length ? "Pedido: sólo lo marcado" : "Pedido", {
         description: vigiaVivo(vigia, Date.now())
           ? "El ordenador del club lo empieza en unos segundos."
           : "El ordenador del club está apagado: lo hará en cuanto se encienda.",
@@ -562,6 +582,8 @@ export default function AjustesPage() {
                   encargo={estado.rivales}
                   vigia={vigia}
                   ahora={ahora}
+                  ocupado={!yo || pidiendo !== null || ocupada("rivales")}
+                  onPide={(plan) => void pide("rivales", plan)}
                 />
               </Panel>
 
@@ -602,6 +624,8 @@ export default function AjustesPage() {
                   encargo={estado.wyscout}
                   vigia={vigia}
                   ahora={ahora}
+                  ocupado={!yo || pidiendo !== null || ocupada("wyscout")}
+                  onPide={(plan) => void pide("wyscout", plan)}
                 />
               </Panel>
             </div>
@@ -687,6 +711,8 @@ export default function AjustesPage() {
                   encargo={estado.partido}
                   vigia={vigia}
                   ahora={ahora}
+                  ocupado={!yo || pidiendo !== null || ocupada("partido")}
+                  onPide={(plan) => void pide("partido", plan)}
                 />
               </Panel>
             </div>

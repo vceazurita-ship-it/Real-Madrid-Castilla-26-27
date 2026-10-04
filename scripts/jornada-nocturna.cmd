@@ -49,6 +49,21 @@ rem  es lo que se quiere despues de un partido de la tarde.
 
 if /I "%~1"=="--forzar" goto :adelante
 
+rem ------------------------------------------------------------------
+rem  ¿Solo una parte? (04/10/2026)
+rem ------------------------------------------------------------------
+rem  Desde Ajustes se puede pedir "repetir solo lo que fallo": el vigia deja
+rem  en solo.txt las secciones que hay que hacer (HACER_2=1, una por linea,
+rem  con los numeros de lib\progreso.ts) y aqui se saltan las demas. Se lee y
+rem  se borra: la pasada de la noche siguiente vuelve a ser entera.
+set "SOLO="
+for %%k in (1 2 3 4 5 6 7) do set "HACER_%%k="
+if exist "%REGISTRO%\solo.txt" (
+  set "SOLO=1"
+  for /f "usebackq delims=" %%l in ("%REGISTRO%\solo.txt") do set "%%l"
+  del "%REGISTRO%\solo.txt" >nul 2>&1
+)
+
 rem  El boton de Ajustes de la app no ejecuta nada: deja un encargo en
 rem  Supabase, porque el servidor no puede bajar de BeSoccer. El vigia
 rem  (scripts\vigia.cjs) lanza esta tarea al verlo. Si lo hay, se hace la
@@ -128,6 +143,11 @@ if errorlevel 60 (
 echo Red correcta: BeSoccer responde 200 y la hoja es alcanzable. >> "%LOG%"
 
 rem --- 1. resultados, goleadores y alineaciones de los rivales ---
+if defined SOLO if not defined HACER_1 (
+  echo. >> "%LOG%"
+  echo Informe de rivales: de la pasada anterior >> "%LOG%"
+  goto :tras_1
+)
 echo. >> "%LOG%"
 echo --- Informe de rivales --- >> "%LOG%"
 call node scripts\rivals-informe.mjs --refrescar >> "%LOG%" 2>&1
@@ -135,8 +155,14 @@ if errorlevel 1 (
   echo FALLO en rivals-informe ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_1
 
 rem --- 2. estadisticas de los jugadores rivales ---
+if defined SOLO if not defined HACER_2 (
+  echo. >> "%LOG%"
+  echo Estadisticas de rivales: de la pasada anterior >> "%LOG%"
+  goto :tras_2
+)
 echo. >> "%LOG%"
 echo --- Estadisticas de rivales --- >> "%LOG%"
 call node scripts\rivals-stats.mjs --refrescar >> "%LOG%" 2>&1
@@ -144,8 +170,14 @@ if errorlevel 1 (
   echo FALLO en rivals-stats ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_2
 
 rem --- 3. nuestra plantilla contra BeSoccer ---
+if defined SOLO if not defined HACER_3 (
+  echo. >> "%LOG%"
+  echo Nuestra plantilla: de la pasada anterior >> "%LOG%"
+  goto :tras_3
+)
 echo. >> "%LOG%"
 echo --- Nuestra plantilla --- >> "%LOG%"
 call node scripts\castilla-besoccer.mjs --refrescar >> "%LOG%" 2>&1
@@ -153,6 +185,7 @@ if errorlevel 1 (
   echo FALLO en castilla-besoccer ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_3
 
 rem --- 4. las plantillas rivales: altas, bajas y dorsales ---
 rem
@@ -161,6 +194,11 @@ rem  nadie lo mire no puede hacerse todas las noches: una baja mal emparejada
 rem  tacha a un jugador que sigue en el equipo, y BeSoccer publica la plantilla
 rem  a medias durante el mercado. El informe sale aqui cada noche y quien lo
 rem  lee decide; para escribirlo esta "rivals-altas-bajas.mjs".
+if defined SOLO if not defined HACER_4 (
+  echo. >> "%LOG%"
+  echo Altas y bajas de las plantillas rivales: de la pasada anterior >> "%LOG%"
+  goto :tras_4
+)
 echo. >> "%LOG%"
 echo --- Altas y bajas de las plantillas rivales --- >> "%LOG%"
 call node scripts\rivals-cotejo.mjs --refrescar >> "%LOG%" 2>&1
@@ -168,7 +206,13 @@ if errorlevel 1 (
   echo FALLO en rivals-cotejo ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_4
 
+if defined SOLO if not defined HACER_5 (
+  echo. >> "%LOG%"
+  echo Dorsales de las plantillas rivales: de la pasada anterior >> "%LOG%"
+  goto :tras_5
+)
 echo. >> "%LOG%"
 echo --- Dorsales de las plantillas rivales --- >> "%LOG%"
 call node scripts\rivals-dorsales.mjs >> "%LOG%" 2>&1
@@ -176,12 +220,18 @@ if errorlevel 1 (
   echo FALLO en rivals-dorsales ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_5
 
 rem --- 5. las caras que falten ---
 rem
 rem  Esta SI escribe, y puede: solo rellena la columna FOTO donde esta vacia,
 rem  nunca cambia una que ya hay. Una ficha sin cara se lee peor en la pizarra
 rem  y deja la portada del analisis individual con la silueta.
+if defined SOLO if not defined HACER_6 (
+  echo. >> "%LOG%"
+  echo Fotos que faltan: de la pasada anterior >> "%LOG%"
+  goto :tras_6
+)
 echo. >> "%LOG%"
 echo --- Fotos que faltan --- >> "%LOG%"
 call node scripts\rivals-fotos.mjs --todos --escribir >> "%LOG%" 2>&1
@@ -189,6 +239,7 @@ if errorlevel 1 (
   echo FALLO en rivals-fotos ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_6
 
 rem --- 6. los resultados de la quiniela ---
 rem
@@ -196,6 +247,11 @@ rem  Lee de BeSoccer el 1-X-2 de los nueve partidos de la jornada y los escribe
 rem  en la quiniela, para que el ranking y la parrilla se pongan al dia solos.
 rem  Solo toca las jornadas que alguien ha apostado: escribir los resultados de
 rem  una jornada que nadie jugo pondria a los diez con nueve fallos.
+if defined SOLO if not defined HACER_7 (
+  echo. >> "%LOG%"
+  echo Resultados de la quiniela: de la pasada anterior >> "%LOG%"
+  goto :tras_7
+)
 echo. >> "%LOG%"
 echo --- Resultados de la quiniela --- >> "%LOG%"
 call node scripts\quiniela-resultados.cjs >> "%LOG%" 2>&1
@@ -203,6 +259,7 @@ if errorlevel 1 (
   echo FALLO en quiniela-resultados ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+:tras_7
 
 echo. >> "%LOG%"
 if defined HUBO_FALLO (

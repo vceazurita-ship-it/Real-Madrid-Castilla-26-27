@@ -41,6 +41,12 @@ export type Encargo = {
   ok?: boolean;
   /** Por dónde va un trabajo largo («3/6 · Timeline de Hudl»); sólo `partido`. */
   paso?: string;
+  /**
+   * Las etapas que hay que hacer en esta pasada (índices de `ETAPAS`); sin
+   * él, todas. Lo pone quien pide «repetir sólo lo que falló»: el resto se
+   * aprovecha de la pasada anterior (lib/progreso.ts, `planRecomendado`).
+   */
+  plan?: number[];
   /** Cómo fue cada etapa de la última pasada, con lo que tardó (lib/progreso.ts). */
   recorrido?: EtapaHecha[];
   /** Cómo quedó cada sección al acabar; sólo `partido`. */

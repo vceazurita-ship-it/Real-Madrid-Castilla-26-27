@@ -55,7 +55,7 @@ const {
 } = require(path.join(RAIZ, "lib/mantenimiento.ts"));
 
 const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
-const { Seguimiento } = require(path.join(RAIZ, "lib/progreso.ts"));
+const { ETAPAS, Seguimiento, recorridoCortado } = require(path.join(RAIZ, "lib/progreso.ts"));
 
 const TAREA_NOCTURNA = "RMCF Castilla - Jornada nocturna";
 
@@ -193,8 +193,8 @@ function esperadoDe(tarea) {
   });
 }
 
-function sigue(tarea) {
-  const seguimiento = new Seguimiento(tarea, esperadoDe(tarea));
+function sigue(tarea, plan) {
+  const seguimiento = new Seguimiento(tarea, esperadoDe(tarea), Date.now(), plan);
 
   seguimientos.set(tarea, seguimiento);
   progresoCambiado = true;
@@ -213,6 +213,8 @@ function cierraSeguimiento(tarea, ok) {
   seguimientos.delete(tarea);
   progresoCambiado = true;
 
+  olvidaEnCurso(tarea);
+
   const { recorrido, duraciones } = seguimiento.cierra(ok);
 
   if (ok && duraciones.some((d) => d !== null)) {
@@ -229,6 +231,82 @@ function cierraSeguimiento(tarea, ok) {
 
   return { recorrido };
 }
+
+/*
+| Lo que va, también en disco (04/10/2026). Si el ordenador se apaga a media
+| pasada, el encargo se quedaba «en marcha» hasta agotar su plazo y se perdía
+| por dónde iba. Al volver, el vigía lo lee de aquí, apunta en el encargo en
+| qué etapa se cortó y la pantalla propone seguir desde ahí.
+*/
+const FICHERO_EN_CURSO = path.join(REGISTRO, "en-curso.json");
+
+function leeEnCurso() {
+  try {
+    return JSON.parse(fs.readFileSync(FICHERO_EN_CURSO, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function guardaEnCurso() {
+  try {
+    const todo = leeEnCurso();
+
+    for (const [tarea, sg] of seguimientos) todo[tarea] = sg.estado();
+
+    fs.writeFileSync(FICHERO_EN_CURSO, JSON.stringify(todo));
+  } catch {
+    /* sin copia en disco, un corte se ve como «cortado» y ya */
+  }
+}
+
+function olvidaEnCurso(tarea) {
+  try {
+    const todo = leeEnCurso();
+
+    delete todo[tarea];
+
+    fs.writeFileSync(FICHERO_EN_CURSO, JSON.stringify(todo));
+  } catch {
+    /* nada */
+  }
+}
+
+/** Las pasadas que se cortaron sin acabar: se cierran con lo que se sabía de ellas. */
+async function cierraCortadas(estados) {
+  const todo = leeEnCurso();
+
+  for (const [tarea, vivo] of Object.entries(todo)) {
+    if (!ETAPAS[tarea] || !vivo || enMarcha.has(tarea) || seguimientos.has(tarea)) continue;
+
+    if (tarea === "rivales" && nocturnaCorriendo) continue;
+
+    /* Sólo si el encargo sigue sin cerrar: si ya tiene su final, sobra. */
+    if (estados[tarea] !== "en-marcha" && estados[tarea] !== "cortado") {
+      olvidaEnCurso(tarea);
+      continue;
+    }
+
+    const recorrido = recorridoCortado(tarea, vivo);
+
+    const donde = recorrido.find((r) => r.estado === "fallo")?.nombre ?? "";
+
+    await marca(tarea, {
+      hechoEn: new Date().toISOString(),
+      ok: false,
+      resultado: `se cortó${donde ? ` en «${donde}»` : ""} (se apagó o se cerró el ordenador del club); se puede seguir desde ahí`,
+      recorrido,
+      paso: "",
+    });
+
+    olvidaEnCurso(tarea);
+
+    apunta(`${tarea}: la pasada anterior se cortó${donde ? ` en «${donde}»` : ""}; queda apuntado.`);
+  }
+}
+
+/** El plan de la pasada que se pide (las etapas a hacer), o nada si es entera. */
+const planDe = (encargo) => (Array.isArray(encargo?.plan) && encargo.plan.length ? encargo.plan.map(Number) : undefined);
 
 /**
  * Lee lo que va escribiendo un registro que no es nuestro.
@@ -330,7 +408,7 @@ let nocturnaCorriendo = false;
  * La salida va también a un fichero por pasada, que es lo que se mira cuando
  * la pantalla dice que algo ha fallado.
  */
-function ejecuta(tarea, orden, args, alLinea) {
+function ejecuta(tarea, orden, args, alLinea, variables) {
   return new Promise((resolve) => {
     /* Con segundos: dos pasadas de la misma tarea dentro del mismo minuto
        compartían fichero y la segunda borraba el registro de la primera, que
@@ -343,7 +421,7 @@ function ejecuta(tarea, orden, args, alLinea) {
 
     let texto = "";
 
-    const hijo = spawn(orden, args, { cwd: RAIZ, windowsHide: true });
+    const hijo = spawn(orden, args, { cwd: RAIZ, windowsHide: true, ...(variables ? { env: { ...process.env, ...variables } } : {}) });
 
     let resto = "";
 
@@ -437,16 +515,25 @@ const MOTIVO_WYSCOUT = {
 };
 
 async function haceWyscout() {
+  const plan = planDe((await leeEncargos()).wyscout);
+
   await empieza("wyscout");
 
-  apunta("Wyscout: bajando la liga (se abre un Chrome que se mueve solo)…");
-  const deja = sigueRegistro(path.join(RAIZ, ".cache", "wyscout"), Date.now(), sigue("wyscout"));
-  const { codigo } = await ejecuta("wyscout", "cmd.exe", [
-    "/d",
-    "/c",
-    path.join(RAIZ, "scripts", "wyscout-semanal.cmd"),
-    "--forzar",
-  ]).finally(deja);
+  /* Es una cadena: se empieza en la primera etapa marcada y se sigue hasta el
+     final. El .cmd salta hasta ella con RMCF_DESDE. */
+  const desde = plan ? Math.min(...plan) : 0;
+
+  apunta(desde >= 2 ? `Wyscout: sin volver a bajar, desde «${ETAPAS.wyscout[desde].nombre}»…` : "Wyscout: bajando la liga (se abre un Chrome que se mueve solo)…");
+
+  const deja = sigueRegistro(path.join(RAIZ, ".cache", "wyscout"), Date.now(), sigue("wyscout", plan));
+
+  const { codigo } = await ejecuta(
+    "wyscout",
+    "cmd.exe",
+    ["/d", "/c", path.join(RAIZ, "scripts", "wyscout-semanal.cmd"), "--forzar"],
+    undefined,
+    { RMCF_DESDE: String(desde) },
+  ).finally(deja);
 
   const [ok, dice] = MOTIVO_WYSCOUT[codigo] ?? [false, `la descarga ha fallado (código ${codigo}); el registro está en .cache\\wyscout`];
 
@@ -517,11 +604,13 @@ async function haceAnalisisPartido() {
   apunta("Partido: empieza el análisis del último partido…");
 
   pasoPartido = "empezando";
-  const alSeguimiento = sigue("partido");
+  const plan = planDe((await leeEncargos()).partido);
+  if (plan) apunta(`Partido: sólo ${plan.map((i) => ETAPAS.partido[i]?.nombre).join(", ")}; lo demás, de la pasada anterior.`);
+  const alSeguimiento = sigue("partido", plan);
   const { codigo, texto } = await ejecuta(
     "partido",
     process.execPath,
-    [path.join(RAIZ, "scripts/analisis-partido.cjs")],
+    [path.join(RAIZ, "scripts/analisis-partido.cjs"), ...(plan ? ["--solo", plan.map((i) => i + 1).join(",")] : [])],
     (linea) => {
       alSeguimiento(linea);
       const paso = linea.match(/^PASO:\s*(.+)$/)?.[1];
@@ -572,7 +661,29 @@ function estadoTareaNocturna() {
   });
 }
 
-async function lanzaRivales() {
+/**
+ * Las secciones de la jornada que hay que hacer, para el .cmd: la tarea
+ * programada no recibe argumentos, así que van en `.cache/jornada-nocturna/solo.txt`
+ * («HACER_2=1», una por línea). El .cmd lo lee y lo borra; sin él, todas.
+ */
+function dejaPlanRivales(plan) {
+  const fichero = path.join(RAIZ, ".cache", "jornada-nocturna", "solo.txt");
+
+  try {
+    if (!plan) {
+      fs.rmSync(fichero, { force: true });
+
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(fichero), { recursive: true });
+    fs.writeFileSync(fichero, `${plan.map((i) => `HACER_${i}=1`).join("\r\n")}\r\n`);
+  } catch (error) {
+    apunta(`Rivales: no se ha podido dejar qué secciones repetir (${error.message}); se hace entera.`);
+  }
+}
+
+async function lanzaRivales(plan) {
   const estado = await estadoTareaNocturna();
 
   if (estado === "Running") {
@@ -582,9 +693,9 @@ async function lanzaRivales() {
   }
 
   tareaLanzadaEn = Date.now();
-
+  dejaPlanRivales(plan);
   if (estado) {
-    apunta("Rivales: lanzando la tarea de la jornada nocturna…");
+    apunta(plan ? `Rivales: lanzando sólo ${plan.map((i) => ETAPAS.rivales[i]?.nombre).join(", ")}…` : "Rivales: lanzando la tarea de la jornada nocturna…");
 
     execFile("schtasks.exe", ["/Run", "/TN", TAREA_NOCTURNA], { windowsHide: true }, (error) => {
       if (error) {
@@ -661,7 +772,10 @@ async function latido() {
 /* Mientras algo avanza, el latido sale antes: la barra de Ajustes se mueve
    cada pocos segundos y no cada medio minuto. */
 setInterval(() => {
-  if (progresoCambiado && Date.now() - ultimoLatido > 4_000) latido().catch(() => {});
+  if (progresoCambiado && Date.now() - ultimoLatido > 4_000) {
+    guardaEnCurso();
+    latido().catch(() => {});
+  }
 }, 2_000).unref();
 
 async function ronda() {
@@ -707,13 +821,13 @@ async function ronda() {
     if ((nocturnaCorriendo || enMarcha.has("rivales")) && !dejaDeSeguirNocturna) {
       const desde = Date.parse(encargos.rivales?.empezadoEn ?? "") || Date.now();
 
-      dejaDeSeguirNocturna = sigueRegistro(path.join(RAIZ, ".cache", "jornada-nocturna"), desde, sigue("rivales"));
+      dejaDeSeguirNocturna = sigueRegistro(path.join(RAIZ, ".cache", "jornada-nocturna"), desde, sigue("rivales", planDe(encargos.rivales)));
     }
 
     const reciente = Date.now() - tareaLanzadaEn < 5 * 60_000;
 
     if (estados.rivales === "pedido" && !nocturnaCorriendo && !reciente && !enMarcha.has("rivales")) {
-      await lanzaRivales();
+      await lanzaRivales(planDe(encargos.rivales));
     }
   } else {
     nocturnaCorriendo = false;
@@ -731,6 +845,8 @@ async function ronda() {
 
     if (cierre.recorrido) await marca("rivales", cierre).catch(() => {});
   }
+
+  await cierraCortadas(estados).catch((error) => apunta(`No se han podido cerrar las pasadas cortadas: ${error.message}`));
 
   if (Date.now() - calendarioEn > CALENDARIO_CADA_MS && !enMarcha.has("calendario")) {
     enMarcha.add("calendario");

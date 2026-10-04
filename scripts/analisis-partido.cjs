@@ -10,6 +10,10 @@
  *   node scripts/analisis-partido.cjs               → el último partido jugado
  *   node scripts/analisis-partido.cjs --jornada 6   → uno en concreto
  *   node scripts/analisis-partido.cjs --sin-wyscout --sin-claude   → para probar
+ *   node scripts/analisis-partido.cjs --solo 2,6,7 → sólo esos pasos; el resto
+ *       se aprovecha de la pasada anterior (lo pide Ajustes con «Repetir sólo
+ *       lo que falló»). El 1 y el 7 se hacen siempre, y un paso que se salta
+ *       se hace igual si en la carpeta no está lo que dejó la otra vez.
  *
  * Tres fuentes, cada una en su sitio:
  *   - WYSCOUT: los datos del partido y de cada jugador → Data Análisis.
@@ -69,6 +73,13 @@ const arg = (n) => {
 };
 
 const bandera = (n) => process.argv.includes(`--${n}`);
+
+/* Los pasos que se hacen en esta pasada (04/10/2026); sin --solo, todos. */
+const SOLO = arg("solo") ? new Set(String(arg("solo")).split(",").map(Number).filter(Boolean)) : null;
+
+const toca = (n) => !SOLO || SOLO.has(n);
+
+const deAntes = (texto) => console.log(`(${texto}: de la pasada anterior)`);
 
 const TOTAL_PASOS = 7;
 
@@ -367,6 +378,8 @@ async function principal() {
 
   if (bandera("sin-wyscout")) {
     console.log("(Wyscout saltado a petición)");
+  } else if (!toca(2)) {
+    deAntes("Wyscout");
   } else {
     paso(2, "Wyscout: bajando la liga (se abre un Chrome que se mueve solo)");
 
@@ -389,14 +402,20 @@ async function principal() {
 
   /* ---------------- 3 ---------------- */
 
-  paso(3, "Hudl: leyendo el timeline del partido");
+  const hayHudl = ["timeline-hudl.json", "video-hudl.json"].every((f) => fs.existsSync(path.join(CARPETA, f)));
 
-  const h = await node("scripts/hudl-partido.mjs", "--fecha", fecha, "--salida", CARPETA);
+  if (!toca(3) && hayHudl) {
+    deAntes("Hudl");
+  } else {
+    paso(3, "Hudl: leyendo el timeline del partido");
 
-  if (h.codigo !== 0) {
-    anota("Timeline de Hudl", false, h.resumen || `ha fallado (código ${h.codigo})`);
+    const h = await node("scripts/hudl-partido.mjs", "--fecha", fecha, "--salida", CARPETA);
 
-    return termina(CARPETA, h.codigo === 3 ? 3 : 1);
+    if (h.codigo !== 0) {
+      anota("Timeline de Hudl", false, h.resumen || `ha fallado (código ${h.codigo})`);
+
+      return termina(CARPETA, h.codigo === 3 ? 3 : 1);
+    }
   }
 
   /* Donde lo buscan robos y faltas, con lo que hay que saber del partido. */
@@ -481,18 +500,26 @@ async function principal() {
 
   /* ---------------- 4 ---------------- */
 
-  paso(4, "la base del dato: banda, córners, faltas y robos");
+  const hayBase = [path.join("base", "bandaOf.tsv"), path.join("faltas", "of-hudl.csv"), path.join("faltas", "def-hudl.csv")].every((f) =>
+    fs.existsSync(path.join(CARPETA, f)),
+  );
 
-  const pr = await node("scripts/partido/preparar.cjs", "--carpeta", CARPETA);
+  if (!toca(4) && hayBase) {
+    deAntes("La base del dato");
+  } else {
+    paso(4, "la base del dato: banda, córners, faltas y robos");
 
-  if (pr.codigo !== 0) {
-    anota("Base del timeline", false, pr.resumen);
+    const pr = await node("scripts/partido/preparar.cjs", "--carpeta", CARPETA);
 
-    return termina(CARPETA, 1);
+    if (pr.codigo !== 0) {
+      anota("Base del timeline", false, pr.resumen);
+
+      return termina(CARPETA, 1);
+    }
+
+    /* Los robos salen ya; con los desfases de la táctica se rehacen en el paso 6. */
+    await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
   }
-
-  /* Los robos salen ya; con los desfases de la táctica se rehacen en el paso 6. */
-  await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
 
   /* La base de las faltas, por si el análisis de vídeo no llega a hacerse:
      mejor el dato con «?» que nada. No pisa lo que ya esté revisado, y si
@@ -508,6 +535,8 @@ async function principal() {
 
   if (bandera("sin-claude")) {
     console.log("(análisis de vídeo saltado a petición)");
+  } else if (!toca(5)) {
+    deAntes("Análisis de vídeo");
   } else if (!CLAUDE) {
     anota("Análisis de vídeo", false, "no está Claude Code en este ordenador (~/.local/bin/claude.exe)");
   } else {
@@ -534,6 +563,8 @@ async function principal() {
     const encargo = [
       `Analiza el partido de la carpeta ${CARPETA} siguiendo AL PIE DE LA LETRA ${path.join(RAIZ, "scripts", "partido", "MANUAL.md").replace(/\\/g, "/")}.`,
       "Trabajas solo y sin nadie delante: no preguntes nada, decide con el manual y apunta las dudas en informe.md.",
+      /* Si una pasada anterior se quedó a medias, no se tiran horas de trabajo. */
+      "Si en la carpeta ya hay trabajo de una pasada anterior (progreso.txt, hoja/, informe.md…), continúa donde se quedó: revisa lo hecho, no lo rehagas, y sigue con lo que falta.",
       `Ve dejando una línea por cada avance en ${progreso.replace(/\\/g, "/")} (qué jugadas llevas de cuántas).`,
       "No escribas en las hojas ni hagas git: eso lo hace el script que te ha llamado cuando acabes. Tu trabajo son los ficheros que pide el manual.",
     ].join("\n");
@@ -566,44 +597,48 @@ async function principal() {
 
   /* ---------------- 6 ---------------- */
 
-  paso(6, "escribiendo en las hojas de ABP y publicando");
+  if (!toca(6)) {
+    deAntes("Escribir en las hojas y publicar");
+  } else {
+    paso(6, "escribiendo en las hojas de ABP y publicando");
 
-  /* Si el análisis de vídeo no dejó las filas, al menos las del dato. */
-  const dirHoja = path.join(CARPETA, "hoja");
+    /* Si el análisis de vídeo no dejó las filas, al menos las del dato. */
+    const dirHoja = path.join(CARPETA, "hoja");
 
-  fs.mkdirSync(dirHoja, { recursive: true });
+    fs.mkdirSync(dirHoja, { recursive: true });
 
-  for (const clave of ["bandaOf", "bandaDef"]) {
-    if (!fs.existsSync(path.join(dirHoja, `${clave}.tsv`))) {
-      anota(`ABP · ${clave}`, false, "el análisis de vídeo no dejó las filas: se escriben sólo las columnas del dato");
+    for (const clave of ["bandaOf", "bandaDef"]) {
+      if (!fs.existsSync(path.join(dirHoja, `${clave}.tsv`))) {
+        anota(`ABP · ${clave}`, false, "el análisis de vídeo no dejó las filas: se escriben sólo las columnas del dato");
 
-      fs.copyFileSync(path.join(CARPETA, "base", `${clave}.tsv`), path.join(dirHoja, `${clave}.tsv`));
+        fs.copyFileSync(path.join(CARPETA, "base", `${clave}.tsv`), path.join(dirHoja, `${clave}.tsv`));
+      }
     }
-  }
 
-  const e = await node("scripts/partido/escribir.cjs", "--carpeta", CARPETA, "--hoja");
+    const e = await node("scripts/partido/escribir.cjs", "--carpeta", CARPETA, "--hoja");
 
-  console.log(`Hojas: ${e.resumen}`);
+    console.log(`Hojas: ${e.resumen}`);
 
-  /* Lo que no se pudo escribir —un choque con filas puestas a mano— tiene que
-     llegar a la pantalla: es justo lo que alguien debe mirar. */
-  for (const s of seccionesDe(e.texto) ?? []) if (!s.ok) anota(`Hoja · ${s.nombre}`, false, s.detalle);
+    /* Lo que no se pudo escribir —un choque con filas puestas a mano— tiene que
+       llegar a la pantalla: es justo lo que alguien debe mirar. */
+    for (const s of seccionesDe(e.texto) ?? []) if (!s.ok) anota(`Hoja · ${s.nombre}`, false, s.detalle);
 
-  /* Con los desfases ya medidos, los robos van al segundo bueno de la táctica. */
-  await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
+    /* Con los desfases ya medidos, los robos van al segundo bueno de la táctica. */
+    await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
 
-  await node("scripts/transiciones-datos.mjs");
-  await node("scripts/faltas-datos.mjs");
+    await node("scripts/transiciones-datos.mjs");
+    await node("scripts/faltas-datos.mjs");
 
-  try {
-    const r = publica(`Análisis del partido: ${datos.etiqueta} ${partido.rival} (faltas y robos)`, [
-      "lib/faltas/datos.ts",
-      "lib/transiciones/datos.ts",
-    ]);
+    try {
+      const r = publica(`Análisis del partido: ${datos.etiqueta} ${partido.rival} (faltas y robos)`, [
+        "lib/faltas/datos.ts",
+        "lib/transiciones/datos.ts",
+      ]);
 
-    console.log(`Publicar: ${r}`);
-  } catch (error) {
-    anota("Publicar", false, `git ha fallado: ${String(error.message).split("\n")[0]}`);
+      console.log(`Publicar: ${r}`);
+    } catch (error) {
+      anota("Publicar", false, `git ha fallado: ${String(error.message).split("\n")[0]}`);
+    }
   }
 
   /* ---------------- 7 ---------------- */
