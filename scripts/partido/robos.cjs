@@ -77,7 +77,14 @@ const inicioT2 = EQ.moments.items.filter((m) => cod(m) === "Periods").map((m) =>
 
 const ev = JUG.moments.items
   .filter((m) => cod(m) !== "Periods")
-  .map((m) => ({ m, jug: cod(m), t: m.startTimeMs / 1000, tipos: tag(m, "02 - Type"), eq: equipo[cod(m)] }))
+  /*
+  | El segundo de la acción es el CENTRO de su clip, no su arranque (04/10/2026):
+  | Hudl arranca cada clip unos segundos antes, y distinto según el tipo (un
+  | tiro 14 s, un pase 5, una recuperación 4). Con el arranque, el tiro salía
+  | antes que el pase que lo dio y el rechace antes que el tiro: el orden de
+  | lo que pasa alrededor de un robo estaba mal y el minuto se adelantaba.
+  */
+  .map((m) => ({ m, jug: cod(m), t: (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000, tipos: tag(m, "02 - Type"), eq: equipo[cod(m)] }))
   .sort((a, b) => a.t - b.t);
 
 const sinDorsal = (j) => j.replace(/^\d+\.\s*/, "");
@@ -91,11 +98,17 @@ function esRobo(e, i) {
   if (e.eq !== "RMC") return false;
   if (uno(e.m, "08 - Player - Position") === "GK" || es(e, "Goalkeeper action", "Save")) return false;
 
+  /*
+  | Robo = nos quedamos el balón (04/10/2026). Una «Interception» sin
+  | «Recovery» es un desvío, un cabezazo a nadie, un tiro bloqueado o un toque
+  | que se va fuera: Wyscout sólo pone «Recovery» cuando el jugador se queda
+  | con él. Contaban 10 de los 37 robos del J06. Y un tiro del rival que
+  | bloqueamos no es un robo, aunque luego lo recojamos.
+  */
   const activo =
-    es(e, "Interception", "Counterpressing recovery") ||
-    (es(e, "Defensive duel") && uno(e.m, "23 - In defense - Possession") === "Recovered possession") ||
-    es(e, "Recovery");
-  if (!activo) return false;
+    es(e, "Recovery", "Counterpressing recovery") ||
+    (es(e, "Defensive duel") && uno(e.m, "23 - Ground duel - In defense - Possession") === "Recovered possession");
+  if (!activo || es(e, "Shot block")) return false;
 
   /* Si el árbitro pita falta a nuestro favor en esa acción, no es un robo: es una falta. */
   if (ev.slice(Math.max(0, i - 2), i + 3).some((x) => Math.abs(x.t - e.t) <= 1.5 && ((x.eq === "RMC" && es(x, "Foul suffered")) || (x.eq === "RIV" && es(x, "Foul", "Infraction"))))) return false;
@@ -107,7 +120,12 @@ function esRobo(e, i) {
 
   /* Segundo balón de un balón parado (de cualquiera de los dos): no es un robo. */
   if (ev.slice(Math.max(0, i - 25), i).some((x) => x.t >= e.t - 10 && es(x, "Corner", "Free kick", "Throw in", "Goal kick"))) return false;
-  if (es(antes, "Clearance", "Shot", "Save")) return false;
+  if (es(antes, "Clearance", "Shot", "Save", "Shot block")) return false;
+
+  /* El rechace de un tiro nuestro (bloqueado o parado) que volvemos a coger
+     tampoco: el balón no llegó a ser suyo. */
+  const tiro = ev.slice(Math.max(0, i - 12), i).reverse().find((x) => x.t >= e.t - 8 && x.eq === "RMC" && es(x, "Shot", "Head shot"));
+  if (tiro && !ev.slice(ev.indexOf(tiro) + 1, i).some((x) => x.eq === "RIV" && es(x, "Pass", "Carry", "Touch") && !es(x, "Shot block", "Save", "Clearance", "Interception"))) return false;
 
   /* Una recuperación a secas sólo cuenta si el rival la perdió con alguien encima. */
   if (!es(e, "Interception", "Counterpressing recovery", "Defensive duel")) {
@@ -123,7 +141,7 @@ function accionDe(e, i) {
   const conPase = (x) => {
     if (es(x, "Clearance")) return "DESPEJE";
     if (es(x, "Pass")) return uno(x.m, "11 - Pass - Direction") === "Forward" || es(x, "Progressive pass") ? "ADELANTE" : "HORIZONTAL_ATRAS";
-    if (es(x, "Carry")) return es(x, "Progressive run") || /1[0-9]|2|3/.test(uno(x.m, "31 - Carry - Progression")) ? "ADELANTE" : "HORIZONTAL_ATRAS";
+    if (es(x, "Carry")) return es(x, "Progressive run") || /^(10-20m|20-30m|30m or more)$/.test(uno(x.m, "31 - Carry - Progression")) ? "ADELANTE" : "HORIZONTAL_ATRAS";
     return null;
   };
   const propia = conPase(e);
@@ -146,7 +164,9 @@ function desenlaceDe(e, i) {
   let fin = e.t;
   let pases = es(e, "Pass") ? 1 : 0;
   let ultimoNuestro = e.t;
-  let remate = null, area = false, ultimo = TERCIO[uno(e.m, "04 - Location - Third")] === "campo rival", porQue = "PERDIDA", ultimoEv = e;
+  /* «Último tercio» es llegar con el balón, no robarlo allí y perderlo al
+     momento (4 de los 9 del J06 eran eso). */
+  let remate = null, area = false, ultimo = false, porQue = "PERDIDA", ultimoEv = e;
   for (const x of ev.slice(i + 1)) {
     if (x.t > e.t + 45) { porQue = "POSESION"; break; }
     if (x.eq === "RMC") {
@@ -177,7 +197,9 @@ function desenlaceDe(e, i) {
   else if (ultimo) desenlace = "ULTIMO_TERCIO";
   /* Posesión = la conservamos de verdad más de 15 s: cuenta nuestro último toque, no cuándo sale el balón. */
   else if (ultimoNuestro - e.t > 15 || (porQue === "POSESION" && ultimoNuestro - e.t > 15)) desenlace = "POSESION";
-  else if (porQue === "FUERA_NUESTRO" || porQue === "POSESION") desenlace = "PERDIDA";
+  /* Si el balón sale y el saque es nuestro, la jugada acaba fuera (MANUAL), no en pérdida. */
+  else if (porQue === "FUERA_NUESTRO") desenlace = "FUERA";
+  else if (porQue === "POSESION") desenlace = "PERDIDA";
   else if (uno(ultimoEv.m, "08 - Player - Position") === "GK") desenlace = "ATRAS_PORTERO";
   else desenlace = porQue;
   return { desenlace, duracion: Math.max(0, Math.round(fin - e.t)), pases, remate, porQue };
@@ -190,13 +212,42 @@ const aTactica = (t) => {
   return Math.max(0, Math.round(t + (tr ? tr.d : 0)));
 };
 
+/*
+| El minuto del partido, con sus segundos y como se dice en el fútbol: el
+| descuento va como «45+1'56"» y «90+2'10"». Antes el descuento de la
+| primera parte salía «46'56"», y aparecía antes que el «45'31"» de la
+| segunda (04/10/2026).
+*/
 const reloj = (t) => {
-  const min = t < inicioT2 ? t / 60 : 45 + (t - inicioT2) / 60;
-  return `${Math.floor(min)}'${String(Math.floor((min % 1) * 60)).padStart(2, "0")}"`;
+  const primera = t < inicioT2;
+  const dentro = Math.max(0, primera ? t : t - inicioT2);
+  const tope = 45 * 60;
+  const descuento = dentro >= tope;
+  const seg = descuento ? dentro - tope : dentro + (primera ? 0 : tope);
+  const mmss = `${Math.floor(seg / 60)}'${String(Math.floor(seg % 60)).padStart(2, "0")}"`;
+  return descuento ? `${primera ? 45 : 90}+${mmss}` : mmss;
 };
 
-const TIPO = (e) =>
-  es(e, "Interception") ? "Interceptación" : es(e, "Counterpressing recovery") ? "Recuperación tras pérdida" : es(e, "Defensive duel") ? "Duelo ganado" : "Recuperación con presión";
+/* «mm:ss» de la grabación táctica, si hay desfases medidos. */
+const tactica = (t) => {
+  if (!(TRAMOS[PARTIDO] || []).length) return "";
+  const s = aTactica(t);
+  return ` (táctica ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`;
+};
+
+/* «Con presión» sólo si había un duelo nuestro justo antes; si no, el rival la perdió solo. */
+const conPresion = (i) => ev.slice(Math.max(0, i - 3), i).some((x) => x.eq === "RMC" && es(x, "Duel", "Defensive duel", "Aerial duel"));
+
+const TIPO = (e, i) =>
+  es(e, "Interception")
+    ? "Interceptación"
+    : es(e, "Counterpressing recovery")
+      ? "Recuperación tras pérdida"
+      : es(e, "Defensive duel")
+        ? "Duelo ganado"
+        : conPresion(i)
+          ? "Recuperación con presión"
+          : "Recuperación (pérdida del rival)";
 
 const robos = [];
 ev.forEach((e, i) => {
@@ -207,7 +258,7 @@ ev.forEach((e, i) => {
   const zona = TERCIO[uno(e.m, "04 - Location - Third")] || "";
   const carril = CARRIL[uno(e.m, "03 - Location - Flank")] || "";
   const partes = [
-    `${reloj(e.t)} · ${TIPO(e)} de ${sinDorsal(e.jug)} en ${zona} por ${carril === "centro" ? "el centro" : "la " + carril}`,
+    `${reloj(e.t)}${tactica(e.t)} · ${TIPO(e, i)} de ${sinDorsal(e.jug)} en ${zona} por ${carril === "centro" ? "el centro" : "la " + carril}`,
     quien && quien !== e ? `sigue ${sinDorsal(quien.jug)}` : "",
     d.remate ? `acaba en remate de ${sinDorsal(d.remate.jug)}` : `acaba en ${d.desenlace.toLowerCase().replace(/_/g, " ")}`,
   ].filter(Boolean);
@@ -223,7 +274,11 @@ console.log("  acción", cuenta(3));
 console.log("  zona", cuenta(1));
 console.log("  desenlace", cuenta(4));
 
-if (SOLO_VER) process.exit(0);
+/* Con --ver, cada robo con su detalle: es lo que hay que mirar antes de escribir. */
+if (SOLO_VER) {
+  for (const r of robos) console.log(`  ${r.fila[7]} · ${r.fila[4]} · ${r.fila[8]}`);
+  process.exit(0);
+}
 
 const dir = path.join(AQUI, PARTIDO, "bloques");
 fs.mkdirSync(dir, { recursive: true });

@@ -127,6 +127,130 @@ function parteLinea(linea, lado) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/*  EL MINUTO EXACTO DE CADA FALTA (04/10/2026)                        */
+/* ------------------------------------------------------------------ */
+
+/*
+| Hasta ahora el minuto iba suelto en la nota, cada falta a su manera
+| («(13:39 TV)», «Vídeo 40:05», «T1, min 40»…) o no iba. Ahora cada falta
+| lleva `minuto`: el de la retransmisión con sus segundos («12'03"», el
+| descuento como «45+1'20"») y, entre paréntesis, el de la grabación
+| táctica cuando hay desfases medidos («(táctica 12:58)»).
+|
+| Cómo: el segundo de vídeo de la falta sale de la base del timeline
+| («Vídeo Hudl 11:25» en `<carpeta>/faltas/*-hudl.csv`) o, si no, de su nota;
+| se busca la falta de Hudl más cercana (±12 s) y se toma el CENTRO de su
+| clip, que es cuando pasa (el clip arranca unos segundos antes).
+*/
+const TRANSICIONES = "C:/Users/Usuario/Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES";
+const ANALISIS = "C:/Users/Usuario/Downloads/RMCF CASTILLA/PARTIDOS/ANALISIS";
+
+/* Alcorcón no tiene tramos.json: sus desfases se midieron a mano (los mismos que robos.cjs). */
+const TRAMOS_A_MANO = {
+  alcorcon: [
+    { hasta: 1816, d: 5.5 },
+    { hasta: 3010, d: -25 },
+    { hasta: 4820, d: 73 },
+    { hasta: 1e9, d: 36 },
+  ],
+};
+
+function relojDe(id) {
+  const fichero = join(TRANSICIONES, id, "timeline-hudl.json");
+
+  if (!existsSync(fichero)) return null;
+
+  const j = JSON.parse(readFileSync(fichero, "utf8"));
+
+  const sesiones = j.data?.taggingSessions?.items ?? [];
+
+  const cod = (m) => (m.tags.find((t) => t.key === "HUDL_CODE") || { values: [""] }).values[0];
+  const tipos = (m) => (m.tags.find((t) => t.key === "02 - Type") || { values: [] }).values;
+
+  const eq = sesiones.find((x) => x.moments.items.some((m) => / - Possessions$/.test(cod(m)))) || sesiones[0];
+
+  const inicioT2 = (eq?.moments.items ?? []).filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b)[1] ?? Infinity;
+
+  /* Las faltas de Hudl, por el centro de su clip. */
+  const faltas = sesiones
+    .flatMap((x) => x.moments.items)
+    .filter((m) => tipos(m).some((t) => t === "Foul" || t === "Penalty foul" || t === "Infraction") && !tipos(m).includes("Offside"))
+    .map((m) => (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000)
+    .sort((a, b) => a - b);
+
+  const tramosFichero = join(TRANSICIONES, id, "tramos.json");
+
+  const tramos = existsSync(tramosFichero) ? JSON.parse(readFileSync(tramosFichero, "utf8")) : TRAMOS_A_MANO[id] ?? [];
+
+  const reloj = (t) => {
+    const primera = t < inicioT2;
+    const dentro = Math.max(0, primera ? t : t - inicioT2);
+    const tope = 45 * 60;
+    const descuento = dentro >= tope;
+    const seg = descuento ? dentro - tope : dentro + (primera ? 0 : tope);
+    const mmss = `${Math.floor(seg / 60)}'${String(Math.floor(seg % 60)).padStart(2, "0")}"`;
+
+    return descuento ? `${primera ? 45 : 90}+${mmss}` : mmss;
+  };
+
+  const tactica = (t) => {
+    if (!tramos.length) return "";
+
+    const tr = tramos.find((x) => t < x.hasta);
+
+    const s = Math.max(0, Math.round(t + (tr ? tr.d : 0)));
+
+    return ` (táctica ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`;
+  };
+
+  return { faltas, reloj, tactica };
+}
+
+/** Los segundos de vídeo de cada falta según la base del timeline del partido (`clip` → segundos). */
+function baseDe(id) {
+  const vistos = new Map();
+
+  if (!existsSync(ANALISIS)) return vistos;
+
+  for (const carpeta of readdirSync(ANALISIS)) {
+    const ficha = join(ANALISIS, carpeta, "partido.json");
+
+    try {
+      if (!existsSync(ficha) || JSON.parse(readFileSync(ficha, "utf8")).slug !== id) continue;
+    } catch {
+      continue;
+    }
+
+    for (const lado of ["of", "def"]) {
+      const f = join(ANALISIS, carpeta, "faltas", `${lado}-hudl.csv`);
+
+      if (!existsSync(f)) continue;
+
+      for (const linea of readFileSync(f, "utf8").split(/\r?\n/)) {
+        const m = /^((?:of|def)-c\d+);.*Vídeo Hudl (\d+):(\d{2})/i.exec(linea.trim());
+
+        if (m) vistos.set(m[1].toLowerCase(), Number(m[2]) * 60 + Number(m[3]));
+      }
+    }
+  }
+
+  return vistos;
+}
+
+/** El segundo de vídeo que dice la nota: el último «Vídeo (Hudl) mm:ss» o «mm:ss TV». */
+function segundoDeNota(nota) {
+  const todos = [...nota.matchAll(/(?:Vídeo(?: Hudl)?|TV)\s+(\d{1,3}):(\d{2})|(\d{1,3}):(\d{2})\s+TV/g)];
+
+  const ultimo = todos[todos.length - 1];
+
+  if (!ultimo) return null;
+
+  const [mm, ss] = ultimo[1] ? [ultimo[1], ultimo[2]] : [ultimo[3], ultimo[4]];
+
+  return Number(mm) * 60 + Number(ss);
+}
+
 function leePartido(partido) {
   const dir = join(ORIGEN, partido.id);
 
@@ -150,6 +274,31 @@ function leePartido(partido) {
 
   /* En el orden del coding, que es el del partido. */
   faltas.sort((a, b) => a.clip.localeCompare(b.clip, "es", { numeric: true }));
+
+  const reloj = relojDe(partido.id);
+
+  const base = baseDe(partido.id);
+
+  let conMinuto = 0;
+
+  for (const falta of faltas) {
+    falta.minuto = "";
+
+    const aprox = base.get(falta.clip) ?? segundoDeNota(falta.nota);
+
+    if (aprox === null || aprox === undefined || !reloj) continue;
+
+    /* La de Hudl más cercana (el segundo de la base es el arranque del clip). */
+    const cerca = reloj.faltas.reduce((mejor, t) => (Math.abs(t - aprox) < Math.abs(mejor - aprox) ? t : mejor), Infinity);
+
+    const t = Math.abs(cerca - aprox) <= 12 ? cerca : aprox;
+
+    falta.minuto = `${reloj.reloj(t)}${reloj.tactica(t)}`;
+
+    conMinuto += 1;
+  }
+
+  console.log(`  ${partido.id}: minuto exacto en ${conMinuto} de ${faltas.length}`);
 
   return { ...partido, faltas };
 }
@@ -183,6 +332,8 @@ export type Falta = {
    * incluido. \`null\` cuando no se veía el campo entero para contarlos.
    */
   entre: number | null;
+  /** «12'03" (táctica 12:58)»: minuto de la retransmisión y, si hay desfases, de la táctica. Vacío si no se sabe. */
+  minuto: string;
   nota: string;
 };
 

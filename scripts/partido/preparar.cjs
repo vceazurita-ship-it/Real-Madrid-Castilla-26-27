@@ -161,9 +161,12 @@ const saques = acciones
   });
 
 function resultadoBanda(saque, nuestro) {
+  /* La posesión que empieza con el saque o después, nunca la de antes: la más
+     cercana a secas cogía a veces la anterior y su «remate» era de antes del
+     saque (04/10/2026). */
   const pos = posesionesSaque
-    .filter((p) => deNosotros(p) === nuestro)
-    .sort((a, b) => Math.abs(a.startTimeMs - saque.t) - Math.abs(b.startTimeMs - saque.t))[0];
+    .filter((p) => deNosotros(p) === nuestro && p.startTimeMs >= saque.t - 1000)
+    .sort((a, b) => a.startTimeMs - b.startTimeMs)[0];
 
   const cerca = pos && Math.abs(pos.startTimeMs - saque.t) < 15000;
 
@@ -208,7 +211,6 @@ function resultadoBanda(saque, nuestro) {
 const zonaBanda = (tercio) => ({ "Own third": "Zona 1", "Middle third": "Zona 2", "Final third": "Zona 3" })[tercio] || "";
 const ladoBanda = (carril) => ({ "Right flank": "Derecho", "Left flank": "Izquierdo" })[carril] || "";
 
-const envio = (largo) => (/Short|Medium/.test(largo) ? "Corto" : /Long/.test(largo) ? "Largo" : "");
 
 const ORDEN_TERCIO = { "Own third": 1, "Middle third": 2, "Final third": 3 };
 
@@ -363,7 +365,9 @@ function ficha(id, desdeS, dura, lineas) {
       Minuto: String(minuto(a.t)),
       Perfil,
       Zona_Saque,
-      Tipo_Envio: envio(largo),
+      /* «05 - Length» es el largo de toda la posesión, no del saque: el vídeo
+         lo corrigió en 5 de 32 saques del J06. Se deja para la revisión. */
+      Tipo_Envio: "",
       Zona_Caida: caida(a),
       Receptor: rec ? linea(rec) : "",
       Resultado_Final: rf.r,
@@ -408,7 +412,12 @@ function ficha(id, desdeS, dura, lineas) {
 
   /* -------- faltas (todas) -------- */
 
-  const faltas = acciones.filter((a) => a.tipos.includes("Foul") || a.tipos.includes("Penalty foul"));
+  /* También las infracciones sin «Foul» (mano, juego peligroso): dan falta
+     igual. El J06 perdía la de Pitarch del 5'55" (04/10/2026). El fuera de
+     juego no es falta. */
+  const faltas = acciones.filter(
+    (a) => a.tipos.includes("Foul") || a.tipos.includes("Penalty foul") || (a.tipos.includes("Infraction") && !a.tipos.includes("Offside")),
+  );
 
   const of = [];
   const def = [];
