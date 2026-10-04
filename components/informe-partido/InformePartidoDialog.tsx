@@ -22,8 +22,8 @@
  *     los adjunta al correo: por Vercel no caben.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { BookOpen, Check, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented, TextArea } from "@/components/abp/ui";
@@ -33,13 +33,34 @@ import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
-import { informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
+import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
 import type { InformePartido, Momento, PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 
-type AjustesCorreo = { destinatarios: string };
+type AjustesCorreo = {
+  destinatarios: string;
+  /** Va bajo el mensaje de cada correo. */
+  firma?: string;
+  /** Si el resumen o el completo van a otras personas que los de arriba. */
+  paraResumen?: string;
+  paraCompleto?: string;
+  /** Los interruptores de adjuntos, recordados de una vez para otra. */
+  preferencias?: { resumenPdf?: boolean; resumenPpt?: boolean; completoPdf?: boolean; completoResumenPdf?: boolean; completoResumenPpt?: boolean };
+};
+
+/** Qué lleva cada correo. `asunto` a `null` = el de siempre; `capitulos` a `null` = todos. */
+type OpcionesEnvio = {
+  resumen: { activo: boolean; asunto: string | null; mensaje: string; diapos: boolean[]; pdf: boolean; ppt: boolean };
+  completo: { activo: boolean; asunto: string | null; mensaje: string; capitulos: string[] | null; pdfCompleto: boolean; pdfResumen: boolean; pptResumen: boolean; sacarDocs: boolean };
+};
+
+/** Al cambiar de partido o de momento, el asunto y el mensaje dejan de valer. */
+const textosLimpios = (e: OpcionesEnvio): OpcionesEnvio => ({
+  resumen: { ...e.resumen, asunto: null, mensaje: "" },
+  completo: { ...e.completo, asunto: null, mensaje: "", capitulos: null },
+});
 
 /** Lo que devuelve la pantalla de ABP incrustada. */
 type AbpLlegado =
@@ -128,9 +149,6 @@ export function InformePartidoDialog({
 
   const [vista, setVista] = useState<"resumen" | "completo">("resumen");
 
-  /* Qué correos salen. Los dos por defecto: es para lo que existe el botón. */
-  const [que, setQue] = useState({ resumen: true, completo: true });
-
   const [trabajando, setTrabajando] = useState<null | string>(null);
 
   const lienzos = useRef<HTMLDivElement | null>(null);
@@ -140,6 +158,33 @@ export function InformePartidoDialog({
     kind: "informe-partido",
     fallback: { destinatarios: "" },
   });
+
+  /* Qué correos salen y qué lleva cada uno. Los dos por defecto: es para lo que existe el botón. */
+  const [envio, setEnvio] = useState<OpcionesEnvio>(() => ({
+    resumen: { activo: true, asunto: null, mensaje: "", diapos: [true, true], pdf: true, ppt: false },
+    completo: { activo: true, asunto: null, mensaje: "", capitulos: null, pdfCompleto: true, pdfResumen: false, pptResumen: false, sacarDocs: true },
+  }));
+
+  /* Lo recordado, en cuanto llega de la nube (una vez). */
+  const preferenciasPuestas = useRef(false);
+
+  useEffect(() => {
+    const pr = ajustes.preferencias;
+
+    if (preferenciasPuestas.current || !pr) return;
+
+    preferenciasPuestas.current = true;
+
+    setEnvio((e) => ({
+      resumen: { ...e.resumen, pdf: pr.resumenPdf ?? e.resumen.pdf, ppt: pr.resumenPpt ?? e.resumen.ppt },
+      completo: {
+        ...e.completo,
+        pdfCompleto: pr.completoPdf ?? e.completo.pdfCompleto,
+        pdfResumen: pr.completoResumenPdf ?? e.completo.pdfResumen,
+        pptResumen: pr.completoResumenPpt ?? e.completo.pptResumen,
+      },
+    }));
+  }, [ajustes.preferencias]);
 
   /* Los microciclos de la hoja. */
   useEffect(() => {
@@ -386,8 +431,6 @@ export function InformePartidoDialog({
 
   const marcados = documentos.filter((d) => d.adjuntable && !quitados.has(d.url));
 
-  const pesoAdjuntos = marcados.reduce((s, d) => s + (d.tamano ?? 0), 0);
-
   const sube = async (archivos: FileList | null) => {
     for (const file of Array.from(archivos ?? [])) {
       try {
@@ -432,13 +475,17 @@ export function InformePartidoDialog({
         })
       : [];
 
-    return informeHtml(informeVisto, { abpCuerpo, adjuntos });
-  }, [informeVisto, abpCuerpo, listaVista]);
+    return informeHtml(informeVisto, {
+      abpCuerpo,
+      adjuntos,
+      capitulos: envio.completo.capitulos ?? undefined,
+      mensaje: envio.completo.mensaje,
+      firma: (ajustes.firma ?? "").trim() || undefined,
+    });
+  }, [informeVisto, abpCuerpo, listaVista, envio.completo.capitulos, envio.completo.mensaje, ajustes.firma]);
 
   const htmlVista = sinCid(htmlCrudo);
 
-  /** El completo en PDF: entero (sin aligerar) y sin la lista de adjuntos, que en un PDF no pinta nada. */
-  const pdfCompleto = () => completoEnPdf(sinCid(informeHtml(informeVisto!, { abpCuerpo })), (h, t) => setTrabajando(`Montando el completo en PDF · hoja ${h} de ${t}…`));
 
   const [anchoVista, setAnchoVista] = useState(0);
 
@@ -470,27 +517,167 @@ export function InformePartidoDialog({
     return /\.(pdf|pptx)$/i.test(d.nombre) ? d.nombre : nombreDeArchivo(d.nombre, ext);
   };
 
+  /* ---------------- el partido, para asuntos y nombres ---------------- */
+
+  const p = informeVisto?.partido;
+
+  const esPost = informeVisto?.momento === "post";
+
+  const conGoles = Boolean(esPost && p && p.gf !== null && p.gc !== null);
+
+  const cruce = p
+    ? p.lado === "fuera"
+      ? `${p.rival}${conGoles ? ` ${p.gc}-${p.gf}` : " –"} RM Castilla`
+      : `RM Castilla${conGoles ? ` ${p.gf}-${p.gc}` : " –"} ${p.rival}`
+    : "";
+
+  /* «Previa · RM Castilla – CD Teruel (J7)»: lo que se lee en la bandeja. */
+  const cabeceraAsunto = p ? `${esPost ? "Post" : "Previa"} · ${cruce}${p.jornada ? ` (J${p.jornada})` : ""}` : "";
+
+  const asuntoResumen = envio.resumen.asunto ?? `${cabeceraAsunto} · Resumen`;
+
+  const asuntoCompleto = envio.completo.asunto ?? `${cabeceraAsunto} · Informe completo`;
+
+  /* El título que va en el pie y en las propiedades del PDF. */
+  const tituloPdf = p ? `${esPost ? "Post" : "Previa"}${p.jornada ? ` J${p.jornada}` : ""} · ${cruce}` : "";
+
+  /* ---------------- lo que se prepara solo, en segundo plano ---------------- */
+
+  /*
+  | Medido el 04/10/2026: mandar los dos correos tardaba 5 min y medio, y 4 de
+  | ellos eran el PDF del completo. Ahora el PDF sale de una sola captura
+  | (lib/informe-partido/pdf-completo.ts) y, además, las diapositivas y el PDF
+  | se preparan **mientras se revisa el informe**: al pulsar «Enviar» ya están.
+  | Cada pieza va con su clave; si cambia lo que la forma, se vuelve a hacer.
+  */
+  const claveDiapos = informeVisto && !cargando ? `${informeVisto.generado}|${informeVisto.momento}|${abpActual?.ok ? abpActual.clave : "-"}` : "";
+
+  const capitulosElegidos = envio.completo.capitulos;
+
+  const claveCompleto = claveDiapos ? `${claveDiapos}|${abpCargando ? "abp…" : "abp"}|${capitulosElegidos?.join(",") ?? "todos"}` : "";
+
+  const cache = useRef<{ diapos?: { clave: string; imagenes: Promise<string[]> }; completo?: { clave: string; pdf: Promise<Blob> } }>({});
+
+  const [preparado, setPreparado] = useState<{ diapos: string; completo: string }>({ diapos: "", completo: "" });
+
+  const [preparando, setPreparando] = useState<string | null>(null);
+
   /** Las dos diapositivas en JPEG, dibujadas fuera de pantalla a su tamaño real. */
-  const capturaDiapositivas = async () => {
-    setTrabajando("Dibujando las diapositivas…");
+  const dameDiapos = () => {
+    const clave = claveDiapos;
 
-    await document.fonts?.ready;
-    await pintado();
-    await pintado();
+    if (cache.current.diapos?.clave === clave) return cache.current.diapos.imagenes;
 
-    const raiz = lienzos.current;
+    const imagenes = (async () => {
+      await document.fonts?.ready;
+      await pintado();
+      await pintado();
 
-    if (!raiz) throw new Error("No se han podido montar las diapositivas.");
+      const raiz = lienzos.current;
 
-    return capturaLienzos(raiz, "[data-diapositiva-partido]", { ancho: DIAPO_W, alto: DIAPO_H, fondo: "#08111F", nitidez: 1 });
+      if (!raiz) throw new Error("No se han podido montar las diapositivas.");
+
+      return capturaLienzos(raiz, "[data-diapositiva-partido]", { ancho: DIAPO_W, alto: DIAPO_H, fondo: "#08111F", nitidez: 1 });
+    })();
+
+    cache.current.diapos = { clave, imagenes };
+
+    imagenes.then(
+      () => setPreparado((x) => ({ ...x, diapos: clave })),
+      () => {
+        if (cache.current.diapos?.clave === clave) cache.current.diapos = undefined;
+      },
+    );
+
+    return imagenes;
   };
+
+  /** El completo en PDF: entero (con los capítulos elegidos), sin la lista de adjuntos ni el mensaje, que son del correo. */
+  const damePdfCompleto = (alPaso?: (h: number, t: number) => void) => {
+    const clave = claveCompleto;
+
+    if (cache.current.completo?.clave === clave) return cache.current.completo.pdf;
+
+    const pdf = completoEnPdf(sinCid(informeHtml(informeVisto!, { abpCuerpo, capitulos: capitulosElegidos ?? undefined })), alPaso, { titulo: tituloPdf });
+
+    cache.current.completo = { clave, pdf };
+
+    pdf.then(
+      () => setPreparado((x) => ({ ...x, completo: clave })),
+      () => {
+        if (cache.current.completo?.clave === clave) cache.current.completo = undefined;
+      },
+    );
+
+    return pdf;
+  };
+
+  /* En cuanto hay informe (y ABP), se prepara todo sin que nadie lo pida. */
+  useEffect(() => {
+    if (!claveDiapos || abpCargando || trabajando) return;
+
+    if (preparado.diapos === claveDiapos && preparado.completo === claveCompleto) return;
+
+    let vivo = true;
+
+    const t = window.setTimeout(async () => {
+      try {
+        if (preparado.diapos !== claveDiapos) {
+          setPreparando("Preparando las diapositivas…");
+
+          await dameDiapos();
+        }
+
+        if (!vivo) return;
+
+        setPreparando("Preparando el PDF del completo…");
+
+        await damePdfCompleto((h, total) => vivo && setPreparando(`Preparando el PDF del completo · ${h} de ${total}…`));
+      } catch {
+        /* Al enviar se vuelve a intentar y, si falla, lo dice. */
+      } finally {
+        if (vivo) setPreparando(null);
+      }
+    }, 1500);
+
+    return () => {
+      vivo = false;
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveDiapos, claveCompleto, abpCargando, trabajando]);
+
+  const listoTodo = Boolean(claveDiapos) && preparado.diapos === claveDiapos && preparado.completo === claveCompleto;
+
+  /* ---------------- PDF y PPT del resumen ---------------- */
+
+  /* Las diapositivas que van: la 1, la 2 o las dos. */
+  const indicesDiapos = [0, 1].filter((i) => envio.resumen.diapos[i]);
+
+  const rotuloDiapo = (i: number) => (i === 0 ? (esPost ? "El resultado" : "El partido") : esPost ? "Lo que nos deja" : "El plan");
 
   const pdfDe = async (imagenes: string[]) =>
     (await pdfDeLienzos(imagenes, { ancho: DIAPO_W, alto: DIAPO_H, orientacion: "landscape", margen: 0 })).output("blob") as Blob;
 
+  const pptDe = (imagenes: string[], indices: number[]) =>
+    creaPptx(
+      imagenes.map((imagen, k) => ({ titulo: rotuloDiapo(indices[k] ?? k), imagen })),
+      { titulo: `${esPost ? "Post" : "Previa"} · ${p?.rival ?? ""}`, aplicacion: "Informe del partido" },
+    );
+
+  const elegidas = async () => {
+    const todas = await dameDiapos();
+
+    const indices = indicesDiapos.length ? indicesDiapos : [0, 1];
+
+    return { imagenes: indices.map((i) => todas[i]).filter(Boolean), indices };
+  };
+
   const bajaPdf = async () => {
     try {
-      const imagenes = await capturaDiapositivas();
+      setTrabajando("Preparando el PDF…");
+
+      const { imagenes } = await elegidas();
 
       descarga(await pdfDe(imagenes), nombreDeArchivo(`${nombreLegible} - Resumen`, "pdf"));
     } catch (error) {
@@ -502,9 +689,11 @@ export function InformePartidoDialog({
 
   const bajaPptx = async () => {
     try {
-      const imagenes = await capturaDiapositivas();
+      setTrabajando("Preparando el PowerPoint…");
 
-      descarga(pptDe(imagenes), nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"));
+      const { imagenes, indices } = await elegidas();
+
+      descarga(pptDe(imagenes, indices), nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"));
     } catch (error) {
       toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -514,9 +703,9 @@ export function InformePartidoDialog({
 
   const bajaCompleto = async () => {
     try {
-      setTrabajando("Montando el PDF del completo…");
+      setTrabajando("Preparando el PDF del completo…");
 
-      descarga(await pdfCompleto(), nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"));
+      descarga(await damePdfCompleto((h, t) => setTrabajando(`PDF del completo · hoja ${h} de ${t}…`)), nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"));
     } catch (error) {
       toast.error("No se ha podido exportar el completo", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -524,11 +713,7 @@ export function InformePartidoDialog({
     }
   };
 
-  const pptDe = (imagenes: string[]) =>
-    creaPptx(
-      imagenes.map((imagen, i) => ({ titulo: i === 0 ? (informe?.momento === "post" ? "El resultado" : "El partido") : informe?.momento === "post" ? "Lo que nos deja" : "El plan", imagen })),
-      { titulo: `${informe?.momento === "post" ? "Post" : "Previa"} · ${informe?.partido.rival ?? ""}`, aplicacion: "Informe del partido" },
-    );
+  /* ---------------- mandar ---------------- */
 
   const manda = async (cuerpo: Record<string, unknown>) => {
     const r = await fetch("/api/informe/correo", {
@@ -542,146 +727,200 @@ export function InformePartidoDialog({
     if (!r.ok || !j?.ok) throw new Error(j?.error ?? `HTTP ${r.status}`);
   };
 
+  /** Las direcciones de un texto, o las malas. */
+  const direccionesDe = (texto: string) => {
+    const todas = texto.split(/[\s,;]+/).filter(Boolean);
+
+    return { buenas: todas.filter((d) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d)), malas: todas.filter((d) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d)) };
+  };
+
+  const paraResumen = (ajustes.paraResumen ?? "").trim() || ajustes.destinatarios;
+
+  const paraCompleto = (ajustes.paraCompleto ?? "").trim() || ajustes.destinatarios;
+
+  /* Lo que va por pasos, para el botón: «Resumen: mandado · Completo: subiendo 2/4». */
+  const pasos = useRef<{ resumen?: string; completo?: string }>({});
+
+  const pinta = (que: "resumen" | "completo", texto: string) => {
+    pasos.current[que] = texto;
+
+    setTrabajando(
+      [pasos.current.resumen && `Resumen: ${pasos.current.resumen}`, pasos.current.completo && `Completo: ${pasos.current.completo}`].filter(Boolean).join(" · "),
+    );
+  };
+
   const envia = async () => {
     if (!informeVisto) return;
 
-    /* Antes de dibujar nada: dibujar y comprimir lleva unos segundos y no
-       tiene sentido gastarlos para que el servidor diga que falta el correo. */
-    const direcciones = ajustes.destinatarios.split(/[\s,;]+/).filter(Boolean);
+    const { resumen: r, completo: c } = envio;
 
-    const malas = direcciones.filter((d) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d));
-
-    if (!direcciones.length) {
-      toast.error("Escribe al menos una dirección de correo.");
-
-      return;
-    }
-
-    if (malas.length) {
-      toast.error("Hay direcciones mal escritas", { description: malas.join(", ") });
-
-      return;
-    }
-
-    if (!que.resumen && !que.completo) {
+    if (!r.activo && !c.activo) {
       toast.error("Marca qué quieres mandar: el resumen, el completo o los dos.");
 
       return;
     }
 
-    const para = direcciones.join(", ");
+    /* Antes de dibujar nada: que haya a quién y bien escrito. */
+    for (const [activo, texto, nombre] of [
+      [r.activo, paraResumen, "el resumen"],
+      [c.activo, paraCompleto, "el completo"],
+    ] as const) {
+      if (!activo) continue;
 
-    const p = informeVisto.partido;
+      const { buenas, malas } = direccionesDe(texto);
 
-    const etiqueta = informeVisto.momento === "post" ? "POST" : "PREVIA";
+      if (!buenas.length) {
+        toast.error(`Escribe a quién va ${nombre}.`);
 
-    /* En el post el marcador va en el asunto: es lo primero que se busca. */
-    const conGoles = informeVisto.momento === "post" && p.gf !== null && p.gc !== null;
+        return;
+      }
 
-    const [gLocal, gVisit] = p.lado === "fuera" ? [p.gc, p.gf] : [p.gf, p.gc];
+      if (malas.length) {
+        toast.error(`Hay direcciones mal escritas para ${nombre}`, { description: malas.join(", ") });
 
-    const cruce =
-      p.lado === "fuera" ? `${p.rival}${conGoles ? ` ${gLocal}-${gVisit}` : " -"} RM Castilla` : `RM Castilla${conGoles ? ` ${gLocal}-${gVisit}` : " -"} ${p.rival}`;
+        return;
+      }
+    }
 
-    const partido = `${cruce}${p.jornada ? ` · J${p.jornada}` : ""}`;
+    if (r.activo && !indicesDiapos.length) {
+      toast.error("Marca al menos una diapositiva para el resumen.");
 
-    const nombreResumenPdf = nombreDeArchivo(`${nombreLegible} - Resumen`, "pdf");
+      return;
+    }
+
+    pasos.current = {};
+
+    const firma = (ajustes.firma ?? "").trim() || undefined;
+
+    /*
+    | El PDF y el PPT del rival, si hay que sacarlos: se piden YA (dentro del
+    | clic, o el navegador bloquea la pestaña) y se esperan sólo justo antes de
+    | mandar el completo. El resumen no los espera.
+    */
+    const docsNuevosP: Promise<Documento[]> =
+      c.activo && c.sacarDocs && faltanDocs && !docsActual?.ok
+        ? new Promise<DocsLlegados>((resuelve) => {
+            esperaDocs.current = resuelve;
+
+            abreDocs();
+
+            window.setTimeout(() => resuelve({ ok: false, clave: "", error: "Plantillas rivales no ha contestado a tiempo." }), ESPERA_DOCS);
+          }).then((llegado) => {
+            if (!llegado.ok) {
+              toast.message("El PDF y el PPT del rival no han salido", { description: `${llegado.error} El completo sale sin ellos.` });
+
+              return [];
+            }
+
+            return llegado.docs.map((x) => ({
+              nombre: `${ROTULO_DOCUMENTO[x.tipo]} · recién sacado`,
+              url: x.url,
+              tipo: x.tipo === "plantilla-pdf" ? "application/pdf" : PPTX,
+              tamano: x.tamano,
+              adjuntable: true,
+              origen: "rival" as const,
+              generado: x.tipo,
+            }));
+          })
+        : Promise.resolve([]);
 
     try {
-      /* Si faltan el PDF y el PPT del rival, se sacan antes de mandar nada:
-         así un fallo no deja el resumen enviado y el completo a medias. */
-      let docsNuevos: Documento[] = [];
+      if (r.activo) pinta("resumen", "diapositivas…");
+      if (c.activo) pinta("completo", listoTodo ? "listo para subir" : "preparando…");
 
-      if (que.completo && faltanDocs && !docsActual?.ok) {
-        setTrabajando("Sacando el PDF y el PPT del rival en otra pestaña (≈40 s)…");
+      const { imagenes, indices } = await elegidas();
 
-        const llegado = await new Promise<DocsLlegados>((resuelve) => {
-          esperaDocs.current = resuelve;
+      const cids = indices.map((i) => `diapositiva-${i + 1}`);
 
-          abreDocs();
+      const diapositivasCid = imagenes.map((img, k) => ({ cid: cids[k], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") }));
 
-          window.setTimeout(() => resuelve({ ok: false, clave: "", error: "Plantillas rivales no ha contestado a tiempo." }), ESPERA_DOCS);
-        });
+      const nombreResumenPdf = nombreDeArchivo(`${nombreLegible} - Resumen`, "pdf");
 
-        if (llegado.ok) {
-          docsNuevos = llegado.docs.map((x) => ({
-            nombre: `${ROTULO_DOCUMENTO[x.tipo]} · recién sacado`,
-            url: x.url,
-            tipo: x.tipo === "plantilla-pdf" ? "application/pdf" : PPTX,
-            tamano: x.tamano,
-            adjuntable: true,
-            origen: "rival" as const,
-            generado: x.tipo,
-          }));
-        } else {
-          toast.message("El PDF y el PPT del rival no han salido", { description: `${llegado.error} El completo sale sin ellos.` });
-        }
-      }
+      const nombreResumenPpt = nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx");
 
-      const sustituidos = new Set(docsNuevos.map((x) => x.generado));
+      const pdfResumenP = pdfDe(imagenes);
 
-      const adjuntosRival = [...docsNuevos, ...marcados.filter((x) => !x.generado || !sustituidos.has(x.generado))];
+      /* ------------- el resumen ------------- */
 
-      const imagenes = await capturaDiapositivas();
+      const correoResumen = async () => {
+        const pdfResumen = await pdfResumenP;
 
-      const cids = imagenes.map((_, i) => `diapositiva-${i + 1}`);
+        const ppt = r.ppt ? pptDe(imagenes, indices) : null;
 
-      const diapositivasCid = imagenes.map((img, i) => ({ cid: cids[i], tipo: "image/jpeg", base64: img.replace(/^data:[^;]+;base64,/, "") }));
-
-      const pdfResumen = await pdfDe(imagenes);
-
-      if (que.resumen) {
-        setTrabajando("Mandando el resumen…");
-
-        await manda({
-          para,
-          asunto: `[${etiqueta} · RESUMEN] ${partido}`,
-          html: resumenHtml(informeVisto, cids, {
-            conCompleto: que.completo,
-            descargas: [{ nombre: nombreResumenPdf, tamano: pdfResumen.size, adjunto: true }],
-          }),
-          texto: informeTexto(informeVisto),
-          imagenes: diapositivasCid,
-          adjuntos: [{ nombre: nombreResumenPdf, tipo: "application/pdf", base64: await base64De(pdfResumen) }],
-        });
-      }
-
-      if (que.completo) {
-        /*
-        | El completo lleva el propio informe en PDF, el resumen (PDF y PPT) y
-        | los documentos del rival. Los nuestros se suben antes a Supabase: por
-        | la función de Vercel no caben.
-        */
-        setTrabajando("Montando el completo en PDF…");
-
-        const propios: { nombre: string; blob: Blob; tipo: string }[] = [
-          { nombre: nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"), blob: await pdfCompleto(), tipo: "application/pdf" },
-          { nombre: nombreResumenPdf, blob: pdfResumen, tipo: "application/pdf" },
-          { nombre: nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"), blob: pptDe(imagenes), tipo: PPTX },
+        const adjuntos = [
+          ...(r.pdf ? [{ nombre: nombreResumenPdf, tipo: "application/pdf", base64: await base64De(pdfResumen) }] : []),
+          ...(ppt ? [{ nombre: nombreResumenPpt, tipo: PPTX, base64: await base64De(ppt) }] : []),
         ];
 
-        const subidosAhora: { nombre: string; url: string; tipo: string; tamano: number | null }[] = [];
+        pinta("resumen", "mandando…");
 
-        for (const [i, archivo] of propios.entries()) {
-          setTrabajando(`Subiendo adjuntos ${i + 1}/${propios.length}…`);
+        await manda({
+          para: paraResumen,
+          asunto: asuntoResumen,
+          html: resumenHtml(informeVisto, cids, {
+            conCompleto: c.activo,
+            mensaje: r.mensaje,
+            firma,
+            descargas: [
+              ...(r.pdf ? [{ nombre: nombreResumenPdf, tamano: pdfResumen.size, adjunto: true }] : []),
+              ...(ppt ? [{ nombre: nombreResumenPpt, tamano: ppt.size, adjunto: true }] : []),
+            ],
+          }),
+          texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
+          imagenes: diapositivasCid,
+          adjuntos,
+        });
 
-          const a = await subeAdjunto(new File([archivo.blob], archivo.nombre, { type: archivo.tipo }));
+        pinta("resumen", "mandado ✓");
+      };
 
-          subidosAhora.push({ nombre: archivo.nombre, url: a.url, tipo: archivo.tipo, tamano: archivo.blob.size });
-        }
+      /* ------------- el completo ------------- */
+
+      const correoCompleto = async () => {
+        const propios: { nombre: string; blob: Promise<Blob> | Blob; tipo: string }[] = [
+          ...(c.pdfCompleto ? [{ nombre: nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"), blob: damePdfCompleto((h, t) => pinta("completo", `PDF ${h}/${t}…`)), tipo: "application/pdf" }] : []),
+          ...(c.pdfResumen ? [{ nombre: nombreResumenPdf, blob: pdfResumenP, tipo: "application/pdf" }] : []),
+          ...(c.pptResumen ? [{ nombre: nombreResumenPpt, blob: pptDe(imagenes, indices), tipo: PPTX }] : []),
+        ];
+
+        /* Todo a la vez: cada archivo, en cuanto está, sube; no uno detrás de otro. */
+        let subidos = 0;
+
+        pinta("completo", propios.length ? `subiendo 0/${propios.length}…` : "preparando…");
+
+        const subidosAhora = await Promise.all(
+          propios.map(async (archivo) => {
+            const blob = await archivo.blob;
+
+            const a = await subeAdjunto(new File([blob], archivo.nombre, { type: archivo.tipo }));
+
+            subidos += 1;
+
+            pinta("completo", `subiendo ${subidos}/${propios.length}…`);
+
+            return { nombre: archivo.nombre, url: a.url, tipo: archivo.tipo, tamano: blob.size as number | null };
+          }),
+        );
+
+        if (c.sacarDocs && faltanDocs && !docsActual?.ok) pinta("completo", "esperando el PDF y el PPT del rival…");
+
+        const docsNuevos = await docsNuevosP;
+
+        const sustituidos = new Set(docsNuevos.map((x) => x.generado));
+
+        const adjuntosRival = [...docsNuevos, ...marcados.filter((x) => !x.generado || !sustituidos.has(x.generado))];
 
         /*
         | Qué va adjunto y qué sólo como enlace. Por orden de importancia —el
         | completo, el resumen, la plantilla y el informe del rival, lo demás, y
         | el PPT del resumen al final—, se adjunta mientras quepa. Todo lleva
-        | además su botón de descarga en el correo: si el cliente no enseña un
-        | adjunto, el enlace sigue valiendo (30 días).
+        | además su botón de descarga: si el cliente no enseña un adjunto, el
+        | enlace sigue valiendo (30 días).
         */
         const candidatos = [
-          subidosAhora[0],
-          subidosAhora[1],
+          ...subidosAhora.filter((d) => d.tipo === "application/pdf"),
           ...adjuntosRival.map((d) => ({ nombre: nombreEnCorreo(d), url: d.url, tipo: d.tipo, tamano: d.tamano })),
-          subidosAhora[2],
+          ...subidosAhora.filter((d) => d.tipo !== "application/pdf"),
         ];
 
         let ocupado = 0;
@@ -699,7 +938,14 @@ export function InformePartidoDialog({
         const descargas: Descarga[] = reparto.map((d) => ({ nombre: d.nombre, url: d.url, tamano: d.tamano, adjunto: d.adjunto }));
 
         /* La versión más completa que Gmail no recorte. */
-        const base: ExtrasInforme = { abpCuerpo, diapositivas: cids, adjuntos: descargas };
+        const base: ExtrasInforme = {
+          abpCuerpo,
+          diapositivas: cids,
+          adjuntos: descargas,
+          capitulos: capitulosElegidos ?? undefined,
+          mensaje: c.mensaje,
+          firma,
+        };
 
         let ligero: 0 | 1 | 2 = 0;
 
@@ -711,31 +957,50 @@ export function InformePartidoDialog({
           html = informeHtml(informeVisto, { ...base, ligero });
         }
 
-        setTrabajando("Mandando el informe completo…");
+        pinta("completo", "mandando…");
 
         await manda({
-          para,
-          asunto: `[${etiqueta} · COMPLETO] ${partido}`,
+          para: paraCompleto,
+          asunto: asuntoCompleto,
           html,
-          texto: `${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${descargas.map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
+          texto: `${c.mensaje?.trim() ? `${c.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${descargas.map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
           /* Con ABP resumido, sus gráficos no se llaman desde el cuerpo: si
              viajaran, saldrían como adjuntos sueltos sin nombre. */
           imagenes: [...diapositivasCid, ...(abpActual?.ok && ligero < 2 ? abpActual.imagenes : [])],
           adjuntosUrl: reparto.filter((d) => d.adjunto).map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
         });
 
-        const enlazados = reparto.filter((d) => !d.adjunto).length;
+        pinta("completo", "mandado ✓");
 
-        if (enlazados) {
-          toast.message(`${enlazados} ${enlazados === 1 ? "documento va" : "documentos van"} como enlace de descarga`, {
-            description: `No cabían adjuntos (${mb(TOPE_ADJUNTOS)} por correo). En el correo tienen su botón «Descargar».`,
-          });
-        }
+        return reparto.filter((d) => !d.adjunto).length;
+      };
+
+      /* Los dos a la vez: el resumen no espera a que se suba el completo. */
+      const [resResumen, resCompleto] = await Promise.allSettled([r.activo ? correoResumen() : Promise.resolve(), c.activo ? correoCompleto() : Promise.resolve(0)]);
+
+      const fallos = [
+        resResumen.status === "rejected" ? `Resumen: ${resResumen.reason instanceof Error ? resResumen.reason.message : resResumen.reason}` : "",
+        resCompleto.status === "rejected" ? `Completo: ${resCompleto.reason instanceof Error ? resCompleto.reason.message : resCompleto.reason}` : "",
+      ].filter(Boolean);
+
+      const salieron = [r.activo && resResumen.status === "fulfilled" && "el resumen", c.activo && resCompleto.status === "fulfilled" && "el informe completo"].filter(Boolean);
+
+      if (salieron.length) {
+        toast.success(salieron.length === 2 ? "Mandados los dos correos" : `Mandado ${salieron[0]}`, {
+          description: `${salieron.join(" y ")}${fallos.length ? `. No ha salido: ${fallos.join(" · ")}` : ""}.`,
+        });
       }
 
-      toast.success(que.resumen && que.completo ? "Mandados los dos correos" : "Mandado", {
-        description: `${[que.resumen && "El resumen (con PDF)", que.completo && "el informe completo con sus adjuntos"].filter(Boolean).join(" y ")} a ${direcciones.length} ${direcciones.length === 1 ? "persona" : "personas"}.`,
-      });
+      if (fallos.length && !salieron.length) toast.error("No se ha podido mandar", { description: fallos.join(" · ") });
+      else if (fallos.length) toast.error("Uno de los dos no ha salido", { description: fallos.join(" · ") });
+
+      const enlazados = resCompleto.status === "fulfilled" ? Number(resCompleto.value) || 0 : 0;
+
+      if (enlazados) {
+        toast.message(`${enlazados} ${enlazados === 1 ? "documento va" : "documentos van"} como enlace de descarga`, {
+          description: `No cabían adjuntos (${mb(TOPE_ADJUNTOS)} por correo). En el correo tienen su botón «Descargar».`,
+        });
+      }
     } catch (error) {
       toast.error("No se ha podido mandar", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -750,7 +1015,61 @@ export function InformePartidoDialog({
 
   /* Mandar el completo sin esperar a ABP dejaría fuera su informe: se espera,
      salvo que sólo se mande el resumen (que ya lleva su pincelada si llegó). */
-  const esperaAbp = que.completo && abpCargando;
+  const esperaAbp = envio.completo.activo && abpCargando;
+
+  const capitulos = useMemo(() => (informeVisto ? capitulosDe(informeVisto, { abpCuerpo }) : []), [informeVisto, abpCuerpo]);
+
+  const marcadoCapitulo = (id: string) => !capitulosElegidos || capitulosElegidos.includes(id);
+
+  const cambiaCapitulo = (id: string, si: boolean) =>
+    setEnvio((e) => {
+      const actuales = e.completo.capitulos ?? capitulos.map((x) => x.id);
+
+      const nuevos = si ? [...new Set([...actuales, id])] : actuales.filter((x) => x !== id);
+
+      /* En el orden del informe; si están todos, «todos» (sigue valiendo si aparece uno nuevo). */
+      const ordenados = capitulos.map((x) => x.id).filter((x) => nuevos.includes(x));
+
+      return { ...e, completo: { ...e.completo, capitulos: ordenados.length === capitulos.length ? null : ordenados } };
+    });
+
+  const cambia = <K extends "resumen" | "completo">(que: K, cambio: Partial<OpcionesEnvio[K]>) => setEnvio((e) => ({ ...e, [que]: { ...e[que], ...cambio } }));
+
+  /* Los interruptores se recuerdan de una vez para otra (no el texto, que es de cada partido). */
+  useEffect(() => {
+    const { resumen: r, completo: c } = envio;
+
+    const preferencias = { resumenPdf: r.pdf, resumenPpt: r.ppt, completoPdf: c.pdfCompleto, completoResumenPdf: c.pdfResumen, completoResumenPpt: c.pptResumen };
+
+    if (JSON.stringify(preferencias) !== JSON.stringify(ajustes.preferencias ?? {})) setAjustes({ ...ajustes, preferencias });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envio.resumen.pdf, envio.resumen.ppt, envio.completo.pdfCompleto, envio.completo.pdfResumen, envio.completo.pptResumen]);
+
+  const casilla = (checked: boolean, onChange: (v: boolean) => void, texto: ReactNode, pie?: string, disabled = false) => (
+    <label className={`flex items-start gap-2 ${disabled ? "opacity-40" : "cursor-pointer"}`}>
+      <input type="checkbox" className="mt-0.5 shrink-0 accent-[#C8A96B]" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span className="min-w-0">
+        <span className="text-white/80">{texto}</span>
+        {pie ? <span className="block text-[11px] text-white/35">{pie}</span> : null}
+      </span>
+    </label>
+  );
+
+  const campo = "w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50";
+
+  const rotuloCaja = "mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40";
+
+  const botonEnviar = trabajando
+    ? trabajando
+    : esperaAbp
+      ? "Preparando ABP…"
+      : envio.resumen.activo && envio.completo.activo
+        ? "Enviar los dos"
+        : envio.resumen.activo
+          ? "Enviar el resumen"
+          : envio.completo.activo
+            ? "Enviar el completo"
+            : "Enviar";
 
   return (
     <Dialog
@@ -759,25 +1078,27 @@ export function InformePartidoDialog({
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-3 text-[12px] text-white/60">
-            <span className="text-white/35">Mandar:</span>
-            <label className="inline-flex cursor-pointer items-center gap-1.5">
-              <input type="checkbox" checked={que.resumen} onChange={(e) => setQue((q) => ({ ...q, resumen: e.target.checked }))} className="accent-[#C8A96B]" />
-              Resumen (2 diapositivas + PDF)
-            </label>
-            <label className="inline-flex cursor-pointer items-center gap-1.5">
-              <input type="checkbox" checked={que.completo} onChange={(e) => setQue((q) => ({ ...q, completo: e.target.checked }))} className="accent-[#C8A96B]" />
-              Informe completo{marcados.length ? ` + ${marcados.length} adjunto${marcados.length === 1 ? "" : "s"}` : ""}
-            </label>
-          </div>
+          <p className="flex items-center gap-1.5 text-[11px] text-white/45">
+            {preparando ? (
+              <>
+                <Loader2 size={12} className="animate-spin" /> {preparando}
+              </>
+            ) : listoTodo ? (
+              <>
+                <Check size={12} className="text-emerald-300" /> Diapositivas y PDF preparados: enviar es inmediato
+              </>
+            ) : informe && !cargando ? (
+              "Las diapositivas y el PDF se preparan solos mientras lo revisas"
+            ) : null}
+          </p>
           <div className="flex flex-wrap gap-2">
-            <Button icon={FileText} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPdf()} title="Las dos diapositivas en PDF">
+            <Button icon={FileText} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPdf()} title="Las diapositivas elegidas, en PDF">
               Resumen PDF
             </Button>
-            <Button icon={Presentation} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPptx()} title="Las dos diapositivas en PowerPoint">
+            <Button icon={Presentation} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPptx()} title="Las diapositivas elegidas, en PowerPoint">
               Resumen PPT
             </Button>
-            <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF (con el de balón parado)">
+            <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF, con los capítulos elegidos">
               Completo PDF
             </Button>
             <Button
@@ -787,7 +1108,7 @@ export function InformePartidoDialog({
               onClick={() => void envia()}
               title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
             >
-              {trabajando ?? (esperaAbp ? "Preparando ABP…" : que.resumen && que.completo ? "Enviar los dos" : "Enviar")}
+              {botonEnviar}
             </Button>
           </div>
         </div>
@@ -796,7 +1117,7 @@ export function InformePartidoDialog({
       <div className={`space-y-4 ${barlowCondensed.className}`} style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily, fontFamily: "inherit" }}>
         <div className="flex flex-wrap items-end gap-3 font-sans">
           <label className="min-w-[220px]">
-            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Microciclo</span>
+            <span className={rotuloCaja}>Microciclo</span>
             <select
               value={elegido ? `${elegido.temporada}|${elegido.micro}` : ""}
               onChange={(e) => {
@@ -806,6 +1127,7 @@ export function InformePartidoDialog({
                 setMomentoPedido(null);
                 setSubidos([]);
                 setQuitados(new Set());
+                setEnvio((x) => textosLimpios(x));
               }}
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
             >
@@ -818,7 +1140,7 @@ export function InformePartidoDialog({
           </label>
 
           <div>
-            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Momento</span>
+            <span className={rotuloCaja}>Momento</span>
             <Segmented
               ariaLabel="Previa o post"
               value={momento}
@@ -826,7 +1148,10 @@ export function InformePartidoDialog({
                 { key: "previa", label: "Previa del partido" },
                 { key: "post", label: "Post partido" },
               ]}
-              onChange={(m) => setMomentoPedido(m as Momento)}
+              onChange={(m) => {
+                setMomentoPedido(m as Momento);
+                setEnvio((x) => textosLimpios(x));
+              }}
             />
             <span className="mt-1 block text-[10px] text-white/35">
               {momentoPedido
@@ -838,7 +1163,7 @@ export function InformePartidoDialog({
           </div>
 
           <div>
-            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Ver</span>
+            <span className={rotuloCaja}>Ver</span>
             <Segmented
               ariaLabel="Qué ver"
               value={vista}
@@ -855,116 +1180,232 @@ export function InformePartidoDialog({
           </Button>
         </div>
 
-        <div className="font-sans">
+        {/* ---------------- A QUIÉN ---------------- */}
+
+        <div className="grid gap-3 font-sans md:grid-cols-[1fr_220px]">
           <TextArea
-            label="A quién se le manda"
+            label="A quién se le manda (los dos correos)"
             value={ajustes.destinatarios}
-            onChange={(destinatarios) => setAjustes({ destinatarios })}
+            onChange={(destinatarios) => setAjustes({ ...ajustes, destinatarios })}
             placeholder="correo@ejemplo.com, otro@ejemplo.com"
             rows={2}
           />
+          <label>
+            <span className={rotuloCaja}>Firma</span>
+            <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes({ ...ajustes, firma: e.target.value })} placeholder="Cuerpo técnico" />
+            <span className="mt-1 block text-[10px] text-white/30">Va bajo el mensaje, si escribes uno.</span>
+          </label>
         </div>
 
-        {/* El estado de las piezas que llegan aparte. */}
+        {/* ---------------- QUÉ SE MANDA ---------------- */}
+
         {informe && !cargando && (
-          <div className="grid gap-3 font-sans md:grid-cols-2">
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/65">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-white/40">Balón parado</p>
-              {abpCargando ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 size={12} className="animate-spin" /> Preparando el informe de ABP del microciclo…
-                </span>
-              ) : abpActual?.ok ? (
-                <span>
-                  Listo: va su resumen en las diapositivas y el informe entero en el completo
-                  {abpActual.imagenes.length ? ` (${abpActual.imagenes.length} gráficos y láminas)` : ""}.
-                </span>
-              ) : abpActual ? (
-                <span className="text-amber-200/80">
-                  No ha llegado ({abpActual.error}). El informe sale con lo que hay del plan de ABP.{" "}
-                  <button className="underline underline-offset-2" onClick={() => setTestigo((n) => n + 1)}>
-                    Reintentar
-                  </button>
-                </span>
-              ) : null}
-            </div>
+          <div className="grid gap-3 font-sans lg:grid-cols-2">
+            {/* EL RESUMEN */}
+            <div className={`rounded-xl border px-4 py-3 text-[12px] ${envio.resumen.activo ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" className="accent-[#C8A96B]" checked={envio.resumen.activo} onChange={(e) => cambia("resumen", { activo: e.target.checked })} />
+                <span className="text-[13px] font-semibold text-white/90">Correo 1 · Resumen</span>
+                <span className="text-white/35">las diapositivas dentro del correo, para leer en el móvil</span>
+              </label>
 
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/65">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Adjuntos del completo · además del resumen (PDF y PPT) y el completo en PDF</p>
-                <span className="text-[10px] text-white/35">{marcados.length ? `${mb(pesoAdjuntos)} · adjunto hasta ${mb(TOPE_ADJUNTOS)}, lo demás como enlace` : ""}</span>
-              </div>
-              {faltanDocs && !docsActual && !docsCargando ? (
-                <p className="mb-1 text-white/60">
-                  El PDF de la plantilla y el PPT del rival {generados.length ? "son de antes de esta semana" : "no se han sacado"}: se sacarán solos al enviar el completo, en otra pestaña que se cierra sola (≈40 s).
-                </p>
-              ) : null}
-              {docsCargando ? (
-                <p className="mb-1 inline-flex items-center gap-2 text-white/60">
-                  <Loader2 size={12} className="animate-spin" /> Sacando el PDF de la plantilla y el PPT del rival en otra pestaña (se cierra sola)…
-                </p>
-              ) : docsActual && !docsActual.ok ? (
-                <p className="mb-1 text-amber-200/80">
-                  No se han podido sacar solos ({docsActual.error}).{" "}
-                  <button className="underline underline-offset-2" onClick={abreDocs}>
-                    Reintentar
-                  </button>
-                </p>
-              ) : null}
-              {documentos.length ? (
-                <ul className="space-y-1">
-                  {documentos.map((d) => (
-                    <li key={d.url} className="flex items-center gap-2">
-                      {d.adjuntable ? (
-                        <input
-                          type="checkbox"
-                          className="accent-[#C8A96B]"
-                          checked={!quitados.has(d.url)}
-                          onChange={(e) =>
-                            setQuitados((s) => {
-                              const n = new Set(s);
-
-                              if (e.target.checked) n.delete(d.url);
-                              else n.add(d.url);
-
-                              return n;
-                            })
-                          }
-                        />
-                      ) : (
-                        <ExternalLink size={12} className="text-white/35" />
+              {envio.resumen.activo && (
+                <div className="mt-3 space-y-3">
+                  <label className="block">
+                    <span className={rotuloCaja}>Asunto</span>
+                    <input className={campo} value={asuntoResumen} onChange={(e) => cambia("resumen", { asunto: e.target.value })} />
+                  </label>
+                  <label className="block">
+                    <span className={rotuloCaja}>Mensaje (opcional)</span>
+                    <textarea
+                      className={`${campo} min-h-[64px] resize-y`}
+                      value={envio.resumen.mensaje}
+                      onChange={(e) => cambia("resumen", { mensaje: e.target.value })}
+                      placeholder="Unas líneas para quien lo recibe: lo que queremos que se quede de este partido."
+                    />
+                  </label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <span className={rotuloCaja}>Diapositivas</span>
+                      {[0, 1].map((i) =>
+                        casilla(envio.resumen.diapos[i], (v) => cambia("resumen", { diapos: envio.resumen.diapos.map((x, k) => (k === i ? v : x)) }), `${i + 1} · ${rotuloDiapo(i)}`),
                       )}
-                      <span className="truncate">{d.nombre}</span>
-                      <span className="shrink-0 text-white/35">
-                        {d.adjuntable ? mb(d.tamano) : "va como enlace"}
-                        {d.origen === "subido" ? " · subido ahora" : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-white/45">El rival no tiene documentos en sus Recursos.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className={rotuloCaja}>Adjuntos</span>
+                      {casilla(envio.resumen.pdf, (v) => cambia("resumen", { pdf: v }), "PDF de las diapositivas", "para imprimir o reenviar")}
+                      {casilla(envio.resumen.ppt, (v) => cambia("resumen", { ppt: v }), "PowerPoint", "para proyectarlo en la charla")}
+                    </div>
+                  </div>
+                  <label className="block">
+                    <span className={rotuloCaja}>Sólo para el resumen (si va a otras personas)</span>
+                    <input
+                      className={campo}
+                      value={ajustes.paraResumen ?? ""}
+                      onChange={(e) => setAjustes({ ...ajustes, paraResumen: e.target.value })}
+                      placeholder="vacío = los de arriba"
+                    />
+                  </label>
+                </div>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input
-                  ref={elegirArchivo}
-                  type="file"
-                  accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    void sube(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <Button icon={subiendo ? Loader2 : Upload} disabled={Boolean(subiendo)} onClick={() => elegirArchivo.current?.click()}>
-                  {subiendo ? `Subiendo ${Math.round(subiendo.fraccion * 100)} %` : "Añadir PDF o PPT"}
-                </Button>
-                <Button icon={docsCargando ? Loader2 : Paperclip} disabled={docsCargando || !equipoDocs} onClick={abreDocs} title="Abre Plantillas rivales en otra pestaña, saca el PDF de la plantilla y el PPT del rival con lo último y se cierra sola">
-                  Volver a sacar PDF y PPT del rival
-                </Button>
-              </div>
             </div>
+
+            {/* EL COMPLETO */}
+            <div className={`rounded-xl border px-4 py-3 text-[12px] ${envio.completo.activo ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" className="accent-[#C8A96B]" checked={envio.completo.activo} onChange={(e) => cambia("completo", { activo: e.target.checked })} />
+                <span className="text-[13px] font-semibold text-white/90">Correo 2 · Informe completo</span>
+                <span className="text-white/35">el documento de consulta, con sus adjuntos</span>
+              </label>
+
+              {envio.completo.activo && (
+                <div className="mt-3 space-y-3">
+                  <label className="block">
+                    <span className={rotuloCaja}>Asunto</span>
+                    <input className={campo} value={asuntoCompleto} onChange={(e) => cambia("completo", { asunto: e.target.value })} />
+                  </label>
+                  <label className="block">
+                    <span className={rotuloCaja}>Mensaje (opcional)</span>
+                    <textarea
+                      className={`${campo} min-h-[64px] resize-y`}
+                      value={envio.completo.mensaje}
+                      onChange={(e) => cambia("completo", { mensaje: e.target.value })}
+                      placeholder="Qué mirar primero, qué hay que cerrar en la reunión…"
+                    />
+                  </label>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className={rotuloCaja}>Capítulos ({capitulos.filter((x) => marcadoCapitulo(x.id)).length} de {capitulos.length})</span>
+                      <span className="flex gap-2 text-[10px] text-white/40">
+                        <button type="button" className="underline-offset-2 hover:underline" onClick={() => cambia("completo", { capitulos: null })}>
+                          todos
+                        </button>
+                        <button type="button" className="underline-offset-2 hover:underline" onClick={() => cambia("completo", { capitulos: capitulos.filter((x) => x.id === "esencial").map((x) => x.id) })}>
+                          sólo lo esencial
+                        </button>
+                      </span>
+                    </div>
+                    <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                      {capitulos.map((x) => (
+                        <div key={x.id}>{casilla(marcadoCapitulo(x.id), (v) => cambiaCapitulo(x.id, v), x.titulo)}</div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={rotuloCaja}>Adjuntos</span>
+                      <span className="text-[10px] text-white/30">hasta {mb(TOPE_ADJUNTOS)} adjunto; lo demás va como botón de descarga</span>
+                    </div>
+                    {casilla(envio.completo.pdfCompleto, (v) => cambia("completo", { pdfCompleto: v }), "El informe completo en PDF", "para leerlo sin conexión o imprimirlo")}
+                    {casilla(envio.completo.pdfResumen, (v) => cambia("completo", { pdfResumen: v }), "El resumen en PDF", envio.resumen.activo && envio.resumen.pdf ? "ya va en el correo del resumen" : undefined)}
+                    {casilla(envio.completo.pptResumen, (v) => cambia("completo", { pptResumen: v }), "El resumen en PowerPoint")}
+
+                    {faltanDocs && !docsActual && !docsCargando
+                      ? casilla(
+                          envio.completo.sacarDocs,
+                          (v) => cambia("completo", { sacarDocs: v }),
+                          "Sacar el PDF de la plantilla y el PPT del rival al enviar",
+                          `${generados.length ? "Los que hay son de antes de esta semana" : "No se han sacado todavía"}: se hacen en otra pestaña (≈40 s) mientras sale el resumen.`,
+                        )
+                      : null}
+
+                    {docsCargando ? (
+                      <p className="inline-flex items-center gap-2 text-white/60">
+                        <Loader2 size={12} className="animate-spin" /> Sacando el PDF de la plantilla y el PPT del rival en otra pestaña…
+                      </p>
+                    ) : docsActual && !docsActual.ok ? (
+                      <p className="text-amber-200/80">
+                        No se han podido sacar solos ({docsActual.error}).{" "}
+                        <button className="underline underline-offset-2" onClick={abreDocs}>
+                          Reintentar
+                        </button>
+                      </p>
+                    ) : null}
+
+                    {documentos.map((d) =>
+                      d.adjuntable ? (
+                        <div key={d.url}>
+                          {casilla(
+                            !quitados.has(d.url),
+                            (v) =>
+                              setQuitados((s) => {
+                                const n = new Set(s);
+
+                                if (v) n.delete(d.url);
+                                else n.add(d.url);
+
+                                return n;
+                              }),
+                            d.nombre,
+                            `${mb(d.tamano)}${d.origen === "subido" ? " · subido ahora" : " · del rival"}`,
+                          )}
+                        </div>
+                      ) : (
+                        <p key={d.url} className="flex items-center gap-2 text-white/50">
+                          <ExternalLink size={12} className="shrink-0 text-white/35" /> <span className="truncate">{d.nombre}</span> <span className="shrink-0 text-white/30">va como enlace</span>
+                        </p>
+                      ),
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <input
+                        ref={elegirArchivo}
+                        type="file"
+                        accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          void sube(e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                      <Button icon={subiendo ? Loader2 : Upload} disabled={Boolean(subiendo)} onClick={() => elegirArchivo.current?.click()}>
+                        {subiendo ? `Subiendo ${Math.round(subiendo.fraccion * 100)} %` : "Añadir PDF o PPT"}
+                      </Button>
+                      <Button icon={docsCargando ? Loader2 : Paperclip} disabled={docsCargando || !equipoDocs} onClick={abreDocs} title="Abre Plantillas rivales en otra pestaña, saca el PDF de la plantilla y el PPT del rival con lo último y se cierra sola">
+                        Volver a sacar PDF y PPT del rival
+                      </Button>
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    <span className={rotuloCaja}>Sólo para el completo (si va a otras personas)</span>
+                    <input
+                      className={campo}
+                      value={ajustes.paraCompleto ?? ""}
+                      onChange={(e) => setAjustes({ ...ajustes, paraCompleto: e.target.value })}
+                      placeholder="vacío = los de arriba"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* El estado del balón parado, que llega aparte. */}
+        {informe && !cargando && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 font-sans text-[12px] text-white/65">
+            <span className="mr-2 text-[10px] uppercase tracking-[0.16em] text-white/40">Balón parado</span>
+            {abpCargando ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 size={12} className="animate-spin" /> Preparando el informe de ABP del microciclo…
+              </span>
+            ) : abpActual?.ok ? (
+              <span>
+                Listo: va su resumen en las diapositivas y el informe entero en el completo
+                {abpActual.imagenes.length ? ` (${abpActual.imagenes.length} gráficos y láminas)` : ""}.
+              </span>
+            ) : abpActual ? (
+              <span className="text-amber-200/80">
+                No ha llegado ({abpActual.error}). El informe sale con lo que hay del plan de ABP.{" "}
+                <button className="underline underline-offset-2" onClick={() => setTestigo((n) => n + 1)}>
+                  Reintentar
+                </button>
+              </span>
+            ) : null}
           </div>
         )}
 
@@ -988,12 +1429,16 @@ export function InformePartidoDialog({
           ) : vista === "resumen" ? (
             anchoVista > 0 && (
               <div className="space-y-3">
-                <Escalada ancho={anchoVista}>
-                  <Uno inf={informeVisto} />
-                </Escalada>
-                <Escalada ancho={anchoVista}>
-                  <Dos inf={informeVisto} />
-                </Escalada>
+                {envio.resumen.diapos[0] && (
+                  <Escalada ancho={anchoVista}>
+                    <Uno inf={informeVisto} />
+                  </Escalada>
+                )}
+                {envio.resumen.diapos[1] && (
+                  <Escalada ancho={anchoVista}>
+                    <Dos inf={informeVisto} />
+                  </Escalada>
+                )}
               </div>
             )
           ) : (
@@ -1004,7 +1449,7 @@ export function InformePartidoDialog({
         {informe && (
           <p className="font-sans text-[11px] text-white/35">
             <Download size={11} className="mr-1 inline" />
-            PDF y PPT bajan las dos diapositivas; el informe completo va en el segundo correo.
+            La vista es tal y como llega cada correo: el resumen con las diapositivas marcadas y el completo con los capítulos elegidos y el mensaje.
           </p>
         )}
       </div>
@@ -1021,8 +1466,8 @@ export function InformePartidoDialog({
         />
       )}
 
-      {/* Las diapositivas a su tamaño, fuera de pantalla, para capturarlas. */}
-      {informeVisto && trabajando && (
+      {/* Las diapositivas a su tamaño, fuera de pantalla, para capturarlas (siempre montadas: se preparan solas). */}
+      {informeVisto && !cargando && (
         <div
           ref={lienzos}
           aria-hidden

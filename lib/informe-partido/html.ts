@@ -135,7 +135,21 @@ export type ExtrasInforme = {
    * va en el PDF del completo, que viaja adjunto.
    */
   ligero?: 0 | 1 | 2;
+  /** Los capítulos que van (sus `id`); sin esto, todos. */
+  capitulos?: string[];
+  /** Lo que escribe quien lo manda: va arriba, con su firma. */
+  mensaje?: string;
+  firma?: string;
+  /** Sólo la lista de capítulos (para elegir), sin armar el HTML. */
+  soloLista?: boolean;
 };
+
+/** El mensaje de quien manda el informe: una nota con su firma, en el tono del club. */
+export function bloqueMensaje(texto: string, firma?: string) {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:16px 20px;border-left:4px solid #C8A96B;background:#FBF6EA;border-radius:0 8px 8px 0"><p style="margin:0;font:400 15px/1.6 Arial,sans-serif;color:${NAVY}">${parrafo(texto.trim())}</p>${
+    firma ? `<p style="margin:10px 0 0;font:700 12px/1.3 Arial,sans-serif;letter-spacing:.06em;color:${ORO}">— ${esc(firma)}</p>` : ""
+  }</td></tr></table>`;
+}
 
 /** Tamaño de un archivo para leerlo: «3,2 MB», «640 KB». */
 const peso = (bytes: number | null | undefined) =>
@@ -179,7 +193,9 @@ export function bloqueDescargas(lista: Descarga[], titulo = "Documentos") {
   return `<p style="margin:0 0 8px;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO};text-transform:uppercase">${esc(titulo)}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filas}</table>`;
 }
 
-export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
+type Capitulo = { id: string; titulo: string; html: string };
+
+function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capitulos: Capitulo[]; html: string } {
   const p = inf.partido;
 
   const rival = p.rival || "el rival";
@@ -606,45 +622,107 @@ export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
     ? `<tr><td style="padding:22px 32px 0">${bloqueDescargas(extras.adjuntos, extras.adjuntos.some((d) => d.adjunto) ? "Adjuntos y descargas" : "Documentos")}</td></tr>`
     : "";
 
-  return numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${preheader(`${inf.sintesis.titular}${pr?.idea && !esPost ? ` · ${pr.idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
+  /* Los capítulos, cada uno con su clave: se pueden elegir al mandar. */
+  const capitulos: Capitulo[] = (
+    esPost
+      ? /* El post cuenta el partido y lo cruza con lo que se preparó. El scouting
+           entero del rival ya fue en la previa: aquí sólo lo que lo contrasta. */
+        [
+          { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial) },
+          { id: "cronica", titulo: "El partido", html: seccion("El partido", "Goles, cambios y tarjetas (BeSoccer).", cronica) },
+          { id: "datos", titulo: "El partido en datos", html: seccion("El partido en datos", "Wyscout: lo nuestro, lo suyo y nuestra media de la temporada.", partidoDatos) },
+          { id: "pronostico", titulo: "El pronóstico, frente al resultado", html: seccion("El pronóstico, frente al resultado", "Lo que daban los números de los dos antes del partido.", veredicto) },
+          {
+            id: "once",
+            titulo: "Su once",
+            html: seccion(`Su once${cr?.estructura ? ` · ${cr.estructura}` : ""}`, cr?.acierto ? "El que sacaron, frente al que habíamos previsto en Plantillas." : "El que sacaron (BeSoccer).", onceReal),
+          },
+          { id: "plan", titulo: "El plan, a revisión", html: seccion("El plan, a revisión", "Lo que nos propusimos en Preparación de Partido; la columna de la derecha es para cerrarlo en la reunión.", revision) },
+          { id: "semana", titulo: "La semana que lo preparó", html: seccion("La semana que lo preparó", "El microciclo de la hoja de registro de tareas.", semana) },
+          { id: "contexto", titulo: "Dónde quedamos", html: seccion("Dónde quedamos", "Clasificación y racha (BeSoccer).", contexto) },
+          {
+            id: "duelo",
+            titulo: "Los dos en la temporada",
+            html: seccion("Los dos en la temporada", `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: media por partido y puesto entre los ${inf.duelo?.equipos ?? ""} del grupo. La barra es el percentil.`, duelo),
+          },
+          { id: "abp", titulo: "Balón parado", html: abpEntero || seccion("Balón parado", "", abp) },
+          { id: "material", titulo: "Material del partido", html: seccion("Material del partido", "", adjuntosTexto) },
+          { id: "avisos", titulo: "Lo que este informe no sabe", html: seccion("Lo que este informe no sabe", "", avisos) },
+        ]
+      : [
+          { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial) },
+          { id: "contexto", titulo: `${rival}: su momento`, html: seccion(`${rival}: su momento`, "Clasificación, racha y quién marca (BeSoccer).", contexto) },
+          { id: "pronostico", titulo: "El pronóstico y cómo lo inclinamos", html: seccion("El pronóstico y cómo lo inclinamos", "Lo que vienen siendo los dos, y lo que mueve cada parte del plan.", pronostico) },
+          {
+            id: "duelo",
+            titulo: "El duelo en datos",
+            html: seccion(
+              "El duelo en datos",
+              `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: la media por partido de cada equipo y su puesto entre los ${inf.duelo?.equipos ?? ""} del grupo (1.º = el mejor). La barra es el percentil.`,
+              duelo,
+            ),
+          },
+          { id: "colectivo", titulo: `Cómo juega ${rival}`, html: seccion(`Cómo juega ${rival}`, "El análisis colectivo del cuerpo técnico (Scouting colectivo).", colectivo) },
+          {
+            id: "once",
+            titulo: inf.once.fuente === "marcado" ? "Su once probable" : "Su último once",
+            html: seccion(inf.once.fuente === "marcado" ? "Su once probable" : "Su último once", "Ficha, números de la temporada (BeSoccer) y lo que dice cada ficha.", once),
+          },
+          { id: "plantilla", titulo: "El resto de su plantilla", html: seccion("El resto de su plantilla", "Por minutos jugados.", plantilla) },
+          { id: "plan", titulo: "Nuestro plan de partido", html: seccion("Nuestro plan de partido", "Preparación de Partido.", plan) },
+          { id: "semana", titulo: "La semana", html: seccion("La semana", "El microciclo de la hoja de registro de tareas.", semana) },
+          { id: "abp", titulo: "Balón parado", html: abpEntero || seccion("Balón parado", "", abp) },
+          { id: "material", titulo: "Material del rival", html: seccion("Material del rival", "La plantilla, el informe del rival y sus vídeos, para abrirlos aparte.", adjuntosTexto) },
+          { id: "avisos", titulo: "Lo que este informe no sabe", html: seccion("Lo que este informe no sabe", "", avisos) },
+        ]
+  ).filter((c) => c.html.trim());
+
+  if (extras.soloLista) return { capitulos, html: "" };
+
+  const elegidos = extras.capitulos ? capitulos.filter((c) => extras.capitulos!.includes(c.id)) : capitulos;
+
+  /* El índice: qué trae este informe, numerado como sus capítulos (ABP entero no lleva número). */
+  let n = 0;
+
+  const indice =
+    elegidos.length > 3
+      ? `<tr><td style="padding:22px 32px 0"><p style="margin:0 0 8px;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">EN ESTE INFORME</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #ECE8DE">${elegidos
+          .map((c) => {
+            const numerado = c.html.includes(NUMERO);
+
+            if (numerado) n += 1;
+
+            return `<tr><td width="34" style="padding:6px 0;border-bottom:1px solid #ECE8DE;font:700 12px/1.3 Georgia,serif;color:#C8A96B">${numerado ? String(n).padStart(2, "0") : "·"}</td><td style="padding:6px 0;border-bottom:1px solid #ECE8DE;font:400 13px/1.3 Arial,sans-serif;color:${NAVY}">${esc(c.titulo)}</td></tr>`;
+          })
+          .join("")}</table></td></tr>`
+      : "";
+
+  /* Lo que escribe quien lo manda, arriba y con su nombre. */
+  const mensaje = extras.mensaje?.trim()
+    ? `<tr><td style="padding:22px 32px 0">${bloqueMensaje(extras.mensaje, extras.firma)}</td></tr>`
+    : "";
+
+  const html = numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${preheader(extras.mensaje?.trim() ? extras.mensaje.trim().slice(0, 140) : `${inf.sintesis.titular}${pr?.idea && !esPost ? ` · ${pr.idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
 ${cabecera}
+${mensaje}
 ${diapositivas}
 ${descargas}
-${
-  esPost
-    ? /* El post cuenta el partido y lo cruza con lo que se preparó. El scouting
-         entero del rival ya fue en la previa: aquí sólo lo que lo contrasta. */
-      [
-        seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial),
-        seccion("El partido", "Goles, cambios y tarjetas (BeSoccer).", cronica),
-        seccion("El partido en datos", "Wyscout: lo nuestro, lo suyo y nuestra media de la temporada.", partidoDatos),
-        seccion("El pronóstico, frente al resultado", "Lo que daban los números de los dos antes del partido.", veredicto),
-        seccion(`Su once${cr?.estructura ? ` · ${cr.estructura}` : ""}`, cr?.acierto ? "El que sacaron, frente al que habíamos previsto en Plantillas." : "El que sacaron (BeSoccer).", onceReal),
-        seccion("El plan, a revisión", "Lo que nos propusimos en Preparación de Partido; la columna de la derecha es para cerrarlo en la reunión.", revision),
-        seccion("La semana que lo preparó", "El microciclo de la hoja de registro de tareas.", semana),
-        seccion("Dónde quedamos", "Clasificación y racha (BeSoccer).", contexto),
-        seccion("Los dos en la temporada", `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: media por partido y puesto entre los ${inf.duelo?.equipos ?? ""} del grupo. La barra es el percentil.`, duelo),
-        abpEntero || seccion("Balón parado", "", abp),
-        seccion("Material del partido", "", adjuntosTexto),
-        seccion("Lo que este informe no sabe", "", avisos),
-      ].join("\n")
-    : [
-        seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial),
-        seccion(`${rival}: su momento`, "Clasificación, racha y quién marca (BeSoccer).", contexto),
-        seccion("El pronóstico y cómo lo inclinamos", "Lo que vienen siendo los dos, y lo que mueve cada parte del plan.", pronostico),
-        seccion("El duelo en datos", `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: la media por partido de cada equipo y su puesto entre los ${inf.duelo?.equipos ?? ""} del grupo (1.º = el mejor). La barra es el percentil.`, duelo),
-        seccion(`Cómo juega ${rival}`, "El análisis colectivo del cuerpo técnico (Scouting colectivo).", colectivo),
-        seccion(inf.once.fuente === "marcado" ? "Su once probable" : "Su último once", "Ficha, números de la temporada (BeSoccer) y lo que dice cada ficha.", once),
-        seccion("El resto de su plantilla", "Por minutos jugados.", plantilla),
-        seccion("Nuestro plan de partido", "Preparación de Partido.", plan),
-        seccion("La semana", "El microciclo de la hoja de registro de tareas.", semana),
-        abpEntero || seccion("Balón parado", "", abp),
-        seccion("Material del rival", "La plantilla, el informe del rival y sus vídeos, para abrirlos aparte.", adjuntosTexto),
-        seccion("Lo que este informe no sabe", "", avisos),
-      ].join("\n")
-}
-<tr><td style="padding:18px 28px 26px;font:400 11px/1.5 Arial,sans-serif;color:${SUAVE}">Generado desde la plataforma del Castilla el ${esc(new Date(inf.generado).toLocaleString("es-ES", { timeZone: "Europe/Madrid" }))}.</td></tr>
+${indice}
+${elegidos.map((c) => c.html).join("\n")}
+<tr><td style="padding:18px 28px 26px;font:400 11px/1.5 Arial,sans-serif;color:${SUAVE}">Real Madrid Castilla · cuerpo técnico. Generado desde la plataforma el ${esc(new Date(inf.generado).toLocaleString("es-ES", { timeZone: "Europe/Madrid" }))}.</td></tr>
 </table></td></tr></table></body></html>`);
+
+  return { capitulos, html };
+}
+
+/** El informe extenso, en HTML de correo. */
+export function informeHtml(inf: InformePartido, extras: ExtrasInforme = {}) {
+  return piezasInforme(inf, extras).html;
+}
+
+/** Los capítulos que trae este informe (los que tienen algo), para elegirlos al mandar. */
+export function capitulosDe(inf: InformePartido, extras: ExtrasInforme = {}) {
+  return piezasInforme(inf, { ...extras, soloLista: true }).capitulos.map(({ id, titulo }) => ({ id, titulo }));
 }
 
 /** El correo del resumen: las dos diapositivas y una línea. */
@@ -655,7 +733,7 @@ ${
  * debajo va lo esencial escrito (la idea o el titular y las claves), que es
  * lo que se lee de verdad en el vestuario o en el autobús.
  */
-export function resumenHtml(inf: InformePartido, cids: string[], opciones: { conCompleto?: boolean; descargas?: Descarga[] } = {}) {
+export function resumenHtml(inf: InformePartido, cids: string[], opciones: { conCompleto?: boolean; descargas?: Descarga[]; mensaje?: string; firma?: string } = {}) {
   const p = inf.partido;
 
   const rival = p.rival || "el rival";
@@ -688,14 +766,17 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
     ? `<tr><td style="padding:14px 4px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:10px"><tr><td style="padding:16px 16px 8px">${bloqueDescargas(opciones.descargas, "Adjunto")}</td></tr></table></td></tr>`
     : "";
 
+  const mensaje = opciones.mensaje?.trim() ? `<tr><td style="padding:4px 4px 14px">${bloqueMensaje(opciones.mensaje, opciones.firma)}</td></tr>` : "";
+
   const pie = opciones.conCompleto
     ? "El informe completo, con todo el detalle y sus documentos, llega en otro correo."
     : "Las dos diapositivas van también en PDF adjunto.";
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(`${titular}${idea ? ` · ${idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(opciones.mensaje?.trim() ? opciones.mensaje.trim().slice(0, 140) : `${titular}${idea ? ` · ${idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
 <tr><td style="padding:4px 4px 14px"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · ${esPost ? "POST PARTIDO" : "PREVIA"} · RESUMEN</p><p style="margin:6px 0 0;font:700 24px/1.25 Arial,sans-serif;color:#F7F4EC">${esc(titulo)}</p>${
     subtitulo ? `<p style="margin:4px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#9AA3B2">${esc(subtitulo)}</p>` : ""
   }<p style="margin:10px 0 0;font:700 16px/1.4 Arial,sans-serif;color:#F2E6C9">${esc(titular)}.</p></td></tr>
+${mensaje}
 ${cids.map((cid, i) => `<tr><td style="padding:6px 0"><img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px"></td></tr>`).join("")}
 ${textoClaves}
 ${descargas}
