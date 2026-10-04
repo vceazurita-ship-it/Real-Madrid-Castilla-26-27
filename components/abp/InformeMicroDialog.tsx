@@ -22,6 +22,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
+import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
+
 import { Button, Dialog, Notice, TextArea } from "@/components/abp/ui";
 import { traeJson } from "@/lib/hojaCsv";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
@@ -629,6 +631,9 @@ export function InformeMicroDialog({
 
   const cargandoPropio = acciones === null;
 
+  /* Lo que el informe no sabe: se enseña al pulsar «Enviar», no en el correo. */
+  const [avisando, setAvisando] = useState(false);
+
   const envia = async () => {
     if (enviando) return;
 
@@ -831,7 +836,7 @@ export function InformeMicroDialog({
             <Button
               tone="primary"
               icon={enviando ? Loader2 : Send}
-              onClick={() => void envia()}
+              onClick={() => (informe?.avisos.length ? setAvisando(true) : void envia())}
               disabled={
                 enviando ||
                 cargandoSeguimiento ||
@@ -975,6 +980,16 @@ export function InformeMicroDialog({
           />
         </div>
       </div>
+      {avisando && informe && (
+        <AvisoAntesDeMandar
+          avisos={informe.avisos}
+          onRevisar={() => setAvisando(false)}
+          onMandar={() => {
+            setAvisando(false);
+            void envia();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

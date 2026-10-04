@@ -8,7 +8,7 @@
  *
  * Orden: lo esencial → (post) el partido en datos → el rival y su momento →
  * el duelo en datos → su juego → su once y su plantilla → nuestro plan →
- * la semana → balón parado → lo que el informe no sabe.
+ * la semana → balón parado. Lo que el informe no sabe NO va: se avisa antes de mandar.
  */
 
 import { cifra, conDato, ordinal, pct, revisaPalancas, contrastePronostico, type InformePartido, type JugadorRival } from "./modelo";
@@ -568,7 +568,8 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const adjuntosTexto = material;
 
-  const avisos = inf.avisos.length ? lista(inf.avisos, SUAVE) : "";
+  /* «Lo que el informe no sabe» ya no va en el correo ni en los adjuntos
+     (04/10/2026): se avisa a quien lo manda antes de enviar. */
 
   const titulo = `${esPost ? "Post partido" : "Previa"} · ${p.lado === "fuera" ? `${rival} - RM Castilla` : `RM Castilla - ${rival}`}`;
 
@@ -647,7 +648,6 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           },
           { id: "abp", titulo: "Balón parado", html: abpEntero || seccion("Balón parado", "", abp) },
           { id: "material", titulo: "Material del partido", html: seccion("Material del partido", "", adjuntosTexto) },
-          { id: "avisos", titulo: "Lo que este informe no sabe", html: seccion("Lo que este informe no sabe", "", avisos) },
         ]
       : [
           { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial) },
@@ -673,7 +673,6 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           { id: "semana", titulo: "La semana", html: seccion("La semana", "El microciclo de la hoja de registro de tareas.", semana) },
           { id: "abp", titulo: "Balón parado", html: abpEntero || seccion("Balón parado", "", abp) },
           { id: "material", titulo: "Material del rival", html: seccion("Material del rival", "La plantilla, el informe del rival y sus vídeos, para abrirlos aparte.", adjuntosTexto) },
-          { id: "avisos", titulo: "Lo que este informe no sabe", html: seccion("Lo que este informe no sabe", "", avisos) },
         ]
   ).filter((c) => c.html.trim());
 
@@ -810,7 +809,6 @@ export function informeTexto(inf: InformePartido) {
   if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal} ${j.nombre} (${j.posicion})`));
   if (inf.sintesis.partido.length) l.push("", "EL PARTIDO EN DATOS", ...inf.sintesis.partido.map((v) => `- ${v}`));
   if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}`);
-  if (inf.avisos.length) l.push("", "LO QUE EL INFORME NO SABE", ...inf.avisos.map((a) => `- ${a}`));
 
   return l.join("\n");
 }

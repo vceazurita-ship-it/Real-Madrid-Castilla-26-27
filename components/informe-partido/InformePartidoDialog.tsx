@@ -28,6 +28,7 @@ import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented, TextArea } from "@/components/abp/ui";
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
+import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
@@ -749,6 +750,14 @@ export function InformePartidoDialog({
     );
   };
 
+  /* Lo que el informe no sabe: se enseña al pulsar «Enviar», no en el correo. */
+  const [avisando, setAvisando] = useState(false);
+
+  const pulsaEnviar = () => {
+    if (informeVisto?.avisos.length) setAvisando(true);
+    else void envia();
+  };
+
   const envia = async () => {
     if (!informeVisto) return;
 
@@ -1105,7 +1114,7 @@ export function InformePartidoDialog({
               tone="primary"
               icon={trabajando || esperaAbp ? Loader2 : Send}
               disabled={!informe || Boolean(trabajando) || cargando || esperaAbp || Boolean(subiendo)}
-              onClick={() => void envia()}
+              onClick={pulsaEnviar}
               title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
             >
               {botonEnviar}
@@ -1411,7 +1420,7 @@ export function InformePartidoDialog({
 
         {informeVisto && informeVisto.avisos.length > 0 && (
           <div className="font-sans">
-            <Notice tone="warn" title="Lo que este informe no sabe">
+            <Notice tone="warn" title="Lo que este informe no sabe · no va en el correo: se avisa al enviar">
               <ul className="ml-4 list-disc space-y-1">
                 {informeVisto.avisos.map((a) => (
                   <li key={a}>{a}</li>
@@ -1453,6 +1462,17 @@ export function InformePartidoDialog({
           </p>
         )}
       </div>
+
+      {avisando && informeVisto && (
+        <AvisoAntesDeMandar
+          avisos={informeVisto.avisos}
+          onRevisar={() => setAvisando(false)}
+          onMandar={() => {
+            setAvisando(false);
+            void envia();
+          }}
+        />
+      )}
 
       {/* La pantalla de ABP, oculta y en sólo lectura, hasta que devuelve su informe. */}
       {abpCargando && temporadaAbp && microAbp && (

@@ -2287,11 +2287,9 @@ export function informeCuerpoHtml(
     )
     .join("");
 
-  const avisos = conPrefijo.avisos.length
-    ? `<tr><td style="padding:6px 24px 8px"><table role="presentation" width="100%" style="width:100%;border-collapse:collapse"><tr><td style="padding:10px 12px;background:#FEF7E7;border-left:3px solid ${ORO};font:400 12px/1.6 Arial,sans-serif;color:#7A5B1E">${conPrefijo.avisos
-        .map((aviso) => esc(aviso))
-        .join("<br>")}</td></tr></table></td></tr>`
-    : "";
+  /* Los avisos ya no van en el informe (04/10/2026): son trabajo pendiente de
+     quien lo manda, y se le enseñan antes de enviar (AvisoAntesDeMandar). */
+  const avisos = "";
 
   const secciones = seccionesDe(conPrefijo, modoImagenes).map(seccionHtml).join("\n");
 
@@ -2526,10 +2524,6 @@ export function informeTexto(informe: InformeMicro) {
     lineas.push(`- ${dato.rotulo}: ${dato.valor} (${dato.pie})`);
   });
 
-  if (informe.avisos.length) {
-    lineas.push("", "AVISOS");
-    informe.avisos.forEach((aviso) => lineas.push(`- ${aviso}`));
-  }
 
   seccionesDe(informe, "data").forEach((seccion) => {
     lineas.push("", seccion.titulo.toUpperCase());
