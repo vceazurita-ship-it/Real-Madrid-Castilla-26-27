@@ -12,6 +12,8 @@
  * así que no importa nada de React ni del servidor.
  */
 
+import type { EtapaHecha, ProgresoVivo } from "./progreso";
+
 export const CLAVE_MANTENIMIENTO = "mantenimiento";
 
 /** El latido del vigía va en su propio documento: escribe cada medio minuto y
@@ -39,6 +41,8 @@ export type Encargo = {
   ok?: boolean;
   /** Por dónde va un trabajo largo («3/6 · Timeline de Hudl»); sólo `partido`. */
   paso?: string;
+  /** Cómo fue cada etapa de la última pasada, con lo que tardó (lib/progreso.ts). */
+  recorrido?: EtapaHecha[];
   /** Cómo quedó cada sección al acabar; sólo `partido`. */
   secciones?: SeccionPartido[];
   /** Lo que necesita el encargo para hacerse; sólo lo usa `carpeta`. */
@@ -72,6 +76,10 @@ export type Vigia = {
   /** Por dónde va el análisis del partido, si está en marcha (va aquí y no en
       el encargo para no reescribir los encargos cada pocos segundos). */
   paso?: string;
+  /** Por dónde va cada trabajo en marcha: etapa, cuenta y lo aprendido de
+      otras pasadas (lib/progreso.ts). Viaja aquí, en el latido, por lo mismo
+      que `paso`. */
+  progreso?: Partial<Record<Tarea, ProgresoVivo>>;
 };
 
 /** Más de esto sin latido y el vigía se da por apagado. */

@@ -55,6 +55,7 @@ const {
 } = require(path.join(RAIZ, "lib/mantenimiento.ts"));
 
 const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
+const { Seguimiento } = require(path.join(RAIZ, "lib/progreso.ts"));
 
 const TAREA_NOCTURNA = "RMCF Castilla - Jornada nocturna";
 
@@ -145,7 +146,150 @@ async function marca(tarea, cambio) {
 const empieza = (tarea) => marca(tarea, { empezadoEn: new Date().toISOString() });
 
 const acaba = (tarea, ok, resultado) =>
-  marca(tarea, { hechoEn: new Date().toISOString(), ok, resultado });
+  marca(tarea, { hechoEn: new Date().toISOString(), ok, resultado, ...cierraSeguimiento(tarea, ok) });
+
+/* ------------------------------------------------------------------ */
+/*  EL PROGRESO                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+| Por dónde va cada trabajo (04/10/2026): etapa, cuenta («60/532») y lo que
+| queda, para que Ajustes enseñe un porcentaje y no sólo «en marcha». Las reglas
+| están en `lib/progreso.ts`; aquí sólo se le pasan las líneas de cada script y
+| se publica en el latido, como mucho cada pocos segundos.
+|
+| Lo que tarda cada etapa se aprende de las pasadas que fueron bien
+| (`.cache/vigia/duraciones.json`, la mediana de las cinco últimas), así que
+| el «quedan X min» se ajusta a ESTE ordenador y a ESTA red.
+*/
+const seguimientos = new Map();
+
+let progresoCambiado = false;
+
+const FICHERO_DURACIONES = path.join(REGISTRO, "duraciones.json");
+
+function leeDuraciones() {
+  try {
+    return JSON.parse(fs.readFileSync(FICHERO_DURACIONES, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function esperadoDe(tarea) {
+  const historia = leeDuraciones()[tarea];
+
+  if (!Array.isArray(historia) || !historia.length) return undefined;
+
+  const columnas = Math.max(...historia.map((fila) => fila.length));
+
+  return Array.from({ length: columnas }, (_, i) => {
+    const vistas = historia
+      .map((fila) => fila[i])
+      .filter((x) => typeof x === "number" && x > 0)
+      .sort((a, b) => a - b);
+
+    return vistas.length ? vistas[Math.floor(vistas.length / 2)] : 0;
+  });
+}
+
+function sigue(tarea) {
+  const seguimiento = new Seguimiento(tarea, esperadoDe(tarea));
+
+  seguimientos.set(tarea, seguimiento);
+  progresoCambiado = true;
+
+  return (linea) => {
+    if (seguimiento.linea(linea)) progresoCambiado = true;
+  };
+}
+
+/** Al acabar: el recorrido para el encargo, y lo aprendido al fichero. */
+function cierraSeguimiento(tarea, ok) {
+  const seguimiento = seguimientos.get(tarea);
+
+  if (!seguimiento) return {};
+
+  seguimientos.delete(tarea);
+  progresoCambiado = true;
+
+  const { recorrido, duraciones } = seguimiento.cierra(ok);
+
+  if (ok && duraciones.some((d) => d !== null)) {
+    try {
+      const todas = leeDuraciones();
+
+      todas[tarea] = [...(todas[tarea] ?? []), duraciones].slice(-5);
+
+      fs.writeFileSync(FICHERO_DURACIONES, JSON.stringify(todas));
+    } catch {
+      /* sin lo aprendido, valen los minutos de partida */
+    }
+  }
+
+  return { recorrido };
+}
+
+/**
+ * Lee lo que va escribiendo un registro que no es nuestro.
+ *
+ * Wyscout y la jornada nocturna son `.cmd` que mandan su salida a su propio
+ * fichero (`.cache/wyscout`, `.cache/jornada-nocturna`), no a nosotros. Se
+ * coge el más nuevo que se haya tocado desde que empezó el trabajo y se le va
+ * leyendo lo que crece.
+ */
+function sigueRegistro(carpeta, desde, alLinea) {
+  let fichero = "";
+  let leido = 0;
+  let resto = "";
+
+  const mira = () => {
+    try {
+      if (!fichero) {
+        const candidatos = fs
+          .readdirSync(carpeta)
+          .filter((f) => /^\d{4}-\d{2}-\d{2}_\d{4}\.log$/.test(f))
+          .map((f) => ({ f, t: fs.statSync(path.join(carpeta, f)).mtimeMs }))
+          .filter((x) => x.t >= desde - 60_000)
+          .sort((a, b) => b.t - a.t);
+
+        if (!candidatos.length) return;
+
+        fichero = path.join(carpeta, candidatos[0].f);
+      }
+
+      const tamano = fs.statSync(fichero).size;
+
+      if (tamano <= leido) return;
+
+      const trozo = Buffer.alloc(tamano - leido);
+      const fd = fs.openSync(fichero, "r");
+
+      fs.readSync(fd, trozo, 0, trozo.length, leido);
+      fs.closeSync(fd);
+
+      leido = tamano;
+
+      const lineas = (resto + trozo.toString("utf8")).split(/\r?\n/);
+
+      resto = lineas.pop() ?? "";
+
+      for (const linea of lineas) alLinea(linea);
+    } catch {
+      /* el fichero aún no está, o lo están rotando: a la siguiente */
+    }
+  };
+
+  const reloj = setInterval(mira, 3_000);
+
+  return () => {
+    mira();
+    clearInterval(reloj);
+  };
+}
+
+/* La jornada nocturna corre fuera del vigía: se sigue mientras dure. */
+let dejaDeSeguirNocturna = null;
 
 /* ------------------------------------------------------------------ */
 /*  LOS TRABAJOS                                                       */
@@ -264,10 +408,12 @@ async function haceQuiniela() {
   await empieza("quiniela");
 
   apunta("Quiniela: mirando BeSoccer…");
-
-  const { codigo, texto } = await ejecuta("quiniela", process.execPath, [
-    path.join(RAIZ, "scripts/quiniela-resultados.cjs"),
-  ]);
+  const { codigo, texto } = await ejecuta(
+    "quiniela",
+    process.execPath,
+    [path.join(RAIZ, "scripts/quiniela-resultados.cjs")],
+    sigue("quiniela"),
+  );
 
   const dice = resumen(texto);
 
@@ -294,13 +440,13 @@ async function haceWyscout() {
   await empieza("wyscout");
 
   apunta("Wyscout: bajando la liga (se abre un Chrome que se mueve solo)…");
-
+  const deja = sigueRegistro(path.join(RAIZ, ".cache", "wyscout"), Date.now(), sigue("wyscout"));
   const { codigo } = await ejecuta("wyscout", "cmd.exe", [
     "/d",
     "/c",
     path.join(RAIZ, "scripts", "wyscout-semanal.cmd"),
     "--forzar",
-  ]);
+  ]).finally(deja);
 
   const [ok, dice] = MOTIVO_WYSCOUT[codigo] ?? [false, `la descarga ha fallado (código ${codigo}); el registro está en .cache\\wyscout`];
 
@@ -339,7 +485,7 @@ async function haceCarpeta() {
     ...(datos.jornada ? ["--jornada", datos.jornada] : []),
   ];
 
-  const { codigo, texto } = await ejecuta("carpeta", process.execPath, args);
+  const { codigo, texto } = await ejecuta("carpeta", process.execPath, args, sigue("carpeta"));
 
   const dice = resumen(texto) || (codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
 
@@ -371,14 +517,14 @@ async function haceAnalisisPartido() {
   apunta("Partido: empieza el análisis del último partido…");
 
   pasoPartido = "empezando";
-
+  const alSeguimiento = sigue("partido");
   const { codigo, texto } = await ejecuta(
     "partido",
     process.execPath,
     [path.join(RAIZ, "scripts/analisis-partido.cjs")],
     (linea) => {
+      alSeguimiento(linea);
       const paso = linea.match(/^PASO:\s*(.+)$/)?.[1];
-
       if (paso) pasoPartido = paso.trim();
     },
   ).finally(() => {
@@ -405,8 +551,8 @@ async function haceAnalisisPartido() {
     resultado: dice,
     paso: "",
     secciones: secciones ?? [],
+    ...cierraSeguimiento("partido", codigo === 0),
   });
-
   apunta(`Partido: ${dice}.`);
 }
 
@@ -495,16 +641,28 @@ async function latido() {
     {
       key: CLAVE_VIGIA,
       kind: "mantenimiento",
-      data: { vistoEn: new Date().toISOString(), equipo: os.hostname(), ocupado, ...(pasoPartido ? { paso: pasoPartido } : {}) },
+      data: {
+        vistoEn: new Date().toISOString(),
+        equipo: os.hostname(),
+        ocupado,
+        ...(pasoPartido ? { paso: pasoPartido } : {}),
+        ...(seguimientos.size ? { progreso: Object.fromEntries([...seguimientos].map(([tarea, sg]) => [tarea, sg.estado()])) } : {}),
+      },
       updated_at: new Date().toISOString(),
     },
     { onConflict: "key" },
   );
 
   if (error) throw new Error(error.message);
-
   ultimoLatido = Date.now();
+  progresoCambiado = false;
 }
+
+/* Mientras algo avanza, el latido sale antes: la barra de Ajustes se mueve
+   cada pocos segundos y no cada medio minuto. */
+setInterval(() => {
+  if (progresoCambiado && Date.now() - ultimoLatido > 4_000) latido().catch(() => {});
+}, 2_000).unref();
 
 async function ronda() {
   const encargos = await leeEncargos();
@@ -546,6 +704,12 @@ async function ronda() {
   ) {
     nocturnaCorriendo = (await estadoTareaNocturna()) === "Running";
 
+    if ((nocturnaCorriendo || enMarcha.has("rivales")) && !dejaDeSeguirNocturna) {
+      const desde = Date.parse(encargos.rivales?.empezadoEn ?? "") || Date.now();
+
+      dejaDeSeguirNocturna = sigueRegistro(path.join(RAIZ, ".cache", "jornada-nocturna"), desde, sigue("rivales"));
+    }
+
     const reciente = Date.now() - tareaLanzadaEn < 5 * 60_000;
 
     if (estados.rivales === "pedido" && !nocturnaCorriendo && !reciente && !enMarcha.has("rivales")) {
@@ -553,6 +717,19 @@ async function ronda() {
     }
   } else {
     nocturnaCorriendo = false;
+  }
+
+  /* La pasada de la jornada ha acabado (el .cmd ya apuntó cómo): se deja de
+     leer su registro y se guarda el recorrido en el encargo. */
+  if (dejaDeSeguirNocturna && !nocturnaCorriendo && !enMarcha.has("rivales") && estados.rivales !== "en-marcha") {
+    dejaDeSeguirNocturna();
+    dejaDeSeguirNocturna = null;
+
+    const fin = await leeEncargos();
+
+    const cierre = cierraSeguimiento("rivales", fin.rivales?.ok !== false);
+
+    if (cierre.recorrido) await marca("rivales", cierre).catch(() => {});
   }
 
   if (Date.now() - calendarioEn > CALENDARIO_CADA_MS && !enMarcha.has("calendario")) {

@@ -1,0 +1,406 @@
+/**
+ * POR DÓNDE VA CADA ENCARGO DE AJUSTES (04/10/2026).
+ *
+ * Los botones de Ajustes dejan un encargo y el ordenador del club lo hace
+ * (`scripts/vigia.cjs`). Hasta ahora la pantalla sólo decía «En marcha desde
+ * hace 12 min»: ni cuánto llevaba, ni qué quedaba. Esto es el porqué y el cómo
+ * del porcentaje, y lo comparten el vigía (que lee la salida de los scripts) y
+ * la pantalla (que lo pinta).
+ *
+ * Cada trabajo es una lista de **etapas** con lo que suelen tardar. El vigía
+ * reconoce en qué etapa está por las líneas que escribe el script —«--- Descarga
+ * ---», «PASO: 5/7 · …»— y, dentro de la etapa, si el script cuenta («60/532 ·
+ * Teruel · …»), lleva la cuenta. El porcentaje es:
+ *
+ *   lo que suman las etapas hechas + la parte hecha de la actual
+ *
+ * pesando cada etapa por lo que suele tardar. Si la etapa no cuenta, la parte
+ * hecha sale del tiempo que lleva frente a lo que suele tardar, sin pasar nunca
+ * del 90 %: un porcentaje que se queda en 99 % diez minutos engaña más que uno
+ * que avanza despacio.
+ *
+ * Lo que tarda cada etapa lo aprende el vigía de las pasadas anteriores
+ * (`esperado`); lo de aquí es el punto de partida.
+ *
+ * Sin React ni servidor: lo carga también Node por `scripts/cargador-ts.cjs`.
+ */
+
+import type { Tarea } from "./mantenimiento";
+
+export type Etapa = {
+  nombre: string;
+  /** Minutos que suele tardar (el punto de partida; el vigía aprende los suyos). */
+  minutos: number;
+  /** La línea de la salida que dice que empieza esta etapa. */
+  marca: RegExp;
+};
+
+export const ETAPAS: Record<Tarea, Etapa[]> = {
+  quiniela: [
+    { nombre: "Qué jornadas mirar", minutos: 0.1, marca: /jornadas que se miran/i },
+    { nombre: "Resultados en BeSoccer", minutos: 0.4, marca: /\[quiniela\] jornada \d+:/i },
+    { nombre: "Escribir los resultados", minutos: 0.1, marca: /resultado\(s\) escritos|RESUMEN:/i },
+  ],
+
+  /* La tarea de la jornada nocturna: sus secciones son los «--- … ---» del registro. */
+  rivales: [
+    { nombre: "Comprobar la red", minutos: 0.5, marca: /^--- Comprobando la red/ },
+    { nombre: "Informe de rivales", minutos: 12, marca: /^--- Informe de rivales/ },
+    { nombre: "Estadísticas de los jugadores", minutos: 12, marca: /^--- Estadisticas de rivales/ },
+    { nombre: "Nuestra plantilla", minutos: 3, marca: /^--- Nuestra plantilla/ },
+    { nombre: "Altas y bajas", minutos: 5, marca: /^--- Altas y bajas/ },
+    { nombre: "Dorsales", minutos: 2, marca: /^--- Dorsales/ },
+    { nombre: "Fotos que faltan", minutos: 4, marca: /^--- Fotos que faltan/ },
+    { nombre: "Resultados de la quiniela", minutos: 0.5, marca: /^--- Resultados de la quiniela/ },
+  ],
+
+  wyscout: [
+    { nombre: "Abrir Wyscout", minutos: 1, marca: /^--- Descarga/ },
+    { nombre: "Bajar los 20 equipos", minutos: 7, marca: /\d+ equipos en /i },
+    { nombre: "Releer la carpeta", minutos: 0.7, marca: /^--- Releyendo la carpeta/ },
+    { nombre: "Foto de la jornada", minutos: 0.5, marca: /^--- Foto de la jornada/ },
+    { nombre: "Publicar", minutos: 0.5, marca: /^--- Publicando/ },
+  ],
+
+  carpeta: [
+    { nombre: "Buscar la carpeta", minutos: 0.1, marca: /^.*?·.*?: \d+ vídeos en «/ },
+    { nombre: "Subir los vídeos", minutos: 3, marca: /^\s*\[\d+\/\d+\]/ },
+    { nombre: "Documentos y láminas", minutos: 0.3, marca: /^\s*documento:|^Láminas:/ },
+  ],
+
+  /* Las siete líneas «PASO: n/7» de `scripts/analisis-partido.cjs`. */
+  partido: [
+    { nombre: "Buscar el último partido", minutos: 0.5, marca: /^PASO:\s*1\// },
+    { nombre: "Wyscout: la liga y el partido", minutos: 10, marca: /^PASO:\s*2\// },
+    { nombre: "Hudl: el timeline", minutos: 4, marca: /^PASO:\s*3\// },
+    { nombre: "La base del dato", minutos: 2, marca: /^PASO:\s*4\// },
+    { nombre: "Vídeo: jugada a jugada", minutos: 150, marca: /^PASO:\s*5\// },
+    { nombre: "Escribir en las hojas y publicar", minutos: 5, marca: /^PASO:\s*6\// },
+    { nombre: "Comprobar cada sección", minutos: 2, marca: /^PASO:\s*7\// },
+  ],
+};
+
+/** Lo que el vigía va contando de un trabajo en marcha (viaja en su latido). */
+export type ProgresoVivo = {
+  /** La etapa en la que está (índice en `ETAPAS[tarea]`). */
+  etapa: number;
+  /** Cuándo empezó el trabajo y cuándo la etapa actual (ISO). */
+  desde: string;
+  etapaDesde: string;
+  /** Las etapas ya hechas, con lo que tardaron en minutos (las saltadas no están). */
+  hechas: { etapa: number; minutos: number }[];
+  /** La cuenta de la etapa, si el script cuenta: [hechos, total]. */
+  cuenta?: [number, number];
+  /** La última línea útil: «Teruel · MARIO SESE». */
+  detalle?: string;
+  /** Minutos que suele tardar cada etapa en ESTE ordenador (aprendido). */
+  esperado?: number[];
+};
+
+/** Cómo quedó cada etapa de la última pasada (se guarda en el encargo al acabar). */
+export type EtapaHecha = { nombre: string; estado: "hecha" | "fallo" | "saltada"; minutos?: number };
+
+/* ------------------------------------------------------------------ */
+/*  LEER LA SALIDA                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lleva la cuenta de un trabajo leyendo su salida línea a línea.
+ * La usa el vigía; la pantalla sólo ve el resultado (`estado()`).
+ */
+export class Seguimiento {
+  readonly tarea: Tarea;
+
+  private etapa = -1;
+
+  private desde: number;
+
+  private etapaDesde: number;
+
+  private hechas: { etapa: number; minutos: number }[] = [];
+
+  private cuenta?: [number, number];
+
+  private detalle = "";
+
+  private esperado?: number[];
+
+  /* Wyscout no cuenta: lista los equipos y luego escribe uno por línea. */
+  private equipos: string[] = [];
+
+  private equiposVistos = new Set<string>();
+
+  constructor(tarea: Tarea, esperado?: number[], ahora = Date.now()) {
+    this.tarea = tarea;
+    this.desde = ahora;
+    this.etapaDesde = ahora;
+    this.esperado = esperado;
+  }
+
+  /** Pasa a una etapa (sólo hacia delante). */
+  private entra(etapa: number, ahora: number) {
+    if (etapa <= this.etapa) return;
+
+    if (this.etapa >= 0) this.hechas.push({ etapa: this.etapa, minutos: (ahora - this.etapaDesde) / 60_000 });
+
+    this.etapa = etapa;
+    this.etapaDesde = ahora;
+    this.cuenta = undefined;
+    this.detalle = "";
+  }
+
+  /** Una línea de la salida. Devuelve `true` si ha cambiado algo que enseñar. */
+  linea(cruda: string, ahora = Date.now()) {
+    const linea = cruda.replace(/\s+$/, "");
+
+    if (!linea.trim()) return false;
+
+    const etapas = ETAPAS[this.tarea];
+
+    const antes = `${this.etapa}|${this.cuenta?.join("/")}|${this.detalle}`;
+
+    const nueva = etapas.findIndex((e) => e.marca.test(linea));
+
+    if (nueva >= 0) this.entra(nueva, ahora);
+
+    /* Wyscout: «20 equipos en Group 2:» y en la línea siguiente los nombres. */
+    if (this.tarea === "wyscout") {
+      const total = /(\d+) equipos en /i.exec(linea);
+
+      if (total) {
+        this.cuenta = [0, Number(total[1])];
+      } else if (this.cuenta && !this.equipos.length && linea.includes(" · ")) {
+        this.equipos = linea.split(" · ").map((x) => x.trim()).filter(Boolean);
+      } else if (this.equipos.length) {
+        const nombre = this.equipos.find((e) => linea.trim().startsWith(e));
+
+        if (nombre) {
+          this.equiposVistos.add(nombre);
+          this.cuenta = [Math.max(0, this.equiposVistos.size - 1), this.equipos.length];
+          this.detalle = nombre;
+        }
+      }
+    }
+
+    /* La cuenta: «60/532 · Teruel · …», «[3/52] …», «fotogramas TV 97/97». No
+       vale una fecha (04/10/2026) ni la del propio «PASO: 5/7». */
+    const sinPaso = linea.replace(/^PASO:\s*\d+\/\d+\s*·?\s*/, "");
+
+    const cuenta = /(?<![\d/])(\d+)\s*\/\s*(\d+)(?![\d/])/.exec(sinPaso);
+
+    /* «fotogramas TV 97/97» es la preparación del vídeo, no las jugadas: con
+       esa cuenta la etapa de horas salía hecha al primer minuto. */
+    if (cuenta && this.tarea !== "wyscout" && !/fotograma/i.test(sinPaso)) {
+      const [hechos, total] = [Number(cuenta[1]), Number(cuenta[2])];
+
+      if (total > 0 && hechos <= total) this.cuenta = [hechos, total];
+    }
+
+    /* El detalle: lo que se está mirando, sin la cuenta delante. */
+    if (nueva < 0 && !/^(RESUMEN|SECCIONES):/.test(linea)) {
+      const limpio = sinPaso
+        .replace(/^\s*\[?\d+\s*\/\s*\d+\]?\s*·?\s*/, "")
+        .replace(/^vídeo · /, "")
+        .trim();
+
+      if (limpio && limpio.length < 140 && !/^[-=]+$/.test(limpio)) this.detalle = limpio;
+    } else if (this.tarea === "partido" && /^vídeo · /.test(sinPaso)) {
+      /* «PASO: 5/7 · vídeo · fotogramas TV 30/97»: lo de detrás es por dónde va. */
+      this.detalle = sinPaso.replace(/^vídeo · /, "").trim();
+    }
+
+    return antes !== `${this.etapa}|${this.cuenta?.join("/")}|${this.detalle}`;
+  }
+
+  /** Lo que se publica en el latido. */
+  estado(): ProgresoVivo | null {
+    if (this.etapa < 0) {
+      return { etapa: 0, desde: new Date(this.desde).toISOString(), etapaDesde: new Date(this.etapaDesde).toISOString(), hechas: [], esperado: this.esperado };
+    }
+
+    return {
+      etapa: this.etapa,
+      desde: new Date(this.desde).toISOString(),
+      etapaDesde: new Date(this.etapaDesde).toISOString(),
+      hechas: this.hechas,
+      ...(this.cuenta ? { cuenta: this.cuenta } : {}),
+      ...(this.detalle ? { detalle: this.detalle.slice(0, 140) } : {}),
+      ...(this.esperado ? { esperado: this.esperado } : {}),
+    };
+  }
+
+  /** Al acabar: cómo quedó cada etapa, para el encargo y para aprender. */
+  cierra(ok: boolean, ahora = Date.now()): { recorrido: EtapaHecha[]; duraciones: (number | null)[] } {
+    const etapas = ETAPAS[this.tarea];
+
+    const hechas = [...this.hechas];
+
+    if (this.etapa >= 0) hechas.push({ etapa: this.etapa, minutos: (ahora - this.etapaDesde) / 60_000 });
+
+    const porEtapa = new Map(hechas.map((h) => [h.etapa, h.minutos]));
+
+    const recorrido = etapas.map((e, i): EtapaHecha => {
+      const minutos = porEtapa.get(i);
+
+      const redondo = minutos === undefined ? undefined : Math.round(minutos * 10) / 10;
+
+      /* Si falló, la etapa en la que estaba es la del fallo. */
+      if (!ok && i === this.etapa) return { nombre: e.nombre, estado: "fallo", minutos: redondo };
+
+      if (redondo !== undefined) return { nombre: e.nombre, estado: "hecha", minutos: redondo };
+
+      return { nombre: e.nombre, estado: "saltada" };
+    });
+
+    /* Sólo se aprende de las etapas de una pasada que fue bien. */
+    const duraciones = etapas.map((_, i) => (ok && porEtapa.has(i) ? porEtapa.get(i)! : null));
+
+    return { recorrido, duraciones };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL PORCENTAJE                                                      */
+/* ------------------------------------------------------------------ */
+
+export type EstadoEtapa = "hecha" | "ahora" | "pendiente" | "saltada";
+
+export type VistaProgreso = {
+  /** 0-100. */
+  porcentaje: number;
+  etapas: { nombre: string; estado: EstadoEtapa; minutos: number; tardo?: number; cuenta?: [number, number]; detalle?: string; peso: number }[];
+  /** Minutos que quedan, estimados. */
+  quedan: number;
+  /** Minutos que lleva. */
+  lleva: number;
+  /** `true` si no hay cuenta del vigía y todo sale del reloj. */
+  estimado: boolean;
+};
+
+/** La cuenta de un `paso` viejo («5/7 · vídeo · fotogramas TV 30/97»), por si el vigía no publica `progreso`. */
+export function progresoDePaso(tarea: Tarea, paso: string | undefined, desde: string | undefined): ProgresoVivo | null {
+  if (!paso || !desde) return null;
+
+  const s = new Seguimiento(tarea, undefined, Date.parse(desde));
+
+  s.linea(`PASO: ${paso}`, Date.parse(desde));
+
+  const vivo = s.estado();
+
+  /* No se sabe cuándo empezó la etapa ni lo que tardaron las de antes: se
+     dan por hechas (minutos -1 = sin saber) y se cuenta desde el principio. */
+  return vivo ? { ...vivo, etapaDesde: desde, hechas: Array.from({ length: vivo.etapa }, (_, i) => ({ etapa: i, minutos: -1 })) } : null;
+}
+
+export function vistaProgreso(tarea: Tarea, vivo: ProgresoVivo | null | undefined, empezadoEn: string | undefined, ahora: number): VistaProgreso {
+  const etapas = ETAPAS[tarea];
+
+  const esperado = etapas.map((e, i) => {
+    const aprendido = vivo?.esperado?.[i];
+
+    return typeof aprendido === "number" && aprendido > 0 ? aprendido : e.minutos;
+  });
+
+  const total = esperado.reduce((s, m) => s + m, 0) || 1;
+
+  const inicio = Date.parse(vivo?.desde ?? empezadoEn ?? "") || ahora;
+
+  const lleva = Math.max(0, (ahora - inicio) / 60_000);
+
+  /*
+  | Sin cuenta del vigía (uno viejo, o la tarea nocturna lanzada por su
+  | cuenta), se estima con el reloj: la etapa es la que tocaría por lo que
+  | suele tardar cada una.
+  */
+  let vista = vivo;
+
+  const estimado = !vivo;
+
+  if (!vista) {
+    let acumulado = 0;
+
+    let etapa = etapas.length - 1;
+
+    for (let i = 0; i < esperado.length; i += 1) {
+      if (lleva < acumulado + esperado[i]) {
+        etapa = i;
+        break;
+      }
+
+      acumulado += esperado[i];
+    }
+
+    vista = {
+      etapa,
+      desde: new Date(inicio).toISOString(),
+      etapaDesde: new Date(inicio + acumulado * 60_000).toISOString(),
+      hechas: Array.from({ length: etapa }, (_, i) => ({ etapa: i, minutos: esperado[i] })),
+    };
+  }
+
+  const hechas = new Map(vista.hechas.map((h) => [h.etapa, h.minutos]));
+
+  const enEtapa = Math.max(0, (ahora - (Date.parse(vista.etapaDesde) || inicio)) / 60_000);
+
+  /* La parte hecha de la etapa actual: la cuenta si la hay; si no, el reloj, con tope. */
+  const fraccion = vista.cuenta && vista.cuenta[1] > 0 ? Math.min(1, vista.cuenta[0] / vista.cuenta[1]) : Math.min(0.9, enEtapa / esperado[vista.etapa]);
+
+  let hecho = 0;
+
+  const filas = etapas.map((e, i) => {
+    const peso = esperado[i] / total;
+
+    let estado: EstadoEtapa;
+
+    if (i === vista!.etapa) estado = "ahora";
+    else if (i < vista!.etapa) estado = hechas.has(i) ? "hecha" : "saltada";
+    else estado = "pendiente";
+
+    if (estado === "hecha" || estado === "saltada") hecho += peso;
+    if (estado === "ahora") hecho += peso * fraccion;
+
+    return {
+      nombre: e.nombre,
+      estado,
+      minutos: esperado[i],
+      peso,
+      ...(hechas.has(i) && hechas.get(i)! >= 0 ? { tardo: hechas.get(i) } : {}),
+      ...(estado === "ahora" && vista!.cuenta ? { cuenta: vista!.cuenta } : {}),
+      ...(estado === "ahora" && vista!.detalle ? { detalle: vista!.detalle } : {}),
+    };
+  });
+
+  /*
+  | Lo que queda: el resto de la etapa actual (por la cuenta, al ritmo que
+  | lleva, o por lo que suele tardar) y lo que suelen tardar las pendientes.
+  */
+  const restoActual =
+    vista.cuenta && vista.cuenta[0] > 0 && vista.cuenta[1] > vista.cuenta[0]
+      ? (enEtapa / vista.cuenta[0]) * (vista.cuenta[1] - vista.cuenta[0])
+      : Math.max(esperado[vista.etapa] * (1 - fraccion), esperado[vista.etapa] - enEtapa, 0.1);
+
+  const quedan = restoActual + esperado.slice(vista.etapa + 1).reduce((s, m) => s + m, 0);
+
+  return {
+    porcentaje: Math.max(1, Math.min(99, Math.round(hecho * 100))),
+    etapas: filas,
+    quedan,
+    lleva,
+    estimado,
+  };
+}
+
+/** «3 min», «1 h 20 min», «menos de un minuto» (o «<1 min» en corto). */
+export function duracion(minutos: number, corto = false) {
+  if (!Number.isFinite(minutos) || minutos < 1) return corto ? "<1 min" : "menos de un minuto";
+
+  const m = Math.round(minutos);
+
+  if (m < 60) return `${m} min`;
+
+  const h = Math.floor(m / 60);
+
+  const resto = m % 60;
+
+  return resto ? `${h} h ${resto} min` : `${h} h`;
+}

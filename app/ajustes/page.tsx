@@ -41,6 +41,8 @@ import {
 import { toast } from "sonner";
 
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
+import { ProgresoEncargo, RecorridoEncargo } from "@/components/ajustes/ProgresoEncargo";
+import { progresoDePaso } from "@/lib/progreso";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -120,31 +122,34 @@ function EstadoLinea({
   return (
     <div className="mt-3 space-y-1.5 text-[11px] leading-relaxed">
       {estado === "pedido" && (
-        <p className="flex items-start gap-1.5 text-amber-300">
-          <Loader2 size={12} className="mt-0.5 shrink-0 animate-spin" aria-hidden />
-          <span>
-            Pedido {hace(encargo?.pedidoEn, ahora)}.{" "}
-            {vivo
-              ? "El ordenador del club lo coge en unos segundos…"
-              : "El ordenador del club está apagado: lo hará en cuanto se encienda."}
-          </span>
-        </p>
+        <>
+          <p className="flex items-start gap-1.5 text-amber-300">
+            <Loader2 size={12} className="mt-0.5 shrink-0 animate-spin" aria-hidden />
+            <span>
+              Pedido {hace(encargo?.pedidoEn, ahora)}.{" "}
+              {vivo
+                ? "El ordenador del club lo coge en unos segundos…"
+                : "El ordenador del club está apagado: lo hará en cuanto se encienda."}
+            </span>
+          </p>
+          <ProgresoEncargo tarea={tarea} vivo={null} enCola />
+        </>
       )}
 
       {estado === "en-marcha" && (
-        <p className="flex items-start gap-1.5 text-amber-300">
-          <Loader2 size={12} className="mt-0.5 shrink-0 animate-spin" aria-hidden />
-          <span>
-            En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} ·{" "}
-            {TARDA[tarea]}. Puedes cerrar esta página: sigue igual.
-            {tarea === "partido" && (vigia?.paso || encargo?.paso) ? (
-              <>
-                <br />
-                <span className="text-white/60">Ahora: {vigia?.paso || encargo?.paso}</span>
-              </>
-            ) : null}
-          </span>
-        </p>
+        <>
+          <p className="text-white/45">
+            En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} · {TARDA[tarea]}. Puedes cerrar esta
+            página: sigue igual.
+          </p>
+          {/* Lo que cuenta el vigía; uno anterior a esto sólo da el paso del
+              partido, y si no hay nada se estima con el reloj. */}
+          <ProgresoEncargo
+            tarea={tarea}
+            vivo={vigia?.progreso?.[tarea] ?? (tarea === "partido" ? progresoDePaso("partido", vigia?.paso || encargo?.paso, encargo?.empezadoEn) : null)}
+            empezadoEn={encargo?.empezadoEn}
+          />
+        </>
       )}
 
       {estado === "cortado" && (
@@ -170,6 +175,8 @@ function EstadoLinea({
           </span>
         </p>
       )}
+
+      {encargo?.hechoEn && estado !== "en-marcha" && encargo.recorrido && encargo.recorrido.length > 0 && <RecorridoEncargo recorrido={encargo.recorrido} />}
 
       {encargo?.hechoEn && estado !== "en-marcha" && encargo.secciones && encargo.secciones.length > 0 && (
         <ul className="grid gap-x-4 gap-y-1 pl-[18px] sm:grid-cols-2">

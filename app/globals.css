@@ -1504,3 +1504,24 @@ scrollbar-width:none;
 | problema no existe: uno solo no tapa nada, y esconderlo dejaría sin exportar
 | la ficha abierta. Ya no queda ningún `data-flotante` en la aplicación.
 */
+
+/*
+| La etapa en marcha de Ajustes (04/10/2026): rayas que avanzan sobre el oro,
+| para que se vea que trabaja aunque la cuenta tarde en moverse. Con
+| movimiento reducido se quedan quietas.
+*/
+.progreso-rayas {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.28) 50%, rgba(255, 255, 255, 0.28) 75%, transparent 75%, transparent) !important;
+  background-size: 14px 14px;
+  background-color: #c8a96b;
+  animation: progreso-rayas 0.9s linear infinite;
+}
+
+@keyframes progreso-rayas {
+  from { background-position: 0 0; }
+  to { background-position: 14px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progreso-rayas { animation: none; }
+}
