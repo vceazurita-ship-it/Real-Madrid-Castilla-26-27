@@ -585,14 +585,33 @@ async function conecta() {
 /*  LA SESIÓN                                                          */
 /* ------------------------------------------------------------------ */
 
-const estaDentro = (nav) =>
-  nav.js(`
+/*
+| Dentro de verdad = en la aplicación Y con las cookies de Wyscout puestas.
+|
+| Mirar sólo la dirección engañaba (04/10/2026): a mitad del inicio de sesión
+| la página vuelve un instante a wyscout.hudl.com/app con el «state» de Hudl,
+| se daba por entrado, se guardaba la sesión sin `WyscoutJWT` ni
+| `authToken` y la pasada siguiente decía «la sesión ha caducado».
+*/
+async function estaDentro(nav) {
+  const enLaApp = await nav.js(`
     const hayLogin =
       document.querySelector("input[type=password]") !== null ||
       /identity\\.hudl\\.com|\\/login/i.test(location.href);
 
     return !hayLogin && /wyscout\\.hudl\\.com\\/app/.test(location.href);
   `);
+
+  if (!enLaApp) return false;
+
+  try {
+    const { cookies } = await nav.manda("Network.getAllCookies");
+
+    return (cookies ?? []).some((c) => /^(WyscoutJWT|authToken)$/.test(c.name) && /hudl\.com|wyscout\.com/.test(c.domain ?? ""));
+  } catch {
+    return enLaApp;
+  }
+}
 
 async function esperaLogin(nav) {
   /* La primera comprobación, con la página todavía cargando, dice que no
@@ -1964,6 +1983,10 @@ async function principal() {
     }
   }
 
+  /* Sólo se guarda la sesión si se ha entrado: una pasada que no entra la
+     machacaba con cookies a medias (04/10/2026). */
+  let dentro = false;
+
   try {
     if (!(await esperaLogin(nav))) {
       console.log("  No se ha iniciado sesión. Nada que hacer.\n");
@@ -1975,12 +1998,19 @@ async function principal() {
       return;
     }
 
+    dentro = true;
+
     /*
     | Al cambiar de cuenta, la sesión nueva se guarda en cuanto se entra, no al
     | final: si la descarga se rompe después, la cuenta buena ya queda puesta.
     | Con `--solo-entrar` se para aquí: lo demás lo hace el botón de Ajustes.
     */
     if (bandera("cambiar-cuenta")) {
+      /* Que termine de cargar (la lista de países) antes de guardar nada. */
+      await nav.esperaA("Albania|PAÍSES|Platform", 40).catch(() => {});
+
+      await espera(3000);
+
       const quien = await nav
         .js(`
           const t = (document.body || {}).innerText || "";
@@ -2205,7 +2235,7 @@ async function principal() {
       | `guardaLaSesionAlCerrar`). Si no se copian aquí, la semana que viene
       | hay que volver a entrar a mano y la tarea programada no puede.
       */
-      await guardaLasCookies(nav);
+      if (dentro) await guardaLasCookies(nav);
 
       try {
         await nav.manda("Browser.close");
